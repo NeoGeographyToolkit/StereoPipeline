@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# __BEGIN_LICENSE__
+#
+# Copyright (C) 2006 United States Government as represented by the
+# Administrator of the National Aeronautics and Space Administration
+# (NASA).  All Rights Reserved.
+# 
+# This software is distributed under the NASA Open Source Agreement
+# (NOSA), version 1.3.  The NOSA has been approved by the Open Source
+# Initiative.  See the file COPYING at the top of the distribution
+# directory tree for the complete NOSA document.
+# 
+# THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
+# KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
+# LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
+# SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
+# A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
+# THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
+# DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
+#
+# __END_LICENSE__
+
+# This script generates all the intermediate files needed to configure 
+# the package.  Make sure to run this on a computer with an UP-TO-DATE 
+# version of autotools if you're going to make a public release!
+
+if test -x `which libtoolize` 2> /dev/null ; then
+    libtoolize --force > /dev/null
+elif test -x `which glibtoolize` 2> /dev/null ; then
+    glibtoolize --force > /dev/null
+else
+    echo "Error: libtoolize not found!  Do you have autotools installed?"
+    exit
+fi
+
+aclocal
+autoheader
+automake -a
+autoconf

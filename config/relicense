@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+
+$license_file = shift @ARGV;
+
+open LICENSE, "<$license_file" or die "Can't read license file $license_file";
+
+@license = <LICENSE>;
+
+if( $ARGV[0] eq "-" ) {
+  while( <STDIN> ) {
+    @line_files = split( /\s/, $_ );
+    push( @files, @line_files );
+  }
+}
+else {
+  @files = @ARGV;
+}
+
+while (@files) {
+  $file = shift @files;
+  open FILE, "<$file" or die "Can't open file $file for reading";
+  $tmp = "$file.relicense";
+  open TMP, ">$tmp" or die "Can't open file $tmp for writing";
+  while ( <FILE> ) { 
+    print TMP;
+    if( /^(.*)__BEGIN_LICENSE__/ ) {
+      $prefix = $1;
+      last;
+    }
+  }
+  if( eof FILE ) {
+    close FILE;
+    close TMP;
+    unlink $tmp;
+    next;
+  }
+  print TMP $prefix."\n";
+  foreach (@license) {
+    print TMP $prefix.$_;
+  }
+  print TMP $prefix."\n";
+  while( <FILE> ) {
+    if( /__END_LICENSE__/ ) {
+      print TMP;
+      last;
+    }
+  }
+  if( eof FILE ) {
+    print "Error: End of license not found while relicensing $file\n";
+    close FILE;
+    close TMP;
+    unlink $tmp;
+    next;
+  }
+  while( <FILE> ) {
+    print TMP;
+  }
+  close FILE;
+  close TMP;
+  print "Relicensing $file";
+  unlink $file;
+  rename $tmp, $file;
+  print "\n";
+}
