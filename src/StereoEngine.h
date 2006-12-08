@@ -63,7 +63,7 @@ public:
       
       try {
 
-        PyramidCorrelator pyramid_correlator(search_range.min().x(), search_range.max().x(),
+	vw::stereo::PyramidCorrelator pyramid_correlator(search_range.min().x(), search_range.max().x(),
                                              search_range.min().y(), search_range.max().y(),
                                              kernel_width, kernel_height, 
                                              true, cross_correlation_threshold,
@@ -80,7 +80,7 @@ public:
     }
     
     printf("------------------------- correlation ----------------------\n");    
-    OptimizedCorrelator correlator(search_range.min().x(), search_range.max().x(), 
+    vw::stereo::OptimizedCorrelator correlator(search_range.min().x(), search_range.max().x(), 
                                    search_range.min().y(), search_range.max().y(),
                                    kernel_width, kernel_height, 
                                    true,         // verbose
@@ -132,7 +132,7 @@ public:
     vw::stereo::disparity::remove_outliers(disparity_map, 20, 20, 20, 200, true);
 
     // These settings should move from being hard coded to being user configurable
-    disparity::sparse_disparity_filter(disparity_map, 20, 0.1);
+    vw::stereo::disparity::sparse_disparity_filter(disparity_map, 20, 0.1);
     
     //     if(execute.fill_v_holes)
     //       disparity_map.fillHolesVert((double)dft.v_fill_treshold);

@@ -127,14 +127,14 @@ namespace cartography {
       const int numVertexComponents = 2;	   // DEMs are 2D
 
       // Setup a software renderer
-      SoftwareRenderer renderer = SoftwareRenderer(orthoimage_width, orthoimage_height, ortho_image_ptr);
+      vw::stereo::SoftwareRenderer renderer = vw::stereo::SoftwareRenderer(orthoimage_width, orthoimage_height, ortho_image_ptr);
       renderer.Ortho2D(m_bbox.min().x(), m_bbox.max().x(), m_bbox.min().y(), m_bbox.max().y());
       if (use_minz_as_default) {
         renderer.ClearColor(m_bbox.min().z(), m_bbox.min().z(), m_bbox.min().z(), 1.0);        
       } else {
         renderer.ClearColor(default_value, default_value, default_value, 1.0);
       } 
-      renderer.Clear(eColorBufferBit);
+      renderer.Clear(vw::stereo::eColorBufferBit);
 
       std::cout << "\tOrtho-projecting image..." << std::flush;
 
@@ -148,10 +148,10 @@ namespace cartography {
           CreateTriangles(row, col, width, coords, textures,
                           triangle_count, vertices, intensities);
           
-          renderer.SetVertexPointer(numVertexComponents, ePackedArray, vertices);
+          renderer.SetVertexPointer(numVertexComponents, vw::stereo::ePackedArray, vertices);
           
           // Draw elevations into DEM buffer
-          renderer.SetColorPointer(numColorComponents, ePackedArray, intensities);
+          renderer.SetColorPointer(numColorComponents, vw::stereo::ePackedArray, intensities);
           for (int i = 0; i < triangle_count; i++)
             renderer.DrawPolygon(i * 3, 3);
           
