@@ -15,7 +15,8 @@ namespace spice {
   //  The NAIF SPICE ID value for various spacecraft and instruments
   const int NAIF_ID_MGS( -94    );    // Mars Global Surveyor
   const int NAIF_ID_MOC( -94031 );    // Mars Orbital Camera (MOC)
-  
+  const int NAIF_ID_MRO( -74    );    // Mars Reconnaisance Orbiter
+
   // Function prototypes 
   void load_kernels(std::list<std::string> &kernels);
   double sclk_to_et(std::string sclk, int naif_id);
