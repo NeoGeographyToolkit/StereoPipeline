@@ -24,6 +24,7 @@
 // 
 // Created 31 October 2006 by mbroxton.
 //
+#include <boost/shared_ptr.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem/path.hpp>
@@ -106,10 +107,13 @@ int main(int argc, char* argv[]) {
   /* Parsing of command line arguments */
   /*************************************/
 
+  enum MISSION_IDS { NULL_MISSION_ID = 0, HRSC_MISSION_ID = 1, CTX_MISSION_ID = 2 };
+
   // Boost has a nice command line parsing utility, which we use
   // here to specify the type, size, help string, etc, of the command
   // line arguments.
   int entry_point;
+  int mission_id;
   std::string stereo_default_filename;
   std::string description_tab_filename;
   std::string in_file1, in_file2;
@@ -120,6 +124,7 @@ int main(int argc, char* argv[]) {
     ("help,h", "Display this help message")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("description-file,d", po::value<std::string>(&description_tab_filename)->default_value("./description.tab"), "Explicitly specify the tabulated description file to use.")
+    ("mission,m", po::value<int>(&mission_id)->default_value(0), "Mission ID")
     ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)");
 
   po::options_description positional_options("Positional Options");
@@ -199,20 +204,29 @@ int main(int argc, char* argv[]) {
   std::string in_prefix1 = prefix_from_filename(in_file1);
   std::string in_prefix2 = prefix_from_filename(in_file2);
 
-  HRSCImageMetadata metadata1(in_file1);
-  HRSCImageMetadata metadata2(in_file2);
-  try {
-    std::cout << "Loading HRSC Metadata.\n";
-    metadata1.read_line_times(in_prefix1 + ".txt");
-    metadata2.read_line_times(in_prefix2 + ".txt");
-    metadata1.read_ephemeris_supplement(in_prefix1 + ".sup");
-    metadata2.read_ephemeris_supplement(in_prefix2 + ".sup");
-  } catch (IOErr &e) {
-    std::cout << "An error occurred when loading metadata:\n\t" << e.what();
-    std::cout << "\nExiting.\n\n";
-    exit(1);
+  boost::shared_ptr<StereoImageMetadata> metadata1, metadata2;
+  if (mission_id == HRSC_MISSION_ID) {
+    // Initialize the HRSC metadata object
+    boost::shared_ptr<HRSCImageMetadata> hrsc_metadata1(new HRSCImageMetadata(in_file1));
+    boost::shared_ptr<HRSCImageMetadata> hrsc_metadata2(new HRSCImageMetadata(in_file2));
+    try {
+      std::cout << "Loading HRSC Metadata.\n";
+      hrsc_metadata1->read_line_times(in_prefix1 + ".txt");
+      hrsc_metadata2->read_line_times(in_prefix2 + ".txt");
+      hrsc_metadata1->read_ephemeris_supplement(in_prefix1 + ".sup");
+      hrsc_metadata2->read_ephemeris_supplement(in_prefix2 + ".sup");
+    } catch (IOErr &e) {
+      std::cout << "An error occurred when loading metadata:\n\t" << e.what();
+      std::cout << "\nExiting.\n\n";
+      exit(1);
+    }
+    // Transfer ownership of the newly created objects to a smart
+    // pointer so that they are properly destroyed later on...
+    metadata1 = hrsc_metadata1;
+    metadata2 = hrsc_metadata2;
+  } else if (mission_id == CTX_MISSION_ID) {
+    // Do nothing for now...
   }
-  
   /*********************************************************************************/
   /*                            preprocessing step                                 */
   /*********************************************************************************/
@@ -381,8 +395,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Create the camera models and stereo models
-    camera::OrbitingPushbroomModel left_camera_model = metadata1.camera_model();
-    camera::OrbitingPushbroomModel right_camera_model = metadata2.camera_model();
+    camera::OrbitingPushbroomModel left_camera_model = metadata1->camera_model();
+    camera::OrbitingPushbroomModel right_camera_model = metadata2->camera_model();
     std::cout << left_camera_model << "\n";
     std::cout << right_camera_model << "\n";
 

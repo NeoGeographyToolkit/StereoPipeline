@@ -33,7 +33,6 @@ stereo_SOURCES = $(generic_stereo_sources) stereo.cc
 rmax_stereo_SOURCES = $(generic_stereo_sources) rmax_stereo.cc 
 
 if HAVE_PKG_GDAL
-
 bin_PROGRAMS += moc_stereo hrsc_stereo ctx_stereo
 
 moc_stereo_SOURCES = $(generic_stereo_sources) MOC/Ephemeris.cc		\
@@ -43,9 +42,9 @@ moc_stereo_SOURCES = $(generic_stereo_sources) MOC/Ephemeris.cc		\
 hrsc_stereo_SOURCES = $(generic_stereo_sources) HRSC/HRSC.cc Spice.cc	\
 	   TabulatedDataReader.cc hrsc_stereo.cc
 
-ctx_stereo_SOURCES = $(generic_stereo_sources) Spice.cc \
-	TabulatedDataReader.cc ctx_stereo.cc MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
-
+ctx_stereo_SOURCES = $(generic_stereo_sources) Spice.cc							\
+	TabulatedDataReader.cc ctx_stereo.cc MRO/DiskImageResourceDDD.cc	\
+	MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
 endif
 
 nurbs_SOURCES = SurfaceNURBS.cc nurbs.cc

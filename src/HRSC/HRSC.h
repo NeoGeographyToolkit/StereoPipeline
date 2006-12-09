@@ -3,13 +3,18 @@
 
 #include <vector>
 #include <string>
+
+#include "Metadata.h"
+
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Camera/OrbitingPushbroomModel.h>
-class HRSCImageMetadata {
+
+class HRSCImageMetadata : public StereoImageMetadata {
 
  public:
   HRSCImageMetadata(std::string const& filename); 
+  virtual ~HRSCImageMetadata() {}
   
   /// Read the line times from an HRSC metadata file
   void read_line_times(std::string const& filename);
@@ -21,7 +26,7 @@ class HRSCImageMetadata {
   //  void read_extori(std::string const& filename);
   //  void read_spice_data();
   //  vw::camera::LinescanModel camera_model();
-  vw::camera::OrbitingPushbroomModel camera_model();
+  virtual vw::camera::OrbitingPushbroomModel camera_model();
   
 
   // Accessors
