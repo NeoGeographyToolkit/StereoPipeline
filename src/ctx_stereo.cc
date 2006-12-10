@@ -53,11 +53,13 @@
 #include "StereoEngine.h"
 #include "MRO/CTXEphemeris.h"		   // for load_ctx_kernels()
 #include "MRO/CTXMetadata.h"		   // for read_spice_data()
+#include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
 #include "Spice.h" 
 #include "OrthoRasterizer.h"
 
 #include <vector> 
 #include <string>
+#include <algorithm>			   // debugging
 
 using namespace boost;
 namespace po = boost::program_options;
@@ -81,6 +83,19 @@ enum { PREPROCESSING = 0,
        NUM_STAGES };
 
 typedef vw::cartography::OrthoRasterizer<Vector3, double> Rasterizer;
+
+enum { eHistogramSize = 32768 };
+
+struct fill_histogram
+{
+  fill_histogram(unsigned int *counts) { m_counts = counts; }
+  void operator()(float x)
+  {
+    m_counts[int(float(eHistogramSize - 1) * x)] += 1;
+  }
+  private:
+    unsigned int *m_counts;
+};
 
 //=======================================================================
 // Functions
@@ -114,15 +129,11 @@ parse_command_line_args(int argc, char *argv[],
   positional_options.add_options()
     ("left-input-image", po::value<std::string>(in_file1), "Left Input Image")
     ("right-input-image", po::value<std::string>(in_file2), "Right Input Image")
-    ("left-camera-model", po::value<std::string>(cam_file1), "Left Camera Model File")
-    ("right-camera-model", po::value<std::string>(cam_file2), "Right Camera Model File")
     ("output-prefix", po::value<std::string>(out_prefix), "Prefix for output filenames");
 
   po::positional_options_description positional_options_desc;
   positional_options_desc.add("left-input-image", 1);
   positional_options_desc.add("right-input-image", 1);
-  positional_options_desc.add("left-camera-model", 1);
-  positional_options_desc.add("right-camera-model", 1);
   positional_options_desc.add("output-prefix", 1);
 
   po::options_description all_options;
@@ -136,7 +147,6 @@ parse_command_line_args(int argc, char *argv[],
   // help, we print an usage message.
   if (vm.count("help") ||
       !vm.count("left-input-image") || !vm.count("right-input-image") || 
-      !vm.count("left-camera-model") || !vm.count("right-camera-model") || 
       !vm.count("output-prefix"))
   {
     std::cout
@@ -160,6 +170,55 @@ parse_command_line_args(int argc, char *argv[],
   }
 }
 
+static float
+calculate_stretch(ImageView<PixelGray<float> > image)
+{
+  // For some reason it seems that we often have a bunch of junk up at
+  // the high end... we pre-scale things (the junk get's pushed off
+  // the top) so that the normalization does something reasonable
+
+  unsigned int histogram[eHistogramSize];
+  fill(histogram, histogram + eHistogramSize, 0);
+
+  for_each(image.begin(), image.end(), fill_histogram(histogram));
+
+  // find the peak non-zero value
+  unsigned int max_count = 0;
+  unsigned index_peak = 0;
+  // We start the following at 1 since there typically are a bunch of
+  // black pixels, and that kind of skews things
+  for (int i = 1; i < eHistogramSize; i++)
+    if (histogram[i] > max_count)
+    {
+      index_peak = i;
+      max_count = histogram[i];
+    }
+
+  // discard the top 0.0005%
+  unsigned int empty_threshold = int(float(max_count) * 0.000005);
+  unsigned int max_value_index = 0;
+
+  for (int i = eHistogramSize - 1; i > 0; --i)
+  {
+    if (histogram[i] > empty_threshold)
+    {
+      max_value_index = i;
+      break;
+    }
+  }
+
+  float max_value = float(max_value_index) / float(eHistogramSize - 1);
+  float scale_factor = 1.0/max_value;
+
+//   cout << "\nIndex of peak = " << index_peak << endl;
+//   cout << "Count at peak = " << max_count << endl;
+//   cout << "Empty bin threshold = " << empty_threshold << endl;
+//   cout << "Max pixel value = " << max_value << endl;
+//   cout << "Scale factor = " << scale_factor << endl;
+
+  return scale_factor;
+}
+
 //=======================================================================
 // Main
 //=======================================================================
@@ -167,6 +226,10 @@ parse_command_line_args(int argc, char *argv[],
 int
 main(int argc, char* argv[])
 {
+  DiskImageResource::register_file_type(".ddd",
+					&DiskImageResourceDDD::construct_open,
+					&DiskImageResourceDDD::construct_create);
+
   // File names and entry point
   string stereo_default_filename, description_tab_filename, in_file1, in_file2;
   string cam_file1, cam_file2, out_prefix;
@@ -251,20 +314,35 @@ main(int argc, char* argv[])
     }
 
     // Normalize the images, stretching the contrast if necessary.
-    Limg = normalize(copy(Limg));
-    Rimg = normalize(copy(Rimg));
+    cout << "Normalizing images... " << flush;
+    Limg = clamp(Limg, 0.0, 1.0);
+    Rimg = clamp(Rimg, 0.0, 1.0);
+    Limg *= calculate_stretch(Limg);
+    Rimg *= calculate_stretch(Rimg);
+    Limg = clamp(Limg, 0.0, 1.0);
+    Rimg = clamp(Rimg, 0.0, 1.0);
+//     Limg = normalize(copy(Limg), 0.0, max_value);
+//     Rimg = normalize(copy(Rimg), 0.0, max_value);
+    cout << "done." << endl;
+
+    cout << "\nSaving TIFFs of normalized input images... " << flush;
     write_image(out_prefix + "-input-L.tif",
 		channel_cast_rescale<uint8>(Limg));
     write_image(out_prefix + "-input-R.tif",
 		channel_cast_rescale<uint8>(Rimg));
+    cout << "done." << endl;
 
+    cout << "\nCopying left input image into texture buffer... " << flush;
     texture = vw::copy(Limg);
+    cout << "done." << endl;
     
     if (execute.w_texture)
     {
       try
       {
+	cout << "\nSaving texture buffer as JPEG... " << flush;
         write_image(out_prefix + "-T.jpg", texture);
+	cout << "done." << endl << endl;
       }
       catch (vw::IOErr &e)
       {
