@@ -72,21 +72,23 @@ void body_state(double begin_time, double end_time, double interval,
   position.resize(number_of_samples);
   velocity.resize(number_of_samples);
   pose.resize(number_of_samples);
-  
+
   unsigned int interval_count = 0;
   for( SpiceDouble time = begin_time; 
        time < end_time; 
        time += interval ) {
-    
-    // Obtain the state vector of MGS at the given ephemeris time.
+        // Obtain the state vector of the spacecraft at the given
+    // ephemeris time.
     //
-    // The position and velocity of MGS will be reported relative to
-    // the MARS IAU2000 coordinate frame.  No light time correction is
-    // made here since MGS and the planet surface (where the light
-    // originated) are very close.  (Normally light time correction is
-    // computed between the origins of the two coordinate frames.)
+    // The position and velocity of the spacecraft will be reported
+    // relative to the MARS IAU2000 coordinate frame.  No light time
+    // correction is made here since the spacecraft and the planet
+    // surface (where the light originated) are very close.  (Normally
+    // light time correction is computed between the origins of the
+    // two coordinate frames.)
     SpiceDouble state[6];
     SpiceDouble light_time;
+
     spkezr_c( spacecraft.c_str(),  time,  reference_frame.c_str(), "NONE", planet.c_str(), state, &light_time );
     
     // Output is in km and km/s, so we must convert the state array to
@@ -100,9 +102,9 @@ void body_state(double begin_time, double end_time, double interval,
 	  
     // Get pose data from the spacecraft CK kernel 
     // 
-    // Here, we explicity get the pose of the MOC_NA camera relative
-    // to the Mars frame.  This incorporates the additional, slight
-    // rotation from the MGS frame to the MOC frame.
+    // Here, we explicity get the pose of the camera relative to the
+    // Mars frame.  This incorporates the additional, slight rotation
+    // from the spacecraft frame to the camera frame.
     SpiceDouble rotation_matrix[3][3];
     pxform_c( reference_frame.c_str(), instrument.c_str(), time, rotation_matrix);
 
