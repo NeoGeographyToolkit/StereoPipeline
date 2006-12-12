@@ -1,5 +1,6 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/OptimizedCorrelator.h>
+#include <vw/Stereo/BlockCorrelator.h>
 #include <vw/Stereo/PyramidCorrelator.h>
 #include <vw/Math/BBox.h>
 #include <vw/Image/ImageView.h>
@@ -21,6 +22,7 @@ public:
   int kernel_height;
   float slog_stddev;
   float cross_correlation_threshold;
+  int block_size;
 
   int cleanup_passes;
   int cleanup_vertical_half_kernel;
@@ -44,6 +46,7 @@ public:
     kernel_height = 24;
     slog_stddev = 1.5;
     cross_correlation_threshold = 2;
+    block_size = 2048;
     cleanup_passes = 1;
     cleanup_horizontal_half_kernel = 5;
     cleanup_vertical_half_kernel = 5;
@@ -80,12 +83,13 @@ public:
     }
     
     printf("------------------------- correlation ----------------------\n");    
-    vw::stereo::OptimizedCorrelator correlator(search_range.min().x(), search_range.max().x(), 
-                                   search_range.min().y(), search_range.max().y(),
-                                   kernel_width, kernel_height, 
-                                   true,         // verbose
-                                   cross_correlation_threshold,
-                                   true, true);  // subpixel both vert/horz
+    vw::stereo::BlockCorrelator correlator(search_range.min().x(), search_range.max().x(), 
+                                           search_range.min().y(), search_range.max().y(),
+                                           kernel_width, kernel_height, 
+                                           true,         // verbose
+                                           cross_correlation_threshold,
+                                           block_size,   // Block correlator block size
+                                           true, true);  // subpixel both vert/horz
     vw::ImageView<vw::PixelDisparity<float> > disparity_map;
 
     // perform the sign of laplacian of gaussian filter (SLOG) on the images 
