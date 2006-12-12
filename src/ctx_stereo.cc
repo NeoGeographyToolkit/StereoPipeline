@@ -150,8 +150,7 @@ parse_command_line_args(int argc, char *argv[],
       !vm.count("output-prefix"))
   {
     std::cout
-      << "\nUsage: stereo [options] <Left_input_image> "
-      << "<Right_input_image> <Left_camera_file> <Right_camera_file> "
+      << "\nUsage: stereo [options] <Left_image> <Right_image> "
       << "<output_file_prefix>\n"
       << "	the extensions are automaticaly added to the output files\n"
       << "	the parameters should be in stereo.default\n\n"
@@ -173,9 +172,9 @@ parse_command_line_args(int argc, char *argv[],
 static float
 calculate_stretch(ImageView<PixelGray<float> > image)
 {
-  // For some reason it seems that we often have a bunch of junk up at
-  // the high end... we pre-scale things (the junk get's pushed off
-  // the top) so that the normalization does something reasonable
+  // For some reason it seems that we often have a bunch of random
+  // pixels at the high end which seems to be noise... we calculate a
+  // scale factor so valid pixel values fill the range
 
   unsigned int histogram[eHistogramSize];
   fill(histogram, histogram + eHistogramSize, 0);
@@ -368,7 +367,7 @@ main(int argc, char* argv[])
     catch (spice::SpiceErr &e)
     {
       cout << "Warning: an error occurred when reading SPICE information. "
-	"Falling back to *.sup files\n";
+	"The camera models will not be valid. Continuing.\n";
     }
 
     // Image Alignment
@@ -398,10 +397,11 @@ main(int argc, char* argv[])
       // Fall back on trying to read in an alignment matrix.
       cout << "No automated technique for image registration has been "
 	   << "selected.\nWill attempt to read in a previously generated "
-	   << "alignment matrix from a file named \"align.exr\".\n";
+	   << "alignment matrix from a file named \""
+	   << out_prefix + "-align.exr" << "\".\n";
       try
       {
-        read_matrix(align_matrix, "align.exr");
+        read_matrix(align_matrix, out_prefix + "-align.exr");
         cout << "Alignment Matrix:\n";
         cout << align_matrix << endl;
         
@@ -619,8 +619,8 @@ main(int argc, char* argv[])
     }
     catch (spice::SpiceErr &e)
     {
-      cout << "Warning: an error occurred when reading SPICE information. "
-	"Falling back to *.sup files\n";
+      cout << "\nWarning: an error occurred when reading SPICE information. "
+	   << "The camera models will not be valid. Continuing." << endl;
     }
     
     // Create the camera models and stereo models
