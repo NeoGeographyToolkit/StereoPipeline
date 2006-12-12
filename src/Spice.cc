@@ -7,18 +7,34 @@
 #include <list>
 #include <string>
 
+#include <string.h>
+
 using namespace std;
 
 namespace spice {
 
+// The maximum SPICE message length (currently) is 23*80 = 1840
+// chars. This is not definied anywhere so we define it here.
+
+  enum { LONG_MSG_LEN = 1840 };
+
 void CHECK_SPICE_ERROR() {
-  char* longms = 0;  
-  int longms_len = 0;
+  char longms[LONG_MSG_LEN + 1];
+  int longms_len = LONG_MSG_LEN;
+
+  longms[LONG_MSG_LEN] = 0;		   // ensure the string is terminated
   if (failed_c()) {
+    getlms_(longms, LONG_MSG_LEN);
     reset_c();
-    getlms_( longms, longms_len );
-    cout << "SPICE: An error occured when accessing the SPICE information:\n\n" << longms;
-    throw spice::SpiceErr() << "SPICE: An error occured when accessing the SPICE information:\n\n" << longms;
+    // Trim off the white space at the end
+    for (int i = LONG_MSG_LEN-1; (i >= 0) && (longms[i] == ' '); --i)
+      longms[i] = 0;
+    cout
+      << "SPICE: An error occured when accessing the SPICE information:\n\n"
+      << longms;
+    throw spice::SpiceErr()
+      << "SPICE: An error occured when accessing the SPICE information:\n\n"
+      << longms;
   }
 }
 
