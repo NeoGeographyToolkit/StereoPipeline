@@ -72,7 +72,9 @@ namespace cartography {
       geo_transform(0,0) = m_dem_spacing;
       geo_transform(1,1) = -1 * m_dem_spacing;
       geo_transform(0,2) = m_bbox.min().x();
-      geo_transform(1,2) = m_bbox.max().y(); 
+      geo_transform(1,2) = m_bbox.max().y();
+
+      return geo_transform;
     }
 
     ImageView<ChannelT> rasterize() {
