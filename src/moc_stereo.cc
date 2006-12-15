@@ -60,9 +60,11 @@ using namespace vw::stereo;
 #include "MOC/MOLA.h"
 #include "Spice.h" 
 #include "OrthoRasterizer.h"
+#include "DEM.h"
 
 #include <vector> 
 #include <string>
+#include <algorithm>
 using namespace std;
 
 // The stereo pipeline has several stages, which are enumerated below.
@@ -598,13 +600,23 @@ int main(int argc, char* argv[]) {
       ImageView<double> dem_texture = vw::select_channel(lat_lon_alt, 2);
       vw::cartography::OrthoRasterizer<Vector3, double> rasterizer(lat_lon_alt, dem_texture, true);
       ImageView<PixelGray<float> > ortho_image = rasterizer.rasterize();
+
+      vw::Matrix<double,3,3> affine = rasterizer.geo_transform();
+      vw::cartography::GeoReference geo;
+      geo.set_transform(affine);
+
+      write_GMT_script(out_prefix, ortho_image.cols(), ortho_image.rows(), 
+                       *(std::min_element(ortho_image.begin(), ortho_image.end())), 
+                       *(std::max_element(ortho_image.begin(), ortho_image.end())), geo);
+      write_georeferenced_image(out_prefix+"-DEM.dem", ortho_image, geo);
       write_image(out_prefix + "-DEM-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Write out a georeferenced orthoimage of the DTM
       rasterizer = vw::cartography::OrthoRasterizer<Vector3, double>(lat_lon_alt, select_channel(texture, 0), true);
       rasterizer.use_minz_as_default = false;
       ortho_image = rasterizer.rasterize();
-      write_image(out_prefix + "-DRG-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
+      write_georeferenced_image(out_prefix+"-DRG.dem", ortho_image, geo);
+      write_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Write out a georeferenced orthoimage of the pixel extrapolation mask
       ImageView<PixelGray<float> > extrapolation_mask;

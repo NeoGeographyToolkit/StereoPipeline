@@ -26,7 +26,7 @@
 bin_PROGRAMS = stereo rmax_stereo nurbs
 
 generic_stereo_sources = file_lib.cc mask.cc nff_terrain.cc	\
-	SurfaceNURBS.cc SIFT.cc
+	SurfaceNURBS.cc SIFT.cc DEM.cc
 
 stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
 
