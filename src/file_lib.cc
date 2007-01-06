@@ -22,10 +22,9 @@ using namespace std; /* C standard library */
 using namespace vw::camera;
 using namespace vw::stereo;
 
-// Create a VRML file that contains the frames of reference for the
-// spacecraft when each image was taken.  These reference frames are
-// shown in a scene with a textured, Mars-sized ellipse for reference.
-void write_orbital_reference_model(std::string filename, OrbitingPushbroomModel const& cam1, OrbitingPushbroomModel const& cam2) {
+void write_orbital_reference_model(std::string filename, 
+                                   vw::camera::CameraModel const& cam1, 
+                                   vw::camera::CameraModel const& cam2) {
   FILE *outflow = stdout;
   const char* resource_path = "/irg/projects/MOC/resources/OrbitViz";
 
@@ -59,8 +58,8 @@ void write_orbital_reference_model(std::string filename, OrbitingPushbroomModel 
   fprintf(outflow, "  # ----------------------------------------------------------\n");
   fprintf(outflow, "  # Camera 1 coordinate system at t0\n");
   fprintf(outflow, "  # ----------------------------------------------------------\n");
-  Vector3 pos1 = cam1.camera_position(1.75);    // Camera position 
-  Quaternion<double> quat1 = cam1.camera_pose(1.75); // Camera Pose
+  Vector3 pos1 = cam1.camera_center(Vector2(0,0));    // Camera position 
+  Quaternion<double> quat1 = cam1.camera_pose(Vector2(0,0)); // Camera Pose
   Matrix<double> rot1(4,4);
   rot1.set_identity();
   quat1.rotation_matrix(rot1);
@@ -87,8 +86,8 @@ void write_orbital_reference_model(std::string filename, OrbitingPushbroomModel 
   fprintf(outflow, "  # ----------------------------------------------------------\n");
   fprintf(outflow, "  # Camera 2 coordinate system at t0\n");
   fprintf(outflow, "  # ----------------------------------------------------------\n");
-  Vector3 pos2 = cam2.camera_position(4.0);    /* Camera position */
-  vw::Quaternion<double> quat2 = cam2.camera_pose(4.0); /* Camera pose */
+  Vector3 pos2 = cam2.camera_center(Vector2(0,0));    /* Camera position */
+  vw::Quaternion<double> quat2 = cam2.camera_pose(Vector2(0,0)); /* Camera pose */
   vw::Matrix<double> rot2(4,4);
   rot2.set_identity();
   quat2.rotation_matrix(rot2);

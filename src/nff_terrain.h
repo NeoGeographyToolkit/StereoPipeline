@@ -76,14 +76,14 @@ typedef struct {
 // Function prototypes
 extern void dot_to_adaptative_mesh(BUFFER *b, int width, int height, double mesh_tolerance, int max_triangles);
 void dot_to_mesh(BUFFER *b, int width, int height, int h_step, int v_step);
-extern void write_inventor_impl(BUFFER *b, std::string const& filename, std::string const& texture_filename);
+extern void write_inventor_impl(BUFFER *b, std::string const& filename, std::string const& texture_filename, bool flip_triangles);
 extern void write_vrml_impl(BUFFER *b, std::string const& filename, std::string const& texture_filename);
+extern void write_osg_impl(BUFFER *b, std::string const& filename, std::string const& texture_filename);
 
 
 //  Class for building and tracking a 3D mesh
 class Mesh {
   BUFFER buffers;  /* structure containing the different image/data buffers */
-  
 
 public:
   Mesh() {
@@ -137,12 +137,16 @@ public:
 
   }
 
-  void write_inventor(std::string const& filename, std::string const& texture_filename) {
-    write_inventor_impl(&buffers, filename, texture_filename);
+  void write_inventor(std::string const& filename, std::string const& texture_filename, bool flip_triangles = false) {
+    write_inventor_impl(&buffers, filename, texture_filename, flip_triangles);
   }
 
   void write_vrml(std::string const& filename, std::string const& texture_filename) {
     write_vrml_impl(&buffers, filename, texture_filename);
+  }
+
+  void write_osg(std::string const& filename, std::string const& texture_filename) {
+    write_osg_impl(&buffers, filename, texture_filename);
   }
 
 };

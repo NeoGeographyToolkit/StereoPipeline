@@ -526,8 +526,10 @@ int main(int argc, char* argv[]) {
       Mesh mesh_maker;
       if(execute.adaptative_meshing) {
         mesh_maker.build_adaptive_mesh(point_image, dft.mesh_tolerance, dft.max_triangles);
+        mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
       } else {
         mesh_maker.build_simple_mesh(point_image, dft.nff_h_step, dft.nff_v_step);
+        mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
       }
       if(execute.inventor){
         mesh_maker.write_inventor(out_prefix+".iv", out_prefix+"-T.jpg");
@@ -547,10 +549,10 @@ int main(int argc, char* argv[]) {
       // Write out the DEM, texture, and extrapolation mask
       // as georeferenced files.
       ImageView<double> dem_texture = vw::select_channel(point_image, 2);
-      vw::cartography::OrthoRasterizer<Vector3, double> rasterizer(point_image, dem_texture, true, dft.dem_spacing);
+      vw::cartography::OrthoRasterizer<Vector3> rasterizer(point_image);
       rasterizer.use_minz_as_default = false;
-      rasterizer.default_value = 0;
-      ImageView<PixelGray<float> > ortho_image = rasterizer.rasterize();
+      rasterizer.set_default_value(0);
+      ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(point_image, 2));
       write_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Create a DEM with alpha
@@ -567,11 +569,10 @@ int main(int argc, char* argv[]) {
       write_image(out_prefix + "-DEM.tif", ortho_alpha_image);
 
       // Write out a georeferenced orthoimage of the DTM with alpha.
-      rasterizer = vw::cartography::OrthoRasterizer<Vector3, double>(point_image, select_channel(texture, 0), true, dft.dem_spacing);
       rasterizer.set_dem_spacing(dft.dem_spacing);
       rasterizer.use_minz_as_default = false;
-      rasterizer.default_value = 0;
-      ortho_image = rasterizer.rasterize();
+      rasterizer.set_default_value(0);
+      ortho_image = rasterizer(select_channel(texture, 0));
       //      write_image(out_prefix + "-DRG-no-alpha.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       ImageView<PixelGrayA<uint8> > drg_ortho_alpha_image(ortho_image.cols(), ortho_image.rows());

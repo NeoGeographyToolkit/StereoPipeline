@@ -502,10 +502,10 @@ int main(int argc, char* argv[]) {
       // Write out the DEM, texture, and extrapolation mask
       // as georeferenced files.
       ImageView<double> dem_texture = vw::select_channel(point_image, 2);
-      vw::cartography::OrthoRasterizer<Vector3, double> rasterizer(point_image, dem_texture, true, dft.dem_spacing);
+      vw::cartography::OrthoRasterizer<Vector3> rasterizer(point_image);
       rasterizer.use_minz_as_default = false;
-      rasterizer.default_value = 0;
-      ImageView<PixelGray<float> > ortho_image = rasterizer.rasterize();
+      rasterizer.set_default_value(0);
+      ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(point_image, 2));
       write_image(out_prefix + "-DEM-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Create a DEM with alpha
@@ -522,11 +522,10 @@ int main(int argc, char* argv[]) {
       write_image(out_prefix + "-DEM.tif", ortho_alpha_image);
 
       // Write out a georeferenced orthoimage of the DTM
-      rasterizer = vw::cartography::OrthoRasterizer<Vector3, double>(point_image, select_channel(texture, 0), true, dft.dem_spacing);
       rasterizer.set_dem_spacing(dft.dem_spacing);
       rasterizer.use_minz_as_default = false;
-      rasterizer.default_value = 0;
-      ortho_image = rasterizer.rasterize();
+      rasterizer.set_default_value(0);
+      ortho_image = rasterizer(select_channel(texture, 0));
       write_image(out_prefix + "-DRG-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Create a DRG with alpha

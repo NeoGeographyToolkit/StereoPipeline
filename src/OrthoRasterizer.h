@@ -7,39 +7,38 @@
 namespace vw {
 namespace cartography {
 
-  template <class PositionT, class ChannelT>
+  template <class PositionT>
   class OrthoRasterizer {
     
-    ImageView<PositionT> m_point_cloud;
-    ImageView<ChannelT> m_texture;
+    ImageView<PositionT> &m_point_cloud;
     float m_dem_spacing;
     BBox<float,3> m_bbox;
-    bool m_swap_xy;
+    double m_default_value;
     
   public:
-    ChannelT default_value;
     bool use_minz_as_default;
 
-    OrthoRasterizer(ImageView<PositionT> point_cloud, 
-                    ImageView<double> texture,
-                    bool swap_xy = false,
-                    float spacing = 0.0) : 
-      default_value(0), use_minz_as_default(true), m_swap_xy(swap_xy) {
-      
+    OrthoRasterizer(ImageView<PositionT> &point_cloud, 
+                    float dem_spacing = 0.0) : 
+      m_point_cloud(point_cloud), m_default_value(0), use_minz_as_default(true) {      
+
       m_point_cloud = point_cloud;
-      m_texture = texture;
 
       for (unsigned int i= 0; i < m_point_cloud.cols(); i++) 
         for (unsigned int j = 0; j < m_point_cloud.rows(); j++) 
           if (m_point_cloud(i,j) != PositionT())   // If the position is not missing
-            if (m_swap_xy) 
-              m_bbox.grow(Vector3(m_point_cloud(i,j).y(), 
-                                  m_point_cloud(i,j).x(),
-                                  m_point_cloud(i,j).z()));
-            else 
-              m_bbox.grow(m_point_cloud(i,j));
+            m_bbox.grow(m_point_cloud(i,j));
 
-      set_dem_spacing(spacing);
+      this->set_dem_spacing(dem_spacing);
+    }
+
+    void set_default_value(double val) { m_default_value = val; }
+
+    double default_value() { 
+      if (use_minz_as_default) 
+        return m_bbox.min().z();
+      else 
+        return m_default_value; 
     }
 
     /// If no DEM spacing is set to zero, we generate a DEM with the same
@@ -61,12 +60,14 @@ namespace cartography {
       }
     }
 
+    double dem_spacing() { return m_dem_spacing; }
+
     BBox<float,3> bounding_box() { 
       return m_bbox;
     }
 
+    // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform() {
-      // Set up the georeferencing transform 
       vw::Matrix<double,3,3> geo_transform;
       geo_transform.set_identity();
       geo_transform(0,0) = m_dem_spacing;
@@ -77,50 +78,36 @@ namespace cartography {
       return geo_transform;
     }
 
-    ImageView<ChannelT> rasterize() {
+    template <class ViewT>
+    ImageView<float> operator()(ImageViewBase<ViewT> const& texture) {
+
+      VW_ASSERT(texture.impl().channels() == 1 && texture.impl().planes() == 1,
+                ArgumentErr() << "Orthorasterizer: texture must be a single channel, single plane image."); 
 
       unsigned int width = m_point_cloud.cols();
       unsigned int height = m_point_cloud.rows();
       POS3D *coords;
       double* textures;
+      
 
+      // Start by printing out the bounding box and resulting orthoimage dimensions
+      int orthoimage_width  = (int) (fabs(m_bbox.max().x() - m_bbox.min().x()) / m_dem_spacing) + 1;
+      int orthoimage_height = (int) (fabs(m_bbox.max().y() - m_bbox.min().y()) / m_dem_spacing) + 1;
+      std::cout << "\tDimensions = [" << orthoimage_width << ", " << orthoimage_height << "]\n";
+
+      // This ensures that our bounding box is properly sized, though
+      // I'm not sure why this is necessary... -mbroxton
+      m_bbox.max().x() = m_bbox.min().x() + (orthoimage_width * m_dem_spacing);
+      m_bbox.max().y() = m_bbox.min().y() + (orthoimage_height * m_dem_spacing);
+      std::cout << "\tDEM BBox = " << m_bbox << "\n";
+
+      // Allocate memory and copy over data
       try {
         coords = new POS3D[width * height];
         textures = new double[width * height];
       } catch (std::bad_alloc &e) {
         throw vw::NullPtrErr() << "FATAL ERROR in OrthoRasterizer: cannot allocate DEM buffers.";
       }
-      
-      // The software renderer is expecting an array of POS3D's 
-      for (unsigned int i = 0; i < m_point_cloud.cols(); i++) {
-        for (unsigned int j = 0; j < m_point_cloud.rows(); j++) {
-          if (m_swap_xy) {
-            coords[j * width + i].x = m_point_cloud(i,j).y();
-            coords[j * width + i].y = m_point_cloud(i,j).x();
-          } else {
-            coords[j * width + i].x = m_point_cloud(i,j).x();
-            coords[j * width + i].y = m_point_cloud(i,j).y();
-          }
-          
-          // Copy over the z coordinate if there is one to copy.
-          // Otherwise, substitute in a zero.
-          if (m_point_cloud.channels() > 2) 
-            coords[j * width + i].z = m_point_cloud(i,j)[2];
-          else 
-            coords[j * width + i].z = 0;
-
-          textures[j * width + i] = m_texture(i,j);      
-        }
-      }
-      
-      std::cout << "\tDEM BBox found = " << m_bbox << "\n";
-            
-      int orthoimage_width  = (int) (fabs(m_bbox.max().x() - m_bbox.min().x()) / m_dem_spacing) + 1;
-      int orthoimage_height = (int) (fabs(m_bbox.max().y() - m_bbox.min().y()) / m_dem_spacing) + 1;
-      std::cout << "\tDimensions = [" << orthoimage_width << ", " << orthoimage_height << "]\n";
-      
-      m_bbox.max().x() = m_bbox.min().x() + (orthoimage_width * m_dem_spacing);
-      m_bbox.max().y() = m_bbox.min().y() + (orthoimage_height * m_dem_spacing);
       
       ImageView<float> ortho_image(orthoimage_width, orthoimage_height);
       float *ortho_image_ptr = &(ortho_image(0,0));
@@ -134,7 +121,7 @@ namespace cartography {
       if (use_minz_as_default) {
         renderer.ClearColor(m_bbox.min().z(), m_bbox.min().z(), m_bbox.min().z(), 1.0);        
       } else {
-        renderer.ClearColor(default_value, default_value, default_value, 1.0);
+        renderer.ClearColor(m_default_value, m_default_value, m_default_value, 1.0);
       } 
       renderer.Clear(vw::stereo::eColorBufferBit);
 
@@ -147,8 +134,7 @@ namespace cartography {
           int triangle_count;
           
           // Create the two triangles covering this "pixel"
-          CreateTriangles(row, col, width, coords, textures,
-                          triangle_count, vertices, intensities);
+          this->create_triangles(row, col, texture, triangle_count, vertices, intensities);
           
           renderer.SetVertexPointer(numVertexComponents, vw::stereo::ePackedArray, vertices);
           
@@ -163,74 +149,62 @@ namespace cartography {
       
       std::cout << "done." << std::endl;
       std::cout << "\tNumber of planet surface triangles = " << num_triangles << std::endl;
-  
-      // Clean up 
+
+      // Free resources
       delete [] coords;
       delete [] textures;
-
+  
       // The software renderer returns an image which will render upside
       // down in most image formats
       return vw::flip_vertical(ortho_image);
     }
   private:
-    void CreateTriangles(int row, int col, int width, 
-                         POS3D *coords,
-                         double* textures,
-                         int &triangleCount, float vertices[12],
-                         float intensities[6])
+    template <class ViewT>
+    inline void create_triangles(int row, int col, 
+                                ImageViewBase<ViewT> const& texture,
+                                int &triangleCount,  
+                                float vertices[12],
+                                float intensities[6])
     {
-      PixelCoords upperLeft(col, row);
-      PixelCoords upperRight(col + 1, row);
-      PixelCoords lowerRight(col + 1, row + 1);
-      PixelCoords lowerLeft(col, row + 1);
-      int indexUL = upperLeft.PixelIndex(width);
-      int indexUR = upperRight.PixelIndex(width);
-      int indexLR = lowerRight.PixelIndex(width);
-      int indexLL = lowerLeft.PixelIndex(width);
-      
       triangleCount = 0;
       
       // triangle 1 is: LL, LR, UL
-      if ((coords[indexLL].x != 0) && (coords[indexLL].y != 0) && (coords[indexLL].z != 0) &&
-          (coords[indexLR].x != 0) && (coords[indexLR].y != 0) && (coords[indexLR].z != 0) &&
-          (coords[indexUL].x != 0) && (coords[indexUL].y != 0) && (coords[indexUL].z != 0))
+      if (m_point_cloud(col,row+1)   != PositionT() &&   // LL
+          m_point_cloud(col+1,row+1) != PositionT() &&   // LR
+          m_point_cloud(col,row)     != PositionT() )    // UL
         {
-          vertices[0] = coords[indexLL].x;
-          vertices[1] = coords[indexLL].y;
-          
-          vertices[2] = coords[indexLR].x;
-          vertices[3] = coords[indexLR].y;
-          
-          vertices[4] = coords[indexUL].x;
-          vertices[5] = coords[indexUL].y;
-          
-          intensities[0] = textures[indexLL];
-          intensities[1] = textures[indexLR];
-          intensities[2] = textures[indexUL];
+          vertices[0] = m_point_cloud(col, row+1).x();  // LL
+          vertices[1] = m_point_cloud(col, row+1).y();
+          vertices[2] = m_point_cloud(col+1,row+1).x(); // LR
+          vertices[3] = m_point_cloud(col+1,row+1).y();
+          vertices[4] = m_point_cloud(col,row).x();     // UL
+          vertices[5] = m_point_cloud(col,row).y(); 
+
+          intensities[0] = texture.impl()(col, row+1); // LL
+          intensities[1] = texture.impl()(col+1,row+1);// LR
+          intensities[2] = texture.impl()(col,row);    // UL
           
           triangleCount++;
         }
       
       // triangle 2 is: UL, LR, UR
-      if ((coords[indexUL].x != 0) && (coords[indexUL].y != 0) && (coords[indexUL].z != 0) &&
-          (coords[indexLR].x != 0) && (coords[indexLR].y != 0) && (coords[indexLR].z != 0) &&
-          (coords[indexUR].x != 0) && (coords[indexUR].y != 0) && (coords[indexUR].z != 0))
+      if (m_point_cloud(col,row)     != PositionT() &&   // UL
+          m_point_cloud(col+1,row+1) != PositionT() &&   // LR
+          m_point_cloud(col+1,row)   != PositionT() )    // UR
         {
           int vertex0 = triangleCount * 6;
           int elev0 = triangleCount * 3;
           
-          vertices[vertex0] = coords[indexUL].x;
-          vertices[vertex0 + 1] = coords[indexUL].y;
-          
-          vertices[vertex0 + 2] = coords[indexLR].x;
-          vertices[vertex0 + 3] = coords[indexLR].y;
-          
-          vertices[vertex0 + 4] = coords[indexUR].x;
-          vertices[vertex0 + 5] = coords[indexUR].y;
-          
-          intensities[elev0] = textures[indexUL];
-          intensities[elev0 + 1] = textures[indexLR];
-          intensities[elev0 + 2] = textures[indexUR];
+          vertices[vertex0] = m_point_cloud(col,row).x(); // UL
+          vertices[vertex0 + 1] = m_point_cloud(col,row).y();
+          vertices[vertex0 + 2] = m_point_cloud(col+1,row+1).x(); // LR
+          vertices[vertex0 + 3] = m_point_cloud(col+1,row+1).y();
+          vertices[vertex0 + 4] = m_point_cloud(col+1,row).x(); // UR
+          vertices[vertex0 + 5] = m_point_cloud(col+1,row).y();
+
+          intensities[elev0] = texture.impl()(col,row);
+          intensities[elev0 + 1] = texture.impl()(col+1,row+1);
+          intensities[elev0 + 2] = texture.impl()(col+1,row);
           
           triangleCount++;
         }

@@ -10,7 +10,7 @@
 #include <vw/Math/Quaternion.h>
 #include <vw/Camera/OrbitingPushbroomModel.h>
 
-class HRSCImageMetadata : public StereoImageMetadata {
+class HRSCImageMetadata {
 
  public:
   HRSCImageMetadata(std::string const& filename); 
@@ -21,12 +21,20 @@ class HRSCImageMetadata : public StereoImageMetadata {
 
   /// Read the *.sup file
   void read_ephemeris_supplement(std::string const& filename);
+
+  /// Read the *.sup file
+  void read_extori_file(std::string const& filename, std::string const& scanline);
   
   /// Read corrected (bundle adjusted) telemetry from the extori file
   //  void read_extori(std::string const& filename);
   //  void read_spice_data();
   //  vw::camera::LinescanModel camera_model();
-  virtual vw::camera::OrbitingPushbroomModel camera_model();
+
+  /// Returns a newly allocated camera model object of the appropriate
+  /// type.  It is the responsibility of the user to later deallocate
+  /// this camera model object or to manage it using some sort of smart
+  /// pointer.
+  vw::camera::CameraModel* camera_model();
   
 
   // Accessors
@@ -52,9 +60,18 @@ private:
   double m_height_pixels;
   std::vector<double> m_line_times;
   double m_start_sample;
+  double m_first_line_ephem_time;
+
+  // Used when SUP or SPICE is used for ephemeris
   std::vector<vw::Vector3> m_ephem;
   std::vector<vw::Vector3> m_ephem_rate;
   std::vector<vw::Quaternion<double> > m_quat;
+
+  // Used when the extori file is used to supply ephemeris
+  std::vector<vw::Vector3> m_extori_ephem;
+  std::vector<vw::Quaternion<double> > m_extori_quat;
+  std::vector<double> m_extori_ephem_times;
+
   double m_t0_ephem;
   double m_dt_ephem;
   double m_t0_quat;

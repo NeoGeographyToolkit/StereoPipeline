@@ -35,11 +35,8 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 #include <vw/Core/Debugging.h>
-#include <vw/Image/ImageView.h>
-#include <vw/Image/PixelTypes.h>
-#include <vw/Image/Filter.h>
+#include <vw/Image.h>
 #include <vw/Core/Exception.h>
-#include <vw/Image/Transform.h>
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
@@ -546,8 +543,9 @@ int main(int argc, char* argv[]) {
   /************************************************************************************/
 
   if(entry_point <= WIRE_MESH) {
-    
-    /* 
+
+
+    /*
      * If we are jump-starting the code in the wire mesh phase, we want 
      * to simply read in the point cloud from disk and start from here.
      */
@@ -573,9 +571,12 @@ int main(int argc, char* argv[]) {
       Mesh mesh_maker;
       if(execute.adaptative_meshing) {
         mesh_maker.build_adaptive_mesh(point_image, dft.mesh_tolerance, dft.max_triangles);
+        mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
       } else {
         mesh_maker.build_simple_mesh(point_image, dft.nff_h_step, dft.nff_v_step);
+        mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
       }
+
       if(execute.inventor){
         mesh_maker.write_inventor(out_prefix+".iv", out_prefix+"-T.jpg");
       }
@@ -586,45 +587,61 @@ int main(int argc, char* argv[]) {
 
     // Map the pointcloud coordinates onto the MARS areoid 
     if (execute.write_dem) {
+
+      // Switch to lat, lon, radius and free up the memory that had
+      // been used for the cartesian coordinates.
       cout << "Reprojecting points and subtracting the Mars areoid.\n";
-      ImageView<Vector3> lat_lon_alt = cartography::xyz_to_latlon(point_image);
+      ImageView<Vector3> lon_lat_alt = cartography::xyz_to_lon_lat_radius(point_image);
+      point_image.reset();
 
       // Subtract off the equitorial radius in preparation for writing the data out to a DEM
-      for (int i = 0; i < lat_lon_alt.cols(); i++) 
-        for (int j = 0; j < lat_lon_alt.rows(); j++) 
-          if (lat_lon_alt(i,j) != Vector3()) 
-            lat_lon_alt(i,j).z() -= MOLA_PEDR_EQUATORIAL_RADIUS;
+      for (int j = 0; j < lon_lat_alt.rows(); j++) 
+        for (int i = 0; i < lon_lat_alt.cols(); i++) 
+          if (lon_lat_alt(i,j) != Vector3()) 
+            lon_lat_alt(i,j).z() -= MOLA_PEDR_EQUATORIAL_RADIUS;
 
       // Write out the DEM, texture, and extrapolation mask
       // as georeferenced files.
-      ImageView<double> dem_texture = vw::select_channel(lat_lon_alt, 2);
-      vw::cartography::OrthoRasterizer<Vector3, double> rasterizer(lat_lon_alt, dem_texture, true);
-      ImageView<PixelGray<float> > ortho_image = rasterizer.rasterize();
+      ImageView<double> dem_texture = vw::select_channel(lon_lat_alt, 2);
+      vw::cartography::OrthoRasterizer<Vector3> rasterizer(lon_lat_alt);
+      ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(lon_lat_alt,2));
 
+      // Georeferencing 
+      //
+      // 1. Set up the affine transform
       vw::Matrix<double,3,3> affine = rasterizer.geo_transform();
-      vw::cartography::GeoReference geo;
-      geo.set_transform(affine);
 
+      // 2. Set up the datum
+      vw::cartography::GeoDatum mars_datum;
+      mars_datum.name() = "IAU2000 Mars Spheroid";
+      mars_datum.spheroid_name() = "IAU2000 Mars Spheroid";
+      mars_datum.meridian_name() = "Mars Prime Meridian";
+      mars_datum.semi_major_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
+      mars_datum.semi_minor_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
+      
+      // 3. Create georeference and save
+      vw::cartography::GeoReference geo(mars_datum, affine);
       write_GMT_script(out_prefix, ortho_image.cols(), ortho_image.rows(), 
                        *(std::min_element(ortho_image.begin(), ortho_image.end())), 
-                       *(std::max_element(ortho_image.begin(), ortho_image.end())), geo);
+                       *(std::max_element(ortho_image.begin(), ortho_image.end())), 
+                       30, // Scale factor: empirically determined. 
+                       geo);
       write_georeferenced_image(out_prefix+"-DEM.dem", ortho_image, geo);
+      write_ENVI_header(out_prefix+"-DEM.hdr", 0, ortho_image, geo);
       write_image(out_prefix + "-DEM-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Write out a georeferenced orthoimage of the DTM
-      rasterizer = vw::cartography::OrthoRasterizer<Vector3, double>(lat_lon_alt, select_channel(texture, 0), true);
       rasterizer.use_minz_as_default = false;
-      ortho_image = rasterizer.rasterize();
+      ortho_image = rasterizer(vw::select_channel(texture,0));
+      write_georeferenced_image(out_prefix+"-DRG.tif", channel_cast_rescale<uint8>(normalize(ortho_image)), geo);
       write_georeferenced_image(out_prefix+"-DRG.dem", ortho_image, geo);
-      write_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Write out a georeferenced orthoimage of the pixel extrapolation mask
       ImageView<PixelGray<float> > extrapolation_mask;
       try {
         read_image(extrapolation_mask, out_prefix + "-ExMap.png");
-        rasterizer = vw::cartography::OrthoRasterizer<Vector3, double>(lat_lon_alt, select_channel(extrapolation_mask, 0),true);
         rasterizer.use_minz_as_default = false;
-        ortho_image = rasterizer.rasterize();
+        ortho_image = rasterizer(select_channel(extrapolation_mask, 0));
         write_image(out_prefix + "-ExMap.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
       } catch (IOErr &e) {
         std::cout << "Warning: an error occurred when reading the cached extrapolation map \"" << (out_prefix + "-ExMap.png") << "\" on disk.";

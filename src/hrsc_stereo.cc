@@ -39,6 +39,7 @@ namespace fs = boost::filesystem;
 #include <vw/Image/ImageView.h>
 #include <vw/Image/PixelTypes.h>
 #include <vw/Image/Filter.h>
+#include <vw/Image/Transform.h>
 #include <vw/Core/Exception.h>
 #include <vw/Image/Transform.h>
 #include <vw/FileIO.h>
@@ -57,7 +58,6 @@ using namespace vw::stereo;
 #include "mask.h"
 #include "nff_terrain.h"
 #include "ImageAlign.h"
-#include "SurfaceNURBS.h"
 #include "StereoEngine.h"
 #include "HRSC/HRSC.h"
 #include "MOC/Metadata.h"
@@ -115,6 +115,7 @@ int main(int argc, char* argv[]) {
   std::string stereo_default_filename;
   std::string description_tab_filename;
   std::string in_file1, in_file2;
+  std::string extori_file1, extori_file2;  
   std::string out_prefix;
 
   po::options_description visible_options("Options");
@@ -122,17 +123,22 @@ int main(int argc, char* argv[]) {
     ("help,h", "Display this help message")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("description-file,d", po::value<std::string>(&description_tab_filename)->default_value("./description.tab"), "Explicitly specify the tabulated description file to use.")
-    ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)");
+    ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
+    ("multiresolution,m", "Use the prototype multiresolution correlator instead of the old area-based correlator");
 
   po::options_description positional_options("Positional Options");
   positional_options.add_options()
     ("left-input-image", po::value<std::string>(&in_file1), "Left Input Image")
     ("right-input-image", po::value<std::string>(&in_file2), "Right Input Image")
-    ("output-prefix", po::value<std::string>(&out_prefix), "Prefix for output filenames");
+    ("output-prefix", po::value<std::string>(&out_prefix), "Prefix for output filenames")
+    ("left-extori-file", po::value<std::string>(&extori_file1), "Left Extori File")
+    ("right-extori-file", po::value<std::string>(&extori_file2), "Right Extori File");
   po::positional_options_description positional_options_desc;
   positional_options_desc.add("left-input-image", 1);
   positional_options_desc.add("right-input-image", 1);
   positional_options_desc.add("output-prefix", 1);
+  positional_options_desc.add("left-extori-file", 1);
+  positional_options_desc.add("right-extori-file", 1);
 
   po::options_description all_options;
   all_options.add(visible_options).add(positional_options);
@@ -146,9 +152,9 @@ int main(int argc, char* argv[]) {
   if( vm.count("help") ||
       !vm.count("left-input-image") || !vm.count("right-input-image") || 
       !vm.count("output-prefix")) {
-    std::cout << "\nUsage: hrsc_stereo [options] <Left_input_image> <Right_input_image> <output_file_prefix>\n"
-              << "	the extensions are automaticaly added to the output files\n"
-              << "	the parameters should be in stereo.default\n\n"
+    std::cout << "\nUsage: hrsc_stereo [options] <Left_input_image> <Right_input_image> <output_file_prefix> [left_extori_file] [right_extori_file]\n"
+              << "\n Optional parameters are in [brackets]. "
+              << " Stereo parameters should be in stereo.default\n\n"
               << " Note: The linescan stereo pipeline expects the u dimension (columns)\n"
               << "  of the image to correspond to the perspective projection axis of the\n"
               << "  pushbroom imager.  The v dimension (rows) correspond to the orthographic\n"
@@ -175,6 +181,7 @@ int main(int argc, char* argv[]) {
   stereo_engine.kernel_width = dft.h_kern;
   stereo_engine.kernel_height = dft.v_kern;
   stereo_engine.cross_correlation_threshold = dft.xcorr_treshold;
+  stereo_engine.use_multiresolution_correlator = (vm.count("multiresolution")>0);
   
   stereo_engine.do_slog = execute.slog;
   stereo_engine.do_log = execute.log;
@@ -204,23 +211,25 @@ int main(int argc, char* argv[]) {
   boost::shared_ptr<StereoImageMetadata> metadata1, metadata2;
 
   // Initialize the HRSC metadata object
-  boost::shared_ptr<HRSCImageMetadata> hrsc_metadata1(new HRSCImageMetadata(in_file1));
-  boost::shared_ptr<HRSCImageMetadata> hrsc_metadata2(new HRSCImageMetadata(in_file2));
+  HRSCImageMetadata hrsc_metadata1(in_file1);
+  HRSCImageMetadata hrsc_metadata2(in_file2);
   try {
     std::cout << "Loading HRSC Metadata.\n";
-    hrsc_metadata1->read_line_times(in_prefix1 + ".txt");
-    hrsc_metadata2->read_line_times(in_prefix2 + ".txt");
-    hrsc_metadata1->read_ephemeris_supplement(in_prefix1 + ".sup");
-      hrsc_metadata2->read_ephemeris_supplement(in_prefix2 + ".sup");
+    hrsc_metadata1.read_line_times(in_prefix1 + ".txt");
+    hrsc_metadata2.read_line_times(in_prefix2 + ".txt");
+    hrsc_metadata1.read_ephemeris_supplement(in_prefix1 + ".sup");
+    hrsc_metadata2.read_ephemeris_supplement(in_prefix2 + ".sup");
+    
+    if (vm.count("left-extori-file")) 
+      hrsc_metadata1.read_extori_file(extori_file1,"S1");
+    if (vm.count("right-extori-file")) 
+      hrsc_metadata2.read_extori_file(extori_file2,"S2");
+    
   } catch (IOErr &e) {
     std::cout << "An error occurred when loading metadata:\n\t" << e.what();
     std::cout << "\nExiting.\n\n";
     exit(1);
   }
-  // Transfer ownership of the newly created objects to a smart
-  // pointer so that they are properly destroyed later on...
-  metadata1 = hrsc_metadata1;
-  metadata2 = hrsc_metadata2;
 
   /*********************************************************************************/
   /*                            preprocessing step                                 */
@@ -260,6 +269,7 @@ int main(int argc, char* argv[]) {
     Limg = left_disk_image;
     write_image(out_prefix + "-R.tif", channel_cast_rescale<uint8>(Rimg));
     write_image(out_prefix + "-L.tif", channel_cast_rescale<uint8>(Limg));
+    write_image(out_prefix + "-T.jpg", channel_cast_rescale<uint8>(Limg));
   
     // Mask any pixels that are black and 
     // appear on the edges of the image.
@@ -340,8 +350,12 @@ int main(int argc, char* argv[]) {
         exit(0);
       }
     }
-
-    stereo_engine.filter(disparity_map);
+    
+    // The multiresolution correlate does not tend to have outliers(!)
+    if (!vm.count("multiresolution"))
+      stereo_engine.filter(disparity_map);
+    else 
+      vw::stereo::disparity::sparse_disparity_filter(disparity_map, 100, 0.5);
 
     // Write out the extrapolation mask image
     if(execute.w_extrapolation_mask) {  
@@ -390,14 +404,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Create the camera models and stereo models
-    camera::OrbitingPushbroomModel left_camera_model = metadata1->camera_model();
-    camera::OrbitingPushbroomModel right_camera_model = metadata2->camera_model();
+    boost::shared_ptr<camera::CameraModel> left_camera_model(hrsc_metadata1.camera_model());
+    boost::shared_ptr<camera::CameraModel> right_camera_model(hrsc_metadata2.camera_model());
     std::cout << left_camera_model << "\n";
     std::cout << right_camera_model << "\n";
 
     // Write a VRML file that depicts the positions and poses of the
     // spacecraft in a scene with a large Mars ellipse.for reference.
-    write_orbital_reference_model(out_prefix + "-OrbitViz.vrml", left_camera_model, right_camera_model);
+    write_orbital_reference_model(out_prefix + "-OrbitViz.vrml", *left_camera_model, *right_camera_model);
 
     // We used a homography to line up the images, we may want 
     // to generate pre-alignment disparities before passing this information
@@ -416,7 +430,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Apply the stereo model.  This yields a image of 3D points in space.
-    StereoModel stereo_model(left_camera_model, right_camera_model);
+    StereoModel stereo_model(*left_camera_model, *right_camera_model);
     std::cout << "Generating a 3D point cloud.   \n";
     ImageView<double> error;
     point_image = stereo_model(disparity_map, error);
@@ -452,15 +466,21 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    // For H0927
+    //    point_image = copy(crop(point_image,0,950,point_image.cols(), point_image.rows()-1250));
+
     if (execute.mesh) {
       Mesh mesh_maker;
       if(execute.adaptative_meshing) {
         mesh_maker.build_adaptive_mesh(point_image, dft.mesh_tolerance, dft.max_triangles);
+        mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
       } else {
         mesh_maker.build_simple_mesh(point_image, dft.nff_h_step, dft.nff_v_step);
+        mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
       }
+
       if(execute.inventor){
-        mesh_maker.write_inventor(out_prefix+".iv", out_prefix+"-T.jpg");
+        mesh_maker.write_inventor(out_prefix+".iv", out_prefix+"-T.jpg", true);
       }
       if(execute.vrml){
         mesh_maker.write_vrml(out_prefix+".vrml", out_prefix+"-T.jpg");
@@ -469,43 +489,82 @@ int main(int argc, char* argv[]) {
 
     // Map the pointcloud coordinates onto the MARS areoid 
     if (execute.write_dem) {
-      
+
+      // Switch to lat, lon, radius and free up the memory that had
+      // been used for the cartesian coordinates.
       cout << "Reprojecting points and subtracting the Mars areoid.\n";
-      ImageView<Vector3> lat_lon_alt = cartography::xyz_to_latlon(point_image);
+      ImageView<Vector3> lon_lat_alt = cartography::xyz_to_lon_lat_radius(point_image);
+      point_image.reset();
 
       // Subtract off the equitorial radius in preparation for writing the data out to a DEM
-      for (int i = 0; i < lat_lon_alt.cols(); i++) 
-        for (int j = 0; j < lat_lon_alt.rows(); j++) 
-          if (lat_lon_alt(i,j) != Vector3()) 
-            lat_lon_alt(i,j).z() -= MOLA_PEDR_EQUATORIAL_RADIUS;
+      for (int j = 0; j < lon_lat_alt.rows(); j++) 
+        for (int i = 0; i < lon_lat_alt.cols(); i++) 
+          if (lon_lat_alt(i,j) != Vector3()) 
+            lon_lat_alt(i,j).z() -= MOLA_PEDR_EQUATORIAL_RADIUS;
 
-      // Write out the DEM, texture, and extrapolation mask
-      // as georeferenced files.
-      ImageView<double> dem_texture = vw::select_channel(lat_lon_alt, 2);
-      vw::cartography::OrthoRasterizer<Vector3, double> rasterizer(lat_lon_alt, dem_texture, true);
-      ImageView<PixelGray<float> > ortho_image = rasterizer.rasterize();
+      // Reproject into sinusoidal projection
+      vw::cartography::OrthoRasterizer<Vector3> bbox_computer(lon_lat_alt, 1);
+      double min_longitude = bbox_computer.bounding_box().min().x();
+      double max_longitude = bbox_computer.bounding_box().max().x();
+      double sinusoidal_lon0 = roundf((max_longitude + min_longitude)/2);
+      if (min_longitude == max_longitude) 
+        throw LogicErr() << "Error while reprojecting 3D points.  Georgraphic region has zero width.";
+      
+      // Set up the datum
+      vw::cartography::GeoDatum mars_datum;
+      mars_datum.name() = "IAU2000 Mars Spheroid";
+      mars_datum.spheroid_name() = "IAU2000 Mars Spheroid";
+      mars_datum.meridian_name() = "Mars Prime Meridian";
+      mars_datum.semi_major_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
+      mars_datum.semi_minor_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
 
-      vw::Matrix<double,3,3> affine = rasterizer.geo_transform();
-      vw::cartography::GeoReference geo;
-      geo.set_transform(affine);
+      // Note: the affine transform doesn't matter when using
+      // reproject_point_image, so we simply don't specify anything
+      // here.
+      vw::cartography::GeoReference src_geo(mars_datum);
+      vw::cartography::GeoReference dst_geo(mars_datum);
+      dst_geo.set_sinusoidal(sinusoidal_lon0);
 
-      //      write_GMT_script(out_prefix, point_image.cols(), point_image.rows(), geo);
-      write_georeferenced_image(out_prefix+"-DEM.dem", ortho_image, geo);
+      std::cout << "Reprojecting into sinusoidal projection... " << std::flush;
+      cartography::reproject_point_image(lon_lat_alt, src_geo, dst_geo);
+      std::cout << "done.\n";
+
+      // Rasterizing the third component (radius) of the point cloud.  
+      vw::cartography::OrthoRasterizer<Vector3> rasterizer(lon_lat_alt, dft.dem_spacing);
+
+      // Rasterize the DEM.
+      ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(lon_lat_alt,2));
+      
+
+      // Georeferencing 
+      //
+      // 1. Set up the affine transform
+      dst_geo.set_transform(rasterizer.geo_transform());
+
+      // 2. Save various data products
+      write_GMT_script(out_prefix, ortho_image.cols(), ortho_image.rows(), 
+                       *(std::min_element(ortho_image.begin(), ortho_image.end())), 
+                       *(std::max_element(ortho_image.begin(), ortho_image.end())), 
+                       1, // Scale factor: empirically determined. 
+                       dst_geo);
+      write_georeferenced_image(out_prefix+"-DEM.dem", ortho_image, dst_geo);
+      write_ENVI_header(out_prefix+"-DEM.hdr", rasterizer.default_value(), ortho_image, dst_geo);
       write_image(out_prefix + "-DEM-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Write out a georeferenced orthoimage of the DTM
-      rasterizer = vw::cartography::OrthoRasterizer<Vector3, double>(lat_lon_alt, select_channel(texture, 0), true);
       rasterizer.use_minz_as_default = false;
-      ortho_image = rasterizer.rasterize();
-      write_image(out_prefix + "-DRG-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
+      rasterizer.set_default_value(0);
+      ortho_image = rasterizer(vw::select_channel(texture,0));
+      write_georeferenced_image(out_prefix+"-DRG.tif", channel_cast_rescale<uint8>(normalize(ortho_image)), dst_geo);
+      write_georeferenced_image(out_prefix+"-DRG.dem", ortho_image, dst_geo);
 
       // Write out a georeferenced orthoimage of the pixel extrapolation mask
       ImageView<PixelGray<float> > extrapolation_mask;
       try {
         read_image(extrapolation_mask, out_prefix + "-ExMap.png");
-        rasterizer = vw::cartography::OrthoRasterizer<Vector3, double>(lat_lon_alt, select_channel(extrapolation_mask, 0),true);
         rasterizer.use_minz_as_default = false;
-        ortho_image = rasterizer.rasterize();
+        rasterizer.set_default_value(0);
+        ortho_image = rasterizer(select_channel(extrapolation_mask, 0));
         write_image(out_prefix + "-ExMap.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
       } catch (IOErr &e) {
         std::cout << "Warning: an error occurred when reading the cached extrapolation map \"" << (out_prefix + "-ExMap.png") << "\" on disk.";

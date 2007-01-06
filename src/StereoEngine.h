@@ -1,11 +1,24 @@
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/OptimizedCorrelator.h>
+#include <vw/Stereo/MultiresolutionCorrelator.h>
 #include <vw/Stereo/BlockCorrelator.h>
 #include <vw/Stereo/PyramidCorrelator.h>
 #include <vw/Math/BBox.h>
 #include <vw/Image/ImageView.h>
 
 #include "SurfaceNURBS.h"
+
+class MultiresCorrelatorNURBSHoleFiller : public vw::stereo::MultiresCorrelatorHoleFiller {
+  int m_nurbs_iterations;
+public:
+  MultiresCorrelatorNURBSHoleFiller(int nurbs_iterations) : m_nurbs_iterations(nurbs_iterations) {}
+  virtual ~MultiresCorrelatorNURBSHoleFiller() {} 
+  virtual void operator() (vw::ImageView<vw::PixelDisparity<float> > &disparity_map) {
+    vw::ImageView<vw::PixelDisparity<float> > output_disparity;
+    output_disparity = MBASurfaceNURBS(disparity_map, m_nurbs_iterations);
+    disparity_map = output_disparity;
+  }
+};
 
 class StereoEngine {
 
@@ -23,6 +36,7 @@ public:
   float slog_stddev;
   float cross_correlation_threshold;
   int block_size;
+  bool use_multiresolution_correlator;
 
   int cleanup_passes;
   int cleanup_vertical_half_kernel;
@@ -41,6 +55,7 @@ public:
     do_nurbs_hole_filling = true;
     do_horizontal_pyramid_search = false;
     do_vertical_pyramid_search = false;
+    use_multiresolution_correlator = false; 
 
     kernel_width = 24;
     kernel_height = 24;
@@ -59,18 +74,18 @@ public:
                                                        vw::ImageView<vw::PixelGray<float> > Rimg) {
     
     // determine the search window parameters 
-    if(do_horizontal_pyramid_search || do_vertical_pyramid_search) {
+    if(do_horizontal_pyramid_search || do_vertical_pyramid_search && !use_multiresolution_correlator) {
       std::cout << "\n ------------ Pyramid Search for Correlation Space --------- \n";
       printf("Starting pyramid search with initial search dimensions H: [ %d, %d ] V: [ %d, %d ]\n",
              search_range.min().x(), search_range.max().x(), search_range.min().y(), search_range.max().y());
       
       try {
 
-	vw::stereo::PyramidCorrelator pyramid_correlator(search_range.min().x(), search_range.max().x(),
-                                             search_range.min().y(), search_range.max().y(),
-                                             kernel_width, kernel_height, 
-                                             true, cross_correlation_threshold,
-                                             slog_stddev);
+        vw::stereo::PyramidCorrelator pyramid_correlator(search_range.min().x(), search_range.max().x(),
+                                                         search_range.min().y(), search_range.max().y(),
+                                                         kernel_width, kernel_height, 
+                                                         true, cross_correlation_threshold,
+                                                         slog_stddev);
         //        pyramid_correlator.enable_debug_mode("pyramid");
         search_range = pyramid_correlator(Limg, Rimg, do_horizontal_pyramid_search, do_vertical_pyramid_search);
         
@@ -83,37 +98,55 @@ public:
     }
     
     printf("------------------------- correlation ----------------------\n");    
-    vw::stereo::BlockCorrelator correlator(search_range.min().x(), search_range.max().x(), 
-                                           search_range.min().y(), search_range.max().y(),
-                                           kernel_width, kernel_height, 
-                                           true,         // verbose
-                                           cross_correlation_threshold,
-                                           block_size,   // Block correlator block size
-                                           true, true);  // subpixel both vert/horz
     vw::ImageView<vw::PixelDisparity<float> > disparity_map;
+    if (use_multiresolution_correlator) {
+      vw::stereo::MultiresolutionCorrelator correlator(search_range.min().x(), search_range.max().x(), 
+                                                       search_range.min().y(), search_range.max().y(),
+                                                       kernel_width, kernel_height, 
+                                                       true,         // verbose
+                                                       cross_correlation_threshold,
+                                                       slog_stddev,
+                                                       true, true);  // subpixel both vert/horz
+      correlator.set_min_dimension(512); // Hard coded to a reasonable value for now
+      MultiresCorrelatorNURBSHoleFiller nurbs_hole_filler(nurbs_iterations);
 
-    // perform the sign of laplacian of gaussian filter (SLOG) on the images 
-    if(do_slog) {
-      printf("Applying SLOG filter.\n");
-      vw::ImageView<vw::PixelGray<uint8> > bit_Limg = vw::channel_cast<vw::uint8>(vw::threshold(vw::laplacian_filter(vw::gaussian_filter(Limg,slog_stddev)), 0.0));
-      vw::ImageView<vw::PixelGray<uint8> > bit_Rimg = vw::channel_cast<vw::uint8>(vw::threshold(vw::laplacian_filter(vw::gaussian_filter(Rimg,slog_stddev)), 0.0));
-      disparity_map = correlator(bit_Limg, bit_Rimg, true);
-    } else if (do_log) {
-      printf("Applying LOG filter.\n");
-      Limg = vw::laplacian_filter(vw::gaussian_filter(Limg, slog_stddev));
-      Rimg = vw::laplacian_filter(vw::gaussian_filter(Rimg, slog_stddev));
-      disparity_map = correlator(Limg, Rimg, false);
-    }
+      // This doesn't work as well as I had hoped.  Maybe more
+      // debugging is in order? -mbroxton
+      //       correlator.set_hole_filler(&nurbs_hole_filler);
+      //       correlator.set_debug_mode("test/test");
+      disparity_map = correlator(Limg, Rimg);
+    } else {
+      vw::stereo::BlockCorrelator correlator(search_range.min().x(), search_range.max().x(), 
+                                             search_range.min().y(), search_range.max().y(),
+                                             kernel_width, kernel_height, 
+                                             true,         // verbose
+                                             cross_correlation_threshold,
+                                             block_size,   // Block correlator block size
+                                             true, true);  // subpixel both vert/horz
+      
+      // perform the sign of laplacian of gaussian filter (SLOG) on the images 
+      if(do_slog) {
+        printf("Applying SLOG filter.\n");
+        vw::ImageView<vw::PixelGray<uint8> > bit_Limg = vw::channel_cast<vw::uint8>(vw::threshold(vw::laplacian_filter(vw::gaussian_filter(Limg,slog_stddev)), 0.0));
+        vw::ImageView<vw::PixelGray<uint8> > bit_Rimg = vw::channel_cast<vw::uint8>(vw::threshold(vw::laplacian_filter(vw::gaussian_filter(Rimg,slog_stddev)), 0.0));
+        disparity_map = correlator(bit_Limg, bit_Rimg, true);
+      } else if (do_log) {
+        printf("Applying LOG filter.\n");
+        Limg = vw::laplacian_filter(vw::gaussian_filter(Limg, slog_stddev));
+        Rimg = vw::laplacian_filter(vw::gaussian_filter(Rimg, slog_stddev));
+        disparity_map = correlator(Limg, Rimg, false);
+      }
     
         
-    printf("Cleaning up disparity map...\n");
-    for(int nn=0; nn < do_cleanup; nn++) {
-      vw::stereo::disparity::clean_up(disparity_map,
-                                      cleanup_vertical_half_kernel,
-                                      cleanup_horizontal_half_kernel,
-                                      cleanup_min_matches,
-                                      cleanup_rm_threshold,
-                                      true);
+      printf("Cleaning up disparity map...\n");
+      for(int nn=0; nn < do_cleanup; nn++) {
+        vw::stereo::disparity::clean_up(disparity_map,
+                                        cleanup_vertical_half_kernel,
+                                        cleanup_horizontal_half_kernel,
+                                        cleanup_min_matches,
+                                        cleanup_rm_threshold,
+                                        true);
+      }
     }
 
     return disparity_map;
@@ -132,11 +165,11 @@ public:
                           cleanup_rm_threshold,
                           true);
     }
-    std::cout << "\tRemoving solitary pixels [20x20 window, 20% threshold]\n";
-    vw::stereo::disparity::remove_outliers(disparity_map, 20, 20, 20, 200, true);
+//     std::cout << "\tRemoving solitary pixels [20x20 window, 20% threshold]\n";
+//     vw::stereo::disparity::remove_outliers(disparity_map, 20, 20, 20, 200, true);
 
     // These settings should move from being hard coded to being user configurable
-    vw::stereo::disparity::sparse_disparity_filter(disparity_map, 20, 0.1);
+    vw::stereo::disparity::sparse_disparity_filter(disparity_map, 20, 0.5);
     
     //     if(execute.fill_v_holes)
     //       disparity_map.fillHolesVert((double)dft.v_fill_treshold);

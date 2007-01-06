@@ -40,7 +40,7 @@
 #include "stereo.h"
 #include <vw/Image/ImageView.h>
 #include <vw/Math/Matrix.h>
-#include <vw/Camera/OrbitingPushbroomModel.h>
+#include <vw/Camera/CameraModel.h>
 using namespace vw;
 
 // -----------------------------------------------------------------
@@ -100,11 +100,12 @@ void read_matrix(Matrix<T> &in_matrix, const std::string &filename) {
   in_matrix = result;
 }
 
-
+// Create a VRML file that contains the frames of reference for the
+// spacecraft when each image was taken.  These reference frames are
+// shown in a scene with a textured, Mars-sized ellipse for reference.
 void write_orbital_reference_model(std::string filename, 
-                                   vw::camera::OrbitingPushbroomModel const& cam1, 
-                                   vw::camera::OrbitingPushbroomModel const& cam2);
-
+                                   vw::camera::CameraModel const& cam1, 
+                                   vw::camera::CameraModel const& cam2);
 
 /* Function Prototype  */
 void	init_dft_struct(DFT_F *dft, TO_DO *todo);

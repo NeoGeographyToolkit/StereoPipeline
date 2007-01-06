@@ -50,12 +50,12 @@
 #include "nff_terrain.h"
 #include "ImageAlign.h"
 #include "SurfaceNURBS.h"
-#include "StereoEngine.h"
 #include "MRO/CTXEphemeris.h"		   // for load_ctx_kernels()
 #include "MRO/CTXMetadata.h"		   // for read_spice_data()
 #include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
 #include "Spice.h" 
 #include "OrthoRasterizer.h"
+#include "StereoEngine.h"
 
 #include <vector> 
 #include <string>
@@ -82,7 +82,7 @@ enum { PREPROCESSING = 0,
        WIRE_MESH, 
        NUM_STAGES };
 
-typedef vw::cartography::OrthoRasterizer<Vector3, double> Rasterizer;
+typedef vw::cartography::OrthoRasterizer<Vector3> Rasterizer;
 
 enum { eHistogramSize = 32768 };
 
@@ -731,27 +731,26 @@ main(int argc, char* argv[])
     if (execute.write_dem)
     {
       cout << "Reprojecting points and subtracting the Mars areoid.\n";
-      ImageView<Vector3> lat_lon_alt = cartography::xyz_to_latlon(point_image);
+      ImageView<Vector3> lon_lat_alt = cartography::xyz_to_lon_lat_radius(point_image);
 
       // Subtract off the equitorial radius in preparation for writing
       // the data out to a DEM
-      for (int i = 0; i < lat_lon_alt.cols(); i++) 
-        for (int j = 0; j < lat_lon_alt.rows(); j++) 
-          if (lat_lon_alt(i,j) != Vector3()) 
-            lat_lon_alt(i,j).z() -= MOLA_PEDR_EQUATORIAL_RADIUS;
+      for (int i = 0; i < lon_lat_alt.cols(); i++) 
+        for (int j = 0; j < lon_lat_alt.rows(); j++) 
+          if (lon_lat_alt(i,j) != Vector3()) 
+            lon_lat_alt(i,j).z() -= MOLA_PEDR_EQUATORIAL_RADIUS;
 
       // Write out the DEM, texture, and extrapolation mask
       // as georeferenced files.
-      ImageView<double> dem_texture = vw::select_channel(lat_lon_alt, 2);
-      Rasterizer rasterizer(lat_lon_alt, dem_texture, true);
-      ImageView<PixelGray<float> > ortho_image = rasterizer.rasterize();
+      ImageView<double> dem_texture = vw::select_channel(lon_lat_alt, 2);
+      vw::cartography::OrthoRasterizer<Vector3> rasterizer(lon_lat_alt);
+      ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(lon_lat_alt,2));
       write_image(out_prefix + "-DEM-debug.tif",
-		  channel_cast_rescale<uint8>(normalize(ortho_image)));
+                  channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Write out a georeferenced orthoimage of the DTM
-      rasterizer = Rasterizer(lat_lon_alt, select_channel(texture, 0), true);
       rasterizer.use_minz_as_default = false;
-      ortho_image = rasterizer.rasterize();
+      ortho_image = rasterizer(select_channel(texture, 0));
       write_image(out_prefix + "-DRG-debug.tif",
 		  channel_cast_rescale<uint8>(normalize(ortho_image)));
 
@@ -760,10 +759,8 @@ main(int argc, char* argv[])
       try
       {
         read_image(extrapolation_mask, out_prefix + "-ExMap.png");
-        rasterizer = Rasterizer(lat_lon_alt,
-				select_channel(extrapolation_mask, 0), true);
         rasterizer.use_minz_as_default = false;
-        ortho_image = rasterizer.rasterize();
+        ortho_image = rasterizer(select_channel(extrapolation_mask, 0));
         write_image(out_prefix + "-ExMap.tif",
 		    channel_cast_rescale<uint8>(normalize(ortho_image)));
       }

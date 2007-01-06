@@ -40,8 +40,19 @@
 #include <vector> 
 
 // MOC includes:
+#include "asp_config.h"
 #include "nff_terrain.h"
 #include "stereo.h"
+#include <vw/Core/Exception.h>
+
+#if defined(ASP_HAVE_PKG_OPENSCENEGRAPH) && ASP_HAVE_PKG_OPENSCENEGRAPH==1
+#include <osg/Geometry>
+#include <osg/Geode>
+#include <osg/Texture2D>
+#include <osg/Image>
+#include <osgDB/WriteFile>
+#include <osgDB/ReadFile>
+#endif 
 
 // STL includes:
 #include <iostream>			   // debugging
@@ -2217,8 +2228,88 @@ dot_to_mesh(BUFFER *b, int width, int height, int h_step, int v_step)
 /* write inventor_file */
 /***********************/
 
+#if defined(ASP_HAVE_PKG_OPENSCENEGRAPH) && ASP_HAVE_PKG_OPENSCENEGRAPH==1
+void write_osg_impl(BUFFER *b, std::string const& filename,
+                         std::string const& texture_filename) {
+  
+  std::cout << "Writing " << filename << "..." << std::flush;
+
+  // A geode is a "geometry node". It is-a 'Node' and contains 'Drawable's.
+  osg::ref_ptr<osg::Geode> geode (new osg::Geode());
+  
+  // 'Geometry' is-a 'Drawable'. It is a collection of vertices, normals,
+  // colors, texture coordinates and so on. It is organized in "primitive
+  // sets", that allow to say that, e.g., "from vertex to 0 to 8 render as
+  // triangles, from 9 to 13 render as points, please". For those
+  // OpenGL-inclined, think of 'Geometry' as a wrapper around vertex (and
+  // normals, and texcoord) arrays and 'glDrawElements()'
+  osg::ref_ptr<osg::Geometry> geometry (new osg::Geometry());
+  
+  // Create and set the vertex array for the geometry object
+  osg::ref_ptr<osg::Vec3Array> vertices (new osg::Vec3Array());
+
+  for (int i = 0; i < b->nff.pt_number; ++i) 
+    vertices->push_back (osg::Vec3 (b->nff.vtx[i].x, b->nff.vtx[i].y, b->nff.vtx[i].z) );
+                         
+  geometry->setVertexArray (vertices.get());
+
+  // Now create the "primitive set", which describes which vertices
+  // are to be used when rendering the triangles.
+  osg::ref_ptr<osg::DrawElementsUInt> faces(new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES, 0));
+  for (int i = 0; i < b->nff.tr_number; ++i) {
+    faces->push_back(b->nff.triangle[i].vtx1);
+    faces->push_back(b->nff.triangle[i].vtx2);
+    faces->push_back(b->nff.triangle[i].vtx3);
+  }  
+  geometry->addPrimitiveSet(faces.get());
+
+  // Next, we associate some texture coordinates with the vertices
+  osg::Vec2Array* texcoords = new osg::Vec2Array(b->nff.pt_number);
+  for (int i = 0; i < b->nff.pt_number; ++i) 
+    (*texcoords)[i].set(b->nff.tex[i].u, b->nff.tex[i].v);
+  geometry->setTexCoordArray(0,texcoords);
+
+  // The geometry is now full specified, so we associate it with the geode.
+  geode->addDrawable (geometry.get());
+
+  // We must now associate the texture in a file with the geode
+  osg::ref_ptr<osg::Texture2D> texture(new osg::Texture2D);
+
+  // protect from being optimized away as static state
+  texture->setDataVariance(osg::Object::DYNAMIC);
+  texture->setUseHardwareMipMapGeneration(false);
+
+  osg::Image* texture_image = osgDB::readImageFile(texture_filename.c_str());
+  if (!texture_image) 
+    throw vw::ArgumentErr() << "OpenSceneGraph couldn't read the texture, " << texture_filename << ".";
+  texture->setImage(texture_image);
+
+  // Create a new StateSet with default settings: 
+  osg::ref_ptr<osg::StateSet> texture_state_set(new osg::StateSet());
+
+  // Assign texture unit 0 of our new StateSet to the texture 
+  // we just created and enable the texture.
+  texture_state_set->setTextureAttributeAndModes(0,texture.get(),osg::StateAttribute::ON);
+  geode->setStateSet(texture_state_set.get());
+
+  // Add the geometry to the geode and save the geode to a file o disk.
+  osgDB::writeNodeFile(*(geode.get()), filename);
+
+  std::cout << " done.\n";
+}
+
+#else  // HAVE_PKG_OPENSCENEGRAPH
+
+void write_osg_impl(BUFFER *b, std::string const& filename,
+                         std::string const& texture_filename) {
+  std::cout << "WARNING: could not write " << filename << ".  Compiled without open scene graph support.";
+}
+#endif  // HAVE_PKG_OPENSCENEGRAPH
+
+
 void write_inventor_impl(BUFFER *b, std::string const& filename,
-                    std::string const& texture_filename) {
+                         std::string const& texture_filename, 
+                         bool flip_triangles) {
   FILE *outflow;
   int i;
 
@@ -2250,10 +2341,17 @@ void write_inventor_impl(BUFFER *b, std::string const& filename,
 
   // Gouraud shading (comment out in the file, but make it easy to
   // turn on if desired.
-  fprintf (outflow, "#ShapeHints {\n");
-  fprintf (outflow, "#  creaseAngle 3.1\n");
-  fprintf (outflow, "#}\n");
-  
+  if (flip_triangles) {
+    fprintf (outflow, "ShapeHints {\n");
+    fprintf (outflow, "   vertexOrdering CLOCKWISE\n");
+    fprintf (outflow, "#  creaseAngle 3.1\n");
+    fprintf (outflow, "}\n");
+  } else {
+    fprintf (outflow, "#ShapeHints {\n");
+    fprintf (outflow, "#  creaseAngle 3.1\n");
+    fprintf (outflow, "#}\n");
+  }  
+
   // vertices position 
   fprintf (outflow, "    Coordinate3 {\n");
   fprintf (outflow, "        point [    ");
