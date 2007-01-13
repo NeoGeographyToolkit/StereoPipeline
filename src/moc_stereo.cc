@@ -426,10 +426,6 @@ int main(int argc, char* argv[]) {
       printf("Done.\n");
     }
 
-    // Remove pixels that are outside the bounds of the secondary image.
-    DiskImageView<PixelGray<double> > right_image_temp(in_file2);
-    disparity::remove_invalid_pixels(disparity_map, right_image_temp.cols(), right_image_temp.rows());
-
     // Write the filtered disp map 
     double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
     disparity::get_disparity_range(disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp,true);
@@ -492,9 +488,9 @@ int main(int argc, char* argv[]) {
     //    read in MOC telemetry.  
     try {
       cout << "Attempting to read MOC telemetry from SPICE kernels... " << flush;
-//       load_moc_kernels();
-//       moc_metadata_1.read_spice_data();
-//       moc_metadata_2.read_spice_data();
+      load_moc_kernels();
+      moc_metadata_1.read_spice_data();
+      moc_metadata_2.read_spice_data();
       cout << "success.\n";
     } catch (spice::SpiceErr &e) {
       cout << "Warning: an error occurred when reading SPICE information.  Falling back to *.sup files\n";
@@ -522,6 +518,10 @@ int main(int argc, char* argv[]) {
       disparity_linear_transform(disparity_map, inv_align_matrix);
     }
 
+    // Remove pixels that are outside the bounds of the secondary image.
+    DiskImageView<PixelGray<double> > right_image_temp(in_file2);
+    disparity::remove_invalid_pixels(disparity_map, right_image_temp.cols(), right_image_temp.rows());
+
     // Write a VRML file that depicts the positions and poses of the
     // spacecraft in a scene with a large Mars ellipse.for reference.
     write_orbital_reference_model(out_prefix + "-OrbitViz.vrml", left_camera_model, right_camera_model);
@@ -536,7 +536,6 @@ int main(int argc, char* argv[]) {
     seed[0] = 1.0;
     seed[4] = 1.0;
     CameraPointingOptimizeFunc optimize_functor(left_camera_model, right_camera_model, bundle1, bundle2);
-    std::cout << "TEST: " << optimize_functor(seed) << "\n";
     int status;
     Vector<double,8> quaternion_adjustment = vw::math::nelder_mead(optimize_functor, seed, status, true, 3, 1, 300);
     Vector4 v1 = normalize(subvector(quaternion_adjustment,0,4));
@@ -550,9 +549,6 @@ int main(int argc, char* argv[]) {
     std::cout << "\t" << q1 << "\n";
     std::cout << "\t" << q2 << "\n";
 
-    DiskImageView<PixelGray<double> > right_image_temp(in_file2);
-    disparity::remove_invalid_pixels(disparity_map, right_image_temp.cols(), right_image_temp.rows());
-    
     // apply the stereo model.  This yields a image of 3D points in space.
     StereoModel stereo_model(bundle_adjusted_camera1, bundle_adjusted_camera2);
     std::cout << "Generating a 3D point cloud.   \n";
@@ -561,8 +557,13 @@ int main(int argc, char* argv[]) {
     write_image(out_prefix + "-error.png", normalize(error));
 
     // Do the MOLA comparison
-    ImageView<Vector3> lon_lat_alt = cartography::xyz_to_lon_lat_radius(point_image);
-    do_mola_comparison(lon_lat_alt, moc_metadata_1, out_prefix);
+    try {
+      load_moc_kernels();
+      ImageView<Vector3> lon_lat_alt = cartography::xyz_to_lon_lat_radius(point_image);
+      do_mola_comparison(lon_lat_alt, moc_metadata_1, out_prefix);
+    } catch (spice::SpiceErr &e) {
+      cout << "Warning: an error occurred when reading SPICE information.  Skipping MOLA track comparison.\n";
+    }
 
     // Write out the results to disk
     write_image(out_prefix + "-PC.exr", channels_to_planes(point_image));

@@ -105,10 +105,10 @@ std::vector<Vector2> synthetic_track(vw::ImageView<vw::Vector3> const& moc_point
   fprintf(output, "Time\tLat\tLon\tPlanetary_Radius\tSpheroid_Altitude\n");
 
   for (unsigned scanline = 0; scanline < moc_point_image.rows() ; scanline++) {
+    //    std::cout << scanline << "   " <<moc_point_image(MOLA_MOC_BORESIGHT, scanline) << "\n";
     if (moc_point_image(MOLA_MOC_BORESIGHT, scanline) != Vector3() ) {
       double radius = moc_point_image(MOLA_MOC_BORESIGHT, scanline).z() - MOLA_PEDR_EQUATORIAL_RADIUS;
-      result.push_back(Vector2(time_per_scanline * scanline,
-                               radius));
+      result.push_back(Vector2(time_per_scanline * scanline,radius));
 
       fprintf(output, "%f\t%f\t%f\t%f\t%f\n",
               time_per_scanline * scanline,

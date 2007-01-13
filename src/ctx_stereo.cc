@@ -225,6 +225,9 @@ calculate_stretch(ImageView<PixelGray<float> > image)
 int
 main(int argc, char* argv[])
 {
+
+  // Register the DDD file handler with the Vision Workbench
+  // DiskImageResource system.
   DiskImageResource::register_file_type(".ddd",
 					&DiskImageResourceDDD::construct_open,
 					&DiskImageResourceDDD::construct_create);
