@@ -229,7 +229,7 @@ vw::Quaternion<double> euler_to_quaternion(double phi, double omega, double kapp
   }
   vw::Matrix<double,3,3> scanline_rotation = transpose(scanline_omega);
   vw::Matrix<double,3,3> instrumenthead_rotation = transpose(rotation_x_axis(-0.3340*M_PI/180.0) * rotation_y_axis(0.0101*M_PI/180.0));
-  vw::Matrix<double,3,3> rotation_matrix = e_phi*e_omega*e_kappa*hack*instrumenthead_rotation*scanline_rotation;
+  vw::Matrix<double,3,3> rotation_matrix = e_phi*e_omega*e_kappa;
   return vw::Quaternion<double>(transpose(rotation_matrix));
 }
 

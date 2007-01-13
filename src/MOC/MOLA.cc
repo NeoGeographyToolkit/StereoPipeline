@@ -21,9 +21,9 @@ void do_mola_comparison(ImageView<Vector3> const& moc_point_image,
     std::cout << "Generating synthetic track:\n";
     synthetic = synthetic_track(moc_point_image, moc_metadata, output_prefix);
   } catch (MOLA_PEDR_Err &e) {
-    std::cout << "Failed to read entry from MOLA database file.  Proceeding without MOLA data.\n";
+    std::cout << "\tFailed to read entry from MOLA database file.  Proceeding without MOLA data.\n";
   } catch (LogicErr &e) {
-    std::cout << "Failed to create synthetic MOLA track. Proceeding without MOLA data.\n";
+    std::cout << "\tFailed to create synthetic MOLA track. Proceeding without MOLA data.\n";
   }
 }
 
@@ -112,8 +112,8 @@ std::vector<Vector2> synthetic_track(vw::ImageView<vw::Vector3> const& moc_point
 
       fprintf(output, "%f\t%f\t%f\t%f\t%f\n",
               time_per_scanline * scanline,
-              moc_point_image(MOLA_MOC_BORESIGHT, scanline)[0],
               moc_point_image(MOLA_MOC_BORESIGHT, scanline)[1],
+              moc_point_image(MOLA_MOC_BORESIGHT, scanline)[0],
               moc_point_image(MOLA_MOC_BORESIGHT, scanline)[2],
               radius);
     }

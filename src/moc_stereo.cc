@@ -41,6 +41,7 @@ namespace fs = boost::filesystem;
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
 #include <vw/Cartography.h>
+#include <vw/Math/NelderMead.h>
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::stereo;
@@ -58,6 +59,7 @@ using namespace vw::stereo;
 #include "Spice.h" 
 #include "OrthoRasterizer.h"
 #include "DEM.h"
+#include "BundleAdjust.h"
 
 #include <vector> 
 #include <string>
@@ -424,6 +426,10 @@ int main(int argc, char* argv[]) {
       printf("Done.\n");
     }
 
+    // Remove pixels that are outside the bounds of the secondary image.
+    DiskImageView<PixelGray<double> > right_image_temp(in_file2);
+    disparity::remove_invalid_pixels(disparity_map, right_image_temp.cols(), right_image_temp.rows());
+
     // Write the filtered disp map 
     double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
     disparity::get_disparity_range(disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp,true);
@@ -519,17 +525,44 @@ int main(int argc, char* argv[]) {
     // Write a VRML file that depicts the positions and poses of the
     // spacecraft in a scene with a large Mars ellipse.for reference.
     write_orbital_reference_model(out_prefix + "-OrbitViz.vrml", left_camera_model, right_camera_model);
+
+    // Attempt bundle adjustment to correct camera pointing angles
+    std::vector<Vector2> bundle1, bundle2;
+    create_bundle_adjustment_pixel_list(disparity_map, 70, bundle1, bundle2);
+    std::cout << "Bundle adjusting camera model using " << bundle1.size() << " pixel samples.\n";
+
+    // Seed the optimization with a zero rotation quaternion.
+    Vector<double,8> seed;
+    seed[0] = 1.0;
+    seed[4] = 1.0;
+    CameraPointingOptimizeFunc optimize_functor(left_camera_model, right_camera_model, bundle1, bundle2);
+    std::cout << "TEST: " << optimize_functor(seed) << "\n";
+    int status;
+    Vector<double,8> quaternion_adjustment = vw::math::nelder_mead(optimize_functor, seed, status, true, 3, 1, 300);
+    Vector4 v1 = normalize(subvector(quaternion_adjustment,0,4));
+    Vector4 v2 = normalize(subvector(quaternion_adjustment,4,4));
+    Quaternion<double> q1(v1[0], v1[1], v1[2], v1[3]);
+    Quaternion<double> q2(v2[0], v2[1], v2[2], v2[3]);
+    TransformedCameraModel bundle_adjusted_camera1(left_camera_model);
+    TransformedCameraModel bundle_adjusted_camera2(right_camera_model);
+    bundle_adjusted_camera1.set_rotation(q1);
+    bundle_adjusted_camera2.set_rotation(q2);
+    std::cout << "\t" << q1 << "\n";
+    std::cout << "\t" << q2 << "\n";
+
+    DiskImageView<PixelGray<double> > right_image_temp(in_file2);
+    disparity::remove_invalid_pixels(disparity_map, right_image_temp.cols(), right_image_temp.rows());
     
-    // Apply the stereo model.  This yields a image of 3D points in space.
-    StereoModel stereo_model(left_camera_model, right_camera_model);
+    // apply the stereo model.  This yields a image of 3D points in space.
+    StereoModel stereo_model(bundle_adjusted_camera1, bundle_adjusted_camera2);
     std::cout << "Generating a 3D point cloud.   \n";
     ImageView<double> error;
     point_image = stereo_model(disparity_map, error);
     write_image(out_prefix + "-error.png", normalize(error));
 
-//     // Do the MOLA comparison
-//     ImageView<Vector3> lat_lot_alt = cartography::xyz_to_latlon(point_image);
-//     do_mola_comparison(lat_lot_alt, moc_metadata_1, out_prefix);
+    // Do the MOLA comparison
+    ImageView<Vector3> lon_lat_alt = cartography::xyz_to_lon_lat_radius(point_image);
+    do_mola_comparison(lon_lat_alt, moc_metadata_1, out_prefix);
 
     // Write out the results to disk
     write_image(out_prefix + "-PC.exr", channels_to_planes(point_image));

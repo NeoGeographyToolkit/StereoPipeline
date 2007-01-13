@@ -33,7 +33,7 @@ stereo_SOURCES = $(generic_stereo_sources) stereo.cc
 rmax_stereo_SOURCES = $(generic_stereo_sources) rmax_stereo.cc 
 
 if HAVE_PKG_GDAL
-bin_PROGRAMS += hrsc_stereo moc_stereo ctx_stereo
+bin_PROGRAMS += moc_stereo hrsc_stereo ctx_stereo
 
 moc_stereo_SOURCES = $(generic_stereo_sources) MOC/Ephemeris.cc		\
 	  MOLAReader.cc Spice.cc TabulatedDataReader.cc MOC/Metadata.cc	\
