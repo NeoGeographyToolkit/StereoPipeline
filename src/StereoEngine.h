@@ -1,3 +1,6 @@
+#ifndef __STEREO_ENGINE_H__
+#define __STEREO_ENGINE_H__
+
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/OptimizedCorrelator.h>
 #include <vw/Stereo/MultiresolutionCorrelator.h>
@@ -229,3 +232,5 @@ std::ostream& operator<<(std::ostream& os, StereoEngine const& s) {
   std::cout << "\txcorr_treshold: " << s.cross_correlation_threshold << "\n";
   std::cout << "\n";
 }
+
+#endif	// __STEREO_ENGINE_H__
