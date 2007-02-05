@@ -12,9 +12,6 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/filesystem/fstream.hpp>
-using namespace boost;
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
 
 #include <vw/Core/Debugging.h>
 #include <vw/Image/ImageView.h>
@@ -29,9 +26,6 @@ namespace fs = boost::filesystem;
 #include <vw/Camera/CameraTransform.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/StereoModel.h>
-using namespace vw;
-using namespace vw::camera;
-using namespace vw::stereo;
 
 #include "stereo.h"
 #include "file_lib.h"
@@ -40,8 +34,14 @@ using namespace vw::stereo;
 #include "ImageAlign.h"
 #include "StereoEngine.h"
 #include "OrthoRasterizer.h"
-using namespace vw::cartography;
 
+using namespace boost;
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
+using namespace vw;
+using namespace vw::camera;
+using namespace vw::stereo;
+using namespace vw::cartography;
 using namespace std;
 
 // The stereo pipeline has several stages, which are enumerated below.
