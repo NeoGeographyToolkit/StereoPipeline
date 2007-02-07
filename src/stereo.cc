@@ -192,8 +192,10 @@ int main(int argc, char* argv[]) {
     
     // Read Camera Models, removing lens distortion if necessary.
     CAHVModel left_cahv, right_cahv;
-    if (boost::ends_with(boost::to_lower_copy(cam_file1), ".cahvor") &&
-        boost::ends_with(boost::to_lower_copy(cam_file2), ".cahvor")) {
+    if ((boost::ends_with(boost::to_lower_copy(cam_file1), ".cahvor") &&
+         boost::ends_with(boost::to_lower_copy(cam_file2), ".cahvor"))  || 
+        (boost::ends_with(boost::to_lower_copy(cam_file1), ".cmod") &&
+         boost::ends_with(boost::to_lower_copy(cam_file2), ".cmod"))  ) {
 
       CAHVORModel left_cahvor(cam_file1);
       CAHVORModel right_cahvor(cam_file2);
@@ -421,9 +423,10 @@ int main(int argc, char* argv[]) {
     std::cout << "Loading camera models:\n";
     std::cout << "\t" << cam_file1 << "\n\t" << cam_file2 << "\n";
     CAHVModel left_cahv, right_cahv;
-    if (boost::ends_with(boost::to_lower_copy(cam_file1), ".cahvor") &&
-        boost::ends_with(boost::to_lower_copy(cam_file2), ".cahvor")) {
-
+    if ((boost::ends_with(boost::to_lower_copy(cam_file1), ".cahvor") &&
+         boost::ends_with(boost::to_lower_copy(cam_file2), ".cahvor"))  || 
+        (boost::ends_with(boost::to_lower_copy(cam_file1), ".cmod") &&
+         boost::ends_with(boost::to_lower_copy(cam_file2), ".cmod"))  ) {
       CAHVORModel left_cahvor(cam_file1);
       CAHVORModel right_cahvor(cam_file2);
       left_cahv = linearize_camera(left_cahvor, disparity_map.cols(), disparity_map.rows(), disparity_map.cols(), disparity_map.rows());
@@ -485,6 +488,38 @@ int main(int argc, char* argv[]) {
             point_image(i,j) = Vector3();
           }
         }
+      }
+    }
+
+
+    // This hack seems to remove floating junk that I believe is due
+    // to sky correlation.  It should be removed or replaced once this
+    // problem is better understood...  -mbroxton (07-01-18)
+    std::cout << "Removing bad points...\n";
+    for (int j = 0; j < point_image.rows(); j++) {
+      for (int i = 0; i < point_image.cols(); i++) {
+        Vector3 center = point_image(i,j);
+        Vector3 right = edge_extend(point_image)(i+1,j);
+        Vector3 left = edge_extend(point_image)(i-1,j);
+        Vector3 up = edge_extend(point_image)(i,j-1);
+        Vector3 down = edge_extend(point_image)(i,j+1);
+        if (norm_2(right-center) > 0.1) {
+          point_image(i,j) = Vector3();
+         }
+      }
+    }
+
+    std::cout << "Removing bad points...\n";
+    for (int j = 0; j < point_image.rows(); j++) {
+      for (int i = 0; i < point_image.cols(); i++) {
+        Vector3 center = point_image(i,j);
+        Vector3 right = edge_extend(point_image)(i+1,j);
+        Vector3 left = edge_extend(point_image)(i-1,j);
+        Vector3 up = edge_extend(point_image)(i,j-1);
+        Vector3 down = edge_extend(point_image)(i,j+1);
+        if (norm_2(right-center) > 0.1) {
+          point_image(i,j) = Vector3();
+         }
       }
     }
 
