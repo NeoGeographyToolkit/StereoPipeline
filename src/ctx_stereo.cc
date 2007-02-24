@@ -275,16 +275,27 @@ write_ENVI_header(const string& headerName, int width, int height,
   fclose(headerFile);
 }
 
+static bool
+file_is_readable(string filename)
+{
+  ifstream temp_stream(filename.c_str(), ios::in);
+  bool file_readable = temp_stream;
+
+  temp_stream.close();
+
+  return file_readable;
+}
+
 void
-generate_file_names(string &filename1, string &filename2,
+generate_file_names(string &image_filename1, string &image_filename2,
 		    string& metadata_filename1, string& metadata_filename2)
 {
-  metadata_filename1 = filename1;
-  metadata_filename2 = filename2;
+  metadata_filename1 = image_filename1;
+  metadata_filename2 = image_filename2;
 
   // If it's a tiff file we need an associated DDD file for meta data
-  if ((filename1.rfind(".tif") != string::npos) ||
-      (filename1.rfind(".tiff") != string::npos))
+  if ((image_filename1.rfind(".tif") != string::npos) ||
+      (image_filename1.rfind(".tiff") != string::npos))
   {
     int dot_index = metadata_filename1.rfind(".");
     metadata_filename1.erase(dot_index);
@@ -293,28 +304,23 @@ generate_file_names(string &filename1, string &filename2,
     metadata_filename2.erase(dot_index);
     metadata_filename2 += ".ddd";
   }
-  else if (filename1.rfind(".ddd") != string::npos)
+  else if (image_filename1.rfind(".ddd") != string::npos)
   {
-    // If it's a DDD file look for an associated TIFF image file
-    string temp_name = filename1;
-    temp_name.erase(temp_name.rfind("."));
-    temp_name += ".tif";
+    // If it's a DDD file look for an associated TIFF image file. If
+    // the TIFF exists use that as the image, otherwise we use the DDD
+    // file as the image file
+    string tiff_name = image_filename1;
+    tiff_name.erase(tiff_name.rfind("."));
+    tiff_name += ".tif";
+    ifstream temp_stream(tiff_name.c_str(), ios::in);
+    if (file_is_readable(tiff_name))
+      image_filename1 = tiff_name;
 
-    ifstream temp_stream(filename1.c_str(), ios::in);
-    if (temp_stream)			   // file exists
-    {
-      filename1 = temp_name;
-      temp_stream.close();
-    }
-    temp_name = filename2;
-    temp_name.erase(temp_name.rfind("."));
-    temp_name += ".tif";
-    temp_stream.open(temp_name.c_str(), ios::in);
-    if (temp_stream)			   // file exists
-    {
-      filename2 = temp_name;
-      temp_stream.close();
-    }
+    tiff_name = image_filename2;
+    tiff_name.erase(tiff_name.rfind("."));
+    tiff_name += ".tif";
+    if (file_is_readable(tiff_name))
+      image_filename2 = tiff_name;
   }
   else
   {
