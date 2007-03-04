@@ -179,17 +179,6 @@ int main(int argc, char* argv[]) {
       exit(0);
     }
     
-    texture = copy(Limg);
-    
-    if(execute.w_texture) {
-      try{
-        write_image(out_prefix + "-T.jpg", texture);
-      } catch (IOErr &e) {
-        std::cout << e.what() << "\n";
-        std::cout << "\nWARNING: Could not write texture buffer to disk.\n";
-      }
-    }
-    
     // Read Camera Models, removing lens distortion if necessary.
     CAHVModel left_cahv, right_cahv;
     if ((boost::ends_with(boost::to_lower_copy(cam_file1), ".cahvor") &&
@@ -232,7 +221,7 @@ int main(int argc, char* argv[]) {
     }
     
     // Align images using keypoint homography.
-    else if (execute.keypoint_alignment && execute.do_alignment) {
+    else if (execute.do_alignment && execute.keypoint_alignment) {
       std::cout << "\nAligning images using KEYPOINT based automated alignment technique\n";
       Matrix<double> align_matrix = keypoint_align(Rimg, Limg);
       std::cout << "Alignment Matrix:\n" << alignMatrix << "\n";
@@ -261,8 +250,8 @@ int main(int argc, char* argv[]) {
     write_image(out_prefix + "-L.tif", channel_cast<uint8>(Limg*255));
     write_image(out_prefix + "-R.tif", channel_cast<uint8>(Rimg*255));
     
-    // Mask any pixels that are black and 
-    // appear on the edges of the image.
+    // Mask any pixels that are black and appear on the edges of the
+    // image.
     printf("\nGenerating image masks...");
     Lmask = disparity::generate_mask(Limg);
     Rmask = disparity::generate_mask(Rimg);
@@ -354,28 +343,6 @@ int main(int argc, char* argv[]) {
     // Do the NURBS interpolation
     stereo_engine.interpolate(disparity_map);
 
-//     // Smooth the disparity map slightly
-//     disparity_map = crop(disparity_map, 5340,610,20,20);
-//     for (int i = 0; i < disparity_map.cols(); i++) {
-//       for (int j = 0; j < disparity_map.cols(); j++) {
-//         if (disparity_map(i,j).missing() ) { std::cout << "[" << disparity_map(i,j).h() << " " << disparity_map(i,j).v() << "] ";} 
-//         else { std::cout << "[" << disparity_map(i,j).h() << " " << disparity_map(i,j).v() << "] " ;}
-//       }
-//       std::cout << "\n";
-//     }
-
-//     std::cout << "\tSmoothing... " << std::flush;
-//     disparity_map = gaussian_filter(copy(disparity_map), 2.0);
-//     std::cout << "done.\n";
-
-//     for (int i = 0; i < disparity_map.cols(); i++) {
-//       for (int j = 0; j < disparity_map.cols(); j++) {
-//         if (disparity_map(i,j).missing() ) { std::cout << "[" << disparity_map(i,j).h() << " " << disparity_map(i,j).v() << "] ";} 
-//         else { std::cout << "[" << disparity_map(i,j).h() << " " << disparity_map(i,j).v() << "] ";}
-//       }
-//       std::cout << "\n";
-//     }
-    
     // Apply the Mask to the disparity map 
     if(execute.apply_mask){
       printf("\nApplying image mask...");
@@ -440,6 +407,8 @@ int main(int argc, char* argv[]) {
       left_cahv = CAHVModel(cam_file1);
       right_cahv = CAHVModel(cam_file2);
     }
+
+    ImageView<double> error;
         
     // Do epipolar rectification and warp the camera images into epipolar alignment.
     if (execute.do_alignment && execute.epipolar_alignment) {
@@ -449,14 +418,13 @@ int main(int argc, char* argv[]) {
       epipolar(left_cahv, right_cahv, left_epipolar_cahv, right_epipolar_cahv);
 
       StereoModel stereo_model(left_epipolar_cahv, right_epipolar_cahv);
-      ImageView<double> error;
       std::cout << "Generating a 3D point cloud.   \n";
       point_image = stereo_model(disparity_map, error);
       write_image(out_prefix + "-error.png", normalize(error));
     }
 
     // Align images using keypoint homography.
-    if (execute.keypoint_alignment && execute.do_alignment) {
+    if (execute.do_alignment && execute.keypoint_alignment) {
       try {
         read_matrix(alignMatrix, out_prefix + "-align.exr");
       } catch (vw::IOErr &e) {
@@ -471,7 +439,6 @@ int main(int argc, char* argv[]) {
       // Apply the inverse transform to the disparity map 
       StereoModel stereo_model(left_cahv, right_cahv);
       std::cout << "Generating a 3D point cloud.   \n";
-      ImageView<double> error;
       point_image = stereo_model(disparity_map, error);
       write_image(out_prefix + "-error.png", normalize(error));
     }
@@ -481,48 +448,22 @@ int main(int argc, char* argv[]) {
     // replace it with a zero vector, which is the missing pixel value
     // in the point_image.
     if (dft.universe_radius > 0) {
+      int rejected_points = 0, total_points = 0;
       std::cout << "Applying universe radius: " << dft.universe_radius << "\n";
       for (int j = 0; j < point_image.rows(); j++) {
         for (int i = 0; i < point_image.cols(); i++) {
-          if (norm_2(point_image(i,j) - left_cahv.C) > dft.universe_radius) {
-            point_image(i,j) = Vector3();
+          if (point_image(i,j) != Vector3() ) {
+            total_points++;
+            if (norm_2(point_image(i,j) - left_cahv.C) > dft.universe_radius) {
+              point_image(i,j) = Vector3();
+              rejected_points++;
+            }
           }
         }
       }
+      std::cout << "\tRejected " << rejected_points << "/" << total_points << " vertices (" << double(rejected_points)/total_points << "%).\n";
     }
-
-
-    // This hack seems to remove floating junk that I believe is due
-    // to sky correlation.  It should be removed or replaced once this
-    // problem is better understood...  -mbroxton (07-01-18)
-    std::cout << "Removing bad points...\n";
-    for (int j = 0; j < point_image.rows(); j++) {
-      for (int i = 0; i < point_image.cols(); i++) {
-        Vector3 center = point_image(i,j);
-        Vector3 right = edge_extend(point_image)(i+1,j);
-        Vector3 left = edge_extend(point_image)(i-1,j);
-        Vector3 up = edge_extend(point_image)(i,j-1);
-        Vector3 down = edge_extend(point_image)(i,j+1);
-        if (norm_2(right-center) > 0.1) {
-          point_image(i,j) = Vector3();
-         }
-      }
-    }
-
-    std::cout << "Removing bad points...\n";
-    for (int j = 0; j < point_image.rows(); j++) {
-      for (int i = 0; i < point_image.cols(); i++) {
-        Vector3 center = point_image(i,j);
-        Vector3 right = edge_extend(point_image)(i+1,j);
-        Vector3 left = edge_extend(point_image)(i-1,j);
-        Vector3 up = edge_extend(point_image)(i,j-1);
-        Vector3 down = edge_extend(point_image)(i,j+1);
-        if (norm_2(right-center) > 0.1) {
-          point_image(i,j) = Vector3();
-         }
-      }
-    }
-
+    
     // Write out the results to disk
     write_image(out_prefix + "-PC.exr", channels_to_planes(point_image));
   }

@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
   // help, we print an usage message.
   if( vm.count("help") ||
       !vm.count("left-input-image") || !vm.count("right-input-image") || 
-      !vm.count("left-camera-model") || !vm.count("right-camera-model") || 
+
       !vm.count("output-prefix")) {
     std::cout << "\nUsage: stereo [options] <Left_input_image> <Right_input_image> <Left_camera_file> <Right_camera_file> <output_file_prefix>\n"
               << "	the extensions are automaticaly added to the output files\n"
