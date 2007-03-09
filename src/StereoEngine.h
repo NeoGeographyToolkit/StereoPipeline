@@ -130,8 +130,8 @@ public:
       // perform the sign of laplacian of gaussian filter (SLOG) on the images 
       if(do_slog) {
         printf("Applying SLOG filter.\n");
-        vw::ImageView<vw::PixelGray<uint8> > bit_Limg = vw::channel_cast<vw::uint8>(vw::threshold(vw::laplacian_filter(vw::gaussian_filter(Limg,slog_stddev)), 0.0));
-        vw::ImageView<vw::PixelGray<uint8> > bit_Rimg = vw::channel_cast<vw::uint8>(vw::threshold(vw::laplacian_filter(vw::gaussian_filter(Rimg,slog_stddev)), 0.0));
+        vw::ImageView<vw::PixelGray<vw::uint8> > bit_Limg = vw::channel_cast<vw::uint8>(vw::threshold(vw::laplacian_filter(vw::gaussian_filter(Limg,slog_stddev)), 0.0));
+        vw::ImageView<vw::PixelGray<vw::uint8> > bit_Rimg = vw::channel_cast<vw::uint8>(vw::threshold(vw::laplacian_filter(vw::gaussian_filter(Rimg,slog_stddev)), 0.0));
         disparity_map = correlator(bit_Limg, bit_Rimg, true);
       } else if (do_log) {
         printf("Applying LOG filter.\n");
