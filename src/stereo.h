@@ -249,6 +249,7 @@ typedef struct {
 				   T.rgb, S.rgb, M.rgb, A.rgb */
   float dem_spacing;			   // DEM grid spacing
   float dem_planet_radius;		   // Zero elevation planet radius
+  int ENVI_dem_data_type;		   // float = 4, long = 3, etc.
 } DFT_F;			/* default file structure */
 
 typedef struct {
