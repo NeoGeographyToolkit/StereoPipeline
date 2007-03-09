@@ -48,8 +48,8 @@ void disparity_linear_transform(vw::ImageView<vw::PixelDisparity<ImageElemT> > &
 
 
 template <class ViewT>
-vw::Matrix<double> keypoint_align(ImageViewBase<ViewT> const& primary, 
-                                  ImageViewBase<ViewT> const& secondary) {
+vw::Matrix<double> keypoint_align(vw::ImageViewBase<ViewT> const& primary, 
+                                  vw::ImageViewBase<ViewT> const& secondary) {
   
   std::cout << "\nInterest Point Detection\n";
   static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
@@ -74,8 +74,8 @@ vw::Matrix<double> keypoint_align(ImageViewBase<ViewT> const& primary,
 }
 
 template <class ViewT>
-vw::Matrix<double> keypoint_align(ImageViewBase<ViewT> const& primary, 
-                                  ImageViewBase<ViewT> const& secondary,
+vw::Matrix<double> keypoint_align(vw::ImageViewBase<ViewT> const& primary, 
+                                  vw::ImageViewBase<ViewT> const& secondary,
                                   std::vector<InterestPoint> &matched_ip1, 
                                   std::vector<InterestPoint> &matched_ip2) {
   
