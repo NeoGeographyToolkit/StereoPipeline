@@ -41,7 +41,33 @@
 #include <vw/Image/ImageView.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/CameraModel.h>
-using namespace vw;
+
+#define HEIGHT  "height"
+#define WIDTH   "width"
+#define NBR_IMG "nbr_img"
+#define EXTENTION "extention"
+#define PAN_MIN "pan_min"
+#define PAN_MAX "pan_max"
+#define TILT    "tilt"
+#define H_THETA_PIXEL "h_theta_pixel"
+#define V_THETA_PIXEL "h_theta_pixel"
+#define HCF "hcf"
+#define VCF "vcf"
+#define H_FOV "h_fov"
+#define V_FOV "v_fov"
+#define MAX_GRAY  "max_gray" 
+#define FILE_TYPE "file_type"
+#define TYPE "type"
+
+enum ENVI_data_type { ENVI_byte_8bit = 1, ENVI_short_16bit = 2,
+		      ENVI_long_32bit = 3, ENVI_float_32bit = 4,
+		      ENVI_double_64bit = 5, ENVI_complex_float_2x32bit = 6,
+		      ENVI_complex_double_2x64bit = 9,
+		      ENVI_unsigned_short_16bit = 12,
+		      ENVI_unsigned_long_32bit = 13,
+		      ENVI_long_long_64bit = 14,
+		      ENVI_unsigned_long_long_64bit = 15 };
+
 
 // -----------------------------------------------------------------
 // MATRIX I/O
@@ -57,13 +83,13 @@ using namespace vw;
 // image file; this retains the maximal amount of information.
 //
 template <class T>
-void write_matrix(const std::string &filename, Matrix<T> &out_matrix) {
+void write_matrix(const std::string &filename, vw::Matrix<T> &out_matrix) {
   
   // Convert the matrix to an image so that we can write it using
   // write_image().  There is probably a more efficient way to do
   // this, but this is the simple way to do it for now.
   
-  ImageView<T> outImg(out_matrix.cols(), out_matrix.rows(), 1);
+  vw::ImageView<T> outImg(out_matrix.cols(), out_matrix.rows(), 1);
   unsigned int i, j;
   for (i = 0; i < out_matrix.cols(); i++) {
     for (j = 0; j < out_matrix.rows(); j++) {
@@ -79,18 +105,18 @@ void write_matrix(const std::string &filename, Matrix<T> &out_matrix) {
 // image file; this retains the maximal amount of information.
 //
 template <class T>
-void read_matrix(Matrix<T> &in_matrix, const std::string &filename) {
+void read_matrix(vw::Matrix<T> &in_matrix, const std::string &filename) {
   
   // Convert the matrix to an image so that we can write it using
   // write_hdr_image().  There is probably a more effecient way to do
   // this, but this is the simple way to do it for now.
-  ImageView<T> bufferImg;
+  vw::ImageView<T> bufferImg;
   read_image(bufferImg, filename);
   
   VW_ASSERT(bufferImg.planes() == 1,
-	    IOErr() << "ReadMatrix: Image file must be monochromatic (1 plane/channel) to read into a matrix.");
+	    vw::IOErr() << "ReadMatrix: Image file must be monochromatic (1 plane/channel) to read into a matrix.");
   
-  Matrix<T> result(bufferImg.rows(), bufferImg.cols());
+  vw::Matrix<T> result(bufferImg.rows(), bufferImg.cols());
   unsigned int i, j;
   for (i = 0; i < bufferImg.cols(); i++) {
     for (j = 0; j < bufferImg.rows(); j++) {
@@ -111,22 +137,5 @@ void write_orbital_reference_model(std::string filename,
 void	init_dft_struct(DFT_F *dft, TO_DO *todo);
 void	init_header_struct(DFT_F *dft, F_HD *, char *, char *, char *);
 void	read_default_file(DFT_F *df, TO_DO *execute, const char *filename);
-
-#define HEIGHT  "height"
-#define WIDTH   "width"
-#define NBR_IMG "nbr_img"
-#define EXTENTION "extention"
-#define PAN_MIN "pan_min"
-#define PAN_MAX "pan_max"
-#define TILT    "tilt"
-#define H_THETA_PIXEL "h_theta_pixel"
-#define V_THETA_PIXEL "h_theta_pixel"
-#define HCF "hcf"
-#define VCF "vcf"
-#define H_FOV "h_fov"
-#define V_FOV "v_fov"
-#define MAX_GRAY  "max_gray" 
-#define FILE_TYPE "file_type"
-#define TYPE "type"
 
 #endif /* _FILE_LIB_H */
