@@ -19,6 +19,7 @@
 #include <vw/FileIO.h>
 #include <vw/Stereo/StereoModel.h>
 using namespace std; /* C standard library */
+using namespace vw;
 using namespace vw::camera;
 using namespace vw::stereo;
 
@@ -323,6 +324,7 @@ void init_dft_struct(DFT_F *dft, TO_DO *todo) {
   dft->dem_spacing = 3.0;		   // The USGS standard is 3 arc secs
 					   // or 30 meters
   dft->dem_planet_radius = MOLA_PEDR_EQUATORIAL_RADIUS;	   // Nominal Mars polar radius according to the IAU 2000 standard
+  dft->ENVI_dem_data_type = ENVI_float_32bit;
 
   return;
 }
@@ -563,6 +565,7 @@ read_default_file(DFT_F *dft, TO_DO *execute, const char *filename){
 	GET_FLOAT("MESH_TOLERANCE",mesh_tolerance)
 	GET_FLOAT("DEM_SPACING", dem_spacing)
 	GET_FLOAT("DEM_PLANET_RADIUS", dem_planet_radius)
+	GET_INT("ENVI_DEM_DATA_TYPE", ENVI_dem_data_type)
 
 	/* For the TO_DO structure */
 	GET_TO_DO("DO_ALIGNMENT", do_alignment)
