@@ -2313,6 +2313,10 @@ void write_inventor_impl(BUFFER *b, std::string const& filename,
   FILE *outflow;
   int i;
 
+  std::vector<std::string> texture_path_components;
+  boost::split( texture_path_components, texture_filename, boost::is_any_of("/") );
+  std::string relative_texture_path = "./" + texture_path_components[texture_path_components.size()-1];
+
   // open output file 
   if((outflow = fopen (filename.c_str(), "w" )) == 0) {
     fprintf (stderr, "write_inventor: cannot open output file: %s\n", filename.c_str());
@@ -2327,7 +2331,8 @@ void write_inventor_impl(BUFFER *b, std::string const& filename,
   fprintf (outflow, "   Texture2 {\n");
 
   // Grab the end of the full path
-  fprintf (outflow, "  filename \"%s\"\n", texture_filename.c_str());
+  fprintf (outflow, "  filename \"%s\"\n", relative_texture_path.c_str());
+           
   fprintf (outflow, "   }\n");
   // Material Section 
   fprintf (outflow, "Material {\n");
