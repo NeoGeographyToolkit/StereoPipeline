@@ -150,7 +150,8 @@ typedef struct {
   int use_motor_count;	/* use the motor count instead of the MIPL value */
   int out_width;		/* desired image output size */
   int out_height;
-  float universe_radius;  	/* radius of the universe in meters */
+  float near_universe_radius;  	/* radius of the universe in meters */
+  float far_universe_radius;  	/* radius of the universe in meters */
   float ground_plane;   /* elevation of the ground plane rel to the origin */
   int sky_billboard;		// do place everything higher than a
 				// given elev. on billboard

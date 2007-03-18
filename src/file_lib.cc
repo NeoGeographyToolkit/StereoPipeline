@@ -17,11 +17,10 @@
 #include <vw/Core/Exception.h>
 #include <vw/Image/ImageView.h>
 #include <vw/FileIO.h>
-#include <vw/Stereo/StereoModel.h>
+
 using namespace std; /* C standard library */
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::stereo;
 
 void write_orbital_reference_model(std::string filename, 
                                    vw::camera::CameraModel const& cam1, 
@@ -210,7 +209,8 @@ void init_dft_struct(DFT_F *dft, TO_DO *todo) {
 
   dft->out_width = 0;		/* desired image output size */
   dft->out_height = 0;
-  dft->universe_radius = 30.0;  /* radius of outer boundary of universe [m] */
+  dft->near_universe_radius = 0.0;  /* radius of inner boundary of universe [m] */
+  dft->far_universe_radius = 0.0;  /* radius of outer boundary of universe [m] */
   dft->ground_plane = -1.0;  	/* radius of outer boundary of universe [m] */
   dft->sky_billboard_elevation = 3.0; // Angle (deg.) above which to
 				      // place everything on billboard
@@ -494,7 +494,8 @@ read_default_file(DFT_F *dft, TO_DO *execute, const char *filename){
 	GET_FLOAT_SCALED("V_THETA_R_PIXEL", v_theta_Rpixel, /1000.0)
 	GET_FLOAT_SCALED("L_TOE_IN_0", toe_l, /1000.0)
 	GET_FLOAT_SCALED("R_TOE_IN_0", toe_r, /1000.0)
-	GET_FLOAT("UNIVERSE_RADIUS", universe_radius)
+	GET_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius)
+	GET_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius)
 	GET_FLOAT("SKY_BILLBOARD_ELEVATION", sky_billboard_elevation)
 	GET_INT("SKY_BRIGHTNESS_THRESHOLD", sky_brightness_threshold)
 
