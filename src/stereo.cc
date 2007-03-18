@@ -12,20 +12,20 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/filesystem/fstream.hpp>
+using namespace boost;
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
-#include <vw/Core/Debugging.h>
-#include <vw/Image/ImageView.h>
-#include <vw/Image/PixelTypes.h>
+#include <vw/Core.h>
+#include <vw/Image.h>
 #include <vw/FileIO.h>
-#include <vw/Image/Filter.h>
-#include <vw/Core/Exception.h>
-#include <vw/Image/Transform.h>
-#include <vw/Camera/CameraModel.h>
-#include <vw/Camera/CAHVModel.h>
-#include <vw/Camera/CAHVORModel.h>
-#include <vw/Camera/CameraTransform.h>
-#include <vw/Stereo/DisparityMap.h>
-#include <vw/Stereo/StereoModel.h>
+#include <vw/Camera.h>
+#include <vw/Stereo.h>
+#include <vw/Cartography.h>
+using namespace vw;
+using namespace vw::camera;
+using namespace vw::stereo;
+using namespace vw::cartography;
 
 #include "stereo.h"
 #include "file_lib.h"
@@ -35,17 +35,9 @@
 #include "StereoEngine.h"
 #include "OrthoRasterizer.h"
 
-using namespace boost;
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
-using namespace vw;
-using namespace vw::camera;
-using namespace vw::stereo;
-using namespace vw::cartography;
 using namespace std;
 
 // The stereo pipeline has several stages, which are enumerated below.
-
 enum { PREPROCESSING = 0, 
        CORRELATION, 
        FILTERING, 
@@ -447,22 +439,22 @@ int main(int argc, char* argv[]) {
     // greater than the universe radius, we remove that pixel and
     // replace it with a zero vector, which is the missing pixel value
     // in the point_image.
-    if (dft.universe_radius > 0) {
-      int rejected_points = 0, total_points = 0;
-      std::cout << "Applying universe radius: " << dft.universe_radius << "\n";
-      for (int j = 0; j < point_image.rows(); j++) {
-        for (int i = 0; i < point_image.cols(); i++) {
-          if (point_image(i,j) != Vector3() ) {
-            total_points++;
-            if (norm_2(point_image(i,j) - left_cahv.C) > dft.universe_radius) {
-              point_image(i,j) = Vector3();
-              rejected_points++;
-            }
+    int rejected_points = 0, total_points = 0;
+    std::cout << "Applying universe radius -- Near: " << dft.near_universe_radius << "   Far: " << dft.far_universe_radius << "\n";
+    for (int j = 0; j < point_image.rows(); j++) {
+      for (int i = 0; i < point_image.cols(); i++) {
+        if (point_image(i,j) != Vector3() ) {
+          total_points++;
+          double dist = norm_2(point_image(i,j) - left_cahv.C);
+          if ((dft.near_universe_radius !=0 && dist < dft.near_universe_radius) || 
+               (dft.far_universe_radius != 0 && dist > dft.far_universe_radius)) {
+            point_image(i,j) = Vector3();
+            rejected_points++;
           }
         }
       }
-      std::cout << "\tRejected " << rejected_points << "/" << total_points << " vertices (" << double(rejected_points)/total_points << "%).\n";
     }
+    std::cout << "\tRejected " << rejected_points << "/" << total_points << " vertices (" << double(rejected_points)/total_points*100 << "%).\n";
     
     // Write out the results to disk
     write_image(out_prefix + "-PC.exr", channels_to_planes(point_image));
@@ -526,9 +518,10 @@ int main(int argc, char* argv[]) {
       // as georeferenced files.
       ImageView<double> dem_texture = vw::select_channel(point_image, 2);
       vw::cartography::OrthoRasterizer<Vector3> rasterizer(point_image);
+      rasterizer.set_dem_spacing(dft.dem_spacing);
       rasterizer.use_minz_as_default = false;
-      rasterizer.set_default_value(0);
-      ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(point_image, 2));
+      rasterizer.set_default_value(0);    
+      ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(point_image, 2));    
       write_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
       // Create a DEM with alpha
@@ -544,10 +537,21 @@ int main(int argc, char* argv[]) {
       }
       write_image(out_prefix + "-DEM.tif", ortho_alpha_image);
 
+
+      // Work in progress - mbroxton (07-03-08)
+//       ImageView<PixelGrayA<float> > nurbs_output = MBASurfaceNURBS(ortho_alpha_image, 9);
+//       for (int j = 0; j < ortho_image.rows(); ++j) {
+//         for (int i = 0; i < ortho_image.cols(); ++i) {
+//           if (ortho_alpha_image(i,j).a() != 0) {
+//             std::cout << "D";
+//             ortho_alpha_image(i,j) = PixelGrayA<float>(nurbs_output(i,j).v(), 1.0);
+//           }
+//         }
+//       }
+//       write_image(out_prefix + "-DEM-nurbs.tif", ortho_alpha_image);
+
+
       // Write out a georeferenced orthoimage of the DTM with alpha.
-      rasterizer.set_dem_spacing(dft.dem_spacing);
-      rasterizer.use_minz_as_default = false;
-      rasterizer.set_default_value(0);
       ortho_image = rasterizer(select_channel(texture, 0));
       //      write_image(out_prefix + "-DRG-no-alpha.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
 
@@ -557,12 +561,11 @@ int main(int argc, char* argv[]) {
           if (ortho_image(i,j) == 0) {
             drg_ortho_alpha_image(i,j) = PixelGrayA<uint8>();
           } else {
-            drg_ortho_alpha_image(i,j) = PixelGrayA<uint8>(uint8(ortho_image(i,j)*255),255);
+            drg_ortho_alpha_image(i,j) = PixelGrayA<uint8>(channel_cast_rescale<uint8>(ortho_image(i,j)),255);
           }
         }
       }
       write_image(out_prefix + "-DRG.tif", drg_ortho_alpha_image);
-
 
       // Write out the offset files
       BBox<float,3> dem_bbox = rasterizer.bounding_box();
