@@ -98,40 +98,46 @@ public:
     buffers.dot = NULL;
   }
 
-  void build_adaptive_mesh(vw::ImageView<vw::Vector3> const& point_image, double mesh_tolerance, int max_triangles) {
+  template <class ViewT>
+  void build_adaptive_mesh(vw::ImageViewBase<ViewT> const& point_image, double mesh_tolerance, int max_triangles) {
+    const ViewT& point_image_impl = point_image.impl();
+
     this->reset();
 
-    buffers.dot = new POS3D[point_image.cols() * point_image.rows()];
+    buffers.dot = new POS3D[point_image_impl.cols() * point_image_impl.rows()];
 
-    for (int j = 0; j < point_image.rows(); j++) {
-      for (int i = 0; i < point_image.cols(); i++) {
-        buffers.dot[i + (j * point_image.cols())].x = point_image(i,j)[0];
-        buffers.dot[i + (j * point_image.cols())].y = point_image(i,j)[1];
-        buffers.dot[i + (j * point_image.cols())].z = point_image(i,j)[2];	       
+    for (int j = 0; j < point_image_impl.rows(); j++) {
+      for (int i = 0; i < point_image_impl.cols(); i++) {
+        buffers.dot[i + (j * point_image_impl.cols())].x = point_image_impl.impl()(i,j)[0];
+        buffers.dot[i + (j * point_image_impl.cols())].y = point_image_impl.impl()(i,j)[1];
+        buffers.dot[i + (j * point_image_impl.cols())].z = point_image_impl.impl()(i,j)[2];	       
       }
     }
 
     dot_to_adaptative_mesh(&buffers,
-                           point_image.cols(), point_image.rows(),
+                           point_image_impl.cols(), point_image_impl.rows(),
                            mesh_tolerance, max_triangles);
 
   }
 
-  void build_simple_mesh(vw::ImageView<vw::Vector3> const& point_image, int h_step, int v_step) {
+  template <class ViewT>
+  void build_simple_mesh(vw::ImageViewBase<ViewT> const& point_image, int h_step, int v_step) {
+    const ViewT& point_image_impl = point_image.impl();
+ 
     this->reset();
 
-    buffers.dot = new POS3D[point_image.cols() * point_image.rows()];
+    buffers.dot = new POS3D[point_image_impl.cols() * point_image_impl.rows()];
 
-    for (int j = 0; j < point_image.rows(); j++) {
-      for (int i = 0; i < point_image.cols(); i++) {
-        buffers.dot[i + (j * point_image.cols())].x = point_image(i,j)[0];
-        buffers.dot[i + (j * point_image.cols())].y = point_image(i,j)[1];
-        buffers.dot[i + (j * point_image.cols())].z = point_image(i,j)[2];	       
+    for (int j = 0; j < point_image_impl.rows(); j++) {
+      for (int i = 0; i < point_image_impl.cols(); i++) {
+        buffers.dot[i + (j * point_image_impl.cols())].x = point_image_impl(i,j)[0];
+        buffers.dot[i + (j * point_image_impl.cols())].y = point_image_impl(i,j)[1];
+        buffers.dot[i + (j * point_image_impl.cols())].z = point_image_impl(i,j)[2];	       
       }
     }
 
     dot_to_mesh(&buffers, 
-                point_image.cols(), point_image.rows(), 
+                point_image_impl.cols(), point_image_impl.rows(), 
                 h_step, v_step );
 
 

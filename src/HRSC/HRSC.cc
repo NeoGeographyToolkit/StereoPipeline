@@ -3,6 +3,7 @@
 #include "HRSC/ExtoriExtrinsics.h"
 #include <fstream>
 #include <vw/Core/Exception.h>
+#include <vw/Math/EulerAngles.h>
 
 using namespace vw::camera;
 
@@ -146,92 +147,28 @@ void HRSCImageMetadata::read_ephemeris_supplement(std::string const& filename) {
   }
 }
 
+// This is test code for comprehending the extori angles.  It should be deleted. -mbroxton
 
-// Return the rotation matrix for the rotation about the x-axis
-vw::Matrix<double,3,3> rotation_x_axis(double theta) {
-  vw::Matrix<double,3,3> e;
-  e.set_identity();
-  e(1,1) = cos(theta);
-  e(1,2) = -sin(theta);
-  e(2,1) = sin(theta);
-  e(2,2) = cos(theta);  
-  return e;
-}
+//   // This additional rotation takes us from the extori "spacecraft"
+//   // frame to the more familiar spice HRSC instrument frame.
+//   vw::Matrix<double,3,3> hack;
+//   hack(0,0) = 0; hack(0,1) = 1.0; hack(0,2) = 0;
+//   hack(1,0) = 1; hack(1,1) = 0.0; hack(1,2) = 0;
+//   hack(2,0) = 0; hack(2,1) = 0; hack(2,2) = -1;
 
-// Return the rotation matrix for the rotation about the x-axis
-vw::Matrix<double,3,3> rotation_y_axis(double theta) {
-  vw::Matrix<double,3,3> e;
-  e.set_identity();
-  e(0,0) = cos(theta);
-  e(0,2) = sin(theta);
-  e(2,0) = -sin(theta);
-  e(2,2) = cos(theta);
-  return e;
-}
-
-// Return the rotation matrix for the rotation about the x-axis
-vw::Matrix<double,3,3> rotation_z_axis(double theta) {
-  vw::Matrix<double,3,3> e;
-  e.set_identity();
-  e(0,0) = cos(theta);
-  e(0,1) = -sin(theta);
-  e(1,0) = sin(theta);
-  e(1,1) = cos(theta);
-  return e;
-}
-
-vw::Matrix<double,3,3> euler_rotation_helper(double theta, const char axis) {
-  if (axis == 'X' || axis == 'x') 
-    return rotation_x_axis(theta);
-  else if (axis == 'Y' || axis == 'y') 
-    return rotation_y_axis(theta);
-  else if (axis == 'Z' || axis == 'z') 
-    return rotation_z_axis(theta);
-  else 
-    throw vw::ArgumentErr() << "euler_to_quaternion(): unknown axis \"" << axis << "\"\n";
-}
-
-/// Creates a quaternion that represents the same rotation as the
-/// sequence of euler angles, [phi, theta, psi].  The euler angles are
-/// defined according to the convention specified in variable
-/// 'sequence'.  Sequence can contain any combination of 'x', 'y', and
-/// 'z' (though the sequence must be three characters long) that
-/// defines the axes of rotation for phi, theta, and psi respectively.
-/// For example, a sequence of "XYX" would create a rotation of phi
-/// degrees around the axis, theta degrees around the new y axis, and
-/// psi degrees around the new x axis.
-vw::Quaternion<double> euler_to_quaternion(double phi, double omega, double kappa, std::string const& sequence, std::string const& scanline) {
-
-  VW_ASSERT(sequence.size() == 3,
-            vw::ArgumentErr() << "euler_to_quaternion: rotation sequence must be a three character sequence composed of \'x\', \'y\', and \'z\'.");
-  
-  vw::Matrix<double,3,3> e_phi = euler_rotation_helper(phi, sequence[0]);
-  vw::Matrix<double,3,3> e_omega = euler_rotation_helper(omega, sequence[1]);
-  vw::Matrix<double,3,3> e_kappa = euler_rotation_helper(kappa, sequence[2]);
-
-  // This additional rotation takes us from the extori "spacecraft"
-  // frame to the more familiar spice HRSC instrument frame.
-  vw::Matrix<double,3,3> hack;
-  hack(0,0) = 0; hack(0,1) = 1.0; hack(0,2) = 0;
-  hack(1,0) = 1; hack(1,1) = 0.0; hack(1,2) = 0;
-  hack(2,0) = 0; hack(2,1) = 0; hack(2,2) = -1;
-
-  // Here we incorporate the rotation for individual HRSC scanlines.
-  vw::Matrix<double,3,3> scanline_phi, scanline_omega;
-  if (scanline == "S1") {
-    scanline_phi = rotation_z_axis(0.0205*M_PI/180.0);
-    scanline_omega = rotation_x_axis(18.9414*M_PI/180.0);
-  } else if (scanline == "S2") {
-    scanline_phi = rotation_z_axis(0.0270*M_PI/180.0);
-    scanline_omega = rotation_x_axis(-18.9351*M_PI/180.0);
-  } else {
-    throw vw::ArgumentErr() << "euler_to_quaternion(): unsupported scanline name.";
-  }
-  vw::Matrix<double,3,3> scanline_rotation = transpose(scanline_omega);
-  vw::Matrix<double,3,3> instrumenthead_rotation = transpose(rotation_x_axis(-0.3340*M_PI/180.0) * rotation_y_axis(0.0101*M_PI/180.0));
-  vw::Matrix<double,3,3> rotation_matrix = e_phi*e_omega*e_kappa;
-  return vw::Quaternion<double>(transpose(rotation_matrix));
-}
+//   // Here we incorporate the rotation for individual HRSC scanlines.
+//   vw::Matrix<double,3,3> scanline_phi, scanline_omega;
+//   if (scanline == "S1") {
+//     scanline_phi = rotation_z_axis(0.0205*M_PI/180.0);
+//     scanline_omega = rotation_x_axis(18.9414*M_PI/180.0);
+//   } else if (scanline == "S2") {
+//     scanline_phi = rotation_z_axis(0.0270*M_PI/180.0);
+//     scanline_omega = rotation_x_axis(-18.9351*M_PI/180.0);
+//   } else {
+//     throw vw::ArgumentErr() << "euler_to_quaternion(): unsupported scanline name.";
+//   }
+//   vw::Matrix<double,3,3> scanline_rotation = transpose(scanline_omega);
+//   vw::Matrix<double,3,3> instrumenthead_rotation = transpose(rotation_x_axis(-0.3340*M_PI/180.0) * rotation_y_axis(0.0101*M_PI/180.0));
 
 /// Read the line times from an HRSC metadata file
 void HRSCImageMetadata::read_extori_file(std::string const& filename, std::string const& scanline) {
@@ -256,6 +193,17 @@ void HRSCImageMetadata::read_extori_file(std::string const& filename, std::strin
       infile.getline(dummy, 256);
     }
 
+    // Build up the fixed rotation from "extori frame" to the frame for this HRSC scanline.
+    vw::math::Quaternion<double> extori_to_mex_spacecraft = vw::math::euler_to_quaternion(M_PI, M_PI/2, 0, "XZX");
+    vw::math::Quaternion<double> mex_spacecraft_to_hrsc_head = vw::math::euler_to_quaternion(-0.3340*M_PI/180.0, 0.0101*M_PI/180.0, 0, "XYZ");
+    vw::math::Quaternion<double> hrsc_head_to_hrsc_scanline;
+    if (scanline == "S1") {
+      hrsc_head_to_hrsc_scanline = vw::math::euler_to_quaternion(0.0205*M_PI/180.0, 18.9414*M_PI/180.0, 0, "ZXZ");
+    } else if (scanline == "S2") {
+      hrsc_head_to_hrsc_scanline = vw::math::euler_to_quaternion(0.0270*M_PI/180.0, -18.9351*M_PI/180.0, 0, "ZXZ");
+    }      
+    vw::math::Quaternion<double> rotation_correction = hrsc_head_to_hrsc_scanline*mex_spacecraft_to_hrsc_head*extori_to_mex_spacecraft;
+
     // Read the actual data
     //
     // The extori file contains euler angles phi, omega, kappa, which
@@ -264,7 +212,7 @@ void HRSCImageMetadata::read_extori_file(std::string const& filename, std::strin
     while (infile >> sclk_time >> position(0) >> position(1) >> position(2) >> phi >> omega >> kappa ) {
       m_extori_ephem_times.push_back(sclk_time);
       m_extori_ephem.push_back(position);
-      m_extori_quat.push_back(euler_to_quaternion(phi*M_PI/180.0, omega*M_PI/180.0, kappa*M_PI/180.0, "YXZ", scanline));
+      m_extori_quat.push_back(rotation_correction*vw::math::euler_to_quaternion(-phi*360/400*M_PI/180.0, -omega*360/400*M_PI/180.0, -kappa*360/400*M_PI/180.0, "YXZ"));
     }
   } else { 
     throw vw::IOErr() << "read_extori_file(): could not open file \"" << filename << "\"\n";

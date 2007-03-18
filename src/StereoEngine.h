@@ -111,10 +111,10 @@ public:
                                                        slog_stddev,
                                                        true, true);  // subpixel both vert/horz
       correlator.set_min_dimension(512); // Hard coded to a reasonable value for now
-      MultiresCorrelatorNURBSHoleFiller nurbs_hole_filler(nurbs_iterations);
 
       // This doesn't work as well as I had hoped.  Maybe more
       // debugging is in order? -mbroxton
+      //      MultiresCorrelatorNURBSHoleFiller nurbs_hole_filler(nurbs_iterations);
       //       correlator.set_hole_filler(&nurbs_hole_filler);
       //       correlator.set_debug_mode("test/test");
       disparity_map = correlator(Limg, Rimg);

@@ -34,14 +34,13 @@ using namespace boost;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-#include <vw/Core/Debugging.h>
+#include <vw/Core.h>
 #include <vw/Image.h>
-#include <vw/Core/Exception.h>
+#include <vw/Math.h>
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
 #include <vw/Cartography.h>
-#include <vw/Math/NelderMead.h>
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::stereo;
@@ -63,11 +62,9 @@ using namespace vw::stereo;
 
 #include <vector> 
 #include <string>
-#include <algorithm>
 using namespace std;
 
 // The stereo pipeline has several stages, which are enumerated below.
-
 enum { PREPROCESSING = 0, 
        CORRELATION, 
        FILTERING, 
@@ -93,12 +90,11 @@ int main(int argc, char* argv[]) {
   ImageView<PixelGray<float> > Limg, Rimg;
   ImageView<PixelGray<float> > texture;
   ImageView<PixelDisparity<float> > disparity_map;
-  ImageView<bool> Lmask, Rmask;
   ImageView<Vector3> point_image;  
   Matrix<double> align_matrix;
   
   // Set the Vision Workbench debug level
-  set_debug_level(InfoMessage);
+  set_debug_level(InfoMessage+1);
 
   /*************************************/
   /* Parsing of command line arguments */
@@ -110,7 +106,7 @@ int main(int argc, char* argv[]) {
   int entry_point;
   std::string stereo_default_filename;
   std::string description_tab_filename;
-  std::string in_file1, in_file2, cam_file1, cam_file2;
+  std::string in_file1, in_file2;
   std::string out_prefix;
 
   po::options_description visible_options("Options");
@@ -118,20 +114,17 @@ int main(int argc, char* argv[]) {
     ("help,h", "Display this help message")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("description-file,d", po::value<std::string>(&description_tab_filename)->default_value("./description.tab"), "Explicitly specify the tabulated description file to use.")
-    ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)");
+    ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
+    ("multiresolution,m", "Use the prototype multiresolution correlator instead of the old area-based correlator");
 
   po::options_description positional_options("Positional Options");
   positional_options.add_options()
     ("left-input-image", po::value<std::string>(&in_file1), "Left Input Image")
     ("right-input-image", po::value<std::string>(&in_file2), "Right Input Image")
-    ("left-camera-model", po::value<std::string>(&cam_file1), "Left Camera Model File")
-    ("right-camera-model", po::value<std::string>(&cam_file2), "Right Camera Model File")
     ("output-prefix", po::value<std::string>(&out_prefix), "Prefix for output filenames");
   po::positional_options_description positional_options_desc;
   positional_options_desc.add("left-input-image", 1);
   positional_options_desc.add("right-input-image", 1);
-  positional_options_desc.add("left-camera-model", 1);
-  positional_options_desc.add("right-camera-model", 1);
   positional_options_desc.add("output-prefix", 1);
 
   po::options_description all_options;
@@ -145,7 +138,6 @@ int main(int argc, char* argv[]) {
   // help, we print an usage message.
   if( vm.count("help") ||
       !vm.count("left-input-image") || !vm.count("right-input-image") || 
-
       !vm.count("output-prefix")) {
     std::cout << "\nUsage: stereo [options] <Left_input_image> <Right_input_image> <Left_camera_file> <Right_camera_file> <output_file_prefix>\n"
               << "	the extensions are automaticaly added to the output files\n"
@@ -175,6 +167,7 @@ int main(int argc, char* argv[]) {
   stereo_engine.kernel_width = dft.h_kern;
   stereo_engine.kernel_height = dft.v_kern;
   stereo_engine.cross_correlation_threshold = dft.xcorr_treshold;
+  stereo_engine.use_multiresolution_correlator = (vm.count("multiresolution")>0);
   
   stereo_engine.do_slog = execute.slog;
   stereo_engine.do_log = execute.log;
@@ -189,182 +182,123 @@ int main(int argc, char* argv[]) {
   stereo_engine.do_nurbs_hole_filling = execute.fill_holes_NURBS;
   stereo_engine.nurbs_iterations = 10;
   
+  // Build the input prefix path by removing the filename suffix
+  std::string in_prefix1 = prefix_from_filename(in_file1);
+  std::string in_prefix2 = prefix_from_filename(in_file2);
+  
+  MOCImageMetadata moc_metadata_1(in_file1);
+  MOCImageMetadata moc_metadata_2(in_file2);
+  
+  // Read in the tabulated description entry
+  std::cout << "Attempting to read data from " << description_tab_filename << ".\n";
+  moc_metadata_1.read_tabulated_description(description_tab_filename);
+  moc_metadata_2.read_tabulated_description(description_tab_filename);
+  moc_metadata_1.write_viz_site_frame(out_prefix);
+  
+  try {
+    cout << "Attempting to read MOC telemetry from supplementary ephemeris files... " << flush;
+    moc_metadata_1.read_ephemeris_supplement(in_prefix1 + ".sup");
+    moc_metadata_2.read_ephemeris_supplement(in_prefix2 + ".sup");
+  } catch (EphemerisErr &e) {
+    cout << "Failed to open the supplementary ephemeris file:\n\t";
+    cout << e.what() << "\n";
+    cout << "\tWarning: Proceeding without supplementary ephemeris information.\n";
+  }
+  
+  // If the spice kernels are available, try to use them directly to
+  // read in MOC telemetry.  
+  try {
+    cout << "Attempting to read MOC telemetry from SPICE kernels... " << flush;
+    load_moc_kernels();
+    moc_metadata_1.read_spice_data();
+    moc_metadata_2.read_spice_data();
+    cout << "success.\n";
+  } catch (spice::SpiceErr &e) {
+    cout << "Warning: an error occurred when reading SPICE information.  Falling back to *.sup files\n";
+  }
+
   /*********************************************************************************/
   /*                            preprocessing step                                 */
   /*********************************************************************************/
   if (entry_point <= PREPROCESSING) {
-    // Read the input files 
-    try {
-      cout << "\nLoading image " << in_file1 << " as primary image:\n";
-      read_image(Limg, in_file1);
-      cout << "\nLoading image " << in_file2 << " as secondary image:\n";
-      read_image(Rimg, in_file2);
-      cout << endl;
-    } catch (IOErr& e) { 
-      cout << e.what() << "\n";
-      cout << "\n Could not read one or more input files. Exiting.\n\n";
-      exit(0);
-    }
 
-    // Normalize the images, stretching the contrast if necessary.
-    Limg = normalize(copy(Limg));
-    Rimg = normalize(copy(Rimg));
-    write_image(out_prefix + "-input-L.tif", channel_cast_rescale<uint8>(Limg));
-    write_image(out_prefix + "-input-R.tif", channel_cast_rescale<uint8>(Rimg));
-
-    texture = vw::copy(Limg);
-    
-    if(execute.w_texture) {
-      try{
-        write_image(out_prefix + "-T.jpg", texture);
-      } catch (vw::IOErr &e) {
-        cout << e.what() << "\n";
-        cout << "\nWARNING: Could not write texture buffer to disk.\n";
-      }
-    }
-
-    /*******************************************
-     * Read description.tab file ( if available)
-     *******************************************/ 
-    
-    MOCImageMetadata moc_metadata_1(in_file1);
-    MOCImageMetadata moc_metadata_2(in_file2);
-
-    // Read in the tabulated description entry
-    std::cout << "Attempting to read data from " << description_tab_filename << ".\n";
-    moc_metadata_1.read_tabulated_description(description_tab_filename);
-    moc_metadata_2.read_tabulated_description(description_tab_filename);
-    moc_metadata_1.write_viz_site_frame(out_prefix);
-
-    try {
-      cout << "Attempting to read MOC telemetry from supplementary ephemeris files... " << flush;
-      moc_metadata_1.read_ephemeris_supplement(cam_file1);
-      moc_metadata_2.read_ephemeris_supplement(cam_file2);
-    } catch (EphemerisErr &e) {
-      cout << "Failed to open the supplementary ephemeris file:\n\t";
-      cout << e.what() << "\n";
-      cout << "\tWarning: Proceeding without supplementary ephemeris information.\n";
-    }
-    
-    // If the spice kernels are available, try to use them directly to
-    // read in MOC telemetry.  
-    try {
-      cout << "Attempting to read MOC telemetry from SPICE kernels... " << flush;
-      load_moc_kernels();
-      moc_metadata_1.read_spice_data();
-      moc_metadata_2.read_spice_data();
-      cout << "success.\n";
-    } catch (spice::SpiceErr &e) {
-      cout << "Warning: an error occurred when reading SPICE information.  Falling back to *.sup files\n";
-    }
-
+    // Load the two images
+    cout << "Opening image " << in_file1 << " as primary image.\n";
+    DiskImageView<PixelGray<float> > left_disk_image(in_file1);
+    cout << "Opening image " << in_file2 << " as secondary image.\n";
+    DiskImageView<PixelGray<float> > right_disk_image(in_file2);
+    cout << endl;
 
     // Image Alignment
-    cout << "\nPerforming image alignment.\n";
-    ImageView<PixelGray<float> > adj_image, fully_adj_image;
+    //
+    // Images are aligned by computing interest points, matching
+    // them using a standard 2-Norm nearest-neighor metric, and then
+    // rejecting outliers by fitting a similarity between the
+    // putative matches using RANSAC.
     
-    // Align images using keypoint homography.
-    if (execute.keypoint_alignment && execute.do_alignment) {
-      cout << "\nAligning images using KEYPOINT based automated alignment technique\n";
-      align_matrix = keypoint_align(Rimg, Limg);
-      write_matrix(out_prefix + "-align.exr", align_matrix);
-      fully_adj_image = transform(Rimg, HomographyTransform(align_matrix),
-                                  Limg.cols(), Limg.rows());
-      Rimg = fully_adj_image;
-      
-    // Align images using ephemeris data 
-    } else if (execute.ephemeris_alignment && execute.do_alignment) {
-      cout << "\nERROR: MOC Ephemeris based image alignment is currently disabled. -mbroxton\n\n";
-      exit(1);
-      //      try {
-//         cout << "\nAligning images using EPHEMERIS based automated alignment technique\n";
-//         align_matrix = MOCImageAlign(Limg, Rimg, adj_image, fully_adj_image,
-//                                     moc_metadata_1, moc_metadata_2,
-//                                     dft.ephem_align_kernel_x, dft.ephem_align_kernel_y,
-//                                     dft.ephem_align_kernel_width, dft.ephem_align_kernel_height,
-//                                     out_prefix);
-//       } catch (MOCEphemerisErr &e) {
-//         cout << "Could not perform ephemeris-based alignment.\n\t";
-//         cout << e.what() << "\n";
-//         ExitFailure("\nExiting.\n\n");
-//       }
-//       Rimg = fully_adj_image;
-//       write_matrix(out_prefix + "-align.exr", align_matrix);
+    // Interest points are matched in image chunk of <= 2048x2048
+    // pixels to conserve memory.
+    std::cout << "\nInterest Point Detection\n";
+    static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
+    std::vector<InterestPoint> ip1 = interest_points(left_disk_image, LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+    std::vector<InterestPoint> ip2 = interest_points(right_disk_image, LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+    
+    // The basic interest point matcher does not impose any
+    // constraints on the matched interest points.
+    std::cout << "\nInterest Point Matching\n";
+    InterestPointMatcher<L2NormMetric,NullConstraint> matcher;
+    std::vector<InterestPoint> matched_ip1, matched_ip2;
+    matcher.match(ip1, ip2, matched_ip1, matched_ip2);
+    std::cout << "Found " << matched_ip1.size() << " putative matches.\n";
+    
+    // RANSAC is used to fit a similarity transform between the
+    // matched sets of points
+    align_matrix = ransac(matched_ip2, matched_ip1, 
+                          vw::math::SimilarityFittingFunctor(),
+                          KeypointErrorMetric());
+    write_matrix(out_prefix + "-align.exr", align_matrix);
+    ImageView<PixelGray<float> > aligned_right_image = 
+      transform(right_disk_image, HomographyTransform(align_matrix), 
+                left_disk_image.cols(), left_disk_image.rows());
+    write_image(out_prefix + "-R.png", channel_cast_rescale<uint8>(normalize(aligned_right_image)));
+    write_image(out_prefix + "-L.png", channel_cast_rescale<uint8>(normalize(left_disk_image)));
+    if(execute.w_texture) 
+      write_image(out_prefix + "-T.jpg", channel_cast_rescale<uint8>(normalize(left_disk_image)));
 
-    // Fall back on trying to read the alignment matrix manually.  
-    } else if (execute.do_alignment) {      
-      cout << "No automated technique for image registration has been selected.\n" <<
-              "Attempting to find alignment transform in " << "align.exr.\n";
-      try {
-        read_matrix(align_matrix, "align.exr");
-        cout << "Alignment Matrix:\n";
-        cout << align_matrix << endl;
-        
-        // Take the transformation and apply it now to the 
-        // original secondary image.
-        vw::Matrix<double> invH = vw::math::inverse(align_matrix);
-        fully_adj_image = vw::transform(Rimg, HomographyTransform(invH), Limg.cols(), Limg.rows()); 
-        Rimg = fully_adj_image;
-        
-      } catch (IOErr&) { 
-        cout << "\n\nFailed to open alignment file.  Could not align images.\n";
-        cout << "\nExiting.\n\n";
-        exit(1);
-      }  
-    }
-
-    // Write the alignment matrix and aligned images to files
-    write_image(out_prefix + "-L.tif", channel_cast<uint8>(Limg*255));
-    write_image(out_prefix + "-R.tif", channel_cast<uint8>(Rimg*255));
-   
     // Mask any pixels that are black and 
     // appear on the edges of the image.
-    cout << "\nGenerating image masks...";
-    Lmask = disparity::generate_mask(Limg);
-    Rmask = disparity::generate_mask(Rimg);
-    printf("Done.\n");
     if(execute.w_mask) {  
-      write_mask(Lmask, out_prefix + "-lMask.png");
-      write_mask(Rmask, out_prefix + "-rMask.png");
+      cout << "\nGenerating image masks...";
+      int mask_buffer = std::max(dft.h_kern, dft.v_kern);
+
+      ImageView<bool> mask = disparity::generate_mask(left_disk_image, mask_buffer);
+      write_mask(mask, out_prefix + "-lMask.png");
+      mask = disparity::generate_mask(aligned_right_image, mask_buffer);
+      write_mask(mask, out_prefix + "-rMask.png");
+      printf("Done.\n");
     }
   }
-   
+
   /*********************************************************************************/
   /*                            correlation step                                   */
   /*********************************************************************************/
   if( entry_point <= CORRELATION ) {
+    if (entry_point == CORRELATION)
+      cout << "\nStarting at the CORRELATION stage.\n";
     
-    /* 
-     * If we are jump-starting the code in the post-correlation phase,
-     * we must initialize the disparity map object here with the 
-     * twe files that were supplied at the command line.  Right now
-     * this is purely for debugging.
-     */
-    if (entry_point == CORRELATION) {
-      try {
-        cout << "\nStarting at the CORRELATION stage.\n";
-        cout << "\nLoading image " << out_prefix + "-L.tif" << " as primary image:\n";
-        read_image(Limg, out_prefix + "-L.tif");
-        cout << "\nLoading image " << out_prefix + "-R.tif" << " as secondary image:\n";
-        read_image(Rimg, out_prefix + "-R.tif");
-        cout << "\nLoading image " << out_prefix + "-T.jpg" << " as texture image:\n";
-        read_image(texture, out_prefix + "-T.jpg");  
-        Lmask = read_mask(out_prefix + "-lMask.png");
-        Rmask = read_mask(out_prefix + "-rMask.png");
-        cout << endl;
-      } catch (IOErr&) { 
-        cout << "\n Unable to start code at the correlation stage.  Could not read input files. Exiting.\n\n";
-        exit(0);
-      }
-    }
+    // Load the images necessary for this stage
+    DiskImageView<PixelGray<float> > left_disk_image(out_prefix + "-L.png");
+    DiskImageView<PixelGray<float> > right_disk_image(out_prefix + "-R.png");
 
     // Call the stereo engine to perform the correlation
     std::cout << "\n" << stereo_engine << "\n";
-    disparity_map = stereo_engine.correlate(Limg, Rimg);
+    disparity_map = stereo_engine.correlate(left_disk_image, right_disk_image);
     
     // Apply the Mask to the disparity map 
     if(execute.apply_mask){
       printf("\nApplying image masks...");
+      DiskImageView<uint8> Lmask(out_prefix + "-lMask.png");
+      DiskImageView<uint8> Rmask(out_prefix + "-rMask.png");
       disparity::mask(disparity_map, Lmask, Rmask);
       printf("Done.\n");
     }
@@ -398,16 +332,14 @@ int main(int argc, char* argv[]) {
         disparity_map.set_size(disparities.cols(), disparities.rows());
         channels_to_planes(disparity_map) = disparities;
         read_image(texture, out_prefix + "-T.jpg");  
-        Lmask = read_mask(out_prefix + "-lMask.png");
-        Rmask = read_mask(out_prefix + "-rMask.png");
         std::cout << std::endl;
       } catch (IOErr&) { 
         cout << "\n Unable to start code at the filtering stage.  Could not read input files. Exiting.\n\n";
         exit(0);
       }
     }
-
-    stereo_engine.filter(disparity_map);
+    
+    //    stereo_engine.filter(disparity_map);
 
     // Write out the extrapolation mask image
     if(execute.w_extrapolation_mask) {  
@@ -417,11 +349,13 @@ int main(int argc, char* argv[]) {
       write_image(out_prefix + "-ExMap.png", extrapolationMaskGray);
     } 
 
-    stereo_engine.interpolate(disparity_map);
+    //    stereo_engine.interpolate(disparity_map);
 
     // Apply the Mask to the disparity map 
     if(execute.apply_mask){
       printf("\nApplying image mask...");
+      DiskImageView<uint8> Lmask(out_prefix + "-lMask.png");
+      DiskImageView<uint8> Rmask(out_prefix + "-rMask.png");
       disparity::mask(disparity_map, Lmask, Rmask);
       printf("Done.\n");
     }
@@ -431,7 +365,7 @@ int main(int argc, char* argv[]) {
     disparity::get_disparity_range(disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp,true);
     write_image( out_prefix + "-FH.jpg", normalize(clamp(select_channel(disparity_map,0), min_h_disp, max_h_disp)));
     write_image( out_prefix + "-FV.jpg", normalize(clamp(select_channel(disparity_map,1), min_v_disp, max_v_disp)));
-    write_image( out_prefix + "-F.exr", channels_to_planes(disparity_map) );
+    write_image( out_prefix + "-F.exr", disparity_map);
   }
 
   /******************************************************************************/
@@ -462,39 +396,6 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    /*******************************************
-     * Read description.tab file ( if available)
-     *******************************************/ 
-    MOCImageMetadata moc_metadata_1(in_file1);
-    MOCImageMetadata moc_metadata_2(in_file2);
-
-    // Read in the tabulated description entry
-    std::cout << "Attempting to read data from " << description_tab_filename << ".\n";
-    moc_metadata_1.read_tabulated_description(description_tab_filename);
-    moc_metadata_2.read_tabulated_description(description_tab_filename);
-    moc_metadata_1.write_viz_site_frame(out_prefix);
-
-    try {
-      cout << "Attempting to read MOC telemetry from supplementary ephemeris files... " << flush;
-      moc_metadata_1.read_ephemeris_supplement(cam_file1);
-      moc_metadata_2.read_ephemeris_supplement(cam_file2);
-    } catch (EphemerisErr &e) {
-      cout << "Failed to open the supplementary ephemeris file:\n\t";
-      cout << e.what() << "\n";
-      cout << "\tWarning: Proceeding without supplementary ephemeris information.\n";
-    }
-    
-    // If the spice kernels are available, try to use them directly to
-    //    read in MOC telemetry.  
-    try {
-      cout << "Attempting to read MOC telemetry from SPICE kernels... " << flush;
-      load_moc_kernels();
-      moc_metadata_1.read_spice_data();
-      moc_metadata_2.read_spice_data();
-      cout << "success.\n";
-    } catch (spice::SpiceErr &e) {
-      cout << "Warning: an error occurred when reading SPICE information.  Falling back to *.sup files\n";
-    }
     
     // Create the camera models and stereo models
     camera::OrbitingPushbroomModel left_camera_model = moc_metadata_1.camera_model();
@@ -548,6 +449,12 @@ int main(int argc, char* argv[]) {
     bundle_adjusted_camera2.set_rotation(q2);
     std::cout << "\t" << q1 << "\n";
     std::cout << "\t" << q2 << "\n";
+
+    // Test code
+    std::cout << "TEST -- Generating a 3D point cloud.   \n";
+    DiskImageView<PixelDisparity<float> > disparity_map_resource(out_prefix+"-F.tif");
+    StereoView<ImageView<PixelDisparity<float> > > stereo_image(disparity_map_resource, bundle_adjusted_camera1, bundle_adjusted_camera2);
+    write_image(out_prefix + "-PC.tif", channels_to_planes(stereo_image));
 
     // apply the stereo model.  This yields a image of 3D points in space.
     StereoModel stereo_model(bundle_adjusted_camera1, bundle_adjusted_camera2);

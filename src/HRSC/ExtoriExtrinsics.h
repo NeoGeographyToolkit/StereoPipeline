@@ -106,7 +106,7 @@
         vw::Quaternion<double> b = m_pose_samples[lower_bound_position+1];
         vw::Quaternion<double> result = this->slerp(norm_t,a,b,0);
 
-        std::cout << "***> " << *lower_bound_iter << " ("<< lower_bound_position << ")   " << a << "   " << b << "   " << result << "\n";
+        //        std::cout << "***> " << *lower_bound_iter << " ("<< lower_bound_position << ")   " << a << "   " << b << "   " << result << "\n";
 
         return result;
 

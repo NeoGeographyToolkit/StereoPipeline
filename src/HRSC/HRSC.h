@@ -8,6 +8,7 @@
 
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
+#include <vw/Math/EulerAngles.h>
 #include <vw/Camera/OrbitingPushbroomModel.h>
 
 class HRSCImageMetadata {

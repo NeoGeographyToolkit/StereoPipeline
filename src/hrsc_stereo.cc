@@ -20,7 +20,8 @@
 //
 // hrsc_stereo.h
 // 
-// Stereo Pipeline for processing linescan stereo imagery from Mars Express.
+// Stereo Pipeline for processing linescan stereo imagery from Mars
+// Express.
 // 
 // Created 31 October 2006 by mbroxton.
 //
@@ -35,20 +36,13 @@ using namespace boost;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-#include <vw/Core/Debugging.h>
-#include <vw/Image/ImageView.h>
-#include <vw/Image/PixelTypes.h>
-#include <vw/Image/Filter.h>
-#include <vw/Image/Transform.h>
-#include <vw/Core/Exception.h>
-#include <vw/Image/Transform.h>
+#include <vw/Core.h>
+#include <vw/Image.h>
+#include <vw/Math.h>
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
 #include <vw/Cartography.h>
-#include <vw/Math/Geometry.h>
-#include <vw/Stereo/MultiresolutionCorrelator.h>
-#include <vw/Stereo/PyramidCorrelator.h>
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::stereo;
@@ -79,6 +73,12 @@ enum { PREPROCESSING = 0,
        WIRE_MESH, 
        NUM_STAGES};
 
+// Allows FileIO to correctly read/write these pixel types
+namespace vw {
+  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
+  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
+}
+
 //***********************************************************************
 // MAIN
 //***********************************************************************
@@ -92,14 +92,6 @@ int main(int argc, char* argv[]) {
   TO_DO execute;   /* whether or not to execute specific parts of the program */
   int nn;          /* Reuseable counter variable */
   StereoEngine stereo_engine; // Does most of the heavy lifting
-
-  //Image buffers 
-  ImageView<PixelGray<float> > Limg, Rimg;
-  ImageView<PixelGray<float> > texture;
-  ImageView<PixelDisparity<float> > disparity_map;
-  ImageView<bool> Lmask, Rmask;
-  ImageView<Vector3> point_image;  
-  Matrix<double> align_matrix;
 
   // Set the Vision Workbench debug level
   set_debug_level(InfoMessage+1);
@@ -260,13 +252,13 @@ int main(int argc, char* argv[]) {
     
     // RANSAC is used to fit a similarity transform between the
     // matched sets of points
-    align_matrix = ransac(matched_ip2, matched_ip1, 
-                          vw::math::SimilarityFittingFunctor(),
-                          KeypointErrorMetric());
+    Matrix<double> align_matrix = ransac(matched_ip2, matched_ip1, 
+                                         vw::math::SimilarityFittingFunctor(),
+                                         KeypointErrorMetric());
     write_matrix(out_prefix + "-align.exr", align_matrix);
-    Rimg = transform(right_disk_image, HomographyTransform(align_matrix),
-                     left_disk_image.cols(), left_disk_image.rows());
-    Limg = left_disk_image;
+    ImageView<PixelGray<float> > Rimg = transform(right_disk_image, HomographyTransform(align_matrix),
+                                                  left_disk_image.cols(), left_disk_image.rows());
+    ImageView<PixelGray<float> > Limg = left_disk_image;
     write_image(out_prefix + "-R.tif", channel_cast_rescale<uint8>(Rimg));
     write_image(out_prefix + "-L.tif", channel_cast_rescale<uint8>(Limg));
     write_image(out_prefix + "-T.jpg", channel_cast_rescale<uint8>(Limg));
@@ -276,8 +268,8 @@ int main(int argc, char* argv[]) {
     if(execute.w_mask) {  
       cout << "\nGenerating image masks...";
       int mask_buffer = std::max(dft.h_kern, dft.v_kern);
-      Lmask = disparity::generate_mask(Limg, mask_buffer);
-      Rmask = disparity::generate_mask(Rimg, mask_buffer);
+      ImageView<bool> Lmask = disparity::generate_mask(Limg, mask_buffer);
+      ImageView<bool> Rmask = disparity::generate_mask(Rimg, mask_buffer);
       printf("Done.\n");
       write_mask(Lmask, out_prefix + "-lMask.png");
       write_mask(Rmask, out_prefix + "-rMask.png");
@@ -287,38 +279,39 @@ int main(int argc, char* argv[]) {
   /*                            correlation step                                   */
   /*********************************************************************************/
   if( entry_point <= CORRELATION ) {
-    if (entry_point == CORRELATION) {
-      try {
+    if (entry_point == CORRELATION) 
         cout << "\nStarting at the CORRELATION stage.\n";
-        cout << "\nLoading image " << out_prefix + "-L.tif" << " as primary image:\n";
-        read_image(Limg, out_prefix + "-L.tif");
-        cout << "\nLoading image " << out_prefix + "-R.tif" << " as secondary image:\n";
-        read_image(Rimg, out_prefix + "-R.tif");
-        Lmask = read_mask(out_prefix + "-lMask.png");
-        Rmask = read_mask(out_prefix + "-rMask.png");
-        cout << endl;
-      } catch (IOErr&) { 
-        cout << "\n Unable to start code at the correlation stage.  Could not read input files. Exiting.\n\n";
-        exit(0);
-      }
-    }
 
-    // Call the stereo engine to perform the correlation
-    std::cout << "\n" << stereo_engine << "\n";
-    disparity_map = stereo_engine.correlate(Limg, Rimg);
+    try {
+      ImageView<PixelGray<float> > Limg, Rimg;
+      cout << "\nLoading image " << out_prefix + "-L.tif" << " as primary image:\n";
+      read_image(Limg, out_prefix + "-L.tif");
+      cout << "\nLoading image " << out_prefix + "-R.tif" << " as secondary image:\n";
+      read_image(Rimg, out_prefix + "-R.tif");
+      cout << endl;
     
-    // Apply the Mask to the disparity map 
-    if(execute.apply_mask){
-      printf("\nApplying image masks...");
-      disparity::mask(disparity_map, Lmask, Rmask);
-      printf("Done.\n");
+      // Call the stereo engine to perform the correlation
+      std::cout << "\n" << stereo_engine << "\n";
+      ImageView<PixelDisparity<float> > disparity_map = stereo_engine.correlate(Limg, Rimg);
+    
+      // Apply the Mask to the disparity map 
+      if(execute.apply_mask){
+        printf("\nApplying image masks...");
+        ImageView<bool> Lmask = read_mask(out_prefix + "-lMask.png");
+        ImageView<bool> Rmask = read_mask(out_prefix + "-rMask.png");
+        disparity::mask(disparity_map, Lmask, Rmask);
+        printf("Done.\n");
+      }
+    
+      double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
+      disparity::get_disparity_range(disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp,true);
+      write_image( out_prefix + "-DH.jpg", normalize(clamp(select_channel(disparity_map,0), min_h_disp, max_h_disp)));
+      write_image( out_prefix + "-DV.jpg", normalize(clamp(select_channel(disparity_map,1), min_v_disp, max_v_disp)));
+      write_image( out_prefix + "-D.exr", channels_to_planes(disparity_map) );
+    } catch (IOErr&) { 
+      cout << "\n A File IO error occurred during the correlation stage. Exiting.\n\n";
+      exit(0);
     }
-    
-    double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
-    disparity::get_disparity_range(disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp,true);
-    write_image( out_prefix + "-DH.jpg", normalize(clamp(select_channel(disparity_map,0), min_h_disp, max_h_disp)));
-    write_image( out_prefix + "-DV.jpg", normalize(clamp(select_channel(disparity_map,1), min_v_disp, max_v_disp)));
-    write_image( out_prefix + "-D.exr", channels_to_planes(disparity_map) );
   }
 
   /***************************************************************************/
@@ -326,250 +319,229 @@ int main(int argc, char* argv[]) {
   /***************************************************************************/
 
   if(entry_point <= FILTERING) {
-
-    /* 
-     * If we are jump-starting the code in the post-correlation phase,
-     * we must initialize the disparity map object here with the 
-     * twe files that were supplied at the command line.  Right now
-     * this is purely for debugging.
-     */
-    if (entry_point == FILTERING) {
-      /* Read the input files */
-      try {
+    if (entry_point == FILTERING)
         cout << "\nStarting at the FILTERING stage.\n";
-        std::cout << "\nLoading image " << out_prefix + "-D.exr" << " as disparity map image:\n";
-        ImageView<float> disparities;
-        read_image(disparities, out_prefix + "-D.exr");
-        disparity_map.set_size(disparities.cols(), disparities.rows());
-        channels_to_planes(disparity_map) = disparities;
-        Lmask = read_mask(out_prefix + "-lMask.png");
-        Rmask = read_mask(out_prefix + "-rMask.png");
-        std::cout << std::endl;
-      } catch (IOErr&) { 
-        cout << "\n Unable to start code at the filtering stage.  Could not read input files. Exiting.\n\n";
-        exit(0);
-      }
-    }
     
-    // The multiresolution correlate does not tend to have outliers(!)
-    if (!vm.count("multiresolution"))
-      stereo_engine.filter(disparity_map);
-    else 
-      vw::stereo::disparity::sparse_disparity_filter(disparity_map, 100, 0.5);
+    try {
+      std::cout << "\nUsing image " << out_prefix + "-D.exr" << " as disparity map image.\n";
+      DiskImageView<PixelDisparity<float> > disparity_map_file(out_prefix + "-D.exr");
+      ImageView<PixelDisparity<float> > disparity_map = disparity_map_file;
+      
+      // The multiresolution correlate does not tend to have outliers(!)
+      if (!vm.count("multiresolution"))
+        stereo_engine.filter(disparity_map);
+      else 
+        vw::stereo::disparity::sparse_disparity_filter(disparity_map, 100, 0.5);
+      
+      // Write out the extrapolation mask image
+      if(execute.w_extrapolation_mask) {  
+        ImageView<PixelRGB<float> > extrapolationMask = disparity::rgb_missing_pixel_image(disparity_map);
+        write_image(out_prefix + "-ExMap-color.jpg", extrapolationMask);
+        ImageView<PixelGray<float> > extrapolationMaskGray = disparity::missing_pixel_image(disparity_map);
+        write_image(out_prefix + "-ExMap.png", extrapolationMaskGray);
+      } 
 
-    // Write out the extrapolation mask image
-    if(execute.w_extrapolation_mask) {  
-      ImageView<PixelRGB<float> > extrapolationMask = disparity::rgb_missing_pixel_image(disparity_map);
-      write_image(out_prefix + "-ExMap-color.jpg", extrapolationMask);
-      ImageView<PixelGray<float> > extrapolationMaskGray = disparity::missing_pixel_image(disparity_map);
-      write_image(out_prefix + "-ExMap.png", extrapolationMaskGray);
-    } 
+      stereo_engine.interpolate(disparity_map);
 
-    stereo_engine.interpolate(disparity_map);
+      // Apply the Mask to the disparity map 
+      if(execute.apply_mask){
+        printf("\nApplying image mask...");
+        ImageView<bool> Lmask = read_mask(out_prefix + "-lMask.png");
+        ImageView<bool> Rmask = read_mask(out_prefix + "-rMask.png");
+        disparity::mask(disparity_map, Lmask, Rmask);
+        printf("Done.\n");
+      }
 
-    // Apply the Mask to the disparity map 
-    if(execute.apply_mask){
-      printf("\nApplying image mask...");
-      disparity::mask(disparity_map, Lmask, Rmask);
-      printf("Done.\n");
+      // Before we apply the inverse alignment, we quickly write out
+      // some debug images showing the fully filtered disparity map.
+      double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
+      disparity::get_disparity_range(disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp,true);
+      write_image( out_prefix + "-FH.jpg", normalize(clamp(select_channel(disparity_map,0), min_h_disp, max_h_disp)));
+      write_image( out_prefix + "-FV.jpg", normalize(clamp(select_channel(disparity_map,1), min_v_disp, max_v_disp)));
+
+      // We used a homography to line up the images, we may want 
+      // to generate pre-alignment disparities before passing this information
+      // onto the camera model in the next stage of the stereo pipeline.
+      if (execute.do_alignment) {
+        try {
+          Matrix<double> align_matrix;
+          read_matrix(align_matrix, out_prefix + "-align.exr");
+          std::cout << "Alignment Matrix: " << align_matrix << "\n";
+          vw::Matrix<double> inv_align_matrix = inverse(align_matrix);
+          disparity_linear_transform(disparity_map, inv_align_matrix);
+        } catch (vw::IOErr &e) {
+          std::cout << "Could not read in aligment matrix: " << out_prefix << "-align.exr.  Exiting. \n\n";
+          exit(1);
+        }
+      }
+      
+      // Write the filtered disp map 
+      write_image( out_prefix + "-F.exr", channels_to_planes(disparity_map) );
+
+    } catch (IOErr &e) { 
+      cout << "\n An file IO error occurred during the filtering stage.  Exiting.\n\n";
+      exit(0);
     }
-
-    // Write the filtered disp map 
-    double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
-    disparity::get_disparity_range(disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp,true);
-    write_image( out_prefix + "-FH.jpg", normalize(clamp(select_channel(disparity_map,0), min_h_disp, max_h_disp)));
-    write_image( out_prefix + "-FV.jpg", normalize(clamp(select_channel(disparity_map,1), min_v_disp, max_v_disp)));
-    write_image( out_prefix + "-F.exr", channels_to_planes(disparity_map) );
   }
 
   /******************************************************************************/
   /*                           disparity to dot-cloud                           */
   /******************************************************************************/
   if (entry_point <= POINT_CLOUD) {
-    if (entry_point == POINT_CLOUD) {
-      try {
-        std::cout << "\nStarting code at POINT_CLOUD stage.\n";
-        std::cout << "\nLoading image " << out_prefix + "-F.exr" << " as disparity image:\n";
-        ImageView<float> disparities;
-        read_image(disparities, out_prefix + "-F.exr");
-        disparity_map.set_size(disparities.cols(), disparities.rows());
-        channels_to_planes(disparity_map) = disparities;
-        std::cout << "\nLoading image " << out_prefix + "-L.tif" << " as texture image:\n";
-        read_image(texture, out_prefix + "-L.tif");
-        std::cout << std::endl;	
-      } catch (IOErr&) { 
-        cout << "\n Unable to start at point cloud stage.\n\tCould not read input files. Exiting.\n\n";
-        exit(0);
-      }
-    }
-
-    // Create the camera models and stereo models
-    boost::shared_ptr<camera::CameraModel> left_camera_model(hrsc_metadata1.camera_model());
-    boost::shared_ptr<camera::CameraModel> right_camera_model(hrsc_metadata2.camera_model());
-    std::cout << left_camera_model << "\n";
-    std::cout << right_camera_model << "\n";
-
-    // Write a VRML file that depicts the positions and poses of the
-    // spacecraft in a scene with a large Mars ellipse.for reference.
-    write_orbital_reference_model(out_prefix + "-OrbitViz.vrml", *left_camera_model, *right_camera_model);
-
-    // We used a homography to line up the images, we may want 
-    // to generate pre-alignment disparities before passing this information
-    // onto the camera model in the next stage of the stereo pipeline.
-    if (execute.do_alignment) {
-      try {
-        read_matrix(align_matrix, out_prefix + "-align.exr");
-        std::cout << "Alignment Matrix: " << align_matrix << "\n";
-      } catch (vw::IOErr &e) {
-        std::cout << "Could not read in aligment matrix: " << out_prefix << "-align.exr.  Exiting. \n\n";
-        exit(1);
-      }
-
-      vw::Matrix<double> inv_align_matrix = inverse(align_matrix);
-      disparity_linear_transform(disparity_map, inv_align_matrix);
-    }
-
-    // Apply the stereo model.  This yields a image of 3D points in space.
-    StereoModel stereo_model(*left_camera_model, *right_camera_model);
-    std::cout << "Generating a 3D point cloud.   \n";
-    ImageView<double> error;
-    point_image = stereo_model(disparity_map, error);
-    write_image(out_prefix + "-error.png", normalize(error));
+    if (entry_point == POINT_CLOUD) 
+      std::cout << "\nStarting code at POINT_CLOUD stage.\n";
     
-    // Write out the results to disk
-    write_image(out_prefix + "-PC.exr", channels_to_planes(point_image));
-  }
+    try {
+      DiskImageView<PixelDisparity<float> > disparity_map_resource(out_prefix+"-F.exr");
+      
+      // Create the camera models and stereo models
+      boost::shared_ptr<camera::CameraModel> left_camera_model(hrsc_metadata1.camera_model());
+      boost::shared_ptr<camera::CameraModel> right_camera_model(hrsc_metadata2.camera_model());
+      std::cout << left_camera_model << "\n";
+      std::cout << right_camera_model << "\n";
 
+      // Write a VRML file that depicts the positions and poses of the
+      // spacecraft in a scene with a large Mars ellipse.for reference.
+      write_orbital_reference_model(out_prefix + "-OrbitViz.vrml", *left_camera_model, *right_camera_model);
+    
+      // Apply the stereo model.  This yields a image of 3D points in
+      // space.  We build this image and immediately write out the
+      // results to disk.
+      std::cout << "Generating a 3D point cloud.   \n";
+      StereoView<ImageView<PixelDisparity<float> > > stereo_image(disparity_map_resource, *left_camera_model, *right_camera_model);
+      write_image(out_prefix + "-PC.exr", channels_to_planes(stereo_image));
+      
+    } catch (IOErr&) { 
+      cout << "\n Unable to start at point cloud stage.\n\tCould not read input files. Exiting.\n\n";
+      exit(0);
+    }
+  }
+  
   /************************************************************************************/
   /*                            dot-cloud to wire mesh                                */
   /************************************************************************************/
-
   if(entry_point <= WIRE_MESH) {
+    if (entry_point == WIRE_MESH)
+      std::cout << "\nStarting at WIRE_MESH stage.\n\n";
+
+    try {
+      std::cout << "Using file " << out_prefix + "-PC.exr" << " as pointcloud map.\n";
+      DiskImageView<Vector3> point_image(out_prefix + "-PC.exr");
+
+      if (execute.mesh) {
+        std::cout << "\nGenerating 3D mesh from point cloud:\n";
+        Mesh mesh_maker;
+        if(execute.adaptative_meshing) {
+          mesh_maker.build_adaptive_mesh(point_image, dft.mesh_tolerance, dft.max_triangles);
+          mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
+        } else {
+          mesh_maker.build_simple_mesh(point_image, dft.nff_h_step, dft.nff_v_step);
+          mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
+        }
         
-    // If we are jump-starting the code in the wire mesh phase, we want 
-    // to simply read in the point cloud from disk and start from here.
-    if (entry_point == WIRE_MESH) {      
-      // Read the input files 
-      try {
-        std::cout << "\nStarting at WIRE_MESH stage.\n";
-        std::cout << "\nLoading image " << out_prefix + "-PC.exr" << " as pointcloud map:\n";
-        ImageView<double> points;
-        read_image(points, out_prefix + "-PC.exr");
-        point_image.set_size(points.cols(), points.rows());
-        channels_to_planes(point_image) = points;
+        if(execute.inventor){
+          mesh_maker.write_inventor(out_prefix+".iv", out_prefix+"-T.jpg", true);
+        }
+        if(execute.vrml){
+          mesh_maker.write_vrml(out_prefix+".vrml", out_prefix+"-T.jpg");
+        }
+      }
+
+      // Map the pointcloud coordinates onto the MARS areoid 
+      if (execute.write_dem) {
+
+        // Switch to lat, lon, radius and free up the memory that had
+        // been used for the cartesian coordinates.
+        cout << "Reprojecting points and subtracting the Mars areoid.\n";
+        ImageView<Vector3> lon_lat_alt = cartography::xyz_to_lon_lat_radius(point_image);
+
+        // Subtract off the equitorial radius in preparation for writing the data out to a DEM
+        for (int j = 0; j < lon_lat_alt.rows(); j++) 
+          for (int i = 0; i < lon_lat_alt.cols(); i++) 
+            if (lon_lat_alt(i,j) != Vector3()) 
+              lon_lat_alt(i,j).z() -= MOLA_PEDR_EQUATORIAL_RADIUS;
+
+        // Reproject into sinusoidal projection
+        vw::cartography::OrthoRasterizer<Vector3> bbox_computer(lon_lat_alt, 1);
+        double min_longitude = bbox_computer.bounding_box().min().x();
+        double max_longitude = bbox_computer.bounding_box().max().x();
+        double sinusoidal_lon0 = roundf((max_longitude + min_longitude)/2);
+        if (min_longitude == max_longitude) 
+          throw LogicErr() << "Error while reprojecting 3D points.  Georgraphic region has zero width.";
+        
+        // Set up the datum
+        vw::cartography::GeoDatum mars_datum;
+        mars_datum.name() = "IAU2000 Mars Spheroid";
+        mars_datum.spheroid_name() = "IAU2000 Mars Spheroid";
+        mars_datum.meridian_name() = "Mars Prime Meridian";
+        mars_datum.semi_major_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
+        mars_datum.semi_minor_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
+        
+        // Note: the affine transform doesn't matter when using
+        // reproject_point_image, so we simply don't specify anything
+        // here.
+        vw::cartography::GeoReference src_geo(mars_datum);
+        vw::cartography::GeoReference dst_geo(mars_datum);
+        dst_geo.set_sinusoidal(sinusoidal_lon0);
+
+        std::cout << "Reprojecting into sinusoidal projection... " << std::flush;
+        cartography::reproject_point_image(lon_lat_alt, src_geo, dst_geo);
+        std::cout << "done.\n";
+
+        // Rasterizing the third component (radius) of the point cloud.  
+        vw::cartography::OrthoRasterizer<Vector3> rasterizer(lon_lat_alt, dft.dem_spacing);
+        
+        // Rasterize the DEM.
+        ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(lon_lat_alt,2));
+        
+
+        // Georeferencing 
+        //
+        // 1. Set up the affine transform
+        dst_geo.set_transform(rasterizer.geo_transform());
+
+        // 2. Save various data products
+        write_GMT_script(out_prefix, ortho_image.cols(), ortho_image.rows(), 
+                         *(std::min_element(ortho_image.begin(), ortho_image.end())), 
+                         *(std::max_element(ortho_image.begin(), ortho_image.end())), 
+                         1, // Scale factor: empirically determined. 
+                         dst_geo);
+        write_georeferenced_image(out_prefix+"-DEM.dem", ortho_image, dst_geo);
+        write_ENVI_header(out_prefix+"-DEM.hdr", rasterizer.default_value(), ortho_image, dst_geo);
+        write_image(out_prefix + "-DEM-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
+
+        // Write out a georeferenced orthoimage of the DTM
+        ImageView<PixelGray<float> > texture;
         std::cout << "\nLoading image " << out_prefix + "-L.tif" << " as texture image:\n";
         read_image(texture, out_prefix + "-L.tif");
         std::cout << std::endl;
-      } catch (IOErr&) { 
-        cout << "\nFailed to start at wire mesh phase.\n\tCould not read input files. Exiting.\n\n";
-        exit(0);
-      }
-    }
-
-    // For H0927
-    //    point_image = copy(crop(point_image,0,950,point_image.cols(), point_image.rows()-1250));
-
-    if (execute.mesh) {
-      Mesh mesh_maker;
-      if(execute.adaptative_meshing) {
-        mesh_maker.build_adaptive_mesh(point_image, dft.mesh_tolerance, dft.max_triangles);
-        mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
-      } else {
-        mesh_maker.build_simple_mesh(point_image, dft.nff_h_step, dft.nff_v_step);
-        mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
-      }
-
-      if(execute.inventor){
-        mesh_maker.write_inventor(out_prefix+".iv", out_prefix+"-T.jpg", true);
-      }
-      if(execute.vrml){
-        mesh_maker.write_vrml(out_prefix+".vrml", out_prefix+"-T.jpg");
-      }
-    }
-
-    // Map the pointcloud coordinates onto the MARS areoid 
-    if (execute.write_dem) {
-
-      // Switch to lat, lon, radius and free up the memory that had
-      // been used for the cartesian coordinates.
-      cout << "Reprojecting points and subtracting the Mars areoid.\n";
-      ImageView<Vector3> lon_lat_alt = cartography::xyz_to_lon_lat_radius(point_image);
-      point_image.reset();
-
-      // Subtract off the equitorial radius in preparation for writing the data out to a DEM
-      for (int j = 0; j < lon_lat_alt.rows(); j++) 
-        for (int i = 0; i < lon_lat_alt.cols(); i++) 
-          if (lon_lat_alt(i,j) != Vector3()) 
-            lon_lat_alt(i,j).z() -= MOLA_PEDR_EQUATORIAL_RADIUS;
-
-      // Reproject into sinusoidal projection
-      vw::cartography::OrthoRasterizer<Vector3> bbox_computer(lon_lat_alt, 1);
-      double min_longitude = bbox_computer.bounding_box().min().x();
-      double max_longitude = bbox_computer.bounding_box().max().x();
-      double sinusoidal_lon0 = roundf((max_longitude + min_longitude)/2);
-      if (min_longitude == max_longitude) 
-        throw LogicErr() << "Error while reprojecting 3D points.  Georgraphic region has zero width.";
-      
-      // Set up the datum
-      vw::cartography::GeoDatum mars_datum;
-      mars_datum.name() = "IAU2000 Mars Spheroid";
-      mars_datum.spheroid_name() = "IAU2000 Mars Spheroid";
-      mars_datum.meridian_name() = "Mars Prime Meridian";
-      mars_datum.semi_major_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
-      mars_datum.semi_minor_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
-
-      // Note: the affine transform doesn't matter when using
-      // reproject_point_image, so we simply don't specify anything
-      // here.
-      vw::cartography::GeoReference src_geo(mars_datum);
-      vw::cartography::GeoReference dst_geo(mars_datum);
-      dst_geo.set_sinusoidal(sinusoidal_lon0);
-
-      std::cout << "Reprojecting into sinusoidal projection... " << std::flush;
-      cartography::reproject_point_image(lon_lat_alt, src_geo, dst_geo);
-      std::cout << "done.\n";
-
-      // Rasterizing the third component (radius) of the point cloud.  
-      vw::cartography::OrthoRasterizer<Vector3> rasterizer(lon_lat_alt, dft.dem_spacing);
-
-      // Rasterize the DEM.
-      ImageView<PixelGray<float> > ortho_image = rasterizer(vw::select_channel(lon_lat_alt,2));
-      
-
-      // Georeferencing 
-      //
-      // 1. Set up the affine transform
-      dst_geo.set_transform(rasterizer.geo_transform());
-
-      // 2. Save various data products
-      write_GMT_script(out_prefix, ortho_image.cols(), ortho_image.rows(), 
-                       *(std::min_element(ortho_image.begin(), ortho_image.end())), 
-                       *(std::max_element(ortho_image.begin(), ortho_image.end())), 
-                       1, // Scale factor: empirically determined. 
-                       dst_geo);
-      write_georeferenced_image(out_prefix+"-DEM.dem", ortho_image, dst_geo);
-      write_ENVI_header(out_prefix+"-DEM.hdr", rasterizer.default_value(), ortho_image, dst_geo);
-      write_image(out_prefix + "-DEM-debug.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
-
-      // Write out a georeferenced orthoimage of the DTM
-      rasterizer.use_minz_as_default = false;
-      rasterizer.set_default_value(0);
-      ortho_image = rasterizer(vw::select_channel(texture,0));
-      write_georeferenced_image(out_prefix+"-DRG.tif", channel_cast_rescale<uint8>(normalize(ortho_image)), dst_geo);
-      write_georeferenced_image(out_prefix+"-DRG.dem", ortho_image, dst_geo);
-
-      // Write out a georeferenced orthoimage of the pixel extrapolation mask
-      ImageView<PixelGray<float> > extrapolation_mask;
-      try {
-        read_image(extrapolation_mask, out_prefix + "-ExMap.png");
         rasterizer.use_minz_as_default = false;
         rasterizer.set_default_value(0);
-        ortho_image = rasterizer(select_channel(extrapolation_mask, 0));
-        write_image(out_prefix + "-ExMap.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
-      } catch (IOErr &e) {
-        std::cout << "Warning: an error occurred when reading the cached extrapolation map \"" << (out_prefix + "-ExMap.png") << "\" on disk.";
+        ortho_image = rasterizer(vw::select_channel(texture,0));
+        texture.reset();
+        write_georeferenced_image(out_prefix+"-DRG.tif", channel_cast_rescale<uint8>(normalize(ortho_image)), dst_geo);
+        write_georeferenced_image(out_prefix+"-DRG.dem", ortho_image, dst_geo);
+
+        // Write out a georeferenced orthoimage of the pixel extrapolation mask
+        ImageView<PixelGray<float> > extrapolation_mask;
+        try {
+          read_image(extrapolation_mask, out_prefix + "-ExMap.png");
+          rasterizer.use_minz_as_default = false;
+          rasterizer.set_default_value(0);
+          ortho_image = rasterizer(select_channel(extrapolation_mask, 0));
+          write_image(out_prefix + "-ExMap.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
+        } catch (IOErr &e) {
+          std::cout << "Warning: an error occurred when reading the cached extrapolation map \"" << (out_prefix + "-ExMap.png") << "\" on disk.";
+        }
       }
+    
+
+    } catch (IOErr&) { 
+      cout << "\nFailed to start at wire mesh phase.\n\tCould not read input files. Exiting.\n\n";
+      exit(0);
     }
+
+
   }
   free (hd.cmd_name);
   return(EXIT_SUCCESS);
