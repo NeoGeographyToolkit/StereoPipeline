@@ -479,11 +479,6 @@ int main(int argc, char* argv[]) {
         std::cout << "\nLoading image " << out_prefix + "-T.jpg" << " as texture image:\n";
         read_image(texture, out_prefix + "-T.jpg");
         std::cout << std::endl;
-        std::cout << "\nLoading image " << out_prefix + "-F.exr" << " as disparity map image:\n";
-        ImageView<float> disparities;
-        read_image(disparities, out_prefix + "-F.exr");
-        disparity_map.set_size(disparities.cols(), disparities.rows());
-        channels_to_planes(disparity_map) = disparities;
       } catch (IOErr&) { 
         std::cout << "\nFailed to start at wire mesh phase.\n\tCould not read input files. Exiting.\n\n";
         exit(0);

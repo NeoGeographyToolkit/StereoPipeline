@@ -495,6 +495,7 @@ read_default_file(DFT_F *dft, TO_DO *execute, const char *filename){
 	GET_FLOAT_SCALED("L_TOE_IN_0", toe_l, /1000.0)
 	GET_FLOAT_SCALED("R_TOE_IN_0", toe_r, /1000.0)
 	GET_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius)
+	GET_FLOAT("UNIVERSE_RADIUS", far_universe_radius)
 	GET_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius)
 	GET_FLOAT("SKY_BILLBOARD_ELEVATION", sky_billboard_elevation)
 	GET_INT("SKY_BRIGHTNESS_THRESHOLD", sky_brightness_threshold)
