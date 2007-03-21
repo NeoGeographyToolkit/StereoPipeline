@@ -187,8 +187,8 @@ int main(int argc, char* argv[]) {
 
       Limg = transform(copy(Limg), CameraTransform<CAHVORModel, CAHVModel>(left_cahvor, left_cahv));
       Rimg = transform(copy(Rimg), CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, right_cahv));
-      write_image(out_prefix + "-L-lin.tif", Limg);
-      write_image(out_prefix + "-R-lin.tif", Rimg);
+      write_image(out_prefix + "-L-lin.png", Limg);
+      write_image(out_prefix + "-R-lin.png", Rimg);
 
     } else if ( (boost::ends_with(boost::to_lower_copy(cam_file1), ".cahv") &&
                  boost::ends_with(boost::to_lower_copy(cam_file2), ".cahv")) || 
@@ -199,6 +199,9 @@ int main(int argc, char* argv[]) {
       right_cahv = CAHVModel(cam_file2);
 
     }
+
+    std::cout << left_cahv << "\n";
+    std::cout << right_cahv << "\n\n";
  
     // Do epipolar rectification and warp the camera images into
     // epipolar alignment.
@@ -208,6 +211,11 @@ int main(int argc, char* argv[]) {
       CAHVModel left_epipolar_cahv, right_epipolar_cahv;
       ImageView<PixelGray<float> > left_epipolar_image, right_epipolar_image;
       epipolar(left_cahv, right_cahv, left_epipolar_cahv, right_epipolar_cahv);
+
+      std::cout << "EPIPOLAR Cameras:\n";
+      std::cout << left_epipolar_cahv << "\n";
+      std::cout << right_epipolar_cahv << "\n\n";
+
       Limg = transform(copy(Limg), CameraTransform<CAHVModel, CAHVModel>(left_cahv, left_epipolar_cahv));
       Rimg = transform(copy(Rimg), CameraTransform<CAHVModel, CAHVModel>(right_cahv, right_epipolar_cahv));
     }
@@ -239,8 +247,8 @@ int main(int argc, char* argv[]) {
     /*******************************************************************/
     /* Save both L/R linearized and epipolar-zed images to disk        */
     /*******************************************************************/ 
-    write_image(out_prefix + "-L.tif", channel_cast<uint8>(Limg*255));
-    write_image(out_prefix + "-R.tif", channel_cast<uint8>(Rimg*255));
+    write_image(out_prefix + "-L.png", channel_cast<uint8>(Limg*255));
+    write_image(out_prefix + "-R.png", channel_cast<uint8>(Rimg*255));
     
     // Mask any pixels that are black and appear on the edges of the
     // image.

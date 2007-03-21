@@ -392,7 +392,7 @@ int main(int argc, char* argv[]) {
       std::cout << "\nStarting code at POINT_CLOUD stage.\n";
     
     try {
-      DiskImageView<PixelDisparity<float> > disparity_map_resource(out_prefix+"-F.exr");
+      DiskImageView<PixelDisparity<float> > disparity_map(out_prefix+"-F.exr");
       
       // Create the camera models and stereo models
       boost::shared_ptr<camera::CameraModel> left_camera_model(hrsc_metadata1.camera_model());
@@ -408,7 +408,7 @@ int main(int argc, char* argv[]) {
       // space.  We build this image and immediately write out the
       // results to disk.
       std::cout << "Generating a 3D point cloud.   \n";
-      StereoView<ImageView<PixelDisparity<float> > > stereo_image(disparity_map_resource, *left_camera_model, *right_camera_model);
+      StereoView<ImageView<PixelDisparity<float> > > stereo_image(disparity_map, *left_camera_model, *right_camera_model);
       write_image(out_prefix + "-PC.exr", channels_to_planes(stereo_image));
       
     } catch (IOErr&) { 

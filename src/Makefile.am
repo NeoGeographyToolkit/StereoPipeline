@@ -30,6 +30,8 @@ generic_stereo_sources = file_lib.cc mask.cc nff_terrain.cc	\
 
 stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
 
+# temp_stereo_SOURCES = $(generic_stereo_sources) temp_stereo.cc 
+
 rmax_stereo_SOURCES = $(generic_stereo_sources) rmax_stereo.cc 
 
 if HAVE_PKG_GDAL
