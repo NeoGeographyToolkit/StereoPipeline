@@ -29,7 +29,12 @@ class MOCImageMetadata {
   void read_ephemeris_supplement(std::string const& filename);
   void read_spice_data();
   void write_viz_site_frame(std::string prefix);
-  vw::camera::OrbitingPushbroomModel camera_model();
+
+  /// Returns a newly allocated camera model object of the appropriate
+  /// type.  It is the responsibility of the user to later deallocate
+  /// this camera model object or to manage it using some sort of smart
+  /// pointer.
+  vw::camera::CameraModel* camera_model();
 
   // Accessors
   double latitude() const { return m_latitude; }

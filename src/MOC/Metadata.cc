@@ -91,7 +91,7 @@ MOCImageMetadata::MOCImageMetadata(std::string const& filename) {
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  *             GENERATE CAMERA MODEL FROM FREE PARAMETERS
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-vw::camera::OrbitingPushbroomModel MOCImageMetadata::camera_model() {
+vw::camera::CameraModel* MOCImageMetadata::camera_model() {
 
   int start_sample;
   if (m_start_sample == -9999) {
@@ -103,19 +103,19 @@ vw::camera::OrbitingPushbroomModel MOCImageMetadata::camera_model() {
 
   // Use the values that were obtained from the *.sup file to program
   // the camera model parameters.
-  return vw::camera::OrbitingPushbroomModel( rows(), // number of lines
-                                             cols(), // sampels per line
-                                             start_sample,
-                                             m_focal_length, 
-                                             m_along_scan_pixel_size*m_downtrack_summing, 
-                                             m_across_scan_pixel_size*m_crosstrack_summing,
-                                             scan_duration() / rows(), // line integration time
-                                             m_t0_quat, m_dt_quat,
-                                             m_t0_ephem, m_dt_ephem,
-                                             Vector3(0,0,1),  // pointing_vect
-                                             Vector3(0,1,0),  // u_vec
-                                             m_quat,   // camera poses
-                                             m_ephem); // camera positions
+  return new vw::camera::OrbitingPushbroomModel( rows(), // number of lines
+                                                 cols(), // sampels per line
+                                                 start_sample,
+                                                 m_focal_length, 
+                                                 m_along_scan_pixel_size*m_downtrack_summing, 
+                                                 m_across_scan_pixel_size*m_crosstrack_summing,
+                                                 scan_duration() / rows(), // line integration time
+                                                 m_t0_quat, m_dt_quat,
+                                                 m_t0_ephem, m_dt_ephem,
+                                                 Vector3(0,0,1),  // pointing_vect
+                                                 Vector3(0,1,0),  // u_vec
+                                                 m_quat,   // camera poses
+                                                 m_ephem); // camera positions
 }
 
 // Load satellite telemetry directly using SPICE.

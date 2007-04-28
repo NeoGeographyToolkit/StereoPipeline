@@ -170,6 +170,7 @@ void init_dft_struct(DFT_F *dft, TO_DO *todo) {
   todo->double_sided = 0;	/* draw two sided polygons */
   todo->inventor = 0;		/* save it as an Inventor file */    
   todo->vrml = 0;		/* save it as an VRML file */    
+  todo->write_ive = 1;		/* save it as an OpenSceneGraph file */    
   todo->write_dem = 0;		/* save it as a DEM file */
   todo->apply_mask = 1;		/* apply the mask by default */
   todo->w_mask = 0;		/* do not write the mask file by default */

@@ -65,7 +65,6 @@ using namespace vw::stereo;
 using namespace std;
 
 // The stereo pipeline has several stages, which are enumerated below.
-
 enum { PREPROCESSING = 0, 
        CORRELATION, 
        FILTERING, 
@@ -524,15 +523,11 @@ int main(int argc, char* argv[]) {
 
         // Write out a georeferenced orthoimage of the pixel extrapolation mask
         ImageView<PixelGray<float> > extrapolation_mask;
-        try {
-          read_image(extrapolation_mask, out_prefix + "-ExMap.png");
-          rasterizer.use_minz_as_default = false;
-          rasterizer.set_default_value(0);
-          ortho_image = rasterizer(select_channel(extrapolation_mask, 0));
-          write_image(out_prefix + "-ExMap.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
-        } catch (IOErr &e) {
-          std::cout << "Warning: an error occurred when reading the cached extrapolation map \"" << (out_prefix + "-ExMap.png") << "\" on disk.";
-        }
+        read_image(extrapolation_mask, out_prefix + "-ExMap.png");
+        rasterizer.use_minz_as_default = false;
+        rasterizer.set_default_value(0);
+        ortho_image = rasterizer(select_channel(extrapolation_mask, 0));
+        write_image(out_prefix + "-ExMap.tif", channel_cast_rescale<uint8>(normalize(ortho_image)));
       }
     
 

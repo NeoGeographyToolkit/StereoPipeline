@@ -1678,7 +1678,7 @@ AlignPt(PixelCoords *point1, PixelCoords *point2, PixelCoords *point3,
   if ((rayVec.x == 0.0) && (rayVec.y == 0.0) && (rayVec.z == 0.0))
   {
     printf("WARNING in AlignPt: point1 and point2 are geometrically "
-           "coincident. (%1.2e %1.2f %f) (%f %f %f)\n", 
+           "coincident. (%f %f %f) (%f %f %f)\n", 
            pt1->x, pt1->y, pt1->z, 
            pt2->x, pt2->y, pt2->z);
     pt3->x = pt1->x;

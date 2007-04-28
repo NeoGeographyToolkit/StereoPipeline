@@ -10,7 +10,7 @@ namespace cartography {
   template <class PositionT>
   class OrthoRasterizer {
     
-    ImageView<PositionT> &m_point_cloud;
+    ImageViewRef<PositionT> m_point_cloud;
     float m_dem_spacing;
     BBox<float,3> m_bbox;
     double m_default_value;
@@ -18,14 +18,12 @@ namespace cartography {
   public:
     bool use_minz_as_default;
 
-    OrthoRasterizer(ImageView<PositionT> &point_cloud, 
-                    float dem_spacing = 0.0) : 
-      m_point_cloud(point_cloud), m_default_value(0), use_minz_as_default(true) {      
+    template <class ViewT>
+    OrthoRasterizer(ImageViewBase<ViewT> &point_cloud, float dem_spacing = 0.0) : 
+      m_point_cloud(point_cloud.impl()), m_default_value(0), use_minz_as_default(true) {      
 
-      m_point_cloud = point_cloud;
-
-      for (unsigned int i= 0; i < m_point_cloud.cols(); i++) 
-        for (unsigned int j = 0; j < m_point_cloud.rows(); j++) 
+      for (unsigned int j = 0; j < m_point_cloud.rows(); j++) 
+        for (unsigned int i= 0; i < m_point_cloud.cols(); i++) 
           if (m_point_cloud(i,j) != PositionT())   // If the position is not missing
             m_bbox.grow(m_point_cloud(i,j));
 
@@ -62,9 +60,7 @@ namespace cartography {
 
     double dem_spacing() { return m_dem_spacing; }
 
-    BBox<float,3> bounding_box() { 
-      return m_bbox;
-    }
+    BBox<float,3> bounding_box() { return m_bbox; }
 
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform() {
@@ -74,12 +70,11 @@ namespace cartography {
       geo_transform(1,1) = -1 * m_dem_spacing;
       geo_transform(0,2) = m_bbox.min().x();
       geo_transform(1,2) = m_bbox.max().y();
-
       return geo_transform;
     }
 
     template <class ViewT>
-    ImageView<float> operator()(ImageViewBase<ViewT> const& texture) {
+    ImageView<PixelGrayA<float> > operator()(ImageViewBase<ViewT> const& texture) {
 
       VW_ASSERT(texture.impl().channels() == 1 && texture.impl().planes() == 1,
                 ArgumentErr() << "Orthorasterizer: texture must be a single channel, single plane image."); 
@@ -154,9 +149,24 @@ namespace cartography {
       delete [] coords;
       delete [] textures;
   
-      // The software renderer returns an image which will render upside
-      // down in most image formats
-      return vw::flip_vertical(ortho_image);
+      // Create a DEM with alpha
+      //
+      // The software renderer returns an image which will render
+      // upside down in most image formats, so we correct that here as
+      // well.
+      ImageView<PixelGrayA<float> > ortho_alpha_image(ortho_image.cols(), ortho_image.rows());
+      for (int j = 0; j < ortho_image.rows(); ++j) {
+        for (int i = 0; i < ortho_image.cols(); ++i) {
+          if (ortho_image(i,ortho_image.rows()-1-j) == 0) {
+            ortho_alpha_image(i,j) = PixelGrayA<float>();
+          } else {
+            ortho_alpha_image(i,j) = PixelGrayA<float>(ortho_image(i,ortho_image.rows()-1-j));
+            //            ortho_alpha_image(i,j) = PixelGrayA<float>(0.5);
+          }
+        }
+      }
+
+      return ortho_alpha_image;
     }
   private:
     template <class ViewT>

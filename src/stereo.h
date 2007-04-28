@@ -107,6 +107,7 @@ typedef struct {
   int double_sided;		/* draw the two side of the polygons */
   int inventor;		/* save it as an Inventor file */
   int vrml;			/* save it as an VRML file */
+  int write_ive;			/* save it as an VRML file */
   int write_dem;		/* save it as an ENVI DEM file */
 } TO_DO;		/* Main to do file */
 

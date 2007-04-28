@@ -23,33 +23,26 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo rmax_stereo nurbs
+bin_PROGRAMS = stereo # nurbs
 
-generic_stereo_sources = file_lib.cc mask.cc nff_terrain.cc	\
-	SurfaceNURBS.cc SIFT.cc DEM.cc
+moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
+	  	 MOC/Metadata.cc MOC/MOLA.cc
+
+hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
+
+generic_stereo_sources = file_lib.cc nff_terrain.cc SIFT.cc DEM.cc			\
+		 StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc	\
+		 Spice.cc TabulatedDataReader.cc $(moc_sources) $(hrsc_sources)
 
 stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
 
-# temp_stereo_SOURCES = $(generic_stereo_sources) temp_stereo.cc 
-
-rmax_stereo_SOURCES = $(generic_stereo_sources) rmax_stereo.cc 
-
-if HAVE_PKG_GDAL
-bin_PROGRAMS += hrsc_stereo moc_stereo ctx_stereo
-
-moc_stereo_SOURCES = $(generic_stereo_sources) MOC/Ephemeris.cc		\
-	  MOLAReader.cc Spice.cc TabulatedDataReader.cc MOC/Metadata.cc	\
-	  MOC/MOLA.cc moc_stereo.cc
-
-hrsc_stereo_SOURCES = $(generic_stereo_sources) HRSC/HRSC.cc Spice.cc	\
-	   TabulatedDataReader.cc hrsc_stereo.cc
+bin_PROGRAMS += # ctx_stereo
 
 ctx_stereo_SOURCES = $(generic_stereo_sources) Spice.cc							\
 	TabulatedDataReader.cc ctx_stereo.cc MRO/DiskImageResourceDDD.cc	\
 	MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
-endif
 
-nurbs_SOURCES = SurfaceNURBS.cc nurbs.cc
+# nurbs_SOURCES = nurbs.cc
 
 SUBDIRS = .
 

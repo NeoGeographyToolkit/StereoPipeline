@@ -302,7 +302,6 @@ int main(int argc, char* argv[]) {
       disparity::mask(disparity_map, Lmask, Rmask);
       printf("Done.\n");
     }
-    
     double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
     disparity::get_disparity_range(disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp,true);
     write_image( out_prefix + "-DH.jpg", normalize(clamp(select_channel(disparity_map,0), min_h_disp, max_h_disp)));
