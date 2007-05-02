@@ -31,7 +31,6 @@ using namespace vw::cartography;
 #include "stereo.h"
 #include "file_lib.h"
 #include "nff_terrain.h"
-#include "ImageAlign.h"
 #include "OrthoRasterizer.h"
 #include "StereoSession.h"
 #include "SurfaceNURBS.h"

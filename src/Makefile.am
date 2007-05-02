@@ -23,14 +23,14 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo # nurbs
+bin_PROGRAMS = stereo ctx2kml mars2kml # nurbs
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
 
 hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
 
-generic_stereo_sources = file_lib.cc nff_terrain.cc SIFT.cc DEM.cc			\
+generic_stereo_sources = file_lib.cc nff_terrain.cc DEM.cc			\
 		 StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc	\
 		 Spice.cc TabulatedDataReader.cc $(moc_sources) $(hrsc_sources)
 
@@ -43,6 +43,9 @@ ctx_stereo_SOURCES = $(generic_stereo_sources) Spice.cc							\
 	MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
 
 # nurbs_SOURCES = nurbs.cc
+
+ctx2kml_SOURCES = ctx2kml.cc MRO/DiskImageResourceDDD.cc
+mars2kml_SOURCES = mars2kml.cc MRO/DiskImageResourceDDD.cc
 
 SUBDIRS = .
 
