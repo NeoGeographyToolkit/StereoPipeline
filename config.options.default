@@ -23,6 +23,9 @@ PKG_PATHS="  \
   $IRGPKG_DIR/openexr-1.3.0                      \
   $IRGPKG_DIR/cspice_60                          \ 
   $IRGPKG_DIR/MBA_1.0_gpl                        \
+  $IRGPKG_DIR/OpenThreads-1.4.3                  \
+  $IRGPKG_DIR/Producer-1.0.2                     \
+  $IRGPKG_DIR/OpenSceneGraph-1.2                 \
   $HOME/projects/VisionWorkbench/build/$IRG_ARCH \
   $HOME/Projects/VisionWorkbench/build/$IRG_ARCH \
   $HOME/packages/openexr-1.3.0/build             \
