@@ -1,0 +1,337 @@
+// __BEGIN_LICENSE__
+// 
+// Copyright (C) 2006 United States Government as represented by the
+// Administrator of the National Aeronautics and Space Administration
+// (NASA).  All Rights Reserved.
+// 
+// Copyright 2006 Carnegie Mellon University. All rights reserved.
+// 
+// This software is distributed under the NASA Open Source Agreement
+// (NOSA), version 1.3.  The NOSA has been approved by the Open Source
+// Initiative.  See the file COPYING at the top of the distribution
+// directory tree for the complete NOSA document.
+// 
+// THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
+// KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
+// LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
+// SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
+// A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
+// THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
+// DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
+// 
+// __END_LICENSE__
+
+#ifdef _MSC_VER
+#pragma warning(disable:4244)
+#pragma warning(disable:4267)
+#pragma warning(disable:4996)
+#endif
+
+#include <stdlib.h>
+#include <iostream>
+#include <fstream>
+
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
+
+#include "MRO/DiskImageResourceDDD.h"
+
+#include <vw/Core/Cache.h>
+#include <vw/Core/ProgressCallback.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Image/Transform.h>
+#include <vw/Image/Palette.h>
+#include <vw/FileIO/DiskImageResource.h>
+#include <vw/FileIO/DiskImageResourceJPEG.h>
+#include <vw/FileIO/DiskImageResourceGDAL.h>
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/FileIO.h>
+#include <vw/Mosaic/ImageComposite.h>
+#include <vw/Mosaic/KMLQuadTreeGenerator.h>
+using namespace vw;
+using namespace vw::math;
+using namespace vw::cartography;
+using namespace vw::mosaic;
+
+//  mask_zero_pixels()
+//
+struct MaskZeroPixelFunc: public vw::ReturnFixedType<PixelGrayA<uint16> > {
+  PixelGrayA<uint16> operator() (PixelGray<uint16> const& pix) const {
+    if (pix.v() == 0) 
+      return PixelGrayA<uint16>();  // Mask pixel
+    else
+      return PixelGrayA<uint16>(pix.v());
+  }
+};
+
+template <class ViewT>
+UnaryPerPixelView<ViewT, MaskZeroPixelFunc> 
+mask_zero_pixels(ImageViewBase<ViewT> const& view) {
+  return per_pixel_filter(view.impl(), MaskZeroPixelFunc());
+}
+
+int main( int argc, char *argv[] ) {
+  
+  vw::DiskImageResource::register_file_type( ".ddd", vw::DiskImageResourceDDD::type_static(), &vw::DiskImageResourceDDD::construct_open, &vw::DiskImageResourceDDD::construct_create );
+
+  std::vector<std::string> image_files;
+  std::string output_file_name;
+  std::string output_file_type;
+  double north_lat=90.0, south_lat=-90.0;
+  double east_lon=180.0, west_lon=-180.0;
+  double proj_lat=0, proj_lon=0, proj_scale=1;
+  unsigned utm_zone;
+  int patch_size, patch_overlap;
+  float jpeg_quality;
+  unsigned cache_size;
+  int max_lod_pixels;
+  double nudge_x=0, nudge_y=0;
+  std::string palette_file;
+  float palette_scale=1.0, palette_offset=0.0;
+
+  po::options_description general_options("General Options");
+  general_options.add_options()
+    ("output-name,o", po::value<std::string>(&output_file_name)->default_value("output"), "Specify the base output filename")
+    ("quiet,q", "Quiet output")
+    ("verbose,v", "Verbose output")
+    ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
+    ("help", "Display this help message");
+
+  po::options_description projection_options("Projection Options");
+  projection_options.add_options()
+    ("north", po::value<double>(&north_lat), "The northernmost latitude in degrees")
+    ("south", po::value<double>(&south_lat), "The southernmost latitude in degrees")
+    ("east", po::value<double>(&east_lon), "The easternmost latitude in degrees")
+    ("west", po::value<double>(&west_lon), "The westernmost latitude in degrees")
+    ("sinusoidal", "Assume a sinusoidal projection")
+    ("mercator", "Assume a Mercator projection")
+    ("transverse-mercator", "Assume a transverse Mercator projection")
+    ("orthographic", "Assume an orthographic projection")
+    ("stereographic", "Assume a stereographic projection")
+    ("lambert-azimuthal", "Assume a Lambert azimuthal projection")
+    ("utm", po::value<unsigned>(&utm_zone), "Assume UTM projection with the given zone")
+    ("proj-lat", po::value<double>(&proj_lat), "The center of projection latitude (if applicable)")
+    ("proj-lon", po::value<double>(&proj_lon), "The center of projection longitude (if applicable)")
+    ("proj-scale", po::value<double>(&proj_scale), "The projection scale (if applicable)")
+    ("nudge-x", po::value<double>(&nudge_x), "Nudge the image, in projected coordinates")
+    ("nudge-y", po::value<double>(&nudge_y), "Nudge the image, in projected coordinates");
+    
+  po::options_description output_options("Output Options");
+  output_options.add_options()
+    ("file-type", po::value<std::string>(&output_file_type)->default_value("auto"), "Output file type")
+    ("jpeg-quality", po::value<float>(&jpeg_quality)->default_value(0.75), "JPEG quality factor (0.0 to 1.0)")
+    ("palette-file", po::value<std::string>(&palette_file), "Apply a palette from the given file")
+    ("palette-scale", po::value<float>(&palette_scale), "Apply a scale factor before applying the palette")
+    ("palette-offset", po::value<float>(&palette_offset), "Apply an offset before applying the palette")
+    ("patch-size", po::value<int>(&patch_size)->default_value(256), "Patch size, in pixels")
+    ("patch-overlap", po::value<int>(&patch_overlap)->default_value(0), "Patch overlap, in pixels (must be even)")
+    ("patch-crop", "Crop output patches")
+    ("max-lod-pixels", po::value<int>(&max_lod_pixels)->default_value(1024), "Max LoD in pixels, or -1 for none")
+    ("composite-overlay", "Composite images using direct overlaying (default)")
+    ("composite-multiband", "Composite images using multi-band blending");
+
+  po::options_description hidden_options("");
+  hidden_options.add_options()
+    ("input-file", po::value<std::vector<std::string> >(&image_files));
+
+  po::options_description options("Allowed Options");
+  options.add(general_options).add(projection_options).add(output_options).add(hidden_options);
+
+  po::positional_options_description p;
+  p.add("input-file", -1);
+
+  po::variables_map vm;
+  po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
+  po::notify( vm );
+
+  std::ostringstream usage;
+  usage << "Usage: image2kml [options] <filename>..." << std::endl << std::endl;
+  usage << general_options << std::endl;
+  usage << output_options << std::endl;
+  usage << projection_options << std::endl;
+
+  if( vm.count("help") ) {
+    std::cout << usage.str();
+    return 1;
+  }
+
+  if( vm.count("input-file") < 1 ) {
+    std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
+    std::cout << usage.str();
+    return 1;
+  }
+
+  if( patch_size <= 0 ) {
+    std::cerr << "Error: The patch size must be a positive number!  (You specified " << patch_size << ".)" << std::endl << std::endl;
+    std::cout << usage.str();
+    return 1;
+  }
+    
+  if( patch_overlap<0 || patch_overlap>=patch_size || patch_overlap%2==1 ) {
+    std::cerr << "Error: The patch overlap must be an even nonnegative number" << std::endl;
+    std::cerr << "smaller than the patch size!  (You specified " << patch_overlap << ".)" << std::endl << std::endl;
+    std::cout << usage.str();
+    return 1;
+  }
+  
+  TerminalProgressCallback tpc;
+  const ProgressCallback *progress = &tpc;
+  if( vm.count("verbose") ) {
+    set_debug_level(VerboseDebugMessage);
+    progress = &ProgressCallback::dummy_instance();
+  }
+  else if( vm.count("quiet") ) {
+    set_debug_level(WarningMessage);
+  }
+
+  DiskImageResourceJPEG::set_default_quality( jpeg_quality );
+  Cache::system_cache().resize( cache_size*1024*1024 );
+
+  GeoReference output_georef;
+  output_georef.set_well_known_geogcs("WGS84");
+  int total_resolution = 1024;
+
+  // Use a MARS spheroid datum
+  const double MOLA_PEDR_EQUATORIAL_RADIUS =  3396000.0;
+  vw::cartography::GeoDatum mars_datum;
+  mars_datum.name() = "IAU2000 Mars Spheroid";
+  mars_datum.spheroid_name() = "IAU2000 Mars Spheroid";
+  mars_datum.meridian_name() = "Mars Prime Meridian";
+  mars_datum.semi_major_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
+  mars_datum.semi_minor_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
+
+  // Read in georeference info and compute total resolution
+  bool manual = vm.count("north") || vm.count("south") || vm.count("east") || vm.count("west");
+  std::vector<GeoReference> georeferences;
+  for( unsigned i=0; i<image_files.size(); ++i ) {
+    std::cout << "Adding file " << image_files[i] << std::endl;
+    DiskImageResourceDDD file_resource( image_files[i] );
+
+    // Pull the relevent metadata out of the image header
+    double fullwidth = atol(file_resource.query("projection_fullwidth").c_str());
+    double projection_x_offset = atol(file_resource.query("projection_x_offset").c_str());
+    double projection_y_offset = atol(file_resource.query("projection_y_offset").c_str());
+
+    // Compute the resolution of the image in the projected space.
+    double pixels_per_degree = M_PI*fullwidth/(2.0*360.0);
+    double meters_per_pixel = (2*M_PI*mars_datum.semi_major_axis()/360.0)/pixels_per_degree;
+    std::cout << "Image Scale: " << meters_per_pixel << " meters per pixel.\n";
+
+    // Set up the affine transform matrix
+    Matrix3x3 m = identity_matrix<3>();
+    m(0,0) = m(1,1) = meters_per_pixel;
+    m(0,2) = (projection_x_offset-fullwidth/2)*meters_per_pixel;
+    m(1,2) = (projection_y_offset-fullwidth/2)*meters_per_pixel;
+    std::cout << "Affine Transform: " << m << "\n";
+    GeoReference input_georef(mars_datum, m);
+    input_georef.set_polar_stereographic(90,0,1,0,0);
+
+    if( vm.count("nudge-x") || vm.count("nudge-y") ) {
+      Matrix3x3 m = input_georef.transform();
+      m(0,2) += nudge_x;
+      m(1,2) += nudge_y;
+      input_georef.set_transform( m );
+    }
+    
+    georeferences.push_back( input_georef );
+
+    GeoTransform geotx( input_georef, output_georef );
+    Vector2 center_pixel( file_resource.cols()/2, file_resource.rows()/2 );
+    int resolution = GlobalKMLTransform::compute_resolution( geotx, center_pixel );
+    if( resolution > total_resolution ) total_resolution = resolution;
+  }
+
+  // Configure the composite
+  ImageComposite<PixelGrayA<uint8> > composite;
+  GlobalKMLTransform kmltx( total_resolution );
+
+  // Add the transformed input files to the composite
+  for( unsigned i=0; i<image_files.size(); ++i ) {
+    GeoTransform geotx( georeferences[i], output_georef );
+    //    ImageView<PixelGrayA<uint8> > source = channel_cast<uint8>(mask_zero_pixels(normalize(select_channel(mask_zero_pixels(DiskImageView<PixelGray<uint16> >( image_files[i] )),0), 0,255)));
+    ImageViewRef<PixelGrayA<uint8> > source = channel_cast<uint8>(mask_zero_pixels(normalize(select_channel(mask_zero_pixels(DiskImageView<PixelGray<uint16> >( image_files[i] )),0), 0,255)));
+    
+    // uint16 the_min, the_max;
+    // min_max_channel_values(mask_zero_pixels(source), the_min, the_max);
+
+    std::cout << "Preparing to write image... \n";
+//     write_image("debug.tif", source, TerminalProgressCallback());
+//     std::cout << "Done.\n";
+//     exit(0);
+
+//     if( vm.count("palette-file") ) {
+//       DiskImageView<float> disk_image( image_files[i] );
+//       if( vm.count("palette-scale") || vm.count("palette-offset") ) {
+//         source.reset( per_pixel_filter( disk_image*palette_scale+palette_offset, PaletteFilter<PixelRGB<uint16> >(palette_file) ) );
+//       }
+//       else {
+//         source.reset( per_pixel_filter( disk_image, PaletteFilter<PixelRGB<uint16> >(palette_file) ) );
+//       }
+//     }
+    BBox2i bbox = compose(kmltx,geotx).forward_bbox( BBox2i(0,0,source.cols(),source.rows()) );
+    std::cout << "Bounding box: " << bbox << "\n";
+    // Constant edge extension is better for transformations that 
+    // preserve the rectangularity of the image.  At the moment we 
+    // only do this for manual transforms, alas.
+    if( manual ) {
+      // If the image is being super-sampled the computed bounding 
+      // box may be missing a pixel at the edges relative to what 
+      // you might expect, which can create visible artifacts if 
+      // it happens at the boundaries of the coordinate system.
+      if( west_lon == -180 ) bbox.min().x() = 0;
+      if( east_lon == 180 ) bbox.max().x() = total_resolution;
+      if( north_lat == 90 ) bbox.min().y() = total_resolution/4;
+      if( south_lat == -90 ) bbox.max().y() = 3*total_resolution/4;
+      composite.insert( crop( transform( source, compose(kmltx,geotx), ConstantEdgeExtension() ), bbox ),
+                        bbox.min().x(), bbox.min().y() );
+    }
+    else {
+      composite.insert( crop( transform( source, compose(kmltx,geotx) ), bbox ),
+                        bbox.min().x(), bbox.min().y() );
+    }
+  }
+
+  // Compute a tighter Google Earth coordinate system aligned bounding box
+  BBox2i bbox = composite.bbox();
+  bbox.crop( BBox2i(0,0,total_resolution,total_resolution) );
+  int dim = 2 << (int)(log( (std::max)(bbox.width(),bbox.height()) )/log(2));
+  if ( dim > total_resolution ) dim = total_resolution;
+  BBox2i total_bbox( (bbox.min().x()/dim)*dim, (bbox.min().y()/dim)*dim, dim, dim );
+  if ( ! total_bbox.contains( bbox ) ) {
+    if( total_bbox.max().x() == total_resolution ) total_bbox.min().x() -= dim;
+    else total_bbox.max().x() += dim;
+    if( total_bbox.max().y() == total_resolution ) total_bbox.min().y() -= dim;
+    else total_bbox.max().y() += dim;
+  }
+
+  // Prepare the composite
+  if( vm.count("composite-multiband") ) {
+    std::cout << "Preparing composite..." << std::endl;
+    composite.prepare( total_bbox, *progress );
+  }
+  else {
+    composite.set_draft_mode( true );
+    composite.prepare( total_bbox );
+  }
+  BBox2i data_bbox = composite.bbox();
+  data_bbox.crop( BBox2i(0,0,total_bbox.width(),total_bbox.height()) );
+
+  // Prepare the quadtree
+  BBox2 ll_bbox( -180.0 + (360.0*total_bbox.min().x())/total_resolution, 
+                 180.0 - (360.0*total_bbox.max().y())/total_resolution,
+                 (360.0*total_bbox.width())/total_resolution,
+                 (360.0*total_bbox.height())/total_resolution );
+  KMLQuadTreeGenerator<PixelGrayA<uint8> > quadtree( output_file_name, composite, ll_bbox );
+  quadtree.set_max_lod_pixels(max_lod_pixels);
+  quadtree.set_crop_bbox( data_bbox );
+  if( vm.count("crop") ) quadtree.set_crop_images( true );
+  quadtree.set_output_image_file_type( output_file_type );
+
+  // Generate the composite
+  vw_out(InfoMessage) << "Generating KML Overlay..." << std::endl;
+  quadtree.generate( *progress );
+
+  return 0;
+}

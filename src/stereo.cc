@@ -17,6 +17,7 @@ namespace fs = boost::filesystem;
 
 #include <vw/Core.h>
 #include <vw/Image.h>
+#include <vw/Image/Statistics.h>
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
@@ -203,27 +204,27 @@ int main(int argc, char* argv[]) {
     
     // Call the stereo engine to perform the correlation
     // determine the search window parameters 
-//     if((execute.autoSetCorrParam || dft.autoSetVCorrParam) && !vm.count("multiresolution")) {
-//       std::cout << "\n ------------ Pyramid Search for Correlation Space --------- \n";
-//       printf("Starting pyramid search with initial search dimensions H: [ %d, %d ] V: [ %d, %d ]\n",
-//              search_range.min().x(), search_range.max().x(), search_range.min().y(), search_range.max().y());
+    if((execute.autoSetCorrParam || dft.autoSetVCorrParam) && !vm.count("multiresolution")) {
+      std::cout << "\n ------------ Pyramid Search for Correlation Space --------- \n";
+      printf("Starting pyramid search with initial search dimensions H: [ %d, %d ] V: [ %d, %d ]\n",
+             search_range.min().x(), search_range.max().x(), search_range.min().y(), search_range.max().y());
       
-//       try {
-//         vw::stereo::PyramidCorrelator pyramid_correlator(search_range.min().x(), search_range.max().x(),
-//                                                          search_range.min().y(), search_range.max().y(),
-//                                                          dft.h_kern, dft.v_kern, 
-//                                                          true, dft.xcorr_treshold,
-//                                                          dft.slogW);
-//         //          pyramid_correlator.enable_debug_mode("pyramid");
-//         search_range = pyramid_correlator(left_image, right_image, execute.autoSetCorrParam, dft.autoSetVCorrParam);
+      try {
+        vw::stereo::PyramidCorrelator pyramid_correlator(search_range.min().x(), search_range.max().x(),
+                                                         search_range.min().y(), search_range.max().y(),
+                                                         dft.h_kern, dft.v_kern, 
+                                                         true, dft.xcorr_treshold,
+                                                         dft.slogW);
+        pyramid_correlator.enable_debug_mode("pyramid");
+        search_range = pyramid_correlator(left_disk_image, right_disk_image, execute.autoSetCorrParam, dft.autoSetVCorrParam);
           
-//       } catch (vw::stereo::CorrelatorErr &e) {
-//           std::cout << "Pyramid correlation failed:\n";
-//           e.what();
-//           std::cout << "Exiting.\n\n";
-//           exit(1);
-//       }
-//     }
+      } catch (vw::stereo::CorrelatorErr &e) {
+        std::cout << "Pyramid correlation failed:\n";
+        e.what();
+        std::cout << "Exiting.\n\n";
+        exit(1);
+      }
+    }
             
     std::cout << "------------------------- correlation ----------------------\n";
     CorrelationSettings corr_settings(search_range.min().x(), search_range.max().x(), 
@@ -235,28 +236,48 @@ int main(int argc, char* argv[]) {
                                       true);        // bit image
     
     // perform the sign of laplacian of gaussian filter (SLOG) on the images 
-    //    if(execute.slog) {
-      std::cout << "Applying SLOG filter.\n";
-      ImageView<PixelGray<uint8> > left_bit_image = channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0));
-      ImageView<PixelGray<uint8> > right_bit_image = channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0));
-      std::cout<< "Building Disparity map... " << std::flush;
-      ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView(left_bit_image, right_bit_image, corr_settings);
-      //    }
-//  else if (execute.log) {
-//       corr_settings.m_bit_image = false;
-//       std::cout << "Applying LOG filter.\n";
-//       ImageViewRef<PixelGray<float> > left_log_image = vw::laplacian_filter(vw::gaussian_filter(Limg, dft.slogW));
-//       ImageViewRef<PixelGray<float> > right_log_image = vw::laplacian_filter(vw::gaussian_filter(Rimg, dft.slogW));
-//       disparity_map = correlator(left_log_image, right_log_image, false);
-//     }
+//     std::cout << "Building left SLOG image:.\n";
+//     write_image(out_prefix+"-SL.tif", channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0)), TerminalProgressCallback());
+//     std::cout << "Building right SLOG image:.\n";
+//     write_image(out_prefix+"-SR.tif", channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0)), TerminalProgressCallback());
+//     DiskImageView<PixelGray<uint8> > left_slog_image(out_prefix+"-SL.tif");
+//     DiskImageView<PixelGray<uint8> > right_slog_image(out_prefix+"-SR.tif");
 
-    std::cout << "\nCleaning up disparity map prior to filtering processes.\n";
-    ImageView<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
-                                                                               dft.rm_h_half_kern, dft.rm_v_half_kern,
-                                                                               dft.rm_treshold, dft.rm_min_matches/100.0);
+    
+    std::cout<< "Building Disparity map... " << std::flush;
+    ImageView<PixelGray<uint8> > left_bit_image = channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0));
+    ImageView<PixelGray<uint8> > right_bit_image = channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0));
+
+    //// ----------- This code works
+    BlockCorrelator corr(search_range.min().x(), search_range.max().x(), 
+                         search_range.min().y(), search_range.max().y(),
+                         dft.h_kern, dft.v_kern, 
+                         true,                      // verbose
+                         dft.xcorr_treshold, 2048,  // 2048 is block size
+                         true,true);
+    ImageView<PixelDisparity<float> > disparity_map = corr(left_bit_image, right_bit_image, true);
+
+    //// ------------ This code has a few remaining bugs!!
+    //    ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView(left_bit_image, right_bit_image, corr_settings);
+    
+
+    ///// ------------
+
+    ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
+                                                                                  dft.rm_h_half_kern, dft.rm_v_half_kern,
+                                                                                  dft.rm_treshold, dft.rm_min_matches/100.0);
 
     write_image( out_prefix + "-D.exr", proc_disparity_map, TerminalProgressCallback() );
     DiskImageView<PixelDisparity<float> > disk_disparity_map(out_prefix + "-D.exr");
+
+    float min;
+    float max;
+    vw::min_max_channel_values(select_channel(disk_disparity_map,0), min, max);
+    std::cout << "Ch: " << min << "   " << max << "\n";
+    vw::min_max_channel_values(select_channel(disk_disparity_map,1), min, max);
+    std::cout << "Ch: " << min << "   " << max << "\n";
+    vw::min_max_channel_values(select_channel(disk_disparity_map,2), min, max);
+    std::cout << "Ch: " << min << "   " << max << "\n";
 
     double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
     disparity::get_disparity_range(disk_disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp);
@@ -414,21 +435,9 @@ int main(int argc, char* argv[]) {
         // Use Mercator projection
         georef.set_mercator(0,0,1);
         georef.set_transform(rasterizer.geo_transform());
+        georef.set_orthographic(0,0);
         write_georeferenced_image(out_prefix + "-DEM.tif", ortho_image, georef);
         write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(ortho_image), georef);
-
-        // Work in progress - mbroxton (07-03-08)
-        //       ImageView<PixelGrayA<float> > nurbs_output = MBASurfaceNURBS(ortho_alpha_image, 9);
-        //       for (int j = 0; j < ortho_image.rows(); ++j) {
-        //         for (int i = 0; i < ortho_image.cols(); ++i) {
-        //           if (ortho_alpha_image(i,j).a() != 0) {
-        //             std::cout << "D";
-        //             ortho_alpha_image(i,j) = PixelGrayA<float>(nurbs_output(i,j).v(), 1.0);
-        //           }
-        //         }
-        //       }
-        //       write_image(out_prefix + "-DEM-nurbs.tif", ortho_alpha_image);
-
 
         // Write out a georeferenced orthoimage of the DTM with alpha.
         DiskImageView<PixelGray<float> > texture(out_prefix + "-L.tif");

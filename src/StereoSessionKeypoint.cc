@@ -10,6 +10,7 @@ using namespace vw;
 using namespace vw::ip;
 
 #include "file_lib.h"
+#include "SIFT.h"
 
 using namespace vw;
 
@@ -25,8 +26,7 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   // Images are aligned by computing interest points, matching
   // them using a standard 2-Norm nearest-neighor metric, and then
   // rejecting outliers by fitting a similarity between the
-  // putative matches using RANSAC.
-  
+  // putative matches using RANSAC.  
   HarrisInterest<float> harris;
   //LoGInterest<float> log;
   InterestThreshold<float> thresholder(0.00001);
@@ -34,14 +34,19 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   ImageOctaveHistory<ImageInterestData<float> > h1;
   ImageOctaveHistory<ImageInterestData<float> > h2;
 
+  LoweDetector lowe;
+
   // Interest points are matched in image chunk of <= 2048x2048
   // pixels to conserve memory.
   vw_out(InfoMessage) << "\nInterest Point Detection:\n";
   static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
-  detector.record_history(&h1);
-  std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
-  detector.record_history(&h2);
-  std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+  std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), lowe, MAX_KEYPOINT_IMAGE_DIMENSION);
+  std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), lowe, MAX_KEYPOINT_IMAGE_DIMENSION);
+
+//   detector.record_history(&h1);
+//   std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+//   detector.record_history(&h2);
+//  std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
 
   // Discard points beyond some number to keep matching time within reason.
   // Currently this is limited by the use of the patch descriptor.
