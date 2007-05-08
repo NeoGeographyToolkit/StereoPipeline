@@ -3,7 +3,7 @@
  *     Date: April 2005
  *       By: Michael Broxton and Larry Edwards
  *      For: NASA Ames Research Center, Intelligent Mechanisms Group 
- * Function: Main program for the stereo pipeline	
+ * Function: Main program for the stereo pipeline 
  ************************************************************************/
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
@@ -59,12 +59,13 @@ int main(int argc, char* argv[]) {
   // Definition of data and structures
   int argstart;
   F_HD hd;         /* parameters read in header file & argv[] */
-  DFT_F dft;	     /* parameters read in stereo.default */
+  DFT_F dft;       /* parameters read in stereo.default */
   TO_DO execute;   /* whether or not to execute specific parts of the program */
   int nn;          /* Reuseable counter variable */
   
   // Set the Vision Workbench debug level
-  set_debug_level(VerboseDebugMessage+1);
+  //set_debug_level(VerboseDebugMessage+1);
+  set_debug_level(DebugMessage);
 
   /*************************************/
   /* Parsing of command line arguments */
@@ -119,8 +120,8 @@ int main(int argc, char* argv[]) {
       !vm.count("left-camera-model") || !vm.count("right-camera-model") || 
       !vm.count("output-prefix")) {
     std::cout << "\nUsage: stereo [options] <Left_input_image> <Right_input_image> <Left_camera_file> <Right_camera_file> <output_file_prefix>\n"
-              << "	the extensions are automaticaly added to the output files\n"
-              << "	the parameters should be in stereo.default\n\n";
+              << "  the extensions are automaticaly added to the output files\n"
+              << "  the parameters should be in stereo.default\n\n";
     std::cout << visible_options << std::endl;
     return 1;
   }
@@ -410,6 +411,8 @@ int main(int argc, char* argv[]) {
 
         // Set up the georeferencing information
         vw::cartography::GeoReference georef;
+        // Use Mercator projection
+        georef.set_mercator(0,0,1);
         georef.set_transform(rasterizer.geo_transform());
         write_georeferenced_image(out_prefix + "-DEM.tif", ortho_image, georef);
         write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(ortho_image), georef);

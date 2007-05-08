@@ -28,24 +28,47 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   // putative matches using RANSAC.
   
   HarrisInterest<float> harris;
-  LoGInterest<float> log;
-  InterestThreshold<float> thresholder(0.0);
-  ScaledInterestPointDetector<float> detector(&log, &thresholder);
+  //LoGInterest<float> log;
+  InterestThreshold<float> thresholder(0.00001);
+  ScaledInterestPointDetector<float> detector(&harris, &thresholder);
+  ImageOctaveHistory<ImageInterestData<float> > h1;
+  ImageOctaveHistory<ImageInterestData<float> > h2;
 
   // Interest points are matched in image chunk of <= 2048x2048
   // pixels to conserve memory.
-  std::cout << "\nInterest Point Detection:\n";
+  vw_out(InfoMessage) << "\nInterest Point Detection:\n";
   static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
+  detector.record_history(&h1);
   std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+  detector.record_history(&h2);
   std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+
+  // Discard points beyond some number to keep matching time within reason.
+  // Currently this is limited by the use of the patch descriptor.
+  static const int NUM_POINTS = 800;
+  vw_out(InfoMessage) << "Truncating to " << NUM_POINTS << " points:\n";
+  cull_interest_points(ip1, NUM_POINTS);
+  cull_interest_points(ip2, NUM_POINTS);
+
+  // Generate descriptors for interest points.
+  // TODO: Switch to SIFT descriptor
+  vw_out(InfoMessage) << "Generating descriptors:\n";
+  PatchDescriptor<float> desc;
+  //SIFT_Descriptor<float> desc;
+  ImageView<float> left = channels_to_planes(left_disk_image);
+  ImageView<float> right = channels_to_planes(right_disk_image);
+  generate_descriptors(ip1, left, desc);
+  generate_descriptors(ip2, right, desc);
+  //generate_descriptors(ip1, h1, desc);
+  //generate_descriptors(ip2, h2, desc);
     
   // The basic interest point matcher does not impose any
   // constraints on the matched interest points.
-  std::cout << "\nInterest Point Matching:\n";
+  vw_out(InfoMessage) << "\nInterest Point Matching:\n";
   InterestPointMatcher<L2NormMetric,NullConstraint> matcher;
   std::vector<InterestPoint> matched_ip1, matched_ip2;
   matcher.match(ip1, ip2, matched_ip1, matched_ip2);
-  std::cout << "Found " << matched_ip1.size() << " putative matches.\n";
+  vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
   
   // RANSAC is used to fit a similarity transform between the
   // matched sets of points
