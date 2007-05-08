@@ -34,26 +34,28 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   ImageOctaveHistory<ImageInterestData<float> > h1;
   ImageOctaveHistory<ImageInterestData<float> > h2;
 
-  LoweDetector lowe;
 
   // Interest points are matched in image chunk of <= 2048x2048
   // pixels to conserve memory.
   vw_out(InfoMessage) << "\nInterest Point Detection:\n";
   static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
-  std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), lowe, MAX_KEYPOINT_IMAGE_DIMENSION);
-  std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), lowe, MAX_KEYPOINT_IMAGE_DIMENSION);
-
 //   detector.record_history(&h1);
 //   std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
 //   detector.record_history(&h2);
-//  std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+//   std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+
+  // Old SIFT detector code.  Comment out the lines above and
+  // uncomment these lines to enable. -mbroxton
+  LoweDetector lowe;
+  std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), lowe, MAX_KEYPOINT_IMAGE_DIMENSION);
+  std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), lowe, MAX_KEYPOINT_IMAGE_DIMENSION);
 
   // Discard points beyond some number to keep matching time within reason.
   // Currently this is limited by the use of the patch descriptor.
   static const int NUM_POINTS = 800;
   vw_out(InfoMessage) << "Truncating to " << NUM_POINTS << " points:\n";
-  cull_interest_points(ip1, NUM_POINTS);
-  cull_interest_points(ip2, NUM_POINTS);
+//   cull_interest_points(ip1, NUM_POINTS);
+//   cull_interest_points(ip2, NUM_POINTS);
 
   // Generate descriptors for interest points.
   // TODO: Switch to SIFT descriptor

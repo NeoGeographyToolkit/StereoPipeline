@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
                                                          dft.h_kern, dft.v_kern, 
                                                          true, dft.xcorr_treshold,
                                                          dft.slogW);
-        pyramid_correlator.enable_debug_mode("pyramid");
+        //        pyramid_correlator.enable_debug_mode("pyramid");
         search_range = pyramid_correlator(left_disk_image, right_disk_image, execute.autoSetCorrParam, dft.autoSetVCorrParam);
           
       } catch (vw::stereo::CorrelatorErr &e) {
@@ -236,48 +236,23 @@ int main(int argc, char* argv[]) {
                                       true);        // bit image
     
     // perform the sign of laplacian of gaussian filter (SLOG) on the images 
-//     std::cout << "Building left SLOG image:.\n";
-//     write_image(out_prefix+"-SL.tif", channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0)), TerminalProgressCallback());
-//     std::cout << "Building right SLOG image:.\n";
-//     write_image(out_prefix+"-SR.tif", channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0)), TerminalProgressCallback());
-//     DiskImageView<PixelGray<uint8> > left_slog_image(out_prefix+"-SL.tif");
-//     DiskImageView<PixelGray<uint8> > right_slog_image(out_prefix+"-SR.tif");
+    std::cout << "Building left SLOG image:.\n";
+    write_image(out_prefix+"-SL.exr", threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0), TerminalProgressCallback());
+    std::cout << "Building right SLOG image:.\n";
+    write_image(out_prefix+"-SR.exr", threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0), TerminalProgressCallback());
+    DiskImageView<PixelGray<float> > left_bit_image(out_prefix+"-SL.exr");
+    DiskImageView<PixelGray<float> > right_bit_image(out_prefix+"-SR.exr");
 
-    
     std::cout<< "Building Disparity map... " << std::flush;
-    ImageView<PixelGray<uint8> > left_bit_image = channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0));
-    ImageView<PixelGray<uint8> > right_bit_image = channel_cast<uint8>(threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0));
-
-    //// ----------- This code works
-    BlockCorrelator corr(search_range.min().x(), search_range.max().x(), 
-                         search_range.min().y(), search_range.max().y(),
-                         dft.h_kern, dft.v_kern, 
-                         true,                      // verbose
-                         dft.xcorr_treshold, 2048,  // 2048 is block size
-                         true,true);
-    ImageView<PixelDisparity<float> > disparity_map = corr(left_bit_image, right_bit_image, true);
-
-    //// ------------ This code has a few remaining bugs!!
-    //    ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView(left_bit_image, right_bit_image, corr_settings);
+    ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView(channel_cast<uint8>(left_bit_image), channel_cast<uint8>(right_bit_image), corr_settings);
     
-
-    ///// ------------
 
     ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
                                                                                   dft.rm_h_half_kern, dft.rm_v_half_kern,
                                                                                   dft.rm_treshold, dft.rm_min_matches/100.0);
 
-    write_image( out_prefix + "-D.exr", proc_disparity_map, TerminalProgressCallback() );
+    write_image( out_prefix + "-D.exr", disparity_map, TerminalProgressCallback() );
     DiskImageView<PixelDisparity<float> > disk_disparity_map(out_prefix + "-D.exr");
-
-    float min;
-    float max;
-    vw::min_max_channel_values(select_channel(disk_disparity_map,0), min, max);
-    std::cout << "Ch: " << min << "   " << max << "\n";
-    vw::min_max_channel_values(select_channel(disk_disparity_map,1), min, max);
-    std::cout << "Ch: " << min << "   " << max << "\n";
-    vw::min_max_channel_values(select_channel(disk_disparity_map,2), min, max);
-    std::cout << "Ch: " << min << "   " << max << "\n";
 
     double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
     disparity::get_disparity_range(disk_disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp);
