@@ -390,6 +390,7 @@ main(int argc, char* argv[])
   // Register the DDD file handler with the Vision Workbench
   // DiskImageResource system.
   DiskImageResource::register_file_type(".ddd",
+					DiskImageResourceDDD::type_static(),
 					&DiskImageResourceDDD::construct_open,
 					&DiskImageResourceDDD::construct_create);
 

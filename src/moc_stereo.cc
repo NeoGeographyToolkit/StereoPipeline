@@ -41,9 +41,11 @@ namespace fs = boost::filesystem;
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
 #include <vw/Cartography.h>
+#include <vw/InterestPoint.h>
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::stereo;
+using namespace vw::ip;
 
 #include "stereo.h"
 #include "file_lib.h"
@@ -57,6 +59,7 @@ using namespace vw::stereo;
 #include "MOC/MOLA.h"
 #include "Spice.h" 
 #include "OrthoRasterizer.h"
+#include "SIFT.h"
 #include "DEM.h"
 #include "BundleAdjust.h"
 
@@ -240,8 +243,9 @@ int main(int argc, char* argv[]) {
     // pixels to conserve memory.
     std::cout << "\nInterest Point Detection\n";
     static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
-    std::vector<InterestPoint> ip1 = interest_points(left_disk_image, LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
-    std::vector<InterestPoint> ip2 = interest_points(right_disk_image, LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+    LoweDetector detector;
+    std::vector<InterestPoint> ip1 = interest_points(left_disk_image, detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+    std::vector<InterestPoint> ip2 = interest_points(right_disk_image, detector, MAX_KEYPOINT_IMAGE_DIMENSION);
     
     // The basic interest point matcher does not impose any
     // constraints on the matched interest points.
@@ -397,8 +401,8 @@ int main(int argc, char* argv[]) {
 
     
     // Create the camera models and stereo models
-    camera::OrbitingPushbroomModel left_camera_model = moc_metadata_1.camera_model();
-    camera::OrbitingPushbroomModel right_camera_model = moc_metadata_2.camera_model();
+    camera::OrbitingPushbroomModel left_camera_model = *((camera::OrbitingPushbroomModel*)(moc_metadata_1.camera_model()));
+    camera::OrbitingPushbroomModel right_camera_model = *((camera::OrbitingPushbroomModel*)(moc_metadata_2.camera_model()));
     std::cout << left_camera_model << "\n";
     std::cout << right_camera_model << "\n";
 

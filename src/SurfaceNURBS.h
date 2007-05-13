@@ -21,13 +21,13 @@ template <class PixelT> struct is_valid_pixel {
 
 
 template <class ChannelT>  struct is_valid_pixel<vw::PixelDisparity<ChannelT> > {
-  static bool value(PixelDisparity<ChannelT> const& pix)  {
+  static bool value(vw::PixelDisparity<ChannelT> const& pix)  {
     return !pix.missing();
   }
 };
 
 template <class ImageT>
-static int init_mba_xy(ImageViewBase<ImageT> const& image,
+static int init_mba_xy(vw::ImageViewBase<ImageT> const& image,
                        std::vector<double> &x_array,
                        std::vector<double> &y_array) {
 
@@ -50,13 +50,13 @@ static int init_mba_xy(ImageViewBase<ImageT> const& image,
 // Copy the data into STL vectors; this is the format expected by
 // the MBA NURBS code.  The View must have a PixelGray pixel type.
 template <class ViewT>
-static int init_mba_z(ImageViewBase<ViewT> const& image,
+static int init_mba_z(vw::ImageViewBase<ViewT> const& image,
                       std::vector<double> const& x_array, 
                       std::vector<double> const& y_array,
                       std::vector<double> &z_array, int channel) {
   z_array.resize(x_array.size());
   for (int i = 0; i < x_array.size(); ++i) 
-    z_array[i] = compound_select_channel<typename CompoundChannelType<typename ViewT::pixel_type>::type>(image.impl()(int(x_array[i]),int(y_array[i])), channel);
+    z_array[i] = vw::compound_select_channel<typename vw::CompoundChannelType<typename ViewT::pixel_type>::type>(image.impl()(int(x_array[i]),int(y_array[i])), channel);
 }
 
 template <class PixelT> 
@@ -72,7 +72,7 @@ public:
     PixelT result;
     if (i > m_fitted_surfaces[0].umin() && i < m_fitted_surfaces[0].umax() &&
         j > m_fitted_surfaces[0].vmin() && j < m_fitted_surfaces[0].vmax()) {
-      for (int c = 0; c < PixelNumChannels<PixelT>::value; ++c) 
+      for (int c = 0; c < vw::PixelNumChannels<PixelT>::value; ++c) 
         result[c] = m_fitted_surfaces[c].f((float)i,(float)j);
     }
     return result;
@@ -80,7 +80,7 @@ public:
 };
 
 template <class ChannelT> 
-class SurfaceEvaluator<PixelDisparity<ChannelT> > { 
+class SurfaceEvaluator<vw::PixelDisparity<ChannelT> > { 
 
   const std::vector<UCBspl::SplineSurface> &m_fitted_surfaces;
 
@@ -91,14 +91,14 @@ public:
               vw::ArgumentErr() << "SurfaceEvaluator: expecting two surfaces for pixels of PixelDisparty type.");
   }
 
-  PixelDisparity<ChannelT> operator()(int i, int j) const { 
-    PixelDisparity<ChannelT> result;
+  vw::PixelDisparity<ChannelT> operator()(int i, int j) const { 
+    vw::PixelDisparity<ChannelT> result;
     if (i > m_fitted_surfaces[0].umin() && i < m_fitted_surfaces[0].umax() &&
         j > m_fitted_surfaces[0].vmin() && j < m_fitted_surfaces[0].vmax()) {
-      return PixelDisparity<ChannelT> (m_fitted_surfaces[0].f((float)i,(float)j),
+      return vw::PixelDisparity<ChannelT> (m_fitted_surfaces[0].f((float)i,(float)j),
                                        m_fitted_surfaces[1].f((float)i,(float)j));
     } else {
-      return PixelDisparity<ChannelT>();
+      return vw::PixelDisparity<ChannelT>();
     }
   }
 };
@@ -108,16 +108,16 @@ public:
 // to fit NURBS data on, but three channels total as far as the VW
 // pixel type system is concerned.
 template <class PixelT>
-struct NURBSChannelCount { static int value() { return PixelNumChannels<PixelT>::value; } };
+struct NURBSChannelCount { static int value() { return vw::PixelNumChannels<PixelT>::value; } };
 template <class ChannelT>
-struct NURBSChannelCount<PixelDisparity<ChannelT> > { static int value() { return 2; } };
+struct NURBSChannelCount<vw::PixelDisparity<ChannelT> > { static int value() { return 2; } };
 
 
 
 /// Fit a 2D spline surface to a given image of data.  Each channel of
 /// the image is handled as an independent 2D surface.
 template <class ViewT>
-ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(ImageViewBase<ViewT> const& input, 
+vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<ViewT> const& input, 
                                                       int numIterations) {
 
   typedef typename ViewT::pixel_type pixel_type;
@@ -160,7 +160,7 @@ ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(ImageViewBase<ViewT> const
   (*y_arr).clear();
 
   //  Rasterize the surface by iterating over all of the x and y values.
-  ImageView<pixel_type> output(input.impl().cols(), input.impl().rows());
+  vw::ImageView<pixel_type> output(input.impl().cols(), input.impl().rows());
   std::cout << "\tEvaluating surfaces.\n";
   SurfaceEvaluator<pixel_type> evaluator(fitted_surfaces);
   for (int j = 0; j < input.impl().rows(); ++j) {

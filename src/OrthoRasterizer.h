@@ -1,5 +1,6 @@
 
 #include <vw/Image/ImageView.h>
+#include <vw/Image/ImageViewRef.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 #include <vw/Stereo/SoftwareRenderer.h>
