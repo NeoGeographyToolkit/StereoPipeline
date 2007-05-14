@@ -258,6 +258,12 @@ int main(int argc, char* argv[]) {
     disparity::get_disparity_range(disk_disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp);
     write_image( out_prefix + "-DH.jpg", normalize(clamp(select_channel(disk_disparity_map,0), min_h_disp, max_h_disp)));
     write_image( out_prefix + "-DV.jpg", normalize(clamp(select_channel(disk_disparity_map,1), min_v_disp, max_v_disp)));
+
+    // Delete the temporory file on disk.
+    std::string slog_name1 = out_prefix + "-SL.exr";
+    std::string slog_name2 = out_prefix + "-SR.exr";
+    unlink(slog_name1.c_str());
+    unlink(slog_name2.c_str());
   }
 
   /***************************************************************************/

@@ -72,6 +72,65 @@ mask_zero_pixels(ImageViewBase<ViewT> const& view) {
   return per_pixel_filter(view.impl(), MaskZeroPixelFunc());
 }
 
+class CTXGeoReference : public GeoReferenceBase {
+  int m_x_offset, m_y_offset;
+  int m_fullwidth, m_pole_flag, m_extent;
+
+  CTXGeoReference(x_offset, y_offset, fullwidth, pole_flag, extent) :
+    m_x_offset(x_offset), m_y_offset(y_offset), m_fullwidth(fullwidth),
+    m_pole_flag(pole_flag), m_extent(extent) {}
+  virtual ~CTXGeoReference() {}
+
+
+  virtual Vector2 pixel_to_point(Vector2 pix) const {
+
+  }
+  
+  virtual Vector2 point_to_pixel(Vector2 loc) const {
+
+  }
+  
+  virtual Vector2 point_to_lonlat(Vector2 loc) const {
+
+  }
+  
+  virtual Vector2 lonlat_to_point(Vector2 lat_lon) const {
+
+  }
+
+  virtual Vector2 pixel_to_lonlat(Vector2 pix) const {
+    double lon, lat;
+
+    double prime_meridian = 0;
+    double p1 = 1./(tan(M_PI/4. - (M_PI/180.)*extent/2.));
+
+    double px = 2.*((x + x_offset) - fullwidth/2.)/(p1*fullwidth);
+    double py = 2.*(fullwidth/2. - (y + y_offset))/(p1*fullwidth);
+
+    if (m_pole_flag == 0) py = -py;
+    
+    if (py != 0.) {
+      lon = (180./math.pi)*math.atan2(px, py);
+    } else {
+      if (px > 0) lon = 90.0;
+      else lon = 270;
+    }
+
+    lon += 180. + prime_meridian;
+    if (lon > 360.0) lon -= 360.;
+
+    lat = 90. - (180./M_PI)*2.*atan(sqrt(px*px + py*py));
+    if (pole_flag == 0) lat = -lat;
+
+    if (lon > 180) lon -= 360;
+    return Vector2(lon, lat);
+  }
+
+};
+
+
+
+
 int main( int argc, char *argv[] ) {
   
   vw::DiskImageResource::register_file_type( ".ddd", vw::DiskImageResourceDDD::type_static(), &vw::DiskImageResourceDDD::construct_open, &vw::DiskImageResourceDDD::construct_create );
@@ -195,15 +254,14 @@ int main( int argc, char *argv[] ) {
 
   // Use a MARS spheroid datum
   const double MOLA_PEDR_EQUATORIAL_RADIUS =  3396000.0;
-  vw::cartography::GeoDatum mars_datum;
+  vw::cartography::Datum mars_datum;
   mars_datum.name() = "IAU2000 Mars Spheroid";
   mars_datum.spheroid_name() = "IAU2000 Mars Spheroid";
   mars_datum.meridian_name() = "Mars Prime Meridian";
-  mars_datum.semi_major_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
-  mars_datum.semi_minor_axis() = MOLA_PEDR_EQUATORIAL_RADIUS;
+  mars_datum.set_semi_major_axis(MOLA_PEDR_EQUATORIAL_RADIUS);
+  mars_datum.set_semi_minor_axis(MOLA_PEDR_EQUATORIAL_RADIUS);
 
   // Read in georeference info and compute total resolution
-  bool manual = vm.count("north") || vm.count("south") || vm.count("east") || vm.count("west");
   std::vector<GeoReference> georeferences;
   for( unsigned i=0; i<image_files.size(); ++i ) {
     std::cout << "Adding file " << image_files[i] << std::endl;
@@ -211,12 +269,15 @@ int main( int argc, char *argv[] ) {
 
     // Pull the relevent metadata out of the image header
     double fullwidth = atol(file_resource.query("projection_fullwidth").c_str());
+    double extent = atol(file_resource.query("projection_extent").c_str());
     double projection_x_offset = atol(file_resource.query("projection_x_offset").c_str());
     double projection_y_offset = atol(file_resource.query("projection_y_offset").c_str());
 
     // Compute the resolution of the image in the projected space.
-    double pixels_per_degree = M_PI*fullwidth/(2.0*360.0);
-    double meters_per_pixel = (2*M_PI*mars_datum.semi_major_axis()/360.0)/pixels_per_degree;
+    double p1 = 1./(tan(M_PI/4. - extent/2.));
+    double pixels_per_degree = (p1/2.)*M_PI*fullwidth/360.0;
+    double meters_per_degree = 2*M_PI*mars_datum.semi_major_axis()/360.0;
+    double meters_per_pixel = meters_per_degree / pixels_per_degree;
     std::cout << "Image Scale: " << meters_per_pixel << " meters per pixel.\n";
 
     // Set up the affine transform matrix
@@ -226,7 +287,7 @@ int main( int argc, char *argv[] ) {
     m(1,2) = (projection_y_offset-fullwidth/2)*meters_per_pixel;
     std::cout << "Affine Transform: " << m << "\n";
     GeoReference input_georef(mars_datum, m);
-    input_georef.set_polar_stereographic(90,0,1,0,0);
+    input_georef.set_stereographic(90,0,1,0,0);
 
     if( vm.count("nudge-x") || vm.count("nudge-y") ) {
       Matrix3x3 m = input_georef.transform();
@@ -238,6 +299,7 @@ int main( int argc, char *argv[] ) {
     georeferences.push_back( input_georef );
 
     GeoTransform geotx( input_georef, output_georef );
+    std::cout << "OUTPUT: " << geotx.forward(Vector2(0,0)) << "\n";
     Vector2 center_pixel( file_resource.cols()/2, file_resource.rows()/2 );
     int resolution = GlobalKMLTransform::compute_resolution( geotx, center_pixel );
     if( resolution > total_resolution ) total_resolution = resolution;
@@ -250,47 +312,13 @@ int main( int argc, char *argv[] ) {
   // Add the transformed input files to the composite
   for( unsigned i=0; i<image_files.size(); ++i ) {
     GeoTransform geotx( georeferences[i], output_georef );
-    //    ImageView<PixelGrayA<uint8> > source = channel_cast<uint8>(mask_zero_pixels(normalize(select_channel(mask_zero_pixels(DiskImageView<PixelGray<uint16> >( image_files[i] )),0), 0,255)));
     ImageViewRef<PixelGrayA<uint8> > source = channel_cast<uint8>(mask_zero_pixels(normalize(select_channel(mask_zero_pixels(DiskImageView<PixelGray<uint16> >( image_files[i] )),0), 0,255)));
     
-    // uint16 the_min, the_max;
-    // min_max_channel_values(mask_zero_pixels(source), the_min, the_max);
-
     std::cout << "Preparing to write image... \n";
-//     write_image("debug.tif", source, TerminalProgressCallback());
-//     std::cout << "Done.\n";
-//     exit(0);
-
-//     if( vm.count("palette-file") ) {
-//       DiskImageView<float> disk_image( image_files[i] );
-//       if( vm.count("palette-scale") || vm.count("palette-offset") ) {
-//         source.reset( per_pixel_filter( disk_image*palette_scale+palette_offset, PaletteFilter<PixelRGB<uint16> >(palette_file) ) );
-//       }
-//       else {
-//         source.reset( per_pixel_filter( disk_image, PaletteFilter<PixelRGB<uint16> >(palette_file) ) );
-//       }
-//     }
     BBox2i bbox = compose(kmltx,geotx).forward_bbox( BBox2i(0,0,source.cols(),source.rows()) );
     std::cout << "Bounding box: " << bbox << "\n";
-    // Constant edge extension is better for transformations that 
-    // preserve the rectangularity of the image.  At the moment we 
-    // only do this for manual transforms, alas.
-    if( manual ) {
-      // If the image is being super-sampled the computed bounding 
-      // box may be missing a pixel at the edges relative to what 
-      // you might expect, which can create visible artifacts if 
-      // it happens at the boundaries of the coordinate system.
-      if( west_lon == -180 ) bbox.min().x() = 0;
-      if( east_lon == 180 ) bbox.max().x() = total_resolution;
-      if( north_lat == 90 ) bbox.min().y() = total_resolution/4;
-      if( south_lat == -90 ) bbox.max().y() = 3*total_resolution/4;
-      composite.insert( crop( transform( source, compose(kmltx,geotx), ConstantEdgeExtension() ), bbox ),
-                        bbox.min().x(), bbox.min().y() );
-    }
-    else {
-      composite.insert( crop( transform( source, compose(kmltx,geotx) ), bbox ),
-                        bbox.min().x(), bbox.min().y() );
-    }
+    composite.insert( crop( transform( source, compose(kmltx,geotx) ), bbox ),
+                      bbox.min().x(), bbox.min().y() );
   }
 
   // Compute a tighter Google Earth coordinate system aligned bounding box
