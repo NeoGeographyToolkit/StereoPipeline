@@ -111,7 +111,6 @@ inline rescale_pixels_with_alpha( ImageViewBase<ImageT> const& image, ValT old_l
 }
 
 
-
 template <class PixelT>
 void do_blend( std::vector<std::string> image_files, std::string const& mosaic_name, std::string const& file_type, bool draft, bool qtree, int patch_size, int patch_overlap ) {
   vw::mosaic::ImageComposite<PixelT> composite;

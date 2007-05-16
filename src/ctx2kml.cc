@@ -57,76 +57,93 @@ using namespace vw::mosaic;
 
 //  mask_zero_pixels()
 //
-struct MaskZeroPixelFunc: public vw::ReturnFixedType<PixelGrayA<uint16> > {
-  PixelGrayA<uint16> operator() (PixelGray<uint16> const& pix) const {
+struct MaskZeroPixelFunc: public vw::ReturnFixedType<vw::PixelGrayA<vw::uint16> > {
+  
+  vw::PixelGrayA<uint16> operator() (vw::PixelGray<uint16> const& pix) const {
     if (pix.v() == 0) 
-      return PixelGrayA<uint16>();  // Mask pixel
+      return vw::PixelGrayA<uint16>();  // Mask pixel
     else
-      return PixelGrayA<uint16>(pix.v());
+      return vw::PixelGrayA<uint16>(pix.v());
   }
 };
 
 template <class ViewT>
-UnaryPerPixelView<ViewT, MaskZeroPixelFunc> 
-mask_zero_pixels(ImageViewBase<ViewT> const& view) {
-  return per_pixel_filter(view.impl(), MaskZeroPixelFunc());
+vw::UnaryPerPixelView<ViewT, MaskZeroPixelFunc> 
+mask_zero_pixels(vw::ImageViewBase<ViewT> const& view) {
+  return vw::per_pixel_filter(view.impl(), MaskZeroPixelFunc());
 }
 
-class CTXGeoReference : public GeoReferenceBase {
-  int m_x_offset, m_y_offset;
-  int m_fullwidth, m_pole_flag, m_extent;
-
-  CTXGeoReference(x_offset, y_offset, fullwidth, pole_flag, extent) :
-    m_x_offset(x_offset), m_y_offset(y_offset), m_fullwidth(fullwidth),
-    m_pole_flag(pole_flag), m_extent(extent) {}
-  virtual ~CTXGeoReference() {}
-
-
-  virtual Vector2 pixel_to_point(Vector2 pix) const {
-
+/// \cond INTERNAL
+template <class PixelT>
+class RescalePixelsWithAlphaFunc: public UnaryReturnSameType {
+  typedef typename CompoundChannelType<PixelT>::type channel_type;
+  channel_type m_old_min, m_new_min,m_old_max, m_new_max;
+  double m_old_to_new_ratio;
+public:
+  RescalePixelsWithAlphaFunc( channel_type old_min, channel_type old_max, 
+                              channel_type new_min, channel_type new_max )
+    : m_old_min(old_min), m_new_min(new_min), m_old_max(old_max), m_new_max(new_max)
+  {
+    if( old_max == old_min ) { m_old_to_new_ratio = 0.0; }
+    else { m_old_to_new_ratio = (new_max - new_min)/(double)(old_max - old_min); }
   }
   
-  virtual Vector2 point_to_pixel(Vector2 loc) const {
-
-  }
-  
-  virtual Vector2 point_to_lonlat(Vector2 loc) const {
-
-  }
-  
-  virtual Vector2 lonlat_to_point(Vector2 lat_lon) const {
-
-  }
-
-  virtual Vector2 pixel_to_lonlat(Vector2 pix) const {
-    double lon, lat;
-
-    double prime_meridian = 0;
-    double p1 = 1./(tan(M_PI/4. - (M_PI/180.)*extent/2.));
-
-    double px = 2.*((x + x_offset) - fullwidth/2.)/(p1*fullwidth);
-    double py = 2.*(fullwidth/2. - (y + y_offset))/(p1*fullwidth);
-
-    if (m_pole_flag == 0) py = -py;
-    
-    if (py != 0.) {
-      lon = (180./math.pi)*math.atan2(px, py);
-    } else {
-      if (px > 0) lon = 90.0;
-      else lon = 270;
+  PixelT operator()( PixelT value ) const {
+    PixelT result;
+    for (int i = 0; i < CompoundNumChannels<PixelT>::value-1; ++i) {
+      result[i] = ((value[i] - m_old_min) * m_old_to_new_ratio + m_new_min);
+      // Limit to the min and max values
+      if (result[i] > m_new_max) result[i] = m_new_max;
+      if (result[i] < m_new_min) result[i] = m_new_min;
     }
+    // Copy the alpha value
+    result[CompoundNumChannels<PixelT>::value-1] = value[CompoundNumChannels<PixelT>::value-1];
+    return result;
+  }
+};
+/// \endcond
+
+/// Renormalize the values in an image to fall within the range [low,high).
+template <class ImageT, class ValT>
+UnaryPerPixelView<ImageT, RescalePixelsWithAlphaFunc<typename ImageT::pixel_type> >
+inline rescale_pixels_with_alpha( ImageViewBase<ImageT> const& image, ValT old_low, ValT old_high, ValT new_low, ValT new_high ) {
+  typedef RescalePixelsWithAlphaFunc<typename ImageT::pixel_type> func_type;
+  func_type func(old_low, old_high, new_low, new_high );
+  return UnaryPerPixelView<ImageT, func_type >( image.impl(), func );
+}
+
+
+Vector2 malin_pixel_to_lonlat(Vector2 pix, double x_offset, double y_offset, double extent, double fullwidth) {
+  double lon, lat;
+  int m_pole_flag = 1;
+  double x = pix[0];
+  double y = pix[1];
+
+  double prime_meridian = 0;
+  double p1 = 1./(tan(M_PI/4. - (M_PI/180.)*extent/2.));
+  
+  double px = 2.*((x + x_offset) - fullwidth/2.)/(p1*fullwidth);
+  double py = 2.*(fullwidth/2. - (y + y_offset))/(p1*fullwidth);
+  
+  if (m_pole_flag == 0) py = -py;
+  
+  if (py != 0) {
+    lon = (180./M_PI)*atan2(px, py);
+  } else {
+    if (px > 0) lon = 90.0;
+    else lon = 270;
+  }
 
     lon += 180. + prime_meridian;
     if (lon > 360.0) lon -= 360.;
 
     lat = 90. - (180./M_PI)*2.*atan(sqrt(px*px + py*py));
-    if (pole_flag == 0) lat = -lat;
+    if (m_pole_flag == 0) lat = -lat;
 
+    lon = 360-lon;
     if (lon > 180) lon -= 360;
     return Vector2(lon, lat);
   }
-
-};
 
 
 
@@ -149,6 +166,7 @@ int main( int argc, char *argv[] ) {
   double nudge_x=0, nudge_y=0;
   std::string palette_file;
   float palette_scale=1.0, palette_offset=0.0;
+  int draw_order_offset;
 
   po::options_description general_options("General Options");
   general_options.add_options()
@@ -188,6 +206,7 @@ int main( int argc, char *argv[] ) {
     ("patch-overlap", po::value<int>(&patch_overlap)->default_value(0), "Patch overlap, in pixels (must be even)")
     ("patch-crop", "Crop output patches")
     ("max-lod-pixels", po::value<int>(&max_lod_pixels)->default_value(1024), "Max LoD in pixels, or -1 for none")
+    ("draw-order-offset", po::value<int>(&draw_order_offset)->default_value(200), "Set an offset for the KML <drawOrder> tag for this overlay")
     ("composite-overlay", "Composite images using direct overlaying (default)")
     ("composite-multiband", "Composite images using multi-band blending");
 
@@ -282,12 +301,33 @@ int main( int argc, char *argv[] ) {
 
     // Set up the affine transform matrix
     Matrix3x3 m = identity_matrix<3>();
-    m(0,0) = m(1,1) = meters_per_pixel;
-    m(0,2) = (projection_x_offset-fullwidth/2)*meters_per_pixel;
-    m(1,2) = (projection_y_offset-fullwidth/2)*meters_per_pixel;
+    m(0,0) = meters_per_pixel;
+    m(1,1) = -meters_per_pixel;
+    m(0,2) = (projection_x_offset-fullwidth/2)*m(0,0);
+    m(1,2) = (projection_y_offset-fullwidth/2)*m(1,1);
     std::cout << "Affine Transform: " << m << "\n";
     GeoReference input_georef(mars_datum, m);
     input_georef.set_stereographic(90,0,1,0,0);
+
+//     // Run some tests:
+//     std::cout << input_georef.point_to_lonlat(Vector2(projection_x_offset*meters_per_pixel,projection_y_offset*meters_per_pixel)) << "\n";
+//     std::cout << input_georef.point_to_lonlat(Vector2((projection_x_offset+1000)*meters_per_pixel,(projection_y_offset+1000)*meters_per_pixel)) << "\n";
+//     std::cout << input_georef.point_to_lonlat(Vector2((projection_x_offset+1000)*meters_per_pixel,0)) << "\n";
+//     std::cout << input_georef.point_to_lonlat(Vector2(0,(projection_y_offset+1000)*meters_per_pixel)) << "\n\n";
+
+//     std::cout << input_georef.pixel_to_lonlat(Vector2(0,0)) << "\n";
+//     std::cout << input_georef.pixel_to_lonlat(Vector2(1000,1000)) << "\n";
+//     std::cout << input_georef.pixel_to_lonlat(Vector2(1000,0)) << "\n";
+//     std::cout << input_georef.pixel_to_lonlat(Vector2(0,1000)) << "\n\n";
+
+//     std::cout << pixel_to_lonlat_test(Vector2(0,0), projection_x_offset, projection_y_offset, extent, fullwidth) << "\n";
+//     std::cout << pixel_to_lonlat_test(Vector2(1000,1000), projection_x_offset, projection_y_offset, extent, fullwidth) << "\n";
+//     std::cout << pixel_to_lonlat_test(Vector2(1000,0), projection_x_offset, projection_y_offset, extent, fullwidth) << "\n";
+//     std::cout << pixel_to_lonlat_test(Vector2(0,1000), projection_x_offset, projection_y_offset, extent, fullwidth) << "\n";
+// //     std::cout << input_georef.pixel_to_point(Vector2(0,0)) << "\n";
+// //     std::cout << input_georef.pixel_to_point(Vector2(fullwidth/2,fullwidth/2)) << "\n";
+// //     std::cout << input_georef.pixel_to_point(Vector2(fullwidth,fullwidth)) << "\n";
+//     exit(0);
 
     if( vm.count("nudge-x") || vm.count("nudge-y") ) {
       Matrix3x3 m = input_georef.transform();
@@ -312,8 +352,8 @@ int main( int argc, char *argv[] ) {
   // Add the transformed input files to the composite
   for( unsigned i=0; i<image_files.size(); ++i ) {
     GeoTransform geotx( georeferences[i], output_georef );
-    ImageViewRef<PixelGrayA<uint8> > source = channel_cast<uint8>(mask_zero_pixels(normalize(select_channel(mask_zero_pixels(DiskImageView<PixelGray<uint16> >( image_files[i] )),0), 0,255)));
-    
+    ImageViewRef<PixelGrayA<uint8> > source = channel_cast<uint8>(rescale_pixels_with_alpha(mask_zero_pixels(vw::DiskImageView<uint16>( image_files[i] )), 200, 1100, 0, 255));
+
     std::cout << "Preparing to write image... \n";
     BBox2i bbox = compose(kmltx,geotx).forward_bbox( BBox2i(0,0,source.cols(),source.rows()) );
     std::cout << "Bounding box: " << bbox << "\n";
@@ -354,6 +394,7 @@ int main( int argc, char *argv[] ) {
   KMLQuadTreeGenerator<PixelGrayA<uint8> > quadtree( output_file_name, composite, ll_bbox );
   quadtree.set_max_lod_pixels(max_lod_pixels);
   quadtree.set_crop_bbox( data_bbox );
+  quadtree.set_draw_order_offset( draw_order_offset );
   if( vm.count("crop") ) quadtree.set_crop_images( true );
   quadtree.set_output_image_file_type( output_file_type );
 

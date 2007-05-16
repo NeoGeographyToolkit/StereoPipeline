@@ -65,8 +65,8 @@ int main(int argc, char* argv[]) {
   int nn;          /* Reuseable counter variable */
   
   // Set the Vision Workbench debug level
-  //set_debug_level(VerboseDebugMessage+1);
-  set_debug_level(DebugMessage);
+  //set_debug_level(VerboseDebugMessageda+1);
+  set_debug_level(VerboseDebugMessage+1);
 
   /*************************************/
   /* Parsing of command line arguments */
@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
                                                          dft.h_kern, dft.v_kern, 
                                                          true, dft.xcorr_treshold,
                                                          dft.slogW);
-        //        pyramid_correlator.enable_debug_mode("pyramid");
+        pyramid_correlator.enable_debug_mode("pyramid");
         search_range = pyramid_correlator(left_disk_image, right_disk_image, execute.autoSetCorrParam, dft.autoSetVCorrParam);
           
       } catch (vw::stereo::CorrelatorErr &e) {
@@ -236,12 +236,14 @@ int main(int argc, char* argv[]) {
                                       true);        // bit image
     
     // perform the sign of laplacian of gaussian filter (SLOG) on the images 
+    std::string slog_name1 = out_prefix + "-SL.tif";
+    std::string slog_name2 = out_prefix + "-SR.tif";
     std::cout << "Building left SLOG image:.\n";
-    write_image(out_prefix+"-SL.exr", threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0), TerminalProgressCallback());
+    write_image(slog_name1, threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0), TerminalProgressCallback());
     std::cout << "Building right SLOG image:.\n";
-    write_image(out_prefix+"-SR.exr", threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0), TerminalProgressCallback());
-    DiskImageView<PixelGray<float> > left_bit_image(out_prefix+"-SL.exr");
-    DiskImageView<PixelGray<float> > right_bit_image(out_prefix+"-SR.exr");
+    write_image(slog_name2, threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0), TerminalProgressCallback());
+    DiskImageView<PixelGray<float> > left_bit_image(slog_name1);
+    DiskImageView<PixelGray<float> > right_bit_image(slog_name2);
 
     std::cout<< "Building Disparity map... " << std::flush;
     ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView(channel_cast<uint8>(left_bit_image), channel_cast<uint8>(right_bit_image), corr_settings);
@@ -259,9 +261,7 @@ int main(int argc, char* argv[]) {
     write_image( out_prefix + "-DH.jpg", normalize(clamp(select_channel(disk_disparity_map,0), min_h_disp, max_h_disp)));
     write_image( out_prefix + "-DV.jpg", normalize(clamp(select_channel(disk_disparity_map,1), min_v_disp, max_v_disp)));
 
-    // Delete the temporory file on disk.
-    std::string slog_name1 = out_prefix + "-SL.exr";
-    std::string slog_name2 = out_prefix + "-SR.exr";
+    // Delete the temporory slog files on disk.
     unlink(slog_name1.c_str());
     unlink(slog_name2.c_str());
   }
@@ -341,7 +341,10 @@ int main(int argc, char* argv[]) {
       std::cout << "\nStarting code at POINT_CLOUD stage.\n";
 
     try {
-      DiskImageView<PixelDisparity<float> > disparity_map(out_prefix+"-F.exr");
+      std::string prehook_filename;
+      session->pre_pointcloud_hook(out_prefix+"-F.exr", prehook_filename);
+     
+      DiskImageView<PixelDisparity<float> > disparity_map(prehook_filename);
 
       // Apply the stereo model.  This yields a image of 3D points in
       // space.  We build this image and immediately write out the

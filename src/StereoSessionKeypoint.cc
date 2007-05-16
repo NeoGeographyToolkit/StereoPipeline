@@ -5,6 +5,7 @@
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/InterestPoint.h>
+#include <vw/Stereo.h>
 
 using namespace vw;
 using namespace vw::ip;
@@ -13,6 +14,11 @@ using namespace vw::ip;
 #include "SIFT.h"
 
 using namespace vw;
+
+// Allows FileIO to correctly read/write these pixel types
+namespace vw {
+  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
+}
 
 void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
                                                    std::string & output_file1, std::string & output_file2) {
@@ -54,8 +60,8 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   // Currently this is limited by the use of the patch descriptor.
   static const int NUM_POINTS = 800;
   vw_out(InfoMessage) << "Truncating to " << NUM_POINTS << " points:\n";
-//   cull_interest_points(ip1, NUM_POINTS);
-//   cull_interest_points(ip2, NUM_POINTS);
+  cull_interest_points(ip1, NUM_POINTS);
+  // cull_interest_points(ip2, NUM_POINTS);
 
   // Generate descriptors for interest points.
   // TODO: Switch to SIFT descriptor
@@ -91,6 +97,35 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
 
-  write_image(output_file1, channel_cast_rescale<uint8>(Limg));
-  write_image(output_file2, channel_cast_rescale<uint8>(Rimg)); 
+  write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback());
+  write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback()); 
+}
+  
+void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, std::string & output_file) {
+  //  output_file = input_file;
+  output_file = m_out_prefix + "-F-corrected.exr";
+  vw_out(0) << "Processing disparity map to remove the earlier effects of interest point alignment.\n";
+  
+  DiskImageView<PixelDisparity<float> > disparity_map(input_file);
+
+  // We used a homography to line up the images, we may want 
+  // to generate pre-alignment disparities before passing this information
+  // onto the camera model in the next stage of the stereo pipeline.
+  vw::Matrix<double> align_matrix;
+  try {
+    read_matrix(align_matrix, m_out_prefix + "-align.exr");
+    std::cout << "Alignment Matrix: " << align_matrix << "\n";
+  } catch (vw::IOErr &e) {
+    std::cout << "Could not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
+    exit(1);
+  }
+  
+  vw::Matrix<double> inv_align_matrix = inverse(align_matrix);
+  ImageViewRef<PixelDisparity<float> > result = stereo::disparity::disparity_linear_transform(disparity_map, inv_align_matrix);
+
+  // Remove pixels that are outside the bounds of the secondary image.
+  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+  result = stereo::disparity::remove_invalid_pixels(result, right_disk_image.cols(), right_disk_image.rows());
+
+  write_image(output_file, result, TerminalProgressCallback() );
 }
