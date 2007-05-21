@@ -33,28 +33,23 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   // them using a standard 2-Norm nearest-neighor metric, and then
   // rejecting outliers by fitting a similarity between the
   // putative matches using RANSAC.  
-  HarrisInterest<float> harris;
-  //LoGInterest<float> log;
-  InterestThreshold<float> thresholder(0.00001);
-  ScaledInterestPointDetector<float> detector(&harris, &thresholder);
-  ImageOctaveHistory<ImageInterestData<float> > h1;
-  ImageOctaveHistory<ImageInterestData<float> > h2;
-
 
   // Interest points are matched in image chunk of <= 2048x2048
   // pixels to conserve memory.
   vw_out(InfoMessage) << "\nInterest Point Detection:\n";
   static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
-//   detector.record_history(&h1);
-//   std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
-//   detector.record_history(&h2);
-//   std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+
+  // Interest Point module detector code.
+  ScaledInterestPointDetector<LoGInterest> detector;
+  ImageView<float> left = channels_to_planes(left_disk_image);
+  ImageView<float> right = channels_to_planes(right_disk_image);
+  KeypointList ip1 = interest_points(left, detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+  KeypointList ip2 = interest_points(right, detector, MAX_KEYPOINT_IMAGE_DIMENSION);
 
   // Old SIFT detector code.  Comment out the lines above and
   // uncomment these lines to enable. -mbroxton
-  LoweDetector lowe;
-  std::vector<InterestPoint> ip1 = interest_points(channels_to_planes(left_disk_image), lowe, MAX_KEYPOINT_IMAGE_DIMENSION);
-  std::vector<InterestPoint> ip2 = interest_points(channels_to_planes(right_disk_image), lowe, MAX_KEYPOINT_IMAGE_DIMENSION);
+  // KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+  // KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
 
   // Discard points beyond some number to keep matching time within reason.
   // Currently this is limited by the use of the patch descriptor.
@@ -66,14 +61,10 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   // Generate descriptors for interest points.
   // TODO: Switch to SIFT descriptor
   vw_out(InfoMessage) << "Generating descriptors:\n";
-  PatchDescriptor<float> desc;
-  //SIFT_Descriptor<float> desc;
-  ImageView<float> left = channels_to_planes(left_disk_image);
-  ImageView<float> right = channels_to_planes(right_disk_image);
-  generate_descriptors(ip1, left, desc);
-  generate_descriptors(ip2, right, desc);
-  //generate_descriptors(ip1, h1, desc);
-  //generate_descriptors(ip2, h2, desc);
+  PatchDescriptor<float> desc1(channels_to_planes(left_disk_image));
+  PatchDescriptor<float> desc2(channels_to_planes(right_disk_image));
+  desc1.compute_descriptors(ip1);
+  desc2.compute_descriptors(ip2);
     
   // The basic interest point matcher does not impose any
   // constraints on the matched interest points.
