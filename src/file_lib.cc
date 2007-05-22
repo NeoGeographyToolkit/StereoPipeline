@@ -645,6 +645,249 @@ read_default_file(DFT_F *dft, TO_DO *execute, const char *filename){
   return;
 } /* read_default_file() */
 
+/************************************************************************/
+/*									*/
+/*		          write stereo.default				*/
+/*									*/
+/************************************************************************/
+
+void
+write_default_file(DFT_F *dft, TO_DO *execute, const char *filename){
+  FILE	*outflow;
+
+  /* open file */
+  if ( (outflow = fopen (filename, "w" )) == NULL) {
+    fprintf (stderr, "Error: cannot open stereo default file:\n");
+    exit(EXIT_FAILURE);
+  }  
+  fputs ("SDF\n", outflow);
+
+  /* write the values */
+
+#define PUT_INT(X,Y)		{ fprintf(outflow, "%s\t%d\n", X, dft->Y); }
+#define PUT_INT_SCALED(X,Y,Z)   { fprintf(outflow, "%s\t%d\n", X, dft->Y Z); }
+#define PUT_FLOAT(X,Y) 		{ fprintf(outflow, "%s\t%f\n", X, dft->Y); }
+#define PUT_FLOAT_SCALED(X,Y,Z) { fprintf(outflow, "%s\t%f\n", X, dft->Y Z); }
+#define PUT_TO_DO(X,Y)	 	{ fprintf(outflow, "%s\t%d\n", X, execute->Y); }
+
+      /* for the DFT_F structure */
+      PUT_INT("VERBOSE", verbose)
+	PUT_INT("H_KERNEL", h_kern)
+	PUT_INT("V_KERNEL", v_kern)	
+	PUT_INT("CORR_MARGIN",corr_margin)
+	PUT_INT("H_CORR_MAX", h_corr_max)
+	PUT_INT("H_CORR_MIN", h_corr_min)
+	PUT_INT("CROP_X_MIN", crop_x_min)
+	PUT_INT("CROP_X_MAX", crop_x_max)
+	PUT_INT("CROP_Y_MIN", crop_y_min)
+	PUT_INT("CROP_Y_MAX", crop_y_max)
+	PUT_INT("V_CORR_MIN", v_corr_min)
+	PUT_INT("V_CORR_MAX", v_corr_max)
+	PUT_INT("OUT_HEIGHT", out_height)
+	PUT_INT("OUT_WIDTH", out_width)
+	PUT_INT("AUTO_SET_V_CORR_PARAM", autoSetVCorrParam)
+	PUT_INT("RM_H_HALF_KERN", rm_h_half_kern)
+	PUT_INT("RM_V_HALF_KERN", rm_v_half_kern)
+	PUT_INT("RM_MIN_MATCHES", rm_min_matches)
+	PUT_INT("RM_TRESHOLD", rm_treshold)
+	PUT_FLOAT("XCORR_TRESHOLD", xcorr_treshold)
+	PUT_FLOAT("SMR_TRESHOLD", smr_treshold)
+	PUT_INT("V_FILL_TRESHOLD", v_fill_treshold)
+	PUT_INT("H_FILL_TRESHOLD", h_fill_treshold)
+	PUT_INT("NFF_V_STEP", nff_v_step)
+	PUT_INT("NFF_H_STEP", nff_h_step)
+	PUT_INT("MOSAIC_V_STEP", mosaic_v_step)
+	PUT_INT("MOSAIC_H_STEP", mosaic_h_step)
+	PUT_INT("DRAW_MOSAIC_GROUND_PLANE", draw_mosaic_ground_plane)
+	PUT_INT("MOSAIC_IGNORE_INTENSITY", mosaic_ignore_intensity)
+
+	PUT_FLOAT("EPHEM_ALIGN_KERNEL_X", ephem_align_kernel_x)
+        PUT_FLOAT("EPHEM_ALIGN_KERNEL_Y", ephem_align_kernel_y)
+	PUT_INT("EPHEM_ALIGN_KERNEL_WIDTH", ephem_align_kernel_width)
+	PUT_INT("EPHEM_ALIGN_KERNEL_HEIGHT",ephem_align_kernel_height)
+
+	PUT_INT("NFF_MAX_JUMP", nff_max_jump)
+	PUT_INT("NFF_2D_MAP", nff_2d_map)
+	PUT_INT("ALTITUDE_MODE", altitude_mode)
+	PUT_INT("MOSAIC", mosaic)
+	PUT_INT("SM_DISP_M",smooth_disp_M)
+	PUT_INT("SM_DISP_N",smooth_disp_N)
+	PUT_INT("EXTEND_DISP_L",Lextend)
+	PUT_INT("EXTEND_DISP_R",Rextend)
+	PUT_INT("EXTEND_DISP_T",Textend)
+	PUT_INT("EXTEND_DISP_B",Bextend)
+	PUT_INT("OFFSET_DISP_T",Toffset)
+	PUT_INT("OFFSET_DISP_B",Boffset)
+	PUT_INT("FAR_FIELD_BILLBOARD", billboard_on)
+	PUT_INT("ALIGN_MARGIN_%_REJECT",align_margin)
+	PUT_INT("REFERENCE_CAMERA",ref_cam)
+	PUT_INT("MASTER_EYE",ref_eye)
+	PUT_INT("MAX_TRIANGLES",max_triangles)
+	PUT_INT("SHAPE_TYPE_SOLID",shapeType_solid)
+	PUT_INT("WRITE_TEXTURE_SWITCH", write_texture_switch)
+	PUT_INT("MAX_GRAY_IN_TEXTURE", max_gray_in_texture)
+	PUT_INT("MIN_GRAY_IN_TEXTURE", min_gray_in_texture)
+	PUT_INT("TEXTURE_CASTING_TYPE", texture_casting_type)
+	PUT_INT("USE_MOTOR_COUNT", use_motor_count)
+	PUT_INT("DO_SKY_BILLBOARD", sky_billboard)
+
+	PUT_INT("USE_CAHV", useCAHV)
+	PUT_FLOAT_SCALED("TILT_OFFSET", tilt_offset, /M_PI*180.0)
+	/* from deg to rad */
+	PUT_FLOAT_SCALED("PAN_OFFSET", pan_offset, /M_PI*180.0)
+	PUT_FLOAT_SCALED("BASELINE", baseline, *1000.0)	/* from [m] to [mm] */
+	PUT_FLOAT("ALTITUDE_RANGE", altitude_range)
+	PUT_FLOAT("ALTITUDE_OFFSET", altitude_offset)
+	/* will need a switch case for filter # */
+	PUT_FLOAT_SCALED("H_THETA_L_PIXEL", h_theta_Lpixel, *1000.0)
+	PUT_FLOAT_SCALED("H_THETA_R_PIXEL", h_theta_Rpixel, *1000.0)
+	PUT_FLOAT_SCALED("V_THETA_L_PIXEL", v_theta_Lpixel, *1000.0)
+	PUT_FLOAT_SCALED("V_THETA_R_PIXEL", v_theta_Rpixel, *1000.0)
+	PUT_FLOAT_SCALED("L_TOE_IN_0", toe_l, *1000.0)
+	PUT_FLOAT_SCALED("R_TOE_IN_0", toe_r, *1000.0)
+	PUT_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius)
+	PUT_FLOAT("UNIVERSE_RADIUS", far_universe_radius)
+	PUT_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius)
+	PUT_FLOAT("SKY_BILLBOARD_ELEVATION", sky_billboard_elevation)
+	PUT_INT("SKY_BRIGHTNESS_THRESHOLD", sky_brightness_threshold)
+
+	PUT_FLOAT("MOSAIC_SPHERE_CENTER_X", mosaic_sphere_center_x)
+	PUT_FLOAT("MOSAIC_SPHERE_CENTER_Y", mosaic_sphere_center_y)
+	PUT_FLOAT("MOSAIC_SPHERE_CENTER_Z", mosaic_sphere_center_z)
+	PUT_FLOAT("GROUND_PLANE_LEVEL", ground_plane)
+
+	PUT_FLOAT("X_OFFSET", x_pivot_offset)
+	PUT_FLOAT("Y_OFFSET", y_pivot_offset)
+	PUT_FLOAT("Z_OFFSET", z_pivot_offset)
+	PUT_FLOAT_SCALED("TILT_PIVOT_OFFSET", tilt_pivot_offset, *1000.0)
+	PUT_FLOAT_SCALED("CAMERA_OFFSET", camera_offset, *1000.0)
+	PUT_FLOAT("X_DISP_CORRECTION", x_disp_corr)
+	PUT_FLOAT("Y_DISP_CORRECTION", y_disp_corr)
+	PUT_FLOAT("DISP_CORR_OFFSET", disp_corr_offset)
+	PUT_FLOAT("ALT_TOP_COLOR", alt_top_color)
+	PUT_FLOAT("ALT_BOTTOM_COLOR", alt_btm_color)
+	PUT_FLOAT("TEXTURE_CONTRAST", texture_cntrst)
+	PUT_FLOAT("A2", lens_corr2)
+	PUT_FLOAT("A1", lens_corr1)
+	PUT_FLOAT("A0", lens_corr0)
+	  
+	PUT_FLOAT("MODEL_SCALE", range_scale)
+	PUT_FLOAT("IMP_AZ_OFFSET", imp_az_offset)
+	PUT_FLOAT("IMP_CAN_Z_OFFSET", imp_can_z_offset)
+	PUT_FLOAT("X_IMP_OFFSET", x_imp_offset)
+	PUT_FLOAT("Y_IMP_OFFSET", y_imp_offset)
+	PUT_FLOAT("Z_IMP_OFFSET", z_imp_offset)
+	PUT_FLOAT("LOCAL_LEVEL_X", local_level_x)
+	PUT_FLOAT("LOCAL_LEVEL_Y", local_level_y)
+	PUT_FLOAT("LOCAL_LEVEL_Z", local_level_z)
+	PUT_FLOAT("LOCAL_LEVEL_W", local_level_w)
+	PUT_FLOAT("OUT_MESH_SCALE", out_mesh_scale)
+	PUT_FLOAT("SUB_PXL_TRESHOLD", sub_pxl_treshold)
+	PUT_FLOAT("MASK_LOW_CONTRAST_TRESHOLD",mask_low_contrast_treshold)
+	PUT_INT("H_TIE_PTS",h_tie_pts) 
+	PUT_INT("V_TIE_PTS",v_tie_pts)           
+	PUT_FLOAT("ALIGN.h11",alignMatrix.h11)           
+	PUT_FLOAT("ALIGN.h12",alignMatrix.h12)
+	PUT_FLOAT("ALIGN.h13",alignMatrix.h13)
+	PUT_FLOAT("ALIGN.h21",alignMatrix.h21)
+	PUT_FLOAT("ALIGN.h22",alignMatrix.h22)
+	PUT_FLOAT("ALIGN.h23",alignMatrix.h23)
+	PUT_FLOAT("ALIGN.h31",alignMatrix.h31)
+	PUT_FLOAT("ALIGN.h32",alignMatrix.h32)
+	PUT_FLOAT("ALIGN.h33",alignMatrix.h33)
+	PUT_FLOAT("RED_CHANEL_FACTOR",rFct)
+	PUT_FLOAT("GREEN_CHANEL_FACTOR",gFct)
+	PUT_FLOAT("BLUE_CHANEL_FACTOR",bFct)
+	PUT_FLOAT("SLOG_KERNEL_WIDTH",slogW)
+
+	PUT_FLOAT("AMBIENT_RED",ambiColorRed)
+	PUT_FLOAT("AMBIENT_GREEN",ambiColorGreen)
+	PUT_FLOAT("AMBIENT_BLUE",ambiColorBlue)
+	PUT_FLOAT("DIFFUSE_RED",diffColorRed)
+	PUT_FLOAT("DIFFUSE_GREEN",diffColorGreen)
+	PUT_FLOAT("DIFFUSE_BLUE",diffColorBlue)
+	PUT_FLOAT("SPECULAR_RED",specColorRed)
+	PUT_FLOAT("SPECULAR_GREEN",specColorGreen)
+	PUT_FLOAT("SPECULAR_BLUE",specColorBlue)
+	PUT_FLOAT("EMISSIVE_RED",emisColorRed)
+	PUT_FLOAT("EMISSIVE_GREEN",emisColorGreen)
+	PUT_FLOAT("EMISSIVE_BLUE",emisColorBlue)
+	PUT_FLOAT("SHININESS",shininess)
+	PUT_FLOAT("TRANSPARENCY",transparency)
+	PUT_FLOAT("CREASE_ANGLE",creaseAngle)
+	PUT_FLOAT("MESH_TOLERANCE",mesh_tolerance)
+	PUT_FLOAT("DEM_SPACING", dem_spacing)
+	PUT_FLOAT("DEM_PLANET_RADIUS", dem_planet_radius)
+	PUT_INT("ENVI_DEM_DATA_TYPE", ENVI_dem_data_type)
+
+	/* For the TO_DO structure */
+	PUT_TO_DO("DO_ALIGNMENT", do_alignment)
+	PUT_TO_DO("DO_KEYPOINT_ALIGNMENT", keypoint_alignment)
+	PUT_TO_DO("DO_EPHEMERIS_ALIGNMENT", ephemeris_alignment)
+	PUT_TO_DO("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment)
+
+	PUT_TO_DO("DO_FORMAT_IMG_SIZE", format_size)
+	PUT_TO_DO("WRITE_EXTRAPOLATION_MASK", w_extrapolation_mask)
+	PUT_TO_DO("DO_SLOG", slog)
+	PUT_TO_DO("DO_LOG", log)
+	PUT_TO_DO("DO_FIRST_HIST_EQ", eq_hist1)
+	PUT_TO_DO("DO_EMBOSS", emboss)
+	PUT_TO_DO("DO_SECOND_HIST_EQ", eq_hist2)
+	PUT_TO_DO("AUTO_SET_H_CORR_PARAM", autoSetCorrParam)
+	PUT_TO_DO("DO_VERT_CAL", vert_cal)
+	PUT_TO_DO("WRITE_PREPROCESSED", w_preprocessed)
+	PUT_TO_DO("WRITE_TEXTURE", w_texture)
+	PUT_TO_DO("2D_CORRELATION", biDimCorr)
+	PUT_TO_DO("CORR_CLEAN_UP", corr_clean_up)
+	PUT_TO_DO("WRITE_DEBUG_DISP", w_debug_disp)
+	PUT_TO_DO("WRITE_DISP_STP", w_disp_stp)
+	PUT_TO_DO("WRITE_DISP_PGM", w_disp_pgm)
+	PUT_TO_DO("WRITE_DISP_VICAR", w_disp_vicar)
+
+	PUT_TO_DO("WRITE_PGM_DISPARITIES", w_pgm_disparity_map)
+	PUT_TO_DO("WRITE_RAW_DISPARITIES", w_raw_disparity_map)
+
+	PUT_TO_DO("FILL_HOLES_NURBS", fill_holes_NURBS)
+	PUT_TO_DO("FILL_V_HOLES", fill_v_holes)
+	PUT_TO_DO("FILL_H_HOLES", fill_h_holes)
+	PUT_TO_DO("FILL_H_HOLES", fill_h_holes)
+	PUT_TO_DO("EXTEND_DISP_LR", extend_lr)
+	PUT_TO_DO("EXTEND_DISP_TB", extend_tb)
+	PUT_TO_DO("SMOOTH_DISP", smooth_disp)
+	PUT_TO_DO("WRITE_FILTERED_DISP_PGM", w_filtered_disp_pgm)
+	PUT_TO_DO("SMOOTH_RANGE", smooth_range)
+	PUT_TO_DO("DO_DOTCLOUD", dotcloud)
+	PUT_TO_DO("DO_LOCAL_LEVEL_TRANSFORM", local_level_transform)
+	PUT_TO_DO("WRITE_DOTCLOUD", w_dotcloud)
+	PUT_TO_DO("WRITE_MVACS_RANGE", w_vicar_range_maps)
+	PUT_TO_DO("WRITE_VICAR_XYZ", w_vicar_xyz_map)
+	PUT_TO_DO("DO_3D_MESH", mesh)
+	PUT_TO_DO("ADAPTIVE_MESHING", adaptative_meshing)
+	PUT_TO_DO("NFF_PLAIN", nff_plain)
+	PUT_TO_DO("NFF_TXT", nff_txt)
+	PUT_TO_DO("DOUBLE_SIDED", double_sided)
+	PUT_TO_DO("INVENTOR", inventor)
+	PUT_TO_DO("VRML", vrml)
+	PUT_TO_DO("WRITE_DEM", write_dem)
+	PUT_TO_DO("DO_ALTITUDE_TEXTURE", alt_texture)
+	PUT_TO_DO("APPLY_MASK", apply_mask)
+	PUT_TO_DO("WRITE_MASK", w_mask)
+
+
+#undef PUT_FLOAT
+#undef PUT_INT
+#undef PUT_TO_DO
+
+	fputs ("END\n", outflow);
+	
+  if(dft->verbose){
+    printf(" *************************************************************\n");
+    printf("Stereo Default File written successfully\n");
+  }
+  fclose (outflow);
+  return;
+} /* write_default_file() */
+
 
 
 /*******/

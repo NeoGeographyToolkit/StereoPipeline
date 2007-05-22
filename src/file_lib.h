@@ -137,5 +137,6 @@ void write_orbital_reference_model(std::string filename,
 void	init_dft_struct(DFT_F *dft, TO_DO *todo);
 void	init_header_struct(DFT_F *dft, F_HD *, char *, char *, char *);
 void	read_default_file(DFT_F *df, TO_DO *execute, const char *filename);
+void	write_default_file(DFT_F *df, TO_DO *execute, const char *filename);
 
 #endif /* _FILE_LIB_H */

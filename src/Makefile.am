@@ -23,7 +23,7 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo # rmax2cahvor # ctx2kml ctxblend # nurbs
+bin_PROGRAMS = stereo stereodefault # rmax2cahvor # ctx2kml ctxblend # nurbs
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
@@ -48,6 +48,8 @@ ctx2kml_SOURCES = ctx2kml.cc MRO/DiskImageResourceDDD.cc
 ctxblend_SOURCES = ctxblend.cc MRO/DiskImageResourceDDD.cc
 
 rmax2cahvor_SOURCES = rmax2cahvor.cc
+
+stereodefault_SOURCES = stereodefault.cc file_lib.cc
 
 SUBDIRS = .
 
