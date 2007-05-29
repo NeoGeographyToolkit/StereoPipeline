@@ -6,11 +6,23 @@
 /* Function: Read, write & initialize, Files, buffers & struct		*/
 /************************************************************************/
 
+// ability to also read old-style config file
+#define READ_OLD_CONFIG_FILE
+// force to write old-style config file INSTEAD of new-style
+#define WRITE_OLD_CONFIG_FILE
+
 #define NAME_LENGTH 1024
 
 #include <stdio.h>
 #include <math.h>
 #include <limits.h>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <boost/version.hpp>
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
+
 #include "file_lib.h"
 #include "MOC/Metadata.h"
 
@@ -118,216 +130,561 @@ void write_orbital_reference_model(std::string filename,
 /*									*/
 /************************************************************************/
 
+//NOTE: this struct and the following functions support option scaling because boost's program_options does not
+struct AugmentingDescription {
+  const char* name;
+  void* data;
+  bool needs_scale;
+  double scale;
+};
+
+enum OptionType {
+  OPTION_TYPE_INT,
+  OPTION_TYPE_FLOAT,
+  OPTION_TYPE_DOUBLE
+};
+
+// Determine type of option.
+OptionType option_type(po::option_description& d) {
+  OptionType type = OPTION_TYPE_INT;
+  
+  boost::shared_ptr<const po::typed_value<int> > intp = boost::dynamic_pointer_cast<const po::typed_value<int> >(d.semantic());
+  boost::shared_ptr<const po::typed_value<float> > floatp = boost::dynamic_pointer_cast<const po::typed_value<float> >(d.semantic());
+  boost::shared_ptr<const po::typed_value<double> > doublep = boost::dynamic_pointer_cast<const po::typed_value<double> >(d.semantic());
+  
+  if(intp.get())
+    type = OPTION_TYPE_INT;
+  else if(floatp.get())
+    type = OPTION_TYPE_FLOAT;
+  else if(doublep.get())
+    type = OPTION_TYPE_DOUBLE;
+  else {
+    std::cerr << "Error: Option " << d.long_name() << " is not a supported type." << std::endl;
+    exit(EXIT_FAILURE);
+  }
+  if((intp.get() ? 1 : 0) + (floatp.get() ? 1 : 0) + (doublep.get() ? 1 : 0) > 1) {
+    std::cerr << "Error: Option " << d.long_name() << " is of more than one supported type." << std::endl;
+    exit(EXIT_FAILURE);
+  }
+  
+  return type;
+}
+
+// Scale members of DFT struct appropriately.
+void scale_dft_struct(po::options_description *desc, std::vector<AugmentingDescription> *adesc, po::variables_map *vm) {
+  OptionType type;
+  std::vector<AugmentingDescription>::iterator i;
+  for(i = adesc->begin(); i != adesc->end(); i++) {
+    // If the option should not be scaled...
+    if(!(*i).needs_scale)
+      continue;
+    // If the value is the default, then we should not scale it.
+    if((*vm)[(*i).name].defaulted())
+      continue;
+#if BOOST_VERSION == 103200
+    po::option_description d = desc->find((*i).name);
+#else
+    po::option_description d = desc->find((*i).first, false);
+#endif
+    type = option_type(d);
+    switch(type) {
+    case OPTION_TYPE_INT:
+      *((int*)((*i).data)) = (int)((double)(*((int*)((*i).data))) * (*i).scale);
+      break;
+    case OPTION_TYPE_FLOAT:
+      *((float*)((*i).data)) = (float)((double)(*((float*)((*i).data))) * (*i).scale);
+      break;
+    case OPTION_TYPE_DOUBLE:
+      *((double*)((*i).data)) = *((double*)((*i).data)) * (*i).scale;
+      break;
+    default:
+      std::cerr << "Unexpected type!" << std::endl;
+      break;
+    }
+  }
+}
+
+// Undo scaling of members of DFT struct.
+void unscale_dft_struct(po::options_description *desc, std::vector<AugmentingDescription> *adesc) {
+  OptionType type;
+  std::vector<AugmentingDescription>::iterator i;
+  for(i = adesc->begin(); i != adesc->end(); i++) {
+    // If the option should not be scaled...
+    if(!(*i).needs_scale)
+      continue;
+#if BOOST_VERSION == 103200
+    po::option_description d = desc->find((*i).name);
+#else
+    po::option_description d = desc->find((*i).first, false);
+#endif
+    type = option_type(d);
+    switch(type) {
+    case OPTION_TYPE_INT:
+      *((int*)((*i).data)) = (int)((double)(*((int*)((*i).data))) / (*i).scale);
+      break;
+    case OPTION_TYPE_FLOAT:
+      *((float*)((*i).data)) = (float)((double)(*((float*)((*i).data))) / (*i).scale);
+      break;
+    case OPTION_TYPE_DOUBLE:
+      *((double*)((*i).data)) = *((int*)((*i).data)) / (*i).scale;
+      break;
+    default:
+      std::cerr << "Unexpected type!" << std::endl;
+      break;
+    }
+  }
+}
+
+// Build po::options_description desc and associate it with dft and todo.
+//NOTE: adesc is to get around
+//  1) the fact that we cannot get the store-to pointers back out of the po::value's inside of the po::options_description
+//  2) the fact that the boost config-file reader will not allow us to specify a scale-by factor; boost tells us whether a final value is the default value or not, so we DO NOT scale the default by 1/scale (i.e. the specified default value is the one that is visible to the program--it is never scaled)
+void associate_dft_struct(DFT_F *dft, TO_DO *todo, po::options_description *desc, std::vector<AugmentingDescription> *adesc) {
+
+  AugmentingDescription ad;
+
+#define ASSOC_INT(X,Y,V,D)             desc->add_options()(X, po::value<int>(&(dft->Y))->default_value(V), D); \
+                                       ad.name = X; ad.data = (void*)&(dft->Y); \
+                                       ad.needs_scale = false; \
+                                       ad.scale = 1.0; adesc->push_back(ad);
+#define ASSOC_INT_SCALED(X,Y,V,D,Z)    desc->add_options()(X, po::value<int>(&(dft->Y))->default_value(V), D); \
+                                       ad.name = X; ad.data = (void*)&(dft->Y); \
+                                       ad.needs_scale = true; \
+                                       ad.scale = Z; adesc->push_back(ad);
+#define ASSOC_FLOAT(X,Y,V,D)           desc->add_options()(X, po::value<float>(&(dft->Y))->default_value(V), D); \
+                                       ad.name = X; ad.data = (void*)&(dft->Y); \
+                                       ad.needs_scale = false; \
+                                       ad.scale = 1.0; adesc->push_back(ad);
+#define ASSOC_FLOAT_SCALED(X,Y,V,D,Z)  desc->add_options()(X, po::value<float>(&(dft->Y))->default_value(V), D); \
+                                       ad.name = X; ad.data = (void*)&(dft->Y); \
+                                       ad.needs_scale = true; \
+                                       ad.scale = Z; adesc->push_back(ad);
+#define ASSOC_DOUBLE(X,Y,V,D)          desc->add_options()(X, po::value<double>(&(dft->Y))->default_value(V), D); \
+                                       ad.name = X; ad.data = (void*)&(dft->Y); \
+                                       ad.needs_scale = false; \
+                                       ad.scale = 1.0; adesc->push_back(ad);
+#define ASSOC_DOUBLE_SCALED(X,Y,V,D,Z) desc->add_options()(X, po::value<double>(&(dft->Y))->default_value(V), D); \
+                                       ad.name = X; ad.data = (void*)&(dft->Y); \
+                                       ad.needs_scale = true; \
+                                       ad.scale = Z; adesc->push_back(ad);
+#define ASSOC_TO_DO(X,Y,V,D)           desc->add_options()(X, po::value<int>(&(todo->Y))->default_value(V), D); \
+                                       ad.name = X; ad.data = (void*)&(todo->Y); \
+                                       ad.needs_scale = false; \
+                                       ad.scale = 1.0; adesc->push_back(ad);
+
+  ASSOC_TO_DO("DO_ALIGNMENT", do_alignment, 1, "Do we do alignment at all?")
+  ASSOC_TO_DO("DO_KEYPOINT_ALIGNMENT", keypoint_alignment, 1, "Align images using the keypoint alignment method")
+  ASSOC_TO_DO("DO_EPHEMERIS_ALIGNMENT", ephemeris_alignment, 0, "Align images using the ephemeris alignment method")
+  ASSOC_TO_DO("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment, 0, "Align images using epipolar constraints")
+
+  ASSOC_TO_DO("DO_FORMAT_IMG_SIZE", format_size, 0, "format the size of the image")
+  ASSOC_TO_DO("DO_SLOG", slog, 0, "perform an slog (relpace the emboss)")
+  ASSOC_TO_DO("DO_LOG", log, 0, "perform a log (laplacian of gaussian)")
+  ASSOC_TO_DO("DO_FIRST_HIST_EQ", eq_hist1, 0, "do the first histogam equalisation")
+  ASSOC_TO_DO("DO_EMBOSS", emboss, 0, "do the emboss convolution")
+  ASSOC_TO_DO("DO_SECOND_HIST_EQ", eq_hist2, 0, "do the second histogam equalisation")
+  ASSOC_TO_DO("AUTO_SET_H_CORR_PARAM", autoSetCorrParam, 0, "uses pyramidal scheme to autom get search param")
+  ASSOC_TO_DO("DO_VERT_CAL", vert_cal, 0, "do the vertical calibration")
+  ASSOC_TO_DO("WRITE_TEXTURE", w_texture, 0, "write the pgm texture File")
+  ASSOC_TO_DO("WRITE_PREPROCESSED", w_preprocessed, 0, "write the preprocessed image file")
+  ASSOC_TO_DO("CORR_1ST_PASS", corr_1st_pass, 1, "do the correlation")
+  ASSOC_TO_DO("2D_CORRELATION", biDimCorr, 1, "do a 2D correlation by default")
+  ASSOC_TO_DO("CORR_CLEAN_UP", corr_clean_up, 0, "do n filtering pass to rm wrong matches")
+  ASSOC_TO_DO("WRITE_DEBUG_DISP", w_debug_disp, 0, "write intermediate disp.pgm files")
+  ASSOC_TO_DO("WRITE_DISP_STP", w_disp_stp, 1, "write an stp file of the raw disp map")
+  ASSOC_TO_DO("WRITE_DISP_PGM", w_disp_pgm, 0, "write an pgm file of the raw disp map")
+  ASSOC_TO_DO("WRITE_RAW_DISPARITIES", w_raw_disparity_map, 0, "write raw unscaled disparity values")
+  ASSOC_TO_DO("WRITE_PGM_DISPARITIES", w_pgm_disparity_map, 0, "write a pgm file of disparity map unscaled")
+  ASSOC_TO_DO("FILL_V_HOLES", fill_v_holes, 0, "fill holes in dispmap with vert algorithm")
+  ASSOC_TO_DO("FILL_H_HOLES", fill_h_holes, 0, "fill holes in dispmap with horz algorithm")
+  ASSOC_TO_DO("FILL_HOLES_NURBS", fill_holes_NURBS, 0, "fill holes using Larry's NURBS code")
+  ASSOC_TO_DO("EXTEND_DISP_LR", extend_lr, 0, "extrapolate disp values (Left/Right)")
+  ASSOC_TO_DO("EXTEND_DISP_TB", extend_tb, 0, "extrapolate disp values (Top/Bottom)")
+  ASSOC_TO_DO("SMOOTH_DISP", smooth_disp, 0, "smooth the disp map")
+  ASSOC_TO_DO("WRITE_FILTERED_DISP_PGM", w_filtered_disp_pgm, 0, "write the filtered disp map in pgm")
+  ASSOC_TO_DO("SMOOTH_RANGE", smooth_range, 0, "do a smooth range on the range file")
+  ASSOC_TO_DO("DO_DOTCLOUD", dotcloud, 0, "build the dotcloud model")
+  ASSOC_TO_DO("DO_LOCAL_LEVEL_TRANSFORM", local_level_transform, 0, "coordinate transfrom: lander to local level to z-up, x-north frame")
+  ASSOC_TO_DO("WRITE_DOTCLOUD", w_dotcloud, 0, "write dotcloud file")
+  ASSOC_TO_DO("WRITE_MVACS_RANGE", w_vicar_range_maps, 0, "write range maps in mvacs vicar format")
+  ASSOC_TO_DO("WRITE_VICAR_XYZ", w_vicar_xyz_map, 0, "write xyz range map in vicar format")
+  ASSOC_TO_DO("WRITE_DISP_VICAR", w_disp_vicar, 0, "write disp map in vicar format")
+  ASSOC_TO_DO("DO_ALTITUDE_TEXTURE", alt_texture, 0, "create and write a texture f(altitude)")
+  ASSOC_TO_DO("DO_3D_MESH", mesh, 0, "do the mesh")
+  ASSOC_TO_DO("ADAPTIVE_MESHING", adaptative_meshing, 0, "do not do the adaptative meshing by dft")
+  ASSOC_TO_DO("NFF_PLAIN", nff_plain, 0, "save it as a plain model")
+  ASSOC_TO_DO("NFF_TXT", nff_txt, 0, "save it as a textured model")
+  ASSOC_TO_DO("DOUBLE_SIDED", double_sided, 0, "draw two sided polygons")
+  ASSOC_TO_DO("INVENTOR", inventor, 0, "save it as an Inventor file")
+  ASSOC_TO_DO("VRML", vrml, 0, "save it as an VRML file")
+  ASSOC_TO_DO("WRITE_IVE", write_ive, 1, "save it as an OpenSceneGraph file")
+  ASSOC_TO_DO("WRITE_DEM", write_dem, 0, "save it as a DEM file")
+  ASSOC_TO_DO("APPLY_MASK", apply_mask, 1, "apply the mask by default")
+  ASSOC_TO_DO("WRITE_MASK", w_mask, 0, "do not write the mask file by default")
+  ASSOC_TO_DO("WRITE_EXTRAPOLATION_MASK", w_extrapolation_mask, 0, "do not write the extrapolation mask")
+
+  ASSOC_DOUBLE("EPHEM_ALIGN_KERNEL_X", ephem_align_kernel_x, 150, "x coordinate of the ephem. alignmnt kernel")
+  ASSOC_DOUBLE("EPHEM_ALIGN_KERNEL_Y", ephem_align_kernel_y, 150, "y coordinate of the ephem. alignmnt kernel")
+  ASSOC_INT("EPHEM_ALIGN_KERNEL_WIDTH", ephem_align_kernel_width, 40, "Width of the ephemeris alignment kernel")
+  ASSOC_INT("EPHEM_ALIGN_KERNEL_HEIGHT",ephem_align_kernel_height, 40, "Height of the ephemeris alignment kernel")
+
+  ASSOC_INT("H_KERNEL", h_kern, 0, "kernel width first pass")
+  ASSOC_INT("V_KERNEL", v_kern, 0, "kernel height first pass")  
+  ASSOC_INT("CORR_MARGIN",corr_margin, 0, "extra margin for search window")
+  ASSOC_INT("H_CORR_MAX", h_corr_max, 0, "correlation window size max x")
+  ASSOC_INT("H_CORR_MIN", h_corr_min, 0, "correlation window size min x")
+  ASSOC_INT("CROP_X_MIN", crop_x_min, 0, "cropping coordonate")
+  ASSOC_INT("CROP_X_MAX", crop_x_max, 0, "")
+  ASSOC_INT("CROP_Y_MIN", crop_y_min, 0, "")
+  ASSOC_INT("CROP_Y_MAX", crop_y_max, 0, "")
+  ASSOC_INT("V_CORR_MIN", v_corr_min, 0, "automatic img alignment parameters")
+  ASSOC_INT("V_CORR_MAX", v_corr_max, 0, "min max vertical picture shift interval")
+  ASSOC_INT("AUTO_SET_V_CORR_PARAM", autoSetVCorrParam, 0, "goes with autoSetCorrParam")
+  /* camera parameters */
+  ASSOC_INT("USE_CAHV", useCAHV, 0, "")
+  ASSOC_FLOAT_SCALED("BASELINE", baseline, 0.0, "distance between the cameras", 1.0/1000.0)  /* from [mm] to [m] */
+  ASSOC_FLOAT_SCALED("TILT_PIVOT_OFFSET", tilt_pivot_offset, 0.0, "vert dist btwn optical axis and tilt axis", 1.0/1000.0)
+  ASSOC_FLOAT_SCALED("CAMERA_OFFSET", camera_offset, 0.0, "horz dist btwn cam nodal pt and tilt axis", 1.0/1000.0)
+  ASSOC_FLOAT("X_OFFSET", x_pivot_offset, 0.0, "offset btw wolrd origin and the hz pivot")
+  ASSOC_FLOAT("Y_OFFSET", y_pivot_offset, 0.0, "")
+  ASSOC_FLOAT("Z_OFFSET", z_pivot_offset, 0.0, "")
+  ASSOC_FLOAT_SCALED("R_TOE_IN_0", toe_r, 0.0, "toe in for the right eye", 1.0/1000.0)
+  ASSOC_FLOAT_SCALED("L_TOE_IN_0", toe_l, 0.0, "toe in for the left eye", 1.0/1000.0)
+  ASSOC_FLOAT_SCALED("H_THETA_R_PIXEL", h_theta_Rpixel, 0.0, "field of view per pixel", 1.0/1000.0)
+  ASSOC_FLOAT_SCALED("H_THETA_L_PIXEL", h_theta_Lpixel, 0.0, "", 1.0/1000.0)
+  ASSOC_FLOAT_SCALED("V_THETA_R_PIXEL", v_theta_Rpixel, 0.0, "", 1.0/1000.0)
+  ASSOC_FLOAT_SCALED("V_THETA_L_PIXEL", v_theta_Lpixel, 0.0, "", 1.0/1000.0)
+
+  ASSOC_INT("OUT_WIDTH", out_width, 0, "desired image output size")
+  ASSOC_INT("OUT_HEIGHT", out_height, 0, "")
+  ASSOC_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius, 0.0, "radius of inner boundary of universe [m]")
+  ASSOC_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius, 0.0, "radius of outer boundary of universe [m]")
+  //NOTE: UNIVERSE_RADIUS was an alias for FAR_UNIVERSE_RADIUS; now it is special-cased in the parser (but only for old-style config files)
+  ASSOC_FLOAT("GROUND_PLANE_LEVEL", ground_plane, -1.0, "radius of outer boundary of universe [m]")
+  ASSOC_FLOAT("SKY_BILLBOARD_ELEVATION", sky_billboard_elevation, 3.0, "Angle (deg.) above which to place everything on billboard")
+  ASSOC_INT("SKY_BRIGHTNESS_THRESHOLD", sky_brightness_threshold, 0, "Intensity above which to sky dot on billboard")
+  ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 0, "low conf pixel removal kernel half size")
+  ASSOC_INT("RM_V_HALF_KERN", rm_v_half_kern, 0, "")
+  ASSOC_INT("RM_MIN_MATCHES", rm_min_matches, 0, "min # of pxls to be matched to keep pxl")
+  ASSOC_INT("RM_TRESHOLD", rm_treshold, 1, "rm_treshold > disp[n]-disp[m] pixels are not matching")
+  ASSOC_FLOAT("SMR_TRESHOLD", smr_treshold, 0, "treshold for smooth_range function")
+  ASSOC_INT("V_FILL_TRESHOLD", v_fill_treshold, 0, "treshold for the file_hole_vert function")
+  ASSOC_INT("H_FILL_TRESHOLD", h_fill_treshold, 0, "treshold for the file_hole_vert function")
+  ASSOC_INT("NFF_V_STEP", nff_v_step, 10, "")
+  ASSOC_INT("NFF_H_STEP", nff_h_step, 10, "")
+  ASSOC_INT("MOSAIC_V_STEP", mosaic_v_step, 25, "")
+  ASSOC_INT("MOSAIC_H_STEP", mosaic_h_step, 25, "")
+  ASSOC_FLOAT("MOSAIC_SPHERE_CENTER_X", mosaic_sphere_center_x, 0.0, "x coord of mosaic sphere center")
+  ASSOC_FLOAT("MOSAIC_SPHERE_CENTER_Y", mosaic_sphere_center_y, 0.0, "y coord of mosaic sphere center")
+  ASSOC_FLOAT("MOSAIC_SPHERE_CENTER_Z", mosaic_sphere_center_z, 0.0, "z coord of mosaic sphere center")
+  ASSOC_INT("DRAW_MOSAIC_GROUND_PLANE", draw_mosaic_ground_plane, 0, "draw the ground plane for mosaics")
+  ASSOC_INT("MOSAIC_IGNORE_INTENSITY", mosaic_ignore_intensity, 0, "ignore black pixels in mosaics")
+  ASSOC_INT("NFF_MAX_JUMP", nff_max_jump, 0, "")
+  ASSOC_INT("NFF_2D_MAP", nff_2d_map, 0, "")
+  ASSOC_INT("VERBOSE", verbose, 1, "")
+  ASSOC_FLOAT_SCALED("PAN_OFFSET", pan_offset, 0.0, "offset added to pan/tilt read in header", M_PI/180.0)
+  ASSOC_FLOAT_SCALED("TILT_OFFSET", tilt_offset, 0.0, "", M_PI/180.0)
+  ASSOC_FLOAT("ALTITUDE_RANGE", altitude_range, 1.0, "for the altitude texturing")
+  ASSOC_FLOAT("ALTITUDE_OFFSET", altitude_offset, 0.0, "")
+  ASSOC_INT("ALTITUDE_MODE", altitude_mode, 0, "0 limited 1 periodic")
+  ASSOC_FLOAT("ALT_TOP_COLOR", alt_top_color, 120.0, "")
+  ASSOC_FLOAT("ALT_BOTTOM_COLOR", alt_btm_color, 0, "")
+  ASSOC_FLOAT("TEXTURE_CONTRAST", texture_cntrst, 1.0, "")
+  ASSOC_FLOAT("X_DISP_CORRECTION", x_disp_corr, 0.0, "correct small/linear distortion")
+  ASSOC_FLOAT("Y_DISP_CORRECTION", y_disp_corr, 0.0, "in disparity map")
+  ASSOC_FLOAT("DISP_CORR_OFFSET", disp_corr_offset, 0.0, "")
+  ASSOC_INT("MOSAIC", mosaic, 0, "mosaic'ing mode")
+  ASSOC_INT("SM_DISP_M",smooth_disp_M, 19, "matrix size for disparity smoothing")
+  ASSOC_INT("SM_DISP_N",smooth_disp_N, 19, "")
+  ASSOC_INT("EXTEND_DISP_L",Lextend, 0, "# of pxl to extrapltd (L/R) the disp map")
+  ASSOC_INT("EXTEND_DISP_R",Rextend, 0, "")
+  ASSOC_INT("EXTEND_DISP_T",Textend, 0, "")
+  ASSOC_INT("EXTEND_DISP_B",Bextend, 0, "")
+  ASSOC_INT("OFFSET_DISP_T",Toffset, 0, "extrapolated pixel offset")
+  ASSOC_INT("OFFSET_DISP_B",Boffset, 0, "")
+  ASSOC_FLOAT("A2", lens_corr2, 0.0, "")
+  ASSOC_FLOAT("A1", lens_corr1, 0.0, "")
+  ASSOC_FLOAT("A0", lens_corr0, 0.0, "")
+  ASSOC_FLOAT("MODEL_SCALE", range_scale, 1.0, "model scaling factor")
+  ASSOC_FLOAT("IMP_AZ_OFFSET", imp_az_offset, 0.0, "offset btwn 0 motor count & cam x axis")
+  ASSOC_FLOAT("IMP_CAN_Z_OFFSET", imp_can_z_offset, 0.0, "z offset btwn imp origin and el/az axis")
+  ASSOC_FLOAT("X_IMP_OFFSET", x_imp_offset, 0.0, "offset between imp and lander frame")
+  ASSOC_FLOAT("Y_IMP_OFFSET", y_imp_offset, 0.0, "")
+  ASSOC_FLOAT("Z_IMP_OFFSET", z_imp_offset, 0.0, "")
+  ASSOC_FLOAT("LOCAL_LEVEL_X", local_level_x, 0.0, "quaternion for rotating terrain")
+  ASSOC_FLOAT("LOCAL_LEVEL_Y", local_level_y, 0.0, "into local level frame")
+  ASSOC_FLOAT("LOCAL_LEVEL_Z", local_level_z, 0.0, "")
+  ASSOC_FLOAT("LOCAL_LEVEL_W", local_level_w, 1.0, "")
+  ASSOC_INT("FAR_FIELD_BILLBOARD", billboard_on, 1, "put the far field pixel on a billboard")
+  ASSOC_INT("DO_SKY_BILLBOARD", sky_billboard, 0, "do place everything higher than a given elev. on billboard")
+  ASSOC_FLOAT("OUT_MESH_SCALE", out_mesh_scale, 1.0, "scale factor for the output mesh")
+  ASSOC_FLOAT("SUB_PXL_TRESHOLD", sub_pxl_treshold, 1.0, "set disp treshold limit for valid subpxl")
+  ASSOC_FLOAT("MASK_LOW_CONTRAST_TRESHOLD",mask_low_contrast_treshold, 1.0, "low contrast mask treshold value")
+  ASSOC_INT("H_TIE_PTS",h_tie_pts, 10, "number of tie pt for image alignment") 
+  ASSOC_INT("V_TIE_PTS",v_tie_pts, 10, "")           
+  ASSOC_FLOAT("XCORR_TRESHOLD", xcorr_treshold, 2.0, "")
+  ASSOC_FLOAT("ALIGN.h11",alignMatrix.h11, 1.0, "homogenous matrix for linear image align")           
+  ASSOC_FLOAT("ALIGN.h12",alignMatrix.h12, 0.0, "")
+  ASSOC_FLOAT("ALIGN.h13",alignMatrix.h13, 0.0, "")
+  ASSOC_FLOAT("ALIGN.h21",alignMatrix.h21, 0.0, "")
+  ASSOC_FLOAT("ALIGN.h22",alignMatrix.h22, 1.0, "")
+  ASSOC_FLOAT("ALIGN.h23",alignMatrix.h23, 0.0, "")
+  ASSOC_FLOAT("ALIGN.h31",alignMatrix.h31, 0.0, "")
+  ASSOC_FLOAT("ALIGN.h32",alignMatrix.h32, 0.0, "")
+  ASSOC_FLOAT("ALIGN.h33",alignMatrix.h33, 1.0, "")
+  ASSOC_FLOAT("RED_CHANEL_FACTOR",rFct, 1.0, "ppm images channel weight factor")
+  ASSOC_FLOAT("GREEN_CHANEL_FACTOR",gFct, 1.0, "")
+  ASSOC_FLOAT("BLUE_CHANEL_FACTOR",bFct, 1.0, "")
+  ASSOC_FLOAT("SLOG_KERNEL_WIDTH",slogW, 0.0, "")
+  ASSOC_INT("ALIGN_MARGIN_%_REJECT",align_margin, 10, "percentage of tie pts to reject")
+  ASSOC_INT("REFERENCE_CAMERA",ref_cam, 0, "use the right camera as a reference")
+  ASSOC_INT("MASTER_EYE",ref_eye, 0, "use the right eye as a reference")
+
+  ASSOC_INT("TEXTURE_CASTING_TYPE", texture_casting_type, 0, "0 = fit between Imax and Imin")
+  ASSOC_INT("MAX_GRAY_IN_TEXTURE", max_gray_in_texture, 4095, "")
+  ASSOC_INT("MIN_GRAY_IN_TEXTURE", min_gray_in_texture, 0, "")
+  ASSOC_INT("USE_MOTOR_COUNT", use_motor_count, 0, "use the motor count instead of the MIPL value")
+
+  ASSOC_FLOAT("AMBIENT_RED",ambiColorRed, 0.2, "VRML / IV red ambiant color")
+  ASSOC_FLOAT("AMBIENT_GREEN",ambiColorGreen, 0.2, "VRML / IV green ambiant color")
+  ASSOC_FLOAT("AMBIENT_BLUE",ambiColorBlue, 0.2, "VRML / IV blue ambiant  color")
+  ASSOC_FLOAT("DIFFUSE_RED",diffColorRed, 0.8, "VRML / IV red diffuse color")
+  ASSOC_FLOAT("DIFFUSE_GREEN",diffColorGreen, 0.8, "VRML / IV green diffuse color")
+  ASSOC_FLOAT("DIFFUSE_BLUE",diffColorBlue, 0.8, "VRML / IV blue diffuse color")
+  ASSOC_FLOAT("SPECULAR_RED",specColorRed, 0.0, "VRML / IV red specular color")
+  ASSOC_FLOAT("SPECULAR_GREEN",specColorGreen, 0.0, "VRML / IV green specular color")
+  ASSOC_FLOAT("SPECULAR_BLUE",specColorBlue, 0.0, "VRML / IV blue specular color")
+  ASSOC_FLOAT("EMISSIVE_RED",emisColorRed, 1.0, "VRML / IV red emissive color")
+  ASSOC_FLOAT("EMISSIVE_GREEN",emisColorGreen, 1.0, "VRML / IV green emissive color")
+  ASSOC_FLOAT("EMISSIVE_BLUE",emisColorBlue, 1.0, "VRML / IV blue emissive color")
+  ASSOC_FLOAT("SHININESS",shininess, 0.2, "VRML / IV model shininess")
+  ASSOC_FLOAT("TRANSPARENCY",transparency, 0.0, "VRML / IV model transarency")
+  ASSOC_FLOAT("CREASE_ANGLE",creaseAngle, 1.5, "VRML / IV crease angle")
+  ASSOC_INT("SHAPE_TYPE_SOLID",shapeType_solid, 1, "VRML / IV back face culling")
+
+  ASSOC_DOUBLE("MESH_TOLERANCE",mesh_tolerance, 0.001, "tolerance of mesh")
+  ASSOC_INT("MAX_TRIANGLES",max_triangles, 500000, "maximum number of triangles in the mesh")
+  ASSOC_INT("WRITE_TEXTURE_SWITCH", write_texture_switch, 0, "write the vrml texture switch by default T.rgb, S.rgb, M.rgb, A.rgb")
+
+  ASSOC_FLOAT("DEM_SPACING", dem_spacing, 3.0, "The USGS standard is 3 arc secs or 30 meters")
+  ASSOC_FLOAT("DEM_PLANET_RADIUS", dem_planet_radius, MOLA_PEDR_EQUATORIAL_RADIUS, "Nominal Mars polar radius according to the IAU 2000 standard")
+  ASSOC_INT("ENVI_DEM_DATA_TYPE", ENVI_dem_data_type, ENVI_float_32bit, "")
+
+#undef ASSOC_INT
+#undef ASSOC_INT_SCALED
+#undef ASSOC_FLOAT
+#undef ASSOC_FLOAT_SCALED
+#undef ASSOC_DOUBLE
+#undef ASSOC_DOUBLE_SCALED
+#undef ASSOC_TO_DO
+
+}
+
 /************************************************************************/
 /*	             initialize Header Structure            		*/
 /************************************************************************/
 
 void init_dft_struct(DFT_F *dft, TO_DO *todo) {
-    
-  todo->do_alignment = 1;       /* Do we do alignment at all? */
-  todo->keypoint_alignment = 1; /* Align images using the keypoint alignment method */
-  todo->ephemeris_alignment = 0;/* Align images using the ephemeris alignment method */
-  todo->epipolar_alignment = 0; /* Align images using epipolar constraints */
+  po::options_description desc;
+  std::vector<AugmentingDescription> adesc;
+  po::variables_map vm;
+  int argc = 1;
+  char* argv[1];
+  argv[0] = "dummyprogname";
+  associate_dft_struct(dft, todo, &desc, &adesc);
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+  scale_dft_struct(&desc, &adesc, &vm);
+}
 
-  todo->format_size = 0;	/* format the size of the image */
-  todo->slog = 0;		/* perform an slog (relpace the emboss) */
-  todo->log = 0;		/* perform a log (laplacian of gaussian) */
-  todo->eq_hist1 = 0;		/* do the first histogam equalisation */
-  todo->emboss = 0;		/* do the emboss convolution */
-  todo->eq_hist2 = 0;		/* do the second histogam equalisation */
-  todo->autoSetCorrParam=0; /*uses pyramidal scheme to autom get search param*/
-  todo->vert_cal = 0;		/* do the vertical calibration */
-  todo->w_texture = 0;		/* write the pgm texture File */
-  todo->w_preprocessed = 0;	/* write the preprocessed image file */
-  todo->corr_1st_pass = 1;      /* do the correlation */
-  todo->biDimCorr = 1;      	/* do a 2D correlation by default */
-  todo->corr_clean_up = 0;	/* do n filtering pass to rm wrong matches */
-  todo->w_debug_disp = 0;	/* write intermediate disp.pgm files */
-  todo->w_disp_stp = 1;		/* write an stp file of the raw disp map */
-  todo->w_disp_pgm = 0;		/* write an pgm file of the raw disp map */
-  todo->w_raw_disparity_map = 0; //write raw unscaled disparity values
-  todo->w_pgm_disparity_map = 0; //write a pgm file of disparity map unscaled
-  todo->fill_v_holes = 0;	/* fill holes in dispmap with vert algorithm */
-  todo->fill_h_holes = 0;	/* fill holes in dispmap with horz algorithm */
-  todo->fill_holes_NURBS = 0;   /* fill holes using Larry's NURBS code */
-  todo->extend_lr = 0;		/* extrapolate disp values (Left/Right) */
-  todo->extend_tb = 0;		/* extrapolate disp values (Top/Bottom) */
-  todo->smooth_disp = 0;	/* smooth the disp map */
-  todo->w_filtered_disp_pgm = 0;/* write the filtered disp map in pgm */
-  todo->smooth_range = 0;	/* do a smooth range on the range file */
-  todo->dotcloud = 0;		/* build the dotcloud model */
-  todo->local_level_transform = 0; /* coordinate transfrom: lander to 
-				      local level to z-up, x-north frame */
-  todo->w_dotcloud = 0;		/* write dotcloud file */
-  todo->w_vicar_range_maps = 0;	/* write range maps in mvacs vicar format */
-  todo->w_vicar_xyz_map = 0;	/* write xyz range map in vicar format */
-  todo->w_disp_vicar = 0;	/* write disp map in vicar format */
-  todo->alt_texture = 0;	/* create and write a texture f(altitude) */
-  todo->mesh = 0;		/* do the mesh */
-  todo->adaptative_meshing = 0;	/* do not do the adaptative meshing by dft */
-  todo->nff_plain = 0;		/* save it as a plain model */
-  todo->nff_txt = 0;		/* save it as a textured model */
-  todo->double_sided = 0;	/* draw two sided polygons */
-  todo->inventor = 0;		/* save it as an Inventor file */    
-  todo->vrml = 0;		/* save it as an VRML file */    
-  todo->write_ive = 1;		/* save it as an OpenSceneGraph file */    
-  todo->write_dem = 0;		/* save it as a DEM file */
-  todo->apply_mask = 1;		/* apply the mask by default */
-  todo->w_mask = 0;		/* do not write the mask file by default */
-  todo->w_extrapolation_mask = 0; /* do not write the extrapolation mask */
+/************************************************************************/
+/*									*/
+/*		          read stereo.default				*/
+/*									*/
+/************************************************************************/
 
-  dft->ephem_align_kernel_x = 150; /* x coordinate of the ephem. alignmnt kernel */
-  dft->ephem_align_kernel_y = 150; /* y coordinate of the ephem. alignmnt kernel */
-  dft->ephem_align_kernel_width = 40;  /* Width of the ephemeris alignment kernel */
-  dft->ephem_align_kernel_height = 40; /* Height of the ephemeris alignment kernel */
+// Determine whether the given character is a space character.
+inline bool
+is_space_char(int c) {
+  return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
+}
 
-  dft->h_kern = 0;		/* kernel width first pass */
-  dft->v_kern = 0;		/* kernel height first pass*/
-  dft->corr_margin = 0;	        /* extra margin for search window */
-  dft->h_corr_max = 0;		/* correlation window size max x */
-  dft->h_corr_min = 0;		/* correlation window size min x */
-  dft->crop_x_min = 0;		/* cropping coordonate */
-  dft->crop_x_max = 0;
-  dft->crop_y_min = 0;
-  dft->crop_y_max = 0;
-  dft->v_corr_min = 0;		/* automatic img alignment parameters */
-  dft->v_corr_max = 0;		/* min max vertical picture shift interval */
-  dft->autoSetVCorrParam=0;   	/* goes with autoSetCorrParam */
-  /* camera parameters */
-  dft->useCAHV = 0;
-  dft->baseline = 0.0;		/* distance between the cameras */
-  dft->tilt_pivot_offset = 0.0;	/* vert dist btwn optical axis and tilt axis */
-  dft->camera_offset = 0.0;	/* horz dist btwn cam nodal pt and tilt axis */
-  dft->x_pivot_offset = 0.0;	/* offset btw wolrd origin and the hz pivot */
-  dft->y_pivot_offset = 0.0;
-  dft->z_pivot_offset = 0.0;
-  dft->toe_r = 0.0;		/* toe in for the right eye */
-  dft->toe_l = 0.0;		/* toe in for the left eye */
-  dft->h_theta_Rpixel = 0.0;	/* field of view per pixel */  
-  dft->h_theta_Lpixel = 0.0;
-  dft->v_theta_Rpixel = 0.0; 
-  dft->v_theta_Lpixel = 0.0;
+// Read from stream until (but not including) the next non-space character.
+inline void
+ignorespace(std::istream& s) {
+  int c;
+  if(s.eof())
+    return;
+  while((c = s.get()) != EOF && is_space_char(c));
+  if(c != EOF)
+    s.unget();
+}
 
-  dft->out_width = 0;		/* desired image output size */
-  dft->out_height = 0;
-  dft->near_universe_radius = 0.0;  /* radius of inner boundary of universe [m] */
-  dft->far_universe_radius = 0.0;  /* radius of outer boundary of universe [m] */
-  dft->ground_plane = -1.0;  	/* radius of outer boundary of universe [m] */
-  dft->sky_billboard_elevation = 3.0; // Angle (deg.) above which to
-				      // place everything on billboard
-  dft->sky_brightness_threshold = 0;  // Intensity above which to sky dot on
-				// billboard
-  dft->rm_h_half_kern = 0;	/* low conf pixel removal kernel half size */
-  dft->rm_v_half_kern = 0;
-  dft->rm_min_matches = 0;	/* min # of pxls to be matched to keep pxl */
-  dft->rm_treshold = 1; /* rm_treshold > disp[n]-disp[m] 
-					  pixels are not matching */ 
-  dft->smr_treshold = 0;	/* treshold for smooth_range function */
-  dft->v_fill_treshold = 0;	/* treshold for the file_hole_vert function */
-  dft->h_fill_treshold = 0;	/* treshold for the file_hole_vert function */
-  dft->nff_v_step = 10;
-  dft->nff_h_step = 10;
-  dft->mosaic_v_step = 25;
-  dft->mosaic_h_step = 25;
-  dft->mosaic_sphere_center_x = 0.0;	// x coord of mosaic sphere center
-  dft->mosaic_sphere_center_y = 0.0;	// y coord of mosaic sphere center
-  dft->mosaic_sphere_center_z = 0.0;	// z coord of mosaic sphere center
-  dft->draw_mosaic_ground_plane = 0; // draw the ground plane for mosaics
-  dft->mosaic_ignore_intensity = 0; // ignore black pixels in mosaics
-  dft->nff_max_jump = 0;
-  dft->nff_2d_map = 0;
-  dft->verbose = 1;
-  dft->pan_offset = 0.0;	/* offset added to pan/tilt read in header */
-  dft->tilt_offset = 0.0;
-  dft->altitude_range = 1.0;	/* for the altitude texturing */
-  dft->altitude_offset = 0.0;
-  dft->altitude_mode = 0;	/* 0 limited 1 periodic */
-  dft->alt_top_color = 120.0;
-  dft->alt_btm_color = 0;
-  dft->texture_cntrst = 1.0;
-  dft->x_disp_corr = 0.0;	/* correct small/linear distortion */
-  dft->y_disp_corr = 0.0;	/* in disparity map */
-  dft->disp_corr_offset = 0.0;
-  dft->mosaic = 0;		/* mosaic'ing mode */
-  dft->smooth_disp_M = 19;	/* matrix size for disparity smoothing */
-  dft->smooth_disp_N = 19;
-  dft->Lextend = 0;		/* # of pxl to extrapltd (L/R) the disp map */
-  dft->Rextend = 0;
-  dft->Textend = 0;
-  dft->Bextend = 0;
-  dft->Toffset = 0;		/* extrapolated pixel offset */
-  dft->Boffset = 0;
-  dft->lens_corr2 = 0.0;
-  dft->lens_corr1 = 0.0;
-  dft->lens_corr0 = 0.0;    
-  dft->range_scale = 1.0;	/* model scaling factor */ 
-  dft->imp_az_offset = 0.0;	/* offset btwn 0 motor count & cam x axis */
-  dft->imp_can_z_offset = 0.0;	/* z offset btwn imp origin and el/az axis */ 
-  dft->x_imp_offset = 0.0;	/* offset between imp and lander frame */
-  dft->y_imp_offset = 0.0;
-  dft->z_imp_offset = 0.0;
-  dft->local_level_x = 0.0;	/* quaternion for rotating terrain */
-  dft->local_level_y = 0.0;	/* into local level frame */
-  dft->local_level_z = 0.0;
-  dft->local_level_w = 1.0;
-  dft->billboard_on = 1;	/* put the far field pixel on a billboard */
-  dft->sky_billboard = 0;	// do place everything higher than a
-				// given elev. on billboard
-  dft->out_mesh_scale = 1.0;    /* scale factor for the output mesh */
-  dft->sub_pxl_treshold = 1.0;	/* set disp treshold limit for valid subpxl */
-  dft->mask_low_contrast_treshold=1.0; /* low contrast mask treshold value */
-  dft->h_tie_pts = 10;		/* number of tie pt for image alignment */
-  dft->v_tie_pts = 10;
-  dft->xcorr_treshold = 2.0;
-  dft->alignMatrix.h11 = 1.0;  	/* homogenous matrix for linear image align */
-  dft->alignMatrix.h12 = 0.0;
-  dft->alignMatrix.h13 = 0.0;
-  dft->alignMatrix.h21 = 0.0;
-  dft->alignMatrix.h22 = 1.0;
-  dft->alignMatrix.h23 = 0.0;
-  dft->alignMatrix.h31 = 0.0;
-  dft->alignMatrix.h32 = 0.0;
-  dft->alignMatrix.h33 = 1.0;
-  dft->rFct = 1.0;		/* ppm images channel weight factor */
-  dft->gFct = 1.0;
-  dft->bFct = 1.0;
-  dft->align_margin = 10;	/* percentage of tie pts to reject */
-  dft->ref_cam = 0;		/* use the right camera as a reference */
-  dft->ref_eye = 0;		/* use the right eye as a reference */
+// Read from stream until (but not including) the beginning of the next line.
+inline void
+ignoreline(std::istream& s) {
+  int c;
+  if(s.eof())
+    return;
+  while((c = s.get()) != EOF && c != '\n');
+}
 
-  dft->texture_casting_type = 0; /* 0 = fit between Imax and Imin */
-  dft->max_gray_in_texture = 4095;
-  dft->min_gray_in_texture = 0;
-  dft->use_motor_count = 0; /* use the motor count instead of the MIPL value */
+// Read from stream until (but not including) the next space character. Ignores space characters at beginning.
+inline void
+getword(std::istream& s, std::string& str) {
+  int c;
+  str.clear();
+  ignorespace(s);
+  if(s.eof())
+    return;
+  while((c = s.get()) != EOF && !is_space_char(c))
+    str.push_back(c);
+  if(c != EOF)
+    s.unget();
+}
 
-  dft->ambiColorRed = 0.2;	/* VRML / IV red ambiant color */
-  dft->ambiColorGreen = 0.2;	/* VRML / IV green ambiant color */
-  dft->ambiColorBlue = 0.2;	/* VRML / IV blue ambiant  color */
-  dft->diffColorRed = 0.8;	/* VRML / IV red diffuse color */
-  dft->diffColorGreen = 0.8;	/* VRML / IV green diffuse color */
-  dft->diffColorBlue = 0.8;	/* VRML / IV blue diffuse color */
-  dft->specColorRed = 0.0;     	/* VRML / IV red specular color */
-  dft->specColorGreen = 0.0;	/* VRML / IV green specular color */
-  dft->specColorBlue = 0.0;	/* VRML / IV blue specular color */
-  dft->emisColorRed = 1.0;	/* VRML / IV red emissive color */
-  dft->emisColorGreen = 1.0;	/* VRML / IV green emissive color */
-  dft->emisColorBlue = 1.0;	/* VRML / IV blue emissive color */
-  dft->shininess = 0.2;		/* VRML / IV model shininess */
-  dft->transparency = 0.0;	/* VRML / IV model transarency */
-  dft->creaseAngle = 1.5;	/* VRML / IV crease angle */
-  dft->shapeType_solid = 1;  	/* VRML / IV back face culling */
+// Read default file.
+void
+read_default_file(DFT_F *dft, TO_DO *execute, const char *filename) {
+  po::options_description desc;
+  std::vector<AugmentingDescription> adesc;
+  po::variables_map vm;
+  std::ifstream fp;
+  associate_dft_struct(dft, execute, &desc, &adesc);
+  fp.open(filename);
+  if(fp.bad()) {
+    std::cerr << "Error: cannot open stereo default file." << std::endl;
+    exit(EXIT_FAILURE);
+  }
+#ifdef READ_OLD_CONFIG_FILE
+  if((fp.get() == 'S') && (!fp.eof() && fp.get() == 'D') && (!fp.eof() && fp.get() == 'F')) {
+    std::cout << "Reading old-style stereo default file." << std::endl;
+    std::string name, value, line;
+    int c;
+    //NOTE: Unlike the command-line options parsing facility, the config-file parsing facility does not allow custom parsers, so we need to parse and reformat each line ourselves and then pass the reformatted lines to po::parse_config_file() separately as if they were all separate config files.
+    while(!fp.eof()) {
+      ignorespace(fp);
+      if(!fp.eof() && (c = fp.peek()) != '#') {
+        std::istringstream ss; //NOTE: cannot move this up with other variable declarations because then calling store(parse_config_file()) multiple times does not work as expected
+        getword(fp, name);
+        if(name == "END")
+          break;
+        // special case for UNIVERSE_RADIUS, which is an alias for FAR_UNIVERSE_RADIUS
+        if(name == "UNIVERSE_RADIUS")
+          name = "FAR_UNIVERSE_RADIUS";
+        getword(fp, value);
+        line = name.append(" = ").append(value);
+        ss.str(line);
+        //NOTE: Unlike the command-line options parsing facility, the config-file parsing facility does not allow us to specify that it should ignore unknown options, so this call chokes on unknown config options.
+        po::store(po::parse_config_file(ss, desc), vm);
+      }
+      ignoreline(fp);
+    }
+  }
+  else {
+    std::cout << "Reading new-style stereo default file." << std::endl;
+    fp.seekg(0); // rewind
+#endif
+    //NOTE: Unlike the command-line options parsing facility, the config-file parsing facility does not allow us to specify that it should ignore unknown options, so this call chokes on unknown config options.
+    po::store(po::parse_config_file(fp, desc), vm);
+#ifdef READ_OLD_CONFIG_FILE
+  }
+#endif
+  po::notify(vm);
+  scale_dft_struct(&desc, &adesc, &vm);
+  if(dft->verbose) {
+    printf(" *************************************************************\n");
+    printf("Stereo Default File loaded successfully\n");
+  }
+  fp.close();
+}
 
-  dft->mesh_tolerance = 0.001;	/* tolerance of mesh */
-  dft->max_triangles = 500000;	/* maximum number of triangles in the mesh */
-  dft->write_texture_switch = 0; /* write the vrml texture switch by default
-				    T.rgb, S.rgb, M.rgb, A.rgb */
+/************************************************************************/
+/*									*/
+/*		          write stereo.default				*/
+/*									*/
+/************************************************************************/
 
-  dft->dem_spacing = 3.0;		   // The USGS standard is 3 arc secs
-					   // or 30 meters
-  dft->dem_planet_radius = MOLA_PEDR_EQUATORIAL_RADIUS;	   // Nominal Mars polar radius according to the IAU 2000 standard
-  dft->ENVI_dem_data_type = ENVI_float_32bit;
+// Write config file. Analogous to po::parse_config_file().
+//NOTE: adesc is to get around the fact that we cannot get the store-to pointers back out of the po::value's inside the po::options_description
+void write_config_file(std::basic_ostream<char>& s, po::options_description& desc, std::vector<AugmentingDescription>& adesc) {
+  OptionType type;
+  std::vector<AugmentingDescription>::iterator pi;
+  std::string name, value, description;
+  void* ptr;
+  bool first = true;
+#ifdef WRITE_OLD_CONFIG_FILE
+  s << "SDF" << std::endl;
+#endif
+  //NOTE: instead of iterating over adesc, we could ask desc for the po::option_description's; however, the interface for getting this information changed between boost versions 1.32.0 and 1.33.0 (there is no other 1.32.x--these are consecutive releases). Version 1.32.0 (the first release of boost with program_options) has a function keys() that returns a std::set of option names (in alphabetical order, not in the original option order), which you can then find(name). Versions 1.33.0 and up instead have a function options() that directly returns a vector of (boost::shared_ptr's to) po::option_description's (presumably in the original option order given above), although it also supports find(name, approx). Since we're already using adesc, we might as well take advantage of it to (partially--note that find() has changed) avoid this unstable interface and to always get the options in the original order.
+  for(pi = adesc.begin(); pi != adesc.end(); pi++) {
+#if BOOST_VERSION == 103200
+    po::option_description d = desc.find((*pi).name);
+#else
+    po::option_description d = desc.find((*pi).name, false);
+#endif
+    name = d.long_name();
+    if(name.empty()) {
+      std::string origname((*pi).name);
+      std::cerr << "Error: Option " << origname << " must have a long name for a config file." << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    description = d.description();
+    type = option_type(d);
+    //NOTE: unfortunately, we cannot get the store-to pointer back out of d.semantic() (this is a "po::value()"/po::signed_value()), so we use adesc
+    ptr = (*pi).data;
+    // Finally, we output to the file
+    s << std::endl;
+    if(!description.empty())
+      s << "# " << description << std::endl;
+    s << name;
+#ifdef WRITE_OLD_CONFIG_FILE
+    s << "\t";
+#else
+    s << " = ";
+#endif
+    switch(type) {
+    case OPTION_TYPE_INT:
+      s << *((int*)ptr) << std::endl;
+      break;
+    case OPTION_TYPE_FLOAT:
+      s << fixed << *((float*)ptr) << std::endl;
+      break;
+    case OPTION_TYPE_DOUBLE:
+      s << fixed << *((double*)ptr) << std::endl;
+      break;
+    default:
+      std::cerr << "Unexpected type!" << std::endl;
+      break;
+    }
+    first = false;
+  }
+#ifdef WRITE_OLD_CONFIG_FILE
+  if(!first)
+    s << std::endl;
+  s << "END" << std::endl;
+#endif
+}
 
-  return;
+void
+write_default_file(DFT_F *dft, TO_DO *execute, const char *filename) {
+  po::options_description desc;
+  std::vector<AugmentingDescription> adesc;
+  std::ofstream fp;
+  DFT_F dftc = *dft; // copy dft so that we can unscale it
+  fp.open(filename);
+  if(fp.bad()) {
+    std::cerr << "Error: cannot open stereo default file." << std::endl;
+    exit(EXIT_FAILURE);
+  }
+  associate_dft_struct(&dftc, execute, &desc, &adesc);
+  unscale_dft_struct(&desc, &adesc);
+  write_config_file(fp, desc, adesc);
+  if(dft->verbose) {
+    printf(" *************************************************************\n");
+    printf("Stereo Default File written successfully\n");
+  }
+  fp.close();
 }
 
 /************************************************************************/
@@ -374,520 +731,6 @@ void init_header_struct(DFT_F *dft,
 
   return;
 } /* init_header_struct */
-
-/************************************************************************/
-/*									*/
-/*		          read stereo.default				*/
-/*									*/
-/************************************************************************/
-
-void
-read_default_file(DFT_F *dft, TO_DO *execute, const char *filename){
-  FILE	*inflow;
-  int	end_flag;		/* end of default file flag */
-  float	value;
-  char	name[BUFFER_SIZE];	/* default value name */
-  char	buffer[BUFFER_SIZE];
-  int	recognized = 0;		/* equal 1 if the field has been recognized */
-
-  /* open file */
-  if ( (inflow = fopen (filename, "r" )) == NULL) {
-    fprintf (stderr, "Error: cannot open stereo default file:\n");
-    exit(EXIT_FAILURE);
-  }  
-  fgets (buffer, BUFFER_SIZE, inflow);
-  if ((buffer[0] != 'S') && (buffer[1] != 'D') && (buffer[2] != 'F')){
-    fprintf (stderr, "Error: input file not a stereo.default file\n");
-    exit(EXIT_FAILURE);
-  }
-  end_flag = 0;
-
-  /* read the values */
-  while (end_flag == 0){
-    fgets (buffer, BUFFER_SIZE, inflow);
-    /* do not scan the comment */
-    if (0 == (buffer[0]=='#' || buffer[0]==' ' || buffer[0]=='\n')){
-      sscanf (buffer, "%s %f", name, &value);
-
-      if(0 == strcmp(name,"END")){
-	end_flag = 1;
-      }
-
-#define STREQ(ACK,BLAH) (0 == strcmp(ACK, BLAH))
-#define GET_INT(X,Y)		else if (STREQ(name, X)) { dft->Y = (int)value; recognized = 1; }
-#define GET_INT_SCALED(X,Y,Z)   else if (STREQ(name, X)) { dft->Y = (int)value Z; recognized = 1; }
-#define GET_FLOAT(X,Y) 		else if (STREQ(name, X)) { dft->Y = (float)value; recognized = 1; }
-#define GET_FLOAT_SCALED(X,Y,Z) else if (STREQ(name, X)) { dft->Y = (float)value Z; recognized = 1; }
-#define GET_TO_DO(X,Y)	 	else if (STREQ(name, X)) { execute->Y = (int)value; recognized = 1; }
-
-      /* for the DFT_F structure */
-      GET_INT("VERBOSE", verbose)
-	GET_INT("H_KERNEL", h_kern)
-	GET_INT("V_KERNEL", v_kern)	
-	GET_INT("CORR_MARGIN",corr_margin)
-	GET_INT("H_CORR_MAX", h_corr_max)
-	GET_INT("H_CORR_MIN", h_corr_min)
-	GET_INT("CROP_X_MIN", crop_x_min)
-	GET_INT("CROP_X_MAX", crop_x_max)
-	GET_INT("CROP_Y_MIN", crop_y_min)
-	GET_INT("CROP_Y_MAX", crop_y_max)
-	GET_INT("V_CORR_MIN", v_corr_min)
-	GET_INT("V_CORR_MAX", v_corr_max)
-	GET_INT("OUT_HEIGHT", out_height)
-	GET_INT("OUT_WIDTH", out_width)
-	GET_INT("AUTO_SET_V_CORR_PARAM", autoSetVCorrParam)
-	GET_INT("RM_H_HALF_KERN", rm_h_half_kern)
-	GET_INT("RM_V_HALF_KERN", rm_v_half_kern)
-	GET_INT("RM_MIN_MATCHES", rm_min_matches)
-	GET_INT("RM_TRESHOLD", rm_treshold)
-	GET_FLOAT("XCORR_TRESHOLD", xcorr_treshold)
-	GET_FLOAT("SMR_TRESHOLD", smr_treshold)
-	GET_INT("V_FILL_TRESHOLD", v_fill_treshold)
-	GET_INT("H_FILL_TRESHOLD", h_fill_treshold)
-	GET_INT("NFF_V_STEP", nff_v_step)
-	GET_INT("NFF_H_STEP", nff_h_step)
-	GET_INT("MOSAIC_V_STEP", mosaic_v_step)
-	GET_INT("MOSAIC_H_STEP", mosaic_h_step)
-	GET_INT("DRAW_MOSAIC_GROUND_PLANE", draw_mosaic_ground_plane)
-	GET_INT("MOSAIC_IGNORE_INTENSITY", mosaic_ignore_intensity)
-
-	GET_FLOAT("EPHEM_ALIGN_KERNEL_X", ephem_align_kernel_x)
-        GET_FLOAT("EPHEM_ALIGN_KERNEL_Y", ephem_align_kernel_y)
-	GET_INT("EPHEM_ALIGN_KERNEL_WIDTH", ephem_align_kernel_width)
-	GET_INT("EPHEM_ALIGN_KERNEL_HEIGHT",ephem_align_kernel_height)
-
-	GET_INT("NFF_MAX_JUMP", nff_max_jump)
-	GET_INT("NFF_2D_MAP", nff_2d_map)
-	GET_INT("ALTITUDE_MODE", altitude_mode)
-	GET_INT("MOSAIC", mosaic)
-	GET_INT("SM_DISP_M",smooth_disp_M)
-	GET_INT("SM_DISP_N",smooth_disp_N)
-	GET_INT("EXTEND_DISP_L",Lextend)
-	GET_INT("EXTEND_DISP_R",Rextend)
-	GET_INT("EXTEND_DISP_T",Textend)
-	GET_INT("EXTEND_DISP_B",Bextend)
-	GET_INT("OFFSET_DISP_T",Toffset)
-	GET_INT("OFFSET_DISP_B",Boffset)
-	GET_INT("FAR_FIELD_BILLBOARD", billboard_on)
-	GET_INT("ALIGN_MARGIN_%_REJECT",align_margin)
-	GET_INT("REFERENCE_CAMERA",ref_cam)
-	GET_INT("MASTER_EYE",ref_eye)
-	GET_INT("MAX_TRIANGLES",max_triangles)
-	GET_INT("SHAPE_TYPE_SOLID",shapeType_solid)
-	GET_INT("WRITE_TEXTURE_SWITCH", write_texture_switch)
-	GET_INT("MAX_GRAY_IN_TEXTURE", max_gray_in_texture)
-	GET_INT("MIN_GRAY_IN_TEXTURE", min_gray_in_texture)
-	GET_INT("TEXTURE_CASTING_TYPE", texture_casting_type)
-	GET_INT("USE_MOTOR_COUNT", use_motor_count)
-	GET_INT("DO_SKY_BILLBOARD", sky_billboard)
-
-	GET_INT("USE_CAHV", useCAHV)
-	GET_FLOAT_SCALED("TILT_OFFSET", tilt_offset, *M_PI/180.0)
-	/* from deg to rad */
-	GET_FLOAT_SCALED("PAN_OFFSET", pan_offset, *M_PI/180.0)
-	GET_FLOAT_SCALED("BASELINE", baseline, /1000.0)	/* from [mm] to [m] */
-	GET_FLOAT("ALTITUDE_RANGE", altitude_range)
-	GET_FLOAT("ALTITUDE_OFFSET", altitude_offset)
-	/* will need a switch case for filter # */
-	GET_FLOAT_SCALED("H_THETA_L_PIXEL", h_theta_Lpixel, /1000.0)
-	GET_FLOAT_SCALED("H_THETA_R_PIXEL", h_theta_Rpixel, /1000.0)
-	GET_FLOAT_SCALED("V_THETA_L_PIXEL", v_theta_Lpixel, /1000.0)
-	GET_FLOAT_SCALED("V_THETA_R_PIXEL", v_theta_Rpixel, /1000.0)
-	GET_FLOAT_SCALED("L_TOE_IN_0", toe_l, /1000.0)
-	GET_FLOAT_SCALED("R_TOE_IN_0", toe_r, /1000.0)
-	GET_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius)
-	GET_FLOAT("UNIVERSE_RADIUS", far_universe_radius)
-	GET_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius)
-	GET_FLOAT("SKY_BILLBOARD_ELEVATION", sky_billboard_elevation)
-	GET_INT("SKY_BRIGHTNESS_THRESHOLD", sky_brightness_threshold)
-
-	GET_FLOAT("MOSAIC_SPHERE_CENTER_X", mosaic_sphere_center_x)
-	GET_FLOAT("MOSAIC_SPHERE_CENTER_Y", mosaic_sphere_center_y)
-	GET_FLOAT("MOSAIC_SPHERE_CENTER_Z", mosaic_sphere_center_z)
-	GET_FLOAT("GROUND_PLANE_LEVEL", ground_plane)
-
-	GET_FLOAT("X_OFFSET", x_pivot_offset)
-	GET_FLOAT("Y_OFFSET", y_pivot_offset)
-	GET_FLOAT("Z_OFFSET", z_pivot_offset)
-	GET_FLOAT_SCALED("TILT_PIVOT_OFFSET", tilt_pivot_offset, /1000.0)
-	GET_FLOAT_SCALED("CAMERA_OFFSET", camera_offset, /1000.0)
-	GET_FLOAT("X_DISP_CORRECTION", x_disp_corr)
-	GET_FLOAT("Y_DISP_CORRECTION", y_disp_corr)
-	GET_FLOAT("DISP_CORR_OFFSET", disp_corr_offset)
-	GET_FLOAT("ALT_TOP_COLOR", alt_top_color)
-	GET_FLOAT("ALT_BOTTOM_COLOR", alt_btm_color)
-	GET_FLOAT("TEXTURE_CONTRAST", texture_cntrst)
-	GET_FLOAT("A2", lens_corr2)
-	GET_FLOAT("A1", lens_corr1)
-	GET_FLOAT("A0", lens_corr0)
-	  
-	GET_FLOAT("MODEL_SCALE", range_scale)
-	GET_FLOAT("IMP_AZ_OFFSET", imp_az_offset)
-	GET_FLOAT("IMP_CAN_Z_OFFSET", imp_can_z_offset)
-	GET_FLOAT("X_IMP_OFFSET", x_imp_offset)
-	GET_FLOAT("Y_IMP_OFFSET", y_imp_offset)
-	GET_FLOAT("Z_IMP_OFFSET", z_imp_offset)
-	GET_FLOAT("LOCAL_LEVEL_X", local_level_x)
-	GET_FLOAT("LOCAL_LEVEL_Y", local_level_y)
-	GET_FLOAT("LOCAL_LEVEL_Z", local_level_z)
-	GET_FLOAT("LOCAL_LEVEL_W", local_level_w)
-	GET_FLOAT("OUT_MESH_SCALE", out_mesh_scale)
-	GET_FLOAT("SUB_PXL_TRESHOLD", sub_pxl_treshold)
-	GET_FLOAT("MASK_LOW_CONTRAST_TRESHOLD",mask_low_contrast_treshold)
-	GET_INT("H_TIE_PTS",h_tie_pts) 
-	GET_INT("V_TIE_PTS",v_tie_pts)           
-	GET_FLOAT("ALIGN.h11",alignMatrix.h11)           
-	GET_FLOAT("ALIGN.h12",alignMatrix.h12)
-	GET_FLOAT("ALIGN.h13",alignMatrix.h13)
-	GET_FLOAT("ALIGN.h21",alignMatrix.h21)
-	GET_FLOAT("ALIGN.h22",alignMatrix.h22)
-	GET_FLOAT("ALIGN.h23",alignMatrix.h23)
-	GET_FLOAT("ALIGN.h31",alignMatrix.h31)
-	GET_FLOAT("ALIGN.h32",alignMatrix.h32)
-	GET_FLOAT("ALIGN.h33",alignMatrix.h33)
-	GET_FLOAT("RED_CHANEL_FACTOR",rFct)
-	GET_FLOAT("GREEN_CHANEL_FACTOR",gFct)
-	GET_FLOAT("BLUE_CHANEL_FACTOR",bFct)
-	GET_FLOAT("SLOG_KERNEL_WIDTH",slogW)
-
-	GET_FLOAT("AMBIENT_RED",ambiColorRed)
-	GET_FLOAT("AMBIENT_GREEN",ambiColorGreen)
-	GET_FLOAT("AMBIENT_BLUE",ambiColorBlue)
-	GET_FLOAT("DIFFUSE_RED",diffColorRed)
-	GET_FLOAT("DIFFUSE_GREEN",diffColorGreen)
-	GET_FLOAT("DIFFUSE_BLUE",diffColorBlue)
-	GET_FLOAT("SPECULAR_RED",specColorRed)
-	GET_FLOAT("SPECULAR_GREEN",specColorGreen)
-	GET_FLOAT("SPECULAR_BLUE",specColorBlue)
-	GET_FLOAT("EMISSIVE_RED",emisColorRed)
-	GET_FLOAT("EMISSIVE_GREEN",emisColorGreen)
-	GET_FLOAT("EMISSIVE_BLUE",emisColorBlue)
-	GET_FLOAT("SHININESS",shininess)
-	GET_FLOAT("TRANSPARENCY",transparency)
-	GET_FLOAT("CREASE_ANGLE",creaseAngle)
-	GET_FLOAT("MESH_TOLERANCE",mesh_tolerance)
-	GET_FLOAT("DEM_SPACING", dem_spacing)
-	GET_FLOAT("DEM_PLANET_RADIUS", dem_planet_radius)
-	GET_INT("ENVI_DEM_DATA_TYPE", ENVI_dem_data_type)
-
-	/* For the TO_DO structure */
-	GET_TO_DO("DO_ALIGNMENT", do_alignment)
-	GET_TO_DO("DO_KEYPOINT_ALIGNMENT", keypoint_alignment)
-	GET_TO_DO("DO_EPHEMERIS_ALIGNMENT", ephemeris_alignment)
-	GET_TO_DO("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment)
-
-	GET_TO_DO("DO_FORMAT_IMG_SIZE", format_size)
-	GET_TO_DO("WRITE_EXTRAPOLATION_MASK", w_extrapolation_mask)
-	GET_TO_DO("DO_SLOG", slog)
-	GET_TO_DO("DO_LOG", log)
-	GET_TO_DO("DO_FIRST_HIST_EQ", eq_hist1)
-	GET_TO_DO("DO_EMBOSS", emboss)
-	GET_TO_DO("DO_SECOND_HIST_EQ", eq_hist2)
-	GET_TO_DO("AUTO_SET_H_CORR_PARAM", autoSetCorrParam)
-	GET_TO_DO("DO_VERT_CAL", vert_cal)
-	GET_TO_DO("WRITE_PREPROCESSED", w_preprocessed)
-	GET_TO_DO("WRITE_TEXTURE", w_texture)
-	GET_TO_DO("2D_CORRELATION", biDimCorr)
-	GET_TO_DO("CORR_CLEAN_UP", corr_clean_up)
-	GET_TO_DO("WRITE_DEBUG_DISP", w_debug_disp)
-	GET_TO_DO("WRITE_DISP_STP", w_disp_stp)
-	GET_TO_DO("WRITE_DISP_PGM", w_disp_pgm)
-	GET_TO_DO("WRITE_DISP_VICAR", w_disp_vicar)
-
-	GET_TO_DO("WRITE_PGM_DISPARITIES", w_pgm_disparity_map)
-	GET_TO_DO("WRITE_RAW_DISPARITIES", w_raw_disparity_map)
-
-	GET_TO_DO("FILL_HOLES_NURBS", fill_holes_NURBS)
-	GET_TO_DO("FILL_V_HOLES", fill_v_holes)
-	GET_TO_DO("FILL_H_HOLES", fill_h_holes)
-	GET_TO_DO("FILL_H_HOLES", fill_h_holes)
-	GET_TO_DO("EXTEND_DISP_LR", extend_lr)
-	GET_TO_DO("EXTEND_DISP_TB", extend_tb)
-	GET_TO_DO("SMOOTH_DISP", smooth_disp)
-	GET_TO_DO("WRITE_FILTERED_DISP_PGM", w_filtered_disp_pgm)
-	GET_TO_DO("SMOOTH_RANGE", smooth_range)
-	GET_TO_DO("DO_DOTCLOUD", dotcloud)
-	GET_TO_DO("DO_LOCAL_LEVEL_TRANSFORM", local_level_transform)
-	GET_TO_DO("WRITE_DOTCLOUD", w_dotcloud)
-	GET_TO_DO("WRITE_MVACS_RANGE", w_vicar_range_maps)
-	GET_TO_DO("WRITE_VICAR_XYZ", w_vicar_xyz_map)
-	GET_TO_DO("DO_3D_MESH", mesh)
-	GET_TO_DO("ADAPTIVE_MESHING", adaptative_meshing)
-	GET_TO_DO("NFF_PLAIN", nff_plain)
-	GET_TO_DO("NFF_TXT", nff_txt)
-	GET_TO_DO("DOUBLE_SIDED", double_sided)
-	GET_TO_DO("INVENTOR", inventor)
-	GET_TO_DO("VRML", vrml)
-	GET_TO_DO("WRITE_DEM", write_dem)
-	GET_TO_DO("DO_ALTITUDE_TEXTURE", alt_texture)
-	GET_TO_DO("APPLY_MASK", apply_mask)
-	GET_TO_DO("WRITE_MASK", w_mask)
-
-
-#undef GET_FLOAT
-#undef GET_INT
-#undef GET_TO_DO
-
-	if(dft->verbose >=2 && recognized){
-	  if(strcmp(name,"END") && 1)
-	    printf("%s=%g  ", name, value);
-	}
-      recognized = 0;
-    }
-  }
-  if(dft->verbose >=2)
-    printf("\n");
-  if(dft->verbose){
-    printf(" *************************************************************\n");
-    printf("Stereo Default File loaded successfully\n");
-  }
-  fclose (inflow);
-  return;
-} /* read_default_file() */
-
-/************************************************************************/
-/*									*/
-/*		          write stereo.default				*/
-/*									*/
-/************************************************************************/
-
-void
-write_default_file(DFT_F *dft, TO_DO *execute, const char *filename){
-  FILE	*outflow;
-
-  /* open file */
-  if ( (outflow = fopen (filename, "w" )) == NULL) {
-    fprintf (stderr, "Error: cannot open stereo default file:\n");
-    exit(EXIT_FAILURE);
-  }  
-  fputs ("SDF\n", outflow);
-
-  /* write the values */
-
-#define PUT_INT(X,Y)		{ fprintf(outflow, "%s\t%d\n", X, dft->Y); }
-#define PUT_INT_SCALED(X,Y,Z)   { fprintf(outflow, "%s\t%d\n", X, dft->Y Z); }
-#define PUT_FLOAT(X,Y) 		{ fprintf(outflow, "%s\t%f\n", X, dft->Y); }
-#define PUT_FLOAT_SCALED(X,Y,Z) { fprintf(outflow, "%s\t%f\n", X, dft->Y Z); }
-#define PUT_TO_DO(X,Y)	 	{ fprintf(outflow, "%s\t%d\n", X, execute->Y); }
-
-      /* for the DFT_F structure */
-      PUT_INT("VERBOSE", verbose)
-	PUT_INT("H_KERNEL", h_kern)
-	PUT_INT("V_KERNEL", v_kern)	
-	PUT_INT("CORR_MARGIN",corr_margin)
-	PUT_INT("H_CORR_MAX", h_corr_max)
-	PUT_INT("H_CORR_MIN", h_corr_min)
-	PUT_INT("CROP_X_MIN", crop_x_min)
-	PUT_INT("CROP_X_MAX", crop_x_max)
-	PUT_INT("CROP_Y_MIN", crop_y_min)
-	PUT_INT("CROP_Y_MAX", crop_y_max)
-	PUT_INT("V_CORR_MIN", v_corr_min)
-	PUT_INT("V_CORR_MAX", v_corr_max)
-	PUT_INT("OUT_HEIGHT", out_height)
-	PUT_INT("OUT_WIDTH", out_width)
-	PUT_INT("AUTO_SET_V_CORR_PARAM", autoSetVCorrParam)
-	PUT_INT("RM_H_HALF_KERN", rm_h_half_kern)
-	PUT_INT("RM_V_HALF_KERN", rm_v_half_kern)
-	PUT_INT("RM_MIN_MATCHES", rm_min_matches)
-	PUT_INT("RM_TRESHOLD", rm_treshold)
-	PUT_FLOAT("XCORR_TRESHOLD", xcorr_treshold)
-	PUT_FLOAT("SMR_TRESHOLD", smr_treshold)
-	PUT_INT("V_FILL_TRESHOLD", v_fill_treshold)
-	PUT_INT("H_FILL_TRESHOLD", h_fill_treshold)
-	PUT_INT("NFF_V_STEP", nff_v_step)
-	PUT_INT("NFF_H_STEP", nff_h_step)
-	PUT_INT("MOSAIC_V_STEP", mosaic_v_step)
-	PUT_INT("MOSAIC_H_STEP", mosaic_h_step)
-	PUT_INT("DRAW_MOSAIC_GROUND_PLANE", draw_mosaic_ground_plane)
-	PUT_INT("MOSAIC_IGNORE_INTENSITY", mosaic_ignore_intensity)
-
-	PUT_FLOAT("EPHEM_ALIGN_KERNEL_X", ephem_align_kernel_x)
-        PUT_FLOAT("EPHEM_ALIGN_KERNEL_Y", ephem_align_kernel_y)
-	PUT_INT("EPHEM_ALIGN_KERNEL_WIDTH", ephem_align_kernel_width)
-	PUT_INT("EPHEM_ALIGN_KERNEL_HEIGHT",ephem_align_kernel_height)
-
-	PUT_INT("NFF_MAX_JUMP", nff_max_jump)
-	PUT_INT("NFF_2D_MAP", nff_2d_map)
-	PUT_INT("ALTITUDE_MODE", altitude_mode)
-	PUT_INT("MOSAIC", mosaic)
-	PUT_INT("SM_DISP_M",smooth_disp_M)
-	PUT_INT("SM_DISP_N",smooth_disp_N)
-	PUT_INT("EXTEND_DISP_L",Lextend)
-	PUT_INT("EXTEND_DISP_R",Rextend)
-	PUT_INT("EXTEND_DISP_T",Textend)
-	PUT_INT("EXTEND_DISP_B",Bextend)
-	PUT_INT("OFFSET_DISP_T",Toffset)
-	PUT_INT("OFFSET_DISP_B",Boffset)
-	PUT_INT("FAR_FIELD_BILLBOARD", billboard_on)
-	PUT_INT("ALIGN_MARGIN_%_REJECT",align_margin)
-	PUT_INT("REFERENCE_CAMERA",ref_cam)
-	PUT_INT("MASTER_EYE",ref_eye)
-	PUT_INT("MAX_TRIANGLES",max_triangles)
-	PUT_INT("SHAPE_TYPE_SOLID",shapeType_solid)
-	PUT_INT("WRITE_TEXTURE_SWITCH", write_texture_switch)
-	PUT_INT("MAX_GRAY_IN_TEXTURE", max_gray_in_texture)
-	PUT_INT("MIN_GRAY_IN_TEXTURE", min_gray_in_texture)
-	PUT_INT("TEXTURE_CASTING_TYPE", texture_casting_type)
-	PUT_INT("USE_MOTOR_COUNT", use_motor_count)
-	PUT_INT("DO_SKY_BILLBOARD", sky_billboard)
-
-	PUT_INT("USE_CAHV", useCAHV)
-	PUT_FLOAT_SCALED("TILT_OFFSET", tilt_offset, /M_PI*180.0)
-	/* from deg to rad */
-	PUT_FLOAT_SCALED("PAN_OFFSET", pan_offset, /M_PI*180.0)
-	PUT_FLOAT_SCALED("BASELINE", baseline, *1000.0)	/* from [m] to [mm] */
-	PUT_FLOAT("ALTITUDE_RANGE", altitude_range)
-	PUT_FLOAT("ALTITUDE_OFFSET", altitude_offset)
-	/* will need a switch case for filter # */
-	PUT_FLOAT_SCALED("H_THETA_L_PIXEL", h_theta_Lpixel, *1000.0)
-	PUT_FLOAT_SCALED("H_THETA_R_PIXEL", h_theta_Rpixel, *1000.0)
-	PUT_FLOAT_SCALED("V_THETA_L_PIXEL", v_theta_Lpixel, *1000.0)
-	PUT_FLOAT_SCALED("V_THETA_R_PIXEL", v_theta_Rpixel, *1000.0)
-	PUT_FLOAT_SCALED("L_TOE_IN_0", toe_l, *1000.0)
-	PUT_FLOAT_SCALED("R_TOE_IN_0", toe_r, *1000.0)
-	PUT_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius)
-	PUT_FLOAT("UNIVERSE_RADIUS", far_universe_radius)
-	PUT_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius)
-	PUT_FLOAT("SKY_BILLBOARD_ELEVATION", sky_billboard_elevation)
-	PUT_INT("SKY_BRIGHTNESS_THRESHOLD", sky_brightness_threshold)
-
-	PUT_FLOAT("MOSAIC_SPHERE_CENTER_X", mosaic_sphere_center_x)
-	PUT_FLOAT("MOSAIC_SPHERE_CENTER_Y", mosaic_sphere_center_y)
-	PUT_FLOAT("MOSAIC_SPHERE_CENTER_Z", mosaic_sphere_center_z)
-	PUT_FLOAT("GROUND_PLANE_LEVEL", ground_plane)
-
-	PUT_FLOAT("X_OFFSET", x_pivot_offset)
-	PUT_FLOAT("Y_OFFSET", y_pivot_offset)
-	PUT_FLOAT("Z_OFFSET", z_pivot_offset)
-	PUT_FLOAT_SCALED("TILT_PIVOT_OFFSET", tilt_pivot_offset, *1000.0)
-	PUT_FLOAT_SCALED("CAMERA_OFFSET", camera_offset, *1000.0)
-	PUT_FLOAT("X_DISP_CORRECTION", x_disp_corr)
-	PUT_FLOAT("Y_DISP_CORRECTION", y_disp_corr)
-	PUT_FLOAT("DISP_CORR_OFFSET", disp_corr_offset)
-	PUT_FLOAT("ALT_TOP_COLOR", alt_top_color)
-	PUT_FLOAT("ALT_BOTTOM_COLOR", alt_btm_color)
-	PUT_FLOAT("TEXTURE_CONTRAST", texture_cntrst)
-	PUT_FLOAT("A2", lens_corr2)
-	PUT_FLOAT("A1", lens_corr1)
-	PUT_FLOAT("A0", lens_corr0)
-	  
-	PUT_FLOAT("MODEL_SCALE", range_scale)
-	PUT_FLOAT("IMP_AZ_OFFSET", imp_az_offset)
-	PUT_FLOAT("IMP_CAN_Z_OFFSET", imp_can_z_offset)
-	PUT_FLOAT("X_IMP_OFFSET", x_imp_offset)
-	PUT_FLOAT("Y_IMP_OFFSET", y_imp_offset)
-	PUT_FLOAT("Z_IMP_OFFSET", z_imp_offset)
-	PUT_FLOAT("LOCAL_LEVEL_X", local_level_x)
-	PUT_FLOAT("LOCAL_LEVEL_Y", local_level_y)
-	PUT_FLOAT("LOCAL_LEVEL_Z", local_level_z)
-	PUT_FLOAT("LOCAL_LEVEL_W", local_level_w)
-	PUT_FLOAT("OUT_MESH_SCALE", out_mesh_scale)
-	PUT_FLOAT("SUB_PXL_TRESHOLD", sub_pxl_treshold)
-	PUT_FLOAT("MASK_LOW_CONTRAST_TRESHOLD",mask_low_contrast_treshold)
-	PUT_INT("H_TIE_PTS",h_tie_pts) 
-	PUT_INT("V_TIE_PTS",v_tie_pts)           
-	PUT_FLOAT("ALIGN.h11",alignMatrix.h11)           
-	PUT_FLOAT("ALIGN.h12",alignMatrix.h12)
-	PUT_FLOAT("ALIGN.h13",alignMatrix.h13)
-	PUT_FLOAT("ALIGN.h21",alignMatrix.h21)
-	PUT_FLOAT("ALIGN.h22",alignMatrix.h22)
-	PUT_FLOAT("ALIGN.h23",alignMatrix.h23)
-	PUT_FLOAT("ALIGN.h31",alignMatrix.h31)
-	PUT_FLOAT("ALIGN.h32",alignMatrix.h32)
-	PUT_FLOAT("ALIGN.h33",alignMatrix.h33)
-	PUT_FLOAT("RED_CHANEL_FACTOR",rFct)
-	PUT_FLOAT("GREEN_CHANEL_FACTOR",gFct)
-	PUT_FLOAT("BLUE_CHANEL_FACTOR",bFct)
-	PUT_FLOAT("SLOG_KERNEL_WIDTH",slogW)
-
-	PUT_FLOAT("AMBIENT_RED",ambiColorRed)
-	PUT_FLOAT("AMBIENT_GREEN",ambiColorGreen)
-	PUT_FLOAT("AMBIENT_BLUE",ambiColorBlue)
-	PUT_FLOAT("DIFFUSE_RED",diffColorRed)
-	PUT_FLOAT("DIFFUSE_GREEN",diffColorGreen)
-	PUT_FLOAT("DIFFUSE_BLUE",diffColorBlue)
-	PUT_FLOAT("SPECULAR_RED",specColorRed)
-	PUT_FLOAT("SPECULAR_GREEN",specColorGreen)
-	PUT_FLOAT("SPECULAR_BLUE",specColorBlue)
-	PUT_FLOAT("EMISSIVE_RED",emisColorRed)
-	PUT_FLOAT("EMISSIVE_GREEN",emisColorGreen)
-	PUT_FLOAT("EMISSIVE_BLUE",emisColorBlue)
-	PUT_FLOAT("SHININESS",shininess)
-	PUT_FLOAT("TRANSPARENCY",transparency)
-	PUT_FLOAT("CREASE_ANGLE",creaseAngle)
-	PUT_FLOAT("MESH_TOLERANCE",mesh_tolerance)
-	PUT_FLOAT("DEM_SPACING", dem_spacing)
-	PUT_FLOAT("DEM_PLANET_RADIUS", dem_planet_radius)
-	PUT_INT("ENVI_DEM_DATA_TYPE", ENVI_dem_data_type)
-
-	/* For the TO_DO structure */
-	PUT_TO_DO("DO_ALIGNMENT", do_alignment)
-	PUT_TO_DO("DO_KEYPOINT_ALIGNMENT", keypoint_alignment)
-	PUT_TO_DO("DO_EPHEMERIS_ALIGNMENT", ephemeris_alignment)
-	PUT_TO_DO("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment)
-
-	PUT_TO_DO("DO_FORMAT_IMG_SIZE", format_size)
-	PUT_TO_DO("WRITE_EXTRAPOLATION_MASK", w_extrapolation_mask)
-	PUT_TO_DO("DO_SLOG", slog)
-	PUT_TO_DO("DO_LOG", log)
-	PUT_TO_DO("DO_FIRST_HIST_EQ", eq_hist1)
-	PUT_TO_DO("DO_EMBOSS", emboss)
-	PUT_TO_DO("DO_SECOND_HIST_EQ", eq_hist2)
-	PUT_TO_DO("AUTO_SET_H_CORR_PARAM", autoSetCorrParam)
-	PUT_TO_DO("DO_VERT_CAL", vert_cal)
-	PUT_TO_DO("WRITE_PREPROCESSED", w_preprocessed)
-	PUT_TO_DO("WRITE_TEXTURE", w_texture)
-	PUT_TO_DO("2D_CORRELATION", biDimCorr)
-	PUT_TO_DO("CORR_CLEAN_UP", corr_clean_up)
-	PUT_TO_DO("WRITE_DEBUG_DISP", w_debug_disp)
-	PUT_TO_DO("WRITE_DISP_STP", w_disp_stp)
-	PUT_TO_DO("WRITE_DISP_PGM", w_disp_pgm)
-	PUT_TO_DO("WRITE_DISP_VICAR", w_disp_vicar)
-
-	PUT_TO_DO("WRITE_PGM_DISPARITIES", w_pgm_disparity_map)
-	PUT_TO_DO("WRITE_RAW_DISPARITIES", w_raw_disparity_map)
-
-	PUT_TO_DO("FILL_HOLES_NURBS", fill_holes_NURBS)
-	PUT_TO_DO("FILL_V_HOLES", fill_v_holes)
-	PUT_TO_DO("FILL_H_HOLES", fill_h_holes)
-	PUT_TO_DO("FILL_H_HOLES", fill_h_holes)
-	PUT_TO_DO("EXTEND_DISP_LR", extend_lr)
-	PUT_TO_DO("EXTEND_DISP_TB", extend_tb)
-	PUT_TO_DO("SMOOTH_DISP", smooth_disp)
-	PUT_TO_DO("WRITE_FILTERED_DISP_PGM", w_filtered_disp_pgm)
-	PUT_TO_DO("SMOOTH_RANGE", smooth_range)
-	PUT_TO_DO("DO_DOTCLOUD", dotcloud)
-	PUT_TO_DO("DO_LOCAL_LEVEL_TRANSFORM", local_level_transform)
-	PUT_TO_DO("WRITE_DOTCLOUD", w_dotcloud)
-	PUT_TO_DO("WRITE_MVACS_RANGE", w_vicar_range_maps)
-	PUT_TO_DO("WRITE_VICAR_XYZ", w_vicar_xyz_map)
-	PUT_TO_DO("DO_3D_MESH", mesh)
-	PUT_TO_DO("ADAPTIVE_MESHING", adaptative_meshing)
-	PUT_TO_DO("NFF_PLAIN", nff_plain)
-	PUT_TO_DO("NFF_TXT", nff_txt)
-	PUT_TO_DO("DOUBLE_SIDED", double_sided)
-	PUT_TO_DO("INVENTOR", inventor)
-	PUT_TO_DO("VRML", vrml)
-	PUT_TO_DO("WRITE_DEM", write_dem)
-	PUT_TO_DO("DO_ALTITUDE_TEXTURE", alt_texture)
-	PUT_TO_DO("APPLY_MASK", apply_mask)
-	PUT_TO_DO("WRITE_MASK", w_mask)
-
-
-#undef PUT_FLOAT
-#undef PUT_INT
-#undef PUT_TO_DO
-
-	fputs ("END\n", outflow);
-	
-  if(dft->verbose){
-    printf(" *************************************************************\n");
-    printf("Stereo Default File written successfully\n");
-  }
-  fclose (outflow);
-  return;
-} /* write_default_file() */
-
 
 
 /*******/
