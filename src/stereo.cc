@@ -65,8 +65,7 @@ int main(int argc, char* argv[]) {
   int nn;          /* Reuseable counter variable */
   
   // Set the Vision Workbench debug level
-  //set_debug_level(VerboseDebugMessageda+1);
-  set_debug_level(VerboseDebugMessage+1);
+  set_debug_level(DebugMessage-1);
 
   /*************************************/
   /* Parsing of command line arguments */
@@ -86,8 +85,8 @@ int main(int argc, char* argv[]) {
     ("help,h", "Display this help message")
     ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
-    ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
-    ("multiresolution,m", "Use the prototype multiresolution correlator instead of the old area-based correlator");
+    ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)");
+
 
   po::options_description positional_options("Positional Options");
   positional_options.add_options()
@@ -201,30 +200,6 @@ int main(int argc, char* argv[]) {
 
     DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
     DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
-    
-    // Call the stereo engine to perform the correlation
-    // determine the search window parameters 
-    if((execute.autoSetCorrParam || dft.autoSetVCorrParam) && !vm.count("multiresolution")) {
-      std::cout << "\n ------------ Pyramid Search for Correlation Space --------- \n";
-      printf("Starting pyramid search with initial search dimensions H: [ %d, %d ] V: [ %d, %d ]\n",
-             search_range.min().x(), search_range.max().x(), search_range.min().y(), search_range.max().y());
-      
-      try {
-        vw::stereo::PyramidCorrelator pyramid_correlator(search_range.min().x(), search_range.max().x(),
-                                                         search_range.min().y(), search_range.max().y(),
-                                                         dft.h_kern, dft.v_kern, 
-                                                         true, dft.xcorr_treshold,
-                                                         dft.slogW);
-        pyramid_correlator.enable_debug_mode("pyramid");
-        search_range = pyramid_correlator(left_disk_image, right_disk_image, execute.autoSetCorrParam, dft.autoSetVCorrParam);
-          
-      } catch (vw::stereo::CorrelatorErr &e) {
-        std::cout << "Pyramid correlation failed:\n";
-        e.what();
-        std::cout << "Exiting.\n\n";
-        exit(1);
-      }
-    }
             
     std::cout << "------------------------- correlation ----------------------\n";
     CorrelationSettings corr_settings(search_range.min().x(), search_range.max().x(), 
@@ -232,23 +207,13 @@ int main(int argc, char* argv[]) {
                                       dft.h_kern, dft.v_kern, 
                                       true,         // verbose
                                       dft.xcorr_treshold,
+                                      dft.slogW,
                                       true, true,   // h and v subpixel
                                       true);        // bit image
     
-    // perform the sign of laplacian of gaussian filter (SLOG) on the images 
-    std::string slog_name1 = out_prefix + "-SL.tif";
-    std::string slog_name2 = out_prefix + "-SR.tif";
-    std::cout << "Building left SLOG image:.\n";
-    write_image(slog_name1, threshold(laplacian_filter(gaussian_filter(left_disk_image,dft.slogW)), 0.0), TerminalProgressCallback());
-    std::cout << "Building right SLOG image:.\n";
-    write_image(slog_name2, threshold(laplacian_filter(gaussian_filter(right_disk_image,dft.slogW)), 0.0), TerminalProgressCallback());
-    DiskImageView<PixelGray<float> > left_bit_image(slog_name1);
-    DiskImageView<PixelGray<float> > right_bit_image(slog_name2);
-
     std::cout<< "Building Disparity map... " << std::flush;
-    ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView(channel_cast<uint8>(left_bit_image), channel_cast<uint8>(right_bit_image), corr_settings);
-    
-
+    ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings);
+   
     ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
                                                                                   dft.rm_h_half_kern, dft.rm_v_half_kern,
                                                                                   dft.rm_treshold, dft.rm_min_matches/100.0);
@@ -256,14 +221,9 @@ int main(int argc, char* argv[]) {
     write_image( out_prefix + "-D.exr", disparity_map, TerminalProgressCallback() );
     DiskImageView<PixelDisparity<float> > disk_disparity_map(out_prefix + "-D.exr");
 
-    double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
-    disparity::get_disparity_range(disk_disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp);
-    write_image( out_prefix + "-DH.jpg", normalize(clamp(select_channel(disk_disparity_map,0), min_h_disp, max_h_disp)));
-    write_image( out_prefix + "-DV.jpg", normalize(clamp(select_channel(disk_disparity_map,1), min_v_disp, max_v_disp)));
-
-    // Delete the temporory slog files on disk.
-    unlink(slog_name1.c_str());
-    unlink(slog_name2.c_str());
+    BBox2 disp_range = disparity::get_disparity_range(disk_disparity_map);
+    write_image( out_prefix + "-DH.jpg", normalize(clamp(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x())));
+    write_image( out_prefix + "-DV.jpg", normalize(clamp(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y())));
   }
 
   /***************************************************************************/
@@ -278,14 +238,13 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
 
-      //  The multiresolution correlate does not tend to have
-      //  outliers(!), so we skip outlier detection in this case.
-      if (!vm.count("multiresolution")) {
-        std::cout << "\nCleaning up disparity map prior to filtering processes.\n";
-        disparity_map = disparity::clean_up(disparity_map,
-                                            dft.rm_h_half_kern, dft.rm_v_half_kern,
-                                            dft.rm_treshold, dft.rm_min_matches/100.0);
-      } 
+      // This seems to be more cleanup than is needed with the new
+      // pyramid correlator... skipping it for now.
+      //
+      //       std::cout << "\nCleaning up disparity map prior to filtering processes.\n";
+      //       disparity_map = disparity::clean_up(disparity_map,
+      //                                           dft.rm_h_half_kern, dft.rm_v_half_kern,
+      //                                           dft.rm_treshold, dft.rm_min_matches/100.0);
 
       // Apply the Mask to the disparity map 
       DiskImageView<uint8> Lmask(out_prefix + "-lMask.png");
@@ -321,11 +280,9 @@ int main(int argc, char* argv[]) {
       unlink(temp_filename.c_str());
 
       DiskImageView<PixelDisparity<float> > final_disparity_map(out_prefix + "-F.exr");
-      double min_h_disp, min_v_disp, max_h_disp, max_v_disp;
-      disparity::get_disparity_range(filtered_disparity_map, min_h_disp, max_h_disp, min_v_disp, max_v_disp);
-      write_image( out_prefix + "-FH.jpg", normalize(clamp(select_channel(final_disparity_map,0), min_h_disp, max_h_disp)));
-      write_image( out_prefix + "-FV.jpg", normalize(clamp(select_channel(final_disparity_map,1), min_v_disp, max_v_disp)));
-
+      BBox2 disp_range = disparity::get_disparity_range(final_disparity_map);
+      write_image( out_prefix + "-FH.jpg", normalize(clamp(select_channel(final_disparity_map,0), disp_range.min().x(), disp_range.max().x())));
+      write_image( out_prefix + "-FV.jpg", normalize(clamp(select_channel(final_disparity_map,1), disp_range.min().y(), disp_range.max().y())));
     } catch (IOErr &e) { 
       cout << "\n An file IO error occurred during the filtering stage.  Exiting.\n\n";
       exit(0);
@@ -419,7 +376,6 @@ int main(int argc, char* argv[]) {
         // Use Mercator projection
         georef.set_mercator(0,0,1);
         georef.set_transform(rasterizer.geo_transform());
-        georef.set_orthographic(0,0);
         write_georeferenced_image(out_prefix + "-DEM.tif", ortho_image, georef);
         write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(ortho_image), georef);
 

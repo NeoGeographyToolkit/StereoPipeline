@@ -181,10 +181,11 @@ void scale_dft_struct(po::options_description *desc, std::vector<AugmentingDescr
     // If the value is the default, then we should not scale it.
     if((*vm)[(*i).name].defaulted())
       continue;
+    
 #if BOOST_VERSION == 103200
     po::option_description d = desc->find((*i).name);
 #else
-    po::option_description d = desc->find((*i).first, false);
+    po::option_description d = desc->find((*i).name,false);
 #endif
     type = option_type(d);
     switch(type) {
@@ -212,10 +213,11 @@ void unscale_dft_struct(po::options_description *desc, std::vector<AugmentingDes
     // If the option should not be scaled...
     if(!(*i).needs_scale)
       continue;
+
 #if BOOST_VERSION == 103200
     po::option_description d = desc->find((*i).name);
 #else
-    po::option_description d = desc->find((*i).first, false);
+    po::option_description d = desc->find((*i).name, false);
 #endif
     type = option_type(d);
     switch(type) {

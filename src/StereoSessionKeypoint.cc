@@ -48,28 +48,28 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
 
   // Old SIFT detector code.  Comment out the lines above and
   // uncomment these lines to enable. -mbroxton
-  // KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
-  // KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+  //   KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+  //   KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
 
   // Discard points beyond some number to keep matching time within reason.
   // Currently this is limited by the use of the patch descriptor.
-  static const int NUM_POINTS = 800;
-  vw_out(InfoMessage) << "Truncating to " << NUM_POINTS << " points:\n";
+  static const int NUM_POINTS = 1000;
+  vw_out(InfoMessage) << "\tTruncating to " << NUM_POINTS << " points\n";
   cull_interest_points(ip1, NUM_POINTS);
-  // cull_interest_points(ip2, NUM_POINTS);
+  cull_interest_points(ip2, NUM_POINTS);
 
   // Generate descriptors for interest points.
   // TODO: Switch to SIFT descriptor
-  vw_out(InfoMessage) << "Generating descriptors:\n";
-  PatchDescriptor<float> desc1(channels_to_planes(left_disk_image));
-  PatchDescriptor<float> desc2(channels_to_planes(right_disk_image));
-  desc1.compute_descriptors(ip1);
-  desc2.compute_descriptors(ip2);
+  vw_out(InfoMessage) << "\tGenerating descriptors... ";
+  compute_descriptors(left_disk_image, ip1, PatchDescriptor() );
+  compute_descriptors(right_disk_image, ip2, PatchDescriptor() );
+  vw_out(InfoMessage) << "done.\n";
     
   // The basic interest point matcher does not impose any
   // constraints on the matched interest points.
   vw_out(InfoMessage) << "\nInterest Point Matching:\n";
-  InterestPointMatcher<L2NormMetric,NullConstraint> matcher;
+  double matcher_threshold = 0.8;
+  InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
   std::vector<InterestPoint> matched_ip1, matched_ip2;
   matcher.match(ip1, ip2, matched_ip1, matched_ip2);
   vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";

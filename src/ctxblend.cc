@@ -49,6 +49,15 @@ namespace fs = boost::filesystem;
 #include <MRO/DiskImageResourceDDD.h>
 using namespace vw;
 
+/// Erases a file suffix if one exists and returns the base string
+static std::string prefix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1) 
+    result.erase(index, result.size());
+  return result;
+}
+
 //  mask_zero_pixels()
 //
 struct MaskZeroPixelFunc: public vw::ReturnFixedType<vw::PixelGrayA<vw::uint16> > {
@@ -110,9 +119,56 @@ inline rescale_pixels_with_alpha( ImageViewBase<ImageT> const& image, ValT old_l
   return UnaryPerPixelView<ImageT, func_type >( image.impl(), func );
 }
 
+/// ---- 
+// Returns 0 if no index file or no entry can be found.
+double query_catalog(std::string prefix, std::string index_file_name) {
+  double emission, incidence, phase;
+      
+  std::ifstream input(index_file_name.c_str());
+  if (!(input.good())) {
+    return 0;
+  }
+  
+  char c_line[2048];
+  bool found = false;
+  while (!input.eof()) {
+    input.getline(c_line, 2048);
+    std::string line = c_line;
+    if (line.find(prefix) == 0) {
+      // Split into several strings using whitespace as delimeter
+      std::vector<std::string> split_vec, final_vec;
+      boost::split(split_vec, line, boost::is_space());
+      // Get rid of empty strings from multiple adjacent whitespaces
+      for (unsigned int i=0; i < split_vec.size();++i) {
+        if (split_vec[i].size() != 0)
+          final_vec.push_back(split_vec[i]);
+      }
+      if (final_vec.size() != 6) {
+        std::cout << "Error parsing line: " << line << "\nExiting.\n\n";
+        exit(1);
+      }
+      emission = atof(final_vec[3].c_str());
+      incidence = atof(final_vec[4].c_str());
+      phase = atof(final_vec[5].c_str());
+      std::cout << "Photometric Values -- Emission: " << emission << "  Incidence: " << incidence << "  Phase: " << phase << "\n";
+      found = true;
+      break;
+    }
+  }
+  input.close();
+  if (!found) {
+    return 0;
+  } else {
+    return incidence;
+  }
+}
+
+/// ---
+
+
 
 template <class PixelT>
-void do_blend( std::vector<std::string> image_files, std::string const& mosaic_name, std::string const& file_type, bool draft, bool qtree, int patch_size, int patch_overlap ) {
+void do_blend( std::vector<std::string> image_files, std::string const& mosaic_name, std::string const& file_type, bool draft, bool qtree, int patch_size, int patch_overlap, int draw_order_offset, int no_ctx_normalize, int max_lod_pixels, std::string index_file_name ) {
   vw::mosaic::ImageComposite<PixelT> composite;
     
   if( draft ) composite.set_draft_mode( true );
@@ -124,6 +180,8 @@ void do_blend( std::vector<std::string> image_files, std::string const& mosaic_n
     double fullwidth = atol(file_resource.query("projection_fullwidth").c_str());
     double projection_x_offset = atol(file_resource.query("projection_x_offset").c_str());
     double projection_y_offset = atol(file_resource.query("projection_y_offset").c_str());
+    double exposure = atof(file_resource.query("exposure").c_str());
+    double incidence = query_catalog(prefix_from_filename(image_files[i]), index_file_name);
     
     std::cout << "Importing image file " << image_files[i] << " at offet (" << projection_x_offset << "," << projection_y_offset << ")" << std::endl;
 
@@ -133,8 +191,28 @@ void do_blend( std::vector<std::string> image_files, std::string const& mosaic_n
 //     std::cout << "Min: " << min << "  Max: " << max << "\n";
 //     ///
 
-    ImageViewRef<PixelT> input_image = channel_cast<typename PixelChannelType<PixelT>::type>(rescale_pixels_with_alpha(mask_zero_pixels(vw::DiskImageView<uint16>( image_files[i] )), 200, 1100, 0, 255));
-    composite.insert( input_image, projection_x_offset, projection_y_offset );
+    if ( no_ctx_normalize ) {
+      ImageViewRef<PixelT> input_image = channel_cast<typename PixelChannelType<PixelT>::type>(rescale_pixels_with_alpha(mask_zero_pixels(vw::DiskImageView<uint16>( image_files[i] )), 0, 65535, 0, 255));
+      composite.insert( input_image, projection_x_offset, projection_y_offset );
+    } else if (incidence == 0) {
+      // These are some numbers that produce reasonable looking
+      // results across a wide range of brightness values.
+      float norm_low = 6;
+      float norm_high = 8;
+      ImageViewRef<PixelT> input_image = mask_zero_pixels(channel_cast<typename PixelChannelType<PixelT>::type>(normalize(clamp(log(vw::DiskImageView<PixelGray<uint16> >( image_files[i] )/exposure),norm_low,norm_high),norm_low,norm_high,0.0,255.0)));
+      //      ImageViewRef<PixelT> input_image = channel_cast<typename PixelChannelType<PixelT>::type>(rescale_pixels_with_alpha(mask_zero_pixels(vw::DiskImageView<uint16>( image_files[i] )), 200, 1100, 0, 255));
+      composite.insert( input_image, projection_x_offset, projection_y_offset );
+    } else { // Do photometric calibration
+      float sun_coeff = cos(incidence*M_PI/180);
+      if (sun_coeff < 0.1) sun_coeff = 0.1; // Prevent division by a number close to zero for very larg incidence angles
+
+      // These are some numbers that produce reasonable looking
+      // results across a wide range of brightness values.
+      float norm_low = 5.3;
+      float norm_high = 7.8;
+      ImageViewRef<PixelGrayA<uint8> > input_image = mask_zero_pixels(channel_cast<uint8>(normalize(clamp(log(1+(DiskImageView<PixelGray<uint16> >( image_files[i] ) / (exposure*sun_coeff))),norm_low,norm_high),norm_low,norm_high,0.0,255.0)));
+      composite.insert( input_image, projection_x_offset, projection_y_offset );
+    }
   }
     
   vw::vw_out(vw::InfoMessage) << "Preparing the composite..." << std::endl;
@@ -142,10 +220,14 @@ void do_blend( std::vector<std::string> image_files, std::string const& mosaic_n
   if( qtree ) {
     vw::vw_out(vw::InfoMessage) << "Preparing the quadtree..." << std::endl;
     BBox2 ll_bbox( -30,-30,30.0,30.0*(float)(composite.rows())/(float)(composite.cols()) );
+    vw_out(0) << "\tOverlay will appear in this bounding box in Google Earth: " << ll_bbox << "\n";
+    vw_out(0) << "\tComposite bbox: " << composite.source_data_bbox() << "\n";
     vw::mosaic::KMLQuadTreeGenerator<PixelT > quadtree( mosaic_name, composite, ll_bbox );
     quadtree.set_output_image_file_type( file_type );
     quadtree.set_patch_size( patch_size );
     quadtree.set_patch_overlap( patch_overlap );
+    quadtree.set_draw_order_offset( draw_order_offset );
+    quadtree.set_max_lod_pixels(max_lod_pixels);
     vw::vw_out(vw::InfoMessage) << "Generating..." << std::endl;
     quadtree.generate(TerminalProgressCallback());
     vw::vw_out(vw::InfoMessage) << "Done!" << std::endl;
@@ -164,9 +246,11 @@ int main( int argc, char *argv[] ) {
 
   try {
     std::vector<std::string> image_files;
-    std::string mosaic_name, file_type;
+    std::string mosaic_name, file_type,index_file_name;
     int patch_size, patch_overlap;
     unsigned cache_size;
+    int draw_order_offset;
+    int max_lod_pixels;
     
     po::options_description general_options("Options");
     general_options.add_options()
@@ -178,8 +262,12 @@ int main( int argc, char *argv[] ) {
       ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
       ("draft", "Draft mode (no blending)")
       ("qtree", "Output in quadtree format")
-      ("verbose", "Verbose output");
-    
+      ("verbose", "Verbose output")
+      ("no-ctx-normalize", "Do not apply the CTX image normalization")
+      ("max-lod-pixels", po::value<int>(&max_lod_pixels)->default_value(1024), "Max LoD in pixels, or -1 for none")
+      ("draw-order-offset", po::value<int>(&draw_order_offset)->default_value(100), "Set an offset for the KML <drawOrder> tag for this overlay")
+      ("index-file,i", po::value<std::string>(&index_file_name)->default_value("none"), "Specify the index file");
+
     po::options_description hidden_options("");
     hidden_options.add_options()("input-file", po::value<std::vector<std::string> >(&image_files));
 
@@ -224,10 +312,10 @@ int main( int argc, char *argv[] ) {
       std::cout << usage.str() << std::endl;
       return 1;
     }
-    
+
     vw::Cache::system_cache().resize( cache_size*1024*1024 );
 
-    do_blend<vw::PixelGrayA<uint8> >( image_files, mosaic_name, file_type, vm.count("draft"), vm.count("qtree"), patch_size, patch_overlap );
+    do_blend<vw::PixelGrayA<uint8> >( image_files, mosaic_name, file_type, vm.count("draft"), vm.count("qtree"), patch_size, patch_overlap, draw_order_offset, vm.count("no-ctx-normalize"), max_lod_pixels, index_file_name);
 
   }
   catch( std::exception &err ) {
