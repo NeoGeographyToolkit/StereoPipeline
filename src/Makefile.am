@@ -23,7 +23,7 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs
+bin_PROGRAMS = stereo # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
