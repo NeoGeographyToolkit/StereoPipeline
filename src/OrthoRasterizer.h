@@ -79,12 +79,11 @@ namespace cartography {
 
       VW_ASSERT(texture.impl().channels() == 1 && texture.impl().planes() == 1,
                 ArgumentErr() << "Orthorasterizer: texture must be a single channel, single plane image."); 
-
+      
       unsigned int width = m_point_cloud.cols();
       unsigned int height = m_point_cloud.rows();
       POS3D *coords;
       double* textures;
-      
 
       // Start by printing out the bounding box and resulting orthoimage dimensions
       int orthoimage_width  = (int) (fabs(m_bbox.max().x() - m_bbox.min().x()) / m_dem_spacing) + 1;

@@ -23,7 +23,7 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo disparitydebug # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
+bin_PROGRAMS = stereo disparitydebug point2mesh point2dem # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
@@ -32,10 +32,10 @@ hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
 
 apollo_sources = apollo/StereoSessionApolloMetric.cc
 
-generic_stereo_sources = file_lib.cc nff_terrain.cc DEM.cc							\
-		 StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc	\
-		 SIFT.cc Spice.cc TabulatedDataReader.cc $(moc_sources)							\
-		 $(hrsc_sources) $(apollo_sources)
+generic_stereo_sources = file_lib.cc StereoSession.cc										\
+		 StereoSessionKeypoint.cc StereoSessionPinhole.cc SIFT.cc Spice.cc	\
+		 TabulatedDataReader.cc $(moc_sources) $(hrsc_sources)							\
+		 $(apollo_sources)
 
 stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
 
@@ -52,6 +52,9 @@ ctxblend_SOURCES = ctxblend.cc MRO/DiskImageResourceDDD.cc
 ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
 
 disparitydebug_SOURCES = disparitydebug.cc
+
+point2mesh_SOURCES = point2mesh.cc nff_terrain.cc
+point2dem_SOURCES = point2dem.cc DEM.cc
 
 rmax2cahvor_SOURCES = rmax2cahvor.cc
 

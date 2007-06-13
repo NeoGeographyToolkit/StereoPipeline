@@ -31,8 +31,6 @@ using namespace vw::cartography;
 
 #include "stereo.h"
 #include "file_lib.h"
-#include "nff_terrain.h"
-#include "OrthoRasterizer.h"
 #include "StereoSession.h"
 #include "SurfaceNURBS.h"
 using namespace std;
@@ -159,7 +157,6 @@ int main(int argc, char* argv[]) {
     std::cout << "Pre_Preprocess_Files: " << pre_preprocess_file1 << "   " << pre_preprocess_file2 << "\n";
     DiskImageView<PixelGray<uint8> > left_rectified_image(pre_preprocess_file1);
     DiskImageView<PixelGray<uint8> > right_rectified_image(pre_preprocess_file2);
-    write_image(out_prefix + "-T.jpg", left_rectified_image);
     
     // The generate_mask() routine returns an ImageView<bool>, so we
     // currently multiply by 255 to scale the bool value to a uint8.
@@ -209,7 +206,7 @@ int main(int argc, char* argv[]) {
     // Create a disk image resource and prepare to write a tiled
     // OpenEXR.
     DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
-    disparity_map_rsrc.set_tiled_write(std::min(4096,disparity_map.cols()),std::min(4096, disparity_map.rows()));
+    disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
     write_image( &disparity_map_rsrc, disparity_map, FileMetadataCollection::create(), TerminalProgressCallback() );
     DiskImageView<PixelDisparity<float> > disk_disparity_map(out_prefix + "-D.exr");
   }
@@ -251,7 +248,7 @@ int main(int argc, char* argv[]) {
 
       // Write out the extrapolation mask imaege
       if(execute.w_extrapolation_mask) 
-        write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map));
+        write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), TerminalProgressCallback());
 
       // Call out to NURBS hole filling code.     
       if(execute.fill_holes_NURBS) {
@@ -310,80 +307,6 @@ int main(int argc, char* argv[]) {
       exit(0);
     }
     
-  }
-
-  /************************************************************************************/
-  /*                            dot-cloud to wire mesh                                */
-  /************************************************************************************/
-  if(entry_point <= WIRE_MESH) {
-    if (entry_point == WIRE_MESH)
-      std::cout << "\nStarting at WIRE_MESH stage.\n\n";
-
-    try {
-      std::cout << "Using file " << out_prefix + "-PC.exr" << " as pointcloud map.\n";
-      DiskImageView<Vector3> point_image(out_prefix + "-PC.exr");
-
-      if (execute.mesh) {
-        std::cout << "\nGenerating 3D mesh from point cloud:\n";
-        Mesh mesh_maker;
-        if(execute.adaptative_meshing) {
-          mesh_maker.build_adaptive_mesh(point_image, dft.mesh_tolerance, dft.max_triangles);
-        } else {
-          mesh_maker.build_simple_mesh(point_image, dft.nff_h_step, dft.nff_v_step);
-        }
-        if (execute.write_ive) 
-          mesh_maker.write_osg(out_prefix+".ive", out_prefix+"-T.jpg");
-        if(execute.inventor)
-          mesh_maker.write_inventor(out_prefix+".iv", out_prefix+"-T.jpg");
-        if(execute.vrml)
-          mesh_maker.write_vrml(out_prefix+".vrml", out_prefix+"-T.jpg");
-      }        
-      
-      // Write out the DEM, texture, and extrapolation mask as
-      // georeferenced files.  The DEM height is taken as the third
-      // component (Z) of the pointcloud.  The other two components (X
-      // and Y) determine the lateral extent of the DEM.
-      if(execute.write_dem) {
-        cout << "Creating a DEM.\n";
-        
-        
-        // Write out the DEM, texture, and extrapolation mask
-        // as georeferenced files.
-        vw::cartography::OrthoRasterizer<Vector3> rasterizer(point_image);
-        rasterizer.set_dem_spacing(dft.dem_spacing);
-        rasterizer.use_minz_as_default = false;
-        rasterizer.set_default_value(0);    
-        BBox<float,3> dem_bbox = rasterizer.bounding_box();
-        ImageView<PixelGrayA<float> > ortho_image = rasterizer(vw::select_channel(point_image, 2));    
-
-        // Set up the georeferencing information
-        vw::cartography::GeoReference georef;
-        // Use Mercator projection
-        georef.set_mercator(0,0,1);
-        georef.set_transform(rasterizer.geo_transform());
-        write_georeferenced_image(out_prefix + "-DEM.tif", ortho_image, georef);
-        write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(ortho_image), georef);
-
-        // Write out a georeferenced orthoimage of the DTM with alpha.
-        DiskImageView<PixelGray<float> > texture(out_prefix + "-L.tif");
-        ortho_image = rasterizer(select_channel(texture, 0));
-        write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(ortho_image), georef);
-
-        // Write out the offset files
-        std::cout << "Offset: " << dem_bbox.min().x()/rasterizer.dem_spacing() << "   " << dem_bbox.max().y()/rasterizer.dem_spacing() << "\n";
-        std::string offset_filename = out_prefix + "-DRG.offset";
-        FILE* offset_file = fopen(offset_filename.c_str(), "w");
-        fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.dem_spacing()), -int(dem_bbox.max().y()/rasterizer.dem_spacing()));
-        fclose(offset_file);
-        offset_filename = out_prefix + "-DEM-normalized.offset";
-        offset_file = fopen(offset_filename.c_str(), "w");
-        fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.dem_spacing()), -int(dem_bbox.max().y()/rasterizer.dem_spacing()));
-        fclose(offset_file);
-      }
-    }catch (IOErr&) { 
-      cout << "\nFailed to start at wire mesh phase.\n\tCould not read input files. Exiting.\n\n";
-      exit(0);
-    }
   }
 
   free (hd.cmd_name);

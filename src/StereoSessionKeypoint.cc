@@ -41,10 +41,8 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
 
   // Interest Point module detector code.
   ScaledInterestPointDetector<LoGInterest> detector;
-  ImageView<float> left = channels_to_planes(left_disk_image);
-  ImageView<float> right = channels_to_planes(right_disk_image);
-  KeypointList ip1 = interest_points(left, detector, MAX_KEYPOINT_IMAGE_DIMENSION);
-  KeypointList ip2 = interest_points(right, detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+  KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+  KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
 
   // Old SIFT detector code.  Comment out the lines above and
   // uncomment these lines to enable. -mbroxton
