@@ -4,7 +4,7 @@
 # Administrator of the National Aeronautics and Space Administration
 # (NASA).  All Rights Reserved.
 # 
-# This software is distributed under the NASA Open Source Agreement
+# This software is distributed under the NASA Open Source AgreementFixed a small b
 # (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 # Initiative.  See the file COPYING at the top of the distribution
 # directory tree for the complete NOSA document.
@@ -23,16 +23,19 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
+bin_PROGRAMS = stereo disparitydebug # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
 
 hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
 
-generic_stereo_sources = file_lib.cc nff_terrain.cc DEM.cc			\
+apollo_sources = apollo/StereoSessionApolloMetric.cc
+
+generic_stereo_sources = file_lib.cc nff_terrain.cc DEM.cc							\
 		 StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc	\
-		 SIFT.cc Spice.cc TabulatedDataReader.cc $(moc_sources) $(hrsc_sources)
+		 SIFT.cc Spice.cc TabulatedDataReader.cc $(moc_sources)							\
+		 $(hrsc_sources) $(apollo_sources)
 
 stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
 
@@ -47,6 +50,8 @@ ctx_stereo_SOURCES = $(generic_stereo_sources) Spice.cc							\
 ctx2kml_SOURCES = ctx2kml.cc MRO/DiskImageResourceDDD.cc
 ctxblend_SOURCES = ctxblend.cc MRO/DiskImageResourceDDD.cc
 ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
+
+disparitydebug_SOURCES = disparitydebug.cc
 
 rmax2cahvor_SOURCES = rmax2cahvor.cc
 

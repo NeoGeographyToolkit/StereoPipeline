@@ -61,6 +61,7 @@ void write_orbital_reference_model(std::string filename,
   fprintf (outflow, "      File { name \"%s/refFrame.wrl\" }\n", 
 	            resource_path);
   fprintf (outflow, "    } Separator {\n");
+  fprintf (outflow, "      Scale { scaleFactor 0.51 0.51 0.51 }\n");
   fprintf (outflow, "      File { name \"%s/Mars.wrl\" }\n", resource_path);
   fprintf (outflow, "    }\n  }\n\n");
 
@@ -75,6 +76,7 @@ void write_orbital_reference_model(std::string filename,
   Matrix<double> rot1(4,4);
   rot1.set_identity();
   quat1.rotation_matrix(rot1);
+  std::cout << "rot1: " << rot1 << "\n";
 
   fprintf (outflow, "  Separator {\n");
   fprintf (outflow, "    Translation { translation %f %f %f }\n", 
@@ -103,6 +105,7 @@ void write_orbital_reference_model(std::string filename,
   vw::Matrix<double> rot2(4,4);
   rot2.set_identity();
   quat2.rotation_matrix(rot2);
+  std::cout << "rot2: " << rot2 << "\n";
 
   fprintf (outflow, "  Separator {\n");
   fprintf (outflow, "    Translation { translation %f %f %f } \n", 

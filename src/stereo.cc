@@ -64,9 +64,6 @@ int main(int argc, char* argv[]) {
   TO_DO execute;   /* whether or not to execute specific parts of the program */
   int nn;          /* Reuseable counter variable */
   
-  // Set the Vision Workbench debug level
-  set_debug_level(DebugMessage-1);
-
   /*************************************/
   /* Parsing of command line arguments */
   /*************************************/
@@ -75,6 +72,7 @@ int main(int argc, char* argv[]) {
   // to specify the type, size, help string, etc, of the command line
   // arguments.
   int entry_point;
+  unsigned cache_size;
   std::string stereo_session_string;
   std::string stereo_default_filename;
   std::string in_file1, in_file2, cam_file1, cam_file2, extra_arg1, extra_arg2;
@@ -83,6 +81,7 @@ int main(int argc, char* argv[]) {
   po::options_description visible_options("Options");
   visible_options.add_options()
     ("help,h", "Display this help message")
+    ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
     ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)");
@@ -138,25 +137,9 @@ int main(int argc, char* argv[]) {
   BBox2i search_range(Vector<int,2>(dft.h_corr_min, dft.v_corr_min),
                       Vector<int,2>(dft.h_corr_max, dft.v_corr_max));
 
-//   // Set up the stereo engine object
-//   stereo_engine.do_horizontal_pyramid_search = execute.autoSetCorrParam;
-//   stereo_engine.do_vertical_pyramid_search = dft.autoSetVCorrParam;
-//   stereo_engine.kernel_width = dft.h_kern;
-//   stereo_engine.kernel_height = dft.v_kern;
-//   stereo_engine.cross_correlation_threshold = dft.xcorr_treshold;
-  
-//   stereo_engine.do_slog = execute.slog;
-//   stereo_engine.do_log = execute.log;
-//   stereo_engine.slog_stddev = dft.slogW;
-  
-//   stereo_engine.do_cleanup = true;
-//   stereo_engine.cleanup_vertical_half_kernel = dft.rm_v_half_kern;
-//   stereo_engine.cleanup_horizontal_half_kernel = dft.rm_h_half_kern;
-//   stereo_engine.cleanup_min_matches = dft.rm_min_matches;
-//   stereo_engine.cleanup_rm_threshold = (float)dft.rm_treshold;
-  
-//   stereo_engine.do_nurbs_hole_filling = execute.fill_holes_NURBS;
-//   stereo_engine.nurbs_iterations = 10;
+  // Set the Vision Workbench debug level
+  set_debug_level(DebugMessage-1);
+  Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
 
   // Create a fresh stereo session and query it for the camera models.
   StereoSession* session = StereoSession::create(stereo_session_string);
@@ -186,8 +169,8 @@ int main(int argc, char* argv[]) {
       ImageViewRef<uint8> Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
       ImageViewRef<uint8> Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
       printf("Done.\n");
-      write_image(out_prefix + "-lMask.png", Lmask);
-      write_image(out_prefix + "-rMask.png", Rmask);
+      write_image(out_prefix + "-lMask.tif", Lmask);
+      write_image(out_prefix + "-rMask.tif", Rmask);
     }
   }
 
@@ -202,11 +185,16 @@ int main(int argc, char* argv[]) {
     DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
             
     std::cout << "------------------------- correlation ----------------------\n";
+    std::cout << "\tsearch range: " << search_range << "\n";
+    std::cout << "\tkernel size : " << dft.h_kern << "x" << dft.v_kern << "\n";
+    std::cout << "\txcorr thresh: " << dft.xcorr_treshold << "\n";
+    std::cout << "\tslog stddev : " << dft.slogW << "\n\n";
     CorrelationSettings corr_settings(search_range.min().x(), search_range.max().x(), 
                                       search_range.min().y(), search_range.max().y(),
                                       dft.h_kern, dft.v_kern, 
                                       true,         // verbose
                                       dft.xcorr_treshold,
+                                      1.5,          // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
                                       dft.slogW,
                                       true, true,   // h and v subpixel
                                       true);        // bit image
@@ -218,12 +206,12 @@ int main(int argc, char* argv[]) {
                                                                                   dft.rm_h_half_kern, dft.rm_v_half_kern,
                                                                                   dft.rm_treshold, dft.rm_min_matches/100.0);
 
-    write_image( out_prefix + "-D.exr", disparity_map, TerminalProgressCallback() );
+    // Create a disk image resource and prepare to write a tiled
+    // OpenEXR.
+    DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
+    disparity_map_rsrc.set_tiled_write(std::min(4096,disparity_map.cols()),std::min(4096, disparity_map.rows()));
+    write_image( &disparity_map_rsrc, disparity_map, FileMetadataCollection::create(), TerminalProgressCallback() );
     DiskImageView<PixelDisparity<float> > disk_disparity_map(out_prefix + "-D.exr");
-
-    BBox2 disp_range = disparity::get_disparity_range(disk_disparity_map);
-    write_image( out_prefix + "-DH.jpg", normalize(clamp(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x())));
-    write_image( out_prefix + "-DV.jpg", normalize(clamp(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y())));
   }
 
   /***************************************************************************/
@@ -236,19 +224,19 @@ int main(int argc, char* argv[]) {
     try {
       std::cout << "\nUsing image " << out_prefix + "-D.exr" << " as disparity map image.\n";
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
-      ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
 
       // This seems to be more cleanup than is needed with the new
       // pyramid correlator... skipping it for now.
       //
-      //       std::cout << "\nCleaning up disparity map prior to filtering processes.\n";
-      //       disparity_map = disparity::clean_up(disparity_map,
-      //                                           dft.rm_h_half_kern, dft.rm_v_half_kern,
-      //                                           dft.rm_treshold, dft.rm_min_matches/100.0);
+      std::cout << "\tcleaning up disparity map prior to filtering processes.\n";
+      ImageViewRef<PixelDisparity<float> > disparity_map = disparity::clean_up(disparity_disk_image,
+                                                                               dft.rm_h_half_kern, dft.rm_v_half_kern,
+                                                                               dft.rm_treshold, dft.rm_min_matches/100.0);
 
       // Apply the Mask to the disparity map 
-      DiskImageView<uint8> Lmask(out_prefix + "-lMask.png");
-      DiskImageView<uint8> Rmask(out_prefix + "-rMask.png");
+      std::cout << "\tapplying mask.\n";
+      DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
+      DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
       if(execute.apply_mask){
         disparity_map = disparity::mask(disparity_map, Lmask, Rmask);
       }
@@ -256,14 +244,14 @@ int main(int argc, char* argv[]) {
       // Rasterize the results so far to a temporary file on disk.
       // This file is deleted once we complete the second half of the
       // disparity map filtering process.
-      std::cout << "Rasterizing filtered disparity map to disk. \n" << std::flush;
+      std::cout << "\trasterizing filtered disparity map to disk. \n" << std::flush;
       std::string temp_filename = out_prefix + "-FiltF.exr";
       write_image( temp_filename, disparity_map, TerminalProgressCallback() );
       DiskImageView<PixelDisparity<float> > filtered_disparity_map(temp_filename);
 
-      // Write out the extrapolation mask image
+      // Write out the extrapolation mask imaege
       if(execute.w_extrapolation_mask) 
-        write_image(out_prefix + "-GoodPixelMap.png", disparity::missing_pixel_image(filtered_disparity_map));
+        write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map));
 
       // Call out to NURBS hole filling code.     
       if(execute.fill_holes_NURBS) {
@@ -280,11 +268,8 @@ int main(int argc, char* argv[]) {
       unlink(temp_filename.c_str());
 
       DiskImageView<PixelDisparity<float> > final_disparity_map(out_prefix + "-F.exr");
-      BBox2 disp_range = disparity::get_disparity_range(final_disparity_map);
-      write_image( out_prefix + "-FH.jpg", normalize(clamp(select_channel(final_disparity_map,0), disp_range.min().x(), disp_range.max().x())));
-      write_image( out_prefix + "-FV.jpg", normalize(clamp(select_channel(final_disparity_map,1), disp_range.min().y(), disp_range.max().y())));
     } catch (IOErr &e) { 
-      cout << "\n An file IO error occurred during the filtering stage.  Exiting.\n\n";
+      cout << "\n An file IO error occurred during the filtering stage.  " << e.what() << "Exiting.\n\n";
       exit(0);
     }
   }
