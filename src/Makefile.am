@@ -4,7 +4,7 @@
 # Administrator of the National Aeronautics and Space Administration
 # (NASA).  All Rights Reserved.
 # 
-# This software is distributed under the NASA Open Source AgreementFixed a small b
+# This software is distributed under the NASA Open Source Agreement
 # (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 # Initiative.  See the file COPYING at the top of the distribution
 # directory tree for the complete NOSA document.
