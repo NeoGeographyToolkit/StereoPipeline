@@ -40,14 +40,20 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
 
   // Interest Point module detector code.
+  //
+  // For some reason the interest point detector crashes sometimes
+  // under linux so I've reverted to lowe style interest points for
+  // now on that platform.
+#ifdef __APPLE__
   ScaledInterestPointDetector<LoGInterest> detector;
   KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
   KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
-
+#else
   // Old SIFT detector code.  Comment out the lines above and
   // uncomment these lines to enable. -mbroxton
-  //   KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
-  //   KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+  KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+  KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+#endif 
 
   // Discard points beyond some number to keep matching time within reason.
   // Currently this is limited by the use of the patch descriptor.

@@ -238,7 +238,7 @@ void MOCImageMetadata::read_ephemeris_supplement(std::string const& filename) {
     m_height_pixels = downloaded_lines/m_downtrack_summing;
 
     double focal_length = parser.read_double("FOCAL_LENGTH") / 1000.0;
-    if (focal_length != m_focal_length) { std::cout << "WARNING: File focal length differs from standard MOC focal length.\n"; }
+    if (focal_length != m_focal_length) { std::cout << "WARNING: File focal length differs from standard MOC focal length ( " << focal_length << "\n"; }
 
     double across_scan_pixel_size = parser.read_double("ACROSS_SCAN_PIXEL_SIZE") / 1.0e6;
     double along_scan_pixel_size = parser.read_double("ALONG_SCAN_PIXEL_SIZE") / 1.0e6;
