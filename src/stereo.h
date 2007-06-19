@@ -125,6 +125,7 @@ typedef struct {
   int crop_y_max;
   int autoSetVCorrParam;	/* goes with autoSetCorrParam */
   float xcorr_treshold;
+  float corrscore_rejection_treshold;
   /* Ephemeris alignment */
   double ephem_align_kernel_x; /* x coordinate of the ephem. alignmnt kernel */
   double ephem_align_kernel_y; /* y coordinate of the ephem. alignmnt kernel */

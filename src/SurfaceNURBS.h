@@ -5,8 +5,10 @@
 
 #include <vw/Image/ImageView.h>
 #include <vw/Image/PixelTypes.h>
+#include <vw/Image/Interpolation.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Core/ProgressCallback.h>
+#include <vw/Math/Functions.h>
 
 #if defined(ASP_HAVE_PKG_MBA) && ASP_HAVE_PKG_MBA==1
 #include <MBA.h>
@@ -112,13 +114,11 @@ struct NURBSChannelCount { static int value() { return vw::PixelNumChannels<Pixe
 template <class ChannelT>
 struct NURBSChannelCount<vw::PixelDisparity<ChannelT> > { static int value() { return 2; } };
 
-
-
 /// Fit a 2D spline surface to a given image of data.  Each channel of
 /// the image is handled as an independent 2D surface.
 template <class ViewT>
 vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<ViewT> const& input, 
-                                                      int numIterations) {
+                                                          int numIterations) {
 
   typedef typename ViewT::pixel_type pixel_type;
 
@@ -174,6 +174,148 @@ vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<View
   return output;
 }
 
+
+
+
+// Rapid resample() 
+//
+// Downsample a disparity map by averaging pixels.
+// In this version of the algorithm, missing pixels are "consumed" by
+// valid pixels.
+template <class ViewT>
+ImageView<typename ViewT::pixel_type > disparity_rapid_downsample(ImageViewBase<ViewT> const& view_, 
+                                                                  int downsample_size) {
+  
+  EdgeExtensionView<ViewT, ConstantEdgeExtension> view(view_.impl(), ConstantEdgeExtension());
+  typedef typename ViewT::pixel_type pixel_type;
+  typedef Vector2 accumulator_type;
+  typedef typename EdgeExtensionView<ViewT, ConstantEdgeExtension>::pixel_accessor pixel_accessor;
+
+  unsigned resized_rows = view.impl().rows() / downsample_size;
+  unsigned resized_cols = view.impl().cols() / downsample_size;
+  ImageView<pixel_type> result(resized_cols, resized_rows);
+
+  std::cout << "Subsampling disparity map to output size: " << resized_cols << " x " << resized_rows << "\n";;
+
+  TerminalProgressCallback progress_callback;
+  progress_callback.report_progress(0);
+
+  for (int32 j = 0; j < view.impl().rows(); j+=downsample_size) {
+    progress_callback.report_progress((float)j / view.impl().rows());
+    for (int32 i = 0; i < view.impl().cols(); i+= downsample_size) {      
+      accumulator_type sum = accumulator_type();
+      int num_good_pixels = 0;
+
+      pixel_accessor row_acc = view.origin().advance(i,j);
+      for (int32 v = 0; v < downsample_size; ++v) {
+        pixel_accessor col_acc = row_acc;
+        for (int32 u = 0; u < downsample_size; ++u) {
+          if ( !((*col_acc).missing()) ) {
+            sum[0] += (*col_acc).h();
+            sum[1] += (*col_acc).v();
+            ++num_good_pixels;
+          }
+          col_acc.next_col();
+        }
+        row_acc.next_row();
+      }
+      
+      // If there were any valid pixels, we count them towards the
+      // average.  If there are none, we mark this location as a
+      // missing pixel.
+      pixel_type avg;
+      if (num_good_pixels != 0) {
+        avg = pixel_type(sum[0] / num_good_pixels,
+                         sum[1] / num_good_pixels);
+      } else {
+        avg = pixel_type();
+      }
+
+      // This bounds checking keeps us from straying outside of the
+      // result image.
+      if (i/downsample_size < resized_cols && j/downsample_size < resized_rows)
+        result(i/downsample_size, j/downsample_size) = avg;
+    }
+  }
+  progress_callback.report_finished();
+  return result;
+}
+
+
+
+class HoleFillView : public ImageViewBase<HoleFillView> {
+  ImageViewRef<PixelDisparity<float> > m_original_disparity_map;
+  ImageView<PixelDisparity<float> > m_lowres_disparity_map;
+  int m_subsample_factor;
+
+public:
+  typedef PixelDisparity<float> pixel_type;
+  typedef const pixel_type result_type;
+  typedef ProceduralPixelAccessor<HoleFillView> pixel_accessor;
+
+  template <class DisparityViewT>
+  HoleFillView(DisparityViewT disparity_map, int subsample_factor = 16) 
+    : m_original_disparity_map(disparity_map), m_subsample_factor(subsample_factor) {
+
+    // Compute the bounding box that encompasses all of the
+    // available points.
+    m_lowres_disparity_map = MBASurfaceNURBS(disparity_rapid_downsample(disparity_map, m_subsample_factor), 10);
+  }
+
+  inline int32 cols() const { return m_original_disparity_map.cols(); }
+  inline int32 rows() const { return m_original_disparity_map.rows(); }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor(*this); }
+  
+  inline result_type operator()( int i, int j, int p=0 ) const { 
+
+    // If we can, we take the pixels from the original disparity
+    // image.
+    if ( !(m_original_disparity_map(i,j).missing()) ) {
+      return m_original_disparity_map(i,j);
+
+    // Otherwise, we resort to using the hole fill values.  These
+    // values are the result of a low resolution NURBS fit followed by
+    // bicubic interpolation.
+    } else {
+      float ii = float(i)/m_subsample_factor;
+      float jj = float(j)/m_subsample_factor;
+
+      int32 x = vw::math::impl::_floor(ii), y = vw::math::impl::_floor(jj);
+      double normx = ii-x, normy = jj-y;
+    
+      double s0 = ((2-normx)*normx-1)*normx;      double t0 = ((2-normy)*normy-1)*normy;
+      double s1 = (3*normx-5)*normx*normx+2;      double t1 = (3*normy-5)*normy*normy+2;
+      double s2 = ((4-3*normx)*normx+1)*normx;    double t2 = ((4-3*normy)*normy+1)*normy;
+      double s3 = (normx-1)*normx*normx;          double t3 = (normy-1)*normy*normy;
+
+      EdgeExtensionView<ImageView<PixelDisparity<float> >,ConstantEdgeExtension> extended_view = edge_extend(m_lowres_disparity_map,ConstantEdgeExtension());
+      if (extended_view(x-1,y-1).missing() || extended_view(x-1,y).missing() || extended_view(x-1,y+1).missing() || 
+          extended_view(x  ,y-1).missing() || extended_view(x  ,y).missing() || extended_view(x  ,y+1).missing() || 
+          extended_view(x+1,y-1).missing() || extended_view(x+1,y).missing() || extended_view(x+1,y+1).missing() ) {
+        return PixelDisparity<float>();
+      } else {
+        float hdisp = ( ( s0*extended_view(x-1,y-1,p).h() + s1*extended_view(x+0,y-1,p).h() + s2*extended_view(x+1,y-1,p).h() + s3*extended_view(x+2,y-1,p).h() ) * t0 +
+                        ( s0*extended_view(x-1,y+0,p).h() + s1*extended_view(x+0,y+0,p).h() + s2*extended_view(x+1,y+0,p).h() + s3*extended_view(x+2,y+0,p).h() ) * t1 +
+                        ( s0*extended_view(x-1,y+1,p).h() + s1*extended_view(x+0,y+1,p).h() + s2*extended_view(x+1,y+1,p).h() + s3*extended_view(x+2,y+1,p).h() ) * t2 +
+                        ( s0*extended_view(x-1,y+2,p).h() + s1*extended_view(x+0,y+2,p).h() + s2*extended_view(x+1,y+2,p).h() + s3*extended_view(x+2,y+2,p).h() ) * t3 ) * 0.25;
+        float vdisp = ( ( s0*extended_view(x-1,y-1,p).v() + s1*extended_view(x+0,y-1,p).v() + s2*extended_view(x+1,y-1,p).v() + s3*extended_view(x+2,y-1,p).v() ) * t0 +
+                        ( s0*extended_view(x-1,y+0,p).v() + s1*extended_view(x+0,y+0,p).v() + s2*extended_view(x+1,y+0,p).v() + s3*extended_view(x+2,y+0,p).v() ) * t1 +
+                        ( s0*extended_view(x-1,y+1,p).v() + s1*extended_view(x+0,y+1,p).v() + s2*extended_view(x+1,y+1,p).v() + s3*extended_view(x+2,y+1,p).v() ) * t2 +
+                        ( s0*extended_view(x-1,y+2,p).v() + s1*extended_view(x+0,y+2,p).v() + s2*extended_view(x+1,y+2,p).v() + s3*extended_view(x+2,y+2,p).v() ) * t3 ) * 0.25;
+        return PixelDisparity<float>(hdisp,vdisp);
+      }
+    }
+  }
+
+  /// \cond INTERNAL
+  typedef HoleFillView prerasterize_type;
+  inline prerasterize_type prerasterize( BBox2i const& bbox ) const { return *this; }
+  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
+  /// \endcond
+
+};
 
 #endif  // have MBA nurbs
 

@@ -21,8 +21,6 @@ namespace fs = boost::filesystem;
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
-#include <vw/Stereo/PyramidCorrelator.h>
-#include <vw/Stereo/MultiresolutionCorrelator.h>
 #include <vw/Cartography.h>
 using namespace vw;
 using namespace vw::camera;
@@ -70,11 +68,13 @@ int main(int argc, char* argv[]) {
   // to specify the type, size, help string, etc, of the command line
   // arguments.
   int entry_point;
+  int debug_level;
   unsigned cache_size;
   std::string stereo_session_string;
   std::string stereo_default_filename;
   std::string in_file1, in_file2, cam_file1, cam_file2, extra_arg1, extra_arg2;
   std::string out_prefix;
+  std::string corr_debug_prefix;
 
   po::options_description visible_options("Options");
   visible_options.add_options()
@@ -82,8 +82,9 @@ int main(int argc, char* argv[]) {
     ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
     ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
-    ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)");
-
+    ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
+    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
+    ("corr-debug-prefix", po::value<std::string>(&corr_debug_prefix)->default_value(""), "Cause the pyramid correlator to save out debug imagery named with this prefix."); 
 
   po::options_description positional_options("Positional Options");
   positional_options.add_options()
@@ -136,7 +137,7 @@ int main(int argc, char* argv[]) {
                       Vector<int,2>(dft.h_corr_max, dft.v_corr_max));
 
   // Set the Vision Workbench debug level
-  set_debug_level(DebugMessage-1);
+  set_debug_level(debug_level);
   Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
 
   // Create a fresh stereo session and query it for the camera models.
@@ -185,18 +186,21 @@ int main(int argc, char* argv[]) {
     std::cout << "\tsearch range: " << search_range << "\n";
     std::cout << "\tkernel size : " << dft.h_kern << "x" << dft.v_kern << "\n";
     std::cout << "\txcorr thresh: " << dft.xcorr_treshold << "\n";
+    std::cout << "\tcorrscore rejection thresh: " << dft.corrscore_rejection_treshold << "\n";
     std::cout << "\tslog stddev : " << dft.slogW << "\n\n";
     CorrelationSettings corr_settings(search_range.min().x(), search_range.max().x(), 
                                       search_range.min().y(), search_range.max().y(),
                                       dft.h_kern, dft.v_kern, 
                                       true,         // verbose
                                       dft.xcorr_treshold,
-                                      1.5,          // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
+                                      dft.corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
                                       dft.slogW,
                                       true, true,   // h and v subpixel
                                       true);        // bit image
-    
+    if (vm.count("corr-debug-prefix"))
+      corr_settings.set_debug_mode(corr_debug_prefix);
     std::cout<< "Building Disparity map... " << std::flush;
+    //    ImageViewRef<PixelDisparity<float> > disparity_map = crop(CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings),0,1024,1024,1024);
     ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings);
    
     ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
@@ -252,11 +256,8 @@ int main(int argc, char* argv[]) {
 
       // Call out to NURBS hole filling code.     
       if(execute.fill_holes_NURBS) {
-        std::cout << "Filling holes with B-SPLINE surface... " << std::flush;
-        int nurbs_iterations = 10;
-        ImageView<PixelDisparity<float> > final_disparity = MBASurfaceNURBS(filtered_disparity_map, nurbs_iterations);
-        std::cout << "done.  Writing results to disk.\n";
-        write_image(out_prefix + "-F.exr", disparity::mask(final_disparity,Lmask, Rmask), TerminalProgressCallback() ); 
+        std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
+        write_image(out_prefix + "-F.exr", disparity::mask(HoleFillView(filtered_disparity_map, 8),Lmask, Rmask), TerminalProgressCallback() ); 
       } else {
         write_image(out_prefix + "-F.exr", filtered_disparity_map, TerminalProgressCallback() ); 
       }

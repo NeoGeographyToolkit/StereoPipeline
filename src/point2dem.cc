@@ -80,53 +80,45 @@ int main( int argc, char *argv[] ) {
 
   // Write out the DEM, texture, and extrapolation mask
   // as georeferenced files.
-  vw::cartography::OrthoRasterizer<Vector3> rasterizer(point_image);
-  rasterizer.set_dem_spacing(dem_spacing);
-  if (vm.count("minz-is-default") )
-    rasterizer.use_minz_as_default = true; 
-  else       
-    rasterizer.use_minz_as_default = true; 
+  vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image, select_channel(point_image,2),dem_spacing);
+//   if (vm.count("minz-is-default") )
+//     rasterizer.use_minz_as_default = true; 
+//   else       
+//     rasterizer.use_minz_as_default = false; 
   rasterizer.set_default_value(default_value);    
   vw::BBox<float,3> dem_bbox = rasterizer.bounding_box();
   std::cout << "DEM Bounding box: " << dem_bbox << "\n";
   
   // Set up the georeferencing information
+  // FIXME: Using Mercator projection for now 
   GeoReference georef;
-
-  // FIXME: Use Mercator projection for now 
   georef.set_mercator(0,0,1);
   georef.set_transform(rasterizer.geo_transform());
-  ImageView<PixelGrayA<float> > ortho_image = rasterizer(vw::select_channel(point_image, 2));    
-  write_georeferenced_image(out_prefix + "-DEM." + output_file_type, ortho_image, georef);
-  if (vm.count("write-normalized"))
-    write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(ortho_image), georef);
 
-  
-  // Write out a georeferenced orthoimage of the DTM with alpha.
+    // Write out a georeferenced orthoimage of the DTM with alpha.
   if (vm.count("orthoimage")) {
-    if (vm.count("grayscale")) {
-      ImageView<PixelGrayA<float> > ortho_image = rasterizer(vw::select_channel(point_image, 2));    
-      DiskImageView<PixelGray<float> > texture(texture_filename);
-      ortho_image = rasterizer(select_channel(texture, 0));
-      write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(ortho_image), georef);
-    } else {
-      ImageView<PixelRGB<float> > ortho_image = rasterizer(vw::select_channel(point_image, 2));    
-      DiskImageView<PixelRGB<float> > texture(texture_filename);
-      ortho_image = rasterizer(select_channel(texture, 0));
-      write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(ortho_image), georef);
-    }
+    DiskImageView<PixelRGB<float> > texture(texture_filename); 
+    rasterizer.set_texture(texture);
+    BlockCacheView<PixelRGB<float> > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 512));
+    write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(block_drg_raster), georef, TerminalProgressCallback() );
+  } else {
+    BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 512));
+    write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
+    
+    if (vm.count("normalized"))
+      write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(normalize(block_dem_raster)), georef, TerminalProgressCallback());
   }
 
   if (vm.count("offset-files")) {
     // Write out the offset files
-    std::cout << "Offset: " << dem_bbox.min().x()/rasterizer.dem_spacing() << "   " << dem_bbox.max().y()/rasterizer.dem_spacing() << "\n";
+    std::cout << "Offset: " << dem_bbox.min().x()/rasterizer.spacing() << "   " << dem_bbox.max().y()/rasterizer.spacing() << "\n";
     std::string offset_filename = out_prefix + "-DRG.offset";
     FILE* offset_file = fopen(offset_filename.c_str(), "w");
-    fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.dem_spacing()), -int(dem_bbox.max().y()/rasterizer.dem_spacing()));
+    fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.spacing()), -int(dem_bbox.max().y()/rasterizer.spacing()));
     fclose(offset_file);
     offset_filename = out_prefix + "-DEM-normalized.offset";
     offset_file = fopen(offset_filename.c_str(), "w");
-    fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.dem_spacing()), -int(dem_bbox.max().y()/rasterizer.dem_spacing()));
+    fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.spacing()), -int(dem_bbox.max().y()/rasterizer.spacing()));
     fclose(offset_file);
   }
   return 0;

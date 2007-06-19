@@ -428,6 +428,7 @@ void associate_dft_struct(DFT_F *dft, TO_DO *todo, po::options_description *desc
   ASSOC_INT("H_TIE_PTS",h_tie_pts, 10, "number of tie pt for image alignment") 
   ASSOC_INT("V_TIE_PTS",v_tie_pts, 10, "")           
   ASSOC_FLOAT("XCORR_TRESHOLD", xcorr_treshold, 2.0, "")
+  ASSOC_FLOAT("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_treshold, 1.0, "")
   ASSOC_FLOAT("ALIGN.h11",alignMatrix.h11, 1.0, "homogenous matrix for linear image align")           
   ASSOC_FLOAT("ALIGN.h12",alignMatrix.h12, 0.0, "")
   ASSOC_FLOAT("ALIGN.h13",alignMatrix.h13, 0.0, "")

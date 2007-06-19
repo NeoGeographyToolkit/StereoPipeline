@@ -54,7 +54,7 @@ ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
 disparitydebug_SOURCES = disparitydebug.cc
 
 point2mesh_SOURCES = point2mesh.cc nff_terrain.cc
-point2dem_SOURCES = point2dem.cc DEM.cc
+point2dem_SOURCES = point2dem.cc DEM.cc SoftwareRenderer.cc # HardwareRenderer.cc
 
 rmax2cahvor_SOURCES = rmax2cahvor.cc
 
@@ -62,8 +62,8 @@ stereodefault_SOURCES = stereodefault.cc file_lib.cc
 
 SUBDIRS = .
 
-AM_CPPFLAGS = @CPPFLAGS@ @MODULE_STEREOPIPELINE_CPPFLAGS@
-AM_LDFLAGS = @LDFLAGS@ @MODULE_STEREOPIPELINE_LDFLAGS@
+AM_CPPFLAGS = @CPPFLAGS@ @MODULE_STEREOPIPELINE_CPPFLAGS@ 
+AM_LDFLAGS = @LDFLAGS@ @MODULE_STEREOPIPELINE_LDFLAGS@ 
 
 ##############################################################################
 #                             Tests	                                         #
