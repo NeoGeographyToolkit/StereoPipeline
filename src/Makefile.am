@@ -28,22 +28,19 @@ bin_PROGRAMS = stereo disparitydebug point2mesh point2dem # ctximage # ctxblend 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
 
+ctx_sources = MRO/StereoSessionCTX.cc MRO/DiskImageResourceDDD.cc \
+			MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
+
 hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
 
 apollo_sources = apollo/StereoSessionApolloMetric.cc
 
-generic_stereo_sources = file_lib.cc StereoSession.cc										\
-		 StereoSessionKeypoint.cc StereoSessionPinhole.cc SIFT.cc Spice.cc	\
-		 TabulatedDataReader.cc $(moc_sources) $(hrsc_sources)							\
+generic_stereo_sources = file_lib.cc StereoSession.cc \
+		 StereoSessionKeypoint.cc StereoSessionPinhole.cc SIFT.cc Spice.cc \
+		 TabulatedDataReader.cc $(ctx_sources) $(moc_sources) $(hrsc_sources) \
 		 $(apollo_sources)
 
 stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
-
-bin_PROGRAMS += # ctx_stereo
-
-ctx_stereo_SOURCES = $(generic_stereo_sources) Spice.cc							\
-	TabulatedDataReader.cc ctx_stereo.cc MRO/DiskImageResourceDDD.cc	\
-	MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
 
 # nurbs_SOURCES = nurbs.cc
 
