@@ -3,6 +3,7 @@
 
 #include "StereoSession.h"
 
+#include <vw/Image.h>
 #include <vw/Math.h>
 
 // This abstract class overrides the default pre-processing behavior
@@ -33,6 +34,7 @@ public:
 private:
   // To speed up things one can optionally sub-sample the images
   unsigned int m_sub_sampling;
+  float calculate_stretch(class vw::ImageView<vw::PixelGray<float> > image);
   vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2);
   std::string create_subsampled_align_image(std::string const& image_file, std::string const& suffix);
   void scale_align_matrix(vw::math::Matrix<double> & align_matrix);

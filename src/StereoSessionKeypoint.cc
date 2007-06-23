@@ -1,6 +1,7 @@
 #include <boost/shared_ptr.hpp>
 
-#include <iostream>
+#include <iostream>			   // debugging
+#include <algorithm>
 
 #include "StereoSessionKeypoint.h"
 #include "stereo.h"
@@ -24,6 +25,20 @@ namespace vw {
   template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
 }
 
+enum { eHistogramSize = 32768 };
+
+struct fill_histogram
+{
+  fill_histogram(unsigned int *counts) { m_counts = counts; }
+  void operator()(float x)
+  {
+    m_counts[int(float(eHistogramSize - 1) * x)] += 1;
+  }
+  private:
+    unsigned int *m_counts;
+};
+
+
 void
 StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
   std::cout << "StereoSessionKeypoint::initialize(DFT_F &): setting image sub-sampling factor to "
@@ -31,13 +46,77 @@ StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
   set_sub_sampling(stereo_defaults.keypoint_align_subsampling);
 }
 
+
+float
+StereoSessionKeypoint::calculate_stretch(ImageView<PixelGray<float> > image)
+{
+  // For some reason it seems that we often have a bunch of random
+  // pixels at the high end which seems to be noise... we calculate a
+  // scale factor so valid pixel values fill the range
+
+  unsigned int histogram[eHistogramSize];
+  std::fill(histogram, histogram + eHistogramSize, 0);
+
+  std::for_each(image.begin(), image.end(), fill_histogram(histogram));
+
+  // find the peak non-zero value
+  unsigned int max_count = 0;
+  unsigned index_peak = 0;
+  // We start the following at 1 since there typically are a bunch of
+  // black pixels, and that kind of skews things
+  for (int i = 1; i < eHistogramSize; i++)
+    if (histogram[i] > max_count)
+    {
+      index_peak = i;
+      max_count = histogram[i];
+    }
+
+  // discard the top 0.0005%
+  unsigned int empty_threshold = int(float(max_count) * 0.000005);
+  unsigned int max_value_index = 0;
+
+  for (int i = eHistogramSize - 1; i > 0; --i)
+  {
+    if (histogram[i] > empty_threshold)
+    {
+      max_value_index = i;
+      break;
+    }
+  }
+
+  float max_value = float(max_value_index) / float(eHistogramSize - 1);
+  float scale_factor = 1.0/max_value;
+
+  // -- begin debugging
+  std::cout << "\nIndex of peak = " << index_peak << std::endl;
+  std::cout << "Count at peak = " << max_count << std::endl;
+  std::cout << "Empty bin threshold = " << empty_threshold << std::endl;
+  std::cout << "Max pixel value = " << max_value << std::endl;
+  std::cout << "Scale factor = " << scale_factor << std::endl;
+  // -- end debugging
+
+  return scale_factor;
+}
+
+
 std::string
 StereoSessionKeypoint::create_subsampled_align_image(std::string const& image_file, std::string const& suffix) {
-  DiskImageView<PixelGray<uint8> > disk_image(image_file);
+  std::string align_image_file(m_out_prefix +
+			       std::string("-normalized-align-sub-") + suffix);
 
-  std::string align_image_file(m_out_prefix + std::string("align-sub-") + suffix);
+  DiskImageView<PixelGray<float> > disk_image(image_file);
 
-  write_image(align_image_file, resample(disk_image, 1.0 / double(m_sub_sampling)));
+  std::cout << "StereoSessionKeypoint::create_subsampled_align_image(): "
+	    << "subsampling and calculating contrast stretch... "
+	    << std::flush;
+  ImageViewRef<PixelGray<float> > subsampled_image =
+    clamp(resample(disk_image, 1.0 / double(m_sub_sampling)), 0.0, 1.0);
+  double contrast_stretch = calculate_stretch(subsampled_image);
+  std::cout << "done." << std::endl;
+
+  write_image(align_image_file,
+	      channel_cast_rescale<uint8>(clamp(contrast_stretch *
+						subsampled_image, 0.0, 1.0)));
 
   return align_image_file;
 }
