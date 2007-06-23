@@ -31,6 +31,8 @@ using namespace vw::cartography;
 #include "file_lib.h"
 #include "StereoSession.h"
 #include "SurfaceNURBS.h"
+#include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
+
 using namespace std;
 
 // The stereo pipeline has several stages, which are enumerated below.
@@ -60,6 +62,13 @@ int main(int argc, char* argv[]) {
   TO_DO execute;   /* whether or not to execute specific parts of the program */
   int nn;          /* Reuseable counter variable */
   
+  // Register the DDD file handler with the Vision Workbench
+  // DiskImageResource system.
+  DiskImageResource::register_file_type(".ddd",
+					DiskImageResourceDDD::type_static(),
+					&DiskImageResourceDDD::construct_open,
+					&DiskImageResourceDDD::construct_create);
+
   /*************************************/
   /* Parsing of command line arguments */
   /*************************************/
@@ -144,6 +153,10 @@ int main(int argc, char* argv[]) {
   StereoSession* session = StereoSession::create(stereo_session_string);
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
                       out_prefix, extra_arg1, extra_arg2);
+
+  // Temporary hack to get stereo default settings into the session -- LJE
+  session->initialize(dft);
+
   boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
   session->camera_models(camera_model1, camera_model2);
     
