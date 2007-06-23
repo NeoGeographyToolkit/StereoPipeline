@@ -47,7 +47,7 @@ static std::string suffix_from_filename(std::string const& filename) {
  M=[ c  d  Ty ]	     v=	[ y ]
    [ 0  0  1  ]		[ 1 ]	*/
 
-typedef struct {
+struct hMatrix2D {
   float h11;
   float h12;
   float h13;
@@ -57,9 +57,9 @@ typedef struct {
   float h31;
   float h32; 
   float h33; 
-}hMatrix2D;
+};
 
-typedef struct {
+struct TO_DO {
   int do_alignment;           /* Do we do alignment at all? */
   int keypoint_alignment;     /* Align images using the keypoint alignment method */
   int ephemeris_alignment;    /* Align images using the ephemeris alignment method */
@@ -109,9 +109,9 @@ typedef struct {
   int vrml;			/* save it as an VRML file */
   int write_ive;			/* save it as an VRML file */
   int write_dem;		/* save it as an ENVI DEM file */
-} TO_DO;		/* Main to do file */
+};		/* Main to do file */
 
-typedef struct {
+struct DFT_F {
   int h_kern;			/* kernel width first pass */
   int v_kern;			/* kernel height first pass*/
   int corr_margin;		/* extra margin for the search window */
@@ -131,6 +131,9 @@ typedef struct {
   double ephem_align_kernel_y; /* y coordinate of the ephem. alignmnt kernel */
   int ephem_align_kernel_width;  /* Width of the ephemeris alignment kernel */
   int ephem_align_kernel_height; /* Height of the ephemeris alignment kernel */
+
+  // Image subsampling for keypoint alignment
+  int keypoint_align_subsampling;	   // if > 1, image sub-sampling factor
   
   int num_processors;      // The number of processors on the host machine */
 
@@ -253,9 +256,9 @@ typedef struct {
   float dem_spacing;			   // DEM grid spacing
   float dem_planet_radius;		   // Zero elevation planet radius
   int ENVI_dem_data_type;		   // float = 4, long = 3, etc.
-} DFT_F;			/* default file structure */
+};			/* default file structure */
 
-typedef struct {
+struct F_HD {
   char *type;			/* Type of the image */
   int	width;			/* Image width */
   int	height;			/* Image height */
@@ -274,7 +277,7 @@ typedef struct {
   float vcf;			/* vertical compression factor */
   float	h_fov;			/* horizontal field of view */
   float	v_fov;			/* vertical field of view */
-} F_HD;				// pgm header structure
+};				// pgm header structure
 
 
 struct PixelCoords

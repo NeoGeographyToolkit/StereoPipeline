@@ -333,6 +333,8 @@ void associate_dft_struct(DFT_F *dft, TO_DO *todo, po::options_description *desc
   ASSOC_INT("EPHEM_ALIGN_KERNEL_WIDTH", ephem_align_kernel_width, 40, "Width of the ephemeris alignment kernel")
   ASSOC_INT("EPHEM_ALIGN_KERNEL_HEIGHT",ephem_align_kernel_height, 40, "Height of the ephemeris alignment kernel")
 
+  ASSOC_INT("KEYPOINT_ALIGN_SUBSAMPLING", keypoint_align_subsampling, 1, "Image sub-sampling factor for keypoint alignment.")
+
   ASSOC_INT("H_KERNEL", h_kern, 0, "kernel width first pass")
   ASSOC_INT("V_KERNEL", v_kern, 0, "kernel height first pass")  
   ASSOC_INT("CORR_MARGIN",corr_margin, 0, "extra margin for search window")
