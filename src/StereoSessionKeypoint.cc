@@ -1,11 +1,15 @@
 #include <boost/shared_ptr.hpp>
 
+#include <iostream>
+
 #include "StereoSessionKeypoint.h"
+#include "stereo.h"
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/InterestPoint.h>
 #include <vw/Stereo.h>
+#include <vw/Math.h>
 
 using namespace vw;
 using namespace vw::ip;
@@ -20,12 +24,54 @@ namespace vw {
   template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
 }
 
-void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
-                                                   std::string & output_file1, std::string & output_file2) {
+void
+StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
+  std::cout << "StereoSessionKeypoint::initialize(DFT_F &): setting image sub-sampling factor to "
+	    << stereo_defaults.keypoint_align_subsampling << std::endl;
+  set_sub_sampling(stereo_defaults.keypoint_align_subsampling);
+}
+
+std::string
+StereoSessionKeypoint::create_subsampled_align_image(std::string const& image_file, std::string const& suffix) {
+  DiskImageView<PixelGray<uint8> > disk_image(image_file);
+
+  std::string align_image_file(m_out_prefix + std::string("align-sub-") + suffix);
+
+  write_image(align_image_file, resample(disk_image, 1.0 / double(m_sub_sampling)));
+
+  return align_image_file;
+}
+
+void
+StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
+  Matrix<double> scale_matrix = vw::math::identity_matrix(3);
+  Matrix<double> inv_scale_matrix = vw::math::identity_matrix(3);
+  scale_matrix(0, 0) = 1.0 / double(m_sub_sampling);
+  scale_matrix(1, 1) = scale_matrix(0, 0);
+  inv_scale_matrix(0, 0) = double(m_sub_sampling);
+  inv_scale_matrix(1, 1) = inv_scale_matrix(0, 0);
+  align_matrix = align_matrix * scale_matrix;
+  align_matrix = inv_scale_matrix * align_matrix;
+  vw_out(0) << "StereoSessionKeypoint::adjust_align_matrix(): scaled alignment matrix:\n";
+  vw_out(0) << align_matrix << std::endl;
+}
+
+vw::math::Matrix<double>
+StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1, std::string const& input_file2) {
+  std::string left_align_image_file(input_file1), right_align_image_file(input_file2);
+
+  if (m_sub_sampling > 1)
+  {
+    left_align_image_file = create_subsampled_align_image(input_file1, "L.tif");
+    right_align_image_file = create_subsampled_align_image(input_file2, "R.tif");
+  }
 
   // Load the two images
-  DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
-  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+  DiskImageView<PixelGray<float> > left_disk_image(left_align_image_file);
+  DiskImageView<PixelGray<float> > right_disk_image(right_align_image_file);
+
+  std::cout << "StereoSessionKeypoint::determine_image_alignment(): aligning "
+	    << left_align_image_file << " and " << right_align_image_file << std::endl;
 
   // Image Alignment
   //
@@ -57,10 +103,12 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
 
   // Discard points beyond some number to keep matching time within reason.
   // Currently this is limited by the use of the patch descriptor.
+#ifdef __APPLE__			   // don't truncate if using Lowe-SIFT
   static const int NUM_POINTS = 1000;
   vw_out(InfoMessage) << "\tTruncating to " << NUM_POINTS << " points\n";
   cull_interest_points(ip1, NUM_POINTS);
   cull_interest_points(ip2, NUM_POINTS);
+#endif
 
   // Generate descriptors for interest points.
   // TODO: Switch to SIFT descriptor
@@ -80,10 +128,25 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   
   // RANSAC is used to fit a similarity transform between the
   // matched sets of points
+
   Matrix<double> align_matrix = ransac(matched_ip2, matched_ip1, 
-                                       vw::math::SimilarityFittingFunctor(),
-                                       KeypointErrorMetric());
+				       vw::math::SimilarityFittingFunctor(),
+				       KeypointErrorMetric());
+
+  if (m_sub_sampling > 1)
+    scale_align_matrix(align_matrix);
+
+  return align_matrix;
+}
+
+void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
+                                                   std::string & output_file1, std::string & output_file2) {
+  Matrix<double> align_matrix = determine_image_alignment(m_left_image_file, m_right_image_file);
+
   write_matrix(m_out_prefix + "-align.exr", align_matrix);
+
+  DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
+  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
 
   ImageViewRef<PixelGray<float> > Limg = left_disk_image;
   ImageViewRef<PixelGray<float> > Rimg = transform(right_disk_image, HomographyTransform(align_matrix),
@@ -95,7 +158,7 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback());
   write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback()); 
 }
-  
+
 void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, std::string & output_file) {
   //  output_file = input_file;
   output_file = m_out_prefix + "-F-corrected.exr";
