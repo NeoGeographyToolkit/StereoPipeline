@@ -90,7 +90,13 @@ void write_ENVI_header(std::string header_name,
   // to BIP if we use the default Vision Wokrbench TIFF driver, for
   // example. - mbroxton
   fprintf(headerFile, "interleave = bsq\n");
-  fprintf(headerFile, "byte order = 0\n");	   // IEEE/Unix byte-order
+  // Endian check...
+  union { short number; char bytes[2]; } short_endian_check;
+  short_endian_check.number = 1;
+  // IEEE byte order: 0 = little endian, 1 = big endian
+  unsigned int byte_order = (char(short_endian_check.number) ==
+			     short_endian_check.bytes[1]);
+  fprintf(headerFile, "byte order = %d\n", byte_order);
   fprintf(headerFile, "\n");
   fclose(headerFile);
 }
