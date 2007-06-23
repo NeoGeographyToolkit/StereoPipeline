@@ -29,9 +29,9 @@ namespace cartography {
 
     template <class PointViewT, class TextureViewT>
     OrthoRasterizerView(PointViewT point_cloud, TextureViewT texture, float spacing = 0.0) : 
-      m_point_image(point_cloud), m_texture(channel_cast<float>(channels_to_planes(texture))), 
+      m_point_image(point_cloud), m_texture(ImageView<float>(1,1)), // dummy value
       m_default_value(0), m_minz_as_default(true) {
-
+      
       set_texture(texture.impl());
 
       // Compute the bounding box that encompasses all of the
@@ -165,6 +165,7 @@ namespace cartography {
     template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
     /// \endcond
 
+    void set_use_minz_as_default(bool val) { m_minz_as_default = val; }
     void set_default_value(double val) { m_default_value = val; }
     double default_value() { 
       if (m_minz_as_default) return m_bbox.min().z();

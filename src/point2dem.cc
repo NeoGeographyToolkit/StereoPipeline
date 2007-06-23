@@ -39,7 +39,10 @@ int main( int argc, char *argv[] ) {
   unsigned cache_size, max_triangles;
   float dem_spacing, default_value;
   unsigned simplemesh_h_step, simplemesh_v_step;
-  
+  int debug_level;
+  double z_reference;
+  std::string reference_spheroid;
+
   po::options_description desc("Options");
   desc.add_options()
     ("help", "Display this help message")
@@ -54,8 +57,12 @@ int main( int argc, char *argv[] ) {
     ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
     ("output-prefix,o", po::value<std::string>(&out_prefix)->default_value("terrain"), "Specify the output prefix")
-    ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file");
-
+    ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file")
+    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
+    ("xyz-to-lonlat", "Convert from xyz coordinates to longitude, latitude, altitude coordinates.")
+    ("z-reference", po::value<double>(&z_reference)->default_value(0),"Set a reference Z value.  This will be subtracted from all z values.")
+    ("reference-spheroid,r", po::value<std::string>(&reference_spheroid)->default_value(""),"Set a reference surface.  The radius of the reference surface will be subtracted from all z values.");
+  
   po::positional_options_description p;
   p.add("input-file", 1);
 
@@ -63,6 +70,8 @@ int main( int argc, char *argv[] ) {
   po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
   po::notify( vm );
 
+  // Set the Vision Workbench debug level
+  set_debug_level(debug_level);
   Cache::system_cache().resize( cache_size*1024*1024 ); 
 
   if( vm.count("help") ) {
@@ -76,15 +85,47 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  DiskImageView<Vector3> point_image(input_file_name);
+  DiskImageView<Vector3> point_disk_image(input_file_name);
+  ImageViewRef<Vector3> point_image = point_disk_image;
+  
+  if (vm.count("xyz-to-lonlat") ) {
+    std::cout << "Reprojecting points into longitude, latitude, altitude.\n";
+    point_image = cartography::xyz_to_lon_lat_radius(point_image);
+  }
+
+  if ( reference_spheroid != "" ) {
+    if (reference_spheroid == "mars") {
+      const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396000.0;
+      std::cout << "Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
+      cartography::Datum datum = cartography::Datum("Mars Datum",
+                                                    "MOLA PEDR Spheroid",
+                                                    "Prime Meridian",
+                                                    MOLA_PEDR_EQUATORIAL_RADIUS,
+                                                    MOLA_PEDR_EQUATORIAL_RADIUS,
+                                                    0.0);
+      point_image = cartography::subtract_datum(point_image, datum);
+    } else {
+      std::cout << "Unknown reference spheroid: " << reference_spheroid << ".  Exiting.\n\n";
+      exit(0);
+    }
+  } else if (vm.count("z_reference") ) {
+    std::cout << "Re-referencing altitude values using user supplied z offset: " << z_reference << "\n";
+    cartography::Datum datum = cartography::Datum("User Specified Datum",
+                                                  "User Specified Spherem",
+                                                  "Prime Meridian",
+                                                  z_reference, z_reference, 0.0);
+    point_image = cartography::subtract_datum(point_image, datum);
+  }
+
+  DiskCacheImageView<Vector3> point_image_cache(point_image, "exr");
 
   // Write out the DEM, texture, and extrapolation mask
   // as georeferenced files.
-  vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image, select_channel(point_image,2),dem_spacing);
-//   if (vm.count("minz-is-default") )
-//     rasterizer.use_minz_as_default = true; 
-//   else       
-//     rasterizer.use_minz_as_default = false; 
+  vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2),dem_spacing);
+  if (vm.count("minz-is-default") )
+    rasterizer.set_use_minz_as_default(true); 
+  else       
+    rasterizer.set_use_minz_as_default(false); 
   rasterizer.set_default_value(default_value);    
   vw::BBox<float,3> dem_bbox = rasterizer.bounding_box();
   std::cout << "DEM Bounding box: " << dem_bbox << "\n";
@@ -105,8 +146,10 @@ int main( int argc, char *argv[] ) {
     BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 512));
     write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
     
-    if (vm.count("normalized"))
-      write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(normalize(block_dem_raster)), georef, TerminalProgressCallback());
+    if (vm.count("normalized")) {
+      DiskImageView<PixelGray<float> > dem_image(out_prefix + "-DEM." + output_file_type);
+      write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(normalize(dem_image)), georef, TerminalProgressCallback());
+    }
   }
 
   if (vm.count("offset-files")) {

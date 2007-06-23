@@ -259,9 +259,7 @@ int main(int argc, char* argv[]) {
       // This file is deleted once we complete the second half of the
       // disparity map filtering process.
       std::cout << "\trasterizing filtered disparity map to disk. \n" << std::flush;
-      std::string temp_filename = out_prefix + "-FiltF.exr";
-      write_image( temp_filename, disparity_map, TerminalProgressCallback() );
-      DiskImageView<PixelDisparity<float> > filtered_disparity_map(temp_filename);
+      DiskCacheImageView<PixelDisparity<float> > filtered_disparity_map(disparity_map, "exr");
 
       // Write out the extrapolation mask imaege
       if(execute.w_extrapolation_mask) 
@@ -274,11 +272,6 @@ int main(int argc, char* argv[]) {
       } else {
         write_image(out_prefix + "-F.exr", filtered_disparity_map, TerminalProgressCallback() ); 
       }
-
-      // Delete the temporory file on disk.
-      unlink(temp_filename.c_str());
-
-      DiskImageView<PixelDisparity<float> > final_disparity_map(out_prefix + "-F.exr");
     } catch (IOErr &e) { 
       cout << "\n An file IO error occurred during the filtering stage.  " << e.what() << "Exiting.\n\n";
       exit(0);

@@ -35,6 +35,7 @@ int main( int argc, char *argv[] ) {
   unsigned cache_size, max_triangles;
   float mesh_tolerance;
   unsigned simplemesh_h_step, simplemesh_v_step;
+  int debug_level;
   
   po::options_description desc("Options");
   desc.add_options()
@@ -49,7 +50,8 @@ int main( int argc, char *argv[] ) {
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
     ("grayscale-texture", "Use grayscale image processing when modifying the texture image (for .iv and .vrml files only)")
     ("output-prefix,o", po::value<std::string>(&out_prefix)->default_value("mesh"), "Specify the output prefix")
-    ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("ive"), "Specify the output file");
+    ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("ive"), "Specify the output file")
+    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)");
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -59,6 +61,8 @@ int main( int argc, char *argv[] ) {
   po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
   po::notify( vm );
 
+  // Set the Vision Workbench debug level
+  set_debug_level(debug_level);
   Cache::system_cache().resize( cache_size*1024*1024 ); 
 
   if( vm.count("help") ) {
