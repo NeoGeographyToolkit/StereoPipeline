@@ -31,12 +31,11 @@ public:
   void set_sub_sampling(const unsigned int sub_sampling) { m_sub_sampling = sub_sampling; }
   void get_sub_sampling(const unsigned int sub_sampling) const { m_sub_sampling; }
 
-private:
+protected:
+  vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2);
   // To speed up things one can optionally sub-sample the images
   unsigned int m_sub_sampling;
-  float calculate_stretch(class vw::ImageView<vw::PixelGray<float> > image);
-  vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2);
-  std::string create_subsampled_align_image(std::string const& image_file, std::string const& suffix);
+  virtual std::string create_subsampled_align_image(std::string const& image_file, std::string const& suffix);
   void scale_align_matrix(vw::math::Matrix<double> & align_matrix);
 };
 
