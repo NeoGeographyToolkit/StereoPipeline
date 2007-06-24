@@ -23,7 +23,7 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo disparitydebug point2mesh point2dem ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
+bin_PROGRAMS = stereo disparitydebug point2mesh point2dem # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
@@ -46,7 +46,7 @@ stereo_SOURCES = $(generic_stereo_sources) stereo.cc
 
 ctx2kml_SOURCES = ctx2kml.cc MRO/DiskImageResourceDDD.cc
 ctxblend_SOURCES = ctxblend.cc MRO/DiskImageResourceDDD.cc
-ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
+# ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
 
 disparitydebug_SOURCES = disparitydebug.cc
 
