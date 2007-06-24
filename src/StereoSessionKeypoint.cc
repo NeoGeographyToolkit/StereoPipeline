@@ -25,8 +25,6 @@ namespace vw {
   template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
 }
 
-
-
 void
 StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
   std::cout << "StereoSessionKeypoint::initialize(DFT_F &): setting image sub-sampling factor to "
@@ -34,24 +32,18 @@ StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
   set_sub_sampling(stereo_defaults.keypoint_align_subsampling);
 }
 
-std::string
-StereoSessionKeypoint::create_subsampled_align_image(std::string const& image_file, std::string const& suffix) {
-  std::string align_image_file(m_out_prefix +
-			       std::string("-normalized-align-sub-") + suffix);
+std::string StereoSessionKeypoint::create_subsampled_align_image(std::string const& image_file, std::string const& suffix) {
+  std::string align_image_file(m_out_prefix + std::string("-normalized-align-sub-") + suffix);
 
   DiskImageView<PixelGray<float> > disk_image(image_file);
-
-  std::cout << "StereoSessionKeypoint::create_subsampled_align_image(): "
-	    << "subsampling... " << std::flush;
-  write_image(align_image_file,
-	      channel_cast_rescale<uint8>(resample(disk_image, 1.0 / double(m_sub_sampling))));
-  std::cout << "done." << std::endl;
-
+  
+  std::cout << "StereoSessionKeypoint::create_subsampled_align_image(): subsampling... \n";
+  write_image(align_image_file, channel_cast_rescale<uint8>(resample(disk_image, 1.0 / double(m_sub_sampling))), TerminalProgressCallback());
+  
   return align_image_file;
 }
 
-void
-StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
+void StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
   Matrix<double> scale_matrix = vw::math::identity_matrix(3);
   Matrix<double> inv_scale_matrix = vw::math::identity_matrix(3);
   scale_matrix(0, 0) = 1.0 / double(m_sub_sampling);
@@ -68,8 +60,7 @@ vw::math::Matrix<double>
 StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1, std::string const& input_file2) {
   std::string left_align_image_file(input_file1), right_align_image_file(input_file2);
 
-  if (m_sub_sampling > 1)
-  {
+  if (m_sub_sampling > 1) {
     left_align_image_file = create_subsampled_align_image(input_file1, "L.tif");
     right_align_image_file = create_subsampled_align_image(input_file2, "R.tif");
   }
@@ -79,7 +70,7 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   DiskImageView<PixelGray<float> > right_disk_image(right_align_image_file);
 
   std::cout << "StereoSessionKeypoint::determine_image_alignment(): aligning "
-	    << left_align_image_file << " and " << right_align_image_file << std::endl;
+            << left_align_image_file << " and " << right_align_image_file << std::endl;
 
   // Image Alignment
   //
@@ -149,13 +140,13 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
 
 void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
                                                    std::string & output_file1, std::string & output_file2) {
-  Matrix<double> align_matrix = determine_image_alignment(m_left_image_file, m_right_image_file);
 
+  // Determine the alignment matrix using keypoint matching techniques.
+  Matrix<double> align_matrix = determine_image_alignment(m_left_image_file, m_right_image_file);
   write_matrix(m_out_prefix + "-align.exr", align_matrix);
 
   DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
-
   ImageViewRef<PixelGray<float> > Limg = left_disk_image;
   ImageViewRef<PixelGray<float> > Rimg = transform(right_disk_image, HomographyTransform(align_matrix),
                                                    left_disk_image.cols(), left_disk_image.rows());

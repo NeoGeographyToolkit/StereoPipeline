@@ -65,9 +65,9 @@ int main(int argc, char* argv[]) {
   // Register the DDD file handler with the Vision Workbench
   // DiskImageResource system.
   DiskImageResource::register_file_type(".ddd",
-					DiskImageResourceDDD::type_static(),
-					&DiskImageResourceDDD::construct_open,
-					&DiskImageResourceDDD::construct_create);
+                                        DiskImageResourceDDD::type_static(),
+                                        &DiskImageResourceDDD::construct_open,
+                                        &DiskImageResourceDDD::construct_create);
 
   /*************************************/
   /* Parsing of command line arguments */
@@ -84,6 +84,7 @@ int main(int argc, char* argv[]) {
   std::string in_file1, in_file2, cam_file1, cam_file2, extra_arg1, extra_arg2;
   std::string out_prefix;
   std::string corr_debug_prefix;
+  std::vector<vw::int32> crop_bounds(4);
 
   po::options_description visible_options("Options");
   visible_options.add_options()
@@ -93,6 +94,10 @@ int main(int argc, char* argv[]) {
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
+    ("crop-min-x", po::value<int32>(&(crop_bounds[0])), "Crop the aligned input images to these bounds ( <min_x> <min_y> <width> <height> ) prior to running through the correlator.  Useful for tuning settings before processing the whole image.")
+    ("crop-min-y", po::value<int32>(&(crop_bounds[1])), "")
+    ("crop-width", po::value<int32>(&(crop_bounds[2])), "")
+    ("crop-height", po::value<int32>(&(crop_bounds[3])), "")
     ("corr-debug-prefix", po::value<std::string>(&corr_debug_prefix)->default_value(""), "Cause the pyramid correlator to save out debug imagery named with this prefix."); 
 
   po::options_description positional_options("Positional Options");
@@ -156,9 +161,6 @@ int main(int argc, char* argv[]) {
 
   // Temporary hack to get stereo default settings into the session -- LJE
   session->initialize(dft);
-
-  boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-  session->camera_models(camera_model1, camera_model2);
     
   /*********************************************************************************/
   /*                            preprocessing step                                 */
@@ -212,10 +214,37 @@ int main(int argc, char* argv[]) {
                                       true);        // bit image
     if (vm.count("corr-debug-prefix"))
       corr_settings.set_debug_mode(corr_debug_prefix);
-    std::cout<< "Building Disparity map... " << std::flush;
-    //    ImageViewRef<PixelDisparity<float> > disparity_map = crop(CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings),0,1024,1024,1024);
+    std::cout<< "Building Disparity map...\n";
+    
     ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings);
-   
+    
+    // If the user has specified a crop at the command line, we go
+    // with that instead.
+
+    std::cout << disparity_map.cols() << "   " << disparity_map.rows() << "\n";
+    std::cout << (crop_bounds[0] + crop_bounds[2])  << "   " << (crop_bounds[1] + crop_bounds[3]) <<"\n";
+    if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
+      BBox2i crop_bbox(crop_bounds[0],crop_bounds[1],crop_bounds[2],crop_bounds[3]);
+      std::cout << "Cropping to bounding box: " << crop_bbox << "\n";
+
+      // Quick check to make sure the user specified a reasonable crop region.
+      if ((crop_bounds[0] < 0) || (crop_bounds[1] < 0) || 
+          (crop_bounds[0] + crop_bounds[2] > disparity_map.cols()) ||
+          (crop_bounds[1] + crop_bounds[3] > disparity_map.rows()) ) {
+        cout << "Error: the specified crop region exceeds the dimensions of the original image.  \n Exiting.\n\n"; 
+        exit(0); 
+      }
+
+      // Save a cropped version of the left image for reference.
+      std::cout << "Writing cropped version of the left input image.\n";
+      DiskImageView<PixelGray<uint8> > left_image(out_prefix + "-L.tif");
+      write_image(out_prefix+"-L-crop.tif", crop(left_image, crop_bbox), TerminalProgressCallback());
+
+      // Apply the crop
+      disparity_map = crop(CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings), crop_bbox);
+    } 
+
+    // do some basic outlier rejection
     ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
                                                                                   dft.rm_h_half_kern, dft.rm_v_half_kern,
                                                                                   dft.rm_treshold, dft.rm_min_matches/100.0);
@@ -287,6 +316,9 @@ int main(int argc, char* argv[]) {
       std::cout << "\nStarting code at POINT_CLOUD stage.\n";
 
     try {
+      boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+      session->camera_models(camera_model1, camera_model2);
+
       std::string prehook_filename;
       session->pre_pointcloud_hook(out_prefix+"-F.exr", prehook_filename);
      

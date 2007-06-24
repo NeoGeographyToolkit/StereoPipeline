@@ -28,6 +28,7 @@ public:
   // Pre file is a disparity map.  ( ImageView<PixelDisparity<float> > )
   virtual void pre_pointcloud_hook(std::string const& input_file, std::string & output_file);
 
+
   void set_sub_sampling(const unsigned int sub_sampling) { m_sub_sampling = sub_sampling; }
   void get_sub_sampling(const unsigned int sub_sampling) const { m_sub_sampling; }
 

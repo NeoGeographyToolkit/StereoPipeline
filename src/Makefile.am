@@ -23,7 +23,7 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo disparitydebug point2mesh point2dem # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
+bin_PROGRAMS = stereo disparitydebug point2mesh point2dem ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
