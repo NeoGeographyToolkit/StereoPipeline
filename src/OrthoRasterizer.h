@@ -109,20 +109,9 @@ namespace cartography {
         renderer.Clear(vw::stereo::eColorBufferBit);
       } 
 
-      bool row_started = false;
       for (unsigned int row = *m_row_start; row < m_point_image.rows(); ++row) {
-        bool row_finished = true;
         for (unsigned int col = 0; col < m_point_image.cols(); ++col) {
           if (local_bbox.contains(m_point_image(col,row)) ) {
-            // If this is the first row with valid data, we record it
-            // and start the search here next time.  However, this
-            // optimization is only valid if we are rasterizing the
-            // entire width of the image at once.
-            if (row_started == false && bbox.width() == cols()) 
-              *m_row_start = row;
-            row_started = true;
-            row_finished = false;
-
             float vertices[12], intensities[6];
             int triangle_count;
             
@@ -136,7 +125,6 @@ namespace cartography {
               renderer.DrawPolygon(i * 3, 3);
           }
         }
-        if (row_started && row_finished) break;
       }
 
       // The software renderer returns an image which will render

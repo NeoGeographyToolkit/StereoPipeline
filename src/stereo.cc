@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
 
   // Temporary hack to get stereo default settings into the session -- LJE
   session->initialize(dft);
-    
+
   /*********************************************************************************/
   /*                            preprocessing step                                 */
   /*********************************************************************************/
@@ -220,9 +220,6 @@ int main(int argc, char* argv[]) {
     
     // If the user has specified a crop at the command line, we go
     // with that instead.
-
-    std::cout << disparity_map.cols() << "   " << disparity_map.rows() << "\n";
-    std::cout << (crop_bounds[0] + crop_bounds[2])  << "   " << (crop_bounds[1] + crop_bounds[3]) <<"\n";
     if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
       BBox2i crop_bbox(crop_bounds[0],crop_bounds[1],crop_bounds[2],crop_bounds[3]);
       std::cout << "Cropping to bounding box: " << crop_bbox << "\n";
