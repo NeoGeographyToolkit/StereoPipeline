@@ -108,7 +108,7 @@ int main( int argc, char *argv[] ) {
       std::cout << "Unknown reference spheroid: " << reference_spheroid << ".  Exiting.\n\n";
       exit(0);
     }
-  } else if (vm.count("z_reference") ) {
+  } else if (vm.count("z-reference") ) {
     std::cout << "Re-referencing altitude values using user supplied z offset: " << z_reference << "\n";
     cartography::Datum datum = cartography::Datum("User Specified Datum",
                                                   "User Specified Spherem",
