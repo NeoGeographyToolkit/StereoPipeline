@@ -133,7 +133,8 @@ int main( int argc, char *argv[] ) {
   // Set up the georeferencing information
   // FIXME: Using Mercator projection for now 
   GeoReference georef;
-  georef.set_mercator(0,0,1);
+  if (vm.count("xyz-to-lonlat") == 0)
+    georef.set_mercator(0,0,1);
   georef.set_transform(rasterizer.geo_transform());
 
     // Write out a georeferenced orthoimage of the DTM with alpha.
