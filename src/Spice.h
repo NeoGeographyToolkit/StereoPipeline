@@ -16,9 +16,11 @@ namespace spice {
   const int NAIF_ID_MGS( -94    );    // Mars Global Surveyor
   const int NAIF_ID_MOC( -94031 );    // Mars Orbital Camera (MOC)
   const int NAIF_ID_MRO( -74    );    // Mars Reconnaisance Orbiter
+  const int NAIF_ID_CLEMENTINE( -40    );    // Clementine
 
   // Function prototypes 
   void load_kernels(std::list<std::string> &kernels);
+  void load_kernels(std::string const& kernels_file, std::string const& prefix="");
   double sclk_to_et(std::string sclk, int naif_id);
   std::string et_to_utc(double ephemeris_time);
   double utc_to_et(std::string const& utc);

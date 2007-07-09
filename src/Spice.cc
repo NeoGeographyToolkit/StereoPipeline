@@ -4,10 +4,12 @@
 #include "SpiceZfc.h"
 
 #include <iostream> 
+#include <fstream>
 #include <list>
 #include <string>
 
 #include <vw/Core/Exception.h>
+#include <vw/Core/Debugging.h>
 
 #include <string.h>
 
@@ -22,7 +24,6 @@ namespace spice {
 
 void CHECK_SPICE_ERROR() {
   char longms[LONG_MSG_LEN + 1];
-  int longms_len = LONG_MSG_LEN;
 
   longms[LONG_MSG_LEN] = 0;		   // ensure the string is terminated
   if (failed_c()) {
@@ -61,7 +62,10 @@ void CHECK_SPICE_ERROR() {
   // Convert from Ephemeris time to UTC time.
   double utc_to_et(std::string const& utc) {
     SpiceDouble et;
-    utc2et_c( utc.c_str(), &et );
+    std::string tmp = utc;
+    // Spice can't cope with the optional trailing 'Z'
+    if( tmp[tmp.size()-1] == 'Z' ) tmp.erase(tmp.size()-1,1);
+    utc2et_c( tmp.c_str(), &et );
     CHECK_SPICE_ERROR();
     return et;
   }
@@ -228,6 +232,28 @@ void load_kernels(std::list<std::string> &kernels) {
     furnsh_c( (*iter).c_str() );
   
   CHECK_SPICE_ERROR();
+}
+
+// This variant reads a file containing a list of kernel files, 
+// one per line.  The optional second parameter specifies a 
+// path prefix.
+void load_kernels(std::string const& kernels_file, std::string const& prefix) {
+  std::ifstream input_file;
+  input_file.open(kernels_file.c_str(), std::ios::in);
+  if (!input_file.good()) 
+    vw_throw(vw::IOErr() << "An error occured while opening the kernels file for reading.");
+  
+  std::list<std::string> kernel_list;
+  char line[1024];
+  while (!input_file.eof()) {
+    input_file.getline(line,  1024);
+    if (strlen(line) > 0) {
+      kernel_list.push_back(prefix+line);
+      vw_out(vw::DebugMessage) << "Adding kernel....... \"" << (prefix+line) << "\"." << std::endl;;
+    }
+  }
+
+  load_kernels(kernel_list);
 }
 
 } // namespace spice

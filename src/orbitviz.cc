@@ -50,7 +50,7 @@ inline Vector3 rotation_matrix_to_euler_zxy(const Matrix<double,3,3> rotation_ma
 }
 
 
-void append_model(std::ofstream &output_file, double ephemeris_time, std::string object, double scale, 
+void append_model(std::ofstream &output_file, double ephemeris_time, double scale, 
                   std::string spacecraft, std::string reference_frame, std::string planet, std::string instrument, int index) {
 
   Vector3 position, velocity;
@@ -116,7 +116,6 @@ void append_model(std::ofstream &output_file, double ephemeris_time, std::string
 
 void write_orbital_reference_model(std::string filename,
                                    std::vector<double> ephemeris_times,
-                                   std::string object, 
                                    double scale,
                                    std::string spacecraft, std::string reference_frame, std::string planet, std::string instrument) {
 
@@ -134,7 +133,7 @@ void write_orbital_reference_model(std::string filename,
               << "<name>KmlFile</name>\n";
 
   for (int i = 0; i < ephemeris_times.size(); ++i) 
-    append_model(output_file, ephemeris_times[i], object, scale, spacecraft, reference_frame, planet, instrument,i);
+    append_model(output_file, ephemeris_times[i], scale, spacecraft, reference_frame, planet, instrument,i);
 
   output_file << "</Document>\n"
               << "</kml>\n\n";
@@ -142,31 +141,10 @@ void write_orbital_reference_model(std::string filename,
   output_file.close();
 }
 
-void load_kernels_file(std::string filename, std::string prefix) {
-  std::ifstream input_file;
-  input_file.open(filename.c_str(), std::ios::in);
-  if (!input_file.good()) 
-    vw_throw(IOErr() << "An error occured while opening the kernels file for reading.");
-  
-  std::list<std::string> kernel_list;
-  char line[1024];
-  while (!input_file.eof()) {
-    input_file.getline(line,  1024);
-    if (strlen(line) > 0) {
-      kernel_list.push_back(prefix+line);
-      std::cout << "Adding kernel....... \"" << (prefix+line) << "\".\n";
-    }
-  }
-
-  spice::load_kernels(kernel_list);
-}
-
-
 int main( int argc, char *argv[] ) {
   set_debug_level(VerboseDebugMessage+11);
   
   int debug_level;
-  std::string target_name;
   std::vector<double> ephem_times;
   std::vector<std::string> utc_times;
   std::string output_file;
@@ -181,11 +159,10 @@ int main( int argc, char *argv[] ) {
   po::options_description desc("Options");
   desc.add_options()
     ("help", "Display this help message")
-    ("kernels-file,k", po::value<std::string>(&kernels_file)->default_value("orbitviz.kml"), "Supply a file containing a list of spice kernels to load")
+    ("kernels-file,k", po::value<std::string>(&kernels_file)->default_value("kernels.txt"), "Supply a file containing a list of spice kernels to load")
     ("scale", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount")
-    ("kernels-prefix", po::value<std::string>(&kernels_prefix)->default_value(""), "Supply a path to prepend to the paths to kernels listed in the supplied kernel list file")
+    ("kernels-prefix,p", po::value<std::string>(&kernels_prefix)->default_value(""), "Supply a path to prepend to the paths to kernels listed in the supplied kernel list file")
     ("output-file,o", po::value<std::string>(&output_file)->default_value("orbitviz.kml"), "Explicitly specify the output file")
-    ("target-name,t", po::value<std::string>(&target_name), "Specify the object that you are tracking.")
     ("utc-times,u", po::value<std::vector<std::string> >(&utc_times), "Specify a set of UTC times to plot in KML")
     ("ephemeris-times,e", po::value<std::vector<double> >(&ephem_times), "Specify a set of UTC times to plot in KML")
     ("spacecraft", po::value<std::string>(&spacecraft)->default_value(""), "")
@@ -206,7 +183,7 @@ int main( int argc, char *argv[] ) {
   }
 
   if ( vm.count("kernels-file") )
-    load_kernels_file(kernels_file, kernels_prefix);
+    spice::load_kernels(kernels_file, kernels_prefix);
   else {
     std::cout << "You must supply a file containing a list of SPICE kernels to load!\n";
     std::cout << "Exiting\n\n";
@@ -230,12 +207,7 @@ int main( int argc, char *argv[] ) {
     exit(0);
   }
 
-  if (target_name.size() == 0) {
-    std::cout << "You did not specify a target name.  \nExiting.\n\n";
-    exit(0);
-  }
-
-  write_orbital_reference_model(output_file, ephem_times, target_name, scale, spacecraft, reference_frame, planet, instrument);
+  write_orbital_reference_model(output_file, ephem_times, scale, spacecraft, reference_frame, planet, instrument);
 
   return 0;
 }
