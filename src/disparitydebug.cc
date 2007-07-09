@@ -37,7 +37,8 @@ int main( int argc, char *argv[] ) {
     ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
     ("output-prefix,o", po::value<std::string>(&output_prefix)->default_value("disparity"), "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file")
-    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)");
+    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
+    ("float-pixels", "Save the resulting debug images as 32 bit floating point files (if supported by the selected files type.");
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -65,8 +66,13 @@ int main( int argc, char *argv[] ) {
   std::cout << "Computing disparity range... \n";
   int num_good;
   BBox2 disp_range = disparity::get_disparity_range(disk_disparity_map,num_good,true,TerminalProgressCallback());
-  write_image( output_prefix + "-H." + output_file_type, channel_cast_rescale<uint8>(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1))), TerminalProgressCallback());
-  write_image( output_prefix + "-V." + output_file_type, channel_cast_rescale<uint8>(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1))), TerminalProgressCallback());
+  if (vm.count("float-pixels")) {
+    write_image( output_prefix + "-H." + output_file_type, clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)), TerminalProgressCallback());
+    write_image( output_prefix + "-V." + output_file_type, clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)), TerminalProgressCallback());
+  } else {
+    write_image( output_prefix + "-H." + output_file_type, channel_cast_rescale<uint8>(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1))), TerminalProgressCallback());
+    write_image( output_prefix + "-V." + output_file_type, channel_cast_rescale<uint8>(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1))), TerminalProgressCallback());
+  }    
 
   return 0;
 }

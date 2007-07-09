@@ -51,8 +51,7 @@ vw::camera::CameraModel* HRSCImageMetadata::camera_model() {
                                m_line_times,
                                pointing_vec, u_vec,
                                ExtoriPositionInterpolation(m_extori_ephem_times, m_extori_ephem),
-                              //                           SLERPPoseInterpolation(m_quat, m_t0_quat, m_dt_quat));    
-                              ExtoriPoseInterpolation(m_extori_ephem_times, m_extori_quat));    
+                               ExtoriPoseInterpolation(m_extori_ephem_times, m_extori_quat));    
   } else {    
 
     // Use the values that were obtained from the *.sup file to program
@@ -195,20 +194,26 @@ void HRSCImageMetadata::read_extori_file(std::string const& filename, std::strin
 
     // Build up the fixed rotation from "extori frame" to the frame for this HRSC scanline.
     vw::math::Quaternion<double> extori_to_mex_spacecraft = vw::math::euler_to_quaternion(M_PI, M_PI/2, 0, "XZX");
-    vw::math::Quaternion<double> mex_spacecraft_to_hrsc_head = vw::math::euler_to_quaternion(-0.3340*M_PI/180.0, 0.0101*M_PI/180.0, 0, "XYZ");
     vw::math::Quaternion<double> hrsc_head_to_hrsc_scanline;
     if (scanline == "S1") {
       hrsc_head_to_hrsc_scanline = vw::math::euler_to_quaternion(0.0205*M_PI/180.0, 18.9414*M_PI/180.0, 0, "ZXZ");
     } else if (scanline == "S2") {
       hrsc_head_to_hrsc_scanline = vw::math::euler_to_quaternion(0.0270*M_PI/180.0, -18.9351*M_PI/180.0, 0, "ZXZ");
+    } else if (scanline == "P1") {
+      hrsc_head_to_hrsc_scanline = vw::math::euler_to_quaternion(0.0457*M_PI/180.0, 12.7544*M_PI/180.0, 0, "ZXZ");
+    } else if (scanline == "P2") {
+      hrsc_head_to_hrsc_scanline = vw::math::euler_to_quaternion(0.0343*M_PI/180.0, -12.7481*M_PI/180.0, 0, "ZXZ");
     }      
-    vw::math::Quaternion<double> rotation_correction = hrsc_head_to_hrsc_scanline*mex_spacecraft_to_hrsc_head*extori_to_mex_spacecraft;
+    vw::math::Quaternion<double> rotation_correction = hrsc_head_to_hrsc_scanline*extori_to_mex_spacecraft;
 
     // Read the actual data
     //
     // The extori file contains euler angles phi, omega, kappa, which
     // correspond to rotations to be applied about the y, x, and
     // z-axes respectively.
+    // 
+    // NOTE!!: However, these angles are in units of gon.  There are
+    // 400 gon in a circle, so we convert that here.
     while (infile >> sclk_time >> position(0) >> position(1) >> position(2) >> phi >> omega >> kappa ) {
       m_extori_ephem_times.push_back(sclk_time);
       m_extori_ephem.push_back(position);

@@ -23,13 +23,8 @@ class HRSCImageMetadata {
   /// Read the *.sup file
   void read_ephemeris_supplement(std::string const& filename);
 
-  /// Read the *.sup file
-  void read_extori_file(std::string const& filename, std::string const& scanline);
-  
   /// Read corrected (bundle adjusted) telemetry from the extori file
-  //  void read_extori(std::string const& filename);
-  //  void read_spice_data();
-  //  vw::camera::LinescanModel camera_model();
+  void read_extori_file(std::string const& filename, std::string const& scanline);
 
   /// Returns a newly allocated camera model object of the appropriate
   /// type.  It is the responsibility of the user to later deallocate

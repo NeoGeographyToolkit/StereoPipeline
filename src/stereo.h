@@ -167,6 +167,7 @@ struct DFT_F {
   int rm_v_half_kern;
   int rm_min_matches;		/* min # of pxl to be matched to keep pxl */
   int rm_treshold;		/* rm_treshold < disp[n]-disp[m] reject pxl */ 
+  int rm_cleanup_passes;  /* number of times to perform cleanup in the post-processing phase */
   float smr_treshold;		/* treshold for the smooth_range function */
   int v_fill_treshold;	/* treshold for the file_hole_vert function */
   int h_fill_treshold;	/* treshold for the file_hole_vert function */
@@ -220,6 +221,8 @@ struct DFT_F {
   float local_level_w;
   int billboard_on;		/* put the far field pixels on a billboard */
   float out_mesh_scale;       /* scale factor to be applied to the mesh */
+  int do_h_subpixel;
+  int do_v_subpixel;
   float sub_pxl_treshold;	/* limit for subpxl approx. valid */
   float mask_low_contrast_treshold; /* treshold for low contrast mask */
   int h_tie_pts;		/* # of tiePt per row for img align/rectif. */

@@ -171,8 +171,7 @@ namespace cartography {
         float bbox_height = fabs(bbox.max().y() - bbox.min().y());
         float input_image_width = m_point_image.cols();
         float input_image_height = m_point_image.rows();
-        m_spacing = std::max(bbox_width, bbox_height) / 
-                        std::max(input_image_width, input_image_height);
+        m_spacing = std::max(bbox_width, bbox_height) / std::max(input_image_width, input_image_height);
         std::cout << "\tAutomatically setting spacing to " << m_spacing << " units/pixel.\n";
       } else {
         m_spacing = val;

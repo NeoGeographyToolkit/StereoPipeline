@@ -46,8 +46,7 @@ int main( int argc, char *argv[] ) {
   po::options_description desc("Options");
   desc.add_options()
     ("help", "Display this help message")
-    ("minz-is-default", "Use the smallest z value as the default (missing pixel) value")
-    ("default_value", po::value<float>(&default_value)->default_value(0), "Explicitly set the default (missing pixel) value")
+    ("default_value", po::value<float>(&default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
     ("dem-spacing,s", po::value<float>(&dem_spacing)->default_value(0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
     ("normalized,n", "Also write a normalized version of the DEM (for debugging)")    
     ("orthoimage", po::value<std::string>(&texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
@@ -90,7 +89,7 @@ int main( int argc, char *argv[] ) {
   
   if (vm.count("xyz-to-lonlat") ) {
     std::cout << "Reprojecting points into longitude, latitude, altitude.\n";
-    point_image = cartography::xyz_to_lon_lat_radius(point_image);
+    point_image = cartography::xyz_to_lon_lat_radius(point_image);    
   }
 
   if ( reference_spheroid != "" ) {
@@ -104,11 +103,21 @@ int main( int argc, char *argv[] ) {
                                                     MOLA_PEDR_EQUATORIAL_RADIUS,
                                                     0.0);
       point_image = cartography::subtract_datum(point_image, datum);
+    } else if (reference_spheroid == "moon") {
+      const double LUNAR_RADIUS = 1737.4;
+      std::cout << "Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
+      cartography::Datum datum = cartography::Datum("Lunar Datum",
+                                                    "Lunar Spheroid",
+                                                    "Prime Meridian",
+                                                    LUNAR_RADIUS,
+                                                    LUNAR_RADIUS,
+                                                    0.0);
+      point_image = cartography::subtract_datum(point_image, datum);
     } else {
       std::cout << "Unknown reference spheroid: " << reference_spheroid << ".  Exiting.\n\n";
       exit(0);
     }
-  } else if (vm.count("z-reference") ) {
+  } else if ( z_reference != 0 ) {
     std::cout << "Re-referencing altitude values using user supplied z offset: " << z_reference << "\n";
     cartography::Datum datum = cartography::Datum("User Specified Datum",
                                                   "User Specified Spherem",
@@ -117,34 +126,38 @@ int main( int argc, char *argv[] ) {
     point_image = cartography::subtract_datum(point_image, datum);
   }
 
-  DiskCacheImageView<Vector3> point_image_cache(point_image, "exr");
+  DiskCacheImageView<Vector3> point_image_cache(point_image, "tif");
 
   // Write out the DEM, texture, and extrapolation mask
   // as georeferenced files.
   vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2),dem_spacing);
-  if (vm.count("minz-is-default") )
+  if (!vm.count("default-value") ) {
     rasterizer.set_use_minz_as_default(true); 
-  else       
+  } else {
     rasterizer.set_use_minz_as_default(false); 
-  rasterizer.set_default_value(default_value);    
+    rasterizer.set_default_value(default_value);    
+  }
   vw::BBox<float,3> dem_bbox = rasterizer.bounding_box();
   std::cout << "DEM Bounding box: " << dem_bbox << "\n";
   
   // Set up the georeferencing information
-  // FIXME: Using Mercator projection for now 
+  //
+  // FIXME: Using Mercator for cartesian DTMs for now 
   GeoReference georef;
-  if (vm.count("xyz-to-lonlat") == 0)
+  if (!vm.count("xyz-to-lonlat"))
     georef.set_mercator(0,0,1);
   georef.set_transform(rasterizer.geo_transform());
 
-    // Write out a georeferenced orthoimage of the DTM with alpha.
+  // Write out a georeferenced orthoimage of the DTM with alpha.
   if (vm.count("orthoimage")) {
     DiskImageView<PixelRGB<float> > texture(texture_filename); 
     rasterizer.set_texture(texture);
-    BlockCacheView<PixelRGB<float> > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 512));
+    BlockCacheView<PixelRGB<float> > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 2048));
     write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(block_drg_raster), georef, TerminalProgressCallback() );
+
+  // Write out a georeferenced DTM and (optionally) a normalized version of the DTM (for debugging)
   } else {
-    BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 512));
+    BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
     write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
     
     if (vm.count("normalized")) {

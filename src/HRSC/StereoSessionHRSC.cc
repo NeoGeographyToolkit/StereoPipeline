@@ -29,10 +29,9 @@ void StereoSessionHRSC::camera_models(boost::shared_ptr<camera::CameraModel> &ca
     hrsc_metadata2.read_ephemeris_supplement(in_prefix2 + ".sup");
     
     if (m_extra_argument1.size() != 0) 
-      hrsc_metadata1.read_extori_file(m_extra_argument1,"S1");
+      hrsc_metadata1.read_extori_file(m_extra_argument1,m_extra_argument3);
     if (m_extra_argument2.size() != 0) 
-      hrsc_metadata2.read_extori_file(m_extra_argument2,"S2");
-    
+      hrsc_metadata2.read_extori_file(m_extra_argument2,m_extra_argument4);
   } catch (IOErr &e) {
     std::cout << "An error occurred when loading HRSC metadata:\n\t" << e.what();
     std::cout << "\nExiting.\n\n";

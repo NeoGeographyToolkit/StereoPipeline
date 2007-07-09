@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
   unsigned cache_size;
   std::string stereo_session_string;
   std::string stereo_default_filename;
-  std::string in_file1, in_file2, cam_file1, cam_file2, extra_arg1, extra_arg2;
+  std::string in_file1, in_file2, cam_file1, cam_file2, extra_arg1, extra_arg2, extra_arg3, extra_arg4;
   std::string out_prefix;
   std::string corr_debug_prefix;
   std::vector<vw::int32> crop_bounds(4);
@@ -108,7 +108,9 @@ int main(int argc, char* argv[]) {
     ("right-camera-model", po::value<std::string>(&cam_file2), "Right Camera Model File")
     ("output-prefix", po::value<std::string>(&out_prefix), "Prefix for output filenames")
     ("extra_argument1", po::value<std::string>(&extra_arg1), "Extra Argument 1")
-    ("extra_argument2", po::value<std::string>(&extra_arg2), "Extra Argument 2");
+    ("extra_argument2", po::value<std::string>(&extra_arg2), "Extra Argument 2")
+    ("extra_argument3", po::value<std::string>(&extra_arg3), "Extra Argument 3")
+    ("extra_argument4", po::value<std::string>(&extra_arg4), "Extra Argument 4");
   po::positional_options_description positional_options_desc;
   positional_options_desc.add("left-input-image", 1);
   positional_options_desc.add("right-input-image", 1);
@@ -117,6 +119,8 @@ int main(int argc, char* argv[]) {
   positional_options_desc.add("output-prefix", 1);
   positional_options_desc.add("extra_argument1", 1);
   positional_options_desc.add("extra_argument2", 1);
+  positional_options_desc.add("extra_argument3", 1);
+  positional_options_desc.add("extra_argument4", 1);
 
   po::options_description all_options;
   all_options.add(visible_options).add(positional_options);
@@ -157,7 +161,7 @@ int main(int argc, char* argv[]) {
   // Create a fresh stereo session and query it for the camera models.
   StereoSession* session = StereoSession::create(stereo_session_string);
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
-                      out_prefix, extra_arg1, extra_arg2);
+                      out_prefix, extra_arg1, extra_arg2, extra_arg3, extra_arg4);
 
   // Temporary hack to get stereo default settings into the session -- LJE
   session->initialize(dft);
@@ -176,15 +180,13 @@ int main(int argc, char* argv[]) {
     
     // The generate_mask() routine returns an ImageView<bool>, so we
     // currently multiply by 255 to scale the bool value to a uint8.
-    if(execute.w_mask) {  
-      cout << "\nGenerating image masks...";
-      int mask_buffer = std::max(dft.h_kern, dft.v_kern);
-      ImageViewRef<uint8> Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
-      ImageViewRef<uint8> Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
-      printf("Done.\n");
-      write_image(out_prefix + "-lMask.tif", Lmask);
-      write_image(out_prefix + "-rMask.tif", Rmask);
-    }
+    cout << "\nGenerating image masks...";
+    int mask_buffer = std::max(dft.h_kern, dft.v_kern);
+    ImageViewRef<uint8> Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
+    ImageViewRef<uint8> Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
+    printf("Done.\n");
+    write_image(out_prefix + "-lMask.tif", Lmask);
+    write_image(out_prefix + "-rMask.tif", Rmask);
   }
 
   /*********************************************************************************/
@@ -203,6 +205,7 @@ int main(int argc, char* argv[]) {
     std::cout << "\txcorr thresh: " << dft.xcorr_treshold << "\n";
     std::cout << "\tcorrscore rejection thresh: " << dft.corrscore_rejection_treshold << "\n";
     std::cout << "\tslog stddev : " << dft.slogW << "\n\n";
+    std::cout << "\tsubpixel    H: " << dft.do_h_subpixel << "   V: " << dft.do_v_subpixel << "\n";
     CorrelationSettings corr_settings(search_range.min().x(), search_range.max().x(), 
                                       search_range.min().y(), search_range.max().y(),
                                       dft.h_kern, dft.v_kern, 
@@ -210,7 +213,7 @@ int main(int argc, char* argv[]) {
                                       dft.xcorr_treshold,
                                       dft.corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
                                       dft.slogW,
-                                      true, true,   // h and v subpixel
+                                      dft.do_h_subpixel, dft.do_v_subpixel,   // h and v subpixel
                                       true);        // bit image
     if (vm.count("corr-debug-prefix"))
       corr_settings.set_debug_mode(corr_debug_prefix);
@@ -219,7 +222,7 @@ int main(int argc, char* argv[]) {
     ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings);
     
     // If the user has specified a crop at the command line, we go
-    // with that instead.
+    // with the cropped region instead.
     if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
       BBox2i crop_bbox(crop_bounds[0],crop_bounds[1],crop_bounds[2],crop_bounds[3]);
       std::cout << "Cropping to bounding box: " << crop_bbox << "\n";
@@ -233,9 +236,11 @@ int main(int argc, char* argv[]) {
       }
 
       // Save a cropped version of the left image for reference.
-      std::cout << "Writing cropped version of the left input image.\n";
+      std::cout << "Writing cropped version of the input images.\n";
       DiskImageView<PixelGray<uint8> > left_image(out_prefix + "-L.tif");
+      DiskImageView<PixelGray<uint8> > right_image(out_prefix + "-R.tif");
       write_image(out_prefix+"-L-crop.tif", crop(left_image, crop_bbox), TerminalProgressCallback());
+      write_image(out_prefix+"-R-crop.tif", crop(right_image, crop_bbox), TerminalProgressCallback());
 
       // Apply the crop
       disparity_map = crop(CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings), crop_bbox);
@@ -263,14 +268,17 @@ int main(int argc, char* argv[]) {
     try {
       std::cout << "\nUsing image " << out_prefix + "-D.exr" << " as disparity map image.\n";
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
+      ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
 
       // This seems to be more cleanup than is needed with the new
       // pyramid correlator... skipping it for now.
       //
-      std::cout << "\tcleaning up disparity map prior to filtering processes.\n";
-      ImageViewRef<PixelDisparity<float> > disparity_map = disparity::clean_up(disparity_disk_image,
-                                                                               dft.rm_h_half_kern, dft.rm_v_half_kern,
-                                                                               dft.rm_treshold, dft.rm_min_matches/100.0);
+      std::cout << "Cleaning up disparity map prior to filtering processes (" << dft.rm_cleanup_passes << " passes).\n";
+      for (int i = 0; i < dft.rm_cleanup_passes; ++i) {
+        disparity_map = disparity::clean_up(disparity_disk_image,
+                                            dft.rm_h_half_kern, dft.rm_v_half_kern,
+                                            dft.rm_treshold, dft.rm_min_matches/100.0);
+      }
 
       // Apply the Mask to the disparity map 
       std::cout << "\tapplying mask.\n";
@@ -290,10 +298,13 @@ int main(int argc, char* argv[]) {
       if(execute.w_extrapolation_mask) 
         write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), TerminalProgressCallback());
 
-      // Call out to NURBS hole filling code.     
+      // Call out to NURBS hole filling code.  The hole filling is
+      // done with a subsampled (by 4) images and then the hole filled
+      // values are upsampled to the full resolution of the image
+      // using bicubic interpolation.
       if(execute.fill_holes_NURBS) {
         std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
-        write_image(out_prefix + "-F.exr", disparity::mask(HoleFillView(filtered_disparity_map, 8),Lmask, Rmask), TerminalProgressCallback() ); 
+        write_image(out_prefix + "-F.exr", disparity::mask(HoleFillView(filtered_disparity_map, 4),Lmask, Rmask), TerminalProgressCallback() ); 
       } else {
         write_image(out_prefix + "-F.exr", filtered_disparity_map, TerminalProgressCallback() ); 
       }
@@ -332,7 +343,7 @@ int main(int argc, char* argv[]) {
       // in the point_image.
       //
       // We apply the universe radius here and then write the result
-      // directly to a file on disk.
+      // directly to a file on disk.      
       UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)), dft.near_universe_radius, dft.far_universe_radius);
       write_image(out_prefix + "-PC.exr", per_pixel_filter(stereo_image, universe_radius_func), TerminalProgressCallback());
       std::cout << universe_radius_func;

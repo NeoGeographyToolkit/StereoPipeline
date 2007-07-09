@@ -23,16 +23,20 @@
       m_line_times(line_times), m_positions(positions) {}
 
     vw::Vector3 operator()(double t) const {
+      
       std::vector<double>::const_iterator lower_bound_iter = std::lower_bound(m_line_times.begin(), m_line_times.end(), t);
       int lower_bound_position = &(*lower_bound_iter) - &(m_line_times[0]);
-      if (lower_bound_iter+1 == m_line_times.end()) {
-        return m_positions[lower_bound_position];
-      } else if (lower_bound_iter != m_line_times.end()) {
-        double norm_t = (t - *lower_bound_iter) / ((*lower_bound_iter+1)-*lower_bound_iter);
-        return m_positions[lower_bound_position] + (m_positions[lower_bound_position+1] - m_positions[lower_bound_position]) * norm_t;
-      } else {
-        throw vw::ArgumentErr() << "ExtoriPositionInterpolation: requested a position out of range (t=" << t << "  max_t=" << m_line_times[m_line_times.size()-1]<< ".";
+      if (lower_bound_iter == m_line_times.end()) {  // t > all elements in the list
+        return m_positions[lower_bound_position-1];
+      } else if (lower_bound_position == 0) {        // t < all elements in the list
+        return m_positions[0];        
+      } else { 
+        double norm_t = (t - *(lower_bound_iter-1)) / ((*lower_bound_iter)-*(lower_bound_iter-1));
+        return m_positions[lower_bound_position-1] + (m_positions[lower_bound_position] - m_positions[lower_bound_position-1]) * norm_t;
       }
+//       } else {
+//         throw vw::ArgumentErr() << "ExtoriPositionInterpolation: requested a position out of range (t=" << t << "  max_t=" << m_line_times[m_line_times.size()-1]<< ".";
+//       }
     }
 
   };
@@ -97,24 +101,21 @@
     vw::Quaternion<double> operator()(double t) const {
       std::vector<double>::const_iterator lower_bound_iter = std::lower_bound(m_line_times.begin(), m_line_times.end(), t);
       int lower_bound_position = &(*lower_bound_iter) - &(m_line_times[0]);
-      if (lower_bound_iter+1 == m_line_times.end()) {
-        return m_pose_samples[lower_bound_position];
-      } else if (lower_bound_iter != m_line_times.end() ) {
-        double norm_t = t - *lower_bound_iter;
+
+      if (lower_bound_iter == m_line_times.end()) {  // t > all elements in the list
+        return m_pose_samples[lower_bound_position-1];
+      } else if (lower_bound_position == 0) {        // t < all elements in the list
+        return m_pose_samples[0];        
+      } else { 
+        double norm_t = t - *(lower_bound_iter-1);
 
         vw::Quaternion<double> a = m_pose_samples[lower_bound_position];
         vw::Quaternion<double> b = m_pose_samples[lower_bound_position+1];
         vw::Quaternion<double> result = this->slerp(norm_t,a,b,0);
 
         //        std::cout << "***> " << *lower_bound_iter << " ("<< lower_bound_position << ")   " << a << "   " << b << "   " << result << "\n";
-
         return result;
-
-      } else {
-        throw vw::ArgumentErr() << "ExtoriPoseInterpolation: requested a pose out of time range.";
       }
-
-
     }
 
   };

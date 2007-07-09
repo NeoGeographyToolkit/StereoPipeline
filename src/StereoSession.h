@@ -16,13 +16,16 @@ protected:
   std::string m_out_prefix;
   std::string m_extra_argument1;
   std::string m_extra_argument2;
+  std::string m_extra_argument3;
+  std::string m_extra_argument4;
   
 public:
 
   void initialize (std::string const& left_image_file, std::string const& right_image_file,
                    std::string const& left_camera_file, std::string const& right_camera_file,
                    std::string const& out_prefix,
-                   std::string const& extra_argument1, std::string const& extra_argument2) { 
+                   std::string const& extra_argument1, std::string const& extra_argument2,
+                   std::string const& extra_argument3, std::string const& extra_argument4) { 
     m_left_image_file = left_image_file;
     m_right_image_file = right_image_file;
     m_left_camera_file = left_camera_file;
@@ -30,6 +33,8 @@ public:
     m_out_prefix = out_prefix;
     m_extra_argument1 = extra_argument1;
     m_extra_argument2 = extra_argument2;
+    m_extra_argument3 = extra_argument3;
+    m_extra_argument4 = extra_argument4;
   }
 
   // Temporary HACK to get some values in the DFT structure into

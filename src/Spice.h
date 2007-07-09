@@ -21,15 +21,29 @@ namespace spice {
   void load_kernels(std::list<std::string> &kernels);
   double sclk_to_et(std::string sclk, int naif_id);
   std::string et_to_utc(double ephemeris_time);
-  
-void body_state(double begin_time, double end_time, double interval,
-                std::vector<vw::Vector3> &position,
-                std::vector<vw::Vector3> &velocity, 
-                std::vector<vw::Quaternion<double> > &pose,
-                std::string const& spacecraft,
-                std::string const& reference_frame,
-                std::string const& planet,
-                std::string const& instrument);
+  double utc_to_et(std::string const& utc);
+
+  template <int ElemN>
+  void kernel_param(std::string const& key, vw::Vector<double, ElemN> &value);
+  void kernel_param(std::string const& key, double &value);
+
+  void body_state(double begin_time, double end_time, double interval,
+                  std::vector<vw::Vector3> &position,
+                  std::vector<vw::Vector3> &velocity, 
+                  std::vector<vw::Quaternion<double> > &pose,
+                  std::string const& spacecraft,
+                  std::string const& reference_frame,
+                  std::string const& planet,
+                  std::string const& instrument);
+
+  void body_state(double time,
+                  vw::Vector3 &position,
+                  vw::Vector3 &velocity, 
+                  vw::Quaternion<double> &pose,
+                  std::string const& spacecraft,
+                  std::string const& reference_frame,
+                  std::string const& planet,
+                  std::string const& instrument);
   
 } // namespace spice 
 
