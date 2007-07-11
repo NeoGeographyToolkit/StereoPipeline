@@ -22,7 +22,7 @@ using namespace vw;
 #include "nff_terrain.h"
 #include "Spice.h"
 
-// Returns: A Vector3 containing the euler angles [phi, omega, kappa]
+// Returns: A Vector3 containing the euler angles [phi, omega, kappa] inline
 inline Vector3 rotation_matrix_to_euler_xyz(const Matrix<double,3,3> rotation_matrix) {
   double omega = asin(rotation_matrix(0,2));
   double phi = acos(rotation_matrix(2,2) / cos(omega));
@@ -62,7 +62,7 @@ void append_model(std::ofstream &output_file, double ephemeris_time, double scal
   cartography::XYZtoLonLatFunctor<double> func;
   Vector3 lon_lat_alt = func(position);
 
-  Matrix3x3 correction_rot = math::euler_to_rotation_matrix((90-lon_lat_alt(1))*M_PI/180, (90+lon_lat_alt(0))*M_PI/180, 0, "xzy");
+  Matrix3x3 correction_rot = vw::math::euler_to_rotation_matrix((90-lon_lat_alt(1))*M_PI/180, (90+lon_lat_alt(0))*M_PI/180, 0, "xzy");
   Vector3 angles = rotation_matrix_to_euler_zxy(pose.rotation_matrix()*correction_rot);
   std::cout << "Angles: " << angles << "\n";
   double heading = angles(0)*180/M_PI, tilt = angles(1)*180/M_PI, roll = angles(2)*180/M_PI;
