@@ -32,17 +32,57 @@ static void load_apollo_metric_kernels() {
   spice::load_kernels(spice_kernels);
 }
 
-void apollo_metric_intrinsics(double &f, double &cx, double &cy) {
+void apollo_metric_intrinsics(double &f, double &cx, double &cy, double &pixels_per_mm) {
   double focal_length;
-  double pixels_per_mm;
   Vector2 ccd_center;
   spice::kernel_param("INS-915240_FOCAL_LENGTH", focal_length); // units: mm
   spice::kernel_param("INS-915240_K", pixels_per_mm);           // units: pixels/mm
   spice::kernel_param("INS-915240_CCD_CENTER", ccd_center);     // units: pixels
-  f = focal_length * pixels_per_mm;
-  cx = ccd_center[0];
-  cy = ccd_center[1];
+
+  double subsample = 1;
+  f = focal_length * pixels_per_mm / subsample;
+  cx = ccd_center[0]/subsample;
+  cy = ccd_center[1]/subsample;
+  pixels_per_mm /= subsample;
 }
+
+
+class MetricCameraLensDistortion : public LensDistortionBase<MetricCameraLensDistortion, PinholeModel> {
+  Vector3 m_radial;
+  Vector3 m_tangential;
+  double m_pixels_per_mm;
+  public:
+  MetricCameraLensDistortion(Vector3 radial_params, Vector3 tangential_params, double pixels_per_mm) : 
+    m_radial(radial_params),
+    m_tangential(tangential_params),
+    m_pixels_per_mm(pixels_per_mm) {}
+
+    virtual ~MetricCameraLensDistortion() {}
+
+    //  Location where the given pixel would have appeared if there
+    //  were no lens distortion.
+    virtual Vector2 get_distorted_coordinates(Vector2 const& p) const {
+      //      vw_out(0)<< "Pix: " << p << "\n";
+      double fu, fv, cu, cv;
+      this->camera_model().intrinsic_parameters(fu, fv, cu, cv);
+      
+      double x = (p[0] - cu) / m_pixels_per_mm;
+      double y = (p[1] - cv) / m_pixels_per_mm;
+      
+      double r2 = x * x + y * y;
+      double r4 = r2 * r2;
+      double r6 = r2 * r4;
+      
+      double a = (1 + m_radial[0]*r2 + m_radial[1]*r4 + m_radial[2]*r6);
+      double xp = a * x - (m_tangential[0]*r2 + m_tangential[1]*r4)*sin(m_tangential[2]);
+      double yp = a * y + (m_tangential[0]*r2 + m_tangential[1]*r4)*cos(m_tangential[2]);
+
+      Vector2 result(xp * m_pixels_per_mm + cu,
+                     yp * m_pixels_per_mm + cv);
+      //      vw_out(0)<< "     " << result << "\n";
+    }
+  };
+
 
 // Load the state of the MOC camera for a given time range, returning 
 // observations of the state for the given time interval.
@@ -71,8 +111,8 @@ void StereoSessionApolloMetric::camera_models(boost::shared_ptr<camera::CameraMo
 
   // Intrinsics are shared by the two images since it's the same imager
   std::cout << "Computing intrinsics\n";
-  double f, cx, cy;
-  apollo_metric_intrinsics(f, cx, cy);
+  double f, cx, cy, pixels_per_mm;
+  apollo_metric_intrinsics(f, cx, cy, pixels_per_mm);
 
   // Scale the intrinsics by the actual size of the supplied apollo
   // image.  Sometimes we supply a supsampled image, and we would like
@@ -86,17 +126,23 @@ void StereoSessionApolloMetric::camera_models(boost::shared_ptr<camera::CameraMo
   cx *= scale;
   cy *= scale;
 
-  std::cout << "\tf = " << f << "   cx = " << cx << "   cy = " << cy << "\n";
+  std::cout << "\tf = " << f << "   cx = " << cx << "   cy = " << cy << "  pixels_per_mm = " << pixels_per_mm << "\n";
 
   Vector3 camera_center;
   Vector3 camera_velocity;
   Quaternion<double> camera_pose;
 
+  // Set up lens distortion
+  MetricCameraLensDistortion distortion_model(Vector3(0.13678194e-5, 0.53824020e-9, -0.52793282e-13),
+                                              Vector3(0.12275363e-5, -0.24596243e-9, 1.8859721),
+                                              pixels_per_mm);
+                                              
   std::cout << "Initializing camera 1\n";
   // Initialize camera 1
   apollo_metric_state(et1, camera_center, camera_velocity, camera_pose);
   PinholeModel* cam_ptr1 = new PinholeModel(camera_center, camera_pose.rotation_matrix(),
                                             f, f, cx, cy);
+  //                                            f, f, cx, cy, distortion_model);
 
 
   std::cout << "Initializing camera 2\n";
@@ -104,6 +150,7 @@ void StereoSessionApolloMetric::camera_models(boost::shared_ptr<camera::CameraMo
   apollo_metric_state(et2, camera_center, camera_velocity, camera_pose);
   PinholeModel* cam_ptr2 = new PinholeModel(camera_center, camera_pose.rotation_matrix(),
                                             f, f, cx, cy);
+  //                                            f, f, cx, cy, distortion_model);
 
   cam1 = boost::shared_ptr<camera::CameraModel>(cam_ptr1);
   cam2 = boost::shared_ptr<camera::CameraModel>(cam_ptr2);
