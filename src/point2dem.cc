@@ -15,6 +15,7 @@ namespace po = boost::program_options;
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
+#include <vw/Math.h>
 #include <vw/Stereo.h>
 #include <vw/Cartography.h>
 using namespace vw;
@@ -32,6 +33,14 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
 }
 
+class PointTransFunc : public ReturnFixedType<Vector3> {
+  Matrix3x3 m_trans;
+public:
+  PointTransFunc(Matrix3x3 trans) : m_trans(trans) {}
+  Vector3 operator() (Vector3 const& pt) const { return m_trans*pt; }
+};
+
+
 int main( int argc, char *argv[] ) {
   set_debug_level(VerboseDebugMessage+11);
 
@@ -40,13 +49,17 @@ int main( int argc, char *argv[] ) {
   float dem_spacing, default_value;
   unsigned simplemesh_h_step, simplemesh_v_step;
   int debug_level;
-  double z_reference;
+  double semi_major, semi_minor;
   std::string reference_spheroid;
+  double phi_rot, omega_rot, kappa_rot;
+  std::string rot_order;
+  double proj_lat=0, proj_lon=0, proj_scale=1;
+  unsigned utm_zone;
 
   po::options_description desc("Options");
   desc.add_options()
     ("help", "Display this help message")
-    ("default_value", po::value<float>(&default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
+    ("default-value", po::value<float>(&default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
     ("dem-spacing,s", po::value<float>(&dem_spacing)->default_value(0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
     ("normalized,n", "Also write a normalized version of the DEM (for debugging)")    
     ("orthoimage", po::value<std::string>(&texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
@@ -59,8 +72,25 @@ int main( int argc, char *argv[] ) {
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
     ("xyz-to-lonlat", "Convert from xyz coordinates to longitude, latitude, altitude coordinates.")
-    ("z-reference", po::value<double>(&z_reference)->default_value(0),"Set a reference Z value.  This will be subtracted from all z values.")
-    ("reference-spheroid,r", po::value<std::string>(&reference_spheroid)->default_value(""),"Set a reference surface.  The radius of the reference surface will be subtracted from all z values.");
+    ("reference-spheroid,r", po::value<std::string>(&reference_spheroid)->default_value(""),"Set a reference surface to a hard coded value (one of [moon , mars].  This will override manually set datum information.")
+    ("semi-major-axis", po::value<double>(&semi_major)->default_value(0),"Set the dimensions of the datum.")
+    ("semi-minor-axis", po::value<double>(&semi_minor)->default_value(0),"Set the dimensions of the datum.")
+
+    ("sinusoidal", "Save using a sinusoidal projection")
+    ("mercator", "Save using a Mercator projection")
+    ("transverse-mercator", "Save using a transverse Mercator projection")
+    ("orthographic", "Save using an orthographic projection")
+    ("stereographic", "Save using a stereographic projection")
+    ("lambert-azimuthal", "Save using a Lambert azimuthal projection")
+    ("utm", po::value<unsigned>(&utm_zone), "Save using a UTM projection with the given zone")
+    ("proj-lat", po::value<double>(&proj_lat), "The center of projection latitude (if applicable)")
+    ("proj-lon", po::value<double>(&proj_lon), "The center of projection longitude (if applicable)")
+    ("proj-scale", po::value<double>(&proj_scale), "The projection scale (if applicable)")
+
+    ("rotation-order", po::value<std::string>(&rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
+    ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
+    ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
+    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa");
   
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -86,50 +116,88 @@ int main( int argc, char *argv[] ) {
 
   DiskImageView<Vector3> point_disk_image(input_file_name);
   ImageViewRef<Vector3> point_image = point_disk_image;
-  
+
+  // Apply an (optional) rotation to the 3D points before building the mesh.
+  if (phi_rot != 0 && omega_rot != 0 && kappa_rot != 0) {
+    std::cout << "Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
+    Matrix3x3 rotation_trans = math::euler_to_rotation_matrix(phi_rot,omega_rot,kappa_rot,rot_order);
+    point_image = per_pixel_filter(point_image, PointTransFunc(rotation_trans));
+  }
+
   if (vm.count("xyz-to-lonlat") ) {
     std::cout << "Reprojecting points into longitude, latitude, altitude.\n";
     point_image = cartography::xyz_to_lon_lat_radius(point_image);    
   }
 
+  // Select a cartographic DATUM.  There are several hard coded datums
+  // that can be used here, or the user can specify their own.
+  cartography::Datum datum;
   if ( reference_spheroid != "" ) {
     if (reference_spheroid == "mars") {
       const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396000.0;
       std::cout << "Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
-      cartography::Datum datum = cartography::Datum("Mars Datum",
-                                                    "MOLA PEDR Spheroid",
-                                                    "Prime Meridian",
-                                                    MOLA_PEDR_EQUATORIAL_RADIUS,
-                                                    MOLA_PEDR_EQUATORIAL_RADIUS,
-                                                    0.0);
-      point_image = cartography::subtract_datum(point_image, datum);
+      datum = cartography::Datum("Mars Datum",
+                                 "MOLA PEDR Spheroid",
+                                 "Prime Meridian",
+                                 MOLA_PEDR_EQUATORIAL_RADIUS,
+                                 MOLA_PEDR_EQUATORIAL_RADIUS,
+                                 0.0);
     } else if (reference_spheroid == "moon") {
       const double LUNAR_RADIUS = 1737.4;
       std::cout << "Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
-      cartography::Datum datum = cartography::Datum("Lunar Datum",
-                                                    "Lunar Spheroid",
-                                                    "Prime Meridian",
-                                                    LUNAR_RADIUS,
-                                                    LUNAR_RADIUS,
-                                                    0.0);
-      point_image = cartography::subtract_datum(point_image, datum);
+      datum = cartography::Datum("Lunar Datum",
+                                 "Lunar Spheroid",
+                                 "Prime Meridian",
+                                 LUNAR_RADIUS,
+                                 LUNAR_RADIUS,
+                                 0.0);
     } else {
-      std::cout << "Unknown reference spheroid: " << reference_spheroid << ".  Exiting.\n\n";
+      std::cout << "Unknown reference spheroid: " << reference_spheroid << ".  Current options are [ moon , mars ]\nExiting.\n\n";
       exit(0);
     }
-  } else if ( z_reference != 0 ) {
-    std::cout << "Re-referencing altitude values using user supplied z offset: " << z_reference << "\n";
-    cartography::Datum datum = cartography::Datum("User Specified Datum",
-                                                  "User Specified Spherem",
-                                                  "Prime Meridian",
-                                                  z_reference, z_reference, 0.0);
-    point_image = cartography::subtract_datum(point_image, datum);
+  } else {
+    std::cout << "Re-referencing altitude values using user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
+    datum = cartography::Datum("User Specified Datum",
+                               "User Specified Spherem",
+                               "Prime Meridian",
+                               semi_major, semi_minor, 0.0);
   }
 
+  // Set up the georeferencing information.  We specify everything
+  // here except for the affine transform, which is defined later once
+  // we know the bounds of the orthorasterizer view.  However, we can
+  // still reproject the points in the point image without the affine
+  // transform because this projection never requires us to convert to
+  // or from pixel space.
+  GeoReference georef(datum);
+
+  // If the data was left in cartesian coordinates, we need to give
+  // the DEM a projection that uses some physical units (meters),
+  // rather than lon, lat.  This is actually mainly for compatibility
+  // with Viz, and it's sort of a hack, but it's left in for the time
+  // being.
+  //
+  // Otherwise, we honor the user's requested projection and convert
+  // the points if necessary.
+  if (!vm.count("xyz-to-lonlat"))
+    georef.set_mercator(0,0,1);
+  else if( vm.count("sinusoidal") ) georef.set_sinusoidal(proj_lon);
+  else if( vm.count("mercator") ) georef.set_mercator(proj_lat,proj_lon,proj_scale);
+  else if( vm.count("transverse-mercator") ) georef.set_transverse_mercator(proj_lat,proj_lon,proj_scale);
+  else if( vm.count("orthographic") ) georef.set_orthographic(proj_lat,proj_lon);
+  else if( vm.count("stereographic") ) georef.set_stereographic(proj_lat,proj_lon,proj_scale);
+  else if( vm.count("lambert-azimuthal") ) georef.set_lambert_azimuthal(proj_lat,proj_lon);
+  else if( vm.count("utm") ) georef.set_UTM( utm_zone );
+
+  point_image = cartography::project_point_image(point_image, georef);
+
+  // Rasterize the results to a temporary file on disk so as to speed
+  // up processing in the orthorasterizer, which accesses each pixel
+  // multiple times.
   DiskCacheImageView<Vector3> point_image_cache(point_image, "tif");
 
-  // Write out the DEM, texture, and extrapolation mask
-  // as georeferenced files.
+  // Write out the DEM, texture, and extrapolation mask as
+  // georeferenced files.
   vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2),dem_spacing);
   if (!vm.count("default-value") ) {
     rasterizer.set_use_minz_as_default(true); 
@@ -140,13 +208,12 @@ int main( int argc, char *argv[] ) {
   vw::BBox<float,3> dem_bbox = rasterizer.bounding_box();
   std::cout << "DEM Bounding box: " << dem_bbox << "\n";
   
-  // Set up the georeferencing information
-  //
-  // FIXME: Using Mercator for cartesian DTMs for now 
-  GeoReference georef;
-  if (!vm.count("xyz-to-lonlat"))
-    georef.set_mercator(0,0,1);
-  georef.set_transform(rasterizer.geo_transform());
+  // Now we are ready to specify the affine transform.
+  Matrix3x3 georef_affine_transform = rasterizer.geo_transform();
+  std::cout << "Georeferencing Transform: " << georef_affine_transform << "\n";
+  georef.set_transform(georef_affine_transform);
+
+  georef.set_datum(Datum());
 
   // Write out a georeferenced orthoimage of the DTM with alpha.
   if (vm.count("orthoimage")) {

@@ -15,6 +15,7 @@ namespace po = boost::program_options;
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
+#include <vw/Math.h>
 #include <vw/Stereo.h>
 using namespace vw;
 using namespace vw::stereo;
@@ -28,6 +29,13 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
 }
 
+class PointTransFunc : public ReturnFixedType<Vector3> {
+  Matrix3x3 m_trans;
+public:
+  PointTransFunc(Matrix3x3 trans) : m_trans(trans) {}
+  Vector3 operator() (Vector3 const& pt) const { return m_trans*pt; }
+};
+
 int main( int argc, char *argv[] ) {
   set_debug_level(VerboseDebugMessage+11);
 
@@ -36,6 +44,8 @@ int main( int argc, char *argv[] ) {
   float mesh_tolerance;
   unsigned simplemesh_h_step, simplemesh_v_step;
   int debug_level;
+  double phi_rot, omega_rot, kappa_rot;
+  std::string rot_order;
   
   po::options_description desc("Options");
   desc.add_options()
@@ -51,7 +61,12 @@ int main( int argc, char *argv[] ) {
     ("grayscale-texture", "Use grayscale image processing when modifying the texture image (for .iv and .vrml files only)")
     ("output-prefix,o", po::value<std::string>(&out_prefix)->default_value("mesh"), "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("ive"), "Specify the output file")
-    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)");
+    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
+
+    ("rotation-order", po::value<std::string>(&rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
+    ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
+    ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
+    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa");
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -76,7 +91,15 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  DiskImageView<Vector3> point_image(input_file_name);
+  DiskImageView<Vector3> point_disk_image(input_file_name);
+  ImageViewRef<Vector3> point_image = point_disk_image;
+
+  // Apply an (optional) rotation to the 3D points before building the mesh.
+  if (phi_rot != 0 && omega_rot != 0 && kappa_rot != 0) {
+    std::cout << "Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
+    Matrix3x3 rotation_trans = math::euler_to_rotation_matrix(phi_rot,omega_rot,kappa_rot,rot_order);
+    point_image = per_pixel_filter(point_image, PointTransFunc(rotation_trans));
+  }
 
   std::cout << "\nGenerating 3D mesh from point cloud:\n";
   Mesh mesh_maker;
