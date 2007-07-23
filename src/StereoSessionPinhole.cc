@@ -90,9 +90,9 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
       write_image(output_file1, channel_cast_rescale<uint8>(Limg));
       write_image(output_file2, channel_cast_rescale<uint8>(Rimg));
     } else if ( ((boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahv") &&
-                  boost::ends_with(boost::to_lower_copy(m_right_image_file), ".cahv")) || 
+                  boost::ends_with(boost::to_lower_copy(m_right_camera_file), ".cahv")) || 
                  (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pin") &&
-                  boost::ends_with(boost::to_lower_copy(m_right_image_file), ".pin"))) ) {
+                  boost::ends_with(boost::to_lower_copy(m_right_camera_file), ".pin"))) ) {
       CAHVModel left_unrectified_cahv(m_left_camera_file);
       CAHVModel right_unrectified_cahv(m_right_camera_file);
 
