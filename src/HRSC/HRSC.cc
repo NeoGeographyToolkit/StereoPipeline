@@ -74,12 +74,12 @@ vw::camera::CameraModel* HRSCImageMetadata::camera_model() {
 void HRSCImageMetadata::read_line_times(std::string const& filename) {
   
   std::ifstream infile(filename.c_str());
-  double scanline, sclk_time, integration_time;
+  double scanline, ephemeris_time, integration_time;
 
   if ( infile.is_open() ) {
     m_line_times.clear();
-    while (infile >> scanline >> sclk_time >> integration_time ) {
-      m_line_times.push_back(sclk_time);
+    while (infile >> scanline >> ephemeris_time >> integration_time ) {
+      m_line_times.push_back(ephemeris_time);
     }
   } else { 
     throw vw::IOErr() << "hrsc_line_integration_times: could not open file \"" << filename << "\"\n";
@@ -203,7 +203,9 @@ void HRSCImageMetadata::read_extori_file(std::string const& filename, std::strin
       hrsc_head_to_hrsc_scanline = vw::math::euler_to_quaternion(0.0457*M_PI/180.0, 12.7544*M_PI/180.0, 0, "ZXZ");
     } else if (scanline == "P2") {
       hrsc_head_to_hrsc_scanline = vw::math::euler_to_quaternion(0.0343*M_PI/180.0, -12.7481*M_PI/180.0, 0, "ZXZ");
-    }      
+    } else {
+      throw vw::IOErr() << "read_extori_file(): unrecognized scanline ID.  You must specify the scanline id's after the extori filenames on the command line.";
+    }
     vw::math::Quaternion<double> rotation_correction = hrsc_head_to_hrsc_scanline*extori_to_mex_spacecraft;
 
     // Read the actual data
