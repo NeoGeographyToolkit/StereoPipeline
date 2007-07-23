@@ -44,9 +44,12 @@
 #include "nff_terrain.h"
 #include "stereo.h"
 #include <vw/Core/Exception.h>
+#include <vw/Math/Vector.h>
+
 
 #if defined(ASP_HAVE_PKG_OPENSCENEGRAPH) && ASP_HAVE_PKG_OPENSCENEGRAPH==1
 #include <osg/Geometry>
+#include <osg/Material>
 #include <osg/Geode>
 #include <osg/Texture2D>
 #include <osg/Image>
@@ -2253,6 +2256,9 @@ void write_osg_impl(BUFFER *b, std::string const& filename,
                          
   geometry->setVertexArray (vertices.get());
 
+
+  std::vector<vw::Vector3> vertex_normals(b->nff.pt_number);
+  
   // Now create the "primitive set", which describes which vertices
   // are to be used when rendering the triangles.
   osg::ref_ptr<osg::DrawElementsUInt> faces(new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES, 0));
@@ -2260,7 +2266,31 @@ void write_osg_impl(BUFFER *b, std::string const& filename,
     faces->push_back(b->nff.triangle[i].vtx1);
     faces->push_back(b->nff.triangle[i].vtx2);
     faces->push_back(b->nff.triangle[i].vtx3);
+    vw::Vector3 v1(b->nff.vtx[b->nff.triangle[i].vtx1].x, 
+                   b->nff.vtx[b->nff.triangle[i].vtx1].y, 
+                   b->nff.vtx[b->nff.triangle[i].vtx1].z); 
+    vw::Vector3 v2(b->nff.vtx[b->nff.triangle[i].vtx2].x, 
+                   b->nff.vtx[b->nff.triangle[i].vtx2].y, 
+                   b->nff.vtx[b->nff.triangle[i].vtx2].z); 
+    vw::Vector3 v3(b->nff.vtx[b->nff.triangle[i].vtx3].x, 
+                   b->nff.vtx[b->nff.triangle[i].vtx3].y, 
+                   b->nff.vtx[b->nff.triangle[i].vtx3].z); 
+    vw::Vector3 l1 = v3-v1;
+    vw::Vector3 l2 = v3-v2;
+    vw::Vector3 c = normalize(vw::math::cross_prod(l1,l2));
+    vertex_normals[b->nff.triangle[i].vtx1] = c;
+    vertex_normals[b->nff.triangle[i].vtx2] = c;
+    vertex_normals[b->nff.triangle[i].vtx3] = c;
   }  
+
+  // Create an array for the single normal. 
+  osg::ref_ptr<osg::Vec3Array> n = new osg::Vec3Array; 
+  geometry->setNormalArray( n.get() ); 
+  for (int i = 0; i < b->nff.pt_number; ++i) 
+    n->push_back( osg::Vec3( vertex_normals[i].x(),
+                             vertex_normals[i].y(),
+                             vertex_normals[i].z()) ); 
+
   geometry->addPrimitiveSet(faces.get());
 
   // Next, we associate some texture coordinates with the vertices
@@ -2291,6 +2321,16 @@ void write_osg_impl(BUFFER *b, std::string const& filename,
   // we just created and enable the texture.
   texture_state_set->setTextureAttributeAndModes(0,texture.get(),osg::StateAttribute::ON);
   geode->setStateSet(texture_state_set.get());
+
+  // Set up lighting properties
+  osg::StateSet* state = geode->getOrCreateStateSet(); 
+  osg::ref_ptr<osg::Material> mat = new osg::Material; 
+  mat->setDiffuse( osg::Material::FRONT_AND_BACK, 
+                   osg::Vec4( .7f, .7f, .7f, 1.f ) ); 
+  mat->setSpecular( osg::Material::FRONT_AND_BACK, 
+                    osg::Vec4( .1f, .1f, .1f, 1.f ) ); 
+  mat->setShininess( osg::Material::FRONT_AND_BACK, 20.f ); 
+  state->setAttribute( mat.get() ); 
 
   // Add the geometry to the geode and save the geode to a file o disk.
   osgDB::writeNodeFile(*(geode.get()), filename);
