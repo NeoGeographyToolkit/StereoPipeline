@@ -98,7 +98,8 @@ int main(int argc, char* argv[]) {
     ("crop-min-y", po::value<int32>(&(crop_bounds[1])), "")
     ("crop-width", po::value<int32>(&(crop_bounds[2])), "")
     ("crop-height", po::value<int32>(&(crop_bounds[3])), "")
-    ("corr-debug-prefix", po::value<std::string>(&corr_debug_prefix)->default_value(""), "Cause the pyramid correlator to save out debug imagery named with this prefix."); 
+    ("corr-debug-prefix", po::value<std::string>(&corr_debug_prefix)->default_value(""), "Cause the pyramid correlator to save out debug imagery named with this prefix.")
+    ("optimized-correlator", "Use the optimized correlator instead of the pyramid correlator.");
 
   po::options_description positional_options("Positional Options");
   positional_options.add_options()
@@ -204,8 +205,8 @@ int main(int argc, char* argv[]) {
     std::cout << "\tkernel size : " << dft.h_kern << "x" << dft.v_kern << "\n";
     std::cout << "\txcorr thresh: " << dft.xcorr_treshold << "\n";
     std::cout << "\tcorrscore rejection thresh: " << dft.corrscore_rejection_treshold << "\n";
-    std::cout << "\tslog stddev : " << dft.slogW << "\n\n";
-    std::cout << "\tsubpixel    H: " << dft.do_h_subpixel << "   V: " << dft.do_v_subpixel << "\n";
+    std::cout << "\tslog stddev : " << dft.slogW << "\n";
+    std::cout << "\tsubpixel    H: " << dft.do_h_subpixel << "   V: " << dft.do_v_subpixel << "\n\n";
     CorrelationSettings corr_settings(search_range.min().x(), search_range.max().x(), 
                                       search_range.min().y(), search_range.max().y(),
                                       dft.h_kern, dft.v_kern, 
@@ -218,9 +219,9 @@ int main(int argc, char* argv[]) {
     if (vm.count("corr-debug-prefix"))
       corr_settings.set_debug_mode(corr_debug_prefix);
     std::cout<< "Building Disparity map...\n";
-    
+
     ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings);
-    
+
     // If the user has specified a crop at the command line, we go
     // with the cropped region instead.
     if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
@@ -244,7 +245,18 @@ int main(int argc, char* argv[]) {
 
       // Apply the crop
       disparity_map = crop(CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings), crop_bbox);
-    } 
+    }
+
+    if (vm.count("optimized-correlator")) {
+      vw::stereo::OptimizedCorrelator correlator( search_range.min().x(), search_range.max().x(), 
+                                                  search_range.min().y(), search_range.max().y(),
+                                                  dft.h_kern, dft.v_kern, 
+                                                  true,         // verbose
+                                                  dft.xcorr_treshold,
+                                                  dft.corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
+                                                  dft.do_h_subpixel, dft.do_v_subpixel);   // h and v subpixel
+      disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(dft.slogW));
+    }
 
     // do some basic outlier rejection
     ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,

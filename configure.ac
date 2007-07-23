@@ -214,7 +214,7 @@ AX_PKG(VW_INTEREST_POINT, [], [-lvwInterestPoint])
 AX_PKG(GDAL, [], [-lgdal], [gdal.h])
 AM_CONDITIONAL(HAVE_PKG_GDAL, [test "$HAVE_PKG_GDAL" = "yes"])
 
-AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -lProducer], [osg/ref_ptr])
+AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads], [osg/ref_ptr])
 AX_PKG(MBA, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
 AX_PKG(SPICE, [], [-lcspice -lcsupport], [SpiceUsr.h SpiceZfc.h])
 AX_PKG(SIFT, [], [-llowesift], [key.h])

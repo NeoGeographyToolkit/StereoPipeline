@@ -35,10 +35,12 @@ hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
 
 apollo_sources = apollo/StereoSessionApolloMetric.cc
 
+clementine_sources = clementine/StereoSessionClementine.cc
+
 generic_stereo_sources = file_lib.cc StereoSession.cc \
 		 StereoSessionKeypoint.cc StereoSessionPinhole.cc SIFT.cc Spice.cc \
 		 TabulatedDataReader.cc $(ctx_sources) $(moc_sources) $(hrsc_sources) \
-		 $(apollo_sources)
+		 $(apollo_sources) $(clementine_sources)
 
 stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
 

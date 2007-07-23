@@ -20,10 +20,10 @@ namespace fs = boost::filesystem;
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Cartography.h>
+#include <vw/Cartography/OrthoImageView.h>
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
-
 
 #include "StereoSession.h"
 using namespace std;
@@ -107,55 +107,12 @@ int main(int argc, char* argv[]) {
   // Open the DEM
   GeoReference georef;
   cartography::read_georeference(georef, dem_file);
-  DiskImageView<double> dem(dem_file);
+  DiskImageView<float> dem(dem_file);
 
-  // Compute the bounding box that encompasses all of the
-  // available points.
-  BBox3 dem_bbox;
-  vw_out(InfoMessage) << "Computing DEM bounding box...\n";
-  TerminalProgressCallback progress_callback;
-  progress_callback.report_progress(0);
-
-  for (unsigned int j = 0; j < dem.rows(); j++) {
-    progress_callback.report_progress(float(j)/dem.rows());
-    for (unsigned int i= 0; i < dem.cols(); i++) {
-      Vector3 lon_lat = georef.transform() * Vector3(i,j,1);
-      Vector3 lon_lat_alt = lon_lat / lon_lat(2);
-      lon_lat_alt(2) = dem(i,j);
-      dem_bbox.grow(lon_lat_alt);
-    }
-  }
-  progress_callback.report_finished();
-
-  std::cout << "DEM BBox: " << dem_bbox << "\n";
-
-  std::cout << "Converting back to cartesian coordinates.\n";
-  //  ImageViewRef<Vector3> point_image = dtm_to_point_image(dem, georef);
-  ImageViewRef<Vector3> point_image = ImageView<Vector3>(10,10); // placeholder
-  point_image = add_datum(point_image, georef.datum());
-  point_image = lon_lat_radius_to_xyz(point_image);
-
-  // Save out the results to a temporary file on disk.
-  DiskCacheImageView<Vector3> cached_point_image(point_image, "exr");
-  
   DiskImageView<PixelGray<uint8> > texture_disk_image(image_file);
-  EdgeExtensionView<DiskImageView<PixelGray<uint8> >, ZeroEdgeExtension> texture_image(texture_disk_image, ZeroEdgeExtension());
-  
-  vw_out(InfoMessage) << "Orthoprojecting...\n";
-  TerminalProgressCallback progress_callback2;
-  progress_callback2.report_progress(0);
-
-  ImageView<PixelGray<uint8> > result(cached_point_image.cols(), 
-                                      cached_point_image.rows());
-  for (unsigned int j = 0; j < cached_point_image.rows(); ++j) {
-    for (unsigned int i = 0; i < cached_point_image.cols(); ++i) {
-      Vector2 imaged_pix = camera_model->point_to_pixel(cached_point_image(i,j));
-      result(i,j) = texture_image(imaged_pix(0),imaged_pix(1));
-    }
-  }
   
   // Write out the results
-  write_georeferenced_image(output_file, result, georef);
-
+  vw_out(0) << "Orthoprojecting...\n";
+  write_image(output_file, orthoproject(dem, georef, texture_disk_image, camera_model, BilinearInterpolation(), ZeroEdgeExtension()), TerminalProgressCallback() );
   return(0);
 }

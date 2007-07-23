@@ -59,7 +59,7 @@ void append_model(std::ofstream &output_file, double ephemeris_time, double scal
                     position, velocity, pose,
                     spacecraft, reference_frame, planet, instrument);
 
-  cartography::XYZtoLonLatFunctor<double> func;
+  cartography::XYZtoLonLatRadFunctor func;
   Vector3 lon_lat_alt = func(position);
 
   Matrix3x3 correction_rot = vw::math::euler_to_rotation_matrix((90-lon_lat_alt(1))*M_PI/180, (90+lon_lat_alt(0))*M_PI/180, 0, "xzy");

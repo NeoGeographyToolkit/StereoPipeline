@@ -3,6 +3,7 @@
 #include "HRSC/StereoSessionHRSC.h"
 #include "MOC/StereoSessionMOC.h"
 #include "apollo/StereoSessionApolloMetric.h"
+#include "clementine/StereoSessionClementine.h"
 #include "MRO/StereoSessionCTX.h"
 
 #include <vw/Core/Exception.h>
@@ -31,6 +32,7 @@ static void register_default_session_types() {
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
+  StereoSession::register_session_type( "clementine", &StereoSessionClementine::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
 }
 
