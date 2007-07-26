@@ -36,13 +36,10 @@ void StereoSessionPinhole::camera_models(boost::shared_ptr<camera::CameraModel> 
       left_cahv = CAHVModel(m_left_camera_file);
       right_cahv = CAHVModel(m_right_camera_file);
 
-    }
-    
-    else if ( (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") &&
+    } else if ( (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") &&
 	       boost::ends_with(boost::to_lower_copy(m_right_camera_file), ".tsai")) ) {
-      left_cahv = PinholeModel(m_left_camera_file);
-      right_cahv = PinholeModel(m_right_camera_file);
-      
+            left_cahv = linearize_camera( PinholeModel(m_left_camera_file));
+            right_cahv = linearize_camera( PinholeModel(m_right_camera_file));
     } else {
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported cameara file type.\n");
     }
@@ -107,8 +104,8 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
        PinholeModel left_unrectified_pinhole(m_left_camera_file);
        PinholeModel right_unrectified_pinhole(m_right_camera_file);
        
-       ImageViewRef<PixelGray<float> > Limg = transform(left_disk_image, CameraTransform<CAHVModel, CAHVModel>(left_unrectified_pinhole, *left_cahv));
-       ImageViewRef<PixelGray<float> > Rimg = transform(right_disk_image, CameraTransform<CAHVModel, CAHVModel>(right_unrectified_pinhole, *right_cahv));
+       ImageViewRef<PixelGray<float> > Limg = transform(left_disk_image, CameraTransform<PinholeModel, CAHVModel>(left_unrectified_pinhole, *left_cahv));
+       ImageViewRef<PixelGray<float> > Rimg = transform(right_disk_image, CameraTransform<PinholeModel, CAHVModel>(right_unrectified_pinhole, *right_cahv));
        output_file1 = m_out_prefix + "-L.tif";
        output_file2 = m_out_prefix + "-R.tif";
        write_image(output_file1, channel_cast_rescale<uint8>(Limg));

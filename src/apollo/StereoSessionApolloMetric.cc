@@ -81,6 +81,21 @@ class MetricCameraLensDistortion : public LensDistortionBase<MetricCameraLensDis
                      yp * m_pixels_per_mm + cv);
       //      vw_out(0)<< "     " << result << "\n";
     }
+  virtual void write(std::ostream & os) const {
+    os << "radial[0] = " << m_radial[0] << "\n";
+    os << "radial[1] = " << m_radial[1] << "\n";
+    os << "radial[2] = " << m_radial[2] << "\n";
+    os << "tangential[0] = " << m_tangential[0] << "\n";
+    os << "tangential[1] = " << m_tangential[1] << "\n";
+    os << "tangential[2] = " << m_tangential[2] << "\n";
+    os << "pixels per mm = " << m_pixels_per_mm << "\n";
+  }
+
+  friend std::ostream & operator<<(std::ostream & os, const MetricCameraLensDistortion mcld){
+    mcld.write(os);
+    return os;
+  }
+  
   };
 
 
