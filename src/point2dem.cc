@@ -155,7 +155,7 @@ int main( int argc, char *argv[] ) {
       std::cout << "Unknown reference spheroid: " << reference_spheroid << ".  Current options are [ moon , mars ]\nExiting.\n\n";
       exit(0);
     }
-  } else {
+  } else if (semi_major != 0 && semi_minor != 0) {
     std::cout << "Re-referencing altitude values using user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
     datum = cartography::Datum("User Specified Datum",
                                "User Specified Spherem",
@@ -189,7 +189,8 @@ int main( int argc, char *argv[] ) {
   else if( vm.count("lambert-azimuthal") ) georef.set_lambert_azimuthal(proj_lat,proj_lon);
   else if( vm.count("utm") ) georef.set_UTM( utm_zone );
 
-  point_image = cartography::project_point_image(point_image, georef);
+  if (!vm.count("xyz-to-lonlat"))
+    point_image = cartography::project_point_image(point_image, georef);
 
   // Rasterize the results to a temporary file on disk so as to speed
   // up processing in the orthorasterizer, which accesses each pixel
