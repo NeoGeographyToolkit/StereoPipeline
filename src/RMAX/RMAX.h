@@ -70,6 +70,7 @@ vw::camera::CAHVORModel rmax_image_camera_model( ImageInfo const& info ) {
   roll(1,0)=0;  roll(1,1)=1;   roll(1,2)=0;
   roll(2,0)=sr; roll(2,1)=0;   roll(2,2)=cr;
   pitch(0,0)=1; pitch(0,1)=0;  pitch(0,2)=0;
+  // XXX Pitch might have the wrong sign here....
   pitch(1,0)=0; pitch(1,1)=cp; pitch(1,2)=-sp;
   pitch(2,0)=0; pitch(2,1)=sp; pitch(2,2)=cp;
   yaw(0,0)=cy;  yaw(0,1)=-sy;  yaw(0,2)=0;
