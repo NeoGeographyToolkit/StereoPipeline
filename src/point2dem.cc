@@ -46,7 +46,7 @@ int main( int argc, char *argv[] ) {
 
   std::string input_file_name, out_prefix, output_file_type, texture_filename;
   unsigned cache_size, max_triangles;
-  float dem_spacing, default_value;
+  float dem_spacing, default_value=0;
   unsigned simplemesh_h_step, simplemesh_v_step;
   int debug_level;
   double semi_major, semi_minor;
@@ -60,6 +60,7 @@ int main( int argc, char *argv[] ) {
   desc.add_options()
     ("help", "Display this help message")
     ("default-value", po::value<float>(&default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
+    ("use-alpha", "Create images that have an alpha channel")
     ("dem-spacing,s", po::value<float>(&dem_spacing)->default_value(0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
     ("normalized,n", "Also write a normalized version of the DEM (for debugging)")    
     ("orthoimage", po::value<std::string>(&texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
@@ -143,7 +144,7 @@ int main( int argc, char *argv[] ) {
                                  MOLA_PEDR_EQUATORIAL_RADIUS,
                                  0.0);
     } else if (reference_spheroid == "moon") {
-      const double LUNAR_RADIUS = 1737.4;
+      const double LUNAR_RADIUS = 1737400;
       std::cout << "Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
       datum = cartography::Datum("Lunar Datum",
                                  "Lunar Spheroid",
@@ -156,7 +157,7 @@ int main( int argc, char *argv[] ) {
       exit(0);
     }
   } else if (semi_major != 0 && semi_minor != 0) {
-    std::cout << "Re-referencing altitude values using user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
+    std::cout << "Re-referencing altitude values to user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
     datum = cartography::Datum("User Specified Datum",
                                "User Specified Spherem",
                                "Prime Meridian",
@@ -189,7 +190,7 @@ int main( int argc, char *argv[] ) {
   else if( vm.count("lambert-azimuthal") ) georef.set_lambert_azimuthal(proj_lat,proj_lon);
   else if( vm.count("utm") ) georef.set_UTM( utm_zone );
 
-  if (!vm.count("xyz-to-lonlat"))
+  if (vm.count("xyz-to-lonlat"))
     point_image = cartography::project_point_image(point_image, georef);
 
   // Rasterize the results to a temporary file on disk so as to speed
@@ -206,6 +207,10 @@ int main( int argc, char *argv[] ) {
     rasterizer.set_use_minz_as_default(false); 
     rasterizer.set_default_value(default_value);    
   }
+  if (vm.count("use-alpha")) {
+    rasterizer.set_use_alpha(true);
+  }
+
   vw::BBox<float,3> dem_bbox = rasterizer.bounding_box();
   std::cout << "DEM Bounding box: " << dem_bbox << "\n";
   
@@ -214,13 +219,16 @@ int main( int argc, char *argv[] ) {
   std::cout << "Georeferencing Transform: " << georef_affine_transform << "\n";
   georef.set_transform(georef_affine_transform);
 
+  // This is a workaround for now to make GDAL write files that don't
+  // cause it to crash on read. - mbroxton
   georef.set_datum(Datum());
 
   // Write out a georeferenced orthoimage of the DTM with alpha.
   if (vm.count("orthoimage")) {
-    DiskImageView<PixelRGB<float> > texture(texture_filename); 
+    rasterizer.set_use_minz_as_default(false);
+    DiskImageView<PixelGray<float> > texture(texture_filename); 
     rasterizer.set_texture(texture);
-    BlockCacheView<PixelRGB<float> > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 2048));
+    BlockCacheView<PixelGray<float> > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 2048));
     write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(block_drg_raster), georef, TerminalProgressCallback() );
 
   // Write out a georeferenced DTM and (optionally) a normalized version of the DTM (for debugging)
