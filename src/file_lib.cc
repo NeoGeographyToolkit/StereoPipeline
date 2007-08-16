@@ -563,7 +563,7 @@ read_default_file(DFT_F *dft, TO_DO *execute, const char *filename) {
   std::ifstream fp;
   associate_dft_struct(dft, execute, &desc, &adesc);
   fp.open(filename);
-  if(fp.bad()) {
+  if(!fp) {
     std::cerr << "Error: cannot open stereo default file." << std::endl;
     exit(EXIT_FAILURE);
   }
@@ -684,7 +684,7 @@ write_default_file(DFT_F *dft, TO_DO *execute, const char *filename) {
   std::ofstream fp;
   DFT_F dftc = *dft; // copy dft so that we can unscale it
   fp.open(filename);
-  if(fp.bad()) {
+  if(!fp) {
     std::cerr << "Error: cannot open stereo default file." << std::endl;
     exit(EXIT_FAILURE);
   }
