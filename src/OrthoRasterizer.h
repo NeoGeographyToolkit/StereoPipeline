@@ -20,6 +20,7 @@ namespace cartography {
     float m_spacing;
     double m_default_value;
     bool m_minz_as_default;
+    bool m_use_alpha;
     int* m_row_start;
 
   public:
@@ -30,7 +31,7 @@ namespace cartography {
     template <class PointViewT, class TextureViewT>
     OrthoRasterizerView(PointViewT point_cloud, TextureViewT texture, float spacing = 0.0) : 
       m_point_image(point_cloud), m_texture(ImageView<float>(1,1)), // dummy value
-      m_default_value(0), m_minz_as_default(true) {
+      m_default_value(0), m_minz_as_default(true), m_use_alpha(false) {
       
       set_texture(texture.impl());
 
@@ -101,7 +102,10 @@ namespace cartography {
       renderer.Ortho2D(local_bbox.min().x(), local_bbox.max().x(), local_bbox.min().y(), local_bbox.max().y());
 
       // Set up the default color value
-      if (m_minz_as_default) {
+      if (m_use_alpha) {
+        renderer.ClearColor(-32000,-32000,-32000,1.0); // use this dummy value to denote transparency
+        renderer.Clear(vw::stereo::eColorBufferBit);
+      } else if (m_minz_as_default) {
         renderer.ClearColor(m_bbox.min().z(), m_bbox.min().z(), m_bbox.min().z(), 1.0);        
         renderer.Clear(vw::stereo::eColorBufferBit);
       } else {
@@ -133,7 +137,7 @@ namespace cartography {
       ImageView<PixelT> result(render_buffer.cols(), render_buffer.rows());
       for (int j = 0; j < render_buffer.rows(); ++j) {
         for (int i = 0; i < render_buffer.cols(); ++i) {
-          if (render_buffer(i,render_buffer.rows()-1-j) == 0) {
+          if (render_buffer(i,render_buffer.rows()-1-j) == -32000) {
             result(i,j) = PixelT();
           } else {
             result(i,j) = PixelT(render_buffer(i,render_buffer.rows()-1-j));
@@ -153,6 +157,7 @@ namespace cartography {
     template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
     /// \endcond
 
+    void set_use_alpha(bool val) { m_use_alpha = val; }
     void set_use_minz_as_default(bool val) { m_minz_as_default = val; }
     void set_default_value(double val) { m_default_value = val; }
     double default_value() { 
