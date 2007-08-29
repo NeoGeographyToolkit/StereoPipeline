@@ -91,7 +91,8 @@ int main( int argc, char *argv[] ) {
     ("rotation-order", po::value<std::string>(&rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
-    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa");
+    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa")
+    ("positive-z-up", "Use positize Z as the up axis");
   
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -200,7 +201,10 @@ int main( int argc, char *argv[] ) {
 
   // Write out the DEM, texture, and extrapolation mask as
   // georeferenced files.
-  vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2),dem_spacing);
+  int axis_multiplier = 1;
+  if (vm.count("positive-z-up"))
+    axis_multiplier = -1;
+  vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, axis_multiplier*select_channel(point_image_cache,2), dem_spacing);
   if (!vm.count("default-value") ) {
     rasterizer.set_use_minz_as_default(true); 
   } else {
