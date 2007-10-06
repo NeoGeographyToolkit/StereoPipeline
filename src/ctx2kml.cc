@@ -309,26 +309,6 @@ int main( int argc, char *argv[] ) {
     GeoReference input_georef(mars_datum, m);
     input_georef.set_stereographic(90,0,1,0,0);
 
-//     // Run some tests:
-//     std::cout << input_georef.point_to_lonlat(Vector2(projection_x_offset*meters_per_pixel,projection_y_offset*meters_per_pixel)) << "\n";
-//     std::cout << input_georef.point_to_lonlat(Vector2((projection_x_offset+1000)*meters_per_pixel,(projection_y_offset+1000)*meters_per_pixel)) << "\n";
-//     std::cout << input_georef.point_to_lonlat(Vector2((projection_x_offset+1000)*meters_per_pixel,0)) << "\n";
-//     std::cout << input_georef.point_to_lonlat(Vector2(0,(projection_y_offset+1000)*meters_per_pixel)) << "\n\n";
-
-//     std::cout << input_georef.pixel_to_lonlat(Vector2(0,0)) << "\n";
-//     std::cout << input_georef.pixel_to_lonlat(Vector2(1000,1000)) << "\n";
-//     std::cout << input_georef.pixel_to_lonlat(Vector2(1000,0)) << "\n";
-//     std::cout << input_georef.pixel_to_lonlat(Vector2(0,1000)) << "\n\n";
-
-//     std::cout << pixel_to_lonlat_test(Vector2(0,0), projection_x_offset, projection_y_offset, extent, fullwidth) << "\n";
-//     std::cout << pixel_to_lonlat_test(Vector2(1000,1000), projection_x_offset, projection_y_offset, extent, fullwidth) << "\n";
-//     std::cout << pixel_to_lonlat_test(Vector2(1000,0), projection_x_offset, projection_y_offset, extent, fullwidth) << "\n";
-//     std::cout << pixel_to_lonlat_test(Vector2(0,1000), projection_x_offset, projection_y_offset, extent, fullwidth) << "\n";
-// //     std::cout << input_georef.pixel_to_point(Vector2(0,0)) << "\n";
-// //     std::cout << input_georef.pixel_to_point(Vector2(fullwidth/2,fullwidth/2)) << "\n";
-// //     std::cout << input_georef.pixel_to_point(Vector2(fullwidth,fullwidth)) << "\n";
-//     exit(0);
-
     if( vm.count("nudge-x") || vm.count("nudge-y") ) {
       Matrix3x3 m = input_georef.transform();
       m(0,2) += nudge_x;
@@ -353,7 +333,7 @@ int main( int argc, char *argv[] ) {
   for( unsigned i=0; i<image_files.size(); ++i ) {
     GeoTransform geotx( georeferences[i], output_georef );
     ImageViewRef<PixelGrayA<uint8> > source = channel_cast<uint8>(rescale_pixels_with_alpha(mask_zero_pixels(vw::DiskImageView<uint16>( image_files[i] )), 200, 1100, 0, 255));
-
+    
     std::cout << "Preparing to write image... \n";
     BBox2i bbox = compose(kmltx,geotx).forward_bbox( BBox2i(0,0,source.cols(),source.rows()) );
     std::cout << "Bounding box: " << bbox << "\n";
