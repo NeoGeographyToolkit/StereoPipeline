@@ -17,7 +17,6 @@ namespace fs = boost::filesystem;
 
 #include <vw/Core.h>
 #include <vw/Image.h>
-#include <vw/Image/Statistics.h>
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
@@ -267,7 +266,7 @@ int main(int argc, char* argv[]) {
     // OpenEXR.
     DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
     disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
-    write_image( &disparity_map_rsrc, disparity_map, FileMetadataCollection::create(), TerminalProgressCallback() );
+    write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );
   }
 
   /***************************************************************************/

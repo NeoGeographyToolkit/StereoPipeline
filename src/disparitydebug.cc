@@ -61,6 +61,7 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
+  std::cout << "Opening " << input_file_name << "\n";
   DiskImageView<PixelDisparity<float> > disk_disparity_map(input_file_name);
 
   std::cout << "Computing disparity range... \n";

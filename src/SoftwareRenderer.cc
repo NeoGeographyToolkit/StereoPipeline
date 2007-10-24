@@ -898,15 +898,10 @@ SoftwareRenderer::DrawPolygon(const int startIndex, const int numVertices)
     Vertex vertex1(&vertices[vertexIndex1], color1);
     Vertex vertex2(&vertices[vertexIndex2], color2);
 
-    MapToWindow(vertex1.window, m_transformNDC,
-		0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),
-		vertex1.window);
-    MapToWindow(vertex2.window, m_transformNDC,
-		0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),
-		vertex2.window);
+    MapToWindow(vertex1.window, m_transformNDC, 0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),vertex1.window);
+    MapToWindow(vertex2.window, m_transformNDC,0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),vertex2.window);
 
-    FillTriangle((GraphicsState *) m_graphicsState,
-		 &vertex0, &vertex1, &vertex2);
+    FillTriangle((GraphicsState *) m_graphicsState, &vertex0, &vertex1, &vertex2);
 
     vertexIndex1 += m_triangleVertexStep;
     vertexIndex2 += m_triangleVertexStep;

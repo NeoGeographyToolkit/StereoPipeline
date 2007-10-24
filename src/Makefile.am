@@ -23,7 +23,7 @@
 # sources
 ########################################################################
 
-bin_PROGRAMS = stereo disparitydebug point2mesh point2dem orbitviz orthoproject # ctximage # ctxblend # stereo rmax2cahvor # ctx2kml ctxblend # nurbs # stereodefault
+bin_PROGRAMS = stereo disparitydebug point2mesh point2dem orbitviz orthoproject # ctximage # stereo rmax2cahvor # ctx2kml # nurbs # stereodefault
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
@@ -37,9 +37,10 @@ apollo_sources = apollo/StereoSessionApolloMetric.cc
 
 clementine_sources = clementine/StereoSessionClementine.cc
 
-generic_stereo_sources = file_lib.cc StereoSession.cc \
-		 StereoSessionKeypoint.cc StereoSessionPinhole.cc SIFT.cc Spice.cc \
-		 TabulatedDataReader.cc $(ctx_sources) $(moc_sources) $(hrsc_sources) \
+generic_stereo_sources = file_lib.cc StereoSession.cc			\
+		 StereoSessionKeypoint.cc StereoSessionPinhole.cc	\
+		 SIFT.cc Spice.cc TabulatedDataReader.cc KML.cc		\
+		 $(ctx_sources) $(moc_sources) $(hrsc_sources)		\
 		 $(apollo_sources) $(clementine_sources)
 
 stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
@@ -47,7 +48,6 @@ stereo_SOURCES = $(generic_stereo_sources) stereo.cc
 # nurbs_SOURCES = nurbs.cc
 
 ctx2kml_SOURCES = ctx2kml.cc MRO/DiskImageResourceDDD.cc
-ctxblend_SOURCES = ctxblend.cc MRO/DiskImageResourceDDD.cc
 orbitviz_SOURCES = orbitviz.cc Spice.cc
 orthoproject_SOURCES = orthoproject.cc $(generic_stereo_sources)
 # ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc

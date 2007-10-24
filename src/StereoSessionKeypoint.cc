@@ -91,13 +91,13 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   // now on that platform.
 #ifdef __APPLE__
   ScaledInterestPointDetector<LoGInterest> detector;
-  KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
-  KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+  InterestPointList ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
+  InterestPointList ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
 #else
   // Old SIFT detector code.  Comment out the lines above and
   // uncomment these lines to enable. -mbroxton
-  KeypointList ip1 = interest_points(channels_to_planes(left_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
-  KeypointList ip2 = interest_points(channels_to_planes(right_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+  InterestPointList ip1 = interest_points(channels_to_planes(left_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
+  InterestPointList ip2 = interest_points(channels_to_planes(right_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
 #endif 
 
   // Discard points beyond some number to keep matching time within reason.
@@ -130,7 +130,7 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
 
   Matrix<double> align_matrix = ransac(matched_ip2, matched_ip1, 
 				       vw::math::SimilarityFittingFunctor(),
-				       KeypointErrorMetric());
+				       InterestPointErrorMetric());
 
   if (m_sub_sampling > 1)
     scale_align_matrix(align_matrix);

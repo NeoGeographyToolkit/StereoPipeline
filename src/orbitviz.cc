@@ -52,7 +52,7 @@ inline Vector3 rotation_matrix_to_euler_zxy(const Matrix<double,3,3> rotation_ma
 
 void append_model(std::ofstream &output_file, double ephemeris_time, double scale, 
                   std::string spacecraft, std::string reference_frame, std::string planet, std::string instrument, int index) {
-
+  
   Vector3 position, velocity;
   Quaternion<double> pose;
   spice::body_state(ephemeris_time,

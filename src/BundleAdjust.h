@@ -4,6 +4,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/Stereo/StereoModel.h>
 
 #include <boost/shared_ptr.hpp>
 
@@ -12,13 +13,13 @@ namespace camera {
 
   class TransformedCameraModel : public CameraModel {
     
-    const CameraModel* m_camera;
+    boost::shared_ptr<CameraModel> m_camera;
     Vector3 m_translation;
     Quaternion<double> m_rotation;
     Quaternion<double> m_rotation_inverse;
     
   public:
-    TransformedCameraModel(CameraModel const& camera_model) : m_camera(&camera_model) {
+    TransformedCameraModel(boost::shared_ptr<CameraModel> camera_model) : m_camera(camera_model) {
       m_rotation = math::Quaternion<double>(math::identity_matrix<3>());
       m_rotation_inverse = math::Quaternion<double>(math::identity_matrix<3>());
     }
@@ -38,16 +39,25 @@ namespace camera {
       m_rotation = Quaternion<double>(rotation);
       m_rotation_inverse = inverse(m_rotation);
     }
-        
+
     virtual Vector2 point_to_pixel (Vector3 const& point) const {
-      vw_throw(NoImplErr() << "TransformedCameraModel: point_to_pixel() not yet implemented.\n");
-     }
+      //       std::cout<< "\t   Orig: " << point << "\n";
+      //       std::cout<< "\tRotated: " << m_rotation.rotate(point) << "\n";
+      //       std::cout<< "\t   Orig: " << m_camera->point_to_pixel(point) << "\n";
+      //       std::cout << *(static_cast<PinholeModel*>(&(*m_camera)))<<"\n";
+      //       std::cout<< "\tRotated: " << m_camera->point_to_pixel(m_rotation.rotate(point)) << "\n";
+
+      Vector2 original_pix = m_camera->point_to_pixel(point);
+      Vector3 cam_center = m_camera->camera_center(original_pix);
+      Vector3 vec = point-cam_center;
+      return m_camera->point_to_pixel(m_rotation.rotate(vec) + this->camera_center(original_pix));  // Is this correct?
+    }
 
     virtual Vector3 pixel_to_vector (Vector2 const& pix) const {
-//       std::cout << m_rotation.rotation_matrix() << "\n";
-//       std::cout << m_rotation_inverse.rotation_matrix() << "\n";
-//      std::cout << m_rotation << "\n";
-//       std::cout << m_rotation_inverse << "\n\n";
+      //       std::cout << m_rotation.rotation_matrix() << "\n";
+      //       std::cout << m_rotation_inverse.rotation_matrix() << "\n";
+      //       std::cout << m_rotation << "\n";
+      //       std::cout << m_rotation_inverse << "\n\n";
       
       return m_rotation_inverse.rotate(m_camera->pixel_to_vector(pix));
     }
@@ -55,18 +65,23 @@ namespace camera {
     virtual Vector3 camera_center (Vector2 const& pix) const {
       return m_camera->camera_center(pix) + m_translation;
     }
+
+    virtual Quaternion<double> camera_pose(Vector2 const& pix) const {
+      return m_camera->camera_pose(pix)*m_rotation_inverse;      
+    }
+
   };
-}}  
+}  
   
 class CameraPointingOptimizeFunc {
   
-  TransformedCameraModel m_camera1, m_camera2;
-  StereoModel m_stereo_model;
+  vw::camera::TransformedCameraModel m_camera1, m_camera2;
+  vw::stereo::StereoModel m_stereo_model;
   std::vector<Vector2> m_pixel_list1, m_pixel_list2;
   
 public:
-  CameraPointingOptimizeFunc(CameraModel const& camera1, 
-                             CameraModel const& camera2,
+  CameraPointingOptimizeFunc(boost::shared_ptr<camera::CameraModel> camera1, 
+                             boost::shared_ptr<camera::CameraModel> camera2,
                              std::vector<Vector2> pixel_list1,
                              std::vector<Vector2> pixel_list2) :
     m_camera1(camera1), m_camera2(camera2), 
@@ -83,7 +98,7 @@ public:
     m_camera1.set_rotation(Quaternion<double>(q1[0], q1[1], q1[2], q1[3]));
     m_camera2.set_rotation(Quaternion<double>(q2[0], q2[1], q2[2], q2[3]));
     
-    StereoModel test_model(m_camera1, m_camera2);
+    vw::stereo::StereoModel test_model(m_camera1, m_camera2);
 
     double error;
     double total_error = 0;
@@ -95,6 +110,118 @@ public:
   }
   
 };
+
+class CameraToGroundOptimizePoseFunc {
+  
+  vw::camera::TransformedCameraModel m_camera;
+  std::vector<Vector3> m_ground_pts;
+  std::vector<Vector2> m_image_pts;
+
+public:
+  CameraToGroundOptimizePoseFunc(boost::shared_ptr<camera::CameraModel> camera, 
+                             std::vector<Vector3> ground_pts,
+                             std::vector<Vector2> image_pts) :
+    m_camera(camera), m_ground_pts(ground_pts), m_image_pts(image_pts) {
+
+    VW_ASSERT(m_ground_pts.size() == m_image_pts.size(),
+              ArgumentErr() << "CameraToGroundOptimizeFunc: ground and image point lists are not the same length.");
+    VW_ASSERT(m_ground_pts.size() >= 4,
+              ArgumentErr() << "CameraToGroundOptimizeFunc: not enought tie points (" << m_ground_pts.size() << " found and at least 4 are needed.");
+  }
+  
+  double operator()(Vector<double,4> const& quaternion) {
+    Vector4 q1 = normalize(quaternion);
+    m_camera.set_rotation(Quaternion<double>(q1[0], q1[1], q1[2], q1[3]));
+
+    double error;
+    double total_error = 0;
+    for (int i = 0; i < m_ground_pts.size(); ++i) {
+      Vector2 image_pix = m_camera.point_to_pixel(m_ground_pts[i]);
+      //    std::cout << "--> " << m_ground_pts[i] << "  to  " << image_pix << "    ref to " << m_image_pts[i] << "\n";
+      total_error += norm_2(image_pix - m_image_pts[i]);
+    }
+    //    exit(0);
+    //    std::cout << "Seed: " << quaternion << "   Error: " << total_error << "\n";
+    return total_error;
+  }
+  
+};
+
+
+class CameraToGroundOptimizePositionFunc {
+  
+  vw::camera::TransformedCameraModel m_camera;
+  std::vector<Vector3> m_ground_pts;
+  std::vector<Vector2> m_image_pts;
+
+public:
+  CameraToGroundOptimizePositionFunc(boost::shared_ptr<camera::CameraModel> camera, 
+                             std::vector<Vector3> ground_pts,
+                             std::vector<Vector2> image_pts) :
+    m_camera(camera), m_ground_pts(ground_pts), m_image_pts(image_pts) {
+
+    VW_ASSERT(m_ground_pts.size() == m_image_pts.size(),
+              ArgumentErr() << "CameraToGroundOptimizeFunc: ground and image point lists are not the same length.");
+    VW_ASSERT(m_ground_pts.size() >= 4,
+              ArgumentErr() << "CameraToGroundOptimizeFunc: not enought tie points (" << m_ground_pts.size() << " found and at least 4 are needed.");
+  }
+  
+  double operator()(Vector<double,3> const& translation) {
+    m_camera.set_translation(translation);
+
+    double error;
+    double total_error = 0;
+    for (int i = 0; i < m_ground_pts.size(); ++i) {
+      Vector2 image_pix = m_camera.point_to_pixel(m_ground_pts[i]);
+      //    std::cout << "--> " << m_ground_pts[i] << "  to  " << image_pix << "    ref to " << m_image_pts[i] << "\n";
+      total_error += norm_2(image_pix - m_image_pts[i]);
+    }
+    //    exit(0);
+    //    std::cout << "Seed: " << quaternion << "   Error: " << total_error << "\n";
+    return total_error;
+  }
+  
+};
+
+class CameraToGroundOptimizeFunc {
+  
+  vw::camera::TransformedCameraModel m_camera;
+  std::vector<Vector3> m_ground_pts;
+  std::vector<Vector2> m_image_pts;
+
+public:
+  CameraToGroundOptimizeFunc(boost::shared_ptr<camera::CameraModel> camera, 
+                             std::vector<Vector3> ground_pts,
+                             std::vector<Vector2> image_pts) :
+    m_camera(camera), m_ground_pts(ground_pts), m_image_pts(image_pts) {
+
+    VW_ASSERT(m_ground_pts.size() == m_image_pts.size(),
+              ArgumentErr() << "CameraToGroundOptimizeFunc: ground and image point lists are not the same length.");
+    VW_ASSERT(m_ground_pts.size() >= 4,
+              ArgumentErr() << "CameraToGroundOptimizeFunc: not enought tie points (" << m_ground_pts.size() << " found and at least 4 are needed.");
+  }
+  
+  double operator()(Vector<double,7> const& vals) {
+    Vector4 q1 = normalize(subvector(vals, 0, 4));
+    m_camera.set_rotation(Quaternion<double>(q1[0], q1[1], q1[2], q1[3]));
+    m_camera.set_translation(subvector(vals, 4,3));
+
+    double error;
+    double total_error = 0;
+    for (int i = 0; i < m_ground_pts.size(); ++i) {
+      Vector2 image_pix = m_camera.point_to_pixel(m_ground_pts[i]);
+      //    std::cout << "--> " << m_ground_pts[i] << "  to  " << image_pix << "    ref to " << m_image_pts[i] << "\n";
+      total_error += norm_2(image_pix - m_image_pts[i]);
+    }
+    //    exit(0);
+    //    std::cout << "Seed: " << quaternion << "   Error: " << total_error << "\n";
+    return total_error;
+  }
+  
+};
+
+
+
 
 inline void create_bundle_adjustment_pixel_list(ImageView<PixelDisparity<double> > const& disparity_map,
                                                 int step_size,
@@ -111,5 +238,5 @@ inline void create_bundle_adjustment_pixel_list(ImageView<PixelDisparity<double>
   }
 }
 
-
+}
 #endif // __BUNDLE_ADJUST_H__
