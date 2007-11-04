@@ -89,31 +89,16 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   // For some reason the interest point detector crashes sometimes
   // under linux so I've reverted to lowe style interest points for
   // now on that platform.
-#ifdef __APPLE__
-  ScaledInterestPointDetector<LoGInterest> detector;
-  InterestPointList ip1 = interest_points(channels_to_planes(left_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
-  InterestPointList ip2 = interest_points(channels_to_planes(right_disk_image), detector, MAX_KEYPOINT_IMAGE_DIMENSION);
-#else
-  // Old SIFT detector code.  Comment out the lines above and
-  // uncomment these lines to enable. -mbroxton
-  InterestPointList ip1 = interest_points(channels_to_planes(left_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
-  InterestPointList ip2 = interest_points(channels_to_planes(right_disk_image), LoweDetector(), MAX_KEYPOINT_IMAGE_DIMENSION);
-#endif 
-
-  // Discard points beyond some number to keep matching time within reason.
-  // Currently this is limited by the use of the patch descriptor.
-#ifdef __APPLE__			   // don't truncate if using Lowe-SIFT
-  static const int NUM_POINTS = 1000;
-  vw_out(InfoMessage) << "\tTruncating to " << NUM_POINTS << " points\n";
-  cull_interest_points(ip1, NUM_POINTS);
-  cull_interest_points(ip2, NUM_POINTS);
-#endif
+  ScaledInterestPointDetector<LogInterestOperator> detector;
+  InterestPointList ip1 = detector(channels_to_planes(left_disk_image), MAX_KEYPOINT_IMAGE_DIMENSION);
+  InterestPointList ip2 = detector(channels_to_planes(right_disk_image), MAX_KEYPOINT_IMAGE_DIMENSION);
 
   // Generate descriptors for interest points.
   // TODO: Switch to SIFT descriptor
   vw_out(InfoMessage) << "\tGenerating descriptors... ";
-  compute_descriptors(left_disk_image, ip1, PatchDescriptor() );
-  compute_descriptors(right_disk_image, ip2, PatchDescriptor() );
+  PatchDescriptorGenerator descriptor;
+  descriptor(left_disk_image, ip1);
+  descriptor(right_disk_image, ip2);
   vw_out(InfoMessage) << "done.\n";
     
   // The basic interest point matcher does not impose any
