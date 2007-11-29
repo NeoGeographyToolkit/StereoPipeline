@@ -19,7 +19,7 @@ endif
 #------------------------------------------------------------
 MODE = nopt
 
-INCLUDEDIRS=./include /opt/local/include
+INCLUDEDIRS=./include /opt/local/include /irg/packages/i386_darwin_gcc4.0/local/include
 LINKDIRS=./lib
 LINKLIBS=
 
