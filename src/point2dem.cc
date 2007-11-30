@@ -91,8 +91,7 @@ int main( int argc, char *argv[] ) {
     ("rotation-order", po::value<std::string>(&rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
-    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa")
-    ("positive-z-up", "Use positize Z as the up axis");
+    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa");
   
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -120,7 +119,7 @@ int main( int argc, char *argv[] ) {
   ImageViewRef<Vector3> point_image = point_disk_image;
 
   // Apply an (optional) rotation to the 3D points before building the mesh.
-  if (phi_rot != 0 && omega_rot != 0 && kappa_rot != 0) {
+  if (phi_rot != 0 || omega_rot != 0 || kappa_rot != 0) {
     std::cout << "Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
     Matrix3x3 rotation_trans = math::euler_to_rotation_matrix(phi_rot,omega_rot,kappa_rot,rot_order);
     point_image = per_pixel_filter(point_image, PointTransFunc(rotation_trans));
@@ -201,10 +200,7 @@ int main( int argc, char *argv[] ) {
 
   // Write out the DEM, texture, and extrapolation mask as
   // georeferenced files.
-  int axis_multiplier = 1;
-  if (vm.count("positive-z-up"))
-    axis_multiplier = -1;
-  vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, axis_multiplier*select_channel(point_image_cache,2), dem_spacing);
+  vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2), dem_spacing);
   if (!vm.count("default-value") ) {
     rasterizer.set_use_minz_as_default(true); 
   } else {
