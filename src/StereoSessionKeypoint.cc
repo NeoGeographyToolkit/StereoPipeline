@@ -22,7 +22,7 @@ using namespace vw;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
-  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
+  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
 void
@@ -85,22 +85,18 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
 
   // Interest Point module detector code.
-  //
-  // For some reason the interest point detector crashes sometimes
-  // under linux so I've reverted to lowe style interest points for
-  // now on that platform.
   ScaledInterestPointDetector<LogInterestOperator> detector;
-  InterestPointList ip1 = detector(channels_to_planes(left_disk_image), MAX_KEYPOINT_IMAGE_DIMENSION);
-  InterestPointList ip2 = detector(channels_to_planes(right_disk_image), MAX_KEYPOINT_IMAGE_DIMENSION);
+  InterestPointList ip1 = detect_interest_points(channels_to_planes(left_disk_image), detector);
+  InterestPointList ip2 = detect_interest_points(channels_to_planes(right_disk_image), detector);
 
   // Generate descriptors for interest points.
-  // TODO: Switch to SIFT descriptor
+  // TODO: Switch to a more sophisticated descriptor
   vw_out(InfoMessage) << "\tGenerating descriptors... ";
   PatchDescriptorGenerator descriptor;
   descriptor(left_disk_image, ip1);
   descriptor(right_disk_image, ip2);
   vw_out(InfoMessage) << "done.\n";
-    
+ 
   // The basic interest point matcher does not impose any
   // constraints on the matched interest points.
   vw_out(InfoMessage) << "\nInterest Point Matching:\n";

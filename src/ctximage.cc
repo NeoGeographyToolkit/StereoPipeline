@@ -17,7 +17,6 @@ namespace po = boost::program_options;
 using namespace vw;
 using namespace vw::cartography;
 
-
 #include <MRO/DiskImageResourceDDD.h>
 
 /// Erases a file suffix if one exists and returns the base string
@@ -93,41 +92,56 @@ inline rescale_pixels_with_alpha( ImageViewBase<ImageT> const& image, ValT old_l
 
 
 int main( int argc, char *argv[] ) {
+
+  // The DiskImageResourceDDD needs to be registered since it is not a
+  // built-in VW FileIO driver.
   vw::DiskImageResource::register_file_type( ".ddd", vw::DiskImageResourceDDD::type_static(), &vw::DiskImageResourceDDD::construct_open, &vw::DiskImageResourceDDD::construct_create );
   
-  set_debug_level(VerboseDebugMessage+11);
 
   std::string input_file_name, output_file_name, index_file_name;
+  int debug_level;
 
   po::options_description desc("Options");
   desc.add_options()
     ("help", "Display this help message")
     ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
-    ("output-file,o", po::value<std::string>(&output_file_name)->default_value("output.png"), "Specify the output file")
-    ("index-file,i", po::value<std::string>(&index_file_name)->default_value("none"), "Specify the index file")
-    ("verbose", "Verbose output");
+    ("index-file", po::value<std::string>(&index_file_name)->default_value("none"), "Specify the index file")
+    ("output-file,o", po::value<std::string>(&output_file_name)->default_value("none"), "Specify the output file")
+    ("debug-level", po::value<int>(&debug_level)->default_value(InfoMessage), "Set the level of debugging output.");
   po::positional_options_description p;
   p.add("input-file", 1);
+  p.add("index-file", 2);
 
   po::variables_map vm;
   po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
   po::notify( vm );
 
   if( vm.count("help") ) {
-    std::cout << desc << std::endl;
+    std::cout << "Usage: " << argv[0] << " <ddd file> <catalog file>\n";
+    std::cout << desc << "\n";
     return 1;
   }
 
   if( vm.count("input-file") != 1 ) {
-    std::cout << "Error: Must specify exactly one input file!" << std::endl;
-    std::cout << desc << std::endl;
+    std::cout << "Error: Must specify exactly one input file!\n\n";
+    std::cout << "Usage: " << argv[0] << " <ddd file> <catalog file>\n";
+    std::cout << desc << "\n";
     return 1;
   }
 
-  if( vm.count("verbose") ) {
-    set_debug_level(VerboseDebugMessage);
+  if( vm.count("index-file") != 1 ) {
+    std::cout << "Error: Must specify exactly one index file!\n\n";
+    std::cout << "Usage: " << argv[0] << " <ddd file> <catalog file>\n";
+    std::cout << desc << "\n";
+    return 1;
   }
 
+  if (output_file_name == "none") {
+    output_file_name = prefix_from_filename(input_file_name) + ".tif";
+  }
+
+  // Set the vision workbench debugging output level.
+  set_debug_level(debug_level);
 
   // The following big 'ol chunk of code fetches the sun incidence
   // angle from the ctx catalog for use in photometric calibration.
@@ -179,10 +193,15 @@ int main( int argc, char *argv[] ) {
   }
 
   try {
-    DiskImageView<PixelGray<uint16> > disk_image(input_file_name);
-    DiskImageResourceDDD file_resource( input_file_name );
+    ImageView<PixelGrayA<uint16> > disk_image;
+    read_image(disk_image, input_file_name);
+
+    // Use the grassfire algorithm to force the black border
+    // information to be transparent.
+    select_channel(disk_image,1) = clamp(grassfire(select_channel(disk_image,0)),0,1) * 65535;
 
     // Fetch parameters from the CTX header
+    DiskImageResourceDDD file_resource( input_file_name );
     double fullwidth = atol(file_resource.query("projection_fullwidth").c_str());
     double projection_x_offset = atol(file_resource.query("projection_x_offset").c_str());
     double projection_y_offset = atol(file_resource.query("projection_y_offset").c_str());
@@ -215,16 +234,20 @@ int main( int argc, char *argv[] ) {
                                             // number close to zero
                                             // for very larg incidence
                                             // angles
-      ImageViewRef<PixelGray<uint8> > corrected_image = channel_cast<uint8>(normalize(clamp(log(1+(disk_image / (exposure*sun_coeff))),norm_low,norm_high),norm_low,norm_high,0.0,255.0));
-      write_georeferenced_image( output_file_name, corrected_image, georef, TerminalProgressCallback() );
+      ImageViewRef<PixelGrayA<uint8> > corrected_image = channel_cast<uint8>(normalize(clamp(log(1+(disk_image / (exposure*sun_coeff))),norm_low,norm_high),norm_low,norm_high,0.0,255.0));
+      DiskImageResourceGDAL r = DiskImageResourceGDAL( output_file_name, corrected_image.format(), Vector2i(1024,1024) );
+      write_georeference( r, georef );
+      write_image(r, corrected_image, TerminalProgressCallback() );
     } else {
 
       // See comment above about choosing these normalization factors.
       float norm_low = 6;
       float norm_high = 8;
 
-      ImageViewRef<PixelGray<uint8> > corrected_image = channel_cast<uint8>(normalize(clamp(log(disk_image/exposure),norm_low,norm_high),norm_low,norm_high,0.0,255.0));
-      write_georeferenced_image( output_file_name, corrected_image, georef, TerminalProgressCallback() );
+      ImageViewRef<PixelGrayA<uint8> > corrected_image = channel_cast<uint8>(normalize(clamp(log(disk_image/exposure),norm_low,norm_high),norm_low,norm_high,0.0,255.0));
+      DiskImageResourceGDAL r = DiskImageResourceGDAL( output_file_name, corrected_image.format(), Vector2i(1024,1024) );
+      write_georeference( r, georef );
+      write_image(r, corrected_image, TerminalProgressCallback() );
     }
   }
   catch( Exception& e ) {
