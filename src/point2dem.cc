@@ -196,9 +196,9 @@ int main( int argc, char *argv[] ) {
   // Rasterize the results to a temporary file on disk so as to speed
   // up processing in the orthorasterizer, which accesses each pixel
   // multiple times.
-  DiskCacheImageView<Vector3> point_image_cache(point_image, "exr");
-
-  // Write out the DEM, texture, and extrapolation mask as
+  DiskCacheImageView<Vector3> point_image_cache(point_image, "tif");
+  
+  // write out the DEM, texture, and extrapolation mask as
   // georeferenced files.
   vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2), dem_spacing);
   if (!vm.count("default-value") ) {

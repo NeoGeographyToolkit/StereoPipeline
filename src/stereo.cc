@@ -44,8 +44,8 @@ enum { PREPROCESSING = 0,
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
-  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_XYZ; };
+  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
 //***********************************************************************
@@ -173,18 +173,14 @@ int main(int argc, char* argv[]) {
 
     std::string pre_preprocess_file1, pre_preprocess_file2;
     session->pre_preprocessing_hook(in_file1, in_file2, pre_preprocess_file1, pre_preprocess_file2);
-
-    std::cout << "Pre_Preprocess_Files: " << pre_preprocess_file1 << "   " << pre_preprocess_file2 << "\n";
     DiskImageView<PixelGray<uint8> > left_rectified_image(pre_preprocess_file1);
     DiskImageView<PixelGray<uint8> > right_rectified_image(pre_preprocess_file2);
     
-    // The generate_mask() routine returns an ImageView<bool>, so we
-    // currently multiply by 255 to scale the bool value to a uint8.
     cout << "\nGenerating image masks...";
     int mask_buffer = std::max(dft.h_kern, dft.v_kern);
     ImageViewRef<uint8> Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
     ImageViewRef<uint8> Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
-    printf("Done.\n");
+    cout << "Done.\n";
     write_image(out_prefix + "-lMask.tif", Lmask);
     write_image(out_prefix + "-rMask.tif", Rmask);
   }
@@ -306,8 +302,11 @@ int main(int argc, char* argv[]) {
       DiskCacheImageView<PixelDisparity<float> > filtered_disparity_map(disparity_map, "exr");
 
       // Write out the extrapolation mask imaege
+
+      std::cout << "\n---> Good pixel start!\n";
       if(execute.w_extrapolation_mask) 
         write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), TerminalProgressCallback());
+      std::cout << "\n---> Good pixel stop!\n";
 
       // Call out to NURBS hole filling code.  The hole filling is
       // done with a subsampled (by 4) images and then the hole filled
