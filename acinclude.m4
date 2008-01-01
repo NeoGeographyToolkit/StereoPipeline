@@ -1,8 +1,10 @@
 dnl __BEGIN_LICENSE__
-dnl
+dnl 
 dnl Copyright (C) 2006 United States Government as represented by the
 dnl Administrator of the National Aeronautics and Space Administration
 dnl (NASA).  All Rights Reserved.
+dnl 
+dnl Copyright 2006 Carnegie Mellon University. All rights reserved.
 dnl 
 dnl This software is distributed under the NASA Open Source Agreement
 dnl (NOSA), version 1.3.  The NOSA has been approved by the Open Source
@@ -16,7 +18,7 @@ dnl SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
 dnl A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
 dnl THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
 dnl DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
-dnl
+dnl 
 dnl __END_LICENSE__
 
 dnl Usage: AX_CONFIG_HEADER_PREFIX(<filename>, <prefix>)
@@ -44,6 +46,38 @@ AC_DEFUN([AX_CONFIG_HEADER_PREFIX],
   ])
 ])
 
+dnl Usage: AX_PROG_AR
+dnl Provides a workaround for Mac OS X's unusual ar behavior, so that 
+dnl it's possible to build static convenience libraries using libtool 
+dnl on that platform.  Basically, if we're on a Mac we introduce a 
+dnl wrapper shell script for ar that detects when we're creating an 
+dnl empty library and creates it by hand.  In all other cases it just 
+dnl relays the arguments to the user's AR.
+AC_DEFUN([AX_PROG_AR],
+[
+  AC_REQUIRE([AM_AUX_DIR_EXPAND])
+  AC_MSG_CHECKING([whether to use ar.sh wrapper script])
+  if test $host_vendor = "apple"; then
+    AC_MSG_RESULT([yes])
+    if test -z "$AR" ; then
+      ax_ar_prog=ar;
+    else
+      ax_ar_prog=$AR;
+    fi
+    AR=$am_aux_dir/ar.sh
+    cat > $AR <<_AX_EOF
+#!/bin/sh
+if test -z "[\${3}]" ; then
+  echo '!<arch>' > [\${2}]
+else
+  $ax_ar_prog [\${*}]
+fi
+_AX_EOF
+    chmod +x $am_aux_dir/ar.sh
+  else
+    AC_MSG_RESULT([no])
+  fi
+])
 
 dnl Usage: AX_FIND_FILES(<filenames>, <search paths>)
 dnl Looks to see if all the given filenames (relative paths) are accessible 
@@ -62,11 +96,11 @@ AC_DEFUN([AX_FIND_FILES],
       ax_find_files_paths=`ls $pathname 2>/dev/null`
       if test ! -z "$ax_find_files_paths" ; then
         if test "$ENABLE_VERBOSE" = "yes"; then
-	  AC_MSG_RESULT([found])
+          AC_MSG_RESULT([found])
         fi
       else
         if test "$ENABLE_VERBOSE" = "yes"; then
-	  AC_MSG_RESULT([not found])
+          AC_MSG_RESULT([not found])
         fi
         ax_find_files_passed=no
         break
@@ -83,84 +117,128 @@ AC_DEFUN([AX_FIND_FILES],
 dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>])
 AC_DEFUN([AX_PKG],
 [
-  AC_MSG_CHECKING(for package $1)
-  if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_RESULT([])
+  AC_ARG_WITH(translit($1,`A-Z',`a-z'),
+    AC_HELP_STRING([--with-]translit($1,`A-Z',`a-z'), [enable searching for the $1 package @<:@auto@:>@]),
+    [ HAVE_PKG_$1=$withval ]
+  )
+
+  if test x"$ENABLE_VERBOSE" = "xyes"; then
+    AC_MSG_CHECKING([for package $1 in current paths])
+  else
+    AC_MSG_CHECKING([for package $1])
   fi
 
-  HAVE_PKG_$1=yes
+  AC_LANG_SAVE
+  AC_LANG(C++)
 
-  # Test for and inherit flags from dependencies
-  for x in $2; do
-    ax_pkg_have_dep=HAVE_PKG_${x}
-    if test "${!ax_pkg_have_dep}" == "yes"; then
-      ax_pkg_dep_cppflags=PKG_${x}_CPPFLAGS
-      ax_pkg_dep_ldflags=PKG_${x}_LDFLAGS
-      PKG_$1_CPPFLAGS="${PKG_$1_CPPFLAGS} ${!ax_pkg_dep_cppflags}"
-      PKG_$1_LDFLAGS="${PKG_$1_LDFLAGS} ${!ax_pkg_dep_ldflags}"
-      unset ax_pkg_dep_cppflags ax_pkg_dep_ldflags
+  # We can skip searching if we're already at "no"
+  if test "no" = "$HAVE_PKG_$1"; then
+    AC_MSG_RESULT([no (disabled by user)])
+  
+  else
+    # Test for and inherit libraries from dependencies
+    PKG_$1_LIBS="$3"
+    for x in $2; do
+      ax_pkg_have_dep=HAVE_PKG_${x}
+      if test "${!ax_pkg_have_dep}" = "yes"; then
+        ax_pkg_dep_libs="PKG_${x}_LIBS"
+        PKG_$1_LIBS="$PKG_$1_LIBS ${!ax_pkg_dep_libs}"
+        unset ax_pkg_dep_libs
+      else
+        unset PKG_$1_LIBS
+        HAVE_PKG_$1="no"
+        break
+      fi
+    done
+
+    if test "x$HAVE_PKG_$1" = "xno" ; then
+      AC_MSG_RESULT([no (needs $x)])
+
+    # We skip the search if the user has been explicit about "yes"
+    elif test "x$HAVE_PKG_$1" = "xyes" ; then
+      AC_MSG_RESULT([yes (using user-supplied flags)])
+
+    # Otherwise we look for a path that contains the needed headers and libraries
     else
-      unset PKG_$1_CPPFLAGS
-      unset PKG_$1_LDFLAGS
+
+      if test "x$ENABLE_VERBOSE" = "yes"; then
+	AC_MSG_RESULT([searching...])
+      fi
+
       HAVE_PKG_$1=no
-      break
-    fi
-  done
 
-  # Test for and configure flags for header and library files
-  if test "$HAVE_PKG_$1" = "yes" ; then
-    unset ax_pkg_headers ax_pkg_libs
-    if test ! -z "$3"; then
-      ax_pkg_libs=`echo $3 | sed 's/-l\([[^[:space:]]]*\)/lib\/lib\1.*/g'`
-    fi
-    if test ! -z "$4"; then
-      if test ! -z "$5"; then
-        ax_pkg_headers=`for x in $4; do echo -n "include/$5/${x} "; done`
-      else
-        ax_pkg_headers=`for x in $4; do echo -n "include/${x} "; done`
+      ax_pkg_old_libs=$LIBS
+      LIBS=$PKG_$1_LIBS $LIBS
+      for path in none $PKG_PATHS; do
+	ax_pkg_old_cppflags=$CPPFLAGS
+	ax_pkg_old_ldflags=$LDFLAGS
+	ax_pkg_old_vw_cppflags=$ASP_CPPFLAGS
+	ax_pkg_old_vw_ldflags=$ASP_LDFLAGS
+	echo > conftest.h
+	for header in $4 ; do
+	  echo "#include <$header>" >> conftest.h
+	done
+	CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
+	LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
+	if test "$path" != "none"; then
+	  if test x"$ENABLE_VERBOSE" = "xyes"; then
+	    AC_MSG_CHECKING([for package $1 in $path])
+	  fi
+          if test -z "$5"; then
+            ASP_CPPFLAGS="-I$path/include $ASP_CPPFLAGS"
+	  else
+	    ASP_CPPFLAGS="-I$path/include/$5 $ASP_CPPFLAGS"
+          fi
+	  CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
+	  AC_LINK_IFELSE(
+	    AC_LANG_PROGRAM([#include "conftest.h"],[]),
+	    [ HAVE_PKG_$1=yes ; AC_MSG_RESULT([yes]) ; break ] )
+	  ASP_LDFLAGS="-L$path/lib $ASP_LDFLAGS"
+	  LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
+	fi
+	AC_LINK_IFELSE(
+	  AC_LANG_PROGRAM([#include "conftest.h"],[]),
+	  [ HAVE_PKG_$1=yes ; AC_MSG_RESULT([yes]) ; break ] )
+	if test x"$ENABLE_VERBOSE" = "xyes"; then
+	  AC_MSG_RESULT([no])
+	fi
+	CPPFLAGS=$ax_pkg_old_cppflags
+	LDFLAGS=$ax_pkg_old_ldflags
+	ASP_CPPFLAGS=$ax_pkg_old_vw_cppflags
+	ASP_LDFLAGS=$ax_pkg_old_vw_ldflags
+      done
+      CPPFLAGS=$ax_pkg_old_cppflags
+      LDFLAGS=$ax_pkg_old_ldflags
+      LIBS=$ax_pkg_old_libs
+
+      if test "x$HAVE_PKG_$1" = "xno" -a "x$ENABLE_VERBOSE" != "xyes"; then
+	AC_MSG_RESULT([no (not found)])
       fi
-    fi
-    ax_pkg_files="$ax_pkg_headers $ax_pkg_libs"
-    if test ! -z "$3" || test ! -z "$4" ; then
-      AX_FIND_FILES([$ax_pkg_files], [$PKG_PATHS])
-      if test -z "$ax_find_files_path"; then
-        HAVE_PKG_$1=no
-      else
-        PKG_$1_LDFLAGS="${PKG_$1_LDFLAGS} -L$ax_find_files_path/lib $3"
-        if test -z "$5"; then
-          PKG_$1_CPPFLAGS="${PKG_$1_CPPFLAGS} -I$ax_find_files_path/include"
-        else
-          PKG_$1_CPPFLAGS="${PKG_$1_CPPFLAGS} -I${ax_find_files_path}/include/$5"
-        fi
-      fi
-    fi
-  fi
 
-  if test "$HAVE_PKG_$1" != "yes" ; then
-    PKG_$1_CPPFLAGS=
-    PKG_$1_LDFLAGS=
-  fi
+    fi
 
+  fi
   if test ${HAVE_PKG_$1} = "yes" ; then
     ax_have_pkg_bool=1
   else
     ax_have_pkg_bool=0
+    PKG_$1_LIBS=
   fi
   AC_DEFINE_UNQUOTED([HAVE_PKG_$1],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the $1 package is available.])
 
-  AC_SUBST(PKG_$1_CPPFLAGS)
-  AC_SUBST(PKG_$1_LDFLAGS)
+  AC_SUBST(PKG_$1_LIBS)
   AC_SUBST(HAVE_PKG_$1)
 
-  if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_NOTICE([PKG_$1_CPPFLAGS = ${PKG_$1_CPPFLAGS}])
-    AC_MSG_NOTICE([PKG_$1_LDFLAGS = ${PKG_$1_LDFLAGS}])
+  if test x"$ENABLE_VERBOSE" == "xyes"; then
     AC_MSG_NOTICE([HAVE_PKG_$1 = ${HAVE_PKG_$1}])
-  else
-    AC_MSG_RESULT([${HAVE_PKG_$1}])
+    AC_MSG_NOTICE([PKG_$1_LIBS= $PKG_$1_LIBS])
+    AC_MSG_NOTICE([ASP_CPPFLAGS= $ASP_CPPFLAGS])
+    AC_MSG_NOTICE([ASP_LDFLAGS= $ASP_LDFLAGS])
   fi
+
+  AC_LANG_RESTORE
 ])
 
 
@@ -172,51 +250,102 @@ AC_DEFUN([AX_PKG_BOOST],
     AC_MSG_RESULT([])
   fi
 
-  PKG_BOOST_CPPFLAGS=
-  PKG_BOOST_LDFLAGS=
-  HAVE_PKG_BOOST=no
+  AC_LANG_SAVE
+  AC_LANG(C++)
 
-  for ax_boost_base_path in $PKG_PATHS; do
-    # First look for a system-style installation
-    if test "$ENABLE_VERBOSE" = "yes"; then
-      AC_MSG_CHECKING([for system-style boost in ${ax_boost_base_path}])
-    fi
-    if test -d "${ax_boost_base_path}/include/boost" ; then
-      PKG_BOOST_INCDIR="${ax_boost_base_path}/include"
-      PKG_BOOST_LIBDIR="${ax_boost_base_path}/lib"
-      HAVE_PKG_BOOST="yes"
+  # Skip testing if the user has overridden
+  if test -z ${HAVE_PKG_BOOST}; then
+
+    PKG_BOOST_LIBS=
+    HAVE_PKG_BOOST=no
+
+    for ax_boost_base_path in $PKG_PATHS; do
+      # First look for a system-style installation
       if test "$ENABLE_VERBOSE" = "yes"; then
-        AC_MSG_RESULT([found])
+        AC_MSG_CHECKING([for system-style boost in ${ax_boost_base_path}])
       fi
-      break
-    else
+      if test -d "${ax_boost_base_path}/include/boost" ; then
+        PKG_BOOST_INCDIR="${ax_boost_base_path}/include"
+        PKG_BOOST_LIBDIR="${ax_boost_base_path}/lib"
+        HAVE_PKG_BOOST="yes"
+        if test "$ENABLE_VERBOSE" = "yes"; then
+          AC_MSG_RESULT([found])
+        fi
+        break
+      else
+        if test "$ENABLE_VERBOSE" = "yes"; then
+          AC_MSG_RESULT([not found])
+        fi
+      fi
+      # Next look for a default-style installation
+      if test "$ENABLE_VERBOSE" = "yes"; then
+        AC_MSG_CHECKING([for default-style boost in ${ax_boost_base_path}])
+      fi
+      for ax_boost_inc_path in `ls -d ${ax_boost_base_path}/include/boost-* 2> /dev/null` ; do
+        # At the moment we greedily accept the first one we find, regardless of version
+        PKG_BOOST_INCDIR="${ax_boost_inc_path}"
+        PKG_BOOST_LIBDIR="${ax_boost_base_path}/lib"
+        HAVE_PKG_BOOST="yes"
+        if test "$ENABLE_VERBOSE" = "yes"; then
+          AC_MSG_RESULT([found])
+        fi
+        break 2
+      done
       if test "$ENABLE_VERBOSE" = "yes"; then
         AC_MSG_RESULT([not found])
       fi
-    fi
-    # Next look for a default-style installation
-    if test "$ENABLE_VERBOSE" = "yes"; then
-      AC_MSG_CHECKING([for default-style boost in ${ax_boost_base_path}])
-    fi
-    for ax_boost_inc_path in `ls -d ${ax_boost_base_path}/include/boost-* 2> /dev/null` ; do
-      # At the moment we greedily accept the first one we find, regardless of version
-      PKG_BOOST_INCDIR="${ax_boost_inc_path}"
-      PKG_BOOST_LIBDIR="${ax_boost_base_path}/lib"
-      HAVE_PKG_BOOST="yes"
-      if test "$ENABLE_VERBOSE" = "yes"; then
-        AC_MSG_RESULT([found])
-      fi
-      break 2
     done
-    if test "$ENABLE_VERBOSE" = "yes"; then
-      AC_MSG_RESULT([not found])
-    fi
-  done
+  fi
 
-  if test "$HAVE_PKG_BOOST" = "yes" ; then
-    PKG_BOOST_CPPFLAGS="-I${PKG_BOOST_INCDIR}"
-    PKG_BOOST_LDFLAGS="-L${PKG_BOOST_LIBDIR}"
-  fi 
+  if test ${HAVE_PKG_BOOST} = "yes" ; then
+    ax_pkg_old_vw_cppflags=$ASP_CPPFLAGS
+    ax_pkg_old_vw_ldflags=$ASP_LDFLAGS
+    ax_pkg_old_cppflags=$CPPFLAGS
+    ax_pkg_old_ldflags=$LDFLAGS
+    ax_pkg_old_libs=$LIBS
+    while true ; do
+      # First see if the current paths are sufficient
+      if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+	AC_MSG_CHECKING([whether current paths are sufficient...])
+      fi
+      AC_LINK_IFELSE( AC_LANG_PROGRAM([#include <boost/version.hpp>],[]), [ax_result=yes], [ax_result=no] )
+      if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+	AC_MSG_RESULT([$ax_result])
+      fi
+      if test "$ax_result" = "yes" ; then break ; fi
+      # Try it with just the include path
+      ASP_CPPFLAGS="-I${PKG_BOOST_INCDIR} $ASP_CPPFLAGS"
+      CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
+      if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+	AC_MSG_CHECKING([whether adding the include path is sufficient...])
+      fi
+      AC_LINK_IFELSE( AC_LANG_PROGRAM([#include <boost/version.hpp>],[]), [ax_result=yes], [ax_result=no] )
+      if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+	AC_MSG_RESULT([$ax_result])
+      fi
+      if test "$ax_result" = "yes" ; then break ; fi
+      # Finally, try it with the linker path
+      ASP_LDFLAGS="-L${PKG_BOOST_LIBDIR} $ASP_LDFLAGS"
+      LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
+      if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+	AC_MSG_CHECKING([whether adding the include and linker paths works...])
+      fi
+      AC_LINK_IFELSE( AC_LANG_PROGRAM([#include <boost/version.hpp>],[]), [ax_result=yes], [ax_result=no] )
+      if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+	AC_MSG_RESULT([$ax_result])
+      fi
+      if test "$ax_result" = "yes" ; then break ; fi
+      # The detected version of boost seems to be invalid!
+      HAVE_PKG_BOOST="no"
+      ASP_CPPFLAGS="$ax_pkg_old_vw_cppflags"
+      ASP_LDFLAGS="$ax_pkg_old_vw_ldflags"
+      unset PKG_BOOST_INCDIR
+      unset PKG_BOOST_LIBDIR
+      break
+    done
+  fi
+  CPPFLAGS="$ax_pkg_old_cppflags"
+  LDFLAGS="$ax_pkg_old_ldflags"
 
   if test ${HAVE_PKG_BOOST} = "yes" ; then
     ax_have_pkg_bool=1
@@ -227,18 +356,19 @@ AC_DEFUN([AX_PKG_BOOST],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the BOOST package is available.])
 
-  AC_SUBST(PKG_BOOST_CPPFLAGS)
-  AC_SUBST(PKG_BOOST_LDFLAGS)
   AC_SUBST(HAVE_PKG_BOOST)
 
   if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_NOTICE([PKG_BOOST_CPPFLAGS = ${PKG_BOOST_CPPFLAGS}])
-    AC_MSG_NOTICE([PKG_BOOST_LDFLAGS = ${PKG_BOOST_LDFLAGS}])
-    AC_MSG_NOTICE([HAVE_PKG_BOOST = ${HAVE_PKG_BOOST}])
+    AC_MSG_NOTICE([HAVE_PKG_BOOST= $HAVE_PKG_BOOST])
+    AC_MSG_NOTICE([ASP_CPPFLAGS= $ASP_CPPFLAGS])
+    AC_MSG_NOTICE([ASP_LDFLAGS= $ASP_LDFLAGS])
   else
-    AC_MSG_RESULT([${HAVE_PKG_BOOST}])
+    AC_MSG_RESULT([$HAVE_PKG_BOOST])
   fi
+
+  AC_LANG_RESTORE
 ])
+
 
 # Usage: AX_PKG_LAPACK
 #
@@ -248,61 +378,117 @@ AC_DEFUN([AX_PKG_BOOST],
 # compiling BLAS and LAPACK ourselves.
 AC_DEFUN([AX_PKG_LAPACK],
 [
-  AC_MSG_CHECKING(for package LAPACK)
-  if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_RESULT([])
-  fi
 
-  PKG_LAPACK_CPPFLAGS=
-  PKG_LAPACK_LDFLAGS=
-  HAVE_PKG_LAPACK=no
-
-	# If we are running MacOS X, we can use Apple's vecLib framework to
+  # If we are running MacOS X, we can use Apple's vecLib framework to
   # provide us with LAPACK and BLAS routines.
-  if test $host_vendor == apple; then
-		HAVE_PKG_LAPACK="yes"
-		
-		# This workaround sidesteps a bug in libtool that prevents the
-		# -framework directive on a mac from being used when it appears in
-		# the inherited_linker_flags of a *.la file.  Instead we force the
-		# framework to appear in linker lines throughout the Vision
-		# Workbench build system.  This allows binary apps to link when
-		# necessary, and it is a harmless extra option in all other cases.
-    #
-    # Someday when libtool gets its act together, we should go for the
-    # more conservative, commented out line that follows and remove
-    # the uncommented line below.
-    LDFLAGS="$LDFLAGS -framework vecLib"
-    #	  PKG_LAPACK_LDFLAGS="-framework vecLib"
+  if test $host_vendor = apple; then
+    AC_MSG_CHECKING(for package LAPACK)
+    if test "$ENABLE_VERBOSE" = "yes"; then
+      AC_MSG_RESULT([])
+    fi
+
+    HAVE_PKG_LAPACK="yes"
+    PKG_LAPACK_LIBS="$ASP_LDFLAGS -framework vecLib"
 
     if test "$ENABLE_VERBOSE" = "yes"; then
       AC_MSG_RESULT([found])
     fi
-	fi
+    if test ${HAVE_PKG_LAPACK} = "yes" ; then
+      ax_have_pkg_bool=1
+    else
+      ax_have_pkg_bool=0
+    fi
+    AC_DEFINE_UNQUOTED([HAVE_PKG_LAPACK],
+                       [$ax_have_pkg_bool],
+                       [Define to 1 if the LAPACK package is available.])
 
-  if test ${HAVE_PKG_LAPACK} = "yes" ; then
-    ax_have_pkg_bool=1
+    AC_SUBST(HAVE_PKG_LAPACK)
+
+    if test "$ENABLE_VERBOSE" = "yes"; then
+      AC_MSG_NOTICE([HAVE_PKG_LAPACK = ${HAVE_PKG_LAPACK}])
+      AC_MSG_NOTICE([PKG_LAPACK_LIBS = ${PKG_LAPACK_LIBS}])
+      AC_MSG_NOTICE([ASP_CPPFLAGS = ${ASP_CPPFLAGS}])
+      AC_MSG_NOTICE([ASP_LDFLAGS = ${ASP_LDFLAGS}])
+    else
+      AC_MSG_RESULT([${HAVE_PKG_LAPACK}])
+    fi  
+
+  # For all other platforms, we search for static LAPACK libraries
+  # in the conventional manner.
   else
-    ax_have_pkg_bool=0
+    # First check for CLAPACK
+    AX_PKG(LAPACK, [], [-lclapack -lblas -lf2c], [])
+    if test "$HAVE_PKG_LAPACK" = "no"; then
+      unset HAVE_PKG_LAPACK
+      # Otherwise check for standard LAPACK
+      AC_MSG_NOTICE(["CLAPACK not found, trying standard LAPACK."])
+      unset HAVE_PKG_LAPACK
+      AX_PKG(LAPACK, [], [-llapack -lblas], [])
+    fi
+    if test "$HAVE_PKG_LAPACK" = "no"; then
+      unset HAVE_PKG_LAPACK
+      # Some newer boxes require -lgfortran, so try that too
+      AC_MSG_NOTICE(["trying standard LAPACK with -lgfortran."])
+      unset HAVE_PKG_LAPACK
+      AX_PKG(LAPACK, [], [-llapack -lblas -lgfortran], [])
+    fi
   fi
-  AC_DEFINE_UNQUOTED([HAVE_PKG_LAPACK],
-                     [$ax_have_pkg_bool],
-                     [Define to 1 if the LAPACK package is available.])
 
-  AC_SUBST(PKG_LAPACK_CPPFLAGS)
-  AC_SUBST(PKG_LAPACK_LDFLAGS)
-  AC_SUBST(HAVE_PKG_LAPACK)
-
-  if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_NOTICE([PKG_LAPACK_CPPFLAGS = ${PKG_LAPACK_CPPFLAGS}])
-    AC_MSG_NOTICE([PKG_LAPACK_LDFLAGS = ${PKG_LAPACK_LDFLAGS}])
-    AC_MSG_NOTICE([HAVE_PKG_LAPACK = ${HAVE_PKG_LAPACK}])
-  else
-    AC_MSG_RESULT([${HAVE_PKG_LAPACK}])
-  fi
 ])
 
-# Usage: AX_PKG_BOOST_LIB(<name>, <dependencies>, <libraries>)
+# Usage: AX_PKG_GL
+#
+# TODO: Add support for other sources of GL and BLAS, such as
+# ATLAS and the Intel math libraries.  For people who don't have any
+# of these third party libraries installed, we need to fall back to
+# compiling BLAS and GL ourselves.
+AC_DEFUN([AX_PKG_GL],
+[
+
+  # If we are running MacOS X, we can use Apple's vecLib framework to
+  # provide us with GL and BLAS routines.
+  if test $host_vendor = apple; then
+    AC_MSG_CHECKING(for package GL)
+    if test "$ENABLE_VERBOSE" = "yes"; then
+      AC_MSG_RESULT([])
+    fi
+
+    HAVE_PKG_GL="yes"
+    PKG_GL_LIBS="$ASP_LDFLAGS -framework OpenGL -framework GLUT"
+
+    if test "$ENABLE_VERBOSE" = "yes"; then
+      AC_MSG_RESULT([found])
+    fi
+    if test ${HAVE_PKG_GL} = "yes" ; then
+      ax_have_pkg_bool=1
+    else
+      ax_have_pkg_bool=0
+    fi
+    AC_DEFINE_UNQUOTED([HAVE_PKG_GL],
+                       [$ax_have_pkg_bool],
+                       [Define to 1 if the GL package is available.])
+
+    AC_SUBST(HAVE_PKG_GL)
+
+    if test "$ENABLE_VERBOSE" = "yes"; then
+      AC_MSG_NOTICE([HAVE_PKG_GL = ${HAVE_PKG_GL}])
+      AC_MSG_NOTICE([PKG_GL_LIBS = ${PKG_GL_LIBS}])
+      AC_MSG_NOTICE([ASP_CPPFLAGS = ${ASP_CPPFLAGS}])
+      AC_MSG_NOTICE([ASP_LDFLAGS = ${ASP_LDFLAGS}])
+    else
+      AC_MSG_RESULT([${HAVE_PKG_GL}])
+    fi  
+
+  # For all other platforms, we search for static GL libraries
+  # in the conventional manner.
+  else
+    AX_PKG(GL, [X11], [-lGL -lGLU -lglut], [GL/gl.h GL/glu.h GL/glut.h])
+  fi
+
+])
+
+
+# Usage: AX_PKG_BOOST_LIB(<name>, <libraries>, <header>)
 AC_DEFUN([AX_PKG_BOOST_LIB],
 [
   AC_MSG_CHECKING(for package BOOST_$1)
@@ -310,39 +496,94 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
     AC_MSG_RESULT([])
   fi
 
-  PKG_BOOST_$1_CPPFLAGS=
-  PKG_BOOST_$1_LDFLAGS=
-  HAVE_PKG_BOOST_$1=no
+  AC_LANG_SAVE
+  AC_LANG(C++)
 
-  # Check for general Boost presence
-  if test "x${HAVE_PKG_BOOST}" = "xyes" ; then
-    # Check for required headers
-    AX_FIND_FILES([$3],[${PKG_BOOST_INCDIR}])
-    if test ! -z "$ax_find_files_path" ; then
-      # Check for required libraries with no suffix
-      AX_FIND_FILES([`echo $2 | sed 's/-l\([[^[:space:]]]*\)/lib\1.*/g'`],[$PKG_BOOST_LIBDIR])
+  # Skip testing if the user has overridden
+  if test -z ${HAVE_PKG_BOOST_$1}; then
+
+    HAVE_PKG_BOOST_$1=no
+
+    # Check for general Boost presence
+    if test "x${HAVE_PKG_BOOST}" = "xyes" ; then
+      # Check for required headers
+      AX_FIND_FILES([$3],[${PKG_BOOST_INCDIR}])
       if test ! -z "$ax_find_files_path" ; then
-        HAVE_PKG_BOOST_$1="yes"
-        PKG_BOOST_$1_LDFLAGS="$2"
-      else
-        # Check for required libraries with some suffix
-				ax_pkg_boost_lib=`echo $2 | awk '{print [$]1}' | sed 's/-l\([[^[:space:]-]]*\).*/lib\1/g'`
-				ax_pkg_boost_lib_ext=`ls ${PKG_BOOST_LIBDIR}/${ax_pkg_boost_lib}-* | head -n 1 | sed "s,^${PKG_BOOST_LIBDIR}/${ax_pkg_boost_lib}\(-[[^.]]*\).*,\1,"`
-        if test ! -z "$ax_pkg_boost_lib_ext" ; then
-          AX_FIND_FILES([`echo $2 | sed "s/-l\([[^[:space:]]]*\)/lib\1${ax_pkg_boost_lib_ext}.*/g"`],[$PKG_BOOST_LIBDIR])
-          if test ! -z $ax_find_files_path ; then
-            HAVE_PKG_BOOST_$1="yes"
-            PKG_BOOST_$1_LDFLAGS=`echo $2 | sed "s/[[^ ]]*/&${ax_pkg_boost_lib_ext}/g"`
+        # Check for required libraries with no suffix
+        AX_FIND_FILES([`echo $2 | sed 's/-l\([[^[:space:]]]*\)/lib\1.*/g'`],[$PKG_BOOST_LIBDIR])
+        if test ! -z "$ax_find_files_path" ; then
+          HAVE_PKG_BOOST_$1="yes"
+          PKG_BOOST_$1_LIBS="$2"
+        else
+          # Check for required libraries with some suffix
+          ax_pkg_boost_lib=`echo $2 | awk '{print [$]1}' | sed 's/-l\([[^[:space:]-]]*\).*/lib\1/g'`
+          ax_pkg_boost_lib_ext=`ls ${PKG_BOOST_LIBDIR}/${ax_pkg_boost_lib}-* | head -n 1 | sed "s,^${PKG_BOOST_LIBDIR}/${ax_pkg_boost_lib}\(-[[^.]]*\).*,\1,"`
+          if test ! -z "$ax_pkg_boost_lib_ext" ; then
+            AX_FIND_FILES([`echo $2 | sed "s/-l\([[^[:space:]]]*\)/lib\1${ax_pkg_boost_lib_ext}.*/g"`],[$PKG_BOOST_LIBDIR])
+            if test ! -z $ax_find_files_path ; then
+              HAVE_PKG_BOOST_$1="yes"
+              PKG_BOOST_$1_LIBS=`echo $2 | sed "s/[[^ ]]*/&${ax_pkg_boost_lib_ext}/g"`
+            fi
           fi
         fi
       fi
     fi
   fi
 
-  if test ${HAVE_PKG_BOOST_$1} = "yes" ; then
-    PKG_BOOST_$1_CPPFLAGS=$PKG_BOOST_CPPFLAGS
-    PKG_BOOST_$1_LDFLAGS="$PKG_BOOST_LDFLAGS $PKG_BOOST_$1_LDFLAGS"
-  fi
+  ax_pkg_old_vw_cppflags=$ASP_CPPFLAGS
+  ax_pkg_old_vw_ldflags=$ASP_LDFLAGS
+  ax_pkg_old_cppflags=$CPPFLAGS
+  ax_pkg_old_ldflags=$LDFLAGS
+  ax_pkg_old_libs=$LIBS
+  while true ; do
+    echo > conftest.h
+    for header in $3 ; do
+      echo "#include <$header>" >> conftest.h
+    done
+    # First see if the current paths are sufficient
+    if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+      AC_MSG_CHECKING([whether current paths are sufficient...])
+    fi
+    CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
+    LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
+    LIBS="$PKG_BOOST_$1_LIBS $ax_pkg_old_libs"
+    AC_LINK_IFELSE( AC_LANG_PROGRAM([#include "conftest.h"],[]), [ax_result=yes], [ax_result=no] )
+    if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+      AC_MSG_RESULT([$ax_result])
+    fi
+    if test "$ax_result" = "yes" ; then break ; fi
+    # Try it with just the include path
+    if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+      AC_MSG_CHECKING([whether adding the include path is sufficient...])
+    fi
+    ASP_CPPFLAGS="-I${PKG_BOOST_INCDIR} $ASP_CPPFLAGS"
+    CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
+    AC_LINK_IFELSE( AC_LANG_PROGRAM([#include "conftest.h"],[]), [ax_result=yes], [ax_result=no] )
+    if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+      AC_MSG_RESULT([$ax_result])
+    fi
+    if test "$ax_result" = "yes" ; then break ; fi
+    # Finally, try it with the linker path
+    if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+      AC_MSG_CHECKING([whether adding the include and linker paths works...])
+    fi
+    ASP_LDFLAGS="-L${PKG_BOOST_LIBDIR} $ASP_LDFLAGS"
+    LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
+    AC_LINK_IFELSE( AC_LANG_PROGRAM([#include "conftest.h"],[]), [ax_result=yes], [ax_result=no] )
+    if test "x${ENABLE_VERBOSE}" = "xyes" ; then
+      AC_MSG_RESULT([$ax_result])
+    fi
+    if test "$ax_result" = "yes" ; then break ; fi
+    # The detected version of boost seems to be invalid!
+    HAVE_PKG_BOOST_$1="no"
+    ASP_CPPFLAGS="$ax_pkg_old_vw_cppflags"
+    ASP_LDFLAGS="$ax_pkg_old_vw_ldflags"
+    break
+  done
+
+  CPPFLAGS="$ax_pkg_old_cppflags"
+  LDFLAGS="$ax_pkg_old_ldflags"
+  LIBS="$ax_pkg_old_libs"
 
   if test ${HAVE_PKG_BOOST_$1} = "yes" ; then
     ax_have_pkg_bool=1
@@ -353,17 +594,17 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the BOOST_$1 package is available.])
 
-  AC_SUBST(PKG_BOOST_$1_CPPFLAGS)
-  AC_SUBST(PKG_BOOST_$1_LDFLAGS)
   AC_SUBST(HAVE_PKG_BOOST_$1)
+  AC_SUBST(PKG_BOOST_$1_LIBS)
 
   if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_NOTICE([PKG_BOOST_$1_CPPFLAGS = ${PKG_BOOST_$1_CPPFLAGS}])
-    AC_MSG_NOTICE([PKG_BOOST_$1_LDFLAGS = ${PKG_BOOST_$1_LDFLAGS}])
     AC_MSG_NOTICE([HAVE_PKG_BOOST_$1 = ${HAVE_PKG_BOOST_$1}])
+    AC_MSG_NOTICE([PKG_BOOST_$1_LIBS= $PKG_BOOST_$1_LIBS])
   else
     AC_MSG_RESULT([${HAVE_PKG_BOOST_$1}])
   fi
+
+  AC_LANG_RESTORE
 ])
 
 
@@ -379,17 +620,17 @@ AC_DEFUN([AX_PKG_PTHREADS],
   AC_LANG_C
   HAVE_PKG_PTHREADS=no
 
-  ax_pkg_pthreads_cppflags_options="-pthread none"
-  ax_pkg_pthreads_ldflags_options="none -lpthread"
+  ax_pkg_pthreads_cppflags_options="none -pthread"
+  ax_pkg_pthreads_ldflags_options="-lpthread none"
 
   for ax_pkg_pthreads_ldflags in $ax_pkg_pthreads_ldflags_options; do
-    if test "$ax_pkg_pthreads_ldflags" == "none" ; then
+    if test "$ax_pkg_pthreads_ldflags" = "none" ; then
       PKG_PTHREADS_LDFLAGS=""
     else
       PKG_PTHREADS_LDFLAGS=$ax_pkg_pthreads_ldflags
     fi
     for ax_pkg_pthreads_cppflags in $ax_pkg_pthreads_cppflags_options; do
-      if test "$ax_pkg_pthreads_cppflags" == "none" ; then
+      if test "$ax_pkg_pthreads_cppflags" = "none" ; then
         PKG_PTHREADS_CPPFLAGS=""
       else
         PKG_PTHREADS_CPPFLAGS=$ax_pkg_pthreads_cppflags
@@ -401,7 +642,7 @@ AC_DEFUN([AX_PKG_PTHREADS],
       LDFLAGS="$PKG_PTHREADS_LDFLAGS $LDFLAGS"
 
       if test "$ENABLE_VERBOSE" = "yes" ; then
-        AC_MSG_CHECKING([whether pthreads work with flags: \"$CFLAGS $LDFLAGS\"])
+        AC_MSG_CHECKING([whether pthreads work with flags: \"$CFLAGS\" : \"$LDFLAGS\"])
       fi
 
       AC_TRY_LINK([#include <pthread.h>],
@@ -424,10 +665,9 @@ AC_DEFUN([AX_PKG_PTHREADS],
   AC_LANG_RESTORE
 
   if test "$HAVE_PKG_PTHREADS" = "yes" ; then
-    PKG_PTHREADS_LDFLAGS="$PKG_PTHREADS_CPPFLAGS $PKG_PTHREADS_LDFLAGS"
-  else
-    PKG_PTHREADS_CPPFLAGS=""
-    PKG_PTHREADS_LDFLAGS=""
+    CFLAGS="$CFLAGS $PKG_PTHREADS_CPPFLAGS"
+    CXXFLAGS="$CXXFLAGS $PKG_PTHREADS_CPPFLAGS"
+    PKG_PTHREADS_LIBS="$PKG_PTHREADS_LDFLAGS"
   fi
 
   if test ${HAVE_PKG_PTHREADS} = "yes" ; then
@@ -439,86 +679,88 @@ AC_DEFUN([AX_PKG_PTHREADS],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the PTHREADS package is available.])
 
-  AC_SUBST(PKG_PTHREADS_CPPFLAGS)
-  AC_SUBST(PKG_PTHREADS_LDFLAGS)
   AC_SUBST(HAVE_PKG_PTHREADS)
+  AC_SUBST(PKG_PTHREADS_LIBS)
 
   if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_NOTICE([PKG_PTHREADS_CPPFLAGS = ${PKG_PTHREADS_CPPFLAGS}])
-    AC_MSG_NOTICE([PKG_PTHREADS_LDFLAGS = ${PKG_PTHREADS_LDFLAGS}])
     AC_MSG_NOTICE([HAVE_PKG_PTHREADS = ${HAVE_PKG_PTHREADS}])
+    AC_MSG_NOTICE([PKG_PTHREADS_LIBS = ${PKG_PTHREADS_LIBS}])
+    AC_MSG_NOTICE([CFLAGS= $CFLAGS])
+    AC_MSG_NOTICE([CXXFLAGS= $CXXFLAGS])
   else
     AC_MSG_RESULT([${HAVE_PKG_PTHREADS}])
   fi
 ])
 
 
-# Usage: AX_MODULE(<name>, <directory>, <default>, <required dependencies>[, <optional dependencies>])
-AC_DEFUN([AX_MODULE],
+# Usage: AX_APP(<name>, <directory>, <default>, <required dependencies>[, <optional dependencies>])
+AC_DEFUN([AX_APP],
 [
+  # Silently ignore modules that don't exist in this distribution
+  if test -d $2 ; then
 
-  AC_ARG_ENABLE([module-]translit($1,`A-Z',`a-z'),
-    AC_HELP_STRING([--enable-module-]translit($1,`A-Z',`a-z'), [enable the $2 module @<:@$3@:>@]), 
-    [ ENABLE_MODULE_$1=$enableval ],
-    [ if test x$ENABLE_MODULE_$1 = x; then ENABLE_MODULE_$1=$3 ; fi ]
-  )
+    HAVE_PKG_$1_SRC=yes
 
-  AC_MSG_CHECKING([whether to build module $2])
-  ax_module_enable=$ENABLE_MODULE_$1
+    AC_ARG_ENABLE([app-]translit($1,`A-Z',`a-z'),
+      AC_HELP_STRING([--enable-app-]translit($1,`A-Z',`a-z'), [enable the $1 app @<:@$3@:>@]), 
+      [ ENABLE_APP_$1=$enableval ],
+      [ if test x$ENABLE_APP_$1 = x; then ENABLE_APP_$1=`echo -n $3 | tr [A-Z] [a-z]` ; fi ]
+    )
 
-  if test $ax_module_enable != "yes" ; then
-    AC_MSG_RESULT([no])
-  fi
+    AC_MSG_CHECKING([whether to build app $1])
+    ax_app_enable=$ENABLE_APP_$1
 
-  ax_cppflags=""
-  ax_ldflags=""
+    if test $ax_app_enable != "yes" ; then
+      AC_MSG_RESULT([no (disabled)])
+    fi
 
-  # Check for necessary dependencies
-  if test $ax_module_enable = "yes" ; then
-    for ax_dependency in $4 ; do
-      ax_dependency_have="HAVE_PKG_${ax_dependency}"
-      if test x${!ax_dependency_have} = "xyes"; then
-        ax_dep_cppflags="PKG_${ax_dependency}_CPPFLAGS"
-        ax_dep_ldflags="PKG_${ax_dependency}_LDFLAGS"
-        ax_cppflags="${ax_cppflags} ${!ax_dep_cppflags}"
-        ax_ldflags="${ax_ldflags} ${!ax_dep_ldflags}"
-      else
-        AC_MSG_RESULT([no])
-	AC_MSG_NOTICE([warning: unable to build requested module $2 (no ${ax_dependency})!])
-        ax_module_enable=no;
-        break;
-      fi
-    done
-  fi
+    ax_libs=""
 
-  if test $ax_module_enable = "yes" ; then
-    # Check for optional dependencies
-    for ax_dependency in $5 ; do
-      ax_dependency_have="HAVE_PKG_${ax_dependency}"
-      if test x${!ax_dependency_have} = "xyes"; then
-        ax_dep_cppflags="PKG_${ax_dependency}_CPPFLAGS"
-        ax_dep_ldflags="PKG_${ax_dependency}_LDFLAGS"
-        ax_cppflags="${ax_cppflags} ${!ax_dep_cppflags}"
-        ax_ldflags="${ax_ldflags} ${!ax_dep_ldflags}"
-      fi
-    done
-
-    # Set up the variables
-    MODULE_$1_CPPFLAGS=$ax_cppflags
-    MODULE_$1_LDFLAGS=$ax_ldflags
-    PKG_$1_CPPFLAGS=$ax_cppflags
-    PKG_$1_LDFLAGS=$ax_ldflags
-    AC_MSG_RESULT([yes])
-  fi
+    # Check for required dependencies
+    if test $ax_app_enable = "yes" ; then
+      for ax_dependency in $4 ; do
+        ax_dependency_have="HAVE_PKG_${ax_dependency}"
+        if test x${!ax_dependency_have} = "xyes"; then
+          ax_dep_libs="PKG_${ax_dependency}_LIBS"
+          ax_libs="${ax_libs} ${!ax_dep_libs}"
+        else
+          AC_MSG_RESULT([no])
+          AC_MSG_NOTICE([warning: unable to build requested app $1 (needs ${ax_dependency})!])
+          ax_app_enable=no;
+          break;
+        fi
+      done
+    fi
     
-  AC_SUBST(MODULE_$1_CPPFLAGS)
-  AC_SUBST(MODULE_$1_LDFLAGS)
-  AC_SUBST(PKG_$1_CPPFLAGS)
-  AC_SUBST(PKG_$1_LDFLAGS)
+    if test $ax_app_enable = "yes" ; then
+      # Check for optional dependencies
+      for ax_dependency in $5 ; do
+        ax_dependency_have="HAVE_PKG_${ax_dependency}"
+        if test x${!ax_dependency_have} = "xyes"; then
+          ax_dep_libs="PKG_${ax_dependency}_LIBS"
+          ax_libs="${ax_libs} ${!ax_dep_libs}"
+        fi
+      done
 
-  HAVE_PKG_$1=${ax_module_enable}
-  MAKE_MODULE_$1=${ax_module_enable}
-  AC_SUBST(MAKE_MODULE_$1)
+      # Set up the variables
+      APP_$1_LIBS=$ax_libs
+      PKG_$1_LIBS=$ax_libs
+      AC_MSG_RESULT([yes])
+    fi
+  
+  else
+    HAVE_PKG_$1_SRC=no
+    ax_app_enable=no
+    APP_$1_LIBS=
+    PKG_$1_LIBS=
+  fi
+
+  AC_SUBST(APP_$1_LIBS)
+  AC_SUBST(PKG_$1_LIBS)
+
+  HAVE_PKG_$1=${ax_app_enable}
+  MAKE_APP_$1=${ax_app_enable}
+  AC_SUBST(MAKE_APP_$1)
 
   if test ${HAVE_PKG_$1} = "yes" ; then
     ax_have_pkg_bool=1
@@ -527,18 +769,14 @@ AC_DEFUN([AX_MODULE],
   fi
   AC_DEFINE_UNQUOTED(HAVE_PKG_$1,
                      [$ax_have_pkg_bool],
-                     [Define to 1 if the $1 module is available.])
+                     [Define to 1 if the $1 app is available.])
 
-  if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_NOTICE(MODULE_$1_CPPFLAGS = ${MODULE_$1_CPPFLAGS})
-    AC_MSG_NOTICE(MODULE_$1_LDFLAGS = ${MODULE_$1_LDFLAGS})
-    AC_MSG_NOTICE(MAKE_MODULE_$1 = ${MAKE_MODULE_$1})
-    AC_MSG_NOTICE(PKG_$1_CPPFLAGS = ${PKG_$1_CPPFLAGS})
-    AC_MSG_NOTICE(PKG_$1_LDFLAGS = ${PKG_$1_LDFLAGS})
+  if test "$ENABLE_VERBOSE" = "yes" && test "$HAVE_PKG_$1_SRC" = "yes" ; then
+    AC_MSG_NOTICE(MAKE_APP_$1 = ${MAKE_APP_$1})
     AC_MSG_NOTICE(HAVE_PKG_$1 = ${HAVE_PKG_$1})
+    AC_MSG_NOTICE(APP_$1_LIBS = ${APP_$1_LIBS})
+    AC_MSG_NOTICE(PKG_$1_LIBS = ${PKG_$1_LIBS})
   fi
 
-#  We're putting these in configure.ac manually by now, for 
-#  backwards compatability with older versions of automake.
-#  AM_CONDITIONAL([MAKE_MODULE_$1], [test "$MAKE_MODULE_$1" = "yes"])
+  AM_CONDITIONAL([MAKE_APP_$1], [test "$MAKE_APP_$1" = "yes"])
 ])

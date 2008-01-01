@@ -64,7 +64,7 @@ static int init_mba_z(vw::ImageViewBase<ViewT> const& image,
 template <class PixelT> 
 class SurfaceEvaluator { 
 
-  std::vector<UCBspl::SplineSurface> &m_fitted_surfaces;
+  std::vector<UCBspl::SplineSurface> m_fitted_surfaces;
 
 public:
   SurfaceEvaluator(std::vector<UCBspl::SplineSurface> const& fitted_surfaces) : 

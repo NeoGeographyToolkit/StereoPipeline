@@ -32,6 +32,12 @@ using namespace vw::cartography;
 #include "SurfaceNURBS.h"
 #include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
 
+#include "HRSC/StereoSessionHRSC.h"
+#include "MOC/StereoSessionMOC.h"
+#include "apollo/StereoSessionApolloMetric.h"
+#include "clementine/StereoSessionClementine.h"
+#include "MRO/StereoSessionCTX.h"
+
 using namespace std;
 
 // The stereo pipeline has several stages, which are enumerated below.
@@ -159,6 +165,12 @@ int main(int argc, char* argv[]) {
   Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
 
   // Create a fresh stereo session and query it for the camera models.
+  StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
+  StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
+  StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
+  StereoSession::register_session_type( "clementine", &StereoSessionClementine::construct);
+  StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
+
   StereoSession* session = StereoSession::create(stereo_session_string);
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
                       out_prefix, extra_arg1, extra_arg2, extra_arg3, extra_arg4);

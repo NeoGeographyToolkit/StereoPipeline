@@ -16,7 +16,6 @@ using namespace vw;
 using namespace vw::ip;
 
 #include "file_lib.h"
-#include "SIFT.h"
 
 using namespace vw;
 

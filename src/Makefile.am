@@ -22,11 +22,7 @@
 ########################################################################
 # sources
 ########################################################################
-
-bin_PROGRAMS = stereo disparitydebug point2mesh point2dem orbitviz orthoproject ctximage # stereo rmax2cahvor # ctx2kml # nurbs # stereodefault
-
-moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
-	  	 MOC/Metadata.cc MOC/MOLA.cc
+#isis_sources = Isis/DiskImageResourceIsis.cc Isis/IsisCameraModel.cc
 
 ctx_sources = MRO/StereoSessionCTX.cc MRO/DiskImageResourceDDD.cc \
 			MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
@@ -35,39 +31,74 @@ hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
 
 apollo_sources = apollo/StereoSessionApolloMetric.cc
 
+moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
+	  	 MOC/Metadata.cc MOC/MOLA.cc
+
 clementine_sources = clementine/StereoSessionClementine.cc
-
 generic_stereo_sources = file_lib.cc StereoSession.cc			\
-		 StereoSessionKeypoint.cc StereoSessionPinhole.cc	\
-		 SIFT.cc Spice.cc TabulatedDataReader.cc KML.cc		\
-		 $(ctx_sources) $(moc_sources) $(hrsc_sources)		\
-		 $(apollo_sources) $(clementine_sources)
+	 	  	 StereoSessionKeypoint.cc			\
+	 	  	 StereoSessionPinhole.cc			\
+	 	  	 TabulatedDataReader.cc KML.cc 
 
-stereo_SOURCES = $(generic_stereo_sources) stereo.cc 
+bin_PROGRAMS = 
 
-# nurbs_SOURCES = nurbs.cc
+if MAKE_APP_STEREO
+  bin_PROGRAMS += stereo
+  stereo_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
+	 	   $(apollo_sources) $(clementine_sources)		\
+	 	   $(generic_stereo_sources) Spice.cc stereo.cc
+  stereo_LDFLAGS = $(APP_STEREO_LIBS)
+endif
 
-ctx2kml_SOURCES = ctx2kml.cc MRO/DiskImageResourceDDD.cc
-orbitviz_SOURCES = orbitviz.cc Spice.cc
-orthoproject_SOURCES = orthoproject.cc $(generic_stereo_sources)
-ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
+# if MAKE_APP_ISISSTEREO
+#   bin_PROGRAMS += isis_stereo
+#   isis_stereo_SOURCES = $(generic_stereo_sources) $(isis_sources)	\
+#                         isis_stereo.cc
+#   isis_stereo_LDFLAGS = $(APP_ISISSTEREO_LIBS)
+# endif
 
-disparitydebug_SOURCES = disparitydebug.cc
+if MAKE_APP_DISPARITYDEBUG
+  bin_PROGRAMS += disparitydebug
+  disparitydebug_SOURCES = disparitydebug.cc 
+  disparitydebug_LDFLAGS = $(APP_DISPARITYDEBUG_LIBS)
+endif
 
-point2mesh_SOURCES = point2mesh.cc nff_terrain.cc
-point2dem_SOURCES = point2dem.cc DEM.cc SoftwareRenderer.cc # HardwareRenderer.cc
+if MAKE_APP_POINT2MESH
+  bin_PROGRAMS += point2mesh
+  point2mesh_SOURCES = point2mesh.cc nff_terrain.cc
+  point2mesh_LDFLAGS = $(APP_POINT2MESH_LIBS)
+endif
 
-rmax2cahvor_SOURCES = rmax2cahvor.cc
+if MAKE_APP_POINT2DEM
+  bin_PROGRAMS += point2dem
+  point2dem_SOURCES = point2dem.cc DEM.cc SoftwareRenderer.cc
+  point2dem_LDFLAGS = $(APP_POINT2DEM_LIBS)
+endif
 
-stereodefault_SOURCES = stereodefault.cc file_lib.cc
 
-SUBDIRS = .
+if MAKE_APP_NURBS
+  bin_PROGRAMS += nurbs
+  nurbs_SOURCES = nurbs.cc
+  nurbs_LDFLAGS = $(APP_NURBS_LIBS)
+endif
 
-AM_CPPFLAGS = @CPPFLAGS@ @MODULE_STEREOPIPELINE_CPPFLAGS@ 
-AM_LDFLAGS = @LDFLAGS@ @MODULE_STEREOPIPELINE_LDFLAGS@ 
+if MAKE_APP_CTXIMAGE
+  bin_PROGRAMS += ctximage
+  ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
+  ctximage_LDFLAGS = $(APP_CTXIMAGE_LIBS)
+endif
+
+# ctx2kml_SOURCES = ctx2kml.cc MRO/DiskImageResourceDDD.cc
+# orbitviz_SOURCES = orbitviz.cc Spice.cc
+# orthoproject_SOURCES = orthoproject.cc $(generic_stereo_sources)
+# # ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
+# stereodefault_SOURCES = stereodefault.cc file_lib.cc
+
+AM_CPPFLAGS = @ASP_CPPFLAGS@
+AM_LDFLAGS = @ASP_LDFLAGS@ 
 
 ##############################################################################
-#                             Tests	                                         #
+#                             Tests	                                     #
 ##############################################################################
 
 include $(top_srcdir)/config/rules.mak
