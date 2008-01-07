@@ -104,6 +104,7 @@ class MetricCameraLensDistortion : public LensDistortionBase<MetricCameraLensDis
       Vector2 result(xp * m_pixels_per_mm + cu,
                      yp * m_pixels_per_mm + cv);
       //      vw_out(0)<< "     " << result << "\n";
+      return result;
     }
   virtual void write(std::ostream & os) const {
     os << "radial[0] = " << m_radial[0] << "\n";

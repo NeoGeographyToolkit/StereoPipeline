@@ -7,6 +7,8 @@ class StereoSessionPinhole: public StereoSession {
   
 public:
 
+  virtual ~StereoSessionPinhole() {}
+
   // Correct lens distortion and epipolar-rectify the images
   virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                              boost::shared_ptr<vw::camera::CameraModel> &cam2);

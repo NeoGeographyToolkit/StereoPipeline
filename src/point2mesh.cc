@@ -23,6 +23,23 @@ using namespace vw::stereo;
 #include "stereo.h"
 #include "nff_terrain.h"
 
+/// Erases a file suffix if one exists and returns the base string
+static std::string prefix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1) 
+    result.erase(index, result.size());
+  return result;
+}
+
+/// Erases a file suffix if one exists and returns the base string
+static std::string suffix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1) 
+    result.erase(0, index);
+  return result;
+}
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {

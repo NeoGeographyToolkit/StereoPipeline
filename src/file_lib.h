@@ -117,9 +117,8 @@ void read_matrix(vw::Matrix<T> &in_matrix, const std::string &filename) {
 	    vw::IOErr() << "ReadMatrix: Image file must be monochromatic (1 plane/channel) to read into a matrix.");
   
   vw::Matrix<T> result(bufferImg.rows(), bufferImg.cols());
-  unsigned int i, j;
-  for (i = 0; i < bufferImg.cols(); i++) {
-    for (j = 0; j < bufferImg.rows(); j++) {
+  for (int i = 0; i < bufferImg.cols(); i++) {
+    for (int j = 0; j < bufferImg.rows(); j++) {
       result.impl()(j,i) = bufferImg(i,j);
     }
   }

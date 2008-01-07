@@ -30,7 +30,7 @@ public:
 
 
   void set_sub_sampling(const unsigned int sub_sampling) { m_sub_sampling = sub_sampling; }
-  void get_sub_sampling(const unsigned int sub_sampling) const { m_sub_sampling; }
+  unsigned get_sub_sampling(const unsigned int sub_sampling) const { return m_sub_sampling; }
 
 protected:
   vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2);

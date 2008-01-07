@@ -37,6 +37,8 @@ public:
     m_extra_argument4 = extra_argument4;
   }
 
+  virtual ~StereoSession() {}
+
   // Temporary HACK to get some values in the DFT structure into
   // sub-classed implementations -- LJE
   virtual void initialize(struct DFT_F& stereo_defaults) {}

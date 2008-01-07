@@ -87,7 +87,7 @@ void HRSCImageMetadata::read_line_times(std::string const& filename) {
   std::cout << filename << ": " << m_line_times.size() << " records.\n";
 
   m_first_line_ephem_time = m_line_times[0];
-  for (int i = 0; i < m_line_times.size(); ++i) {
+  for (unsigned i = 0; i < m_line_times.size(); ++i) {
     m_line_times[i] -= m_first_line_ephem_time;
   }
   infile.close();
@@ -112,7 +112,7 @@ void HRSCImageMetadata::read_ephemeris_supplement(std::string const& filename) {
     //
     m_crosstrack_summing = parser.read_double("PIXEL_SUMMING");
     m_downtrack_summing = parser.read_double("PIXEL_SUMMING");
-    double scan_duration = parser.read_double("SCAN_DURATION");
+    //    double scan_duration = parser.read_double("SCAN_DURATION");
 
     double downloaded_lines = parser.read_double("DOWNLOADED_LINES");
     m_height_pixels = downloaded_lines/m_downtrack_summing;
@@ -233,7 +233,7 @@ void HRSCImageMetadata::read_extori_file(std::string const& filename, std::strin
   }
 
   // Subtract off the time for the first scanline.
-  for (int i = 0; i < m_extori_ephem_times.size(); ++i) {
+  for (unsigned i = 0; i < m_extori_ephem_times.size(); ++i) {
     m_extori_ephem_times[i] -= m_first_line_ephem_time;
 
     //    std::cout << m_extori_ephem_times[i] << ":  " << m_extori_ephem[i] << "      " << m_extori_quat[i] << "    \n";

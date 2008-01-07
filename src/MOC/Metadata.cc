@@ -232,7 +232,7 @@ void MOCImageMetadata::read_ephemeris_supplement(std::string const& filename) {
     //
     m_crosstrack_summing = parser.read_double("PIXEL_SUMMING");
     m_downtrack_summing = parser.read_double("PIXEL_SUMMING");
-    double scan_duration = parser.read_double("SCAN_DURATION");
+    //    double scan_duration = parser.read_double("SCAN_DURATION");
 
     double downloaded_lines = parser.read_double("DOWNLOADED_LINES");
     m_height_pixels = downloaded_lines/m_downtrack_summing;

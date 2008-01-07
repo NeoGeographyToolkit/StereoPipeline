@@ -4,8 +4,6 @@
 #include <vector>
 #include <string>
 
-#include "Metadata.h"
-
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/EulerAngles.h>

@@ -102,7 +102,7 @@ public:
 
     double error;
     double total_error = 0;
-    for (int i = 0; i < m_pixel_list1.size(); ++i) {
+    for (unsigned i = 0; i < m_pixel_list1.size(); ++i) {
       test_model(m_pixel_list1[i], m_pixel_list2[i], error);
       total_error += error;
     }
@@ -133,9 +133,8 @@ public:
     Vector4 q1 = normalize(quaternion);
     m_camera.set_rotation(Quaternion<double>(q1[0], q1[1], q1[2], q1[3]));
 
-    double error;
     double total_error = 0;
-    for (int i = 0; i < m_ground_pts.size(); ++i) {
+    for (unsigned i = 0; i < m_ground_pts.size(); ++i) {
       Vector2 image_pix = m_camera.point_to_pixel(m_ground_pts[i]);
       //    std::cout << "--> " << m_ground_pts[i] << "  to  " << image_pix << "    ref to " << m_image_pts[i] << "\n";
       total_error += norm_2(image_pix - m_image_pts[i]);
@@ -169,9 +168,8 @@ public:
   double operator()(Vector<double,3> const& translation) {
     m_camera.set_translation(translation);
 
-    double error;
     double total_error = 0;
-    for (int i = 0; i < m_ground_pts.size(); ++i) {
+    for (unsigned i = 0; i < m_ground_pts.size(); ++i) {
       Vector2 image_pix = m_camera.point_to_pixel(m_ground_pts[i]);
       //    std::cout << "--> " << m_ground_pts[i] << "  to  " << image_pix << "    ref to " << m_image_pts[i] << "\n";
       total_error += norm_2(image_pix - m_image_pts[i]);
@@ -206,9 +204,8 @@ public:
     m_camera.set_rotation(Quaternion<double>(q1[0], q1[1], q1[2], q1[3]));
     m_camera.set_translation(subvector(vals, 4,3));
 
-    double error;
     double total_error = 0;
-    for (int i = 0; i < m_ground_pts.size(); ++i) {
+    for (unsigned i = 0; i < m_ground_pts.size(); ++i) {
       Vector2 image_pix = m_camera.point_to_pixel(m_ground_pts[i]);
       //    std::cout << "--> " << m_ground_pts[i] << "  to  " << image_pix << "    ref to " << m_image_pts[i] << "\n";
       total_error += norm_2(image_pix - m_image_pts[i]);

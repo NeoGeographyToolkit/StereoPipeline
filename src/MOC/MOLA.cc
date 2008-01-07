@@ -88,13 +88,12 @@ std::vector<Vector2> synthetic_track(vw::ImageView<vw::Vector3> const& moc_point
                                      MOCImageMetadata const& moc_metadata,
                                      std::string const& output_prefix) {
 
-  unsigned MOLA_MOC_BORESIGHT = unsigned((double)(1574-(1024+moc_metadata.start_sample()))
-                                         / moc_metadata.crosstrack_summing());
+  int MOLA_MOC_BORESIGHT = int((double)(1574-(1024+moc_metadata.start_sample()))
+                               / moc_metadata.crosstrack_summing());
   std::cout << "\tMOLA Boresight pixel: " << MOLA_MOC_BORESIGHT << "\n";
   if (MOLA_MOC_BORESIGHT < 0 || MOLA_MOC_BORESIGHT > moc_point_image.cols()) 
     throw LogicErr() << "Boresight pixel not in captured image area.";
   
-  double t = 0;
   double time_per_scanline = moc_metadata.scan_duration() / moc_point_image.rows();
   std::vector<Vector2> result;
 
@@ -104,7 +103,7 @@ std::vector<Vector2> synthetic_track(vw::ImageView<vw::Vector3> const& moc_point
 
   fprintf(output, "Time\tLat\tLon\tPlanetary_Radius\tSpheroid_Altitude\n");
 
-  for (unsigned scanline = 0; scanline < moc_point_image.rows() ; scanline++) {
+  for (int32 scanline = 0; scanline < moc_point_image.rows() ; scanline++) {
     //    std::cout << scanline << "   " <<moc_point_image(MOLA_MOC_BORESIGHT, scanline) << "\n";
     if (moc_point_image(MOLA_MOC_BORESIGHT, scanline) != Vector3() ) {
       double radius = moc_point_image(MOLA_MOC_BORESIGHT, scanline).z() - MOLA_PEDR_EQUATORIAL_RADIUS;

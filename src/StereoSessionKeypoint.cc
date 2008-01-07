@@ -81,7 +81,6 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   // Interest points are matched in image chunk of <= 2048x2048
   // pixels to conserve memory.
   vw_out(InfoMessage) << "\nInterest Point Detection:\n";
-  static const int MAX_KEYPOINT_IMAGE_DIMENSION = 2048;
 
   // Interest Point module detector code.
   ScaledInterestPointDetector<LogInterestOperator> detector;

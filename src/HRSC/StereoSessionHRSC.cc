@@ -9,14 +9,21 @@
 using namespace vw;
 using namespace vw::camera;
 
+/// Erases a file suffix if one exists and returns the base string
+static std::string prefix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1) 
+    result.erase(index, result.size());
+  return result;
+}
+
 void StereoSessionHRSC::camera_models(boost::shared_ptr<camera::CameraModel> &cam1,
                                       boost::shared_ptr<camera::CameraModel> &cam2) {
     
   // Build the input prefix path by removing the filename suffix
   std::string in_prefix1 = prefix_from_filename(m_left_image_file);
   std::string in_prefix2 = prefix_from_filename(m_right_image_file);
-  
-  boost::shared_ptr<StereoImageMetadata> metadata1, metadata2;
   
   // Initialize the HRSC metadata object
   HRSCImageMetadata hrsc_metadata1(m_left_image_file);

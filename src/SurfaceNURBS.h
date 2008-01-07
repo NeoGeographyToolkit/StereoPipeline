@@ -29,13 +29,13 @@ template <class ChannelT>  struct is_valid_pixel<vw::PixelDisparity<ChannelT> > 
 };
 
 template <class ImageT>
-static int init_mba_xy(vw::ImageViewBase<ImageT> const& image,
+static void init_mba_xy(vw::ImageViewBase<ImageT> const& image,
                        std::vector<double> &x_array,
                        std::vector<double> &y_array) {
 
   int i = 0;
-  for (unsigned int row = 0; row < image.impl().rows(); row++) {
-    for (unsigned int col = 0; col < image.impl().cols(); col++) {
+  for (int32 row = 0; row < image.impl().rows(); row++) {
+    for (int32 col = 0; col < image.impl().cols(); col++) {
       if (is_valid_pixel<typename ImageT::pixel_type>::value(image.impl()(col, row))) {
         x_array.push_back(col);
         y_array.push_back(row);      
@@ -52,12 +52,12 @@ static int init_mba_xy(vw::ImageViewBase<ImageT> const& image,
 // Copy the data into STL vectors; this is the format expected by
 // the MBA NURBS code.  The View must have a PixelGray pixel type.
 template <class ViewT>
-static int init_mba_z(vw::ImageViewBase<ViewT> const& image,
+static void init_mba_z(vw::ImageViewBase<ViewT> const& image,
                       std::vector<double> const& x_array, 
                       std::vector<double> const& y_array,
                       std::vector<double> &z_array, int channel) {
   z_array.resize(x_array.size());
-  for (int i = 0; i < x_array.size(); ++i) 
+  for (unsigned i = 0; i < x_array.size(); ++i) 
     z_array[i] = vw::compound_select_channel<typename vw::CompoundChannelType<typename ViewT::pixel_type>::type>(image.impl()(int(x_array[i]),int(y_array[i])), channel);
 }
 
@@ -191,8 +191,8 @@ ImageView<typename ViewT::pixel_type > disparity_rapid_downsample(ImageViewBase<
   typedef Vector2 accumulator_type;
   typedef typename EdgeExtensionView<ViewT, ConstantEdgeExtension>::pixel_accessor pixel_accessor;
 
-  unsigned resized_rows = view.impl().rows() / downsample_size;
-  unsigned resized_cols = view.impl().cols() / downsample_size;
+  int32 resized_rows = view.impl().rows() / downsample_size;
+  int32 resized_cols = view.impl().cols() / downsample_size;
   ImageView<pixel_type> result(resized_cols, resized_rows);
 
   std::cout << "Subsampling disparity map to output size: " << resized_cols << " x " << resized_rows << "\n";;

@@ -65,7 +65,6 @@ int main(int argc, char* argv[]) {
   F_HD hd;         /* parameters read in header file & argv[] */
   DFT_F dft;       /* parameters read in stereo.default */
   TO_DO execute;   /* whether or not to execute specific parts of the program */
-  int nn;          /* Reuseable counter variable */
   
   // Register the DDD file handler with the Vision Workbench
   // DiskImageResource system.
@@ -314,22 +313,25 @@ int main(int argc, char* argv[]) {
       DiskCacheImageView<PixelDisparity<float> > filtered_disparity_map(disparity_map, "exr");
 
       // Write out the extrapolation mask imaege
-
-      std::cout << "\n---> Good pixel start!\n";
       if(execute.w_extrapolation_mask) 
         write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), TerminalProgressCallback());
-      std::cout << "\n---> Good pixel stop!\n";
 
       // Call out to NURBS hole filling code.  The hole filling is
       // done with a subsampled (by 4) images and then the hole filled
       // values are upsampled to the full resolution of the image
       // using bicubic interpolation.
+
+      ImageViewRef<PixelDisparity<float> > hole_filled_disp_map = filtered_disparity_map;
+
       if(execute.fill_holes_NURBS) {
         std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
-        write_image(out_prefix + "-F.exr", disparity::mask(HoleFillView(filtered_disparity_map, 4),Lmask, Rmask), TerminalProgressCallback() ); 
-      } else {
-        write_image(out_prefix + "-F.exr", filtered_disparity_map, TerminalProgressCallback() ); 
-      }
+        hole_filled_disp_map = disparity::mask(HoleFillView(filtered_disparity_map, 4),Lmask, Rmask);
+      } 
+
+      DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
+      disparity_map_rsrc.set_tiled_write(std::min(2048,hole_filled_disp_map.cols()),std::min(2048, hole_filled_disp_map.rows()));
+      write_image(disparity_map_rsrc, hole_filled_disp_map, TerminalProgressCallback() ); 
+
     } catch (IOErr &e) { 
       cout << "\n An file IO error occurred during the filtering stage.  " << e.what() << "Exiting.\n\n";
       exit(0);
@@ -367,7 +369,11 @@ int main(int argc, char* argv[]) {
       // We apply the universe radius here and then write the result
       // directly to a file on disk.      
       UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)), dft.near_universe_radius, dft.far_universe_radius);
-      write_image(out_prefix + "-PC.exr", per_pixel_filter(stereo_image, universe_radius_func), TerminalProgressCallback());
+      ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
+
+      DiskImageResourceOpenEXR point_cloud_rsrc(out_prefix + "-PC.exr", point_cloud.format() );
+      point_cloud_rsrc.set_tiled_write(std::min(2048,point_cloud.cols()),std::min(2048, point_cloud.rows()));
+      block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback());
       std::cout << universe_radius_func;
 
     } catch (IOErr&) { 

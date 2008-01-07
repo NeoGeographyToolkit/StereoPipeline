@@ -19,23 +19,6 @@ typedef double pixel;
 // Common exceptions
 VW_DEFINE_EXCEPTION(EphemerisErr, vw::Exception);
 
-/// Erases a file suffix if one exists and returns the base string
-static std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1) 
-    result.erase(index, result.size());
-  return result;
-}
-
-/// Erases a file suffix if one exists and returns the base string
-static std::string suffix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1) 
-    result.erase(0, index);
-  return result;
-}
 
 #ifndef BUFFER_SIZE
 #define	BUFFER_SIZE	256
