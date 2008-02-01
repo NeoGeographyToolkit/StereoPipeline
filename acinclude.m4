@@ -780,3 +780,7 @@ AC_DEFUN([AX_APP],
 
   AM_CONDITIONAL([MAKE_APP_$1], [test "$MAKE_APP_$1" = "yes"])
 ])
+
+# Include Autotroll for building QT components w/out using qmake as 
+# the primary build tool.
+m4_include([config/autotroll.m4])

@@ -1,4 +1,4 @@
-#include "Spice.h"
+#include "SpiceUtilities.h"
 
 #include "SpiceUsr.h"
 #include "SpiceZfc.h"

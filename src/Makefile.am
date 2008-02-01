@@ -22,7 +22,10 @@
 ########################################################################
 # sources
 ########################################################################
-#isis_sources = Isis/DiskImageResourceIsis.cc Isis/IsisCameraModel.cc
+#include $(top_srcdir)/config/autotroll.mak
+
+isis_sources = Isis/DiskImageResourceIsis.cc Isis/IsisCameraModel.cc	\
+                        Isis/StereoSessionIsis.cc
 
 ctx_sources = MRO/StereoSessionCTX.cc MRO/DiskImageResourceDDD.cc \
 			MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
@@ -34,19 +37,20 @@ apollo_sources = apollo/StereoSessionApolloMetric.cc
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
 
+
 clementine_sources = clementine/StereoSessionClementine.cc
 generic_stereo_sources = file_lib.cc StereoSession.cc			\
 	 	  	 StereoSessionKeypoint.cc			\
 	 	  	 StereoSessionPinhole.cc			\
 	 	  	 TabulatedDataReader.cc KML.cc 
-
 bin_PROGRAMS = 
 
 if MAKE_APP_STEREO
   bin_PROGRAMS += stereo
   stereo_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
 	 	   $(apollo_sources) $(clementine_sources)		\
-	 	   $(generic_stereo_sources) Spice.cc stereo.cc
+	 	   $(generic_stereo_sources) $(isis_sources)		\
+	 	   SpiceUtilities.cc stereo.cc
   stereo_LDFLAGS = $(APP_STEREO_LIBS)
 endif
 
@@ -56,6 +60,13 @@ endif
 #                         isis_stereo.cc
 #   isis_stereo_LDFLAGS = $(APP_ISISSTEREO_LIBS)
 # endif
+
+#if MAKE_APP_ASPGUI
+#  bin_PROGRAMS += aspgui
+#  aspgui_SOURCES = aspgui.cc gui/GlWidget.cc
+#  aspgui_CXXFLAGS = $(QT_CXXFLAGS) $(QT_INCPATH)
+#  aspgui_LDFLAGS = $(QT_LDFLAGS) $(QT_LIBS) $(APP_ASPGUI_LIBS)
+#endif
 
 if MAKE_APP_DISPARITYDEBUG
   bin_PROGRAMS += disparitydebug
@@ -86,6 +97,18 @@ if MAKE_APP_CTXIMAGE
   bin_PROGRAMS += ctximage
   ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
   ctximage_LDFLAGS = $(APP_CTXIMAGE_LIBS)
+endif
+
+if MAKE_APP_RMAX2CAHVOR
+  bin_PROGRAMS += rmax2cahvor
+  rmax2cahvor_SOURCES = rmax2cahvor.cc
+  rmax2cahvor_LDFLAGS = $(APP_RMAX2CAHVOR_LIBS)
+endif
+
+if MAKE_APP_RMAXADJUST
+  bin_PROGRAMS += rmax_adjust
+  rmax_adjust_SOURCES = rmax_adjust.cc
+  rmax_adjust_LDFLAGS = $(APP_RMAXADJUST_LIBS)
 endif
 
 # ctx2kml_SOURCES = ctx2kml.cc MRO/DiskImageResourceDDD.cc

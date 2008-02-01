@@ -5,7 +5,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Camera/OrbitingPushbroomModel.h>
-#include "Spice.h"
+#include "SpiceUtilities.h"
 #include "stereo.h"
 
 #include <iostream> 

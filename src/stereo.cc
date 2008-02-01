@@ -32,6 +32,11 @@ using namespace vw::cartography;
 #include "SurfaceNURBS.h"
 #include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
 
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+#include "Isis/DiskImageResourceIsis.h"
+#include "Isis/StereoSessionIsis.h"
+#endif
+
 #include "HRSC/StereoSessionHRSC.h"
 #include "MOC/StereoSessionMOC.h"
 #include "apollo/StereoSessionApolloMetric.h"
@@ -72,7 +77,15 @@ int main(int argc, char* argv[]) {
                                         DiskImageResourceDDD::type_static(),
                                         &DiskImageResourceDDD::construct_open,
                                         &DiskImageResourceDDD::construct_create);
-
+  
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+  // Register the Isis file handler with the Vision Workbench
+  // DiskImageResource system.
+  DiskImageResource::register_file_type(".cub",
+                                        DiskImageResourceIsis::type_static(),
+                                        &DiskImageResourceIsis::construct_open,
+                                        &DiskImageResourceIsis::construct_create);
+#endif 
   /*************************************/
   /* Parsing of command line arguments */
   /*************************************/
@@ -93,7 +106,7 @@ int main(int argc, char* argv[]) {
   po::options_description visible_options("Options");
   visible_options.add_options()
     ("help,h", "Display this help message")
-    ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
+    ("cache", po::value<unsigned>(&cache_size)->default_value(1800), "Cache size, in megabytes")
     ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
@@ -169,6 +182,9 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
   StereoSession::register_session_type( "clementine", &StereoSessionClementine::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+#endif
 
   StereoSession* session = StereoSession::create(stereo_session_string);
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
@@ -187,7 +203,7 @@ int main(int argc, char* argv[]) {
     DiskImageView<PixelGray<uint8> > left_rectified_image(pre_preprocess_file1);
     DiskImageView<PixelGray<uint8> > right_rectified_image(pre_preprocess_file2);
     
-    cout << "\nGenerating image masks...";
+    cout << "\nGenerating image masks..." << std::flush;
     int mask_buffer = std::max(dft.h_kern, dft.v_kern);
     ImageViewRef<uint8> Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
     ImageViewRef<uint8> Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
@@ -273,7 +289,7 @@ int main(int argc, char* argv[]) {
     // OpenEXR.
     DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
     disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
-    write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );
+    block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );
   }
 
   /***************************************************************************/
@@ -373,7 +389,7 @@ int main(int argc, char* argv[]) {
 
       DiskImageResourceOpenEXR point_cloud_rsrc(out_prefix + "-PC.exr", point_cloud.format() );
       point_cloud_rsrc.set_tiled_write(std::min(2048,point_cloud.cols()),std::min(2048, point_cloud.rows()));
-      block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback());
+      write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback());
       std::cout << universe_radius_func;
 
     } catch (IOErr&) { 

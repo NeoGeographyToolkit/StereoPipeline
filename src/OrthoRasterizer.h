@@ -41,9 +41,9 @@ namespace cartography {
       TerminalProgressCallback progress_callback;
       progress_callback.report_progress(0);
 
-      for (unsigned int j = 0; j < m_point_image.rows(); j++) {
+      for (int32 j = 0; j < m_point_image.rows(); j++) {
         progress_callback.report_progress(float(j)/m_point_image.rows());
-        for (unsigned int i= 0; i < m_point_image.cols(); i++) 
+        for (int32 i= 0; i < m_point_image.cols(); i++) 
           if (m_point_image(i,j) != Vector3())
             m_bbox.grow(m_point_image(i,j));
       }
@@ -114,8 +114,8 @@ namespace cartography {
         renderer.Clear(vw::stereo::eColorBufferBit);
       } 
 
-      for (unsigned int row = *m_row_start; row < m_point_image.rows(); ++row) {
-        for (unsigned int col = 0; col < m_point_image.cols(); ++col) {
+      for (int32 row = *m_row_start; row < m_point_image.rows(); ++row) {
+        for (int32 col = 0; col < m_point_image.cols(); ++col) {
           if (local_bbox.contains(m_point_image(col,row)) ) {
             float vertices[12], intensities[6];
             int triangle_count;

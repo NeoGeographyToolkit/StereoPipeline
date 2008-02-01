@@ -33,40 +33,51 @@ using namespace vw;
 using namespace vw::camera;
 
 IsisCameraModel::IsisCameraModel(std::string cube_filename) {
-  Isis::Cube cube;
-  cube.Open(cube_filename);
+  std::cout << "Opening camera model for image: " << cube_filename << "\n";
 
-  if ( !(cube.IsOpen()) ) 
+  Isis::Cube* cube_ptr = new Isis::Cube;
+  m_isis_cube = cube_ptr;
+  
+  cube_ptr->Open(cube_filename);
+
+  if ( !(cube_ptr->IsOpen()) ) 
       vw_throw(IOErr() << "IsisCameraModel: Could not open cube file: \"" << cube_filename << "\".");
 
   try {
-    m_isis_camera_ptr = cube.Camera();
+    std::cout << "Accessing camera model\n";
+    m_isis_camera_ptr = cube_ptr->Camera();
   } catch (Isis::iException &e) {
     m_isis_camera_ptr = 0;
     vw_throw(IOErr() << "IsisCameraModel: failed to instantiate a camera model from " << cube_filename << ". " << e.what());
-  }	
-  
-  cube.Close();
+  }	  
+}
+
+IsisCameraModel::~IsisCameraModel() {
+  std::cout << "Closing cube file...\n";
+  if (m_isis_cube) {
+    static_cast<Isis::Cube*>(m_isis_cube)->Close();
+    delete static_cast<Isis::Cube*>(m_isis_cube);
+  }
 }
 
 Vector2 IsisCameraModel::point_to_pixel(Vector3 const& point) const {
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
 
-//   // Convert into "Universal Ground" coordinates
-//   Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius(point);
+  // Convert into "Universal Ground" coordinates
+  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius(point);
 
-//   // Set the current "active" pixel for the upcoming computation
-//   cam->SetUniversalGround(lon_lat_radius[1], lon_lat_radius[0], lon_lat_radius[2]);
+  // Set the current "active" pixel for the upcoming computation
+  cam->SetUniversalGround(lon_lat_radius[1], lon_lat_radius[0]);
 
-//   return Vector2(cam->Sample(), cam->Line());
+//   std::cout << "LON LAT RAD: " << lon_lat_radius << " ---> ";
+//   std::cout << cam->Line() << " " << cam->Sample() << "\n";
 
-  vw_throw (NoImplErr() << "IsisCameraModel::point_to_pixel() is not yet implemented.\n");
-  return Vector2();  // Never reached
+  return Vector2(cam->Sample(), cam->Line());
 }
 
 Vector3 IsisCameraModel::pixel_to_vector (Vector2 const& pix) const {
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-
+  
   // Set the current "active" pixel for the upcoming computations
   cam->SetImage(pix[0],pix[1]);
 
@@ -84,15 +95,22 @@ Vector3 IsisCameraModel::pixel_to_vector (Vector2 const& pix) const {
 Vector3 IsisCameraModel::camera_center(Vector2 const& pix ) const {  
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
 
+  // Set the current "active" pixel for the upcoming computations
+  cam->SetImage(pix[0],pix[1]);
+  
   double pos[3];
   cam->InstrumentPosition(pos);
-  return Vector3(pos[0],pos[1],pos[2]);
+  return Vector3(pos[0]*1000,pos[1]*1000,pos[2]*1000);
 }
 
 Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
 
+  // Set the current "active" pixel for the upcoming computations
+  cam->SetImage(pix[0],pix[1]);
+
   vw_throw(NoImplErr() << "IsisCameraModel::camera_pose() is not yet implemented.\n");
+  return Quaternion<double>();
 }
 
 

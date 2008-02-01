@@ -9,8 +9,8 @@
 
 #include "stereo.h"
 #include "file_lib.h"
-#include "Spice.h"
-#include "BundleAdjust.h"
+#include "SpiceUtilities.h"
+#include "CameraAdjust.h"
 #include "KML.h"
 
 #include <list>
@@ -80,13 +80,18 @@ class MetricCameraLensDistortion : public LensDistortionBase<MetricCameraLensDis
     m_radial(radial_params),
     m_tangential(tangential_params),
     m_pixels_per_mm(pixels_per_mm) {}
+  
+  virtual ~MetricCameraLensDistortion() {}
 
-    virtual ~MetricCameraLensDistortion() {}
+  virtual Vector2 get_undistorted_coordinates(Vector2 const& v) const {
+    vw_throw(NoImplErr() << "MetricCameraLensDistortion::get_undistorted_coordinates() not yet implemented.");
+    return Vector2();
+  }
 
-    //  Location where the given pixel would have appeared if there
-    //  were no lens distortion.
-    virtual Vector2 get_distorted_coordinates(Vector2 const& p) const {
-      //      vw_out(0)<< "Pix: " << p << "\n";
+  //  Location where the given pixel would have appeared if there
+  //  were no lens distortion.
+  virtual Vector2 get_distorted_coordinates(Vector2 const& p) const {
+    //      vw_out(0)<< "Pix: " << p << "\n";
       double fu, fv, cu, cv;
       this->camera_model().intrinsic_parameters(fu, fv, cu, cv);
       
@@ -106,6 +111,7 @@ class MetricCameraLensDistortion : public LensDistortionBase<MetricCameraLensDis
       //      vw_out(0)<< "     " << result << "\n";
       return result;
     }
+  
   virtual void write(std::ostream & os) const {
     os << "radial[0] = " << m_radial[0] << "\n";
     os << "radial[1] = " << m_radial[1] << "\n";
@@ -121,7 +127,7 @@ class MetricCameraLensDistortion : public LensDistortionBase<MetricCameraLensDis
     return os;
   }
   
-  };
+};
 
 
 // Load the state of the MOC camera for a given time range, returning 
@@ -264,9 +270,11 @@ void StereoSessionApolloMetric::camera_models(boost::shared_ptr<camera::CameraMo
   std::cout << "Loading kernels\n";
   load_apollo_metric_kernels();
 
-  // Hard coded values for AS15-M-0081 and AS15-M-0082 for now
-  std::string utc1 = "1971-07-30T02:20:24.529";
-  std::string utc2 = "1971-07-30T02:20:44.876";
+  // Hard coded values for now...
+//   std::string utc1 = "1971-07-30T02:20:24.529"; // AS15-M-0081
+//   std::string utc2 = "1971-07-30T02:20:44.876"; // AS15-M-0082
+  std::string utc1 = "1971-07-30T02:26:31.865"; // AS15-M-0099
+  std::string utc2 = "1971-07-30T02:26:52.293"; // AS15-M-0100
 
   std::cout << "Converting to et\n";
   double et1 = spice::utc_to_et(utc1);
@@ -305,7 +313,7 @@ void StereoSessionApolloMetric::camera_models(boost::shared_ptr<camera::CameraMo
                             Vector3(0,1,0),
                             Vector3(0,0,1),
                             NullLensDistortion());
-  // distortion_model);
+                            //                            distortion_model);
 
 
   std::cout << "Initializing camera 2\n";
@@ -317,7 +325,7 @@ void StereoSessionApolloMetric::camera_models(boost::shared_ptr<camera::CameraMo
                             Vector3(0,1,0),
                             Vector3(0,0,1),
                             NullLensDistortion());
-  // distortion_model);
+  //distortion_model);
 
   cam1 = boost::shared_ptr<CameraModel>(new PinholeModel(pinhole_cam1));
   cam2 = boost::shared_ptr<CameraModel>(new PinholeModel(pinhole_cam2));

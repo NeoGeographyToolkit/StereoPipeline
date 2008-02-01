@@ -22,7 +22,7 @@ void read_image_info( std::string const& filename, ImageInfo& info ) {
   vw_out(DebugMessage) << "Reading image info from " << filename << std::endl;;
   DiskImageResourcePNG png( filename );
   info.filename = filename;
-  for( int i=0; i<png.num_comments(); ++i ) {
+  for( unsigned i=0; i<png.num_comments(); ++i ) {
     std::string const& key = png.get_comment(i).key;
     std::istringstream value( png.get_comment(i).text );
     if( key == "easting" ) value >> info.easting;

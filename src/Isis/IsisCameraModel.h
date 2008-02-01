@@ -41,6 +41,7 @@ namespace camera {
     // A void pointer which is cast to Isis::Camera* in the
     // implentation of the methods below.
     void* m_isis_camera_ptr;
+    void* m_isis_cube;
 
   public:
     //------------------------------------------------------------------
@@ -48,7 +49,7 @@ namespace camera {
     //------------------------------------------------------------------
     IsisCameraModel(std::string cube_filename);
 
-    virtual ~IsisCameraModel() {}
+    virtual ~IsisCameraModel();
 
     //------------------------------------------------------------------
     // Methods
