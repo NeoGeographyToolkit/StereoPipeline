@@ -5,7 +5,7 @@
 #include "MOC/Ephemeris.h"
 #include "MOC/Metadata.h"
 #include "MOC/MOLA.h"
-#include "Spice.h" 
+#include "SpiceUtilities.h" 
 #include "stereo.h"
 #include "file_lib.h"
 

@@ -57,7 +57,7 @@ AC_DEFUN([AX_PROG_AR],
 [
   AC_REQUIRE([AM_AUX_DIR_EXPAND])
   AC_MSG_CHECKING([whether to use ar.sh wrapper script])
-  if test $host_vendor = "apple"; then
+  if test "$host_vendor" = "apple"; then
     AC_MSG_RESULT([yes])
     if test -z "$AR" ; then
       ax_ar_prog=ar;
@@ -218,7 +218,7 @@ AC_DEFUN([AX_PKG],
     fi
 
   fi
-  if test ${HAVE_PKG_$1} = "yes" ; then
+  if test "${HAVE_PKG_$1}" = "yes" ; then
     ax_have_pkg_bool=1
   else
     ax_have_pkg_bool=0
@@ -254,7 +254,7 @@ AC_DEFUN([AX_PKG_BOOST],
   AC_LANG(C++)
 
   # Skip testing if the user has overridden
-  if test -z ${HAVE_PKG_BOOST}; then
+  if test -z "${HAVE_PKG_BOOST}"; then
 
     PKG_BOOST_LIBS=
     HAVE_PKG_BOOST=no
@@ -297,7 +297,7 @@ AC_DEFUN([AX_PKG_BOOST],
     done
   fi
 
-  if test ${HAVE_PKG_BOOST} = "yes" ; then
+  if test "${HAVE_PKG_BOOST}" = "yes" ; then
     ax_pkg_old_vw_cppflags=$ASP_CPPFLAGS
     ax_pkg_old_vw_ldflags=$ASP_LDFLAGS
     ax_pkg_old_cppflags=$CPPFLAGS
@@ -347,7 +347,7 @@ AC_DEFUN([AX_PKG_BOOST],
   CPPFLAGS="$ax_pkg_old_cppflags"
   LDFLAGS="$ax_pkg_old_ldflags"
 
-  if test ${HAVE_PKG_BOOST} = "yes" ; then
+  if test "${HAVE_PKG_BOOST}" = "yes" ; then
     ax_have_pkg_bool=1
   else
     ax_have_pkg_bool=0
@@ -381,7 +381,7 @@ AC_DEFUN([AX_PKG_LAPACK],
 
   # If we are running MacOS X, we can use Apple's vecLib framework to
   # provide us with LAPACK and BLAS routines.
-  if test $host_vendor = apple; then
+  if test "$host_vendor" = apple; then
     AC_MSG_CHECKING(for package LAPACK)
     if test "$ENABLE_VERBOSE" = "yes"; then
       AC_MSG_RESULT([])
@@ -393,7 +393,7 @@ AC_DEFUN([AX_PKG_LAPACK],
     if test "$ENABLE_VERBOSE" = "yes"; then
       AC_MSG_RESULT([found])
     fi
-    if test ${HAVE_PKG_LAPACK} = "yes" ; then
+    if test "${HAVE_PKG_LAPACK}" = "yes" ; then
       ax_have_pkg_bool=1
     else
       ax_have_pkg_bool=0
@@ -447,7 +447,7 @@ AC_DEFUN([AX_PKG_GL],
 
   # If we are running MacOS X, we can use Apple's vecLib framework to
   # provide us with GL and BLAS routines.
-  if test $host_vendor = apple; then
+  if test "$host_vendor" = apple; then
     AC_MSG_CHECKING(for package GL)
     if test "$ENABLE_VERBOSE" = "yes"; then
       AC_MSG_RESULT([])
@@ -459,7 +459,7 @@ AC_DEFUN([AX_PKG_GL],
     if test "$ENABLE_VERBOSE" = "yes"; then
       AC_MSG_RESULT([found])
     fi
-    if test ${HAVE_PKG_GL} = "yes" ; then
+    if test "${HAVE_PKG_GL}" = "yes" ; then
       ax_have_pkg_bool=1
     else
       ax_have_pkg_bool=0
@@ -500,7 +500,7 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
   AC_LANG(C++)
 
   # Skip testing if the user has overridden
-  if test -z ${HAVE_PKG_BOOST_$1}; then
+  if test -z "${HAVE_PKG_BOOST_$1}"; then
 
     HAVE_PKG_BOOST_$1=no
 
@@ -520,7 +520,7 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
           ax_pkg_boost_lib_ext=`ls ${PKG_BOOST_LIBDIR}/${ax_pkg_boost_lib}-* | head -n 1 | sed "s,^${PKG_BOOST_LIBDIR}/${ax_pkg_boost_lib}\(-[[^.]]*\).*,\1,"`
           if test ! -z "$ax_pkg_boost_lib_ext" ; then
             AX_FIND_FILES([`echo $2 | sed "s/-l\([[^[:space:]]]*\)/lib\1${ax_pkg_boost_lib_ext}.*/g"`],[$PKG_BOOST_LIBDIR])
-            if test ! -z $ax_find_files_path ; then
+            if test ! -z "$ax_find_files_path" ; then
               HAVE_PKG_BOOST_$1="yes"
               PKG_BOOST_$1_LIBS=`echo $2 | sed "s/[[^ ]]*/&${ax_pkg_boost_lib_ext}/g"`
             fi
@@ -585,7 +585,7 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
   LDFLAGS="$ax_pkg_old_ldflags"
   LIBS="$ax_pkg_old_libs"
 
-  if test ${HAVE_PKG_BOOST_$1} = "yes" ; then
+  if test "${HAVE_PKG_BOOST_$1}" = "yes" ; then
     ax_have_pkg_bool=1
   else
     ax_have_pkg_bool=0
@@ -670,7 +670,7 @@ AC_DEFUN([AX_PKG_PTHREADS],
     PKG_PTHREADS_LIBS="$PKG_PTHREADS_LDFLAGS"
   fi
 
-  if test ${HAVE_PKG_PTHREADS} = "yes" ; then
+  if test "${HAVE_PKG_PTHREADS}" = "yes" ; then
     ax_have_pkg_bool=1
   else
     ax_have_pkg_bool=0
@@ -704,23 +704,23 @@ AC_DEFUN([AX_APP],
     AC_ARG_ENABLE([app-]translit($1,`A-Z',`a-z'),
       AC_HELP_STRING([--enable-app-]translit($1,`A-Z',`a-z'), [enable the $1 app @<:@$3@:>@]), 
       [ ENABLE_APP_$1=$enableval ],
-      [ if test x$ENABLE_APP_$1 = x; then ENABLE_APP_$1=`echo -n $3 | tr [A-Z] [a-z]` ; fi ]
+      [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`/bin/echo -n $3 | tr [A-Z] [a-z]` ; fi ]
     )
 
     AC_MSG_CHECKING([whether to build app $1])
     ax_app_enable=$ENABLE_APP_$1
 
-    if test $ax_app_enable != "yes" ; then
+    if test "$ax_app_enable" != "yes" ; then
       AC_MSG_RESULT([no (disabled)])
     fi
 
     ax_libs=""
 
     # Check for required dependencies
-    if test $ax_app_enable = "yes" ; then
+    if test "$ax_app_enable" = "yes" ; then
       for ax_dependency in $4 ; do
         ax_dependency_have="HAVE_PKG_${ax_dependency}"
-        if test x${!ax_dependency_have} = "xyes"; then
+        if test "x${!ax_dependency_have}" = "xyes"; then
           ax_dep_libs="PKG_${ax_dependency}_LIBS"
           ax_libs="${ax_libs} ${!ax_dep_libs}"
         else
@@ -732,11 +732,11 @@ AC_DEFUN([AX_APP],
       done
     fi
     
-    if test $ax_app_enable = "yes" ; then
+    if test "$ax_app_enable" = "yes" ; then
       # Check for optional dependencies
       for ax_dependency in $5 ; do
         ax_dependency_have="HAVE_PKG_${ax_dependency}"
-        if test x${!ax_dependency_have} = "xyes"; then
+        if test "x${!ax_dependency_have}" = "xyes"; then
           ax_dep_libs="PKG_${ax_dependency}_LIBS"
           ax_libs="${ax_libs} ${!ax_dep_libs}"
         fi
@@ -762,7 +762,7 @@ AC_DEFUN([AX_APP],
   MAKE_APP_$1=${ax_app_enable}
   AC_SUBST(MAKE_APP_$1)
 
-  if test ${HAVE_PKG_$1} = "yes" ; then
+  if test "${HAVE_PKG_$1}" = "yes" ; then
     ax_have_pkg_bool=1
   else
     ax_have_pkg_bool=0

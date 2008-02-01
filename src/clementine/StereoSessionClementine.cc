@@ -8,7 +8,7 @@
 
 #include "stereo.h"
 #include "file_lib.h"
-#include "Spice.h"
+#include "SpiceUtilities.h"
 
 #include <list>
 

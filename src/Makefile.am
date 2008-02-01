@@ -49,7 +49,7 @@ if MAKE_APP_STEREO
   bin_PROGRAMS += stereo
   stereo_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
 	 	   $(apollo_sources) $(clementine_sources)		\
-	 	   $(generic_stereo_sources) $(isis_sources)		\
+	 	   $(generic_stereo_sources)                            \
 	 	   SpiceUtilities.cc stereo.cc
   stereo_LDFLAGS = $(APP_STEREO_LIBS)
 endif

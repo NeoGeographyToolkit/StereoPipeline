@@ -1,4 +1,4 @@
-#include "Spice.h"
+#include "SpiceUtilities.h"
 #include "MOC/Ephemeris.h"
 
 #include <vw/Math/Matrix.h>

@@ -16,7 +16,7 @@
  */
 #include "MOC/Metadata.h"
 #include "MOC/Ephemeris.h"
-#include "Spice.h"
+#include "SpiceUtilities.h"
 #include "TabulatedDataReader.h"
 
 // VisionWorkbench
