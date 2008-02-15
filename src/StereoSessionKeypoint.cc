@@ -103,7 +103,7 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   double matcher_threshold = 0.8;
   InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
   std::vector<InterestPoint> matched_ip1, matched_ip2;
-  matcher.match(ip1, ip2, matched_ip1, matched_ip2);
+  matcher(ip1, ip2, matched_ip1, matched_ip2);
   vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
   
   // RANSAC is used to fit a similarity transform between the
