@@ -19,6 +19,51 @@ using namespace vw::cartography;
 
 #include <MRO/DiskImageResourceDDD.h>
 
+using namespace std;
+
+struct CylindricalCoordinateMapper
+{
+  CylindricalCoordinateMapper(double x_offset, double y_offset,
+			      double fullwidth, double prime_meridian,
+			      double std_parallel = 0)
+  {
+    m_x_offset = x_offset;
+    m_y_offset = y_offset;
+    m_p1 = cos((M_PI / 180.0) * std_parallel);
+    m_scale = fullwidth / (360.0*m_p1);
+    m_prime_meridian = prime_meridian;
+    cout << "X offset = " << m_x_offset << endl;
+    cout << "Y offset = " << m_y_offset << endl;
+    cout << "Full width = " << fullwidth << endl;
+    cout << "P1 = " << m_p1 << endl;
+    cout << "Scale (degrees/pixel) = " << 1.0 / m_scale << endl;
+    cout << "Prime meridian = " << m_prime_meridian << endl;
+  }
+
+  double get_scale() const { return 1.0 / m_scale; }
+
+  void operator() (double x, double y, double &lat, double &lon) const
+  {
+    lat =  90.0 - (y + m_y_offset) / m_scale;
+    lon = 180.0 - (x + m_x_offset) / (m_scale * m_p1);
+
+    //    lon = lon + m_prime_meridian;
+
+    if (lon <    0.0) lon += 360.0;
+    if (lon >= 360.0) lon -= 360.0;
+
+    // For Google earth we need East positive coordinates
+    lon = 360.0 - lon;
+
+    // image2kml seems to need things between +/-180 degrees
+    if (lon > 180.0) lon = lon - 360.0;
+    if (lon < -180.0) lon = lon + 360.0;
+  }
+
+private:
+  double m_scale, m_p1, m_x_offset, m_y_offset, m_prime_meridian;
+};
+
 /// Erases a file suffix if one exists and returns the base string
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
@@ -214,11 +259,40 @@ int main( int argc, char *argv[] ) {
     // end because we pass these images along to geoblend, which only
     // uses the affine transform information anyway.
     GeoReference georef;
-    georef.set_mercator(0,0,1); // dummy projection
-    Matrix3x3 geotransform = math::identity_matrix<3>();
-    geotransform(0,2) = projection_x_offset;
-    geotransform(1,2) = projection_y_offset;
-    georef.set_transform(geotransform);
+    const bool use_dummy_proj = false;
+
+    if (use_dummy_proj)
+    {
+      georef.set_mercator(0,0,1); // dummy projection
+      Matrix3x3 geotransform = math::identity_matrix<3>();
+      geotransform(0,2) = projection_x_offset;
+      geotransform(1,2) = projection_y_offset;
+      georef.set_transform(geotransform);
+    }
+    else
+    {
+      Matrix3x3 geotransform = math::identity_matrix<3>();
+      std::string projection = file_resource.query("projection");
+      if (projection == std::string("simple_cylindrical"))
+      {
+	double std_parallel =
+	  strtod(file_resource.query("projection_std_parallel").c_str(), 0);
+	double prime_meridian =
+	  strtod(file_resource.query("coordinates_prime_meridian").c_str(), 0);
+	CylindricalCoordinateMapper mapper(projection_x_offset,
+					   projection_y_offset, fullwidth,
+					   prime_meridian, std_parallel);
+
+	double scale = mapper.get_scale();
+	double lat_offset = 0.0, lon_offset = 0.0;
+	mapper(0.0, 0.0, lat_offset, lon_offset);
+	geotransform(0, 2) = lon_offset;
+	geotransform(1, 2) = lat_offset;
+	geotransform(0, 0) = scale;
+	geotransform(1, 1) = -scale;
+      }
+      georef.set_transform(geotransform);
+    }
 
     if (m_do_photometric_calibartion) {
       float sun_coeff = cos(incidence*M_PI/180);
