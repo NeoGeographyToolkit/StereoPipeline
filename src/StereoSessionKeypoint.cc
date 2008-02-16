@@ -101,15 +101,29 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   // constraints on the matched interest points.
   vw_out(InfoMessage) << "\nInterest Point Matching:\n";
   double matcher_threshold = 0.8;
+
+  // RANSAC needs the matches as a vector, and so does the matcher.
+  // this is messy, but for now we simply make a copy.
+  std::vector<InterestPoint> ip1_copy(ip1.size()), ip2_copy(ip2.size());
+  std::copy(ip1.begin(), ip1.end(), ip1_copy.begin());
+  std::copy(ip2.begin(), ip2.end(), ip2_copy.begin());
+
   InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
   std::vector<InterestPoint> matched_ip1, matched_ip2;
-  matcher(ip1, ip2, matched_ip1, matched_ip2);
+  matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2);
   vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
   
+  std::vector<Vector2> ransac_ip1(matched_ip1.size());
+  std::vector<Vector2> ransac_ip2(matched_ip2.size());
+  for (unsigned i = 0; i < matched_ip1.size();++i ) {
+    ransac_ip1[i] = Vector2(matched_ip1[i].x, matched_ip1[i].y);
+    ransac_ip2[i] = Vector2(matched_ip2[i].x, matched_ip2[i].y);
+  }
+
   // RANSAC is used to fit a similarity transform between the
   // matched sets of points
 
-  Matrix<double> align_matrix = ransac(matched_ip2, matched_ip1, 
+  Matrix<double> align_matrix = ransac(ransac_ip2, ransac_ip1, 
 				       vw::math::SimilarityFittingFunctor(),
 				       InterestPointErrorMetric());
 
