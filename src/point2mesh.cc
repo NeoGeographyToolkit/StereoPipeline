@@ -148,6 +148,11 @@ int main( int argc, char *argv[] ) {
     if(output_file_type == "vrml") 
       mesh_maker.write_vrml(out_prefix+".vrml", corrected_texture_filename);
 
+  }
+
+  // Simple trimesh (Stanford robotics libraries) 3D models
+  else if (output_file_type == "tri") {
+    mesh_maker.write_trimesh(out_prefix+".tri");
   } else {
     std::cout << "Unsupported 3D file type.\n";
   }

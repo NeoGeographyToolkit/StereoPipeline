@@ -2574,3 +2574,28 @@ void write_vrml_impl(BUFFER *b, std::string const& filename, std::string const& 
   fclose(outflow);
 } // write_vrml_file 
 
+void write_trimesh_impl(BUFFER *b, std::string const& filename) {
+  FILE *outflow;
+  int i;
+
+  // open output file 
+  if((outflow = fopen (filename.c_str(), "w" )) == 0) {
+    fprintf (stderr, "write_inventor: cannot open output file: %s\n", filename.c_str());
+    exit(EXIT_FAILURE);
+  }
+
+  // vertices
+  fprintf (outflow, "%d\n", b->nff.pt_number);
+
+  for(i = 0 ; i < b->nff.pt_number; i++ )
+    fprintf (outflow, "%f %f %f\n", b->nff.vtx[i].x,
+	     b->nff.vtx[i].y, b->nff.vtx[i].z);
+
+  // triangles
+  fprintf (outflow, "#%d\n", b->nff.tr_number);
+
+  for(i = 0 ; i < b->nff.tr_number; i++ )
+    fprintf (outflow, "%d %d %d\n", b->nff.triangle[i].vtx1,
+	     b->nff.triangle[i].vtx3, b->nff.triangle[i].vtx2);
+
+} // write_trimesh_file

@@ -79,6 +79,7 @@ void dot_to_mesh(BUFFER *b, int width, int height, int h_step, int v_step);
 extern void write_inventor_impl(BUFFER *b, std::string const& filename, std::string const& texture_filename, bool flip_triangles);
 extern void write_vrml_impl(BUFFER *b, std::string const& filename, std::string const& texture_filename);
 extern void write_osg_impl(BUFFER *b, std::string const& filename, std::string const& texture_filename);
+extern void write_trimesh_impl(BUFFER *b, std::string const& filename);
 
 
 //  Class for building and tracking a 3D mesh
@@ -153,6 +154,10 @@ public:
 
   void write_osg(std::string const& filename, std::string const& texture_filename) {
     write_osg_impl(&buffers, filename, texture_filename);
+  }
+
+  void write_trimesh(std::string const& filename) {
+    write_trimesh_impl(&buffers, filename);
   }
 
 };
