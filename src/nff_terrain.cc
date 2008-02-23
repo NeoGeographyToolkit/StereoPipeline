@@ -2592,7 +2592,7 @@ void write_trimesh_impl(BUFFER *b, std::string const& filename) {
 	     b->nff.vtx[i].y, b->nff.vtx[i].z);
 
   // triangles
-  fprintf (outflow, "#%d\n", b->nff.tr_number);
+  fprintf (outflow, "%d\n", b->nff.tr_number);
 
   for(i = 0 ; i < b->nff.tr_number; i++ )
     fprintf (outflow, "%d %d %d\n", b->nff.triangle[i].vtx1,

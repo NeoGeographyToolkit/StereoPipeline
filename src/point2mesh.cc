@@ -102,7 +102,7 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  if( vm.count("input-file") != 1 || vm.count("texture-file") != 1 ) {
+  if( vm.count("input-file") != 1 || (vm.count("texture-file") != 1 && output_file_type != "tri") ) {
     std::cout << "Error: Must specify exactly one pointcloud file and one texture file!" << std::endl;
     std::cout << desc << std::endl;
     return 1;
