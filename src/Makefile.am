@@ -96,13 +96,13 @@ endif
 
 if MAKE_APP_RMAX2CAHVOR
   bin_PROGRAMS += rmax2cahvor
-  rmax2cahvor_SOURCES = rmax2cahvor.cc
+  rmax2cahvor_SOURCES = rmax2cahvor.cc RMAX/RMAX.cc
   rmax2cahvor_LDFLAGS = $(APP_RMAX2CAHVOR_LIBS) $(ASP_LDFLAGS)
 endif
 
 if MAKE_APP_RMAXADJUST
   bin_PROGRAMS += rmax_adjust
-  rmax_adjust_SOURCES = rmax_adjust.cc
+  rmax_adjust_SOURCES = rmax_adjust.cc RMAX/RMAX.cc RMAX/RmaxInterestPoint.cc
   rmax_adjust_LDFLAGS = $(APP_RMAXADJUST_LIBS) $(ASP_LDFLAGS)
 endif
 
