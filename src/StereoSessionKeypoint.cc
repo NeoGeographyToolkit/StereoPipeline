@@ -111,19 +111,20 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   std::vector<InterestPoint> matched_ip1, matched_ip2;
   matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback());
   vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
-  
+	/*
   std::vector<Vector2> ransac_ip1(matched_ip1.size());
   std::vector<Vector2> ransac_ip2(matched_ip2.size());
   for (unsigned i = 0; i < matched_ip1.size();++i ) {
     ransac_ip1[i] = Vector2(matched_ip1[i].x, matched_ip1[i].y);
     ransac_ip2[i] = Vector2(matched_ip2[i].x, matched_ip2[i].y);
   }
-
+	*/
   // RANSAC is used to fit a similarity transform between the
   // matched sets of points  
   vw_out(InfoMessage) << "\nRunning RANSAC:\n";
-  Matrix<double> align_matrix = ransac(ransac_ip2, ransac_ip1, 
-				       vw::math::SimilarityFittingFunctor(),
+  Matrix<double> align_matrix = ransac(matched_ip2, matched_ip1, 
+							 //vw::math::SimilarityFittingFunctor(),
+							 vw::math::AffineFittingFunctor(),
 				       InterestPointErrorMetric());
   vw_out(InfoMessage) << "Done.\n";
 
@@ -138,7 +139,7 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
 
   // Determine the alignment matrix using keypoint matching techniques.
   Matrix<double> align_matrix = determine_image_alignment(m_left_image_file, m_right_image_file);
-  write_matrix(m_out_prefix + "-align.exr", align_matrix);
+  ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
 
   DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
@@ -165,7 +166,7 @@ void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, s
   // onto the camera model in the next stage of the stereo pipeline.
   vw::Matrix<double> align_matrix;
   try {
-    read_matrix(align_matrix, m_out_prefix + "-align.exr");
+    ::read_matrix(align_matrix, m_out_prefix + "-align.exr");
     std::cout << "Alignment Matrix: " << align_matrix << "\n";
   } catch (vw::IOErr &e) {
     std::cout << "Could not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";

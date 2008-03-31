@@ -2574,7 +2574,7 @@ void write_vrml_impl(BUFFER *b, std::string const& filename, std::string const& 
   fclose(outflow);
 } // write_vrml_file 
 
-void write_trimesh_impl(BUFFER *b, std::string const& filename) {
+void write_trimesh_impl(BUFFER *b, std::string const& filename, bool flip_triangles) {
   FILE *outflow;
   int i;
 
@@ -2594,8 +2594,14 @@ void write_trimesh_impl(BUFFER *b, std::string const& filename) {
   // triangles
   fprintf (outflow, "%d\n", b->nff.tr_number);
 
-  for(i = 0 ; i < b->nff.tr_number; i++ )
-    fprintf (outflow, "%d %d %d\n", b->nff.triangle[i].vtx1,
-	     b->nff.triangle[i].vtx3, b->nff.triangle[i].vtx2);
+  for(i = 0 ; i < b->nff.tr_number; i++ ) {
+		if (flip_triangles) {
+			fprintf (outflow, "%d %d %d\n", b->nff.triangle[i].vtx1,
+							 b->nff.triangle[i].vtx2, b->nff.triangle[i].vtx3);
+		} else {
+			fprintf (outflow, "%d %d %d\n", b->nff.triangle[i].vtx1,
+							 b->nff.triangle[i].vtx3, b->nff.triangle[i].vtx2);
+		}
+	}
 
 } // write_trimesh_file

@@ -83,7 +83,8 @@ int main( int argc, char *argv[] ) {
     ("rotation-order", po::value<std::string>(&rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
-    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa");
+    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa")
+		("flip-triangles", "Use clockwise vertex ordering (.iv and .tri files only)");
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -112,7 +113,7 @@ int main( int argc, char *argv[] ) {
   ImageViewRef<Vector3> point_image = point_disk_image;
 
   // Apply an (optional) rotation to the 3D points before building the mesh.
-  if (phi_rot != 0 && omega_rot != 0 && kappa_rot != 0) {
+  if (phi_rot != 0 || omega_rot != 0 || kappa_rot != 0) {
     std::cout << "Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
     Matrix3x3 rotation_trans = math::euler_to_rotation_matrix(phi_rot,omega_rot,kappa_rot,rot_order);
     point_image = per_pixel_filter(point_image, PointTransFunc(rotation_trans));
@@ -143,7 +144,7 @@ int main( int argc, char *argv[] ) {
       }
 
     if(output_file_type == "iv") 
-      mesh_maker.write_inventor(out_prefix+".iv", corrected_texture_filename);
+      mesh_maker.write_inventor(out_prefix+".iv", corrected_texture_filename, vm.count("flip-triangles") != 0);
 
     if(output_file_type == "vrml") 
       mesh_maker.write_vrml(out_prefix+".vrml", corrected_texture_filename);
@@ -152,7 +153,7 @@ int main( int argc, char *argv[] ) {
 
   // Simple trimesh (Stanford robotics libraries) 3D models
   else if (output_file_type == "tri") {
-    mesh_maker.write_trimesh(out_prefix+".tri");
+    mesh_maker.write_trimesh(out_prefix+".tri", vm.count("flip-triangles") != 0);
   } else {
     std::cout << "Unsupported 3D file type.\n";
   }
