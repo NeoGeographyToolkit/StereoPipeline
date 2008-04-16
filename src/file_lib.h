@@ -68,63 +68,6 @@ enum ENVI_data_type { ENVI_byte_8bit = 1, ENVI_short_16bit = 2,
 		      ENVI_long_long_64bit = 14,
 		      ENVI_unsigned_long_long_64bit = 15 };
 
-
-// -----------------------------------------------------------------
-// MATRIX I/O
-//
-// These are routines for writing matrix and vector objects to disk.
-// Target file formats currently include OpenEXR and text (tab
-// seperated).
-// ------------------------------------------------------------------
-
-
-// Write a matrix object to disk as an image file.  This function
-// is particularly useful if you write the matrix as an OpenEXR
-// image file; this retains the maximal amount of information.
-//
-template <class T>
-void write_matrix(const std::string &filename, vw::Matrix<T> &out_matrix) {
-  
-  // Convert the matrix to an image so that we can write it using
-  // write_image().  There is probably a more efficient way to do
-  // this, but this is the simple way to do it for now.
-  
-  vw::ImageView<T> outImg(out_matrix.cols(), out_matrix.rows(), 1);
-  unsigned int i, j;
-  for (i = 0; i < out_matrix.cols(); i++) {
-    for (j = 0; j < out_matrix.rows(); j++) {
-      outImg(i,j) = out_matrix.impl()(j,i);
-    }
-  }
-  
-  write_image(filename, outImg);
-}
-
-// Read a matrix object from an image file on disk.  This function
-// is particularly useful if you write the matrix as an OpenEXR
-// image file; this retains the maximal amount of information.
-//
-template <class T>
-void read_matrix(vw::Matrix<T> &in_matrix, const std::string &filename) {
-  
-  // Convert the matrix to an image so that we can write it using
-  // write_hdr_image().  There is probably a more effecient way to do
-  // this, but this is the simple way to do it for now.
-  vw::ImageView<T> bufferImg;
-  read_image(bufferImg, filename);
-  
-  VW_ASSERT(bufferImg.planes() == 1,
-	    vw::IOErr() << "ReadMatrix: Image file must be monochromatic (1 plane/channel) to read into a matrix.");
-  
-  vw::Matrix<T> result(bufferImg.rows(), bufferImg.cols());
-  for (int i = 0; i < bufferImg.cols(); i++) {
-    for (int j = 0; j < bufferImg.rows(); j++) {
-      result.impl()(j,i) = bufferImg(i,j);
-    }
-  }
-  in_matrix = result;
-}
-
 // Create a VRML file that contains the frames of reference for the
 // spacecraft when each image was taken.  These reference frames are
 // shown in a scene with a textured, Mars-sized ellipse for reference.
