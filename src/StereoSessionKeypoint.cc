@@ -24,6 +24,29 @@ namespace vw {
   template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+// Duplicate matches for any given interest point probably indicate a
+// poor match, so we cull those out here.
+void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
+  std::vector<Vector3> new_ip1, new_ip2;
+  
+  for (unsigned i = 0; i < ip1.size(); ++i) {
+    bool bad_entry = false;
+    for (unsigned j = 0; j < ip1.size(); ++j) {
+      if (i != j && 
+          (ip1[i] == ip1[j] || ip2[i] == ip2[j])) {
+        bad_entry = true;
+      }
+    }
+    if (!bad_entry) {
+      new_ip1.push_back(ip1[i]);
+      new_ip2.push_back(ip2[i]);
+    }
+  }
+  
+  ip1 = new_ip1;
+  ip2 = new_ip2;
+}
+
 void
 StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
   std::cout << "StereoSessionKeypoint::initialize(DFT_F &): setting image sub-sampling factor to "
@@ -112,21 +135,25 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback());
   vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
 	/*
-  std::vector<Vector2> ransac_ip1(matched_ip1.size());
-  std::vector<Vector2> ransac_ip2(matched_ip2.size());
+  std::vector<Vector3> ransac_ip1(matched_ip1.size());
+  std::vector<Vector3> ransac_ip2(matched_ip2.size());
   for (unsigned i = 0; i < matched_ip1.size();++i ) {
-    ransac_ip1[i] = Vector2(matched_ip1[i].x, matched_ip1[i].y);
-    ransac_ip2[i] = Vector2(matched_ip2[i].x, matched_ip2[i].y);
+    ransac_ip1[i] = Vector3(matched_ip1[i].x, matched_ip1[i].y,1);
+    ransac_ip2[i] = Vector3(matched_ip2[i].x, matched_ip2[i].y,1);
   }
 	*/
+  remove_duplicates(ransac_ip1, ransac_ip2);
+
   // RANSAC is used to fit a similarity transform between the
   // matched sets of points  
+  RandomSampleConsensus<math::HomographyFittingFunctor, InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(),
+                                                                                          InterestPointErrorMetric(), 
+                                                                                          10 ); // inlier_threshold
+
+  std::vector<Vector3> result_ip1;
+  std::vector<Vector3> result_ip2;
   vw_out(InfoMessage) << "\nRunning RANSAC:\n";
-  Matrix<double> align_matrix = ransac(matched_ip2, matched_ip1, 
-							 //vw::math::SimilarityFittingFunctor(),
-							 vw::math::AffineFittingFunctor(),
-				       InterestPointErrorMetric());
-  vw_out(InfoMessage) << "Done.\n";
+  Matrix<double> align_matrix = ransac(ransac_ip2,ransac_ip1);
 
   if (m_sub_sampling > 1)
     scale_align_matrix(align_matrix);

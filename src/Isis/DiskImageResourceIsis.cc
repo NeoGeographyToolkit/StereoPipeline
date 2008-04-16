@@ -111,6 +111,8 @@ namespace vw
       m_bytes_per_pixel = 8;
       m_format.channel_type = VW_CHANNEL_FLOAT64;
       break;
+    default:
+      vw_throw(IOErr() << "DiskImageResourceIsis: Unknown pixel type.");
     }
 
     vw_out(0) << "Bytes per pixel: " << m_bytes_per_pixel; 

@@ -35,6 +35,8 @@ vw::camera::CAHVORModel rmax_image_camera_model( std::string const& filename );
 bool may_overlap( ImageInfo const& i1, ImageInfo const& i2 );
 bool may_overlap( std::string const& file1, std::string const& file2 );
 
+// -----
+
 class HelicopterBundleAdjustmentModel : public camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3> {
   std::vector<ImageInfo> m_image_infos;
   std::vector<Vector<double,6> > m_adjustments;
@@ -90,15 +92,8 @@ public:
     return cam.point_to_pixel(b_i);
   }    
   
-
-  virtual Vector2 error( unsigned i, unsigned j, 
-                         Vector2 const& x_ij, 
-                         Vector<double, 6> const& a_j, 
-                         Vector<double, 3> const& b_i ) {
-    return x_ij - this->operator()(i,j,a_j,b_i);
-  }
-
   Vector<double,6> initial_parameters(unsigned j) const { return Vector<double,6>(); }
 };
+
 
 #endif // __RMAX_H__

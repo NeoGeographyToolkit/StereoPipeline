@@ -25,8 +25,9 @@
 #include $(top_srcdir)/config/autotroll.mak
 
 if HAVE_PKG_ISIS
-isis_sources = Isis/DiskImageResourceIsis.cc Isis/IsisCameraModel.cc	\
-               Isis/StereoSessionIsis.cc
+isis_sources = Isis/DiskImageResourceIsis.cc Isis/IsisCameraModel.cc \
+		Isis/StereoSessionIsis.cc
+
 endif
 
 ctx_sources = MRO/StereoSessionCTX.cc MRO/DiskImageResourceDDD.cc \

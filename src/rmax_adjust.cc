@@ -94,10 +94,12 @@ int main(int argc, char* argv[]) {
   std::vector<std::string> image_files;
   std::string bundles_file;
   std::vector<Bundle> bundles;
+  double lambda;
 
   po::options_description general_options("Options");
   general_options.add_options()
     ("bundles,b", po::value<std::string>(&bundles_file), "Load bundles from file")
+    ("lambda,l", po::value<double>(&lambda), "Set the initial value of the LM parameter lambda")
     ("help", "Display this help message")
     ("verbose", "Verbose output");
 
@@ -182,7 +184,7 @@ int main(int argc, char* argv[]) {
           //             std::cout << "\t "  << ((m.ip1)[z]) << " " << ((m.ip2)[z]) << "\n";
           std::ostringstream ostr; 
           ostr << "debug-"<<i<<"-"<<j<<".png";
-          write_match_image(ostr.str(), image_files[i], image_files[j], matched_ip1, matched_ip2);
+          //          write_match_image(ostr.str(), image_files[i], image_files[j], matched_ip1, matched_ip2);
         }
       }
     }
@@ -243,14 +245,20 @@ int main(int argc, char* argv[]) {
     
   HelicopterBundleAdjustmentModel ba_model(image_infos);
   bundle_adjust_t bundle_adjuster(ba_model, bundles);
+  if (vm.count("lambda")) {
+    std::cout << "Setting initial value of lambda to " << lambda << "\n";
+    bundle_adjuster.set_lambda(lambda);
+  }
   std::cout << "Performing Sparse LM Bundle Adjustment\n";
   double abs_tol = 1e10, rel_tol=1e10;
   bundle_adjuster.update(abs_tol,rel_tol);
+  //bundle_adjuster.update_reference_impl2(abs_tol,rel_tol);
   std::cout << "\n";
   int iterations = 0;
   while(bundle_adjuster.update(abs_tol, rel_tol)) {
+  //while(bundle_adjuster.update_reference_impl2(abs_tol, rel_tol)) {
     iterations++;
-    if (iterations > 2000 || abs_tol < 0.1 || rel_tol < 1e-10)
+    if (iterations > 30 || abs_tol < 0.001 || rel_tol < 1e-10)
       break;
   }
   std::cout << "\nFinished.  Iterations: "<< iterations << "\n";

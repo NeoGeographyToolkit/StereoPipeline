@@ -34,7 +34,7 @@ using namespace vw::cartography;
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
 #include "Isis/DiskImageResourceIsis.h"
-#include "Isis/StereoSessionIsis.h"
+//#include "Isis/StereoSessionIsis.h"
 #endif
 
 #include "HRSC/StereoSessionHRSC.h"
@@ -183,7 +183,7 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "clementine", &StereoSessionClementine::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
-  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+  //  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
   StereoSession* session = StereoSession::create(stereo_session_string);
