@@ -1,6 +1,7 @@
 #ifndef RMAX_H__
 #define RMAX_H__
 
+
 #include <string>
 #include <vw/FileIO/DiskImageResourcePNG.h>
 #include <vw/Camera/CAHVORModel.h>
