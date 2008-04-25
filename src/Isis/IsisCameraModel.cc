@@ -28,9 +28,13 @@
 // Isis Headers
 #include <Cube.h>
 #include <Camera.h>
+#include <CameraDetectorMap.h>
+#include <CameraDistortionMap.h>
+#include <CameraFocalPlaneMap.h>
 
 using namespace vw;
 using namespace vw::camera;
+
 
 IsisCameraModel::IsisCameraModel(std::string cube_filename) {
   std::cout << "Opening camera model for image: " << cube_filename << "\n";
@@ -44,8 +48,27 @@ IsisCameraModel::IsisCameraModel(std::string cube_filename) {
       vw_throw(IOErr() << "IsisCameraModel: Could not open cube file: \"" << cube_filename << "\".");
 
   try {
-    std::cout << "Accessing camera model\n";
+    // Generate a camera model for this Cube
     m_isis_camera_ptr = cube_ptr->Camera();
+    Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
+
+    // Determine the start and end time for the image.
+    this->set_image(0,0);
+    double start_time = cam->EphemerisTime();
+    this->set_image(0,cam->Lines());
+    double end_time = cam->EphemerisTime();
+    std::cout << "\tTime range: [" << start_time << " " << end_time << "]  " << (end_time-start_time) << "\n";
+    std::cout << "\tExisting range : [" << cam->CacheStartTime() << " " << cam->CacheEndTime() << "]  " << ( cam->CacheEndTime() - cam->CacheStartTime() ) << "\n";
+
+//     // Cache important values (such as sun angles, orientations, etc)
+//     try {
+//       std::cout << "\tCaching SPICE information..." << std::flush;
+//       cam->CreateCache(start_time, end_time, cam->Lines());
+//       std::cout << " done.\n";
+//     } catch (Isis::iException &e) {
+//       std::cout << " failed.\n\t" << e.what() << "\n";
+//     }
+
   } catch (Isis::iException &e) {
     m_isis_camera_ptr = 0;
     vw_throw(IOErr() << "IsisCameraModel: failed to instantiate a camera model from " << cube_filename << ". " << e.what());
@@ -60,6 +83,17 @@ IsisCameraModel::~IsisCameraModel() {
   }
 }
 
+void IsisCameraModel::set_image(double sample, double line) const {
+  if (m_current_line != line || m_current_sample != sample) {
+    Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
+    cam->SetImage(sample, line);
+    m_current_line = line;
+    m_current_sample = sample;
+  }
+}
+
+
+
 Vector2 IsisCameraModel::point_to_pixel(Vector3 const& point) const {
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
 
@@ -67,7 +101,7 @@ Vector2 IsisCameraModel::point_to_pixel(Vector3 const& point) const {
   Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius(point);
 
   // Set the current "active" pixel for the upcoming computation
-  cam->SetUniversalGround(lon_lat_radius[1], lon_lat_radius[0]);
+  cam->SetUniversalGround(lon_lat_radius[1], lon_lat_radius[0], lon_lat_radius[2]);
 
 //   std::cout << "LON LAT RAD: " << lon_lat_radius << " ---> ";
 //   std::cout << cam->Line() << " " << cam->Sample() << "\n";
@@ -78,25 +112,40 @@ Vector2 IsisCameraModel::point_to_pixel(Vector3 const& point) const {
 Vector3 IsisCameraModel::pixel_to_vector (Vector2 const& pix) const {
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
   
-  // Set the current "active" pixel for the upcoming computations
-  cam->SetImage(pix[0],pix[1]);
+  // This is the foolproof method for setting the current pixel of
+  // interest.  However, this method is very slow because it check for
+  // an intersection with the planetary datum on every call.
+  this->set_image(pix[0],pix[1]);
 
-  // Compute vector from the spacecraft to the ground intersection point
+  // Compute ground point
   double p[3];
-  cam->Coordinate(p);
-  Vector3 ground_pt(p[0],p[1],p[2]);
-
   cam->InstrumentPosition(p);
   Vector3 instrument_pt(p[0],p[1],p[2]);
 
+  // Compute vector from the spacecraft to the ground intersection point
+  cam->Coordinate(p);
+  Vector3 ground_pt(p[0],p[1],p[2]);
   return normalize(ground_pt - instrument_pt);
+
+  
+//   Quaternion<double> look_transform = this->camera_pose(pix);
+//   return inverse(look_transform).rotate(Vector3(0,0,1));
 }
 
 Vector3 IsisCameraModel::camera_center(Vector2 const& pix ) const {  
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
 
-  // Set the current "active" pixel for the upcoming computations
-  cam->SetImage(pix[0],pix[1]);
+  // This is the foolproof method for setting the current pixel of
+  // interest.  However, this method is very slow because it check for
+  // an intersection with the planetary datum on every call.
+  this->set_image(pix[0],pix[1]);
+
+  // On the other hand, this call is *much* faster because it directly
+  // updates the DetectorMap object and the ephemeris time without
+  // engaging any of the other "heavy machinery" involved with a call
+  // to cam->SetImage().  However, this is violating some abstraction
+  // barriers, and it may not be correct for all camera models.
+  //  cam->DetectorMap()->SetParent(pix[0],pix[1]);
   
   double pos[3];
   cam->InstrumentPosition(pos);
@@ -105,12 +154,15 @@ Vector3 IsisCameraModel::camera_center(Vector2 const& pix ) const {
 
 Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-
-  // Set the current "active" pixel for the upcoming computations
-  cam->SetImage(pix[0],pix[1]);
-
-  vw_throw(NoImplErr() << "IsisCameraModel::camera_pose() is not yet implemented.\n");
-  return Quaternion<double>();
+  this->set_image(pix[0],pix[1]);
+  
+  // Convert from intrument frame --> J2000 frame --> Mars body-fixed frame
+  std::vector<double> rot_inst = cam->InstrumentRotation()->Matrix();
+  std::vector<double> rot_body = cam->BodyRotation()->Matrix();
+  MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
+  MatrixProxy<double,3,3> R_body(&(rot_body[0]));
+  
+  return Quaternion<double>(R_inst*inverse(R_body));
 }
 
 

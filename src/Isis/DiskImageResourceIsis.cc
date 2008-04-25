@@ -30,6 +30,7 @@
 #endif
 
 #include <vw/Core/Exception.h>
+#include <vw/Image/PerPixelViews.h>
 
 #include "Isis/DiskImageResourceIsis.h"
 
@@ -40,8 +41,8 @@
 using namespace std;
 using namespace boost;
 
-namespace vw
-{
+namespace vw {
+  
 
   // Set the default block size to be the width of the image by 10
   // scanlines.

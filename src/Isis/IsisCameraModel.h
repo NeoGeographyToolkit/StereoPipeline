@@ -72,6 +72,9 @@ namespace camera {
     //  Pose is a rotation which moves a vector in camera coordinates into world coordinates.
     virtual Quaternion<double> camera_pose(Vector2 const& pix = Vector2() ) const;
 
+  private:
+    mutable double m_current_line, m_current_sample;
+    void set_image(double sample, double line) const;
   };
 
 }}	// namespace vw::camera
