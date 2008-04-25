@@ -40,7 +40,6 @@ apollo_sources = apollo/StereoSessionApolloMetric.cc
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
 
-
 clementine_sources = clementine/StereoSessionClementine.cc
 generic_stereo_sources = file_lib.cc StereoSession.cc			\
 	 	  	 StereoSessionKeypoint.cc			\
@@ -57,6 +56,14 @@ if MAKE_APP_STEREO
   stereo_LDFLAGS = $(APP_STEREO_LIBS) $(ASP_LDFLAGS)
 endif
 
+if MAKE_APP_ORBITVIZ
+  bin_PROGRAMS += orbitviz
+  orbitviz_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
+	 	   $(apollo_sources) $(clementine_sources)		\
+	 	   $(generic_stereo_sources) $(isis_sources)            \
+		   SpiceUtilities.cc orbitviz.cc
+  orbitviz_LDFLAGS = $(APP_ORBITVIZ_LIBS) $(ASP_LDFLAGS)
+endif
 
 #  bin_PROGRAMS += aspgui
 #  aspgui_SOURCES = aspgui.cc gui/GlWidget.cc

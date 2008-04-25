@@ -26,7 +26,7 @@ namespace vw {
 
 // Duplicate matches for any given interest point probably indicate a
 // poor match, so we cull those out here.
-void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
+static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
   std::vector<Vector3> new_ip1, new_ip2;
   
   for (unsigned i = 0; i < ip1.size(); ++i) {
@@ -47,8 +47,7 @@ void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
   ip2 = new_ip2;
 }
 
-void
-StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
+void StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
   std::cout << "StereoSessionKeypoint::initialize(DFT_F &): setting image sub-sampling factor to "
 	    << stereo_defaults.keypoint_align_subsampling << std::endl;
   set_sub_sampling(stereo_defaults.keypoint_align_subsampling);
@@ -107,8 +106,8 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
 
   // Interest Point module detector code.
   ScaledInterestPointDetector<LogInterestOperator> detector;
-  InterestPointList ip1 = detect_interest_points(channels_to_planes(left_disk_image), detector);
-  InterestPointList ip2 = detect_interest_points(channels_to_planes(right_disk_image), detector);
+  InterestPointList ip1 = detect_interest_points(left_disk_image, detector);
+  InterestPointList ip2 = detect_interest_points(right_disk_image, detector);
   vw_out(InfoMessage) << "Left image: " << ip1.size() << " points.  Right image: " << ip2.size() << "\n"; 
 
   // Generate descriptors for interest points.
@@ -134,14 +133,14 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   std::vector<InterestPoint> matched_ip1, matched_ip2;
   matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback());
   vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
-	/*
+       
   std::vector<Vector3> ransac_ip1(matched_ip1.size());
   std::vector<Vector3> ransac_ip2(matched_ip2.size());
   for (unsigned i = 0; i < matched_ip1.size();++i ) {
     ransac_ip1[i] = Vector3(matched_ip1[i].x, matched_ip1[i].y,1);
     ransac_ip2[i] = Vector3(matched_ip2[i].x, matched_ip2[i].y,1);
   }
-	*/
+  
   remove_duplicates(ransac_ip1, ransac_ip2);
 
   // RANSAC is used to fit a similarity transform between the

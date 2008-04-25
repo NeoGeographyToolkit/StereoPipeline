@@ -1,213 +1,152 @@
-#ifdef _MSC_VER
-#pragma warning(disable:4244)
-#pragma warning(disable:4267)
-#pragma warning(disable:4996)
-#endif
-
-#ifdef NDEBUG
-#undef NDEBUG
-#endif
-
-#include <fstream>
-
+/************************************************************************
+ *     File: orbitviz.cc
+ ************************************************************************/
+#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/convenience.hpp>
+#include <boost/filesystem/fstream.hpp>
+using namespace boost;
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
+#include <vw/Core.h>
+#include <vw/Image.h>
+#include <vw/Math.h>
 #include <vw/FileIO.h>
+#include <vw/Camera.h>
+#include <vw/Stereo.h>
 #include <vw/Cartography.h>
-#include <vw/Math/EulerAngles.h>
 using namespace vw;
+using namespace vw::camera;
+using namespace vw::stereo;
+using namespace vw::cartography;
 
 #include "stereo.h"
-#include "nff_terrain.h"
-#include "Spice.h"
+#include "file_lib.h"
+#include "StereoSession.h"
+#include "SurfaceNURBS.h"
+#include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
+#include "KML.h"
 
-// Returns: A Vector3 containing the euler angles [phi, omega, kappa] inline
-inline Vector3 rotation_matrix_to_euler_xyz(const Matrix<double,3,3> rotation_matrix) {
-  double omega = asin(rotation_matrix(0,2));
-  double phi = acos(rotation_matrix(2,2) / cos(omega));
-  double kappa = acos(rotation_matrix(0,0) / cos(omega));
-  return Vector3(phi, omega, kappa);
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+#include "Isis/DiskImageResourceIsis.h"
+#include "Isis/StereoSessionIsis.h"
+#endif
+
+#include "HRSC/StereoSessionHRSC.h"
+#include "MOC/StereoSessionMOC.h"
+#include "apollo/StereoSessionApolloMetric.h"
+#include "clementine/StereoSessionClementine.h"
+#include "MRO/StereoSessionCTX.h"
+
+using namespace std;
+
+// Allows FileIO to correctly read/write these pixel types
+namespace vw {
+  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-// Returns: A Vector3 containing the euler angles [phi, omega, kappa]
-inline Vector3 rotation_matrix_to_euler_yxz(const Matrix<double,3,3> rotation_matrix) {
-  double cos_phi = sqrt (1 - rotation_matrix(2,1) * rotation_matrix(2,1));
-  double phi = atan2(rotation_matrix(2,1), cos_phi);
-  double omega = atan2(-rotation_matrix(2,0), rotation_matrix(2,2));
-  double kappa = atan2(-rotation_matrix(0,1), rotation_matrix(1,1));
-  return Vector3(omega, phi, kappa);
-}
+//***********************************************************************
+// MAIN
+//***********************************************************************
 
-// Returns: A Vector3 containing the euler angles [phi, omega, kappa]
-inline Vector3 rotation_matrix_to_euler_zxy(const Matrix<double,3,3> rotation_matrix) {
-  double sin_phi = -rotation_matrix(1,2);
-  double cos_phi = sqrt (1 - sin_phi*sin_phi);
-  double phi = atan2(sin_phi, cos_phi);
-  double omega = atan2(rotation_matrix(0,2), rotation_matrix(2,2));
-  double kappa = atan2(rotation_matrix(1,0), rotation_matrix(1,1));
-  return Vector3(kappa, phi, omega);
-}
+int main(int argc, char* argv[]) {
 
-
-void append_model(std::ofstream &output_file, double ephemeris_time, double scale, 
-                  std::string spacecraft, std::string reference_frame, std::string planet, std::string instrument, int index) {
+  // Register the DDD file handler with the Vision Workbench
+  // DiskImageResource system.  DDD is the proprietary format used by
+  // Malin Space Science Systems.
+  DiskImageResource::register_file_type(".ddd",
+                                        DiskImageResourceDDD::type_static(),
+                                        &DiskImageResourceDDD::construct_open,
+                                        &DiskImageResourceDDD::construct_create);
   
-  Vector3 position, velocity;
-  Quaternion<double> pose;
-  spice::body_state(ephemeris_time,
-                    position, velocity, pose,
-                    spacecraft, reference_frame, planet, instrument);
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+  // Register the Isis file handler with the Vision Workbench
+  // DiskImageResource system.
+  DiskImageResource::register_file_type(".cub",
+                                        DiskImageResourceIsis::type_static(),
+                                        &DiskImageResourceIsis::construct_open,
+                                        &DiskImageResourceIsis::construct_create);
+#endif 
 
-  cartography::XYZtoLonLatRadFunctor func;
-  Vector3 lon_lat_alt = func(position);
+  // Register all stereo session types
+  StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
+  StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
+  StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
+  StereoSession::register_session_type( "clementine", &StereoSessionClementine::construct);
+  StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+#endif
 
-  Matrix3x3 correction_rot = vw::math::euler_to_rotation_matrix((90-lon_lat_alt(1))*M_PI/180, (90+lon_lat_alt(0))*M_PI/180, 0, "xzy");
-  Vector3 angles = rotation_matrix_to_euler_zxy(pose.rotation_matrix()*correction_rot);
-  std::cout << "Angles: " << angles << "\n";
-  double heading = angles(0)*180/M_PI, tilt = angles(1)*180/M_PI, roll = angles(2)*180/M_PI;
+  /*************************************/
+  /* Parsing of command line arguments */
+  /*************************************/
 
-  // The master KML document needs a lookat directive.  We point it at
-  // the location of the first target we are tracking.
-  if (index == 0) {
-    output_file << "<LookAt>\n" 
-                << "  <longitude>" << lon_lat_alt(0) << "</longitude>\n"
-                << "  <latitude> " << lon_lat_alt(1) << "</latitude>\n"
-                << "  <altitude> " << lon_lat_alt(2)-1737400 << "</altitude>\n" // 1737400 is the lunar radius
-                << "  <range> " << 1e6 << "</range>\n"
-                << "  <tilt>" << 0 << "</tilt>\n"
-                << "  <heading>" << 0 << "</heading>\n"
-                << "</LookAt>\n";
-  }
-
-  output_file << "<Placemark>\n"
-              << "<name>Ephemeris Time: " << ephemeris_time << "</name>\n"
-              << "<LookAt>\n" 
-              << "  <longitude>" << lon_lat_alt(0) << "</longitude>\n"
-              << "  <latitude> " << lon_lat_alt(1) << "</latitude>\n"
-              << "  <altitude> " << lon_lat_alt(2)-1737400 << "</altitude>\n" // 1737400 is the lunar radius
-              << "  <range> " << 1e6 << "</range>\n"
-              << "  <tilt>" << 0 << "</tilt>\n"
-              << "  <heading>" << 0 << "</heading>\n"
-              << "</LookAt>\n"
-              << "<Model id=\"model_" << ephemeris_time << "\">\n"
-              << "  <altitudeMode>absolute</altitudeMode>\n"
-              << "  <Location>\n"
-              << "     <longitude>" << lon_lat_alt(0) << "</longitude>\n" 
-              << "     <latitude> " << lon_lat_alt(1) << "</latitude>\n"
-              << "     <altitude> " << lon_lat_alt(2)-1737400 << "</altitude>\n"
-              << "  </Location>\n"
-              << "  <Orientation>\n"
-              << "		 <heading>" << heading << "</heading>\n"
-              << "     <tilt>" << tilt << "</tilt>\n"
-              << "     <roll>" << roll << "</roll>\n"
-              << "  </Orientation>\n"
-              << "  <Scale> \n"
-              << "    <x>" << 3000*scale << "</x>\n"
-              << "    <y>" << 3000*scale << "</y>\n"
-              << "    <z>" << 3000*scale << "</z>\n"
-              << "  </Scale>\n"
-              << "  <Link>\n"
-              << "    <href>/Users/mbroxton/Desktop/models/axis.dae</href>\n"
-              << "  </Link>\n"
-              << "</Model>\n"
-              << "</Placemark>\n";
-}
-
-void write_orbital_reference_model(std::string filename,
-                                   std::vector<double> ephemeris_times,
-                                   double scale,
-                                   std::string spacecraft, std::string reference_frame, std::string planet, std::string instrument) {
-
-  std::cout << "Writing Orbital Visualization VRML file to \"" << filename << "\".\n";
-
-  // Open the file and verify that everything is ok.
-  std::ofstream output_file;
-  output_file.open(filename.c_str(), std::ios::out);
-  if (!output_file.good()) 
-    vw_throw(IOErr() << "An error occured while opening the Orbital Reference VRML file for writing.");
-
-  output_file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" 
-              << "<kml xmlns=\"http://earth.google.com/kml/2.1\">\n" 
-              << "<Document>\n" 
-              << "<name>KmlFile</name>\n";
-
-  for (int i = 0; i < ephemeris_times.size(); ++i) 
-    append_model(output_file, ephemeris_times[i], scale, spacecraft, reference_frame, planet, instrument,i);
-
-  output_file << "</Document>\n"
-              << "</kml>\n\n";
-
-  output_file.close();
-}
-
-int main( int argc, char *argv[] ) {
-  set_debug_level(VerboseDebugMessage+11);
-  
-  int debug_level;
-  std::vector<double> ephem_times;
-  std::vector<std::string> utc_times;
-  std::string output_file;
-  std::string kernels_file;
-  std::string kernels_prefix;
+  // Boost has a nice command line parsing utility, which we use here
+  // to specify the type, size, help string, etc, of the command line
+  // arguments.
+  std::string stereo_session_string;
+  std::string in_file1, in_file2, cam_file1, cam_file2, out_file;
   double scale;
-  std::string spacecraft;
-  std::string reference_frame;
-  std::string planet;
-  std::string instrument;
-  
-  po::options_description desc("Options");
-  desc.add_options()
-    ("help", "Display this help message")
-    ("kernels-file,k", po::value<std::string>(&kernels_file)->default_value("kernels.txt"), "Supply a file containing a list of spice kernels to load")
-    ("scale", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount")
-    ("kernels-prefix,p", po::value<std::string>(&kernels_prefix)->default_value(""), "Supply a path to prepend to the paths to kernels listed in the supplied kernel list file")
-    ("output-file,o", po::value<std::string>(&output_file)->default_value("orbitviz.kml"), "Explicitly specify the output file")
-    ("utc-times,u", po::value<std::vector<std::string> >(&utc_times), "Specify a set of UTC times to plot in KML")
-    ("ephemeris-times,e", po::value<std::vector<double> >(&ephem_times), "Specify a set of UTC times to plot in KML")
-    ("spacecraft", po::value<std::string>(&spacecraft)->default_value(""), "")
-    ("reference-frame", po::value<std::string>(&reference_frame)->default_value(""), "")
-    ("planet", po::value<std::string>(&planet)->default_value(""), "")
-    ("instrument", po::value<std::string>(&instrument)->default_value(""), "");
+
+  po::options_description visible_options("Options");
+  visible_options.add_options()
+    ("help,h", "Display this help message")
+    ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
+    ("scale", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount");
+
+  po::options_description positional_options("Positional Options");
+  positional_options.add_options()
+    ("left-input-image", po::value<std::string>(&in_file1), "Left Input Image")
+    ("right-input-image", po::value<std::string>(&in_file2), "Right Input Image")
+    ("left-camera-model", po::value<std::string>(&cam_file1), "Left Camera Model File")
+    ("right-camera-model", po::value<std::string>(&cam_file2), "Right Camera Model File")
+    ("output-file", po::value<std::string>(&out_file)->default_value("orbit.kml"), "Output filename");
+  po::positional_options_description positional_options_desc;
+  positional_options_desc.add("left-input-image", 1);
+  positional_options_desc.add("right-input-image", 1);
+  positional_options_desc.add("left-camera-model", 1);
+  positional_options_desc.add("right-camera-model", 1);
+  positional_options_desc.add("output-file", 1);
+
+  po::options_description all_options;
+  all_options.add(visible_options).add(positional_options);
 
   po::variables_map vm;
-  po::store( po::command_line_parser( argc, argv ).options(desc).run(), vm );
+  po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_options_desc).run(), vm );
   po::notify( vm );
 
-  // Set the Vision Workbench debug level and cache
-  set_debug_level(debug_level);
-
-  if( vm.count("help") ) {
-    std::cout << desc << std::endl;
+  // If the command line wasn't properly formed or the user requested
+  // help, we print an usage message.
+  if( vm.count("help") ||
+      !vm.count("left-input-image") || !vm.count("right-input-image") || 
+      !vm.count("left-camera-model") || !vm.count("right-camera-model") || 
+      !vm.count("output-file")) {
+    std::cout << "\nUsage: " << argv[0] << " [options] <Left_input_image> <Right_input_image> <Left_camera_file> <Right_camera_file> <output_file_prefix>\n"
+              << "  the extensions are automaticaly added to the output files\n"
+              << "  the parameters should be in stereo.default\n\n";
+    std::cout << visible_options << std::endl;
     return 1;
   }
 
-  if ( vm.count("kernels-file") )
-    spice::load_kernels(kernels_file, kernels_prefix);
-  else {
-    std::cout << "You must supply a file containing a list of SPICE kernels to load!\n";
-    std::cout << "Exiting\n\n";
-    exit(0);
-  }
-  const char* resource_path = "/irg/projects/MOC/resources/OrbitViz";
 
-  if ( vm.count("ephemeris-times") )
-    for (int i = 0; i < ephem_times.size(); ++i) 
-      std::cout << "EPHEM TIME: " << ephem_times[i] << "\n";
+  StereoSession* session = StereoSession::create(stereo_session_string);
+  session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
+                      out_file, "", "", "", "");
 
-  if ( vm.count("utc-times") )
-    for (int i = 0; i < utc_times.size(); ++i) {
-      std::cout << "UTC TIME: " << utc_times[i] << "\n";
-      ephem_times.push_back(spice::utc_to_et(utc_times[i]));
-      std::cout << "      ET: " << spice::utc_to_et(utc_times[i]) << "\n";
-    }
+  // Generate some camera models
+  boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+  session->camera_models(camera_model1, camera_model2);
 
-  if (ephem_times.size() == 0) {
-    std::cout << "You did not specify any times.  \nExiting.\n\n";
-    exit(0);
-  }
 
-  write_orbital_reference_model(output_file, ephem_times, scale, spacecraft, reference_frame, planet, instrument);
-
-  return 0;
+  // Create the KML file.
+  KMLStateVectorViz kml(out_file, "test", scale);
+  kml.append_body_state("Camera 1", camera_model1->camera_center(Vector2()), camera_model1->camera_pose(Vector2()));
+  kml.append_body_state("Camera 2", camera_model2->camera_center(Vector2()), camera_model2->camera_pose(Vector2()));
+  kml.close();
+  exit(0);
 }

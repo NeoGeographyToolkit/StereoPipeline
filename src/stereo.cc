@@ -34,7 +34,7 @@ using namespace vw::cartography;
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
 #include "Isis/DiskImageResourceIsis.h"
-//#include "Isis/StereoSessionIsis.h"
+#include "Isis/StereoSessionIsis.h"
 #endif
 
 #include "HRSC/StereoSessionHRSC.h"
@@ -66,13 +66,13 @@ namespace vw {
 int main(int argc, char* argv[]) {
 
   // Definition of data and structures
-  int argstart;
   F_HD hd;         /* parameters read in header file & argv[] */
   DFT_F dft;       /* parameters read in stereo.default */
   TO_DO execute;   /* whether or not to execute specific parts of the program */
   
   // Register the DDD file handler with the Vision Workbench
-  // DiskImageResource system.
+  // DiskImageResource system.  DDD is the proprietary format used by
+  // Malin Space Science Systems.
   DiskImageResource::register_file_type(".ddd",
                                         DiskImageResourceDDD::type_static(),
                                         &DiskImageResourceDDD::construct_open,
@@ -162,7 +162,6 @@ int main(int argc, char* argv[]) {
 
   // Support for legacy code 
   init_dft_struct(&dft, &execute);
-  argstart = 1;
   init_header_struct(&dft, &hd, argv[0], "dummy", "dummy");
 
   // Read all of the options out of the stereo default file. 
@@ -183,7 +182,7 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "clementine", &StereoSessionClementine::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
-  //  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
   StereoSession* session = StereoSession::create(stereo_session_string);
@@ -277,7 +276,15 @@ int main(int argc, char* argv[]) {
                                                   dft.xcorr_treshold,
                                                   dft.corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
                                                   dft.do_h_subpixel, dft.do_v_subpixel);   // h and v subpixel
-      disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(dft.slogW));
+      if (execute.slog) {
+        std::cout << "Applying SLOG filter.\n";
+        disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(dft.slogW));
+      } else if (execute.log) {
+        std::cout << "Applying LOG filter.\n";
+        disparity_map = correlator( left_disk_image, right_disk_image, stereo::LogStereoPreprocessingFilter(dft.slogW));
+      } else {
+        disparity_map = correlator( left_disk_image, right_disk_image, stereo::NullStereoPreprocessingFilter());
+      }
     }
 
     // do some basic outlier rejection
@@ -304,22 +311,20 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
 
-      // This seems to be more cleanup than is needed with the new
-      // pyramid correlator... skipping it for now.
-      //
+
+      // Apply the Mask to the disparity map 
+      if(execute.apply_mask){
+        std::cout << "\tApplying mask.\n";
+        DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
+        DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
+        disparity_map = disparity::mask(disparity_disk_image, Lmask, Rmask);
+      }
+
       std::cout << "Cleaning up disparity map prior to filtering processes (" << dft.rm_cleanup_passes << " passes).\n";
       for (int i = 0; i < dft.rm_cleanup_passes; ++i) {
         disparity_map = disparity::clean_up(disparity_disk_image,
                                             dft.rm_h_half_kern, dft.rm_v_half_kern,
                                             dft.rm_treshold, dft.rm_min_matches/100.0);
-      }
-
-      // Apply the Mask to the disparity map 
-      std::cout << "\tapplying mask.\n";
-      DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
-      DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
-      if(execute.apply_mask){
-        disparity_map = disparity::mask(disparity_map, Lmask, Rmask);
       }
 
       // Rasterize the results so far to a temporary file on disk.
@@ -340,6 +345,8 @@ int main(int argc, char* argv[]) {
       ImageViewRef<PixelDisparity<float> > hole_filled_disp_map = filtered_disparity_map;
 
       if(execute.fill_holes_NURBS) {
+        DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
+        DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
         std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
         hole_filled_disp_map = disparity::mask(HoleFillView(filtered_disparity_map, 4),Lmask, Rmask);
       } 
@@ -347,7 +354,6 @@ int main(int argc, char* argv[]) {
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
       disparity_map_rsrc.set_tiled_write(std::min(2048,hole_filled_disp_map.cols()),std::min(2048, hole_filled_disp_map.rows()));
       write_image(disparity_map_rsrc, hole_filled_disp_map, TerminalProgressCallback() ); 
-
     } catch (IOErr &e) { 
       cout << "\n An file IO error occurred during the filtering stage.  " << e.what() << "Exiting.\n\n";
       exit(0);

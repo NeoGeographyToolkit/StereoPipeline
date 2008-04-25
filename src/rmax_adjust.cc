@@ -157,13 +157,11 @@ int main(int argc, char* argv[]) {
 
   if (!vm.count("bundles") ) {
 
-    // First, detect all of the interest points.  These points may be
-    // cached in binary *.key file, and these files are used instead
-    // where possible to save time.
-    std::vector<std::string> keyfiles(image_files.size());
-    for (unsigned i = 0; i < image_files.size(); ++i) {
-      keyfiles[i] = detect_interest_points(image_files[i]);
-    }    
+    // First, detect all of the interest points.  These points must be
+    // cached in a binary *.vwip file, which can be generated using
+    // the VW ipfind tool.
+    if (!check_for_ipfiles(image_files))
+      exit(0);
 
     // Locate all of the interest points between images that may
     // overlap based on a rough approximation of their bounding box.
@@ -172,7 +170,7 @@ int main(int argc, char* argv[]) {
       for (unsigned j = 0; j < image_files.size(); ++j) {
         if ( i < j && may_overlap(image_files[i], image_files[j]) ) {
           std::vector<Vector2> matched_ip1, matched_ip2;
-          match_interest_points(keyfiles[i], keyfiles[j], matched_ip1, matched_ip2);
+          match_interest_points(image_files[i], image_files[j], matched_ip1, matched_ip2);
           MatchedPoints m;
           m.id1 = i;
           m.id2 = j;
