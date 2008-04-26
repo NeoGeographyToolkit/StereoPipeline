@@ -246,8 +246,8 @@ AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads], [osg/ref_ptr])
 AX_PKG(MBA, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
-AX_PKG(QT_CORE, [], [], [QVector], [QtCore])
-AX_PKG(QT_GUI, [], [], [QLabel], [QtGui])
+AX_PKG(QT_CORE, [], [-lQtCore], [QVector], [QtCore])
+AX_PKG(QT_GUI, [], [-lQtGui], [QLabel], [QtGui])
 AX_PKG(ISIS3RDPARTY, [], [-lgeos -lxerces-c -lgsl -lgslcblas -liconv -lqwt])
 AX_PKG(ISIS, [], [-lisis3])
 
