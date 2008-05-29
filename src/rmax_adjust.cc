@@ -157,9 +157,6 @@ int main(int argc, char* argv[]) {
 
   if (!vm.count("bundles") ) {
 
-    // First, detect all of the interest points.  These points must be
-    // cached in a binary *.vwip file, which can be generated using
-    // the VW ipfind tool.
     if (!check_for_ipfiles(image_files))
       exit(0);
 

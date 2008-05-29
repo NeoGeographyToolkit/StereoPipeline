@@ -11,5 +11,6 @@ std::string detect_interest_points(std::string image_filename);
 
 void match_interest_points(std::string ip_filename1, std::string ip_filename2, 
                            std::vector<vw::Vector2> &final_ip1, std::vector<vw::Vector2> &final_ip2);
+bool check_for_ipfiles(std::vector<std::string> files);
 
 #endif // __RMAX_INTEREST_POINTS_H__

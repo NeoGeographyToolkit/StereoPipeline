@@ -28,11 +28,11 @@ static std::string suffix_from_filename(std::string const& filename) {
 
 // Returns the name of the binary file containing the extracted
 // interest points.
-bool check_for_ipfiles(std::vector<std::string> > files) {
+bool check_for_ipfiles(std::vector<std::string> files) {
 
-  for (unsigned i = 0; i < files.size; ++i) {
+  for (unsigned i = 0; i < files.size(); ++i) {
     
-    keyfile = prefix_from_filename(files[i]) + ".vwip";
+    std::string keyfile = prefix_from_filename(files[i]) + ".vwip";
     if ( !exists( keyfile ) ) {
       vw_out(ErrorMessage) << "Missing interest point file: " << keyfile << ".  Regenerate it using the ipfind utility.\n";
       return false;
@@ -79,8 +79,8 @@ void match_interest_points(std::string image_filename1, std::string image_filena
   // RANSAC needs the matches as a vector, and so does the matcher.
   // this is messy, but for now we simply make a copy.
   std::vector<InterestPoint> ip1, ip2;
-  ip1 = read_key_file(ip_filename1);
-  ip2 = read_key_file(ip_filename2);
+  ip1 = read_binary_ip_file(ip_filename1);
+  ip2 = read_binary_ip_file(ip_filename2);
 
   std::cout << "Matching " << ip_filename1 << " and " << ip_filename2 << "... " << std::flush;
   InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
