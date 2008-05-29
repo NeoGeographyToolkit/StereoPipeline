@@ -9,8 +9,8 @@ public:
 
   virtual ~StereoSessionIsis() {}
 
-  virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                             boost::shared_ptr<vw::camera::CameraModel> &cam2);
+  virtual boost::shared_ptr<vw::camera::CameraModel> camera_model(std::string image_file, 
+                                                                  std::string camera_file = "");
 
   // Stage 1: Preprocessing
   //
@@ -26,7 +26,7 @@ public:
   static StereoSession* construct() { return new StereoSessionIsis; }
 
 private:
-  vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2);
+  vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2, float lo, float hi);
 
 };
 

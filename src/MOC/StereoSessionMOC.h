@@ -8,8 +8,8 @@ class StereoSessionMOC: public StereoSessionKeypoint {
   
 public:
 
-  virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                             boost::shared_ptr<vw::camera::CameraModel> &cam2);
+  boost::shared_ptr<vw::camera::CameraModel> camera_model(std::string image_file, 
+                                                          std::string camera_file);
 
   static StereoSession* construct() { return new StereoSessionMOC; }
 };

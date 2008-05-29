@@ -25,8 +25,8 @@
 #include $(top_srcdir)/config/autotroll.mak
 
 if HAVE_PKG_ISIS
-isis_sources = Isis/DiskImageResourceIsis.cc Isis/IsisCameraModel.cc \
-		Isis/StereoSessionIsis.cc
+isis_sources = Isis/StereoSessionIsis.cc Isis/IsisCameraModel.cc	\
+               Isis/DiskImageResourceIsis.cc
 
 endif
 
@@ -37,10 +37,11 @@ hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
 
 apollo_sources = apollo/StereoSessionApolloMetric.cc
 
+rmax_sources = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
+
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
 
-clementine_sources = clementine/StereoSessionClementine.cc
 generic_stereo_sources = file_lib.cc StereoSession.cc			\
 	 	  	 StereoSessionKeypoint.cc			\
 	 	  	 StereoSessionPinhole.cc			\
@@ -50,18 +51,26 @@ bin_PROGRAMS =
 if MAKE_APP_STEREO
   bin_PROGRAMS += stereo
   stereo_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
-	 	   $(apollo_sources) $(clementine_sources)		\
-	 	   $(generic_stereo_sources) $(isis_sources)            \
-	 	   SpiceUtilities.cc stereo.cc
+	 	   $(apollo_sources) $(generic_stereo_sources)		\
+	 	   $(isis_sources) SpiceUtilities.cc stereo.cc
   stereo_LDFLAGS = $(APP_STEREO_LIBS) $(ASP_LDFLAGS)
+endif
+
+if MAKE_APP_BUNDLEADJUST
+  bin_PROGRAMS += bundle_adjust
+  bundle_adjust_SOURCES = $(moc_sources) $(ctx_sources)			\
+	 	          $(hrsc_sources) $(apollo_sources)		\
+	 	          $(generic_stereo_sources) $(isis_sources)	\
+	 	          $(rmax_sources) SpiceUtilities.cc		\
+	 	          bundle_adjust.cc
+  bundle_adjust_LDFLAGS = $(APP_BUNDLEADJUST_LIBS) $(ASP_LDFLAGS)
 endif
 
 if MAKE_APP_ORBITVIZ
   bin_PROGRAMS += orbitviz
   orbitviz_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
-	 	   $(apollo_sources) $(clementine_sources)		\
-	 	   $(generic_stereo_sources) $(isis_sources)            \
-		   SpiceUtilities.cc orbitviz.cc
+	 	   $(apollo_sources) $(generic_stereo_sources)		\
+	 	   $(isis_sources) SpiceUtilities.cc orbitviz.cc
   orbitviz_LDFLAGS = $(APP_ORBITVIZ_LIBS) $(ASP_LDFLAGS)
 endif
 

@@ -96,5 +96,4 @@ public:
   Vector<double,6> initial_parameters(unsigned j) const { return Vector<double,6>(); }
 };
 
-
 #endif // __RMAX_H__

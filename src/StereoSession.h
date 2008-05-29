@@ -50,7 +50,13 @@ public:
   
 
   virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                             boost::shared_ptr<vw::camera::CameraModel> &cam2) = 0;
+                             boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+    cam1 = camera_model(m_left_image_file, m_left_camera_file);
+    cam2 = camera_model(m_right_image_file, m_right_camera_file);
+  }
+  
+  virtual boost::shared_ptr<vw::camera::CameraModel> camera_model(std::string image_file, 
+                                                                  std::string camera_file = "") = 0;
 
   // Stage 1: Preprocessing
   //

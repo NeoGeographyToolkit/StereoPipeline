@@ -199,8 +199,7 @@ void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, s
     exit(1);
   }
   
-  vw::Matrix<double> inv_align_matrix = inverse(align_matrix);
-  ImageViewRef<PixelDisparity<float> > result = stereo::disparity::disparity_linear_transform(disparity_map, inv_align_matrix);
+  ImageViewRef<PixelDisparity<float> > result = stereo::disparity::transform_disparities(disparity_map, HomographyTransform(align_matrix));
 
   // Remove pixels that are outside the bounds of the secondary image.
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);

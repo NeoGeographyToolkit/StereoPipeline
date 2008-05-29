@@ -264,22 +264,18 @@ void bundle_adjust_position_and_pose(std::string tie_file1, std::string tie_file
     cam2 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera2);
 }
 
-void StereoSessionApolloMetric::camera_models(boost::shared_ptr<camera::CameraModel> &cam1,
-                                              boost::shared_ptr<camera::CameraModel> &cam2) {
-  
+boost::shared_ptr<vw::camera::CameraModel> StereoSessionApolloMetric::camera_model(std::string image_file, 
+                                                                                   std::string camera_file) {
   std::cout << "Loading kernels\n";
   load_apollo_metric_kernels();
 
   // Hard coded values for now...
 //   std::string utc1 = "1971-07-30T02:20:24.529"; // AS15-M-0081
 //   std::string utc2 = "1971-07-30T02:20:44.876"; // AS15-M-0082
-  std::string utc1 = "1971-07-30T02:26:31.865"; // AS15-M-0099
-  std::string utc2 = "1971-07-30T02:26:52.293"; // AS15-M-0100
-
-  std::cout << "Converting to et\n";
-  double et1 = spice::utc_to_et(utc1);
-  double et2 = spice::utc_to_et(utc2);
-  std::cout << "\t" << et1 << "   " << et2 << "\n";
+//   std::string utc1 = "1971-07-30T02:26:31.865"; // AS15-M-0099
+//   std::string utc2 = "1971-07-30T02:26:52.293"; // AS15-M-0100
+  std::string utc = camera_file;
+  double et = spice::utc_to_et(utc);
 
   // Intrinsics are shared by the two images since it's the same imager
   std::cout << "Computing intrinsics\n";
@@ -304,45 +300,34 @@ void StereoSessionApolloMetric::camera_models(boost::shared_ptr<camera::CameraMo
                                               Vector3(0.12275363e-5, -0.24596243e-9, 1.8859721),
                                               pixels_per_mm);
                                               
-  std::cout << "Initializing camera 1\n";
-  // Initialize camera 1
-  apollo_metric_state(et1, camera_center, camera_velocity, camera_pose);
-  PinholeModel pinhole_cam1(camera_center, camera_pose.rotation_matrix(),
-                            f, f, cx, cy,
-                            Vector3(1,0,0),
-                            Vector3(0,1,0),
-                            Vector3(0,0,1),
-                            NullLensDistortion());
+  std::cout << "Initializing camera for UTC: " << utc << "\n";
+  apollo_metric_state(et, camera_center, camera_velocity, camera_pose);
+  PinholeModel pinhole_cam(camera_center, camera_pose.rotation_matrix(),
+                           f, f, cx, cy,
+                           Vector3(1,0,0),
+                           Vector3(0,1,0),
+                           Vector3(0,0,1),
+                           NullLensDistortion());
                             //                            distortion_model);
 
 
-  std::cout << "Initializing camera 2\n";
-  // Initialize camera 2
-  apollo_metric_state(et2, camera_center, camera_velocity, camera_pose);
-  PinholeModel pinhole_cam2(camera_center, camera_pose.rotation_matrix(),
-                            f, f, cx, cy,
-                            Vector3(1,0,0),
-                            Vector3(0,1,0),
-                            Vector3(0,0,1),
-                            NullLensDistortion());
-  //distortion_model);
-
-  cam1 = boost::shared_ptr<CameraModel>(new PinholeModel(pinhole_cam1));
-  cam2 = boost::shared_ptr<CameraModel>(new PinholeModel(pinhole_cam2));
+  return boost::shared_ptr<CameraModel>(new PinholeModel(pinhole_cam));
 
 
-  // If the user has supplied tie point files, we adjust the camera
-  // pointing information here using a nelder-mead optimizer.
-  if (m_extra_argument4 == "pose" && m_extra_argument2 != "" && m_extra_argument3 != "") {
-    std::cout << "Optimizing by adjusting pose...\n";
-    bundle_adjust_pose(m_extra_argument2, m_extra_argument3, cam1, cam2, subsample);
-  } else if (m_extra_argument4 == "position" && m_extra_argument2 != "" && m_extra_argument3 != "") {
-    std::cout << "Optimizing by adjusting position...\n";
-    bundle_adjust_position(m_extra_argument2, m_extra_argument3, cam1, cam2, subsample);
-  } else if (m_extra_argument4 == "both" && m_extra_argument2 != "" && m_extra_argument3 != "") {
-    std::cout << "Optimizing by adjusting position and pose...\n";
-    bundle_adjust_position_and_pose(m_extra_argument2, m_extra_argument3, cam1, cam2, subsample);
-  }
+  // Disabled for now... -mbroxton
+  //
+//   // If the user has supplied tie point files, we adjust the camera
+//   // pointing information here using a nelder-mead optimizer.
+//   if (m_extra_argument4 == "pose" && m_extra_argument2 != "" && m_extra_argument3 != "") {
+//     std::cout << "Optimizing by adjusting pose...\n";
+//     bundle_adjust_pose(m_extra_argument2, m_extra_argument3, cam1, cam2, subsample);
+//   } else if (m_extra_argument4 == "position" && m_extra_argument2 != "" && m_extra_argument3 != "") {
+//     std::cout << "Optimizing by adjusting position...\n";
+//     bundle_adjust_position(m_extra_argument2, m_extra_argument3, cam1, cam2, subsample);
+//   } else if (m_extra_argument4 == "both" && m_extra_argument2 != "" && m_extra_argument3 != "") {
+//     std::cout << "Optimizing by adjusting position and pose...\n";
+//     bundle_adjust_position_and_pose(m_extra_argument2, m_extra_argument3, cam1, cam2, subsample);
+//   }
 
 }
 

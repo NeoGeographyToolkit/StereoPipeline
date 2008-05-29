@@ -38,7 +38,6 @@ using namespace vw::cartography;
 #include "HRSC/StereoSessionHRSC.h"
 #include "MOC/StereoSessionMOC.h"
 #include "apollo/StereoSessionApolloMetric.h"
-#include "clementine/StereoSessionClementine.h"
 #include "MRO/StereoSessionCTX.h"
 
 using namespace std;
@@ -76,7 +75,6 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
-  StereoSession::register_session_type( "clementine", &StereoSessionClementine::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);

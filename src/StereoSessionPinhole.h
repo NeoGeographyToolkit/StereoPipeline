@@ -10,6 +10,9 @@ public:
   virtual ~StereoSessionPinhole() {}
 
   // Correct lens distortion and epipolar-rectify the images
+  virtual boost::shared_ptr<vw::camera::CameraModel> camera_model(std::string image_file, 
+                                                                  std::string camera_file = "");
+
   virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                              boost::shared_ptr<vw::camera::CameraModel> &cam2);
 

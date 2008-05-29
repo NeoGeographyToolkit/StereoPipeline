@@ -116,8 +116,8 @@ namespace vw {
       vw_throw(IOErr() << "DiskImageResourceIsis: Unknown pixel type.");
     }
 
-    vw_out(0) << "Bytes per pixel: " << m_bytes_per_pixel; 
-    vw_out(0) << "   channel_type " << m_format.channel_type << "\n";
+//     vw_out(0) << "Bytes per pixel: " << m_bytes_per_pixel; 
+//     vw_out(0) << "   channel_type " << m_format.channel_type << "\n";
    
     // Close the cube file
     cube.Close();

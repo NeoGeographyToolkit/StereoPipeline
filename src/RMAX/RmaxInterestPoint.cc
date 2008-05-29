@@ -69,8 +69,6 @@ void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
 void match_interest_points(std::string image_filename1, std::string image_filename2, 
                            std::vector<Vector2> &final_ip1, std::vector<Vector2> &final_ip2) {
  
-  
-
   std::string ip_filename1 = prefix_from_filename(image_filename1) + ".vwip";
   std::string ip_filename2 = prefix_from_filename(image_filename2) + ".vwip";
 

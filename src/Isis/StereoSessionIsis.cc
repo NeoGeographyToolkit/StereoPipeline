@@ -8,18 +8,110 @@
 #include <vw/Cartography.h>
 #include "Isis/StereoSessionIsis.h"
 #include "Isis/IsisCameraModel.h"
-#include "Isis/DiskImageResourceIsis.h"
 
 // Isis Headers
 #include <Cube.h>
 #include <Camera.h>
 #include <CameraDetectorMap.h>
+#include <SpecialPixel.h>
 
+// Boost
+#include "boost/filesystem.hpp"   
+using namespace boost::filesystem; 
 
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 using namespace vw::ip;
+
+
+template <class ViewT>
+class IsisMinMaxChannelAccumulator {
+  typedef typename ViewT::pixel_type pixel_type;
+  typedef typename CompoundChannelType<typename ViewT::pixel_type>::type channel_type;
+  int num_channels;
+  channel_type minval, maxval;
+  bool valid;
+public:
+  IsisMinMaxChannelAccumulator()
+    : num_channels( PixelNumChannels<pixel_type>::value - (PixelHasAlpha<pixel_type>::value ? 1 : 0) ), valid(false) {}
+
+  IsisMinMaxChannelAccumulator(channel_type no_data_value)
+    : num_channels( PixelNumChannels<pixel_type>::value - (PixelHasAlpha<pixel_type>::value ? 1 : 0) ), valid(false) {}
+  
+  void operator()( pixel_type const& pix ) {
+    if (!valid && !Isis::IsSpecial(compound_select_channel<channel_type>(pix,0)) ) {
+      minval = maxval = compound_select_channel<channel_type>(pix,0);
+      valid = true;
+    }
+    for (int channel = 0; channel < num_channels; channel++) {
+      channel_type channel_value = compound_select_channel<channel_type>(pix,channel);
+      if( Isis::IsSpecial(channel_value) ) continue;
+      if( channel_value < minval ) minval = channel_value;
+      if( channel_value > maxval ) maxval = channel_value;
+    }
+  }
+
+  channel_type minimum() const { 
+    VW_ASSERT(valid, ArgumentErr() << "MinMaxChannelAccumulator: no valid pixels");
+    return minval; 
+  }
+
+  channel_type maximum() const {
+    VW_ASSERT(valid, ArgumentErr() << "MinMaxChannelAccumulator: no valid pixels");
+    return maxval;
+  }
+};
+
+template <class ViewT>
+void isis_min_max_channel_values( const ImageViewBase<ViewT> &view, 
+                                  typename CompoundChannelType<typename ViewT::pixel_type>::type &min, 
+                                  typename CompoundChannelType<typename ViewT::pixel_type>::type &max )
+{
+  IsisMinMaxChannelAccumulator<ViewT> accumulator;
+  for_each_pixel( view, accumulator );
+  min = accumulator.minimum();
+  max = accumulator.maximum();
+}
+
+//  IsisSpecialPixelFunc
+//
+/// Replace ISIS missing data values with a pixel value of your
+/// choice.
+
+template <class PixelT>
+class IsisSpecialPixelFunc: public vw::UnaryReturnSameType {
+  PixelT m_replacement_value;
+public:
+  IsisSpecialPixelFunc(PixelT const& pix) : m_replacement_value(pix) {}
+  
+  PixelT operator() (PixelT const& pix) const {
+    typedef typename CompoundChannelType<PixelT>::type channel_type;
+    for (int n = 0; n < CompoundNumChannels<PixelT>::value; ++n) {
+      // Check to see if this is an Isis special value.  If it is,
+      // return 0 for now.
+      if (Isis::IsSpecial(compound_select_channel<const channel_type&>(pix,n))) 
+        return m_replacement_value;
+    }
+    return pix;
+  }
+};
+    
+template <class ViewT>
+UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type> > 
+remove_isis_special_pixels(ImageViewBase<ViewT> &image, typename ViewT::pixel_type replacement_value = typename ViewT::pixel_type() ) {
+  return per_pixel_filter(image.impl(), IsisSpecialPixelFunc<typename ViewT::pixel_type>(replacement_value));
+}
+
+
+
+static std::string prefix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1) 
+    result.erase(index, result.size());
+  return result;
+}
 
 // Duplicate matches for any given interest point probably indicate a
 // poor match, so we cull those out here.
@@ -44,16 +136,12 @@ static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &i
   ip2 = new_ip2;
 }
 
-vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::string const& input_file1, std::string const& input_file2) {
+vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::string const& input_file1, std::string const& input_file2, float lo, float hi) {
   std::string left_align_image_file(input_file1), right_align_image_file(input_file2);
 
   // Load the two images
   DiskImageView<PixelGray<float> > left_disk_image(input_file1);
   DiskImageView<PixelGray<float> > right_disk_image(input_file2);
-
-  vw_out(InfoMessage) << "Computing min/max values.\n";
-  ImageViewRef<PixelGray<float> > left_image = normalize(remove_isis_special_pixels(left_disk_image));
-  ImageViewRef<PixelGray<float> > right_image = normalize(remove_isis_special_pixels(right_disk_image));
 
   // Image Alignment
   //
@@ -65,27 +153,46 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
   // Interest points are matched in image chunk of <= 2048x2048
   // pixels to conserve memory.
   vw_out(InfoMessage) << "\nInterest Point Detection:\n";
+  InterestPointList ip1, ip2;
+  
+  // If the interest points are cached in a file, read that file in here.
+  if ( boost::filesystem::exists( prefix_from_filename(input_file1) + ".vwip" ) && 
+       boost::filesystem::exists( prefix_from_filename(input_file2) + ".vwip" )) {
+    std::cout << "Found cached interest point files: \n";
+    std::cout << "\t" << (prefix_from_filename(input_file1) + ".vwip") << "\n";
+    std::cout << "\t" << (prefix_from_filename(input_file2) + ".vwip") << "\n";
+    std::cout << "Skipping interest point detection step.\n";
+    
+  } else {
 
-  // Interest Point module detector code.
-  ScaledInterestPointDetector<LogInterestOperator> detector;
-  InterestPointList ip1 = detect_interest_points(left_image, detector);
-  InterestPointList ip2 = detect_interest_points(right_image, detector);
-  vw_out(InfoMessage) << "Left image: " << ip1.size() << " points.  Right image: " << ip2.size() << "\n"; 
+    ImageViewRef<PixelGray<float> > left_image = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
+    ImageViewRef<PixelGray<float> > right_image = normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0);
+    
+    // Interest Point module detector code.
+    LogInterestOperator log_detector(0.1);
+    ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 100);
+    //    ScaledInterestPointDetector<LogInterestOperator> detector;
+    std::cout << "Processing " << input_file1 << "\n";
+    ip1 = detect_interest_points(left_image, detector);
+    std::cout << "\nProcessing " << input_file2 << "\n";
+    ip2 = detect_interest_points(right_image, detector);
+    vw_out(InfoMessage) << "\nLeft image: " << ip1.size() << " points.  Right image: " << ip2.size() << "\n"; 
 
-  // Generate descriptors for interest points.
-  // TODO: Switch to a more sophisticated descriptor
-  vw_out(InfoMessage) << "\tGenerating descriptors... " << std::flush;
-  PatchDescriptorGenerator descriptor;
-  descriptor(left_image, ip1);
-  descriptor(right_image, ip2);
-  vw_out(InfoMessage) << "done.\n";
+    // Generate descriptors for interest points.
+    // TODO: Switch to a more sophisticated descriptor
+    vw_out(InfoMessage) << "\tGenerating descriptors... " << std::flush;
+    PatchDescriptorGenerator descriptor;
+    descriptor(left_image, ip1);
+    descriptor(right_image, ip2);
+    vw_out(InfoMessage) << "done.\n";
+  
+    // Write out the results
+    vw_out(InfoMessage) << "\tWriting interest points to disk... " << std::flush;
+    write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
+    write_binary_ip_file(prefix_from_filename(input_file2)+".vwip", ip2);
+    vw_out(InfoMessage) << "done.\n";
+  }
 
-  // Write out the results
-  vw_out(InfoMessage) << "\tWriting interest points to disk... " << std::flush;
-  write_binary_ip_file(input_file1+".vwip", ip1);
-  write_binary_ip_file(input_file2+".vwip", ip2);
-  vw_out(InfoMessage) << "done.\n";
- 
   // The basic interest point matcher does not impose any
   // constraints on the matched interest points.
   vw_out(InfoMessage) << "\nInterest Point Matching:\n";
@@ -93,9 +200,9 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
 
   // RANSAC needs the matches as a vector, and so does the matcher.
   // this is messy, but for now we simply make a copy.
-  std::vector<InterestPoint> ip1_copy(ip1.size()), ip2_copy(ip2.size());
-  std::copy(ip1.begin(), ip1.end(), ip1_copy.begin());
-  std::copy(ip2.begin(), ip2.end(), ip2_copy.begin());
+  std::vector<InterestPoint> ip1_copy, ip2_copy;
+  ip1_copy = read_binary_ip_file(prefix_from_filename(input_file1)+".vwip");
+  ip2_copy = read_binary_ip_file(prefix_from_filename(input_file2)+".vwip");
 
   InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
   std::vector<InterestPoint> matched_ip1, matched_ip2;
@@ -131,242 +238,144 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
   return T;
 }
 
+// Pre-align the ISIS images.  If the ISIS images are map projected,
+// we can perform pre-alignment by transforming them both into a
+// common map projection.  Otherwise, we resort to feature-based image
+// matching techniques to align the right image to the left image.
 void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
                                                std::string & output_file1, std::string & output_file2) {
 
-  // Determine the alignment matrix using keypoint matching techniques.
-  Matrix<double> align_matrix(3,3);
-  align_matrix = determine_image_alignment(m_left_image_file, m_right_image_file);
-  ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
-
-  DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
-  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
-  ImageViewRef<PixelGray<float> > Limg = remove_isis_special_pixels(left_disk_image);
-  ImageViewRef<PixelGray<float> > Rimg = transform(remove_isis_special_pixels(right_disk_image), HomographyTransform(align_matrix),
-                                                   left_disk_image.cols(), left_disk_image.rows());
-
+  DiskImageView<PixelGray<float> > left_disk_image(input_file1);
+  DiskImageView<PixelGray<float> > right_disk_image(input_file2);
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
 
-  write_image(output_file1, channel_cast_rescale<uint8>(normalize(Limg)), TerminalProgressCallback());
-  write_image(output_file2, channel_cast_rescale<uint8>(normalize(Rimg)), TerminalProgressCallback()); 
+  GeoReference input_georef1, input_georef2;
+  try {
+    // Read georeferencing information (if it exists...)
+    DiskImageResourceGDAL file_resource1( input_file1 );
+    DiskImageResourceGDAL file_resource2( input_file2 );
+    read_georeference( input_georef1, file_resource1 );
+    read_georeference( input_georef2, file_resource2 );
+  } catch (ArgumentErr &e) {
+    std::cout << "Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
+  }
+
+  // Make sure the images are normalized
+  vw_out(InfoMessage) << "Computing min/max values for normalization.  " << std::flush;
+  float left_lo, left_hi, right_lo, right_hi;
+  isis_min_max_channel_values(left_disk_image, left_lo, left_hi);
+  vw_out(InfoMessage) << "Left: [" << left_lo << " " << left_hi << "]    " << std::flush;
+  isis_min_max_channel_values(right_disk_image, right_lo, right_hi);
+  vw_out(InfoMessage) << "Right: [" << right_lo << " " << right_hi << "]\n\n";
+  float lo = std::min (left_lo, right_lo);
+  float hi = std::min (left_hi, right_hi);
+
+  // If this is a map projected cube, we skip the step of aligning the
+  // images, because the map projected images are probable very nearly
+  // aligned already.  For unprojected cubes, we align in the "usual"
+  // way using interest points.
+  if (0) {
+//   if (input_georef1.transform() != math::identity_matrix<3>() && 
+//       input_georef2.transform() != math::identity_matrix<3>() ) {
+    std::cout << "\nMap projected ISIS cubes detected.  Placing both images into the same map projection.\n\n";
+    
+    // If we are using map-projected cubes, we need to put them into a
+    // common projection.  We adopt the projection of the first image.
+    GeoReference common_georef = input_georef1;
+    BBox2i common_bbox(0,0,left_disk_image.cols(), left_disk_image.rows());
+
+    // Create the geotransform objects and determine the common size
+    // of the output images and apply it to the right image.
+    GeoTransform trans2(input_georef2, common_georef);
+    ImageViewRef<PixelGray<float> > Limg = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
+    ImageViewRef<PixelGray<float> > Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, lo),lo,hi,0.0,1.0),trans2),common_bbox);
+
+    // Write the results to disk.
+    write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback());
+    write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback()); 
+  
+  } else {
+    // For unprojected ISIS images, we resort to the "old style" of
+    // image alignment: determine the alignment matrix using keypoint
+    // matching techniques.
+    std::cout << "\nUnprojected ISIS cubes detected.  Aligning images using feature-based matching techniques.\n\n";
+
+    Matrix<double> align_matrix(3,3);
+    align_matrix = determine_image_alignment(input_file1, input_file2, lo, hi);
+    ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
+
+    // Apply the alignment transformation to the right image.
+    ImageViewRef<PixelGray<float> > Limg = normalize(remove_isis_special_pixels(left_disk_image, lo),lo,hi,0.0,1.0);
+    ImageViewRef<PixelGray<float> > Rimg = transform(normalize(remove_isis_special_pixels(right_disk_image,lo),lo,hi,0.0,1.0), 
+                                                     HomographyTransform(align_matrix),
+                                                     left_disk_image.cols(), left_disk_image.rows());
+
+    // Write the results to disk.
+    write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback());
+    write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback()); 
+  }
 }
 
+// Reverse any pre-alignment that was done to the images.
 void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::string & output_file) {
-  //  output_file = input_file;
-  output_file = m_out_prefix + "-F-corrected.exr";
-  vw_out(0) << "Processing disparity map to remove the earlier effects of interest point alignment.\n";
-  
-  DiskImageView<PixelDisparity<float> > disparity_map(input_file);
 
-  // We used a homography to line up the images, we may want 
-  // to generate pre-alignment disparities before passing this information
-  // onto the camera model in the next stage of the stereo pipeline.
-  vw::Matrix<double> align_matrix;
+  DiskImageView<PixelDisparity<float> > disparity_map(input_file);
+  output_file = m_out_prefix + "-F-corrected.exr";
+  ImageViewRef<PixelDisparity<float> > result;
+
+  // Read georeferencing information (if it exists...)
+  GeoReference input_georef1, input_georef2;
   try {
-    ::read_matrix(align_matrix, m_out_prefix + "-align.exr");
-    std::cout << "Alignment Matrix: " << align_matrix << "\n";
-  } catch (vw::IOErr &e) {
-    std::cout << "Could not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
-    exit(1);
+    DiskImageResourceGDAL file_resource1( m_left_image_file );
+    DiskImageResourceGDAL file_resource2( m_right_image_file );
+    read_georeference( input_georef1, file_resource1 );
+    read_georeference( input_georef2, file_resource2 );
+  } catch (ArgumentErr &e) {
+    std::cout << "Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
   }
   
-  vw::Matrix<double> inv_align_matrix = inverse(align_matrix);
-  ImageViewRef<PixelDisparity<float> > result = stereo::disparity::disparity_linear_transform(disparity_map, inv_align_matrix);
+  // If this is a map projected cube, we skip the step of aligning the
+  // images, because the map projected images are probable very nearly
+  // aligned already.  For unprojected cubes, we align in the "usual"
+  // way using interest points.
+  if (input_georef1.transform() != math::identity_matrix<3>() && 
+      input_georef2.transform() != math::identity_matrix<3>() ) {
+    vw_out(0) << "\nMap projected ISIS cubes detected.  Placing both images into the same map projection.\n\n";
 
-  // Remove pixels that are outside the bounds of the secondary image.
-  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
-  result = stereo::disparity::remove_invalid_pixels(result, right_disk_image.cols(), right_disk_image.rows());
+    // If we are using map-projected cubes, we need to put them into a
+    // common projection.  We adopt the projection of the first image.
+    result = stereo::disparity::transform_disparities(disparity_map, GeoTransform(input_georef2, input_georef1));
 
+  } else {
+
+    vw_out(0) << "Unprojected ISIS cubes detected.  Processing disparity map to remove the earlier effects of interest point alignment.\n";  
+
+    // We used a homography to line up the images, we may want 
+    // to generate pre-alignment disparities before passing this information
+    // onto the camera model in the next stage of the stereo pipeline.
+    vw::Matrix<double> align_matrix;
+    try {
+      ::read_matrix(align_matrix, m_out_prefix + "-align.exr");
+      std::cout << "Alignment Matrix: " << align_matrix << "\n";
+    } catch (vw::IOErr &e) {
+      std::cout << "Could not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
+      exit(1);
+    }
+    
+    result = stereo::disparity::transform_disparities(disparity_map, HomographyTransform(align_matrix));
+
+    // Remove pixels that are outside the bounds of the secondary image.
+    DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+    result = stereo::disparity::remove_invalid_pixels(result, right_disk_image.cols(), right_disk_image.rows());
+  }
+  
   write_image(output_file, result, TerminalProgressCallback() );
 }
 
 
-// void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
-//                                                    std::string & output_file1, std::string & output_file2) {
-
-//   DiskImageView<PixelGray<uint8> > left_disk_image(m_left_image_file);
-//   DiskImageView<PixelGray<uint8> > right_disk_image(m_right_image_file);
-
-//   output_file1 = m_out_prefix + "-L.tif";
-//   output_file2 = m_out_prefix + "-R.tif";
-
-//   boost::shared_ptr<camera::CameraModel> cam1, cam2;
-//   this->camera_models(cam1, cam2);
-
-//   const double MOLA_PEDR_EQUATORIAL_RADIUS =  3396000.0;
-//   vw::cartography::Datum mars_datum;
-//   mars_datum.name() = "IAU2000 Mars Spheroid";
-//   mars_datum.spheroid_name() = "IAU2000 Mars Spheroid";
-//   mars_datum.meridian_name() = "Mars Prime Meridian";
-//   mars_datum.set_semi_major_axis(MOLA_PEDR_EQUATORIAL_RADIUS);
-//   mars_datum.set_semi_minor_axis(MOLA_PEDR_EQUATORIAL_RADIUS);
-//   GeoReference terrain_ref(mars_datum);
-
-// //   BBox2 bbox1 = camera_bbox(terrain_ref, cam1,left_disk_image.cols(), left_disk_image.rows());
-// //   std::cout << "Bounding Box 1: " << bbox1 << "\n";
-// //   BBox2 bbox2 = camera_bbox(terrain_ref, cam2,right_disk_image.cols(), right_disk_image.rows());
-// //   std::cout << "Bounding Box 2: " << bbox2 << "\n";
-
-// //   BBox2 joint_bbox = bbox1;
-// //   joint_bbox.grow(bbox2);
-// //   std::cout << "Combined Bounding Box: " << joint_bbox << "\n";
-  
-// //   Matrix3x3 affine;
-// //   affine.set_identity();
-// //   affine(0,0) = joint_bbox.width() / left_disk_image.cols()*2;
-// //   affine(1,1) = joint_bbox.width() / left_disk_image.cols()*2;
-// //   affine(0,2) = joint_bbox.min().x();
-// //   affine(1,2) = joint_bbox.min().y();
-// //   terrain_ref.set_transform(affine);
-// //   std::cout << "AFFINE: " << affine << "\n";
-  
-// //   ConstantView<float> terrain(0, joint_bbox.width()/affine(0,0), joint_bbox.height()/affine(1,1));
-  
-// //   ImageViewRef<PixelGray<uint8> > ortho1 = orthoproject(terrain ,terrain_ref,
-// //                                                         left_disk_image,cam1,
-// //                                                         BilinearInterpolation(),
-// //                                                         ZeroEdgeExtension());
-                                                        
-// //   ImageViewRef<PixelGray<uint8> > ortho2 = orthoproject(terrain ,terrain_ref,
-// //                                                         right_disk_image,cam2,
-// //                                                         BilinearInterpolation(),
-// //                                                         ZeroEdgeExtension());
-                                                        
-// //   write_image(output_file1, ortho1, TerminalProgressCallback());
-// //   write_image(output_file2, ortho2, TerminalProgressCallback());
-
-//   ImageViewRef<PixelGray<uint8> > reproj2 = crop(transform(right_disk_image, 
-//                                                            CamToCamTransform(cam2, cam1, terrain_ref), ZeroEdgeExtension()),
-//                                                  0,0,left_disk_image.cols(),left_disk_image.rows());
-//   write_image(output_file1, left_disk_image, TerminalProgressCallback());
-//   write_image(output_file2, reproj2, TerminalProgressCallback());
-
-//   exit(0);
-// }
-
-// // /// Erases a file suffix if one exists and returns the base string
-// // static std::string prefix_from_filename(std::string const& filename) {
-// //   std::string result = filename;
-// //   int index = result.rfind(".");
-// //   if (index != -1) 
-// //     result.erase(index, result.size());
-// //   return result;
-// // }
-
-// /// Cam to cam image transform functor
-// //
-// // TODO : Add in support for terrain
-// class CamToCamTransform : public TransformHelper<CamToCamTransform,ConvexFunction,ConvexFunction> {
-//   boost::shared_ptr<CameraModel> m_src_cam;
-//   boost::shared_ptr<CameraModel> m_dst_cam;
-//   GeoReference m_georef;
-  
-//   double semi_major_axis;
-//   double semi_minor_axis;
-//   double z_scale;
-//   double radius;
-//   double radius_sqr;
-
-// public:    
-//   CamToCamTransform( boost::shared_ptr<CameraModel> src_cam,
-//                      boost::shared_ptr<CameraModel> dst_cam,
-//                      GeoReference georef):
-//     m_src_cam(src_cam), m_dst_cam(dst_cam), m_georef(georef) {
-//     semi_major_axis = georef.datum().semi_major_axis();
-//     semi_minor_axis = georef.datum().semi_minor_axis();
-//     z_scale = semi_major_axis / semi_minor_axis;
-//     radius = semi_major_axis;
-//     radius_sqr = radius*radius;
-//   }
-
-//   Vector3 compute_intersection(boost::shared_ptr<CameraModel> camera_model,
-//                                Vector2 pix) const {
-    
-//     Vector3 center = camera_model->camera_center( pix );
-//     Vector3 vector = camera_model->pixel_to_vector( pix );
-//     center.z() *= z_scale;
-//     vector.z() *= z_scale;
-//     vector = normalize( vector );
-
-//     double alpha = - dot_prod(center,vector);
-//     Vector3 projection = center + alpha * vector;
-//     if( norm_2_sqr(projection) > radius_sqr )
-//       vw_throw(LogicErr() << "Error in CamToCamTransform: Ray does not intersect geoid.");
-//     alpha -= sqrt( radius_sqr - norm_2_sqr(projection) );
-//     Vector3 intersection = center + alpha * vector;
-//     intersection.z() /= z_scale;
-//     return intersection;
-//   }
-
-//   inline Vector2 reverse( Vector2 const& p ) const {
-//     Vector3 xyz = compute_intersection(m_dst_cam, p);
-//     return m_src_cam->point_to_pixel(xyz);
-//     }
-  
-//   inline Vector2 forward( Vector2 const& p ) const {
-//     Vector3 xyz = compute_intersection(m_src_cam, p);
-//     return m_dst_cam->point_to_pixel(xyz);
-//   }
-// };
-
-void StereoSessionIsis::camera_models(boost::shared_ptr<camera::CameraModel> &cam1,
-                                      boost::shared_ptr<camera::CameraModel> &cam2) {
-
-  cam1 = boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(m_left_image_file));
-  cam2 = boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(m_right_image_file));
-//   std::cout << "Starting camera model test...\n";
-//   Isis::Cube* cube_ptr = new Isis::Cube;
-//   cube_ptr->Open(m_left_image_file);
-//   if ( !(cube_ptr->IsOpen()) ) 
-//       vw_throw(IOErr() << "IsisCameraModel: Could not open cube file: \"" << m_left_image_file << "\".");
-//   Isis::Camera* isis_camera_ptr;
-//   std::cout << "Accessing camera model\n";
-//   isis_camera_ptr = cube_ptr->Camera();
-
-//   unsigned samples = cube_ptr->Samples();
-//   unsigned lines = cube_ptr->Lines();
-
-//   for (unsigned int j=0; j < 1000; ++j) {
-//     if (j % 50 == 0)
-//       std::cout << "Processing Line " << j << "     \r" << std::flush;
-//     for (unsigned int i=0; i < samples; ++i) {
-//       isis_camera_ptr->SetImage(i,j);
-//     }
-//   }
-
-//   for (unsigned int j=0; j < 1000; ++j) {
-//     if (j % 50 == 0)
-//       std::cout << "Processing Line " << j << "     \r" << std::flush;
-//     for (unsigned int i=0; i < samples; ++i) {
-//       isis_camera_ptr->DetectorMap()->SetParent(i,j);
-//     }
-//   }
-
-//   for (unsigned int j=0; j < 1000; ++j) {
-//     if (j % 50 == 0)
-//       std::cout << "Processing Line " << j << "     \r" << std::flush;
-//     for (unsigned int i=0; i < samples; ++i) {
-//       isis_camera_ptr->SetImage(i,j);
-//       double pos1[3];
-//       isis_camera_ptr->InstrumentPosition(pos1);
-
-//       isis_camera_ptr->DetectorMap()->SetParent(i,j);
-//       double pos2[3];
-//       isis_camera_ptr->InstrumentPosition(pos2);
-
-//       if (pos1[0] != pos2[0] ||
-//           pos1[1] != pos2[1] ||
-//           pos1[2] != pos2[2]) {
-//         std::cout << "hmmm...\n.";
-//       }
-
-//       if (j == 500 && i == 250)
-//         std::cout << pos1[0] << " " << pos1[1] << " " << pos1[2] << "\n";
-//     }
-//   }
-
-
-//   exit(0);
+boost::shared_ptr<vw::camera::CameraModel> StereoSessionIsis::camera_model(std::string image_file, 
+                                                                           std::string camera_file) {
+  return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
 }
 

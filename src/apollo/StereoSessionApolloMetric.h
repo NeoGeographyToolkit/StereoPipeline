@@ -7,9 +7,9 @@
 class StereoSessionApolloMetric: public StereoSessionKeypoint {
   
 public:
-
-  virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                             boost::shared_ptr<vw::camera::CameraModel> &cam2);
+  
+  virtual boost::shared_ptr<vw::camera::CameraModel> camera_model(std::string image_file, 
+                                                                  std::string camera_file = "");
 
   void pre_pointcloud_hook(std::string const& input_file, std::string & output_file);
 

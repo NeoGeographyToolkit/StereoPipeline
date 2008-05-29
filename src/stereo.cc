@@ -17,11 +17,14 @@ namespace fs = boost::filesystem;
 
 #include <vw/Core.h>
 #include <vw/Image.h>
+#include <vw/Math.h>
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
 #include <vw/Cartography.h>
+#include <vw/Math/EulerAngles.h>
 using namespace vw;
+using namespace vw::math;
 using namespace vw::camera;
 using namespace vw::stereo;
 using namespace vw::cartography;
@@ -30,6 +33,7 @@ using namespace vw::cartography;
 #include "file_lib.h"
 #include "StereoSession.h"
 #include "SurfaceNURBS.h"
+#include "BundleAdjustUtils.h"
 #include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
@@ -40,7 +44,6 @@ using namespace vw::cartography;
 #include "HRSC/StereoSessionHRSC.h"
 #include "MOC/StereoSessionMOC.h"
 #include "apollo/StereoSessionApolloMetric.h"
-#include "clementine/StereoSessionClementine.h"
 #include "MRO/StereoSessionCTX.h"
 
 using namespace std;
@@ -59,6 +62,14 @@ namespace vw {
   template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+static std::string prefix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1) 
+    result.erase(index, result.size());
+  return result;
+}
+
 //***********************************************************************
 // MAIN
 //***********************************************************************
@@ -70,6 +81,12 @@ int main(int argc, char* argv[]) {
   DFT_F dft;       /* parameters read in stereo.default */
   TO_DO execute;   /* whether or not to execute specific parts of the program */
   
+  // The default file type are automatically registered the first time
+  // a file is opened or created, however we want to override some of
+  // the defaults, so we explicitly register them here before registering
+  // our own FileIO driver code.
+  DiskImageResource::register_default_file_types();
+
   // Register the DDD file handler with the Vision Workbench
   // DiskImageResource system.  DDD is the proprietary format used by
   // Malin Space Science Systems.
@@ -179,7 +196,6 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
-  StereoSession::register_session_type( "clementine", &StereoSessionClementine::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
@@ -221,58 +237,50 @@ int main(int argc, char* argv[]) {
     DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
     DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
             
-    std::cout << "------------------------- correlation ----------------------\n";
-    std::cout << "\tsearch range: " << search_range << "\n";
-    std::cout << "\tkernel size : " << dft.h_kern << "x" << dft.v_kern << "\n";
-    std::cout << "\txcorr thresh: " << dft.xcorr_treshold << "\n";
-    std::cout << "\tcorrscore rejection thresh: " << dft.corrscore_rejection_treshold << "\n";
-    std::cout << "\tslog stddev : " << dft.slogW << "\n";
-    std::cout << "\tsubpixel    H: " << dft.do_h_subpixel << "   V: " << dft.do_v_subpixel << "\n\n";
-    CorrelationSettings corr_settings(search_range.min().x(), search_range.max().x(), 
-                                      search_range.min().y(), search_range.max().y(),
-                                      dft.h_kern, dft.v_kern, 
-                                      true,         // verbose
-                                      dft.xcorr_treshold,
-                                      dft.corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
-                                      dft.slogW,
-                                      dft.do_h_subpixel, dft.do_v_subpixel,   // h and v subpixel
-                                      true);        // bit image
-    if (vm.count("corr-debug-prefix"))
-      corr_settings.set_debug_mode(corr_debug_prefix);
-    std::cout<< "Building Disparity map...\n";
-
-    ImageViewRef<PixelDisparity<float> > disparity_map = CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings);
-
     // If the user has specified a crop at the command line, we go
     // with the cropped region instead.
+    BBox2i crop_bbox(crop_bounds[0],crop_bounds[1],crop_bounds[2],crop_bounds[3]);
     if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
-      BBox2i crop_bbox(crop_bounds[0],crop_bounds[1],crop_bounds[2],crop_bounds[3]);
       std::cout << "Cropping to bounding box: " << crop_bbox << "\n";
 
-      // Quick check to make sure the user specified a reasonable crop region.
+      // Do a quick check to make sure the user specified a reasonable crop region.
       if ((crop_bounds[0] < 0) || (crop_bounds[1] < 0) || 
-          (crop_bounds[0] + crop_bounds[2] > disparity_map.cols()) ||
-          (crop_bounds[1] + crop_bounds[3] > disparity_map.rows()) ) {
-        cout << "Error: the specified crop region exceeds the dimensions of the original image.  \n Exiting.\n\n"; 
+          (crop_bounds[0] + crop_bounds[2] > left_disk_image.cols()) || 
+          (crop_bounds[1] + crop_bounds[3] > left_disk_image.rows()) ) {
+        std::cout << "Error: the specified crop region exceeds the dimensions of the original image.  \n Exiting.\n\n"; 
         exit(0); 
       }
 
       // Save a cropped version of the left image for reference.
-      std::cout << "Writing cropped version of the input images.\n";
-      DiskImageView<PixelGray<uint8> > left_image(out_prefix + "-L.tif");
-      DiskImageView<PixelGray<uint8> > right_image(out_prefix + "-R.tif");
-      write_image(out_prefix+"-L-crop.tif", crop(left_image, crop_bbox), TerminalProgressCallback());
-      write_image(out_prefix+"-R-crop.tif", crop(right_image, crop_bbox), TerminalProgressCallback());
+      write_image(out_prefix+"-L-crop.tif", crop(left_disk_image, crop_bbox), TerminalProgressCallback());
+      write_image(out_prefix+"-R-crop.tif", crop(right_disk_image, crop_bbox), TerminalProgressCallback());
+    }
 
-      // Apply the crop
-      disparity_map = crop(CorrelatorView<PixelGray<float> >(left_disk_image, right_disk_image, corr_settings), crop_bbox);
+    // Set up the CorrelatorView Object
+    CorrelatorView<PixelGray<float>, stereo::SlogStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
+                                                                                      stereo::SlogStereoPreprocessingFilter(dft.slogW));
+    corr_view.set_search_range(search_range);
+    corr_view.set_kernel_size(Vector2i(dft.h_kern, dft.v_kern));
+    corr_view.set_cross_corr_threshold(dft.xcorr_treshold);
+    corr_view.set_corr_score_threshold(dft.corrscore_rejection_treshold);
+    corr_view.set_subpixel_options(dft.do_h_subpixel, dft.do_v_subpixel);
+    if (vm.count("corr-debug-prefix"))
+      corr_view.set_debug_mode(corr_debug_prefix);
+
+    std::cout << corr_view;
+    std::cout<< "Building Disparity map...\n";
+    ImageViewRef<PixelDisparity<float> > disparity_map;
+    if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
+      disparity_map = crop(corr_view, crop_bbox);
+    } else {
+      disparity_map = corr_view;
     }
 
     if (vm.count("optimized-correlator")) {
       vw::stereo::OptimizedCorrelator correlator( search_range.min().x(), search_range.max().x(), 
                                                   search_range.min().y(), search_range.max().y(),
                                                   dft.h_kern, dft.v_kern, 
-                                                  true,         // verbose
+                                                  true,                             // verbose
                                                   dft.xcorr_treshold,
                                                   dft.corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
                                                   dft.do_h_subpixel, dft.do_v_subpixel);   // h and v subpixel
@@ -287,11 +295,11 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // do some basic outlier rejection
+    // Do some basic outlier rejection
     ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
                                                                                   dft.rm_h_half_kern, dft.rm_v_half_kern,
                                                                                   dft.rm_treshold, dft.rm_min_matches/100.0);
-
+    
     // Create a disk image resource and prepare to write a tiled
     // OpenEXR.
     DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
@@ -372,6 +380,29 @@ int main(int argc, char* argv[]) {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       session->camera_models(camera_model1, camera_model2);
 
+      // If the user has generated a set of position and pose
+      // corrections using the bundle_adjsut program, we read them in
+      // here and incorporate them into our camera model.
+      Vector3 position_correction;
+      Vector3 pose_euler_angles;;
+      Quaternion<double> pose_correction;
+      if (fs::exists(prefix_from_filename(in_file1)+".adjust")) {
+        std::cout << "Adjusting left camera model using parameters in " << (prefix_from_filename(in_file1)+".adjust") << "\n";
+        read_adjustments(prefix_from_filename(in_file1)+".adjust", position_correction, pose_euler_angles);
+        pose_correction = euler_to_quaternion(pose_euler_angles[0], pose_euler_angles[1], pose_euler_angles[2], "xyz");
+        camera_model1 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model1, 
+                                                                               position_correction,
+                                                                               pose_correction));
+      }
+      if (fs::exists(prefix_from_filename(in_file2)+".adjust")) {
+        std::cout << "Adjusting right camera model using parameters in " << (prefix_from_filename(in_file2)+".adjust") << "\n";
+        read_adjustments(prefix_from_filename(in_file2)+".adjust", position_correction, pose_euler_angles);
+        pose_correction = euler_to_quaternion(pose_euler_angles[0], pose_euler_angles[1], pose_euler_angles[2], "xyz");
+        camera_model2 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model2, 
+                                                                               position_correction,
+                                                                               pose_correction));
+      }        
+
       std::string prehook_filename;
       session->pre_pointcloud_hook(out_prefix+"-F.exr", prehook_filename);
      
@@ -382,6 +413,16 @@ int main(int argc, char* argv[]) {
       // results to disk.
       std::cout << "Generating a 3D point cloud.   \n";
       StereoView<ImageView<PixelDisparity<float> > > stereo_image(disparity_map, *camera_model1, *camera_model2);
+
+//       std::cout << "Computing Error image\n";
+//       ImageView<float> error_img (stereo_image.cols(), stereo_image.rows() );
+//       for (unsigned j=0; j < error_img.rows(); ++j) {
+//         for (unsigned i=0; i < error_img.cols(); ++i) {
+//           error_img(i,j) = stereo_image.error(i,j);
+//         }
+//       }
+//       std::cout << "Done.\n";
+//       write_image("error-image.tif", error_img);
 
       // If the distance from the left camera center to a point is
       // greater than the universe radius, we remove that pixel and

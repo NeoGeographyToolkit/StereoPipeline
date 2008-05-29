@@ -11,49 +11,49 @@
 using namespace vw;
 using namespace vw::camera;
 
-void StereoSessionPinhole::camera_models(boost::shared_ptr<camera::CameraModel> &cam1,
-                                         boost::shared_ptr<camera::CameraModel> &cam2) {
-    
-    // Load the two images
-    DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
-    DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(std::string image_file, 
+                                                                              std::string camera_file) {
+  // Load the image
+  DiskImageView<PixelGray<float> > image(image_file);
 
-    // Read Camera Models, removing lens distortion if necessary.
-    CAHVModel left_cahv, right_cahv;
-    if ((boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahvor") &&
-         boost::ends_with(boost::to_lower_copy(m_right_camera_file), ".cahvor"))  || 
-        (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cmod") &&
-         boost::ends_with(boost::to_lower_copy(m_right_camera_file), ".cmod"))  ) {
-      CAHVORModel left_cahvor(m_left_camera_file);
-      CAHVORModel right_cahvor(m_right_camera_file);
-      left_cahv = linearize_camera(left_cahvor, left_disk_image.cols(), left_disk_image.rows(), left_disk_image.cols(), left_disk_image.rows());
-      right_cahv = linearize_camera(right_cahvor, left_disk_image.cols(), left_disk_image.rows(), left_disk_image.cols(), left_disk_image.rows());
-      
-    } else if ( (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahv") &&
-                 boost::ends_with(boost::to_lower_copy(m_right_camera_file), ".cahv")) || 
-                (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pin") &&
-                 boost::ends_with(boost::to_lower_copy(m_right_camera_file), ".pin")) ) {
-      left_cahv = CAHVModel(m_left_camera_file);
-      right_cahv = CAHVModel(m_right_camera_file);
+  // Read Camera Models, removing lens distortion if necessary.
+  CAHVModel* cahv = new CAHVModel;
+  if (boost::ends_with(boost::to_lower_copy(camera_file), ".cahvor")  || 
+      boost::ends_with(boost::to_lower_copy(camera_file), ".cmod") ) {
+    CAHVORModel cahvor(camera_file);
+    *cahv = linearize_camera(cahvor, image.cols(), image.rows(), image.cols(), image.rows());
 
-    } else if ( (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") &&
-	       boost::ends_with(boost::to_lower_copy(m_right_camera_file), ".tsai")) ) {
-            left_cahv = linearize_camera( PinholeModel(m_left_camera_file));
-            right_cahv = linearize_camera( PinholeModel(m_right_camera_file));
-    } else {
-      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported cameara file type.\n");
-    }
-    
-    // Epipolar rectify the two camera models
-    camera::CAHVModel* left_result = new CAHVModel;
-    camera::CAHVModel* right_result = new CAHVModel;
-    epipolar(left_cahv, right_cahv, *left_result, *right_result);
+  } else if ( boost::ends_with(boost::to_lower_copy(camera_file), ".cahv") ||
+              boost::ends_with(boost::to_lower_copy(camera_file), ".pin" )) {
+    *cahv = CAHVModel(camera_file);
 
-    // Save the recitified camera model in the return value.
-    cam1 = boost::shared_ptr<camera::CameraModel>(left_result);
-    cam2 = boost::shared_ptr<camera::CameraModel>(right_result);
+  } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") ) {
+    *cahv = linearize_camera( PinholeModel(camera_file));
+  } else {
+    vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported cameara file type.\n");
   }
 
+  return boost::shared_ptr<camera::CameraModel>(cahv);
+}
+
+void StereoSessionPinhole::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
+                                         boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+  
+  boost::shared_ptr<vw::camera::CameraModel> left_cam = this->camera_model(m_left_image_file, m_left_camera_file);
+  boost::shared_ptr<vw::camera::CameraModel> right_cam = this->camera_model(m_right_image_file, m_right_camera_file);
+
+  CAHVModel* left_cahv = static_cast<CAHVModel*>(&(*left_cam));
+  CAHVModel* right_cahv = static_cast<CAHVModel*>(&(*right_cam));
+
+  // Epipolar rectify the two camera models
+  camera::CAHVModel* left_result = new CAHVModel;
+  camera::CAHVModel* right_result = new CAHVModel;
+  epipolar(*left_cahv, *right_cahv, *left_result, *right_result);
+
+  // Save the recitified camera model in the return value.
+  cam1 = boost::shared_ptr<camera::CameraModel>(left_result);
+  cam2 = boost::shared_ptr<camera::CameraModel>(right_result);
+}
 
 void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
                                                   std::string &output_file1, std::string &output_file2) {
