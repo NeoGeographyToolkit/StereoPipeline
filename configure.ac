@@ -64,7 +64,7 @@ PKG_PATHS="${PKG_PATHS} ${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /us
 #	compilation options	    
 ##################################################
 
-CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/src -I/Users/mbroxton/local/qt-4.3.2/include/ -I/Users/mbroxton/local/qt-4.3.2/include/QtCore"
+CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/src"
 
 AC_ARG_ENABLE(debug,
   AC_HELP_STRING([--enable-debug], [generate debugging symbols @<:@no@:>@]),
