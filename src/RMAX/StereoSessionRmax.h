@@ -3,7 +3,7 @@
 
 #include "StereoSessionPinhole.h"
 
-class StereoSessionRmax: public StereoSessionPinhole {
+class StereoSessionRmax: public StereoSession {
   
 public:
 

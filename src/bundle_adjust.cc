@@ -5,7 +5,6 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;                   
 
-
 #include <vw/Camera/CAHVORModel.h>
 #include <vw/Camera/BundleAdjust.h>
 #include <vw/Math.h>
@@ -21,6 +20,7 @@ using namespace vw::stereo;
 #include <stdlib.h>
 #include <iostream>
 
+#include "asp_config.h"
 #include "StereoSession.h"
 #include "BundleAdjustUtils.h"
 
@@ -163,8 +163,10 @@ int main(int argc, char* argv[]) {
   // Read in the camera model and image info for the input images.
   StereoSession* session = StereoSession::create(stereosession_type);
   std::vector<boost::shared_ptr<CameraModel> > camera_models(image_files.size());
-  for (unsigned i = 0; i < image_files.size(); ++i)
+  for (unsigned i = 0; i < image_files.size(); ++i) {
+    std::cout << "Loading camera model for : " << image_files[i] << "\n";
     camera_models[i] = session->camera_model(image_files[i]);
+  }
 
   if (!vm.count("bundles") ) {
     std::vector<MatchedPoints> matched_points_list;

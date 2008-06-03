@@ -10,7 +10,6 @@
 #include "stereo.h"
 #include "file_lib.h"
 #include "SpiceUtilities.h"
-#include "CameraAdjust.h"
 #include "KML.h"
 
 #include <list>
@@ -140,129 +139,129 @@ void apollo_metric_state(double time,
                     "APOLLO 15", "IAU_MOON", "MOON", "A15_METRIC");
 }
 
-void bundle_adjust_pose(std::string tie_file1, std::string tie_file2,
-                        boost::shared_ptr<camera::CameraModel> &cam1,
-                        boost::shared_ptr<camera::CameraModel> &cam2,
-                        double subsample = 1) {
+// void bundle_adjust_pose(std::string tie_file1, std::string tie_file2,
+//                         boost::shared_ptr<camera::CameraModel> &cam1,
+//                         boost::shared_ptr<camera::CameraModel> &cam2,
+//                         double subsample = 1) {
 
-    std::vector<Vector3> ground_pt1, ground_pt2;
-    std::vector<Vector2> image_pt1, image_pt2;
-    load_tie_points(tie_file1, ground_pt1, image_pt1, subsample);
-    load_tie_points(tie_file2, ground_pt2, image_pt2, subsample);
+//     std::vector<Vector3> ground_pt1, ground_pt2;
+//     std::vector<Vector2> image_pt1, image_pt2;
+//     load_tie_points(tie_file1, ground_pt1, image_pt1, subsample);
+//     load_tie_points(tie_file2, ground_pt2, image_pt2, subsample);
 
-    // Optimize pointing for camera 1
-    Vector<double,4> seed(1.0,0,0,0);
-    Vector<double,4> scale(0.1,0.1,0.1,0.1);
-    CameraToGroundOptimizePoseFunc optimize_functor1(cam1, ground_pt1, image_pt1);
-    int status;
-    std::cout << "starting optization 1\n";
-    Vector4 quaternion_adjustment = vw::math::nelder_mead(optimize_functor1, seed, scale, status, true, 3, 1e-8, 300);
-    Vector4 v1 = normalize(quaternion_adjustment);
-    std::cout << "result: " << v1 << "\n\n";
-    Quaternion<double> q1(v1[0], v1[1], v1[2], v1[3]);
-    TransformedCameraModel *bundle_adjusted_camera1 = new TransformedCameraModel(cam1);
-    bundle_adjusted_camera1->set_rotation(q1);
+//     // Optimize pointing for camera 1
+//     Vector<double,4> seed(1.0,0,0,0);
+//     Vector<double,4> scale(0.1,0.1,0.1,0.1);
+//     CameraToGroundOptimizePoseFunc optimize_functor1(cam1, ground_pt1, image_pt1);
+//     int status;
+//     std::cout << "starting optization 1\n";
+//     Vector4 quaternion_adjustment = vw::math::nelder_mead(optimize_functor1, seed, scale, status, true, 3, 1e-8, 300);
+//     Vector4 v1 = normalize(quaternion_adjustment);
+//     std::cout << "result: " << v1 << "\n\n";
+//     Quaternion<double> q1(v1[0], v1[1], v1[2], v1[3]);
+//     TransformedCameraModel *bundle_adjusted_camera1 = new TransformedCameraModel(cam1);
+//     bundle_adjusted_camera1->set_rotation(q1);
 
-    // Optimize pointing for camera 2
-    seed = Vector4(1.0, 0, 0, 0);
-    CameraToGroundOptimizePoseFunc optimize_functor2(cam2, ground_pt2, image_pt2);
-    std::cout << "starting optization 1\n";
-    quaternion_adjustment = vw::math::nelder_mead(optimize_functor2, seed, scale, status, true, 3, 1e-8, 300);
-    v1 = normalize(quaternion_adjustment);
-    std::cout << "result: " << v1 << "\n\n";
-    Quaternion<double> q2(v1[0], v1[1], v1[2], v1[3]);
-    TransformedCameraModel *bundle_adjusted_camera2 = new TransformedCameraModel(cam2);
-    bundle_adjusted_camera2->set_rotation(q2);
+//     // Optimize pointing for camera 2
+//     seed = Vector4(1.0, 0, 0, 0);
+//     CameraToGroundOptimizePoseFunc optimize_functor2(cam2, ground_pt2, image_pt2);
+//     std::cout << "starting optization 1\n";
+//     quaternion_adjustment = vw::math::nelder_mead(optimize_functor2, seed, scale, status, true, 3, 1e-8, 300);
+//     v1 = normalize(quaternion_adjustment);
+//     std::cout << "result: " << v1 << "\n\n";
+//     Quaternion<double> q2(v1[0], v1[1], v1[2], v1[3]);
+//     TransformedCameraModel *bundle_adjusted_camera2 = new TransformedCameraModel(cam2);
+//     bundle_adjusted_camera2->set_rotation(q2);
 
-    cam1 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera1);
-    cam2 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera2);
-}
+//     cam1 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera1);
+//     cam2 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera2);
+// }
 
-void bundle_adjust_position(std::string tie_file1, std::string tie_file2,
-                            boost::shared_ptr<camera::CameraModel> &cam1,
-                            boost::shared_ptr<camera::CameraModel> &cam2,
-                            double subsample = 1) {
+// void bundle_adjust_position(std::string tie_file1, std::string tie_file2,
+//                             boost::shared_ptr<camera::CameraModel> &cam1,
+//                             boost::shared_ptr<camera::CameraModel> &cam2,
+//                             double subsample = 1) {
 
-    std::vector<Vector3> ground_pt1, ground_pt2;
-    std::vector<Vector2> image_pt1, image_pt2;
-    load_tie_points(tie_file1, ground_pt1, image_pt1, subsample);
-    load_tie_points(tie_file2, ground_pt2, image_pt2, subsample);
+//     std::vector<Vector3> ground_pt1, ground_pt2;
+//     std::vector<Vector2> image_pt1, image_pt2;
+//     load_tie_points(tie_file1, ground_pt1, image_pt1, subsample);
+//     load_tie_points(tie_file2, ground_pt2, image_pt2, subsample);
 
-    Vector3 seed(0,0,0); // start with zero translation offset
-    Vector3 scale(100.0,100.0,100.0);
-    int status;
+//     Vector3 seed(0,0,0); // start with zero translation offset
+//     Vector3 scale(100.0,100.0,100.0);
+//     int status;
 
-    // Optimize pointing for camera 1
-    CameraToGroundOptimizePositionFunc optimize_functor1(cam1, ground_pt1, image_pt1);
-    std::cout << "starting optization 1 with starting position " << cam1->camera_center(Vector2(0,0)) << "\n";
-    Vector3 position_adjustment = vw::math::nelder_mead(optimize_functor1, seed, scale, status, true, 3, 1e-8, 300);
-    std::cout << "result: " << position_adjustment << "\n\n";
-    TransformedCameraModel *bundle_adjusted_camera1 = new TransformedCameraModel(cam1);
-    bundle_adjusted_camera1->set_translation(-position_adjustment);
+//     // Optimize pointing for camera 1
+//     CameraToGroundOptimizePositionFunc optimize_functor1(cam1, ground_pt1, image_pt1);
+//     std::cout << "starting optization 1 with starting position " << cam1->camera_center(Vector2(0,0)) << "\n";
+//     Vector3 position_adjustment = vw::math::nelder_mead(optimize_functor1, seed, scale, status, true, 3, 1e-8, 300);
+//     std::cout << "result: " << position_adjustment << "\n\n";
+//     TransformedCameraModel *bundle_adjusted_camera1 = new TransformedCameraModel(cam1);
+//     bundle_adjusted_camera1->set_translation(-position_adjustment);
 
-    // Optimize pointing for camera 2
-    CameraToGroundOptimizePositionFunc optimize_functor2(cam2, ground_pt2, image_pt2);
-    std::cout << "starting optization 2 with starting position " << cam2->camera_center(Vector2(0,0)) << "\n";
-    position_adjustment = vw::math::nelder_mead(optimize_functor2, seed, scale, status, true, 3, 1e-8, 300);
-    std::cout << "result: " << position_adjustment << "\n\n";
-    TransformedCameraModel *bundle_adjusted_camera2 = new TransformedCameraModel(cam2);
-    bundle_adjusted_camera2->set_translation(-position_adjustment);
+//     // Optimize pointing for camera 2
+//     CameraToGroundOptimizePositionFunc optimize_functor2(cam2, ground_pt2, image_pt2);
+//     std::cout << "starting optization 2 with starting position " << cam2->camera_center(Vector2(0,0)) << "\n";
+//     position_adjustment = vw::math::nelder_mead(optimize_functor2, seed, scale, status, true, 3, 1e-8, 300);
+//     std::cout << "result: " << position_adjustment << "\n\n";
+//     TransformedCameraModel *bundle_adjusted_camera2 = new TransformedCameraModel(cam2);
+//     bundle_adjusted_camera2->set_translation(-position_adjustment);
 
-    cam1 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera1);
-    cam2 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera2);
-}
+//     cam1 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera1);
+//     cam2 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera2);
+// }
 
 
-void bundle_adjust_position_and_pose(std::string tie_file1, std::string tie_file2,
-                                     boost::shared_ptr<camera::CameraModel> &cam1,
-                                     boost::shared_ptr<camera::CameraModel> &cam2,
-                                     double subsample = 1) {
+// void bundle_adjust_position_and_pose(std::string tie_file1, std::string tie_file2,
+//                                      boost::shared_ptr<camera::CameraModel> &cam1,
+//                                      boost::shared_ptr<camera::CameraModel> &cam2,
+//                                      double subsample = 1) {
 
-    std::vector<Vector3> ground_pt1, ground_pt2;
-    std::vector<Vector2> image_pt1, image_pt2;
-    load_tie_points(tie_file1, ground_pt1, image_pt1, subsample);
-    load_tie_points(tie_file2, ground_pt2, image_pt2, subsample);
+//     std::vector<Vector3> ground_pt1, ground_pt2;
+//     std::vector<Vector2> image_pt1, image_pt2;
+//     load_tie_points(tie_file1, ground_pt1, image_pt1, subsample);
+//     load_tie_points(tie_file2, ground_pt2, image_pt2, subsample);
 
-    // Optimize pointing for camera 1
-    Vector<double,7> seed;
-    seed(0) = 1.0;
-    Vector<double,7> scale;
-    scale(0) = 0.1;
-    scale(1) = 0.1;
-    scale(2) = 0.1;
-    scale(3) = 0.1;
+//     // Optimize pointing for camera 1
+//     Vector<double,7> seed;
+//     seed(0) = 1.0;
+//     Vector<double,7> scale;
+//     scale(0) = 0.1;
+//     scale(1) = 0.1;
+//     scale(2) = 0.1;
+//     scale(3) = 0.1;
 
-    scale(4) = 100.0;
-    scale(5) = 100.0;
-    scale(6) = 100.0;
+//     scale(4) = 100.0;
+//     scale(5) = 100.0;
+//     scale(6) = 100.0;
 
-    CameraToGroundOptimizeFunc optimize_functor1(cam1, ground_pt1, image_pt1);
-    int status;
-    std::cout << "starting optization 1\n";
-    Vector<double,7> adjustment = vw::math::nelder_mead(optimize_functor1, seed, scale, status, true, 8, 1e-8, 800);
-    Vector4 v1 = normalize(subvector(adjustment,0,4));
-    Vector3 p1 = subvector(adjustment,4,3);
-    std::cout << "result: " << v1 << "   " << p1 << "\n\n";
-    Quaternion<double> q1(v1[0], v1[1], v1[2], v1[3]);
-    TransformedCameraModel *bundle_adjusted_camera1 = new TransformedCameraModel(cam1);
-    bundle_adjusted_camera1->set_rotation(q1);
-    bundle_adjusted_camera1->set_translation(-p1);
+//     CameraToGroundOptimizeFunc optimize_functor1(cam1, ground_pt1, image_pt1);
+//     int status;
+//     std::cout << "starting optization 1\n";
+//     Vector<double,7> adjustment = vw::math::nelder_mead(optimize_functor1, seed, scale, status, true, 8, 1e-8, 800);
+//     Vector4 v1 = normalize(subvector(adjustment,0,4));
+//     Vector3 p1 = subvector(adjustment,4,3);
+//     std::cout << "result: " << v1 << "   " << p1 << "\n\n";
+//     Quaternion<double> q1(v1[0], v1[1], v1[2], v1[3]);
+//     TransformedCameraModel *bundle_adjusted_camera1 = new TransformedCameraModel(cam1);
+//     bundle_adjusted_camera1->set_rotation(q1);
+//     bundle_adjusted_camera1->set_translation(-p1);
 
-    // Optimize pointing for camera 2
-    CameraToGroundOptimizeFunc optimize_functor2(cam2, ground_pt2, image_pt2);
-    std::cout << "starting optization 1\n";
-    adjustment = vw::math::nelder_mead(optimize_functor2, seed, scale, status, true, 8, 1e-8, 800);
-    v1 = normalize(subvector(adjustment,0,4));
-    Vector3 p2 = subvector(adjustment,4,3);
-    std::cout << "result: " << v1 << "   " << p2 << "\n\n";
-    Quaternion<double> q2(v1[0], v1[1], v1[2], v1[3]);
-    TransformedCameraModel *bundle_adjusted_camera2 = new TransformedCameraModel(cam2);
-    bundle_adjusted_camera2->set_rotation(q2);
-    bundle_adjusted_camera2->set_translation(-p2);
+//     // Optimize pointing for camera 2
+//     CameraToGroundOptimizeFunc optimize_functor2(cam2, ground_pt2, image_pt2);
+//     std::cout << "starting optization 1\n";
+//     adjustment = vw::math::nelder_mead(optimize_functor2, seed, scale, status, true, 8, 1e-8, 800);
+//     v1 = normalize(subvector(adjustment,0,4));
+//     Vector3 p2 = subvector(adjustment,4,3);
+//     std::cout << "result: " << v1 << "   " << p2 << "\n\n";
+//     Quaternion<double> q2(v1[0], v1[1], v1[2], v1[3]);
+//     TransformedCameraModel *bundle_adjusted_camera2 = new TransformedCameraModel(cam2);
+//     bundle_adjusted_camera2->set_rotation(q2);
+//     bundle_adjusted_camera2->set_translation(-p2);
 
-    cam1 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera1);
-    cam2 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera2);
-}
+//     cam1 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera1);
+//     cam2 = boost::shared_ptr<camera::CameraModel>(bundle_adjusted_camera2);
+// }
 
 boost::shared_ptr<vw::camera::CameraModel> StereoSessionApolloMetric::camera_model(std::string image_file, 
                                                                                    std::string camera_file) {

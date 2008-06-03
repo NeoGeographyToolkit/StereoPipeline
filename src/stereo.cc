@@ -45,6 +45,7 @@ using namespace vw::cartography;
 #include "MOC/StereoSessionMOC.h"
 #include "apollo/StereoSessionApolloMetric.h"
 #include "MRO/StereoSessionCTX.h"
+#include "RMAX/StereoSessionRmax.h"
 
 using namespace std;
 
@@ -197,6 +198,7 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
+  StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
@@ -389,7 +391,7 @@ int main(int argc, char* argv[]) {
       if (fs::exists(prefix_from_filename(in_file1)+".adjust")) {
         std::cout << "Adjusting left camera model using parameters in " << (prefix_from_filename(in_file1)+".adjust") << "\n";
         read_adjustments(prefix_from_filename(in_file1)+".adjust", position_correction, pose_euler_angles);
-        pose_correction = euler_to_quaternion(pose_euler_angles[0], pose_euler_angles[1], pose_euler_angles[2], "xyz");
+        pose_correction = inverse(euler_to_quaternion(pose_euler_angles[0], pose_euler_angles[1], pose_euler_angles[2], "xyz"));
         camera_model1 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model1, 
                                                                                position_correction,
                                                                                pose_correction));
@@ -397,7 +399,7 @@ int main(int argc, char* argv[]) {
       if (fs::exists(prefix_from_filename(in_file2)+".adjust")) {
         std::cout << "Adjusting right camera model using parameters in " << (prefix_from_filename(in_file2)+".adjust") << "\n";
         read_adjustments(prefix_from_filename(in_file2)+".adjust", position_correction, pose_euler_angles);
-        pose_correction = euler_to_quaternion(pose_euler_angles[0], pose_euler_angles[1], pose_euler_angles[2], "xyz");
+        pose_correction = inverse(euler_to_quaternion(pose_euler_angles[0], pose_euler_angles[1], pose_euler_angles[2], "xyz"));
         camera_model2 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model2, 
                                                                                position_correction,
                                                                                pose_correction));

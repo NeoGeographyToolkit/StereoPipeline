@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
     f >> pose_adjustment[0] >> pose_adjustment[1] >> pose_adjustment[2];
     std::cout << position_adjustment << "   " << pose_adjustment<< "\n";
     CAHVORModel cahvor = rmax_image_camera_model(info, position_adjustment, pose_adjustment);
-    output = base + ".adjust.cahvor";
+    output = base + ".rmax_adjust.cahvor";
     cahvor.write(output);
   } else {
     CAHVORModel cahvor = rmax_image_camera_model(argv[1]);

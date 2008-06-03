@@ -8,7 +8,6 @@ using namespace vw::camera;
 
 boost::shared_ptr<vw::camera::CameraModel> StereoSessionRmax::camera_model(std::string image_file, 
                                                                            std::string camera_file) {
-
   ImageInfo info; 
   read_image_info( image_file, info );
   CAHVORModel* cahvor = new CAHVORModel;

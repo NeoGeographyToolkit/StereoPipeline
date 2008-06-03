@@ -50,7 +50,8 @@ namespace camera {
     IsisCameraModel(std::string cube_filename);
 
     virtual ~IsisCameraModel();
-
+    virtual std::string type() const { return "Isis"; }
+ 
     //------------------------------------------------------------------
     // Methods
     //------------------------------------------------------------------
