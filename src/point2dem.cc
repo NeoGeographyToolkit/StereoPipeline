@@ -209,6 +209,13 @@ int main( int argc, char *argv[] ) {
     rasterizer.set_use_minz_as_default(false); 
     rasterizer.set_default_value(default_value);    
   }
+
+  if (vw.count("z-offset")) {
+    double val = rasterizer.default_value(); 
+    rasterizer.set_use_minz_as_default(false); 
+    rasterizer.set_default_value(val-z_offset);    
+  }
+
   if (vm.count("use-alpha")) {
     rasterizer.set_use_alpha(true);
   }
