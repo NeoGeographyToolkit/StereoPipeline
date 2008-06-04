@@ -237,11 +237,13 @@ int main( int argc, char *argv[] ) {
     // Write out the DEM.
     std::cout << "\n\n Creating block cache view from rasterizer: " << rasterizer.cols() << "  " << rasterizer.rows() << "\n";
     BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
-    if (vm.count("z-offset"))
+    if (vm.count("z-offset")) {
+      std::cout << "Adding the following z offset: " << z_offset << "\n";
       write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster + z_offset, georef, TerminalProgressCallback());
-    else
+    } else {
       write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
-    
+    }
+
     // Write out a georeferenced DTM and (optionally) a normalized version of the DTM (for debugging)
     if (vm.count("normalized")) {
       DiskImageView<PixelGray<float> > dem_image(out_prefix + "-DEM." + output_file_type);
