@@ -86,6 +86,27 @@ public:
     boost::shared_ptr<CameraModel> cam(new AdjustedCameraModel(m_cameras[j], position_correction, pose_correction));
     return cam->point_to_pixel(b_i);
   }    
+
+  // Return the covariance of the camera parameters for camera j.
+  inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned j ) {
+    Matrix<double,camera_params_n,camera_params_n> result;
+    result(0,0) = 1/0.4;  // Position sigma = 0.4 meters
+    result(1,1) = 1/0.4;
+    result(2,2) = 1/0.4;
+    result(3,3) = 1/0.4;  // Pose sigma = 0.4 degrees
+    result(4,4) = 1/0.4;
+    result(5,5) = 1/0.4;
+    return result;
+  }
+
+  // Return the covariance of the point parameters for point i.
+  inline Matrix<double,point_params_n,point_params_n> B_inverse_covariance ( unsigned i ) {
+    Matrix<double,point_params_n,point_params_n> result;
+    result(0,0) = 1/1000.0;  // Point sigma = 1000 meters ( we set this to be 
+    result(1,1) = 1/1000.0;  // so large that it essentially removes point position
+    result(2,2) = 1/1000.0;  // constraints from the bundle adjustment entirely. )
+    return result;
+  }
   
   Vector<double,6> initial_parameters(unsigned j) const { return Vector<double,6>(); }
 };
@@ -113,7 +134,7 @@ int main(int argc, char* argv[]) {
 
   std::vector<std::string> image_files;
   std::string cnet_file, stereosession_type;
-  std::vector<Bundle> bundles;
+  ControlNetwork cnet("My first control network");
   double lambda;
 
   po::options_description general_options("Options");
@@ -167,7 +188,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (!vm.count("cnet") ) {
-    std::cout << "\nLoading Matches:\n";
+    std::cout << "\nLoading Image Tie Points:\n";
     for (unsigned i = 0; i < image_files.size(); ++i) {
       for (unsigned j = i; j < image_files.size(); ++j) {
         std::string match_filename = 
@@ -179,11 +200,20 @@ int main(int argc, char* argv[]) {
           // overlap based on a rough approximation of their bounding box.
           std::vector<InterestPoint> ip1, ip2;
           read_binary_match_file(match_filename, ip1, ip2);
-          std::cout << "\t " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
+          std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
           add_matched_points(cnet,ip1,ip2,i,j,camera_models);
         }
       }
     }    
+
+    std::cout << "\nLoading Ground Control Points:\n";
+    for (unsigned i = 0; i < image_files.size(); ++i) {
+      std::string gcp_filename = prefix_from_filename(image_files[i]);
+      if ( fs::exists(gcp_filename) ) {
+        int numpoints = add_ground_control_points(cnet, gcp_filename); 
+        std::cout << "\t" << gcp_filename << "     " << " : " << numpoints << " GCPs.\n";
+      }
+    }
     cnet.write_control_network("control.cnet");
   }
 
@@ -214,5 +244,5 @@ int main(int argc, char* argv[]) {
 
   // Compute the post-adjustment residuals
   std::vector<boost::shared_ptr<CameraModel> > adjusted_cameras = ba_model.adjusted_cameras();
-  compute_stereo_residuals(adjusted_cameras, bundles);
+  compute_stereo_residuals(adjusted_cameras, cnet);
 }

@@ -15,6 +15,12 @@ void read_adjustments(std::string const& filename, Vector3& position_correction,
   istr >> pose_correction[0] >> pose_correction[1] >> pose_correction[2];
 }
 
+void write_adjustments(std::string const& filename, Vector3 const& position_correction, Vector3 const& pose_correction) {
+  std::ofstream ostr(filename.c_str());
+  ostr << position_correction[0] << " " << position_correction[1] << " " << position_correction[2] << "\n";
+  ostr << pose_correction[0] << " " << pose_correction[1] << " " << pose_correction[2] << " " << "\n";
+}
+
 void compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const& camera_models,
                               ControlNetwork const& cnet) {
 
@@ -73,4 +79,13 @@ void add_matched_points(ControlNetwork& cnet,
       std::cout << "Houston, we have a control point loop!\n";
     }
   }
+}
+
+
+int add_ground_control_points(vw::camera::ControlNetwork& cnet,
+                               std::string filename) {
+
+  std::cout << "testing: " << filename;
+
+  return 0;
 }
