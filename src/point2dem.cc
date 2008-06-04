@@ -54,6 +54,7 @@ int main( int argc, char *argv[] ) {
   double phi_rot, omega_rot, kappa_rot;
   std::string rot_order;
   double proj_lat=0, proj_lon=0, proj_scale=1;
+  double z_offset;
   unsigned utm_zone;
 
   po::options_description desc("Options");
@@ -76,6 +77,7 @@ int main( int argc, char *argv[] ) {
     ("reference-spheroid,r", po::value<std::string>(&reference_spheroid)->default_value(""),"Set a reference surface to a hard coded value (one of [moon , mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value<double>(&semi_major)->default_value(0),"Set the dimensions of the datum.")
     ("semi-minor-axis", po::value<double>(&semi_minor)->default_value(0),"Set the dimensions of the datum.")
+    ("z-offset", po::value<double>(&z_offset)->default_value(0), "Add a vertical offset to the DEM")
 
     ("sinusoidal", "Save using a sinusoidal projection")
     ("mercator", "Save using a Mercator projection")
@@ -235,7 +237,10 @@ int main( int argc, char *argv[] ) {
     // Write out the DEM.
     std::cout << "\n\n Creating block cache view from rasterizer: " << rasterizer.cols() << "  " << rasterizer.rows() << "\n";
     BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
-    write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
+    if (vm.count("z-offset"))
+      write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster + z_offset, georef, TerminalProgressCallback());
+    else
+      write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
     
     // Write out a georeferenced DTM and (optionally) a normalized version of the DTM (for debugging)
     if (vm.count("normalized")) {
