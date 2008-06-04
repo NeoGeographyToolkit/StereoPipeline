@@ -19,6 +19,14 @@ using namespace vw::camera;
 
 #include "RMAX/RMAX.h"
 
+static std::string prefix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1) 
+    result.erase(index, result.size());
+  return result;
+}
+
 int main(int argc, char* argv[]) {
   std::string image_file;
   std::string adjustment_filename;
@@ -53,9 +61,7 @@ int main(int argc, char* argv[]) {
   }
 
   
-  std::string base, extension, output;
-  split_filename(image_file, base, extension);
-  
+  std::string output;
   if( vm.count("adjustment-file") ) {
     ImageInfo info;
     read_image_info( image_file, info );
@@ -68,11 +74,11 @@ int main(int argc, char* argv[]) {
     f >> pose_adjustment[0] >> pose_adjustment[1] >> pose_adjustment[2];
     std::cout << position_adjustment << "   " << pose_adjustment<< "\n";
     CAHVORModel cahvor = rmax_image_camera_model(info, position_adjustment, pose_adjustment);
-    output = base + ".rmax_adjust.cahvor";
+    output = prefix_from_filename(image_file) + ".rmax_adjust.cahvor";
     cahvor.write(output);
   } else {
     CAHVORModel cahvor = rmax_image_camera_model(argv[1]);
-    output = base + ".cahvor";
+    output = prefix_from_filename(image_file) + ".cahvor";
     cahvor.write(output);
   }
 }

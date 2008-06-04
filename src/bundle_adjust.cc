@@ -90,8 +90,6 @@ public:
   Vector<double,6> initial_parameters(unsigned j) const { return Vector<double,6>(); }
 };
 
-
-
 int main(int argc, char* argv[]) {
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
@@ -114,14 +112,14 @@ int main(int argc, char* argv[]) {
 #endif
 
   std::vector<std::string> image_files;
-  std::string bundles_file, stereosession_type;
+  std::string cnet_file, stereosession_type;
   std::vector<Bundle> bundles;
   double lambda;
 
   po::options_description general_options("Options");
   general_options.add_options()
     ("session-type,t", po::value<std::string>(&stereosession_type)->default_value("isis"), "Select the stereo session type to use for processing.")
-    ("bundles,b", po::value<std::string>(&bundles_file), "Load bundles from file")
+    ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
     ("lambda,l", po::value<double>(&lambda), "Set the initial value of the LM parameter lambda")
     ("help", "Display this help message")
     ("verbose", "Verbose output");
@@ -150,9 +148,9 @@ int main(int argc, char* argv[]) {
   }
   
   if( vm.count("input-files") < 1) {
-    if ( vm.count("bundles") ) {
-      std::cout << "Loading bundles from file: " << bundles_file << "\n";
-      read_bundles_file(bundles_file, bundles, image_files);
+    if ( vm.count("cnet") ) {
+      std::cout << "Loading control network from file: " << cnet_file << "\n";
+      cnet.read_control_network(cnet_file);
     } else {
       std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
       std::cout << usage.str();
@@ -168,9 +166,8 @@ int main(int argc, char* argv[]) {
     camera_models[i] = session->camera_model(image_files[i]);
   }
 
-  if (!vm.count("bundles") ) {
-    std::vector<MatchedPoints> matched_points_list;
-
+  if (!vm.count("cnet") ) {
+    std::cout << "\nLoading Matches:\n";
     for (unsigned i = 0; i < image_files.size(); ++i) {
       for (unsigned j = i; j < image_files.size(); ++j) {
         std::string match_filename = 
@@ -182,37 +179,19 @@ int main(int argc, char* argv[]) {
           // overlap based on a rough approximation of their bounding box.
           std::vector<InterestPoint> ip1, ip2;
           read_binary_match_file(match_filename, ip1, ip2);
-          std::cout << "Loading " << match_filename << " (" << ip1.size() << " matches) \n";
-
-          // Convert to the MatchedPoints data structure.  (A
-          // kludge... should fix this....)
-          MatchedPoints mp;  
-          mp.id1 = i;  
-          mp.id2 = j;
-          mp.ip1.resize(ip1.size());
-          mp.ip2.resize(ip2.size());
-          for (unsigned p = 0; p < ip1.size(); ++p) {
-            mp.ip1[p][0] = ip1[p].x;
-            mp.ip1[p][1] = ip1[p].y;
-            mp.ip2[p][0] = ip2[p].x;
-            mp.ip2[p][1] = ip2[p].y;
-          }
-          matched_points_list.push_back(mp);
-
+          std::cout << "\t " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
+          add_matched_points(cnet,ip1,ip2,i,j,camera_models);
         }
       }
     }    
-
-    // Create the bundles
-    create_bundles(matched_points_list, camera_models, bundles);
-    write_bundles_file(bundles, image_files);
+    cnet.write_control_network("control.cnet");
   }
 
   // Print pre-alignment residuals
-  compute_stereo_residuals(camera_models, bundles);
+  compute_stereo_residuals(camera_models, cnet);
 
   BundleAdjustmentModel ba_model(camera_models);
-  BundleAdjustment<BundleAdjustmentModel> bundle_adjuster(ba_model, bundles);
+  BundleAdjustment<BundleAdjustmentModel> bundle_adjuster(ba_model, cnet);
   if (vm.count("lambda")) {
     std::cout << "Setting initial value of lambda to " << lambda << "\n";
     bundle_adjuster.set_lambda(lambda);
@@ -221,11 +200,9 @@ int main(int argc, char* argv[]) {
   std::cout << "Performing Sparse LM Bundle Adjustment\n";
   double abs_tol = 1e10, rel_tol=1e10;
   bundle_adjuster.update(abs_tol,rel_tol);
-  //bundle_adjuster.update_reference_impl2(abs_tol,rel_tol);
   std::cout << "\n";
   int iterations = 0;
   while(bundle_adjuster.update(abs_tol, rel_tol)) {
-    //while(bundle_adjuster.update_reference_impl2(abs_tol, rel_tol)) {
     iterations++;
     if (iterations > 30 || abs_tol < 0.001 || rel_tol < 1e-10)
       break;
@@ -235,7 +212,7 @@ int main(int argc, char* argv[]) {
   for (unsigned int i=0; i < ba_model.size(); ++i)
     ba_model.write_adjustment(i, prefix_from_filename(image_files[i])+".adjust");
 
-  // Compute the pre-adjustment residuals
+  // Compute the post-adjustment residuals
   std::vector<boost::shared_ptr<CameraModel> > adjusted_cameras = ba_model.adjusted_cameras();
   compute_stereo_residuals(adjusted_cameras, bundles);
 }

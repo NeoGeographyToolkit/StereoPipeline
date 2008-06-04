@@ -42,10 +42,11 @@ rmax_sources = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
 
-generic_stereo_sources = file_lib.cc StereoSession.cc			\
-	 	  	 StereoSessionKeypoint.cc			\
-	 	  	 StereoSessionPinhole.cc			\
-	 	  	 TabulatedDataReader.cc KML.cc 
+generic_stereo_sources = file_lib.cc StereoSession.cc	\
+	 	  	 StereoSessionKeypoint.cc	\
+	 	  	 StereoSessionPinhole.cc	\
+	 	  	 TabulatedDataReader.cc KML.cc	\
+	 	  	 BundleAdjustUtils.cc
 bin_PROGRAMS = 
 
 if MAKE_APP_STEREO
@@ -120,7 +121,7 @@ endif
 
 if MAKE_APP_RMAXADJUST
   bin_PROGRAMS += rmax_adjust
-  rmax_adjust_SOURCES = rmax_adjust.cc RMAX/RMAX.cc RMAX/RmaxInterestPoint.cc
+  rmax_adjust_SOURCES = rmax_adjust.cc RMAX/RMAX.cc BundleAdjustUtils.cc
   rmax_adjust_LDFLAGS = $(APP_RMAXADJUST_LIBS) $(ASP_LDFLAGS)
 endif
 

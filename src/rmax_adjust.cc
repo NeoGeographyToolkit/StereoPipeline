@@ -22,8 +22,6 @@ using namespace vw::stereo;
 #include <iostream>
 
 #include "RMAX/RMAX.h"
-#include "RMAX/RmaxInterestPoint.h"
-//#include "RMAX/RmaxBundles.h"
 #include "BundleAdjustUtils.h"
 
 static std::string prefix_from_filename(std::string const& filename) {
@@ -54,18 +52,18 @@ int main(int argc, char* argv[]) {
   
   po::options_description options("Allowed Options");
   options.add(general_options).add(hidden_options);
-
+  
   po::positional_options_description p;
   p.add("input-files", -1);
   
   po::variables_map vm;
   po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
   po::notify( vm );
-
+  
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <rmax image filenames>..." << std::endl << std::endl;
   usage << general_options << std::endl;
-
+  
   if( vm.count("help") ) {
     std::cout << usage << std::endl;
     return 1;
@@ -81,7 +79,7 @@ int main(int argc, char* argv[]) {
       return 1;
     }
   }  
-
+  
   // Read in the camera model and RMAX image info for the input
   // images.
   std::vector<std::string> camera_files(image_files.size());
@@ -93,12 +91,9 @@ int main(int argc, char* argv[]) {
     *cahvor = rmax_image_camera_model(image_infos[i]);
     camera_models[i] = boost::shared_ptr<CameraModel>(cahvor);
   }
-
+  
   if (!vm.count("cnet") ) {
-
-    if (!check_for_ipfiles(image_files))
-      exit(0);
-
+    
     std::cout << "\nLoading Matches:\n";
     for (unsigned i = 0; i < image_files.size(); ++i) {
       for (unsigned j = i; j < image_files.size(); ++j) {
@@ -120,42 +115,31 @@ int main(int argc, char* argv[]) {
   }
 
   // Print pre-alignment residuals
-  //  compute_stereo_residuals(camera_models, bundles);
   compute_stereo_residuals(camera_models, cnet);
 
   HelicopterBundleAdjustmentModel ba_model(image_infos);
-  //  BundleAdjustment<HelicopterBundleAdjustmentModel> bundle_adjuster(ba_model, bundles);
   BundleAdjustment<HelicopterBundleAdjustmentModel> bundle_adjuster(ba_model, cnet);
   if (vm.count("lambda")) {
     std::cout << "Setting initial value of lambda to " << lambda << "\n";
     bundle_adjuster.set_lambda(lambda);
   }
+
   std::cout << "Performing Sparse LM Bundle Adjustment\n";
   double abs_tol = 1e10, rel_tol=1e10;
   bundle_adjuster.update(abs_tol,rel_tol);
-  //bundle_adjuster.update_reference_impl2(abs_tol,rel_tol);
   std::cout << "\n";
   int iterations = 0;
   while(bundle_adjuster.update(abs_tol, rel_tol)) {
-  //while(bundle_adjuster.update_reference_impl2(abs_tol, rel_tol)) {
     iterations++;
     if (iterations > 30 || abs_tol < 0.001 || rel_tol < 1e-10)
       break;
   }
   std::cout << "\nFinished.  Iterations: "<< iterations << "\n";
 
-  for (unsigned int i=0; i < ba_model.size(); ++i) {
-    std::string base, extension;
-    split_filename(image_files[i], base, extension);
+  for (unsigned int i=0; i < ba_model.size(); ++i)
+    ba_model.write_adjustment(i, prefix_from_filename(image_files[i])+".rmax_adjust");
 
-    ba_model.write_adjustment(i, base+".rmax_adjust");
-    ba_model.write_adjusted_camera(i, base+".rmax_adjust.cahvor");
-  }    
-
-  // Write out Adjust CAHVOR models.
+  // Compute the post-adjustment residuals
   std::vector<boost::shared_ptr<CameraModel> > adjusted_cameras = ba_model.adjusted_cameras();
-
-  // Compute the pre-adjustment residuals
-  //  compute_stereo_residuals(adjusted_cameras, bundles);
   compute_stereo_residuals(adjusted_cameras, cnet);
 }

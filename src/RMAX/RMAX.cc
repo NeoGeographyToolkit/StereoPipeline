@@ -3,18 +3,6 @@
 #define RMAX_GLOBAL_EASTING (582680)
 #define RMAX_GLOBAL_NORTHING (4141480)
 
-
-// Split filename into base and extension.
-int split_filename(const std::string& filename, std::string& base, std::string& extension) {
-  std::string::size_type dot = filename.find_last_of('.');
-  if(dot == std::string::npos || dot <= 0)
-    return -1;
-  extension = filename.substr(dot);
-  boost::to_lower(extension);
-  base = filename.substr(0, dot);
-  return 0;
-}
-
 void read_image_info( std::string const& filename, ImageInfo& info ) {
   vw::vw_out(vw::DebugMessage) << "Reading image info from " << filename << std::endl;;
   vw::DiskImageResourcePNG png( filename );
