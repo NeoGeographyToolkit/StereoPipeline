@@ -27,6 +27,26 @@ using namespace vw::cartography;
 #include "nff_terrain.h"
 #include "OrthoRasterizer.h"
 
+// Apply an offset to the points in the PointImage
+class PointOffsetFunc : public UnaryReturnSameType {
+  Vector3 m_offset;
+  
+public:
+  PointOffsetFunc(Vector3 const& offset) : m_offset(offset) {}    
+  
+  template <class T>
+  T operator()(T const& p) const {
+    if (p == T()) return p;
+    return p + m_offset;
+  }
+};
+
+template <class ImageT>
+UnaryPerPixelView<ImageT, PointOffsetFunc>
+inline point_image_offset( ImageViewBase<ImageT> const& image, Vector3 const& offset) {
+  return UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
+}
+
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -166,6 +186,11 @@ int main( int argc, char *argv[] ) {
                                semi_major, semi_minor, 0.0);
   }
 
+  if (vm.count("z-offset")) {
+    std::cout << "Applying z-offset: " << z_offset << "\n";
+    point_image = point_image_offset(point_image, Vector3(0,0,z_offset));
+  }
+
   // Set up the georeferencing information.  We specify everything
   // here except for the affine transform, which is defined later once
   // we know the bounds of the orthorasterizer view.  However, we can
@@ -210,12 +235,6 @@ int main( int argc, char *argv[] ) {
     rasterizer.set_default_value(default_value);    
   }
 
-  if (vw.count("z-offset")) {
-    double val = rasterizer.default_value(); 
-    rasterizer.set_use_minz_as_default(false); 
-    rasterizer.set_default_value(val-z_offset);    
-  }
-
   if (vm.count("use-alpha")) {
     rasterizer.set_use_alpha(true);
   }
@@ -244,12 +263,7 @@ int main( int argc, char *argv[] ) {
     // Write out the DEM.
     std::cout << "\n\n Creating block cache view from rasterizer: " << rasterizer.cols() << "  " << rasterizer.rows() << "\n";
     BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
-    if (vm.count("z-offset")) {
-      std::cout << "Adding the following z offset: " << z_offset << "\n";
-      write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster + z_offset, georef, TerminalProgressCallback());
-    } else {
-      write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
-    }
+    write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
 
     // Write out a georeferenced DTM and (optionally) a normalized version of the DTM (for debugging)
     if (vm.count("normalized")) {
