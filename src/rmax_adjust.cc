@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
   general_options.add_options()
     ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
     ("lambda,l", po::value<double>(&lambda), "Set the initial value of the LM parameter lambda")
+    ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
     ("help", "Display this help message")
     ("verbose", "Verbose output");
 
@@ -111,6 +112,16 @@ int main(int argc, char* argv[]) {
         }
       }
     }    
+
+    std::cout << "\nLoading Ground Control Points:\n";
+    for (unsigned i = 0; i < image_files.size(); ++i) {
+      std::string gcp_filename = prefix_from_filename(image_files[i]) + ".gcp";
+      if ( fs::exists(gcp_filename) ) {
+        int numpoints = add_ground_control_points(cnet, gcp_filename, i); 
+        std::cout << "\t" << gcp_filename << "     " << " : " << numpoints << " GCPs.\n";
+      }
+    }
+
     cnet.write_control_network("control.cnet");
   }
 
@@ -124,17 +135,20 @@ int main(int argc, char* argv[]) {
     bundle_adjuster.set_lambda(lambda);
   }
 
-  std::cout << "Performing Sparse LM Bundle Adjustment\n";
+  std::cout << "\nPerforming Sparse LM Bundle Adjustment\n\n";
   double abs_tol = 1e10, rel_tol=1e10;
-  bundle_adjuster.update(abs_tol,rel_tol);
-  std::cout << "\n";
-  int iterations = 0;
-  while(bundle_adjuster.update(abs_tol, rel_tol)) {
-    iterations++;
-    if (iterations > 30 || abs_tol < 0.001 || rel_tol < 1e-10)
-      break;
+  if (vm.count("nonsparse")) {
+    while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
+      if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-10)
+        break;
+    }
+  } else {
+    while(bundle_adjuster.update(abs_tol, rel_tol)) {
+      if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-10)
+        break;
+    }
   }
-  std::cout << "\nFinished.  Iterations: "<< iterations << "\n";
+  std::cout << "\nFinished.  Iterations: "<< bundle_adjuster.iterations() << "\n";
 
   for (unsigned int i=0; i < ba_model.size(); ++i)
     ba_model.write_adjustment(i, prefix_from_filename(image_files[i])+".rmax_adjust");
