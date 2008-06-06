@@ -18,7 +18,6 @@ void add_matched_points(vw::camera::ControlNetwork& cnet,
                         int camera_id1, int camera_id2,
                         std::vector<boost::shared_ptr<vw::camera::CameraModel> > const& camera_models);
 
-int add_ground_control_points(vw::camera::ControlNetwork& cnet,
-                               std::string filename);
+int add_ground_control_points(vw::camera::ControlNetwork& cnet, std::string filename, int camera_id);
 
 #endif // __BUNDLE_ADJUST_UTILS_H__

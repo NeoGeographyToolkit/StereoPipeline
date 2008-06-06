@@ -83,9 +83,24 @@ void add_matched_points(ControlNetwork& cnet,
 
 
 int add_ground_control_points(vw::camera::ControlNetwork& cnet,
-                               std::string filename) {
+                              std::string filename, int camera_id) {
 
-  std::cout << "testing: " << filename;
+  std::ifstream istr(filename.c_str());
+  int count = 0;
+  while (!istr.eof()) {
+    Vector2 pix;
+    Vector3 loc;
+    Vector3 sigma;
 
-  return 0;
+    istr >> pix[0] >> pix[1] >> loc[0] >> loc[1] >> loc[2] >> sigma[0] >> sigma[1] >> sigma[2];
+    ControlMeasure m(pix[0], pix[1], 1.0, 1.0, camera_id);
+    ControlPoint cpoint;
+    cpoint.set_position(loc[0],loc[1],loc[2]);
+    cpoint.set_sigma(sigma[0],sigma[1],sigma[2]);
+    cpoint.add_measure(m);
+    cnet.add_control_point(cpoint);
+    ++count;
+  }
+  istr.close();
+  return count;
 }

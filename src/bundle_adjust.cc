@@ -90,12 +90,12 @@ public:
   // Return the covariance of the camera parameters for camera j.
   inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned j ) {
     Matrix<double,camera_params_n,camera_params_n> result;
-    result(0,0) = 1/0.4;  // Position sigma = 0.4 meters
-    result(1,1) = 1/0.4;
-    result(2,2) = 1/0.4;
-    result(3,3) = 1/0.4;  // Pose sigma = 0.4 degrees
-    result(4,4) = 1/0.4;
-    result(5,5) = 1/0.4;
+    result(0,0) = 1/400;  // Position sigma = 400 meters
+    result(1,1) = 1/400;
+    result(2,2) = 1/400;
+    result(3,3) = 1/1.0;  // Pose sigma = 1.0 degrees
+    result(4,4) = 1/1.0;
+    result(5,5) = 1/1.0;
     return result;
   }
 
@@ -182,8 +182,9 @@ int main(int argc, char* argv[]) {
   // Read in the camera model and image info for the input images.
   StereoSession* session = StereoSession::create(stereosession_type);
   std::vector<boost::shared_ptr<CameraModel> > camera_models(image_files.size());
+  std::cout << "Loading Camera Models:\n";
   for (unsigned i = 0; i < image_files.size(); ++i) {
-    std::cout << "Loading camera model for : " << image_files[i] << "\n";
+    std::cout << "\t" << image_files[i] << "\n";
     camera_models[i] = session->camera_model(image_files[i]);
   }
 
@@ -208,9 +209,9 @@ int main(int argc, char* argv[]) {
 
     std::cout << "\nLoading Ground Control Points:\n";
     for (unsigned i = 0; i < image_files.size(); ++i) {
-      std::string gcp_filename = prefix_from_filename(image_files[i]);
+      std::string gcp_filename = prefix_from_filename(image_files[i]) + ".gcp";
       if ( fs::exists(gcp_filename) ) {
-        int numpoints = add_ground_control_points(cnet, gcp_filename); 
+        int numpoints = add_ground_control_points(cnet, gcp_filename, i); 
         std::cout << "\t" << gcp_filename << "     " << " : " << numpoints << " GCPs.\n";
       }
     }
@@ -229,12 +230,14 @@ int main(int argc, char* argv[]) {
 
   std::cout << "Performing Sparse LM Bundle Adjustment\n";
   double abs_tol = 1e10, rel_tol=1e10;
+  //  bundle_adjuster.update_reference_impl(abs_tol,rel_tol);
   bundle_adjuster.update(abs_tol,rel_tol);
   std::cout << "\n";
   int iterations = 0;
+  //  while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
   while(bundle_adjuster.update(abs_tol, rel_tol)) {
     iterations++;
-    if (iterations > 30 || abs_tol < 0.001 || rel_tol < 1e-10)
+    if (iterations > 200 || abs_tol < 0.01 || rel_tol < 1e-10)
       break;
   }
   std::cout << "\nFinished.  Iterations: "<< iterations << "\n";
