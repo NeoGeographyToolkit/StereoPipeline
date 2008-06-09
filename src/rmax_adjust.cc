@@ -38,12 +38,17 @@ int main(int argc, char* argv[]) {
   std::string cnet_file;
   ControlNetwork cnet("My first control network");
   double lambda;
+  int min_matches;
 
   po::options_description general_options("Options");
   general_options.add_options()
     ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
     ("lambda,l", po::value<double>(&lambda), "Set the initial value of the LM parameter lambda")
+    ("min-matches", po::value<int>(&min_matches)->default_value(5), "Set the mininmum number of matches between images that will be considered.")
     ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
+    ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
+    ("match-debug-images,d", "Create debug images when you run ipmatch.")
+
     ("help", "Display this help message")
     ("verbose", "Verbose output");
 
@@ -97,18 +102,34 @@ int main(int argc, char* argv[]) {
     
     std::cout << "\nLoading Matches:\n";
     for (unsigned i = 0; i < image_files.size(); ++i) {
-      for (unsigned j = i; j < image_files.size(); ++j) {
+      for (unsigned j = i+1; j < image_files.size(); ++j) {
         std::string match_filename = 
-        prefix_from_filename(image_files[i]) + "__" +
-        prefix_from_filename(image_files[j]) + ".match";
+          prefix_from_filename(image_files[i]) + "__" +
+          prefix_from_filename(image_files[j]) + ".match";
+
+        if ( vm.count("run-match")) {
+          if (may_overlap(image_files[i], image_files[j])) {
+            std::ostringstream cmd;
+            cmd << "ipmatch " 
+                << image_files[i] << " " 
+                << image_files[j] << " ";
+            if (vm.count("match-debug-images"))
+              cmd << "-d";
+            system(cmd.str().c_str());
+          }
+        }
 
         if ( fs::exists(match_filename) ) {
           // Locate all of the interest points between images that may
           // overlap based on a rough approximation of their bounding box.
           std::vector<InterestPoint> ip1, ip2;
           read_binary_match_file(match_filename, ip1, ip2);
-          std::cout << "\t " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
-          add_matched_points(cnet,ip1,ip2,i,j,camera_models);
+          if (int(ip1.size()) < min_matches) {
+            std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.  [rejected]\n";
+          } else {
+            std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
+            add_matched_points(cnet,ip1,ip2,i,j,camera_models);
+          }
         }
       }
     }    

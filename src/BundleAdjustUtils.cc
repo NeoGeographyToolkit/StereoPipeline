@@ -75,8 +75,16 @@ void add_matched_points(ControlNetwork& cnet,
       cpoint.add_measure(m1);
       cpoint.add_measure(m2);
       cnet.add_control_point(cpoint);
-    } else { 
-      std::cout << "Houston, we have a control point loop!\n";
+    } else if (pos1 != pos2) {                                 // Contains both, but in seperate control points
+      ControlPoint& p1 = cnet[pos1];
+      ControlPoint& p2 = cnet[pos2];
+
+      // Merge the twe control points into one.
+      for (unsigned m=0; m < p2.size(); ++m) 
+        p1.add_measure(p2[m]);
+      p1.set_position((p1.position() + p2.position())/2);
+      p1.set_sigma((p1.sigma() + p2.sigma())/2);
+      cnet.delete_control_point(pos2);
     }
   }
 }
