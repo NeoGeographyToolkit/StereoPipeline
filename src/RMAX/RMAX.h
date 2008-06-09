@@ -65,6 +65,22 @@ public:
     cam.write(filename);
   }
 
+  void write_adjusted_cameras_append(std::string const& filename){
+    std::ofstream ostr(filename.c_str(),std::ios::app);
+    for (int j=0; j < m_adjustments.size();++j){
+      Vector<double,6> a_j = m_adjustments[j];
+      Vector3 position_correction = subvector(a_j,0,3);
+      Vector3 pose_correction = subvector(a_j,3,3);
+      camera::CAHVORModel cam = rmax_image_camera_model(m_image_infos[j],position_correction,pose_correction);
+      ostr << j << "\t" << cam.C(0) << "\t" << cam.C(1) << "\t" << cam.C(2) << "\n";
+      ostr << j << "\t" << cam.A(0) << "\t" << cam.A(1) << "\t" << cam.A(2) << "\n";
+      ostr << j << "\t" << cam.H(0) << "\t" << cam.H(1) << "\t" << cam.H(2) << "\n";
+      ostr << j << "\t" << cam.V(0) << "\t" << cam.V(1) << "\t" << cam.V(2) << "\n";
+      ostr << j << "\t" << cam.O(0) << "\t" << cam.O(1) << "\t" << cam.O(2) << "\n";
+      ostr << j << "\t" << cam.R(0) << "\t" << cam.R(1) << "\t" << cam.R(2) << "\n";
+    }
+  }
+
   std::vector<boost::shared_ptr<camera::CameraModel> > adjusted_cameras() {
     std::vector<boost::shared_ptr<camera::CameraModel> > result(m_adjustments.size());
     for (unsigned j = 0; j < result.size(); ++j) {

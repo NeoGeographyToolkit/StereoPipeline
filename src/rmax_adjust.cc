@@ -46,11 +46,11 @@ int main(int argc, char* argv[]) {
     ("lambda,l", po::value<double>(&lambda), "Set the initial value of the LM parameter lambda")
     ("min-matches", po::value<int>(&min_matches)->default_value(5), "Set the mininmum number of matches between images that will be considered.")
     ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
+    ("saveiter,s", "Saves all camera information between iterations to iterCamParam.txt")
     ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
     ("match-debug-images,d", "Create debug images when you run ipmatch.")
-
     ("help", "Display this help message")
-    ("verbose", "Verbose output");
+    ("verbose,v", "Verbose output");
 
   po::options_description hidden_options("");
   hidden_options.add_options()
@@ -156,15 +156,39 @@ int main(int argc, char* argv[]) {
     bundle_adjuster.set_lambda(lambda);
   }
 
-  std::cout << "\nPerforming Sparse LM Bundle Adjustment\n\n";
+  //Something to remind the user in case they forgot what they were doing
+  if (vm.count("nonsparse")){
+    std::cout << "\nPerforming Non-Sparse LM Bundle Adjustment\n\n";
+  }else{
+    std::cout << "\nPerforming Sparse LM Bundle Adjustment\n\n";
+  }
+  
+  //Clearing the text file to be used for saving camera params
+  if (vm.count("saveiter")){
+    std::ofstream ostr("iterCamParam.txt",std::ios::out);
+  }
+
   double abs_tol = 1e10, rel_tol=1e10;
+  
   if (vm.count("nonsparse")) {
     while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
+
+      // Writing Current Camera Parameters to file for later reading in MATLAB
+      if (vm.count("saveiter")){
+	ba_model.write_adjusted_cameras_append("iterCamParam.txt");
+      }
+
       if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-10)
         break;
     }
   } else {
     while(bundle_adjuster.update(abs_tol, rel_tol)) {
+
+      // Writing Current Camera Parameters to file for later reading in MATLAB
+      if (vm.count("saveiter")){
+	ba_model.write_adjusted_cameras_append("iterCamParam.txt");
+      }
+
       if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-10)
         break;
     }
