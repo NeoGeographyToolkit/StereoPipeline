@@ -67,7 +67,7 @@ public:
 
   void write_adjusted_cameras_append(std::string const& filename){
     std::ofstream ostr(filename.c_str(),std::ios::app);
-    for (int j=0; j < m_adjustments.size();++j){
+    for (unsigned j=0; j < m_adjustments.size();++j){
       Vector<double,6> a_j = m_adjustments[j];
       Vector3 position_correction = subvector(a_j,0,3);
       Vector3 pose_correction = subvector(a_j,3,3);

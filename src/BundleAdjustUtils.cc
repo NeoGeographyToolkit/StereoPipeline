@@ -68,7 +68,7 @@ void add_matched_points(ControlNetwork& cnet,
     } else if ( pos1 == cnet.size() && pos2 == cnet.size() ) { // Contains neither
       // ... create a stereo model for this image pair...
       StereoModel sm(*(camera_models[camera_id1]), *(camera_models[camera_id2]));
-      ControlPoint cpoint;
+      ControlPoint cpoint(ControlPoint::TiePoint);
       double error;
       cpoint.set_position(sm(m1.position(), m2.position(), error));
       cpoint.set_sigma(error,error,error);
@@ -102,7 +102,7 @@ int add_ground_control_points(vw::camera::ControlNetwork& cnet,
 
     istr >> pix[0] >> pix[1] >> loc[0] >> loc[1] >> loc[2] >> sigma[0] >> sigma[1] >> sigma[2];
     ControlMeasure m(pix[0], pix[1], 1.0, 1.0, camera_id);
-    ControlPoint cpoint;
+    ControlPoint cpoint(ControlPoint::GroundControlPoint);
     cpoint.set_position(loc[0],loc[1],loc[2]);
     cpoint.set_sigma(sigma[0],sigma[1],sigma[2]);
     cpoint.add_measure(m);
