@@ -27,6 +27,7 @@ dnl This is a two-step process.  First we generate the usual header file
 dnl with a filename ending in ".pre".  Then we process that file, adding 
 dnl the prefix to all symbolx, and copy it into the final location if it 
 dnl has changed.
+
 AC_DEFUN([AX_CONFIG_HEADER_PREFIX],
 [
   AM_CONFIG_HEADER([$1.pre],
@@ -167,6 +168,13 @@ AC_DEFUN([AX_PKG],
 
       HAVE_PKG_$1=no
 
+      # This is a gross hack that causes the AC_LINK_IFELSE macro use libtool to                                                     
+      # link files rather that g++ alone.  This in important for detecting packages                                                                                                                      
+      # like the Vision Workbench which has many dependencies that themselves have                                                                                                                    
+      # *.la files.
+      OLD_CXX=$CXX
+      CXX="libtool --mode=link $CXX"
+
       ax_pkg_old_libs=$LIBS
       LIBS=$PKG_$1_LIBS $LIBS
       for path in none $PKG_PATHS; do
@@ -214,6 +222,8 @@ AC_DEFUN([AX_PKG],
       if test "x$HAVE_PKG_$1" = "xno" -a "x$ENABLE_VERBOSE" != "xyes"; then
 	AC_MSG_RESULT([no (not found)])
       fi
+
+      CXX=$OLD_CXX
 
     fi
 
