@@ -173,7 +173,13 @@ AC_DEFUN([AX_PKG],
       # like the Vision Workbench which has many dependencies that themselves have                                                                                                                    
       # *.la files.
       OLD_CXX=$CXX
-      CXX="libtool --mode=link $CXX"
+      if test "$host_vendor" = apple; then
+	# Apple has lazy link-time dependencies and a different name for libtool,
+        # so we turn off this hack on the mac platform.
+	CXX=$CXX
+      else
+        CXX="libtool --mode=link $CXX"
+      fi
 
       ax_pkg_old_libs=$LIBS
       LIBS=$PKG_$1_LIBS $LIBS
