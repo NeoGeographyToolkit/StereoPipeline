@@ -3,6 +3,7 @@
 #include <vw/Camera/BundleAdjust.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
+#include <vw/Cartography.h>
 
 using namespace vw;
 using namespace vw::camera;
@@ -101,13 +102,18 @@ int add_ground_control_points(vw::camera::ControlNetwork& cnet,
     Vector3 sigma;
 
     istr >> pix[0] >> pix[1] >> loc[0] >> loc[1] >> loc[2] >> sigma[0] >> sigma[1] >> sigma[2];
-    ControlMeasure m(pix[0], pix[1], 1.0, 1.0, camera_id);
-    ControlPoint cpoint(ControlPoint::GroundControlPoint);
-    cpoint.set_position(loc[0],loc[1],loc[2]);
-    cpoint.set_sigma(sigma[0],sigma[1],sigma[2]);
-    cpoint.add_measure(m);
-    cnet.add_control_point(cpoint);
-    ++count;
+    if (loc[0] !=0) {  // ignore blank lines
+      Vector3 xyz = cartography::lon_lat_radius_to_xyz(loc);
+      std::cout << "GCP: " << xyz << "\n";
+      
+      ControlMeasure m(pix[0], pix[1], 1.0, 1.0, camera_id);
+      ControlPoint cpoint(ControlPoint::GroundControlPoint);
+      cpoint.set_position(xyz[0],xyz[1],xyz[2]);
+      cpoint.set_sigma(sigma[0],sigma[1],sigma[2]);
+      cpoint.add_measure(m);
+      cnet.add_control_point(cpoint);
+      ++count;
+    }
   }
   istr.close();
   return count;
