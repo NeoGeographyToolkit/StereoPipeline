@@ -90,36 +90,45 @@ public:
   // Return the covariance of the camera parameters for camera j.
   inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned j ) {
     Matrix<double,camera_params_n,camera_params_n> result;
-    result(0,0) = 1/400;  // Position sigma = 400 meters
-    result(1,1) = 1/400;
-    result(2,2) = 1/400;
-    result(3,3) = 1/1.0;  // Pose sigma = 1.0 degrees
-    result(4,4) = 1/1.0;
-    result(5,5) = 1/1.0;
+    result(0,0) = 1/1e3;
+    result(1,1) = 1/1e3;
+    result(2,2) = 1/1e3;
+    result(3,3) = 1;
+    result(4,4) = 1;
+    result(5,5) = 1;
+//     result(0,0) = 1/400.0;  // Position sigma = 400 meters
+//     result(1,1) = 1/400.0;
+//     result(2,2) = 1/400.0;
+//     result(3,3) = 1/1.0;  // Pose sigma = 1.0 degrees
+//     result(4,4) = 1/1.0;
+//     result(5,5) = 1/1.0;
     return result;
   }
 
   // Return the covariance of the point parameters for point i.
   inline Matrix<double,point_params_n,point_params_n> B_inverse_covariance ( unsigned i ) {
     Matrix<double,point_params_n,point_params_n> result;
-    result(0,0) = 1/1000.0;  // Point sigma = 1000 meters ( we set this to be 
-    result(1,1) = 1/1000.0;  // so large that it essentially removes point position
-    result(2,2) = 1/1000.0;  // constraints from the bundle adjustment entirely. )
+    result(0,0) = 1/1e-16;  // Point sigma = 1000 meters ( we set this to be 
+    result(1,1) = 1/1e-16;  // so large that it essentially removes point position
+    result(2,2) = 1/1e-16;  // constraints from the bundle adjustment entirely. )
     return result;
   }
   
   Vector<double,6> initial_parameters(unsigned j) const { 
-//     struct timeval t;
-//     assert(0 == gettimeofday(&t, NULL)); 
+    // For debugging.  (seed parameter vector with slightly incorrect
+    // value to see if the algorithm still converges properly.
 
-//     srandom(t.tv_usec);
-//     Vector<double,6> params;
-//     double norm1 = 10.0/((pow(2,31))-1);
-//     double norm2 = 0.1/((pow(2,31))-1);
-//     subvector(params,0,3) = Vector3(random()*norm1,random()*norm1,random()*norm1);
-//     subvector(params,3,3) = Vector3(random()*norm2,random()*norm2,random()*norm2);
-//     std::cout << "Seeding parameter vector: " << params << "\n";
-//     return params;
+    //     struct timeval t;
+    //     assert(0 == gettimeofday(&t, NULL)); 
+
+    //     srandom(t.tv_usec);
+    //     Vector<double,6> params;
+    //     double norm1 = 10.0/((pow(2,31))-1);
+    //     double norm2 = 0.01/((pow(2,31))-1);
+    //     subvector(params,0,3) = Vector3(random()*norm1,random()*norm1,random()*norm1);
+    //     subvector(params,3,3) = Vector3(random()*norm2,random()*norm2,random()*norm2);
+    //     std::cout << "Seeding parameter vector: " << params << "\n";
+    //     return params;
     return Vector<double,6>(); 
   }
 };
@@ -236,6 +245,7 @@ int main(int argc, char* argv[]) {
   // Print pre-alignment residuals
   compute_stereo_residuals(camera_models, cnet);
 
+  std::cout << "\nPerforming Sparse LM Bundle Adjustment\n\n";
   BundleAdjustmentModel ba_model(camera_models);
   BundleAdjustment<BundleAdjustmentModel> bundle_adjuster(ba_model, cnet);
   if (vm.count("lambda")) {
@@ -243,7 +253,6 @@ int main(int argc, char* argv[]) {
     bundle_adjuster.set_lambda(lambda);
   }
 
-  std::cout << "\nPerforming Sparse LM Bundle Adjustment\n\n";
   double abs_tol = 1e10, rel_tol=1e10;
   if (vm.count("nonsparse")) {
     while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
