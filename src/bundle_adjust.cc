@@ -108,7 +108,20 @@ public:
     return result;
   }
   
-  Vector<double,6> initial_parameters(unsigned j) const { return Vector<double,6>(); }
+  Vector<double,6> initial_parameters(unsigned j) const { 
+//     struct timeval t;
+//     assert(0 == gettimeofday(&t, NULL)); 
+
+//     srandom(t.tv_usec);
+//     Vector<double,6> params;
+//     double norm1 = 10.0/((pow(2,31))-1);
+//     double norm2 = 0.1/((pow(2,31))-1);
+//     subvector(params,0,3) = Vector3(random()*norm1,random()*norm1,random()*norm1);
+//     subvector(params,3,3) = Vector3(random()*norm2,random()*norm2,random()*norm2);
+//     std::cout << "Seeding parameter vector: " << params << "\n";
+//     return params;
+    return Vector<double,6>(); 
+  }
 };
 
 int main(int argc, char* argv[]) {
@@ -239,7 +252,7 @@ int main(int argc, char* argv[]) {
     }
   } else {
     while(bundle_adjuster.update(abs_tol, rel_tol)) {
-      if (bundle_adjuster.iterations() > 50 || abs_tol < 0.01 || rel_tol < 1e-10)
+      if (bundle_adjuster.iterations() > 50 || abs_tol < 0.01 || rel_tol < 1e-16)
         break;
     }
   }
