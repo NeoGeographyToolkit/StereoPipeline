@@ -242,14 +242,15 @@ AX_PKG(VW_CAMERA, [], [-lvwCamera], [vw/Camera/CAHVModel.h])
 AX_PKG(VW_CARTOGRAPHY, [], [-lvwCartography], [vw/Cartography/GeoReference.h])
 AX_PKG(VW_INTEREST_POINT, [], [-lvwInterestPoint])
 
-AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads], [osg/ref_ptr])
+AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer], [osg/ref_ptr])
 AX_PKG(MBA, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
 AX_PKG(QT_CORE, [], [-lQtCore], [QVector], [QtCore])
 AX_PKG(QT_GUI, [], [-lQtGui], [QLabel], [QtGui])
-AX_PKG(QT_SQL, [], [-lQtSql], [QtSql], [QtSql])
-AX_PKG(ISIS3RDPARTY, [], [-lgeos -lxerces-c -lgsl -lgslcblas -lqwt])
+
+AX_PKG(QT_SQL, [], [-lQtSql], [QtSql],[QtSql])
+AX_PKG(ISIS3RDPARTY, [], [-lgeos -lxerces-c -lgsl -lgslcblas -lqwt -lstdc++])
 AX_PKG(ISIS, [QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
 
 dnl AX_PKG(SPICE, [], [-lcspice -lcsupport], [SpiceUsr.h SpiceZfc.h])
@@ -277,6 +278,7 @@ AX_APP(NURBS, [src], no, [BOOST BOOST_PROGRAM_OPTIONS VW MBA])
 AX_APP(CTXIMAGE, [src], no, [BOOST BOOST_PROGRAM_OPTIONS VW VW_CARTOGRAPHY])
 AX_APP(RMAX2CAHVOR, [src], no, [BOOST VW VW_CAMERA BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM])
 AX_APP(RMAXADJUST, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_STEREO VW_INTEREST_POINT LAPACK])
+AX_APP(BUNDLEVIS, [src], no, [BOOST BOOST_PROGRAM_OPTIONS OPENSCENEGRAPH])
 
 ##################################################
 #	final processing	    

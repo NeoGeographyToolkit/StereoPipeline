@@ -125,6 +125,12 @@ if MAKE_APP_RMAXADJUST
   rmax_adjust_LDFLAGS = $(APP_RMAXADJUST_LIBS) $(ASP_LDFLAGS)
 endif
 
+if MAKE_APP_BUNDLEVIS
+  bin_PROGRAMS += bundlevis
+  bundlevis_SOURCES = bundlevis.cc
+  bundlevis_LDFLAGS = $(APP_BUNDLEVIS_LIBS) $(ASP_LDFLAGS)
+endif
+
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@ 
 

@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     ("lambda,l", po::value<double>(&lambda), "Set the initial value of the LM parameter lambda")
     ("min-matches", po::value<int>(&min_matches)->default_value(5), "Set the mininmum number of matches between images that will be considered.")
     ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
-    ("saveiter,s", "Saves all camera information between iterations to iterCamParam.txt")
+    ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
     ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
     ("match-debug-images,d", "Create debug images when you run ipmatch.")
     ("help", "Display this help message")
@@ -163,9 +163,14 @@ int main(int argc, char* argv[]) {
     std::cout << "\nPerforming Sparse LM Bundle Adjustment\n\n";
   }
   
-  //Clearing the text file to be used for saving camera params
+  //Clearing the monitoring text files to be used for saving camera params
   if (vm.count("saveiter")){
-    std::ofstream ostr("iterCamParam.txt",std::ios::out);
+    std::ofstream ostr("iterCameraParam.txt",std::ios::out);
+    ostr << "";
+    ostr.open("iterPointsParam.txt",std::ios::out);
+    ostr << "";
+    ostr.close();
+    delete ostr;
   }
 
   double abs_tol = 1e10, rel_tol=1e10;
@@ -174,8 +179,23 @@ int main(int argc, char* argv[]) {
     while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
 
       // Writing Current Camera Parameters to file for later reading in MATLAB
-      if (vm.count("saveiter")){
-	ba_model.write_adjusted_cameras_append("iterCamParam.txt");
+      if (vm.count("save-iteration-data")){
+	
+	//Opening the monitoring files, to append this iteration
+	std::ofstream ostr_camera("iterCameraParam.txt",std::ios::app);
+	std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
+
+	//Storing points
+	for (unsigned i = 0; i < bundle_adjuster.num_points(); ++i){
+	  Vector<double,3> current_point = bundle_adjuster.get_point(i);
+	  ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
+	}
+
+	//Storing camera
+	for (unsigned j = 0; j < bundle_adjuster.num_cameras(); ++j){
+	  Vector<double,6> current_camera = bundle_adjuster.get_camera(j);
+	  ostr_camera << j << "\t" << current_camera(0) << "\t" << current_camera(1) << "\t" << current_camera(2) << "\t" << current_camera(3) << "\t" << current_camera(4) << "\t" << current_camera(5) << "\n";
+	}
       }
 
       if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-10)
@@ -185,8 +205,18 @@ int main(int argc, char* argv[]) {
     while(bundle_adjuster.update(abs_tol, rel_tol)) {
 
       // Writing Current Camera Parameters to file for later reading in MATLAB
-      if (vm.count("saveiter")){
-	ba_model.write_adjusted_cameras_append("iterCamParam.txt");
+      if (vm.count("save-iteration-data")){
+	
+        //Writing this iterations camera data
+	ba_model.write_adjusted_cameras_append("iterCameraParam.txt");
+	
+	//Writing this iterations point data
+	std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
+	for (unsigned i = 0; i < bundle_adjuster.num_points(); ++i){
+	  Vector<double,3> current_point = bundle_adjuster.get_point(i);
+	  ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
+	}
+
       }
 
       if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-10)
