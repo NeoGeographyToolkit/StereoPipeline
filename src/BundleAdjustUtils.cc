@@ -10,16 +10,16 @@ using namespace vw::camera;
 using namespace vw::stereo;
 using namespace vw::ip;
 
-void read_adjustments(std::string const& filename, Vector3& position_correction, Vector3& pose_correction) {
+void read_adjustments(std::string const& filename, Vector3& position_correction, Quaternion<double>& pose_correction) {
   std::ifstream istr(filename.c_str());
   istr >> position_correction[0] >> position_correction[1] >> position_correction[2];
-  istr >> pose_correction[0] >> pose_correction[1] >> pose_correction[2];
+  istr >> pose_correction.w() >> pose_correction.x() >> pose_correction.y() >> pose_correction.z();
 }
 
-void write_adjustments(std::string const& filename, Vector3 const& position_correction, Vector3 const& pose_correction) {
+void write_adjustments(std::string const& filename, Vector3 const& position_correction, Quaternion<double> const& pose_correction) {
   std::ofstream ostr(filename.c_str());
   ostr << position_correction[0] << " " << position_correction[1] << " " << position_correction[2] << "\n";
-  ostr << pose_correction[0] << " " << pose_correction[1] << " " << pose_correction[2] << " " << "\n";
+  ostr << pose_correction.w() << " " << pose_correction.x() << " " << pose_correction.y() << " " << pose_correction.z() << " " << "\n";
 }
 
 void compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const& camera_models,
@@ -55,6 +55,8 @@ void add_matched_points(ControlNetwork& cnet,
                         int camera_id1, int camera_id2,
                         std::vector<boost::shared_ptr<CameraModel> > const& camera_models) {
 
+  double min_convergence_angle = 5.0 * M_PI/180.0; // 5 degrees
+
   for (unsigned i=0; i < ip1.size(); ++i) {
     ControlMeasure m1(ip1[i].x, ip1[i].y, ip1[i].scale, ip1[i].scale, camera_id1);
     ControlMeasure m2(ip2[i].x, ip2[i].y, ip2[i].scale, ip2[i].scale, camera_id2);
@@ -69,17 +71,26 @@ void add_matched_points(ControlNetwork& cnet,
     } else if ( pos1 == cnet.size() && pos2 == cnet.size() ) { // Contains neither
       // ... create a stereo model for this image pair...
       StereoModel sm(*(camera_models[camera_id1]), *(camera_models[camera_id2]));
-      ControlPoint cpoint(ControlPoint::TiePoint);
-      double error;
-      cpoint.set_position(sm(m1.position(), m2.position(), error));
-      cpoint.set_sigma(error,error,error);
-      cpoint.add_measure(m1);
-      cpoint.add_measure(m2);
-      cnet.add_control_point(cpoint);
+      if ( sm.convergence_angle(m1.position(), m2.position()) > min_convergence_angle) {
+
+        ControlPoint cpoint(ControlPoint::TiePoint);
+        double error;
+        cpoint.set_position(sm(m1.position(), m2.position(), error));
+
+        // The stereo model returns a null point, in some cases where
+        // the rays are very close to parallel, or if the point would
+        // have appeared behind the cameras.  We skip null points.
+        if (cpoint.position() != Vector3()) {
+          cpoint.set_sigma(error,error,error);
+          cpoint.add_measure(m1);
+          cpoint.add_measure(m2);
+          cnet.add_control_point(cpoint);
+        }
+      }
     } else if (pos1 != pos2) {                                 // Contains both, but in seperate control points
       ControlPoint& p1 = cnet[pos1];
       ControlPoint& p2 = cnet[pos2];
-
+      
       // Merge the twe control points into one.
       for (unsigned m=0; m < p2.size(); ++m) 
         p1.add_measure(p2[m]);

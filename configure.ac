@@ -242,7 +242,7 @@ AX_PKG(VW_CAMERA, [], [-lvwCamera], [vw/Camera/CAHVModel.h])
 AX_PKG(VW_CARTOGRAPHY, [], [-lvwCartography], [vw/Cartography/GeoReference.h])
 AX_PKG(VW_INTEREST_POINT, [], [-lvwInterestPoint])
 
-AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer], [osg/ref_ptr])
+AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA], [osg/ref_ptr])
 AX_PKG(MBA, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
