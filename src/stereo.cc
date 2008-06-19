@@ -386,20 +386,17 @@ int main(int argc, char* argv[]) {
       // corrections using the bundle_adjsut program, we read them in
       // here and incorporate them into our camera model.
       Vector3 position_correction;
-      Vector3 pose_euler_angles;;
       Quaternion<double> pose_correction;
       if (fs::exists(prefix_from_filename(in_file1)+".adjust")) {
         std::cout << "Adjusting left camera model using parameters in " << (prefix_from_filename(in_file1)+".adjust") << "\n";
-        read_adjustments(prefix_from_filename(in_file1)+".adjust", position_correction, pose_euler_angles);
-        pose_correction = inverse(euler_to_quaternion(pose_euler_angles[0], pose_euler_angles[1], pose_euler_angles[2], "xyz"));
+        read_adjustments(prefix_from_filename(in_file1)+".adjust", position_correction, pose_correction);
         camera_model1 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model1, 
                                                                                position_correction,
                                                                                pose_correction));
       }
       if (fs::exists(prefix_from_filename(in_file2)+".adjust")) {
         std::cout << "Adjusting right camera model using parameters in " << (prefix_from_filename(in_file2)+".adjust") << "\n";
-        read_adjustments(prefix_from_filename(in_file2)+".adjust", position_correction, pose_euler_angles);
-        pose_correction = inverse(euler_to_quaternion(pose_euler_angles[0], pose_euler_angles[1], pose_euler_angles[2], "xyz"));
+        read_adjustments(prefix_from_filename(in_file2)+".adjust", position_correction, pose_correction);
         camera_model2 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model2, 
                                                                                position_correction,
                                                                                pose_correction));

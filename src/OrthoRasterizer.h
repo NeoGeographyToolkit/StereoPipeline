@@ -37,7 +37,7 @@ namespace cartography {
 
       // Compute the bounding box that encompasses all of the
       // available points.
-      vw_out(DebugMessage) << "Computing raster bounding box... ";
+      vw_out(DebugMessage) << "Computing raster bounding box...\n";
       TerminalProgressCallback progress_callback;
       progress_callback.report_progress(0);
 

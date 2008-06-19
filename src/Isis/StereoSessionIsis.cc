@@ -302,7 +302,8 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     std::cout << "\nUnprojected ISIS cubes detected.  Aligning images using feature-based matching techniques.\n\n";
 
     Matrix<double> align_matrix(3,3);
-    align_matrix = determine_image_alignment(input_file1, input_file2, lo, hi);
+    align_matrix.set_identity();
+    //    align_matrix = determine_image_alignment(input_file1, input_file2, lo, hi);
     ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
 
     // Apply the alignment transformation to the right image.
