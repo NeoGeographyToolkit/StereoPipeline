@@ -29,6 +29,9 @@ namespace po = boost::program_options;
 #include <fstream>
 #include <vector>
 
+//VisionWorkbench
+#include <vw/Camera/ControlNetwork.h>
+
 //POINT_IN_TIME CLASS
 //This is a class that holds the position and string tag for a point
 //being tracked through time. It's important to have the string as it
@@ -43,6 +46,9 @@ class PointInTime {
   //Useful for drawing
   osg::Geode* getSelectCube(const float& size);
   const osg::Vec3f* getCenter();
+  const std::string getDescription(){
+    return description_;
+  }
  protected:
   osg::Vec3f location_;
   std::string description_;
@@ -64,6 +70,9 @@ class CameraInTime {
   osg::Geode* get3Axis(const float& size, const float& opacity);
   osg::Geode* getSelectCube(const float& size);
   const osg::Vec3f* getCenter();
+  const std::string getDescription(){
+    return description_;
+  }
  protected:
   osg::Vec3f c_;
   osg::Vec3f a_;
@@ -120,34 +129,55 @@ osg::Sequence* createSeq(std::vector<CameraInTime*>* cameraData);
 //accept both vectors of PointInTime and CameraInTime classes
 osg::Sequence* createSeq(std::vector<PointInTime*>* pointData);
 
-//Event handler to control the Sequence animation
-class SequenceEventHandler : public osgGA::GUIEventHandler{
- public:
-  SequenceEventHandler(std::vector<osg::Sequence*>* sequences)
-    { sequences_ = sequences;
-    }
-  virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
- private:
-  std::vector<osg::Sequence*>* sequences_;
-};
+//Copied this from the 'net
+std::vector<std::string> tokenize(const std::string & str, const std::string & delim)
+{
+  using namespace std;
+  vector<string> tokens;
 
-//Even handler to control text based on mouse selection
-class PickEventHandler : public osgGA::GUIEventHandler{
- public:
-  PickEventHandler(osgText::Text* updateText)
-    { updateText_ = updateText;
+  size_t p0 = 0, p1 = string::npos;
+  while(p0 != string::npos)
+  {
+    p1 = str.find_first_of(delim, p0);
+    if(p1 != p0)
+    {
+      string token = str.substr(p0, p1 - p0);
+      tokens.push_back(token);
     }
-  ~PickEventHandler(){}
+    p0 = str.find_first_not_of(delim, p1);
+  }
+
+  return tokens;
+}
+
+
+//An event handler for all
+class AllEventHandler : public osgGA::GUIEventHandler{
+ public:
+  AllEventHandler(std::vector<osg::Sequence*>* sequences, osgText::Text* updateText, osgGA::TrackballManipulator* camera, std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet)
+    {
+      sequences_ = sequences;
+      updateText_ = updateText;
+      camera_ = camera;
+      pointData_ = pointData;
+      cameraData_ = cameraData;
+      cnet_ = cnet;
+    }
   bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
-  virtual void pick(osgViewer::View* view, const osgGA::GUIEventAdapter& ea);
+  void pick(osgViewer::View* view, const osgGA::GUIEventAdapter& ea);
   void setLabel(const std::string& name)
   {
-    //If update text still exists
+    //If update text still exits
     if (updateText_.get())
       updateText_->setText(name);
   }
- protected:
+ private:
+  std::vector<osg::Sequence*>* sequences_;
   osg::ref_ptr<osgText::Text> updateText_;
+  osgGA::TrackballManipulator* camera_;
+  std::vector<std::vector<PointInTime*>*>* pointData_;
+  std::vector<std::vector<CameraInTime*>*>* cameraData_;
+  vw::camera::ControlNetwork* cnet_;
 };
 
 #endif

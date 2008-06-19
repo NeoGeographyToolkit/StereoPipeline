@@ -596,8 +596,8 @@ osg::Node* createHUD(osgText::Text* updateText){
   updateText->setCharacterSize(20.0);
   updateText->setFont(arialFont);
   updateText->setColor(osg::Vec4(1.0f,1.0f,1.0f,1.0f));
-  updateText->setText("visCamPoints v1.1");
-  updateText->setPosition(osg::Vec3(50.0f,50.0f,0.0f));
+  updateText->setText("Bundlevis v1.1");
+  updateText->setPosition(osg::Vec3(50.0f,200.0f,0.0f));
   updateText->setDataVariance(osg::Object::DYNAMIC);
 
   return hudCamera;
@@ -651,9 +651,9 @@ osg::Sequence* createSeq(std::vector<CameraInTime*>* cameraData){
   }
 
   //Now setting some settings for the sequence
-  seq->setInterval(osg::Sequence::LOOP, 0, -1);
+  seq->setInterval(osg::Sequence::LOOP, 1, seq->getNumFrames() - 1);
   seq->setDuration(.2f, -1);
-  seq->setMode(osg::Sequence::START);
+  seq->setMode(osg::Sequence::STOP);
 
   return seq;
 }
@@ -703,47 +703,169 @@ osg::Sequence* createSeq(std::vector<PointInTime*>* pointData){
   }
 
   //Now setting some settings for the sequence settings
-  seq->setInterval(osg::Sequence::LOOP, 0, -1);
+  seq->setInterval(osg::Sequence::LOOP, 1, seq->getNumFrames() - 1);
   seq->setDuration(.2f, -1);
-  seq->setMode(osg::Sequence::START);
+  seq->setMode(osg::Sequence::STOP);
 
   return seq;
 }
 
-/*****************************************************************
-* Handle                                                         *
-*  This event handles keystrokes to deal with the animation of   *
-*  the data on screen                                            *
-*****************************************************************/
-bool SequenceEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa){
+
+/***********************************************
+*All event handler                             *
+* This handles all keyboard commands and mouse *
+* commands from the user. This will also update*
+* the approiate parameters.                    *
+***********************************************/
+bool AllEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa){
+  //Note: for some reason, you should only perform getEventType()
+  //once. Otherwise the whole system freezes
   if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN){
     switch (ea.getKey()){
-    case 'b':   //Forward
-      std::cout << "Forward Hit" << std::endl;
-    case 'z':   //Backward
-      std::cout << "Backward Hit" << std::endl;
-    }
-  }
-}
-
-/*****************************************************************
-* Handle                                                         *
-*  This even handles the mouse push event that deal with picking *
-*  an object on screen.                                          *
-*****************************************************************/
-bool PickEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
-{
-  switch(ea.getEventType())
-    {
-    case(osgGA::GUIEventAdapter::PUSH):
+    case 'z':   //Step Backward
       {
-	osgViewer::View* view = dynamic_cast<osgViewer::View*>(&aa);
-	if (view) pick(view,ea);
-	return false;
+	signed int value = sequences_->at(0)->getValue();
+	value--;
+	if (value < 1)
+	  value = 1;
+
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
       }
-    default:
-      return false;
+    case 'x':   //Play
+      {
+	if (sequences_->at(0)->getMode() == osg::Sequence::STOP){
+	  for (int i = 0; i < sequences_->size(); ++i){
+	    sequences_->at(i)->setMode(osg::Sequence::START);
+	  }
+	} else {
+	  for (int i = 0; i < sequences_->size(); ++i){
+	    sequences_->at(i)->setMode(osg::Sequence::RESUME);
+	  }
+	}
+	break;
+      }
+    case 'c':   //Pause
+      {
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setMode(osg::Sequence::PAUSE);
+	}
+	break;
+      }
+    case 'v':   //Stop
+      {
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setMode(osg::Sequence::STOP);
+	  sequences_->at(i)->setValue(1);
+	}
+	break;
+      }
+    case 'b':   //Step Forward
+      {
+	signed int value = sequences_->at(0)->getValue();
+	value++;
+	if (value >= sequences_->at(0)->getNumFrames())
+	  value = sequences_->at(0)->getNumFrames() - 1;
+
+	for (int i = 0; i <sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
+    case '0':   //Show all steps
+      {
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(0);
+	}
+	break;
+      }
+    case '1':   //Move to the first frame
+      {
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(1);
+	}
+	break;
+      }
+    case '2':   //Move to a place somewhere in between
+      {
+	int value = (sequences_->at(0)->getNumFrames()-2)*2/9 + 1;
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
+    case '3':   //Move to a place somewhere in between
+      {
+	int value = (sequences_->at(0)->getNumFrames()-2)*3/9 + 1;
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
+    case '4':   //Move to a place somewhere in between
+      {
+	int value = (sequences_->at(0)->getNumFrames()-2)*4/9 + 1;
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
+    case '5':   //Move to a place somewhere in between
+      {
+	int value = (sequences_->at(0)->getNumFrames()-2)*5/9 + 1;
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
+    case '6':   //Move to a place somewhere in between
+      {
+	int value = (sequences_->at(0)->getNumFrames()-2)*6/9 + 1;
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
+    case '7':   //Move to a place somewhere in between
+      {
+	int value = (sequences_->at(0)->getNumFrames()-2)*7/9 + 1;
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
+    case '8':   //Move to a place somewhere in between
+      {
+	int value = (sequences_->at(0)->getNumFrames()-2)*8/9 + 1;
+	std::cout << value << std::endl;
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
+    case '9':   //Move to the last frame
+      {
+	int value = sequences_->at(0)->getNumFrames()-1;
+	std::cout << value << std::endl;
+	for (int i = 0; i < sequences_->size(); ++i){
+	  sequences_->at(i)->setValue(value);
+	}
+	break;
+      }
     }
+  } else if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE){    //Going to just update the label
+    osgViewer::View* view = dynamic_cast<osgViewer::View*>(&aa);
+    if (view)
+      pick(view,ea);
+  } else if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH){    //Going to move the camera
+    osgViewer::View* view = dynamic_cast<osgViewer::View*>(&aa);
+    if (view) 
+      pick(view,ea);
+  }
+
+  return false;
 }
 
 /*********************************************************************
@@ -753,7 +875,7 @@ bool PickEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIAction
 *  objects. The first object found that the ray intersects, is       *
 *  determind to be what the user was looking for.                    *
 *********************************************************************/
-void PickEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& ea){
+void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& ea){
   osgUtil::LineSegmentIntersector::Intersections intersections;
 
   std::string itemFound="";
@@ -762,19 +884,76 @@ void PickEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter&
   
   if (view->computeIntersections(x,y,intersections)){
 
-    for(osgUtil::LineSegmentIntersector::Intersections::iterator hitr = intersections.begin();
-	hitr != intersections.end();
-	++hitr){
-      
-      std::ostringstream os;
-      if (!hitr->nodePath.empty() && !(hitr->nodePath.back()->getName().empty())){
-	os << hitr->nodePath.back()->getName() << std::endl;
-      }
+    //I only care about the first interestion
+    osgUtil::LineSegmentIntersector::Intersections::iterator hitr = intersections.begin();
+    
+    std::ostringstream os;
+    std::ostringstream debug;
+    if (!hitr->nodePath.empty() && !(hitr->nodePath.back()->getName().empty())){
+      os << hitr->nodePath.back()->getName() << std::endl;
 
-      itemFound += os.str();
+      //I'm going to move the center
+      if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH){
+	std::string temp = hitr->nodePath.back()->getName();
+	std::vector<std::string> data = tokenize(temp," ");
+
+	int item_identity = std::atoi(data[1].c_str());
+	int time_stamp = std::atoi(data[3].c_str());
+
+	if (item_identity >= cameraData_->size()){         //It must be a point
+	  camera_->setCenter(*(pointData_->at(item_identity)->at(time_stamp)->getCenter()));
+
+	  
+
+	  debug << "In Images: ";
+	  for (int i = 0; i < (*cnet_)[item_identity].size(); ++i){
+	    debug << (*cnet_)[item_identity][i].image_id() << " ";
+	  }
+	  debug << std::endl;
+
+
+	} else if (item_identity >= pointData_->size()){   //It must be a camera
+	  camera_->setCenter(*(cameraData_->at(item_identity)->at(time_stamp)->getCenter()));
+	} else {                                          //don't know
+	  if (cameraData_->at(item_identity)->at(time_stamp)->getDescription() == temp){
+	    camera_->setCenter(*(cameraData_->at(item_identity)->at(time_stamp)->getCenter()));
+	  } else {
+	    std::cout << "HIT THIS WHY? " << std::endl;
+	    camera_->setCenter(*(pointData_->at(item_identity)->at(time_stamp)->getCenter()));
+	  }
+	}
+      } else if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE) {
+	std::string temp = hitr->nodePath.back()->getName();
+	std::vector<std::string> data = tokenize(temp," ");
+
+	int item_identity = std::atoi(data[1].c_str());
+	int time_stamp = std::atoi(data[3].c_str());
+
+	if (item_identity >= cameraData_->size()){         //It must be a point
+
+
+	  
+
+	  debug << "In Images: ";
+	  for (int i = 0; i < (*cnet_)[item_identity].size(); ++i){
+	    debug << (*cnet_)[item_identity][i].image_id() << " ";
+	  }
+	  debug << std::endl;
+
+
+	} 
+      }
     }
+
+    itemFound += os.str();
+    itemFound += debug.str();
+        
   }
-  setLabel(itemFound);
+  
+  if (itemFound != ""){
+    //itemFound = "Bundlevis v1.1";
+    setLabel(itemFound);
+  } 
 }
 
 /************************************************
@@ -785,11 +964,18 @@ int main(int argc, char* argv[]){
   //Variables to be used later in this section
   std::string camera_iter_file;
   std::string points_iter_file;
+  std::string control_net_file;
+  std::vector<std::vector<PointInTime*>*>* pointData;
+  std::vector<std::vector<CameraInTime*>*>* cameraData;
 
   //OpenSceneGraph Variable which are important overall
   osgViewer::Viewer viewer;
   osg::Group* root = new osg::Group();
   osg::ref_ptr<osgText::Text> updateText = new osgText::Text;
+
+  //This vector contains all sequences used to draw camera and points
+  //in the project.
+  std::vector<osg::Sequence*>* allSequences = new std::vector<osg::Sequence*>;
 
   //This first half of the program is wholly devoted to setting up boost program options
   //Boost program options code
@@ -797,6 +983,7 @@ int main(int argc, char* argv[]){
   general_options.add_options()
     ("camera-iteration-file,c",po::value<std::string>(&camera_iter_file),"Load the camera parameters for each iteration from a file")
     ("points-iteration-file,p",po::value<std::string>(&points_iter_file),"Load the 3d points parameters for each iteration from a file")
+    ("control-network-file,n",po::value<std::string>(&control_net_file),"Loads the control network")
     ("help","Display this help message");
 
   po::variables_map vm;
@@ -812,6 +999,15 @@ int main(int argc, char* argv[]){
     return 1;
   }
 
+  //////////////////////////////////////////////////////////
+  //Did the User mess up?
+  if (!vm.count("points-iteration-file") && !vm.count("camera-iteration-file")){
+
+    std::cout << usage.str();
+    return 1;
+
+  }
+
   /////////////////////////////////////////////////////////
   //Loading up camera iteration data
   if (vm.count("camera-iteration-file")){
@@ -819,12 +1015,11 @@ int main(int argc, char* argv[]){
     std::cout << "Loading Camera Iteration File: " << camera_iter_file << "\n";
 
     //Storing camera data into a large vector
-    std::vector<std::vector<CameraInTime*>*>* cameraData;
     cameraData = loadCamerasData( camera_iter_file );
 
-    //Loading up the sequence of all cameras
+    //Building the animation sequences
     for(int j = 0; j < cameraData->size(); ++j){
-      root->addChild(createSeq(cameraData->at(j)));
+      allSequences->push_back(createSeq(cameraData->at(j)));
     }
 
   }
@@ -836,31 +1031,59 @@ int main(int argc, char* argv[]){
     std::cout << "Loading Points Iteration File: " << points_iter_file << "\n";
 
     //Storing point data in large vector
-    std::vector<std::vector<PointInTime*>*>* pointData;
     pointData = loadPointsData( points_iter_file );
 
-    //Loading up the sequence of all points
+    //Building the animation sequences
     for(int i = 0; i < pointData->size(); ++i){
-      root->addChild(createSeq(pointData->at(i)));
+      allSequences->push_back(createSeq(pointData->at(i)));
     }
 
   }
 
   //////////////////////////////////////////////////////////
-  //Did the User mess up?
-  if (!vm.count("points-iteration-file") && !vm.count("camera-iteration-file")){
+  //Loading the control network
+  vw::camera::ControlNetwork* cnet = new vw::camera::ControlNetwork("Mine");
+  if (vm.count("control-network-file")){
+    
+    cnet->read_control_network(control_net_file);
 
-    std::cout << usage.str();
+    
+  }
+
+  //////////////////////////////////////////////////////////
+  //Adding all sequences to the main group so they are drawn
+  for (int i = 0;  i < allSequences->size(); ++i){
+    allSequences->at(i)->setValue(0);   //Setting up so that it shows all points
+    root->addChild(allSequences->at(i));
+  }
+
+  //////////////////////////////////////////////////////////
+  //Performing some checks on data integrity
+  int longest_time = allSequences->at(0)->getNumFrames() - 1;
+  int shortest_time = longest_time;
+  for (int i = 1; i < allSequences->size(); ++i){
+    
+    if ((allSequences->at(i)->getNumFrames()-1) > longest_time)
+      longest_time = allSequences->at(i)->getNumFrames() - 1;
+    
+    if ((allSequences->at(i)->getNumFrames()-1) < shortest_time)
+      shortest_time = allSequences->at(i)->getNumFrames() - 1;
+    
+  }
+  if (shortest_time != longest_time){
+    std::cout << "Error! Data does not have consent length of time intervals" << std::endl;
+    std::cout << "Shortest Time Interval: " << shortest_time << std::endl;
+    std::cout << "Longest Time Interval: " << longest_time << std::endl;
     return 1;
-
   }
 
   //////////////////////////////////////////////////////////
   //Adding HUD and setting up to draw the whole scene
   root->addChild(createHUD(updateText.get()));
-  viewer.setCameraManipulator(new osgGA::TrackballManipulator());
+  osgGA::TrackballManipulator* camera = new osgGA::TrackballManipulator();
+  viewer.setCameraManipulator(camera);
   viewer.setSceneData(root);
-  viewer.addEventHandler(new PickEventHandler(updateText.get()));
+  viewer.addEventHandler(new AllEventHandler(allSequences,updateText.get(),camera,pointData,cameraData,cnet));
   
   ///////////////////////////////////////////////////////////
   //A fix so small features don't disappear
@@ -869,6 +1092,8 @@ int main(int argc, char* argv[]){
   viewer.getCamera()->setCullingMode( cullingMode );
 
   viewer.realize();
+
+  //camera->setCenter(osg::Vec3f(0,0,0));
 
   //The loop
   while (!viewer.done()){
