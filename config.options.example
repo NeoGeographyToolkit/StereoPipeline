@@ -1,0 +1,71 @@
+#! /bin/sh
+
+# __BEGIN_LICENSE__
+#
+# Copyright (C) 2006 United States Government as represented by the
+# Administrator of the National Aeronautics and Space Administration
+# (NASA).  All Rights Reserved.
+# 
+# Copyright 2006 Carnegie Mellon University. All rights reserved.
+# 
+# This software is distributed under the NASA Open Source Agreement
+# (NOSA), version 1.3.  The NOSA has been approved by the Open Source
+# Initiative.  See the file COPYING at the top of the distribution
+# directory tree for the complete NOSA document.
+# 
+# THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
+# KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
+# LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
+# SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
+# A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
+# THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
+# DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
+# 
+# __END_LICENSE__
+
+
+### config.options.example
+#
+# This file demonstrates how to configure the NASA Stereo Pipeline 
+# in various ways.  To use it, rename or copy it to "config.options" 
+# and uncomment or modify the appropriate lines below.
+
+
+### Configure Options
+#
+# Alternative command-line syntax:  --enable-foo[=val]
+#
+# These options allow you modify the basic behavior of the build
+# environment.
+
+# ENABLE_DEBUG=no
+# ENABLE_OPTIMIZE=yes
+# PREFIX=/usr/local
+
+
+### Module Configuration
+#
+# Alternative command-line syntax:  --enable-module-foo[=val]
+#
+# Uncomment the following lines to explicitly enable or disable
+# certain modules.  These options override the default behavior, which
+# is to build all the modules that can be built with the libraries
+# that you have installed on your system.  Note that no module will
+# be built if its required software dependencies cannot be found.
+# Look at the output from ./configure to see what modules will
+# ultimately be built.
+
+# ENABLE_MODULE_STEREO=no
+# ENABLE_MODULE_ORTHOPROJECT=no
+# ENABLE_MODULE_BUNDLEADJUST=yes
+
+
+### Package Base Paths 
+#
+# Alternative command-line syntax:  --with-paths=val
+#
+# Set these to the directories that contain lib/include directories
+# for packages in non-standard locations.  List multiple search 
+# directories by seperating them with whitespace.  
+
+# PKG_PATHS="/foo/bar"
