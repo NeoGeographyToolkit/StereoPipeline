@@ -1,0 +1,187 @@
+The NASA Ames Stereo Pipeline Version Alpha-something
+
+*** IMPORTANT ***
+This is an ALPHA release of the Stereo Pipeline.  There are many
+known bugs and incomplete features, and the API will almost certainly
+change prior to the final release.  Much of the documentation is
+incomplete or incorrect.  Although we hope you will find this release
+helpful, you use it at your own risk.
+
+
+************************************************************************
+1. INTRODUCTION
+
+The NASA Ames Stereo pipeline is a modular, extensible, cross-platform
+computer vision software framework written in C++.  It was designed to
+support a variety of space exploration tasks, including ...
+
+[[ Really Michael should fill more of this out. ]]
+
+************************************************************************
+2. LICENSE
+
+A. Copyright and License Summary
+
+Copyright (C) 2008 United States Government as represented by the
+Administrator of the National Aeronautics and Space Administration
+(NASA).  All Rights Reserved.
+
+This software is distributed under the NASA Open Source Agreement
+(NOSA), version 1.3.  The NOSA has been approved by the Open Source
+Initiative.  See the file "COPYING" at the top of the distribution
+directory tree for the complete NOSA document.
+
+THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
+KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
+LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
+SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
+A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
+THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
+DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
+
+B. Third-Party Libraries
+
+This distribution includes some bundled third-party software as a
+convenience to the user.  This software, located in the "thirdparty/"
+directory, is not covered by the above-mentioned distribution
+agreement or copyright.  See the included documentation for detailed
+copyright and license information for any third-party software.  In
+addition, various pieces of the Vision Workbench depend on additional
+thrid-party libraries that the user is expected to have installed.
+The specific dependencies of each component of the Vision Workbench
+are discussed section 3, "LIBRARY STRUCTURE", and information of where
+to obtain non-bundled third-party libraries is provided in section 4,
+"INSTALLATION".
+
+************************************************************************
+3. LIBRARY STRUCTURE
+
+The Stereo Pipeline software is located in the directory "src/"
+and consists of a core library and several optional libraries or
+"modules".  Each module is contained in a subdirectory with the name 
+name as the module.
+
+[[ Again, someone more knowledgeable about the structure should fill this out. ]]
+
+************************************************************************
+4. INSTALLATION AND USE
+
+A. Obtaining the Software
+
+If you are reading this text then presumably you have a copy of 
+the Vision Workbench software.  However, you can obtain the most 
+recent version from
+
+  http://ti.arc.nasa.gov/??
+
+Before attempting to configure, build or install the Stereo Pipeline
+you should obtain and install any prerequisite libraries that you
+need.  The only absolute requirement is the Boost.  The others are 
+either required to build a specific module, or will enable a 
+particular feature if available.  A complete list of dependencies 
+is shown in the table below, where each library is noted as being 
+either a required or optional dependency of one or modules.  All of 
+these libraries are distributed under some variation on the themes 
+of the MIT and BSD licenses.  See each individual library's 
+documentation for details.
+
++------------------------------+------------------------------------+
+| Library | Relevant Modules   | Source Website                     |
++---------+--------------------+------------------------------------+
+| Boost   | Core, etc. (req.)  | http://www.boost.org/              |
+| others  | to be filled out   | http://www.tbd.com/                |
++---------+--------------------+------------------------------------+
+
+In addition, some Stereo Pipeline modules require other, lower
+level modules to be built.  The internal Vision Workbench dependency
+table appears below.  
+
+[[ table to be built by someone who knows better ]]
+
+
+B. Building and Installing
+
+Once you have obtained and installed all of the prerequisite software
+the process of building the Stereo Pipeline itself is generally
+straightforward.  There are four steps:
+
+i. Configure the library.  This is usually as simple as running the 
+"./configure" script from within the root Vision Workbench package 
+directory.
+
+ii. Build the library, by running "make".
+
+iii. Run the tests, by running "make check".
+
+iv. Install the library, by running "make install".
+
+By default the library will be installed into a directory called 
+"build/" within the Stereo Pipeline package tree, in a subdirectory 
+named for the particular platform you've built it for.  If you prefer 
+a more conventional installation into, for example, "/usr/local/", 
+then pass the command line argument "--prefix=/usr/local" to 
+the configure script in step i.
+
+While this simple sequence will suffice for most users, the configure
+script has many options that you can use to adjust various properties,
+such as compiler optimization flags or the search paths used to find
+required libraries.  See the "INSTALL" file in this directory for more
+detailed information.
+
+C. Using the Library
+
+When you install the library it will place files into three
+subdirectories in the installation location.  The header files which
+you will need to develop software using the library are located in the
+"include/" subdirectory.  The compiled libraries, which you will need
+to link your software against, are located in the "lib/" subdirectory.
+You will need to configure your software development environment as
+appropriate to locate these files.  Finally, a number of simple
+command-line tools are provided in the "bin/" directory.  These are 
+intended primarily as demo applications, but many of them are in fact 
+useful in their own right.  See the documentation for a complete list 
+of the tools.
+
+************************************************************************
+5. DOCUMENTATION
+
+Yes, we should have some documentation.
+
+************************************************************************
+6. CONTACTS & CREDITS
+
+A. Mailing List
+
+All bugs, feature requests, and general discussion should be sent to
+the Stereo Pipeline user mailing list:
+
+  ??@lists.nasa.gov
+
+To subscribe to this list, send an empty email messoge with the subject 
+'subscribe' (without the quotes) to
+
+  ??@lists.nasa.gov
+
+To contact the lead developers and project manager directly, send mail
+to:
+
+  ??@lists.nasa.gov
+
+Please do NOT use this second list for technical inquiries, which 
+should all be sent to the main vision-workbench list above.
+
+B. Credits
+
+The Stereo Pipeline was developed within the Autonomous Systems and 
+Robotics area of the Inteligent Systems Division at NASA's Ames 
+Research Center.  It leverages the Intelligent Robotics Group's (IRG)
+extensive experience developing surface reconstruction and tools for
+planetary exploration---e.g. the Mars Pathfinder and Mars Exploration
+Rover missions---and rover autonomy.  It has also been developed in 
+collaboration with the Adaptive Control and Evolvable Systems (ACES) 
+group, and draws on their experience developing computer vision 
+techniques for autonomous vehicle control systems.
+
+The lead developers of the Stereo Pipeline are Laurence Edwards 
+(IRG, Project Manager), Michael Broxton (IRG), and Matthew Hancher 
+(ACES).  See the AUTHORS file for a complete list of developers.
