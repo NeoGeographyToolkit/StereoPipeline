@@ -27,77 +27,15 @@ PointInTime::PointInTime(osg::Vec3f center, const int& pnt_num, const int& iter_
 *************************************************/
 osg::Geode* PointInTime::getSelectCube(const float& size){
   osg::Geode* selectCube = new osg::Geode();
-  osg::Geometry* selectCubeGeo = new osg::Geometry();
-  float dsize = size/2.0f;
 
-  //I'm going to have to build the primitive GL_QUADS, there will be
-  //4*6=24 vertices. I'm defining each face of the cube at a time
-  osg::Vec3Array* vertices = new osg::Vec3Array();
-  //Building the face in the +X direction;
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()+dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()-dsize, location_.z()-dsize));
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()-dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()+dsize, location_.z()-dsize));
-  //Building the face in the -X direction;
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()+dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()-dsize, location_.z()-dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()-dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()+dsize, location_.z()-dsize));
-  //Building the face in the +Y direction;
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()+dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()+dsize, location_.z()-dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()+dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()+dsize, location_.z()-dsize));
-  //Building the face in the -Y direction;
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()-dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()-dsize, location_.z()-dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()-dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()-dsize, location_.z()-dsize));
-  //Building the face in the +Z direction;
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()+dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()-dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()+dsize, location_.z()+dsize));
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()-dsize, location_.z()+dsize));
-  //Building the face in the -Z direction;
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()+dsize, location_.z()-dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()-dsize, location_.z()-dsize));
-  vertices->push_back(osg::Vec3f(location_.x()-dsize,location_.y()+dsize, location_.z()-dsize));
-  vertices->push_back(osg::Vec3f(location_.x()+dsize,location_.y()-dsize, location_.z()-dsize));
-  selectCubeGeo->setVertexArray(vertices);
+  osg::ShapeDrawable* box = new osg::ShapeDrawable(new osg::Box(location_,size));
+  box->setColor(osg::Vec4f(1.0f,1.0f,1.0f,0.0f));
 
-  //Setting up the color
-  osg::Vec4Array* colours = new osg::Vec4Array();
-  colours->push_back(osg::Vec4(1.0f,1.0f,1.0f,0.0f));      //Right now
-							   //I'm
-							   //leaving
-							   //the color
-							   //slightly
-							   //translucent
-							   //as it
-							   //might be
-							   //useful
-							   //for
-							   //debugging,
-							   //It might
-							   //also just
-							   //look
-							   //cool.
+  selectCube->addDrawable(box);
 
-  selectCubeGeo->setColorArray(colours);
-  selectCubeGeo->setColorBinding(osg::Geometry::BIND_OVERALL);
+  //State sets for now, will not be set on an individual level but as
+  //globally. This supposedly is a speed advantage.
 
-  //Add the primitive to draw the lines using the vertice array
-  selectCubeGeo->addPrimitiveSet(new osg::DrawArrays(GL_QUADS,0,vertices->getNumElements()));
-
-  //Setting up some of the state properties, so it will look right;
-  osg::StateSet* stateSet = new osg::StateSet();
-  stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
-  stateSet->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
-  stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-
-  //Now setting up the Geode;
-  selectCube->setStateSet(stateSet);
-  selectCube->addDrawable(selectCubeGeo);
   selectCube->setName(description_);
   
   //Finishing up my work here
@@ -110,6 +48,39 @@ osg::Geode* PointInTime::getSelectCube(const float& size){
 **************************************************************************/
 const osg::Vec3f* PointInTime::getCenter(){
   return &location_;
+}
+
+/**************************************************************************
+* This function will create a floating text object above the point        *
+* indicating which point this is                                          *
+**************************************************************************/
+osg::Node* PointInTime::getTextGraphic(){
+  
+  std::ostringstream os;
+  os << pointID_;
+  
+  osgText::Text* text = new osgText::Text;
+  text->setCharacterSize(1.0f);
+  text->setText(os.str());
+  text->setFont("fonts/arial.ttf");
+  text->setAlignment(osgText::Text::CENTER_CENTER);
+
+  osg::Geode* geode = new osg::Geode;
+  geode->addDrawable(text);
+  geode->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+  geode->getOrCreateStateSet()->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+
+  osg::AutoTransform* at = new osg::AutoTransform;
+  at->addChild(geode);
+
+  at->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
+  at->setAutoScaleToScreen(true);
+  at->setMinimumScale(0.0f);
+  at->setMaximumScale(2.0f);
+  at->setPosition(location_ + osg::Vec3f(0,0,0.5f));
+
+  return at;
+
 }
 
 /*******************************************
@@ -176,9 +147,6 @@ osg::Geode* CameraInTime::get3Axis(const float& size, const float& opacity){
 
   //Setting up some of the state properties, so it will look correct
   osg::StateSet* stateSet = new osg::StateSet();
-  stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
-  stateSet->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
-  stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
   stateSet->setAttribute(new osg::LineWidth(2));
 
   //Now setting up the Geode
@@ -197,78 +165,14 @@ osg::Geode* CameraInTime::get3Axis(const float& size, const float& opacity){
 ****************************************************************************/
 osg::Geode* CameraInTime::getSelectCube(const float& size){
   osg::Geode* selectCube = new osg::Geode();
-  osg::Geometry* selectCubeGeo = new osg::Geometry();
-  float dsize = size/2.0f;
 
-  //I'm going to have to build the primitive GL_QUADS, there will be
-  //4*6=24 vertices. I'm defining each face of the cube at a time
-  osg::Vec3Array* vertices = new osg::Vec3Array();
-  //Building the face in the +X direction;
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()+dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()-dsize, c_.z()-dsize));
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()-dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()+dsize, c_.z()-dsize));
-  //Building the face in the -X direction;
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()+dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()-dsize, c_.z()-dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()-dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()+dsize, c_.z()-dsize));
-  //Building the face in the +Y direction;
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()+dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()+dsize, c_.z()-dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()+dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()+dsize, c_.z()-dsize));
-  //Building the face in the -Y direction;
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()-dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()-dsize, c_.z()-dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()-dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()-dsize, c_.z()-dsize));
-  //Building the face in the +Z direction;
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()+dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()-dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()+dsize, c_.z()+dsize));
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()-dsize, c_.z()+dsize));
-  //Building the face in the -Z direction;
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()+dsize, c_.z()-dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()-dsize, c_.z()-dsize));
-  vertices->push_back(osg::Vec3f(c_.x()-dsize,c_.y()+dsize, c_.z()-dsize));
-  vertices->push_back(osg::Vec3f(c_.x()+dsize,c_.y()-dsize, c_.z()-dsize));
-  selectCubeGeo->setVertexArray(vertices);
-
-  //Setting up the color
-  osg::Vec4Array* colours = new osg::Vec4Array();
-  colours->push_back(osg::Vec4(1.0f,1.0f,1.0f,0.0f));      //Right now
-							   //I'm
-							   //leaving
-							   //the color
-							   //slightly
-							   //translucent
-							   //as it
-							   //might be
-							   //useful
-							   //for
-							   //debugging,
-							   //It might
-							   //also just
-							   //look
-							   //cool.
-
-  selectCubeGeo->setColorArray(colours);
-  selectCubeGeo->setColorBinding(osg::Geometry::BIND_OVERALL);
-
-  //Add the primitive to draw the lines using the vertice array
-  selectCubeGeo->addPrimitiveSet(new osg::DrawArrays(GL_QUADS,0,vertices->getNumElements()));
-
-  //Setting up some of the state properties, so it will look right;
-  osg::StateSet* stateSet = new osg::StateSet();
-  stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
-  stateSet->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
-
-  //Now setting up the Geode;
-  selectCube->setStateSet(stateSet);
-  selectCube->addDrawable(selectCubeGeo);
-  selectCube->setName(description_);
+  osg::ShapeDrawable* box = new osg::ShapeDrawable(new osg::Box(c_,size));
+  box->setColor(osg::Vec4f(1.0f,1.0f,1.0f,0.0f));
   
+  selectCube->addDrawable(box);
+
+  selectCube->setName(description_);
+
   //Finishing up my work here
   return selectCube;
 }
@@ -278,6 +182,39 @@ osg::Geode* CameraInTime::getSelectCube(const float& size){
 **********************************************************************/
 const osg::Vec3f* CameraInTime::getCenter(){
   return &c_;
+}
+
+/**********************************************************************
+* This function will create a floating text object above the camera   *
+* indicating which camera this is.                                    *
+**********************************************************************/
+osg::Node* CameraInTime::getTextGraphic(){
+  
+  std::ostringstream os;
+  os << cameraNum_;
+
+  osgText::Text* text = new osgText::Text;
+  text->setCharacterSize(20.0f);
+  text->setText(os.str());
+  text->setFont("fonts/arial.ttf");
+  text->setAlignment(osgText::Text::CENTER_CENTER);
+
+  osg::Geode* geode = new osg::Geode;
+  geode->addDrawable(text);
+  geode->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+  geode->getOrCreateStateSet()->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+
+  osg::AutoTransform* at = new osg::AutoTransform;
+  at->addChild(geode);
+
+  at->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
+  at->setAutoScaleToScreen(true);
+  at->setMinimumScale(0.0f);
+  at->setMaximumScale(0.05f);
+  at->setPosition(c_ + osg::Vec3f(0,0,0.1f));
+
+  return at;
+
 }
 
 /**************************************************************************
@@ -326,9 +263,6 @@ osg::Group* PointString(std::vector<PointInTime* >* pointData){
   
   //Setting up some state parameters, so the graphics will come out right
   osg::StateSet* stateSet = new osg::StateSet();
-  stateSet->setMode(GL_BLEND,osg::StateAttribute::ON);
-  stateSet->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
-  stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
   osg::Point* point = new osg::Point();
   point->setSize(5.0f);
   stateSet->setAttribute(point);
@@ -377,6 +311,9 @@ osg::Group* CameraString (std::vector<CameraInTime* >* cameraData){
   //drawn. Which should be the latest time plotted.
   entire_cameraString->addChild(cameraData->at(cameraData->size() - 1)->getSelectCube(line_length/2.0f));
 
+  //Drawing a text spot at the end
+  entire_cameraString->addChild(cameraData->at(cameraData->size() - 1)->getTextGraphic());
+
   osg::Geode* bumpyLine = new osg::Geode();
   bumpyLine->setName("BumpyLine for cool effect");
   osg::Geometry* bumpyLineGeo = new osg::Geometry();
@@ -389,14 +326,7 @@ osg::Group* CameraString (std::vector<CameraInTime* >* cameraData){
   bumpyLineGeo->setColorArray(colours);
   bumpyLineGeo->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
 
-  //Setting up some state parameters, so the graphics will come out right
-  osg::StateSet* stateSet = new osg::StateSet();
-  stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
-  stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-  stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-  
   //Setting up the geode for the bumpy line;
-  bumpyLine->setStateSet(stateSet);
   bumpyLine->addDrawable(bumpyLineGeo);
   entire_cameraString->addChild(bumpyLine);
 
@@ -604,112 +534,192 @@ osg::Node* createHUD(osgText::Text* updateText){
 }
 
 /******************************************************************************
-* createSeq (uence for CameraInTime)                                          *
-*  This will create a sequence, which contains at the first level, the        *
-*  point shown at all locations like in Ver1.0 of this code. All the          *
-*  sequences after the first frame contain an animation sequence that         *
-*  show the camera at it's first location, and ghost of where the camera      *
-*  was before in the previous 4 frames. Also this is over loaded to           *
-*  accept both vectors of PointInTime and CameraInTime classes                *
+* CreateScene                                                                 *
+*  This will build the entire scene, which revolves around a single           *
+*  Sequences which contains all frames of the animation sequences.            *
 ******************************************************************************/
-osg::Sequence* createSeq(std::vector<CameraInTime*>* cameraData){
-  
+osg::Sequence* createScene(std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet ){
+
+  osg::Sequence* seq = new osg::Sequence;
+
   #define num_ghost 2
 
-  osg::Sequence* seq = new osg::Sequence;
+  //Creating the first frame which shows all points at all time, along with cameras.
+  osg::ref_ptr<osg::Group> firstFrame = new osg::Group();
 
-  //Pushing on the first frame which will contain all cameras
-  seq->addChild(CameraString(cameraData));
-  seq->setTime(seq->getNumChildren()-1, 1.0f);
+  if (pointData){
+    for (int i = 0; i < pointData->size(); ++i){            //Drawing points
+      firstFrame->addChild(PointString(pointData->at(i)));
+    }
+  }
 
-  //Now I'm going to build the animation loop.
-  for (int t = 0; t < (cameraData->size() + num_ghost); ++t){
-    std::vector<CameraInTime*>* modelsRendered = new std::vector<CameraInTime*>;
+  if (cameraData){
+    for (int j = 0; j < cameraData->size(); ++j){           //Drawing cameras
+      firstFrame->addChild(CameraString(cameraData->at(j)));
+    }
+  }
 
-    //Determing what is the latest time that will be rendered
+  if (cnet){
+    osg::ref_ptr<osg::Switch> tieSwitch = new osg::Switch();
+    for (int p = 0; p < cnet->size(); ++p){            //Drawing connecting lines
+      //DEBUG
+      //std::cout << "Drawing lines for point: " << p << std::endl;
+      for (int m = 0; m < (*cnet)[p].size(); ++m){
+	//DEBUG
+	//std::cout << "Found point " << p << " in image " << m << std::endl;
+	//Hopefully at this time I have found a relations ship between point p, and camera m
+	if ((*cnet)[p][m].image_id() < cameraData->size()){
+	  //Seems legit
+
+	  int camera_id = (*cnet)[p][m].image_id();
+
+	  osg::Geode* geode = new osg::Geode();
+	  osg::Geometry* geometry = new osg::Geometry();
+	  
+	  osg::Vec3Array* vertices = new osg::Vec3Array();
+	  vertices->push_back(*(pointData->at(p)->at(pointData->at(p)->size() - 1)->getCenter()));
+	  vertices->push_back(*(cameraData->at(camera_id)->at(pointData->at(camera_id)->size() - 1)->getCenter()));
+	  
+	  osg::Vec4Array* colour = new osg::Vec4Array();
+	  colour->push_back(osg::Vec4f(1.0,0.65f,0.0f,0.4f));
+
+	  geometry->setVertexArray(vertices);
+	  geometry->addPrimitiveSet(new osg::DrawArrays(GL_LINES,0,2));
+	  geometry->setColorArray(colour);
+	  geometry->setColorBinding(osg::Geometry::BIND_OVERALL);
+
+	  std::ostringstream os;
+	  
+	  os << "LINE CAM " << camera_id << " PNT " << p << std::endl;
+
+	  geode->addDrawable(geometry);
+	  geode->setName(os.str());
+
+	  tieSwitch->addChild(geode, false);
+	  
+	}
+
+      }
+    }
+    firstFrame->addChild(tieSwitch.get());
+  }
+
+  seq->addChild(firstFrame.get());
+  seq->setTime(seq->getNumChildren()-1, 0.2f);
+
+  //Finding out the number of time instances
+  int amountTime = 0;
+  if (pointData){
+    amountTime = pointData->at(0)->size();
+  } else {
+    amountTime = cameraData->at(0)->size();
+  }
+
+  //Now I am going to draw the rest of the scenes.
+  for (int t = 0; t < (amountTime + num_ghost); ++t){
+
+    osg::ref_ptr<osg::Group> frame = new osg::Group();
+    
+    //Finding out what the stop and start times that will be rendered
     signed int latest_time = t;
-    if (latest_time >= cameraData->size())
-      latest_time = cameraData->size() - 1;
+    if (latest_time >= amountTime)
+      latest_time = amountTime - 1;
+    //std::cout << "Latest time is: " << latest_time << std::endl;
 
-    //Determing what is the earliest time that will be rendered
     signed int earliest_time = t - num_ghost;
     if (earliest_time < 0)
       earliest_time = 0;
+    //std::cout << "Earliest Time is: " << earliest_time << std::endl;
 
+    //Drawing point data
+    if (pointData){
+      std::vector<PointInTime*>* modelsRendered = new std::vector<PointInTime*>;
+      for (int i = 0; i < pointData->size(); ++i){
+	modelsRendered->clear();
+	
+	for (int k = earliest_time; k <= latest_time; ++k){
+	  //std::cout << "K is " << k << std::endl;
+	  modelsRendered->push_back(pointData->at(i)->at(k));
+	}
 
-    //Selecting which time instance of the Camera will be modeled
-    for (int i = earliest_time; i <=latest_time; ++i){
-      modelsRendered->push_back(cameraData->at(i));
+	frame->addChild(PointString(modelsRendered));
+
+      }
+
     }
 
-    //Pushing it on to the sequence
-    seq->addChild(CameraString(modelsRendered));
-    seq->setTime(seq->getNumChildren()-1, 1.0f);
+    //Drawing camera data
+    if (cameraData){
+      std::vector<CameraInTime*>* modelsRendered = new std::vector<CameraInTime*>;
+      for (int j = 0; j < cameraData->size(); ++j){
+	modelsRendered->clear();
 
-    //Clearing it for the next part
-    modelsRendered->clear();
+	for (int k = earliest_time; k <= latest_time; ++k){
+	  modelsRendered->push_back(cameraData->at(j)->at(k));
+	}
+
+	frame->addChild(CameraString(modelsRendered));
+
+      }
+
+    }
+
+    //Drawing control network data
+    if (cnet){
+      //In this section we only draw the latest time stamp. Otherwise
+      //the screen would be full of lines.
+      osg::ref_ptr<osg::Switch> tieSwitch = new osg::Switch();
+      for (int p = 0; p < cnet->size(); ++p){
+	for(int m = 0; m < (*cnet)[p].size(); ++m){
+	  
+	  if ((*cnet)[p][m].image_id() < cameraData->size()){
+	    
+	    int camera_id = (*cnet)[p][m].image_id();
+
+	    osg::Geode* geode = new osg::Geode();
+	    osg::Geometry* geometry = new osg::Geometry();
+
+	    osg::Vec3Array* vertices = new osg::Vec3Array();
+	    vertices->push_back(*(pointData->at(p)->at(latest_time)->getCenter()));
+	    vertices->push_back(*(cameraData->at(camera_id)->at(latest_time)->getCenter()));
+
+	    osg::Vec4Array* colour = new osg::Vec4Array();
+	    colour->push_back(osg::Vec4f(1.0, 0.65f, 0.0f, 0.4f));
+
+	    geometry->setVertexArray(vertices);
+	    geometry->addPrimitiveSet(new osg::DrawArrays(GL_LINES,0,2));
+	    geometry->setColorArray(colour);
+	    geometry->setColorBinding(osg::Geometry::BIND_OVERALL);
+
+	    std::ostringstream os;
+
+	    os << "LINE CAM " << camera_id << " PNT " << p << std::endl;
+
+	    geode->addDrawable(geometry);
+	    geode->setName(os.str());
+
+	    tieSwitch->addChild(geode,false);
+
+	  }
+
+	}
+      }
+      frame->addChild(tieSwitch.get());
+    }
+
+    //So now we have an entire frame drawn
+    seq->addChild(frame.get());
+    seq->setTime(seq->getNumChildren()-1, 0.2f);
+
   }
 
-  //Now setting some settings for the sequence
+  //Now settings for the overall sequence
   seq->setInterval(osg::Sequence::LOOP, 1, seq->getNumFrames() - 1);
-  seq->setDuration(.2f, -1);
-  seq->setMode(osg::Sequence::STOP);
-
-  return seq;
-}
-
-/******************************************************************************
-* createSeq (uence for PointInTime)                                           *
-*  This will create a sequence, which contains at the first level, the        *
-*  point shown at all locations like in Ver1.0 of this code. All the          *
-*  sequences after the first frame contain an animation sequence that         *
-*  show the camera at it's first location, and ghost of where the point       *
-*  was before in the previous 4 frames. Also this is over loaded to           *
-*  accept both vectors of PointInTime and CameraInTime classes                *
-******************************************************************************/
-osg::Sequence* createSeq(std::vector<PointInTime*>* pointData){
+  seq->setDuration(1.0f, -1);
+  seq->setMode(osg::Sequence::START);
   
-  osg::Sequence* seq = new osg::Sequence;
-
-  //Pushing on the first frame which will contain all points
-  seq->addChild(PointString(pointData));
-  seq->setTime(seq->getNumChildren()-1, 1.0f);
-
-  //Now I'm going to build the animation loop.
-  for (int t = 0; t < (pointData->size() + num_ghost); ++t){
-    std::vector<PointInTime*>* modelsRendered = new std::vector<PointInTime*>;
-
-    //Determing what is the latest time that will be rendered
-    signed int latest_time = t;
-    if (latest_time >= pointData->size())
-      latest_time = pointData->size() - 1;
-
-    //Determing what is the earliest time that wil be rendered
-    signed int earliest_time = t - num_ghost;
-    if (earliest_time < 0)
-      earliest_time = 0;
-
-    //Selecting which time instances of the point that will be rendered
-    for (int i = earliest_time; i <= latest_time; ++i){
-      modelsRendered->push_back(pointData->at(i));
-    }
-
-    //Pushing it on to the sequence
-    seq->addChild(PointString(modelsRendered));
-    seq->setTime(seq->getNumChildren()-1,1.0f);
-
-    //Clearing it for the next part
-    modelsRendered->clear();
-  }
-
-  //Now setting some settings for the sequence settings
-  seq->setInterval(osg::Sequence::LOOP, 1, seq->getNumFrames() - 1);
-  seq->setDuration(.2f, -1);
-  seq->setMode(osg::Sequence::STOP);
-
   return seq;
 }
-
 
 /***********************************************
 *All event handler                             *
@@ -724,134 +734,128 @@ bool AllEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionA
     switch (ea.getKey()){
     case 'z':   //Step Backward
       {
-	signed int value = sequences_->at(0)->getValue();
+	signed int value = seq_->getValue();
 	value--;
 	if (value < 1)
 	  value = 1;
 
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	seq_->setValue(value);
+       
 	break;
       }
     case 'x':   //Play
       {
-	if (sequences_->at(0)->getMode() == osg::Sequence::STOP){
-	  for (int i = 0; i < sequences_->size(); ++i){
-	    sequences_->at(i)->setMode(osg::Sequence::START);
-	  }
+	if (seq_->getMode() == osg::Sequence::STOP){
+
+	  seq_->setMode(osg::Sequence::START);
+
 	} else {
-	  for (int i = 0; i < sequences_->size(); ++i){
-	    sequences_->at(i)->setMode(osg::Sequence::RESUME);
-	  }
+	  seq_->setMode(osg::Sequence::RESUME);
 	}
 	break;
       }
     case 'c':   //Pause
       {
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setMode(osg::Sequence::PAUSE);
-	}
+
+	seq_->setMode(osg::Sequence::PAUSE);
+
 	break;
       }
     case 'v':   //Stop
       {
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setMode(osg::Sequence::STOP);
-	  sequences_->at(i)->setValue(1);
-	}
+
+	  seq_->setMode(osg::Sequence::STOP);
+	  seq_->setValue(1);
+
 	break;
       }
     case 'b':   //Step Forward
       {
-	signed int value = sequences_->at(0)->getValue();
+	signed int value = seq_->getValue();
 	value++;
-	if (value >= sequences_->at(0)->getNumFrames())
-	  value = sequences_->at(0)->getNumFrames() - 1;
+	if (value >= seq_->getNumFrames())
+	  value = seq_->getNumFrames() - 1;
 
-	for (int i = 0; i <sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	seq_->setValue(value);
+
 	break;
       }
     case '0':   //Show all steps
       {
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(0);
-	}
+
+	  seq_->setValue(0);
+
 	break;
       }
     case '1':   //Move to the first frame
       {
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(1);
-	}
+
+	seq_->setValue(1);
+
 	break;
       }
     case '2':   //Move to a place somewhere in between
       {
-	int value = (sequences_->at(0)->getNumFrames()-2)*2/9 + 1;
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	int value = (seq_->getNumFrames()-2)*2/9 + 1;
+
+	seq_->setValue(value);
+
 	break;
       }
     case '3':   //Move to a place somewhere in between
       {
-	int value = (sequences_->at(0)->getNumFrames()-2)*3/9 + 1;
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	int value = (seq_->getNumFrames()-2)*3/9 + 1;
+
+	seq_->setValue(value);
+
 	break;
       }
     case '4':   //Move to a place somewhere in between
       {
-	int value = (sequences_->at(0)->getNumFrames()-2)*4/9 + 1;
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	int value = (seq_->getNumFrames()-2)*4/9 + 1;
+
+	seq_->setValue(value);
+
 	break;
       }
     case '5':   //Move to a place somewhere in between
       {
-	int value = (sequences_->at(0)->getNumFrames()-2)*5/9 + 1;
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	int value = (seq_->getNumFrames()-2)*5/9 + 1;
+
+	seq_->setValue(value);
+
 	break;
       }
     case '6':   //Move to a place somewhere in between
       {
-	int value = (sequences_->at(0)->getNumFrames()-2)*6/9 + 1;
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	int value = (seq_->getNumFrames()-2)*6/9 + 1;
+
+	seq_->setValue(value);
+
 	break;
       }
     case '7':   //Move to a place somewhere in between
       {
-	int value = (sequences_->at(0)->getNumFrames()-2)*7/9 + 1;
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	int value = (seq_->getNumFrames()-2)*7/9 + 1;
+
+	seq_->setValue(value);
+
 	break;
       }
     case '8':   //Move to a place somewhere in between
       {
-	int value = (sequences_->at(0)->getNumFrames()-2)*8/9 + 1;
-	std::cout << value << std::endl;
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	int value = (seq_->getNumFrames()-2)*8/9 + 1;
+
+	seq_->setValue(value);
+
 	break;
       }
     case '9':   //Move to the last frame
       {
-	int value = sequences_->at(0)->getNumFrames()-1;
-	std::cout << value << std::endl;
-	for (int i = 0; i < sequences_->size(); ++i){
-	  sequences_->at(i)->setValue(value);
-	}
+	int value = seq_->getNumFrames()-1;
+
+	seq_->setValue(value);
+
 	break;
       }
     }
@@ -900,28 +904,48 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
 	int item_identity = std::atoi(data[1].c_str());
 	int time_stamp = std::atoi(data[3].c_str());
 
-	if (item_identity >= cameraData_->size()){         //It must be a point
+	if (data[0] == "Camera:"){
+
+	  camera_->setCenter(*(cameraData_->at(item_identity)->at(time_stamp)->getCenter()));
+
+	  //Also when they click we'll set what lines are currently on
+	  SwitchNamedNodes finder;
+	  for (int p = 0; p < (*cnet_).size(); ++p){
+	    for (int m = 0; m < (*cnet_)[p].size(); ++m){
+	      if ((*cnet_)[p][m].image_id() == item_identity){  //We've found a point that was seen by this camera
+
+		std::ostringstream os;
+
+		os << "LINE CAM " << item_identity << " PNT " << p << std::endl;
+
+		finder.addNameToFind(os.str());
+
+	      }
+	    }
+	  }
+
+	  finder.apply(*(root_.get()->getChild(0)));
+
+	} else if (data[0] == "Point:"){
+
 	  camera_->setCenter(*(pointData_->at(item_identity)->at(time_stamp)->getCenter()));
 
-	  
+	  //Also when they click we'll set what lines are currently on
+	  SwitchNamedNodes finder;
+	  for (int m = 0; m < (*cnet_)[item_identity].size(); ++m){
 
-	  debug << "In Images: ";
-	  for (int i = 0; i < (*cnet_)[item_identity].size(); ++i){
-	    debug << (*cnet_)[item_identity][i].image_id() << " ";
+	    std::ostringstream os;
+
+	    os << "LINE CAM " << (*cnet_)[item_identity][m].image_id() << " PNT " << item_identity << std::endl;
+
+	    finder.addNameToFind(os.str());
+
 	  }
-	  debug << std::endl;
 
+	  finder.apply(*(root_.get()->getChild(0))); 
 
-	} else if (item_identity >= pointData_->size()){   //It must be a camera
-	  camera_->setCenter(*(cameraData_->at(item_identity)->at(time_stamp)->getCenter()));
-	} else {                                          //don't know
-	  if (cameraData_->at(item_identity)->at(time_stamp)->getDescription() == temp){
-	    camera_->setCenter(*(cameraData_->at(item_identity)->at(time_stamp)->getCenter()));
-	  } else {
-	    std::cout << "HIT THIS WHY? " << std::endl;
-	    camera_->setCenter(*(pointData_->at(item_identity)->at(time_stamp)->getCenter()));
-	  }
 	}
+
       } else if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE) {
 	std::string temp = hitr->nodePath.back()->getName();
 	std::vector<std::string> data = tokenize(temp," ");
@@ -931,15 +955,11 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
 
 	if (item_identity >= cameraData_->size()){         //It must be a point
 
-
-	  
-
 	  debug << "In Images: ";
 	  for (int i = 0; i < (*cnet_)[item_identity].size(); ++i){
 	    debug << (*cnet_)[item_identity][i].image_id() << " ";
 	  }
 	  debug << std::endl;
-
 
 	} 
       }
@@ -961,21 +981,19 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
 *  This is the main execution of the program    *
 ************************************************/
 int main(int argc, char* argv[]){
+
   //Variables to be used later in this section
   std::string camera_iter_file;
   std::string points_iter_file;
   std::string control_net_file;
   std::vector<std::vector<PointInTime*>*>* pointData;
   std::vector<std::vector<CameraInTime*>*>* cameraData;
+  vw::camera::ControlNetwork* cnet;
 
   //OpenSceneGraph Variable which are important overall
   osgViewer::Viewer viewer;
-  osg::Group* root = new osg::Group();
+  osg::ref_ptr<osg::Group> root = new osg::Group();
   osg::ref_ptr<osgText::Text> updateText = new osgText::Text;
-
-  //This vector contains all sequences used to draw camera and points
-  //in the project.
-  std::vector<osg::Sequence*>* allSequences = new std::vector<osg::Sequence*>;
 
   //This first half of the program is wholly devoted to setting up boost program options
   //Boost program options code
@@ -983,7 +1001,7 @@ int main(int argc, char* argv[]){
   general_options.add_options()
     ("camera-iteration-file,c",po::value<std::string>(&camera_iter_file),"Load the camera parameters for each iteration from a file")
     ("points-iteration-file,p",po::value<std::string>(&points_iter_file),"Load the 3d points parameters for each iteration from a file")
-    ("control-network-file,n",po::value<std::string>(&control_net_file),"Loads the control network")
+    ("control-network-file,n",po::value<std::string>(&control_net_file),"Loads the control network for point and camera relationship status. Camera and Point Iteration data is need before a control network file can be used.")
     ("help","Display this help message");
 
   po::variables_map vm;
@@ -1017,11 +1035,6 @@ int main(int argc, char* argv[]){
     //Storing camera data into a large vector
     cameraData = loadCamerasData( camera_iter_file );
 
-    //Building the animation sequences
-    for(int j = 0; j < cameraData->size(); ++j){
-      allSequences->push_back(createSeq(cameraData->at(j)));
-    }
-
   }
 
   /////////////////////////////////////////////////////////
@@ -1033,72 +1046,64 @@ int main(int argc, char* argv[]){
     //Storing point data in large vector
     pointData = loadPointsData( points_iter_file );
 
-    //Building the animation sequences
-    for(int i = 0; i < pointData->size(); ++i){
-      allSequences->push_back(createSeq(pointData->at(i)));
+  }
+
+  //////////////////////////////////////////////////////////
+  //Loading the control network
+  if (vm.count("control-network-file") && (pointData) && (cameraData)){
+
+    cnet = new vw::camera::ControlNetwork("Bundlevis");
+    
+    std::cout << "Loading Control Network File: " << control_net_file << "\n";
+    
+    cnet->read_control_network(control_net_file);
+
+    if (pointData){
+      if (cnet->size() != pointData->size()){
+	std::cout << "ERROR: Control Network doesn't seem to match point data!\n";
+	cnet = NULL;
+      }
     }
 
   }
 
   //////////////////////////////////////////////////////////
-  //Loading the control network
-  vw::camera::ControlNetwork* cnet = new vw::camera::ControlNetwork("Mine");
-  if (vm.count("control-network-file")){
-    
-    cnet->read_control_network(control_net_file);
-
-    
-  }
-
-  //////////////////////////////////////////////////////////
-  //Adding all sequences to the main group so they are drawn
-  for (int i = 0;  i < allSequences->size(); ++i){
-    allSequences->at(i)->setValue(0);   //Setting up so that it shows all points
-    root->addChild(allSequences->at(i));
-  }
-
-  //////////////////////////////////////////////////////////
   //Performing some checks on data integrity
-  int longest_time = allSequences->at(0)->getNumFrames() - 1;
-  int shortest_time = longest_time;
-  for (int i = 1; i < allSequences->size(); ++i){
-    
-    if ((allSequences->at(i)->getNumFrames()-1) > longest_time)
-      longest_time = allSequences->at(i)->getNumFrames() - 1;
-    
-    if ((allSequences->at(i)->getNumFrames()-1) < shortest_time)
-      shortest_time = allSequences->at(i)->getNumFrames() - 1;
-    
-  }
-  if (shortest_time != longest_time){
-    std::cout << "Error! Data does not have consent length of time intervals" << std::endl;
-    std::cout << "Shortest Time Interval: " << shortest_time << std::endl;
-    std::cout << "Longest Time Interval: " << longest_time << std::endl;
-    return 1;
-  }
+
+  // ... rewrite some time?
+
+  //////////////////////////////////////////////////////////
+  //Building the scene
+  std::cout << "Building Scene\n";
+  osg::ref_ptr<osg::Sequence> sceneSeq = createScene(pointData, cameraData, cnet);
+  root->addChild(sceneSeq.get());
 
   //////////////////////////////////////////////////////////
   //Adding HUD and setting up to draw the whole scene
   root->addChild(createHUD(updateText.get()));
   osgGA::TrackballManipulator* camera = new osgGA::TrackballManipulator();
   viewer.setCameraManipulator(camera);
-  viewer.setSceneData(root);
-  viewer.addEventHandler(new AllEventHandler(allSequences,updateText.get(),camera,pointData,cameraData,cnet));
+  viewer.setSceneData(root.get());
+  viewer.addEventHandler(new AllEventHandler(sceneSeq.get(),updateText.get(),camera,pointData,cameraData,cnet,root.get()));
+
+  //Setting up render options for the entire group, as they are not done on a node basis anymore
+  osg::StateSet* stateSet = new osg::StateSet();
+  stateSet->setMode(GL_BLEND,osg::StateAttribute::ON);
+  stateSet->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+  stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+  root->setStateSet(stateSet);
   
   ///////////////////////////////////////////////////////////
   //A fix so small features don't disappear
   osg::CullStack::CullingMode cullingMode = viewer.getCamera()->getCullingMode();
   cullingMode &= ~(osg::CullStack::SMALL_FEATURE_CULLING);
   viewer.getCamera()->setCullingMode( cullingMode );
-
+  std::cout << "Drawing Scene\n";
   viewer.realize();
 
-  //camera->setCenter(osg::Vec3f(0,0,0));
+  viewer.run();
 
-  //The loop
-  while (!viewer.done()){
-    viewer.frame();
-  }
+  std::cout << "Ending\n";
 
   return 0;
 }

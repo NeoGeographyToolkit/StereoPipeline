@@ -22,6 +22,8 @@ namespace po = boost::program_options;
 #include <osgGA/TrackballManipulator>
 #include <osg/LineWidth>
 #include <osgText/Text>
+#include <osg/AutoTransform>
+#include <osg/ShapeDrawable>
 
 //Standard
 #include <stdlib.h>
@@ -45,6 +47,7 @@ class PointInTime {
   ~PointInTime();
   //Useful for drawing
   osg::Geode* getSelectCube(const float& size);
+  osg::Node* getTextGraphic();
   const osg::Vec3f* getCenter();
   const std::string getDescription(){
     return description_;
@@ -69,6 +72,7 @@ class CameraInTime {
   //Useful for drawing
   osg::Geode* get3Axis(const float& size, const float& opacity);
   osg::Geode* getSelectCube(const float& size);
+  osg::Node* getTextGraphic();
   const osg::Vec3f* getCenter();
   const std::string getDescription(){
     return description_;
@@ -83,6 +87,53 @@ class CameraInTime {
   std::string description_;
   int cameraNum_;
   int iteration_;
+};
+
+//DISPLAY CONTROL
+//This is a class that contains pointers to all the data that can go
+//up on the screen. The point of this is to allow for easier
+//manipulation of the data along with possible easier reading within the
+//event handler.
+class DisplayControl{
+ public:
+  //Constructor & Deconstructor
+  DisplayControl();
+  ~DisplayControl();
+  //More interesting Stuff
+  void setSequences(std::vector<osg::Sequence*>* sequences){
+    sequences_ = sequences;
+  }
+  void setUpdateText(osgText::Text* updateText){
+    updateText_ = updateText;
+  }
+  void setCamera(osgGA::TrackballManipulator* camera){
+    camera_ = camera;
+  }
+  void setPointData(std::vector<std::vector<PointInTime*>*>* pointData){
+    pointData_ = pointData;
+  }
+  void setCameraData(std::vector<std::vector<CameraInTime*>*>* cameraData){
+    cameraData_ = cameraData;
+  }
+  void setControlNetwork(vw::camera::ControlNetwork* cnet){
+    cnet_ = cnet;
+  }
+  void setPointOverlay(std::vector<osg::Sequence*>* pointOverlay){
+    pointOverlay_ = pointOverlay;
+  }
+  void setCameraOverlay(std::vector<osg::Sequence*>* cameraOverlay){
+    cameraOverlay_ = cameraOverlay;
+  }
+  void setSeqFrames(const int& frame);
+ protected:
+  std::vector<osg::Sequence*>* sequences_;
+  osg::ref_ptr<osgText::Text> updateText_;
+  osgGA::TrackballManipulator* camera_;
+  std::vector<std::vector<PointInTime*>*>* pointData_;
+  std::vector<std::vector<CameraInTime*>*>* cameraData_;
+  vw::camera::ControlNetwork* cnet_;
+  std::vector<osg::Sequence*>* pointOverlay_;
+  std::vector<osg::Sequence*>* cameraOverlay_;
 };
 
 //This function will draw an entire group using the points in time
@@ -113,21 +164,37 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile);
 //selected.
 osg::Node* createHUD(osgText::Text* updateText);
 
-//This will create a sequence, which contains at the first level, the
-//point shown at all locations like in Ver1.0 of this code. All the
-//sequences after the first frame contain an animation sequence that
-//show the camera at it's first location, and ghost of where the camera
-//was before in the previous 4 frames. Also this is over loaded to
-//accept both vectors of PointInTime and CameraInTime classes
-osg::Sequence* createSeq(std::vector<CameraInTime*>* cameraData);
+//This will build the entire scene from the ground up
+osg::Sequence* createScene(std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet );
 
-//This will create a sequence, which contains at the first level, the
-//point shown at all locations like in Ver1.0 of this code. All the
-//sequences after the first frame contain an animation sequence that
-//show the camera at it's first location, and ghost of where the point
-//was before in the previous 4 frames. Also this is over loaded to
-//accept both vectors of PointInTime and CameraInTime classes
-osg::Sequence* createSeq(std::vector<PointInTime*>* pointData);
+//This is just a general node visitor
+class SwitchNamedNodes : public osg::NodeVisitor{
+ public:
+  SwitchNamedNodes( void ) 
+    : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN){
+    names_.clear();
+  }
+  virtual void apply( osg::Node& node )
+  {
+    for (int i = 0; i < names_.size(); ++i){
+      if (node.getName() == names_[i] ) {
+	osg::Switch* parent = dynamic_cast<osg::Switch*>(node.getParent(0));
+	parent->setChildValue(&node,!parent->getChildValue(&node)); //Toggle value      
+      }
+    }
+
+    //Still checking for more of em'
+    traverse( node );
+  }
+  void setNamesToFind(const std::vector<std::string>& names ){
+    names_ = names;
+  }
+  void addNameToFind(const std::string& name){
+    names_.push_back(name);
+  }
+ protected:
+  std::vector<std::string> names_;
+};
 
 //Copied this from the 'net
 std::vector<std::string> tokenize(const std::string & str, const std::string & delim)
@@ -154,14 +221,15 @@ std::vector<std::string> tokenize(const std::string & str, const std::string & d
 //An event handler for all
 class AllEventHandler : public osgGA::GUIEventHandler{
  public:
-  AllEventHandler(std::vector<osg::Sequence*>* sequences, osgText::Text* updateText, osgGA::TrackballManipulator* camera, std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet)
+  AllEventHandler(osg::Sequence* seq, osgText::Text* updateText, osgGA::TrackballManipulator* camera, std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet, osg::Group* root)
     {
-      sequences_ = sequences;
+      seq_ = seq;
       updateText_ = updateText;
       camera_ = camera;
       pointData_ = pointData;
       cameraData_ = cameraData;
       cnet_ = cnet;
+      root_ = root;
     }
   bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
   void pick(osgViewer::View* view, const osgGA::GUIEventAdapter& ea);
@@ -172,12 +240,13 @@ class AllEventHandler : public osgGA::GUIEventHandler{
       updateText_->setText(name);
   }
  private:
-  std::vector<osg::Sequence*>* sequences_;
+  osg::ref_ptr<osg::Sequence> seq_;
   osg::ref_ptr<osgText::Text> updateText_;
   osgGA::TrackballManipulator* camera_;
   std::vector<std::vector<PointInTime*>*>* pointData_;
   std::vector<std::vector<CameraInTime*>*>* cameraData_;
   vw::camera::ControlNetwork* cnet_;
+  osg::ref_ptr<osg::Group> root_;
 };
 
 #endif
