@@ -56,7 +56,7 @@ void write_GMT_script(std::string const prefix,
   fprintf(f, "grdcontour -R%f/%f/%f/%f temporary-dem.grd -Jx%fi -C%d -A50+s7 -Gd4i -Wc0.25p,- -Wa0.25p -O -K -T0.1i/0.02i >> $DEM_FILENAME\n\n", left,right,bottom,top,scale_factor,contour_interval);
 
   // DRG
-  fprintf(f, "psbasemap -R%f/%f/%f/%f -Jx%fi -X1.5i -Y1.5i -B0 -P -K > $DRG_FILENAME\n",left, right, bottom, top);
+  fprintf(f, "psbasemap -R%f/%f/%f/%f -Jx%fi -X1.5i -Y1.5i -B0 -P -K > $DRG_FILENAME\n",left, right, bottom, top, scale_factor);
   fprintf(f, "makecpt -Cgray -T0.0/1.0/%f > g.cpt\n", 1.0/255.0);
   fprintf(f, "grdimage temporary-drg.grd -R%f/%f/%f/%f -Jx%fi -P -U/-0i/-0.25i/\"NASA Ames / MSSS\" -B10 -Cg.cpt -K > $DRG_FILENAME\n",left,right,bottom,top,scale_factor);
   fprintf(f, "grdcontour -R%f/%f/%f/%f temporary-dem.grd -Jx%fi -C%d -A50+s7 -Gd4i -Wc0.25p,- -Wa0.25p -O -K -T0.1i/0.02i >> $DRG_FILENAME\n", left,right,bottom,top,scale_factor,contour_interval);

@@ -65,9 +65,8 @@ int main( int argc, char *argv[] ) {
   set_debug_level(VerboseDebugMessage+11);
 
   std::string input_file_name, out_prefix, output_file_type, texture_filename;
-  unsigned cache_size, max_triangles;
+  unsigned cache_size;
   float dem_spacing, default_value=0;
-  unsigned simplemesh_h_step, simplemesh_v_step;
   int debug_level;
   double semi_major, semi_minor;
   std::string reference_spheroid;
@@ -87,7 +86,7 @@ int main( int argc, char *argv[] ) {
     ("orthoimage", po::value<std::string>(&texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("grayscale", "Use grayscale image processing for creating the orthoimage")
     ("offset-files", "Also write a pair of ascii offset files (for debugging)")    
-    ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
+    ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
     ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
     ("output-prefix,o", po::value<std::string>(&out_prefix)->default_value("terrain"), "Specify the output prefix")
@@ -142,13 +141,13 @@ int main( int argc, char *argv[] ) {
 
   // Apply an (optional) rotation to the 3D points before building the mesh.
   if (phi_rot != 0 || omega_rot != 0 || kappa_rot != 0) {
-    std::cout << "Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
+    std::cout << "\t--> Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
     Matrix3x3 rotation_trans = math::euler_to_rotation_matrix(phi_rot,omega_rot,kappa_rot,rot_order);
     point_image = per_pixel_filter(point_image, PointTransFunc(rotation_trans));
   }
 
   if (vm.count("xyz-to-lonlat") ) {
-    std::cout << "Reprojecting points into longitude, latitude, altitude.\n";
+    std::cout << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
     point_image = cartography::xyz_to_lon_lat_radius(point_image);    
   }
 
@@ -158,36 +157,36 @@ int main( int argc, char *argv[] ) {
   if ( reference_spheroid != "" ) {
     if (reference_spheroid == "mars") {
       const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396000.0;
-      std::cout << "Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
-      datum = cartography::Datum("Mars Datum",
-                                 "MOLA PEDR Spheroid",
-                                 "Prime Meridian",
+      std::cout << "\t--> Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
+      datum = cartography::Datum("D_MARS",
+                                 "MARS",
+                                 "Reference Meridian",
                                  MOLA_PEDR_EQUATORIAL_RADIUS,
                                  MOLA_PEDR_EQUATORIAL_RADIUS,
                                  0.0);
     } else if (reference_spheroid == "moon") {
       const double LUNAR_RADIUS = 1737400;
-      std::cout << "Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
-      datum = cartography::Datum("Lunar Datum",
-                                 "Lunar Spheroid",
-                                 "Prime Meridian",
+      std::cout << "\t--> Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
+      datum = cartography::Datum("D_MOON",
+                                 "MOON",
+                                 "Reference Meridian",
                                  LUNAR_RADIUS,
                                  LUNAR_RADIUS,
                                  0.0);
     } else {
-      std::cout << "Unknown reference spheroid: " << reference_spheroid << ".  Current options are [ moon , mars ]\nExiting.\n\n";
+      std::cout << "\t--> Unknown reference spheroid: " << reference_spheroid << ".  Current options are [ moon , mars ]\nExiting.\n\n";
       exit(0);
     }
   } else if (semi_major != 0 && semi_minor != 0) {
-    std::cout << "Re-referencing altitude values to user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
+    std::cout << "\t--> Re-referencing altitude values to user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
     datum = cartography::Datum("User Specified Datum",
-                               "User Specified Spherem",
-                               "Prime Meridian",
+                               "User Specified Spheroid",
+                               "Reference Meridian",
                                semi_major, semi_minor, 0.0);
   }
 
-  if (vm.count("z-offset")) {
-    std::cout << "Applying z-offset: " << z_offset << "\n";
+  if (z_offset != 0) {
+    std::cout << "\t--> Applying z-offset: " << z_offset << "\n";
     point_image = point_image_offset(point_image, Vector3(0,0,z_offset));
   }
 
@@ -240,16 +239,12 @@ int main( int argc, char *argv[] ) {
   }
 
   vw::BBox<float,3> dem_bbox = rasterizer.bounding_box();
-  std::cout << "DEM Bounding box: " << dem_bbox << "\n";
+  std::cout << "\nDEM Bounding box: " << dem_bbox << "\n";
   
   // Now we are ready to specify the affine transform.
   Matrix3x3 georef_affine_transform = rasterizer.geo_transform();
   std::cout << "Georeferencing Transform: " << georef_affine_transform << "\n";
   georef.set_transform(georef_affine_transform);
-
-  // This is a workaround for now to make GDAL write files that don't
-  // cause it to crash on read. - mbroxton
-  georef.set_datum(Datum());
 
   // Write out a georeferenced orthoimage of the DTM with alpha.
   if (vm.count("orthoimage")) {
@@ -261,19 +256,20 @@ int main( int argc, char *argv[] ) {
 
   } else {
     // Write out the DEM.
-    std::cout << "\n\n Creating block cache view from rasterizer: " << rasterizer.cols() << "  " << rasterizer.rows() << "\n";
+    std::cout << "\nWriting DEM.\n";
     BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
     write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
 
-    // Write out a georeferenced DTM and (optionally) a normalized version of the DTM (for debugging)
+    // Write out a normalized version of the DTM (for debugging)
     if (vm.count("normalized")) {
+      std::cout << "\nWriting normalized DEM.\n";
       DiskImageView<PixelGray<float> > dem_image(out_prefix + "-DEM." + output_file_type);
       write_georeferenced_image(out_prefix + "-DEM-normalized.tif", channel_cast_rescale<uint8>(normalize(dem_image)), georef, TerminalProgressCallback());
     }
   }
 
+  // Write out the offset files
   if (vm.count("offset-files")) {
-    // Write out the offset files
     std::cout << "Offset: " << dem_bbox.min().x()/rasterizer.spacing() << "   " << dem_bbox.max().y()/rasterizer.spacing() << "\n";
     std::string offset_filename = out_prefix + "-DRG.offset";
     FILE* offset_file = fopen(offset_filename.c_str(), "w");

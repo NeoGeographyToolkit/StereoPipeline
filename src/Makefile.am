@@ -131,6 +131,15 @@ if MAKE_APP_BUNDLEVIS
   bundlevis_LDFLAGS = $(APP_BUNDLEVIS_LIBS) $(ASP_LDFLAGS)
 endif
 
+if MAKE_APP_ORTHOPROJECT
+  bin_PROGRAMS += orthoproject
+  orthoproject_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
+		 	 $(apollo_sources) $(generic_stereo_sources)		\
+	 	   	 $(isis_sources) $(rmax_sources) SpiceUtilities.cc	\
+			 orthoproject.cc
+  orthoproject_LDFLAGS = $(APP_ORTHOPROJECT_LIBS) $(ASP_LDFLAGS)
+endif
+
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@ 
 

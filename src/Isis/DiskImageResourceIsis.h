@@ -32,52 +32,17 @@
 #include <vw/Image/PixelTypes.h>
 #include <vw/FileIO/DiskImageResource.h>
 
-// Isis Includes
-#include <SpecialPixel.h>
+namespace vw {
 
-namespace vw
-{
-
-  //  missing_pixel_image()
-  //
-  /// Produce a colorized image depicting which pixels in the disparity
-  /// map are good pixels, and which are missing (i.e. where no
-  /// correlation was found).
-  struct IsisSpecialPixelFunc: public vw::UnaryReturnSameType {
-
-    template <class PixelT>
-    PixelT operator() (PixelT const& pix) const {
-      typedef typename CompoundChannelType<PixelT>::type channel_type;
-      for (int n = 0; n < CompoundNumChannels<PixelT>::value; ++n) {
-        // Check to see if this is an Isis special value.  If it is,
-        // return 0 for now.
-        if (Isis::IsSpecial(compound_select_channel<const channel_type&>(pix,n))) 
-          return PixelT();
-      }
-      return pix;
-    }
-  };
-    
-  template <class ViewT>
-  UnaryPerPixelView<ViewT, IsisSpecialPixelFunc> 
-  remove_isis_special_pixels(ImageViewBase<ViewT> &image) {
-    return per_pixel_filter(image.impl(), IsisSpecialPixelFunc());
-  }
-
-
-  class DiskImageResourceIsis : public DiskImageResource
-  {
+  class DiskImageResourceIsis : public DiskImageResource {
   public:
 
-    DiskImageResourceIsis(std::string const& filename) 
-      : DiskImageResource(filename) 
-    {
+    DiskImageResourceIsis(std::string const& filename) : DiskImageResource(filename) {
       open(filename);
     }
 
     DiskImageResourceIsis(std::string const& filename, ImageFormat const& format)
-      : DiskImageResource(filename)
-    {
+      : DiskImageResource(filename) {
       create(filename, format);
     }
 

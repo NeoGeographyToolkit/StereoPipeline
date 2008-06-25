@@ -119,10 +119,10 @@ public:
     result(0,0) = 1/400.0;
     result(1,1) = 1/400.0;
     result(2,2) = 1/400.0;
-    result(3,3) = 1;
-    result(4,4) = 1;
-    result(5,5) = 1;
-    result(6,6) = 1;
+    result(3,3) = 1/1e-16;
+    result(3,3) = 1/1e-16;
+    result(3,3) = 1/1e-16;
+    result(3,3) = 1/1e-16;
     return result;
   }
 
@@ -222,7 +222,7 @@ public:
     std::cout << "   Pixel: " << pix_error_total/m_num_pixel_observations << "  "
               << "   Cam Position: " << camera_position_error_total/a.size() << "  "
               << "   Cam Pose: " << camera_pose_error_total/a.size() << "  ";
-      if (m_network.num_ground_control_points() == 0) 
+    if (m_network.num_ground_control_points() == 0) 
         std::cout << "  GCP: n/a\n";
       else 
         std::cout << "  GCP: " << gcp_error_total/m_network.num_ground_control_points() << "\n";
@@ -233,12 +233,15 @@ public:
     std::ofstream ostr(filename.c_str(),std::ios::app);
 
     for (unsigned j=0; j < a.size();++j){
-      Vector3 position_correction = subvector(a[j], 0, 3);
-      Vector4 q = normalize(subvector(a[j], 3, 4));
-      Quaternion<double> pose_quaternion(q[0], q[1], q[2], q[3]);
-      Vector3 pose_correction;
+      Vector3 position_correction;
+      Quaternion<double> pose_correction;
+      parse_camera_parameters(a[j], position_correction, pose_correction);
 
       camera::CAHVORModel cam;
+      cam.C = position_correction;
+      cam.A = Vector3(1,0,0);
+      cam.H = Vector3(0,1,0);
+      cam.V = Vector3(0,0,1);
       // = rmax_image_camera_model(m_image_infos[j],position_correction,pose_correction);
       ostr << j << "\t" << cam.C(0) << "\t" << cam.C(1) << "\t" << cam.C(2) << "\n";
       ostr << j << "\t" << cam.A(0) << "\t" << cam.A(1) << "\t" << cam.A(2) << "\n";
@@ -398,7 +401,8 @@ int main(int argc, char* argv[]) {
 
 	//Storing points
 	for (unsigned i = 0; i < ba_model.num_points(); ++i){
-	  Vector<double,3> current_point = ba_model.A_parameters(i);
+	  Vector<double,4> current_point = ba_model.B_parameters(i);
+	  current_point /= current_point(3);
 	  ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
 	}
 
@@ -423,7 +427,8 @@ int main(int argc, char* argv[]) {
         //Writing this iterations point data
         std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
         for (unsigned i = 0; i < ba_model.num_points(); ++i){
-          Vector<double,3> current_point = ba_model.B_parameters(i);
+          Vector<double,4> current_point = ba_model.B_parameters(i);
+          current_point /= current_point(3);
           ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
         }
       }

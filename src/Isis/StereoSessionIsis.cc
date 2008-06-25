@@ -9,12 +9,6 @@
 #include "Isis/StereoSessionIsis.h"
 #include "Isis/IsisCameraModel.h"
 
-// Isis Headers
-#include <Cube.h>
-#include <Camera.h>
-#include <CameraDetectorMap.h>
-#include <SpecialPixel.h>
-
 // Boost
 #include "boost/filesystem.hpp"   
 using namespace boost::filesystem; 
@@ -23,87 +17,6 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
 using namespace vw::ip;
-
-
-template <class ViewT>
-class IsisMinMaxChannelAccumulator {
-  typedef typename ViewT::pixel_type pixel_type;
-  typedef typename CompoundChannelType<typename ViewT::pixel_type>::type channel_type;
-  int num_channels;
-  channel_type minval, maxval;
-  bool valid;
-public:
-  IsisMinMaxChannelAccumulator()
-    : num_channels( PixelNumChannels<pixel_type>::value - (PixelHasAlpha<pixel_type>::value ? 1 : 0) ), valid(false) {}
-
-  IsisMinMaxChannelAccumulator(channel_type no_data_value)
-    : num_channels( PixelNumChannels<pixel_type>::value - (PixelHasAlpha<pixel_type>::value ? 1 : 0) ), valid(false) {}
-  
-  void operator()( pixel_type const& pix ) {
-    if (!valid && !Isis::IsSpecial(compound_select_channel<channel_type>(pix,0)) ) {
-      minval = maxval = compound_select_channel<channel_type>(pix,0);
-      valid = true;
-    }
-    for (int channel = 0; channel < num_channels; channel++) {
-      channel_type channel_value = compound_select_channel<channel_type>(pix,channel);
-      if( Isis::IsSpecial(channel_value) ) continue;
-      if( channel_value < minval ) minval = channel_value;
-      if( channel_value > maxval ) maxval = channel_value;
-    }
-  }
-
-  channel_type minimum() const { 
-    VW_ASSERT(valid, ArgumentErr() << "MinMaxChannelAccumulator: no valid pixels");
-    return minval; 
-  }
-
-  channel_type maximum() const {
-    VW_ASSERT(valid, ArgumentErr() << "MinMaxChannelAccumulator: no valid pixels");
-    return maxval;
-  }
-};
-
-template <class ViewT>
-void isis_min_max_channel_values( const ImageViewBase<ViewT> &view, 
-                                  typename CompoundChannelType<typename ViewT::pixel_type>::type &min, 
-                                  typename CompoundChannelType<typename ViewT::pixel_type>::type &max )
-{
-  IsisMinMaxChannelAccumulator<ViewT> accumulator;
-  for_each_pixel( view, accumulator );
-  min = accumulator.minimum();
-  max = accumulator.maximum();
-}
-
-//  IsisSpecialPixelFunc
-//
-/// Replace ISIS missing data values with a pixel value of your
-/// choice.
-
-template <class PixelT>
-class IsisSpecialPixelFunc: public vw::UnaryReturnSameType {
-  PixelT m_replacement_value;
-public:
-  IsisSpecialPixelFunc(PixelT const& pix) : m_replacement_value(pix) {}
-  
-  PixelT operator() (PixelT const& pix) const {
-    typedef typename CompoundChannelType<PixelT>::type channel_type;
-    for (int n = 0; n < CompoundNumChannels<PixelT>::value; ++n) {
-      // Check to see if this is an Isis special value.  If it is,
-      // return 0 for now.
-      if (Isis::IsSpecial(compound_select_channel<const channel_type&>(pix,n))) 
-        return m_replacement_value;
-    }
-    return pix;
-  }
-};
-    
-template <class ViewT>
-UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type> > 
-remove_isis_special_pixels(ImageViewBase<ViewT> &image, typename ViewT::pixel_type replacement_value = typename ViewT::pixel_type() ) {
-  return per_pixel_filter(image.impl(), IsisSpecialPixelFunc<typename ViewT::pixel_type>(replacement_value));
-}
-
-
 
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
@@ -275,9 +188,8 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   // images, because the map projected images are probable very nearly
   // aligned already.  For unprojected cubes, we align in the "usual"
   // way using interest points.
-  if (0) {
-//   if (input_georef1.transform() != math::identity_matrix<3>() && 
-//       input_georef2.transform() != math::identity_matrix<3>() ) {
+  if (input_georef1.transform() != math::identity_matrix<3>() && 
+      input_georef2.transform() != math::identity_matrix<3>() ) {
     std::cout << "\nMap projected ISIS cubes detected.  Placing both images into the same map projection.\n\n";
     
     // If we are using map-projected cubes, we need to put them into a
@@ -303,7 +215,7 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
 
     Matrix<double> align_matrix(3,3);
     align_matrix.set_identity();
-    //    align_matrix = determine_image_alignment(input_file1, input_file2, lo, hi);
+    align_matrix = determine_image_alignment(input_file1, input_file2, lo, hi);
     ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
 
     // Apply the alignment transformation to the right image.

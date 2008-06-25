@@ -72,7 +72,7 @@ int main( int argc, char *argv[] ) {
     ("simplemesh-v-step", po::value<unsigned>(&simplemesh_v_step)->default_value(10), "Vertical step size for simple meshing algorithm")
     ("mesh-tolerance", po::value<float>(&mesh_tolerance)->default_value(0.001), "Tolerance for the adaptive meshing algorithm")
     ("max_triangles", po::value<unsigned>(&max_triangles)->default_value(1000000), "Maximum triangles for the adaptive meshing algorithm")
-    ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
+    ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
     ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
     ("grayscale-texture", "Use grayscale image processing when modifying the texture image (for .iv and .vrml files only)")

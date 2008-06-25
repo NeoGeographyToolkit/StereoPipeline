@@ -76,7 +76,6 @@ IsisCameraModel::IsisCameraModel(std::string cube_filename) {
 }
 
 IsisCameraModel::~IsisCameraModel() {
-  std::cout << "Closing cube file...\n";
   if (m_isis_cube) {
     static_cast<Isis::Cube*>(m_isis_cube)->Close();
     delete static_cast<Isis::Cube*>(m_isis_cube);
@@ -103,9 +102,8 @@ Vector2 IsisCameraModel::point_to_pixel(Vector3 const& point) const {
   // Set the current "active" pixel for the upcoming computation
   cam->SetUniversalGround(lon_lat_radius[1], lon_lat_radius[0], lon_lat_radius[2]);
 
-//   std::cout << "LON LAT RAD: " << lon_lat_radius << " ---> ";
-//   std::cout << cam->Line() << " " << cam->Sample() << "\n";
-
+  //   std::cout << "LON LAT RAD: " << lon_lat_radius << " ---> ";
+  //   std::cout << cam->Line() << " " << cam->Sample() << "\n";
   return Vector2(cam->Sample(), cam->Line());
 }
 

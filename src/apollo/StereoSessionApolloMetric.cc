@@ -19,26 +19,26 @@ using namespace vw;
 using namespace vw::camera;
 
 
-static void load_tie_points(std::string filename, std::vector<Vector3> &ground_pts, std::vector<Vector2> &image_pts, double subsample) {
+// static void load_tie_points(std::string filename, std::vector<Vector3> &ground_pts, std::vector<Vector2> &image_pts, double subsample) {
 
-  const double LUNAR_RADIUS = 1737400;
+//   const double LUNAR_RADIUS = 1737400;
 
-  std::ifstream input(filename.c_str());
-  if (!(input.good())) {
-    std::cout << "Could not open tie point file: " << filename << "\nExiting.\n\n";
-    exit(1);
-  }
+//   std::ifstream input(filename.c_str());
+//   if (!(input.good())) {
+//     std::cout << "Could not open tie point file: " << filename << "\nExiting.\n\n";
+//     exit(1);
+//   }
 
-  ground_pts.clear();
-  image_pts.clear();
+//   ground_pts.clear();
+//   image_pts.clear();
 
-  while (!input.eof()) {
-    float lon, lat, u, v;
-    input >> lon >> lat >> u >> v;
-    ground_pts.push_back(cartography::lon_lat_radius_to_xyz(Vector3(lon,lat,LUNAR_RADIUS)));
-    image_pts.push_back(Vector2(u/subsample,v/subsample));
-  }
-}
+//   while (!input.eof()) {
+//     float lon, lat, u, v;
+//     input >> lon >> lat >> u >> v;
+//     ground_pts.push_back(cartography::lon_lat_radius_to_xyz(Vector3(lon,lat,LUNAR_RADIUS)));
+//     image_pts.push_back(Vector2(u/subsample,v/subsample));
+//   }
+// }
 
 static void load_apollo_metric_kernels() {
   //  Constants 

@@ -32,10 +32,10 @@ static std::string prefix_from_filename(std::string const& filename) {
   return result;
 }
 
-class HelicopterBundleAdjustmentModel : public camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 4> {
+class HelicopterBundleAdjustmentModel : public camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3> {
 
   typedef Vector<double,6> camera_vector_t;
-  typedef Vector<double,4> point_vector_t;
+  typedef Vector<double,3> point_vector_t;
 
   std::vector<ImageInfo> m_image_infos;
 
@@ -67,13 +67,13 @@ public:
     }
 
     for (unsigned i = 0; i < network.size(); ++i) {
-      // We track 3d points as homogeneous vectors
-      point_vector_t p;
-      p(3) = 1.0;
-      subvector(p,0,3) = m_network[i].position();
-      b[i] = normalize(p);
+      b[i] = m_network[i].position();
       b_initial[i] = b[i];
     }
+
+    std::ofstream ostr("test.txt",std::ios::out);
+    ostr << "";
+    ostr.close();
   }
 
   // Return a reference to the camera and point parameters.
@@ -83,7 +83,43 @@ public:
     a[j] = a_j;
   }
   void set_B_parameters(int i, point_vector_t const& b_i) { 
-    b[i] = normalize(b_i); 
+    b[i] = b_i; 
+  }
+
+  // Approximate the jacobian for small variations in the a_j
+  // parameters (camera parameters). 
+  virtual Matrix<double, 2, 6> A_jacobian ( unsigned i, unsigned j,
+                                            Vector<double, 6> const& a_j, 
+                                            Vector<double, 3> const& b_i ) {
+    Matrix<double> partial_derivatives = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::A_jacobian(i,j,a_j,b_i);
+//     Matrix<double> partial_derivatives3 = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::A_jacobian(i,j,a_j,b_i,1e-6);
+//     Matrix<double> partial_derivatives4 = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::A_jacobian(i,j,a_j,b_i,1e-2);
+//     std::cout << "   Cam1: " << partial_derivatives << "\n";
+//     std::cout << "   Cam2: " << partial_derivatives3 << "\n";
+//     std::cout << "   Cam3: " << partial_derivatives4 << "\n";
+    return partial_derivatives;
+  }
+
+  // Analytically computed jacobian for variations in the b_i
+  // parameters (3d point locations).
+  virtual Matrix<double, 2, 3> B_jacobian ( unsigned i, unsigned j,
+                                            Vector<double, 6> const& a_j, 
+                                            Vector<double, 3> const& b_i ) {
+//     Vector3 position_correction = subvector(a[j], 0, 3);
+//     Vector3 pose_correction = subvector(a[j], 3,3);
+//     camera::CAHVORModel cahvor = rmax_image_camera_model(m_image_infos[j], position_correction, pose_correction);
+    Matrix<double> partial_derivatives(2,3);
+    partial_derivatives = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::B_jacobian(i,j,a_j,b_i);
+//     cahvor.point_to_pixel(b_i,partial_derivatives);
+
+//     std::cout << "Partial: " << partial_derivatives << "\n";
+//     Matrix<double> partial_derivatives2 = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::B_jacobian(i,j,a_j,b_i);
+//     Matrix<double> partial_derivatives3 = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::B_jacobian(i,j,a_j,b_i,1e-6);
+//     Matrix<double> partial_derivatives4 = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::B_jacobian(i,j,a_j,b_i,1e-2);
+//     std::cout << "   BASE: " << partial_derivatives2 << "\n";
+//     std::cout << "   BASE: " << partial_derivatives3 << "\n";
+//     std::cout << "   BASE: " << partial_derivatives4 << "\n";
+    return partial_derivatives;
   }
 
   // Return the initial parameters
@@ -116,12 +152,12 @@ public:
   // Return the covariance of the camera parameters for camera j.
   inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned j ) {
     Matrix<double,camera_params_n,camera_params_n> result;
-    result(0,0) = 1/4e-1;  // Position sigma = 0.4 meters
-    result(1,1) = 1/4e-1;
-    result(2,2) = 1/4e-1;
-    result(3,3) = 1/1;  // Pose sigma = 1.0 degrees
-    result(4,4) = 1/1;
-    result(5,5) = 1/1;
+    result(0,0) = 1/1;  // Position sigma = 1 meter
+    result(1,1) = 1/1;
+    result(2,2) = 1/1;
+    result(3,3) = 1;  // Pose sigma = 1 degrees
+    result(4,4) = 1;
+    result(5,5) = 1;
     return result;
   }
 
@@ -131,7 +167,6 @@ public:
     result(0,0) = 1/1000.0;  // Point sigma = 1000 meters ( we set this to be 
     result(1,1) = 1/1000.0;  // so large that it essentially removes point position
     result(2,2) = 1/1000.0;  // constraints from the bundle adjustment entirely. )
-    result(3,3) = 1;  // constraints from the bundle adjustment entirely. )
     return result;
   }
 
@@ -171,7 +206,7 @@ public:
       Vector3 position_correction = subvector(a[j], 0, 3);
       Vector3 pose_correction = subvector(a[j], 3,3);
       
-      camera::CAHVORModel* cahvor = new camera::CAHVORModel;
+      camera::CAHVORModel *cahvor = new camera::CAHVORModel;
       *cahvor = rmax_image_camera_model(m_image_infos[j], position_correction, pose_correction);
 
       result[j] = boost::shared_ptr<camera::CameraModel>( cahvor );
@@ -183,20 +218,20 @@ public:
   // image, and the 'b' vector (3D point location) for the i'th
   // point, return the location of b_i on imager j in pixel
   // coordinates.
-  Vector2 operator() ( unsigned i, unsigned j, Vector<double,6> const& a_j, Vector<double,4> const& b_i ) const {
+  Vector2 operator() ( unsigned i, unsigned j, Vector<double,6> const& a_j, Vector<double,3> const& b_i ) const {
     Vector3 position_correction = subvector(a_j, 0, 3);
     Vector3 pose_correction = subvector(a_j, 3,3);
     camera::CAHVORModel cam = rmax_image_camera_model(m_image_infos[j], position_correction, pose_correction);
-    point_vector_t p = b_i/b_i(3); // Renormalize
-    return cam.point_to_pixel(subvector(p,0,3));
+    return cam.point_to_pixel(b_i);
   }    
 
   void report_error() const {
 
-    double pix_error_total = 0;
-    double camera_position_error_total = 0;
-    double camera_pose_error_total = 0;
-    double gcp_error_total = 0;
+    // Error totals
+    std::vector<double> pix_errors;
+    std::vector<double> camera_position_errors;
+    std::vector<double> camera_pose_errors;
+    std::vector<double> gcp_errors;
 
     int idx = 0;
     for (unsigned i = 0; i < m_network.size(); ++i) {       // Iterate over control points
@@ -204,7 +239,7 @@ public:
         int camera_idx = m_network[i][m].image_id();
         Vector2 pixel_error = m_network[i][m].position() - (*this)(i, camera_idx, 
                                                                    a[camera_idx],b[i]); 
-        pix_error_total += norm_2(pixel_error);
+        pix_errors.push_back(norm_2(pixel_error));
         ++idx;
       }
     }
@@ -218,8 +253,8 @@ public:
       position_now = subvector(a[j],0,3);
       pose_now = subvector(a[j],3,3);
 
-      camera_position_error_total += norm_2(position_initial-position_now);
-      camera_pose_error_total += norm_2(pose_initial-pose_now);
+      camera_position_errors.push_back(norm_2(position_initial-position_now));
+      camera_pose_errors.push_back(norm_2(pose_initial-pose_now));
     }
     
     idx = 0;
@@ -227,18 +262,60 @@ public:
       if (m_network[i].type() == ControlPoint::GroundControlPoint) {
         point_vector_t p1 = b_initial[i]/b_initial[i](3);
         point_vector_t p2 = b[i]/b[i](3);
-        gcp_error_total += norm_2(subvector(p1,0,3) - subvector(p2,0,3));
+        gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
         ++idx;
       }
     }
     
-    std::cout << "   Pixel: " << pix_error_total/m_num_pixel_observations << "  "
-              << "   Cam Position: " << camera_position_error_total/a.size() << "  "
-              << "   Cam Pose: " << camera_pose_error_total/a.size() << "  ";
-      if (m_network.num_ground_control_points() == 0) 
-        std::cout << "  GCP: n/a\n";
-      else 
-        std::cout << "  GCP: " << gcp_error_total/m_network.num_ground_control_points() << "\n";
+    double min_pix = *(std::min_element(pix_errors.begin(), pix_errors.end()));
+    double max_pix = *(std::max_element(pix_errors.begin(), pix_errors.end()));
+    double min_cam_position = *(std::min_element(camera_position_errors.begin(), camera_position_errors.end()));
+    double max_cam_position = *(std::max_element(camera_position_errors.begin(), camera_position_errors.end()));
+    double min_cam_pose = *(std::min_element(camera_pose_errors.begin(), camera_pose_errors.end()));
+    double max_cam_pose = *(std::max_element(camera_pose_errors.begin(), camera_pose_errors.end()));
+    double min_gcp = *(std::min_element(gcp_errors.begin(), gcp_errors.end()));
+    double max_gcp = *(std::max_element(gcp_errors.begin(), gcp_errors.end()));
+
+    std::ofstream ostr("test.txt",std::ios::app);
+    double pix_total = 0;
+    for (unsigned i=0; i < pix_errors.size(); ++i) {
+      pix_total += pix_errors[i];
+      ostr << pix_errors[i] << " ";
+    }
+    ostr << "\n";
+    ostr.close(); 
+
+    double cam_position_total = 0;
+    for (unsigned i=0; i < camera_position_errors.size(); ++i) {
+      cam_position_total += camera_position_errors[i];
+    }
+
+    double cam_pose_total = 0;
+    for (unsigned i=0; i < camera_pose_errors.size(); ++i) {
+      cam_pose_total += camera_pose_errors[i];
+    }
+
+    double gcp_total = 0;
+    for (unsigned i=0; i < gcp_errors.size(); ++i) {
+      gcp_total += gcp_errors[i];
+    }
+
+    std::sort(pix_errors.begin(), pix_errors.end());
+    double pix_median = pix_errors[pix_errors.size()/2];
+
+    std::sort(camera_position_errors.begin(), camera_position_errors.end());
+    double cam_position_median = camera_position_errors[camera_position_errors.size()/2];
+
+    std::sort(camera_pose_errors.begin(), camera_pose_errors.end());
+    double cam_pose_median = camera_pose_errors[camera_pose_errors.size()/2];
+
+    std::cout << "\n\t\t\t\t\t\t\t\t\t\t   Pixel: " << pix_total/m_num_pixel_observations << " [" << min_pix << " " << pix_median << " " << max_pix << "]  ";
+    if (m_network.num_ground_control_points() == 0) 
+      std::cout << "  GCP: n/a";
+    else 
+      std::cout << "  GCP: " << gcp_total/m_network.num_ground_control_points();
+    std::cout << "\n\t\t\t\t\t\t\t\t\t\t   Cam Position: " << cam_position_total/a.size() << " [" << min_cam_position << " " << cam_position_median << " " << max_cam_position << "]  "
+              << "   Cam Pose: " << cam_pose_total/a.size() << " [" << min_cam_pose << " " << cam_pose_median << " " << max_cam_pose << "]\n";
 
   }
 
@@ -309,7 +386,7 @@ int main(int argc, char* argv[]) {
   std::vector<boost::shared_ptr<CameraModel> > camera_models(image_files.size());
   for (unsigned i = 0; i < image_files.size(); ++i) {
     read_image_info( image_files[i], image_infos[i] );
-    CAHVORModel* cahvor = new CAHVORModel;
+    CAHVORModel *cahvor = new CAHVORModel;
     *cahvor = rmax_image_camera_model(image_infos[i]);
     camera_models[i] = boost::shared_ptr<CameraModel>(cahvor);
   }
@@ -406,8 +483,7 @@ int main(int argc, char* argv[]) {
         //Writing this iterations point data
         std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
         for (unsigned i = 0; i < ba_model.num_points(); ++i){
-          Vector<double,4> current_point = ba_model.B_parameters(i);
-          current_point /= current_point(3);
+          Vector<double,3> current_point = ba_model.B_parameters(i);
           ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
         }
       }
@@ -427,8 +503,7 @@ int main(int argc, char* argv[]) {
         std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
 	std::ofstream ostr_pixel("iterPixelParam.txt",std::ios::app);
         for (unsigned i = 0; i < ba_model.num_points(); ++i){
-          Vector<double,4> current_point = ba_model.B_parameters(i);
-          current_point /= current_point(3);
+          Vector<double,3> current_point = ba_model.B_parameters(i);
           ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
 
 	  for (unsigned m = 0; m < ba_model.num_observations_of_point(i); ++m){
