@@ -6,7 +6,8 @@
 //Hopefully cut down in some of the organizational mess
 #include "bundlevis.h"
 
-#define line_length 1.0f
+#define LINE_LENGTH 1.0f
+#define PROGRAM_NAME "Bundlevis v1.1"
 
 /************************************************
 * Constructor for PointInTime                   *
@@ -81,6 +82,36 @@ osg::Node* PointInTime::getTextGraphic(){
 
   return at;
 
+}
+
+/********************************************************************
+* addImageMeasure                                                   *
+*  This will add a image measurement for this point in time. The    *
+*  first input variable j is defining which camera measured this    *
+*  point. The second and third is the x and y of the image measure. *
+********************************************************************/
+void PointInTime::addImageMeasure(const int& j, const float& x, const float& y){
+  
+  //Is image_measures even big enough for camera j?
+  if ( j >= image_measures_.size() ){
+    image_measures_.resize(j+1,NULL);
+
+    //DEBUG
+    //std::cout << "resized\n";
+  }
+
+  //DEBUG
+  //std::cout << "inst pnt: " << j << " size: " << image_measures_.size() << std::endl;
+
+  image_measures_.at(j) = new osg::Vec2f(x,y);
+}
+
+/********************************************************************
+* getImageMeasures                                                  *
+*  This just pulls that vector safely out of the class.             *
+********************************************************************/
+const std::vector<osg::Vec2f*>& PointInTime::getImageMeasures(){
+  return image_measures_;
 }
 
 /*******************************************
@@ -246,7 +277,7 @@ osg::Group* PointString(std::vector<PointInTime* >* pointData){
   }
 
   //I'm going to put a select cube only on the last point drawn
-  entire_pointString->addChild(pointData->at(pointData->size() - 1)->getSelectCube(line_length/4.0f));
+  entire_pointString->addChild(pointData->at(pointData->size() - 1)->getSelectCube(LINE_LENGTH/4.0f));
 
   osg::Geode* bumpyLine = new osg::Geode();
   bumpyLine->setName("BumpyLine for cool effect");
@@ -301,7 +332,7 @@ osg::Group* CameraString (std::vector<CameraInTime* >* cameraData){
     colours->push_back(osg::Vec4f( ((float)j + 1)/(float)cameraData->size() , ((float)j + 1)/(float)cameraData->size() , 1.0f, ((float)j + 1)/(float)cameraData->size()));
 
     //I'm also going to put on the reference frame as well
-    entire_cameraString->addChild(cameraData->at(j)->get3Axis(line_length, ((float)j + 1)/(float)cameraData->size()));
+    entire_cameraString->addChild(cameraData->at(j)->get3Axis(LINE_LENGTH, ((float)j + 1)/(float)cameraData->size()));
 
     //TODO: Someday in the future I'd like to have line length be an
     //option that can be brought up and set from the command line.
@@ -309,7 +340,7 @@ osg::Group* CameraString (std::vector<CameraInTime* >* cameraData){
 
   //I'm going to put a select cube only on the last camera instance
   //drawn. Which should be the latest time plotted.
-  entire_cameraString->addChild(cameraData->at(cameraData->size() - 1)->getSelectCube(line_length/2.0f));
+  entire_cameraString->addChild(cameraData->at(cameraData->size() - 1)->getSelectCube(LINE_LENGTH/2.0f));
 
   //Drawing a text spot at the end
   entire_cameraString->addChild(cameraData->at(cameraData->size() - 1)->getTextGraphic());
@@ -494,6 +525,98 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile){
   return cameraData;
 }
 
+/****************************************************************************
+* loadPixelData                                                             *
+*  This will load pixel information data. It's not stored in it's own unique*
+*  spot, it is instead appended to the points data. Hopefully this is more  *
+*  organized in a way. So, becuase of the previous statement, the pointData *
+*  is required as an input requirement.                                     *
+****************************************************************************/
+void loadPixelData(std::string pxlFile, std::vector<std::vector<PointInTime*>*>* pointData){
+  
+  //Like the rest, the first step is to determine how many lines in the file
+  std::ifstream iFile(pxlFile.c_str(), std::ios::in);
+  int numLines = 0;
+  int numCameras = 0;
+  int numPoints = 0;
+  char c;
+  while (!iFile.eof()){
+    c=iFile.get();
+    if (c == '\n'){
+      int buffer;
+      numLines++;
+      iFile >> buffer;
+      if (buffer > numPoints)
+	numPoints = buffer;
+      iFile >> buffer;
+      if (buffer > numCameras)
+	numCameras = buffer;
+    }
+  }
+  numPoints++;
+  numCameras++;
+
+  std::cout << "The number of lines: " << numLines << " Num of Cameras: " << numCameras << " Num of Points: " << numPoints << std::endl;
+
+  //Now some checks to see if this data really belongs with the pointData
+  if (numPoints != pointData->size()){
+    std::cout << "Pixel Iteration Data does not match Point Iteration Data\n";
+    return;
+  } else if (numLines%pointData->at(0)->size()){
+    std::cout << "Pixel Iteration Data does not have the same number of time iterations as Point Iteration Data\n";
+    return;
+  }
+
+  //Reset the file reading to the front
+  iFile.clear();
+  iFile.seekg(0);
+
+  //Now I'm actually going to parse the data
+  {
+    std::vector<int> location;
+    std::vector<float> data;
+    float buffer;
+    int previous_point = 0;
+    int time_iteration = 0;
+    
+    //Priming the read
+    iFile >> buffer;
+
+    while (!iFile.eof()){
+
+      //Reading in one line at a time
+      location.push_back((int)buffer);
+      iFile >> buffer;
+      location.push_back((int)buffer);
+      iFile >> buffer;
+      data.push_back(buffer);
+      iFile >> buffer;
+      data.push_back(buffer);
+
+      //Setting up for the next read around
+      iFile >> buffer;
+
+      //Checking which time iteration this is
+      if (previous_point > location[0])
+	time_iteration++;
+
+      //DEBUGGING
+      //std::cout << location[0] << " " << location[1] << " " << data[0] << " " << data[1] << " " << time_iteration << std::endl;
+      //std::cout << "pointData size: " << pointData->size() << std::endl;
+      //std::cout << "pointData[] size: " << pointData->at(location[0])->size() << std::endl;
+
+      //Saving the data
+      pointData->at(location[0])->at(time_iteration)->addImageMeasure(location[1],data[0],data[1]);
+      
+      //Closing changes
+      previous_point = location[0];
+      data.clear();
+      location.clear();
+    }
+  }
+
+}
+
 /********************************************************************
 * createHUD                                                         *
 *  This function creates the HUD of the screen. The passed          *
@@ -526,7 +649,7 @@ osg::Node* createHUD(osgText::Text* updateText){
   updateText->setCharacterSize(20.0);
   updateText->setFont(arialFont);
   updateText->setColor(osg::Vec4(1.0f,1.0f,1.0f,1.0f));
-  updateText->setText("Bundlevis v1.1");
+  updateText->setText(PROGRAM_NAME);
   updateText->setPosition(osg::Vec3(50.0f,200.0f,0.0f));
   updateText->setDataVariance(osg::Object::DYNAMIC);
 
@@ -908,6 +1031,8 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
 
 	  camera_->setCenter(*(cameraData_->at(item_identity)->at(time_stamp)->getCenter()));
 
+	  std::cout << "Searching ... ";
+
 	  //Also when they click we'll set what lines are currently on
 	  SwitchNamedNodes finder;
 	  for (int p = 0; p < (*cnet_).size(); ++p){
@@ -920,9 +1045,14 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
 
 		finder.addNameToFind(os.str());
 
+		//Additional test code:
+		//std::cout << "Image description: " << (*cnet_)[p][m].description() << std::endl;
+
 	      }
 	    }
 	  }
+
+	  std::cout << "Done\n";
 
 	  finder.apply(*(root_.get()->getChild(0)));
 
@@ -953,7 +1083,7 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
 	int item_identity = std::atoi(data[1].c_str());
 	int time_stamp = std::atoi(data[3].c_str());
 
-	if (item_identity >= cameraData_->size()){         //It must be a point
+	if (data[0] == "Point:"){
 
 	  debug << "In Images: ";
 	  for (int i = 0; i < (*cnet_)[item_identity].size(); ++i){
@@ -971,7 +1101,7 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
   }
   
   if (itemFound != ""){
-    //itemFound = "Bundlevis v1.1";
+    //itemFound = PROGRAM_NAME;
     setLabel(itemFound);
   } 
 }
@@ -985,6 +1115,7 @@ int main(int argc, char* argv[]){
   //Variables to be used later in this section
   std::string camera_iter_file;
   std::string points_iter_file;
+  std::string pixel_iter_file;
   std::string control_net_file;
   std::vector<std::vector<PointInTime*>*>* pointData;
   std::vector<std::vector<CameraInTime*>*>* cameraData;
@@ -1001,7 +1132,9 @@ int main(int argc, char* argv[]){
   general_options.add_options()
     ("camera-iteration-file,c",po::value<std::string>(&camera_iter_file),"Load the camera parameters for each iteration from a file")
     ("points-iteration-file,p",po::value<std::string>(&points_iter_file),"Load the 3d points parameters for each iteration from a file")
+    ("pixel-iteration-file,x",po::value<std::string>(&pixel_iter_file),"Loads the pixel information data. Allowing for an illustration of the pixel data over time")
     ("control-network-file,n",po::value<std::string>(&control_net_file),"Loads the control network for point and camera relationship status. Camera and Point Iteration data is need before a control network file can be used.")
+    ("windowed","Sets the Bundlevis to be rendered in a window")
     ("help","Display this help message");
 
   po::variables_map vm;
@@ -1049,6 +1182,17 @@ int main(int argc, char* argv[]){
   }
 
   //////////////////////////////////////////////////////////
+  //Loading up pixel iteration data
+  if (vm.count("pixel-iteration-file") && vm.count("points-iteration-file")){
+    
+    std::cout << "Loading Pixel Iteration File: " << pixel_iter_file << "\n";
+
+    //Storing pixel data inside camera data
+    loadPixelData( pixel_iter_file, pointData );
+
+  }
+
+  //////////////////////////////////////////////////////////
   //Loading the control network
   if (vm.count("control-network-file") && (pointData) && (cameraData)){
 
@@ -1079,7 +1223,37 @@ int main(int argc, char* argv[]){
   root->addChild(sceneSeq.get());
 
   //////////////////////////////////////////////////////////
+  //Setting up window if requested
+  if ( vm.count( "windowed" ) ){
+    std::cout << "Building Window\n";
+    
+    osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+    traits->x = 0;
+    traits->y = 0;
+    traits->width = 1024;
+    traits->height = 768;
+    traits->windowDecoration = true;
+    traits->doubleBuffer = true;
+    traits->sharedContext = 0;
+    traits->windowName = PROGRAM_NAME;
+    traits->vsync = true;
+    traits->useMultiThreadedOpenGLEngine = true;
+
+    osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+
+    osg::ref_ptr<osg::Camera> camera = new osg::Camera;
+    camera->setGraphicsContext(gc.get());
+    camera->setViewport(new osg::Viewport(0,0, traits->width, traits->height));
+    GLenum buffer = traits->doubleBuffer ? GL_BACK : GL_FRONT;
+    camera->setDrawBuffer(buffer);
+    camera->setReadBuffer(buffer);
+
+    viewer.addSlave(camera.get());
+  }  
+
+  //////////////////////////////////////////////////////////
   //Adding HUD and setting up to draw the whole scene
+  std::cout << "Building HUD\n";
   root->addChild(createHUD(updateText.get()));
   osgGA::TrackballManipulator* camera = new osgGA::TrackballManipulator();
   viewer.setCameraManipulator(camera);

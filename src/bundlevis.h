@@ -52,11 +52,14 @@ class PointInTime {
   const std::string getDescription(){
     return description_;
   }
+  void addImageMeasure(const int& j, const float& x, const float& y);
+  const std::vector<osg::Vec2f*>& getImageMeasures();
  protected:
   osg::Vec3f location_;
   std::string description_;
   int pointID_;
   int iteration_;
+  std::vector<osg::Vec2f*> image_measures_;
 };
 
 //CAMERA_IN_TIME CLASS
@@ -89,53 +92,6 @@ class CameraInTime {
   int iteration_;
 };
 
-//DISPLAY CONTROL
-//This is a class that contains pointers to all the data that can go
-//up on the screen. The point of this is to allow for easier
-//manipulation of the data along with possible easier reading within the
-//event handler.
-class DisplayControl{
- public:
-  //Constructor & Deconstructor
-  DisplayControl();
-  ~DisplayControl();
-  //More interesting Stuff
-  void setSequences(std::vector<osg::Sequence*>* sequences){
-    sequences_ = sequences;
-  }
-  void setUpdateText(osgText::Text* updateText){
-    updateText_ = updateText;
-  }
-  void setCamera(osgGA::TrackballManipulator* camera){
-    camera_ = camera;
-  }
-  void setPointData(std::vector<std::vector<PointInTime*>*>* pointData){
-    pointData_ = pointData;
-  }
-  void setCameraData(std::vector<std::vector<CameraInTime*>*>* cameraData){
-    cameraData_ = cameraData;
-  }
-  void setControlNetwork(vw::camera::ControlNetwork* cnet){
-    cnet_ = cnet;
-  }
-  void setPointOverlay(std::vector<osg::Sequence*>* pointOverlay){
-    pointOverlay_ = pointOverlay;
-  }
-  void setCameraOverlay(std::vector<osg::Sequence*>* cameraOverlay){
-    cameraOverlay_ = cameraOverlay;
-  }
-  void setSeqFrames(const int& frame);
- protected:
-  std::vector<osg::Sequence*>* sequences_;
-  osg::ref_ptr<osgText::Text> updateText_;
-  osgGA::TrackballManipulator* camera_;
-  std::vector<std::vector<PointInTime*>*>* pointData_;
-  std::vector<std::vector<CameraInTime*>*>* cameraData_;
-  vw::camera::ControlNetwork* cnet_;
-  std::vector<osg::Sequence*>* pointOverlay_;
-  std::vector<osg::Sequence*>* cameraOverlay_;
-};
-
 //This function will draw an entire group using the points in time
 //provide, to create selectable points with fading lines connecting all
 //of them.
@@ -158,6 +114,12 @@ std::vector<std::vector<PointInTime*>*>* loadPointsData(std::string pntFile);
 //for each time iteration. The lowest level is the CameraInTime class
 //which contains that instance's data.
 std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile);
+
+//This will load pixel information data. It's not stored in it's own unique
+//spot, it is instead appended to the points data. Hopefully this is more
+//organized in a way. So, becuase of the previous statement, the pointData
+//is required as an input requirement.
+void loadPixelData(std::string pxlFile, std::vector<std::vector<PointInTime*>*>* pointData);
 
 //This function creates the HUD of the screen. The passed pointer to
 //text, is the text label that keeps changing based on what the user has
