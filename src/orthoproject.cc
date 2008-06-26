@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
     ("ppd", po::value<double>(&ppd), "Specify the output resolution of the orthoimage in pixels per degree.")
     ("missing-pixel", po::value<double>(&missing_pixel_value)->default_value(-6000), "Specify the pixel used in this DEM to denote missing data.")
     ("match-dem,m", "Match the georeferencing parameters and dimensions of the input DEM.")
-    ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
+    ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
     ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)");
 
@@ -272,8 +272,4 @@ int main(int argc, char* argv[]) {
                               TerminalProgressCallback() );
   }
 
-  DiskImageView<PixelMask<PixelGray<uint8> > > testing("test2.tif");
-  ImageView<PixelGrayA<uint8> > testing2 = testing;
-  write_image("test3.tif", testing2, TerminalProgressCallback());
-  write_image("test4.tif", testing, TerminalProgressCallback());
 }
