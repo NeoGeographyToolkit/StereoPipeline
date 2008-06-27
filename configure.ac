@@ -252,15 +252,16 @@ AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -l
 AX_PKG(MBA, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
-AX_PKG(QT_CORE, [], [-lQtCore], [QVector], [QtCore])
-AX_PKG(QT_GUI, [], [-lQtGui], [QLabel], [QtGui])
+AX_PKG(QT_INCLUDE, [], [], [QtCore/Qvector])
+AX_PKG(QT_CORE, [QT_INCLUDE], [-lQtCore], [QVector], [QtCore])
+AX_PKG(QT_GUI, [QT_INCLUDE], [-lQtGui], [QLabel], [QtGui])
+AX_PKG(QT_SQL, [QT_INCLUDE], [-lQtSql], [QtSql],[QtSql])
 
-AX_PKG(QT_SQL, [], [-lQtSql], [QtSql],[QtSql])
 AX_PKG(ISIS3RDPARTY, [], [-lgeos -lxerces-c -lgsl -lgslcblas -lqwt -lstdc++])
 AX_PKG(ISIS, [QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
 
 dnl AX_PKG(SPICE, [], [-lcspice -lcsupport], [SpiceUsr.h SpiceZfc.h])
-dnl AX_PKG(QT_CORE, [], [-lQtCore], [QVector], [QtCore])
+dnl AX_PKG(QT_CORE, [], [-lQtCore], [QVector], [QtCore QtCore])
 dnl AX_PKG(QT_GUI, [], [-lQtGui], [QLabel], [QtGui])
 dnl AX_PKG(QT_NETWORK, [], [-lQtNetwork], [], [QtNetwork])
 dnl AX_PKG(QT_SQL, [], [-lQtSql], [], [QtSql])
