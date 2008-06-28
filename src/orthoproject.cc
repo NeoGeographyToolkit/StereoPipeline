@@ -124,6 +124,7 @@ int main(int argc, char* argv[]) {
   double mpp;
   double ppd;
   double missing_pixel_value;
+  float lo = 0, hi = 0;
 
   po::options_description visible_options("Options");
   visible_options.add_options()
@@ -132,6 +133,8 @@ int main(int argc, char* argv[]) {
     ("ppd", po::value<double>(&ppd), "Specify the output resolution of the orthoimage in pixels per degree.")
     ("missing-pixel", po::value<double>(&missing_pixel_value)->default_value(-6000), "Specify the pixel used in this DEM to denote missing data.")
     ("match-dem,m", "Match the georeferencing parameters and dimensions of the input DEM.")
+    ("min", po::value<float>(&lo), "Explicitly specify the range of the normalization (for ISIS images only).")
+    ("max", po::value<float>(&hi), "Explicitly specify the range of the normalization (for ISIS images only).")
     ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
     ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)");
@@ -211,9 +214,12 @@ int main(int argc, char* argv[]) {
   // ISIS cubes need to be normalized because their pixels are often
   // photometrically calibrated.
   if (stereo_session_string == "isis") {
-    float lo, hi;
-    isis_min_max_channel_values(float_texture_disk_image, lo, hi);
-    vw_out(InfoMessage) << "Normalizing ISIS Pixel Range: [" << lo << " " << hi << "]    " << std::flush;
+    if (lo == 0 && hi == 0) { 
+      isis_min_max_channel_values(float_texture_disk_image, lo, hi);
+      std::cout << "\t--> Normalizing ISIS pixel range range: [" << lo << "  " << hi << "]\n"; 
+    } else {
+      std::cout << "\t--> Using user-specified normalization range: [" << lo << "  " << hi << "]\n";
+    }
     texture_image = channel_cast_rescale<uint8>(normalize_retain_alpha(remove_isis_special_pixels(float_texture_disk_image, PixelGrayA<float>(lo)), lo, hi, 0, 1.0));
   }
 
@@ -261,15 +267,17 @@ int main(int argc, char* argv[]) {
                                                                   output_width, output_height);
     GeoTransform trans(dem_georef, output_georef);
     ImageViewRef<PixelMask<PixelGray<float> > > output_dem = crop(transform(dem, trans, 
-                                                                ZeroEdgeExtension(), 
-                                                                BilinearInterpolation()),
-                                                      BBox2i(0,0,output_width,output_height));
-    write_georeferenced_image(output_file, 
-                              orthoproject(output_dem, output_georef, 
-                                           texture_image, camera_model, 
-                                           BilinearInterpolation(), ZeroEdgeExtension()),
-                              output_georef,
-                              TerminalProgressCallback() );
-  }
+                                                                            ZeroEdgeExtension(), 
+                                                                            BilinearInterpolation()),
+                                                                  BBox2i(0,0,output_width,output_height));
+    
+    ImageViewRef<PixelGrayA<uint8> > final_result = orthoproject(output_dem, output_georef, 
+                                                                 texture_image, camera_model, 
+                                                                 BilinearInterpolation(), ZeroEdgeExtension());
 
+    DiskImageResourceGDAL rsrc(output_file, final_result.format());
+    rsrc.set_native_block_size(Vector2i(1024,1024));
+    write_georeference(rsrc, output_georef);
+    write_image(rsrc, final_result, TerminalProgressCallback());
+  }
 }
