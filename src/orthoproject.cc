@@ -63,15 +63,9 @@ GeoReference compute_geotransform_from_camera(ImageViewBase<ViewT> const& view,
 
   // Use a bbox where both the image and the DEM have valid data.
   // Throw an error if there turns out to be no overlap.
-
-
-  /// **** FIXME: We're using the DEM bounding box for now until we
-  /// ****  have a better way of computing the intersection with
-  /// ****  terrain rather than the sheroid...
-  BBox2 bbox = dem_bbox;
-//   BBox2 bbox = image_bbox;
-//   bbox.crop(dem_bbox);
-
+  BBox2 bbox = image_bbox;
+  bbox.crop(dem_bbox);
+ 
   if (bbox.width() == 0 || bbox.height() == 0) {
     std::cout << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
     exit(0);
@@ -104,8 +98,12 @@ GeoReference compute_geotransform_from_camera(ImageViewBase<ViewT> const& view,
 
   // Compute the width and height of the output image so that it
   // contains the entirety of the computed bounding box.
-  output_width = (bbox.max().x() - bbox.min().x()) / projected_space_scale;
-  output_height = (bbox.max().y() - bbox.min().y()) / projected_space_scale;
+
+  //***** FIXME: This seems backwards to me, which probably means that
+  //***** lonlat_bounding_box() is backwards, but I need to get this
+  //***** to work right now so I'll investigate later.
+  output_height = (bbox.max().x() - bbox.min().x()) / projected_space_scale;
+  output_width = (bbox.max().y() - bbox.min().y()) / projected_space_scale;
 
   return geo;
 }
