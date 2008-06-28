@@ -63,8 +63,15 @@ GeoReference compute_geotransform_from_camera(ImageViewBase<ViewT> const& view,
 
   // Use a bbox where both the image and the DEM have valid data.
   // Throw an error if there turns out to be no overlap.
-  BBox2 bbox = image_bbox;
-  bbox.crop(dem_bbox);
+
+
+  /// **** FIXME: We're using the DEM bounding box for now until we
+  /// ****  have a better way of computing the intersection with
+  /// ****  terrain rather than the sheroid...
+  BBox2 bbox = dem_bbox;
+//   BBox2 bbox = image_bbox;
+//   bbox.crop(dem_bbox);
+
   if (bbox.width() == 0 || bbox.height() == 0) {
     std::cout << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
     exit(0);
@@ -247,7 +254,6 @@ int main(int argc, char* argv[]) {
   }
 
   vw_out(0) << "\nOrthoprojecting:\n";
-
   // If the user has specified that we match the georeferencing
   // parameters of the DEM, we use the DEM's georef as the output
   // georef.  Otherwise we compute one of our own that contains the
