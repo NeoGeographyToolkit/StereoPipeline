@@ -131,6 +131,12 @@ if MAKE_APP_BUNDLEVIS
   bundlevis_LDFLAGS = $(APP_BUNDLEVIS_LIBS) $(ASP_LDFLAGS)
 endif
 
+if MAKE_APP_POINT2MESH2
+  bin_PROGRAMS += point2mesh2
+  point2mesh2_SOURCES = point2mesh2.cc
+  point2mesh2_LDFLAGS = $(APP_POINT2MESH2_LIBS) $(ASP_LDFLAGS)
+endif
+
 if MAKE_APP_ORTHOPROJECT
   bin_PROGRAMS += orthoproject
   orthoproject_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
