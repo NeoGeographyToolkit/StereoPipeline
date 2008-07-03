@@ -117,7 +117,7 @@ const std::vector<osg::Vec2f*>& PointInTime::getImageMeasures(){
 /*******************************************
 * Constructor for CameraInTime             *
 *******************************************/
-CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num){
+CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num, osg::Image* imageData){
   //It assumed that I have been given a good Vec3Array which is arranged in CAHVOR
   c_ = (*model_param)[0];
   a_ = (*model_param)[1];
@@ -130,8 +130,9 @@ CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const
 
   std::ostringstream os;
   os << "Camera: " << cameraNum_ << " @Time: " << iteration_;
-
   description_ = os.str();
+
+  imageData_ = imageData;
 }
 
 /***************************************************************************
@@ -246,6 +247,11 @@ osg::Node* CameraInTime::getTextGraphic(){
 
   return at;
 
+}
+
+//This just allows the use to pull the image belonging to this camera node
+osg::Image* CameraInTime::getImage( void ) {
+  return imageData_.get();
 }
 
 /**************************************************************************
@@ -446,7 +452,7 @@ std::vector<std::vector<PointInTime*>*>* loadPointsData(std::string pntFile){
 *  for each time iteration. The lowest level is the CameraInTime class       *
 *  which contains that instance's data.                                      *
 *****************************************************************************/
-std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile){
+std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , std::string prefix , std::string postfix){
   
   //First step is to determine the number of lines in the file
   std::ifstream iFile(camFile.c_str(), std::ios::in);
@@ -483,6 +489,27 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile){
   //is laid out in the form of the organization found in the input
   //file.
 
+  //Loading up image data
+  std::vector<osg::ref_ptr<osg::Image> > ImageList;
+  for(int j = 0; j < numCameras; ++j){
+    std::ostringstream os;
+    
+    os << prefix << std::setw(2) << std::setfill('0') << (j+1) << postfix;
+
+    std::cout << "Loading: " << os.str() << std::endl;
+
+    ImageList.push_back(osgDB::readImageFile(os.str()));
+
+    if (!ImageList.end()->valid()){
+      std::cout << "This is invalid" << std::endl;
+    }
+
+  }
+  //A test check
+  if (ImageList.size() != numCameras){
+    std::cout << "Image Loading didn't load enough for all cameras!\n";
+  }
+
   //For every time iteration
   for(int t = 0; t < numTimeIter; ++t){
     for(int j = 0; j < numCameras; ++j){
@@ -513,7 +540,7 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile){
       }
       
       //Now saving the camera data into the large memory organization
-      cameraData->at(j)->at(t) = new CameraInTime(array_fill_buffer, j, t);
+      cameraData->at(j)->at(t) = new CameraInTime(array_fill_buffer, j, t, ImageList[j].get());
 
       //Clearing it on the back end so I can fill it again
       array_fill_buffer->clear();
@@ -623,35 +650,77 @@ void loadPixelData(std::string pxlFile, std::vector<std::vector<PointInTime*>*>*
 *  pointer to text, is the text label that keeps changing based on  *
 *  what the user has selected.                                      *
 ********************************************************************/
-osg::Node* createHUD(osgText::Text* updateText){
+osg::Node* createHUD(osgText::Text* updateText, osg::Texture2D* texture){
+
   osg::Camera* hudCamera = new osg::Camera;
   hudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
   hudCamera->setProjectionMatrixAsOrtho2D(0,1280,0,1024);
   hudCamera->setViewMatrix(osg::Matrix::identity());
-  hudCamera->setRenderOrder(osg::Camera::POST_RENDER);
+  //  hudCamera->setRenderOrder(osg::Camera::NESTED_RENDER,1);
   hudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
 
-  std::string arialFont("fonts/arial.ttf");
+  //Traditional lower_left.
+  {
+    std::string arialFont("fonts/arial.ttf");
+    
+    std::cout << "Running that spot in HUD\n";
 
-  //Turning off lighting and depth testing so the text is always in view
+    //Setting up label at bottom of the screen
+    osg::Geode* geode = new osg::Geode();
+    geode->setName("HUD: The text label of selected part");
+    geode->addDrawable(updateText);
+    hudCamera->addChild(geode);
 
-  //Setting up label at bottom of the screen
-  osg::Geode* geode = new osg::Geode();
-  osg::StateSet* stateSet = new osg::StateSet();
-  stateSet->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
-  stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-  geode->setName("The text label of selected part");
-  geode->addDrawable(updateText);
-  geode->setStateSet(stateSet);
-  hudCamera->addChild(geode);
+    //Setting up some of the text properties
+    updateText->setCharacterSize(20.0);
+    updateText->setFont(arialFont);
+    updateText->setColor(osg::Vec4(1.0f,1.0f,1.0f,0.0f));
+    updateText->setText(PROGRAM_NAME);
+    updateText->setPosition(osg::Vec3(50.0f,100.0f,0.0f));
+    updateText->setDataVariance(osg::Object::DYNAMIC);
+  }
 
-  //Setting up some of the text properties
-  updateText->setCharacterSize(20.0);
-  updateText->setFont(arialFont);
-  updateText->setColor(osg::Vec4(1.0f,1.0f,1.0f,1.0f));
-  updateText->setText(PROGRAM_NAME);
-  updateText->setPosition(osg::Vec3(50.0f,200.0f,0.0f));
-  updateText->setDataVariance(osg::Object::DYNAMIC);
+  //Viewer, top right
+  if (texture){
+    osg::Geode* geode = new osg::Geode();
+    geode->setName("HUD: Top Right Viewer");
+    
+    osg::Vec3Array* vertices = new osg::Vec3Array();
+    vertices->push_back(osg::Vec3f(1280,1024,0));
+    vertices->push_back(osg::Vec3f(1280,724,0));
+    vertices->push_back(osg::Vec3f(980,724,0));
+    vertices->push_back(osg::Vec3f(980,1024,0));
+
+    osg::Vec4Array* colour = new osg::Vec4Array();
+    colour->push_back(osg::Vec4f(1.0f,1.0f,1.0f,1.0f));
+
+    osg::Vec2Array* texcoords = new osg::Vec2Array();
+    texcoords->push_back(osg::Vec2f(1.0f,1.0f));
+    texcoords->push_back(osg::Vec2f(1.0f,0.0f));
+    texcoords->push_back(osg::Vec2f(0.0f,0.0f));
+    texcoords->push_back(osg::Vec2f(0.0f,1.0f));
+
+    osg::Geometry* geometry = new osg::Geometry();
+    geometry->setVertexArray(vertices);
+    geometry->setColorArray(colour);
+    geometry->setColorBinding(osg::Geometry::BIND_OVERALL);
+    geometry->setTexCoordArray(0,texcoords);
+    geometry->addPrimitiveSet(new osg::DrawArrays(GL_QUADS,0,4));
+        
+    // setting up the texture state
+    texture->setDataVariance(osg::Object::DYNAMIC);
+    texture->setFilter(osg::Texture2D::MIN_FILTER,osg::Texture2D::LINEAR);
+    texture->setFilter(osg::Texture2D::MAG_FILTER,osg::Texture2D::LINEAR);
+
+    //State sets
+    osg::StateSet* stateset = geometry->getOrCreateStateSet();
+    stateset->setTextureAttributeAndModes(0,texture,osg::StateAttribute::ON);
+
+    
+
+    geode->addDrawable(geometry);
+    hudCamera->addChild(geode);
+  }
 
   return hudCamera;
 }
@@ -670,28 +739,32 @@ osg::Sequence* createScene(std::vector<std::vector<PointInTime*>*>* pointData, s
   //Creating the first frame which shows all points at all time, along with cameras.
   osg::ref_ptr<osg::Group> firstFrame = new osg::Group();
 
+  std::cout << "Point data's address " << pointData << "\n";
   if (pointData){
-    for (int i = 0; i < pointData->size(); ++i){            //Drawing points
+    for (unsigned int i = 0; i < pointData->size(); ++i){            //Drawing points
       firstFrame->addChild(PointString(pointData->at(i)));
     }
   }
 
+  std::cout << "Camera data's address " << cameraData << "\n";
   if (cameraData){
-    for (int j = 0; j < cameraData->size(); ++j){           //Drawing cameras
+    for (unsigned int j = 0; j < cameraData->size(); ++j){           //Drawing cameras
       firstFrame->addChild(CameraString(cameraData->at(j)));
     }
   }
 
+  std::cout << "Cnet's address " << cnet << "\n";
   if (cnet){
     osg::ref_ptr<osg::Switch> tieSwitch = new osg::Switch();
-    for (int p = 0; p < cnet->size(); ++p){            //Drawing connecting lines
+    tieSwitch->setDataVariance(osg::Object::DYNAMIC);
+    for (unsigned int p = 0; p < cnet->size(); ++p){            //Drawing connecting lines
       //DEBUG
       //std::cout << "Drawing lines for point: " << p << std::endl;
-      for (int m = 0; m < (*cnet)[p].size(); ++m){
+      for (unsigned int m = 0; m < (*cnet)[p].size(); ++m){
 	//DEBUG
 	//std::cout << "Found point " << p << " in image " << m << std::endl;
 	//Hopefully at this time I have found a relations ship between point p, and camera m
-	if ((*cnet)[p][m].image_id() < cameraData->size()){
+	if ((*cnet)[p][m].image_id() < (signed)cameraData->size()){
 	  //Seems legit
 
 	  int camera_id = (*cnet)[p][m].image_id();
@@ -757,7 +830,7 @@ osg::Sequence* createScene(std::vector<std::vector<PointInTime*>*>* pointData, s
     //Drawing point data
     if (pointData){
       std::vector<PointInTime*>* modelsRendered = new std::vector<PointInTime*>;
-      for (int i = 0; i < pointData->size(); ++i){
+      for (unsigned int i = 0; i < pointData->size(); ++i){
 	modelsRendered->clear();
 	
 	for (int k = earliest_time; k <= latest_time; ++k){
@@ -774,7 +847,7 @@ osg::Sequence* createScene(std::vector<std::vector<PointInTime*>*>* pointData, s
     //Drawing camera data
     if (cameraData){
       std::vector<CameraInTime*>* modelsRendered = new std::vector<CameraInTime*>;
-      for (int j = 0; j < cameraData->size(); ++j){
+      for (unsigned int j = 0; j < cameraData->size(); ++j){
 	modelsRendered->clear();
 
 	for (int k = earliest_time; k <= latest_time; ++k){
@@ -792,10 +865,11 @@ osg::Sequence* createScene(std::vector<std::vector<PointInTime*>*>* pointData, s
       //In this section we only draw the latest time stamp. Otherwise
       //the screen would be full of lines.
       osg::ref_ptr<osg::Switch> tieSwitch = new osg::Switch();
-      for (int p = 0; p < cnet->size(); ++p){
-	for(int m = 0; m < (*cnet)[p].size(); ++m){
+      tieSwitch->setDataVariance(osg::Object::DYNAMIC);
+      for (unsigned int p = 0; p < cnet->size(); ++p){
+	for(unsigned int m = 0; m < (*cnet)[p].size(); ++m){
 	  
-	  if ((*cnet)[p][m].image_id() < cameraData->size()){
+	  if ((*cnet)[p][m].image_id() < (signed)cameraData->size()){
 	    
 	    int camera_id = (*cnet)[p][m].image_id();
 
@@ -889,6 +963,8 @@ bool AllEventHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionA
 
 	  seq_->setMode(osg::Sequence::STOP);
 	  seq_->setValue(1);
+
+	  imageTexture_->setImage(NULL);
 
 	break;
       }
@@ -1017,7 +1093,7 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
     std::ostringstream os;
     std::ostringstream debug;
     if (!hitr->nodePath.empty() && !(hitr->nodePath.back()->getName().empty())){
-      os << hitr->nodePath.back()->getName() << std::endl;
+      
 
       //I'm going to move the center
       if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH){
@@ -1028,69 +1104,92 @@ void AllEventHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
 	int time_stamp = std::atoi(data[3].c_str());
 
 	if (data[0] == "Camera:"){
+	  
+	  os << hitr->nodePath.back()->getName() << std::endl;
 
 	  camera_->setCenter(*(cameraData_->at(item_identity)->at(time_stamp)->getCenter()));
 
-	  std::cout << "Searching ... ";
+	  std::cout << "Searching ...\n";
 
-	  //Also when they click we'll set what lines are currently on
-	  SwitchNamedNodes finder;
-	  for (int p = 0; p < (*cnet_).size(); ++p){
-	    for (int m = 0; m < (*cnet_)[p].size(); ++m){
-	      if ((*cnet_)[p][m].image_id() == item_identity){  //We've found a point that was seen by this camera
 
-		std::ostringstream os;
+	  if (cnet_){
+	    //Also when they click we'll set what lines are currently on
+	    SwitchNamedNodes finder;
+	    for (int p = 0; p < (*cnet_).size(); ++p){
+	      for (int m = 0; m < (*cnet_)[p].size(); ++m){
+		if ((*cnet_)[p][m].image_id() == item_identity){  //We've found a point that was seen by this camera
 
-		os << "LINE CAM " << item_identity << " PNT " << p << std::endl;
+		  std::ostringstream os;
 
-		finder.addNameToFind(os.str());
+		  os << "LINE CAM " << item_identity << " PNT " << p << std::endl;
 
-		//Additional test code:
-		//std::cout << "Image description: " << (*cnet_)[p][m].description() << std::endl;
+		  finder.addNameToFind(os.str());
 
+		  //Additional test code:
+		  //std::cout << "Image description: " << (*cnet_)[p][m].description() << std::endl;
+
+		}
 	      }
 	    }
+
+	    finder.apply(*(root_.get()->getChild(0)));
+
+	    std::cout << "Done\n";
 	  }
-
-	  std::cout << "Done\n";
-
-	  finder.apply(*(root_.get()->getChild(0)));
-
+	  
+	  
 	} else if (data[0] == "Point:"){
+	  
+	  os << hitr->nodePath.back()->getName() << std::endl;
 
 	  camera_->setCenter(*(pointData_->at(item_identity)->at(time_stamp)->getCenter()));
 
-	  //Also when they click we'll set what lines are currently on
-	  SwitchNamedNodes finder;
-	  for (int m = 0; m < (*cnet_)[item_identity].size(); ++m){
+	  if (cnet_){
 
-	    std::ostringstream os;
-
-	    os << "LINE CAM " << (*cnet_)[item_identity][m].image_id() << " PNT " << item_identity << std::endl;
-
-	    finder.addNameToFind(os.str());
-
+	    //Also when they click we'll set what lines are currently on
+	    SwitchNamedNodes finder;
+	    for (int m = 0; m < (*cnet_)[item_identity].size(); ++m){
+	      
+	      std::ostringstream os;
+	      
+	      os << "LINE CAM " << (*cnet_)[item_identity][m].image_id() << " PNT " << item_identity << std::endl;
+	      
+	      finder.addNameToFind(os.str());
+	      
+	    }
+	    finder.apply(*(root_.get()->getChild(0))); 
 	  }
 
-	  finder.apply(*(root_.get()->getChild(0))); 
-
-	}
+     	}
 
       } else if (ea.getEventType() == osgGA::GUIEventAdapter::MOVE) {
 	std::string temp = hitr->nodePath.back()->getName();
 	std::vector<std::string> data = tokenize(temp," ");
 
 	int item_identity = std::atoi(data[1].c_str());
-	int time_stamp = std::atoi(data[3].c_str());
+	int time_stamp = std::atoi(data[3].c_str());	
 
 	if (data[0] == "Point:"){
 
-	  debug << "In Images: ";
-	  for (int i = 0; i < (*cnet_)[item_identity].size(); ++i){
-	    debug << (*cnet_)[item_identity][i].image_id() << " ";
+	  os << hitr->nodePath.back()->getName() << std::endl;
+	
+	  if (cnet_){
+	    debug << "In Images: ";
+	    for (int i = 0; i < (*cnet_)[item_identity].size(); ++i){
+	      debug << (*cnet_)[item_identity][i].image_id() << " ";
+	    }
+	    debug << std::endl;
 	  }
-	  debug << std::endl;
 
+	} else if (data[0] == "Camera:"){
+	  //Also if this thing is a camera... change the texture to be it's image
+	  if (imageTexture_.get()){
+	    if (cameraData_->at(item_identity)->at(time_stamp)->getImage()){
+	      imageTexture_->setImage(cameraData_->at(item_identity)->at(time_stamp)->getImage());
+	    } else {
+	      std::cout << "There was no image data attached to this camera";
+	    }
+	  }
 	} 
       }
     }
@@ -1117,14 +1216,17 @@ int main(int argc, char* argv[]){
   std::string points_iter_file;
   std::string pixel_iter_file;
   std::string control_net_file;
-  std::vector<std::vector<PointInTime*>*>* pointData;
-  std::vector<std::vector<CameraInTime*>*>* cameraData;
-  vw::camera::ControlNetwork* cnet;
+  std::string file_prefix;
+  std::string file_postfix;
+  std::vector<std::vector<PointInTime*>*>* pointData = NULL;
+  std::vector<std::vector<CameraInTime*>*>* cameraData = NULL;
+  vw::camera::ControlNetwork* cnet = NULL;;
 
   //OpenSceneGraph Variable which are important overall
   osgViewer::Viewer viewer;
   osg::ref_ptr<osg::Group> root = new osg::Group();
   osg::ref_ptr<osgText::Text> updateText = new osgText::Text;
+  osg::ref_ptr<osg::Texture2D> imageTexture;
 
   //This first half of the program is wholly devoted to setting up boost program options
   //Boost program options code
@@ -1135,6 +1237,8 @@ int main(int argc, char* argv[]){
     ("pixel-iteration-file,x",po::value<std::string>(&pixel_iter_file),"Loads the pixel information data. Allowing for an illustration of the pixel data over time")
     ("control-network-file,n",po::value<std::string>(&control_net_file),"Loads the control network for point and camera relationship status. Camera and Point Iteration data is need before a control network file can be used.")
     ("windowed","Sets the Bundlevis to be rendered in a window")
+    ("prefix",po::value<std::string>(&file_prefix)->default_value("left_"),"Sets the prefix for the image files to be loaded")
+    ("postfix",po::value<std::string>(&file_postfix)->default_value(".png"),"Sets the file extension for the image files to be loaded")
     ("help","Display this help message");
 
   po::variables_map vm;
@@ -1166,7 +1270,7 @@ int main(int argc, char* argv[]){
     std::cout << "Loading Camera Iteration File: " << camera_iter_file << "\n";
 
     //Storing camera data into a large vector
-    cameraData = loadCamerasData( camera_iter_file );
+    cameraData = loadCamerasData( camera_iter_file , file_prefix , file_postfix );
 
   }
 
@@ -1185,6 +1289,12 @@ int main(int argc, char* argv[]){
   //Loading up pixel iteration data
   if (vm.count("pixel-iteration-file") && vm.count("points-iteration-file")){
     
+    imageTexture = new osg::Texture2D;
+    osg::Image* nasaImage = osgDB::readImageFile("nasa-logo.gif");
+    if (!nasaImage->valid())
+      std::cout << "Error loading NASA.gif" << std::endl;
+    imageTexture->setImage(nasaImage);
+
     std::cout << "Loading Pixel Iteration File: " << pixel_iter_file << "\n";
 
     //Storing pixel data inside camera data
@@ -1194,7 +1304,7 @@ int main(int argc, char* argv[]){
 
   //////////////////////////////////////////////////////////
   //Loading the control network
-  if (vm.count("control-network-file") && (pointData) && (cameraData)){
+  if (vm.count("control-network-file") && (pointData->size()) && (cameraData->size())){
 
     cnet = new vw::camera::ControlNetwork("Bundlevis");
     
@@ -1228,16 +1338,18 @@ int main(int argc, char* argv[]){
     std::cout << "Building Window\n";
     
     osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
-    traits->x = 0;
-    traits->y = 0;
-    traits->width = 1024;
-    traits->height = 768;
+    traits->x = 100;
+    traits->y = 100;
+    traits->width = 1280;
+    traits->height = 1024;
     traits->windowDecoration = true;
     traits->doubleBuffer = true;
     traits->sharedContext = 0;
     traits->windowName = PROGRAM_NAME;
     traits->vsync = true;
-    traits->useMultiThreadedOpenGLEngine = true;
+    traits->useMultiThreadedOpenGLEngine = false;
+    traits->supportsResize = true;
+    traits->useCursor = true;
 
     osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
 
@@ -1254,17 +1366,23 @@ int main(int argc, char* argv[]){
   //////////////////////////////////////////////////////////
   //Adding HUD and setting up to draw the whole scene
   std::cout << "Building HUD\n";
-  root->addChild(createHUD(updateText.get()));
+  root->addChild(createHUD(updateText.get(),imageTexture.get()));
   osgGA::TrackballManipulator* camera = new osgGA::TrackballManipulator();
   viewer.setCameraManipulator(camera);
+
+  //////////////////////////////////////////////////////////
+  //Optimizing and attaching scene
+  osgUtil::Optimizer optimizer;
+  optimizer.optimize(root.get());
   viewer.setSceneData(root.get());
-  viewer.addEventHandler(new AllEventHandler(sceneSeq.get(),updateText.get(),camera,pointData,cameraData,cnet,root.get()));
+  viewer.addEventHandler(new AllEventHandler(sceneSeq.get(),updateText.get(),imageTexture.get(),camera,pointData,cameraData,cnet,root.get()));
 
   //Setting up render options for the entire group, as they are not done on a node basis anymore
   osg::StateSet* stateSet = new osg::StateSet();
   stateSet->setMode(GL_BLEND,osg::StateAttribute::ON);
   stateSet->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
   stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+  stateSet->setBinNumber(11);
   root->setStateSet(stateSet);
   
   ///////////////////////////////////////////////////////////
