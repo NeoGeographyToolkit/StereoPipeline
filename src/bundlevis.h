@@ -24,15 +24,19 @@ namespace po = boost::program_options;
 #include <osgText/Text>
 #include <osg/AutoTransform>
 #include <osg/ShapeDrawable>
+#include <osgUtil/Optimizer>
+#include <osg/Texture2D>
 
 //Standard
 #include <stdlib.h>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <vector>
 
 //VisionWorkbench
 #include <vw/Camera/ControlNetwork.h>
+#include <vw/Math.h>
 
 //POINT_IN_TIME CLASS
 //This is a class that holds the position and string tag for a point
@@ -70,7 +74,8 @@ class PointInTime {
 class CameraInTime {
  public:
   //Constructor & Deconstructor
-  CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num);
+  CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num, osg::Image* imageData);
+  CameraInTime(const osg::Vec3f& model_center, const osg::Vec3f& euler, const int& cam_num, const int& iter_num, osg::Image* imageData);
   ~CameraInTime();
   //Useful for drawing
   osg::Geode* get3Axis(const float& size, const float& opacity);
@@ -80,16 +85,20 @@ class CameraInTime {
   const std::string getDescription(){
     return description_;
   }
+  osg::Image* getImage();
  protected:
+  bool isCAHVOR_;
   osg::Vec3f c_;
   osg::Vec3f a_;
   osg::Vec3f h_;
   osg::Vec3f v_;
   osg::Vec3f o_;
   osg::Vec3f r_;
+  osg::Vec3f euler_;
   std::string description_;
   int cameraNum_;
   int iteration_;
+  osg::ref_ptr<osg::Image> imageData_;
 };
 
 //This function will draw an entire group using the points in time
@@ -113,7 +122,7 @@ std::vector<std::vector<PointInTime*>*>* loadPointsData(std::string pntFile);
 //bundle adjustment. The second level vector contains that camera's data
 //for each time iteration. The lowest level is the CameraInTime class
 //which contains that instance's data.
-std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile);
+std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , std::string prefix , std::string postfix);
 
 //This will load pixel information data. It's not stored in it's own unique
 //spot, it is instead appended to the points data. Hopefully this is more
@@ -183,10 +192,11 @@ std::vector<std::string> tokenize(const std::string & str, const std::string & d
 //An event handler for all
 class AllEventHandler : public osgGA::GUIEventHandler{
  public:
-  AllEventHandler(osg::Sequence* seq, osgText::Text* updateText, osgGA::TrackballManipulator* camera, std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet, osg::Group* root)
+  AllEventHandler(osg::Sequence* seq, osgText::Text* updateText, osg::Texture2D* imageTexture, osgGA::TrackballManipulator* camera, std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet, osg::Group* root)
     {
       seq_ = seq;
       updateText_ = updateText;
+      imageTexture_ = imageTexture;
       camera_ = camera;
       pointData_ = pointData;
       cameraData_ = cameraData;
@@ -204,6 +214,7 @@ class AllEventHandler : public osgGA::GUIEventHandler{
  private:
   osg::ref_ptr<osg::Sequence> seq_;
   osg::ref_ptr<osgText::Text> updateText_;
+  osg::ref_ptr<osg::Texture2D> imageTexture_;
   osgGA::TrackballManipulator* camera_;
   std::vector<std::vector<PointInTime*>*>* pointData_;
   std::vector<std::vector<CameraInTime*>*>* cameraData_;

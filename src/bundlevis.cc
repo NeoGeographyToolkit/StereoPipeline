@@ -115,7 +115,7 @@ const std::vector<osg::Vec2f*>& PointInTime::getImageMeasures(){
 }
 
 /*******************************************
-* Constructor for CameraInTime             *
+* Constructor for CameraInTime (is CAHVOR  *
 *******************************************/
 CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num, osg::Image* imageData){
   //It assumed that I have been given a good Vec3Array which is arranged in CAHVOR
@@ -133,6 +133,26 @@ CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const
   description_ = os.str();
 
   imageData_ = imageData;
+
+  isCAHVOR_ = true;
+}
+
+/********************************************
+* Constructor for CameraInTime (is PinHole  *
+********************************************/ 
+CameraInTime::CameraInTime(const osg::Vec3f& model_center, const osg::Vec3f& euler, const int& cam_num, const int& iter_num, osg::Image* imageData){
+  c_ = model_center;
+  euler_ = euler;
+  cameraNum_ = cam_num;
+  iteration_ = iter_num;
+  
+  std::ostringstream os;
+  os << "Camera: " << cameraNum_ << " @Time: " << iteration_;
+  description_ = os.str();
+  
+  imageData_ = imageData;
+
+  isCAHVOR_ = false;
 }
 
 /***************************************************************************
@@ -147,35 +167,93 @@ osg::Geode* CameraInTime::get3Axis(const float& size, const float& opacity){
   //data, while still keeping the original data.
   osg::Vec3f normal;
 
-  //I'm now going to build the vertices required for the 3 axis
-  osg::Vec3Array* lineData = new osg::Vec3Array();
-  lineData->push_back(c_);
-  normal = h_;
-  normal.normalize();
-  lineData->push_back(c_ + normal*size);
-  lineData->push_back(c_);
-  normal = v_;
-  normal.normalize();
-  lineData->push_back(c_ + normal*size);
-  lineData->push_back(c_);
-  normal = a_;
-  normal.normalize();
-  lineData->push_back(c_ + normal*size);
-  the3AxisGeo->setVertexArray(lineData);
+  if (isCAHVOR_){
+    //I'm now going to build the vertices required for the 3 axis
+    osg::Vec3Array* lineData = new osg::Vec3Array();
+    lineData->push_back(c_);
+    normal = h_;
+    normal.normalize();
+    lineData->push_back(c_ + normal*size);
+    lineData->push_back(c_);
+    normal = v_;
+    normal.normalize();
+    lineData->push_back(c_ + normal*size);
+    lineData->push_back(c_);
+    normal = a_;
+    normal.normalize();
+    lineData->push_back(c_ + normal*size);
+    the3AxisGeo->setVertexArray(lineData);
+    
+    //Setting up the color
+    osg::Vec4Array* colours = new osg::Vec4Array();
+    colours->push_back(osg::Vec4(1.0f,0.0f,0.0f,opacity));
+    colours->push_back(osg::Vec4(1.0f,0.0f,0.0f,opacity));
+    colours->push_back(osg::Vec4(0.0f,1.0f,0.0f,opacity));
+    colours->push_back(osg::Vec4(0.0f,1.0f,0.0f,opacity));
+    colours->push_back(osg::Vec4(0.0f,0.0f,1.0f,opacity));
+    colours->push_back(osg::Vec4(0.0f,0.0f,1.0f,opacity));
+    the3AxisGeo->setColorArray(colours);
+    the3AxisGeo->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    
+    //Add the primitve to draw the lines using the vertice array
+    the3AxisGeo->addPrimitiveSet(new osg::DrawArrays(GL_LINES,0,lineData->getNumElements()));
+  } else { //Sounds like we have a pin hole model
+    
+    //I need to make my rotational matrix
+    double ca =  cos(euler_[0]), sa = sin(euler_[0]);
+    double cb =  cos(euler_[1]), sb = sin(euler_[1]);
+    double cc =  cos(euler_[2]), sc = sin(euler_[2]);
+    
+    vw::Matrix<double, 3, 3> rotational;
+    rotational(0,0) = cb*cc;
+    rotational(1,0) = -cb*sc;
+    rotational(2,0) = sb;
+    rotational(0,1) = sa*sb*cc+ca*sc;
+    rotational(1,1) = -sa*sb*sc+ca*cc;
+    rotational(2,1) = -sa*cb;
+    rotational(0,2) = -ca*sb*cc+sa*sc;
+    rotational(1,2) = ca*sb*sc+sa*cc;
+    rotational(2,2) = ca*cb;
+    rotational = transpose(rotational);
 
-  //Setting up the color
-  osg::Vec4Array* colours = new osg::Vec4Array();
-  colours->push_back(osg::Vec4(1.0f,0.0f,0.0f,opacity));
-  colours->push_back(osg::Vec4(1.0f,0.0f,0.0f,opacity));
-  colours->push_back(osg::Vec4(0.0f,1.0f,0.0f,opacity));
-  colours->push_back(osg::Vec4(0.0f,1.0f,0.0f,opacity));
-  colours->push_back(osg::Vec4(0.0f,0.0f,1.0f,opacity));
-  colours->push_back(osg::Vec4(0.0f,0.0f,1.0f,opacity));
-  the3AxisGeo->setColorArray(colours);
-  the3AxisGeo->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    //This matrix take thing in the camera frame and describes them in
+    //the world frame. The rotation matrix these euler angles are
+    //expected to relate to is the Rx'y'z' which is found in Appendix
+    //B of Craig's Introduction to Robotics.
 
-  //Add the primitve to draw the lines using the vertice array
-  the3AxisGeo->addPrimitiveSet(new osg::DrawArrays(GL_LINES,0,lineData->getNumElements()));
+    vw::Vector3 center;
+    center[0] = c_[0];
+    center[1] = c_[1];
+    center[2] = c_[2];
+
+    vw::Vector3 x_axis = center + rotational*vw::Vector3(size, 0, 0);
+    vw::Vector3 y_axis = center + rotational*vw::Vector3(0, size, 0);
+    vw::Vector3 z_axis = center + rotational*vw::Vector3(0, 0, size);
+
+    //Now drawing data
+    osg::Vec3Array* lineData = new osg::Vec3Array();
+    lineData->push_back(osg::Vec3f(center[0],center[1],center[2]));
+    lineData->push_back(osg::Vec3f(x_axis[0],x_axis[1],x_axis[2]));
+    lineData->push_back(osg::Vec3f(center[0],center[1],center[2]));
+    lineData->push_back(osg::Vec3f(y_axis[0],y_axis[1],y_axis[2]));
+    lineData->push_back(osg::Vec3f(center[0],center[1],center[2]));
+    lineData->push_back(osg::Vec3f(z_axis[0],z_axis[1],z_axis[2]));
+    the3AxisGeo->setVertexArray(lineData);
+    
+    //Setting up the color
+    osg::Vec4Array* colours = new osg::Vec4Array();
+    colours->push_back(osg::Vec4(1.0f,0.0f,0.0f,opacity));
+    colours->push_back(osg::Vec4(1.0f,0.0f,0.0f,opacity));
+    colours->push_back(osg::Vec4(0.0f,1.0f,0.0f,opacity));
+    colours->push_back(osg::Vec4(0.0f,1.0f,0.0f,opacity));
+    colours->push_back(osg::Vec4(0.0f,0.0f,1.0f,opacity));
+    colours->push_back(osg::Vec4(0.0f,0.0f,1.0f,opacity));
+    the3AxisGeo->setColorArray(colours);
+    the3AxisGeo->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    
+    //Add the primitve to draw the lines using the vertice array
+    the3AxisGeo->addPrimitiveSet(new osg::DrawArrays(GL_LINES,0,lineData->getNumElements()));
+  }
 
   //Setting up some of the state properties, so it will look correct
   osg::StateSet* stateSet = new osg::StateSet();
@@ -459,7 +537,10 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , 
   int numLines = 0;           //Number of lines in the file
   int numCameras = 0;         //Number of cameras per iteration
   int numTimeIter = 0;        //Number of iterations
+  int numCameraParam = 0;     //Number of lines given to describe a camera
   char c;
+  int counts = 0;
+  int last_camera = 2000;
   while (!iFile.eof()){
     c=iFile.get();
     if (c == '\n'){
@@ -468,12 +549,20 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , 
       iFile >> buffer;
       if (buffer > numCameras)
 	numCameras = buffer;
+      if (buffer != last_camera){
+	last_camera = buffer;
+	counts = 0;
+      } else {
+	counts++;
+      }
+      if (counts > numCameraParam)
+	numCameraParam = counts;
     }
   }
   numCameras++;
-  numTimeIter=numLines/(numCameras*6);
+  numTimeIter=numLines/(numCameras*numCameraParam);
 
-  std::cout << "The number of lines: " << numLines << " Num of Cameras: " << numCameras << std::endl;
+  std::cout << "The number of lines: " << numLines << " Num of Cameras: " << numCameras << " Num Lines per Camera: " << numCameraParam << std::endl;
 
   //Reset the file reading to the front
   iFile.clear();
@@ -517,33 +606,65 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , 
       osg::Vec3f vec_fill_buffer;
       osg::Vec3Array* array_fill_buffer = new osg::Vec3Array();
       
-      //Working through loading up the CAHVOR model
-      for (int p = 0; p < 6; ++p){
+      if (numCameraParam == 6) {      //THIS IS A CAHVOR Camera Parameters that we are loading in
 	
-	iFile >> float_fill_buffer;     //This first one is the camera
-					//number
+	//Working through loading up the CAHVOR model
+	for (int p = 0; p < 6; ++p){
+	  
+	  iFile >> float_fill_buffer;     //This first one is the camera
+	                                  //number
+	  if (float_fill_buffer != j){
+	    std::cout << "Error reading " << j << " " << float_fill_buffer << " in " << camFile << std::endl;
+	    break;
+	  }
+	  
+	  //Reading in the data data now.
+	  iFile >> float_fill_buffer;
+	  vec_fill_buffer[0] = float_fill_buffer;
+	  iFile >> float_fill_buffer;
+	  vec_fill_buffer[1] = float_fill_buffer;
+	  iFile >> float_fill_buffer;
+	  vec_fill_buffer[2] = float_fill_buffer;
+	  
+	  //Pushing it on the stack.
+	  array_fill_buffer->push_back(vec_fill_buffer);
+	}
+      
+	//Now saving the camera data into the large memory organization
+	cameraData->at(j)->at(t) = new CameraInTime(array_fill_buffer, j, t, ImageList[j].get());
+	
+	//Clearing it on the back end so I can fill it again
+	array_fill_buffer->clear();
+      } else if (numCameraParam == 1) { //This is a simplified camera
+					//parameters that only has a
+					//center listed and
+					//roll_pitch_yaw
+
+	//This first one is the camera number
+	iFile >> float_fill_buffer;
+	
 	if (float_fill_buffer != j){
-	  std::cout << "Error reading " << j << " " << float_fill_buffer << " in " << camFile << std::endl;
-	  break;
+	  std::cout << "Error reading (non CAHVOR) " << j << " " << float_fill_buffer << " in " << camFile << std::endl;
 	}
 
-	//Reading in the data data now.
+	osg::Vec3f euler_fill_buffer;
 	iFile >> float_fill_buffer;
 	vec_fill_buffer[0] = float_fill_buffer;
 	iFile >> float_fill_buffer;
 	vec_fill_buffer[1] = float_fill_buffer;
 	iFile >> float_fill_buffer;
 	vec_fill_buffer[2] = float_fill_buffer;
-
-	//Pushing it on the stack.
-	array_fill_buffer->push_back(vec_fill_buffer);
+	iFile >> float_fill_buffer;
+	euler_fill_buffer[0] = float_fill_buffer;
+	iFile >> float_fill_buffer;
+	euler_fill_buffer[1] = float_fill_buffer;
+	iFile >> float_fill_buffer;
+	euler_fill_buffer[2] = float_fill_buffer;
+	
+	//Now saving the camera data into the large memory organization
+	cameraData->at(j)->at(t) = new CameraInTime(vec_fill_buffer, euler_fill_buffer, j, t, ImageList[j].get());
+	
       }
-      
-      //Now saving the camera data into the large memory organization
-      cameraData->at(j)->at(t) = new CameraInTime(array_fill_buffer, j, t, ImageList[j].get());
-
-      //Clearing it on the back end so I can fill it again
-      array_fill_buffer->clear();
     }
   }
 
@@ -739,21 +860,18 @@ osg::Sequence* createScene(std::vector<std::vector<PointInTime*>*>* pointData, s
   //Creating the first frame which shows all points at all time, along with cameras.
   osg::ref_ptr<osg::Group> firstFrame = new osg::Group();
 
-  std::cout << "Point data's address " << pointData << "\n";
   if (pointData){
     for (unsigned int i = 0; i < pointData->size(); ++i){            //Drawing points
       firstFrame->addChild(PointString(pointData->at(i)));
     }
   }
 
-  std::cout << "Camera data's address " << cameraData << "\n";
   if (cameraData){
     for (unsigned int j = 0; j < cameraData->size(); ++j){           //Drawing cameras
       firstFrame->addChild(CameraString(cameraData->at(j)));
     }
   }
 
-  std::cout << "Cnet's address " << cnet << "\n";
   if (cnet){
     osg::ref_ptr<osg::Switch> tieSwitch = new osg::Switch();
     tieSwitch->setDataVariance(osg::Object::DYNAMIC);
