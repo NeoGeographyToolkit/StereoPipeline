@@ -252,13 +252,18 @@ AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -l
 AX_PKG(MBA, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
-AX_PKG(QT_INCLUDE, [], [], [QtCore/Qvector])
+AX_PKG(QT_INCLUDE, [], [], [QtCore/QVector])
 AX_PKG(QT_CORE, [QT_INCLUDE], [-lQtCore], [QVector], [QtCore])
 AX_PKG(QT_GUI, [QT_INCLUDE], [-lQtGui], [QLabel], [QtGui])
 AX_PKG(QT_SQL, [QT_INCLUDE], [-lQtSql], [QtSql],[QtSql])
 
-AX_PKG(ISIS3RDPARTY, [], [-lgeos -lxerces-c -lgsl -lgslcblas -lqwt -lstdc++])
-AX_PKG(ISIS, [QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
+dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems, 
+dnl the ISIS compilation does not resolve certain BLAS symbols that its 
+dnl dependent 3rd party libraries depend on (for whatever retarded reason).
+dnl Thus, we link against LAPACK here because it defines these missing 
+dnl BLAS symbols in the event that we need them.
+AX_PKG(ISIS3RDPARTY, [LAPACK], [-lsuperlu_3.0 -lgeos -lxerces-c -lgsl -lgslcblas -lqwt -lstdc++])
+AX_PKG(ISIS, [QT_INCLUDE QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
 
 dnl AX_PKG(SPICE, [], [-lcspice -lcsupport], [SpiceUsr.h SpiceZfc.h])
 dnl AX_PKG(QT_CORE, [], [-lQtCore], [QVector], [QtCore QtCore])

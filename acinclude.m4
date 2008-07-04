@@ -163,20 +163,20 @@ AC_DEFUN([AX_PKG],
     else
 
       if test "x$ENABLE_VERBOSE" = "yes"; then
-	AC_MSG_RESULT([searching...])
+        AC_MSG_RESULT([searching...])
       fi
 
       HAVE_PKG_$1=no
 
-      # This is a gross hack that causes the AC_LINK_IFELSE macro use libtool to                                                     
-      # link files rather that g++ alone.  This in important for detecting packages                                                                                                                      
-      # like the Vision Workbench which has many dependencies that themselves have                                                                                                                    
-      # *.la files.
+      # This is a gross hack that causes the AC_LINK_IFELSE macro use libtool to 
+      # link files rather that g++ alone.  This in important for detecting 
+      # packages like the Vision Workbench which has many dependencies that 
+      # themselves have *.la files.
       OLD_CXX=$CXX
       if test "$host_vendor" = apple; then
-	# Apple has lazy link-time dependencies and a different name for libtool,
+        # Apple has lazy link-time dependencies and a different name for libtool,
         # so we turn off this hack on the mac platform.
-	CXX=$CXX
+        CXX=$CXX
       else
         CXX="libtool --mode=link $CXX"
       fi
@@ -184,49 +184,60 @@ AC_DEFUN([AX_PKG],
       ax_pkg_old_libs=$LIBS
       LIBS=$PKG_$1_LIBS $LIBS
       for path in none $PKG_PATHS; do
-	ax_pkg_old_cppflags=$CPPFLAGS
-	ax_pkg_old_ldflags=$LDFLAGS
-	ax_pkg_old_vw_cppflags=$ASP_CPPFLAGS
-	ax_pkg_old_vw_ldflags=$ASP_LDFLAGS
-	echo > conftest.h
-	for header in $4 ; do
-	  echo "#include <$header>" >> conftest.h
-	done
-	CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
-	LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
-	if test "$path" != "none"; then
-	  if test x"$ENABLE_VERBOSE" = "xyes"; then
-	    AC_MSG_CHECKING([for package $1 in $path])
-	  fi
-          if test -z "$5"; then
-            ASP_CPPFLAGS="-I$path/include $ASP_CPPFLAGS"
-	  else
-	    ASP_CPPFLAGS="-I$path/include/$5 $ASP_CPPFLAGS"
+        ax_pkg_old_cppflags=$CPPFLAGS
+        ax_pkg_old_ldflags=$LDFLAGS
+        ax_pkg_old_vw_cppflags=$ASP_CPPFLAGS
+        ax_pkg_old_vw_ldflags=$ASP_LDFLAGS
+        echo > conftest.h
+        for header in $4 ; do
+          echo "#include <$header>" >> conftest.h
+        done
+        CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
+        LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
+        if test "$path" != "none"; then
+          if test x"$ENABLE_VERBOSE" = "xyes"; then
+            AC_MSG_CHECKING([for package $1 in $path])
           fi
-	  CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
-	  AC_LINK_IFELSE(
-	    AC_LANG_PROGRAM([#include "conftest.h"],[]),
-	    [ HAVE_PKG_$1=yes ; AC_MSG_RESULT([yes]) ; break ] )
-	  ASP_LDFLAGS="-L$path/lib $ASP_LDFLAGS"
-	  LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
-	fi
-	AC_LINK_IFELSE(
-	  AC_LANG_PROGRAM([#include "conftest.h"],[]),
-	  [ HAVE_PKG_$1=yes ; AC_MSG_RESULT([yes]) ; break ] )
-	if test x"$ENABLE_VERBOSE" = "xyes"; then
-	  AC_MSG_RESULT([no])
-	fi
-	CPPFLAGS=$ax_pkg_old_cppflags
-	LDFLAGS=$ax_pkg_old_ldflags
-	ASP_CPPFLAGS=$ax_pkg_old_vw_cppflags
-	ASP_LDFLAGS=$ax_pkg_old_vw_ldflags
+
+          # ISIS is really stupid, and they use /foo/inc as their include file
+          # location instead of /foo/include. So we check for that. This sees 
+          # about any other idiot libraries that use the same design as well.
+          AX_INCLUDE_DIR=include
+          if ! test -d $path/${AX_INCLUDE_DIR}; then
+            if test -d $path/inc; then
+              AX_INCLUDE_DIR=inc
+            fi
+          fi
+
+          if test -z "$5"; then
+            ASP_CPPFLAGS="-I$path/${AX_INCLUDE_DIR} $ASP_CPPFLAGS"
+          else
+            ASP_CPPFLAGS="-I$path/${AX_INCLUDE_DIR}/$5 $ASP_CPPFLAGS"
+          fi
+          CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
+          AC_LINK_IFELSE(
+            AC_LANG_PROGRAM([#include "conftest.h"],[]),
+            [ HAVE_PKG_$1=yes ; AC_MSG_RESULT([yes]) ; break ] )
+          ASP_LDFLAGS="-L$path/lib $ASP_LDFLAGS"
+          LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
+        fi
+        AC_LINK_IFELSE(
+          AC_LANG_PROGRAM([#include "conftest.h"],[]),
+          [ HAVE_PKG_$1=yes ; AC_MSG_RESULT([yes]) ; break ] )
+        if test x"$ENABLE_VERBOSE" = "xyes"; then
+          AC_MSG_RESULT([no])
+        fi
+        CPPFLAGS=$ax_pkg_old_cppflags
+        LDFLAGS=$ax_pkg_old_ldflags
+        ASP_CPPFLAGS=$ax_pkg_old_vw_cppflags
+        ASP_LDFLAGS=$ax_pkg_old_vw_ldflags
       done
       CPPFLAGS=$ax_pkg_old_cppflags
       LDFLAGS=$ax_pkg_old_ldflags
       LIBS=$ax_pkg_old_libs
 
       if test "x$HAVE_PKG_$1" = "xno" -a "x$ENABLE_VERBOSE" != "xyes"; then
-	AC_MSG_RESULT([no (not found)])
+        AC_MSG_RESULT([no (not found)])
       fi
 
       CXX=$OLD_CXX
