@@ -204,22 +204,27 @@ osg::Geode* CameraInTime::get3Axis(const float& size, const float& opacity){
     double cb =  cos(euler_[1]), sb = sin(euler_[1]);
     double cc =  cos(euler_[2]), sc = sin(euler_[2]);
     
+    //These euler angles are a little weird in that they describe how
+    //to go from the world frame into the camera's frame. This is to
+    //make since for say a pilot flying an airplane?
+
     vw::Matrix<double, 3, 3> rotational;
     rotational(0,0) = cb*cc;
-    rotational(1,0) = -cb*sc;
-    rotational(2,0) = sb;
-    rotational(0,1) = sa*sb*cc+ca*sc;
+    rotational(0,1) = -cb*sc;
+    rotational(0,2) = sb;
+    rotational(1,0) = sa*sb*cc+ca*sc;
     rotational(1,1) = -sa*sb*sc+ca*cc;
-    rotational(2,1) = -sa*cb;
-    rotational(0,2) = -ca*sb*cc+sa*sc;
-    rotational(1,2) = ca*sb*sc+sa*cc;
+    rotational(1,2) = -sa*cb;
+    rotational(2,0) = -ca*sb*cc+sa*sc;
+    rotational(2,1) = ca*sb*sc+sa*cc;
     rotational(2,2) = ca*cb;
-    rotational = transpose(rotational);
+    
+    rotational = inverse(rotational);
 
-    //This matrix take thing in the camera frame and describes them in
-    //the world frame. The rotation matrix these euler angles are
-    //expected to relate to is the Rx'y'z' which is found in Appendix
-    //B of Craig's Introduction to Robotics.
+    //This matrix now take thing in the camera frame and describes
+    //them in the world frame. The rotation matrix these euler angles
+    //are expected to relate to is the Rx'y'z' which is found in
+    //Appendix B of Craig's Introduction to Robotics.
 
     vw::Vector3 center;
     center[0] = c_[0];
