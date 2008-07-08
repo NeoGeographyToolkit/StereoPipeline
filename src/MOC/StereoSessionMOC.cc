@@ -7,7 +7,6 @@
 #include "MOC/MOLA.h"
 #include "SpiceUtilities.h" 
 #include "stereo.h"
-#include "file_lib.h"
 
 using namespace vw;
 using namespace vw::camera;

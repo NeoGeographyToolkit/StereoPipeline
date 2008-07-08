@@ -9,11 +9,9 @@
 #include <stdlib.h>
 #include <iostream>
 
-#include "file_lib.h"
+#include "StereoSettings.h"
 
 int main(int argc, char* argv[]) {
-  DFT_F dft;       /* parameters read in stereo.default */
-  TO_DO execute;   /* whether or not to execute specific parts of the program */
   const char* infile = 0;
   const char* outfile = "stereo.default";
 
@@ -33,16 +31,17 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  // initialize structures
-  init_dft_struct(&dft, &execute);
-
+  // Initialize the stereo settings
+  stereo_settings();
+ 
   if(infile) {
     // Read all of the options out of the stereo default file. 
-    read_default_file(&dft, &execute, infile);
+    stereo_settings().read(stereo_default_filename);
   }
 
   // write stereo default file
-  write_default_file(&dft, &execute, outfile);
+  std::cout << "ERROR: MICHAEL NEEDS TO REIMPLEMENT WRITE_DEFAULT_FILE()!!!\n";
+  //  write_default_file(&dft, &execute, outfile);
 
   return 0;
 }

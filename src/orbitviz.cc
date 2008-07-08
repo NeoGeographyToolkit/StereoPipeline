@@ -24,7 +24,6 @@ using namespace vw::stereo;
 using namespace vw::cartography;
 
 #include "stereo.h"
-#include "file_lib.h"
 #include "StereoSession.h"
 #include "SurfaceNURBS.h"
 #include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files

@@ -8,7 +8,6 @@
 #include "apollo/StereoSessionApolloMetric.h"
 
 #include "stereo.h"
-#include "file_lib.h"
 #include "SpiceUtilities.h"
 #include "KML.h"
 
@@ -338,7 +337,7 @@ void StereoSessionApolloMetric::pre_pointcloud_hook(std::string const& input_fil
   viz.append_body_state("Left Camera", left_camera->camera_center(Vector2(0,0)), left_camera->camera_pose(Vector2(0,0)));
   viz.append_body_state("Right Camera", right_camera->camera_center(Vector2(0,0)), right_camera->camera_pose(Vector2(0,0)));
   viz.close();
-  write_orbital_reference_model(m_out_prefix + "-OrbitViz.vrml", *left_camera, *right_camera);
+  //  write_orbital_reference_model(m_out_prefix + "-OrbitViz.vrml", *left_camera, *right_camera);
   StereoSessionKeypoint::pre_pointcloud_hook(input_file, output_file);
 }
 

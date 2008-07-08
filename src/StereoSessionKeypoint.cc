@@ -3,6 +3,7 @@
 #include <iostream>			   // debugging
 #include <algorithm>
 
+#include "StereoSettings.h"
 #include "StereoSessionKeypoint.h"
 #include "stereo.h"
 
@@ -14,10 +15,6 @@
 
 using namespace vw;
 using namespace vw::ip;
-
-#include "file_lib.h"
-
-using namespace vw;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -47,19 +44,14 @@ static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &i
   ip2 = new_ip2;
 }
 
-void StereoSessionKeypoint::initialize(DFT_F& stereo_defaults) {
-  std::cout << "StereoSessionKeypoint::initialize(DFT_F &): setting image sub-sampling factor to "
-	    << stereo_defaults.keypoint_align_subsampling << std::endl;
-  set_sub_sampling(stereo_defaults.keypoint_align_subsampling);
-}
-
 std::string StereoSessionKeypoint::create_subsampled_align_image(std::string const& image_file, std::string const& suffix) {
   std::string align_image_file(m_out_prefix + std::string("-normalized-align-sub-") + suffix);
 
   DiskImageView<PixelGray<float> > disk_image(image_file);
   
   std::cout << "StereoSessionKeypoint::create_subsampled_align_image(): subsampling... \n";
-  write_image(align_image_file, channel_cast_rescale<uint8>(resample(disk_image, 1.0 / double(m_sub_sampling))), TerminalProgressCallback());
+  double sub_sampling = stereo_settings().keypoint_align_subsampling;
+  write_image(align_image_file, channel_cast_rescale<uint8>(resample(disk_image, 1.0 / double(sub_sampling))), TerminalProgressCallback());
   
   return align_image_file;
 }
@@ -67,9 +59,10 @@ std::string StereoSessionKeypoint::create_subsampled_align_image(std::string con
 void StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
   Matrix<double> scale_matrix = vw::math::identity_matrix(3);
   Matrix<double> inv_scale_matrix = vw::math::identity_matrix(3);
-  scale_matrix(0, 0) = 1.0 / double(m_sub_sampling);
+  double sub_sampling = stereo_settings().keypoint_align_subsampling;
+  scale_matrix(0, 0) = 1.0 / double(sub_sampling);
   scale_matrix(1, 1) = scale_matrix(0, 0);
-  inv_scale_matrix(0, 0) = double(m_sub_sampling);
+  inv_scale_matrix(0, 0) = double(sub_sampling);
   inv_scale_matrix(1, 1) = inv_scale_matrix(0, 0);
   align_matrix = align_matrix * scale_matrix;
   align_matrix = inv_scale_matrix * align_matrix;
@@ -81,7 +74,8 @@ vw::math::Matrix<double>
 StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1, std::string const& input_file2) {
   std::string left_align_image_file(input_file1), right_align_image_file(input_file2);
 
-  if (m_sub_sampling > 1) {
+  double sub_sampling = stereo_settings().keypoint_align_subsampling;
+  if (sub_sampling > 1) {
     left_align_image_file = create_subsampled_align_image(input_file1, "L.tif");
     right_align_image_file = create_subsampled_align_image(input_file2, "R.tif");
   }
@@ -154,7 +148,7 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   vw_out(InfoMessage) << "\nRunning RANSAC:\n";
   Matrix<double> align_matrix = ransac(ransac_ip2,ransac_ip1);
 
-  if (m_sub_sampling > 1)
+  if (sub_sampling > 1)
     scale_align_matrix(align_matrix);
 
   return align_matrix;

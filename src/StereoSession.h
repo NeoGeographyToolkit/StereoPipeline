@@ -1,4 +1,3 @@
-
 #ifndef __STEREO_SESSION_H__
 #define __STEREO_SESSION_H__
 
@@ -38,10 +37,6 @@ public:
   }
 
   virtual ~StereoSession() {}
-
-  // Temporary HACK to get some values in the DFT structure into
-  // sub-classed implementations -- LJE
-  virtual void initialize(struct DFT_F& stereo_defaults) {}
 
   // Methods (mostly static) for registering and creating stereo sessions.
   static StereoSession* create( std::string const& session_type );

@@ -42,11 +42,11 @@ rmax_sources = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
 	  	 MOC/Metadata.cc MOC/MOLA.cc
 
-generic_stereo_sources = file_lib.cc StereoSession.cc	\
+generic_stereo_sources = StereoSession.cc	\
 	 	  	 StereoSessionKeypoint.cc	\
 	 	  	 StereoSessionPinhole.cc	\
 	 	  	 TabulatedDataReader.cc KML.cc	\
-	 	  	 BundleAdjustUtils.cc
+	 	  	 BundleAdjustUtils.cc StereoSettings.cc
 bin_PROGRAMS = 
 
 if MAKE_APP_STEREO

@@ -12,11 +12,6 @@ class StereoSessionKeypoint : public StereoSession {
   
 public:
 
-  StereoSessionKeypoint() { m_sub_sampling = 1; }
-  StereoSessionKeypoint(unsigned int sub_sampling) { m_sub_sampling = sub_sampling; }
-
-  virtual void initialize(struct DFT_F& stereo_defaults);
-
   // Stage 1: Preprocessing
   //
   // Pre file is a pair of images.            ( ImageView<PixelT> )
@@ -28,14 +23,9 @@ public:
   // Pre file is a disparity map.  ( ImageView<PixelDisparity<float> > )
   virtual void pre_pointcloud_hook(std::string const& input_file, std::string & output_file);
 
-
-  void set_sub_sampling(const unsigned int sub_sampling) { m_sub_sampling = sub_sampling; }
-  unsigned get_sub_sampling(const unsigned int sub_sampling) const { return m_sub_sampling; }
-
 protected:
   vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2);
   // To speed up things one can optionally sub-sample the images
-  unsigned int m_sub_sampling;
   virtual std::string create_subsampled_align_image(std::string const& image_file, std::string const& suffix);
   void scale_align_matrix(vw::math::Matrix<double> & align_matrix);
 };

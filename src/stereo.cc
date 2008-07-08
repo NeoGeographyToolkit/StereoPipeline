@@ -29,8 +29,8 @@ using namespace vw::camera;
 using namespace vw::stereo;
 using namespace vw::cartography;
 
+#include "StereoSettings.h"
 #include "stereo.h"
-#include "file_lib.h"
 #include "StereoSession.h"
 #include "SurfaceNURBS.h"
 #include "BundleAdjustUtils.h"
@@ -77,11 +77,6 @@ static std::string prefix_from_filename(std::string const& filename) {
 
 int main(int argc, char* argv[]) {
 
-  // Definition of data and structures
-  F_HD hd;         /* parameters read in header file & argv[] */
-  DFT_F dft;       /* parameters read in stereo.default */
-  TO_DO execute;   /* whether or not to execute specific parts of the program */
-  
   // The default file type are automatically registered the first time
   // a file is opened or created, however we want to override some of
   // the defaults, so we explicitly register them here before registering
@@ -178,16 +173,12 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // Support for legacy code 
-  init_dft_struct(&dft, &execute);
-  init_header_struct(&dft, &hd, argv[0], "dummy", "dummy");
-
-  // Read all of the options out of the stereo default file. 
-  read_default_file(&dft, &execute, stereo_default_filename.c_str());
+  // Read the stereo.conf file
+  stereo_settings().read(stereo_default_filename);
 
   // Set search range from stereo.default file
-  BBox2i search_range(Vector<int,2>(dft.h_corr_min, dft.v_corr_min),
-                      Vector<int,2>(dft.h_corr_max, dft.v_corr_max));
+  BBox2i search_range(Vector<int,2>(stereo_settings().h_corr_min, stereo_settings().v_corr_min),
+                      Vector<int,2>(stereo_settings().h_corr_max, stereo_settings().v_corr_max));
 
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
@@ -207,9 +198,6 @@ int main(int argc, char* argv[]) {
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
                       out_prefix, extra_arg1, extra_arg2, extra_arg3, extra_arg4);
 
-  // Temporary hack to get stereo default settings into the session -- LJE
-  session->initialize(dft);
-
   /*********************************************************************************/
   /*                            preprocessing step                                 */
   /*********************************************************************************/
@@ -221,7 +209,7 @@ int main(int argc, char* argv[]) {
     DiskImageView<PixelGray<uint8> > right_rectified_image(pre_preprocess_file2);
     
     cout << "\nGenerating image masks..." << std::flush;
-    int mask_buffer = std::max(dft.h_kern, dft.v_kern);
+    int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
     ImageViewRef<uint8> Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
     ImageViewRef<uint8> Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
     cout << "Done.\n";
@@ -260,12 +248,12 @@ int main(int argc, char* argv[]) {
 
     // Set up the CorrelatorView Object
     CorrelatorView<PixelGray<float>, stereo::SlogStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
-                                                                                      stereo::SlogStereoPreprocessingFilter(dft.slogW));
+                                                                                      stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
     corr_view.set_search_range(search_range);
-    corr_view.set_kernel_size(Vector2i(dft.h_kern, dft.v_kern));
-    corr_view.set_cross_corr_threshold(dft.xcorr_treshold);
-    corr_view.set_corr_score_threshold(dft.corrscore_rejection_treshold);
-    corr_view.set_subpixel_options(dft.do_h_subpixel, dft.do_v_subpixel);
+    corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
+    corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
+    corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
+    corr_view.set_subpixel_options(stereo_settings().do_h_subpixel, stereo_settings().do_v_subpixel);
     if (vm.count("corr-debug-prefix"))
       corr_view.set_debug_mode(corr_debug_prefix);
 
@@ -281,17 +269,17 @@ int main(int argc, char* argv[]) {
     if (vm.count("optimized-correlator")) {
       vw::stereo::OptimizedCorrelator correlator( search_range.min().x(), search_range.max().x(), 
                                                   search_range.min().y(), search_range.max().y(),
-                                                  dft.h_kern, dft.v_kern, 
+                                                  stereo_settings().h_kern, stereo_settings().v_kern, 
                                                   true,                             // verbose
-                                                  dft.xcorr_treshold,
-                                                  dft.corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
-                                                  dft.do_h_subpixel, dft.do_v_subpixel);   // h and v subpixel
-      if (execute.slog) {
+                                                  stereo_settings().xcorr_treshold,
+                                                  stereo_settings().corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
+                                                  stereo_settings().do_h_subpixel, stereo_settings().do_v_subpixel);   // h and v subpixel
+      if (stereo_settings().slog) {
         std::cout << "Applying SLOG filter.\n";
-        disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(dft.slogW));
-      } else if (execute.log) {
+        disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
+      } else if (stereo_settings().log) {
         std::cout << "Applying LOG filter.\n";
-        disparity_map = correlator( left_disk_image, right_disk_image, stereo::LogStereoPreprocessingFilter(dft.slogW));
+        disparity_map = correlator( left_disk_image, right_disk_image, stereo::LogStereoPreprocessingFilter(stereo_settings().slogW));
       } else {
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::NullStereoPreprocessingFilter());
       }
@@ -299,8 +287,8 @@ int main(int argc, char* argv[]) {
 
     // Do some basic outlier rejection
     ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
-                                                                                  dft.rm_h_half_kern, dft.rm_v_half_kern,
-                                                                                  dft.rm_treshold, dft.rm_min_matches/100.0);
+                                                                                  stereo_settings().rm_h_half_kern, stereo_settings().rm_v_half_kern,
+                                                                                  stereo_settings().rm_treshold, stereo_settings().rm_min_matches/100.0);
     
     // Create a disk image resource and prepare to write a tiled
     // OpenEXR.
@@ -323,18 +311,16 @@ int main(int argc, char* argv[]) {
 
 
       // Apply the Mask to the disparity map 
-      if(execute.apply_mask){
-        std::cout << "\tApplying mask.\n";
-        DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
-        DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
-        disparity_map = disparity::mask(disparity_disk_image, Lmask, Rmask);
-      }
+      std::cout << "\tApplying mask.\n";
+      DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
+      DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
+      disparity_map = disparity::mask(disparity_disk_image, Lmask, Rmask);
 
-      std::cout << "Cleaning up disparity map prior to filtering processes (" << dft.rm_cleanup_passes << " passes).\n";
-      for (int i = 0; i < dft.rm_cleanup_passes; ++i) {
+      std::cout << "Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
+      for (int i = 0; i < stereo_settings().rm_cleanup_passes; ++i) {
         disparity_map = disparity::clean_up(disparity_disk_image,
-                                            dft.rm_h_half_kern, dft.rm_v_half_kern,
-                                            dft.rm_treshold, dft.rm_min_matches/100.0);
+                                            stereo_settings().rm_h_half_kern, stereo_settings().rm_v_half_kern,
+                                            stereo_settings().rm_treshold, stereo_settings().rm_min_matches/100.0);
       }
 
       // Rasterize the results so far to a temporary file on disk.
@@ -344,8 +330,7 @@ int main(int argc, char* argv[]) {
       DiskCacheImageView<PixelDisparity<float> > filtered_disparity_map(disparity_map, "exr");
 
       // Write out the extrapolation mask imaege
-      if(execute.w_extrapolation_mask) 
-        write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), TerminalProgressCallback());
+      write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), TerminalProgressCallback());
 
       // Call out to NURBS hole filling code.  The hole filling is
       // done with a subsampled (by 4) images and then the hole filled
@@ -354,7 +339,7 @@ int main(int argc, char* argv[]) {
 
       ImageViewRef<PixelDisparity<float> > hole_filled_disp_map = filtered_disparity_map;
 
-      if(execute.fill_holes_NURBS) {
+      if(stereo_settings().fill_holes_NURBS) {
         DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
         DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
         std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
@@ -430,7 +415,7 @@ int main(int argc, char* argv[]) {
       //
       // We apply the universe radius here and then write the result
       // directly to a file on disk.      
-      UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)), dft.near_universe_radius, dft.far_universe_radius);
+      UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)), stereo_settings().near_universe_radius, stereo_settings().far_universe_radius);
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
       DiskImageResourceOpenEXR point_cloud_rsrc(out_prefix + "-PC.exr", point_cloud.format() );
@@ -445,6 +430,5 @@ int main(int argc, char* argv[]) {
     
   }
 
-  free (hd.cmd_name);
   return(EXIT_SUCCESS);
 }

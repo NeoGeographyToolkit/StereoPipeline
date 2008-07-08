@@ -4,7 +4,6 @@
 
 #include "HRSC/HRSC.h"
 #include "stereo.h"
-#include "file_lib.h"
 
 using namespace vw;
 using namespace vw::camera;

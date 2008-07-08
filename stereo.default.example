@@ -1,0 +1,58 @@
+#############################
+##	PREPROCESSING	   ##
+#############################
+
+DO_INTERESTPOINT_ALIGNMENT 1
+DO_EPIPOLAR_ALIGNMENT 0
+INTERESTPOINT_ALIGNMENT_SUBSAMPLING 1
+
+# Choose whether to do the SLOG or log of the image (or neither)
+# (choosing both will default to only SLOG)
+DO_SLOG 1
+DO_LOG 0
+
+# center surround diameter of the convolution kernel in the SLOG 
+SLOG_KERNEL_WIDTH 1.5
+
+#########################################################################
+###########################    CORRELATION    ###########################
+#########################################################################
+
+# Correlation kernel size (bound disparity range)
+H_KERNEL 35
+V_KERNEL 35
+
+# correlation window size
+H_CORR_MIN -300
+H_CORR_MAX 300
+V_CORR_MIN -300
+V_CORR_MAX 300
+DO_H_SUBPIXEL 1
+DO_V_SUBPIXEL 1
+XCORR_THRESHOLD 2.0
+CORRSCORE_REJECTION_THRESHOLD 1.1
+
+#########################################################################
+############################    FILTERING    ############################
+#########################################################################
+
+FILL_HOLES_NURBS 1
+
+# automatic removal of the low confidence pixels
+#  default values 5 5 60 10 
+#  note 5*5 halfkernel = 11*11 kernel -> 121 pixels 
+RM_H_HALF_KERN 5
+RM_V_HALF_KERN 5
+RM_MIN_MATCHES 60 # Units = percest
+RM_TRESHOLD 3
+
+#########################################################################
+#############################    DOTCLOUD    ############################
+#########################################################################
+
+# Size max of the universe in meters and altitude of the ground.  Setting
+# both to zero turns this option off.
+NEAR_UNIVERSE_RADIUS 0.0
+FAR_UNIVERSE_RADIUS 0.0
+
+#end
