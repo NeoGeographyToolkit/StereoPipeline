@@ -100,8 +100,8 @@ class PointInTime {
 class CameraInTime {
  public:
   //Constructor & Deconstructor
-  CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num, osg::Image* imageData);
-  CameraInTime(const osg::Vec3f& model_center, const osg::Vec3f& euler, const int& cam_num, const int& iter_num, osg::Image* imageData);
+  CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num);
+  CameraInTime(const osg::Vec3f& model_center, const osg::Vec3f& euler, const int& cam_num, const int& iter_num);
   ~CameraInTime();
   //Useful for drawing
   osg::Geode* get3Axis(const float& size, const float& opacity);
@@ -112,6 +112,7 @@ class CameraInTime {
     return description_;
   }
   osg::Image* getImage();
+  void setImage(osg::Image*);
  protected:
   bool isCAHVOR_;
   osg::Vec3f c_;
@@ -148,13 +149,18 @@ std::vector<std::vector<PointInTime*>*>* loadPointsData(std::string pntFile);
 //bundle adjustment. The second level vector contains that camera's data
 //for each time iteration. The lowest level is the CameraInTime class
 //which contains that instance's data.
-std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , std::string prefix , std::string postfix);
+std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile);
 
 //This will load pixel information data. It's not stored in it's own unique
 //spot, it is instead appended to the points data. Hopefully this is more
 //organized in a way. So, becuase of the previous statement, the pointData
 //is required as an input requirement.
 void loadPixelData(std::string pxlFile, std::vector<std::vector<PointInTime*>*>* pointData);
+
+//This will attach image data to every camera
+void loadImageData(std::vector<std::vector<CameraInTime*>*>* cameraData,
+		   const std::string& pretfix,
+		   const std::string& postfix);
 
 //This function creates the HUD of the screen. The passed pointer to
 //text, is the text label that keeps changing based on what the user has

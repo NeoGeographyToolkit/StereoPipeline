@@ -138,7 +138,7 @@ const std::vector<osg::Vec2f*>& PointInTime::getImageMeasures(){
 /*******************************************
 * Constructor for CameraInTime (is CAHVOR  *
 *******************************************/
-CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num, osg::Image* imageData){
+CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num){
   //It assumed that I have been given a good Vec3Array which is arranged in CAHVOR
   c_ = (*model_param)[0];
   a_ = (*model_param)[1];
@@ -153,7 +153,7 @@ CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const
   os << "Camera: " << cameraNum_ << " @Time: " << iteration_;
   description_ = os.str();
 
-  imageData_ = imageData;
+  imageData_ = NULL;
 
   isCAHVOR_ = true;
 }
@@ -161,7 +161,7 @@ CameraInTime::CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const
 /********************************************
 * Constructor for CameraInTime (is PinHole  *
 ********************************************/ 
-CameraInTime::CameraInTime(const osg::Vec3f& model_center, const osg::Vec3f& euler, const int& cam_num, const int& iter_num, osg::Image* imageData){
+CameraInTime::CameraInTime(const osg::Vec3f& model_center, const osg::Vec3f& euler, const int& cam_num, const int& iter_num){
   c_ = model_center;
   euler_ = euler;
   cameraNum_ = cam_num;
@@ -171,7 +171,7 @@ CameraInTime::CameraInTime(const osg::Vec3f& model_center, const osg::Vec3f& eul
   os << "Camera: " << cameraNum_ << " @Time: " << iteration_;
   description_ = os.str();
   
-  imageData_ = imageData;
+  imageData_ = NULL;
 
   isCAHVOR_ = false;
 }
@@ -356,6 +356,11 @@ osg::Node* CameraInTime::getTextGraphic(){
 //This just allows the use to pull the image belonging to this camera node
 osg::Image* CameraInTime::getImage( void ) {
   return imageData_.get();
+}
+
+//This allows use to set the image associated with the camera
+void CameraInTime::setImage(osg::Image* imageData) {
+  imageData_ = imageData;
 }
 
 /**************************************************************************
@@ -556,7 +561,7 @@ std::vector<std::vector<PointInTime*>*>* loadPointsData(std::string pntFile){
 *  for each time iteration. The lowest level is the CameraInTime class       *
 *  which contains that instance's data.                                      *
 *****************************************************************************/
-std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , std::string prefix , std::string postfix){
+std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile){
   
   //First step is to determine the number of lines in the file
   std::ifstream iFile(camFile.c_str(), std::ios::in);
@@ -604,27 +609,6 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , 
   //is laid out in the form of the organization found in the input
   //file.
 
-  //Loading up image data
-  std::vector<osg::ref_ptr<osg::Image> > ImageList;
-  for(int j = 0; j < numCameras; ++j){
-    std::ostringstream os;
-    
-    os << prefix << std::setw(2) << std::setfill('0') << (j+1) << postfix;
-
-    std::cout << "Loading: " << os.str() << std::endl;
-
-    ImageList.push_back(osgDB::readImageFile(os.str()));
-
-    if (!ImageList.end()->valid()){
-      std::cout << "This is invalid" << std::endl;
-    }
-
-  }
-  //A test check
-  if (ImageList.size() != numCameras){
-    std::cout << "Image Loading didn't load enough for all cameras!\n";
-  }
-
   //For every time iteration
   for(int t = 0; t < numTimeIter; ++t){
     for(int j = 0; j < numCameras; ++j){
@@ -657,7 +641,7 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , 
 	}
       
 	//Now saving the camera data into the large memory organization
-	cameraData->at(j)->at(t) = new CameraInTime(array_fill_buffer, j, t, ImageList[j].get());
+	cameraData->at(j)->at(t) = new CameraInTime(array_fill_buffer, j, t);
 	
 	//Clearing it on the back end so I can fill it again
 	array_fill_buffer->clear();
@@ -688,7 +672,7 @@ std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile , 
 	euler_fill_buffer[2] = float_fill_buffer;
 	
 	//Now saving the camera data into the large memory organization
-	cameraData->at(j)->at(t) = new CameraInTime(vec_fill_buffer, euler_fill_buffer, j, t, ImageList[j].get());
+	cameraData->at(j)->at(t) = new CameraInTime(vec_fill_buffer, euler_fill_buffer, j, t);
 	
       }
     }
@@ -789,6 +773,44 @@ void loadPixelData(std::string pxlFile, std::vector<std::vector<PointInTime*>*>*
     }
   }
 
+}
+
+/*********************************************************************
+* loadImageData                                                      *
+*  This will attach image data to every camera. It makes             *
+*  large assumptions, like that a file exist with the same number as *
+*  the camera.                                                       *
+*********************************************************************/
+void loadImageData(std::vector<std::vector<CameraInTime*>*>* cameraData, const std::string& prefix, const std::string& postfix){
+  //Loading up image data
+  int numCameras = cameraData->size();
+  std::vector<osg::ref_ptr<osg::Image> > ImageList;
+  for (int j = 0; j < numCameras; ++j){
+    std::ostringstream os;
+    os << prefix << std::setw(2) << std::setfill('0') << (j+1) << postfix;
+    std::cout << "Loading: " << os.str() << std::endl;
+
+    ImageList.push_back(osgDB::readImageFile(os.str()));
+
+    ImageList.push_back(osgDB::readImageFile(os.str()));
+
+    if (!ImageList.end()->valid()){
+      std::cout << "This is invalid" << std::endl;
+    }
+  }
+  
+  //A test check
+  if (ImageList.size() != numCameras){
+    std::cout << "Didn't load enough images!\n";
+    return;
+  }
+
+  //Attaching the images to the data
+  for (int j = 0; j < numCameras; ++j){
+    for (int t = 0; t < cameraData->at(j)->size(); ++t){
+      cameraData->at(j)->at(t)->setImage(ImageList[j].get());
+    }
+  }
 }
 
 /********************************************************************
@@ -1414,7 +1436,7 @@ int main(int argc, char* argv[]){
     std::cout << "Loading Camera Iteration File: " << camera_iter_file << "\n";
 
     //Storing camera data into a large vector
-    cameraData = loadCamerasData( camera_iter_file , file_prefix , file_postfix );
+    cameraData = loadCamerasData( camera_iter_file );
 
   }
 
@@ -1431,7 +1453,7 @@ int main(int argc, char* argv[]){
 
   //////////////////////////////////////////////////////////
   //Loading up pixel iteration data
-  if (vm.count("pixel-iteration-file") && vm.count("points-iteration-file")){
+  if (vm.count("pixel-iteration-file") && vm.count("points-iteration-file") && vm.count("camera-iteration-file") ){
     
     imageTexture = new osg::Texture2D;
     osg::Image* nasaImage = osgDB::readImageFile("nasa-logo.gif");
@@ -1444,6 +1466,8 @@ int main(int argc, char* argv[]){
     //Storing pixel data inside camera data
     loadPixelData( pixel_iter_file, pointData );
 
+    //Also attaching image data... if there is any
+    loadImageData( cameraData , file_prefix , file_postfix );
   }
 
   //////////////////////////////////////////////////////////
