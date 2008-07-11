@@ -26,6 +26,7 @@
 
 #include <boost/version.hpp>
 #include <boost/program_options.hpp>
+#include <iostream>
 namespace po = boost::program_options;
 
 class StereoSettings {
@@ -34,7 +35,7 @@ class StereoSettings {
 
 public:
   StereoSettings();
-  void StereoSettings::read(std::string const& filename);
+  void read(std::string const& filename);
 
   // ----------------
   // Public variables
