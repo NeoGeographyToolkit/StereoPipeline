@@ -171,20 +171,22 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
     for (signed r = 0; r < point_image_impl.rows(); r+=step_size ){
       for (signed c = 0; c < point_image_impl.cols(); c+=step_size ){
 
-	vertices->push_back( osg::Vec3f( point_image_impl.impl()(r,c)[0] ,
-					 point_image_impl.impl()(r,c)[1] ,
-					 point_image_impl.impl()(r,c)[2] ) );
+	vertices->push_back( osg::Vec3f( point_image_impl.impl()(c,r)[0] ,
+					 point_image_impl.impl()(c,r)[1] ,
+					 point_image_impl.impl()(c,r)[2] ) );
 
 	if ( tex_file.size() ) {
-	  texcoords->push_back( osg::Vec2f ( (float)r / (float)point_image_impl.rows() , 
-					     1 - (float)c / (float)point_image_impl.cols() ) );
-	} else if ( (point_image_impl.impl()(r,c)[0] != 0 ) &&
-		    (point_image_impl.impl()(r,c)[1] != 0 ) &&
-		    (point_image_impl.impl()(r,c)[2] != 0 ) ) {
+	  texcoords->push_back( osg::Vec2f ( (float)c / (float)point_image_impl.cols() ,
+					     1-(float)r / (float)point_image_impl.rows() ) );
+	  //texcoords->push_back( osg::Vec2f ( (float)r / (float)point_image_impl.rows() , 
+	  //				     1 - (float)c / (float)point_image_impl.cols() ) );
+	} else if ( (point_image_impl.impl()(c,r)[0] != 0 ) &&
+		    (point_image_impl.impl()(c,r)[1] != 0 ) &&
+		    (point_image_impl.impl()(c,r)[2] != 0 ) ) {
 	  //I'm calculating the main normal for the data.
-	  dataNormal[0] += point_image_impl.impl()(r,c)[0];
-	  dataNormal[1] += point_image_impl.impl()(r,c)[1];
-	  dataNormal[2] += point_image_impl.impl()(r,c)[2];
+	  dataNormal[0] += point_image_impl.impl()(c,r)[0];
+	  dataNormal[1] += point_image_impl.impl()(c,r)[1];
+	  dataNormal[2] += point_image_impl.impl()(c,r)[2];
 	}
       }
     }
