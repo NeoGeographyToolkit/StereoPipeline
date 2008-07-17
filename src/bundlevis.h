@@ -27,8 +27,7 @@
 #ifndef _BUNDLEVIS_H_
 #define _BUNDLEVIS_H_
 
-//The general libraries that I need for this project
-//BOOST files
+#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
@@ -43,8 +42,7 @@ namespace po = boost::program_options;
 #include <osg/ShapeDrawable>
 #include <osgDB/ReadFile>
 #include <osgViewer/Viewer>
-#include <osgSim/DOFTransform>
-#include <osgSim/MultiSwitch>
+#include <osg/MatrixTransform>
 #include <osgGA/TrackballManipulator>
 #include <osg/LineWidth>
 #include <osgText/Text>
@@ -56,7 +54,6 @@ namespace po = boost::program_options;
 //Standard
 #include <stdlib.h>
 #include <iostream>
-#include <iomanip>
 #include <fstream>
 #include <vector>
 
@@ -64,194 +61,408 @@ namespace po = boost::program_options;
 #include <vw/Camera/ControlNetwork.h>
 #include <vw/Math.h>
 
-//POINT_IN_TIME CLASS
-//This is a class that holds the position and string tag for a point
-//being tracked through time. It's important to have the string as it
-//will be used during the event that the user clicks on that
-//point. This also contains an integeter representing what iteration
-//this point is from.
-class PointInTime {
+// PointIter, the lowest quantum of points
+class PointIter : public osg::Referenced {
  public:
-  //Constructor & Deconstructor
-  PointInTime (osg::Vec3f center, const int& pnt_num, const int& iter_num);
-  ~PointInTime();
-  //Useful for drawing
-  osg::Geode* getSelectCube(const float& size);
-  osg::Node* getTextGraphic();
-  const osg::Vec3f* getCenter();
-  const std::string getDescription(){
-    return description_;
+  PointIter (const int& ID, int* step) {
+    _ID = ID;
+    _step = step;
+    _drawConnLines = false;
+
+    std::ostringstream os;
+    os << "Point: " << (_ID+1);
+    _description = os.str();
   }
-  void addImageMeasure(const int& j, const float& x, const float& y);
-  const std::vector<osg::Vec2f*>& getImageMeasures();
- protected:
-  osg::Vec3f location_;
-  std::string description_;
-  int pointID_;
-  int iteration_;
-  std::vector<osg::Vec2f*> image_measures_;
-};
-
-//CAMERA_IN_TIME CLASS
-//This is a class that holds the CAHVOR model of the camera along with
-//a descriptor string. The string is the most imporant as this allows
-//for the user to determine what camera is being looked at. This also
-//contains an integer representing what iteration this camera is from.
-class CameraInTime {
- public:
-  //Constructor & Deconstructor
-  CameraInTime(osg::Vec3Array* model_param,const int& cam_num, const int& iter_num);
-  CameraInTime(const osg::Vec3f& model_center, const osg::Vec3f& euler, const int& cam_num, const int& iter_num);
-  ~CameraInTime();
-  //Useful for drawing
-  osg::Geode* get3Axis(const float& size, const float& opacity);
-  osg::Geode* getSelectCube(const float& size);
-  osg::Node* getTextGraphic();
-  const osg::Vec3f* getCenter();
-  const std::string getDescription(){
-    return description_;
+  int getStep(void) { return (*_step); }
+  unsigned size(void) { return _position.size(); }
+  void addIteration( osg::Vec3f& newPos, float const& newError ) {
+    _position.push_back( newPos );
+    _error.push_back( newError );
   }
-  osg::Image* getImage();
-  void setImage(osg::Image*);
- protected:
-  bool isCAHVOR_;
-  osg::Vec3f c_;
-  osg::Vec3f a_;
-  osg::Vec3f h_;
-  osg::Vec3f v_;
-  osg::Vec3f o_;
-  osg::Vec3f r_;
-  osg::Vec3f euler_;
-  std::string description_;
-  int cameraNum_;
-  int iteration_;
-  osg::ref_ptr<osg::Image> imageData_;
-};
-
-//This function will draw an entire group using the points in time
-//provide, to create selectable points with fading lines connecting all
-//of them.
-osg::Group* PointString (std::vector<PointInTime* >* pointData);
-
-//This function will draw an entire group using the cameras in time
-//provided. This will create a string of connected 3 axes that can be
-//picked to reveal their label
-osg::Group* CameraString (std::vector<CameraInTime* >* cameraData);
-
-//This will build a vector containing vectors for all the points that
-//existed in the bundle adjustment problem. The second level vector
-//contains a specific point's data across all iterations of BA. The
-//lowest level is the PointInTime, which contains a specific points time
-//instance data.
-std::vector<std::vector<PointInTime*>*>* loadPointsData(std::string pntFile);
-
-//This will build a vector containing a vector for each camera in the
-//bundle adjustment. The second level vector contains that camera's data
-//for each time iteration. The lowest level is the CameraInTime class
-//which contains that instance's data.
-std::vector<std::vector<CameraInTime*>*>* loadCamerasData(std::string camFile);
-
-//This will load pixel information data. It's not stored in it's own unique
-//spot, it is instead appended to the points data. Hopefully this is more
-//organized in a way. So, becuase of the previous statement, the pointData
-//is required as an input requirement.
-void loadPixelData(std::string pxlFile, std::vector<std::vector<PointInTime*>*>* pointData);
-
-//This will attach image data to every camera
-void loadImageData(std::vector<std::vector<CameraInTime*>*>* cameraData,
-		   const std::string& pretfix,
-		   const std::string& postfix);
-
-//This function creates the HUD of the screen. The passed pointer to
-//text, is the text label that keeps changing based on what the user has
-//selected.
-osg::Node* createHUD(osgText::Text* updateText);
-
-//This will build the entire scene from the ground up
-osg::Sequence* createScene(std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet );
-
-//This is just a general node visitor
-class SwitchNamedNodes : public osg::NodeVisitor{
- public:
-  SwitchNamedNodes( void ) 
-    : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN){
-    names_.clear();
+  const osg::Vec3f getPosition( const int& step ) {
+    return _position.at( step );
   }
-  virtual void apply( osg::Node& node )
-  {
-    for (int i = 0; i < names_.size(); ++i){
-      if (node.getName() == names_[i] ) {
-	osg::Switch* parent = dynamic_cast<osg::Switch*>(node.getParent(0));
-	parent->setChildValue(&node,!parent->getChildValue(&node)); //Toggle value      
-      }
-    }
-
-    //Still checking for more of em'
-    traverse( node );
+  const float getError( const int& step ) {
+    return _error.at( step );
   }
-  void setNamesToFind(const std::vector<std::string>& names ){
-    names_ = names;
+  void setDrawConnLines( bool value ) {
+    _drawConnLines = value;
   }
-  void addNameToFind(const std::string& name){
-    names_.push_back(name);
+  bool getDrawConnLines( void ) {
+    return _drawConnLines;
   }
- protected:
-  std::vector<std::string> names_;
-};
-
-//Copied this from the 'net
-std::vector<std::string> tokenize(const std::string & str, const std::string & delim)
-{
-  using namespace std;
-  vector<string> tokens;
-
-  size_t p0 = 0, p1 = string::npos;
-  while(p0 != string::npos)
-  {
-    p1 = str.find_first_of(delim, p0);
-    if(p1 != p0)
-    {
-      string token = str.substr(p0, p1 - p0);
-      tokens.push_back(token);
-    }
-    p0 = str.find_first_not_of(delim, p1);
-  }
-
-  return tokens;
-}
-
-
-//An event handler for all
-class AllEventHandler : public osgGA::GUIEventHandler{
- public:
-  AllEventHandler(osg::Sequence* seq, osgText::Text* updateText, osg::Texture2D* imageTexture, osgGA::TrackballManipulator* camera, std::vector<std::vector<PointInTime*>*>* pointData, std::vector<std::vector<CameraInTime*>*>* cameraData, vw::camera::ControlNetwork* cnet, osg::Group* root)
-    {
-      seq_ = seq;
-      updateText_ = updateText;
-      imageTexture_ = imageTexture;
-      camera_ = camera;
-      pointData_ = pointData;
-      cameraData_ = cameraData;
-      cnet_ = cnet;
-      root_ = root;
-    }
-  bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
-  void pick(osgViewer::View* view, const osgGA::GUIEventAdapter& ea);
-  void setLabel(const std::string& name)
-  {
-    //If update text still exits
-    if (updateText_.get())
-      updateText_->setText(name);
+  const std::string getDescription( void ) {
+    return _description;
   }
  private:
-  osg::ref_ptr<osg::Sequence> seq_;
-  osg::ref_ptr<osgText::Text> updateText_;
-  osg::ref_ptr<osg::Texture2D> imageTexture_;
-  osgGA::TrackballManipulator* camera_;
-  std::vector<std::vector<PointInTime*>*>* pointData_;
-  std::vector<std::vector<CameraInTime*>*>* cameraData_;
-  vw::camera::ControlNetwork* cnet_;
-  osg::ref_ptr<osg::Group> root_;
+  int* _step;
+  int _ID;
+  bool _drawConnLines;
+  std::string _description;
+  std::vector<osg::Vec3f> _position;
+  std::vector<float> _error;
+  vw::camera::ControlPoint* _controlPoint;
 };
+
+// CameraIter, the lowest quantum of cameras
+class CameraIter : public osg::Referenced  {
+ public:
+  CameraIter (const int& ID, int* step) {
+    _ID = ID;
+    _step = step;
+    _drawConnLines = false;
+
+    std::ostringstream os;
+    os << "Camera: " << (_ID+1);
+    _description = os.str();
+  }
+  int getStep(void) { return (*_step); }
+  unsigned size(void) { return _position.size(); }
+  void addIteration( const osg::Vec3f& newPos, const osg::Vec3f& newEuler ) {
+    _position.push_back( newPos );
+    _euler.push_back( newEuler );
+  }
+  const osg::Vec3f getPosition( const int& step ) {
+    return _position.at( step );
+  }
+  const osg::Vec3f getEuler( const int& step ) {
+    return _euler.at( step );
+  }
+  const std::string getDescription( void ) {
+    return _description;
+  }
+  void setDrawConnLines( bool value ) {
+    _drawConnLines = value;
+  }
+  bool getDrawConnLines( void ) {
+    return _drawConnLines;
+  }
+  osg::MatrixTransform* buildMatrixTransform( const int& step );
+
+ private:
+  int* _step;
+  int _ID;
+  bool _drawConnLines;
+  std::string _description;
+  std::vector<osg::Vec3f> _position;
+  std::vector<osg::Vec3f> _euler;
+};
+
+// ConnLinesIter, the quanta of connecting lines between point and cameras
+class ConnLineIter {
+ public:
+  ConnLineIter (PointIter* point, CameraIter* camera, int* step) {
+    _point = point;
+    _camera = camera;
+    _step = step;
+    colour.set(0.5f,0.5f,0.5f,1.0f);
+  }
+  int getStep(void) { return (*_step); }
+  bool getToDraw( void ) {
+    return _point->getDrawConnLines() || _camera->getDrawConnLines();
+  }
+  PointIter* getPoint(void) { return _point; };
+  CameraIter* getCamera(void) { return _camera; };
+ private:
+  int* _step;
+  PointIter* _point;
+  CameraIter* _camera;
+  osg::Vec4f colour;
+};
+
+// This will load a point data file
+std::vector<PointIter*> loadPointData( std::string pntFile,
+				       int* step );
+
+// This will load a camera data file
+std::vector<CameraIter*> loadCameraData( std::string camFile,
+					 int* step );
+
+// This will load a control network file
+std::vector<ConnLineIter*> loadControlNet( std::string cnetFile ,
+					   std::vector<PointIter*>& points,
+					   std::vector<CameraIter*>& cameras,
+					   vw::camera::ControlNetwork* cnet,
+					   int* step );
+
+// This builds the entire scene
+osg::Node* createScene( std::vector<PointIter*>& points,
+			std::vector<CameraIter*>& cameras,
+			std::vector<ConnLineIter*>& connLines );
+
+// Playback control
+class PlaybackControl {
+ public:
+  PlaybackControl(int* step){
+    _step = step;
+    _play = true;
+    _stop = false;
+    _pause = false;
+  }
+  void setPlay(){ _play = true; _stop = false; _pause = false; }
+  void setPause(){ _play = false; _stop = false; _pause = true; }
+  void setStop(){ _play = false; _stop = true; _pause = false; (*_step) = 1; }
+  bool getPlay(){ return _play; }
+ private:
+  int* _step;
+  bool _play;
+  bool _pause;
+  bool _stop;
+};
+
+// Event Handler for Mouse and Keyboard
+class AllEventHandler : public osgGA::GUIEventHandler{
+ public:
+  AllEventHandler( int* step, const int& numIter, PlaybackControl* playControl ) {
+    _step = step;
+    _numIter = numIter;
+    _playControl = playControl;
+  }
+  bool handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa );
+  void pick( osgViewer::View* view, const osgGA::GUIEventAdapter& ea );
+ private:
+  int* _step;
+  int _numIter;
+  PlaybackControl* _playControl;
+};
+
+// This is a draw back for a collection of points in a single geometry
+struct pointsDrawCallback : public osg::Drawable::DrawCallback
+{
+  pointsDrawCallback( std::vector<PointIter*>* points ) {
+    _points = points;
+    _previousStep = 0;
+  }
+
+  virtual void drawImplementation( osg::RenderInfo& renderInfo,
+				   const osg::Drawable* drawable ) const
+  {
+    //osg::State& state = *renderInfo.getState();
+    
+    int buffer = (*_points)[0]->getStep();
+
+    if ( _previousStep != buffer ) {
+      // Time to change vector data
+
+      osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(const_cast<osg::Drawable*>(drawable));
+      osg::Vec3Array* vertices = dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
+
+      if ( buffer > 1 ) {
+	// Here we will draw a line to the just the last step
+	
+	for ( unsigned i = 0; i < (*_points).size()*2; i+=2 ){
+	  (*vertices)[i] = (*_points)[i/2]->getPosition( buffer - 1 );
+	  (*vertices)[i+1] = (*_points)[i/2]->getPosition( buffer - 2 );
+	}
+
+      } else if ( buffer == 1 ) {
+	// There will be no lines, but only points
+
+	for ( unsigned i = 0; i < (*_points).size()*2; i+=2 ){
+	  (*vertices)[i] = (*_points)[i/2]->getPosition( 0 );
+	  (*vertices)[i+1] = (*vertices)[i];
+	}
+
+      } else if ( buffer == 0 ) {
+	// Here the line goes between the first and last iteration
+
+	for ( unsigned i = 0; i < (*_points).size()*2; i+=2 ){
+	  (*vertices)[i] = (*_points)[i/2]->getPosition( (*_points)[0]->size() - 1 );
+	  (*vertices)[i+1] = (*_points)[i/2]->getPosition( 0 );
+	}
+      }
+
+    }
+
+    _previousStep = buffer;
+
+    drawable->drawImplementation( renderInfo );
+  }
+
+  mutable std::vector<PointIter*>* _points;
+  mutable int _previousStep;
+};
+
+// This is a draw back for the lines connecting cameras and points
+struct linesDrawCallback : public osg::Drawable::DrawCallback
+{
+  linesDrawCallback( ConnLineIter* connLine ) {
+    _connLine = connLine;
+  }
+
+  virtual void drawImplementation( osg::RenderInfo& renderInfo,
+				   const osg::Drawable* drawable ) const
+  {
+    int buffer = _connLine->getStep();
+
+    if ( buffer == 0 )
+      buffer = _connLine->getPoint()->size();
+
+    if ( _previousStep != buffer ) {
+      osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(const_cast<osg::Drawable*>(drawable));
+      osg::Vec3Array* vertices = dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
+
+      (*vertices)[0] = _connLine->getPoint()->getPosition( buffer - 1 );
+      (*vertices)[1] = _connLine->getCamera()->getPosition( buffer - 1 );
+    }
+
+    _previousStep = buffer;
+
+    if ( _connLine->getToDraw() )
+      drawable->drawImplementation( renderInfo );
+  }
+  mutable ConnLineIter* _connLine;
+  mutable int _previousStep;
+};
+
+// This is a update callback, it's meant just to work with playback control
+class playbackNodeCallback : public osg::NodeCallback
+{
+ public:
+  playbackNodeCallback( int* step , int maxIter, PlaybackControl* playback ){
+    _playback = playback;
+    _maxIter = maxIter;
+    _step = step;
+    _delayCount = 0;
+  }
+  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv )
+  {
+    _delayCount++;
+    _delayCount&=0x01;
+    
+    if ( _playback->getPlay() && !_delayCount ) {
+      int buffer = (*_step);
+      buffer++;
+      if ( buffer > _maxIter )
+	buffer = 1;
+      (*_step) = buffer;
+    }
+    traverse( node, nv );
+  }
+ private:
+  PlaybackControl* _playback;
+  int* _step;
+  int _maxIter;
+  unsigned _delayCount;
+};
+
+// This is an update callback for the matrix that transforms the 3
+// axis representing the camera
+class cameraMatrixCallback : public osg::NodeCallback
+{
+ public:
+  cameraMatrixCallback( CameraIter* camera ) {
+    _camera = camera;
+  }
+  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv )
+  {
+    int buffer = _camera->getStep();
+    
+    //When displaying all... just display end
+    if ( buffer == 0 )
+      buffer = _camera->size();
+
+    if ( buffer != _previousStep ) {
+      
+      //Moving the transform to reflect the current step
+      osg::MatrixTransform* mt = dynamic_cast<osg::MatrixTransform*>(node);
+     
+      osg::Vec3f euler = _camera->getEuler( buffer - 1 );
+      osg::Vec3f position = _camera->getPosition( buffer - 1 );
+
+      double ca = cos(euler[0]), sa = sin(euler[0]);
+      double cb = cos(euler[1]), sb = sin(euler[1]);
+      double cc = cos(euler[2]), sc = sin(euler[2]);
+
+      //Transposed
+      /*
+      osg::Matrix rot( cb*cc,           sa*sb*cc+ca*sc,  -ca*sb*cc+sa*sc,   0,
+		       -cb*sc,          -sa*sb*sc+ca*cc, ca*sb*sc+sa*cc,    0,
+		       sb,              -sa*cb,          ca*cb,             0,
+		       0,               0,               0,                 1);
+      */
+      osg::Matrix rot( cb*cc,           -cb*sc,          sb,                0,
+		       sa*sb*cc+ca*sc,  -sa*sb*sc+ca*cc, ca*sb*sc+sa*cc,    0,
+		       -ca*sb*cc+sa*sc, ca*sb*sc+sa*cc,  ca*cb,             0,
+		       0,               0,               0,                 1);
+
+      osg::Matrix trans( 1,   0,   0,   0,
+			 0,   1,   0,   0,
+			 0,   0,   1,   0,
+			 position[0],   position[1],   position[2],   1 );
+
+      osg::Matrix result( rot*trans );
+
+      mt->setMatrix( result );
+
+    }
+
+    _previousStep = buffer;
+    traverse( node, nv );
+  }
+ private:
+  int _previousStep;
+  CameraIter* _camera;
+};
+
+// This is an update callback for the auto matrix that transforms the
+// hit square and text for the camera
+class cameraAutoMatrixCallback : public osg::NodeCallback
+{
+ public:
+  cameraAutoMatrixCallback( CameraIter* camera ) {
+    _camera = camera;
+  }
+  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv )
+  {
+    int buffer = _camera->getStep();
+    
+    //When display all... just display end
+    if ( buffer == 0 )
+      buffer = _camera->size();
+    
+    if ( buffer != _previousStep ) {
+      osg::AutoTransform* autoT = dynamic_cast< osg::AutoTransform* >(node);
+
+      autoT->setPosition( _camera->getPosition( buffer - 1 ) );
+    }
+
+    _previousStep = buffer;
+    traverse( node, nv );
+  }
+ private:
+  int _previousStep;
+  CameraIter* _camera;
+};
+
+// This is an update callback for the automatrix that transforms the
+// hit square and text for the points
+class pointAutoMatrixCallback : public osg::NodeCallback
+{
+ public:
+  pointAutoMatrixCallback( PointIter* point ) {
+    _point = point;
+  }
+  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv )
+  {
+    int buffer = _point->getStep();
+    
+    //When display all... just display end
+    if ( buffer == 0 )
+      buffer = _point->size();
+
+    if ( buffer != _previousStep ) {
+      osg::AutoTransform* autoT = dynamic_cast< osg::AutoTransform* >(node);
+      
+      autoT->setPosition( _point->getPosition( buffer - 1 ) );
+    }
+  }
+ private:
+  int _previousStep;
+  PointIter* _point;
+};
+
+// This just builds the 3 Axis that represents the camera
+osg::Geode* build3Axis( void );
 
 #endif
