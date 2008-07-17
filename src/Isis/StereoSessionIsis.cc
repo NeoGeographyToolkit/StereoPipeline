@@ -108,9 +108,8 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
     ImageViewRef<PixelGray<float> > right_image = normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0);
     
     // Interest Point module detector code.
-    LogInterestOperator log_detector(0.1);
-    ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 100);
-    //    ScaledInterestPointDetector<LogInterestOperator> detector;
+    LogInterestOperator log_detector;
+    ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 500);
     std::cout << "Processing " << input_file1 << "\n";
     ip1 = detect_interest_points(left_image, detector);
     std::cout << "\nProcessing " << input_file2 << "\n";
@@ -170,8 +169,10 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
   try {
     T = ransac(ransac_ip2,ransac_ip1);
   } catch (vw::ip::RANSACErr &e) {
-    std::cout << "\nWARNING: Automatic Alignment Failed!  Proceed with caution...\n\n";
-    T.set_size(3,3);
+    std::cout << "\n*************************************************************\n";
+    std::cout << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
+    std::cout << "*************************************************************\n\n";
+        T.set_size(3,3);
     T.set_identity();
   }
   return T;
