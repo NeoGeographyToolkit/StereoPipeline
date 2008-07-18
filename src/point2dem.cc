@@ -278,7 +278,12 @@ int main( int argc, char *argv[] ) {
     DiskImageView<PixelGray<float> > texture(texture_filename); 
     rasterizer.set_texture(texture);
     BlockCacheView<PixelGray<float> > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 2048));
-    write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(block_drg_raster), georef, TerminalProgressCallback() );
+    if (vm.count("use-alpha")) {
+      write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(apply_mask(block_drg_raster,PixelGray<float>(-32000))), georef, TerminalProgressCallback() );
+    }
+    else {
+      write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(block_drg_raster), georef, TerminalProgressCallback() );
+    }
 
   } else {
     // Write out the DEM.
