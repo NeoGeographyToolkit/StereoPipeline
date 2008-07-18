@@ -320,7 +320,7 @@ int main(int argc, char* argv[]) {
     // OpenEXR.
     DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
     disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
-    block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );
+    block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );    
   }
 
   /***************************************************************************/
@@ -330,9 +330,12 @@ int main(int argc, char* argv[]) {
     if (entry_point == FILTERING)
         cout << "\nStarting at the FILTERING stage.\n";
 
+    std::string post_correlation_fname;
+    session->pre_filtering_hook(out_prefix+"-D.exr", post_correlation_fname);
+
     try {
-      std::cout << "\nUsing image " << out_prefix + "-D.exr" << " as disparity map image.\n";
-      DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
+      std::cout << "\nUsing image " << post_correlation_fname << " as disparity map image.\n";
+      DiskImageView<PixelDisparity<float> > disparity_disk_image(post_correlation_fname);
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
 
 

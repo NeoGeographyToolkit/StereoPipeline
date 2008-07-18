@@ -30,6 +30,7 @@
 #include <vw/Image.h>
 
 #include "StereoSession.h"
+#include "stereo.h"
 
 // Isis Headers
 #include <SpecialPixel.h>
@@ -120,8 +121,13 @@ void isis_min_max_channel_values( const ImageViewBase<ViewT> &view,
 } // namespace vw
 
 class StereoSessionIsis: public StereoSession {
+
+  bool m_do_interest_point_alignment;
   
 public:
+
+  // Constructor
+  StereoSessionIsis() { m_do_interest_point_alignment = true; }
 
   virtual ~StereoSessionIsis() {}
 
@@ -133,6 +139,12 @@ public:
   // Pre file is a pair of images.            ( ImageView<PixelT> )
   virtual void pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
                                       std::string & output_file1, std::string & output_file2);
+
+  // Stage 2: Correlation
+  //
+  // Pre file is a pair of grayscale images.  ( ImageView<PixelGray<float> > )
+  // Post file is a disparity map.            ( ImageView<PixelDisparity<float> > )
+  virtual void pre_filtering_hook(std::string const& input_file, std::string & output_file);
 
   // Stage 4: Point cloud generation
   //

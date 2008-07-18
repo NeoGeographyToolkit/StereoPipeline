@@ -2035,7 +2035,6 @@ CalculateGradients(BUFFER *b, int width, int height)
 void
 dot_to_adaptative_mesh(BUFFER *b, int width, int height, double mesh_tolerance, int max_triangles)
 {
-  int pixelIndex,maxGray=0;
   Quadtree *quadtree;
 
   Init(b,width,height);
@@ -2062,7 +2061,6 @@ dot_to_mesh(BUFFER *b, int width, int height, int h_step, int v_step)
   //  int 	max_jump = dft->nff_max_jump;
   int	grid_width, grid_height;
   int	buff_pos;
-  int 	max_gray = 0;
   int	n = 0;			/* number of triangles created */
   int	AI, BI, CI, DI;		/* shift from pointer to the 4 corners Image */
   int	AG, BG, CG, DG;		/* shift from pointer to the 4 corners Grid */
@@ -2524,7 +2522,7 @@ void write_vrml_impl(BUFFER *b, std::string const& filename, std::string const& 
 
   // open output file 
   if((outflow = fopen (filename.c_str(), "w" )) == 0) {
-    fprintf (stderr, "%s: cannot open output file: %s\n", filename.c_str());
+    fprintf (stderr, "write_vrml(): cannot open output file: %s\n", filename.c_str());
     exit(EXIT_FAILURE);
   }
   fprintf(outflow,"#VRML V1.0 ascii\n#\n");              

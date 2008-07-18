@@ -34,6 +34,7 @@
 #include <vw/Cartography.h>
 #include "Isis/StereoSessionIsis.h"
 #include "Isis/IsisCameraModel.h"
+#include "StereoSettings.h"
 
 // Boost
 #include "boost/filesystem.hpp"   
@@ -42,7 +43,16 @@ using namespace boost::filesystem;
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
+using namespace vw::stereo;
 using namespace vw::ip;
+
+
+// Allows FileIO to correctly read/write these pixel types
+namespace vw {
+  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+}
+
 
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
@@ -242,7 +252,8 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
 
     Matrix<double> align_matrix(3,3);
     align_matrix.set_identity();
-    align_matrix = determine_image_alignment(input_file1, input_file2, lo, hi);
+    if (stereo_settings().keypoint_alignment)
+      align_matrix = determine_image_alignment(input_file1, input_file2, lo, hi);
     ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
 
     // Apply the alignment transformation to the right image.
@@ -255,6 +266,33 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback());
     write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback()); 
   }
+}
+
+// Stage 2: Correlation
+//
+// Pre file is a pair of grayscale images.  ( ImageView<PixelGray<float> > )
+// Post file is a disparity map.            ( ImageView<PixelDisparity<float> > )
+void StereoSessionIsis::pre_filtering_hook(std::string const& input_file, std::string & output_file) {
+  std::cout << "******** Call to post ISIS3 correlation hook: " << input_file << "! *************\n";
+  output_file = m_out_prefix + "-D-masked.exr";
+  
+  ImageView<uint8> Lmask, Rmask;
+  DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
+  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+  
+  read_image(Lmask,m_out_prefix + "-lMask.tif");
+  read_image(Rmask,m_out_prefix + "-rMask.tif");
+  disparity::mask_black_pixels(clamp(left_disk_image,0,1e6), Lmask);
+  disparity::mask_black_pixels(clamp(right_disk_image,0,1e6), Rmask);
+  write_image(m_out_prefix + "-lMaskDebug.tif", Lmask);
+  write_image(m_out_prefix + "-rMaskDebug.tif", Rmask);
+  
+  DiskImageView<PixelDisparity<float> > disparity_disk_image(input_file);
+  ImageViewRef<PixelDisparity<float> > disparity_map = disparity::mask(disparity_disk_image, Lmask, Rmask);
+
+  DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
+  disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
+  block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );
 }
 
 // Reverse any pre-alignment that was done to the images.
