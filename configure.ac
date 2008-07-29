@@ -274,6 +274,8 @@ dnl AX_PKG(QT, [QT_CORE QT_GUI QT_NETWORK QT_SQL], [])
 dnl AX_PKG(ISIS3RDPARTY, [], [-lgeos -lgeos_c -lxerces-c -lgsl -lgslcblas -liconv -lqwt -lpq -lqwt -lz])
 dnl AX_PKG(ISIS, [SPICE QT ISIS3RDPARTY], [-lisis3])
 
+# These are here (instead of inside the PKG macro where they belong)
+# for backwards compatability with older versions of automake.
 AM_CONDITIONAL(HAVE_PKG_ISIS, [test "$HAVE_PKG_ISIS" = "yes"])
 
 ##################################################
@@ -293,6 +295,22 @@ AX_APP(CTXIMAGE, [src], no, [BOOST BOOST_PROGRAM_OPTIONS VW VW_CARTOGRAPHY])
 AX_APP(RMAX2CAHVOR, [src], no, [BOOST VW VW_CAMERA BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM])
 AX_APP(RMAXADJUST, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_STEREO VW_INTEREST_POINT LAPACK])
 AX_APP(BUNDLEVIS, [src], no, [BOOST BOOST_PROGRAM_OPTIONS OPENSCENEGRAPH VW VW_CAMERA])
+
+# These are here (instead of inside the APP macro where they belong)
+# for backwards compatability with older versions of automake.
+AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
+AM_CONDITIONAL(MAKE_APP_ORTHOPROJECT, [test "$MAKE_APP_ORTHOPROJECT" = "yes"])
+AM_CONDITIONAL(MAKE_APP_BUNDLEADJUST, [test "$MAKE_APP_BUNDLEADJUST" = "yes"])
+AM_CONDITIONAL(MAKE_APP_ORBITVIZ, [test "$MAKE_APP_ORBITVIZ" = "yes"])
+AM_CONDITIONAL(MAKE_APP_DISPARITYDEBUG, [test "$MAKE_APP_DISPARITYDEBUG" = "yes"])
+AM_CONDITIONAL(MAKE_APP_POINT2MESH, [test "$MAKE_APP_POINT2MESH" = "yes"])
+AM_CONDITIONAL(MAKE_APP_POINT2MESH2, [test "$MAKE_APP_POINT2MESH2" = "yes"])
+AM_CONDITIONAL(MAKE_APP_POINT2DEM, [test "$MAKE_APP_POINT2DEM" = "yes"])
+AM_CONDITIONAL(MAKE_APP_NURBS, [test "$MAKE_APP_NURBS" = "yes"])
+AM_CONDITIONAL(MAKE_APP_CTXIMAGE, [test "$MAKE_APP_CTXIMAGE" = "yes"])
+AM_CONDITIONAL(MAKE_APP_RMAX2CAHVOR, [test "$MAKE_APP_RMAX2CAHVOR" = "yes"])
+AM_CONDITIONAL(MAKE_APP_RMAXADJUST, [test "$MAKE_APP_RMAXADJUST" = "yes"])
+AM_CONDITIONAL(MAKE_APP_BUNDLEVIS, [test "$MAKE_APP_BUNDLEVIS" = "yes"])
 
 ##################################################
 #	final processing	    
