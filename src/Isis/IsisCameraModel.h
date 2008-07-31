@@ -73,6 +73,12 @@ namespace camera {
     //  Pose is a rotation which moves a vector in camera coordinates into world coordinates.
     virtual Quaternion<double> camera_pose(Vector2 const& pix = Vector2() ) const;
 
+    // Returns the number of lines is the ISIS cube
+    virtual int getLines(void) const;
+
+    // Returns the number of samples in the ISIS cube
+    virtual int getSamples(void) const;
+
   private:
     mutable double m_current_line, m_current_sample;
     void set_image(double sample, double line) const;

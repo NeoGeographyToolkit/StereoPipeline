@@ -164,4 +164,13 @@ Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
 }
 
 
+int IsisCameraModel::getLines( void ) const {
+  Isis::Camera* cam = static_cast<Isis::Camera*>(m_isis_camera_ptr);
+  return cam->Lines();
+}
+
+int IsisCameraModel::getSamples( void ) const {
+  Isis::Camera* cam = static_cast<Isis::Camera*>(m_isis_camera_ptr);
+  return cam->Samples();
+}
 
