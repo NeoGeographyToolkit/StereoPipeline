@@ -262,7 +262,7 @@ dnl the ISIS compilation does not resolve certain BLAS symbols that its
 dnl dependent 3rd party libraries depend on (for whatever retarded reason).
 dnl Thus, we link against LAPACK here because it defines these missing 
 dnl BLAS symbols in the event that we need them.
-AX_PKG(ISIS3RDPARTY, [LAPACK], [-lsuperlu_3.0 -lgeos.2 -lxerces-c.27 -lgsl.0 -lgslcblas.0 -lqwt.5 -lstdc++])
+AX_PKG(ISIS3RDPARTY, [LAPACK], [-lsuperlu_3.0 -lgeos -lxerces-c -lgsl -lgslcblas -lqwt -lstdc++])
 AX_PKG(ISIS, [QT_INCLUDE QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
 
 dnl AX_PKG(SPICE, [], [-lcspice -lcsupport], [SpiceUsr.h SpiceZfc.h])
@@ -295,6 +295,7 @@ AX_APP(CTXIMAGE, [src], no, [BOOST BOOST_PROGRAM_OPTIONS VW VW_CARTOGRAPHY])
 AX_APP(RMAX2CAHVOR, [src], no, [BOOST VW VW_CAMERA BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM])
 AX_APP(RMAXADJUST, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_STEREO VW_INTEREST_POINT LAPACK])
 AX_APP(BUNDLEVIS, [src], no, [BOOST BOOST_PROGRAM_OPTIONS OPENSCENEGRAPH VW VW_CAMERA])
+AX_APP(ISISADJUST, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_STEREO VW_CARTOGRAPHY VW_INTEREST_POINT LAPACK], [ISIS ISIS3RDPARTY])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.

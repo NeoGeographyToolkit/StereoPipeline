@@ -125,6 +125,14 @@ if MAKE_APP_RMAXADJUST
   rmax_adjust_LDFLAGS = $(APP_RMAXADJUST_LIBS) $(ASP_LDFLAGS)
 endif
 
+if MAKE_APP_ISISADJUST
+  bin_PROGRAMS += isis_adjust
+  isis_adjust_SOURCES = isis_adjust.cc BundleAdjustUtils.cc Isis/IsisCameraModel.cc	\
+                        Isis/DiskImageResourceIsis.cc
+
+  isis_adjust_LDFLAGS = $(APP_ISISADJUST_LIBS) $(ASP_LDFLAGS)
+endif
+
 if MAKE_APP_BUNDLEVIS
   bin_PROGRAMS += bundlevis
   bundlevis_SOURCES = bundlevis.cc
