@@ -110,23 +110,61 @@ class CameraIter : public osg::Referenced  {
   CameraIter (const int& ID, int* step) {
     _ID = ID;
     _step = step;
+    _vertices = 1;
     _drawConnLines = false;
+    _isPushbroom = false;
+
+    std::ostringstream os;
+    os << "Camera: " << (_ID+1);
+    _description = os.str();
+  }
+  CameraIter (const int& ID, int* step, const int& vertices) {
+    _ID = ID;
+    _step = step;
+    _vertices = vertices;
+    _drawConnLines = false;
+    _isPushbroom = true;
 
     std::ostringstream os;
     os << "Camera: " << (_ID+1);
     _description = os.str();
   }
   int getStep(void) { return (*_step); }
-  unsigned size(void) { return _position.size(); }
+  unsigned size(void) { return _position.size()/_vertices; }
   void addIteration( const osg::Vec3f& newPos, const osg::Vec3f& newEuler ) {
-    _position.push_back( newPos );
-    _euler.push_back( newEuler );
+    if (!_isPushbroom) {
+      _position.push_back( newPos );
+      _euler.push_back( newEuler );
+    } else {
+      std::cout << "ERROR CAMERA: Trying to add frame like data to non-frame camera" << std::endl;
+    }
+  }
+  void addIteration( const std::vector<osg::Vec3f>& newPos,
+		     const std::vector<osg::Vec3f>& newEuler ) {
+    if (_isPushbroom){
+      if ( newPos.size() == _vertices ) {
+	for (int i = 0; i < _vertices; ++i) {
+	  _position.push_back( newPos[i] );
+	  _euler.push_back( newEuler[i] );
+	}
+      } else {
+	std::cout << "ERROR PUSHBROOM CAMERA: This data doesn't look like it belongs to me" << std::endl;
+      }
+    } else {
+      std::cout << "ERROR CAMERA: Trying to add pushbroom like data to non-pushbroom camera" << std::endl;
+    }
   }
   const osg::Vec3f getPosition( const int& step ) {
-    return _position.at( step );
+    return _position.at( step*_vertices );
   }
   const osg::Vec3f getEuler( const int& step ) {
-    return _euler.at( step );
+    return _euler.at( step*_vertices );
+  }
+  const osg::Vec3f getPosition( const int& step, const int& vert ) {
+    return _position.at( step*_vertices + vert );
+  }
+  const osg::Vec3f getEuler( const int& step, const int& vert ) {
+    return _euler.at( step*_vertices + vert );
   }
   const std::string getDescription( void ) {
     return _description;
@@ -137,12 +175,20 @@ class CameraIter : public osg::Referenced  {
   bool getDrawConnLines( void ) {
     return _drawConnLines;
   }
+  bool getIsPushbroom( void ) {
+    return _isPushbroom;
+  }
+  int getVertices( void ) {
+    return _vertices;
+  }
   osg::MatrixTransform* buildMatrixTransform( const int& step );
 
  private:
   int* _step;
   int _ID;
+  int _vertices;
   bool _drawConnLines;
+  bool _isPushbroom;
   std::string _description;
   std::vector<osg::Vec3f> _position;
   std::vector<osg::Vec3f> _euler;
@@ -283,6 +329,46 @@ struct pointsDrawCallback : public osg::Drawable::DrawCallback
   mutable int _previousStep;
 };
 
+// This is a drawback for the lines representing the path of a pushbroom
+struct pushbroomDrawCallback : public osg::Drawable::DrawCallback
+{
+  pushbroomDrawCallback( CameraIter* camera ) {
+    _camera = camera;
+  }
+
+  virtual void drawImplementation( osg::RenderInfo& renderInfo,
+				   const osg::Drawable* drawable ) const
+  {
+    int buffer = (*_camera).getStep();
+
+    if ( _previousStep != buffer ) {
+      // Time to change vector data
+
+      osg::Geometry* geometry = dynamic_cast<osg::Geometry*>(const_cast<osg::Drawable*>(drawable));
+      osg::Vec3Array* vertices = dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
+
+      if ( buffer == 0 ) { // Draw the last instance
+
+	for ( unsigned i = 0; i < (*_camera).getVertices(); ++i )
+	  (*vertices)[i] = (*_camera).getPosition( _camera->size() - 1, i);
+
+      } else {             // normal
+	
+	for ( unsigned i = 0; i < (*_camera).getVertices(); ++i )
+	  (*vertices)[i] = (*_camera).getPosition( buffer-1, i );
+
+      }
+    }
+
+    _previousStep = buffer;
+
+    drawable->drawImplementation( renderInfo );
+  }
+
+  mutable CameraIter* _camera;
+  mutable int _previousStep;
+};
+
 // This is a draw back for the lines connecting cameras and points
 struct linesDrawCallback : public osg::Drawable::DrawCallback
 {
@@ -311,6 +397,7 @@ struct linesDrawCallback : public osg::Drawable::DrawCallback
     if ( _connLine->getToDraw() )
       drawable->drawImplementation( renderInfo );
   }
+
   mutable ConnLineIter* _connLine;
   mutable int _previousStep;
 };

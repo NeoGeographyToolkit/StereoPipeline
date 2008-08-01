@@ -205,8 +205,12 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 
   // Building the camera organizational structure
   std::vector<CameraIter*> cameraData;
-  for ( int j = 0; j < numCameras; ++j )
-    cameraData.push_back( new CameraIter(j, step) );
+  for ( int j = 0; j < numCameras; ++j ) {
+    if ( numCameraParam == 1 || numCameraParam == 6 )
+      cameraData.push_back( new CameraIter(j, step) );
+    else
+      cameraData.push_back( new CameraIter(j, step, numCameraParam) );
+  }
 
   // Loading up the data finally
 
@@ -343,6 +347,8 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 
 	osg::Vec3f vec_fill_buffer1, vec_fill_buffer2;
 
+	// This whole conditional mess is to handle NAN, at least I
+	// hope it works!
 	if (!(file >> vec_fill_buffer1[0])) {
 	  file >> throwAway;
 	  vec_fill_buffer1[0] = 0;
@@ -371,13 +377,63 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 	// Now attaching the data
 	cameraData[j]->addIteration( vec_fill_buffer1,
 				     vec_fill_buffer2 );
+      } else { // The data is probable a linescan camera .... need to add a new draw ability
+	
+	std::vector< osg::Vec3f> bufferPosition;
+	std::vector< osg::Vec3f> bufferPose;
+	osg::Vec3f vec_fill_buffer;
+	bufferPosition.clear();
+	bufferPose.clear();
+
+	// Going through all the vertice data which was given
+	for ( int p = 0; p < numCameraParam; ++p ) {
+	  
+	  // The first on is just the Camera ID
+	  file >> float_fill_buffer;
+	  if ( float_fill_buffer != j)
+	    std::cout << "Reading number mismatch. Reading camera " << j
+		      << ", found it to be " << float_fill_buffer << std::endl;
+
+	  if (!(file >> vec_fill_buffer[0])) {
+	    file >> throwAway;
+	    vec_fill_buffer[0] = 0;
+	  }
+	  if (!(file >> vec_fill_buffer[1])) {
+	    file >> throwAway;
+	    vec_fill_buffer[1] = 0;
+	  }
+	  if (!(file >> vec_fill_buffer[2])) {
+	    file >> throwAway;
+	    vec_fill_buffer[2] = 0;
+	  }
+
+	  bufferPosition.push_back( vec_fill_buffer );
+
+	  if (!(file >> vec_fill_buffer[0])) {
+	    file >> throwAway;
+	    vec_fill_buffer[0] = 0;
+	  }
+	  if (!(file >> vec_fill_buffer[1])) {
+	    file >> throwAway;
+	    vec_fill_buffer[1] = 0;
+	  }
+	  if (!(file >> vec_fill_buffer[2])) {
+	    file >> throwAway;
+	    vec_fill_buffer[2] = 0;
+	  }
+
+	  bufferPose.push_back( vec_fill_buffer );
+	}
+
+	// Cool.. now I'm going to attach this data 
+	cameraData[j]->addIteration( bufferPosition, bufferPose );
       }
     }
   }
 
-  if ( cameraData[0]->size() != (unsigned) numTimeIter )
+  if ( (cameraData[0]->size())/(cameraData[0]->getVertices()) != (unsigned) numTimeIter )
     std::cout << "Number of Time Iterations found, " << numTimeIter
-	     << ", not equal loaded, " << cameraData[0]->size()
+	      << ", not equal loaded, " << cameraData[0]->size()/cameraData[0]->getVertices()
 	     << std::endl;
   return cameraData;
 }
@@ -494,6 +550,50 @@ osg::Node* createScene( std::vector<PointIter*>& points,
       osg::MatrixTransform* mt = cameras[j]->buildMatrixTransform( 0 );
       mt->addChild( the3Axis );
       camerasGroup->addChild( mt );
+    }
+
+    // 3b.) Draw potential pushbroom camera lines
+    osg::Group* pushbroomGroup = new osg::Group;
+    {
+      for (unsigned j = 0; j < cameras.size(); ++j){
+	if ( cameras[j]->getIsPushbroom() ) {
+	  std::cout << "Holy Cow we have a pushbroom" << std::endl;
+	  
+	  osg::Geometry* geometry = new osg::Geometry;
+
+	  // Setting up vertices
+	  osg::Vec3Array* vertices = new osg::Vec3Array( cameras[j]->getVertices() );
+	  geometry->setVertexArray( vertices );
+	  
+	  geometry->setUseDisplayList( false );
+	  geometry->setDrawCallback( new pushbroomDrawCallback( cameras[j] ) );
+
+	  for ( unsigned i = 0; i < vertices->size(); ++i ){
+	    (*vertices)[i] = cameras[j]->getPosition( 0, i );
+	  }
+
+	  // Setting up color
+	  osg::Vec4Array* colours = new osg::Vec4Array( 1 );
+	  geometry->setColorArray( colours );
+	  geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
+	  (*colours)[0].set(1.0f, 1.0f, 0.0f, 1.0f);
+
+	  // Setting up primitive to draw lines
+	  geometry->addPrimitiveSet( new osg::DrawArrays(GL_LINE_STRIP, 0, vertices->size() ));
+
+	  // Making geode
+	  osg::Geode* geode = new osg::Geode;
+	  geode->addDrawable( geometry );
+	  
+	  // Setting the line width
+	  osg::StateSet* stateSet = new osg::StateSet();
+	  stateSet->setAttribute( new osg::LineWidth(2) );
+	  geode->setStateSet( stateSet );
+
+	  pushbroomGroup->addChild( geode );
+	}
+      }
+      camerasGroup->addChild( pushbroomGroup );
     }
 
     scene->addChild( camerasGroup );
