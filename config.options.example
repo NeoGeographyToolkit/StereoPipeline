@@ -55,9 +55,9 @@
 # Look at the output from ./configure to see what modules will
 # ultimately be built.
 
-# ENABLE_MODULE_STEREO=no
-# ENABLE_MODULE_ORTHOPROJECT=no
-# ENABLE_MODULE_BUNDLEADJUST=yes
+# ENABLE_APP_STEREO=no
+# ENABLE_APP_ORTHOPROJECT=no
+# ENABLE_APP_BUNDLEADJUST=yes
 
 
 ### Package Base Paths 

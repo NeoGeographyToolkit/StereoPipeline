@@ -365,14 +365,13 @@ int main(int argc, char* argv[]) {
       // done with a subsampled (by 4) images and then the hole filled
       // values are upsampled to the full resolution of the image
       // using bicubic interpolation.
-
       ImageViewRef<PixelDisparity<float> > hole_filled_disp_map = filtered_disparity_map;
 
       if(stereo_settings().fill_holes_NURBS) {
         DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
         DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
         std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
-        hole_filled_disp_map = disparity::mask(HoleFillView(filtered_disparity_map, 4),Lmask, Rmask);
+        hole_filled_disp_map = disparity::mask(HoleFillView(filtered_disparity_map, 1),Lmask, Rmask);
       } 
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
