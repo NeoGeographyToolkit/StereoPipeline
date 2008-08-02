@@ -7,8 +7,8 @@ IRG_ARCH=`echo $IRG_ARCH_RAW | awk '{ print tolower( $0 ) }'`
 IRGPKG_DIR=/irg/packages/$IRG_ARCH
 
 ### Configure Options (Alternative to using command line syntax:  --enable-FEATURE=[val] )
-ENABLE_DEBUG=no
-ENABLE_OPTIMIZE=yes
+ENABLE_DEBUG=yes
+ENABLE_OPTIMIZE=no
 ENABLE_LIBTOOL=yes
 ENABLE_CUSTOM_ARCH_NAME=$IRG_ARCH
 
@@ -24,6 +24,7 @@ ENABLE_APP_POINT2DEM=yes
 ENABLE_APP_POINT2MESH=yes
 ENABLE_APP_DISPARITYDEBUG=yes
 ENABLE_APP_ORBITVIZ=no
+ENABLE_APP_ORTHOPROJECT=no
 
 ### Package Base Paths - Set these to the directories that contain 
 ###   lib/include directories for packages in non-standard locations.
