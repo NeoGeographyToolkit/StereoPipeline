@@ -12,31 +12,36 @@ ENABLE_OPTIMIZE=yes
 ENABLE_LIBTOOL=yes
 ENABLE_CUSTOM_ARCH_NAME=$IRG_ARCH
 
+### Setting the build directory
+PREFIX=`pwd`/build/$IRG_ARCH
+
+### Apps I want
+ENABLE_APP_STEREO=yes
+ENABLE_APP_BUNDLEADJUST=yes
+ENABLE_APP_RMAX2CAHVOR=yes
+ENABLE_APP_RMAXADJUST=yes
+ENABLE_APP_POINT2DEM=yes
+ENABLE_APP_POINT2MESH=yes
+ENABLE_APP_DISPARITYDEBUG=yes
+ENABLE_APP_ORBITVIZ=no
+
 ### Package Base Paths - Set these to the directories that contain 
 ###   lib/include directories for packages in non-standard locations.
 
+ISISROOT=/irg/packages/i686_linux_gcc4.1/isis/isis
+
 PKG_PATHS="  \
-  `pwd`/thirdparty/MBA_1.0_gpl                   \
-  $IRGPKG_DIR/gdal-1.3.1                         \
-  $IRGPKG_DIR/boost_1_33_1/                      \
-  $IRGPKG_DIR/vxl-1.5.1-O3-SSE2                  \
-  $IRGPKG_DIR/openexr-1.3.0                      \
-  $IRGPKG_DIR/cspice_60                          \ 
-  $IRGPKG_DIR/MBA_1.0_gpl                        \
-  $IRGPKG_DIR/OpenThreads-1.4.3                  \
-  $IRGPKG_DIR/Producer-1.0.2                     \
-  $IRGPKG_DIR/OpenSceneGraph-1.2                 \
   $HOME/projects/VisionWorkbench/build/$IRG_ARCH \
-  $HOME/Projects/VisionWorkbench/build/$IRG_ARCH \
-  $HOME/packages/openexr-1.3.0/build             \
-  $HOME/packages/lowe-sift/                      \
-  $HOME/packages/$IRG_ARCH/lowe-sift/            \
-  $HOME/packages/cspice_60/cspice                \
-  $HOME/packages/cspice                          \
-  $HOME/packages/vxl-1.5.1                       \
-  $HOME/packages/boost_1_33_1                    \
-  $HOME/packages/MBA_1.0_gpl                     \
+  `pwd`/thirdparty/MBA_1.0_gpl                   \
+  $IRGPKG_DIR/boost_1_35_1/                      \
+  $IRGPKG_DIR/qt-4.1.0                           \
+  $ISISROOT                                      \
+  $ISISROOT/3rdParty                             \
+  $IRGPKG_DIR/LAPACK                             \
+  $IRGPKG_DIR/gdal-1.5.2                         \
+  $IRGPKG_DIR/vxl-1.9.0                          \
+  $IRGPKG_DIR/openexr-1.4.0                      \
+  $IRGPKG_DIR/cspice_60                          \ 
+  $IRGPKG_DIR/OpenSceneGraph-2.4                 \
+  $IRGPKG_DIR/proj-4.6.0                         \
 "
-
-
-
