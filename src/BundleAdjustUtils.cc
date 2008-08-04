@@ -115,12 +115,23 @@ void add_matched_points(ControlNetwork& cnet,
         }
       }
     } else if (pos1 != pos2) {                                 // Contains both, but in seperate control points
+
       ControlPoint& p1 = cnet[pos1];
       ControlPoint& p2 = cnet[pos2];
       
       // Merge the twe control points into one.
-      for (unsigned m=0; m < p2.size(); ++m) 
-        p1.add_measure(p2[m]);
+      for (unsigned m=0; m < p2.size(); ++m) {
+	// Need to check to make sure we are not adding a measure from
+	// a camera that is already listed in this control point.
+	unsigned k = 0;
+	for (k=0; k < p1.size(); ++k){
+	  if (p1[k].image_id() == p2[m].image_id() )
+	    break;
+	}
+	if (k == p1.size())
+	  p1.add_measure(p2[m]);
+
+      }
       p1.set_position((p1.position() + p2.position())/2);
       p1.set_sigma((p1.sigma() + p2.sigma())/2);
       cnet.delete_control_point(pos2);
