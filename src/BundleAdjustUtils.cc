@@ -89,11 +89,32 @@ void add_matched_points(ControlNetwork& cnet,
     
     unsigned pos1 = cnet.find_measure(m1);
     unsigned pos2 = cnet.find_measure(m2);
-    
+
     if ( pos1 != cnet.size() && pos2 == cnet.size() ) {        // Contains m1 aready
-      cnet[pos1].add_measure(m2);
+
+      //Checking to make sure that this camera has not already been
+      //assign to the CP
+      unsigned k = 0;
+      for (k = 0; k < cnet[pos1].size(); ++k) {
+	if (cnet[pos1][k].image_id() == camera_id2)
+	  break;
+      }
+
+      if (k == cnet[pos1].size() )
+	cnet[pos1].add_measure(m2);
+
     } else if ( pos1 == cnet.size() && pos2 != cnet.size() ) { // Contains m2 aready
-      cnet[pos2].add_measure(m1);
+
+      //Checking to make sure that this camera has not already been
+      //assigned to the CP
+      unsigned k = 0;
+      for (k = 0; k < cnet[pos2].size(); ++k) {
+	if (cnet[pos2][k].image_id() == camera_id1)
+	  break;
+      }
+      if (k == cnet[pos2].size())
+	cnet[pos2].add_measure(m1);
+
     } else if ( pos1 == cnet.size() && pos2 == cnet.size() ) { // Contains neither
       // ... create a stereo model for this image pair...
       StereoModel sm(*(camera_models[camera_id1]), *(camera_models[camera_id2]));
