@@ -170,6 +170,7 @@ public:
     Vector3 position_correction = subvector(a_j,0,3);
     Vector3 pose_correction = subvector(a_j,3,3);
     camera::CAHVORModel cam = rmax_image_camera_model(m_image_infos[camera_id],position_correction,pose_correction);
+    
     Vector4 point_estimation = B_parameters(i);
     point_estimation = point_estimation/point_estimation(3);
     return cam.point_to_pixel(subvector(point_estimation,0,3));
@@ -363,7 +364,7 @@ int main(int argc, char* argv[]) {
     ("lambda,l", po::value<double>(&lambda), "Set the initial value of the LM parameter lambda")
     ("min-matches", po::value<int>(&min_matches)->default_value(5), "Set the mininmum number of matches between images that will be considered.")
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
-    ("max-iterations", po::value<int>(&max_iterations)->default_value(25.0), "Set the maximum number of iterations.")
+    ("max-iterations", po::value<int>(&max_iterations)->default_value(25), "Set the maximum number of iterations.")
     ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
     ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt. Warning: This is slow as pixel observations need to be calculated on each step.")
     ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
@@ -510,7 +511,8 @@ int main(int argc, char* argv[]) {
         //Writing this iterations point data
         std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
         for (unsigned i = 0; i < ba_model.num_points(); ++i){
-          Vector<double,3> current_point = ba_model.B_parameters(i);
+          
+	  Vector<double,3> current_point = ba_model.B_parameters(i);
           ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
         }
       }
@@ -528,16 +530,10 @@ int main(int argc, char* argv[]) {
         
         //Writing this iterations point data, also saving the pixel param data
         std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
-	std::ofstream ostr_pixel("iterPixelParam.txt",std::ios::app);
         for (unsigned i = 0; i < ba_model.num_points(); ++i){
-          Vector<double,3> current_point = ba_model.B_parameters(i);
+          
+	  Vector<double,3> current_point = ba_model.B_parameters(i);
           ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
-
-	  for (unsigned m = 0; m < ba_model.num_observations_of_point(i); ++m){
-	    Vector2 pixel_observation = ba_model.pixel_observation_of_point(i,m);
-	    ostr_pixel << i << "\t" << ba_model.corresponding_camera_for_measure(i,m) << "\t" << pixel_observation.x() << "\t" << pixel_observation.y() << "\n";
-	  }
-
         }
       }
       
