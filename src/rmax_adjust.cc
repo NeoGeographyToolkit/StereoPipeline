@@ -299,8 +299,8 @@ public:
     double max_cam_position = *(std::max_element(camera_position_errors.begin(), camera_position_errors.end()));
     double min_cam_pose = *(std::min_element(camera_pose_errors.begin(), camera_pose_errors.end()));
     double max_cam_pose = *(std::max_element(camera_pose_errors.begin(), camera_pose_errors.end()));
-    double min_gcp = *(std::min_element(gcp_errors.begin(), gcp_errors.end()));
-    double max_gcp = *(std::max_element(gcp_errors.begin(), gcp_errors.end()));
+    //double min_gcp = *(std::min_element(gcp_errors.begin(), gcp_errors.end()));
+    //double max_gcp = *(std::max_element(gcp_errors.begin(), gcp_errors.end()));
 
     std::ofstream ostr("test.txt",std::ios::app);
     double pix_total = 0;
@@ -474,7 +474,8 @@ int main(int argc, char* argv[]) {
   std::cout << "\n";
 
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, L1Error> bundle_adjuster(ba_model, cnet, L1Error());
-  BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, cnet, CauchyError(robust_outlier_threshold));
+    BundleAdjustment<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, cnet, L2Error());
+  // BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, cnet, CauchyError(robust_outlier_threshold));
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, HuberError> bundle_adjuster(ba_model, cnet, HuberError(robust_outlier_threshold));
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, PseudoHuberError> bundle_adjuster(ba_model, cnet, PseudoHuberError(robust_outlier_threshold));
   if (vm.count("lambda")) {
@@ -496,7 +497,7 @@ int main(int argc, char* argv[]) {
   }
 
   double abs_tol = 1e10, rel_tol=1e10;
-  
+    
   if (vm.count("nonsparse")) {
     while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
 
@@ -514,7 +515,7 @@ int main(int argc, char* argv[]) {
         }
       }
       if (bundle_adjuster.iterations() > max_iterations || abs_tol < 0.01 || rel_tol < 1e-10)
-        break;
+	break;
     }
   } else {
     while(bundle_adjuster.update(abs_tol, rel_tol)) {
@@ -541,7 +542,7 @@ int main(int argc, char* argv[]) {
       }
       
       if (bundle_adjuster.iterations() > max_iterations || abs_tol < 0.01 || rel_tol < 1e-10)
-        break;
+	break;
     }
   }
   std::cout << "\nFinished.  Iterations: "<< bundle_adjuster.iterations() << "\n";
