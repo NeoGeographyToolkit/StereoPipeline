@@ -253,9 +253,9 @@ AX_PKG(MBA, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
 AX_PKG(QT_INCLUDE, [], [], [QtCore/QVector])
-AX_PKG(QT_CORE, [QT_INCLUDE], [-lQtCore], [QVector], [QtCore])
-AX_PKG(QT_GUI, [QT_INCLUDE], [-lQtGui], [QLabel], [QtGui])
-AX_PKG(QT_SQL, [QT_INCLUDE], [-lQtSql], [QtSql],[QtSql])
+AX_PKG(QT_CORE, [QT_INCLUDE], [-lQtCore.4], [QVector], [QtCore])
+AX_PKG(QT_GUI, [QT_INCLUDE], [-lQtGui.4], [QLabel], [QtGui])
+AX_PKG(QT_SQL, [QT_INCLUDE], [-lQtSql.4], [QtSql],[QtSql])
 
 dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems, 
 dnl the ISIS compilation does not resolve certain BLAS symbols that its 

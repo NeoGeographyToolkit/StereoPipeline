@@ -274,9 +274,11 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
 // Post file is a disparity map.            ( ImageView<PixelDisparity<float> > )
 void StereoSessionIsis::pre_filtering_hook(std::string const& input_file, std::string & output_file) {
   output_file = input_file;
+
   // ****************************************************
   // The following code is for Apollo Metric Camera ONLY!
   // (uncomment at your own risk)
+  // ****************************************************
 
 //   output_file = m_out_prefix + "-D-masked.exr";
   

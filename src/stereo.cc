@@ -97,6 +97,14 @@ static std::string prefix_from_filename(std::string const& filename) {
   return result;
 }
 
+void print_usage(po::options_description const& visible_options) {
+  std::cout << "\nUsage: stereo [options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n"
+            << "  Extensions are automaticaly added to the output files.\n"
+            << "  Camera model arguments may be optional for some stereo session types (e.g. isis).\n"
+            << "  Stereo parameters should be set in the stereo.default file.\n\n";
+  std::cout << visible_options << std::endl;
+}
+
 //***********************************************************************
 // MAIN
 //***********************************************************************
@@ -146,7 +154,7 @@ int main(int argc, char* argv[]) {
   visible_options.add_options()
     ("help,h", "Display this help message")
     ("cache", po::value<unsigned>(&cache_size)->default_value(1800), "Cache size, in megabytes")
-    ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
+    ("session-type,t", po::value<std::string>(&stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
@@ -188,15 +196,9 @@ int main(int argc, char* argv[]) {
 
   // If the command line wasn't properly formed or the user requested
   // help, we print an usage message.
-  if( vm.count("help") ||
-      !vm.count("left-input-image") || !vm.count("right-input-image") || 
-      !vm.count("left-camera-model") || !vm.count("right-camera-model") || 
-      !vm.count("output-prefix")) {
-    std::cout << "\nUsage: stereo [options] <Left_input_image> <Right_input_image> <Left_camera_file> <Right_camera_file> <output_file_prefix>\n"
-              << "  the extensions are automaticaly added to the output files\n"
-              << "  the parameters should be in stereo.default\n\n";
-    std::cout << visible_options << std::endl;
-    return 1;
+  if( vm.count("help") ) {
+    print_usage(visible_options);
+    exit(0);
   }
 
   // Read the stereo.conf file
@@ -219,6 +221,54 @@ int main(int argc, char* argv[]) {
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
+
+  // If the user hasn't specified a stereo session type, we take a
+  // guess here based on the file suffixes.
+  if (stereo_session_string.size() == 0) {
+    if ( (boost::iends_with(cam_file1, ".cahvor") && boost::iends_with(cam_file2, ".cahvor")) || 
+         (boost::iends_with(cam_file1, ".cahv") && boost::iends_with(cam_file2, ".cahv")) ||
+         (boost::iends_with(cam_file1, ".pin") && boost::iends_with(cam_file2, ".pin")) ||
+         (boost::iends_with(cam_file1, ".tsai") && boost::iends_with(cam_file2, ".tsai")) ) {
+         vw_out(0) << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
+         stereo_session_string = "pinhole";
+    } 
+
+    else if (boost::iends_with(in_file1, ".cub") && boost::iends_with(in_file2, ".cub")) {
+      vw_out(0) << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
+      stereo_session_string = "isis";
+    } 
+   
+    else {
+      vw_out(0) << "\n\n******************************************************************\n";
+      vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
+      vw_out(0) << "using the -t switch.  Options include [pinhole isis].";
+      vw_out(0) << "******************************************************************\n\n";
+      exit(0);
+    }
+  }
+
+  // Some specialization here so that the user doesn't need to list
+  // camera models on the command line for certain stereo session
+  // types.  (e.g. isis).
+  bool check_for_camera_models = true;
+  if ( stereo_session_string == "isis" ) {
+    // Fix the ordering of the arguments if the user only supplies 3
+    if (out_prefix.size() == 0) 
+      out_prefix = cam_file1; 
+    check_for_camera_models = false;
+  }
+  
+  if (!vm.count("left-input-image") || !vm.count("right-input-image") || 
+      !vm.count("output-prefix")) {
+    print_usage(visible_options);
+    exit(0);
+  }
+  
+  if ( check_for_camera_models &&
+       (!vm.count("left-camera-model") || !vm.count("right-camera-model")) ) {
+    print_usage(visible_options);
+    exit(0);
+  }
 
   StereoSession* session = StereoSession::create(stereo_session_string);
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
