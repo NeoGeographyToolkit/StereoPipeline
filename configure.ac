@@ -262,7 +262,7 @@ dnl the ISIS compilation does not resolve certain BLAS symbols that its
 dnl dependent 3rd party libraries depend on (for whatever retarded reason).
 dnl Thus, we link against LAPACK here because it defines these missing 
 dnl BLAS symbols in the event that we need them.
-AX_PKG(ISIS3RDPARTY, [LAPACK], [-lsuperlu_3.0 -lgeos -lxerces-c -lgsl -lgslcblas -lqwt -lstdc++])
+AX_PKG(ISIS3RDPARTY, [LAPACK], [-lsuperlu_3.0 -lgeos.2 -lxerces-c.27 -lgsl.0 -lgslcblas.0 -lqwt.5 -lstdc++])
 AX_PKG(ISIS, [QT_INCLUDE QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
 
 dnl AX_PKG(SPICE, [], [-lcspice -lcsupport], [SpiceUsr.h SpiceZfc.h])
