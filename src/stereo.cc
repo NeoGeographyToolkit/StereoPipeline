@@ -259,13 +259,13 @@ int main(int argc, char* argv[]) {
   }
   
   if (!vm.count("left-input-image") || !vm.count("right-input-image") || 
-      !vm.count("output-prefix")) {
+      !vm.count("left-camera-model")) {
     print_usage(visible_options);
     exit(0);
   }
   
   if ( check_for_camera_models &&
-       (!vm.count("left-camera-model") || !vm.count("right-camera-model")) ) {
+       (!vm.count("output-prefix") || !vm.count("right-camera-model")) ) {
     print_usage(visible_options);
     exit(0);
   }
