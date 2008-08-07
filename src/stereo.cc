@@ -378,7 +378,7 @@ int main(int argc, char* argv[]) {
       disparity_map_rsrc.set_tiled_write(std::min(2048,hole_filled_disp_map.cols()),std::min(2048, hole_filled_disp_map.rows()));
       write_image(disparity_map_rsrc, hole_filled_disp_map, TerminalProgressCallback() ); 
     } catch (IOErr &e) { 
-      cout << "\n An file IO error occurred during the filtering stage.  " << e.what() << "Exiting.\n\n";
+      cout << "\nUnable to start at filtering stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
       exit(0);
     }
   }
@@ -451,8 +451,8 @@ int main(int argc, char* argv[]) {
       write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback());
       std::cout << universe_radius_func;
 
-    } catch (IOErr&) { 
-      cout << "\n Unable to start at point cloud stage.\n\tCould not read input files. Exiting.\n\n";
+    } catch (IOErr &e) { 
+      cout << "\nUnable to start at point cloud stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
       exit(0);
     }
     
