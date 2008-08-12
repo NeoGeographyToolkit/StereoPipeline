@@ -492,9 +492,14 @@ int main(int argc, char* argv[]) {
     ostr.open("iterPointsParam.txt",std::ios::out);
     ostr << "";
     ostr.close();
-    ostr.open("iterPixelParam.txt",std::ios::out);
-    ostr << "";
-    ostr.close();
+
+    //Now I'm going to save the initial starting position of the cameras
+    ba_model.write_adjusted_cameras_append("iterCameraParam.txt");
+    std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
+    for (unsigned i = 0; i < ba_model.num_points(); ++i){
+      Vector<double,3> current_point = ba_model.B_parameters(i);
+      ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
+    }
   }
 
   double abs_tol = 1e10, rel_tol=1e10;
