@@ -201,6 +201,19 @@ int main(int argc, char* argv[]) {
     exit(0);
   }
 
+  // Checking to see if the user has made a mistake in running the program
+  if (!vm.count("left-input-image") || !vm.count("right-input-image") || 
+      !vm.count("left-camera-model")) {
+    print_usage(visible_options);
+    exit(0);
+  }
+  
+  if ( check_for_camera_models &&
+       (!vm.count("output-prefix") || !vm.count("right-camera-model")) ) {
+    print_usage(visible_options);
+    exit(0);
+  }
+
   // Read the stereo.conf file
   stereo_settings().read(stereo_default_filename);
 
@@ -258,18 +271,6 @@ int main(int argc, char* argv[]) {
     check_for_camera_models = false;
   }
   
-  if (!vm.count("left-input-image") || !vm.count("right-input-image") || 
-      !vm.count("left-camera-model")) {
-    print_usage(visible_options);
-    exit(0);
-  }
-  
-  if ( check_for_camera_models &&
-       (!vm.count("output-prefix") || !vm.count("right-camera-model")) ) {
-    print_usage(visible_options);
-    exit(0);
-  }
-
   StereoSession* session = StereoSession::create(stereo_session_string);
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
                       out_prefix, extra_arg1, extra_arg2, extra_arg3, extra_arg4);
