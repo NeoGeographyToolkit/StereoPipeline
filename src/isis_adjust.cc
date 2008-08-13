@@ -250,15 +250,15 @@ public:
   // point, return the location of b_i on imager j in pixel
   // coordinates.
   Vector2 operator() ( unsigned i, unsigned j, camera_vector_t const& a_j, point_vector_t const&b_i ) const {
-    PositionFuncT posEquation = m_cameras[j]->getPositionFunc();
-    PoseFuncT poseEquation = m_cameras[j]->getPoseFunc();
+    PositionFuncT* posEquation = m_cameras[j]->getPositionFuncPoint();
+    PoseFuncT* poseEquation = m_cameras[j]->getPoseFuncPoint();
     
     // Updating Position
-    for (unsigned i = 0; i < posEquation.size(); ++i )
-      posEquation[i] = a_j[i];
+    for (unsigned i = 0; i < posEquation->size(); ++i )
+      (*posEquation)[i] = a_j[i];
     // Updating pose
-    for (unsigned i = 0; i < poseEquation.size(); ++i )
-      poseEquation[i] = a_j[i + posEquation.size()];
+    for (unsigned i = 0; i < poseEquation->size(); ++i )
+      (*poseEquation)[i] = a_j[i + posEquation->size()];
   
     return m_cameras[j]->point_to_pixel(b_i);
   }
@@ -397,6 +397,54 @@ int main(int argc, char* argv[]) {
     }
     
     cnet.write_control_network("control.cnet");
+  }
+
+  // This is for testing the camera models
+  {
+    std::cout << "\nPerforming IsisCameraModel testing" << std::endl;
+    for ( unsigned j = 0; j < input_files.size(); ++j ) {
+      IsisCameraModel isisCamera( input_files[j] );
+      for ( unsigned i = 0; i < cnet.size(); i += 100 ) {
+	Vector2 backprojection = isisCamera.point_to_pixel( cnet[i].position() );
+	double distance = norm_2( isisCamera.camera_center( backprojection ) - cnet[i].position() );
+	Vector3 orientation = isisCamera.pixel_to_vector( backprojection );
+	Vector3 reproject = isisCamera.camera_center( backprojection ) + orientation * distance;
+	std::cout << "Feed Camera " << j << " point " << cnet[i].position() << "\n\treturned " << reproject << std::endl;
+	std::cout << "\tdifference " << cnet[i].position() - reproject << std::endl;
+      }
+    }
+    
+
+    std::cout << "\nPerforming Linescan Adjust Camera Model testing" << std::endl;
+    for ( unsigned i = 0; i < cnet.size(); i+=100 ) {
+      for ( unsigned j = 0; j < input_files.size(); ++j ) {
+	Vector2 backprojection = camera_models[j]->point_to_pixel( cnet[i].position() );
+	double distance = norm_2( camera_models[j]->camera_center( backprojection ) - cnet[i].position() );
+	Vector3 orientation = camera_models[j]->pixel_to_vector( backprojection );
+	Vector3 reproject = camera_models[j]->camera_center( backprojection ) + orientation * distance;
+	std::cout << "Feed Camera " << j << " point " << cnet[i].position() << "\n\treturned " << reproject << std::endl;
+	std::cout << "\tdifference " << cnet[i].position() - reproject << std::endl;
+      }
+    }
+
+    // Now with more change
+    PositionFuncT* cam1 = camera_models[1]->getPositionFuncPoint();
+    (*cam1)[0] = 0;
+    (*cam1)[1] = 0;
+    (*cam1)[2] = 0;
+    PositionFuncT check = camera_models[1]->getPositionFunc();
+    std::cout << "\t" << check[0] << " " << check[1] << " " << check[2] << std::endl;
+    std::cout << "\nPerforming Linescan Adjust Camera Model testing, part2" << std::endl;
+    for ( unsigned i = 0; i < cnet.size(); i+=100 ) {
+      for ( unsigned j = 0; j < input_files.size(); ++j ) {
+	Vector2 backprojection = camera_models[j]->point_to_pixel( cnet[i].position() );
+	double distance = norm_2( camera_models[j]->camera_center( backprojection ) - cnet[i].position() );
+	Vector3 orientation = camera_models[j]->pixel_to_vector( backprojection );
+	Vector3 reproject = camera_models[j]->camera_center( backprojection ) + orientation * distance;
+	std::cout << "Feed Camera " << j << " point " << cnet[i].position() << "\n\treturned " << reproject << std::endl;
+	std::cout << "\tdifference " << cnet[i].position() - reproject << std::endl;
+      }
+    }
   }
 
   // Print pre-alignment residuals

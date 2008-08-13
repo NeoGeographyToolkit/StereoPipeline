@@ -126,6 +126,14 @@ namespace camera {
     PoseFuncT& getPoseFunc ( void ) {
       return m_pose_func;
     }
+    
+    PositionFuncT* getPositionFuncPoint ( void ) {
+      return &m_position_func;
+    }
+
+    PoseFuncT* getPoseFuncPoint ( void ) {
+      return &m_pose_func;
+    }
 
   private:
       
