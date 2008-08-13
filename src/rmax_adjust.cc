@@ -475,8 +475,8 @@ int main(int argc, char* argv[]) {
   std::cout << "\n";
 
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, L1Error> bundle_adjuster(ba_model, cnet, L1Error());
-    BundleAdjustment<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, cnet, L2Error());
-  // BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, cnet, CauchyError(robust_outlier_threshold));
+  //  BundleAdjustment<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, cnet, L2Error());
+   BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, cnet, CauchyError(robust_outlier_threshold));
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, HuberError> bundle_adjuster(ba_model, cnet, HuberError(robust_outlier_threshold));
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, PseudoHuberError> bundle_adjuster(ba_model, cnet, PseudoHuberError(robust_outlier_threshold));
   if (vm.count("lambda")) {
