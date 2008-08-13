@@ -603,7 +603,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
   if ( connLines.size() ){
     osg::Group* linesGroup = new osg::Group;
 
-    for ( unsigned i = 0; i < connLines.size(); i+= 2 ){
+    for ( unsigned i = 0; i < connLines.size(); i+= 1 ){
       osg::Geometry* geometry = new osg::Geometry;
       
       osg::Vec3Array* vertices = new osg::Vec3Array( 2 );
