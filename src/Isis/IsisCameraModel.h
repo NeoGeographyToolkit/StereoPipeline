@@ -38,11 +38,6 @@ namespace camera {
 
   class IsisCameraModel : public CameraModel {
 
-    // A void pointer which is cast to Isis::Camera* in the
-    // implentation of the methods below.
-    void* m_isis_camera_ptr;
-    void* m_isis_cube;
-
   public:
     //------------------------------------------------------------------
     // Constructors / Destructors
@@ -79,9 +74,14 @@ namespace camera {
     // Returns the number of samples in the ISIS cube
     virtual int getSamples(void) const;
 
-  private:
+  protected:
     mutable double m_current_line, m_current_sample;
     void set_image(double sample, double line) const;
+
+    // A void pointer which is cast to Isis::Camera* in the
+    // implentation of the methods below.
+    void* m_isis_camera_ptr;
+    void* m_isis_cube;
   };
 
 }}	// namespace vw::camera

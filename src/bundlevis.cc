@@ -904,6 +904,7 @@ int main(int argc, char* argv[]){
     ("pixel-iteration-file,x",po::value<std::string>(&pixel_iter_file),"Loads the pixel information data. Allowing for an illustration of the pixel data over time")
     ("control-network-file,n",po::value<std::string>(&control_net_file),"Loads the control network for point and camera relationship status. Camera and Point Iteration data is need before a control network file can be used.")
     ("fullscreen","Sets the Bundlevis to render with the entire screen, doesn't work so hot with dual screens.")
+    ("stereo","This sets bundlevis to display in anagylph mode")
     ("help","Display this help message");
 
   po::variables_map vm;
@@ -917,6 +918,12 @@ int main(int argc, char* argv[]){
   if (vm.count("help")){
     std::cout<<usage.str();
     return 1;
+  }
+
+  //////////////////////////////////////////////////////////
+  //Stereo?
+  if (vm.count("stereo")){
+    osg::DisplaySettings::instance()->setStereo(true);
   }
 
   //////////////////////////////////////////////////////////

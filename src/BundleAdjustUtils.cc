@@ -118,6 +118,7 @@ void add_matched_points(ControlNetwork& cnet,
     } else if ( pos1 == cnet.size() && pos2 == cnet.size() ) { // Contains neither
       // ... create a stereo model for this image pair...
       StereoModel sm(*(camera_models[camera_id1]), *(camera_models[camera_id2]));
+      
       if ( sm.convergence_angle(m1.position(), m2.position()) > min_convergence_angle) {
 
         ControlPoint cpoint(ControlPoint::TiePoint);

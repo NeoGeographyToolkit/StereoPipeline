@@ -1,3 +1,4 @@
+  
 // __BEGIN_LICENSE__
 // 
 // Copyright (C) 2008 United States Government as represented by the
@@ -47,22 +48,24 @@ using namespace vw::ip;
 #include <iostream>
 
 #include "Isis/DiskImageResourceIsis.h"
-#include "LinescanAdjust.h"
+#include "Isis/IsisCameraModel.h"
+#include "Isis/Equations.h"
+#include "Isis/IsisAdjustCameraModel.h"
 #include "BundleAdjustUtils.h"
 
 // Position and Pose Equations
 //    For now the adjust equations are just constant offsets. This is
 //    just to test to see if the code even works.
-class PositionFuncT : public VectorEquation{
+class PositionFunc : public VectorEquation{
 private:
   std::vector<double> _constant;
 public:
-  PositionFuncT ( double x, double y, double z ){
+  PositionFunc ( double x, double y, double z ){
     _constant.push_back( x );
     _constant.push_back( y );
     _constant.push_back( z );
   }
-  virtual Vector3 operator()( double t ) const {
+  virtual Vector3 evaluate( double t ) const {
     // This evaluates the function at time t
     return Vector3( _constant[0], _constant[1], _constant[2] );
   }
@@ -81,16 +84,16 @@ public:
   }
 };
 
-class PoseFuncT : public QuaternionEquation{
+class PoseFunc : public QuaternionEquation{
 private:
   std::vector<double> _constant;
 public:
-  PoseFuncT ( double x, double y, double z ) {
+  PoseFunc ( double x, double y, double z ) {
     _constant.push_back( x );
     _constant.push_back( y );
     _constant.push_back( z );
   }
-  virtual Quaternion<double> operator()( double t ) const {
+  virtual Quaternion<double> evaluate( double t ) const {
     return euler_to_quaternion( _constant[0], _constant[1], _constant[2], "xyz" );
   }
   virtual unsigned size( void ) const {
@@ -115,20 +118,19 @@ static std::string prefix_from_filename( std::string const& filename ){
   return result;
 }
 
-// This is the main bundle adjustment model... it's a little tricky.
+// This is the Bundle Adjustment model
 template <unsigned positionParam, unsigned poseParam, class PositionFuncT, class PoseFuncT>
-class IsisBundleAdjustmentModel : public camera::BundleAdjustmentModelBase<IsisBundleAdjustmentModel<
-									     positionParam,
-									     poseParam,
-									     PositionFuncT,
-									     PoseFuncT>,
-									   (positionParam+poseParam), 3>{
+class IsisBundleAdjustmentModel : public camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel < positionParam,
+													poseParam,
+													PositionFuncT,
+													PoseFuncT >,
+									    (positionParam+poseParam), 3>{
   typedef Vector<double, positionParam+poseParam> camera_vector_t;
   typedef Vector<double, 3> point_vector_t;
 
   ControlNetwork m_network;
-  
-  std::vector< boost::shared_ptr<TransformedIsisCameraModel<PositionFuncT, PoseFuncT> > > m_cameras;
+
+  std::vector< boost::shared_ptr<IsisAdjustCameraModel< PositionFuncT, PoseFuncT > > > m_cameras;
 
   std::vector<camera_vector_t> a;
   std::vector<point_vector_t> b;
@@ -138,42 +140,43 @@ class IsisBundleAdjustmentModel : public camera::BundleAdjustmentModelBase<IsisB
 
 public:
 
-  IsisBundleAdjustmentModel( std::vector< boost::shared_ptr<vw::camera::TransformedIsisCameraModel<
-			     PositionFuncT, PoseFuncT> > > const& camera_models,
+  IsisBundleAdjustmentModel( std::vector< boost::shared_ptr< vw::camera::IsisAdjustCameraModel< PositionFuncT,
+			     PoseFuncT > > > const& camera_models,
 			     ControlNetwork const& network ) :
     m_cameras( camera_models ), m_network( network ),
     a( camera_models.size() ), b( network.size() ),
-    a_initial( camera_models.size() ), b_initial( network.size() ){
+    a_initial( camera_models.size() ), b_initial( network.size() ) {
 
-    // Computer the number of observations from the bundle.
+    // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
     for (unsigned i = 0; i < network.size(); ++i)
       m_num_pixel_observations += network[i].size();
 
-    // Set up the a and b vectors, storing the initial values.
+    // Set up the A and B vectors, storing the initial values.
     for (unsigned j = 0; j < m_cameras.size(); ++j) {
       a[j] = camera_vector_t();
-      a_initial[j] =  a[j];
+      a_initial[j] = a[j];
     }
- 
+
     for (unsigned i = 0; i < network.size(); ++i) {
       b[i] = m_network[i].position();
       b_initial[i] = b[i];
     }
+
   }
 
   // Return a reference to the camera and point parameters.
-  camera_vector_t A_parameters(int j) const { return a[j]; }
-  point_vector_t B_parameters(int i) const { return b[i]; }
+  camera_vector_t A_parameters( int j ) const { return a[j]; }
+  point_vector_t B_parameters( int i ) const { return b[i]; }
   void set_A_parameters(int j, camera_vector_t const& a_j) {
     a[j] = a_j;
   }
-  void set_B_parameters(int i, point_vector_t const& b_i){
+  void set_B_parameters(int i, point_vector_t const& b_i) {
     b[i] = b_i;
   }
 
   // Approximate the jacobian for small variations in the a_j
-  // parameters ( camera paramters).
+  // parameters ( camera parameters ).
   virtual Matrix<double, 2, positionParam+poseParam> A_jacobian( unsigned i, unsigned j,
 								 camera_vector_t const& a_j,
 								 point_vector_t const& b_i ) {
@@ -182,96 +185,64 @@ public:
     return partial_derivatives;
   }
 
-  // Analytically computed jacobian for variations in the b_i
-  // parameters ( 3d point locations ).
-  virtual Matrix<double, 2, 3> B_jacobian ( unsigned i, unsigned j,
-					    camera_vector_t const& a_j,
-					    point_vector_t const& b_i ) {
-    Matrix<double> partial_derivatives(2,3);
-    partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, 6,
-      3 >::B_jacobian(i, j, a_j, b_i);
-    return partial_derivatives;
-  }
-
-  // Return Initial parameters. (Used by the bundle adjuster)
-  camera_vector_t A_initial(int j) const { return a_initial[j]; }
-  point_vector_t B_initial(int i) const { return b_initial[i]; }
+  // Return Initial parameters. (Used by the bundle adjuster )
+  camera_vector_t A_initial( int j ) const { return a_initial[j]; }
+  point_vector_t B_initial( int i ) const { return b_intitial[i]; }
 
   // Return general sizes
   unsigned num_cameras() const { return a.size(); }
   unsigned num_points() const { return b.size(); }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
-  // Return pixel observations
+  // Return pixel observations -> supposedly used by Bundlevis eventually i think
   unsigned num_observations_of_point ( const int& i ) const { return m_network[i].size(); }
-  unsigned corresponding_camera_for_measure( const int& i, const int& m){
+  unsigned corresponding_camera_for_measure( const int& i, const int& m ) {
     return m_network[i][m].image_id();
   }
 
   // Return the covariance of the camera parameters for camera j.
   inline Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned j ) {
     Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
-    for (unsigned i = 0; i < (positionParam+poseParam); ++i)
+    for ( unsigned i = 0; i < (positionParam+poseParam); ++i )
       result(i,i) = 1;
     return result;
   }
 
   // Return the covariance of the point parameters for point i.
-  inline Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) {
-    Matrix<double, 3, 3> result;
-    for (unsigned i = 0; i < 3; ++i)
+  inline Matrix<double, 3, 3> B_inverse_covariance ( unsigne i ) {
+    Matrix< double, 3, 3> result;
+    for ( unsigned i = 0; i < 3; ++i)
       result(i,i) = 1/1000.0;
     return result;
   }
 
   // This is for writing isis_adjust file for later
   void write_adjustment( int j, std::string const& filename ) {
-    std::ofstream ostr( filename.c_str() );
+    std::ofstream oster( filename.c_str() );
 
-    for (unsigned i = 0; i < positionParam; ++i)
+    for ( unsigned i = 0; i < positionParam; ++i )
       ostr << a[j][i] << "\t";
     ostr << std::endl;
-   
-    for (unsigned i = 0; i < poseParam; ++i)
+
+    for ( unsigned i = 0; i < poseParam; ++i )
       ostr << a[j][positionParam + i] << "\t";
     ostr << std::endl;
   }
 
-  std::vector<boost::shared_ptr<camera::CameraModel> > adjusted_cameras() {
+  std::vector< boost::shared_ptr< camera::CameraModel > > adjusted_cameras() {
     return m_cameras;
   }
 
-  boost::shared_ptr< TransformedIsisCameraModel< PositionFuncT, PoseFuncT > > adjusted_camera( int j ) {
+  boost::shared_ptr< IsisAdjustCameraModel< PositionFuncT, PoseFuncT > > adjusted_camera( int j ) {
     return m_cameras[j];
-  }
-
-  // Given the 'a' vector (camera model parameters) for the j'th
-  // image, and the 'b' vector (3D point location) for the i'th
-  // point, return the location of b_i on imager j in pixel
-  // coordinates.
-  Vector2 operator() ( unsigned i, unsigned j, camera_vector_t const& a_j, point_vector_t const&b_i ) const {
-    PositionFuncT* posEquation = m_cameras[j]->getPositionFuncPoint();
-    PoseFuncT* poseEquation = m_cameras[j]->getPoseFuncPoint();
-    
-    // Updating Position
-    for (unsigned i = 0; i < posEquation->size(); ++i )
-      (*posEquation)[i] = a_j[i];
-    // Updating pose
-    for (unsigned i = 0; i < poseEquation->size(); ++i )
-      (*poseEquation)[i] = a_j[i + posEquation->size()];
-  
-    return m_cameras[j]->point_to_pixel(b_i);
-  }
-
-  // This is what prints out on the screen the error of the whole problem
-  void report_error() const {
-    // I'm not reading to report the error
-    std::cout << "Wakka wakka woop woop!" << std::endl;
   }
 };
 
+
 // Main Executable
 int main(int argc, char* argv[]) {
+
+  std::cout << "Hi, is this working?" << std::endl;
 
   std::vector<std::string> input_files;
   std::string cnet_file;
@@ -331,22 +302,23 @@ int main(int argc, char* argv[]) {
   }
 
   // Loading the image data
-  std::vector< boost::shared_ptr<TransformedIsisCameraModel< PositionFuncT, PoseFuncT> > > camera_models( input_files.size());
-  // This is an ugly hack.... but I don't have any better ideas
-  std::vector< boost::shared_ptr<CameraModel> > camera_traditional_models( input_files.size() );
+  std::vector< boost::shared_ptr<CameraModel> > camera_models( input_files.size() );
+  // An ugly hack
+  //std::vector< boost::shared_ptr<CameraModel> > camera_traditional_models( input_files.size() );
   for ( unsigned i = 0; i < input_files.size(); ++i ) {
     std::cout << "Loading: " << input_files[i] << std::endl;
-    
-    // Equations defining the delta equation
-    PositionFuncT posF ( 0, 0, 0);
-    PoseFuncT poseF ( 0, 0, 0);
-    boost::shared_ptr<vw::camera::IsisCameraModel> isisCamera( new IsisCameraModel( input_files[i] ) );
-    camera_models[i] = boost::shared_ptr<TransformedIsisCameraModel< PositionFuncT, PoseFuncT> >( new TransformedIsisCameraModel< PositionFuncT, PoseFuncT >
-		       ( isisCamera, posF, poseF ) );
-    camera_traditional_models[i] = camera_models[i];
+
+    // Equations defining the delta
+    PositionFunc posF( 0, 0, 0);
+    std::cout << posF.evaluate(3) << std::endl;
+    PoseFunc poseF( 0, 0, 0);
+    boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel<PositionFunc,PoseFunc>( input_files[i], posF, poseF ) );
+    camera_models[i] = p;
+    //camera_traditional_models[i] = p;
+    //camera_models[i] = boost::shared_ptr< IsisAdjustCameraModel< PositionFuncT, PoseFuncT > >( new IsisAdjustCameraModel< PositionFuncT, PoseFuncT >( input_files[i], posF, poseF ) );
   }
 
-  // Loading matches, build control network
+  // Now I am loading up the matches between the two images
   if ( !vm.count("cnet") ) {
     
     std::cout << "\nLoading Matches:\n";
@@ -376,12 +348,12 @@ int main(int argc, char* argv[]) {
 	  std::vector<InterestPoint> ip1, ip2;
 	  read_binary_match_file(match_filename, ip1, ip2);
 	  if ( int(ip1.size()) < min_matches ) {
-	    std::cout << "\t" << match_filename << "    " << i << " <-> " << j << " : " << ip1.size()
-		      << " matches. [rejected]\n";
+	    std::cout << "\t" << match_filename << "    " << i << " <-> " 
+		      << j << " : " << ip1.size() << " matches. [rejected]\n";
 	  } else {
-	    std::cout << "\t" << match_filename << "    " << i << " <-> " << j << " : " << ip1.size()
-		      << " matches.\n";
-	    add_matched_points(cnet, ip1, ip2, i, j, camera_traditional_models);
+	    std::cout << "\t" << match_filename << "    " << i << " <-> " 
+		      << j << " : " << ip1.size() << " matches.\n";
+	    add_matched_points(cnet, ip1, ip2, i, j, camera_models);
 	  }
 	}
       }
@@ -401,150 +373,37 @@ int main(int argc, char* argv[]) {
 
   // This is for testing the camera models
   {
-    std::cout << "\nPerforming IsisCameraModel testing" << std::endl;
-    for ( unsigned j = 0; j < input_files.size(); ++j ) {
-      IsisCameraModel isisCamera( input_files[j] );
-      for ( unsigned i = 0; i < cnet.size(); i += 100 ) {
-	Vector2 backprojection = isisCamera.point_to_pixel( cnet[i].position() );
-	double distance = norm_2( isisCamera.camera_center( backprojection ) - cnet[i].position() );
-	Vector3 orientation = isisCamera.pixel_to_vector( backprojection );
-	Vector3 reproject = isisCamera.camera_center( backprojection ) + orientation * distance;
-	std::cout << "Feed Camera " << j << " point " << cnet[i].position() << "\n\treturned " << reproject << std::endl;
-	std::cout << "\tdifference " << cnet[i].position() - reproject << std::endl;
-      }
-    }
-    
-
     std::cout << "\nPerforming Linescan Adjust Camera Model testing" << std::endl;
     for ( unsigned i = 0; i < cnet.size(); i+=100 ) {
       for ( unsigned j = 0; j < input_files.size(); ++j ) {
-	Vector2 backprojection = camera_models[j]->point_to_pixel( cnet[i].position() );
-	double distance = norm_2( camera_models[j]->camera_center( backprojection ) - cnet[i].position() );
-	Vector3 orientation = camera_models[j]->pixel_to_vector( backprojection );
-	Vector3 reproject = camera_models[j]->camera_center( backprojection ) + orientation * distance;
+	// Converting the data to mm_time and testing..
+	boost::shared_ptr< IsisAdjustCameraModel<PositionFunc,PoseFunc> > cam = boost::shared_dynamic_cast< IsisAdjustCameraModel<PositionFunc,PoseFunc> >( camera_models[j] );
+	Vector3 mm_time = cam->pixel_to_mm_time( cnet[i][j].position() );
+
+	std::cout << "Pixel Measure: " << cnet[i][j].position()  << std::endl;
+	std::cout << "\t" << mm_time[0] << "\t" << mm_time[1] << "\t" << mm_time[2] << std::endl;
+
+	Vector3 forward_projection = cam->point_to_mm_time( mm_time, cnet[i].position() );
+	double distance = norm_2( cam->camera_center( forward_projection ) - cnet[i].position() );
+	Vector3 orientation = cam->mm_time_to_vector( forward_projection );
+	Vector3 reproject = cam->camera_center( forward_projection ) + orientation* distance;
 	std::cout << "Feed Camera " << j << " point " << cnet[i].position() << "\n\treturned " << reproject << std::endl;
 	std::cout << "\tdifference " << cnet[i].position() - reproject << std::endl;
-      }
-    }
 
-    // Now with more change
-    PositionFuncT* cam1 = camera_models[1]->getPositionFuncPoint();
-    (*cam1)[0] = 0;
-    (*cam1)[1] = 0;
-    (*cam1)[2] = 0;
-    PositionFuncT check = camera_models[1]->getPositionFunc();
-    std::cout << "\t" << check[0] << " " << check[1] << " " << check[2] << std::endl;
-    std::cout << "\nPerforming Linescan Adjust Camera Model testing, part2" << std::endl;
-    for ( unsigned i = 0; i < cnet.size(); i+=100 ) {
-      for ( unsigned j = 0; j < input_files.size(); ++j ) {
-	Vector2 backprojection = camera_models[j]->point_to_pixel( cnet[i].position() );
-	double distance = norm_2( camera_models[j]->camera_center( backprojection ) - cnet[i].position() );
-	Vector3 orientation = camera_models[j]->pixel_to_vector( backprojection );
-	Vector3 reproject = camera_models[j]->camera_center( backprojection ) + orientation * distance;
-	std::cout << "Feed Camera " << j << " point " << cnet[i].position() << "\n\treturned " << reproject << std::endl;
-	std::cout << "\tdifference " << cnet[i].position() - reproject << std::endl;
+	//Adding some change now
+	PoseFunc* pose = cam->getPoseFuncPoint();
+	(*pose)[0] = (*pose)[0] + 3.1415/180;
+	Vector3 reproject2 = cam->camera_center( forward_projection ) + cam->mm_time_to_vector( forward_projection )*distance;
+	std::cout << "Change in pose applied" << std::endl << "\tdiffernce " << reproject - reproject2 << std::endl;
+	std::cout << "\t> Camera center: " << cam->camera_center( forward_projection ) << std::endl;
+	std::cout << "\t\t> Point Before: " << reproject << std::endl;
+	std::cout << "\t\t> Point After: " << reproject2 << std::endl;
+	std::cout << "\t\t> Change in angle: " << acos( dot_prod( reproject - cam->camera_center( forward_projection ), reproject2 - cam->camera_center( forward_projection) )/( norm_2(reproject - cam->camera_center( forward_projection ))*norm_2(reproject2 - cam->camera_center( forward_projection)) ) ) * 180/3.1415 << std::endl;
+	
+	std::cout << std::endl;
       }
     }
   }
-
-  // Print pre-alignment residuals
-  compute_stereo_residuals(camera_traditional_models, cnet);
-
-  // Clearing the monitoring text files to be used for saving camera params
-  if (vm.count("save-iteration-data")){
-    std::ofstream ostr("iterCameraParam.txt",std::ios::out);
-    ostr << "";
-    ostr.close();
-    ostr.open("iterPointsParam.txt",std::ios::out);
-    ostr << "";
-    ostr.close();
-    ostr.open("iterPixelParam.txt",std::ios::out);
-    ostr << "";
-    ostr.close();
-  }
-
-  // Building the Bundle Adjustment Model
-  IsisBundleAdjustmentModel<3, 3, PositionFuncT, PoseFuncT > ba_model( camera_models , cnet );
-  BundleAdjustment< IsisBundleAdjustmentModel< 3, 3, PositionFuncT, PoseFuncT>, 
-    CauchyError > bundle_adjuster( ba_model, cnet, CauchyError( robust_outlier_threshold ) );
-
-  // Performing the Bundle Adjustment
-  double abs_tol = 1e10, rel_tol= 1e10;
-
-  if (vm.count("nonsparse")){
-    // This is the non sparse implementation (in case you haven't
-    // noticed)
-    while( bundle_adjuster.update_reference_impl(abs_tol, rel_tol) ) {
-      
-      //Writing recording data
-      if ( vm.count("save-iteration-data") ) {
-
-	// Recording Points Data
-	std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
-	for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
-	  Vector3 point = ba_model.B_parameters(i);
-	  ostr_points << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
-	}
-
-	// Recording Camera Data
-	std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
-	for (unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
-	  boost::shared_ptr<TransformedIsisCameraModel< PositionFuncT, PoseFuncT > > camera = ba_model.adjusted_camera(j);
-	  for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/4) ) {
-	    Vector3 position = camera->camera_center( Vector2(0,i) );
-	    ostr_camera << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2] << "\t";
-	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) );
-	    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-	    ostr_camera << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
-	  }
-	}
-      }
-
-      //Determing is it time to quit?
-      if (bundle_adjuster.iterations() > max_iterations || abs_tol < 0.01 || rel_tol < 1e-10)
-	break;
-
-    }
-  } else {
-    // This is the sparse implementation of the code
-    while ( bundle_adjuster.update(abs_tol, rel_tol) ) {
-      
-      //Writing recording data
-      if ( vm.count("save-iteration-data") ) {
-
-	// Recording Points Data
-	std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
-	for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
-	  Vector3 point = ba_model.B_parameters(i);
-	  ostr_points << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
-	}
-
-	// Recording Camera Data
-	std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
-	for (unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
-	  boost::shared_ptr<TransformedIsisCameraModel< PositionFuncT, PoseFuncT > > camera = ba_model.adjusted_camera(j);
-	  for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/4) ) {
-	    Vector3 position = camera->camera_center( Vector2(0,i) );
-	    ostr_camera << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2] << "\t";
-	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) );
-	    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-	    ostr_camera << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
-	  }
-	}
-      }
-      
-      //Determing if it is time to quit.
-      if ( bundle_adjuster.iterations() > max_iterations || abs_tol < 0.01 || rel_tol < 1e-10 ) 
-	break;
-    }
-  }
-  std::cout << "\nFinished.\tIterations: " << bundle_adjuster.iterations() << "\n";
-
-  for (unsigned int i = 0; i < ba_model.num_cameras(); ++i )
-    ba_model.write_adjustment( i, prefix_from_filename( input_files[i] ) + ".isis_adjust");
-
-  // Computer the post-adjustment residuals
-  compute_stereo_residuals( camera_traditional_models, cnet );
-
+ 
   return 0;
 }
