@@ -34,7 +34,7 @@ ISISROOT=/irg/packages/i686_linux_gcc4.1/isis/isis
 PKG_PATHS="  \
   $HOME/projects/VisionWorkbench/build/$IRG_ARCH \
   `pwd`/thirdparty/MBA_1.0_gpl                   \
-  $IRGPKG_DIR/boost_1_35_1/                      \
+  $IRGPKG_DIR/boost_1_34_1/                      \
   $IRGPKG_DIR/qt-4.1.0                           \
   $ISISROOT                                      \
   $ISISROOT/3rdParty                             \
