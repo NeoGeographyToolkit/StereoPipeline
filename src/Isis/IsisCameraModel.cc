@@ -59,7 +59,13 @@ IsisCameraModel::IsisCameraModel(std::string cube_filename) {
     double end_time = cam->EphemerisTime();
     std::cout << "\tTime range: [" << start_time << " " << end_time << "]  " << (end_time-start_time) << "\n";
     std::cout << "\tExisting range : [" << cam->CacheStartTime() << " " << cam->CacheEndTime() << "]  " << ( cam->CacheEndTime() - cam->CacheStartTime() ) << "\n";
-
+    if (end_time > start_time) {
+      m_max_ephemeris = end_time;
+      m_min_ephemeris = start_time;
+    } else {
+      m_max_ephemeris = start_time;
+      m_min_ephemeris = end_time;
+    }
 //     // Cache important values (such as sun angles, orientations, etc)
 //     try {
 //       std::cout << "\tCaching SPICE information..." << std::flush;

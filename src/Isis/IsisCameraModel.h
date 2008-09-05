@@ -76,6 +76,7 @@ namespace camera {
 
   protected:
     mutable double m_current_line, m_current_sample;
+    mutable double m_max_ephemeris, m_min_ephemeris;
     void set_image(double sample, double line) const;
 
     // A void pointer which is cast to Isis::Camera* in the

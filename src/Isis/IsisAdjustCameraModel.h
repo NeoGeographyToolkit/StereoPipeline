@@ -8,6 +8,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <Isis/IsisCameraModel.h>
+#include <iomanip>
 
 // Isis Header
 #include <Cube.h>
@@ -26,13 +27,23 @@ namespace camera {
     //--------------------------------------------------------------------
     //  Constructors / Deconstructor
     //--------------------------------------------------------------------
-  IsisAdjustCameraModel( std::string cube_filename,
-			 PositionFuncT const& position_func,
-			 PoseFuncT const& pose_func ) : IsisCameraModel( cube_filename ),
+    IsisAdjustCameraModel( std::string cube_filename,
+			   PositionFuncT const& position_func,
+			   PoseFuncT const& pose_func ) : IsisCameraModel( cube_filename ),
       m_position_func( position_func ),
       m_pose_func( pose_func ) {
+	
+	std::cout << "DBG testing camera" << std::endl;
+	
+	for (double t = m_min_ephemeris; t <= m_max_ephemeris; t+=0.1 ) {
+	  std::cout << " t: " << t;
+	  this->set_time(t);
+	}
+	
+	if ( m_min_ephemeris < 0 )
+	  this->set_time(-2574309.83608535631);
 
-      }
+    }
 
     virtual ~IsisAdjustCameraModel() {
     }
@@ -97,11 +108,15 @@ namespace camera {
 
     Vector3 point_to_mm_time( Vector3 const& mm_time, Vector3 const& point ) const {
       Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
+      std::cout << "DBG CAM: 1" << std::endl;
       this->set_time( mm_time[2] );
+      std::cout << "DBG CAM: 2" << std::endl;
 
       // Finding the focal length for the camera in millimeters
       Isis::CameraDistortionMap* distortMap = cam->DistortionMap();
       double focal_length_mm = distortMap->UndistortedFocalPlaneZ();
+
+      std::cout << "DBG CAM: 3" << std::endl;
 
       // Now building a pinhole camera model
       Vector3 center = this->camera_center( mm_time );
@@ -112,6 +127,8 @@ namespace camera {
       pin_cam.set_coordinate_frame( Vector3( 1, 0, 0 ),
 				    Vector3( 0, 1, 0 ),
 				    Vector3( 0, 0, 1 ) );
+
+      std::cout << "DBG CAM: 4" << std::endl;
 
       // Performing the forward projection
       Vector2 forward_projection = pin_cam.point_to_pixel( point );
@@ -191,6 +208,8 @@ namespace camera {
     }
 
     void set_time( double const& time ) const {
+      if (time > m_max_ephemeris || time < m_min_ephemeris)
+	std::cout << "Time input is out of bounds" << std::endl;
       if (m_current_time != time ) {
 	Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
 	cam->SetEphemerisTime( time );
