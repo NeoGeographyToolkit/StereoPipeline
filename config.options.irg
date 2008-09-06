@@ -34,15 +34,15 @@ ISISROOT=/irg/packages/i686_linux_gcc4.1/isis/isis
 PKG_PATHS="  \
   $HOME/projects/VisionWorkbench/build/$IRG_ARCH \
   `pwd`/thirdparty/MBA_1.0_gpl                   \
-  $IRGPKG_DIR/boost_1_34_1/                      \
+  $IRGPKG_DIR/boost                              \
   $IRGPKG_DIR/qt-4.1.0                           \
   $ISISROOT                                      \
   $ISISROOT/3rdParty                             \
   $IRGPKG_DIR/LAPACK                             \
-  $IRGPKG_DIR/gdal-1.5.2                         \
-  $IRGPKG_DIR/vxl-1.9.0                          \
-  $IRGPKG_DIR/openexr-1.4.0                      \
-  $IRGPKG_DIR/cspice_60                          \ 
-  $IRGPKG_DIR/OpenSceneGraph-2.4                 \
-  $IRGPKG_DIR/proj-4.6.0                         \
+  $IRGPKG_DIR/gdal                               \
+  $IRGPKG_DIR/vxl                                \
+  $IRGPKG_DIR/openexr                            \
+  $IRGPKG_DIR/cspice                             \ 
+  $IRGPKG_DIR/OpenSceneGraph                     \
+  $IRGPKG_DIR/proj4                              \
 "
