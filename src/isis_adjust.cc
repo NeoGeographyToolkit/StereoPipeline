@@ -133,6 +133,8 @@ class IsisBundleAdjustmentModel : public camera::BundleAdjustmentModelBase< Isis
 
   std::vector< boost::shared_ptr<IsisAdjustCameraModel< PositionFuncT, PoseFuncT > > > m_cameras;
 
+  std::vector< std::string > m_files;
+
   std::vector<camera_vector_t> a;
   std::vector<point_vector_t> b;
   std::vector<camera_vector_t> a_initial;
@@ -143,10 +145,12 @@ public:
 
   IsisBundleAdjustmentModel( std::vector< boost::shared_ptr< vw::camera::IsisAdjustCameraModel< PositionFuncT,
 			     PoseFuncT > > > const& camera_models,
-			     ControlNetwork const& network ) :
+			     ControlNetwork const& network,
+			     std::vector< std::string > input_names ) :
     m_cameras( camera_models ), m_network( network ),
     a( camera_models.size() ), b( network.size() ),
-    a_initial( camera_models.size() ), b_initial( network.size() ) {
+    a_initial( camera_models.size() ), b_initial( network.size() ),
+    m_files( input_names ){
 
     std::cout << "DBG: Building BA model" << std::endl;
 
@@ -268,20 +272,23 @@ public:
   // which is different from most implementations.
   Vector2 operator() ( unsigned i, unsigned j, camera_vector_t const& a_j, point_vector_t const& b_i ) const {
     // Warning! This operation can not be allowed to change the camera properties.
-    std::cout << "DBG: impl() start" << std::endl;
 
-    // Making  copy of camera
-    IsisAdjustCameraModel<PositionFunc,PoseFunc> cam = ;
+    // Loading equations
+    PositionFuncT* posF =  m_cameras[j]->getPositionFuncPoint();
+    PoseFuncT* poseF = m_cameras[j]->getPoseFuncPoint();
 
-    // Opening the equations that define the camera
-    PositionFuncT* posEquation = cam.getPositionFuncPoint();
-    PoseFuncT* poseEquation = cam.getPoseFuncPoint();
+    // Backing up equation constants
+    std::vector<double> storage;
+    for (unsigned n = 0; n < posF->size(); ++n)
+      storage.push_back( (*posF)[n] );
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      storage.push_back( (*poseF)[n] );
 
-    // Updating parameters
-    for (unsigned n = 0; n < posEquation->size(); ++n )
-      (*posEquation)[n] = a_j[n];
-    for (unsigned n = 0; n < poseEquation->size(); ++n )
-      (*poseEquation)[n] = a_j[n + posEquation->size()];
+    // Applying new equation constants
+    for (unsigned n = 0; n < posF->size(); ++n)
+      (*posF)[n] = a_j[n];
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      (*poseF)[n] = a_j[n + posF->size()];
 
     // Determine what time to use for the camera forward
     // projection. Sorry that this is a search, I don't have a better
@@ -293,10 +300,14 @@ public:
     // Performing the forward projection. This is specific to the
     // IsisAdjustCameraModel. The first argument is really just
     // passing the time instance to load up a pinhole model for.
-    std::cout << "DBG: ephemeris time " << m_network[i][m].ephemeris_time() << std::endl;
-    Vector3 forward_projection = cam.point_to_mm_time( Vector3( 0, 0, m_network[i][m].ephemeris_time() ), b_i );
+    //std::cout << "DBG: ephemeris time " << m_network[i][m].ephemeris_time() << std::endl;
+    Vector3 forward_projection = m_cameras[j]->point_to_mm_time( Vector3( 0, 0, m_network[i][m].ephemeris_time() ), b_i );
 
-    std::cout << "DBG: impl() end" << std::endl;
+    // Reverting back to orginal camera constants
+    for (unsigned n = 0; n < posF->size(); ++n)
+      (*posF)[n] = storage[n];
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      (*poseF)[n] = storage[n + posF->size()];
 
     // Giving back the millimeter measurement.
     return Vector2( forward_projection[0], forward_projection[1] );
@@ -305,7 +316,7 @@ public:
   // This is what prints out on the screen the error of the whole problem
   void report_error() const {
     // I'm not ready to report the error
-    std::cout << "Not implemented!" << std::endl;
+    //std::cout << "Not implemented!" << std::endl;
   }
 };
 
@@ -507,7 +518,7 @@ int main(int argc, char* argv[]) {
 
   // Building the Bundle Adjustment Model and applying the Bundle
   // Adjuster.
-  IsisBundleAdjustmentModel<3, 3, PositionFunc, PoseFunc > ba_model( camera_adjust_models , cnet );
+  IsisBundleAdjustmentModel<3, 3, PositionFunc, PoseFunc > ba_model( camera_adjust_models , cnet, input_files );
   BundleAdjustment< IsisBundleAdjustmentModel< 3, 3, PositionFunc, PoseFunc>, CauchyError > 
     bundle_adjuster( ba_model, cnet, CauchyError( robust_outlier_threshold ) );
 
