@@ -46,7 +46,7 @@ using namespace vw::ip;
 
 #include <stdlib.h>
 #include <iostream>
-#include <iomanip.h>
+#include <iomanip>
 
 #include "Isis/DiskImageResourceIsis.h"
 #include "Isis/IsisCameraModel.h"
@@ -60,15 +60,27 @@ using namespace vw::ip;
 class PositionFunc : public VectorEquation{
 private:
   std::vector<double> _constant;
+  double time_offset;
 public:
-  PositionFunc ( double x, double y, double z ){
-    _constant.push_back( x );
-    _constant.push_back( y );
-    _constant.push_back( z );
+  PositionFunc ( double x0, double x1, double x2,
+		 double y0, double y1, double y2,
+		 double z0, double z1, double z2 ) {
+    _constant.push_back( x0 );
+    _constant.push_back( x1 );
+    _constant.push_back( x2 );
+    _constant.push_back( y0 );
+    _constant.push_back( y1 );
+    _constant.push_back( y2 );
+    _constant.push_back( z0 );
+    _constant.push_back( z1 );
+    _constant.push_back( z2 );
+    time_offset = 0;
   }
   virtual Vector3 evaluate( double t ) const {
     // This evaluates the function at time t
-    return Vector3( _constant[0], _constant[1], _constant[2] );
+    return Vector3( _constant[0] + _constant[1]*(t-time_offset) + _constant[2]*(t-time_offset)*(t-time_offset),
+		    _constant[3] + _constant[4]*(t-time_offset) + _constant[5]*(t-time_offset)*(t-time_offset),
+		    _constant[6] + _constant[7]*(t-time_offset) + _constant[8]*(t-time_offset)*(t-time_offset) );
   }
   virtual unsigned size( void ) const {
     // This produces the number of variables allowed for changing
@@ -83,19 +95,36 @@ public:
       return _constant[n];
     }
   }
+  void set_time_offset( double offset ) {
+    time_offset = offset;
+  }
 };
 
 class PoseFunc : public QuaternionEquation{
 private:
   std::vector<double> _constant;
+  double time_offset;
 public:
-  PoseFunc ( double x, double y, double z ) {
-    _constant.push_back( x );
-    _constant.push_back( y );
-    _constant.push_back( z );
+  PoseFunc ( double x0, double x1, double x2,
+	     double y0, double y1, double y2,
+	     double z0, double z1, double z2 ) {
+    _constant.push_back( x0 );
+    _constant.push_back( x1 );
+    _constant.push_back( x2 );
+    _constant.push_back( y0 );
+    _constant.push_back( y1 );
+    _constant.push_back( y2 );
+    _constant.push_back( z0 );
+    _constant.push_back( z1 );
+    _constant.push_back( z2 );
+    time_offset = 0;
   }
   virtual Quaternion<double> evaluate( double t ) const {
-    return euler_to_quaternion( _constant[0], _constant[1], _constant[2], "xyz" );
+    Quaternion<double> quat = euler_to_quaternion( _constant[0] + _constant[1]*(t-time_offset) + _constant[2]*(t-time_offset)*(t-time_offset),
+						   _constant[3] + _constant[4]*(t-time_offset) + _constant[5]*(t-time_offset)*(t-time_offset),
+						   _constant[6] + _constant[7]*(t-time_offset) + _constant[8]*(t-time_offset)*(t-time_offset), "xyz" );
+    quat = quat/norm_2(quat);
+    return quat;
   }
   virtual unsigned size( void ) const {
     return _constant.size();
@@ -107,6 +136,9 @@ public:
     } else {
       return _constant[n];
     }
+  }
+  void set_time_offset( double offset ) {
+    time_offset = offset;
   }
 };
 
@@ -390,9 +422,12 @@ int main(int argc, char* argv[]) {
     std::cout << "Loading: " << input_files[i] << std::endl;
 
     // Equations defining the delta
-    PositionFunc posF( 0, 0, 0);
-    std::cout << posF.evaluate(3) << std::endl;
-    PoseFunc poseF( 0, 0, 0);
+    PositionFunc posF( 0, 0, 0,
+		       0, 0, 0,
+		       0, 0, 0 );
+    PoseFunc poseF( 0, 0, 0,
+		    0, 0, 0,
+		    0, 0, 0 );
     boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel<PositionFunc,PoseFunc>( input_files[i], posF, poseF ) );
     camera_models[i] = p;
   }
@@ -518,9 +553,9 @@ int main(int argc, char* argv[]) {
 
   // Building the Bundle Adjustment Model and applying the Bundle
   // Adjuster.
-  IsisBundleAdjustmentModel<3, 3, PositionFunc, PoseFunc > ba_model( camera_adjust_models , cnet, input_files );
-  BundleAdjustment< IsisBundleAdjustmentModel< 3, 3, PositionFunc, PoseFunc>, CauchyError > 
-    bundle_adjuster( ba_model, cnet, CauchyError( robust_outlier_threshold ) );
+  IsisBundleAdjustmentModel<9, 9, PositionFunc, PoseFunc > ba_model( camera_adjust_models , cnet, input_files );
+  BundleAdjustment< IsisBundleAdjustmentModel< 9, 9, PositionFunc, PoseFunc>, L2Error > 
+    bundle_adjuster( ba_model, cnet, L2Error() );
 
   // Performing the Bundle Adjustment
   double abs_tol = 1e10, rel_tol = 1e10;
@@ -586,6 +621,7 @@ int main(int argc, char* argv[]) {
 	    Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
 	    ostr_camera << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
 	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
+	    pose = pose / norm_2(pose);
 	    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
 	    ostr_camera << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
 	  }

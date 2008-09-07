@@ -32,6 +32,9 @@ namespace camera {
 			   PoseFuncT const& pose_func ) : IsisCameraModel( cube_filename ),
       m_position_func( position_func ),
       m_pose_func( pose_func ) {
+
+	m_position_func.set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
+	m_pose_func.set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
 	
     }
 

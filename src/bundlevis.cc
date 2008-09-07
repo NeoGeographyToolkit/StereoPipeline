@@ -37,11 +37,11 @@ osg::Geode* build3Axis(void){
 
   osg::Vec3Array* vertices = new osg::Vec3Array(6);
   (*vertices)[0].set( 0.0f, 0.0f, 0.0f );
-  (*vertices)[1].set( 1.0f, 0.0f, 0.0f );
+  (*vertices)[1].set( LINE_LENGTH, 0.0f, 0.0f );
   (*vertices)[2].set( 0.0f, 0.0f, 0.0f );
-  (*vertices)[3].set( 0.0f, 1.0f, 0.0f );
+  (*vertices)[3].set( 0.0f, LINE_LENGTH, 0.0f );
   (*vertices)[4].set( 0.0f, 0.0f, 0.0f );
-  (*vertices)[5].set( 0.0f, 0.0f, 1.0f );
+  (*vertices)[5].set( 0.0f, 0.0f, LINE_LENGTH );
   axis->setVertexArray( vertices );
 
   osg::Vec4Array* colours = new osg::Vec4Array(6);
