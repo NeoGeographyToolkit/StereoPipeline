@@ -484,7 +484,8 @@ std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
 // This will build the entire scene
 osg::Node* createScene( std::vector<PointIter*>& points,
 			std::vector<CameraIter*>& cameras,
-			std::vector<ConnLineIter*>& connLines ) {
+			std::vector<ConnLineIter*>& connLines,
+			std::vector< std::vector<PointIter*> >& addPoints) {
   
   osg::Group* scene = new osg::Group();
 
@@ -525,6 +526,52 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 
     geometry->setUseDisplayList(false);
     geometry->setDrawCallback( new pointsDrawCallback( &points ) );
+    
+    // Making geode
+    osg::Geode* geode = new osg::Geode;
+    geode->addDrawable( geometry );
+    
+
+    // Making the points large
+    osg::StateSet* stateSet = new osg::StateSet();
+    osg::Point* point = new osg::Point();
+    point->setSize( 2.0f );
+    stateSet->setAttribute( point );
+    geode->setStateSet( stateSet );
+
+    scene->addChild( geode );
+  }
+
+  // 2.b Adding additional points
+  for ( unsigned n = 0; n < addPoints.size(); ++n ) {
+    osg::Geometry* geometry = new osg::Geometry;
+
+    // Setting up vertices
+    osg::Vec3Array* vertices = new osg::Vec3Array( addPoints[n].size()*2 );
+    geometry->setVertexArray( vertices );
+
+    for ( unsigned i = 0; i < addPoints[n].size()*2; i+=2 ) {
+      (*vertices)[i] = addPoints[n][i/2]->getPosition(0);
+      (*vertices)[i+1] = (*vertices)[i] + osg::Vec3f(0.0f, 0.0f, 0.1f);
+    }
+
+    // Setting up color
+    osg::Vec4Array* colours = new osg::Vec4Array( 1 );
+    geometry->setColorArray( colours );
+    geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
+    (*colours)[0].set(1.0f, 0.25f, 0.5f, 0.5f);
+
+    // Setting up primitive to draw line to last location
+    geometry->addPrimitiveSet( new osg::DrawArrays(GL_LINES, 0, vertices->size() ));
+
+    // Setting up to draw points at the front end of the line
+    osg::DrawElementsUInt* pointsArray = new osg::DrawElementsUInt(GL_POINTS, addPoints[n].size());
+    geometry->addPrimitiveSet( pointsArray );
+    for (unsigned i = 0; i < addPoints[n].size(); ++i)
+      (*pointsArray)[i] = i*2;
+
+    geometry->setUseDisplayList(false);
+    geometry->setDrawCallback( new pointsDrawCallback( &(addPoints[n]) ) );
     
     // Making geode
     osg::Geode* geode = new osg::Geode;
@@ -885,10 +932,12 @@ int main(int argc, char* argv[]){
   std::string points_iter_file;
   std::string pixel_iter_file;
   std::string control_net_file;
+  std::vector<std::string> additional_pnt_files;
   vw::camera::ControlNetwork* cnet = NULL;
   std::vector<PointIter*> pointData;
   std::vector<CameraIter*> cameraData;
   std::vector<ConnLineIter*> connLineData;
+  std::vector<std::vector<PointIter*> > addPointData;
   PlaybackControl* playControl = new PlaybackControl(controlStep);
 
   //OpenSceneGraph Variable which are important overall
@@ -903,6 +952,7 @@ int main(int argc, char* argv[]){
     ("points-iteration-file,p",po::value<std::string>(&points_iter_file),"Load the 3d points parameters for each iteration from a file")
     ("pixel-iteration-file,x",po::value<std::string>(&pixel_iter_file),"Loads the pixel information data. Allowing for an illustration of the pixel data over time")
     ("control-network-file,n",po::value<std::string>(&control_net_file),"Loads the control network for point and camera relationship status. Camera and Point Iteration data is need before a control network file can be used.")
+    ("additional-pnt-files",po::value< std::vector<std::string> >(&additional_pnt_files),"For additional iterPoint files that can be plotted simultaneously.")
     ("fullscreen","Sets the Bundlevis to render with the entire screen, doesn't work so hot with dual screens.")
     ("stereo","This sets bundlevis to display in anagylph mode")
     ("help","Display this help message");
@@ -945,6 +995,17 @@ int main(int argc, char* argv[]){
   if (vm.count("points-iteration-file")){
     pointData = loadPointData( points_iter_file,
 			       controlStep );
+  }
+
+  //////////////////////////////////////////////////////////
+  //Loading up additional point iteration data
+  if (vm.count("additional-pnt-files")) {
+    std::cout << "Checking to see if there is additional:" << std::endl;
+    for (unsigned n = 0; n < additional_pnt_files.size(); ++n) {
+      std::cout << " > " << additional_pnt_files[n] << std::endl;
+      addPointData.push_back( loadPointData( additional_pnt_files[n],
+					     controlStep ) );
+    }
   }
 
   //////////////////////////////////////////////////////////
@@ -993,7 +1054,8 @@ int main(int argc, char* argv[]){
   {
     root->addChild( createScene( pointData,
 				 cameraData,
-				 connLineData ) );
+				 connLineData,
+				 addPointData ) );
     viewer.setCameraManipulator( new osgGA::TrackballManipulator() );
     viewer.setSceneData(root);
     int numIter;
