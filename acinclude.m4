@@ -166,6 +166,12 @@ AC_DEFUN([AX_PKG],
         AC_MSG_RESULT([searching...])
       fi
 
+      if test -n "${HAVE_PKG_$1}" && test "${HAVE_PKG_$1}" != "yes" && test "${HAVE_PKG_$1}" != "no"; then
+        PKG_PATHS_$1=${HAVE_PKG_$1}
+      else
+        PKG_PATHS_$1=${PKG_PATHS}
+      fi
+
       HAVE_PKG_$1=no
 
       # This is a gross hack that causes the AC_LINK_IFELSE macro use libtool to 
@@ -183,7 +189,7 @@ AC_DEFUN([AX_PKG],
 
       ax_pkg_old_libs=$LIBS
       LIBS=$PKG_$1_LIBS $LIBS
-      for path in none $PKG_PATHS; do
+      for path in none $PKG_PATHS_$1; do
         ax_pkg_old_cppflags=$CPPFLAGS
         ax_pkg_old_ldflags=$LDFLAGS
         ax_pkg_old_vw_cppflags=$ASP_CPPFLAGS
@@ -280,13 +286,20 @@ AC_DEFUN([AX_PKG_BOOST],
   AC_LANG_SAVE
   AC_LANG(C++)
 
+  if test -n "${HAVE_PKG_BOOST}" && test "${HAVE_PKG_BOOST}" != "yes" && test "${HAVE_PKG_BOOST}" != "no"; then
+    PKG_PATHS_BOOST=${HAVE_PKG_BOOST}
+    unset HAVE_PKG_BOOST
+  else
+    PKG_PATHS_BOOST=${PKG_PATHS}
+  fi
+
   # Skip testing if the user has overridden
   if test -z "${HAVE_PKG_BOOST}"; then
 
     PKG_BOOST_LIBS=
     HAVE_PKG_BOOST=no
 
-    for ax_boost_base_path in $PKG_PATHS; do
+    for ax_boost_base_path in $PKG_PATHS_BOOST; do
       # First look for a system-style installation
       if test "$ENABLE_VERBOSE" = "yes"; then
         AC_MSG_CHECKING([for system-style boost in ${ax_boost_base_path}])
