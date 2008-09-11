@@ -242,6 +242,7 @@ int main(int argc, char* argv[]) {
   ImageViewRef<PixelGrayA<uint8> > texture_image = texture_disk_image;
   DiskImageView<PixelGrayA<float> > float_texture_disk_image(image_file);
 
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // ISIS cubes need to be normalized because their pixels are often
   // photometrically calibrated.
   if (stereo_session_string == "isis") {
@@ -253,6 +254,7 @@ int main(int argc, char* argv[]) {
     }
     texture_image = channel_cast_rescale<uint8>(normalize_retain_alpha(remove_isis_special_pixels(float_texture_disk_image, PixelGrayA<float>(lo)), lo, hi, 0, 1.0));
   }
+#endif
 
   // Parse the scale of the output image from the command line
   // arguments.  This value can be set either in meters per pixel or
