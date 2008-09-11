@@ -184,7 +184,7 @@ AC_DEFUN([AX_PKG],
         # so we turn off this hack on the mac platform.
         CXX=$CXX
       else
-        CXX="libtool --mode=link $CXX"
+        CXX="libtool --mode=link --tag CXX $CXX"
       fi
 
       ax_pkg_old_libs=$LIBS
