@@ -2064,15 +2064,15 @@ dot_to_mesh(BUFFER *b, int width, int height, int h_step, int v_step)
   int	n = 0;			/* number of triangles created */
   int	AI, BI, CI, DI;		/* shift from pointer to the 4 corners Image */
   int	AG, BG, CG, DG;		/* shift from pointer to the 4 corners Grid */
-  float	A1,A2,A3,B1,B2,B3,C1,C2,C3,D1,D2,D3; /* easier to read */
-  float distBC,distAD;
+  double	A1,A2,A3,B1,B2,B3,C1,C2,C3,D1,D2,D3; /* easier to read */
+  double distBC,distAD;
 #if 0
-  float distAB,distAC,distBD,distCD;
-  float max_dist;
+  double distAB,distAC,distBD,distCD;
+  double max_dist;
   double pixel_disp;
   double sin_theta1, sin_theta2;
 #endif
-  float u,v;
+  double u,v;
 
   /* initialize the constants */
   grid_width = (width-1)/h_step+1;
@@ -2113,9 +2113,9 @@ dot_to_mesh(BUFFER *b, int width, int height, int h_step, int v_step)
   /* make the regular grid point */
   for( y=0, y_grid=0 ; y_grid < grid_height ; y += v_step, y_grid++){
     buff_pos = y_grid*grid_width;
-    v = (float)(height-y)/(float)(height);
+    v = (double)(height-y)/(double)(height);
     for( x=0, x_grid=0 ; x_grid < grid_width ; x += h_step, x_grid ++){
-      u = (float)(x)/(float)(width);
+      u = (double)(x)/(double)(width);
       b->nff.vtx[buff_pos+x_grid].x = b->dot[y*width+x].x;
       b->nff.vtx[buff_pos+x_grid].y = b->dot[y*width+x].y;
       b->nff.vtx[buff_pos+x_grid].z = b->dot[y*width+x].z;
@@ -2139,7 +2139,7 @@ dot_to_mesh(BUFFER *b, int width, int height, int h_step, int v_step)
 //         sin_theta1 = THETA_LIMIT;
 //       if(sin_theta2 < THETA_LIMIT)
 //         sin_theta2 = THETA_LIMIT;
-//       max_dist = (float)(dft->baseline/sin_theta1 - dft->baseline/sin_theta2);
+//       max_dist = (double)(dft->baseline/sin_theta1 - dft->baseline/sin_theta2);
 //       if (max_dist < 0)
 //         max_dist = max_dist *(-1);
 // #endif

@@ -330,7 +330,9 @@ int main(int argc, char* argv[]) {
     corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
     corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
     corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
-    corr_view.set_subpixel_options(stereo_settings().do_h_subpixel, stereo_settings().do_v_subpixel);
+    corr_view.set_subpixel_options(stereo_settings().do_h_subpixel, 
+                                   stereo_settings().do_v_subpixel, 
+                                   stereo_settings().do_affine_subpixel);
     if (vm.count("corr-debug-prefix"))
       corr_view.set_debug_mode(corr_debug_prefix);
 
@@ -350,7 +352,9 @@ int main(int argc, char* argv[]) {
                                                   true,                             // verbose
                                                   stereo_settings().xcorr_treshold,
                                                   stereo_settings().corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
-                                                  stereo_settings().do_h_subpixel, stereo_settings().do_v_subpixel);   // h and v subpixel
+                                                  stereo_settings().do_h_subpixel, 
+                                                  stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                  stereo_settings().do_affine_subpixel);
       if (stereo_settings().slog) {
         std::cout << "Applying SLOG filter.\n";
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
@@ -497,8 +501,11 @@ int main(int argc, char* argv[]) {
       UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)), stereo_settings().near_universe_radius, stereo_settings().far_universe_radius);
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
-      DiskImageResourceOpenEXR point_cloud_rsrc(out_prefix + "-PC.exr", point_cloud.format() );
-      point_cloud_rsrc.set_tiled_write(std::min(2048,point_cloud.cols()),std::min(2048, point_cloud.rows()));
+//       DiskImageResourceOpenEXR point_cloud_rsrc(out_prefix + "-PC.exr", point_cloud.format() );
+//       point_cloud_rsrc.set_tiled_write(std::min(2048,point_cloud.cols()),std::min(2048, point_cloud.rows()));
+//       write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback());
+
+      DiskImageResourceTIFF point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format() );
       write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback());
       std::cout << universe_radius_func;
 

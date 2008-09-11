@@ -58,6 +58,7 @@ public:
   int v_corr_min;		/* correlation window min y */
   int do_h_subpixel;
   int do_v_subpixel;
+  int do_affine_subpixel;       /* Use the affine adaptive subpixel correlator (slow!) */
   float xcorr_treshold;
   float corrscore_rejection_treshold;
 
