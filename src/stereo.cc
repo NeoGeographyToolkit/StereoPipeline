@@ -142,6 +142,7 @@ int main(int argc, char* argv[]) {
   // arguments.
   int entry_point;
   int debug_level;
+  unsigned num_threads;
   unsigned cache_size;
   std::string stereo_session_string;
   std::string stereo_default_filename;
@@ -154,6 +155,7 @@ int main(int argc, char* argv[]) {
   visible_options.add_options()
     ("help,h", "Display this help message")
     ("cache", po::value<unsigned>(&cache_size)->default_value(1800), "Cache size, in megabytes")
+    ("threads", po::value<unsigned>(&num_threads)->default_value(0), "Select the number of processors (threads) to use.")
     ("session-type,t", po::value<std::string>(&stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
@@ -218,6 +220,10 @@ int main(int argc, char* argv[]) {
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
   Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
+  if ( vm.count("threads") ) {
+    std::cout << "\t--> Setting number of processing threads to: " << num_threads << "\n";
+    Thread::set_default_num_threads(num_threads);
+  }
 
   // Create a fresh stereo session and query it for the camera models.
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
