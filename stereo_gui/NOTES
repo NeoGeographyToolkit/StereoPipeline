@@ -1,0 +1,18 @@
+Transforming the image:
+Left Mouse + drag - pan
+Right Mouse + drag / Mousewheel - zoom
+f : zoom to fit
+1 : zoom to 1:1
++ : zoom in
+- : zoom out
+
+Editing Exposure (via glsl)
+g + drag : gain (contrast)
+o + drag : offset (exposure)
+v + drag : gamma
+c : toggle colormap
+
+Display:
+- Image coordinates
+- pixel values
+- Current zoom level
