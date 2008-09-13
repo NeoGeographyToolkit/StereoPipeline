@@ -116,6 +116,7 @@ namespace camera {
       pin_cam.set_coordinate_frame( Vector3( 1, 0, 0 ),
 				    Vector3( 0, 1, 0 ),
 				    Vector3( 0, 0, 1 ) );
+ 
 
       // Performing the forward projection
       Vector2 forward_projection = pin_cam.point_to_pixel( point );
@@ -160,6 +161,16 @@ namespace camera {
       MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
       return Quaternion<double>(R_inst*inverse(R_body)) + m_pose_func.evaluate( mm_time[2] );
+    }
+
+    double undistorted_focal( Vector3 const& mm_time ) const {
+      Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
+      this->set_time( mm_time[2] );
+
+      // Looking up the focal length
+      Isis::CameraDistortionMap* distortMap = cam->DistortionMap();
+      
+      return distortMap->UndistortedFocalPlaneZ();
     }
 
     //-------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-  
+   
 // __BEGIN_LICENSE__
 // 
 // Copyright (C) 2008 United States Government as represented by the
@@ -62,25 +62,15 @@ private:
   std::vector<double> _constant;
   double time_offset;
 public:
-  PositionFunc ( double x0, double x1, double x2,
-		 double y0, double y1, double y2,
-		 double z0, double z1, double z2 ) {
-    _constant.push_back( x0 );
-    _constant.push_back( x1 );
-    _constant.push_back( x2 );
-    _constant.push_back( y0 );
-    _constant.push_back( y1 );
-    _constant.push_back( y2 );
-    _constant.push_back( z0 );
-    _constant.push_back( z1 );
-    _constant.push_back( z2 );
+  PositionFunc ( double x, double y, double z ) {
+    _constant.push_back( x );
+    _constant.push_back( y );
+    _constant.push_back( z );
     time_offset = 0;
   }
   virtual Vector3 evaluate( double t ) const {
     // This evaluates the function at time t
-    return Vector3( _constant[0] + _constant[1]*(t-time_offset) + _constant[2]*(t-time_offset)*(t-time_offset),
-		    _constant[3] + _constant[4]*(t-time_offset) + _constant[5]*(t-time_offset)*(t-time_offset),
-		    _constant[6] + _constant[7]*(t-time_offset) + _constant[8]*(t-time_offset)*(t-time_offset) );
+    return Vector3( _constant[0],_constant[1],_constant[2] );
   }
   virtual unsigned size( void ) const {
     // This produces the number of variables allowed for changing
@@ -105,24 +95,14 @@ private:
   std::vector<double> _constant;
   double time_offset;
 public:
-  PoseFunc ( double x0, double x1, double x2,
-	     double y0, double y1, double y2,
-	     double z0, double z1, double z2 ) {
-    _constant.push_back( x0 );
-    _constant.push_back( x1 );
-    _constant.push_back( x2 );
-    _constant.push_back( y0 );
-    _constant.push_back( y1 );
-    _constant.push_back( y2 );
-    _constant.push_back( z0 );
-    _constant.push_back( z1 );
-    _constant.push_back( z2 );
+  PoseFunc ( double x, double y, double z ) {
+    _constant.push_back( x );
+    _constant.push_back( y );
+    _constant.push_back( z );
     time_offset = 0;
   }
   virtual Quaternion<double> evaluate( double t ) const {
-    Quaternion<double> quat = euler_to_quaternion( _constant[0] + _constant[1]*(t-time_offset) + _constant[2]*(t-time_offset)*(t-time_offset),
-						   _constant[3] + _constant[4]*(t-time_offset) + _constant[5]*(t-time_offset)*(t-time_offset),
-						   _constant[6] + _constant[7]*(t-time_offset) + _constant[8]*(t-time_offset)*(t-time_offset), "xyz" );
+    Quaternion<double> quat = euler_to_quaternion( _constant[0],_constant[1],_constant[2],"xyz");
     quat = quat/norm_2(quat);
     return quat;
   }
@@ -222,12 +202,98 @@ public:
   virtual Matrix<double, 2, positionParam+poseParam> A_jacobian( unsigned i, unsigned j,
 								 camera_vector_t const& a_j,
 								 point_vector_t const& b_i ) {
-    Matrix<double> partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel,
-      positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
-    return partial_derivatives;
+    // Old implementation
+    //Matrix<double> partial_derivatives_old = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel,
+    //  positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
 
     // TODO: This is no longer acceptable. We can do this all
     // analytically with out much hassle
+
+    // Additional Note: Right now I'm writing the code to only support
+    // single constant delta functions. Or in other words, I currently
+    // am only correction cameras by adding a single constant.
+
+    // Loading up camera
+    // Loading equations
+    PositionFuncT* posF =  m_cameras[j]->getPositionFuncPoint();
+    PoseFuncT* poseF = m_cameras[j]->getPoseFuncPoint();
+
+    // Backing up equation constants
+    std::vector<double> storage;
+    for (unsigned n = 0; n < posF->size(); ++n)
+      storage.push_back( (*posF)[n] );
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      storage.push_back( (*poseF)[n] );
+
+    // Setting new equations defined by a_j
+    for (unsigned n = 0; n < posF->size(); ++n)
+      (*posF)[n] = a_j[n];
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      (*poseF)[n] = a_j[n + posF->size()];
+
+    // Determine what ephemeris time is assigned to point i when
+    // viewed by camera j
+    int m = 0;
+    while ( m_network[i][m].image_id() != j )
+      m++;
+
+    // Getting camera position & pose
+    Vector3 position = m_cameras[j]->camera_center( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
+    Quaternion<double> pose = m_cameras[j]->camera_pose( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
+    pose = pose/norm_2(pose);
+    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
+
+    // Reverting back to orginal camera constants
+    for (unsigned n = 0; n < posF->size(); ++n)
+      (*posF)[n] = storage[n];
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      (*poseF)[n] = storage[n + posF->size()];
+
+    double co = cos( euler[0] ); double so = sin( euler[0] ); // Omega 
+    double cp = cos( euler[1] ); double sp = sin( euler[1] ); // Phi
+    double ck = cos( euler[2] ); double sk = sin( euler[2] ); // Kappa ?
+
+    double cf = m_cameras[j]->undistorted_focal( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
+
+    Matrix<double,2,positionParam+poseParam> partial_derivatives;
+    
+    // performing the partial of x over the partial camera x position
+    partial_derivatives(0,0) = cp*ck/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0] - position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1] - position[1])-1/cf*co*cp*(b_i[2] - position[2]))-(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2] - position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*(-co*sp*ck+so*sk);
+    
+    // performing the partial of x over the partial camera y position
+    partial_derivatives(0,1) = -cp*sk/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0] - position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1] - position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*(co*sp*sk+so*ck);
+
+    // performing the partial of x over the partial camera z position
+    partial_derivatives(0,2) = sp/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0] - position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1] - position[1])-1/cf*co*cp*(b_i[2] - position[2]))-(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
+
+    // performing the partial of x over the partial camera omega rotation
+    partial_derivatives(0,3) = -(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(-1/cf*(so*sp*ck+co*sk)*(b_i[0]-position[0])-1/cf*(-so*sp*sk+co*ck)*(b_i[1]-position[1])+1/cf*so*cp*(b_i[2]-position[2]));
+    
+    // performing the partial of x over the partial camera phi rotation
+    partial_derivatives(0,4) = (sp*ck*(b_i[0]-position[0])-sp*sk*(b_i[1]-position[1])-cp*(b_i[2]-position[2]))/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(1/cf*co*cp*ck*(b_i[0]-position[0])-1/cf*co*cp*sk*(b_i[1]-position[1])+1/cf*co*sp*(b_i[2]-position[2]));
+
+    // performing the partial of x over the partial camera kappa rotation
+    partial_derivatives(0,5) = (cp*sk*(b_i[0]-position[0])+cp*ck*(b_i[1]-position[1]))/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(-1/cf*(co*sp*sk+so*ck)*(b_i[0]-position[0])-1/cf*(co*sp*ck-so*sk)*(b_i[1]-position[1]));
+
+    // performing the partial of y over the partial camera x position
+    partial_derivatives(1,0) = (so*sp*ck+co*sk)/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*(-co*sp*ck+so*sk);
+
+    // performing the partial of y over the partial camera y position
+    partial_derivatives(1,1) = (-so*sp*sk+co*ck)/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*(co*sp*sk+so*ck);
+
+    // performing the partial of y over the partial camera z position
+    partial_derivatives(1,2) = -so*cp/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
+
+    // performing the partial of y over the partial camera omega rotation
+    partial_derivatives(1,3) = ((-co*sp*ck+so*sk)*(b_i[0]-position[0])+(co*sp*sk+so*ck)*(b_i[1]-position[1])+co*cp*(b_i[2]-position[2]))/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(-1/cf*(so*sp*ck+co*sk)*(b_i[0]-position[0])-1/cf*(-so*sp*sk+co*ck)*(b_i[1]-position[1])+1/cf*so*cp*(b_i[2]-position[2]));
+    
+    // performing the partial of y over the partial camera phi rotation
+    partial_derivatives(1,4) = (-so*cp*ck*(b_i[0]-position[0])+so*cp*sk*(b_i[1]-position[1])-so*sp*(b_i[2]-position[2]))/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(1/cf*co*cp*ck*(b_i[0]-position[0])-1/cf*co*cp*sk*(b_i[1]-position[1])+1/cf*co*sp*(b_i[2]-position[2]));
+    
+    // performing the partial of y over the partial camera kappa rotation
+    partial_derivatives(1,5) = ((so*sp*sk-co*ck)*(b_i[0]-position[0])+(so*sp*ck+co*sk)*(b_i[1]-position[1]))/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(-1/cf*(co*sp*sk+so*ck)*(b_i[0]-position[0])-1/cf*(co*sp*ck-so*sk)*(b_i[1]-position[1]));
+
+    return partial_derivatives;
   }
 
   // Analytically computed jacobian for variations in the b_i
@@ -236,8 +302,69 @@ public:
 					    camera_vector_t const& a_j,
 					    point_vector_t const& b_i ) {
     Matrix<double> partial_derivatives(2,3);
-    partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, 
-      positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
+    //partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, 
+    //  positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
+
+    // Loading up camera
+    // Loading equations
+    PositionFuncT* posF =  m_cameras[j]->getPositionFuncPoint();
+    PoseFuncT* poseF = m_cameras[j]->getPoseFuncPoint();
+
+    // Backing up equation constants
+    std::vector<double> storage;
+    for (unsigned n = 0; n < posF->size(); ++n)
+      storage.push_back( (*posF)[n] );
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      storage.push_back( (*poseF)[n] );
+
+    // Setting new equations defined by a_j
+    for (unsigned n = 0; n < posF->size(); ++n)
+      (*posF)[n] = a_j[n];
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      (*poseF)[n] = a_j[n + posF->size()];
+
+    // Determine what ephemeris time is assigned to point i when
+    // viewed by camera j
+    int m = 0;
+    while ( m_network[i][m].image_id() != j )
+      m++;
+
+    // Getting camera position & pose
+    Vector3 position = m_cameras[j]->camera_center( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
+    Quaternion<double> pose = m_cameras[j]->camera_pose( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
+    pose = pose/norm_2(pose);
+    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
+
+    // Reverting back to orginal camera constants
+    for (unsigned n = 0; n < posF->size(); ++n)
+      (*posF)[n] = storage[n];
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      (*poseF)[n] = storage[n + posF->size()];
+
+    double co = cos( euler[0] ); double so = sin( euler[0] ); // Omega 
+    double cp = cos( euler[1] ); double sp = sin( euler[1] ); // Phi
+    double ck = cos( euler[2] ); double sk = sin( euler[2] ); // Kappa ?
+
+    double cf = m_cameras[j]->undistorted_focal( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
+
+    // performing the partial of x over the partial of point's x position
+    partial_derivatives(0,0) = -cp*ck/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*(-co*sp*ck+so*sk);
+
+    // performing the partial of x over the partial of point's y position
+    partial_derivatives(0,1) = cp*sk/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*(co*sp*sk+so*ck);
+
+    // performing the partial of x over the partial of point's z position
+    partial_derivatives(0,2) = -sp/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-cp*ck*(b_i[0]-position[0])+cp*sk*(b_i[1]-position[1])-sp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
+
+    // performing the partial of y over the partial of point's x position
+    partial_derivatives(1,0) = (-so*sp*ck-co*sk)/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*(-co*sp*ck+so*sk);
+    
+    // performing the partial of y over the partial of point's y position
+    partial_derivatives(1,1) = (so*sp*sk-co*ck)/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*(co*sp*sk+so*ck);
+
+    // performing the partial of y over the partial of point's z position
+    partial_derivatives(1,2) = so*cp/(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+((-so*sp*ck-co*sk)*(b_i[0]-position[0])+(so*sp*sk-co*ck)*(b_i[1]-position[1])+so*cp*(b_i[2]-position[2]))/((-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(-1/cf*(-co*sp*ck+so*sk)*(b_i[0]-position[0])-1/cf*(co*sp*sk+so*ck)*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
+
     return partial_derivatives;
   }
 
@@ -286,10 +413,22 @@ public:
   }
 
   std::vector< boost::shared_ptr< camera::CameraModel > > adjusted_cameras() {
+    std::cout << "Doesn't work" << std::endl;
     return m_cameras;
   }
 
   boost::shared_ptr< IsisAdjustCameraModel< PositionFuncT, PoseFuncT > > adjusted_camera( int j ) {
+
+    // Adjusting position and pose equations
+    PositionFuncT* posF =  m_cameras[j]->getPositionFuncPoint();
+    PoseFuncT* poseF = m_cameras[j]->getPoseFuncPoint();
+
+    // Setting new equations defined by a_j
+    for (unsigned n = 0; n < posF->size(); ++n)
+      (*posF)[n] = a[j][n];
+    for (unsigned n = 0; n < poseF->size(); ++n)
+      (*poseF)[n] = a[j][n + posF->size()];
+
     return m_cameras[j];
   }
 
@@ -419,12 +558,8 @@ int main(int argc, char* argv[]) {
     std::cout << "Loading: " << input_files[i] << std::endl;
 
     // Equations defining the delta
-    PositionFunc posF( 0, 0, 0,
-		       0, 0, 0,
-		       0, 0, 0 );
-    PoseFunc poseF( 0, 0, 0,
-		    0, 0, 0,
-		    0, 0, 0 );
+    PositionFunc posF( 0, 0, 0);
+    PoseFunc poseF( 0, 0, 0);
     boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel<PositionFunc,PoseFunc>( input_files[i], posF, poseF ) );
     camera_models[i] = p;
   }
@@ -503,10 +638,43 @@ int main(int argc, char* argv[]) {
   for ( unsigned j = 0; j < camera_models.size(); ++j )
     camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel< PositionFunc, PoseFunc> >( camera_models[j]);
 
+  // DBG Performing more tests of the camera model. I'm not sure this code is working correctly.
+  {
+    // Right now the position function is nothing but zeros
+    Vector3 mm_time = camera_adjust_models[0]->point_to_mm_time( Vector3(0,
+									 0,
+									 cnet[0][0].ephemeris_time()),
+								 cnet[0].position() );
+    double dist_along_vector = norm_2( cnet[0].position() - camera_adjust_models[0]->camera_center( mm_time ) );
+    Vector3 reprojection1 =  camera_adjust_models[0]->camera_center( mm_time ) + dist_along_vector*camera_adjust_models[0]->mm_time_to_vector( mm_time );
+    
+    std::cout << "Results:\n\tTest 1 Error:" << cnet[0].position() - reprojection1 << std::endl;
+
+    // Adding offset to cnet[0] ... seeing if it matches the same offset added to the last result
+    Vector3 mm_time2 = camera_adjust_models[0]->point_to_mm_time( mm_time, cnet[0].position() + Vector3(0,0,200) );
+    double dist_along_vector2 = norm_2( cnet[0].position() + Vector3(0,0,200) - camera_adjust_models[0]->camera_center( mm_time2 ) );
+    Vector3 reprojection2 = camera_adjust_models[0]->camera_center( mm_time2 ) + dist_along_vector2*camera_adjust_models[0]->mm_time_to_vector( mm_time2 );
+
+    std::cout << "\tTest 2 Error:" << cnet[0].position() + Vector3(0,0,200) - reprojection2 << std::endl;
+
+    // Performing another test.
+    Vector3 mm_time1 = camera_adjust_models[0]->point_to_mm_time( Vector3(0,0,cnet[0][0].ephemeris_time() ), cnet[0].position() - Vector3(0,0,200) );
+    Vector3 pointing1 = camera_adjust_models[0]->mm_time_to_vector( mm_time1 );
+    // Moving the camera
+    PositionFunc* posF = camera_adjust_models[0]->getPositionFuncPoint();
+    (*posF)[2] = 200;
+    mm_time2 = camera_adjust_models[0]->point_to_mm_time( Vector3(0,0,cnet[0][0].ephemeris_time() ), cnet[0].position() );
+    Vector3 pointing2 = camera_adjust_models[0]->mm_time_to_vector( mm_time2 );
+    // Resetting the camea
+    (*posF)[2] = 0;
+    
+    std::cout << "\tTest 3 Error:" << pointing2 - pointing1 << std::endl;
+  }
+
   // Building the Bundle Adjustment Model and applying the Bundle
   // Adjuster.
-  IsisBundleAdjustmentModel<9, 9, PositionFunc, PoseFunc > ba_model( camera_adjust_models , cnet, input_files );
-  BundleAdjustment< IsisBundleAdjustmentModel< 9, 9, PositionFunc, PoseFunc>, L2Error > 
+  IsisBundleAdjustmentModel<3, 3, PositionFunc, PoseFunc > ba_model( camera_adjust_models , cnet, input_files );
+  BundleAdjustment< IsisBundleAdjustmentModel< 3, 3, PositionFunc, PoseFunc>, L2Error > 
     bundle_adjuster( ba_model, cnet, L2Error() );
 
   // Clearing the monitoring text files
@@ -517,6 +685,20 @@ int main(int argc, char* argv[]) {
     ostr.open( "iterPointsParam.txt", std::ios::out );
     ostr << "";
     ostr.close();
+    ostr.open( "approxJacobian.txt", std::ios::out );
+    ostr << "";
+    ostr.close();
+    ostr.open( "analytJacobian.txt", std::ios::out );
+    ostr << "";
+    ostr.close();
+
+    for (unsigned n = 0; n < camera_adjust_models.size(); ++n ) {
+      std::stringstream name;
+      name << "iterPointsCam" << n << ".txt";
+      ostr.open( name.str().c_str(), std::ios::out );
+      ostr << "";
+      ostr.close();
+    } 
 
     // Now saving the initial starting data:
     // Recording Points Data
@@ -542,6 +724,42 @@ int main(int argc, char* argv[]) {
 	ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
       }
     }
+
+    // Recording additional points
+    for ( unsigned n = 0; n < camera_adjust_models.size(); ++n ) {
+      std::stringstream name;
+      name << "iterPointsCam" << n << ".txt";
+      ostr.open( name.str().c_str(), std::ios::app );
+      
+      unsigned i = 0;
+
+      // Working through the number of point in the cnet
+      for ( unsigned p = 0; p < cnet.size() ; ++p ) {
+	// Working through the number of measures in the point
+	for ( unsigned m = 0; m < cnet[p].size(); ++m ) {
+	  if ( cnet[p][m].image_id() == n ) {
+	    // Time to locate the closest point along the vector of the camera
+	    
+	    // finding the length along the camera's vector
+	    Vector2 mm_focal =  cnet[p][m].position();
+	    double t = dot_prod(cnet[p].position() - camera_adjust_models[n]->camera_center( Vector3(mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ), camera_adjust_models[n]->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ) );
+	    
+	    // Finding the point now
+	    Vector3 point = camera_adjust_models[n]->camera_center( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() )) + t * camera_adjust_models[n]->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) );
+
+	    // Saving the found point
+	    ostr << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
+	    
+	    ++i;
+
+	    break;
+	  }
+	}
+
+      }
+
+      ostr.close();
+    }
   }
 
   // Performing the Bundle Adjustment
@@ -558,7 +776,7 @@ int main(int argc, char* argv[]) {
 	std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
 	for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
 	  Vector3 point = ba_model.B_parameters(i);
-	  ostr_points << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
+	  ostr_points << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
 	}
 
 	// Recording Camera Data
@@ -570,12 +788,53 @@ int main(int argc, char* argv[]) {
 	  // Saving points along the line of the camera
 	  for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
 	    Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
-	    ostr_camera << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
+	    ostr_camera << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
 	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
+	    pose = pose / norm_2( pose );
 	    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
 	    ostr_camera << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
 	  }
 	}
+
+	// Recording additional points
+	std::ofstream ostr;
+	for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
+	  std::stringstream name;
+	  name << "iterPointsCam" << j << ".txt";
+	  ostr.open( name.str().c_str(), std::ios::app );
+      
+	  unsigned i = 0;
+
+	  // Working through the number of point in the cnet
+	  for ( unsigned p = 0; p < cnet.size() ; ++p ) {
+	    // Working through the number of measures in the point
+	    for ( unsigned m = 0; m < cnet[p].size(); ++m ) {
+	      if ( cnet[p][m].image_id() == j ) {
+		// Time to locate the closest point along the vector of the camera
+	    
+		boost::shared_ptr<IsisAdjustCameraModel< PositionFunc, PoseFunc > > camera = ba_model.adjusted_camera(j);
+
+		// finding the length along the camera's vector
+		Vector2 mm_focal =  cnet[p][m].position();
+		double t = dot_prod(cnet[p].position() - camera->camera_center( Vector3(mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ), camera->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ) );
+	    
+		// Finding the point now
+		Vector3 point = camera->camera_center( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() )) + t * camera->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) );
+		
+		// Saving the found point
+		ostr << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
+		
+		++i;
+		
+		break;
+	      }
+	    }
+
+	  }
+
+	  ostr.close();
+	}
+
       } // end of saving data
 
       // Determing is it time to quit?
@@ -594,7 +853,7 @@ int main(int argc, char* argv[]) {
 	std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
 	for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
 	  Vector3 point = ba_model.B_parameters(i);
-	  ostr_points << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
+	  ostr_points << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
 	}
 
 	// Recording Camera Data
@@ -606,13 +865,53 @@ int main(int argc, char* argv[]) {
 	  // Saving points along the line of the camera
 	  for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
 	    Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
-	    ostr_camera << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
+	    ostr_camera << std::setprecision(18) << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
 	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
 	    pose = pose / norm_2(pose);
 	    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
 	    ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
 	  }
 	}
+
+	// Recording additional points
+	std::ofstream ostr;
+	for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
+	  std::stringstream name;
+	  name << "iterPointsCam" << j << ".txt";
+	  ostr.open( name.str().c_str(), std::ios::app );
+      
+	  unsigned i = 0;
+
+	  // Working through the number of point in the cnet
+	  for ( unsigned p = 0; p < cnet.size() ; ++p ) {
+	    // Working through the number of measures in the point
+	    for ( unsigned m = 0; m < cnet[p].size(); ++m ) {
+	      if ( cnet[p][m].image_id() == j ) {
+		// Time to locate the closest point along the vector of the camera
+	    
+		boost::shared_ptr<IsisAdjustCameraModel< PositionFunc, PoseFunc > > camera = ba_model.adjusted_camera(j);
+
+		// finding the length along the camera's vector
+		Vector2 mm_focal =  cnet[p][m].position();
+		double t = dot_prod(cnet[p].position() - camera->camera_center( Vector3(mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ), camera->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ) );
+	    
+		// Finding the point now
+		Vector3 point = camera->camera_center( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() )) + t * camera->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) );
+		
+		// Saving the found point
+		ostr << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
+		
+		++i;
+		
+		break;
+	      }
+	    }
+
+	  }
+
+	  ostr.close();
+	}
+
       } // end of saving data
 
       // Determine if it is time to quit
