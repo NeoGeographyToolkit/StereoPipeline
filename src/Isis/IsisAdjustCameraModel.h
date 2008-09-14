@@ -9,6 +9,7 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <Isis/IsisCameraModel.h>
 #include <iomanip>
+#include <Isis/Equations.h>
 
 // Isis Header
 #include <Cube.h>
@@ -20,21 +21,47 @@
 namespace vw {
 namespace camera {
 
-  template < class PositionFuncT, class PoseFuncT >
   class IsisAdjustCameraModel : public IsisCameraModel {
+  protected:
+    mutable double m_current_time;
+    void set_image( double const& sample, double const& line) const {
+      if (m_current_line != line || m_current_sample != sample ) {
+	Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
+	cam->SetImage( sample, line );
+	m_current_line = cam->Line();
+	m_current_sample = cam->Sample();
+	m_current_time = cam->EphemerisTime();
+      }
+    }
+
+    void set_time( double const& time ) const {
+      if (time > m_max_ephemeris || time < m_min_ephemeris)
+	std::cout << "Time input is out of bounds" << std::endl;
+      if (m_current_time != time ) {
+	Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
+	cam->SetEphemerisTime( time );
+	m_current_line = cam->Line();
+	m_current_sample = cam->Sample();
+	m_current_time = cam->EphemerisTime();
+      }
+    }
+
+    boost::shared_ptr<VectorEquation> m_position_func;
+    boost::shared_ptr<QuaternionEquation> m_pose_func;
+
 
   public:
     //--------------------------------------------------------------------
     //  Constructors / Deconstructor
     //--------------------------------------------------------------------
     IsisAdjustCameraModel( std::string cube_filename,
-			   PositionFuncT const& position_func,
-			   PoseFuncT const& pose_func ) : IsisCameraModel( cube_filename ),
+			   boost::shared_ptr<VectorEquation> position_func,
+			   boost::shared_ptr<QuaternionEquation> pose_func ) : IsisCameraModel( cube_filename ),
       m_position_func( position_func ),
       m_pose_func( pose_func ) {
 
-	m_position_func.set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
-	m_pose_func.set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
+	m_position_func->set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
+	m_pose_func->set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
 	
     }
 
@@ -147,7 +174,7 @@ namespace camera {
       // calculations in kilometers.
       double pos[3];
       cam->InstrumentPosition( pos );
-      return Vector3( pos[0]*1000, pos[1]*1000, pos[2]*1000 ) + m_position_func.evaluate( mm_time[2] );
+      return Vector3( pos[0]*1000, pos[1]*1000, pos[2]*1000 ) + m_position_func->evaluate( mm_time[2] );
     }
 
     Quaternion<double> camera_pose( Vector3 const& mm_time ) const {
@@ -160,7 +187,7 @@ namespace camera {
       MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
       MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
-      return Quaternion<double>(R_inst*inverse(R_body)) + m_pose_func.evaluate( mm_time[2] );
+      return Quaternion<double>(R_inst*inverse(R_body)) + m_pose_func->evaluate( mm_time[2] );
     }
 
     double undistorted_focal( Vector3 const& mm_time ) const {
@@ -177,49 +204,15 @@ namespace camera {
     // Interfacing with equations
     //-------------------------------------------------------------------------
 
-    PositionFuncT& getPositionFunc( void ) {
+    boost::shared_ptr<VectorEquation> getPositionFuncPoint( void ){
       return m_position_func;
     }
 
-    PoseFuncT& getPoseFunc( void ) {
+    boost::shared_ptr<QuaternionEquation> getPoseFuncPoint( void ) {
       return m_pose_func;
     }
 
-    PositionFuncT* getPositionFuncPoint( void ){
-      return &m_position_func;
-    }
-
-    PoseFuncT* getPoseFuncPoint( void ) {
-      return &m_pose_func;
-    }
-
-  protected:
-    mutable double m_current_time;
-    void set_image( double const& sample, double const& line) const {
-      if (m_current_line != line || m_current_sample != sample ) {
-	Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
-	cam->SetImage( sample, line );
-	m_current_line = cam->Line();
-	m_current_sample = cam->Sample();
-	m_current_time = cam->EphemerisTime();
-      }
-    }
-
-    void set_time( double const& time ) const {
-      if (time > m_max_ephemeris || time < m_min_ephemeris)
-	std::cout << "Time input is out of bounds" << std::endl;
-      if (m_current_time != time ) {
-	Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
-	cam->SetEphemerisTime( time );
-	m_current_line = cam->Line();
-	m_current_sample = cam->Sample();
-	m_current_time = cam->EphemerisTime();
-      }
-    }
-
-    PositionFuncT m_position_func;
-    PoseFuncT m_pose_func;
-
+  
   };
 
 }

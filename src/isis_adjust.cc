@@ -57,68 +57,42 @@ using namespace vw::ip;
 // Position and Pose Equations
 //    For now the adjust equations are just constant offsets. This is
 //    just to test to see if the code even works.
-class PositionFunc : public VectorEquation{
-private:
-  std::vector<double> _constant;
-  double time_offset;
+class PositionZeroOrder : public VectorEquation {
 public:
-  PositionFunc ( double x, double y, double z ) {
-    _constant.push_back( x );
-    _constant.push_back( y );
-    _constant.push_back( z );
-    time_offset = 0;
+  PositionZeroOrder( void ) { //If I'm feeling lazy
+    m_constant.resize(3);
+    m_time_offset = 0;
   }
-  virtual Vector3 evaluate( double t ) const {
-    // This evaluates the function at time t
-    return Vector3( _constant[0],_constant[1],_constant[2] );
+  PositionZeroOrder( double x, double y, double z ) {
+    m_constant.push_back(x);
+    m_constant.push_back(y);
+    m_constant.push_back(z);
+    m_time_offset = 0;
   }
-  virtual unsigned size( void ) const {
-    // This produces the number of variables allowed for changing
-    return _constant.size();
-  }
-  virtual double& operator[]( unsigned n ) {
-    // This produces the variable n's value;
-    if ( n >= _constant.size() ){
-      std::cout << "ERROR" << std::endl;
-      return _constant[0];
-    } else {
-      return _constant[n];
-    }
-  }
-  void set_time_offset( double offset ) {
-    time_offset = offset;
+  virtual Vector3 evaluate( double const& t) const {
+    return Vector3( m_constant[0], m_constant[1], m_constant[2] );
   }
 };
 
-class PoseFunc : public QuaternionEquation{
-private:
-  std::vector<double> _constant;
-  double time_offset;
+class PoseZeroOrder : public QuaternionEquation { 
 public:
-  PoseFunc ( double x, double y, double z ) {
-    _constant.push_back( x );
-    _constant.push_back( y );
-    _constant.push_back( z );
-    time_offset = 0;
+  PoseZeroOrder( void ) {
+    m_constant.resize(3);
+    m_time_offset = 0;
   }
-  virtual Quaternion<double> evaluate( double t ) const {
-    Quaternion<double> quat = euler_to_quaternion( _constant[0],_constant[1],_constant[2],"xyz");
-    quat = quat/norm_2(quat);
+  PoseZeroOrder( double x, double y, double z ) {
+    m_constant.push_back(x);
+    m_constant.push_back(y);
+    m_constant.push_back(z);
+    m_time_offset = 0;
+  }
+  virtual Quaternion<double> evaluate( double const& t ) const {
+    Quaternion<double> quat = euler_to_quaternion( m_constant[0],
+						   m_constant[1],
+						   m_constant[2],
+						   "xyz" );
+    quat = quat / norm_2(quat);
     return quat;
-  }
-  virtual unsigned size( void ) const {
-    return _constant.size();
-  }
-  virtual double& operator[]( unsigned n ) {
-    if ( n >= _constant.size() ){
-      std::cout << "ERROR" << std::endl;
-      return _constant[0];
-    } else {
-      return _constant[n];
-    }
-  }
-  void set_time_offset( double offset ) {
-    time_offset = offset;
   }
 };
 
@@ -132,18 +106,16 @@ static std::string prefix_from_filename( std::string const& filename ){
 }
 
 // This is the Bundle Adjustment model
-template <unsigned positionParam, unsigned poseParam, class PositionFuncT, class PoseFuncT>
+template <unsigned positionParam, unsigned poseParam>
 class IsisBundleAdjustmentModel : public camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel < positionParam,
-													poseParam,
-													PositionFuncT,
-													PoseFuncT >,
+													poseParam >,
 									    (positionParam+poseParam), 3>{
   typedef Vector<double, positionParam+poseParam> camera_vector_t;
   typedef Vector<double, 3> point_vector_t;
 
   ControlNetwork m_network;
 
-  std::vector< boost::shared_ptr<IsisAdjustCameraModel< PositionFuncT, PoseFuncT > > > m_cameras;
+  std::vector< boost::shared_ptr<IsisAdjustCameraModel> > m_cameras;
 
   std::vector< std::string > m_files;
 
@@ -155,8 +127,7 @@ class IsisBundleAdjustmentModel : public camera::BundleAdjustmentModelBase< Isis
 
 public:
 
-  IsisBundleAdjustmentModel( std::vector< boost::shared_ptr< vw::camera::IsisAdjustCameraModel< PositionFuncT,
-			     PoseFuncT > > > const& camera_models,
+  IsisBundleAdjustmentModel( std::vector< boost::shared_ptr< vw::camera::IsisAdjustCameraModel> > const& camera_models,
 			     ControlNetwork const& network,
 			     std::vector< std::string > input_names ) :
     m_cameras( camera_models ), m_network( network ),
@@ -215,15 +186,8 @@ public:
 
     // Loading up camera
     // Loading equations
-    PositionFuncT* posF =  m_cameras[j]->getPositionFuncPoint();
-    PoseFuncT* poseF = m_cameras[j]->getPoseFuncPoint();
-
-    // Backing up equation constants
-    std::vector<double> storage;
-    for (unsigned n = 0; n < posF->size(); ++n)
-      storage.push_back( (*posF)[n] );
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      storage.push_back( (*poseF)[n] );
+    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
+    boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
 
     // Setting new equations defined by a_j
     for (unsigned n = 0; n < posF->size(); ++n)
@@ -242,12 +206,6 @@ public:
     Quaternion<double> pose = m_cameras[j]->camera_pose( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
     pose = pose/norm_2(pose);
     Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-
-    // Reverting back to orginal camera constants
-    for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = storage[n];
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = storage[n + posF->size()];
 
     double co = cos( euler[0] ); double so = sin( euler[0] ); // Omega 
     double cp = cos( euler[1] ); double sp = sin( euler[1] ); // Phi
@@ -307,15 +265,8 @@ public:
 
     // Loading up camera
     // Loading equations
-    PositionFuncT* posF =  m_cameras[j]->getPositionFuncPoint();
-    PoseFuncT* poseF = m_cameras[j]->getPoseFuncPoint();
-
-    // Backing up equation constants
-    std::vector<double> storage;
-    for (unsigned n = 0; n < posF->size(); ++n)
-      storage.push_back( (*posF)[n] );
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      storage.push_back( (*poseF)[n] );
+    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
+    boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
 
     // Setting new equations defined by a_j
     for (unsigned n = 0; n < posF->size(); ++n)
@@ -334,12 +285,6 @@ public:
     Quaternion<double> pose = m_cameras[j]->camera_pose( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
     pose = pose/norm_2(pose);
     Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-
-    // Reverting back to orginal camera constants
-    for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = storage[n];
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = storage[n + posF->size()];
 
     double co = cos( euler[0] ); double so = sin( euler[0] ); // Omega 
     double cp = cos( euler[1] ); double sp = sin( euler[1] ); // Phi
@@ -403,13 +348,11 @@ public:
   void write_adjustment( int j, std::string const& filename ) {
     std::ofstream ostr( filename.c_str() );
 
-    for ( unsigned i = 0; i < positionParam; ++i )
-      ostr << a[j][i] << "\t";
-    ostr << std::endl;
+    // The whole A parameter is just written in a line
+    for ( unsigned i = 0; i < a[j].size(); ++i)
+      ostr << std::setprecision(18) << a[j][i] << "\t";
 
-    for ( unsigned i = 0; i < poseParam; ++i )
-      ostr << a[j][positionParam + i] << "\t";
-    ostr << std::endl;
+    ostr.close();
   }
 
   std::vector< boost::shared_ptr< camera::CameraModel > > adjusted_cameras() {
@@ -417,11 +360,11 @@ public:
     return m_cameras;
   }
 
-  boost::shared_ptr< IsisAdjustCameraModel< PositionFuncT, PoseFuncT > > adjusted_camera( int j ) {
+  boost::shared_ptr< IsisAdjustCameraModel > adjusted_camera( int j ) {
 
     // Adjusting position and pose equations
-    PositionFuncT* posF =  m_cameras[j]->getPositionFuncPoint();
-    PoseFuncT* poseF = m_cameras[j]->getPoseFuncPoint();
+    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
+    boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
 
     // Setting new equations defined by a_j
     for (unsigned n = 0; n < posF->size(); ++n)
@@ -441,8 +384,8 @@ public:
     // Warning! This operation can not be allowed to change the camera properties.
 
     // Loading equations
-    PositionFuncT* posF =  m_cameras[j]->getPositionFuncPoint();
-    PoseFuncT* poseF = m_cameras[j]->getPoseFuncPoint();
+    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
+    boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
 
     // Backing up equation constants
     std::vector<double> storage;
@@ -558,9 +501,9 @@ int main(int argc, char* argv[]) {
     std::cout << "Loading: " << input_files[i] << std::endl;
 
     // Equations defining the delta
-    PositionFunc posF( 0, 0, 0);
-    PoseFunc poseF( 0, 0, 0);
-    boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel<PositionFunc,PoseFunc>( input_files[i], posF, poseF ) );
+    boost::shared_ptr<PositionZeroOrder> posF( new PositionZeroOrder() );
+    boost::shared_ptr<PoseZeroOrder> poseF( new PoseZeroOrder() );
+    boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( input_files[i], posF, poseF ) );
     camera_models[i] = p;
   }
 
@@ -619,8 +562,8 @@ int main(int argc, char* argv[]) {
       for ( unsigned m = 0; m < cnet[i].size(); ++m ) {
 
 	// Loading camera used by measure
-	boost::shared_ptr< IsisAdjustCameraModel< PositionFunc, PoseFunc> > cam =
-	  boost::shared_dynamic_cast< IsisAdjustCameraModel< PositionFunc, PoseFunc > >( camera_models[ cnet[i][m].image_id() ] );
+	boost::shared_ptr< IsisAdjustCameraModel > cam =
+	  boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[ cnet[i][m].image_id() ] );
 
 	Vector3 mm_time = cam->pixel_to_mm_time( cnet[i][m].position() );
 	cnet[i][m].set_position( Vector2( mm_time[0], mm_time[1] ) );
@@ -634,9 +577,9 @@ int main(int argc, char* argv[]) {
 
   // Need to typecast all the models to feed to the Bundle Adjustment
   // model, kinda ugly.
-  std::vector< boost::shared_ptr<IsisAdjustCameraModel< PositionFunc, PoseFunc> > > camera_adjust_models( camera_models.size() );
+  std::vector< boost::shared_ptr< IsisAdjustCameraModel > > camera_adjust_models( camera_models.size() );
   for ( unsigned j = 0; j < camera_models.size(); ++j )
-    camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel< PositionFunc, PoseFunc> >( camera_models[j]);
+    camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
 
   // DBG Performing more tests of the camera model. I'm not sure this code is working correctly.
   {
@@ -661,7 +604,8 @@ int main(int argc, char* argv[]) {
     Vector3 mm_time1 = camera_adjust_models[0]->point_to_mm_time( Vector3(0,0,cnet[0][0].ephemeris_time() ), cnet[0].position() - Vector3(0,0,200) );
     Vector3 pointing1 = camera_adjust_models[0]->mm_time_to_vector( mm_time1 );
     // Moving the camera
-    PositionFunc* posF = camera_adjust_models[0]->getPositionFuncPoint();
+    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(camera_adjust_models[0]->getPositionFuncPoint());
+    std::cout << " Size: " << posF->size() << std::endl;
     (*posF)[2] = 200;
     mm_time2 = camera_adjust_models[0]->point_to_mm_time( Vector3(0,0,cnet[0][0].ephemeris_time() ), cnet[0].position() );
     Vector3 pointing2 = camera_adjust_models[0]->mm_time_to_vector( mm_time2 );
@@ -673,8 +617,8 @@ int main(int argc, char* argv[]) {
 
   // Building the Bundle Adjustment Model and applying the Bundle
   // Adjuster.
-  IsisBundleAdjustmentModel<3, 3, PositionFunc, PoseFunc > ba_model( camera_adjust_models , cnet, input_files );
-  BundleAdjustment< IsisBundleAdjustmentModel< 3, 3, PositionFunc, PoseFunc>, L2Error > 
+  IsisBundleAdjustmentModel< 3, 3> ba_model( camera_adjust_models , cnet, input_files );
+  BundleAdjustment< IsisBundleAdjustmentModel< 3, 3>, L2Error > 
     bundle_adjuster( ba_model, cnet, L2Error() );
 
   // Clearing the monitoring text files
@@ -712,7 +656,7 @@ int main(int argc, char* argv[]) {
     std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
     for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
 	  
-      boost::shared_ptr<IsisAdjustCameraModel< PositionFunc, PoseFunc > > camera = ba_model.adjusted_camera(j);
+      boost::shared_ptr<IsisAdjustCameraModel> camera = ba_model.adjusted_camera(j);
 
       // Saving points along the line of the camera
       for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
@@ -783,7 +727,7 @@ int main(int argc, char* argv[]) {
 	std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
 	for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
 	  
-	  boost::shared_ptr<IsisAdjustCameraModel< PositionFunc, PoseFunc > > camera = ba_model.adjusted_camera(j);
+	  boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
 	  // Saving points along the line of the camera
 	  for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
@@ -812,7 +756,7 @@ int main(int argc, char* argv[]) {
 	      if ( cnet[p][m].image_id() == j ) {
 		// Time to locate the closest point along the vector of the camera
 	    
-		boost::shared_ptr<IsisAdjustCameraModel< PositionFunc, PoseFunc > > camera = ba_model.adjusted_camera(j);
+		boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
 		// finding the length along the camera's vector
 		Vector2 mm_focal =  cnet[p][m].position();
@@ -860,7 +804,7 @@ int main(int argc, char* argv[]) {
 	std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
 	for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
 	  
-	  boost::shared_ptr<IsisAdjustCameraModel< PositionFunc, PoseFunc > > camera = ba_model.adjusted_camera(j);
+	  boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
 	  // Saving points along the line of the camera
 	  for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
@@ -889,7 +833,7 @@ int main(int argc, char* argv[]) {
 	      if ( cnet[p][m].image_id() == j ) {
 		// Time to locate the closest point along the vector of the camera
 	    
-		boost::shared_ptr<IsisAdjustCameraModel< PositionFunc, PoseFunc > > camera = ba_model.adjusted_camera(j);
+		boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
 		// finding the length along the camera's vector
 		Vector2 mm_focal =  cnet[p][m].position();
