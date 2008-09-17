@@ -78,6 +78,7 @@ using namespace std;
 // The stereo pipeline has several stages, which are enumerated below.
 enum { PREPROCESSING = 0, 
        CORRELATION, 
+       REFINEMENT,
        FILTERING, 
        POINT_CLOUD, 
        WIRE_MESH, 
@@ -219,10 +220,10 @@ int main(int argc, char* argv[]) {
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
   Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
-  if ( vm.count("threads") ) {
+  if ( num_threads != 0 ) {
     std::cout << "\t--> Setting number of processing threads to: " << num_threads << "\n";
     Thread::set_default_num_threads(num_threads);
-  }
+  } 
 
   // Create a fresh stereo session and query it for the camera models.
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
@@ -300,7 +301,7 @@ int main(int argc, char* argv[]) {
   }
 
   /*********************************************************************************/
-  /*                            correlation step                                   */
+  /*                       Discrete (integer) Correlation                          */
   /*********************************************************************************/
   if( entry_point <= CORRELATION ) {
     if (entry_point == CORRELATION) 
@@ -382,6 +383,37 @@ int main(int argc, char* argv[]) {
     disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
     block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );    
   }
+
+  /*********************************************************************************/
+  /*                            Subpixel Refinement                                */
+  /*********************************************************************************/
+//   if( entry_point <= REFINEMENT ) {
+//     if (entry_point == REFINEMENT) 
+//       cout << "\nStarting at the REFINEMENT stage.\n";
+    
+//     try {
+//       DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
+//       DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
+//       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
+
+//       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
+// //         SubpixelRefinementView subpixel_image(disparity_disk_image, 
+// //                                               left_disk_image, right_disk_image, 
+// //                                               stereo_settings().h_kern, stereo_settings().v_kern, 
+// //                                               stereo_settings().do_h_subpixel, 
+// //                                               stereo_settings().do_v_subpixel,   // h and v subpixel
+// //                                               stereo_settings().do_affine_subpixel, false);
+
+//       // Create a disk image resource and prepare to write a tiled
+//       // OpenEXR.
+//       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-R.exr", disparity_map.format() );
+//       disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
+//       block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );    
+//     } catch (IOErr &e) { 
+//       cout << "\nUnable to start at filtering stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
+//       exit(0);
+//     }
+//   }
 
   /***************************************************************************/
   /*                      Disparity Map Filtering                            */
