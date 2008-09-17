@@ -24,8 +24,9 @@ private:
   void create_menus();
   void create_status_bar();
 
-  QWidget *MainWindow::genInputTab();
-  QWidget *MainWindow::genPreprocessTab();
+  QWidget *genInputTab();
+  QWidget *genPreprocessTab();
+  QWidget *genCostFunctionTab();
 
   QMenu *file_menu;
   QMenu *edit_menu;

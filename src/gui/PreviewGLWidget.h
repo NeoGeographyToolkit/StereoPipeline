@@ -2,7 +2,9 @@
 #define __PREVIEW_GL_WIDGET_H__
 
 #include <QGLWidget>
+#include <QGLFormat>
 #include <QPoint>
+#include <vw/Core/Log.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/Statistics.h>
@@ -24,6 +26,11 @@ public:
 
   template <class ViewT>
   PreviewGLWidget(QWidget *parent, vw::ImageViewBase<ViewT> const& view) : QGLWidget(parent) {
+    if (!QGLFormat::hasOpenGL()) {
+      vw::vw_out(0) << "This system has no OpenGL support.\nExiting\n\n";
+      exit(1);
+    }
+
     setupPreviewGLWidget();
     setImage(view);
   }

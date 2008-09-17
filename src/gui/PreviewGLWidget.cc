@@ -5,7 +5,7 @@
 #include <vw/FileIO.h>
 using namespace vw;
 
-#include "PreviewGLWidget.h"
+#include "gui/PreviewGLWidget.h"
 
 
 // --------------------------------------------------------------
@@ -270,7 +270,7 @@ void PreviewGLWidget::initializeGL() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_image.cols(), m_image.rows(), 0, 
                GL_RGB, GL_FLOAT, &(m_image(0,0)) );
   
-  std::ifstream input_file("PreviewGLWidget.frag");
+  std::ifstream input_file("/Users/mbroxton/projects/StereoPipeline/trunk/src/gui/PreviewGLWidget.frag");
   if (!input_file.is_open())
     vw_throw(IOErr() << "Could not open GLSL shader file.");
   std::string fragment_prog, line;

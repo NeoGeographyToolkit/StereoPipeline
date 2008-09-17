@@ -22,7 +22,7 @@
 ########################################################################
 # sources
 ########################################################################
-#include $(top_srcdir)/config/autotroll.mak
+include $(top_srcdir)/makes/autotroll.mak
 
 if HAVE_PKG_ISIS
 isis_sources = Isis/StereoSessionIsis.cc Isis/IsisCameraModel.cc	\
@@ -58,6 +58,31 @@ if MAKE_APP_STEREO
   stereo_LDFLAGS = $(APP_STEREO_LIBS) $(ASP_LDFLAGS)
 endif
 
+if MAKE_APP_STEREOGUI
+  bin_PROGRAMS += stereo_gui
+  stereo_gui_SOURCES = stereo_gui.cc $(moc_sources) $(ctx_sources)	\
+	 	   $(hrsc_sources) $(apollo_sources)			\
+	 	   $(generic_stereo_sources) $(isis_sources)		\
+	 	   $(rmax_sources) SpiceUtilities.cc gui/MainWindow.cc	\
+	 	   gui/MainWindow.moc.cc gui/MainWindow.h		\
+	 	   gui/InputWidget.cc gui/InputWidget.moc.cc		\
+	 	   gui/InputWidget.h gui/PreprocessWidget.cc		\
+	 	   gui/PreprocessWidget.moc.cc gui/PreprocessWidget.h	\
+	 	   gui/PreviewGLWidget.cc gui/PreviewGLWidget.moc.cc	\
+	 	   gui/PreviewGLWidget.h gui/CostFunctionWidget.cc	\
+	 	   gui/CostFunctionWidget.moc.cc			\
+	 	   gui/CostFunctionWidget.h gui/SearchWindowWidget.cc	\
+	 	   gui/SearchWindowWidget.moc.cc			\
+	 	   gui/SearchWindowWidget.h				\
+	 	   gui/StereoGuiSession.moc.cc gui/StereoGuiSession.h
+  stereo_gui_CXXFLAGS = $(QT_CXXFLAGS) 
+  stereo_gui_CPPFLAGS = $(QT_CPPFLAGS) $(AM_CPPFLAGS)
+  stereo_gui_LDFLAGS = $(QT_LDFLAGS) $(APP_STEREOGUI_LIBS) $(ASP_LDFLAGS)
+  stereo_gui_LDADD = $(QT_LIBS)
+
+BUILT_SOURCES = gui/MainWindow.moc.cc
+endif
+
 if MAKE_APP_BUNDLEADJUST
   bin_PROGRAMS += bundle_adjust
   bundle_adjust_SOURCES = $(moc_sources) $(ctx_sources)			\
@@ -75,12 +100,6 @@ if MAKE_APP_ORBITVIZ
 	 	   $(isis_sources) SpiceUtilities.cc orbitviz.cc
   orbitviz_LDFLAGS = $(APP_ORBITVIZ_LIBS) $(ASP_LDFLAGS)
 endif
-
-#  bin_PROGRAMS += aspgui
-#  aspgui_SOURCES = aspgui.cc gui/GlWidget.cc
-#  aspgui_CXXFLAGS = $(QT_CXXFLAGS) $(QT_INCPATH)
-#  aspgui_LDFLAGS = $(QT_LDFLAGS) $(QT_LIBS) $(APP_ASPGUI_LIBS)
-#endif
 
 if MAKE_APP_DISPARITYDEBUG
   bin_PROGRAMS += disparitydebug

@@ -1,9 +1,10 @@
 #include <QtGui>
 
-#include "MainWindow.h"
-#include "InputWidget.h"
-#include "PreprocessWidget.h"
-#include "PreviewGLWidget.h"
+#include "gui/MainWindow.h"
+#include "gui/InputWidget.h"
+#include "gui/PreprocessWidget.h"
+#include "gui/CostFunctionWidget.h"
+#include "gui/SearchWindowWidget.h"
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 
@@ -19,6 +20,7 @@ MainWindow::MainWindow(int /* argc */, char** /* argv */) {
   QTabWidget* tab_widget = new QTabWidget(this);
   tab_widget->addTab(genInputTab(), "Input");
   tab_widget->addTab(genPreprocessTab(), "Preprocess");
+  tab_widget->addTab(genCostFunctionTab(), "Cost Function");
   setCentralWidget(tab_widget);
   connect(tab_widget, SIGNAL(currentChanged(int)), this, SLOT(tab_switch(int)));
 
@@ -124,6 +126,20 @@ QWidget *MainWindow::genPreprocessTab() {
 
   QWidget *widget = new QWidget;
   widget->setLayout(layout);
+  return widget;
+}
+
+QWidget *MainWindow::genCostFunctionTab() {
+  CostFunctionWidget *costPreview = new CostFunctionWidget(this);
+  SearchWindowWidget *searchPreview = new SearchWindowWidget(NULL, this);
+  
+  QHBoxLayout *layout = new QHBoxLayout;
+  layout->addWidget(costPreview);
+  layout->addWidget(searchPreview);
+
+  QWidget *widget = new QWidget;
+  widget->setLayout(layout);
+
   return widget;
 }
 

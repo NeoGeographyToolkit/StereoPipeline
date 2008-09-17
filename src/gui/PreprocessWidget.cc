@@ -8,42 +8,12 @@
 
 using namespace vw;
 
-#include "PreprocessWidget.h"
-#include "PreviewGLWidget.h"
-#include "Noise.h"
+#include "gui/QCompatFormLayout.h"
+#include "gui/PreprocessWidget.h"
+#include "gui/PreviewGLWidget.h"
+#include "gui/Noise.h"
 
 
-class QCompatFormLayout : public QVBoxLayout {
-
-public:
-  QCompatFormLayout(QWidget *parent = 0) : QVBoxLayout(parent) {}
-  
-  void addRow(QWidget *label, QWidget *field) {
-    QHBoxLayout *layout = new QHBoxLayout;
-    
-    layout->addWidget(label);
-    layout->addWidget(field);
-
-    this->addLayout(layout);
-  }
-  
-  void addRow(QWidget *label, QLayout *field) {
-    QHBoxLayout *layout = new QHBoxLayout;
-    
-    layout->addWidget(label);
-    layout->addLayout(field);
-    
-    this->addLayout(layout);
-  }
-  
-  void addRow(QLayout *layout) {
-    this->addLayout(layout);
-  }
-  
-  void addRow(QWidget *widget) {
-    this->addWidget(widget);
-  }
-};
 
 template<class ImageT>
 ImageView<typename ImageT::pixel_type> box_filter(ImageViewBase<ImageT> const& img,  Vector2i const& kernSize) {

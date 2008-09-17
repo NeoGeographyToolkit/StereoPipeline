@@ -108,7 +108,6 @@ void print_usage(po::options_description const& visible_options) {
 //***********************************************************************
 // MAIN
 //***********************************************************************
-
 int main(int argc, char* argv[]) {
 
   // The default file type are automatically registered the first time

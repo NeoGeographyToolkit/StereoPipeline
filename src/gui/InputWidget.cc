@@ -8,8 +8,8 @@
 
 using namespace vw;
 
-#include "InputWidget.h"
-#include "PreviewGLWidget.h"
+#include "gui/InputWidget.h"
+#include "gui/PreviewGLWidget.h"
 
 class QCompatFormLayout : public QVBoxLayout {
 
