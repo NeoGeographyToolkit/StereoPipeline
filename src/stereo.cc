@@ -395,13 +395,13 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
 
-      ImageViewRef<PixelDisparity<float> > disparity_map = 
-        SubpixelRefinementView<DiskImageView<PixelGray<float> >, DiskImageView<PixelDisparity<float> > > (disparity_disk_image, 
-                                              left_disk_image, right_disk_image, 
-                                              stereo_settings().h_kern, stereo_settings().v_kern, 
-                                              stereo_settings().do_h_subpixel, 
-                                              stereo_settings().do_v_subpixel,   // h and v subpixel
-                                              false);
+      ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
+//         SubpixelRefinementView<DiskImageView<PixelGray<float> >, DiskImageView<PixelDisparity<float> > > (disparity_disk_image, 
+//                                               left_disk_image, right_disk_image, 
+//                                               stereo_settings().h_kern, stereo_settings().v_kern, 
+//                                               stereo_settings().do_h_subpixel, 
+//                                               stereo_settings().do_v_subpixel,   // h and v subpixel
+//                                               false);
 
       // Create a disk image resource and prepare to write a tiled
       // OpenEXR.
