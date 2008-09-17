@@ -74,7 +74,10 @@ if MAKE_APP_STEREOGUI
 	 	   gui/CostFunctionWidget.h gui/SearchWindowWidget.cc	\
 	 	   gui/SearchWindowWidget.moc.cc			\
 	 	   gui/SearchWindowWidget.h				\
-	 	   gui/StereoGuiSession.moc.cc gui/StereoGuiSession.h
+	 	   gui/StereoGuiSession.moc.cc gui/StereoGuiSession.h	\
+	 	   gui/CorrelationWidget.cc				\
+	 	   gui/CorrelationWidget.moc.cc				\
+	 	   gui/CorrelationWidget.h
   stereo_gui_CXXFLAGS = $(QT_CXXFLAGS) 
   stereo_gui_CPPFLAGS = $(QT_CPPFLAGS) $(AM_CPPFLAGS)
   stereo_gui_LDFLAGS = $(QT_LDFLAGS) $(APP_STEREOGUI_LIBS) $(ASP_LDFLAGS)

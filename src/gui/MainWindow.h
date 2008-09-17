@@ -27,6 +27,7 @@ private:
   QWidget *genInputTab();
   QWidget *genPreprocessTab();
   QWidget *genCostFunctionTab();
+  QWidget *genCorrelateTab();
 
   QMenu *file_menu;
   QMenu *edit_menu;

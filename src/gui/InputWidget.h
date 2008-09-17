@@ -18,7 +18,6 @@ class InputWidget : public QWidget {
 
   // Private member variables
   PreviewGLWidget *m_glPreview;
-  vw::ImageView<vw::PixelRGB<vw::float32> > m_inputImage;
   
   QPushButton *m_fileBrowseButton;
   QLineEdit *m_fileNameEdit;
@@ -29,10 +28,6 @@ class InputWidget : public QWidget {
 public:
   InputWidget(QString const& name, QWidget *parent = 0);
   
-  vw::ImageView<vw::PixelRGB<vw::float32> > result() const { return m_inputImage; }
-  
-  bool hasImageLoaded() const { return m_inputImage.cols() != 0; }
-
 private slots:
   void fileBrowseButtonClicked();
   void loadImage();

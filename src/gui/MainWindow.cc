@@ -5,6 +5,7 @@
 #include "gui/PreprocessWidget.h"
 #include "gui/CostFunctionWidget.h"
 #include "gui/SearchWindowWidget.h"
+#include "gui/CorrelationWidget.h"
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 
@@ -21,6 +22,7 @@ MainWindow::MainWindow(int /* argc */, char** /* argv */) {
   tab_widget->addTab(genInputTab(), "Input");
   tab_widget->addTab(genPreprocessTab(), "Preprocess");
   tab_widget->addTab(genCostFunctionTab(), "Cost Function");
+  tab_widget->addTab(genCorrelateTab(), "Correlate");
   setCentralWidget(tab_widget);
   connect(tab_widget, SIGNAL(currentChanged(int)), this, SLOT(tab_switch(int)));
 
@@ -142,4 +144,19 @@ QWidget *MainWindow::genCostFunctionTab() {
 
   return widget;
 }
+
+QWidget *MainWindow::genCorrelateTab() {
+  CorrelationWidget *correlationPreview = new CorrelationWidget(NULL, this);
+  SearchWindowWidget *searchPreview = new SearchWindowWidget(NULL, this);
+
+  QHBoxLayout *layout = new QHBoxLayout;
+  layout->addWidget(correlationPreview);
+  layout->addWidget(searchPreview);
+
+  QWidget *widget = new QWidget;
+  widget->setLayout(layout);
+
+  return widget;
+}
+
 

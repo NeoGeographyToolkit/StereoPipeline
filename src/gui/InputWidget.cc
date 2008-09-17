@@ -10,38 +10,7 @@ using namespace vw;
 
 #include "gui/InputWidget.h"
 #include "gui/PreviewGLWidget.h"
-
-class QCompatFormLayout : public QVBoxLayout {
-
-public:
-  QCompatFormLayout(QWidget *parent = 0) : QVBoxLayout(parent) {}
-  
-  void addRow(QWidget *label, QWidget *field) {
-    QHBoxLayout *layout = new QHBoxLayout;
-    
-    layout->addWidget(label);
-    layout->addWidget(field);
-
-    this->addLayout(layout);
-  }
-  
-  void addRow(QWidget *label, QLayout *field) {
-    QHBoxLayout *layout = new QHBoxLayout;
-    
-    layout->addWidget(label);
-    layout->addLayout(field);
-    
-    this->addLayout(layout);
-  }
-  
-  void addRow(QLayout *layout) {
-    this->addLayout(layout);
-  }
-  
-  void addRow(QWidget *widget) {
-    this->addWidget(widget);
-  }
-};
+#include "gui/QCompatFormLayout.h"
 
 InputWidget::InputWidget(QString const& name, QWidget *parent) : QWidget(parent) {
   m_glPreview = new PreviewGLWidget(this);
@@ -71,7 +40,6 @@ QGroupBox *InputWidget::genSettingsBox(QString const& name) {
   return box;
 }
 
-
 void InputWidget::fileBrowseButtonClicked() {
   QString filename = QFileDialog::getOpenFileName(this, "Open...", "", "Images (*.png *.jpg *.tif *.cub *.img)");
 
@@ -86,13 +54,14 @@ void InputWidget::loadImage() {
 
   if (filename != "") {
     try {
-      read_image(m_inputImage, filename.toStdString());
+      DiskImageView<PixelRGB<float32> > input_image(filename.toStdString());
       m_fileNameEdit->setText(filename);
-      m_glPreview->setImage(m_inputImage);
+      m_glPreview->setImage(input_image);
       m_glPreview->sizeToFit();
     }
     catch(vw::Exception& e) {
       QMessageBox::critical(this, "Error opening image", e.what());
+      m_fileNameEdit->clear();
     }
   }
 }
