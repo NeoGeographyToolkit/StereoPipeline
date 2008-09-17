@@ -47,6 +47,7 @@ namespace fs = boost::filesystem;
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
+#include <vw/Stereo/SubpixelRefinementView.h>
 #include <vw/Cartography.h>
 #include <vw/Math/EulerAngles.h>
 using namespace vw;
@@ -358,9 +359,7 @@ int main(int argc, char* argv[]) {
                                                   true,                             // verbose
                                                   stereo_settings().xcorr_treshold,
                                                   stereo_settings().corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
-                                                  stereo_settings().do_h_subpixel, 
-                                                  stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                  stereo_settings().do_affine_subpixel);
+                                                  false, false, false); // Subpixel explicitly disabled here because it is now handled by the refinement stage below...
       if (stereo_settings().slog) {
         std::cout << "Applying SLOG filter.\n";
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
@@ -387,33 +386,33 @@ int main(int argc, char* argv[]) {
   /*********************************************************************************/
   /*                            Subpixel Refinement                                */
   /*********************************************************************************/
-//   if( entry_point <= REFINEMENT ) {
-//     if (entry_point == REFINEMENT) 
-//       cout << "\nStarting at the REFINEMENT stage.\n";
+  if( entry_point <= REFINEMENT ) {
+    if (entry_point == REFINEMENT) 
+      cout << "\nStarting at the REFINEMENT stage.\n";
     
-//     try {
-//       DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
-//       DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
-//       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
+    try {
+      DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
+      DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
+      DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
 
-//       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
-// //         SubpixelRefinementView subpixel_image(disparity_disk_image, 
-// //                                               left_disk_image, right_disk_image, 
-// //                                               stereo_settings().h_kern, stereo_settings().v_kern, 
-// //                                               stereo_settings().do_h_subpixel, 
-// //                                               stereo_settings().do_v_subpixel,   // h and v subpixel
-// //                                               stereo_settings().do_affine_subpixel, false);
+      ImageViewRef<PixelDisparity<float> > disparity_map = 
+        SubpixelRefinementView<DiskImageView<PixelGray<float> >, DiskImageView<PixelDisparity<float> > > (disparity_disk_image, 
+                                              left_disk_image, right_disk_image, 
+                                              stereo_settings().h_kern, stereo_settings().v_kern, 
+                                              stereo_settings().do_h_subpixel, 
+                                              stereo_settings().do_v_subpixel,   // h and v subpixel
+                                              false);
 
-//       // Create a disk image resource and prepare to write a tiled
-//       // OpenEXR.
-//       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-R.exr", disparity_map.format() );
-//       disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
-//       block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );    
-//     } catch (IOErr &e) { 
-//       cout << "\nUnable to start at filtering stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
-//       exit(0);
-//     }
-//   }
+      // Create a disk image resource and prepare to write a tiled
+      // OpenEXR.
+      DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-R.exr", disparity_map.format() );
+      disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
+      block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );    
+    } catch (IOErr &e) { 
+      cout << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
+      exit(0);
+    }
+  }
 
   /***************************************************************************/
   /*                      Disparity Map Filtering                            */
@@ -423,7 +422,7 @@ int main(int argc, char* argv[]) {
         cout << "\nStarting at the FILTERING stage.\n";
 
     std::string post_correlation_fname;
-    session->pre_filtering_hook(out_prefix+"-D.exr", post_correlation_fname);
+    session->pre_filtering_hook(out_prefix+"-R.exr", post_correlation_fname);
 
     try {
       std::cout << "\nUsing image " << post_correlation_fname << " as disparity map image.\n";
