@@ -132,8 +132,7 @@ public:
 								 camera_vector_t const& a_j,
 								 point_vector_t const& b_i ) {
     // Old implementation
-    //Matrix<double> partial_derivatives_old = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel,
-    //  positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
+    Matrix<double> partial_derivatives_old = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
 
     // TODO: This is no longer acceptable. We can do this all
     // analytically with out much hassle
@@ -290,9 +289,9 @@ public:
   inline Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned j ) {
     Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
     for ( unsigned i = 0; i <positionParam; ++i )
-      result(i,i) = 1e-14;
+      result(i,i) = 1;
     for ( unsigned i = positionParam; i < (positionParam+poseParam); ++i )
-      result(i,i) = 1/100.0;
+      result(i,i) = 1;
     return result;
   }
 
@@ -300,7 +299,7 @@ public:
   inline Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) {
     Matrix< double, 3, 3> result;
     for ( unsigned i = 0; i < 3; ++i)
-      result(i,i) = 1e-14;
+      result(i,i) = 1;
     return result;
   }
 
