@@ -26,7 +26,8 @@ include $(top_srcdir)/makes/autotroll.mak
 
 if HAVE_PKG_ISIS
 isis_sources = Isis/StereoSessionIsis.cc Isis/IsisCameraModel.cc	\
-               Isis/DiskImageResourceIsis.cc
+               Isis/DiskImageResourceIsis.cc \
+	       Isis/IsisAdjustCameraModel.cc
 
 endif
 
@@ -150,9 +151,8 @@ endif
 if MAKE_APP_ISISADJUST
   bin_PROGRAMS += isis_adjust
   isis_adjust_SOURCES = BundleAdjustUtils.cc Isis/IsisCameraModel.cc	\
-                        Isis/DiskImageResourceIsis.cc 			\
-			Isis/IsisAdjustCameraModel.cc 		        \
-			isis_adjust.cc
+               	Isis/DiskImageResourceIsis.cc Isis/IsisAdjustCameraModel.cc \
+		isis_adjust.cc
 
   isis_adjust_LDFLAGS = $(APP_ISISADJUST_LIBS) $(ASP_LDFLAGS)
 endif

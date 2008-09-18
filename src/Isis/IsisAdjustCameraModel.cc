@@ -1,6 +1,5 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <Isis/IsisAdjustCameraModel.h>
-#include "IsisAdjustCameraModel.h"
 
 // Isis Headers
 #include <Cube.h>
@@ -15,26 +14,25 @@ using namespace vw::camera;
 //-------------------------------------------------------------------------
 //  Constructors / Deconstructor
 //-------------------------------------------------------------------------
-/*
-template < class PositionFuncT, class PoseFuncT >
-IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::IsisAdjustCameraModel( std::string cube_filename,
-								       PositionFuncT const& position_func,
-								       PoseFuncT const& pose_func ) : IsisCameraModel( cube_filename ),
-												      m_position_func( position_func ),
-												      m_pose_func( pose_func ) {
+IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
+			   boost::shared_ptr<VectorEquation> position_func,
+			   boost::shared_ptr<QuaternionEquation> pose_func ) : IsisCameraModel( cube_filename ),
+      m_position_func( position_func ),
+      m_pose_func( pose_func ) {
+
+  m_position_func->set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
+  m_pose_func->set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
+	
 }
-*/
-/*
-template < class PositionFuncT, class PoseFuncT >
-IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::~IsisAdjustCameraModel() {
-  // Remember: IsisCameraModel's Deconstructor is called after this.
+
+IsisAdjustCameraModel::~IsisAdjustCameraModel() {
 }
 
 //-------------------------------------------------------------------------
 //  Traditional Camera Routines
 //-------------------------------------------------------------------------
-template < class PositionFuncT, class PoseFuncT >
-Vector2 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::point_to_pixel( Vector3 const& point ) const {
+
+Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point) const {
   std::cout << "Warning: Using broken implementation" << std::endl;
 
   // This is broken because this routine doesn't using the equations
@@ -45,45 +43,37 @@ Vector2 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::point_to_pixel( Vector3 
   return IsisCameraModel::point_to_pixel( point );
 }
 
-template < class PositionFuncT, class PoseFuncT >
-Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::pixel_to_vector( Vector2 const& pix ) const {
-
+Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
   Vector3 mm_time = this->pixel_to_mm_time( pix );
   
   return this->mm_time_to_vector( mm_time );
 }
 
-template < class PositionFuncT, class PoseFuncT >
-Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::camera_center( Vector2 const& pix ) const { 
-  
+Vector3 IsisAdjustCameraModel::camera_center( Vector2 const& pix )  const {
   Vector3 mm_time = this->pixel_to_mm_time( pix );
 
   return this->camera_center( mm_time );
 }
 
-template < class PositionFuncT, class PoseFuncT >
-Quaternion<double> IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::camera_pose( Vector2 const& pix ) const {
-
+Quaternion<double> IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   Vector3 mm_time = this->pixel_to_mm_time( pix );
-
+  
   return this->camera_pose( mm_time );
 }
 
-template < class PositionFuncT, class PoseFuncT >
-int IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::getLines( void ) const { 
+int IsisAdjustCameraModel::getLines( void ) const {
   return IsisCameraModel::getLines();
 }
 
-template < class PositionFuncT, class PoseFuncT >
-int IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::getSamples( void ) const {
+int IsisAdjustCameraModel::getSamples( void ) const {
   return IsisCameraModel::getSamples();
 }
 
 //-------------------------------------------------------------------------
 //  Non-Traditional Camera Routines
 //-------------------------------------------------------------------------
-template < class PositionFuncT, class PoseFuncT >
-Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::pixel_to_mm_time( Vector2 const& pix ) const {
+
+Vector3 IsisAdjustCameraModel::pixel_to_mm_time( Vector2 const& pix ) const {
   Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
   this->set_image( pix[0], pix[1] );
 
@@ -94,8 +84,7 @@ Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::pixel_to_mm_time( Vector
 		  cam->EphemerisTime() );
 }
 
-template < class PositionFuncT, class PoseFuncT >
-Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::point_to_mm_time( Vector3 const& mm_time, Vector3 const& point ) const {
+Vector3 IsisAdjustCameraModel::point_to_mm_time( Vector3 const& mm_time, Vector3 const& point ) const {
   Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
   this->set_time( mm_time[2] );
 
@@ -112,6 +101,7 @@ Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::point_to_mm_time( Vector
   pin_cam.set_coordinate_frame( Vector3( 1, 0, 0 ),
 				Vector3( 0, 1, 0 ),
 				Vector3( 0, 0, 1 ) );
+ 
 
   // Performing the forward projection
   Vector2 forward_projection = pin_cam.point_to_pixel( point );
@@ -119,8 +109,7 @@ Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::point_to_mm_time( Vector
 		  mm_time[2] );
 }
 
-template < class PositionFuncT, class PoseFuncT >
-Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::mm_time_to_vector( Vector3 const& mm_time ) const {
+Vector3 IsisAdjustCameraModel::mm_time_to_vector( Vector3 const& mm_time ) const {
   Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
   this->set_time( mm_time[2] );
 
@@ -135,8 +124,7 @@ Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::mm_time_to_vector( Vecto
   return inverse( look_transform ).rotate( pointing );
 }
 
-template < class PositionFuncT, class PoseFuncT >
-Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::camera_center( Vector3 const& mm_time ) const {
+Vector3 IsisAdjustCameraModel::camera_center( Vector3 const& mm_time ) const {
   Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
   this->set_time( mm_time[2] );
 
@@ -144,28 +132,37 @@ Vector3 IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::camera_center( Vector3 c
   // calculations in kilometers.
   double pos[3];
   cam->InstrumentPosition( pos );
-  return Vector3( pos[0]*1000, pos[1]*1000, pos[2]*1000 );
+  return Vector3( pos[0]*1000, pos[1]*1000, pos[2]*1000 ) + m_position_func->evaluate( mm_time[2] );
 }
 
-template < class PositionFuncT, class PoseFuncT >
-Quaternion<double> IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::camera_pose( Vector3 const& mm_time ) const {
+Quaternion<double> IsisAdjustCameraModel::camera_pose( Vector3 const& mm_time ) const {
   Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
   this->set_time( mm_time[2] );
-
+  
   // Convert from instrument frame-> J2000 frame --> Globe centered-fixed
   std::vector<double> rot_inst = cam->InstrumentRotation()->Matrix();
   std::vector<double> rot_body = cam->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
-  return Quaternion<double>(R_inst*inverse(R_body));
+  return Quaternion<double>(R_inst*inverse(R_body)) + m_pose_func->evaluate( mm_time[2] );
+}
+
+double IsisAdjustCameraModel::undistorted_focal( Vector3 const& mm_time ) const {
+  Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
+  this->set_time( mm_time[2] );
+
+  // Looking up the focal length
+  Isis::CameraDistortionMap* distortMap = cam->DistortionMap();
+      
+  return distortMap->UndistortedFocalPlaneZ();
 }
 
 //-------------------------------------------------------------------------
 // Protected
 //-------------------------------------------------------------------------
-template < class PositionFuncT, class PoseFuncT >
-void IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::set_image( double const& sample, double const& line) const {
+
+void IsisAdjustCameraModel::set_image( double const& sample, double const& line) const {
   if (m_current_line != line || m_current_sample != sample ) {
     Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
     cam->SetImage( sample, line );
@@ -175,8 +172,9 @@ void IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::set_image( double const& sa
   }
 }
 
-template < class PositionFuncT, class PoseFuncT >
-void IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::set_time( double const& time ) const {
+void IsisAdjustCameraModel::set_time( double const& time ) const {
+  if (time > m_max_ephemeris || time < m_min_ephemeris)
+    std::cout << "Time input is out of bounds" << std::endl;
   if (m_current_time != time ) {
     Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
     cam->SetEphemerisTime( time );
@@ -185,5 +183,3 @@ void IsisAdjustCameraModel<PositionFuncT,PoseFuncT>::set_time( double const& tim
     m_current_time = cam->EphemerisTime();
   }
 }
-
-*/
