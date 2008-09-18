@@ -3,6 +3,7 @@
 
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
+#include <vw/Math/EulerAngles.h>
 
 #include <vw/Camera/CameraModel.h>
 
@@ -73,6 +74,47 @@ namespace camera {
     // Allows us to set the time offset
     virtual void set_time_offset( double const& offset ) {
       m_time_offset = offset;
+    }
+  };
+
+
+  // Predefined equations. Might be helpful!
+  class PositionZeroOrder : public VectorEquation {
+  public:
+    PositionZeroOrder( void ) { //If I'm feeling lazy
+      m_constant.resize(3);
+      m_time_offset = 0;
+    }
+    PositionZeroOrder( double x, double y, double z ) {
+      m_constant.push_back(x);
+      m_constant.push_back(y);
+      m_constant.push_back(z);
+      m_time_offset = 0;
+    }
+    virtual Vector3 evaluate( double const& t) const {
+      return Vector3( m_constant[0], m_constant[1], m_constant[2] );
+    }
+  };
+  
+  class PoseZeroOrder : public QuaternionEquation { 
+  public:
+    PoseZeroOrder( void ) {
+      m_constant.resize(3);
+      m_time_offset = 0;
+    }
+    PoseZeroOrder( double x, double y, double z ) {
+      m_constant.push_back(x);
+      m_constant.push_back(y);
+      m_constant.push_back(z);
+      m_time_offset = 0;
+    }
+    virtual Quaternion<double> evaluate( double const& t ) const {
+      Quaternion<double> quat = vw::math::euler_to_quaternion( m_constant[0],
+							       m_constant[1],
+							       m_constant[2],
+							       "xyz" );
+      quat = quat / norm_2(quat);
+      return quat;
     }
   };
 

@@ -54,48 +54,6 @@ using namespace vw::ip;
 #include "Isis/IsisAdjustCameraModel.h"
 #include "BundleAdjustUtils.h"
 
-// Position and Pose Equations
-//    For now the adjust equations are just constant offsets. This is
-//    just to test to see if the code even works.
-class PositionZeroOrder : public VectorEquation {
-public:
-  PositionZeroOrder( void ) { //If I'm feeling lazy
-    m_constant.resize(3);
-    m_time_offset = 0;
-  }
-  PositionZeroOrder( double x, double y, double z ) {
-    m_constant.push_back(x);
-    m_constant.push_back(y);
-    m_constant.push_back(z);
-    m_time_offset = 0;
-  }
-  virtual Vector3 evaluate( double const& t) const {
-    return Vector3( m_constant[0], m_constant[1], m_constant[2] );
-  }
-};
-
-class PoseZeroOrder : public QuaternionEquation { 
-public:
-  PoseZeroOrder( void ) {
-    m_constant.resize(3);
-    m_time_offset = 0;
-  }
-  PoseZeroOrder( double x, double y, double z ) {
-    m_constant.push_back(x);
-    m_constant.push_back(y);
-    m_constant.push_back(z);
-    m_time_offset = 0;
-  }
-  virtual Quaternion<double> evaluate( double const& t ) const {
-    Quaternion<double> quat = euler_to_quaternion( m_constant[0],
-						   m_constant[1],
-						   m_constant[2],
-						   "xyz" );
-    quat = quat / norm_2(quat);
-    return quat;
-  }
-};
-
 // A useful snippet for working with files
 static std::string prefix_from_filename( std::string const& filename ){
   std::string result = filename;
@@ -331,8 +289,10 @@ public:
   // Return the covariance of the camera parameters for camera j.
   inline Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned j ) {
     Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
-    for ( unsigned i = 0; i < (positionParam+poseParam); ++i )
-      result(i,i) = 1;
+    for ( unsigned i = 0; i <positionParam; ++i )
+      result(i,i) = 1e-14;
+    for ( unsigned i = positionParam; i < (positionParam+poseParam); ++i )
+      result(i,i) = 1/100.0;
     return result;
   }
 
@@ -340,7 +300,7 @@ public:
   inline Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) {
     Matrix< double, 3, 3> result;
     for ( unsigned i = 0; i < 3; ++i)
-      result(i,i) = 1/1000.0;
+      result(i,i) = 1e-14;
     return result;
   }
 

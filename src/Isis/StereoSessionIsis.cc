@@ -36,6 +36,10 @@
 #include "Isis/IsisCameraModel.h"
 #include "StereoSettings.h"
 
+// For support of IsisAdjust camera model
+#include "Isis/Equations.h"
+#include "Isis/IsisAdjustCameraModel.h"
+
 // Boost
 #include "boost/filesystem.hpp"   
 using namespace boost::filesystem; 
@@ -112,6 +116,12 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
     std::cout << "\t" << (prefix_from_filename(input_file2) + ".vwip") << "\n";
     std::cout << "Skipping interest point detection step.\n";
     
+  } else if ( boost::filesystem::exists( prefix_from_filename(input_file1) + "__" +
+					 prefix_from_filename(input_file2) + ".match" ) ) {
+    std::cout << "Found matched interst points file: \n";
+    std::cout << "\t" << (prefix_from_filename(input_file1) + "__" +
+			  prefix_from_filename(input_file2) + ".match") << "\n";
+    std::cout << "Skipping interest point detection step.\n";
   } else {
 
     ImageViewRef<PixelGray<float> > left_image = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
@@ -141,29 +151,50 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
     vw_out(InfoMessage) << "done.\n";
   }
 
-  // The basic interest point matcher does not impose any
-  // constraints on the matched interest points.
-  vw_out(InfoMessage) << "\nInterest Point Matching:\n";
-  double matcher_threshold = 0.8;
-
-  // RANSAC needs the matches as a vector, and so does the matcher.
-  // this is messy, but for now we simply make a copy.
-  std::vector<InterestPoint> ip1_copy, ip2_copy;
-  ip1_copy = read_binary_ip_file(prefix_from_filename(input_file1)+".vwip");
-  ip2_copy = read_binary_ip_file(prefix_from_filename(input_file2)+".vwip");
-
-  InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
+  // These are the matched ip that will be used in ransac. Declared
+  // here because these variables are used if a matching is performed
+  // or just loaded
   std::vector<InterestPoint> matched_ip1, matched_ip2;
-  matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback());
+
+  // Checking once again to see if the match file exists. This could
+  // be done better.
+  if ( boost::filesystem::exists( prefix_from_filename(input_file1) + "__" +
+				  prefix_from_filename(input_file2) + ".match" ) ) {
+
+    vw_out(InfoMessage) << "\nLoading Interest Point Match file:\n";
+
+    read_binary_match_file( ( prefix_from_filename(input_file1) + "__" +
+			      prefix_from_filename(input_file2) + ".match" ),
+			    matched_ip1,
+			    matched_ip2 );
+    
+  } else { 
+
+    // The basic interest point matcher does not impose any
+    // constraints on the matched interest points.
+    vw_out(InfoMessage) << "\nInterest Point Matching:\n";
+    double matcher_threshold = 0.8;
+
+    // RANSAC needs the matches as a vector, and so does the matcher.
+    // this is messy, but for now we simply make a copy.
+    std::vector<InterestPoint> ip1_copy, ip2_copy;
+    ip1_copy = read_binary_ip_file(prefix_from_filename(input_file1)+".vwip");
+    ip2_copy = read_binary_ip_file(prefix_from_filename(input_file2)+".vwip");
+
+    InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
+    matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback());
+
+  }
+    
   vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
-       
+
   std::vector<Vector3> ransac_ip1(matched_ip1.size());
   std::vector<Vector3> ransac_ip2(matched_ip2.size());
   for (unsigned i = 0; i < matched_ip1.size();++i ) {
     ransac_ip1[i] = Vector3(matched_ip1[i].x, matched_ip1[i].y,1);
     ransac_ip2[i] = Vector3(matched_ip2[i].x, matched_ip2[i].y,1);
-  }
-  
+  }  
+
   remove_duplicates(ransac_ip1, ransac_ip2);
 
   // RANSAC is used to fit a similarity transform between the
@@ -360,6 +391,27 @@ void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::
 
 boost::shared_ptr<vw::camera::CameraModel> StereoSessionIsis::camera_model(std::string image_file, 
                                                                            std::string camera_file) {
-  return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
+  
+  if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
+    std::cout << "Adjusted Isis Camera Model \n" << std::endl;
+
+    // Creating Equations for the files
+    boost::shared_ptr<PositionZeroOrder> posF( new PositionZeroOrder() );
+    boost::shared_ptr<PoseZeroOrder> poseF( new PoseZeroOrder() );
+    std::ifstream input( camera_file.c_str() );
+    for ( unsigned n = 0; n < posF->size(); ++n)
+      input >> (*posF)[n];
+    for ( unsigned n = 0; n < poseF->size(); ++n)
+      input >> (*poseF)[n];
+    input.close();
+
+    // Finally creating camera model
+    return boost::shared_ptr<camera::CameraModel>(new IsisAdjustCameraModel( image_file, posF, poseF ));
+
+  } else {
+    std::cout << "Standard Isis Camera Model \n" << std::endl;
+    return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
+  }
+
 }
 
