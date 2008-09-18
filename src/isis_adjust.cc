@@ -583,7 +583,20 @@ int main(int argc, char* argv[]) {
     IsisCameraModel cam_traditional( input_files[0] );
 
     // First comparing that they both give the same camera position.
-    std::cout << "\tCam Test 1 Error:" << std::endl;
+    std::cout << "\tCam Test 1 Error:" << cam_traditional.camera_center() - camera_adjust_models[0]->camera_center() << std::endl;
+
+    // Comparing camera centers at different pixels
+    std::cout << "\tCam Test 2 Error:" << cam_traditional.camera_center( Vector2(300,300) ) -
+      camera_adjust_models[0]->camera_center( Vector2(300,300) ) << std::endl;
+
+    // Comparing camera orientations
+    std::cout << "\tCam Test 3 Error:" << cam_traditional.camera_pose() - camera_adjust_models[0]->camera_pose() << std::endl;
+    std::cout << "\t > Trad:" << cam_traditional.camera_pose() << std::endl;
+    std::cout << "\t > Adjt:" << camera_adjust_models[0]->camera_pose() << std::endl;
+
+    // Comparing camera pose at different pixel location
+    std::cout << "\tCam Test 4 Error:" << cam_traditional.camera_pose( Vector2(300,300) ) - camera_adjust_models[0]->camera_pose( Vector2(300,300) ) << std::endl;
+
   }
 
   // Building the Bundle Adjustment Model and applying the Bundle

@@ -145,7 +145,7 @@ Quaternion<double> IsisAdjustCameraModel::camera_pose( Vector3 const& mm_time ) 
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
-  return Quaternion<double>(R_inst*inverse(R_body)) + m_pose_func->evaluate( mm_time[2] );
+  return Quaternion<double>(R_inst*inverse(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix() );
 }
 
 double IsisAdjustCameraModel::undistorted_focal( Vector3 const& mm_time ) const {
