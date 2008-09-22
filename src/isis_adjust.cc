@@ -93,6 +93,9 @@ public:
     a_initial( camera_models.size() ), b_initial( network.size() ),
     m_files( input_names ){
 
+   
+    
+
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
     for (unsigned i = 0; i < network.size(); ++i)
@@ -100,10 +103,22 @@ public:
 
     // Set up the A and B vectors, storing the initial values.
     for (unsigned j = 0; j < m_cameras.size(); ++j) {
+      // I'm using what is already in the IsisAdjust camera file as
+      // the orginal starting point for the problem. This way I can
+      // nudge it with error and see what it is doing for debuging
+      boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
+      boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
+
       a[j] = camera_vector_t();
+      // Setting new equations defined by a_j
+      for (unsigned n = 0; n < posF->size(); ++n)
+	a[j][n] = (*posF)[n];
+      for (unsigned n = 0; n < poseF->size(); ++n)
+	a[j][n + posF->size()] = (*poseF)[n];
       a_initial[j] = a[j];
     }
 
+    // Setting up B vectors
     for (unsigned i = 0; i < network.size(); ++i) {
       b[i] = m_network[i].position();
       b_initial[i] = b[i];
@@ -132,8 +147,9 @@ public:
 								 camera_vector_t const& a_j,
 								 point_vector_t const& b_i ) {
     // Old implementation
-    Matrix<double> partial_derivatives_old = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
+    Matrix<double> partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
 
+    /*
     // TODO: This is no longer acceptable. We can do this all
     // analytically with out much hassle
 
@@ -208,6 +224,14 @@ public:
     // performing the partial of y over the partial camera kappa (Z) rotation
     partial_derivatives(1,5) = (-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]));
 
+    std::ofstream ostr( "approxJacobian.txt", std::ios::app );
+    ostr << partial_derivatives_old << "\n\n";
+    ostr.close();
+    ostr.open( "analytJacobian.txt", std::ios::app );
+    ostr << partial_derivatives << "\n\n";
+    ostr.close();
+    */
+
     return partial_derivatives;
   }
 
@@ -217,9 +241,10 @@ public:
 					    camera_vector_t const& a_j,
 					    point_vector_t const& b_i ) {
     Matrix<double> partial_derivatives(2,3);
-    //partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, 
-    //  positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
+    partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, 
+      positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
 
+    /*
     // Loading up camera
     // Loading equations
     boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
@@ -266,7 +291,8 @@ public:
 
     // performing the partial of y over the partial of point's z position
     partial_derivatives(1,2) = (ck*sp-sk*so*cp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
-    
+    */
+
     return partial_derivatives;
   }
 
@@ -289,9 +315,9 @@ public:
   inline Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned j ) {
     Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
     for ( unsigned i = 0; i <positionParam; ++i )
-      result(i,i) = 1;
+      result(i,i) = 10.;
     for ( unsigned i = positionParam; i < (positionParam+poseParam); ++i )
-      result(i,i) = 1;
+      result(i,i) = 1/10.;
     return result;
   }
 
@@ -346,13 +372,6 @@ public:
     boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
     boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
 
-    // Backing up equation constants
-    std::vector<double> storage;
-    for (unsigned n = 0; n < posF->size(); ++n)
-      storage.push_back( (*posF)[n] );
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      storage.push_back( (*poseF)[n] );
-
     // Applying new equation constants
     for (unsigned n = 0; n < posF->size(); ++n)
       (*posF)[n] = a_j[n];
@@ -365,18 +384,14 @@ public:
     int m = 0;
     while ( m_network[i][m].image_id() != j )
       m++;
+    if ( j != m_network[i][m].image_id() )
+      std::cout << " GOSH DARN IT " << std::endl;
 
     // Performing the forward projection. This is specific to the
     // IsisAdjustCameraModel. The first argument is really just
     // passing the time instance to load up a pinhole model for.
     //std::cout << "DBG: ephemeris time " << m_network[i][m].ephemeris_time() << std::endl;
     Vector3 forward_projection = m_cameras[j]->point_to_mm_time( Vector3( 0, 0, m_network[i][m].ephemeris_time() ), b_i );
-
-    // Reverting back to orginal camera constants
-    for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = storage[n];
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = storage[n + posF->size()];
 
     // Giving back the millimeter measurement.
     return Vector2( forward_projection[0], forward_projection[1] );
@@ -392,8 +407,6 @@ public:
 
 // Main Executable
 int main(int argc, char* argv[]) {
-
-  std::cout << "Hi, is this working?" << std::endl;
 
   std::vector<std::string> input_files;
   std::string cnet_file;

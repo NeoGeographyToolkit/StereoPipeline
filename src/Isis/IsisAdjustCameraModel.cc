@@ -101,7 +101,6 @@ Vector3 IsisAdjustCameraModel::point_to_mm_time( Vector3 const& mm_time, Vector3
   pin_cam.set_coordinate_frame( Vector3( 1, 0, 0 ),
 				Vector3( 0, 1, 0 ),
 				Vector3( 0, 0, 1 ) );
- 
 
   // Performing the forward projection
   Vector2 forward_projection = pin_cam.point_to_pixel( point );
@@ -145,7 +144,11 @@ Quaternion<double> IsisAdjustCameraModel::camera_pose( Vector3 const& mm_time ) 
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
-  return Quaternion<double>(R_inst*inverse(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix() );
+  Quaternion<double> quat (R_inst*inverse(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix());
+  quat = quat / norm_2(quat);
+
+  return quat;
+    //return Quaternion<double>(R_inst*inverse(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix() );
 }
 
 double IsisAdjustCameraModel::undistorted_focal( Vector3 const& mm_time ) const {

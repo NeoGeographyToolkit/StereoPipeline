@@ -113,6 +113,9 @@ namespace camera {
 							       m_constant[1],
 							       m_constant[2],
 							       "xyz" );
+
+      // Need to do this, the rotation matrix equation for quaternion
+      // expects a normalize quaternion
       quat = quat / norm_2(quat);
       return quat;
     }
