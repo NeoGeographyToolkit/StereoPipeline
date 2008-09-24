@@ -127,12 +127,12 @@ int main(int argc, char* argv[]) {
                                         &DiskImageResourceDDD::construct_create);
   
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
-  // Register the Isis file handler with the Vision Workbench
-  // DiskImageResource system.
-  DiskImageResource::register_file_type(".cub",
-                                        DiskImageResourceIsis::type_static(),
-                                        &DiskImageResourceIsis::construct_open,
-                                        &DiskImageResourceIsis::construct_create);
+//   // Register the Isis file handler with the Vision Workbench
+//   // DiskImageResource system.
+//   DiskImageResource::register_file_type(".cub",
+//                                         DiskImageResourceIsis::type_static(),
+//                                         &DiskImageResourceIsis::construct_open,
+//                                         &DiskImageResourceIsis::construct_create);
 #endif 
   /*************************************/
   /* Parsing of command line arguments */
@@ -404,22 +404,26 @@ int main(int argc, char* argv[]) {
 
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
       if (stereo_settings().do_affine_subpixel) {
+        std::cout << "\t--> Subpixel refinement method: affine\n";
         disparity_map = 
-          AffineSubpixelView<DiskImageView<PixelGray<float> >, DiskImageView<PixelDisparity<float> > > (disparity_disk_image, 
-                                                                                                        left_disk_image, right_disk_image, 
-                                                                                                        stereo_settings().h_kern, stereo_settings().v_kern, 
-                                                                                                        stereo_settings().do_h_subpixel, 
-                                                                                                        stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                                                        false);
-//         crop(disparity_map,400,0,256,256) = 
-//           crop(AffineSubpixelView<DiskImageView<PixelGray<float> >, DiskImageView<PixelDisparity<float> > > (disparity_disk_image, 
-//                                                                                                              left_disk_image, right_disk_image, 
-//                                                                                                              stereo_settings().h_kern, stereo_settings().v_kern, 
-//                                                                                                              stereo_settings().do_h_subpixel, 
-//                                                                                                              stereo_settings().do_v_subpixel,   // h and v subpixel
-//                                                                                                              false),
-//                400,0,256,256);
+          AffineSubpixelView(disparity_disk_image, 
+                             channels_to_planes(left_disk_image), 
+                             channels_to_planes(right_disk_image),
+                             stereo_settings().h_kern, stereo_settings().v_kern, 
+                             stereo_settings().do_h_subpixel, 
+                             stereo_settings().do_v_subpixel,   // h and v subpixel
+                             false);
+//         crop(disparity_map,100,150,200,200) = 
+//           crop(AffineSubpixelView(disparity_disk_image, 
+//                                   channels_to_planes(left_disk_image), 
+//                                   channels_to_planes(right_disk_image), 
+//                                   stereo_settings().h_kern, stereo_settings().v_kern, 
+//                                   stereo_settings().do_h_subpixel, 
+//                                   stereo_settings().do_v_subpixel,   // h and v subpixel
+//                                   false),
+//                100,150,200,200);
       } else {
+        std::cout << "\t--> Subpixel refinement method: parabola\n";
         disparity_map = 
           ParabolaSubpixelView<DiskImageView<PixelGray<float> >, DiskImageView<PixelDisparity<float> > > (disparity_disk_image, 
                                                                                                                left_disk_image, right_disk_image, 
@@ -427,14 +431,6 @@ int main(int argc, char* argv[]) {
                                                                                                                stereo_settings().do_h_subpixel, 
                                                                                                                stereo_settings().do_v_subpixel,   // h and v subpixel
                                                                                                                false);
-//         crop(disparity_map,400,0,256,256) = 
-//           crop(ParabolaSubpixelView<DiskImageView<PixelGray<float> >, DiskImageView<PixelDisparity<float> > > (disparity_disk_image, 
-//                                                                                                                left_disk_image, right_disk_image, 
-//                                                                                                                stereo_settings().h_kern, stereo_settings().v_kern, 
-//                                                                                                                stereo_settings().do_h_subpixel, 
-//                                                                                                                stereo_settings().do_v_subpixel,   // h and v subpixel
-//                                                                                                                false),
-//                400,0,256,256);
       }
 
       // Create a disk image resource and prepare to write a tiled
