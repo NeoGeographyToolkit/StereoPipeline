@@ -571,7 +571,9 @@ int main(int argc, char* argv[]) {
 //       point_cloud_rsrc.set_tiled_write(std::min(2048,point_cloud.cols()),std::min(2048, point_cloud.rows()));
 //       write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "Triangulation"));
 
-      DiskImageResourceTIFF point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format() );
+      DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format() );
+      point_cloud_rsrc.set_native_block_size(Vector2i(std::min(1024,point_cloud.cols()),
+                                                      std::min(1024, point_cloud.rows())));
       write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "Triangulating: "));
       std::cout << universe_radius_func;
 
