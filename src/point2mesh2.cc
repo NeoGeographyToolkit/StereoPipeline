@@ -145,7 +145,7 @@ osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direc
 *********************************************************************/
 template <class ViewT>
 osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& step_size, const std::string& tex_file, osg::Vec3f& dataNormal) {
-  std::cout << "In now\n";
+
   const ViewT& point_image_impl = point_image.impl();
   osg::Geode* mesh = new osg::Geode();
   osg::Geometry* geometry = new osg::Geometry();
@@ -168,28 +168,34 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   {
     std::cout << "Creating Vertice Data\n";
 
-    for (signed r = 0; r < point_image_impl.rows(); r+=step_size ){
-      for (signed c = 0; c < point_image_impl.cols(); c+=step_size ){
+    for (unsigned r = 0; r < (point_image_impl.rows()/step_size); ++r ){
+      for (unsigned c = 0; c < (point_image_impl.cols()/step_size); ++c ){
+	
+	unsigned r_step = r * step_size;
+	unsigned c_step = c * step_size;
 
-	vertices->push_back( osg::Vec3f( point_image_impl.impl()(c,r)[0] ,
-					 point_image_impl.impl()(c,r)[1] ,
-					 point_image_impl.impl()(c,r)[2] ) );
-
+	vertices->push_back( osg::Vec3f( point_image_impl.impl()(c_step,r_step)[0] ,
+					 point_image_impl.impl()(c_step,r_step)[1] ,
+					 point_image_impl.impl()(c_step,r_step)[2] ) );
+      
 	if ( tex_file.size() ) {
-	  texcoords->push_back( osg::Vec2f ( (float)c / (float)point_image_impl.cols() ,
-					     1-(float)r / (float)point_image_impl.rows() ) );
+	  texcoords->push_back( osg::Vec2f ( (float)c_step / (float)point_image_impl.cols() ,
+					     1-(float)r_step / (float)point_image_impl.rows() ) );
 	  //texcoords->push_back( osg::Vec2f ( (float)r / (float)point_image_impl.rows() , 
 	  //				     1 - (float)c / (float)point_image_impl.cols() ) );
-	} else if ( (point_image_impl.impl()(c,r)[0] != 0 ) &&
-		    (point_image_impl.impl()(c,r)[1] != 0 ) &&
-		    (point_image_impl.impl()(c,r)[2] != 0 ) ) {
+	} else if ( (point_image_impl.impl()(c_step,r_step)[0] != 0 ) &&
+		    (point_image_impl.impl()(c_step,r_step)[1] != 0 ) &&
+		    (point_image_impl.impl()(c_step,r_step)[2] != 0 ) ) {
 	  //I'm calculating the main normal for the data.
-	  dataNormal[0] += point_image_impl.impl()(c,r)[0];
-	  dataNormal[1] += point_image_impl.impl()(c,r)[1];
-	  dataNormal[2] += point_image_impl.impl()(c,r)[2];
+	  dataNormal[0] += point_image_impl.impl()(c_step,r_step)[0];
+	  dataNormal[1] += point_image_impl.impl()(c_step,r_step)[1];
+	  dataNormal[2] += point_image_impl.impl()(c_step,r_step)[2];
 	}
       }
     }
+
+    std::cout << " > size: " << vertices->size() << std::endl;
+
     geometry->setVertexArray( vertices );
     if ( tex_file.size() ) {
       geometry->setTexCoordArray( 0,texcoords );
@@ -208,44 +214,61 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   /// Deciding How to draw triangle strips
   std::cout << "Drawing Triangle Strips\n";
   {
-    for (signed r = 0; r < ( point_image_impl.rows()/step_size - 1); ++r){
+    unsigned col_steps = point_image_impl.cols()/step_size;
 
-      bool working_left = true;
+    for (unsigned r = 0; r < ( point_image_impl.rows()/step_size - 1); ++r){
+
+      bool add_direction_down = true;
       osg::DrawElementsUInt* dui = new osg::DrawElementsUInt(GL_TRIANGLE_STRIP);
      
-      for (signed c = 0; c < ( point_image_impl.cols()/step_size ); ++c){
+      for (unsigned c = 0; c < ( col_steps ); ++c){
 
-	unsigned pointing_index = r*point_image_impl.cols()/step_size + c;
+	unsigned pointing_index = r*(col_steps) + c;
 
 	//std::cout << "V: " << vertices->at(pointing_index)[0] << " " << vertices->at(pointing_index)[1] << " " << vertices->at(pointing_index)[2] << std::endl;
 	
-      	if (working_left){
-	  //Is there actually any values?
+	if (add_direction_down) {
 	  
-	  //std::cout << "Left " << pointing_index << std::endl;
-
+	  // Adding top point ...
 	  if ( (vertices->at(pointing_index)[0] != 0) && 
 	       (vertices->at(pointing_index)[1] != 0) && 
 	       (vertices->at(pointing_index)[2] != 0) ) {
 
 	    dui->push_back( pointing_index );
-	    working_left = !working_left;
-	  }
-	}
+	  }    
 
-	if (!working_left){
+	  // Adding bottom point ..
+	  if ( (vertices->at(pointing_index+col_steps)[0] != 0) &&
+	       (vertices->at(pointing_index+col_steps)[1] != 0) &&
+	       (vertices->at(pointing_index+col_steps)[2] != 0) ) {
+
+	    dui->push_back( pointing_index+col_steps );
+	  } else {
+	    // If there's a drop out here... we switch adding direction.
+	    add_direction_down = false;
+	  }
+
+	} else {
 	  
-	  //std::cout << "Right " << pointing_index + point_image_impl.cols()/step_size << std::endl;
+	  // Adding bottom point ..
+	  if ( (vertices->at(pointing_index+col_steps)[0] != 0) &&
+	       (vertices->at(pointing_index+col_steps)[1] != 0) &&
+	       (vertices->at(pointing_index+col_steps)[2] != 0) ) {
 
-	  //Is there actually any values?
-	  if ( (vertices->at(pointing_index+point_image_impl.cols()/step_size)[0] != 0) &&
-	       (vertices->at(pointing_index+point_image_impl.cols()/step_size)[1] != 0) &&
-	       (vertices->at(pointing_index+point_image_impl.cols()/step_size)[2] != 0) ) {
-	    dui->push_back( pointing_index+point_image_impl.cols()/step_size );
-	    working_left = !working_left;
+	    dui->push_back( pointing_index+col_steps );
+	  }
+
+	  // Adding top point ...
+	  if ( (vertices->at(pointing_index)[0] != 0) && 
+	       (vertices->at(pointing_index)[1] != 0) && 
+	       (vertices->at(pointing_index)[2] != 0) ) {
+
+	    dui->push_back( pointing_index );
+	  } else {
+	    // If there's a drop out here... we switch adding direction.
+	    add_direction_down = true;
 	  }
 	}
-
       }
 
       //std::cout << "Adding a " << dui->getNumIndices() << " .... yeah\n";
