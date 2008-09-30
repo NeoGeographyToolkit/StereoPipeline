@@ -114,7 +114,7 @@ osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direc
   texture->setImage( image );
 
   float zBase = bs.center().z() - bs.radius();
-  float zScale = 0.2;
+  float zScale = 0.04;
 
   // Texture Coordinate Generator
   osg::TexGen* texgen = new osg::TexGen;
@@ -144,13 +144,15 @@ osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direc
 *  Takes in an image and builds geodes for every triangle strip.     *
 *********************************************************************/
 template <class ViewT>
-osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& step_size, const std::string& tex_file, osg::Vec3f& dataNormal) {
+osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& step_size, const std::string& tex_file, osg::Vec3f& dataNormal, bool light) {
 
   const ViewT& point_image_impl = point_image.impl();
   osg::Geode* mesh = new osg::Geode();
   osg::Geometry* geometry = new osg::Geometry();
   osg::Vec3Array* vertices = new osg::Vec3Array();
   osg::Vec2Array* texcoords = new osg::Vec2Array();
+  osg::Vec3Array* normals = new osg::Vec3Array();
+
   dataNormal = osg::Vec3f( 0.0f , 0.0f , 0.0f );
 
   std::cout << "In Rows: " << point_image_impl.rows() << " Cols: " << point_image_impl.cols() << std::endl;
@@ -168,8 +170,12 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   {
     std::cout << "Creating Vertice Data\n";
 
-    for (unsigned r = 0; r < (point_image_impl.rows()/step_size); ++r ){
-      for (unsigned c = 0; c < (point_image_impl.cols()/step_size); ++c ){
+    // Some constants for the calculation in here
+    unsigned num_rows = point_image_impl.rows()/step_size;
+    unsigned num_cols = point_image_impl.cols()/step_size;
+
+    for (unsigned r = 0; r < (num_rows); ++r ){
+      for (unsigned c = 0; c < (num_cols); ++c ){
 	
 	unsigned r_step = r * step_size;
 	unsigned c_step = c * step_size;
@@ -177,6 +183,48 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 	vertices->push_back( osg::Vec3f( point_image_impl.impl()(c_step,r_step)[0] ,
 					 point_image_impl.impl()(c_step,r_step)[1] ,
 					 point_image_impl.impl()(c_step,r_step)[2] ) );
+
+	// Calculating normals, if the user wants shading
+	if (light) {
+	  Vector3 temp_normal;
+	  
+	  // These calculations seems backwards from what they should
+	  // be. Its because for the indexing of the image is weird,
+	  // its column then row.
+
+	  // Is quadrant 1 normal calculation possible?
+	  if ( (r > 0) && ( (c+1) < (num_cols)) ) {
+	    temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step+step_size,r_step) -
+							      point_image_impl.impl()(c_step,r_step),
+							      point_image_impl.impl()(c_step,r_step-step_size) - 
+							      point_image_impl.impl()(c_step,r_step) ) );
+	  }
+	  // Is quadrant 2 normal calculation possible?
+	  if ( ( (c+1) < (num_cols) ) && ((r+1) < (num_rows))){
+	    temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step,r_step+step_size) -
+							      point_image_impl.impl()(c_step,r_step),
+							      point_image_impl.impl()(c_step+step_size,r_step) -
+							      point_image_impl.impl()(c_step,r_step) ) );
+	  }
+	  // Is quadrant 3 normal calculation possible?
+	  if ( ((r+1) < (num_rows)) && (c>0) ) {
+	    temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step-step_size,r_step) -
+							      point_image_impl.impl()(c_step,r_step),
+							      point_image_impl.impl()(c_step,r_step+step_size) -
+							      point_image_impl.impl()(c_step,r_step) ) );
+	  }
+	  // Is quadrant 4 normal calculation possible?
+	  if ( (c>0) && (r>0) ) {
+	    temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step,r_step-step_size) -
+							      point_image_impl.impl()(c_step,r_step),
+							      point_image_impl.impl()(c_step-step_size,r_step) -
+							      point_image_impl.impl()(c_step,r_step) ) );
+	  }
+	  temp_normal = normalize( temp_normal );
+	  normals->push_back( osg::Vec3f( temp_normal[0],
+					  temp_normal[1],
+					  temp_normal[2] ) );
+	}
       
 	if ( tex_file.size() ) {
 	  texcoords->push_back( osg::Vec2f ( (float)c_step / (float)point_image_impl.cols() ,
@@ -197,6 +245,10 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
     std::cout << " > size: " << vertices->size() << std::endl;
 
     geometry->setVertexArray( vertices );
+    
+    if (light)
+      geometry->setNormalArray( normals );
+
     if ( tex_file.size() ) {
       geometry->setTexCoordArray( 0,texcoords );
     } else {
@@ -339,6 +391,8 @@ int main( int argc, char *argv[] ){
        "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("ive"), 
        "Specify the output file")
+    ("enable-lighting,l",
+     "Enables shades and light on the mesh" )
     ("rotation-order",    po::value<std::string>(&rot_order)->default_value("xyz"),
        "Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation",      po::value<double>(&phi_rot)->default_value(0), 
@@ -385,13 +439,14 @@ int main( int argc, char *argv[] ){
   //Building Mesh
   std::cout << "\nGenerating 3D mesh from point cloud:\n";
   {
-    root->addChild(build_mesh(point_image, step_size, texture_file_name , dataNormal ));
+    root->addChild(build_mesh(point_image, step_size, texture_file_name , dataNormal, vm.count("enable-lighting") ));
 
     if ( vm.count( "texture-file" ) ) {
 
       //Turning off lighting and other likes
       osg::StateSet* stateSet = new osg::StateSet();
-      stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
+      if ( !vm.count("enable-lighting") )
+	stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
       stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
       root->setStateSet( stateSet );
 
@@ -399,7 +454,8 @@ int main( int argc, char *argv[] ){
 
       std::cout << "Adding contour coloring\n";
       osg::StateSet* stateSet = create1DTexture( root.get() , dataNormal );
-      stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
+      if ( !vm.count("enable-lighting") )
+	stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
       stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
       root->setStateSet( stateSet );
       
