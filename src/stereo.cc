@@ -453,8 +453,7 @@ int main(int argc, char* argv[]) {
       if (stereo_settings().do_affine_subpixel) {
         std::cout << "\t--> Subpixel refinement method: affine\n";
       
-#if 0
-      disparity_map = 
+        disparity_map = 
           AffineSubpixelView(disparity_disk_image, 
                              channels_to_planes(left_disk_image), 
                              channels_to_planes(right_disk_image),
@@ -462,15 +461,15 @@ int main(int argc, char* argv[]) {
                              stereo_settings().do_h_subpixel, 
                              stereo_settings().do_v_subpixel,   // h and v subpixel
                              false);
-      //        crop(disparity_map,100,150,200,200) = 
-      //           crop(AffineSubpixelView(disparity_disk_image, 
-      //                                   channels_to_planes(left_disk_image), 
-      //                                   channels_to_planes(right_disk_image), 
-      //                                   stereo_settings().h_kern, stereo_settings().v_kern, 
-      //                                   stereo_settings().do_h_subpixel, 
-      //                                   stereo_settings().do_v_subpixel,   // h and v subpixel
-      //                                   false),
-      //                100,150,200,200);
+        //        crop(disparity_map,100,150,200,200) = 
+        //           crop(AffineSubpixelView(disparity_disk_image, 
+        //                                   channels_to_planes(left_disk_image), 
+        //                                   channels_to_planes(right_disk_image), 
+        //                                   stereo_settings().h_kern, stereo_settings().v_kern, 
+        //                                   stereo_settings().do_h_subpixel, 
+        //                                   stereo_settings().do_v_subpixel,   // h and v subpixel
+        //                                   false),
+        //                100,150,200,200);
       } else {
         std::cout << "\t--> Subpixel refinement method: parabola\n";
         disparity_map = 
