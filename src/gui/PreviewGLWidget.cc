@@ -128,7 +128,7 @@ void PreviewGLWidget::drawImage() {
   glUniform1i(display_channel_loc,m_display_channel);
 
   // Set the background color and viewport.
-  qglClearColor(Qt::black);
+  qglClearColor(QColor(0, 25, 50)); // Bluish-green background
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glViewport(0,0,m_viewport_width,m_viewport_height);
 
@@ -175,12 +175,31 @@ void PreviewGLWidget::drawImage() {
   glTexCoord2d( float(m_image.cols()) / m_image.cols() , 0.0 ); 
   glVertex2d( m_image.cols() , 0.0 );
   glEnd();
-  glDisable( GL_TEXTURE_2D );
 
-  // Deactivate our GLSL shader program & restore the previous OpenGL
-  // state so that we don't trample on the QPainter elements of the
-  // window.
+  // Disable texture mapping and GLSL shaders
+  glDisable( GL_TEXTURE_2D );
   glUseProgram(0);
+
+  // Draw crosshairs
+  glLineWidth(1.0);
+  for (unsigned i = 0; i < m_crosshairs.size(); ++i) {
+    Vector3 color = m_crosshairs[i].color();
+    glColor3f(color[0], color[1], color[2]);
+    glBegin(GL_LINES);
+    std::list<Vector2>::const_iterator iter = m_crosshairs[i].points().begin();
+    while (iter != m_crosshairs[i].points().end() ) {
+      Vector2 point = *iter;
+      glVertex2d( point[0]-3 , -point[1]);
+      glVertex2d( point[0]+3 , -point[1]);
+      glVertex2d( point[0], -point[1]-3);
+      glVertex2d( point[0], -point[1]+3);
+      ++iter;
+    }
+    glEnd();
+  }    
+  
+  // Restore the previous OpenGL state so that we don't trample on the
+  // QPainter elements of the window.
   glMatrixMode(GL_MODELVIEW);
   glPopMatrix();
   glMatrixMode(GL_PROJECTION);
@@ -251,6 +270,10 @@ void PreviewGLWidget::setupPreviewGLWidget() {
 
   // Set mouse tracking
   this->setMouseTracking(true);
+
+  // Set the size policy that the widget can grow or shrink and still
+  // be useful.
+  this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 }
 
 void PreviewGLWidget::initializeGL() {  
@@ -485,5 +508,16 @@ void PreviewGLWidget::keyPressEvent(QKeyEvent *event) {
     QWidget::keyPressEvent(event);
   }
 }
+
+void PreviewGLWidget::add_crosshairs(std::list<Vector2> const& points, Vector3 const& color) {
+  m_crosshairs.push_back(PointList(points, color));
+  update();
+}
+
+void PreviewGLWidget::clear_crosshairs() {
+  m_crosshairs.clear(); 
+  update();
+}
+
 
 

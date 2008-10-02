@@ -17,20 +17,22 @@ class InputWidget : public QWidget {
   Q_OBJECT
 
   // Private member variables
-  PreviewGLWidget *m_glPreview;
-  
-  QPushButton *m_fileBrowseButton;
-  QLineEdit *m_fileNameEdit;
-  
-  // Private methods
-  QGroupBox *genSettingsBox(QString const& name);
-    
+  PreviewGLWidget *m_left_preview;
+  PreviewGLWidget *m_right_preview;
+  QLineEdit *m_left_filename_edit;
+  QLineEdit *m_right_filename_edit;
+
 public:
-  InputWidget(QString const& name, QWidget *parent = 0);
-  
+  InputWidget(QWidget *parent = 0);
+
+  void load_left_image(std::string filename);
+  void load_right_image(std::string filename);
+
 private slots:
-  void fileBrowseButtonClicked();
-  void loadImage();
+  void reload_left_image();
+  void reload_right_image();
+  void left_browse_button_clicked();
+  void right_browse_button_clicked();
 };
 
 #endif // __PREPROCESS_WIDGET_H__

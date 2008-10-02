@@ -6,25 +6,31 @@
 
 class QAction;
 class QLabel;
+class QTabWidget;
 class PreviewGLWidget;
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
 
 public:
-  MainWindow(int argc, char** argv);
+  MainWindow();
 
 private slots:
   void about();
   void update_status_bar(std::string const& s);
   void tab_switch(int index);
+
+protected:
+  void keyPressEvent(QKeyEvent *event);
   
 private:
   void create_actions();
   void create_menus();
   void create_status_bar();
 
+
   QWidget *genInputTab();
+  QWidget *genAlignmentTab();
   QWidget *genPreprocessTab();
   QWidget *genCostFunctionTab();
   QWidget *genCorrelateTab();
@@ -37,6 +43,7 @@ private:
   QAction *about_action;
   QAction *exit_action;
 
+  QTabWidget* m_tab_widget;
   
 };
 

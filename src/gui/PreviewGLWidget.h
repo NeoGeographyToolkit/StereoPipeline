@@ -8,13 +8,41 @@
 #include <vw/Image/ImageView.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/Statistics.h>
+#include <vw/FileIO/DiskImageView.h>
 #include <vw/Math/BBox.h>
+#include <vw/Math/Vector.h>
 
 #include <string>
+#include <list>
 
 class QMouseEvent;
 class QWheelEvent;
 class QPoint;
+
+
+class PointList {
+  std::list<vw::Vector2> m_points;
+  vw::Vector3 m_color;
+public:
+  PointList(vw::Vector3 const& color) : m_color(color) {}
+  PointList(std::list<vw::Vector2> const& points, vw::Vector3 const& color) : 
+    m_color(color) {
+    this->push_back(points);
+  }
+  
+  std::list<vw::Vector2> const& points() const { return m_points; }
+  vw::Vector3 color() const { return m_color; }
+
+  void push_back(vw::Vector2 pt) { m_points.push_back(pt); }
+  void push_back(std::list<vw::Vector2> pts) { 
+    std::list<vw::Vector2>::iterator iter  = pts.begin();
+    while (iter != pts.end()) {
+      m_points.push_back(*iter);
+      ++iter;
+    }
+  }
+};
+
 
 class PreviewGLWidget : public QGLWidget {
   Q_OBJECT
@@ -36,6 +64,9 @@ public:
   }
   virtual ~PreviewGLWidget();
 
+  // Set a default size for this widget.  This is usually overridden.
+  virtual QSize sizeHint () const { return QSize(500,500); }
+
   template <class ViewT>
   void setImage(vw::ImageViewBase<ViewT> const& view) {
     m_image = vw::channel_cast<vw::float32>(view.impl());
@@ -47,6 +78,21 @@ public:
   void sizeToFit();
   void zoom(float scale);
   void normalizeImage();
+
+  void add_crosshairs(std::list<vw::Vector2> const& points, vw::Vector3 const& color);
+  void clear_crosshairs(); 
+
+public slots:
+
+  void load_image_from_file(std::string const& filename) {
+    vw::DiskImageView<vw::PixelRGB<vw::float32> > input_image(filename);
+    m_image = input_image;
+    vw::min_max_channel_values(m_image, m_image_min, m_image_max);
+    initializeGL();
+    update();
+    sizeToFit();
+  }
+
 
 protected:
 
@@ -71,7 +117,7 @@ private:
   void drawImage();
   void drawLegend(QPainter *painter);
   void updateCurrentMousePosition();
-
+  
   // Image & OpenGL
   vw::ImageView<vw::PixelRGB<vw::float32> > m_image;
   GLuint m_texture;
@@ -101,6 +147,9 @@ private:
   float m_gain;
   float m_offset;
   float m_gamma;
+
+  // Crosshair overlays
+  std::vector<PointList> m_crosshairs;
 
   enum DisplayChannel { DisplayRGBA = 0, DisplayR, DisplayG, DisplayB, DisplayA };
   int m_display_channel;

@@ -27,6 +27,7 @@
 // Qt
 #include <QApplication>
 #include <QWidget>
+#include <QSplashScreen>
 
 // Boost
 #include <boost/program_options.hpp>
@@ -48,20 +49,12 @@ using namespace vw::camera;
 using namespace vw::stereo;
 
 #include "gui/MainWindow.h"
+#include "gui/StereoGuiSession.h"
 #include "StereoSettings.h"
 #include "stereo.h"
 #include "StereoSession.h"
-#include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
-#include "HRSC/StereoSessionHRSC.h"
-#include "MOC/StereoSessionMOC.h"
-#include "apollo/StereoSessionApolloMetric.h"
-#include "MRO/StereoSessionCTX.h"
-#include "RMAX/StereoSessionRmax.h"
-
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
 #include "Isis/DiskImageResourceIsis.h"
 #include "Isis/StereoSessionIsis.h"
-#endif
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -85,22 +78,13 @@ int main(int argc, char *argv[]) {
   // our own FileIO driver code.
   DiskImageResource::register_default_file_types();
 
-  // Register the DDD file handler with the Vision Workbench
-  // DiskImageResource system.  DDD is the proprietary format used by
-  // Malin Space Science Systems.
-  DiskImageResource::register_file_type(".ddd",
-                                        DiskImageResourceDDD::type_static(),
-                                        &DiskImageResourceDDD::construct_open,
-                                        &DiskImageResourceDDD::construct_create);
-  
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   // Register the Isis file handler with the Vision Workbench
   // DiskImageResource system.
   DiskImageResource::register_file_type(".cub",
                                         DiskImageResourceIsis::type_static(),
                                         &DiskImageResourceIsis::construct_open,
                                         &DiskImageResourceIsis::construct_create);
-#endif 
+
   /*************************************/
   /* Parsing of command line arguments */
   /*************************************/
@@ -110,40 +94,25 @@ int main(int argc, char *argv[]) {
   // arguments.
   int debug_level;
   unsigned cache_size;
-  std::string stereo_session_string;
   std::string stereo_default_filename;
-  std::string in_file1, in_file2, cam_file1, cam_file2, extra_arg1, extra_arg2, extra_arg3, extra_arg4;
-  std::string out_prefix;
+  std::string left_input, right_input, output_prefix;
 
   po::options_description visible_options("Options");
   visible_options.add_options()
     ("help,h", "Display this help message")
     ("cache", po::value<unsigned>(&cache_size)->default_value(1800), "Cache size, in megabytes")
-    ("session-type,t", po::value<std::string>(&stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)");
 
   po::options_description positional_options("Positional Options");
   positional_options.add_options()
-    ("left-input-image", po::value<std::string>(&in_file1), "Left Input Image")
-    ("right-input-image", po::value<std::string>(&in_file2), "Right Input Image")
-    ("left-camera-model", po::value<std::string>(&cam_file1), "Left Camera Model File")
-    ("right-camera-model", po::value<std::string>(&cam_file2), "Right Camera Model File")
-    ("output-prefix", po::value<std::string>(&out_prefix), "Prefix for output filenames")
-    ("extra_argument1", po::value<std::string>(&extra_arg1), "Extra Argument 1")
-    ("extra_argument2", po::value<std::string>(&extra_arg2), "Extra Argument 2")
-    ("extra_argument3", po::value<std::string>(&extra_arg3), "Extra Argument 3")
-    ("extra_argument4", po::value<std::string>(&extra_arg4), "Extra Argument 4");
+    ("left-input-image", po::value<std::string>(&left_input), "Left Input Image")
+    ("right-input-image", po::value<std::string>(&right_input), "Right Input Image")
+    ("output-prefix", po::value<std::string>(&output_prefix), "Prefix for output filenames");
   po::positional_options_description positional_options_desc;
   positional_options_desc.add("left-input-image", 1);
   positional_options_desc.add("right-input-image", 1);
-  positional_options_desc.add("left-camera-model", 1);
-  positional_options_desc.add("right-camera-model", 1);
   positional_options_desc.add("output-prefix", 1);
-  positional_options_desc.add("extra_argument1", 1);
-  positional_options_desc.add("extra_argument2", 1);
-  positional_options_desc.add("extra_argument3", 1);
-  positional_options_desc.add("extra_argument4", 1);
 
   po::options_description all_options;
   all_options.add(visible_options).add(positional_options);
@@ -167,22 +136,26 @@ int main(int argc, char *argv[]) {
   Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
 
   // Create a fresh stereo session and query it for the camera models.
-  StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
-  StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
-  StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
-  StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
-  StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
-#endif
-  StereoSession* session = StereoSession::create(stereo_session_string);
-  session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
-                      out_prefix, extra_arg1, extra_arg2, extra_arg3, extra_arg4);
-
+  stereo_gui_session().set_session(StereoSession::create("isis"));
+  stereo_gui_session().session()->initialize(left_input, right_input,
+                                             "not used", "not used",
+                                             output_prefix,"","","","");
+  stereo_gui_session().set_left_input_image(left_input);
+  stereo_gui_session().set_right_input_image(right_input);
+  stereo_gui_session().set_output_prefix(output_prefix);
   
   // Start up the Qt GUI
   QApplication app(argc, argv);
-  MainWindow main_window(argc, argv);
+
+//   // Show the splash screen
+//   QPixmap pixmap("/Users/mbroxton/Desktop/asp_gui_splash.png");
+//   QSplashScreen splash(pixmap, Qt::WindowStaysOnTopHint);
+//   splash.showMessage("v3.0", Qt::AlignRight | Qt::AlignBottom, Qt::white);
+//   splash.show();
+//   app.processEvents();
+
+  MainWindow main_window;
   main_window.show();
   return app.exec(); 
 }

@@ -55,7 +55,7 @@ if MAKE_APP_STEREO
   stereo_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
 	 	   $(apollo_sources) $(generic_stereo_sources)		\
 	 	   $(isis_sources) $(rmax_sources) SpiceUtilities.cc	\
-	 	   stereo.cc
+	 	   stereo.cc 
   stereo_LDFLAGS = $(APP_STEREO_LIBS) $(ASP_LDFLAGS)
 endif
 
@@ -67,18 +67,13 @@ if MAKE_APP_STEREOGUI
 	 	   $(rmax_sources) SpiceUtilities.cc gui/MainWindow.cc	\
 	 	   gui/MainWindow.moc.cc gui/MainWindow.h		\
 	 	   gui/InputWidget.cc gui/InputWidget.moc.cc		\
-	 	   gui/InputWidget.h gui/PreprocessWidget.cc		\
-	 	   gui/PreprocessWidget.moc.cc gui/PreprocessWidget.h	\
+	 	   gui/InputWidget.h gui/AlignmentWidget.cc		\
+	 	   gui/AlignmentWidget.moc.cc gui/AlignmentWidget.h	\
 	 	   gui/PreviewGLWidget.cc gui/PreviewGLWidget.moc.cc	\
-	 	   gui/PreviewGLWidget.h gui/CostFunctionWidget.cc	\
-	 	   gui/CostFunctionWidget.moc.cc			\
-	 	   gui/CostFunctionWidget.h gui/SearchWindowWidget.cc	\
-	 	   gui/SearchWindowWidget.moc.cc			\
-	 	   gui/SearchWindowWidget.h				\
+	 	   gui/PreviewGLWidget.h gui/StereoGuiSession.cc	\
 	 	   gui/StereoGuiSession.moc.cc gui/StereoGuiSession.h	\
-	 	   gui/CorrelationWidget.cc				\
-	 	   gui/CorrelationWidget.moc.cc				\
-	 	   gui/CorrelationWidget.h
+	 	   gui/ProgressBar.moc.cc gui/ProgressBar.h		\
+	 	   gui/ProgressBar.cc
   stereo_gui_CXXFLAGS = $(QT_CXXFLAGS) 
   stereo_gui_CPPFLAGS = $(QT_CPPFLAGS) $(AM_CPPFLAGS)
   stereo_gui_LDFLAGS = $(QT_LDFLAGS) $(APP_STEREOGUI_LIBS) $(ASP_LDFLAGS)

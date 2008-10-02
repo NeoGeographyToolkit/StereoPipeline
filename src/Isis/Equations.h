@@ -21,6 +21,8 @@ namespace camera {
       //m_constant.clear();
       m_time_offset = 0;
     }
+    virtual ~VectorEquation() {}
+
     //Evaluates the equation at time T
     virtual Vector3 evaluate( double const& t ) const {
       return Vector3( 0, 0, 0 );
@@ -54,6 +56,8 @@ namespace camera {
       //m_constant.clear();
       m_time_offset = 0;
     }
+    virtual ~QuaternionEquation() {}
+
     //Evaluate the equation at time T
     virtual Quaternion<double> evaluate( double const& t ) const {
       return Quaternion<double>( 0, 0, 0, 0 );
@@ -91,6 +95,7 @@ namespace camera {
       m_constant.push_back(z);
       m_time_offset = 0;
     }
+    virtual ~PositionZeroOrder() {}
     virtual Vector3 evaluate( double const& t) const {
       return Vector3( m_constant[0], m_constant[1], m_constant[2] );
     }
@@ -108,6 +113,7 @@ namespace camera {
       m_constant.push_back(z);
       m_time_offset = 0;
     }
+    virtual ~PoseZeroOrder() {}
     virtual Quaternion<double> evaluate( double const& t ) const {
       Quaternion<double> quat = vw::math::euler_to_quaternion( m_constant[0],
 							       m_constant[1],

@@ -1,15 +1,18 @@
 #include <QtGui>
 
+#include "gui/StereoGuiSession.h"
+#include "gui/ProgressBar.h"
 #include "gui/MainWindow.h"
 #include "gui/InputWidget.h"
-#include "gui/PreprocessWidget.h"
-#include "gui/CostFunctionWidget.h"
-#include "gui/SearchWindowWidget.h"
-#include "gui/CorrelationWidget.h"
+#include "gui/AlignmentWidget.h"
+// #include "gui/PreprocessWidget.h"
+// #include "gui/CostFunctionWidget.h"
+// #include "gui/SearchWindowWidget.h"
+// #include "gui/CorrelationWidget.h"
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 
-MainWindow::MainWindow(int /* argc */, char** /* argv */) {
+MainWindow::MainWindow() {
 
   // Set up the basic layout of the window and its menus
   create_actions();
@@ -17,14 +20,15 @@ MainWindow::MainWindow(int /* argc */, char** /* argv */) {
   create_status_bar();
   
   // Set the window title and add tabs
-  this->setWindowTitle("Ames Stereo Pipeline v3.0");
-  QTabWidget* tab_widget = new QTabWidget(this);
-  tab_widget->addTab(genInputTab(), "Input");
-  tab_widget->addTab(genPreprocessTab(), "Preprocess");
-  tab_widget->addTab(genCostFunctionTab(), "Cost Function");
-  tab_widget->addTab(genCorrelateTab(), "Correlate");
-  setCentralWidget(tab_widget);
-  connect(tab_widget, SIGNAL(currentChanged(int)), this, SLOT(tab_switch(int)));
+  this->setWindowTitle("Ames Stereo Pipeline v2.0");
+  m_tab_widget = new QTabWidget(this);
+  m_tab_widget->addTab(genInputTab(), "Input");
+  m_tab_widget->addTab(genAlignmentTab(), "Alignment");
+//   m_tab_widget->addTab(genPreprocessTab(), "Preprocess");
+//   m_tab_widget->addTab(genCostFunctionTab(), "Cost Function");
+//   m_tab_widget->addTab(genCorrelateTab(), "Correlate");
+  setCentralWidget(m_tab_widget);
+  connect(m_tab_widget, SIGNAL(currentChanged(int)), this, SLOT(tab_switch(int)));
 
   // Maximize the main window
   this->showMaximized();
@@ -77,6 +81,10 @@ void MainWindow::create_status_bar() {
   status_label = new QLabel("Welcome to the Stereo Pipeline");
   status_label->setAlignment(Qt::AlignHCenter);
   statusBar()->addWidget(status_label);
+
+  // WARNING: Memory leak as currently written.  Fix this somewhow...
+  StereoGuiProgressCallback *clbk = new StereoGuiProgressCallback(this, "Testing");
+  statusBar()->addWidget(clbk->widget());
 }
 
 void MainWindow::update_status_bar(std::string const& s) {
@@ -85,9 +93,31 @@ void MainWindow::update_status_bar(std::string const& s) {
 
 void MainWindow::about() {
   QMessageBox::about(this, tr("About Stereo Pipeline"),
-                     tr("<h2>NASA Ames Stereo Pipeline 3.0</h2>"
+                     tr("<h2>NASA Ames Stereo Pipeline 2.0</h2>"
                         "<p>Copyright &copy; 2008 NASA Ames Research Center</p>"));
                        
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event) {
+
+  int idx;
+  switch (event->key()) {
+  case Qt::Key_Right:   
+    idx = m_tab_widget->currentIndex();
+    if (++idx >= m_tab_widget->count())
+      idx = 0;
+    m_tab_widget->setCurrentIndex(idx);
+    break;
+
+  case Qt::Key_Left: 
+    idx = m_tab_widget->currentIndex();
+    if (--idx < 0)
+      idx = m_tab_widget->count()-1;
+    m_tab_widget->setCurrentIndex(idx);
+    break;
+  default: 
+    QWidget::keyPressEvent(event);
+  }
 }
 
 
@@ -95,68 +125,75 @@ void MainWindow::about() {
 //                      MAIN WINDOW TABS
 //********************************************************************
 QWidget *MainWindow::genInputTab() {
-  // Set up the preprocess widgets for each input image
-  InputWidget *left = new InputWidget("Left Image", this);
-  left->show();
 
-  InputWidget *right = new InputWidget("Right Image", this);
-  right->show();
+  // Set up the input widget
+  InputWidget *w = new InputWidget(this);
 
-  QHBoxLayout *layout = new QHBoxLayout;
-  layout->setContentsMargins(0, 0, 0, 0);
-  layout->addWidget(left);
-  layout->addWidget(right);
+  // If the user has supplied input filenames on the command line, we
+  // pass them along here so that they can be automatically loaded.
+  if (stereo_gui_session().left_input_image() != "") 
+    w->load_left_image(stereo_gui_session().left_input_image() );
+  if (stereo_gui_session().right_input_image() != "") 
+    w->load_right_image(stereo_gui_session().right_input_image() );
+  w->show();
 
-  QWidget *widget = new QWidget;
-  widget->setLayout(layout);
+  return w;
+}
+
+QWidget *MainWindow::genAlignmentTab() {
+
+  // Set up the alignment widget for each input image
+  AlignmentWidget *widget = new AlignmentWidget(this);
+  widget->show();
+
   return widget;
 }
 
 
-QWidget *MainWindow::genPreprocessTab() {
-  // Set up the preprocess widgets for each input image
-  PreprocessWidget *left = new PreprocessWidget("Left Image", this);
-  left->show();
+// QWidget *MainWindow::genPreprocessTab() {
+//   // Set up the preprocess widgets for each input image
+//   PreprocessWidget *left = new PreprocessWidget("Left Image", this);
+//   left->show();
 
-  PreprocessWidget *right = new PreprocessWidget("Right Image", this);
-  right->show();
+//   PreprocessWidget *right = new PreprocessWidget("Right Image", this);
+//   right->show();
 
-  QHBoxLayout *layout = new QHBoxLayout;
-  layout->setContentsMargins(0, 0, 0, 0);
-  layout->addWidget(left);
-  layout->addWidget(right);
+//   QHBoxLayout *layout = new QHBoxLayout;
+//   layout->setContentsMargins(0, 0, 0, 0);
+//   layout->addWidget(left);
+//   layout->addWidget(right);
 
-  QWidget *widget = new QWidget;
-  widget->setLayout(layout);
-  return widget;
-}
+//   QWidget *widget = new QWidget;
+//   widget->setLayout(layout);
+//   return widget;
+// }
 
-QWidget *MainWindow::genCostFunctionTab() {
-  CostFunctionWidget *costPreview = new CostFunctionWidget(this);
-  SearchWindowWidget *searchPreview = new SearchWindowWidget(NULL, this);
+// QWidget *MainWindow::genCostFunctionTab() {
+//   CostFunctionWidget *costPreview = new CostFunctionWidget(this);
+//   SearchWindowWidget *searchPreview = new SearchWindowWidget(NULL, this);
   
-  QHBoxLayout *layout = new QHBoxLayout;
-  layout->addWidget(costPreview);
-  layout->addWidget(searchPreview);
+//   QHBoxLayout *layout = new QHBoxLayout;
+//   layout->addWidget(costPreview);
+//   layout->addWidget(searchPreview);
 
-  QWidget *widget = new QWidget;
-  widget->setLayout(layout);
+//   QWidget *widget = new QWidget;
+//   widget->setLayout(layout);
 
-  return widget;
-}
+//   return widget;
+// }
 
-QWidget *MainWindow::genCorrelateTab() {
-  CorrelationWidget *correlationPreview = new CorrelationWidget(NULL, this);
-  SearchWindowWidget *searchPreview = new SearchWindowWidget(NULL, this);
+// QWidget *MainWindow::genCorrelateTab() {
+//   CorrelationWidget *correlationPreview = new CorrelationWidget(NULL, this);
+//   SearchWindowWidget *searchPreview = new SearchWindowWidget(NULL, this);
 
-  QHBoxLayout *layout = new QHBoxLayout;
-  layout->addWidget(correlationPreview);
-  layout->addWidget(searchPreview);
+//   QHBoxLayout *layout = new QHBoxLayout;
+//   layout->addWidget(correlationPreview);
+//   layout->addWidget(searchPreview);
 
-  QWidget *widget = new QWidget;
-  widget->setLayout(layout);
+//   QWidget *widget = new QWidget;
+//   widget->setLayout(layout);
 
-  return widget;
-}
+//   return widget;
+// }
 
 
