@@ -45,6 +45,7 @@ namespace fs = boost::filesystem;
 #include <vw/Image.h>
 #include <vw/Math.h>
 #include <vw/FileIO.h>
+#include <vw/FileIO/DiskImageResourceTIFF.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
 #include <vw/Stereo/AffineSubpixelView.h>
@@ -73,6 +74,8 @@ using namespace vw::cartography;
 #include "apollo/StereoSessionApolloMetric.h"
 #include "MRO/StereoSessionCTX.h"
 #include "RMAX/StereoSessionRmax.h"
+
+#include "MedianFilter.h"
 
 using namespace std;
 
@@ -236,6 +239,8 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
+  int MEDIAN_FILTER = 1;
+
   // If the user hasn't specified a stereo session type, we take a
   // guess here based on the file suffixes.
   if (stereo_session_string.size() == 0) {
@@ -282,21 +287,51 @@ int main(int argc, char* argv[]) {
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
                       out_prefix, extra_arg1, extra_arg2, extra_arg3, extra_arg4);
 
+  
+
   /*********************************************************************************/
   /*                            preprocessing step                                 */
   /*********************************************************************************/
   if (entry_point <= PREPROCESSING) {
 
     std::string pre_preprocess_file1, pre_preprocess_file2;
+   
     session->pre_preprocessing_hook(in_file1, in_file2, pre_preprocess_file1, pre_preprocess_file2);
     DiskImageView<PixelGray<uint8> > left_rectified_image(pre_preprocess_file1);
     DiskImageView<PixelGray<uint8> > right_rectified_image(pre_preprocess_file2);
+     
+      
+    ImageViewRef<uint8> Lmask;
+    ImageViewRef<uint8> Rmask;
     
-    cout << "\nGenerating image masks..." << std::flush;
-    int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
-    ImageViewRef<uint8> Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
-    ImageViewRef<uint8> Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
-    cout << "Done.\n";
+   
+    if (MEDIAN_FILTER==1){
+        cout << "\nMedian filtering..." << std::flush; 
+        ImageViewRef<PixelGray<uint8> > left_denoised_image;
+        ImageViewRef<PixelGray<uint8> > right_denoised_image; 
+        
+        left_denoised_image  = (fast_median_filter(left_rectified_image, 7));
+        right_denoised_image = (fast_median_filter(right_rectified_image, 7));
+        
+        write_image(out_prefix+"-median-L.tif", left_denoised_image);
+        write_image(out_prefix+"-median-R.tif", right_denoised_image);
+
+        cout << "\nDone..." << std::flush;
+
+        cout << "\nGenerating image masks..." << std::flush;
+        int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
+        Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_denoised_image, mask_buffer));
+        Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_denoised_image, mask_buffer));
+        cout << "Done.\n";
+    }
+    else{
+         cout << "\nGenerating image masks..." << std::flush;
+         int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
+         Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
+         Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
+         cout << "Done.\n";
+    }
+       
     write_image(out_prefix + "-lMask.tif", Lmask);
     write_image(out_prefix + "-rMask.tif", Rmask);
   }
@@ -307,10 +342,23 @@ int main(int argc, char* argv[]) {
   if( entry_point <= CORRELATION ) {
     if (entry_point == CORRELATION) 
         cout << "\nStarting at the CORRELATION stage.\n";
+    
+    
+    string filename_L;
+    string filename_R;
+    if (MEDIAN_FILTER==1){
+         filename_L = out_prefix+"-median-L.tif";
+         filename_R = out_prefix+"-median-R.tif";
+          
+    }
+    else{
+         filename_L = out_prefix+"-L.tif";
+         filename_R = out_prefix+"-R.tif";
+    }
 
-    DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
-    DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
-            
+    DiskImageView<PixelGray<float> > left_disk_image(filename_L);
+    DiskImageView<PixelGray<float> > right_disk_image(filename_R);
+         
     // If the user has specified a crop at the command line, we go
     // with the cropped region instead.
     BBox2i crop_bbox(crop_bounds[0],crop_bounds[1],crop_bounds[2],crop_bounds[3]);
@@ -402,10 +450,14 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
 
-      ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
+      //ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
+      ImageView<PixelDisparity<float> > disparity_map = disparity_disk_image;
+
       if (stereo_settings().do_affine_subpixel) {
         std::cout << "\t--> Subpixel refinement method: affine\n";
-        disparity_map = 
+      
+#if 0
+      disparity_map = 
           AffineSubpixelView(disparity_disk_image, 
                              channels_to_planes(left_disk_image), 
                              channels_to_planes(right_disk_image),
@@ -413,15 +465,16 @@ int main(int argc, char* argv[]) {
                              stereo_settings().do_h_subpixel, 
                              stereo_settings().do_v_subpixel,   // h and v subpixel
                              false);
-//         crop(disparity_map,100,150,200,200) = 
-//           crop(AffineSubpixelView(disparity_disk_image, 
-//                                   channels_to_planes(left_disk_image), 
-//                                   channels_to_planes(right_disk_image), 
-//                                   stereo_settings().h_kern, stereo_settings().v_kern, 
-//                                   stereo_settings().do_h_subpixel, 
-//                                   stereo_settings().do_v_subpixel,   // h and v subpixel
-//                                   false),
-//                100,150,200,200);
+#endif  
+       crop(disparity_map,100,150,200,200) = 
+           crop(AffineSubpixelView(disparity_disk_image, 
+                                   channels_to_planes(left_disk_image), 
+                                   channels_to_planes(right_disk_image), 
+                                   stereo_settings().h_kern, stereo_settings().v_kern, 
+                                   stereo_settings().do_h_subpixel, 
+                                   stereo_settings().do_v_subpixel,   // h and v subpixel
+                                   false),
+                100,150,200,200);
       } else {
         std::cout << "\t--> Subpixel refinement method: parabola\n";
         disparity_map = 
