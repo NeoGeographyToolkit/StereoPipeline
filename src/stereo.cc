@@ -385,12 +385,13 @@ int main(int argc, char* argv[]) {
     corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
     corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
     corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
-
-    // Subpixel explicitly disabled here because it is now handled by the refinement stage below...
-    //     corr_view.set_subpixel_options(stereo_settings().do_h_subpixel, 
-    //                                    stereo_settings().do_v_subpixel, 
-    //                                    stereo_settings().do_affine_subpixel);
-    corr_view.set_subpixel_options(false, false, false);
+    
+    stereo::CorrelatorType cost_type = ABS_DIFF_CORRELATOR;
+    if (stereo_settings().cost_type == 1) 
+      cost_type = SQR_DIFF_CORRELATOR;
+    else if (stereo_settings().cost_type == 2) 
+      cost_type = NORM_XCORR_CORRELATOR;
+    corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
 
     if (vm.count("corr-debug-prefix"))
       corr_view.set_debug_mode(corr_debug_prefix);
@@ -405,16 +406,12 @@ int main(int argc, char* argv[]) {
     }
 
     if (vm.count("optimized-correlator")) {
-      vw::stereo::OptimizedCorrelator correlator( search_range.min().x(), search_range.max().x(), 
-                                                  search_range.min().y(), search_range.max().y(),
-                                                  stereo_settings().h_kern, stereo_settings().v_kern, 
-                                                  true,                             // verbose
+      vw::stereo::OptimizedCorrelator correlator( search_range, 
+                                                  stereo_settings().h_kern,
                                                   stereo_settings().xcorr_treshold,
                                                   stereo_settings().corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
-                                                  //                                    stereo_settings().do_h_subpixel, 
-                                                  //                                    stereo_settings().do_v_subpixel, 
-                                                  //                                    stereo_settings().do_affine_subpixel);
-                                                  false, false, false); // Subpixel explicitly disabled here because it is now handled by the refinement stage below...
+                                                  stereo_settings().cost_blur, 
+                                                  cost_type);
       if (stereo_settings().slog) {
         std::cout << "Applying SLOG filter.\n";
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
@@ -465,16 +462,15 @@ int main(int argc, char* argv[]) {
                              stereo_settings().do_h_subpixel, 
                              stereo_settings().do_v_subpixel,   // h and v subpixel
                              false);
-#endif  
-       crop(disparity_map,100,150,200,200) = 
-           crop(AffineSubpixelView(disparity_disk_image, 
-                                   channels_to_planes(left_disk_image), 
-                                   channels_to_planes(right_disk_image), 
-                                   stereo_settings().h_kern, stereo_settings().v_kern, 
-                                   stereo_settings().do_h_subpixel, 
-                                   stereo_settings().do_v_subpixel,   // h and v subpixel
-                                   false),
-                100,150,200,200);
+      //        crop(disparity_map,100,150,200,200) = 
+      //           crop(AffineSubpixelView(disparity_disk_image, 
+      //                                   channels_to_planes(left_disk_image), 
+      //                                   channels_to_planes(right_disk_image), 
+      //                                   stereo_settings().h_kern, stereo_settings().v_kern, 
+      //                                   stereo_settings().do_h_subpixel, 
+      //                                   stereo_settings().do_v_subpixel,   // h and v subpixel
+      //                                   false),
+      //                100,150,200,200);
       } else {
         std::cout << "\t--> Subpixel refinement method: parabola\n";
         disparity_map = 
@@ -489,7 +485,7 @@ int main(int argc, char* argv[]) {
       // Create a disk image resource and prepare to write a tiled
       // OpenEXR.
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-R.exr", disparity_map.format() );
-      disparity_map_rsrc.set_tiled_write(std::min(1024,disparity_map.cols()),std::min(1024, disparity_map.rows()));
+      disparity_map_rsrc.set_tiled_write(std::min(512,disparity_map.cols()),std::min(512, disparity_map.rows()));
       block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement: ") );    
     } catch (IOErr &e) { 
       cout << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
@@ -512,6 +508,14 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelDisparity<float> > disparity_disk_image(post_correlation_fname);
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
 
+      // DEBUG CODE:
+      //
+      //       std::cout << "\n\n---------> Making a hole! <--------------\n\n";
+      //       ImageView<PixelDisparity<float> > test = disparity_disk_image;
+      //       fill(crop(test, 80,150,100,100),PixelDisparity<float>());
+      //       ImageViewRef<PixelDisparity<float> > disparity_map = test;
+
+
 
       // Apply the Mask to the disparity map 
       std::cout << "\tApplying mask.\n";
@@ -521,7 +525,7 @@ int main(int argc, char* argv[]) {
 
       std::cout << "Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
       for (int i = 0; i < stereo_settings().rm_cleanup_passes; ++i) {
-        disparity_map = disparity::clean_up(disparity_disk_image,
+        disparity_map = disparity::clean_up(disparity_map,
                                             stereo_settings().rm_h_half_kern, stereo_settings().rm_v_half_kern,
                                             stereo_settings().rm_treshold, stereo_settings().rm_min_matches/100.0);
       }
@@ -546,7 +550,9 @@ int main(int argc, char* argv[]) {
         DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
         std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
         hole_filled_disp_map = disparity::mask(HoleFillView(filtered_disparity_map, 1),Lmask, Rmask);
-      } 
+      } else {
+        hole_filled_disp_map = disparity::mask(filtered_disparity_map, Lmask, Rmask);
+      }
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
       disparity_map_rsrc.set_tiled_write(std::min(2048,hole_filled_disp_map.cols()),std::min(2048, hole_filled_disp_map.rows()));
@@ -620,13 +626,10 @@ int main(int argc, char* argv[]) {
       UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)), stereo_settings().near_universe_radius, stereo_settings().far_universe_radius);
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
-//       DiskImageResourceOpenEXR point_cloud_rsrc(out_prefix + "-PC.exr", point_cloud.format() );
-//       point_cloud_rsrc.set_tiled_write(std::min(2048,point_cloud.cols()),std::min(2048, point_cloud.rows()));
-//       write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "Triangulation"));
-
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format() );
       point_cloud_rsrc.set_native_block_size(Vector2i(std::min(1024,point_cloud.cols()),
                                                       std::min(1024, point_cloud.rows())));
+
       write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "Triangulating: "));
       std::cout << universe_radius_func;
 

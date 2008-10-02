@@ -61,6 +61,8 @@ public:
   int do_affine_subpixel;       /* Use the affine adaptive subpixel correlator (slow!) */
   float xcorr_treshold;
   float corrscore_rejection_treshold;
+  int cost_blur;
+  int cost_type;
 
   // Filtering Options
   int rm_h_half_kern;		/* low confidence pixel removal kernel size */

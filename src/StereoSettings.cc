@@ -114,6 +114,8 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("DO_AFFINE_SUBPIXEL", do_affine_subpixel, 0, "Use the affine adaptive subpixel correlator (slower, but more accurate)");
   ASSOC_FLOAT("XCORR_THRESHOLD", xcorr_treshold, 2.0, "");
   ASSOC_FLOAT("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_treshold, 1.1, "");
+  ASSOC_INT("COST_BLUR", cost_blur, 1, "");
+  ASSOC_INT("COST_TYPE", cost_type, 0, "");
 
   // Filtering Options
   ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
