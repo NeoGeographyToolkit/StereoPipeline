@@ -48,7 +48,6 @@ namespace fs = boost::filesystem;
 #include <vw/FileIO/DiskImageResourceTIFF.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
-#include <vw/Stereo/AffineSubpixelView.h>
 #include <vw/Cartography.h>
 #include <vw/Math/EulerAngles.h>
 using namespace vw;
@@ -239,7 +238,7 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
-  int MEDIAN_FILTER = 1;
+  int MEDIAN_FILTER = 0;
 
   // If the user hasn't specified a stereo session type, we take a
   // guess here based on the file suffixes.
@@ -377,34 +376,13 @@ int main(int argc, char* argv[]) {
       write_image(out_prefix+"-L-crop.tif", crop(left_disk_image, crop_bbox), TerminalProgressCallback(InfoMessage, "Left Image: "));
       write_image(out_prefix+"-R-crop.tif", crop(right_disk_image, crop_bbox), TerminalProgressCallback(InfoMessage, "Right Image: "));
     }
-
-    // Set up the CorrelatorView Object
-    CorrelatorView<PixelGray<float>, stereo::SlogStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
-                                                                                      stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
-    corr_view.set_search_range(search_range);
-    corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
-    corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
-    corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
     
+    ImageViewRef<PixelDisparity<float> > disparity_map;
     stereo::CorrelatorType cost_type = ABS_DIFF_CORRELATOR;
     if (stereo_settings().cost_type == 1) 
       cost_type = SQR_DIFF_CORRELATOR;
     else if (stereo_settings().cost_type == 2) 
       cost_type = NORM_XCORR_CORRELATOR;
-    corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
-
-    if (vm.count("corr-debug-prefix"))
-      corr_view.set_debug_mode(corr_debug_prefix);
-
-    std::cout << corr_view;
-    std::cout<< "Building Disparity map...\n";
-    ImageViewRef<PixelDisparity<float> > disparity_map;
-    if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
-      disparity_map = crop(corr_view, crop_bbox);
-    } else {
-      disparity_map = corr_view;
-    }
-
     if (vm.count("optimized-correlator")) {
       vw::stereo::OptimizedCorrelator correlator( search_range, 
                                                   stereo_settings().h_kern,
@@ -420,6 +398,28 @@ int main(int argc, char* argv[]) {
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::LogStereoPreprocessingFilter(stereo_settings().slogW));
       } else {
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::NullStereoPreprocessingFilter());
+      }
+    } else {
+
+      // Set up the CorrelatorView Object
+      CorrelatorView<PixelGray<float>, stereo::SlogStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
+                                                                                       stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
+      
+      corr_view.set_search_range(search_range);
+      corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
+      corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
+      corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
+      
+      corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
+      if (vm.count("corr-debug-prefix"))
+        corr_view.set_debug_mode(corr_debug_prefix);
+      std::cout << corr_view;
+
+      std::cout<< "Building Disparity map...\n";
+      if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
+        disparity_map = crop(corr_view, crop_bbox);
+      } else {
+        disparity_map = corr_view;
       }
     }
 
@@ -448,19 +448,14 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
 
       //ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
-      ImageView<PixelDisparity<float> > disparity_map = disparity_disk_image;
-
-      if (stereo_settings().do_affine_subpixel) {
-        std::cout << "\t--> Subpixel refinement method: affine\n";
-      
-        disparity_map = 
-          AffineSubpixelView(disparity_disk_image, 
-                             channels_to_planes(left_disk_image), 
-                             channels_to_planes(right_disk_image),
-                             stereo_settings().h_kern, stereo_settings().v_kern, 
-                             stereo_settings().do_h_subpixel, 
-                             stereo_settings().do_v_subpixel,   // h and v subpixel
-                             false);
+      ImageViewRef<PixelDisparity<float> > disparity_map = AffineSubpixelView(disparity_disk_image, 
+                                                                              channels_to_planes(left_disk_image), 
+                                                                              channels_to_planes(right_disk_image),
+                                                                              stereo_settings().h_kern, stereo_settings().v_kern, 
+                                                                              stereo_settings().do_h_subpixel, 
+                                                                              stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                              stereo_settings().do_affine_subpixel,
+                                                                              false);
         //        crop(disparity_map,100,150,200,200) = 
         //           crop(AffineSubpixelView(disparity_disk_image, 
         //                                   channels_to_planes(left_disk_image), 
@@ -470,21 +465,11 @@ int main(int argc, char* argv[]) {
         //                                   stereo_settings().do_v_subpixel,   // h and v subpixel
         //                                   false),
         //                100,150,200,200);
-      } else {
-        std::cout << "\t--> Subpixel refinement method: parabola\n";
-        disparity_map = 
-          ParabolaSubpixelView<DiskImageView<PixelGray<float> >, DiskImageView<PixelDisparity<float> > > (disparity_disk_image, 
-                                                                                                               left_disk_image, right_disk_image, 
-                                                                                                               stereo_settings().h_kern, stereo_settings().v_kern, 
-                                                                                                               stereo_settings().do_h_subpixel, 
-                                                                                                               stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                                                               false);
-      }
 
       // Create a disk image resource and prepare to write a tiled
       // OpenEXR.
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-R.exr", disparity_map.format() );
-      disparity_map_rsrc.set_tiled_write(std::min(512,disparity_map.cols()),std::min(512, disparity_map.rows()));
+      disparity_map_rsrc.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
       block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement: ") );    
     } catch (IOErr &e) { 
       cout << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
