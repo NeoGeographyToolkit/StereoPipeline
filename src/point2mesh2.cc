@@ -194,32 +194,45 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
 	  // Is quadrant 1 normal calculation possible?
 	  if ( (r > 0) && ( (c+1) < (num_cols)) ) {
-	    temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step+step_size,r_step) -
-							      point_image_impl.impl()(c_step,r_step),
-							      point_image_impl.impl()(c_step,r_step-step_size) - 
-							      point_image_impl.impl()(c_step,r_step) ) );
+	    if ( (point_image_impl.impl()(c_step+step_size,r_step) != Vector3(0,0,0)) &&
+		 (point_image_impl.impl()(c_step,r_step-step_size) != Vector3(0,0,0)) ) {
+	      temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step+step_size,r_step) -
+								point_image_impl.impl()(c_step,r_step),
+								point_image_impl.impl()(c_step,r_step-step_size) - 
+								point_image_impl.impl()(c_step,r_step) ) );
+	    }
 	  }
 	  // Is quadrant 2 normal calculation possible?
 	  if ( ( (c+1) < (num_cols) ) && ((r+1) < (num_rows))){
-	    temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step,r_step+step_size) -
-							      point_image_impl.impl()(c_step,r_step),
-							      point_image_impl.impl()(c_step+step_size,r_step) -
-							      point_image_impl.impl()(c_step,r_step) ) );
+	    if ( (point_image_impl.impl()(c_step,r_step+step_size) != Vector3(0,0,0)) &&
+		 (point_image_impl.impl()(c_step+step_size,r_step) != Vector3(0,0,0)) ) {
+	      temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step,r_step+step_size) -
+								point_image_impl.impl()(c_step,r_step),
+								point_image_impl.impl()(c_step+step_size,r_step) -
+								point_image_impl.impl()(c_step,r_step) ) );
+	    }
 	  }
 	  // Is quadrant 3 normal calculation possible?
 	  if ( ((r+1) < (num_rows)) && (c>0) ) {
-	    temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step-step_size,r_step) -
-							      point_image_impl.impl()(c_step,r_step),
-							      point_image_impl.impl()(c_step,r_step+step_size) -
-							      point_image_impl.impl()(c_step,r_step) ) );
+	    if ( (point_image_impl.impl()(c_step-step_size,r_step) != Vector3(0,0,0)) &&
+		 (point_image_impl.impl()(c_step,r_step+step_size) != Vector3(0,0,0)) ) {
+	      temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step-step_size,r_step) -
+								point_image_impl.impl()(c_step,r_step),
+								point_image_impl.impl()(c_step,r_step+step_size) -
+								point_image_impl.impl()(c_step,r_step) ) );
+	    }
 	  }
 	  // Is quadrant 4 normal calculation possible?
 	  if ( (c>0) && (r>0) ) {
-	    temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step,r_step-step_size) -
-							      point_image_impl.impl()(c_step,r_step),
-							      point_image_impl.impl()(c_step-step_size,r_step) -
-							      point_image_impl.impl()(c_step,r_step) ) );
+	    if ( (point_image_impl.impl()(c_step,r_step-step_size) != Vector3(0,0,0)) &&
+		 (point_image_impl.impl()(c_step-step_size,r_step) != Vector3(0,0,0)) ) {
+	      temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step,r_step-step_size) -
+								point_image_impl.impl()(c_step,r_step),
+								point_image_impl.impl()(c_step-step_size,r_step) -
+								point_image_impl.impl()(c_step,r_step) ) );
+	    }
 	  }
+	  
 	  temp_normal = normalize( temp_normal );
 	  normals->push_back( osg::Vec3f( temp_normal[0],
 					  temp_normal[1],
