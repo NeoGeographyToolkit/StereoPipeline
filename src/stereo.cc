@@ -423,6 +423,12 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    // Apply the Mask to the disparity map 
+    std::cout << "\tApplying mask.\n";
+    DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
+    DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
+    disparity_map = disparity::mask(disparity_map, Lmask, Rmask);
+
     // Do some basic outlier rejection
     ImageViewRef<PixelDisparity<float> > proc_disparity_map = disparity::clean_up(disparity_map,
                                                                                   stereo_settings().rm_h_half_kern, stereo_settings().rm_v_half_kern,
@@ -447,7 +453,6 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
 
-      //ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
       ImageViewRef<PixelDisparity<float> > disparity_map = AffineSubpixelView(disparity_disk_image, 
                                                                               channels_to_planes(left_disk_image), 
                                                                               channels_to_planes(right_disk_image),
@@ -499,14 +504,6 @@ int main(int argc, char* argv[]) {
       //       fill(crop(test, 80,150,100,100),PixelDisparity<float>());
       //       ImageViewRef<PixelDisparity<float> > disparity_map = test;
 
-
-
-      // Apply the Mask to the disparity map 
-      std::cout << "\tApplying mask.\n";
-      DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
-      DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
-      disparity_map = disparity::mask(disparity_disk_image, Lmask, Rmask);
-
       std::cout << "Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
       for (int i = 0; i < stereo_settings().rm_cleanup_passes; ++i) {
         disparity_map = disparity::clean_up(disparity_map,
@@ -529,9 +526,9 @@ int main(int argc, char* argv[]) {
       // using bicubic interpolation.
       ImageViewRef<PixelDisparity<float> > hole_filled_disp_map = filtered_disparity_map;
 
+      DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
+      DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
       if(stereo_settings().fill_holes_NURBS) {
-        DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
-        DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
         std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
         hole_filled_disp_map = disparity::mask(HoleFillView(filtered_disparity_map, 1),Lmask, Rmask);
       } else {
