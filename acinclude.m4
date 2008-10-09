@@ -115,7 +115,7 @@ AC_DEFUN([AX_FIND_FILES],
 ])
 
 
-dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>])
+dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <additional cxxflags>])
 AC_DEFUN([AX_PKG],
 [
   AC_ARG_WITH(translit($1,`A-Z',`a-z'),
@@ -218,7 +218,7 @@ AC_DEFUN([AX_PKG],
           if test -z "$5"; then
             ASP_CPPFLAGS="-I$path/${AX_INCLUDE_DIR} $ASP_CPPFLAGS"
           else
-            ASP_CPPFLAGS="-I$path/${AX_INCLUDE_DIR}/$5 $ASP_CPPFLAGS"
+            ASP_CPPFLAGS="$5 $ASP_CPPFLAGS"
           fi
           CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
           AC_LINK_IFELSE(

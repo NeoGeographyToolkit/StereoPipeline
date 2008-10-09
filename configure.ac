@@ -217,7 +217,7 @@ AC_PROG_LIBTOOL
 AC_PROG_MAKE_SET
 
 # Qt with AutoTroll.
-AT_WITH_QT
+AT_WITH_QT([+gui +sql +opengl])
 
 if test "yes" = "$ENABLE_VERBOSE"; then
   AC_MSG_NOTICE([using PKG_PATHS=$PKG_PATHS])
@@ -249,13 +249,21 @@ AX_PKG(VW_CARTOGRAPHY, [], [-lvwCartography], [vw/Cartography/GeoReference.h])
 AX_PKG(VW_INTEREST_POINT, [], [-lvwInterestPoint])
 
 AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
-AX_PKG(MBA, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
+AX_PKG(MBA10, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
+
+if test "$HAVE_PKG_MBA10" = "no"; then
+  echo "Checking for MBA 1.1"
+  AX_PKG(MBA, [], [-lMBA-1.1], [MBA.h])
+else
+  AX_PKG(MBA, [MBA10], [], [])
+fi
+
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
-AX_PKG(QT_INCLUDE, [], [], [QtCore/QVector])
-AX_PKG(QT_CORE, [QT_INCLUDE], [-lQtCore.4], [QVector], [QtCore])
-AX_PKG(QT_GUI, [QT_INCLUDE], [-lQtGui.4], [QLabel], [QtGui])
-AX_PKG(QT_SQL, [QT_INCLUDE], [-lQtSql.4], [QtSql],[QtSql])
+AX_PKG(QT_INCLUDE, [],           [],          [QVector], [${QT_CPPFLAGS}])
+AX_PKG(QT_CORE,    [QT_INCLUDE], [-lQtCore],  [QVector], [${QT_CPPFLAGS}])
+AX_PKG(QT_GUI,     [QT_INCLUDE], [-lQtGui],   [QLabel],  [${QT_CPPFLAGS}])
+AX_PKG(QT_SQL,     [QT_INCLUDE], [-lQtSql],   [QtSql],   [${QT_CPPFLAGS}])
 
 dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems, 
 dnl the ISIS compilation does not resolve certain BLAS symbols that its 
