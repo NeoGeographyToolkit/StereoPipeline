@@ -34,6 +34,7 @@
 #define _GenMatrix_h_
 
 #include <iostream>
+#include <cstdlib>
 
 //#define ARRAY_CHECK 1
 

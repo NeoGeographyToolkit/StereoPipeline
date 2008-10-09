@@ -45,7 +45,6 @@ namespace fs = boost::filesystem;
 #include <vw/Image.h>
 #include <vw/Math.h>
 #include <vw/FileIO.h>
-#include <vw/FileIO/DiskImageResourceTIFF.h>
 #include <vw/Camera.h>
 #include <vw/Stereo.h>
 #include <vw/Cartography.h>
