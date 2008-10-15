@@ -51,8 +51,17 @@ namespace vw {
   template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+// Erases a file suffix if one exists and returns the base string
+static std::string prefix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1) 
+    result.erase(index, result.size());
+  return result;
+}
+
 int main( int argc, char *argv[] ) {
-  std::string input_file_name, output_prefix, output_file_type;
+  std::string input_file_name, output_prefix = "", output_file_type;
   unsigned cache_size;
   int debug_level;
 
@@ -61,7 +70,7 @@ int main( int argc, char *argv[] ) {
     ("help", "Display this help message")
     ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
     ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
-    ("output-prefix,o", po::value<std::string>(&output_prefix)->default_value("disparity"), "Specify the output prefix")
+    ("output-prefix,o", po::value<std::string>(&output_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
     ("float-pixels", "Save the resulting debug images as 32 bit floating point files (if supported by the selected files type.");
@@ -85,6 +94,10 @@ int main( int argc, char *argv[] ) {
     std::cout << "Error: Must specify exactly one input file!" << std::endl;
     std::cout << desc << std::endl;
     return 1;
+  }
+
+  if( output_prefix == "" ) {
+    output_prefix = prefix_from_filename(input_file_name);
   }
 
   std::cout << "Opening " << input_file_name << "\n";

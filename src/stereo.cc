@@ -113,6 +113,12 @@ void print_usage(po::options_description const& visible_options) {
 //***********************************************************************
 int main(int argc, char* argv[]) {
 
+  TerminateHandler th[] = {BacktraceTerminate, PrettyTerminate, DefaultTerminate};
+  
+  for (int i = 0; i < 3; ++i)
+    if (set_terminate_handler(th[i]))
+      break;
+
   // The default file type are automatically registered the first time
   // a file is opened or created, however we want to override some of
   // the defaults, so we explicitly register them here before registering
@@ -128,12 +134,12 @@ int main(int argc, char* argv[]) {
                                         &DiskImageResourceDDD::construct_create);
   
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
-//   // Register the Isis file handler with the Vision Workbench
-//   // DiskImageResource system.
-//   DiskImageResource::register_file_type(".cub",
-//                                         DiskImageResourceIsis::type_static(),
-//                                         &DiskImageResourceIsis::construct_open,
-//                                         &DiskImageResourceIsis::construct_create);
+  // Register the Isis file handler with the Vision Workbench
+  // DiskImageResource system.
+  DiskImageResource::register_file_type(".cub",
+                                        DiskImageResourceIsis::type_static(),
+                                        &DiskImageResourceIsis::construct_open,
+                                        &DiskImageResourceIsis::construct_create);
 #endif 
   /*************************************/
   /* Parsing of command line arguments */

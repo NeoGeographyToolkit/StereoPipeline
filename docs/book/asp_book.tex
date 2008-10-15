@@ -1,0 +1,56 @@
+\documentclass[letterpaper,12pt]{book}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{moreverb}
+\usepackage{float}
+\usepackage{subfigure}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+
+% Define the \sourcelst command to create a floating listing of 
+% a (separate) source file.
+\newfloat{listing}{t}{lop}
+\floatname{listing}{Listing}
+\def\sourcelst#1#2{
+\begin{listing}
+\begin{tabular}{|@{\hspace{0.04\linewidth}}c@{\hspace{0.02\linewidth}}|}
+\hline \\
+\begin{minipage}{0.94\linewidth}
+\small\listinginput{1}{#1}
+\end{minipage}
+\\ \\ \hline
+\end{tabular}
+\caption{[{\tt #1}]\ \ #2}
+\label{lst:#1}
+\end{listing}
+}
+
+\title{{\Huge The Vision Workbook:}\\A User's Guide to the\\NASA Vision Workbench v1.0}
+\author{
+Matthew D.~Hancher\\
+Michael J.~Broxton\\
+Laurence J.~Edwards\\
+\\
+Intelligent Systems Division\\
+NASA Ames Research Center\\
+\\
+DRAFT}
+
+\begin{document}
+\maketitle
+\include{acknowledgements}
+\tableofcontents
+\include{introduction}
+\include{gettingstarted}
+\include{workingwithimages}
+\include{imageprocessing}
+\include{typesystem}
+\include{core_module}
+\include{camera_module}
+\include{mosaic_module}
+\include{hdr_module}
+\include{cartography_module}
+\include{stereo_module}
+\include{advancedtopics}
+\include{cookbook}
+
+\end{document}

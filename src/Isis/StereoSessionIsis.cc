@@ -311,25 +311,25 @@ void StereoSessionIsis::pre_filtering_hook(std::string const& input_file, std::s
   // (uncomment at your own risk)
   // ****************************************************
 
-//   output_file = m_out_prefix + "-D-masked.exr";
+  output_file = m_out_prefix + "-R-masked.exr";
   
-//   ImageView<uint8> Lmask, Rmask;
-//   DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
-//   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+  ImageView<uint8> Lmask, Rmask;
+  DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
+  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
   
-//   read_image(Lmask,m_out_prefix + "-lMask.tif");
-//   read_image(Rmask,m_out_prefix + "-rMask.tif");
-//   disparity::mask_black_pixels(clamp(left_disk_image,0,1e6), Lmask);
-//   disparity::mask_black_pixels(clamp(right_disk_image,0,1e6), Rmask);
-//   write_image(m_out_prefix + "-lMaskDebug.tif", Lmask);
-//   write_image(m_out_prefix + "-rMaskDebug.tif", Rmask);
+  read_image(Lmask,m_out_prefix + "-lMask.tif");
+  read_image(Rmask,m_out_prefix + "-rMask.tif");
+  disparity::mask_black_pixels(clamp(left_disk_image,0,1e6), Lmask);
+  disparity::mask_black_pixels(clamp(right_disk_image,0,1e6), Rmask);
+  write_image(m_out_prefix + "-lMaskDebug.tif", Lmask);
+  write_image(m_out_prefix + "-rMaskDebug.tif", Rmask);
   
-//   DiskImageView<PixelDisparity<float> > disparity_disk_image(input_file);
-//   ImageViewRef<PixelDisparity<float> > disparity_map = disparity::mask(disparity_disk_image, Lmask, Rmask);
+  DiskImageView<PixelDisparity<float> > disparity_disk_image(input_file);
+  ImageViewRef<PixelDisparity<float> > disparity_map = disparity::mask(disparity_disk_image, Lmask, Rmask);
 
-//   DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
-//   disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
-//   block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );
+  DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
+  disparity_map_rsrc.set_tiled_write(std::min(512,disparity_map.cols()),std::min(512, disparity_map.rows()));
+  block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback() );
 }
 
 // Reverse any pre-alignment that was done to the images.

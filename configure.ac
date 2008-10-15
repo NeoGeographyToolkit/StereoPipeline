@@ -260,18 +260,25 @@ fi
 
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
+dnl ISIS includes QT headers without the proper qt module prefix, so
+dnl we need to add this check here to force the build system to add an
+dnl extra include path at the top level of the QTCore tree.  
 AX_PKG(QT_INCLUDE, [],           [],          [QVector], [${QT_CPPFLAGS}])
-AX_PKG(QT_CORE,    [QT_INCLUDE], [-lQtCore],  [QVector], [${QT_CPPFLAGS}])
-AX_PKG(QT_GUI,     [QT_INCLUDE], [-lQtGui],   [QLabel],  [${QT_CPPFLAGS}])
-AX_PKG(QT_SQL,     [QT_INCLUDE], [-lQtSql],   [QtSql],   [${QT_CPPFLAGS}])
+dnl AX_PKG(QT_CORE,    [QT_INCLUDE], [-lQtCore],  [QVector], [${QT_CPPFLAGS}])
+dnl AX_PKG(QT_GUI,     [QT_INCLUDE], [-lQtGui],   [QLabel],  [${QT_CPPFLAGS}])
+dnl AX_PKG(QT_SQL,     [QT_INCLUDE], [-lQtSql],   [QtSql],   [${QT_CPPFLAGS}])
 
 dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems, 
 dnl the ISIS compilation does not resolve certain BLAS symbols that its 
 dnl dependent 3rd party libraries depend on (for whatever retarded reason).
 dnl Thus, we link against LAPACK here because it defines these missing 
 dnl BLAS symbols in the event that we need them.
-AX_PKG(ISIS3RDPARTY, [LAPACK], [-lsuperlu_3.0 -lgeos.2 -lxerces-c.27 -lgsl.0 -lgslcblas.0 -lqwt.5 -lstdc++])
-AX_PKG(ISIS, [QT_INCLUDE QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
+AX_PKG(GEOS, [], [-lgeos-3.0.0], [])
+AX_PKG(SUPERLU, [], [-lsuperlu_3.0], [])
+AX_PKG(XERCESC, [], [-lxerces-c.28], [])
+AX_PKG(ISIS3RDPARTY, [LAPACK], [-lgsl.0 -lgslcblas.0 -lqwt.5.1])
+dnl AX_PKG(ISIS, [QT_INCLUDE QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
+AX_PKG(ISIS, [SPICE GEOS SUPERLU XERCESC ISIS3RDPARTY], [-lisis3])
 
 dnl AX_PKG(SPICE, [], [-lcspice -lcsupport], [SpiceUsr.h SpiceZfc.h])
 dnl AX_PKG(QT_CORE, [], [-lQtCore], [QVector], [QtCore QtCore])

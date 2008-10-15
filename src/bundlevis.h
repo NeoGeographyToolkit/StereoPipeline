@@ -142,7 +142,7 @@ class CameraIter : public osg::Referenced  {
   void addIteration( const std::vector<osg::Vec3f>& newPos,
 		     const std::vector<osg::Vec3f>& newEuler ) {
     if (_isPushbroom){
-      if ( newPos.size() == _vertices ) {
+      if ( int(newPos.size()) == _vertices ) {
 	for (int i = 0; i < _vertices; ++i) {
 	  _position.push_back( newPos[i] );
 	  _euler.push_back( newEuler[i] );
@@ -349,12 +349,12 @@ struct pushbroomDrawCallback : public osg::Drawable::DrawCallback
 
       if ( buffer == 0 ) { // Draw the last instance
 
-	for ( unsigned i = 0; i < (*_camera).getVertices(); ++i )
+	for ( int i = 0; i < (*_camera).getVertices(); ++i )
 	  (*vertices)[i] = (*_camera).getPosition( _camera->size() - 1, i);
 
       } else {             // normal
 	
-	for ( unsigned i = 0; i < (*_camera).getVertices(); ++i )
+	for ( int i = 0; i < (*_camera).getVertices(); ++i )
 	  (*vertices)[i] = (*_camera).getPosition( buffer-1, i );
 
       }
