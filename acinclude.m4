@@ -460,29 +460,50 @@ AC_DEFUN([AX_PKG_LAPACK],
       AC_MSG_NOTICE([ASP_LDFLAGS = ${ASP_LDFLAGS}])
     else
       AC_MSG_RESULT([${HAVE_PKG_LAPACK}])
-    fi  
+    fi
 
   # For all other platforms, we search for static LAPACK libraries
   # in the conventional manner.
   else
     # First check for CLAPACK
-    AX_PKG(LAPACK, [], [-lclapack -lblas -lf2c], [])
-    if test "$HAVE_PKG_LAPACK" = "no"; then
-      unset HAVE_PKG_LAPACK
+    AX_PKG(CLAPACK, [], [-lclapack -lblas -lf2c], [])
+    if test "$HAVE_PKG_CLAPACK" = "no"; then
       # Otherwise check for standard LAPACK
       AC_MSG_NOTICE(["CLAPACK not found, trying standard LAPACK."])
-      unset HAVE_PKG_LAPACK
-      AX_PKG(LAPACK, [], [-llapack -lblas], [])
-    fi
-    if test "$HAVE_PKG_LAPACK" = "no"; then
-      unset HAVE_PKG_LAPACK
-      # Some newer boxes require -lgfortran, so try that too
-      AC_MSG_NOTICE(["trying standard LAPACK with -lgfortran."])
-      unset HAVE_PKG_LAPACK
-      AX_PKG(LAPACK, [], [-llapack -lblas -lgfortran], [])
+      AX_PKG(SLAPACK, [], [-llapack -lblas], [])
+
+      if test "$HAVE_PKG_SLAPACK" = "no"; then
+        # Some newer boxes require -lgfortran, so try that too
+        AC_MSG_NOTICE(["trying standard LAPACK with -lgfortran."])
+        AX_PKG(FLAPACK, [], [-llapack -lblas -lgfortran], [])
+
+        if test "$HAVE_PKG_FLAPACK" = "no"; then
+          # On some systems, BLAS and LAPACK are installed in different places
+          AC_MSG_NOTICE(["trying to find BLAS and LAPACK seperately."])
+          AX_PKG(STANDALONE_BLAS, [], [-lblas], [])
+          AX_PKG(STANDALONE_LAPACK, [], [-llapack], [])
+          AX_PKG(STANDALONE_LAPACK_AND_BLAS, [STANDALONE_LAPACK STANDALONE_BLAS], [], [])
+
+	  if test "$HAVE_PKG_STANDALONE_LAPACK_AND_BLAS" = "no"; then
+            # On some systems, F2C, FBLAS and FLAPACK are installed in different places
+            AC_MSG_NOTICE(["trying to find F2C, FBLAS, and FLAPACK seperately."])
+            AX_PKG(STANDALONE_F2C, [], [-lf2c], [])
+            AX_PKG(STANDALONE_FBLAS, [STANDALONE_F2C], [-lblas], [])
+            AX_PKG(STANDALONE_FLAPACK, [STANDALONE_F2C], [-llapack], [])
+            AX_PKG(LAPACK, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C], [], [])
+	  else
+            AX_PKG(LAPACK, [STANDALONE_LAPACK_AND_BLAS], [], [])
+	  fi # FBLAS and FLAPACK
+        else
+          AX_PKG(LAPACK, [FLAPACK], [], [])
+        fi # BLAS and LAPACK
+      else
+        AX_PKG(LAPACK, [SLAPACK], [], [])
+      fi # fortan LAPACK
+    else
+      AX_PKG(LAPACK, [CLAPACK], [], [])
     fi
   fi
-
 ])
 
 # Usage: AX_PKG_GL
