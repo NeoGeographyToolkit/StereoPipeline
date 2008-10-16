@@ -262,32 +262,36 @@ AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
 dnl ISIS includes QT headers without the proper qt module prefix, so
 dnl we need to add this check here to force the build system to add an
-dnl extra include path at the top level of the QTCore tree.  
+dnl extra include path at the top level of the QTCore tree.
 AX_PKG(QT_INCLUDE, [],           [],          [QVector], [${QT_CPPFLAGS}])
-dnl AX_PKG(QT_CORE,    [QT_INCLUDE], [-lQtCore],  [QVector], [${QT_CPPFLAGS}])
-dnl AX_PKG(QT_GUI,     [QT_INCLUDE], [-lQtGui],   [QLabel],  [${QT_CPPFLAGS}])
-dnl AX_PKG(QT_SQL,     [QT_INCLUDE], [-lQtSql],   [QtSql],   [${QT_CPPFLAGS}])
+
+if test x"$host_vendor" = "xapple"; then
+    AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt.5])
+    AX_PKG(GEOS,    [],             [-lgeos-3.0.0], [])
+    AX_PKG(GSL,     [LAPACK],       [-lgsl -lgsl.0 -lgslcblas.0 ])
+    AX_PKG(SUPERLU, [],             [-lsuperlu_3.0], [])
+    AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
+    AX_PKG(QT,      [QT_INCLUDE],   [],              [], [${QT_CPPFLAGS}])
+else
+    AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt-qt4])
+    AX_PKG(GEOS,    [],             [-lgeos])
+    AX_PKG(GSL,     [LAPACK],       [-lgsl])
+    AX_PKG(SUPERLU, [],             [-lsuperlu])
+    AX_PKG(XERCESC, [],             [-lxerces-c])
+
+    AX_PKG(QT_CORE, [QT_INCLUDE],   [-lQtCore],  [QVector], [${QT_CPPFLAGS}])
+    AX_PKG(QT_GUI,  [QT_INCLUDE],   [-lQtGui],   [QLabel],  [${QT_CPPFLAGS}])
+    AX_PKG(QT_SQL,  [QT_INCLUDE],   [-lQtSql],   [QtSql],   [${QT_CPPFLAGS}])
+    AX_PKG(QT,      [QT_INCLUDE QT_CORE QT_GUI QT_SQL], [], [], [${QT_CPPFLAGS}])
+fi
 
 dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems, 
 dnl the ISIS compilation does not resolve certain BLAS symbols that its 
 dnl dependent 3rd party libraries depend on (for whatever retarded reason).
 dnl Thus, we link against LAPACK here because it defines these missing 
 dnl BLAS symbols in the event that we need them.
-AX_PKG(GEOS, [], [-lgeos-3.0.0], [])
-AX_PKG(SUPERLU, [], [-lsuperlu_3.0], [])
-AX_PKG(XERCESC, [], [-lxerces-c.28], [])
-AX_PKG(ISIS3RDPARTY, [LAPACK], [-lgsl.0 -lgslcblas.0 -lqwt.5.1])
-dnl AX_PKG(ISIS, [QT_INCLUDE QT_CORE QT_GUI QT_SQL SPICE ISIS3RDPARTY], [-lisis3])
-AX_PKG(ISIS, [SPICE GEOS SUPERLU XERCESC ISIS3RDPARTY], [-lisis3])
-
-dnl AX_PKG(SPICE, [], [-lcspice -lcsupport], [SpiceUsr.h SpiceZfc.h])
-dnl AX_PKG(QT_CORE, [], [-lQtCore], [QVector], [QtCore QtCore])
-dnl AX_PKG(QT_GUI, [], [-lQtGui], [QLabel], [QtGui])
-dnl AX_PKG(QT_NETWORK, [], [-lQtNetwork], [], [QtNetwork])
-dnl AX_PKG(QT_SQL, [], [-lQtSql], [], [QtSql])
-dnl AX_PKG(QT, [QT_CORE QT_GUI QT_NETWORK QT_SQL], [])
-dnl AX_PKG(ISIS3RDPARTY, [], [-lgeos -lgeos_c -lxerces-c -lgsl -lgslcblas -liconv -lqwt -lpq -lqwt -lz])
-dnl AX_PKG(ISIS, [SPICE QT ISIS3RDPARTY], [-lisis3])
+AX_PKG(ISIS3RDPARTY, [LAPACK QWT GEOS GSL SUPERLU SPICE XERCESC], [])
+AX_PKG(ISIS, [QT ISIS3RDPARTY], [-lisis3])
 
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.

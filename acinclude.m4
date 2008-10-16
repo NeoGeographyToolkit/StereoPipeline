@@ -123,6 +123,13 @@ AC_DEFUN([AX_PKG],
     [ HAVE_PKG_$1=$withval ]
   )
 
+ AC_ARG_WITH(translit($1,`A-Z',`a-z')[-cflags],
+   AC_HELP_STRING([--with-]translit($1,`A-Z',`a-z')[-cppflags], [Add to $1_CPPFLAGS @<:@auto@:>@]),
+   [ ADD_$1_CPPFLAGS=$withval ])
+ AC_ARG_WITH(translit($1,`A-Z',`a-z')[-libs],
+   AC_HELP_STRING([--with-]translit($1,`A-Z',`a-z')[-libs], [Override $1_LIBS and skip search @<:@auto@:>@]),
+   [ FORCE_$1_LDFLAGS=$withval ])
+
   if test x"$ENABLE_VERBOSE" = "xyes"; then
     AC_MSG_CHECKING([for package $1 in current paths])
   else
@@ -138,7 +145,12 @@ AC_DEFUN([AX_PKG],
   
   else
     # Test for and inherit libraries from dependencies
-    PKG_$1_LIBS="$3"
+    if test -z "${FORCE_$1_LDFLAGS}"; then
+        PKG_$1_LIBS="$3"
+    else
+        PKG_$1_LIBS="${FORCE_$1_LDFLAGS}"
+    fi
+
     for x in $2; do
       ax_pkg_have_dep=HAVE_PKG_${x}
       if test "${!ax_pkg_have_dep}" = "yes"; then
@@ -166,7 +178,9 @@ AC_DEFUN([AX_PKG],
         AC_MSG_RESULT([searching...])
       fi
 
-      if test -n "${HAVE_PKG_$1}" && test "${HAVE_PKG_$1}" != "yes" && test "${HAVE_PKG_$1}" != "no"; then
+      if test -n "${FORCE_$1_LDFLAGS}"; then
+        PKG_PATHS_$1=""
+      elif test -n "${HAVE_PKG_$1}" && test "${HAVE_PKG_$1}" != "yes" && test "${HAVE_PKG_$1}" != "no"; then
         PKG_PATHS_$1=${HAVE_PKG_$1}
       else
         PKG_PATHS_$1=${PKG_PATHS}
@@ -188,7 +202,7 @@ AC_DEFUN([AX_PKG],
       fi
 
       ax_pkg_old_libs=$LIBS
-      LIBS=$PKG_$1_LIBS $LIBS
+      LIBS="$PKG_$1_LIBS $LIBS"
       for path in none $PKG_PATHS_$1; do
         ax_pkg_old_cppflags=$CPPFLAGS
         ax_pkg_old_ldflags=$LDFLAGS
@@ -218,7 +232,7 @@ AC_DEFUN([AX_PKG],
           if test -z "$5"; then
             ASP_CPPFLAGS="-I$path/${AX_INCLUDE_DIR} $ASP_CPPFLAGS"
           else
-            ASP_CPPFLAGS="$5 $ASP_CPPFLAGS"
+            ASP_CPPFLAGS="$ADD_$1_CPPFLAGS $5 $ASP_CPPFLAGS"
           fi
           CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
           AC_LINK_IFELSE(
