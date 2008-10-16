@@ -216,6 +216,8 @@ AX_PROG_AR
 AC_PROG_LIBTOOL
 AC_PROG_MAKE_SET
 
+AC_LANG(C++)
+
 # Qt with AutoTroll.
 AT_WITH_QT([+gui +sql +opengl])
 
