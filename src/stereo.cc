@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
-  int MEDIAN_FILTER = 0;
+  int MEDIAN_FILTER = 1;
 
   // If the user hasn't specified a stereo session type, we take a
   // guess here based on the file suffixes.
@@ -310,14 +310,17 @@ int main(int argc, char* argv[]) {
     
    
     if (MEDIAN_FILTER==1){
-        cout << "\nMedian filtering..." << std::flush; 
+        cout << "\nMedian filtering start..." << std::flush; 
         ImageViewRef<PixelGray<uint8> > left_denoised_image;
+        cout<<"\n debugging 1";
         ImageViewRef<PixelGray<uint8> > right_denoised_image; 
-        
+        cout<<"\n debugging";
         left_denoised_image  = (fast_median_filter(left_rectified_image, 7));
+        cout<< "\n left image done";
         right_denoised_image = (fast_median_filter(right_rectified_image, 7));
-        
+        cout<< "\n right image done";   
         write_image(out_prefix+"-median-L.tif", left_denoised_image);
+        cout<<"\n wrote left image";
         write_image(out_prefix+"-median-R.tif", right_denoised_image);
 
         cout << "\nDone..." << std::flush;
