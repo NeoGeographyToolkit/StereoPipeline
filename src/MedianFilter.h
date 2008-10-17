@@ -66,7 +66,9 @@ ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> 
   
   bool goingRight = true;
   int x = 0, y = 0;
-  while (y <= src.rows() - kernSize) {
+  //while (y <=src.rows() - kernSize) { //this was a bug
+  while (y < src.rows() - kernSize) {
+     
     result(x + kernSize / 2, y + kernSize / 2) = find_median_in_histogram(histogram, kernSize);
 
     if (goingRight) {
@@ -76,6 +78,7 @@ ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> 
           histogram(src(x + kernSize, y + i))++;
         }
         x++;
+       
       }
       else {
         // Reached the right edge
@@ -142,7 +145,7 @@ public:
    /*
    bool goingRight = true;
    int x = 0, y = 0;
-   while (y <= src.rows() - kernSize) {
+   while (y < src.rows() - kernSize) {
       
       	result(x + m_kernel_width / 2, y + m_kernel_height / 2) = find_median_in_histogram(histogram, m_kernel_width);
         
