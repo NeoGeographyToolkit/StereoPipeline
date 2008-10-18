@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
-  int MEDIAN_FILTER = 1;
+  int MEDIAN_FILTER = 0;
 
   // If the user hasn't specified a stereo session type, we take a
   // guess here based on the file suffixes.
@@ -350,17 +350,18 @@ int main(int argc, char* argv[]) {
     if (entry_point == CORRELATION) 
         cout << "\nStarting at the CORRELATION stage.\n";
     
-    
+    DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
+    DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
+
+    // Median filter
     string filename_L;
     string filename_R;
     if (MEDIAN_FILTER==1){
-         filename_L = out_prefix+"-median-L.tif";
-         filename_R = out_prefix+"-median-R.tif";
-          
-    }
-    else{
-         filename_L = out_prefix+"-L.tif";
-         filename_R = out_prefix+"-R.tif";
+      filename_L = out_prefix+"-median-L.tif";
+      filename_R = out_prefix+"-median-R.tif";
+    } else {
+      filename_L = out_prefix+"-L.tif";
+      filename_R = out_prefix+"-R.tif";
     }
 
     DiskImageView<PixelGray<float> > left_disk_image(filename_L);
@@ -408,33 +409,85 @@ int main(int argc, char* argv[]) {
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::NullStereoPreprocessingFilter());
       }
     } else {
-
-      // Set up the CorrelatorView Object
-      CorrelatorView<PixelGray<float>, stereo::SlogStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
-                                                                                       stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
       
-      corr_view.set_search_range(search_range);
-      corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
-      corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
-      corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
-      
-      corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
-      if (vm.count("corr-debug-prefix"))
-        corr_view.set_debug_mode(corr_debug_prefix);
-      std::cout << corr_view;
+      if (stereo_settings().slog) {
+        std::cout << "\t--> Using SLOG pre-processing filter with " << stereo_settings().slogW << " sigma blur.\n";
 
-      std::cout<< "Building Disparity map...\n";
-      if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
-        disparity_map = crop(corr_view, crop_bbox);
-      } else {
-        disparity_map = corr_view;
+        // Set up the CorrelatorView Object
+        CorrelatorView<PixelGray<float>, uint8, stereo::SlogStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
+                                                                                                 Lmask, Rmask,
+                                                                                                 stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
+        
+        corr_view.set_search_range(search_range);
+        corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
+        corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
+        corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
+        
+        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
+        if (vm.count("corr-debug-prefix"))
+          corr_view.set_debug_mode(corr_debug_prefix);
+        std::cout << corr_view;
+        
+        std::cout<< "Building Disparity map...\n";
+        if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
+          disparity_map = crop(corr_view, crop_bbox);
+        } else {
+          disparity_map = corr_view;
+        }
+
+      } else if (stereo_settings().log) {
+        std::cout << "\t--> Using LOG pre-processing filter with " << stereo_settings().slogW << " sigma blur.\n";
+
+        // Set up the CorrelatorView Object
+        CorrelatorView<PixelGray<float>, uint8, stereo::LogStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
+                                                                                                Lmask, Rmask,
+                                                                                                stereo::LogStereoPreprocessingFilter(stereo_settings().slogW));
+        
+        corr_view.set_search_range(search_range);
+        corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
+        corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
+        corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
+        
+        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
+        if (vm.count("corr-debug-prefix"))
+          corr_view.set_debug_mode(corr_debug_prefix);
+        std::cout << corr_view;
+        
+        std::cout<< "Building Disparity map...\n";
+        if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
+          disparity_map = crop(corr_view, crop_bbox);
+        } else {
+          disparity_map = corr_view;
+        }
+
+      } else { // Neither slog or log
+        std::cout << "\t--> Using BLUR pre-processing filter.\n";
+        CorrelatorView<PixelGray<float>, uint8, stereo::BlurStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
+                                                                                                 Lmask, Rmask,
+                                                                                                 stereo::BlurStereoPreprocessingFilter(stereo_settings().slogW));
+        
+        corr_view.set_search_range(search_range);
+        corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
+        corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
+        corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
+        
+        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
+        if (vm.count("corr-debug-prefix"))
+          corr_view.set_debug_mode(corr_debug_prefix);
+        std::cout << corr_view;
+        
+        std::cout<< "Building Disparity map...\n";
+        if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
+          disparity_map = crop(corr_view, crop_bbox);
+        } else {
+          disparity_map = corr_view;
+        }
+
       }
     }
 
     // Apply the Mask to the disparity map 
     std::cout << "\tApplying mask.\n";
-    DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
-    DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
     disparity_map = disparity::mask(disparity_map, Lmask, Rmask);
 
     // Do some basic outlier rejection
@@ -461,23 +514,49 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
 
-      ImageViewRef<PixelDisparity<float> > disparity_map = AffineSubpixelView(disparity_disk_image, 
-                                                                              channels_to_planes(left_disk_image), 
-                                                                              channels_to_planes(right_disk_image),
-                                                                              stereo_settings().h_kern, stereo_settings().v_kern, 
-                                                                              stereo_settings().do_h_subpixel, 
-                                                                              stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                              stereo_settings().do_affine_subpixel,
-                                                                              false);
-        //        crop(disparity_map,100,150,200,200) = 
-        //           crop(AffineSubpixelView(disparity_disk_image, 
-        //                                   channels_to_planes(left_disk_image), 
-        //                                   channels_to_planes(right_disk_image), 
-        //                                   stereo_settings().h_kern, stereo_settings().v_kern, 
-        //                                   stereo_settings().do_h_subpixel, 
-        //                                   stereo_settings().do_v_subpixel,   // h and v subpixel
-        //                                   false),
-        //                100,150,200,200);
+      ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
+
+      if (stereo_settings().slog) {
+        disparity_map = SubpixelView<SlogStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                    channels_to_planes(left_disk_image), 
+                                                                    channels_to_planes(right_disk_image),
+                                                                    stereo_settings().subpixel_h_kern, stereo_settings().subpixel_v_kern, 
+                                                                    stereo_settings().do_h_subpixel, 
+                                                                    stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                    stereo_settings().do_affine_subpixel,
+                                                                    SlogStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                    false);
+      } else if (stereo_settings().log) {
+        disparity_map = SubpixelView<LogStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                   channels_to_planes(left_disk_image), 
+                                                                   channels_to_planes(right_disk_image),
+                                                                   stereo_settings().subpixel_h_kern, stereo_settings().subpixel_v_kern, 
+                                                                   stereo_settings().do_h_subpixel, 
+                                                                   stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                   stereo_settings().do_affine_subpixel,
+                                                                   LogStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                   false);
+      
+      } else {
+        disparity_map = SubpixelView<BlurStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                    channels_to_planes(left_disk_image), 
+                                                                    channels_to_planes(right_disk_image),
+                                                                    stereo_settings().subpixel_h_kern, stereo_settings().subpixel_v_kern, 
+                                                                    stereo_settings().do_h_subpixel, 
+                                                                    stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                    stereo_settings().do_affine_subpixel,
+                                                                    BlurStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                    false);
+      }
+      //        crop(disparity_map,100,150,200,200) = 
+      //           crop(AffineSubpixelView(disparity_disk_image, 
+      //                                   channels_to_planes(left_disk_image), 
+      //                                   channels_to_planes(right_disk_image), 
+      //                                   stereo_settings().h_kern, stereo_settings().v_kern, 
+      //                                   stereo_settings().do_h_subpixel, 
+      //                                   stereo_settings().do_v_subpixel,   // h and v subpixel
+      //                                   false),
+      //                100,150,200,200);
 
       // Create a disk image resource and prepare to write a tiled
       // OpenEXR.
