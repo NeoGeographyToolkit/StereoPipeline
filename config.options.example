@@ -5,14 +5,14 @@
 # Copyright (C) 2006 United States Government as represented by the
 # Administrator of the National Aeronautics and Space Administration
 # (NASA).  All Rights Reserved.
-# 
+#
 # Copyright 2006 Carnegie Mellon University. All rights reserved.
-# 
+#
 # This software is distributed under the NASA Open Source Agreement
 # (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 # Initiative.  See the file COPYING at the top of the distribution
 # directory tree for the complete NOSA document.
-# 
+#
 # THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 # KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 # LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -20,14 +20,14 @@
 # A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
 # THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
 # DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
-# 
+#
 # __END_LICENSE__
 
 
 ### config.options.example
 #
-# This file demonstrates how to configure the NASA Stereo Pipeline 
-# in various ways.  To use it, rename or copy it to "config.options" 
+# This file demonstrates how to configure the NASA Stereo Pipeline
+# in various ways.  To use it, rename or copy it to "config.options"
 # and uncomment or modify the appropriate lines below.
 
 
@@ -60,12 +60,41 @@
 # ENABLE_APP_BUNDLEADJUST=yes
 
 
-### Package Base Paths 
+### Package Base Paths
 #
 # Alternative command-line syntax:  --with-paths=val
 #
 # Set these to the directories that contain lib/include directories
-# for packages in non-standard locations.  List multiple search 
-# directories by seperating them with whitespace.  
+# for packages in non-standard locations.  List multiple search
+# directories by seperating them with whitespace.
 
 # PKG_PATHS="/foo/bar"
+
+
+### Per-package Base Paths
+#
+# Alternative command-line syntax: --with-pkgname[=val]
+#
+# If val is no, this will disable searching for pkgname.
+# If val is yes (the default) it will search PKG_PATHS for the pkg.
+# Otherwise, val is treated as a path list that will be used only for
+#     this pkg, and will locally override PKG_PATHS.
+
+# HAVE_PKG_PKGNAME=/path/to/pkgname
+
+
+### Disable discovery and hard-code flags
+#
+# Alternative command-line syntax: --with-pkg-libs[=val], --with-pkg-cppflags[=val]
+#
+# Set cppflags to prepend to the cppflags, and libs to override the libs. If
+# FORCE_PKGNAME_LDFLAGS is set, it will prevent configure from searching for
+# PKGNAME. A basic check is done, to make sure that the libraries you
+# passed in exist, but they are not checked for the required symbols. You should
+# independently verify that they provide them.
+
+#ADD_PKGNAME_CPPFLAGS=-I/path/to/headers
+#FORCE_PKGNAME_LDFLAGS=-L/path/to/libs -lmylib
+#
+# or even, if you need it (use sparingly):
+#FORCE_PKGNAME_LDFLAGS=/path/to/required/lib.so
