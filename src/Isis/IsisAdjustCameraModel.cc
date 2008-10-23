@@ -176,8 +176,8 @@ void IsisAdjustCameraModel::set_image( double const& sample, double const& line)
 }
 
 void IsisAdjustCameraModel::set_time( double const& time ) const {
-  if (time > m_max_ephemeris || time < m_min_ephemeris)
-    std::cout << "Time input is out of bounds" << std::endl;
+  if (time >= m_max_ephemeris || time <= m_min_ephemeris)
+    //std::cout << "Time input is out of bounds" << std::endl;
   if (m_current_time != time ) {
     Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
     cam->SetEphemerisTime( time );
