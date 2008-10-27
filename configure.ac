@@ -292,7 +292,7 @@ dnl the ISIS compilation does not resolve certain BLAS symbols that its
 dnl dependent 3rd party libraries depend on (for whatever retarded reason).
 dnl Thus, we link against LAPACK here because it defines these missing 
 dnl BLAS symbols in the event that we need them.
-AX_PKG(ISIS3RDPARTY, [LAPACK QWT GEOS GSL SUPERLU SPICE XERCESC], [])
+AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
 AX_PKG(ISIS, [QT ISIS3RDPARTY], [-lisis3])
 
 # These are here (instead of inside the PKG macro where they belong)
