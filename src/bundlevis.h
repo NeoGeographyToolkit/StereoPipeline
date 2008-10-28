@@ -50,6 +50,8 @@ namespace po = boost::program_options;
 #include <osg/ShapeDrawable>
 #include <osgUtil/Optimizer>
 #include <osg/Texture2D>
+#include <osg/ShapeDrawable>
+#include <osg/PolygonMode>
 
 //Standard
 #include <stdlib.h>

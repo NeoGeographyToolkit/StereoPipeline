@@ -942,7 +942,7 @@ int main(int argc, char* argv[]){
 
   //OpenSceneGraph Variable which are important overall
   osgViewer::Viewer viewer;
-  osg::Group* root = new osg::Group();
+  osg::ref_ptr<osg::Group> root = new osg::Group();
 
   //This first half of the program is wholly devoted to setting up boost program options
   //Boost program options code
@@ -955,6 +955,9 @@ int main(int argc, char* argv[]){
     ("additional-pnt-files",po::value< std::vector<std::string> >(&additional_pnt_files),"For additional iterPoint files that can be plotted simultaneously.")
     ("fullscreen","Sets the Bundlevis to render with the entire screen, doesn't work so hot with dual screens.")
     ("stereo","This sets bundlevis to display in anagylph mode")
+    ("show-moon","This will add a transparent Moon to the display")
+    ("show-mars","This will add a transparent Mars to the display")
+    ("show-earth","This will add a transparent Earth to the display")
     ("help","Display this help message");
 
   po::variables_map vm;
@@ -1050,14 +1053,64 @@ int main(int argc, char* argv[]){
   }  
 
   //////////////////////////////////////////////////////////
+  // Adding user Requested data
+  {
+    // I can haz moon?
+    if (vm.count("show-moon")){
+      
+      osg::ref_ptr<osg::Geode> moon_geode = new osg::Geode();
+
+      osg::ref_ptr<osg::ShapeDrawable> sphere = new osg::ShapeDrawable( new osg::Sphere(osg::Vec3(0,0,0), 1737100)); // meters
+      sphere->setColor( osg::Vec4f(0.5,0.5,0.5,0.25)); // Gray 25% Opacity
+      osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode( osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE );
+      sphere->getOrCreateStateSet()->setAttributeAndModes( pm.get(), osg::StateAttribute::ON); // Wireframe
+      moon_geode->addDrawable( sphere.get() );
+
+      root->addChild( moon_geode.get() );
+    }
+    
+    if (vm.count("show-mars")){
+      
+      osg::ref_ptr<osg::Geode> mars_geode = new osg::Geode();
+      
+      osg::ref_ptr<osg::ShapeDrawable> sphere = new osg::ShapeDrawable( new osg::Sphere(osg::Vec3(0,0,0), 3396200)); // meters
+      sphere->setColor( osg::Vec4f(1.0,0.0,0.0,0.25)); // Red 25% Opacity
+      osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode( osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE );
+      sphere->getOrCreateStateSet()->setAttributeAndModes( pm.get(), osg::StateAttribute::ON); // Wireframe
+      mars_geode->addDrawable( sphere.get() );
+
+      root->addChild( mars_geode.get() );
+    }
+
+    if (vm.count("show-earth")){
+      
+      osg::ref_ptr<osg::Geode> earth_geode = new osg::Geode();
+      
+      osg::ref_ptr<osg::ShapeDrawable> sphere = new osg::ShapeDrawable( new osg::Sphere(osg::Vec3(0,0,0), 6371000)); // meters
+      sphere->setColor( osg::Vec4f(0.2,0.2,1.0,0.25)); // Blue 25% Opacity
+      osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode( osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE );
+      sphere->getOrCreateStateSet()->setAttributeAndModes( pm.get(), osg::StateAttribute::ON); // Wireframe
+      earth_geode->addDrawable( sphere.get() );
+
+      root->addChild( earth_geode.get() );
+    }
+  }
+
+  //////////////////////////////////////////////////////////
   //Building Scene
   {
     root->addChild( createScene( pointData,
 				 cameraData,
 				 connLineData,
 				 addPointData ) );
+
+    // Optimizing the Scene (seems like good practice in OSG)
+    osgUtil::Optimizer optimizer;
+    optimizer.optimize( root.get() );
+
     viewer.setCameraManipulator( new osgGA::TrackballManipulator() );
-    viewer.setSceneData(root);
+    viewer.setSceneData( root.get() );
+
     int numIter;
     if ( pointData.size() > 0 )
       numIter = pointData[0]->size();
@@ -1070,7 +1123,7 @@ int main(int argc, char* argv[]){
     root->setUpdateCallback( new playbackNodeCallback ( controlStep,
 							numIter,
 							playControl) );
-					  
+
   }
 
   //////////////////////////////////////////////////////////
@@ -1078,7 +1131,7 @@ int main(int argc, char* argv[]){
   {
     osg::StateSet* stateSet = new osg::StateSet();
     stateSet->setMode( GL_LIGHTING, osg::StateAttribute::OFF );
-    stateSet->setMode( GL_BLEND, osg::StateAttribute::ON );
+    //stateSet->setMode( GL_BLEND, osg::StateAttribute::ON );
     root->setStateSet( stateSet );
   }
 
