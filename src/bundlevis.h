@@ -459,21 +459,15 @@ class cameraMatrixCallback : public osg::NodeCallback
       osg::Vec3f euler = _camera->getEuler( buffer - 1 );
       osg::Vec3f position = _camera->getPosition( buffer - 1 );
 
-      double ca = cos(euler[0]), sa = sin(euler[0]);
-      double cb = cos(euler[1]), sb = sin(euler[1]);
-      double cc = cos(euler[2]), sc = sin(euler[2]);
+      vw::Matrix3x3 temp = vw::math::euler_to_rotation_matrix(euler[0],
+							      euler[1],
+							      euler[2],
+							      "xyz" );
 
-      //Transposed
-      /*
-      osg::Matrix rot( cb*cc,           sa*sb*cc+ca*sc,  -ca*sb*cc+sa*sc,   0,
-		       -cb*sc,          -sa*sb*sc+ca*cc, ca*sb*sc+sa*cc,    0,
-		       sb,              -sa*cb,          ca*cb,             0,
-		       0,               0,               0,                 1);
-      */
-      osg::Matrix rot( cb*cc,           -cb*sc,          sb,                0,
-		       sa*sb*cc+ca*sc,  -sa*sb*sc+ca*cc, ca*sb*sc+sa*cc,    0,
-		       -ca*sb*cc+sa*sc, ca*sb*sc+sa*cc,  ca*cb,             0,
-		       0,               0,               0,                 1);
+      osg::Matrix rot( temp(0,0), temp(0,1), temp(0,2), 0,
+		       temp(1,0), temp(1,1), temp(1,2), 0,
+		       temp(2,0), temp(2,1), temp(2,2), 0,
+		       0, 0, 0, 1);
 
       osg::Matrix trans( 1,   0,   0,   0,
 			 0,   1,   0,   0,

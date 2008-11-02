@@ -26,22 +26,21 @@
 
 #include "bundlevis.h"
 
-#define LINE_LENGTH 1.0f
 #define PROGRAM_NAME "Bundlevis v2.0"
 #define PI 3.14159265
 
 // This builds the 3 Axis that represents the camera
-osg::Geode* build3Axis(void){
+osg::Geode* build3Axis( float const& line_length ){
   osg::Geode* axisGeode = new osg::Geode();
   osg::Geometry* axis = new osg::Geometry();
 
   osg::Vec3Array* vertices = new osg::Vec3Array(6);
   (*vertices)[0].set( 0.0f, 0.0f, 0.0f );
-  (*vertices)[1].set( LINE_LENGTH, 0.0f, 0.0f );
+  (*vertices)[1].set( line_length, 0.0f, 0.0f );
   (*vertices)[2].set( 0.0f, 0.0f, 0.0f );
-  (*vertices)[3].set( 0.0f, LINE_LENGTH, 0.0f );
+  (*vertices)[3].set( 0.0f, line_length, 0.0f );
   (*vertices)[4].set( 0.0f, 0.0f, 0.0f );
-  (*vertices)[5].set( 0.0f, 0.0f, LINE_LENGTH );
+  (*vertices)[5].set( 0.0f, 0.0f, line_length );
   axis->setVertexArray( vertices );
 
   osg::Vec4Array* colours = new osg::Vec4Array(6);
@@ -69,23 +68,22 @@ osg::Geode* build3Axis(void){
 osg::MatrixTransform* CameraIter::buildMatrixTransform( const int& step ) {
   osg::MatrixTransform* mt = new osg::MatrixTransform;
 
-  double ca = cos(_euler[step][0]), sa = sin(_euler[step][0]);
-  double cb = cos(_euler[step][1]), sb = sin(_euler[step][1]);
-  double cc = cos(_euler[step][2]), sc = sin(_euler[step][2]);
+  vw::Matrix3x3 temp = vw::math::euler_to_rotation_matrix( _euler[step][0],
+							   _euler[step][1],
+							   _euler[step][2],
+							   "xyz" );
 
-  osg::Matrix rot( cb*cc,           -cb*sc,          sb,        0,
-	       sa*sb*cc+ca*sc,  -sa*sb*sc+ca*cc, -sa*cb,    0,
-	       -ca*sb*cc+sa*sc, ca*sb*sc+sa*cc,  ca*cb,     0,
-	       0,               0,               0,         1);
+  osg::Matrix rot( temp(0,0), temp(1,0), temp(2,0), 0,
+		   temp(0,1), temp(1,1), temp(2,1), 0,
+		   temp(0,2), temp(1,2), temp(2,2), 0,
+		   0, 0, 0, 1);
 
-  rot.invert(rot);
+  osg::Matrix trans( 1,   0,   0,   0,
+		     0,   1,   0,   0,
+		     0,   0,   1,   0,
+		     _position[step][0],   _position[step][1],   _position[step][2],   1 );
 
-  osg::Matrix trans( 1,   0,   0,   _position[step][0],
-		     0,   1,   0,   _position[step][1],
-		     0,   0,   1,   _position[step][2],
-		     0,   0,   0,   1 );
-
-  mt->setMatrix( trans * rot );
+  mt->setMatrix( rot*trans );
 
   mt->setUpdateCallback( new cameraMatrixCallback( this ));
   
@@ -478,14 +476,14 @@ std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
 	    << std::endl;
 
   return connLineData;
-
 }
 
 // This will build the entire scene
 osg::Node* createScene( std::vector<PointIter*>& points,
 			std::vector<CameraIter*>& cameras,
 			std::vector<ConnLineIter*>& connLines,
-			std::vector< std::vector<PointIter*> >& addPoints) {
+			std::vector< std::vector<PointIter*> >& addPoints,
+			vw::BBox3f const* point_cloud ) {
   
   osg::Group* scene = new osg::Group();
 
@@ -590,7 +588,16 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 
   // Thirdly, draw cameras
   if ( cameras.size() ){
-    osg::Geode* the3Axis = build3Axis();
+
+    //osg::Geode* the3Axis = build3Axis();
+    osg::Geode* the3Axis;
+
+    if ( point_cloud ) {
+      the3Axis = build3Axis( norm_2(point_cloud->size())/20 );
+    } else {
+      the3Axis = build3Axis( 1.0 );
+    }
+
     osg::Group* camerasGroup = new osg::Group;
 
     for (unsigned j = 0; j < cameras.size(); ++j){
@@ -604,7 +611,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     {
       for (unsigned j = 0; j < cameras.size(); ++j){
 	if ( cameras[j]->getIsPushbroom() ) {
-	  std::cout << "Holy Cow we have a pushbroom" << std::endl;
+	  std::cout << "Found a Linescan Camera" << std::endl;
 	  
 	  osg::Geometry* geometry = new osg::Geometry;
 
@@ -679,6 +686,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 
   // 5.) Build hit points, surfaces that the mouse intersector can use
   {
+    double scale = norm_2(point_cloud->size())/20;
     osg::Group* hitTargetGroup = new osg::Group;
 
     // Targets for cameras
@@ -693,14 +701,6 @@ osg::Node* createScene( std::vector<PointIter*>& points,
       (*colours)[0].set( 1.0f, 1.0f, 1.0f, 0.0f );
 
       for ( unsigned j = 0; j < cameras.size(); ++j ) {
-	// Transform that does my bidding
-	osg::AutoTransform* autoT = new osg::AutoTransform;
-	autoT->setAutoRotateMode( osg::AutoTransform::ROTATE_TO_SCREEN );
-	autoT->setAutoScaleToScreen( true );
-	autoT->setMinimumScale( 0.5f );
-	autoT->setMaximumScale( 4.0f );
-	autoT->setPosition( cameras[j]->getPosition( 0 ) );
-	autoT->setUpdateCallback( new cameraAutoMatrixCallback( cameras[j] ));
 	
 	// Geode that is the target
 	osg::Geometry* geometry = new osg::Geometry;
@@ -714,17 +714,28 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 	geode->setName( cameras[j]->getDescription() );
 	geode->setUserData( cameras[j] );
 	geode->addDrawable( geometry );
-	autoT->addChild( geode );
-	
+		
 	// Add some text, cause it's cool
 	osgText::Text* text = new osgText::Text;
 	std::ostringstream os;
 	os << (j + 1);
-	text->setCharacterSize( 2.0f );
+	text->setCharacterSize( 100.0 );	
+	//text->setFontResolution(40,40);
 	text->setText( os.str() );
 	text->setAlignment( osgText::Text::CENTER_CENTER );
+	//text->setCharacterSizeMode( osgText::Text::OBJECT_COORDS_WITH_MAXIMUM_SCREEN_SIZE_CAPPED_BY_FONT_HEIGHT );
 	geode->addDrawable( text );
 
+	// Transform that does my bidding
+	osg::AutoTransform* autoT = new osg::AutoTransform;
+	autoT->addChild( geode );
+	autoT->setAutoRotateMode( osg::AutoTransform::ROTATE_TO_SCREEN );
+	autoT->setAutoScaleToScreen( true );
+	autoT->setMinimumScale( 0.0f );
+	autoT->setMaximumScale( 0.1f * scale );
+	autoT->setPosition( cameras[j]->getPosition( 0 ) );
+	autoT->setUpdateCallback( new cameraAutoMatrixCallback( cameras[j] ));
+	
 	hitTargetGroup->addChild( autoT );
       }
     }
@@ -733,30 +744,15 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     if ( points.size() ) {
       // Building the target that all will use
       osg::Vec3Array* vertices = new osg::Vec3Array(4);
-      (*vertices)[0].set( 0.3f, -0.3f, -0.1f );
-      (*vertices)[1].set( 0.3f, 0.3f, -0.1f );
-      (*vertices)[2].set( -0.3f, 0.3f, -0.1f );
-      (*vertices)[3].set( -0.3f, -0.3f, -0.1f );
+      (*vertices)[0].set( 10.0f, -10.0f, -0.5f );
+      (*vertices)[1].set( 10.0f, 10.0f, -0.5f );
+      (*vertices)[2].set( -10.0f, 10.0f, -0.5f );
+      (*vertices)[3].set( -10.0f, -10.0f, -0.5f );
       osg::Vec4Array* colours = new osg::Vec4Array(1);
-      (*colours)[0].set( 1.0f, 1.0f, 1.0f, 0.0f );
+      (*colours)[0].set( 0.0f, 0.0f, 0.0f, 0.0f );
 
       for ( unsigned i = 0; i < points.size(); ++i ) {
-	// Building an LOD so it shuts off when too far away
-	osg::LOD* lod = new osg::LOD;
-	lod->setCenterMode( osg::LOD::USE_BOUNDING_SPHERE_CENTER );
-	lod->setRangeMode( osg::LOD::DISTANCE_FROM_EYE_POINT );
-	lod->setCenter( points[i]->getPosition( 0 ) );
 	
-	// Transform that does my bidding
-	osg::AutoTransform* autoT = new osg::AutoTransform;
-	autoT->setAutoRotateMode( osg::AutoTransform::ROTATE_TO_SCREEN );
-	autoT->setAutoScaleToScreen( true );
-	autoT->setMinimumScale( 0.01 );
-	autoT->setMaximumScale( 1.0f );
-	autoT->setPosition( points[i]->getPosition( 0 ) );
-	autoT->setUpdateCallback( new pointAutoMatrixCallback( points[i] ));
-	lod->addChild( autoT, 0, 10 );
-
 	// Geode that is the target
 	osg::Geometry* geometry = new osg::Geometry;
 	geometry->setVertexArray( vertices );
@@ -765,24 +761,41 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 	geometry->addPrimitiveSet( new osg::DrawArrays( osg::PrimitiveSet::QUADS,
 						       0,
 						       4 ) );
-	osg::Geode* geode =new osg::Geode;
-	geode->setName( points[i]->getDescription() );
-	geode->addDrawable( geometry );
-	geode->setUserData( points[i] );
-	autoT->addChild( geode );
-
+	
 	// Add some text
 	osgText::Text* text = new osgText::Text;
 	std::ostringstream os;
 	os << (i + 1);
-	text->setCharacterSize( 0.5f );
+	text->setCharacterSize( 25.0 );
+	//text->setFontResolution(40,40);
 	text->setText( os.str() );
 	text->setAlignment( osgText::Text::CENTER_CENTER );
-	geode->addDrawable( text );
+	//text->setCharacterSizeMode( osgText::Text::OBJECT_COORDS_WITH_MAXIMUM_SCREEN_SIZE_CAPPED_BY_FONT_HEIGHT );
        
+	osg::Geode* geode =new osg::Geode;
+	geode->addDrawable( text );
+	geode->addDrawable( text );
+	geode->setName( points[i]->getDescription() );
+	geode->addDrawable( geometry );
+	geode->setUserData( points[i] );
 	
+	// Building an LOD so it shuts off when too far away
+	osg::LOD* lod = new osg::LOD;
+	lod->addChild( geode, 10.0f, 1000.0f );
+	lod->setRangeMode( osg::LOD::PIXEL_SIZE_ON_SCREEN );
+	lod->setRadius( scale/10.0 );
 
-	hitTargetGroup->addChild( lod );
+	// Transform that does my bidding
+	osg::AutoTransform* autoT = new osg::AutoTransform;
+	autoT->addChild(lod);
+	autoT->setAutoRotateMode( osg::AutoTransform::ROTATE_TO_SCREEN );
+	autoT->setAutoScaleToScreen( true );
+	autoT->setMinimumScale( 0.0f );
+	autoT->setMaximumScale( 0.0005f * scale );
+	autoT->setPosition( points[i]->getPosition( 0 ) );
+	autoT->setUpdateCallback( new pointAutoMatrixCallback( points[i] ));
+
+	hitTargetGroup->addChild( autoT );
       }
     }
 
@@ -796,98 +809,108 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 bool AllEventHandler::handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa ) {
   // Note: for some reason, you should only perform getEventType()
   // once.
-  if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN){
-    switch (ea.getKey()){
-    case 'z':     //Step Backwards
-      {
-	int buffer = (*_step);
-	buffer--;
-	if ( buffer < 1 )
-	  buffer = _numIter;
-	(*_step) = buffer;
-	break;
-      }
-    case 'x':     //Play
-      {
-	_playControl->setPlay();
-	break;
-      }
-    case 'c':     //Pause
-      {
-	_playControl->setPause();
-	break;
-      }
-    case 'v':     //Stop
-      {
-	_playControl->setStop();
-	break;
-      }
-    case 'b':     //Step Forward
-      {
-	int buffer = (*_step);
-	buffer++;
-	if ( buffer > _numIter )
-	  buffer = 1;
-	(*_step) = buffer;
-	break;
-      }
-    case '0':     //Show all steps
-      {
-	(*_step) = 0;
-	break;
-      }
-    case '1':     //Move to the first frame
-      {
-	(*_step) = 1;
-	break;
-      }
-    case '2':     //Move ro a place somewhere in between
-      {
-	(*_step) = (int)( (_numIter * 2) / 9 );
-	break;
-      }
-    case '3':
-      {
-	(*_step) = (int)( (_numIter * 3) / 9 );
-	break;
-      }
-    case '4':
-      {
-	(*_step) = (int)( (_numIter * 4) / 9 );
-	break;
-      }
-    case '5':
-      {
-	(*_step) = (int)( (_numIter * 5) / 9 );
-	break;
-      }
-    case '6':
-      {
-	(*_step) = (int)( (_numIter * 6) / 9 );
-	break;
-      }
-    case '7':
-      {
-	(*_step) = (int)( (_numIter * 7) / 9 );
-	break;
-      }
-    case '8':
-      {
-	(*_step) = (int)( (_numIter * 8) / 9 );
-	break;
-      }
-    case '9':     //Move to the last frame
-      {
-	(*_step) = _numIter;
-	break;
-      }
-    } 
-  } else if ( ea.getEventType() == osgGA::GUIEventAdapter::DOUBLECLICK ) {
-    // If there was a user keypress
-    osgViewer::View* view = dynamic_cast< osgViewer::View* >(&aa);
-    if (view)
+  //if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN){
+  switch(ea.getEventType()) {
+  case( osgGA::GUIEventAdapter::KEYDOWN ):
+    {
+      switch (ea.getKey()){
+      case 'z':     //Step Backwards
+	{
+	  int buffer = (*_step);
+	  buffer--;
+	  if ( buffer < 1 )
+	    buffer = _numIter;
+	  (*_step) = buffer;
+	  break;
+	}
+      case 'x':     //Play
+	{
+	  _playControl->setPlay();
+	  break;
+	}
+      case 'c':     //Pause
+	{
+	  _playControl->setPause();
+	  break;
+	}
+      case 'v':     //Stop
+	{
+	  _playControl->setStop();
+	  break;
+	}
+      case 'b':     //Step Forward
+	{
+	  int buffer = (*_step);
+	  buffer++;
+	  if ( buffer > _numIter )
+	    buffer = 1;
+	  (*_step) = buffer;
+	  break;
+	}
+      case '0':     //Show all steps
+	{
+	  (*_step) = 0;
+	  break;
+	}
+      case '1':     //Move to the first frame
+	{
+	  (*_step) = 1;
+	  break;
+	}
+      case '2':     //Move ro a place somewhere in between
+	{
+	  (*_step) = (int)( (_numIter * 2) / 9 );
+	  break;
+	}
+      case '3':
+	{
+	  (*_step) = (int)( (_numIter * 3) / 9 );
+	  break;
+	}
+      case '4':
+	{
+	  (*_step) = (int)( (_numIter * 4) / 9 );
+	  break;
+	}
+      case '5':
+	{
+	  (*_step) = (int)( (_numIter * 5) / 9 );
+	  break;
+	}
+      case '6':
+	{
+	  (*_step) = (int)( (_numIter * 6) / 9 );
+	  break;
+	}
+      case '7':
+	{
+	  (*_step) = (int)( (_numIter * 7) / 9 );
+	  break;
+	}
+      case '8':
+	{
+	  (*_step) = (int)( (_numIter * 8) / 9 );
+	  break;
+	}
+      case '9':     //Move to the last frame
+	{
+	  (*_step) = _numIter;
+	  break;
+	}
+      } 
+    }
+    break;
+  case ( osgGA::GUIEventAdapter::PUSH ):
+    {
+      
+      // If there was a user keypress
+      osgViewer::View* view = dynamic_cast< osgViewer::View* >(&aa);
+    if (view) {
       pick( view, ea );
+    }
   }
+  break;
+}
 
   return false;
 }
@@ -909,13 +932,15 @@ void AllEventHandler::pick( osgViewer::View* view, const osgGA::GUIEventAdapter&
       // Now I'll determine if it's a point
       PointIter* point = dynamic_cast< PointIter* >( hit->nodePath.back()->getUserData() );
       if ( point ) {
+
 	point->setDrawConnLines( !point->getDrawConnLines() );
 	return;
       }
 
-      // Well... crap, is it a camera?
+      // Well... snap, is it a camera?
       CameraIter* camera = dynamic_cast< CameraIter* >( hit->nodePath.back()->getUserData() );
       if ( camera ) {
+
 	camera->setDrawConnLines( !camera->getDrawConnLines() );
 	return;
       }
@@ -939,6 +964,7 @@ int main(int argc, char* argv[]){
   std::vector<ConnLineIter*> connLineData;
   std::vector<std::vector<PointIter*> > addPointData;
   PlaybackControl* playControl = new PlaybackControl(controlStep);
+  vw::BBox3f* point_cloud;
 
   //OpenSceneGraph Variable which are important overall
   osgViewer::Viewer viewer;
@@ -985,21 +1011,46 @@ int main(int argc, char* argv[]){
     std::cout << usage.str();
     return 1;
   }
-
-  /////////////////////////////////////////////////////////
-  //Loading up camera iteration data
-  if (vm.count("camera-iteration-file")){
-    cameraData = loadCameraData( camera_iter_file,
-				 controlStep );
-  }
-
-  /////////////////////////////////////////////////////////
+  
+  //////////////////////////////////////////////////////////
   //Loading up point iteration data
   if (vm.count("points-iteration-file")){
     pointData = loadPointData( points_iter_file,
 			       controlStep );
   }
 
+  //////////////////////////////////////////////////////////
+  //Loading up camera iteration data
+  if (vm.count("camera-iteration-file")){
+    cameraData = loadCameraData( camera_iter_file,
+				 controlStep );
+  }
+
+  //////////////////////////////////////////////////////////
+  //Gathering Statistics about point cloud
+  {
+    point_cloud = new vw::BBox3f();
+
+    if (vm.count("points-iteration-file")) {
+      for (unsigned i = 0; i < pointData.size(); ++i){
+	osg::Vec3f temp = pointData[i]->getPosition(0);
+	point_cloud->grow( vw::Vector3( temp[0], temp[1], temp[2] ));
+      }
+    }
+
+    if (vm.count("camera-iteration-file")) {
+      for (unsigned i = 0; i < cameraData.size(); ++i){
+	osg::Vec3f temp = cameraData[i]->getPosition(0);
+	point_cloud->grow( vw::Vector3( temp[0], temp[1], temp[2] ));
+      }
+    }
+
+    vw::Vector3 center = point_cloud->center();
+    vw::Vector3 size = point_cloud->size();
+
+    std::cout << "Point Cloud:\n\t> Center " << center << "\n\t> Size " << size << std::endl;
+  }
+  
   //////////////////////////////////////////////////////////
   //Loading up additional point iteration data
   if (vm.count("additional-pnt-files")) {
@@ -1102,7 +1153,8 @@ int main(int argc, char* argv[]){
     root->addChild( createScene( pointData,
 				 cameraData,
 				 connLineData,
-				 addPointData ) );
+				 addPointData,
+				 point_cloud ) );
 
     // Optimizing the Scene (seems like good practice in OSG)
     osgUtil::Optimizer optimizer;
@@ -1131,7 +1183,7 @@ int main(int argc, char* argv[]){
   {
     osg::StateSet* stateSet = new osg::StateSet();
     stateSet->setMode( GL_LIGHTING, osg::StateAttribute::OFF );
-    //stateSet->setMode( GL_BLEND, osg::StateAttribute::ON );
+    stateSet->setMode( GL_BLEND, osg::StateAttribute::ON );
     root->setStateSet( stateSet );
   }
 
