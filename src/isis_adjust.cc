@@ -54,6 +54,12 @@ using namespace vw::ip;
 #include "Isis/IsisAdjustCameraModel.h"
 #include "BundleAdjustUtils.h"
 
+// Global variables
+float g_spacecraft_position_sigma;
+float g_spacecraft_pose_sigma;
+float g_gcp_sigma;
+
+
 // A useful snippet for working with files
 static std::string prefix_from_filename( std::string const& filename ){
   std::string result = filename;
@@ -71,16 +77,13 @@ class IsisBundleAdjustmentModel : public camera::BundleAdjustmentModelBase< Isis
   typedef Vector<double, positionParam+poseParam> camera_vector_t;
   typedef Vector<double, 3> point_vector_t;
 
-  ControlNetwork m_network;
-
   std::vector< boost::shared_ptr<IsisAdjustCameraModel> > m_cameras;
-
-  std::vector< std::string > m_files;
-
+  ControlNetwork m_network;
   std::vector<camera_vector_t> a;
   std::vector<point_vector_t> b;
   std::vector<camera_vector_t> a_initial;
   std::vector<point_vector_t> b_initial;
+  std::vector< std::string > m_files;
   int m_num_pixel_observations;
 
 public:
@@ -92,9 +95,6 @@ public:
     a( camera_models.size() ), b( network.size() ),
     a_initial( camera_models.size() ), b_initial( network.size() ),
     m_files( input_names ){
-
-   
-    
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
@@ -134,12 +134,8 @@ public:
   // Return a reference to the camera and point parameters.
   camera_vector_t A_parameters( int j ) const { return a[j]; }
   point_vector_t B_parameters( int i ) const { return b[i]; }
-  void set_A_parameters(int j, camera_vector_t const& a_j) {
-    a[j] = a_j;
-  }
-  void set_B_parameters(int i, point_vector_t const& b_i) {
-    b[i] = b_i;
-  }
+  void set_A_parameters(int j, camera_vector_t const& a_j) { a[j] = a_j; }
+  void set_B_parameters(int i, point_vector_t const& b_i) { b[i] = b_i; }
 
   // Approximate the jacobian for small variations in the a_j
   // parameters ( camera parameters ).
@@ -241,8 +237,7 @@ public:
 					    camera_vector_t const& a_j,
 					    point_vector_t const& b_i ) {
     Matrix<double> partial_derivatives(2,3);
-    partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, 
-      positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
+    partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
 
     /*
     // Loading up camera
@@ -315,17 +310,20 @@ public:
   inline Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned j ) {
     Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
     for ( unsigned i = 0; i <positionParam; ++i )
-      result(i,i) = 10.;
+      result(i,i) = 1/pow(g_spacecraft_position_sigma,2);
     for ( unsigned i = positionParam; i < (positionParam+poseParam); ++i )
-      result(i,i) = 1/10.;
+      result(i,i) = 1/pow(g_spacecraft_pose_sigma,2);
     return result;
   }
 
   // Return the covariance of the point parameters for point i.
   inline Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) {
     Matrix< double, 3, 3> result;
+//     result(0,0) = 1.0/0.001;
+//     result(1,1) = 1.0/0.001;
+//     result(2,2) = 1.0/10.0;
     for ( unsigned i = 0; i < 3; ++i)
-      result(i,i) = 1;
+      result(i,i) = 1/pow(g_gcp_sigma,2);
     return result;
   }
 
@@ -382,9 +380,9 @@ public:
     // projection. Sorry that this is a search, I don't have a better
     // idea. :/
     int m = 0;
-    while ( m_network[i][m].image_id() != j )
+    while ( m_network[i][m].image_id() != int(j) )
       m++;
-    if ( j != m_network[i][m].image_id() )
+    if ( int(j) != m_network[i][m].image_id() )
       std::cout << " GOSH DARN IT " << std::endl;
 
     // Performing the forward projection. This is specific to the
@@ -397,10 +395,56 @@ public:
     return Vector2( forward_projection[0], forward_projection[1] );
   }
 
+  void parse_camera_parameters(camera_vector_t a_j, 
+                               Vector3 &position_correction,
+                               Vector3 &pose_correction) const {
+    position_correction = subvector(a_j, 0, 3);
+    pose_correction = subvector(a_j, 3, 3);
+  }
+
   // This is what prints out on the screen the error of the whole problem
   void report_error() const {
-    // I'm not ready to report the error
-    //std::cout << "Not implemented!" << std::endl;
+    double pix_error_total = 0;
+    double camera_position_error_total = 0;
+    double camera_pose_error_total = 0;
+    double gcp_error_total = 0;
+
+    for (unsigned i = 0; i < m_network.size(); ++i) {       // Iterate over control points
+      for (unsigned m = 0; m < m_network[i].size(); ++m) {  // Iterate over control measures
+        int camera_idx = m_network[i][m].image_id();
+        Vector2 pixel_error = m_network[i][m].position() - (*this)(i, camera_idx, a[camera_idx],b[i]); 
+        pix_error_total += norm_2(pixel_error);
+      }
+    }
+    
+    for (unsigned j=0; j < this->num_cameras(); ++j) {
+      Vector3 position_initial, position_now;
+      Vector3 pose_initial, pose_now;
+
+      parse_camera_parameters(a_initial[j], position_initial, pose_initial);
+      parse_camera_parameters(a[j], position_now, pose_now);
+
+      camera_position_error_total += norm_2(position_initial-position_now);
+      camera_pose_error_total += norm_2(pose_initial-pose_now);
+    }
+    
+    int num_gcp = 0;
+    for (unsigned i=0; i < this->num_points(); ++i) {
+      if (m_network[i].type() == ControlPoint::GroundControlPoint) {
+        point_vector_t p1 = b_initial[i];//b_initial[i](3);
+        point_vector_t p2 = b[i];//b[i](3);
+        gcp_error_total += norm_2(subvector(p1,0,3) - subvector(p2,0,3));
+        ++num_gcp;
+      }
+    }
+    
+    std::cout << "   Pixel: " << pix_error_total/m_num_pixel_observations << "  "
+              << "   Cam Position: " << camera_position_error_total/a.size() << "  "
+              << "   Cam Pose: " << camera_pose_error_total/a.size() << "  ";
+    if (m_network.num_ground_control_points() == 0) 
+        std::cout << "  GCP: n/a\n";
+      else 
+        std::cout << "  GCP: " << gcp_error_total/m_network.num_ground_control_points() << "\n";
   }
 };
 
@@ -421,6 +465,9 @@ int main(int argc, char* argv[]) {
   general_options.add_options()
     ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
     ("lambda,l", po::value<double>(&lambda), "Set the intial value of the LM parameter lambda")
+    ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(10.0), "Set the sigma (uncertainty) of the spacecraft position.")
+    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(1.0/10.0), "Set the sigma (uncertainty) of the spacecraft pose.")
+    ("gcp-sigma", po::value<float>(&g_gcp_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft pose.")
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
     ("help,h", "Display this help message")
     ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
@@ -655,7 +702,7 @@ int main(int argc, char* argv[]) {
       boost::shared_ptr<IsisAdjustCameraModel> camera = ba_model.adjusted_camera(j);
 
       // Saving points along the line of the camera
-      for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
+      for ( int i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
 	Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
 	ostr_camera << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
 	Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
@@ -677,7 +724,7 @@ int main(int argc, char* argv[]) {
       for ( unsigned p = 0; p < cnet.size() ; ++p ) {
 	// Working through the number of measures in the point
 	for ( unsigned m = 0; m < cnet[p].size(); ++m ) {
-	  if ( cnet[p][m].image_id() == n ) {
+	  if ( cnet[p][m].image_id() == int(n) ) {
 	    // Time to locate the closest point along the vector of the camera
 	    
 	    // finding the length along the camera's vector
@@ -726,7 +773,7 @@ int main(int argc, char* argv[]) {
 	  boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
 	  // Saving points along the line of the camera
-	  for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
+	  for ( int i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
 	    Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
 	    ostr_camera << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
 	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
@@ -749,7 +796,7 @@ int main(int argc, char* argv[]) {
 	  for ( unsigned p = 0; p < cnet.size() ; ++p ) {
 	    // Working through the number of measures in the point
 	    for ( unsigned m = 0; m < cnet[p].size(); ++m ) {
-	      if ( cnet[p][m].image_id() == j ) {
+	      if ( cnet[p][m].image_id() == int(j) ) {
 		// Time to locate the closest point along the vector of the camera
 	    
 		boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
@@ -803,7 +850,7 @@ int main(int argc, char* argv[]) {
 	  boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
 	  // Saving points along the line of the camera
-	  for ( unsigned i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
+	  for ( int i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
 	    Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
 	    ostr_camera << std::setprecision(18) << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
 	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
@@ -826,7 +873,7 @@ int main(int argc, char* argv[]) {
 	  for ( unsigned p = 0; p < cnet.size() ; ++p ) {
 	    // Working through the number of measures in the point
 	    for ( unsigned m = 0; m < cnet[p].size(); ++m ) {
-	      if ( cnet[p][m].image_id() == j ) {
+	      if ( cnet[p][m].image_id() == int(j) ) {
 		// Time to locate the closest point along the vector of the camera
 	    
 		boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
