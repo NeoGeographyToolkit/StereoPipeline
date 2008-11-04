@@ -23,14 +23,6 @@
 
 /// \file othoproject.cc
 ///
-
-/************************************************************************
- *     File: stereo.cc
- *     Date: April 2005
- *       By: Michael Broxton and Larry Edwards
- *      For: NASA Ames Research Center, Intelligent Mechanisms Group 
- * Function: Main program for the stereo pipeline 
- ************************************************************************/
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem/path.hpp>
@@ -154,7 +146,7 @@ int main(int argc, char* argv[]) {
   std::string stereo_session_string;
   double mpp;
   double ppd;
-  double missing_pixel_value;
+  double nodata_value;
   float lo = 0, hi = 0;
 
   po::options_description visible_options("Options");
@@ -162,7 +154,7 @@ int main(int argc, char* argv[]) {
     ("help,h", "Display this help message")
     ("mpp", po::value<double>(&mpp), "Specify the output resolution of the orthoimage in meters per pixel.")
     ("ppd", po::value<double>(&ppd), "Specify the output resolution of the orthoimage in pixels per degree.")
-    ("missing-pixel", po::value<double>(&missing_pixel_value)->default_value(-6000), "Specify the pixel used in this DEM to denote missing data.")
+    ("nodata-value", po::value<double>(&nodata_value), "Specify the pixel used in this DEM to denote missing data.")
     ("match-dem,m", "Match the georeferencing parameters and dimensions of the input DEM.")
     ("min", po::value<float>(&lo), "Explicitly specify the range of the normalization (for ISIS images only).")
     ("max", po::value<float>(&hi), "Explicitly specify the range of the normalization (for ISIS images only).")
@@ -233,9 +225,9 @@ int main(int argc, char* argv[]) {
   DiskImageView<PixelGray<float> > dem_disk_image(dem_file);
   ImageViewRef<PixelMask<PixelGray<float> > > dem = pixel_cast<PixelMask<PixelGray<float> > >(dem_disk_image);
 
-  if (vm.count("missing-pixel")) {
-    std::cout << "\t--> Using " << missing_pixel_value << " as the missing data value for the DEM.\n";
-    dem = create_mask(dem_disk_image, missing_pixel_value);
+  if (vm.count("nodata-value")) {
+    std::cout << "\t--> Using " << nodata_value << " as the missing data value for the DEM.\n";
+    dem = create_mask(dem_disk_image, nodata_value);
   }
 
   DiskImageView<PixelGrayA<uint8> > texture_disk_image(image_file);
@@ -280,36 +272,91 @@ int main(int argc, char* argv[]) {
   }
 
   vw_out(0) << "\nOrthoprojecting:\n";
-  // If the user has specified that we match the georeferencing
-  // parameters of the DEM, we use the DEM's georef as the output
-  // georef.  Otherwise we compute one of our own that contains the
-  // entirety of the input image and matches the pixel scale of the
-  // input image as closely as possible.
-  if (vm.count("match-dem")) {
-    write_georeferenced_image(output_file, 
-                              orthoproject(dem, dem_georef, 
-                                           texture_image, camera_model, 
-                                           BilinearInterpolation(), ZeroEdgeExtension()), 
-                              dem_georef,
-                              TerminalProgressCallback() );
-  }  else {
-    double output_width, output_height;
-    GeoReference output_georef = compute_geotransform_from_camera(texture_image, camera_model, 
-                                                                  dem, dem_georef, scale,
-                                                                  output_width, output_height);
-    GeoTransform trans(dem_georef, output_georef);
-    ImageViewRef<PixelMask<PixelGray<float> > > output_dem = crop(transform(dem, trans, 
-                                                                            ZeroEdgeExtension(), 
-                                                                            BilinearInterpolation()),
-                                                                  BBox2i(0,0,output_width,output_height));
-    
-    ImageViewRef<PixelGrayA<uint8> > final_result = orthoproject(output_dem, output_georef, 
-                                                                 texture_image, camera_model, 
-                                                                 BilinearInterpolation(), ZeroEdgeExtension());
 
-    DiskImageResourceGDAL rsrc(output_file, final_result.format());
-    rsrc.set_native_block_size(Vector2i(1024,1024));
-    write_georeference(rsrc, output_georef);
-    write_image(rsrc, final_result, TerminalProgressCallback());
+  GeoReference drg_georef = dem_georef;
+  std::cout << "DEM Transform: " << dem_georef.transform() << "\n";
+  
+  // If the user has supplied a scale, we use it.  Otherwise, we
+  // compute the optimal scale of image based on the camera model.
+  if (scale == 0) {
+    float lonlat_scale;
+    BBox2 image_bbox = camera_bbox(dem_georef, camera_model, texture_image.cols(), texture_image.rows(), lonlat_scale);
+    BBox2 dem_bbox = dem_georef.lonlat_bounding_box(dem);
+    
+    // Use a bbox where both the image and the DEM have valid data.
+    // Throw an error if there turns out to be no overlap.
+    BBox2 bbox = image_bbox;
+    bbox.crop(dem_bbox);
+    
+    if (bbox.width() == 0 || bbox.height() == 0) {
+      std::cout << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
+      exit(0);
+    }    
+    
+    float diff1 = bbox.max().x()-bbox.min().x();
+    
+    // Convert the lon/lat bounding box into the map projection.
+    bbox.min() = dem_georef.lonlat_to_point(bbox.min());
+    bbox.max() = dem_georef.lonlat_to_point(bbox.max());
+    float diff2 = bbox.max().x()-bbox.min().x();
+
+    // Convert the scale into the projected space
+    scale = lonlat_scale * diff2 / diff1;
   }
+  Matrix3x3 drg_trans = drg_georef.transform();
+  drg_trans(0,0) = scale;
+  drg_trans(1,1) = -scale;
+  drg_georef.set_transform(drg_trans);
+  std::cout << "DRG Transform: " << drg_georef.transform() << "\n";
+
+  double output_width = double(dem.cols()) * dem_georef.transform()(0,0) / drg_georef.transform()(0,0);
+  double output_height = double(dem.rows()) * dem_georef.transform()(1,1) / drg_georef.transform()(1,1);
+  GeoTransform trans(dem_georef, drg_georef);
+  ImageViewRef<PixelMask<PixelGray<float> > > output_dem = crop(transform(dem, trans, 
+                                                                          ZeroEdgeExtension(), 
+                                                                          BilinearInterpolation()),
+                                                                BBox2i(0,0,output_width,output_height));
+    
+  ImageViewRef<PixelGrayA<uint8> > final_result = orthoproject(output_dem, drg_georef, 
+                                                               texture_image, camera_model, 
+                                                               BilinearInterpolation(), ZeroEdgeExtension());
+
+  DiskImageResourceGDAL rsrc(output_file, final_result.format());
+  rsrc.set_native_block_size(Vector2i(1024,1024));
+  write_georeference(rsrc, drg_georef);
+  write_image(rsrc, final_result, TerminalProgressCallback());
+
+
+//   // If the user has specified that we match the georeferencing
+//   // parameters of the DEM, we use the DEM's georef as the output
+//   // georef.  Otherwise we compute one of our own that contains the
+//   // entirety of the input image and matches the pixel scale of the
+//   // input image as closely as possible.
+//   if (vm.count("match-dem")) {
+//     write_georeferenced_image(output_file, 
+//                               orthoproject(dem, dem_georef, 
+//                                            texture_image, camera_model, 
+//                                            BilinearInterpolation(), ZeroEdgeExtension()), 
+//                               dem_georef,
+//                               TerminalProgressCallback() );
+//   }  else {
+//     double output_width, output_height;
+//     GeoReference output_georef = compute_geotransform_from_camera(texture_image, camera_model, 
+//                                                                   dem, dem_georef, scale,
+//                                                                   output_width, output_height);
+//     GeoTransform trans(dem_georef, output_georef);
+//     ImageViewRef<PixelMask<PixelGray<float> > > output_dem = crop(transform(dem, trans, 
+//                                                                             ZeroEdgeExtension(), 
+//                                                                             BilinearInterpolation()),
+//                                                                   BBox2i(0,0,output_width,output_height));
+    
+//     ImageViewRef<PixelGrayA<uint8> > final_result = orthoproject(output_dem, output_georef, 
+//                                                                  texture_image, camera_model, 
+//                                                                  BilinearInterpolation(), ZeroEdgeExtension());
+
+//     DiskImageResourceGDAL rsrc(output_file, final_result.format());
+//     rsrc.set_native_block_size(Vector2i(1024,1024));
+//     write_georeference(rsrc, output_georef);
+//     write_image(rsrc, final_result, TerminalProgressCallback());
+//   }
 }

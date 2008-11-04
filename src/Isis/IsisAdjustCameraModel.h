@@ -24,6 +24,7 @@ namespace camera {
   class IsisAdjustCameraModel : public IsisCameraModel {
   protected:
     mutable double m_current_time;
+    void* m_isis_alpha_cube;
 
     void set_image( double const& sample, double const& line) const;
     void set_time( double const& time ) const;
@@ -65,6 +66,8 @@ namespace camera {
     //-------------------------------------------------------------------
 
     Vector3 pixel_to_mm_time( Vector2 const& pix ) const;
+
+    Vector2 mm_time_to_pixel( Vector3 const& mm_time ) const;
 
     Vector3 point_to_mm_time( Vector3 const& mm_time, Vector3 const& point ) const;
 

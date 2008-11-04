@@ -66,14 +66,14 @@ IsisCameraModel::IsisCameraModel(std::string cube_filename) {
       m_max_ephemeris = start_time;
       m_min_ephemeris = end_time;
     }
-//     // Cache important values (such as sun angles, orientations, etc)
-//     try {
-//       std::cout << "\tCaching SPICE information..." << std::flush;
-//       cam->CreateCache(start_time, end_time, cam->Lines());
-//       std::cout << " done.\n";
-//     } catch (Isis::iException &e) {
-//       std::cout << " failed.\n\t" << e.what() << "\n";
-//     }
+    // Cache important values (such as sun angles, orientations, etc)
+    //     try {
+    //       std::cout << "\tCaching SPICE information..." << std::flush;
+    //       cam->CreateCache(start_time, end_time, cam->Lines());
+    //       std::cout << " done.\n";
+    //     } catch (Isis::iException &e) {
+    //       std::cout << " failed.\n\t" << e.what() << "\n";
+    //     }
 
   } catch (Isis::iException &e) {
     m_isis_camera_ptr = 0;

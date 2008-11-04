@@ -7,6 +7,7 @@
 #include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
 #include <CameraFocalPlaneMap.h>
+#include <CameraGroundMap.h>
 
 using namespace vw;
 using namespace vw::camera;
@@ -16,16 +17,23 @@ using namespace vw::camera;
 //-------------------------------------------------------------------------
 IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
 			   boost::shared_ptr<VectorEquation> position_func,
-			   boost::shared_ptr<QuaternionEquation> pose_func ) : IsisCameraModel( cube_filename ),
-      m_position_func( position_func ),
-      m_pose_func( pose_func ) {
+			   boost::shared_ptr<QuaternionEquation> pose_func ) : 
+  IsisCameraModel( cube_filename ),
+  m_position_func( position_func ),
+  m_pose_func( pose_func ) {
 
   m_position_func->set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
   m_pose_func->set_time_offset( (m_max_ephemeris + m_min_ephemeris)/2 );
-	
+
+  Isis::Cube* cube = static_cast<Isis::Cube*>(m_isis_cube);
+  Isis::AlphaCube* alpha_cube_ptr = new Isis::AlphaCube(*(cube->Label()));
+  m_isis_alpha_cube = alpha_cube_ptr;
 }
 
 IsisAdjustCameraModel::~IsisAdjustCameraModel() {
+  if (m_isis_alpha_cube) {
+    delete static_cast<Isis::AlphaCube*>(m_isis_alpha_cube);
+  }
 }
 
 //-------------------------------------------------------------------------
@@ -33,31 +41,35 @@ IsisAdjustCameraModel::~IsisAdjustCameraModel() {
 //-------------------------------------------------------------------------
 
 Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point) const {
-  std::cout << "Warning: Using broken implementation" << std::endl;
+  
+  VW_ASSERT(m_min_ephemeris == m_max_ephemeris, 
+            NoImplErr() << "IsisAdjustCameraModel::point_to_pixel() does not yet support linescan imagers.\n");
 
-  // This is broken because this routine doesn't using the equations
-  // that perform the adjustment. I haven't worked out how to do this
-  // and a least-squares method seems inevitable. If you can, use the
-  // point_to_mm_time method.
+  // point_to_pixel() is not yet able to handle linescan cameras,
+  // however for framing cameras we can pick a fixed ephemeris time
+  // and feed it into the point_to_mm_time() routine.
+  //
+  // We haven't worked out how to do this properly for linescan
+  // imagers, but a least-squares method seems inevitable. 
+  Vector3 fixed_mm_time(0,0,m_min_ephemeris);
+  Vector3 mm_time = this->point_to_mm_time( fixed_mm_time, point );  
+  return this->mm_time_to_pixel(mm_time);
 
   return IsisCameraModel::point_to_pixel( point );
 }
 
 Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
-  Vector3 mm_time = this->pixel_to_mm_time( pix );
-  
+  Vector3 mm_time = this->pixel_to_mm_time( pix );  
   return this->mm_time_to_vector( mm_time );
 }
 
 Vector3 IsisAdjustCameraModel::camera_center( Vector2 const& pix )  const {
   Vector3 mm_time = this->pixel_to_mm_time( pix );
-
   return this->camera_center( mm_time );
 }
 
 Quaternion<double> IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   Vector3 mm_time = this->pixel_to_mm_time( pix );
-  
   return this->camera_pose( mm_time );
 }
 
@@ -76,12 +88,55 @@ int IsisAdjustCameraModel::getSamples( void ) const {
 Vector3 IsisAdjustCameraModel::pixel_to_mm_time( Vector2 const& pix ) const {
   Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
   this->set_image( pix[0], pix[1] );
-
+  
   // Now finding the undistorted mms that make up the pixels
   Isis::CameraDistortionMap* distortMap = cam->DistortionMap();
   return Vector3( distortMap->UndistortedFocalPlaneX(),
 		  distortMap->UndistortedFocalPlaneY(),
 		  cam->EphemerisTime() );
+}
+
+Vector2 IsisAdjustCameraModel::mm_time_to_pixel( Vector3 const& mm_time ) const {
+  Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
+  Isis::AlphaCube* alpha_cube = static_cast<Isis::AlphaCube*>(m_isis_alpha_cube);
+
+  this->set_time( mm_time[2] );  
+  Isis::CameraDistortionMap* distortMap = cam->DistortionMap();
+  distortMap->SetUndistortedFocalPlane(mm_time[0],mm_time[1]);
+
+  // This code (commented out here) is a little bit more robust to
+  // changes in the ISIS API and variation in different types of ISIS
+  // cubes (map projected cubes, for example...).  However, it's MUCH
+  // SLOWER, so I've hard coded the functionality to a certain extent
+  // below.  We should take a careful look at this if we ever want to
+  // start playing with map projected ISIS cubes. 
+  //
+  //   double x = distortMap->UndistortedFocalPlaneX();
+  //   double y = distortMap->UndistortedFocalPlaneY();
+  //   double z = distortMap->UndistortedFocalPlaneZ();
+  //   // This ugly bit of code is necessary to kick the ISIS camera into
+  //   // propagating our changes to the focal plane position up through
+  //   // the chain of groundmap->distortionmap->detectormap->etc...
+  //   cam->GroundMap()->SetFocalPlane(x,y,z);
+  //   cam->SetUniversalGround(cam->UniversalLatitude(), cam->UniversalLongitude());
+
+  // This is the much faster code that is less robust...
+  double focalPlaneX = distortMap->FocalPlaneX();
+  double focalPlaneY = distortMap->FocalPlaneY();
+
+  Isis::CameraFocalPlaneMap* focalMap = cam->FocalPlaneMap();
+  focalMap->SetFocalPlane(focalPlaneX,focalPlaneY);
+  double detectorSample = focalMap->DetectorSample();
+  double detectorLine = focalMap->DetectorLine();
+
+  Isis::CameraDetectorMap* detectorMap = cam->DetectorMap();
+  detectorMap->SetDetector(detectorSample,detectorLine);
+  double parentSample = detectorMap->ParentSample();
+  double parentLine = detectorMap->ParentLine();
+
+  double childSample = alpha_cube->BetaSample(parentSample);
+  double childLine = alpha_cube->BetaLine(parentLine);
+  return Vector2( childSample, childLine );
 }
 
 Vector3 IsisAdjustCameraModel::point_to_mm_time( Vector3 const& mm_time, Vector3 const& point ) const {
@@ -95,17 +150,27 @@ Vector3 IsisAdjustCameraModel::point_to_mm_time( Vector3 const& mm_time, Vector3
   // Now building a pinhole camera model
   Vector3 center = this->camera_center( mm_time );
   Quaternion<double> orientation = this->camera_pose( mm_time );
-  PinholeModel pin_cam( center, transpose(orientation.rotation_matrix()), 
-			focal_length_mm, focal_length_mm,
-			0, 0 );
-  pin_cam.set_coordinate_frame( Vector3( 1, 0, 0 ),
-				Vector3( 0, 1, 0 ),
-				Vector3( 0, 0, 1 ) );
 
-  // Performing the forward projection
-  Vector2 forward_projection = pin_cam.point_to_pixel( point );
-  return Vector3( forward_projection[0], forward_projection[1],
-		  mm_time[2] );
+  // Performing the forward projection.  The following code is
+  // equivalent to forward projection with a pinhole camera
+  // constructed as follows:
+  //
+  //     PinholeModel pin_cam( center, transpose(orientation.rotation_matrix()), 
+  //   			focal_length_mm, focal_length_mm,
+  //   			0, 0 );
+  //     pin_cam.set_coordinate_frame( Vector3( 1, 0, 0 ),
+  //   				Vector3( 0, 1, 0 ),
+  //   				Vector3( 0, 0, 1 ) );
+  //     Vector2 forward_projection = pin_cam.point_to_pixel( point );
+  //
+  // However, the following code runs quite a bit faster since it
+  // doesn't do all of the heavy-weight matrix math in the pinhole's
+  // rebuild_camera_matrix() method.
+  Vector3 forward_projection = orientation.rotate(point - center);
+  forward_projection(0) *= focal_length_mm;
+  forward_projection(1) *= focal_length_mm;
+  forward_projection = forward_projection / forward_projection[2];
+  return Vector3( forward_projection[0], forward_projection[1], mm_time[2] );
 }
 
 Vector3 IsisAdjustCameraModel::mm_time_to_vector( Vector3 const& mm_time ) const {
@@ -144,11 +209,10 @@ Quaternion<double> IsisAdjustCameraModel::camera_pose( Vector3 const& mm_time ) 
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
-  Quaternion<double> quat (R_inst*inverse(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix());
+  Quaternion<double> quat (R_inst*transpose(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix());
   quat = quat / norm_2(quat);
-
   return quat;
-    //return Quaternion<double>(R_inst*inverse(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix() );
+    //return Quaternion<double>(R_inst*transpose(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix() );
 }
 
 double IsisAdjustCameraModel::undistorted_focal( Vector3 const& mm_time ) const {
@@ -157,7 +221,6 @@ double IsisAdjustCameraModel::undistorted_focal( Vector3 const& mm_time ) const 
 
   // Looking up the focal length
   Isis::CameraDistortionMap* distortMap = cam->DistortionMap();
-      
   return distortMap->UndistortedFocalPlaneZ();
 }
 

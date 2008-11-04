@@ -351,9 +351,9 @@ public:
 
     // Setting new equations defined by a_j
     for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = a[j][n];
+      posF->set_constant(n,a[j][n]);
     for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = a[j][n + posF->size()];
+      poseF->set_constant(n,a[j][n + posF->size()]);
 
     return m_cameras[j];
   }
@@ -372,9 +372,9 @@ public:
 
     // Applying new equation constants
     for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = a_j[n];
+      posF->set_constant(n,a_j[n]);
     for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = a_j[n + posF->size()];
+      poseF->set_constant(n,a_j[n + posF->size()]);
 
     // Determine what time to use for the camera forward
     // projection. Sorry that this is a search, I don't have a better
@@ -626,11 +626,11 @@ int main(int argc, char* argv[]) {
     // Moving the camera
     boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(camera_adjust_models[0]->getPositionFuncPoint());
     std::cout << " Size: " << posF->size() << std::endl;
-    (*posF)[2] = 200;
+    posF->set_constant(2,200);
     mm_time2 = camera_adjust_models[0]->point_to_mm_time( Vector3(0,0,cnet[0][0].ephemeris_time() ), cnet[0].position() );
     Vector3 pointing2 = camera_adjust_models[0]->mm_time_to_vector( mm_time2 );
     // Resetting the camea
-    (*posF)[2] = 0;
+    posF->set_constant(2,0);
     
     std::cout << "\tTest 3 Error:" << pointing2 - pointing1 << std::endl;
   }
