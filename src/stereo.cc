@@ -515,18 +515,52 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
 
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
+      if ( !(stereo_settings().do_affine_subpixel) ) {
+        
+        // Option I: Parabola subpixel refinement
 
-      if (stereo_settings().slog) {
-        disparity_map = SubpixelView<SlogStereoPreprocessingFilter>(disparity_disk_image, 
-                                                                    channels_to_planes(left_disk_image), 
-                                                                    channels_to_planes(right_disk_image),
-                                                                    stereo_settings().subpixel_h_kern, stereo_settings().subpixel_v_kern, 
-                                                                    stereo_settings().do_h_subpixel, 
-                                                                    stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                    stereo_settings().do_affine_subpixel,
-                                                                    SlogStereoPreprocessingFilter(stereo_settings().slogW),
-                                                                    false);
-      } else if (stereo_settings().log) {
+        if (stereo_settings().slog) {
+          disparity_map = SubpixelView<SlogStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                      channels_to_planes(left_disk_image), 
+                                                                      channels_to_planes(right_disk_image),
+                                                                      stereo_settings().h_kern, stereo_settings().v_kern, 
+                                                                      stereo_settings().do_h_subpixel, 
+                                                                      stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                      false, // do_affine is false here...
+                                                                      SlogStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                      false);
+        } else if (stereo_settings().log) {
+          disparity_map = SubpixelView<LogStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                     channels_to_planes(left_disk_image), 
+                                                                     channels_to_planes(right_disk_image),
+                                                                     stereo_settings().h_kern, stereo_settings().v_kern, 
+                                                                     stereo_settings().do_h_subpixel, 
+                                                                     stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                     false, // do_affine is false here...
+                                                                     LogStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                     false);
+      
+        } else {
+          disparity_map = SubpixelView<BlurStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                      channels_to_planes(left_disk_image), 
+                                                                      channels_to_planes(right_disk_image),
+                                                                      stereo_settings().h_kern, stereo_settings().v_kern, 
+                                                                      stereo_settings().do_h_subpixel, 
+                                                                      stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                      false, // do_affine is false here
+                                                                      BlurStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                      false);
+        }
+
+        // Create a disk image resource and prepare to write a tiled
+        // OpenEXR.
+        DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
+        disparity_map_rsrc2.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
+        block_write_image( disparity_map_rsrc2, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement (parabola) :") );    
+
+      } else if (stereo_settings().do_affine_subpixel) {
+
+        // Option II: Affine subpixel refinement
         disparity_map = SubpixelView<LogStereoPreprocessingFilter>(disparity_disk_image, 
                                                                    channels_to_planes(left_disk_image), 
                                                                    channels_to_planes(right_disk_image),
@@ -536,17 +570,13 @@ int main(int argc, char* argv[]) {
                                                                    stereo_settings().do_affine_subpixel,
                                                                    LogStereoPreprocessingFilter(stereo_settings().slogW),
                                                                    false);
-      
-      } else {
-        disparity_map = SubpixelView<BlurStereoPreprocessingFilter>(disparity_disk_image, 
-                                                                    channels_to_planes(left_disk_image), 
-                                                                    channels_to_planes(right_disk_image),
-                                                                    stereo_settings().subpixel_h_kern, stereo_settings().subpixel_v_kern, 
-                                                                    stereo_settings().do_h_subpixel, 
-                                                                    stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                    stereo_settings().do_affine_subpixel,
-                                                                    BlurStereoPreprocessingFilter(stereo_settings().slogW),
-                                                                    false);
+
+        // Create a disk image resource and prepare to write a tiled
+        // OpenEXR.
+        DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
+        disparity_map_rsrc2.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
+        block_write_image( disparity_map_rsrc2, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement (affine) :") );    
+        
       }
       //        crop(disparity_map,100,150,200,200) = 
       //           crop(AffineSubpixelView(disparity_disk_image, 
@@ -558,11 +588,6 @@ int main(int argc, char* argv[]) {
       //                                   false),
       //                100,150,200,200);
 
-      // Create a disk image resource and prepare to write a tiled
-      // OpenEXR.
-      DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-R.exr", disparity_map.format() );
-      disparity_map_rsrc.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
-      block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement: ") );    
     } catch (IOErr &e) { 
       cout << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
       exit(0);
@@ -617,10 +642,11 @@ int main(int argc, char* argv[]) {
       DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
       if(stereo_settings().fill_holes_NURBS) {
         std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
-        hole_filled_disp_map = disparity::mask(HoleFillView(filtered_disparity_map, 1),Lmask, Rmask);
-      } else {
-        hole_filled_disp_map = disparity::mask(filtered_disparity_map, Lmask, Rmask);
-      }
+        hole_filled_disp_map = HoleFillView(disparity::mask(filtered_disparity_map,Lmask,Rmask), 1);
+      } 
+      //else {
+      //        hole_filled_disp_map = disparity::mask(filtered_disparity_map, Lmask, Rmask);
+      //      }
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
       disparity_map_rsrc.set_tiled_write(std::min(2048,hole_filled_disp_map.cols()),std::min(2048, hole_filled_disp_map.rows()));
