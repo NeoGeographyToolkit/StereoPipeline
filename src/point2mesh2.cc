@@ -68,6 +68,28 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+// Erases a file suffix if one exists and returns the base string
+static std::string prefix_from_pointcloud_filename(std::string const& filename) {
+  std::string result = filename;
+
+  // First case: filenames that match <prefix>-PC.<suffix>
+  int index = result.rfind("-PC.");
+  if (index != -1) {
+    result.erase(index, result.size());
+    return result;
+  }
+
+  // Second case: filenames that match <prefix>.<suffix>
+  index = result.rfind(".");
+  if (index != -1) {
+    result.erase(index, result.size());
+    return result;
+  }
+
+  // No match
+  return result;
+}
+
 // Another Hack from the orginal point2mesh. It's magic.
 class PointTransFunc : public ReturnFixedType<Vector3> {
   Matrix3x3 m_trans;
@@ -281,7 +303,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   {
     unsigned col_steps = point_image_impl.cols()/step_size;
 
-    for (unsigned r = 0; r < ( point_image_impl.rows()/step_size - 1); ++r){
+    for (int r = 0; r < ( point_image_impl.rows()/step_size - 1); ++r){
 
       bool add_direction_down = true;
       osg::DrawElementsUInt* dui = new osg::DrawElementsUInt(GL_TRIANGLE_STRIP);
@@ -374,7 +396,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 int main( int argc, char *argv[] ){
   //Main Variables
   set_debug_level(VerboseDebugMessage+11);
-  std::string input_file_name, output_prefix, output_file_type, texture_file_name;
+  std::string pointcloud_filename, output_prefix = "", output_file_type, texture_file_name;
   unsigned step_size, cache_size;
   osg::ref_ptr<osg::Group> root = new osg::Group();
   float simplify_percent = 0.0;
@@ -396,11 +418,11 @@ int main( int argc, char *argv[] ){
        "Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with serious noise issues.")
     ("step,s",            po::value<unsigned>(&step_size)->default_value(10), 
        "Step size for mesher, sets the polygons size per point")
-    ("input-file",        po::value<std::string>(&input_file_name), 
+    ("input-file",        po::value<std::string>(&pointcloud_filename), 
        "Explicitly specify the input file")
     ("texture-file",      po::value<std::string>(&texture_file_name), 
        "Explicity specify the texture file")
-    ("output-prefix,o",   po::value<std::string>(&output_prefix)->default_value("mesh"), 
+    ("output-prefix,o",   po::value<std::string>(&output_prefix), 
        "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("ive"), 
        "Specify the output file")
@@ -438,8 +460,12 @@ int main( int argc, char *argv[] ){
     return 1;
   }
 
+  if( output_prefix == "" ) {
+    output_prefix = prefix_from_pointcloud_filename(pointcloud_filename);
+  }
+
   //Loading point cloud!
-  DiskImageView<Vector3> point_disk_image(input_file_name);
+  DiskImageView<Vector3> point_disk_image(pointcloud_filename);
   ImageViewRef<Vector3> point_image = point_disk_image;
 
   //Applying option rotations before hand

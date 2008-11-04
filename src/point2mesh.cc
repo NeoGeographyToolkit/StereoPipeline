@@ -49,6 +49,28 @@ using namespace vw::stereo;
 #include "stereo.h"
 #include "nff_terrain.h"
 
+// Erases a file suffix if one exists and returns the base string
+static std::string prefix_from_pointcloud_filename(std::string const& filename) {
+  std::string result = filename;
+
+  // First case: filenames that match <prefix>-PC.<suffix>
+  int index = result.rfind("-PC.");
+  if (index != -1) {
+    result.erase(index, result.size());
+    return result;
+  }
+
+  // Second case: filenames that match <prefix>.<suffix>
+  index = result.rfind(".");
+  if (index != -1) {
+    result.erase(index, result.size());
+    return result;
+  }
+
+  // No match
+  return result;
+}
+
 /// Erases a file suffix if one exists and returns the base string
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
@@ -82,7 +104,7 @@ public:
 int main( int argc, char *argv[] ) {
   set_debug_level(VerboseDebugMessage+11);
 
-  std::string input_file_name, out_prefix, output_file_type, texture_filename;
+  std::string pointcloud_filename, out_prefix = "", output_file_type, texture_filename;
   unsigned cache_size, max_triangles;
   float mesh_tolerance;
   unsigned simplemesh_h_step, simplemesh_v_step;
@@ -99,10 +121,10 @@ int main( int argc, char *argv[] ) {
     ("mesh-tolerance", po::value<float>(&mesh_tolerance)->default_value(0.001), "Tolerance for the adaptive meshing algorithm")
     ("max_triangles", po::value<unsigned>(&max_triangles)->default_value(1000000), "Maximum triangles for the adaptive meshing algorithm")
     ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
-    ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
+    ("input-file", po::value<std::string>(&pointcloud_filename), "Explicitly specify the input file")
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
     ("grayscale-texture", "Use grayscale image processing when modifying the texture image (for .iv and .vrml files only)")
-    ("output-prefix,o", po::value<std::string>(&out_prefix)->default_value("mesh"), "Specify the output prefix")
+    ("output-prefix,o", po::value<std::string>(&out_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("ive"), "Specify the output file")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
 
@@ -135,7 +157,11 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  DiskImageView<Vector3> point_disk_image(input_file_name);
+  if( out_prefix == "" ) {
+    out_prefix = prefix_from_pointcloud_filename(pointcloud_filename);
+  }
+
+  DiskImageView<Vector3> point_disk_image(pointcloud_filename);
   ImageViewRef<Vector3> point_image = point_disk_image;
 
   // Apply an (optional) rotation to the 3D points before building the mesh.
