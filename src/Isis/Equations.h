@@ -130,6 +130,7 @@ namespace camera {
     PoseZeroOrder( void ) {
       m_constant.resize(3);
       m_time_offset = 0;
+      update_cache();
     }
     PoseZeroOrder( double x, double y, double z ) {
       m_constant.push_back(x);

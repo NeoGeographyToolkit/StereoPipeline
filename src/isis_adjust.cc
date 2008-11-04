@@ -145,88 +145,8 @@ public:
     // Old implementation
     Matrix<double> partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
 
-    /*
-    // TODO: This is no longer acceptable. We can do this all
-    // analytically with out much hassle
-
-    // Additional Note: Right now I'm writing the code to only support
-    // single constant delta functions. Or in other words, I currently
-    // am only correction cameras by adding a single constant.
-
-    // Loading up camera
-    // Loading equations
-    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
-    boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
-
-    // Setting new equations defined by a_j
-    for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = a_j[n];
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = a_j[n + posF->size()];
-
-    // Determine what ephemeris time is assigned to point i when
-    // viewed by camera j
-    int m = 0;
-    while ( m_network[i][m].image_id() != j )
-      m++;
-
-    // Getting camera position & pose
-    Vector3 position = m_cameras[j]->camera_center( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
-    Quaternion<double> pose = m_cameras[j]->camera_pose( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
-    pose = pose/norm_2(pose);
-    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-
-    double cp = cos( euler[0] ); double sp = sin( euler[0] ); // Phi 
-    double co = cos( euler[1] ); double so = sin( euler[1] ); // Omega
-    double ck = cos( euler[2] ); double sk = sin( euler[2] ); // Kappa ?
-
-    double cf = m_cameras[j]->undistorted_focal( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
-
-    Matrix<double,2,positionParam+poseParam> partial_derivatives;
-    
-    // performing the partial of x over the partial camera x position
-    partial_derivatives(0,0) = ck*co/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*so;
-
-    // performing the partial of x over the partial camera y position
-    partial_derivatives(0,1) = (-sk*cp+ck*so*sp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*sp;
-
-    // performing the partial of x over the partial camera z position
-    partial_derivatives(0,2) = (sk*sp+ck*so*cp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
-   
-    // performing the partial of x over the partial camera phi (X) rotation
-    partial_derivatives(0,3) = ((-sk*sp-ck*so*cp)*(b_i[1]-position[1])+(-sk*cp+ck*so*sp)*(b_i[2]-position[2]))/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(-1/cf*co*cp*(b_i[1]-position[1])+1/cf*co*sp*(b_i[2]-position[2]));
-    
-    // performing the partial of x over the partial camera omega(Y) rotation
-    partial_derivatives(0,4) = (ck*so*(b_i[0]-position[0])-ck*co*sp*(b_i[1]-position[1])-ck*co*cp*(b_i[2]-position[2]))/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(1/cf*co*(b_i[0]-position[0])+1/cf*so*sp*(b_i[1]-position[1])+1/cf*so*cp*(b_i[2]-position[2]));
-    
-    // performing the partial of x over the partial camera kappa(Z) rotation
-    partial_derivatives(0,5) = (sk*co*(b_i[0]-position[0])+(ck*cp+sk*so*sp)*(b_i[1]-position[1])+(-ck*sp+sk*so*cp)*(b_i[2]-position[2]))/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]));
-
-    // performing the partial of y over the partial camera x position
-    partial_derivatives(1,0) = sk*co/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*so;
-    
-    // performing the partial of y over the partial camera y position
-    partial_derivatives(1,1) = (ck*cp+sk*so*sp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*sp;
-    
-    // performing the partial of y over the partial camera z position
-    partial_derivatives(1,2) = (-ck*sp+sk*so*cp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
-    
-    // performing the partial of y over the partial camera phi (X) rotation
-    partial_derivatives(1,3) = ((ck*sp-sk*so*cp)*(b_i[1]-position[1])+(ck*cp+sk*so*sp)*(b_i[2]-position[2]))/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(-1/cf*co*cp*(b_i[1]-position[1])+1/cf*co*sp*(b_i[2]-position[2]));
-    
-    // performing the partial of y over the partial camera omega (Y) rotation
-    partial_derivatives(1,4) = (sk*so*(b_i[0]-position[0])-sk*co*sp*(b_i[1]-position[1])-sk*co*cp*(b_i[2]-position[2]))/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))*(1/cf*co*(b_i[0]-position[0])+1/cf*so*sp*(b_i[1]-position[1])+1/cf*so*cp*(b_i[2]-position[2]));
-
-    // performing the partial of y over the partial camera kappa (Z) rotation
-    partial_derivatives(1,5) = (-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]));
-
-    std::ofstream ostr( "approxJacobian.txt", std::ios::app );
-    ostr << partial_derivatives_old << "\n\n";
-    ostr.close();
-    ostr.open( "analytJacobian.txt", std::ios::app );
-    ostr << partial_derivatives << "\n\n";
-    ostr.close();
-    */
+    //TODO: Give me an analytical solution again, remember the
+    //calculation of euler angles must match Michael's implementation
 
     return partial_derivatives;
   }
@@ -239,54 +159,7 @@ public:
     Matrix<double> partial_derivatives(2,3);
     partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
 
-    /*
-    // Loading up camera
-    // Loading equations
-    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
-    boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
-
-    // Setting new equations defined by a_j
-    for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = a_j[n];
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = a_j[n + posF->size()];
-
-    // Determine what ephemeris time is assigned to point i when
-    // viewed by camera j
-    int m = 0;
-    while ( m_network[i][m].image_id() != j )
-      m++;
-
-    // Getting camera position & pose
-    Vector3 position = m_cameras[j]->camera_center( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
-    Quaternion<double> pose = m_cameras[j]->camera_pose( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
-    pose = pose/norm_2(pose);
-    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-
-    double cp = cos( euler[0] ); double sp = sin( euler[0] ); // Phi 
-    double co = cos( euler[1] ); double so = sin( euler[1] ); // Omega
-    double ck = cos( euler[2] ); double sk = sin( euler[2] ); // Kappa ?
-
-    double cf = m_cameras[j]->undistorted_focal( Vector3(0,0,m_network[i][m].ephemeris_time() ) );
-
-    // performing the partial of x over the partial of point's x position
-    partial_derivatives(0,0) = -ck*co/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*so;
-
-    // performing the partial of x over the partial of point's y position
-    partial_derivatives(0,1) = (sk*cp-ck*so*sp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*sp;
-
-    // performing the partial of x over the partial of point's z position
-    partial_derivatives(0,2) = (-sk*sp-ck*so*cp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-ck*co*(b_i[0]-position[0])+(sk*cp-ck*so*sp)*(b_i[1]-position[1])+(-sk*sp-ck*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
-
-    // performing the partial of y over the partial of point's x position
-    partial_derivatives(1,0) = -sk*co/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))-(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*so;
-    
-    // performing the partial of y over the partial of point's y position
-    partial_derivatives(1,1) = (-ck*cp-sk*so*sp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*sp;
-
-    // performing the partial of y over the partial of point's z position
-    partial_derivatives(1,2) = (ck*sp-sk*so*cp)/(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))+(-sk*co*(b_i[0]-position[0])+(-ck*cp-sk*so*sp)*(b_i[1]-position[1])+(ck*sp-sk*so*cp)*(b_i[2]-position[2]))/((1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2]))*(1/cf*so*(b_i[0]-position[0])-1/cf*co*sp*(b_i[1]-position[1])-1/cf*co*cp*(b_i[2]-position[2])))/cf*co*cp;
-    */
+    //TODO: Analytical solution
 
     return partial_derivatives;
   }
@@ -567,6 +440,8 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    VW_ASSERT( cnet.size() != 0, vw::Aborted() << "Failed to load any points, Control Network Empty\n" );
+
     std::cout << "\nLoading Ground Control Points:\n";
     for (unsigned i = 0; i < input_files.size(); ++i){
       std::string gcp_filename = prefix_from_filename( input_files[i] ) + ".gcp";
@@ -593,6 +468,8 @@ int main(int argc, char* argv[]) {
     }
     cnet.write_control_network("control_mm.cnet");
   }
+
+  VW_DEBUG_ASSERT( cnet.size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
 
   // Need to typecast all the models to feed to the Bundle Adjustment
   // model, kinda ugly.
@@ -670,12 +547,6 @@ int main(int argc, char* argv[]) {
     ostr << "";
     ostr.close();
     ostr.open( "iterPointsParam.txt", std::ios::out );
-    ostr << "";
-    ostr.close();
-    ostr.open( "approxJacobian.txt", std::ios::out );
-    ostr << "";
-    ostr.close();
-    ostr.open( "analytJacobian.txt", std::ios::out );
     ostr << "";
     ostr.close();
 

@@ -134,8 +134,11 @@ void add_matched_points(ControlNetwork& cnet,
           cpoint.add_measure(m1);
           cpoint.add_measure(m2);
           cnet.add_control_point(cpoint);
-        }
-      }
+        } else
+	  vw_out(DebugMessage, "bundle_adjustment") << "Point Pair failed to triangulate\n\t> Cameras: " << camera_id1 << " " << camera_id2 << " match: " << i << "\n";
+      } else 
+	vw_out(DebugMessage, "bundle_adjustment") << "Point Pair failed to meet convergence angle\n\t> Cameras: " << camera_id1 << " " << camera_id2 << " match: " << i << " angle: " << sm.convergence_angle(m1.position(), m2.position()) << "\n";
+
     } else if (pos1 != pos2) {                                 // Contains both, but in seperate control points
 
       ControlPoint& p1 = cnet[pos1];
