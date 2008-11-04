@@ -53,6 +53,28 @@ using namespace vw::cartography;
 #include "nff_terrain.h"
 #include "OrthoRasterizer.h"
 
+// Erases a file suffix if one exists and returns the base string
+static std::string prefix_from_pointcloud_filename(std::string const& filename) {
+  std::string result = filename;
+
+  // First case: filenames that match <prefix>-PC.<suffix>
+  int index = result.rfind("-PC.");
+  if (index != -1) {
+    result.erase(index, result.size());
+    return result;
+  }
+
+  // Second case: filenames that match <prefix>.<suffix>
+  index = result.rfind(".");
+  if (index != -1) {
+    result.erase(index, result.size());
+    return result;
+  }
+
+  // No match
+  return result;
+}
+
 // Apply an offset to the points in the PointImage
 class PointOffsetFunc : public UnaryReturnSameType {
   Vector3 m_offset;
@@ -90,7 +112,7 @@ public:
 int main( int argc, char *argv[] ) {
   set_debug_level(VerboseDebugMessage+11);
 
-  std::string input_file_name, out_prefix, output_file_type, texture_filename;
+  std::string pointcloud_filename, out_prefix = "", output_file_type, texture_filename;
   unsigned cache_size;
   float dem_spacing, default_value=0;
   int debug_level;
@@ -113,9 +135,9 @@ int main( int argc, char *argv[] ) {
     ("grayscale", "Use grayscale image processing for creating the orthoimage")
     ("offset-files", "Also write a pair of ascii offset files (for debugging)")    
     ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
-    ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
+    ("input-file", po::value<std::string>(&pointcloud_filename), "Explicitly specify the input file")
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
-    ("output-prefix,o", po::value<std::string>(&out_prefix)->default_value("terrain"), "Specify the output prefix")
+    ("output-prefix,o", po::value<std::string>(&out_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file")
     ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
     ("xyz-to-lonlat", "Convert from xyz coordinates to longitude, latitude, altitude coordinates.")
@@ -134,6 +156,8 @@ int main( int argc, char *argv[] ) {
     ("proj-lat", po::value<double>(&proj_lat), "The center of projection latitude (if applicable)")
     ("proj-lon", po::value<double>(&proj_lon), "The center of projection longitude (if applicable)")
     ("proj-scale", po::value<double>(&proj_scale), "The projection scale (if applicable)")
+
+    ("gmt", "Create a GMT processing script to go with this DEM.")
 
     ("rotation-order", po::value<std::string>(&rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
@@ -162,7 +186,11 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  DiskImageView<Vector3> point_disk_image(input_file_name);
+  if( out_prefix == "" ) {
+    out_prefix = prefix_from_pointcloud_filename(pointcloud_filename);
+  }
+
+  DiskImageView<Vector3> point_disk_image(pointcloud_filename);
   ImageViewRef<Vector3> point_image = point_disk_image;
 
   // Apply an (optional) rotation to the 3D points before building the mesh.
@@ -290,6 +318,9 @@ int main( int argc, char *argv[] ) {
     std::cout << "\nWriting DEM.\n";
     BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
     write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
+
+    if (vm.count("gmt")) 
+      write_GMT_script(out_prefix, block_dem_raster.cols(), block_dem_raster.rows(), dem_bbox.min().z(), dem_bbox.max().z(), 1.0, georef);
 
     // Write out a normalized version of the DTM (for debugging)
     if (vm.count("normalized")) {
