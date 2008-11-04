@@ -41,6 +41,7 @@ namespace po = boost::program_options;
 #include <osg/Node>
 #include <osg/ShapeDrawable>
 #include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 #include <osgViewer/Viewer>
 #include <osg/MatrixTransform>
 #include <osgGA/TrackballManipulator>
@@ -183,7 +184,7 @@ class CameraIter : public osg::Referenced  {
   int getVertices( void ) {
     return _vertices;
   }
-  osg::MatrixTransform* buildMatrixTransform( const int& step );
+  osg::MatrixTransform* buildMatrixTransform( const int& step, const int& vert );
 
  private:
   int* _step;
@@ -440,8 +441,9 @@ class playbackNodeCallback : public osg::NodeCallback
 class cameraMatrixCallback : public osg::NodeCallback
 {
  public:
-  cameraMatrixCallback( CameraIter* camera ) {
+  cameraMatrixCallback( CameraIter* camera, const int& vertice = 0 ) {
     _camera = camera;
+    _vertice = vertice;
   }
   virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv )
   {
@@ -456,9 +458,9 @@ class cameraMatrixCallback : public osg::NodeCallback
       //Moving the transform to reflect the current step
       osg::MatrixTransform* mt = dynamic_cast<osg::MatrixTransform*>(node);
      
-      osg::Vec3f euler = _camera->getEuler( buffer - 1 );
-      osg::Vec3f position = _camera->getPosition( buffer - 1 );
-
+      osg::Vec3f euler = _camera->getEuler( buffer - 1, _vertice );
+      osg::Vec3f position = _camera->getPosition( buffer - 1, _vertice );
+      
       vw::Matrix3x3 temp = vw::math::euler_to_rotation_matrix(euler[0],
 							      euler[1],
 							      euler[2],
@@ -485,6 +487,7 @@ class cameraMatrixCallback : public osg::NodeCallback
   }
  private:
   int _previousStep;
+  int _vertice;
   CameraIter* _camera;
 };
 

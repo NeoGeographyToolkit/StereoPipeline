@@ -26,7 +26,7 @@
 
 #include "bundlevis.h"
 
-#define PROGRAM_NAME "Bundlevis v2.0"
+#define PROGRAM_NAME "Bundlevis v2.1"
 #define PI 3.14159265
 
 // This builds the 3 Axis that represents the camera
@@ -65,12 +65,15 @@ osg::Geode* build3Axis( float const& line_length ){
 }
 
 // This builds the matrix transform for a camera
-osg::MatrixTransform* CameraIter::buildMatrixTransform( const int& step ) {
+osg::MatrixTransform* CameraIter::buildMatrixTransform( const int& step, const int& vertice = 0 ) {
   osg::MatrixTransform* mt = new osg::MatrixTransform;
 
-  vw::Matrix3x3 temp = vw::math::euler_to_rotation_matrix( _euler[step][0],
-							   _euler[step][1],
-							   _euler[step][2],
+  osg::Vec3f euler = this->getEuler( step, vertice );
+  osg::Vec3f position = this->getPosition( step, vertice );
+
+  vw::Matrix3x3 temp = vw::math::euler_to_rotation_matrix( euler[0],
+							   euler[1],
+							   euler[2],
 							   "xyz" );
 
   osg::Matrix rot( temp(0,0), temp(1,0), temp(2,0), 0,
@@ -81,11 +84,11 @@ osg::MatrixTransform* CameraIter::buildMatrixTransform( const int& step ) {
   osg::Matrix trans( 1,   0,   0,   0,
 		     0,   1,   0,   0,
 		     0,   0,   1,   0,
-		     _position[step][0],   _position[step][1],   _position[step][2],   1 );
+		     position[0], position[1], position[2],   1 );
 
   mt->setMatrix( rot*trans );
 
-  mt->setUpdateCallback( new cameraMatrixCallback( this ));
+  mt->setUpdateCallback( new cameraMatrixCallback( this, vertice ));
   
   return mt;
 }
@@ -643,8 +646,12 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 	  osg::StateSet* stateSet = new osg::StateSet();
 	  stateSet->setAttribute( new osg::LineWidth(2) );
 	  geode->setStateSet( stateSet );
-
 	  pushbroomGroup->addChild( geode );
+
+	  // Also throwing in another 3Axis at the end of the line
+	  osg::MatrixTransform* mt = cameras[j]->buildMatrixTransform(0, cameras[j]->getVertices()-1);
+	  mt->addChild( the3Axis );
+	  pushbroomGroup->addChild( mt );
 	}
       }
       camerasGroup->addChild( pushbroomGroup );
