@@ -192,9 +192,6 @@ public:
   // Return the covariance of the point parameters for point i.
   inline Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) {
     Matrix< double, 3, 3> result;
-//     result(0,0) = 1.0/0.001;
-//     result(1,1) = 1.0/0.001;
-//     result(2,2) = 1.0/10.0;
     for ( unsigned i = 0; i < 3; ++i)
       result(i,i) = 1/pow(g_gcp_sigma,2);
     return result;
@@ -338,9 +335,9 @@ int main(int argc, char* argv[]) {
   general_options.add_options()
     ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
     ("lambda,l", po::value<double>(&lambda), "Set the intial value of the LM parameter lambda")
-    ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(10.0), "Set the sigma (uncertainty) of the spacecraft position.")
-    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(1.0/10.0), "Set the sigma (uncertainty) of the spacecraft pose.")
-    ("gcp-sigma", po::value<float>(&g_gcp_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft pose.")
+    ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft position. (meters)")
+    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(1.0/10.0), "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
+    ("gcp-sigma", po::value<float>(&g_gcp_sigma)->default_value(100.0), "Set the sigma (uncertainty) of points. (meters)")
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
     ("help,h", "Display this help message")
     ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
