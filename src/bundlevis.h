@@ -71,6 +71,7 @@ class PointIter : public osg::Referenced {
     _ID = ID;
     _step = step;
     _drawConnLines = false;
+    _isGCP = false;
 
     std::ostringstream os;
     os << "Point: " << (_ID+1);
@@ -94,6 +95,12 @@ class PointIter : public osg::Referenced {
   bool getDrawConnLines( void ) {
     return _drawConnLines;
   }
+  void setGCP( bool value ) {
+    _isGCP = value;
+  }
+  bool getGCP(void ) {
+    return _isGCP;
+  }
   const std::string getDescription( void ) {
     return _description;
   }
@@ -101,6 +108,7 @@ class PointIter : public osg::Referenced {
   int* _step;
   int _ID;
   bool _drawConnLines;
+  bool _isGCP;
   std::string _description;
   std::vector<osg::Vec3f> _position;
   std::vector<float> _error;

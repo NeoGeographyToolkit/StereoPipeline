@@ -463,17 +463,21 @@ std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
   std::vector<ConnLineIter*> connLineData;
   // For every point
   for ( unsigned p = 0; p < cnet->size(); ++p ) {
-    // For every measure
-    for ( unsigned m = 0; m < (*cnet)[p].size(); ++m ){
-      // Is this a valid camera ?
-      if ( (*cnet)[p][m].image_id() < (signed)cameras.size() ) {
-	// Now popping on a new connection
-	connLineData.push_back( new ConnLineIter( points[p],
-						  cameras[(*cnet)[p][m].image_id()],
-						  step ) ); 
-      }
-    }
-  }
+    points[p]->setGCP( (*cnet)[p].type() == vw::camera::ControlPoint::GroundControlPoint  );
+
+    if (cameras.size()) {
+      // For every measure
+      for ( unsigned m = 0; m < (*cnet)[p].size(); ++m ){
+	// Is this a valid camera ?
+	if ( (*cnet)[p][m].image_id() < (signed)cameras.size() ) {
+	  // Now popping on a new connection
+	  connLineData.push_back( new ConnLineIter( points[p],
+						    cameras[(*cnet)[p][m].image_id()],
+						    step ) ); 
+	}
+      } //end for
+    } // end if
+  } // end for
 
   std::cout << "Number of Connections found: " << connLineData.size()
 	    << std::endl;
@@ -511,10 +515,17 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     }
 
     // Setting up color
-    osg::Vec4Array* colours = new osg::Vec4Array( 1 );
+    osg::Vec4Array* colours = new osg::Vec4Array( 2 );
+    (*colours)[0].set(1.0f, 0.5f, 1.0f, 1.0f);  // Generic Tie Points (PURPLE)
+    (*colours)[1].set(0.5f, 1.0f, 0.5f, 1.0f);  // Ground Control Points (GREEN)
+    osg::TemplateIndexArray<unsigned int, osg::Array::UIntArrayType, 2,2> *colorIndexArray =
+      new osg::TemplateIndexArray<unsigned int, osg::Array::UIntArrayType, 2,2>(points.size()*2 );
+    for ( unsigned i = 0; i < points.size()*2; i+=2 ) {
+      (*colorIndexArray)[i] = (*colorIndexArray)[i+1] = points[i/2]->getGCP();
+    }
     geometry->setColorArray( colours );
-    geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
-    (*colours)[0].set(1.0f, 0.5f, 1.0f, 1.0f);
+    geometry->setColorIndices( colorIndexArray );
+    geometry->setColorBinding( osg::Geometry::BIND_PER_VERTEX );
 
     // Setting up primitive to draw line to last location
     geometry->addPrimitiveSet( new osg::DrawArrays(GL_LINES, 0, vertices->size() ));
@@ -1071,7 +1082,7 @@ int main(int argc, char* argv[]){
 
   //////////////////////////////////////////////////////////
   //Loading the control network
-  if (vm.count("control-network-file") && (pointData.size()) && (cameraData.size())){
+  if (vm.count("control-network-file") && (pointData.size()) ){
     connLineData = loadControlNet( control_net_file,
 				   pointData,
 				   cameraData,
