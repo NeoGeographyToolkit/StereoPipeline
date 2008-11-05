@@ -185,7 +185,27 @@ int add_ground_control_points(vw::camera::ControlNetwork& cnet,
       cpoint.set_position(xyz[0],xyz[1],xyz[2]);
       cpoint.set_sigma(sigma[0],sigma[1],sigma[2]);
       cpoint.add_measure(m);
-      cnet.add_control_point(cpoint);
+
+      // Deciding where to put it
+      bool just_append = true;
+      for ( unsigned p = 0; p < cnet.size(); ++p) {
+	if (cnet[p].type() == ControlPoint::GroundControlPoint ) {
+	  if ((cnet[p].position()[0] - xyz[0]) < .001 &&
+	      (cnet[p].position()[1] - xyz[1]) < .001 &&
+	      (cnet[p].position()[2] - xyz[2]) < .001) {
+	    // I'm not checking measures because there is only one GCP
+	    // file per camera
+	    just_append = false;
+	    cnet[p].add_measure(m);
+	    break;
+	  }
+						   
+	}
+      }
+
+      if (just_append)
+	cnet.add_control_point(cpoint);
+
       ++count;
     }
   }
