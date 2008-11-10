@@ -310,19 +310,15 @@ int main(int argc, char* argv[]) {
     
    
     if (MEDIAN_FILTER==1){
-        cout << "\nMedian filtering start..." << std::flush; 
+        cout << "\nMedian filtering ..." << std::flush; 
         ImageViewRef<PixelGray<uint8> > left_denoised_image;
-        cout<<"\n debugging 1";
         ImageViewRef<PixelGray<uint8> > right_denoised_image; 
-        cout<<"\n debugging";
         left_denoised_image  = (fast_median_filter(left_rectified_image, 7));
-        cout<< "\n left image done";
         right_denoised_image = (fast_median_filter(right_rectified_image, 7));
-        cout<< "\n right image done";   
+        //left_denoised_image  = (my_median_filter(left_rectified_image, 7, 7));
+        //right_denoised_image = (my_median_filter(right_rectified_image, 7, 7));
         write_image(out_prefix+"-median-L.tif", left_denoised_image);
-        cout<<"\n wrote left image";
         write_image(out_prefix+"-median-R.tif", right_denoised_image);
-
         cout << "\nDone..." << std::flush;
 
         cout << "\nGenerating image masks..." << std::flush;
@@ -510,13 +506,31 @@ int main(int argc, char* argv[]) {
       cout << "\nStarting at the REFINEMENT stage.\n";
     
     try {
-      DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
-      DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
+
+      // Median filter
+      string filename_L;
+      string filename_R;
+      if (MEDIAN_FILTER==1){
+        filename_L = out_prefix+"-median-L.tif";
+        filename_R = out_prefix+"-median-R.tif";
+      } else {
+        filename_L = out_prefix+"-L.tif";
+        filename_R = out_prefix+"-R.tif";
+      }
+      
+      DiskImageView<PixelGray<float> > left_disk_image(filename_L);
+      DiskImageView<PixelGray<float> > right_disk_image(filename_R);
+
+      //DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
+      //DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
 
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
-      if ( !(stereo_settings().do_affine_subpixel) ) {
-        
+     
+          
+      //if ( !(stereo_settings().do_affine_subpixel) ) {
+      if ( (stereo_settings().do_affine_subpixel) == 0 ) {
+         printf("stereo: do_affine_subpixel = %d\n", stereo_settings().do_affine_subpixel);
         // Option I: Parabola subpixel refinement
 
         if (stereo_settings().slog) {
@@ -558,8 +572,9 @@ int main(int argc, char* argv[]) {
         disparity_map_rsrc2.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
         block_write_image( disparity_map_rsrc2, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement (parabola) :") );    
 
-      } else if (stereo_settings().do_affine_subpixel) {
-
+	//} else if (stereo_settings().do_affine_subpixel) {
+        } else if (stereo_settings().do_affine_subpixel > 0) {
+        printf("stereo: do_affine_subpixel = %d\n", stereo_settings().do_affine_subpixel);
         // Option II: Affine subpixel refinement
         disparity_map = SubpixelView<LogStereoPreprocessingFilter>(disparity_disk_image, 
                                                                    channels_to_planes(left_disk_image), 
@@ -578,6 +593,7 @@ int main(int argc, char* argv[]) {
         block_write_image( disparity_map_rsrc2, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement (affine) :") );    
         
       }
+      
       //        crop(disparity_map,100,150,200,200) = 
       //           crop(AffineSubpixelView(disparity_disk_image, 
       //                                   channels_to_planes(left_disk_image), 
