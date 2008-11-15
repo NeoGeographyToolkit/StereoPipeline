@@ -7,42 +7,53 @@ IRG_ARCH=`echo $IRG_ARCH_RAW | awk '{ print tolower( $0 ) }'`
 IRGPKG_DIR=/irg/packages/$IRG_ARCH
 
 ### Configure Options (Alternative to using command line syntax:  --enable-FEATURE=[val] )
-ENABLE_DEBUG=yes
-ENABLE_OPTIMIZE=no
-ENABLE_LIBTOOL=yes
-ENABLE_CUSTOM_ARCH_NAME=$IRG_ARCH
+ENABLE_DEBUG=no
+ENABLE_OPTIMIZE=yes
 
-### Setting the build directory
-PREFIX=`pwd`/build/$IRG_ARCH
+# This is where stereo will be installed.
+PREFIX=$HOME/local
+
+# Set this to where you installed vw
+VW_INSTALL=$PREFIX
+
+HAVE_PKG_BOOST=/usr
+HAVE_PKG_CLAPACK=no
+HAVE_PKG_GEOS=$IRGPKG_DIR/geos
+HAVE_PKG_GSL=$IRGPKG_DIR/gsl
+HAVE_PKG_ISIS=$IRGPKG_DIR/isis3/isis
+HAVE_PKG_MBA10=$PWD/thirdparty/MBA_1.0_gpl
+HAVE_PKG_OPENSCENEGRAPH=$IRGPKG_DIR/OpenSceneGraph
+HAVE_PKG_QT_CORE=/usr
+HAVE_PKG_QT_GUI=/usr
+HAVE_PKG_QT_INCLUDE=/usr
+HAVE_PKG_QT_SQL=/usr
+HAVE_PKG_QT=/usr
+HAVE_PKG_QWT=$IRGPKG_DIR/qwt
+HAVE_PKG_SLAPACK=/usr
+HAVE_PKG_SPICE=$IRGPKG_DIR/cspice
+HAVE_PKG_SUPERLU=$IRGPKG_DIR/superlu
+HAVE_PKG_VW_CAMERA=$VW_INSTALL
+HAVE_PKG_VW_CARTOGRAPHY=$VW_INSTALL
+HAVE_PKG_VW_INTEREST_POINT=$VW_INSTALL
+HAVE_PKG_VW_STEREO=$VW_INSTALL
+HAVE_PKG_VW=$VW_INSTALL
+HAVE_PKG_XERCESC=/usr
 
 ### Apps I want
+
 ENABLE_APP_STEREO=yes
+ENABLE_APP_STEREOGUI=no
+ENABLE_APP_ORTHOPROJECT=yes
 ENABLE_APP_BUNDLEADJUST=yes
+ENABLE_APP_ORBITVIZ=yes
+ENABLE_APP_DISPARITYDEBUG=yes
+ENABLE_APP_POINT2MESH=yes
+ENABLE_APP_POINT2MESH2=yes
+ENABLE_APP_POINT2DEM=yes
+ENABLE_APP_NURBS=yes
+ENABLE_APP_CTXIMAGE=yes
 ENABLE_APP_RMAX2CAHVOR=yes
 ENABLE_APP_RMAXADJUST=yes
-ENABLE_APP_POINT2DEM=yes
-ENABLE_APP_POINT2MESH=yes
-ENABLE_APP_DISPARITYDEBUG=yes
-ENABLE_APP_ORBITVIZ=no
-ENABLE_APP_ORTHOPROJECT=no
+ENABLE_APP_BUNDLEVIS=yes
+ENABLE_APP_ISISADJUST=yes
 
-### Package Base Paths - Set these to the directories that contain 
-###   lib/include directories for packages in non-standard locations.
-
-ISISROOT=/irg/packages/i686_linux_gcc4.1/isis/isis
-
-PKG_PATHS="  \
-  $HOME/projects/VisionWorkbench/build/$IRG_ARCH \
-  `pwd`/thirdparty/MBA_1.0_gpl                   \
-  $IRGPKG_DIR/boost                              \
-  $IRGPKG_DIR/qt-4.1.0                           \
-  $ISISROOT                                      \
-  $ISISROOT/3rdParty                             \
-  $IRGPKG_DIR/LAPACK                             \
-  $IRGPKG_DIR/gdal                               \
-  $IRGPKG_DIR/vxl                                \
-  $IRGPKG_DIR/openexr                            \
-  $IRGPKG_DIR/cspice                             \ 
-  $IRGPKG_DIR/OpenSceneGraph                     \
-  $IRGPKG_DIR/proj4                              \
-"
