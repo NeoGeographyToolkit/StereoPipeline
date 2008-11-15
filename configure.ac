@@ -275,9 +275,9 @@ if test x"$host_vendor" = "xapple"; then
     AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
     AX_PKG(QT,      [QT_INCLUDE],   [],              [], [${QT_CPPFLAGS}])
 else
-    AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt-qt4])
+    AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt])
     AX_PKG(GEOS,    [],             [-lgeos])
-    AX_PKG(GSL,     [LAPACK],       [-lgsl])
+    AX_PKG(GSL,     [LAPACK],       [-lgsl -lgslcblas])
     AX_PKG(SUPERLU, [],             [-lsuperlu])
     AX_PKG(XERCESC, [],             [-lxerces-c])
 
