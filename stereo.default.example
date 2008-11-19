@@ -19,8 +19,10 @@ SLOG_KERNEL_WIDTH 1.5
 #########################################################################
 
 # Correlation kernel size (bound disparity range)
-H_KERNEL 35
-V_KERNEL 35
+H_KERNEL 15
+V_KERNEL 15
+SUBPIXEL_H_KERNEL 25
+SUBPIXEL_V_KERNEL 25
 
 # correlation window size
 H_CORR_MIN -300
@@ -31,6 +33,19 @@ DO_H_SUBPIXEL 1
 DO_V_SUBPIXEL 1
 XCORR_THRESHOLD 2.0
 CORRSCORE_REJECTION_THRESHOLD 1.1
+
+# Turn this up to improve the results of the discrete
+# correlation step.  This will reduce the number of 
+# missing pixels, but reduce the overall accuracy of 
+# the disparity estimates. 
+COST_BLUR 0
+
+# Select a cost function type:
+#
+# 0 - absolute difference
+# 1 - squared difference
+# 2 - normalized cross correlation
+COST_MODE 0
 
 #########################################################################
 ############################    FILTERING    ############################
