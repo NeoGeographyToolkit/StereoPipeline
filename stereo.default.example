@@ -19,18 +19,26 @@ SLOG_KERNEL_WIDTH 1.5
 #########################################################################
 
 # Correlation kernel size (bound disparity range)
-H_KERNEL 15
-V_KERNEL 15
+H_KERNEL 25
+V_KERNEL 25
 SUBPIXEL_H_KERNEL 25
 SUBPIXEL_V_KERNEL 25
 
 # correlation window size
-H_CORR_MIN -300
-H_CORR_MAX 300
-V_CORR_MIN -300
-V_CORR_MAX 300
+H_CORR_MIN -100
+H_CORR_MAX 100
+V_CORR_MIN -100
+V_CORR_MAX 100
+
+# Subpixel modes:
+#
+# 0 - parabola fitting (fastest)
+# 1 - affine adaptive window, robust weighting (slow!)
+# 2 - affine adaptive window, bayes weighting (slow!)
+SUBPIXEL_MODE 0
 DO_H_SUBPIXEL 1
 DO_V_SUBPIXEL 1
+
 XCORR_THRESHOLD 2.0
 CORRSCORE_REJECTION_THRESHOLD 1.1
 
@@ -38,6 +46,9 @@ CORRSCORE_REJECTION_THRESHOLD 1.1
 # correlation step.  This will reduce the number of 
 # missing pixels, but reduce the overall accuracy of 
 # the disparity estimates. 
+# 
+# Best used in conjuction with affine adaptive window
+# subpixel modes above.
 COST_BLUR 0
 
 # Select a cost function type:
