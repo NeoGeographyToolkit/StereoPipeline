@@ -36,8 +36,6 @@ ctx_sources = MRO/StereoSessionCTX.cc MRO/DiskImageResourceDDD.cc \
 
 hrsc_sources = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
 
-apollo_sources = apollo/StereoSessionApolloMetric.cc
-
 rmax_sources = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
 
 moc_sources = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc	\
@@ -53,27 +51,25 @@ bin_PROGRAMS =
 if MAKE_APP_STEREO
   bin_PROGRAMS += stereo
   stereo_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
-	 	   $(apollo_sources) $(generic_stereo_sources)		\
-	 	   $(isis_sources) $(rmax_sources) SpiceUtilities.cc	\
-	 	   stereo.cc 
+	 	   $(generic_stereo_sources) $(isis_sources)		\
+	 	   $(rmax_sources) SpiceUtilities.cc stereo.cc
   stereo_LDFLAGS = $(APP_STEREO_LIBS) $(ASP_LDFLAGS)
 endif
 
 if MAKE_APP_STEREOGUI
   bin_PROGRAMS += stereo_gui
   stereo_gui_SOURCES = stereo_gui.cc $(moc_sources) $(ctx_sources)	\
-	 	   $(hrsc_sources) $(apollo_sources)			\
-	 	   $(generic_stereo_sources) $(isis_sources)		\
-	 	   $(rmax_sources) SpiceUtilities.cc gui/MainWindow.cc	\
-	 	   gui/MainWindow.moc.cc gui/MainWindow.h		\
-	 	   gui/InputWidget.cc gui/InputWidget.moc.cc		\
-	 	   gui/InputWidget.h gui/AlignmentWidget.cc		\
-	 	   gui/AlignmentWidget.moc.cc gui/AlignmentWidget.h	\
-	 	   gui/PreviewGLWidget.cc gui/PreviewGLWidget.moc.cc	\
-	 	   gui/PreviewGLWidget.h gui/StereoGuiSession.cc	\
-	 	   gui/StereoGuiSession.moc.cc gui/StereoGuiSession.h	\
-	 	   gui/ProgressBar.moc.cc gui/ProgressBar.h		\
-	 	   gui/ProgressBar.cc
+	 	   $(hrsc_sources) $(generic_stereo_sources)		\
+	 	   $(isis_sources) $(rmax_sources) SpiceUtilities.cc	\
+	 	   gui/MainWindow.cc gui/MainWindow.moc.cc		\
+	 	   gui/MainWindow.h gui/InputWidget.cc			\
+	 	   gui/InputWidget.moc.cc gui/InputWidget.h		\
+	 	   gui/AlignmentWidget.cc gui/AlignmentWidget.moc.cc	\
+	 	   gui/AlignmentWidget.h gui/PreviewGLWidget.cc		\
+	 	   gui/PreviewGLWidget.moc.cc gui/PreviewGLWidget.h	\
+	 	   gui/StereoGuiSession.cc gui/StereoGuiSession.moc.cc	\
+	 	   gui/StereoGuiSession.h gui/ProgressBar.moc.cc	\
+	 	   gui/ProgressBar.h gui/ProgressBar.cc
   stereo_gui_CXXFLAGS = $(QT_CXXFLAGS) 
   stereo_gui_CPPFLAGS = $(QT_CPPFLAGS) $(AM_CPPFLAGS)
   stereo_gui_LDFLAGS = $(QT_LDFLAGS) $(APP_STEREOGUI_LIBS) $(ASP_LDFLAGS)
@@ -85,18 +81,17 @@ endif
 if MAKE_APP_BUNDLEADJUST
   bin_PROGRAMS += bundle_adjust
   bundle_adjust_SOURCES = $(moc_sources) $(ctx_sources)			\
-	 	          $(hrsc_sources) $(apollo_sources)		\
-	 	          $(generic_stereo_sources) $(isis_sources)	\
-	 	          $(rmax_sources) SpiceUtilities.cc		\
-	 	          bundle_adjust.cc
+	 	          $(hrsc_sources) $(generic_stereo_sources)	\
+	 	          $(isis_sources) $(rmax_sources)		\
+	 	          SpiceUtilities.cc bundle_adjust.cc
   bundle_adjust_LDFLAGS = $(APP_BUNDLEADJUST_LIBS) $(ASP_LDFLAGS)
 endif
 
 if MAKE_APP_ORBITVIZ
   bin_PROGRAMS += orbitviz
   orbitviz_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
-	 	   $(apollo_sources) $(generic_stereo_sources)		\
-	 	   $(isis_sources) SpiceUtilities.cc orbitviz.cc
+	 	     $(generic_stereo_sources) $(isis_sources)		\
+	 	     SpiceUtilities.cc orbitviz.cc
   orbitviz_LDFLAGS = $(APP_ORBITVIZ_LIBS) $(ASP_LDFLAGS)
 endif
 
@@ -146,8 +141,8 @@ endif
 if MAKE_APP_ISISADJUST
   bin_PROGRAMS += isis_adjust
   isis_adjust_SOURCES = BundleAdjustUtils.cc Isis/IsisCameraModel.cc	\
-               	Isis/DiskImageResourceIsis.cc Isis/IsisAdjustCameraModel.cc \
-		isis_adjust.cc
+			Isis/DiskImageResourceIsis.cc			\
+			Isis/IsisAdjustCameraModel.cc isis_adjust.cc
 
   isis_adjust_LDFLAGS = $(APP_ISISADJUST_LIBS) $(ASP_LDFLAGS)
 endif
@@ -167,9 +162,9 @@ endif
 if MAKE_APP_ORTHOPROJECT
   bin_PROGRAMS += orthoproject
   orthoproject_SOURCES = $(moc_sources) $(ctx_sources) $(hrsc_sources)	\
-		 	 $(apollo_sources) $(generic_stereo_sources)		\
-	 	   	 $(isis_sources) $(rmax_sources) SpiceUtilities.cc	\
-			 orthoproject.cc
+		 	 $(generic_stereo_sources) $(isis_sources)	\
+		 	 $(rmax_sources) SpiceUtilities.cc		\
+		 	 orthoproject.cc
   orthoproject_LDFLAGS = $(APP_ORTHOPROJECT_LIBS) $(ASP_LDFLAGS)
 endif
 
