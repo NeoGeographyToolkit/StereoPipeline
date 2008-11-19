@@ -54,7 +54,6 @@ using namespace std;
 
 #include "HRSC/StereoSessionHRSC.h"
 #include "MOC/StereoSessionMOC.h"
-#include "apollo/StereoSessionApolloMetric.h"
 #include "MRO/StereoSessionCTX.h"
 #include "RMAX/StereoSessionRmax.h"
 
@@ -199,7 +198,6 @@ int main(int argc, char* argv[]) {
   // Create a fresh stereo session and query it for the camera models.
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
-  StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 

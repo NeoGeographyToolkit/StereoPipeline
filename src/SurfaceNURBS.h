@@ -173,12 +173,12 @@ vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<View
   for (int channel = 0; channel < NURBSChannelCount<pixel_type>::value(); ++channel) {
     boost::shared_ptr<std::vector<double> > z_arr(new std::vector<double>);
     init_mba_z(input.impl(), *x_arr, *y_arr, *z_arr, channel);
-    std::cout << "Fitting spline surface for channel " << channel << ".\n";
+    std::cout << "\t    Fitting spline surface for channel " << channel << ".\n";
     MBA mba_z(x_arr, y_arr, z_arr);   // Initialize with scattered data
     mba_z.MBAalg(m0,n0,numIterations);            // Create spline surface
     fitted_surfaces[channel] = mba_z.getSplineSurface(); // Get the spline surface object
-    std::cout << "\tRange -- U: [" << fitted_surfaces[channel].umin() << " " << fitted_surfaces[channel].umax() << "]\n";
-    std::cout << "\t         V: [" << fitted_surfaces[channel].vmin() << " " << fitted_surfaces[channel].vmax() << "]\n";
+    std::cout << "\t    Range -- U: [" << fitted_surfaces[channel].umin() << " " << fitted_surfaces[channel].umax() << "]\n";
+    std::cout << "\t             V: [" << fitted_surfaces[channel].vmin() << " " << fitted_surfaces[channel].vmax() << "]\n";
   }
 
   // Free up some memory.
@@ -187,7 +187,7 @@ vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<View
 
   //  Rasterize the surface by iterating over all of the x and y values.
   vw::ImageView<pixel_type> output(input.impl().cols(), input.impl().rows());
-  std::cout << "\tEvaluating surfaces.\n";
+  std::cout << "\t    Evaluating surfaces.\n";
   SurfaceEvaluator<pixel_type> evaluator(fitted_surfaces);
   for (int j = 0; j < input.impl().rows(); ++j) {
     for (int i = 0; i < input.impl().cols(); ++i) {
@@ -205,9 +205,8 @@ vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<View
 
 // Rapid resample() 
 //
-// Downsample a disparity map by averaging pixels.
-// In this version of the algorithm, missing pixels are "consumed" by
-// valid pixels.
+// Downsample a disparity map by averaging pixels.  In this version of
+// the algorithm, missing pixels are "consumed" by valid pixels.
 template <class ViewT>
 ImageView<typename ViewT::pixel_type > disparity_rapid_downsample(ImageViewBase<ViewT> const& view_, 
                                                                   int downsample_size) {
@@ -221,9 +220,9 @@ ImageView<typename ViewT::pixel_type > disparity_rapid_downsample(ImageViewBase<
   int32 resized_cols = view.impl().cols() / downsample_size;
   ImageView<pixel_type> result(resized_cols, resized_rows);
 
-  std::cout << "Subsampling disparity map to output size: " << resized_cols << " x " << resized_rows << "\n";;
+  std::cout << "\t    Subsampling disparity map to output size: " << resized_cols << " x " << resized_rows << "\n";;
 
-  TerminalProgressCallback progress_callback;
+  TerminalProgressCallback progress_callback(ErrorMessage, "\t    Subsampling: ");
   progress_callback.report_progress(0);
 
   for (int32 j = 0; j < view.impl().rows(); j+=downsample_size) {

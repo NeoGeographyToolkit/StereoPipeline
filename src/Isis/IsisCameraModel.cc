@@ -37,8 +37,6 @@ using namespace vw::camera;
 
 
 IsisCameraModel::IsisCameraModel(std::string cube_filename) {
-  std::cout << "Opening camera model for image: " << cube_filename << "\n";
-
   Isis::Cube* cube_ptr = new Isis::Cube;
   m_isis_cube = cube_ptr;
   
@@ -57,8 +55,8 @@ IsisCameraModel::IsisCameraModel(std::string cube_filename) {
     double start_time = cam->EphemerisTime();
     this->set_image(0,cam->Lines());
     double end_time = cam->EphemerisTime();
-    std::cout << "\tTime range: [" << start_time << " " << end_time << "]  " << (end_time-start_time) << "\n";
-    std::cout << "\tExisting range : [" << cam->CacheStartTime() << " " << cam->CacheEndTime() << "]  " << ( cam->CacheEndTime() - cam->CacheStartTime() ) << "\n";
+    vw_out(0) << "\t     Time range: [" << start_time << " " << end_time << "]  " << (end_time-start_time) << "\n";
+    vw_out(0) << "\t     Existing range : [" << cam->CacheStartTime() << " " << cam->CacheEndTime() << "]  " << ( cam->CacheEndTime() - cam->CacheStartTime() ) << "\n";
     if (end_time > start_time) {
       m_max_ephemeris = end_time;
       m_min_ephemeris = start_time;

@@ -60,8 +60,12 @@ using namespace vw::cartography;
 #include "StereoSession.h"
 #include "SurfaceNURBS.h"
 #include "BundleAdjustUtils.h"
-#include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
+#include "MedianFilter.h"
 
+// Support for Malin DDD image files
+#include "MRO/DiskImageResourceDDD.h"	   
+
+// Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
 #include "Isis/DiskImageResourceIsis.h"
 #include "Isis/StereoSessionIsis.h"
@@ -69,11 +73,19 @@ using namespace vw::cartography;
 
 #include "HRSC/StereoSessionHRSC.h"
 #include "MOC/StereoSessionMOC.h"
-#include "apollo/StereoSessionApolloMetric.h"
 #include "MRO/StereoSessionCTX.h"
 #include "RMAX/StereoSessionRmax.h"
 
-#include "MedianFilter.h"
+// Boost headers
+#include <boost/thread/xtime.hpp>
+// Posix time is not fully supported in the version of Boost for RHEL
+// Workstation 4
+#ifdef __APPLE__
+#include <boost/date_time/posix_time/posix_time.hpp>
+#else
+#include <ctime>
+#endif
+
 
 using namespace std;
 
@@ -99,6 +111,28 @@ static std::string prefix_from_filename(std::string const& filename) {
     result.erase(index, result.size());
   return result;
 }
+
+// Posix time is not fully supported in the version of Boost for RHEL
+// Workstation 4
+#ifndef __APPLE__
+inline std::string
+current_posix_time_string() 
+{
+  char time_string[2048];
+  time_t t = time(0);
+  struct tm* time_struct = localtime(&t);
+  strftime(time_string, 2048, "%F %T", time_struct);
+  return std::string(time_string);
+}
+#else
+inline std::string
+current_posix_time_string()
+{
+  std::ostringstream time_string_stream;
+  time_string_stream << boost::posix_time::second_clock::local_time();
+  return time_string_stream.str();
+}
+#endif
 
 void print_usage(po::options_description const& visible_options) {
   std::cout << "\nUsage: stereo [options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n"
@@ -236,7 +270,6 @@ int main(int argc, char* argv[]) {
   // Create a fresh stereo session and query it for the camera models.
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
-  StereoSession::register_session_type( "metric", &StereoSessionApolloMetric::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
@@ -264,7 +297,7 @@ int main(int argc, char* argv[]) {
     else {
       vw_out(0) << "\n\n******************************************************************\n";
       vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
-      vw_out(0) << "using the -t switch.  Options include [pinhole isis].";
+      vw_out(0) << "using the -t switch.  Options include: [pinhole isis].\n";
       vw_out(0) << "******************************************************************\n\n";
       exit(0);
     }
@@ -297,46 +330,31 @@ int main(int argc, char* argv[]) {
   /*                            preprocessing step                                 */
   /*********************************************************************************/
   if (entry_point <= PREPROCESSING) {
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> PREPROCESSING \n";
 
     std::string pre_preprocess_file1, pre_preprocess_file2;
-   
     session->pre_preprocessing_hook(in_file1, in_file2, pre_preprocess_file1, pre_preprocess_file2);
+
     DiskImageView<PixelGray<uint8> > left_rectified_image(pre_preprocess_file1);
     DiskImageView<PixelGray<uint8> > right_rectified_image(pre_preprocess_file2);
-     
-      
-    ImageViewRef<uint8> Lmask;
-    ImageViewRef<uint8> Rmask;
-    
+    ImageViewRef<PixelGray<uint8> > left_image = left_rectified_image;
+    ImageViewRef<PixelGray<uint8> > right_image = right_rectified_image;
    
-    if (MEDIAN_FILTER==1){
-        cout << "\nMedian filtering ..." << std::flush; 
-        ImageViewRef<PixelGray<uint8> > left_denoised_image;
-        ImageViewRef<PixelGray<uint8> > right_denoised_image; 
-        left_denoised_image  = (fast_median_filter(left_rectified_image, 7));
-        right_denoised_image = (fast_median_filter(right_rectified_image, 7));
-        //left_denoised_image  = (my_median_filter(left_rectified_image, 7, 7));
-        //right_denoised_image = (my_median_filter(right_rectified_image, 7, 7));
-        write_image(out_prefix+"-median-L.tif", left_denoised_image);
-        write_image(out_prefix+"-median-R.tif", right_denoised_image);
-        cout << "\nDone..." << std::flush;
+    if (MEDIAN_FILTER == 1){
+      vw_out(0) << "\t--> Median filtering.\n" << std::flush; 
+      left_image  = fast_median_filter(left_rectified_image, 7);
+      right_image = fast_median_filter(right_rectified_image, 7);
+      write_image(out_prefix+"-median-L.tif", left_image);
+      write_image(out_prefix+"-median-R.tif", right_image);
+    } 
 
-        cout << "\nGenerating image masks..." << std::flush;
-        int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
-        Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_denoised_image, mask_buffer));
-        Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_denoised_image, mask_buffer));
-        cout << "Done.\n";
-    }
-    else{
-         cout << "\nGenerating image masks..." << std::flush;
-         int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
-         Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_rectified_image, mask_buffer));
-         Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_rectified_image, mask_buffer));
-         cout << "Done.\n";
-    }
-       
+    vw_out(0) << "\t--> Generating image masks... " << std::flush;
+    int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
+    ImageViewRef<uint8> Lmask = channel_cast_rescale<uint8>(disparity::generate_mask(left_image, mask_buffer));
+    ImageViewRef<uint8> Rmask = channel_cast_rescale<uint8>(disparity::generate_mask(right_image, mask_buffer));
     write_image(out_prefix + "-lMask.tif", Lmask);
     write_image(out_prefix + "-rMask.tif", Rmask);
+    vw_out(0) << "done.\n";
   }
 
   /*********************************************************************************/
@@ -345,13 +363,13 @@ int main(int argc, char* argv[]) {
   if( entry_point <= CORRELATION ) {
     if (entry_point == CORRELATION) 
         cout << "\nStarting at the CORRELATION stage.\n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> CORRELATION \n";
     
     DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
     DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
 
     // Median filter
-    string filename_L;
-    string filename_R;
+    string filename_L, filename_R;
     if (MEDIAN_FILTER==1){
       filename_L = out_prefix+"-median-L.tif";
       filename_R = out_prefix+"-median-R.tif";
@@ -359,7 +377,6 @@ int main(int argc, char* argv[]) {
       filename_L = out_prefix+"-L.tif";
       filename_R = out_prefix+"-R.tif";
     }
-
     DiskImageView<PixelGray<float> > left_disk_image(filename_L);
     DiskImageView<PixelGray<float> > right_disk_image(filename_R);
          
@@ -367,13 +384,13 @@ int main(int argc, char* argv[]) {
     // with the cropped region instead.
     BBox2i crop_bbox(crop_bounds[0],crop_bounds[1],crop_bounds[2],crop_bounds[3]);
     if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
-      std::cout << "Cropping to bounding box: " << crop_bbox << "\n";
+      vw_out(0) << "\t--> Cropping to bounding box: " << crop_bbox << "\n";
 
       // Do a quick check to make sure the user specified a reasonable crop region.
       if ((crop_bounds[0] < 0) || (crop_bounds[1] < 0) || 
           (crop_bounds[0] + crop_bounds[2] > left_disk_image.cols()) || 
           (crop_bounds[1] + crop_bounds[3] > left_disk_image.rows()) ) {
-        std::cout << "Error: the specified crop region exceeds the dimensions of the original image.  \n Exiting.\n\n"; 
+        vw_out(0) << "\nError: the specified crop region exceeds the dimensions of the original image.  \n Exiting.\n\n"; 
         exit(0); 
       }
 
@@ -383,29 +400,31 @@ int main(int argc, char* argv[]) {
     }
     
     ImageViewRef<PixelDisparity<float> > disparity_map;
-    stereo::CorrelatorType cost_type = ABS_DIFF_CORRELATOR;
-    if (stereo_settings().cost_type == 1) 
-      cost_type = SQR_DIFF_CORRELATOR;
-    else if (stereo_settings().cost_type == 2) 
-      cost_type = NORM_XCORR_CORRELATOR;
+    stereo::CorrelatorType cost_mode = ABS_DIFF_CORRELATOR;
+    if (stereo_settings().cost_mode == 1) 
+      cost_mode = SQR_DIFF_CORRELATOR;
+    else if (stereo_settings().cost_mode == 2) 
+      cost_mode = NORM_XCORR_CORRELATOR;
+
     if (vm.count("optimized-correlator")) {
       vw::stereo::OptimizedCorrelator correlator( search_range, 
                                                   stereo_settings().h_kern,
                                                   stereo_settings().xcorr_treshold,
                                                   stereo_settings().corrscore_rejection_treshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
                                                   stereo_settings().cost_blur, 
-                                                  cost_type);
+                                                  cost_mode);
       if (stereo_settings().slog) {
-        std::cout << "Applying SLOG filter.\n";
+        std::cout << "\t--> Applying SLOG filter with width: " << stereo_settings().slogW << "\n";
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
       } else if (stereo_settings().log) {
-        std::cout << "Applying LOG filter.\n";
+        std::cout << "\t--> Applying LOG filter with width: " << stereo_settings().slogW << "\n";
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::LogStereoPreprocessingFilter(stereo_settings().slogW));
       } else {
+        std::cout << "\t--> Applying BLUR filter with width: " << stereo_settings().slogW << "\n";
         disparity_map = correlator( left_disk_image, right_disk_image, stereo::NullStereoPreprocessingFilter());
       }
-    } else {
       
+    } else {
       if (stereo_settings().slog) {
         std::cout << "\t--> Using SLOG pre-processing filter with " << stereo_settings().slogW << " sigma blur.\n";
 
@@ -418,13 +437,17 @@ int main(int argc, char* argv[]) {
         corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern, stereo_settings().v_kern));
         corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
         corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
-        
-        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
+        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_mode);
         if (vm.count("corr-debug-prefix"))
           corr_view.set_debug_mode(corr_debug_prefix);
-        std::cout << corr_view;
+        vw_out(0) << "\t--> Setting stereo options:\n";
+        vw_out(0) << "\t    Cost Mode: " << cost_mode << "\n";
+        vw_out(0) << "\t    Cost Blur: " << stereo_settings().cost_blur << "\n";
+        vw_out(0) << "\t    Kernel Size: " << stereo_settings().h_kern << "x" << stereo_settings().v_kern << "\n";
+        vw_out(0) << "\t    Crosscorr Threshold: " << stereo_settings().xcorr_treshold << "\n";
+        vw_out(0) << "\t    Corrscore Rejection: " << stereo_settings().corrscore_rejection_treshold << "\n";
         
-        std::cout<< "Building Disparity map...\n";
+        vw_out(0) << "\t--> Building Disparity map.\n";
         if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
           disparity_map = crop(corr_view, crop_bbox);
         } else {
@@ -444,7 +467,7 @@ int main(int argc, char* argv[]) {
         corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
         corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
         
-        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
+        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_mode);
         if (vm.count("corr-debug-prefix"))
           corr_view.set_debug_mode(corr_debug_prefix);
         std::cout << corr_view;
@@ -458,6 +481,7 @@ int main(int argc, char* argv[]) {
 
       } else { // Neither slog or log
         std::cout << "\t--> Using BLUR pre-processing filter.\n";
+
         CorrelatorView<PixelGray<float>, uint8, stereo::BlurStereoPreprocessingFilter> corr_view(left_disk_image, right_disk_image, 
                                                                                                  Lmask, Rmask,
                                                                                                  stereo::BlurStereoPreprocessingFilter(stereo_settings().slogW));
@@ -467,7 +491,7 @@ int main(int argc, char* argv[]) {
         corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
         corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
         
-        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_type);
+        corr_view.set_correlator_options(stereo_settings().cost_blur, cost_mode);
         if (vm.count("corr-debug-prefix"))
           corr_view.set_debug_mode(corr_debug_prefix);
         std::cout << corr_view;
@@ -483,7 +507,6 @@ int main(int argc, char* argv[]) {
     }
 
     // Apply the Mask to the disparity map 
-    std::cout << "\tApplying mask.\n";
     disparity_map = disparity::mask(disparity_map, Lmask, Rmask);
 
     // Do some basic outlier rejection
@@ -504,96 +527,84 @@ int main(int argc, char* argv[]) {
   if( entry_point <= REFINEMENT ) {
     if (entry_point == REFINEMENT) 
       cout << "\nStarting at the REFINEMENT stage.\n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> REFINEMENT \n";
     
     try {
-
-      // Median filter
-      string filename_L;
-      string filename_R;
-      if (MEDIAN_FILTER==1){
+      string filename_L, filename_R;
+      if (MEDIAN_FILTER == 1){
         filename_L = out_prefix+"-median-L.tif";
         filename_R = out_prefix+"-median-R.tif";
       } else {
         filename_L = out_prefix+"-L.tif";
         filename_R = out_prefix+"-R.tif";
       }
-      
       DiskImageView<PixelGray<float> > left_disk_image(filename_L);
       DiskImageView<PixelGray<float> > right_disk_image(filename_R);
-
-      //DiskImageView<PixelGray<float> > left_disk_image(out_prefix+"-L.tif");
-      //DiskImageView<PixelGray<float> > right_disk_image(out_prefix+"-R.tif");
       DiskImageView<PixelDisparity<float> > disparity_disk_image(out_prefix + "-D.exr");
-
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
-     
           
-      //if ( !(stereo_settings().do_affine_subpixel) ) {
-      if ( (stereo_settings().do_affine_subpixel) == 0 ) {
-         printf("stereo: do_affine_subpixel = %d\n", stereo_settings().do_affine_subpixel);
-        // Option I: Parabola subpixel refinement
-
-        if (stereo_settings().slog) {
-          disparity_map = SubpixelView<SlogStereoPreprocessingFilter>(disparity_disk_image, 
-                                                                      channels_to_planes(left_disk_image), 
-                                                                      channels_to_planes(right_disk_image),
-                                                                      stereo_settings().h_kern, stereo_settings().v_kern, 
-                                                                      stereo_settings().do_h_subpixel, 
-                                                                      stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                      false, // do_affine is false here...
-                                                                      SlogStereoPreprocessingFilter(stereo_settings().slogW),
-                                                                      false);
-        } else if (stereo_settings().log) {
-          disparity_map = SubpixelView<LogStereoPreprocessingFilter>(disparity_disk_image, 
-                                                                     channels_to_planes(left_disk_image), 
-                                                                     channels_to_planes(right_disk_image),
-                                                                     stereo_settings().h_kern, stereo_settings().v_kern, 
-                                                                     stereo_settings().do_h_subpixel, 
-                                                                     stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                     false, // do_affine is false here...
-                                                                     LogStereoPreprocessingFilter(stereo_settings().slogW),
-                                                                     false);
-      
-        } else {
-          disparity_map = SubpixelView<BlurStereoPreprocessingFilter>(disparity_disk_image, 
-                                                                      channels_to_planes(left_disk_image), 
-                                                                      channels_to_planes(right_disk_image),
-                                                                      stereo_settings().h_kern, stereo_settings().v_kern, 
-                                                                      stereo_settings().do_h_subpixel, 
-                                                                      stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                      false, // do_affine is false here
-                                                                      BlurStereoPreprocessingFilter(stereo_settings().slogW),
-                                                                      false);
-        }
-
-        // Create a disk image resource and prepare to write a tiled
-        // OpenEXR.
-        DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
-        disparity_map_rsrc2.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
-        block_write_image( disparity_map_rsrc2, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement (parabola) :") );    
-
-	//} else if (stereo_settings().do_affine_subpixel) {
-        } else if (stereo_settings().do_affine_subpixel > 0) {
-        printf("stereo: do_affine_subpixel = %d\n", stereo_settings().do_affine_subpixel);
-        // Option II: Affine subpixel refinement
+      // Affine and Bayes subpixel refinement always use the
+      // LogPreprocessingFilter...
+      if (stereo_settings().subpixel_mode > 0) {
+        vw_out(0) << "\t--> Using affine adaptive subpixel mode " << stereo_settings().subpixel_mode << "\n";
         disparity_map = SubpixelView<LogStereoPreprocessingFilter>(disparity_disk_image, 
                                                                    channels_to_planes(left_disk_image), 
                                                                    channels_to_planes(right_disk_image),
                                                                    stereo_settings().subpixel_h_kern, stereo_settings().subpixel_v_kern, 
                                                                    stereo_settings().do_h_subpixel, 
                                                                    stereo_settings().do_v_subpixel,   // h and v subpixel
-                                                                   stereo_settings().do_affine_subpixel,
+                                                                   stereo_settings().subpixel_mode,
                                                                    LogStereoPreprocessingFilter(stereo_settings().slogW),
                                                                    false);
 
-        // Create a disk image resource and prepare to write a tiled
-        // OpenEXR.
-        DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
-        disparity_map_rsrc2.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
-        block_write_image( disparity_map_rsrc2, disparity_map, TerminalProgressCallback(InfoMessage, "Refinement (affine) :") );    
-        
-      }
+      // Parabola subpixel refinement uses the same preprocessing
+      // filter as the discrete correlation stage above.
+      } else {
+        vw_out(0) << "\t--> Using parabola subpixel mode.\n";
+        if (stereo_settings().slog) {
+          vw_out(0) << "\t    SLOG preprocessing width: " << stereo_settings().slogW << "\n";
+          disparity_map = SubpixelView<SlogStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                      channels_to_planes(left_disk_image), 
+                                                                      channels_to_planes(right_disk_image),
+                                                                      stereo_settings().h_kern, stereo_settings().v_kern, 
+                                                                      stereo_settings().do_h_subpixel, 
+                                                                      stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                      stereo_settings().subpixel_mode,
+                                                                      SlogStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                      false);
+        } else if (stereo_settings().log) {
+          vw_out(0) << "\t    LOG preprocessing width: " << stereo_settings().slogW << "\n";
+          disparity_map = SubpixelView<LogStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                     channels_to_planes(left_disk_image), 
+                                                                     channels_to_planes(right_disk_image),
+                                                                     stereo_settings().h_kern, stereo_settings().v_kern, 
+                                                                     stereo_settings().do_h_subpixel, 
+                                                                     stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                     stereo_settings().subpixel_mode,
+                                                                     LogStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                     false);
       
+        } else {
+          vw_out(0) << "\t    BLUR preprocessing width: " << stereo_settings().slogW << "\n";
+          disparity_map = SubpixelView<BlurStereoPreprocessingFilter>(disparity_disk_image, 
+                                                                      channels_to_planes(left_disk_image), 
+                                                                      channels_to_planes(right_disk_image),
+                                                                      stereo_settings().h_kern, stereo_settings().v_kern, 
+                                                                      stereo_settings().do_h_subpixel, 
+                                                                      stereo_settings().do_v_subpixel,   // h and v subpixel
+                                                                      stereo_settings().subpixel_mode,
+                                                                      BlurStereoPreprocessingFilter(stereo_settings().slogW),
+                                                                      false);
+        }
+      }
+
+      // Create a disk image resource and prepare to write a tiled
+      // OpenEXR.
+      DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
+      disparity_map_rsrc2.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
+      block_write_image( disparity_map_rsrc2, disparity_map, TerminalProgressCallback(InfoMessage, "\t--> Refinement :") );    
+
+      // For debugging...
       //        crop(disparity_map,100,150,200,200) = 
       //           crop(AffineSubpixelView(disparity_disk_image, 
       //                                   channels_to_planes(left_disk_image), 
@@ -605,7 +616,7 @@ int main(int argc, char* argv[]) {
       //                100,150,200,200);
 
     } catch (IOErr &e) { 
-      cout << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
+      vw_out(ErrorMessage) << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
       exit(0);
     }
   }
@@ -616,12 +627,13 @@ int main(int argc, char* argv[]) {
   if(entry_point <= FILTERING) {
     if (entry_point == FILTERING)
         cout << "\nStarting at the FILTERING stage.\n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> FILTERING \n";
+
 
     std::string post_correlation_fname;
     session->pre_filtering_hook(out_prefix+"-R.exr", post_correlation_fname);
 
     try {
-      std::cout << "\nUsing image " << post_correlation_fname << " as disparity map image.\n";
       DiskImageView<PixelDisparity<float> > disparity_disk_image(post_correlation_fname);
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
 
@@ -632,7 +644,7 @@ int main(int argc, char* argv[]) {
       //       fill(crop(test, 80,150,100,100),PixelDisparity<float>());
       //       ImageViewRef<PixelDisparity<float> > disparity_map = test;
 
-      std::cout << "Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
+      vw_out(0) << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
       for (int i = 0; i < stereo_settings().rm_cleanup_passes; ++i) {
         disparity_map = disparity::clean_up(disparity_map,
                                             stereo_settings().rm_h_half_kern, stereo_settings().rm_v_half_kern,
@@ -642,31 +654,31 @@ int main(int argc, char* argv[]) {
       // Rasterize the results so far to a temporary file on disk.
       // This file is deleted once we complete the second half of the
       // disparity map filtering process.
-      std::cout << "\trasterizing filtered disparity map to disk. \n" << std::flush;
-      DiskCacheImageView<PixelDisparity<float> > filtered_disparity_map(disparity_map, "exr");
+      std::cout << "\t--> Rasterizing filtered disparity map to disk. \n";
+      DiskCacheImageView<PixelDisparity<float> > filtered_disparity_map(disparity_map, "exr", 
+                                                                        TerminalProgressCallback(ErrorMessage, "\t--> Writing: "));
 
       // Write out the extrapolation mask imaege
-      write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), TerminalProgressCallback());
+      std::cout << "\t--> Creating \"Good Pixel\" image: " << (out_prefix + "-GoodPixelMap.tif") << "\n";
+      write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), 
+                  TerminalProgressCallback(ErrorMessage, "\t    Writing: "));
 
       // Call out to NURBS hole filling code.  The hole filling is
       // done with a subsampled (by 4) images and then the hole filled
       // values are upsampled to the full resolution of the image
       // using bicubic interpolation.
       ImageViewRef<PixelDisparity<float> > hole_filled_disp_map = filtered_disparity_map;
-
+      
       DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
       DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
       if(stereo_settings().fill_holes_NURBS) {
-        std::cout << "Filling holes with bicubicly interpolated B-SPLINE surface... \n";
-        hole_filled_disp_map = HoleFillView(disparity::mask(filtered_disparity_map,Lmask,Rmask), 1);
+        std::cout << "\t--> Filling holes with bicubicly interpolated B-SPLINE surface.\n";
+        hole_filled_disp_map = HoleFillView(disparity::mask(filtered_disparity_map,Lmask,Rmask), 2);
       } 
-      //else {
-      //        hole_filled_disp_map = disparity::mask(filtered_disparity_map, Lmask, Rmask);
-      //      }
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
-      disparity_map_rsrc.set_tiled_write(std::min(2048,hole_filled_disp_map.cols()),std::min(2048, hole_filled_disp_map.rows()));
-      block_write_image(disparity_map_rsrc, hole_filled_disp_map, TerminalProgressCallback(InfoMessage, "Filtering: ") ); 
+      disparity_map_rsrc.set_tiled_write(std::min(1024,hole_filled_disp_map.cols()),std::min(1024, hole_filled_disp_map.rows()));
+      block_write_image(disparity_map_rsrc, hole_filled_disp_map, TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") ); 
     } catch (IOErr &e) { 
       cout << "\nUnable to start at filtering stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
       exit(0);
@@ -675,11 +687,12 @@ int main(int argc, char* argv[]) {
 
 
   /******************************************************************************/
-  /*                           disparity to dot-cloud                           */
+  /*                               TRIANGULATION                                */
   /******************************************************************************/
   if (entry_point <= POINT_CLOUD) {
     if (entry_point == POINT_CLOUD) 
-      std::cout << "\nStarting code at POINT_CLOUD stage.\n";
+      std::cout << "\nStarting at the TRIANGULATION stage.\n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> TRIANGULATION \n";
 
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
@@ -691,14 +704,12 @@ int main(int argc, char* argv[]) {
       Vector3 position_correction;
       Quaternion<double> pose_correction;
       if (fs::exists(prefix_from_filename(in_file1)+".adjust")) {
-        std::cout << "Adjusting left camera model using parameters in " << (prefix_from_filename(in_file1)+".adjust") << "\n";
         read_adjustments(prefix_from_filename(in_file1)+".adjust", position_correction, pose_correction);
         camera_model1 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model1, 
                                                                                position_correction,
                                                                                pose_correction));
       }
       if (fs::exists(prefix_from_filename(in_file2)+".adjust")) {
-        std::cout << "Adjusting right camera model using parameters in " << (prefix_from_filename(in_file2)+".adjust") << "\n";
         read_adjustments(prefix_from_filename(in_file2)+".adjust", position_correction, pose_correction);
         camera_model2 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model2, 
                                                                                position_correction,
@@ -707,25 +718,25 @@ int main(int argc, char* argv[]) {
 
       std::string prehook_filename;
       session->pre_pointcloud_hook(out_prefix+"-F.exr", prehook_filename);
-     
       DiskImageView<PixelDisparity<float> > disparity_map(prehook_filename);
 
       // Apply the stereo model.  This yields a image of 3D points in
       // space.  We build this image and immediately write out the
       // results to disk.
-      std::cout << "Generating a 3D point cloud.   \n";
+      std::cout << "\t--> Generating a 3D point cloud.   \n";
       StereoView<ImageView<PixelDisparity<float> > > stereo_image(disparity_map, *camera_model1, *camera_model2);
 
-//       std::cout << "Computing Error image\n";
-//       ImageView<float> error_img (stereo_image.cols(), stereo_image.rows() );
-//       for (unsigned j=0; j < error_img.rows(); ++j) {
-//         for (unsigned i=0; i < error_img.cols(); ++i) {
-//           error_img(i,j) = stereo_image.error(i,j);
-//         }
-//       }
-//       std::cout << "Done.\n";
-//       write_image("error-image.tif", error_img);
-
+      // For debugging...
+      //       std::cout << "Computing Error image\n";
+      //       ImageView<float> error_img (stereo_image.cols(), stereo_image.rows() );
+      //       for (unsigned j=0; j < error_img.rows(); ++j) {
+      //         for (unsigned i=0; i < error_img.cols(); ++i) {
+      //           error_img(i,j) = stereo_image.error(i,j);
+      //         }
+      //       }
+      //       std::cout << "Done.\n";
+      //       write_image("error-image.tif", error_img);
+      
       // If the distance from the left camera center to a point is
       // greater than the universe radius, we remove that pixel and
       // replace it with a zero vector, which is the missing pixel value
@@ -740,9 +751,8 @@ int main(int argc, char* argv[]) {
       point_cloud_rsrc.set_native_block_size(Vector2i(std::min(1024,point_cloud.cols()),
                                                       std::min(1024, point_cloud.rows())));
 
-      write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "Triangulating: "));
-      std::cout << universe_radius_func;
-
+      write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
+      vw_out(0) << "\t--> " << universe_radius_func;
     } catch (IOErr &e) { 
       cout << "\nUnable to start at point cloud stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
       exit(0);

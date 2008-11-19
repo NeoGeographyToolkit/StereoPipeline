@@ -105,74 +105,60 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
 
   // Interest points are matched in image chunk of <= 2048x2048
   // pixels to conserve memory.
-  vw_out(InfoMessage) << "\nInterest Point Detection:\n";
   InterestPointList ip1, ip2;
   
   // If the interest points are cached in a file, read that file in here.
   if ( boost::filesystem::exists( prefix_from_filename(input_file1) + ".vwip" ) && 
-       boost::filesystem::exists( prefix_from_filename(input_file2) + ".vwip" )) {
-    std::cout << "Found cached interest point files: \n";
-    std::cout << "\t" << (prefix_from_filename(input_file1) + ".vwip") << "\n";
-    std::cout << "\t" << (prefix_from_filename(input_file2) + ".vwip") << "\n";
-    std::cout << "Skipping interest point detection step.\n";
-    
-  } else if ( boost::filesystem::exists( prefix_from_filename(input_file1) + "__" +
-					 prefix_from_filename(input_file2) + ".match" ) ) {
-    std::cout << "Found matched interst points file: \n";
-    std::cout << "\t" << (prefix_from_filename(input_file1) + "__" +
-			  prefix_from_filename(input_file2) + ".match") << "\n";
-    std::cout << "Skipping interest point detection step.\n";
+              boost::filesystem::exists( prefix_from_filename(input_file2) + ".vwip" )) {
+    vw_out(0) << "\t--> Found cached interest point files: "
+              << (prefix_from_filename(input_file1) + ".vwip") << ", "
+              << (prefix_from_filename(input_file2) + ".vwip") << "\n";
+    vw_out(0) << "\t    (Skipping interest point detection step)\n";
   } else {
-
+    vw_out(0) << "\t--> Locating Interest Points \n";
     ImageViewRef<PixelGray<float> > left_image = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
     ImageViewRef<PixelGray<float> > right_image = normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0);
     
     // Interest Point module detector code.
     LogInterestOperator log_detector;
     ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 500);
-    std::cout << "Processing " << input_file1 << "\n";
+    vw_out(0) << "\t    Processing " << input_file1 << "\n";
     ip1 = detect_interest_points(left_image, detector);
-    std::cout << "\nProcessing " << input_file2 << "\n";
+    vw_out(0) << "\t    " << ip1.size() << " points.\n";
+    vw_out(0) << "\t    Processing " << input_file2 << "\n";
     ip2 = detect_interest_points(right_image, detector);
-    vw_out(InfoMessage) << "\nLeft image: " << ip1.size() << " points.  Right image: " << ip2.size() << "\n"; 
+    vw_out(0) << "\t    Located " << ip2.size() << " points.\n"; 
 
     // Generate descriptors for interest points.
     // TODO: Switch to a more sophisticated descriptor
-    vw_out(InfoMessage) << "\tGenerating descriptors... " << std::flush;
+    vw_out(0) << "\t    Generating descriptors... " << std::flush;
     PatchDescriptorGenerator descriptor;
     descriptor(left_image, ip1);
     descriptor(right_image, ip2);
-    vw_out(InfoMessage) << "done.\n";
+    vw_out(0) << "done.\n";
   
     // Write out the results
-    vw_out(InfoMessage) << "\tWriting interest points to disk... " << std::flush;
+    vw_out(0) << "\t    Caching interest points: " 
+              << (prefix_from_filename(input_file1)+".vwip") << ", " 
+              << (prefix_from_filename(input_file2)+".vwip") << "\n"; 
     write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
     write_binary_ip_file(prefix_from_filename(input_file2)+".vwip", ip2);
-    vw_out(InfoMessage) << "done.\n";
   }
-
-  // These are the matched ip that will be used in ransac. Declared
-  // here because these variables are used if a matching is performed
-  // or just loaded
-  std::vector<InterestPoint> matched_ip1, matched_ip2;
 
   // Checking once again to see if the match file exists. This could
   // be done better.
+  std::vector<InterestPoint> matched_ip1, matched_ip2;
   if ( boost::filesystem::exists( prefix_from_filename(input_file1) + "__" +
 				  prefix_from_filename(input_file2) + ".match" ) ) {
-
-    vw_out(InfoMessage) << "\nLoading Interest Point Match file:\n";
-
+    vw_out(0) << "\t--> Found cached interest point match file: " << ( prefix_from_filename(input_file1) + "__" +
+                                                                  prefix_from_filename(input_file2) + ".match" ) << "\n";
     read_binary_match_file( ( prefix_from_filename(input_file1) + "__" +
 			      prefix_from_filename(input_file2) + ".match" ),
-			    matched_ip1,
-			    matched_ip2 );
-    
+			    matched_ip1, matched_ip2 );
   } else { 
-
+    vw_out(0) << "\t--> Matching interest points\n";
     // The basic interest point matcher does not impose any
     // constraints on the matched interest points.
-    vw_out(InfoMessage) << "\nInterest Point Matching:\n";
     double matcher_threshold = 0.8;
 
     // RANSAC needs the matches as a vector, and so does the matcher.
@@ -182,38 +168,37 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
     ip2_copy = read_binary_ip_file(prefix_from_filename(input_file2)+".vwip");
 
     InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
-    matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback());
-
+    matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback(ErrorMessage, "\t    Matching: "));
+    write_binary_match_file(prefix_from_filename(input_file1) + "__" +
+                            prefix_from_filename(input_file2) + ".match",
+                            matched_ip1, matched_ip2);
+    vw_out(0) << "\t    Caching matches: " << ( prefix_from_filename(input_file1) + "__" +
+                                                prefix_from_filename(input_file2) + ".match" ) << "\n";
   }
-    
-  vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
+  vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
 
+  // RANSAC is used to fit a similarity transform between the
+  // matched sets of points  
+  vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
   std::vector<Vector3> ransac_ip1(matched_ip1.size());
   std::vector<Vector3> ransac_ip2(matched_ip2.size());
   for (unsigned i = 0; i < matched_ip1.size();++i ) {
     ransac_ip1[i] = Vector3(matched_ip1[i].x, matched_ip1[i].y,1);
     ransac_ip2[i] = Vector3(matched_ip2[i].x, matched_ip2[i].y,1);
   }  
-
   remove_duplicates(ransac_ip1, ransac_ip2);
-
-  // RANSAC is used to fit a similarity transform between the
-  // matched sets of points  
   RandomSampleConsensus<math::HomographyFittingFunctor, InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(),
                                                                                           InterestPointErrorMetric(), 
                                                                                           10 ); // inlier_threshold
-
-  std::vector<Vector3> result_ip1;
-  std::vector<Vector3> result_ip2;
-  vw_out(InfoMessage) << "\nRunning RANSAC:\n";
+  std::vector<Vector3> result_ip1, result_ip2;
   Matrix<double> T;
   try {
     T = ransac(ransac_ip2,ransac_ip1);
   } catch (vw::ip::RANSACErr &e) {
-    std::cout << "\n*************************************************************\n";
-    std::cout << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
-    std::cout << "*************************************************************\n\n";
-        T.set_size(3,3);
+    vw_out(0) << "\n*************************************************************\n";
+    vw_out(0) << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
+    vw_out(0) << "*************************************************************\n\n";
+    T.set_size(3,3);
     T.set_identity();
   }
   return T;
@@ -232,23 +217,26 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   output_file2 = m_out_prefix + "-R.tif";
 
   GeoReference input_georef1, input_georef2;
-  try {
-    // Read georeferencing information (if it exists...)
-    DiskImageResourceGDAL file_resource1( input_file1 );
-    DiskImageResourceGDAL file_resource2( input_file2 );
-    read_georeference( input_georef1, file_resource1 );
-    read_georeference( input_georef2, file_resource2 );
-  } catch (ArgumentErr &e) {
-    std::cout << "Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
-  }
+  // Disabled for now since we haven't really figured how to
+  // capitalize on the map projected images... -mbroxton
+  //
+  //   try {
+  //     // Read georeferencing information (if it exists...)
+  //     DiskImageResourceGDAL file_resource1( input_file1 );
+  //     DiskImageResourceGDAL file_resource2( input_file2 );
+  //     read_georeference( input_georef1, file_resource1 );
+  //     read_georeference( input_georef2, file_resource2 );
+  //   } catch (ArgumentErr &e) {
+  //     vw_out(0) << "Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
+  //   }
 
   // Make sure the images are normalized
-  vw_out(InfoMessage) << "Computing min/max values for normalization.  " << std::flush;
+  vw_out(InfoMessage) << "\t--> Computing min/max values for normalization.  " << std::flush;
   float left_lo, left_hi, right_lo, right_hi;
   isis_min_max_channel_values(left_disk_image, left_lo, left_hi);
   vw_out(InfoMessage) << "Left: [" << left_lo << " " << left_hi << "]    " << std::flush;
   isis_min_max_channel_values(right_disk_image, right_lo, right_hi);
-  vw_out(InfoMessage) << "Right: [" << right_lo << " " << right_hi << "]\n\n";
+  vw_out(InfoMessage) << "Right: [" << right_lo << " " << right_hi << "]\n";
   float lo = std::min (left_lo, right_lo);
   float hi = std::min (left_hi, right_hi);
 
@@ -258,7 +246,7 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   // way using interest points.
   if (input_georef1.transform() != math::identity_matrix<3>() && 
       input_georef2.transform() != math::identity_matrix<3>() ) {
-    std::cout << "\nMap projected ISIS cubes detected.  Placing both images into the same map projection.\n\n";
+    vw_out(0) << "\t--> Map projected ISIS cubes detected.  Placing both images into the same map projection.\n";
     
     // If we are using map-projected cubes, we need to put them into a
     // common projection.  We adopt the projection of the first image.
@@ -279,7 +267,7 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     // For unprojected ISIS images, we resort to the "old style" of
     // image alignment: determine the alignment matrix using keypoint
     // matching techniques.
-    std::cout << "\nUnprojected ISIS cubes detected.  Aligning images using feature-based matching techniques.\n\n";
+    vw_out(0) << "\t--> Unprojected ISIS cubes detected.  Aligning images using feature-based matching techniques.\n";
 
     Matrix<double> align_matrix(3,3);
     align_matrix.set_identity();
@@ -294,8 +282,9 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
                                                      left_disk_image.cols(), left_disk_image.rows());
 
     // Write the results to disk.
-    write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback());
-    write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback()); 
+    vw_out(0) << "\t--> Writing pre-aligned images.\n";
+    write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback(ErrorMessage, "\t    Left:  "));
+    write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback(ErrorMessage, "\t    Right: ")); 
   }
 }
 
@@ -340,14 +329,17 @@ void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::
 
   // Read georeferencing information (if it exists...)
   GeoReference input_georef1, input_georef2;
-  try {
-    DiskImageResourceGDAL file_resource1( m_left_image_file );
-    DiskImageResourceGDAL file_resource2( m_right_image_file );
-    read_georeference( input_georef1, file_resource1 );
-    read_georeference( input_georef2, file_resource2 );
-  } catch (ArgumentErr &e) {
-    std::cout << "Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
-  }
+  // Disabled for now since we haven't really figured how to
+  // capitalize on the map projected images... -mbroxton
+  //
+  //   try {
+  //     DiskImageResourceGDAL file_resource1( m_left_image_file );
+  //     DiskImageResourceGDAL file_resource2( m_right_image_file );
+  //     read_georeference( input_georef1, file_resource1 );
+  //     read_georeference( input_georef2, file_resource2 );
+  //   } catch (ArgumentErr &e) {
+  //     vw_out(0) << "\t--> Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
+  //   }
   
   // If this is a map projected cube, we skip the step of aligning the
   // images, because the map projected images are probable very nearly
@@ -355,15 +347,16 @@ void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::
   // way using interest points.
   if (input_georef1.transform() != math::identity_matrix<3>() && 
       input_georef2.transform() != math::identity_matrix<3>() ) {
-    vw_out(0) << "\nMap projected ISIS cubes detected.  Placing both images into the same map projection.\n\n";
+    vw_out(0) << "\t--> Map projected ISIS cubes detected.\n"
+              << "\t--> Placing both images into the same map projection.\n";
 
     // If we are using map-projected cubes, we need to put them into a
     // common projection.  We adopt the projection of the first image.
     result = stereo::disparity::transform_disparities(disparity_map, GeoTransform(input_georef2, input_georef1));
 
   } else {
-
-    vw_out(0) << "Unprojected ISIS cubes detected.  Processing disparity map to remove the earlier effects of interest point alignment.\n";  
+    vw_out(0) << "\t--> Unprojected ISIS cubes detected.\n"
+              << "\t--> Processing disparity map to remove the earlier effects of interest point alignment.\n";  
 
     // We used a homography to line up the images, we may want 
     // to generate pre-alignment disparities before passing this information
@@ -371,9 +364,9 @@ void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::
     vw::Matrix<double> align_matrix;
     try {
       ::read_matrix(align_matrix, m_out_prefix + "-align.exr");
-      std::cout << "Alignment Matrix: " << align_matrix << "\n";
+      vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
     } catch (vw::IOErr &e) {
-      std::cout << "Could not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
+      vw_out(0) << "\nCould not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
       exit(1);
     }
     
@@ -384,7 +377,7 @@ void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::
     result = stereo::disparity::remove_invalid_pixels(result, right_disk_image.cols(), right_disk_image.rows());
   }
   
-  write_image(output_file, result, TerminalProgressCallback() );
+  write_image(output_file, result, TerminalProgressCallback(ErrorMessage, "\t    Processing: ") );
 }
 
 
@@ -392,7 +385,7 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionIsis::camera_model(std::
                                                                            std::string camera_file) {
   
   if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
-    std::cout << "Adjusted Isis Camera Model \n" << std::endl;
+    vw_out(0) << "\t--> Using adjusted Isis Camera Model: " << camera_file << "\n";
 
     // Creating Equations for the files
     boost::shared_ptr<PositionZeroOrder> posF( new PositionZeroOrder() );
@@ -413,7 +406,7 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionIsis::camera_model(std::
     return boost::shared_ptr<camera::CameraModel>(new IsisAdjustCameraModel( image_file, posF, poseF ));
 
   } else {
-    std::cout << "Standard Isis Camera Model \n" << std::endl;
+    vw_out(0) << "\t--> Using standard Isis camera model: " << image_file << "\n";
     return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
   }
 

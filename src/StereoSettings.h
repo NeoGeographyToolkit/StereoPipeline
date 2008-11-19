@@ -60,11 +60,11 @@ public:
   int v_corr_min;		/* correlation window min y */
   int do_h_subpixel;
   int do_v_subpixel;
-  int do_affine_subpixel;       /* Use the affine adaptive subpixel correlator (slow!) */
+  int subpixel_mode;       /* Use the affine adaptive subpixel correlator (slow!) */
   float xcorr_treshold;
   float corrscore_rejection_treshold;
   int cost_blur;
-  int cost_type;
+  int cost_mode;
 
   // Filtering Options
   int rm_h_half_kern;		/* low confidence pixel removal kernel size */
