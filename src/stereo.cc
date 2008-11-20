@@ -206,7 +206,7 @@ int main(int argc, char* argv[]) {
     ("crop-min-y", po::value<int32>(&(crop_bounds[1])), "")
     ("crop-width", po::value<int32>(&(crop_bounds[2])), "")
     ("crop-height", po::value<int32>(&(crop_bounds[3])), "")
-    ("corr-debug-prefix", po::value<std::string>(&corr_debug_prefix)->default_value(""), "Cause the pyramid correlator to save out debug imagery named with this prefix.")
+    ("draft-mode", po::value<std::string>(&corr_debug_prefix)->default_value(""), "Cause the pyramid correlator to save out debug imagery named with this prefix.")
     ("optimized-correlator", "Use the optimized correlator instead of the pyramid correlator.");
 
   po::options_description positional_options("Positional Options");
@@ -330,7 +330,7 @@ int main(int argc, char* argv[]) {
   /*                            preprocessing step                                 */
   /*********************************************************************************/
   if (entry_point <= PREPROCESSING) {
-    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> PREPROCESSING \n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
 
     std::string pre_preprocess_file1, pre_preprocess_file2;
     session->pre_preprocessing_hook(in_file1, in_file2, pre_preprocess_file1, pre_preprocess_file2);
@@ -363,7 +363,7 @@ int main(int argc, char* argv[]) {
   if( entry_point <= CORRELATION ) {
     if (entry_point == CORRELATION) 
         cout << "\nStarting at the CORRELATION stage.\n";
-    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> CORRELATION \n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage 1 --> CORRELATION \n";
     
     DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
     DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
@@ -438,7 +438,7 @@ int main(int argc, char* argv[]) {
         corr_view.set_cross_corr_threshold(stereo_settings().xcorr_treshold);
         corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
         corr_view.set_correlator_options(stereo_settings().cost_blur, cost_mode);
-        if (vm.count("corr-debug-prefix"))
+        if (vm.count("draft-mode"))
           corr_view.set_debug_mode(corr_debug_prefix);
         vw_out(0) << "\t--> Setting stereo options:\n";
         vw_out(0) << "\t    Cost Mode: " << cost_mode << "\n";
@@ -468,7 +468,7 @@ int main(int argc, char* argv[]) {
         corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
         
         corr_view.set_correlator_options(stereo_settings().cost_blur, cost_mode);
-        if (vm.count("corr-debug-prefix"))
+        if (vm.count("draft-mode"))
           corr_view.set_debug_mode(corr_debug_prefix);
         std::cout << corr_view;
         
@@ -492,7 +492,7 @@ int main(int argc, char* argv[]) {
         corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_treshold);
         
         corr_view.set_correlator_options(stereo_settings().cost_blur, cost_mode);
-        if (vm.count("corr-debug-prefix"))
+        if (vm.count("draft-mode"))
           corr_view.set_debug_mode(corr_debug_prefix);
         std::cout << corr_view;
         
@@ -527,7 +527,7 @@ int main(int argc, char* argv[]) {
   if( entry_point <= REFINEMENT ) {
     if (entry_point == REFINEMENT) 
       cout << "\nStarting at the REFINEMENT stage.\n";
-    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> REFINEMENT \n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
     
     try {
       string filename_L, filename_R;
@@ -627,7 +627,7 @@ int main(int argc, char* argv[]) {
   if(entry_point <= FILTERING) {
     if (entry_point == FILTERING)
         cout << "\nStarting at the FILTERING stage.\n";
-    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> FILTERING \n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage 3 --> FILTERING \n";
 
 
     std::string post_correlation_fname;
@@ -692,7 +692,7 @@ int main(int argc, char* argv[]) {
   if (entry_point <= POINT_CLOUD) {
     if (entry_point == POINT_CLOUD) 
       std::cout << "\nStarting at the TRIANGULATION stage.\n";
-    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage " << entry_point << " --> TRIANGULATION \n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
 
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
