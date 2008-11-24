@@ -22,7 +22,7 @@
 ########################################################################
 # sources
 ########################################################################
-include $(top_srcdir)/makes/autotroll.mak
+SUBDIRS = tests
 
 if HAVE_PKG_ISIS
 isis_sources = Isis/StereoSessionIsis.cc Isis/IsisCameraModel.cc	\
@@ -176,7 +176,3 @@ AM_LDFLAGS = @ASP_LDFLAGS@
 ##############################################################################
 
 include $(top_srcdir)/config/rules.mak
-
-
-
-

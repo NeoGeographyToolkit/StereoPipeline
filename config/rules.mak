@@ -25,41 +25,11 @@
 
 SUFFIXES = .cxx
 
-CXXTEST_DIR :=   $(top_srcdir)/thirdparty/cxxtest
-CXXTEST_GEN :=   $(CXXTEST_DIR)/cxxtestgen.pl
-CXXTEST_ARGS :=  --error-printer
+CXXTEST_DIR =   $(top_srcdir)/thirdparty/cxxtest
+CXXTEST_GEN =   $(CXXTEST_DIR)/cxxtestgen.pl
+CXXTEST_ARGS =  --error-printer
 
-TESTS_SRCS := $(TESTS_H:.h=.cxx)
-TESTS := $(TESTS_SRCS:.cxx=.test)
+.h.cxx:
+	$(CXXTEST_GEN) $(CXXTEST_ARGS) -o $@ $<
 
-# We do some magic here to build inside the tests directory so that we
-# can avoid having to put the current directory in the include path.
-%.cxx: %.h 
-	cd tests ; ../$(CXXTEST_GEN) $(CXXTEST_ARGS) -o $(patsubst tests/%,%,$@) $(patsubst tests/%,%,$<)
-
-CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
-DEPDIR = .deps
-
-# This is what I used to do here, and we probably ought to be explicitly 
-# falling back to it in a non-GNU environment....
-#$(CXX) $(CC_OPTIMIZE_DEBUG) $(CFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS) -I$(CXXTEST_DIR) $(INCLUDES) -o $@ $< $(TESTS_FLAGS) $(LDFLAGS) $(AM_LDFLAGS)
-
-%.test: %.cxx 
-	if test ! -d "$(DEPDIR)/tests" ; then mkdir -p "$(DEPDIR)/tests" ; fi
-	if $(CXXCOMPILE) -I$(CXXTEST_DIR) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -o $@ $<; \
-	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
-
-ifneq  ($(strip $(wildcard .deps/tests/*.Po)),)
-include $(wildcard .deps/tests/*.Po)
-@ENDIF@
-
-########################################################################
-# extra hooks
-########################################################################
-
-clean-local:
-	rm -f $(TESTS_SRCS)
-
-distclean-local:
-	rm -rf *~ $(TESTS) $(DEPDIR)
+include $(top_srcdir)/config/autotroll.mak

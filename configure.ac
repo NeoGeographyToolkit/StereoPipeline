@@ -23,6 +23,7 @@
 
 AC_INIT([NASA Ames Stereo Pipeline], [2.1], [asp@nx.arc.nasa.gov], [StereoPipeline])
 AC_CONFIG_AUX_DIR(config)
+AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
 AM_INIT_AUTOMAKE
 AX_CONFIG_HEADER_PREFIX([src/asp_config.h], [ASP_])
@@ -64,8 +65,6 @@ PKG_PATHS="${PKG_PATHS} ${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /us
 #	compilation options	    
 ##################################################
 
-CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/src"
-
 AC_ARG_ENABLE(debug,
   AC_HELP_STRING([--enable-debug], [generate debugging symbols @<:@no@:>@]),
   [ ENABLE_DEBUG=$enableval ], 
@@ -99,8 +98,9 @@ else
    AX_CFLAGS="$AX_CFLAGS -O0"
 fi
 
-CFLAGS="$CFLAGS $AX_CFLAGS"
-CXXFLAGS="$CXXFLAGS $AX_CFLAGS"
+CFLAGS="$CFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
+CXXFLAGS="$CXXFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
+
 
 AC_ARG_ENABLE(exceptions,
   AC_HELP_STRING([--enable-exceptions@<:@=yes@:>@], [enable the C++ exception mechanism]), 
@@ -359,6 +359,7 @@ AC_SUBST(ASP_LDFLAGS)
 AC_CONFIG_FILES([                       \
   Makefile                              \
   src/Makefile                          \
+  src/tests/Makefile                    \
 ])
 
 # This hideous hack makes it possible to use GNU make's conditionals.

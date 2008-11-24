@@ -105,7 +105,7 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
   AC_ARG_WITH([qt],
               [AS_HELP_STRING([--with-qt],
                  [Path to Qt @<:@Look in PATH and /usr/local/Trolltech@:>@])],
-              [QT_PATH=$withval], [QT_PATH=])
+              [QT_PATH=$withval])
 
   # Find Qt.
   if test -d /usr/local/Trolltech; then
