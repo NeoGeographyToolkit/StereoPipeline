@@ -1,16 +1,16 @@
 # __BEGIN_LICENSE__
-# 
+#
 # Copyright (C) 2006 United States Government as represented by the
 # Administrator of the National Aeronautics and Space Administration
 # (NASA).  All Rights Reserved.
-# 
+#
 # Copyright 2006 Carnegie Mellon University. All rights reserved.
-# 
+#
 # This software is distributed under the NASA Open Source Agreement
 # (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 # Initiative.  See the file COPYING at the top of the distribution
 # directory tree for the complete NOSA document.
-# 
+#
 # THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 # KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 # LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -18,7 +18,7 @@
 # A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
 # THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
 # DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
-# 
+#
 # __END_LICENSE__
 
 AC_INIT([NASA Ames Stereo Pipeline], [2.1], [asp@nx.arc.nasa.gov], [StereoPipeline])
@@ -41,7 +41,7 @@ AC_SUBST(LIBTOOL_VERSION)
 
 # This should be first, so everything else can use it
 AC_ARG_ENABLE(verbose,
-  AC_HELP_STRING([--enable-verbose], [verbose configuration output @<:@no@:>@]),           
+  AC_HELP_STRING([--enable-verbose], [verbose configuration output @<:@no@:>@]),
   [ ENABLE_VERBOSE=$enableval ],
   [ if test -z $"ENABLE_VERBOSE"; then ENABLE_VERBOSE=no; fi ]
 )
@@ -55,19 +55,19 @@ if test -f config.options; then
 fi
 
 AC_ARG_WITH(paths,
-  AC_HELP_STRING([--with-paths=PATHS], [additional search path(s) for packages]), 
+  AC_HELP_STRING([--with-paths=PATHS], [additional search path(s) for packages]),
   [ PKG_PATHS="$withval $PKG_PATHS" ]
 )
 PKG_PATHS="${PKG_PATHS} ${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /usr/X11R6 /usr"
 
 
 ##################################################
-#	compilation options	    
+#	compilation options
 ##################################################
 
 AC_ARG_ENABLE(debug,
   AC_HELP_STRING([--enable-debug], [generate debugging symbols @<:@no@:>@]),
-  [ ENABLE_DEBUG=$enableval ], 
+  [ ENABLE_DEBUG=$enableval ],
   [ if test -z "$ENABLE_DEBUG"; then ENABLE_DEBUG=no; fi ]
 )
 
@@ -77,8 +77,33 @@ else
    AX_CFLAGS="$AX_CFLAGS -DNDEBUG"
 fi
 
+# For 64-bit machines, we'll generally want to autodetect if lib64 exists,
+# and use it. Sometimes the user will want to force use of lib64 or lib
+# instead of the autodetection. Thus we have this command line option.
+AC_ARG_ENABLE(lib64,
+  AC_HELP_STRING([--enable-lib64], [force configure to use the lib64 directory (yes) or the lib directory (no) to find libraries @<:@autodetect@:>@]),
+  [ USE_LIB64=$enableval ],
+  [ if test -z "$USE_LIB64"; then USE_LIB64="autodetect"; fi ]
+)
+if test x"$USE_LIB64" = "xautodetect"; then
+  if test -d "/lib64" -o -d "/usr/lib64"; then
+    USE_LIB64="yes"
+  else
+    USE_LIB64="no"
+  fi
+fi
+# Sometimes we have /foo/lib64 and /foo/lib confusion on 64-bit machines,
+# so we'll use possibly both if one doesn't appear for a certain
+# library path.
+if test x"$USE_LIB64" = "xyes"; then
+  AX_LIBDIR="lib64"
+  AX_OTHER_LIBDIR="lib"
+else
+  AX_LIBDIR="lib"
+  AX_OTHER_LIBDIR="lib64"
+fi
 AC_ARG_ENABLE(optimize,
-  AC_HELP_STRING([--enable-optimize@<:@=LEVEL@:>@], [compiler optimization level @<:@yes@:>@]), 
+  AC_HELP_STRING([--enable-optimize@<:@=LEVEL@:>@], [compiler optimization level @<:@yes@:>@]),
   [ ENABLE_OPTIMIZE=$enableval ],
   [ if test -z "$ENABLE_OPTIMIZE"; then ENABLE_OPTIMIZE=yes; fi ]
 )
@@ -103,7 +128,7 @@ CXXFLAGS="$CXXFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
 
 
 AC_ARG_ENABLE(exceptions,
-  AC_HELP_STRING([--enable-exceptions@<:@=yes@:>@], [enable the C++ exception mechanism]), 
+  AC_HELP_STRING([--enable-exceptions@<:@=yes@:>@], [enable the C++ exception mechanism]),
   [ ENABLE_EXCEPTIONS=$enableval ],
   [ if test -z "$ENABLE_EXCEPTIONS"; then ENABLE_EXCEPTIONS=yes; fi ]
 )
@@ -120,7 +145,7 @@ AC_DEFINE_UNQUOTED(NO_EXCEPTIONS,
                    [$no_exceptions],
                    [Define to 1 to disable C++ exceptions.])
 
-# We set up the include paths ourselves, so 
+# We set up the include paths ourselves, so
 # we ask autoconf to get out of the way.
 DEFAULT_INCLUDES=
 AC_SUBST(DEFAULT_INCLUDES)
@@ -139,7 +164,7 @@ fi
 
 
 ##################################################
-#	distribution options	    
+#	distribution options
 ##################################################
 
 AC_ARG_WITH(dist-license,
@@ -187,12 +212,12 @@ AM_CONDITIONAL(DIST_REMOVE_MODULES, [test ! -z "$DIST_REMOVE_MODULES"])
 
 
 ##################################################
-#	library options	    
+#	library options
 ##################################################
 
 if test -z $NUM_THREADS ; then NUM_THREADS=4 ; fi
 AH_TEMPLATE([NUM_THREADS],
-            [Define to the default number of threads that the Vision 
+            [Define to the default number of threads that the Vision
              Workbench should spawn for multi-threaded operations.])
 AC_ARG_WITH(num-threads,
   AC_HELP_STRING([--with-num-threads[=4]], [set the default number of processing threads for multi-threaded operations]),
@@ -200,7 +225,7 @@ AC_ARG_WITH(num-threads,
 AC_DEFINE_UNQUOTED([NUM_THREADS],[$NUM_THREADS])
 
 ##################################################
-#	package checks	    
+#	package checks
 ##################################################
 
 # Make sure these are set so AC_PROG_CC doesn't initialize them with
@@ -228,27 +253,30 @@ fi
 AX_PKG_PTHREADS
 
 AX_PKG_BOOST
+AX_PKG_BOOST_CHECK_VERSION([ASP_])
+
+AC_MSG_NOTICE([Stereo will be built using Boost version $BOOST_VERSION])
 AX_PKG_BOOST_LIB(PROGRAM_OPTIONS, [-lboost_program_options], [boost/program_options.hpp])
 AX_PKG_BOOST_LIB(FILESYSTEM_PRE_1_35, [-lboost_filesystem], [boost/filesystem/path.hpp])
 if test "$HAVE_PKG_BOOST_FILESYSTEM_PRE_1_35" = "no"; then
   echo "Checking for BOOST_FILESYSTEM 1.35 or later..."
   AX_PKG_BOOST_LIB(FILESYSTEM, [-lboost_filesystem -lboost_system], [boost/filesystem/path.hpp])
-else 
+else
   AX_PKG(BOOST_FILESYSTEM, [BOOST_FILESYSTEM_PRE_1_35], [], [])
 fi
 AX_PKG_BOOST_LIB(THREAD, [-lboost_thread], [boost/thread/thread.hpp])
 
-AX_PKG_LAPACK
-
-# This provides an easy way for users to override the threads options 
+# This provides an easy way for users to override the threads options
 # if they are replacing Boost threads with something else for their platform.
 AX_PKG(THREADS, [BOOST_THREAD], [], [])
 
-AX_PKG(VW, [], [-lvw], [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
-AX_PKG(VW_STEREO, [], [-lvwStereo], [vw/Stereo/OptimizedCorrelator.h])
-AX_PKG(VW_CAMERA, [], [-lvwCamera], [vw/Camera/CAHVModel.h])
-AX_PKG(VW_CARTOGRAPHY, [], [-lvwCartography], [vw/Cartography/GeoReference.h])
-AX_PKG(VW_INTEREST_POINT, [], [-lvwInterestPoint])
+AX_PKG_LAPACK
+
+AX_PKG(VW,                [BOOST], [-lvw],            [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
+AX_PKG(VW_STEREO,         [BOOST], [-lvwStereo],      [vw/Stereo/OptimizedCorrelator.h])
+AX_PKG(VW_CAMERA,         [BOOST], [-lvwCamera],      [vw/Camera/CAHVModel.h])
+AX_PKG(VW_CARTOGRAPHY,    [BOOST], [-lvwCartography], [vw/Cartography/GeoReference.h])
+AX_PKG(VW_INTEREST_POINT, [BOOST], [-lvwInterestPoint])
 
 AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
 AX_PKG(MBA10, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
@@ -265,7 +293,9 @@ AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 dnl ISIS includes QT headers without the proper qt module prefix, so
 dnl we need to add this check here to force the build system to add an
 dnl extra include path at the top level of the QTCore tree.
-AX_PKG(QT_INCLUDE, [],           [],          [QVector], [${QT_CPPFLAGS}])
+dnl We also seed QT_INCLUDE's cppflags with the ones qmake figured out
+ADD_QT_INCLUDE_CPPFLAGS="$ADD_QT_INCLUDE_CPPFLAGS $QT_CPPFLAGS"
+AX_PKG(QT_INCLUDE, [],           [],          [QVector])
 
 if test x"$host_vendor" = "xapple"; then
     AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt.5])
@@ -273,7 +303,7 @@ if test x"$host_vendor" = "xapple"; then
     AX_PKG(GSL,     [LAPACK],       [-lgsl -lgsl.0 -lgslcblas.0 ])
     AX_PKG(SUPERLU, [],             [-lsuperlu_3.0], [])
     AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
-    AX_PKG(QT,      [QT_INCLUDE],   [],              [], [${QT_CPPFLAGS}])
+    AX_PKG(QT,      [QT_INCLUDE],   [],              [])
 else
     AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt])
     AX_PKG(GEOS,    [],             [-lgeos])
@@ -281,16 +311,16 @@ else
     AX_PKG(SUPERLU, [],             [-lsuperlu])
     AX_PKG(XERCESC, [],             [-lxerces-c])
 
-    AX_PKG(QT_CORE, [QT_INCLUDE],   [-lQtCore],  [QVector], [${QT_CPPFLAGS}])
-    AX_PKG(QT_GUI,  [QT_INCLUDE],   [-lQtGui],   [QLabel],  [${QT_CPPFLAGS}])
-    AX_PKG(QT_SQL,  [QT_INCLUDE],   [-lQtSql],   [QtSql],   [${QT_CPPFLAGS}])
-    AX_PKG(QT,      [QT_INCLUDE QT_CORE QT_GUI QT_SQL], [], [], [${QT_CPPFLAGS}])
+    AX_PKG(QT_CORE, [QT_INCLUDE],   [-lQtCore],  [QVector])
+    AX_PKG(QT_GUI,  [QT_INCLUDE],   [-lQtGui],   [QLabel])
+    AX_PKG(QT_SQL,  [QT_INCLUDE],   [-lQtSql],   [QtSql])
+    AX_PKG(QT,      [QT_INCLUDE QT_CORE QT_GUI QT_SQL], [], [])
 fi
 
-dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems, 
-dnl the ISIS compilation does not resolve certain BLAS symbols that its 
+dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems,
+dnl the ISIS compilation does not resolve certain BLAS symbols that its
 dnl dependent 3rd party libraries depend on (for whatever retarded reason).
-dnl Thus, we link against LAPACK here because it defines these missing 
+dnl Thus, we link against LAPACK here because it defines these missing
 dnl BLAS symbols in the event that we need them.
 AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
 AX_PKG(ISIS, [QT ISIS3RDPARTY], [-lisis3])
@@ -337,8 +367,10 @@ AM_CONDITIONAL(MAKE_APP_RMAXADJUST, [test "$MAKE_APP_RMAXADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLEVIS, [test "$MAKE_APP_BUNDLEVIS" = "yes"])
 
 ##################################################
-#	final processing	    
+#	final processing
 ##################################################
+ASP_CPPFLAGS="$OTHER_CPPFLAGS"
+ASP_LDFLAGS="$OTHER_LDFLAGS"
 
 if test "yes" = "$ENABLE_VERBOSE" ; then
   AC_MSG_NOTICE([using CPPFLAGS=$CPPFLAGS $ASP_CPPFLAGS])
@@ -353,7 +385,7 @@ AC_SUBST(ASP_LDFLAGS)
 
 
 ##################################################
-#	makefiles to process	    
+#	makefiles to process
 ##################################################
 
 AC_CONFIG_FILES([                       \

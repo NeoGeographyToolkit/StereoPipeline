@@ -16,8 +16,9 @@ AC_DEFUN([AX_PKG_BOOST],
   fi
 
   # Skip testing if the user has overridden
-  if test -z "${HAVE_PKG_BOOST}"; then
+  if test -z ${HAVE_PKG_BOOST}; then
 
+    PKG_BOOST_CPPFLAGS=
     PKG_BOOST_LIBS=
     HAVE_PKG_BOOST=no
 
@@ -28,7 +29,11 @@ AC_DEFUN([AX_PKG_BOOST],
       fi
       if test -d "${ax_boost_base_path}/include/boost" ; then
         PKG_BOOST_INCDIR="${ax_boost_base_path}/include"
-        PKG_BOOST_LIBDIR="${ax_boost_base_path}/lib"
+        PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_LIBDIR}"
+        # In case it's not in lib64 despite specifying lib64...
+        if test ! -d $PKG_BOOST_LIBDIR -a x"${AX_LIBDIR}" = "xlib64"; then
+          PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_OTHER_LIBDIR}"
+        fi
         HAVE_PKG_BOOST="yes"
         if test "$ENABLE_VERBOSE" = "yes"; then
           AC_MSG_RESULT([found])
@@ -60,47 +65,47 @@ AC_DEFUN([AX_PKG_BOOST],
   fi
 
   if test "${HAVE_PKG_BOOST}" = "yes" ; then
-    ax_pkg_old_vw_cppflags=$ASP_CPPFLAGS
-    ax_pkg_old_vw_ldflags=$ASP_LDFLAGS
+    ax_pkg_old_other_cppflags=$OTHER_CPPFLAGS
+    ax_pkg_old_other_ldflags=$OTHER_LDFLAGS
     ax_pkg_old_cppflags=$CPPFLAGS
     ax_pkg_old_ldflags=$LDFLAGS
     ax_pkg_old_libs=$LIBS
     while true ; do
       # First see if the current paths are sufficient
       if test "x${ENABLE_VERBOSE}" = "xyes" ; then
-    AC_MSG_CHECKING([whether current paths are sufficient...])
+        AC_MSG_CHECKING([whether current paths are sufficient...])
       fi
       AC_LINK_IFELSE( AC_LANG_PROGRAM([#include <boost/version.hpp>],[]), [ax_result=yes], [ax_result=no] )
       if test "x${ENABLE_VERBOSE}" = "xyes" ; then
-    AC_MSG_RESULT([$ax_result])
+        AC_MSG_RESULT([$ax_result])
       fi
       if test "$ax_result" = "yes" ; then break ; fi
       # Try it with just the include path
-      ASP_CPPFLAGS="-I${PKG_BOOST_INCDIR} $ASP_CPPFLAGS"
-      CPPFLAGS="$ax_pkg_old_cppflags $ASP_CPPFLAGS"
+      OTHER_CPPFLAGS="-I${PKG_BOOST_INCDIR} $OTHER_CPPFLAGS"
+      CPPFLAGS="$ax_pkg_old_cppflags $OTHER_CPPFLAGS"
       if test "x${ENABLE_VERBOSE}" = "xyes" ; then
-    AC_MSG_CHECKING([whether adding the include path is sufficient...])
+        AC_MSG_CHECKING([whether adding the include path is sufficient...])
       fi
       AC_LINK_IFELSE( AC_LANG_PROGRAM([#include <boost/version.hpp>],[]), [ax_result=yes], [ax_result=no] )
       if test "x${ENABLE_VERBOSE}" = "xyes" ; then
-    AC_MSG_RESULT([$ax_result])
+        AC_MSG_RESULT([$ax_result])
       fi
       if test "$ax_result" = "yes" ; then break ; fi
       # Finally, try it with the linker path
-      ASP_LDFLAGS="-L${PKG_BOOST_LIBDIR} $ASP_LDFLAGS"
-      LDFLAGS="$ax_pkg_old_ldflags $ASP_LDFLAGS"
+      OTHER_LDFLAGS="-L${PKG_BOOST_LIBDIR} $OTHER_LDFLAGS"
+      LDFLAGS="$ax_pkg_old_ldflags $OTHER_LDFLAGS"
       if test "x${ENABLE_VERBOSE}" = "xyes" ; then
-    AC_MSG_CHECKING([whether adding the include and linker paths works...])
+        AC_MSG_CHECKING([whether adding the include and linker paths works...])
       fi
       AC_LINK_IFELSE( AC_LANG_PROGRAM([#include <boost/version.hpp>],[]), [ax_result=yes], [ax_result=no] )
       if test "x${ENABLE_VERBOSE}" = "xyes" ; then
-    AC_MSG_RESULT([$ax_result])
+        AC_MSG_RESULT([$ax_result])
       fi
       if test "$ax_result" = "yes" ; then break ; fi
       # The detected version of boost seems to be invalid!
       HAVE_PKG_BOOST="no"
-      ASP_CPPFLAGS="$ax_pkg_old_vw_cppflags"
-      ASP_LDFLAGS="$ax_pkg_old_vw_ldflags"
+      OTHER_CPPFLAGS="$ax_pkg_old_other_cppflags"
+      OTHER_LDFLAGS="$ax_pkg_old_other_ldflags"
       unset PKG_BOOST_INCDIR
       unset PKG_BOOST_LIBDIR
       break
@@ -111,6 +116,8 @@ AC_DEFUN([AX_PKG_BOOST],
 
   if test "${HAVE_PKG_BOOST}" = "yes" ; then
     ax_have_pkg_bool=1
+    PKG_BOOST_CPPFLAGS="-I${PKG_BOOST_INCDIR}"
+    PKG_BOOST_LIBS="-L${PKG_BOOST_LIBDIR}"
   else
     ax_have_pkg_bool=0
   fi
@@ -118,12 +125,16 @@ AC_DEFUN([AX_PKG_BOOST],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the BOOST package is available.])
 
+  AC_SUBST(PKG_BOOST_CPPFLAGS)
+  AC_SUBST(PKG_BOOST_LIBS)
   AC_SUBST(HAVE_PKG_BOOST)
 
   if test "$ENABLE_VERBOSE" = "yes"; then
     AC_MSG_NOTICE([HAVE_PKG_BOOST= $HAVE_PKG_BOOST])
-    AC_MSG_NOTICE([ASP_CPPFLAGS= $ASP_CPPFLAGS])
-    AC_MSG_NOTICE([ASP_LDFLAGS= $ASP_LDFLAGS])
+    AC_MSG_NOTICE([OTHER_CPPFLAGS= $OTHER_CPPFLAGS])
+    AC_MSG_NOTICE([OTHER_LDFLAGS= $OTHER_LDFLAGS])
+    AC_MSG_NOTICE([CPPFLAGS= $CPPFLAGS])
+    AC_MSG_NOTICE([LDFLAGS= $LDFLAGS])
   else
     AC_MSG_RESULT([$HAVE_PKG_BOOST])
   fi

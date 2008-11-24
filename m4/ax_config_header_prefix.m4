@@ -1,10 +1,9 @@
 dnl Usage: AX_CONFIG_HEADER_PREFIX(<filename>, <prefix>)
 dnl Generates a configuration header file, adding a prefix to all symbols.
-dnl This is a two-step process.  First we generate the usual header file 
-dnl with a filename ending in ".pre".  Then we process that file, adding 
-dnl the prefix to all symbolx, and copy it into the final location if it 
+dnl This is a two-step process.  First we generate the usual header file
+dnl with a filename ending in ".pre".  Then we process that file, adding
+dnl the prefix to all symbolx, and copy it into the final location if it
 dnl has changed.
-
 AC_DEFUN([AX_CONFIG_HEADER_PREFIX],
 [
   AM_CONFIG_HEADER([$1.pre],

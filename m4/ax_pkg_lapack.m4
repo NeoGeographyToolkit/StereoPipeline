@@ -9,14 +9,14 @@ AC_DEFUN([AX_PKG_LAPACK],
 
   # If we are running MacOS X, we can use Apple's vecLib framework to
   # provide us with LAPACK and BLAS routines.
-  if test "$host_vendor" = apple; then
+  if test $host_vendor = apple; then
     AC_MSG_CHECKING(for package LAPACK)
     if test "$ENABLE_VERBOSE" = "yes"; then
       AC_MSG_RESULT([])
     fi
 
     HAVE_PKG_LAPACK="yes"
-    PKG_LAPACK_LIBS="$ASP_LDFLAGS -framework vecLib"
+    PKG_LAPACK_LIBS="$OTHER_LDFLAGS -framework vecLib"
 
     if test "$ENABLE_VERBOSE" = "yes"; then
       AC_MSG_RESULT([found])
@@ -35,8 +35,10 @@ AC_DEFUN([AX_PKG_LAPACK],
     if test "$ENABLE_VERBOSE" = "yes"; then
       AC_MSG_NOTICE([HAVE_PKG_LAPACK = ${HAVE_PKG_LAPACK}])
       AC_MSG_NOTICE([PKG_LAPACK_LIBS = ${PKG_LAPACK_LIBS}])
-      AC_MSG_NOTICE([ASP_CPPFLAGS = ${ASP_CPPFLAGS}])
-      AC_MSG_NOTICE([ASP_LDFLAGS = ${ASP_LDFLAGS}])
+      AC_MSG_NOTICE([OTHER_CPPFLAGS = ${OTHER_CPPFLAGS}])
+      AC_MSG_NOTICE([OTHER_LDFLAGS = ${OTHER_LDFLAGS}])
+      AC_MSG_NOTICE([CPPFLAGS= $CPPFLAGS])
+      AC_MSG_NOTICE([LDFLAGS= $LDFLAGS])
     else
       AC_MSG_RESULT([${HAVE_PKG_LAPACK}])
     fi
@@ -63,16 +65,16 @@ AC_DEFUN([AX_PKG_LAPACK],
           AX_PKG(STANDALONE_LAPACK, [], [-llapack], [])
           AX_PKG(STANDALONE_LAPACK_AND_BLAS, [STANDALONE_LAPACK STANDALONE_BLAS], [], [])
 
-	  if test "$HAVE_PKG_STANDALONE_LAPACK_AND_BLAS" = "no"; then
+          if test "$HAVE_PKG_STANDALONE_LAPACK_AND_BLAS" = "no"; then
             # On some systems, F2C, FBLAS and FLAPACK are installed in different places
             AC_MSG_NOTICE(["trying to find F2C, FBLAS, and FLAPACK seperately."])
             AX_PKG(STANDALONE_F2C, [], [-lf2c], [])
             AX_PKG(STANDALONE_FBLAS, [STANDALONE_F2C], [-lblas], [])
             AX_PKG(STANDALONE_FLAPACK, [STANDALONE_F2C], [-llapack], [])
             AX_PKG(LAPACK, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C], [], [])
-	  else
+          else
             AX_PKG(LAPACK, [STANDALONE_LAPACK_AND_BLAS], [], [])
-	  fi # FBLAS and FLAPACK
+          fi # FBLAS and FLAPACK
         else
           AX_PKG(LAPACK, [FLAPACK], [], [])
         fi # BLAS and LAPACK

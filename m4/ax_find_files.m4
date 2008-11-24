@@ -1,6 +1,6 @@
 dnl Usage: AX_FIND_FILES(<filenames>, <search paths>)
-dnl Looks to see if all the given filenames (relative paths) are accessible 
-dnl from one of the given base paths.  Returns the path or the empty string 
+dnl Looks to see if all the given filenames (relative paths) are accessible
+dnl from one of the given base paths.  Returns the path or the empty string
 dnl in ${ax_find_files_path}.
 AC_DEFUN([AX_FIND_FILES],
 [
