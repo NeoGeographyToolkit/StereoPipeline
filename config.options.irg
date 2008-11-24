@@ -2,11 +2,13 @@
 
 ### IRG Specific Convenience Paths
 
-IRG_ARCH_RAW="`uname -p`_`uname -s`_gcc`gcc -dumpversion | cut -f-2 -d .`"
+IRG_ARCH_RAW="`uname -m`_`uname -s`_gcc`gcc -dumpversion | cut -f-2 -d .`"
 IRG_ARCH=`echo $IRG_ARCH_RAW | awk '{ print tolower( $0 ) }'`
 IRGPKG_DIR=/irg/packages/$IRG_ARCH
 
-### Configure Options (Alternative to using command line syntax:  --enable-FEATURE=[val] )
+### Configure Options
+#
+# These options allow you modify the basic behavior of the build environment.
 ENABLE_DEBUG=no
 ENABLE_OPTIMIZE=yes
 
