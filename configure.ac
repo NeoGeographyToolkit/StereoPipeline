@@ -125,6 +125,7 @@ fi
 
 CFLAGS="$CFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
 CXXFLAGS="$CXXFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
+LDFLAGS="$LDFLAGS -Wl,-no-undefined -Wl,-as-needed"
 
 
 AC_ARG_ENABLE(exceptions,
@@ -300,14 +301,21 @@ AX_PKG(QT_INCLUDE, [],           [],          [QVector])
 if test x"$host_vendor" = "xapple"; then
     AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt.5])
     AX_PKG(GEOS,    [],             [-lgeos-3.0.0], [])
-    AX_PKG(GSL,     [LAPACK],       [-lgsl -lgsl.0 -lgslcblas.0 ])
+    AX_PKG(GSL,     [LAPACK],       [-Wl,-no-as-needed,-lgsl,-lgsl.0,-lgslcblas.0,-as-needed])
     AX_PKG(SUPERLU, [],             [-lsuperlu_3.0], [])
     AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
     AX_PKG(QT,      [QT_INCLUDE],   [],              [])
 else
-    AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt])
+
+    AX_PKG(QWT_PLAIN,     [QT_INCLUDE],   [-lqwt])
+    if test "$HAVE_PKG_QWT_PLAIN" = "no"; then
+        AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt-qt4])
+    else
+        AX_PKG(QWT,     [QWT_PLAIN],   [])
+    fi
+
     AX_PKG(GEOS,    [],             [-lgeos])
-    AX_PKG(GSL,     [LAPACK],       [-lgsl -lgslcblas])
+    AX_PKG(GSL,     [LAPACK],       [-Wl,-no-as-needed,-lgsl,-lgslcblas,-as-needed])
     AX_PKG(SUPERLU, [],             [-lsuperlu])
     AX_PKG(XERCESC, [],             [-lxerces-c])
 
