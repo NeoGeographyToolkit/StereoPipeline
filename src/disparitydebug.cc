@@ -100,18 +100,28 @@ int main( int argc, char *argv[] ) {
     output_prefix = prefix_from_filename(input_file_name);
   }
 
-  std::cout << "Opening " << input_file_name << "\n";
+  vw_out(0) << "Opening " << input_file_name << "\n";
   DiskImageView<PixelDisparity<float> > disk_disparity_map(input_file_name);
 
-  std::cout << "Computing disparity range... \n";
+  // Mask out "missing pixels"
+  PixelDisparity<float> null_pixel;
+  ImageViewRef<PixelMask<PixelDisparity<float> > > disparity_mask = create_mask(disk_disparity_map, null_pixel);
+  
+  vw_out(0) << "\t--> Computing disparity range \n";
   int num_good;
-  BBox2 disp_range = disparity::get_disparity_range(disk_disparity_map,num_good,true,TerminalProgressCallback());
+  BBox2 disp_range = disparity::get_disparity_range(disk_disparity_map,num_good,true,TerminalProgressCallback(InfoMessage,"\t    Computing: "));
+  vw_out(0) << "\t    Horizontal - [" << disp_range.min().x() << " " << disp_range.max().x() << "]    Vertical: [" << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
+
+  ImageViewRef<PixelMask<float> > horizontal = copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)), disparity_mask);
+  ImageViewRef<PixelMask<float> > vertical = copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)), disparity_mask);
+
+  vw_out(0) << "\t--> Saving disparity debug images\n";  
   if (vm.count("float-pixels")) {
-    write_image( output_prefix + "-H." + output_file_type, clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)), TerminalProgressCallback());
-    write_image( output_prefix + "-V." + output_file_type, clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)), TerminalProgressCallback());
+    write_image( output_prefix + "-H." + output_file_type, horizontal, TerminalProgressCallback(InfoMessage,"\t    Left  : "));
+    write_image( output_prefix + "-V." + output_file_type, vertical, TerminalProgressCallback(InfoMessage,"\t    Right : "));
   } else {
-    write_image( output_prefix + "-H." + output_file_type, channel_cast_rescale<uint8>(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1))), TerminalProgressCallback());
-    write_image( output_prefix + "-V." + output_file_type, channel_cast_rescale<uint8>(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1))), TerminalProgressCallback());
+    write_image( output_prefix + "-H." + output_file_type, channel_cast_rescale<uint8>(horizontal), TerminalProgressCallback(InfoMessage,"\t    Left  : "));
+    write_image( output_prefix + "-V." + output_file_type, channel_cast_rescale<uint8>(vertical), TerminalProgressCallback(InfoMessage,"\t    Right : "));
   }    
 
   return 0;
