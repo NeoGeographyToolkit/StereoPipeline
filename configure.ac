@@ -125,7 +125,10 @@ fi
 
 CFLAGS="$CFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
 CXXFLAGS="$CXXFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
-LDFLAGS="$LDFLAGS -Wl,-no-undefined -Wl,-as-needed"
+
+if test "x$host_vendor" != "xapple"; then
+  LDFLAGS="$LDFLAGS -Wl,-no-undefined -Wl,-as-needed"
+fi
 
 
 AC_ARG_ENABLE(exceptions,
