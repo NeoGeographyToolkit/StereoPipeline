@@ -283,11 +283,11 @@ AX_PKG(VW_CARTOGRAPHY,    [BOOST], [-lvwCartography], [vw/Cartography/GeoReferen
 AX_PKG(VW_INTEREST_POINT, [BOOST], [-lvwInterestPoint])
 
 AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
-AX_PKG(MBA10, [], [-lMBA_1.0_gpl_nopt], [MBA.h])
+AX_PKG(MBA10, [BOOST], [-lMBA_1.0_gpl_opt], [MBA.h])
 
 if test "$HAVE_PKG_MBA10" = "no"; then
   echo "Checking for MBA 1.1"
-  AX_PKG(MBA, [], [-lMBA-1.1], [MBA.h])
+  AX_PKG(MBA, [BOOST], [-lMBA-1.1], [MBA.h])
 else
   AX_PKG(MBA, [MBA10], [], [])
 fi
@@ -304,7 +304,7 @@ AX_PKG(QT_INCLUDE, [],           [],          [QVector])
 if test x"$host_vendor" = "xapple"; then
     AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt.5])
     AX_PKG(GEOS,    [],             [-lgeos-3.0.0], [])
-    AX_PKG(GSL,     [LAPACK],       [-Wl,-no-as-needed,-lgsl,-lgsl.0,-lgslcblas.0,-as-needed])
+    AX_PKG(GSL,     [LAPACK],       [-Wl,-lgsl,-lgslcblas])
     AX_PKG(SUPERLU, [],             [-lsuperlu_3.0], [])
     AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
     AX_PKG(QT,      [QT_INCLUDE],   [],              [])
