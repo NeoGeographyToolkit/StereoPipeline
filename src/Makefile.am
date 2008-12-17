@@ -168,6 +168,12 @@ if MAKE_APP_ORTHOPROJECT
   orthoproject_LDFLAGS = $(APP_ORTHOPROJECT_LIBS) $(ASP_LDFLAGS)
 endif
 
+if MAKE_APP_RESULTS
+  bin_PROGRAMS +=results
+  results_SOURCES = results.cc
+  results_LDFLAGS = $(APP_RESULTS_LIBS)
+endif
+
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@ 
 
