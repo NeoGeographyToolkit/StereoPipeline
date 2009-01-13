@@ -33,3 +33,4 @@ CXXTEST_ARGS =  --error-printer
 	$(CXXTEST_GEN) $(CXXTEST_ARGS) -o $@ $<
 
 include $(top_srcdir)/config/autotroll.mak
+include $(top_srcdir)/config/cuda.mak
