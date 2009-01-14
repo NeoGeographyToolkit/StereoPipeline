@@ -1,8 +1,8 @@
 // VW
-#include <vw/vw.h>
+//#include <vw/vw.h>
 
 // includes, system
-#include <iostream>
+//#include <iostream>
 
 // includes, project
 #include <cuda.h>
@@ -38,7 +38,7 @@ int main (int argc, char *argv[])
  
     //    ... fill arguments array ‘arg’ .... 
  
-    cout << "Hello, world3.\n";
+    //cout << "Hello, world3.\n";
     cudaStat = cudaMalloc ((void **)&acosArg, N * sizeof(acosArg[0])); 
     cudaStat = cudaMemcpy (acosArg, arg, N * sizeof(arg[0]), cudaMemcpyHostToDevice); 
  

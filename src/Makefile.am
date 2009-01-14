@@ -176,8 +176,8 @@ endif
 
 if MAKE_APP_CUDATEST
   bin_PROGRAMS += cuda_test
-  CUDATEST_SOURCES = cuda_test.cu
-  CUDATEST_LDFLAGS = $(APP_CUDATEST_LIBS) $(ASP_LDFLAGS) -lcuda
+  cuda_test_SOURCES = cuda_test.cu
+  cuda_test_LDFLAGS = $(APP_CUDATEST_LIBS)
 endif
 
 AM_CPPFLAGS = @ASP_CPPFLAGS@
@@ -186,5 +186,7 @@ AM_LDFLAGS = @ASP_LDFLAGS@
 ##############################################################################
 #                             Tests	                                     #
 ##############################################################################
+
+CLEANFILES=cuda_test.cc
 
 include $(top_srcdir)/config/rules.mak

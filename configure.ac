@@ -282,7 +282,7 @@ AX_PKG(VW_CAMERA,         [BOOST], [-lvwCamera],      [vw/Camera/CAHVModel.h])
 AX_PKG(VW_CARTOGRAPHY,    [BOOST], [-lvwCartography], [vw/Cartography/GeoReference.h])
 AX_PKG(VW_INTEREST_POINT, [BOOST], [-lvwInterestPoint])
 
-AX_PKG(CUDA,              [],      [-lcuda],            [cuda.h])
+AX_PKG(CUDA,              [],      [-lcuda -lcudart], [cuda.h])
 
 AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
 AX_PKG(MBA10, [BOOST], [-lMBA_1.0_gpl_opt], [MBA.h])

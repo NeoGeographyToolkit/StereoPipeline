@@ -1,13 +1,6 @@
 # Makerules.
 
-SUFFIXES += .cu.o .cu.lo .cu
+NVCC=nvcc
 
-.cu.o:
-	nvcc $< -c $@
-
-.cu.lo:
-	nvcc $< -c $@
-
-.cu:
-	nvcc $< -o $@
-
+.cu.cc:
+	$(NVCC) $(ASP_CPPFLAGS) --cuda $< -o $@
