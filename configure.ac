@@ -302,6 +302,7 @@ dnl extra include path at the top level of the QTCore tree.
 dnl We also seed QT_INCLUDE's cppflags with the ones qmake figured out
 ADD_QT_INCLUDE_CPPFLAGS="$ADD_QT_INCLUDE_CPPFLAGS $QT_CPPFLAGS"
 AX_PKG(QT_INCLUDE, [],           [],          [QVector])
+PKG_QT_INCLUDE_LIBS="$PKG_QT_INCLUDE_LIBS $QT_LIBS"
 
 if test x"$host_vendor" = "xapple"; then
     AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt.5])
