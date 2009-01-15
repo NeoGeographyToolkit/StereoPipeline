@@ -14,7 +14,7 @@ __global__ void flip_main (struct params p)
 { 
   int i; 
   for (i = threadIdx.x; i < p.n; i += THREAD_COUNT) { 
-    p.output[i] = 1-p.input[i]; 
+    p.output[i] = 1.0f - p.input[i]; 
   } 
 } 
  
