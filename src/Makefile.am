@@ -176,7 +176,7 @@ endif
 
 if MAKE_APP_CUDATEST
   bin_PROGRAMS += cuda_test
-  cuda_test_SOURCES = cuda_test.cu
+  cuda_test_SOURCES = cuda_code.cu cuda_test.cc
   cuda_test_LDFLAGS = $(APP_CUDATEST_LIBS)
 endif
 

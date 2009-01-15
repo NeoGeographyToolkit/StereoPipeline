@@ -3,4 +3,5 @@
 NVCC=nvcc
 
 .cu.cc:
-	$(NVCC) $(ASP_CPPFLAGS) --cuda $< -o $@
+	$(NVCC) --cuda $< -o $@
+#	$(NVCC) $(ASP_CPPFLAGS) --cuda $< -o $@
