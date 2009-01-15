@@ -247,9 +247,6 @@ AC_PROG_MAKE_SET
 
 AC_LANG(C++)
 
-# Qt with AutoTroll.
-AT_WITH_QT([+gui +sql +opengl])
-
 if test "yes" = "$ENABLE_VERBOSE"; then
   AC_MSG_NOTICE([using PKG_PATHS=$PKG_PATHS])
 fi
@@ -296,13 +293,32 @@ fi
 
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
-dnl ISIS includes QT headers without the proper qt module prefix, so
-dnl we need to add this check here to force the build system to add an
-dnl extra include path at the top level of the QTCore tree.
-dnl We also seed QT_INCLUDE's cppflags with the ones qmake figured out
+# Qt with AutoTroll.
+AT_WITH_QT([+gui +sql +opengl], [], [], [], [HAVE_PKG_QT_INCLUDE=no])
+
+if test x"$HAVE_PKG_QT_INCLUDE" != x"no"; then
+    AT_REQUIRE_QT_VERSION([4.0], [], [HAVE_PKG_QT_INCLUDE=no])
+fi
+
+# We seed QT_INCLUDE's cppflags with the ones qmake figured out
+#
+# ISIS includes QT headers without the proper qt module prefix, so
+# we need to add this check here to force the build system to add an
+# extra include path at the top level of the QTCore tree.
+# We also seed QT_INCLUDE's cppflags with the ones qmake figured out
 ADD_QT_INCLUDE_CPPFLAGS="$ADD_QT_INCLUDE_CPPFLAGS $QT_CPPFLAGS"
-AX_PKG(QT_INCLUDE, [],           [],          [QVector])
-PKG_QT_INCLUDE_LIBS="$PKG_QT_INCLUDE_LIBS $QT_LIBS"
+AX_PKG(QT_INCLUDE, [], [], [QVector])
+
+AX_PKG_ONE_OF(QT,
+    APPLE_QT, [AX_PKG_APPLE(QT, [QT_INCLUDE], [$QT_LIBS])],
+    LINUX_QT,
+     [AX_PKG(QT_LIBS,              [], [$QT_LIBS], [])
+      AX_PKG(QT_OPENGL,  [QT_INCLUDE], [],         [QtOpenGL])
+      AX_PKG(QT_GUI,     [QT_INCLUDE], [],         [QLabel])
+      AX_PKG(QT_SQL,     [QT_INCLUDE], [],         [QtSql])
+      AX_GROUP_PKG(LINUX_QT, [QT_INCLUDE QT_GUI QT_OPENGL QT_SQL QT_LIBS])])
+
+#PKG_QT_INCLUDE_LIBS="$PKG_QT_INCLUDE_LIBS $QT_LIBS"
 
 if test x"$host_vendor" = "xapple"; then
     AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt.5])
@@ -312,7 +328,6 @@ if test x"$host_vendor" = "xapple"; then
     AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
     AX_PKG(QT,      [QT_INCLUDE],   [],              [])
 else
-
     AX_PKG(QWT_PLAIN,     [QT_INCLUDE],   [-lqwt])
     if test "$HAVE_PKG_QWT_PLAIN" = "no"; then
         AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt-qt4])
@@ -347,11 +362,11 @@ AM_CONDITIONAL(HAVE_PKG_ISIS, [test "$HAVE_PKG_ISIS" = "yes"])
 #	module definitions
 ##################################################
 
-AX_APP(STEREO, [src], yes, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT_CORE QT_GUI])
+AX_APP(STEREO, [src], yes, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT])
 AX_APP(STEREOGUI, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY])
-AX_APP(ORTHOPROJECT, [src], yes, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT_CORE QT_GUI])
-AX_APP(BUNDLEADJUST, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT_CORE QT_GUI])
-AX_APP(ORBITVIZ, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT_CORE QT_GUI])
+AX_APP(ORTHOPROJECT, [src], yes, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT])
+AX_APP(BUNDLEADJUST, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT])
+AX_APP(ORBITVIZ, [src], no, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT])
 AX_APP(DISPARITYDEBUG, [src], yes, [BOOST BOOST_PROGRAM_OPTIONS VW VW_STEREO])
 AX_APP(POINT2MESH, [src], yes, [BOOST BOOST_PROGRAM_OPTIONS VW OPENSCENEGRAPH])
 AX_APP(POINT2MESH2, [src], yes, [BOOST BOOST_PROGRAM_OPTIONS OPENSCENEGRAPH VW])

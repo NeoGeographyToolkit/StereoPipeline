@@ -70,7 +70,87 @@
 m4_pattern_forbid([^AT_])dnl
 m4_pattern_forbid([^_AT_])dnl
 
-# AT_WITH_QT([QT_modules], [QT_config], [QT_misc])
+# These are backports from autoconf 2.60.
+# They can be removed when 2.60 is everywhere.
+
+# _AS_VERSION_COMPARE_PREPARE
+# ---------------------------
+# Output variables for comparing version numbers.
+m4_ifdef([_AS_VERSION_COMPARE_PREPARE], [], [
+  AC_DEFUN([_AS_VERSION_COMPARE_PREPARE],
+  [[as_awk_strverscmp='
+    # Use only awk features that work with 7th edition Unix awk (1978).
+    # My, what an old awk you have, Mr. Solaris!
+    END {
+      while (length(v1) || length(v2)) {
+        # Set d1 to be the next thing to compare from v1, and likewise for d2.
+        # Normally this is a single character, but if v1 and v2 contain digits,
+        # compare them as integers and fractions as strverscmp does.
+        if (v1 ~ /^[0-9]/ && v2 ~ /^[0-9]/) {
+     # Split v1 and v2 into their leading digit string components d1 and d2,
+     # and advance v1 and v2 past the leading digit strings.
+     for (len1 = 1; substr(v1, len1 + 1) ~ /^[0-9]/; len1++) continue
+     for (len2 = 1; substr(v2, len2 + 1) ~ /^[0-9]/; len2++) continue
+     d1 = substr(v1, 1, len1); v1 = substr(v1, len1 + 1)
+     d2 = substr(v2, 1, len2); v2 = substr(v2, len2 + 1)
+     if (d1 ~ /^0/) {
+       if (d2 ~ /^0/) {
+         # Compare two fractions.
+         while (d1 ~ /^0/ && d2 ~ /^0/) {
+           d1 = substr(d1, 2); len1--
+           d2 = substr(d2, 2); len2--
+         }
+         if (len1 != len2 && ! (len1 && len2 && substr(d1, 1, 1) == substr(d2, 1, 1))) {
+           # The two components differ in length, and the common prefix
+           # contains only leading zeros.  Consider the longer to be less.
+           d1 = -len1
+           d2 = -len2
+         } else {
+           # Otherwise, compare as strings.
+           d1 = "x" d1
+           d2 = "x" d2
+         }
+       } else {
+         # A fraction is less than an integer.
+         exit 1
+       }
+     } else {
+       if (d2 ~ /^0/) {
+         # An integer is greater than a fraction.
+         exit 2
+       } else {
+         # Compare two integers.
+         d1 += 0
+         d2 += 0
+       }
+     }
+        } else {
+     # The normal case, without worrying about digits.
+     if (v1 == "") d1 = v1; else { d1 = substr(v1, 1, 1); v1 = substr(v1,2) }
+     if (v2 == "") d2 = v2; else { d2 = substr(v2, 1, 1); v2 = substr(v2,2) }
+        }
+        if (d1 < d2) exit 1
+        if (d1 > d2) exit 2
+      }
+    }
+']])])
+
+m4_ifdef([AS_VERSION_COMPARE], [], [
+  AC_DEFUN([AS_VERSION_COMPARE],
+  [AS_REQUIRE([_$0_PREPARE])dnl
+  as_arg_v1=$1
+  as_arg_v2=$2
+  dnl This usage is portable even to ancient awk,
+  dnl so don't worry about finding a "nice" awk version.
+  awk "$as_awk_strverscmp" v1="$as_arg_v1" v2="$as_arg_v2" /dev/null
+  case $? in
+  1) $3;;
+  0) $4;;
+  2) $5;;
+  esac[]dnl
+])])
+
+# AT_WITH_QT([QT_modules], [QT_config], [QT_misc], ([run-if-ok], [run-if-failed]))
 # ------------------------------------------------
 # Enable Qt support and add an option --with-qt to the configure script.
 #
@@ -107,7 +187,11 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
                  [Path to Qt @<:@Look in PATH and /usr/local/Trolltech@:>@])],
               [QT_PATH=$withval])
 
+  # this is a hack to get decent flow control with 'break'
+  for ignored in once; do
+
   # Find Qt.
+  AC_ARG_VAR([QT_PATH], [Path to the Qt installation])
   if test -d /usr/local/Trolltech; then
     # Try to find the latest version.
     tmp_qt_paths=`echo /usr/local/Trolltech/*/bin | tr ' ' '\n' | sort -nr \
@@ -115,35 +199,56 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
   fi
 
   # Find qmake.
-  AC_PATH_PROGS([QMAKE], [qmake], [missing], [$QT_DIR:$QT_PATH:$PATH:$tmp_qt_paths])
+  AC_ARG_VAR([QMAKE], [Qt Makefile generator command])
+  AC_PATH_PROGS([QMAKE], [qmake qmake-qt4 qmake-qt3], [missing],
+                [$QT_DIR:$QT_PATH:$PATH:$tmp_qt_paths])
   if test x"$QMAKE" = xmissing; then
-    AC_MSG_ERROR([Cannot find qmake in your PATH. Try using --with-qt.])
+    AX_INSTEAD_IF([$5], [Cannot find qmake in your PATH. Try using --with-qt.])
+    break
   fi
 
   # Find moc (Meta Object Compiler).
-  AC_PATH_PROGS([MOC], [moc], [missing], [$QT_PATH:$PATH:$tmp_qt_paths])
+  AC_ARG_VAR([MOC], [Qt Meta Object Compiler command])
+  AC_PATH_PROGS([MOC], [moc moc-qt4 moc-qt3], [missing],
+                [$QT_PATH:$PATH:$tmp_qt_paths])
   if test x"$MOC" = xmissing; then
-    AC_MSG_ERROR([Cannot find moc (Meta Object Compiler) in your PATH. Try using --with-qt.])
+    AX_INSTEAD_IF([$5], [Cannot find moc (Meta Object Compiler) in your PATH. Try using --with-qt.])
+    break
   fi
 
   # Find uic (User Interface Compiler).
-  AC_PATH_PROGS([UIC], [uic], [missing], [$QT_PATH:$PATH:$tmp_qt_paths])
+  AC_ARG_VAR([UIC], [Qt User Interface Compiler command])
+  AC_PATH_PROGS([UIC], [uic uic-qt4 uic-qt3 uic3], [missing],
+                [$QT_PATH:$PATH:$tmp_qt_paths])
   if test x"$UIC" = xmissing; then
-    AC_MSG_ERROR([Cannot find uic (User Interface Compiler) in your PATH. Try using --with-qt.])
+    AX_INSTEAD_IF([$5], [Cannot find uic (User Interface Compiler) in your PATH. Try using --with-qt.])
+    break
   fi
 
   # Find rcc (Qt Resource Compiler).
+  AC_ARG_VAR([RCC], [Qt Resource Compiler command])
   AC_PATH_PROGS([RCC], [rcc], [false], [$QT_PATH:$PATH:$tmp_qt_paths])
   if test x"$UIC" = xfalse; then
     AC_MSG_WARN([Cannot find rcc (Qt Resource Compiler) in your PATH. Try using --with-qt.])
   fi
+
+  AC_MSG_CHECKING([whether host operating system is Darwin])
+  at_darwin="no"
+  case $host_os in
+    darwin*)
+      at_darwin="yes"
+      QMAKE_ARGS="-spec macx-g++"
+      ;;
+  esac
+  AC_MSG_RESULT([$at_darwin])
 
   # If we don't know the path to Qt, guess it from the path to qmake.
   if test x"$QT_PATH" = x; then
     QT_PATH=`dirname "$QMAKE"`
   fi
   if test x"$QT_PATH" = x; then
-    AC_MSG_ERROR([Cannot find the path to your Qt install. Use --with-qt.])
+    AX_INSTEAD_IF([$5], [Cannot find the path to your Qt install. Use --with-qt.])
+    break
   fi
   AC_SUBST([QT_PATH])
 
@@ -177,7 +282,8 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
   then
     :
   else
-    AC_MSG_ERROR([Cannot cd to or write in $my_tmpdir])
+    AX_INSTEAD_IF([$5], [Cannot cd to or write in $my_tmpdir])
+    break
   fi
   cat >conftest.h <<_ASEOF
 #include <QObject>
@@ -216,14 +322,16 @@ int main()
 }
 _ASEOF
   if $QMAKE -project; then :; else
-    AC_MSG_ERROR([Calling $QMAKE -project failed.])
+    AX_INSTEAD_IF([$5], [Calling $QMAKE -project failed.])
+    break
   fi
 
   # Find the .pro file generated by qmake.
   pro_file='conftest.dir.pro'
   test -f $pro_file || pro_file=`echo *.pro`
   if test -f "$pro_file"; then :; else
-    AC_MSG_ERROR([Can't find the .pro file generated by Qmake.])
+    AX_INSTEAD_IF([$5], [Can't find the .pro file generated by Qmake.])
+    break
   fi
 
 dnl Tweak the value of QT in the .pro if have been the 1st arg.
@@ -240,8 +348,9 @@ m4_ifval([$3],
   echo "$as_me:$LINENO: Invoking $QMAKE on $pro_file" >&AS_MESSAGE_LOG_FD
   sed 's/^/| /' "$pro_file" >&AS_MESSAGE_LOG_FD
 
-  if $QMAKE; then :; else
-    AC_MSG_ERROR([Calling $QMAKE failed.])
+  if $QMAKE $QMAKE_ARGS; then :; else
+    AX_INSTEAD_IF([$5], [Calling $QMAKE failed.])
+    break
   fi
   # Try to compile a simple Qt app.
   AC_CACHE_CHECK([whether we can build a simple Qt app], [at_cv_qt_build],
@@ -287,7 +396,8 @@ instead" >&AS_MESSAGE_LOG_FD
   ])dnl end: AC_CACHE_CHECK(at_cv_qt_build)
 
   if test x"$at_cv_qt_build" = xko; then
-    AC_MSG_ERROR([Cannot build a test Qt program])
+    AX_INSTEAD_IF([$5], [Cannot build a test Qt program])
+    break
   fi
   QT_VERSION_MAJOR=`echo "$at_cv_qt_build" | sed 's/^[^0-9]*//'`
   AC_SUBST([QT_VERSION_MAJOR])
@@ -313,7 +423,8 @@ instead" >&AS_MESSAGE_LOG_FD
   fi
   if test -f $at_mfile; then :; else
     cd "$my_configure_pwd"
-    AC_MSG_ERROR([Cannot find the Makefile generated by qmake.])
+    AX_INSTEAD_IF([$5], [Cannot find the Makefile generated by qmake.])
+    break
   fi
 
   # Find the DEFINES of Qt (should have been named CPPFLAGS).
@@ -344,15 +455,6 @@ instead" >&AS_MESSAGE_LOG_FD
   AC_SUBST([QT_LFLAGS], [$at_cv_env_QT_LDFLAGS])
   AC_SUBST([QT_LDFLAGS], [$at_cv_env_QT_LDFLAGS])
 
-  AC_MSG_CHECKING([whether host operating system is Darwin])
-  at_darwin="no"
-  case $host_os in
-    darwin*)
-      at_darwin="yes"
-      ;;
-  esac
-  AC_MSG_RESULT([$at_darwin])
-
   # Find the LIBS of Qt.
   AC_CACHE_CHECK([for the LIBS to use with Qt], [at_cv_env_QT_LIBS],
   [at_cv_env_QT_LIBS=`sed "/^LIBS@<:@^A-Z@:>@*=/!d;$qt_sed_filter" $at_mfile`
@@ -368,29 +470,40 @@ instead" >&AS_MESSAGE_LOG_FD
 
   cd "$my_configure_pwd" || echo 'WTF!'
   rm -rf "$my_tmpdir"
+
+  # Run the user code
+  $4
+
+  done
 ])
 
-# AT_REQUIRE_QT_VERSION(QT_version)
+# AT_REQUIRE_QT_VERSION(QT_version, RUN-IF-OKAY, RUN-IF-FAILED)
 # ---------------------------------
 # Check (using qmake) that Qt's version "matches" QT_version.
 # Must be run AFTER AT_WITH_QT. Requires autoconf 2.60.
 AC_DEFUN([AT_REQUIRE_QT_VERSION],
-[ AC_PREREQ([2.60])
-  if test x"$QMAKE" = x; then
-    AC_MSG_ERROR([\$QMAKE is empty. \
-Did you invoke AT@&t@_WITH_QT before AT@&t@_REQUIRE_QT_VERSION?])
-  fi
-  AC_CACHE_CHECK([for Qt's version], [at_cv_QT_VERSION],
-  [echo "$as_me:$LINENO: Running $QMAKE --version:" >&AS_MESSAGE_LOG_FD
-  $QMAKE --version >&AS_MESSAGE_LOG_FD 2>&1
-  qmake_version_sed=['/^.*\([0-9]\.[0-9]\.[0-9]\).*$/!d;s//\1/']
-  at_cv_QT_VERSION=`$QMAKE --version 2>&1 | sed "$qmake_version_sed"`])
-  if test x"$at_cv_QT_VERSION" = x; then
-    AC_MSG_ERROR([Cannot detect Qt's version.])
-  fi
-  AC_SUBST([QT_VERSION], [$at_cv_QT_VERSION])
-  AS_VERSION_COMPARE([$QT_VERSION], [$1],
-    [AC_MSG_ERROR([This package requires Qt $1 or above.])])
+[
+  # this is a hack to get decent flow control with 'break'
+  for ignored in once; do
+    if test x"$QMAKE" = x; then
+      AX_INSTEAD_IF([$3], [\$QMAKE is empty. Did you invoke AT@&t@_WITH_QT before AT@&t@_REQUIRE_QT_VERSION?])
+      break
+    fi
+    AC_CACHE_CHECK([for Qt's version], [at_cv_QT_VERSION],
+    [echo "$as_me:$LINENO: Running $QMAKE --version:" >&AS_MESSAGE_LOG_FD
+    $QMAKE --version >&AS_MESSAGE_LOG_FD 2>&1
+    qmake_version_sed=['/^.*\([0-9]\.[0-9]\.[0-9]\).*$/!d;s//\1/']
+    at_cv_QT_VERSION=`$QMAKE --version 2>&1 | sed "$qmake_version_sed"`])
+    if test x"$at_cv_QT_VERSION" = x; then
+      AX_INSTEAD_IF([$3], [Cannot detect Qt's version.])
+      break
+    fi
+    AC_SUBST([QT_VERSION], [$at_cv_QT_VERSION])
+    AS_VERSION_COMPARE([$QT_VERSION], [$1],
+      [AX_INSTEAD_IF([$3], [This package requires Qt $1 or above.])],
+      [$2], [$2])
+  #endhack
+  done
 ])
 
 # _AT_TWEAK_PRO_FILE(QT_VAR, VALUE)

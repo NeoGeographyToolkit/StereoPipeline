@@ -1,15 +1,23 @@
-dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>])
+dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>, <required-functions>])
 AC_DEFUN([AX_PKG],
 [
-  AC_ARG_WITH(translit($1,`A-Z',`a-z'),
-    AC_HELP_STRING([--with-]translit($1,`A-Z',`a-z'), [enable searching for the $1 package @<:@auto@:>@]),
+  AC_ARG_WITH(m4_tolower([[$1]]),
+    AC_HELP_STRING([--with-]m4_tolower([[$1]]), [enable searching for the $1 package @<:@auto@:>@]),
     [ HAVE_PKG_$1=$withval ]
   )
 
   if test x"$ENABLE_VERBOSE" = "xyes"; then
-    AC_MSG_CHECKING([for package $1 in current paths])
+    if test -z "$6"; then
+      AC_MSG_CHECKING([for package $1 in current paths])
+    else
+      AC_MSG_CHECKING([for package $1 in current paths with functions ($6)])
+    fi
   else
-    AC_MSG_CHECKING([for package $1])
+    if test -z "$6"; then
+      AC_MSG_CHECKING([for package $1])
+    else
+      AC_MSG_CHECKING([for package $1 with functions ($6)])
+    fi
   fi
 
   AC_LANG_ASSERT(C++)
@@ -67,8 +75,6 @@ AC_DEFUN([AX_PKG],
 
       HAVE_PKG_$1=no
 
-      AX_USE_LIBTOOL_LINKTEST([1])
-
       ax_pkg_old_libs="$LIBS"
       ax_pkg_old_cppflags="$CPPFLAGS"
       ax_pkg_old_ldflags="$LDFLAGS"
@@ -123,9 +129,22 @@ AC_DEFUN([AX_PKG],
             CPPFLAGS="$CPPFLAGS $OTHER_CPPFLAGS"
             LDFLAGS="$LDFLAGS $OTHER_LDFLAGS"
         fi
+
+        dnl check for the headers and libs. if found, keep going.
+        dnl otherwise, check next path
         AC_LINK_IFELSE(
           AC_LANG_PROGRAM([#include "conftest.h"],[]),
-          [ HAVE_PKG_$1=yes ; AC_MSG_RESULT([yes]) ; break ] )
+          [ HAVE_PKG_$1=yes ], [continue] )
+
+        m4_ifval([$6],
+            AX_CHECK_FUNCTIONS([$6], [$LDFLAGS $LIBS], [], [ HAVE_PKG_$1=no; echo "package $1 did not have function $func" >&AS_MESSAGE_LOG_FD ])
+        )
+
+        if test x"$HAVE_PKG_$1" = x"yes"; then
+            AC_MSG_RESULT([yes])
+            break
+        fi
+
         TRY_ADD_CPPFLAGS=""
         TRY_ADD_LDFLAGS=""
         if test x"$ENABLE_VERBOSE" = "xyes"; then
@@ -145,8 +164,6 @@ AC_DEFUN([AX_PKG],
       if test "x$HAVE_PKG_$1" = "xno" -a "x$ENABLE_VERBOSE" != "xyes"; then
         AC_MSG_RESULT([no (not found)])
       fi
-
-      AX_USE_LIBTOOL_LINKTEST([])
 
     fi
 
