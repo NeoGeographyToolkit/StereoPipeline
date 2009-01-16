@@ -30,7 +30,7 @@ AC_INIT([NASA Ames Stereo Pipeline], [2.1], [asp@nx.arc.nasa.gov], [StereoPipeli
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([nostdinc])
 AX_CONFIG_HEADER_PREFIX([src/asp_config.h], [ASP_])
 
 dnl TODO BEFORE RELEASE: update libtool version

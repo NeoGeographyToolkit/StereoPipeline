@@ -1,11 +1,5 @@
 AC_DEFUN([AX_COMMON_OPTIONS], [
 
-# We set up the include paths ourselves, so we ask autoconf to get out of the way
-DEFAULT_INCLUDES=
-AC_SUBST(DEFAULT_INCLUDES)
-
-
-
 ##################################################
 # Compilation options
 ##################################################
@@ -14,6 +8,8 @@ AX_ARG_ENABLE(exceptions,   yes, [am-yes cpp-bool], [enable the C++ exception me
 AX_ARG_ENABLE(debug,         no, [none],            [generate debugging symbols])
 AX_ARG_ENABLE(optimize,       3, [none],            [compiler optimization level])
 AX_ARG_ENABLE(lib64,       auto, [none],            [force /lib64 instead of /lib])
+
+
 
 ##################################################
 # Handle options
@@ -57,8 +53,8 @@ esac
 case "$ENABLE_OPTIMIZE" in
     yes)     AX_CFLAGS="$AX_CFLAGS -O3" ;;
     3|2|1)   AX_CFLAGS="$AX_CFLAGS -O$ENABLE_OPTIMIZE" ;;
-    coreduo) AX_CFLAGS="$AX_CFLAGS -O4 -march=prescott -mtune=prescott -funroll-loops -msse -msse2 -msse3 -mfpmath=sse" ;;
-    sse3)    AX_CFLAGS="$AX_CFLAGS -O4 -funroll-loops -msse -msse2 -msse3 -mfpmath=sse" ;;
+    coreduo) AX_CFLAGS="$AX_CFLAGS -O4 -march=prescott -mtune=prescott -funroll-loops -msse -msse2 -msse3 -mfpmath=sse -ftree-vectorize" ;;
+    sse3)    AX_CFLAGS="$AX_CFLAGS -O4 -funroll-loops -msse -msse2 -msse3 -mfpmath=sse -ftree-vectorize" ;;
     no|0)    AC_MSG_WARN([*** The Vision Workbench may not work properly with optimization disabled! ***])
              AX_CFLAGS="$AX_CFLAGS -O0" ;;
     *)       AC_MSG_ERROR([Unknown optimize option: "$ENABLE_OPTIMIZE"]) ;;

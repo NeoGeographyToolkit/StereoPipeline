@@ -70,7 +70,7 @@ AC_DEFUN([AX_PKG],
       elif test -n "${HAVE_PKG_$1}" && test "${HAVE_PKG_$1}" != "yes" && test "${HAVE_PKG_$1}" != "no"; then
         PKG_PATHS_$1=${HAVE_PKG_$1}
       else
-        PKG_PATHS_$1="${PKG_PATHS} default"
+        PKG_PATHS_$1="default ${PKG_PATHS}"
       fi
 
       HAVE_PKG_$1=no
