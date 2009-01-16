@@ -187,6 +187,4 @@ AM_LDFLAGS = @ASP_LDFLAGS@
 #                             Tests	                                     #
 ##############################################################################
 
-CLEANFILES=cuda_test.cc
-
 include $(top_srcdir)/config/rules.mak

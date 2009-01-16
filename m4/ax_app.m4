@@ -6,8 +6,8 @@ AC_DEFUN([AX_APP],
 
     HAVE_PKG_$1_SRC=yes
 
-    AC_ARG_ENABLE([app-]translit($1,`A-Z',`a-z'),
-      AC_HELP_STRING([--enable-app-]translit($1,`A-Z',`a-z'), [enable the $1 app @<:@$3@:>@]), 
+    AC_ARG_ENABLE([app-]m4_tolower([[$1]]),
+      AC_HELP_STRING([--enable-app-]m4_tolower([[$1]]), [enable the $1 app @<:@$3@:>@]),
       [ ENABLE_APP_$1=$enableval ],
       [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`/bin/echo -n $3 | tr [A-Z] [a-z]` ; fi ]
     )
@@ -25,7 +25,7 @@ AC_DEFUN([AX_APP],
     if test "$ax_app_enable" = "yes" ; then
       for ax_dependency in $4 ; do
         ax_dependency_have="HAVE_PKG_${ax_dependency}"
-        if test "x${!ax_dependency_have}" = "xyes"; then
+        if test x"${!ax_dependency_have}" = "xyes"; then
           ax_dep_libs="PKG_${ax_dependency}_LIBS"
           ax_libs="${ax_libs} ${!ax_dep_libs}"
         else
@@ -36,12 +36,12 @@ AC_DEFUN([AX_APP],
         fi
       done
     fi
-    
+
     if test "$ax_app_enable" = "yes" ; then
       # Check for optional dependencies
       for ax_dependency in $5 ; do
         ax_dependency_have="HAVE_PKG_${ax_dependency}"
-        if test "x${!ax_dependency_have}" = "xyes"; then
+        if test x"${!ax_dependency_have}" = "xyes"; then
           ax_dep_libs="PKG_${ax_dependency}_LIBS"
           ax_libs="${ax_libs} ${!ax_dep_libs}"
         fi
@@ -52,7 +52,7 @@ AC_DEFUN([AX_APP],
       PKG_$1_LIBS=$ax_libs
       AC_MSG_RESULT([yes])
     fi
-  
+
   else
     HAVE_PKG_$1_SRC=no
     ax_app_enable=no

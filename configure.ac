@@ -21,6 +21,11 @@
 #
 # __END_LICENSE__
 
+##################################################
+# A few starting bits
+##################################################
+
+dnl TODO BEFORE RELEASE: update package version
 AC_INIT([NASA Ames Stereo Pipeline], [2.1], [asp@nx.arc.nasa.gov], [StereoPipeline])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
@@ -28,24 +33,26 @@ AC_CANONICAL_HOST
 AM_INIT_AUTOMAKE
 AX_CONFIG_HEADER_PREFIX([src/asp_config.h], [ASP_])
 
-LIBTOOL_CURRENT=1
-LIBTOOL_REVISION=0
-LIBTOOL_AGE=0
-LIBTOOL_VERSION=$LIBTOOL_CURRENT:$LIBTOOL_REVISION:$LIBTOOL_AGE
+dnl TODO BEFORE RELEASE: update libtool version
+dnl if abi changes in any way:
+dnl     current++
+dnl     revision=0
+dnl     if new abi is backward-compatible:
+dnl         age += 1
+dnl     else:
+dnl         age = 0
+dnl else:
+dnl     revision++
+dnl (see http://sources.redhat.com/autobook/autobook/autobook_91.html)
+dnl
+dnl LIBTOOL_VERSION=current:revision:age
+LIBTOOL_VERSION=1:0:0
 AC_SUBST(LIBTOOL_VERSION)
 
-
-##################################################
-#	configuration options
-##################################################
-
 # This should be first, so everything else can use it
-AC_ARG_ENABLE(verbose,
-  AC_HELP_STRING([--enable-verbose], [verbose configuration output @<:@no@:>@]),
-  [ ENABLE_VERBOSE=$enableval ],
-  [ if test -z $"ENABLE_VERBOSE"; then ENABLE_VERBOSE=no; fi ]
-)
+AX_ARG_ENABLE(verbose, no, [none], [verbose configuration output])
 
+# load the config.options
 if test -f config.options; then
   if test "yes" = "$ENABLE_VERBOSE" ; then
     AC_MSG_NOTICE([sourcing config.options])
@@ -54,44 +61,57 @@ if test -f config.options; then
   source config.options
 fi
 
-AC_ARG_WITH(paths,
-  AC_HELP_STRING([--with-paths=PATHS], [additional search path(s) for packages]),
-  [ PKG_PATHS="$withval $PKG_PATHS" ]
-)
-PKG_PATHS="${PKG_PATHS} ${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /usr/X11R6 /usr"
 
 
 ##################################################
-#	compilation options
+# Find the necessary programs
 ##################################################
 
-AC_ARG_ENABLE(debug,
-  AC_HELP_STRING([--enable-debug], [generate debugging symbols @<:@no@:>@]),
-  [ ENABLE_DEBUG=$enableval ],
-  [ if test -z "$ENABLE_DEBUG"; then ENABLE_DEBUG=no; fi ]
-)
+# Make sure these are set so AC_PROG_CC doesn't initialize them with
+# its defaults, since we take care of setting debug and optimization
+# levels ourselves.
+CFLAGS="$CFLAGS"
+CXXFLAGS="$CXXFLAGS"
 
-if test "yes" = "$ENABLE_DEBUG"; then
-   AX_CFLAGS="$AX_CFLAGS -g -DDEBUG"
-else
-   AX_CFLAGS="$AX_CFLAGS -DNDEBUG"
-fi
+# Find the tools
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_INSTALL
+AX_PROG_AR
+AC_PROG_LIBTOOL
+AC_PROG_MAKE_SET
+AC_LANG(C++)
+
+# We set up the include paths ourselves, so we ask autoconf to get out of the way
+DEFAULT_INCLUDES=
+AC_SUBST(DEFAULT_INCLUDES)
+
+
+
+##################################################
+# Compilation options
+##################################################
+
+AX_ARG_ENABLE(exceptions,   yes, [am-yes cpp-bool], [enable the C++ exception mechanism])
+AX_ARG_ENABLE(debug,         no, [none],            [generate debugging symbols])
+AX_ARG_ENABLE(optimize,       3, [none],            [compiler optimization level])
+AX_ARG_ENABLE(lib64,       auto, [none],            [force /lib64 instead of /lib])
+
+##################################################
+# Handle options
+##################################################
 
 # For 64-bit machines, we'll generally want to autodetect if lib64 exists,
 # and use it. Sometimes the user will want to force use of lib64 or lib
 # instead of the autodetection. Thus we have this command line option.
-AC_ARG_ENABLE(lib64,
-  AC_HELP_STRING([--enable-lib64], [force configure to use the lib64 directory (yes) or the lib directory (no) to find libraries @<:@autodetect@:>@]),
-  [ USE_LIB64=$enableval ],
-  [ if test -z "$USE_LIB64"; then USE_LIB64="autodetect"; fi ]
-)
-if test x"$USE_LIB64" = "xautodetect"; then
+if test x"$USE_LIB64" = "xauto"; then
   if test -d "/lib64" -o -d "/usr/lib64"; then
     USE_LIB64="yes"
   else
     USE_LIB64="no"
   fi
 fi
+
 # Sometimes we have /foo/lib64 and /foo/lib confusion on 64-bit machines,
 # so we'll use possibly both if one doesn't appear for a certain
 # library path.
@@ -102,103 +122,72 @@ else
   AX_LIBDIR="lib"
   AX_OTHER_LIBDIR="lib64"
 fi
-AC_ARG_ENABLE(optimize,
-  AC_HELP_STRING([--enable-optimize@<:@=LEVEL@:>@], [compiler optimization level @<:@yes@:>@]),
-  [ ENABLE_OPTIMIZE=$enableval ],
-  [ if test -z "$ENABLE_OPTIMIZE"; then ENABLE_OPTIMIZE=yes; fi ]
-)
 
-if test "yes" = "$ENABLE_OPTIMIZE" || test "3" = "$ENABLE_OPTIMIZE"; then
-   AX_CFLAGS="$AX_CFLAGS -O3"
-elif test "2" = "$ENABLE_OPTIMIZE"; then
-   AX_CFLAGS="$AX_CFLAGS -O2"
-elif test "1" = "$ENABLE_OPTIMIZE"; then
-   AX_CFLAGS="$AX_CFLAGS -O1"
-elif test "coreduo" = "$ENABLE_OPTIMIZE"; then
-   AX_CFLAGS="$AX_CFLAGS -O4 -march=prescott -mtune=prescott -funroll-loops -msse -msse2 -msse3 -mfpmath=sse"
-elif test "sse3" = "$ENABLE_OPTIMIZE"; then
-   AX_CFLAGS="$AX_CFLAGS -O4 -funroll-loops -msse -msse2 -msse3 -mfpmath=sse"
-else
-   echo 'WARNING: *** The Vision Workbench may not work properly with optimization disabled! ***'
-   AX_CFLAGS="$AX_CFLAGS -O0"
-fi
+# These are good if they're supported
+AX_TRY_CPPFLAGS([-Wl,-no-undefined], [LDFLAGS="$LDFLAGS -Wl,-no-undefined"])
+AX_TRY_CPPFLAGS([-Wl,-as-needed],    [LDFLAGS="$LDFLAGS -Wl,-as-needed"])
 
-CFLAGS="$CFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
-CXXFLAGS="$CXXFLAGS -I\${top_srcdir}/src $AX_CFLAGS"
+# Debugging
+case "$ENABLE_DEBUG" in
+    yes|1) AX_CFLAGS="$AX_CFLAGS -g -DDEBUG" ;;
+    2)     AX_CFLAGS="$AX_CFLAGS -g -DDEBUG -D_GLIBCXX_DEBUG" ;;
+    no)    AX_CFLAGS="$AX_CFLAGS -DNDEBUG" ;;
+    *)     AC_MSG_ERROR([Unknown debug option: "$ENABLE_DEBUG"]) ;;
+esac
 
-if test "x$host_vendor" != "xapple"; then
-  LDFLAGS="$LDFLAGS -Wl,-no-undefined -Wl,-as-needed"
-fi
+# Optimization
+case "$ENABLE_OPTIMIZE" in
+    yes)     AX_CFLAGS="$AX_CFLAGS -O3" ;;
+    3|2|1)   AX_CFLAGS="$AX_CFLAGS -O$ENABLE_OPTIMIZE" ;;
+    coreduo) AX_CFLAGS="$AX_CFLAGS -O4 -march=prescott -mtune=prescott -funroll-loops -msse -msse2 -msse3 -mfpmath=sse" ;;
+    sse3)    AX_CFLAGS="$AX_CFLAGS -O4 -funroll-loops -msse -msse2 -msse3 -mfpmath=sse" ;;
+    no|0)    AC_MSG_WARN([*** The Vision Workbench may not work properly with optimization disabled! ***])
+             AX_CFLAGS="$AX_CFLAGS -O0" ;;
+    *)       AC_MSG_ERROR([Unknown optimize option: "$ENABLE_OPTIMIZE"]) ;;
+esac
 
+CFLAGS="$CFLAGS $AX_CFLAGS"
+CXXFLAGS="$CXXFLAGS $AX_CFLAGS"
 
-AC_ARG_ENABLE(exceptions,
-  AC_HELP_STRING([--enable-exceptions@<:@=yes@:>@], [enable the C++ exception mechanism]),
-  [ ENABLE_EXCEPTIONS=$enableval ],
-  [ if test -z "$ENABLE_EXCEPTIONS"; then ENABLE_EXCEPTIONS=yes; fi ]
-)
-
-if test "$ENABLE_EXCEPTIONS" = "yes"; then
-   no_exceptions=0
-else
-   no_exceptions=1
-fi
-
-AM_CONDITIONAL(ENABLE_EXCEPTIONS, [test "$ENABLE_EXCEPTIONS" = "yes"])
-
-AC_DEFINE_UNQUOTED(NO_EXCEPTIONS,
-                   [$no_exceptions],
-                   [Define to 1 to disable C++ exceptions.])
-
-# We set up the include paths ourselves, so
-# we ask autoconf to get out of the way.
-DEFAULT_INCLUDES=
-AC_SUBST(DEFAULT_INCLUDES)
+# These need to be here because automake-1.6 is dumb and does not properly
+# process AM_CONDITIONALs unless the first argument is a simple string.
+AM_CONDITIONAL(ENABLE_EXCEPTIONS, [test x"$ENABLE_EXCEPTIONS" = x"yes"])
 
 
 ##################################################
-#	installation options
+# installation options
 ##################################################
 
 if test ${prefix} = NONE; then
   if test ! -z ${PREFIX} ; then
-    prefix=${PREFIX}
+    prefix="${PREFIX}"
     AC_MSG_NOTICE([using installation prefix ${prefix}])
   fi
 fi
 
 
+
 ##################################################
-#	distribution options
+# distribution options
 ##################################################
 
-AC_ARG_WITH(dist-license,
-  AC_HELP_STRING([--with-dist-license=LICENSE], [special distribution license file to be included as the COPYING file in the distribution]),
-  [DIST_LICENSE=$withval]
-)
-AC_SUBST(DIST_LICENSE)
-AM_CONDITIONAL(DIST_LICENSE, [test ! -z "$DIST_LICENSE"])
+AX_ARG_WITH(dist-license,                       [], [mk am-set], [special distribution license file to be included as the COPYING file in the distribution])
+AX_ARG_WITH(dist-license-summary,               [], [mk am-set], [special distribution license summary file to be included in the headers of source files in the distribution])
+AX_ARG_WITH(dist-config-options-default,        [], [mk am-set], [special distribution config.options.default file])
+
+
+
+##################################################
+# handle distribution options
+##################################################
 
 if test ! -z "$DIST_LICENSE" ; then
   AC_MSG_NOTICE([using distribution license file $DIST_LICENSE])
 fi
 
-AC_ARG_WITH(dist-license-summary,
-  AC_HELP_STRING([--with-dist-license-summary=SUMMARY], [special distribution license summary file to be included in the headers of source files in the distribution]),
-  [DIST_LICENSE_SUMMARY=$withval]
-)
-AC_SUBST(DIST_LICENSE_SUMMARY)
-AM_CONDITIONAL(DIST_LICENSE_SUMMARY, [test ! -z "$DIST_LICENSE_SUMMARY"])
-
 if test ! -z "$DIST_LICENSE_SUMMARY" ; then
   AC_MSG_NOTICE([using distribution license summary file $DIST_LICENSE_SUMMARY])
 fi
-
-AC_ARG_WITH(dist-config-options-default,
-  AC_HELP_STRING([--with-dist-config-options-default@<:@=FILE@:>@], [special distribution config.options.default file]),
-  [DIST_CONFIG_OPTIONS_DEFAULT=$withval]
-)
-AC_SUBST(DIST_CONFIG_OPTIONS_DEFAULT)
-AM_CONDITIONAL(DIST_CONFIG_OPTIONS_DEFAULT, [test ! -z "$DIST_CONFIG_OPTIONS_DEFAULT"])
 
 if test ! -z "$DIST_CONFIG_OPTIONS_DEFAULT" ; then
   if test "yes" = "$DIST_CONFIG_OPTIONS_DEFAULT" ; then
@@ -207,45 +196,21 @@ if test ! -z "$DIST_CONFIG_OPTIONS_DEFAULT" ; then
   AC_MSG_NOTICE([using distribution config.options.default file: $DIST_CONFIG_OPTIONS_DEFAULT])
 fi
 
-AC_ARG_WITH(dist-remove-modules,
-  AC_HELP_STRING([--with-dist-remove-modules="MODULE @<:@MODULE...@:>@"], [remove certain modules from the distribution]),
-  [DIST_REMOVE_MODULES=$withval], [DIST_REMOVE_MODULES="Geometry InterestPoint Python"]
-)
-AC_SUBST(DIST_REMOVE_MODULES)
-AM_CONDITIONAL(DIST_REMOVE_MODULES, [test ! -z "$DIST_REMOVE_MODULES"])
+# These need to be here because automake-1.6 is dumb and does not properly
+# process AM_CONDITIONALs unless the first argument is a simple string.
+AM_CONDITIONAL(DIST_LICENSE, [test ! -z "$DIST_LICENSE"])
+AM_CONDITIONAL(DIST_LICENSE_SUMMARY, [test ! -z "$DIST_LICENSE_SUMMARY"])
+AM_CONDITIONAL(DIST_CONFIG_OPTIONS_DEFAULT, [test ! -z "$DIST_CONFIG_OPTIONS_DEFAULT"])
 
 
-##################################################
-#	library options
-##################################################
-
-if test -z $NUM_THREADS ; then NUM_THREADS=4 ; fi
-AH_TEMPLATE([NUM_THREADS],
-            [Define to the default number of threads that the Vision
-             Workbench should spawn for multi-threaded operations.])
-AC_ARG_WITH(num-threads,
-  AC_HELP_STRING([--with-num-threads[=4]], [set the default number of processing threads for multi-threaded operations]),
-  [NUM_THREADS=$withval])
-AC_DEFINE_UNQUOTED([NUM_THREADS],[$NUM_THREADS])
 
 ##################################################
-#	package checks
+# package checks
 ##################################################
 
-# Make sure these are set so AC_PROG_CC doesn't initialize them with
-# its defaults, since we take care of setting debug and optimization
-# levels ourselves.
-CFLAGS="$CFLAGS"
-CXXFLAGS="$CXXFLAGS"
-
-AC_PROG_CC
-AC_PROG_CXX
-AC_PROG_INSTALL
-AX_PROG_AR
-AC_PROG_LIBTOOL
-AC_PROG_MAKE_SET
-
-AC_LANG(C++)
+PKG_PATHS_FROM_OPT="$PKG_PATHS"
+AX_ARG_WITH(pkg-paths, [], [none], [additional search path(s) for packages])
+PKG_PATHS="$PKG_PATHS $PKG_PATHS_FROM_OPT ${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /usr/X11R6 /usr"
 
 if test "yes" = "$ENABLE_VERBOSE"; then
   AC_MSG_NOTICE([using PKG_PATHS=$PKG_PATHS])
@@ -258,20 +223,35 @@ AX_PKG_BOOST_CHECK_VERSION([ASP_])
 
 AC_MSG_NOTICE([Stereo will be built using Boost version $BOOST_VERSION])
 AX_PKG_BOOST_LIB(PROGRAM_OPTIONS, [-lboost_program_options], [boost/program_options.hpp])
-AX_PKG_BOOST_LIB(FILESYSTEM_PRE_1_35, [-lboost_filesystem], [boost/filesystem/path.hpp])
-if test "$HAVE_PKG_BOOST_FILESYSTEM_PRE_1_35" = "no"; then
-  echo "Checking for BOOST_FILESYSTEM 1.35 or later..."
-  AX_PKG_BOOST_LIB(FILESYSTEM, [-lboost_filesystem -lboost_system], [boost/filesystem/path.hpp])
-else
-  AX_PKG(BOOST_FILESYSTEM, [BOOST_FILESYSTEM_PRE_1_35], [], [])
-fi
+
+AX_PKG_ONE_OF(BOOST_FILESYSTEM,
+    BOOST_FILESYSTEM_PRE_1_35,  [AX_PKG_BOOST_LIB(FILESYSTEM_PRE_1_35,  [-lboost_filesystem], [boost/filesystem/path.hpp])],
+    BOOST_FILESYSTEM_POST_1_35, [AX_PKG_BOOST_LIB(FILESYSTEM_POST_1_35, [-lboost_filesystem -lboost_system], [boost/filesystem/path.hpp])])
+
 AX_PKG_BOOST_LIB(THREAD, [-lboost_thread], [boost/thread/thread.hpp])
 
 # This provides an easy way for users to override the threads options
 # if they are replacing Boost threads with something else for their platform.
 AX_PKG(THREADS, [BOOST_THREAD], [], [])
 
-AX_PKG_LAPACK
+AX_PKG_ONE_OF(LAPACK,
+  APPLE_LAPACK,
+    [AX_PKG_APPLE(LAPACK, [], [-framework vecLib])],
+  CLAPACK,
+    [AX_PKG(CLAPACK, [], [-lclapack -lblas -lf2c], [])],
+  SLAPACK,
+    [AX_PKG(SLAPACK, [], [-llapack -lblas], [])],
+  FLAPACK,
+    [AX_PKG(FLAPACK, [], [-llapack -lblas -lgfortran], [])],
+  STANDALONE_LAPACK_BLAS,
+    [AX_PKG(STANDALONE_BLAS, [], [-lblas], [])
+     AX_PKG(STANDALONE_LAPACK, [], [-llapack], [])
+     AX_GROUP_PKG(STANDALONE_LAPACK_AND_BLAS, [STANDALONE_LAPACK STANDALONE_BLAS])],
+  STANDALONE_FLAPACK_FBLAS,
+    [AX_PKG(STANDALONE_F2C, [], [-lf2c], [])
+     AX_PKG(STANDALONE_FBLAS, [STANDALONE_F2C], [-lblas], [])
+     AX_PKG(STANDALONE_FLAPACK, [STANDALONE_F2C], [-llapack], [])
+     AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
 AX_PKG(VW,                [BOOST], [-lvw],            [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
 AX_PKG(VW_STEREO,         [BOOST], [-lvwStereo],      [vw/Stereo/OptimizedCorrelator.h])
@@ -282,14 +262,11 @@ AX_PKG(VW_INTEREST_POINT, [BOOST], [-lvwInterestPoint])
 AX_PKG(CUDA,              [],      [-lcuda -lcudart], [cuda.h])
 
 AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
-AX_PKG(MBA10, [BOOST], [-lMBA_1.0_gpl_opt], [MBA.h])
 
-if test "$HAVE_PKG_MBA10" = "no"; then
-  echo "Checking for MBA 1.1"
-  AX_PKG(MBA, [BOOST], [-lMBA-1.1], [MBA.h])
-else
-  AX_PKG(MBA, [MBA10], [], [])
-fi
+AX_PKG_ONE_OF(MBA,
+    MBA10, [AX_PKG(MBA10, [BOOST], [-lMBA_1.0_gpl_opt], [MBA.h])],
+    MBA11, [AX_PKG(MBA11, [BOOST], [-lMBA-1.1],         [MBA.h])])
+
 
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
@@ -301,11 +278,6 @@ if test x"$HAVE_PKG_QT_INCLUDE" != x"no"; then
 fi
 
 # We seed QT_INCLUDE's cppflags with the ones qmake figured out
-#
-# ISIS includes QT headers without the proper qt module prefix, so
-# we need to add this check here to force the build system to add an
-# extra include path at the top level of the QTCore tree.
-# We also seed QT_INCLUDE's cppflags with the ones qmake figured out
 ADD_QT_INCLUDE_CPPFLAGS="$ADD_QT_INCLUDE_CPPFLAGS $QT_CPPFLAGS"
 AX_PKG(QT_INCLUDE, [], [], [QVector])
 
@@ -318,32 +290,27 @@ AX_PKG_ONE_OF(QT,
       AX_PKG(QT_SQL,     [QT_INCLUDE], [],         [QtSql])
       AX_GROUP_PKG(LINUX_QT, [QT_INCLUDE QT_GUI QT_OPENGL QT_SQL QT_LIBS])])
 
-#PKG_QT_INCLUDE_LIBS="$PKG_QT_INCLUDE_LIBS $QT_LIBS"
+AX_PKG_ONE_OF(MBA,
+  MBA10, [AX_PKG(MBA10, [BOOST], [-lMBA_1.0_gpl_opt], [MBA.h])],
+  MBA11, [AX_PKG(MBA11, [BOOST], [-lMBA-1.1],         [MBA.h])])
+
+AX_PKG_ONE_OF(QWT,
+    APPLE_QWT, [AX_PKG_APPLE(QWT, [QT_INCLUDE], [-lqwt.5])],
+    PLAIN_QWT, [AX_PKG(PLAIN_QWT, [QT_INCLUDE], [-lqwt])],
+    SUFFX_QWT, [AX_PKG(SUFFX_QWT, [QT_INCLUDE], [-lqwt-qt4])])
+
+AX_PKG_ONE_OF(GSL,
+    GSL_DEFINED,   [AX_PKG(GSL_DEFINED,   [LAPACK], [-lgsl -lgslcblas])],
+    GSL_UNDEFINED, [AX_PKG(GSL_UNDEFINED, [LAPACK], [-Wl,-no-as-needed,-lgsl,-lgslcblas,-as-needed])])
 
 if test x"$host_vendor" = "xapple"; then
-    AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt.5])
     AX_PKG(GEOS,    [],             [-lgeos-3.0.0], [])
-    AX_PKG(GSL,     [LAPACK],       [-Wl,-lgsl,-lgslcblas])
     AX_PKG(SUPERLU, [],             [-lsuperlu_3.0], [])
     AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
-    AX_PKG(QT,      [QT_INCLUDE],   [],              [])
 else
-    AX_PKG(QWT_PLAIN,     [QT_INCLUDE],   [-lqwt])
-    if test "$HAVE_PKG_QWT_PLAIN" = "no"; then
-        AX_PKG(QWT,     [QT_INCLUDE],   [-lqwt-qt4])
-    else
-        AX_PKG(QWT,     [QWT_PLAIN],   [])
-    fi
-
     AX_PKG(GEOS,    [],             [-lgeos])
-    AX_PKG(GSL,     [LAPACK],       [-Wl,-no-as-needed,-lgsl,-lgslcblas,-as-needed])
     AX_PKG(SUPERLU, [],             [-lsuperlu])
     AX_PKG(XERCESC, [],             [-lxerces-c])
-
-    AX_PKG(QT_CORE, [QT_INCLUDE],   [-lQtCore],  [QVector])
-    AX_PKG(QT_GUI,  [QT_INCLUDE],   [-lQtGui],   [QLabel])
-    AX_PKG(QT_SQL,  [QT_INCLUDE],   [-lQtSql],   [QtSql])
-    AX_PKG(QT,      [QT_INCLUDE QT_CORE QT_GUI QT_SQL], [], [])
 fi
 
 dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems,
@@ -352,14 +319,14 @@ dnl dependent 3rd party libraries depend on (for whatever retarded reason).
 dnl Thus, we link against LAPACK here because it defines these missing
 dnl BLAS symbols in the event that we need them.
 AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
-AX_PKG(ISIS, [QT ISIS3RDPARTY], [-lisis3])
+AX_PKG(ISIS, [QT ISIS3RDPARTY], [-lisis3], [SpecialPixel.h])
 
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.
 AM_CONDITIONAL(HAVE_PKG_ISIS, [test "$HAVE_PKG_ISIS" = "yes"])
 
 ##################################################
-#	module definitions
+# module definitions
 ##################################################
 
 AX_APP(STEREO, [src], yes, [BOOST BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT LAPACK MBA SPICE], [ISIS ISIS3RDPARTY QT])
@@ -398,18 +365,29 @@ AM_CONDITIONAL(MAKE_APP_RMAXADJUST, [test "$MAKE_APP_RMAXADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLEVIS, [test "$MAKE_APP_BUNDLEVIS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_CUDATEST, [test "$MAKE_APP_CUDATEST" = "yes"])
+
 ##################################################
-#	final processing
+# library options
 ##################################################
-ASP_CPPFLAGS="$OTHER_CPPFLAGS"
+
+AX_ARG_WITH(num-threads, [4], [cpp-int], [set the default number of processing threads for multi-threaded operations])
+AC_MSG_NOTICE([VW will use $NUM_THREADS THREADS by default])
+
+##################################################
+# final processing
+##################################################
+
+ASP_CPPFLAGS="-I\${top_srcdir}/src $OTHER_CPPFLAGS"
 ASP_LDFLAGS="$OTHER_LDFLAGS"
 
 if test "yes" = "$ENABLE_VERBOSE" ; then
-  AC_MSG_NOTICE([using CPPFLAGS=$CPPFLAGS $ASP_CPPFLAGS])
+  AC_MSG_NOTICE([using CPPFLAGS=$CPPFLAGS])
+  AC_MSG_NOTICE([using ASP_CPPFLAGS=$ASP_CPPFLAGS])
   AC_MSG_NOTICE([using CFLAGS=$CFLAGS])
   AC_MSG_NOTICE([using CXXFLAGS=$CXXFLAGS])
-  AC_MSG_NOTICE([using LDFLAGS=$LDFLAGS $ASP_LDFLAGS])
-  AC_MSG_NOTICE([using ASP_NO_EXCEPTIONS=$no_exceptions])
+  AC_MSG_NOTICE([using LDFLAGS=$LDFLAGS])
+  AC_MSG_NOTICE([using ASP_LDFLAGS=$ASP_LDFLAGS])
+  AC_MSG_NOTICE([using ASP_ENABLE_EXCEPTIONS=$ENABLE_EXCEPTIONS])
 fi
 
 AC_SUBST(ASP_CPPFLAGS)
@@ -417,7 +395,7 @@ AC_SUBST(ASP_LDFLAGS)
 
 
 ##################################################
-#	makefiles to process
+# makefiles to process
 ##################################################
 
 AC_CONFIG_FILES([                       \
@@ -425,9 +403,5 @@ AC_CONFIG_FILES([                       \
   src/Makefile                          \
   src/tests/Makefile                    \
 ])
-
-# This hideous hack makes it possible to use GNU make's conditionals.
-ENDIF=endif
-AC_SUBST(ENDIF)
 
 AC_OUTPUT

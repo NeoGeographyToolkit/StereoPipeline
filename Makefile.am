@@ -37,7 +37,7 @@ EXTRA_DIST = config/rules.mak config/relicense thirdparty/MBA_1.0_gpl thirdparty
 #	$(INSTALL) src/config.h $(prefix)/include/
 
 dist-hook:
-	rm -rf `find $(distdir) -name CVS`
+	rm -rf `find $(distdir) -name '.svn'`
 if DIST_LICENSE
 	cp $(DIST_LICENSE) $(distdir)/COPYING
 endif
@@ -49,7 +49,7 @@ if DIST_CONFIG_OPTIONS_DEFAULT
 endif
 
 doxygen: 
-	cd src; doxygen
+	cd src && doxygen
 
 ########################################################################
 # general
