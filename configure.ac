@@ -208,9 +208,15 @@ AM_CONDITIONAL(DIST_CONFIG_OPTIONS_DEFAULT, [test ! -z "$DIST_CONFIG_OPTIONS_DEF
 # package checks
 ##################################################
 
-PKG_PATHS_FROM_OPT="$PKG_PATHS"
+AX_ARG_ENABLE(pkg-paths-default, [${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /usr/X11R6 /usr], [none], [Whether to use a built-in search path])
+if test x"$ENABLE_PKG_PATHS_DEFAULT" = "xno"; then
+  ENABLE_PKG_PATHS_DEFAULT=
+fi
+
+PKG_PATHS_FROM_FILE="$PKG_PATHS"
+PKG_PATHS=""
 AX_ARG_WITH(pkg-paths, [], [none], [additional search path(s) for packages])
-PKG_PATHS="$PKG_PATHS $PKG_PATHS_FROM_OPT ${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /usr/X11R6 /usr"
+PKG_PATHS="$PKG_PATHS $PKG_PATHS_FROM_FILE $ENABLE_PKG_PATHS_DEFAULT"
 
 if test "yes" = "$ENABLE_VERBOSE"; then
   AC_MSG_NOTICE([using PKG_PATHS=$PKG_PATHS])
@@ -289,10 +295,6 @@ AX_PKG_ONE_OF(QT,
       AX_PKG(QT_GUI,     [QT_INCLUDE], [],         [QLabel])
       AX_PKG(QT_SQL,     [QT_INCLUDE], [],         [QtSql])
       AX_GROUP_PKG(LINUX_QT, [QT_INCLUDE QT_GUI QT_OPENGL QT_SQL QT_LIBS])])
-
-AX_PKG_ONE_OF(MBA,
-  MBA10, [AX_PKG(MBA10, [BOOST], [-lMBA_1.0_gpl_opt], [MBA.h])],
-  MBA11, [AX_PKG(MBA11, [BOOST], [-lMBA-1.1],         [MBA.h])])
 
 AX_PKG_ONE_OF(QWT,
     APPLE_QWT, [AX_PKG_APPLE(QWT, [QT_INCLUDE], [-lqwt.5])],

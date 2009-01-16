@@ -70,7 +70,7 @@ AC_DEFUN([AX_PKG],
       elif test -n "${HAVE_PKG_$1}" && test "${HAVE_PKG_$1}" != "yes" && test "${HAVE_PKG_$1}" != "no"; then
         PKG_PATHS_$1=${HAVE_PKG_$1}
       else
-        PKG_PATHS_$1="none ${PKG_PATHS}"
+        PKG_PATHS_$1="${PKG_PATHS} default"
       fi
 
       HAVE_PKG_$1=no
@@ -83,6 +83,7 @@ AC_DEFUN([AX_PKG],
 
       LIBS="$PKG_$1_LIBS $LIBS"
       for path in $PKG_PATHS_$1; do
+        echo ["SEARCH: Checking $path for $3"] >&AS_MESSAGE_LOG_FD
 
         CPPFLAGS="$PKG_$1_CPPFLAGS $ax_pkg_old_cppflags"
         LDFLAGS="$ax_pkg_old_ldflags"
@@ -95,11 +96,12 @@ AC_DEFUN([AX_PKG],
         done
         TRY_ADD_CPPFLAGS=""
         TRY_ADD_LDFLAGS=""
-        if test "$path" != "none"; then
-          if test x"$ENABLE_VERBOSE" = "xyes"; then
-            AC_MSG_CHECKING([for package $1 in $path])
-          fi
 
+        if test x"$ENABLE_VERBOSE" = "xyes"; then
+          AC_MSG_CHECKING([for package $1 in $path])
+        fi
+
+        if test "$path" != "default"; then
           # ISIS is really stupid, and they use /foo/inc as their include file
           # location instead of /foo/include. So we check for that. This sees 
           # about any other idiot libraries that use the same design as well.
