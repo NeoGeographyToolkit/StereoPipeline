@@ -395,15 +395,10 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   
-  if( vm.count("input-files") < 1) {
-    if ( vm.count("cnet") ) {
-      std::cout << "Loading control network from file: " << cnet_file << "\n";
-      cnet.read_control_network(cnet_file);
-    } else {
-      std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
-      std::cout << usage.str();
-      return 1;
-    }
+  if( vm.count("input-files") < 1 || image_files.size() < 2) {
+    std::cout << "Error: Must specify at least two input files!" << std::endl << std::endl;
+    std::cout << usage.str();
+    return 1;
   }  
   
   // Read in the camera model and RMAX image info for the input
@@ -418,8 +413,15 @@ int main(int argc, char* argv[]) {
     camera_models[i] = boost::shared_ptr<CameraModel>(cahvor);
   }
   
-  if (!vm.count("cnet") ) {
+  if ( vm.count("cnet") ) {
+    // Loading a Control Network
     
+    vw_out(0) << "Loading control network from file: " << cnet_file << "\n";
+    cnet.read_control_network(cnet_file);
+
+  } else {
+    // Building a Control Network
+
     std::cout << "\nLoading Matches:\n";
     for (unsigned i = 0; i < image_files.size(); ++i) {
       for (unsigned j = i+1; j < image_files.size(); ++j) {
@@ -443,7 +445,9 @@ int main(int argc, char* argv[]) {
           // Locate all of the interest points between images that may
           // overlap based on a rough approximation of their bounding box.
           std::vector<InterestPoint> ip1, ip2;
-          read_binary_match_file(match_filename, ip1, ip2);
+
+	  read_binary_match_file(match_filename, ip1, ip2);
+
           if (int(ip1.size()) < min_matches) {
             std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.  [rejected]\n";
           } else {
@@ -474,12 +478,14 @@ int main(int argc, char* argv[]) {
   ba_model.report_error();
   std::cout << "\n";
 
+  // Choose your poison
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, L1Error> bundle_adjuster(ba_model, cnet, L1Error());
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, cnet, L2Error());
    BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, cnet, CauchyError(robust_outlier_threshold));
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, HuberError> bundle_adjuster(ba_model, cnet, HuberError(robust_outlier_threshold));
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, PseudoHuberError> bundle_adjuster(ba_model, cnet, PseudoHuberError(robust_outlier_threshold));
-  if (vm.count("lambda")) {
+  
+   if (vm.count("lambda")) {
     std::cout << "Setting initial value of lambda to " << lambda << "\n";
     bundle_adjuster.set_lambda(lambda);
   }
