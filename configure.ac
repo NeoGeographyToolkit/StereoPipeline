@@ -143,6 +143,13 @@ AX_PKG_ONE_OF(MBA,
 
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
+AX_PKG_ONE_OF(GL,
+  APPLE_GL,
+    [AX_PKG_APPLE([GL], [], [-framework OpenGL -framework GLUT -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib])],
+  LINUX_GL,
+    [AX_PKG(X11, [], [-lXext -lX11 -lXmu -lXi -lXt], [])
+     AX_PKG(LINUX_GL, [X11], [-lGL -lGLU -lglut], [GL/gl.h GL/glu.h GL/glut.h], [])])
+
 # Qt with AutoTroll.
 AT_WITH_QT([+gui +sql +opengl], [], [], [], [HAVE_PKG_QT_INCLUDE=no])
 
@@ -155,12 +162,12 @@ ADD_QT_INCLUDE_CPPFLAGS="$ADD_QT_INCLUDE_CPPFLAGS $QT_CPPFLAGS"
 AX_PKG(QT_INCLUDE, [], [], [QVector])
 
 AX_PKG_ONE_OF(QT,
-    APPLE_QT, [AX_PKG_APPLE(QT, [QT_INCLUDE], [$QT_LIBS])],
+    APPLE_QT, [AX_PKG_APPLE(QT, [GL QT_INCLUDE], [$QT_LIBS])],
     LINUX_QT,
-     [AX_PKG(QT_LIBS,              [], [$QT_LIBS], [])
-      AX_PKG(QT_OPENGL,  [QT_INCLUDE], [],         [QtOpenGL])
-      AX_PKG(QT_GUI,     [QT_INCLUDE], [],         [QLabel])
-      AX_PKG(QT_SQL,     [QT_INCLUDE], [],         [QtSql])
+     [AX_PKG(QT_LIBS,    [],              [$QT_LIBS], [])
+      AX_PKG(QT_OPENGL,  [GL QT_INCLUDE], [],         [QtOpenGL])
+      AX_PKG(QT_GUI,     [QT_INCLUDE],    [],         [QLabel])
+      AX_PKG(QT_SQL,     [QT_INCLUDE],    [],         [QtSql])
       AX_GROUP_PKG(LINUX_QT, [QT_INCLUDE QT_GUI QT_OPENGL QT_SQL QT_LIBS])])
 
 AX_PKG_ONE_OF(QWT,
