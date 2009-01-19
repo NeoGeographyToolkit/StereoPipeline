@@ -73,6 +73,9 @@ namespace camera {
 
     // Returns the number of samples in the ISIS cube
     virtual int getSamples(void) const;
+    
+    // Returns the serial number of the ISIS cube
+    virtual std::string serial_number(void) const;
 
   protected:
     mutable double m_current_line, m_current_sample;

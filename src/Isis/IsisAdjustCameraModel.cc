@@ -79,6 +79,10 @@ int IsisAdjustCameraModel::getSamples( void ) const {
   return IsisCameraModel::getSamples();
 }
 
+std::string IsisAdjustCameraModel::serial_number(void) const {
+  return IsisCameraModel::serial_number();
+}
+
 //-------------------------------------------------------------------------
 //  Non-Traditional Camera Routines
 //-------------------------------------------------------------------------

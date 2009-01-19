@@ -209,7 +209,7 @@ public:
   }
 
   std::vector< boost::shared_ptr< camera::CameraModel > > adjusted_cameras() {
-    std::cout << "Doesn't work" << std::endl;
+    vw_throw( NoImplErr() << "ISIS Adjust: adjusted cameras() is not implemented and should not be used.");
     return m_cameras;
   }
 
@@ -253,7 +253,7 @@ public:
     while ( m_network[i][m].image_id() != int(j) )
       m++;
     if ( int(j) != m_network[i][m].image_id() )
-      std::cout << " GOSH DARN IT " << std::endl;
+      vw_throw( LogicErr() << "ISIS Adjust: Failed to find measure matching camera id." );
 
     // Performing the forward projection. This is specific to the
     // IsisAdjustCameraModel. The first argument is really just
@@ -274,7 +274,7 @@ public:
 
   // This is what prints out on the screen the error of the whole problem
   void report_error() const {
-    double pix_error_total = 0;
+    double mm_error_total = 0;
     double camera_position_error_total = 0;
     double camera_pose_error_total = 0;
     double gcp_error_total = 0;
@@ -282,8 +282,8 @@ public:
     for (unsigned i = 0; i < m_network.size(); ++i) {       // Iterate over control points
       for (unsigned m = 0; m < m_network[i].size(); ++m) {  // Iterate over control measures
         int camera_idx = m_network[i][m].image_id();
-        Vector2 pixel_error = m_network[i][m].position() - (*this)(i, camera_idx, a[camera_idx],b[i]); 
-        pix_error_total += norm_2(pixel_error);
+        Vector2 mm_error = m_network[i][m].focalplane() - (*this)(i, camera_idx, a[camera_idx],b[i]); 
+        mm_error_total += norm_2(mm_error);
       }
     }
     
@@ -308,13 +308,13 @@ public:
       }
     }
     
-    std::cout << "   Pixel: " << pix_error_total/m_num_pixel_observations << "  "
+    std::cout << "   Focalplane (mm): " << mm_error_total/m_num_pixel_observations << "  "
               << "   Cam Position: " << camera_position_error_total/a.size() << "  "
               << "   Cam Pose: " << camera_pose_error_total/a.size() << "  ";
     if (m_network.num_ground_control_points() == 0) 
-        std::cout << "  GCP: n/a\n";
-      else 
-        std::cout << "  GCP: " << gcp_error_total/m_network.num_ground_control_points() << "\n";
+      std::cout << "  GCP: n/a\n";
+    else 
+      std::cout << "  GCP: " << gcp_error_total/m_network.num_ground_control_points() << "\n";
   }
 };
 
@@ -449,7 +449,7 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    std::cout << "\nConverting Control Net to units of millimeters and time:\n";
+    std::cout << "\nCalculating focal plane measurement for Control Network:\n";
     for (unsigned i = 0; i < cnet.size(); ++i ) {
       for ( unsigned m = 0; m < cnet[i].size(); ++m ) {
 
@@ -458,18 +458,20 @@ int main(int argc, char* argv[]) {
 	  boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[ cnet[i][m].image_id() ] );
 
 	Vector3 mm_time = cam->pixel_to_mm_time( cnet[i][m].position() );
-	cnet[i][m].set_position( Vector2( mm_time[0], mm_time[1] ) );
+	cnet[i][m].set_focalplane( mm_time[0], mm_time[1] );
 	cnet[i][m].set_ephemeris_time( mm_time[2] );
 	cnet[i][m].set_description( "millimeters" );
-
+	//std::cout << "\t" << cam->serial_number() << std::endl;
+	cnet[i][m].set_serial( cam->serial_number() );
       }
     }
-    cnet.write_binary_control_network("control_mm.cnet");
+
+    cnet.write_binary_control_network("isis_adjust");
   }
 
   // Option to write ISIS-style control network
   if ( vm.count("write-isis-cnet-also") )
-    cnet.write_isis_pvl_control_network("control.net");
+    cnet.write_isis_pvl_control_network("isis_adjust");
 
   VW_DEBUG_ASSERT( cnet.size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
 
@@ -479,8 +481,9 @@ int main(int argc, char* argv[]) {
   for ( unsigned j = 0; j < camera_models.size(); ++j )
     camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
 
-  /////////////////////////////////////////////////////////////////////////////////////////////
-  // DBG Performing more tests of the camera model. I'm not sure this code is working correctly.
+  ///////////////////////////////////////////////////////////////////
+  // DBG Performing more tests of the camera model. I'm not sure this
+  // code is working correctly.
   {
     // Right now the position function is nothing but zeros
     Vector3 mm_time = camera_adjust_models[0]->point_to_mm_time( Vector3(0,
@@ -492,7 +495,8 @@ int main(int argc, char* argv[]) {
     
     std::cout << "Results:\n\tTest 1 Error:" << cnet[0].position() - reprojection1 << std::endl;
 
-    // Adding offset to cnet[0] ... seeing if it matches the same offset added to the last result
+    // Adding offset to cnet[0] ... seeing if it matches the same
+    // offset added to the last result
     Vector3 mm_time2 = camera_adjust_models[0]->point_to_mm_time( mm_time, cnet[0].position() + Vector3(0,0,200) );
     double dist_along_vector2 = norm_2( cnet[0].position() + Vector3(0,0,200) - camera_adjust_models[0]->camera_center( mm_time2 ) );
     Vector3 reprojection2 = camera_adjust_models[0]->camera_center( mm_time2 ) + dist_along_vector2*camera_adjust_models[0]->mm_time_to_vector( mm_time2 );
@@ -601,7 +605,7 @@ int main(int argc, char* argv[]) {
 	    // Time to locate the closest point along the vector of the camera
 	    
 	    // finding the length along the camera's vector
-	    Vector2 mm_focal =  cnet[p][m].position();
+	    Vector2 mm_focal =  cnet[p][m].focalplane();
 	    double t = dot_prod(cnet[p].position() - camera_adjust_models[n]->camera_center( Vector3(mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ), camera_adjust_models[n]->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ) );
 	    
 	    // Finding the point now
@@ -675,7 +679,7 @@ int main(int argc, char* argv[]) {
 		boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
 		// finding the length along the camera's vector
-		Vector2 mm_focal =  cnet[p][m].position();
+		Vector2 mm_focal =  cnet[p][m].focalplane();
 		double t = dot_prod(cnet[p].position() - camera->camera_center( Vector3(mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ), camera->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ) );
 	    
 		// Finding the point now
@@ -752,7 +756,7 @@ int main(int argc, char* argv[]) {
 		boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
 		// finding the length along the camera's vector
-		Vector2 mm_focal =  cnet[p][m].position();
+		Vector2 mm_focal =  cnet[p][m].focalplane();
 		double t = dot_prod(cnet[p].position() - camera->camera_center( Vector3(mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ), camera->mm_time_to_vector( Vector3( mm_focal[0], mm_focal[1], cnet[p][m].ephemeris_time() ) ) );
 	    
 		// Finding the point now

@@ -31,6 +31,8 @@
 #include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
 #include <CameraFocalPlaneMap.h>
+#include <Pvl.h>
+#include <SerialNumber.h>
 
 using namespace vw;
 using namespace vw::camera;
@@ -178,3 +180,9 @@ int IsisCameraModel::getSamples( void ) const {
   return cam->Samples();
 }
 
+std::string IsisCameraModel::serial_number( void ) const {
+  Isis::Cube* cube = static_cast<Isis::Cube*>(m_isis_cube);
+  Isis::Pvl* label = cube->Label();
+  std::string serial = Isis::SerialNumber::Compose(*label,true);
+  return serial;
+}

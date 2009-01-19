@@ -61,6 +61,8 @@ namespace camera {
 
     virtual int getSamples( void ) const;
 
+    virtual std::string serial_number(void) const;
+
     //-------------------------------------------------------------------
     //  Non-Traditional Camera Routines
     //-------------------------------------------------------------------

@@ -467,7 +467,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    cnet.write_binary_control_network("control.cnet");
+    cnet.write_binary_control_network("rmax_adjust");
   }
 
   // Print pre-alignment residuals
