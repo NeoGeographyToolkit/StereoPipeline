@@ -86,6 +86,8 @@ IsisCameraModel::~IsisCameraModel() {
   }
 }
 
+// Calling cam->SetImage() is actually very expensive, so we avoid
+// calling it twice in a row with the same line/sample pair.
 void IsisCameraModel::set_image(double sample, double line) const {
   if (m_current_line != line || m_current_sample != sample) {
     Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
@@ -94,7 +96,6 @@ void IsisCameraModel::set_image(double sample, double line) const {
     m_current_sample = sample;
   }
 }
-
 
 
 Vector2 IsisCameraModel::point_to_pixel(Vector3 const& point) const {
@@ -147,8 +148,7 @@ Vector3 IsisCameraModel::camera_center(Vector2 const& pix ) const {
   // engaging any of the other "heavy machinery" involved with a call
   // to cam->SetImage().  However, this is violating some abstraction
   // barriers, and it may not be correct for all camera models.
-  //  cam->DetectorMap()->SetParent(pix[0],pix[1]);
-  
+  //  cam->DetectorMap()->SetParent(pix[0],pix[1]);  
   double pos[3];
   cam->InstrumentPosition(pos);
   return Vector3(pos[0]*1000,pos[1]*1000,pos[2]*1000);
@@ -158,7 +158,7 @@ Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
   Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
   this->set_image(pix[0],pix[1]);
   
-  // Convert from intrument frame --> J2000 frame --> Mars body-fixed frame
+  // Convert from instrument frame --> J2000 frame --> Mars body-fixed frame
   std::vector<double> rot_inst = cam->InstrumentRotation()->Matrix();
   std::vector<double> rot_body = cam->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));

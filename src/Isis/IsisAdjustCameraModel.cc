@@ -16,8 +16,8 @@ using namespace vw::camera;
 //  Constructors / Deconstructor
 //-------------------------------------------------------------------------
 IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
-			   boost::shared_ptr<VectorEquation> position_func,
-			   boost::shared_ptr<QuaternionEquation> pose_func ) : 
+                                              boost::shared_ptr<VectorEquation> position_func,
+                                              boost::shared_ptr<QuaternionEquation> pose_func ) : 
   IsisCameraModel( cube_filename ),
   m_position_func( position_func ),
   m_pose_func( pose_func ) {
@@ -54,8 +54,6 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point) const {
   Vector3 fixed_mm_time(0,0,m_min_ephemeris);
   Vector3 mm_time = this->point_to_mm_time( fixed_mm_time, point );  
   return this->mm_time_to_pixel(mm_time);
-
-  return IsisCameraModel::point_to_pixel( point );
 }
 
 Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
