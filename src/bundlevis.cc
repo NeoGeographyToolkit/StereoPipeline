@@ -448,7 +448,7 @@ std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
   std::cout << "Loading Control Network : " << cnetFile << std::endl;
 
   cnet = new vw::camera::ControlNetwork("Bundlevis");
-  cnet->read_control_network( cnetFile );
+  cnet->read_binary_control_network( cnetFile );
 
   if ( cnet->size() != points.size() ) {
     std::cout << "Control network doesn't seem to match loaded points data. Number of points: "

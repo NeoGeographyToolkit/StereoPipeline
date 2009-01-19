@@ -417,7 +417,7 @@ int main(int argc, char* argv[]) {
     // Loading a Control Network
     
     vw_out(0) << "Loading control network from file: " << cnet_file << "\n";
-    cnet.read_control_network(cnet_file);
+    cnet.read_binary_control_network(cnet_file);
 
   } else {
     // Building a Control Network
@@ -467,7 +467,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    cnet.write_control_network("control.cnet");
+    cnet.write_binary_control_network("control.cnet");
   }
 
   // Print pre-alignment residuals

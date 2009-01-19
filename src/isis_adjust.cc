@@ -346,6 +346,7 @@ int main(int argc, char* argv[]) {
     ("min-matches", po::value<int>(&min_matches)->default_value(30), "Set the minimum number of matches between images that will be considered.")
     ("max-iterations", po::value<int>(&max_iterations)->default_value(25), "Set the maximum number of iterations.")
     ("nonsparse,n", "Run the non-sparse reference implementation of LM Bundle Adjustment.")
+    ("write-isis-cnet-also", "Writes an ISIS style control network")
     ("verbose", "Verbose output");
 
   po::options_description hidden_options("");
@@ -374,7 +375,7 @@ int main(int argc, char* argv[]) {
   // Checking to see if there is a cnet file to load up
   if ( vm.count("cnet") ){
     std::cout << "Loading control network from file: " << cnet_file << "\n";
-    cnet.read_control_network( cnet_file );
+    cnet.read_binary_control_network( cnet_file );
   }
 
   if ( vm.count("input-files") < 1 ) {
@@ -463,8 +464,12 @@ int main(int argc, char* argv[]) {
 
       }
     }
-    cnet.write_control_network("control_mm.cnet");
+    cnet.write_binary_control_network("control_mm.cnet");
   }
+
+  // Option to write ISIS-style control network
+  if ( vm.count("write-isis-cnet-also") )
+    cnet.write_isis_pvl_control_network("control.net");
 
   VW_DEBUG_ASSERT( cnet.size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
 
