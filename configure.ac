@@ -134,21 +134,20 @@ AX_PKG(VW_INTEREST_POINT, [BOOST], [-lvwInterestPoint])
 
 AX_PKG(CUDA,              [],      [-lcuda -lcudart], [cuda.h])
 
-AX_PKG(OPENSCENEGRAPH, [], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
-
-AX_PKG_ONE_OF(MBA,
-    MBA10, [AX_PKG(MBA10, [BOOST], [-lMBA_1.0_gpl_opt], [MBA.h])],
-    MBA11, [AX_PKG(MBA11, [BOOST], [-lMBA-1.1],         [MBA.h])])
-
-
-AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
-
 AX_PKG_ONE_OF(GL,
   APPLE_GL,
     [AX_PKG_APPLE([GL], [], [-framework OpenGL -framework GLUT -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib])],
   LINUX_GL,
     [AX_PKG(X11, [], [-lXext -lX11 -lXmu -lXi -lXt], [])
      AX_PKG(LINUX_GL, [X11], [-lGL -lGLU -lglut], [GL/gl.h GL/glu.h GL/glut.h], [])])
+
+AX_PKG(OPENSCENEGRAPH, [GL], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
+
+AX_PKG_ONE_OF(MBA,
+    MBA11, [AX_PKG(MBA11, [BOOST], [-lMBA-1.1],         [MBA.h])],
+    MBA10, [AX_PKG(MBA10, [BOOST], [-lMBA_1.0_gpl_opt], [MBA.h])])
+
+AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
 # Qt with AutoTroll.
 AT_WITH_QT([+gui +sql +opengl], [], [], [], [HAVE_PKG_QT_INCLUDE=no])
