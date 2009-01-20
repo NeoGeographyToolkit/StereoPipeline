@@ -461,8 +461,8 @@ int main(int argc, char* argv[]) {
 	cnet[i][m].set_focalplane( mm_time[0], mm_time[1] );
 	cnet[i][m].set_ephemeris_time( mm_time[2] );
 	cnet[i][m].set_description( "millimeters" );
-	//std::cout << "\t" << cam->serial_number() << std::endl;
 	cnet[i][m].set_serial( cam->serial_number() );
+	cnet[i][m].set_pixels_dominant( false );
       }
     }
 
