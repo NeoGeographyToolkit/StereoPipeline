@@ -53,8 +53,10 @@ using namespace std;
 #endif
 
 #include "HRSC/StereoSessionHRSC.h"
+#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
 #include "MOC/StereoSessionMOC.h"
 #include "MRO/StereoSessionCTX.h"
+#endif
 #include "RMAX/StereoSessionRmax.h"
 
 // Allows FileIO to correctly read/write these pixel types
@@ -197,8 +199,10 @@ int main(int argc, char* argv[]) {
 
   // Create a fresh stereo session and query it for the camera models.
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
+#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
+#endif
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);

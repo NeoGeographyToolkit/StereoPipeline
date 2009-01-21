@@ -55,8 +55,10 @@ using namespace vw::stereo;
 #include "Isis/StereoSessionIsis.h"
 #endif
 #include "HRSC/StereoSessionHRSC.h"
+#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
 #include "MOC/StereoSessionMOC.h"
 #include "MRO/StereoSessionCTX.h"
+#endif
 #include "RMAX/StereoSessionRmax.h"
 
 static std::string prefix_from_filename(std::string const& filename) {
@@ -292,8 +294,10 @@ int main(int argc, char* argv[]) {
 
   // Register all stereo session types
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
+#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
+#endif
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
@@ -342,7 +346,20 @@ int main(int argc, char* argv[]) {
   if( vm.count("input-files") < 1) {
     if ( vm.count("cnet") ) {
       std::cout << "Loading control network from file: " << cnet_file << "\n";
-      cnet.read_control_network(cnet_file);
+
+      // Deciding which Control Network we have
+      std::vector<std::string> tokens;
+      boost::split( tokens, cnet_file, boost::is_any_of(".") );
+      if ( tokens[tokens.size()-1] == "net" ) {
+	// An ISIS style control network
+	cnet.read_isis_pvl_control_network( cnet_file );
+      } else if ( tokens[tokens.size()-1] == "cnet" ) {
+	// A VW binary style
+	cnet.read_binary_control_network( cnet_file );
+      } else {
+	vw_throw( IOErr() << "Unknown Control Network file extension, \""
+		  << tokens[tokens.size()-1] << "\"." );
+      }
     } else {
       std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
       std::cout << usage.str();
@@ -387,7 +404,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    cnet.write_control_network("control.cnet");
+    cnet.write_binary_control_network("control.cnet");
   }
 
   // Print pre-alignment residuals

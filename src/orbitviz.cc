@@ -61,8 +61,10 @@ using namespace vw::cartography;
 #endif
 
 #include "HRSC/StereoSessionHRSC.h"
+#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
 #include "MOC/StereoSessionMOC.h"
 #include "MRO/StereoSessionCTX.h"
+#endif
 
 using namespace std;
 
@@ -97,8 +99,10 @@ int main(int argc, char* argv[]) {
 
   // Register all stereo session types
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
+#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
+#endif
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
