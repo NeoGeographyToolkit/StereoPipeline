@@ -483,30 +483,40 @@ int main(int argc, char* argv[]) {
 	std::cout << "\t" << gcp_filename << "    " << " : " << numpoints << " GCPs.\n";
       }
     }
-    
-    std::cout << "\nCalculating focal plane measurement for Control Network:\n";
+  }
+
+  // Double checking to make sure that the Control Network is set up
+  // for ephemeris time. We continue to do this with loaded control
+  // networks as a strict ISIS style control network will not record
+  // Ephemeris Time.
+  {
+    std::cout << "\nCalculating focal plane measurements for Control Network:\n";
     for (unsigned i = 0; i < cnet.size(); ++i ) {
       for ( unsigned m = 0; m < cnet[i].size(); ++m ) {
+	if ( cnet[i][m].ephemeris_time() == 0 ) {
+	  // Loading camera used by measure
+	  boost::shared_ptr< IsisAdjustCameraModel > cam =
+	    boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[ cnet[i][m].image_id() ] );
 
-	// Loading camera used by measure
-	boost::shared_ptr< IsisAdjustCameraModel > cam =
-	  boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[ cnet[i][m].image_id() ] );
-
-	Vector3 mm_time = cam->pixel_to_mm_time( cnet[i][m].position() );
-	cnet[i][m].set_focalplane( mm_time[0], mm_time[1] );
-	cnet[i][m].set_ephemeris_time( mm_time[2] );
-	cnet[i][m].set_description( "millimeters" );
-	cnet[i][m].set_serial( cam->serial_number() );
-	cnet[i][m].set_pixels_dominant( false );
+	  Vector3 mm_time = cam->pixel_to_mm_time( cnet[i][m].position() );
+	  cnet[i][m].set_focalplane( mm_time[0], mm_time[1] );
+	  cnet[i][m].set_ephemeris_time( mm_time[2] );
+	  cnet[i][m].set_description( "millimeters" );
+	  cnet[i][m].set_serial( cam->serial_number() );
+	  cnet[i][m].set_pixels_dominant( false );
+	}
       }
     }
 
+    // Writing ISIS Control Network
     cnet.write_binary_control_network("isis_adjust");
   }
 
   // Option to write ISIS-style control network
-  if ( vm.count("write-isis-cnet-also") )
+  if ( vm.count("write-isis-cnet-also") ) {
+    std::cout << "Writing ISIS-style Control Network.\n";
     cnet.write_isis_pvl_control_network("isis_adjust");
+  }
 
   VW_DEBUG_ASSERT( cnet.size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
 
