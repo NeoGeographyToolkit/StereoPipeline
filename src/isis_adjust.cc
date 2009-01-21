@@ -30,6 +30,7 @@
 #include <boost/program_options.hpp>
 #include "boost/filesystem/operations.hpp"
 #include "boost/filesystem/fstream.hpp"
+#include <boost/algorithm/string.hpp>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -372,12 +373,6 @@ int main(int argc, char* argv[]) {
     return 1;
   };
   
-  // Checking to see if there is a cnet file to load up
-  if ( vm.count("cnet") ){
-    std::cout << "Loading control network from file: " << cnet_file << "\n";
-    cnet.read_binary_control_network( cnet_file );
-  }
-
   if ( vm.count("input-files") < 1 ) {
     std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
     std::cout << usage.str();
@@ -397,8 +392,48 @@ int main(int argc, char* argv[]) {
     camera_models[i] = p;
   }
 
-  // Now I am loading up the matches between the two images
-  if ( !vm.count("cnet") ) {
+  // Checking to see if there is a cnet file to load up
+  if ( vm.count("cnet") ){
+    std::cout << "Loading control network from file: " << cnet_file << "\n";
+
+    std::vector<std::string> tokens;
+    boost::split( tokens, cnet_file, boost::is_any_of(".") );
+    if ( tokens[tokens.size()-1] == "net" ) {
+      // An ISIS style control network
+      cnet.read_isis_pvl_control_network( cnet_file );
+    } else if ( tokens[tokens.size()-1] == "cnet" ) {
+      // A VW binary style
+      cnet.read_binary_control_network( cnet_file );
+    } else {
+      vw_throw( IOErr() << "Unknown Control Network file extension, \""
+		<< tokens[tokens.size()-1] << "\"." );
+    }
+
+    // Assigning camera id number for Control Measures
+    std::vector<std::string> camera_serials;
+    for ( unsigned i = 0; i < camera_models.size(); ++i ) {
+      boost::shared_ptr< IsisAdjustCameraModel > cam =
+	boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[i] );
+      camera_serials.push_back( cam->serial_number() );
+    }
+    for ( unsigned i = 0; i < cnet.size(); ++i ) {
+      for ( unsigned m = 0; m < cnet[i].size(); ++m ) {
+	bool found = false;
+	// Determining which camera matches the serial string
+	for ( unsigned s = 0; s < camera_serials.size(); ++s ) {
+	  if ( cnet[i][m].serial() == camera_serials[s] ) {
+	    cnet[i][m].set_image_id( s );
+	    found = true;
+	    break;
+	  }
+	}
+	if (!found)
+	  vw_throw( InputErr() << "ISIS Adjust doesn't seem to have a camera for serial, \"" << cnet[i][m].serial() << "\", found in loaded Control Network" );
+      }
+    }
+
+  } else {
+    // Decided to build new Control Network. Now loading up the matches
     
     std::cout << "\nLoading Matches:\n";
     for (unsigned i = 0; i < input_files.size(); ++i) {
