@@ -26,20 +26,29 @@ SUBDIRS = tests
 
 bin_PROGRAMS=
 
-ctx_code    = MRO/StereoSessionCTX.cc MRO/DiskImageResourceDDD.cc MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
 rmax_code   = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
 bundle_code = BundleAdjustUtils.cc
-stereo_code = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc MOC/StereoSessionMOC.cc    \
-              MOC/Ephemeris.cc MOLAReader.cc MOC/Metadata.cc MOC/MOLA.cc        \
+
+stereo_code = MOLAReader.cc              \
               StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc \
-              TabulatedDataReader.cc KML.cc StereoSettings.cc SpiceUtilities.cc  \
-              $(ctx_code) $(rmax_code) $(bundle_code)
+              TabulatedDataReader.cc KML.cc StereoSettings.cc                   \
+              $(rmax_code) $(bundle_code)
+
+ctx_code = MRO/DiskImageResourceDDD.cc
 
 if HAVE_PKG_ISIS
-isis_code = Isis/StereoSessionIsis.cc Isis/IsisCameraModel.cc Isis/DiskImageResourceIsis.cc Isis/IsisAdjustCameraModel.cc
-stereo_code += $(isis_code)
+isis_code = Isis/IsisCameraModel.cc Isis/DiskImageResourceIsis.cc Isis/IsisAdjustCameraModel.cc
+stereo_code += $(isis_code) Isis/StereoSessionIsis.cc
 endif
 
+if HAVE_PKG_SPICE
+spice_code  = SpiceUtilities.cc
+ctx_code    += MRO/StereoSessionCTX.cc MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
+moc_code    = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOC/Metadata.cc MOC/MOLA.cc
+hrsc_code   = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
+endif
+
+stereo_code += $(spice_code) $(ctx_code) $(moc_code) $(hrsc_code)
 
 if MAKE_APP_STEREO
   bin_PROGRAMS += stereo
@@ -103,7 +112,7 @@ endif
 
 if MAKE_APP_CTXIMAGE
   bin_PROGRAMS += ctximage
-  ctximage_SOURCES = ctximage.cc $(ctx_code)
+  ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
   ctximage_LDADD = $(APP_CTXIMAGE_LIBS)
 endif
 

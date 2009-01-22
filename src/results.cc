@@ -63,8 +63,8 @@ using namespace vw::stereo;
 #include "Isis/StereoSessionIsis.h"
 #endif
 
-#include "HRSC/StereoSessionHRSC.h"
 #if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
+#include "HRSC/StereoSessionHRSC.h"
 #include "MOC/StereoSessionMOC.h"
 #include "MRO/StereoSessionCTX.h"
 #endif

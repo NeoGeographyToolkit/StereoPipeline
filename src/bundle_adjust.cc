@@ -54,8 +54,8 @@ using namespace vw::stereo;
 #include "Isis/DiskImageResourceIsis.h"
 #include "Isis/StereoSessionIsis.h"
 #endif
-#include "HRSC/StereoSessionHRSC.h"
 #if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
+#include "HRSC/StereoSessionHRSC.h"
 #include "MOC/StereoSessionMOC.h"
 #include "MRO/StereoSessionCTX.h"
 #endif
@@ -293,8 +293,8 @@ int main(int argc, char* argv[]) {
 #endif 
 
   // Register all stereo session types
-  StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
 #if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
+  StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
 #endif
