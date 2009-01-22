@@ -24,31 +24,27 @@
 ########################################################################
 SUBDIRS = tests
 
-noinst_LTLIBRARIES = libctx.la librmax.la libbundle.la libstereo.la
 bin_PROGRAMS=
 
-libctx_la_SOURCES  = MRO/StereoSessionCTX.cc MRO/DiskImageResourceDDD.cc MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
-librmax_la_SOURCES = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
-libbundle_la_SOURCES = BundleAdjustUtils.cc
-
-libstereo_la_SOURCES = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc \
-                       MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOLAReader.cc MOC/Metadata.cc MOC/MOLA.cc \
-                       StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc TabulatedDataReader.cc KML.cc StereoSettings.cc \
-                       SpiceUtilities.cc
-
-libstereo_la_LIBADD = libctx.la librmax.la libbundle.la
+ctx_code    = MRO/StereoSessionCTX.cc MRO/DiskImageResourceDDD.cc MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
+rmax_code   = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
+bundle_code = BundleAdjustUtils.cc
+stereo_code = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc MOC/StereoSessionMOC.cc    \
+              MOC/Ephemeris.cc MOLAReader.cc MOC/Metadata.cc MOC/MOLA.cc        \
+              StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc \
+              TabulatedDataReader.cc KML.cc StereoSettings.cc SpiceUtilities.cc  \
+              $(ctx_code) $(rmax_code) $(bundle_code)
 
 if HAVE_PKG_ISIS
-libisis_stereo_la_SOURCES = Isis/StereoSessionIsis.cc Isis/IsisCameraModel.cc Isis/DiskImageResourceIsis.cc Isis/IsisAdjustCameraModel.cc
-noinst_LTLIBRARIES += libisis_stereo.la
-libstereo_la_LIBADD += libisis_stereo.la
+isis_code = Isis/StereoSessionIsis.cc Isis/IsisCameraModel.cc Isis/DiskImageResourceIsis.cc Isis/IsisAdjustCameraModel.cc
+stereo_code += $(isis_code)
 endif
 
 
 if MAKE_APP_STEREO
   bin_PROGRAMS += stereo
-  stereo_SOURCES = stereo.cc
-  stereo_LDADD = libstereo.la $(APP_STEREO_LIBS)
+  stereo_SOURCES = stereo.cc $(stereo_code)
+  stereo_LDADD = $(APP_STEREO_LIBS)
 endif
 
 if MAKE_APP_STEREOGUI
@@ -62,22 +58,22 @@ if MAKE_APP_STEREOGUI
 		   gui/PreviewGLWidget.moc.cc gui/PreviewGLWidget.h	\
 		   gui/StereoGuiSession.cc gui/StereoGuiSession.moc.cc	\
 		   gui/StereoGuiSession.h gui/ProgressBar.moc.cc	\
-		   gui/ProgressBar.h gui/ProgressBar.cc
-  stereo_gui_LDADD = libstereo.la $(APP_STEREOGUI_LIBS)
+		   gui/ProgressBar.h gui/ProgressBar.cc $(stereo_code)
+  stereo_gui_LDADD = $(APP_STEREOGUI_LIBS)
 
 BUILT_SOURCES = gui/MainWindow.moc.cc
 endif
 
 if MAKE_APP_BUNDLEADJUST
   bin_PROGRAMS += bundle_adjust
-  bundle_adjust_SOURCES = bundle_adjust.cc
-  bundle_adjust_LDADD = libstereo.la $(APP_BUNDLEADJUST_LIBS)
+  bundle_adjust_SOURCES = bundle_adjust.cc $(stereo_code)
+  bundle_adjust_LDADD = $(APP_BUNDLEADJUST_LIBS)
 endif
 
 if MAKE_APP_ORBITVIZ
   bin_PROGRAMS += orbitviz
-  orbitviz_SOURCES = orbitviz.cc
-  orbitviz_LDADD = libstereo.la $(APP_ORBITVIZ_LIBS)
+  orbitviz_SOURCES = orbitviz.cc $(stereo_code)
+  orbitviz_LDADD = $(APP_ORBITVIZ_LIBS)
 endif
 
 if MAKE_APP_DISPARITYDEBUG
@@ -107,26 +103,26 @@ endif
 
 if MAKE_APP_CTXIMAGE
   bin_PROGRAMS += ctximage
-  ctximage_SOURCES = ctximage.cc
-  ctximage_LDADD = libctx.la $(APP_CTXIMAGE_LIBS)
+  ctximage_SOURCES = ctximage.cc $(ctx_code)
+  ctximage_LDADD = $(APP_CTXIMAGE_LIBS)
 endif
 
 if MAKE_APP_RMAX2CAHVOR
   bin_PROGRAMS += rmax2cahvor
-  rmax2cahvor_SOURCES = rmax2cahvor.cc
-  rmax2cahvor_LDADD = librmax.la $(APP_RMAX2CAHVOR_LIBS)
+  rmax2cahvor_SOURCES = rmax2cahvor.cc $(rmax_code)
+  rmax2cahvor_LDADD = $(APP_RMAX2CAHVOR_LIBS)
 endif
 
 if MAKE_APP_RMAXADJUST
   bin_PROGRAMS += rmax_adjust
-  rmax_adjust_SOURCES = rmax_adjust.cc
-  rmax_adjust_LDADD = librmax.la libbundle.la $(APP_RMAXADJUST_LIBS)
+  rmax_adjust_SOURCES = rmax_adjust.cc $(rmax_code) $(bundle_code)
+  rmax_adjust_LDADD = $(APP_RMAXADJUST_LIBS)
 endif
 
 if MAKE_APP_ISISADJUST
   bin_PROGRAMS += isis_adjust
-  isis_adjust_SOURCES = isis_adjust.cc
-  isis_adjust_LDADD = libbundle.la libisis_stereo.la $(APP_ISISADJUST_LIBS)
+  isis_adjust_SOURCES = isis_adjust.cc $(bundle_code) $(isis_code)
+  isis_adjust_LDADD = $(APP_ISISADJUST_LIBS)
 endif
 
 if MAKE_APP_BUNDLEVIS
@@ -143,8 +139,8 @@ endif
 
 if MAKE_APP_ORTHOPROJECT
   bin_PROGRAMS += orthoproject
-  orthoproject_SOURCES = orthoproject.cc
-  orthoproject_LDADD = libstereo.la $(APP_ORTHOPROJECT_LIBS)
+  orthoproject_SOURCES = orthoproject.cc $(stereo_code)
+  orthoproject_LDADD = $(APP_ORTHOPROJECT_LIBS)
 endif
 
 if MAKE_APP_RESULTS
