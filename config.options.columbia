@@ -40,9 +40,9 @@ HAVE_PKG_SPICE=$VTO_PKGS/src/cspice
 HAVE_PKG_GEOS=$VTO_PKGS/$IRG_ARCH/geos-3.0.0
 HAVE_PKG_XERCESC=$VTO_PKGS/$IRG_ARCH/xerces-c-src_2_8_0
 
-FORCE_QWT_LDFLAGS="-L/u/vto/projects/packages/ia64_linux_gcc4.1/qwt-5.1.1/lib -lqwt"
-FORCE_GSL_LDFLAGS="-L/u/vto/projects/packages/ia64_linux_gcc4.1/gsl-1.11/lib -lgsl -lgslcblas"
-FORCE_SUPERLU_LDFLAGS="-L/u/vto/projects/packages/src/SuperLU_3.0 -lsuperlu_3.0"
+PKG_QWT_LDFLAGS="-L/u/vto/projects/packages/ia64_linux_gcc4.1/qwt-5.1.1/lib -lqwt"
+PKG_GSL_LDFLAGS="-L/u/vto/projects/packages/ia64_linux_gcc4.1/gsl-1.11/lib -lgsl -lgslcblas"
+PKG_SUPERLU_LDFLAGS="-L/u/vto/projects/packages/src/SuperLU_3.0 -lsuperlu_3.0"
 
 # Lapack still needs to be found the old-fashioned way
 PKG_PATHS="$VTO_PKGS/$IRG_ARCH/VisionWorkbench-LAPACK-1.0.0"

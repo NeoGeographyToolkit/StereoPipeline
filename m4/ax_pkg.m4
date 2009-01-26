@@ -27,10 +27,10 @@ AC_DEFUN([AX_PKG],
     AC_MSG_RESULT([no (disabled by user)])
 
   else
-    if test -z "${FORCE_$1_LDFLAGS}"; then
+    if test -z "${PKG_$1_LDFLAGS}"; then
         PKG_$1_LIBS="$3"
     else
-        PKG_$1_LIBS="${FORCE_$1_LDFLAGS}"
+        PKG_$1_LIBS="${PKG_$1_LDFLAGS}"
     fi
 
     # Test for and inherit from dependencies
@@ -65,7 +65,7 @@ AC_DEFUN([AX_PKG],
         AC_MSG_RESULT([searching...])
       fi
 
-      if test -n "${FORCE_$1_LDFLAGS}"; then
+      if test -n "${PKG_$1_LDFLAGS}"; then
         PKG_PATHS_$1=""
       elif test -n "${HAVE_PKG_$1}" && test "${HAVE_PKG_$1}" != "yes" && test "${HAVE_PKG_$1}" != "no"; then
         PKG_PATHS_$1=${HAVE_PKG_$1}
@@ -113,9 +113,9 @@ AC_DEFUN([AX_PKG],
           fi
 
           if test -z "$5"; then
-            TRY_ADD_CPPFLAGS="$ADD_$1_CPPFLAGS -I$path/${AX_INCLUDE_DIR}"
+            TRY_ADD_CPPFLAGS="$PKG_$1_CPPFLAGS -I$path/${AX_INCLUDE_DIR}"
           else
-            TRY_ADD_CPPFLAGS="$ADD_$1_CPPFLAGS -I$path/${AX_INCLUDE_DIR}/$5"
+            TRY_ADD_CPPFLAGS="$PKG_$1_CPPFLAGS -I$path/${AX_INCLUDE_DIR}/$5"
           fi
 
           if test -d $path/${AX_LIBDIR}; then

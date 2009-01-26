@@ -88,13 +88,13 @@
 # Alternative command-line syntax: --with-pkg-libs[=val], --with-pkg-cppflags[=val]
 #
 # Set cppflags to prepend to the cppflags, and libs to override the libs. If
-# FORCE_PKGNAME_LDFLAGS is set, it will prevent configure from searching for
+# PKG_PKGNAME_LDFLAGS is set, it will prevent configure from searching for
 # PKGNAME. A basic check is done, to make sure that the libraries you
 # passed in exist, but they are not checked for the required symbols. You should
 # independently verify that they provide them.
 
-#ADD_PKGNAME_CPPFLAGS=-I/path/to/headers
-#FORCE_PKGNAME_LDFLAGS=-L/path/to/libs -lmylib
+#PKG_PKGNAME_CPPFLAGS=-I/path/to/headers
+#PKG_PKGNAME_LDFLAGS=-L/path/to/libs -lmylib
 #
 # or even, if you need it (use sparingly):
-#FORCE_PKGNAME_LDFLAGS=/path/to/required/lib.so
+#PKG_PKGNAME_LDFLAGS=/path/to/required/lib.so

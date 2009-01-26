@@ -157,7 +157,7 @@ if test x"$HAVE_PKG_QT_INCLUDE" != x"no"; then
 fi
 
 # We seed QT_INCLUDE's cppflags with the ones qmake figured out
-ADD_QT_INCLUDE_CPPFLAGS="$ADD_QT_INCLUDE_CPPFLAGS $QT_CPPFLAGS"
+PKG_QT_INCLUDE_CPPFLAGS="$PKG_QT_INCLUDE_CPPFLAGS $QT_CPPFLAGS"
 AX_PKG(QT_INCLUDE, [], [], [QVector])
 
 AX_PKG_ONE_OF(QT,

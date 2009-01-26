@@ -7,9 +7,9 @@ AC_DEFUN([AX_PKG_ONE_OF],
   0, [m4_fatal([$0: too few arguments: $#])],
   2, [m4_ifset([$2], [m4_fatal([$0: too few arguments: [$1] [$2] $#])], [$0([$1])])],
   1, [AX_GROUP_PKG([$1])],
-  [$3
-   AS_VAR_PUSHDEF([has_dep], [HAVE_PKG_]$2)
-   AS_IF([test x"$has_dep" = "xyes"], [AX_GROUP_PKG([$1], [$2])],
-    [$0([$1], m4_shiftn(3, $@))])
-   AS_VAR_POPDEF([has_dep])]
+  [AS_IF([test ! -z "$PKG_$1_CPPFLAGS"], [PKG_$2_CPPFLAGS="$PKG_$2_CPPFLAGS $PKG_$1_CPPFLAGS"])
+   AS_IF([test ! -z "$PKG_$1_LDFLAGS"],  [PKG_$2_LDFLAGS="$PKG_$2_LDFLAGS $PKG_$1_LDFLAGS"])
+   $3
+   AS_IF([test x"$HAVE_PKG_$2" = "xyes"], [AX_GROUP_PKG([$1], [$2])],
+    [$0([$1], m4_shiftn(3, $@))])]
 )])
