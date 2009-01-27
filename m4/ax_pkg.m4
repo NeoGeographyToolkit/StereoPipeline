@@ -66,7 +66,7 @@ AC_DEFUN([AX_PKG],
       fi
 
       if test -n "${PKG_$1_LDFLAGS}"; then
-        PKG_PATHS_$1=""
+        PKG_PATHS_$1="default"
       elif test -n "${HAVE_PKG_$1}" && test "${HAVE_PKG_$1}" != "yes" && test "${HAVE_PKG_$1}" != "no"; then
         PKG_PATHS_$1=${HAVE_PKG_$1}
       else
