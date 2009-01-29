@@ -250,6 +250,7 @@ int main(int argc, char* argv[]) {
   // Checking to see if the user has made a mistake in running the program
   if (!vm.count("left-input-image") || !vm.count("right-input-image") || 
       !vm.count("left-camera-model")) {
+    std::cout << "\nMissing all of the correct input files.\n";
     print_usage(visible_options);
     exit(0);
   }
@@ -320,6 +321,7 @@ int main(int argc, char* argv[]) {
   
   if ( check_for_camera_models &&
        (!vm.count("output-prefix") || !vm.count("right-camera-model")) ) {
+    std::cout << "\nMissing output-prefix or right camera model.\n";
     print_usage(visible_options);
     exit(0);
   }
