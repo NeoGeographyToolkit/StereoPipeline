@@ -175,8 +175,8 @@ AX_PKG_ONE_OF(QWT,
     SUFFX_QWT, [AX_PKG(SUFFX_QWT, [QT_INCLUDE], [-lqwt-qt4])])
 
 AX_PKG_ONE_OF(GSL,
-    GSL_DEFINED,   [AX_PKG(GSL_DEFINED,   [LAPACK], [-lgsl -lgslcblas])],
-    GSL_UNDEFINED, [AX_PKG(GSL_UNDEFINED, [LAPACK], [-Wl,-no-as-needed,-lgsl,-lgslcblas,-as-needed])])
+    GSL_HASBLAS,  [AX_PKG(GSL_HASBLAS,  [LAPACK], [-lgsl])],
+    GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
 if test x"$host_vendor" = "xapple"; then
     AX_PKG(GEOS,    [],             [-lgeos-3.0.0], [])
