@@ -19,18 +19,18 @@ AX_ARG_ENABLE(proper-libs,  yes, [none],            [useful linker options])
 # For 64-bit machines, we'll generally want to autodetect if lib64 exists,
 # and use it. Sometimes the user will want to force use of lib64 or lib
 # instead of the autodetection. Thus we have this command line option.
-if test x"$USE_LIB64" = "xauto"; then
+if test x"$ENABLE_LIB64" = "xauto"; then
   if test -d "/lib64" -o -d "/usr/lib64"; then
-    USE_LIB64="yes"
+    ENABLE_LIB64="yes"
   else
-    USE_LIB64="no"
+    ENABLE_LIB64="no"
   fi
 fi
 
 # Sometimes we have /foo/lib64 and /foo/lib confusion on 64-bit machines,
 # so we'll use possibly both if one doesn't appear for a certain
 # library path.
-if test x"$USE_LIB64" = "xyes"; then
+if test x"$ENABLE_LIB64" = "xyes"; then
   AX_LIBDIR="lib64"
   AX_OTHER_LIBDIR="lib"
 else
