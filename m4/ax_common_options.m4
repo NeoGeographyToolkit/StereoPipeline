@@ -8,6 +8,7 @@ AX_ARG_ENABLE(exceptions,   yes, [am-yes cpp-bool], [enable the C++ exception me
 AX_ARG_ENABLE(debug,         no, [none],            [generate debugging symbols])
 AX_ARG_ENABLE(optimize,       3, [none],            [compiler optimization level])
 AX_ARG_ENABLE(lib64,       auto, [none],            [force /lib64 instead of /lib])
+AX_ARG_ENABLE(proper-libs,  yes, [none],            [useful linker options])
 
 
 
@@ -37,9 +38,11 @@ else
   AX_OTHER_LIBDIR="lib64"
 fi
 
+if test x"$ENABLE_PROPER_LIBS" = "xyes"; then
 # These are good if they're supported
-AX_TRY_CPPFLAGS([-Wl,-no-undefined], [LDFLAGS="$LDFLAGS -Wl,-no-undefined"])
-AX_TRY_CPPFLAGS([-Wl,-as-needed],    [LDFLAGS="$LDFLAGS -Wl,-as-needed"])
+    AX_TRY_CPPFLAGS([-Wl,-no-undefined], [OTHER_LDFLAGS="$OTHER_LDFLAGS -Wl,-no-undefined"])
+    AX_TRY_CPPFLAGS([-Wl,-as-needed],    [OTHER_LDFLAGS="$OTHER_LDFLAGS -Wl,-as-needed"])
+fi
 
 # Debugging
 case "$ENABLE_DEBUG" in
