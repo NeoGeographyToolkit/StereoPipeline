@@ -187,14 +187,14 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
     ransac_ip2[i] = Vector3(matched_ip2[i].x, matched_ip2[i].y,1);
   }  
   remove_duplicates(ransac_ip1, ransac_ip2);
-  RandomSampleConsensus<math::HomographyFittingFunctor, InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(),
-                                                                                          InterestPointErrorMetric(), 
-                                                                                          10 ); // inlier_threshold
+  math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(),
+												      vw::math::InterestPointErrorMetric(), 
+												      10 ); // inlier_threshold
   std::vector<Vector3> result_ip1, result_ip2;
   Matrix<double> T;
   try {
     T = ransac(ransac_ip2,ransac_ip1);
-  } catch (vw::ip::RANSACErr &e) {
+  } catch (vw::math::RANSACErr &e) {
     vw_out(0) << "\n*************************************************************\n";
     vw_out(0) << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
     vw_out(0) << "*************************************************************\n\n";

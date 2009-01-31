@@ -165,14 +165,14 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
 
   // RANSAC is used to fit a similarity transform between the
   // matched sets of points  
-  RandomSampleConsensus<math::HomographyFittingFunctor, InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(),
-                                                                                          InterestPointErrorMetric(), 
-                                                                                          10 ); // inlier_threshold
+  vw::math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(),
+													  vw::math::InterestPointErrorMetric(), 
+													  10 ); // inlier_threshold
 
   std::vector<Vector3> result_ip1;
   std::vector<Vector3> result_ip2;
   vw_out(InfoMessage) << "\nRunning RANSAC:\n";
-  Matrix<double> align_matrix = ransac(ransac_ip2,ransac_ip1);
+  Matrix<double> align_matrix(ransac(ransac_ip2,ransac_ip1));
 
   if (sub_sampling > 1)
     scale_align_matrix(align_matrix);
