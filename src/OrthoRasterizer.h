@@ -23,6 +23,10 @@
 
 /// \file OrthoRasterizer.h
 ///
+/// Given a point image and corresponding texture, this class
+/// resamples the point cloud on a regular grid over the [x,y] plane
+/// of the point image; producing an evenly sampled ortho-image with
+/// interpolated z values.
 
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
@@ -31,12 +35,13 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 
+// The SoftwareRenderer actual "renders" the 3D scene, textures it,
+// and then returns a 2D orthographic view.
 #include "SoftwareRenderer.h"
-//#include "HardwareRenderer.h"
 
 namespace vw {
 namespace cartography {
-
+  
   template <class PixelT>
   class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT> > {
     ImageViewRef<Vector3> m_point_image;
@@ -65,7 +70,6 @@ namespace cartography {
       vw_out(DebugMessage) << "Computing raster bounding box...\n";
       TerminalProgressCallback progress_callback;
       progress_callback.report_progress(0);
-
       for (int32 j = 0; j < m_point_image.rows(); j++) {
         progress_callback.report_progress(float(j)/m_point_image.rows());
         for (int32 i= 0; i < m_point_image.cols(); i++) 
@@ -73,17 +77,24 @@ namespace cartography {
             m_bbox.grow(m_point_image(i,j));
       }
       progress_callback.report_finished();
-      vw_out(DebugMessage) << "Raster bounding box: " << m_bbox << "\n";
-      this->set_spacing(spacing);
+      vw_out(0) << "Raster bounding box: " << m_bbox << "\n";
 
+      // Set the sampling rate (i.e. spacing between pixels)
+      this->set_spacing(spacing);
+      
+      // Initialize variables associated with rendering optimization.
       m_row_start = new int(0);
     }
 
-    // You can change the texture after
+    /// You can change the texture after the class has been
+    /// initialized.  The texture image must have the same dimensions
+    /// as the point image, and texture pixels must correspond exactly
+    /// to point image pixels.
     template <class TextureViewT>
     void set_texture(TextureViewT texture) { 
       VW_ASSERT(texture.impl().cols() == m_point_image.cols() && texture.impl().rows() == m_point_image.rows(),
-                ArgumentErr() << "Orthorasterizer: texture dimensions must match point image dimensions."); 
+                ArgumentErr() << "Orthorasterizer: set_texture() failed." 
+                << " Texture dimensions must match point image dimensions."); 
       m_texture = channel_cast<float>(channels_to_planes(texture.impl()));
     }
 
@@ -119,25 +130,23 @@ namespace cartography {
       ImageView<float> render_buffer(buffered_bbox.width(), buffered_bbox.height());
       float *render_buffer_ptr = &(render_buffer(0,0));
       
-      const int numColorComponents = 1;	     // We only need gray scale
-      const int numVertexComponents = 2;	   // DEMs are 2D
-
       // Setup a software renderer and the orthographic view matrix
-      vw::stereo::SoftwareRenderer renderer = vw::stereo::SoftwareRenderer(buffered_bbox.width(), buffered_bbox.height(), render_buffer_ptr);
-      //vw::stereo::HardwareRenderer renderer = vw::stereo::HardwareRenderer(buffered_bbox.width(), buffered_bbox.height(), render_buffer_ptr);
+      vw::stereo::SoftwareRenderer renderer = vw::stereo::SoftwareRenderer(buffered_bbox.width(), 
+                                                                           buffered_bbox.height(), 
+                                                                           render_buffer_ptr);
       renderer.Ortho2D(local_bbox.min().x(), local_bbox.max().x(), local_bbox.min().y(), local_bbox.max().y());
 
       // Set up the default color value
       if (m_use_alpha) {
-        renderer.ClearColor(-32000,-32000,-32000,1.0); // use this dummy value to denote transparency
-        renderer.Clear(vw::stereo::eColorBufferBit);
+        renderer.Clear(-32000);  // use this dummy value to denote transparency
       } else if (m_minz_as_default) {
-        renderer.ClearColor(m_bbox.min().z(), m_bbox.min().z(), m_bbox.min().z(), 1.0);        
-        renderer.Clear(vw::stereo::eColorBufferBit);
+        renderer.Clear(m_bbox.min().z());
       } else {
-        renderer.ClearColor(m_default_value, m_default_value, m_default_value, 1.0);
-        renderer.Clear(vw::stereo::eColorBufferBit);
+        renderer.Clear(m_default_value);
       } 
+
+      const int numColorComponents = 1;	            // We only need gray scale
+      const int numVertexComponents = 2;	    // DEMs are 2D
 
       for (int32 row = *m_row_start; row < m_point_image.rows(); ++row) {
         for (int32 col = 0; col < m_point_image.cols(); ++col) {
@@ -147,19 +156,22 @@ namespace cartography {
             
             // Create the two triangles covering this "pixel"
             this->create_triangles(row, col, triangle_count, vertices, intensities);
-            renderer.SetVertexPointer(numVertexComponents, vw::stereo::ePackedArray, vertices);
+            renderer.SetVertexPointer(numVertexComponents, vertices);
             
-            // Draw elevations into DEM buffer
-            renderer.SetColorPointer(numColorComponents, vw::stereo::ePackedArray, intensities);
-            for (int i = 0; i < triangle_count; i++)
+            // Draw pixels into the texture buffer
+            renderer.SetColorPointer(numColorComponents, intensities);
+
+            // Render the polygon!
+            for (int i = 0; i < triangle_count; ++i)
               renderer.DrawPolygon(i * 3, 3);
           }
         }
       }
 
       // The software renderer returns an image which will render
-      // upside down in most image formats, so we correct that here as
-      // well.
+      // upside down in most image formats, so we correct that here.
+      // We also introduce transparent pixels into the result where
+      // necessary.
       ImageView<PixelT> result(render_buffer.cols(), render_buffer.rows());
       for (int j = 0; j < render_buffer.rows(); ++j) {
         for (int i = 0; i < render_buffer.cols(); ++i) {
@@ -180,7 +192,9 @@ namespace cartography {
                                                               -(buffered_bbox.min().y()), 
                                                               cols(), rows()));
     }
-    template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
+    template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { 
+      vw::rasterize( prerasterize(bbox), dest, bbox ); 
+    }
     /// \endcond
 
     void set_use_alpha(bool val) { m_use_alpha = val; }
@@ -191,10 +205,11 @@ namespace cartography {
       else return m_default_value; 
     }
 
-    /// If no DEM spacing is set to zero, we generate a DEM with the same
-    /// pixel dimensions as the input image.  Note, however, that this
-    /// could lead to a loss in DEM resolution if the DEM is rotated
-    /// from the orientation of the original image.
+    /// If the DEM spacing is set to zero, we compute a DEM with
+    /// approximately the same pixel dimensions as the input image.
+    /// Note, however, that this could lead to a loss in DEM
+    /// resolution if the DEM is rotated from the orientation of the
+    /// original image.
     void set_spacing(float val) {
       if (val == 0.0) {
         BBox<float,3> bbox = bounding_box();

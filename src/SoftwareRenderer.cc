@@ -24,6 +24,7 @@
 // to the approach taken here for polygon rasterization.
 // ===========================================================================
 
+#include <vw/Core/Exception.h>
 #include <iostream>			   // debugging
 
 #include "SoftwareRenderer.h"
@@ -31,6 +32,8 @@
 using namespace std;
 using namespace vw;
 using namespace stereo;
+
+enum { eShadeFlat = 0x0, eShadeSmooth = 0x1 };
 
 // ===========================================================================
 // Constants and enums
@@ -55,7 +58,6 @@ typedef float real;
 #endif
 
 static const int kVerticesPerTriangle = 3;
-
 
 // ===========================================================================
 // Type declarations
@@ -323,73 +325,9 @@ DrawGraySpan(GraphicsState *graphicsState)
   }
 }
 
-#if 0
-static void
-DrawFlatRGBASpan(GraphicsState *gs)
-{
-  int x = gs->rasterInfo.frag.x;
-  int y = gs->rasterInfo.frag.y;
-  int length = gs->rasterInfo.length;
-  Color *span = &(gs->buffer[y * gs->width + x]);
-  real r, g, b, a;
-  int w;
-
-  r = gs->rasterInfo.frag.color.r;
-  g = gs->rasterInfo.frag.color.g;
-  b = gs->rasterInfo.frag.color.b;
-  a = gs->rasterInfo.frag.color.a;
-
-  while (--length >= 0)
-  {
-    span->r = r;
-    span->g = g;
-    span->b = b;
-    span->a = a;
-    span++;
-  }
-}
-
-static void
-DrawRGBASpan(GraphicsState *gs)
-{
-  int x = gs->rasterInfo.frag.x;
-  int y = gs->rasterInfo.frag.y;
-  int length = gs->rasterInfo.length;
-  Color *span = &(gs->buffer[y * gs->width + x]);
-  real r, g, b, a;
-  real drdx, dgdx, dbdx, dadx;
-
-  r = gs->rasterInfo.frag.color.r;
-  g = gs->rasterInfo.frag.color.g;
-  b = gs->rasterInfo.frag.color.b;
-  a = gs->rasterInfo.frag.color.a;
-
-  drdx = gs->rasterInfo.colorIter.drdx;
-  dgdx = gs->rasterInfo.colorIter.dgdx;
-  dbdx = gs->rasterInfo.colorIter.dbdx;
-  dadx = gs->rasterInfo.colorIter.dadx;
-
-  while (--length >= 0)
-  {
-    span->r = r;
-    span->g = g;
-    span->b = b;
-    span->a = a;
-  
-    r += drdx;
-    g += dgdx;
-    b += dbdx;
-    a += dadx;
-
-    span++;
-  }
-}
-#endif
-
 // In the SnapX* and FillSubTriangle routines, 1s31.1s31 fixed point
 // arithmetic is used with the integer and fractional portions carried
 // in separate ints (e.g., ixLeft and ixLeftFrac)
-
 static void
 SnapXLeft(GraphicsState *gc, real xLeft, real dxdyLeft)
 {
@@ -686,36 +624,6 @@ MapToWindow(Coords &coords,
 // Class Member Functions
 // ===========================================================================
 
-// Commented this out because I don't think this code would work if
-// this constructor was used... -mbroxton
-
-// SoftwareRenderer::SoftwareRenderer()
-// {
-//   m_numVertexComponents = 0;
-//   m_vertexPointer = 0;
-//   m_triangleVertexStep = 0;
-
-//   m_numColorComponents = 0;
-//   m_colorPointer = 0;
-//   m_triangleColorStep = 0;
-
-//   m_bufferWidth = 0;
-//   m_bufferHeight = 0;
-//   m_buffer = 0;
-
-//   m_shadeMode = eShadeSmooth;
-//   m_currentFlatColor[0] = m_currentFlatColor[1] = m_currentFlatColor[2] = 0.0;
-
-//   m_transformNDC[0][0] = m_transformNDC[0][1] = 0.0;
-//   m_transformNDC[1][0] = m_transformNDC[1][1] = 0.0;
-//   m_transformNDC[2][0] = m_transformNDC[2][1] = 0.0;
-//   m_transformViewport[0][0] = m_transformViewport[0][1] = 0.0;
-//   m_transformViewport[1][0] = m_transformViewport[1][1] = 0.0;
-//   m_transformViewport[2][0] = m_transformViewport[2][1] = 0.0;
-
-//   m_graphicsState = 0;
-// }
-
 SoftwareRenderer::SoftwareRenderer(const int width, const int height, float *buffer)
 {
   m_numVertexComponents = 0;
@@ -776,15 +684,6 @@ SoftwareRenderer::~SoftwareRenderer() {
 
 }
 
-void 
-SoftwareRenderer::Buffer(float *buffer)
-{
-  // NOTE: buffer must be at least as big as m_buffer
-  GraphicsState *graphicsState = (GraphicsState *) m_graphicsState;
-  m_buffer = buffer;
-  graphicsState->buffer = m_buffer;
-}
-
 void
 SoftwareRenderer::Ortho2D(const double left, const double right,
 			  const double bottom, const double top)
@@ -798,7 +697,7 @@ SoftwareRenderer::Ortho2D(const double left, const double right,
   double deltay = top - bottom;
 
   if ((deltax == 0.0) || (deltay == 0.0))
-    return;
+    vw_throw(LogicErr() << "SoftwareRenderer: Ortho2D failed.  Projection dimensions are zero.");
 
   m_transformNDC[0][1] = m_transformNDC[1][0] = 0.0;
   m_transformNDC[0][0] = 2.0 / deltax;
@@ -807,48 +706,16 @@ SoftwareRenderer::Ortho2D(const double left, const double right,
   m_transformNDC[2][1] = -(top + bottom) / deltay;
 }
 
-void
-SoftwareRenderer::ClearColor(const float red, const float green,
-			     const float blue, const float alpha)
-{
-  m_clearColor[0] = red;
-  m_clearColor[1] = green;
-  m_clearColor[2] = blue;
-  m_clearColor[3] = alpha;
-}
-
-void
-SoftwareRenderer::Clear(int bufferSelect)
-{
+void 
+SoftwareRenderer::Clear(const float value) {
   int bufferSize = m_bufferWidth * m_bufferHeight;
-  //  cout << "Clear color[0] = " << m_clearColor[0] << endl;
-  for (int i = 0; i < bufferSize; i++)
-    m_buffer[i] = m_clearColor[0];
+  for (int i = 0; i < bufferSize; ++i)
+    m_buffer[i] = value;
 }
 
 void
-SoftwareRenderer::Color(const float red, const float green, const float blue)
+SoftwareRenderer::SetVertexPointer(const int numComponents, float * const vertices)
 {
-  // In the following we limit colors to lie between 0.0 and 1.0
-  m_currentFlatColor[0] = (red > 1.0) ? 1.0 : ((red < 0.0) ? 0.0 : red);
-  m_currentFlatColor[1] = (green > 1.0) ? 1.0 : ((green < 0.0) ? 0.0 : green);
-  m_currentFlatColor[2] = (blue > 1.0) ? 1.0 : ((blue < 0.0) ? 0.0 : blue);
-}
-
-void
-SoftwareRenderer::Color(const unsigned char red, const unsigned char green,
-			const unsigned char blue)
-{
-  m_currentFlatColor[0] = float(red) / 255.0;
-  m_currentFlatColor[1] = float(green) / 255.0;
-  m_currentFlatColor[2] = float(blue) / 255.0;
-}
-
-void
-SoftwareRenderer::SetVertexPointer(const int numComponents, const int stride,
-				   float * const vertices)
-{
-  // We ignore stride for the time being...
   m_numVertexComponents = numComponents;
   m_triangleVertexStep = kVerticesPerTriangle * m_numVertexComponents;
 
@@ -856,10 +723,8 @@ SoftwareRenderer::SetVertexPointer(const int numComponents, const int stride,
 }
 
 void
-SoftwareRenderer::SetColorPointer(const int numComponents, const int stride,
-				  float * const colors)
+SoftwareRenderer::SetColorPointer(const int numComponents, float * const colors)
 {
-  // We ignore stride for the time being...
   m_numColorComponents = numComponents;
   m_triangleColorStep = kVerticesPerTriangle * m_numColorComponents;
 
@@ -898,8 +763,12 @@ SoftwareRenderer::DrawPolygon(const int startIndex, const int numVertices)
     Vertex vertex1(&vertices[vertexIndex1], color1);
     Vertex vertex2(&vertices[vertexIndex2], color2);
 
-    MapToWindow(vertex1.window, m_transformNDC, 0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),vertex1.window);
-    MapToWindow(vertex2.window, m_transformNDC,0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),vertex2.window);
+    MapToWindow(vertex1.window, m_transformNDC, 
+                0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),
+                vertex1.window);
+    MapToWindow(vertex2.window, m_transformNDC,
+                0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),
+                vertex2.window);
 
     FillTriangle((GraphicsState *) m_graphicsState, &vertex0, &vertex1, &vertex2);
 
