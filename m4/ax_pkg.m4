@@ -12,29 +12,32 @@ AC_DEFUN([AX_PKG],
   ADD_$1_LDFLAGS="$PKG_$1_LDFLAGS"
   PKG_$1_LDFLAGS=""
 
-  if test x"$ENABLE_VERBOSE" = "xyes"; then
-    if test -z "$6"; then
-      AC_MSG_CHECKING([for package $1 in current paths])
-    else
-      AC_MSG_CHECKING([for package $1 in current paths with functions ($6)])
-    fi
-  else
-    if test -z "$6"; then
-      AC_MSG_CHECKING([for package $1])
-    else
-      AC_MSG_CHECKING([for package $1 with functions ($6)])
-    fi
+  if test -z "$ADD_$1_CPPFLAGS"; then :; else
+    AX_LOG([APPEND: ADD_]$1[_CPPFLAGS=$ADD_]$1[_CPPFLAGS])
   fi
+  if test -z "$ADD_$1_LDFLAGS"; then :; else
+    AX_LOG([APPEND: ADD_]$1[_LDFLAGS=$ADD_]$1[_LDFLAGS])
+  fi
+
+  m4_ifval([$6],
+    [AC_MSG_CHECKING([for package $1 with functions ($6)])],
+    [AC_MSG_CHECKING([for package $1])])
 
   AC_LANG_ASSERT(C++)
 
   # We can skip searching if we're already at "no"
   if test "no" = "$HAVE_PKG_$1"; then
     AC_MSG_RESULT([no (disabled by user)])
-
+  elif test x"${HAVE_PKG_$1#no:}" != "x$HAVE_PKG_$1"; then # read as: if has_prefix(HAVE_PKG_$1, "no:")
+    dnl { and } break AC_MSG_RESULT
+    reason="${HAVE_PKG_$1#no:}"
+    AC_MSG_RESULT([no ($reason)])
+    HAVE_PKG_$1=no
   else
     if test -z "${PKG_$1_LIBS}"; then
         PKG_$1_LIBS="$3"
+    else
+        AX_LOG([OVERRIDE: ]$1[ libs (]$3[) with $PKG_]$1[_LIBS])
     fi
 
     # Test for and inherit from dependencies
@@ -65,10 +68,6 @@ AC_DEFUN([AX_PKG],
     # Otherwise we look for a path that contains the needed headers and libraries
     else
 
-      if test "x$ENABLE_VERBOSE" = "yes"; then
-        AC_MSG_RESULT([searching...])
-      fi
-
       if test -n "${HAVE_PKG_$1}" && test "${HAVE_PKG_$1}" != "yes" && test "${HAVE_PKG_$1}" != "no"; then
         PKG_PATHS_$1="${HAVE_PKG_$1}"
       else
@@ -85,7 +84,7 @@ AC_DEFUN([AX_PKG],
 
       LIBS="$PKG_$1_LIBS $LIBS"
       for path in $PKG_PATHS_$1; do
-        echo ["SEARCH: Checking $path for $3"] >&AS_MESSAGE_LOG_FD
+        AX_LOG([SEARCH: Checking $path for $PKG_]$1[_LIBS])
 
         CPPFLAGS="$PKG_$1_CPPFLAGS $ax_pkg_old_cppflags"
         LDFLAGS="$ax_pkg_old_ldflags"
@@ -100,10 +99,6 @@ AC_DEFUN([AX_PKG],
         TRY_ADD_CPPFLAGS="$ADD_$1_CPPFLAGS"
         TRY_ADD_LDFLAGS="$ADD_$1_LDFLAGS"
 
-        if test x"$ENABLE_VERBOSE" = "xyes"; then
-          AC_MSG_CHECKING([for package $1 in $path])
-        fi
-
         if test "$path" != "default"; then
           # ISIS is really stupid, and they use /foo/inc as their include file
           # location instead of /foo/include. So we check for that. This sees 
@@ -115,11 +110,9 @@ AC_DEFUN([AX_PKG],
             fi
           fi
 
-          if test -z "$5"; then
-            TRY_ADD_CPPFLAGS="$TRY_ADD_CPPFLAGS -I$path/${AX_INCLUDE_DIR}"
-          else
-            TRY_ADD_CPPFLAGS="$TRY_ADD_CPPFLAGS -I$path/${AX_INCLUDE_DIR}/$5"
-          fi
+          m4_ifval([$5],
+            [TRY_ADD_CPPFLAGS="$TRY_ADD_CPPFLAGS -I$path/${AX_INCLUDE_DIR}/]$5["],
+            [TRY_ADD_CPPFLAGS="$TRY_ADD_CPPFLAGS -I$path/${AX_INCLUDE_DIR}"])
 
           if test -d $path/${AX_LIBDIR}; then
               TRY_ADD_LDFLAGS="$TRY_ADD_LDFLAGS -L$path/${AX_LIBDIR}"
@@ -148,9 +141,6 @@ AC_DEFUN([AX_PKG],
 
         TRY_ADD_CPPFLAGS=""
         TRY_ADD_LDFLAGS=""
-        if test x"$ENABLE_VERBOSE" = "xyes"; then
-          AC_MSG_RESULT([no])
-        fi
       done
 
       # Append to CPPFLAGS, since that's the order we detected in
@@ -166,7 +156,7 @@ AC_DEFUN([AX_PKG],
       LDFLAGS="$ax_pkg_old_ldflags"
       LIBS="$ax_pkg_old_libs"
 
-      if test "x$HAVE_PKG_$1" = "xno" -a "x$ENABLE_VERBOSE" != "xyes"; then
+      if test "x$HAVE_PKG_$1" = "xno" ; then
         AC_MSG_RESULT([no (not found)])
       fi
     fi
@@ -187,13 +177,11 @@ AC_DEFUN([AX_PKG],
   AC_SUBST(PKG_$1_LIBS)
   AC_SUBST(HAVE_PKG_$1)
 
-  if test x"$ENABLE_VERBOSE" == "xyes"; then
-    AC_MSG_NOTICE([HAVE_PKG_$1 = ${HAVE_PKG_$1}])
-    AC_MSG_NOTICE([PKG_$1_CPPFLAGS= $PKG_$1_CPPFLAGS])
-    AC_MSG_NOTICE([PKG_$1_LIBS= $PKG_$1_LIBS])
-    AC_MSG_NOTICE([CPPFLAGS= $CPPFLAGS])
-    AC_MSG_NOTICE([LDFLAGS= $LDFLAGS])
-    AC_MSG_NOTICE([OTHER_CPPFLAGS= $OTHER_CPPFLAGS])
-    AC_MSG_NOTICE([OTHER_LDFLAGS= $OTHER_LDFLAGS])
-  fi
+  AX_LOG([HAVE_PKG_]$1[ = ${HAVE_PKG_]$1[}])
+  AX_LOG([PKG_]$1[_CPPFLAGS= $PKG_]$1[_CPPFLAGS])
+  AX_LOG([PKG_]$1[_LIBS= $PKG_]$1[_LIBS])
+  AX_LOG([CPPFLAGS= $CPPFLAGS])
+  AX_LOG([LDFLAGS= $LDFLAGS])
+  AX_LOG([OTHER_CPPFLAGS= $OTHER_CPPFLAGS])
+  AX_LOG([OTHER_LDFLAGS= $OTHER_LDFLAGS])
 ])

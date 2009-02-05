@@ -37,7 +37,8 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
         AX_FIND_FILES([`echo $2 | sed "s/-l\([[^[:space:]]]*\)/lib\1${BOOST_LIBRARIES_SUFFIX}.*/g"`],[$PKG_BOOST_LIBDIR])
         if test ! -z "$ax_find_files_path" ; then
           HAVE_PKG_BOOST_$1="yes"
-          PKG_BOOST_$1_LIBS="$2${BOOST_LIBRARIES_SUFFIX}"
+          ax_pkg_boost_lib=`echo $2 | sed "s/\(-l[[^[:space:]]]*\)/\1${BOOST_LIBRARIES_SUFFIX}/g"`
+          PKG_BOOST_$1_LIBS="$PKG_BOOST_LIBS $ax_pkg_boost_lib"
         else
           # Check for required libraries with some suffix. We have to check
           # for both a suffix before ${BOOST_LIBRARIES_SUFFIX} (pre-suffix)
@@ -58,6 +59,7 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
           if test ! -z $ax_find_files_path ; then
             HAVE_PKG_BOOST_$1="yes"
             PKG_BOOST_$1_LIBS=`echo $2 | sed "s/[[^ ]]*/&${ax_pkg_boost_presuffix}${BOOST_LIBRARIES_SUFFIX}${ax_pkg_boost_postsuffx}/g"`
+            PKG_BOOST_$1_LIBS="$PKG_BOOST_LIBS $PKG_BOOST_$1_LIBS"
           fi
         fi
       fi

@@ -3,7 +3,7 @@ dnl check a pkg for an optional function, and perhaps call it by a different nam
 AC_DEFUN([PKG_CHECK_FUNCTION],
 [AS_VAR_PUSHDEF([var], [m4_tolower([[$1]])[_has_]m4_tolower(m4_default([$3],[$2]))])
   var=0
-  if test x"$HAVE_PKG_[]m4_toupper([[$1]])" != x"no"; then
+  if test x"$HAVE_PKG_[]m4_toupper([[$1]])" = x"yes"; then
     AX_CHECK_FUNCTIONS([$2], [$PKG_[]m4_toupper([[$1]])[]_LIBS], [var=1], [], [for $3 in $1])
   fi
   if test x"$var" = "x1"; then

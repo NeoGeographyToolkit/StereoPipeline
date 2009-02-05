@@ -64,8 +64,8 @@ AC_DEFUN([AX_MODULE_PYTHON],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the PYTHON module is available.])
 
-  if test "$ENABLE_VERBOSE" = "yes" && test "$HAVE_PKG_PYTHON_SRC" = "yes" ; then
-    AC_MSG_NOTICE(MAKE_MODULE_PYTHON = ${MAKE_MODULE_PYTHON})
-    AC_MSG_NOTICE(HAVE_PKG_PYTHON = ${HAVE_PKG_PYTHON})
+  if test "$HAVE_PKG_PYTHON_SRC" = "yes" ; then
+    AX_LOG([MAKE_MODULE_PYTHON = $MAKE_MODULE_PYTHON])
+    AX_LOG([HAVE_PKG_PYTHON = $HAVE_PKG_PYTHON])
   fi
 ])

@@ -98,11 +98,11 @@ AC_DEFUN([AX_MODULE],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the $1 module is available.])
 
-  if test "$ENABLE_VERBOSE" = "yes" && test "$HAVE_PKG_$1_SRC" = "yes" ; then
-    AC_MSG_NOTICE(MAKE_MODULE_$1 = ${MAKE_MODULE_$1})
-    AC_MSG_NOTICE(HAVE_PKG_$1 = ${HAVE_PKG_$1})
-    AC_MSG_NOTICE(MODULE_$1_LIBS = ${MODULE_$1_LIBS})
-    AC_MSG_NOTICE(PKG_$1_LIBS = ${PKG_$1_LIBS})
+  if test "$HAVE_PKG_$1_SRC" = "yes" ; then
+    AX_LOG([MAKE_MODULE_]$1[ = $MAKE_MODULE_]$1)
+    AX_LOG([HAVE_PKG_]$1[ = $HAVE_PKG_]$1)
+    AX_LOG([MODULE_]$1[_LIBS = $MODULE_]$1[_LIBS])
+    AX_LOG([PKG_]$1[_LIBS = $PKG_]$1[_LIBS])
   fi
 
   #  We're putting these in configure.ac manually by now, for

@@ -135,9 +135,7 @@ PKG_PATHS=""
 AX_ARG_WITH(pkg-paths, [], [none], [additional search path(s) for packages])
 PKG_PATHS="$PKG_PATHS $PKG_PATHS_FROM_FILE $ENABLE_PKG_PATHS_DEFAULT"
 
-if test "yes" = "$ENABLE_VERBOSE"; then
-  AC_MSG_NOTICE([using PKG_PATHS=$PKG_PATHS])
-fi
+AX_LOG([using PKG_PATHS=$PKG_PATHS])
 
 
 

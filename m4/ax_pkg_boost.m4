@@ -8,7 +8,7 @@ AC_DEFUN([AX_PKG_BOOST],
 
   AC_LANG_ASSERT(C++)
 
-  if test -n "${HAVE_PKG_BOOST}" && test "${HAVE_PKG_BOOST}" != "yes" && test "${HAVE_PKG_BOOST}" != "no"; then
+  if test -n "${HAVE_PKG_BOOST}" && test "${HAVE_PKG_BOOST}" != "yes" && test "${HAVE_PKG_BOOST}" != "no" && test x"${HAVE_PKG_$1#no:}" == "x$HAVE_PKG_$1"; then
     PKG_PATHS_BOOST=${HAVE_PKG_BOOST}
     unset HAVE_PKG_BOOST
   else
