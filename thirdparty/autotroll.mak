@@ -66,15 +66,15 @@ SUFFIXES += .moc.cpp .moc.cc .moc.cxx .moc.C .h .hh .ui .ui.h .ui.hh	\
 # --- #
 
 .qrc.qrc.cpp:
-	$(RCC) -name `echo "$<" | sed 's/\.qrc$$//'` $< -o $@
+	$(RCC) -name `echo "$<" | sed 's|^.*/\(.*\)\.qrc$$|\1|'` $< -o $@
 
 .qrc.qrc.cc:
-	$(RCC) -name `echo "$<" | sed 's/\.qrc$$//'` $< -o $@
+	$(RCC) -name `echo "$<" | sed 's|^.*/\(.*\)\.qrc$$|\1|'` $< -o $@
 
 .qrc.qrc.cxx:
-	$(RCC) -name `echo "$<" | sed 's/\.qrc$$//'` $< -o $@
+	$(RCC) -name `echo "$<" | sed 's|^.*/\(.*\)\.qrc$$|\1|'` $< -o $@
 
 .qrc.qrc.C:
-	$(RCC) -name `echo "$<" | sed 's/\.qrc$$//'` $< -o $@
+	$(RCC) -name `echo "$<" | sed 's|^.*/\(.*\)\.qrc$$|\1|'` $< -o $@
 
 DISTCLEANFILES = $(BUILT_SOURCES)
