@@ -36,6 +36,7 @@ class StereoSettings {
 public:
   StereoSettings();
   void read(std::string const& filename);
+  void copy_settings(std::string const& filename, std::string const& destination);
 
   // ----------------
   // Public variables
