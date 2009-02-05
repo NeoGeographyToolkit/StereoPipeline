@@ -125,7 +125,7 @@ AM_CONDITIONAL(DIST_CONFIG_OPTIONS_DEFAULT, [test ! -z "$DIST_CONFIG_OPTIONS_DEF
 # package checks
 ##################################################
 
-AX_ARG_ENABLE(pkg-paths-default, [${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /usr/X11R6 /usr], [none], [Whether to use a built-in search path])
+AX_ARG_ENABLE(pkg-paths-default, [${HOME} ${HOME}/local /sw /opt /opt/local /usr/local /usr/X11R6 /usr /usr/local/cuda], [none], [Whether to use a built-in search path])
 if test x"$ENABLE_PKG_PATHS_DEFAULT" = "xno"; then
   ENABLE_PKG_PATHS_DEFAULT=
 fi
