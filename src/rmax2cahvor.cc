@@ -83,7 +83,10 @@ int main(int argc, char* argv[]) {
   usage << general_options << std::endl;
 
   if( vm.count("help") ) {
-    std::cout << usage << std::endl;
+    std::cout << usage.str() << std::endl;
+    return 1;
+  } else if ( vm.count("input-file") < 1 ) {
+    std::cout << "No input files!\n" << usage.str() << std::endl;
     return 1;
   }
 
