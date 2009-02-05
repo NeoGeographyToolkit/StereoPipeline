@@ -63,6 +63,10 @@ using namespace vw;
 #include <osgDB/WriteFile>
 #include <osgDB/ReadFile>
 
+// ---------------------------------------------------------
+// UTILITIES
+// ---------------------------------------------------------
+
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
@@ -90,18 +94,11 @@ static std::string prefix_from_pointcloud_filename(std::string const& filename) 
   return result;
 }
 
-// Another Hack from the orginal point2mesh. It's magic.
-class PointTransFunc : public ReturnFixedType<Vector3> {
-  Matrix3x3 m_trans;
-public:
-  PointTransFunc(Matrix3x3 trans) : m_trans(trans) {}
-  Vector3 operator() (Vector3 const& pt) const { return m_trans*pt; }
-};
-
-/*********************************************************************
-* create1DTexture                                                    *
-*  Calculates a way to build color data on the DEM                   *
-*********************************************************************/
+// ---------------------------------------------------------
+// BUILD MESH
+// 
+// Calculates a way to build color data on the DEM.
+// ---------------------------------------------------------
 osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direction ){
   const osg::BoundingSphere& bs = loadedModel->getBound();
 
@@ -147,7 +144,6 @@ osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direc
   osg::Material* material = new osg::Material;
 
   osg::StateSet* stateset = new osg::StateSet;
-
   stateset->setTextureAttribute( 0 , texture , osg::StateAttribute::OVERRIDE );
   stateset->setTextureMode( 0 , GL_TEXTURE_1D , osg::StateAttribute::ON  | osg::StateAttribute::OVERRIDE );
   stateset->setTextureMode( 0 , GL_TEXTURE_2D , osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE );
@@ -161,10 +157,11 @@ osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direc
   return stateset;
 }
 
-/*********************************************************************
-* Build_Mesh                                                         *
-*  Takes in an image and builds geodes for every triangle strip.     *
-*********************************************************************/
+// ---------------------------------------------------------
+// BUILD MESH
+// 
+// Takes in an image and builds geodes for every triangle strip.
+// ---------------------------------------------------------
 template <class ViewT>
 osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& step_size, const std::string& tex_file, osg::Vec3f& dataNormal, bool light) {
 
@@ -390,9 +387,61 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   
 }
 
-/*********************************************************************
-* Main                                                               *
-*********************************************************************/
+// ---------------------------------------------------------
+// POINT IMAGE TRANSFORM
+// ---------------------------------------------------------
+class PointTransFunc : public ReturnFixedType<Vector3> {
+  Matrix3x3 m_trans;
+public:
+  PointTransFunc(Matrix3x3 trans) : m_trans(trans) {}
+  Vector3 operator() (Vector3 const& pt) const { return m_trans*pt; }
+};
+
+// ---------------------------------------------------------
+// POINT IMAGE OFFSET
+// ---------------------------------------------------------
+
+// Apply an offset to the points in the PointImage
+class PointOffsetFunc : public UnaryReturnSameType {
+  Vector3 m_offset;
+  
+public:
+  PointOffsetFunc(Vector3 const& offset) : m_offset(offset) {}    
+  
+  template <class T>
+  T operator()(T const& p) const {
+    if (p == T()) return p;
+    return p + m_offset;
+  }
+};
+
+template <class ImageT>
+UnaryPerPixelView<ImageT, PointOffsetFunc>
+inline point_image_offset( ImageViewBase<ImageT> const& image, Vector3 const& offset) {
+  return UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
+}
+
+template <class ViewT>
+BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
+  // Compute bounding box
+  BBox<float,3> result;
+  typename ViewT::pixel_accessor row_acc = point_image.impl().origin();
+  for( int32 row=0; row < point_image.impl().rows(); ++row ) {
+    typename ViewT::pixel_accessor col_acc = row_acc;
+    for( int32 col=0; col < point_image.impl().cols(); ++col ) {
+      if (*col_acc != Vector3())
+        result.grow(*col_acc);
+      col_acc.next_col();
+    }
+    row_acc.next_row();
+  }
+  return result;
+}
+
+// ---------------------------------------------------------
+// MAIN
+// ---------------------------------------------------------
+
 int main( int argc, char *argv[] ){
   //Main Variables
   set_debug_level(VerboseDebugMessage+11);
@@ -428,6 +477,7 @@ int main( int argc, char *argv[] ){
        "Specify the output file")
     ("enable-lighting,l",
      "Enables shades and light on the mesh" )
+    ("center", "Center the model around the origin.  Use this option if you are experiencing numerical precision issues.")
     ("rotation-order",    po::value<std::string>(&rot_order)->default_value("xyz"),
        "Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation",      po::value<double>(&phi_rot)->default_value(0), 
@@ -464,25 +514,37 @@ int main( int argc, char *argv[] ){
     output_prefix = prefix_from_pointcloud_filename(pointcloud_filename);
   }
 
-  //Loading point cloud!
+  // Loading point cloud!
   DiskImageView<Vector3> point_disk_image(pointcloud_filename);
   ImageViewRef<Vector3> point_image = point_disk_image;
 
-  //Applying option rotations before hand
+  // Centering Option (helpful if you are experiencing round-off error...)
+  if (vm.count("center")) {
+    BBox<float,3> bbox = point_image_bbox(point_disk_image);
+    std::cout << "\t--> Centering model around the origin.\n";
+    std::cout << "\t    Initial point image bounding box: " << bbox << "\n";
+    Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;
+    std::cout << "\t    Midpoint: " << midpoint << "\n";
+    point_image = point_image_offset(point_image, -midpoint);
+    BBox<float,3> bbox2 = point_image_bbox(point_image);
+    std::cout << "\t    Re-centered point image bounding box: " << bbox2 << "\n";
+  }
+
+  // Applying option rotations before hand
   if ( phi_rot != 0 || omega_rot != 0 || kappa_rot != 0 ) {
     std::cout << "Applying rotation sequence: " << rot_order << "\tAngles: " << phi_rot << "   " << omega_rot << "   " << kappa_rot << std::endl;
     Matrix3x3 rotation_trans = math::euler_to_rotation_matrix( phi_rot, omega_rot , kappa_rot , rot_order );
     point_image = vw::per_pixel_filter(point_image, PointTransFunc( rotation_trans ) );
   }
 
-  //Building Mesh
+  // Building Mesh
   std::cout << "\nGenerating 3D mesh from point cloud:\n";
   {
     root->addChild(build_mesh(point_image, step_size, texture_file_name , dataNormal, vm.count("enable-lighting") ));
 
     if ( vm.count( "texture-file" ) ) {
 
-      //Turning off lighting and other likes
+      // Turning off lighting and other likes
       osg::StateSet* stateSet = new osg::StateSet();
       if ( !vm.count("enable-lighting") )
 	stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
@@ -497,11 +559,11 @@ int main( int argc, char *argv[] ){
 	stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
       stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
       root->setStateSet( stateSet );
-      
+
     }
   }
 
-  //Smooth Option
+  // Smooth Option
   if ( vm.count( "smooth-mesh" ) ) {
     
     std::cout << "Smoothing Data\n";
@@ -510,7 +572,7 @@ int main( int argc, char *argv[] ){
 
   }
 
-  //Simplify Option
+  // Simplify Option
   if ( vm.count( "simplify-mesh" ) ) {
     
     if ( simplify_percent == 0.0 )
@@ -524,14 +586,14 @@ int main( int argc, char *argv[] ){
 
   }
 
-  //Optimizing Data
+  // Optimizing Data
   {
     std::cout << "Optimizing Data\n";
     osgUtil::Optimizer optimizer;
     optimizer.optimize( root.get() );
   }
 
-  //Saving Data
+  // Saving Data
   std::cout << "\nSaving Data:\n";
   {
     std::ostringstream os;

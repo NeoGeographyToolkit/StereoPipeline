@@ -94,6 +94,48 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+
+template <class ViewT>
+BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
+  // Compute bounding box
+  BBox<float,3> result;
+  typename ViewT::pixel_accessor row_acc = point_image.impl().origin();
+  for( int32 row=0; row < point_image.impl().rows(); ++row ) {
+    typename ViewT::pixel_accessor col_acc = row_acc;
+    for( int32 col=0; col < point_image.impl().cols(); ++col ) {
+      if (*col_acc != Vector3())
+        result.grow(*col_acc);
+      col_acc.next_col();
+    }
+    row_acc.next_row();
+  }
+  return result;
+}
+
+
+
+// Apply an offset to the points in the PointImage
+class PointOffsetFunc : public UnaryReturnSameType {
+  Vector3 m_offset;
+  
+public:
+  PointOffsetFunc(Vector3 const& offset) : m_offset(offset) {}    
+  
+  template <class T>
+  T operator()(T const& p) const {
+    if (p == T()) return p;
+    return p + m_offset;
+  }
+};
+
+template <class ImageT>
+UnaryPerPixelView<ImageT, PointOffsetFunc>
+inline point_image_offset( ImageViewBase<ImageT> const& image, Vector3 const& offset) {
+  return UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
+}
+
+
+
 class PointTransFunc : public ReturnFixedType<Vector3> {
   Matrix3x3 m_trans;
 public:
@@ -120,6 +162,7 @@ int main( int argc, char *argv[] ) {
     ("simplemesh-v-step", po::value<unsigned>(&simplemesh_v_step)->default_value(1), "Vertical step size for simple meshing algorithm")
     ("mesh-tolerance", po::value<float>(&mesh_tolerance)->default_value(0.001), "Tolerance for the adaptive meshing algorithm")
     ("max_triangles", po::value<unsigned>(&max_triangles)->default_value(1000000), "Maximum triangles for the adaptive meshing algorithm")
+    ("center", "Center the model around the origin.  Use this option if you are experiencing numerical precision issues.")
     ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
     ("input-file", po::value<std::string>(&pointcloud_filename), "Explicitly specify the input file")
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
@@ -163,7 +206,18 @@ int main( int argc, char *argv[] ) {
 
   DiskImageView<Vector3> point_disk_image(pointcloud_filename);
   ImageViewRef<Vector3> point_image = point_disk_image;
-
+  
+  if (vm.count("center")) {
+    BBox<float,3> bbox = point_image_bbox(point_disk_image);
+    std::cout << "\t--> Centering model around the origin.\n";
+    std::cout << "\t    Initial point image bounding box: " << bbox << "\n";
+    Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;
+    std::cout << "\t    Midpoint: " << midpoint << "\n";
+    point_image = point_image_offset(point_image, -midpoint);
+    BBox<float,3> bbox2 = point_image_bbox(point_image);
+    std::cout << "\t    Re-centered point image bounding box: " << bbox2 << "\n";
+  }
+  
   // Apply an (optional) rotation to the 3D points before building the mesh.
   if (phi_rot != 0 || omega_rot != 0 || kappa_rot != 0) {
     std::cout << "Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
