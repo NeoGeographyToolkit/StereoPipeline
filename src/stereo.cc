@@ -267,7 +267,7 @@ int main(int argc, char* argv[]) {
   Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
   if ( num_threads != 0 ) {
     std::cout << "\t--> Setting number of processing threads to: " << num_threads << "\n";
-    Thread::set_default_num_threads(num_threads);
+    vw_settings().set_default_num_threads(num_threads);
   } 
 
   // Create a fresh stereo session and query it for the camera models.
@@ -330,7 +330,11 @@ int main(int argc, char* argv[]) {
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
                       out_prefix, extra_arg1, extra_arg2, extra_arg3, extra_arg4);
 
-  
+  // The last thing we do before we get started is to copy the
+  // stereo.default settings over into the results directory so that
+  // we have a record of the most recent stereo.default that was used
+  // with this data set.
+  stereo_settings().copy_settings(stereo_default_filename, out_prefix + "-stereo.default");
 
   /*********************************************************************************/
   /*                            preprocessing step                                 */
