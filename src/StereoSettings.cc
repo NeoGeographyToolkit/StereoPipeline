@@ -177,3 +177,11 @@ void StereoSettings::read(std::string const& filename) {
   std::cout << "*************************************************************\n";
   fp.close();
 }
+
+void StereoSettings::copy_settings(std::string const& filename, std::string const& destination) {
+  std::ifstream in(filename.c_str());
+  std::ofstream out(destination.c_str());
+  out<<in.rdbuf(); // copy file
+  in.close();
+  out.close();
+}
