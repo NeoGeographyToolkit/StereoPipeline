@@ -705,7 +705,7 @@ int main(int argc, char* argv[]) {
       session->camera_models(camera_model1, camera_model2);
 
       // If the user has generated a set of position and pose
-      // corrections using the bundle_adjsut program, we read them in
+      // corrections using the bundle_adjust program, we read them in
       // here and incorporate them into our camera model.
       Vector3 position_correction;
       Quaternion<double> pose_correction;
