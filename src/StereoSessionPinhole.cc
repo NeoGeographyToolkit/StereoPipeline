@@ -190,8 +190,6 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
 
     math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 10);
     T = ransac(ransac_ip2, ransac_ip1);
-    std::vector<int> indices;
-    indices = ransac.inlier_indices(T,ransac_ip2,ransac_ip1);
     vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
     
   } catch (...) {
@@ -208,6 +206,37 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
 
 boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(std::string image_file, 
                                                                               std::string camera_file) {
+  // Keypoint alignment
+  if ( stereo_settings().keypoint_alignment ) {
+    if (boost::ends_with(boost::to_lower_copy(camera_file),".cahvor") ||
+	boost::ends_with(boost::to_lower_copy(camera_file),".cmod") ) {
+      DiskImageView<PixelGray<float> > image(image_file);
+      CAHVORModel camera(camera_file);
+      boost::shared_ptr<CAHVModel> output( new CAHVModel );
+      *output = linearize_camera( camera,
+				  image.cols(), image.rows(),
+				  image.cols(), image.rows() );
+      return output;
+    } else if ( boost::ends_with(boost::to_lower_copy(camera_file),".cahv") ||
+		boost::ends_with(boost::to_lower_copy(camera_file),".pin") ) {
+      boost::shared_ptr<CAHVModel> output( new CAHVModel( camera_file ) );
+      return output;
+    } else if ( boost::ends_with(boost::to_lower_copy(camera_file),"tsai") ) {
+      PinholeModel camera(camera_file);
+      boost::shared_ptr<CAHVModel> output( new CAHVModel );
+      *output = linearize_camera( camera );
+      return output;
+    } else {
+      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported cameara file type.\n");
+    }
+  }
+
+  // Epipolar Alignment
+
+  // Load the image
+  DiskImageView<PixelGray<float> > left_image(m_left_image_file);
+  DiskImageView<PixelGray<float> > right_image(m_right_image_file);
+
   bool is_left_camera = true;
   if (camera_file == m_left_camera_file) 
     is_left_camera = true;
@@ -215,10 +244,6 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(st
     is_left_camera = false;
   else 
     (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
-
-  // Load the image
-  DiskImageView<PixelGray<float> > left_image(m_left_image_file);
-  DiskImageView<PixelGray<float> > right_image(m_right_image_file);
 
   // Return the appropriate camera model object
   CAHVModel left_cahv, right_cahv;

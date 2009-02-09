@@ -97,9 +97,6 @@ public:
       b_initial[i] = b[i];
     }
 
-    std::ofstream ostr("test.txt",std::ios::out);
-    ostr << "";
-    ostr.close();
   }
 
   // Return a reference to the camera and point parameters.
@@ -303,15 +300,11 @@ public:
     //double min_gcp = *(std::min_element(gcp_errors.begin(), gcp_errors.end()));
     //double max_gcp = *(std::max_element(gcp_errors.begin(), gcp_errors.end()));
 
-    std::ofstream ostr("test.txt",std::ios::app);
     double pix_total = 0;
     for (unsigned i=0; i < pix_errors.size(); ++i) {
       pix_total += pix_errors[i];
-      ostr << pix_errors[i] << " ";
     }
-    ostr << "\n";
-    ostr.close(); 
-
+    
     double cam_position_total = 0;
     for (unsigned i=0; i < camera_position_errors.size(); ++i) {
       cam_position_total += camera_position_errors[i];
