@@ -277,6 +277,10 @@ int main( int argc, char *argv[] ) {
   // up processing in the orthorasterizer, which accesses each pixel
   // multiple times.
   DiskCacheImageView<Vector3> point_image_cache(point_image, "tif");
+
+
+  // ----> For debugging: (for Larry) <-----
+  //  write_image("test2.tif", channel_cast<float>(select_channel(point_image_cache,2)-1134.2), TerminalProgressCallback());
   
   // write out the DEM, texture, and extrapolation mask as
   // georeferenced files.
