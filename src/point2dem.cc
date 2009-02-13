@@ -284,7 +284,7 @@ int main( int argc, char *argv[] ) {
   
   // write out the DEM, texture, and extrapolation mask as
   // georeferenced files.
-  vw::cartography::OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2), dem_spacing);
+  OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2), dem_spacing);
   if (!vm.count("default-value") ) {
     rasterizer.set_use_minz_as_default(true); 
   } else {
@@ -309,7 +309,7 @@ int main( int argc, char *argv[] ) {
     rasterizer.set_use_minz_as_default(false);
     DiskImageView<PixelGray<float> > texture(texture_filename); 
     rasterizer.set_texture(texture);
-    BlockCacheView<PixelGray<float> > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 2048));
+    BlockCacheView<OrthoRasterizerView<PixelGray<float> > > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 2048));
     if (vm.count("use-alpha")) {
       write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(apply_mask(block_drg_raster,PixelGray<float>(-32000))), georef, TerminalProgressCallback() );
     }
@@ -320,7 +320,7 @@ int main( int argc, char *argv[] ) {
   } else {
     // Write out the DEM.
     std::cout << "\nWriting DEM.\n";
-    BlockCacheView<PixelGray<float> > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
+    BlockCacheView<OrthoRasterizerView<PixelGray<float> > > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
     write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
 
     if (vm.count("gmt")) 
