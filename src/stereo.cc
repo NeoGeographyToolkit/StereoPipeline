@@ -758,8 +758,8 @@ int main(int argc, char* argv[]) {
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format() );
-      point_cloud_rsrc.set_native_block_size(Vector2i(std::min(1024,point_cloud.cols()),
-                                                      std::min(1024, point_cloud.rows())));
+      point_cloud_rsrc.set_block_size(Vector2i(std::min(1024,point_cloud.cols()),
+					       std::min(1024, point_cloud.rows())));
 
       write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
       vw_out(0) << "\t--> " << universe_radius_func;
