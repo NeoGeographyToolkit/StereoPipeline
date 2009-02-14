@@ -309,7 +309,7 @@ int main( int argc, char *argv[] ) {
     rasterizer.set_use_minz_as_default(false);
     DiskImageView<PixelGray<float> > texture(texture_filename); 
     rasterizer.set_texture(texture);
-    BlockCacheView<OrthoRasterizerView<PixelGray<float> > > block_drg_raster(rasterizer, Vector2i(rasterizer.cols(), 2048));
+    ImageViewRef<PixelGray<float> > block_drg_raster = block_cache(rasterizer, Vector2i(rasterizer.cols(), 2048));
     if (vm.count("use-alpha")) {
       write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(apply_mask(block_drg_raster,PixelGray<float>(-32000))), georef, TerminalProgressCallback() );
     }
@@ -320,7 +320,7 @@ int main( int argc, char *argv[] ) {
   } else {
     // Write out the DEM.
     std::cout << "\nWriting DEM.\n";
-    BlockCacheView<OrthoRasterizerView<PixelGray<float> > > block_dem_raster(rasterizer, Vector2i(rasterizer.cols(), 2024));
+    ImageViewRef<PixelGray<float> > block_dem_raster = block_cache(rasterizer, Vector2i(rasterizer.cols(), 2024));
     write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
 
     if (vm.count("gmt")) 
