@@ -24,10 +24,6 @@
 /// \file StereoSessionPinhole.cc
 ///
 
-// Boost
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
 // Ames Stereo Pipeline
 #include "StereoSettings.h"
 #include "StereoSessionPinhole.h"
@@ -42,6 +38,11 @@
 #include <vw/Stereo.h>
 #include <vw/InterestPoint.h>
 #include <vw/Math.h>
+
+// Boost
+#include <boost/shared_ptr.hpp>
+#include <boost/filesystem.hpp>
+using namespace boost::filesystem;
 
 using namespace vw;
 using namespace vw::ip;
@@ -102,10 +103,8 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
     // Need to at least match the files
     std::vector<InterestPoint> ip1_copy, ip2_copy;
     
-    if ( boost::filesystem::exists( prefix_from_filename(input_file1) + 
-				    ".vwip")&&
-	 boost::filesystem::exists( prefix_from_filename(input_file2) + 
-				    ".vwip") ) {
+    if ( exists( prefix_from_filename(input_file1) + ".vwip") &&
+	 exists( prefix_from_filename(input_file2) + ".vwip") ) {
       // Is there at least VWIP already done for both images?
       vw_out(0) << "\t--> Found cached interest point files: "
 		<< ( prefix_from_filename(input_file1) + ".vwip" ) << "\n"
@@ -164,14 +163,13 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
 	    false, 
 	    TerminalProgressCallback( InfoMessage, "\t    Matching: "));
 
-    write_binary_match_file(prefix_from_filename(input_file1) + "__" +
-			    prefix_from_filename(input_file2) + ".match",
-			    matched_ip1, matched_ip2);
-	
     vw_out(0) << "\t    Caching matches: " 
 	      << ( prefix_from_filename(input_file1)+"__"+
 		   prefix_from_filename(input_file2)+".match") << "\n";
-    
+
+    write_binary_match_file(prefix_from_filename(input_file1) + "__" +
+			    prefix_from_filename(input_file2) + ".match",
+			    matched_ip1, matched_ip2);
   } // End matching
 
   vw_out(InfoMessage) << "\t--> " << matched_ip1.size() 

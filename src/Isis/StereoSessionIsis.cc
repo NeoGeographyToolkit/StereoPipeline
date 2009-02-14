@@ -24,8 +24,7 @@
 /// \file StereoSessionIsis.cc
 ///
 
-#include <boost/shared_ptr.hpp>
-
+// Vision Workbench
 #include <vw/Image.h>
 #include <vw/Math.h>
 #include <vw/FileIO.h>
@@ -41,7 +40,8 @@
 #include "Isis/IsisAdjustCameraModel.h"
 
 // Boost
-#include "boost/filesystem.hpp"   
+#include "boost/filesystem.hpp"
+#include <boost/shared_ptr.hpp>   
 using namespace boost::filesystem; 
 
 using namespace vw;
@@ -90,117 +90,117 @@ static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &i
 }
 
 vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::string const& input_file1, std::string const& input_file2, float lo, float hi) {
-  std::string left_align_image_file(input_file1), right_align_image_file(input_file2);
-
-  // Load the two images
-  DiskImageView<PixelGray<float> > left_disk_image(input_file1);
-  DiskImageView<PixelGray<float> > right_disk_image(input_file2);
-
-  // Image Alignment
-  //
-  // Images are aligned by computing interest points, matching
-  // them using a standard 2-Norm nearest-neighor metric, and then
-  // rejecting outliers by fitting a similarity between the
-  // putative matches using RANSAC.  
-
-  // Interest points are matched in image chunk of <= 2048x2048
-  // pixels to conserve memory.
-  InterestPointList ip1, ip2;
   
-  // If the interest points are cached in a file, read that file in here.
-  if ( boost::filesystem::exists( prefix_from_filename(input_file1) + ".vwip" ) && 
-              boost::filesystem::exists( prefix_from_filename(input_file2) + ".vwip" )) {
-    vw_out(0) << "\t--> Found cached interest point files: "
-              << (prefix_from_filename(input_file1) + ".vwip") << ", "
-              << (prefix_from_filename(input_file2) + ".vwip") << "\n";
-    vw_out(0) << "\t    (Skipping interest point detection step)\n";
-  } else {
-    vw_out(0) << "\t--> Locating Interest Points \n";
-    ImageViewRef<PixelGray<float> > left_image = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
-    ImageViewRef<PixelGray<float> > right_image = normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0);
-    
-    // Interest Point module detector code.
-    LogInterestOperator log_detector;
-    ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 500);
-    vw_out(0) << "\t    Processing " << input_file1 << "\n";
-    ip1 = detect_interest_points(left_image, detector);
-    vw_out(0) << "\t    " << ip1.size() << " points.\n";
-    vw_out(0) << "\t    Processing " << input_file2 << "\n";
-    ip2 = detect_interest_points(right_image, detector);
-    vw_out(0) << "\t    Located " << ip2.size() << " points.\n"; 
-
-    // Generate descriptors for interest points.
-    // TODO: Switch to a more sophisticated descriptor
-    vw_out(0) << "\t    Generating descriptors... " << std::flush;
-    PatchDescriptorGenerator descriptor;
-    descriptor(left_image, ip1);
-    descriptor(right_image, ip2);
-    vw_out(0) << "done.\n";
-  
-    // Write out the results
-    vw_out(0) << "\t    Caching interest points: " 
-              << (prefix_from_filename(input_file1)+".vwip") << ", " 
-              << (prefix_from_filename(input_file2)+".vwip") << "\n"; 
-    write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
-    write_binary_ip_file(prefix_from_filename(input_file2)+".vwip", ip2);
-  }
-
-  // Checking once again to see if the match file exists. This could
-  // be done better.
   std::vector<InterestPoint> matched_ip1, matched_ip2;
-  if ( boost::filesystem::exists( prefix_from_filename(input_file1) + "__" +
-				  prefix_from_filename(input_file2) + ".match" ) ) {
-    vw_out(0) << "\t--> Found cached interest point match file: " << ( prefix_from_filename(input_file1) + "__" +
-                                                                  prefix_from_filename(input_file2) + ".match" ) << "\n";
+  if ( exists( prefix_from_filename( input_file1 ) + "__" +
+	       prefix_from_filename( input_file2 ) + ".match" ) ) {
+    // Is there a match file linking these 2 image?
+
+    vw_out(0) << "\t--> Found cached interest point match file: "
+	      << ( prefix_from_filename(input_file1) + "__" +
+		   prefix_from_filename(input_file2) + ".match" ) << "\n";
     read_binary_match_file( ( prefix_from_filename(input_file1) + "__" +
 			      prefix_from_filename(input_file2) + ".match" ),
 			    matched_ip1, matched_ip2 );
-  } else { 
-    vw_out(0) << "\t--> Matching interest points\n";
-    // The basic interest point matcher does not impose any
-    // constraints on the matched interest points.
-    double matcher_threshold = 0.8;
+  } else {
 
-    // RANSAC needs the matches as a vector, and so does the matcher.
-    // this is messy, but for now we simply make a copy.
+    // Next best thing.. VWIPs?
     std::vector<InterestPoint> ip1_copy, ip2_copy;
-    ip1_copy = read_binary_ip_file(prefix_from_filename(input_file1)+".vwip");
-    ip2_copy = read_binary_ip_file(prefix_from_filename(input_file2)+".vwip");
 
-    InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
-    matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback(ErrorMessage, "\t    Matching: "));
-    write_binary_match_file(prefix_from_filename(input_file1) + "__" +
-                            prefix_from_filename(input_file2) + ".match",
-                            matched_ip1, matched_ip2);
-    vw_out(0) << "\t    Caching matches: " << ( prefix_from_filename(input_file1) + "__" +
-                                                prefix_from_filename(input_file2) + ".match" ) << "\n";
-  }
-  vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
+    if ( exists( prefix_from_filename(input_file1) + ".vwip" ) &&
+	 exists( prefix_from_filename(input_file2) + ".vwip" ) ) {
+      // Found VWIPs already done before
+      vw_out(0) << "\t--> Found cached interest point files: "
+		<< ( prefix_from_filename(input_file1) + ".vwip" ) << "\n"
+		<< "\t                                       "
+		<< ( prefix_from_filename(input_file2) + ".vwip" ) << "\n";
+      ip1_copy = read_binary_ip_file( prefix_from_filename(input_file1) +
+				      ".vwip" );
+      ip2_copy = read_binary_ip_file( prefix_from_filename(input_file2) +
+				      ".vwip" );
 
-  // RANSAC is used to fit a similarity transform between the
-  // matched sets of points  
+    } else {
+      // Worst case, no interest point operations have been performed before
+      vw_out(0) << "\t--> Locating Interest Points\n";
+      InterestPointList ip1, ip2;
+      DiskImageView<PixelGray<float> > left_disk_image(input_file1);
+      DiskImageView<PixelGray<float> > right_disk_image(input_file2);
+      ImageViewRef<PixelGray<float> > left_image = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
+      ImageViewRef<PixelGray<float> > right_image = normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0);
+
+      // Interest Point module detector code.
+      LogInterestOperator log_detector;
+      ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 500);
+      vw_out(0) << "\t    Processing " << input_file1 << "\n";
+      ip1 = detect_interest_points( left_image, detector );
+      vw_out(0) << "\t    Located " << ip1.size() << " points.\n";
+      vw_out(0) << "\t    Processing " << input_file2 << "\n";
+      ip2 = detect_interest_points( right_image, detector );
+      vw_out(0) << "\t    Located " << ip2.size() << " points.\n";
+
+      vw_out(0) << "\t    Generating descriptors...\n";
+      PatchDescriptorGenerator descriptor;
+      descriptor( left_image, ip1 );
+      descriptor( right_image, ip2 );
+      vw_out(0) << "\t    done.\n";
+
+      // Writing out the results
+      vw_out(0) << "\t    Caching interest points: "
+		<< (prefix_from_filename(input_file1) + ".vwip") << ", "
+		<< (prefix_from_filename(input_file2) + ".vwip") << "\n";
+      write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
+      write_binary_ip_file(prefix_from_filename(input_file2)+".vwip", ip2);
+
+      // Reading back into the vector interestpoint format
+      ip1_copy = read_binary_ip_file( prefix_from_filename(input_file1) + ".vwip" );
+      ip2_copy = read_binary_ip_file( prefix_from_filename(input_file2) + ".vwip" );
+
+    }
+
+    vw_out(0) << "\t--> Matching interest points\n";
+    InterestPointMatcher<L2NormMetric,NullConstraint> matcher(0.8);
+    
+    matcher(ip1_copy, ip2_copy,
+	    matched_ip1, matched_ip2,
+	    false,
+	    TerminalProgressCallback( InfoMessage, "\t    Matching: "));
+
+    vw_out(0) << "\t    Caching matches: "
+	      << ( prefix_from_filename(input_file1) + "__" +
+		   prefix_from_filename(input_file2) + ".match") << "\n";
+
+    write_binary_match_file( prefix_from_filename(input_file1) + "__" +
+			     prefix_from_filename(input_file2) + ".match",
+			     matched_ip1, matched_ip2);
+
+  } // End matching
+
+  vw_out(InfoMessage) << "\t--> " << matched_ip1.size() 
+		      << " putative matches.\n";
+
   vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
-  std::vector<Vector3> ransac_ip1(matched_ip1.size());
-  std::vector<Vector3> ransac_ip2(matched_ip2.size());
-  for (unsigned i = 0; i < matched_ip1.size();++i ) {
-    ransac_ip1[i] = Vector3(matched_ip1[i].x, matched_ip1[i].y,1);
-    ransac_ip2[i] = Vector3(matched_ip2[i].x, matched_ip2[i].y,1);
-  }  
+  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
+  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
   remove_duplicates(ransac_ip1, ransac_ip2);
-  math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(),
-												      vw::math::InterestPointErrorMetric(), 
-												      10 ); // inlier_threshold
-  std::vector<Vector3> result_ip1, result_ip2;
+  vw_out(DebugMessage) << "\t--> Removed "
+		       << matched_ip1.size() - ransac_ip1.size()
+		       << " duplicate matches.\n";
+
   Matrix<double> T;
   try {
-    T = ransac(ransac_ip2,ransac_ip1);
-  } catch (vw::math::RANSACErr &e) {
+
+    math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 10 );
+    T = ransac( ransac_ip2, ransac_ip1 );
+    vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
+
+  } catch (...) {
     vw_out(0) << "\n*************************************************************\n";
     vw_out(0) << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
     vw_out(0) << "*************************************************************\n\n";
     T.set_size(3,3);
     T.set_identity();
   }
+
   return T;
 }
 
