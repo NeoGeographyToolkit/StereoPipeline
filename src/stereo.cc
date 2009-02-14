@@ -688,7 +688,7 @@ int main(int argc, char* argv[]) {
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
       disparity_map_rsrc.set_tiled_write(std::min(1024,hole_filled_disp_map.cols()),std::min(1024, hole_filled_disp_map.rows()));
-      block_write_image(disparity_map_rsrc, hole_filled_disp_map, TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") ); 
+      block_write_image(disparity_map_rsrc, disparity::mask(hole_filled_disp_map,Lmask,Rmask), TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") ); 
     } catch (IOErr &e) { 
       cout << "\nUnable to start at filtering stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
       exit(0);
