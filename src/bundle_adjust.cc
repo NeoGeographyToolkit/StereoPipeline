@@ -33,6 +33,7 @@ namespace fs = boost::filesystem;
 
 #include <vw/Camera/CAHVORModel.h>
 #include <vw/Camera/BundleAdjust.h>
+#include <vw/Camera/BundleAdjustReport.h>
 #include <vw/Math.h>
 #include <vw/InterestPoint.h>
 #include <vw/Stereo.h>
@@ -202,24 +203,21 @@ public:
     return result;
   }
 
-  void report_error() const {
-
-    double pix_error_total = 0;
-    double camera_position_error_total = 0;
-    double camera_pose_error_total = 0;
-    double gcp_error_total = 0;
-
-    int idx = 0;
-    for (unsigned i = 0; i < m_network.size(); ++i) {       // Iterate over control points
-      for (unsigned m = 0; m < m_network[i].size(); ++m) {  // Iterate over control measures
-        int camera_idx = m_network[i][m].image_id();
-        Vector2 pixel_error = m_network[i][m].position() - (*this)(i, camera_idx, 
-                                                                   a[camera_idx],b[i]); 
-        pix_error_total += norm_2(pixel_error);
-        ++idx;
+  // Errors on the image plane
+  void image_errors( std::vector<double>& pix_errors ) {
+    pix_errors.clear();
+    for (unsigned i = 0; i < m_network.size(); ++i)
+      for(unsigned m = 0; m < m_network[i].size(); ++m) {
+	int camera_idx = m_network[i][m].image_id();
+	Vector2 pixel_error = m_network[i][m].position() - (*this)(i, camera_idx,
+								   a[camera_idx],b[i]);
+	pix_errors.push_back(norm_2(pixel_error));
       }
-    }
-
+  }
+  
+  // Errors for camera position
+  void camera_position_errors( std::vector<double>& camera_position_errors ) {
+    camera_position_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j) {
       Vector3 position_initial, position_now;
       Quaternion<double> pose_initial, pose_now;
@@ -227,33 +225,39 @@ public:
       parse_camera_parameters(a_initial[j], position_initial, pose_initial);
       parse_camera_parameters(a[j], position_now, pose_now);
 
-      camera_position_error_total += norm_2(position_initial-position_now);
+      camera_position_errors.push_back(norm_2(position_initial-position_now));
+    }
+  }
+
+  // Errors for camera pose
+  std::string camera_pose_units(){ return "degrees"; } 
+  void camera_pose_errors( std::vector<double>& camera_pose_errors ) {
+    camera_pose_errors.clear();
+    for (unsigned j=0; j < this->num_cameras(); ++j) {
+      Vector3 position_initial, position_now;
+      Quaternion<double> pose_initial, pose_now;
+
+      parse_camera_parameters(a_initial[j], position_initial, pose_initial);
+      parse_camera_parameters(a[j], position_now, pose_now);
 
       Vector3 axis_initial, axis_now;
       double angle_initial, angle_now;
       pose_initial.axis_angle(axis_initial, angle_initial);
       pose_now.axis_angle(axis_now, angle_now);
-      camera_pose_error_total += fabs(angle_initial-angle_now) * 180.0/M_PI;
-    }
-    
-    idx = 0;
-    for (unsigned i=0; i < this->num_points(); ++i) {
-      if (m_network[i].type() == ControlPoint::GroundControlPoint) {
-        point_vector_t p1 = b_initial[i]/b_initial[i](3);
-        point_vector_t p2 = b[i]/b[i](3);
-        gcp_error_total += norm_2(subvector(p1,0,3) - subvector(p2,0,3));
-        ++idx;
-      }
-    }
-    
-    std::cout << "   Pixel: " << pix_error_total/m_num_pixel_observations << "  "
-              << "   Cam Position: " << camera_position_error_total/a.size() << "  "
-              << "   Cam Pose: " << camera_pose_error_total/a.size() << "  ";
-    if (m_network.num_ground_control_points() == 0) 
-        std::cout << "  GCP: n/a\n";
-      else 
-        std::cout << "  GCP: " << gcp_error_total/m_network.num_ground_control_points() << "\n";
 
+      camera_pose_errors.push_back(fabs(angle_initial-angle_now) * 180.0/M_PI);
+    }
+  }
+
+  // Errors for gcp errors
+  void gcp_errors( std::vector<double>& gcp_errors ) {
+    gcp_errors.clear();
+    for (unsigned i=0; i < this->num_points(); ++i)
+      if (m_network[i].type() == ControlPoint::GroundControlPoint) {
+	point_vector_t p1 = b_initial[i]/b_initial[i](3);
+	point_vector_t p2 = b[i]/b[i](3);
+	gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
+      }
   }
 
   void write_adjusted_cameras_append(std::string const& filename) {
@@ -411,16 +415,11 @@ int main(int argc, char* argv[]) {
   compute_stereo_residuals(camera_models, cnet);
 
   BundleAdjustmentModel ba_model(camera_models, cnet);
-  std::cout << "\nPerforming Sparse LM Bundle Adjustment.  Starting error:\n";
-  ba_model.report_error();
-  std::cout << "\n";
-
   //  BundleAdjustment<BundleAdjustmentModel, L1Error> bundle_adjuster(ba_model, cnet, L1Error());
   BundleAdjustment<BundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, cnet, CauchyError(robust_outlier_threshold));
   //  BundleAdjustment<BundleAdjustmentModel, HuberError> bundle_adjuster(ba_model, cnet, HuberError(robust_outlier_threshold));
   //  BundleAdjustment<BundleAdjustmentModel, PseudoHuberError> bundle_adjuster(ba_model, cnet, PseudoHuberError(robust_outlier_threshold));
   if (vm.count("lambda")) {
-    std::cout << "Setting initial value of lambda to " << lambda << "\n";
     bundle_adjuster.set_lambda(lambda);
   }
 
@@ -433,32 +432,37 @@ int main(int argc, char* argv[]) {
     ostr.close();
   }
 
+  // Reporter
+  BundleAdjustReport<BundleAdjustmentModel, BundleAdjustment<BundleAdjustmentModel, CauchyError> > reporter( "Bundle Adjust", ba_model, bundle_adjuster, 10);
   double abs_tol = 1e10, rel_tol=1e10;
   if (vm.count("nonsparse")) {
     while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
-	//Opening the monitoring files, to append this iteration
-	std::ofstream ostr_camera("iterCameraParam.txt",std::ios::app);
-	std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
+      reporter.loop_tie_in();
 
-	//Storing points
-	for (unsigned i = 0; i < ba_model.num_points(); ++i){
-	  Vector<double,4> current_point = ba_model.B_parameters(i);
-	  current_point /= current_point(3);
-	  ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
-	}
-
-	//Storing camera
-	for (unsigned j = 0; j < ba_model.num_cameras(); ++j){
-	  Vector<double,7> current_camera = ba_model.A_parameters(j);
-	  ostr_camera << j << "\t" << current_camera(0) << "\t" << current_camera(1) << "\t" << current_camera(2) << "\t" << current_camera(3) << "\t" << current_camera(4) << "\t" << current_camera(5) << "\n";
-	}
-
-        if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-10)
-          break;
+      //Opening the monitoring files, to append this iteration
+      std::ofstream ostr_camera("iterCameraParam.txt",std::ios::app);
+      std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
+      
+      //Storing points
+      for (unsigned i = 0; i < ba_model.num_points(); ++i){
+	Vector<double,4> current_point = ba_model.B_parameters(i);
+	current_point /= current_point(3);
+	ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
+      }
+      
+      //Storing camera
+      for (unsigned j = 0; j < ba_model.num_cameras(); ++j){
+	Vector<double,7> current_camera = ba_model.A_parameters(j);
+	ostr_camera << j << "\t" << current_camera(0) << "\t" << current_camera(1) << "\t" << current_camera(2) << "\t" << current_camera(3) << "\t" << current_camera(4) << "\t" << current_camera(5) << "\n";
+      }
+      
+      if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-10)
+	break;
     }
   } else {
     while(bundle_adjuster.update(abs_tol, rel_tol)) {
-      
+      reporter.loop_tie_in();
+
       // Writing Current Camera Parameters to file for later reading in MATLAB
       if (vm.count("save-iteration-data")) {
         
@@ -478,7 +482,7 @@ int main(int argc, char* argv[]) {
         break;
     }
   }
-  std::cout << "\nFinished.  Iterations: "<< bundle_adjuster.iterations() << "\n";
+  reporter.end_tie_in();
 
   for (unsigned int i=0; i < ba_model.num_cameras(); ++i)
     ba_model.write_adjustment(i, prefix_from_filename(image_files[i])+".adjust");

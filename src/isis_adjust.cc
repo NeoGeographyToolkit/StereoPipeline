@@ -35,6 +35,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 #include <vw/Camera/BundleAdjust.h>
+#include <vw/Camera/BundleAdjustReport.h>
 #include <vw/Camera/ControlNetwork.h>
 #include <vw/Math.h>
 #include <vw/InterestPoint.h>
@@ -273,50 +274,53 @@ public:
     pose_correction = subvector(a_j, 3, 3);
   }
 
-  // This is what prints out on the screen the error of the whole problem
-  void report_error() const {
-    double mm_error_total = 0;
-    double camera_position_error_total = 0;
-    double camera_pose_error_total = 0;
-    double gcp_error_total = 0;
-
-    for (unsigned i = 0; i < m_network.size(); ++i) {       // Iterate over control points
-      for (unsigned m = 0; m < m_network[i].size(); ++m) {  // Iterate over control measures
-        int camera_idx = m_network[i][m].image_id();
-        Vector2 mm_error = m_network[i][m].focalplane() - (*this)(i, camera_idx, a[camera_idx],b[i]); 
-        mm_error_total += norm_2(mm_error);
+  // Errors on the image plane
+  std::string image_unit( void ) { return "millimeters"; }
+  void image_errors( std::vector<double>& mm_errors ) {
+    mm_errors.clear();
+    for (unsigned i = 0; i < m_network.size(); ++i )
+      for (unsigned m = 0; m < m_network[i].size(); ++m ) {
+	int camera_idx = m_network[i][m].image_id();
+	Vector2 mm_error = m_network[i][m].focalplane() - (*this)(i, camera_idx, a[camera_idx],b[i]);
+	mm_errors.push_back(norm_2(mm_error));
       }
-    }
-    
-    for (unsigned j=0; j < this->num_cameras(); ++j) {
-      Vector3 position_initial, position_now;
-      Vector3 pose_initial, pose_now;
-
-      parse_camera_parameters(a_initial[j], position_initial, pose_initial);
-      parse_camera_parameters(a[j], position_now, pose_now);
-
-      camera_position_error_total += norm_2(position_initial-position_now);
-      camera_pose_error_total += norm_2(pose_initial-pose_now);
-    }
-    
-    int num_gcp = 0;
-    for (unsigned i=0; i < this->num_points(); ++i) {
-      if (m_network[i].type() == ControlPoint::GroundControlPoint) {
-        point_vector_t p1 = b_initial[i];//b_initial[i](3);
-        point_vector_t p2 = b[i];//b[i](3);
-        gcp_error_total += norm_2(subvector(p1,0,3) - subvector(p2,0,3));
-        ++num_gcp;
-      }
-    }
-    
-    std::cout << "   Focalplane (mm): " << mm_error_total/m_num_pixel_observations << "  "
-              << "   Cam Position: " << camera_position_error_total/a.size() << "  "
-              << "   Cam Pose: " << camera_pose_error_total/a.size() << "  ";
-    if (m_network.num_ground_control_points() == 0) 
-      std::cout << "  GCP: n/a\n";
-    else 
-      std::cout << "  GCP: " << gcp_error_total/m_network.num_ground_control_points() << "\n";
   }
+  
+  // Errors for camera position
+  void camera_position_errors( std::vector<double>& camera_position_errors ) {
+    camera_position_errors.clear();
+    for (unsigned j=0; j < this->num_cameras(); ++j ) {
+      // TODO: This needs to be compliant if the BA is using a
+      // non-zero order equation
+      Vector3 position_initial = subvector(a_initial[j],0,3);
+      Vector3 position_now = subvector(a[j],0,3);
+      camera_position_errors.push_back(norm_2(position_initial-position_now));
+    }
+  }
+
+  // Errors for camera pose
+  void camera_pose_errors( std::vector<double>& camera_pose_errors ) {
+    camera_pose_errors.clear();
+    for (unsigned j=0; j < this->num_cameras(); ++j ) {
+      // TODO: This needs to be compliant if the BA is using a
+      // non-zero order equation
+      Vector3 pose_initial = subvector(a_initial[j],3,3);
+      Vector3 pose_now = subvector(a[j],3,3);
+      camera_pose_errors.push_back(norm_2(pose_initial-pose_now));
+    }
+  }
+
+  // Errors for gcp errors
+  void gcp_errors( std::vector<double>& gcp_errors ) {
+    gcp_errors.clear();
+    for (unsigned i=0; i < this->num_points(); ++i ) 
+      if (m_network[i].type() == ControlPoint::GroundControlPoint) {
+	point_vector_t p1 = b_initial[i];
+	point_vector_t p2 = b[i];
+	gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
+      }
+  }
+
 };
 
 
@@ -671,13 +675,16 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  // Reporter
+  BundleAdjustReport< IsisBundleAdjustmentModel<3,3>, BundleAdjustment< IsisBundleAdjustmentModel<3,3>, L2Error > > reporter( "ISIS Adjust", ba_model, bundle_adjuster, 10);
+
   // Performing the Bundle Adjustment
   double abs_tol = 1e10, rel_tol = 1e10;
-
   if (vm.count("nonsparse")) {    //What are you thinking? No!!
     // This is the non sparse implementation
     while ( bundle_adjuster.update_reference_impl( abs_tol, rel_tol ) ) {
-      
+      reporter.loop_tie_in();
+
       //Writing recording data for Bundlevis
       if ( vm.count("save-iteration-data") ) {
 	
@@ -754,7 +761,8 @@ int main(int argc, char* argv[]) {
   } else {
     // This is the sparse implementation of the code
     while ( bundle_adjuster.update( abs_tol, rel_tol ) ) {
-      
+      reporter.loop_tie_in();
+
       //Writing recording data for Bundlevis
       if ( vm.count("save-iteration-data") ) {
 	
@@ -828,8 +836,8 @@ int main(int argc, char* argv[]) {
 	break;
     }
   }
+  reporter.end_tie_in();
 
-  std::cout << "\nFinished.\tIterations: " << bundle_adjuster.iterations() << std::endl;
   for ( unsigned int i = 0; i < ba_model.num_cameras(); ++i )
     ba_model.write_adjustment( i, prefix_from_filename( input_files[i] ) + ".isis_adjust");
 
@@ -837,5 +845,4 @@ int main(int argc, char* argv[]) {
   std::cout << "Computing stereo residuals" << std::endl;
   // compute_stereo_residuals( camera_models, cnet );
 
-  return 0;
 }
