@@ -187,7 +187,7 @@ int main( int argc, char *argv[] ) {
 
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
-  Cache::system_cache().resize( cache_size*1024*1024 ); 
+  vw_system_cache().resize( cache_size*1024*1024 ); 
 
   if( vm.count("help") ) {
     std::cout << desc << std::endl;

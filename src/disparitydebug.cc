@@ -82,7 +82,7 @@ int main( int argc, char *argv[] ) {
   po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
   po::notify( vm );
 
-  Cache::system_cache().resize( cache_size*1024*1024 ); 
+  vw_system_cache().resize( cache_size*1024*1024 ); 
   set_debug_level(debug_level);
 
   if( vm.count("help") ) {

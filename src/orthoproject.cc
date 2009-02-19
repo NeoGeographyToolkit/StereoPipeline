@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
 
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
-  Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
+  vw_system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
 
   // Create a fresh stereo session and query it for the camera models.
 #if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1

@@ -219,16 +219,15 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   GeoReference input_georef1, input_georef2;
   // Disabled for now since we haven't really figured how to
   // capitalize on the map projected images... -mbroxton
-  //
-  //   try {
-  //     // Read georeferencing information (if it exists...)
-  //     DiskImageResourceGDAL file_resource1( input_file1 );
-  //     DiskImageResourceGDAL file_resource2( input_file2 );
-  //     read_georeference( input_georef1, file_resource1 );
-  //     read_georeference( input_georef2, file_resource2 );
-  //   } catch (ArgumentErr &e) {
-  //     vw_out(0) << "Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
-  //   }
+  // try {
+  //   // Read georeferencing information (if it exists...)
+  //   DiskImageResourceGDAL file_resource1( input_file1 );
+  //   DiskImageResourceGDAL file_resource2( input_file2 );
+  //   read_georeference( input_georef1, file_resource1 );
+  //   read_georeference( input_georef2, file_resource2 );
+  // } catch (ArgumentErr &e) {
+  //   vw_out(0) << "Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
+  // }
 
   // Make sure the images are normalized
   vw_out(InfoMessage) << "\t--> Computing min/max values for normalization.  " << std::flush;
@@ -260,8 +259,8 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     ImageViewRef<PixelGray<float> > Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, lo),lo,hi,0.0,1.0),trans2),common_bbox);
 
     // Write the results to disk.
-    write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback());
-    write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback()); 
+    write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback(ErrorMessage, "Left map-projected image: " ));
+    write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback(ErrorMessage, "Right map-projected image: ")); 
   
   } else {
     // For unprojected ISIS images, we resort to the "old style" of

@@ -317,7 +317,7 @@ int main( int argc, char *argv[] ) {
       return 1;
     }
 
-    vw::Cache::system_cache().resize( cache_size*1024*1024 );
+    vw_system_cache().resize( cache_size*1024*1024 );
 
     do_blend<vw::PixelGrayA<uint8> >( image_files, mosaic_name, file_type, vm.count("draft"), vm.count("qtree"), patch_size, patch_overlap, draw_order_offset, vm.count("no-ctx-normalize"), max_lod_pixels, index_file_name);
 

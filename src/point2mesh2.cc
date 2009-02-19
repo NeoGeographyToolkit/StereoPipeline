@@ -500,7 +500,7 @@ int main( int argc, char *argv[] ){
   usage << desc << std::endl;
 
   //Setting the Vision Workbench cache size?
-  Cache::system_cache().resize( cache_size*1024*1024 );
+  vw_system_cache().resize( cache_size*1024*1024 );
 
   if( vm.count("help") ) {
     std::cout << desc << std::endl;

@@ -269,9 +269,12 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(st
     } else {
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported cameara file type.\n");
     }
+
+   
   } else {
     vw_throw(ArgumentErr() << "PinholeStereoSession: no alignment method was selected in your stereo.default file..\n");
-  }
+  } 
+  return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
 
 void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,

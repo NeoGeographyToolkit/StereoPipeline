@@ -264,7 +264,7 @@ int main(int argc, char* argv[]) {
 
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
-  Cache::system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
+  vw_system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
   if ( num_threads != 0 ) {
     std::cout << "\t--> Setting number of processing threads to: " << num_threads << "\n";
     vw_settings().set_default_num_threads(num_threads);
