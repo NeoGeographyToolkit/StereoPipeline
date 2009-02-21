@@ -66,7 +66,7 @@ class HelicopterBundleAdjustmentModel : public camera::BundleAdjustmentModelBase
 
   std::vector<ImageInfo> m_image_infos;
 
-  ControlNetwork m_network; 
+  boost::shared_ptr<ControlNetwork> m_network; 
 
   std::vector<camera_vector_t> a;
   std::vector<point_vector_t> b;
@@ -77,15 +77,14 @@ class HelicopterBundleAdjustmentModel : public camera::BundleAdjustmentModelBase
 public:
 
   HelicopterBundleAdjustmentModel(std::vector<ImageInfo> const& image_infos,
-                                  ControlNetwork const& network) : 
-    m_image_infos(image_infos), m_network(network), 
-    a(image_infos.size()), b(network.size()),
-    a_initial(image_infos.size()), b_initial(network.size()) {
+                                  boost::shared_ptr<ControlNetwork> network) : 
+    m_image_infos(image_infos), a(image_infos.size()), b(network->size()),
+    a_initial(image_infos.size()), b_initial(network->size()) {
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
-    for (unsigned i = 0; i < network.size(); ++i)
-      m_num_pixel_observations += network[i].size();
+    for (unsigned i = 0; i < network->size(); ++i)
+      m_num_pixel_observations += (*network)[i].size();
     
     // Set up the a and b vectors, storing the initial values.
     for (unsigned j = 0; j < m_image_infos.size(); ++j) {
@@ -93,8 +92,8 @@ public:
       a_initial[j] = a[j];
     }
 
-    for (unsigned i = 0; i < network.size(); ++i) {
-      b[i] = m_network[i].position();
+    for (unsigned i = 0; i < network->size(); ++i) {
+      b[i] = (*m_network)[i].position();
       b_initial[i] = b[i];
     }
 
@@ -107,7 +106,7 @@ public:
     a[j] = a_j;
   }
   void set_B_parameters(int i, point_vector_t const& b_i) { 
-    b[i] = b_i; 
+    b[i] = b_i;
   }
 
   // Approximate the jacobian for small variations in the a_j
@@ -140,13 +139,13 @@ public:
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
   // Return pixel observations
-  unsigned num_observations_of_point(const int& i) const { return m_network[i].size(); }
+  unsigned num_observations_of_point(const int& i) const { return (*m_network)[i].size(); }
   unsigned corresponding_camera_for_measure(const int& i, const int& m){
-    return m_network[i][m].image_id();
+    return (*m_network)[i][m].image_id();
   }
   Vector2 pixel_observation_of_point(const int& i, const int& m) const {
     //Finding out which camera accounts for the m_th observations of point i
-    unsigned int camera_id = m_network[i][m].image_id();
+    unsigned int camera_id = (*m_network)[i][m].image_id();
 
     Vector<double,6> a_j = a[camera_id];
     Vector3 position_correction = subvector(a_j,0,3);
@@ -237,10 +236,10 @@ public:
   // Errors on the image plane
   void image_errors( std::vector<double>& pix_errors ) {
     pix_errors.clear();
-    for (unsigned i = 0; i < m_network.size(); ++i)
-      for(unsigned m = 0; m < m_network[i].size(); ++m) {
-	int camera_idx = m_network[i][m].image_id();
-	Vector2 pixel_error = m_network[i][m].position() - (*this)(i, camera_idx,
+    for (unsigned i = 0; i < m_network->size(); ++i)
+      for(unsigned m = 0; m < (*m_network)[i].size(); ++m) {
+	int camera_idx = (*m_network)[i][m].image_id();
+	Vector2 pixel_error = (*m_network)[i][m].position() - (*this)(i, camera_idx,
 								   a[camera_idx],b[i]);
 	pix_errors.push_back(norm_2(pixel_error));
       }
@@ -274,11 +273,16 @@ public:
   void gcp_errors( std::vector<double>& gcp_errors ) {
     gcp_errors.clear();
     for (unsigned i=0; i < this->num_points(); ++i)
-      if (m_network[i].type() == ControlPoint::GroundControlPoint) {
+      if ((*m_network)[i].type() == ControlPoint::GroundControlPoint) {
 	point_vector_t p1 = b_initial[i]/b_initial[i](3);
 	point_vector_t p2 = b[i]/b[i](3);
 	gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
       }
+  }
+
+  // Give access to the control network
+  boost::shared_ptr<ControlNetwork> control_network(void) {
+    return m_network;
   }
 };
 
@@ -286,11 +290,12 @@ int main(int argc, char* argv[]) {
 
   std::vector<std::string> image_files;
   std::string cnet_file;
-  ControlNetwork cnet("My first control network");
+  boost::shared_ptr<ControlNetwork> cnet( new ControlNetwork("My first control network"));
   double lambda;
   int min_matches;
   double robust_outlier_threshold;
   int max_iterations;
+  int report_level;
 
   po::options_description general_options("Options");
   general_options.add_options()
@@ -301,6 +306,7 @@ int main(int argc, char* argv[]) {
     ("max-iterations", po::value<int>(&max_iterations)->default_value(25), "Set the maximum number of iterations.")
     ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
     ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt. Warning: This is slow as pixel observations need to be calculated on each step.")
+    ("report-level,r",po::value<int>(&report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report")
     ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
     ("match-debug-images,d", "Create debug images when you run ipmatch.")
     ("help", "Display this help message")
@@ -351,7 +357,7 @@ int main(int argc, char* argv[]) {
     // Loading a Control Network
     
     vw_out(0) << "Loading control network from file: " << cnet_file << "\n";
-    cnet.read_binary_control_network(cnet_file);
+    cnet->read_binary_control_network(cnet_file);
 
   } else {
     // Building a Control Network
@@ -386,7 +392,7 @@ int main(int argc, char* argv[]) {
             std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.  [rejected]\n";
           } else {
             std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
-            add_matched_points(cnet,ip1,ip2,i,j,camera_models);
+            add_matched_points(*cnet,ip1,ip2,i,j,camera_models);
           }
         }
       }
@@ -396,23 +402,20 @@ int main(int argc, char* argv[]) {
     for (unsigned i = 0; i < image_files.size(); ++i) {
       std::string gcp_filename = prefix_from_filename(image_files[i]) + ".gcp";
       if ( fs::exists(gcp_filename) ) {
-        int numpoints = add_ground_control_points(cnet, gcp_filename, i); 
+        int numpoints = add_ground_control_points(*cnet, gcp_filename, i); 
         std::cout << "\t" << gcp_filename << "     " << " : " << numpoints << " GCPs.\n";
       }
     }
     
-    cnet.write_binary_control_network("rmax_adjust");
+    cnet->write_binary_control_network("rmax_adjust");
   }
-  
-  // Print pre-alignment residuals
-  compute_stereo_residuals(camera_models, cnet);
-  
+ 
   HelicopterBundleAdjustmentModel ba_model(image_infos, cnet);
   
   // Choose your poison
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, L1Error> bundle_adjuster(ba_model, cnet, L1Error());
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, cnet, L2Error());
-  BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, cnet, CauchyError(robust_outlier_threshold));
+  BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, CauchyError(robust_outlier_threshold));
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, HuberError> bundle_adjuster(ba_model, cnet, HuberError(robust_outlier_threshold));
   //  BundleAdjustment<HelicopterBundleAdjustmentModel, PseudoHuberError> bundle_adjuster(ba_model, cnet, PseudoHuberError(robust_outlier_threshold));
   
@@ -439,7 +442,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Reporter
-  BundleAdjustReport<HelicopterBundleAdjustmentModel, BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> > reporter( "RMAX Adjust", ba_model, bundle_adjuster, 20 );
+  BundleAdjustReport<HelicopterBundleAdjustmentModel, BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> > reporter( "RMAX Adjust", ba_model, bundle_adjuster, report_level );
 
   // Performing Bundle Adjustment
   double abs_tol = 1e10, rel_tol=1e10;  
@@ -494,5 +497,4 @@ int main(int argc, char* argv[]) {
   
   // Compute the post-adjustment residuals
   std::vector<boost::shared_ptr<CameraModel> > adjusted_cameras = ba_model.adjusted_cameras();
-  compute_stereo_residuals(adjusted_cameras, cnet);
 }

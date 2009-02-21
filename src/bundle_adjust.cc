@@ -78,7 +78,7 @@ class BundleAdjustmentModel : public camera::BundleAdjustmentModelBase<BundleAdj
   typedef Vector<double,4> point_vector_t;
 
   std::vector<boost::shared_ptr<CameraModel> > m_cameras;
-  ControlNetwork m_network; 
+  boost::shared_ptr<ControlNetwork> m_network; 
 
   std::vector<camera_vector_t> a;
   std::vector<point_vector_t> b;
@@ -90,17 +90,16 @@ class BundleAdjustmentModel : public camera::BundleAdjustmentModelBase<BundleAdj
 
 public:
   BundleAdjustmentModel(std::vector<boost::shared_ptr<CameraModel> > const& cameras,
-                        ControlNetwork const& network) : 
-    m_cameras(cameras), m_network(network), 
-    a(cameras.size()), b(network.size()),
-    a_initial(cameras.size()), b_initial(network.size()) {
+                        boost::shared_ptr<ControlNetwork> network) : 
+    m_cameras(cameras), m_network(network), a(cameras.size()), 
+    b(network->size()), a_initial(cameras.size()), b_initial(network->size()) {
 
     m_huber_pixel_threshold = 100; // outlier rejection threshold (pixels)
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
-    for (unsigned i = 0; i < network.size(); ++i)
-      m_num_pixel_observations += network[i].size();
+    for (unsigned i = 0; i < network->size(); ++i)
+      m_num_pixel_observations += (*network)[i].size();
     
     // Set up the a and b vectors, storing the initial values.
     for (unsigned j = 0; j < m_cameras.size(); ++j) {
@@ -109,15 +108,14 @@ public:
       a_initial[j] = a[j];
     }
 
-    for (unsigned i = 0; i < network.size(); ++i) {
+    for (unsigned i = 0; i < network->size(); ++i) {
       // We track 3d points as homogeneous vectors
       point_vector_t p;
       p(3) = 1.0;
-      subvector(p,0,3) = m_network[i].position();
+      subvector(p,0,3) = (*m_network)[i].position();
       b[i] = normalize(p);
       b_initial[i] = b[i];
     }
-    
   }
 
   double pixel_outlier_threshold() const { return m_huber_pixel_threshold; }
@@ -206,10 +204,10 @@ public:
   // Errors on the image plane
   void image_errors( std::vector<double>& pix_errors ) {
     pix_errors.clear();
-    for (unsigned i = 0; i < m_network.size(); ++i)
-      for(unsigned m = 0; m < m_network[i].size(); ++m) {
-	int camera_idx = m_network[i][m].image_id();
-	Vector2 pixel_error = m_network[i][m].position() - (*this)(i, camera_idx,
+    for (unsigned i = 0; i < m_network->size(); ++i)
+      for(unsigned m = 0; m < (*m_network)[i].size(); ++m) {
+	int camera_idx = (*m_network)[i][m].image_id();
+	Vector2 pixel_error = (*m_network)[i][m].position() - (*this)(i, camera_idx,
 								   a[camera_idx],b[i]);
 	pix_errors.push_back(norm_2(pixel_error));
       }
@@ -253,11 +251,16 @@ public:
   void gcp_errors( std::vector<double>& gcp_errors ) {
     gcp_errors.clear();
     for (unsigned i=0; i < this->num_points(); ++i)
-      if (m_network[i].type() == ControlPoint::GroundControlPoint) {
+      if ((*m_network)[i].type() == ControlPoint::GroundControlPoint) {
 	point_vector_t p1 = b_initial[i]/b_initial[i](3);
 	point_vector_t p2 = b[i]/b[i](3);
 	gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
       }
+  }
+
+  // Give access to the control network
+  boost::shared_ptr<ControlNetwork> control_network(void) {
+    return m_network;
   }
 
   void write_adjusted_cameras_append(std::string const& filename) {
@@ -309,9 +312,10 @@ int main(int argc, char* argv[]) {
 
   std::vector<std::string> image_files;
   std::string cnet_file, stereosession_type;
-  ControlNetwork cnet("My first control network");
+  boost::shared_ptr<ControlNetwork> cnet( new ControlNetwork("My first control network"));
   double lambda;
   double robust_outlier_threshold;
+  int report_level;
 
   po::options_description general_options("Options");
   general_options.add_options()
@@ -321,6 +325,7 @@ int main(int argc, char* argv[]) {
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
     ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
     ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
+    ("report-level,r",po::value<int>(&report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report")
     ("help", "Display this help message")
     ("verbose", "Verbose output");
 
@@ -356,10 +361,10 @@ int main(int argc, char* argv[]) {
       boost::split( tokens, cnet_file, boost::is_any_of(".") );
       if ( tokens[tokens.size()-1] == "net" ) {
 	// An ISIS style control network
-	cnet.read_isis_pvl_control_network( cnet_file );
+	cnet->read_isis_pvl_control_network( cnet_file );
       } else if ( tokens[tokens.size()-1] == "cnet" ) {
 	// A VW binary style
-	cnet.read_binary_control_network( cnet_file );
+	cnet->read_binary_control_network( cnet_file );
       } else {
 	vw_throw( IOErr() << "Unknown Control Network file extension, \""
 		  << tokens[tokens.size()-1] << "\"." );
@@ -394,7 +399,7 @@ int main(int argc, char* argv[]) {
           std::vector<InterestPoint> ip1, ip2;
           read_binary_match_file(match_filename, ip1, ip2);
           std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
-          add_matched_points(cnet,ip1,ip2,i,j,camera_models);
+          add_matched_points(*cnet,ip1,ip2,i,j,camera_models);
         }
       }
     }    
@@ -403,20 +408,17 @@ int main(int argc, char* argv[]) {
     for (unsigned i = 0; i < image_files.size(); ++i) {
       std::string gcp_filename = prefix_from_filename(image_files[i]) + ".gcp";
       if ( fs::exists(gcp_filename) ) {
-        int numpoints = add_ground_control_points(cnet, gcp_filename, i); 
+        int numpoints = add_ground_control_points(*cnet, gcp_filename, i); 
         std::cout << "\t" << gcp_filename << "     " << " : " << numpoints << " GCPs.\n";
       }
     }
 
-    cnet.write_binary_control_network("control.cnet");
+    cnet->write_binary_control_network("control.cnet");
   }
-
-  // Print pre-alignment residuals
-  compute_stereo_residuals(camera_models, cnet);
 
   BundleAdjustmentModel ba_model(camera_models, cnet);
   //  BundleAdjustment<BundleAdjustmentModel, L1Error> bundle_adjuster(ba_model, cnet, L1Error());
-  BundleAdjustment<BundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, cnet, CauchyError(robust_outlier_threshold));
+  BundleAdjustment<BundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, CauchyError(robust_outlier_threshold));
   //  BundleAdjustment<BundleAdjustmentModel, HuberError> bundle_adjuster(ba_model, cnet, HuberError(robust_outlier_threshold));
   //  BundleAdjustment<BundleAdjustmentModel, PseudoHuberError> bundle_adjuster(ba_model, cnet, PseudoHuberError(robust_outlier_threshold));
   if (vm.count("lambda")) {
@@ -433,7 +435,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Reporter
-  BundleAdjustReport<BundleAdjustmentModel, BundleAdjustment<BundleAdjustmentModel, CauchyError> > reporter( "Bundle Adjust", ba_model, bundle_adjuster, 10);
+  BundleAdjustReport<BundleAdjustmentModel, BundleAdjustment<BundleAdjustmentModel, CauchyError> > reporter( "Bundle Adjust", ba_model, bundle_adjuster, report_level );
   double abs_tol = 1e10, rel_tol=1e10;
   if (vm.count("nonsparse")) {
     while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
@@ -489,5 +491,4 @@ int main(int argc, char* argv[]) {
 
   // Compute the post-adjustment residuals
   std::vector<boost::shared_ptr<CameraModel> > adjusted_cameras = ba_model.adjusted_cameras();
-  compute_stereo_residuals(adjusted_cameras, cnet);
 }
