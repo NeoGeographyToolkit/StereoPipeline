@@ -4,9 +4,60 @@ What this chapter is ..
 
 \section{Obtaining Ames Stereo Pipeline}
 
-Why are you asking ? You can't have it ... we're Alpha something or other..
-List Dependecies ...
+% Why are you asking ? You can't have it ... we're Alpha something or other..
+
+There are two ways to get the Ames Stereo Pipeline, you can either
+download the source code and build it yourself, or you can download
+prebuilt binaries for your system.
+
+You can find the Ames Stereo Pipeline at \emph{URL?}
 
 \section{Building Ames Stereo Pipeline}
 
 The horror!
+
+List Dependecies ...
+
+
+\section{Prebuilt Binaries}
+
+The prebuilt binary route is not completely plug and play.  The
+Ames Stereo Pipeline is built against the Integrated Software for
+Imagers and Spectrometers (ISIS) suite, and you'll have to have
+that installed on your system already.
+
+When you download and unpack the prebuilt binary, called the
+\texttt{isis\_stereovision} package (so named because it is a binary
+build of the NASA Vision Workbench and the Ames Stereo Pipeline
+built against ISIS), you will have a directory called
+\texttt{isis\_stereovision/} which you can place anywhere on your
+system.
+
+The remainder of the setup is very, very similar to how ISIS itself
+is set up.
+
+First define an \texttt{ISIS\_STEREOVISION} environment variable like so:
+\begin{verbatim}
+ csh: setenv ISIS\_STEREOVISION /path/to/isis\_stereovision
+bash: set ISIS\_STEREOVISION=/path/to/isis\_stereovision
+\end{verbatim}
+
+Then, source the appropriate \texttt{isis\_stereovisionStart} script:
+\begin{verbatim}
+ csh: source isis\_stereovisionStart.csh
+bash: . isis\_stereovisionStart.sh
+\end{verbatim}
+
+\subsection*{Usage}
+
+Some of the provided programs do not require the ISIS environment
+to be set up, others do.  If you run into a problem like:
+\begin{verbatim}
+    dyld: Library not loaded: \$ISISROOT/lib/libisis3.dylib
+      Referenced from: /path/to/isis\_stereovision/isis\_stereovision/bin/program
+      Reason: image not found
+    Trace/BPT trap
+\end{verbatim}
+
+You just need to set up your ISIS environment.
+

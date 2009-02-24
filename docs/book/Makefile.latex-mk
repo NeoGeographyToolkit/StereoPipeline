@@ -1,0 +1,7 @@
+# GNU Makefile for LaTeX stuff using the latex-mk system.
+
+NAME = asp_book
+USE_PDFLATEX = YES
+VIEWPDF = open
+
+include /opt/macports/share/latex-mk/latex.gmk

@@ -1,0 +1,68 @@
+\chapter{Programs}
+
+This chapter covers the various user-programs that are a part of
+the Ames Stereo Pipeline.
+
+\section{stereo}
+
+The \texttt{stereo} program is the primary workhorse of the Ames
+Stereo Pipeline.  It is the program that takes a pair of images which
+overlap and creates an output point cloud which can then be fed to the
+\texttt{point2mesh} or \texttt{point2dem} programs.
+
+\emph{Way more needs to go in here ...}
+
+\subsection{stereo.default file}
+
+The \texttt{stereo.default} file contains configuration parameters
+which the \texttt{stereo} program uses to process the images.  Below
+we will walk through the contents of the \texttt{stereo.default.example}
+file distributed with the Ames Stereo Pipeline and discuss all of
+the various parameters.
+
+The parameters which begin with `\texttt{DO\_}' are true/false options,
+when set to `1' they are `on' or `true,' and if set to `0' they are
+`off' or `false.'
+
+The parameters below also have their default values listed after
+the parameter name.
+
+\subsubsection*{Preprocessing}
+
+\begin{description}
+\item[DO\_INTERESTPOINT\_ALIGNMENT 1] \hfill \\
+When \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is on (or set to 1), ... \emph{MJB: describe}
+
+\item[DO\_EPIPOLAR\_ALIGNMENT 0] \hfill \\
+By default this is off.  When on ... \emph{MJB: describe}
+
+\item[INTERESTPOINT\_ALIGNMENT\_SUBSAMPLING 1] \hfill \\
+This option allows you to change the density of interest points
+that stereo will find, correlate, and result in the final point
+cloud.  When this is set to 1, there is no subsampling, the
+\texttt{stereo} program will do its best to find as many interest
+points within the imagery as it can.  When this is set to 2, the
+program will ignore every other interest point that it finds, and
+will only process the reduced set.  This parameter can be set to
+any positive integer.  When this parameter is turned up, the resulting
+point cloud will have less effective resolution.
+
+\item[DO\_SLOG 1 and DO\_LOG 0] \hfill \\
+These two items are related, only one can be set to `on', if both
+are `on' the program will default to doing only SLOG.  \emph{MJB: explain the difference}
+
+\item[SLOG\_KERNEL\_WIDTH 1.5] \hfill \\
+When \texttt{DO\_SLOG} is `on,' this option sets the diameter of
+the convolution kernel. \emph{MJB: describe}
+
+\end{description}
+
+\subsubsection*{Correlation}
+\subsubsection*{Filtering}
+\subsubsection*{Dot Cloud}
+
+\section{disparitydebug}
+\section{results}
+\section{point2mesh}
+\section{point2dem}
+\section{orthoproject}
