@@ -10,7 +10,96 @@ Stereo Pipeline.  It is the program that takes a pair of images which
 overlap and creates an output point cloud which can then be fed to the
 \texttt{point2mesh} or \texttt{point2dem} programs.
 
-\emph{Way more needs to go in here ...}
+\medskip
+
+Usage:
+\begin{verbatim}
+    stereo [options] <Left_input_image> <Right_input_image> \\
+           [Left_camera_file] [Right_camera_file] <output_file_prefix>
+\end{verbatim}
+
+\medskip
+
+In principal, the stereo program is very simple, it takes two input
+images (and their optional camera files) and creates a bevy of
+output files.
+
+\emph{MJB: fact check this para.}
+The \verb=<Left_input_image>= and \verb=<Right_input_image>= files can be a wide variety of image formats.  If your input image files contain camera information (e.g. ISIS \verb=.cub= files), then the \verb=Left_camera_file= and \verb=Right_camera_file= are optional.
+
+\emph{MJB: detail the format of the camera\_files if people need them.}
+
+The \verb=<output_file_prefix>= is what \verb=stereo= uses as the
+beginning part of most of the files that it writes out.  If you set
+\verb=<output_file_prefix>= to be `\verb=out=' then files will be
+named \verb=out-L.tif= and  \verb=out-PC.tif=.  If you use something
+like `\verb=out/out=' for \verb=<output_file_prefix>= then the
+\verb=stereo= program will create a directory called \verb=out/= and
+place files named \verb=out-L.tif=, \verb=out-PC.tif=, etc. into
+that directory, which can sometimes be handy.
+
+The files that \verb=stereo= creates are as follows (assuming \verb=<output_file_prefix>= is set to be `\verb=out=' although it need not be):
+
+\emph{MJB: detail all of these.}
+
+\begin{description}
+
+\item[out-D.exr] 
+\item[out-F-corrected.exr]
+\item[out-F.exr]
+\item[out-GoodPixelMap.tif]
+\item[out-L.tif]
+\item[out-PC.tif]
+\item[out-R.exr]
+\item[out-R.tif]
+\item[out-align.exr]
+\item[out-lMask.tif]
+\item[out-rMask.tif]
+
+\end{description}
+
+\emph{MJB: also talk about the .vwiw and the .match files that get generated.}
+
+
+\subsection{Options}
+
+\begin{verbatim}
+-h [ --help ]                                Display this help message
+  --cache arg (=1800)                          Cache size, in megabytes
+  --threads arg (=0)                           Select the number of processors 
+                                               (threads) to use.
+  -t [ --session-type ] arg                    Select the stereo session type 
+                                               to use for processing. [options:
+                                               pinhole isis]
+  -s [ --stereo-file ] arg (=./stereo.default) Explicitly specify the 
+                                               stereo.default file to use. 
+                                               [default: ./stereo.default]
+  -e [ --entry-point ] arg (=0)                Pipeline Entry Point (an integer
+                                               from 1-4)
+  -d [ --debug-level ] arg (=29)               Set the debugging output level. 
+                                               (0-50+)
+  --crop-min-x arg                             Crop the aligned input images to
+                                               these bounds ( <min_x> <min_y> 
+                                               <width> <height> ) prior to 
+                                               running through the correlator. 
+                                               Useful for tuning settings 
+                                               before processing the whole 
+                                               image.
+  --crop-min-y arg
+  --crop-width arg
+  --crop-height arg
+  --draft-mode arg                             Cause the pyramid correlator to 
+                                               save out debug imagery named 
+                                               with this prefix.
+  --optimized-correlator                       Use the optimized correlator 
+                                               instead of the pyramid 
+                                               correlator.
+\end{verbatim}
+
+\subsection{Entry Points}
+
+\emph{MJB: discuss the different phases, and how to know when you're
+in which, etc.}
 
 \subsection{stereo.default file}
 
@@ -28,6 +117,8 @@ The parameters below also have their default values listed after
 the parameter name.
 
 \subsubsection*{Preprocessing}
+\hrule
+\bigskip
 
 \begin{description}
 \item[DO\_INTERESTPOINT\_ALIGNMENT 1] \hfill \\
@@ -59,6 +150,8 @@ the convolution kernel. \emph{MJB: describe}
 \end{description}
 
 \subsubsection*{Correlation}
+\hrule
+\bigskip
 
 \begin{description}
 \item[H\_KERNEL 25]
@@ -66,7 +159,7 @@ the convolution kernel. \emph{MJB: describe}
 These two items determine the size of the kernel in the horizontal (H) and vertical (V) directions in the input images.  \emph{MJB: more detail}
 
 \item[SUBPIXEL\_H\_KERNEL 25]
-\item[SUBPIXEL\_V\_KERNEL 25]
+\item[SUBPIXEL\_V\_KERNEL 25] \hfill \\
 These two items are only relevant when the \texttt{DO\_H\_SUBPIXEL} and \texttt{DO\_V\_SUBPIXEL} parameters (detailed below) are `on.'  They speciffy the size of the subpixel kernel in the horizontal (H) and vertical (V) directions.
 
 \item[H\_CORR\_MIN -100]
@@ -75,15 +168,79 @@ These two items are only relevant when the \texttt{DO\_H\_SUBPIXEL} and \texttt{
 \item[V\_CORR\_MAX 100] \hfill \\
 These parameters determine the size of the correlation window that the kernel will be moved around within to find a match.
 
-\item[SUBPIXEL_MODE 0] \hfill \\
-This parameter determines the method by which subpixel correlation is done
+\item[SUBPIXEL\_MODE 0] \hfill \\
+This parameter determines the method by which subpixel correlation is done:
+\emph{AN: describe}
+	\begin{description}
+	\item[0 - parabola fitting (fastest)]
+	\item[1 - affine adaptive window, robust weighting (slow!)]
+	\item[2 - affine adaptive window, bayes weighting (slow!)]
+	\end{description}
 
+\item[DO\_H\_SUBPIXEL 1]
+\item[DO\_V\_SUBPIXEL 1] \hfill \\
+These parameters turn `on' and `off' the subpixel correlation
+algorithms.  For the most part, you almost always want these `on.'
 
+\item[XCORR\_THRESHOLD 2.0] \hfill \\
+This cross-correlation threshold determines ... \emph{MJB: describe}
+
+\item[CORRSCORE\_REJECTION\_THRESHOLD 1.1] \hfill \\
+\emph{MJB: describe}
+
+\item[COST\_BLUR 0] \hfill \\
+Turn this up to improve the results of the discrete
+correlation step.  This will reduce the number of 
+missing pixels, but will reduce the overall accuracy of 
+the disparity estimates.  It is best used in conjuction with 
+affine adaptive window subpixel modes above.
+
+\item[COST\_MODE 0] \hfill \\
+This allows you to select a cost function type:
+\emph{AN: describe}
+	\begin{description}
+	\item[0 - absolute difference]
+	\item[1 - squared difference]
+	\item[2 - normalized cross correlation]
+	\end{description}
 
 \end{description}
 
 \subsubsection*{Filtering}
+\hrule
+\bigskip
+
+\begin{description}
+
+\item[FILL\_HOLES\_NURBS 1] \hfill \\
+When this is `on' the holes in the point cloud (which are a result of poor matching) will be filled by a Nonuniform rational B-spline (NURBS) which should do a pretty good job of hiding the holes.
+
+\item[RM\_H\_HALF\_KERN 5]
+\item[RM\_V\_HALF\_KERN 5] \hfill \\
+These two parameters determine the size of the half kernel which
+is used to perform the automatic removal of low confidence pixels.
+So a $5 \times 5$ half kernel would result in an $11 \times 11$
+kernel with 121 pixels in it.
+
+\item[RM\_MIN\_MATCHES 60]
+\emph{MJB: detail.  stereo.default comment says `Units = percest'  should that be `percent?'}
+
+\item[RM\_TRESHOLD 3]
+\emph{MJB: detail}
+
+\end{description}
+
+
 \subsubsection*{Dot Cloud}
+\hrule
+\bigskip
+
+\begin{description}
+\item[NEAR\_UNIVERSE\_RADIUS 0.0]
+\item[FAR\_UNIVERSE\_RADIUS 0.0] \hfill \\
+These parameters set the size of the dot cloud's `universe' in meters and altitude off the ground.  Setting both to zero turns off this restriction and allows the dot cloud to be as big as the data allows for. \emph{MJB: I extemporized this, please correct.}
+
+\end{description}
 
 \section{disparitydebug}
 \section{results}
