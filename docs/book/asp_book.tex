@@ -1,28 +1,30 @@
 \documentclass[letterpaper,12pt]{book}
 \usepackage[margin=0.75in]{geometry}
-\usepackage{moreverb}
-\usepackage{float}
-\usepackage{subfigure}
-\usepackage{graphicx}
-\usepackage{epstopdf}
+% Wait to usepackage these until they are needed.
+% \usepackage{moreverb}
+% \usepackage{float}
+% \usepackage{subfigure}
+% \usepackage{graphicx}
+% \usepackage{epstopdf}
 
-% Define the \sourcelst command to create a floating listing of 
-% a (separate) source file.
-\newfloat{listing}{t}{lop}
-\floatname{listing}{Listing}
-\def\sourcelst#1#2{
-\begin{listing}
-\begin{tabular}{|@{\hspace{0.04\linewidth}}c@{\hspace{0.02\linewidth}}|}
-\hline \\
-\begin{minipage}{0.94\linewidth}
-\small\listinginput{1}{#1}
-\end{minipage}
-\\ \\ \hline
-\end{tabular}
-\caption{[{\tt #1}]\ \ #2}
-\label{lst:#1}
-\end{listing}
-}
+% Again, uncomment when/if needed.
+% % Define the \sourcelst command to create a floating listing of 
+% % a (separate) source file.
+% \newfloat{listing}{t}{lop}
+% \floatname{listing}{Listing}
+% \def\sourcelst#1#2{
+% \begin{listing}
+% \begin{tabular}{|@{\hspace{0.04\linewidth}}c@{\hspace{0.02\linewidth}}|}
+% \hline \\
+% \begin{minipage}{0.94\linewidth}
+% \small\listinginput{1}{#1}
+% \end{minipage}
+% \\ \\ \hline
+% \end{tabular}
+% \caption{[{\tt #1}]\ \ #2}
+% \label{lst:#1}
+% \end{listing}
+% }
 
 \title{{\Huge The Ames Stereo Pipeline Workbook:}\\A User's Guide to the\\NASA Ames Stereo Pipeline BETA version}
 \author{

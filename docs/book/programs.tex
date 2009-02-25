@@ -47,7 +47,8 @@ will only process the reduced set.  This parameter can be set to
 any positive integer.  When this parameter is turned up, the resulting
 point cloud will have less effective resolution.
 
-\item[DO\_SLOG 1 and DO\_LOG 0] \hfill \\
+\item[DO\_SLOG 1]
+\item[DO\_LOG 0] \hfill \\
 These two items are related, only one can be set to `on', if both
 are `on' the program will default to doing only SLOG.  \emph{MJB: explain the difference}
 
@@ -58,6 +59,29 @@ the convolution kernel. \emph{MJB: describe}
 \end{description}
 
 \subsubsection*{Correlation}
+
+\begin{description}
+\item[H\_KERNEL 25]
+\item[V\_KERNEL 25] \hfill \\
+These two items determine the size of the kernel in the horizontal (H) and vertical (V) directions in the input images.  \emph{MJB: more detail}
+
+\item[SUBPIXEL\_H\_KERNEL 25]
+\item[SUBPIXEL\_V\_KERNEL 25]
+These two items are only relevant when the \texttt{DO\_H\_SUBPIXEL} and \texttt{DO\_V\_SUBPIXEL} parameters (detailed below) are `on.'  They speciffy the size of the subpixel kernel in the horizontal (H) and vertical (V) directions.
+
+\item[H\_CORR\_MIN -100]
+\item[H\_CORR\_MAX 100]
+\item[V\_CORR\_MIN -100]
+\item[V\_CORR\_MAX 100] \hfill \\
+These parameters determine the size of the correlation window that the kernel will be moved around within to find a match.
+
+\item[SUBPIXEL_MODE 0] \hfill \\
+This parameter determines the method by which subpixel correlation is done
+
+
+
+\end{description}
+
 \subsubsection*{Filtering}
 \subsubsection*{Dot Cloud}
 
