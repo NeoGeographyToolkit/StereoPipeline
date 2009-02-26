@@ -45,13 +45,28 @@ The files that \verb=stereo= creates are as follows (assuming \verb=<output_file
 \begin{description}
 
 \item[out-D.exr] 
+This is the unfiltered disparit map, straight out of the stereo correlator.
+
 \item[out-F-corrected.exr]
+
 \item[out-F.exr]
+The Filtered disparity map with outlier removal and holes filled in.
+
 \item[out-GoodPixelMap.tif]
+An image showing which pixels were matched by the stereo correlator,
+and which were filled in by the hole filling algorithm.
+
 \item[out-L.tif]
+Left image in the stereo pair.
+
 \item[out-PC.tif]
+Point Cloud image with 3D locations for each point.
+
 \item[out-R.exr]
+
 \item[out-R.tif]
+Right (ailgned) image of the stereo pair.
+
 \item[out-align.exr]
 \item[out-lMask.tif]
 \item[out-rMask.tif]
@@ -243,7 +258,23 @@ These parameters set the size of the dot cloud's `universe' in meters and altitu
 \end{description}
 
 \section{disparitydebug}
-\section{results}
+
+Performs half of the stereo correlation and output data. Good for
+determine the search window reference in stereo.default.
+
+This program creates files named p19-[D,F]-[H,V].tif what do they contain?
+
 \section{point2mesh}
+
+Produces a mesh surface which can be visualized in OpenSceneGraph.
+
 \section{point2dem}
+
+Produces a GeoTIFF terrain model and orthographic image.
+
+This produces: 
+	p19-DEM.tif - A DEM with floating point pixels. This is suitable for use in a GIS.
+	p19-DEM-normalized.tif - A version of the DEM where the heights have been mapped onto the range 0-255 so that it can be viewed in a normal image viewer.
+
+
 \section{orthoproject}

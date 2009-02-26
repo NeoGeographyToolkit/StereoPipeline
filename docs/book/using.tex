@@ -1,0 +1,95 @@
+\chapter{Using the Ames Stereo Pipeline}
+
+\section{Examples of Use}
+
+Here is, in order, the list of commands that can be run to create
+data products from the MOC ``P19'' dataset (\emph{MJB: why is it
+called P19??}).  You can obtain this dataset from
+\emph{http://broxtronix.org/nasa/p19.tgz ??}, to ensure that your
+installation is working properly.
+
+Download the tarball and it will unpack into a \texttt{p19} directory.  Create an output directory to hold the results, and invoke the \texttt{stereo} program:
+
+\begin{verbatim}
+	mkdir results
+	stereo E0201461.cub M0100115.cub results/p19
+\end{verbatim}
+
+You can look at the results by examining the disparity images. These
+show the horizontal and vertical components of the matching offsets
+for each pixel, and they can be a useful debugging tool if you want
+to check how the stereo matcher performed for a given stereo pair:
+
+\begin{verbatim}
+	cd results
+	disparitydebug p19-D.exr -o p19-D     
+	disparitydebug p19-F.exr -o p19-F
+\end{verbatim}
+
+\emph{MJB: What exactly is being examined in the resultant images, what are users looking for?}
+
+A 3D mesh can be built from the point cloud and viewed using the
+\texttt{osgviewer} program:
+
+\begin{verbatim}
+	point2mesh p19-PC.tif p19-L.tif -o p19
+	osgviewer p19.ive
+\end{verbatim}
+
+When the \texttt{osgviewer} starts, you may want to turn off the
+lighting (hit the `L' key).
+
+A gridded DEM with floating point pixels can also be built from the point cloud:
+
+\begin{verbatim}
+	point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
+\end{verbatim}
+
+You can also orthoproject the raw satellite imagery onto the DEM during this step:
+
+\begin{verbatim}
+	point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif
+\end{verbatim}
+
+Finally, you can create colorized, shaded relief (or both) images from the DEM, using these Vision Workbench programs:
+
+\begin{verbatim}
+	colormap p19-DEM.tif -o p19-colorized.tif
+	hillshade p19-DEM.tif -o p19-shaded.tif -e 25
+	colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
+\end{verbatim}
+
+Finally, you can run the Vision Workbench's \texttt{image2qtree} on any of the following files:
+
+\begin{itemize}
+\item p19-DEM-normalized.tif
+\item p19-DRG.tif 
+\item p19-shaded.tif
+\item p19-colorized.tif
+\item p19-shaded-colorized.tif
+\end{itemize}
+
+
+\section{Tutorial}
+
+The following example will utilize images from the MOC dataset, P19.
+
+When choosing image pairs to process, images that are taken along
+the same groundtrack (usually from the same orbit) with similar
+viewing angles/lighting conditions and significant surface coverage
+overlap (~80\% is ideal) are the best suited for creating stereo
+image pairs. Depending on the characteristics of the mission data
+set and the individual images, the degree of acceptable variation
+will differ. * Significant differences between image characteristics
+increases the error propagated through to the resulting data products.
+
+Images do NOT need to be map projected before processing with this
+application. They SHOULD be photometrically calibrated (in whatever
+fashion suits your purposes). They must also be converted to ISIS
+.cub files.
+
+After initial photometric calibration (if necessary), convert the
+files to ISIS .cub files and unzip them. This sequence assumes that
+you have downloaded your image files from the NASA PDS.
+
+
