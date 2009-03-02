@@ -1,24 +1,156 @@
 \chapter{Bundle Adjustment}
 
-Intro ( This is what bundle adjustment is and what it can do for you!) ...
+Bundle adjustment is the process of simultaneously adjusting the
+properties of multiple cameras and the 3D locations of the objects
+they see, to minimize the error between the estimated forward
+projection of the 3D objects and their actual location in the captured
+images. This has application as an optional step between the capture
+of images and the creation of DEMs. There is always an amount of error
+with the recorded position and orientation of cameras and Bundle
+Adjustment can be used to refine these measurements. This will allow
+DEMs from multiple cameras to align better with one another. Bundle
+Adjustment can also take advantage of Ground Control Points (GCPs),
+which are accurately measured 3D locations on the surface of DEM. GCPs
+can be used to improve the alignment of the DEMs or align the new DEM
+to a past data product. Finally, even though Bundle Adjustment
+calculates the location of the 3D objects it views, only the final
+properties of cameras are recorded in the Ames Stereo Pipeline.
 
-\section{Visualizing Bundle Adjustment with BundleVis}
+\subsection{A deeper understanding}
 
-Purpose, Examples, Supported Cameras, and File Types
+Bundle Adjustment in Ames Stereo Pipeline revolves around the
+Levenberg-Marquardt Algorithm (LMA) which is a method of minimizing an
+error. In the case of Bundle Adjustment, the error is the pixel
+difference between an objects location in an image and it's forward
+projection through the camera. The goal is to solve for an update to
+the parameters of the cameras and point positions, apply them, and
+then repeat until the update supplied by LMA goes to zero.
+
+LMA is a hybrid of two minimization techniques, gauss-newton and
+gradient decent. Where the control between these two methods is the
+parameter lambda which will change in value during the process of
+Bundle Adjustment. A high value of lambda forces LMA to act like
+gradient decent, and is what will happen at the beginning of bundle
+adjustment when the camera parameters are far away from their final
+solution. A low value of lambda drives LMA into the gauss-newton
+method; at which it will take small steps in updating the camera
+values. When Bundle Adjustment is almost finished and is close to the
+solution, it will lower lambda.
+
+Since Bundle Adjustment is an iterative method, it would be happy to
+keep processing new updates to camera parameters all day. To avoid
+this, there are several shutoff conditions. The first is when the
+update to the camera parameters becomes insignificantly small. The
+second is when the error measurement becomes insignificantly
+small. Both of these conditions' thresholds are defined withing the
+bundle adjuster's code and is not allowed for the user to change. The
+final shut off condition is when the number of iterations becomes too
+large. It is important to understand that when this shut off condition
+happens, bundle adjustment has not finished refining the parameters of
+the cameras but they are a step closer to the solution. The maximum
+number of iterations is changeable by the user so they can decide how
+much time they're will to dedicate to the correction of the data. The
+number of iterations Bundle Adjustment takes to converge on the
+solution can be anywhere between 20 iterations or several hundred.
+
+If you are interested in more information on the math of Bundle
+Adjustment and the arrangement of the problem, we recommend reading
+Appendix 6 in the {\em Multiple View Geometry book} \cite{hartley04}. 
+For more information on why LMA is used instead of the million other 
+optimization algorithms, try reading {\em Bundle Adjustment – A Modern 
+Synthesis} \cite{triggs00}.
 
 \section{RMAX Adjust}
 
-Purpose, Bundle Adjustment Model, Examples
+\texttt{rmax\_adjust} is a specific bundle adjuster for data collected by IRG on
+the Yamaha RMAX Helicopter. It is also our testing grounds to
+determine if any changes to Bundle Adjustment code works.
+
+\subsection{Options}
+
+\begin{verbatim}
+--cnet, -c [control network file]
+\end{verbatim}
+
+\emph{Optional.} Feeding this option will force RMAX Adjust to use an
+already built control network. If not fed, RMAX Adjust will look for
+match files in current operating directory with names similar to the
+input images to build it's control network from. If \texttt{rmax\_adjust}
+creates it's own control network file, it will save it as
+\verb=rmax_adjust.cnet=.
+
+\begin{verbatim}
+--lambda, -l [value]
+\end{verbatim}
+
+\emph{Optional.} This set the starting value for lambda. Bundle
+Adjustment will naturally select a value for lambda it thinks is best
+for the starting error, but this argument can be used to override
+that.
+
+\begin{verbatim}
+--min-matches [default = 5]
+\end{verbatim}
+
+When producing a control network, this sets the minimum required
+interest point matches between images for them to be included. If a
+match file fails to find this many of matches, it probably means these
+were poor matches and the images don't really overlap.
+
+\begin{verbatim}
+--max-iterations [default = 25]
+\end{verbatim}
+
+Sets the maximum number of iterations to be done by Bundle Adjustment.
+
+\begin{verbatim}
+--nonsparse, -n
+\end{verbatim}
+
+\emph{Optional.} Switches the Bundle Adjustment code to use non-sparse
+matrices in it's math. This will cause it to run significantly slower
+and is only used as a check of the programmer's sparse matrix code.
+
+\begin{verbatim}
+--report-level, -r [default = 10]
+\end{verbatim}
+
+Sets the report level for the final report on the bundle adjustment
+which can be found in \verb=rmax_adjust.report=. Report levels are defined in
+BundleAdjustReport.h in Vision Workbench.
+
+\begin{verbatim}
+--run-match, -m
+\end{verbatim}
+
+\emph{Optional.} If match files don't already exist, create them using a
+call to \texttt{IPmatch}.
+
+\begin{verbatim}
+--match-debug-images, -d
+\end{verbatim}
+
+\emph{Optional.} If a call to \texttt{IPmatch} is being called, this option
+also allows for the creation of debugging images that show the matches
+between the input images.
+
+\subsection{Examples of Use}
+
+--> steal from my old report?
 
 \section{ISIS Adjust}
 
 Purpose, Bundle Adjustment Model, Supported Equations, Examples
 
+\section{Visualizing Bundle Adjustment with BundleVis}
+
+Purpose, Examples, Supported Cameras, and File Types
+
 \begin{thebibliography}{1}
 
-\bibitem{book1} Author, Author, ``Title Title Title,''
-  Book Company, Date
-\bibitem{book2} Author, Auther, ``Title Title Title,''
-  Book Company, Data
+\bibitem{hartley04} Hartley, R.I. and Zisserman, A. ``Multiple View Geometry in Computer Vision,''
+  Cambridge University Press. 2004. pp 597-627.
+\bibitem{triggs00} Triggs, McLauchlan, Hartley, and Fitzgibbon. ``Bundle Adjustment - A Modern Synthesis,''
+  Lecture Notes in Computer Science. Vol. 1883, 298. January 2000
 
 \end{thebibliography}
