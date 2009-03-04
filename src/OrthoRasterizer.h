@@ -31,7 +31,7 @@
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/Manipulation.h>
-#include <vw/Image/BlockCacheView.h>
+#include <vw/Image/BlockRasterize.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 
