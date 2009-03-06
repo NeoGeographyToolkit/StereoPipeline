@@ -44,9 +44,12 @@ using namespace boost;
 namespace vw {
   
 
-  // Set the default block size to be the width of the image by 10
-  // scanlines.
-  Vector2i DiskImageResourceIsis::native_block_size() const
+  // We use a fixed tile size of 2048x2048 pixels here.  Although this
+  // may not be the native tile size of the ISIS cube, it seems to be
+  // much faster to let the ISIS driver aggregate smaller blocks by
+  // making a larger request rather than caching those blocks
+  // ourselves.
+  Vector2i DiskImageResourceIsis::block_size() const
   {
     return Vector2i(2048,2048);
   }
@@ -116,8 +119,8 @@ namespace vw {
       vw_throw(IOErr() << "DiskImageResourceIsis: Unknown pixel type.");
     }
 
-//     vw_out(0) << "Bytes per pixel: " << m_bytes_per_pixel; 
-//     vw_out(0) << "   channel_type " << m_format.channel_type << "\n";
+    //     vw_out(0) << "Bytes per pixel: " << m_bytes_per_pixel; 
+    //     vw_out(0) << "   channel_type " << m_format.channel_type << "\n";
    
     // Close the cube file
     cube.Close();

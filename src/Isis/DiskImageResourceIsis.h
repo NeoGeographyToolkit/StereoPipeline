@@ -52,7 +52,7 @@ namespace vw {
     static std::string type_static() { return "ISIS"; }
     virtual std::string type() { return type_static(); }
 
-    virtual Vector2i native_block_size() const; 
+    virtual Vector2i block_size() const; 
     
     virtual void read(ImageBuffer const& dest, BBox2i const& bbox) const;
     virtual void write(ImageBuffer const& dest, BBox2i const& bbox);
@@ -68,6 +68,7 @@ namespace vw {
 
     std::string m_filename;
     int m_bytes_per_pixel;
+    Vector2i m_native_block_size;
   };
 
 } // namespace vw
