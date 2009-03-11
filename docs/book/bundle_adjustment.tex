@@ -68,8 +68,8 @@ iterations becomes too large. It is important to understand that when
 this shut off condition happens, bundle adjustment has not finished
 refining the parameters of the cameras but they are a step closer to
 the solution. The maximum number of iterations is changeable by the
-user so they can decide how much time they're will to dedicate to the
-correction of the data. The number of iterations Bundle Adjustment
+user so they can decide how much time they're willing to dedicate to
+the correction of the data. The number of iterations Bundle Adjustment
 takes to converge on the solution can be anywhere between 20
 iterations to several hundred.
 
@@ -129,6 +129,9 @@ problem.
 
 \subsection{Options}
 
+The following is a listing and explanation of the command line options
+that can be fed to \texttt{isis\_adjust} from the terminal.
+
 \begin{verbatim}
 --cnet, -c [control network file]
 \end{verbatim}
@@ -175,7 +178,7 @@ meters.
 \end{verbatim}
 
 \emph{Optional.} If match files don't already exist, create them using a
-call to \texttt{IPmatch}.
+call to \texttt{ipmatch}.
 
 \begin{verbatim}
 --match-debug-images, -d
@@ -205,7 +208,7 @@ Sets the maximum number of iterations to be done by Bundle Adjustment.
 \end{verbatim}
 
 Sets the report level for the final report on the bundle adjustment
-which can be found in \verb=rmax_adjust.report=. Report levels are defined in
+which can be found in \verb=isis_adjust.report=. Report levels are defined in
 BundleAdjustReport.h in Vision Workbench.
 
 \begin{verbatim}
@@ -226,17 +229,167 @@ binary output, \verb=isis_adjust.cnet=, and is human readable. This
 alternative's importance is that it can be used with ISIS3's
 \texttt{Qnet}.
 
-\subsection{Examples of Use}
+\section{Visualizing Bundle Adjustment with BundleVis}
 
-%\begin{wrapfigure}{r}{2.5in}
-%\begin{center}
-%  \definecolor{lgray}{gray}{0.95}
-%  \fcolorbox{black}{lgray}{\begin{minipage}{2.2in} Hey! Hi we at IRG
-%      actually use SURF! Blag sg f d fgds dfsgd srd sssf ds dfs fsdf
-%      sd fdsrds rdsr drdf dgsrr ge gerges s i srges ge
-%  \end{minipage}}
-%\end{center}
-%\end{wrapfigure}
+\texttt{bundlevis} is a program used to visualize the process of
+Bundle Adjustment. It will show all the 3D points and cameras in a 3D
+model across all iterations of Bundle Adjustment as if in a
+movie. This tool is used to quickly determine if Bundle Adjustment was
+successful or what went wrong.
+
+\begin{figure}[htp]
+  \begin{center}
+  \includegraphics[width=5in]{images/bundlevis_apollo.png}
+  \end{center}
+  \caption{ A screenshot of bundle adjustment of Apollo 15's Orbit 33. }
+  \label{fig:bundlevis}
+\end{figure}
+
+After Bundlevis has loaded all the data, the user can inspect the 3D
+points that are in purple and play back the iterations. The user is
+able to double click on a camera and have lines drawn to each point
+viewed by the camera. It also allows the reverse, the user can double
+click on a point and have lines drawn to all cameras that view the
+point.
+
+Failure of Bundle Adjustment looks different in every case,
+but 2 important observations are dead giveaways of a failure. First,
+is segmentation, this is different layers developing amoung the
+points. This will produce cliffs between the layers and is usually a
+sign of poor matching between cameras; specifically the lack of
+matches between cameras. The second common sign of a failure is a
+point cloud explosion or implosion. This is a sign of poor matching
+that has a high number of outliers. In this case it is created
+by outlier matches between cameras that physically could not have viewed the
+same terrian.
+
+
+\subsection{Options}
+
+The following is a listing and explanation of the command line options
+that can be fed to \texttt{bundlevis} from the terminal.
+
+\begin{verbatim}
+--camera-iteration-file, -c [bundlevis camera iteration file]
+\end{verbatim}
+
+\emph{Optional.} Only if the camera iteration file is given will
+\texttt{bundlevis} draw the cameras used during Bundle Adjustment.
+
+\begin{verbatim}
+--points-iteration-file, -p [bundlevis point iteration file]
+\end{verbatim}
+
+\emph{Optional.} Likewise, only when giving a point iteration file
+will \texttt{bundlevis} draw the ground point estimations used during
+Bundle Adjustment.
+
+\begin{verbatim}
+--control-network-file, -n [Vision Workbench binary control network file]
+\end{verbatim}
+
+\emph{Optional.} When the control network file used during bundle
+adjustment is given with the options \verb=--camera-iteration-file=
+and \verb=--points-iteration-file=, will \texttt{bundlevis} have the
+option to draw the lines that show the relationship between points and
+cameras.
+
+\begin{verbatim}
+--additional-pnt-files [bundlevis point iteration files]
+\end{verbatim}
+
+\emph{Optional.} Additional points can be drawn and animated with the
+previously mention data using this option. The files given must be in
+the same format as a bundlevis point iteration file and have the same
+number of iterations as well.
+
+\begin{verbatim}
+--fullscreen
+\end{verbatim}
+
+\emph{Optional.} Displays bundlevis using the entire screen, otherwise
+the program loads in a window. \emph{It is known that the fullscreen
+  option does not work correctly with dual screen systems.}
+
+\begin{verbatim}
+--stereo
+\end{verbatim}
+
+\emph{Optional.} This forces the program to display in red/blue anaglyph mode.
+
+\begin{verbatim}
+--show-moon
+\end{verbatim}
+
+\emph{Optional.} Draws a wireframe sphere that represents the Moon.
+
+\begin{verbatim}
+--show-mars
+\end{verbatim}
+
+\emph{Optional.} Draws a wireframe sphere that represents Mars.
+
+\begin{verbatim}
+--show-earth
+\end{verbatim}
+
+\emph{Optional.} Draws a wireframe sphere that represents Earth.
+
+\subsection{Controls}
+
+Once \texttt{bundlevis} is running, there are several controls the user can use to interface with the program. There are the playback controls, jump-to-frame controls, and the mouse.
+
+\paragraph{Playback Controls}
+Playback controls are similar to winamp, or alternatively described as
+being in the same arrangement as the controls on a tape deck.
+
+\newenvironment{myindentpar}[1]
+               {\begin{list}{}
+                   {\setlength{\leftmargin}{#1}}
+                 \item[]
+               }
+               {\end{list}}
+
+\begin{myindentpar}{3cm}
+\begin{description}
+  \item[Z] Step back one iteration
+  \item[X] Play
+  \item[C] Pause
+  \item[V] Stop \emph{(which is the same as Pause except that
+    bundlevis goes back to iteration 0)}
+  \item[B] Step forward one iteration
+\end{description}
+\end{myindentpar}
+
+\paragraph{Jump-to-Frame Controls}
+Jump-to-Frame controls are the numbers \textbf{1-9} along the top of the
+keyboard. Pressing \textbf{1} will have \texttt{bundlevis} display the
+very first iteration. Pressing \textbf{9} will have \texttt{bundlevis}
+display the very last iteration. Pressing \textbf{2} through
+\textbf{8} will cause \texttt{bundlevis} to display the iteration that
+is somewhere relatively in the middle based on the value of the
+number. Finally, there is an option to press \textbf{0} which will
+cause \texttt{bundlevis} to display the points at their very last
+iteration with an additional tail pointing back to the starting
+position of the points in the first iteration.
+
+\paragraph{Mouse}
+The mouse is used to move around the model, and has the same controls
+as in \texttt{osgviewer}. The \textbf{left mouse button} is rotate,
+\textbf{right mouse button} is zoom, and the \textbf{middle mouse
+  button} is translation. Alternatively for systems where the mouse is
+button challenged, \textbf{option + mouse} is translation and
+\textbf{command + mouse} is zoom. Double clicking with the mouse on a
+point or camera will allow the user to interact with the model. If the
+terminal is still visible, the point number and camera number can be
+seen printed after a double click event happens. The final way to
+determine what the camera's or point's number is; is to just zoom in
+with the mouse. Even all the points will develop numbers above them
+once the viewer is within a certain range.
+
+\section{Examples of Use}
+
+\subsection{Processing Mars Orbital Camera}
 
 What follows is an example of using two Mars Orbital Camera (MOC)
 images of the south Cydonia region with \texttt{isis\_adjust}. We'll
@@ -257,7 +410,7 @@ are how to convert the MOC images to ISIS cubes.
         moccal from=m1000254.lev0.cub to=m1000254.cub
         moccal from=r0901059.lev0.cub to=r0901059.cub
 
-        rm *.imq *.lev0.cub
+        rm *.im? *.lev0.cub
 \end{verbatim}
 
 At this point a match file needs to be created that connects our to
@@ -270,7 +423,8 @@ format.
         isis2std from=r0901059.cub to=r0901059.png format=PNG
 \end{verbatim}
 
-Here is how to process those newly created PNG files for interest points using the tools available in Vision Workbench.
+Here is how to process those newly created PNG files for interest
+points using the tools available in Vision Workbench.
 
 \begin{verbatim}
         ipfind  m1000254.png r0901059.png
@@ -298,10 +452,9 @@ Here is how to process those newly created PNG files for interest points using t
 
 Finally, it is time to start Bundle Adjustment. There are many options
 that can be done here. Below shows the options required to create
-visualization data for \texttt{bundlevis} \emph{(This is covered in
-  detail in the next section)}, setting the maximium iterations to
-100, and finally the option to create a detailed report file of
-\texttt{isis\_adjust}'s results.
+visualization data for \texttt{bundlevis}, setting the maximium
+iterations to 100, and finally the option to create a detailed report
+file of \texttt{isis\_adjust}'s results.
 
 \begin{verbatim}
         isis_adjust *.cub -s --max 100 -r 50
@@ -312,8 +465,26 @@ containing this project should suddenly have a lot more files. Don't
 panic! This is perfectly normal! Looking through the output in the
 terminal or alternatively in the output report file,
 \verb=isis_adjust.report=, the problem should have convereged in 35
-iterations. The error barely changed, this can be attributed Mars
+iterations. The error barely changed, this can be attributed to Mars
 Global Surveyor's relative positioning between images being very good. 
+
+Visualizing all the data that was exported for \texttt{bundlevis} is bit of a
+long chain of options in the terminal.
+
+\begin{verbatim}
+        bundlevis -p iterPointsParam.txt -c iterCameraParam.txt 
+                  -n isis_adjust.cnet
+\end{verbatim}
+
+Press escape to exit out of \texttt{bundlevis} when
+finished. Alternatively we can view a wireframe of Mars as well to
+give some perspective. Unforunately this is a bit absurd in this case
+since MOC covers such a small area.
+
+\begin{verbatim}
+        bundlevis -p iterPointsParam.txt -c iterCameraParam.txt
+                  -n isis_adjust.cnet --show-mars
+\end{verbatim}
 
 Producing DEMs using the newly created corrections is the same as
 covered in Chapter 3. There is one fine difference in that
@@ -326,19 +497,14 @@ files, \verb=m1000254.isis_adjust= and
                r0901059.isis_adjust MOC_RESULTS/M1000254_R0901059
 \end{verbatim}
 
-\texttt{stereo} is excepting the correction files in the place where it would optionally accept a camera model file. It decides what to do with the input based on the file extension, in this case it is \verb=.isis_adjust=.
+\texttt{stereo} is excepting the correction files in the place where
+it would optionally accept a camera model file. It decides what to do
+with the input based on the file extension, in this case it is
+\verb=.isis_adjust=.
 
-\section{Visualizing Bundle Adjustment with BundleVis}
+\subsection{Processing Apollo Metric Camera with GCPs}
 
-Purpose, Examples, Supported Cameras, and File Types
-
-\begin{figure}[htp]
-  \begin{center}
-  \includegraphics[width=6in]{images/bundlevis_apollo.png}
-  \end{center}
-  \caption{ A screenshot of bundle adjustment of Apollo 15's Orbit 33. }
-  \label{fig:bundlevis}
-\end{figure}
+\subsection{Sharing Data with ISIS3's Qnet}
 
 \begin{thebibliography}{1}
 
