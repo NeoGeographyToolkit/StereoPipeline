@@ -1,0 +1,198 @@
+--- orginal_code/SURF-V1.0.9/match.cpp	2006-12-20 03:28:30.000000000 -0600
++++ match.cpp	2009-03-11 13:26:07.000000000 -0500
+@@ -31,7 +31,7 @@
+  */
+ 
+ #include <vector>
+-#include <string>
++#include <string.h>
+ #include <iostream>
+ #include <fstream>
+ #include <cmath>
+@@ -39,12 +39,10 @@
+ #include "ipoint.h"
+ 
+ // Define to compile with PGM output
+-#define GRAPHICS
++//#define GRAPHICS
+ 
+-#ifdef GRAPHICS
+ #include "image.h"
+ #include "imload.h"
+-#endif
+ 
+ using namespace std;
+ using namespace surf;
+@@ -69,6 +67,7 @@
+ 	int match = -1;
+ 
+ 	for (unsigned i = 0; i < ipts.size(); i++) {
++
+ 		// Take advantage of Laplacian to speed up matching
+ 		if (ipts[i].laplace != ip1.laplace)
+ 			continue;
+@@ -90,6 +89,30 @@
+ 	return -1;
+ }
+ 
++// Writes the interestpoint match for later reading
++inline void write_ip_record(std::ofstream &f, Ipoint const& p){
++  float buffer_f = (float)p.x;
++  f.write((char*)&(buffer_f), sizeof(float));       //x
++  buffer_f = (float)p.y;
++  f.write((char*)&(buffer_f), sizeof(float));       //y
++  int buffer_i = (int)p.x;
++  f.write((char*)&(buffer_i),   sizeof(int));         //ix
++  buffer_i = (int)p.y;
++  f.write((char*)&(buffer_i),   sizeof(int));         //iy
++  buffer_f = (float)p.ori;
++  f.write((char*)&(buffer_f), sizeof(float));     //ori
++  buffer_f = (float)p.scale;
++  f.write((char*)&(buffer_f), sizeof(float));     //scale
++  buffer_f = (float)p.strength;
++  f.write((char*)&(buffer_f),sizeof(float)); //interest
++  bool buffer_b = false;
++  f.write((char*)&(buffer_b),sizeof(bool));  //polarity
++  f.write((char*)&(buffer_i),sizeof(unsigned)); // octave
++  f.write((char*)&(buffer_i),sizeof(unsigned)); // scale_lvl
++  buffer_i = 0;
++  f.write((char*)&(buffer_i),     sizeof(int));         //size of descriptor... nothing...                                                                                                
++}  
++
+ // Find all possible matches between two images
+ vector< int > findMatches(const vector< Ipoint >& ipts1, const vector< Ipoint >& ipts2) {
+ 	vector< int > matches(ipts1.size());
+@@ -98,9 +121,7 @@
+ 		int match = findMatch(ipts1[i], ipts2);
+ 		matches[i] = match;
+ 		if (match != -1) {
+-			cout << " Matched feature " << i << " in image 1 with feature "
+-				<< match << " in image 2." << endl;
+-			c++;
++		  c++;
+ 		}
+ 	}
+ 	cout << " --> Matched " << c << " features of " << ipts1.size() << " in image 1." << endl;
+@@ -127,10 +148,10 @@
+ 	// Load the interest points in Mikolajczyk's format
+ 	for (unsigned n = 0; n < count; n++) {
+ 		// circular regions with diameter 5 x scale
+-		float x, y, a, b, c;
++	  float x, y, a, b, c, ori;
+ 
+ 		// Read in region data, though not needed for actual matching
+-		ipfile >> x >> y >> a >> b >> c;
++	  ipfile >> x >> y >> a >> b >> c >> ori;
+ 
+ 		float det = sqrt((a-c)*(a-c) + 4.0*b*b);
+ 		float e1 = 0.5*(a+c + det);
+@@ -142,6 +163,7 @@
+ 		ipts[n].x = x;
+ 		ipts[n].y = y;
+ 		ipts[n].scale = sc/2.5;
++		ipts[n].ori = ori;
+ 
+ 		// Read in Laplacian
+ 		ipfile >> ipts[n].laplace;
+@@ -159,7 +181,7 @@
+             (y1 >= im->getHeight() && y2 >= im->getHeight()))
+ 		return;
+ 
+-	bool steep = std::abs(y2 - y1) > std::abs(x2 - x1);
++	bool steep = abs(y2 - y1) > abs(x2 - x1);
+ 	if (steep) {
+ 		int t;
+ 		t = x1;
+@@ -182,7 +204,7 @@
+ 	}
+ 
+ 	int deltax = x2 - x1;
+-	int deltay = std::abs(y2 - y1);
++	int deltay = abs(y2 - y1);
+ 
+ 	int error = 0;
+ 	int y = y1;
+@@ -215,12 +237,14 @@
+ 
+ int main(int argc, char **argv) {
+ 	Image *im1, *im2;
+-#ifdef GRAPHICS
++
+ 	ImLoad ImageLoader;
+ 	vector< Ipoint > ipts1, ipts2;
+ 	bool drawc = false;
+-#endif
++
+ 	char ofname[100];
++	string matchname;
++	matchname.clear();
+ 
+ 	im1 = im2 = NULL;
+ 	ofname[0] = 0;
+@@ -232,7 +256,6 @@
+ 			loadIpoints(argv[++arg], ipts1);
+ 		if (! strcmp(argv[arg], "-k2"))
+ 			loadIpoints(argv[++arg], ipts2);
+-#ifdef GRAPHICS
+ 		if (! strcmp(argv[arg], "-im1"))
+ 			im1 = ImageLoader.readImage(argv[++arg]); 
+ 		if (! strcmp(argv[arg], "-im2"))
+@@ -241,12 +264,13 @@
+ 			strcpy(ofname, argv[++arg]);
+ 		if (! strcmp(argv[arg], "-c"))
+ 			drawc = true;
+-#endif
++		if (! strcmp(argv[arg], "-m"))
++		  matchname = argv[++arg];
+ 	}
+ 
+ 	if (ipts1.size() == 0 || ipts2.size() == 0) {
+ 		cout << "Usage:" << endl;
+-		cout << " match -k1 out1.surf -k2 out2.surf -im1 img1.pgm -im2 img2.pgm -o out.pgm" << endl << endl;
++		cout << " match -k1 out1.surf -k2 out2.surf -im1 img1.pgm -im2 img2.pgm -o out.pgm -m output.match" << endl << endl;
+ 		cout << "For each feature in first descriptor file, find best in second according to "
+ 			<< "nearest neighbor ratio strategy. Display matches in out.pgm, generated "
+ 			<< "from img1.pgm and img2.pgm. Use -c to draw crosses at interest points." << endl;
+@@ -255,7 +279,33 @@
+ 
+ 	vector< int > matches = findMatches(ipts1, ipts2);
+ 
+-#ifdef GRAPHICS
++	// Determining if to save a match file
++        if (matchname.size()) {
++          int count = 0;
++          for (unsigned i = 0; i < matches.size(); ++i){
++            if (matches[i] != -1)
++              ++count;
++          }
++          if (count > 0 ) {
++            std::ofstream outputFile(matchname.c_str(), std::ios::out);
++            outputFile.write((char*)&count, sizeof(int));
++            outputFile.write((char*)&count, sizeof(int));
++            //Writing left side..
++            for (unsigned i = 0; i < matches.size(); ++i){ 
++              if (matches[i] != -1) {
++                write_ip_record(outputFile,ipts1[i]);
++              } 
++            }
++            //Writing right side..
++            for (unsigned i = 0; i < matches.size(); ++i){
++              if (matches[i] != -1) {
++                write_ip_record(outputFile,ipts2[matches[i]]);
++              }  
++            } 
++          } 
++        } 
++
++
+ 	if (im1 != NULL && im2 != NULL && ofname[0] != 0) {
+ 		Image res(max(im1->getWidth(), im2->getWidth()), im1->getHeight() + im2->getHeight());
+ 		for (int x = 0; x < im1->getWidth(); x++)
+@@ -283,7 +333,6 @@
+ 
+ 		ImageLoader.saveImage(ofname, &res);
+ 	}
+-#endif
+ 	
+ 	return 0;
+ }
