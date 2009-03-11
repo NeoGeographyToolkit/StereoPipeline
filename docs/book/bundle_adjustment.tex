@@ -82,7 +82,50 @@ Synthesis} \cite{triggs00}.
 
 \section{ISIS Adjust}
 
-Purpose, Bundle Adjustment Model, Supported Equations, Examples
+The \texttt{isis\_adjust} program is an application designed to
+perform bundle adjustment on the cameras supported by USGS's
+ISIS3. \texttt{isis\_adjust} is special in that it does not
+discriminate based on camera type. It can perform bundle adjustment on
+line-scan imagers (such as MOC and Apollo's Panoramic Camera) just as
+well as it can on traditional frame cameras (such as Apollo Metric
+Camera). Theoretically it should also work fine with push-frame
+imagers (i.e. video), though this is untested.
+
+\texttt{isis\_adjust} works by first converting all pixel measurements
+in an images to measurements defined on the ideal focal
+plane using millimeters and the ephemeris time (ET). The ET is the
+absolute second at which that pixel measurement was recorded on the camera. 
+For a frame camera, the ET won't change for the for
+any of the measurements on the image. For anything more exotic, it is
+a different story. On a MOC image between the top and bottom line;
+about 5 seconds could have passed.
+
+\begin{wrapfigure}{r}{0.3\textwidth}
+\vspace{-30pt}
+\begin{center}
+  \definecolor{lgray}{gray}{0.95}
+  \fcolorbox{black}{lgray}{\begin{minipage}{0.29\textwidth} 
+
+      \emph{Note from Author:} \\ Currently \texttt{isis\_adjust}
+      lacks a proper way to support arbitrary defined correction
+      functions. For the time being, \texttt{isis\_adjust} has been
+      hard-coded to perform only zero order corrections (i.e. scalar
+      offsets). (03/11/09)
+
+  \end{minipage}}
+\end{center}
+\vspace{-30pt}
+\end{wrapfigure}
+
+When \texttt{isis\_adjust} calculates the partial derivatives of the
+forward projection of a point, it will use an ideal pinhole camera
+model. The properties of the ideal pinhole camera are defined as
+properties of the subject camera at the specificed ET for the current
+measure plus the correction function $f(t)$ that \texttt{isis\_adjust} is
+solving for. $f(t)$ can be almost any function of ET, the only limit is the
+number parameters in the equations. Some initial work hints that
+anything greater than a $2^{nd}$ order polynomial becomes an ill-posed
+problem.
 
 \subsection{Options}
 
@@ -138,7 +181,7 @@ call to \texttt{IPmatch}.
 --match-debug-images, -d
 \end{verbatim}
 
-\emph{Optional.} If a call to \texttt{IPmatch} is being called, this option
+\emph{Optional.} If a call to \texttt{ipmatch} is being called, this option
 also allows for the creation of debugging images that show the matches
 between the input images.
 
@@ -185,18 +228,28 @@ alternative's importance is that it can be used with ISIS3's
 
 \subsection{Examples of Use}
 
+%\begin{wrapfigure}{r}{2.5in}
+%\begin{center}
+%  \definecolor{lgray}{gray}{0.95}
+%  \fcolorbox{black}{lgray}{\begin{minipage}{2.2in} Hey! Hi we at IRG
+%      actually use SURF! Blag sg f d fgds dfsgd srd sssf ds dfs fsdf
+%      sd fdsrds rdsr drdf dgsrr ge gerges s i srges ge
+%  \end{minipage}}
+%\end{center}
+%\end{wrapfigure}
+
 What follows is an example of using two Mars Orbital Camera (MOC)
 images of the south Cydonia region with \texttt{isis\_adjust}. We'll
 be using images M10/00254 and R09/01059. These images are available
-Malin Space Science System's website
+at Malin Space Science System's website
 [\emph{http://www.msss.com/moc\_gallery/}] and at NASA's Planetary
 Data System [\emph{http://pds.jpl.nasa.gov/index.shtml}]; be sure to
 download the IMQ or IMG format. For reference, the following ISIS commands
 are how to convert the MOC images to ISIS cubes.
 
 \begin{verbatim}
-        moc2isis from=m1000254.imq to=m1000254.lev0.cub
-        moc2isis from=r0901059.imq to=r0901059.lev0.cub
+        moc2isis from=m1000254.im? to=m1000254.lev0.cub
+        moc2isis from=r0901059.im? to=r0901059.lev0.cub
 
         spiceinit from=m1000254.lev0.cub
         spiceinit from=r0901059.lev0.cub
@@ -206,6 +259,74 @@ are how to convert the MOC images to ISIS cubes.
 
         rm *.imq *.lev0.cub
 \end{verbatim}
+
+At this point a match file needs to be created that connects our to
+cube files. Vision Workbench doesn't except cube files. So before
+trying to match them; they'll have to be converted to a standard image
+format.
+
+\begin{verbatim}
+        isis2std from=m1000254.cub to=m1000254.png format=PNG
+        isis2std from=r0901059.cub to=r0901059.png format=PNG
+\end{verbatim}
+
+Here is how to process those newly created PNG files for interest points using the tools available in Vision Workbench.
+
+\begin{verbatim}
+        ipfind  m1000254.png r0901059.png
+        ipmatch m1000254.png r0901059.png -d -r homography
+\end{verbatim}
+
+\definecolor{lgray}{gray}{0.95}
+\begin{center}
+\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in} 
+
+    \emph{Note from Author:} \\ Within IRG it has become apparent that
+    using the interest point tools available from Vision Workbench
+    does not produces enough matches to continue with Bundle
+    Adjustment. The alternative is to use an outside method such as
+    SURF \cite{surf09}. The trick is modifing an outside method's
+    source code to export a Vision Workbench style match file. This
+    can be difficult. Fortunately the patches to do this trick to the
+    SURF code is available in the Appendix.  \\ \\ For this example it
+    is okay to use the results from \texttt{ipfind} and
+    \texttt{ipmatch}. Expect to find approximately 46 matched
+    points. Your results will be slightly different due to the random
+    nature of RANSAC.
+\end{minipage}}
+\end{center}
+
+Finally, it is time to start Bundle Adjustment. There are many options
+that can be done here. Below shows the options required to create
+visualization data for \texttt{bundlevis} \emph{(This is covered in
+  detail in the next section)}, setting the maximium iterations to
+100, and finally the option to create a detailed report file of
+\texttt{isis\_adjust}'s results.
+
+\begin{verbatim}
+        isis_adjust *.cub -s --max 100 -r 50
+\end{verbatim}
+
+The command window should spurt forth a lot of text and the directory
+containing this project should suddenly have a lot more files. Don't
+panic! This is perfectly normal! Looking through the output in the
+terminal or alternatively in the output report file,
+\verb=isis_adjust.report=, the problem should have convereged in 35
+iterations. The error barely changed, this can be attributed Mars
+Global Surveyor's relative positioning between images being very good. 
+
+Producing DEMs using the newly created corrections is the same as
+covered in Chapter 3. There is one fine difference in that
+\texttt{stereo} needs to know of the existence of the correction
+files, \verb=m1000254.isis_adjust= and
+\verb=r0901059.isis_adjust=. Here is how that is done:
+
+\begin{verbatim}
+        stereo m1000254.cub r0901059.cub m1000254.isis_adjust
+               r0901059.isis_adjust MOC_RESULTS/M1000254_R0901059
+\end{verbatim}
+
+\texttt{stereo} is excepting the correction files in the place where it would optionally accept a camera model file. It decides what to do with the input based on the file extension, in this case it is \verb=.isis_adjust=.
 
 \section{Visualizing Bundle Adjustment with BundleVis}
 
@@ -227,5 +348,6 @@ Purpose, Examples, Supported Cameras, and File Types
   presented at ASPRS Annual Conf., Baltimore, Maryland, 2009.
 \bibitem{triggs00} Triggs, McLauchlan, Hartley, and Fitzgibbon. ``Bundle Adjustment - A Modern Synthesis,''
   Lecture Notes in Computer Science. Vol. 1883, 298. January 2000
+\bibitem{surf09} Bay, Gool, and Tuytelaars. (2009, Mar.). ``SURF: Speeded Up Robust Features'' [Online]. Available: \verb!http://www.vision.ee.ethz.ch/~surf/download.html!
 
 \end{thebibliography}
