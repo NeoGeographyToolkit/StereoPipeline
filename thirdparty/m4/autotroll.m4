@@ -17,6 +17,22 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 # USA.
+#
+# In addition, as a special exception, the copyright holders of AutoTroll
+# give you unlimited permission to copy, distribute and modify the configure
+# scripts that are the output of Autoconf when processing the macros of
+# AutoTroll.  You need not follow the terms of the GNU General Public License
+# when using or distributing such scripts, even though portions of the text of
+# AutoTroll appear in them. The GNU General Public License (GPL) does govern
+# all other use of the material that constitutes AutoTroll.
+#
+# This special exception to the GPL applies to versions of AutoTroll
+# released by the copyright holders of AutoTroll.  Note that people who make
+# modified versions of AutoTroll are not obligated to grant this special
+# exception for their modified versions; it is their choice whether to do so.
+# The GNU General Public License gives permission to release a modified version
+# without this exception; this exception also makes it possible to release a
+# modified version which carries forward this exception.
 
  # ------------- #
  # DOCUMENTATION #
@@ -66,6 +82,12 @@
 # BUILT_SOURCES. If you name them properly (eg: .moc.cc, .qrc.cc, .ui.cc -- of
 # course you can use .cpp or .cxx or .C rather than .cc) AutoTroll will build
 # them automagically for you (using implicit rules defined in autotroll.mk).
+
+m4_ifdef([AX_INSTEAD_IF], [],
+[AC_DEFUN([AX_INSTEAD_IF],
+  [m4_ifval([$1],
+    [AC_MSG_WARN([$2]); [$1]],
+    [AC_MSG_ERROR([$2])])])])
 
 m4_pattern_forbid([^AT_])dnl
 m4_pattern_forbid([^_AT_])dnl
@@ -349,9 +371,19 @@ m4_ifval([$3],
   sed 's/^/| /' "$pro_file" >&AS_MESSAGE_LOG_FD
 
   if $QMAKE $QMAKE_ARGS; then :; else
-    AX_INSTEAD_IF([$5], [Calling $QMAKE failed.])
+    AX_INSTEAD_IF([$5], [Calling $QMAKE $QMAKE_ARGS failed.])
     break
   fi
+
+  # Qmake from Qt-4.3.2 generates Makefile with slashes instead of backslashes
+  # on mingw and this lead to an error (see #96). The followind sed call is a
+  # work around this issue.
+  case $host_os in
+     *mingw*|*cygwin*)
+        sed -i 's|\([^ ]\)/|\1\\|g' Makefile
+	;;
+  esac
+
   # Try to compile a simple Qt app.
   AC_CACHE_CHECK([whether we can build a simple Qt app], [at_cv_qt_build],
   [at_cv_qt_build=ko
@@ -485,23 +517,25 @@ AC_DEFUN([AT_REQUIRE_QT_VERSION],
 [
   # this is a hack to get decent flow control with 'break'
   for ignored in once; do
-    if test x"$QMAKE" = x; then
-      AX_INSTEAD_IF([$3], [\$QMAKE is empty. Did you invoke AT@&t@_WITH_QT before AT@&t@_REQUIRE_QT_VERSION?])
-      break
-    fi
-    AC_CACHE_CHECK([for Qt's version], [at_cv_QT_VERSION],
-    [echo "$as_me:$LINENO: Running $QMAKE --version:" >&AS_MESSAGE_LOG_FD
-    $QMAKE --version >&AS_MESSAGE_LOG_FD 2>&1
-    qmake_version_sed=['/^.*\([0-9]\.[0-9]\.[0-9]\).*$/!d;s//\1/']
-    at_cv_QT_VERSION=`$QMAKE --version 2>&1 | sed "$qmake_version_sed"`])
-    if test x"$at_cv_QT_VERSION" = x; then
-      AX_INSTEAD_IF([$3], [Cannot detect Qt's version.])
-      break
-    fi
-    AC_SUBST([QT_VERSION], [$at_cv_QT_VERSION])
-    AS_VERSION_COMPARE([$QT_VERSION], [$1],
-      [AX_INSTEAD_IF([$3], [This package requires Qt $1 or above.])],
-      [$2], [$2])
+
+  if test x"$QMAKE" = x; then
+    AX_INSTEAD_IF([$3], [\$QMAKE is empty. Did you invoke AT@&t@_WITH_QT before AT@&t@_REQUIRE_QT_VERSION?])
+    break
+  fi
+  AC_CACHE_CHECK([for Qt's version], [at_cv_QT_VERSION],
+  [echo "$as_me:$LINENO: Running $QMAKE --version:" >&AS_MESSAGE_LOG_FD
+  $QMAKE --version >&AS_MESSAGE_LOG_FD 2>&1
+  qmake_version_sed=['/^.*\([0-9]\.[0-9]\.[0-9]\).*$/!d;s//\1/']
+  at_cv_QT_VERSION=`$QMAKE --version 2>&1 | sed "$qmake_version_sed"`])
+  if test x"$at_cv_QT_VERSION" = x; then
+    AX_INSTEAD_IF([$3], [Cannot detect Qt's version.])
+    break
+  fi
+  AC_SUBST([QT_VERSION], [$at_cv_QT_VERSION])
+  AS_VERSION_COMPARE([$QT_VERSION], [$1],
+    [AX_INSTEAD_IF([$3], [This package requires Qt $1 or above.])],
+    [$2], [$2])
+
   #endhack
   done
 ])

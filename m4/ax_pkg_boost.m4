@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 # Usage: AX_PKG_BOOST
 AC_DEFUN([AX_PKG_BOOST],
 [
@@ -31,7 +38,7 @@ AC_DEFUN([AX_PKG_BOOST],
         PKG_BOOST_INCDIR="${ax_boost_base_path}/include"
         PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_LIBDIR}"
         # In case it's not in lib64 despite specifying lib64...
-        if test ! -d $PKG_BOOST_LIBDIR -a x"${AX_LIBDIR}" = "xlib64"; then
+        if test ! -d $PKG_BOOST_LIBDIR -a x"${AX_OTHER_LIBDIR}" != "x"; then
           PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_OTHER_LIBDIR}"
         fi
         HAVE_PKG_BOOST="yes"
@@ -51,7 +58,11 @@ AC_DEFUN([AX_PKG_BOOST],
       for ax_boost_inc_path in `ls -d ${ax_boost_base_path}/include/boost-* 2> /dev/null` ; do
         # At the moment we greedily accept the first one we find, regardless of version
         PKG_BOOST_INCDIR="${ax_boost_inc_path}"
-        PKG_BOOST_LIBDIR="${ax_boost_base_path}/lib"
+        PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_LIBDIR}"
+        # In case it's not in lib64 despite specifying lib64...
+        if test ! -d $PKG_BOOST_LIBDIR -a x"${AX_OTHER_LIBDIR}" != "x"; then
+          PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_OTHER_LIBDIR}"
+        fi
         HAVE_PKG_BOOST="yes"
         if test "$ENABLE_VERBOSE" = "yes"; then
           AC_MSG_RESULT([found])

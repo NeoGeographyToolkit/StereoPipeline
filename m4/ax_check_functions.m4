@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl Usage: AX_CHECK_FUNCTIONS(<function-list>, <libs>, [<if-all-found>, <for-each-not-found>, <checking?>])
 dnl
 dnl this is like AC_CHECK_LIB, but with less side effects, and an explicit lib

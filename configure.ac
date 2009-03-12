@@ -21,6 +21,12 @@
 #
 # __END_LICENSE__
 
+m4_pattern_forbid([^AX_])
+m4_pattern_allow([AX_CFLAGS])
+m4_pattern_allow([AX_INCLUDE_DIR])
+m4_pattern_allow([AX_LIBDIR])
+m4_pattern_allow([AX_OTHER_LIBDIR])
+
 ##################################################
 # A few starting bits
 ##################################################
@@ -150,10 +156,10 @@ AX_PKG_ONE_OF(MBA,
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
 # Qt with AutoTroll.
-AT_WITH_QT([+gui +sql +opengl], [], [], [], [HAVE_PKG_QT_INCLUDE=no])
+AT_WITH_QT([+gui +sql +opengl], [], [], [], [HAVE_PKG_QT_INCLUDE="no:missing QT"])
 
 if test x"$HAVE_PKG_QT_INCLUDE" != x"no"; then
-    AT_REQUIRE_QT_VERSION([4.0], [], [HAVE_PKG_QT_INCLUDE=no])
+    AT_REQUIRE_QT_VERSION([4.0], [], [HAVE_PKG_QT_INCLUDE="no:wrong QT version"])
 fi
 
 # We seed QT_INCLUDE's cppflags with the ones qmake figured out
@@ -163,10 +169,10 @@ AX_PKG(QT_INCLUDE, [], [], [QVector])
 AX_PKG_ONE_OF(QT,
     APPLE_QT, [AX_PKG_APPLE(QT, [GL QT_INCLUDE], [$QT_LIBS])],
     LINUX_QT,
-     [AX_PKG(QT_LIBS,    [],              [$QT_LIBS], [])
-      AX_PKG(QT_OPENGL,  [GL QT_INCLUDE], [],         [QtOpenGL])
-      AX_PKG(QT_GUI,     [QT_INCLUDE],    [],         [QLabel])
-      AX_PKG(QT_SQL,     [QT_INCLUDE],    [],         [QtSql])
+     [AX_PKG(QT_LIBS,                     [], [$QT_LIBS], [])
+      AX_PKG(QT_OPENGL,  [GL QT_INCLUDE], [], [QtOpenGL])
+      AX_PKG(QT_GUI,     [QT_INCLUDE],    [], [QLabel])
+      AX_PKG(QT_SQL,     [QT_INCLUDE],    [], [QtSql])
       AX_GROUP_PKG(LINUX_QT, [QT_INCLUDE QT_GUI QT_OPENGL QT_SQL QT_LIBS])])
 
 AX_PKG_ONE_OF(QWT,

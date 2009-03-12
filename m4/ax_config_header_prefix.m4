@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl Usage: AX_CONFIG_HEADER_PREFIX(<filename>, <prefix>)
 dnl Generates a configuration header file, adding a prefix to all symbols.
 dnl This is a two-step process.  First we generate the usual header file

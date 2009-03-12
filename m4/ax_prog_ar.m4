@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl Usage: AX_PROG_AR
 dnl Provides a workaround for Mac OS X's unusual ar behavior, so that
 dnl it's possible to build static convenience libraries using libtool

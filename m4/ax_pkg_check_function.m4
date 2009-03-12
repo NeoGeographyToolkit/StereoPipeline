@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl usage: PKG_CHECK_FUNCTION(pkg, function [, alias])
 dnl check a pkg for an optional function, and perhaps call it by a different name
 AC_DEFUN([PKG_CHECK_FUNCTION],

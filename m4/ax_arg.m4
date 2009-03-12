@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl AX_ARG_(ENABLE|WITH)(<arg>, <default>, <tags>, <description>)
 dnl possible tags are:
 dnl    always -> set autoconf macro       to value

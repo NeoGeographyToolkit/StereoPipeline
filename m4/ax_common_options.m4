@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 AC_DEFUN([AX_COMMON_OPTIONS], [
 
 ##################################################
@@ -7,7 +14,7 @@ AC_DEFUN([AX_COMMON_OPTIONS], [
 AX_ARG_ENABLE(exceptions,   yes, [am-yes cpp-bool], [enable the C++ exception mechanism])
 AX_ARG_ENABLE(debug,         no, [none],            [generate debugging symbols])
 AX_ARG_ENABLE(optimize,       3, [none],            [compiler optimization level])
-AX_ARG_ENABLE(lib64,       auto, [none],            [force /lib64 instead of /lib])
+AX_ARG_ENABLE(arch-libs,     no, [none],            [force /lib64 (=64) or /lib32 (=32) instead of /lib])
 AX_ARG_ENABLE(proper-libs,  yes, [none],            [useful linker options])
 
 
@@ -16,26 +23,17 @@ AX_ARG_ENABLE(proper-libs,  yes, [none],            [useful linker options])
 # Handle options
 ##################################################
 
-# For 64-bit machines, we'll generally want to autodetect if lib64 exists,
-# and use it. Sometimes the user will want to force use of lib64 or lib
-# instead of the autodetection. Thus we have this command line option.
-if test x"$ENABLE_LIB64" = "xauto"; then
-  if test -d "/lib64" -o -d "/usr/lib64"; then
-    ENABLE_LIB64="yes"
-  else
-    ENABLE_LIB64="no"
-  fi
-fi
-
 # Sometimes we have /foo/lib64 and /foo/lib confusion on 64-bit machines,
 # so we'll use possibly both if one doesn't appear for a certain
 # library path.
-if test x"$ENABLE_LIB64" = "xyes"; then
+AX_OTHER_LIBDIR="lib"
+if test x"$ENABLE_ARCH_LIBS" = "x64"; then
   AX_LIBDIR="lib64"
-  AX_OTHER_LIBDIR="lib"
+elif test x"$ENABLE_ARCH_LIBS" = "x32"; then
+  AX_LIBDIR="lib32"
 else
   AX_LIBDIR="lib"
-  AX_OTHER_LIBDIR="lib64"
+  AX_OTHER_LIBDIR=""
 fi
 
 if test x"$ENABLE_PROPER_LIBS" = "xyes"; then

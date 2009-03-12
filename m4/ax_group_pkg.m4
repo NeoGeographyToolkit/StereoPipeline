@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl AX_GROUP_PKG(<pkg> [, <dep1> .. <depn>])
 dnl A stripped-down AX_PKG that copies the vars from one pkg to another without
 dnl re-checking. As long as all deps were found, pkg will be marked found,

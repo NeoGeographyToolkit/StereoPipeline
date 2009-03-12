@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl usage: AX_MODULE_PYTHON(<directory>, <default>)
 AC_DEFUN([AX_MODULE_PYTHON],
 [
@@ -53,16 +60,6 @@ AC_DEFUN([AX_MODULE_PYTHON],
   HAVE_PKG_PYTHON=${ax_module_enable}
   MAKE_MODULE_PYTHON=${ax_module_enable}
   AC_SUBST(MAKE_MODULE_PYTHON)
-
-  if test "${HAVE_PKG_PYTHON}" = "yes" ; then
-    ax_have_pkg_bool=1
-  else
-    ax_have_pkg_bool=0
-  fi
-
-  AC_DEFINE_UNQUOTED(HAVE_PKG_PYTHON,
-                     [$ax_have_pkg_bool],
-                     [Define to 1 if the PYTHON module is available.])
 
   if test "$HAVE_PKG_PYTHON_SRC" = "yes" ; then
     AX_LOG([MAKE_MODULE_PYTHON = $MAKE_MODULE_PYTHON])

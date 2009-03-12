@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl Usage: AX_FIND_FILES(<filenames>, <search paths>)
 dnl Looks to see if all the given filenames (relative paths) are accessible
 dnl from one of the given base paths.  Returns the path or the empty string

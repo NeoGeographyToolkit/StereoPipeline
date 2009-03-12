@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 dnl AX_PKG_ONE_OF(<name>, <alt1-name>, <alt1-check>, ... [<altn-name>, <altn-check>])
 dnl Declare a package to be fulfilled if one of its alts are found.
 dnl alt-name is a package name, and alt-check is code that checks for the package
