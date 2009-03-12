@@ -137,11 +137,12 @@ that can be fed to \texttt{isis\_adjust} from the terminal.
 \end{verbatim}
 
 \emph{Optional.} Feeding this option will force ISIS Adjust to use an
-already built control network. If not fed, ISIS Adjust will look for
-match files in current operating directory with names similar to the
-input images to build it's control network from. If
-\texttt{isis\_adjust} creates it's own control network file, it will
-save it as \verb=isis_adjust.cnet=.
+already built control network. This control network can either be in
+the ISIS style format or the binary Vision Workbench style. If not
+fed, ISIS Adjust will look for match files in current operating
+directory with names similar to the input images to build it's control
+network from. If \texttt{isis\_adjust} creates it's own control
+network file, it will save it as \verb=isis_adjust.cnet=.
 
 \begin{verbatim}
 --lambda, -l [value]
@@ -502,9 +503,102 @@ it would optionally accept a camera model file. It decides what to do
 with the input based on the file extension, in this case it is
 \verb=.isis_adjust=.
 
-\subsection{Processing Apollo Metric Camera with GCPs}
+\subsection{Processing with Ground Control Points}
+
+Much like how \texttt{isis\_adjust} will automatically look for match
+files in the current working directory to connect it's input files, it
+will do the same for ground control points. Ground control point files
+are written with the extension \verb=.gcp= and are expected to have
+the same name as the image file for which they are paired with.
+
+Below is an example of what is inside a ground control point file
+meant for an Apollo Metric Camera image 1125 from Apollo 15's Orbit
+33.
+
+\begin{verbatim}
+   3305     3811    17.081049  20.173588  1734697.6    100   100   100
+   1676.37  926.12  15.638650  24.560510  1734771.35   100   100   100
+   3646.08  631.37  18.663032  24.358845  1734745.22   100   100   100
+   1206.38  2995.9  14.306318  21.909843  1734746.16   100   100   100
+   2872     2154    16.983669  22.560025  1734726.48   100   100   100
+\end{verbatim}
+
+First it's important to note that these numbers are not spaced with
+actual spaces, but instead there is a tab character between each
+column of numbers. Here is what the columns mean:
+
+\begin{myindentpar}{2cm}
+\begin{description}
+  \item[Column 1:] Sample Number or X location
+  \item[Column 2:] Line Number or Y location
+  \item[Column 3:] Longitude in degrees
+  \item[Column 4:] Latitude in degrees
+  \item[Column 5:] Radius in meters
+  \item[Column 6-8:] Sigma \emph{(uncertainty)} in meters in the X,Y,
+    and Z directions respectively.
+\end{description}
+\end{myindentpar}
+
+If multiple cameras see the same ground control point, then in each
+gcp file at the line containing the shared measurement; make sure they
+have the exact same recorded longitude, latitude, and
+radius. \texttt{isis\_adjust} will notice this and will make the
+connection in the control network.
 
 \subsection{Sharing Data with ISIS3's Qnet}
+
+ISIS contains a program called \texttt{qnet} and it's purpose is to
+create and edit ISIS style control network files. To share a control
+network with \texttt{qnet} we need to save our control network in the
+ISIS format. If bundle adjustment has already been performed once and
+if we want to reuse the control network use this command to save an
+ISIS style control network:
+
+\begin{verbatim}
+        isis_adjust -c isis_adjust.cnet --write *.cub
+\end{verbatim}
+
+Otherwise if this is the first time performing bundle adjustment and a
+control network does not already exist, use:
+
+\begin{verbatim}
+        isis_adjust --write *.cub
+\end{verbatim}
+
+There should now be an \verb=isis_adjust.net= file in the project's
+directory. It will be quite a bit larger than the other control
+network file and it can be read and editted with a text editor. Before
+starting \texttt{qnet} there is one additional preperation that must
+be performed. \texttt{qnet} requires a text file listing of all the
+cubes used by the control network. Here's how to create one.
+
+\begin{verbatim}
+        ls *.cub > list_of_cubes.lis
+\end{verbatim}
+
+Now it is time to start up \texttt{qnet}. This program does not accept
+any command line arguments, so just type \texttt{qnet} in the
+terminal. Click File$\rightarrow$Open. It will first ask for the list
+of cubes. Refer it to the newly created
+\verb=list_of_cubes.lis=. Finally it will ask for the control network,
+give it \verb=isis_adjust.net=.
+
+\begin{center}
+\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in} 
+
+    \emph{Note from Author:} \\ At this time \texttt{qnet} does not
+    work with the Apollo Metric Camera's cube files. When loading the
+    text file listing of cubes it will promptly error about invalid
+    serial numbers for the listed cube files. (03/11/09)
+\end{minipage}}
+\end{center}
+
+When finished, save the new control network file. Here's how to use
+the new control network in \texttt{isis\_adjust}.
+
+\begin{verbatim}
+        isis_adjust -c the_new_control_network.net *.cub
+\end{verbatim}
 
 \begin{thebibliography}{1}
 
