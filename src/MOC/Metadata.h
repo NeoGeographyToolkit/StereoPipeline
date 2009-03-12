@@ -139,7 +139,7 @@ public:
       m_data_file.close();
   }
 
-  double read_double(char* tag) {
+  double read_double(const char* tag) {
 
     char buffer[SUP_EPHEMERIS_BUFFER_SIZE];
     char fieldName[SUP_EPHEMERIS_BUFFER_SIZE];
@@ -177,7 +177,7 @@ public:
     throw EphemerisErr() << "Could not find the specified tag in the ephemeris file.";
   }
 
-  vw::Matrix<double> read_matrix(char* tag, int rows, int cols) {
+  vw::Matrix<double> read_matrix(const char* tag, int rows, int cols) {
     char buffer[SUP_EPHEMERIS_BUFFER_SIZE];
     char fieldName[SUP_EPHEMERIS_BUFFER_SIZE];
     char fieldValue[SUP_EPHEMERIS_BUFFER_SIZE];
@@ -235,7 +235,7 @@ public:
     throw EphemerisErr() << "Could not find the tag in the ephemeris file.";
   }
 
-  std::vector<vw::Vector3> read_vector3s(char* tag, int rows, int cols) {
+  std::vector<vw::Vector3> read_vector3s(const char* tag, int rows, int cols) {
     char buffer[SUP_EPHEMERIS_BUFFER_SIZE];
     char fieldName[SUP_EPHEMERIS_BUFFER_SIZE];
     char fieldValue[SUP_EPHEMERIS_BUFFER_SIZE];
@@ -294,7 +294,7 @@ public:
     throw EphemerisErr() << "Could not find the tag in the ephemeris file.";
   }
 
-  std::vector<vw::Quaternion<double> > read_quaternions(char* tag, int rows, int cols) {
+  std::vector<vw::Quaternion<double> > read_quaternions(const char* tag, int rows, int cols) {
     char buffer[SUP_EPHEMERIS_BUFFER_SIZE];
     char fieldName[SUP_EPHEMERIS_BUFFER_SIZE];
     char fieldValue[SUP_EPHEMERIS_BUFFER_SIZE];

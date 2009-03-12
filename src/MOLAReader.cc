@@ -45,7 +45,7 @@ using namespace vw;
 
 // Takes a four byte MOLA PEDR data record, with MSB first, and
 // returns a reconstructed unsigned integer.
-static inline unsigned int uchar_to_uint(unsigned char* record) {
+static inline unsigned int uchar_to_uint(const unsigned char* record) {
   return ((unsigned int)record[0] << 24) + ((unsigned int)record[1] << 16) +     
          ((unsigned int)record[2] << 8)  + ((unsigned int)record[3]);
 }
@@ -53,13 +53,13 @@ static inline unsigned int uchar_to_uint(unsigned char* record) {
 
 // Takes a four byte MOLA PEDR data record, with MSB first, and
 // returns a reconstructed SIGNED integer.
-static inline int uchar_to_int(unsigned char* record) {
+static inline int uchar_to_int(const unsigned char* record) {
   return ((int)record[0] << 24) + ((int)record[1] << 16) + 
           ((int)record[2] << 8) + ((int)record[3]);
 }
 
-inline double uchars_to_ephemeris_time( unsigned char* secs, 
-                                        unsigned char* msecs ) {
+inline double uchars_to_ephemeris_time( const unsigned char* secs,
+                                        const unsigned char* msecs ) {
   double seconds = (double) uchar_to_int(secs);
   double microsecs = (double) uchar_to_int(msecs);
 
@@ -67,7 +67,7 @@ inline double uchars_to_ephemeris_time( unsigned char* secs,
   return seconds + (microsecs * 1.0e-6);
 }
 
-inline float uchar_to_latlon ( unsigned char* record ) {
+inline float uchar_to_latlon ( const unsigned char* record ) {
   return ((float) uchar_to_int(record)) / 1.0e6;
 }
 
