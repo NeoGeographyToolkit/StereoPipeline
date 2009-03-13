@@ -521,6 +521,9 @@ AC_DEFUN([AT_REQUIRE_QT_VERSION],
   if test x"$QMAKE" = x; then
     AX_INSTEAD_IF([$3], [\$QMAKE is empty. Did you invoke AT@&t@_WITH_QT before AT@&t@_REQUIRE_QT_VERSION?])
     break
+  elif test x"$QMAKE" = "xmissing"; then
+    AX_INSTEAD_IF([$3], [QMAKE is missing. Skipping the version check.])
+    break
   fi
   AC_CACHE_CHECK([for Qt's version], [at_cv_QT_VERSION],
   [echo "$as_me:$LINENO: Running $QMAKE --version:" >&AS_MESSAGE_LOG_FD

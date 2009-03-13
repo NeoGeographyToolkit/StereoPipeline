@@ -158,7 +158,7 @@ AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 # Qt with AutoTroll.
 AT_WITH_QT([+gui +sql +opengl], [], [], [], [HAVE_PKG_QT_INCLUDE="no:missing QT"])
 
-if test x"$HAVE_PKG_QT_INCLUDE" != x"no"; then
+if test x"$HAVE_PKG_QT_INCLUDE" = x"yes"; then
     AT_REQUIRE_QT_VERSION([4.0], [], [HAVE_PKG_QT_INCLUDE="no:wrong QT version"])
 fi
 
