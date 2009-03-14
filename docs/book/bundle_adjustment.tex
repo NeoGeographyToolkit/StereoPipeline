@@ -10,7 +10,7 @@ images.
   \begin{center}
   \includegraphics[trim=20mm 20mm 20mm 15mm,clip,width=6in]{images/ba_feature_observation.pdf}
   \end{center}
-  \caption{ A feature observation in Bundle Adjustment. \cite{moore09} }
+  \caption{ A feature observation in Bundle Adjustment \citep{moore09} }
   \label{fig:ba_feature}
 \end{figure}
 
@@ -75,10 +75,10 @@ iterations to several hundred.
 
 If you are interested in more information on the math of Bundle
 Adjustment and the arrangement of the problem, we recommend reading
-Appendix 6 in the {\em Multiple View Geometry} \cite{hartley04}.
+\citet[][Appendix 6]{hartley04}.
 For more information on why LMA is used instead of the many other
-optimization algorithms, try reading {\em Bundle Adjustment – A Modern
-Synthesis} \cite{triggs00}.
+optimization algorithms, try reading \citet{triggs00}.
+
 
 \section{ISIS Adjust}
 
@@ -440,7 +440,7 @@ points using the tools available in Vision Workbench.
     using the interest point tools available from Vision Workbench
     does not produces enough matches to continue with Bundle
     Adjustment. The alternative is to use an outside method such as
-    SURF \cite{surf09}. The trick is modifing an outside method's
+    SURF \citep{surf08}. The trick is modifing an outside method's
     source code to export a Vision Workbench style match file. This
     can be difficult. Fortunately the patches to do this trick to the
     SURF code is available in the Appendix.  \\ \\ For this example it
@@ -600,14 +600,14 @@ the new control network in \texttt{isis\_adjust}.
         isis_adjust -c the_new_control_network.net *.cub
 \end{verbatim}
 
-\begin{thebibliography}{1}
-
-\bibitem{hartley04} Hartley, R.I. and Zisserman, A. ``Multiple View Geometry in Computer Vision,''
-  Cambridge University Press. 2004. pp 597-627.
-\bibitem{moore09} Moore, Wright, Schinstock, and Lewis. ``Comparison of Bundle Adjustment Formulations,''
-  presented at ASPRS Annual Conf., Baltimore, Maryland, 2009.
-\bibitem{triggs00} Triggs, McLauchlan, Hartley, and Fitzgibbon. ``Bundle Adjustment - A Modern Synthesis,''
-  Lecture Notes in Computer Science. Vol. 1883, 298. January 2000
-\bibitem{surf09} Bay, Gool, and Tuytelaars. (2009, Mar.). ``SURF: Speeded Up Robust Features'' [Online]. Available: \verb!http://www.vision.ee.ethz.ch/~surf/download.html!
-
-\end{thebibliography}
+% \begin{thebibliography}{1}
+% 
+% \bibitem{hartley04} Hartley, R.I. and Zisserman, A. ``Multiple View Geometry in Computer Vision,''
+%   Cambridge University Press. 2004. pp 597-627.
+% \bibitem{moore09} Moore, Wright, Schinstock, and Lewis. ``Comparison of Bundle Adjustment Formulations,''
+%   presented at ASPRS Annual Conf., Baltimore, Maryland, 2009.
+% \bibitem{triggs00} Triggs, McLauchlan, Hartley, and Fitzgibbon. ``Bundle Adjustment - A Modern Synthesis,''
+%   Lecture Notes in Computer Science. Vol. 1883, 298. January 2000
+% \bibitem{surf09} Bay, Gool, and Tuytelaars. (2009, Mar.). ``SURF: Speeded Up Robust Features'' [Online]. Available: \verb!http://www.vision.ee.ethz.ch/~surf/download.html!
+% 
+% \end{thebibliography}
