@@ -287,3 +287,44 @@ elevation of the light source.
 \begin{verbatim}
 hillshade E0201461_M0100115-DEM.tif -o E0201461_M0100115-shaded.tif -e 25
 \end{verbatim}
+
+To create a colorized version of the shaded relief file, specify
+the DEM and the shaded relief file that should be used.
+
+\begin{verbatim}
+colormap E0201461_M0100115-DEM.tif --shaded-relief-file E0201461_M0100115-shaded.tif -o E0201461_M0100115-color-shaded.tif
+\end{verbatim}
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=5in]{images/p19-colorized-shaded.png}
+\caption[P19 colorized and shaded relief]{
+    \label{p19-color}
+	The colorized DEM, the shaded relief image, and the colorized hillshade.
+    }
+\end{center}
+\end{figure}
+
+The final option of the stereo processing package is \texttt{image2qtree}.
+This function was designed for use in creating geographically
+referenced images in tiles such that each tile can be viewed at
+ideal resolution.
+
+The \texttt{image2qtree} program can be used on any of the following files that you 
+have generated:
+\begin{verbatim}
+E0201461_M0100115-DEM-normalized.tif
+E0201461_M0100115-DRG.tif 
+E0201461_M0100115-shaded.tif
+E0201461_M0100115-colorized.tif
+E0201461_M0100115-shaded-colorized.tif
+\end{verbatim}
+
+Specify which image you would like to invoke \texttt{image2qtree} on, along
+with any combination of options.
+
+\begin{verbatim}
+image2qtree E0201461_M0100115-DEM-normalized.tif -o E0201461_M0100115-DEM-n-qtree
+\end{verbatim}
+
+
