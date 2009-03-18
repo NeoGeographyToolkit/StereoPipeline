@@ -1,4 +1,3 @@
-   
 // __BEGIN_LICENSE__
 // 
 // Copyright (C) 2008 United States Government as represented by the
@@ -60,7 +59,6 @@ using namespace vw::ip;
 float g_spacecraft_position_sigma;
 float g_spacecraft_pose_sigma;
 float g_gcp_scalar;
-float g_3d_point_sigma;
 
 // A useful snippet for working with files
 static std::string prefix_from_filename( std::string const& filename ){
@@ -195,34 +193,32 @@ public:
     Matrix< double, 3, 3> result;
     Vector3 sigmas = (*m_network)[i].sigma();
     sigmas = g_gcp_scalar*sigmas;
-    if ( (*m_network)[i].type() == ControlPoint::GroundControlPoint ) {
-      for ( unsigned u = 0; u < 3; ++u)
-	result(u,u) = 1/(sigmas[u]*sigmas[u]);
+    for ( unsigned u = 0; u < 3; ++u)
+      result(u,u) = 1/(sigmas[u]*sigmas[u]);
 
-      // It is assumed that the GCP is defined in a local tangent frame (East-North-Up)
-      float lon = atan2(b[i][1],b[i][0]);
-      float clon = cos(lon);
-      float slon = sin(lon);
-      float radius = sqrt( b[i][0]*b[i][0] +
-			   b[i][1]*b[i][1] +
-			   b[i][2]*b[i][2] );
-      float z_over_radius = b[i][2]/radius;
-      float sqrt_1_minus = sqrt(1-z_over_radius*z_over_radius);
-      Matrix< double, 3, 3> ecef_to_local;
-      ecef_to_local(0,0) = -slon;
-      ecef_to_local(0,1) = clon;
-      ecef_to_local(1,0) = -z_over_radius*clon;
-      ecef_to_local(1,1) = -z_over_radius*slon;
-      ecef_to_local(1,2) = sqrt_1_minus;
-      ecef_to_local(2,0) = sqrt_1_minus*clon;
-      ecef_to_local(2,1) = sqrt_1_minus*slon;
-      ecef_to_local(2,2) = z_over_radius;
-      result = inverse(ecef_to_local)*result;
-    } else {
-      // For regular point estimates
-      result.set_identity();
-      result = result * ( 1 / (g_3d_point_sigma*g_3d_point_sigma));
-    }
+    // It is assumed that the GCP is defined in a local tangent frame (East-North-Up)
+    float lon = atan2(b[i][1],b[i][0]);
+    float clon = cos(lon);
+    float slon = sin(lon);
+    float radius = sqrt( b[i][0]*b[i][0] +
+			 b[i][1]*b[i][1] +
+			 b[i][2]*b[i][2] );
+    float z_over_radius = b[i][2]/radius;
+    float sqrt_1_minus = sqrt(1-z_over_radius*z_over_radius);
+    Matrix< double, 3, 3> ecef_to_local;
+    ecef_to_local(0,0) = -slon;
+    ecef_to_local(0,1) = clon;
+    ecef_to_local(1,0) = -z_over_radius*clon;
+    ecef_to_local(1,1) = -z_over_radius*slon;
+    ecef_to_local(1,2) = sqrt_1_minus;
+    ecef_to_local(2,0) = sqrt_1_minus*clon;
+    ecef_to_local(2,1) = sqrt_1_minus*slon;
+    ecef_to_local(2,2) = z_over_radius;
+    result = inverse(ecef_to_local)*result;
+
+    Matrix<double,3,3>::iterator iter = result.impl().begin();
+    for (; iter != result.impl().end(); ++iter )
+      *iter = fabs(*iter);
     return result;
   }
 
@@ -380,7 +376,6 @@ int main(int argc, char* argv[]) {
     ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft position. (meters)")
     ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(1.0/10.0), "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
     ("gcp-scalar", po::value<float>(&g_gcp_scalar)->default_value(1.0), "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
-    ("3d-point-sigma", po::value<float>(&g_3d_point_sigma)->default_value(10000.0), "Set the sigma (uncertainty) of 3d point estimates. (meters)")
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
     ("help,h", "Display this help message")
     ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
