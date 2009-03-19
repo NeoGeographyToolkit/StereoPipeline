@@ -2,13 +2,47 @@
 
 \emph{The text of this chapter was brought in with minimal filtering from Melissa's document, it needs a lot of editing to make it mesh with the rest of the document.}
 
+\section{Overview}
+
+The programs in the Stereo Pipeline are command-line programs which
+take a pair of images, and attempt to create a point cloud from
+correlating them.  Then there are a few programs that can convert
+that point cloud into a mesh for viewing or a gridded terrain model
+for use in other ways.
+
+So at the highest level, this makes point clouds:
+
+\begin{verbatim}
+stereo one_image_file another_image_file stereo-output
+\end{verbatim}
+
+Then you can make a mesh or a DEM file with either of these:
+
+\begin{verbatim}
+point2mesh stereo-output-PC.tif stereo-output-L.tif
+
+point2dem stereo-output-PC.tif stereo-output-L.tif
+\end{verbatim}
+
+Now there are a fair number of ways to fine-tune parameters and
+analyze the results, but ultimately this software suite takes images
+and builds models in a mostly automatic way.
+
+\section{Example data set}
+
+The data set that is used in the tutorial and examples below is a
+pair of Mars Orbiter Camera (MOC)
+\citep{1992JGR....97.7699M,2001JGR...10623429M} images whose PDS
+Product IDs are M01/00115 and E02/01461.
+
+\emph{MJB: why is it called P19??}
+
+You can obtain this dataset from \url{http://broxtronix.org/nasa/p19.tgz},
+to follow along and ensure that your installation is working properly.
+
+
 \section{Examples of Use}
 
-Here is, in order, the list of commands that can be run to create
-data products from the MOC ``P19'' dataset (\emph{MJB: why is it
-called P19??}).  You can obtain this dataset from
-\emph{http://broxtronix.org/nasa/p19.tgz ??}, to ensure that your
-installation is working properly.
 
 Download the tarball and it will unpack into a \texttt{p19} directory.  Create an output directory to hold the results, and invoke the \texttt{stereo} program:
 
