@@ -196,7 +196,8 @@ public:
     for ( unsigned u = 0; u < 3; ++u)
       result(u,u) = 1/(sigmas[u]*sigmas[u]);
 
-    // It is assumed that the GCP is defined in a local tangent frame (East-North-Up)
+    // It is assumed that the GCP is defined in a local tangent frame
+    // (East-North-Up)
     float lon = atan2(b[i][1],b[i][0]);
     float clon = cos(lon);
     float slon = sin(lon);
@@ -214,11 +215,13 @@ public:
     ecef_to_local(2,0) = sqrt_1_minus*clon;
     ecef_to_local(2,1) = sqrt_1_minus*slon;
     ecef_to_local(2,2) = z_over_radius;
-    result = inverse(ecef_to_local)*result;
 
-    Matrix<double,3,3>::iterator iter = result.impl().begin();
-    for (; iter != result.impl().end(); ++iter )
-      *iter = fabs(*iter);
+    // Rotatation matrix I want to use is ecef_to_local^T
+    // How to rotate a covariance matrix = R*E*R^T
+
+    // Rotating inverse covariance matrix
+    result = transpose(ecef_to_local)*result*ecef_to_local;
+    
     return result;
   }
 
