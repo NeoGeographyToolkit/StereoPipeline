@@ -10,13 +10,13 @@ correlating them.  Then there are a few programs that can convert
 that point cloud into a mesh for viewing or a gridded terrain model
 for use in other ways.
 
-So at the highest level, this makes point clouds:
+So at the highest, most abstract level, this command makes point clouds:
 
 \begin{verbatim}
 stereo one_image_file another_image_file stereo-output
 \end{verbatim}
 
-Then you can make a mesh or a DEM file with either of these:
+Then you can make a mesh or a DEM file with either of these (the \texttt{stereo-output-PC.tif} and \texttt{stereo-output-L.tif} files are created by the \texttt{stereo} program run above):
 
 \begin{verbatim}
 point2mesh stereo-output-PC.tif stereo-output-L.tif
@@ -24,7 +24,7 @@ point2mesh stereo-output-PC.tif stereo-output-L.tif
 point2dem stereo-output-PC.tif stereo-output-L.tif
 \end{verbatim}
 
-Now there are a fair number of ways to fine-tune parameters and
+There are a number of ways to fine-tune parameters and
 analyze the results, but ultimately this software suite takes images
 and builds models in a mostly automatic way.
 
@@ -35,10 +35,39 @@ pair of Mars Orbiter Camera (MOC)
 \citep{1992JGR....97.7699M,2001JGR...10623429M} images whose PDS
 Product IDs are M01/00115 and E02/01461.
 
-\emph{MJB: why is it called P19??}
-
 You can obtain this dataset from \url{http://broxtronix.org/nasa/p19.tgz},
 to follow along and ensure that your installation is working properly.
+
+\emph{MJB: why is it called P19??  What processing was done to go from PDS imagery to the P19 .cub files?  This whole sample data set probably needs refreshing.}
+
+
+\section{Selecting images to process}
+
+When choosing image pairs to process, images that are taken along
+the same groundtrack (usually from the same orbit) with similar
+viewing angles, lighting conditions, and significant surface coverage
+overlap ($\sim80$\% is ideal) are the best suited for creating
+stereo image pairs. Depending on the characteristics of the mission
+data set and the individual images, the degree of acceptable variation
+will differ. Significant differences between image characteristics
+increases the error propagated through to the resulting data products.
+
+Images do not need to be map projected before running the \texttt{stereo}
+program. That being said, for images which contain large
+topographic variation (and therefore large disparity differences
+across the scene--think Valles Marineris), sometimes map-projecting
+the images can help, as it sometimes improves the correlation.
+
+\emph{MJB: what's the right phrasing for a warning about projecting onto an existing terrain model and adding additional disparity issues?}
+
+The images should be photometrically calibrated (in whatever fashion
+suits your purposes), as excessively noisy images will not correlate
+well, and if there are photometric issues with the images, those
+photometric issues could be mis-interpreted as topography.
+
+They must also be converted to ISIS 3 \texttt{.cub} files.
+
+\emph{MJB: Must?  Probably `should.'}
 
 
 \section{Examples of Use}
@@ -108,11 +137,11 @@ Finally, you can run the Vision Workbench's \texttt{image2qtree} on any of the f
 
 \section{Tutorial}
 
-The following example will utilize images from the MOC dataset, P19.
+The following example will utilize images from the example MOC dataset, P19.
 
 When choosing image pairs to process, images that are taken along
 the same groundtrack (usually from the same orbit) with similar
-viewing angles/lighting conditions and significant surface coverage
+viewing angles, lighting conditions and significant surface coverage
 overlap (~80\% is ideal) are the best suited for creating stereo
 image pairs. Depending on the characteristics of the mission data
 set and the individual images, the degree of acceptable variation
