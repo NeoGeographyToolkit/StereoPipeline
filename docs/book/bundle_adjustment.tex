@@ -168,11 +168,27 @@ meters.
 Sets the sigma \emph{(uncertainty)} of the spacecraft pose in radians.
 
 \begin{verbatim}
---gcp-sigma [default = 100]
+--gcp-scalar [default = 1]
 \end{verbatim}
 
-Sets the sigma \emph{(uncertainty)} of the ground control points in
-meters.
+Sets the multiplier that is used against the sigma
+\emph{(uncertainty)} of the ground control points in meters. Ground
+control points' sigmas are defined in their file.
+
+\begin{verbatim}
+--cost-function [default=L2]
+\end{verbatim}
+
+Sets the cost function used for bundle adjustment. Default is L2 which
+is the normal squared error. The other options are PseudoHuber, Huber,
+L1, and Cauchy. These other options for cost functions are for dealing
+with non-ideal data that has outliers.
+
+\begin{verbatim}
+--robust-threshold [default=10]
+\end{verbatim}
+
+Sets the threshold for cost functions PseudoHuber, Huber, and Cauchy.
 
 \begin{verbatim}
 --run-match, -m
