@@ -39,6 +39,7 @@ namespace fs = boost::filesystem;
 #include <vw/InterestPoint.h>
 #include <vw/Stereo.h>
 #include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Core/Debugging.h>
 using namespace vw;
 using namespace vw::math;
 using namespace vw::camera;
@@ -65,6 +66,7 @@ std::vector<std::string> g_input_files;
 double g_lambda;
 int g_max_iterations;
 int g_report_level;
+bool g_kml_all;
 
 // A useful snippet for working with files
 static std::string prefix_from_filename( std::string const& filename ){
@@ -417,6 +419,12 @@ void perform_bundleadjustment( CostT const& cost_function ) {
   // Reporter
   BundleAdjustReport< IsisBundleAdjustmentModel<3,3>, BundleAdjustment< IsisBundleAdjustmentModel<3,3>, CostT > > reporter( "ISIS Adjust", ba_model, bundle_adjuster, g_report_level);
 
+  // Option to write KML of control network
+  if ( g_vm.count("write-kml") ) {
+    std::cout << "Writing KML of Control Network.\n";
+    reporter.write_control_network_kml( !g_kml_all );
+  }
+
   // Performing the Bundle Adjustment
   double abs_tol = 1e10, rel_tol = 1e10;
   if (g_vm.count("nonsparse")) {    //What are you thinking? No!!
@@ -529,6 +537,7 @@ int main(int argc, char* argv[]) {
     ("report-level,r", po::value<int>(&g_report_level)->default_value(10), "Changes the detail of the Bundle Adjustment Report")
     ("nonsparse,n", "Run the non-sparse reference implementation of LM Bundle Adjustment.")
     ("write-isis-cnet-also", "Writes an ISIS style control network")
+    ("write-kml", po::value<bool>(&g_kml_all), "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates");
     ("verbose", "Verbose output");
 
   po::options_description hidden_options("");
@@ -702,13 +711,13 @@ int main(int argc, char* argv[]) {
     g_cnet->write_binary_control_network("isis_adjust");
   }
 
+  VW_DEBUG_ASSERT( g_cnet->size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
+
   // Option to write ISIS-style control network
   if ( g_vm.count("write-isis-cnet-also") ) {
     std::cout << "Writing ISIS-style Control Network.\n";
     g_cnet->write_isis_pvl_control_network("isis_adjust");
   }
-
-  VW_DEBUG_ASSERT( g_cnet->size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
 
   // Need to typecast all the models to feed to the Bundle Adjustment
   // model, kinda ugly.
@@ -717,6 +726,7 @@ int main(int argc, char* argv[]) {
     g_camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
 
   // Switching based on cost function
+  Timer* processing_time = new Timer("Total time running: ");
   if ( robust_cost_function == "pseudohuber" ) {
     perform_bundleadjustment<PseudoHuberError>( PseudoHuberError(robust_outlier_threshold) );
   } else if ( robust_cost_function == "huber" ) {
@@ -728,5 +738,7 @@ int main(int argc, char* argv[]) {
   } else if ( robust_cost_function == "cauchy" ) {
     perform_bundleadjustment<CauchyError>( CauchyError(robust_outlier_threshold) );
   }
-  return 1;
+  delete processing_time;
+
+  return 0;
 }
