@@ -43,31 +43,35 @@ to follow along and ensure that your installation is working properly.
 
 \section{Selecting images to process}
 
-When choosing image pairs to process, images that are taken along
-the same groundtrack (usually from the same orbit) with similar
-viewing angles, lighting conditions, and significant surface coverage
-overlap ($\sim80$\% is ideal) are the best suited for creating
-stereo image pairs. Depending on the characteristics of the mission
-data set and the individual images, the degree of acceptable variation
-will differ. Significant differences between image characteristics
-increases the error propagated through to the resulting data products.
+When choosing image pairs to process, images that are taken with
+similar viewing angles, lighting conditions, and significant surface
+coverage overlap ($\sim80$\% is ideal) are the best suited for
+creating terrain models from. Depending on the characteristics of
+the mission data set and the individual images, the degree of
+acceptable variation will differ. Significant differences between
+image characteristics increases the error propagated through to the
+resulting data products.
 
 Images do not need to be map projected before running the \texttt{stereo}
-program. That being said, for images which contain large
-topographic variation (and therefore large disparity differences
-across the scene--think Valles Marineris), sometimes map-projecting
-the images can help, as it sometimes improves the correlation.
+program. That being said, for images which contain large topographic
+variation (and therefore large disparity differences across the
+scene--think Valles Marineris), sometimes map-projecting the images
+can help, as it sometimes improves the correlation.
 
 \emph{MJB: what's the right phrasing for a warning about projecting onto an existing terrain model and adding additional disparity issues?}
 
 The images should be photometrically calibrated (in whatever fashion
 suits your purposes), as excessively noisy images will not correlate
-well, and if there are photometric issues with the images, those
-photometric issues could be mis-interpreted as topography.
+well.  If there are photometric problems with the images, those
+photometric defects could be misinterpreted as topography.
 
-They must also be converted to ISIS 3 \texttt{.cub} files.
+The Stereo Pipeline can deal with arbitrary images with accompanying
+camera information, but doing so requires a significant amount of
+extra work and setup which are not covered in this document, and
+are considered `advanced usage.'  The image type that is easiest
+for the user to provide and for the Stereo Pipeline's \texttt{stereo}
+program to ingest are ISIS 3 \texttt{.cub} files.
 
-\emph{MJB: Must?  Probably `should.'}
 
 
 \section{Examples of Use}
@@ -137,27 +141,9 @@ Finally, you can run the Vision Workbench's \texttt{image2qtree} on any of the f
 
 \section{Tutorial}
 
-The following example will utilize images from the example MOC dataset, P19.
+The following example will utilize images from the example MOC dataset, discussed above.
 
-When choosing image pairs to process, images that are taken along
-the same groundtrack (usually from the same orbit) with similar
-viewing angles, lighting conditions and significant surface coverage
-overlap (~80\% is ideal) are the best suited for creating stereo
-image pairs. Depending on the characteristics of the mission data
-set and the individual images, the degree of acceptable variation
-will differ. * Significant differences between image characteristics
-increases the error propagated through to the resulting data products.
-
-Images do NOT need to be map projected before processing with this
-application. They SHOULD be photometrically calibrated (in whatever
-fashion suits your purposes). They must also be converted to ISIS
-.cub files.
-
-After initial photometric calibration (if necessary), convert the
-files to ISIS .cub files and unzip them. This sequence assumes that
-you have downloaded your image files from the NASA PDS.
-
-The two example images for P19 are \texttt{E0201461.cub} and 
+The two example ISIS 3 image files are \texttt{E0201461.cub} and
 \texttt{M0100115.cub}.
 
 \begin{figure}
@@ -171,23 +157,33 @@ The two example images for P19 are \texttt{E0201461.cub} and
 \end{center}
 \end{figure}
 
-Now that you have the two images, you can begin processing. 
+\subsection{Stereo Processing}
 
-The first step is the stereo processing. The \texttt{stereo} program is
-designed to for automated tie point matching and stereo production.
-Thus, you can use the basic program to create a stereo pair.
+The \texttt{stereo} program (page \pageref{stereo}) is designed for automated tie 
+point matching and stereo production, and is the first Stereo Pipeline tool we'll use.
 
-If you like, you should create a directory for the results of the processing. 
-
-\begin{verbatim}
-mkdir MOC_RESULTS
-\end{verbatim}
-
-Run \texttt{stereo} like this:
+If you like, you should create a directory for the results of the processing.  The \texttt{stereo} program can generate a number of output files, and we find it helpful to put them all in a directory, but it isn't required.
 
 \begin{verbatim}
-stereo E0201461.cub M0100115.cub MOC_RESULTS/E0201461_M0100115
+> ls
+E0201461.cub M0100115.cub
+> mkdir results
 \end{verbatim}
+
+Then run \texttt{stereo} like this:
+
+\begin{verbatim}
+> stereo E0201461.cub M0100115.cub results/E0201461_M0100115
+\end{verbatim}
+
+So that last text can be anything you want it to be.  It designates
+the text that \texttt{stereo} will use as a prefix for its many
+output files.  Since the first part is \texttt{results/} this causes
+the program to put the results in that directory with files whose
+names start with \texttt{E0201461\_M0100115}.  If instead that last
+text was just \texttt{E0201461\_M0100115} it would have created a
+bunch of files that start with \texttt{E0201461\_M0100115} in the
+same directory as the input files.
 
 The \texttt{stereo} program requires a \texttt{stereo.default} file
 which can be altered for your needs. You may find it useful to save

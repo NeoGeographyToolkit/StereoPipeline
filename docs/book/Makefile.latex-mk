@@ -1,7 +1,14 @@
 # GNU Makefile for LaTeX stuff using the latex-mk system.
 
 NAME = asp_book
-CLEAN_FILES+= $(wildcard *.aux)
+TEXSRCS =	acknowledgements.tex \
+			appendix.tex \
+			bundle_adjustment.tex \
+			getting_started.tex \
+			installation.tex \
+			introduction.tex \
+			programs.tex
+# CLEAN_FILES+= $(wildcard *.aux)
 USE_PDFLATEX = YES
 VIEWPDF = open
 
