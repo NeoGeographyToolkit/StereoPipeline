@@ -1,27 +1,31 @@
 \chapter{Getting Started}
 
-\emph{The text of this chapter was brought in with minimal filtering from Melissa's document, it needs a lot of editing to make it mesh with the rest of the document.}
 
 \section{Overview}
 
 The programs in the Stereo Pipeline are command-line programs which
-take a pair of images, and attempt to create a point cloud from
-correlating them.  Then there are a few programs that can convert
-that point cloud into a mesh for viewing or a gridded terrain model
-for use in other ways.
+take a pair of images, and attempt to create a three-dimensional
+point cloud from correlating them.  Then there are a few programs
+that can convert that point cloud into a mesh for viewing or a
+gridded terrain model for use in other ways.
 
-So at the highest, most abstract level, this command makes point clouds:
+So at the highest, most abstract level, if you have two image files
+(say \texttt{image\_file1} and \texttt{image\_file2} ) this command
+makes point clouds (and a bunch of other files):
 
 \begin{verbatim}
-stereo one_image_file another_image_file stereo-output
+    stereo image_file1 image_file2 stereo-output
 \end{verbatim}
 
-Then you can make a mesh or a DEM file with either of these (the \texttt{stereo-output-PC.tif} and \texttt{stereo-output-L.tif} files are created by the \texttt{stereo} program run above):
+Then you can make a mesh or a DEM file with either of the following
+commands.  The \texttt{stereo-output-PC.tif} and
+\texttt{stereo-output-L.tif} files are created by the \texttt{stereo}
+program run above):
 
 \begin{verbatim}
-point2mesh stereo-output-PC.tif stereo-output-L.tif
-
-point2dem stereo-output-PC.tif stereo-output-L.tif
+    point2mesh stereo-output-PC.tif stereo-output-L.tif
+	
+    point2dem stereo-output-PC.tif stereo-output-L.tif
 \end{verbatim}
 
 There are a number of ways to fine-tune parameters and
@@ -74,77 +78,75 @@ program to ingest are ISIS 3 \texttt{.cub} files.
 
 
 
-\section{Examples of Use}
-
-
-Download the tarball and it will unpack into a \texttt{p19} directory.  Create an output directory to hold the results, and invoke the \texttt{stereo} program:
-
-\begin{verbatim}
-	mkdir results
-	stereo E0201461.cub M0100115.cub results/p19
-\end{verbatim}
-
-You can look at the results by examining the disparity images. These
-show the horizontal and vertical components of the matching offsets
-for each pixel, and they can be a useful debugging tool if you want
-to check how the stereo matcher performed for a given stereo pair:
-
-\begin{verbatim}
-	cd results
-	disparitydebug p19-D.exr -o p19-D     
-	disparitydebug p19-F.exr -o p19-F
-\end{verbatim}
-
-\emph{MJB: What exactly is being examined in the resultant images, what are users looking for?}
-
-A 3D mesh can be built from the point cloud and viewed using the
-\texttt{osgviewer} program:
-
-\begin{verbatim}
-	point2mesh p19-PC.tif p19-L.tif -o p19
-	osgviewer p19.ive
-\end{verbatim}
-
-When the \texttt{osgviewer} starts, you may want to turn off the
-lighting (hit the `L' key).
-
-A gridded DEM with floating point pixels can also be built from the point cloud:
-
-\begin{verbatim}
-	point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
-\end{verbatim}
-
-You can also orthoproject the raw satellite imagery onto the DEM during this step:
-
-\begin{verbatim}
-	point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif
-\end{verbatim}
-
-Finally, you can create colorized, shaded relief (or both) images from the DEM, using these Vision Workbench programs:
-
-\begin{verbatim}
-	colormap p19-DEM.tif -o p19-colorized.tif
-	hillshade p19-DEM.tif -o p19-shaded.tif -e 25
-	colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
-\end{verbatim}
-
-Finally, you can run the Vision Workbench's \texttt{image2qtree} on any of the following files:
-
-\begin{itemize}
-\item p19-DEM-normalized.tif
-\item p19-DRG.tif 
-\item p19-shaded.tif
-\item p19-colorized.tif
-\item p19-shaded-colorized.tif
-\end{itemize}
+% \section{Examples of Use}
+% 
+% Download the tarball and it will unpack into a \texttt{p19} directory.  Create an output directory to hold the results, and invoke the \texttt{stereo} program:
+% 
+% \begin{verbatim}
+% 	mkdir results
+% 	stereo E0201461.cub M0100115.cub results/p19
+% \end{verbatim}
+% 
+% You can look at the results by examining the disparity images. These
+% show the horizontal and vertical components of the matching offsets
+% for each pixel, and they can be a useful debugging tool if you want
+% to check how the stereo matcher performed for a given stereo pair:
+% 
+% \begin{verbatim}
+% 	cd results
+% 	disparitydebug p19-D.exr -o p19-D     
+% 	disparitydebug p19-F.exr -o p19-F
+% \end{verbatim}
+% 
+% \emph{MJB: What exactly is being examined in the resultant images, what are users looking for?}
+% 
+% A 3D mesh can be built from the point cloud and viewed using the
+% \texttt{osgviewer} program:
+% 
+% \begin{verbatim}
+% 	point2mesh p19-PC.tif p19-L.tif -o p19
+% 	osgviewer p19.ive
+% \end{verbatim}
+% 
+% When the \texttt{osgviewer} starts, you may want to turn off the
+% lighting (hit the `L' key).
+% 
+% A gridded DEM with floating point pixels can also be built from the point cloud:
+% 
+% \begin{verbatim}
+% 	point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
+% \end{verbatim}
+% 
+% You can also orthoproject the raw satellite imagery onto the DEM during this step:
+% 
+% \begin{verbatim}
+% 	point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif
+% \end{verbatim}
+% 
+% Finally, you can create colorized, shaded relief (or both) images from the DEM, using these Vision Workbench programs:
+% 
+% \begin{verbatim}
+% 	colormap p19-DEM.tif -o p19-colorized.tif
+% 	hillshade p19-DEM.tif -o p19-shaded.tif -e 25
+% 	colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
+% \end{verbatim}
+% 
+% Finally, you can run the Vision Workbench's \texttt{image2qtree} on any of the following files:
+% 
+% \begin{itemize}
+% \item p19-DEM-normalized.tif
+% \item p19-DRG.tif 
+% \item p19-shaded.tif
+% \item p19-colorized.tif
+% \item p19-shaded-colorized.tif
+% \end{itemize}
 
 
 \section{Tutorial}
 
-The following example will utilize images from the example MOC dataset, discussed above.
-
-The two example ISIS 3 image files are \texttt{E0201461.cub} and
-\texttt{M0100115.cub}.
+The following example will utilize images from the example MOC
+dataset, discussed above.  The two example ISIS 3 image files are
+\texttt{E0201461.cub} and \texttt{M0100115.cub}.
 
 \begin{figure}
 \begin{center}
@@ -157,60 +159,51 @@ The two example ISIS 3 image files are \texttt{E0201461.cub} and
 \end{center}
 \end{figure}
 
-\subsection{Stereo Processing}
+The \texttt{stereo} program (page \pageref{stereo}) is designed for
+automated tie point matching and stereo production, and is the first
+Stereo Pipeline tool we'll use.
 
-The \texttt{stereo} program (page \pageref{stereo}) is designed for automated tie 
-point matching and stereo production, and is the first Stereo Pipeline tool we'll use.
-
-If you like, you should create a directory for the results of the processing.  The \texttt{stereo} program can generate a number of output files, and we find it helpful to put them all in a directory, but it isn't required.
+If you like, you should create a directory for the results of the
+processing.  The \texttt{stereo} program can generate a number of
+output files, and we find it helpful to put them all in a directory,
+but it isn't required.
 
 \begin{verbatim}
-> ls
-E0201461.cub M0100115.cub
-> mkdir results
+    > ls
+    E0201461.cub   M0100115.cub
+    > mkdir results
 \end{verbatim}
+
+The \texttt{stereo} program requires a \texttt{stereo.default} file
+which can be altered for your needs.  Its contents are detailed on
+page \pageref{stereo.default}.  You may find it useful to save
+multiple versions of the \texttt{stereo.default} file for various
+processing needs. If you need to do that, be sure to specify which
+configuration file \texttt{stereo} should use with the \texttt{-s}
+option.  If this option is not given, the \texttt{stereo} program
+will search for a file named \texttt{stereo.default} and will
+complain if there isn't one.
 
 Then run \texttt{stereo} like this:
 
 \begin{verbatim}
-> stereo E0201461.cub M0100115.cub results/E0201461_M0100115
+    stereo E0201461.cub M0100115.cub results/p19
 \end{verbatim}
 
 So that last text can be anything you want it to be.  It designates
 the text that \texttt{stereo} will use as a prefix for its many
 output files.  Since the first part is \texttt{results/} this causes
 the program to put the results in that directory with files whose
-names start with \texttt{E0201461\_M0100115}.  If instead that last
-text was just \texttt{E0201461\_M0100115} it would have created a
-bunch of files that start with \texttt{E0201461\_M0100115} in the
+names start with \texttt{p19}.  If instead that last
+text was just \texttt{p19} it would have created a
+bunch of files that start with \texttt{p19} in the
 same directory as the input files.
 
-The \texttt{stereo} program requires a \texttt{stereo.default} file
-which can be altered for your needs. You may find it useful to save
-multiple versions of the \texttt{stereo.default} file for various
-processing needs. If you need to do that, be sure to specify which
-configuration file \texttt{stereo} should use (i.e., \texttt{stereo
-–s my.stereo.default E0201461.cub M0100115.cub
-MOC\_RESULTS/E0201461\_M0100115}).
+The \texttt{stereo} program's processing moves through several
+stages which are detailed on page \pageref{entrypoints}.  However,
+once the \texttt{stereo} program completes, it creates a number of 
+files.
 
-\subsection*{Stereo Processing}
-
-Stage 0 of the processing normalizes the two images and aligns them
-(thus non-projected images are easier to work with) by locating
-interest points and matching them in both images. The program is
-designed to reject outlying interest points.
-
-Stage 1 of the processing is correlation and the building of a disparity map. 
-
-Stage 2 of the processing is refinement. 
-
-Stage 3 is filtering and the creating of a ``good pixel'' map. 
-
-Stage 4 is triangulation. The disparity map is processed to remove
-the effects of interest point alignment and a 3D point cloud is
-created.
-
-If you would like to examine the images generated:
 
 \begin{figure}
 \begin{center}
@@ -250,13 +243,17 @@ particularly useful if you want to check the performance of the
 stereo matcher for any given stereo pair and they can be used as a
 debugging tool.
 
-Move into the directory that contains your results. 
+Move into the directory that contains your results, and run the
+\texttt{disparitydebug} program to examine the disparity files.
 
 \begin{verbatim}
-cd MOC_RESULTS
+    cd results
+    disparitydebug p19-D.exr -o p19-D     
+    disparitydebug p19-F.exr -o p19-F
 \end{verbatim}
 
-Invoke \texttt{disparitydebug} to examine the disparity files.
+\emph{MJB: What exactly is being examined in the resultant images, what are users looking for?}
+
 
 \begin{figure}
 \begin{center}
@@ -275,10 +272,13 @@ feature utilizes the point cloud file and the left image file created
 by \texttt{stereo}.
 
 \begin{verbatim}
-point2mesh E0201461_M0100115-PC.tif E0201461_M0100115-L.tif -o E0201461_M0100115
+	point2mesh p19-PC.tif p19-L.tif -o p19
 \end{verbatim}
 
-This will create the file E0201461\_M0100115.ive, openable by OSGViewer.
+This will create the file p19.ive, openable by OSGViewer.  
+
+When the \texttt{osgviewer} starts, you may want to turn off the
+lighting (hit the `L' key).
 
 The \texttt{point2dem} program creates a digital elevation model
 (DEM) from the Point Cloud file.  You can specify a coordinate
@@ -288,7 +288,7 @@ normalized DEM in addition to the automatically generated non-normalized
 DEM.
 
 \begin{verbatim}
-point2dem --xyz-to-lonlat -r mars E0201461_M0100115-PC.tif -n -o E0201461_M0100115
+	point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
 \end{verbatim}
 
 The \texttt{point2dem} program can also be used to orthoproject raw
@@ -298,7 +298,7 @@ the use of the Left image file as the texture file to use for the
 projection.
 
 \begin{verbatim}
-point2dem --xyz-to-lonlat -r mars E0201461_M0100115-PC.tif -o E0201461_M0100115 --orthoimage E0201461_M0100115-L.tif 
+	point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif 
 \end{verbatim}
 
 The \texttt{point2dem} program can be used in many different ways.
@@ -336,7 +336,7 @@ To create a colorized version of the DEM, you need only specify the
 DEM file to use:
 
 \begin{verbatim}
-colormap E0201461_M0100115-DEM.tif -o E0201461_M0100115-colorized.tif
+	colormap p19-DEM.tif -o p19-colorized.tif
 \end{verbatim}
 
 To create a hillshade of the DEM, you should specify the DEM file
@@ -344,14 +344,14 @@ to use. It is also advisable to explore the effects of altering the
 elevation of the light source.
 
 \begin{verbatim}
-hillshade E0201461_M0100115-DEM.tif -o E0201461_M0100115-shaded.tif -e 25
+	hillshade p19-DEM.tif -o p19-shaded.tif -e 25
 \end{verbatim}
 
 To create a colorized version of the shaded relief file, specify
 the DEM and the shaded relief file that should be used.
 
 \begin{verbatim}
-colormap E0201461_M0100115-DEM.tif --shaded-relief-file E0201461_M0100115-shaded.tif -o E0201461_M0100115-color-shaded.tif
+	colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
 \end{verbatim}
 
 \begin{figure}
@@ -372,18 +372,18 @@ ideal resolution.
 The \texttt{image2qtree} program can be used on any of the following files that you 
 have generated:
 \begin{verbatim}
-E0201461_M0100115-DEM-normalized.tif
-E0201461_M0100115-DRG.tif 
-E0201461_M0100115-shaded.tif
-E0201461_M0100115-colorized.tif
-E0201461_M0100115-shaded-colorized.tif
+	p19-DEM-normalized.tif
+	p19-DRG.tif 
+	p19-shaded.tif
+	p19-colorized.tif
+	p19-shaded-colorized.tif
 \end{verbatim}
 
 Specify which image you would like to invoke \texttt{image2qtree} on, along
 with any combination of options.
 
 \begin{verbatim}
-image2qtree E0201461_M0100115-DEM-normalized.tif -o E0201461_M0100115-DEM-n-qtree
+	image2qtree p19-DEM-normalized.tif -o p19-DEM-n-qtree
 \end{verbatim}
 
 

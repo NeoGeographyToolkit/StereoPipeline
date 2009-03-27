@@ -113,11 +113,29 @@ Right (ailgned) image of the stereo pair.
 \end{verbatim}
 
 \subsection{Entry Points}
+\label{entrypoints}
 
 \emph{MJB: discuss the different phases, and how to know when you're
 in which, etc.}
 
+Stage 0 of the processing normalizes the two images and aligns them
+(thus non-projected images are easier to work with) by locating
+interest points and matching them in both images. The program is
+designed to reject outlying interest points.
+
+Stage 1 of the processing is correlation and the building of a disparity map. 
+
+Stage 2 of the processing is refinement. 
+
+Stage 3 is filtering and the creating of a ``good pixel'' map. 
+
+Stage 4 is triangulation. The disparity map is processed to remove
+the effects of interest point alignment and a 3D point cloud is
+created.
+
+
 \subsection{stereo.default file}
+\label{stereo.default}
 
 The \texttt{stereo.default} file contains configuration parameters
 which the \texttt{stereo} program uses to process the images.  Below
