@@ -245,7 +245,7 @@ public:
     ostr.close();
   }
 
-  std::vector< boost::shared_ptr< camera::CameraModel > > adjusted_cameras() {
+  std::vector< boost::shared_ptr< CameraModel > > adjusted_cameras() {
 
     std::vector< boost::shared_ptr<camera::CameraModel> > cameras;
     for ( unsigned i = 0; i < m_cameras.size(); i++) {
@@ -376,10 +376,79 @@ void perform_bundleadjustment( CostT const& cost_function ) {
   BundleAdjustment< IsisBundleAdjustmentModel< 3, 3>, CostT > 
     bundle_adjuster( ba_model, cost_function );
 
+  // Handling options to modify Bundle Adjuster
   if ( g_vm.count( "lambda" ) )
     bundle_adjuster.set_lambda( g_lambda );
   if ( cost_function.name_tag() != "L2Error" )
     bundle_adjuster.set_control( 1 ); // Shutting off fast Fletcher-style control
+  if ( g_vm.count( "seed-with-previous" ) ) {
+    std::cout << "Seeding with previous ISIS adjustment files.\n";
+    std::cout << "\tLoading up previous ISIS adjustments\n";
+    for (int j = 0; j < g_input_files.size(); ++j ) {
+      std::string adjust_file = prefix_from_filename( g_input_files[j] ) +
+	".isis_adjust";
+
+      // Loading and forcing in the adjustment
+      if ( fs::exists( adjust_file ) ) {
+	std::cout << "\t\tFound: " << adjust_file << std::endl;
+	std::ifstream input( adjust_file.c_str() );
+	Vector<double> camera_vector = ba_model.A_parameters( j );
+	for ( unsigned n = 0; n < camera_vector.size(); n++ )
+	  input >> camera_vector[n];
+	input.close();
+	ba_model.set_A_parameters( j, camera_vector );
+
+	// Store new A_vector into the ISIS Adjust Camera Models we
+	// use.
+	boost::shared_ptr<IsisAdjustCameraModel> temp = ba_model.adjusted_camera(j);
+	// The above command indirectly stores the current A_vector
+	// into the camera model
+
+      }
+    }
+    
+    // Retriangulating position of control points in control network
+    {
+      std::vector<boost::shared_ptr<CameraModel> > cameras = ba_model.adjusted_cameras();
+      for ( ControlNetwork::iterator cp = g_cnet->begin();
+	    cp != g_cnet->end(); ++cp ) {
+	if ( cp->type() != ControlPoint::TiePoint )
+	  continue; // We don't move GCPs, this seems correct.
+	int count = 0;
+	Vector3 estimate3d(0,0,0);
+	// Running permutation of all measures
+	for ( ControlPoint::const_iterator m1 = (*cp).begin()+1;
+	      m1 != (*cp).end(); ++m1 ) {
+	  for ( ControlPoint::const_iterator m2 = (*cp).begin();
+		m2 != m1; ++m2 ) {
+	    stereo::StereoModel sm( *cameras[m1->image_id()],
+				    *cameras[m2->image_id()] );
+	    double error;
+	    Vector3 triangulation = sm( m1->position(),
+					m2->position(),
+					error );
+	    if ( triangulation != Vector3() ) {
+	      count++;
+	      estimate3d += triangulation;
+	      // Do I want to do anything with the error?
+	    } else
+	      vw_out(DebugMessage, "bundle_adjustment") << "Error: Failed a retriangulation.\n";
+	  }
+	}
+	
+	estimate3d /= count;
+	cp->set_position( estimate3d );
+      }
+    }
+      
+    // Repushing the position in control network into BA model
+    {
+      std::cout << "\tPush new triangulation results back into BA model\n";
+      
+      for ( unsigned i = 0; i < g_cnet->size(); ++i )
+	ba_model.set_B_parameters( i, (*g_cnet)[i].position() );
+    }
+  }
 
   // Clearing the monitoring text files
   if ( g_vm.count( "save-iteration-data" ) ) {
@@ -528,17 +597,15 @@ int main(int argc, char* argv[]) {
     ("gcp-scalar", po::value<float>(&g_gcp_scalar)->default_value(1.0), "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
     ("cost-function", po::value<std::string>(&robust_cost_function)->default_value("L2"), "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
-    ("help,h", "Display this help message")
     ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
-    ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
-    ("match-debug-images,d", "Create debug images when you run ipmatch.")
     ("min-matches", po::value<int>(&min_matches)->default_value(30), "Set the minimum number of matches between images that will be considered.")
     ("max-iterations", po::value<int>(&g_max_iterations)->default_value(25), "Set the maximum number of iterations.")
     ("report-level,r", po::value<int>(&g_report_level)->default_value(10), "Changes the detail of the Bundle Adjustment Report")
-    ("nonsparse,n", "Run the non-sparse reference implementation of LM Bundle Adjustment.")
+    ("nonsparse,n", "Run the non-sparse reference implementation of LM Bundle Adjustment. (For Debugging Purposes)")
+    ("seed-with-previous", "Use previous isis_adjust files at starting point for this run.")
     ("write-isis-cnet-also", "Writes an ISIS style control network")
-    ("write-kml", po::value<bool>(&g_kml_all), "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates");
-    ("verbose", "Verbose output");
+    ("write-kml", po::value<bool>(&g_kml_all), "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates")
+    ("help,h", "Display this help message");
 
   po::options_description hidden_options("");
   hidden_options.add_options()
@@ -560,7 +627,7 @@ int main(int argc, char* argv[]) {
   if ( g_vm.count("help") ) {
     std::cout << usage.str() << std::endl;
     return 1;
-  };
+  }
   
   if ( g_vm.count("input-files") < 1 ) {
     std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
@@ -643,17 +710,6 @@ int main(int argc, char* argv[]) {
 	  prefix_from_filename( g_input_files[i] ) + "__" +
 	  prefix_from_filename( g_input_files[j] ) + ".match";
 	
-	// I don't think this code works at all
-	if ( g_vm.count("run-match")) {
-	  std::ostringstream cmd;
-	  cmd << "ipmatch "
-	      << g_input_files[i] << " "
-	      << g_input_files[j] << " ";
-	  if (g_vm.count("match-debug-images"))
-	    cmd << "-d";
-	  system(cmd.str().c_str());
-	}
-
 	if ( fs::exists(match_filename) ) {
 	  // Locate all of the interest points between images that may
 	  // overlap based on a rough approximation of their bounding box.
@@ -726,7 +782,6 @@ int main(int argc, char* argv[]) {
     g_camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
 
   // Switching based on cost function
-  Timer* processing_time = new Timer("Total time running: ");
   if ( robust_cost_function == "pseudohuber" ) {
     perform_bundleadjustment<PseudoHuberError>( PseudoHuberError(robust_outlier_threshold) );
   } else if ( robust_cost_function == "huber" ) {
@@ -738,7 +793,6 @@ int main(int argc, char* argv[]) {
   } else if ( robust_cost_function == "cauchy" ) {
     perform_bundleadjustment<CauchyError>( CauchyError(robust_outlier_threshold) );
   }
-  delete processing_time;
 
   return 0;
 }
