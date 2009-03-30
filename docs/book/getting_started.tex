@@ -16,7 +16,7 @@ makes point clouds (and a bunch of other files):
 \begin{verbatim}
     stereo image_file1 image_file2 stereo-output
 \end{verbatim}
-
+\noindent
 Then you can make a mesh or a DEM file with either of the following
 commands.  The \texttt{stereo-output-PC.tif} and
 \texttt{stereo-output-L.tif} files are created by the \texttt{stereo}
@@ -244,7 +244,8 @@ stereo matcher for any given stereo pair and they can be used as a
 debugging tool.
 
 Move into the directory that contains your results, and run the
-\texttt{disparitydebug} program to examine the disparity files.
+\texttt{disparitydebug} program (page \pageref{disparitydebug}) to
+examine the disparity files.
 
 \begin{verbatim}
     cd results
@@ -252,7 +253,7 @@ Move into the directory that contains your results, and run the
     disparitydebug p19-F.exr -o p19-F
 \end{verbatim}
 
-\emph{MJB: What exactly is being examined in the resultant images, what are users looking for?}
+\emph{MJB: What exactly is being examined in the resultant images, what are users looking for?  What are the probable failure scenarios?  Discuss them and potential remedies.}
 
 
 \begin{figure}
@@ -265,30 +266,38 @@ Move into the directory that contains your results, and run the
 \end{center}
 \end{figure}
 
-The next step is to produce a 3D mesh with \texttt{point2mesh}.
-This image can be viewed in the OSGViewer (Open Scene Graph Viewer,
-distributed with the binary version of the Stereo Pipeline). This
-feature utilizes the point cloud file and the left image file created
-by \texttt{stereo}.
+The next step is to produce a 3D mesh with \texttt{point2mesh} (page
+\pageref{point2mesh}).  This image can be viewed with \texttt{osgviewer}
+(the Open Scene Graph Viewer program, distributed with the binary version
+of the Stereo Pipeline).  The \texttt{point2mesh} program takes the
+point cloud file and one of the image files (usually the highest
+resolution one) created by \texttt{stereo} as inputs.
 
 \begin{verbatim}
-	point2mesh p19-PC.tif p19-L.tif -o p19
+    point2mesh p19-PC.tif p19-L.tif -o p19
 \end{verbatim}
 
-This will create the file p19.ive, openable by OSGViewer.  
+This will create the file \texttt{p19.ive}, openable with the
+\texttt{osgviewer}. When the \texttt{osgviewer} starts, you may
+want to turn off the lighting (hit the `L' key).
 
-When the \texttt{osgviewer} starts, you may want to turn off the
-lighting (hit the `L' key).
-
-The \texttt{point2dem} program creates a digital elevation model
-(DEM) from the Point Cloud file.  You can specify a coordinate
-system (e.g., latlon) and a reference spheroid (i.e., calculated
-for the Moon or Mars). You also have the option of creating a
-normalized DEM in addition to the automatically generated non-normalized
-DEM.
+The \texttt{point2dem} program (page \pageref{point2dem}) creates
+a digital elevation model (DEM) from the Point Cloud file.
 
 \begin{verbatim}
-	point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
+    point2dem p19-PC.tif -o p19
+\end{verbatim}
+
+The resultant file ...
+
+You can specify a coordinate system (e.g., latlon) and a reference
+spheroid (i.e., calculated for the Moon or Mars). You also have the
+option of creating a normalized DEM in addition to the automatically
+generated non-normalized DEM.
+
+
+\begin{verbatim}
+    point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
 \end{verbatim}
 
 The \texttt{point2dem} program can also be used to orthoproject raw
@@ -298,7 +307,7 @@ the use of the Left image file as the texture file to use for the
 projection.
 
 \begin{verbatim}
-	point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif 
+    point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif 
 \end{verbatim}
 
 The \texttt{point2dem} program can be used in many different ways.
@@ -336,7 +345,7 @@ To create a colorized version of the DEM, you need only specify the
 DEM file to use:
 
 \begin{verbatim}
-	colormap p19-DEM.tif -o p19-colorized.tif
+    colormap p19-DEM.tif -o p19-colorized.tif
 \end{verbatim}
 
 To create a hillshade of the DEM, you should specify the DEM file
@@ -344,14 +353,14 @@ to use. It is also advisable to explore the effects of altering the
 elevation of the light source.
 
 \begin{verbatim}
-	hillshade p19-DEM.tif -o p19-shaded.tif -e 25
+    hillshade p19-DEM.tif -o p19-shaded.tif -e 25
 \end{verbatim}
 
 To create a colorized version of the shaded relief file, specify
 the DEM and the shaded relief file that should be used.
 
 \begin{verbatim}
-	colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
+    colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
 \end{verbatim}
 
 \begin{figure}
@@ -372,18 +381,18 @@ ideal resolution.
 The \texttt{image2qtree} program can be used on any of the following files that you 
 have generated:
 \begin{verbatim}
-	p19-DEM-normalized.tif
-	p19-DRG.tif 
-	p19-shaded.tif
-	p19-colorized.tif
-	p19-shaded-colorized.tif
+    p19-DEM-normalized.tif
+    p19-DRG.tif 
+    p19-shaded.tif
+    p19-colorized.tif
+    p19-shaded-colorized.tif
 \end{verbatim}
 
 Specify which image you would like to invoke \texttt{image2qtree} on, along
 with any combination of options.
 
 \begin{verbatim}
-	image2qtree p19-DEM-normalized.tif -o p19-DEM-n-qtree
+    image2qtree p19-DEM-normalized.tif -o p19-DEM-n-qtree
 \end{verbatim}
 
 
