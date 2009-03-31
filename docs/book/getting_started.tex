@@ -32,18 +32,6 @@ There are a number of ways to fine-tune parameters and
 analyze the results, but ultimately this software suite takes images
 and builds models in a mostly automatic way.
 
-\section{Example data set}
-
-The data set that is used in the tutorial and examples below is a
-pair of Mars Orbiter Camera (MOC)
-\citep{1992JGR....97.7699M,2001JGR...10623429M} images whose PDS
-Product IDs are M01/00115 and E02/01461.
-
-You can obtain this dataset from \url{http://broxtronix.org/nasa/p19.tgz},
-to follow along and ensure that your installation is working properly.
-
-\emph{MJB: why is it called P19??  What processing was done to go from PDS imagery to the P19 .cub files?  This whole sample data set probably needs refreshing.}
-
 
 \section{Selecting images to process}
 
@@ -60,9 +48,14 @@ Images do not need to be map projected before running the \texttt{stereo}
 program. That being said, for images which contain large topographic
 variation (and therefore large disparity differences across the
 scene--think Valles Marineris), sometimes map-projecting the images
-can help, as it sometimes improves the correlation.
-
-\emph{MJB: what's the right phrasing for a warning about projecting onto an existing terrain model and adding additional disparity issues?}
+can help, as it sometimes improves the correlation (at least until
+we get our adaptive correlation window strategies in place).  However,
+be careful about map-projecting.  For example, the HiRISE RDR
+products, which are map projected, have been map-projected onto a
+smoothed MOLA terrain model, so these images are not suitable for
+stereo processing, because the act of projecting them on to a terrain
+model introduces disparity into the source images that will lead
+to poor results.
 
 The images should be photometrically calibrated (in whatever fashion
 suits your purposes), as excessively noisy images will not correlate
@@ -77,6 +70,33 @@ for the user to provide and for the Stereo Pipeline's \texttt{stereo}
 program to ingest are ISIS 3 \texttt{.cub} files.
 
 
+\section{Example data set}
+
+The data set that is used in the tutorial and examples below is a
+pair of Mars Orbiter Camera (MOC)
+\citep{1992JGR....97.7699M,2001JGR...10623429M} images whose Planetary
+Data System (PDS) Product IDs are M01/00115 and E02/01461.
+
+These data can be downloaded from the PDS directly, or they can be found in 
+the \texttt{data/MOC/} directory of your Stere Pipeline distribution.
+
+These raw PDS images (\texttt{M0100115.imq} and \texttt{E0201461.imq})
+need to be brought in to the ISIS environment and radiometrically
+calibrated.  Fortunately, ISIS has a simple command for that.  You
+will need to be in an ISIS environment (have set the \texttt{ISISROOT}
+environment variable and sourced the appropriate ISIS 3 Startup
+script, as detailed in the ISIS 3 instructions).  Then you can use the
+\texttt{mocproc} program.
+
+\begin{verbatim}
+    ISIS> mocproc from= M0100115.imq to= M0100115.cub Mapping= NO
+\end{verbatim}
+
+There are also \texttt{Ingestion} and \texttt{Calibration} parameters
+whose defaults are `\texttt{YES}' which will bring the image into
+the ISIS format and perform radiometric calibration.  By setting
+the \texttt{Mapping} parameter to `\texttt{NO}' the resultant file
+will be an ISIS cube file that is calibrated, but not map-projected.
 
 % \section{Examples of Use}
 % 
