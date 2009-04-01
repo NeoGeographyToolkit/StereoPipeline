@@ -746,6 +746,21 @@ int main(int argc, char* argv[]) {
   // Ephemeris Time.
   {
     std::cout << "\nCalculating focal plane measurements for Control Network:\n";
+    
+    // Calculating mm/px for each camera in the x and y direction
+    std::vector<Vector2> camera_mm_px;
+    for (unsigned i = 0; i < camera_models.size(); i++ ) {
+      boost::shared_ptr< IsisAdjustCameraModel > cam = 
+	boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[i] );
+      Vector3 mm_time_min = cam->pixel_to_mm_time( Vector2(0,0) );
+      Vector3 mm_time_max = cam->pixel_to_mm_time( Vector2( cam->getSamples(),
+							    cam->getLines() ) );
+      Vector2 mm_over_px( fabs( mm_time_max[0] - mm_time_min[0] )/cam->getSamples(),
+			  fabs( mm_time_max[1] - mm_time_min[1] )/cam->getLines() );
+      camera_mm_px.push_back( mm_over_px );
+    }
+
+    // Applying millimeter conversion
     for (unsigned i = 0; i < g_cnet->size(); ++i ) {
       for ( unsigned m = 0; m < (*g_cnet)[i].size(); ++m ) {
 	if ( (*g_cnet)[i][m].ephemeris_time() == 0 ) {
@@ -759,6 +774,10 @@ int main(int argc, char* argv[]) {
 	  (*g_cnet)[i][m].set_description( "millimeters" );
 	  (*g_cnet)[i][m].set_serial( cam->serial_number() );
 	  (*g_cnet)[i][m].set_pixels_dominant( false );
+
+	  Vector2 sigma = (*g_cnet)[i][m].sigma();
+	  sigma = elem_prod( sigma, camera_mm_px[ (*g_cnet)[i][m].image_id() ] );
+	  (*g_cnet)[i][m].set_sigma( sigma );
 	}
       }
     }
