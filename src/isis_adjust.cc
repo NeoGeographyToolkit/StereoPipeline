@@ -488,12 +488,6 @@ void perform_bundleadjustment( CostT const& cost_function ) {
   // Reporter
   BundleAdjustReport< IsisBundleAdjustmentModel<3,3>, BundleAdjustment< IsisBundleAdjustmentModel<3,3>, CostT > > reporter( "ISIS Adjust", ba_model, bundle_adjuster, g_report_level);
 
-  // Option to write KML of control network
-  if ( g_vm.count("write-kml") ) {
-    std::cout << "Writing KML of Control Network.\n";
-    reporter.write_control_network_kml( !g_kml_all );
-  }
-
   // Performing the Bundle Adjustment
   double abs_tol = 1e10, rel_tol = 1e10;
   if (g_vm.count("nonsparse")) {    //What are you thinking? No!!
@@ -573,6 +567,12 @@ void perform_bundleadjustment( CostT const& cost_function ) {
     }
   }
   reporter.end_tie_in();
+
+  // Option to write KML of control network
+  if ( g_vm.count("write-kml") ) {
+    std::cout << "Writing KML of Control Network.\n";
+    reporter.write_control_network_kml( !g_kml_all );
+  }
 
   for ( unsigned int i = 0; i < ba_model.num_cameras(); ++i ) {
     ba_model.write_adjustment( i, prefix_from_filename( g_input_files[i] ) + ".isis_adjust");
