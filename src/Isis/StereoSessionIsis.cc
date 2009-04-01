@@ -29,7 +29,7 @@
 #include <vw/Math.h>
 #include <vw/FileIO.h>
 #include <vw/InterestPoint.h>
-#include <vw/Stereo.h>
+#include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography.h>
 #include "Isis/StereoSessionIsis.h"
 #include "Isis/IsisCameraModel.h"

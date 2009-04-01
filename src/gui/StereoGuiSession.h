@@ -7,7 +7,6 @@
 #include <vw/Stereo.h>
 
 #include "StereoSession.h"
-#include "gui/KyleStereo.h"
 
 class StereoGuiSession : public QObject {
   Q_OBJECT

@@ -36,7 +36,7 @@
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/InterestPoint.h>
-#include <vw/Stereo.h>
+#include <vw/Stereo/DisparityMap.h>
 #include <vw/Math.h>
 
 using namespace vw;

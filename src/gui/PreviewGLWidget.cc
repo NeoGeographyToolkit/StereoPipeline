@@ -344,6 +344,8 @@ void PreviewGLWidget::mousePressEvent(QMouseEvent *event) {
 }
 
 void PreviewGLWidget::mouseMoveEvent(QMouseEvent *event) {
+  float ticks;
+
   // Left mouse button moves the image around
   if (event->buttons() & Qt::LeftButton) {
     float x_diff = float(event->x() - lastPos.x()) / m_viewport_width;
@@ -361,7 +363,7 @@ void PreviewGLWidget::mouseMoveEvent(QMouseEvent *event) {
 
     case GainAdjustment:
       // The number '5' below adjust the sensitivity.
-      float ticks = pow(2, 5 * x_diff * (m_image_max-m_image_min));
+      ticks = pow(2, 5 * x_diff * (m_image_max-m_image_min));
       if (m_gain * ticks > 1e-8 && m_gain * ticks < 1e8)
         m_gain *= ticks;
       s << "Gain: " << m_gain << "   " << x_diff << "   " << ticks << "\n";

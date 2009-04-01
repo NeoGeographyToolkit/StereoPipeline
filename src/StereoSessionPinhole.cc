@@ -35,7 +35,7 @@
 #include <vw/Camera/CAHVORModel.h>
 #include <vw/Camera/CameraTransform.h>
 #include <vw/Image/ImageViewRef.h>
-#include <vw/Stereo.h>
+#include <vw/Stereo/DisparityMap.h>
 #include <vw/InterestPoint.h>
 #include <vw/Math.h>
 
