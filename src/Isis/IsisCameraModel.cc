@@ -93,7 +93,8 @@ IsisCameraModel::~IsisCameraModel() {
 void IsisCameraModel::set_image(double sample, double line) const {
   if (m_current_line != line || m_current_sample != sample) {
     Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-    cam->SetImage(sample, line);
+    // ISIS indexes the top left as (1,1) while VW uses (0,0)
+    cam->SetImage(sample+1, line+1);
     m_current_line = line;
     m_current_sample = sample;
   }
@@ -110,8 +111,9 @@ Vector2 IsisCameraModel::point_to_pixel(Vector3 const& point) const {
   cam->SetUniversalGround(lon_lat_radius[1], lon_lat_radius[0], lon_lat_radius[2]);
 
   //   std::cout << "LON LAT RAD: " << lon_lat_radius << " ---> ";
-  //   std::cout << cam->Line() << " " << cam->Sample() << "\n";
-  return Vector2(cam->Sample(), cam->Line());
+  //   std::cout << cam->Line() << " " << cam->Sample() << "\n"
+  // ISIS indexes the top left as (1,1) while VW uses (0,0)
+  return Vector2(cam->Sample()-1, cam->Line()-1);
 }
 
 Vector3 IsisCameraModel::pixel_to_vector (Vector2 const& pix) const {

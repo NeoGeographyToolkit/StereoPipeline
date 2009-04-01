@@ -138,7 +138,8 @@ Vector2 IsisAdjustCameraModel::mm_time_to_pixel( Vector3 const& mm_time ) const 
 
   double childSample = alpha_cube->BetaSample(parentSample);
   double childLine = alpha_cube->BetaLine(parentLine);
-  return Vector2( childSample, childLine );
+  // Remember: ISIS indexes top left as (1,1) while VW uses (0,0)
+  return Vector2( childSample-1, childLine-1);
 }
 
 Vector3 IsisAdjustCameraModel::point_to_mm_time( Vector3 const& mm_time, Vector3 const& point ) const {
@@ -233,22 +234,21 @@ double IsisAdjustCameraModel::undistorted_focal( Vector3 const& mm_time ) const 
 void IsisAdjustCameraModel::set_image( double const& sample, double const& line) const {
   if (m_current_line != line || m_current_sample != sample ) {
     Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
-    cam->SetImage( sample, line );
-    m_current_line = cam->Line();
-    m_current_sample = cam->Sample();
+    // ISIS indexes the top left corner (1,1) while VW uses(0,0)
+    cam->SetImage( sample+1, line+1 );
+    m_current_line = cam->Line()-1;
+    m_current_sample = cam->Sample()-1;
     m_current_time = cam->EphemerisTime();
   }
 }
 
 void IsisAdjustCameraModel::set_time( double const& time ) const {
   VW_DEBUG_ASSERT( time <= m_max_ephemeris && time >= m_min_ephemeris, vw::ArgumentErr() << "Incorrect ephemeris time given in IsisAdjustCameraModel::set_time." );
-  //if (time >= m_max_ephemeris || time <= m_min_ephemeris)
-    //std::cout << "Time input is out of bounds" << std::endl;
   if (m_current_time != time ) {
     Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
     cam->SetEphemerisTime( time );
-    m_current_line = cam->Line();
-    m_current_sample = cam->Sample();
+    m_current_line = cam->Line()-1;
+    m_current_sample = cam->Sample()-1;
     m_current_time = cam->EphemerisTime();
   }
 }
