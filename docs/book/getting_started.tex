@@ -27,7 +27,7 @@ program run above):
 	
     point2dem stereo-output-PC.tif stereo-output-L.tif
 \end{verbatim}
-
+\noindent
 There are a number of ways to fine-tune parameters and
 analyze the results, but ultimately this software suite takes images
 and builds models in a mostly automatic way.
@@ -85,18 +85,34 @@ need to be brought in to the ISIS environment and radiometrically
 calibrated.  Fortunately, ISIS has a simple command for that.  You
 will need to be in an ISIS environment (have set the \texttt{ISISROOT}
 environment variable and sourced the appropriate ISIS 3 Startup
-script, as detailed in the ISIS 3 instructions).  Then you can use the
+script, as detailed in the ISIS 3 instructions, we will denote this
+state with the `\texttt{ISIS 3>}' prompt).  Then you can use the
 \texttt{mocproc} program.
 
 \begin{verbatim}
-    ISIS> mocproc from= M0100115.imq to= M0100115.cub Mapping= NO
+    ISIS 3> mocproc from= M0100115.imq to= M0100115.cub Mapping= NO
 \end{verbatim}
-
+\noindent
 There are also \texttt{Ingestion} and \texttt{Calibration} parameters
 whose defaults are `\texttt{YES}' which will bring the image into
 the ISIS format and perform radiometric calibration.  By setting
 the \texttt{Mapping} parameter to `\texttt{NO}' the resultant file
 will be an ISIS cube file that is calibrated, but not map-projected.
+
+\begin{figure}
+\begin{center}
+\includegraphics[height=4.5in]{images/p19-images.png}
+\hfill
+\includegraphics[height=4.5in]{images/p19-images_zoom.png}
+\caption[P19 images open in qview zoomed in]{
+    \label{p19-images}
+    This shows \texttt{E0201461.cub} and \texttt{M0100115.cub} open in
+	ISIS's qview program.  The view on the left shows their full extents
+	at the same zoom level, showing how they have different ground scales.
+	The view on the right shows them both zoomed in on the same feature.
+    }
+\end{center}
+\end{figure}
 
 % \section{Examples of Use}
 % 
@@ -167,17 +183,6 @@ will be an ISIS cube file that is calibrated, but not map-projected.
 The following example will utilize images from the example MOC
 dataset, discussed above.  The two example ISIS 3 image files are
 \texttt{E0201461.cub} and \texttt{M0100115.cub}.
-
-\begin{figure}
-\begin{center}
-\includegraphics[width=4in]{images/p19-images.png}
-\caption[P19 images open in qview]{
-    \label{p19-images}
-    This shows \texttt{E0201461.cub} and \texttt{M0100115.cub} open in
-	ISIS's qview program.
-    }
-\end{center}
-\end{figure}
 
 The \texttt{stereo} program (page \pageref{stereo}) is designed for
 automated tie point matching and stereo production, and is the first
