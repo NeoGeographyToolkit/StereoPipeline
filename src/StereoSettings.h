@@ -74,6 +74,7 @@ public:
   int rm_treshold;		/* rm_treshold < disp[n]-disp[m] reject pxl */ 
   int rm_cleanup_passes;  /* number of times to perform cleanup in the post-processing phase */
   int fill_holes_NURBS;  
+  int mask_flatfield;    // Masks pixels in the input images that are less than 0.  (For use with apollo metric camera...)  
   
   // Triangulation Options
   float near_universe_radius;  	/* radius of the universe in meters */

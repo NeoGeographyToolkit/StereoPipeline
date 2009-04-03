@@ -126,6 +126,7 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("RM_TRESHOLD", rm_treshold, 3, "rm_treshold > disp[n]-disp[m] pixels are not matching");
   ASSOC_INT("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
   ASSOC_INT("FILL_HOLES_NURBS", fill_holes_NURBS, 1, "fill holes using Larry's NURBS code");
+  ASSOC_INT("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
 
   // Triangulation Options
   ASSOC_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius, 0.0, "radius of inner boundary of universe [m]");
