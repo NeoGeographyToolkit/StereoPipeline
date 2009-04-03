@@ -43,7 +43,6 @@ namespace po = boost::program_options;
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math.h>
-#include <vw/Stereo.h>
 using namespace vw;
 
 //OpenSceneGraph

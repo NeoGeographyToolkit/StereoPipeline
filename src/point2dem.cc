@@ -42,10 +42,8 @@ namespace po = boost::program_options;
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Math.h>
-#include <vw/Stereo.h>
 #include <vw/Cartography.h>
 using namespace vw;
-using namespace vw::stereo;
 using namespace vw::cartography;
 
 #include "stereo.h"

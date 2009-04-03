@@ -41,7 +41,7 @@ namespace po = boost::program_options;
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
-#include <vw/Stereo.h>
+#include <vw/Stereo/DisparityMap.h>
 using namespace vw;
 using namespace vw::stereo;
 

@@ -668,11 +668,14 @@ int main(int argc, char* argv[]) {
       DiskCacheImageView<PixelDisparity<float> > filtered_disparity_map(disparity_map, "exr", 
                                                                         TerminalProgressCallback(ErrorMessage, "\t--> Writing: "));
 
-      // Write out the extrapolation mask imaege
+      // Write out the extrapolation mask image
       std::cout << "\t--> Creating \"Good Pixel\" image: " << (out_prefix + "-GoodPixelMap.tif") << "\n";
       write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), 
                   TerminalProgressCallback(ErrorMessage, "\t    Writing: "));
-
+      DiskImageView<PixelRGB<uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
+      write_image(out_prefix + "-dMask.tif", select_channel(edge_mask(good_pixel_image, 
+                                                                      PixelRGB<float>(255,0,0)),3) );
+      
       // Call out to NURBS hole filling code.  The hole filling is
       // done with a subsampled (by 4) images and then the hole filled
       // values are upsampled to the full resolution of the image
@@ -681,14 +684,15 @@ int main(int argc, char* argv[]) {
       
       DiskImageView<uint8> Lmask(out_prefix + "-lMask.tif");
       DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
+      DiskImageView<uint8> Dmask(out_prefix + "-dMask.tif");
       if(stereo_settings().fill_holes_NURBS) {
         std::cout << "\t--> Filling holes with bicubicly interpolated B-SPLINE surface.\n";
-        hole_filled_disp_map = HoleFillView(disparity::mask(filtered_disparity_map,Lmask,Rmask), 2);
+        hole_filled_disp_map = HoleFillView(disparity::mask(filtered_disparity_map,Dmask,Rmask), 2);
       } 
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
       disparity_map_rsrc.set_tiled_write(std::min(1024,hole_filled_disp_map.cols()),std::min(1024, hole_filled_disp_map.rows()));
-      block_write_image(disparity_map_rsrc, disparity::mask(hole_filled_disp_map,Lmask,Rmask), TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") ); 
+      block_write_image(disparity_map_rsrc, disparity::mask(hole_filled_disp_map,Dmask,Rmask), TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") ); 
     } catch (IOErr &e) { 
       cout << "\nUnable to start at filtering stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
       exit(0);

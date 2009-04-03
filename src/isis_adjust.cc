@@ -37,7 +37,6 @@ namespace fs = boost::filesystem;
 #include <vw/Camera/ControlNetwork.h>
 #include <vw/Math.h>
 #include <vw/InterestPoint.h>
-#include <vw/Stereo.h>
 #include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Core/Debugging.h>
 using namespace vw;
