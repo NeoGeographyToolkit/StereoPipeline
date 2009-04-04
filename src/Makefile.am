@@ -27,7 +27,7 @@ SUBDIRS = tests
 bin_PROGRAMS=
 
 rmax_code   = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
-bundle_code = BundleAdjustUtils.cc
+bundle_code = BundleAdjustUtils.cc ControlNetworkLoader.cc
 
 stereo_code = MOLAReader.cc              \
               StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc \

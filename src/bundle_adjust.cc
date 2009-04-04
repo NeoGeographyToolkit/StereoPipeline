@@ -50,6 +50,7 @@ using namespace vw::stereo;
 #include "asp_config.h"
 #include "StereoSession.h"
 #include "BundleAdjustUtils.h"
+#include "ControlNetworkLoader.h"
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
 #include "Isis/DiskImageResourceIsis.h"
@@ -316,6 +317,7 @@ int main(int argc, char* argv[]) {
   double lambda;
   double robust_outlier_threshold;
   int report_level;
+  int min_matches;
 
   po::options_description general_options("Options");
   general_options.add_options()
@@ -325,6 +327,7 @@ int main(int argc, char* argv[]) {
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
     ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
     ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
+    ("min-matches", po::value<int>(&min_matches)->default_value(30), "Set the minimum  number of matches between images that will be considered.")
     ("report-level,r",po::value<int>(&report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report")
     ("help", "Display this help message")
     ("verbose", "Verbose output");
@@ -386,34 +389,13 @@ int main(int argc, char* argv[]) {
   }
 
   if (!vm.count("cnet") ) {
-    std::cout << "\nLoading Image Tie Points:\n";
-    for (unsigned i = 0; i < image_files.size(); ++i) {
-      for (unsigned j = i; j < image_files.size(); ++j) {
-        std::string match_filename = 
-        prefix_from_filename(image_files[i]) + "__" +
-        prefix_from_filename(image_files[j]) + ".match";
+    build_control_network( cnet, camera_models,
+			   image_files, 
+			   min_matches );
+    add_ground_control_points( cnet,
+			       image_files );
 
-        if ( fs::exists(match_filename) ) {
-          // Locate all of the interest points between images that may
-          // overlap based on a rough approximation of their bounding box.
-          std::vector<InterestPoint> ip1, ip2;
-          read_binary_match_file(match_filename, ip1, ip2);
-          std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
-          add_matched_points(*cnet,ip1,ip2,i,j,camera_models);
-        }
-      }
-    }    
-
-    std::cout << "\nLoading Ground Control Points:\n";
-    for (unsigned i = 0; i < image_files.size(); ++i) {
-      std::string gcp_filename = prefix_from_filename(image_files[i]) + ".gcp";
-      if ( fs::exists(gcp_filename) ) {
-        int numpoints = add_ground_control_points(*cnet, gcp_filename, i); 
-        std::cout << "\t" << gcp_filename << "     " << " : " << numpoints << " GCPs.\n";
-      }
-    }
-
-    cnet->write_binary_control_network("control.cnet");
+    cnet->write_binary_control_network("control");
   }
 
   BundleAdjustmentModel ba_model(camera_models, cnet);

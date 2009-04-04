@@ -21,21 +21,21 @@
 //
 // __END_LICENSE__
 
-/// \file BundleAdjustUtils.h
+/// \file ControlNetworkLoader.h
 ///
 
-#ifndef __BUNDLE_ADJUST_UTILS_H__
-#define __BUNDLE_ADJUST_UTILS_H__
+#ifndef __CONTROL_NETWORK_LOADER_H__
+#define __CONTROL_NETWORK_LOADER_H__
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/ControlNetwork.h>
-#include <vw/Math.h>
-#include <vw/InterestPoint.h>
 
-void read_adjustments(std::string const& filename, vw::Vector3& position_correction, vw::math::Quaternion<double>& pose_correction);
-void write_adjustments(std::string const& filename, vw::Vector3 const& position_correction, vw::math::Quaternion<double> const& pose_correction);
+void build_control_network( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
+			    std::vector<boost::shared_ptr<vw::camera::CameraModel> > const& camera_models,
+			    std::vector<std::string> image_files,
+			    int min_matches = 30);
 
-void compute_stereo_residuals(std::vector<boost::shared_ptr<vw::camera::CameraModel> > const& camera_models,
-                              vw::camera::ControlNetwork const& cnet);
+void add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
+				std::vector<std::string> image_files );
 
-#endif // __BUNDLE_ADJUST_UTILS_H__
+#endif // __CONTROL_NETWORK_LOADER_H__

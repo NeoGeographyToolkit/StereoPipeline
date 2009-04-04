@@ -49,7 +49,7 @@ using namespace vw::stereo;
 #include <iostream>
 
 #include "RMAX/RMAX.h"
-#include "BundleAdjustUtils.h"
+#include "ControlNetworkLoader.h"
 
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
@@ -361,51 +361,10 @@ int main(int argc, char* argv[]) {
 
   } else {
     // Building a Control Network
-
-    std::cout << "\nLoading Matches:\n";
-    for (unsigned i = 0; i < image_files.size(); ++i) {
-      for (unsigned j = i+1; j < image_files.size(); ++j) {
-        std::string match_filename = 
-          prefix_from_filename(image_files[i]) + "__" +
-          prefix_from_filename(image_files[j]) + ".match";
-
-        if ( vm.count("run-match")) {
-          if (may_overlap(image_files[i], image_files[j])) {
-            std::ostringstream cmd;
-            cmd << "ipmatch " 
-                << image_files[i] << " " 
-                << image_files[j] << " ";
-            if (vm.count("match-debug-images"))
-              cmd << "-d";
-            system(cmd.str().c_str());
-          }
-        }
-
-        if ( fs::exists(match_filename) ) {
-          // Locate all of the interest points between images that may
-          // overlap based on a rough approximation of their bounding box.
-          std::vector<InterestPoint> ip1, ip2;
-
-	  read_binary_match_file(match_filename, ip1, ip2);
-
-          if (int(ip1.size()) < min_matches) {
-            std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.  [rejected]\n";
-          } else {
-            std::cout << "\t" << match_filename << "     " << i << " <-> " << j << " : " << ip1.size() << " matches.\n";
-            add_matched_points(*cnet,ip1,ip2,i,j,camera_models);
-          }
-        }
-      }
-    }    
-
-    std::cout << "\nLoading Ground Control Points:\n";
-    for (unsigned i = 0; i < image_files.size(); ++i) {
-      std::string gcp_filename = prefix_from_filename(image_files[i]) + ".gcp";
-      if ( fs::exists(gcp_filename) ) {
-        int numpoints = add_ground_control_points(*cnet, gcp_filename, i); 
-        std::cout << "\t" << gcp_filename << "     " << " : " << numpoints << " GCPs.\n";
-      }
-    }
+    build_control_network( cnet, camera_models,
+			   image_files, min_matches );
+    add_ground_control_points( cnet,
+			       image_files );
     
     cnet->write_binary_control_network("rmax_adjust");
   }

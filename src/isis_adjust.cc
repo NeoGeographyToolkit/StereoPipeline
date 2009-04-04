@@ -52,7 +52,7 @@ using namespace vw::ip;
 #include "Isis/IsisCameraModel.h"
 #include "Isis/Equations.h"
 #include "Isis/IsisAdjustCameraModel.h"
-#include "BundleAdjustUtils.h"
+#include "ControlNetworkLoader.h"
 
 // Global variables
 float g_spacecraft_position_sigma;
@@ -529,7 +529,10 @@ void perform_bundleadjustment( CostT const& cost_function ) {
     }
   } else {
     // This is the sparse implementation of the code
-    while ( bundle_adjuster.update( abs_tol, rel_tol ) ) {
+    double overall_delta = 2;
+    int no_improvement_count = 0;
+    while ( overall_delta ) {
+      overall_delta = bundle_adjuster.update( abs_tol, rel_tol );
       reporter.loop_tie_in();
 
       //Writing recording data for Bundlevis
@@ -560,8 +563,14 @@ void perform_bundleadjustment( CostT const& cost_function ) {
 	}
       } // end of saving data
 
+      if ( overall_delta == ScalarTypeLimits<double>::highest() )
+	no_improvement_count++;
+      else
+	no_improvement_count = 0;
+
       // Determine if it is time to quit
-      if ( bundle_adjuster.iterations() > g_max_iterations || abs_tol < 0.01 || rel_tol < 1e-10 )
+      if ( bundle_adjuster.iterations() > g_max_iterations || abs_tol < 0.01 
+	   || rel_tol < 1e-10 || no_improvement_count > 5 )
 	break;
     }
   }
@@ -700,43 +709,13 @@ int main(int argc, char* argv[]) {
     }
 
   } else {
-    // Decided to build new Control Network. Now loading up the matches
-    
-    std::cout << "\nLoading Matches:\n";
-    for (unsigned i = 0; i < g_input_files.size(); ++i) {
-      for (unsigned j = i+1; j < g_input_files.size(); ++j){
-	std::string match_filename = 
-	  prefix_from_filename( g_input_files[i] ) + "__" +
-	  prefix_from_filename( g_input_files[j] ) + ".match";
-	
-	if ( fs::exists(match_filename) ) {
-	  // Locate all of the interest points between images that may
-	  // overlap based on a rough approximation of their bounding box.
-
-	  std::vector<InterestPoint> ip1, ip2;
-	  read_binary_match_file(match_filename, ip1, ip2);
-	  if ( int(ip1.size()) < min_matches ) {
-	    std::cout << "\t" << match_filename << "    " << i << " <-> " 
-		      << j << " : " << ip1.size() << " matches. [rejected]\n";
-	  } else {
-	    std::cout << "\t" << match_filename << "    " << i << " <-> " 
-		      << j << " : " << ip1.size() << " matches.\n";
-	    add_matched_points(*g_cnet, ip1, ip2, i, j, camera_models);
-	  }
-	}
-      }
-    }
-
-    VW_ASSERT( g_cnet->size() != 0, vw::Aborted() << "Failed to load any points, Control Network Empty\n" );
-
-    std::cout << "\nLoading Ground Control Points:\n";
-    for (unsigned i = 0; i < g_input_files.size(); ++i){
-      std::string gcp_filename = prefix_from_filename( g_input_files[i] ) + ".gcp";
-      if ( fs::exists( gcp_filename ) ) {
-	int numpoints = add_ground_control_points( *g_cnet, gcp_filename, i );
-	std::cout << "\t" << gcp_filename << "    " << " : " << numpoints << " GCPs.\n";
-      }
-    }
+    // Building new Control Network
+    build_control_network( g_cnet,
+			   camera_models,
+			   g_input_files,
+			   min_matches );
+    add_ground_control_points( g_cnet,
+			       g_input_files );
   }
 
   // Double checking to make sure that the Control Network is set up
