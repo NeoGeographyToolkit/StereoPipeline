@@ -674,7 +674,8 @@ int main(int argc, char* argv[]) {
                   TerminalProgressCallback(ErrorMessage, "\t    Writing: "));
       DiskImageView<PixelRGB<uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
       write_image(out_prefix + "-dMask.tif", select_channel(edge_mask(good_pixel_image, 
-                                                                      PixelRGB<float>(255,0,0)),3) );
+                                                                      PixelRGB<float>(255,0,0), 
+                                                                      stereo_settings().subpixel_h_kern),3)); 
       
       // Call out to NURBS hole filling code.  The hole filling is
       // done with a subsampled (by 4) images and then the hole filled
