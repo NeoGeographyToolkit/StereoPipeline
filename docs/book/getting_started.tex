@@ -67,7 +67,7 @@ camera information, but doing so requires a significant amount of
 extra work and setup which are not covered in this document, and
 are considered `advanced usage.'  The image type that is easiest
 for the user to provide and for the Stereo Pipeline's \texttt{stereo}
-program to ingest are ISIS 3 \texttt{.cub} files.
+program to ingest are ISIS 3 cube files (\texttt{.cub}).
 
 
 \section{Example data set}
@@ -76,7 +76,6 @@ The data set that is used in the tutorial and examples below is a
 pair of Mars Orbiter Camera (MOC)
 \citep{1992JGR....97.7699M,2001JGR...10623429M} images whose Planetary
 Data System (PDS) Product IDs are M01/00115 and E02/01461.
-
 These data can be downloaded from the PDS directly, or they can be found in 
 the \texttt{data/MOC/} directory of your Stere Pipeline distribution.
 
@@ -99,11 +98,14 @@ the ISIS format and perform radiometric calibration.  By setting
 the \texttt{Mapping} parameter to `\texttt{NO}' the resultant file
 will be an ISIS cube file that is calibrated, but not map-projected.
 
-\begin{figure}
-\begin{center}
-\includegraphics[height=4.5in]{images/p19-images.png}
+\begin{figure}[b!]
+\begin{minipage}{5.2in}
+\includegraphics[height=3.7in]{images/p19-images.png}
 \hfill
-\includegraphics[height=4.5in]{images/p19-images_zoom.png}
+\includegraphics[height=3.7in]{images/p19-images_zoom.png}
+\end{minipage}
+\hfill
+\begin{minipage}{1.3in}
 \caption[P19 images open in qview zoomed in]{
     \label{p19-images}
     This shows \texttt{E0201461.cub} and \texttt{M0100115.cub} open in
@@ -111,7 +113,7 @@ will be an ISIS cube file that is calibrated, but not map-projected.
 	at the same zoom level, showing how they have different ground scales.
 	The view on the right shows them both zoomed in on the same feature.
     }
-\end{center}
+\end{minipage}
 \end{figure}
 
 % \section{Examples of Use}
@@ -198,7 +200,7 @@ but it isn't required.
     E0201461.cub   M0100115.cub
     > mkdir results
 \end{verbatim}
-
+\noindent
 The \texttt{stereo} program requires a \texttt{stereo.default} file
 which can be altered for your needs.  Its contents are detailed on
 page \pageref{stereo.default}.  You may find it useful to save
@@ -206,60 +208,84 @@ multiple versions of the \texttt{stereo.default} file for various
 processing needs. If you need to do that, be sure to specify which
 configuration file \texttt{stereo} should use with the \texttt{-s}
 option.  If this option is not given, the \texttt{stereo} program
-will search for a file named \texttt{stereo.default} and will
-complain if there isn't one.
+will search for a file named \texttt{stereo.default} in the current
+directory and will complain if there isn't one.
 
-Then run \texttt{stereo} like this:
+Then run \texttt{stereo} like this (there should be a
+\texttt{stereo.default} file distributed along with the example
+data set):
 
 \begin{verbatim}
-    stereo E0201461.cub M0100115.cub results/p19
+    stereo E0201461.cub M0100115.cub results/E0201461-M0100115
 \end{verbatim}
-
+\noindent
 So that last text can be anything you want it to be.  It designates
 the text that \texttt{stereo} will use as a prefix for its many
 output files.  Since the first part is \texttt{results/} this causes
 the program to put the results in that directory with files whose
-names start with \texttt{p19}.  If instead that last
-text was just \texttt{p19} it would have created a
-bunch of files that start with \texttt{p19} in the
+names start with \texttt{E0201461-M0100115}.  If instead that last
+text was just \texttt{E0201461-M0100115} it would have created a
+bunch of files that start with \texttt{E0201461-M0100115} in the
 same directory as the input files.
 
 The \texttt{stereo} program's processing moves through several
 stages which are detailed on page \pageref{entrypoints}.  However,
-once the \texttt{stereo} program completes, it creates a number of 
-files.
+once the \texttt{stereo} program completes, it creates a number of
+files.  A quick look at some of the TIFF files created, can quickly
+give you an idea of what the \texttt{stereo} program did (figure
+\ref{p19-stereo-output}).
 
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=3in]{images/p19-masks.png}
-\caption[P19 images masks]{
-    \label{p19-masks}
-	The masks of pixels which are useful for alignment.
+\includegraphics[width=5in]{images/p19-stereo-output.png}
+\caption[P19 stereo output images]{
+    \label{p19-stereo-output}
+	These are the four viewable \texttt{.tif} files created by
+	the \texttt{stereo} program.  The left two are the aligned
+	images (\texttt{E0201461-M0100115-L.tif} and
+	\texttt{E0201461-M0100115-R.tif}).  The next two images are
+	the mask images (\texttt{E0201461-M0100115-lMask.tif} and
+	\texttt{E0201461-M0100115-rMask.tif}), which indicate which
+	pixels in the aligned images are good to use for the next
+	step.  The image on the right is the Good Pixel map
+	(\texttt{E0201461-M0100115-GoodPixelMap.tif}), which indicates
+	the pixels in grey which were successfully matched with the
+	correlator.  The red pixels were not.  Those red pixels which 
+	are not black in both mask images are optionally filled later
+	during the hole-filling step.
     }
 \end{center}
 \end{figure}
 
-\begin{figure}
-\begin{center}
-\includegraphics[height=8in]{images/p19-goodpixel.png}
-\caption[P19 good pixel image]{
-    \label{p19-goodpixel}
-	The Good Pixel map. 
-	Red pixels are not useful for alignment. 
-    }
-\end{center}
-\end{figure}
+% \begin{figure}
+% \begin{center}
+% \includegraphics[height=8in]{images/p19-goodpixel.png}
+% \caption[P19 good pixel image]{
+%     \label{p19-goodpixel}
+% 	The Good Pixel map. 
+% 	Red pixels are not useful for alignment. 
+%     }
+% \end{center}
+% \end{figure}
+% 
+% \begin{figure}
+% \begin{center}
+% \includegraphics[width=3in]{images/p19-aligned.png}
+% \caption[P19 aligned image]{
+%     \label{p19-aligned}
+% 	The left and right aligned images.
+%     }
+% \end{center}
+% \end{figure}
 
-\begin{figure}
-\begin{center}
-\includegraphics[width=3in]{images/p19-aligned.png}
-\caption[P19 aligned image]{
-    \label{p19-aligned}
-	The left and right aligned images.
-    }
-\end{center}
-\end{figure}
+If the above TIFF files look okay, you can probably just go on to
+making a mesh or a DTM from the point cloud file
+(\texttt{E0201461-M0100115-PC.tif}).  However, to get an idea of the
+disparity information that the \texttt{stereo} program created and then
+used to build the point cloud, it can be useful to take a look at that
+disparity information.  The \texttt{stereo} program records this information
+in the \texttt{E0201461-M0100115-D.exr} file.
 
 To begin an examination of the results, you must first examine the
 disparity images. These images show the horizontal and vertical
