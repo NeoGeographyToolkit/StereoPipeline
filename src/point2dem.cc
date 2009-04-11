@@ -119,7 +119,7 @@ int main( int argc, char *argv[] ) {
   double phi_rot, omega_rot, kappa_rot;
   std::string rot_order;
   double proj_lat=0, proj_lon=0, proj_scale=1;
-  double z_offset;
+  double x_offset, y_offset, z_offset;
   unsigned utm_zone;
 
   po::options_description desc("Options");
@@ -142,6 +142,8 @@ int main( int argc, char *argv[] ) {
     ("reference-spheroid,r", po::value<std::string>(&reference_spheroid)->default_value(""),"Set a reference surface to a hard coded value (one of [moon , mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value<double>(&semi_major)->default_value(0),"Set the dimensions of the datum.")
     ("semi-minor-axis", po::value<double>(&semi_minor)->default_value(0),"Set the dimensions of the datum.")
+    ("x-offset", po::value<double>(&x_offset)->default_value(0), "Add a horizontal offset to the DEM")
+    ("y-offset", po::value<double>(&y_offset)->default_value(0), "Add a horizontal offset to the DEM")
     ("z-offset", po::value<double>(&z_offset)->default_value(0), "Add a vertical offset to the DEM")
 
     ("sinusoidal", "Save using a sinusoidal projection")
@@ -237,9 +239,9 @@ int main( int argc, char *argv[] ) {
                                semi_major, semi_minor, 0.0);
   }
 
-  if (z_offset != 0) {
-    std::cout << "\t--> Applying z-offset: " << z_offset << "\n";
-    point_image = point_image_offset(point_image, Vector3(0,0,z_offset));
+  if (x_offset != 0 || y_offset != 0 || z_offset != 0) {
+    std::cout << "\t--> Applying offset: " << x_offset << " " << y_offset << " " << z_offset << "\n";
+    point_image = point_image_offset(point_image, Vector3(x_offset,y_offset,z_offset));
   }
 
   // Set up the georeferencing information.  We specify everything
