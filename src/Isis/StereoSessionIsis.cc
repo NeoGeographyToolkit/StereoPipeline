@@ -40,7 +40,7 @@
 #include "Isis/IsisAdjustCameraModel.h"
 
 // Boost
-#include "boost/filesystem.hpp"
+#include <boost/filesystem/operations.hpp>
 #include <boost/shared_ptr.hpp>   
 using namespace boost::filesystem; 
 

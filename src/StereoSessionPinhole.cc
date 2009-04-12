@@ -41,7 +41,7 @@
 
 // Boost
 #include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/operations.hpp>
 using namespace boost::filesystem;
 
 using namespace vw;
