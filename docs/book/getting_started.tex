@@ -216,7 +216,7 @@ Then run \texttt{stereo} like this (there should be a
 data set):
 
 \begin{verbatim}
-    stereo E0201461.cub M0100115.cub results/E0201461-M0100115
+    ISIS 3> stereo E0201461.cub M0100115.cub results/E0201461-M0100115
 \end{verbatim}
 \noindent
 So that last text can be anything you want it to be.  It designates
@@ -279,13 +279,20 @@ give you an idea of what the \texttt{stereo} program did (figure
 % \end{center}
 % \end{figure}
 
-If the above TIFF files look okay, you can probably just go on to
-making a mesh or a DTM from the point cloud file
-(\texttt{E0201461-M0100115-PC.tif}).  However, to get an idea of the
-disparity information that the \texttt{stereo} program created and then
-used to build the point cloud, it can be useful to take a look at that
-disparity information.  The \texttt{stereo} program records this information
-in the \texttt{E0201461-M0100115-D.exr} file.
+If those TIFF files look okay, you can probably just go on to making
+a mesh or a DTM from the point cloud file
+(\texttt{E0201461-M0100115-PC.tif}).  However, to get an idea of
+the disparity information that the \texttt{stereo} program created
+and then used to build the point cloud, it can be useful to take a
+look at that disparity information.  The \texttt{stereo} program
+records this information in the \texttt{E0201461-M0100115-D.exr}
+file.
+
+To get a look at the disparity information, you need to convert it
+into a more viewable format.  Move into the directory that contains
+your results, and  run the \texttt{disparitydebug} program (page
+\pageref{disparitydebug}) to create
+
 
 To begin an examination of the results, you must first examine the
 disparity images. These images show the horizontal and vertical
