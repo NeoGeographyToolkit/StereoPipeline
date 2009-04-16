@@ -45,14 +45,21 @@ The files that \verb=stereo= creates are as follows (assuming \verb=<output_file
 
 \begin{description}
 
-\item[.vwip]
-One of these Vision Workbench Interest Point files will be created
-for each input image (if your images are \texttt{left.cub} and \texttt{right.cub} you'll get \texttt{left.vwip} and \texttt{right.vwip}).  \emph{MJB: what good are these, what are they, what do they do for us?}
+\item[.vwip] One of these Vision Workbench Interest Point files will
+  be created for each input image. \emph{If your images are
+  \texttt{left.cub} and \texttt{right.cub} you'll get
+  \texttt{left.vwip} and \texttt{right.vwip}.} \texttt{.vwip} is an
+  intermediate file that highlights unique points in an image. They
+  are created with the default settings of \texttt{ipfind} from Vision
+  Workbench.
 
-\item[.match]
-This match point file \emph{does what exactly?}  Again, if your
-images are \texttt{left.cub} and \texttt{right.cub} you'll get a
-\texttt{left\_\_right.match} file.
+\item[.match] This match file lists a select group of unique points
+  out of the previous \texttt{.vwip} files that have been properly
+  identified in both images. This match file is used to calculate the
+  intial overlap of the images if
+  \texttt{DO\_INTERESTPOINT\_ALIGNMENT} has been set.  \emph{Again, if
+    your images are \texttt{left.cub} and \texttt{right.cub} you'll
+    get a \texttt{left\_\_right.match} file.}
 
 \item[out-D.exr] 
 This is the unfiltered disparity map, straight out of the stereo correlator.
@@ -81,7 +88,9 @@ Right (ailgned) image of the stereo pair.
 \item[out-lMask.tif] Image mask for the left image.
 \item[out-rMask.tif] Image mask for the right image.
 
-\item[out-stereo.default] This is a copy of the stereo.default file used to during the run of \texttt{stereo} that built all of these files.
+\item[out-stereo.default] This is a copy of the stereo.default file
+  used to during the run of \texttt{stereo} that built all of these
+  files.
 
 
 \end{description}
@@ -139,7 +148,8 @@ the pre-aligned images and the image masks.
 Stage 1 (Correlation) performs the image correlation and the building
 of a disparity map.
 
-Stage 2 (Refinement) performs sub-pixel correlation which further refines the solution.
+Stage 2 (Refinement) performs sub-pixel correlation which further
+refines the solution.
 
 Stage 3 (Filtering) performs filtering of the disparity map and
 creates a ``good pixel'' map.  If enabled, this is also the step
@@ -171,11 +181,27 @@ the parameter name.
 \bigskip
 
 \begin{description}
-\item[DO\_INTERESTPOINT\_ALIGNMENT 1] \hfill \\
-When \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is on (or set to 1), ... \emph{MJB: describe}
+\item[DO\_INTERESTPOINT\_ALIGNMENT 1] \hfill \\ When
+  \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is on (or set to 1),
+  \texttt{stereo} will perform \texttt{ipfind} and \texttt{ipmatch} to
+  generate a \texttt{.match} file that list interesting points that
+  can be found in both images. From this \texttt{.match} file the
+  overlap of the images can be calculated and the right image is
+  transformed respectively. This alignment is performed with the
+  default settings for \texttt{ipfind} and \texttt{ipmatch}. If these
+  results are found unsatisfactory the user can calculate
+  \texttt{.vwip} or \texttt{.match} files before hand using whatever
+  tools deemed 'best', just be sure to keep naming conventions the
+  same as what \texttt{stereo} produces. An extreme alternative is
+  described in the appendix (page \pageref{appendix_surf}).
 
-\item[DO\_EPIPOLAR\_ALIGNMENT 0] \hfill \\
-By default this is off.  When on ... \emph{MJB: describe}
+\item[DO\_EPIPOLAR\_ALIGNMENT 0] \hfill \\ By default this is off.
+  When on, epipolar alignment is the alternative to interest point
+  alignment. This means instead of using interest points to calculate
+  the initial overlap, the inherent underlining geometry of the
+  cameras that took the images are used. This option is unfortunately
+  limited in use only to stereo sessions that provide pinhole camera
+  models.
 
 \item[INTERESTPOINT\_ALIGNMENT\_SUBSAMPLING 1] \hfill \\
 This option allows you to change the density of interest points
