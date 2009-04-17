@@ -47,6 +47,7 @@ case "$ENABLE_DEBUG" in
     yes|1) AX_CFLAGS="$AX_CFLAGS -g -DDEBUG" ;;
     2)     AX_CFLAGS="$AX_CFLAGS -g -DDEBUG -D_GLIBCXX_DEBUG" ;;
     no)    AX_CFLAGS="$AX_CFLAGS -DNDEBUG" ;;
+    ignore) ;;
     *)     AC_MSG_ERROR([Unknown debug option: "$ENABLE_DEBUG"]) ;;
 esac
 
@@ -58,11 +59,12 @@ case "$ENABLE_OPTIMIZE" in
     sse3)    AX_CFLAGS="$AX_CFLAGS -O4 -funroll-loops -msse -msse2 -msse3 -mfpmath=sse -ftree-vectorize" ;;
     no|0)    AC_MSG_WARN([*** The Vision Workbench may not work properly with optimization disabled! ***])
              AX_CFLAGS="$AX_CFLAGS -O0" ;;
+    ignore)  ;;
     *)       AC_MSG_ERROR([Unknown optimize option: "$ENABLE_OPTIMIZE"]) ;;
 esac
 
-CFLAGS="$CFLAGS $AX_CFLAGS"
-CXXFLAGS="$CXXFLAGS $AX_CFLAGS"
+CFLAGS="$AX_CFLAGS $CFLAGS"
+CXXFLAGS="$AX_CFLAGS $CXXFLAGS"
 
 # These need to be here because automake-1.6 is dumb and does not properly
 # process AM_CONDITIONALs unless the first argument is a simple string.
