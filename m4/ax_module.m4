@@ -9,7 +9,7 @@ dnl __END_LICENSE__
 AC_DEFUN([AX_MODULE],
 [
   # Silently ignore modules that don't exist in this distribution
-  if test -d $2 ; then
+  if test -d "$srcdir/$2" ; then
 
     HAVE_PKG_$1_SRC=yes
 
@@ -76,7 +76,7 @@ AC_DEFUN([AX_MODULE],
       if test -z "$3"; then
         PKG_$1_LIBS="$ax_libs"
       else
-        PKG_$1_LIBS="$ax_libs \$(top_srcdir)/$2/$3"
+        PKG_$1_LIBS="$ax_libs \$(top_builddir)/$2/$3"
       fi
 
       AC_MSG_RESULT([yes])

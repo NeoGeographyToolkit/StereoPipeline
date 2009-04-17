@@ -9,7 +9,7 @@ dnl usage: AX_MODULE_PYTHON(<directory>, <default>)
 AC_DEFUN([AX_MODULE_PYTHON],
 [
   # Silently ignore modules that don't exist in this distribution
-  if test -d $1 ; then
+  if test -d "$srcdir/$1" ; then
 
     HAVE_PKG_PYTHON_SRC=yes
 

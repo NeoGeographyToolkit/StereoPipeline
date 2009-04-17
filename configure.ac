@@ -59,12 +59,12 @@ AC_SUBST(LIBTOOL_VERSION)
 AX_ARG_ENABLE(verbose, no, [none], [verbose configuration output])
 
 # load the config.options
-if test -f config.options; then
+if test -f ./config.options; then
   if test "yes" = "$ENABLE_VERBOSE" ; then
-    AC_MSG_NOTICE([sourcing config.options])
-    cat config.options
+    AC_MSG_NOTICE([sourcing ./config.options])
+    cat ./config.options
   fi
-  source config.options
+  source ./config.options
 fi
 
 

@@ -9,17 +9,32 @@ dnl __END_LICENSE__
 # config-prefix should be the same as was used above
 AC_DEFUN([AX_PKG_BOOST_CHECK_VERSION],
 [
-  AC_LANG_CONFTEST(
-  [AC_LANG_PROGRAM([[
-#include <iostream>
-#include <boost/version.hpp>
-#define STR2(s) #s
-#define STR(s) STR2(s)
-]],[[
-std::cout << STR(BOOST_VERSION);
-]])])
-  $CXX $OTHER_CPPFLAGS -I${PKG_BOOST_INCDIR} -o conftest conftest.$ac_ext
-  BOOST_VERSION=`./conftest`
+  boost_check_save_CPPFLAGS="$CPPFLAGS"
+  boost_check_save_LDFLAGS="$LDFLAGS"
+
+  CPPFLAGS="$PKG_BOOST_CPPFLAGS"
+  LDFLAGS="$PKG_BOOST_LDFLAGS"
+
+  AC_RUN_IFELSE(
+    [AC_LANG_PROGRAM([[
+      #include <fstream>
+      #include <boost/version.hpp>
+    ]], [[
+      std::ofstream out("conftest.out");
+      if (!out.is_open())
+          return 1;
+      out << BOOST_VERSION;
+    ]])],
+    [BOOST_VERSION=`cat conftest.out`],
+    [AC_MSG_ERROR([Failed to run Boost version check program])])
+
+  if test -z "$BOOST_VERSION"; then
+    AC_MSG_ERROR([Boost version check program did not define BOOST_VERSION])
+  fi
+
+  CPPFLAGS="$boost_check_save_CPPFLAGS"
+  LDFLAGS="$boost_check_save_LDFLAGS"
+
   AC_DEFINE_UNQUOTED([BOOST_VERSION],
                      [$BOOST_VERSION],
                      [The version of Boost with which the software built.])
@@ -29,7 +44,7 @@ std::cout << STR(BOOST_VERSION);
 // headers that the software was built with.
 #include <boost/version.hpp>
 #if BOOST_VERSION != $1BOOST_VERSION
-#error You are using a different version of Boost than you used to build the software!
+#error You are using a different version of Boost than you used to build $1!
 #endif
 ])
 ])
