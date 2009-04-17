@@ -188,7 +188,7 @@ endif
 
 if MAKE_APP_NURBS
   bin_PROGRAMS += nurbs
-  nurbs_SOURCES = nurbs.cc
+  nurbs_SOURCES = nurbs.cc SurfaceNURBS.h
   nurbs_LDADD = $(APP_NURBS_LIBS)
 endif
 
