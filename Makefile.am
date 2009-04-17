@@ -27,7 +27,15 @@ ACLOCAL_AMFLAGS = -I m4 -I thirdparty/m4
 
 SUBDIRS = src
 
-EXTRA_DIST = config/rules.mak config/relicense thirdparty/MBA_1.0_gpl thirdparty/cxxtest
+EXTRA_DIST = \
+	INSTALLGUIDE \
+	config/rules.mak \
+	config/relicense \
+	thirdparty/MBA-1.1 \
+	thirdparty/cxxtest \
+	data \
+	docs \
+	stereo.default.example
 
 ########################################################################
 # special top-level rules
@@ -38,6 +46,9 @@ EXTRA_DIST = config/rules.mak config/relicense thirdparty/MBA_1.0_gpl thirdparty
 
 dist-hook:
 	rm -rf `find $(distdir) -name '.svn'`
+	rm -f $(distdir)/thirdparty/MBA-1.1/lib/* \
+		  $(distdir)/thirdparty/MBA-1.1/app/mainSimplest \
+		  $(distdir)/thirdparty/MBA-1.1/app/mainSimplest.o
 if DIST_LICENSE
 	cp $(DIST_LICENSE) $(distdir)/COPYING
 endif

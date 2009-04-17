@@ -23,29 +23,87 @@
 # sources
 ########################################################################
 SUBDIRS = tests
+EXTRA_DIST=
 
 bin_PROGRAMS=
 
-rmax_code   = RMAX/StereoSessionRmax.cc RMAX/RMAX.cc
-bundle_code = BundleAdjustUtils.cc ControlNetworkLoader.cc
+rmax_code   = \
+	RMAX/RMAX.cc \
+	RMAX/RMAX.h \
+	RMAX/StereoSessionRmax.cc \
+	RMAX/StereoSessionRmax.h
 
-stereo_code = MOLAReader.cc              \
-              StereoSession.cc StereoSessionKeypoint.cc StereoSessionPinhole.cc \
-              TabulatedDataReader.cc KML.cc StereoSettings.cc                   \
-              $(rmax_code) $(bundle_code)
+bundle_code = \
+	BundleAdjustUtils.cc \
+	BundleAdjustUtils.h \
+	ControlNetworkLoader.cc \
+	ControlNetworkLoader.h
 
-ctx_code = MRO/DiskImageResourceDDD.cc
+stereo_code = \
+	KML.cc \
+	KML.h \
+	MedianFilter.h \
+	MOLAReader.cc \
+	MOLAReader.h \
+	stereo.h \
+	StereoSession.cc \
+	StereoSession.h \
+	StereoSessionKeypoint.cc \
+	StereoSessionKeypoint.h \
+	StereoSessionPinhole.cc \
+	StereoSessionPinhole.h \
+	StereoSettings.cc \
+	StereoSettings.h \
+	SurfaceNURBS.h \
+	TabulatedDataReader.cc \
+	TabulatedDataReader.h \
+	$(rmax_code) \
+	$(bundle_code)
+
+ctx_code = \
+	MRO/DiskImageResourceDDD.cc \
+	MRO/DiskImageResourceDDD.h
 
 if HAVE_PKG_ISIS
-isis_code = Isis/IsisCameraModel.cc Isis/DiskImageResourceIsis.cc Isis/IsisAdjustCameraModel.cc
-stereo_code += $(isis_code) Isis/StereoSessionIsis.cc
+isis_code = \
+	Isis/DiskImageResourceIsis.cc \
+	Isis/DiskImageResourceIsis.h \
+	Isis/Equations.h \
+	Isis/IsisAdjustCameraModel.cc \
+	Isis/IsisAdjustCameraModel.h \
+	Isis/IsisCameraModel.cc \
+	Isis/IsisCameraModel.h
+
+stereo_code += $(isis_code) Isis/StereoSessionIsis.cc Isis/StereoSessionIsis.h
 endif
 
 if HAVE_PKG_SPICE
-spice_code  = SpiceUtilities.cc
-ctx_code    += MRO/StereoSessionCTX.cc MRO/CTXEphemeris.cc MRO/CTXMetadata.cc
-moc_code    = MOC/StereoSessionMOC.cc MOC/Ephemeris.cc MOC/Metadata.cc MOC/MOLA.cc
-hrsc_code   = HRSC/StereoSessionHRSC.cc HRSC/HRSC.cc
+spice_code  = SpiceUtilities.cc SpiceUtilities.h
+
+ctx_code    += \
+	MRO/CTXEphemeris.cc \
+	MRO/CTXEphemeris.h \
+	MRO/CTXMetadata.cc \
+	MRO/CTXMetadata.h \
+	MRO/StereoSessionCTX.cc \
+	MRO/StereoSessionCTX.h
+
+moc_code    = \
+	MOC/Ephemeris.cc \
+	MOC/Ephemeris.h \
+	MOC/Metadata.cc \
+	MOC/Metadata.h \
+	MOC/MOLA.cc \
+	MOC/MOLA.h \
+	MOC/StereoSessionMOC.cc \
+	MOC/StereoSessionMOC.h
+
+hrsc_code = \
+	HRSC/ExtoriExtrinsics.h \
+	HRSC/HRSC.cc \
+	HRSC/HRSC.h \
+	HRSC/StereoSessionHRSC.cc \
+	HRSC/StereoSessionHRSC.h
 endif
 
 stereo_code += $(spice_code) $(ctx_code) $(moc_code) $(hrsc_code)
@@ -56,21 +114,45 @@ if MAKE_APP_STEREO
   stereo_LDADD = $(APP_STEREO_LIBS)
 endif
 
+EXTRA_DIST+=gui/PreviewGLWidget.frag
+
 if MAKE_APP_STEREOGUI
   bin_PROGRAMS += stereo_gui
-  stereo_gui_SOURCES = stereo_gui.cc					\
-		   gui/MainWindow.cc gui/MainWindow.moc.cc		\
-		   gui/MainWindow.h gui/InputWidget.cc			\
-		   gui/InputWidget.moc.cc gui/InputWidget.h		\
-		   gui/AlignmentWidget.cc gui/AlignmentWidget.moc.cc	\
-		   gui/AlignmentWidget.h gui/PreviewGLWidget.cc		\
-		   gui/PreviewGLWidget.moc.cc gui/PreviewGLWidget.h	\
-		   gui/StereoGuiSession.cc gui/StereoGuiSession.moc.cc	\
-		   gui/StereoGuiSession.h gui/ProgressBar.moc.cc	\
-		   gui/ProgressBar.h gui/ProgressBar.cc $(stereo_code)
+
+  stereo_gui_SOURCES = \
+	gui/AlignmentWidget.cc \
+	gui/AlignmentWidget.h \
+	gui/CorrelationWidget.cc \
+	gui/CorrelationWidget.h \
+	gui/CostFunctionWidget.cc \
+	gui/CostFunctionWidget.h \
+	gui/InputWidget.cc \
+	gui/InputWidget.h \
+	gui/KyleStereo.h \
+	gui/MainWindow.cc \
+	gui/MainWindow.h \
+	gui/Noise.h \
+	gui/PreprocessWidget.cc \
+	gui/PreprocessWidget.h \
+	gui/PreviewGLWidget.cc \
+	gui/PreviewGLWidget.h \
+	gui/QCompatFormLayout.h \
+	gui/SearchWindowWidget.cc \
+	gui/SearchWindowWidget.h \
+	gui/StereoGuiSession.cc \
+	gui/StereoGuiSession.h \
+	$(stereo_code) \
+	stereo_gui.cc
+
+  nodist_stereo_gui_SOURCES = \
+	gui/AlignmentWidget.moc.cc \
+	gui/InputWidget.moc.cc \
+	gui/MainWindow.moc.cc \
+	gui/PreviewGLWidget.moc.cc \
+	gui/StereoGuiSession.moc.cc
+
   stereo_gui_LDADD = $(APP_STEREOGUI_LIBS)
 
-BUILT_SOURCES = gui/MainWindow.moc.cc
 endif
 
 if MAKE_APP_BUNDLEADJUST
@@ -93,13 +175,13 @@ endif
 
 if MAKE_APP_POINT2MESH
   bin_PROGRAMS += point2mesh
-  point2mesh_SOURCES = point2mesh.cc nff_terrain.cc
+  point2mesh_SOURCES = point2mesh.cc nff_terrain.cc nff_terrain.h
   point2mesh_LDADD = $(APP_POINT2MESH_LIBS)
 endif
 
 if MAKE_APP_POINT2DEM
   bin_PROGRAMS += point2dem
-  point2dem_SOURCES = point2dem.cc DEM.cc SoftwareRenderer.cc
+  point2dem_SOURCES = point2dem.cc DEM.cc DEM.h SoftwareRenderer.cc SoftwareRenderer.h OrthoRasterizer.h
   point2dem_LDADD = $(APP_POINT2DEM_LIBS)
 endif
 
@@ -112,7 +194,7 @@ endif
 
 if MAKE_APP_CTXIMAGE
   bin_PROGRAMS += ctximage
-  ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc
+  ctximage_SOURCES = ctximage.cc MRO/DiskImageResourceDDD.cc MRO/DiskImageResourceDDD.h
   ctximage_LDADD = $(APP_CTXIMAGE_LIBS)
 endif
 
@@ -136,7 +218,7 @@ endif
 
 if MAKE_APP_BUNDLEVIS
   bin_PROGRAMS += bundlevis
-  bundlevis_SOURCES = bundlevis.cc
+  bundlevis_SOURCES = bundlevis.cc bundlevis.h
   bundlevis_LDADD = $(APP_BUNDLEVIS_LIBS)
 endif
 
