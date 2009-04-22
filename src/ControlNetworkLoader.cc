@@ -304,7 +304,8 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
       }
 
       // 2.6) If haven't left for spiral error, add new control point
-      cnet->add_control_point( cpoint );
+      if ( cpoint.size() > 1 )
+	cnet->add_control_point( cpoint );
     }
   }
   if ( spiral_error_count != 0 )
