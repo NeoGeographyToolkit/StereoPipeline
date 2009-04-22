@@ -45,57 +45,88 @@ The files that \verb=stereo= creates are as follows (assuming \verb=<output_file
 
 \begin{description}
 
-\item[.vwip] One of these Vision Workbench Interest Point files will
-  be created for each input image. \emph{If your images are
-  \texttt{left.cub} and \texttt{right.cub} you'll get
-  \texttt{left.vwip} and \texttt{right.vwip}.} \texttt{.vwip} is an
-  intermediate file that highlights unique points in an image. They
-  are created with the default settings of \texttt{ipfind} from Vision
-  Workbench.
+\item[.vwip] 
+One of these Vision Workbench Interest Point files will be created
+for each input image. If your images are \texttt{left.cub}
+and \texttt{right.cub} you'll get \texttt{left.vwip} and
+\texttt{right.vwip}. The \texttt{.vwip} file is an intermediate
+file that highlights unique points in an image. They are created
+with the default settings of \texttt{ipfind} from the Vision
+Workbench.
 
-\item[.match] This match file lists a select group of unique points
-  out of the previous \texttt{.vwip} files that have been properly
-  identified in both images. This match file is used to calculate the
-  intial overlap of the images if
-  \texttt{DO\_INTERESTPOINT\_ALIGNMENT} has been set.  \emph{Again, if
-    your images are \texttt{left.cub} and \texttt{right.cub} you'll
-    get a \texttt{left\_\_right.match} file.}
+\item[.match] 
+The match file lists a select group of unique points out of the 
+previous \texttt{.vwip} files that have been properly identified 
+in both images. This match file is used to calculate the intial 
+overlap of the images if \texttt{DO\_INTERESTPOINT\_ALIGNMENT} has 
+been set.  \emph{Again, if your images are \texttt{left.cub} and 
+\texttt{right.cub} you'll get a \texttt{left\_\_right.match} file.}
+
+The \texttt{.vwip} and \texttt{.match} files will 
+only be created if \texttt{DO\_INTERESTPOINT\_ALIGNMENT}
+has been set.  These files can help speed up the process while you
+fool around with parameters in your \texttt{stereo.default} file,
+since their contents are not affected by other parameters.  If these
+files exist, then the \texttt{stereo} program will skip over the
+interest point alignment stage and just use these files.  So if you
+run \texttt{stereo} on the same pair of images more than once, don't
+delete these files, take advantage of them.  Of course, if you do,
+\texttt{stereo} will just rebuild them.  Also, you don't have to
+worry about these files being `bad' since their contents aren't
+affected by changes to the \texttt{stereo.default} file.  In the
+rare case that one of these files did get corrupted, you would get
+a `failed to read interest point file' error message from
+\texttt{stereo}.
+
+\item[out-L.tif]
+Left image in the stereo pair (mostly identical to input).
+
+\item[out-R.tif]
+Right (ailgned) image of the stereo pair.
+
+\item[out-lMask.tif] Image mask for the left image.
+\item[out-rMask.tif] Image mask for the right image.
+
+\item[out-align.exr] Alignment.  The linear affine transformation
+that results from interest point alignment.  If
+\texttt{DO\_INTERESTPOINT\_ALIGNMENT} is off in the \texttt{stereo.default}
+file, then this file won't get made.
 
 \item[out-D.exr] 
-This is the unfiltered disparity map, straight out of the stereo correlator.
+This is the unfiltered disparity map, straight out of the integer
+pixel correlator.  Contains only integer values of disparity.
+
+\item[out-R.exr] Disparity map after sub-pixel refinement.
 
 \item[out-F-corrected.exr]
+Only created when \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is on.
+Disparity map with effects of interest point alignment removed.
+Intermediate data product.
 
 \item[out-F.exr]
-The Filtered disparity map with outlier removal and holes filled in.
+The Filtered, sub-pixel disparity map with outlier removal and holes
+filled in (only exists if \texttt{FILL\_HOLES\_NURBS} is on).
 
 \item[out-GoodPixelMap.tif]
 An image showing which pixels were matched by the stereo correlator,
 and which were filled in by the hole filling algorithm.
 
-\item[out-L.tif]
-Left image in the stereo pair.
-
 \item[out-PC.tif]
-Point Cloud image with 3D locations for each point.
+Point Cloud image with 3D locations for each point.  Stored as a
+64 bit, 3 channel TIFF, with coordinates in body-fixed planetocentric
+coordinate system.  Odds are good that your usual TIFF viewer
+programs will not visualize this file properly.  This file should
+really be considered a `data' file, not an `image' file.  Other
+programs in the Stereo Pipeline will convert the contents of this
+file to more easily vizualized formats.
 
-\item[out-R.exr] Refinement.
-
-\item[out-R.tif]
-Right (ailgned) image of the stereo pair.
-
-\item[out-align.exr] Alignment.
-\item[out-lMask.tif] Image mask for the left image.
-\item[out-rMask.tif] Image mask for the right image.
-
-\item[out-stereo.default] This is a copy of the stereo.default file
-  used to during the run of \texttt{stereo} that built all of these
+\item[out-stereo.default] This is a copy of the \texttt{stereo.default} file
+  used during the run of \texttt{stereo} that built all of these
   files.
 
 
 \end{description}
 
-\emph{MJB: also talk about the .vwiw and the .match files that get generated.}
 
 
 \subsection{Options}

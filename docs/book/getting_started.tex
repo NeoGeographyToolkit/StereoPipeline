@@ -211,9 +211,19 @@ option.  If this option is not given, the \texttt{stereo} program
 will search for a file named \texttt{stereo.default} in the current
 directory and will complain if there isn't one.
 
-Then run \texttt{stereo} like this (there should be a
+There is a \texttt{stereo.default} file included with the example
+data set that is different from the example \texttt{stereo.default.example}
+file distributed with the Stereo Pipeline.  The \texttt{stereo.default}
+included with the example data set has a smaller correlation window
+(smaller values for the \texttt{H\_CORR\_*} and \texttt{V\_CORR\_*}
+variables) that is more suited to the MOC data.  You may want to
+use both this \texttt{stereo.default} and the
+\texttt{stereo.default.example} to explore how the results are
+different.
+
+So run \texttt{stereo} like this (there should be a
 \texttt{stereo.default} file distributed along with the example
-data set):
+data set that will be used):
 
 \begin{verbatim}
     ISIS 3> stereo E0201461.cub M0100115.cub results/E0201461-M0100115
@@ -281,48 +291,75 @@ give you an idea of what the \texttt{stereo} program did (figure
 
 If those TIFF files look okay, you can probably just go on to making
 a mesh or a DTM from the point cloud file
-(\texttt{E0201461-M0100115-PC.tif}).  However, to get an idea of
-the disparity information that the \texttt{stereo} program created
-and then used to build the point cloud, it can be useful to take a
-look at that disparity information.  The \texttt{stereo} program
-records this information in the \texttt{E0201461-M0100115-D.exr}
-file.
+(\texttt{E0201461-M0100115-PC.tif}).  The most important file is
+the Good Pixel Map (\texttt{E0201461-M0100115-GoodPixelMap.tif}).
+If this file shows mostly good, gray pixels in the overlap area
+(the area that is white in both the \texttt{E0201461-M0100115-lMask.tif}
+and \texttt{E0201461-M0100115-rMask.tif} files), then you're probably
+good to go.  If this shows bad, red pixels in the overlap area,
+then you'll probabaly need to go back and tune your \texttt{stereo.default}
+file.  The example data also contains a \texttt{stereo.bad} file which 
+has intentionally bogus values for the dimensions of the correlation window.
+You can run \texttt{stereo} with the \texttt{-s stereo.bad} command to 
+see what the Good Pixel Map looks like with this.
+
+To get an idea of the disparity information that the \texttt{stereo}
+program created and then used to build the point cloud, it can be
+useful to take a look at that disparity information.  The \texttt{stereo}
+program records this information in several \texttt{.exr} disparity
+files.
 
 To get a look at the disparity information, you need to convert it
 into a more viewable format.  Move into the directory that contains
-your results, and  run the \texttt{disparitydebug} program (page
-\pageref{disparitydebug}) to create
+your results, and run the \texttt{disparitydebug} program (page
+\pageref{disparitydebug}) to create the the horizontal and vertical
+components of the disparity (matching offsets for each pixel). 
 
-
-To begin an examination of the results, you must first examine the
-disparity images. These images show the horizontal and vertical
-components of the matching offsets for each pixel. They are
-particularly useful if you want to check the performance of the
-stereo matcher for any given stereo pair and they can be used as a
-debugging tool.
-
-Move into the directory that contains your results, and run the
-\texttt{disparitydebug} program (page \pageref{disparitydebug}) to
-examine the disparity files.
+\begin{figure}[b!]
+\begin{minipage}{4in}
+\includegraphics[width=4in]{images/p19-disparity.png}
+\end{minipage}
+\hfill
+\begin{minipage}{2.7in}
+\caption[P19 disparity images]{
+    \label{p19-disparity}
+	The disparity images.  The two images on the left are the
+	\texttt{E0201461-M0100115-D-H.tif} and 
+	\texttt{E0201461-M0100115-D-H.tif} files, which are the raw horizontal and
+	vertical disparity components.  The two images on the right are the
+	\texttt{E0201461-M0100115-F-H.tif} and
+	\texttt{E0201461-M0100115-F-V.tif} files, which are the final
+	filtered, sub-pixel disparity map with outlier removal and holes 
+	filled in, and is what will be used to build the point cloud.  Since
+	these MOC images were acquired by rolling the spacecraft across-track,
+	most of the disparity that represents topography is present in the 
+	horizontal disparity map.  The vertical disparity map shows disparity
+	not from topography, but from spacecraft movement.
+    }
+\end{minipage}
+\end{figure}
 
 \begin{verbatim}
     cd results
-    disparitydebug p19-D.exr -o p19-D     
-    disparitydebug p19-F.exr -o p19-F
+    disparitydebug E0201461-M0100115-F.exr
 \end{verbatim}
+\noindent
+The two output files, \texttt{E0201461-M0100115-F-H.tif} and
+\texttt{E0201461-M0100115-F-V.tif} are normalized images of the
+horizontal (H) and vertical (V) disparity.  `Normalized' is a key
+word here.  You can see that the horizontal and vertical disparity
+images in figure \ref{p19-disparity} have the same range of gray
+values from white to black, but they represent significantly different
+absolute amounts of disparity.  These files are useful if you want
+to check the performance of the \texttt{stereo} program for any
+given stereo pair.
 
-\emph{MJB: What exactly is being examined in the resultant images, what are users looking for?  What are the probable failure scenarios?  Discuss them and potential remedies.}
+There are actually four flavors of disparity map: the \texttt{-D.exr},
+the \texttt{-R.exr}, the \texttt{-F-corrected.exr}, and \texttt{-F.exr}.
+You can run \texttt{disparitydebug} on any of them, and actually taking a
+look at all of them can show you the differences between the disparity maps
+at the different stages of processing.
 
-
-\begin{figure}
-\begin{center}
-\includegraphics[width=4in]{images/p19-disparity.png}
-\caption[P19 disparity images]{
-    \label{p19-disparity}
-	The disparity images.
-    }
-\end{center}
-\end{figure}
 
 The next step is to produce a 3D mesh with \texttt{point2mesh} (page
 \pageref{point2mesh}).  This image can be viewed with \texttt{osgviewer}
