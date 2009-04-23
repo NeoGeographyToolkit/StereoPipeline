@@ -220,7 +220,8 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   DiskImageResourceGDAL right_rsrc(input_file2);
   double left_nodata = left_rsrc.get_no_data_value(0);
   double right_nodata = right_rsrc.get_no_data_value(0);
-  std::cout << "NODATA VALUES : " << left_nodata << " " << right_nodata << "\n";
+  // For debugging:
+  //  std::cout << "NODATA VALUES : " << left_nodata << " " << right_nodata << "\n";
 
   GeoReference input_georef1, input_georef2;
   // Disabled for now since we haven't really figured how to
