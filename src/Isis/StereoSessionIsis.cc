@@ -216,6 +216,12 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
 
+  DiskImageResourceGDAL left_rsrc(input_file1);
+  DiskImageResourceGDAL right_rsrc(input_file2);
+  double left_nodata = left_rsrc.get_no_data_value(0);
+  double right_nodata = right_rsrc.get_no_data_value(0);
+  std::cout << "NODATA VALUES : " << left_nodata << " " << right_nodata << "\n";
+
   GeoReference input_georef1, input_georef2;
   // Disabled for now since we haven't really figured how to
   // capitalize on the map projected images... -mbroxton
@@ -232,9 +238,9 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   // Make sure the images are normalized
   vw_out(InfoMessage) << "\t--> Computing min/max values for normalization.  " << std::flush;
   float left_lo, left_hi, right_lo, right_hi;
-  isis_min_max_channel_values(left_disk_image, left_lo, left_hi);
+  isis_min_max_channel_values(create_mask(left_disk_image, left_nodata), left_lo, left_hi);
   vw_out(InfoMessage) << "Left: [" << left_lo << " " << left_hi << "]    " << std::flush;
-  isis_min_max_channel_values(right_disk_image, right_lo, right_hi);
+  isis_min_max_channel_values(create_mask(right_disk_image, right_nodata), right_lo, right_hi);
   vw_out(InfoMessage) << "Right: [" << right_lo << " " << right_hi << "]\n";
   float lo = std::min (left_lo, right_lo);
   float hi = std::min (left_hi, right_hi);
