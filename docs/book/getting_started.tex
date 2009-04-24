@@ -298,10 +298,11 @@ If this file shows mostly good, gray pixels in the overlap area
 and \texttt{E0201461-M0100115-rMask.tif} files), then you're probably
 good to go.  If this shows bad, red pixels in the overlap area,
 then you'll probabaly need to go back and tune your \texttt{stereo.default}
-file.  The example data also contains a \texttt{stereo.bad} file which 
-has intentionally bogus values for the dimensions of the correlation window.
-You can run \texttt{stereo} with the \texttt{-s stereo.bad} command to 
-see what the Good Pixel Map looks like with this.
+file.  The example data also contains a \texttt{stereo.bad} file
+which has intentionally bogus values for the dimensions of the
+correlation window.  You can run \texttt{stereo} with the \texttt{-s
+stereo.bad} command to see what the Good Pixel Map looks like with
+this.
 
 To get an idea of the disparity information that the \texttt{stereo}
 program created and then used to build the point cloud, it can be
@@ -360,77 +361,113 @@ You can run \texttt{disparitydebug} on any of them, and actually taking a
 look at all of them can show you the differences between the disparity maps
 at the different stages of processing.
 
+At this point, the processing fans out, as many kinds of data
+products can be built from the \texttt{E0201461-M0100115-PC.tif}.
 
-The next step is to produce a 3D mesh with \texttt{point2mesh} (page
-\pageref{point2mesh}).  This image can be viewed with \texttt{osgviewer}
-(the Open Scene Graph Viewer program, distributed with the binary version
-of the Stereo Pipeline).  The \texttt{point2mesh} program takes the
-point cloud file and one of the image files (usually the highest
-resolution one) created by \texttt{stereo} as inputs.
+One of the things that can be done is to produce a 3D mesh with
+\texttt{point2mesh} (page \pageref{point2mesh}).  This image can
+be viewed with \texttt{osgviewer} (the Open Scene Graph Viewer
+program, distributed with the binary version of the Stereo Pipeline).
+The \texttt{point2mesh} program takes the point cloud file and one
+of the image files (usually the highest resolution one) created by
+\texttt{stereo} as inputs.
 
 \begin{verbatim}
-    point2mesh p19-PC.tif p19-L.tif -o p19
+    point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
 \end{verbatim}
+\noindent
+This will create the file \texttt{E0201461-M0100115.ive}, openable
+with \texttt{osgviewer}. When the \texttt{osgviewer} program starts,
+you may want to turn off the lighting (hit the `L' key).
 
-This will create the file \texttt{p19.ive}, openable with the
-\texttt{osgviewer}. When the \texttt{osgviewer} starts, you may
-want to turn off the lighting (hit the `L' key).
+\begin{figure}[h]
+\begin{minipage}{5in}
+\includegraphics[width=5in]{images/p19-osg.png}
+\end{minipage}
+\hfill
+\begin{minipage}{1.7in}
+\caption[P19 in OSG]{
+    \label{p19-osg}
+	This shows the \texttt{E0201461-M0100115.ive} file displayed in 
+	the OSG Viewer.
+    }
+\end{minipage}
+\end{figure}
 
 The \texttt{point2dem} program (page \pageref{point2dem}) creates
 a digital elevation model (DEM) from the Point Cloud file.
 
 \begin{verbatim}
-    point2dem p19-PC.tif -o p19
+    point2dem E0201461-M0100115-PC.tif
 \end{verbatim}
 
-The resultant file ...
+The resultant file, \texttt{E0201461-M0100115-DEM.tif}, will have
+32-bit pixels, and so (much like the \texttt{E0201461-M0100115-PC.tif}
+file) will not render well in typical image viewers.
 
 You can specify a coordinate system (e.g., latlon) and a reference
 spheroid (i.e., calculated for the Moon or Mars). You also have the
 option of creating a normalized DEM in addition to the automatically
 generated non-normalized DEM.
 
-
 \begin{verbatim}
-    point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
+    point2dem --xyz-to-lonlat -r mars -n E0201461-M0100115-PC.tif 
 \end{verbatim}
-
+\noindent
 The \texttt{point2dem} program can also be used to orthoproject raw
 satellite imagery onto the DEM. To do this, invoke \texttt{point2dem}
 just as before, but add the \texttt{orthoimage} option and specify
-the use of the Left image file as the texture file to use for the
-projection.
+the use of the left image file as the texture file to use for the
+projection
 
 \begin{verbatim}
-    point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif 
+    point2dem --xyz-to-lonlat -r mars --orthoimage E0201461-M0100115-L.tif \
+      E0201461-M0100115-PC.tif
 \end{verbatim}
-
+\noindent
 The \texttt{point2dem} program can be used in many different ways.
 Be sure to explore all of the options.
 
 \begin{figure}
-\begin{center}
-\includegraphics[width=4in]{images/p19-dems.png}
-\caption[P19 dem images]{
-    \label{p19-dems}
-	The non-normalized and normalized DEMs. Note that the
-	non-normalized version contains floating point pixel values
-	and will not open in most image viewing programs which
-	expect integer pixel values between 0 and 255 (which is
-	what the normalized version does for you).
+\begin{minipage}{4in}
+\includegraphics[width=4in]{images/p19-norm_ortho.png}
+\end{minipage}
+\hfill
+\begin{minipage}{2.7in}
+\caption[P19 Normalized DEM and Orthophoto]{
+    \label{p19-norm_ortho}
+	The image on the left is a normalized DEM (using the
+	\texttt{-n} option) which which shows low terrain values
+	as black and high terrain values as white (in a 0 to 255
+	sense).  The image on the right is the orthographic image
+	(created using the \texttt{--orthoimage} option to
+	\texttt{point2dem}).
     }
-\end{center}
-\end{figure}
+\end{minipage} \end{figure}
 
-\begin{figure}
-\begin{center}
-\includegraphics[width=3in]{images/p19-ortho.png}
-\caption[P19 orthophoto]{
-    \label{p19-ortho}
-	The left image orthoprojected onto the DEM.
-    }
-\end{center}
-\end{figure}
+% \begin{figure}
+% \begin{center}
+% \includegraphics[width=4in]{images/p19-dems.png}
+% \caption[P19 dem images]{
+%     \label{p19-dems}
+% 	The non-normalized and normalized DEMs. Note that the
+% 	non-normalized version contains floating point pixel values
+% 	and will not open in most image viewing programs which
+% 	expect integer pixel values between 0 and 255 (which is
+% 	what the normalized version does for you).
+%     }
+% \end{center}
+% \end{figure}
+% 
+% \begin{figure}
+% \begin{center}
+% \includegraphics[width=3in]{images/p19-ortho.png}
+% \caption[P19 orthophoto]{
+%     \label{p19-ortho}
+% 	The left image orthoprojected onto the DEM.
+%     }
+% \end{center}
+% \end{figure}
 
 Once you have generated a DEM, you can use the Vision Workbench's
 \texttt{colormap} and \texttt{hillshade} tools to create colorized
