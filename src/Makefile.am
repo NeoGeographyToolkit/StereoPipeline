@@ -68,6 +68,7 @@ if HAVE_PKG_ISIS
 isis_code = \
 	Isis/DiskImageResourceIsis.cc \
 	Isis/DiskImageResourceIsis.h \
+	Isis/Equations.cc \
 	Isis/Equations.h \
 	Isis/IsisAdjustCameraModel.cc \
 	Isis/IsisAdjustCameraModel.h \

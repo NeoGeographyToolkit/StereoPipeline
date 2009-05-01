@@ -112,8 +112,8 @@ public:
       // I'm using what is already in the IsisAdjust camera file as
       // the orginal starting point for the problem. This way I can
       // nudge it with error and see what it is doing for debuging
-      boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
-      boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
+      boost::shared_ptr<VectorEquation> posF = m_cameras[j]->getPositionFuncPoint();
+      boost::shared_ptr<QuaternionEquation> poseF = m_cameras[j]->getPoseFuncPoint();
 
       a[j] = camera_vector_t();
       // Setting new equations defined by a_j
@@ -237,9 +237,10 @@ public:
   void write_adjustment( int j, std::string const& filename ) {
     std::ofstream ostr( filename.c_str() );
 
-    // The whole A parameter is just written in a line
-    for ( unsigned i = 0; i < a[j].size(); ++i)
-      ostr << std::setprecision(18) << a[j][i] << "\t";
+    boost::shared_ptr<VectorEquation> posF = m_cameras[j]->getPositionFuncPoint();
+    boost::shared_ptr<QuaternionEquation> poseF = m_cameras[j]->getPoseFuncPoint();
+    posF->write(ostr);
+    poseF->write(ostr);
 
     ostr.close();
   }
@@ -256,8 +257,8 @@ public:
   boost::shared_ptr< IsisAdjustCameraModel > adjusted_camera( int j ) {
 
     // Adjusting position and pose equations
-    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
-    boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
+    boost::shared_ptr<VectorEquation> posF = m_cameras[j]->getPositionFuncPoint();
+    boost::shared_ptr<QuaternionEquation> poseF = m_cameras[j]->getPoseFuncPoint();
 
     // Setting new equations defined by a_j
     for (unsigned n = 0; n < posF->size(); ++n)
@@ -277,8 +278,8 @@ public:
     // Warning! This operation can not be allowed to change the camera properties.
 
     // Loading equations
-    boost::shared_ptr<PositionZeroOrder> posF = boost::dynamic_pointer_cast<PositionZeroOrder>(m_cameras[j]->getPositionFuncPoint());
-    boost::shared_ptr<PoseZeroOrder> poseF = boost::dynamic_pointer_cast<PoseZeroOrder>(m_cameras[j]->getPoseFuncPoint());
+    boost::shared_ptr<VectorEquation> posF = m_cameras[j]->getPositionFuncPoint();
+    boost::shared_ptr<QuaternionEquation> poseF = m_cameras[j]->getPoseFuncPoint();
 
     // Applying new equation constants
     for (unsigned n = 0; n < posF->size(); ++n)
@@ -594,6 +595,7 @@ int main(int argc, char* argv[]) {
   std::string robust_cost_function;
   int min_matches;
   double robust_outlier_threshold;
+  int polynomial_order;
 
   // BOOST Program Options code
   po::options_description general_options("Options");
@@ -608,6 +610,7 @@ int main(int argc, char* argv[]) {
     ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
     ("min-matches", po::value<int>(&min_matches)->default_value(30), "Set the minimum number of matches between images that will be considered.")
     ("max-iterations", po::value<int>(&g_max_iterations)->default_value(25), "Set the maximum number of iterations.")
+    ("poly-order", po::value<int>(&polynomial_order)->default_value(0), "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
     ("report-level,r", po::value<int>(&g_report_level)->default_value(10), "Changes the detail of the Bundle Adjustment Report")
     ("nonsparse,n", "Run the non-sparse reference implementation of LM Bundle Adjustment. (For Debugging Purposes)")
     ("seed-with-previous", "Use previous isis_adjust files at starting point for this run.")
@@ -662,8 +665,8 @@ int main(int argc, char* argv[]) {
     std::cout << "Loading: " << g_input_files[i] << std::endl;
 
     // Equations defining the delta
-    boost::shared_ptr<PositionZeroOrder> posF( new PositionZeroOrder() );
-    boost::shared_ptr<PoseZeroOrder> poseF( new PoseZeroOrder() );
+    boost::shared_ptr<VectorEquation> posF( new VectorEquation(polynomial_order) );
+    boost::shared_ptr<QuaternionEquation> poseF( new QuaternionEquation(polynomial_order) );
     boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( g_input_files[i], posF, poseF ) );
     camera_models[i] = p;
   }

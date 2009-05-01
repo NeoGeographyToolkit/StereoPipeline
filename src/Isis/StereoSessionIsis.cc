@@ -396,18 +396,11 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionIsis::camera_model(std::
     vw_out(0) << "\t--> Using adjusted Isis Camera Model: " << camera_file << "\n";
 
     // Creating Equations for the files
-    boost::shared_ptr<PositionZeroOrder> posF( new PositionZeroOrder() );
-    boost::shared_ptr<PoseZeroOrder> poseF( new PoseZeroOrder() );
+    boost::shared_ptr<VectorEquation> posF( new VectorEquation(0) );
+    boost::shared_ptr<QuaternionEquation> poseF( new QuaternionEquation(0) );
     std::ifstream input( camera_file.c_str() );
-    double val;
-    for ( unsigned n = 0; n < posF->size(); ++n) {
-      input >> val;
-      posF->set_constant(n,val);
-    }
-    for ( unsigned n = 0; n < poseF->size(); ++n) {
-      input >> val;
-      poseF->set_constant(n,val);
-    }
+    posF->read(input);
+    poseF->read(input);
     input.close();
 
     // Finally creating camera model

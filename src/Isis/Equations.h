@@ -1,5 +1,31 @@
+// __BEGIN_LICENSE__
+// 
+// Copyright (C) 2006 United States Government as represented by the
+// Administrator of the National Aeronautics and Space Administration
+// (NASA).  All Rights Reserved.
+// 
+// Copyright 2006 Carnegie Mellon University. All rights reserved.
+// 
+// This software is distributed under the NASA Open Source Agreement
+// (NOSA), version 1.3.  The NOSA has been approved by the Open Source
+// Initiative.  See the file COPYING at the top of the distribution
+// directory tree for the complete NOSA document.
+// 
+// THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
+// KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
+// LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
+// SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
+// A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
+// THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
+// DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
+// 
+// __END_LICENSE__
+
 #ifndef __VW_CAMERA_EQUATION__
 #define __VW_CAMERA_EQUATION__
+
+#include <fstream>
+#include <iostream>
 
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
@@ -10,149 +36,116 @@
 namespace vw {
 namespace camera {
 
-  // This is used to communicate with the IsisAdjust Models
+  // The following classes VectorEquation and QuaternionEquation are
+  // methods used to modify an IsisCameraModel through
+  // IsisAdjustCameraModel.
+
+  // VectorEquation
+  // Returns a Vector3 that is evaluated on a double, time.
+  //
+  // Each element of Vector3 is an n'th order polynomial.
   class VectorEquation {
   protected:
-    std::vector<double> m_constant;
+    Vector<double> m_x_coeff;
+    Vector<double> m_y_coeff;
+    Vector<double> m_z_coeff;
+    Vector3 m_cached_output;
+    double m_cached_time;
     double m_time_offset;
+
+    // Update Cache
+    void update ( double const& t );
+      
   public:
     // Constructor
-    VectorEquation ( void ) {
-      //m_constant.clear();
-      m_time_offset = 0;
-    }
-    virtual ~VectorEquation() {}
+    VectorEquation ( int poly_order );
+    ~VectorEquation() {}
 
     //Evaluates the equation at time T
-    virtual Vector3 evaluate( double const& t ) const {
-      return Vector3( 0, 0, 0 );
-    }
-    // Tells the number of constants defining the equation
-    virtual unsigned size( void ) const {
-      return m_constant.size();
+    Vector3 evaluate( double const& t ) {
+      if ( t != m_cached_time )
+	update( t );
+      return m_cached_output;
     }
 
-    virtual void set_constant(unsigned index, double value) {
-      if ( index >= m_constant.size() ) 
-        vw_throw(ArgumentErr() << "VectorEquation: invalid index.");
-      m_constant[index] = value;
-    }
+    // Tells the number of constants defining the equation
+    // This is especially vague as it is meant for interaction with a
+    // bundle adjuster
+    unsigned size( void ) const { return m_x_coeff.size()*3; }
+
+    void set_constant(unsigned index, double value);
     
     // Gives access to the constants defining the equation
-    virtual const double operator[]( unsigned const& n ) const {
-      if ( n >= m_constant.size() ) 
-        vw_throw(ArgumentErr() << "VectorEquation: invalid index.");
-      return m_constant[n];
-    }
+    const double operator[]( unsigned const& n ) const;
 
     // Allows us to set the time offset
-    virtual void set_time_offset( double const& offset ) {
+    void set_time_offset( double const& offset ) {
+      m_cached_time = -1;
       m_time_offset = offset;
     }
+    double get_time_offset(void) const { return m_time_offset; }
+
+    // File IO
+    void write( std::ofstream &f );
+    void read( std::ifstream &f );
   };
 
+  // Quaternion Equation
+  // Returns a Quaterion that is evaluated on a double, time.
+  // 
+  // The quaternion is actually defined by 3 n'th order polynomials
+  // that define rotations about the x, y, and z axes.
   class QuaternionEquation {
   protected:
-    std::vector<double> m_constant;
+    Vector<double> m_x_coeff;
+    Vector<double> m_y_coeff;
+    Vector<double> m_z_coeff;
+    Quaternion<double> m_cached_output;
+    double m_cached_time;
     double m_time_offset;
+
+    // Updates cache
+    void update ( double const& t );
+
   public:
     // Constructor
-    QuaternionEquation( void ) {
-      //m_constant.clear();
-      m_time_offset = 0;
-    }
-    virtual ~QuaternionEquation() {}
+    QuaternionEquation( int poly_order );
+    ~QuaternionEquation() {}
 
     //Evaluate the equation at time T
-    virtual Quaternion<double> evaluate( double const& t ) const {
-      return Quaternion<double>( 0, 0, 0, 0 );
-    }
-    // Tells the number of constants defining the equation
-    virtual unsigned size( void ) const {
-      return m_constant.size();
+    Quaternion<double> evaluate( double const& t ) {
+      if ( t != m_cached_time )
+	update(t);
+      return m_cached_output;
     }
 
-    virtual void set_constant(unsigned index, double value) {
-      if ( index >= m_constant.size() ) 
-        vw_throw(ArgumentErr() << "VectorEquation: invalid index.");
-      m_constant[index] = value;
+    // Tells the number of constants defining the equation
+    // This is especially vague as it is meant for interaction with a
+    // bundle adjuster
+    unsigned size( void ) const {
+      return m_x_coeff.size()*3;
     }
+
+    void set_constant(unsigned index, double value);
 
     // Gives access to the constants defining the equation
-    virtual const double operator[]( unsigned const& n ) const {
-      if ( n >= m_constant.size() ) 
-        vw_throw(ArgumentErr() << "QuaternionEquation: invalid index.");
-      return m_constant[n];
-    }
+    const double operator[]( unsigned const& n ) const;
+
     // Allows us to set the time offset
-    virtual void set_time_offset( double const& offset ) {
+    void set_time_offset( double const& offset ) {
+      m_cached_time = -1;
       m_time_offset = offset;
     }
+    double get_time_offset( void ) const { return m_time_offset; }
+
+    // File IO
+    void write( std::ofstream &f );
+    void read( std::ifstream &f );
   };
 
-
-  // Predefined equations. Might be helpful!
-  class PositionZeroOrder : public VectorEquation {
-  public:
-    PositionZeroOrder( void ) { //If I'm feeling lazy
-      m_constant.resize(3);
-      m_time_offset = 0;
-    }
-    PositionZeroOrder( double x, double y, double z ) {
-      m_constant.push_back(x);
-      m_constant.push_back(y);
-      m_constant.push_back(z);
-      m_time_offset = 0;
-    }
-    virtual ~PositionZeroOrder() {}
-    virtual Vector3 evaluate( double const& t) const {
-      return Vector3( m_constant[0], m_constant[1], m_constant[2] );
-    }
-  };
-  
-  class PoseZeroOrder : public QuaternionEquation { 
-    Quaternion<double> m_cached_pose;
-
-    // The PoseZeroOrder correction does not depend on t, so we can
-    // cache the quaternion in the constructor and return the cached
-    // quaternion when evaluate() is called.
-    void update_cache() {
-      m_cached_pose = vw::math::euler_to_quaternion( m_constant[0],
-                                                     m_constant[1],
-                                                     m_constant[2],
-                                                     "xyz" );
-      // Need to do this, the rotation matrix equation for quaternion
-      // expects a normalize quaternion
-      m_cached_pose = m_cached_pose / norm_2(m_cached_pose);
-    }
-
-  public:
-    PoseZeroOrder( void ) {
-      m_constant.resize(3);
-      m_time_offset = 0;
-      update_cache();
-    }
-    PoseZeroOrder( double x, double y, double z ) {
-      m_constant.push_back(x);
-      m_constant.push_back(y);
-      m_constant.push_back(z);
-      m_time_offset = 0;
-      update_cache();
-    }
-    
-    // Override the base class implemenation here so that we can
-    // recompute the cached value of the quaternion after the
-    // constants have been changed.
-    virtual void set_constant(unsigned index, double value) {
-      QuaternionEquation::set_constant(index,value);
-      update_cache();
-    }
-
-    virtual ~PoseZeroOrder() {}
-    virtual Quaternion<double> evaluate( double const& t ) const {
-      return m_cached_pose;
-    }
-  };
+  // Other useful tools
+  std::ostream& operator<<( std::ostream& os, VectorEquation const& eq );
+  std::ostream& operator<<( std::ostream& os, QuaternionEquation const& eq );
 
 }}
 

@@ -21,7 +21,7 @@
 // 
 // __END_LICENSE__
 
-/// \file PinholeModel.h
+/// \file IsisCameraModel.h
 /// 
 /// This file contains the ISIS camera model.
 ///
