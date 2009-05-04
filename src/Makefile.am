@@ -65,15 +65,23 @@ ctx_code = \
 	MRO/DiskImageResourceDDD.h
 
 if HAVE_PKG_ISIS
+eqn_code = \
+	Isis/BaseEquation.h \
+	Isis/Equation.cc \
+	Isis/Equation.h \
+	Isis/PolyEquation.cc \
+	Isis/PolyEquation.h \
+	Isis/RPNEquation.cc \
+	Isis/RPNEquation.h
+
 isis_code = \
 	Isis/DiskImageResourceIsis.cc \
 	Isis/DiskImageResourceIsis.h \
-	Isis/Equations.cc \
-	Isis/Equations.h \
 	Isis/IsisAdjustCameraModel.cc \
 	Isis/IsisAdjustCameraModel.h \
 	Isis/IsisCameraModel.cc \
-	Isis/IsisCameraModel.h
+	Isis/IsisCameraModel.h \
+	$(eqn_code)
 
 stereo_code += $(isis_code) Isis/StereoSessionIsis.cc Isis/StereoSessionIsis.h
 endif

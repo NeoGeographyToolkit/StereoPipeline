@@ -50,7 +50,7 @@ using namespace vw::ip;
 
 #include "Isis/DiskImageResourceIsis.h"
 #include "Isis/IsisCameraModel.h"
-#include "Isis/Equations.h"
+#include "Isis/Equation.h"
 #include "Isis/IsisAdjustCameraModel.h"
 #include "ControlNetworkLoader.h"
 
@@ -112,8 +112,8 @@ public:
       // I'm using what is already in the IsisAdjust camera file as
       // the orginal starting point for the problem. This way I can
       // nudge it with error and see what it is doing for debuging
-      boost::shared_ptr<VectorEquation> posF = m_cameras[j]->getPositionFuncPoint();
-      boost::shared_ptr<QuaternionEquation> poseF = m_cameras[j]->getPoseFuncPoint();
+      boost::shared_ptr<BaseEquation> posF = m_cameras[j]->getPositionFuncPoint();
+      boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->getPoseFuncPoint();
 
       a[j] = camera_vector_t();
       // Setting new equations defined by a_j
@@ -237,10 +237,8 @@ public:
   void write_adjustment( int j, std::string const& filename ) {
     std::ofstream ostr( filename.c_str() );
 
-    boost::shared_ptr<VectorEquation> posF = m_cameras[j]->getPositionFuncPoint();
-    boost::shared_ptr<QuaternionEquation> poseF = m_cameras[j]->getPoseFuncPoint();
-    posF->write(ostr);
-    poseF->write(ostr);
+    write_equation( ostr, m_cameras[j]->getPositionFuncPoint() );
+    write_equation( ostr, m_cameras[j]->getPoseFuncPoint() );
 
     ostr.close();
   }
@@ -257,14 +255,14 @@ public:
   boost::shared_ptr< IsisAdjustCameraModel > adjusted_camera( int j ) {
 
     // Adjusting position and pose equations
-    boost::shared_ptr<VectorEquation> posF = m_cameras[j]->getPositionFuncPoint();
-    boost::shared_ptr<QuaternionEquation> poseF = m_cameras[j]->getPoseFuncPoint();
+    boost::shared_ptr<BaseEquation> posF = m_cameras[j]->getPositionFuncPoint();
+    boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->getPoseFuncPoint();
 
     // Setting new equations defined by a_j
     for (unsigned n = 0; n < posF->size(); ++n)
-      posF->set_constant(n,a[j][n]);
+      (*posF)[n] = a[j][n];
     for (unsigned n = 0; n < poseF->size(); ++n)
-      poseF->set_constant(n,a[j][n + posF->size()]);
+      (*poseF)[n] = a[j][n + posF->size()];
 
     return m_cameras[j];
   }
@@ -278,14 +276,14 @@ public:
     // Warning! This operation can not be allowed to change the camera properties.
 
     // Loading equations
-    boost::shared_ptr<VectorEquation> posF = m_cameras[j]->getPositionFuncPoint();
-    boost::shared_ptr<QuaternionEquation> poseF = m_cameras[j]->getPoseFuncPoint();
+    boost::shared_ptr<BaseEquation> posF = m_cameras[j]->getPositionFuncPoint();
+    boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->getPoseFuncPoint();
 
     // Applying new equation constants
     for (unsigned n = 0; n < posF->size(); ++n)
-      posF->set_constant(n,a_j[n]);
+      (*posF)[n] = a_j[n];
     for (unsigned n = 0; n < poseF->size(); ++n)
-      poseF->set_constant(n,a_j[n + posF->size()]);
+      (*poseF)[n] = a_j[n + posF->size()];
 
     // Determine what time to use for the camera forward
     // projection. Sorry that this is a search, I don't have a better
@@ -665,8 +663,8 @@ int main(int argc, char* argv[]) {
     std::cout << "Loading: " << g_input_files[i] << std::endl;
 
     // Equations defining the delta
-    boost::shared_ptr<VectorEquation> posF( new VectorEquation(polynomial_order) );
-    boost::shared_ptr<QuaternionEquation> poseF( new QuaternionEquation(polynomial_order) );
+    boost::shared_ptr<BaseEquation> posF( new PolyEquation(polynomial_order) );
+    boost::shared_ptr<BaseEquation> poseF( new PolyEquation(polynomial_order) );
     boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( g_input_files[i], posF, poseF ) );
     camera_models[i] = p;
   }

@@ -21,7 +21,10 @@
 // 
 // __END_LICENSE__
 
+// VW
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/Math/EulerAngles.h>
+// ASP
 #include <Isis/IsisAdjustCameraModel.h>
 
 // Isis Headers
@@ -39,8 +42,8 @@ using namespace vw::camera;
 //  Constructors / Deconstructor
 //-------------------------------------------------------------------------
 IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
-                                              boost::shared_ptr<VectorEquation> position_func,
-                                              boost::shared_ptr<QuaternionEquation> pose_func ) : 
+                                              boost::shared_ptr<BaseEquation> position_func,
+                                              boost::shared_ptr<BaseEquation> pose_func ) : 
   IsisCameraModel( cube_filename ),
   m_position_func( position_func ),
   m_pose_func( pose_func ) {
@@ -235,7 +238,14 @@ Quaternion<double> IsisAdjustCameraModel::camera_pose( Vector3 const& mm_time ) 
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
-  Quaternion<double> quat (R_inst*transpose(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix());
+  Vector3 angles = m_pose_func->evaluate( mm_time[2] );
+  Quaternion<double> delta = vw::math::euler_to_quaternion( angles[0],
+							    angles[1],
+							    angles[2],
+							    "xyz" );
+  delta = delta / norm_2(delta);
+
+  Quaternion<double> quat (R_inst*transpose(R_body)*delta.rotation_matrix());
   quat = quat / norm_2(quat);
   return quat;
     //return Quaternion<double>(R_inst*transpose(R_body)*m_pose_func->evaluate( mm_time[2] ).rotation_matrix() );

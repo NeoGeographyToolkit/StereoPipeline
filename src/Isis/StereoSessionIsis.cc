@@ -31,13 +31,11 @@
 #include <vw/InterestPoint.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography.h>
-#include "Isis/StereoSessionIsis.h"
-#include "Isis/IsisCameraModel.h"
-#include "StereoSettings.h"
-
-// For support of IsisAdjust camera model
-#include "Isis/Equations.h"
-#include "Isis/IsisAdjustCameraModel.h"
+// Stereo Pipeline
+#include <Isis/StereoSessionIsis.h>
+#include <Isis/IsisCameraModel.h>
+#include <StereoSettings.h>
+#include <Isis/IsisAdjustCameraModel.h>
 
 // Boost
 #include <boost/filesystem/operations.hpp>
@@ -396,11 +394,11 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionIsis::camera_model(std::
     vw_out(0) << "\t--> Using adjusted Isis Camera Model: " << camera_file << "\n";
 
     // Creating Equations for the files
-    boost::shared_ptr<VectorEquation> posF( new VectorEquation(0) );
-    boost::shared_ptr<QuaternionEquation> poseF( new QuaternionEquation(0) );
+    boost::shared_ptr<BaseEquation> posF;
+    boost::shared_ptr<BaseEquation> poseF;
     std::ifstream input( camera_file.c_str() );
-    posF->read(input);
-    poseF->read(input);
+    read_equation( input, posF );
+    read_equation( input, poseF );
     input.close();
 
     // Finally creating camera model

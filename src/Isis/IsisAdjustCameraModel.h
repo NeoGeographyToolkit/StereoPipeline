@@ -32,7 +32,7 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <Isis/IsisCameraModel.h>
 #include <iomanip>
-#include <Isis/Equations.h>
+#include <Isis/Equation.h>
 
 // Isis Header
 #include <Cube.h>
@@ -52,8 +52,8 @@ namespace camera {
     void set_image( double const& sample, double const& line) const;
     void set_time( double const& time ) const;
 
-    boost::shared_ptr<VectorEquation> m_position_func;
-    boost::shared_ptr<QuaternionEquation> m_pose_func;
+    boost::shared_ptr<BaseEquation> m_position_func;
+    boost::shared_ptr<BaseEquation> m_pose_func;
 
 
   public:
@@ -61,8 +61,8 @@ namespace camera {
     //  Constructors / Deconstructor
     //-------------------------------------------------------------------
     IsisAdjustCameraModel( std::string cube_filename,
-			   boost::shared_ptr<VectorEquation> position_func,
-			   boost::shared_ptr<QuaternionEquation> pose_func );
+			   boost::shared_ptr<BaseEquation> position_func,
+			   boost::shared_ptr<BaseEquation> pose_func );
 
     virtual ~IsisAdjustCameraModel();
 
@@ -109,11 +109,11 @@ namespace camera {
     // Interfacing with equations
     //-------------------------------------------------------------------
 
-    boost::shared_ptr<VectorEquation> getPositionFuncPoint( void ){
+    boost::shared_ptr<BaseEquation> getPositionFuncPoint( void ){
       return m_position_func;
     }
 
-    boost::shared_ptr<QuaternionEquation> getPoseFuncPoint( void ) {
+    boost::shared_ptr<BaseEquation> getPoseFuncPoint( void ) {
       return m_pose_func;
     }
 
