@@ -231,22 +231,24 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   // }
 
   // Make sure the images are normalized
-  vw_out(InfoMessage) << "\t--> Computing min/max values for normalization.  " << std::flush;
+  vw_out(InfoMessage) << "\t--> Computing min/max values for normalization.\n";
   float left_lo, left_hi, right_lo, right_hi;
   if (left_rsrc.has_nodata_value()) {
     double left_nodata = left_rsrc.nodata_value();
-    isis_min_max_channel_values(create_mask(left_disk_image, left_nodata), left_lo, left_hi);
+    std::cout << "\t    Using nodata value for left image: " << left_nodata << "\n";
+    min_max_channel_values(create_mask(left_disk_image, left_nodata), left_lo, left_hi);
   } else {
-    isis_min_max_channel_values(create_mask(left_disk_image), left_lo, left_hi);
+    min_max_channel_values(left_disk_image, left_lo, left_hi);
   }
-  vw_out(InfoMessage) << "Left: [" << left_lo << " " << left_hi << "]    " << std::flush;
+  vw_out(InfoMessage) << "\t    Left: [" << left_lo << " " << left_hi << "]    \n";
   if (right_rsrc.has_nodata_value()) {
     double right_nodata = right_rsrc.nodata_value();
-    isis_min_max_channel_values(create_mask(right_disk_image, right_nodata), right_lo, right_hi);
+    std::cout << "\t    Using nodata value for right image: " << right_nodata << "\n";
+    min_max_channel_values(create_mask(right_disk_image, right_nodata), right_lo, right_hi);
   } else {
-    isis_min_max_channel_values(create_mask(right_disk_image), right_lo, right_hi);
+    min_max_channel_values(create_mask(right_disk_image), right_lo, right_hi);
   }
-  vw_out(InfoMessage) << "Right: [" << right_lo << " " << right_hi << "]\n";
+  vw_out(InfoMessage) << "\t    Right: [" << right_lo << " " << right_hi << "]\n";
   float lo = std::min (left_lo, right_lo);
   float hi = std::min (left_hi, right_hi);
 

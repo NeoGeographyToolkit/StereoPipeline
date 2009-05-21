@@ -69,55 +69,6 @@ remove_isis_special_pixels(ImageViewBase<ViewT> &image, typename ViewT::pixel_ty
   return per_pixel_filter(image.impl(), IsisSpecialPixelFunc<typename ViewT::pixel_type>(replacement_value));
 }
 
-template <class ViewT>
-class IsisMinMaxChannelAccumulator {
-  typedef typename ViewT::pixel_type pixel_type;
-  typedef typename CompoundChannelType<typename ViewT::pixel_type>::type channel_type;
-  int num_channels;
-  channel_type minval, maxval;
-  bool valid;
-public:
-  IsisMinMaxChannelAccumulator()
-    : num_channels( PixelNumChannels<pixel_type>::value - (PixelHasAlpha<pixel_type>::value ? 1 : 0) ), valid(false) {}
-
-  IsisMinMaxChannelAccumulator(channel_type no_data_value)
-    : num_channels( PixelNumChannels<pixel_type>::value - (PixelHasAlpha<pixel_type>::value ? 1 : 0) ), valid(false) {}
-  
-  void operator()( pixel_type const& pix ) {
-    if (!valid && !Isis::IsSpecial(compound_select_channel<channel_type>(pix,0)) ) {
-      minval = maxval = compound_select_channel<channel_type>(pix,0);
-      valid = true;
-    }
-    for (int channel = 0; channel < num_channels; channel++) {
-      channel_type channel_value = compound_select_channel<channel_type>(pix,channel);
-      if( Isis::IsSpecial(channel_value) ) continue;
-      if( channel_value < minval ) minval = channel_value;
-      if( channel_value > maxval ) maxval = channel_value;
-    }
-  }
-
-  channel_type minimum() const { 
-    VW_ASSERT(valid, ArgumentErr() << "MinMaxChannelAccumulator: no valid pixels");
-    return minval; 
-  }
-
-  channel_type maximum() const {
-    VW_ASSERT(valid, ArgumentErr() << "MinMaxChannelAccumulator: no valid pixels");
-    return maxval;
-  }
-};
-
-template <class ViewT>
-void isis_min_max_channel_values( const ImageViewBase<ViewT> &view, 
-                                  typename CompoundChannelType<typename ViewT::pixel_type>::type &min, 
-                                  typename CompoundChannelType<typename ViewT::pixel_type>::type &max )
-{
-  IsisMinMaxChannelAccumulator<ViewT> accumulator;
-  for_each_pixel( view, accumulator );
-  min = accumulator.minimum();
-  max = accumulator.maximum();
-}
-
 } // namespace vw
 
 class StereoSessionIsis: public StereoSession {

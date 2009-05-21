@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
 
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
-  vw_system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
+  vw_system_cache().resize( cache_size*1024*1024 ); // Set cache size
 
   // Create a fresh stereo session and query it for the camera models.
 #if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
@@ -207,6 +207,31 @@ int main(int argc, char* argv[]) {
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
+
+  // If the user hasn't specified a stereo session type, we take a
+  // guess here based on the file suffixes.
+  if (stereo_session_string.size() == 0) {
+    if ( boost::iends_with(camera_model_file, ".cahvor") ||
+         boost::iends_with(camera_model_file, ".cahv") ||
+         boost::iends_with(camera_model_file, ".pin") || 
+         boost::iends_with(camera_model_file, ".tsai") ) {
+      vw_out(0) << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
+      stereo_session_string = "pinhole";
+    } 
+
+    else if (boost::iends_with(image_file, ".cub") ) {
+      vw_out(0) << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
+      stereo_session_string = "isis";
+    } 
+   
+    else {
+      vw_out(0) << "\n\n******************************************************************\n";
+      vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
+      vw_out(0) << "using the -t switch.  Options include: [pinhole isis].\n";
+      vw_out(0) << "******************************************************************\n\n";
+      exit(0);
+    }
+  }
 
   // Okay, here's a total hack.  We create a stereo session where both
   // of the imagers and images are the same, because we want to take
@@ -241,7 +266,7 @@ int main(int argc, char* argv[]) {
   // photometrically calibrated.
   if (stereo_session_string == "isis") {
     if (lo == 0 && hi == 0) { 
-      isis_min_max_channel_values(float_texture_disk_image, lo, hi);
+      min_max_channel_values(float_texture_disk_image, lo, hi);
       std::cout << "\t--> Normalizing ISIS pixel range range: [" << lo << "  " << hi << "]\n"; 
     } else {
       std::cout << "\t--> Using user-specified normalization range: [" << lo << "  " << hi << "]\n";
