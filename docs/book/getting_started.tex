@@ -67,7 +67,10 @@ camera information, but doing so requires a significant amount of
 extra work and setup which are not covered in this document, and
 are considered `advanced usage.'  The image type that is easiest
 for the user to provide and for the Stereo Pipeline's \texttt{stereo}
-program to ingest are ISIS 3 cube files (\texttt{.cub}).
+program to ingest are ISIS 3 cube files (\texttt{.cub}).  In order
+for \texttt{stereo} to utilize the detailed camera data available
+for planetary data (SPICE), the images must have had ISIS's
+\texttt{spiceinit} program run on them.
 
 
 \section{Example data set}
@@ -97,6 +100,10 @@ whose defaults are `\texttt{YES}' which will bring the image into
 the ISIS format and perform radiometric calibration.  By setting
 the \texttt{Mapping} parameter to `\texttt{NO}' the resultant file
 will be an ISIS cube file that is calibrated, but not map-projected.
+Note that while we have not explicitly run \texttt{spiceinit}, the
+Ingestion portion of \texttt{mocproc} quietly ran \texttt{spiceinit}
+for you (you'll find the record of it in the ISIS Session Log,
+usually written out to a file named \texttt{print.prt}).
 
 \begin{figure}[b!]
 \begin{minipage}{5.2in}
