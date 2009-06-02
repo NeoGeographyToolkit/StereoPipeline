@@ -74,6 +74,14 @@ static std::string prefix_from_filename( std::string const& filename ){
   return result;
 }
 
+static std::string remove_path( std::string const& filename ){
+  std::string result = filename;
+  int index = result.rfind("/");
+  if (index != -1)
+    result.erase(0,index+1);
+  return result;
+}
+
 // Secondary Layer of Camera Relations Network. This contains the
 // match relations and is doubly linked.
 struct InterestPtRelation {
@@ -193,43 +201,48 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
   for ( unsigned i = 0; i < image_files.size(); i++ )
     crn.push_back( CameraRelation( i,
 				   prefix_from_filename( image_files[i] )));
-  std::cout << "Loading matches:\n";
+  vw_out(0) << "Loading matches:\n";
   for ( unsigned i = 0; i < image_files.size(); ++i ) {
     for ( unsigned j = i+1; j < image_files.size(); ++j ) {
       std::string match_filename =
 	prefix_from_filename( image_files[i] ) + "__" +
 	prefix_from_filename( image_files[j] ) + ".match";
 
-      if ( fs::exists( match_filename ) ) {
-	std::vector<InterestPoint> ip1, ip2;
-	read_binary_match_file( match_filename, ip1, ip2 );
-	if ( int( ip1.size() ) < min_matches ) {
-	  std::cout << "\t" << match_filename << "    " << i << " <-> " 
-		    << j << " : " << ip1.size() << " matches. [rejected]\n";
-	} else {
-	  std::cout << "\t" << match_filename << "    " << i << " <-> "
-		    << j << " : " << ip1.size() << " matches.\n";
+      if ( !fs::exists( match_filename ) ) {
+	match_filename = remove_path(prefix_from_filename( image_files[i] ) )
+	  + "__" + remove_path(prefix_from_filename(image_files[j]))+".match";
+	if (!fs::exists( match_filename))
+	  continue;
+      }
+
+      std::vector<InterestPoint> ip1, ip2;
+      read_binary_match_file( match_filename, ip1, ip2 );
+      if ( int( ip1.size() ) < min_matches ) {
+	vw_out(0) << "\t" << match_filename << "    " << i << " <-> " 
+		  << j << " : " << ip1.size() << " matches. [rejected]\n";
+      } else {
+	vw_out(0) << "\t" << match_filename << "    " << i << " <-> "
+		  << j << " : " << ip1.size() << " matches.\n";
+	
+	// Loading individual matches now
+	for ( unsigned k = 0; k < ip1.size(); k++ ) {
+	  boost::shared_ptr<InterestPtRelation> ipr1, ipr2;
+	  ipr1 = crn[i].FindMatching( ip1[k] );
+	  ipr2 = crn[j].FindMatching( ip2[k] );
 	  
-	  // Loading individual matches now
-	  for ( unsigned k = 0; k < ip1.size(); k++ ) {
-	    boost::shared_ptr<InterestPtRelation> ipr1, ipr2;
-	    ipr1 = crn[i].FindMatching( ip1[k] );
-	    ipr2 = crn[j].FindMatching( ip2[k] );
-
-	    // Match hasn't been previously loaded
-	    if ( ipr1 == boost::shared_ptr<InterestPtRelation>() ) {
-	      ipr1 = boost::shared_ptr<InterestPtRelation>( new InterestPtRelation( ip1[k], i ) );
-	      crn[i].AttachIpr( ipr1 );
-	    }
-	    if ( ipr2 == boost::shared_ptr<InterestPtRelation>() ) {
-	      ipr2 = boost::shared_ptr<InterestPtRelation>( new InterestPtRelation( ip2[k], j ) );
-	      crn[j].AttachIpr( ipr2 );
-	    }
-
-	    // Doubly linking
-	    ipr1->AttachIpr( ipr2 );
-	    ipr2->AttachIpr( ipr1 );
+	  // Match hasn't been previously loaded
+	  if ( ipr1 == boost::shared_ptr<InterestPtRelation>() ) {
+	    ipr1 = boost::shared_ptr<InterestPtRelation>( new InterestPtRelation( ip1[k], i ) );
+	    crn[i].AttachIpr( ipr1 );
 	  }
+	  if ( ipr2 == boost::shared_ptr<InterestPtRelation>() ) {
+	    ipr2 = boost::shared_ptr<InterestPtRelation>( new InterestPtRelation( ip2[k], j ) );
+	    crn[j].AttachIpr( ipr2 );
+	  }
+	  
+	  // Doubly linking
+	  ipr1->AttachIpr( ipr2 );
+	  ipr2->AttachIpr( ipr1 );
 	}
       }
     }
@@ -237,7 +250,7 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
 
   // 2.) Build Control Network finally
   int spiral_error_count = 0;
-  std::cout << "Assembling Control Network:\n";
+  vw_out(0) << "Assembling Control Network:\n";
   for ( unsigned i = 0; i < crn.size() -1; ++i ) {
     typedef boost::shared_ptr<InterestPtRelation> ipr;
 
@@ -309,7 +322,7 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
     }
   }
   if ( spiral_error_count != 0 )
-    std::cout << "\t" << spiral_error_count << " control points removed because of spiral errors.\n";
+    vw_out(0) << "\t" << spiral_error_count << " control points removed because of spiral errors.\n";
 
   VW_ASSERT( cnet->size() != 0, vw::Aborted() << "Failed to load any points, Control Network Empty\n");
 
