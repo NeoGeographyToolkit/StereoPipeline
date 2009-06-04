@@ -56,13 +56,15 @@ void vw::camera::write_equation( std::ofstream& f, boost::shared_ptr<BaseEquatio
   eq->write( f );
 }
 // Determines equation type from file and return appropriate
-void vw::camera::read_equation( std::ifstream& f, boost::shared_ptr<BaseEquation> eq ) {
+boost::shared_ptr<BaseEquation> vw::camera::read_equation( std::ifstream& f) {
+  boost::shared_ptr<BaseEquation> eq;
+
   std::string buffer = "";
   std::getline( f, buffer );
   if ( buffer == "PolyEquation" ) {
     boost::shared_ptr<PolyEquation> eqn_new( new PolyEquation() );
-      eq = boost::shared_dynamic_cast<BaseEquation>( eqn_new );
-      eq->read( f );
+    eq = boost::shared_dynamic_cast<BaseEquation>( eqn_new );
+    eq->read( f );
   } else if ( buffer == "RPNEquation" ) {
     boost::shared_ptr<RPNEquation> eqn_new( new RPNEquation() );
     eq = boost::shared_dynamic_cast<BaseEquation>( eqn_new );
@@ -70,6 +72,7 @@ void vw::camera::read_equation( std::ifstream& f, boost::shared_ptr<BaseEquation
   } else {
     vw_throw( IOErr() << "Unknown equation type: " << buffer << "\n" );
   }
+  return eq;
 }
 
 

@@ -40,7 +40,7 @@ namespace camera {
   // Determines equation type and write appropriate
   void write_equation( std::ofstream& f, boost::shared_ptr<BaseEquation> eq);
   // Determines equation type from file and return appropriate
-  void read_equation( std::ifstream& f, boost::shared_ptr<BaseEquation> eq);
+  boost::shared_ptr<BaseEquation> read_equation( std::ifstream& f);
 
 }}
 
