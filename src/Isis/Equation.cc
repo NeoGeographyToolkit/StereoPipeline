@@ -36,7 +36,7 @@ std::ostream& vw::camera::operator<<( std::ostream& os,
   os << " " << eq->type() << std::endl;
   os << " Time Offset: " << eq->get_time_offset() << "\n";
   os << " Eq Coeff: " << "\n";
-  int working_idx = 0;
+  unsigned working_idx = 0;
   while ( working_idx != eq->size() ) {
     os << " ";
     for ( int i = 0; i < 4; i++ ) 

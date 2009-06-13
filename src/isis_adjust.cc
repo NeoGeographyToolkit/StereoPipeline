@@ -382,7 +382,7 @@ void perform_bundleadjustment( CostT const& cost_function ) {
   if ( g_vm.count( "seed-with-previous" ) ) {
     std::cout << "Seeding with previous ISIS adjustment files.\n";
     std::cout << "\tLoading up previous ISIS adjustments\n";
-    for (int j = 0; j < g_input_files.size(); ++j ) {
+    for (unsigned j = 0; j < g_input_files.size(); ++j ) {
       std::string adjust_file = prefix_from_filename( g_input_files[j] ) +
 	".isis_adjust";
 

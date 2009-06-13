@@ -197,7 +197,7 @@ void RPNEquation::write( std::ofstream &f ) {
 
     f << std::setprecision( 15 );
     int cs_idx = 0;
-    for ( int j = 0; j < eq_ptr->size(); j++ ) {
+    for ( unsigned j = 0; j < eq_ptr->size(); j++ ) {
       if ( (*eq_ptr)[j] == "c" ) {
 	f << (*cs_ptr)[cs_idx] << " ";
 	cs_idx++;

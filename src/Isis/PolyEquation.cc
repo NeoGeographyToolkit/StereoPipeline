@@ -39,7 +39,7 @@ PolyEquation::PolyEquation ( int order ) {
   m_x_coeff.set_size( order + 1 );
   m_y_coeff.set_size( order + 1 );
   m_z_coeff.set_size( order + 1 );
-  for ( int i = 0; i < m_x_coeff.size(); i++ )
+  for ( unsigned i = 0; i < m_x_coeff.size(); i++ )
     m_x_coeff[i] = m_y_coeff[i] = m_z_coeff[i] = 0;
   m_cached_time = -1;
   m_time_offset = 0;
@@ -52,11 +52,11 @@ PolyEquation::PolyEquation( int order_x,
   m_x_coeff.set_size(order_x+1);
   m_y_coeff.set_size(order_y+1);
   m_z_coeff.set_size(order_z+1);
-  for ( int i = 0; i < m_x_coeff.size(); i++ )
+  for ( unsigned i = 0; i < m_x_coeff.size(); i++ )
     m_x_coeff[i] = 0;
-  for ( int i = 0; i < m_y_coeff.size(); i++ )
+  for ( unsigned i = 0; i < m_y_coeff.size(); i++ )
     m_y_coeff[i] = 0;
-  for ( int i = 0; i < m_z_coeff.size(); i++ )
+  for ( unsigned i = 0; i < m_z_coeff.size(); i++ )
     m_z_coeff[i] = 0;
   m_cached_time = -1;
   m_time_offset = 0;
@@ -68,14 +68,14 @@ void PolyEquation::update( double const& t ) {
   m_cached_time = t;
   double delta_t = t-m_time_offset;
   Vector<double> powers;
-  int max_len = m_x_coeff.size();
+  unsigned max_len = m_x_coeff.size();
   if ( max_len < m_y_coeff.size() )
     max_len = m_y_coeff.size();
   if ( max_len < m_z_coeff.size() )
     max_len = m_z_coeff.size();
   powers.set_size( max_len );
   powers[0] = 1;
-  for ( int i = 1; i < powers.size(); i++ )
+  for ( unsigned i = 1; i < powers.size(); i++ )
     powers[i] = powers[i-1]*delta_t;
   m_cached_output[0] = sum( elem_prod(m_x_coeff,
 				      subvector(powers,0,m_x_coeff.size())) );
@@ -103,7 +103,7 @@ void PolyEquation::write( std::ofstream& f ) {
     }
 
     f << std::setprecision( 15 );
-    for ( int j = 0; j < (*pointer).size(); j++ )
+    for ( unsigned j = 0; j < (*pointer).size(); j++ )
       f << (*pointer)[j] << " ";
     f << "\n";
   }
@@ -140,7 +140,7 @@ void PolyEquation::read( std::ifstream& f ) {
     }
 
     pointer->set_size( tokens.size() );
-    for ( int j = 0; j < tokens.size(); j++ ) 
+    for ( unsigned j = 0; j < tokens.size(); j++ ) 
       (*pointer)[j] = atof( tokens[j].c_str() );
    
   }
