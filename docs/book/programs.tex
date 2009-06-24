@@ -362,6 +362,11 @@ This program creates files named p19-[D,F]-[H,V].tif what do they contain?
 
 Produces a mesh surface which can be visualized in OpenSceneGraph.
 
+Example:
+\begin{verbatim}
+point2mesh
+\end{verbatim}
+
 \section{point2dem}
 \label{point2dem}
 
@@ -371,5 +376,34 @@ This produces:
 	p19-DEM.tif - A DEM with floating point pixels. This is suitable for use in a GIS.
 	p19-DEM-normalized.tif - A version of the DEM where the heights have been mapped onto the range 0-255 so that it can be viewed in a normal image viewer.
 
+Example:
+\begin{verbatim}
+point2dem filename-PC.tif -o stereo/filename --xyz -r moon \\
+        --default-value -10000
+\end{verbatim}
+
+\section{hillshade}
+\label{hillshade}
+
+Example:
+\begin{verbatim}
+hillshade filename-DEM.tif -o stereo/filename --nodata-value -10000
+\end{verbatim}
+
+\section{colormap}
+\label{colormap}
+
+Example:
+\begin{verbatim}
+colormap filename-DEM.tif --shaded-relief filename-shaded.tif \\
+        --nodata -10000 -min -8900 --max 8000 -o filename-shaded-colormap.tif
+\end{verbatim}
 
 \section{orthoproject}
+\label{orthoproject}
+
+Example:
+\begin{verbatim}
+orthoproject -t isis filename-DEM.tif filename.cub filename.isis_adjust \\
+        filename-DRG.tif --nodata -10000 --ppd 256
+\end{verbatim}
