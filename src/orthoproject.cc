@@ -236,10 +236,10 @@ int main(int argc, char* argv[]) {
   if (stereo_session_string == "isis") {
     if (!vm.count("output-file")) { 
       // User didn't provide an output file, meaning camera_model was not an isis_adjust file.
-      output_file == camera_model_file;
+      output_file = camera_model_file;
     }
   } else {
-    if (!vm.count("output-file") {
+    if (!vm.count("output-file")) {
       std::cout << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
       std::cout << visible_options << std::endl;
       return 1;
