@@ -174,29 +174,28 @@ int main(int argc, char* argv[]) {
   positional_options_desc.add("camera-image", 1);
   positional_options_desc.add("camera-model", 1);
   positional_options_desc.add("output-file", 1);
-
+  
   po::options_description all_options;
   all_options.add(visible_options).add(positional_options);
-
+  
   po::variables_map vm;
   po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_options_desc).run(), vm );
   po::notify( vm );
-
+  
   // If the command line wasn't properly formed or the user requested
   // help, we print an usage message.
   if( vm.count("help") ||
       !vm.count("dem") || 
-      !vm.count("camera-image") || !vm.count("camera-model") || 
-      !vm.count("output-file")) {
+      !vm.count("camera-image") || !vm.count("camera-model")) {
     std::cout << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
     std::cout << visible_options << std::endl;
     return 1;
   }
-
+  
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
   vw_system_cache().resize( cache_size*1024*1024 ); // Set cache size
-
+  
   // Create a fresh stereo session and query it for the camera models.
 #if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
   StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
@@ -218,12 +217,12 @@ int main(int argc, char* argv[]) {
       vw_out(0) << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
       stereo_session_string = "pinhole";
     } 
-
+    
     else if (boost::iends_with(image_file, ".cub") ) {
       vw_out(0) << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
       stereo_session_string = "isis";
     } 
-   
+    
     else {
       vw_out(0) << "\n\n******************************************************************\n";
       vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
@@ -232,6 +231,21 @@ int main(int argc, char* argv[]) {
       exit(0);
     }
   }
+  
+  // Isis Session command handling
+  if (stereo_session_string == "isis") {
+    if (!vm.count("output-file")) { 
+      // User didn't provide an output file, meaning camera_model was not an isis_adjust file.
+      output_file == camera_model_file;
+    }
+  } else {
+    if (!vm.count("output-file") {
+      std::cout << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
+      std::cout << visible_options << std::endl;
+      return 1;
+    }
+  }
+    
 
   // Okay, here's a total hack.  We create a stereo session where both
   // of the imagers and images are the same, because we want to take
