@@ -336,7 +336,7 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
 
     // 3.1) Building a permutation listing of triangulation
     for ( unsigned j = 0; j < (*cnet)[i].size(); j++ ) {
-      for ( unsigned k = j+1; k < (*cnet)[j].size(); k++ ) {
+      for ( unsigned k = j+1; k < (*cnet)[i].size(); k++ ) {
 	
 	StereoModel sm( *(camera_models[ (*cnet)[i][j].image_id()]),
 			*(camera_models[ (*cnet)[i][k].image_id()]) );
