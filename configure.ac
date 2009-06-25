@@ -108,6 +108,7 @@ AX_PKG_ONE_OF(BOOST_FILESYSTEM,
     BOOST_FILESYSTEM_POST_1_35, [AX_PKG_BOOST_LIB(FILESYSTEM_POST_1_35, [-lboost_filesystem -lboost_system], [boost/filesystem/path.hpp])])
 
 AX_PKG_BOOST_LIB(THREAD, [-lboost_thread], [boost/thread/thread.hpp])
+AX_PKG_BOOST_LIB(IOSTREAMS, [-lboost_iostreams], [boost/iostreams/stream_buffer.hpp])
 
 # This provides an easy way for users to override the threads options
 # if they are replacing Boost threads with something else for their platform.
@@ -132,8 +133,8 @@ AX_PKG_ONE_OF(LAPACK,
      AX_PKG(STANDALONE_FLAPACK, [STANDALONE_F2C], [-llapack], [])
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
-AX_PKG(VW,                [BOOST BOOST_THREAD],  [-lvw],            [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
-AX_PKG(VW_CAMERA,         [VW BOOST_FILESYSTEM], [-lvwCamera],      [vw/Camera/CAHVModel.h])
+AX_PKG(VW,                [BOOST BOOST_THREAD BOOST_PROGRAM_OPTIONS],  [-lvw],            [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
+AX_PKG(VW_CAMERA,         [VW BOOST_FILESYSTEM BOOST_IOSTREAMS], [-lvwCamera],      [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW VW_CAMERA],        [-lvwStereo],      [vw/Stereo/OptimizedCorrelator.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW VW_CAMERA],        [-lvwCartography], [vw/Cartography/GeoReference.h])
 AX_PKG(VW_INTEREST_POINT, [VW],                  [-lvwInterestPoint])
@@ -191,7 +192,7 @@ if test x"$host_vendor" = "xapple"; then
     AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
 else
     AX_PKG(GEOS,    [],             [-lgeos])
-    AX_PKG(SUPERLU, [],             [-lsuperlu])
+    AX_PKG(SUPERLU, [LAPACK],             [-lsuperlu])
     AX_PKG(XERCESC, [],             [-lxerces-c])
 fi
 
