@@ -372,7 +372,9 @@ void perform_bundleadjustment( CostT const& cost_function ) {
   IsisBundleAdjustmentModel< 3, 3> 
     ba_model( g_camera_adjust_models , g_cnet, g_input_files );
   BundleAdjustment< IsisBundleAdjustmentModel< 3, 3>, CostT > 
-    bundle_adjuster( ba_model, cost_function );
+    bundle_adjuster( ba_model, cost_function,
+		     !g_vm.count("disable-camera-const"),
+		     !g_vm.count("disable-gcp-const"));
 
   // Handling options to modify Bundle Adjuster
   if ( g_vm.count( "lambda" ) )
@@ -599,18 +601,20 @@ int main(int argc, char* argv[]) {
   po::options_description general_options("Options");
   general_options.add_options()
     ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
-    ("lambda,l", po::value<double>(&g_lambda), "Set the intial value of the LM parameter g_lambda")
-    ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft position. (meters)")
-    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(1.0/10.0), "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
-    ("gcp-scalar", po::value<float>(&g_gcp_scalar)->default_value(1.0), "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
     ("cost-function", po::value<std::string>(&robust_cost_function)->default_value("L2"), "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
-    ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
-    ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
+    ("disable-camera-const", "Disable camera constraint error")
+    ("disable-gcp-const", "Disable GCP constraint error")
+    ("gcp-scalar", po::value<float>(&g_gcp_scalar)->default_value(1.0), "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
+    ("lambda,l", po::value<double>(&g_lambda), "Set the intial value of the LM parameter g_lambda")
     ("min-matches", po::value<int>(&min_matches)->default_value(30), "Set the minimum number of matches between images that will be considered.")
     ("max-iterations", po::value<int>(&g_max_iterations)->default_value(25), "Set the maximum number of iterations.")
-    ("poly-order", po::value<int>(&polynomial_order)->default_value(0), "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
-    ("report-level,r", po::value<int>(&g_report_level)->default_value(10), "Changes the detail of the Bundle Adjustment Report")
     ("nonsparse,n", "Run the non-sparse reference implementation of LM Bundle Adjustment. (For Debugging Purposes)")
+    ("poly-order", po::value<int>(&polynomial_order)->default_value(0), "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
+    ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft position. (meters)")
+    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(1.0/10.0), "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
+    ("report-level,r", po::value<int>(&g_report_level)->default_value(10), "Changes the detail of the Bundle Adjustment Report")
+    ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
+    ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
     ("seed-with-previous", "Use previous isis_adjust files at starting point for this run.")
     ("write-isis-cnet-also", "Writes an ISIS style control network")
     ("write-kml", po::value<bool>(&g_kml_all), "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates")
