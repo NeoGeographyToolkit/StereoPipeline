@@ -61,6 +61,7 @@ using namespace vw::cartography;
 #include "SurfaceNURBS.h"
 #include "BundleAdjustUtils.h"
 #include "MedianFilter.h"
+#include "Outliers.h"
 
 // Support for Malin DDD image files
 #include "MRO/DiskImageResourceDDD.h"	   
@@ -96,6 +97,7 @@ enum { PREPROCESSING = 0,
        CORRELATION, 
        REFINEMENT,
        FILTERING, 
+       DUST_REJECTION, 
        POINT_CLOUD, 
        WIRE_MESH, 
        NUM_STAGES};
@@ -264,7 +266,7 @@ int main(int argc, char* argv[]) {
 
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
-  vw_system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
+  vw_system_cache().resize( cache_size*1024*1024 );
   if ( num_threads != 0 ) {
     std::cout << "\t--> Setting number of processing threads to: " << num_threads << "\n";
     vw_settings().set_default_num_threads(num_threads);
@@ -673,6 +675,18 @@ int main(int argc, char* argv[]) {
       write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), 
                   TerminalProgressCallback(ErrorMessage, "\t    Writing: "));
       DiskImageView<PixelRGB<uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
+
+      // Okay.  This is ugly.  Sorry.  There is some sort of annoying
+      // edge artifact that creeps in when we apply the NURBS to an
+      // edge masked image, so we create two different edge masks
+      // here.  The first buffers by one kernel size (to prevent the
+      // NURBS from matching against the real bad data along the
+      // edges), and the second edge mask adds some addional buffering
+      // to get rid of the annoying edge artifact.  We should really
+      // only need the first edge mask here.
+      write_image(out_prefix + "-NurbsMask.tif", select_channel(edge_mask(good_pixel_image,
+                                                                          PixelRGB<float>(255,0,0),
+                                                                          stereo_settings().subpixel_h_kern*1.0),3));
       write_image(out_prefix + "-dMask.tif", select_channel(edge_mask(good_pixel_image, 
                                                                       PixelRGB<float>(255,0,0), 
                                                                       stereo_settings().subpixel_h_kern*2.0),3)); 
@@ -688,7 +702,9 @@ int main(int argc, char* argv[]) {
       DiskImageView<uint8> Dmask(out_prefix + "-dMask.tif");
       if(stereo_settings().fill_holes_NURBS) {
         std::cout << "\t--> Filling holes with bicubicly interpolated B-SPLINE surface.\n";
-        hole_filled_disp_map = HoleFillView(disparity::mask(filtered_disparity_map,Dmask,Rmask), 2);
+        hole_filled_disp_map = HoleFillView(disparity::mask(filtered_disparity_map,
+                                                            DiskImageView<uint8>(out_prefix + "-NurbsMask.tif"),
+                                                            Rmask), 2);
       } 
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
@@ -700,6 +716,52 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  /******************************************************************************/
+  /*                             DUST_REJECTION                                 */
+  /******************************************************************************/
+  if (entry_point <= DUST_REJECTION) {
+    if (entry_point == DUST_REJECTION) 
+      std::cout << "\nStarting at the DUST_REJECTION stage.\n";
+    vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> DUST_REJECTION \n";
+    
+    try {
+      
+      // NOTE: UNCOMMENT FOR APOLLO IMAGERY ONLY!!
+      //
+      // Compute the "dust mask" for the two images.
+      //
+      // 
+      photometric_outlier_rejection(out_prefix, stereo_settings().subpixel_h_kern);
+
+      DiskImageView<uint8> Dmask(out_prefix + "-dMask.tif");
+      DiskImageView<uint8> Rmask(out_prefix + "-rMask.tif");
+      
+      DiskImageView<PixelDisparity<float> > disparity_map(out_prefix + "-F.exr");
+      ImageView<PixelDisparity<float> > masked_disp_map = disparity::mask(disparity_map,
+                                                                          DiskImageView<uint8>(out_prefix + "-NurbsDustMask.tif"),
+                                                                          Rmask);
+      ImageViewRef<PixelDisparity<float> > hole_filled_disp_map = masked_disp_map;
+
+      // Disabled at Matt's request for now....
+      if(0) {
+        //      if(stereo_settings().fill_holes_NURBS) {
+        std::cout << "\t--> Re-filling holes with bicubicly interpolated B-SPLINE surface.\n";
+        hole_filled_disp_map = HoleFillView(disparity::mask(disparity_map,
+                                                            DiskImageView<uint8>(out_prefix + "-NurbsDustMask.tif"),
+                                                            Rmask), 2);
+      } 
+
+      DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-FD.exr", hole_filled_disp_map.format() );
+      disparity_map_rsrc.set_tiled_write(std::min(1024,hole_filled_disp_map.cols()),std::min(1024, hole_filled_disp_map.rows()));
+      block_write_image(disparity_map_rsrc, disparity::mask(hole_filled_disp_map,Dmask,Rmask), TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") ); 
+
+    } catch (IOErr &e) { 
+      cout << "\nUnable to start at filtering stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
+      exit(0);
+    }
+
+
+  }
 
   /******************************************************************************/
   /*                               TRIANGULATION                                */
@@ -708,6 +770,7 @@ int main(int argc, char* argv[]) {
     if (entry_point == POINT_CLOUD) 
       std::cout << "\nStarting at the TRIANGULATION stage.\n";
     vw_out(0) << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
+
 
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
@@ -732,7 +795,7 @@ int main(int argc, char* argv[]) {
       }        
 
       std::string prehook_filename;
-      session->pre_pointcloud_hook(out_prefix+"-F.exr", prehook_filename);
+      session->pre_pointcloud_hook(out_prefix+"-FD.exr", prehook_filename);
       DiskImageView<PixelDisparity<float> > disparity_map(prehook_filename);
 
       // Apply the stereo model.  This yields a image of 3D points in

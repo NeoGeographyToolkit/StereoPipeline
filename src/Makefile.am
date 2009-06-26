@@ -57,6 +57,8 @@ stereo_code = \
 	SurfaceNURBS.h \
 	TabulatedDataReader.cc \
 	TabulatedDataReader.h \
+	Outliers.cc \
+	Outliers.h \
 	$(rmax_code) \
 	$(bundle_code)
 
