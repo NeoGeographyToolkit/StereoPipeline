@@ -915,6 +915,8 @@ bool AllEventHandler::handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIAction
 	  (*_step) = _numIter;
 	  break;
 	}
+      default:
+	break;
       } 
     }
     break;
@@ -923,13 +925,14 @@ bool AllEventHandler::handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIAction
       
       // If there was a user keypress
       osgViewer::View* view = dynamic_cast< osgViewer::View* >(&aa);
-    if (view) {
-      pick( view, ea );
+      if (view)
+	pick( view, ea );
     }
+    break;
+  default:
+    break;
   }
-  break;
-}
-
+  
   return false;
 }
 

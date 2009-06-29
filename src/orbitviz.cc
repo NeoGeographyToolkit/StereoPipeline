@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
   po::options_description visible_options("Options");
   visible_options.add_options()
     ("help,h", "Display this help message")
-    ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
+    ("session-type,t", "Select the stereo session type to use for processing. [default: pinhole]")
     ("scale", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount");
 
   po::options_description positional_options("Positional Options");
@@ -147,17 +147,56 @@ int main(int argc, char* argv[]) {
 
   // If the command line wasn't properly formed or the user requested
   // help, we print an usage message.
+  std::ostringstream help;
+  help << "\nUsage: " << argv[0] << " [options] <Left_input_image> <Right_input_image> <Left_camera_file> <Right_camera_file> <output_file_prefix>\n"
+       << "  the extensions are automaticaly added to the output files\n"
+       << "  the parameters should be in stereo.default\n\n";
+  help << visible_options << std::endl;
+  std::cout << "HI I EXIST HERE\n";
   if( vm.count("help") ||
-      !vm.count("left-input-image") || !vm.count("right-input-image") || 
-      !vm.count("left-camera-model") || !vm.count("right-camera-model") || 
-      !vm.count("output-file")) {
-    std::cout << "\nUsage: " << argv[0] << " [options] <Left_input_image> <Right_input_image> <Left_camera_file> <Right_camera_file> <output_file_prefix>\n"
-              << "  the extensions are automaticaly added to the output files\n"
-              << "  the parameters should be in stereo.default\n\n";
-    std::cout << visible_options << std::endl;
+      !vm.count("left-input-image") || !vm.count("right-input-image")) {
+    std::cout << "Hit1" << std::endl;
+    std::cout << help.str();
     return 1;
   }
 
+  // Look up for session type based on file extensions
+  if (stereo_session_string.size() == 0) {
+    if ( (boost::iends_with(cam_file1, ".cahvor") && boost::iends_with(cam_file2, ".cahvor")) || 
+         (boost::iends_with(cam_file1, ".cahv") && boost::iends_with(cam_file2, ".cahv")) ||
+         (boost::iends_with(cam_file1, ".pin") && boost::iends_with(cam_file2, ".pin")) ||
+         (boost::iends_with(cam_file1, ".tsai") && boost::iends_with(cam_file2, ".tsai")) ) {
+         vw_out(0) << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
+         stereo_session_string = "pinhole";
+    } 
+
+    else if (boost::iends_with(in_file1, ".cub") && boost::iends_with(in_file2, ".cub")) {
+      vw_out(0) << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
+      stereo_session_string = "isis";
+    } 
+   
+    else {
+      vw_out(0) << "\n\n******************************************************************\n";
+      vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
+      vw_out(0) << "using the -t switch.  Options include: [pinhole isis].\n";
+      vw_out(0) << "******************************************************************\n\n";
+      exit(0);
+    }
+  }
+
+  // Special handling for Isis Cubes that also contain camera model
+  if ( stereo_session_string == "isis" ) {
+    std::cout << "Hit2\n";
+    if ( out_file.size() == 0 && vm.count("left-camera-model") 
+	 && !vm.count("right-camera-model")) 
+      out_file = cam_file1;
+  } else {
+    if (!vm.count("left-camera-model") || vm.count("right-camera-model") ) {
+      std::cout << "Hit3\n";
+      std::cout << help.str();
+      return 1;
+    }
+  }
 
   StereoSession* session = StereoSession::create(stereo_session_string);
   session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
