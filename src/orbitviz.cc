@@ -53,7 +53,6 @@ using namespace vw::cartography;
 #include "StereoSession.h"
 #include "SurfaceNURBS.h"
 #include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
-#include "KML.h"
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
 #include "Isis/DiskImageResourceIsis.h"
@@ -208,9 +207,12 @@ int main(int argc, char* argv[]) {
 
 
   // Create the KML file.
-  KMLStateVectorViz kml(out_file, "test", scale);
-  kml.append_body_state("Camera 1", camera_model1->camera_center(Vector2()), camera_model1->camera_pose(Vector2()));
-  kml.append_body_state("Camera 2", camera_model2->camera_center(Vector2()), camera_model2->camera_pose(Vector2()));
-  kml.close();
+  KMLFile kml( out_file, "orbitviz" );
+  kml.append_coordinate( camera_model1->camera_center(Vector2()),
+			 camera_model1->camera_pose(Vector2()),
+			 "Camera 1", "", scale );
+  kml.append_coordinate( camera_model2->camera_center(Vector2()),
+			 camera_model2->camera_pose(Vector2()),
+			 "Camera 2", "", scale );
   exit(0);
 }

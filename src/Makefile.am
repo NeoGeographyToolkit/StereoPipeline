@@ -40,8 +40,6 @@ bundle_code = \
 	ControlNetworkLoader.h
 
 stereo_code = \
-	KML.cc \
-	KML.h \
 	MedianFilter.h \
 	MOLAReader.cc \
 	MOLAReader.h \
