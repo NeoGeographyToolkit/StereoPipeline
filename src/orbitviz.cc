@@ -147,8 +147,9 @@ int main(int argc, char* argv[]) {
   help << "Note: All cameras and their images must be of the same session\ntype. Must have at least 2 cameras and models. In the event of\nusing just straight cubes with positioning information, leave a\nplace holder for camera model.\n\n";
   help << visible_options << std::endl;
 
+  // Checking to see if the user flubbed
   if( vm.count("help") ||
-      input_files.size() < 4 ) {
+      input_files.size() < 2 ) {
     std::cout << help.str();
     return 1;
   }
@@ -175,36 +176,46 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  // Additional Error checks on arguments
+  bool cube_only_isis = false;
+  if ( stereo_session_string != "isis" && input_files.size() < 4 ) {
+    std::cout << help.str();
+    return 1;
+  } else if ( "isis" && boost::iends_with(input_files[1], ".cub") ) 
+    cube_only_isis = true;
+
   StereoSession* session = StereoSession::create(stereo_session_string);
   
   // Data to be loaded
-  int no_cameras = input_files.size() / 2;
+  unsigned no_cameras = cube_only_isis ? input_files.size() : input_files.size() / 2;
+  std::cout << "Number of cameras: " << no_cameras << std::endl;
   std::vector<boost::shared_ptr<camera::CameraModel> > camera_models(no_cameras);
   std::vector<std::string> camera_names(no_cameras);
 
   // Copying file names
-  int loading_index = 0;
-  for (unsigned i = 0; i < input_files.size(); i+= 2 ) {
-    camera_names[loading_index] = input_files[i];
-    loading_index++;
+  for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
+       load_i++) {
+    camera_names[load_i] = input_files[read_i];
+    read_i += cube_only_isis ? 1 : 2;
   }
 
   // Building Camera Models
-  loading_index = 0;
-  for (unsigned i = 2; i < input_files.size(); i += 2 ) {
-    session->initialize( input_files[i-2], input_files[i],
-			 input_files[i-1], input_files[i+1],
-			 "idonotcare", "", "", "", "");
-    
-    if ( i == 2 ) {
-      session->camera_models(camera_models[0],
-			     camera_models[1] );
-      loading_index++;
+  for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
+       load_i++) {
+    if (cube_only_isis) {
+      session->initialize( input_files[read_i], input_files[read_i],
+			   input_files[read_i], input_files[read_i],
+			   "", "", "", "", "" );
+      read_i++;
     } else {
-      boost::shared_ptr<camera::CameraModel> temp;
-      session->camera_models(temp, camera_models[loading_index]);
+      session->initialize( input_files[read_i], input_files[read_i],
+			   input_files[read_i+1], input_files[read_i+1],
+			   "", "", "", "", "" );
+      read_i+=2;
     }
-    loading_index++;
+
+    boost::shared_ptr<camera::CameraModel> temp;
+    session->camera_models(temp, camera_models[load_i] );
   }
 
   // Create the KML file.
