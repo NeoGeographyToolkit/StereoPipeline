@@ -114,105 +114,125 @@ int main(int argc, char* argv[]) {
   // to specify the type, size, help string, etc, of the command line
   // arguments.
   std::string stereo_session_string;
-  std::string in_file1, in_file2, cam_file1, cam_file2, out_file;
+  std::vector<std::string> input_files;
+  std::string out_file;
   double scale;
 
   po::options_description visible_options("Options");
   visible_options.add_options()
     ("help,h", "Display this help message")
+    ("output,o", po::value<std::string>(&out_file)->default_value("orbit.kml"), "The output kml file that will be written")
+    ("scale,s", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount. Ex: To scale moon alt. measures up to earth size, use 3.66")
     ("session-type,t", "Select the stereo session type to use for processing. [default: pinhole]")
-    ("scale", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount");
+    ("use-simple-placemarks", "Draw simple icons at camera locations, instead of a coordinate model");
+  
+  po::options_description hidden_options("");
+  hidden_options.add_options()
+    ("input-files", po::value<std::vector<std::string> >(&input_files));
 
-  po::options_description positional_options("Positional Options");
-  positional_options.add_options()
-    ("left-input-image", po::value<std::string>(&in_file1), "Left Input Image")
-    ("right-input-image", po::value<std::string>(&in_file2), "Right Input Image")
-    ("left-camera-model", po::value<std::string>(&cam_file1), "Left Camera Model File")
-    ("right-camera-model", po::value<std::string>(&cam_file2), "Right Camera Model File")
-    ("output-file", po::value<std::string>(&out_file)->default_value("orbit.kml"), "Output filename");
-  po::positional_options_description positional_options_desc;
-  positional_options_desc.add("left-input-image", 1);
-  positional_options_desc.add("right-input-image", 1);
-  positional_options_desc.add("left-camera-model", 1);
-  positional_options_desc.add("right-camera-model", 1);
-  positional_options_desc.add("output-file", 1);
+  po::options_description options("Allowed Options");
+  options.add(visible_options).add(hidden_options);
 
-  po::options_description all_options;
-  all_options.add(visible_options).add(positional_options);
+  po::positional_options_description p;
+  p.add("input-files", -1);
 
   po::variables_map vm;
-  po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_options_desc).run(), vm );
+  po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
   po::notify( vm );
 
   // If the command line wasn't properly formed or the user requested
   // help, we print an usage message.
   std::ostringstream help;
-  help << "\nUsage: " << argv[0] << " [options] <Left_input_image> <Right_input_image> <Left_camera_file> <Right_camera_file> <output_file_prefix>\n"
-       << "  the extensions are automaticaly added to the output files\n"
-       << "  the parameters should be in stereo.default\n\n";
+  help << "\nUsage: " << argv[0] << " [options] <input image> <input camera model> <...and repeat...>\n\n";
+  help << "Note: All cameras and their images must be of the same session\ntype. Must have at least 2 cameras and models. In the event of\nusing just straight cubes with positioning information, leave a\nplace holder for camera model.\n\n";
   help << visible_options << std::endl;
-  std::cout << "HI I EXIST HERE\n";
+
   if( vm.count("help") ||
-      !vm.count("left-input-image") || !vm.count("right-input-image")) {
-    std::cout << "Hit1" << std::endl;
+      input_files.size() < 4 ) {
     std::cout << help.str();
     return 1;
   }
 
   // Look up for session type based on file extensions
   if (stereo_session_string.size() == 0) {
-    if ( (boost::iends_with(cam_file1, ".cahvor") && boost::iends_with(cam_file2, ".cahvor")) || 
-         (boost::iends_with(cam_file1, ".cahv") && boost::iends_with(cam_file2, ".cahv")) ||
-         (boost::iends_with(cam_file1, ".pin") && boost::iends_with(cam_file2, ".pin")) ||
-         (boost::iends_with(cam_file1, ".tsai") && boost::iends_with(cam_file2, ".tsai")) ) {
-         vw_out(0) << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
-         stereo_session_string = "pinhole";
+    if ( boost::iends_with(input_files[1], ".cahvor") || 
+	 boost::iends_with(input_files[1], ".cahv") ||
+         boost::iends_with(input_files[1], ".pin") ||
+         boost::iends_with(input_files[1], ".tsai") ) {
+      vw_out(0) << "\t--> Detected pinhole camera file\n";
+      stereo_session_string = "pinhole";
     } 
-
-    else if (boost::iends_with(in_file1, ".cub") && boost::iends_with(in_file2, ".cub")) {
-      vw_out(0) << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
+    else if (boost::iends_with(input_files[0], ".cub") ) {
+      vw_out(0) << "\t--> Detected ISIS cube file\n";
       stereo_session_string = "isis";
     } 
-   
     else {
       vw_out(0) << "\n\n******************************************************************\n";
       vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
-      vw_out(0) << "using the -t switch.  Options include: [pinhole isis].\n";
+      vw_out(0) << "using the -t switch.\n";
       vw_out(0) << "******************************************************************\n\n";
       exit(0);
     }
   }
 
-  // Special handling for Isis Cubes that also contain camera model
-  if ( stereo_session_string == "isis" ) {
-    std::cout << "Hit2\n";
-    if ( out_file.size() == 0 && vm.count("left-camera-model") 
-	 && !vm.count("right-camera-model")) 
-      out_file = cam_file1;
-  } else {
-    if (!vm.count("left-camera-model") || vm.count("right-camera-model") ) {
-      std::cout << "Hit3\n";
-      std::cout << help.str();
-      return 1;
-    }
+  StereoSession* session = StereoSession::create(stereo_session_string);
+  
+  // Data to be loaded
+  int no_cameras = input_files.size() / 2;
+  std::vector<boost::shared_ptr<camera::CameraModel> > camera_models(no_cameras);
+  std::vector<std::string> camera_names(no_cameras);
+
+  // Copying file names
+  int loading_index = 0;
+  for (unsigned i = 0; i < input_files.size(); i+= 2 ) {
+    camera_names[loading_index] = input_files[i];
+    loading_index++;
   }
 
-  StereoSession* session = StereoSession::create(stereo_session_string);
-  session->initialize(in_file1, in_file2, cam_file1, cam_file2, 
-                      out_file, "", "", "", "");
-
-  // Generate some camera models
-  boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-  session->camera_models(camera_model1, camera_model2);
-
+  // Building Camera Models
+  loading_index = 0;
+  for (unsigned i = 2; i < input_files.size(); i += 2 ) {
+    session->initialize( input_files[i-2], input_files[i],
+			 input_files[i-1], input_files[i+1],
+			 "idonotcare", "", "", "", "");
+    
+    if ( i == 2 ) {
+      session->camera_models(camera_models[0],
+			     camera_models[1] );
+      loading_index++;
+    } else {
+      boost::shared_ptr<camera::CameraModel> temp;
+      session->camera_models(temp, camera_models[loading_index]);
+    }
+    loading_index++;
+  }
 
   // Create the KML file.
   KMLFile kml( out_file, "orbitviz" );
-  kml.append_coordinate( camera_model1->camera_center(Vector2()),
-			 camera_model1->camera_pose(Vector2()),
-			 "Camera 1", "", scale );
-  kml.append_coordinate( camera_model2->camera_center(Vector2()),
-			 camera_model2->camera_pose(Vector2()),
-			 "Camera 2", "", scale );
+  // Style listing
+  if (vm.count("use-simple-placemarks")) {
+    // Placemark Style
+    kml.append_style( "plane", "", 1.2,
+		      "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+    kml.append_style( "plane_highlight", "", 1.4,
+		      "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+    kml.append_stylemap( "camera_placemark", "plane",
+			 "plane_highlight" );
+  }
+  // Placemarks
+  for ( unsigned i = 0; i < camera_models.size(); i++ ) 
+    if (!vm.count("use-simple-placemarks"))
+      kml.append_coordinate( camera_models[i]->camera_center(Vector2()),
+			     camera_models[i]->camera_pose(Vector2()),
+			     camera_names[i], "", scale );
+    else {
+      // Converting to lon lat radius
+      cartography::XYZtoLonLatRadFunctor func;
+      Vector3 lon_lat_alt = func(camera_models[i]->camera_center(Vector2()));
+      kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
+			    camera_names[i], "", "camera_placemark",
+			    lon_lat_alt.z()*scale - 6371e3, true );
+    }
+  kml.close_kml();
   exit(0);
 }
