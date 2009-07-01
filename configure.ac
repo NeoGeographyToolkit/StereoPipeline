@@ -229,11 +229,12 @@ AX_APP(POINT2DEM,      [src], yes, [BOOST_COMMON VW VW_CARTOGRAPHY])
 AX_APP(NURBS,          [src], no,  [BOOST_COMMON VW VW_STEREO MBA])
 AX_APP(CTXIMAGE,       [src], no,  [BOOST_COMMON VW VW_CARTOGRAPHY])
 AX_APP(RMAX2CAHVOR,    [src], no,  [BOOST_COMMON VW VW_CAMERA BOOST_FILESYSTEM])
-AX_APP(RMAXADJUST,     [src], no,  [BOOST_ALL VW VW_CAMERA VW_STEREO VW_INTEREST_POINT LAPACK])
+AX_APP(RMAXADJUST,     [src], no,  [BOOST_ALL VW_ALL LAPACK])
 AX_APP(BUNDLEVIS,      [src], no,  [BOOST_COMMON OPENSCENEGRAPH VW VW_CAMERA])
 AX_APP(ISISADJUST,     [src], yes, [BOOST_ALL VW_ALL ISIS])
 AX_APP(RESULTS,        [src], yes, [BOOST_ALL VW_ALL ISIS])
 AX_APP(CUDATEST,       [src], no,  [VW CUDA])
+AX_APP(RECONSTRUCT,    [src], no,  [BOOST_ALL VW VW_CARTOGRAPHY])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -253,7 +254,7 @@ AM_CONDITIONAL(MAKE_APP_RMAXADJUST, [test "$MAKE_APP_RMAXADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLEVIS, [test "$MAKE_APP_BUNDLEVIS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_CUDATEST, [test "$MAKE_APP_CUDATEST" = "yes"])
-
+AM_CONDITIONAL(MAKE_APP_RECONSTRUCT, [test "$MAKE_APP_RECONSTRUCT" = "yes"])
 
 
 ##################################################

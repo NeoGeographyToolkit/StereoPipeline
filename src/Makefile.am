@@ -253,6 +253,12 @@ if MAKE_APP_CUDATEST
   cuda_test_LDADD = $(APP_CUDATEST_LIBS)
 endif
 
+if MAKE_APP_RECONSTRUCT
+  bin_PROGRAMS += reconstruct
+  reconstruct_SOURCES = reconstruct.cc
+  reconstruct_LDADD = $(APP_RECONSTRUCT_LIBS)
+endif
+
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
