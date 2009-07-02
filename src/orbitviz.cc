@@ -203,19 +203,14 @@ int main(int argc, char* argv[]) {
   for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
        load_i++) {
     if (cube_only_isis) {
-      session->initialize( input_files[read_i], input_files[read_i],
-			   input_files[read_i], input_files[read_i],
-			   "", "", "", "", "" );
+      camera_models[load_i] = session->camera_model( input_files[read_i],
+						     input_files[read_i] );
       read_i++;
     } else {
-      session->initialize( input_files[read_i], input_files[read_i],
-			   input_files[read_i+1], input_files[read_i+1],
-			   "", "", "", "", "" );
+      camera_models[load_i] = session->camera_model( input_files[read_i],
+						     input_files[read_i+1] );
       read_i+=2;
     }
-
-    boost::shared_ptr<camera::CameraModel> temp;
-    session->camera_models(temp, camera_models[load_i] );
   }
 
   // Create the KML file.
