@@ -450,6 +450,12 @@ std::vector<std::string> sort_out_gcps( std::vector<std::string>& image_files ) 
 void add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
 				std::vector<std::string> const& image_files,
 				std::vector<std::string> const& gcp_files ) {
+  // Prep work
+  // Creating a version of image_files that doesn't contain the path
+  std::vector<std::string> pathless_image_files;
+  for ( unsigned i = 0; i < image_files.size(); i++ )
+    pathless_image_files.push_back(remove_path(image_files[i]));
+
   std::cout << "\nLoading Ground Control Points:\n";
   for ( std::vector<std::string>::const_iterator gcp_name = gcp_files.begin();
 	gcp_name != gcp_files.end(); gcp_name++ ) {
@@ -498,19 +504,19 @@ void add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cn
       for (camera_index = 0; camera_index < image_files.size(); camera_index++ ) {
 	if ( *m_iter_name == image_files[camera_index] )
 	  break;
+	else if ( *m_iter_name == pathless_image_files[camera_index])
+	  break;
       }
       if ( camera_index == image_files.size() ) {
 	std::cout << "\t\tWarning: no image found matching " 
 		  << *m_iter_name << std::endl;
-	continue;
+      } else {
+	std::cout << "\t\tAdded Measure: " << *m_iter_name << " #" 
+		  << camera_index << std::endl;
+	ControlMeasure cm( (*m_iter_loc).x(), (*m_iter_loc).y(),
+			   1.0, 1.0, camera_index );
+	cpoint.add_measure( cm );
       }
-      
-      std::cout << "\t\tAdded Measure: " << *m_iter_name << " #" 
-		<< camera_index << std::endl;
-      ControlMeasure cm( (*m_iter_loc).x(), (*m_iter_loc).y(),
-			 1.0, 1.0, camera_index );
-      cpoint.add_measure( cm );
-
       m_iter_loc++;
       m_iter_name++;
     }
