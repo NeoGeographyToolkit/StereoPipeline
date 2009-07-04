@@ -311,7 +311,7 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
-  std::vector<std::string> image_files;
+  std::vector<std::string> image_files, gcp_files;
   std::string cnet_file, stereosession_type;
   boost::shared_ptr<ControlNetwork> cnet( new ControlNetwork("My first control network"));
   double lambda;
@@ -377,7 +377,8 @@ int main(int argc, char* argv[]) {
       std::cout << usage.str();
       return 1;
     }
-  }  
+  }
+  gcp_files = sort_out_gcps( image_files );
 
   // Read in the camera model and image info for the input images.
   StereoSession* session = StereoSession::create(stereosession_type);
@@ -393,7 +394,8 @@ int main(int argc, char* argv[]) {
 			   image_files, 
 			   min_matches );
     add_ground_control_points( cnet,
-			       image_files );
+			       image_files,
+			       gcp_files );
 
     cnet->write_binary_control_network("control");
   }

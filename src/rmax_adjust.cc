@@ -289,6 +289,7 @@ public:
 int main(int argc, char* argv[]) {
 
   std::vector<std::string> image_files;
+  std::vector<std::string> gcp_files;
   std::string cnet_file;
   boost::shared_ptr<ControlNetwork> cnet( new ControlNetwork("My first control network"));
   double lambda;
@@ -340,6 +341,7 @@ int main(int argc, char* argv[]) {
     std::cout << usage.str();
     return 1;
   }  
+  gcp_files = sort_out_gcps( image_files );
   
   // Read in the camera model and RMAX image info for the input
   // images.
@@ -364,7 +366,8 @@ int main(int argc, char* argv[]) {
     build_control_network( cnet, camera_models,
 			   image_files, min_matches );
     add_ground_control_points( cnet,
-			       image_files );
+			       image_files,
+			       gcp_files );
     
     cnet->write_binary_control_network("rmax_adjust");
   }

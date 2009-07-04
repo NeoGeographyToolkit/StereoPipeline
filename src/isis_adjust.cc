@@ -24,6 +24,7 @@
 /// \file isis_adjust.cc
 ///    
 
+// Boost
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include "boost/filesystem/operations.hpp"
@@ -32,22 +33,28 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+// Vision Workbench
 #include <vw/Camera/BundleAdjust.h>
 #include <vw/Camera/BundleAdjustReport.h>
 #include <vw/Camera/ControlNetwork.h>
 #include <vw/Math.h>
 #include <vw/InterestPoint.h>
-#include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Core/Debugging.h>
 using namespace vw;
 using namespace vw::math;
 using namespace vw::camera;
 using namespace vw::ip;
+using namespace vw::stereo;
 
+// Standard
 #include <stdlib.h>
 #include <iostream>
 #include <iomanip>
 
+// Stereo Pipeline
+#include "stereo.h"
+#include "StereoSession.h"
+#include "Isis/StereoSessionIsis.h"
 #include "Isis/DiskImageResourceIsis.h"
 #include "Isis/IsisCameraModel.h"
 #include "Isis/Equation.h"
@@ -61,7 +68,7 @@ float g_gcp_scalar;
 boost::shared_ptr<ControlNetwork> g_cnet( new ControlNetwork("IsisAdjust Control Network (in mm)"));
 po::variables_map g_vm;
 std::vector< boost::shared_ptr< IsisAdjustCameraModel > > g_camera_adjust_models;
-std::vector<std::string> g_input_files;
+std::vector<std::string> g_input_files, g_gcp_files;
 double g_lambda;
 int g_max_iterations;
 int g_report_level;
@@ -647,8 +654,9 @@ int main(int argc, char* argv[]) {
     std::cout << usage.str();
     return 1;
   }
+  g_gcp_files = sort_out_gcps( g_input_files );
 
-  // Checking cost functio strings
+  // Checking cost function strings
   boost::to_lower( robust_cost_function );
   if ( !( robust_cost_function == "pseudohuber" ||
 	  robust_cost_function == "huber" ||
@@ -720,7 +728,8 @@ int main(int argc, char* argv[]) {
 			   g_input_files,
 			   min_matches );
     add_ground_control_points( g_cnet,
-			       g_input_files );
+			       g_input_files,
+			       g_gcp_files );
   }
 
   // Double checking to make sure that the Control Network is set up
