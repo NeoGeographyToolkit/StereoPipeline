@@ -219,7 +219,7 @@ endif
 
 if MAKE_APP_ISISADJUST
   bin_PROGRAMS += isis_adjust
-  isis_adjust_SOURCES = isis_adjust.cc $(bundle_code) $(isis_code)
+  isis_adjust_SOURCES = isis_adjust.cc $(stereo_code)
   isis_adjust_LDADD = $(APP_ISISADJUST_LIBS)
 endif
 
