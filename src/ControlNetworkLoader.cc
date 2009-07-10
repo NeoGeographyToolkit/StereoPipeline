@@ -356,8 +356,7 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
     error_sum /= positions.size();
     Vector3 position_avg;
     for ( unsigned j = 0; j < positions.size(); j++ )
-      position_avg += positions[j];
-    position_avg /= positions.size();
+      position_avg += positions[j]/positions.size();
 
     (*cnet)[i].set_position( position_avg );
 
