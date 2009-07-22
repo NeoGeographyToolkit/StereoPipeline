@@ -356,17 +356,16 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
     error_sum /= positions.size();
     Vector3 position_avg;
     for ( unsigned j = 0; j < positions.size(); j++ )
-      position_avg += positions[j];
-    position_avg /= positions.size();
+      position_avg += positions[j]/positions.size();
 
     (*cnet)[i].set_position( position_avg );
 
   }
 }
 
-
-void add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
-				std::vector<std::string> image_files ) {
+// Loads GCPs the traditional route
+void add_ground_control_points_past( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
+				     std::vector<std::string> image_files ) {
   std::cout << "\nLoading Ground Control Points:\n";
   for ( unsigned i = 0; i < image_files.size(); ++i ) {
     std::string potential_gcp = prefix_from_filename( image_files[i] ) + ".gcp";
@@ -421,5 +420,107 @@ void add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cn
       std::cout << "\t" << potential_gcp << "    " << " : " 
 	      << count << " GCPs.\n";
     }
+  }
+}
+
+// This sifts out from a vector of strings, a listing of GCPs.  This
+// should be useful for those programs who accept their data in a mass
+// input vector.
+std::vector<std::string> sort_out_gcps( std::vector<std::string>& image_files ) {
+  std::vector<std::string> gcp_files;
+  std::vector<std::string>::iterator it = image_files.begin();
+  while ( it != image_files.end() ) {
+    if ( boost::iends_with(*it, ".gcp") ){
+      gcp_files.push_back( *it );
+      it = image_files.erase( it );
+    } else 
+      it++;
+  }
+
+  return gcp_files;
+}
+
+// This will add a single ground control point file into the control
+// network. This is different from in the past as this gcp file
+// represents a single gcp. The gcp file inside contains a listing of
+// image file names that see it and where it was located in each
+// image. The very first line of the file defines the gcps location in
+// the world and their sigmas.
+void add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
+				std::vector<std::string> const& image_files,
+				std::vector<std::string> const& gcp_files ) {
+  // Prep work
+  // Creating a version of image_files that doesn't contain the path
+  std::vector<std::string> pathless_image_files;
+  for ( unsigned i = 0; i < image_files.size(); i++ )
+    pathless_image_files.push_back(remove_path(image_files[i]));
+
+  std::cout << "\nLoading Ground Control Points:\n";
+  for ( std::vector<std::string>::const_iterator gcp_name = gcp_files.begin();
+	gcp_name != gcp_files.end(); gcp_name++ ) {
+
+    if ( !fs::exists( *gcp_name ) )
+      continue;
+
+    // Data to be loaded
+    std::vector<Vector2> measure_locations;
+    std::vector<std::string> measure_cameras;
+    Vector3 world_location, world_sigma;
+
+    std::cout << "\tLoading \"" << *gcp_name << "\".\n";
+    int count = 0;
+    std::ifstream ifile( (*gcp_name).c_str() );
+    while (!ifile.eof()) {
+      if ( count == 0 ) {
+	// First line defines position in the world
+	ifile >> world_location[0] >> world_location[1]
+	      >> world_location[2] >> world_sigma[0]
+	      >> world_sigma[1] >> world_sigma[2];
+      } else {
+	// Other lines define position in images
+	std::string temp_name;
+	Vector2 temp_loc;
+	ifile >> temp_name >> temp_loc[0] >> temp_loc[1];
+	measure_locations.push_back( temp_loc );
+	measure_cameras.push_back( temp_name );
+      }
+      count++;
+    }
+    ifile.close();
+   
+    // Building Control Point
+    Vector3 xyz = cartography::lon_lat_radius_to_xyz(world_location);
+    std::cout << "\t\tLocation: " << xyz << std::endl;
+    ControlPoint cpoint(ControlPoint::GroundControlPoint);
+    cpoint.set_position(xyz[0],xyz[1],xyz[2]);
+    cpoint.set_sigma(world_sigma[0],world_sigma[1],world_sigma[2]);
+
+    // Adding measures
+    std::vector<Vector2>::iterator m_iter_loc = measure_locations.begin();
+    std::vector<std::string>::iterator m_iter_name = measure_cameras.begin();
+    while ( m_iter_loc != measure_locations.end() ) {
+      unsigned camera_index;
+      for (camera_index = 0; camera_index < image_files.size(); camera_index++ ) {
+	if ( *m_iter_name == image_files[camera_index] )
+	  break;
+	else if ( *m_iter_name == pathless_image_files[camera_index])
+	  break;
+      }
+      if ( camera_index == image_files.size() ) {
+	std::cout << "\t\tWarning: no image found matching " 
+		  << *m_iter_name << std::endl;
+      } else {
+	std::cout << "\t\tAdded Measure: " << *m_iter_name << " #" 
+		  << camera_index << std::endl;
+	ControlMeasure cm( (*m_iter_loc).x(), (*m_iter_loc).y(),
+			   1.0, 1.0, camera_index );
+	cpoint.add_measure( cm );
+      }
+      m_iter_loc++;
+      m_iter_name++;
+    }
+
+    // Appended GCP
+    cnet->add_control_point(cpoint);
   }
 }
