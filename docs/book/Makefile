@@ -2,6 +2,7 @@ all: asp_book.pdf
 
 asp_book.pdf:
 	pdflatex asp_book.tex
+	pdflatex asp_book.tex
 
 clean:
 	rm -rf *.o *~ \#* *.aux *.log 
