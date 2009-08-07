@@ -171,7 +171,7 @@ AX_PKG_ONE_OF(QT,
     APPLE_QT, [AX_PKG_APPLE(QT, [GL QT_BASE], [])],
     LINUX_QT,
      [AX_PKG(QT_OPENGL, [GL QT_BASE], [], [QtOpenGL])
-      AX_PKG(QT_GUI,    [QT_BASE,     [], [QLabel])
+      AX_PKG(QT_GUI,    [QT_BASE],    [], [QLabel])
       AX_PKG(QT_SQL,    [QT_BASE],    [], [QtSql])
       AX_GROUP_PKG(LINUX_QT, [QT_BASE QT_GUI QT_OPENGL QT_SQL])])
 
