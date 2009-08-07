@@ -766,7 +766,7 @@ int main(int argc, char* argv[]) {
       point_cloud_rsrc.set_block_size(Vector2i(std::min(1024,point_cloud.cols()),
 					       std::min(1024, point_cloud.rows())));
 
-      write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
+      block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
       vw_out(0) << "\t--> " << universe_radius_func;
     } catch (IOErr &e) { 
       cout << "\nUnable to start at point cloud stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";

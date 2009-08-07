@@ -46,6 +46,7 @@ public:
   int epipolar_alignment;     /* Align images using the epipolar constraints */
   int keypoint_alignment;     /* Align images using the keypoint alignment method */
   int keypoint_align_subsampling;	   // if > 1, image sub-sampling factor for keypoint aligment (to speed things up)
+  int individually_normalize; // if > 1, normalize the images individually with their own hi's and low. Default = 0 means we pick a global high and low.
 
   // Correlation Options
   int slog;		/* perform an slog (relpace the emboss) */

@@ -105,7 +105,9 @@ public:
   static StereoSession* construct() { return new StereoSessionIsis; }
 
 private:
-  vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2, float lo, float hi);
+  vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, 
+						     std::string const& input_file2, 
+						     float lo, float hi );
 
 };
 

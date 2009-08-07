@@ -249,6 +249,7 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     min_max_channel_values(create_mask(right_disk_image), right_lo, right_hi);
   }
   vw_out(InfoMessage) << "\t    Right: [" << right_lo << " " << right_hi << "]\n";
+  
   float lo = std::min (left_lo, right_lo);
   float hi = std::min (left_hi, right_hi);
 
@@ -268,9 +269,17 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     // Create the geotransform objects and determine the common size
     // of the output images and apply it to the right image.
     GeoTransform trans2(input_georef2, common_georef);
-    ImageViewRef<PixelGray<float> > Limg = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
-    ImageViewRef<PixelGray<float> > Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, lo),lo,hi,0.0,1.0),trans2),common_bbox);
-
+    ImageViewRef<PixelGray<float> > Limg;
+    ImageViewRef<PixelGray<float> > Rimg;
+    if (stereo_settings().individually_normalize == 0 ) {
+      Limg = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
+      Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0),trans2),common_bbox);
+    } else {
+      vw_out(0) << "\t--> Individually normalizing.\n";
+      Limg = normalize(remove_isis_special_pixels(left_disk_image, left_lo));
+      Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, right_lo)),trans2),common_bbox);
+    }
+    
     // Write the results to disk.
     write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback(ErrorMessage, "Left map-projected image: " ));
     write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback(ErrorMessage, "Right map-projected image: ")); 
@@ -284,19 +293,36 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     Matrix<double> align_matrix(3,3);
     align_matrix.set_identity();
     if (stereo_settings().keypoint_alignment)
-      align_matrix = determine_image_alignment(input_file1, input_file2, lo, hi);
+      align_matrix = determine_image_alignment(input_file1, input_file2, 
+					       lo, hi);
     ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
 
     // Apply the alignment transformation to the right image.
-    ImageViewRef<PixelGray<float> > Limg = normalize(remove_isis_special_pixels(left_disk_image, lo),lo,hi,0.0,1.0);
-    ImageViewRef<PixelGray<float> > Rimg = transform(normalize(remove_isis_special_pixels(right_disk_image,lo),lo,hi,0.0,1.0), 
-                                                     HomographyTransform(align_matrix),
-                                                     left_disk_image.cols(), left_disk_image.rows());
+    ImageViewRef<PixelGray<uint8> > Limg;
+    ImageViewRef<PixelGray<uint8> > Rimg;
+    if (stereo_settings().individually_normalize == 0 ) {
+      Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, lo),lo,hi,0.0,1.0));
+      Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,lo),lo,hi,0.0,1.0), 
+						   HomographyTransform(align_matrix),
+						   left_disk_image.cols(), left_disk_image.rows()));
+    } else {
+      vw_out(0) << "\t--> Individually normalizing.\n";
+      Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, left_lo)));
+      Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo)), 
+						   HomographyTransform(align_matrix),
+						   left_disk_image.cols(), left_disk_image.rows()));
+    }
 
     // Write the results to disk.
     vw_out(0) << "\t--> Writing pre-aligned images.\n";
-    write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback(ErrorMessage, "\t    Left:  "));
-    write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback(ErrorMessage, "\t    Right: ")); 
+    { 
+      DiskImageResourceGDAL left_rsrc( output_file1, Limg.format() ); 
+      block_write_image( left_rsrc, Limg, TerminalProgressCallback(ErrorMessage, "\t    Left:  "));
+    }
+    {
+      DiskImageResourceGDAL right_rsrc( output_file2, Rimg.format() );
+      block_write_image( right_rsrc, Rimg, TerminalProgressCallback(ErrorMessage, "\t    Right: ")); 
+    }
   }
 }
 
