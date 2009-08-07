@@ -83,6 +83,12 @@
 # course you can use .cpp or .cxx or .C rather than .cc) AutoTroll will build
 # them automagically for you (using implicit rules defined in autotroll.mk).
 
+m4_define([_AUTOTROLL_SERIAL], [m4_translit([
+# serial 4
+], [#
+], [])])
+
+
 m4_ifdef([AX_INSTEAD_IF], [],
 [AC_DEFUN([AX_INSTEAD_IF],
   [m4_ifval([$1],
@@ -172,8 +178,8 @@ m4_ifdef([AS_VERSION_COMPARE], [], [
   esac[]dnl
 ])])
 
-# AT_WITH_QT([QT_modules], [QT_config], [QT_misc], ([run-if-ok], [run-if-failed]))
-# ------------------------------------------------
+# AT_WITH_QT([QT_modules], [QT_config], [QT_misc], [RUN-IF-FAILED], [RUN-IF-OK])
+# ------------------------------------------------------------------------------
 # Enable Qt support and add an option --with-qt to the configure script.
 #
 # The QT_modules argument is optional and defines extra modules to enable or
@@ -196,10 +202,15 @@ m4_ifdef([AS_VERSION_COMPARE], [], [
 # file used to guess how to compile Qt apps. You may use it to further tweak
 # the build process of Qt apps if tweaking the QT or CONFIG variables isn't
 # enough for you.
+#
+# RUN-IF-FAILED is arbitrary code to execute if Qt cannot be found or if any
+# problem happens.  If this argument is omitted, then AC_MSG_ERROR will be
+# called.  RUN-IF-OK is arbitrary code to execute if Qt was successfully found.
 AC_DEFUN([AT_WITH_QT],
-[ AC_REQUIRE([AC_CANONICAL_HOST])
-  AC_REQUIRE([AC_CANONICAL_BUILD])
-  AC_REQUIRE([AC_PROG_CXX])
+[AC_REQUIRE([AC_CANONICAL_HOST])dnl
+AC_REQUIRE([AC_CANONICAL_BUILD])dnl
+AC_REQUIRE([AC_PROG_CXX])dnl
+echo "$as_me: this is autotroll.m4[]_AUTOTROLL_SERIAL" >&AS_MESSAGE_LOG_FD
 
   test x"$TROLL" != x && echo 'ViM rox emacs.'
 
@@ -210,7 +221,7 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
               [QT_PATH=$withval])
 
   # this is a hack to get decent flow control with 'break'
-  for ignored in once; do
+  for _qt_ignored in once; do
 
   # Find Qt.
   AC_ARG_VAR([QT_PATH], [Path to the Qt installation])
@@ -219,13 +230,16 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
     tmp_qt_paths=`echo /usr/local/Trolltech/*/bin | tr ' ' '\n' | sort -nr \
                                               | xargs | sed 's/  */:/g'`
   fi
+  # Path to which recent MacPorts (~v1.7) install Qt4.
+  test -d /opt/local/libexec/qt4-mac/bin \
+    && tmp_qt_paths="$tmp_qt_paths:/opt/local/libexec/qt4-mac/bin"
 
   # Find qmake.
   AC_ARG_VAR([QMAKE], [Qt Makefile generator command])
   AC_PATH_PROGS([QMAKE], [qmake qmake-qt4 qmake-qt3], [missing],
                 [$QT_DIR:$QT_PATH:$PATH:$tmp_qt_paths])
   if test x"$QMAKE" = xmissing; then
-    AX_INSTEAD_IF([$5], [Cannot find qmake in your PATH. Try using --with-qt.])
+    AX_INSTEAD_IF([$4], [Cannot find qmake in your PATH. Try using --with-qt.])
     break
   fi
 
@@ -234,7 +248,8 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
   AC_PATH_PROGS([MOC], [moc moc-qt4 moc-qt3], [missing],
                 [$QT_PATH:$PATH:$tmp_qt_paths])
   if test x"$MOC" = xmissing; then
-    AX_INSTEAD_IF([$5], [Cannot find moc (Meta Object Compiler) in your PATH. Try using --with-qt.])
+    AX_INSTEAD_IF([$4],
+   [Cannot find moc (Meta Object Compiler) in your PATH. Try using --with-qt.])
     break
   fi
 
@@ -243,7 +258,8 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
   AC_PATH_PROGS([UIC], [uic uic-qt4 uic-qt3 uic3], [missing],
                 [$QT_PATH:$PATH:$tmp_qt_paths])
   if test x"$UIC" = xmissing; then
-    AX_INSTEAD_IF([$5], [Cannot find uic (User Interface Compiler) in your PATH. Try using --with-qt.])
+    AX_INSTEAD_IF([$4],
+[Cannot find uic (User Interface Compiler) in your PATH. Try using --with-qt.])
     break
   fi
 
@@ -251,7 +267,8 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
   AC_ARG_VAR([RCC], [Qt Resource Compiler command])
   AC_PATH_PROGS([RCC], [rcc], [false], [$QT_PATH:$PATH:$tmp_qt_paths])
   if test x"$UIC" = xfalse; then
-    AC_MSG_WARN([Cannot find rcc (Qt Resource Compiler) in your PATH. Try using --with-qt.])
+    AC_MSG_WARN([Cannot find rcc (Qt Resource Compiler) in your PATH.\
+  Try using --with-qt.])
   fi
 
   AC_MSG_CHECKING([whether host operating system is Darwin])
@@ -269,7 +286,8 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
     QT_PATH=`dirname "$QMAKE"`
   fi
   if test x"$QT_PATH" = x; then
-    AX_INSTEAD_IF([$5], [Cannot find the path to your Qt install. Use --with-qt.])
+    AX_INSTEAD_IF([$4],
+                  [Cannot find the path to your Qt install. Use --with-qt.])
     break
   fi
   AC_SUBST([QT_PATH])
@@ -289,7 +307,7 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
         break
       fi
     done
-  fi
+    fi
 
   # Kludge!!  QMake has a very strange behavior.  For instance, if you
   # install Qt under your $HOME and run QMake somewhere else under your
@@ -304,9 +322,10 @@ dnl Memo: AC_ARG_WITH(package, help-string, [if-given], [if-not-given])
   then
     :
   else
-    AX_INSTEAD_IF([$5], [Cannot cd to or write in $my_tmpdir])
+    AX_INSTEAD_IF([$4], [Cannot cd to or write in $my_tmpdir])
     break
   fi
+
   cat >conftest.h <<_ASEOF
 #include <QObject>
 
@@ -344,7 +363,7 @@ int main()
 }
 _ASEOF
   if $QMAKE -project; then :; else
-    AX_INSTEAD_IF([$5], [Calling $QMAKE -project failed.])
+    AX_INSTEAD_IF([$4], [Calling $QMAKE -project failed.])
     break
   fi
 
@@ -352,7 +371,7 @@ _ASEOF
   pro_file='conftest.dir.pro'
   test -f $pro_file || pro_file=`echo *.pro`
   if test -f "$pro_file"; then :; else
-    AX_INSTEAD_IF([$5], [Can't find the .pro file generated by Qmake.])
+    AX_INSTEAD_IF([$4], [Can't find the .pro file generated by Qmake.])
     break
   fi
 
@@ -371,7 +390,7 @@ m4_ifval([$3],
   sed 's/^/| /' "$pro_file" >&AS_MESSAGE_LOG_FD
 
   if $QMAKE $QMAKE_ARGS; then :; else
-    AX_INSTEAD_IF([$5], [Calling $QMAKE $QMAKE_ARGS failed.])
+    AX_INSTEAD_IF([$4], [Calling $QMAKE $QMAKE_ARGS failed.])
     break
   fi
 
@@ -412,7 +431,7 @@ instead" >&AS_MESSAGE_LOG_FD
       else
         echo "$as_me:$LINENO: Build failed, trying to #include <qobject.h> \
 instead" >&AS_MESSAGE_LOG_FD
-        sed 's/<QObject>/<qobject.h>/' conftest.h > tmp.h && mv tmp.h conftest.h
+        sed 's/<QObject>/<qobject.h>/' conftest.h >tmp.h && mv tmp.h conftest.h
         if $MAKE >&AS_MESSAGE_LOG_FD 2>&1; then
           at_cv_qt_build='ok, looks like Qt 3, release mode forced'
         else
@@ -428,10 +447,10 @@ instead" >&AS_MESSAGE_LOG_FD
   ])dnl end: AC_CACHE_CHECK(at_cv_qt_build)
 
   if test x"$at_cv_qt_build" = xko; then
-    AX_INSTEAD_IF([$5], [Cannot build a test Qt program])
+    AX_INSTEAD_IF([$4], [Cannot build a test Qt program])
     break
   fi
-  QT_VERSION_MAJOR=`echo "$at_cv_qt_build" | sed 's/^[^0-9]*//'`
+  QT_VERSION_MAJOR=`echo "$at_cv_qt_build" | sed 's/[[^0-9]]*//g'`
   AC_SUBST([QT_VERSION_MAJOR])
 
   # This sed filter is applied after an expression of the form: /^FOO.*=/!d;
@@ -454,36 +473,35 @@ instead" >&AS_MESSAGE_LOG_FD
     at_mfile='Makefile'
   fi
   if test -f $at_mfile; then :; else
-    cd "$my_configure_pwd"
-    AX_INSTEAD_IF([$5], [Cannot find the Makefile generated by qmake.])
+    AX_INSTEAD_IF([$4], [Cannot find the Makefile generated by qmake.])
     break
   fi
 
   # Find the DEFINES of Qt (should have been named CPPFLAGS).
   AC_CACHE_CHECK([for the DEFINES to use with Qt], [at_cv_env_QT_DEFINES],
-  [at_cv_env_QT_DEFINES=`sed "/^DEFINES@<:@^A-Z@:>@*=/!d;$qt_sed_filter" $at_mfile`])
+  [at_cv_env_QT_DEFINES=`sed "/^DEFINES@<:@^A-Z=@:>@*=/!d;$qt_sed_filter" $at_mfile`])
   AC_SUBST([QT_DEFINES], [$at_cv_env_QT_DEFINES])
 
   # Find the CFLAGS of Qt (We can use Qt in C?!)
   AC_CACHE_CHECK([for the CFLAGS to use with Qt], [at_cv_env_QT_CFLAGS],
-  [at_cv_env_QT_CFLAGS=`sed "/^CFLAGS@<:@^A-Z@:>@*=/!d;$qt_sed_filter" $at_mfile`])
+  [at_cv_env_QT_CFLAGS=`sed "/^CFLAGS@<:@^A-Z=@:>@*=/!d;$qt_sed_filter" $at_mfile`])
   AC_SUBST([QT_CFLAGS], [$at_cv_env_QT_CFLAGS])
 
   # Find the CXXFLAGS of Qt.
   AC_CACHE_CHECK([for the CXXFLAGS to use with Qt], [at_cv_env_QT_CXXFLAGS],
-  [at_cv_env_QT_CXXFLAGS=`sed "/^CXXFLAGS@<:@^A-Z@:>@*=/!d;$qt_sed_filter" $at_mfile`])
+  [at_cv_env_QT_CXXFLAGS=`sed "/^CXXFLAGS@<:@^A-Z=@:>@*=/!d;$qt_sed_filter" $at_mfile`])
   AC_SUBST([QT_CXXFLAGS], [$at_cv_env_QT_CXXFLAGS])
 
   # Find the INCPATH of Qt.
   AC_CACHE_CHECK([for the INCPATH to use with Qt], [at_cv_env_QT_INCPATH],
-  [at_cv_env_QT_INCPATH=`sed "/^INCPATH@<:@^A-Z@:>@*=/!d;$qt_sed_filter" $at_mfile`])
+  [at_cv_env_QT_INCPATH=`sed "/^INCPATH@<:@^A-Z=@:>@*=/!d;$qt_sed_filter" $at_mfile`])
   AC_SUBST([QT_INCPATH], [$at_cv_env_QT_INCPATH])
 
   AC_SUBST([QT_CPPFLAGS], ["$at_cv_env_QT_DEFINES $at_cv_env_QT_INCPATH"])
 
   # Find the LFLAGS of Qt (Should have been named LDFLAGS)
   AC_CACHE_CHECK([for the LDFLAGS to use with Qt], [at_cv_env_QT_LDFLAGS],
-  [at_cv_env_QT_LDFLAGS=`sed "/^LFLAGS@<:@^A-Z@:>@*=/!d;$qt_sed_filter" $at_mfile`])
+  [at_cv_env_QT_LDFLAGS=`sed "/^LFLAGS@<:@^A-Z=@:>@*=/!d;$qt_sed_filter" $at_mfile`])
   AC_SUBST([QT_LFLAGS], [$at_cv_env_QT_LDFLAGS])
   AC_SUBST([QT_LDFLAGS], [$at_cv_env_QT_LDFLAGS])
 
@@ -500,29 +518,39 @@ instead" >&AS_MESSAGE_LOG_FD
   ])
   AC_SUBST([QT_LIBS], [$at_cv_env_QT_LIBS])
 
-  cd "$my_configure_pwd" || echo 'WTF!'
-  rm -rf "$my_tmpdir"
-
   # Run the user code
-  $4
+  $5
 
-  done
+  done  # end hack (useless for to be able to use break)
+
+  # clean up, and make sure we don't change cwd
+
+  if test -n "$my_configure_pwd"; then
+    cd "$my_configure_pwd"
+  fi
+  if test -n "$my_tmpdir"; then
+    rm -rf "$my_tmpdir"
+  fi
+
 ])
 
-# AT_REQUIRE_QT_VERSION(QT_version, RUN-IF-OKAY, RUN-IF-FAILED)
-# ---------------------------------
+# AT_REQUIRE_QT_VERSION(QT_version, RUN-IF-FAILED, RUN-IF-OK)
+# -----------------------------------------------------------
 # Check (using qmake) that Qt's version "matches" QT_version.
 # Must be run AFTER AT_WITH_QT. Requires autoconf 2.60.
+#
+# RUN-IF-FAILED is arbitrary code to execute if Qt cannot be found or if any
+# problem happens.  If this argument is omitted, then AC_MSG_ERROR will be
+# called.  RUN-IF-OK is arbitrary code to execute if Qt was successfully found.
 AC_DEFUN([AT_REQUIRE_QT_VERSION],
 [
   # this is a hack to get decent flow control with 'break'
-  for ignored in once; do
+  for _qt_ignored in once; do
 
   if test x"$QMAKE" = x; then
-    AX_INSTEAD_IF([$3], [\$QMAKE is empty. Did you invoke AT@&t@_WITH_QT before AT@&t@_REQUIRE_QT_VERSION?])
-    break
-  elif test x"$QMAKE" = "xmissing"; then
-    AX_INSTEAD_IF([$3], [QMAKE is missing. Skipping the version check.])
+    AX_INSTEAD_IF([$2],
+                  [\$QMAKE is empty.\
+  Did you invoke AT@&t@_WITH_QT before AT@&t@_REQUIRE_QT_VERSION?])
     break
   fi
   AC_CACHE_CHECK([for Qt's version], [at_cv_QT_VERSION],
@@ -531,16 +559,17 @@ AC_DEFUN([AT_REQUIRE_QT_VERSION],
   qmake_version_sed=['/^.*\([0-9]\.[0-9]\.[0-9]\).*$/!d;s//\1/']
   at_cv_QT_VERSION=`$QMAKE --version 2>&1 | sed "$qmake_version_sed"`])
   if test x"$at_cv_QT_VERSION" = x; then
-    AX_INSTEAD_IF([$3], [Cannot detect Qt's version.])
+    AX_INSTEAD_IF([$2], [Cannot detect Qt's version.])
     break
   fi
   AC_SUBST([QT_VERSION], [$at_cv_QT_VERSION])
   AS_VERSION_COMPARE([$QT_VERSION], [$1],
-    [AX_INSTEAD_IF([$3], [This package requires Qt $1 or above.])],
-    [$2], [$2])
+    [AX_INSTEAD_IF([$2; break;], [This package requires Qt $1 or above.])])
 
-  #endhack
-  done
+  # Run the user code
+  $3
+
+  done  # end hack (useless for to be able to use break)
 ])
 
 # _AT_TWEAK_PRO_FILE(QT_VAR, VALUE)

@@ -157,29 +157,28 @@ AX_PKG_ONE_OF(MBA,
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
 # Qt with AutoTroll.
-AT_WITH_QT([+gui +sql +opengl], [], [], [], [HAVE_PKG_QT_INCLUDE="no:missing QT"])
+AT_WITH_QT([+gui +sql +opengl], [], [], [HAVE_PKG_QT_BASE="no:missing QT"], [])
 
-if test x"$HAVE_PKG_QT_INCLUDE" = x"yes"; then
-    AT_REQUIRE_QT_VERSION([4.0], [], [HAVE_PKG_QT_INCLUDE="no:wrong QT version"])
+if test x"$HAVE_PKG_QT_BASE" != x"no:missing QT"; then
+    AT_REQUIRE_QT_VERSION([4.0], [HAVE_PKG_QT_BASE="no:wrong QT version"], [])
 fi
 
 # We seed QT_INCLUDE's cppflags with the ones qmake figured out
-PKG_QT_INCLUDE_CPPFLAGS="$PKG_QT_INCLUDE_CPPFLAGS $QT_CPPFLAGS"
-AX_PKG(QT_INCLUDE, [], [], [QVector])
+PKG_QT_BASE_CPPFLAGS="$PKG_QT_BASE_CPPFLAGS $QT_CPPFLAGS"
+AX_PKG(QT_BASE, [], [$QT_LIBS], [QVector])
 
 AX_PKG_ONE_OF(QT,
-    APPLE_QT, [AX_PKG_APPLE(QT, [GL QT_INCLUDE], [$QT_LIBS])],
+    APPLE_QT, [AX_PKG_APPLE(QT, [GL QT_BASE], [])],
     LINUX_QT,
-     [AX_PKG(QT_LIBS,                     [], [$QT_LIBS], [])
-      AX_PKG(QT_OPENGL,  [GL QT_INCLUDE], [], [QtOpenGL])
-      AX_PKG(QT_GUI,     [QT_INCLUDE],    [], [QLabel])
-      AX_PKG(QT_SQL,     [QT_INCLUDE],    [], [QtSql])
-      AX_GROUP_PKG(LINUX_QT, [QT_INCLUDE QT_GUI QT_OPENGL QT_SQL QT_LIBS])])
+     [AX_PKG(QT_OPENGL, [GL QT_BASE], [], [QtOpenGL])
+      AX_PKG(QT_GUI,    [QT_BASE,     [], [QLabel])
+      AX_PKG(QT_SQL,    [QT_BASE],    [], [QtSql])
+      AX_GROUP_PKG(LINUX_QT, [QT_BASE QT_GUI QT_OPENGL QT_SQL])])
 
 AX_PKG_ONE_OF(QWT,
-    APPLE_QWT, [AX_PKG_APPLE(QWT, [QT_INCLUDE], [-lqwt.5])],
-    PLAIN_QWT, [AX_PKG(PLAIN_QWT, [QT_INCLUDE], [-lqwt])],
-    SUFFX_QWT, [AX_PKG(SUFFX_QWT, [QT_INCLUDE], [-lqwt-qt4])])
+    APPLE_QWT, [AX_PKG_APPLE(QWT, [QT_BASE], [-lqwt.5])],
+    PLAIN_QWT, [AX_PKG(PLAIN_QWT, [QT_BASE], [-lqwt])],
+    SUFFX_QWT, [AX_PKG(SUFFX_QWT, [QT_BASE], [-lqwt-qt4])])
 
 AX_PKG_ONE_OF(GSL,
     GSL_HASBLAS,  [AX_PKG(GSL_HASBLAS,  [LAPACK], [-lgsl])],
