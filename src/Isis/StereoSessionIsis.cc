@@ -263,8 +263,8 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     if ( right_hi > right_mean + 2*right_std )
       right_hi = right_mean + 2*right_std;
 
-    std::cout << "Changed left lo:" << left_lo << " hi:" << left_hi << std::endl;
-    std::cout << "Changed right lo:" << right_lo << " hi:" << right_hi << std::endl;
+    vw_out(DebugMessage, "stereo") << "\t    Left changed: [ lo:"<<left_lo<<" hi:"<<left_hi<<"]\n";
+    vw_out(DebugMessage, "stereo") << "\t    Right changed: [ lo:"<<right_lo<<" hi:"<<right_hi<<"]\n";
   }
 
   // Picking Global
