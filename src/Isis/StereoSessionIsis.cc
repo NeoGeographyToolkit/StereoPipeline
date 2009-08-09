@@ -36,6 +36,7 @@
 #include <Isis/IsisCameraModel.h>
 #include <StereoSettings.h>
 #include <Isis/IsisAdjustCameraModel.h>
+#include <Isis/DiskImageResourceIsis.h>
 
 // Boost
 #include <boost/filesystem/operations.hpp>
@@ -214,8 +215,8 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
 
-  DiskImageResourceGDAL left_rsrc(input_file1);
-  DiskImageResourceGDAL right_rsrc(input_file2);
+  DiskImageResourceIsis left_rsrc(input_file1);
+  DiskImageResourceIsis right_rsrc(input_file2);
 
   GeoReference input_georef1, input_georef2;
   // Disabled for now since we haven't really figured how to
@@ -233,25 +234,42 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   // Make sure the images are normalized
   vw_out(InfoMessage) << "\t--> Computing min/max values for normalization.\n";
   float left_lo, left_hi, right_lo, right_hi;
-  if (left_rsrc.has_nodata_value()) {
-    double left_nodata = left_rsrc.nodata_value();
-    std::cout << "\t    Using nodata value for left image: " << left_nodata << "\n";
-    min_max_channel_values(create_mask(left_disk_image, left_nodata), left_lo, left_hi);
-  } else {
-    min_max_channel_values(left_disk_image, left_lo, left_hi);
+  float left_mean, left_std, right_mean, right_std;
+  min_max_channel_values(create_mask(left_disk_image, left_rsrc.valid_minimum(),
+				     left_rsrc.valid_maximum()), left_lo, left_hi);
+  left_mean = mean_channel_value(create_mask(left_disk_image, left_rsrc.valid_minimum(),
+					     left_rsrc.valid_maximum()));
+  left_std = stddev_channel_value(create_mask(left_disk_image,left_rsrc.valid_minimum(),
+					      left_rsrc.valid_maximum()));
+  vw_out(InfoMessage) << "\t    Left: [ lo:" << left_lo << " hi:" << left_hi 
+		      << " m:" << left_mean << " s:" << left_std << "]\n";
+  min_max_channel_values(create_mask(right_disk_image, right_rsrc.valid_minimum(),
+				     right_rsrc.valid_maximum()), right_lo, right_hi);
+  right_mean = mean_channel_value(create_mask(right_disk_image, right_rsrc.valid_minimum(),
+					      right_rsrc.valid_maximum()));
+  right_std = stddev_channel_value(create_mask(right_disk_image,right_rsrc.valid_minimum(),
+						 right_rsrc.valid_maximum()));
+  vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:" << right_hi 
+		      << " m:" << right_mean << " s:" << right_std << "]\n";
+
+   // Normalizing to -+2 sigmas around mean 
+  if ( stereo_settings().force_max_min == 0 ) {
+    if ( left_lo < left_mean - 2*left_std )
+      left_lo = left_mean - 2*left_std;
+    if ( right_lo < right_mean - 2*right_std )
+      right_lo = right_mean - 2*right_std;
+    if ( left_hi > left_mean + 2*left_std )
+      left_hi = left_mean + 2*left_std;
+    if ( right_hi > right_mean + 2*right_std )
+      right_hi = right_mean + 2*right_std;
+
+    std::cout << "Changed left lo:" << left_lo << " hi:" << left_hi << std::endl;
+    std::cout << "Changed right lo:" << right_lo << " hi:" << right_hi << std::endl;
   }
-  vw_out(InfoMessage) << "\t    Left: [" << left_lo << " " << left_hi << "]    \n";
-  if (right_rsrc.has_nodata_value()) {
-    double right_nodata = right_rsrc.nodata_value();
-    std::cout << "\t    Using nodata value for right image: " << right_nodata << "\n";
-    min_max_channel_values(create_mask(right_disk_image, right_nodata), right_lo, right_hi);
-  } else {
-    min_max_channel_values(create_mask(right_disk_image), right_lo, right_hi);
-  }
-  vw_out(InfoMessage) << "\t    Right: [" << right_lo << " " << right_hi << "]\n";
-  
+
+  // Picking Global
   float lo = std::min (left_lo, right_lo);
-  float hi = std::min (left_hi, right_hi);
+  float hi = std::max (left_hi, right_hi);
 
   // If this is a map projected cube, we skip the step of aligning the
   // images, because the map projected images are probable very nearly
@@ -272,12 +290,13 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     ImageViewRef<PixelGray<float> > Limg;
     ImageViewRef<PixelGray<float> > Rimg;
     if (stereo_settings().individually_normalize == 0 ) {
-      Limg = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
-      Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0),trans2),common_bbox);
+      vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
+      Limg = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi,0.0,1.0);
+      Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi,0.0,1.0),trans2),common_bbox);
     } else {
       vw_out(0) << "\t--> Individually normalizing.\n";
-      Limg = normalize(remove_isis_special_pixels(left_disk_image, left_lo));
-      Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, right_lo)),trans2),common_bbox);
+      Limg = normalize(remove_isis_special_pixels(left_disk_image, left_lo),left_lo,left_hi,0.0,1.0);
+      Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, right_lo),right_lo,right_hi,0.0,1.0),trans2),common_bbox);
     }
     
     // Write the results to disk.
@@ -301,14 +320,15 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     ImageViewRef<PixelGray<uint8> > Limg;
     ImageViewRef<PixelGray<uint8> > Rimg;
     if (stereo_settings().individually_normalize == 0 ) {
+      vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
       Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, lo),lo,hi,0.0,1.0));
       Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,lo),lo,hi,0.0,1.0), 
 						   HomographyTransform(align_matrix),
 						   left_disk_image.cols(), left_disk_image.rows()));
     } else {
       vw_out(0) << "\t--> Individually normalizing.\n";
-      Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, left_lo)));
-      Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo)), 
+      Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, left_lo),left_lo,left_hi,0.0,1.0));
+      Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo),right_lo,right_hi,0.0,1.0), 
 						   HomographyTransform(align_matrix),
 						   left_disk_image.cols(), left_disk_image.rows()));
     }
@@ -442,4 +462,5 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionIsis::camera_model(std::
   }
 
 }
+
 

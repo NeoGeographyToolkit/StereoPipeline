@@ -37,6 +37,7 @@
 // Isis Includes
 #include <Cube.h>
 #include <Portal.h>
+#include <SpecialPixel.h>
 
 using namespace std;
 using namespace boost;
@@ -179,5 +180,54 @@ namespace vw {
 					 ImageFormat const& format)
   {
     return new DiskImageResourceIsis(filename, format);
+  }
+
+  /// Info about special pixel types in ISIS
+  //  --------------------------------------
+  double DiskImageResourceIsis::nodata_value() const {
+    switch (m_format.channel_type) {
+    case VW_CHANNEL_FLOAT64:
+      return Isis::NULL8;
+    case VW_CHANNEL_FLOAT32:
+      return Isis::NULL4;
+    case VW_CHANNEL_INT32:
+      return Isis::INULL4;
+    case VW_CHANNEL_INT16:
+      return Isis::NULL2;
+    default:
+      return 0.0;
+    }
+  }
+  double DiskImageResourceIsis::valid_minimum() const { 
+    switch (m_format.channel_type) {
+    case VW_CHANNEL_FLOAT64:
+      return Isis::ValidMinimum;
+    case VW_CHANNEL_FLOAT32:
+      return Isis::VALID_MIN4;
+    case VW_CHANNEL_INT32:
+      return Isis::IVALID_MIN4;
+    case VW_CHANNEL_INT16:
+      return Isis::VALID_MIN2;
+    case VW_CHANNEL_UINT16:
+      return Isis::VALID_MINU2;
+    default:
+      return Isis::VALID_MIN1;
+    }
+  }
+  double DiskImageResourceIsis::valid_maximum() const { 
+    switch (m_format.channel_type) {
+    case VW_CHANNEL_FLOAT64:
+      return Isis::ValidMaximum;
+    case VW_CHANNEL_FLOAT32:
+      return Isis::VALID_MAX4;
+    case VW_CHANNEL_INT32:
+      return 2147483647;
+    case VW_CHANNEL_INT16:
+      return Isis::VALID_MAX2;
+    case VW_CHANNEL_UINT16:
+      return Isis::VALID_MAXU2;
+    default:
+      return Isis::VALID_MAX1;
+    }
   }
 }

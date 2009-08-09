@@ -5,6 +5,8 @@
 DO_INTERESTPOINT_ALIGNMENT 1
 DO_EPIPOLAR_ALIGNMENT 0
 INTERESTPOINT_ALIGNMENT_SUBSAMPLING 1
+DO_INDIVIDUAL_NORMALIZATION 0
+FORCE_USE_ENTIRE_RANGE 0
 
 # Choose whether to do the SLOG or log of the image (or neither)
 # (choosing both will default to only SLOG)

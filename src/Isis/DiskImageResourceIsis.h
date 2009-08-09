@@ -64,6 +64,17 @@ namespace vw {
     static DiskImageResource* construct_create(std::string const& filename,
                                                ImageFormat const& format);
 
+    // Info about special pixel types in ISIS
+    // --------------------------------------
+    // Note: Isis has many types of invalid pixels. If creating a mask
+    // of valid pixels, please use only pixels within the valid range
+    // provided in the functions below.
+    bool has_nodata_value() const { return true; }
+    double nodata_value() const;
+    double valid_minimum() const;
+    double valid_maximum() const;
+    
+
   private:
 
     std::string m_filename;

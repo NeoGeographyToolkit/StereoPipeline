@@ -99,6 +99,7 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("DO_INTERESTPOINT_ALIGNMENT", keypoint_alignment, 0, "Align images using the keypoint alignment method");
   ASSOC_INT("INTERESTPOINT_ALIGNMENT_SUBSAMPLING", keypoint_align_subsampling, 1, "Image sub-sampling factor for keypoint alignment.");
   ASSOC_INT("DO_INDIVIDUAL_NORMALIZATION", individually_normalize, 0, "Normalize each image individually before processsing.");
+  ASSOC_INT("FORCE_USE_ENTIRE_RANGE", force_max_min, 0, "Use images entire values, otherwise compress image range to -+2.5 sigmas around mean.");
 
   // Correlation Options
   ASSOC_INT("DO_SLOG", slog, 1, "perform an slog (relpace the emboss)");
