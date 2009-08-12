@@ -535,3 +535,44 @@ with any combination of options.
 \end{verbatim}
 
 
+\section{Preparing Selected Data}
+
+There are many ways to process different kinds of image data, and
+some will be more appropriate for operations by the Stereo Pipeline
+than others.  While we strive to make the Stereo Pipeline extensible
+and robust, there are a limited (but growing) set of data that we
+have thoroughly tested.
+
+This section outlines the suggested pre-processing steps to prepare 
+specific data sets for use in the Stereo Pipeline.
+
+\subsection{Mars Oribiter Camera (MOC)}
+
+MOC images (ending in \texttt{.imq} or \texttt{.img}) can be downloaded from 
+the PDS and only require a single ISIS command to prepare for Stereo Pipeline use:
+
+\begin{verbatim}
+    ISIS 3> mocproc from= MOCimage.imq to= MOCimage.cub Mapping= NO
+\end{verbatim}
+
+The resulting ISIS cube file (e.g. \texttt{MOCimage.cub}) is now ready
+for processing by the \texttt{stereo} program.
+
+
+\subsection{High Resolution Imaging Science Experiment (HiRISE)}
+
+HiRISE images are more complicated.
+
+At the moment, the `best' processing method is to start with HiRISE
+\texttt{*.balance.cub} files (available only internally to the
+HiRISE team) and run them through the USGS's \texttt{hinoproj.pl}
+script.  This results in \texttt{noproj}ed and de-jittered cube
+files that can be run.
+
+In the future (who knows when), the HiRISE team will directly produce
+\texttt{noproj}ed images (dejittered through a different, improved,
+algorithm) which will be available in the \texttt{extras/} directory
+of the HiRISE PDS Volume.  And those images will probably be directly
+usable by the Stereo Pipeline.
+
+\emph{As you can tell, I'm still in the process of tracking all of this down. -RAB}
