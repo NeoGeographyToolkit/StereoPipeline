@@ -218,19 +218,6 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   DiskImageResourceIsis left_rsrc(input_file1);
   DiskImageResourceIsis right_rsrc(input_file2);
 
-  GeoReference input_georef1, input_georef2;
-  // Disabled for now since we haven't really figured how to
-  // capitalize on the map projected images... -mbroxton
-  // try {
-  //   // Read georeferencing information (if it exists...)
-  //   DiskImageResourceGDAL file_resource1( input_file1 );
-  //   DiskImageResourceGDAL file_resource2( input_file2 );
-  //   read_georeference( input_georef1, file_resource1 );
-  //   read_georeference( input_georef2, file_resource2 );
-  // } catch (ArgumentErr &e) {
-  //   vw_out(0) << "Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
-  // }
-
   // Make sure the images are normalized
   vw_out(InfoMessage) << "\t--> Computing min/max values for normalization.\n";
   float left_lo, left_hi, right_lo, right_hi;
@@ -271,78 +258,48 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   float lo = std::min (left_lo, right_lo);
   float hi = std::max (left_hi, right_hi);
 
-  // If this is a map projected cube, we skip the step of aligning the
-  // images, because the map projected images are probable very nearly
-  // aligned already.  For unprojected cubes, we align in the "usual"
-  // way using interest points.
-  if (input_georef1.transform() != math::identity_matrix<3>() && 
-      input_georef2.transform() != math::identity_matrix<3>() ) {
-    vw_out(0) << "\t--> Map projected ISIS cubes detected.  Placing both images into the same map projection.\n";
-    
-    // If we are using map-projected cubes, we need to put them into a
-    // common projection.  We adopt the projection of the first image.
-    GeoReference common_georef = input_georef1;
-    BBox2i common_bbox(0,0,left_disk_image.cols(), left_disk_image.rows());
-
-    // Create the geotransform objects and determine the common size
-    // of the output images and apply it to the right image.
-    GeoTransform trans2(input_georef2, common_georef);
-    ImageViewRef<PixelGray<float> > Limg;
-    ImageViewRef<PixelGray<float> > Rimg;
-    if (stereo_settings().individually_normalize == 0 ) {
-      vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-      Limg = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi,0.0,1.0);
-      Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi,0.0,1.0),trans2),common_bbox);
-    } else {
-      vw_out(0) << "\t--> Individually normalizing.\n";
-      Limg = normalize(remove_isis_special_pixels(left_disk_image, left_lo),left_lo,left_hi,0.0,1.0);
-      Rimg = crop(transform(normalize(remove_isis_special_pixels(right_disk_image, right_lo),right_lo,right_hi,0.0,1.0),trans2),common_bbox);
-    }
-    
-    // Write the results to disk.
-    write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback(ErrorMessage, "Left map-projected image: " ));
-    write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback(ErrorMessage, "Right map-projected image: ")); 
+  // For unprojected ISIS images, we resort to the "old style" of
+  // image alignment: determine the alignment matrix using keypoint
+  // matching techniques.
+  //vw_out(0) << "\t--> Unprojected ISIS cubes detected.  Aligning images using feature-based matching techniques.\n";
   
+  Matrix<double> align_matrix(3,3);
+  align_matrix.set_identity();
+  if (stereo_settings().keypoint_alignment)
+    align_matrix = determine_image_alignment(input_file1, input_file2, 
+					     lo, hi);
+  ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
+  
+  // Apply the alignment transformation to the right image.
+  ImageViewRef<PixelGray<uint8> > Limg;
+  ImageViewRef<PixelGray<uint8> > Rimg;
+  if (stereo_settings().individually_normalize == 0 ) {
+    vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
+    Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, lo),
+						 lo,hi,0.0,1.0));
+    Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,lo),
+							   lo,hi,0.0,1.0), 
+						 HomographyTransform(align_matrix),
+						 left_disk_image.cols(), left_disk_image.rows()));
   } else {
-    // For unprojected ISIS images, we resort to the "old style" of
-    // image alignment: determine the alignment matrix using keypoint
-    // matching techniques.
-    vw_out(0) << "\t--> Unprojected ISIS cubes detected.  Aligning images using feature-based matching techniques.\n";
-
-    Matrix<double> align_matrix(3,3);
-    align_matrix.set_identity();
-    if (stereo_settings().keypoint_alignment)
-      align_matrix = determine_image_alignment(input_file1, input_file2, 
-					       lo, hi);
-    ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
-
-    // Apply the alignment transformation to the right image.
-    ImageViewRef<PixelGray<uint8> > Limg;
-    ImageViewRef<PixelGray<uint8> > Rimg;
-    if (stereo_settings().individually_normalize == 0 ) {
-      vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-      Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, lo),lo,hi,0.0,1.0));
-      Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,lo),lo,hi,0.0,1.0), 
-						   HomographyTransform(align_matrix),
-						   left_disk_image.cols(), left_disk_image.rows()));
-    } else {
-      vw_out(0) << "\t--> Individually normalizing.\n";
-      Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, left_lo),left_lo,left_hi,0.0,1.0));
-      Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo),right_lo,right_hi,0.0,1.0), 
-						   HomographyTransform(align_matrix),
-						   left_disk_image.cols(), left_disk_image.rows()));
-    }
-
-    // Write the results to disk.
-    vw_out(0) << "\t--> Writing pre-aligned images.\n";
-    { 
-      DiskImageResourceGDAL left_rsrc( output_file1, Limg.format() ); 
-      block_write_image( left_rsrc, Limg, TerminalProgressCallback(ErrorMessage, "\t    Left:  "));
-    }
-    {
-      DiskImageResourceGDAL right_rsrc( output_file2, Rimg.format() );
-      block_write_image( right_rsrc, Rimg, TerminalProgressCallback(ErrorMessage, "\t    Right: ")); 
-    }
+    vw_out(0) << "\t--> Individually normalizing.\n";
+    Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, left_lo),
+						 left_lo,left_hi,0.0,1.0));
+    Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,right_lo),
+							   right_lo,right_hi,0.0,1.0), 
+						 HomographyTransform(align_matrix),
+						 left_disk_image.cols(), left_disk_image.rows()));
+  }
+  
+  // Write the results to disk.
+  vw_out(0) << "\t--> Writing pre-aligned images.\n";
+  { 
+    DiskImageResourceGDAL left_rsrc( output_file1, Limg.format() ); 
+    block_write_image( left_rsrc, Limg, TerminalProgressCallback(ErrorMessage, "\t    Left:  "));
+  }
+  {
+    DiskImageResourceGDAL right_rsrc( output_file2, Rimg.format() );
+    block_write_image( right_rsrc, Rimg, TerminalProgressCallback(ErrorMessage, "\t    Right: ")); 
   }
 }
 
