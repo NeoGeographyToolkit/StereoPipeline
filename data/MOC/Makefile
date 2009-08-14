@@ -20,16 +20,18 @@ stereo: cubes
 	mkdir -p $(RESULTSDIR)
 	$(STEREO) -s ../../stereo.default.example $(CUBES) $(RESULTSDIR)/$(OUT)
 
-disparitydebug: stereo
+disparity: stereo
 	cd $(RESULTSDIR); disparitydebug $(OUT)-F.exr
 
-point2mesh: stereo
+mesh: stereo
 	cd $(RESULTSDIR); point2mesh $(OUT)-PC.tif $(OUT)-L.tif
 
-point2dem: stereo
+dem: stereo
 	cd $(RESULTSDIR); \
 	point2dem --xyz-to-lonlat -r mars -n $(OUT)-PC.tif; \
 	point2dem --xyz-to-lonlat -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif
+
+products: disparity mesh dem
 
 clean:
 	rm -rf $(RESULTSDIR)
