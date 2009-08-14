@@ -74,12 +74,15 @@ namespace vw {
     double valid_minimum() const;
     double valid_maximum() const;
     
+    // Additional cube informat
+    bool is_map_projected() const { return m_is_projected; }
 
   private:
 
     std::string m_filename;
     int m_bytes_per_pixel;
     Vector2i m_native_block_size;
+    bool m_is_projected;
   };
 
 } // namespace vw

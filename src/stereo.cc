@@ -527,7 +527,8 @@ int main(int argc, char* argv[]) {
     // Create a disk image resource and prepare to write a tiled
     // OpenEXR.
     DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
-    disparity_map_rsrc.set_tiled_write(std::min(2048,disparity_map.cols()),std::min(2048, disparity_map.rows()));
+    disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
+				       std::min(vw_settings().default_tile_size(),disparity_map.rows()));
     block_write_image( disparity_map_rsrc, disparity_map );
   }
 
@@ -692,7 +693,10 @@ int main(int argc, char* argv[]) {
       } 
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
-      disparity_map_rsrc.set_tiled_write(std::min(1024,hole_filled_disp_map.cols()),std::min(1024, hole_filled_disp_map.rows()));
+      disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),
+						  hole_filled_disp_map.cols()),
+					 std::min(vw_settings().default_tile_size(), 
+						  hole_filled_disp_map.rows()));
       block_write_image(disparity_map_rsrc, disparity::mask(hole_filled_disp_map,Dmask,Rmask), TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") ); 
     } catch (IOErr &e) { 
       cout << "\nUnable to start at filtering stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
@@ -763,10 +767,12 @@ int main(int argc, char* argv[]) {
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format() );
-      point_cloud_rsrc.set_block_size(Vector2i(std::min(1024,point_cloud.cols()),
-					       std::min(1024, point_cloud.rows())));
-
-      block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
+      point_cloud_rsrc.set_block_size(Vector2i(std::min(vw_settings().default_tile_size(),point_cloud.cols()),
+					       std::min(vw_settings().default_tile_size(),point_cloud.rows())));
+      if ( stereo_session_string == "isis" ) 
+	write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
+      else
+	block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
       vw_out(0) << "\t--> " << universe_radius_func;
     } catch (IOErr &e) { 
       cout << "\nUnable to start at point cloud stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";

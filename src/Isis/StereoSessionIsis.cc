@@ -258,11 +258,6 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   float lo = std::min (left_lo, right_lo);
   float hi = std::max (left_hi, right_hi);
 
-  // For unprojected ISIS images, we resort to the "old style" of
-  // image alignment: determine the alignment matrix using keypoint
-  // matching techniques.
-  //vw_out(0) << "\t--> Unprojected ISIS cubes detected.  Aligning images using feature-based matching techniques.\n";
-  
   Matrix<double> align_matrix(3,3);
   align_matrix.set_identity();
   if (stereo_settings().keypoint_alignment)
@@ -344,57 +339,27 @@ void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::
   output_file = m_out_prefix + "-F-corrected.exr";
   ImageViewRef<PixelDisparity<float> > result;
 
-  // Read georeferencing information (if it exists...)
-  GeoReference input_georef1, input_georef2;
-  // Disabled for now since we haven't really figured how to
-  // capitalize on the map projected images... -mbroxton
-  //
-  //   try {
-  //     DiskImageResourceGDAL file_resource1( m_left_image_file );
-  //     DiskImageResourceGDAL file_resource2( m_right_image_file );
-  //     read_georeference( input_georef1, file_resource1 );
-  //     read_georeference( input_georef2, file_resource2 );
-  //   } catch (ArgumentErr &e) {
-  //     vw_out(0) << "\t--> Warning: Couldn't read georeference data from input images using the GDAL driver.\n";
-  //   }
-  
-  // If this is a map projected cube, we skip the step of aligning the
-  // images, because the map projected images are probable very nearly
-  // aligned already.  For unprojected cubes, we align in the "usual"
-  // way using interest points.
-  if (input_georef1.transform() != math::identity_matrix<3>() && 
-      input_georef2.transform() != math::identity_matrix<3>() ) {
-    vw_out(0) << "\t--> Map projected ISIS cubes detected.\n"
-              << "\t--> Placing both images into the same map projection.\n";
-
-    // If we are using map-projected cubes, we need to put them into a
-    // common projection.  We adopt the projection of the first image.
-    result = stereo::disparity::transform_disparities(disparity_map, GeoTransform(input_georef2, input_georef1));
-
-  } else {
-    vw_out(0) << "\t--> Unprojected ISIS cubes detected.\n"
-              << "\t--> Processing disparity map to remove the earlier effects of interest point alignment.\n";  
-
-    // We used a homography to line up the images, we may want 
-    // to generate pre-alignment disparities before passing this information
-    // onto the camera model in the next stage of the stereo pipeline.
-    vw::Matrix<double> align_matrix;
-    try {
-      ::read_matrix(align_matrix, m_out_prefix + "-align.exr");
-      vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
-    } catch (vw::IOErr &e) {
-      vw_out(0) << "\nCould not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
-      exit(1);
-    }
-    
-    result = stereo::disparity::transform_disparities(disparity_map, HomographyTransform(align_matrix));
-
-    // Remove pixels that are outside the bounds of the secondary image.
-    DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
-    result = stereo::disparity::remove_invalid_pixels(result, right_disk_image.cols(), right_disk_image.rows());
+  // We used a homography to line up the images, we may want 
+  // to generate pre-alignment disparities before passing this information
+  // onto the camera model in the next stage of the stereo pipeline.
+  Matrix<double> align_matrix;
+  try {
+    read_matrix(align_matrix, m_out_prefix + "-align.exr");
+    vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
+  } catch (vw::IOErr &e) {
+    vw_out(0) << "\nCould not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
+    exit(1);
   }
   
-  write_image(output_file, result, TerminalProgressCallback(ErrorMessage, "\t    Processing: ") );
+  result = stereo::disparity::transform_disparities(disparity_map, HomographyTransform(align_matrix));
+  
+  // Remove pixels that are outside the bounds of the secondary image.
+  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+  result = stereo::disparity::remove_invalid_pixels(result, right_disk_image.cols(), right_disk_image.rows());
+
+  DiskImageResourceOpenEXR disparity_corrected_rsrc(output_file, result.format() );
+  block_write_image( disparity_corrected_rsrc, result, 
+		     TerminalProgressCallback(InfoMessage, "\t    Processing:"));
 }
 
 

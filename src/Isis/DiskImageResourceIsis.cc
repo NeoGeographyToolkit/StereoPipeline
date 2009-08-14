@@ -38,6 +38,7 @@
 #include <Cube.h>
 #include <Portal.h>
 #include <SpecialPixel.h>
+#include <Projection.h>
 
 using namespace std;
 using namespace boost;
@@ -73,6 +74,16 @@ namespace vw {
 
     if ( !(cube.IsOpen()) ) {
       vw_throw(IOErr() << "DiskImageResourceIsis: Could not open cube file: \"" << filename << "\".");
+    }
+
+    // Testing or ZACK
+    Isis::Projection* iproj = NULL;
+    m_is_projected = false;
+    try {
+      iproj = cube.Projection();
+      m_is_projected = true;
+    } catch(Isis::iException &e) {
+      e.Clear();
     }
 
     // Extract the dimensions of the image
@@ -120,9 +131,6 @@ namespace vw {
       vw_throw(IOErr() << "DiskImageResourceIsis: Unknown pixel type.");
     }
 
-    //     vw_out(0) << "Bytes per pixel: " << m_bytes_per_pixel; 
-    //     vw_out(0) << "   channel_type " << m_format.channel_type << "\n";
-   
     // Close the cube file
     cube.Close();
   }
