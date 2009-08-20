@@ -57,8 +57,8 @@ IsisCameraModel::IsisCameraModel(std::string cube_filename) {
     double start_time = cam->EphemerisTime();
     this->set_image(0,cam->Lines());
     double end_time = cam->EphemerisTime();
-    vw_out(0) << "\t     Time range: [" << start_time << " " << end_time << "]  " << (end_time-start_time) << "\n";
-    vw_out(0) << "\t     Existing range : [" << cam->CacheStartTime() << " " << cam->CacheEndTime() << "]  " << ( cam->CacheEndTime() - cam->CacheStartTime() ) << "\n";
+    vw_out(VerboseDebugMessage,"stereo") << "\t     Time range: [" << start_time << " " << end_time << "]  " << (end_time-start_time) << "\n";
+    vw_out(VerboseDebugMessage,"stereo") << "\t     Existing range : [" << cam->CacheStartTime() << " " << cam->CacheEndTime() << "]  " << ( cam->CacheEndTime() - cam->CacheStartTime() ) << "\n";
     if (end_time > start_time) {
       m_max_ephemeris = end_time;
       m_min_ephemeris = start_time;

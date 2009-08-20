@@ -78,13 +78,14 @@ public:
 
   HelicopterBundleAdjustmentModel(std::vector<ImageInfo> const& image_infos,
                                   boost::shared_ptr<ControlNetwork> network) : 
-    m_image_infos(image_infos), a(image_infos.size()), b(network->size()),
+    m_image_infos(image_infos), m_network(network), 
+    a(image_infos.size()), b(network->size()),
     a_initial(image_infos.size()), b_initial(network->size()) {
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
     for (unsigned i = 0; i < network->size(); ++i)
-      m_num_pixel_observations += (*network)[i].size();
+      m_num_pixel_observations += (*m_network)[i].size();
     
     // Set up the a and b vectors, storing the initial values.
     for (unsigned j = 0; j < m_image_infos.size(); ++j) {
@@ -92,7 +93,7 @@ public:
       a_initial[j] = a[j];
     }
 
-    for (unsigned i = 0; i < network->size(); ++i) {
+    for (unsigned i = 0; i < m_network->size(); ++i) {
       b[i] = (*m_network)[i].position();
       b_initial[i] = b[i];
     }
