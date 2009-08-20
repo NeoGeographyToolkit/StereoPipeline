@@ -1,71 +1,68 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
 # Usage: AX_APP(<name>, <directory>, <default>, <required dependencies>[, <optional dependencies>])
 AC_DEFUN([AX_APP],
 [
-  # Silently ignore modules that don't exist in this distribution
-  if test -d $2 ; then
+  # Silently ignore apps that don't exist in this distribution
+  if test -d "$srcdir/$2" ; then
 
     HAVE_PKG_$1_SRC=yes
 
+    if test -n "$ENABLE_APP_$1"; then
+        WANT_APP_$1="$ENABLE_APP_$1"
+    fi
+
     AC_ARG_ENABLE([app-]m4_tolower([[$1]]),
       AC_HELP_STRING([--enable-app-]m4_tolower([[$1]]), [enable the $1 app @<:@$3@:>@]),
-      [ ENABLE_APP_$1=$enableval ],
+      [ ENABLE_APP_$1=$enableval; WANT_APP_$1=$enableval; ],
       [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`/bin/echo -n $3 | tr [A-Z] [a-z]` ; fi ]
     )
 
     AC_MSG_CHECKING([whether to build app $1])
     ax_app_enable=$ENABLE_APP_$1
 
-    if test "$ax_app_enable" != "yes" ; then
-      AC_MSG_RESULT([no (disabled)])
-    fi
+    # Create a variable to store missing
+    AS_VAR_PUSHDEF([missing], [ax_app_]$1[_missing])
 
-    ax_libs=""
+    # Load args 5 and 6 as required deps, and capture missing deps in missing var.
+    # If missing is populated, bail out. Then load the optional deps
+    AS_IF([test x"$ax_app_enable" != "xyes"], [AC_MSG_RESULT([no (disabled)])],
+      [AX_LOAD_DEPS([$1], [$4], [missing]) dnl Load required deps
+       AS_IF([test -n "$missing"], [AC_MSG_RESULT([no ([missing] $missing)]); ax_app_enable=no],
+         [AX_LOAD_DEPS([$1], [$5]) dnl Load optional deps
+          APP_$1_CPPFLAGS="$PKG_$1_CPPFLAGS"
+          APP_$1_LIBS="$PKG_$1_LIBS"
+          AC_MSG_RESULT([yes])])])
 
-    # Check for required dependencies
-    if test "$ax_app_enable" = "yes" ; then
-      for ax_dependency in $4 ; do
-        ax_dependency_have="HAVE_PKG_${ax_dependency}"
-        if test x"${!ax_dependency_have}" = "xyes"; then
-          ax_dep_libs="PKG_${ax_dependency}_LIBS"
-          ax_libs="${ax_libs} ${!ax_dep_libs}"
-        else
-          AC_MSG_RESULT([no])
-          AC_MSG_NOTICE([warning: unable to build requested app $1 (needs ${ax_dependency})!])
-          ax_app_enable=no;
-          break;
-        fi
-      done
-    fi
-
-    if test "$ax_app_enable" = "yes" ; then
-      # Check for optional dependencies
-      for ax_dependency in $5 ; do
-        ax_dependency_have="HAVE_PKG_${ax_dependency}"
-        if test x"${!ax_dependency_have}" = "xyes"; then
-          ax_dep_libs="PKG_${ax_dependency}_LIBS"
-          ax_libs="${ax_libs} ${!ax_dep_libs}"
-        fi
-      done
-
-      # Set up the variables
-      APP_$1_LIBS=$ax_libs
-      PKG_$1_LIBS=$ax_libs
-      AC_MSG_RESULT([yes])
-    fi
+    AS_VAR_POPDEF([missing])
 
   else
     HAVE_PKG_$1_SRC=no
     ax_app_enable=no
     APP_$1_LIBS=
     PKG_$1_LIBS=
+    APP_$1_CPPFLAGS=
+    PKG_$1_CPPFLAGS=
   fi
 
+  AC_SUBST(APP_$1_CPPFLAGS)
+  AC_SUBST(PKG_$1_CPPFLAGS)
   AC_SUBST(APP_$1_LIBS)
   AC_SUBST(PKG_$1_LIBS)
 
   HAVE_PKG_$1=${ax_app_enable}
   MAKE_APP_$1=${ax_app_enable}
   AC_SUBST(MAKE_APP_$1)
+
+  if test -n "$WANT_APP_$1"; then
+      if test x"$MAKE_APP_$1" != x"$WANT_APP_$1"; then
+          AC_MSG_ERROR([You said ENABLE_APP_]$1[=$WANT_APP_]$1[, but I decided $MAKE_APP_]$1)
+      fi
+  fi
 
   if test "${HAVE_PKG_$1}" = "yes" ; then
     ax_have_pkg_bool=1
@@ -76,12 +73,16 @@ AC_DEFUN([AX_APP],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the $1 app is available.])
 
-  if test "$ENABLE_VERBOSE" = "yes" && test "$HAVE_PKG_$1_SRC" = "yes" ; then
-    AC_MSG_NOTICE(MAKE_APP_$1 = ${MAKE_APP_$1})
-    AC_MSG_NOTICE(HAVE_PKG_$1 = ${HAVE_PKG_$1})
-    AC_MSG_NOTICE(APP_$1_LIBS = ${APP_$1_LIBS})
-    AC_MSG_NOTICE(PKG_$1_LIBS = ${PKG_$1_LIBS})
+  if test "$HAVE_PKG_$1_SRC" = "yes" ; then
+    AX_LOG([MAKE_APP_]$1[ = $MAKE_APP_]$1)
+    AX_LOG([HAVE_PKG_]$1[ = $HAVE_PKG_]$1)
+    AX_LOG([APP_]$1[_CPPFLAGS = $APP_]$1[_CPPFLAGS])
+    AX_LOG([PKG_]$1[_CPPFLAGS = $PKG_]$1[_CPPFLAGS])
+    AX_LOG([APP_]$1[_LIBS = $APP_]$1[_LIBS])
+    AX_LOG([PKG_]$1[_LIBS = $PKG_]$1[_LIBS])
   fi
 
-  AM_CONDITIONAL([MAKE_APP_$1], [test "$MAKE_APP_$1" = "yes"])
+  #  We're putting these in configure.ac manually by now, for
+  #  backwards compatability with older versions of automake.
+  #  AM_CONDITIONAL([MAKE_APP_$1], [test "$MAKE_APP_$1" = "yes"])
 ])

@@ -9,9 +9,6 @@ dnl Usage: AX_PKG_PTHREADS
 AC_DEFUN([AX_PKG_PTHREADS],
 [
   AC_MSG_CHECKING(for package PTHREADS)
-  if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_RESULT([])
-  fi
 
   AC_LANG_PUSH(C)
   HAVE_PKG_PTHREADS=no
@@ -37,20 +34,12 @@ AC_DEFUN([AX_PKG_PTHREADS],
       CFLAGS="$CFLAGS $PKG_PTHREADS_CPPFLAGS"
       LDFLAGS="$PKG_PTHREADS_LDFLAGS $LDFLAGS"
 
-      if test "$ENABLE_VERBOSE" = "yes" ; then
-        AC_MSG_CHECKING([whether pthreads work with flags: \"$CFLAGS\" : \"$LDFLAGS\"])
-      fi
-
       AC_TRY_LINK([#include <pthread.h>],
                   [pthread_t th; pthread_create(0,0,0,0);],
                   [HAVE_PKG_PTHREADS=yes])
 
       CFLAGS="$ax_pkg_pthreads_save_CFLAGS"
       LDFLAGS="$ax_pkg_pthreads_save_LDFLAGS"
-
-      if test "$ENABLE_VERBOSE" = "yes" ; then
-        AC_MSG_RESULT($HAVE_PKG_PTHREADS)
-      fi
 
       if test "$HAVE_PKG_PTHREADS" = "yes"; then
         break 2;
@@ -66,6 +55,8 @@ AC_DEFUN([AX_PKG_PTHREADS],
     PKG_PTHREADS_LIBS="$PKG_PTHREADS_LDFLAGS"
   fi
 
+  AC_MSG_RESULT([${HAVE_PKG_PTHREADS}])
+
   if test "${HAVE_PKG_PTHREADS}" = "yes" ; then
     ax_have_pkg_bool=1
   else
@@ -79,15 +70,12 @@ AC_DEFUN([AX_PKG_PTHREADS],
   AC_SUBST(PKG_PTHREADS_CPPFLAGS)
   AC_SUBST(PKG_PTHREADS_LIBS)
 
-  if test "$ENABLE_VERBOSE" = "yes"; then
-    AC_MSG_NOTICE([HAVE_PKG_PTHREADS = ${HAVE_PKG_PTHREADS}])
-    AC_MSG_NOTICE([PKG_PTHREADS_CPPFLAGS = ${PKG_PTHREADS_CPPFLAGS}])
-    AC_MSG_NOTICE([PKG_PTHREADS_LIBS = ${PKG_PTHREADS_LIBS}])
-    AC_MSG_NOTICE([CFLAGS= $CFLAGS])
-    AC_MSG_NOTICE([CXXFLAGS= $CXXFLAGS])
-    AC_MSG_NOTICE([CPPFLAGS= $CPPFLAGS])
-    AC_MSG_NOTICE([LDFLAGS= $LDFLAGS])
-  else
-    AC_MSG_RESULT([${HAVE_PKG_PTHREADS}])
-  fi
+  AX_LOG([HAVE_PKG_PTHREADS=${HAVE_PKG_PTHREADS}])
+  AX_LOG([PKG_PTHREADS_CPPFLAGS=${PKG_PTHREADS_CPPFLAGS}])
+  AX_LOG([PKG_PTHREADS_LIBS=${PKG_PTHREADS_LIBS}])
+  AX_LOG([CFLAGS=$CFLAGS])
+  AX_LOG([CXXFLAGS=$CXXFLAGS])
+  AX_LOG([CPPFLAGS=$CPPFLAGS])
+  AX_LOG([LDFLAGS=$LDFLAGS])
+
 ])

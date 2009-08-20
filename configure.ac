@@ -1,25 +1,8 @@
-# __BEGIN_LICENSE__
-#
-# Copyright (C) 2006 United States Government as represented by the
-# Administrator of the National Aeronautics and Space Administration
-# (NASA).  All Rights Reserved.
-#
-# Copyright 2006 Carnegie Mellon University. All rights reserved.
-#
-# This software is distributed under the NASA Open Source Agreement
-# (NOSA), version 1.3.  The NOSA has been approved by the Open Source
-# Initiative.  See the file COPYING at the top of the distribution
-# directory tree for the complete NOSA document.
-#
-# THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
-# KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
-# LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
-# SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
-# A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
-# THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
-# DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
-#
-# __END_LICENSE__
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
 
 m4_pattern_forbid([^AX_])
 m4_pattern_allow([AX_CFLAGS])
@@ -39,7 +22,7 @@ AC_CANONICAL_HOST
 AM_INIT_AUTOMAKE([nostdinc])
 AX_CONFIG_HEADER_PREFIX([src/asp_config.h], [ASP_])
 
-dnl TODO BEFORE RELEASE: update libtool version
+dnl TODO RIGHT BEFORE RELEASE: update libtool version
 dnl if abi changes in any way:
 dnl     current++
 dnl     revision=0
@@ -55,15 +38,11 @@ dnl LIBTOOL_VERSION=current:revision:age
 LIBTOOL_VERSION=1:0:0
 AC_SUBST(LIBTOOL_VERSION)
 
-# This should be first, so everything else can use it
-AX_ARG_ENABLE(verbose, no, [none], [verbose configuration output])
-
 # load the config.options
 if test -f ./config.options; then
-  if test "yes" = "$ENABLE_VERBOSE" ; then
-    AC_MSG_NOTICE([sourcing ./config.options])
-    cat ./config.options
-  fi
+  AX_LOG([using config.options << EOF])
+  AX_LOG([`cat ./config.options`])
+  AX_LOG([EOF])
   source ./config.options
 fi
 
@@ -91,6 +70,27 @@ AX_COMMON_OPTIONS
 
 
 
+
+##################################################
+# Compilation options
+##################################################
+
+AX_ARG_ENABLE(strict-aliasing, no, [none],           [allow strict aliasing (dangerous)])
+
+##################################################
+# Handle options
+##################################################
+
+
+
+
+##################################################
+# distribution options
+##################################################
+
+
+
+
 ##################################################
 # package checks
 ##################################################
@@ -98,17 +98,16 @@ AX_COMMON_OPTIONS
 AX_PKG_PTHREADS
 
 AX_PKG_BOOST
-AX_PKG_BOOST_CHECK_VERSION([ASP_])
+if test x"$HAVE_PKG_BOOST" == "xyes"; then
+  AX_PKG_BOOST_CHECK_VERSION([ASP_])
+  AC_MSG_NOTICE([Stereo will be built using Boost version $BOOST_VERSION])
 
-AC_MSG_NOTICE([Stereo will be built using Boost version $BOOST_VERSION])
-AX_PKG_BOOST_LIB(PROGRAM_OPTIONS, [-lboost_program_options], [boost/program_options.hpp])
-
-AX_PKG_ONE_OF(BOOST_FILESYSTEM,
-    BOOST_FILESYSTEM_PRE_1_35,  [AX_PKG_BOOST_LIB(FILESYSTEM_PRE_1_35,  [-lboost_filesystem], [boost/filesystem/path.hpp])],
-    BOOST_FILESYSTEM_POST_1_35, [AX_PKG_BOOST_LIB(FILESYSTEM_POST_1_35, [-lboost_filesystem -lboost_system], [boost/filesystem/path.hpp])])
-
-AX_PKG_BOOST_LIB(THREAD, [-lboost_thread], [boost/thread/thread.hpp])
-AX_PKG_BOOST_LIB(IOSTREAMS, [-lboost_iostreams], [boost/iostreams/stream_buffer.hpp])
+  AX_PKG_BOOST_LIB(PROGRAM_OPTIONS, [-lboost_program_options], [boost/program_options.hpp])
+  AX_PKG_BOOST_LIB(SYSTEM,          [-lboost_system],          [boost/system/error_code.hpp])
+  AX_PKG_BOOST_LIB(FILESYSTEM,      [-lboost_filesystem],      [boost/filesystem/path.hpp], [$PKG_BOOST_SYSTEM_LIBS])
+  AX_PKG_BOOST_LIB(THREAD,          [-lboost_thread],          [boost/thread/thread.hpp])
+  AX_PKG_BOOST_LIB(IOSTREAMS,       [-lboost_iostreams],       [boost/iostreams/stream_buffer.hpp])
+fi
 
 # This provides an easy way for users to override the threads options
 # if they are replacing Boost threads with something else for their platform.
@@ -163,16 +162,16 @@ if test x"$HAVE_PKG_QT_BASE" != x"no:missing QT"; then
     AT_REQUIRE_QT_VERSION([4.0], [HAVE_PKG_QT_BASE="no:wrong QT version"], [])
 fi
 
-# We seed QT_INCLUDE's cppflags with the ones qmake figured out
+# We seed QT_BASE's cppflags and libs with the ones qmake figured out
 PKG_QT_BASE_CPPFLAGS="$PKG_QT_BASE_CPPFLAGS $QT_CPPFLAGS"
 AX_PKG(QT_BASE, [], [$QT_LIBS], [QVector])
 
 AX_PKG_ONE_OF(QT,
     APPLE_QT, [AX_PKG_APPLE(QT, [GL QT_BASE], [])],
     LINUX_QT,
-     [AX_PKG(QT_OPENGL, [GL QT_BASE], [], [QtOpenGL])
-      AX_PKG(QT_GUI,    [QT_BASE],    [], [QLabel])
-      AX_PKG(QT_SQL,    [QT_BASE],    [], [QtSql])
+     [AX_PKG(QT_OPENGL,  [QT_BASE], [], [QtOpenGL])
+      AX_PKG(QT_GUI,     [QT_BASE], [], [QLabel])
+      AX_PKG(QT_SQL,     [QT_BASE], [], [QtSql])
       AX_GROUP_PKG(LINUX_QT, [QT_BASE QT_GUI QT_OPENGL QT_SQL])])
 
 AX_PKG_ONE_OF(QWT,
@@ -191,13 +190,13 @@ if test x"$host_vendor" = "xapple"; then
     AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
 else
     AX_PKG(GEOS,    [],             [-lgeos])
-    AX_PKG(SUPERLU, [LAPACK],             [-lsuperlu])
+    AX_PKG(SUPERLU, [LAPACK],       [-lsuperlu])
     AX_PKG(XERCESC, [],             [-lxerces-c])
 fi
 
 dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems,
 dnl the ISIS compilation does not resolve certain BLAS symbols that its
-dnl dependent 3rd party libraries depend on (for whatever retarded reason).
+dnl dependent 3rd party libraries depend on (for whatever reason).
 dnl Thus, we link against LAPACK here because it defines these missing
 dnl BLAS symbols in the event that we need them.
 AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
@@ -251,6 +250,7 @@ AM_CONDITIONAL(MAKE_APP_CTXIMAGE, [test "$MAKE_APP_CTXIMAGE" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RMAX2CAHVOR, [test "$MAKE_APP_RMAX2CAHVOR" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RMAXADJUST, [test "$MAKE_APP_RMAXADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLEVIS, [test "$MAKE_APP_BUNDLEVIS" = "yes"])
+AM_CONDITIONAL(MAKE_APP_ISISADJUST, [test "$MAKE_APP_ISISADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_CUDATEST, [test "$MAKE_APP_CUDATEST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RECONSTRUCT, [test "$MAKE_APP_RECONSTRUCT" = "yes"])
@@ -263,15 +263,18 @@ AM_CONDITIONAL(MAKE_APP_RECONSTRUCT, [test "$MAKE_APP_RECONSTRUCT" = "yes"])
 ASP_CPPFLAGS="-I\${top_srcdir}/src $OTHER_CPPFLAGS"
 ASP_LDFLAGS="$OTHER_LDFLAGS"
 
-if test "yes" = "$ENABLE_VERBOSE" ; then
-  AC_MSG_NOTICE([using CPPFLAGS=$CPPFLAGS])
-  AC_MSG_NOTICE([using ASP_CPPFLAGS=$ASP_CPPFLAGS])
-  AC_MSG_NOTICE([using CFLAGS=$CFLAGS])
-  AC_MSG_NOTICE([using CXXFLAGS=$CXXFLAGS])
-  AC_MSG_NOTICE([using LDFLAGS=$LDFLAGS])
-  AC_MSG_NOTICE([using ASP_LDFLAGS=$ASP_LDFLAGS])
-  AC_MSG_NOTICE([using ASP_ENABLE_EXCEPTIONS=$ENABLE_EXCEPTIONS])
+# Do this last, to make sure it's not overridden
+if test x"$ENABLE_STRICT_ALIASING" = x"no"; then
+    CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
 fi
+
+AX_LOG([using CPPFLAGS=$CPPFLAGS])
+AX_LOG([using ASP_CPPFLAGS=$ASP_CPPFLAGS])
+AX_LOG([using CFLAGS=$CFLAGS])
+AX_LOG([using CXXFLAGS=$CXXFLAGS])
+AX_LOG([using LDFLAGS=$LDFLAGS])
+AX_LOG([using ASP_LDFLAGS=$ASP_LDFLAGS])
+AX_LOG([using ASP_ENABLE_EXCEPTIONS=$ENABLE_EXCEPTIONS])
 
 AC_SUBST(ASP_CPPFLAGS)
 AC_SUBST(ASP_LDFLAGS)

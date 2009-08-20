@@ -14,14 +14,30 @@ AC_DEFUN([AX_COMMON_OPTIONS], [
 AX_ARG_ENABLE(exceptions,   yes, [am-yes cpp-bool], [enable the C++ exception mechanism])
 AX_ARG_ENABLE(debug,         no, [none],            [generate debugging symbols])
 AX_ARG_ENABLE(optimize,       3, [none],            [compiler optimization level])
+AX_ARG_ENABLE(profile,       no, [none],            [generate profiling data])
 AX_ARG_ENABLE(arch-libs,     no, [none],            [force /lib64 (=64) or /lib32 (=32) instead of /lib])
 AX_ARG_ENABLE(proper-libs,  yes, [none],            [useful linker options])
+AX_ARG_ENABLE(ccache,        no, [none],            [try to use ccache, if available])
+AX_ARG_ENABLE(multi-arch,    [], [none],            [build multi-arch (universal) binaries])
 
 
 
 ##################################################
 # Handle options
 ##################################################
+
+# Pass apple gcc options to build a universal binary
+for arch in $ENABLE_MULTI_ARCH; do
+    AX_CFLAGS="$AX_CFLAGS -arch $arch"
+done
+
+if test x"$ENABLE_CCACHE" = x"yes"; then
+    AC_CHECK_PROGS(CCACHE, ccache, false)
+    if test x"$CCACHE" != "xfalse"; then
+        CC="$CCACHE $CC"
+        CXX="$CCACHE $CXX"
+    fi
+fi
 
 # Sometimes we have /foo/lib64 and /foo/lib confusion on 64-bit machines,
 # so we'll use possibly both if one doesn't appear for a certain
@@ -62,6 +78,10 @@ case "$ENABLE_OPTIMIZE" in
     ignore)  ;;
     *)       AC_MSG_ERROR([Unknown optimize option: "$ENABLE_OPTIMIZE"]) ;;
 esac
+
+if test x"$ENABLE_PROFILE" = "xyes"; then
+    AX_TRY_CPPFLAGS([-pg], [AX_CFLAGS="$AX_CFLAGS -pg"], [AC_MSG_ERROR([Cannot enable profiling: compiler doesn't seem to support it])])
+fi
 
 CFLAGS="$AX_CFLAGS $CFLAGS"
 CXXFLAGS="$AX_CFLAGS $CXXFLAGS"

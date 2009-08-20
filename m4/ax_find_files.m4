@@ -16,18 +16,12 @@ AC_DEFUN([AX_FIND_FILES],
     ax_find_files_passed=yes
     for filename in $1; do
       pathname="$path/$filename"
-      if test "$ENABLE_VERBOSE" = "yes"; then
-        AC_MSG_CHECKING([for ${pathname}])
-      fi
+      AX_LOG([Find Files: Looking for ${filename} in ${path}])
       ax_find_files_paths=`ls $pathname 2>/dev/null`
       if test ! -z "$ax_find_files_paths" ; then
-        if test "$ENABLE_VERBOSE" = "yes"; then
-          AC_MSG_RESULT([found])
-        fi
+        AX_LOG([Find Files: Found ${ax_find_files_paths}])
       else
-        if test "$ENABLE_VERBOSE" = "yes"; then
-          AC_MSG_RESULT([not found])
-        fi
+        AX_LOG([Fine Files: Not Found])
         ax_find_files_passed=no
         break
       fi
