@@ -381,14 +381,13 @@ int main(int argc, char* argv[]) {
   gcp_files = sort_out_gcps( image_files );
 
   // Read in the camera model and image info for the input images.
-  //    stereosession_type should be set to "pinhole" by user input
   StereoSession* session = StereoSession::create(stereosession_type);
   std::vector<boost::shared_ptr<CameraModel> > camera_models(image_files.size());
   std::cout << "Loading Camera Models:\n";
   for (unsigned i = 0; i < image_files.size(); ++i) {
     std::cout << "\t" << image_files[i] << "\n";
-    //camera_models[i] = session->camera_model(image_files[i]);
-    camera_models[i] = session->camera_model(image_files[i],image_files[i]); // only works with SSPinhole
+    camera_models[i] = session->camera_model(image_files[i]);
+    //camera_models[i] = session->camera_model(image_files[i],image_files[i]); // only works with SSPinhole
   }
 
   if (!vm.count("cnet") ) {
