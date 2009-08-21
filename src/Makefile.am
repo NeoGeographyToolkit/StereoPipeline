@@ -259,6 +259,12 @@ if MAKE_APP_RECONSTRUCT
   reconstruct_LDADD = $(APP_RECONSTRUCT_LIBS)
 endif
 
+if MAKE_APP_BATEST
+  bin_PROGRAMS += ba_test
+  ba_test_SOURCES = ba_test.cc $(stereo_code)
+  ba_test_LDADD = $(APP_BATEST_LIBS)
+endif
+
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
