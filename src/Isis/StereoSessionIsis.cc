@@ -327,7 +327,8 @@ void StereoSessionIsis::pre_filtering_hook(std::string const& input_file, std::s
     ImageViewRef<PixelDisparity<float> > disparity_map = disparity::mask(disparity_disk_image, Lmask, Rmask);
     
     DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
-    disparity_map_rsrc.set_tiled_write(std::min(512,disparity_map.cols()),std::min(512, disparity_map.rows()));
+    disparity_map_rsrc.set_tiled_write(std::min(512,disparity_map.cols()),
+				       std::min(512,disparity_map.rows()));
     block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback(InfoMessage, "\t--> Saving Mask :") );
   }
 }
@@ -358,6 +359,8 @@ void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::
   result = stereo::disparity::remove_invalid_pixels(result, right_disk_image.cols(), right_disk_image.rows());
 
   DiskImageResourceOpenEXR disparity_corrected_rsrc(output_file, result.format() );
+  disparity_corrected_rsrc.set_tiled_write(std::min(512,disparity_map.cols()),
+				     std::min(512,disparity_map.rows()));
   block_write_image( disparity_corrected_rsrc, result, 
 		     TerminalProgressCallback(InfoMessage, "\t    Processing:"));
 }

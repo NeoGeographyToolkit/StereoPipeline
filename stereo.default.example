@@ -8,10 +8,13 @@ INTERESTPOINT_ALIGNMENT_SUBSAMPLING 1
 DO_INDIVIDUAL_NORMALIZATION 0
 FORCE_USE_ENTIRE_RANGE 0
 
-# Choose whether to do the SLOG or log of the image (or neither)
-# (choosing both will default to only SLOG)
-DO_SLOG 1
-DO_LOG 0
+# Preprocessing filter mode:
+#
+# 0 - None
+# 1 - Gaussian Blur
+# 2 - Log Filter (slow)
+# 3 - SLog Filter (fast & recommended)
+PREPROCESSING_FILTER_MODE 3
 
 # center surround diameter of the convolution kernel in the SLOG 
 SLOG_KERNEL_WIDTH 1.5
@@ -37,6 +40,7 @@ V_CORR_MAX 100
 # 0 - parabola fitting (fastest)
 # 1 - affine adaptive window, robust weighting (slow!)
 # 2 - affine adaptive window, bayes weighting (slow!)
+# 3 - affine adaptive window, bayes EM weighting (slowest!)
 SUBPIXEL_MODE 0
 DO_H_SUBPIXEL 1
 DO_V_SUBPIXEL 1

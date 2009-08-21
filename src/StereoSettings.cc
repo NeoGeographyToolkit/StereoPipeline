@@ -27,6 +27,7 @@
 #include "StereoSettings.h"
 
 #include <vw/Core/Thread.h>
+#include <vw/Core/Log.h>
 #include <fstream>
 
 // ---------------------------------------------------
@@ -100,11 +101,10 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("INTERESTPOINT_ALIGNMENT_SUBSAMPLING", keypoint_align_subsampling, 1, "Image sub-sampling factor for keypoint alignment.");
   ASSOC_INT("DO_INDIVIDUAL_NORMALIZATION", individually_normalize, 0, "Normalize each image individually before processsing.");
   ASSOC_INT("FORCE_USE_ENTIRE_RANGE", force_max_min, 0, "Use images entire values, otherwise compress image range to -+2.5 sigmas around mean.");
+  ASSOC_INT("PREPROCESSING_FILTER_MODE", pre_filter_mode, 3, "selects the preprocessing filter");
+  ASSOC_FLOAT("SLOG_KERNEL_WIDTH", slogW, 1.5, "SIGMA for the gaussian blure in LOG and SLOG");
 
   // Correlation Options
-  ASSOC_INT("DO_SLOG", slog, 1, "perform an slog (relpace the emboss)");
-  ASSOC_INT("DO_LOG", log, 0, "perform a log (laplacian of gaussian)");
-  ASSOC_FLOAT("SLOG_KERNEL_WIDTH", slogW, 1.5, "SIGMA for the gaussian blure in LOG and SLOG");
   ASSOC_INT("H_KERNEL", h_kern, 25, "kernel width");
   ASSOC_INT("V_KERNEL", v_kern, 25, "kernel height");  
   ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_h_kern, 35, "subpixel kernel width");
@@ -116,8 +116,8 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("DO_H_SUBPIXEL", do_h_subpixel, 1, "Do vertical subpixel interpolation.");
   ASSOC_INT("DO_V_SUBPIXEL", do_v_subpixel, 1, "Do horizontal subpixel interpolation.");
   ASSOC_INT("SUBPIXEL_MODE", subpixel_mode, 0, "Use the affine adaptive subpixel correlator (slower, but more accurate)");
-  ASSOC_FLOAT("XCORR_THRESHOLD", xcorr_treshold, 2.0, "");
-  ASSOC_FLOAT("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_treshold, 1.1, "");
+  ASSOC_FLOAT("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
+  ASSOC_FLOAT("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_threshold, 1.1, "");
   ASSOC_INT("COST_BLUR", cost_blur, 1, "");
   ASSOC_INT("COST_MODE", cost_mode, 0, "");
 
@@ -125,7 +125,7 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
   ASSOC_INT("RM_V_HALF_KERN", rm_v_half_kern, 5, "");
   ASSOC_INT("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");
-  ASSOC_INT("RM_TRESHOLD", rm_treshold, 3, "rm_treshold > disp[n]-disp[m] pixels are not matching");
+  ASSOC_INT("RM_TRESHOLD", rm_threshold, 3, "rm_treshold > disp[n]-disp[m] pixels are not matching");
   ASSOC_INT("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
   ASSOC_INT("FILL_HOLES_NURBS", fill_holes_NURBS, 1, "fill holes using Larry's NURBS code");
   ASSOC_INT("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
@@ -153,8 +153,8 @@ void StereoSettings::read(std::string const& filename) {
     exit(EXIT_FAILURE);
   }
 
-  std::cout << "*************************************************************\n";
-  std::cout << "Reading Stereo Settings file: " << filename << "\n";
+  vw::vw_out(0) << "*************************************************************\n";
+  vw::vw_out(0) << "Reading Stereo Settings file: " << filename << "\n";
 
   std::string name, value, line;
   int c;
@@ -170,14 +170,14 @@ void StereoSettings::read(std::string const& filename) {
       try {
         po::store(po::parse_config_file(ss, m_desc), m_vm);
       } catch (boost::program_options::unknown_option &e) {
-        std::cout << "\tWARNING --> Unknown stereo settings option: " << line << "\n";
+	vw::vw_out(0) << "\tWARNING --> Unknown stereo settings option: " << line << "\n";
       }
     }
     ignoreline(fp);
   }
   
   po::notify(m_vm);
-  std::cout << "*************************************************************\n";
+  vw::vw_out(0) << "*************************************************************\n";
   fp.close();
 }
 
