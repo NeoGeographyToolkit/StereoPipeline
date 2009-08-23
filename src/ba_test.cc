@@ -6,22 +6,16 @@
 namespace po = boost::program_options;
 
 #include <vw/Camera/CAHVORModel.h>
-#include <vw/Camera/BundleAdjust.h>
+#include <vw/Camera/BundleAdjustmentSparse.h>
 #include <vw/Camera/BundleAdjustReport.h>
 #include <vw/Math.h>
-#include <vw/InterestPoint.h>
-#include <vw/Stereo.h>
-#include <vw/Math/LevenbergMarquardt.h>
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::ip;
-using namespace vw::stereo;
 
 #include "StereoSession.h"
 #include "BundleAdjustUtils.h"
 #include "ControlNetworkLoader.h"
-
 
 #define CONFIG_FILE "ba_test.cfg"
 
@@ -61,7 +55,6 @@ int main(int argc, char* argv[]) {
         "Set the initial value of the LM parameter lambda")
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), 
         "Set the threshold for robust cost functions")
-    ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
     ("save-iteration-data,s", 
         "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
     ("min-matches", po::value<int>(&min_matches)->default_value(30), 

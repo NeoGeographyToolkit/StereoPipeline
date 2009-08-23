@@ -32,18 +32,14 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;                   
 
 #include <vw/Camera/CAHVORModel.h>
-#include <vw/Camera/BundleAdjust.h>
+#include <vw/Camera/BundleAdjustmentSparse.h>
 #include <vw/Camera/BundleAdjustReport.h>
 #include <vw/Camera/ControlNetwork.h>
 #include <vw/Math.h>
-#include <vw/InterestPoint.h>
-#include <vw/Stereo.h>
 #include <vw/Math/LevenbergMarquardt.h>
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::ip;
-using namespace vw::stereo;
 
 #include <stdlib.h>
 #include <iostream>
@@ -306,7 +302,6 @@ int main(int argc, char* argv[]) {
     ("min-matches", po::value<int>(&min_matches)->default_value(5), "Set the mininmum number of matches between images that will be considered.")
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
     ("max-iterations", po::value<int>(&max_iterations)->default_value(25), "Set the maximum number of iterations.")
-    ("nonsparse,n", "Run the non-sparse reference implentation of LM Bundle Adjustment.")
     ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt. Warning: This is slow as pixel observations need to be calculated on each step.")
     ("report-level,r",po::value<int>(&report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report")
     ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
@@ -374,13 +369,7 @@ int main(int argc, char* argv[]) {
   }
  
   HelicopterBundleAdjustmentModel ba_model(image_infos, cnet);
-  
-  // Choose your poison
-  //  BundleAdjustment<HelicopterBundleAdjustmentModel, L1Error> bundle_adjuster(ba_model, cnet, L1Error());
-  //  BundleAdjustment<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, cnet, L2Error());
-  BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> bundle_adjuster(ba_model, CauchyError(robust_outlier_threshold));
-  //  BundleAdjustment<HelicopterBundleAdjustmentModel, HuberError> bundle_adjuster(ba_model, cnet, HuberError(robust_outlier_threshold));
-  //  BundleAdjustment<HelicopterBundleAdjustmentModel, PseudoHuberError> bundle_adjuster(ba_model, cnet, PseudoHuberError(robust_outlier_threshold));
+  BundleAdjustmentSparse<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error());
   
   if (vm.count("lambda")) {
     bundle_adjuster.set_lambda(lambda);
@@ -405,53 +394,31 @@ int main(int argc, char* argv[]) {
   }
 
   // Reporter
-  BundleAdjustReport<HelicopterBundleAdjustmentModel, BundleAdjustment<HelicopterBundleAdjustmentModel, CauchyError> > reporter( "RMAX Adjust", ba_model, bundle_adjuster, report_level );
+  BundleAdjustReport<HelicopterBundleAdjustmentModel, 
+    BundleAdjustmentSparse<HelicopterBundleAdjustmentModel, L2Error> > reporter( "RMAX Adjust", ba_model, bundle_adjuster, report_level );
 
   // Performing Bundle Adjustment
   double abs_tol = 1e10, rel_tol=1e10;  
-  if (vm.count("nonsparse")) {
-    while(bundle_adjuster.update_reference_impl(abs_tol, rel_tol)) {
-      reporter.loop_tie_in();
-
-      // Writing Current Camera Parameters to file for later reading in MATLAB
-      if (vm.count("save-iteration-data")){
-
-        //Writing this iterations camera data
-        ba_model.write_adjusted_cameras_append("iterCameraParam.txt");
-        
-        //Writing this iterations point data
-        std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
-        for (unsigned i = 0; i < ba_model.num_points(); ++i){
-          
-	  Vector<double,3> current_point = ba_model.B_parameters(i);
-          ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
-        }
-      }
-      if (bundle_adjuster.iterations() > max_iterations || abs_tol < 0.01 || rel_tol < 1e-10) 
-	break;
-    }
-  } else {
-    while(bundle_adjuster.update(abs_tol, rel_tol)) {
-      reporter.loop_tie_in();
-
-      // Writing Current Camera Parameters to file for later reading in MATLAB
-      if (vm.count("save-iteration-data")) {
-        
-        //Writing this iterations camera data
-        ba_model.write_adjusted_cameras_append("iterCameraParam.txt");
-        
-        //Writing this iterations point data, also saving the pixel param data
-        std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
-        for (unsigned i = 0; i < ba_model.num_points(); ++i){
-          
-	  Vector<double,3> current_point = ba_model.B_parameters(i);
-          ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
-        }
-      }
+  while(bundle_adjuster.update(abs_tol, rel_tol)) {
+    reporter.loop_tie_in();
+    
+    // Writing Current Camera Parameters to file for later reading in MATLAB
+    if (vm.count("save-iteration-data")) {
       
-      if (bundle_adjuster.iterations() > max_iterations || abs_tol < 0.01 || rel_tol < 1e-10)
-	break;
+      //Writing this iterations camera data
+      ba_model.write_adjusted_cameras_append("iterCameraParam.txt");
+      
+      //Writing this iterations point data, also saving the pixel param data
+      std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
+      for (unsigned i = 0; i < ba_model.num_points(); ++i){
+	
+	Vector<double,3> current_point = ba_model.B_parameters(i);
+	ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
+      }
     }
+    
+    if (bundle_adjuster.iterations() > max_iterations || abs_tol < 0.01 || rel_tol < 1e-10)
+      break;
   }
   reporter.end_tie_in();
   

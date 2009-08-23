@@ -34,7 +34,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 // Vision Workbench
-#include <vw/Camera/BundleAdjust.h>
+#include <vw/Camera/BundleAdjustmentSparse.h>
 #include <vw/Camera/BundleAdjustReport.h>
 #include <vw/Camera/ControlNetwork.h>
 #include <vw/Math.h>
@@ -44,7 +44,6 @@ using namespace vw;
 using namespace vw::math;
 using namespace vw::camera;
 using namespace vw::ip;
-using namespace vw::stereo;
 
 // Standard
 #include <stdlib.h>
@@ -140,7 +139,7 @@ public:
     // Checking to see if this Control Network is compatible with
     // IsisBundleAdjustmentModel
     if ( (*m_network)[0][0].description() != "millimeters" )
-      std::cout << "WARNING: Control Network doesn't seem to be in the correct units for the Control Measure for this problem (millimeters)" << std::endl;
+      vw_out(0) << "WARNING: Control Network doesn't seem to be in the correct units for the Control Measure for this problem (millimeters)" << std::endl;
 
   }
 
@@ -378,7 +377,7 @@ void perform_bundleadjustment( CostT const& cost_function ) {
   // Adjuster.
   IsisBundleAdjustmentModel< 3, 3> 
     ba_model( g_camera_adjust_models , g_cnet, g_input_files );
-  BundleAdjustment< IsisBundleAdjustmentModel< 3, 3>, CostT > 
+  BundleAdjustmentSparse< IsisBundleAdjustmentModel< 3, 3>, CostT > 
     bundle_adjuster( ba_model, cost_function,
 		     !g_vm.count("disable-camera-const"),
 		     !g_vm.count("disable-gcp-const"));
@@ -389,15 +388,15 @@ void perform_bundleadjustment( CostT const& cost_function ) {
   if ( cost_function.name_tag() != "L2Error" )
     bundle_adjuster.set_control( 1 ); // Shutting off fast Fletcher-style control
   if ( g_vm.count( "seed-with-previous" ) ) {
-    std::cout << "Seeding with previous ISIS adjustment files.\n";
-    std::cout << "\tLoading up previous ISIS adjustments\n";
+    vw_out(0) << "Seeding with previous ISIS adjustment files.\n";
+    vw_out(0) << "\tLoading up previous ISIS adjustments\n";
     for (unsigned j = 0; j < g_input_files.size(); ++j ) {
       std::string adjust_file = prefix_from_filename( g_input_files[j] ) +
 	".isis_adjust";
 
       // Loading and forcing in the adjustment
       if ( fs::exists( adjust_file ) ) {
-	std::cout << "\t\tFound: " << adjust_file << std::endl;
+	vw_out(0) << "\t\tFound: " << adjust_file << std::endl;
 	std::ifstream input( adjust_file.c_str() );
 	Vector<double> camera_vector = ba_model.A_parameters( j );
 	for ( unsigned n = 0; n < camera_vector.size(); n++ )
@@ -450,7 +449,7 @@ void perform_bundleadjustment( CostT const& cost_function ) {
       
     // Repushing the position in control network into BA model
     {
-      std::cout << "\tPush new triangulation results back into BA model\n";
+      vw_out(0) << "\tPush new triangulation results back into BA model\n";
       
       for ( unsigned i = 0; i < g_cnet->size(); ++i )
 	ba_model.set_B_parameters( i, (*g_cnet)[i].position() );
@@ -493,106 +492,66 @@ void perform_bundleadjustment( CostT const& cost_function ) {
   }
 
   // Reporter
-  BundleAdjustReport< IsisBundleAdjustmentModel<3,3>, BundleAdjustment< IsisBundleAdjustmentModel<3,3>, CostT > > reporter( "ISIS Adjust", ba_model, bundle_adjuster, g_report_level);
+  BundleAdjustReport< IsisBundleAdjustmentModel<3,3>, BundleAdjustmentSparse< IsisBundleAdjustmentModel<3,3>, CostT > > reporter( "ISIS Adjust", ba_model, bundle_adjuster, g_report_level);
 
   // Performing the Bundle Adjustment
   double abs_tol = 1e10, rel_tol = 1e10;
-  if (g_vm.count("nonsparse")) {    //What are you thinking? No!!
-    // This is the non sparse implementation
-    while ( bundle_adjuster.update_reference_impl( abs_tol, rel_tol ) ) {
-      reporter.loop_tie_in();
-
-      //Writing recording data for Bundlevis
-      if ( g_vm.count("save-iteration-data") ) {
+  // This is the sparse implementation of the code
+  double overall_delta = 2;
+  int no_improvement_count = 0;
+  while ( overall_delta ) {
+    overall_delta = bundle_adjuster.update( abs_tol, rel_tol );
+    reporter.loop_tie_in();
+    
+    //Writing recording data for Bundlevis
+    if ( g_vm.count("save-iteration-data") ) {
+      
+      // Recording Points Data
+      std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
+      for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
+	Vector3 point = ba_model.B_parameters(i);
+	ostr_points << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
+      }
+      
+      // Recording Camera Data
+      std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
+      for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
 	
-	// Recording Points Data
-	std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
-	for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
-	  Vector3 point = ba_model.B_parameters(i);
-	  ostr_points << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
-	}
-
-	// Recording Camera Data
-	std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
-	for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
-	  
-	  boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
-
-	  // Saving points along the line of the camera
-	  for ( int i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
-	    Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
-	    ostr_camera << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
-	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
-	    pose = pose / norm_2( pose );
-	    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-	    ostr_camera << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
-	  }
-	}
-      } // end of saving data
-
-      // Determing is it time to quit?
-      if ( bundle_adjuster.iterations() > g_max_iterations || abs_tol < 0.01 || rel_tol < 1e-10)
-	break;
-
-    }
-  } else {
-    // This is the sparse implementation of the code
-    double overall_delta = 2;
-    int no_improvement_count = 0;
-    while ( overall_delta ) {
-      overall_delta = bundle_adjuster.update( abs_tol, rel_tol );
-      reporter.loop_tie_in();
-
-      //Writing recording data for Bundlevis
-      if ( g_vm.count("save-iteration-data") ) {
+	boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 	
-	// Recording Points Data
-	std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
-	for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
-	  Vector3 point = ba_model.B_parameters(i);
-	  ostr_points << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
+	// Saving points along the line of the camera
+	for ( int i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
+	  Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
+	  ostr_camera << std::setprecision(18) << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
+	  Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
+	  pose = pose / norm_2(pose);
+	  Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
+	  ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
 	}
-
-	// Recording Camera Data
-	std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
-	for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
-	  
-	  boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
-
-	  // Saving points along the line of the camera
-	  for ( int i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
-	    Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
-	    ostr_camera << std::setprecision(18) << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
-	    Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
-	    pose = pose / norm_2(pose);
-	    Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-	    ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
-	  }
-	}
-      } // end of saving data
-
-      if ( overall_delta == ScalarTypeLimits<double>::highest() )
-	no_improvement_count++;
-      else
-	no_improvement_count = 0;
-
-      // Determine if it is time to quit
-      if ( bundle_adjuster.iterations() > g_max_iterations || abs_tol < 0.01 
-	   || rel_tol < 1e-10 || no_improvement_count > 5 )
-	break;
-    }
+      }
+    } // end of saving data
+    
+    if ( overall_delta == ScalarTypeLimits<double>::highest() )
+      no_improvement_count++;
+    else
+      no_improvement_count = 0;
+    
+    // Determine if it is time to quit
+    if ( bundle_adjuster.iterations() > g_max_iterations || abs_tol < 0.01 
+	 || rel_tol < 1e-10 || no_improvement_count > 5 )
+      break;
   }
   reporter.end_tie_in();
-
+  
   // Option to write KML of control network
   if ( g_vm.count("write-kml") ) {
-    std::cout << "Writing KML of Control Network.\n";
+    vw_out(0) << "Writing KML of Control Network.\n";
     reporter.write_control_network_kml( !g_kml_all );
   }
 
-  for ( unsigned int i = 0; i < ba_model.num_cameras(); ++i ) {
+  for ( unsigned int i = 0; i < ba_model.num_cameras(); ++i ) 
     ba_model.write_adjustment( i, prefix_from_filename( g_input_files[i] ) + ".isis_adjust");
-  }
+  
 }
 
 // Main Executable
@@ -615,7 +574,6 @@ int main(int argc, char* argv[]) {
     ("lambda,l", po::value<double>(&g_lambda), "Set the intial value of the LM parameter g_lambda")
     ("min-matches", po::value<int>(&min_matches)->default_value(30), "Set the minimum number of matches between images that will be considered.")
     ("max-iterations", po::value<int>(&g_max_iterations)->default_value(25), "Set the maximum number of iterations.")
-    ("nonsparse,n", "Run the non-sparse reference implementation of LM Bundle Adjustment. (For Debugging Purposes)")
     ("poly-order", po::value<int>(&polynomial_order)->default_value(0), "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
     ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft position. (meters)")
     ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(1.0/10.0), "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
@@ -645,13 +603,13 @@ int main(int argc, char* argv[]) {
   usage << general_options << std::endl;
 
   if ( g_vm.count("help") ) {
-    std::cout << usage.str() << std::endl;
+    vw_out(0) << usage.str() << std::endl;
     return 1;
   }
   
   if ( g_vm.count("input-files") < 1 ) {
-    std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
-    std::cout << usage.str();
+    vw_out(0) << "Error: Must specify at least one input file!" << std::endl << std::endl;
+    vw_out(0) << usage.str();
     return 1;
   }
   g_gcp_files = sort_out_gcps( g_input_files );
@@ -672,7 +630,7 @@ int main(int argc, char* argv[]) {
   // blank equations to define the cameras
   std::vector< boost::shared_ptr<CameraModel> > camera_models( g_input_files.size() );
   for ( unsigned i = 0; i < g_input_files.size(); ++i ) {
-    std::cout << "Loading: " << g_input_files[i] << std::endl;
+    vw_out(0) << "Loading: " << g_input_files[i] << std::endl;
 
     // Equations defining the delta
     boost::shared_ptr<BaseEquation> posF( new PolyEquation(polynomial_order) );
@@ -683,7 +641,7 @@ int main(int argc, char* argv[]) {
 
   // Checking to see if there is a cnet file to load up
   if ( g_vm.count("cnet") ){
-    std::cout << "Loading control network from file: " << cnet_file << "\n";
+    vw_out(0) << "Loading control network from file: " << cnet_file << "\n";
 
     std::vector<std::string> tokens;
     boost::split( tokens, cnet_file, boost::is_any_of(".") );
@@ -717,7 +675,8 @@ int main(int argc, char* argv[]) {
 	  }
 	}
 	if (!found)
-	  vw_throw( InputErr() << "ISIS Adjust doesn't seem to have a camera for serial, \"" << (*g_cnet)[i][m].serial() << "\", found in loaded Control Network" );
+	  vw_throw( InputErr() << "ISIS Adjust doesn't seem to have a camera for serial, \"" 
+		    << (*g_cnet)[i][m].serial() << "\", found in loaded Control Network" );
       }
     }
 
@@ -737,7 +696,7 @@ int main(int argc, char* argv[]) {
   // networks as a strict ISIS style control network will not record
   // Ephemeris Time.
   {
-    std::cout << "\nCalculating focal plane measurements for Control Network:\n";
+    vw_out(0) << "\nCalculating focal plane measurements for Control Network:\n";
     
     // Calculating mm/px for each camera in the x and y direction
     std::vector<Vector2> camera_mm_px;
@@ -782,7 +741,7 @@ int main(int argc, char* argv[]) {
 
   // Option to write ISIS-style control network
   if ( g_vm.count("write-isis-cnet-also") ) {
-    std::cout << "Writing ISIS-style Control Network.\n";
+    vw_out(0) << "Writing ISIS-style Control Network.\n";
     g_cnet->write_isis_pvl_control_network("isis_adjust");
   }
 

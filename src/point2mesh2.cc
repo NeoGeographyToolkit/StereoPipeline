@@ -495,17 +495,18 @@ int main( int argc, char *argv[] ){
   po::notify( vm );
 
   std::ostringstream usage;
-  usage << "Usage: " << argv[0] << "[options] <input-file> <texture-file> ... " << std::endl << std::endl;
+  usage << "Usage: " << argv[0] << "[options] <pointcloud> <texture-file> ... " << std::endl << std::endl;
   usage << desc << std::endl;
 
   //Setting the Vision Workbench cache size?
   vw_system_cache().resize( cache_size*1024*1024 );
 
   if( vm.count("help") ) {
-    std::cout << desc << std::endl;
+    vw_out(0) << usage.str() << std::endl;
     return 1;
   } else if ( vm.count("input-file") != 1 ) {
-    std::cout << usage.str();
+    vw_out(0) << "Error: Must specify at least a pointcloud file!" << std::endl;
+    vw_out(0) << usage.str();
     return 1;
   }
 

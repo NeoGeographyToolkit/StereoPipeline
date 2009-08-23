@@ -76,7 +76,7 @@ FILL_HOLES_NURBS 1
 RM_H_HALF_KERN 5
 RM_V_HALF_KERN 5
 RM_MIN_MATCHES 60 # Units = percest
-RM_TRESHOLD 3
+RM_THRESHOLD 3
 
 #########################################################################
 #############################    DOTCLOUD    ############################

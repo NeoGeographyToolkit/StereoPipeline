@@ -261,7 +261,7 @@ endif
 
 if MAKE_APP_BATEST
   bin_PROGRAMS += ba_test
-  ba_test_SOURCES = ba_test.cc $(stereo_code)
+  ba_test_SOURCES = ba_test.cc $(bundle_code)
   ba_test_LDADD = $(APP_BATEST_LIBS)
 endif
 

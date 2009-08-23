@@ -175,14 +175,18 @@ int main( int argc, char *argv[] ) {
   set_debug_level(debug_level);
   vw_system_cache().resize( cache_size*1024*1024 ); 
 
+  std::ostringstream usage;
+  usage << "Usage: " << argv[0] << " [options] <pointcloud> ..." << std::endl;
+  usage << std::endl << desc << std::endl;
+
   if( vm.count("help") ) {
-    std::cout << desc << std::endl;
+    vw_out(0) << usage.str();
     return 1;
   }
 
   if( vm.count("input-file") != 1 ) {
-    std::cout << "Error: Must specify exactly one pointcloud file and one texture file!" << std::endl;
-    std::cout << desc << std::endl;
+    vw_out(0) << "Error: Must specify exactly one pointcloud file and one texture file!" << std::endl;
+    vw_out(0) << usage.str();
     return 1;
   }
 
