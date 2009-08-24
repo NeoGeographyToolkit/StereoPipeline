@@ -642,13 +642,6 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelDisparity<float> > disparity_disk_image(post_correlation_fname);
       ImageViewRef<PixelDisparity<float> > disparity_map = disparity_disk_image;
 
-      // DEBUG CODE:
-      //
-      //       std::cout << "\n\n---------> Making a hole! <--------------\n\n";
-      //       ImageView<PixelDisparity<float> > test = disparity_disk_image;
-      //       fill(crop(test, 80,150,100,100),PixelDisparity<float>());
-      //       ImageViewRef<PixelDisparity<float> > disparity_map = test;
-
       vw_out(0) << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
       for (int i = 0; i < stereo_settings().rm_cleanup_passes; ++i) {
         disparity_map = disparity::clean_up(disparity_map,
@@ -663,14 +656,16 @@ int main(int argc, char* argv[]) {
       DiskCacheImageView<PixelDisparity<float> > filtered_disparity_map(disparity_map, "exr", 
                                                                         TerminalProgressCallback(ErrorMessage, "\t--> Writing: "));
 
-      // Write out the extrapolation mask image
+      { // Write out the extrapolation mask image
       vw_out(0) << "\t--> Creating \"Good Pixel\" image: " << (out_prefix + "-GoodPixelMap.tif") << "\n";
       write_image(out_prefix + "-GoodPixelMap.tif", disparity::missing_pixel_image(filtered_disparity_map), 
                   TerminalProgressCallback(ErrorMessage, "\t    Writing: "));
       DiskImageView<PixelRGB<vw::uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
-      write_image(out_prefix + "-dMask.tif", select_channel(edge_mask(good_pixel_image, 
-                                                                      PixelRGB<float>(255,0,0), 
-                                                                      stereo_settings().subpixel_h_kern*2.0),3)); 
+      write_image(out_prefix + "-dMask.tif", 
+		  select_channel(edge_mask(good_pixel_image, 
+					   PixelRGB<float>(255,0,0), 
+					   stereo_settings().subpixel_h_kern*2.0),3)); 
+      }
       
       // Call out to NURBS hole filling code.  The hole filling is
       // done with a subsampled (by 4) images and then the hole filled
@@ -764,11 +759,17 @@ int main(int argc, char* argv[]) {
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format() );
-      point_cloud_rsrc.set_block_size(Vector2i(std::min(vw_settings().default_tile_size(),point_cloud.cols()),
-					       std::min(vw_settings().default_tile_size(),point_cloud.rows())));
-      if ( stereo_session_string == "isis" ) 
-	write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
-      else
+      point_cloud_rsrc.set_block_size(Vector2i(std::min(vw_settings().default_tile_size(),
+							point_cloud.cols()),
+					       std::min(vw_settings().default_tile_size(),
+							point_cloud.rows())));
+
+      if ( stereo_session_string == "isis" ) {
+	vw_settings().set_default_num_threads(1); // Isis is not threads safe
+	block_write_image(point_cloud_rsrc, point_cloud, 
+			  TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
+	vw_settings().set_default_num_threads();
+      } else
 	block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
       vw_out(0) << "\t--> " << universe_radius_func;
     } catch (IOErr &e) { 
