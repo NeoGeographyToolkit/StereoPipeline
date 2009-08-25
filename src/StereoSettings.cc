@@ -125,7 +125,7 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
   ASSOC_INT("RM_V_HALF_KERN", rm_v_half_kern, 5, "");
   ASSOC_INT("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");
-  ASSOC_INT("RM_TRESHOLD", rm_threshold, 3, "rm_treshold > disp[n]-disp[m] pixels are not matching");
+  ASSOC_INT("RM_THRESHOLD", rm_threshold, 3, "rm_threshold > disp[n]-disp[m] pixels are not matching");
   ASSOC_INT("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
   ASSOC_INT("FILL_HOLES_NURBS", fill_holes_NURBS, 1, "fill holes using Larry's NURBS code");
   ASSOC_INT("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
