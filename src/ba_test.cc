@@ -72,7 +72,54 @@ struct NoiseParams{
   double  outlierSd; 
   int     outlierDf;
   double  outlierFreq;
+  friend std::ostream& operator<<(std::ostream& ostr, NoiseParams p);
 };
+
+std::ostream& operator<<(std::ostream& ostr, NoiseParams p) {
+  ostr << "Inlier Noise Type: ";
+  switch (p.inlierType) {
+    case NONE:
+      ostr << "None"; break;
+    case NORMAL:
+      ostr << "Normal"; break;
+    case LAPLACE:
+      ostr << "LaPlace"; break;
+    case STUDENT:
+      ostr << "Student's T"; break;
+    default:
+      ostr << "unrecognized type";
+  }
+  ostr << endl;
+  ostr << "Inlier Sigma: " << p.inlierSd << endl;
+  ostr << "Inlier DF: " << p.inlierDf << endl;
+  ostr << "Outlier Frequency: " << p.outlierFreq << endl;
+  ostr << "Outlier Noise Type: ";
+  switch (p.outlierType) {
+    case NONE:
+      ostr << "None"; break;
+    case NORMAL:
+      ostr << "Normal"; break;
+    case LAPLACE:
+      ostr << "LaPlace"; break;
+    case STUDENT:
+      ostr << "Student's T"; break;
+    default:
+      ostr << "unrecognized type";
+  }
+  ostr << endl;
+  ostr << "Outlier Sigma: " << p.outlierSd << endl;
+  ostr << "Outlier DF: " << p.outlierDf << endl;
+  return ostr;
+}
+
+NoiseT string_to_noise_type(std::string &s) {
+  NoiseT t = NONE;
+  std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+  if (s == "normal") t=NORMAL;
+  else if (s == "laplace") t=LAPLACE;
+  else if (s == "student") t=STUDENT;
+  return t;
+}
 
 /* }}} NoiseParams */
 
@@ -81,18 +128,11 @@ struct NoiseParams{
  */
 /* {{{ ProgramOptions */
 struct ProgramOptions {
-  std::vector<std::string> image_files;
-  std::vector<std::string> gcp_files;
-  std::string              cnet_file;
-  std::string              stereosession_type;
-  double                   epsilon;
-  double                   sigma_1;
-  double                   sigma_2;
-  double                   lambda;
-  double                   robust_outlier_threshold;
-  int                      min_tiepoints;
-  int                      min_matches;
-  int                      num_cameras;
+  NoiseParams pixel_params;
+  NoiseParams camera_xyz_params;
+  NoiseParams camera_euler_params;
+  int         min_tiepoints;
+  int         num_cameras;
   friend std::ostream& operator<<(std::ostream& ostr, ProgramOptions o);
 };
 
@@ -100,15 +140,14 @@ struct ProgramOptions {
 std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
   ostr << endl << "Configured Options" << endl;
   ostr << "----------------------------------------------------" << endl;
-  ostr << "Stereo Session Type:             " << o.stereosession_type << endl;
-  ostr << "Epsilon:                         " << o.epsilon << endl;
-  ostr << "Sigma 1:                         " << o.sigma_1 << endl;
-  ostr << "Sigma 2:                         " << o.sigma_2 << endl;
-  ostr << "Lambda:                          " << o.lambda  << endl;
-  ostr << "Robust Outlier Threshold:        " << o.robust_outlier_threshold << endl;
-  ostr << "# of Cameras:                    " << o.num_cameras << endl;
-  ostr << "Min # of Tiepoints per camera:   " << o.min_tiepoints << endl;
-  ostr << "Minimum # of Matches:            " << o.min_matches << endl;
+  ostr << "Pixel noise parameters:" << endl;
+  ostr << o.pixel_params << endl;
+  ostr << "Camera XYZ noise parameters:" << endl;
+  ostr << o.camera_xyz_params << endl;
+  ostr << "Camera Euler angle noise parameters:" << endl;
+  ostr << o.camera_euler_params << endl;
+  ostr << "# of Cameras: " << o.num_cameras << endl;
+  ostr << "Min # of Tiepoints per camera: " << o.min_tiepoints << endl;
   return ostr;
 }
 /* }}} ProgramOptions */
@@ -116,6 +155,134 @@ std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
 /*
  * Function definitions
  */
+
+/* {{{ parse_options */
+ProgramOptions parse_options(int argc, char* argv[]) {
+  std::ifstream config_file (CONFIG_FILE, std::ifstream::in);
+  ProgramOptions opts;
+
+  // Generic Options
+  po::options_description generic_opts("Options");
+  generic_opts.add_options()
+    ("help,?", "Display this help message")
+    ("verbose,v", "Verbose output")
+    ("debug,d", "Debugging output")
+    ("print-config","Print configuration options and exit");
+
+  // Test Configuration Options
+  std::string pixelInlierType;
+  std::string pixelOutlierType;
+  std::string xyzInlierType;
+  std::string xyzOutlierType;
+  std::string eulerInlierType;
+  std::string eulerOutlierType;
+
+  po::options_description test_opts("Test Data Configuration");
+  test_opts.add_options()
+    ("pixel-inlier-noise-type", po::value<std::string>(&pixelInlierType), 
+        "Type of noise to add to inlier pixel coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+    ("pixel-inlier-df", po::value<int>(&opts.pixel_params.inlierDf), 
+        "Degrees of freedom for inlier pixel noise")
+    ("pixel-inlier-sigma", po::value<double>(&opts.pixel_params.inlierSd),
+        "sigma for inlier pixel noise")
+    ("pixel-outlier-noise-type", po::value<std::string>(&pixelOutlierType),
+        "Type of noise to add to outlier pixel coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+    ("pixel-outlier-df", po::value<int>(&opts.pixel_params.outlierDf), 
+        "Degrees of freedom for outlier pixel noise")
+    ("pixel-outlier-sigma", po::value<double>(&opts.pixel_params.outlierSd),
+        "sigma for outlier pixel noise")
+    ("pixel-outlier-freq", po::value<double>(&opts.pixel_params.outlierFreq),
+        "outlier frequency for pixel noise")
+    ("xyz-inlier-noise-type", po::value<std::string>(&xyzInlierType), 
+        "Type of noise to add to inlier camera xyz coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+    ("xyz-inlier-df", po::value<int>(&opts.camera_xyz_params.inlierDf), 
+        "Degrees of freedom for inlier camera xyz noise")
+    ("xyz-inlier-sigma", po::value<double>(&opts.camera_xyz_params.inlierSd),
+        "sigma for inlier xyz noise")
+    ("xyz-outlier-noise-type", po::value<std::string>(&xyzOutlierType),
+        "Type of noise to add to outlier camera xyz coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+    ("xyz-outlier-df", po::value<int>(&opts.camera_xyz_params.outlierDf), 
+        "Degrees of freedom for outlier camera xyz noise")
+    ("xyz-outlier-sigma", po::value<double>(&opts.camera_xyz_params.outlierSd),
+        "sigma for outlier camera xyz noise")
+    ("xyz-outlier-freq", po::value<double>(&opts.camera_xyz_params.outlierFreq),
+        "outlier frequency for camera xyz noise")
+    ("euler-inlier-noise-type", po::value<std::string>(&eulerInlierType), 
+        "Type of noise to add to inlier camera euler coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+    ("euler-inlier-df", po::value<int>(&opts.camera_euler_params.inlierDf), 
+        "Degrees of freedom for inlier camera euler noise")
+    ("euler-inlier-sigma", po::value<double>(&opts.camera_euler_params.inlierSd),
+        "sigma for inlier euler noise")
+    ("euler-outlier-noise-type", po::value<std::string>(&eulerOutlierType),
+        "Type of noise to add to outlier camera euler coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+    ("euler-outlier-df", po::value<int>(&opts.camera_euler_params.outlierDf), 
+        "Degrees of freedom for outlier camera euler noise")
+    ("euler-outlier-sigma", po::value<double>(&opts.camera_euler_params.outlierSd),
+        "sigma for outlier camera euler noise")
+    ("euler-outlier-freq", po::value<double>(&opts.camera_euler_params.outlierFreq),
+        "outlier frequency for camera euler noise")
+    ("min-tiepoints-per-image", po::value<int>(&opts.min_tiepoints),"") // is the the same as min-matches?
+    ("number-of-cameras", po::value<int>(&opts.num_cameras)->default_value(10),"");
+
+  // Hidden Options (command line arguments)
+  po::options_description hidden_opts("");
+  //hidden_opts.add_options()
+  //  ("input-files", po::value<std::vector<std::string> >(&image_files));
+
+  // positional options spec
+  po::positional_options_description p;
+  //p.add("input-files", -1); // copied from BA -- will change
+  
+  // Allowed options includes generic and test config options
+  po::options_description allowed_opts("Allowed Options");
+  allowed_opts.add(generic_opts).add(test_opts);
+
+  // All options included in command line options group
+  po::options_description cmdline_opts;
+  cmdline_opts.add(generic_opts).add(test_opts).add(hidden_opts);
+
+  // test, bundle adjustment, and hidden options can be passed via config file
+  po::options_description config_file_opts;
+  config_file_opts.add(test_opts).add(hidden_opts);
+
+  // Parse options on command line and config file
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv).options(cmdline_opts).allow_unregistered().positional(p).run(), vm );
+  po::store(po::parse_config_file(config_file, config_file_opts, true), vm);
+  po::notify(vm);
+
+  // Print usage message if requested
+  std::ostringstream usage;
+  usage << "Usage: " << argv[0] << " [options] " << endl
+    << endl << allowed_opts << endl;
+  if ( vm.count("help") ) {
+    cout << usage.str() << endl;
+    exit(1);
+  }
+
+  opts.pixel_params.inlierType  = string_to_noise_type(pixelInlierType);
+  opts.pixel_params.outlierType = string_to_noise_type(pixelOutlierType);
+  opts.camera_xyz_params.inlierType    = string_to_noise_type(xyzInlierType);
+  opts.camera_xyz_params.outlierType   = string_to_noise_type(xyzOutlierType);
+  opts.camera_euler_params.inlierType  = string_to_noise_type(eulerInlierType);
+  opts.camera_euler_params.outlierType = string_to_noise_type(eulerOutlierType);
+
+  // Print config options if requested
+  if (vm.count("print-config")) {
+    cout << opts << endl;
+    exit(0);
+  } 
+
+  vw::vw_log().console_log().rule_set().clear();
+  vw::vw_log().console_log().rule_set().add_rule(vw::WarningMessage, "console");
+  if (vm.count("verbose"))
+    vw::vw_log().console_log().rule_set().add_rule(DebugMessage, "console");
+  if (vm.count("debug"))
+    vw::vw_log().console_log().rule_set().add_rule(VerboseDebugMessage, "console");
+
+  return opts;
+}
+/* }}} parse_options */
 
 /* {{{ Noise Generators */
 
@@ -474,7 +641,7 @@ RNGVector generate_xyz_rngs(base_rng_type &rng, CameraVector &cameras) {
 
 /* {{{ generate_control_network */
 boost::shared_ptr<ControlNetwork> 
-generate_control_network(base_rng_type &rng, CameraVector &cameras, int &min_tiepoints, NoiseParams &np)
+generate_control_network(base_rng_type &rng, CameraVector &cameras, int &min_tiepoints)
 {
   boost::shared_ptr<ControlNetwork> control_network(new ControlNetwork("Synthetic Control Network"));
   int num_cameras = cameras.size();
@@ -512,8 +679,7 @@ generate_control_network(base_rng_type &rng, CameraVector &cameras, int &min_tie
       if (point_in_image(img_point)) {
         ControlMeasure cm;
         cm.set_image_id(i);
-        noisy_img_point = add_noise_to_pixel(img_point, rng, np);
-        cm.set_position(noisy_img_point);
+        cm.set_position(img_point);
         measures.push_back(cm);
       }
     }
@@ -544,6 +710,32 @@ generate_control_network(base_rng_type &rng, CameraVector &cameras, int &min_tie
 }
 /* }}} generate_control_network */
 
+/* {{{ add_noise_to_control_network */
+boost::shared_ptr<ControlNetwork>
+add_noise_to_control_network(boost::shared_ptr<ControlNetwork> cnet, base_rng_type &rng, NoiseParams np)
+{
+  boost::shared_ptr<ControlNetwork> noisy_cnet(new ControlNetwork("Noisy Control Network"));
+
+  int cnet_size = cnet->size();
+  for (int i = 0; i < cnet_size; i++) {
+    ControlPoint cp;
+    cp.set_position((*cnet)[i].position());
+
+    int num_measures = (*cnet)[i].size();
+    for (int j = 0; j < num_measures; j++) {
+      ControlMeasure cm;
+      cm.set_image_id((*cnet)[i][j].image_id());
+      cm.set_position(add_noise_to_pixel((*cnet)[i][j].position(), rng, np));
+      cp.add_measure(cm);
+    }
+    noisy_cnet->add_control_point(cp);
+  }
+
+  return noisy_cnet;
+}
+
+/* }}} add_noise_to_control_network */
+
 /* {{{ write_control_network */
 /* 
  * Writes out the control network to a tap-separated file for debugging
@@ -554,9 +746,9 @@ void write_control_network(boost::shared_ptr<ControlNetwork> cnet, int num_camer
   std::ofstream cnetos (cnet_file.c_str());
 
   // file header
-  cnetos << "WP";
+  cnetos << "WP\t\t\t";
   for (int i = 0; i < num_cameras; i++) {
-    cnetos << "\t" << i;
+    cnetos << i << "\t\t";
   }
   cnetos << endl;
 
@@ -564,17 +756,19 @@ void write_control_network(boost::shared_ptr<ControlNetwork> cnet, int num_camer
   for (cnet_iter = cnet->begin(); cnet_iter != cnet->end(); cnet_iter++) {
     ControlPoint cp = *cnet_iter;
     Vector3 pos = cp.position();
-    cnetos << pos[0] << "," << pos[1] << "," << pos[2] << "\t";
+    cnetos << pos[0] << "\t" << pos[1] << "\t" << pos[2] << "\t";
     for (int i = 0; i < num_cameras; i++) {
+      bool match = false;
       for (int j = 0; j < cp.size(); j++) {
         ControlMeasure cm = cp[j];
         if (cm.image_id() == i) {
           Vector2 cmpos = cm.position();
-          cnetos << cmpos[0] << "," << cmpos[1];
+          cnetos << cmpos[0] << "\t" << cmpos[1];
+          match = true;
           break;
         }
       }
-      cnetos << "\t";
+      cnetos << (match ? "\t" : "\t\t");
     }
     cnetos << endl;
   }
@@ -584,116 +778,20 @@ void write_control_network(boost::shared_ptr<ControlNetwork> cnet, int num_camer
 /* }}} write_control_network */
 
 /* {{{ write_camera_models */
-void write_camera_models(CameraVector cameras) {
+void write_camera_models(CameraVector cameras, std::string fname="camera") {
   int num_cameras = cameras.size();
   for (int i = 0; i < num_cameras; i++) {
     std::stringstream out;
-    out << "camera" << i << ".tsai";
+    out << fname << i << ".tsai";
     cameras[i].write_file(out.str());
   }
 }
 /* }}} */
 
-/* {{{ parse_options */
-ProgramOptions parse_options(int argc, char* argv[]) {
-  std::ifstream config_file (CONFIG_FILE, std::ifstream::in);
-  ProgramOptions opts;
-
-  // Generic Options
-  po::options_description generic_opts("Options");
-  generic_opts.add_options()
-    ("help,?", "Display this help message")
-    ("verbose,v", "Verbose output")
-    ("debug,d", "Debugging output")
-    ("print-config","Print configuration options and exit");
-
-  // Test Configuration Options
-  po::options_description test_opts("Test Configuration");
-  test_opts.add_options()
-    ("epsilon", po::value<double>(&opts.epsilon), "epsilon value")
-    ("sigma-1", po::value<double>(&opts.sigma_1), "sigma_1 value")
-    ("sigma-2", po::value<double>(&opts.sigma_2), "sigma_2 value")
-    ("min-tiepoints-per-image", po::value<int>(&opts.min_tiepoints),"") // is the the same as min-matches?
-    ("number-of-cameras", po::value<int>(&opts.num_cameras)->default_value(10),"");
-
-  // Bundle Adjustment options
-  po::options_description ba_opts("Bundle Adjustment Configuration");
-  ba_opts.add_options()
-    ("session-type,t", po::value<std::string>(&opts.stereosession_type)->default_value("isis"), 
-        "Select the stereo session type to use for processing.")
-    ("cnet,c", po::value<std::string>(&opts.cnet_file), 
-        "Load a control network from a file")
-    ("lambda,l", po::value<double>(&opts.lambda), 
-        "Set the initial value of the LM parameter lambda")
-    ("robust-threshold", po::value<double>(&opts.robust_outlier_threshold)->default_value(10.0), 
-        "Set the threshold for robust cost functions")
-    ("save-iteration-data,s", 
-        "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
-    ("min-matches", po::value<int>(&opts.min_matches)->default_value(30), 
-        "Set the minimum  number of matches between images that will be considered.");
-
-  // Hidden Options (command line arguments)
-  po::options_description hidden_opts("");
-  //hidden_opts.add_options()
-  //  ("input-files", po::value<std::vector<std::string> >(&image_files));
-
-  // positional options spec
-  po::positional_options_description p;
-  //p.add("input-files", -1); // copied from BA -- will change
-  
-  // Allowed options includes generic and test config options
-  po::options_description allowed_opts("Allowed Options");
-  allowed_opts.add(generic_opts).add(test_opts).add(ba_opts);
-
-  // All options included in command line options group
-  po::options_description cmdline_opts;
-  cmdline_opts.add(generic_opts).add(test_opts).add(ba_opts).add(hidden_opts);
-
-  // test, bundle adjustment, and hidden options can be passed via config file
-  po::options_description config_file_opts;
-  config_file_opts.add(test_opts).add(ba_opts).add(hidden_opts);
-
-  // Parse options on command line and config file
-  po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).options(cmdline_opts).allow_unregistered().positional(p).run(), vm );
-  po::store(po::parse_config_file(config_file, config_file_opts, true), vm);
-  po::notify(vm);
-
-  // Print usage message if requested
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] [bundle adjustment options] " << endl
-    << endl << allowed_opts << endl;
-  if ( vm.count("help") ) {
-    cout << usage.str() << endl;
-    exit(1);
-  }
-
-  // Print config options if requested
-  if (vm.count("print-config")) {
-    cout << opts << endl;
-    exit(0);
-  } 
-
-  vw::vw_log().console_log().rule_set().clear();
-  vw::vw_log().console_log().rule_set().add_rule(vw::WarningMessage, "console");
-  if (vm.count("verbose"))
-    vw::vw_log().console_log().rule_set().add_rule(DebugMessage, "console");
-  if (vm.count("debug"))
-    vw::vw_log().console_log().rule_set().add_rule(VerboseDebugMessage, "console");
-
-  return opts;
-}
-/* }}} parse_options */
 
 int main(int argc, char* argv[]) {
   std::string cnet_file = "control.txt";
-  NoiseParams pixel_noise_params;
-  pixel_noise_params.inlierType = NORMAL;
-  pixel_noise_params.inlierSd = 0.5;
-  pixel_noise_params.inlierDf = 1;
-
-  NoiseParams cam_xyz_noise_params = pixel_noise_params;
-  NoiseParams cam_euler_noise_params = pixel_noise_params;
+  std::string noisy_cnet_file = "noisy_control.txt";
 
   ProgramOptions config = parse_options(argc, argv);
 
@@ -704,19 +802,22 @@ int main(int argc, char* argv[]) {
 
   CameraVector cameras = generate_camera_models(camera_params);
 
-  boost::shared_ptr<ControlNetwork> cnet = generate_control_network(rng, cameras, config.min_tiepoints, pixel_noise_params);
+  boost::shared_ptr<ControlNetwork> cnet = generate_control_network(rng, cameras, config.min_tiepoints);
+  boost::shared_ptr<ControlNetwork> noisy_cnet = add_noise_to_control_network(cnet, rng, config.pixel_params);
 
   CameraParamVector noisy_camera_params = add_noise_to_camera_vector(
-      camera_params, rng, cam_xyz_noise_params, cam_euler_noise_params);
+      camera_params, rng, config.camera_xyz_params, config.camera_euler_params);
   print_camera_params(noisy_camera_params);
   
   CameraVector noisy_cameras = generate_camera_models(noisy_camera_params);
 
   write_camera_models(cameras);
+  write_camera_models(noisy_cameras, "noisy_camera");
 
   cnet->write_binary_control_network("control");
 
   write_control_network(cnet, config.num_cameras, cnet_file);
+  write_control_network(noisy_cnet, config.num_cameras, noisy_cnet_file);
 
   return 0;
 }
