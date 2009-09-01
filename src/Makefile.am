@@ -261,8 +261,11 @@ endif
 
 if MAKE_APP_BATEST
   bin_PROGRAMS += ba_test
-  ba_test_SOURCES = ba_test.cc $(bundle_code)
+  ba_test_SOURCES = ba_test.cc $(stereo_code)
   ba_test_LDADD = $(APP_BATEST_LIBS)
+  bin_PROGRAMS += make_ba_test_data
+  make_ba_test_data_SOURCES = make_ba_test_data.cc $(bundle_code)
+  make_ba_test_data_LDADD = $(APP_BATEST_LIBS)
 endif
 
 AM_CPPFLAGS = @ASP_CPPFLAGS@

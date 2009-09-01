@@ -57,6 +57,8 @@ using namespace vw::camera;
 #include "MRO/StereoSessionCTX.h"
 #endif
 #include "RMAX/StereoSessionRmax.h"
+#include "StereoSessionPinhole.h"
+#include "StereoSettings.h"
 
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
@@ -376,12 +378,18 @@ int main(int argc, char* argv[]) {
 
   // Read in the camera model and image info for the input images.
   StereoSession* session = StereoSession::create(stereosession_type);
+
+  if (stereosession_type == "pinhole")
+    stereo_settings().keypoint_alignment = true;
+
   std::vector<boost::shared_ptr<CameraModel> > camera_models(image_files.size());
   std::cout << "Loading Camera Models:\n";
   for (unsigned i = 0; i < image_files.size(); ++i) {
     std::cout << "\t" << image_files[i] << "\n";
-    camera_models[i] = session->camera_model(image_files[i]);
-    //camera_models[i] = session->camera_model(image_files[i],image_files[i]); // only works with SSPinhole
+    if (stereosession_type == "pinhole")
+      camera_models[i] = session->camera_model(image_files[i],image_files[i]);
+    else
+      camera_models[i] = session->camera_model(image_files[i]);
   }
 
   if (!vm.count("cnet") ) {
