@@ -571,8 +571,7 @@ int main(int argc, char* argv[]) {
   if (config.save_iteration_data)
     clear_report_files(CameraParamsReportFile, PointsReportFile);
 
-  BundleAdjustReport<BundleAdjustmentModel, 
-    BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> > 
+  BundleAdjustReport<BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> > 
       reporter( "Bundle Adjust", ba_model, bundle_adjuster, config.report_level );
 
   double abs_tol=1e10, rel_tol=1e10;

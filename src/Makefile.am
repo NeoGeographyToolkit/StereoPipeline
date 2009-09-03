@@ -192,7 +192,6 @@ if MAKE_APP_POINT2DEM
   point2dem_LDADD = $(APP_POINT2DEM_LIBS)
 endif
 
-
 if MAKE_APP_NURBS
   bin_PROGRAMS += nurbs
   nurbs_SOURCES = nurbs.cc SurfaceNURBS.h
@@ -261,7 +260,10 @@ endif
 
 if MAKE_APP_BATEST
   bin_PROGRAMS += ba_test
-  ba_test_SOURCES = ba_test.cc $(stereo_code)
+  ba_test_SOURCES = ba_test.cc $(rmax_code) $(bundle_code) stereo.h \
+	StereoSession.cc StereoSession.h StereoSessionKeypoint.cc   \
+	StereoSessionKeypoint.h StereoSessionPinhole.cc             \
+	StereoSessionPinhole.h StereoSettings.cc StereoSettings.h   
   ba_test_LDADD = $(APP_BATEST_LIBS)
   bin_PROGRAMS += make_ba_test_data
   make_ba_test_data_SOURCES = make_ba_test_data.cc $(bundle_code)
