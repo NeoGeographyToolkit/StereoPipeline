@@ -716,6 +716,7 @@ add_noise_to_control_network(boost::shared_ptr<ControlNetwork> cnet, base_rng_ty
     int num_measures = (*cnet)[i].size();
     for (int j = 0; j < num_measures; j++) {
       ControlMeasure cm;
+      cm.set_sigma((*cnet)[i][j].sigma());
       cm.set_image_id((*cnet)[i][j].image_id());
       cm.set_position(add_noise_to_pixel((*cnet)[i][j].position(), rng, np));
       cp.add_measure(cm);

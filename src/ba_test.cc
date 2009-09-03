@@ -71,7 +71,6 @@ using std::setprecision;
 enum BundleAdjustmentT { REF, SPARSE, ROBUST_REF, ROBUST_SPARSE };
 
 struct ProgramOptions {
-  std::string stereosession_type;
   std::string cnet_file;
   BundleAdjustmentT bundle_adjustment_type;
   double lambda;
@@ -89,7 +88,6 @@ struct ProgramOptions {
 std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
   ostr << endl << "Configured Options" << endl;
   ostr << "----------------------------------------------------" << endl;
-  ostr << "Stereo session type: " << o.stereosession_type << endl;
   ostr << "Control network file: " << o.cnet_file << endl;
   ostr << "Bundle adjustment type: ";
   switch (o.bundle_adjustment_type) {
@@ -150,9 +148,6 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("bundle-adjustment-type,b",
         po::value<std::string>(&ba_type)->default_value("ref"),
         "Select bundle adjustment type (options are: \"ref\", \"sparse\", \"robust_ref\", \"robust_sparse\")")
-    ("session-type,t", 
-        po::value<std::string>(&opts.stereosession_type)->default_value("pinhole"), 
-        "Select the stereo session type to use for processing.")
     ("cnet,c", 
         po::value<std::string>(&opts.cnet_file), 
         "Load a control network from a file")
@@ -269,25 +264,16 @@ boost::shared_ptr<ControlNetwork> load_control_network(std::string const &file) 
 
 /* {{{ load_camera_models */
 std::vector<boost::shared_ptr<CameraModel> > 
-  load_camera_models(std::vector<std::string> const &camera_files, 
-  StereoSession *session,
-  std::string session_type) 
+  load_camera_models(std::vector<std::string> const &camera_files)
 {
   vw_out(InfoMessage) << "Loading camera models" << endl;
-  // TODO: this can be done without the stereo session; just
-  // use StereoSessionPinhole::read_file()
-
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
   std::vector<std::string>::const_iterator iter;
-
   for (iter = camera_files.begin(); iter != camera_files.end(); ++iter) {
     vw_out(DebugMessage) << "\t" << *iter << endl;
-
-    if (session_type == "pinhole") {
-      camera_models.push_back(session->camera_model(*iter, *iter));
-    } else {
-      camera_models.push_back(session->camera_model(*iter));
-    }
+    boost::shared_ptr<PinholeModel> cam(new PinholeModel());
+    cam->read_file(*iter);
+    camera_models.push_back(cam);
   }
 
   return camera_models;
@@ -342,24 +328,25 @@ public:
 /* {{{ constructor */
   BundleAdjustmentModel(std::vector<boost::shared_ptr<CameraModel> > const& cameras,
                         boost::shared_ptr<ControlNetwork> network,
-                        double camera_position_sigma, double camera_pose_sigma,
-                        double gcp_sigma) : 
-    m_cameras(cameras), 
-    m_network(network), 
-    a(cameras.size()), 
-    b(network->size()), 
-    a_initial(cameras.size()), 
+                        double const camera_position_sigma, 
+                        double const camera_pose_sigma,
+                        double const gcp_sigma) : 
+    m_cameras(cameras),
+    m_network(network),
+    a(cameras.size()),
+    b(network->size()),
+    a_initial(cameras.size()),
     b_initial(network->size()),
-    m_camera_position_sigma(camera_position_sigma), 
+    m_camera_position_sigma(camera_position_sigma),
     m_camera_pose_sigma(camera_pose_sigma),
-    m_gcp_sigma(gcp_sigma) 
+    m_gcp_sigma(gcp_sigma)
   {
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
     for (unsigned i = 0; i < network->size(); ++i)
       m_num_pixel_observations += (*network)[i].size();
-    
+
     // a and a_initial start off with every element all zeros.
     for (unsigned j = 0; j < m_cameras.size(); ++j)
       a_initial[j] = a[j] = camera_vector_t();
@@ -540,26 +527,11 @@ public:
 
 /* }}} BundleAdjustmentModel */
 
-int main(int argc, char* argv[]) {
-  ProgramOptions config = parse_options(argc, argv);
-
-  boost::shared_ptr<ControlNetwork> cnet = load_control_network(config.cnet_file);
- 
-  // Read in the camera model and image info for the input images.
-  StereoSession* session = StereoSession::create(config.stereosession_type);
-  if (config.stereosession_type == "pinhole") {
-    stereo_settings().keypoint_alignment = true;
-    stereo_settings().epipolar_alignment = false;
-  }
-
-  std::vector<boost::shared_ptr<CameraModel> > 
-    camera_models = load_camera_models(
-        config.camera_files, session, config.stereosession_type);
-
-  BundleAdjustmentModel ba_model(camera_models, cnet, 
-      config.camera_position_sigma, config.camera_pose_sigma, config.gcp_sigma);
-  BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error());
-  //bundle_adjuster = create_bundle_adjuster<BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> >(ba_model);
+/* {{{ adjust_bundles */
+template <class AdjusterT> 
+void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &config) 
+{
+  AdjusterT bundle_adjuster(ba_model, L2Error());
 
   // Set lambda if user has requested it
   if (config.use_user_lambda)
@@ -569,7 +541,7 @@ int main(int argc, char* argv[]) {
   if (config.save_iteration_data)
     clear_report_files(CameraParamsReportFile, PointsReportFile);
 
-  BundleAdjustReport<BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> > 
+  BundleAdjustReport<AdjusterT> 
       reporter( "Bundle Adjust", ba_model, bundle_adjuster, config.report_level );
 
   double abs_tol=1e10, rel_tol=1e10;
@@ -605,6 +577,20 @@ int main(int argc, char* argv[]) {
   }
 
   reporter.end_tie_in();
+}
+/* }}} adjust_bundles */
+
+int main(int argc, char* argv[]) {
+  ProgramOptions config = parse_options(argc, argv);
+
+  boost::shared_ptr<ControlNetwork> cnet = load_control_network(config.cnet_file);
+ 
+  std::vector<boost::shared_ptr<CameraModel> > camera_models = load_camera_models(config.camera_files);
+
+  BundleAdjustmentModel ba_model(camera_models, cnet, 
+      config.camera_position_sigma, config.camera_pose_sigma, config.gcp_sigma);
+
+  adjust_bundles<BundleAdjustmentRef<BundleAdjustmentModel, L2Error> >(ba_model, config);
 
   for (unsigned int i=0; i < ba_model.num_cameras(); ++i)
     ba_model.write_adjustment(i, prefix_from_filename(config.camera_files[i])+".adjust");
