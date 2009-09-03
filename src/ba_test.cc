@@ -467,10 +467,9 @@ public:
     pix_errors.clear();
     for (unsigned i = 0; i < m_network->size(); ++i)
       for(unsigned m = 0; m < (*m_network)[i].size(); ++m) {
-	int camera_idx = (*m_network)[i][m].image_id();
-	Vector2 pixel_error = (*m_network)[i][m].position() - (*this)(i, camera_idx,
-								   a[camera_idx],b[i]);
-	pix_errors.push_back(norm_2(pixel_error));
+        int camera_idx = (*m_network)[i][m].image_id();
+        Vector2 pixel_error = (*m_network)[i][m].position() - (*this)(i, camera_idx, a[camera_idx],b[i]);
+        pix_errors.push_back(norm_2(pixel_error));
       }
   }
   
@@ -508,7 +507,7 @@ public:
     gcp_errors.clear();
     for (unsigned i=0; i < this->num_points(); ++i) {
       if ((*m_network)[i].type() == ControlPoint::GroundControlPoint)
-	gcp_errors.push_back(norm_2(b_initial[i] - b[i]));
+        gcp_errors.push_back(norm_2(b_initial[i] - b[i]));
     }
   }
 /* }}} */
@@ -517,7 +516,7 @@ public:
   void write_adjusted_cameras_append(std::string const& filename) {
     std::ofstream ostr(filename.c_str(),std::ios::app);
 
-    for (unsigned j=0; j < a.size();++j){
+    for (unsigned j=0; j < a.size();++j) {
       Vector3 position_correction = subvector(a[j],0,3);
       Vector3 p = subvector(a[j],3,3);
       Quaternion<double> pose_correction = vw::math::euler_to_quaternion(p[0], p[1], p[2],"xyz");
@@ -540,7 +539,6 @@ public:
 /* }}} write_adjusted_cameras_append */
 
 /* }}} BundleAdjustmentModel */
-
 
 int main(int argc, char* argv[]) {
   ProgramOptions config = parse_options(argc, argv);
