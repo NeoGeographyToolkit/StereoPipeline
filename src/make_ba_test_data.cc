@@ -180,13 +180,13 @@ ProgramOptions parse_options(int argc, char* argv[]) {
   po::options_description test_opts("Test Data Configuration");
   test_opts.add_options()
     ("pixel-inlier-noise-type", po::value<std::string>(&pixelInlierType), 
-        "Type of noise to add to inlier pixel coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+        "Type of noise to add to inlier pixel coordinates [None, Normal, Laplace, Student]")
     ("pixel-inlier-df", po::value<int>(&opts.pixel_params.inlierDf), 
         "Degrees of freedom for inlier pixel noise")
     ("pixel-inlier-sigma", po::value<double>(&opts.pixel_params.inlierSd),
         "sigma for inlier pixel noise")
     ("pixel-outlier-noise-type", po::value<std::string>(&pixelOutlierType),
-        "Type of noise to add to outlier pixel coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+        "Type of noise to add to outlier pixel coordinates [None, Normal, Laplace, Student]")
     ("pixel-outlier-df", po::value<int>(&opts.pixel_params.outlierDf), 
         "Degrees of freedom for outlier pixel noise")
     ("pixel-outlier-sigma", po::value<double>(&opts.pixel_params.outlierSd),
@@ -194,13 +194,13 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("pixel-outlier-freq", po::value<double>(&opts.pixel_params.outlierFreq),
         "outlier frequency for pixel noise")
     ("xyz-inlier-noise-type", po::value<std::string>(&xyzInlierType), 
-        "Type of noise to add to inlier camera xyz coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+        "Type of noise to add to inlier camera xyz coordinates [None, Normal, Laplace, Student]")
     ("xyz-inlier-df", po::value<int>(&opts.camera_xyz_params.inlierDf), 
         "Degrees of freedom for inlier camera xyz noise")
     ("xyz-inlier-sigma", po::value<double>(&opts.camera_xyz_params.inlierSd),
         "sigma for inlier xyz noise")
     ("xyz-outlier-noise-type", po::value<std::string>(&xyzOutlierType),
-        "Type of noise to add to outlier camera xyz coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+        "Type of noise to add to outlier camera xyz coordinates [None, Normal, Laplace, Student]")
     ("xyz-outlier-df", po::value<int>(&opts.camera_xyz_params.outlierDf), 
         "Degrees of freedom for outlier camera xyz noise")
     ("xyz-outlier-sigma", po::value<double>(&opts.camera_xyz_params.outlierSd),
@@ -208,13 +208,13 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("xyz-outlier-freq", po::value<double>(&opts.camera_xyz_params.outlierFreq),
         "outlier frequency for camera xyz noise")
     ("euler-inlier-noise-type", po::value<std::string>(&eulerInlierType), 
-        "Type of noise to add to inlier camera euler coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+        "Type of noise to add to inlier camera euler coordinates [None, Normal, Laplace, Student]")
     ("euler-inlier-df", po::value<int>(&opts.camera_euler_params.inlierDf), 
         "Degrees of freedom for inlier camera euler noise")
     ("euler-inlier-sigma", po::value<double>(&opts.camera_euler_params.inlierSd),
         "sigma for inlier euler noise")
     ("euler-outlier-noise-type", po::value<std::string>(&eulerOutlierType),
-        "Type of noise to add to outlier camera euler coordinates [0: none, 1: normal, 2: laplace, 3: Student's T]")
+        "Type of noise to add to outlier camera euler coordinates [None, Normal, Laplace, Student]")
     ("euler-outlier-df", po::value<int>(&opts.camera_euler_params.outlierDf), 
         "Degrees of freedom for outlier camera euler noise")
     ("euler-outlier-sigma", po::value<double>(&opts.camera_euler_params.outlierSd),

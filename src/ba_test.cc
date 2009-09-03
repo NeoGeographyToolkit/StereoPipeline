@@ -54,10 +54,6 @@ const std::string PointsReportFile = "iterPointsParam.txt";
 
 using std::cout;
 using std::endl;
-using std::ios;
-using std::setiosflags;
-using std::setw;
-using std::setprecision;
 
 /*
  * Program Options
@@ -168,7 +164,7 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("save-iteration-data,s", 
         po::bool_switch(&opts.save_iteration_data), 
         "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
-    ("max_iterations,i", 
+    ("max-iterations,i", 
         po::value<int>(&opts.max_iterations)->default_value(30), 
         "Set the maximum number of iterations to run bundle adjustment.")
     ("min-matches,m", 
@@ -515,7 +511,6 @@ public:
       cam.A = Vector3(1,0,0);
       cam.H = Vector3(0,1,0);
       cam.V = Vector3(0,0,1);
-      // = rmax_image_camera_model(m_image_infos[j],position_correction,pose_correction);
       ostr << j << "\t" << cam.C(0) << "\t" << cam.C(1) << "\t" << cam.C(2) << "\n";
       ostr << j << "\t" << cam.A(0) << "\t" << cam.A(1) << "\t" << cam.A(2) << "\n";
       ostr << j << "\t" << cam.H(0) << "\t" << cam.H(1) << "\t" << cam.H(2) << "\n";
@@ -524,9 +519,17 @@ public:
       ostr << j << "\t" << cam.R(0) << "\t" << cam.R(1) << "\t" << cam.R(2) << "\n";
     }
   }
-};
 /* }}} write_adjusted_cameras_append */
 
+/* {{{ write_points_append */
+  void write_points_append(std::string const& filename) {
+    std::ofstream ostr(filename.c_str(),std::ios::app);
+    for (unsigned i = 0; i < b.size(); ++i) 
+      ostr << i << "\t" << b[i][0] << "\t" << b[i][1] << "\t" << b[i][2] << endl;
+  }
+/* }}} write_points_append */
+
+};
 /* }}} BundleAdjustmentModel */
 
 /* {{{ adjust_bundles */
@@ -539,7 +542,7 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
   if (config.use_user_lambda)
     bundle_adjuster.set_lambda(config.lambda);
 
-  //Clearing the monitoring text files to be used for saving camera params
+  // Clear the monitoring text files to be used for saving camera params
   if (config.save_iteration_data)
     clear_report_files(CameraParamsReportFile, PointsReportFile);
 
@@ -554,22 +557,10 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
     // more (special) iteration (in robust case) or refit entirely (in
     // non-robust case)
     
-    // Writing Current Camera Parameters to file for later reading in MATLAB
     if (config.save_iteration_data) {
-      
-      //Writing this iterations camera data
+      //Write this iterations camera and point data
       ba_model.write_adjusted_cameras_append(CameraParamsReportFile);
-      
-      //Writing this iterations point data
-      std::ofstream ostr_points(PointsReportFile.c_str(),std::ios::app);
-
-      for (unsigned i = 0; i < ba_model.num_points(); ++i){
-        Vector<double, 3> current_point = ba_model.B_parameters(i);
-        current_point /= current_point(3);
-        ostr_points << i << "\t" << current_point(0) 
-                         << "\t" << current_point(1) 
-                         << "\t" << current_point(2) << "\n";
-      }
+      ba_model.write_points_append(PointsReportFile);
     }
     
     if (bundle_adjuster.iterations() > config.max_iterations 
