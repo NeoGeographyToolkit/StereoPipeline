@@ -85,6 +85,7 @@ struct ProgramOptions {
   friend std::ostream& operator<<(std::ostream& ostr, ProgramOptions o);
 };
 
+/* {{{ operator<< */
 std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
   ostr << endl << "Configured Options" << endl;
   ostr << "----------------------------------------------------" << endl;
@@ -113,7 +114,9 @@ std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
   ostr << "Report level: " << o.report_level << endl;
   return ostr;
 }
+/* }}} operator<< */
 
+/* {{{ string_to_ba_type */
 BundleAdjustmentT string_to_ba_type(std::string &s) {
   BundleAdjustmentT t = REF;
   std::transform(s.begin(), s.end(), s.begin(), ::tolower);
@@ -122,6 +125,8 @@ BundleAdjustmentT string_to_ba_type(std::string &s) {
   else if (s == "robust_sparse") t = ROBUST_SPARSE;
   return t;
 }
+/* }}} */
+
 /* }}} ProgramOptions */
 
 /*
@@ -570,9 +575,7 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
       }
     }
     
-    if (bundle_adjuster.iterations() > MaxIterations 
-        || abs_tol < 0.01 
-        || rel_tol < 1e-16)
+    if (bundle_adjuster.iterations() > MaxIterations || abs_tol < 0.01 || rel_tol < 1e-16)
       break;
   }
 
@@ -583,20 +586,40 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
 int main(int argc, char* argv[]) {
   ProgramOptions config = parse_options(argc, argv);
 
-  boost::shared_ptr<ControlNetwork> cnet = load_control_network(config.cnet_file);
+  boost::shared_ptr<ControlNetwork> 
+    cnet = load_control_network(config.cnet_file);
  
-  std::vector<boost::shared_ptr<CameraModel> > camera_models = load_camera_models(config.camera_files);
+  std::vector<boost::shared_ptr<CameraModel> > 
+    camera_models = load_camera_models(config.camera_files);
 
   BundleAdjustmentModel ba_model(camera_models, cnet, 
       config.camera_position_sigma, config.camera_pose_sigma, config.gcp_sigma);
 
-  adjust_bundles<BundleAdjustmentRef<BundleAdjustmentModel, L2Error> >(ba_model, config);
+  switch (config.bundle_adjustment_type) {
+    case REF:
+      adjust_bundles<BundleAdjustmentRef<BundleAdjustmentModel, L2Error> >
+        (ba_model, config);
+      break;
+    case SPARSE:
+      adjust_bundles<BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> >
+        (ba_model, config);
+      break;
+    case ROBUST_REF:
+      adjust_bundles<BundleAdjustmentRobustRef<BundleAdjustmentModel, L2Error> >
+        (ba_model, config);
+      break;
+    case ROBUST_SPARSE:
+      adjust_bundles<BundleAdjustmentRobustSparse<BundleAdjustmentModel, L2Error> >
+        (ba_model, config);
+      break;
+  }
 
   for (unsigned int i=0; i < ba_model.num_cameras(); ++i)
     ba_model.write_adjustment(i, prefix_from_filename(config.camera_files[i])+".adjust");
   
   // Compute the post-adjustment residuals
-  std::vector<boost::shared_ptr<CameraModel> > adjusted_cameras = ba_model.adjusted_cameras();
+  std::vector<boost::shared_ptr<CameraModel> > 
+    adjusted_cameras = ba_model.adjusted_cameras();
   
   return 0;
 }
