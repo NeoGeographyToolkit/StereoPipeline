@@ -32,7 +32,8 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;                   
 
 #include <vw/Camera/CAHVORModel.h>
-#include <vw/Camera/BundleAdjustmentSparse.h>
+#include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/BundleAdjust.h>
 #include <vw/Camera/BundleAdjustReport.h>
 #include <vw/Math.h>
 
@@ -43,19 +44,13 @@ using namespace vw::camera;
 #include <iostream>
 
 #include "asp_config.h"
-#include "StereoSession.h"
 #include "BundleAdjustUtils.h"
 #include "ControlNetworkLoader.h"
-
-#include "RMAX/StereoSessionRmax.h"
-#include "StereoSessionPinhole.h"
-#include "StereoSettings.h"
 
 #define CONFIG_FILE "ba_test.cfg"
 
 const std::string CameraParamsReportFile = "iterCameraParam.txt";
 const std::string PointsReportFile = "iterPointsParam.txt";
-const int MaxIterations = 20;
 
 using std::cout;
 using std::endl;
@@ -81,6 +76,7 @@ struct ProgramOptions {
   bool save_iteration_data;
   int min_matches;
   int report_level;
+  int max_iterations;
   std::vector<std::string> camera_files;
   friend std::ostream& operator<<(std::ostream& ostr, ProgramOptions o);
 };
@@ -110,6 +106,7 @@ std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
   ostr << "Camera pose sigma: " << o.camera_pose_sigma << endl;
   ostr << "Ground control point sigma: " << o.gcp_sigma << endl;
   ostr << "Minimum matches: " << o.min_matches << endl;
+  ostr << "Maximum iterations: " << o.max_iterations << endl;
   ostr << "Save iteration data? " << o.save_iteration_data << endl;
   ostr << "Report level: " << o.report_level << endl;
   return ostr;
@@ -171,7 +168,10 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("save-iteration-data,s", 
         po::bool_switch(&opts.save_iteration_data), 
         "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
-    ("min-matches", 
+    ("max_iterations,i", 
+        po::value<int>(&opts.max_iterations)->default_value(30), 
+        "Set the maximum number of iterations to run bundle adjustment.")
+    ("min-matches,m", 
         po::value<int>(&opts.min_matches)->default_value(30), 
         "Set the minimum  number of matches between images that will be considered.");
 
@@ -202,16 +202,13 @@ ProgramOptions parse_options(int argc, char* argv[]) {
   po::store(po::parse_config_file(config_file, config_file_options, true), vm);
   po::notify( vm );
   
-  if (vm.count("lambda") > 0)
-    opts.use_user_lambda = true;
-  else
-    opts.use_user_lambda = false;
+  opts.use_user_lambda = (vm.count("lambda") > 0) ? true : false;
 
   opts.bundle_adjustment_type = string_to_ba_type(ba_type);
 
   // Print usage message if requested
   std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] " << endl
+  usage << "Usage: " << argv[0] << " [options] <camera model files>" << endl
     << endl << allowed_options << endl;
   if ( vm.count("help") ) {
     cout << usage.str() << endl;
@@ -230,7 +227,7 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     exit(1);
   }
 
- vw::vw_log().console_log().rule_set().clear();
+  vw::vw_log().console_log().rule_set().clear();
   vw::vw_log().console_log().rule_set().add_rule(vw::WarningMessage, "console");
   if (vm.count("verbose"))
     vw::vw_log().console_log().rule_set().add_rule(DebugMessage, "console");
@@ -575,7 +572,8 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
       }
     }
     
-    if (bundle_adjuster.iterations() > MaxIterations || abs_tol < 0.01 || rel_tol < 1e-16)
+    if (bundle_adjuster.iterations() > config.max_iterations 
+        || abs_tol < 0.01 || rel_tol < 1e-16)
       break;
   }
 
