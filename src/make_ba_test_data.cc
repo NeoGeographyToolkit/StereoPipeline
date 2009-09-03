@@ -224,30 +224,21 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("min-tiepoints-per-image", po::value<int>(&opts.min_tiepoints),"") // is the the same as min-matches?
     ("number-of-cameras", po::value<int>(&opts.num_cameras)->default_value(10),"");
 
-  // Hidden Options (command line arguments)
-  po::options_description hidden_opts("");
-  //hidden_opts.add_options()
-  //  ("input-files", po::value<std::vector<std::string> >(&image_files));
-
-  // positional options spec
-  po::positional_options_description p;
-  //p.add("input-files", -1); // copied from BA -- will change
-  
   // Allowed options includes generic and test config options
   po::options_description allowed_opts("Allowed Options");
   allowed_opts.add(generic_opts).add(test_opts);
 
   // All options included in command line options group
   po::options_description cmdline_opts;
-  cmdline_opts.add(generic_opts).add(test_opts).add(hidden_opts);
+  cmdline_opts.add(generic_opts).add(test_opts);
 
-  // test, bundle adjustment, and hidden options can be passed via config file
+  // test options can be passed via config file
   po::options_description config_file_opts;
-  config_file_opts.add(test_opts).add(hidden_opts);
+  config_file_opts.add(test_opts);
 
   // Parse options on command line and config file
   po::variables_map vm;
-  po::store(po::command_line_parser(argc, argv).options(cmdline_opts).allow_unregistered().positional(p).run(), vm );
+  po::store(po::command_line_parser(argc, argv).options(cmdline_opts).allow_unregistered().run(), vm );
   po::store(po::parse_config_file(config_file, config_file_opts, true), vm);
   po::notify(vm);
 
@@ -678,6 +669,7 @@ generate_control_network(base_rng_type &rng, CameraVector &cameras, int &min_tie
 
       if (point_in_image(img_point)) {
         ControlMeasure cm;
+        cm.set_sigma(1,1);
         cm.set_image_id(i);
         cm.set_position(img_point);
         measures.push_back(cm);
@@ -788,7 +780,6 @@ void write_camera_models(CameraVector cameras, std::string fname="camera") {
 }
 /* }}} */
 
-
 int main(int argc, char* argv[]) {
   std::string cnet_file = "control.txt";
   std::string noisy_cnet_file = "noisy_control.txt";
@@ -815,6 +806,7 @@ int main(int argc, char* argv[]) {
   write_camera_models(noisy_cameras, "noisy_camera");
 
   cnet->write_binary_control_network("control");
+  noisy_cnet->write_binary_control_network("noisy_control");
 
   write_control_network(cnet, config.num_cameras, cnet_file);
   write_control_network(noisy_cnet, config.num_cameras, noisy_cnet_file);
