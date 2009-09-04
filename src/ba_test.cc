@@ -26,7 +26,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
-#include "boost/filesystem/operations.hpp" 
+#include "boost/filesystem.hpp" 
 #include "boost/filesystem/fstream.hpp"    
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;                   
@@ -47,10 +47,11 @@ using namespace vw::camera;
 #include "BundleAdjustUtils.h"
 #include "ControlNetworkLoader.h"
 
-#define CONFIG_FILE "ba_test.cfg"
+typedef std::vector<boost::shared_ptr<CameraModel> > CameraVector;
 
-const std::string CameraParamsReportFile = "iterCameraParam.txt";
-const std::string PointsReportFile = "iterPointsParam.txt";
+const fs::path ConfigFileDefault      = "ba_test.cfg";
+const fs::path CameraParamsReportFile = "iterCameraParam.txt";
+const fs::path PointsReportFile       = "iterPointsParam.txt";
 
 using std::cout;
 using std::endl;
@@ -62,7 +63,6 @@ using std::endl;
 enum BundleAdjustmentT { REF, SPARSE, ROBUST_REF, ROBUST_SPARSE };
 
 struct ProgramOptions {
-  std::string cnet_file;
   BundleAdjustmentT bundle_adjustment_type;
   double lambda;
   double camera_position_sigma; // constraint on adjustment to camera position
@@ -73,13 +73,16 @@ struct ProgramOptions {
   int min_matches;
   int report_level;
   int max_iterations;
-  std::vector<std::string> camera_files;
+  std::vector<fs::path> camera_files;
+  fs::path cnet_file;
+  fs::path data_dir;
+  fs::path config_file;
   friend std::ostream& operator<<(std::ostream& ostr, ProgramOptions o);
 };
 
 /* {{{ operator<< */
 std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
-  ostr << endl << "Configured Options" << endl;
+  ostr << endl << "Configured Options (read from " << o.config_file << ")" << endl;
   ostr << "----------------------------------------------------" << endl;
   ostr << "Control network file: " << o.cnet_file << endl;
   ostr << "Bundle adjustment type: ";
@@ -105,6 +108,7 @@ std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
   ostr << "Maximum iterations: " << o.max_iterations << endl;
   ostr << "Save iteration data? " << o.save_iteration_data << endl;
   ostr << "Report level: " << o.report_level << endl;
+  ostr << "Data directory: " << o.data_dir << endl;
   return ostr;
 }
 /* }}} operator<< */
@@ -127,7 +131,6 @@ BundleAdjustmentT string_to_ba_type(std::string &s) {
  */
 /* {{{ parse_options */
 ProgramOptions parse_options(int argc, char* argv[]) {
-  std::ifstream config_file (CONFIG_FILE, std::ifstream::in);
   ProgramOptions opts;
   
   // Generic Options (generic_options)
@@ -136,8 +139,10 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("help,?", "Display this help message")
     ("verbose,v", "Verbose output")
     ("debug,d", "Debugging output")
-    ("print-config","Print configuration options and exit")
-    ("report-level,r",po::value<int>(&opts.report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report");
+    ("report-level,r",po::value<int>(&opts.report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report")
+    ("config-file,f", po::value<fs::path>(&opts.config_file)->default_value(ConfigFileDefault), 
+        "File containing configuration options (if not given, defaults to reading ba_test.cfg in the current directory")
+    ("print-config","Print configuration options and exit");
 
   std::string ba_type;
   // Bundle adjustment options (ba_options) 
@@ -147,7 +152,7 @@ ProgramOptions parse_options(int argc, char* argv[]) {
         po::value<std::string>(&ba_type)->default_value("ref"),
         "Select bundle adjustment type (options are: \"ref\", \"sparse\", \"robust_ref\", \"robust_sparse\")")
     ("cnet,c", 
-        po::value<std::string>(&opts.cnet_file), 
+        po::value<fs::path>(&opts.cnet_file), 
         "Load a control network from a file")
     ("lambda,l", 
         po::value<double>(&opts.lambda), 
@@ -169,12 +174,14 @@ ProgramOptions parse_options(int argc, char* argv[]) {
         "Set the maximum number of iterations to run bundle adjustment.")
     ("min-matches,m", 
         po::value<int>(&opts.min_matches)->default_value(30), 
-        "Set the minimum  number of matches between images that will be considered.");
+        "Set the minimum  number of matches between images that will be considered.")
+    ("data-dir", po::value<fs::path>(&opts.data_dir)->default_value("."),
+        "Directory to read input data from and write output data to");
 
   // Hidden options, aka command line arguments (hidden_options)
   po::options_description hidden_options("");
   hidden_options.add_options()
-    ("input-files", po::value<std::vector<std::string> >(&opts.camera_files));
+    ("input-files", po::value<std::vector<fs::path> >(&opts.camera_files));
 
   // Allowed options (includes generic and ba))
   po::options_description allowed_options("Allowed Options");
@@ -195,7 +202,10 @@ ProgramOptions parse_options(int argc, char* argv[]) {
   // Parse options on command line and config file 
   po::variables_map vm;
   po::store( po::command_line_parser( argc, argv ).options(cmdline_options).positional(p).allow_unregistered().run(), vm );
-  po::store(po::parse_config_file(config_file, config_file_options, true), vm);
+  std::ifstream config_file_istr(
+      boost::any_cast<fs::path>(vm["config-file"].value()).string().c_str(), 
+      std::ifstream::in);
+  po::store(po::parse_config_file(config_file_istr, config_file_options, true), vm);
   po::notify( vm );
   
   opts.use_user_lambda = (vm.count("lambda") > 0) ? true : false;
@@ -217,8 +227,16 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     exit(0);
   } 
 
+  // Check we have a control network file
   if ( vm.count("cnet") < 1) {
-    cout << "Error: Must specify at least one input file!" << endl << endl;
+    cout << "Error: Must specify a control network file!" << endl << endl;
+    cout << usage.str() << endl;
+    exit(1);
+  }
+
+  // Check we have at least one camera model file
+  if (opts.camera_files.size() < 1) {
+    cout << "Error: Must specify at least one camera model file!" << endl << endl;
     cout << usage.str() << endl;
     exit(1);
   }
@@ -235,42 +253,44 @@ ProgramOptions parse_options(int argc, char* argv[]) {
 /* }}} parse_options */
 
 /* {{{ load_control_network */
-boost::shared_ptr<ControlNetwork> load_control_network(std::string const &file) {
+boost::shared_ptr<ControlNetwork> load_control_network(fs::path const &file) {
   boost::shared_ptr<ControlNetwork> cnet( new ControlNetwork("Control network"));
 
-  vw_out(InfoMessage) << "Loading control network from file: " << file << endl;
+  vw_out(DebugMessage) << "Loading control network from file: " << file << endl;
 
   // Deciding which Control Network we have
-  std::vector<std::string> tokens;
-  boost::split( tokens, file, boost::is_any_of(".") );
-  if ( tokens[tokens.size()-1] == "net" ) {
+  if ( file.extension() == ".net" ) {
     // An ISIS style control network
-    vw_out(DebugMessage) << "\tReading ISIS control network file" << endl;
-    cnet->read_isis_pvl_control_network( file );
-  } else if ( tokens[tokens.size()-1] == "cnet" ) {
+    vw_out(VerboseDebugMessage) << "\tReading ISIS control network file" << endl;
+    cnet->read_isis_pvl_control_network( file.string() );
+  } else if ( file.extension() == ".cnet" ) {
     // A VW binary style
-    vw_out(DebugMessage) << "\tReading VisionWorkbench binary control network file" 
+    vw_out(VerboseDebugMessage) << "\tReading VisionWorkbench binary control network file" 
       << endl;
-    cnet->read_binary_control_network( file );
+    cnet->read_binary_control_network( file.string() );
   } else {
     vw_throw( IOErr() << "Unknown control network file extension, \""
-      << tokens[tokens.size()-1] << "\"." );
+      << file.extension() << "\"." );
   }
   return cnet;
 }
 /* }}} load_control_network */
 
 /* {{{ load_camera_models */
-std::vector<boost::shared_ptr<CameraModel> > 
-  load_camera_models(std::vector<std::string> const &camera_files)
+CameraVector load_camera_models(std::vector<fs::path> const &camera_files, 
+    fs::path const &dir)
 {
-  vw_out(InfoMessage) << "Loading camera models" << endl;
-  std::vector<boost::shared_ptr<CameraModel> > camera_models;
-  std::vector<std::string>::const_iterator iter;
+  vw_out(DebugMessage) << "Loading camera models" << endl;
+  CameraVector camera_models;
+  std::vector<fs::path>::const_iterator iter;
   for (iter = camera_files.begin(); iter != camera_files.end(); ++iter) {
-    vw_out(DebugMessage) << "\t" << *iter << endl;
+    fs::path file = *iter;
+    // If no parent path is provided for camera files, assume we read them from
+    // the data directory
+    if (!file.has_parent_path()) file = dir / file;
+    vw_out(VerboseDebugMessage) << "\t" << file << endl;
     boost::shared_ptr<PinholeModel> cam(new PinholeModel());
-    cam->read_file(*iter);
+    cam->read_file(file.string());
     camera_models.push_back(cam);
   }
 
@@ -289,12 +309,11 @@ static std::string prefix_from_filename(std::string const& filename) {
 /* }}} */
 
 /* {{{ clear_report_files */
-void clear_report_files(std::string cam_file, std::string point_file) {
-    std::ofstream ostr(cam_file.c_str(),std::ios::out);
-    ostr << "";
-    ostr.open(point_file.c_str(),std::ios::out);
-    ostr << "";
-    ostr.close();
+void clear_report_files(fs::path cam_file, fs::path point_file, fs::path dir) {
+    fs::ofstream c(dir / cam_file, std::ios_base::out);
+    c << ""; c.close();
+    fs::ofstream p(dir / point_file, std::ios_base::out);
+    p << ""; p.close();
 }
 /* }}} */
 
@@ -306,7 +325,7 @@ class BundleAdjustmentModel : public camera::BundleAdjustmentModelBase<BundleAdj
   typedef Vector<double,6> camera_vector_t;
   typedef Vector<double,3> point_vector_t;
 
-  std::vector<boost::shared_ptr<CameraModel> > m_cameras;
+  CameraVector m_cameras;
   boost::shared_ptr<ControlNetwork> m_network; 
 
   std::vector<camera_vector_t> a; // camera parameter adjustments
@@ -324,7 +343,7 @@ class BundleAdjustmentModel : public camera::BundleAdjustmentModelBase<BundleAdj
 public:
 
 /* {{{ constructor */
-  BundleAdjustmentModel(std::vector<boost::shared_ptr<CameraModel> > const& cameras,
+  BundleAdjustmentModel(CameraVector const& cameras,
                         boost::shared_ptr<ControlNetwork> network,
                         double const camera_position_sigma, 
                         double const camera_pose_sigma,
@@ -346,12 +365,16 @@ public:
       m_num_pixel_observations += (*network)[i].size();
 
     // a and a_initial start off with every element all zeros.
-    for (unsigned j = 0; j < m_cameras.size(); ++j)
-      a_initial[j] = a[j] = camera_vector_t();
+    for (unsigned j = 0; j < m_cameras.size(); ++j) {
+      a_initial[j] = camera_vector_t();
+      a[j]         = camera_vector_t();
+    }
 
     // b and b_initial start off with the initial positions of the 3d points
-    for (unsigned i = 0; i < network->size(); ++i)
-      b_initial[i] = b[i] = point_vector_t((*m_network)[i].position());
+    for (unsigned i = 0; i < network->size(); ++i) {
+      b_initial[i] = point_vector_t((*m_network)[i].position());
+      b[i]         = point_vector_t((*m_network)[i].position());
+    }
   }
 /* }}} */
 
@@ -365,6 +388,7 @@ public:
   point_vector_t B_initial(int i)    const { return b_initial[i]; }
   void set_B_parameters(int i, point_vector_t const& b_i) { b[i] = b_i; }
 
+  CameraVector cameras() { return m_cameras; }
   unsigned num_cameras() const { return a.size(); }
   unsigned num_points()  const { return b.size(); }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
@@ -438,9 +462,8 @@ public:
       Vector3 position_correction = subvector(a[j],0,3);
       Vector3 p = subvector(a[j],3,3);
       Quaternion<double> pose_correction = vw::math::euler_to_quaternion(p[0], p[1], p[2], "xyz");
-      result[j] = boost::shared_ptr<camera::CameraModel>( 
+      result[j] = boost::shared_ptr<camera::CameraModel>(
           new AdjustedCameraModel( m_cameras[j], position_correction, pose_correction ) );
-      // should this be in absolute coordinates?
     }
     return result;
   }
@@ -498,8 +521,8 @@ public:
 /* }}} */
 
 /* {{{ write_adjusted_cameras_append */
-  void write_adjusted_cameras_append(std::string const& filename) {
-    std::ofstream ostr(filename.c_str(),std::ios::app);
+  void write_adjusted_cameras_append(fs::path const& filename, fs::path const &dir) {
+    fs::ofstream ostr(dir / filename,std::ios::app);
 
     for (unsigned j=0; j < a.size();++j) {
       Vector3 position_correction = subvector(a[j],0,3);
@@ -522,8 +545,8 @@ public:
 /* }}} write_adjusted_cameras_append */
 
 /* {{{ write_points_append */
-  void write_points_append(std::string const& filename) {
-    std::ofstream ostr(filename.c_str(),std::ios::app);
+  void write_points_append(fs::path const& filename, fs::path const& dir) {
+    fs::ofstream ostr(dir / filename, std::ios::app);
     for (unsigned i = 0; i < b.size(); ++i) 
       ostr << i << "\t" << b[i][0] << "\t" << b[i][1] << "\t" << b[i][2] << endl;
   }
@@ -537,6 +560,7 @@ template <class AdjusterT>
 void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &config) 
 {
   AdjusterT bundle_adjuster(ba_model, L2Error());
+  vw_out(DebugMessage) << "Running bundle adjustment" << endl;
 
   // Set lambda if user has requested it
   if (config.use_user_lambda)
@@ -544,7 +568,7 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
 
   // Clear the monitoring text files to be used for saving camera params
   if (config.save_iteration_data)
-    clear_report_files(CameraParamsReportFile, PointsReportFile);
+    clear_report_files(CameraParamsReportFile, PointsReportFile, config.data_dir);
 
   BundleAdjustReport<AdjusterT> 
       reporter( "Bundle Adjust", ba_model, bundle_adjuster, config.report_level );
@@ -559,12 +583,12 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
     
     if (config.save_iteration_data) {
       //Write this iterations camera and point data
-      ba_model.write_adjusted_cameras_append(CameraParamsReportFile);
-      ba_model.write_points_append(PointsReportFile);
+      ba_model.write_adjusted_cameras_append(CameraParamsReportFile, config.data_dir);
+      ba_model.write_points_append(PointsReportFile, config.data_dir);
     }
     
     if (bundle_adjuster.iterations() > config.max_iterations 
-        || abs_tol < 0.01 || rel_tol < 1e-16)
+        || abs_tol < 1e-3 || rel_tol < 1e-3)
       break;
   }
 
@@ -572,18 +596,70 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
 }
 /* }}} adjust_bundles */
 
+/* {{{ write_camera_params */
+void write_camera_params(CameraVector cameras, fs::path file) 
+{
+  fs::ofstream os(file);
+  CameraVector::iterator iter;
+  Vector3 c, p;
+  vw_out(DebugMessage) << "Writing initial camera parameters" << endl;
+
+  for (iter = cameras.begin(); iter != cameras.end(); ++iter) {
+    c = (*iter)->camera_center(Vector2());
+    p = math::rotation_matrix_to_euler_xyz(((*iter)->camera_pose(Vector2())).rotation_matrix());
+    os << c[0] << "\t" << c[1] << "\t" << c[2] << "\t";
+    os << p[0] << "\t" << p[1] << "\t" << p[2] << endl;
+  }
+  os.close();
+}
+/* }}} */
+
+/* {{{ write_world_points */
+void write_world_points(boost::shared_ptr<ControlNetwork> cnet, fs::path file)
+{
+  fs::ofstream os(file);
+  ControlNetwork::iterator cnet_iter;
+  vw_out(DebugMessage) << "Writing initial world points" << endl;
+  for (cnet_iter = cnet->begin(); cnet_iter != cnet->end(); cnet_iter++) {
+    ControlPoint cp = *cnet_iter;
+    Vector3 pos = cp.position();
+    os << pos[0] << "\t" << pos[1] << "\t" << pos[2] << endl;
+  }
+  os.close();
+}
+/* }}} */
+
+/* {{{ write_adjusted_camera_models */
+void write_adjusted_camera_models(BundleAdjustmentModel ba_model, ProgramOptions config) {
+  for (unsigned int i=0; i < ba_model.num_cameras(); ++i) {
+    fs::path file = config.camera_files[i];
+    file.replace_extension("adjust");
+    file = config.data_dir / config.camera_files[i].replace_extension("adjust");
+    ba_model.write_adjustment(i, file.string());
+  }
+}
+/* }}} write_adjusted_camera_modesl */
+
 int main(int argc, char* argv[]) {
   ProgramOptions config = parse_options(argc, argv);
+  fs::path cam_file_initial = config.data_dir / "cam_initial.txt";
+  fs::path wp_file_initial  = config.data_dir / "wp_initial.txt";
+  fs::path cam_file_final   = config.data_dir / "cam_final.txt";
+  fs::path wp_file_final    = config.data_dir / "wp_final.txt";
+  fs::path cnet_file        = config.data_dir / config.cnet_file;
 
-  boost::shared_ptr<ControlNetwork> 
-    cnet = load_control_network(config.cnet_file);
+  boost::shared_ptr<ControlNetwork> cnet = load_control_network(cnet_file);
  
-  std::vector<boost::shared_ptr<CameraModel> > 
-    camera_models = load_camera_models(config.camera_files);
+  CameraVector camera_models = load_camera_models(config.camera_files, config.data_dir);
 
   BundleAdjustmentModel ba_model(camera_models, cnet, 
       config.camera_position_sigma, config.camera_pose_sigma, config.gcp_sigma);
 
+  // Write initial camera parameters and world points
+  write_camera_params(ba_model.cameras(), cam_file_initial);
+  write_world_points(cnet, wp_file_initial); 
+
+  // Run bundle adjustment according to user-specified type
   switch (config.bundle_adjustment_type) {
     case REF:
       adjust_bundles<BundleAdjustmentRef<BundleAdjustmentModel, L2Error> >
@@ -603,12 +679,12 @@ int main(int argc, char* argv[]) {
       break;
   }
 
-  for (unsigned int i=0; i < ba_model.num_cameras(); ++i)
-    ba_model.write_adjustment(i, prefix_from_filename(config.camera_files[i])+".adjust");
-  
-  // Compute the post-adjustment residuals
-  std::vector<boost::shared_ptr<CameraModel> > 
-    adjusted_cameras = ba_model.adjusted_cameras();
-  
+  // Write post adjustment camera model files
+  write_adjusted_camera_models(ba_model, config);
+ 
+  // Write post-adjustment camera parameters and world points
+  write_camera_params(ba_model.adjusted_cameras(), cam_file_final);
+  write_world_points(cnet, wp_file_final); 
+
   return 0;
 }

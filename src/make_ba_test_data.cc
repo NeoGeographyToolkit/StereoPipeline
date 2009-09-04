@@ -5,7 +5,10 @@
 #include <iomanip>
 #include <fstream>
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 #include <boost/random.hpp>
 
 #include <vw/Camera/CAHVORModel.h>
@@ -22,8 +25,6 @@ using namespace vw::camera;
 #include "StereoSession.h"
 #include "BundleAdjustUtils.h"
 #include "ControlNetworkLoader.h"
-
-#define CONFIG_FILE "ba_test.cfg"
 
 using std::cout;
 using std::endl;
@@ -57,6 +58,16 @@ const double CameraFoV_Y         = 40000;    // meters
 const int    ImgXPx              = 4000;     // x-dimension of synthetic image (pixels)
 const int    ImgYPx              = 4000;     // y-dimension of synthetic image (pixels)
 const double SurfaceHeightMargin = 3000.0;   // meters
+
+const std::string ConfigFileDefault = "ba_test.cfg";
+const std::string CnetFile          = "control.txt";
+const std::string NoisyCnetFile     = "noisy_control.txt";
+const std::string CnetPrefix        = "control";
+const std::string NoisyCnetPrefix   = "noisy_control";
+const std::string CameraPrefix      = "camera";
+const std::string NoisyCameraPrefix = "noisy_camera";
+const std::string TrueWPFile        = "wp_ground_truth.txt";
+const std::string TrueCamFile       = "cam_ground_truth.txt";
 
 /*
  * Noise Parameters
@@ -131,6 +142,8 @@ struct ProgramOptions {
   NoiseParams pixel_params;
   NoiseParams camera_xyz_params;
   NoiseParams camera_euler_params;
+  fs::path    data_dir;
+  fs::path    config_file;
   int         min_tiepoints;
   int         num_cameras;
   friend std::ostream& operator<<(std::ostream& ostr, ProgramOptions o);
@@ -138,7 +151,7 @@ struct ProgramOptions {
 
 
 std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
-  ostr << endl << "Configured Options" << endl;
+  ostr << endl << "Configured Options (read from " << o.config_file << ")" << endl;
   ostr << "----------------------------------------------------" << endl;
   ostr << "Pixel noise parameters:" << endl;
   ostr << o.pixel_params << endl;
@@ -148,6 +161,7 @@ std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
   ostr << o.camera_euler_params << endl;
   ostr << "# of Cameras: " << o.num_cameras << endl;
   ostr << "Min # of Tiepoints per camera: " << o.min_tiepoints << endl;
+  ostr << "Data output directory: " << o.data_dir << endl;
   return ostr;
 }
 /* }}} ProgramOptions */
@@ -158,7 +172,6 @@ std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
 
 /* {{{ parse_options */
 ProgramOptions parse_options(int argc, char* argv[]) {
-  std::ifstream config_file (CONFIG_FILE, std::ifstream::in);
   ProgramOptions opts;
 
   // Generic Options
@@ -167,6 +180,8 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("help,?", "Display this help message")
     ("verbose,v", "Verbose output")
     ("debug,d", "Debugging output")
+    ("config-file,f", po::value<fs::path>(&opts.config_file)->default_value(ConfigFileDefault), 
+        "File containing configuration options (if not given, defaults to reading ba_test.cfg in the current directory")
     ("print-config","Print configuration options and exit");
 
   // Test Configuration Options
@@ -222,7 +237,9 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     ("euler-outlier-freq", po::value<double>(&opts.camera_euler_params.outlierFreq),
         "outlier frequency for camera euler noise")
     ("min-tiepoints-per-image", po::value<int>(&opts.min_tiepoints),"") // is the the same as min-matches?
-    ("number-of-cameras", po::value<int>(&opts.num_cameras)->default_value(10),"");
+    ("number-of-cameras", po::value<int>(&opts.num_cameras)->default_value(10),"")
+    ("data-dir", po::value<fs::path>(&opts.data_dir)->default_value("."),
+        "Directory to write generated data files into");
 
   // Allowed options includes generic and test config options
   po::options_description allowed_opts("Allowed Options");
@@ -239,7 +256,10 @@ ProgramOptions parse_options(int argc, char* argv[]) {
   // Parse options on command line and config file
   po::variables_map vm;
   po::store(po::command_line_parser(argc, argv).options(cmdline_opts).allow_unregistered().run(), vm );
-  po::store(po::parse_config_file(config_file, config_file_opts, true), vm);
+  std::ifstream config_file_istr(
+      boost::any_cast<fs::path>(vm["config-file"].value()).string().c_str(), 
+      std::ifstream::in);
+  po::store(po::parse_config_file(config_file_istr, config_file_opts, true), vm);
   po::notify(vm);
 
   // Print usage message if requested
@@ -263,6 +283,14 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     cout << opts << endl;
     exit(0);
   } 
+
+  // If data directory does not exist, create it
+  if (fs::exists(opts.data_dir) && !fs::is_directory(opts.data_dir)) {
+    std::cerr << "Error: " << opts.data_dir << " is not a directory." << endl;
+    exit(1);
+  } 
+  else
+    fs::create_directory(opts.data_dir);
 
   vw::vw_log().console_log().rule_set().clear();
   vw::vw_log().console_log().rule_set().add_rule(vw::WarningMessage, "console");
@@ -734,9 +762,9 @@ add_noise_to_control_network(boost::shared_ptr<ControlNetwork> cnet, base_rng_ty
  * Writes out the control network to a tap-separated file for debugging
  */
 void write_control_network(boost::shared_ptr<ControlNetwork> cnet, int num_cameras,
-    std::string cnet_file) 
+    std::string cnet_file, fs::path dir) 
 {
-  std::ofstream cnetos (cnet_file.c_str());
+  fs::ofstream cnetos (dir / cnet_file);
 
   // file header
   cnetos << "WP\t\t\t";
@@ -770,47 +798,91 @@ void write_control_network(boost::shared_ptr<ControlNetwork> cnet, int num_camer
 }
 /* }}} write_control_network */
 
+/* {{{ write_world_points */
+void write_world_points(boost::shared_ptr<ControlNetwork> cnet,
+        std::string file, fs::path dir)
+{
+  fs::ofstream os(dir / file.c_str());
+  ControlNetwork::iterator cnet_iter;
+  for (cnet_iter = cnet->begin(); cnet_iter != cnet->end(); cnet_iter++) {
+    ControlPoint cp = *cnet_iter;
+    Vector3 pos = cp.position();
+    os << pos[0] << "\t" << pos[1] << "\t" << pos[2] << endl;
+  }
+  os.close();
+}
+/* }}} */
+
+/* {{{ write_camera_params */
+void write_camera_params(CameraParamVector params, std::string file, fs::path dir) {
+  fs::ofstream os(dir / file);
+  CameraParamVector::iterator iter;
+  Vector3 c, p;
+
+  for (iter = params.begin(); iter != params.end(); ++iter) {
+    c = (*iter)[0];
+    p = (*iter)[1];
+    os << c[0] << "\t" << c[1] << "\t" << c[2] << "\t";
+    os << p[0] << "\t" << p[1] << "\t" << p[2] << endl;
+  }
+  os.close();
+}
+/* }}} */
+
 /* {{{ write_camera_models */
-void write_camera_models(CameraVector cameras, std::string fname="camera") {
+void write_camera_models(CameraVector cameras, std::string fname, fs::path dir) 
+{
   int num_cameras = cameras.size();
   for (int i = 0; i < num_cameras; i++) {
     std::stringstream out;
-    out << fname << i << ".tsai";
+    out << dir / fname << i << ".tsai";
     cameras[i].write_file(out.str());
   }
 }
 /* }}} */
 
 int main(int argc, char* argv[]) {
-  std::string cnet_file = "control.txt";
-  std::string noisy_cnet_file = "noisy_control.txt";
-
   ProgramOptions config = parse_options(argc, argv);
 
   base_rng_type rng = initialize_rng();
 
+  // Generate ground truth camera parameters
   CameraParamVector camera_params = generate_camera_params(config.num_cameras);
   print_camera_params(camera_params);
 
-  CameraVector cameras = generate_camera_models(camera_params);
-
-  boost::shared_ptr<ControlNetwork> cnet = generate_control_network(rng, cameras, config.min_tiepoints);
-  boost::shared_ptr<ControlNetwork> noisy_cnet = add_noise_to_control_network(cnet, rng, config.pixel_params);
-
+  // Add configured noise to camera parameters
   CameraParamVector noisy_camera_params = add_noise_to_camera_vector(
       camera_params, rng, config.camera_xyz_params, config.camera_euler_params);
   print_camera_params(noisy_camera_params);
-  
+
+  // Generate camera models from GT and noisy camera parameters
+  CameraVector cameras = generate_camera_models(camera_params);
   CameraVector noisy_cameras = generate_camera_models(noisy_camera_params);
 
-  write_camera_models(cameras);
-  write_camera_models(noisy_cameras, "noisy_camera");
+  // Generate random control network
+  boost::shared_ptr<ControlNetwork> 
+      cnet = generate_control_network(rng, cameras, config.min_tiepoints);
+  // Add configured noise to control network
+  boost::shared_ptr<ControlNetwork> 
+      noisy_cnet = add_noise_to_control_network(cnet, rng, config.pixel_params);
 
-  cnet->write_binary_control_network("control");
-  noisy_cnet->write_binary_control_network("noisy_control");
+  // Write camera model files
+  write_camera_models(cameras, CameraPrefix, config.data_dir);
+  write_camera_models(noisy_cameras, NoisyCameraPrefix, config.data_dir);
 
-  write_control_network(cnet, config.num_cameras, cnet_file);
-  write_control_network(noisy_cnet, config.num_cameras, noisy_cnet_file);
+  // Write binary control network files
+  std::string cnet_file = fs::path(config.data_dir / CnetPrefix).string();
+  std::string noisy_cnet_file = fs::path(config.data_dir / NoisyCnetPrefix).string();
+  cnet->write_binary_control_network(cnet_file);
+  noisy_cnet->write_binary_control_network(noisy_cnet_file);
+
+  // Write ground truth files for world points and camera parameters
+  write_world_points(cnet, TrueWPFile, config.data_dir);
+  write_camera_params(camera_params, TrueCamFile, config.data_dir);
+
+  // Write control network text files
+  write_control_network(cnet, config.num_cameras, CnetFile, config.data_dir);
+  write_control_network(noisy_cnet, config.num_cameras, NoisyCnetFile, config.data_dir);
 
   return 0;
 }
