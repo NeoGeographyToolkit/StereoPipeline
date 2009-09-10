@@ -253,26 +253,37 @@ ProgramOptions parse_options(int argc, char* argv[]) {
   po::options_description config_file_opts;
   config_file_opts.add(test_opts);
 
-  // Parse options on command line and config file
+  // Parse options on command line first
   po::variables_map vm;
   po::store(po::command_line_parser(argc, argv).options(cmdline_opts).allow_unregistered().run(), vm );
+  
+  // Print usage message and exit if requested
+  std::ostringstream usage;
+  usage << "Usage: " << argv[0] << " [options] " << endl << endl << allowed_opts << endl;
+  if ( vm.count("help") ) {
+    cout << usage.str() << endl;
+    exit(1);
+  }
+
+  /* Don't need to do this, but leaving the logic in place in case there's some reason
+   * to restore it later.
+  // Parse options in config file
+  fs::path cfg = boost::any_cast<fs::path>(vm["config-file"].value());
+  if (!fs::exists(cfg) || !fs::is_regular_file(cfg)) {
+    std::cerr << "Error: Config file " << cfg 
+        << " does not exist or is not a regular file." << endl;
+    exit(1);
+  }
+  */
+          
   std::ifstream config_file_istr(
       boost::any_cast<fs::path>(vm["config-file"].value()).string().c_str(), 
       std::ifstream::in);
   po::store(po::parse_config_file(config_file_istr, config_file_opts, true), vm);
   po::notify(vm);
 
-  // Print usage message if requested
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] " << endl
-    << endl << allowed_opts << endl;
-  if ( vm.count("help") ) {
-    cout << usage.str() << endl;
-    exit(1);
-  }
-
-  opts.pixel_params.inlierType  = string_to_noise_type(pixelInlierType);
-  opts.pixel_params.outlierType = string_to_noise_type(pixelOutlierType);
+  opts.pixel_params.inlierType         = string_to_noise_type(pixelInlierType);
+  opts.pixel_params.outlierType        = string_to_noise_type(pixelOutlierType);
   opts.camera_xyz_params.inlierType    = string_to_noise_type(xyzInlierType);
   opts.camera_xyz_params.outlierType   = string_to_noise_type(xyzOutlierType);
   opts.camera_euler_params.inlierType  = string_to_noise_type(eulerInlierType);
@@ -284,14 +295,6 @@ ProgramOptions parse_options(int argc, char* argv[]) {
     exit(0);
   } 
 
-  // If data directory does not exist, create it
-  if (fs::exists(opts.data_dir) && !fs::is_directory(opts.data_dir)) {
-    std::cerr << "Error: " << opts.data_dir << " is not a directory." << endl;
-    exit(1);
-  } 
-  else
-    fs::create_directory(opts.data_dir);
-
   vw::vw_log().console_log().rule_set().clear();
   vw::vw_log().console_log().rule_set().add_rule(vw::WarningMessage, "console");
   if (vm.count("verbose"))
@@ -302,6 +305,18 @@ ProgramOptions parse_options(int argc, char* argv[]) {
   return opts;
 }
 /* }}} parse_options */
+
+/* {{{ create_data_dir */
+void create_data_dir(fs::path dir) {
+  // If data directory does not exist, create it
+  if (fs::exists(dir) && !fs::is_directory(dir)) {
+    std::cerr << "Error: " << dir << " is not a directory." << endl;
+    exit(1);
+  } 
+  else
+    fs::create_directory(dir);
+}
+/* }}} create_data_dir */
 
 /* {{{ Noise Generators */
 
@@ -807,7 +822,7 @@ void write_world_points(boost::shared_ptr<ControlNetwork> cnet,
   for (cnet_iter = cnet->begin(); cnet_iter != cnet->end(); cnet_iter++) {
     ControlPoint cp = *cnet_iter;
     Vector3 pos = cp.position();
-    os << pos[0] << "\t" << pos[1] << "\t" << pos[2] << endl;
+    os << setprecision(8) << pos[0] << "\t" << pos[1] << "\t" << pos[2] << endl;
   }
   os.close();
 }
@@ -843,6 +858,7 @@ void write_camera_models(CameraVector cameras, std::string fname, fs::path dir)
 
 int main(int argc, char* argv[]) {
   ProgramOptions config = parse_options(argc, argv);
+  create_data_dir(config.data_dir);
 
   base_rng_type rng = initialize_rng();
 
