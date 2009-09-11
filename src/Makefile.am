@@ -270,6 +270,12 @@ if MAKE_APP_BATEST
   make_ba_test_data_LDADD = $(APP_BATEST_LIBS)
 endif
 
+if MAKE_APP_CNETEDITOR
+  bin_PROGRAMS += cnet_editor
+  cnet_editor_SOURCES = cnet_editor.cc
+  cnet_editor_LDADD = $(APP_CNETEDITOR_LIBS)
+endif
+
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
