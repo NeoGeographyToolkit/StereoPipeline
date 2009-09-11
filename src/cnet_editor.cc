@@ -1,6 +1,8 @@
 // boost
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 // standard
 #include <vector>
@@ -19,12 +21,14 @@ using namespace vw::camera;
 int main( int argc, char *argv[] ) {
   std::string cnet_file;
   std::string image_mean_file;
+  fs::path output_cnet_file;
   ControlNetwork cnet("ControlNetwork Editor");
   double cutoff_sigma;
 
   po::options_description general_options("Options");
   general_options.add_options()
     ("cutoff_sigma,c", po::value<double>(&cutoff_sigma)->default_value(2),"This is the highend cutoff sigma.")
+    ("output_cnet_file,o", po::value<fs::path>(&output_cnet_file)->default_value("processed.cnet"), "Name of processed control network file to write out.")
     ("help,h","Brings up this.");
 
   po::options_description positional_options("Positional Options");
@@ -135,5 +139,6 @@ int main( int argc, char *argv[] ) {
 	    << "% (" << cp_clip_count << ") of control points removed.\n";  
 
   std::cout << "\nWriting out new control network\n";
-  cnet.write_binary_control_network("processed");
+  std::string outfile_str = fs::path(output_cnet_file.parent_path() / output_cnet_file.stem()).string();
+  cnet.write_binary_control_network(outfile_str);
 }
