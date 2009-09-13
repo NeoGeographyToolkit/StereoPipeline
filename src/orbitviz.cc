@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -51,10 +51,9 @@ using namespace vw::cartography;
 
 #include "stereo.h"
 #include "StereoSession.h"
-#include "SurfaceNURBS.h"
 #include "MRO/DiskImageResourceDDD.h"	   // support for Malin DDD image files
 
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include "Isis/DiskImageResourceIsis.h"
 #include "Isis/StereoSessionIsis.h"
 #endif
@@ -66,12 +65,6 @@ using namespace vw::cartography;
 #endif
 
 using namespace std;
-
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
 
 //***********************************************************************
 // MAIN
@@ -86,15 +79,15 @@ int main(int argc, char* argv[]) {
                                         DiskImageResourceDDD::type_static(),
                                         &DiskImageResourceDDD::construct_open,
                                         &DiskImageResourceDDD::construct_create);
-  
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // Register the Isis file handler with the Vision Workbench
   // DiskImageResource system.
   DiskImageResource::register_file_type(".cub",
                                         DiskImageResourceIsis::type_static(),
                                         &DiskImageResourceIsis::construct_open,
                                         &DiskImageResourceIsis::construct_create);
-#endif 
+#endif
 
   // Register all stereo session types
 #if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
@@ -102,7 +95,7 @@ int main(int argc, char* argv[]) {
   StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
   StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
 #endif
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
@@ -125,7 +118,7 @@ int main(int argc, char* argv[]) {
     ("scale,s", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount. Ex: To scale moon alt. measures up to earth size, use 3.66")
     ("session-type,t", "Select the stereo session type to use for processing. [default: pinhole]")
     ("use-simple-placemarks", "Draw simple icons at camera locations, instead of a coordinate model");
-  
+
   po::options_description hidden_options("");
   hidden_options.add_options()
     ("input-files", po::value<std::vector<std::string> >(&input_files));
@@ -156,17 +149,17 @@ int main(int argc, char* argv[]) {
 
   // Look up for session type based on file extensions
   if (stereo_session_string.size() == 0) {
-    if ( boost::iends_with(input_files[1], ".cahvor") || 
-	 boost::iends_with(input_files[1], ".cahv") ||
+    if ( boost::iends_with(input_files[1], ".cahvor") ||
+         boost::iends_with(input_files[1], ".cahv") ||
          boost::iends_with(input_files[1], ".pin") ||
          boost::iends_with(input_files[1], ".tsai") ) {
       vw_out(0) << "\t--> Detected pinhole camera file\n";
       stereo_session_string = "pinhole";
-    } 
+    }
     else if (boost::iends_with(input_files[0], ".cub") ) {
       vw_out(0) << "\t--> Detected ISIS cube file\n";
       stereo_session_string = "isis";
-    } 
+    }
     else {
       vw_out(0) << "\n\n******************************************************************\n";
       vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
@@ -181,11 +174,11 @@ int main(int argc, char* argv[]) {
   if ( stereo_session_string != "isis" && input_files.size() < 4 ) {
     std::cout << help.str();
     return 1;
-  } else if ( "isis" && boost::iends_with(input_files[1], ".cub") ) 
+  } else if ( "isis" && boost::iends_with(input_files[1], ".cub") )
     cube_only_isis = true;
 
   StereoSession* session = StereoSession::create(stereo_session_string);
-  
+
   // Data to be loaded
   unsigned no_cameras = cube_only_isis ? input_files.size() : input_files.size() / 2;
   std::cout << "Number of cameras: " << no_cameras << std::endl;
@@ -204,11 +197,11 @@ int main(int argc, char* argv[]) {
        load_i++) {
     if (cube_only_isis) {
       camera_models[load_i] = session->camera_model( input_files[read_i],
-						     input_files[read_i] );
+                                                     input_files[read_i] );
       read_i++;
     } else {
       camera_models[load_i] = session->camera_model( input_files[read_i],
-						     input_files[read_i+1] );
+                                                     input_files[read_i+1] );
       read_i+=2;
     }
   }
@@ -219,25 +212,25 @@ int main(int argc, char* argv[]) {
   if (vm.count("use-simple-placemarks")) {
     // Placemark Style
     kml.append_style( "plane", "", 1.2,
-		      "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+                      "http://maps.google.com/mapfiles/kml/shapes/airports.png");
     kml.append_style( "plane_highlight", "", 1.4,
-		      "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+                      "http://maps.google.com/mapfiles/kml/shapes/airports.png");
     kml.append_stylemap( "camera_placemark", "plane",
-			 "plane_highlight" );
+                         "plane_highlight" );
   }
   // Placemarks
-  for ( unsigned i = 0; i < camera_models.size(); i++ ) 
+  for ( unsigned i = 0; i < camera_models.size(); i++ )
     if (!vm.count("use-simple-placemarks"))
       kml.append_coordinate( camera_models[i]->camera_center(Vector2()),
-			     camera_models[i]->camera_pose(Vector2()),
-			     camera_names[i], "", scale );
+                             camera_models[i]->camera_pose(Vector2()),
+                             camera_names[i], "", scale );
     else {
       // Converting to lon lat radius
       cartography::XYZtoLonLatRadFunctor func;
       Vector3 lon_lat_alt = func(camera_models[i]->camera_center(Vector2()));
       kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
-			    camera_names[i], "", "camera_placemark",
-			    lon_lat_alt.z()*scale - 6371e3, true );
+                            camera_names[i], "", "camera_placemark",
+                            lon_lat_alt.z()*scale - 6371e3, true );
     }
   kml.close_kml();
   exit(0);

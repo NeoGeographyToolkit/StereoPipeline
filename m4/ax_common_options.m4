@@ -60,9 +60,9 @@ fi
 
 # Debugging
 case "$ENABLE_DEBUG" in
-    yes|1) AX_CFLAGS="$AX_CFLAGS -g -DDEBUG" ;;
-    2)     AX_CFLAGS="$AX_CFLAGS -g -DDEBUG -D_GLIBCXX_DEBUG" ;;
-    no)    AX_CFLAGS="$AX_CFLAGS -DNDEBUG" ;;
+    yes|1) AX_CFLAGS="$AX_CFLAGS -g -DDEBUG -Wall" ;;
+    2)     AX_CFLAGS="$AX_CFLAGS -g -DDEBUG -D_GLIBCXX_DEBUG -Wall" ;;
+    no)    AX_CFLAGS="$AX_CFLAGS -DNDEBUG -Wall" ;;
     ignore) ;;
     *)     AC_MSG_ERROR([Unknown debug option: "$ENABLE_DEBUG"]) ;;
 esac

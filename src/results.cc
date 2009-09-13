@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -28,8 +28,8 @@
  *     File: results.cc
  *     Date: December 2008
  *       By: Ara Nefian and Michael Broxton
- *      For: NASA Ames Research Center, Intelligent Mechanisms Group 
- * Function: Main program for the measuring the performance and accuracy of the stereo pipeline 
+ *      For: NASA Ames Research Center, Intelligent Mechanisms Group
+ * Function: Main program for the measuring the performance and accuracy of the stereo pipeline
  ************************************************************************/
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
@@ -58,7 +58,7 @@ using namespace vw::stereo;
 #include "StereoSession.h"
 
 // Support for ISIS image files
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1 
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include "Isis/DiskImageResourceIsis.h"
 #include "Isis/StereoSessionIsis.h"
 #endif
@@ -86,7 +86,6 @@ using namespace std;
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
 //***********************************************************************
@@ -94,7 +93,7 @@ namespace vw {
 //***********************************************************************
 int main(int argc, char* argv[]) {
 
- 
+
   string true_prefix = argv[1];
   string pred_prefix = argv[2];
 
@@ -106,7 +105,7 @@ int main(int argc, char* argv[]) {
   string pred_disp_map_h_filename;
   string pred_disp_map_v_filename;
   string good_pixels_map_filename;
-  
+
   true_disp_map_h_filename = true_prefix+"-R-H.tif";
   true_disp_map_v_filename = true_prefix+"-R-V.tif";
   pred_disp_map_h_filename = pred_prefix+"-R-H.tif";
@@ -123,7 +122,7 @@ int main(int argc, char* argv[]) {
   int img_size = true_disp_map_h.rows() * true_disp_map_h.cols();
   int num_good_pixels = 0;
   int i, j;
-  
+
   for (i = 0; i < good_pixels_map.rows(); i++){
     for (j = 0; j < good_pixels_map.cols(); j++){
 
@@ -133,7 +132,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  float avg_cover = num_good_pixels/(float) img_size;  
+  float avg_cover = num_good_pixels/(float) img_size;
   printf("Average Coverage = %f\n", avg_cover);
 
   //compute the average error measure
@@ -142,7 +141,7 @@ int main(int argc, char* argv[]) {
   for (i = 0; i < pred_disp_map_h.rows(); i++){
     for (j = 0; j < pred_disp_map_h.cols(); j++){
       float tmp = pred_disp_map_h(i,j).v()-true_disp_map_h(i,j).v();
-       avg_error_h = avg_error_h + tmp*tmp; 
+       avg_error_h = avg_error_h + tmp*tmp;
     }
   }
 
@@ -154,7 +153,7 @@ int main(int argc, char* argv[]) {
   for (i = 0; i < pred_disp_map_h.rows(); i++){
     for (j = 0; j < pred_disp_map_h.cols(); j++){
       float tmp = pred_disp_map_v(i,j).v()-true_disp_map_v(i,j).v();
-       avg_error_v = avg_error_v + tmp*tmp; 
+       avg_error_v = avg_error_v + tmp*tmp;
     }
   }
 

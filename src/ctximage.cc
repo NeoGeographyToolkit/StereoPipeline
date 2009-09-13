@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -49,7 +49,7 @@ using namespace vw::cartography;
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
   int index = result.rfind(".");
-  if (index != -1) 
+  if (index != -1)
     result.erase(index, result.size());
   return result;
 }
@@ -57,10 +57,10 @@ static std::string prefix_from_filename(std::string const& filename) {
 //  mask_zero_pixels()
 //
 struct MaskZeroPixelFunc: public vw::UnaryReturnSameType {
-  
+
   template <class PixelT>
   PixelT operator() (PixelT const& pix) const {
-    if (pix.v() == 0) 
+    if (pix.v() == 0)
       return PixelT();  // Mask pixel
     else
       return PixelT(pix.v());
@@ -68,7 +68,7 @@ struct MaskZeroPixelFunc: public vw::UnaryReturnSameType {
 };
 
 template <class ViewT>
-vw::UnaryPerPixelView<ViewT, MaskZeroPixelFunc> 
+vw::UnaryPerPixelView<ViewT, MaskZeroPixelFunc>
 mask_zero_pixels(vw::ImageViewBase<ViewT> const& view) {
   return vw::per_pixel_filter(view.impl(), MaskZeroPixelFunc());
 }
@@ -84,14 +84,14 @@ class RescalePixelsWithAlphaFunc: public UnaryReturnSameType {
   channel_type m_old_min, m_new_min,m_old_max, m_new_max;
   double m_old_to_new_ratio;
 public:
-  RescalePixelsWithAlphaFunc( channel_type old_min, channel_type old_max, 
+  RescalePixelsWithAlphaFunc( channel_type old_min, channel_type old_max,
                               channel_type new_min, channel_type new_max )
     : m_old_min(old_min), m_new_min(new_min), m_old_max(old_max), m_new_max(new_max)
   {
     if( old_max == old_min ) { m_old_to_new_ratio = 0.0; }
     else { m_old_to_new_ratio = (new_max - new_min)/(double)(old_max - old_min); }
   }
-  
+
   PixelT operator()( PixelT value ) const {
     PixelT result;
     for (int i = 0; i < CompoundNumChannels<PixelT>::value-1; ++i) {
@@ -122,7 +122,7 @@ int main( int argc, char *argv[] ) {
   // The DiskImageResourceDDD needs to be registered since it is not a
   // built-in VW FileIO driver.
   vw::DiskImageResource::register_file_type( ".ddd", vw::DiskImageResourceDDD::type_static(), &vw::DiskImageResourceDDD::construct_open, &vw::DiskImageResourceDDD::construct_create );
-  
+
 
   std::string input_file_name, output_file_name, index_file_name;
   int debug_level;

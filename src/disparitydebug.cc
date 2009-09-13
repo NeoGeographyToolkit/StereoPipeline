@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -48,14 +48,13 @@ using namespace vw::stereo;
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
 // Erases a file suffix if one exists and returns the base string
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
   int index = result.rfind(".");
-  if (index != -1) 
+  if (index != -1)
     result.erase(index, result.size());
   return result;
 }
@@ -82,8 +81,8 @@ int main( int argc, char *argv[] ) {
   po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
   po::notify( vm );
 
-  vw_system_cache().resize( cache_size*1024*1024 ); 
-  set_debug_level(debug_level);
+  //vw_system_cache().resize( cache_size*1024*1024 );
+  //set_debug_level(debug_level);
 
   if( vm.count("help") ) {
     std::cout << desc << std::endl;
@@ -101,28 +100,23 @@ int main( int argc, char *argv[] ) {
   }
 
   vw_out(0) << "Opening " << input_file_name << "\n";
-  DiskImageView<PixelDisparity<float> > disk_disparity_map(input_file_name);
+  DiskImageView<PixelMask<Vector2f> > disk_disparity_map(input_file_name);
 
-  // Mask out "missing pixels"
-  PixelDisparity<float> null_pixel;
-  ImageViewRef<PixelMask<PixelDisparity<float> > > disparity_mask = create_mask(disk_disparity_map, null_pixel);
-  
   vw_out(0) << "\t--> Computing disparity range \n";
-  int num_good;
-  BBox2 disp_range = disparity::get_disparity_range(disk_disparity_map,num_good,true,TerminalProgressCallback(InfoMessage,"\t    Computing: "));
+  BBox2 disp_range = get_disparity_range(disk_disparity_map);
   vw_out(0) << "\t    Horizontal - [" << disp_range.min().x() << " " << disp_range.max().x() << "]    Vertical: [" << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
 
-  ImageViewRef<PixelMask<float> > horizontal = copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)), disparity_mask);
-  ImageViewRef<PixelMask<float> > vertical = copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)), disparity_mask);
+  ImageViewRef<PixelMask<float> > horizontal = copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)),disk_disparity_map);
+  ImageViewRef<PixelMask<float> > vertical = copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)),disk_disparity_map);
 
-  vw_out(0) << "\t--> Saving disparity debug images\n";  
+  vw_out(0) << "\t--> Saving disparity debug images\n";
   if (vm.count("float-pixels")) {
     write_image( output_prefix + "-H." + output_file_type, horizontal, TerminalProgressCallback(InfoMessage,"\t    Left  : "));
     write_image( output_prefix + "-V." + output_file_type, vertical, TerminalProgressCallback(InfoMessage,"\t    Right : "));
   } else {
     write_image( output_prefix + "-H." + output_file_type, channel_cast_rescale<uint8>(horizontal), TerminalProgressCallback(InfoMessage,"\t    Left  : "));
     write_image( output_prefix + "-V." + output_file_type, channel_cast_rescale<uint8>(vertical), TerminalProgressCallback(InfoMessage,"\t    Right : "));
-  }    
+  }
 
   return 0;
 }

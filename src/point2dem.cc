@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -76,10 +76,10 @@ static std::string prefix_from_pointcloud_filename(std::string const& filename) 
 // Apply an offset to the points in the PointImage
 class PointOffsetFunc : public UnaryReturnSameType {
   Vector3 m_offset;
-  
+
 public:
-  PointOffsetFunc(Vector3 const& offset) : m_offset(offset) {}    
-  
+  PointOffsetFunc(Vector3 const& offset) : m_offset(offset) {}
+
   template <class T>
   T operator()(T const& p) const {
     if (p == T()) return p;
@@ -128,10 +128,10 @@ int main( int argc, char *argv[] ) {
     ("default-value", po::value<float>(&default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
     ("use-alpha", "Create images that have an alpha channel")
     ("dem-spacing,s", po::value<float>(&dem_spacing)->default_value(0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
-    ("normalized,n", "Also write a normalized version of the DEM (for debugging)")    
+    ("normalized,n", "Also write a normalized version of the DEM (for debugging)")
     ("orthoimage", po::value<std::string>(&texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("grayscale", "Use grayscale image processing for creating the orthoimage")
-    ("offset-files", "Also write a pair of ascii offset files (for debugging)")    
+    ("offset-files", "Also write a pair of ascii offset files (for debugging)")
     ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
     ("input-file", po::value<std::string>(&pointcloud_filename), "Explicitly specify the input file")
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
@@ -163,7 +163,7 @@ int main( int argc, char *argv[] ) {
     ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
     ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa");
-  
+
   po::positional_options_description p;
   p.add("input-file", 1);
 
@@ -173,7 +173,7 @@ int main( int argc, char *argv[] ) {
 
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);
-  vw_system_cache().resize( cache_size*1024*1024 ); 
+  vw_settings().set_system_cache_size( cache_size*1024*1024 );
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <pointcloud> ..." << std::endl;
@@ -206,7 +206,7 @@ int main( int argc, char *argv[] ) {
 
   if (vm.count("xyz-to-lonlat") ) {
     std::cout << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
-    point_image = cartography::xyz_to_lon_lat_radius(point_image);    
+    point_image = cartography::xyz_to_lon_lat_radius(point_image);
   }
 
   // Select a cartographic DATUM.  There are several hard coded datums
@@ -285,15 +285,15 @@ int main( int argc, char *argv[] ) {
 
   // ----> For debugging: (for Larry) <-----
   //  write_image("test2.tif", channel_cast<float>(select_channel(point_image_cache,2)-1134.2), TerminalProgressCallback());
-  
+
   // write out the DEM, texture, and extrapolation mask as
   // georeferenced files.
   OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2), dem_spacing);
   if (!vm.count("default-value") ) {
-    rasterizer.set_use_minz_as_default(true); 
+    rasterizer.set_use_minz_as_default(true);
   } else {
-    rasterizer.set_use_minz_as_default(false); 
-    rasterizer.set_default_value(default_value);    
+    rasterizer.set_use_minz_as_default(false);
+    rasterizer.set_default_value(default_value);
   }
 
   if (vm.count("use-alpha")) {
@@ -302,7 +302,7 @@ int main( int argc, char *argv[] ) {
 
   vw::BBox<float,3> dem_bbox = rasterizer.bounding_box();
   std::cout << "\nDEM Bounding box: " << dem_bbox << "\n";
-  
+
   // Now we are ready to specify the affine transform.
   Matrix3x3 georef_affine_transform = rasterizer.geo_transform();
   std::cout << "Georeferencing Transform: " << georef_affine_transform << "\n";
@@ -311,7 +311,7 @@ int main( int argc, char *argv[] ) {
   // Write out a georeferenced orthoimage of the DTM with alpha.
   if (vm.count("orthoimage")) {
     rasterizer.set_use_minz_as_default(false);
-    DiskImageView<PixelGray<float> > texture(texture_filename); 
+    DiskImageView<PixelGray<float> > texture(texture_filename);
     rasterizer.set_texture(texture);
     ImageViewRef<PixelGray<float> > block_drg_raster = block_cache(rasterizer, Vector2i(rasterizer.cols(), 2048), 0);
     if (vm.count("use-alpha")) {
@@ -327,7 +327,7 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<PixelGray<float> > block_dem_raster = block_cache(rasterizer, Vector2i(rasterizer.cols(), 2024), 0);
     write_georeferenced_image(out_prefix + "-DEM." + output_file_type, block_dem_raster, georef, TerminalProgressCallback());
 
-    if (vm.count("gmt")) 
+    if (vm.count("gmt"))
       write_GMT_script(out_prefix, block_dem_raster.cols(), block_dem_raster.rows(), dem_bbox.min().z(), dem_bbox.max().z(), 1.0, georef);
 
     // Write out a normalized version of the DTM (for debugging)

@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -44,14 +44,14 @@ CalcPixelT find_median_in_histogram(Vector<int, CALC_PIXEL_NUM_VALS> histogram, 
 
     i++;
   }
-  
+
   return i;
 }
 
 template<class ImageT>
 ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> const& img,  int kernSize) {
   typedef typename ImageT::pixel_type PixelT;
- 
+
   ImageView<CalcPixelT> src = pixel_cast_rescale<CalcPixelT>(img.impl());
   ImageView<CalcPixelT> result(src.cols(), src.rows());
 
@@ -63,12 +63,12 @@ ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> 
       histogram(src(x, y))++;
     }
   }
-  
+
   bool goingRight = true;
   int x = 0, y = 0;
   //while (y <=src.rows() - kernSize) { //this was a bug
   while (y < src.rows() - kernSize) {
-     
+
     result(x + kernSize / 2, y + kernSize / 2) = find_median_in_histogram(histogram, kernSize);
 
     if (goingRight) {
@@ -78,7 +78,7 @@ ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> 
           histogram(src(x + kernSize, y + i))++;
         }
         x++;
-       
+
       }
       else {
         // Reached the right edge
@@ -86,8 +86,8 @@ ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> 
           histogram(src(x + i, y))--;
           histogram(src(x + i, y + kernSize))++;
         }
-        goingRight = false; 
-        y++;  
+        goingRight = false;
+        y++;
       }
     }
     else {
@@ -109,19 +109,19 @@ ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> 
       }
     }
   }
- 
+
   ImageView<PixelT> result_scaled = pixel_cast_rescale<PixelT>(result);
 
   return result_scaled;
-   
+
 }
 template<class PixelT>
 class MedianFilterFunctor:public ReturnFixedType<PixelT>
 {
    int m_kernel_width;
    int m_kernel_height;
-   
-public: 
+
+public:
    MedianFilterFunctor(int kernel_width, int kernel_height):
    m_kernel_width(kernel_width),
    m_kernel_height(kernel_height){}
@@ -131,7 +131,7 @@ public:
 
    template<class PixelAccessorT>
    typename PixelAccessorT::pixel_type operator()(PixelAccessorT const& acc) const{
-            
+
    Vector<int, CALC_PIXEL_NUM_VALS> histogram;
 
    // Seed histogram
@@ -141,30 +141,30 @@ public:
      }
    }
    *acc = find_median_in_histogram(histogram, m_kernel_width);
- 
+
    /*
    bool goingRight = true;
    int x = 0, y = 0;
    while (y < src.rows() - kernSize) {
-      
-      	result(x + m_kernel_width / 2, y + m_kernel_height / 2) = find_median_in_histogram(histogram, m_kernel_width);
-        
-    	if (goingRight) {
-      	  if (x < src.cols() - kernSize) {
+
+        result(x + m_kernel_width / 2, y + m_kernel_height / 2) = find_median_in_histogram(histogram, m_kernel_width);
+
+        if (goingRight) {
+          if (x < src.cols() - kernSize) {
              for (int i = 0; i < kernSize; i++) {
-          	histogram(src(x, y + i))--;
-          	histogram(src(x + kernSize, y + i))++;
+                histogram(src(x, y + i))--;
+                histogram(src(x + kernSize, y + i))++;
              }
              x++;
           }
-      	  else {
+          else {
              // Reached the right edge
              for (int i = 0; i < kernSize; i++) {
                  histogram(src(x + i, y))--;
                  histogram(src(x + i, y + kernSize))++;
              }
-             goingRight = false; 
-             y++;  
+             goingRight = false;
+             y++;
           }
        }
        else {
@@ -185,9 +185,9 @@ public:
             y++;
          }
       }
-      
+
    }
- 
+
    ImageView<PixelT> result_scaled = pixel_cast_rescale<PixelT>(result);
 
    return result_scaled;

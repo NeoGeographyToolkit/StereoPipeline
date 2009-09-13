@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -43,7 +43,7 @@
 
 // These type computation routines help us to decide which pixels are
 // considered "valid" when computing the NURBS fit.
-template <class PixelT> struct is_valid_pixel { 
+template <class PixelT> struct is_valid_pixel {
   static bool value(PixelT const& pix) { return true; }
 };
 
@@ -64,14 +64,14 @@ static void init_mba_xy(vw::ImageViewBase<ImageT> const& image,
     for (int32 col = 0; col < image.impl().cols(); col++) {
       if (is_valid_pixel<typename ImageT::pixel_type>::value(image.impl()(col, row))) {
         x_array.push_back(col);
-        y_array.push_back(row);      
+        y_array.push_back(row);
         i++;
       }
     }
   }
 
-  if ((image.impl().cols() * image.impl().rows() == 0) || (x_array.size() == 0)) 
-    throw vw::ArgumentErr() << "MBA NURBS Adaptation failed. Image does not contain any points or image has zero valid pixels."; 
+  if ((image.impl().cols() * image.impl().rows() == 0) || (x_array.size() == 0))
+    throw vw::ArgumentErr() << "MBA NURBS Adaptation failed. Image does not contain any points or image has zero valid pixels.";
 }
 
 
@@ -79,47 +79,47 @@ static void init_mba_xy(vw::ImageViewBase<ImageT> const& image,
 // the MBA NURBS code.  The View must have a PixelGray pixel type.
 template <class ViewT>
 static void init_mba_z(vw::ImageViewBase<ViewT> const& image,
-                      std::vector<double> const& x_array, 
+                      std::vector<double> const& x_array,
                       std::vector<double> const& y_array,
                       std::vector<double> &z_array, int channel) {
   z_array.resize(x_array.size());
-  for (unsigned i = 0; i < x_array.size(); ++i) 
+  for (unsigned i = 0; i < x_array.size(); ++i)
     z_array[i] = vw::compound_select_channel<typename vw::CompoundChannelType<typename ViewT::pixel_type>::type>(image.impl()(int(x_array[i]),int(y_array[i])), channel);
 }
 
-template <class PixelT> 
-class SurfaceEvaluator { 
+template <class PixelT>
+class SurfaceEvaluator {
 
   std::vector<UCBspl::SplineSurface> m_fitted_surfaces;
 
 public:
-  SurfaceEvaluator(std::vector<UCBspl::SplineSurface> const& fitted_surfaces) : 
+  SurfaceEvaluator(std::vector<UCBspl::SplineSurface> const& fitted_surfaces) :
     m_fitted_surfaces(fitted_surfaces) {}
 
-  PixelT operator()(int i, int j) const { 
+  PixelT operator()(int i, int j) const {
     PixelT result;
     if (i > m_fitted_surfaces[0].umin() && i < m_fitted_surfaces[0].umax() &&
         j > m_fitted_surfaces[0].vmin() && j < m_fitted_surfaces[0].vmax()) {
-      for (int c = 0; c < vw::PixelNumChannels<PixelT>::value; ++c) 
+      for (int c = 0; c < vw::PixelNumChannels<PixelT>::value; ++c)
         result[c] = m_fitted_surfaces[c].f((float)i,(float)j);
     }
     return result;
   }
 };
 
-template <class ChannelT> 
-class SurfaceEvaluator<vw::PixelDisparity<ChannelT> > { 
+template <class ChannelT>
+class SurfaceEvaluator<vw::PixelDisparity<ChannelT> > {
 
   const std::vector<UCBspl::SplineSurface> &m_fitted_surfaces;
 
 public:
-  SurfaceEvaluator(std::vector<UCBspl::SplineSurface> const& fitted_surfaces) : 
+  SurfaceEvaluator(std::vector<UCBspl::SplineSurface> const& fitted_surfaces) :
     m_fitted_surfaces(fitted_surfaces) {
-    VW_ASSERT(m_fitted_surfaces.size() == 2, 
+    VW_ASSERT(m_fitted_surfaces.size() == 2,
               vw::ArgumentErr() << "SurfaceEvaluator: expecting two surfaces for pixels of PixelDisparty type.");
   }
 
-  vw::PixelDisparity<ChannelT> operator()(int i, int j) const { 
+  vw::PixelDisparity<ChannelT> operator()(int i, int j) const {
     vw::PixelDisparity<ChannelT> result;
     if (i > m_fitted_surfaces[0].umin() && i < m_fitted_surfaces[0].umax() &&
         j > m_fitted_surfaces[0].vmin() && j < m_fitted_surfaces[0].vmax()) {
@@ -143,14 +143,14 @@ struct NURBSChannelCount<vw::PixelDisparity<ChannelT> > { static int value() { r
 /// Fit a 2D spline surface to a given image of data.  Each channel of
 /// the image is handled as an independent 2D surface.
 template <class ViewT>
-vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<ViewT> const& input, 
+vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<ViewT> const& input,
                                                           int numIterations) {
 
   typedef typename ViewT::pixel_type pixel_type;
 
   // NOTE: we assume only one channel here!
-  VW_ASSERT(input.impl().planes() == 1, vw::NoImplErr() << 
-            "FindNURBSSurface() does not have support for images with more than one plane.");  
+  VW_ASSERT(input.impl().planes() == 1, vw::NoImplErr() <<
+            "FindNURBSSurface() does not have support for images with more than one plane.");
 
   boost::shared_ptr<std::vector<double> > x_arr(new std::vector<double>);
   boost::shared_ptr<std::vector<double> > y_arr(new std::vector<double>);
@@ -161,7 +161,7 @@ vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<View
   int m0 = 1, n0 = 1;
   if (input.impl().cols() > input.impl().rows())
     m0 = input.impl().cols() / input.impl().rows();
-  else 
+  else
     n0 = input.impl().rows() / input.impl().cols();
 
   // Initialize the grid
@@ -193,9 +193,9 @@ vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<View
     for (int i = 0; i < input.impl().cols(); ++i) {
       output(i,j) = evaluator(i,j);
     }
-  } 
+  }
   //   // Sample surface and print to VRML file.
-  //   UCBspl::printVRMLgrid("qwe.wrl", surface, 50, 50, true);  
+  //   UCBspl::printVRMLgrid("qwe.wrl", surface, 50, 50, true);
 
   return output;
 }
@@ -203,14 +203,14 @@ vw::ImageView<typename ViewT::pixel_type> MBASurfaceNURBS(vw::ImageViewBase<View
 
 
 
-// Rapid resample() 
+// Rapid resample()
 //
 // Downsample a disparity map by averaging pixels.  In this version of
 // the algorithm, missing pixels are "consumed" by valid pixels.
 template <class ViewT>
-ImageView<typename ViewT::pixel_type > disparity_rapid_downsample(ImageViewBase<ViewT> const& view_, 
+ImageView<typename ViewT::pixel_type > disparity_rapid_downsample(ImageViewBase<ViewT> const& view_,
                                                                   int downsample_size) {
-  
+
   EdgeExtensionView<ViewT, ConstantEdgeExtension> view(view_.impl(), ConstantEdgeExtension());
   typedef typename ViewT::pixel_type pixel_type;
   typedef Vector2 accumulator_type;
@@ -227,7 +227,7 @@ ImageView<typename ViewT::pixel_type > disparity_rapid_downsample(ImageViewBase<
 
   for (int32 j = 0; j < view.impl().rows(); j+=downsample_size) {
     progress_callback.report_progress((float)j / view.impl().rows());
-    for (int32 i = 0; i < view.impl().cols(); i+= downsample_size) {      
+    for (int32 i = 0; i < view.impl().cols(); i+= downsample_size) {
       accumulator_type sum = accumulator_type();
       int num_good_pixels = 0;
 
@@ -244,7 +244,7 @@ ImageView<typename ViewT::pixel_type > disparity_rapid_downsample(ImageViewBase<
         }
         row_acc.next_row();
       }
-      
+
       // If there were any valid pixels, we count them towards the
       // average.  If there are none, we mark this location as a
       // missing pixel.
@@ -279,7 +279,7 @@ public:
   typedef ProceduralPixelAccessor<HoleFillView> pixel_accessor;
 
   template <class DisparityViewT>
-  HoleFillView(DisparityViewT disparity_map, int subsample_factor = 16) 
+  HoleFillView(DisparityViewT disparity_map, int subsample_factor = 16)
     : m_original_disparity_map(disparity_map), m_subsample_factor(subsample_factor) {
 
     // Compute the bounding box that encompasses all of the
@@ -292,8 +292,8 @@ public:
   inline int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
-  
-  inline result_type operator()( int i, int j, int p=0 ) const { 
+
+  inline result_type operator()( int i, int j, int p=0 ) const {
 
     // If we can, we take the pixels from the original disparity
     // image.
@@ -309,15 +309,15 @@ public:
 
       int32 x = vw::math::impl::_floor(ii), y = vw::math::impl::_floor(jj);
       double normx = ii-x, normy = jj-y;
-    
+
       double s0 = ((2-normx)*normx-1)*normx;      double t0 = ((2-normy)*normy-1)*normy;
       double s1 = (3*normx-5)*normx*normx+2;      double t1 = (3*normy-5)*normy*normy+2;
       double s2 = ((4-3*normx)*normx+1)*normx;    double t2 = ((4-3*normy)*normy+1)*normy;
       double s3 = (normx-1)*normx*normx;          double t3 = (normy-1)*normy*normy;
 
       EdgeExtensionView<ImageView<PixelDisparity<float> >,ConstantEdgeExtension> extended_view = edge_extend(m_lowres_disparity_map,ConstantEdgeExtension());
-      if (extended_view(x-1,y-1).missing() || extended_view(x-1,y).missing() || extended_view(x-1,y+1).missing() || 
-          extended_view(x  ,y-1).missing() || extended_view(x  ,y).missing() || extended_view(x  ,y+1).missing() || 
+      if (extended_view(x-1,y-1).missing() || extended_view(x-1,y).missing() || extended_view(x-1,y+1).missing() ||
+          extended_view(x  ,y-1).missing() || extended_view(x  ,y).missing() || extended_view(x  ,y+1).missing() ||
           extended_view(x+1,y-1).missing() || extended_view(x+1,y).missing() || extended_view(x+1,y+1).missing() ) {
         return PixelDisparity<float>();
       } else {

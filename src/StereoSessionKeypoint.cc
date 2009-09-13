@@ -42,11 +42,6 @@
 using namespace vw;
 using namespace vw::ip;
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
 // Duplicate matches for any given interest point probably indicate a
 // poor match, so we cull those out here.
 static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
@@ -205,7 +200,7 @@ void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, s
   output_file = m_out_prefix + "-F-corrected.exr";
   vw_out(0) << "Processing disparity map to remove the earlier effects of interest point alignment.\n";
   
-  DiskImageView<PixelDisparity<float> > disparity_map(input_file);
+  DiskImageView<PixelMask<Vector2f> > disparity_map(input_file);
 
   // We used a homography to line up the images, we may want 
   // to generate pre-alignment disparities before passing this information
@@ -219,11 +214,11 @@ void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, s
     exit(1);
   }
   
-  ImageViewRef<PixelDisparity<float> > result = stereo::disparity::transform_disparities(disparity_map, HomographyTransform(align_matrix));
+  ImageViewRef<PixelMask<Vector2f> > result = stereo::transform_disparities(disparity_map, HomographyTransform(align_matrix));
 
   // Remove pixels that are outside the bounds of the secondary image.
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
-  result = stereo::disparity::remove_invalid_pixels(result, right_disk_image.cols(), right_disk_image.rows());
+  result = stereo::disparity_range_mask(result, right_disk_image.cols(), right_disk_image.rows());
 
   write_image(output_file, result, TerminalProgressCallback() );
 }

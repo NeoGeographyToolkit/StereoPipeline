@@ -51,7 +51,6 @@ using namespace vw::camera;
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-  template<> struct PixelFormatID<PixelDisparity<float> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
 static std::string prefix_from_filename(std::string const& filename) {
@@ -351,9 +350,9 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
     output_file = input_file;
   } else if ( stereo_settings().keypoint_alignment ) {
     
-    DiskImageView<PixelDisparity<float> > disparity_map( input_file );
+    DiskImageView<PixelMask<Vector2f> > disparity_map( input_file );
     output_file = m_out_prefix + "-F-corrected.exr";
-    ImageViewRef<PixelDisparity<float> > result;
+    ImageViewRef<PixelMask<Vector2f> > result;
 
     vw::Matrix<double> align_matrix;
     try {
@@ -364,11 +363,11 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
       exit(1);
     }
 
-    result = stereo::disparity::transform_disparities( disparity_map,HomographyTransform(align_matrix));
+    result = stereo::transform_disparities( disparity_map,HomographyTransform(align_matrix));
 
     // Remove pixels that are outside the bounds of the second image
     DiskImageView<PixelGray<float> > right_disk_image( m_right_image_file );
-    result = stereo::disparity::remove_invalid_pixels( result, right_disk_image.cols(), right_disk_image.rows()); 
+    result = stereo::disparity_range_mask( result, right_disk_image.cols(), right_disk_image.rows()); 
 
     write_image(output_file, result, TerminalProgressCallback(ErrorMessage, "\t    Saving: ") );
 

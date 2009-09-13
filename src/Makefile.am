@@ -52,9 +52,12 @@ stereo_code = \
 	StereoSessionPinhole.h \
 	StereoSettings.cc \
 	StereoSettings.h \
-	SurfaceNURBS.h \
 	TabulatedDataReader.cc \
 	TabulatedDataReader.h \
+	BlobIndexThreaded.cc \
+	BlobIndexThreaded.h \
+	SparseView.h \
+	InpaintView.h \
 	$(rmax_code) \
 	$(bundle_code)
 
@@ -190,12 +193,6 @@ if MAKE_APP_POINT2DEM
   bin_PROGRAMS += point2dem
   point2dem_SOURCES = point2dem.cc DEM.cc DEM.h SoftwareRenderer.cc SoftwareRenderer.h OrthoRasterizer.h
   point2dem_LDADD = $(APP_POINT2DEM_LIBS)
-endif
-
-if MAKE_APP_NURBS
-  bin_PROGRAMS += nurbs
-  nurbs_SOURCES = nurbs.cc SurfaceNURBS.h
-  nurbs_LDADD = $(APP_NURBS_LIBS)
 endif
 
 if MAKE_APP_CTXIMAGE

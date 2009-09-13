@@ -184,8 +184,8 @@ int main( int argc, char *argv[] ) {
   po::notify( vm );
 
   // Set the Vision Workbench debug level
-  set_debug_level(debug_level);
-  vw_system_cache().resize( cache_size*1024*1024 ); 
+  //set_debug_level(debug_level);
+  //vw_system_cache().resize( cache_size*1024*1024 ); 
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <pointcloud> <texture file> ...";

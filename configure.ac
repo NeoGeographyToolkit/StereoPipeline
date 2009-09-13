@@ -107,6 +107,7 @@ if test x"$HAVE_PKG_BOOST" == "xyes"; then
   AX_PKG_BOOST_LIB(FILESYSTEM,      [-lboost_filesystem],      [boost/filesystem/path.hpp], [$PKG_BOOST_SYSTEM_LIBS])
   AX_PKG_BOOST_LIB(THREAD,          [-lboost_thread],          [boost/thread/thread.hpp])
   AX_PKG_BOOST_LIB(IOSTREAMS,       [-lboost_iostreams],       [boost/iostreams/stream_buffer.hpp])
+  AX_PKG_BOOST_LIB(GRAPH,           [-lboost_graph],           [boost/graph/adjacency_list.hpp])
 fi
 
 # This provides an easy way for users to override the threads options

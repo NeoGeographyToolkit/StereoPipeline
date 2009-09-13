@@ -16,7 +16,7 @@ FORCE_USE_ENTIRE_RANGE 0
 # 3 - SLog Filter (fast & recommended)
 PREPROCESSING_FILTER_MODE 3
 
-# center surround diameter of the convolution kernel in the SLOG 
+# center surround diameter of the convolution kernel in the SLOG
 SLOG_KERNEL_WIDTH 1.5
 
 #########################################################################
