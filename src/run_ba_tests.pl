@@ -34,15 +34,14 @@ use warnings;
 ## CONFIGURATION VARIABLES YOU CAN CHANGE
 ##
 
-## Root directory for this test run; all synthetic data and results will be
-## stored in subdirectories of this directory. Can override on the
-## command line with -d or --directory.
+## Default root directory for this test run; all synthetic data and results 
+## will be stored in subdirectories of this directory. 
+## Can override on the command line with -d or --directory.
 my $tests_root         = 'ba_tests';
 
-## Default number of tests to run. Can override on the command line via
-## -n or --num_tests
-my $num_tests      = 100;
-
+## Default number of tests to run. 
+## Can override on the command line via -n or --num_tests
+my $num_tests          = 100;
 
 ## A directory with this prefix will be created in $tests_root for each test
 ## plan: <prefix>0, <prefix>1, <prefix>2, etc.
