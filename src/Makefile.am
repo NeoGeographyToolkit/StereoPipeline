@@ -255,26 +255,6 @@ if MAKE_APP_RECONSTRUCT
   reconstruct_LDADD = $(APP_RECONSTRUCT_LIBS)
 endif
 
-if MAKE_APP_BATEST
-  bin_PROGRAMS += ba_test
-#  ba_test_SOURCES = ba_test.cc $(rmax_code) $(bundle_code) stereo.h \
-#	StereoSession.cc StereoSession.h StereoSessionKeypoint.cc   \
-#	StereoSessionKeypoint.h StereoSessionPinhole.cc             \
-#	StereoSessionPinhole.h StereoSettings.cc StereoSettings.h   
-  ba_test_SOURCES = ba_test.cc
-  ba_test_LDADD = $(APP_BATEST_LIBS)
-  bin_PROGRAMS += make_ba_test_data
-#  make_ba_test_data_SOURCES = make_ba_test_data.cc $(bundle_code)
-  make_ba_test_data_SOURCES = make_ba_test_data.cc
-  make_ba_test_data_LDADD = $(APP_BATEST_LIBS)
-endif
-
-if MAKE_APP_CNETEDITOR
-  bin_PROGRAMS += cnet_editor
-  cnet_editor_SOURCES = cnet_editor.cc
-  cnet_editor_LDADD = $(APP_CNETEDITOR_LIBS)
-endif
-
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 

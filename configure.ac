@@ -234,8 +234,6 @@ AX_APP(ISISADJUST,     [src], yes, [BOOST_ALL VW_ALL LAPACK MBA ISIS SPICE])
 AX_APP(RESULTS,        [src], yes, [BOOST_ALL VW_ALL ISIS])
 AX_APP(CUDATEST,       [src], no,  [VW CUDA])
 AX_APP(RECONSTRUCT,    [src], no,  [BOOST_ALL VW VW_CARTOGRAPHY])
-AX_APP(BATEST,         [src], no,  [BOOST_ALL VW_ALL LAPACK MBA])
-AX_APP(CNETEDITOR,     [src], no,  [BOOST_ALL VW VW_CAMERA])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -257,8 +255,6 @@ AM_CONDITIONAL(MAKE_APP_ISISADJUST, [test "$MAKE_APP_ISISADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_CUDATEST, [test "$MAKE_APP_CUDATEST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RECONSTRUCT, [test "$MAKE_APP_RECONSTRUCT" = "yes"])
-AM_CONDITIONAL(MAKE_APP_BATEST, [test "$MAKE_APP_BATEST" = "yes"])
-AM_CONDITIONAL(MAKE_APP_CNETEDITOR, [test "$MAKE_APP_CNETEDITOR" = "yes"])
 
 
 ##################################################
