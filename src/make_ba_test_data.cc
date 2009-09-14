@@ -22,9 +22,11 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace vw::camera;
 
+/*
 #include "StereoSession.h"
 #include "BundleAdjustUtils.h"
 #include "ControlNetworkLoader.h"
+*/
 
 using std::cout;
 using std::endl;

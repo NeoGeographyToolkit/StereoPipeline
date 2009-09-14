@@ -3,12 +3,17 @@
 #
 #         FILE:  run_ba_tests.pl
 #
-#        USAGE:  ./run_ba_tests.pl 
+#        USAGE:  ./run_ba_tests.pl [options] <test_plan_file>
 #
 #  DESCRIPTION:  Runs a set of bundle adjustment tests
 #
-#      OPTIONS:  ---
-# REQUIREMENTS:  ---
+#      OPTIONS:  --num-tests (-n)      Number of tests to run (default 100)
+#                --directory (-d)      Root directory for test data and
+#                                      results (default 'ba_tests')
+# REQUIREMENTS:  Statistics::Descriptive
+#                File::Path
+#                Getopt::Long (Perl core)
+#
 #         BUGS:  ---
 #        NOTES:  ---
 #       AUTHOR:  Michael Styer, <michael@styer.net>
@@ -19,40 +24,79 @@
 #===============================================================================
 
 use File::Path qw(make_path);
+use Getopt::Long;
 use Statistics::Descriptive;
 use strict;
-#use warnings;
+use warnings;
 
+################################################
 ##
-## CONFIGURATION
+## CONFIGURATION VARIABLES YOU CAN CHANGE
 ##
 
-my $make_data          = './make_ba_test_data';
-my $ba_test            = './ba_test';
-my $ba_test_cfg        = 'ba_test.cfg';
+## Root directory for this test run; all synthetic data and results will be
+## stored in subdirectories of this directory. Can override on the
+## command line with -d or --directory.
 my $tests_root         = 'ba_tests';
+
+## Default number of tests to run. Can override on the command line via
+## -n or --num_tests
+my $num_tests      = 100;
+
+
+## A directory with this prefix will be created in $tests_root for each test
+## plan: <prefix>0, <prefix>1, <prefix>2, etc.
 my $data_dir_prefix    = 'test_plan';
 
+## The name of the control network file to read.
+## Should be either 'control.cnet' or 'noisy_control.cnet'
 my $control_net_file   = 'noisy_control.cnet';
-my $camera_prefix      = "noisy_camera";
-#my $camera_prefix      = "camera";
-my $camera_ext         = "tsai";
-my @ba_types = ('sparse', 
-                'robust_sparse');
 
+## Prefix of the camera files to read.
+## Should be either 'camera' or 'noisy_camera'
+my $camera_prefix      = "noisy_camera";
+
+# Don't change this
+my $camera_ext         = "tsai";
+
+## Accepts: ref, sparse, robust_ref, robust sparse
+## Append '_no_outliers' to any of the above to do a second run after
+## eliminating outliers (> 2 std dev) from the control network
+my @ba_types = qw/sparse robust_sparse sparse_no_outliers/;
+
+## Low and high percentiles to report in result statistics
+##
+## NB: Set these with a view to the number of tests you're running.
+## If they are set very low or high and you aren't running many tests,
+## there may not be any results in that percentile and you'll get 
+## warnings about "uninitialized values" at line 326"
+my $percentile_low  = 25;
+my $percentile_high = 75;
+
+#################################################
+##
+## CONFIG VARIABLES YOU SHOULD NOT CHANGE
+##
+
+## Name of the data creation executable
+my $make_data          = './make_ba_test_data';
+
+## Name of the executable that runs bundle adjustment
+my $ba_test            = './ba_test';
+
+## Name of the configuration file to read; don't change.
+my $ba_test_cfg        = 'ba_test.cfg';
+
+## Don't change these; hard-coded in make_ba_test_data and ba_test
 my $wp_true_file   = "wp_ground_truth.txt";
 my $wp_init_file   = "wp_initial.txt";
 my $wp_final_file  = "wp_final.txt";
 my $cam_true_file  = "cam_ground_truth.txt";
 my $cam_init_file  = "cam_initial.txt";
 my $cam_final_file = "cam_final.txt";
-my $num_tests = 100;
-my $ba_report_level = 0;
-my $percentile_low  = 5;
-my $percentile_high = 95;
-
-
-# Default values
+# must be >= 35 to generate the image errors file required for outlier removal
+my $ba_report_level = 35; 
+# Default values; generally these should be set by your test plan file
 my %test_config = (
     "pixel-inlier-noise-type"  => "normal",
     "pixel-inlier-df"          => 1,
@@ -75,7 +119,7 @@ my %test_config = (
     "euler-outlier-df"         => 1,
     "euler-outlier-sigma"      => 1,
     "euler-outlier-freq"       => 0.0,
-    "min-tiepoints-per-image"  => 20,
+    "min-tiepoints-per-image"  => 100,
     "number-of-cameras"        => 3,
     "lambda"                   => 1,
     "camera-position-sigma"    => 1,
@@ -84,6 +128,7 @@ my %test_config = (
     "cnet"                     => $control_net_file
 );
 
+###################################################
 ##
 ## SUBROUTINES
 ##
@@ -147,12 +192,11 @@ sub read_test_plans {
 }
 
 sub run_tests {
-    my ($num_test_plans, $test_plans, $test_config, $num_tests, 
-        $root, $data_dir_prefix, $ba_test_cfg, $ba_report_level) = @_;
+    my ($num_test_plans, $test_plans, $test_config) = @_;
 
     for (my $t = 0; $t < $num_test_plans; $t++) {
         map {$test_config{$_} = @{$test_plans->{$_}}[$t]} keys %$test_plans;
-        my $plan_dir = $root."/".$data_dir_prefix.$t;
+        my $plan_dir = $tests_root."/".$data_dir_prefix.$t;
 
         if (!-e $plan_dir) {
             make_path($plan_dir) or die "Error: failed to create $plan_dir: $!\n";
@@ -172,6 +216,7 @@ sub run_tests {
 
         # For each test
         for (my $i = 0; $i < $num_tests; $i++) {
+            print STDOUT "Plan $t, Test $i\n";
             # create a test directory
             my $test_dir = "$plan_dir/$i";
             if (!-e $test_dir) {
@@ -202,12 +247,19 @@ sub run_tests {
                 }
 
                 # run bundle adjustment
-                my @ba_test_opts = ('-s',
+                my @ba_test_opts = (
                     '-R',$results_dir,
                     '-D',$test_dir,
                     '-r',$ba_report_level,
-                    '-b',$ba_type,
                     '-f',$test_cfg_file);
+                my $ba_type_arg = $ba_type;
+                # add option for outlier removal if required (defaults to 
+                # removing outliers beyond 2 standard deviations)
+                if ($ba_type =~ /no_outliers$/) {
+                    push(@ba_test_opts, '-M');
+                    $ba_type_arg =~ s/_no_outliers$//;
+                }
+                push(@ba_test_opts,'-b',$ba_type_arg);
                 my @ba_test = ($ba_test, @ba_test_opts, @camera_files);
                 system(@ba_test) == 0 or die "@ba_test failed: $!";
             }
@@ -216,13 +268,11 @@ sub run_tests {
 }
 
 sub read_results {
-    my ($num_test_plans, $root, $data_dir_prefix, $num_tests, @data_files) = @_;
-    my ($wp_true_file, $wp_init_file, $wp_final_file, 
-        $cam_true_file, $cam_init_file, $cam_final_file) = @data_files;
+    my ($num_test_plans) = @_;
 
     my @results = ();
     for (my $t = 0; $t < $num_test_plans; $t++) {
-        my $plan_dir = $root."/".$data_dir_prefix.$t;
+        my $plan_dir = $tests_root."/".$data_dir_prefix.$t;
         push @results, {};
         foreach my $ba_type (@ba_types) {
             my @wp_mse = ();
@@ -251,7 +301,7 @@ sub read_results {
 }
 
 sub print_raw_results {
-    my ($results, $num_tests, $root) = @_;
+    my ($results) = @_;
     my $num_plans = scalar @$results;
 
     my @headers = ();
@@ -264,7 +314,7 @@ sub print_raw_results {
     }
 
     for (my $plan = 0; $plan < $num_plans; $plan++) {
-        open OUT, ">$root/plan${plan}_raw.txt" 
+        open OUT, ">$tests_root/plan${plan}_raw.txt" 
             or die "Error: Could not open raw results file: $!\n";
         print OUT join("\t",@headers),"\n";
         my @values = ();
@@ -284,13 +334,13 @@ sub print_raw_results {
 
 
 sub print_result_stats {
-    my ($results,$root) = @_;
+    my ($results) = @_;
     my $num_test_plans = scalar @$results;
     my $stat = Statistics::Descriptive::Full->new();
 
-    open(RESULTS, ">$root/results.txt") or die "Could not open results file: $!\n";
+    open(RESULTS, ">$tests_root/results.txt") or die "Could not open results file: $!\n";
 
-    my @headers = ('test_plan');
+    my @headers = ('test_plan','num_tests');
     my @ba_types = keys %{$results->[0]};
     my @data_types = qw(wp xyz euler);
     my @stats = ("mean", "stddev", 
@@ -305,7 +355,7 @@ sub print_result_stats {
     }
     print RESULTS join("\t",@headers), "\n";
     for (my $t = 0; $t < $num_test_plans; $t++) {
-        my @values = ($t);
+        my @values = ($t, $num_tests);
         foreach my $ba_type (@ba_types) {
             foreach my $data_type (@data_types) {
                 my @data = @{$results->[$t]{$ba_type}{$data_type}};
@@ -314,7 +364,8 @@ sub print_result_stats {
                 my $sd = $stat->standard_deviation();
                 my $pct_low = $stat->percentile($percentile_low);
                 my $pct_high = $stat->percentile($percentile_high);
-                push (@values, $mean,$sd,$pct_low,$pct_high);
+                my @new_vals = ($mean,$sd,$pct_low,$pct_high);
+                push (@values, @new_vals);
                 $stat->clear();
             }
         }
@@ -322,24 +373,24 @@ sub print_result_stats {
     }
 }
  
-
+#################################################
 ##
 ## BEGIN EXECUTION
 ##
 
+GetOptions('directory|d=s' => \$tests_root,
+           'num_tests|n=i' => \$num_tests);
+
 my $num_test_plans = 0;
 my $test_plans = read_test_plans($ARGV[0], \$num_test_plans);
 
-run_tests($num_test_plans, $test_plans, \%test_config, $num_tests,
-          $tests_root, $data_dir_prefix, $ba_test_cfg, $ba_report_level);
+run_tests($num_test_plans, $test_plans, \%test_config);
 
 ## Read results
-my $results = read_results($num_test_plans, $tests_root, $data_dir_prefix, $num_tests,
-                           $wp_true_file, $wp_init_file, $wp_final_file, 
-                           $cam_true_file, $cam_init_file, $cam_final_file);
+my $results = read_results($num_test_plans);
 
-print_raw_results($results, $num_tests,$tests_root);
+print_raw_results($results);
 
 ## Calculate result statistics
-print_result_stats($results, $tests_root);
+print_result_stats($results);
            

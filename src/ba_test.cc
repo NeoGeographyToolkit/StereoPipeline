@@ -24,6 +24,9 @@
 /// \file bundle_adjust.cc
 ///
 
+// NB: the triple-bracket comments you'll see are Vim fold markers.
+// Type ':set foldmethod=marker' in command mode to use them
+
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include "boost/filesystem.hpp" 
@@ -44,15 +47,20 @@ using namespace vw::camera;
 #include <iostream>
 #include <iomanip>
 
+/*
 #include "asp_config.h"
 #include "BundleAdjustUtils.h"
 #include "ControlNetworkLoader.h"
+*/
 
 typedef std::vector<boost::shared_ptr<CameraModel> > CameraVector;
 
 const fs::path ConfigFileDefault      = "ba_test.cfg";
 const fs::path CameraParamsReportFile = "iterCameraParam.txt";
 const fs::path PointsReportFile       = "iterPointsParam.txt";
+const std::string CnetEditor          = "./cnet_editor";
+const fs::path MeanErrorsFile         = "image_mean.err";
+const fs::path ProcessedCnetFile      = "processed.cnet";
 
 using std::cout;
 using std::endl;
@@ -69,9 +77,11 @@ struct ProgramOptions {
   double camera_position_sigma; // constraint on adjustment to camera position
   double camera_pose_sigma;     // constraint on adjustment to camera pose
   double gcp_sigma;           // constraint on adjustment to GCP position
+  double outlier_sd_cutoff;
   bool use_user_lambda;
   bool use_ba_type_dirs;
   bool save_iteration_data;
+  bool remove_outliers;
   int min_matches;
   int report_level;
   int max_iterations;
@@ -114,6 +124,8 @@ std::ostream& operator<<(std::ostream& ostr, ProgramOptions o) {
   ostr << "Data directory: " << o.data_dir << endl;
   ostr << "Results directory: " << o.results_dir << endl;
   ostr << "Use bundle adjustment type dirs? :" << std::boolalpha << o.use_ba_type_dirs << endl;
+  ostr << "Remove outliers? :" << std::boolalpha << o.remove_outliers << endl;
+  ostr << "Outlier SD cutof: " << o.outlier_sd_cutoff << endl;
   return ostr;
 }
 /* }}} operator<< */
@@ -203,7 +215,13 @@ ProgramOptions parse_options(int argc, char* argv[]) {
         "Directory to write output data to (if not present, defaults to 'data-dir')")
     ("use-ba-type-dirs,T",
         po::bool_switch(&opts.use_ba_type_dirs),
-        "Store results in subdirectories of results-dir by bundle adjustment type");
+        "Store results in subdirectories of results-dir by bundle adjustment type")
+    ("remove-outliers,M",
+        po::bool_switch(&opts.remove_outliers),
+        "Remove outliers using naive heuristic")
+    ("outlier-sd-cutoff",
+        po::value<double>(&opts.outlier_sd_cutoff)->default_value(2),
+        "Remove outliers more than this number of std devs from the mean (implies -M)");
 
   // Hidden options, aka command line arguments (hidden_options)
   po::options_description hidden_options("");
@@ -282,7 +300,12 @@ ProgramOptions parse_options(int argc, char* argv[]) {
   }
 
   if (vm.count("results-dir") < 1)
-      opts.results_dir = opts.data_dir;
+    opts.results_dir = opts.data_dir;
+
+  // If the user provided a sd cutoff for outliers, set the remove_outliers boolean
+  // even if it wasn't provided explicitly
+  if (!vm["outlier-sd-cutoff"].defaulted())
+    opts.remove_outliers = true; 
 
   vw::vw_log().console_log().rule_set().clear();
   vw::vw_log().console_log().rule_set().add_rule(vw::WarningMessage, "console");
@@ -372,6 +395,15 @@ void clear_report_files(fs::path cam_file, fs::path point_file, fs::path dir) {
 }
 /* }}} */
 
+/* {{{ write_adjustments */
+/* Copied from BundleAdjustUtils.h to remove depedency on Stereo Pipeline modules */
+void write_adjustments(std::string const& filename, Vector3 const& position_correction, Quaternion<double> const& pose_correction) {
+  std::ofstream ostr(filename.c_str());
+  ostr << position_correction[0] << " " << position_correction[1] << " " << position_correction[2] << "\n";
+  ostr << pose_correction.w() << " " << pose_correction.x() << " " << pose_correction.y() << " " << pose_correction.z() << " " << "\n";
+}
+/* }}} write_adjustments */
+
 /* {{{ BundleAdjustmentModel */
 // Bundle adjustment functor
 class BundleAdjustmentModel : public camera::BundleAdjustmentModelBase<BundleAdjustmentModel, 6, 3> {
@@ -449,10 +481,14 @@ public:
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 /* }}} */
 
-/* {{{ control network accessor */
+/* {{{ control network accessors */
   // Give access to the control network
   boost::shared_ptr<ControlNetwork> control_network(void) {
     return m_network;
+  }
+
+  void control_network(boost::shared_ptr<ControlNetwork> cnet) {
+    m_network = cnet;
   }
 /* }}} */
 
@@ -659,16 +695,82 @@ void write_adjusted_camera_models(ProgramOptions config) {
 };
 /* }}} BundleAdjustmentModel */
 
+/* {{{ remove_outliers */
+void remove_outliers(fs::path const &cnet_file, 
+                               fs::path const &cnet_out_file, 
+                               double const sd_cutoff) 
+{
+  // Check MeanErrorsFile exists (created by bundle adjuster with report_level >= 35)
+  if (!fs::exists(MeanErrorsFile) || !fs::is_regular_file(MeanErrorsFile)) {
+    vw_throw(IOErr() << "Mean errors file '" << MeanErrorsFile << "' does not exist or is not a regular file"); 
+  }
+
+  // Check cnet_file exists
+  if (!fs::exists(cnet_file) || !fs::is_regular_file(cnet_file)) {
+    vw_throw(IOErr() << "Control network file '" << cnet_file << "' does not exist or is not a regular file"); 
+  }
+
+  // run cnet_editor on image mean errors file
+  std::ostringstream command;
+  command << CnetEditor << " -c " << sd_cutoff << " -o " << cnet_out_file 
+    << " " << cnet_file << " " << MeanErrorsFile;
+  vw_out(DebugMessage) << "Outlier removal command: " << command.str() << endl;
+  int res = system(command.str().c_str());
+  if (res == -1) {
+    vw_throw(LogicErr() << "system(" << command.str() << ") failed ");
+  }
+  // remove image mean errors file
+  fs::remove(MeanErrorsFile);
+
+
+
+}
+/* }}} remove_outliers */
+
+/* {{{ run_bundle_adjustment */
+template <class AdjusterT>
+void run_bundle_adjustment(AdjusterT &adjuster, 
+        BundleAdjustReport<AdjusterT> &reporter, 
+        fs::path &results_dir,
+        int max_iter,
+        bool save)
+{
+  double abs_tol=1e10, rel_tol=1e10;
+  while (adjuster.update(abs_tol, rel_tol)) {
+    //reporter.loop_tie_in();
+
+    if (save) {
+      //Write this iterations camera and point data
+      adjuster.bundle_adjust_model().write_adjusted_cameras_append(CameraParamsReportFile, results_dir);
+      adjuster.bundle_adjust_model().write_points_append(PointsReportFile, results_dir);
+    }
+    
+    if (adjuster.iterations() > max_iter || abs_tol < 1e-3 || rel_tol < 1e-3)
+      break;
+  }
+
+  // if config.report_level >= 35, this will write the image errors file needed
+  // for outlier removal 
+  reporter.end_tie_in();
+}
+/* }}} */
+
 /* {{{ adjust_bundles */
 template <class AdjusterT> 
-void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &config) 
+void adjust_bundles(BundleAdjustmentModel &ba_model, 
+        ProgramOptions const &config, std::string ba_type_str) 
 {
   AdjusterT bundle_adjuster(ba_model, L2Error());
   vw_out(DebugMessage) << "Running bundle adjustment" << endl;
 
   fs::path results_dir = config.results_dir;
-  if (config.use_ba_type_dirs)
-    results_dir /= ba_type_to_string(config.bundle_adjustment_type);
+  if (config.use_ba_type_dirs) {
+    std::string type_dir = ba_type_to_string(config.bundle_adjustment_type);
+    if (config.remove_outliers)
+      type_dir += "_no_outliers";
+    results_dir /= type_dir;
+  }
+
 
   // Set lambda if user has requested it
   if (config.use_user_lambda)
@@ -678,25 +780,40 @@ void adjust_bundles(BundleAdjustmentModel &ba_model, ProgramOptions const &confi
   if (config.save_iteration_data)
     clear_report_files(CameraParamsReportFile, PointsReportFile, results_dir);
 
+  // Configure reporter
   BundleAdjustReport<AdjusterT> 
-      reporter( "Bundle Adjust", ba_model, bundle_adjuster, config.report_level );
+      reporter(ba_type_str, ba_model, bundle_adjuster, config.report_level );
 
-  double abs_tol=1e10, rel_tol=1e10;
-  while (bundle_adjuster.update(abs_tol, rel_tol)) {
-    //reporter.loop_tie_in();
+  // Run bundle adjustment
+  run_bundle_adjustment<AdjusterT>(bundle_adjuster, reporter, results_dir,
+      config.max_iterations, config.save_iteration_data);
 
-    if (config.save_iteration_data) {
-      //Write this iterations camera and point data
-      ba_model.write_adjusted_cameras_append(CameraParamsReportFile, results_dir);
-      ba_model.write_points_append(PointsReportFile, results_dir);
-    }
-    
-    if (bundle_adjuster.iterations() > config.max_iterations 
-        || abs_tol < 1e-3 || rel_tol < 1e-3)
-      break;
+  // If we want to remove outliers, do the process again
+  if (config.remove_outliers) {
+    fs::path out_file = results_dir / ProcessedCnetFile;
+    fs::path cnet_file = config.data_dir / config.cnet_file;
+    remove_outliers(cnet_file, out_file, config.outlier_sd_cutoff);
+  
+    // Load new control network with outliers removed
+    boost::shared_ptr<ControlNetwork> cnet = load_control_network(out_file);
+
+    // Make a new bundle adjustment model
+    BundleAdjustmentModel ba_model_no_outliers(ba_model.cameras(), cnet, 
+        config.camera_position_sigma, config.camera_pose_sigma, config.gcp_sigma);
+
+    // Make a new adjuster
+    AdjusterT bundle_adjuster_no_outliers(ba_model_no_outliers, L2Error());
+    vw_out(DebugMessage) << "Running bundle adjustment with outliers removed" << endl;
+
+    // Configure reporter
+    BundleAdjustReport<AdjusterT> 
+        reporter(ba_type_str + " No Outliers", ba_model_no_outliers, 
+            bundle_adjuster_no_outliers, config.report_level );
+
+    // Run bundle adjustment again
+    run_bundle_adjustment<AdjusterT>(bundle_adjuster_no_outliers, reporter, results_dir,
+        config.max_iterations, config.save_iteration_data);
   }
-
-  reporter.end_tie_in();
 }
 /* }}} adjust_bundles */
 
@@ -716,7 +833,6 @@ int main(int argc, char* argv[]) {
   fs::path cnet_file        = config.data_dir / config.cnet_file;
   // TODO: gets a different number of points than were generated?
   boost::shared_ptr<ControlNetwork> cnet = load_control_network(cnet_file);
-
  
   CameraVector camera_models = load_camera_models(config.camera_files, config.data_dir);
 
@@ -731,19 +847,19 @@ int main(int argc, char* argv[]) {
   switch (config.bundle_adjustment_type) {
     case REF:
       adjust_bundles<BundleAdjustmentRef<BundleAdjustmentModel, L2Error> >
-        (ba_model, config);
+        (ba_model, config, "Reference");
       break;
     case SPARSE:
       adjust_bundles<BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> >
-        (ba_model, config);
+        (ba_model, config, "Sparse");
       break;
     case ROBUST_REF:
       adjust_bundles<BundleAdjustmentRobustRef<BundleAdjustmentModel, L2Error> >
-        (ba_model, config);
+        (ba_model, config, "Robust Reference");
       break;
     case ROBUST_SPARSE:
       adjust_bundles<BundleAdjustmentRobustSparse<BundleAdjustmentModel, L2Error> >
-        (ba_model, config);
+        (ba_model, config, "Robust Sparse");
       break;
   }
 
