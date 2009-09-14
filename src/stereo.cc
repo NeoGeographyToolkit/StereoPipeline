@@ -406,8 +406,8 @@ int main(int argc, char* argv[]) {
     int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
     ImageViewRef<PixelMask<vw::uint8> > Lmask = edge_mask(left_image, 0, mask_buffer);
     ImageViewRef<PixelMask<vw::uint8> > Rmask = edge_mask(right_image, 0, mask_buffer);
-    write_image(out_prefix + "-lMask.tif", apply_mask(Lmask) );
-    write_image(out_prefix + "-rMask.tif", apply_mask(Rmask) );
+    write_image(out_prefix + "-lMask.tif", threshold(apply_mask(Lmask),0,0,255) );
+    write_image(out_prefix + "-rMask.tif", threshold(apply_mask(Rmask),0,0,255) );
     vw_out(0) << "done.\n";
   }
 
@@ -661,7 +661,7 @@ int main(int argc, char* argv[]) {
       { // Write out the extrapolation mask image
         vw_out(0) << "\t--> Creating \"Good Pixel\" image: "
                   << (out_prefix + "-GoodPixelMap.tif") << "\n";
-        write_image(out_prefix + "-GoodPixelMap.tif", 
+        write_image(out_prefix + "-GoodPixelMap.tif",
                     missing_pixel_image(filtered_disparity_map),
                     TerminalProgressCallback(ErrorMessage, "\t    Writing: "));
         DiskImageView<PixelRGB<vw::uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
@@ -681,9 +681,11 @@ int main(int argc, char* argv[]) {
       DiskImageView<vw::uint8> Rmask(out_prefix + "-rMask.tif");
       DiskImageView<vw::uint8> Dmask(out_prefix + "-dMask.tif");
       if(stereo_settings().fill_holes_NURBS) {
-        vw_out(0) << "\t--> Filling holes with Inpainting method.\n";
-        //hole_filled_disp_map = HoleFillView(disparity::mask(filtered_disparity_map,Dmask,Rmask), 2);
-        
+        //vw_out(0) << "\t--> Filling holes with Inpainting method.\n";
+        //BlobIndexThreaded bindex( invert_mask( hole_filled_disp_map ), 10000 );
+        //vw_out(0) << "\t      Identified " << bindex.num_blobs() << " holes\n";
+        //hole_filled_disp_map = InpaintView<ImageViewRef<PixelMask<Vector2f> > >(hole_filled_disp_map,
+        //       bindex );
       }
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
@@ -691,7 +693,8 @@ int main(int argc, char* argv[]) {
                                                   hole_filled_disp_map.cols()),
                                          std::min(vw_settings().default_tile_size(),
                                                   hole_filled_disp_map.rows()));
-      block_write_image(disparity_map_rsrc, disparity_mask(hole_filled_disp_map,Dmask,Rmask), TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") );
+      block_write_image(disparity_map_rsrc, disparity_mask(hole_filled_disp_map,Dmask,Rmask),
+                        TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") );
     } catch (IOErr &e) {
       vw_out(0) << "\nUnable to start at filtering stage -- could not read input files.\n"
                 << e.what() << "\nExiting.\n\n";
