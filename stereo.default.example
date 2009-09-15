@@ -1,5 +1,5 @@
 #############################
-##	PREPROCESSING	   ##
+##      PREPROCESSING      ##
 #############################
 
 DO_INTERESTPOINT_ALIGNMENT 1
@@ -49,10 +49,10 @@ XCORR_THRESHOLD 2.0
 CORRSCORE_REJECTION_THRESHOLD 1.1
 
 # Turn this up to improve the results of the discrete
-# correlation step.  This will reduce the number of 
-# missing pixels, but reduce the overall accuracy of 
-# the disparity estimates. 
-# 
+# correlation step.  This will reduce the number of
+# missing pixels, but reduce the overall accuracy of
+# the disparity estimates.
+#
 # Best used in conjuction with affine adaptive window
 # subpixel modes above.
 COST_BLUR 0
@@ -68,15 +68,17 @@ COST_MODE 0
 ############################    FILTERING    ############################
 #########################################################################
 
-FILL_HOLES_NURBS 1
-
 # automatic removal of the low confidence pixels
-#  default values 5 5 60 10 
-#  note 5*5 halfkernel = 11*11 kernel -> 121 pixels 
+#  default values 5 5 60 10
+#  note 5*5 halfkernel = 11*11 kernel -> 121 pixels
 RM_H_HALF_KERN 5
 RM_V_HALF_KERN 5
 RM_MIN_MATCHES 60 # Units = percest
 RM_THRESHOLD 3
+RM_CLEANUP_PASSES 1
+
+# Filling in holes with an inpainting method
+FILL_HOLES 1
 
 #########################################################################
 #############################    DOTCLOUD    ############################

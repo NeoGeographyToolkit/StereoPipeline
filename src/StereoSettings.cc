@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -106,9 +106,9 @@ StereoSettings::StereoSettings() {
 
   // Correlation Options
   ASSOC_INT("H_KERNEL", h_kern, 25, "kernel width");
-  ASSOC_INT("V_KERNEL", v_kern, 25, "kernel height");  
+  ASSOC_INT("V_KERNEL", v_kern, 25, "kernel height");
   ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_h_kern, 35, "subpixel kernel width");
-  ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_v_kern, 35, "subpixel kernel height");  
+  ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_v_kern, 35, "subpixel kernel height");
   ASSOC_INT("H_CORR_MAX", h_corr_max, -100, "correlation window size max x");
   ASSOC_INT("H_CORR_MIN", h_corr_min, 100, "correlation window size min x");
   ASSOC_INT("V_CORR_MIN", v_corr_min, -10, "correlation window size min y");
@@ -127,7 +127,7 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");
   ASSOC_INT("RM_THRESHOLD", rm_threshold, 3, "rm_threshold > disp[n]-disp[m] pixels are not matching");
   ASSOC_INT("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
-  ASSOC_INT("FILL_HOLES_NURBS", fill_holes_NURBS, 1, "fill holes using Larry's NURBS code");
+  ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
   ASSOC_INT("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
 
   // Triangulation Options
@@ -170,12 +170,12 @@ void StereoSettings::read(std::string const& filename) {
       try {
         po::store(po::parse_config_file(ss, m_desc), m_vm);
       } catch (boost::program_options::unknown_option &e) {
-	vw::vw_out(0) << "\tWARNING --> Unknown stereo settings option: " << line << "\n";
+        vw::vw_out(0) << "\tWARNING --> Unknown stereo settings option: " << line << "\n";
       }
     }
     ignoreline(fp);
   }
-  
+
   po::notify(m_vm);
   vw::vw_out(0) << "*************************************************************\n";
   fp.close();

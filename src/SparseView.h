@@ -119,6 +119,10 @@ class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
   // Non standard stuff
   bool contains( vw::int32 i, vw::int32 j, PixelT & pixel_ref ) const {
     typename map_type::const_iterator it;
+    if ( j >= vw::int32(m_data->size()) )
+      return false;
+    if ( (*m_data)[j].empty() )
+      return false;
     it = (*m_data)[j].upper_bound(i);
     if ( it == (*m_data)[j].end() )
       return false;

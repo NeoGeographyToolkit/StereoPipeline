@@ -512,13 +512,6 @@ int main(int argc, char* argv[]) {
     // Apply the Mask to the disparity map
     disparity_map = disparity_mask(disparity_map, Lmask, Rmask);
 
-    // Do some basic outlier rejection {not used}
-    //ImageViewRef<PixelMask<Vector2f> > proc_disparity_map = disparity_clean_up(disparity_map,
-    //                                                                           stereo_settings().rm_h_half_kern,
-    //                                                                           stereo_settings().rm_v_half_kern,
-    //                                                                           stereo_settings().rm_threshold,
-    //                                                                           stereo_settings().rm_min_matches/100.0);
-
     // Create a disk image resource and prepare to write a tiled
     // OpenEXR.
     DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
@@ -656,7 +649,7 @@ int main(int argc, char* argv[]) {
       // disparity map filtering process.
       vw_out(0) << "\t--> Rasterizing filtered disparity map to disk. \n";
       DiskCacheImageView<PixelMask<Vector2f> > filtered_disparity_map(disparity_map, "exr",
-                                                                        TerminalProgressCallback(ErrorMessage, "\t--> Writing: "));
+                                                                      TerminalProgressCallback(ErrorMessage, "\t--> Writing: "));
 
       { // Write out the extrapolation mask image
         vw_out(0) << "\t--> Creating \"Good Pixel\" image: "
@@ -671,21 +664,15 @@ int main(int argc, char* argv[]) {
                                              stereo_settings().subpixel_h_kern*2.0),3));
       }
 
-      // Call out to NURBS hole filling code.  The hole filling is
-      // done with a subsampled (by 4) images and then the hole filled
-      // values are upsampled to the full resolution of the image
-      // using bicubic interpolation.
-      ImageViewRef<PixelMask<Vector2f> > hole_filled_disp_map = filtered_disparity_map;
-
-      //DiskImageView<vw::uint8> Lmask(out_prefix + "-lMask.tif");
-      DiskImageView<vw::uint8> Rmask(out_prefix + "-rMask.tif");
-      DiskImageView<vw::uint8> Dmask(out_prefix + "-dMask.tif");
-      if(stereo_settings().fill_holes_NURBS) {
-        //vw_out(0) << "\t--> Filling holes with Inpainting method.\n";
-        //BlobIndexThreaded bindex( invert_mask( hole_filled_disp_map ), 10000 );
-        //vw_out(0) << "\t      Identified " << bindex.num_blobs() << " holes\n";
-        //hole_filled_disp_map = InpaintView<ImageViewRef<PixelMask<Vector2f> > >(hole_filled_disp_map,
-        //       bindex );
+      ImageViewRef<PixelMask<Vector2f> > hole_filled_disp_map;
+      if(stereo_settings().fill_holes) {
+        vw_out(0) << "\t--> Filling holes with Inpainting method.\n";
+        BlobIndexThreaded bindex( invert_mask( filtered_disparity_map ), 100000 );
+        vw_out(0) << "\t      Identified " << bindex.num_blobs() << " holes\n";
+        hole_filled_disp_map = InpaintView<DiskCacheImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
+        vw_out(0) << "\t out\n";
+      } else {
+        hole_filled_disp_map = filtered_disparity_map;
       }
 
       DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
@@ -693,7 +680,10 @@ int main(int argc, char* argv[]) {
                                                   hole_filled_disp_map.cols()),
                                          std::min(vw_settings().default_tile_size(),
                                                   hole_filled_disp_map.rows()));
-      block_write_image(disparity_map_rsrc, disparity_mask(hole_filled_disp_map,Dmask,Rmask),
+      // Previously we wrote disparity_mask(hole_filled_disp_map,Dmask,Rmask)
+      // yet that just reintroduces the holes that we filled. What exactly
+      // do we want to accomplish. -ZMM!
+      block_write_image(disparity_map_rsrc, hole_filled_disp_map,
                         TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") );
     } catch (IOErr &e) {
       vw_out(0) << "\nUnable to start at filtering stage -- could not read input files.\n"

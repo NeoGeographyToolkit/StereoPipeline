@@ -72,7 +72,7 @@ namespace inpaint_p {
       // Gathering information about blob
       vw::BBox2i bbox = m_c_blob.bounding_box();
       bbox.expand(10);
-      // ZACK: How do we want to handle spots on the edges?
+      // How do we want to handle spots on the edges?
       if ( bbox.min().x() < 0 || bbox.min().y() < 0 ||
            bbox.max().x() > m_view.impl().cols() || bbox.max().y()  > m_view.impl().rows() ) {
         vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": early exiting\n";
@@ -155,8 +155,9 @@ class InpaintView : public vw::ImageViewBase<InpaintView<ViewT> > {
   boost::shared_ptr<vw::Mutex> m_insert_mutex;
 
  public:
-  typedef typename vw::UnmaskedPixelType<typename ViewT::pixel_type>::type pixel_type;
-  typedef typename vw::UnmaskedPixelType<typename ViewT::result_type>::type result_type; // Is that right?
+  typedef typename vw::UnmaskedPixelType<typename ViewT::pixel_type>::type sparse_type;
+  typedef typename ViewT::pixel_type pixel_type;
+  typedef typename ViewT::result_type result_type; // Is that right?
   typedef vw::ProceduralPixelAccessor<InpaintView<ViewT> > pixel_accessor;
 
   InpaintView( vw::ImageViewBase<ViewT> const& image,
@@ -168,7 +169,7 @@ class InpaintView : public vw::ImageViewBase<InpaintView<ViewT> > {
       sw.start();
 
       vw::FifoWorkQueue queue(vw::vw_settings().default_num_threads());
-      typedef inpaint_p::InpaintTask<ViewT, pixel_type> task_type;
+      typedef inpaint_p::InpaintTask<ViewT, sparse_type> task_type;
 
       for ( unsigned i = 0; i < bindex.num_blobs(); i++ ) {
         boost::shared_ptr<task_type> task(new task_type(image, bindex.compressed_blob(i),
@@ -193,7 +194,7 @@ class InpaintView : public vw::ImageViewBase<InpaintView<ViewT> > {
   inline pixel_accessor origin() const { return pixel_accessor(*this,0,0); }
 
   inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 p=0 ) const {
-    result_type pixel_ref;
+    sparse_type pixel_ref;
     if ( m_patches.contains(i,j, pixel_ref) ) {
       //std::cout << "Pixel: " << *pixel_ptr << std::endl;
       return pixel_ref;
