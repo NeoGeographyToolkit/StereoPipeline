@@ -5,10 +5,18 @@ dnl All Rights Reserved.
 dnl __END_LICENSE__
 
 m4_pattern_forbid([^AX_])
-m4_pattern_allow([AX_CFLAGS])
-m4_pattern_allow([AX_INCLUDE_DIR])
-m4_pattern_allow([AX_LIBDIR])
-m4_pattern_allow([AX_OTHER_LIBDIR])
+m4_pattern_allow([^AX_CFLAGS$])
+m4_pattern_allow([^AX_INCLUDE_DIR$])
+m4_pattern_allow([^AX_LIBDIR$])
+m4_pattern_allow([^AX_OTHER_LIBDIR$])
+m4_pattern_allow([^PKG_[A-Z_]+_CPPFLAGS$])
+m4_pattern_allow([^PKG_[A-Z_]+_LDFLAGS$])
+m4_pattern_allow([^PKG_[A-Z_]+_LIBS$])
+m4_pattern_allow([^PKG_PATHS$])
+m4_pattern_allow([^PKG_PATHS_[A-Z_]+$])
+m4_pattern_allow([^PKG_BOOST_INCDIR$])
+m4_pattern_allow([^PKG_BOOST_LIBDIR$])
+m4_pattern_allow([^PKG_VW_LIBS_TEMP$])
 
 ##################################################
 # A few starting bits
@@ -105,36 +113,45 @@ if test x"$HAVE_PKG_BOOST" == "xyes"; then
   AX_PKG_BOOST_LIB(PROGRAM_OPTIONS, [-lboost_program_options], [boost/program_options.hpp])
   AX_PKG_BOOST_LIB(SYSTEM,          [-lboost_system],          [boost/system/error_code.hpp])
   AX_PKG_BOOST_LIB(FILESYSTEM,      [-lboost_filesystem],      [boost/filesystem/path.hpp], [$PKG_BOOST_SYSTEM_LIBS])
-  AX_PKG_BOOST_LIB(THREAD,          [-lboost_thread],          [boost/thread/thread.hpp])
+  AX_PKG_BOOST_LIB(DATETIME,        [-lboost_date_time],       [boost/date_time/gregorian/gregorian_types.hpp])
+  AX_PKG_BOOST_LIB(THREAD,          [-lboost_thread],          [boost/thread/thread.hpp],   [$PKG_BOOST_DATETIME_LIBS], [boost/thread/condition.hpp])
   AX_PKG_BOOST_LIB(IOSTREAMS,       [-lboost_iostreams],       [boost/iostreams/stream_buffer.hpp])
-  AX_PKG_BOOST_LIB(GRAPH,           [-lboost_graph],           [boost/graph/adjacency_list.hpp])
+  AX_PKG_BOOST_LIB(GRAPH,           [],                        [boost/graph/adjacency_list.hpp])
 fi
 
 # This provides an easy way for users to override the threads options
 # if they are replacing Boost threads with something else for their platform.
 AX_PKG(THREADS, [BOOST_THREAD], [], [])
 
+AX_PKG(M, [], [-lm], [math.h])
+
 AX_PKG_ONE_OF(LAPACK,
   APPLE_LAPACK,
     [AX_PKG_APPLE(LAPACK, [], [-framework vecLib])],
+  INTEL_LAPACK,
+    [case $host_cpu in
+       ia64)   AX_PKG(INTEL_LAPACK, [PTHREADS M], [-lmkl_lapack -lmkl -lmkl_i2p -lguide], [mkl_lapack.h], [], [64],    [dgelss_]);;
+       x86_64) AX_PKG(INTEL_LAPACK, [PTHREADS M], [-lmkl_lapack -lmkl -lmkl_def -lguide], [mkl_lapack.h], [], [em64t], [dgelss_]);;
+       *)      AX_PKG(INTEL_LAPACK, [PTHREADS M], [-lmkl_lapack -lmkl -lguide],           [mkl_lapack.h], [], [32],    [dgelss_]);;
+     esac],
   CLAPACK,
-    [AX_PKG(CLAPACK, [], [-lclapack -lblas -lf2c], [])],
+    [AX_PKG(CLAPACK, [], [-lclapack -lblas -lf2c],     [], [], [], [dgelss_])],
   SLAPACK,
-    [AX_PKG(SLAPACK, [], [-llapack -lblas], [])],
+    [AX_PKG(SLAPACK, [], [-llapack -lblas],            [], [], [], [dgelss_])],
   FLAPACK,
-    [AX_PKG(FLAPACK, [], [-llapack -lblas -lgfortran], [])],
+    [AX_PKG(FLAPACK, [], [-llapack -lblas -lgfortran], [], [], [], [dgelss_])],
   STANDALONE_LAPACK_BLAS,
     [AX_PKG(STANDALONE_BLAS, [], [-lblas], [])
-     AX_PKG(STANDALONE_LAPACK, [], [-llapack], [])
+     AX_PKG(STANDALONE_LAPACK, [STANDALONE_BLAS], [-llapack], [], [], [], [dgelss_])
      AX_GROUP_PKG(STANDALONE_LAPACK_AND_BLAS, [STANDALONE_LAPACK STANDALONE_BLAS])],
   STANDALONE_FLAPACK_FBLAS,
     [AX_PKG(STANDALONE_F2C, [], [-lf2c], [])
      AX_PKG(STANDALONE_FBLAS, [STANDALONE_F2C], [-lblas], [])
-     AX_PKG(STANDALONE_FLAPACK, [STANDALONE_F2C], [-llapack], [])
+     AX_PKG(STANDALONE_FLAPACK, [STANDALONE_FBLAS STANDALONE_F2C], [-llapack], [], [], [], [dgelss_])
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
-AX_PKG(VW,                [BOOST BOOST_THREAD BOOST_PROGRAM_OPTIONS],  [-lvw],            [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
-AX_PKG(VW_CAMERA,         [VW BOOST_FILESYSTEM BOOST_IOSTREAMS], [-lvwCamera],      [vw/Camera/CAHVModel.h])
+AX_PKG(VW,                [BOOST BOOST_THREAD BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM LAPACK],  [-lvw],            [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
+AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],      [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW VW_CAMERA],        [-lvwStereo],      [vw/Stereo/OptimizedCorrelator.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW VW_CAMERA],        [-lvwCartography], [vw/Cartography/GeoReference.h])
 AX_PKG(VW_INTEREST_POINT, [VW],                  [-lvwInterestPoint])

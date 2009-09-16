@@ -5,8 +5,8 @@ dnl All Rights Reserved.
 dnl __END_LICENSE__
 
 
-dnl usage: PKG_CHECK_FUNCTION(pkg, function [, alias])
-dnl check a pkg for an optional function, and perhaps call it by a different name
+dnl usage: PKG_CHECK_FUNCTION(pkg, function, alias, define-in-c)
+dnl check a pkg for an optional function, and call it by a different name
 AC_DEFUN([PKG_CHECK_FUNCTION],
 [AS_VAR_PUSHDEF([var], [m4_tolower([[$1]])[_has_]m4_tolower(m4_default([$3],[$2]))])
   var=0
@@ -18,6 +18,6 @@ AC_DEFUN([PKG_CHECK_FUNCTION],
   else
     m4_toupper(var)=no
   fi
-  AC_DEFINE_UNQUOTED(AS_TR_CPP(m4_toupper(var)), [$var], [Define to 1 if $1 has $3 support])
+  m4_if([$4], [yes], [AC_DEFINE_UNQUOTED(AS_TR_CPP(m4_toupper(var)), [$var], [Define to 1 if $1 has $3 support])])
   AS_VAR_POPDEF([var])
 ])

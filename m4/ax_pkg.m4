@@ -5,7 +5,7 @@ dnl All Rights Reserved.
 dnl __END_LICENSE__
 
 
-dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>, <required-functions>])
+dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>, <relative lib path>, <required-functions>])
 AC_DEFUN([AX_PKG],
 [
   AC_ARG_WITH(m4_tolower([[$1]]),
@@ -26,8 +26,8 @@ AC_DEFUN([AX_PKG],
     AX_LOG([APPEND: ADD_]$1[_LDFLAGS=$ADD_]$1[_LDFLAGS])
   fi
 
-  m4_ifval([$6],
-    [AC_MSG_CHECKING([for package $1 with functions ($6)])],
+  m4_ifval([$7],
+    [AC_MSG_CHECKING([for package $1 with functions ($7)])],
     [AC_MSG_CHECKING([for package $1])])
 
   AC_LANG_ASSERT(C++)
@@ -105,9 +105,13 @@ AC_DEFUN([AX_PKG],
             [TRY_ADD_CPPFLAGS="$TRY_ADD_CPPFLAGS -I$path/${AX_INCLUDE_DIR}"])
 
           if test -d $path/${AX_LIBDIR}; then
-              TRY_ADD_LDFLAGS="$TRY_ADD_LDFLAGS -L$path/${AX_LIBDIR}"
+            m4_ifval([$6],
+              [TRY_ADD_LDFLAGS="$TRY_ADD_LDFLAGS -L$path/${AX_LIBDIR}/]$6["],
+              [TRY_ADD_LDFLAGS="$TRY_ADD_LDFLAGS -L$path/${AX_LIBDIR}"])
           elif test x"${AX_OTHER_LIBDIR}" != "x"; then
-              TRY_ADD_LDFLAGS="$TRY_ADD_LDFLAGS -L$path/${AX_OTHER_LIBDIR}"
+            m4_ifval([$6],
+              [TRY_ADD_LDFLAGS="$TRY_ADD_LDFLAGS -L$path/${AX_OTHER_LIBDIR}/]$6["],
+              [TRY_ADD_LDFLAGS="$TRY_ADD_LDFLAGS -L$path/${AX_OTHER_LIBDIR}"])
           fi
         fi
 
@@ -120,8 +124,8 @@ AC_DEFUN([AX_PKG],
           AC_LANG_PROGRAM([#include "conftest.h"],[]),
           [ HAVE_PKG_$1=yes ], [continue] )
 
-        m4_ifval([$6],
-            AX_CHECK_FUNCTIONS([$6], [$LDFLAGS $LIBS], [], [ HAVE_PKG_$1=no; echo "package $1 did not have function $func" >&AS_MESSAGE_LOG_FD ])
+        m4_ifval([$7],
+            AX_CHECK_FUNCTIONS([$7], [$LDFLAGS $LIBS], [], [ HAVE_PKG_$1=no; echo "package $1 did not have function $func" >&AS_MESSAGE_LOG_FD ])
         )
 
         if test x"$HAVE_PKG_$1" = x"yes"; then

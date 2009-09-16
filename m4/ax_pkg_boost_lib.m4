@@ -19,7 +19,7 @@ dnl Boost with the string in said variable somewhere inside the Boost
 dnl library names, but after the initial name of the library (specified
 dnl as the second parameter to this function). A blank value will give
 dnl normal behavior.
-# Usage: AX_PKG_BOOST_LIB(<name>, <libraries>, <header>, [<ldflags>])
+# Usage: AX_PKG_BOOST_LIB(<name>, <libraries>, <header>, [<ldflags>, <other-headers>])
 AC_DEFUN([AX_PKG_BOOST_LIB],
 [
   AC_MSG_CHECKING(for package BOOST_$1)
@@ -75,6 +75,9 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
   ax_pkg_old_libs="$LIBS"
 
   echo > conftest.h
+  for header in $5 ; do
+    echo "#include <$header>" >> conftest.h
+  done
   for header in $3 ; do
     echo "#include <$header>" >> conftest.h
   done

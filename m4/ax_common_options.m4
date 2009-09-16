@@ -16,9 +16,10 @@ AX_ARG_ENABLE(debug,         no, [none],            [generate debugging symbols]
 AX_ARG_ENABLE(optimize,       3, [none],            [compiler optimization level])
 AX_ARG_ENABLE(profile,       no, [none],            [generate profiling data])
 AX_ARG_ENABLE(arch-libs,     no, [none],            [force /lib64 (=64) or /lib32 (=32) instead of /lib])
-AX_ARG_ENABLE(proper-libs,  yes, [none],            [useful linker options])
 AX_ARG_ENABLE(ccache,        no, [none],            [try to use ccache, if available])
 AX_ARG_ENABLE(multi-arch,    [], [none],            [build multi-arch (universal) binaries])
+AX_ARG_ENABLE(rpath,         no, [none],            [set RPATH/RUNPATH on generated binaries])
+AX_ARG_ENABLE(as-needed,     no, [none],            [set -Wl,-as-needed (might break linking)])
 
 
 
@@ -52,9 +53,10 @@ else
   AX_OTHER_LIBDIR=""
 fi
 
-if test x"$ENABLE_PROPER_LIBS" = "xyes"; then
 # These are good if they're supported
-    AX_TRY_CPPFLAGS([-Wl,-no-undefined], [OTHER_LDFLAGS="$OTHER_LDFLAGS -Wl,-no-undefined"])
+AX_TRY_CPPFLAGS([-Wl,-no-undefined], [OTHER_LDFLAGS="$OTHER_LDFLAGS -Wl,-no-undefined"])
+
+if test x"$ENABLE_AS_NEEDED" = "xyes"; then
     AX_TRY_CPPFLAGS([-Wl,-as-needed],    [OTHER_LDFLAGS="$OTHER_LDFLAGS -Wl,-as-needed"])
 fi
 

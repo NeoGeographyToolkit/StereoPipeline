@@ -14,9 +14,9 @@ AC_DEFUN([AX_PKG_ONE_OF],
   0, [m4_fatal([$0: too few arguments: $#])],
   2, [m4_ifset([$2], [m4_fatal([$0: too few arguments: [$1] [$2] $#])], [$0([$1])])],
   1, [AX_GROUP_PKG([$1])],
-  [AS_IF([test ! -z "$PKG_$1_CPPFLAGS"], [PKG_$2_CPPFLAGS="$PKG_$2_CPPFLAGS $PKG_$1_CPPFLAGS"]) dnl push cppflags to child
-   AS_IF([test ! -z "$PKG_$1_LDFLAGS"],  [PKG_$2_LDFLAGS="$PKG_$2_LDFLAGS $PKG_$1_LDFLAGS"])    dnl push ldflags to child
-   AS_IF([test -z "$HAVE_PKG_$2"], [HAVE_PKG_$2="$HAVE_PKG_$1"]) dnl push have_pkg to child if it doesn't have one
+  [AS_IF([test ! -z "$PKG_$1_CPPFLAGS"], [PKG_$2_CPPFLAGS="$PKG_$2_CPPFLAGS $PKG_$1_CPPFLAGS"]) # push cppflags to child
+   AS_IF([test ! -z "$PKG_$1_LDFLAGS"],  [PKG_$2_LDFLAGS="$PKG_$2_LDFLAGS $PKG_$1_LDFLAGS"])    # push ldflags to child
+   AS_IF([test -z "$HAVE_PKG_$2"], [HAVE_PKG_$2="$HAVE_PKG_$1"]) # push have_pkg to child if it doesn't have one
    $3
    AS_IF([test x"$HAVE_PKG_$2" = "xyes"], [AX_GROUP_PKG([$1], [$2])],
     [$0([$1], m4_shiftn(3, $@))])]
