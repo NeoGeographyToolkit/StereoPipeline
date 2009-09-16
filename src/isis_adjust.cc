@@ -425,8 +425,8 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
               m1 != (*cp).end(); ++m1 ) {
           for ( ControlPoint::const_iterator m2 = (*cp).begin();
                 m2 != m1; ++m2 ) {
-            stereo::StereoModel sm( *cameras[m1->image_id()],
-                                    *cameras[m2->image_id()] );
+            stereo::StereoModel sm( cameras[m1->image_id()].get(),
+                                    cameras[m2->image_id()].get() );
             double error;
             Vector3 triangulation = sm( m1->position(),
                                         m2->position(),

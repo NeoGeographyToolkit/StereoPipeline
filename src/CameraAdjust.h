@@ -1,16 +1,16 @@
 // __BEGIN_LICENSE__
-// 
+//
 // Copyright (C) 2008 United States Government as represented by the
 // Administrator of the National Aeronautics and Space Administration
 // (NASA).  All Rights Reserved.
-// 
+//
 // Copyright 2008 Carnegie Mellon University. All rights reserved.
-// 
+//
 // This software is distributed under the NASA Open Source Agreement
 // (NOSA), version 1.3.  The NOSA has been approved by the Open Source
 // Initiative.  See the file COPYING at the top of the distribution
 // directory tree for the complete NOSA document.
-// 
+//
 // THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
 // KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
 // LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
@@ -38,12 +38,12 @@ namespace vw {
 namespace camera {
 
   class TransformedCameraModel : public CameraModel {
-    
+
     boost::shared_ptr<CameraModel> m_camera;
     Vector3 m_translation;
     Quaternion<double> m_rotation;
     Quaternion<double> m_rotation_inverse;
-    
+
   public:
     TransformedCameraModel(boost::shared_ptr<CameraModel> camera_model) : m_camera(camera_model) {
       m_rotation = math::Quaternion<double>(math::identity_matrix<3>());
@@ -51,13 +51,13 @@ namespace camera {
     }
 
     virtual ~TransformedCameraModel() {}
-    
+
     Vector3 translation() const { return m_translation; }
     Quaternion<double> rotation() const { return m_rotation; }
     Matrix<double,3,3> rotation_matrix() const { return m_rotation.rotation_matrix(); }
 
     void set_translation(Vector3 const& translation) { m_translation = translation; }
-    void set_rotation(Quaternion<double> const& rotation) { 
+    void set_rotation(Quaternion<double> const& rotation) {
       m_rotation = rotation;
       m_rotation_inverse = inverse(m_rotation);
     }
@@ -84,7 +84,7 @@ namespace camera {
       //       std::cout << m_rotation_inverse.rotation_matrix() << "\n";
       //       std::cout << m_rotation << "\n";
       //       std::cout << m_rotation_inverse << "\n\n";
-      
+
       return m_rotation_inverse.rotate(m_camera->pixel_to_vector(pix));
     }
 
@@ -93,38 +93,39 @@ namespace camera {
     }
 
     virtual Quaternion<double> camera_pose(Vector2 const& pix) const {
-      return m_camera->camera_pose(pix)*m_rotation_inverse;      
+      return m_camera->camera_pose(pix)*m_rotation_inverse;
     }
 
   };
-}  
-  
+}
+
 class CameraPointingOptimizeFunc {
-  
+
   vw::camera::TransformedCameraModel m_camera1, m_camera2;
   vw::stereo::StereoModel m_stereo_model;
   std::vector<Vector2> m_pixel_list1, m_pixel_list2;
-  
+
 public:
-  CameraPointingOptimizeFunc(boost::shared_ptr<camera::CameraModel> camera1, 
+  CameraPointingOptimizeFunc(boost::shared_ptr<camera::CameraModel> camera1,
                              boost::shared_ptr<camera::CameraModel> camera2,
                              std::vector<Vector2> pixel_list1,
                              std::vector<Vector2> pixel_list2) :
-    m_camera1(camera1), m_camera2(camera2), 
+    m_camera1(camera1), m_camera2(camera2),
     m_stereo_model(m_camera1, m_camera2),
     m_pixel_list1(pixel_list1), m_pixel_list2(pixel_list2) {
 
     VW_ASSERT(m_pixel_list1.size() == m_pixel_list2.size(),
               ArgumentErr() << "CameraPointingOptimizeFunc: pixel lists are not the same size...");
   }
-  
+
   double operator()(Vector<double,8> const& quaternions) {
     Vector4 q1 = normalize(subvector(quaternions,0,4));
     Vector4 q2 = normalize(subvector(quaternions,4,4));
     m_camera1.set_rotation(Quaternion<double>(q1[0], q1[1], q1[2], q1[3]));
     m_camera2.set_rotation(Quaternion<double>(q2[0], q2[1], q2[2], q2[3]));
-    
-    vw::stereo::StereoModel test_model(m_camera1, m_camera2);
+
+    vw::stereo::StereoModel test_model( &m_camera1,
+                                        &m_camera2);
 
     double error;
     double total_error = 0;
@@ -134,17 +135,17 @@ public:
     }
     return total_error;
   }
-  
+
 };
 
 class CameraToGroundOptimizePoseFunc {
-  
+
   vw::camera::TransformedCameraModel m_camera;
   std::vector<Vector3> m_ground_pts;
   std::vector<Vector2> m_image_pts;
 
 public:
-  CameraToGroundOptimizePoseFunc(boost::shared_ptr<camera::CameraModel> camera, 
+  CameraToGroundOptimizePoseFunc(boost::shared_ptr<camera::CameraModel> camera,
                              std::vector<Vector3> ground_pts,
                              std::vector<Vector2> image_pts) :
     m_camera(camera), m_ground_pts(ground_pts), m_image_pts(image_pts) {
@@ -154,7 +155,7 @@ public:
     VW_ASSERT(m_ground_pts.size() >= 4,
               ArgumentErr() << "CameraToGroundOptimizeFunc: not enought tie points (" << m_ground_pts.size() << " found and at least 4 are needed.");
   }
-  
+
   double operator()(Vector<double,4> const& quaternion) {
     Vector4 q1 = normalize(quaternion);
     m_camera.set_rotation(Quaternion<double>(q1[0], q1[1], q1[2], q1[3]));
@@ -169,18 +170,18 @@ public:
     //    std::cout << "Seed: " << quaternion << "   Error: " << total_error << "\n";
     return total_error;
   }
-  
+
 };
 
 
 class CameraToGroundOptimizePositionFunc {
-  
+
   vw::camera::TransformedCameraModel m_camera;
   std::vector<Vector3> m_ground_pts;
   std::vector<Vector2> m_image_pts;
 
 public:
-  CameraToGroundOptimizePositionFunc(boost::shared_ptr<camera::CameraModel> camera, 
+  CameraToGroundOptimizePositionFunc(boost::shared_ptr<camera::CameraModel> camera,
                              std::vector<Vector3> ground_pts,
                              std::vector<Vector2> image_pts) :
     m_camera(camera), m_ground_pts(ground_pts), m_image_pts(image_pts) {
@@ -190,7 +191,7 @@ public:
     VW_ASSERT(m_ground_pts.size() >= 4,
               ArgumentErr() << "CameraToGroundOptimizeFunc: not enought tie points (" << m_ground_pts.size() << " found and at least 4 are needed.");
   }
-  
+
   double operator()(Vector<double,3> const& translation) {
     m_camera.set_translation(translation);
 
@@ -204,17 +205,17 @@ public:
     //    std::cout << "Seed: " << quaternion << "   Error: " << total_error << "\n";
     return total_error;
   }
-  
+
 };
 
 class CameraToGroundOptimizeFunc {
-  
+
   vw::camera::TransformedCameraModel m_camera;
   std::vector<Vector3> m_ground_pts;
   std::vector<Vector2> m_image_pts;
 
 public:
-  CameraToGroundOptimizeFunc(boost::shared_ptr<camera::CameraModel> camera, 
+  CameraToGroundOptimizeFunc(boost::shared_ptr<camera::CameraModel> camera,
                              std::vector<Vector3> ground_pts,
                              std::vector<Vector2> image_pts) :
     m_camera(camera), m_ground_pts(ground_pts), m_image_pts(image_pts) {
@@ -224,7 +225,7 @@ public:
     VW_ASSERT(m_ground_pts.size() >= 4,
               ArgumentErr() << "CameraToGroundOptimizeFunc: not enought tie points (" << m_ground_pts.size() << " found and at least 4 are needed.");
   }
-  
+
   double operator()(Vector<double,7> const& vals) {
     Vector4 q1 = normalize(subvector(vals, 0, 4));
     m_camera.set_rotation(Quaternion<double>(q1[0], q1[1], q1[2], q1[3]));
@@ -240,7 +241,7 @@ public:
     //    std::cout << "Seed: " << quaternion << "   Error: " << total_error << "\n";
     return total_error;
   }
-  
+
 };
 
 

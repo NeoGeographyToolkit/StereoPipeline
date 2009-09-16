@@ -732,8 +732,8 @@ int main(int argc, char* argv[]) {
       // results to disk.
       vw_out(0) << "\t--> Generating a 3D point cloud.   " << std::endl;
       StereoView<ImageView<PixelMask<Vector2f> > > stereo_image(disparity_map,
-                                                                *camera_model1,
-                                                                *camera_model2);
+                                                                camera_model1.get() ,
+                                                                camera_model2.get() );
 
       // For debugging...
       //       std::cout << "Computing Error image\n";

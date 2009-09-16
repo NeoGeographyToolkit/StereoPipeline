@@ -338,8 +338,8 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
     for ( unsigned j = 0; j < (*cnet)[i].size(); j++ ) {
       for ( unsigned k = j+1; k < (*cnet)[i].size(); k++ ) {
 
-        StereoModel sm( *(camera_models[ (*cnet)[i][j].image_id()]),
-                        *(camera_models[ (*cnet)[i][k].image_id()]) );
+        StereoModel sm( camera_models[ (*cnet)[i][j].image_id()].get(),
+                        camera_models[ (*cnet)[i][k].image_id()].get() );
 
         if ( sm.convergence_angle( (*cnet)[i][j].position(),
                                    (*cnet)[i][k].position() ) >
