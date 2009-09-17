@@ -28,7 +28,7 @@ AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
 AM_INIT_AUTOMAKE([nostdinc])
-AX_CONFIG_HEADER_PREFIX([src/asp_config.h], [ASP_])
+AX_CONFIG_HEADER_PREFIX([src/asp/asp_config.h], [ASP_])
 
 dnl TODO RIGHT BEFORE RELEASE: update libtool version
 dnl if abi changes in any way:
@@ -152,11 +152,9 @@ AX_PKG_ONE_OF(LAPACK,
 
 AX_PKG(VW,                [BOOST BOOST_THREAD BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM LAPACK],  [-lvw],            [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
 AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],      [vw/Camera/CAHVModel.h])
-AX_PKG(VW_STEREO,         [VW VW_CAMERA],        [-lvwStereo],      [vw/Stereo/OptimizedCorrelator.h])
-AX_PKG(VW_CARTOGRAPHY,    [VW VW_CAMERA],        [-lvwCartography], [vw/Cartography/GeoReference.h])
-AX_PKG(VW_INTEREST_POINT, [VW],                  [-lvwInterestPoint])
-
-AX_PKG(CUDA,              [],      [-lcuda -lcudart], [cuda.h])
+AX_PKG(VW_STEREO,         [VW VW_CAMERA],       [-lvwStereo],      [vw/Stereo/OptimizedCorrelator.h])
+AX_PKG(VW_CARTOGRAPHY,    [VW VW_CAMERA],       [-lvwCartography], [vw/Cartography/GeoReference.h])
+AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint])
 
 AX_PKG_ONE_OF(GL,
   APPLE_GL,
@@ -213,7 +211,7 @@ dnl the ISIS compilation does not resolve certain BLAS symbols that its
 dnl dependent 3rd party libraries depend on (for whatever reason).
 dnl Thus, we link against LAPACK here because it defines these missing
 dnl BLAS symbols in the event that we need them.
-AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
+AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS XERCESC], [])
 AX_PKG(ISIS, [QT ISIS3RDPARTY], [-lisis3], [SpecialPixel.h])
 
 # These are here (instead of inside the PKG macro where they belong)
@@ -229,23 +227,24 @@ AX_GROUP_PKG(BOOST_COMMON, [BOOST BOOST_PROGRAM_OPTIONS])
 AX_GROUP_PKG(BOOST_ALL,    [BOOST_COMMON BOOST_FILESYSTEM])
 AX_GROUP_PKG(VW_ALL,       [VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT])
 
-AX_APP(STEREO,         [src], yes, [BOOST_ALL VW_ALL LAPACK],     [ISIS SPICE])
-AX_APP(STEREOGUI,      [src], no,  [BOOST_ALL VW_ALL LAPACK QT],  [ISIS SPICE])
-AX_APP(ORTHOPROJECT,   [src], yes, [BOOST_ALL VW_ALL LAPACK],     [ISIS SPICE])
-AX_APP(BUNDLEADJUST,   [src], no,  [BOOST_ALL VW_ALL LAPACK],     [ISIS SPICE])
-AX_APP(ORBITVIZ,       [src], no,  [BOOST_ALL VW_ALL LAPACK],     [ISIS SPICE])
-AX_APP(DISPARITYDEBUG, [src], yes, [BOOST_COMMON VW VW_STEREO])
-AX_APP(POINT2MESH,     [src], yes, [BOOST_COMMON VW OPENSCENEGRAPH])
-AX_APP(POINT2MESH2,    [src], yes, [BOOST_COMMON VW OPENSCENEGRAPH])
-AX_APP(POINT2DEM,      [src], yes, [BOOST_COMMON VW VW_CARTOGRAPHY])
-AX_APP(CTXIMAGE,       [src], no,  [BOOST_COMMON VW VW_CARTOGRAPHY])
-AX_APP(RMAX2CAHVOR,    [src], no,  [BOOST_COMMON VW VW_CAMERA BOOST_FILESYSTEM])
-AX_APP(RMAXADJUST,     [src], no,  [BOOST_ALL VW_ALL LAPACK])
-AX_APP(BUNDLEVIS,      [src], no,  [BOOST_COMMON OPENSCENEGRAPH VW VW_CAMERA])
-AX_APP(ISISADJUST,     [src], yes, [BOOST_ALL VW_ALL LAPACK ISIS SPICE])
-AX_APP(RESULTS,        [src], yes, [BOOST_ALL VW_ALL ISIS])
-AX_APP(CUDATEST,       [src], no,  [VW CUDA])
-AX_APP(RECONSTRUCT,    [src], no,  [BOOST_ALL VW VW_CARTOGRAPHY])
+AX_APP(STEREO,         [src/asp/Tools], yes, [BOOST_ALL VW_ALL LAPACK],     [SPICE ISIS])
+AX_APP(ORTHOPROJECT,   [src/asp/Tools], yes, [BOOST_ALL VW_ALL LAPACK],     [SPICE ISIS])
+AX_APP(BUNDLEADJUST,   [src/asp/Tools], no,  [BOOST_ALL VW_ALL LAPACK],     [SPICE ISIS])
+AX_APP(ORBITVIZ,       [src/asp/Tools], yes, [BOOST_ALL VW_ALL LAPACK],     [SPICE ISIS])
+AX_APP(DISPARITYDEBUG, [src/asp/Tools], yes, [BOOST_COMMON VW VW_STEREO])
+AX_APP(POINT2MESH,     [src/asp/Tools], yes, [BOOST_COMMON VW OPENSCENEGRAPH])
+AX_APP(POINT2MESH2,    [src/asp/Tools], yes, [BOOST_COMMON VW OPENSCENEGRAPH])
+AX_APP(POINT2DEM,      [src/asp/Tools], yes, [BOOST_COMMON VW VW_CARTOGRAPHY])
+AX_APP(CTXIMAGE,       [src/asp/Tools], no,  [BOOST_COMMON VW VW_CARTOGRAPHY])
+AX_APP(RMAX2CAHVOR,    [src/asp/Tools], no,  [BOOST_COMMON VW VW_CAMERA BOOST_FILESYSTEM])
+AX_APP(RMAXADJUST,     [src/asp/Tools], no,  [BOOST_ALL VW_ALL LAPACK])
+AX_APP(BUNDLEVIS,      [src/asp/Tools], no,  [BOOST_COMMON OPENSCENEGRAPH VW VW_CAMERA])
+AX_APP(ISISADJUST,     [src/asp/Tools], yes, [BOOST_ALL VW_ALL ISIS LAPACK])
+AX_APP(RESULTS,        [src/asp/Tools], yes, [BOOST_ALL VW_ALL ISIS])
+AX_APP(RECONSTRUCT,    [src/asp/Tools], no,  [BOOST_ALL VW VW_CARTOGRAPHY])
+
+AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [],     [BOOST_COMMON], [OPENSCENEGRAPH LAPACK])
+AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [BOOST_COMMON])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -264,9 +263,10 @@ AM_CONDITIONAL(MAKE_APP_RMAXADJUST, [test "$MAKE_APP_RMAXADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLEVIS, [test "$MAKE_APP_BUNDLEVIS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_ISISADJUST, [test "$MAKE_APP_ISISADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
-AM_CONDITIONAL(MAKE_APP_CUDATEST, [test "$MAKE_APP_CUDATEST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RECONSTRUCT, [test "$MAKE_APP_RECONSTRUCT" = "yes"])
 
+AM_CONDITIONAL(MAKE_MODULE_CORE, [test "$MAKE_MODULE_CORE" = "yes"])
+AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_CORE" = "yes"])
 
 ##################################################
 # final processing
@@ -299,7 +299,17 @@ AC_SUBST(ASP_LDFLAGS)
 AC_CONFIG_FILES([                       \
   Makefile                              \
   src/Makefile                          \
-  src/tests/Makefile                    \
+  src/asp/Makefile                      \
+  src/asp/Core/Makefile                 \
+  src/asp/Sessions/Makefile             \
+  src/asp/Sessions/HRSC/Makefile        \
+  src/asp/Sessions/ISIS/Makefile        \
+  src/asp/Sessions/Keypoint/Makefile    \
+  src/asp/Sessions/MOC/Makefile         \
+  src/asp/Sessions/MRO/Makefile         \
+  src/asp/Sessions/Pinhole/Makefile     \
+  src/asp/Sessions/RMAX/Makefile        \
+  src/asp/Tools/Makefile
 ])
 
 AC_OUTPUT
