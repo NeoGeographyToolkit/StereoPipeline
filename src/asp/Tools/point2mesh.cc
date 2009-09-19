@@ -44,7 +44,7 @@ namespace po = boost::program_options;
 #include <vw/Math.h>
 using namespace vw;
 
-#include <asp/Core/nff_terrain.h>
+#include <asp/Tools/nff_terrain.h>
 
 // Erases a file suffix if one exists and returns the base string
 static std::string prefix_from_pointcloud_filename(std::string const& filename) {

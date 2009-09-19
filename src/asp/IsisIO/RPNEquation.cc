@@ -25,7 +25,7 @@
 #include <iomanip>
 #include <stack>
 // ASP
-#include <asp/Core/RPNEquation.h>
+#include <asp/IsisIO/RPNEquation.h>
 // BOOST
 #include <boost/algorithm/string.hpp>
 

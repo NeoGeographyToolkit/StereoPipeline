@@ -4,21 +4,14 @@
 
 if MAKE_MODULE_CORE
 
-include_HEADERS = BaseEquation.h BlobIndexThreaded.h CameraAdjust.h      \
+include_HEADERS = BlobIndexThreaded.h CameraAdjust.h StereoSettings.h    \
 		  ControlNetworkLoader.h DiskImageResourceDDD.h          \
-		  Equation.h InpaintView.h MedianFilter.h                \
-		  OrthoRasterizer.h PolyEquation.h RPNEquation.h         \
-		  SoftwareRenderer.h SparseView.h StereoSettings.h
+		  InpaintView.h MedianFilter.h SparseView.h              \
+		  OrthoRasterizer.h SoftwareRenderer.h SparseView.h
 
 libaspCore_la_SOURCES = BlobIndexThreaded.cc BundleAdjustUtils.cc        \
 		  ControlNetworkLoader.cc DiskImageResourceDDD.cc        \
-		  Equation.cc PolyEquation.cc RPNEquation.cc             \
 		  SoftwareRenderer.cc StereoSettings.cc
-
-if HAVE_PKG_OPENSCENEGRAPH
-  include_HEADERS += nff_terrain.h
-  libaspCore_la_SOURCES += nff_terrain.cc
-endif
 
 libaspCore_la_LIBADD = @MODULE_CORE_LIBS@
 

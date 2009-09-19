@@ -24,9 +24,9 @@
 #ifndef __VW_CAMERA_EQUATION_H__
 #define __VW_CAMERA_EQUATION_H__
 
-#include <asp/Core/BaseEquation.h>
-#include <asp/Core/PolyEquation.h>
-#include <asp/Core/RPNEquation.h>
+#include <asp/IsisIO/BaseEquation.h>
+#include <asp/IsisIO/PolyEquation.h>
+#include <asp/IsisIO/RPNEquation.h>
 
 namespace vw {
 namespace camera {

@@ -36,7 +36,7 @@
 
 // ASP
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/Core/Equation.h>
+#include <asp/IsisIO/Equation.h>
 
 // Isis Header
 #include <Cube.h>

@@ -21,7 +21,7 @@
 //
 // __END_LICENSE__
 
-#include <asp/Core/Equation.h>
+#include <asp/IsisIO/Equation.h>
 
 using namespace vw;
 using namespace camera;

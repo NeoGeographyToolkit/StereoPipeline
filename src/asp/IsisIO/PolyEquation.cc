@@ -24,7 +24,7 @@
 // STL
 #include <iomanip>
 // ASP
-#include <asp/Core/PolyEquation.h>
+#include <asp/IsisIO/PolyEquation.h>
 // Boost
 #include <boost/algorithm/string.hpp>
 

@@ -46,7 +46,6 @@ namespace po = boost::program_options;
 using namespace vw;
 using namespace vw::cartography;
 
-#include <asp/Core/nff_terrain.h>
 #include <asp/Core/OrthoRasterizer.h>
 
 // Erases a file suffix if one exists and returns the base string

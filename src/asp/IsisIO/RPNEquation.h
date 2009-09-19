@@ -27,7 +27,7 @@
 // STL
 #include <vector>
 // ASP
-#include <asp/Core/BaseEquation.h>
+#include <asp/IsisIO/BaseEquation.h>
 
 namespace vw{
 namespace camera{

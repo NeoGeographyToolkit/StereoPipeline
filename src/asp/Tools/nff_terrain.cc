@@ -66,7 +66,7 @@
 
 // ASP includes:
 #include <asp/asp_config.h>
-#include <asp/Core/nff_terrain.h>
+#include <asp/Tools/nff_terrain.h>
 
 // VW
 #include <vw/Core/Exception.h>

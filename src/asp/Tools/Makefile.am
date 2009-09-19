@@ -28,38 +28,19 @@ bin_PROGRAMS =
 if MAKE_APP_STEREO
   bin_PROGRAMS += stereo
   stereo_SOURCES = stereo.cc
-  stereo_LDADD = $(APP_STEREO_LIBS) @PKG_CORE_LIBS@ @PKG_SESSIONS_LIBS@
-
-if HAVE_PKG_ISIS
-  stereo_LDADD += @PKG_ISISIO_LIBS@
-endif
-if HAVE_PKG_SPICE
-  stereo_LDADD += @PKG_SPICEIO_LIBS@
-endif
+  stereo_LDADD = $(APP_STEREO_LIBS)
 endif
 
 if MAKE_APP_BUNDLEADJUST
   bin_PROGRAMS += bundle_adjust
   bundle_adjust_SOURCES = bundle_adjust.cc
-  bundle_adjust_LDADD = $(APP_BUNDLEADJUST_LIBS) @PKG_CORE_LIBS@ @PKG_SESSIONS_LIBS@
-if HAVE_PKG_ISIS
-  bundle_adjust_LDADD += @PKG_ISISIO_LIBS@
-endif
-if HAVE_PKG_SPICE
-  bundle_adjust_LDADD += @PKG_SPICEIO_LIBS@
-endif
+  bundle_adjust_LDADD = $(APP_BUNDLEADJUST_LIBS)
 endif
 
 if MAKE_APP_ORBITVIZ
   bin_PROGRAMS += orbitviz
   orbitviz_SOURCES = orbitviz.cc
-  orbitviz_LDADD = $(APP_ORBITVIZ_LIBS) @PKG_CORE_LIBS@ @PKG_SESSIONS_LIBS@
-if HAVE_PKG_ISIS
-  orbitviz_LDADD += @PKG_ISISIO_LIBS@
-endif
-if HAVE_PKG_SPICE
-  orbitviz_LDADD += @PKG_SPICEIO_LIBS@
-endif
+  orbitviz_LDADD = $(APP_ORBITVIZ_LIBS)
 endif
 
 if MAKE_APP_DISPARITYDEBUG
@@ -70,38 +51,38 @@ endif
 
 if MAKE_APP_POINT2MESH
   bin_PROGRAMS += point2mesh
-  point2mesh_SOURCES = point2mesh.cc
-  point2mesh_LDADD = $(APP_POINT2MESH_LIBS) @PKG_CORE_LIBS@
+  point2mesh_SOURCES = point2mesh.cc nff_terrain.h nff_terrain.cc
+  point2mesh_LDADD = $(APP_POINT2MESH_LIBS)
 endif
 
 if MAKE_APP_POINT2DEM
   bin_PROGRAMS += point2dem
   point2dem_SOURCES = point2dem.cc
-  point2dem_LDADD = $(APP_POINT2DEM_LIBS) @PKG_CORE_LIBS@
+  point2dem_LDADD = $(APP_POINT2DEM_LIBS)
 endif
 
 if MAKE_APP_CTXIMAGE
   bin_PROGRAMS += ctximage
   ctximage_SOURCES = ctximage.cc
-  ctximage_LDADD = $(APP_CTXIMAGE_LIBS) @PKG_CORE_LIBS@
+  ctximage_LDADD = $(APP_CTXIMAGE_LIBS)
 endif
 
 if MAKE_APP_RMAX2CAHVOR
   bin_PROGRAMS += rmax2cahvor
   rmax2cahvor_SOURCES = rmax2cahvor.cc
-  rmax2cahvor_LDADD = $(APP_RMAX2CAHVOR_LIBS) @PKG_CORE_LIBS@ @PKG_SESSIONS_LIBS@
+  rmax2cahvor_LDADD = $(APP_RMAX2CAHVOR_LIBS)
 endif
 
 if MAKE_APP_RMAXADJUST
   bin_PROGRAMS += rmax_adjust
   rmax_adjust_SOURCES = rmax_adjust.cc
-  rmax_adjust_LDADD = $(APP_RMAXADJUST_LIBS) @PKG_CORE_LIBS@ @PKG_SESSIONS_LIBS@
+  rmax_adjust_LDADD = $(APP_RMAXADJUST_LIBS)
 endif
 
 if MAKE_APP_ISISADJUST
   bin_PROGRAMS += isis_adjust
   isis_adjust_SOURCES = isis_adjust.cc
-  isis_adjust_LDADD = $(APP_ISISADJUST_LIBS) @PKG_CORE_LIBS@ @PKG_ISISIO_LIBS@
+  isis_adjust_LDADD = $(APP_ISISADJUST_LIBS)
 endif
 
 if MAKE_APP_BUNDLEVIS
@@ -119,13 +100,13 @@ endif
 if MAKE_APP_ORTHOPROJECT
   bin_PROGRAMS += orthoproject
   orthoproject_SOURCES = orthoproject.cc
-  orthoproject_LDADD = $(APP_ORTHOPROJECT_LIBS) @PKG_CORE_LIBS@ @PKG_SESSIONS_LIBS@
+  orthoproject_LDADD = $(APP_ORTHOPROJECT_LIBS)
 endif
 
 if MAKE_APP_RESULTS
   bin_PROGRAMS +=results
   results_SOURCES = results.cc
-  results_LDADD = $(APP_RESULTS_LIBS) @PKG_ISISIO_LIBS@
+  results_LDADD = $(APP_RESULTS_LIBS)
 endif
 
 if MAKE_APP_RECONSTRUCT
@@ -140,5 +121,9 @@ endif
 
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
+
+SUBDIRS = .
+
+includedir = $(prefix)/include/asp/Tools
 
 include $(top_srcdir)/config/rules.mak

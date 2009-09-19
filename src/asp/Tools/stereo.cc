@@ -134,7 +134,7 @@ void print_usage(po::options_description const& visible_options) {
 
 // Correlator View
 template <class FilterT>
-CorrelatorView<PixelGray<float>,vw::uint8,FilterT>
+inline CorrelatorView<PixelGray<float>,vw::uint8,FilterT>
 correlator_helper( DiskImageView<PixelGray<float> > & left_disk_image,
                    DiskImageView<PixelGray<float> > & right_disk_image,
                    DiskImageView<vw::uint8> & left_mask,
@@ -505,7 +505,7 @@ int main(int argc, char* argv[]) {
     // OpenEXR.
     DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
     disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
-                                       std::min(vw_settings().default_tile_size(),disparity_map.rows()));
+                                       std::min(vw_settings().default_tile_size(),disparity_map.rows()), true);
     block_write_image( disparity_map_rsrc, disparity_map );
   }
 

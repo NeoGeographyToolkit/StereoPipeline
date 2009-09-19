@@ -50,7 +50,6 @@ using namespace vw::ip;
 #include <iomanip>
 
 // Ames Stereo Pipeline
-#include <asp/Core/Equation.h>
 #include <asp/Core/ControlNetworkLoader.h>
 #include <asp/IsisIO.h>
 #include <asp/Sessions/StereoSession.h>
