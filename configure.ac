@@ -147,7 +147,12 @@ AX_PKG_ONE_OF(LAPACK,
      AX_PKG(STANDALONE_FLAPACK, [STANDALONE_FBLAS STANDALONE_F2C], [-llapack], [], [], [], [dgelss_])
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
-AX_PKG(VW,                [BOOST BOOST_THREAD BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM LAPACK],  [-lvw],            [vw/Image/ImageView.h vw/Math/LinearAlgebra.h])
+AX_PKG(VW_CORE, [BOOST BOOST_THREAD BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM LAPACK], [-lvwCore], [vw/Core/Log.h] )
+AX_PKG(VW_IMAGE,  [VW_CORE], [-lvwImage], [vw/Image/ImageView.h])
+AX_PKG(VW_MATH, [VW_CORE], [-lvwMath], [vw/Math/LinearAlgebra.h])
+AX_PKG(VW_FILEIO, [VW_IMAGE VW_CORE], [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h])
+AX_GROUP_PKG(VW, [VW_CORE VW_IMAGE VW_MATH VW_FILEIO])
+
 AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],      [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW VW_CAMERA],       [-lvwStereo],      [vw/Stereo/OptimizedCorrelator.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW VW_CAMERA],       [-lvwCartography], [vw/Cartography/GeoReference.h])
@@ -222,10 +227,10 @@ AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"
 ##################################################
 
 AX_GROUP_PKG(BOOST_COMMON, [BOOST BOOST_PROGRAM_OPTIONS])
-AX_GROUP_PKG(BOOST_ALL,    [BOOST_COMMON BOOST_FILESYSTEM])
+AX_GROUP_PKG(BOOST_ALL,    [BOOST_COMMON BOOST_FILESYSTEM BOOST_SYSTEM BOOST_DATETIME BOOST_THREAD BOOST_IOSTREAMS])
 AX_GROUP_PKG(VW_ALL,       [VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT])
 
-AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [],     [BOOST_COMMON], [LAPACK OPENSCENEGRAPH])
+AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [],     [BOOST_ALL VW_ALL], [LAPACK OPENSCENEGRAPH])
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [CORE], [SPICE], [] )
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [CORE], [ISIS VW VW_CAMERA], [] )
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [ISISIO], [BOOST_COMMON], [SPICEIO ISISIO])
