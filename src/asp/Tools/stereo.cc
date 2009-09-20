@@ -291,8 +291,8 @@ int main(int argc, char* argv[]) {
   stereo_settings().read(stereo_default_filename);
 
   // Set search range from stereo.default file
-  BBox2i search_range(Vector<int,2>(stereo_settings().h_corr_min, stereo_settings().v_corr_min),
-                      Vector<int,2>(stereo_settings().h_corr_max, stereo_settings().v_corr_max));
+  BBox2i search_range(Vector2i(stereo_settings().h_corr_min, stereo_settings().v_corr_min),
+                      Vector2i(stereo_settings().h_corr_max, stereo_settings().v_corr_max));
 
   // Set the Vision Workbench debug level
   set_debug_level(debug_level);

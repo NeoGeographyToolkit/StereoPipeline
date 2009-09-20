@@ -654,10 +654,10 @@ int main(int argc, char* argv[]) {
     boost::split( tokens, cnet_file, boost::is_any_of(".") );
     if ( tokens[tokens.size()-1] == "net" ) {
       // An ISIS style control network
-      g_cnet->read_isis_pvl_control_network( cnet_file );
+      g_cnet->read_isis( cnet_file );
     } else if ( tokens[tokens.size()-1] == "cnet" ) {
       // A VW binary style
-      g_cnet->read_binary_control_network( cnet_file );
+      g_cnet->read_binary( cnet_file );
     } else {
       vw_throw( IOErr() << "Unknown Control Network file extension, \""
                 << tokens[tokens.size()-1] << "\"." );
@@ -741,7 +741,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Writing ISIS Control Network
-    g_cnet->write_binary_control_network("isis_adjust");
+    g_cnet->write_binary("isis_adjust");
   }
 
   VW_DEBUG_ASSERT( g_cnet->size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
@@ -749,7 +749,7 @@ int main(int argc, char* argv[]) {
   // Option to write ISIS-style control network
   if ( g_vm.count("write-isis-cnet-also") ) {
     vw_out(0) << "Writing ISIS-style Control Network.\n";
-    g_cnet->write_isis_pvl_control_network("isis_adjust");
+    g_cnet->write_isis("isis_adjust");
   }
 
   // Need to typecast all the models to feed to the Bundle Adjustment

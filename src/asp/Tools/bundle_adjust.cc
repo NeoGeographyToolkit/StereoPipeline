@@ -350,10 +350,10 @@ int main(int argc, char* argv[]) {
       boost::split( tokens, cnet_file, boost::is_any_of(".") );
       if ( tokens[tokens.size()-1] == "net" ) {
         // An ISIS style control network
-        cnet->read_isis_pvl_control_network( cnet_file );
+        cnet->read_isis( cnet_file );
       } else if ( tokens[tokens.size()-1] == "cnet" ) {
         // A VW binary style
-        cnet->read_binary_control_network( cnet_file );
+        cnet->read_binary( cnet_file );
       } else {
         vw_throw( IOErr() << "Unknown Control Network file extension, \""
                   << tokens[tokens.size()-1] << "\"." );
@@ -390,7 +390,7 @@ int main(int argc, char* argv[]) {
                                image_files,
                                gcp_files );
 
-    cnet->write_binary_control_network("control");
+    cnet->write_binary("control");
   }
 
   BundleAdjustmentModel ba_model(camera_models, cnet);

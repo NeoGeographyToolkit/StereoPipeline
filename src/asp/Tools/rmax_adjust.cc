@@ -355,7 +355,7 @@ int main(int argc, char* argv[]) {
     // Loading a Control Network
 
     vw_out(0) << "Loading control network from file: " << cnet_file << "\n";
-    cnet->read_binary_control_network(cnet_file);
+    cnet->read_binary(cnet_file);
 
   } else {
     // Building a Control Network
@@ -365,7 +365,7 @@ int main(int argc, char* argv[]) {
                                image_files,
                                gcp_files );
 
-    cnet->write_binary_control_network("rmax_adjust");
+    cnet->write_binary("rmax_adjust");
   }
 
   HelicopterBundleAdjustmentModel ba_model(image_infos, cnet);
