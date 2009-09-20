@@ -30,7 +30,6 @@
 
 #include <asp/Core/BlobIndexThreaded.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Core/CameraAdjust.h>
 #include <asp/Core/ControlNetworkLoader.h>
 #include <asp/Core/DiskImageResourceDDD.h>
 #include <asp/Core/InpaintView.h>

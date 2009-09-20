@@ -4,10 +4,10 @@
 
 if MAKE_MODULE_CORE
 
-include_HEADERS = BlobIndexThreaded.h CameraAdjust.h StereoSettings.h    \
+include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
 		  ControlNetworkLoader.h DiskImageResourceDDD.h          \
 		  InpaintView.h MedianFilter.h SparseView.h              \
-		  OrthoRasterizer.h SoftwareRenderer.h SparseView.h
+		  OrthoRasterizer.h SoftwareRenderer.h 
 
 libaspCore_la_SOURCES = BlobIndexThreaded.cc BundleAdjustUtils.cc        \
 		  ControlNetworkLoader.cc DiskImageResourceDDD.cc        \
