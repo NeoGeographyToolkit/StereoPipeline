@@ -108,9 +108,7 @@ int main( int argc, char *argv[] ) {
   set_debug_level(VerboseDebugMessage+11);
 
   std::string pointcloud_filename, out_prefix = "", output_file_type, texture_filename;
-  unsigned cache_size;
   float dem_spacing, default_value=0;
-  int debug_level;
   double semi_major, semi_minor;
   std::string reference_spheroid;
   double phi_rot, omega_rot, kappa_rot;
@@ -129,12 +127,10 @@ int main( int argc, char *argv[] ) {
     ("orthoimage", po::value<std::string>(&texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("grayscale", "Use grayscale image processing for creating the orthoimage")
     ("offset-files", "Also write a pair of ascii offset files (for debugging)")
-    ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
     ("input-file", po::value<std::string>(&pointcloud_filename), "Explicitly specify the input file")
     ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
     ("output-prefix,o", po::value<std::string>(&out_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file")
-    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
     ("xyz-to-lonlat", "Convert from xyz coordinates to longitude, latitude, altitude coordinates.")
     ("reference-spheroid,r", po::value<std::string>(&reference_spheroid)->default_value(""),"Set a reference surface to a hard coded value (one of [moon , mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value<double>(&semi_major)->default_value(0),"Set the dimensions of the datum.")
@@ -164,10 +160,6 @@ int main( int argc, char *argv[] ) {
   po::variables_map vm;
   po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
   po::notify( vm );
-
-  // Set the Vision Workbench debug level
-  set_debug_level(debug_level);
-  vw_settings().set_system_cache_size( cache_size*1024*1024 );
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <pointcloud> ..." << std::endl;

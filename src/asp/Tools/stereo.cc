@@ -216,29 +216,20 @@ int main(int argc, char* argv[]) {
   // to specify the type, size, help string, etc, of the command line
   // arguments.
   int entry_point;
-  int debug_level;
   unsigned num_threads;
-  unsigned cache_size;
   std::string stereo_session_string;
   std::string stereo_default_filename;
   std::string in_file1, in_file2, cam_file1, cam_file2, extra_arg1, extra_arg2, extra_arg3, extra_arg4;
   std::string out_prefix;
   std::string corr_debug_prefix;
-  std::vector<vw::int32> crop_bounds(4);
 
   po::options_description visible_options("Options");
   visible_options.add_options()
     ("help,h", "Display this help message")
-    ("cache", po::value<unsigned>(&cache_size)->default_value(1800), "Cache size, in megabytes")
     ("threads", po::value<unsigned>(&num_threads)->default_value(0), "Select the number of processors (threads) to use.")
     ("session-type,t", po::value<std::string>(&stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
     ("stereo-file,s", po::value<std::string>(&stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
     ("entry-point,e", po::value<int>(&entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
-    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
-    ("crop-min-x", po::value<int32>(&(crop_bounds[0])), "Crop the aligned input images to these bounds ( <min_x> <min_y> <width> <height> ) prior to running through the correlator.  Useful for tuning settings before processing the whole image.")
-    ("crop-min-y", po::value<int32>(&(crop_bounds[1])), "")
-    ("crop-width", po::value<int32>(&(crop_bounds[2])), "")
-    ("crop-height", po::value<int32>(&(crop_bounds[3])), "")
     ("draft-mode", po::value<std::string>(&corr_debug_prefix)->default_value(""), "Cause the pyramid correlator to save out debug imagery named with this prefix.")
     ("optimized-correlator", "Use the optimized correlator instead of the pyramid correlator.");
 
@@ -295,8 +286,6 @@ int main(int argc, char* argv[]) {
                       Vector2i(stereo_settings().h_corr_max, stereo_settings().v_corr_max));
 
   // Set the Vision Workbench debug level
-  set_debug_level(debug_level);
-  vw_system_cache().resize( cache_size*1024*1024 ); // Set cache to 1Gb
   if ( num_threads != 0 ) {
     vw_out(0) << "\t--> Setting number of processing threads to: "
               << num_threads << std::endl;
@@ -423,25 +412,6 @@ int main(int argc, char* argv[]) {
     DiskImageView<PixelGray<float> > left_disk_image(filename_L);
     DiskImageView<PixelGray<float> > right_disk_image(filename_R);
 
-    // If the user has specified a crop at the command line, we go
-    // with the cropped region instead.
-    BBox2i crop_bbox(crop_bounds[0],crop_bounds[1],crop_bounds[2],crop_bounds[3]);
-    if ( vm.count("crop-min-x") && vm.count("crop-min-y") && vm.count("crop-width") && vm.count("crop-height") ) {
-      vw_out(0) << "\t--> Cropping to bounding box: " << crop_bbox << "\n";
-
-      // Do a quick check to make sure the user specified a reasonable crop region.
-      if ((crop_bounds[0] < 0) || (crop_bounds[1] < 0) ||
-          (crop_bounds[0] + crop_bounds[2] > left_disk_image.cols()) ||
-          (crop_bounds[1] + crop_bounds[3] > left_disk_image.rows()) ) {
-        vw_out(0) << "\nError: the specified crop region exceeds the dimensions of the original image.  \n Exiting.\n\n";
-        exit(0);
-      }
-
-      // Save a cropped version of the left image for reference.
-      write_image(out_prefix+"-L-crop.tif", crop(left_disk_image, crop_bbox), TerminalProgressCallback(InfoMessage, "Left Image: "));
-      write_image(out_prefix+"-R-crop.tif", crop(right_disk_image, crop_bbox), TerminalProgressCallback(InfoMessage, "Right Image: "));
-    }
-
     ImageViewRef<PixelMask<Vector2f> > disparity_map;
     stereo::CorrelatorType cost_mode = ABS_DIFF_CORRELATOR;
     if (stereo_settings().cost_mode == 1)
@@ -490,16 +460,8 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Handling option to crop disparity map
-    if ( vm.count("crop-min-x") && vm.count("crop-min-y") &&
-         vm.count("crop-width") && vm.count("crop-height") ) {
-      vw_out(0) << "\t--> Cropping.\n"
-                << "\t    " << crop_bbox << std::endl;
-      disparity_map = crop(disparity_map, crop_bbox);
-    }
-
     // Apply the Mask to the disparity map
-    disparity_map = disparity_mask(disparity_map, Lmask, Rmask);
+    //disparity_map = disparity_mask(disparity_map, Lmask, Rmask);
 
     // Create a disk image resource and prepare to write a tiled
     // OpenEXR.

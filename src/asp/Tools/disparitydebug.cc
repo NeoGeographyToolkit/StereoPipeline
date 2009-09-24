@@ -61,17 +61,13 @@ static std::string prefix_from_filename(std::string const& filename) {
 
 int main( int argc, char *argv[] ) {
   std::string input_file_name, output_prefix = "", output_file_type;
-  unsigned cache_size;
-  int debug_level;
 
   po::options_description desc("Options");
   desc.add_options()
     ("help", "Display this help message")
-    ("cache", po::value<unsigned>(&cache_size)->default_value(1024), "Cache size, in megabytes")
     ("input-file", po::value<std::string>(&input_file_name), "Explicitly specify the input file")
     ("output-prefix,o", po::value<std::string>(&output_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file")
-    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)")
     ("float-pixels", "Save the resulting debug images as 32 bit floating point files (if supported by the selected files type.");
 
   po::positional_options_description p;
@@ -80,9 +76,6 @@ int main( int argc, char *argv[] ) {
   po::variables_map vm;
   po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
   po::notify( vm );
-
-  //vw_system_cache().resize( cache_size*1024*1024 );
-  //set_debug_level(debug_level);
 
   if( vm.count("help") ) {
     std::cout << desc << std::endl;
