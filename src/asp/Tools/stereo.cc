@@ -376,16 +376,24 @@ int main(int argc, char* argv[]) {
       vw_out(0) << "\t--> Median filtering.\n" << std::flush;
       left_image  = fast_median_filter(left_rectified_image, 7);
       right_image = fast_median_filter(right_rectified_image, 7);
-      write_image(out_prefix+"-median-L.tif", left_image);
-      write_image(out_prefix+"-median-R.tif", right_image);
+      write_image(out_prefix+"-median-L.tif", left_image,
+                  TerminalProgressCallback(InfoMessage, "\t--> Median Left: "));
+      write_image(out_prefix+"-median-R.tif", right_image,
+                  TerminalProgressCallback(InfoMessage, "\t--> Median Right: "));
     }
 
     vw_out(0) << "\t--> Generating image masks... " << std::flush;
     int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
-    ImageViewRef<PixelMask<vw::uint8> > Lmask = edge_mask(left_image, 0, mask_buffer);
-    ImageViewRef<PixelMask<vw::uint8> > Rmask = edge_mask(right_image, 0, mask_buffer);
-    write_image(out_prefix + "-lMask.tif", threshold(apply_mask(Lmask),0,0,255) );
-    write_image(out_prefix + "-rMask.tif", threshold(apply_mask(Rmask),0,0,255) );
+    ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(left_image, 0, mask_buffer)),0,0,255);
+    ImageViewRef<vw::uint8> Rmask = threshold(apply_mask(edge_mask(right_image, 0, mask_buffer)),0,0,255);
+    DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(),
+                                       Vector2i(256,256) );
+    DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
+                                       Vector2i(256,256) );
+    block_write_image(l_mask_rsrc, Lmask,
+                      TerminalProgressCallback(InfoMessage, "\t--> Mask Left: "));
+    block_write_image(r_mask_rsrc, Rmask,
+                      TerminalProgressCallback(InfoMessage, "\t--> Mask Right: "));
     vw_out(0) << "done.\n";
   }
 
@@ -707,7 +715,18 @@ int main(int argc, char* argv[]) {
       UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)), stereo_settings().near_universe_radius, stereo_settings().far_universe_radius);
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
-      DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format() );
+      DiskImageResourceGDAL::Options file_options;
+      if ( point_cloud.rows() * point_cloud.cols() > 178000000) {
+        vw_out(0) << "\t--> Point cloud is very large, using BigTIFF\n";
+        //file_options["COMPRESS"] = "LZW"; (really slow)
+        file_options["BIGTIFF"] = "YES";
+      }
+      DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format(),
+                                             Vector2i(std::min(vw_settings().default_tile_size(),
+                                                               point_cloud.cols()),
+                                                      std::min(vw_settings().default_tile_size(),
+                                                               point_cloud.rows())),
+                                             file_options );
       point_cloud_rsrc.set_block_size(Vector2i(std::min(vw_settings().default_tile_size(),
                                                         point_cloud.cols()),
                                                std::min(vw_settings().default_tile_size(),
@@ -716,10 +735,10 @@ int main(int argc, char* argv[]) {
       if ( stereo_session_string == "isis" ) {
         vw_settings().set_default_num_threads(1); // Isis is not threads safe
         block_write_image(point_cloud_rsrc, point_cloud,
-                          TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
+                          TerminalProgressCallback(InfoMessage, "\t--> Triangulating: "));
         vw_settings().set_default_num_threads();
       } else
-        block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(ErrorMessage, "\t--> Triangulating: "));
+        block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "\t--> Triangulating: "));
       vw_out(0) << "\t--> " << universe_radius_func;
     } catch (IOErr &e) {
       vw_out(0) << "\nUnable to start at point cloud stage -- could not read input files.\n"

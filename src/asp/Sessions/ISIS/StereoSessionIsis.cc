@@ -289,11 +289,11 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   vw_out(0) << "\t--> Writing pre-aligned images.\n";
   {
     DiskImageResourceGDAL left_rsrc( output_file1, Limg.format() );
-    block_write_image( left_rsrc, Limg, TerminalProgressCallback(ErrorMessage, "\t    Left:  "));
+    block_write_image( left_rsrc, Limg, TerminalProgressCallback(InfoMessage, "\t    Left:  "));
   }
   {
     DiskImageResourceGDAL right_rsrc( output_file2, Rimg.format() );
-    block_write_image( right_rsrc, Rimg, TerminalProgressCallback(ErrorMessage, "\t    Right: "));
+    block_write_image( right_rsrc, Rimg, TerminalProgressCallback(InfoMessage, "\t    Right: "));
   }
 }
 
