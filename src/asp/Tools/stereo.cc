@@ -715,28 +715,12 @@ int main(int argc, char* argv[]) {
       UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)), stereo_settings().near_universe_radius, stereo_settings().far_universe_radius);
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
-      DiskImageResourceGDAL::Options file_options;
-      if ( point_cloud.rows() * point_cloud.cols() > 178000000) {
-        vw_out(0) << "\t--> Point cloud is very large, using BigTIFF\n";
-        //file_options["COMPRESS"] = "LZW"; (really slow)
-        file_options["BIGTIFF"] = "YES";
-      }
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format(),
-                                             Vector2i(std::min(vw_settings().default_tile_size(),
-                                                               point_cloud.cols()),
-                                                      std::min(vw_settings().default_tile_size(),
-                                                               point_cloud.rows())),
-                                             file_options );
-      point_cloud_rsrc.set_block_size(Vector2i(std::min(vw_settings().default_tile_size(),
-                                                        point_cloud.cols()),
-                                               std::min(vw_settings().default_tile_size(),
-                                                        point_cloud.rows())));
+                                             Vector2i(256,256) );
 
       if ( stereo_session_string == "isis" ) {
-        vw_settings().set_default_num_threads(1); // Isis is not threads safe
-        block_write_image(point_cloud_rsrc, point_cloud,
-                          TerminalProgressCallback(InfoMessage, "\t--> Triangulating: "));
-        vw_settings().set_default_num_threads();
+        write_image(point_cloud_rsrc, point_cloud,
+                    TerminalProgressCallback(InfoMessage, "\t--> Triangulating: "));
       } else
         block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "\t--> Triangulating: "));
       vw_out(0) << "\t--> " << universe_radius_func;
