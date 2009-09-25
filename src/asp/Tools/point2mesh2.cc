@@ -37,12 +37,9 @@
 namespace po = boost::program_options;
 
 //VisionWorkbench
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Image/ImageView.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Math/Vector.h>
 #include <vw/Math.h>
+#include <vw/Image.h>
+#include <vw/FileIO.h>
 using namespace vw;
 
 //OpenSceneGraph
@@ -162,9 +159,9 @@ osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direc
 // Takes in an image and builds geodes for every triangle strip.
 // ---------------------------------------------------------
 template <class ViewT>
-osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& step_size, const std::string& tex_file, osg::Vec3f& dataNormal, bool light) {
+osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& step_size, const std::string& init_tex_file, osg::Vec3f& dataNormal, bool light) {
 
-  const ViewT& point_image_impl = point_image.impl();
+  //const ViewT& point_image_impl = point_image.impl();
   osg::Geode* mesh = new osg::Geode();
   osg::Geometry* geometry = new osg::Geometry();
   osg::Vec3Array* vertices = new osg::Vec3Array();
@@ -173,7 +170,30 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
   dataNormal = osg::Vec3f( 0.0f , 0.0f , 0.0f );
 
-  std::cout << "In Rows: " << point_image_impl.rows() << " Cols: " << point_image_impl.cols() << std::endl;
+  std::cout << "\t--> Orginal size: [" << point_image.impl().cols() << ", " << point_image.impl().rows() << "]\n";
+  std::cout << "\t--> Subsampled:   [" << point_image.impl().cols()/step_size << ", "
+            << point_image.impl().rows()/step_size << "]\n";
+
+  //////////////////////////////////////////////////
+  // Deciding how to reduce the texture size
+  //   Max texture width or height is 4096
+  std::string tex_file;
+  if ( init_tex_file.size() ) {
+    if (point_image.impl().cols() > 4096 ||
+        point_image.impl().rows() > 4096 ) {
+      std::cout << "Resampling to reduce texture size:\n";
+      DiskImageView<PixelGray<uint8> > previous_texture(init_tex_file);
+      float tex_sub_scale = 4096.0/float(std::max(previous_texture.cols(),previous_texture.rows()));
+      ImageViewRef<PixelGray<uint8> > new_texture = resample(previous_texture,tex_sub_scale);
+      std::cout << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
+      DiskImageResourceGDAL tex_rsrc("point2mesh_texture.tif",new_texture.format(),
+                                     Vector2i(256,256) );
+      block_write_image(tex_rsrc,new_texture, TerminalProgressCallback(InfoMessage,"\tSubsampling:") );
+      tex_file = "point2mesh_texture.tif";
+    } else {
+      tex_file = init_tex_file;
+    }
+  }
 
   //////////////////////////////////////////////////
   /// Setting name of geode
@@ -186,21 +206,24 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   //////////////////////////////////////////////////
   /// PUSHING ALL VERTICES & Also texture coordinates
   {
-    std::cout << "Creating Vertice Data\n";
 
     // Some constants for the calculation in here
-    unsigned num_rows = point_image_impl.rows()/step_size;
-    unsigned num_cols = point_image_impl.cols()/step_size;
+    unsigned num_rows = point_image.impl().rows()/step_size;
+    unsigned num_cols = point_image.impl().cols()/step_size;
+
+    TerminalProgressCallback progress(InfoMessage,"\tVertices:   ");
+    double progress_mult = 1.0/double(num_rows*num_cols);
 
     for (unsigned r = 0; r < (num_rows); ++r ){
       for (unsigned c = 0; c < (num_cols); ++c ){
+        progress.report_progress((r*num_cols+c)*progress_mult);
 
         unsigned r_step = r * step_size;
         unsigned c_step = c * step_size;
 
-        vertices->push_back( osg::Vec3f( point_image_impl.impl()(c_step,r_step)[0] ,
-                                         point_image_impl.impl()(c_step,r_step)[1] ,
-                                         point_image_impl.impl()(c_step,r_step)[2] ) );
+        vertices->push_back( osg::Vec3f( point_image.impl()(c_step,r_step)[0] ,
+                                         point_image.impl()(c_step,r_step)[1] ,
+                                         point_image.impl()(c_step,r_step)[2] ) );
 
         // Calculating normals, if the user wants shading
         if (light) {
@@ -212,42 +235,42 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
           // Is quadrant 1 normal calculation possible?
           if ( (r > 0) && ( (c+1) < (num_cols)) ) {
-            if ( (point_image_impl.impl()(c_step+step_size,r_step) != Vector3(0,0,0)) &&
-                 (point_image_impl.impl()(c_step,r_step-step_size) != Vector3(0,0,0)) ) {
-              temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step+step_size,r_step) -
-                                                                point_image_impl.impl()(c_step,r_step),
-                                                                point_image_impl.impl()(c_step,r_step-step_size) -
-                                                                point_image_impl.impl()(c_step,r_step) ) );
+            if ( (point_image.impl()(c_step+step_size,r_step) != Vector3(0,0,0)) &&
+                 (point_image.impl()(c_step,r_step-step_size) != Vector3(0,0,0)) ) {
+              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step+step_size,r_step) -
+                                                                point_image.impl()(c_step,r_step),
+                                                                point_image.impl()(c_step,r_step-step_size) -
+                                                                point_image.impl()(c_step,r_step) ) );
             }
           }
           // Is quadrant 2 normal calculation possible?
           if ( ( (c+1) < (num_cols) ) && ((r+1) < (num_rows))){
-            if ( (point_image_impl.impl()(c_step,r_step+step_size) != Vector3(0,0,0)) &&
-                 (point_image_impl.impl()(c_step+step_size,r_step) != Vector3(0,0,0)) ) {
-              temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step,r_step+step_size) -
-                                                                point_image_impl.impl()(c_step,r_step),
-                                                                point_image_impl.impl()(c_step+step_size,r_step) -
-                                                                point_image_impl.impl()(c_step,r_step) ) );
+            if ( (point_image.impl()(c_step,r_step+step_size) != Vector3(0,0,0)) &&
+                 (point_image.impl()(c_step+step_size,r_step) != Vector3(0,0,0)) ) {
+              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step,r_step+step_size) -
+                                                                point_image.impl()(c_step,r_step),
+                                                                point_image.impl()(c_step+step_size,r_step) -
+                                                                point_image.impl()(c_step,r_step) ) );
             }
           }
           // Is quadrant 3 normal calculation possible?
           if ( ((r+1) < (num_rows)) && (c>0) ) {
-            if ( (point_image_impl.impl()(c_step-step_size,r_step) != Vector3(0,0,0)) &&
-                 (point_image_impl.impl()(c_step,r_step+step_size) != Vector3(0,0,0)) ) {
-              temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step-step_size,r_step) -
-                                                                point_image_impl.impl()(c_step,r_step),
-                                                                point_image_impl.impl()(c_step,r_step+step_size) -
-                                                                point_image_impl.impl()(c_step,r_step) ) );
+            if ( (point_image.impl()(c_step-step_size,r_step) != Vector3(0,0,0)) &&
+                 (point_image.impl()(c_step,r_step+step_size) != Vector3(0,0,0)) ) {
+              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step-step_size,r_step) -
+                                                                point_image.impl()(c_step,r_step),
+                                                                point_image.impl()(c_step,r_step+step_size) -
+                                                                point_image.impl()(c_step,r_step) ) );
             }
           }
           // Is quadrant 4 normal calculation possible?
           if ( (c>0) && (r>0) ) {
-            if ( (point_image_impl.impl()(c_step,r_step-step_size) != Vector3(0,0,0)) &&
-                 (point_image_impl.impl()(c_step-step_size,r_step) != Vector3(0,0,0)) ) {
-              temp_normal = temp_normal + normalize(cross_prod( point_image_impl.impl()(c_step,r_step-step_size) -
-                                                                point_image_impl.impl()(c_step,r_step),
-                                                                point_image_impl.impl()(c_step-step_size,r_step) -
-                                                                point_image_impl.impl()(c_step,r_step) ) );
+            if ( (point_image.impl()(c_step,r_step-step_size) != Vector3(0,0,0)) &&
+                 (point_image.impl()(c_step-step_size,r_step) != Vector3(0,0,0)) ) {
+              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step,r_step-step_size) -
+                                                                point_image.impl()(c_step,r_step),
+                                                                point_image.impl()(c_step-step_size,r_step) -
+                                                                point_image.impl()(c_step,r_step) ) );
             }
           }
 
@@ -258,22 +281,21 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
         }
 
         if ( tex_file.size() ) {
-          texcoords->push_back( osg::Vec2f ( (float)c_step / (float)point_image_impl.cols() ,
-                                             1-(float)r_step / (float)point_image_impl.rows() ) );
-          //texcoords->push_back( osg::Vec2f ( (float)r / (float)point_image_impl.rows() ,
-          //                                 1 - (float)c / (float)point_image_impl.cols() ) );
-        } else if ( (point_image_impl.impl()(c_step,r_step)[0] != 0 ) &&
-                    (point_image_impl.impl()(c_step,r_step)[1] != 0 ) &&
-                    (point_image_impl.impl()(c_step,r_step)[2] != 0 ) ) {
+          texcoords->push_back( osg::Vec2f ( (float)c_step / (float)point_image.impl().cols() ,
+                                             1-(float)r_step / (float)point_image.impl().rows() ) );
+        } else if ( (point_image.impl()(c_step,r_step)[0] != 0 ) &&
+                    (point_image.impl()(c_step,r_step)[1] != 0 ) &&
+                    (point_image.impl()(c_step,r_step)[2] != 0 ) ) {
           //I'm calculating the main normal for the data.
-          dataNormal[0] += point_image_impl.impl()(c_step,r_step)[0];
-          dataNormal[1] += point_image_impl.impl()(c_step,r_step)[1];
-          dataNormal[2] += point_image_impl.impl()(c_step,r_step)[2];
+          dataNormal[0] += point_image.impl()(c_step,r_step)[0];
+          dataNormal[1] += point_image.impl()(c_step,r_step)[1];
+          dataNormal[2] += point_image.impl()(c_step,r_step)[2];
         }
       }
     }
+    progress.report_finished();
 
-    std::cout << " > size: " << vertices->size() << std::endl;
+    std::cout << "\t > size: " << vertices->size() << " vertices\n";
 
     geometry->setVertexArray( vertices );
 
@@ -297,9 +319,9 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   /// Deciding How to draw triangle strips
   std::cout << "Drawing Triangle Strips\n";
   {
-    unsigned col_steps = point_image_impl.cols()/step_size;
+    unsigned col_steps = point_image.impl().cols()/step_size;
 
-    for (int r = 0; r < ( point_image_impl.rows()/step_size - 1); ++r){
+    for (int r = 0; r < ( point_image.impl().rows()/step_size - 1); ++r){
 
       bool add_direction_down = true;
       osg::DrawElementsUInt* dui = new osg::DrawElementsUInt(GL_TRIANGLE_STRIP);
@@ -354,7 +376,6 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
         }
       }
 
-      //std::cout << "Adding a " << dui->getNumIndices() << " .... yeah\n";
       geometry->addPrimitiveSet(dui);
 
     }
@@ -379,8 +400,6 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   }
 
   mesh->addDrawable( geometry );
-
-  std::cout << "...Done!\n\n";
 
   return mesh;
 
