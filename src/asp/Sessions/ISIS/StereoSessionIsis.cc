@@ -265,24 +265,24 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
   ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
 
   // Apply the alignment transformation to the right image.
-  ImageViewRef<PixelGray<uint8> > Limg;
-  ImageViewRef<PixelGray<uint8> > Rimg;
+  ImageViewRef<PixelGray<float> > Limg;
+  ImageViewRef<PixelGray<float> > Rimg;
   if (stereo_settings().individually_normalize == 0 ) {
     vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-    Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, lo),
-                                                 lo,hi,0.0,1.0));
-    Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,lo),
-                                                           lo,hi,0.0,1.0),
-                                                 HomographyTransform(align_matrix),
-                                                 left_disk_image.cols(), left_disk_image.rows()));
+    Limg = normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, lo),
+                     lo,hi,0.0,1.0);
+    Rimg = transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,lo),
+                               lo,hi,0.0,1.0),
+                     HomographyTransform(align_matrix),
+                     left_disk_image.cols(), left_disk_image.rows());
   } else {
     vw_out(0) << "\t--> Individually normalizing.\n";
-    Limg = channel_cast_rescale<uint8>(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, left_lo),
-                                                 left_lo,left_hi,0.0,1.0));
-    Rimg = channel_cast_rescale<uint8>(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,right_lo),
-                                                           right_lo,right_hi,0.0,1.0),
-                                                 HomographyTransform(align_matrix),
-                                                 left_disk_image.cols(), left_disk_image.rows()));
+    Limg = normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, left_lo),
+                     left_lo,left_hi,0.0,1.0);
+    Rimg = transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,right_lo),
+                               right_lo,right_hi,0.0,1.0),
+                     HomographyTransform(align_matrix),
+                     left_disk_image.cols(), left_disk_image.rows());
   }
 
   // Write the results to disk.

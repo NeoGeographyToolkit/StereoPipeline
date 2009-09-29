@@ -367,10 +367,10 @@ int main(int argc, char* argv[]) {
     std::string pre_preprocess_file1, pre_preprocess_file2;
     session->pre_preprocessing_hook(in_file1, in_file2, pre_preprocess_file1, pre_preprocess_file2);
 
-    DiskImageView<vw::uint8> left_rectified_image(pre_preprocess_file1);
-    DiskImageView<vw::uint8> right_rectified_image(pre_preprocess_file2);
-    ImageViewRef<vw::uint8> left_image = left_rectified_image;
-    ImageViewRef<vw::uint8> right_image = right_rectified_image;
+    DiskImageView<PixelGray<float> > left_rectified_image(pre_preprocess_file1);
+    DiskImageView<PixelGray<float> > right_rectified_image(pre_preprocess_file2);
+    ImageViewRef<PixelGray<float> > left_image = left_rectified_image;
+    ImageViewRef<PixelGray<float> > right_image = right_rectified_image;
 
     if (MEDIAN_FILTER == 1){
       vw_out(0) << "\t--> Median filtering.\n" << std::flush;
@@ -384,8 +384,8 @@ int main(int argc, char* argv[]) {
 
     vw_out(0) << "\t--> Generating image masks... " << std::flush;
     int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
-    ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(left_image, 0, mask_buffer)),0,0,255);
-    ImageViewRef<vw::uint8> Rmask = threshold(apply_mask(edge_mask(right_image, 0, mask_buffer)),0,0,255);
+    ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(left_image), 0, mask_buffer)),0,0,255);
+    ImageViewRef<vw::uint8> Rmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(right_image), 0, mask_buffer)),0,0,255);
     DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(),
                                        Vector2i(256,256) );
     DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
