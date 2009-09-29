@@ -9,10 +9,6 @@ AC_DEFUN([AX_MODULE],
 [
   m4_ifdef([_AX_MODULE_PREPARE], [],
   [
-    realpath() {
-        cd "[$]1" 2>/dev/null 1>&2 && pwd
-    }
-
     abspath() {
         if test ${1#/} = [$]1; then
             echo "$PWD/[$]1"
@@ -45,11 +41,13 @@ AC_DEFUN([AX_MODULE],
         WANT_MODULE_$1="$ENABLE_MODULE_$1"
     fi
 
+    AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
     AC_ARG_ENABLE([module-]m4_tolower([[$1]]),
       AC_HELP_STRING([--enable-module-]m4_tolower([[$1]]), [enable the $1 module @<:@$4@:>@]),
       [ ENABLE_MODULE_$1=$enableval; WANT_MODULE_$1=$enableval; ],
       [ if test x"$ENABLE_MODULE_$1" = x; then ENABLE_MODULE_$1=`/bin/echo -n $4 | tr [A-Z] [a-z]` ; fi ]
     )
+    AC_DIVERT_POP()dnl
 
     AC_MSG_CHECKING([whether to build module $1])
     ax_module_enable=$ENABLE_MODULE_$1

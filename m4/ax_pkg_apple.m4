@@ -15,10 +15,12 @@ AC_DEFUN([AX_PKG_APPLE],
   AS_VAR_PUSHDEF([pkg_l], [PKG_]pkg[_LIBS])
   AS_VAR_PUSHDEF([bool], [ax_pkg_apple_have_pkg_bool])
 
+  AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
   AC_ARG_WITH(m4_tolower(pkg),
     AC_HELP_STRING([--with-]m4_tolower(pkg), [enable searching for the pkg package @<:@auto@:>@]),
     [ HAVE_PKG_pkg=$withval ]
   )
+  AC_DIVERT_POP()dnl
 
   AC_MSG_CHECKING(for package pkg)
 

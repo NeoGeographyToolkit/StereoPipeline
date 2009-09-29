@@ -41,11 +41,13 @@ AC_DEFUN([AX_APP],
         WANT_APP_$1="$ENABLE_APP_$1"
     fi
 
+    AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
     AC_ARG_ENABLE([app-]m4_tolower([[$1]]),
       AC_HELP_STRING([--enable-app-]m4_tolower([[$1]]), [enable the $1 app @<:@$3@:>@]),
       [ ENABLE_APP_$1=$enableval; WANT_APP_$1=$enableval; ],
       [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`/bin/echo -n $3 | tr [A-Z] [a-z]` ; fi ]
     )
+    AC_DIVERT_POP()dnl
 
     AC_MSG_CHECKING([whether to build app $1])
     ax_app_enable=$ENABLE_APP_$1

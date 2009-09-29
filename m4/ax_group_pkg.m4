@@ -21,10 +21,12 @@ AC_DEFUN([AX_GROUP_PKG],
   AS_VAR_PUSHDEF([missing], [ax_group_pkg_missing_deps])
   AS_VAR_PUSHDEF([bool], [ax_group_pkg_have_pkg_bool])
 
+  AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
   AC_ARG_WITH(m4_tolower([[$1]]),
     AC_HELP_STRING([--with-]m4_tolower([[$1]]), [enable searching for the $1 package @<:@auto@:>@]),
     [ have_pkg=$withval ]
   )
+  AC_DIVERT_POP()dnl
 
   missing=""
   m4_if([$2], [], [have_pkg=[no_deps]], AX_LOAD_DEPS(pkg, m4_toupper([[$2]]), missing))

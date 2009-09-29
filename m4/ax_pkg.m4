@@ -8,10 +8,13 @@ dnl __END_LICENSE__
 dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>, <relative lib path>, <required-functions>])
 AC_DEFUN([AX_PKG],
 [
+
+  AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
   AC_ARG_WITH(m4_tolower([[$1]]),
     AC_HELP_STRING([--with-]m4_tolower([[$1]]), [enable searching for the $1 package @<:@auto@:>@]),
     [ HAVE_PKG_$1=$withval ]
   )
+  AC_DIVERT_POP()dnl
 
   ADD_$1_CPPFLAGS="$PKG_$1_CPPFLAGS"
   PKG_$1_CPPFLAGS=""
