@@ -195,7 +195,6 @@ AX_PKG_ONE_OF(QWT,
 
 AX_PKG_ONE_OF(GSL,
     GSL_HASBLAS,  [AX_PKG(GSL_HASBLAS,  [LAPACK], [-lgsl])],
-    GSL_ASNEEDED, [AX_PKG(GSL_ASNEEDED, [LAPACK], [-Wl,-no-as-needed,-lgsl,-lgslcblas,-as-needed])],
     GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
 if test x"$host_vendor" = "xapple"; then
