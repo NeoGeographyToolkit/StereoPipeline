@@ -21,7 +21,7 @@ AC_DEFUN([AX_LOAD_DEPS],
 
   m4_foreach_w(dep, m4_toupper([[$2]]),
    [AS_IF([test x"$HAVE_PKG_]dep[" != "xyes"], [missing="$missing dep"],
-      [pkg_c="$pkg_c $PKG_]dep[_CPPFLAGS"
+      [pkg_c="$PKG_]dep[_CPPFLAGS $pkg_c"
        pkg_l="$pkg_l $PKG_]dep[_LIBS"])
    ])
 
