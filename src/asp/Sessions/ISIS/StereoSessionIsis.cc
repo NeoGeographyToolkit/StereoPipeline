@@ -64,6 +64,17 @@ static std::string prefix_from_filename(std::string const& filename) {
   return result;
 }
 
+static std::string filename_from_path(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1)
+    result.erase(index, result.size());
+  index = result.rfind("/");
+  if (index != -1)
+    result.erase(0, index + 1);
+  return result;
+}
+
 // Duplicate matches for any given interest point probably indicate a
 // poor match, so we cull those out here.
 static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
@@ -91,14 +102,14 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
 
   std::vector<InterestPoint> matched_ip1, matched_ip2;
   if ( exists( prefix_from_filename( input_file1 ) + "__" +
-               prefix_from_filename( input_file2 ) + ".match" ) ) {
+               filename_from_path( input_file2 ) + ".match" ) ) {
     // Is there a match file linking these 2 image?
 
     vw_out(0) << "\t--> Found cached interest point match file: "
               << ( prefix_from_filename(input_file1) + "__" +
-                   prefix_from_filename(input_file2) + ".match" ) << "\n";
+                   filename_from_path(input_file2) + ".match" ) << "\n";
     read_binary_match_file( ( prefix_from_filename(input_file1) + "__" +
-                              prefix_from_filename(input_file2) + ".match" ),
+                              filename_from_path(input_file2) + ".match" ),
                             matched_ip1, matched_ip2 );
   } else {
 
