@@ -383,9 +383,6 @@ int main(int argc, char* argv[]) {
     }
 
     vw_out(0) << "\t--> Generating image masks... " << std::flush;
-    PixelGray<float> mask_min, mask_max;
-    min_max_pixel_values(left_image,mask_min,mask_max);
-    std::cout << "Left min max are " << mask_min << " " << mask_max << std::endl;
 
     int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
     ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(left_image), 0, mask_buffer),0),0,0,255);
