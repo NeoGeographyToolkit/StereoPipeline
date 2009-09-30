@@ -18,6 +18,13 @@ A generic bundle adjustment
 \hline
 Options & Description \\ \hline \hline
 \verb#--help# & Display this table \\ \hline
+\verb#-t arg(=isis)# & Select the stereo session type to use for processing. \\ \hline
+\verb#-c arg# Load a control network from a file. \\ \hline
+\verb#-l arg# Set the initial value of the LM parameter lambda \\ \hline
+\verb#--robust-threshold arg (=10)# & Set the threshold for robust cost functions \\ \hline
+\verb#-s# & Savae all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt \\ \hline
+\verb# --min-matches arg (=30)# & When building a new control network, sets the minimum number of matches in a match to be added to the control network at a time. \\ \hline
+\verb# -r arg (=10)# & Changes the detail of the Bundle Adjustment Report ( values range from 0 to 100 ). \\ \hline
 \end{longtable}
 
 \section{bundlevis}
@@ -108,6 +115,24 @@ Bundle Adjustment for cameras supported in ISIS.
 \hline
 Options & Description \\ \hline \hline
 \verb#--help# & Display this table \\ \hline
+\verb#-c arg# & Load a control network from a file \\ \hline
+\verb#--cost-function arg (=L2)# & Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy] \\ \hline
+\verb#--bundle-adjuster arg (=Sparse)# & Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse] \\ \hline
+\verb#--disable-camera-const# & Disable the camera constraint error. This allows the cameras to move to pretty much anywhere. \\ \hline
+\verb#--disable-gcp-const# & Disable the GCP constraint error. \\ \hline
+\verb#--gcp-scalar arg (=1)# & Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files. \\ \hline
+\verb#-l arg# & Set the initial value of the LM paramter g\_lambda. If not set the algorithm will find the optimium starting point. \\ \hline
+\verb#--min-matches arg (=30)# & Set the minimum number of matches between images that will be considered. \\ \hline
+\verb#--max-iterations arg (=25)# & Set the maximum number of iterations \\ \hline
+\verb#--poly-order arg (=0)# & Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2. \\ \hline
+\verb#--position-sigma arg (=100)# & Set the sigma (uncertainty) of the spacecraft position. (meters) \\ \hline
+\verb#--pose-sigma arg (=.1)# & Set the sigma (uncertainty) of the spacecraft pose. (radians) \\ \hline
+\verb#-r arg (=10)# & Changes the detail of the Bundle Adjustment Report. Valid values are 0 to 100 \\ \hline
+\verb#--robust-threshold arg (=10)# & Set the threshold for robust cost functions. \\ \hline
+\verb#-s# & Saves all camera/point/pixel information between iterations for later viewing in Bundlevis \\ \hline
+\verb#--seed-with-previous# & Use previous isis\_adjust files at starting for this run \\ \hline
+\verb#--write-isis-cnet-also# & Writes an ISIS style control network \\ \hline
+\verb#--write-kml arg# & Selecting this will cause a kml to be written with the GCPs. Set this flag with 1 and it will also write all the 3D position estimates of the points it is tracking in the KML. \\ \hline
 \end{longtable}
 
 \section{orbitviz}
