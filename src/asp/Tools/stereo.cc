@@ -383,13 +383,23 @@ int main(int argc, char* argv[]) {
     }
 
     vw_out(0) << "\t--> Generating image masks... " << std::flush;
+    PixelGray<float> mask_min, mask_max;
+    min_max_pixel_values(left_image,mask_min,mask_max);
+    std::cout << "Left min max are " << mask_min << " " << mask_max << std::endl;
+
     int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
-    ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(left_image), 0, mask_buffer)),0,0,255);
-    ImageViewRef<vw::uint8> Rmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(right_image), 0, mask_buffer)),0,0,255);
+    ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(left_image), 0, mask_buffer),0),0,0,255);
+    ImageViewRef<vw::uint8> Rmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(right_image), 0, mask_buffer),0),0,0,255);
     DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(),
-                                       Vector2i(256,256) );
+                                       Vector2i(std::min(vw_settings().default_tile_size(),
+                                                         Lmask.cols()),
+                                                std::min(vw_settings().default_tile_size(),
+                                                         Lmask.rows())));
     DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
-                                       Vector2i(256,256) );
+                                       Vector2i(std::min(vw_settings().default_tile_size(),
+                                                         Rmask.cols()),
+                                                std::min(vw_settings().default_tile_size(),
+                                                         Rmask.rows())));
     block_write_image(l_mask_rsrc, Lmask,
                       TerminalProgressCallback(InfoMessage, "\t--> Mask Left: "));
     block_write_image(r_mask_rsrc, Rmask,
