@@ -111,6 +111,15 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
     read_binary_match_file( ( prefix_from_filename(input_file1) + "__" +
                               filename_from_path(input_file2) + ".match" ),
                             matched_ip1, matched_ip2 );
+
+    // Fitting a matrix immediately
+    vw::math::HomographyFittingFunctor fitting;
+    std::vector<Vector3> list1 = iplist_to_vectorlist(matched_ip1);
+    std::vector<Vector3> list2 = iplist_to_vectorlist(matched_ip2);
+    remove_duplicates( list1, list2 );
+    Matrix<double> align = fitting( list1, list2 );
+    return align;
+
   } else {
 
     // Next best thing.. VWIPs?

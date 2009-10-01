@@ -49,12 +49,6 @@ if MAKE_APP_DISPARITYDEBUG
   disparitydebug_LDADD = $(APP_DISPARITYDEBUG_LIBS)
 endif
 
-if MAKE_APP_POINT2MESH
-  bin_PROGRAMS += point2mesh
-  point2mesh_SOURCES = point2mesh.cc nff_terrain.h nff_terrain.cc
-  point2mesh_LDADD = $(APP_POINT2MESH_LIBS)
-endif
-
 if MAKE_APP_POINT2DEM
   bin_PROGRAMS += point2dem
   point2dem_SOURCES = point2dem.cc
@@ -91,10 +85,10 @@ if MAKE_APP_BUNDLEVIS
   bundlevis_LDADD = $(APP_BUNDLEVIS_LIBS)
 endif
 
-if MAKE_APP_POINT2MESH2
-  bin_PROGRAMS += point2mesh2
-  point2mesh2_SOURCES = point2mesh2.cc
-  point2mesh2_LDADD = $(APP_POINT2MESH2_LIBS)
+if MAKE_APP_POINT2MESH
+  bin_PROGRAMS += point2mesh
+  point2mesh_SOURCES = point2mesh.cc
+  point2mesh_LDADD = $(APP_POINT2MESH_LIBS)
 endif
 
 if MAKE_APP_ORTHOPROJECT

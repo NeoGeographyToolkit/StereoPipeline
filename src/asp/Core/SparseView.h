@@ -181,7 +181,6 @@ class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
     // Inserting into global data set
     if ( vw::int32(m_data->size()) < starting_index[1]+image.impl().rows() ) {
       vw::int32 length = starting_index[1]+image.impl().rows();
-      std::cout << "Resizing to: " << length << std::endl;
       m_data->resize( length );
     }
     for ( vw::int32 t_i=0, m_i=starting_index[1];
@@ -230,15 +229,15 @@ class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
 
   // Debug structure
   void print_structure( void ) const {
-    std::cout << "SparseView Structure:\n";
+    vw_out(0) << "SparseView Structure:\n";
     for ( vw::uint32 i = 0; i < m_data->size(); i++ ) {
-      std::cout << i << " | ";
+      vw_out(0) << i << " | ";
       for ( typename map_type::const_iterator it = (*m_data)[i].begin();
             it != (*m_data)[i].end(); it++ ) {
         vw::int32 start = it->first - it->second.size();
-        std::cout << "(" << start << "->" << it->first << ")";
+        vw_out(0) << "(" << start << "->" << it->first << ")";
       }
-      std::cout << "\n";
+      vw_out(0) << "\n";
     }
 
   }
