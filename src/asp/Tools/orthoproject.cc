@@ -348,7 +348,7 @@ int main(int argc, char* argv[]) {
                                                                texture_image, camera_model,
                                                                BilinearInterpolation(), ZeroEdgeExtension());
 
-  DiskImageResourceGDAL rsrc(output_file, final_result.format(), Vector2i(1024, 1024));
+  DiskImageResourceGDAL rsrc(output_file, final_result.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
   write_georeference(rsrc, drg_georef);
   write_image(rsrc, final_result, TerminalProgressCallback());
 

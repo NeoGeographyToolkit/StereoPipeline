@@ -261,7 +261,7 @@ int main( int argc, char *argv[] ) {
                                             // for very larg incidence
                                             // angles
       ImageViewRef<PixelGrayA<uint8> > corrected_image = channel_cast<uint8>(normalize(clamp(log(1+(disk_image / (exposure*sun_coeff))),norm_low,norm_high),norm_low,norm_high,0.0,255.0));
-      DiskImageResourceGDAL r = DiskImageResourceGDAL( output_file_name, corrected_image.format(), Vector2i(1024,1024) );
+      DiskImageResourceGDAL r = DiskImageResourceGDAL( output_file_name, corrected_image.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
       write_georeference( r, georef );
       write_image(r, corrected_image, TerminalProgressCallback() );
     } else {
@@ -271,7 +271,7 @@ int main( int argc, char *argv[] ) {
       float norm_high = 8;
 
       ImageViewRef<PixelGrayA<uint8> > corrected_image = channel_cast<uint8>(normalize(clamp(log(disk_image/exposure),norm_low,norm_high),norm_low,norm_high,0.0,255.0));
-      DiskImageResourceGDAL r = DiskImageResourceGDAL( output_file_name, corrected_image.format(), Vector2i(1024,1024) );
+      DiskImageResourceGDAL r = DiskImageResourceGDAL( output_file_name, corrected_image.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
       write_georeference( r, georef );
       write_image(r, corrected_image, TerminalProgressCallback() );
     }

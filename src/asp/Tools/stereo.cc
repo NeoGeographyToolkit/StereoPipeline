@@ -382,21 +382,15 @@ int main(int argc, char* argv[]) {
                   TerminalProgressCallback(InfoMessage, "\t--> Median Right: "));
     }
 
-    vw_out(0) << "\t--> Generating image masks... " << std::flush;
+    vw_out(0) << "\t--> Generating image masks... \n" << std::flush;
 
     int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
     ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(left_image), 0, mask_buffer),0),0,0,255);
     ImageViewRef<vw::uint8> Rmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(right_image), 0, mask_buffer),0),0,0,255);
-    DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(),
-                                       Vector2i(std::min(vw_settings().default_tile_size(),
-                                                         Lmask.cols()),
-                                                std::min(vw_settings().default_tile_size(),
-                                                         Lmask.rows())));
+    DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(), 
+                                       Vector2i(vw_settings().default_tile_size(), vw_settings().default_tile_size()) );
     DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
-                                       Vector2i(std::min(vw_settings().default_tile_size(),
-                                                         Rmask.cols()),
-                                                std::min(vw_settings().default_tile_size(),
-                                                         Rmask.rows())));
+                                       Vector2i(vw_settings().default_tile_size(), vw_settings().default_tile_size()) );
     block_write_image(l_mask_rsrc, Lmask,
                       TerminalProgressCallback(InfoMessage, "\t--> Mask Left: "));
     block_write_image(r_mask_rsrc, Rmask,
@@ -578,7 +572,8 @@ int main(int argc, char* argv[]) {
       // Create a disk image resource and prepare to write a tiled
       // OpenEXR.
       DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
-      disparity_map_rsrc2.set_tiled_write(std::min(256,disparity_map.cols()),std::min(256, disparity_map.rows()));
+      disparity_map_rsrc2.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
+                                          std::min(vw_settings().default_tile_size(), disparity_map.rows()));
       block_write_image( disparity_map_rsrc2, disparity_map, TerminalProgressCallback(InfoMessage, "\t--> Refinement :") );
 
     } catch (IOErr &e) {
@@ -723,7 +718,7 @@ int main(int argc, char* argv[]) {
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format(),
-                                             Vector2i(256,256) );
+                                             Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
 
       if ( stereo_session_string == "isis" ) {
         write_image(point_cloud_rsrc, point_cloud,
