@@ -112,12 +112,15 @@ vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::strin
                               filename_from_path(input_file2) + ".match" ),
                             matched_ip1, matched_ip2 );
 
-    // Fitting a matrix immediately
+    // Fitting a matrix immediately (no RANSAC)
     vw::math::HomographyFittingFunctor fitting;
     std::vector<Vector3> list1 = iplist_to_vectorlist(matched_ip1);
     std::vector<Vector3> list2 = iplist_to_vectorlist(matched_ip2);
     remove_duplicates( list1, list2 );
-    Matrix<double> align = fitting( list1, list2 );
+    vw::math::AffineFittingFunctor aff_fit;
+    Matrix<double> seed = aff_fit( list2, list1 );
+    Matrix<double> align = fitting( list2, list1, seed );  // LMA optimization second
+    vw_out(0) << "\tFit = " << align << std::endl;
     return align;
 
   } else {
