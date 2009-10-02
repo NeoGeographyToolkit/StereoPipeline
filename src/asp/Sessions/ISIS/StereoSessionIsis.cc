@@ -56,213 +56,53 @@ namespace vw {
 }
 
 
-static std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
-static std::string filename_from_path(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  index = result.rfind("/");
-  if (index != -1)
-    result.erase(0, index + 1);
-  return result;
-}
-
-// Duplicate matches for any given interest point probably indicate a
-// poor match, so we cull those out here.
-static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
-  std::vector<Vector3> new_ip1, new_ip2;
-
-  for (unsigned i = 0; i < ip1.size(); ++i) {
-    bool bad_entry = false;
-    for (unsigned j = 0; j < ip1.size(); ++j) {
-      if (i != j &&
-          (ip1[i] == ip1[j] || ip2[i] == ip2[j])) {
-        bad_entry = true;
-      }
-    }
-    if (!bad_entry) {
-      new_ip1.push_back(ip1[i]);
-      new_ip2.push_back(ip2[i]);
-    }
-  }
-
-  ip1 = new_ip1;
-  ip2 = new_ip2;
-}
-
-vw::math::Matrix<double> StereoSessionIsis::determine_image_alignment(std::string const& input_file1, std::string const& input_file2, float lo, float hi) {
-
-  std::vector<InterestPoint> matched_ip1, matched_ip2;
-  if ( exists( prefix_from_filename( input_file1 ) + "__" +
-               filename_from_path( input_file2 ) + ".match" ) ) {
-    // Is there a match file linking these 2 image?
-
-    vw_out(0) << "\t--> Found cached interest point match file: "
-              << ( prefix_from_filename(input_file1) + "__" +
-                   filename_from_path(input_file2) + ".match" ) << "\n";
-    read_binary_match_file( ( prefix_from_filename(input_file1) + "__" +
-                              filename_from_path(input_file2) + ".match" ),
-                            matched_ip1, matched_ip2 );
-
-    // Fitting a matrix immediately (no RANSAC)
-    vw::math::HomographyFittingFunctor fitting;
-    std::vector<Vector3> list1 = iplist_to_vectorlist(matched_ip1);
-    std::vector<Vector3> list2 = iplist_to_vectorlist(matched_ip2);
-    remove_duplicates( list1, list2 );
-    vw::math::AffineFittingFunctor aff_fit;
-    Matrix<double> seed = aff_fit( list2, list1 );
-    Matrix<double> align = fitting( list2, list1, seed );  // LMA optimization second
-    vw_out(0) << "\tFit = " << align << std::endl;
-    return align;
-
-  } else {
-
-    // Next best thing.. VWIPs?
-    std::vector<InterestPoint> ip1_copy, ip2_copy;
-
-    if ( exists( prefix_from_filename(input_file1) + ".vwip" ) &&
-         exists( prefix_from_filename(input_file2) + ".vwip" ) ) {
-      // Found VWIPs already done before
-      vw_out(0) << "\t--> Found cached interest point files: "
-                << ( prefix_from_filename(input_file1) + ".vwip" ) << "\n"
-                << "\t                                       "
-                << ( prefix_from_filename(input_file2) + ".vwip" ) << "\n";
-      ip1_copy = read_binary_ip_file( prefix_from_filename(input_file1) +
-                                      ".vwip" );
-      ip2_copy = read_binary_ip_file( prefix_from_filename(input_file2) +
-                                      ".vwip" );
-
-    } else {
-      // Worst case, no interest point operations have been performed before
-      vw_out(0) << "\t--> Locating Interest Points\n";
-      InterestPointList ip1, ip2;
-      DiskImageView<PixelGray<float> > left_disk_image(input_file1);
-      DiskImageView<PixelGray<float> > right_disk_image(input_file2);
-      ImageViewRef<PixelGray<float> > left_image = normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
-      ImageViewRef<PixelGray<float> > right_image = normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0);
-
-      // Interest Point module detector code.
-      LogInterestOperator log_detector;
-      ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 500);
-      vw_out(0) << "\t    Processing " << input_file1 << "\n";
-      ip1 = detect_interest_points( left_image, detector );
-      vw_out(0) << "\t    Located " << ip1.size() << " points.\n";
-      vw_out(0) << "\t    Processing " << input_file2 << "\n";
-      ip2 = detect_interest_points( right_image, detector );
-      vw_out(0) << "\t    Located " << ip2.size() << " points.\n";
-
-      vw_out(0) << "\t    Generating descriptors...\n";
-      PatchDescriptorGenerator descriptor;
-      descriptor( left_image, ip1 );
-      descriptor( right_image, ip2 );
-      vw_out(0) << "\t    done.\n";
-
-      // Writing out the results
-      vw_out(0) << "\t    Caching interest points: "
-                << (prefix_from_filename(input_file1) + ".vwip") << ", "
-                << (prefix_from_filename(input_file2) + ".vwip") << "\n";
-      write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
-      write_binary_ip_file(prefix_from_filename(input_file2)+".vwip", ip2);
-
-      // Reading back into the vector interestpoint format
-      ip1_copy = read_binary_ip_file( prefix_from_filename(input_file1) + ".vwip" );
-      ip2_copy = read_binary_ip_file( prefix_from_filename(input_file2) + ".vwip" );
-
-    }
-
-    vw_out(0) << "\t--> Matching interest points\n";
-    InterestPointMatcher<L2NormMetric,NullConstraint> matcher(0.8);
-
-    matcher(ip1_copy, ip2_copy,
-            matched_ip1, matched_ip2,
-            false,
-            TerminalProgressCallback( InfoMessage, "\t    Matching: "));
-
-    vw_out(0) << "\t    Caching matches: "
-              << ( prefix_from_filename(input_file1) + "__" +
-                   prefix_from_filename(input_file2) + ".match") << "\n";
-
-    write_binary_match_file( prefix_from_filename(input_file1) + "__" +
-                             prefix_from_filename(input_file2) + ".match",
-                             matched_ip1, matched_ip2);
-
-  } // End matching
-
-  vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
-                      << " putative matches.\n";
-
-  vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
-  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
-  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-  remove_duplicates(ransac_ip1, ransac_ip2);
-  vw_out(DebugMessage) << "\t--> Removed "
-                       << matched_ip1.size() - ransac_ip1.size()
-                       << " duplicate matches.\n";
-
-  Matrix<double> T;
-  try {
-
-    math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 10 );
-    T = ransac( ransac_ip2, ransac_ip1 );
-    vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
-
-  } catch (...) {
-    vw_out(0) << "\n*************************************************************\n";
-    vw_out(0) << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
-    vw_out(0) << "*************************************************************\n\n";
-    T.set_size(3,3);
-    T.set_identity();
-  }
-
-  return T;
-}
-
-// Pre-align the ISIS images.  If the ISIS images are map projected,
-// we can perform pre-alignment by transforming them both into a
-// common map projection.  Otherwise, we resort to feature-based image
-// matching techniques to align the right image to the left image.
+// Do not attempt interest point alignment; assume ISIS images are already map projected.  
+// Simply remove the special pixels and normalize between 0 and 1 (so that the image masks 
+// are found properly)
 void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
                                                std::string & output_file1, std::string & output_file2) {
+  output_file1 = m_out_prefix + "-L.tif";
+  output_file2 = m_out_prefix + "-R.tif";
+  if (exists(output_file1) && exists(output_file2)) {
+    vw_out(InfoMessage) << "Skipping normalization step, using cached images: " <<
+      output_file1 << " and " << output_file2 << "\n";
+    return;
+  }
 
   DiskImageView<PixelGray<float> > left_disk_image(input_file1);
   DiskImageView<PixelGray<float> > right_disk_image(input_file2);
-  output_file1 = m_out_prefix + "-L.tif";
-  output_file2 = m_out_prefix + "-R.tif";
-
   DiskImageResourceIsis left_rsrc(input_file1);
   DiskImageResourceIsis right_rsrc(input_file2);
 
-  // Make sure the images are normalized
-  vw_out(InfoMessage) << "\t--> Computing min/max values for normalization.\n";
   float left_lo, left_hi, right_lo, right_hi;
-  float left_mean, left_std, right_mean, right_std;
+
+  vw_out(InfoMessage) << "\t--> Computing min/max values for the left image\n";
   min_max_channel_values(create_mask(left_disk_image, left_rsrc.valid_minimum(),
                                      left_rsrc.valid_maximum()), left_lo, left_hi);
-  left_mean = mean_channel_value(create_mask(left_disk_image, left_rsrc.valid_minimum(),
-                                             left_rsrc.valid_maximum()));
-  left_std = stddev_channel_value(create_mask(left_disk_image,left_rsrc.valid_minimum(),
-                                              left_rsrc.valid_maximum()));
-  vw_out(InfoMessage) << "\t    Left: [ lo:" << left_lo << " hi:" << left_hi
-                      << " m:" << left_mean << " s:" << left_std << "]\n";
+  vw_out(InfoMessage) << "\t    Left: [ lo:" << left_lo << " hi:" << left_hi << "]\n";
+  vw_out(InfoMessage) << "\t--> Computing min/max values for the right image\n";
   min_max_channel_values(create_mask(right_disk_image, right_rsrc.valid_minimum(),
                                      right_rsrc.valid_maximum()), right_lo, right_hi);
-  right_mean = mean_channel_value(create_mask(right_disk_image, right_rsrc.valid_minimum(),
-                                              right_rsrc.valid_maximum()));
-  right_std = stddev_channel_value(create_mask(right_disk_image,right_rsrc.valid_minimum(),
-                                                 right_rsrc.valid_maximum()));
-  vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:" << right_hi
-                      << " m:" << right_mean << " s:" << right_std << "]\n";
+  vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:" << right_hi << "]\n";
 
-   // Normalizing to -+2 sigmas around mean
+  // Normalizing to -+2 sigmas around mean
   if ( stereo_settings().force_max_min == 0 ) {
+    float left_mean, left_std, right_mean, right_std;
+    vw_out(InfoMessage) << "\t--> Finding left mean and sigma.\n";
+    left_mean = mean_channel_value(create_mask(left_disk_image, left_rsrc.valid_minimum(),
+                                               left_rsrc.valid_maximum()));
+    left_std = stddev_channel_value(create_mask(left_disk_image,left_rsrc.valid_minimum(),
+                                                left_rsrc.valid_maximum()));
+    vw_out(InfoMessage) << "\t    Left: [ m:" << left_mean << " s:" << left_std << "]\n";
+    vw_out(InfoMessage) << "\t--> Finding right mean and sigma.\n";
+    right_mean = mean_channel_value(create_mask(right_disk_image, right_rsrc.valid_minimum(),
+                                                right_rsrc.valid_maximum()));
+    right_std = stddev_channel_value(create_mask(right_disk_image,right_rsrc.valid_minimum(),
+                                                   right_rsrc.valid_maximum()));
+    vw_out(InfoMessage) << "\t    Right: [ m:" << right_mean << " s:" << right_std << "]\n";
+    
+    vw_out(InfoMessage) << "\t--> Adjusting hi and lo to -+2 sigmas around mean.\n";
+
     if ( left_lo < left_mean - 2*left_std )
       left_lo = left_mean - 2*left_std;
     if ( right_lo < right_mean - 2*right_std )
@@ -271,59 +111,45 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
       left_hi = left_mean + 2*left_std;
     if ( right_hi > right_mean + 2*right_std )
       right_hi = right_mean + 2*right_std;
-
-    vw_out(DebugMessage, "stereo") << "\t    Left changed: [ lo:"<<left_lo<<" hi:"<<left_hi<<"]\n";
-    vw_out(DebugMessage, "stereo") << "\t    Right changed: [ lo:"<<right_lo<<" hi:"<<right_hi<<"]\n";
-  }
-
-  // Picking Global
-  float lo = std::min (left_lo, right_lo);
-  float hi = std::max (left_hi, right_hi);
-
-  Matrix<double> align_matrix(3,3);
-  align_matrix.set_identity();
-  if (stereo_settings().keypoint_alignment)
-    align_matrix = determine_image_alignment(input_file1, input_file2,
-                                             lo, hi);
-  ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
-
-  // Apply the alignment transformation to the right image.
+    
+    vw_out(InfoMessage) << "\t    Left changed: [ lo:"<<left_lo<<" hi:"<<left_hi<<"]\n";
+    vw_out(InfoMessage) << "\t    Right changed: [ lo:"<<right_lo<<" hi:"<<right_hi<<"]\n";
+  }  
+  
   ImageViewRef<PixelGray<float> > Limg;
   ImageViewRef<PixelGray<float> > Rimg;
+
   if (stereo_settings().individually_normalize == 0 ) {
+    // Picking Global
+    float lo = std::min (left_lo, right_lo);
+    float hi = std::max (left_hi, right_hi);
+
     vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
     Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, lo),
                            lo,hi,0.0,1.0),0.0,1.0);
-    Rimg = clamp(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,lo),
-                                     lo,hi,0.0,1.0),
-                           HomographyTransform(align_matrix),
-                           left_disk_image.cols(), left_disk_image.rows()),0.0,1.0);
+    Rimg = clamp(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,lo),
+                           lo,hi,0.0,1.0),0.0,1.0);
   } else {
     vw_out(0) << "\t--> Individually normalizing.\n";
     Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, left_lo),
                            left_lo,left_hi,0.0,1.0),0.0,1.0);
-    Rimg = clamp(transform(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,right_lo),
-                                     right_lo,right_hi,0.0,1.0),
-                           HomographyTransform(align_matrix),
-                           left_disk_image.cols(), left_disk_image.rows()),0.0,1.0);
+    Rimg = clamp(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,right_lo),
+                           right_lo,right_hi,0.0,1.0),0.0,1.0);
   }
 
   // Write the results to disk.
-  vw_out(0) << "\t--> Writing pre-aligned images.\n";
-  {
-    DiskImageResourceGDAL left_rsrc( output_file1, Limg.format(), Vector2i(256,256) );
-    block_write_image( left_rsrc, Limg, TerminalProgressCallback(InfoMessage, "\t    Left:  "));
-  }
-  {
-    DiskImageResourceGDAL right_rsrc( output_file2, Rimg.format(), Vector2i(256,256) );
-    block_write_image( right_rsrc, Rimg, TerminalProgressCallback(InfoMessage, "\t    Right: "));
-  }
+  vw_out(0) << "\t--> Writing normalized images.\n";
+  DiskImageResourceGDAL left_out_rsrc( output_file1, Limg.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
+  block_write_image( left_out_rsrc, Limg, TerminalProgressCallback(InfoMessage, "\t    Left:  "));
+
+  DiskImageResourceGDAL right_out_rsrc( output_file2, Rimg.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
+  block_write_image( right_out_rsrc, Rimg, TerminalProgressCallback(InfoMessage, "\t    Right: "));
 }
 
 // Stage 2: Correlation
 //
 // Pre file is a pair of grayscale images.  ( ImageView<PixelGray<float> > )
-// Post file is a disparity map.            ( ImageView<PixelDisparity<float> > )
+// Post file is a disparity map.            ( ImageView<PixelMask<Vector2f> > )
 void StereoSessionIsis::pre_filtering_hook(std::string const& input_file, std::string & output_file) {
   output_file = input_file;
 

@@ -152,13 +152,10 @@ UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type> >
 
 class StereoSessionIsis: public StereoSession {
 
-
-  bool m_do_interest_point_alignment;
-
 public:
 
   // Constructor
-  StereoSessionIsis() { m_do_interest_point_alignment = true; }
+  StereoSessionIsis() { }
 
   virtual ~StereoSessionIsis() {}
 
@@ -183,11 +180,6 @@ public:
   virtual void pre_pointcloud_hook(std::string const& input_file, std::string & output_file);
 
   static StereoSession* construct() { return new StereoSessionIsis; }
-
-private:
-  vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1,
-                                                     std::string const& input_file2,
-                                                     float lo, float hi );
 
 };
 
