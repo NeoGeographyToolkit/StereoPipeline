@@ -191,7 +191,10 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
       block_write_image(tex_rsrc,new_texture, TerminalProgressCallback(InfoMessage,"\tSubsampling:") );
       tex_file = "point2mesh_texture.tif";
     } else {
-      // Always saving as an 8bit texture
+      // Always saving as an 8bit texture. These second handedly
+      // normalizes the data for us (which is a problem for datasets
+      // like HiRISE which will feed us tiffs with values outside of
+      // 0-1).
       DiskImageResourceGDAL tex_rsrc("point2mesh_texture.tif",previous_texture.format(),
                                      Vector2i(256,256) );
       block_write_image(tex_rsrc, previous_texture, TerminalProgressCallback(InfoMessage,"\tNormalizing:") );
@@ -617,11 +620,6 @@ int main( int argc, char *argv[] ){
     std::ostringstream os;
     os << output_prefix << "." << output_file_type;
     osgDB::writeNodeFile( *root.get() , os.str() );
-
-    //osgViewer::Viewer viewer;
-    //viewer.setSceneData(root.get());
-    //viewer.realize();
-    //viewer.run();
   }
 
 }
