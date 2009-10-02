@@ -179,10 +179,10 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   //   Max texture width or height is 4096
   std::string tex_file;
   if ( init_tex_file.size() ) {
+    DiskImageView<PixelGray<uint8> > previous_texture(init_tex_file);
     if (point_image.impl().cols() > 4096 ||
         point_image.impl().rows() > 4096 ) {
       std::cout << "Resampling to reduce texture size:\n";
-      DiskImageView<PixelGray<uint8> > previous_texture(init_tex_file);
       float tex_sub_scale = 4096.0/float(std::max(previous_texture.cols(),previous_texture.rows()));
       ImageViewRef<PixelGray<uint8> > new_texture = resample(previous_texture,tex_sub_scale);
       std::cout << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
@@ -191,7 +191,11 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
       block_write_image(tex_rsrc,new_texture, TerminalProgressCallback(InfoMessage,"\tSubsampling:") );
       tex_file = "point2mesh_texture.tif";
     } else {
-      tex_file = init_tex_file;
+      // Always saving as an 8bit texture
+      DiskImageResourceGDAL tex_rsrc("point2mesh_texture.tif",previous_texture.format(),
+                                     Vector2i(256,256) );
+      block_write_image(tex_rsrc, previous_texture, TerminalProgressCallback(InfoMessage,"\tNormalizing:") );
+      tex_file = "point2mesh_texture.tif";
     }
   }
 
