@@ -65,6 +65,7 @@ public:
   int v_kern;              /* kernel height first pass*/
   int subpixel_h_kern;     /* kernel width first pass */
   int subpixel_v_kern;     /* kernel height first pass*/
+  int auto_search_range;   /* Automatically determine correlation window */
   int h_corr_max;          /* correlation window max x */
   int h_corr_min;          /* correlation window min x */
   int v_corr_max;          /* correlation window max y */

@@ -94,6 +94,29 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+// Duplicate matches for any given interest point probably indicate a
+// poor match, so we cull those out here.
+static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
+  std::vector<Vector3> new_ip1, new_ip2;
+
+  for (unsigned i = 0; i < ip1.size(); ++i) {
+    bool bad_entry = false;
+    for (unsigned j = 0; j < ip1.size(); ++j) {
+      if (i != j &&
+          (ip1[i] == ip1[j] || ip2[i] == ip2[j])) {
+        bad_entry = true;
+      }
+    }
+    if (!bad_entry) {
+      new_ip1.push_back(ip1[i]);
+      new_ip2.push_back(ip2[i]);
+    }
+  }
+
+  ip1 = new_ip1;
+  ip2 = new_ip2;
+}
+
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
   int index = result.rfind(".");
@@ -425,6 +448,119 @@ int main(int argc, char* argv[]) {
       vw_out(0) << "\t--> Using cached subsampled image.\n";
     }
 
+    if (stereo_settings().auto_search_range) {
+      vw_out(0) << "\t--> Using interest points to determine search window.\n";
+      std::vector<vw::ip::InterestPoint> matched_ip1, matched_ip2;
+      if (boost::filesystem::exists(out_prefix+"-sub"+sub_amt.str()+".match")) {
+        vw_out(0) << "\t--> Using cached match file.\n";
+        vw::ip::read_binary_match_file(out_prefix+"-sub"+sub_amt.str()+".match", matched_ip1, matched_ip2);
+      } else {
+        vw_out(0) << "\t--> Generating IP matches.\n";
+        std::vector<vw::ip::InterestPoint> ip1_copy, ip2_copy;
+        if (boost::filesystem::exists(l_sub_file+".vwip") &&
+            boost::filesystem::exists(r_sub_file+".vwip")) {
+          vw_out(0) << "\t--> Using cached IPs.\n";
+          ip1_copy = vw::ip::read_binary_ip_file(l_sub_file+".vwip");
+          ip2_copy = vw::ip::read_binary_ip_file(r_sub_file+".vwip");
+        } else {
+          // Worst case, no interest point operations have been performed before
+          vw_out(0) << "\t--> Locating Interest Points\n";
+          vw::ip::InterestPointList ip1, ip2;
+          DiskImageView<PixelGray<float32> > left_sub_disk_image(l_sub_file);
+          DiskImageView<PixelGray<float32> > right_sub_disk_image(r_sub_file);
+          ImageViewRef<PixelGray<float32> > left_sub_image = left_sub_disk_image;
+          ImageViewRef<PixelGray<float32> > right_sub_image = right_sub_disk_image;
+
+          // Interest Point module detector code.
+          vw::ip::LogInterestOperator log_detector;
+          vw::ip::ScaledInterestPointDetector<vw::ip::LogInterestOperator> detector(log_detector, 500);
+          vw_out(0) << "\t    Processing " << l_sub_file << "... " << std::flush;
+          ip1 = detect_interest_points( left_sub_image, detector );
+          vw_out(0) << "Located " << ip1.size() << " points.\n";
+          vw_out(0) << "\t    Processing " << r_sub_file << "... " << std::flush;
+          ip2 = detect_interest_points( right_sub_image, detector );
+          vw_out(0) << "Located " << ip2.size() << " points.\n";
+
+          vw_out(0) << "\t    Generating descriptors..." << std::flush;
+          vw::ip::PatchDescriptorGenerator descriptor;
+          descriptor( left_sub_image, ip1 );
+          descriptor( right_sub_image, ip2 );
+          vw_out(0) << "done.\n";
+
+          // Writing out the results
+          vw_out(0) << "\t    Caching interest points: "
+                    << l_sub_file << ".vwip " << r_sub_file << ".vwip\n";
+          vw::ip::write_binary_ip_file(l_sub_file+".vwip", ip1);
+          vw::ip::write_binary_ip_file(r_sub_file+".vwip", ip2);
+
+          // Reading back into the vector interestpoint format
+          ip1_copy = vw::ip::read_binary_ip_file( l_sub_file + ".vwip" );
+          ip2_copy = vw::ip::read_binary_ip_file( r_sub_file + ".vwip" );
+        }
+
+        vw_out(0) << "\t--> Matching interest points\n";
+        vw::ip::InterestPointMatcher<vw::ip::L2NormMetric,vw::ip::NullConstraint> matcher(0.8);
+
+        matcher(ip1_copy, ip2_copy,
+                matched_ip1, matched_ip2,
+                false,
+                TerminalProgressCallback( InfoMessage, "\t    Matching: "));
+        vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
+        
+        vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
+        std::vector<Vector3> ransac_ip1 = vw::ip::iplist_to_vectorlist(matched_ip1);
+        std::vector<Vector3> ransac_ip2 = vw::ip::iplist_to_vectorlist(matched_ip2);
+        std::vector<Vector3> inliers1, inliers2;
+        remove_duplicates(ransac_ip1, ransac_ip2);
+        vw_out(0) << "\t    Removed "
+                  << matched_ip1.size() - ransac_ip1.size()
+                  << " duplicate matches.\n";
+
+        try {
+          Matrix<double> trans;
+          vw::math::RandomSampleConsensus<vw::math::TranslationRotationFittingFunctor, vw::math::InterestPointErrorMetric> 
+            ransac( vw::math::TranslationRotationFittingFunctor(), vw::math::InterestPointErrorMetric(), 10 );
+          trans = ransac( ransac_ip1, ransac_ip2 );
+          vw_out(DebugMessage) << "\t--> Ransac Result: " << trans << std::endl;
+          ransac.inliers(trans, ransac_ip1, ransac_ip2, inliers1, inliers2); 
+          vw_out(0) << "\t    Removed "
+                    << ransac_ip1.size() - inliers1.size()
+                    << " outliers, (" << inliers1.size() << " matches left)\n";
+        } catch (...) {
+          vw_out(0) << "Error: Ransac failed. Please manually specify a search window\n";
+          exit(1);
+        }
+        
+        matched_ip1 = vw::ip::vectorlist_to_iplist(inliers1);
+        matched_ip2 = vw::ip::vectorlist_to_iplist(inliers2);
+        
+        vw_out(0) << "\t    Caching matches: " << out_prefix << "-sub"+sub_amt.str()+".match\n";
+        write_binary_match_file( out_prefix+"-sub"+sub_amt.str()+".match", matched_ip1, matched_ip2);
+      }
+      // Find search window based on interest point matches
+      for (int i = 0; i < matched_ip1.size(); i++) {
+        int xtrans = subx * (matched_ip2[i].x - matched_ip1[i].x);
+        int ytrans = suby * (matched_ip2[i].y - matched_ip1[i].y);
+        if (i == 0) {
+          search_range = BBox2i(xtrans, ytrans, 0, 0);
+        } else {
+          search_range.min().x() = std::min(xtrans, search_range.min().x());
+          search_range.min().y() = std::min(ytrans, search_range.min().y());
+          search_range.max().x() = std::max(xtrans, search_range.max().x());
+          search_range.max().y() = std::max(ytrans, search_range.max().y());
+        }
+      }
+      if (search_range.width() == 0 && search_range.height() == 0) {
+        vw_out(0) << "Error: Zero search range found. Please manually specify a search window\n";
+        exit(1);
+      }
+      // Grow the search range to 1.5 times its original size
+      search_range.min() -= Vector2i(search_range.size()) / 2;
+      search_range.max() += Vector2i(search_range.size()) / 2;
+      vw_out(0) << "\t--> Dectected search range: " << search_range << "\n";
+    } else {
+      vw_out(0) << "\t--> Using user defined search range: " << search_range << "\n";
+    }
   }
 
   /*********************************************************************************/

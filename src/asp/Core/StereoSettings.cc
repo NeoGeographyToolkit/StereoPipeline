@@ -108,6 +108,7 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("V_KERNEL", v_kern, 25, "kernel height");
   ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_h_kern, 35, "subpixel kernel width");
   ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_v_kern, 35, "subpixel kernel height");
+  ASSOC_INT("AUTO_SEARCH_RANGE", auto_search_range, 1, "automatically determine correlation window using interest points");
   ASSOC_INT("H_CORR_MAX", h_corr_max, -100, "correlation window size max x");
   ASSOC_INT("H_CORR_MIN", h_corr_min, 100, "correlation window size min x");
   ASSOC_INT("V_CORR_MIN", v_corr_min, -10, "correlation window size min y");
