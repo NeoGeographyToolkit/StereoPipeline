@@ -37,6 +37,10 @@ public:
   StereoSettings();
   void read(std::string const& filename);
   void copy_settings(std::string const& filename, std::string const& destination);
+  bool is_search_defined( void ) {
+    return m_vm.count("H_CORR_MAX") || m_vm.count("H_CORR_MIN") ||
+      m_vm.count("V_CORR_MIN") || m_vm.count("V_CORR_MAX");
+  }
 
   // ----------------
   // Public variables
@@ -65,7 +69,6 @@ public:
   int v_kern;              /* kernel height first pass*/
   int subpixel_h_kern;     /* kernel width first pass */
   int subpixel_v_kern;     /* kernel height first pass*/
-  int auto_search_range;   /* Automatically determine correlation window */
   int h_corr_max;          /* correlation window max x */
   int h_corr_min;          /* correlation window min x */
   int v_corr_max;          /* correlation window max y */

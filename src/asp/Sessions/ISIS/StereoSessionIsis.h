@@ -138,7 +138,6 @@ public:
   }
 };
 
-
 template <class ViewT>
 UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type> >
   remove_isis_special_pixels(ImageViewBase<ViewT> &image,
@@ -161,6 +160,10 @@ public:
 
   virtual boost::shared_ptr<vw::camera::CameraModel> camera_model(std::string image_file,
                                                                   std::string camera_file = "");
+
+  vw::math::Matrix<double> determine_image_alignment( std::string const& input_file1,
+                                                      std::string const& input_file2,
+                                                      float lo, float hi );
 
   // Stage 1: Preprocessing
   //
