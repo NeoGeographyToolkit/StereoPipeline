@@ -116,6 +116,7 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     vw_out(InfoMessage) << "\t    Right changed: [ lo:"<<right_lo<<" hi:"<<right_hi<<"]\n";
   }  
   
+
   ImageViewRef<PixelGray<float> > Limg;
   ImageViewRef<PixelGray<float> > Rimg;
 
@@ -125,18 +126,20 @@ void StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, s
     float hi = std::max (left_hi, right_hi);
 
     vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-    Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, lo),
-                           lo,hi,0.0,1.0),0.0,1.0);
-    Rimg = clamp(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,lo),
-                           lo,hi,0.0,1.0),0.0,1.0);
+    Limg = normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, lo), lo, hi, 0.0, 1.0);
+    Rimg = normalize(remove_isis_special_pixels(right_disk_image, right_lo, right_hi, lo), lo, hi, 0.0, 1.0);
   } else {
     vw_out(0) << "\t--> Individually normalizing.\n";
-    Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, left_lo),
-                           left_lo,left_hi,0.0,1.0),0.0,1.0);
-    Rimg = clamp(normalize(remove_isis_special_pixels(right_disk_image,right_lo,right_hi,right_lo),
-                           right_lo,right_hi,0.0,1.0),0.0,1.0);
+    Limg = normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, left_lo), left_lo, left_hi, 0.0, 1.0);
+    Rimg = normalize(remove_isis_special_pixels(right_disk_image, right_lo, right_hi, right_lo), right_lo, right_hi, 0.0, 1.0);
   }
 
+  int width = std::min(left_disk_image.cols(), right_disk_image.cols());
+  int height = std::min(left_disk_image.rows(), right_disk_image.rows());
+ 
+  Limg = crop(Limg, 0, 0, width, height);
+  Rimg = crop(Rimg, 0, 0, width, height);
+ 
   // Write the results to disk.
   vw_out(0) << "\t--> Writing normalized images.\n";
   DiskImageResourceGDAL left_out_rsrc( output_file1, Limg.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
@@ -177,8 +180,8 @@ void StereoSessionIsis::pre_filtering_hook(std::string const& input_file, std::s
     ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_mask(disparity_disk_image, Lmask, Rmask);
 
     DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
-    disparity_map_rsrc.set_tiled_write(std::min(512,disparity_map.cols()),
-                                       std::min(512,disparity_map.rows()));
+    disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
+                                       std::min(vw_settings().default_tile_size(),disparity_map.rows()));
     block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback(InfoMessage, "\t--> Saving Mask :") );
   }
 }
@@ -187,22 +190,9 @@ void StereoSessionIsis::pre_filtering_hook(std::string const& input_file, std::s
 void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::string & output_file) {
 
   DiskImageView<PixelMask<Vector2f> > disparity_map(input_file);
+  ImageViewRef<PixelMask<Vector2f> > result = disparity_map;
+
   output_file = m_out_prefix + "-F-corrected.exr";
-  ImageViewRef<PixelMask<Vector2f> > result;
-
-  // We used a homography to line up the images, we may want
-  // to generate pre-alignment disparities before passing this information
-  // onto the camera model in the next stage of the stereo pipeline.
-  Matrix<double> align_matrix;
-  try {
-    read_matrix(align_matrix, m_out_prefix + "-align.exr");
-    vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
-  } catch (vw::IOErr &e) {
-    vw_out(0) << "\nCould not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
-    exit(1);
-  }
-
-  result = stereo::transform_disparities(disparity_map, HomographyTransform(align_matrix));
 
   // Remove pixels that are outside the bounds of the secondary image.
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
@@ -212,8 +202,8 @@ void StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file, std::
                                                   right_disk_image.rows() ) );
 
   DiskImageResourceOpenEXR disparity_corrected_rsrc(output_file, result.format() );
-  disparity_corrected_rsrc.set_tiled_write(std::min(512,disparity_map.cols()),
-                                     std::min(512,disparity_map.rows()));
+  disparity_corrected_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
+                                           std::min(vw_settings().default_tile_size(),disparity_map.rows()));
   block_write_image( disparity_corrected_rsrc, result,
                      TerminalProgressCallback(InfoMessage, "\t    Processing:"));
 }
