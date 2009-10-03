@@ -382,20 +382,49 @@ int main(int argc, char* argv[]) {
                   TerminalProgressCallback(InfoMessage, "\t--> Median Right: "));
     }
 
-    vw_out(0) << "\t--> Generating image masks... \n" << std::flush;
+    if (!boost::filesystem::exists(out_prefix+"-lMask.tif") || !boost::filesystem::exists(out_prefix+"-rMask.tif")) {
+      vw_out(0) << "\t--> Generating image masks... \n";
 
-    int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
-    ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(left_image), 0, mask_buffer),0),0,0,255);
-    ImageViewRef<vw::uint8> Rmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(right_image), 0, mask_buffer),0),0,0,255);
-    DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(), 
-                                       Vector2i(vw_settings().default_tile_size(), vw_settings().default_tile_size()) );
-    DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
-                                       Vector2i(vw_settings().default_tile_size(), vw_settings().default_tile_size()) );
-    block_write_image(l_mask_rsrc, Lmask,
-                      TerminalProgressCallback(InfoMessage, "\t--> Mask Left: "));
-    block_write_image(r_mask_rsrc, Rmask,
-                      TerminalProgressCallback(InfoMessage, "\t--> Mask Right: "));
-    vw_out(0) << "done.\n";
+      int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern);
+      ImageViewRef<vw::uint8> Lmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(left_image), 0, mask_buffer),0),0,0,255);
+      ImageViewRef<vw::uint8> Rmask = threshold(apply_mask(edge_mask(pixel_cast_rescale<vw::uint8>(right_image), 0, mask_buffer),0),0,0,255);
+      DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(), 
+                                         Vector2i(vw_settings().default_tile_size(), vw_settings().default_tile_size()) );
+      DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
+                                         Vector2i(vw_settings().default_tile_size(), vw_settings().default_tile_size()) );
+      block_write_image(l_mask_rsrc, Lmask,
+                        TerminalProgressCallback(InfoMessage, "\t    Mask Left: "));
+      block_write_image(r_mask_rsrc, Rmask,
+                        TerminalProgressCallback(InfoMessage, "\t    Mask Right: "));
+    } else {
+      vw_out(0) << "\t--> Using cached image masks.\n";
+    }
+
+    int max_subsample_size = 2048;
+    int subx = std::min((left_image.cols()-1)/ max_subsample_size + 1, (right_image.cols()-1) / max_subsample_size + 1);
+    int suby = std::min((left_image.rows()-1) / max_subsample_size + 1, (right_image.rows()-1) / max_subsample_size + 1);
+    std::ostringstream sub_amt;
+    sub_amt << subx << "x" << suby;
+    std::string l_sub_file = out_prefix+"-L.sub"+sub_amt.str()+".tif";
+    std::string r_sub_file = out_prefix+"-R.sub"+sub_amt.str()+".tif";
+
+    if (!boost::filesystem::exists(l_sub_file) ||
+        !boost::filesystem::exists(r_sub_file)) {
+      vw_out(0) << "\t--> Creating previews. Subsampling " << subx << " by " << suby << "\n";
+      ImageViewRef<PixelGray<vw::float32> > Lsub = subsample(left_image, subx, suby);
+      ImageViewRef<PixelGray<vw::float32> > Rsub = subsample(right_image, subx, suby);
+      DiskImageResourceGDAL l_sub_rsrc( l_sub_file, Lsub.format(), 
+                                         Vector2i(vw_settings().default_tile_size(), vw_settings().default_tile_size()) );
+      DiskImageResourceGDAL r_sub_rsrc( r_sub_file, Rsub.format(),
+                                         Vector2i(vw_settings().default_tile_size(), vw_settings().default_tile_size()) );
+      block_write_image(l_sub_rsrc, Lsub,
+                        TerminalProgressCallback(InfoMessage, "\t    Sub Left: "));
+      block_write_image(r_sub_rsrc, Rsub,
+                        TerminalProgressCallback(InfoMessage, "\t    Sub Right: "));
+    } else {
+      vw_out(0) << "\t--> Using cached subsampled image.\n";
+    }
+
   }
 
   /*********************************************************************************/
