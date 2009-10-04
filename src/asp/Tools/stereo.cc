@@ -527,7 +527,7 @@ int main(int argc, char* argv[]) {
       DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
       disparity_map_rsrc2.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
                                           std::min(vw_settings().default_tile_size(), disparity_map.rows()));
-      block_write_image( disparity_map_rsrc2, disparity_map, 
+      block_write_image( disparity_map_rsrc2, disparity_map,
                          TerminalProgressCallback(InfoMessage, "\t--> Refinement :") );
 
     } catch (IOErr &e) {
@@ -585,9 +585,8 @@ int main(int argc, char* argv[]) {
       if(stereo_settings().fill_holes) {
         vw_out(0) << "\t--> Filling holes with Inpainting method.\n";
         BlobIndexThreaded bindex( invert_mask( filtered_disparity_map ), 100000 );
-        vw_out(0) << "\t      Identified " << bindex.num_blobs() << " holes\n";
+        vw_out(0) << "\t    * Identified " << bindex.num_blobs() << " holes\n";
         hole_filled_disp_map = InpaintView<DiskCacheImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
-        vw_out(0) << "\t out\n";
       } else {
         hole_filled_disp_map = filtered_disparity_map;
       }
@@ -599,7 +598,7 @@ int main(int argc, char* argv[]) {
                                                   hole_filled_disp_map.rows()));
       // Previously we wrote disparity_mask(hole_filled_disp_map,Dmask,Rmask)
       // yet that just reintroduces the holes that we filled. What exactly
-      // do we want to accomplish. -ZMM!
+      // do we want to accomplish? -ZMM!
       block_write_image(disparity_map_rsrc, hole_filled_disp_map,
                         TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") );
     } catch (IOErr &e) {

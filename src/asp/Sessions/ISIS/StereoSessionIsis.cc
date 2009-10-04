@@ -252,27 +252,30 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
 
   // Calculating statistics. We subsample the images so statistics
   // only does about a million samples.
-  vw_out(InfoMessage) << "\t--> Computing statistics for the left image\n";
-  int left_stat_scale = int(ceil(sqrt(float(left_disk_image.cols()*left_disk_image.rows()) /
-                                      1000000)));
-  ImageViewRef<PixelMask<PixelGray<float> > > left_valid =
-    create_mask( left_disk_image, left_rsrc.valid_minimum(), left_rsrc.valid_maximum() );
-  min_max_channel_values(subsample(left_valid, left_stat_scale), left_lo, left_hi);
-  left_mean = mean_channel_value(subsample(left_valid, left_stat_scale));
-  left_std = stddev_channel_value(subsample(left_valid, left_stat_scale));
-  vw_out(InfoMessage) << "\t    Left: [ lo:" << left_lo << " hi:" << left_hi
-                      << " m: " << left_mean << " s: " << left_std <<  "]\n";
-
-  vw_out(InfoMessage) << "\t--> Computing statistics values for the right image\n";
-  int right_stat_scale = int(ceil(sqrt(float(right_disk_image.cols()*right_disk_image.rows()) /
-                                        1000000)));
-  ImageViewRef<PixelMask<PixelGray<float> > > right_valid =
-    create_mask( right_disk_image, right_rsrc.valid_minimum(), right_rsrc.valid_maximum());
-  min_max_channel_values(subsample(right_valid, right_stat_scale), right_lo, right_hi);
-  right_mean = mean_channel_value(subsample(right_valid, right_stat_scale));
-  right_std = stddev_channel_value(subsample(right_valid, right_stat_scale));
-  vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:" << right_hi
-                      << " m: " << right_mean << " s: " << right_std << "]\n";
+  {
+    vw_out(InfoMessage) << "\t--> Computing statistics for the left image\n";
+    int left_stat_scale = int(ceil(sqrt(float(left_disk_image.cols())*float(left_disk_image.rows()) / 1000000)));
+    ImageViewRef<PixelMask<PixelGray<float> > > left_valid =
+      subsample(create_mask( left_disk_image, left_rsrc.valid_minimum(), left_rsrc.valid_maximum() ),
+                left_stat_scale );
+    min_max_channel_values( left_valid, left_lo, left_hi);
+    left_mean = mean_channel_value( left_valid );
+    left_std = stddev_channel_value( left_valid );
+    vw_out(InfoMessage) << "\t    Left: [ lo:" << left_lo << " hi:" << left_hi
+                        << " m: " << left_mean << " s: " << left_std <<  "]\n";
+  }
+  {
+    vw_out(InfoMessage) << "\t--> Computing statistics values for the right image\n";
+    int right_stat_scale = int(ceil(sqrt(float(right_disk_image.cols())*float(right_disk_image.rows()) / 1000000)));
+    ImageViewRef<PixelMask<PixelGray<float> > > right_valid =
+      subsample(create_mask( right_disk_image, right_rsrc.valid_minimum(), right_rsrc.valid_maximum() ),
+                right_stat_scale );
+    min_max_channel_values( right_valid, right_lo, right_hi);
+    right_mean = mean_channel_value( right_valid );
+    right_std = stddev_channel_value( right_valid );
+    vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:" << right_hi
+                        << " m: " << right_mean << " s: " << right_std << "]\n";
+  }
 
   // Normalizing to -+2 sigmas around mean
   if ( stereo_settings().force_max_min == 0 ) {

@@ -179,7 +179,7 @@ class InpaintView : public vw::ImageViewBase<InpaintView<ViewT> > {
       queue.join_all();
 
       sw.stop();
-      std::cout << "Time used in inpaint threads: " << sw.elapsed_seconds() << "s\n";
+      //std::cout << "Time used in inpaint threads: " << sw.elapsed_seconds() << "s\n";
     }
   }
 

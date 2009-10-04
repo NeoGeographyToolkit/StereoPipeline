@@ -31,6 +31,7 @@
 #include <vector>
 
 // VW
+#include <vw/Core/Log.h>
 #include <vw/Core/Thread.h>
 #include <vw/Core/ThreadPool.h>
 #include <vw/Core/Stopwatch.h>
@@ -88,14 +89,14 @@ namespace blob {
     void decompress( std::list<vw::Vector2i>& output ) const;
 
     void print( void ) const {
-      std::cout << "BlobCompressed | min: " << m_min << "\n";
+      vw::vw_out(0) << "BlobCompressed | min: " << m_min << "\n";
       for ( vw::uint32 i = 0; i < m_row_start.size(); i++ ) {
-        std::cout << " " << i << "|";
+        vw::vw_out(0) << " " << i << "|";
         for ( std::list<vw::int32>::const_iterator s_iter = m_row_start[i].begin(),
                 e_iter = m_row_end[i].begin(); s_iter != m_row_start[i].end();
               s_iter++, e_iter++ )
-          std::cout << "(" << *s_iter << "<>" << *e_iter << ")";
-        std::cout <<"\n";
+          vw::vw_out(0) << "(" << *s_iter << "<>" << *e_iter << ")";
+        vw::vw_out(0) <<"\n";
       }
     }
   };
@@ -397,10 +398,10 @@ class BlobIndexThreaded {
       queue.join_all();
 
       sw.stop();
-      std::cout << "Time used in threads: " << sw.elapsed_seconds() << " s\n";
+      //std::cout << "Time used in threads: " << sw.elapsed_seconds() << " s\n";
     }
 
-    std::cout << "Number of blobs before: " << m_c_blob.size() << std::endl;
+    //std::cout << "Number of blobs before: " << m_c_blob.size() << std::endl;
 
     {
       vw::Stopwatch sw;
@@ -408,10 +409,10 @@ class BlobIndexThreaded {
       consolidate( vw::Vector2i( src.impl().cols(), src.impl().rows() ),
                    vw::Vector2i( m_tile_size, m_tile_size ) );
       sw.stop();
-      std::cout << "Time used to \"consoliate\": " << sw.elapsed_seconds() << " s\n";
+      //std::cout << "Time used to \"consoliate\": " << sw.elapsed_seconds() << " s\n";
     }
 
-    std::cout << "Number of blobs after: " << m_c_blob.size() << std::endl;
+    //std::cout << "Number of blobs after: " << m_c_blob.size() << std::endl;
   }
 
   // Access for the users
