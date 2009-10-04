@@ -19,8 +19,8 @@ A generic bundle adjustment
 Options & Description \\ \hline \hline
 \verb#--help# & Display this table \\ \hline
 \verb#-t arg(=isis)# & Select the stereo session type to use for processing. \\ \hline
-\verb#-c arg# Load a control network from a file. \\ \hline
-\verb#-l arg# Set the initial value of the LM parameter lambda \\ \hline
+\verb#-c arg# & Load a control network from a file. \\ \hline
+\verb#-l arg# & Set the initial value of the LM parameter lambda \\ \hline
 \verb#--robust-threshold arg (=10)# & Set the threshold for robust cost functions \\ \hline
 \verb#-s# & Savae all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt \\ \hline
 \verb# --min-matches arg (=30)# & When building a new control network, sets the minimum number of matches in a match to be added to the control network at a time. \\ \hline
@@ -78,10 +78,20 @@ Options & Description \\ \hline \hline
 \section{disparitydebug}
 \label{disparitydebug}
 
-Performs half of the stereo correlation and output data. Good for
-determine the search window reference in stereo.default.
+Produces output images for debugging disparity images created from
+\verb#stereo#. Stereo produces several different versions of the
+disparity; the important ones have extensions \verb#*-D.exr# and
+\verb#*-F.exr#. {\tt D} is before filtering, and {\tt F} is simply
+post filtering. The result of \verb#disparitydebug# produces two files
+with the same prefix as the input, but they're sporting an extension
+of \verb#*-H.tif# and \verb#*-V.tif#. {\tt H} and {\tt V} stand for
+vertical and horizontal disparities. A disparity map is a collection
+of Vector2s, to make it easier to visualize, each channel is written
+to seperate files.
 
-This program creates files named p19-[D,F]-[H,V].tif what do they contain?
+Another important detail is that {\tt disparitydebug} will print out
+the value ranges of a disparity map. This can be used to tune up the
+search range to use for a stereo session.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for disparitydebug}
@@ -103,7 +113,10 @@ Options & Description \\ \hline \hline
 
 \section{isis\_adjust}
 
-Bundle Adjustment for cameras supported in ISIS.
+Bundle Adjustment for cameras supported in ISIS. This tool supports
+polynomial adjustment of linescan cameras, yet it also works with
+simple frame cameras. For an in depth view into how to use this tool
+please check out Chapter \ref{ch:bundle_adjustment} on Bundle Adjustment.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for isis\_adjust}
@@ -138,7 +151,11 @@ Options & Description \\ \hline \hline
 \section{orbitviz}
 \label{orbitviz}
 
-Produces a Google Earth kml that visualizes a camera position.
+Produces a Google Earth kml that visualizes a camera position. This
+tool needs access to camera information. When work with ISIS data, the
+input for this tool is just \verb#*.cub# files. For everything else,
+this just needs camera model files like \verb#*.tsai#, \verb#*.cahv#,
+and \verb#.cahvor#. Input as many cameras as wanted to be displayed.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for orbitviz}
@@ -151,13 +168,15 @@ Produces a Google Earth kml that visualizes a camera position.
 Options & Description \\ \hline \hline
 \verb#--help# & Display this table \\ \hline
 \verb#-o arg (=orbit.kml)# & Specifies the output file name \\ \hline
-\verb#-s arg (=1)# & Scale the size of the coordinate aces by this amount. Ex: To scale alt. measures up to earth size, use 3.66 \\ \hline
+\verb#-s arg (=1)# & Scale the size of the coordinate axes by this amount. Ex: To scale alt. measures up to earth size, use 3.66 \\ \hline
 \verb#-t# & Slect the stereo session type to use for processing. [default: pinhole] \\ \hline
 \verb#--use-simple-placemarks# & Draw simple icons at camera locations, instead of a coordinate model \\ \hline
 \end{longtable}
 
 \section{orthoproject}
 \label{orthoproject}
+
+Map projects imagery on to point clouds.
 
 Example:
 \begin{verbatim}
@@ -189,7 +208,7 @@ Options & Description \\ \hline \hline
 \section{point2dem}
 \label{point2dem}
 
-Produces a GeoTIFF terrain model and orthographic image.
+Produces a GeoTIFF terrain model or an orthographic image depending on the input flags.
 
 This produces: 
 	p19-DEM.tif - A DEM with floating point pixels. This is suitable for use in a GIS.
@@ -250,12 +269,46 @@ Options & Description \\ \hline \hline
 \section{point2mesh}
 \label{point2mesh}
 
-Produces a mesh surface which can be visualized in OpenSceneGraph.
+Produces a mesh surface which can be visualized in
+OpenSceneGraph. This is not meant to produce a finished scientific
+product, this is only for fast visualization and to create a cool 3D
+view of the data generated. \verb#point2mesh# requires a point cloud
+file and optionally a left texture file \emph{(as the left texture is
+  from the same perspective as the point cloud)}. When a texture is
+not provided, a 1D texture is applied in the local Z direction. That
+produces a rough rendition of a contour map.
+
+This will produce two files, a \verb#*.ive# which is the 3D model and
+an additional \verb#*.tif# that is the reduced texture used on the
+model. This texture file is not need after it's creation and is only a
+device for interfacing with OpenSceneGraph.
+
+Two other important options to know about are the flags \verb#-l# and
+\verb#-s arg#. The first provides light to be calculated on the model,
+thus when in \verb#osgviewer# it is easier to see the texture of the
+model. The last flag mention is the sampling rate. The default value
+is 10, meaning every 10th point is used in the X and Y directions. In
+other words that mean only $1/10^2$ of the points are being used to
+create the model. Adjust this sampling rate accordingly to see the
+amount of the detail wanted, but high enough so as not to hurt
+framerate.
 
 Example:
 \begin{verbatim}
-point2mesh
+      point2mesh -l -s 2 output-PC.tif output-L.tif
 \end{verbatim}
+
+To view the resulting \verb#*.ive#, use \verb#osgviewer#
+
+\begin{verbatim}
+      # Fullscreen
+      osgviewer output.ive
+      # or Windowed
+      osgviewer output.ive --window 50 50 1000 1000
+\end{verbatim}
+
+Inside \verb#osgviewer#, the keys L, T, and W can be used to toggle on
+and off lighting, texture, and wireframe.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for point2mesh}
@@ -296,7 +349,8 @@ Tool under development
 \section{rmax\_adjust}
 \label{ramx_adjust}
 
-Bundle Adjustment tool specifically for the Yamaha RMAX unmanned aerial vehicle.
+Bundle Adjustment tool specifically for the Yamaha RMAX unmanned
+aerial vehicle.
 
 \section{stereo}
 \label{stereo}
@@ -320,10 +374,14 @@ In principal, the stereo program is very simple, it takes two input
 images (and their optional camera files) and creates a bevy of
 output files.
 
-\emph{MJB: fact check this para.}
 The \verb=<Left_input_image>= and \verb=<Right_input_image>= files can be a wide variety of image formats.  If your input image files contain camera information (e.g. ISIS \verb=.cub= files), then the \verb=Left_camera_file= and \verb=Right_camera_file= are optional.
 
-\emph{MJB: detail the format of the camera\_files if people need them.}
+When working with data that doesn't have camera information embedded
+in the file, camera information must be supplied in a format
+understood by Vision Workbench's Camera Module. The formats accepted
+there are pinhole models via the \verb#.tsai# and \verb#.pinhole#
+extension, and CAHV/CHAVOR. Again this only important when working sessions
+other than ISIS.
 
 The \verb=<output_file_prefix>= is what \verb=stereo= uses as the
 beginning part of most of the files that it writes out.  If you set
@@ -472,17 +530,17 @@ the parameter name.
 
 \item[H\_KERNEL 25]
 \item[V\_KERNEL 25] \hfill \\
-These two items determine the size of the kernel in the horizontal (H) and vertical (V) directions in the input images.  \emph{MJB: more detail}
+These two items determine the size of the kernel in the horizontal (H) and vertical (V) directions in the input images.
 
 \item[SUBPIXEL\_H\_KERNEL 25]
 \item[SUBPIXEL\_V\_KERNEL 25] \hfill \\
-These two items are only relevant when the \texttt{DO\_H\_SUBPIXEL} and \texttt{DO\_V\_SUBPIXEL} parameters (detailed below) are `on.'  They speciffy the size of the subpixel kernel in the horizontal (H) and vertical (V) directions.
+These two items are only relevant when the \texttt{DO\_H\_SUBPIXEL} and \texttt{DO\_V\_SUBPIXEL} parameters (detailed below) are `on.'  They specify the size of the subpixel kernel in the horizontal (H) and vertical (V) directions.
 
 \item[H\_CORR\_MIN -100]
 \item[H\_CORR\_MAX 100]
 \item[V\_CORR\_MIN -100]
 \item[V\_CORR\_MAX 100] \hfill \\
-These parameters determine the size of the correlation window that the kernel will be moved around within to find a match.
+These parameters determine the size of the correlation window that the kernel will be moved around within to find a match. Not setting these values will cause stereo to make an attempt at guess it's search range through interest points.
 
 \item[SUBPIXEL\_MODE 0] \hfill \\
 This parameter determines the method by which subpixel correlation is done:
@@ -545,7 +603,6 @@ kernel with 121 pixels in it.
 \emph{MJB: detail}
 
 \end{description}
-
 
 \subsubsection*{Dot Cloud}
 \hrule

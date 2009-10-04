@@ -24,7 +24,7 @@ program run above):
 
 \begin{verbatim}
     point2mesh stereo-output-PC.tif stereo-output-L.tif
-	
+
     point2dem stereo-output-PC.tif stereo-output-L.tif
 \end{verbatim}
 \noindent
@@ -79,7 +79,7 @@ The data set that is used in the tutorial and examples below is a
 pair of Mars Orbiter Camera (MOC)
 \citep{1992JGR....97.7699M,2001JGR...10623429M} images whose Planetary
 Data System (PDS) Product IDs are M01/00115 and E02/01461.
-These data can be downloaded from the PDS directly, or they can be found in 
+These data can be downloaded from the PDS directly, or they can be found in
 the \texttt{data/MOC/} directory of your Stere Pipeline distribution.
 
 These raw PDS images (\texttt{M0100115.imq} and \texttt{E0201461.imq})
@@ -116,71 +116,71 @@ usually written out to a file named \texttt{print.prt}).
 \caption[P19 images open in qview zoomed in]{
     \label{p19-images}
     This shows \texttt{E0201461.cub} and \texttt{M0100115.cub} open in
-	ISIS's qview program.  The view on the left shows their full extents
-	at the same zoom level, showing how they have different ground scales.
-	The view on the right shows them both zoomed in on the same feature.
+        ISIS's qview program.  The view on the left shows their full extents
+        at the same zoom level, showing how they have different ground scales.
+        The view on the right shows them both zoomed in on the same feature.
     }
 \end{minipage}
 \end{figure}
 
 % \section{Examples of Use}
-% 
+%
 % Download the tarball and it will unpack into a \texttt{p19} directory.  Create an output directory to hold the results, and invoke the \texttt{stereo} program:
-% 
+%
 % \begin{verbatim}
-% 	mkdir results
-% 	stereo E0201461.cub M0100115.cub results/p19
+%       mkdir results
+%       stereo E0201461.cub M0100115.cub results/p19
 % \end{verbatim}
-% 
+%
 % You can look at the results by examining the disparity images. These
 % show the horizontal and vertical components of the matching offsets
 % for each pixel, and they can be a useful debugging tool if you want
 % to check how the stereo matcher performed for a given stereo pair:
-% 
+%
 % \begin{verbatim}
-% 	cd results
-% 	disparitydebug p19-D.exr -o p19-D     
-% 	disparitydebug p19-F.exr -o p19-F
+%       cd results
+%       disparitydebug p19-D.exr -o p19-D
+%       disparitydebug p19-F.exr -o p19-F
 % \end{verbatim}
-% 
+%
 % \emph{MJB: What exactly is being examined in the resultant images, what are users looking for?}
-% 
+%
 % A 3D mesh can be built from the point cloud and viewed using the
 % \texttt{osgviewer} program:
-% 
+%
 % \begin{verbatim}
-% 	point2mesh p19-PC.tif p19-L.tif -o p19
-% 	osgviewer p19.ive
+%       point2mesh p19-PC.tif p19-L.tif -o p19
+%       osgviewer p19.ive
 % \end{verbatim}
-% 
+%
 % When the \texttt{osgviewer} starts, you may want to turn off the
 % lighting (hit the `L' key).
-% 
+%
 % A gridded DEM with floating point pixels can also be built from the point cloud:
-% 
+%
 % \begin{verbatim}
-% 	point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
+%       point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
 % \end{verbatim}
-% 
+%
 % You can also orthoproject the raw satellite imagery onto the DEM during this step:
-% 
+%
 % \begin{verbatim}
-% 	point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif
+%       point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif
 % \end{verbatim}
-% 
+%
 % Finally, you can create colorized, shaded relief (or both) images from the DEM, using these Vision Workbench programs:
-% 
+%
 % \begin{verbatim}
-% 	colormap p19-DEM.tif -o p19-colorized.tif
-% 	hillshade p19-DEM.tif -o p19-shaded.tif -e 25
-% 	colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
+%       colormap p19-DEM.tif -o p19-colorized.tif
+%       hillshade p19-DEM.tif -o p19-shaded.tif -e 25
+%       colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
 % \end{verbatim}
-% 
+%
 % Finally, you can run the Vision Workbench's \texttt{image2qtree} on any of the following files:
-% 
+%
 % \begin{itemize}
 % \item p19-DEM-normalized.tif
-% \item p19-DRG.tif 
+% \item p19-DRG.tif
 % \item p19-shaded.tif
 % \item p19-colorized.tif
 % \item p19-shaded-colorized.tif
@@ -268,7 +268,7 @@ give you an idea of what the \texttt{stereo} program did (figure
 	step.  The image on the right is the Good Pixel map
 	(\texttt{E0201461-M0100115-GoodPixelMap.tif}), which indicates
 	the pixels in grey which were successfully matched with the
-	correlator.  The red pixels were not.  Those red pixels which 
+	correlator.  The red pixels were not.  Those red pixels which
 	are not black in both mask images are optionally filled later
 	during the hole-filling step.
     }
@@ -280,12 +280,12 @@ give you an idea of what the \texttt{stereo} program did (figure
 % \includegraphics[height=8in]{images/p19-goodpixel.png}
 % \caption[P19 good pixel image]{
 %     \label{p19-goodpixel}
-% 	The Good Pixel map. 
-% 	Red pixels are not useful for alignment. 
+% 	The Good Pixel map.
+% 	Red pixels are not useful for alignment.
 %     }
 % \end{center}
 % \end{figure}
-% 
+%
 % \begin{figure}
 % \begin{center}
 % \includegraphics[width=3in]{images/p19-aligned.png}
@@ -321,7 +321,7 @@ To get a look at the disparity information, you need to convert it
 into a more viewable format.  Move into the directory that contains
 your results, and run the \texttt{disparitydebug} program (page
 \pageref{disparitydebug}) to create the the horizontal and vertical
-components of the disparity (matching offsets for each pixel). 
+components of the disparity (matching offsets for each pixel).
 
 \begin{figure}[b!]
 \begin{minipage}{4in}
@@ -332,15 +332,15 @@ components of the disparity (matching offsets for each pixel).
 \caption[P19 disparity images]{
     \label{p19-disparity}
 	The disparity images.  The two images on the left are the
-	\texttt{E0201461-M0100115-D-H.tif} and 
+	\texttt{E0201461-M0100115-D-H.tif} and
 	\texttt{E0201461-M0100115-D-V.tif} files, which are the raw horizontal and
 	vertical disparity components.  The two images on the right are the
 	\texttt{E0201461-M0100115-F-H.tif} and
 	\texttt{E0201461-M0100115-F-V.tif} files, which are the final
-	filtered, sub-pixel disparity map with outlier removal and holes 
+	filtered, sub-pixel disparity map with outlier removal and holes
 	filled in, and is what will be used to build the point cloud.  Since
 	these MOC images were acquired by rolling the spacecraft across-track,
-	most of the disparity that represents topography is present in the 
+	most of the disparity that represents topography is present in the
 	horizontal disparity map.  The vertical disparity map shows disparity
 	not from topography, but from spacecraft movement.
     }
@@ -395,7 +395,7 @@ you may want to turn off the lighting (hit the `L' key).
 \begin{minipage}{1.7in}
 \caption[P19 in OSG]{
     \label{p19-osg}
-	This shows the \texttt{E0201461-M0100115.ive} file displayed in 
+	This shows the \texttt{E0201461-M0100115.ive} file displayed in
 	the OSG Viewer.
     }
 \end{minipage}
@@ -418,7 +418,7 @@ option of creating a normalized DEM in addition to the automatically
 generated non-normalized DEM.
 
 \begin{verbatim}
-    point2dem --xyz-to-lonlat -r mars -n E0201461-M0100115-PC.tif 
+    point2dem --xyz-to-lonlat -r mars -n E0201461-M0100115-PC.tif
 \end{verbatim}
 \noindent
 The \texttt{point2dem} program can also be used to orthoproject raw
@@ -465,7 +465,7 @@ Be sure to explore all of the options.
 %     }
 % \end{center}
 % \end{figure}
-% 
+%
 % \begin{figure}
 % \begin{center}
 % \includegraphics[width=3in]{images/p19-ortho.png}
@@ -517,11 +517,11 @@ This function was designed for use in creating geographically
 referenced images in tiles such that each tile can be viewed at
 ideal resolution.
 
-The \texttt{image2qtree} program can be used on any of the following files that you 
+The \texttt{image2qtree} program can be used on any of the following files that you
 have generated:
 \begin{verbatim}
     p19-DEM-normalized.tif
-    p19-DRG.tif 
+    p19-DRG.tif
     p19-shaded.tif
     p19-colorized.tif
     p19-shaded-colorized.tif
@@ -535,44 +535,44 @@ with any combination of options.
 \end{verbatim}
 
 
-\section{Preparing Selected Data}
+%% \section{Preparing Selected Data}
 
-There are many ways to process different kinds of image data, and
-some will be more appropriate for operations by the Stereo Pipeline
-than others.  While we strive to make the Stereo Pipeline extensible
-and robust, there are a limited (but growing) set of data that we
-have thoroughly tested.
+%% There are many ways to process different kinds of image data, and
+%% some will be more appropriate for operations by the Stereo Pipeline
+%% than others.  While we strive to make the Stereo Pipeline extensible
+%% and robust, there are a limited (but growing) set of data that we
+%% have thoroughly tested.
 
-This section outlines the suggested pre-processing steps to prepare 
-specific data sets for use in the Stereo Pipeline.
+%% This section outlines the suggested pre-processing steps to prepare
+%% specific data sets for use in the Stereo Pipeline.
 
-\subsection{Mars Oribiter Camera (MOC)}
+%% \subsection{Mars Oribiter Camera (MOC)}
 
-MOC images (ending in \texttt{.imq} or \texttt{.img}) can be downloaded from 
-the PDS and only require a single ISIS command to prepare for Stereo Pipeline use:
+%% MOC images (ending in \texttt{.imq} or \texttt{.img}) can be downloaded from
+%% the PDS and only require a single ISIS command to prepare for Stereo Pipeline use:
 
-\begin{verbatim}
-    ISIS 3> mocproc from= MOCimage.imq to= MOCimage.cub Mapping= NO
-\end{verbatim}
+%% \begin{verbatim}
+%%     ISIS 3> mocproc from= MOCimage.imq to= MOCimage.cub Mapping= NO
+%% \end{verbatim}
 
-The resulting ISIS cube file (e.g. \texttt{MOCimage.cub}) is now ready
-for processing by the \texttt{stereo} program.
+%% The resulting ISIS cube file (e.g. \texttt{MOCimage.cub}) is now ready
+%% for processing by the \texttt{stereo} program.
 
 
-\subsection{High Resolution Imaging Science Experiment (HiRISE)}
+%% \subsection{High Resolution Imaging Science Experiment (HiRISE)}
 
-HiRISE images are more complicated.
+%% HiRISE images are more complicated.
 
-At the moment, the `best' processing method is to start with HiRISE
-\texttt{*.balance.cub} files (available only internally to the
-HiRISE team) and run them through the USGS's \texttt{hinoproj.pl}
-script.  This results in \texttt{noproj}ed and de-jittered cube
-files that can be run.
+%% At the moment, the `best' processing method is to start with HiRISE
+%% \texttt{*.balance.cub} files (available only internally to the
+%% HiRISE team) and run them through the USGS's \texttt{hinoproj.pl}
+%% script.  This results in \texttt{noproj}ed and de-jittered cube
+%% files that can be run.
 
-In the future (who knows when), the HiRISE team will directly produce
-\texttt{noproj}ed images (dejittered through a different, improved,
-algorithm) which will be available in the \texttt{extras/} directory
-of the HiRISE PDS Volume.  And those images will probably be directly
-usable by the Stereo Pipeline.
+%% In the future (who knows when), the HiRISE team will directly produce
+%% \texttt{noproj}ed images (dejittered through a different, improved,
+%% algorithm) which will be available in the \texttt{extras/} directory
+%% of the HiRISE PDS Volume.  And those images will probably be directly
+%% usable by the Stereo Pipeline.
 
-\emph{As you can tell, I'm still in the process of tracking all of this down. -RAB}
+%% \emph{As you can tell, I'm still in the process of tracking all of this down. -RAB}
