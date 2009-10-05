@@ -297,26 +297,46 @@ int main(int argc, char* argv[]) {
     // Produce subsampled images
     int smallest_edge = std::min(std::min(left_image.cols(), left_image.rows()),
                                  std::min(right_image.cols(), right_image.rows()) );
-    float sub_scale = 2048 / float(smallest_edge);
+    float sub_scale = 2048.0 / float(smallest_edge);;
     if ( sub_scale > 1 ) sub_scale = 1;
+
+    // Solving for the number of threads and the tile size to use for
+    // subsampling while only using 500 MiB of memory. (The cache code
+    // is a little slow on releasing so it will probably use 1.5GiB
+    // memory during subsampling) Also tile size must be a power of 2
+    // and greater than or equal to 64 px;
+    int sub_threads = vw_settings().default_num_threads() + 1;
+    int tile_power = 0;
+    while ( tile_power < 6 && sub_threads > 1) {
+      sub_threads--;
+      tile_power = int( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
+    }
+    int sub_tile_size = int ( pow(2.0,float(tile_power)) );
+    if ( sub_tile_size > vw_settings().default_tile_size() )
+      sub_tile_size = vw_settings().default_tile_size();
+
     std::string l_sub_file = out_prefix+"-L_sub.tif";
     std::string r_sub_file = out_prefix+"-R_sub.tif";
 
     if (!boost::filesystem::exists(l_sub_file) ||
         !boost::filesystem::exists(r_sub_file)) {
-      vw_out(0) << "\t--> Creating previews. Subsampling by " << sub_scale << "\n";
+      vw_out(0) << "\t--> Creating previews. Subsampling by " << sub_scale
+                << " by using " << sub_tile_size << " tile size and "
+                << sub_threads << " threads.\n";
       ImageViewRef<PixelGray<vw::float32> > Lsub = resample(left_image, sub_scale);
       ImageViewRef<PixelGray<vw::float32> > Rsub = resample(right_image, sub_scale);
       DiskImageResourceGDAL l_sub_rsrc( l_sub_file, Lsub.format(),
-                                        Vector2i(vw_settings().default_tile_size(),
-                                                 vw_settings().default_tile_size()) );
+                                        Vector2i(sub_tile_size,
+                                                 sub_tile_size) );
       DiskImageResourceGDAL r_sub_rsrc( r_sub_file, Rsub.format(),
-                                        Vector2i(vw_settings().default_tile_size(),
-                                                 vw_settings().default_tile_size()) );
+                                        Vector2i(sub_tile_size,
+                                                 sub_tile_size) );
+      vw_settings().set_default_num_threads(sub_threads);
       block_write_image(l_sub_rsrc, Lsub,
                         TerminalProgressCallback(InfoMessage, "\t    Sub Left: "));
       block_write_image(r_sub_rsrc, Rsub,
                         TerminalProgressCallback(InfoMessage, "\t    Sub Right: "));
+      vw_settings().set_default_num_threads();
     } else
       vw_out(0) << "\t--> Using cached subsampled image.\n";
 
