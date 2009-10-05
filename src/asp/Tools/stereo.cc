@@ -586,19 +586,34 @@ int main(int argc, char* argv[]) {
       // disparity map filtering process.
       vw_out(0) << "\t--> Rasterizing filtered disparity map to disk. \n";
       DiskCacheImageView<PixelMask<Vector2f> > filtered_disparity_map(disparity_map, "exr",
-                                                                      TerminalProgressCallback(ErrorMessage, "\t--> Writing: "));
+                                                                      TerminalProgressCallback(InfoMessage, "\t--> Writing: "));
 
       { // Write out the extrapolation mask image
         vw_out(0) << "\t--> Creating \"Good Pixel\" image: "
                   << (out_prefix + "-GoodPixelMap.tif") << "\n";
-        write_image(out_prefix + "-GoodPixelMap.tif",
-                    stereo::missing_pixel_image(filtered_disparity_map),
-                    TerminalProgressCallback(ErrorMessage, "\t    Writing: "));
-        DiskImageView<PixelRGB<vw::uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
-        write_image(out_prefix + "-dMask.tif",
-                    select_channel(edge_mask(good_pixel_image,
-                                             PixelRGB<float>(255,0,0),
-                                             stereo_settings().subpixel_h_kern*2.0),3));
+        {
+          // Sub-sampling so that the user can actually view it.
+          float sub_scale = 2048 / float( std::min( filtered_disparity_map.cols(),
+                                                    filtered_disparity_map.rows() ) );
+          ImageViewRef<PixelRGB<uint8> > good_pixel = resample(stereo::missing_pixel_image(filtered_disparity_map),
+                                                               sub_scale);
+          DiskImageResourceGDAL good_pixel_rsrc( out_prefix + "-GoodPixelMap.tif", good_pixel.format(),
+                                                 Vector2i(vw_settings().default_tile_size(),
+                                                          vw_settings().default_tile_size() ) );
+          block_write_image( good_pixel_rsrc, good_pixel,
+                             TerminalProgressCallback(InfoMessage, "\t    Writing: "));
+        }
+        {
+          DiskImageView<PixelRGB<vw::uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
+          ImageViewRef<vw::uint8> dmask = select_channel(edge_mask(good_pixel_image,
+                                                                   PixelRGB<vw::uint8>(255,0,0),
+                                                                   stereo_settings().subpixel_h_kern*2.0),3);
+          DiskImageResourceGDAL dmask_rsrc( out_prefix + "-dMask.tif", dmask.format(),
+                                            Vector2i(vw_settings().default_tile_size(),
+                                                     vw_settings().default_tile_size()) );
+          block_write_image( dmask_rsrc, dmask,
+                             TerminalProgressCallback(InfoMessage, "\t    D-Mask: "));
+        }
       }
 
       ImageViewRef<PixelMask<Vector2f> > hole_filled_disp_map;
