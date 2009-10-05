@@ -584,9 +584,15 @@ int main(int argc, char* argv[]) {
       // Rasterize the results so far to a temporary file on disk.
       // This file is deleted once we complete the second half of the
       // disparity map filtering process.
-      vw_out(0) << "\t--> Rasterizing filtered disparity map to disk. \n";
-      DiskCacheImageView<PixelMask<Vector2f> > filtered_disparity_map(disparity_map, "exr",
-                                                                      TerminalProgressCallback(InfoMessage, "\t--> Writing: "));
+      {
+        vw_out(0) << "\t--> Rasterizing filtered disparity map to disk. \n";
+        DiskImageResourceOpenEXR filtered_disparity_map_rsrc( out_prefix+"-FTemp.exr", disparity_map.format() );
+        filtered_disparity_map_rsrc.set_block_size( Vector2i( vw_settings().default_tile_size(),
+                                                              vw_settings().default_tile_size() ) );
+        block_write_image( filtered_disparity_map_rsrc, disparity_map,
+                           TerminalProgressCallback(InfoMessage, "\t--> Writing: ") );
+      }
+      DiskImageView<PixelMask<Vector2f> > filtered_disparity_map( out_prefix+"-FTemp.exr" );
 
       { // Write out the extrapolation mask image
         vw_out(0) << "\t--> Creating \"Good Pixel\" image: "
@@ -595,13 +601,31 @@ int main(int argc, char* argv[]) {
           // Sub-sampling so that the user can actually view it.
           float sub_scale = 2048 / float( std::min( filtered_disparity_map.cols(),
                                                     filtered_disparity_map.rows() ) );
+          if ( sub_scale > 1 ) sub_scale = 1;
+          // Solving for the number of threads and the tile size to use for
+          // subsampling while only using 500 MiB of memory. (The cache code
+          // is a little slow on releasing so it will probably use 1.5GiB
+          // memory during subsampling) Also tile size must be a power of 2
+          // and greater than or equal to 64 px;
+          int sub_threads = vw_settings().default_num_threads() + 1;
+          int tile_power = 0;
+          while ( tile_power < 6 && sub_threads > 1) {
+            sub_threads--;
+            tile_power = int( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
+          }
+          int sub_tile_size = int ( pow(2.0,float(tile_power)) );
+          if ( sub_tile_size > vw_settings().default_tile_size() )
+            sub_tile_size = vw_settings().default_tile_size();
+
           ImageViewRef<PixelRGB<uint8> > good_pixel = resample(stereo::missing_pixel_image(filtered_disparity_map),
                                                                sub_scale);
+          vw_settings().set_default_num_threads(sub_threads);
           DiskImageResourceGDAL good_pixel_rsrc( out_prefix + "-GoodPixelMap.tif", good_pixel.format(),
-                                                 Vector2i(vw_settings().default_tile_size(),
-                                                          vw_settings().default_tile_size() ) );
+                                                 Vector2i(sub_tile_size,
+                                                          sub_tile_size ) );
           block_write_image( good_pixel_rsrc, good_pixel,
                              TerminalProgressCallback(InfoMessage, "\t    Writing: "));
+          vw_settings().set_default_num_threads(sub_threads);
         }
         {
           DiskImageView<PixelRGB<vw::uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
@@ -621,7 +645,7 @@ int main(int argc, char* argv[]) {
         vw_out(0) << "\t--> Filling holes with Inpainting method.\n";
         BlobIndexThreaded bindex( invert_mask( filtered_disparity_map ), 100000 );
         vw_out(0) << "\t    * Identified " << bindex.num_blobs() << " holes\n";
-        hole_filled_disp_map = InpaintView<DiskCacheImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
+        hole_filled_disp_map = InpaintView<DiskImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
       } else {
         hole_filled_disp_map = filtered_disparity_map;
       }
@@ -631,11 +655,13 @@ int main(int argc, char* argv[]) {
                                                   hole_filled_disp_map.cols()),
                                          std::min(vw_settings().default_tile_size(),
                                                   hole_filled_disp_map.rows()));
-      // Previously we wrote disparity_mask(hole_filled_disp_map,Dmask,Rmask)
-      // yet that just reintroduces the holes that we filled. What exactly
-      // do we want to accomplish? -ZMM!
+
       block_write_image(disparity_map_rsrc, hole_filled_disp_map,
                         TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") );
+
+      // Delete temporary file
+      std::string temp_file =  out_prefix+"-FTemp.exr";
+      unlink( temp_file.c_str() );
     } catch (IOErr &e) {
       vw_out(0) << "\nUnable to start at filtering stage -- could not read input files.\n"
                 << e.what() << "\nExiting.\n\n";
