@@ -228,6 +228,14 @@ use both this \texttt{stereo.default} and the
 \texttt{stereo.default.example} to explore how the results are
 different.
 
+Alternatively, it is possible to not have to define the
+\texttt{H\_CORR\_*} and \texttt{V\_CORR\_*} is
+\texttt{stereo.default}. When this happens, \texttt{stereo} will
+collect interest points on reduced version of the input to guess the
+correct search range. \texttt{stereo} prints it's guess in the command
+window and it can be used a starting point if the results don't turn
+out.
+
 So run \texttt{stereo} like this (there should be a
 \texttt{stereo.default} file distributed along with the example
 data set that will be used):
@@ -235,15 +243,17 @@ data set that will be used):
 \begin{verbatim}
     ISIS 3> stereo E0201461.cub M0100115.cub results/E0201461-M0100115
 \end{verbatim}
+
 \noindent
-So that last text can be anything you want it to be.  It designates
-the text that \texttt{stereo} will use as a prefix for its many
-output files.  Since the first part is \texttt{results/} this causes
-the program to put the results in that directory with files whose
-names start with \texttt{E0201461-M0100115}.  If instead that last
-text was just \texttt{E0201461-M0100115} it would have created a
-bunch of files that start with \texttt{E0201461-M0100115} in the
-same directory as the input files.
+That last option (\emph{results/E0201461-M0100115}) can be anything you
+want it to be.  It designates the text that \texttt{stereo} will use
+as a prefix for its many output files.  Since the first part is
+\texttt{results/} this causes the program to put the results in that
+directory with files whose names start with
+\texttt{E0201461-M0100115}. If instead that last text was just
+\texttt{E0201461-M0100115} it would have created a bunch of files that
+start with \texttt{E0201461-M0100115} in the same directory as the
+input files.
 
 The \texttt{stereo} program's processing moves through several
 stages which are detailed on page \pageref{entrypoints}.  However,
@@ -251,7 +261,6 @@ once the \texttt{stereo} program completes, it creates a number of
 files.  A quick look at some of the TIFF files created, can quickly
 give you an idea of what the \texttt{stereo} program did (figure
 \ref{p19-stereo-output}).
-
 
 \begin{figure}
 \begin{center}
@@ -351,6 +360,7 @@ components of the disparity (matching offsets for each pixel).
     cd results
     disparitydebug E0201461-M0100115-F.exr
 \end{verbatim}
+
 \noindent
 The two output files, \texttt{E0201461-M0100115-F-H.tif} and
 \texttt{E0201461-M0100115-F-V.tif} are normalized images of the
@@ -368,20 +378,23 @@ You can run \texttt{disparitydebug} on any of them, and actually taking a
 look at all of them can show you the differences between the disparity maps
 at the different stages of processing.
 
+When \texttt{stereo} finishes up, it will have produced a point cloud.
 At this point, the processing fans out, as many kinds of data
 products can be built from the \texttt{E0201461-M0100115-PC.tif}.
 
 One of the things that can be done is to produce a 3D mesh with
-\texttt{point2mesh} (page \pageref{point2mesh}).  This image can
-be viewed with \texttt{osgviewer} (the Open Scene Graph Viewer
-program, distributed with the binary version of the Stereo Pipeline).
-The \texttt{point2mesh} program takes the point cloud file and one
-of the image files (usually the highest resolution one) created by
-\texttt{stereo} as inputs.
+\texttt{point2mesh} (page \pageref{point2mesh}). This is not a science
+product, but is just a quick visualization that can show the data
+rendered in 3D. The mesh produced can be viewed with
+\texttt{osgviewer} (the Open Scene Graph Viewer program, distributed
+with the binary version of the Stereo Pipeline).  The
+\texttt{point2mesh} program takes the point cloud file and the left
+normalized image created by \texttt{stereo} as inputs.
 
 \begin{verbatim}
-    point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
+    point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif -l
 \end{verbatim}
+
 \noindent
 This will create the file \texttt{E0201461-M0100115.ive}, openable
 with \texttt{osgviewer}. When the \texttt{osgviewer} program starts,
@@ -410,16 +423,20 @@ a digital elevation model (DEM) from the Point Cloud file.
 
 The resultant file, \texttt{E0201461-M0100115-DEM.tif}, will have
 32-bit pixels, and so (much like the \texttt{E0201461-M0100115-PC.tif}
-file) will not render well in typical image viewers.
+file) will not render well in typical image viewers. The resulting TIF
+file is also contain georeferencing information which is useful for
+working with other GIS platforms.
 
 You can specify a coordinate system (e.g., latlon) and a reference
 spheroid (i.e., calculated for the Moon or Mars). You also have the
 option of creating a normalized DEM in addition to the automatically
-generated non-normalized DEM.
+generated non-normalized DEM. The normalized DEM again is just for
+visualization and checking the quality of the product.
 
 \begin{verbatim}
     point2dem --xyz-to-lonlat -r mars -n E0201461-M0100115-PC.tif
 \end{verbatim}
+
 \noindent
 The \texttt{point2dem} program can also be used to orthoproject raw
 satellite imagery onto the DEM. To do this, invoke \texttt{point2dem}
@@ -431,6 +448,7 @@ projection
     point2dem --xyz-to-lonlat -r mars --orthoimage E0201461-M0100115-L.tif \
       E0201461-M0100115-PC.tif
 \end{verbatim}
+
 \noindent
 The \texttt{point2dem} program can be used in many different ways.
 Be sure to explore all of the options.
@@ -476,12 +494,13 @@ Be sure to explore all of the options.
 % \end{center}
 % \end{figure}
 
-Once you have generated a DEM, you can use the Vision Workbench's
+Once you have generated a DEM file, you can use the Vision Workbench's
 \texttt{colormap} and \texttt{hillshade} tools to create colorized
 and/or shaded relief images from the DEM.
 
 To create a colorized version of the DEM, you need only specify the
-DEM file to use:
+DEM file to use. Yet alternatively you can specific your own min and
+max color ranges.
 
 \begin{verbatim}
     colormap p19-DEM.tif -o p19-colorized.tif
@@ -512,13 +531,12 @@ the DEM and the shaded relief file that should be used.
 \end{center}
 \end{figure}
 
-The final option of the stereo processing package is \texttt{image2qtree}.
-This function was designed for use in creating geographically
-referenced images in tiles such that each tile can be viewed at
-ideal resolution.
-
-The \texttt{image2qtree} program can be used on any of the following files that you
-have generated:
+The final option of the stereo processing package is
+\texttt{image2qtree}.  This function was designed for use in creating
+geographically referenced images in tiles such that each tile can be
+viewed at ideal resolution. It can also be used to create KML files
+that can be viewed in Google Earth. The program can be used on any of
+the following files that you have generated:
 \begin{verbatim}
     p19-DEM-normalized.tif
     p19-DRG.tif
@@ -527,11 +545,11 @@ have generated:
     p19-shaded-colorized.tif
 \end{verbatim}
 
-Specify which image you would like to invoke \texttt{image2qtree} on, along
-with any combination of options.
+Specify which image you would like to invoke \texttt{image2qtree}
+on. Below makes an overlay that can be viewed in Google Mars.
 
 \begin{verbatim}
-    image2qtree p19-DEM-normalized.tif -o p19-DEM-n-qtree
+    image2qtree p19-DEM-normalized.tif -m kml --draw-order 100
 \end{verbatim}
 
 
