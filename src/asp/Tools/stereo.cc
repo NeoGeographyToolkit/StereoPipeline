@@ -43,11 +43,13 @@ correlator_helper( DiskImageView<PixelGray<float> > & left_disk_image,
                    DiskImageView<vw::uint8> & right_mask,
                    FilterT const& filter_func, vw::BBox2i & search_range,
                    stereo::CorrelatorType const& cost_mode,
-                   bool & draft_mode,
-                   std::string & corr_debug_prefix ) {
+                   bool draft_mode,
+                   std::string & corr_debug_prefix,
+                   bool use_pyramid=true ) {
   stereo::CorrelatorView<PixelGray<float>,
     vw::uint8,FilterT> corr_view( left_disk_image, right_disk_image,
-                                  left_mask, right_mask, filter_func );
+                                  left_mask, right_mask, filter_func,
+                                  use_pyramid );
 
   corr_view.set_search_range(search_range);
   corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern,
@@ -378,31 +380,29 @@ int main(int argc, char* argv[]) {
       cost_mode = stereo::NORM_XCORR_CORRELATOR;
 
     if (vm.count("optimized-correlator")) {
-      stereo::OptimizedCorrelator correlator( search_range,
-                                              stereo_settings().h_kern,
-                                              stereo_settings().xcorr_threshold,
-                                              stereo_settings().corrscore_rejection_threshold, // correlation score rejection threshold (1.0 disables, good values are 1.5 - 2.0)
-                                              stereo_settings().cost_blur,
-                                              cost_mode);
       if (stereo_settings().pre_filter_mode == 3) {
         vw_out(0) << "\t--> Using SLOG pre-processing filter with width: "
                   << stereo_settings().slogW << std::endl;
-        disparity_map = correlator( left_disk_image, right_disk_image,
-                                    stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW));
+        disparity_map = correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
+                                           stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW),
+                                           search_range, cost_mode, false, corr_debug_prefix, false );
       } else if (stereo_settings().pre_filter_mode == 2) {
         vw_out(0) << "\t--> Using LOG pre-processing filter with width: "
                   << stereo_settings().slogW << std::endl;
-        disparity_map = correlator( left_disk_image, right_disk_image,
-                                    stereo::LogStereoPreprocessingFilter(stereo_settings().slogW));
+        disparity_map = correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
+                                           stereo::LogStereoPreprocessingFilter(stereo_settings().slogW),
+                                           search_range, cost_mode, false, corr_debug_prefix, false );
       } else if (stereo_settings().pre_filter_mode == 1) {
         vw_out(0) << "\t--> Using BLUR pre-processing filter with width: "
                   << stereo_settings().slogW << std::endl;
-        disparity_map = correlator( left_disk_image, right_disk_image,
-                                    stereo::BlurStereoPreprocessingFilter(stereo_settings().slogW));
+        disparity_map = correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
+                                           stereo::BlurStereoPreprocessingFilter(stereo_settings().slogW),
+                                           search_range, cost_mode, false, corr_debug_prefix, false );
       } else {
         vw_out(0) << "\t--> Using NO pre-processing filter: " << std::endl;
-        disparity_map = correlator( left_disk_image, right_disk_image,
-                                    stereo::NullStereoPreprocessingFilter());
+        disparity_map = correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
+                                           stereo::NullStereoPreprocessingFilter(),
+                                           search_range, cost_mode, false, corr_debug_prefix, false );
       }
 
     } else {

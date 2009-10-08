@@ -152,7 +152,6 @@ approximate_search_range( std::string left_image,
 
   vw_out(0) << "\t--> Using interest points to determine search window.\n";
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  BBox2i search_range(-10,-10,20,20);
   float i_scale = 1.0/scale;
 
   // String names
@@ -238,7 +237,7 @@ approximate_search_range( std::string left_image,
       vw_out(0) << "\t    RANSAC failed! Unable to auto detect search range.\n\n";
       vw_out(0) << "\t    Please proceed cautiously!\n";
       vw_out(0) << "-------------------------------WARNING---------------------------------\n";
-      return search_range;
+      return BBox2i(-10,-10,20,20);
     }
 
     { // Keeping only inliers
@@ -256,13 +255,20 @@ approximate_search_range( std::string left_image,
   }
 
   // Find search window based on interest point matches
+  BBox2i search_range;
   for (unsigned i = 0; i < matched_ip1.size(); i++) {
     Vector2i translation = ( i_scale*Vector2i(matched_ip2[i].x, matched_ip2[i].y) -
                              i_scale*Vector2i(matched_ip1[i].x, matched_ip1[i].y) );
-    // Fudge factor
-    translation *= 1.5;
-    search_range.grow( translation );
+
+    if ( i == 0 ) {
+      search_range.min() = translation;
+      search_range.max() = translation + Vector2i(1,1);
+    } else
+      search_range.grow( translation );
   }
+  Vector2i offset = search_range.size()/4; // So we can grow by 50%
+  search_range.min() -= offset;
+  search_range.max() += offset;
 
   vw_out(0) << "\t--> Dectected search range: " << search_range << "\n";
   return search_range;
