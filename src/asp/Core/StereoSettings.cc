@@ -93,7 +93,6 @@ StereoSettings::StereoSettings() {
 #define ASSOC_INT(X,Y,V,D)             m_desc.add_options()(X, po::value<int>(&(this->Y))->default_value(V), D)
 #define ASSOC_FLOAT(X,Y,V,D)           m_desc.add_options()(X, po::value<float>(&(this->Y))->default_value(V), D)
 #define ASSOC_DOUBLE(X,Y,V,D)          m_desc.add_options()(X, po::value<double>(&(this->Y))->default_value(V), D)
-#define ASSOC_INT_NODEFAULT(X,Y,D)     m_desc.add_options()(X, po::value<int>(&(this->Y)), D)
 
   // Preprocessing options
   ASSOC_INT("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment, 1, "Align images using epipolar constraints");
@@ -110,10 +109,10 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_h_kern, 35, "subpixel kernel width");
   ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_v_kern, 35, "subpixel kernel height");
 
-  ASSOC_INT_NODEFAULT("H_CORR_MAX", h_corr_max, "correlation window size max x");
-  ASSOC_INT_NODEFAULT("H_CORR_MIN", h_corr_min, "correlation window size min x");
-  ASSOC_INT_NODEFAULT("V_CORR_MAX", v_corr_max, "correlation window size max y");
-  ASSOC_INT_NODEFAULT("V_CORR_MIN", v_corr_min, "correlation window size min y");
+  ASSOC_INT("H_CORR_MAX", h_corr_max, 0, "correlation window size max x");
+  ASSOC_INT("H_CORR_MIN", h_corr_min, 0, "correlation window size min x");
+  ASSOC_INT("V_CORR_MAX", v_corr_max, 0, "correlation window size max y");
+  ASSOC_INT("V_CORR_MIN", v_corr_min, 0, "correlation window size min y");
 
   ASSOC_INT("DO_H_SUBPIXEL", do_h_subpixel, 1, "Do vertical subpixel interpolation.");
   ASSOC_INT("DO_V_SUBPIXEL", do_v_subpixel, 1, "Do horizontal subpixel interpolation.");
@@ -181,14 +180,6 @@ void StereoSettings::read(std::string const& filename) {
   po::notify(m_vm);
   vw::vw_out(0) << "*************************************************************\n";
   fp.close();
-
-  // Checking to see if search range was defined.
-  if ( this->is_search_defined() ) {
-    this->h_corr_max = 100;
-    this->h_corr_min = -100;
-    this->v_corr_max = 10;
-    this->v_corr_min = -10;
-  }
 }
 
 void StereoSettings::copy_settings(std::string const& filename, std::string const& destination) {

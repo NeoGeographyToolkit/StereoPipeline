@@ -38,8 +38,8 @@ public:
   void read(std::string const& filename);
   void copy_settings(std::string const& filename, std::string const& destination);
   bool is_search_defined( void ) {
-    return m_vm.count("H_CORR_MAX") || m_vm.count("H_CORR_MIN") ||
-      m_vm.count("V_CORR_MIN") || m_vm.count("V_CORR_MAX");
+    return h_corr_min != 0 || h_corr_max != 0 ||
+           v_corr_min != 0 || v_corr_max != 0;
   }
 
   // ----------------
