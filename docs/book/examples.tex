@@ -8,13 +8,96 @@ provide starting point ideas.
 
 \section{Apollo 15 Metric Camera}
 
-\subsection{Hadley Rille}
+\subsection{Ansgarius C}
 
 \subsubsection*{Screenshot}
 
+\begin{figure}[hb]
+\centering
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/metric/metric_example.png}}
+  \hfil
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/metric/metric_ge_example.png}}
+\caption{Example output possible with Apollo Metric frames.}
+\label{fig:metric_example}
+\end{figure}
+
 \subsubsection*{Commands}
 
+\begin{verbatim}
+    % Process tif files with not yet released commands %
+    reduce from=AS15-M-2380.cub to=sub4-AS15-M-2380.cub sscale=4 lscale=4
+    reduce from=AS15-M-2381.cub to=sub4-AS15-M-2381.cub sscale=4 lscale=4
+    spiceinit from=sub4-AS15-M-2380.cub
+    spiceinit from=sub4-AS15-M-2381.cub
+    ipfind --max 10000 sub4*.cub
+    ipmatch -i 50 -r homography sub4*.cub
+    mkdir result
+    stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub result/output
+\end{verbatim}
+
 \subsubsection*{Stereo Default}
+
+\begin{verbatim}
+    ##      PREPROCESSING      ##
+
+    DO_INTERESTPOINT_ALIGNMENT 1
+    DO_EPIPOLAR_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    FORCE_USE_ENTIRE_RANGE 1
+
+    PREPROCESSING_FILTER_MODE 3
+    SLOG_KERNEL_WIDTH 1.5
+
+    ###########################    CORRELATION    ###########################
+
+    H_KERNEL 35
+    V_KERNEL 35
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
+
+    H_CORR_MIN -250
+    H_CORR_MAX 250
+    V_CORR_MIN -70
+    V_CORR_MAX 100
+
+    SUBPIXEL_MODE 3
+    DO_H_SUBPIXEL 1
+    DO_V_SUBPIXEL 1
+
+    XCORR_THRESHOLD 2.0
+    CORRSCORE_REJECTION_THRESHOLD 1.4
+
+    COST_BLUR 25
+    COST_MODE 2
+
+    ############################    FILTERING    ############################
+
+    FILL_HOLES 1
+    MASK_FLATFIELD 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percest
+    RM_THRESHOLD 3
+
+    #############################    DOTCLOUD    ############################
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+
+\end{verbatim}
+
+\subsubsection*{Comments}
+
+Apollo Metric images were all taken at regular intervals, that means
+that the same stereo.default can be used for all sequential pairs of
+images. Apollo Metric images are some of easiest images to make stereo
+data from.
+
+The scans performed by ASU are absurdly detailed to the extent that the
+film grain can be made out. This detail of information is not helpful
+for the correlator, so it is recommended that subsampling the image by
+4 so an actual signal is available at 1 px samplings.
 
 \section{Cassini ISS NAC}
 
@@ -22,17 +105,15 @@ provide starting point ideas.
 
 \subsubsection*{Screenshot}
 
-\subsubsection*{Commands}
-
-\subsubsection*{Stereo Default}
-
-\subsection{Rhea}
-
-\subsubsection*{Screenshot}
+text
 
 \subsubsection*{Commands}
 
+text
+
 \subsubsection*{Stereo Default}
+
+text
 
 \section{Lunar Reconaissance Orbiter LROC-NA}
 
@@ -40,9 +121,15 @@ provide starting point ideas.
 
 \subsubsection*{Screenshot}
 
+text
+
 \subsubsection*{Commands}
 
+text
+
 \subsubsection*{Stereo Default}
+
+text
 
 \section{Mars Global Surveyor MOC-NA}
 
@@ -50,9 +137,15 @@ provide starting point ideas.
 
 \subsubsection*{Screenshot}
 
+text
+
 \subsubsection*{Commands}
 
+text
+
 \subsubsection*{Stereo Default}
+
+text
 
 \section{Mars Reconaissance Orbiter CTX}
 
@@ -60,37 +153,86 @@ provide starting point ideas.
 
 \subsubsection*{Screenshot}
 
-\subsubsection*{Commands}
-
-\subsubsection*{Stereo Default}
-
-\subsection{Victoria Crater}
-
-\subsubsection*{Screenshot}
+text
 
 \subsubsection*{Commands}
 
+text
+
 \subsubsection*{Stereo Default}
+
+text
 
 \section{Mars Reconaissance Orbiter HiRISE}
 
-\subsection{Crater cut Ganges Chasma}
+\subsection{Columbia Hills}
 
 \subsubsection*{Screenshot}
 
+text
+
 \subsubsection*{Commands}
 
+text
+
 \subsubsection*{Stereo Default}
+
+text
 
 \subsection{Victoria Crater}
 
 \subsubsection*{Screenshot}
 
+text
+
 \subsubsection*{Commands}
+
+text
 
 \subsubsection*{Stereo Default}
 
+text
+
 \section{MESSENGER MDIS}
 
-I'm not sure if Messenger has any stereo pairs. It would be pretty
-cool if it did.
+\subsection{Wide Angle on flyby 2}
+
+\subsubsection*{Screenshot}
+
+\begin{figure}[ht]
+  \begin{center}
+  \includegraphics[width=5in]{images/examples/mdis/mdis_wide_example.png}
+  \end{center}
+  \caption{ A rough attempt at MDIS imagery }
+  \label{fig:mdis_attempt}
+\end{figure}
+
+\subsubsection*{Commands}
+
+\begin{verbatim}
+    mdis2isis from=EW0108825359A.IMG to=EW0108825359A.cub
+    mdis2isis from=EW0108825379C.IMG to=EW0108825379C.cub
+    spiceinit from=EW0108825359A.cub
+    spiceinit from=EW0108825359C.cub
+    ipfind --max 10000 *.cub
+    ipmatch -i 10 -r homography *.cub
+    mkdir result
+    stereo EW0108825359A.cub EW0108825379C.cub stereo/output
+\end{verbatim}
+
+\subsubsection*{Stereo Default}
+
+\subsubsection*{Comments}
+
+This a proof of concept. Like most imagery coming from spacecraft that
+are currently not in orbit with their target, it is very hard to find
+good stereo pairs. This is taken from a single flyby from the same
+camera seconds apart. Unfortunately theres not enough of a perspective
+change to make anything other than the spherical surface.
+
+For future mappers, flyby 3 happen recently. It seems flyby 3 and
+flyby 2 could have covered some of the same terrain with the narrow
+angle camera. Working with the narrow angle should provide a better
+stereo pair as our software seems is tuned to larger kernels.
+
+
