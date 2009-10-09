@@ -99,8 +99,8 @@ int main( int argc, char *argv[] ) {
   BBox2 disp_range = get_disparity_range(disk_disparity_map);
   vw_out(0) << "\t    Horizontal - [" << disp_range.min().x() << " " << disp_range.max().x() << "]    Vertical: [" << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
 
-  ImageViewRef<PixelMask<float> > horizontal = copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)),disk_disparity_map);
-  ImageViewRef<PixelMask<float> > vertical = copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)),disk_disparity_map);
+  ImageViewRef<float32> horizontal = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)),disk_disparity_map));
+  ImageViewRef<float32> vertical = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)),disk_disparity_map));
 
   vw_out(0) << "\t--> Saving disparity debug images\n";
   if (vm.count("float-pixels")) {
