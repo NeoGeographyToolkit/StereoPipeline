@@ -313,7 +313,7 @@ int main(int argc, char* argv[]) {
       sub_threads--;
       tile_power = int( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
     }
-    int sub_tile_size = int ( pow(2.0,float(tile_power)) );
+    int sub_tile_size = int ( pow(2., tile_power) );
     if ( sub_tile_size > vw_settings().default_tile_size() )
       sub_tile_size = vw_settings().default_tile_size();
 
@@ -381,7 +381,7 @@ int main(int argc, char* argv[]) {
 
     if (vm.count("optimized-correlator")) {
       if (stereo_settings().pre_filter_mode == 3) {
-        vw_out(0) << "\t--> Using SLOG pre-processing filter with width: "
+        vw_out(0) << "\t--> Using LOG pre-processing filter with width: "
                   << stereo_settings().slogW << std::endl;
         disparity_map = correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
                                            stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW),
@@ -462,7 +462,16 @@ int main(int argc, char* argv[]) {
 
       // Affine and Bayes subpixel refinement always use the
       // LogPreprocessingFilter...
-      if (stereo_settings().subpixel_mode > 0) {
+      if (stereo_settings().subpixel_mode == 4) {
+	vw_out(0) << "\t--> Using EM Subpixel mode " << stereo_settings().subpixel_mode << std::endl;
+	vw_out(0) << "\t--> Mode 4 does internal preprocessing; settings will be ignored. " << std::endl;
+	
+	write_image("course_map.tif", disparity_disk_image);
+	disparity_map = stereo::EMSubpixelCorrelatorView<float32>(channels_to_planes(left_disk_image),
+								  channels_to_planes(right_disk_image),
+								  disparity_disk_image, false);
+      }
+      else if (stereo_settings().subpixel_mode > 0) {
         vw_out(0) << "\t--> Using affine adaptive subpixel mode "
                   << stereo_settings().subpixel_mode << "\n";
         vw_out(0) << "\t--> Forcing use of LOG filter with "
@@ -613,7 +622,7 @@ int main(int argc, char* argv[]) {
             sub_threads--;
             tile_power = int( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
           }
-          int sub_tile_size = int ( pow(2.0,float(tile_power)) );
+          int sub_tile_size = int ( pow(2., tile_power) );
           if ( sub_tile_size > vw_settings().default_tile_size() )
             sub_tile_size = vw_settings().default_tile_size();
 
