@@ -87,11 +87,12 @@ AX_COMMON_OPTIONS
 ##################################################
 
 AX_ARG_ENABLE(strict-aliasing, no, [none],           [allow strict aliasing (dangerous)])
+AX_ARG_ENABLE(qt-qmake,      yes, [none],            [Allow qmake detection of QT])
+
 
 ##################################################
 # Handle options
 ##################################################
-
 
 
 
@@ -175,24 +176,40 @@ AX_PKG(OPENSCENEGRAPH, [GL], [-losg -losgDB -lOpenThreads -losgViewer -losgText 
 
 AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
-# Qt with AutoTroll.
-AT_WITH_QT([+gui +sql +opengl], [], [], [HAVE_PKG_QT_BASE="no:missing QT"], [])
-
-if test x"$HAVE_PKG_QT_BASE" != x"no:missing QT"; then
-    AT_REQUIRE_QT_VERSION([4.0], [HAVE_PKG_QT_BASE="no:wrong QT version"], [])
+if test "$HAVE_PKG_QT" = no; then
+    ENABLE_QT_QMAKE=no
 fi
 
-# We seed QT_BASE's cppflags and libs with the ones qmake figured out
-PKG_QT_BASE_CPPFLAGS="$PKG_QT_BASE_CPPFLAGS $QT_CPPFLAGS"
-AX_PKG(QT_BASE, [], [$QT_LIBS], [QVector])
+if test "$ENABLE_QT_QMAKE" = no; then
+  AX_GROUP_PKG([QT_QMAKE])
+else
+  # Qt with AutoTroll.
+  AT_WITH_QT([+gui +sql +opengl], [], [], [HAVE_PKG_QT_QMAKE="no:missing QT"], [])
+
+  if test x"$HAVE_PKG_QT_QMAKE" != x"no:missing QT"; then
+      AT_REQUIRE_QT_VERSION([4.0], [HAVE_PKG_QT_QMAKE="no:wrong QT version"], [])
+  fi
+
+  # We seed QT_QMAKE's cppflags and libs with the ones qmake figured out
+  PKG_QT_QMAKE_CPPFLAGS="$PKG_QT_QMAKE_CPPFLAGS $QT_CPPFLAGS"
+  AX_PKG(QT_QMAKE, [], [$QT_LIBS], [QVector])
+fi
 
 AX_PKG_ONE_OF(QT,
-    APPLE_QT, [AX_PKG_APPLE(QT, [GL QT_BASE], [])],
-    LINUX_QT,
-     [AX_PKG(QT_OPENGL,  [QT_BASE], [], [QtOpenGL])
-      AX_PKG(QT_GUI,     [QT_BASE], [], [QLabel])
-      AX_PKG(QT_SQL,     [QT_BASE], [], [QtSql])
-      AX_GROUP_PKG(LINUX_QT, [QT_BASE QT_GUI QT_OPENGL QT_SQL])])
+    APPLE_QMAKE_QT, [AX_PKG_APPLE(QMAKE_QT, [GL QT_QMAKE], [])],
+    LINUX_QMAKE_QT,
+     [AX_PKG(QT_QMAKE_OPENGL, [QT_QMAKE], [], [QtOpenGL])
+      AX_PKG(QT_QMAKE_GUI,    [QT_QMAKE], [], [QLabel])
+      AX_PKG(QT_QMAKE_SQL,    [QT_QMAKE], [], [QtSql])
+      AX_GROUP_PKG(LINUX_QMAKE_QT, [QT_QMAKE QT_QMAKE_GUI QT_QMAKE_OPENGL QT_QMAKE_SQL])],
+    GUESS_QT,
+     [PKG_QT_GUESS_BASE_CPPFLAGS="$PKG_QT_GUESS_BASE_CPPFLAGS -DQT_SHARED"
+      AX_PKG(QT_GUESS_BASE,   [],                           [],           [QtCore/qstring.h])
+      AX_PKG(QT_GUESS_CORE,   [QT_GUESS_BASE],              [-lQtCore],   [QtCore],   [QtCore])
+      AX_PKG(QT_GUESS_GUI,    [QT_GUESS_CORE],              [-lQtGui],    [QtGui],    [QtGui])
+      AX_PKG(QT_GUESS_SQL,    [QT_GUESS_CORE],              [-lQtSql],    [QtSql],    [QtSql])
+      AX_PKG(QT_GUESS_OPENGL, [QT_GUESS_CORE QT_GUESS_GUI], [-lQtOpenGL], [QtOpenGL], [QtOpenGL])
+      AX_GROUP_PKG(GUESS_QT,  [QT_GUESS_BASE QT_GUESS_CORE QT_GUESS_GUI QT_GUESS_SQL QT_GUESS_OPENGL])])
 
 AX_PKG_ONE_OF(QWT,
     APPLE_QWT, [AX_PKG_APPLE(QWT, [QT_BASE], [-lqwt.5])],
