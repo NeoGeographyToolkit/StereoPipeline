@@ -1,0 +1,343 @@
+\chapter{Setting in the stereo.default File}
+\label{chapter:stereodefault}
+
+The \texttt{stereo.default} file contains configuration parameters
+which the \texttt{stereo} program uses to process the images.  Below
+we will walk through the contents of the \texttt{stereo.default.example}
+file distributed with the Ames Stereo Pipeline and discuss all of
+the various parameters.
+
+The parameters which begin with `\texttt{DO\_}' are true/false options,
+when set to `1' they are `on' or `true,' and if set to `0' they are
+`off' or `false.'
+
+The parameters below also have their default values listed after
+the parameter name.
+
+\subsubsection*{Preprocessing}
+\hrule
+\bigskip
+
+\begin{description}
+\item[DO\_INTERESTPOINT\_ALIGNMENT \textnormal{\small{(= 0,1)}}] \hfill \\
+
+  When \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is set to 1,
+  \texttt{stereo} will perform \texttt{ipfind} and \texttt{ipmatch} to
+  generate a \texttt{.match} file that list interesting points that
+  can be found in both images. From this \texttt{.match} file, the
+  overlap of the images can be calculated and the right image is
+  transformed respectively. If these results are found unsatisfactory
+  the user can calculate \texttt{.vwip} or \texttt{.match} files
+  before hand using whatever tools deemed 'best', just be sure to keep
+  naming conventions the same as what \texttt{stereo} produces. An
+  extreme alternative is described in the appendix (page
+  \pageref{appendix_surf}).
+
+\item[DO\_EPIPOLAR\_ALIGNMENT \textnormal{\small{(= 0,1)}}] \hfill \\
+
+  By default this is off.  When on, epipolar alignment is the
+  alternative to interest point alignment. This means instead of using
+  interest points to calculate the initial overlap, the inherent
+  underlining geometry of the cameras that took the images are
+  used. This option is unfortunately limited in use only to stereo
+  sessions that provide pinhole camera models.
+
+\item[INTERESTPOINT\_ALIGNMENT\_SUBSAMPLING \textnormal{\small{(= 0,1)}}] \hfill \\
+
+  \emph{This settings is only for Keypoint and CTX stereo sessions.}
+
+  This option allows you to change the density of interest points that
+  stereo will find, correlate, and result in the final point cloud.
+  When this is set to 1, there is no subsampling, the \texttt{stereo}
+  program will do its best to find as many interest points within the
+  imagery as it can.  When this is set to 2, the program will ignore
+  every other interest point that it finds, and will only process the
+  reduced set.  This parameter can be set to any positive integer.
+  When this parameter is turned up, the resulting point cloud will
+  have less effective resolution.
+
+\item[DO\_INDIVIDUAL\_NORMALIZATION \textnormal{\small{(= 0,1)}}] \hfill \\
+
+  \emph{This setting is only for ISIS stereo session.}
+
+  The default method is that the images are normalized to a pairs
+  maximum and minimum channel value. This option forces each image to
+  normalized to their own maximums and minimums. This is useful for in
+  the event that images after calibration have different and
+  non-overlapping dynamic ranges. To diagnose if this option is
+  needed, after a failed stereo attempt, one of the rectified images
+  might be either mostly white or black. In that case, use this
+  option. Alternatively normalization can be applied before hand with
+  ISIS's own utilities.
+
+\item[FORCE\_USE\_ENTIRE\_RANGE \textnormal{\small{(= 0,1)}}] \hfill \\
+
+  \emph{This setting is only for ISIS stereo session.}
+
+  By default, Isis sessions when normalizing will choose their maximum and
+  minimum channel value as being $\pm$ 2 standard deviations from the
+  mean. In the event of images that have already had their histograms
+  set correctly, using this options will force normalization to use
+  the images' real minimum and maximum channel values.
+
+\end{description}
+
+\subsubsection*{Correlation}
+\hrule
+\bigskip
+
+\begin{description}
+
+\item[PREPROCESSING\_FILTER\_MODE \textnormal{\small{(= 0,1,2,3)}}] \hfill \\
+
+  This selects the pre-processing filter to be used on the imagery
+  that is fed to the integer correlator. Decision of what is the best
+  pre-processing filter must be made with thought on what cost
+  function is being used. First, here are the available options.
+
+  \begin{description}
+    \item[0 - None]
+    \item[1 - Gaussian Blur]
+    \item[2 - LoG Filter]
+    \item[3 - Signed LoG Filter]
+  \end{description}
+
+  LoG preprocessing filters are good for providing light invariance
+  between images and this is usually the recommend choice of what to
+  work with. Signed LoG provides a speed advantage only when using and
+  absolute difference cost function. Blurred preprocessing is sometimes
+  helpful when working with the normalized cross correlation cost
+  function.
+
+\item[SLOG\_KERNEL\_WIDTH \textnormal{\small{(= \emph{float})}}] \hfill \\
+
+  This defines the diameter of the convolution kernel used for the LoG
+  filters. A recommended value is 1.5.
+
+\item[H\_KERNEL \textnormal{\small{(= \emph{integer})}}]
+\item[V\_KERNEL \textnormal{\small{(= \emph{integer})}}] \hfill \\
+
+  These two items determine the size of the kernel in the horizontal
+  \emph{(H)} and vertical \emph{(V)} directions in the input images.
+
+\item[SUBPIXEL\_H\_KERNEL \textnormal{\small{(= \emph{integer})}}]
+\item[SUBPIXEL\_V\_KERNEL \textnormal{\small{(= \emph{integer})}}] \hfill \\
+
+  These two items are only relevant when the \texttt{DO\_H\_SUBPIXEL}
+  and \texttt{DO\_V\_SUBPIXEL} parameters (detailed below) are `on.'
+  They specify the size of the subpixel kernel in the horizontal
+  \emph{(H)} and vertical \emph{(V)} directions.
+
+\item[H\_CORR\_MIN \textnormal{\small{(= \emph{integer})}}]
+\item[H\_CORR\_MAX \textnormal{\small{(= \emph{integer})}}]
+\item[V\_CORR\_MIN \textnormal{\small{(= \emph{integer})}}]
+\item[V\_CORR\_MAX \textnormal{\small{(= \emph{integer})}}] \hfill \\
+
+  These parameters determine the size of the correlation search window
+  that the kernel will be moved around within to find a match. Not
+  setting these values will cause stereo to make an attempt at guess
+  it's search range through interest points.
+
+\item[SUBPIXEL\_MODE \textnormal{\small{(= 0,1,2,3)}}] \hfill \\
+
+  This parameter determines the method by which subpixel correlation
+  is performed. These algorithms arranged according to speed and
+  quality. Parabola subpixel is very fast but is not of the best
+  quality. While mode 3 is very slow but offers the best quality. When
+  tuning, it is best to start out with parabola. When it works with
+  parabola it will work with mode 3.
+
+  \begin{description}
+    \item[0 - parabola fitting ]
+    \item[1 - affine adaptive window, robust weighting ]
+    \item[2 - affine adaptive window, bayes weighting ]
+    \item[3 - affine adaptive window, bayes EM weighting ]
+  \end{description}
+
+  For a visual explaination of what quality to expect with these
+  modes, check out section \ref{sec:subpixel_correlation}.
+
+\item[DO\_H\_SUBPIXEL \textnormal{\small{(= 0,1)}}]
+\item[DO\_V\_SUBPIXEL \textnormal{\small{(= 0,1)}}] \hfill \\
+
+  These parameters turn `on' and `off' the subpixel correlation
+  algorithms. For the most part, you almost always want these `on'. In
+  some applications, like rovers, shutting off subpixel in one
+  direction can offer additional speed with little cost in quality.
+
+\item[XCORR\_THRESHOLD \textnormal{\small{(= \emph{float})}}] \hfill \\ 
+
+  This cross-correlation threshold determines ... \emph{MJB: describe}
+
+\item[CORRSCORE\_REJECTION\_THRESHOLD \textnormal{\small{(= \emph{float})}}] \hfill \\
+
+  \emph{MJB: describe}
+
+\item[COST\_BLUR \textnormal{\small{(= \emph{float})}}] \hfill \\
+
+  Turn this up to improve the results of the discrete correlation step.
+  This will reduce the number of missing pixels, but will reduce the
+  overall accuracy of the disparity estimates.  It is best used in
+  conjuction with affine adaptive window subpixel modes above.
+
+\item[COST\_MODE \textnormal{\small{(= 0,1,2)}}] \hfill \\
+
+  This allows for the selection of the cost function used during the
+  integer correlation. As mention previously, it is best to use
+  absolute differences when working with the SLoG preprocessing
+  filter. Otherwise, using the normalized cross correlation cost
+  function is recommended.
+
+  \begin{description}
+    \item[0 - absolute difference]
+    \item[1 - squared difference]
+    \item[2 - normalized cross correlation]
+  \end{description}
+
+\end{description}
+
+\subsubsection*{Filtering}
+\hrule
+\bigskip
+
+\begin{description}
+
+\item[FILL\_HOLES \textnormal{\small{(= 0,1)}}] \hfill \\
+
+  When this is `on' the holes in the disparity map (which are a result
+  of poor matching) will be filled by an inpainting method. The
+  inpainting method is a convolution method the rings the hole and
+  spreads the values inward. This method performs best for small
+  scratches and small holes. Inpaint method is currently hard-coded so
+  that it doesn't attempt to inpaint holes greater than 100,000
+  pixels.
+
+\item[RM\_H\_HALF\_KERN \textnormal{\small{(= \emph{integer})}}]
+\item[RM\_V\_HALF\_KERN \textnormal{\small{(= \emph{integer})}}] \hfill \\
+
+  These two parameters determine the size of the half kernel which is
+  used to perform the automatic removal of low confidence pixels.  So
+  a $5 \times 5$ half kernel would result in an $11 \times 11$ kernel
+  with 121 pixels in it.
+
+\item[RM\_MIN\_MATCHES \textnormal{\small{(= \emph{integer})}}] \hfill \\
+
+  \emph{MJB: detail.  stereo.default comment says `Units = percest'
+    should that be `percent?'}
+
+\item[RM\_TRESHOLD \textnormal{\small{(= \emph{integer})}}] \hfill \\
+
+  \emph{MJB: detail}
+
+\end{description}
+
+\subsubsection*{Dot Cloud}
+\hrule
+\bigskip
+
+\begin{description}
+\item[NEAR\_UNIVERSE\_RADIUS \textnormal{\small{(= \emph{float})}}]
+\item[FAR\_UNIVERSE\_RADIUS \textnormal{\small{(= \emph{float})}}] \hfill \\
+
+  These parameters set the size of the dot cloud's `universe' in
+  meters and altitude off the ground.  Setting both to zero turns off
+  this restriction and allows the dot cloud to be as big as the data
+  allows for. \emph{MJB: I extemporized this, please correct.}
+
+\end{description}
+
+\subsection{Output Files}
+The files that \verb=stereo= creates are as follows (assuming
+\verb=<output_file_prefix>= is set to be `\verb=out=' although it need
+not be):
+
+\emph{MJB: detail all of these.}
+
+\begin{description}
+
+\item[VWIP extension] \hfill \\ 
+  One of these Vision Workbench Interest
+  Point files will be created for each input image. If your images are
+  \texttt{left.cub} and \texttt{right.cub} you'll get
+  \texttt{left.vwip} and \texttt{right.vwip}. The \texttt{.vwip} file
+  is an intermediate file that highlights unique points in an
+  image. They are created with the default settings of \texttt{ipfind}
+  from the Vision Workbench.
+
+\item[MATCH extension] \hfill \\ 
+  The match file lists a select group
+  of unique points out of the previous \texttt{.vwip} files that have
+  been properly identified in both images. This match file is used to
+  calculate the intial overlap of the images if
+  \texttt{DO\_INTERESTPOINT\_ALIGNMENT} has been set.  \emph{Again, if
+    your images are \texttt{left.cub} and \texttt{right.cub} you'll
+    get a \texttt{left\_\_right.match} file.}
+
+  The \texttt{.vwip} and \texttt{.match} files will only be created if
+  \texttt{DO\_INTERESTPOINT\_ALIGNMENT} has been set.  These files can
+  help speed up the process while you fool around with parameters in
+  your \texttt{stereo.default} file, since their contents are not
+  affected by other parameters.  If these files exist, then the
+  \texttt{stereo} program will skip over the interest point alignment
+  stage and just use these files.  So if you run \texttt{stereo} on
+  the same pair of images more than once, don't delete these files,
+  take advantage of them.  Of course, if you do, \texttt{stereo} will
+  just rebuild them.  Also, you don't have to worry about these files
+  being `bad' since their contents aren't affected by changes to the
+  \texttt{stereo.default} file.  In the rare case that one of these
+  files did get corrupted, you would get a `failed to read interest
+  point file' error message from \texttt{stereo}.
+
+\item[*-L.TIF suffix] \hfill \\
+  Left image in the stereo pair (mostly identical to input).
+
+\item[*-R.TIF suffix] \hfill \\
+  Right (ailgned) image of the stereo pair.
+
+\item[*-lMask.TIF suffix]
+\item[*-rMask.TIF suffix] \hfill \\
+  Image masks
+
+\item[*-align.EXR suffix] \hfill \\
+  Alignment.  The linear affine transformation that
+  results from interest point alignment.  If
+  \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is off in the
+  \texttt{stereo.default} file, then this file won't get made.
+
+\item[*-D.EXR suffix] \hfill \\
+  This is the unfiltered disparity map, straight
+  out of the integer pixel correlator.  Contains only integer values
+  of disparity.
+
+\item[*-R.EXR suffix] \hfill \\
+  Disparity map after sub-pixel refinement.
+
+\item[*-F-corrected.EXR suffix] \hfill \\
+  Only created when \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is on.
+  Disparity map with effects of interest point alignment removed.
+  Intermediate data product.
+
+\item[*-F.EXR suffix] \hfill \\
+  The Filtered, sub-pixel disparity map with outlier removal and holes
+  filled in (only exists if \texttt{FILL\_HOLES\_NURBS} is on).
+
+\item[*-GoodPixelMap.TIF suffix] \hfill \\
+  An image showing which pixels were matched by the stereo correlator,
+  and which were filled in by the hole filling algorithm.
+
+\item[*-PC.TIF suffix] \hfill \\
+  Point Cloud image with 3D locations for each point.  Stored as a
+  64 bit, 3 channel TIFF, with coordinates in body-fixed planetocentric
+  coordinate system.  Odds are good that your usual TIFF viewer
+  programs will not visualize this file properly.  This file should
+  really be considered a `data' file, not an `image' file.  Other
+  programs in the Stereo Pipeline will convert the contents of this
+  file to more easily vizualized formats.
+
+\item[*-stereo.default file] \hfill \\
+  This is a copy of the \texttt{stereo.default} file
+  used during the run of \texttt{stereo} that built all of these
+  files.
+
+\end{description}
+

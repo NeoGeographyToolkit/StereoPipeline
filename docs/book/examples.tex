@@ -6,17 +6,56 @@ commands and stereo.default files used to process data. It can be hard
 try to figure out what settings to start with and hopefully this will
 provide starting point ideas.
 
-\section{Apollo 15 Metric Camera}
+\section{Guidelines for Selecting Stereo Pairs}
+
+When choosing image pairs to process, images that are taken with
+similar viewing angles, lighting conditions, and significant surface
+coverage overlap ($\sim80$\% is ideal) are the best suited for
+creating terrain models from. Depending on the characteristics of
+the mission data set and the individual images, the degree of
+acceptable variation will differ. Significant differences between
+image characteristics increases the error propagated through to the
+resulting data products.
+
+Images do not need to be map projected before running the \texttt{stereo}
+program. That being said, for images which contain large topographic
+variation (and therefore large disparity differences across the
+scene--think Valles Marineris), sometimes map-projecting the images
+can help, as it sometimes improves the correlation (at least until
+we get our adaptive correlation window strategies in place).  However,
+be careful about map-projecting.  For example, the HiRISE RDR
+products, which are map projected, have been map-projected onto a
+smoothed MOLA terrain model, so these images are not suitable for
+stereo processing, because the act of projecting them on to a terrain
+model introduces disparity into the source images that will lead
+to poor results.
+
+The images should be photometrically calibrated (in whatever fashion
+suits your purposes), as excessively noisy images will not correlate
+well.  If there are photometric problems with the images, those
+photometric defects could be misinterpreted as topography.
+
+The Stereo Pipeline can deal with arbitrary images with accompanying
+camera information, but doing so requires a significant amount of
+extra work and setup which are not covered in this document, and
+are considered `advanced usage.'  The image type that is easiest
+for the user to provide and for the Stereo Pipeline's \texttt{stereo}
+program to ingest are ISIS 3 cube files (\texttt{.cub}).  In order
+for \texttt{stereo} to utilize the detailed camera data available
+for planetary data (SPICE), the images must have had ISIS's
+\texttt{spiceinit} program run on them.
+
+\section{Apollo 15 Metric Camera Images}
 
 Apollo Metric images were all taken at regular intervals, that means
 that the same stereo.default can be used for all sequential pairs of
 images. Apollo Metric images are some of easiest images to make stereo
 data from.
 
-The scans performed by ASU are absurdly detailed to the extent that the
-film grain can be made out. This detail of information is not helpful
-for the correlator, so it is recommended that subsampling the image by
-4 so an actual signal is available at 1 px samplings.
+The scans performed by ASU are so detailed that the film grain can be
+made out. This detail of information is not helpful for the
+correlator, so it is recommended that subsampling the image by 4 so an
+actual signal is available at 1 px samplings.
 
 Currently the tools to ingest Apollo TIFFs into ISIS are not currently
 available.
