@@ -8,11 +8,27 @@ provide starting point ideas.
 
 \section{Apollo 15 Metric Camera}
 
+Apollo Metric images were all taken at regular intervals, that means
+that the same stereo.default can be used for all sequential pairs of
+images. Apollo Metric images are some of easiest images to make stereo
+data from.
+
+The scans performed by ASU are absurdly detailed to the extent that the
+film grain can be made out. This detail of information is not helpful
+for the correlator, so it is recommended that subsampling the image by
+4 so an actual signal is available at 1 px samplings.
+
+Currently the tools to ingest Apollo TIFFs into ISIS are not currently
+available.
+
 \subsection{Ansgarius C}
+
+Ansgarius C is a small crater on the west edge of the farside of the
+Moon, near the equator. It is east of Kapteyn A and B.
 
 \subsubsection*{Screenshot}
 
-\begin{figure}[hb]
+\begin{figure}[h!]
 \centering
   \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/metric/metric_example.png}}
   \hfil
@@ -86,18 +102,6 @@ provide starting point ideas.
     FAR_UNIVERSE_RADIUS 0.0
 
 \end{verbatim}
-
-\subsubsection*{Comments}
-
-Apollo Metric images were all taken at regular intervals, that means
-that the same stereo.default can be used for all sequential pairs of
-images. Apollo Metric images are some of easiest images to make stereo
-data from.
-
-The scans performed by ASU are absurdly detailed to the extent that the
-film grain can be made out. This detail of information is not helpful
-for the correlator, so it is recommended that subsampling the image by
-4 so an actual signal is available at 1 px samplings.
 
 \section{Cassini ISS NAC}
 
@@ -179,7 +183,21 @@ text
 
 text
 
-\subsection{Victoria Crater}
+\subsection{East Mareotis Tholus}
+
+\subsubsection*{Screenshot}
+
+text
+
+\subsubsection*{Commands}
+
+text
+
+\subsubsection*{Stereo Default}
+
+text
+
+\subsection{North Terra Meridiani Crop}
 
 \subsubsection*{Screenshot}
 
@@ -195,11 +213,30 @@ text
 
 \section{MESSENGER MDIS}
 
+This a proof of concept showing of the strength of building on top of
+ISIS. MDIS data is not a goal for the designers but it does have a
+camera model in ISIS. This alone means that it too can be processed by
+the Ames Stereo Pipeline.
+
+For future mappers it is suggested checking out Mercury Flyby 3 data
+which was not available at the time of this writing. Flyby 3 and Flyby
+2 seem to have covered some of the same terrain with the narrow angle
+camera.
+
 \subsection{Wide Angle on flyby 2}
+
+Like most imagery coming from spacecraft that are currently not in
+orbit with their target, it is very hard to find good stereo
+pairs. This is taken from a single flyby from the same camera seconds
+apart. It should also be noted that this pair is taken from different
+wave lengths as well \emph{(The letter at the end of the file
+  designates the current filter being used on the wide angle
+  camera)}. Unfortunately theres not enough of a perspective change to
+make anything other than the spherical surface.
 
 \subsubsection*{Screenshot}
 
-\begin{figure}[ht]
+\begin{figure}[h!]
   \begin{center}
   \includegraphics[width=5in]{images/examples/mdis/mdis_wide_example.png}
   \end{center}
@@ -222,17 +259,52 @@ text
 
 \subsubsection*{Stereo Default}
 
-\subsubsection*{Comments}
+\begin{verbatim}
+    ##      PREPROCESSING      ##
 
-This a proof of concept. Like most imagery coming from spacecraft that
-are currently not in orbit with their target, it is very hard to find
-good stereo pairs. This is taken from a single flyby from the same
-camera seconds apart. Unfortunately theres not enough of a perspective
-change to make anything other than the spherical surface.
+    DO_INTERESTPOINT_ALIGNMENT 1
+    DO_EPIPOLAR_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_INDIVIDUAL_NORMALIZATION 1
+    FORCE_USE_ENTIRE_RANGE 0
 
-For future mappers, flyby 3 happen recently. It seems flyby 3 and
-flyby 2 could have covered some of the same terrain with the narrow
-angle camera. Working with the narrow angle should provide a better
-stereo pair as our software seems is tuned to larger kernels.
+    PREPROCESSING_FILTER_MODE 2
+    SLOG_KERNEL_WIDTH 1.5
 
+    ###########################    CORRELATION    ###########################
 
+    H_KERNEL 25
+    V_KERNEL 25
+    SUBPIXEL_H_KERNEL 19
+    SUBPIXEL_V_KERNEL 19
+
+    H_CORR_MIN -10
+    H_CORR_MAX 10
+    V_CORR_MIN -2
+    V_CORR_MAX 2
+
+    SUBPIXEL_MODE 2
+    DO_H_SUBPIXEL 1
+    DO_V_SUBPIXEL 1
+
+    XCORR_THRESHOLD 2.0
+    CORRSCORE_REJECTION_THRESHOLD 1.3
+
+    COST_BLUR 5
+    COST_MODE 0
+
+    ############################    FILTERING    ############################
+
+    FILL_HOLES 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percent
+    RM_THRESHOLD 3
+
+    #############################    DOTCLOUD    ############################
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+
+\end{verbatim}
