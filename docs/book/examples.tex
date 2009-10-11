@@ -139,7 +139,6 @@ Moon, near the equator. It is east of Kapteyn A and B.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-
 \end{verbatim}
 
 \section{Cassini ISS NAC}
@@ -208,7 +207,80 @@ text
 
 \section{Mars Reconaissance Orbiter HiRISE}
 
+HiRISE is one of the most challenging cameras to make 3D models
+from. This is because HiRISE exposures can be several GiBs each and
+working with this data requires patience as it will take time.
+
+One important fact to know about HiRISE is that it is composed of
+multiple linear CCDs that arranged side by side with some vertical
+offset. The vertical offset means that the CCDs will view the same
+terrain but at a slightly different time and a slightly different
+angle. Mosiacing the CCDs together to a single image is not a simple
+process and involves living with some imperfections.
+
+We recommend at this time mosiacing CCDs via a script provided by
+USGS. All red CCDs are project via cam2cam into the perspective of
+RED5 and then their relative offsets from each other using
+hijitreg. Finally the CCDs are hand mosiaced together using the
+average offset listed from hijitreg. Below is the script to perform
+this feat.
+
+\begin{verbatim}
+    text be here
+\end{verbatim}
+
+Finally we recommend map projecting the product and normalizing the
+stereo pair together.
+
+\begin{verbatim}
+    text be here
+\end{verbatim}
+
+In the future, it is our understanding that the HiRISE team would like
+to produce non-map-projected imagery from the PDS. When that happens
+the most of the above commands will no longer be required.
+
 \subsection{Columbia Hills}
+
+The description is taken and modified from the HiRISE instrument website.
+\url{http://hirise.lpl.arizona.edu/PSP_001513_1655}
+
+\begin{quotation}
+This HiRISE image shows the landing site of the Mars Exploration Rover
+Spirit. The impact crater in the upper left-hand portion of the image
+is "Bonneville Crater," which was investigated by Spirit shortly after
+landing. In the lower right-hand portion of the image is "Husband
+Hill," a large hill that Spirit climbed and where it spent much of its
+now nearly three-year mission.
+
+The bright irregularly-shaped feature in area north-west of Bonneville
+Crater is Spirit's parachute, now lying on the Martian surface. Near
+the parachute is the cone-shaped "backshell" that helped protect
+Spirit's lander during its seven-month journey to Mars. The backshell
+appears relatively undamaged by its impact with the martian
+surface. Wrinkles and folds in the parachute fabric are clearly
+visible.
+
+Immediately south west of Bonneville Crater shows Spirit's lander. The
+crater in the upper left-hand portion of the image, just to the
+northwest of the lander, is the one that the Mars Exploration Rover
+team named "Sleepy Hollow."
+
+The north rim of Bonneville Crater shows the damaged remnant of the
+heat shield that protected the vehicle during the high-speed entry
+through the Martian atmosphere. The heat shield impacted the surface
+after being separated from the vehicle during the final stages of the
+descent.
+
+South of Husband Hill shows the current location of Spirit. Toward the
+top of the image is "Home Plate," a plateau of layered rocks that
+Spirit explored during the early part of its third year on
+Mars. Spirit itself is clearly seen just to the southeast of Home
+Plate. Also visible are the tracks made by the rover before it arrived
+at its current location.
+
+Written by: Steve Squyres
+\end{quotation}
 
 \subsubsection*{Screenshot}
 
@@ -224,31 +296,208 @@ text
 
 \subsection{East Mareotis Tholus}
 
+The description is taken from the HiRISE instrument website.
+\url{http://hirise.lpl.arizona.edu/PSP_001760_2160}
+
+\begin{quotation}
+East Mareotis Tholus is a small volcano in Tempe Terra, Mars. This
+area is on the northeast edge of the Tharsis bulge that was built up
+by many large and small volcanoes.
+
+One of the many questions we hope to address with HiRISE is the
+relative roles of the giant shield volcanoes (such as Olympus Mons)
+and smaller volcanic features (such as East Mareotis Tholus).
+
+The anaglyph covers 4.4 x 6.9 km (2.7 x 4.9 miles) and the topography
+can be viewed using red-blue glasses. The elongated pit at the summit
+of the volcano is where the lava issued forth. The large circular hole
+just to the SW of the vent is an impact crater. The gouges in the
+ground to the SE of the volcano are tectonic fissures (called graben)
+that are now filled with sand dunes. The area is covered with large
+amounts of wind-blown dust, so it is not surprising that lava flows
+and other smaller volcanic features are not visible.
+
+However, the smooth shape of the volcano, and the lack of lava layers
+exposed in the impact crater, allow for the possiblity that this
+volcano is composed largely of ash, rather than lava flows.
+
+Written by: Laszlo P. Keszthelyi
+\end{quotation}
+
 \subsubsection*{Screenshot}
 
-text
+\begin{figure}[h!]
+\centering
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/hirise/emare_example.png}}
+  \hfil
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/hirise/emare_ge_example.png}}
+\caption{Example output using HiRISE data of East Mareotis Tholus.}
+\label{fig:hirise_emare_example}
+\end{figure}
 
 \subsubsection*{Commands}
 
-text
+\begin{verbatim}
+    % Download all of the IMG for PSP_001364_2160 & %
+    %                             PSP_001760_2160   %
+    ~/HiRISE_stitch.py PSP_001364_2160_RED0_0.IMG
+    ~/HiRISE_stitch.py PSP_001760_2160_RED0_0.IMG
+    cam2map from=PSP_001364_2160_REDmosaic.norm.cub to=PSP_001364_2160_REDmosaic.map.cub
+    cam2map from=PSP_001760_2160_REDmosaic.norm.cub map=PSP_001364_2160_REDmosaic.map.cub ...
+            to=PSP_001760_2160_REDmosaic.map.cub matchmap=true
+    bandnorm from=PSP_001364_2160_REDmosaic.map.cub to=PSP_001364_2160_REDmosaic.map.norm.cub
+    bandnorm from=PSP_001760_2160_REDmosaic.map.cub to=PSP_001760_2160_REDmosaic.map.norm.cub
+    ls *.map.norm.cub > fromlist
+    ls *1760*.map.norm.cub > holdlist
+    equalizer fromlist=fromlist holdlist=holdlist
+    rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
+    mkdir result
+    stereo PSP_001364_2160.map.norm.equ.cub PSP_001760_2160.map.norm.equ.cub result.output
+\end{verbatim}
 
 \subsubsection*{Stereo Default}
 
-text
+\begin{verbatim}
+    ##      PREPROCESSING      ##
+
+    DO_INTERESTPOINT_ALIGNMENT 0
+    DO_EPIPOLAR_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_INDIVIDUAL_NORMALIZATION 0
+    FORCE_USE_ENTIRE_RANGE 1
+
+    PREPROCESSING_FILTER_MODE 2
+    SLOG_KERNEL_WIDTH 1.5
+
+    ###########################    CORRELATION    ###########################
+
+    H_KERNEL 25
+    V_KERNEL 25
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
+
+    H_CORR_MIN -80
+    V_CORR_MIN -80
+    H_CORR_MAX 150
+    V_CORR_MAX 50
+
+    SUBPIXEL_MODE 0
+    DO_H_SUBPIXEL 1
+    DO_V_SUBPIXEL 1
+
+    XCORR_THRESHOLD 2.0
+    CORRSCORE_REJECTION_THRESHOLD 1.1
+
+    COST_BLUR 0
+    COST_MODE 0
+
+    ############################    FILTERING    ############################
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percest
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 0
+
+    #############################    DOTCLOUD    ############################
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 \subsection{North Terra Meridiani Crop}
 
+HiRISE website only has to say that this is `Layered Materials within
+a Small Crater'. Hopefully you'll still agree that this is cool.
+
 \subsubsection*{Screenshot}
 
-text
+\begin{figure}[h!]
+\centering
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/hirise/nterra_example.png}}
+  \hfil
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/hirise/nterra_ge_example.png}}
+\caption{Example output using cropped HiRISE data of North Terra Meridiani.}
+\label{fig:hirise_nterra_example}
+\end{figure}
 
 \subsubsection*{Commands}
 
-text
+\begin{verbatim}
+    % Download all of the IMG for PSP_001981_1825 & %
+    %                             PSP_002258_1825   %
+    ~/HiRISE_stitch.py PSP_001981_1825_RED0_0.IMG
+    ~/HiRISE_stitch.py PSP_002258_1825_RED0_0.IMG
+    cam2map from=PSP_001981_1825_REDmosaic.norm.cub to=PSP_001981_1825_REDmosaic.map.cub
+    cam2map from=PSP_002258_1825_REDmosaic.norm.cub map=PSP_001981_1825_REDmosaic.map.cub ...
+            to=PSP_002258_1825_REDmosaic.map.cub matchmap=true
+    bandnorm from=PSP_001981_1825_REDmosaic.map.cub to=PSP_001981_1825_REDmosaic.map.norm.cub
+    bandnorm from=PSP_002258_1825_REDmosaic.map.cub to=PSP_002258_1825_REDmosaic.map.norm.cub
+    ls *.map.norm.cub > fromlist
+    ls *1981*.map.norm.cub > holdlist
+    equalizer fromlist=fromlist holdlist=holdlist
+    crop from=PSP_001981_1825_REDmosaic.map.norm.equ.cub to=PSP_001981_1825.crop.cub ...
+         sample=7497 line=41318 nsamp=10000 nline=10000
+    crop from=PSP_002258_1825_REDmosaic.map.norm.equ.cub to=PSP_002258_1825.crop.cub ...
+         sample=7982 line=41310 nsamp=10000 nline=10000
+    rm *REDmosaic*.cub
+    mkdir result
+    stereo PSP_001981_1825.crop.cub PSP_002258_1825.crop.cub result/output
+\end{verbatim}
 
 \subsubsection*{Stereo Default}
 
-text
+\begin{verbatim}
+    ##      PREPROCESSING      ##
+
+    DO_INTERESTPOINT_ALIGNMENT 0
+    DO_EPIPOLAR_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_INDIVIDUAL_NORMALIZATION 0
+    FORCE_USE_ENTIRE_RANGE 1
+
+    PREPROCESSING_FILTER_MODE 2
+    SLOG_KERNEL_WIDTH 1.5
+
+    ###########################    CORRELATION    ###########################
+
+    H_KERNEL 45
+    V_KERNEL 45
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
+
+    H_CORR_MIN -270
+    H_CORR_MAX -70
+    V_CORR_MIN -14
+    V_CORR_MAX 26
+
+    SUBPIXEL_MODE 0
+    DO_H_SUBPIXEL 1
+    DO_V_SUBPIXEL 1
+
+    XCORR_THRESHOLD 2.0
+    CORRSCORE_REJECTION_THRESHOLD 1.2
+
+    COST_BLUR 21
+    COST_MODE 2
+
+    ############################    FILTERING    ############################
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percest
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
+
+    #############################    DOTCLOUD    ############################
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 \section{MESSENGER MDIS}
 
