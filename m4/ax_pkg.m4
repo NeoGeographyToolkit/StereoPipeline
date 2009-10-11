@@ -50,6 +50,11 @@ AC_DEFUN([AX_PKG],
         AX_LOG([OVERRIDE: ]$1[ libs (]$3[) with $PKG_]$1[_LIBS])
     fi
 
+    if test ! -z "${PKG_$1_MORE_LIBS}"; then
+        AX_LOG([APPEND: ]$1[ libs ($PKG_]$1[_LIBS) with $PKG_]$1[_MORE_LIBS])
+        PKG_$1_LIBS="$PKG_$1_LIBS $PKG_$1_MORE_LIBS"
+    fi
+
     AS_VAR_PUSHDEF([missing], [ax_pkg_]$1[_missing])
     AX_LOAD_DEPS([$1], [$2], [missing])
     AS_IF([test -n "$missing"], [AC_MSG_RESULT([no ([missing] $missing)]); HAVE_PKG_$1=no])
