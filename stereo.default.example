@@ -2,91 +2,106 @@
 ##      PREPROCESSING      ##
 #############################
 
+# Pre-alignment options
+
 DO_INTERESTPOINT_ALIGNMENT 1
-DO_EPIPOLAR_ALIGNMENT 0
 INTERESTPOINT_ALIGNMENT_SUBSAMPLING 1
-DO_INDIVIDUAL_NORMALIZATION 0
+DO_EPIPOLAR_ALIGNMENT 0
+
+
+# Normalization options
+
 FORCE_USE_ENTIRE_RANGE 0
+DO_INDIVIDUAL_NORMALIZATION 0
 
 # Preprocessing filter mode:
 #
 # 0 - None
 # 1 - Gaussian Blur
-# 2 - Log Filter (slow)
-# 3 - SLog Filter (fast & recommended)
+# 2 - Laplacian of Gaussian Blur (recommended)
+# 3 - Sign of the LoG Filter
+
 PREPROCESSING_FILTER_MODE 3
 
-# center surround diameter of the convolution kernel in the SLOG
+# Gaussian convolution kernel size (1-sigma) for pre-processing 
+# modes 1, 2 and 3.
+
 SLOG_KERNEL_WIDTH 1.5
 
 #########################################################################
 ###########################    CORRELATION    ###########################
 #########################################################################
 
-# Correlation kernel size (bound disparity range)
+# Select a cost function to use for initialization:
+#
+# 0 - absolute difference (fast -- use in conjunction with SLoG)
+# 1 - squared difference
+# 2 - normalized cross correlation (recommended)
+
+COST_MODE 2 
+
+# Turn this up to improve the results of the discrete correlation
+# step.  This will reduce the number of missing pixels, but reduce the
+# overall accuracy of the disparity estimates.  
+#
+# WARNING: Cost blurring must be used in conjunction with affine
+# adaptive window subpixel below, which are capable of achieving
+# highly accurate results even when seeded by slightly inaccurate
+# results from the initialization step.
+
+COST_BLUR 0
+
+# Initialization step: correlation kernel size 
+
 H_KERNEL 25
 V_KERNEL 25
-SUBPIXEL_H_KERNEL 25
-SUBPIXEL_V_KERNEL 25
 
-# correlation window size
+# Initializaion step: correlation window size
 H_CORR_MIN -100
 H_CORR_MAX 100
 V_CORR_MIN -100
 V_CORR_MAX 100
 
-# Subpixel modes:
+# Subpixel step: subpixel modes
 #
-# 0 - parabola fitting (fastest)
-# 1 - affine adaptive window, robust weighting (slow!)
-# 2 - affine adaptive window, bayes weighting (slow!)
-# 3 - affine adaptive window, bayes EM weighting (slowest!)
+# 0 - disable subpixel correlation (fastest)
+# 1 - parabola fitting (draft mode - not as accurate)
+# 2 - affine adaptive window, bayes EM weighting (slower, but much more accurate)
+# 3 - affine adaptive window, bayes EM w/ gamma window (experimental & very slow) 
+
 SUBPIXEL_MODE 0
-DO_H_SUBPIXEL 1
-DO_V_SUBPIXEL 1
 
-XCORR_THRESHOLD 2.0
-CORRSCORE_REJECTION_THRESHOLD 1.1
+# Subpixel step: correlation kernel size
 
-# Turn this up to improve the results of the discrete
-# correlation step.  This will reduce the number of
-# missing pixels, but reduce the overall accuracy of
-# the disparity estimates.
-#
-# Best used in conjuction with affine adaptive window
-# subpixel modes above.
-COST_BLUR 0
+SUBPIXEL_H_KERNEL 25
+SUBPIXEL_V_KERNEL 25
 
-# Select a cost function type:
-#
-# 0 - absolute difference
-# 1 - squared difference
-# 2 - normalized cross correlation
-COST_MODE 0
+
 
 #########################################################################
 ############################    FILTERING    ############################
 #########################################################################
 
-# automatic removal of the low confidence pixels
-#  default values 5 5 60 10
-#  note 5*5 halfkernel = 11*11 kernel -> 121 pixels
-RM_H_HALF_KERN 5
+# Fill in holes up to 100,000 pixels in size with an inpainting method
+
+FILL_HOLES 1
+
+# Automatic "erode" low confidence pixels
+
+RM_H_HALF_KERN 5       # Note: a 5*5 halfkernel = 11*11 kernel -> 121 pixels
 RM_V_HALF_KERN 5
-RM_MIN_MATCHES 60 # Units = percest
+RM_MIN_MATCHES 60      # Units = percent
 RM_THRESHOLD 3
 RM_CLEANUP_PASSES 1
 
-# Filling in holes with an inpainting method
-FILL_HOLES 1
 
 #########################################################################
 #############################    DOTCLOUD    ############################
 #########################################################################
 
-# Size max of the universe in meters and altitude of the ground.  Setting
-# both to zero turns this option off.
+# Size max of the universe in meters and altitude off the ground.
+# Setting both values to zero turns this post-processing step off.
+
 NEAR_UNIVERSE_RADIUS 0.0
 FAR_UNIVERSE_RADIUS 0.0
 
-#end

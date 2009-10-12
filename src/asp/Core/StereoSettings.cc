@@ -94,41 +94,53 @@ StereoSettings::StereoSettings() {
 #define ASSOC_FLOAT(X,Y,V,D)           m_desc.add_options()(X, po::value<float>(&(this->Y))->default_value(V), D)
 #define ASSOC_DOUBLE(X,Y,V,D)          m_desc.add_options()(X, po::value<double>(&(this->Y))->default_value(V), D)
 
+  // ---------------------
   // Preprocessing options
-  ASSOC_INT("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment, 1, "Align images using epipolar constraints");
-  ASSOC_INT("DO_INTERESTPOINT_ALIGNMENT", keypoint_alignment, 0, "Align images using the keypoint alignment method");
+  // ---------------------
+
+  // Alignment
+  ASSOC_INT("DO_INTERESTPOINT_ALIGNMENT", keypoint_alignment, 0, "Align images using the interest point alignment method");
   ASSOC_INT("INTERESTPOINT_ALIGNMENT_SUBSAMPLING", keypoint_align_subsampling, 1, "Image sub-sampling factor for keypoint alignment.");
-  ASSOC_INT("DO_INDIVIDUAL_NORMALIZATION", individually_normalize, 0, "Normalize each image individually before processsing.");
+  ASSOC_INT("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment, 0, "Align images using epipolar constraints");
+
+  // Image normalization
   ASSOC_INT("FORCE_USE_ENTIRE_RANGE", force_max_min, 0, "Use images entire values, otherwise compress image range to -+2.5 sigmas around mean.");
+  ASSOC_INT("DO_INDIVIDUAL_NORMALIZATION", individually_normalize, 0, "Normalize each image individually before processsing.");
+
+  // -------------------
+  // Correlation Options
+  // -------------------
+
+  // Preproc filter
   ASSOC_INT("PREPROCESSING_FILTER_MODE", pre_filter_mode, 3, "selects the preprocessing filter");
   ASSOC_FLOAT("SLOG_KERNEL_WIDTH", slogW, 1.5, "SIGMA for the gaussian blure in LOG and SLOG");
 
-  // Correlation Options
+  // Integer correlator
+  ASSOC_INT("COST_MODE", cost_mode, 2, "0 - absolute different, 1 - squared difference, 2 - normalized cross correlation");
+  ASSOC_FLOAT("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
+  ASSOC_FLOAT("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_threshold, 1.1, "");
+  ASSOC_INT("COST_BLUR", cost_blur, 0, "Reduces the number of missing pixels by blurring the fitness landscape computed by the cost function.");
   ASSOC_INT("H_KERNEL", h_kern, 25, "kernel width");
   ASSOC_INT("V_KERNEL", v_kern, 25, "kernel height");
-  ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_h_kern, 35, "subpixel kernel width");
-  ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_v_kern, 35, "subpixel kernel height");
 
   ASSOC_INT("H_CORR_MAX", h_corr_max, 0, "correlation window size max x");
   ASSOC_INT("H_CORR_MIN", h_corr_min, 0, "correlation window size min x");
   ASSOC_INT("V_CORR_MAX", v_corr_max, 0, "correlation window size max y");
   ASSOC_INT("V_CORR_MIN", v_corr_min, 0, "correlation window size min y");
 
+  ASSOC_INT("SUBPIXEL_MODE", subpixel_mode, 2, "0 - no subpixel, 1 - parabola, 2 - bayes EM");
+  ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_h_kern, 35, "subpixel kernel width");
+  ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_v_kern, 35, "subpixel kernel height");
   ASSOC_INT("DO_H_SUBPIXEL", do_h_subpixel, 1, "Do vertical subpixel interpolation.");
   ASSOC_INT("DO_V_SUBPIXEL", do_v_subpixel, 1, "Do horizontal subpixel interpolation.");
-  ASSOC_INT("SUBPIXEL_MODE", subpixel_mode, 0, "Use the affine adaptive subpixel correlator (slower, but more accurate)");
-  ASSOC_FLOAT("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
-  ASSOC_FLOAT("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_threshold, 1.1, "");
-  ASSOC_INT("COST_BLUR", cost_blur, 1, "");
-  ASSOC_INT("COST_MODE", cost_mode, 0, "");
 
   // Filtering Options
+  ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
   ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
   ASSOC_INT("RM_V_HALF_KERN", rm_v_half_kern, 5, "");
   ASSOC_INT("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");
   ASSOC_INT("RM_THRESHOLD", rm_threshold, 3, "rm_threshold > disp[n]-disp[m] pixels are not matching");
   ASSOC_INT("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
-  ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
   ASSOC_INT("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
 
   // Triangulation Options
