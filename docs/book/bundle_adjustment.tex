@@ -133,119 +133,98 @@ problem.
 The following is a listing and explanation of the command line options
 that can be fed to \texttt{isis\_adjust} from the terminal.
 
-\begin{verbatim}
---cnet, -c [control network file]
-\end{verbatim}
+\begin{description}
 
-\emph{Optional.} Feeding this option will force ISIS Adjust to use an
-already built control network. This control network can either be in
-the ISIS style format or the binary Vision Workbench style. If not
-fed, ISIS Adjust will look for match files in current operating
-directory with names similar to the input images to build it's control
-network from. If \texttt{isis\_adjust} creates it's own control
-network file, it will save it as \verb=isis_adjust.cnet=.
+\item[--cnet, -c \textnormal{\small{(control network file)}}] \hfill \\
 
-\begin{verbatim}
---lambda, -l [value]
-\end{verbatim}
+  \emph{Optional.} Feeding this option will force ISIS Adjust to use
+  an already built control network. This control network can either be
+  in the ISIS style format or the binary Vision Workbench style. If
+  not fed, ISIS Adjust will look for match files in current operating
+  directory with names similar to the input images to build it's
+  control network from. If \texttt{isis\_adjust} creates it's own
+  control network file, it will save it as \verb=isis_adjust.cnet=.
 
-\emph{Optional.} This set the starting value for $\lambda$. Bundle
-Adjustment will naturally select a value for $\lambda$ it thinks is
-best for the starting error, but this argument can be used to override
-that. \emph{It's not recommended to change the starting value of
-  $\lambda$ except for experienced users.}
+\item[--lambda, -l \textnormal{\small{(= \emph{float})}}] \hfill \\
 
-\begin{verbatim}
---position-sigma [default = 100]
-\end{verbatim}
+  \emph{Optional.} This set the starting value for $\lambda$. Bundle
+  Adjustment will naturally select a value for $\lambda$ it thinks is
+  best for the starting error, but this argument can be used to
+  override that. \emph{It's not recommended to change the starting
+    value of $\lambda$ except for experienced users.}
 
-Sets the sigma \emph{(uncertainty)} of the spacecraft position in
-meters.
+\item[--position-sigma \textnormal{\small{(default = 100)}}] \hfill \\
 
-\begin{verbatim}
---pose-sigma [default = 0.1]
-\end{verbatim}
+  Sets the sigma \emph{(uncertainty)} of the spacecraft position in
+  meters.
 
-Sets the sigma \emph{(uncertainty)} of the spacecraft pose in radians.
+\item[--pose-sigma \textnormal{\small{(default = 0.1)}}] \hfill \\
 
-\begin{verbatim}
---gcp-scalar [default = 1]
-\end{verbatim}
+  Sets the sigma \emph{(uncertainty)} of the spacecraft pose in
+  radians.
 
-Sets the multiplier that is used against the sigma
-\emph{(uncertainty)} of the ground control points in meters. Ground
-control points' sigmas are defined in their file.
+\item[--gcp-scalar \textnormal{\small{(default = 1)}}] \hfill \\
 
-\begin{verbatim}
---cost-function [default=L2]
-\end{verbatim}
+  Sets the multiplier that is used against the sigma
+  \emph{(uncertainty)} of the ground control points in meters. Ground
+  control points' sigmas are defined in their file.
 
-Sets the cost function used for bundle adjustment. Default is L2 which
-is the normal squared error. The other options are PseudoHuber, Huber,
-L1, and Cauchy. These other options for cost functions are for dealing
-with non-ideal data that has outliers.
+\item[--cost-function \textnormal{\small{(default=L2)}}] \hfill \\
 
-\begin{verbatim}
---robust-threshold [default=10]
-\end{verbatim}
+  Sets the cost function used for bundle adjustment. Default is L2
+  which is the normal squared error. The other options are
+  PseudoHuber, Huber, L1, and Cauchy. These other options for cost
+  functions are for dealing with non-ideal data that has outliers.
 
-Sets the threshold for cost functions PseudoHuber, Huber, and Cauchy.
+\item[--robust-threshold \textnormal{\small{(default=10)}}] \hfill \\
 
-\begin{verbatim}
---run-match, -m
-\end{verbatim}
+  Sets the threshold for cost functions PseudoHuber, Huber, and Cauchy.
 
-\emph{Optional.} If match files don't already exist, create them using a
-call to \texttt{ipmatch}.
+\item[--run-match, -m] \hfill \\
 
-\begin{verbatim}
---match-debug-images, -d
-\end{verbatim}
+  \emph{Optional.} If match files don't already exist, create them
+  using a call to \texttt{ipmatch}.
 
-\emph{Optional.} If a call to \texttt{ipmatch} is being called, this option
-also allows for the creation of debugging images that show the matches
-between the input images.
+\item[--match-debug-images, -d] \hfill \\
 
-\begin{verbatim}
---min-matches [default = 5]
-\end{verbatim}
+  \emph{Optional.} If a call to \texttt{ipmatch} is being called, this
+  option also allows for the creation of debugging images that show
+  the matches between the input images.
 
-When producing a control network, this sets the minimum required
-interest point matches between images for them to be included. If a
-match file fails to find this many of matches, it probably means these
-were poor matches and the images don't really overlap.
+\item[--min-matches \textnormal{\small{(default = 5)}}] \hfill \\
 
-\begin{verbatim}
---max-iterations [default = 25]
-\end{verbatim}
+  When producing a control network, this sets the minimum required
+  interest point matches between images for them to be included. If a
+  match file fails to find this many of matches, it probably means
+  these were poor matches and the images don't really overlap.
 
-Sets the maximum number of iterations to be done by Bundle Adjustment.
+\item[--max-iterations \textnormal{\small{(default = 25)}}] \hfill \\
 
-\begin{verbatim}
---report-level, -r [default = 10]
-\end{verbatim}
+  Sets the maximum number of iterations to be done by Bundle
+  Adjustment.
 
-Sets the report level for the final report on the bundle adjustment
-which can be found in \verb=isis_adjust.report=. Report levels are defined in
-BundleAdjustReport.h in Vision Workbench.
+\item[--report-level, -r \textnormal{\small{(default = 10)}}] \hfill \\
 
-\begin{verbatim}
---nonsparse, -n
-\end{verbatim}
+  Sets the report level for the final report on the bundle adjustment
+  which can be found in \verb=isis_adjust.report=. Report levels are
+  defined in BundleAdjustReport.h in Vision Workbench.
 
-\emph{Optional.} Switches the Bundle Adjustment code to use non-sparse
-matrices in it's math. \emph{This will cause it to run significantly slower
-and is only used as a check of the programmer's sparse matrix code.}
+\item--nonsparse, -n] \hfill \\
 
-\begin{verbatim}
---write-isis-cnet-also
-\end{verbatim}
+  \emph{Optional.} Switches the Bundle Adjustment code to use
+  non-sparse matrices in it's math. \emph{This will cause it to run
+    significantly slower and is only used as a check of the
+    programmer's sparse matrix code.}
 
-\emph{Optional.} Write an ISIS PVL style control network file in
-\verb=isis_adjust.net=. The output file is very large compared to the
-binary output, \verb=isis_adjust.cnet=, and is human readable. This
-alternative's importance is that it can be used with ISIS3's
-\texttt{Qnet}.
+\item[--write-isis-cnet-also] \hfill \\
+
+  \emph{Optional.} Write an ISIS PVL style control network file in
+  \verb=isis_adjust.net=. The output file is very large compared to
+  the binary output, \verb=isis_adjust.cnet=, and is human
+  readable. This alternative's importance is that it can be used with
+  ISIS3's \texttt{Qnet}.
+
+\end{description}
 
 \section{Visualizing Bundle Adjustment with BundleVis}
 
@@ -287,71 +266,59 @@ same terrian.
 The following is a listing and explanation of the command line options
 that can be fed to \texttt{bundlevis} from the terminal.
 
-\begin{verbatim}
---camera-iteration-file, -c [bundlevis camera iteration file]
-\end{verbatim}
+\begin{description}
 
-\emph{Optional.} Only if the camera iteration file is given will
-\texttt{bundlevis} draw the cameras used during Bundle Adjustment.
+\item[--camera-iteration-file, -c \textnormal{\small{(bundlevis camera iteration file)}}] \hfill \\
 
-\begin{verbatim}
---points-iteration-file, -p [bundlevis point iteration file]
-\end{verbatim}
+  \emph{Optional.} Only if the camera iteration file is given will
+  \texttt{bundlevis} draw the cameras used during Bundle Adjustment.
 
-\emph{Optional.} Likewise, only when giving a point iteration file
-will \texttt{bundlevis} draw the ground point estimations used during
-Bundle Adjustment.
+\item[--points-iteration-file, -p \textnormal{\small{(bundlevis point iteration file)}}] \hfill \\
 
-\begin{verbatim}
---control-network-file, -n [Vision Workbench binary control network file]
-\end{verbatim}
+  \emph{Optional.} Likewise, only when giving a point iteration file
+  will \texttt{bundlevis} draw the ground point estimations used
+  during Bundle Adjustment.
 
-\emph{Optional.} When the control network file used during bundle
-adjustment is given with the options \verb=--camera-iteration-file=
-and \verb=--points-iteration-file=, will \texttt{bundlevis} have the
-option to draw the lines that show the relationship between points and
-cameras.
+\item[--control-network-file, -n \textnormal{\small{(Vision Workbench binary control network file)}}] \hfill \\
 
-\begin{verbatim}
---additional-pnt-files [bundlevis point iteration files]
-\end{verbatim}
+  \emph{Optional.} When the control network file used during bundle
+  adjustment is given with the options \verb=--camera-iteration-file=
+  and \verb=--points-iteration-file=, will \texttt{bundlevis} have the
+  option to draw the lines that show the relationship between points
+  and cameras.
 
-\emph{Optional.} Additional points can be drawn and animated with the
-previously mention data using this option. The files given must be in
-the same format as a bundlevis point iteration file and have the same
-number of iterations as well.
+\item[--additional-pnt-files \textnormal{\small{(bundlevis point iteration files)}}] \hfill \\
 
-\begin{verbatim}
---fullscreen
-\end{verbatim}
+  \emph{Optional.} Additional points can be drawn and animated with
+  the previously mention data using this option. The files given must
+  be in the same format as a bundlevis point iteration file and have
+  the same number of iterations as well.
 
-\emph{Optional.} Displays bundlevis using the entire screen, otherwise
-the program loads in a window. \emph{It is known that the fullscreen
-  option does not work correctly with dual screen systems.}
+\item[--fullscreen] \hfill \\
 
-\begin{verbatim}
---stereo
-\end{verbatim}
+  \emph{Optional.} Displays bundlevis using the entire screen,
+  otherwise the program loads in a window. \emph{It is known that the
+    fullscreen option does not work correctly with dual screen
+    systems.}
 
-\emph{Optional.} This forces the program to display in red/blue anaglyph mode.
+\item[--stereo] \hfill \\
 
-\begin{verbatim}
---show-moon
-\end{verbatim}
+  \emph{Optional.} This forces the program to display in red/blue
+  anaglyph mode.
 
-\emph{Optional.} Draws a wireframe sphere that represents the Moon.
+\item[--show-moon] \hfill \\
 
-\begin{verbatim}
---show-mars
-\end{verbatim}
+  \emph{Optional.} Draws a wireframe sphere that represents the Moon.
 
-\emph{Optional.} Draws a wireframe sphere that represents Mars.
+\item[--show-mars] \hfill \\
 
-\begin{verbatim}
---show-earth
-\end{verbatim}
+  \emph{Optional.} Draws a wireframe sphere that represents Mars.
 
-\emph{Optional.} Draws a wireframe sphere that represents Earth.
+\item[--show-earth] \hfill \\
+
+  \emph{Optional.} Draws a wireframe sphere that represents Earth.
+
+\end{description}
 
 \subsection{Controls}
 
@@ -484,7 +451,8 @@ panic! This is perfectly normal! Looking through the output in the
 terminal or alternatively in the output report file,
 \verb=isis_adjust.report=, the problem should have convereged in 35
 iterations. The error barely changed, this can be attributed to Mars
-Global Surveyor's relative positioning between images being very good. 
+Global Surveyor's relative positioning between images being pretty
+good on this case.
 
 Visualizing all the data that was exported for \texttt{bundlevis} is bit of a
 long chain of options in the terminal.
@@ -601,7 +569,7 @@ of cubes. Refer it to the newly created
 give it \verb=isis_adjust.net=.
 
 \begin{center}
-\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in} 
+\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
 
     \emph{Note from Author:} \\ At this time \texttt{qnet} does not
     work with the Apollo Metric Camera's cube files. When loading the
