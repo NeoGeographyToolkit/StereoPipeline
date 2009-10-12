@@ -67,7 +67,6 @@ V_CORR_MAX 100
 # 0 - disable subpixel correlation (fastest)
 # 1 - parabola fitting (draft mode - not as accurate)
 # 2 - affine adaptive window, bayes EM weighting (slower, but much more accurate)
-# 3 - affine adaptive window, bayes EM w/ gamma window (experimental & very slow) 
 
 SUBPIXEL_MODE 0
 
@@ -96,7 +95,7 @@ RM_CLEANUP_PASSES 1
 
 
 #########################################################################
-#############################    DOTCLOUD    ############################
+#########################    POST_PROCESSING    #########################
 #########################################################################
 
 # Size max of the universe in meters and altitude off the ground.
