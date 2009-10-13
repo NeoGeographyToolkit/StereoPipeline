@@ -476,13 +476,12 @@ int main(int argc, char* argv[]) {
       // Affine and Bayes subpixel refinement always use the
       // LogPreprocessingFilter...
       if (stereo_settings().subpixel_mode == 4) {
-	vw_out(0) << "\t--> Using EM Subpixel mode " << stereo_settings().subpixel_mode << std::endl;
-	vw_out(0) << "\t--> Mode 4 does internal preprocessing; settings will be ignored. " << std::endl;
-	
-	write_image("course_map.tif", disparity_disk_image);
-	disparity_map = stereo::EMSubpixelCorrelatorView<float32>(channels_to_planes(left_disk_image),
-								  channels_to_planes(right_disk_image),
-								  disparity_disk_image, false);
+        vw_out(0) << "\t--> Using EM Subpixel mode " << stereo_settings().subpixel_mode << std::endl;
+        vw_out(0) << "\t--> Mode 4 does internal preprocessing; settings will be ignored. " << std::endl;
+        write_image("course_map.tif", disparity_disk_image);
+        disparity_map = stereo::EMSubpixelCorrelatorView<float32>(channels_to_planes(left_disk_image),
+        channels_to_planes(right_disk_image),
+        disparity_disk_image, false);
       }
       else if (stereo_settings().subpixel_mode > 0) {
         vw_out(0) << "\t--> Using affine adaptive subpixel mode "
