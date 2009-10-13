@@ -240,6 +240,19 @@ int main(int argc, char* argv[]) {
     exit(0);
   }
 
+  fs::path out_prefix_path(out_prefix);
+  if (out_prefix_path.has_branch_path()) {
+    if (!fs::is_directory(out_prefix_path.branch_path())) {
+      vw_out(0) << "\nCreating output directory: " << out_prefix_path.branch_path() << std::endl;
+      try {
+        fs::create_directory(out_prefix_path.branch_path());
+      } catch (fs::basic_filesystem_error<fs::path> & e) {
+        vw_out(0) << "Error: " << e.what() << std::endl;
+        exit(0);
+      }
+    }
+  }
+
   StereoSession* session = StereoSession::create(stereo_session_string);
   session->initialize(in_file1, in_file2, cam_file1, cam_file2,
                       out_prefix, extra_arg1, extra_arg2, extra_arg3, extra_arg4);
