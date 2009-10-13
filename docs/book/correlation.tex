@@ -143,7 +143,7 @@ squared error function, giving rise to erroneous disparity
 information.  Recently, several statistical
 approaches (e.g. ~\cite{cheng04:bayesian}) have emerged to show how
 stochastic models can be used to attenuate the effects of noise.  Our
-sub-pixel refinement technique~\cite{Nefian09:bayesian} adopts some of
+sub-pixel refinement technique~\ cite{Nefian09:bayesian} [needs entry in bibliography.bib] adopts some of
 these ideas, generalizing the earlier work by Stein
 et. al.~\cite{Stein06:attenuating} to a Bayesian framework that models
 both the data and image noise.
@@ -226,7 +226,7 @@ E step. In this way, our approach can be seen as a generalization of
 the Lucas-Kanade method.  The complete algorithm is summarized in the following steps:
 \begin{itemize}
 \item {\bf Step 1:} Compute $\frac{dI_L}{d_x}(i,j)$, $\frac{dI_L}{d_y}(i,j)$ and the $I_R(x,y)$ values using bilinear interpolation. Initialize the model parameters $\lambda$.
-\item {\bf Step 2:} Compute iteratively the model parameters $\lambda$ using the EM algorithm (see ~\cite{Nefian09:bayesian} for details). 
+\item {\bf Step 2:} Compute iteratively the model parameters $\lambda$ using the EM algorithm (see ~\ cite{Nefian09:bayesian} [needs entry in bibliography.bib] for details). 
 \item {\bf Step 3:} Compute $\delta_x(i,j)$ and $\delta_y(i,j)$ using Equation~\ref{affine_transform}.
 \item {\bf Step 4:} Compute a new point $(x', y') = (x, y) + (\delta_x, \delta_y)$ and the $I_R(x',y')$ values using bilinear interpolation.
 \item {\bf Step 5:} If the norm of ($\delta_x, \delta_y$) vector falls below a fixed threshold the iterations converged. Otherwise, go to step 1.

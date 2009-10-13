@@ -2,12 +2,17 @@
 
 NAME = asp_book
 TEXSRCS =	acknowledgements.tex \
-			appendix.tex \
 			bundle_adjustment.tex \
-			getting_started.tex \
+			correlation.tex \
+			examples.tex \
 			installation.tex \
 			introduction.tex \
-			programs.tex
+			outputfiles.tex \
+			scripting.tex \
+			stereo_testing_plan.tex \
+			stereodefault.tex \
+			tools.tex \
+			tutorial.tex
 # CLEAN_FILES+= $(wildcard *.aux)
 USE_PDFLATEX = YES
 VIEWPDF = open
