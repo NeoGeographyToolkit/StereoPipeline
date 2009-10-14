@@ -88,7 +88,7 @@ across the images.
 \end{figure}
 
 Our bundle adjustment approach follows the method described
-in~\cite{Triggs00:bundleadjustment} and determines the best camera
+in~\cite{triggs00} and determines the best camera
 parameters that minimize the projection error given by ${\bf \epsilon}
 = \sum_k\sum_j(I_k-I(C_j, X_k))^2$ where $I_k$ are feature locations
 on the image plane, $C_j$ are the camera parameters, and $X_k$ are the
@@ -96,7 +96,7 @@ on the image plane, $C_j$ are the camera parameters, and $X_k$ are the
 formation model (i.e. forward projection) for a given camera and 3D
 point.  The optimization of the cost function uses the
 Levenberg-Marquartd algorithm. Speed is improved by using sparse
-methods described in~\cite{Hartley00:bundleadjustment}.
+methods described in~\cite{hartley04}.
 
 To eliminate the gauge freedom inherent in this problem, we add two
 addition error metrics to this cost function to constrain the position
