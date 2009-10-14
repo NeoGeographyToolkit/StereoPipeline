@@ -473,36 +473,10 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelMask<Vector2f> > disparity_disk_image(out_prefix + "-D.exr");
       ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
 
-      // Affine and Bayes subpixel refinement always use the
-      // LogPreprocessingFilter...
-      if (stereo_settings().subpixel_mode == 4) {
-        vw_out(0) << "\t--> Using EM Subpixel mode " << stereo_settings().subpixel_mode << std::endl;
-        vw_out(0) << "\t--> Mode 4 does internal preprocessing; settings will be ignored. " << std::endl;
-        write_image("course_map.tif", disparity_disk_image);
-        disparity_map = stereo::EMSubpixelCorrelatorView<float32>(channels_to_planes(left_disk_image),
-        channels_to_planes(right_disk_image),
-        disparity_disk_image, false);
-      }
-      else if (stereo_settings().subpixel_mode > 0) {
-        vw_out(0) << "\t--> Using affine adaptive subpixel mode "
-                  << stereo_settings().subpixel_mode << "\n";
-        vw_out(0) << "\t--> Forcing use of LOG filter with "
-                  << stereo_settings().slogW << " sigma blur.\n";
-        typedef stereo::LogStereoPreprocessingFilter PreFilter;
-        disparity_map = stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                                        channels_to_planes(left_disk_image),
-                                                        channels_to_planes(right_disk_image),
-                                                        stereo_settings().subpixel_h_kern,
-                                                        stereo_settings().subpixel_v_kern,
-                                                        stereo_settings().do_h_subpixel,
-                                                        stereo_settings().do_v_subpixel,
-                                                        stereo_settings().subpixel_mode,
-                                                        PreFilter(stereo_settings().slogW),
-                                                        false);
-
-      // Parabola subpixel refinement uses the same preprocessing
-      // filter as the discrete correlation stage above.
-      } else {
+      if (stereo_settings().subpixel_mode == 0) {
+        // Do nothing
+      } else if (stereo_settings().subpixel_mode == 1) {
+        // Parabola
         vw_out(0) << "\t--> Using parabola subpixel mode.\n";
         if (stereo_settings().pre_filter_mode == 3) {
           vw_out(0) << "\t    SLOG preprocessing width: "
@@ -561,6 +535,35 @@ int main(int argc, char* argv[]) {
                                                           PreFilter(),
                                                           false);
         }
+      } else if (stereo_settings().subpixel_mode == 2) {
+        // Bayes EM
+        vw_out(0) << "\t--> Using affine adaptive subpixel mode "
+                  << stereo_settings().subpixel_mode << "\n";
+        vw_out(0) << "\t--> Forcing use of LOG filter with "
+                  << stereo_settings().slogW << " sigma blur.\n";
+        typedef stereo::LogStereoPreprocessingFilter PreFilter;
+        disparity_map = stereo::SubpixelView<PreFilter>(disparity_disk_image,
+                                                        channels_to_planes(left_disk_image),
+                                                        channels_to_planes(right_disk_image),
+                                                        stereo_settings().subpixel_h_kern,
+                                                        stereo_settings().subpixel_v_kern,
+                                                        stereo_settings().do_h_subpixel,
+                                                        stereo_settings().do_v_subpixel,
+                                                        stereo_settings().subpixel_mode,
+                                                        PreFilter(stereo_settings().slogW),
+                                                        false);
+      } else if (stereo_settings().subpixel_mode == 3) {
+        // Affine and Bayes subpixel refinement always use the
+        // LogPreprocessingFilter...
+        vw_out(0) << "\t--> Using EM Subpixel mode " << stereo_settings().subpixel_mode << std::endl;
+        vw_out(0) << "\t--> Mode 3 does internal preprocessing; settings will be ignored. " << std::endl;
+        write_image("course_map.tif", disparity_disk_image);
+        disparity_map = stereo::EMSubpixelCorrelatorView<float32>(channels_to_planes(left_disk_image),
+        channels_to_planes(right_disk_image),
+        disparity_disk_image, false);
+      } else {
+        vw_out(0) << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << std::endl;
+        vw_out(0) << "\t--> Doing nothing\n";
       }
 
       // Create a disk image resource and prepare to write a tiled

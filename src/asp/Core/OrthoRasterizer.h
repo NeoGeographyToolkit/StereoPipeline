@@ -46,8 +46,8 @@ namespace cartography {
   class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT> > {
     ImageViewRef<Vector3> m_point_image;
     ImageViewRef<float> m_texture;
-    BBox<float,3> m_bbox;
-    float m_spacing;
+    BBox3 m_bbox;
+    double m_spacing;
     double m_default_value;
     bool m_minz_as_default;
     bool m_use_alpha;
@@ -59,7 +59,7 @@ namespace cartography {
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
 
     template <class PointViewT, class TextureViewT>
-    OrthoRasterizerView(PointViewT point_cloud, TextureViewT texture, float spacing = 0.0) :
+    OrthoRasterizerView(PointViewT point_cloud, TextureViewT texture, double spacing = 0.0) :
       m_point_image(point_cloud), m_texture(ImageView<float>(1,1)), // dummy value
       m_default_value(0), m_minz_as_default(true), m_use_alpha(false) {
 
@@ -121,7 +121,7 @@ namespace cartography {
       buffered_bbox.max() += Vector2i(4,4);
 
       // This ensures that our bounding box is properly sized.
-      BBox<float,3> local_bbox = m_bbox;
+      BBox3 local_bbox = m_bbox;
       local_bbox.min().x() = m_bbox.min().x() + (buffered_bbox.min().x() * m_spacing);
       local_bbox.min().y() = m_bbox.max().y() - (buffered_bbox.max().y() * m_spacing);
       local_bbox.max().x() = local_bbox.min().x() + (buffered_bbox.width() * m_spacing);
@@ -210,22 +210,21 @@ namespace cartography {
     /// Note, however, that this could lead to a loss in DEM
     /// resolution if the DEM is rotated from the orientation of the
     /// original image.
-    void set_spacing(float val) {
+    void set_spacing(double val) {
       if (val == 0.0) {
-        BBox<float,3> bbox = bounding_box();
-        float bbox_width = fabs(bbox.max().x() - bbox.min().x());
-        float bbox_height = fabs(bbox.max().y() - bbox.min().y());
-        float input_image_width = m_point_image.cols();
-        float input_image_height = m_point_image.rows();
+        BBox3 bbox = bounding_box();
+        double bbox_width = fabs(bbox.max().x() - bbox.min().x());
+        double bbox_height = fabs(bbox.max().y() - bbox.min().y());
+        double input_image_width = m_point_image.cols();
+        double input_image_height = m_point_image.rows();
         m_spacing = std::max(bbox_width, bbox_height) / std::max(input_image_width, input_image_height);
-        std::cout << "\tAutomatically setting spacing to " << m_spacing << " units/pixel.\n";
       } else {
         m_spacing = val;
       }
     }
     double spacing() { return m_spacing; }
 
-    BBox<float,3> bounding_box() { return m_bbox; }
+    BBox3 bounding_box() { return m_bbox; }
 
     // Return the affine georeferencing transform.
     vw::Matrix<double,3,3> geo_transform() {
