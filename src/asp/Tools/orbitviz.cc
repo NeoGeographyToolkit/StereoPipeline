@@ -106,7 +106,6 @@ int main(int argc, char* argv[]) {
     ("help,h", "Display this help message")
     ("output,o", po::value<std::string>(&out_file)->default_value("orbit.kml"), "The output kml file that will be written")
     ("scale,s", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount. Ex: To scale moon alt. measures up to earth size, use 3.66")
-    ("session-type,t", "Select the stereo session type to use for processing. [default: pinhole]")
     ("use-simple-placemarks", "Draw simple icons at camera locations, instead of a coordinate model");
 
   po::options_description hidden_options("");
