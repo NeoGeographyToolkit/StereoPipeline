@@ -180,26 +180,34 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   std::string tex_file;
   if ( init_tex_file.size() ) {
     DiskImageView<PixelGray<uint8> > previous_texture(init_tex_file);
+    tex_file = "point2mesh_texture";
     if (point_image.impl().cols() > 4096 ||
         point_image.impl().rows() > 4096 ) {
       std::cout << "Resampling to reduce texture size:\n";
       float tex_sub_scale = 4096.0/float(std::max(previous_texture.cols(),previous_texture.rows()));
       ImageViewRef<PixelGray<uint8> > new_texture = resample(previous_texture,tex_sub_scale);
       std::cout << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
-      DiskImageResourceGDAL tex_rsrc("point2mesh_texture.tif",new_texture.format(),
+      DiskImageResourceGDAL tex_rsrc(tex_file+".tif",new_texture.format(),
                                      Vector2i(256,256) );
       block_write_image(tex_rsrc,new_texture, TerminalProgressCallback(InfoMessage,"\tSubsampling:") );
-      tex_file = "point2mesh_texture.tif";
     } else {
       // Always saving as an 8bit texture. These second handedly
       // normalizes the data for us (which is a problem for datasets
       // like HiRISE which will feed us tiffs with values outside of
       // 0-1).
-      DiskImageResourceGDAL tex_rsrc("point2mesh_texture.tif",previous_texture.format(),
+      DiskImageResourceGDAL tex_rsrc(tex_file+".tif",previous_texture.format(),
                                      Vector2i(256,256) );
       block_write_image(tex_rsrc, previous_texture, TerminalProgressCallback(InfoMessage,"\tNormalizing:") );
-      tex_file = "point2mesh_texture.tif";
     }
+    // When we subsample, we use tiff because we can block write the image.
+    // However, trying to load the tiff with osg causes problems because
+    // osg uses libtiff to load the images. libtiff conflicts with gdal
+    // if gdal was compiled with internal tiff, and osg will fail to load
+    // the texture. To avoid all this, we resave our subsampled texture as a jpg
+    DiskImageView<PixelGray<uint8> > new_texture(tex_file+".tif");
+    write_image(tex_file+".jpg", new_texture);
+    unlink((tex_file+".tif").c_str());
+    tex_file += ".jpg";
   }
 
   //////////////////////////////////////////////////
@@ -396,11 +404,15 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
     osg::Image* textureImage = osgDB::readImageFile(tex_file.c_str());
 
-    if ( textureImage->valid() ){
-      osg::Texture2D* texture = new osg::Texture2D;
-      texture->setImage(textureImage);
-      osg::StateSet* stateset = geometry->getOrCreateStateSet();
-      stateset->setTextureAttributeAndModes(0,texture,osg::StateAttribute::ON);
+    if ( textureImage ) {
+      if ( textureImage->valid() ){
+        osg::Texture2D* texture = new osg::Texture2D;
+        texture->setImage(textureImage);
+        osg::StateSet* stateset = geometry->getOrCreateStateSet();
+        stateset->setTextureAttributeAndModes(0,texture,osg::StateAttribute::ON);
+      } else {
+        std::cout << "Failed to open texture data in " << tex_file << std::endl;
+      }
     } else {
       std::cout << "Failed to open texture data in " << tex_file << std::endl;
     }
