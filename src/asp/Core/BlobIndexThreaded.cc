@@ -175,6 +175,7 @@ void BlobCompressed::add_row( Vector2i const& start,
 // absorb(..)
 //-----------------------------
 void BlobCompressed::absorb( BlobCompressed const& victim ) {
+
   // First check to see if I'm empty
   if ( m_row_start.size() == 0 ) {
     m_min = victim.min();
@@ -188,70 +189,81 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
   // Normal operations
   int y_offset =- m_min.y() + victim.min().y();
   for ( int i = 0; i < victim.num_rows(); i++ ) {
+    // Index i is in terms of the victim
+    // m_index is in terms of this
     int m_index = y_offset+i;
+
     // Checking if can insert
     if ( m_index >= 0 && m_index < int32(m_row_start.size()) ) {
-      std::list<int32>::iterator start_insertion_point = m_row_start[m_index].begin(),
-        end_insertion_point = m_row_end[m_index].begin(),
-        start_lookahead = m_row_start[m_index].begin();
-      bool found_good_spot = false;
-      if ( m_row_start[m_index].empty()  )
-        found_good_spot = true;
-      else if ( victim.end(i).back()+victim.min().x()-m_min.x() <=
-                m_row_start[m_index].front() )
-        found_good_spot = true;
-      else
-        start_lookahead++;
-      while ( start_lookahead != m_row_start[m_index].end() &&
-              !found_good_spot ) {
-        if ( (victim.start(i).front()+victim.min().x()-m_min.x() >=
-              *end_insertion_point ) &&
-             (victim.end(i).back()+victim.min().x()-m_min.x() <=
-              *start_lookahead ) ) {
+
+      // Inserting victim's connected rows in singletons at a time
+      // become sometimes they connect like zippers.
+      for ( std::list<int32>::const_iterator v_singleton_start = victim.start(i).begin(),
+              v_singleton_end = victim.end(i).begin(); v_singleton_start != victim.start(i).end();
+            v_singleton_start++, v_singleton_end++ ) {
+
+        std::list<int32>::iterator start_insertion_point = m_row_start[m_index].begin(),
+          end_insertion_point = m_row_end[m_index].begin(),
+          start_lookahead = m_row_start[m_index].begin();
+        bool found_good_spot = false;
+        if ( m_row_start[m_index].empty()  )
           found_good_spot = true;
+        else if ( *v_singleton_end+victim.min().x()-m_min.x() <=
+                  m_row_start[m_index].front() )
+          found_good_spot = true;
+        else {
+          start_lookahead++;
         }
-        start_insertion_point++;
-        end_insertion_point++;
-        start_lookahead++;
-      }
-      // If insert on end
-      if ( (start_lookahead == m_row_start[m_index].end()) &&
-           !found_good_spot ) {
-        if ( victim.start(i).front()+victim.min().x()-m_min.x() >=
-             *end_insertion_point ) {
-          found_good_spot = true;
+        while ( start_lookahead != m_row_start[m_index].end() &&
+                !found_good_spot ) {
+          if ( (*v_singleton_start+victim.min().x()-m_min.x() >=
+                *end_insertion_point ) &&
+               (*v_singleton_end+victim.min().x()-m_min.x() <=
+                *start_lookahead ) ) {
+            found_good_spot = true;
+          }
           start_insertion_point++;
           end_insertion_point++;
+          start_lookahead++;
+        }
+        // If insert on end
+        if ( (start_lookahead == m_row_start[m_index].end()) &&
+             !found_good_spot ) {
+          if ( *v_singleton_start+victim.min().x()-m_min.x() >=
+               *end_insertion_point ) {
+            found_good_spot = true;
+            start_insertion_point++;
+            end_insertion_point++;
+          }
+        }
+        // Checking for error and debug
+        if ( !found_good_spot ) {
+          vw_out(0) << "index =  " << m_index << std::endl;
+          vw_out(0) << "Have: min[" << m_min << "] ";
+          for ( std::list<int32>::const_iterator m_i_str = m_row_start[m_index].begin(),
+                  m_i_end = m_row_end[m_index].begin();
+                m_i_str != m_row_start[m_index].end(); m_i_str++, m_i_end++ )
+            vw_out(0) << "(" << *m_i_str << "-" << *m_i_end << ")";
+          vw_out(0) << "\nTrying to insert singleton: (" << *v_singleton_start << "-"
+                    << *v_singleton_end << ")\n";
+
+          vw_throw( vw::NoImplErr() << "BlobCompressed: Seems to be inserting an overlapping blob compressed object.\n" );
+        }
+        // Inserting ( but apply offset fix first)
+        // Is there a simpler way of inserting, without making an intermediate
+        { // Start
+          std::list<int32> temp;
+          temp.push_back( *v_singleton_start+victim.min().x()-m_min.x() );
+          m_row_start[m_index].insert(start_insertion_point,
+                                      temp.begin(),temp.end() );
+        }
+        { // End
+          std::list<int32> temp;
+          temp.push_back( *v_singleton_end+victim.min().x()-m_min.x() );
+          m_row_end[m_index].insert(end_insertion_point,
+                                    temp.begin(), temp.end() );
         }
       }
-      // Checking for error and debug
-      if ( !found_good_spot ) {
-        std::cout << "Have: min[" << m_min << "] ";
-        for ( std::list<int32>::const_iterator m_i_str = m_row_start[m_index].begin(),
-                m_i_end = m_row_end[m_index].begin();
-              m_i_str != m_row_start[m_index].end(); m_i_str++, m_i_end++ )
-          std::cout << "(" << *m_i_str << "-" << *m_i_end << ")";
-        std::cout << "\nGetting: min[" << victim.min() << "] ";
-        for ( std::list<int32>::const_iterator v_i_str = victim.start(i).begin(),
-                v_i_end = victim.end(i).begin();
-              v_i_str != victim.start(i).end();  v_i_str++, v_i_end++ )
-          std::cout << "(" << *v_i_str << "-" << *v_i_end << ")";
-        std::cout << "\n";
-        vw_throw( vw::NoImplErr() << "BlobCompressed: Seems to be inserting an overlapping blob compressed object.\n" );
-      }
-      // Inserting ( but apply offset fix first)
-      std::list<int32> temp = victim.start(i);
-      for ( std::list<int32>::iterator iter = temp.begin();
-            iter != temp.end(); iter++ )
-        *iter += -m_min.x()+victim.min().x();
-      m_row_start[m_index].insert(start_insertion_point,
-                                  temp.begin(),temp.end() );
-      temp = victim.end(i);
-      for ( std::list<int32>::iterator iter = temp.begin();
-            iter != temp.end(); iter++ )
-        *iter += -m_min.x()+victim.min().x();
-      m_row_end[m_index].insert(end_insertion_point,
-                                temp.begin(),temp.end() );
     }
   }
   // Now handle the rows that didn't previously exist
