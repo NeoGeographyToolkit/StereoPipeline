@@ -55,12 +55,6 @@ if MAKE_APP_POINT2DEM
   point2dem_LDADD = $(APP_POINT2DEM_LIBS)
 endif
 
-if MAKE_APP_CTXIMAGE
-  bin_PROGRAMS += ctximage
-  ctximage_SOURCES = ctximage.cc
-  ctximage_LDADD = $(APP_CTXIMAGE_LIBS)
-endif
-
 if MAKE_APP_RMAX2CAHVOR
   bin_PROGRAMS += rmax2cahvor
   rmax2cahvor_SOURCES = rmax2cahvor.cc

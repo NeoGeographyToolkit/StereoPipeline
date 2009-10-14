@@ -288,11 +288,6 @@ int main(int argc, char* argv[]) {
 #endif
 
   // Register all stereo session types
-#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
-  StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
-  StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
-  StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
-#endif
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);

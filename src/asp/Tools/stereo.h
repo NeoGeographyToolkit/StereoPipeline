@@ -56,9 +56,6 @@ using namespace vw::camera;
 #include <asp/Core/BlobIndexThreaded.h>
 #include <asp/Core/InpaintView.h>
 
-// Support for Malin DDD image files
-#include <asp/Core/DiskImageResourceDDD.h>
-
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/DiskImageResourceIsis.h>

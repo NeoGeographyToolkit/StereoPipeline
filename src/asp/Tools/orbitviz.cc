@@ -50,7 +50,6 @@ using namespace vw::stereo;
 using namespace vw::cartography;
 
 #include <asp/Sessions.h>
-#include <asp/Core/DiskImageResourceDDD.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/DiskImageResourceIsis.h>
@@ -62,14 +61,6 @@ using namespace vw::cartography;
 
 int main(int argc, char* argv[]) {
 
-  // Register the DDD file handler with the Vision Workbench
-  // DiskImageResource system.  DDD is the proprietary format used by
-  // Malin Space Science Systems.
-  DiskImageResource::register_file_type(".ddd",
-                                        DiskImageResourceDDD::type_static(),
-                                        &DiskImageResourceDDD::construct_open,
-                                        &DiskImageResourceDDD::construct_create);
-
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // Register the Isis file handler with the Vision Workbench
   // DiskImageResource system.
@@ -79,12 +70,6 @@ int main(int argc, char* argv[]) {
                                         &DiskImageResourceIsis::construct_create);
 #endif
 
-  // Register all stereo session types
-#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
-  StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
-  StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
-  StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
-#endif
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif

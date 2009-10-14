@@ -31,12 +31,6 @@
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 #endif
 
-#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
-#include <asp/Sessions/HRSC/StereoSessionHRSC.h>
-#include <asp/Sessions/MOC/StereoSessionMOC.h>
-#include <asp/Sessions/MRO/StereoSessionCTX.h>
-#endif
-
 #include <asp/Sessions/RMAX/StereoSessionRmax.h>
 #include <asp/Sessions/Keypoint/StereoSessionKeypoint.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>

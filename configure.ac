@@ -275,7 +275,6 @@ AX_APP(ORBITVIZ,       [src/asp/Tools], yes, [SESSIONS])
 AX_APP(DISPARITYDEBUG, [src/asp/Tools], yes, [BOOST_COMMON VW VW_STEREO])
 AX_APP(POINT2MESH,     [src/asp/Tools], yes, [BOOST_COMMON VW OPENSCENEGRAPH])
 AX_APP(POINT2DEM,      [src/asp/Tools], yes, [CORE])
-AX_APP(CTXIMAGE,       [src/asp/Tools], no,  [CORE])
 AX_APP(RMAX2CAHVOR,    [src/asp/Tools], no,  [SESSIONS])
 AX_APP(RMAXADJUST,     [src/asp/Tools], no,  [CORE SESSIONS])
 AX_APP(BUNDLEVIS,      [src/asp/Tools], no,  [BOOST_COMMON OPENSCENEGRAPH VW VW_CAMERA])
@@ -299,7 +298,6 @@ AM_CONDITIONAL(MAKE_APP_ORBITVIZ, [test "$MAKE_APP_ORBITVIZ" = "yes"])
 AM_CONDITIONAL(MAKE_APP_DISPARITYDEBUG, [test "$MAKE_APP_DISPARITYDEBUG" = "yes"])
 AM_CONDITIONAL(MAKE_APP_POINT2MESH, [test "$MAKE_APP_POINT2MESH" = "yes"])
 AM_CONDITIONAL(MAKE_APP_POINT2DEM, [test "$MAKE_APP_POINT2DEM" = "yes"])
-AM_CONDITIONAL(MAKE_APP_CTXIMAGE, [test "$MAKE_APP_CTXIMAGE" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RMAX2CAHVOR, [test "$MAKE_APP_RMAX2CAHVOR" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RMAXADJUST, [test "$MAKE_APP_RMAXADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_BUNDLEVIS, [test "$MAKE_APP_BUNDLEVIS" = "yes"])
@@ -343,11 +341,8 @@ AC_CONFIG_FILES([                       \
   src/asp/SpiceIO/Makefile              \
   src/asp/IsisIO/Makefile               \
   src/asp/Sessions/Makefile             \
-  src/asp/Sessions/HRSC/Makefile        \
   src/asp/Sessions/ISIS/Makefile        \
   src/asp/Sessions/Keypoint/Makefile    \
-  src/asp/Sessions/MOC/Makefile         \
-  src/asp/Sessions/MRO/Makefile         \
   src/asp/Sessions/Pinhole/Makefile     \
   src/asp/Sessions/RMAX/Makefile        \
   src/asp/Tools/Makefile

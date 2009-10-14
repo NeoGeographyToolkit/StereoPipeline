@@ -84,14 +84,6 @@ int main(int argc, char* argv[]) {
   // our own FileIO driver code.
   DiskImageResource::register_default_file_types();
 
-  // Register the DDD file handler with the Vision Workbench
-  // DiskImageResource system.  DDD is the proprietary format used by
-  // Malin Space Science Systems.
-  DiskImageResource::register_file_type(".ddd",
-                                        DiskImageResourceDDD::type_static(),
-                                        &DiskImageResourceDDD::construct_open,
-                                        &DiskImageResourceDDD::construct_create);
-
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // Register the Isis file handler with the Vision Workbench
   // DiskImageResource system.
@@ -185,11 +177,6 @@ int main(int argc, char* argv[]) {
   }
 
   // Create a fresh stereo session and query it for the camera models.
-#if defined(ASP_HAVE_PKG_SPICE) && ASP_HAVE_PKG_SPICE == 1
-  StereoSession::register_session_type( "hrsc", &StereoSessionHRSC::construct);
-  StereoSession::register_session_type( "moc", &StereoSessionMOC::construct);
-  StereoSession::register_session_type( "ctx", &StereoSessionCTX::construct);
-#endif
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
