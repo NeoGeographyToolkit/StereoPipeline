@@ -59,7 +59,7 @@ using namespace vw::ip;
 float g_spacecraft_position_sigma;
 float g_spacecraft_pose_sigma;
 float g_gcp_scalar;
-boost::shared_ptr<ControlNetwork> g_cnet( new ControlNetwork("IsisAdjust Control Network (in mm)"));
+boost::shared_ptr<ControlNetwork> g_cnet;
 po::variables_map g_vm;
 std::vector< boost::shared_ptr< IsisAdjustCameraModel > > g_camera_adjust_models;
 std::vector<std::string> g_input_files, g_gcp_files;
@@ -647,6 +647,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Checking to see if there is a cnet file to load up
+  g_cnet = boost::shared_ptr<ControlNetwork>( new ControlNetwork("IsisAdjust Control Network (in mm)"));
   if ( g_vm.count("cnet") ){
     vw_out(0) << "Loading control network from file: " << cnet_file << "\n";
 
