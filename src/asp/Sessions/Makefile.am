@@ -7,14 +7,22 @@ if MAKE_MODULE_SESSIONS
 
 include_HEADERS = StereoSession.h
 
-libaspSessions_la_SOURCES = StereoSession.cc ISIS/StereoSessionIsis.cc	\
-		  Keypoint/StereoSessionKeypoint.cc 	\
+libaspSessions_la_SOURCES = StereoSession.cc \
+		  Keypoint/StereoSessionKeypoint.cc
 		  Pinhole/StereoSessionPinhole.cc RMAX/RMAX.cc		\
 		  RMAX/StereoSessionRmax.cc
 
 libaspSessions_la_LIBADD = @MODULE_SESSIONS_LIBS@
 
 lib_LTLIBRARIES = libaspSessions.la
+
+SUBDIRS = . Keypoint Pinhole RMAX
+
+if HAVE_PKG_ISIS
+SUBDIRS += ISIS
+libaspSessions_la_SOURCES += ISIS/StereoSessionIsis.cc
+endif
+
 
 endif
 
@@ -24,8 +32,6 @@ endif
 
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@ -version-info @LIBTOOL_VERSION@
-
-SUBDIRS = . ISIS Keypoint  Pinhole RMAX
 
 includedir = $(prefix)/include/asp/Sessions
 
