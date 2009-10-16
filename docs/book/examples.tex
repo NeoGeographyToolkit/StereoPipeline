@@ -170,7 +170,14 @@ is an 80 m high feature that is the only visible sign of a deep fault.
 
 \subsubsection*{Screenshot}
 
-text
+\begin{figure}[h!]
+\centering
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-example.png}}
+  \hfil
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-ge_example.png}}
+\caption{Example output possible with a LROC NA stereo pair, using only a single CCDs from observations.}
+\label{fig:lroc-na-example}
+\end{figure}
 
 \subsubsection*{Commands}
 
@@ -180,6 +187,8 @@ text
     cam2map from=nacl00002db8.cub to=nacl00002db8.map.cub
     cam2map from=nacl00004c86.cub map=nacl00002db8.map.cub ...
             to=nacl00004c86.map.cub matchmap=true
+    mkdir result
+    stereo nacl00002db8.map.cub nacl00004c86.map.cub result/output
 \end{verbatim}
 
 \subsubsection*{Stereo Default}

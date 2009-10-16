@@ -18,15 +18,14 @@ between the estimated, back-projected pixel location of the 3D
 objects and their actual measured location in the captured images.
 
 That complex process can be boiled down to this simple idea: bundle
-adjustment ensures that observations in multiple different images
-of a single ground feature are self-consistent.  If they are not
-consistent, then the position and orientation of the cameras as
-well as the 3D position of the feature must be must be adjusted
-until they are.  This optimization is carried out along with thousands
-(or more) of similar constraints involving many different features
-observed in other images.  Bundle adjustment is very powerful and
-versatile: it can operate on just two overlapping images, or on
-thousands.
+adjustment ensures that observations in multiple different images of a
+single ground feature are self-consistent. If they are not consistent,
+then the position and orientation of the cameras as well as the 3D
+position of the feature must be adjusted until they are.  This
+optimization is carried out along with thousands (or more) of similar
+constraints involving many different features observed in other
+images.  Bundle adjustment is very powerful and versatile: it can
+operate on just two overlapping images, or on thousands.
 
 \begin{figure}[bt]
   \centering
@@ -118,7 +117,7 @@ ${\bf \epsilon}$, becomes insignificantly small, then the algorithm
 has converged and the result is most likely as good as it will get.
 However, the algorithm will also terminate when the number of
 iterations becomes too large, in which case bundle adjustment may or
-may not have finished refining the parameters of the cameras.  
+may not have finished refining the parameters of the cameras.
 
 \section{ISIS Adjust}
 
@@ -179,7 +178,7 @@ that can be given to \texttt{isis\_adjust} on the command line.
   \emph{Optional.} This option will force {\tt isis\_adjust} to
   use a pre-built built control network. This control network can
   either be in the USGS ISIS ``cnet'' format or in the binary Vision
-  Workbench format. 
+  Workbench format.
 
   If no control network is supplied using this option, {\tt
     isis\_adjust} will look for match files in the current working
@@ -187,21 +186,52 @@ that can be given to \texttt{isis\_adjust} on the command line.
   \texttt{isis\_adjust} program will then create its own control
   network file and save it as \texttt{isis\_adjust.cnet}.
 
-\item[--lambda, -l \textnormal{\small{(= \emph{float})}}] \hfill \\
-  \emph{Optional.} This sets the starting value for $\lambda$: the
-  parameter in the Levenberg Marquardt (LMA) optimization algorithm
-  that selects between Gauss-Newton optimization and gradient
-  descent. This parameter evolves over time on its own, but this
-  argument can be used to override its initial value. \emph{This is an
-  advanced setting, not recommended for normal use.}
+\item[--cost-function \textnormal{\small{(default=L2)}}] \hfill \\
 
-\item[--position-sigma \textnormal{\small{(default = 100)}}] \hfill \\
-  Sets the sigma (or uncertainty) of the spacecraft position in
-  units of meters.
+  Sets the cost function used for bundle adjustment. Default is L2
+  which is the normal squared error. The full list of avaible options
+  are.
 
-\item[--pose-sigma \textnormal{\small{(default = 0.1)}}] \hfill \\
-  Sets the sigma (or uncertainty) of the spacecraft pose in units
-  of radians.
+  \begin{description}
+    \item[L1] Proportional Error
+    \item[L2] Squared Error
+    \item[Cauchy]
+    \item[Huber]
+    \item[PseudoHuber]
+  \end{description}
+
+  The options towards the end of the list are robust cost functions
+  that deal better with non-ideal data that has outliers. These robust
+  cost functions are performed by weighting the original errors yet
+  not modifing the code derived for squared error.
+
+\item[--bundle-adjuster \textnormal{\small{(default=Sparse)}}] \hfill \\
+
+  Sets the bundle adjustment code to be used. The standard to use is
+  sparse, which is a traditional squared error derived method that
+  utilizes sparse matrices to obtain speed. Here are the complete list
+  of options:
+
+  \begin{description}
+    \item[Ref] Reference implementation that doesn't use sparse methods.
+    \item[Sparse] Default implementation.
+    \item[RobustRef]
+    \item[RobustSparse]
+  \end{description}
+
+  The ending methods are experimental student-t derived bundle
+  adjustment algorithms. Using the experimental robust algorithm
+  overrides the {\tt cost-function} option. Those methods are still a
+  work in progress.
+
+\item[--disable-camera-const] \hfill \\
+  This disables the camera constraint error. Useful for debugging and just
+  exploring what are the effects of this error.
+
+\item[--disable-gcp-const] \hfill \\
+  This disables the GCP constraint error even if GCPs are
+  provided. Useful for debugging and just exploring what the effects
+  are of GCPs.
 
 \item[--gcp-scalar \textnormal{\small{(default = 1)}}] \hfill \\
   Sets the multiplier that is used to adjust the sigma
@@ -210,26 +240,13 @@ that can be given to \texttt{isis\_adjust} on the command line.
   option is useful when debugging for universally scaling GCP sigmas up
   or down.
 
-\item[--cost-function \textnormal{\small{(default=L2)}}] \hfill \\
-  Sets the cost function used for bundle adjustment. Default is L2
-  which is the normal squared error. The other options are
-  PseudoHuber, Huber, L1, and Cauchy. These other options are robust
-  cost functions that deal better with non-ideal data that has
-  outliers.
-
-\item[--robust-threshold \textnormal{\small{(default=10)}}] \hfill \\
-  Sets the robust threshold; an additional parameter specifically for
-  the PseudoHuber, Huber, and Cauchy cost functions.
-
-\item[--run-match, -m] \hfill \\
-  \emph{Optional.} If cached tie-point \texttt{*.match} files don't
-  already exist, create them from available \texttt{*.vwip} files using a
-  call to \texttt{ipmatch}.
-
-\item[--match-debug-images, -d] \hfill \\
-  \emph{Optional.} If the {\tt --run-match} option is being used, this
-  option creates useful debugging images that show tie-point matches
-  between the input images.
+\item[--lambda, -l \textnormal{\small{(= \emph{float})}}] \hfill \\
+  \emph{Optional.} This sets the starting value for $\lambda$: the
+  parameter in the Levenberg Marquardt (LMA) optimization algorithm
+  that selects between Gauss-Newton optimization and gradient
+  descent. This parameter evolves over time on its own, but this
+  argument can be used to override its initial value. \emph{This is an
+  advanced setting, not recommended for normal use.}
 
 \item[--min-matches \textnormal{\small{(default = 5)}}] \hfill \\
   Set the minimum number of tie-points that are required between a
@@ -246,29 +263,73 @@ that can be given to \texttt{isis\_adjust} on the command line.
   tens or hundreds of iterations may be required for problems with
   hundreds or thousands of images.
 
-\item[--report-level, -r \textnormal{\small{(default = 10)}}] \hfill \\
-  Sets the report level for the final bundle adjustment report.  This
-  report is saved as \texttt{isis\_adjust.report}. Report levels are
-  defined in the \texttt{BundleAdjustReport.h} header file in the Vision
-  Workbench camera module.
+\item[--poly-order \textnormal{\small{(default = 0)}}] \hfill \\ 
 
-\item[--nonsparse, -n] \hfill \\
-  \emph{Optional.} \texttt{isis\_adjust} normally uses a sparse
-  implementation of the Levenberg Marquardt algorithm (LMA) that makes
-  very efficient use of memory, even for large problems.  This option
-  will cause the program to use a non-sparse version of LMA for
-  debugging purposes.  This will run significantly slower and is
-  only really designed to be used for debugging.
+  Sets the order of the polynomial that is used for adjustment. Using
+  zero means only apply offset to the camera parameters that are not
+  time dependent. That setting is recommend for frame
+  cameras. Linescan imagers should using either a first order
+  polynomial or a second order. Increase this number to high can lead
+  to a problem that is ill-defined and would not be able to converge
+  on to a solution. Initial work suggest that anything beyond a 2nd
+  order polynomial would be ill-defined. 3rd order may work with a
+  good dose of ground control points.
+
+\item[--position-sigma \textnormal{\small{(default = 100)}}] \hfill \\
+  Sets the sigma (or uncertainty) of the spacecraft position in
+  units of meters.
+
+\item[--pose-sigma \textnormal{\small{(default = 0.1)}}] \hfill \\
+  Sets the sigma (or uncertainty) of the spacecraft pose in units
+  of radians.
+
+\item[--report-level, -r \textnormal{\small{(default = 10)}}] \hfill \\
+
+  Sets the report level for the final bundle adjustment report.  This
+  report is saved as \texttt{isis\_adjust.report}. Report levels
+  available are:
+
+  \begin{description}
+    \item[0   - CommandLine Error and Final report]
+    \item[10  - CommandLine Iteration Error (default)]
+    \item[20  - Write Report file]
+    \item[25  - \textnormal{\emph{In development}}]
+    \item[30  - Write Stereo Triangulation Error]
+    \item[35  - \textnormal{\emph{In development}}]
+    \item[100 - Debug, Write Error Vectors (big human readable)]
+    \item[110 - Debug, Write Jacobian Matrix (massive human readable)]
+  \end{description}
+
+\item[--robust-threshold \textnormal{\small{(default=10)}}] \hfill \\
+  Sets the robust threshold; an additional parameter specifically for
+  the PseudoHuber, Huber, and Cauchy cost functions.
+
+\item[--save-iteration-data, -s] \hfill \\
+  Use to write {\tt bundlevis} visualization files.
+
+\item[--seed-with-previous] \hfill \\
+  \emph{Optional.} Loads up the previous {\tt isis\_adjust} session's
+  adjustment file and uses them as a starting point for this session.
 
 \item[--write-isis-cnet-also] \hfill \\
-
   \emph{Optional.} Write an ISIS PVL style control network file in
   \texttt{isis\_adjust.net}. The output file is very large compared to
   the binary output, \texttt{isis\_adjust.cnet}, but is human readable
   and compatible with the ISIS3 \texttt{qnet} tool.
 
-\end{description}
+\item[--write-kml \textnormal{\small{(default=0)}}] \hfill \\
+  \emph{Optional.} Providing this option with a zero will have the
+  program write a kml showing the location of all the ground control
+  points and be colored according to their final error. Providing this
+  option with a one will have this perform as before, but also have it
+  write all of the 3D point estimates. This is useful for debug and
+  for have a quick visualization of where stress points might exist in
+  a bundle adjustment problem when there are many cameras.
 
+\item[--help, -h] \hfill \\
+  Provides a shortened list of the above.
+
+\end{description}
 
 \section{Visualizing Bundle Adjustment with BundleVis}
 
@@ -411,7 +472,7 @@ model to rotate.  Moving with the \textbf{right mouse button} pressed
 will zoom, and moving with the \textbf{middle mouse button} will
 translate. Alternatively for systems where the mouse is
 button-challenged, \textbf{option + mouse} is translation and
-\textbf{command + mouse} is zoom. 
+\textbf{command + mouse} is zoom.
 
 Double clicking with the mouse on a point or camera will allow the
 user to query entities in the model.  A double click will cause the
@@ -456,7 +517,7 @@ using the tools available in Vision Workbench.
 
 \definecolor{lgray}{gray}{0.95}
 \begin{center}
-\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in} 
+\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
 
     We are aware that the tie-point tools available in Vision
     Workbench do not always produce enough matches for bundle
@@ -496,7 +557,7 @@ Visualizing all the data that was exported for \texttt{bundlevis} can
 be carried out as follows:
 
 \begin{verbatim}
-        bundlevis -p iterPointsParam.txt -c iterCameraParam.txt 
+        bundlevis -p iterPointsParam.txt -c iterCameraParam.txt
                   -n isis_adjust.cnet
 \end{verbatim}
 
@@ -551,7 +612,7 @@ column of numbers. Here is what the columns mean:
 \begin{description}
   \item[Column 1:] Sample Number or X location in pixels
   \item[Column 2:] Line Number or Y location in pixels
-  \item[Column 3:] Longitude in degrees 
+  \item[Column 3:] Longitude in degrees
   \item[Column 4:] Latitude in degrees
   \item[Column 5:] Radius in meters
   \item[Column 6-8:] Sigma (or uncertainty) in meters in the X, Y,
@@ -623,7 +684,7 @@ the new control network in \texttt{isis\_adjust}:
 \end{verbatim}
 
 % \begin{thebibliography}{1}
-% 
+%
 % \bibitem{hartley04} Hartley, R.I. and Zisserman, A. ``Multiple View Geometry in Computer Vision,''
 %   Cambridge University Press. 2004. pp 597-627.
 % \bibitem{moore09} Moore, Wright, Schinstock, and Lewis. ``Comparison of Bundle Adjustment Formulations,''
@@ -631,5 +692,5 @@ the new control network in \texttt{isis\_adjust}:
 % \bibitem{triggs00} Triggs, McLauchlan, Hartley, and Fitzgibbon. ``Bundle Adjustment - A Modern Synthesis,''
 %   Lecture Notes in Computer Science. Vol. 1883, 298. January 2000
 % \bibitem{surf09} Bay, Gool, and Tuytelaars. (2009, Mar.). ``SURF: Speeded Up Robust Features'' [Online]. Available: \verb!http://www.vision.ee.ethz.ch/~surf/download.html!
-% 
+%
 % \end{thebibliography}

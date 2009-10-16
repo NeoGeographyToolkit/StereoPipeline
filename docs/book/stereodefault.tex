@@ -77,7 +77,7 @@ values listed after the parameter name.
   For example, if ISIS's \texttt{histeq} has already been used to
   normalize the images, then use this option to disable normalization
   as a (redundant) pre-processing step.
-  
+
 
 \item[DO\_INDIVIDUAL\_NORMALIZATION \textnormal (default = 0)] \hfill \\
 
@@ -86,7 +86,7 @@ values listed after the parameter name.
   By default, the maximum and mininum valid pixel value is determined
   by looking at both images.  Normalized with the same ``global'' min
   and max gurantees that the two images will retain their brightness
-  and contrast relative to each other.  
+  and contrast relative to each other.
 
   This option forces each image to normalized to its own maximum and
   minimum valid pixel value. This is useful for in the event that
@@ -116,7 +116,7 @@ values listed after the parameter name.
 \item[PREPROCESSING\_FILTER\_MODE \textnormal{\small{(= 0,1,2,3)}} (default = 3)] \hfill \\
 
   This selects the pre-processing filter to be used to prepare imagery
-  bofore it is fed to the initialization stage of the pipeline. 
+  bofore it is fed to the initialization stage of the pipeline.
 
   \begin{description}
     \item[0 - None]
@@ -232,7 +232,7 @@ values listed after the parameter name.
 \end{description}
 
 % -------------------------------------------------------------------
-%                           FILTERING 
+%                           FILTERING
 % -------------------------------------------------------------------
 
 \section{Filtering}
@@ -261,7 +261,7 @@ values listed after the parameter name.
 
   Taken together, the RM\_* settings adjust the behavior of an outlier
   rejection scheme that ``erodes'' isolated regions of pixels in the
-  disparity map that are in disagreement with their neighbors.  
+  disparity map that are in disagreement with their neighbors.
 
   The RM\_H\_HALF\_KERN and RM\_V\_HALF\_KERN parameters determine the
   size of the half kernel that is used to perform the automatic
@@ -269,7 +269,7 @@ values listed after the parameter name.
   would result in an $11 \times 11$ kernel with 121 pixels in it.
 
 \item[RM\_THRESHOLD \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
-  
+
   This parameter sets the inlier threshold for the outlier rejection
   scheme.  This option works in conjunction with RM\_MIN\_MATCHES
   below.  A disparity value is rejected if it differs by more than
@@ -308,7 +308,7 @@ values listed after the parameter name.
   ISIS cameras, the origin is the center of the body (e.g. the Moon or
   Mars), and is part of a body-fixed cartesian coordinate system that
   rotates with the planet.
-  
+
   These settings are most useful for other stereo session types
   (e.g. pinohole), where the origin of the coordinate system is often
   one of the cameras in a stereo pair.  In this case, these paramaters
@@ -316,7 +316,7 @@ values listed after the parameter name.
   camera system.
 
   Setting both values zero turns off this restriction and allows the
-  dot cloud to be as big as the data allows for. 
+  dot cloud to be as big as the data allows for.
 
 \end{description}
 
