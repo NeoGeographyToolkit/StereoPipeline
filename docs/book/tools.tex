@@ -50,10 +50,10 @@ named \verb=out-L.tif=, \verb=out-PC.tif=, etc. in that directory.
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
-\verb#--help# & Display this table\\ \hline
+\verb#--help, -h# & Display this table\\ \hline
 \verb#--cache arg (=1800)# & Set the maximium cache available in megabytes\\ \hline
-\verb#--threads arg (=0)# & Set the number threads to use. 0 means use default defined .vwrc\\ \hline
-\verb#--session-type arg# & Select the stereo session type to use for processing. Usually the program can select this automatically for file extension. [options pinhole isis]\\ \hline
+\verb#--threads arg (=0)# & Set the number threads to use. 0 means use default defined in the .vwrc\\ \hline
+\verb#--session-type arg# & Select the stereo session type to use for processing. Usually the program can select this automatically for file extension. [options: pinhole isis]\\ \hline
 \verb#--stereo-file arg (=./stereo.default)# & Define the stereo.default file to use\\ \hline
 \verb#--entry-point# & Pipeline entry point [options 1-4]\\ \hline
 \verb#--debug-level# & Sets the output debugging level\\ \hline
@@ -75,13 +75,13 @@ interest points and matching them in both images. The program is
 designed to reject outlying interest points.  This stage writes out
 the pre-aligned images and the image masks.
 
-Stage 1 (Disparity Map Initialization) performs pyramid correlation and builds a rought disparity map that is used to seed the sub-pixel refinement phase.
+Stage 1 (Disparity Map Initialization) performs pyramid correlation and builds a rough disparity map that is used to seed the sub-pixel refinement phase.
 
 Stage 2 (Sub-pixel Refinement) performs sub-pixel correlation that
 refines the disparity map.
 
 Stage 3 (Outlier Rejection and Hole Filling) performs filtering of the
-disparity map and (optionally) fills in holse using an inpainting
+disparity map and (optionally) fills in holes using an inpainting
 algorithm.  This phase also creates a ``good pixel'' map.
 
 Stage 4 (Triangulation) generates a 3D point cloud from the disparity
@@ -103,10 +103,10 @@ two normalized TIFF image files (\verb#*-H.tif# and \verb#*-V.tif#,
 conaining the horizontal and vertical components of disparity,
 respectively) that can be viewed using any image display program.
 
-{\tt disparitydebug} will also print out the range of disparity values
-in a disparity map, that can serve as useful summary statistics when
-tuning up the up the search range settings in the {\tt stereo.default}
-file.
+The {\tt disparitydebug} program will also print out the range of
+disparity values in a disparity map, that can serve as useful summary
+statistics when tuning up the up the search range settings in the
+{\tt stereo.default} file.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for disparitydebug}
@@ -220,26 +220,26 @@ Unlike DEMs, The 3D mesh is not meant to be used as a finished
 scientific product.  Rather, it cn be used for fast visualization or
 to create a cool 3D view of the data generated. 
 
-\verb#point2mesh# requires a point cloud file and optionally the left
-texture file ({\tt <output-prefix-PC.tif} and
-{\tt <output-prefix>-L.tif}). When a texture file is not provided, a
-1D texture is applied in the local Z direction that produces a rough
-rendition of a contour map.  In either case, \verb#point2mesh# will
-produce a \verb#<output-prefix>.ive# file that contains the 3D model
-in OpenSceneGraph format.
+The \texttt{point2mesh} program requires a point cloud file and
+optionally the left texture file (\texttt{<output-prefix-PC.tif}
+and \texttt{<output-prefix>-L.tif}). When a texture file is not
+provided, a 1D texture is applied in the local Z direction that
+produces a rough rendition of a contour map.  In either case,
+\texttt{point2mesh} will produce a \texttt{<output-prefix>.ive}
+file that contains the 3D model in OpenSceneGraph format.
 
-Two options bear pointing out: the \verb#-l# flag indicates that
-synthetic lighting should be activated for the model, which can make
-is easier to see fine detail in the model by providing some real-time,
-interactive hillshading.  The \verb#-s# flag sets the sub-sampling
-rate, and dictates the degree to which the 3D model should be
-simplified.  (For 3D reconstructions, this can be essential for
-producing a model that can fit in memory.)  The default value is 10,
-meaning every 10th point is used in the X and Y directions. In other
-words that mean only $1/10^2$ of the points are being used to create
-the model. Adjust this sampling rate according to how much detail is
-desired, but remember that large models will hurt the framerate of the
-3D viewer..
+Two options for \texttt{osgviewer} bear pointing out: the \texttt{-l}
+flag indicates that synthetic lighting should be activated for the
+model, which can make it easier to see fine detail in the model by
+providing some real-time, interactive hillshading.  The \verb#-s#
+flag sets the sub-sampling rate, and dictates the degree to which
+the 3D model should be simplified.  (For 3D reconstructions, this
+can be essential for producing a model that can fit in memory.)
+The default value is 10, meaning every 10th point is used in the X
+and Y directions. In other words that mean only $1/10^2$ of the
+points are being used to create the model. Adjust this sampling
+rate according to how much detail is desired, but remember that
+large models will hurt the framerate of the 3D viewer..
 
 Example:
 \begin{verbatim}
