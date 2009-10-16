@@ -3,7 +3,7 @@
 This chapter is partly a show case of results that are possible with
 Ames Stereo Pipeline. Yet it is also a shortened guide that shows the
 commands and stereo.default files used to process data. It can be hard
-try to figure out what settings to start with and hopefully this will
+to try and figure out what settings to start with and hopefully this will
 provide starting point ideas.
 
 \section{Guidelines for Selecting Stereo Pairs}
@@ -17,22 +17,21 @@ acceptable variation will differ. Significant differences between
 image characteristics increases the error propagated through to the
 resulting data products.
 
-Images do not need to be map projected before running the \texttt{stereo}
-program. That being said, for images which contain large topographic
-variation (and therefore large disparity differences across the
-scene--think Valles Marineris), sometimes map-projecting the images
-can help, as it sometimes improves the correlation (at least until
-we get our adaptive correlation window strategies in place).  However,
-be careful about map-projecting.  For example, the HiRISE RDR
-products, which are map projected, have been map-projected onto a
-smoothed MOLA terrain model, so these images are not suitable for
-stereo processing, because the act of projecting them on to a terrain
-model introduces disparity into the source images that will lead
-to poor results.
+Images do not need to be map projected before running the
+\texttt{stereo} program. That being said, for images which contain
+large topographic variation (and therefore large disparity differences
+across the scene--think Valles Marineris), sometimes map-projecting
+the images can help, as it sometimes improves the correlation. Map
+projecting for HiRISE images especially helps out. The reason is that
+for Mars, Isis has a rough DEM created from MOLA data that it projects the
+data on to. This removes the large disparity differences between
+HiRISE images and leaves only the small detail for the Ames Stereo
+Pipeline to work on. This method is acceptable because Isis can work
+backwards through a map-projection, back to the original camera model.
 
 The images should be photometrically calibrated (in whatever fashion
 suits your purposes), as excessively noisy images will not correlate
-well.  If there are photometric problems with the images, those
+well. If there are photometric problems with the images, those
 photometric defects could be misinterpreted as topography.
 
 The Stereo Pipeline can deal with arbitrary images with accompanying
@@ -93,49 +92,51 @@ Moon, near the equator. It is east of Kapteyn A and B.
 \subsubsection*{Stereo Default}
 
 \begin{verbatim}
-    ##      PREPROCESSING      ##
+    ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 1
-    DO_EPIPOLAR_ALIGNMENT 0
     INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
     FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 0
 
     PREPROCESSING_FILTER_MODE 3
+
     SLOG_KERNEL_WIDTH 1.5
 
-    ###########################    CORRELATION    ###########################
+    ### CORRELATION
+
+    COST_MODE 2
+    COST_BLUR 25
 
     H_KERNEL 35
     V_KERNEL 35
-    SUBPIXEL_H_KERNEL 25
-    SUBPIXEL_V_KERNEL 25
 
     H_CORR_MIN -250
     H_CORR_MAX 250
     V_CORR_MIN -70
     V_CORR_MAX 100
 
-    SUBPIXEL_MODE 3
-    DO_H_SUBPIXEL 1
-    DO_V_SUBPIXEL 1
+    SUBPIXEL_MODE 2
 
-    XCORR_THRESHOLD 2.0
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
+
+    # Hidden advanced function
     CORRSCORE_REJECTION_THRESHOLD 1.4
 
-    COST_BLUR 25
-    COST_MODE 2
-
-    ############################    FILTERING    ############################
+    ### FILTERING
 
     FILL_HOLES 1
-    MASK_FLATFIELD 1
 
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
-    RM_MIN_MATCHES 60 # Units = percest
+    RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
 
-    #############################    DOTCLOUD    ############################
+    ### DOTCLOUD
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
@@ -159,7 +160,13 @@ text
 
 \section{Lunar Reconaissance Orbiter LROC-NA}
 
-\subsection{Lincoln Scarp}
+\subsection{Lee-Lincoln Scarp}
+
+This covers an area on the Moon called Taurus-Littrow valley where on
+December 11, 1972 the astronauts of Apollo 17 landed. Though this
+stereo pair doesn't contain the landing site, it is slightly west and
+focusing on the Lee-Lincoln scarp that is on North Massif. The scarp
+is an 80 m high feature that is the only visible sign of a deep fault.
 
 \subsubsection*{Screenshot}
 
@@ -167,15 +174,92 @@ text
 
 \subsubsection*{Commands}
 
-text
+\begin{verbatim}
+    % Download nacl00002db8.* & nacl00004c86.*
+    % process with unreleased tools to make cubes
+    cam2map from=nacl00002db8.cub to=nacl00002db8.map.cub
+    cam2map from=nacl00004c86.cub map=nacl00002db8.map.cub ...
+            to=nacl00004c86.map.cub matchmap=true
+\end{verbatim}
 
 \subsubsection*{Stereo Default}
 
-text
+\begin{verbatim}
+    ### PREPROCESSING
+
+    DO_INTERESTPOINT_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
+    FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 0
+
+    PREPROCESSING_FILTER_MODE 2
+
+    SLOG_KERNEL_WIDTH 1.5
+
+    ### CORRELATION
+
+    COST_BLUR 12
+    COST_MODE 2
+
+    H_KERNEL 29
+    V_KERNEL 29
+
+    H_CORR_MIN -425
+    H_CORR_MAX 150
+    V_CORR_MIN -100
+    V_CORR_MAX 100
+
+    SUBPIXEL_MODE 2
+
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
+
+    ### FILTERING
+
+    FILL_HOLES 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percent
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    ### DOTCLOUD
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 \section{Mars Global Surveyor MOC-NA}
 
+In the Ames Stereo Pipeline tutorial we showed you how to process a
+MOC-NA stereo pair that covered the Galaxius Fluctus channel. In this
+section we plan to show you more examples but also to clear our
+conscious. The tutorial picked a pristine pair that is not really
+representative of typical MOC-NA stereo pairs. The Mars Global
+Surveyor was particularly susceptible to a problem called spacecraft
+'jitter'. All spacecraft to some degree wobble around a bit and this
+causes wave-like distortions in linescan imagers. The cause of this
+could be from the deployment of special antennae or the decay of
+reaction wheels. Regardless, the MOC-NA pointing and position
+information called SPICE does not show this jitter. This means that
+the jitter will cause distortions in our pointcloud. The following
+examples will show the typical distortions created by this problem.
+
+It might concern you now that other missions will exhibit this
+problem. Never fear, the science teams of HiRISE and LROC are aware of
+your concern and are actively working on detecting and logging the
+jitter in their respective SPICE data. The distortions will still
+being in the raw imagery, but it won't cause artifacts in the
+pointcloud or any following data product.
+
 \subsection{Ceraunius Tholus}
+
+Ceraunius Tholus is a steep volcano that is part of the Uranius group
+on Mars. It can be found at 23.96N and 262.60 E. This DEM crosses the
+volcano's caldera.
 
 \subsubsection*{Screenshot}
 
@@ -190,13 +274,71 @@ text
 
 \subsubsection*{Commands}
 
-text
+\begin{verbatim}
+    % Download M0806047.img & R0701361.img
+    moc2isis f=M0806047.img t=M0806047.cub mapping=no
+    moc2isis f=R0701361.img t=R0701361.cub mapping=no
+    cam2map from=M0806047.cub to=M0806047.map.cub
+    cam2map from=R0701361.cub map=M0806047.map.cub to=R0701361.map.cub matchmap=true
+    mkdir result
+    stereo M0806047.map.cub R0701361.map.cub result/output
+\end{verbatim}
 
 \subsubsection*{Stereo Default}
 
-text
+\begin{verbatim}
+    ### PREPROCESSING
+
+    DO_INTERESTPOINT_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
+    FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 1
+
+    PREPROCESSING_FILTER_MODE 2
+
+    SLOG_KERNEL_WIDTH 1.5
+
+    ### CORRELATION
+
+    COST_BLUR 12
+    COST_MODE 2
+
+    H_KERNEL 25
+    V_KERNEL 25
+
+    H_CORR_MIN -12
+    H_CORR_MAX 26
+    V_CORR_MIN -50
+    V_CORR_MAX 15
+
+    SUBPIXEL_MODE 2
+
+    SUBPIXEL_H_KERNEL 21
+    SUBPIXEL_V_KERNEL 21
+
+    ### FILTERING
+
+    FILL_HOLES 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percent
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    ### DOTCLOUD
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 \subsection{North Tharsis}
+
+The Malin Space Science System's website describes this image as the
+`Throughs and terraces in northern Tharsis'. This DEM is located at
+20.20 N and 118.18 W on Mars.
 
 \subsubsection*{Screenshot}
 
@@ -211,11 +353,65 @@ text
 
 \subsubsection*{Commands}
 
-text
+\begin{verbatim}
+    % Download M0803097.img & S0701420.img
+    moc2isis f=M0803097.img t=M0803097.cub mapping=no
+    moc2isis f=S0701420.img t=S0701420.cub mapping=no
+    cam2map from=M0803097.cub to=M0803097.map.cub
+    cam2map from=S0701420.cub map=M0803097.map.cub to=S0701420.map.cub matchmap=true
+    mkdr result
+    stereo M0803097.map.cub S0701420.map.cub result/output
+\end{verbatim}
 
 \subsubsection*{Stereo Default}
 
-text
+\begin{verbatim}
+    ### PREPROCESSING
+
+    DO_INTERESTPOINT_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
+    FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 1
+
+    PREPROCESSING_FILTER_MODE 2
+
+    SLOG_KERNEL_WIDTH 1.5
+
+    ### CORRELATION
+
+    COST_BLUR 12
+    COST_MODE 2
+
+    H_KERNEL 25
+    V_KERNEL 25
+
+    H_CORR_MIN -50
+    H_CORR_MAX 0
+    V_CORR_MIN -85
+    V_CORR_MAX 0
+
+    SUBPIXEL_MODE 2
+
+    SUBPIXEL_H_KERNEL 21
+    SUBPIXEL_V_KERNEL 21
+
+    ### FILTERING
+
+    FILL_HOLES 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percent
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    ### DOTCLOUD
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 \section{Mars Reconaissance Orbiter CTX}
 
@@ -234,11 +430,68 @@ text
 
 \subsubsection*{Commands}
 
-text
+\begin{verbatim}
+    % Download P02_001981_1823_XI_02N356W.IMG &
+    %          P03_002258_1817_XI_01N356W.IMG
+    mroctx2isis from=P02_001981_1823_XI_02N356W.IMG to=P02_001981_1823_XI_02N356W.cub
+    mroctx2isis from=P03_002258_1817_XI_01N356W.IMG to=P03_002258_1817_XI_01N356W.cub
+    spiceinit from=P02_001981_1823_XI_02N356W.cub
+    spiceinit from=P03_002258_1817_XI_01N356W.cub
+    ctxcal from=P02_001981_1823_XI_02N356W.cub to=P02_001981_1823_XI_02N356W.cal.cub
+    ctxcal from=P03_002258_1817_XI_01N356W.cub to=P03_002258_1817_XI_01N356W.cal.cub
+    cam2map from=P02_001981_1823_XI_02N356W.cal.cub to=P02_001981_1823_XI_02N356W.map.cub
+    cam2map from=P03_002258_1817_XI_01N356W.cal.cub to=P03_002258_1817_XI_01N356W.map.cub
+\end{verbatim}
 
 \subsubsection*{Stereo Default}
 
-text
+\begin{verbatim}
+    ### PREPROCESSING
+
+    DO_INTERESTPOINT_ALIGNMENT 1
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
+    FORCE_USE_ENTIRE_RANGE 0
+    DO_INDIVIDUAL_NORMALIZATION 0
+
+    PREPROCESSING_FILTER_MODE 3
+
+    SLOG_KERNEL_WIDTH 1.5
+
+    ### CORRELATION
+
+    COST_BLUR 0
+    COST_MODE 2
+
+    H_KERNEL 35
+    V_KERNEL 35
+
+    H_CORR_MIN -300
+    H_CORR_MAX 300
+    V_CORR_MIN -150
+    V_CORR_MAX 150
+
+    SUBPIXEL_MODE 3
+
+    SUBPIXEL_H_KERNEL 21
+    SUBPIXEL_V_KERNEL 21
+
+    ### FILTERING
+
+    FILL_HOLES 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percest
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    ### DOTCLOUD
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 \section{Mars Reconaissance Orbiter HiRISE}
 
@@ -247,33 +500,49 @@ from. This is because HiRISE exposures can be several GiBs each and
 working with this data requires patience as it will take time.
 
 One important fact to know about HiRISE is that it is composed of
-multiple linear CCDs that arranged side by side with some vertical
-offset. The vertical offset means that the CCDs will view the same
-terrain but at a slightly different time and a slightly different
-angle. Mosiacing the CCDs together to a single image is not a simple
-process and involves living with some imperfections.
+multiple linear CCDs that are arranged side by side with some vertical
+offset. Their vertical offsets from each other on the image plane
+means that the CCDs will view some of the same terrain but at a
+slightly different time and a slightly different angle. Mosiacing the
+CCDs together to a single image is not a simple process and involves
+living with some imperfections.
 
 We recommend at this time mosiacing CCDs via a script provided by
-USGS. All red CCDs are project via cam2cam into the perspective of
-RED5 and then their relative offsets from each other using
-hijitreg. Finally the CCDs are hand mosiaced together using the
-average offset listed from hijitreg. Below is the script to perform
-this feat.
+USGS. Having said that, we are also providing an alternative script
+that will take raw HiRISE images and produce a mosaic a while
+later. Both scripts take all red CCDs and project them via {\tt
+  noproj} into the perspective of RED5. From there, {\tt hijitreg} is
+performed to work out the relative offsets between CCDs. Finally the
+CCDs are mosiaced together using the average offset listed from {\tt
+  hijitreg} using the {\tt handmos} command. Below is an outline of
+what our script does and is modelled after the tutorial provided by
+USGS's Isis website.
 
 \begin{verbatim}
-    text be here
+    command outline
 \end{verbatim}
 
 Finally we recommend map projecting the product and normalizing the
-stereo pair together.
+stereo pair together. Notice that we map project the second image to
+the map settings and crop of the first image. This means the images
+will share the same origin and {\tt stereo's} search range should be
+centered around zero.
 
 \begin{verbatim}
-    text be here
+    cam2map f=first.cub t=first.map.cub
+    cam2map f=second.cub map=first.map.cub t=second.map.cub matchmap=true
+    bandnorm f=first.map.cub t=first.norm.cub
+    bandnorm f=second.map.cub t=second.norm.cub
+    ls first.norm.cub second.norm.cub > fromlist
+    ls first.norm.cub > holdlist
+    equalizer fromlist=fromlist holdlist=holdlist
+    mkdir result
+    stereo first.norm.equ.cub second.norm.equ.cub result/output
 \end{verbatim}
 
 In the future, it is our understanding that the HiRISE team would like
-to produce non-map-projected imagery from the PDS. When that happens
-the most of the above commands will no longer be required.
+to produce non-map-projected imagery from the PDS. When that happens,
+most of the above commands will no longer be required.
 
 \subsection{Columbia Hills}
 
@@ -288,11 +557,11 @@ landing. In the lower right-hand portion of the image is "Husband
 Hill," a large hill that Spirit climbed and where it spent much of its
 now nearly three-year mission.
 
-The bright irregularly-shaped feature in area north-west of Bonneville
-Crater is Spirit's parachute, now lying on the Martian surface. Near
-the parachute is the cone-shaped "backshell" that helped protect
-Spirit's lander during its seven-month journey to Mars. The backshell
-appears relatively undamaged by its impact with the martian
+The bright irregularly-shaped feature in the area north-west of
+Bonneville Crater is Spirit's parachute, now lying on the Martian
+surface. Near the parachute is the cone-shaped "backshell" that helped
+protect Spirit's lander during its seven-month journey to Mars. The
+backshell appears relatively undamaged by its impact with the martian
 surface. Wrinkles and folds in the parachute fabric are clearly
 visible.
 
@@ -319,15 +588,84 @@ Written by: Steve Squyres
 
 \subsubsection*{Screenshot}
 
-text
+\begin{figure}[h!]
+\centering
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/hirise/chills_hirise_example.png}}
+  \hfil
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/hirise/chills_hirise_ge_example.png}}
+\caption{Example output using HiRISE data of East Mareotis Tholus.}
+\label{fig:hirise_chills_example}
+\end{figure}
 
 \subsubsection*{Commands}
 
-text
+\begin{verbatim}
+    % Download all of the RED IMG for PSP_001513_1655 & %
+    %                                 PSP_001777_1650   %
+    ~/HiRISE_stitch.py PSP_001513_1655_RED0_0.IMG
+    ~/HiRISE_stitch.py PSP_001777_1650_RED0_0.IMG
+    cam2map from=PSP_001513_1655_REDmosaic.norm.cub to=PSP_001513_1655_REDmosaic.map.cub
+    cam2map from=PSP_001777_1650_REDmosaic.norm.cub map=PSP_001513_1655_REDmosaic.map.cub ...
+            to=PSP_001777_1650_REDmosaic.norm.cub matchmap=true
+    bandnorm from=PSP_001513_1655_REDmosaic.map.cub to=PSP_001513_1655_REDmosaic.map.norm.cub
+    bandnorm from=PSP_001777_1650_REDmosaic.map.cub to=PSP_001777_1650_REDmosaic.map.norm.cub
+    ls *.map.norm.cub > fromlist
+    ls *1513*.map.norm.cyb > holdlist
+    equalizer fromlist=fromlist holdlist=holdlist
+    rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
+    mkdir result
+    stereo PSP_001513_1655.map.norm.equ.cub PSP_001777_1650.map.norm.equ.cub result/output
+\end{verbatim}
 
 \subsubsection*{Stereo Default}
 
-text
+\begin{verbatim}
+    ### PREPROCESSING
+
+    DO_INTERESTPOINT_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
+    FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 0
+
+    PREPROCESSING_FILTER_MODE 2
+
+    SLOG_KERNEL_WIDTH 1.5
+
+    ### CORRELATION
+
+    COST_MODE 0
+    COST_BLUR 0
+
+    H_KERNEL 50
+    V_KERNEL 50
+
+    H_CORR_MIN 210
+    H_CORR_MAX 450
+    V_CORR_MIN -320
+    V_CORR_MAX 320
+
+    SUBPIXEL_MODE 2
+
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
+
+    ### FILTERING
+
+    FILL_HOLES 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percent
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    ### DOTCLOUD
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 \subsection{East Mareotis Tholus}
 
@@ -373,8 +711,8 @@ Written by: Laszlo P. Keszthelyi
 \subsubsection*{Commands}
 
 \begin{verbatim}
-    % Download all of the IMG for PSP_001364_2160 & %
-    %                             PSP_001760_2160   %
+    % Download all of the RED IMG for PSP_001364_2160 & %
+    %                                 PSP_001760_2160   %
     ~/HiRISE_stitch.py PSP_001364_2160_RED0_0.IMG
     ~/HiRISE_stitch.py PSP_001760_2160_RED0_0.IMG
     cam2map from=PSP_001364_2160_REDmosaic.norm.cub to=PSP_001364_2160_REDmosaic.map.cub
@@ -387,46 +725,46 @@ Written by: Laszlo P. Keszthelyi
     equalizer fromlist=fromlist holdlist=holdlist
     rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
     mkdir result
-    stereo PSP_001364_2160.map.norm.equ.cub PSP_001760_2160.map.norm.equ.cub result.output
+    stereo PSP_001364_2160.map.norm.equ.cub PSP_001760_2160.map.norm.equ.cub result/output
 \end{verbatim}
 
 \subsubsection*{Stereo Default}
 
 \begin{verbatim}
-    ##      PREPROCESSING      ##
+    ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
-    DO_EPIPOLAR_ALIGNMENT 0
     INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
-    DO_INDIVIDUAL_NORMALIZATION 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
     FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 0
 
     PREPROCESSING_FILTER_MODE 2
+
     SLOG_KERNEL_WIDTH 1.5
 
-    ###########################    CORRELATION    ###########################
-
-    H_KERNEL 25
-    V_KERNEL 25
-    SUBPIXEL_H_KERNEL 25
-    SUBPIXEL_V_KERNEL 25
-
-    H_CORR_MIN -80
-    V_CORR_MIN -80
-    H_CORR_MAX 150
-    V_CORR_MAX 50
-
-    SUBPIXEL_MODE 0
-    DO_H_SUBPIXEL 1
-    DO_V_SUBPIXEL 1
-
-    XCORR_THRESHOLD 2.0
-    CORRSCORE_REJECTION_THRESHOLD 1.1
+    ### CORRELATION
 
     COST_BLUR 0
     COST_MODE 0
 
-    ############################    FILTERING    ############################
+    H_KERNEL 25
+    V_KERNEL 25
+
+    H_CORR_MIN -80
+    H_CORR_MAX 150
+    V_CORR_MIN -80
+    V_CORR_MAX 50
+
+    SUBPIXEL_MODE 0
+
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
+
+    ### FILTERING
+
+    FILL_HOLES 1
 
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
@@ -434,9 +772,7 @@ Written by: Laszlo P. Keszthelyi
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
 
-    FILL_HOLES 0
-
-    #############################    DOTCLOUD    ############################
+    ### DOTCLOUD
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
@@ -485,23 +821,26 @@ a Small Crater'. Hopefully you'll still agree that this is cool.
 \subsubsection*{Stereo Default}
 
 \begin{verbatim}
-    ##      PREPROCESSING      ##
+    ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
-    DO_EPIPOLAR_ALIGNMENT 0
     INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
-    DO_INDIVIDUAL_NORMALIZATION 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
     FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 0
 
     PREPROCESSING_FILTER_MODE 2
+
     SLOG_KERNEL_WIDTH 1.5
 
-    ###########################    CORRELATION    ###########################
+    ### CORRELATION
+
+    COST_BLUR 21
+    COST_MODE 2
 
     H_KERNEL 45
     V_KERNEL 45
-    SUBPIXEL_H_KERNEL 25
-    SUBPIXEL_V_KERNEL 25
 
     H_CORR_MIN -270
     H_CORR_MAX -70
@@ -509,26 +848,21 @@ a Small Crater'. Hopefully you'll still agree that this is cool.
     V_CORR_MAX 26
 
     SUBPIXEL_MODE 0
-    DO_H_SUBPIXEL 1
-    DO_V_SUBPIXEL 1
 
-    XCORR_THRESHOLD 2.0
-    CORRSCORE_REJECTION_THRESHOLD 1.2
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
 
-    COST_BLUR 21
-    COST_MODE 2
-
-    ############################    FILTERING    ############################
-
-    RM_H_HALF_KERN 5
-    RM_V_HALF_KERN 5
-    RM_MIN_MATCHES 60 # Units = percest
-    RM_THRESHOLD 3
-    RM_CLEANUP_PASSES 1
+    ### FILTERING
 
     FILL_HOLES 1
 
-    #############################    DOTCLOUD    ############################
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percent
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    ### DOTCLOUD
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
@@ -583,23 +917,26 @@ make anything other than the spherical surface.
 \subsubsection*{Stereo Default}
 
 \begin{verbatim}
-    ##      PREPROCESSING      ##
+    ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 1
-    DO_EPIPOLAR_ALIGNMENT 0
     INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
-    DO_INDIVIDUAL_NORMALIZATION 1
+    DO_EPIPOLAR_ALIGNMENT 0
+
     FORCE_USE_ENTIRE_RANGE 0
+    DO_INDIVIDUAL_NORMALIZATION 1
 
     PREPROCESSING_FILTER_MODE 2
+
     SLOG_KERNEL_WIDTH 1.5
 
-    ###########################    CORRELATION    ###########################
+    ### CORRELATION
+
+    COST_BLUR 5
+    COST_MODE 0
 
     H_KERNEL 25
     V_KERNEL 25
-    SUBPIXEL_H_KERNEL 19
-    SUBPIXEL_V_KERNEL 19
 
     H_CORR_MIN -10
     H_CORR_MAX 10
@@ -607,16 +944,11 @@ make anything other than the spherical surface.
     V_CORR_MAX 2
 
     SUBPIXEL_MODE 2
-    DO_H_SUBPIXEL 1
-    DO_V_SUBPIXEL 1
 
-    XCORR_THRESHOLD 2.0
-    CORRSCORE_REJECTION_THRESHOLD 1.3
+    SUBPIXEL_H_KERNEL 19
+    SUBPIXEL_V_KERNEL 19
 
-    COST_BLUR 5
-    COST_MODE 0
-
-    ############################    FILTERING    ############################
+    ### FILTERING
 
     FILL_HOLES 1
 
@@ -624,8 +956,9 @@ make anything other than the spherical surface.
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
 
-    #############################    DOTCLOUD    ############################
+    ### DOTCLOUD
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
