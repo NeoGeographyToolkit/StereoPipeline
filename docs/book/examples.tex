@@ -1,10 +1,10 @@
 \chapter{Data Processing Examples}
 
 This chapter is partly a show case of results that are possible with
-Ames Stereo Pipeline. Yet it is also a shortened guide that shows the
-commands and stereo.default files used to process data. It can be hard
-to try and figure out what settings to start with and hopefully this will
-provide starting point ideas.
+the Ames Stereo Pipeline. Yet it is also a shortened guide that shows
+the commands and stereo.default files used to process data. It can be
+hard to try and figure out what settings to start with and hopefully
+this will provide starting point ideas.
 
 \section{Guidelines for Selecting Stereo Pairs}
 
@@ -20,16 +20,17 @@ resulting data products.
 Images do not need to be map projected before running the
 \texttt{stereo} program. That being said, for images which contain
 large topographic variation (and therefore large disparity differences
-across the scene--think Valles Marineris), sometimes map-projecting
-the images can help, as it sometimes improves the correlation. Map
-projecting for HiRISE images especially helps out. The reason is that
-for Mars, Isis has a rough DEM created from MOLA data that it projects the
-data on to. This removes the large disparity differences between
-HiRISE images and leaves only the small detail for the Ames Stereo
-Pipeline to work on. This method is acceptable because Isis can work
-backwards through a map-projection, back to the original camera model.
+across the scene, \emph{e.g. Valles Marineris}), sometimes
+map-projecting the images can help, as it reduces the search range for
+the correlator. Map projecting for HiRISE images especially helps
+out. The reason is that for Mars, Isis has a rough DEM created from
+MOLA data that it projects the data on to. This removes the large
+disparity differences between HiRISE images and leaves only the small
+detail for the Ames Stereo Pipeline to work on. This method is
+acceptable because Isis can work backwards through a map-projection,
+back to the original camera model.
 
-The images should be photometrically calibrated (in whatever fashion
+The images should also be photometrically calibrated (in whatever fashion
 suits your purposes), as excessively noisy images will not correlate
 well. If there are photometric problems with the images, those
 photometric defects could be misinterpreted as topography.
@@ -144,19 +145,113 @@ Moon, near the equator. It is east of Kapteyn A and B.
 
 \section{Cassini ISS NAC}
 
-\subsection{Enceladus}
+This is a proof of concept showing off the strength of building on top
+of ISIS. Cassini data is not a goal of the Ames Stereo Pipeline
+developers but it's camera model does exist in ISIS.
+
+Getting stereo pairs from satellites that do not orbit their target is
+a difficult challenge. From our experiences we have found that we
+usually have to settle with images that are not ideal. This means we
+attempting stereo pairs with different lighting, little perspective
+change, and generally too far away to see parallax. So far we have had no success with
+such difficult data like Cassini's, yet it doesn't hurt to try.
+
+\subsection{Rhea}
+
+Rhea is the second largest moon of Saturn and is roughly 1/3rd the
+size of our own Moon. In this example, the top right of both images
+show a gaint impact basin named Tirawa that is 220 miles across. The
+bright white area south of Tirawa is ejecta from a new crater and
+poses a difficult challenge for our correlator. In this examples the
+Tirawa impact can barely be made out in the 3D data while the new
+crater and ejecta become only noise.
 
 \subsubsection*{Screenshot}
 
-text
+\begin{figure}[p]
+\centering
+  \subfigure[{\tt Original Left Image}]{\includegraphics[width=3in]{images/examples/cassini/cassini_rhea_L.png}}
+  \hfil
+  \subfigure[{\tt Original Right Image}]{\includegraphics[width=3in]{images/examples/cassini/cassini_rhea_R.png}}
+  \\
+  \subfigure[{\tt Map Projected Left}]{\includegraphics[width=3in]{images/examples/cassini/cassini_rhea_map.png}}
+  \hfil
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/cassini/cassini_rhea.png}}
+\caption{Example output of what is possible with Cassini's ISS NAC}
+\label{fig:cassini-exampe}
+\end{figure}
 
 \subsubsection*{Commands}
 
-text
+\begin{verbatim}
+    % Download N1511700120_1.IMG and W1567133629_1.IMG
+    ciss2isis f=N1511700120_1.IMG t=N1511700120_1.cub
+    ciss2isis f=W1567133629_1.IMG t=W1567133629_1.cub
+    cisscal from=N1511700120_1.cub to=N1511700120_1.lev1.cub
+    cisscal from=W1567133629_1.cub to=W1567133629_1.lev1.cub
+    fillgap from=W1567133629_1.lev1.cub to=W1567133629_1.fill.cub %Only one image
+                                                                  %exhibits the problem
+    cubenorm from=N1511700120_1.lev1.cub to=N1511700120_1.norm.cub
+    cubenorm from=W1567133629_1.fill.cub to=W1567133629_1.norm.cub
+    cam2map from=N1511700120_1.norm.cub to=N1511700120_1.map.cub
+    cam2map from=W1567133629_1.norm.cub map=N1511700120_1.map.cub ...
+            to=W1567133629_1.map.cub matchmap=true;
+    ls *.map.cub > fromlist
+    ls N*.map.cub > holdlist
+    equalizer fromlist=fromlist holdlist=holdlist
+    mkdir result
+    stereo N1511700120_1.map.equ.cub W1567133629_1.map.equ.cub result/rhea
+\end{verbatim}
 
 \subsubsection*{Stereo Default}
 
-text
+\begin{verbatim}
+    ### PREPROCESSING
+
+    DO_INTERESTPOINT_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
+    FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 1
+
+    PREPROCESSING_FILTER_MODE 2
+
+    SLOG_KERNEL_WIDTH 1.5
+
+    ### CORRELATION
+
+    COST_MODE 2
+    COST_BLUR 11
+
+    H_KERNEL 25
+    V_KERNEL 25
+
+    H_CORR_MIN -55
+    H_CORR_MAX -5
+    V_CORR_MIN -2
+    V_CORR_MAX 10
+
+    SUBPIXEL_MODE 3 # Experimental Subpixel Mode
+
+    SUBPIXEL_H_KERNEL 21
+    SUBPIXEL_V_KERNEL 21
+
+    ### FILTERING
+
+    FILL_HOLES 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percent
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    ### DOTCLOUD
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 \section{Lunar Reconaissance Orbiter LROC-NA}
 
@@ -879,7 +974,7 @@ a Small Crater'. Hopefully you'll still agree that this is cool.
 
 \section{MESSENGER MDIS}
 
-This a proof of concept showing of the strength of building on top of
+This a proof of concept showing off the strength of building on top of
 ISIS. MDIS data is not a goal for the designers but it does have a
 camera model in ISIS. This alone means that it too can be processed by
 the Ames Stereo Pipeline.
