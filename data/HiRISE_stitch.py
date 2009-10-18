@@ -7,7 +7,7 @@ import os, glob, subprocess, sys;
 # the file.
 
 job_pool = [];
-num_working_threads = 8;
+num_working_threads = 4;
 
 def add_job( cmd ):
     if ( len(job_pool) >= num_working_threads):
@@ -85,7 +85,7 @@ for i in range(10):
     add_job(cmd);
 wait_on_all_jobs();
 
-# Step 6 - spiceinit & spicefit for good luck in noproj
+# Step 6 - spiceinit & spicefit
 for i in range(10):
     cmd = "spiceinit from="+prefix+str(i)+".norm.cub";
     add_job(cmd);
@@ -117,27 +117,40 @@ for i in range(9):
     average_line.append(averages[1]);
 
 # Step 10 - Handmos
-os.system("cp "+prefix+"9.noproj.cub "+prefix+"mosaic.cub");
-for i in range(9):
-    j = 8-i;
+os.system("cp "+prefix+"5.noproj.cub "+prefix+"mosaic.cub");
+for i in range(4,-1,-1):
     sample_sum = 0.0;
     line_sum = 0.0;
-    for s in range(i+1):
-        sample_sum += average_sample[8-s];
-        line_sum += average_line[8-s];
-    cmd = "handmos from="+prefix+str(j)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1";
+    for s in range(4,i-1,-1):
+        sample_sum += average_sample[s];
+        line_sum += average_line[s];
+    # ISIS 3.1.20
+    cmd = "handmos from="+prefix+str(i)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1 input=beneath";
+    # ISIS 3.1.21
+    # cmd = "handmos from="+prefix+str(i)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1 priority=beneath";
+    os.system(cmd);
+for i in range(6,10,1):
+    sample_sum = 0.0;
+    line_sum = 0.0;
+    for s in range(5,i,1):
+        sample_sum -= average_sample[s];
+        line_sum -= average_line[s];
+    # ISIS 3.1.20
+    cmd = "handmos from="+prefix+str(i)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1 input=beneath";
+    # ISIS 3.1.21
+    # cmd = "handmos from="+prefix+str(i)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1 priority=beneath";
     os.system(cmd);
 
 # A little clean up
 os.system("rm "+prefix+"?_?.c*b "+prefix+"?.cub" );
 os.system("ls "+prefix+"?.norm.cub > fromlist" );
 os.system("rm flat_?_?.txt");
-os.system("hiccdstitch fromlist=fromlist shiftdef=hijit_stitch.def to="+prefix+"mosaic.cub");
 
 # Step 11 - cubenorm mosaic
 os.system("cubenorm from="+prefix+"mosaic.cub to="+prefix+"mosaic.norm.cub");
+
+# More clean up
 os.system("rm "+prefix+"mosaic.cub");
 os.system("rm "+prefix+"?.norm.cub");
-os.system("rm fromlist");
 
 print "Finished"
