@@ -8,7 +8,7 @@ if MAKE_MODULE_SESSIONS
 include_HEADERS = StereoSession.h
 
 libaspSessions_la_SOURCES = StereoSession.cc \
-		  Keypoint/StereoSessionKeypoint.cc
+		  Keypoint/StereoSessionKeypoint.cc \
 		  Pinhole/StereoSessionPinhole.cc RMAX/RMAX.cc		\
 		  RMAX/StereoSessionRmax.cc
 
