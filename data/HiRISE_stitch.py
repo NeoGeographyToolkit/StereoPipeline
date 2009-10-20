@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, glob, subprocess, sys;
+import os, glob, subprocess, sys, string;
 
 # Note: Feed this one IMG file. This expects to find other 19 IMG
 # files in the same directory. Apply this only from the directory of
@@ -53,7 +53,7 @@ def is_post_isis_3_1_20():
             version = line[index+1:index_e];
             print "\tFound Isis Version: "+version;
             index = version.rfind(".");
-            if ( int(version[index+1:]) > 20 ):
+            if ( int(version[index+1:].strip(string.letters+string.whitespace)) > 20 ):
                 return True;
             else:
                 return False;
