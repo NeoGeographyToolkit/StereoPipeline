@@ -28,7 +28,6 @@ values listed after the parameter name.
 
 \begin{description}
 \item[DO\_INTERESTPOINT\_ALIGNMENT \textnormal (default = 0)] \hfill \\
-
   When \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is set to 1,
   \texttt{stereo} will attempt to pre-align the images by
   automatically detecting tie-points between images using a feature
@@ -39,7 +38,6 @@ values listed after the parameter name.
   process by using the \texttt{ipfind} and \texttt{ipmatch} tools.
 
 \item[INTERESTPOINT\_ALIGNMENT\_SUBSAMPLING \textnormal{\small{(= 1,2,3,...,N)}} (default = 1)]\hfill \\
-
   {\em This settings is only for the ``keypoint'' stereo session.  It
     is not used for the ``isis'' stereo session.}
 
@@ -54,7 +52,6 @@ values listed after the parameter name.
   be set to any positive integer.
 
 \item[DO\_EPIPOLAR\_ALIGNMENT \textnormal (default = 0)] \hfill \\
-
   {\em Epipolar alignment is only available when performing stereo
     matches using the pinhole stereo session (i.e. when using}
     \texttt{stereo -t pinhole}){\em, and cannot be used when processing
@@ -65,7 +62,6 @@ values listed after the parameter name.
   occurs only in the horizontal direction.
 
 \item[FORCE\_USE\_ENTIRE\_RANGE \textnormal{\small{(= 0,1)}} (default = 0)] \hfill \\
-
   \emph{This setting is only for ISIS stereo session.}
 
   By default, the Stereo Pipeline will normalize ISIS images so that
@@ -80,26 +76,61 @@ values listed after the parameter name.
 
 
 \item[DO\_INDIVIDUAL\_NORMALIZATION \textnormal (default = 0)] \hfill \\
-
   \emph{This setting is only for ISIS stereo session.}
 
-  By default, the maximum and mininum valid pixel value is determined
+  By default, the maximum and minimum valid pixel value is determined
   by looking at both images.  Normalized with the same ``global'' min
-  and max gurantees that the two images will retain their brightness
+  and max guarantees that the two images will retain their brightness
   and contrast relative to each other.
 
-  This option forces each image to normalized to its own maximum and
-  minimum valid pixel value. This is useful for in the event that
+  This option forces each image to be normalized to its own maximum
+  and minimum valid pixel value. This is useful in the event that
   images have different and non-overlapping dynamic ranges. You can
   sometimes tell when this option is needed: after a failed stereo
-  attempt one of the rectified images (*-L.tif and *-R.tif) may be
-  either mostly white or black.  Activating this option may correct
-  this problem.
+  attempt one of the rectified images (\texttt{*-L.tif} and
+  \texttt{*-R.tif}) may be either mostly white or black.  Activating
+  this option may correct this problem.
 
   Note: Photometric calibration and image normalization are steps that
   can and should be carried out beforehand using ISIS's own utilities.
   This provides the best possible input to the stereo pipeline and
   yields the best stereo matching results.
+
+\item[PREPROCESSING\_FILTER\_MODE \textnormal{\small{(= 0,1,2,3)}} (default = 3)] \hfill \\
+  This selects the pre-processing filter to be used to prepare imagery
+  before it is fed to the initialization stage of the pipeline.
+
+  \begin{description}
+    \item[0 - None]
+    \item[1 - Gaussian Blur] - Pre-blur images using a Gaussian
+      kernel.  This option can improve correlation results by blurring
+      out small-scale image noise.
+    \item[2 - LoG Filter] - Same as above, but take the Laplacian of
+      the result.  This provides some immunity to differences in
+      lighting conditions between a pair of images by isolating and
+      matching on edge features in the image.
+    \item[3 - Signed LoG Filter] - Same as above, but retain only the
+      sign of the Laplacian image (+1 or -1).  This option provides
+      the best immunity to variations in lighting conditions between
+      images.
+  \end{description}
+
+  For modes 1, 2, and 3 above, the size of the Gaussian blur is
+  determined by the PREPROCESSING\_KERNEL\_WIDTH variable below.
+
+  The choice of pre-processing filter must be made with thought to the
+  cost function being used (see COST\_MODE, below).  LoG filter preprocessing
+  provides good immunity to variations in lighting conditions
+  and is usually the recommended choice.  Signed LoG provides a speed
+  advantage only when using the absolute difference cost function.
+  Blurred preprocessing can sometimes produce the best results with
+  well-calibrated images when working with the normalized cross
+  correlation cost function.
+
+\item[SLOG\_KERNEL\_WIDTH \textnormal{\small{(= \emph{float})}} (default = 1.5)] \hfill \\
+  This defines the diameter of the Gaussian convolution kernel used
+  for the preprocessing modes 1, 2, and 3 above. A value of 1.5 works
+  well in a variety of applications.
 
 \end{description}
 
@@ -113,46 +144,7 @@ values listed after the parameter name.
 
 \begin{description}
 
-\item[PREPROCESSING\_FILTER\_MODE \textnormal{\small{(= 0,1,2,3)}} (default = 3)] \hfill \\
-
-  This selects the pre-processing filter to be used to prepare imagery
-  bofore it is fed to the initialization stage of the pipeline.
-
-  \begin{description}
-    \item[0 - None]
-    \item[1 - Gaussian Blur] - Pre-blur images using a gaussian
-      kernel.  This option can improve correlation results by blurring
-      out small-scale image noise.
-    \item[2 - LoG Filter] - Same as above, but take the Laplacian of
-      the result.  This provides some immunity to differences in
-      lighting conditions between a pair of images by isolating and
-      matching on edge features in the image.
-    \item[3 - Signed LoG Filter] - Same as above, but retain only the
-      sign of the laplacian image (+1 or -1).  This option provides
-      the best immunity to variations in lighting conditions between
-      images.
-  \end{description}
-
-  For modes 1, 2, and 3 above, the size of the gaussian blur is
-  determined by the PREPROCESSING\_KERNEL\_WIDTH variable below.
-
-  The choice of pre-processing filter must be made with thought to the
-  cost function being used (see COST\_MODE, below).  LoG preprocessing
-  filters provides good immunity to variations in lighting conditions
-  and is usually the recommend choice.  Signed LoG provides a speed
-  advantage only when using and absolute difference cost function.
-  Blurred preprocessing can sometimes produce the best results with
-  well-calibrated images when working with the normalized cross
-  correlation cost function.
-
-\item[SLOG\_KERNEL\_WIDTH \textnormal{\small{(= \emph{float})}} (default = 1.5)] \hfill \\
-
-  This defines the diameter of the gaussian convolution kernel used
-  for the preprocessing modes 1, 2, and 3 above. A value of 1.5 works
-  well in a variety of applications.
-
 \item[COST\_MODE \textnormal{\small{(= 0,1,2)}}] (default = 2) \hfill \\
-
   The cost function used during initialization. As mention above,
   it is best to use absolute differences when working with the SLoG
   preprocessing filter. Otherwise, using the normalized cross
@@ -164,10 +156,9 @@ values listed after the parameter name.
     \item[2 - normalized cross correlation]
   \end{description}
 
-\item[COST\_BLUR \textnormal{\small{(= \emph{integer N >= 0})}} (default = 0)] \hfill \\
-
+\item[COST\_BLUR \textnormal{\small{(= \emph{integer $N >= 0$})}} (default = 0)] \hfill \\
   Reduces the number of missing pixels by blurring the fitness
-  landscape computed by the cost function by an NxN box filter.
+  landscape computed by the cost function by an $N \times N$ box filter.
   Increases the number of stereo matches during initialization at the
   expense of overall accuracy.  {\bf Cost blurring must be used in
     conjunction with affine adaptive window subpixel modes below,
@@ -177,7 +168,6 @@ values listed after the parameter name.
 
 \item[H\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 25)]
 \item[V\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 25)] \hfill \\
-
   These two items determine the size (in pixels) of the correlation
   kernel used in the initialization step.  A different size can be set
   in the horizontal \emph{(H)} and vertical \emph{(V)} directions, but
@@ -187,25 +177,23 @@ values listed after the parameter name.
 \item[H\_CORR\_MAX \textnormal{\small{(= \emph{integer})}}]
 \item[V\_CORR\_MIN \textnormal{\small{(= \emph{integer})}}]
 \item[V\_CORR\_MAX \textnormal{\small{(= \emph{integer})}}] \hfill \\
-
   These parameters determine the size of the initial correlation
   search range.  The ideal search range depends on a variety of
   factors ranging from how the images were pre-aligned to the
   resolution and range of disparities seen in a given image pair.
   This search range is successively refined during initialization, so
-  it is often acceptable to set a large search range that is guranteed
+  it is often acceptable to set a large search range that is guaranteed
   to contain all of the disparities in a given image.  However,
   setting tighter bounds on the search can sometimes reduce the number
-  of erroneous matches, so it can be advantageous to ``tune up'' the
-  search range for a data set.
+  of erroneous matches, so it can be advantageous to tune the
+  search range for a particular data set.
 
-  Note: Commenting out these settings will cause {\tt stereo} to make an
-  attempt at guess it's search range using interest points.
+  Note: Commenting out these settings will cause \texttt{stereo} to make an
+  attempt to guess its search range using interest points.
 
 \item[SUBPIXEL\_MODE \textnormal{\small{(= 0,1,2,3)}}] \hfill \\
-
   This parameter selects the subpixel correlation method. These
-  algorithms are arranged in order of descreasing speed and increasing
+  algorithms are arranged in order of decreasing speed and increasing
   quality. Parabola subpixel is very fast but will produce results
   that are only slightly more accurate than those produced by the
   initialization step. Bayes EM (mode 2) is very slow but offers the
@@ -215,9 +203,9 @@ values listed after the parameter name.
   will look even better with subpixel mode 3.
 
   \begin{description}
-    \item[0 - no subpixel refinment]
+    \item[0 - no subpixel refinement]
     \item[1 - parabola fitting ]
-    \item[2 - affine adaptive window, bayes EM weighting ]
+    \item[2 - affine adaptive window, Bayes EM weighting ]
   \end{description}
 
   For a visual comparison of the quality of these subpixel modes,
@@ -225,7 +213,6 @@ values listed after the parameter name.
 
 \item[SUBPIXEL\_H\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 25)]
 \item[SUBPIXEL\_V\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 25)] \hfill \\
-
   Specify the size of the horizontal \emph{(H)} and vertical
   \emph{(V)} size (in pixels) of the subpixel correlation kernel.
 
@@ -242,7 +229,6 @@ values listed after the parameter name.
 \begin{description}
 
 \item[FILL\_HOLES \textnormal{\small{(= 0,1)}} (default = 1)] \hfill \\
-
   When this option is on, the holes in the disparity map that result
   from poor stereo matching will be filled by an inpainting
   algorithm. Inpainting is a convolution method that takes the values
@@ -258,34 +244,30 @@ values listed after the parameter name.
 
 \item[RM\_H\_HALF\_KERN \textnormal{\small{(= \emph{integer})}} (default = 5)]
 \item[RM\_V\_HALF\_KERN \textnormal{\small{(= \emph{integer})}} (default = 5)] \hfill \\
-
   Taken together, the RM\_* settings adjust the behavior of an outlier
   rejection scheme that ``erodes'' isolated regions of pixels in the
   disparity map that are in disagreement with their neighbors.
 
   The RM\_H\_HALF\_KERN and RM\_V\_HALF\_KERN parameters determine the
   size of the half kernel that is used to perform the automatic
-  removal of low confidence pixels.  A a $5 \times 5$ half kernel
+  removal of low confidence pixels.  A $5 \times 5$ half kernel
   would result in an $11 \times 11$ kernel with 121 pixels in it.
 
-\item[RM\_THRESHOLD \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
-
-  This parameter sets the inlier threshold for the outlier rejection
-  scheme.  This option works in conjunction with RM\_MIN\_MATCHES
-  below.  A disparity value is rejected if it differs by more than
-  RM\_THRESHOLD disparity values from RM\_MIN\_MATCHES percent of
-  pixels in the region being considered.
-
 \item[RM\_MIN\_MATCHES \textnormal{\small{(= \emph{integer})}} (default = 60)] \hfill \\
-
-  This parameter sets the {\em percentage} of neigboring disparity
+  This parameter sets the {\em percentage} of neighboring disparity
   values that must fall within the inlier threshold in order for a
   given disparity value to be retained.
 
-\item[RM\_CLEANUP\_PASSES \textnormal{\small{(= \emph{integer})}} (default = 1)] \hfill \\
+\item[RM\_THRESHOLD \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
+  This parameter sets the inlier threshold for the outlier rejection
+  scheme.  This option works in conjunction with RM\_MIN\_MATCHES
+  above.  A disparity value is rejected if it differs by more than
+  RM\_THRESHOLD disparity values from RM\_MIN\_MATCHES percent of
+  pixels in the region being considered.
 
+\item[RM\_CLEANUP\_PASSES \textnormal{\small{(= \emph{integer})}} (default = 1)] \hfill \\
   Select the number of outlier removal passes that are carried out.
-  Each pass will erode pixels that do not match their neighors.  One
+  Each pass will erode pixels that do not match their neighbors.  One
   pass is usually sufficient.
 
 \end{description}
@@ -301,17 +283,16 @@ values listed after the parameter name.
 \begin{description}
 \item[NEAR\_UNIVERSE\_RADIUS \textnormal{\small{(= \emph{float})}} (default = 0.0)]
 \item[FAR\_UNIVERSE\_RADIUS \textnormal{\small{(= \emph{float})}} (default = 0.0)] \hfill \\
-
   These parameters can be used to filter out triangulated points in
   the 3D point cloud by setting an near and far radius value from
   origin of the point cloud's coordinate system, [0,0,0].  For most
   ISIS cameras, the origin is the center of the body (e.g. the Moon or
-  Mars), and is part of a body-fixed cartesian coordinate system that
+  Mars), and is part of a body-fixed Cartesian coordinate system that
   rotates with the planet.
 
   These settings are most useful for other stereo session types
-  (e.g. pinohole), where the origin of the coordinate system is often
-  one of the cameras in a stereo pair.  In this case, these paramaters
+  (e.g. pinhole), where the origin of the coordinate system is often
+  one of the cameras in a stereo pair.  In this case, these parameters
   can be used to reject pixels that are too close or too far from the
   camera system.
 
