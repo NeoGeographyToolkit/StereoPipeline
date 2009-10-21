@@ -637,17 +637,6 @@ int main(int argc, char* argv[]) {
                              TerminalProgressCallback(InfoMessage, "\t    Writing: "));
           vw_settings().set_default_num_threads(sub_threads);
         }
-        {
-          DiskImageView<PixelRGB<vw::uint8> > good_pixel_image(out_prefix + "-GoodPixelMap.tif");
-          ImageViewRef<vw::uint8> dmask = select_channel(edge_mask(good_pixel_image,
-                                                                   PixelRGB<vw::uint8>(255,0,0),
-                                                                   stereo_settings().subpixel_h_kern*2.0),3);
-          DiskImageResourceGDAL dmask_rsrc( out_prefix + "-dMask.tif", dmask.format(),
-                                            Vector2i(vw_settings().default_tile_size(),
-                                                     vw_settings().default_tile_size()) );
-          block_write_image( dmask_rsrc, dmask,
-                             TerminalProgressCallback(InfoMessage, "\t    D-Mask: "));
-        }
       }
 
       ImageViewRef<PixelMask<Vector2f> > hole_filled_disp_map;
