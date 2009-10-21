@@ -278,8 +278,9 @@ int main(int argc, char* argv[]) {
          !boost::filesystem::exists(out_prefix+"-rMask.tif")) {
       vw_out(0) << "\t--> Generating image masks... \n";
 
-      ImageViewRef<vw::uint8> Lmask = pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(left_image), 0),0,0,255));
-      ImageViewRef<vw::uint8> Rmask = pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(right_image), 0),0,0,255));
+      int mask_buffer = std::max(stereo_settings().h_kern, stereo_settings().v_kern)/2;
+      ImageViewRef<vw::uint8> Lmask = pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(left_image, 0, mask_buffer)),0,0,255));
+      ImageViewRef<vw::uint8> Rmask = pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(right_image, 0, mask_buffer)),0,0,255));
 
       DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(),
                                          Vector2i(vw_settings().default_tile_size(),
@@ -579,32 +580,67 @@ int main(int argc, char* argv[]) {
     session->pre_filtering_hook(out_prefix+"-R.exr", post_correlation_fname);
 
     try {
-      DiskImageView<PixelMask<Vector2f> > disparity_disk_image(post_correlation_fname);
-      ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
-
-      vw_out(0) << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
-      for (int i = 0; i < stereo_settings().rm_cleanup_passes; ++i) {
-        disparity_map = stereo::disparity_clean_up(disparity_map,
-                                                   stereo_settings().rm_h_half_kern,
-                                                   stereo_settings().rm_v_half_kern,
-                                                   stereo_settings().rm_threshold,
-                                                   stereo_settings().rm_min_matches/100.0);
-      }
 
       // Rasterize the results so far to a temporary file on disk.
       // This file is deleted once we complete the second half of the
       // disparity map filtering process.
       {
+        // Apply filtering for high frequencies
+        DiskImageView<PixelMask<Vector2f> > disparity_disk_image(post_correlation_fname);
+        ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
+
+        vw_out(0) << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
+        for (int i = 0; i < stereo_settings().rm_cleanup_passes; ++i)
+          disparity_map = stereo::disparity_clean_up(disparity_map,
+                                                     stereo_settings().rm_h_half_kern,
+                                                     stereo_settings().rm_v_half_kern,
+                                                     stereo_settings().rm_threshold,
+                                                     stereo_settings().rm_min_matches/100.0);
+
+        // Applying additional clipping from the edge. We make new
+        // mask files to avoid a weird and tricky segfault due to
+        // ownership issues.
+        {
+          DiskImageView<vw::uint8> left_mask( out_prefix+"-lMask.tif" );
+          DiskImageView<vw::uint8> right_mask( out_prefix+"-rMask.tif" );
+          int mask_buffer = std::max( stereo_settings().subpixel_h_kern,
+                                      stereo_settings().subpixel_v_kern ) / 2;
+          ImageViewRef<vw::uint8> Lmaskmore, Rmaskmore;
+          Lmaskmore = apply_mask(edge_mask(left_mask,0,mask_buffer));
+          Rmaskmore = apply_mask(edge_mask(right_mask,0,mask_buffer));
+          DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMaskMore.tif", Lmaskmore.format(),
+                                         Vector2i(vw_settings().default_tile_size(),
+                                                  vw_settings().default_tile_size()) );
+          DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMaskMore.tif", Rmaskmore.format(),
+                                             Vector2i(vw_settings().default_tile_size(),
+                                                      vw_settings().default_tile_size()) );
+          block_write_image(l_mask_rsrc, Lmaskmore,
+                            TerminalProgressCallback(InfoMessage, "\t   Reduce LMask: "));
+          block_write_image(r_mask_rsrc, Rmaskmore,
+                            TerminalProgressCallback(InfoMessage, "\t   Reduce RMask: "));
+        }
+        DiskImageView<vw::uint8> left_mask( out_prefix+"-lMaskMore.tif" );
+        DiskImageView<vw::uint8> right_mask( out_prefix+"-rMaskMore.tif" );
+
+        disparity_map = stereo::disparity_mask( disparity_map,
+                                                left_mask, right_mask );
+
         vw_out(0) << "\t--> Rasterizing filtered disparity map to disk. \n";
         DiskImageResourceOpenEXR filtered_disparity_map_rsrc( out_prefix+"-FTemp.exr", disparity_map.format() );
         filtered_disparity_map_rsrc.set_block_size( Vector2i( vw_settings().default_tile_size(),
                                                               vw_settings().default_tile_size() ) );
         block_write_image( filtered_disparity_map_rsrc, disparity_map,
                            TerminalProgressCallback(InfoMessage, "\t--> Writing: ") );
+
+        // Removing extra masks
+        std::string lmask = out_prefix+"-lMaskMore.tif",
+          rmask = out_prefix+"-rMaskMore.tif";
+        unlink( lmask.c_str() );
+        unlink( rmask.c_str() );
       }
       DiskImageView<PixelMask<Vector2f> > filtered_disparity_map( out_prefix+"-FTemp.exr" );
 
-      { // Write out the extrapolation mask image
+      {
         vw_out(0) << "\t--> Creating \"Good Pixel\" image: "
                   << (out_prefix + "-GoodPixelMap.tif") << "\n";
         {
