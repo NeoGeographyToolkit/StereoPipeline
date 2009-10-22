@@ -145,7 +145,7 @@ usually written out to a file named \texttt{print.prt}).
 \end{minipage}
 \end{figure}
 
-\section{Running the Stereo Pipelinex}
+\section{Running the Stereo Pipeline}
 
 The following example will utilize images from the example MOC
 dataset, discussed above.  The two example ISIS 3 image files are
@@ -187,16 +187,17 @@ use both this \texttt{stereo.default} and the
 different.
 
 Alternatively, it is possible to not have to define the
-\texttt{H\_CORR\_*} and \texttt{V\_CORR\_*} is
+\texttt{H\_CORR\_*} and \texttt{V\_CORR\_*} in
 \texttt{stereo.default}. When this happens, \texttt{stereo} will
-collect interest points on reduced version of the input to guess the
-correct search range. \texttt{stereo} prints it's guess in the command
-window and it can be used a starting point if the results don't turn
-out.
+collect interest points on a reduced version of the input images to
+guess the correct search range. Afterwards, \texttt{stereo} prints its
+estimation of a search window in the terminal. This guess for a search
+window can be used as a starting point for a better search range if
+the results for the first time are unacceptable.
 
-So run \texttt{stereo} like this (there should be a
-\texttt{stereo.default} file distributed along with the example
-data set that will be used):
+Here is how the \texttt{stereo} program is called (there should be a
+\texttt{stereo.default} file distributed along with the example data
+set that will be used):
 
 \begin{verbatim}
     ISIS 3> stereo E0201461.cub M0100115.cub results/E0201461-M0100115

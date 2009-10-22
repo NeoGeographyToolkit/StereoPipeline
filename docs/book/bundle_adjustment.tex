@@ -1,6 +1,8 @@
 \chapter{Bundle Adjustment}
 \label{ch:bundle_adjustment}
 
+\definecolor{lgray}{gray}{0.95}
+
 Satellite position and orientation errors have a direct effect on the
 accuracy of digital elevation models produced by the Stereo Pipeline.
 If they aren't corrected, these uncertainties will result in
@@ -119,10 +121,10 @@ However, the algorithm will also terminate when the number of
 iterations becomes too large, in which case bundle adjustment may or
 may not have finished refining the parameters of the cameras.
 
-\section{ISIS Adjust}
+\section{Isis Adjust}
 
 The \texttt{isis\_adjust} program is designed to perform bundle
-adjustment on images supported by USGS's ISIS 3 software package.
+adjustment on images supported by USGS's Isis 3 software package.
 The \texttt{isis\_adjust} program is special in that it does not
 discriminate based on camera type. It can perform bundle adjustment
 on line-scan imagers (e.g. MOC, LROC-NAC, HiRISE, and CTX) just
@@ -152,21 +154,6 @@ number parameters in the equations. Some initial work hints that
 anything greater than a second order polynomial becomes an ill-posed
 problem, but we hope to investigate this further in the future.
 
-\begin{center}
-  \definecolor{lgray}{gray}{0.95}
-  \fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
-
-      Currently \texttt{isis\_adjust} lacks a proper way to support
-      arbitrarily defined correction functions, $f(t)$. For the time
-      being, \texttt{isis\_adjust} has been hard-coded to perform only
-      six degrees of freedom, time independent corrections (i.e. a
-      single position and orientation correction that applies to the
-      entire image).  We hope to support more exotic corrections, such
-      as cubic spline adjustments for pushbroom images, in a future
-      release. (03/11/09)
-\end{minipage}}
-\end{center}
-
 \subsection{Options}
 
 The following is a listing and explanation of the options
@@ -177,7 +164,7 @@ that can be given to \texttt{isis\_adjust} on the command line.
 \item[--cnet, -c \textnormal{\small{(control network file)}}] \hfill \\
   \emph{Optional.} This option will force {\tt isis\_adjust} to
   use a pre-built built control network. This control network can
-  either be in the USGS ISIS ``cnet'' format or in the binary Vision
+  either be in the USGS Isis ``cnet'' format or in the binary Vision
   Workbench format.
 
   If no control network is supplied using this option, {\tt
@@ -190,11 +177,11 @@ that can be given to \texttt{isis\_adjust} on the command line.
 
   Sets the cost function used for bundle adjustment. Default is L2
   which is the normal squared error. The full list of avaible options
-  are.
+  are:
 
   \begin{description}
     \item[L1] Proportional Error
-    \item[L2] Squared Error
+    \item[L2] Squared Error and Default Option.
     \item[Cauchy]
     \item[Huber]
     \item[PseudoHuber]
@@ -202,8 +189,8 @@ that can be given to \texttt{isis\_adjust} on the command line.
 
   The options towards the end of the list are robust cost functions
   that deal better with non-ideal data that has outliers. These robust
-  cost functions are performed by weighting the original errors yet
-  not modifing the code derived for squared error.
+  cost functions are performed by post-weighting the original errors yet
+  still using equations derived for squared error.
 
 \item[--bundle-adjuster \textnormal{\small{(default=Sparse)}}] \hfill \\
 
@@ -221,24 +208,26 @@ that can be given to \texttt{isis\_adjust} on the command line.
 
   The ending methods are experimental student-t derived bundle
   adjustment algorithms. Using the experimental robust algorithm
-  overrides the {\tt cost-function} option. Those methods are still a
-  work in progress.
+  overrides the {\tt cost-function} option. The last two bundle
+  adjustment algorithms are still experimental and are a work in
+  progress.
 
 \item[--disable-camera-const] \hfill \\
-  This disables the camera constraint error. Useful for debugging and just
-  exploring what are the effects of this error.
+  \emph{Optional.} This disables the camera constraint error. Useful
+  for debugging and just exploring what are the effects of this cost
+  function.
 
 \item[--disable-gcp-const] \hfill \\
-  This disables the GCP constraint error even if GCPs are
-  provided. Useful for debugging and just exploring what the effects
-  are of GCPs.
+  \emph{Optional.} This disables the GCP constraint error even if GCPs
+  are provided. Useful for debugging and just exploring what the
+  effects are of GCPs.
 
 \item[--gcp-scalar \textnormal{\small{(default = 1)}}] \hfill \\
-  Sets the multiplier that is used to adjust the sigma
-  (or uncertainty) of the ground control points. The sigmas of ground
-  control points are defined in the GCP data file, so this
-  option is useful when debugging for universally scaling GCP sigmas up
-  or down.
+  \emph{Optional.} Sets the multiplier that is used to adjust the
+  sigma (or uncertainty) of the ground control points. The sigmas of
+  ground control points are defined in the GCP data file, so this
+  option is useful when debugging for universally scaling GCP sigmas
+  up or down.
 
 \item[--lambda, -l \textnormal{\small{(= \emph{float})}}] \hfill \\
   \emph{Optional.} This sets the starting value for $\lambda$: the
@@ -263,17 +252,16 @@ that can be given to \texttt{isis\_adjust} on the command line.
   tens or hundreds of iterations may be required for problems with
   hundreds or thousands of images.
 
-\item[--poly-order \textnormal{\small{(default = 0)}}] \hfill \\ 
-
-  Sets the order of the polynomial that is used for adjustment. Using
-  zero means only apply offset to the camera parameters that are not
-  time dependent. That setting is recommend for frame
-  cameras. Linescan imagers should using either a first order
-  polynomial or a second order. Increase this number to high can lead
-  to a problem that is ill-defined and would not be able to converge
-  on to a solution. Initial work suggest that anything beyond a 2nd
-  order polynomial would be ill-defined. 3rd order may work with a
-  good dose of ground control points.
+\item[--poly-order \textnormal{\small{(default = 0)}}] \hfill \\
+  \emph{Optional.} Sets the order of the polynomial that is used for
+  adjustment. Using zero means only apply offset to the camera
+  parameters that are not time dependent. That setting is recommend
+  for frame cameras. Linescan imagers should using either a first
+  order polynomial or a second order. Increase this number to high can
+  lead to a problem that is ill-defined and would not be able to
+  converge on to a solution. \emph{Initial work suggest that anything
+    beyond a 2nd order polynomial would be ill-defined. 3rd order may
+    work with a good dose of ground control points.}
 
 \item[--position-sigma \textnormal{\small{(default = 100)}}] \hfill \\
   Sets the sigma (or uncertainty) of the spacecraft position in
@@ -284,10 +272,9 @@ that can be given to \texttt{isis\_adjust} on the command line.
   of radians.
 
 \item[--report-level, -r \textnormal{\small{(default = 10)}}] \hfill \\
-
-  Sets the report level for the final bundle adjustment report.  This
-  report is saved as \texttt{isis\_adjust.report}. Report levels
-  available are:
+  \emph{Optional.} Sets the report level for the final bundle
+  adjustment report.  This report is saved as
+  \texttt{isis\_adjust.report}. Report levels available are:
 
   \begin{description}
     \item[0   - CommandLine Error and Final report]
@@ -305,17 +292,17 @@ that can be given to \texttt{isis\_adjust} on the command line.
   the PseudoHuber, Huber, and Cauchy cost functions.
 
 \item[--save-iteration-data, -s] \hfill \\
-  Use to write {\tt bundlevis} visualization files.
+  \emph{Optional.} Use to write {\tt bundlevis} visualization files.
 
 \item[--seed-with-previous] \hfill \\
   \emph{Optional.} Loads up the previous {\tt isis\_adjust} session's
   adjustment file and uses them as a starting point for this session.
 
 \item[--write-isis-cnet-also] \hfill \\
-  \emph{Optional.} Write an ISIS PVL style control network file in
+  \emph{Optional.} Write an Isis PVL style control network file in
   \texttt{isis\_adjust.net}. The output file is very large compared to
   the binary output, \texttt{isis\_adjust.cnet}, but is human readable
-  and compatible with the ISIS3 \texttt{qnet} tool.
+  and compatible with the Isis3 \texttt{qnet} tool.
 
 \item[--write-kml \textnormal{\small{(default=0)}}] \hfill \\
   \emph{Optional.} Providing this option with a zero will have the
@@ -482,107 +469,106 @@ the viewer is zoomed in on that entity.
 
 \section{Examples of Use}
 
-\subsection{Processing Mars Orbital Camera}
+%% \subsection{Processing Mars Orbital Camera}
 
-What follows is an example of bundle adjustment using two Mars Orbital
-Camera (MOC) images of the south Cydonia region. We use images
-M10/00254 and R09/01059. These images are available from NASA's
-Planetary Data System (be sure to download the IMQ or IMG format
-files). For reference, the following ISIS commands are how to convert
-the MOC images to ISIS cubes.
+%% What follows is an example of bundle adjustment using two Mars Orbital
+%% Camera (MOC) images of the south Cydonia region. We use images
+%% M10/00254 and R09/01059. These images are available from NASA's
+%% Planetary Data System (be sure to download the IMQ or IMG format
+%% files). For reference, the following ISIS commands are how to convert
+%% the MOC images to ISIS cubes.
 
-\begin{verbatim}
-        mocproc from= m1000254.im? to= m1000254.cub Mapping= NO
-        mocproc from= r0901059.im? to= r0901059.cub Mapping= NO
-\end{verbatim}
+%% \begin{verbatim}
+%%         mocproc from= m1000254.im? to= m1000254.cub Mapping= NO
+%%         mocproc from= r0901059.im? to= r0901059.cub Mapping= NO
+%% \end{verbatim}
 
-At this point, we need to automatically generate tie-points between
-these two images.  This can be done using the \texttt{ipfind} and
-\texttt{ipmatch} utilities.  These tools do not (currently) work
-with photometrically calibrated images, so we must first convert
-these images to a standard format using the ISIS program \texttt{isis2std}:
+%% At this point, we need to automatically generate tie-points between
+%% these two images.  This can be done using the \texttt{ipfind} and
+%% \texttt{ipmatch} utilities.  These tools do not (currently) work
+%% with photometrically calibrated images, so we must first convert
+%% these images to a standard format using the ISIS program \texttt{isis2std}:
 
-\begin{verbatim}
-        isis2std from= m1000254.cub to= m1000254.png format= PNG
-        isis2std from= r0901059.cub to= r0901059.png format= PNG
-\end{verbatim}
+%% \begin{verbatim}
+%%         isis2std from= m1000254.cub to= m1000254.png format= PNG
+%%         isis2std from= r0901059.cub to= r0901059.png format= PNG
+%% \end{verbatim}
 
-Here is how to process those newly created PNG files for tie-points
-using the tools available in Vision Workbench.
+%% Here is how to process those newly created PNG files for tie-points
+%% using the tools available in Vision Workbench.
 
-\begin{verbatim}
-        ipfind  m1000254.png r0901059.png
-        ipmatch m1000254.png r0901059.png -d -r homography
-\end{verbatim}
+%% \begin{verbatim}
+%%         ipfind  m1000254.png r0901059.png -t 512
+%%         ipmatch m1000254.png r0901059.png -d -r homography -i 20
+%% \end{verbatim}
 
-\definecolor{lgray}{gray}{0.95}
-\begin{center}
-\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
+%% \begin{center}
+%% \fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
 
-    We are aware that the tie-point tools available in Vision
-    Workbench do not always produce enough matches for bundle
-    adjustment. An alternative that we have found works quite well is
-    to use an outside method such as SURF \citep{surf08}. We have
-    included a small example program that converts SURF output to a
-    Vision Workbench style match file.  \\ \\ For this example it is
-    okay to use the results from \texttt{ipfind} and
-    \texttt{ipmatch}. Expect to find approximately 46 matched
-    points. Your results will be slightly different due to the random
-    nature of RANSAC.
+%%     We are aware that the tie-point tools available in Vision
+%%     Workbench do not always produce enough matches for bundle
+%%     adjustment. An alternative that we have found works quite well is
+%%     to use an outside method such as SURF \citep{surf08}. We have
+%%     included a small example program that converts SURF output to a
+%%     Vision Workbench style match file.  \\ \\ For this example it is
+%%     okay to use the results from \texttt{ipfind} and
+%%     \texttt{ipmatch}. Expect to find approximately ~40 matched
+%%     points. Your results will be slightly different due to the random
+%%     nature of RANSAC.
 
-\end{minipage}}
-\end{center}
+%% \end{minipage}}
+%% \end{center}
 
-Finally it is time to start bundle adjustment. There are many options
-that can be used at this stage.  We have chosen those required to
-create visualization data for \texttt{bundlevis}.  We have also set
-the maximum iterations to 100 and chosen the option to create a
-detailed report file of \texttt{isis\_adjust}'s results.
+%% Finally it is time to start bundle adjustment. There are many options
+%% that can be used at this stage.  We have chosen those required to
+%% create visualization data for \texttt{bundlevis}.  We have also set
+%% the maximum iterations to 100 and chosen the option to create a
+%% detailed report file of \texttt{isis\_adjust}'s results.
 
-\begin{verbatim}
-        isis_adjust *.cub -s --max 100 -r 50
-\end{verbatim}
+%% \begin{verbatim}
+%%         isis_adjust *.cub -s --max 100 -r 50
+%% \end{verbatim}
 
-This command will produce considerable debugging output and will
-place many output files in the current working directory. Don't
-panic--this is perfectly normal! If you look through the output in
-the terminal or alternatively in the output report file,
-\texttt{isis\_adjust.report}, you'll see that the problem converged
-in 35 iterations (again, your results may vary slightly).  The error
-is improved only slightly, which can be attributed to Mars Global
-Surveyor's relative positioning between images being pretty good
-for this case.
+%% This command will produce considerable debugging output and will
+%% place many output files in the current working directory. Don't
+%% panic--this is perfectly normal! If you look through the output in
+%% the terminal or alternatively in the output report file,
+%% \texttt{isis\_adjust.report}, you'll see that the problem converged
+%% in 35 iterations (again, your results may vary slightly).  The error
+%% is improved only slightly, which can be attributed to Mars Global
+%% Surveyor's relative positioning between images being pretty good
+%% for this case.
 
-Visualizing all the data that was exported for \texttt{bundlevis} can
-be carried out as follows:
+%% Visualizing all the data that was exported for \texttt{bundlevis} can
+%% be carried out as follows:
 
-\begin{verbatim}
-        bundlevis -p iterPointsParam.txt -c iterCameraParam.txt
-                  -n isis_adjust.cnet
-\end{verbatim}
+%% \begin{verbatim}
+%%         bundlevis -p iterPointsParam.txt -c iterCameraParam.txt
+%%                   -n isis_adjust.cnet
+%% \end{verbatim}
 
-Press escape to exit out of \texttt{bundlevis} when finished.  You may
-also want to try viewing the data with a wireframe of Mars to give
-some perspective. Note, you will have to zoom in very far since the
-size of a MOC frame is quite small relative to the size of Mars!
+%% Press escape to exit out of \texttt{bundlevis} when finished.  You may
+%% also want to try viewing the data with a wireframe of Mars to give
+%% some perspective. Note, you will have to zoom in very far since the
+%% size of a MOC frame is quite small relative to the size of Mars!
 
-\begin{verbatim}
-        bundlevis -p iterPointsParam.txt -c iterCameraParam.txt
-                  -n isis_adjust.cnet --show-mars
-\end{verbatim}
+%% \begin{verbatim}
+%%         bundlevis -p iterPointsParam.txt -c iterCameraParam.txt
+%%                   -n isis_adjust.cnet --show-mars
+%% \end{verbatim}
 
-Producing a DEM using the newly created corrections is the same as
-covered in Chapter 3, with one small difference: \texttt{stereo} needs
-to know of the existence of the correction files,
-\texttt{m1000254.isis\_adjust} and \texttt{r0901059.isis\_adjust}:
+%% Producing a DEM using the newly created corrections is the same as
+%% covered in Chapter 3, with one small difference: \texttt{stereo} needs
+%% to know of the existence of the correction files,
+%% \texttt{m1000254.isis\_adjust} and \texttt{r0901059.isis\_adjust}:
 
-\begin{verbatim}
-        stereo m1000254.cub r0901059.cub m1000254.isis_adjust
-               r0901059.isis_adjust MOC_RESULTS/M1000254_R0901059
-\end{verbatim}
+%% \begin{verbatim}
+%%         stereo m1000254.cub r0901059.cub m1000254.isis_adjust
+%%                r0901059.isis_adjust MOC_RESULTS/M1000254_R0901059
+%% \end{verbatim}
 
-Note the two new arguments (\texttt{*.isis\_adjust}) to \texttt{stereo}
-that provide it with the necessary corrections.
+%% Note the two new arguments (\texttt{*.isis\_adjust}) to \texttt{stereo}
+%% that provide it with the necessary corrections.
 
 \subsection{Processing with Ground Control Points}
 
@@ -627,14 +613,14 @@ latitude, and radius. The \texttt{isis\_adjust} program will notice
 this and will register a single GCP with multiple observations in
 the control network.
 
-\subsection{Sharing Data with ISIS3's Qnet}
+\subsection{Sharing Data with Isis 3's Qnet}
 
-ISIS contains a program called \texttt{qnet} whose purpose is to
-create and edit ISIS style control network files. To share a control
+Isis contains a program called \texttt{qnet} whose purpose is to
+create and edit Isis style control network files. To share a control
 network with \texttt{qnet}, you will need to save our control network
-in the ISIS format. If bundle adjustment has already been performed
+in the Isis format. If bundle adjustment has already been performed
 once and if we want to simply convert the control network for use in
-\texttt{qnet}, you can use this command to save an ISIS style control:
+\texttt{qnet}, you can use this command to save an Isis style control:
 network:
 
 \begin{verbatim}
@@ -652,7 +638,7 @@ There should now be an \verb=isis_adjust.net= file in the project's
 directory. It will be quite a bit larger than the other control
 network file since it is stored as ASCII text, but it can be read and
 edited with a text editor. Before starting \texttt{qnet}, there is one
-additional preparation that must be performed. ISIS's \texttt{qnet} requires
+additional preparation that must be performed. Isis's \texttt{qnet} requires
 a text file listing of all the cubes used by the control
 network. Here's how to create one:
 
