@@ -287,14 +287,14 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
         vec_fill_buffer[2] = acos( rot_W2Cam(0,0) / cos(vec_fill_buffer[1]) );
 
         // First check to see if correct
-        if (abs(rot_W2Cam(0,1) - ( -cos(vec_fill_buffer[1])*sin( vec_fill_buffer[2] ) )) > 0.1) {
+        if (fabs(rot_W2Cam(0,1) - ( -cos(vec_fill_buffer[1])*sin( vec_fill_buffer[2] ) )) > 0.1) {
           vec_fill_buffer[2] = asin( rot_W2Cam(0,1) / ( -1*cos(vec_fill_buffer[1]) ) );
         }
 
         vec_fill_buffer[0] = acos( rot_W2Cam(2,2)/cos(vec_fill_buffer[1]) );
 
         // Second check
-        if (abs(rot_W2Cam(1,2) - ( -sin(vec_fill_buffer[0])*cos( vec_fill_buffer[1] ) )) > 0.1) {
+        if (fabs(rot_W2Cam(1,2) - ( -sin(vec_fill_buffer[0])*cos( vec_fill_buffer[1] ) )) > 0.1) {
           vec_fill_buffer[0] = asin( rot_W2Cam(1,2)/( -1*cos(vec_fill_buffer[1]) ) );
         }
 
@@ -324,12 +324,12 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
           vec_fill_buffer[1] = PI;
           vec_fill_buffer[2] = acos(rot_W2Cam(0,0)/cos(vec_fill_buffer[1]));
           // First check
-          if (abs(rot_W2Cam(0,1) - (-cos(vec_fill_buffer[1])*sin(vec_fill_buffer[2]))) > 0.1) {
+          if (fabs(rot_W2Cam(0,1) - (-cos(vec_fill_buffer[1])*sin(vec_fill_buffer[2]))) > 0.1) {
             vec_fill_buffer[2] = asin(rot_W2Cam(0,1)/(-cos(vec_fill_buffer[1])));
           }
           vec_fill_buffer[0] = acos( rot_W2Cam(2,2) / cos(vec_fill_buffer[1]) );
           // Second check
-          if (abs(rot_W2Cam(1,2) - (-sin(vec_fill_buffer[0])*cos(vec_fill_buffer[1]))) > 0.1) {
+          if (fabs(rot_W2Cam(1,2) - (-sin(vec_fill_buffer[0])*cos(vec_fill_buffer[1]))) > 0.1) {
             vec_fill_buffer[0] = asin(rot_W2Cam(1,2)/(-cos(vec_fill_buffer[1])));
           }
         }

@@ -1,8 +1,27 @@
 \chapter{Correlation}
 \label{ch:correlation}
 
+In this chapter we will dive much deeper into understanding the core
+algorithms in the Stereo Pipeline.  We start with an overview of the
+five stages of stereo reconstruction.  Then we move into an in-depth
+discussion and exposition of the correlation algorithms in the {\em
+  disparity map initialization} and {\em subpixel refinement}
 
+The goal of this chapter is to build an intuition for the stereo
+correlation process.  This will help users to identify unusual results
+in their DEMs and hopefully eliminate them by tuning various
+parameters in the {\tt stereo.default} file.  For scentists and
+engineers who are using DEMs produced with the Stereo Pipeline, this
+chapter may help to answer the question, ``What is the Stereo Pipeline
+doing to the raw data to produce this DEM?''  
 
+A related question that is commonly asked is, ``How accuarate is a DEM
+produced by the Stereo Pipeline?''  This chapter does not yet address
+matters of accuracy \& error, however we have several efforts underway
+to quantify the accuracy of Stereo Pipeline-derived DEMs, and will be
+publishing more information about that shortly.  Stay tuned.
+
+\section{Overview of the Stereo Reconstruction Process}
 
 The entire stereo correlation process, from raw input images to a
 point cloud or DEM, can be viewed as a multistage pipeline as depicted
@@ -10,33 +29,109 @@ in Figure~\ref{fig:asp}.
 
 \begin{figure}[tb]
   \centering
-%  \includegraphics[width=7cm]{images/asp}
-  \caption{Flow of data through the Ames Stereo Pipeline}
+  \includegraphics[width=13cm]{images/asp}
+  \caption{Flow of data through the Stereo Pipeline.}
   \label{fig:asp}
 \end{figure}
 
-The process begins with least squares Bundle Adjustment, which is
-described in Section~\ref{sec:bundle_adjustment}, below.  This
-produces corrected extrinsic camera parameters that are utilized by
-various camera modeling steps.
+\subsection{Pre-processing}
 
-Then, the left and right images are aligned using interest points or
-geometric constraints from the camera models.  This step is often
+The first optional (but recommended) step in the process is least
+squares Bundle Adjustment, which is described in detail in
+Chapter~\ref{ch:bundle_adjustment}. 
+
+Next, the left and right images are roughly aligned using one of two
+methods: (1) a linear transform of the right image based on automated
+tie-point measurements, or (2) map projection of both the left and
+right image using the ISIS {\tt cam2map} command.  The former option
+is done automatically by the stereo pipeline when the
+DO\_INTERESTPOINT\_ALIGNMENT variable in the {\tt stereo.default} file
+is turned on.  
+
+The latter option, running {\tt cam2map}, must be carried out by the
+user prior to invoking the {\tt stereo} command.  Map projecting the
+images using ISIS eliminates any usual distorition in the image due to
+the unusual camera acquisition modes (e.g. pitching ``ROTO'' maneuvers
+during image acquisition for MOC, or highly eliptical orbits and
+changing line exposure times for HRSC).  It also eliminates some of
+the perspective differences in the image pair that are due to large
+terrain features by taking the existing low-res terrain model
+(e.g. MOLA or ULCN 2005) into account.  
+
+In essence, map projecting the images results in a pair of very
+closely matched images that are as close to ideal as possible given
+existing information.  This leaves only small perspective differences
+in the images, which are exactly the features that the stereo
+correlation process is designed to detect.  
+
+For this reason, we highly recommend map projection for pre-alignment
+of most stereo pairs.  In either case, the pre-alignment step is
 essential for performance because it ensures that the disparity search
-space is bounded to a known area.  Next, a prepossessing filter such
-as the Sign of the Laplacian of the Gaussian filter is used, which has
-the effect of producing images that are somewhat invariant to
-differences in lighting conditions~\cite{Nishihara84practical}.
+space is bounded to a known area.  In both cases, the effects of
+pre-alignment are taken into account later in the process during
+Triangulation, so you do not need to worry that pre-alignment will
+compromise the geometric integrity of your DEM.
 
-Following these pre-processing steps, we compute the disparity space
-image $DSI(i,j,d_x, d_y)$ that stores the matching cost between a left
-image block centered around pixel $(i,j)$ and a right image block
-centered at position $(i-d_x, j-d_y)$.  At this stage, the quality of
-the match is measured as the normalized cross
-correlation~\cite{Menard97:robust} between two 15x15 pixel image
-patches.  We employ several optimizations to accelerate this
-computation: (1) a box filter-like accumulator that reduces duplicate
-operations in the calculation of $DSI$~\cite{Sun02rectangular}; (2) a
+In some cases the pre-processing step may also normalize the pixel
+values in the left and right images to bring them into the same
+dynamic range.  Various options in the {\tt stereo.default} file
+effect whether/how normalization is carried out, including
+DO\_INDIVIDUAL\_NORMALIZATION and FORCE\_USE\_ENTIRE\_RANGE.  Although
+the defaults work in most cases, the use of these normalization steps
+can vary from data set to data set, so we recommend you refer to the
+examples in Chapter \ref{ch:examples} to see these are necessary in
+your use case.
+
+Finally, pre-processing can perform some filtering of the input images
+(as determined by PREPROCESSING\_FILTER\_MODE) to reduce noise and
+extract edges in the images.  When active, these filters apply a
+gaussian blur with a sigma of SLOG\_KERNEL\_WIDTH that can improve
+results for noisy images\footnote{PREPROCESSING\_FILTER\_MODE must be
+  chosen carefully in conjunction with COST\_MODE.  (See
+  Appendix~\ref{chapter:stereodefault})}.  The
+pre-processing modes that extract image edges are useful for stereo
+pairs that do not have the same lighting conditions, contrast, and
+absolute brightess~\cite{Nishihara84practical}.  We recommend that you
+use the defaults for these parameters to start with, and then
+experiment only if your results are suboptimal.
+
+\subsection{Disparity Map Initialization}
+
+Correlation is the process at the heart of the Stereo Pipeline.  It is
+a collection of algorithms that compute correspondences between pixels
+in the left image and pixels in the right image.  The map of these
+correspondences is called a {\em disparity map}.  You can think of a
+disparity map as an image whose pixel {\em locations} correspond to
+the pixel $(u,v)$ in the left image, and whose pixel {\em values}
+contain the horizontal and vertical offsets $(d_u, d_v)$ to the
+matching pixel in the right image, which is $(u+d_u, v+d_v)$.  
+
+\begin{figure}[bt]
+  \centering
+  \includegraphics[width=13cm]{images/correlation/correlation}
+  \caption{The correlation algorithm in disparity map initialization
+    uses a sliding template window from the left image to find the
+    best match in the right image.  The size of the template window
+    can be adjusted using the H\_KERN and V\_KERN parameters in the
+    {\tt stereo.default} file, and the search range can be adjusted
+    using the \{H,V\}\_CORR\_\{MIN/MAX\} parameters.}
+  \label{fig:asp}
+\end{figure}
+
+The correlation process attempts to find a match for every pixel in
+the left image.  For large images (e.g. from HiRISE or LROC), this is
+very, very expensive computationally, so the correlation process is
+split into two stages.  The {\em disparity map initialization} step
+computes approximate correspondences using a pyramid-based search that
+is highly optimized for speed, but trades this speed for accuracy.
+The results of disparity map initialization are integer-valued
+disparity estimates.  The {\em sub-pixel refinement} step takes these
+integer estimates as initial conditions for an iterative optimization
+and refines them using the algorithm discussed in the next section.
+
+We employ several optimizations to accelerate disparity map
+initialization: (1) a box filter-like accumulator that reduces
+duplicate operations during correlation~\cite{Sun02rectangular}; (2) a
 coarse-to-fine pyramid based approach where disparities are estimated
 using low resolution images, and then successively refined at higher
 resolutions; and (3) partitioning of the disparity search space into
@@ -44,27 +139,57 @@ rectangular sub-regions with similar values of disparity determined in
 the previous lower resolution level of the
 pyramid~\cite{Sun02rectangular}.
 
-The $DSI$ estimate just described efficiently computes {\em integer}
-estimates of disparity between the two images.  These estimates are
-subsequently refined to sub-pixel accuracy using the technique
-described in Section~\ref{sec:subpixel}.  Finally, in conjunction with
-the bundle adjusted camera models, the sub-pixel disparity estimates
-are used to triangulate the location of 3D points as the closest point
-of intersection of two forward-projected rays emanating from the
-centers of the two cameras through the matched pixels.
+The correlation itself is carried out by sliding a small, rectangular
+template window from the from left image over the specified search
+region of the right image.  The ``best'' match is determined by
+applying a cost function that compares the two windows.  The
+COST\_MODE variable allows you to choose one of three cost functions,
+though we recommend normalized cross
+correlation~\cite{Menard97:robust}, since it is most robust to slight
+lighting and contrast variation in between a pair of images.
+
+\subsubsection{Debugging Disparity Map Initialization}
+
+Not all pixels will be succesfully matched during stereo matching.
+Matching may fail due to a variety of reasons:
+
+\begin{itemize}
+\item In regions where the images do not overlap, there should be no
+  valid matches in the disparity map.
+\item Match quality may be poor in regions of the images that have
+  different lighting conditions, contrast, or absolute brightness.  
+\item Areas that have image content with very little texture or
+  extremely low contrast may have an insufficient signal to noise
+  ratio, and will be rejected by the correlator.
+\item Areas that are highly distorted due to different image
+  perspective, such as crater and canyon walls, may exhibit poor
+  matching performance.
+\end{itemize}
+
+Bad matches, often called ``blunders'' or ``artifacts'' are also
+common, and can happen for many of the same reasons listed above.  The
+Stereo Pipeline does its best to automatically detect and eliminate
+these blunders, but the effectiveness of these outlier rejection
+strategies does vary depending on the quality of the input imagery.
+
+When tuning up your {\tt stereo.default} file, you will find that it
+is very helpful to look at the raw output of the disparity map
+initialization step.  This can be done using the {\tt disparitydebug}
+tool, which converts the {\tt <ouput\_prefix>-D.exr} file into a pair
+of normal images that contain the horizontal and vertical components
+of disparity.  You can open these in a standard image viewing
+application and see immediately which pixels were matched
+successfully, and which were not.  Stereo matching blunders are
+usually also obvious when inspecting these images.  With a good
+intuition for the effects of various {\tt stereo.default} parameters
+and a good intuition for reading the output of {\tt disparitydebug},
+it is possible to quickly identify and address most problems.
+
+\section{Sub-pixel Refinement}
+\label{sec:subpixel}
 
 
-\section{Sub-pixel Stereo Correlation}\label{sec:subpixel}
-
-Apollo images are affected by two types of noise inherent to the
-scanning process: (1) the presence of film grain and (2) dust \& lint
-particles.  The former gives rise to noise in the DEM values that wash
-out real features, and the latter causes incorrect matches or hard to
-detect blemishes in the DEM.  Attenuating the effect of these scanning
-artifacts while simultaneously refining the integer disparity map to
-sub-pixel accuracy has become a critical goal of our system, and is
-necessary for processing real-world data sets such as the Apollo
-Metric Camera data.
+% INTRO
 
 A common technique in sub-pixel refinement is to fit a parabola to the
 correlation cost surface in the 8-connected neighborhood around the
@@ -73,182 +198,91 @@ sub-pixel disparity value. This method is easy to implement and fast
 to compute, but exhibits a problem known as pixel-locking: the
 sub-pixel disparities tend toward their integer estimates and can
 create noticable "stair steps" on surfaces that should be
-smooth~\cite{Stein06:attenuating},~\cite{Szeliski03sampling}.  One way
-of attenuating the pixel-locking effect is through the use of a
-symmetric cost function~\cite{Nehab05:improved} for matching the
-``left'' and ``right'' image blocks.  
+smooth~\cite{Stein06:attenuating},~\cite{Szeliski03sampling}.
+Furthermore, the parabola subpixel mode is not capable of refining a
+disparity estimate by more than one pixel, so it ultimately is not
+much more accurate than the results that come out of the disparity map
+initialization phase.  However, the speed of this method makes it very
+useful as a ``draft'' mode for quickly generating a DEM for
+visualization (i.e. non-scientific) purposes.
 
-To avoid the high computational complexity of these methods another
-class of approaches based on the Lucas-Kanade
-algorithm~\cite{Baker04:lucas-kanade} proposes an asymmetric score
-where the disparity map is computed using the best matching score
-between the left image block and an optimally affine transformed block
-from the right image.  For example, the sub-pixel refinement developed
-by Stein et. al.~\cite{Stein06:attenuating} lets $I_R(m,n)$ and
-$I_L(i,j)$ be two corresponding pixels in the right and left image
-respectively, where $i = m+d_x$, $j = n+d_y$ and $d_x, d_y$ are the
-integer disparities.  They develop a linear approximation based on the
-Taylor Series expansion around pixel $(i,j)$ in the left image
-\begin{eqnarray}
-I_L(i+\delta_x,j + \delta_y)\approx I_L(i,j) + \delta_x\frac{dI_L}{d_x}(i,j)+\delta_y\frac{dI_L}{d_y}(i,j) 
-\label{taylor_expansion}
-\end {eqnarray}
-where $\delta_x$ and $\delta_y$ are the local sub-pixel displacements.
-Let $e(x,y) = I_R(x,y) - I_L(i+\delta_x,j+\delta_y)$ and $W$ be an
-image window centered around pixel $(m,n)$.  The local displacements
-are not constant accross $W$ and they vary according to:
-\begin{eqnarray}
-\nonumber
-\delta_x(i,j) = a_1i+b_1j+c_1\\
-\delta_y(i,j) = a_2i+b_2j+c_2. 
-\label{affine_transform}
-\end {eqnarray}
-The goal is to find the parameters $a_1, b_1, c_1, a_2, b_2, c_2$ that
-minimize the cost function
-\begin{eqnarray}
-{\bf E}(m,n) =\sum_{(x,y)\in W} (e(x,y)w(x,y))^2
-\label{affine2D_cost}
-\end{eqnarray}
-where $w(x,y)$ are a set of weights used to reject outliers. Note that
-the local displacements $\delta_x(i,j)$ and $\delta_y(i,j)$ depend on
-the pixel positions within the window $W$. In fact, the values $a_1,
-b_1, c_1, a_2, b_2, c_2$ that minimize $\bf E$ can be seen as the
-parameters of an affine transformation that best transforms the right
-image window to match the reference (left) image window.
 
-%In the original Lucas-Kanade method the weights are set
-%$w(x,y)=1$. In~\cite{Stein06:attenuating} the values the weights
-%$w(x,y)$ determined heuristically to reject the noise and emphasize
-%the pixel closer to the center of the window. An alternative solution
-%is to use a set of constant weights derived from the Cauchy
-%distribution~\cite{Menard97:robust} given by: \begin{eqnarray}
-%w(x,y)= \frac{\sqrt{b^2 \log(1+\frac{I_e^2(x,y)}{b^2})}
-%}{|I_e(x,y)|} \label{Cauchy_weights} \end{eqnarray} where $b$ is some
-%fixed threshold (in our experiments $b = 10^{-4}$) and $I_e(x,y) =
-%I_R(x,y)-I_L(i,j)$.
- 
-%The steps of this method are given below
-%\begin{itemize}
-%\item {\bf Step 1:} Compute $\frac{dI_L}{d_x}(i,j)$, $\frac{dI_L}{d_y}(i,j)$ and the $I_R(x,y)$ values using bilinear interpolation. Initialize the parameters $a_1, b_1, c_1, a_2, b_2, c_2$.
-%\item {\bf Step 2:} Determine ${a_1, b_1, c_1, a_2, b_2, c_2}$ to minimize ${\bf E}$. 
-%\item {\bf Step 3:} Compute $\delta_x(i,j)$ and $\delta_y(i,j)$ using Equation~\ref{affine_transform}.
-%\item {\bf Step 4:} Compute a new point $(x', y') = (x, y) + (\delta_x, \delta_y)$ and the $I_R(x',y')$ values using bilinear interpolation.
-%\item {\bf Step 5:} Check for convergence. If norm of ($\delta_x, \delta_y$) vector falls below a fixed threshold the iterations converged. Otherwise, go to step 1.
-%\end{itemize}
+\begin{figure}[h]
+\centering
 
-The shortcoming of this method is directly related to the cost
-function that it is minimizing, which has a low tolerance to noise.
-Noise present in the image will easily dominate the result of the
-squared error function, giving rise to erroneous disparity
-information.  Recently, several statistical
-approaches (e.g. ~\cite{cheng04:bayesian}) have emerged to show how
-stochastic models can be used to attenuate the effects of noise.  Our
-sub-pixel refinement technique~\ cite{Nefian09:bayesian} [needs entry in bibliography.bib] adopts some of
-these ideas, generalizing the earlier work by Stein
-et. al.~\cite{Stein06:attenuating} to a Bayesian framework that models
-both the data and image noise.
+  \subfigure[{\tt Left Image}]{\includegraphics[width=2in]{images/correlation/sub4-AS15-M-1134_crop.png}\label{fig:left_input_image}}
+  \subfigure[{\tt Parabola Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode0.png}}
+  \subfigure[{\tt Bayes EM Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode3.png}}
 
-%\begin{eqnarray}
-%\nonumber
-%{\bf E}(m,n))&=& \sum_{(x,y)\in W}((I_R(x,y) - I_L(i+\delta_x, j+\delta_y))^2\\
-%\nonumber
-%\tilde{\delta_x} &=& \arg \min_{\delta_x} {\bf E}(m,n)\\
-%\nonumber
-%\tilde{\delta_y} &=& \arg \min_{\delta_x} {\bf E}(m,n)\\
-%\nonumber           
-%P({\bf I}_R(m,n))&=&\prod_{(x,y)\in W}{\cal N}(I_R(x,y)|I_L(i+\delta_x, j+\delta_y), \sigma_p)P(k=0)\\
-%\nonumber
-%                 &+&{\cal N}(I_R(x,y)|\mu_n, \sigma_n)P(k=1)\\
-%\nonumber
-%\tilde{\delta_x} &=& \arg \max_{\delta_x} P({\bf I}_R(m,n))\\
-%\nonumber
-%\tilde{\delta_y} &=& \arg \max_{\delta_y} P({\bf I}_R(m,n))\\
-%\nonumber
-%m &=& m+\tilde{\delta_x}\\
-%\nonumber
-%n &=& n+\tilde{\delta_y}
-%\end{eqnarray}
+  \subfigure[{\tt Right Image}]{\includegraphics[width=2in]{images/correlation/sub4-AS15-M-1135_crop.png}\label{fig:right_input_image}}
+  \subfigure[{\tt Parabola Hillshade}]{\includegraphics[width=2in]{images/correlation/hillshade_mode0.png}}
+  \subfigure[{\tt Bayes EM Hillshade}]{\includegraphics[width=2in]{images/correlation/hillshade_mode3.png}}
 
-In our approach the probability of a pixel in the right image is given
-by the following Bayesian model:
-\begin{eqnarray}
-P(I_R(m,n))&=& \prod_{(x,y)\in W}{\cal N}(I_R(m,n)|I_L(i+\delta_x, j+\delta_y), \frac{\sigma_p}{\sqrt{g_{xy}}})P(z=0) + \\
-\nonumber
-           &+& {\cal N}(I_R(m,n)|\mu_n, \sigma_n)P(z=1)
-\label{pix}
-\end {eqnarray}
-The first mixture component $(z=0)$ is a normal density function with
-mean $I_L(i+\delta_x, j+\delta_y)$ and variance $\frac{\sigma_p}{\sqrt{g_{xy}}}$:
-\begin{eqnarray}
-P(I_R(m,n)|z=0) = {\cal N}(I_R(m,n)|I_L(i+\delta_x, j+\delta_y), \frac{\sigma_p}{\sqrt{g_{xy}}})
-\label{pixel_stereo_model}
-\end {eqnarray}
-The $\frac{1}{\sqrt{g_{xy}}}$ factor in the variance of this component
-has the effect of a Gaussian smoothing window over the patch. With
-this term in place, we are no longer looking for a single variance
-over the whole patch; instead we are assuming the variance increases
-with distance away from the center according to the inverted Gaussian,
-and are attempting to fit a global scale, $\sigma_p$. This provides
-formal justification for the standard Gaussian windowing kernel.
+\caption{Left: Input images.  Center: results using the parabola draft
+  subpixel mode (SUBPIXEL\_MODE = 1). Right: results using the Bayes
+  EM high quality subpixel mode (SUBPIXEL\_MODE = 2).}
+\label{fig:parabola_results}
+\end{figure}
 
-The second mixture component $(z=1)$ in
-Equation~\ref{pixel_stereo_model} models the image noise using a
-normal density function with mean $\mu_n$ and variance $\sigma_n$:
-\begin{eqnarray}
-P(I_R(m,n)|z=1) = {\cal N}(I_R(m,n)|\mu_n, \sigma_n)
-\label{pixel_noise_model}
-\end {eqnarray}
-Let ${\bf I}_R(m,n)$ be a vector of all pixels values in a window $W$
-centered in pixel $(m,n)$ in the right image. Then,
-\begin{eqnarray}
-P({\bf I}_R(m,n)) = \prod_{(x,y)\in W}P(I_R(x,y))
-\label{bayes_model}
-\end {eqnarray}
+For high quality results, we recommend SUBPIXEL\_MODE 2: the Bayes EM
+weighted affine adaptive window correlator.  This advanced method for
+produces extremely high quality stereo matches that exhibit a high
+degree of immunity to image noise.  For example Apollo Metric Camera
+images are affected by two types of noise inherent to the scanning
+process: (1) the presence of film grain and (2) dust \& lint
+particles.  The former gives rise to noise in the DEM values that wash
+out real features, and the latter causes incorrect matches or hard to
+detect blemishes in the DEM.  Attenuating the effect of these scanning
+artifacts while simultaneously refining the integer disparity map to
+sub-pixel accuracy has become a critical goal of our system, and is
+necessary for processing real-world data sets such as the Apollo
+Metric Camera data.
 
-The parameters $\lambda = \{a_1, b_1, c_1, a_2, b_2, c_2,
-\sigma_p,\mu_n, \sigma_n\}$ that maximize the model likelihood in
-Equation~\ref{bayes_model} are determined using the Expectation
-Maximization (EM) algorithm. Maximizing the model likelihood in
-Equation~\ref{bayes_model} is equivalent to maximizing the auxiliary
-function:
-\begin{eqnarray}
-\nonumber
-{\bf Q(\theta)}&=& \sum_k P(k|{\bf I}_R, \lambda_t) \log P ({\bf I}_R, k, {\underline \delta}|\lambda)\\
-&=& \sum_{k}\sum_{x,y} P(k|I_R(x,y), \lambda_t)\log P (I_R(x,y)|k, \lambda)P(k|\lambda)
-\label{aux_function}
-\end {eqnarray}
+The Bayes EM subpixel correlator also features a deformable template
+window from the left image that can be rotated, scaled, and tranlated
+as it zeros in on the on correct match in the right image.  This
+adaptive window is essential for computing accurate matches on crater
+or canyon walls, and on other areas with significant perspective
+distortion due to foreshortening.  
 
-Note that the M step calculations are similar to the equation used to
-determine the parameters $a_1, b_1, c_1, a_2, b_2, c_2$ in the method
-presented in~\cite{Stein06:attenuating}, except here the fixed set of
-weights is replaced by the a posteriori probabilities computed in the
-E step. In this way, our approach can be seen as a generalization of
-the Lucas-Kanade method.  The complete algorithm is summarized in the following steps:
-\begin{itemize}
-\item {\bf Step 1:} Compute $\frac{dI_L}{d_x}(i,j)$, $\frac{dI_L}{d_y}(i,j)$ and the $I_R(x,y)$ values using bilinear interpolation. Initialize the model parameters $\lambda$.
-\item {\bf Step 2:} Compute iteratively the model parameters $\lambda$ using the EM algorithm (see ~\ cite{Nefian09:bayesian} [needs entry in bibliography.bib] for details). 
-\item {\bf Step 3:} Compute $\delta_x(i,j)$ and $\delta_y(i,j)$ using Equation~\ref{affine_transform}.
-\item {\bf Step 4:} Compute a new point $(x', y') = (x, y) + (\delta_x, \delta_y)$ and the $I_R(x',y')$ values using bilinear interpolation.
-\item {\bf Step 5:} If the norm of ($\delta_x, \delta_y$) vector falls below a fixed threshold the iterations converged. Otherwise, go to step 1.
-\end{itemize}
+This affine-adaptive behavior is based on the Lucas-Kanade template
+tracking algorithm; a classic in the field of computer vision.  We
+have extended this classic technique; develeloping a bayesian model
+that treats the Lucas-Kanade parameters as random variables in an
+Expectation Maximization (EM) framework.  This statistical model also
+includes a gaussian mixture component to model image noise that is the
+basis for the robustness of our algorithm.  We will not go into depth
+on our approach here, but we encourage interested readers to read our
+papers on the topic~\cite{nefian:bayes_em, broxton:isvc09}.
 
-\begin{figure}[bt]
-  \begin{center}
-%    \subfigure[]{\includegraphics[width=6cm]{images/orbit33}}
-%    \subfigure[]{\includegraphics[width=6cm]{images/apollo_3D}}
-    \caption{Hadley Rille and the Apollo 15 landing site derived from
-      Apollo Metric Camera frames AS15-M-1135 and AS15-M-1136. (a)
-      superimposed over the USGS Clementine base map, (b) oblique view.}
-    \label{results_crater_img}
-  \end{center}
-\end{figure} 
+However we do note that, like the computations in the disparity map
+initialization stage, we adopt a multi-scale approach for sub-pixel
+refinement. At each level of the pyramid, the algorithm is initialized
+with the disparity determined in the previous lower resolution level
+of the pyramid, thereby allowing the subpixel algorithm to shift the
+results of the disparity intialization stage by many pixel if a better
+match can be found using the affine, noise-adapted window.  Hence,
+this sub-pixel algorithm is able to significantly improve upon the
+results to yield a high quality, high resolution result.
 
-Like the computation of the integer $DSI$, we adopt a multi-scale
-approach for sub-pixel refinement. At each level of the pyramid, the
-algorithm is initialized with the disparity determined in the previous
-lower resolution level of the pyramid. This allows the subpixel
-algorithm to shift the results of the integer $DSI$ by many pixel if
-a better match can be found using the affine, noise-adapted window.
+\subsection{Triangulation}
+
+Finally, in conjunction with the bundle adjusted camera models, the
+sub-pixel disparity estimates are used to triangulate the location of
+3D points as the closest point of intersection of two
+forward-projected rays emanating from the centers of the two cameras
+through the matched pixels.
+
+\begin{figure}[b]
+  \centering
+  \includegraphics[width=13cm]{images/correlation/triangulation}
+  \caption{Once a disparity map has been generated and refined, it can
+    be used in combination with the geometric camera models to compute
+    the locations of 3D points on the surface of Mars.  This figure
+    shows the position and orientation of the Mars Global Surveyor at
+    two points in time where it captured images in a stereo pair.}
+  \label{fig:asp}
+\end{figure}
 
 
 %-----
@@ -263,71 +297,3 @@ captured by the Apollo 15 Metric Camera. Here's what the left and right
 pair looks like before any processing has been applied. The right image
 is actually larger than the left.
 
-\begin{figure}[hb]
-\centering
-  \subfigure[{\tt Left}]{\includegraphics[width=3in]{images/correlation/sub4-AS15-M-1134_crop.png}\label{fig:left_input_image}}
-  \hfil
-  \subfigure[{\tt Right}]{\includegraphics[width=3in]{images/correlation/sub4-AS15-M-1135_crop.png}\label{fig:right_input_image}}
-\caption{Original input images used for this chapter.}
-\label{fig:input_images}
-\end{figure}
-
-\section{Preprocessing Filters and Integer Correlation}
-\label{sec:prefilter_n_correlation}
-
-\subsection{Cost Functions}
-
-\subsection{Gaussian Blur}
-
-\subsection{Log Filter}
-
-\subsection{SLog Filter}
-
-\subsection{Pyramid Correlator}
-
-\section{Sub-pixel Correlation}
-\label{sec:subpixel_correlation}
-
-\subsection{Parabola}
-
-\begin{figure}[hb]
-\centering
-  \subfigure[{\tt 3D result}]{\includegraphics[width=3in]{images/correlation/3D_mode0.png}}
-  \hfil
-  \subfigure[{\tt Hillshade Result}]{\includegraphics[width=3in]{images/correlation/hillshade_mode0.png}}
-\caption{Results using Parabola subpixel mode.}
-\label{fig:parabola_results}
-\end{figure}
-
-\subsection{Robust weighted Affine}
-
-\begin{figure}[hb]
-\centering
-  \subfigure[{\tt 3D result}]{\includegraphics[width=3in]{images/correlation/3D_mode1.png}}
-  \hfil
-  \subfigure[{\tt Hillshade Result}]{\includegraphics[width=3in]{images/correlation/hillshade_mode1.png}}
-\caption{Results using Robust Affine subpixel mode.}
-\label{fig:robust_results}
-\end{figure}
-
-\subsection{Bayes weighted Affine}
-
-\begin{figure}[hb]
-\centering
-  \subfigure[{\tt 3D result}]{\includegraphics[width=3in]{images/correlation/3D_mode2.png}}
-  \hfil
-  \subfigure[{\tt Hillshade Result}]{\includegraphics[width=3in]{images/correlation/hillshade_mode2.png}}
-\caption{Results using Bayes weighted Affine subpixel mode.}
-\label{fig:bayes_results}
-\end{figure}
-
-\subsection{Bayes EM weighted Affine}
-
-\begin{figure}[hb]
-\centering
-  \subfigure[{\tt 3D result}]{\includegraphics[width=3in]{images/correlation/3D_mode3.png}}
-  \hfil
-  \subfigure[{\tt Hillshade Result}]{\includegraphics[width=3in]{images/correlation/hillshade_mode3.png}}
-\caption{Results using Bayes EM weighted Affine subpixel mode.}
-\label{fig:bayes_em_results}
-\end{figure}
