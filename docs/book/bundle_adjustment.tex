@@ -58,7 +58,6 @@ adjustment process described below should be completed prior to
 running the \texttt{stereo} command.
 
 \begin{center}
-  \definecolor{lgray}{gray}{0.95}
   \fcolorbox{black}{lgray}{ \begin{minipage}{5.5in} Although Bundle
     Adjustment is not a required step for generating Digital Elevation
     Models, it is {\em highly recommended} for users who plan to
@@ -153,6 +152,15 @@ for.  Many forms of $f(t)$ could be used; the only limit is the
 number parameters in the equations. Some initial work hints that
 anything greater than a second order polynomial becomes an ill-posed
 problem, but we hope to investigate this further in the future.
+
+\begin{center}
+\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in} Unfortunately in
+    this Alpha 1.0.0 release, \texttt{isis\_adjust} is not in working
+    order to process linescan imagers and is only working reliably
+    only for frame cameras. This is of priority to get working again
+    so stay tuned for updates.
+\end{minipage}}
+\end{center}
 
 \subsection{Options}
 
@@ -579,39 +587,54 @@ extension \texttt{.gcp} and are expected to have the same name as the
 image file that they are describing.
 
 Below is an example of a ground control point file that was created to
-control an Apollo Metric Camera image (AS15-M-1125) from Apollo 15's
-Orbit 33.
+control a series of Apollo Metric Camera images from several of Apollo
+15's orbits.
 
 \begin{verbatim}
-   3305     3811    17.081049  20.173588  1734697.6    100   100   100
-   1676.37  926.12  15.638650  24.560510  1734771.35   100   100   100
-   3646.08  631.37  18.663032  24.358845  1734745.22   100   100   100
-   1206.38  2995.9  14.306318  21.909843  1734746.16   100   100   100
-   2872     2154    16.983669  22.560025  1734726.48   100   100   100
+    -52.8452 27.2561 1735999 300 300 500
+    sub4-AS15-M-2086.cub     210.9   3565.0
+    sub4-AS15-M-2087.cub     1476.9  3579.0
+    sub4-AS15-M-2088.cub     2798.9  3586.8
+    sub4-AS15-M-2089.cub     4133.5  3588.6
+    sub4-AS15-M-2344.cub     906.9   3874.8
+    sub4-AS15-M-2345.cub     2204.2  3913.9
+    sub4-AS15-M-2482.cub     939.8   4348.0
+    sub4-AS15-M-2483.cub     2282.0  4340.7
+    sub4-AS15-M-2484.cub     3642.1  4330.9
 \end{verbatim}
 
-First it's important to note that these numbers are not spaced with
-actual spaces, but instead there is a tab character between each
-column of numbers. Here is what the columns mean:
+First thing that comes to mind is how the first and the rest of the
+lines are different. The first line defines the world location of the
+ground control point, and the rest of the lines define the image
+location of the ground control point. Here are what the columns mean
+for the first line.
 
 \begin{myindentpar}{2cm}
 \begin{description}
-  \item[Column 1:] Sample Number or X location in pixels
-  \item[Column 2:] Line Number or Y location in pixels
-  \item[Column 3:] Longitude in degrees
-  \item[Column 4:] Latitude in degrees
-  \item[Column 5:] Radius in meters
-  \item[Column 6-8:] Sigma (or uncertainty) in meters in the X, Y,
-    and Z directions respectively.
+  \item[Column 1:] Longitude in degrees
+  \item[Column 2:] Latitude in degrees
+  \item[Column 3:] Radius in meters
+  \item[Column 4:] Sigma (or uncertainty) in meters for Local X axis
+  \item[Column 5:] Sigma (or uncertainty) in meters for Local Y axis
+  \item[Column 6:] Sigma (or uncertainty) in meters for Local Z axis
 \end{description}
 \end{myindentpar}
 
-If multiple cameras see the same ground control point, then in each
-GCP file at the line containing the shared measurement you will
-need to make sure that the GCP has the exact same recorded longitude,
-latitude, and radius. The \texttt{isis\_adjust} program will notice
-this and will register a single GCP with multiple observations in
-the control network.
+The other lines are much easier, and here is what those columns mean.
+
+\begin{myindentpar}{2cm}
+\begin{description}
+  \item[Column 1:] Image name
+  \item[Column 2:] Sample (X) image measurement
+  \item[Column 3:] Line (Y) image measurement
+\end{description}
+\end{myindentpar}
+
+Make a {\tt .gcp} file for every ground control point, then be sure to
+feed them as an input to {\tt isis\_adjust}. Remember that you can
+back off the sigma of all ground control points by using the flag,
+{\tt --gcp-scalar}. Hopefully that will save time by not having to
+edit all of the files.
 
 \subsection{Sharing Data with Isis 3's Qnet}
 
