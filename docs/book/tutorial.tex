@@ -5,9 +5,9 @@
 
 The programs in the Stereo Pipeline are command-line programs which
 take a pair of images, and attempt to create a three-dimensional
-point cloud from correlating them.  Then there are a few programs
-that can convert that point cloud into a mesh for viewing or a
-gridded terrain model for use in other ways.
+point cloud from correlating their features.  Then there are a few
+programs that can convert that point cloud into a mesh for viewing
+or a gridded terrain model for use in other ways.
 
 So at the highest, most abstract level, if you have two image files
 (say \texttt{image\_file1} and \texttt{image\_file2} ) this command
@@ -17,7 +17,7 @@ makes point clouds (and a bunch of other files):
     stereo image_file1 image_file2 stereo-output
 \end{verbatim}
 \noindent
-Then you can make a mesh or a DEM file with either of the following
+Then you can make a mesh or a \ac{DEM} file with either of the following
 commands.  The \texttt{stereo-output-PC.tif} and
 \texttt{stereo-output-L.tif} files are created by the \texttt{stereo}
 program run above):
@@ -98,20 +98,20 @@ and builds models in a mostly automatic way.
 
 \section{Preparing the Data}
 
-The data set that is used in the tutorial and examples below is a pair
-of Mars Orbiter Camera (MOC)
-\citep{1992JGR....97.7699M,2001JGR...10623429M} images whose Planetary
-Data System (PDS) Product IDs are M01/00115 and E02/01461.  These data
-can be downloaded from the PDS directly, or they can be found in the
-\texttt{data/MOC/} directory of your Stere Pipeline distribution.
+The data set that is used in the tutorial and examples below is a
+pair of \ac{MOC} \citep{1992JGR....97.7699M,2001JGR...10623429M}
+images whose \ac{PDS} Product IDs are M01/00115 and E02/01461.
+These data can be downloaded from the PDS directly, or they can be
+found in the \texttt{data/MOC/} or the \texttt{examples/MOC/}
+directory of your Stere Pipeline distribution.
 
-These raw PDS images (\texttt{M0100115.imq} and \texttt{E0201461.imq})
-need to be imported into the ISIS environment and radiometrically
+These raw \ac{PDS} images (\texttt{M0100115.imq} and \texttt{E0201461.imq})
+need to be imported into the \ac{ISIS} environment and radiometrically
 calibrated.  You will need to be in an ISIS environment (have set the
 \texttt{ISISROOT} environment variable and sourced the appropriate
 ISIS 3 Startup script, as detailed in the ISIS 3 instructions, we will
 denote this state with the `\texttt{ISIS 3>}' prompt).  Then you can
-use the \texttt{mocproc} program.
+use the \texttt{mocproc} program, like so:
 
 \begin{verbatim}
     ISIS 3> mocproc from= M0100115.imq to= M0100115.cub Mapping= NO
@@ -119,12 +119,12 @@ use the \texttt{mocproc} program.
 \noindent
 There are also \texttt{Ingestion} and \texttt{Calibration} parameters
 whose defaults are `\texttt{YES}' which will bring the image into
-the ISIS format and perform radiometric calibration.  By setting
+the \ac{ISIS} format and perform radiometric calibration.  By setting
 the \texttt{Mapping} parameter to `\texttt{NO}' the resultant file
-will be an ISIS cube file that is calibrated, but not map-projected.
+will be an \ac{ISIS} cube file that is calibrated, but not map-projected.
 Note that while we have not explicitly run \texttt{spiceinit}, the
 Ingestion portion of \texttt{mocproc} quietly ran \texttt{spiceinit}
-for you (you'll find the record of it in the ISIS Session Log,
+for you (you'll find the record of it in the \ac{ISIS} Session Log,
 usually written out to a file named \texttt{print.prt}).
 
 \begin{figure}[b!]
@@ -147,8 +147,8 @@ usually written out to a file named \texttt{print.prt}).
 
 \section{Running the Stereo Pipeline}
 
-The following example will utilize images from the example MOC
-dataset, discussed above.  The two example ISIS 3 image files are
+The following example will utilize images from the example \ac{MOC}
+dataset, discussed above.  The two example \ac{ISIS} 3 image files are
 \texttt{E0201461.cub} and \texttt{M0100115.cub}.
 
 The \texttt{stereo} program (page \pageref{stereo}) is designed for
@@ -174,7 +174,7 @@ processing needs. If you need to do that, be sure to specify which
 configuration file \texttt{stereo} should use with the \texttt{-s}
 option.  If this option is not given, the \texttt{stereo} program
 will search for a file named \texttt{stereo.default} in the current
-directory and will complain if there isn't one.
+directory and will cause an error if there isn't one.
 
 There is a \texttt{stereo.default} file included with the example
 data set that is different from the example \texttt{stereo.default.example}
@@ -267,7 +267,8 @@ give you an idea of what the \texttt{stereo} program did (figure
 If those TIFF files look okay, you can probably just go on to making
 a mesh or a DTM from the point cloud file
 (\texttt{E0201461-M0100115-PC.tif}).  The most important file is
-the Good Pixel Map (\texttt{E0201461-M0100115-GoodPixelMap.tif}).
+the Good Pixel Map \\
+(\texttt{E0201461-M0100115-GoodPixelMap.tif}).
 If this file shows mostly good, gray pixels in the overlap area
 (the area that is white in both the \texttt{E0201461-M0100115-lMask.tif}
 and \texttt{E0201461-M0100115-rMask.tif} files), then you're probably
@@ -291,7 +292,7 @@ your results, and run the \texttt{disparitydebug} program (page
 \pageref{disparitydebug}) to create the the horizontal and vertical
 components of the disparity (matching offsets for each pixel).
 
-\begin{figure}[b!]
+\begin{figure}[t!]
 \begin{minipage}{4in}
 \includegraphics[width=4in]{images/p19-disparity.png}
 \end{minipage}
@@ -323,13 +324,13 @@ components of the disparity (matching offsets for each pixel).
 \noindent
 The two output files, \texttt{E0201461-M0100115-F-H.tif} and
 \texttt{E0201461-M0100115-F-V.tif} are normalized images of the
-horizontal (H) and vertical (V) disparity.  `Normalized' is a key
-word here.  You can see that the horizontal and vertical disparity
-images in figure \ref{p19-disparity} have the same range of gray
-values from white to black, but they represent significantly different
-absolute amounts of disparity.  These files are useful if you want
-to check the performance of the \texttt{stereo} program for any
-given stereo pair.
+horizontal (H) and vertical (V) disparity (or sample and line).
+`Normalized' is a key word here.  You can see that the horizontal
+and vertical disparity images in figure \ref{p19-disparity} have
+the same range of gray values from white to black, but they represent
+significantly different absolute amounts of disparity.  These files
+are useful if you want to check the performance of the \texttt{stereo}
+program for any given stereo pair.
 
 There are actually four flavors of disparity map: the \texttt{-D.exr},
 the \texttt{-R.exr}, the \texttt{-F-corrected.exr}, and \texttt{-F.exr}.
@@ -339,7 +340,7 @@ at the different stages of processing.
 
 \section{Visualizing the Results}
 
-When \texttt{stereo} finishes up, it will have produced a point cloud.
+When \texttt{stereo} finishes, it will have produced a point cloud.
 At this point, the processing fans out, as many kinds of data
 products can be built from the \texttt{E0201461-M0100115-PC.tif}.
 
@@ -361,7 +362,7 @@ This will create the file \texttt{E0201461-M0100115.ive}, openable
 with \texttt{osgviewer}. When the \texttt{osgviewer} program starts,
 you may want to turn off the lighting (hit the `L' key).
 
-\begin{figure}[h]
+\begin{figure}[t]
 \begin{minipage}{5in}
 \includegraphics[width=5in]{images/p19-osg.png}
 \end{minipage}
