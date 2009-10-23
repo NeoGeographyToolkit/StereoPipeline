@@ -88,12 +88,12 @@ extract edges in the images.  When active, these filters apply a
 gaussian blur with a sigma of SLOG\_KERNEL\_WIDTH that can improve
 results for noisy images\footnote{PREPROCESSING\_FILTER\_MODE must be
   chosen carefully in conjunction with COST\_MODE.  (See
-  Appendix~\ref{chapter:stereodefault})}.  The
-pre-processing modes that extract image edges are useful for stereo
-pairs that do not have the same lighting conditions, contrast, and
-absolute brightess~\cite{Nishihara84practical}.  We recommend that you
-use the defaults for these parameters to start with, and then
-experiment only if your results are suboptimal.
+  Appendix~\ref{ch:stereodefault})}.  The pre-processing modes that
+extract image edges are useful for stereo pairs that do not have the
+same lighting conditions, contrast, and absolute
+brightess~\cite{Nishihara84practical}.  We recommend that you use the
+defaults for these parameters to start with, and then experiment only
+if your results are suboptimal.
 
 \subsection{Disparity Map Initialization}
 
@@ -105,18 +105,6 @@ disparity map as an image whose pixel {\em locations} correspond to
 the pixel $(u,v)$ in the left image, and whose pixel {\em values}
 contain the horizontal and vertical offsets $(d_u, d_v)$ to the
 matching pixel in the right image, which is $(u+d_u, v+d_v)$.  
-
-\begin{figure}[bt]
-  \centering
-  \includegraphics[width=13cm]{images/correlation/correlation}
-  \caption{The correlation algorithm in disparity map initialization
-    uses a sliding template window from the left image to find the
-    best match in the right image.  The size of the template window
-    can be adjusted using the H\_KERN and V\_KERN parameters in the
-    {\tt stereo.default} file, and the search range can be adjusted
-    using the \{H,V\}\_CORR\_\{MIN/MAX\} parameters.}
-  \label{fig:asp}
-\end{figure}
 
 The correlation process attempts to find a match for every pixel in
 the left image.  For large images (e.g. from HiRISE or LROC), this is
@@ -139,14 +127,26 @@ rectangular sub-regions with similar values of disparity determined in
 the previous lower resolution level of the
 pyramid~\cite{Sun02rectangular}.
 
-The correlation itself is carried out by sliding a small, rectangular
+\begin{figure}[bt]
+  \centering
+  \includegraphics[width=13cm]{images/correlation/correlation}
+  \caption{The correlation algorithm in disparity map initialization
+    uses a sliding template window from the left image to find the
+    best match in the right image.  The size of the template window
+    can be adjusted using the H\_KERN and V\_KERN parameters in the
+    {\tt stereo.default} file, and the search range can be adjusted
+    using the \{H,V\}\_CORR\_\{MIN/MAX\} parameters.}
+  \label{fig:correlation_window}
+\end{figure}
+
+Correlation itself is carried out by sliding a small, rectangular
 template window from the from left image over the specified search
-region of the right image.  The ``best'' match is determined by
-applying a cost function that compares the two windows.  The
-COST\_MODE variable allows you to choose one of three cost functions,
-though we recommend normalized cross
-correlation~\cite{Menard97:robust}, since it is most robust to slight
-lighting and contrast variation in between a pair of images.
+region of the right image, as in Figure~\ref{fig:correlation_window}.
+The ``best'' match is determined by applying a cost function that
+compares the two windows.  The COST\_MODE variable allows you to
+choose one of three cost functions, though we recommend normalized
+cross correlation~\cite{Menard97:robust}, since it is most robust to
+slight lighting and contrast variation in between a pair of images.
 
 \subsubsection{Debugging Disparity Map Initialization}
 
@@ -188,30 +188,36 @@ it is possible to quickly identify and address most problems.
 \section{Sub-pixel Refinement}
 \label{sec:subpixel}
 
+Once disparity map initialization is complete, every pixel in the
+disparity map will either have an estimated disparity value, or it
+will be marked as invalid.  All valid pixels are then adjusted in the
+sub-pixel refinement stage based on the SUBPIXEL\_MODE setting.
 
-% INTRO
+The first mode is parabola-fitting sub-pixel refinement (
+SUBPXEL\_MODE 1 ).  This technique fits a 2D parabola to points on the
+correlation cost surface in an 8-connected neighborhood around the
+cost value that was the ``best'' as measured during disparity map
+initialization. The parabola's minimum can then be computed
+analytically and taken as as the new sub-pixel disparity value.
 
-A common technique in sub-pixel refinement is to fit a parabola to the
-correlation cost surface in the 8-connected neighborhood around the
-integer disparity estimate, and then use the parabola's minimum as the
-sub-pixel disparity value. This method is easy to implement and fast
-to compute, but exhibits a problem known as pixel-locking: the
-sub-pixel disparities tend toward their integer estimates and can
-create noticable "stair steps" on surfaces that should be
-smooth~\cite{Stein06:attenuating},~\cite{Szeliski03sampling}.
-Furthermore, the parabola subpixel mode is not capable of refining a
-disparity estimate by more than one pixel, so it ultimately is not
-much more accurate than the results that come out of the disparity map
-initialization phase.  However, the speed of this method makes it very
-useful as a ``draft'' mode for quickly generating a DEM for
-visualization (i.e. non-scientific) purposes.
+This method is easy to implement and extremely fast to compute, but it
+exhibits a problem known as pixel-locking: the sub-pixel disparities
+tend toward their integer estimates and can create noticable "stair
+steps" on surfaces that should be
+smooth~\cite{Stein06:attenuating},~\cite{Szeliski03sampling}.  See
+e.g. Figure~\ref{fig:parabola_subpixel}. Furthermore, the parabola
+subpixel mode is not capable of refining a disparity estimate by more
+than 1.0 pixels, so although it produces smooth disparity maps, these
+results are not much more accurate than the results that come out of
+the disparity map initialization in the first place.  However, the
+speed of this method makes it very useful as a ``draft'' mode for
+quickly generating a DEM for visualization (i.e. non-scientific)
+purposes.
 
-
-\begin{figure}[h]
+\begin{figure}[tb]
 \centering
-
   \subfigure[{\tt Left Image}]{\includegraphics[width=2in]{images/correlation/sub4-AS15-M-1134_crop.png}\label{fig:left_input_image}}
-  \subfigure[{\tt Parabola Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode0.png}}
+  \subfigure[{\tt Parabola Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode0.png}\label{fig:parabola_subpixel}}
   \subfigure[{\tt Bayes EM Subpixel Mode}]{\includegraphics[width=2in]{images/correlation/3D_mode3.png}}
 
   \subfigure[{\tt Right Image}]{\includegraphics[width=2in]{images/correlation/sub4-AS15-M-1135_crop.png}\label{fig:right_input_image}}
@@ -267,33 +273,78 @@ results to yield a high quality, high resolution result.
 
 \subsection{Triangulation}
 
-Finally, in conjunction with the bundle adjusted camera models, the
-sub-pixel disparity estimates are used to triangulate the location of
-3D points as the closest point of intersection of two
-forward-projected rays emanating from the centers of the two cameras
-through the matched pixels.
 
-\begin{figure}[b]
+
+The Stereo Pipeline uses geometric camera models available in
+ISIS~\cite{anderson08:isis}.  These highly accurate models are
+customized for each instrument that ISIS supports.  Each ISIS ``cube''
+file contains all of the information that is required by the Stereo
+Pipeline to produce a camera model for that observation.
+
+\begin{figure}[h]
+\centering
+  \subfigure[{\tt Framing Camera Model}]{\includegraphics[width=3in]{images/correlation/pinhole_model}\label{fig:framing}}
+  \subfigure[{\tt Pushbroom Camera Model}]{\includegraphics[width=3in]{images/correlation/linescan_model}\label{fig:linescan}}
+\caption{Most remote sensing cameras fall into two generic categories
+  based on their basic geometry.  Framing cameras (left) capture an
+  instantaneous two-dimensional image.  Linescan cameras (right)
+  capture images one scan line at a time, building up an image over
+  the course of several seconds as the satellite moves through the
+  sky.}
+\label{fig:camera_models}
+\end{figure}
+
+ISIS camera models account for all aspects of camera geometry,
+including both intrinsic (i.e. focal length, pixel size, and lens
+distortion) and extrinsic (e.g. camera position and orientation)
+camera parameters.  Taken together, these parameters are sufficent to
+``forward project'' a 3D point in the world onto the image plane of
+the sensor.  It is also possible to ``back project'' from the camera's
+center of projection through a pixel corresponding to the original 3D
+point.
+
+\begin{figure}[b!]
   \centering
-  \includegraphics[width=13cm]{images/correlation/triangulation}
+  \includegraphics[width=10cm]{images/correlation/triangulation}
   \caption{Once a disparity map has been generated and refined, it can
     be used in combination with the geometric camera models to compute
     the locations of 3D points on the surface of Mars.  This figure
     shows the position and orientation of the Mars Global Surveyor at
     two points in time where it captured images in a stereo pair.}
-  \label{fig:asp}
+  \label{fig:triangulation}
 \end{figure}
 
+Notice, however, that forward and back projection are not symmetric
+operations.  One camera is sufficient to ``image'' a 3D point onto a
+pixel located on the image plane, but the reverse is not true.  Given
+only a single camera and a pixel location $x = (u,v)$ that is the
+image of an unknown 3D point $P = (x,y,z)$, it is only possible to
+determine that $P$ lies somewhere along a ray that emanates from the
+camera's center of projection through the pixel location $x$ on the
+image plane (see Figure~\ref{fig:camera_models}).
 
-%-----
+Alas, once images are captured, the route from image pixel back to 3D
+points in the real world is through back projection, so we must bring
+more information to bear on the problem of uniquely reconstructing our
+3D point.  In order to determine $P$ using back projection, we need
+{\em two} cameras that both contain pixel locations $x_1$ and $x_2$
+where $P$ was imaged.  Now, we have two rays that converge on a point
+in 3D space (see Figure~\ref{fig:triangulation}). The location where
+they meet must be the original location of $P$.
 
-This chapter provides a graphical representation of how correlation is
-performed in Ames Stereo Pipeline. Most importantly this provides a
-quick comparison of different algorithms provided to save the user the
-time of comparing results themselves.
+In practice, the two rays rarely intersect perfectly because any
+slight error in the camera position or pointing information will
+effect the rays' positions as well.  Instead, we take the {\em closest
+  point of intersection} of the two rays as the location of point $P$.
 
-For this chapter we'll be using the north most tip of Hadley Rille as
-captured by the Apollo 15 Metric Camera. Here's what the left and right
-pair looks like before any processing has been applied. The right image
-is actually larger than the left.
+Additionally, the actual distance between the rays at this point is an
+interesting and important error metric that measures how
+self-consistent our two camera models are for this point.  You will
+learn in the next chapter that this information, when computed and
+averaged over all reconstructed 3D points, can be a valuable statistic for
+determining whether to carry out bundle adjusment.
+
+
+
+
 
