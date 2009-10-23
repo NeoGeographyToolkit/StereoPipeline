@@ -12,12 +12,16 @@ SOFTWARE, AS DEFINED HEREIN, OR ANY PART THEREOF, IS, BY THAT ACTION,
 ACCEPTING IN FULL THE RESPONSIBILITIES AND OBLIGATIONS CONTAINED IN
 THIS AGREEMENT.
 
-Government Agency:  National Aeronautics and Space_Administration (NASA)
-Government Agency Original Software Designation: {CASE_NUMBER}
-Government Agency Original Software Title: {SOFTWARE_TITLE}
-User Registration Requested.  Please Visit {WEBSITE}
-Government Agency Point of Contact for Original Software: {POINT_OF_CONTACT}
+Government Agency: National Aeronautics and Space Administration (NASA)
+Government Agency Original Software Designation: ARC-16341-1
+Government Agency Original Software Title: Neo-Geography Toolkit
+User Registration Requested.  Please Contact POC.
+Government Agency Point of Contact for Original Software:
 
+  Terrence W. Fong
+  NASA Ames Research Center
+  Mail Stop 269-3, Moffett Field, CA, 94035
+  stereo-pipeline-owner@lists.nasa.gov
 
 1. DEFINITIONS
 
@@ -41,9 +45,9 @@ act of including Subject Software as part of a Larger Work does not in
 and of itself constitute a Modification.
 G. "Original Software" means the computer software first released
 under this Agreement by Government Agency with Government Agency
-designation {CASE_NUMBER} and entitled
-{SOFTWARE_TITLE}, including source code,
-object code and accompanying documentation, if any.
+designation ARC-16341-1 and entitled "Neo-Geography Toolkit",
+including source code, object code and accompanying documentation, if
+any.
 H. "Recipient" means anyone who acquires the Subject Software under
 this Agreement, including all Contributors.
 I. "Redistribution" means Distribution of the Subject Software after a
@@ -144,20 +148,9 @@ or a prior Recipient's participation in this Agreement.
 
 F. In an effort to track usage and maintain accurate records of the
 Subject Software, each Recipient, upon receipt of the Subject
-Software, is requested to register with Government Agency by visiting
-the following website: {WEBSITE}.  Recipient's
-name and personal information shall be used for statistical purposes
-only. Once a Recipient makes a Modification available, it is requested
-that the Recipient inform Government Agency at the web site provided
-above how to access the Modification.
-
-[Alternative paragraph for use when a web site for release and
-monitoring of subject software will not be supported by releasing
-Government Agency] In an effort to track usage and maintain accurate
-records of the Subject Software, each Recipient, upon receipt of the
-Subject Software, is requested to provide Government Agency, by e-mail
-to the Government Agency Point of Contact listed in clause 5.F., the
-following information: {REQUESTED_REGISTRATION_INFORMATION}.  Recipient's
+Software, is requested to provide Government Agency, by e-mail to the
+Government Agency Point of Contact listed in clause 5.F., the
+following information: Recipient's name and organization.  Recipient's
 name and personal information shall be used for statistical purposes
 only. Once a Recipient makes a Modification available, it is requested
 that the Recipient inform Government Agency, by e-mail to the
@@ -258,4 +251,8 @@ Recipient hereby agrees to all terms and conditions herein.
 
 F. Point of Contact: Any Recipient contact with Government Agency is
 to be directed to the designated representative as follows:
-{POINT_OF_CONTACT}.
+
+  Terrence W. Fong
+  NASA Ames Research Center
+  Mail Stop 269-3, Moffett Field, CA, 94035
+  stereo-pipeline-owner@lists.nasa.gov
