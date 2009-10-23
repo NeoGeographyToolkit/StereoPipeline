@@ -54,18 +54,36 @@ process and involves living with some imperfections.
 
 At this time, we recommend mosaicking CCDs using the scripts available
 at your institution (both USGS and University of Arizona have this
-capability).  We are also providing a script that will take raw HiRISE
-images and combine them into a mosaic. Our script takes all red CCDs
-and projects them using the ISIS {\tt noproj} command into the
-perspective of RED5 CCD. From there, {\tt hijitreg} is performed to
-work out the relative offsets between CCDs. Finally the CCDs are
-mosaicked together using the average offset listed from {\tt hijitreg}
-using the {\tt handmos} command. Below is an outline of what our
-script does.  It is based on the tutorial provided on the USGS ISIS
-website.
+capability). Having said that, we are also providing a script that
+will take raw HiRISE images and combine them into a mosaic name
+\texttt{hiedr2mosaic.py}. Our script takes all red CCDs and projects
+them using the ISIS {\tt noproj} command into the perspective of RED5
+CCD. From there, {\tt hijitreg} is performed to work out the relative
+offsets between CCDs. Finally the CCDs are mosaicked together using
+the average offset listed from {\tt hijitreg} using the {\tt handmos}
+command. Below is an outline of what our script does.  It is based on
+the tutorial provided on the USGS ISIS website.
 
 \begin{verbatim}
-    command outline
+    hi2isis           # Import HiRISE IMG to Isis
+    spiceinit         # Attach spice data
+    hical             # Calibrate
+    histitch          # Turn 20 files into 10
+    cubenorm          # Remove boundary between histitchs
+    spiceinit
+    spicefit          # For good measure
+    noproj            # Project all images into perspective of RED5
+    hijitreg          # Work out alignment between CCDs
+    handmos           # Mosaic to single file
+    cubenorm          # Clean up divisions
+\end{verbatim}
+
+To use our script, first go to the directory containing all of
+HiRISE's RED \texttt{IMG} files. Then feed the script one of those
+\texttt{IMG} files.
+
+\begin{verbatim}
+    hiedr2mosaic.py PSP_??????_????_RED?_?.IMG
 \end{verbatim}
 
 Finally we recommend map projecting the product and normalizing both
@@ -150,8 +168,8 @@ Written by: Steve Squyres
 \begin{verbatim}
     % Download all of the RED IMG for PSP_001513_1655 & %
     %                                 PSP_001777_1650   %
-    ~/HiRISE_stitch.py PSP_001513_1655_RED0_0.IMG
-    ~/HiRISE_stitch.py PSP_001777_1650_RED0_0.IMG
+    ~/hiedr2mosaic.py PSP_001513_1655_RED0_0.IMG
+    ~/hiedr2mosaic.py PSP_001777_1650_RED0_0.IMG
     cam2map from=PSP_001513_1655_REDmosaic.norm.cub to=PSP_001513_1655_REDmosaic.map.cub
     cam2map from=PSP_001777_1650_REDmosaic.norm.cub map=PSP_001513_1655_REDmosaic.map.cub ...
             to=PSP_001777_1650_REDmosaic.norm.cub matchmap=true
@@ -262,8 +280,8 @@ Written by: Laszlo P. Keszthelyi
 \begin{verbatim}
     % Download all of the RED IMG for PSP_001364_2160 & %
     %                                 PSP_001760_2160   %
-    ~/HiRISE_stitch.py PSP_001364_2160_RED0_0.IMG
-    ~/HiRISE_stitch.py PSP_001760_2160_RED0_0.IMG
+    ~/hiedr2mosaic.py PSP_001364_2160_RED0_0.IMG
+    ~/hiedr2mosaic.py PSP_001760_2160_RED0_0.IMG
     cam2map from=PSP_001364_2160_REDmosaic.norm.cub to=PSP_001364_2160_REDmosaic.map.cub
     cam2map from=PSP_001760_2160_REDmosaic.norm.cub map=PSP_001364_2160_REDmosaic.map.cub ...
             to=PSP_001760_2160_REDmosaic.map.cub matchmap=true
@@ -353,8 +371,8 @@ computation necessary to get results in a limited area.
 \begin{verbatim}
     % Download all of the IMG for PSP_001981_1825 & %
     %                             PSP_002258_1825   %
-    ~/HiRISE_stitch.py PSP_001981_1825_RED0_0.IMG
-    ~/HiRISE_stitch.py PSP_002258_1825_RED0_0.IMG
+    ~/hiedr2mosaic.py PSP_001981_1825_RED0_0.IMG
+    ~/hiedr2mosaic.py PSP_002258_1825_RED0_0.IMG
     cam2map from=PSP_001981_1825_REDmosaic.norm.cub to=PSP_001981_1825_REDmosaic.map.cub
     cam2map from=PSP_002258_1825_REDmosaic.norm.cub map=PSP_001981_1825_REDmosaic.map.cub ...
             to=PSP_002258_1825_REDmosaic.map.cub matchmap=true

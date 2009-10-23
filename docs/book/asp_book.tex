@@ -4,13 +4,15 @@
 % \usepackage{moreverb}
 % \usepackage{float}
 \usepackage{subfigure}
-\usepackage{graphicx, amsfonts, psfrag, fancyhdr, layout, appendix, subfigure}
+\usepackage{graphicx}
+\usepackage{amsfonts, psfrag, fancyhdr, layout, appendix, subfigure}
 \usepackage{wrapfig}
 \usepackage{color}
 \definecolor{violet}{rgb}{0.5,0,1}
 \definecolor{brown}{rgb}{0.4,0.26,0.13}
 \definecolor{gray}{gray}{0.35}
 \usepackage[numbers]{natbib}
+\usepackage[nolist,nohyperlinks]{acronym}
 \usepackage{url}
 \usepackage[pdftex,colorlinks=true,urlcolor=blue,citecolor=gray,linkcolor=gray]{hyperref}
 \usepackage{longtable}
@@ -90,10 +92,31 @@ DRAFT}
 
 \frontmatter
 \maketitle
-\include{acknowledgements}
+\include{acknowledgments}
 \tableofcontents
 
 \mainmatter
+
+\begin{acronym}
+\acro{ASP}{Ames Stereo Pipeline}
+\acro{IRG}{Intelligent Robotics Group}
+\acro{NASA}{National Aeronautics and Space Administration}
+\acro{DEM}{digital elevation model}
+\acro{MGS}{Mars Global Surveyor}
+\acro{USGS}{United States Geological Survey}
+\acro{ISIS}{Integrated Software for Imagers and Spectrometers}
+\acro{MER}{Mars Exploration Rover}
+\acro{MRO}{Mars Reconnaissance Orbiter}
+\acro{LRO}{Lunar Reconnaissance Orbiter}
+\acro{MOC}{Mars Orbiter Camera}
+\acro{PDS}{Planetary Data System}
+\acro{HRSC}{High Resolution Stereo Camera}
+\acro{MOLA}{Mars Orbiter Laser Altimeter}
+\acro{ULCN}{Unified Lunar Coordinate Network}
+\acro{HiRISE}{High Resolution Imaging Science Experiment}
+\acro{LROC}{Lunar Reconnaissance Orbiter Camera}
+\end{acronym}
+
 
 % Adjustments headers
 \fancyhead[LO]{\leftmark}
@@ -116,10 +139,13 @@ DRAFT}
 \include{tools}
 \include{stereodefault}
 \include{outputfiles}
-\include{scripting}
+
+% This is disabled for now.  Move SURF example into the distribution somewhere.
+% \include{scripting}
 
 % Create the References list
 \bibliographystyle{plainnat}
+\addcontentsline{toc}{chapter}{\bibname}
 \bibliography{bibliography.bib}
 
 

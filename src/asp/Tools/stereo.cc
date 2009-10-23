@@ -1,25 +1,9 @@
 // __BEGIN_LICENSE__
-//
-// Copyright (C) 2008 United States Government as represented by the
-// Administrator of the National Aeronautics and Space Administration
-// (NASA).  All Rights Reserved.
-//
-// Copyright 2008 Carnegie Mellon University. All rights reserved.
-//
-// This software is distributed under the NASA Open Source Agreement
-// (NOSA), version 1.3.  The NOSA has been approved by the Open Source
-// Initiative.  See the file COPYING at the top of the distribution
-// directory tree for the complete NOSA document.
-//
-// THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
-// KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
-// LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
-// SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
-// A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
-// THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
-// DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
-//
+// Copyright (C) 2006-2009 United States Government as represented by
+// the Administrator of the National Aeronautics and Space Administration.
+// All Rights Reserved.
 // __END_LICENSE__
+
 
 /// \file stereo.cc
 ///
@@ -274,8 +258,11 @@ int main(int argc, char* argv[]) {
                   TerminalProgressCallback(InfoMessage, "\t--> Median Right: "));
     }
 
-    if ( !boost::filesystem::exists(out_prefix+"-lMask.tif") ||
-         !boost::filesystem::exists(out_prefix+"-rMask.tif")) {
+    try {
+      DiskImageView<PixelGray<uint8> >(out_prefix+"-lMask.tif");
+      DiskImageView<PixelGray<uint8> >(out_prefix+"-rMask.tif");
+      vw_out(0) << "\t--> Using cached image masks.\n";
+    } catch (vw::Exception const& e) {
       vw_out(0) << "\t--> Generating image masks... \n";
 
       ImageViewRef<vw::uint8> Lmask = pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(left_image, 0, 0)),0,0,255));
@@ -291,8 +278,6 @@ int main(int argc, char* argv[]) {
                         TerminalProgressCallback(InfoMessage, "\t    Mask Left: "));
       block_write_image(r_mask_rsrc, Rmask,
                         TerminalProgressCallback(InfoMessage, "\t    Mask Right: "));
-    } else {
-      vw_out(0) << "\t--> Using cached image masks.\n";
     }
 
     // Produce subsampled images
@@ -319,8 +304,11 @@ int main(int argc, char* argv[]) {
     std::string l_sub_file = out_prefix+"-L_sub.tif";
     std::string r_sub_file = out_prefix+"-R_sub.tif";
 
-    if (!boost::filesystem::exists(l_sub_file) ||
-        !boost::filesystem::exists(r_sub_file)) {
+    try {
+      DiskImageView<PixelGray<vw::float32> > Lsub(l_sub_file);
+      DiskImageView<PixelGray<vw::float32> > Rsub(r_sub_file);  
+      vw_out(0) << "\t--> Using cached subsampled image.\n";
+    } catch (vw::Exception const& e) {
       vw_out(0) << "\t--> Creating previews. Subsampling by " << sub_scale
                 << " by using " << sub_tile_size << " tile size and "
                 << sub_threads << " threads.\n";
@@ -338,8 +326,7 @@ int main(int argc, char* argv[]) {
       block_write_image(r_sub_rsrc, Rsub,
                         TerminalProgressCallback(InfoMessage, "\t    Sub Right: "));
       vw_settings().set_default_num_threads();
-    } else
-      vw_out(0) << "\t--> Using cached subsampled image.\n";
+    }
 
     // Auto Search Range
     if (stereo_settings().is_search_defined())

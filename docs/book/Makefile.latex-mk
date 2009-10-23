@@ -1,7 +1,7 @@
 # GNU Makefile for LaTeX stuff using the latex-mk system.
 
 NAME = asp_book
-TEXSRCS =	acknowledgements.tex \
+TEXSRCS =	acknowledgments.tex \
 			bundle_adjustment.tex \
 			correlation.tex \
 			examples.tex \
