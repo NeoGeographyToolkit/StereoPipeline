@@ -1,1 +1,21 @@
- 
+*** RELEASE 1.0.0 Alpha, 23 OCTOBER ***
+
+CORE
+ - OrthoRasterizer.h is subject to change for further VW integration
+ - MedianFilter.h is untested/unused
+ - BundleAdjustUtils.* is subject to deletion for integration with
+   ControlNetworkLoader.*
+
+ISISIO
+
+SESSIONS
+ - ISIS Session is the only fully support sessions at this time
+ - Pinhole Session works but has not been tested for this release
+ - Keypoint/RMAX Session status are unknown
+
+SPICEIO
+ - Subject to deletion in 1.0.1
+
+TOOLS
+ - Point2dem can crash rarely. Still investigating.
+ - rmax* utilities are not working
