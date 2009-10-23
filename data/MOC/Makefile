@@ -5,20 +5,21 @@ RESULTSDIR = results
 OUT = E0201461-M0100115
 STEREO = stereo
 CUBES = E0201461.cub M0100115.cub
-
+MAPPED = E0201461.map.cub M0100115.map.cub
 
 # Pattern rule to create .cub files from .imq files
 %.cub: %.imq
 	mocproc from= $< to= $@ Mapping= NO
 
-
 all: stereo
 
 cubes: $(CUBES)
+	cam2map from=M0100115.cub to=M0100115.map.cub
+	cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
 
 stereo: cubes
 	mkdir -p $(RESULTSDIR)
-	$(STEREO) -s ../../stereo.default.example $(CUBES) $(RESULTSDIR)/$(OUT)
+	$(STEREO) $(MAPPED) $(RESULTSDIR)/$(OUT)
 
 disparity: stereo
 	cd $(RESULTSDIR); disparitydebug $(OUT)-F.exr
