@@ -227,7 +227,7 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
     vw_out(InfoMessage) << "Skipping normalization step, using cached images: " <<
       output_file1 << " and " << output_file2 << "\n";
     return;
-  } catch (vw::Exception & e) {}
+  } catch (vw::Exception const& e) {}
 
   DiskImageView<PixelGray<float> > left_disk_image(input_file1);
   DiskImageView<PixelGray<float> > right_disk_image(input_file2);

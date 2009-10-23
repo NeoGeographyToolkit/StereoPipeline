@@ -262,7 +262,7 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelGray<uint8> >(out_prefix+"-lMask.tif");
       DiskImageView<PixelGray<uint8> >(out_prefix+"-rMask.tif");
       vw_out(0) << "\t--> Using cached image masks.\n";
-    } catch (vw::Exception & e) {
+    } catch (vw::Exception const& e) {
       vw_out(0) << "\t--> Generating image masks... \n";
 
       ImageViewRef<vw::uint8> Lmask = pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(left_image, 0, 0)),0,0,255));
@@ -308,7 +308,7 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelGray<vw::float32> > Lsub(l_sub_file);
       DiskImageView<PixelGray<vw::float32> > Rsub(r_sub_file);  
       vw_out(0) << "\t--> Using cached subsampled image.\n";
-    } catch (vw::Exception & e) {
+    } catch (vw::Exception const& e) {
       vw_out(0) << "\t--> Creating previews. Subsampling by " << sub_scale
                 << " by using " << sub_tile_size << " tile size and "
                 << sub_threads << " threads.\n";
