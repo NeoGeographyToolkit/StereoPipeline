@@ -92,6 +92,7 @@ namespace camera {
 
     double undistorted_focal( Vector3 const& mm_time ) const;
 
+    Vector2 mm_over_pixel( Vector2 const& pix ) const;
 
     //-------------------------------------------------------------------
     // Interfacing with equations

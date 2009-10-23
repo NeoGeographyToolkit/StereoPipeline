@@ -244,6 +244,17 @@ double IsisAdjustCameraModel::undistorted_focal( Vector3 const& mm_time ) const 
   return distortMap->UndistortedFocalPlaneZ();
 }
 
+Vector2 IsisAdjustCameraModel::mm_over_pixel( Vector2 const& pix ) const {
+  // Use this algorithm to convert sigmas from pixels to millimeters
+  // only! - ZMM
+  Isis::Camera* cam = static_cast<Isis::Camera*>( m_isis_camera_ptr );
+  this->set_image( pix[0], pix[1] );
+  Vector2 pixel_resolution( cam->SampleResolution(),
+                            cam->LineResolution() );
+  pixel_resolution /= 1000; // Meter to Millimeter conversion
+  return pixel_resolution;
+}
+
 //-------------------------------------------------------------------------
 // Protected
 //-------------------------------------------------------------------------
