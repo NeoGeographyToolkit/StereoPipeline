@@ -103,7 +103,7 @@ pair of \ac{MOC} \citep{1992JGR....97.7699M,2001JGR...10623429M}
 images whose \ac{PDS} Product IDs are M01/00115 and E02/01461.
 These data can be downloaded from the PDS directly, or they can be
 found in the \texttt{data/MOC/} or the \texttt{examples/MOC/}
-directory of your Stere Pipeline distribution.
+directory of your Stereo Pipeline distribution.
 
 These raw \ac{PDS} images (\texttt{M0100115.imq} and \texttt{E0201461.imq})
 need to be imported into the \ac{ISIS} environment and radiometrically
@@ -147,13 +147,38 @@ usually written out to a file named \texttt{print.prt}).
 
 \section{Running the Stereo Pipeline}
 
-The following example will utilize images from the example \ac{MOC}
-dataset, discussed above.  The two example \ac{ISIS} 3 image files are
-\texttt{E0201461.cub} and \texttt{M0100115.cub}.
+For the rest of this chapter we'll show how to process data using a
+program called stereo with two different methods of rectifying the
+imagery. First we'll show how to run images that have been
+map-projected. Later we'll show how to use image that haven't been
+map-projected and are instead aligned using interest points. In both
+of these examples we'll be using the example MOC data set that was
+discussed above, \texttt{E0201461.cub} and \texttt{M010015.cub}.
+
+First we are going to add an addendum to preparing the data, we'll map
+project them. We could have used \texttt{mocproc} to map project the
+images in one go. Instead we'll call an \ac{ISIS} command called
+\texttt{cam2map}. This has the added advantage of allowing us to use
+the same map projection settings for both files, meaning that both map
+images will share the same origin.
+
+\begin{verbatim}
+    ISIS 3> cam2map from=M0100115.cub to=M0100115.map.cub
+    ISIS 3> cam2map from=E0201461.cub to=E0201461.map.cub ...
+                    map=M0100115.map.cub matchmap=true
+\end{verbatim}
+\noindent
+
+Notice that we map-projected the images out of order. The reason for
+this is that \texttt{M0100115.cub} is the smaller image. By
+map-projecting the smallest image first, we insure that the least
+amount of black padding will happen to our projected files. That will
+also reduce the amount of processing required for the Ames Stereo
+Pipeline.
 
 The \texttt{stereo} program (page \pageref{stereo}) is designed for
-automated tie point matching and stereo production, and is the first
-Stereo Pipeline tool we'll use.
+automated stereo production, and is the first Stereo Pipeline tool
+we'll use.
 
 If you like, you should create a directory for the results of the
 processing.  The \texttt{stereo} program can generate a number of
@@ -162,10 +187,11 @@ but it isn't required.
 
 \begin{verbatim}
     > ls
-    E0201461.cub   M0100115.cub
+    E0201461.cub   E0201461.cub   M0100115.cub   M0100115.map.cub
     > mkdir results
 \end{verbatim}
 \noindent
+
 The \texttt{stereo} program requires a \texttt{stereo.default} file
 which can be altered for your needs.  Its contents are detailed on
 page \pageref{ch:stereodefault}.  You may find it useful to save
@@ -181,10 +207,7 @@ data set that is different from the example \texttt{stereo.default.example}
 file distributed with the Stereo Pipeline.  The \texttt{stereo.default}
 included with the example data set has a smaller correlation window
 (smaller values for the \texttt{H\_CORR\_*} and \texttt{V\_CORR\_*}
-variables) that is more suited to the MOC data.  You may want to
-use both this \texttt{stereo.default} and the
-\texttt{stereo.default.example} to explore how the results are
-different.
+variables) that is more suited to the MOC data.
 
 Alternatively, it is possible to not have to define the
 \texttt{H\_CORR\_*} and \texttt{V\_CORR\_*} in
@@ -195,12 +218,33 @@ estimation of a search window in the terminal. This guess for a search
 window can be used as a starting point for a better search range if
 the results for the first time are unacceptable.
 
+For this example use the \texttt{stereo.default} that is included with
+the example data set. It has a few key properties:
+
+\begin{verbatim}
+        DO_INTERESTPOINT_ALIGNMENT 0
+        H_CORR_MIN -35
+        H_CORR_MAX -15
+        V_CORR_MIN -280
+        V_CORR_MAX -265
+\end{verbatim}
+\noindent
+
+The first says, \emph{`Don't do interest point alignment!'}. The other
+4 lines define what ranges the left image should search inside the
+right image for a match. The values above are tuned to make up for
+offset that is found in the map projected images. It may come to mind
+that we map projected the images using the same settings, why would
+there be an offset? The reason for this are because Isis doesn't have
+a perfect surface to project on to and that the camera position is
+slightly off.
+
 Here is how the \texttt{stereo} program is called (there should be a
 \texttt{stereo.default} file distributed along with the example data
 set that will be used):
 
 \begin{verbatim}
-    ISIS 3> stereo E0201461.cub M0100115.cub results/E0201461-M0100115
+    ISIS 3> stereo E0201461.map.cub M0100115.map.cub results/E0201461-M0100115
 \end{verbatim}
 
 \noindent
