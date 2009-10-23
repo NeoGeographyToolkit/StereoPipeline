@@ -220,11 +220,14 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
 
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
-  if ( fs::exists(output_file1) && fs::exists(output_file2) ) {
+
+  try {
+    DiskImageView<PixelGray<float32> > out1(output_file1);
+    DiskImageView<PixelGray<float32> > out2(output_file2);
     vw_out(InfoMessage) << "Skipping normalization step, using cached images: " <<
       output_file1 << " and " << output_file2 << "\n";
     return;
-  }
+  } catch (vw::Exception & e) {}
 
   DiskImageView<PixelGray<float> > left_disk_image(input_file1);
   DiskImageView<PixelGray<float> > right_disk_image(input_file2);
