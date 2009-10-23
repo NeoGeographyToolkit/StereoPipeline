@@ -11,6 +11,7 @@
 \definecolor{brown}{rgb}{0.4,0.26,0.13}
 \definecolor{gray}{gray}{0.35}
 \usepackage[numbers]{natbib}
+\usepackage[nolist,nohyperlinks]{acronym}
 \usepackage{url}
 \usepackage[pdftex,colorlinks=true,urlcolor=blue,citecolor=gray,linkcolor=gray]{hyperref}
 \usepackage{longtable}
@@ -90,10 +91,20 @@ DRAFT}
 
 \frontmatter
 \maketitle
-\include{acknowledgements}
+\include{acknowledgments}
 \tableofcontents
 
 \mainmatter
+
+\begin{acronym}
+\acro{ASP}{Ames Stereo Pipeline}
+\acro{IRG}{Intelligent Robotics Group}
+\acro{NASA}{National Aeronautics and Space Administration}
+\acro{DEM}{digital elevation model}
+\acro{MGS}{Mars Global Surveyor}
+\acro{ISIS}{Integrated Software for Imagers and Spectrometers}
+\end{acronym}
+
 
 % Adjustments headers
 \fancyhead[LO]{\leftmark}
