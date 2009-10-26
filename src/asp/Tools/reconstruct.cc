@@ -389,7 +389,7 @@ int main( int argc, char *argv[] ) {
 
   po::options_description general_options("Options");
   general_options.add_options()
-    ("help", "Display this help message")
+    ("help,h", "Display this help message")
     ("num-matches,m", po::value<int>(&num_matches)->default_value(1000), "Number of points to match for linear regression.");
 
   po::options_description hidden_options("");

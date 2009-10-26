@@ -590,7 +590,7 @@ int main(int argc, char* argv[]) {
           DiskImageView<vw::uint8> left_mask( out_prefix+"-lMask.tif" );
           DiskImageView<vw::uint8> right_mask( out_prefix+"-rMask.tif" );
           int mask_buffer = std::max( stereo_settings().subpixel_h_kern,
-                                      stereo_settings().subpixel_v_kern ) / 2;
+                                      stereo_settings().subpixel_v_kern );
           ImageViewRef<vw::uint8> Lmaskmore, Rmaskmore;
           Lmaskmore = apply_mask(edge_mask(left_mask,0,mask_buffer));
           Rmaskmore = apply_mask(edge_mask(right_mask,0,mask_buffer));

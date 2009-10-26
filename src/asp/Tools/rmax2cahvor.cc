@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
   po::options_description general_options("Options");
   general_options.add_options()
     ("adjustment-file,a", po::value<std::string>(&adjustment_filename), "Apply adjustments from file.\n")
-    ("help", "Display this help message")
+    ("help,h", "Display this help message")
     ("verbose", "Verbose output");
 
   po::options_description hidden_options("");

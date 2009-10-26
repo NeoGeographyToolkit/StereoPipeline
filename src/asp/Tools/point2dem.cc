@@ -103,7 +103,7 @@ int main( int argc, char *argv[] ) {
 
   po::options_description desc("Options");
   desc.add_options()
-    ("help", "Display this help message")
+    ("help,h", "Display this help message")
     ("default-value", po::value<float>(&default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
     ("use-alpha", "Create images that have an alpha channel")
     ("dem-spacing,s", po::value<float>(&dem_spacing)->default_value(0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
