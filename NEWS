@@ -1,4 +1,4 @@
-*** RELEASE 1.0.0 Alpha, 23 OCTOBER ***
+*** RELEASE 1.0.0, 23 OCTOBER ***
 
 CORE
  - OrthoRasterizer.h is subject to change for further VW integration
@@ -9,7 +9,7 @@ CORE
 ISISIO
 
 SESSIONS
- - ISIS Session is the only fully support sessions at this time
+ - ISIS Session is the only fully supported session at this time
  - Pinhole Session works but has not been tested for this release
  - Keypoint/RMAX Session status are unknown
 
