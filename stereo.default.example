@@ -4,14 +4,13 @@
 
 # Pre-alignment options
 
-DO_INTERESTPOINT_ALIGNMENT 1
-INTERESTPOINT_ALIGNMENT_SUBSAMPLING 1
+DO_INTERESTPOINT_ALIGNMENT 0
+INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
 DO_EPIPOLAR_ALIGNMENT 0
-
 
 # Normalization options
 
-FORCE_USE_ENTIRE_RANGE 0
+FORCE_USE_ENTIRE_RANGE 1
 DO_INDIVIDUAL_NORMALIZATION 0
 
 # Preprocessing filter mode:
@@ -23,7 +22,7 @@ DO_INDIVIDUAL_NORMALIZATION 0
 
 PREPROCESSING_FILTER_MODE 3
 
-# Gaussian convolution kernel size (1-sigma) for pre-processing 
+# Gaussian convolution kernel size (1-sigma) for pre-processing
 # modes 1, 2 and 3.
 
 SLOG_KERNEL_WIDTH 1.5
@@ -38,11 +37,11 @@ SLOG_KERNEL_WIDTH 1.5
 # 1 - squared difference
 # 2 - normalized cross correlation (recommended)
 
-COST_MODE 2 
+COST_MODE 2
 
 # Turn this up to improve the results of the discrete correlation
 # step.  This will reduce the number of missing pixels, but reduce the
-# overall accuracy of the disparity estimates.  
+# overall accuracy of the disparity estimates.
 #
 # WARNING: Cost blurring must be used in conjunction with affine
 # adaptive window subpixel below, which are capable of achieving
@@ -51,7 +50,7 @@ COST_MODE 2
 
 COST_BLUR 0
 
-# Initialization step: correlation kernel size 
+# Initialization step: correlation kernel size
 
 H_KERNEL 25
 V_KERNEL 25
@@ -68,7 +67,7 @@ V_CORR_MAX 100
 # 1 - parabola fitting (draft mode - not as accurate)
 # 2 - affine adaptive window, bayes EM weighting (slower, but much more accurate)
 
-SUBPIXEL_MODE 0
+SUBPIXEL_MODE 1
 
 # Subpixel step: correlation kernel size
 
