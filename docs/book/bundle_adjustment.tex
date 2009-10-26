@@ -67,13 +67,13 @@ geodetic control networks.
 
 \subsection{A deeper understanding}
 
-In bundle adjustment the position and orientation of each camera station are
-determined jointly with the 3D position of a set of image tie-points
-points chosen in the overlapping regions between images.
-Tie-points are automatically extracted using the SURF robust feature
-extraction algorithm \citep{surf08}.  Outliers are rejected using
-the RANSAC method and trimmed to 1000 matches that are spread evenly
-across the images.
+In bundle adjustment the position and orientation of each camera
+station are determined jointly with the 3D position of a set of
+image tie-points points chosen in the overlapping regions between
+images.  Tie-points are automatically extracted using the SURF
+robust feature extraction algorithm \citep{surf08}.  Outliers are
+rejected using the RANSAC method \citep{fischler81} and trimmed to
+1000 matches that are spread evenly across the images.
 
 \begin{figure}[b!]
   \begin{center}
@@ -171,7 +171,7 @@ options are optional.
 
 \item[\texttt{--cost-function L1|L2|Cauchy|Huber|PseudoHuber(=L2)} ] \hfill \\
   Sets the cost function used for bundle adjustment. Default is \texttt{L2}
-  which is the normal squared error. The full list of avaible options
+  which is the normal squared error. The full list of available options
   are:
 
   \begin{description}
@@ -481,7 +481,7 @@ the \ac{MOC} images to \ac{ISIS} cubes.
 
 You will note that we do not perform map-projection on these files
 (\texttt{Mapping= NO}).  Bundle adjustment is about the adjustment
-of the cameras themselves and thei relationship to how 3D points
+of the cameras themselves and their relationship to how 3D points
 project onto their focal planes, not how their data are transformed
 into known map projections.  Although bundle adjustment could be 
 performed on map-projected images, \texttt{isis\_adjust} would just
@@ -649,7 +649,7 @@ Make a {\tt .gcp} file for every ground control point, then be sure
 to feed them as an input to {\tt isis\_adjust}. Remember that you
 can scale the sigma of all ground control points by using the {\tt
 --gcp-scalar} flag. This can save time by allowing you to make
-adjustments wihtout needing to edit all of the files individually.
+adjustments without needing to edit all of the files individually.
 
 \subsection{Sharing Data with ISIS 3's qnet program}
 

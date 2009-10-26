@@ -51,9 +51,8 @@ in sub-directories, we recommend using an output prefix like
 \hline
 Option & Description \\ \hline \hline
 \texttt{--help|-h} & Display this help information\\ \hline
-\texttt{--cache \textit{integer(=1800)}} & Set the maximum cache available in megabytes\\ \hline
 \texttt{--threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
-\texttt{--session-type pinhole|isis} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
+\texttt{--session-type|-t pinhole|isis} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
 \texttt{--stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
 \texttt{--entry-point|-e 1|2|3|4} & Pipeline entry point \\ \hline
 \texttt{-draft-mode \textit{debug-image-prefix}} & Cause the pyramid correlator to save out debug imagery named with this prefix\\ \hline
@@ -118,12 +117,10 @@ statistics when tuning the search range settings in the
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{--help} & Display this help\\ \hline
-\texttt{--cache \textit{integer(=1024)}} & Cache size, in megabytes \\ \hline
+\texttt{--help|-h} & Display this help\\ \hline
 \texttt{--input-file \textit{filename}} & Explicitly specify the input file \\ \hline
-\texttt{-o \textit{filename}} & specify the output file prefix \\ \hline
-\texttt{-t \textit{type(=tif)}} & Specify the outfile type \\ \hline
-\texttt{-d \textit{integer(=29)}} & Set the debugging output level \\ \hline
+\texttt{--output-prefix|-o \textit{filename}} & specify the output file prefix \\ \hline
+\texttt{--output-filetype|-t \textit{type(=tif)}} & Specify the outfile type \\ \hline
 \texttt{--float-pixels} & Save the resulting debug images as 32 bit floating point files (if supported by the selected file type) \\ \hline
 \end{longtable}
 
@@ -168,27 +165,25 @@ simple cylindrical map projection.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{--help} & Display this table \\ \hline
+\texttt{--help|-h} & Display this table \\ \hline
 \texttt{--default-value \textit{float(=min-z)}} & Explicitly set the default missing pixel value. By default, the minimum z value in the model is used. \\ \hline
 \texttt{--use-alpha} & Create images that have an alpha channel \\ \hline
-\texttt{-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
-\texttt{-n} & Also write a normalized version of the \ac{DEM} (for debugging) \\ \hline
+\texttt{--dem-spacing|-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
+\texttt{--normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging) \\ \hline
 \texttt{--orthoimage \textit{texture-file}} & Write an orthoimage based on the texture file given as an argument to this command line option \\ \hline
 \texttt{--grayscale} & Use grayscale image processing for creating the orthoimage \\ \hline
 \texttt{--offset-files} & Also write a pair of ASCII offset files (for debugging) \\ \hline
-\texttt{--cache \textit{integer(=2048)}} & Cache size, in megabytes \\ \hline
 \texttt{--input-file \textit{pointcloud-file}} & Explicitly specify the input file \\ \hline
 \texttt{--texture-file \textit{texture-file}} & Explicitly specify the texture file \\ \hline
-\texttt{-o \textit{output-prefix}} & Specify the output prefix \\ \hline
-\texttt{-t \textit{type(=tif)}} & Specify the output file type \\ \hline
-\texttt{-d \textit{integer(=29)}} & Set the debugging output level. (0-50+) \\ \hline
+\texttt{--output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
+\texttt{--output-filetype|-t \textit{type(=tif)}} & Specify the output file type \\ \hline
 \texttt{--xyz-to-lonlat} & Convert from XYZ coordinates to longitude, latitude, altitude coordinates \\ \hline
-\texttt{-r moon|mars} & Set a reference surface to a hard coded value. This will override manually set datum information. \\ \hline
+\texttt{--reference-spheroid|-r moon|mars} & Set a reference surface to a hard coded value. This will override manually set datum information. \\ \hline
 \texttt{--semi-major-axis \textit{float(=0)}} & Set the dimensions of the datum \\ \hline
 \texttt{--semi-minor-axis \textit{float(=0)}} & Set the dimensions of the datum \\ \hline
 \texttt{--x-offset \textit{float(=0)}} & Add a horizontal offset to the \ac{DEM} \\ \hline
 \texttt{--y-offset \textit{float(=0)}} & Add a horizontal offset to the \ac{DEM} \\ \hline
-\texttt{--z-offset arg \textit{float(=0)}} & Add a vertical offset to the \ac{DEM} \\ \hline
+\texttt{--z-offset \textit{float(=0)}} & Add a vertical offset to the \ac{DEM} \\ \hline
 \texttt{--sinusoidal} & Save using a sinusoidal projection \\ \hline
 \texttt{--mercator} & Save using a Mercator projection \\ \hline
 \texttt{--transverse-mercator} & Save using transverse Mercator projection \\ \hline
@@ -267,16 +262,16 @@ model.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{--help} & Display this help \\ \hline
+\texttt{--help|-h} & Display this help \\ \hline
 \texttt{--simplify-mesh \textit{float}} & Run OSG Simplifier on mesh, 1.0 = 100\% \\ \hline
 \texttt{--smooth-mesh} & Run OSG Smoother on mesh \\ \hline
 \texttt{--use-delaunay} & Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with noise issues. \\ \hline
-\texttt{-s \textit{integer(=10)}} & Sampling step size for mesher. \\ \hline
+\texttt{--step|-s \textit{integer(=10)}} & Sampling step size for mesher. \\ \hline
 \texttt{--input-file \textit{pointcloud-file}} & Explicitly specify the input file \\ \hline
 \texttt{--texture-file \textit{texture-file}} & Explicitly specify the texture file \\ \hline
-\texttt{-o \textit{output-prefix}} & Specify the output prefix \\ \hline
-\texttt{-t \textit{type(=ive)}} & Specify the output file type \\ \hline
-\texttt{-l} & Enables shades and light on the mesh \\ \hline
+\texttt{--output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
+\texttt{--output-filetype|-t \textit{type(=ive)}} & Specify the output file type \\ \hline
+\texttt{--enable-lighting|-l} & Enables shades and light on the mesh \\ \hline
 \texttt{--center} & Center the model around the origin. Use this option if you are experiencing numerical precision issues. \\ \hline
 \texttt{--rotation-order \textit{order(=xyz)}} & Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization \\ \hline
 \texttt{--phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline
@@ -341,9 +336,9 @@ position. The input for this tool is one or more \texttt{*.cub} files.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{--help} & Display this help \\ \hline
-\texttt{-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
-\texttt{-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
+\texttt{--help|-h} & Display this help \\ \hline
+\texttt{--output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
+\texttt{--scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
 \texttt{--use-simple-placemarks} & Draw simple icons at camera locations, instead of a coordinate model \\ \hline
 \end{longtable}
 
@@ -368,7 +363,7 @@ into how to use this tool, please read Chapter
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{--help} & Display this help \\ \hline
+\texttt{--help|-h} & Display this help \\ \hline
 \texttt{--cnet|-c \textit{control-network-file}} & Load a control network from a file \\ \hline
 \texttt{--cost-function \textit{function(=L2)}} & Choose a robust cost function from \texttt{[L1|L2|Cauchy|Huber|PseudoHuberL1|L2|Cauchy|} \texttt{Huber|PseudoHuber]} \\ \hline
 \texttt{--bundle-adjuster \textit{adjuster(=Sparse)}} & Choose a bundle adjustment version from \texttt{[Ref|Sparse|RobustRef|RobustSparse]} \\ \hline
@@ -376,7 +371,7 @@ Options & Description \\ \hline \hline
 \texttt{--disable-gcp-const} & Disable the GCP constraint error. \\ \hline
 \texttt{--gcp-scalar \textit{multiplier(=1)}} & Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files. \\ \hline
 \texttt{--lamda|-l \textit{float}} & Set the initial value of the LM paramater \texttt{g\_lambda}. If not set the algorithm will find the optimum starting point. \\ \hline
-\texttt{--min-matches \textit{integer(=5)}} & Set the minimum number of matches between images that will be considered. \\ \hline
+\texttt{--min-matches \textit{integer(=30)}} & Set the minimum number of matches between images that will be considered. \\ \hline
 \texttt{--max-iterations \textit{integer(=25)}} & Set the maximum number of iterations \\ \hline
 \texttt{--poly-order \textit{integer(=0)}} & Set the order of the polynomial used to adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2. \\ \hline
 \texttt{--position-sigma \textit{float(=100)}} & Set the sigma (uncertainty) of the spacecraft position. (meters) \\ \hline
@@ -430,7 +425,7 @@ information.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{--help} & Display this help \\ \hline
+\texttt{--help|-h} & Display this help \\ \hline
 \texttt{--camera-iteration-file|-c \textit{filename}} & Load the camera parameters for each iteration from this file \\ \hline
 \texttt{--points-iteration-file|-p \textit{filename}} & Load the 3D points parameters for each iteration from this file \\ \hline
 \texttt{--pixel-iteration-file|-x \textit{filename}} & Load pixel information data. Allowing for an illustration of the pixel data over time \\ \hline

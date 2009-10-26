@@ -15,7 +15,7 @@ coverage overlap are best suited for creating terrain
 models. Depending on the characteristics of the mission data set and
 the individual images, the degree of acceptable variation will
 differ. Significant differences between image characteristics
-increases the liklihood of stereo matching error and artifacts, and
+increases the likelihood of stereo matching error and artifacts, and
 these errors will propagate through to the resulting data products.
 
 Although images do not need to be map projected before running the
@@ -27,7 +27,7 @@ when processing \ac{HiRISE} images. This removes the large disparity
 differences between \ac{HiRISE} images and leaves only the small
 detail for the Stereo Pipeline to compute. Remember that \ac{ISIS}
 can work backwards through a map-projection when applying the camera
-model, so the geometric integrity of your images will not be sacrified
+model, so the geometric integrity of your images will not be sacrificed
 if you map project first.
 
 Excessively noisy images will not correlate well, so images should be
@@ -39,7 +39,7 @@ Remember, in order for \texttt{stereo} to process stereo pairs in
 \ac{ISIS} cube format, the images must have had SPICE data associated
 by running ISIS's \texttt{spiceinit} program run on them first.
 
-\section{Mars Reconaissance Orbiter HiRISE}
+\section{Mars Reconnaissance Orbiter HiRISE}
 
 \ac{HiRISE} is one of the most challenging cameras to use when making 3D
 models because \ac{HiRISE} exposures can be several gigabytes each. Working
@@ -49,7 +49,7 @@ One important fact to know about HiRISE is that it is composed of
 multiple linear CCDs that are arranged side by side with some vertical
 offsets. These offsets mean that the CCDs will view some of the same
 terrain but at a slightly different time and a slightly different
-angle. Mosiacing the CCDs together to a single image is not a simple
+angle. Mosaicking the CCDs together to a single image is not a simple
 process and involves living with some imperfections.
 
 One cannot simply use the \ac{HiRISE} RDR products, as they do not
@@ -286,7 +286,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
-    RM_MIN_MATCHES 60 # Units = percest
+    RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
 
@@ -395,7 +395,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \end{verbatim}
 
 
-\section{Mars Reconaissance Orbiter CTX}
+\section{Mars Reconnaissance Orbiter CTX}
 
 \subsection{North Terra Meridiani}
 
@@ -467,7 +467,7 @@ P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
 
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
-    RM_MIN_MATCHES 60 # Units = percest
+    RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
 

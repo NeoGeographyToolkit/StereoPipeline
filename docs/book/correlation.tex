@@ -257,14 +257,14 @@ distortion due to foreshortening.
 
 This affine-adaptive behavior is based on the Lucas-Kanade template
 tracking algorithm, a classic algorithm in the field of computer
-vision.  We have extended this technique; developing a
-Bayesian model that treats the Lucas-Kanade parameters as random
-variables in an Expectation Maximization (EM) framework.  This
-statistical model also includes a Gaussian mixture component to
-model image noise that is the basis for the robustness of our
+vision \citep{Baker04:lucas-kanade}.  We have extended this technique;
+developing a Bayesian model that treats the Lucas-Kanade parameters
+as random variables in an Expectation Maximization (EM) framework.
+This statistical model also includes a Gaussian mixture component
+to model image noise that is the basis for the robustness of our
 algorithm.  We will not go into depth on our approach here, but we
-encourage interested readers to read our papers on the
-topic \citep{nefian:bayes_em, broxton:isvc09}.
+encourage interested readers to read our papers on the topic
+\citep{nefian:bayes_em, broxton:isvc09}.
 
 However we do note that, like the computations in the disparity map
 initialization stage, we adopt a multi-scale approach for sub-pixel
