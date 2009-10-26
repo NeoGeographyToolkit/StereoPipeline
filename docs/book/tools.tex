@@ -19,10 +19,8 @@ programs, respectively.
 
 \medskip
 
-Usage:
-\begin{verbatim}
-    stereo [options] <Left_input_image> <Right_input_image> <output_file_prefix>
-\end{verbatim}
+Usage:\\
+\hspace*{2em}\texttt{ISIS 3> stereo [options] \textit{Left\_input\_image Right\_input\_image output\_file\_prefix}}
 
 \medskip
 
@@ -33,16 +31,17 @@ does have the capability to process other types of stereo image pairs
 rovers).  If you would like to experiment with these features, please
 contact us for more information.
 
-The \verb=<output_file_prefix>= is prepended to all output data files.
-For example, setting \verb=<output_file_prefix>= to `\verb=out=' will
-yield files with names like \verb=out-L.tif= and \verb=out-PC.tif=.
-To keep stereo pipeline results organized in sub-directories, we
-recommend using an output prefix like `\verb=results-10-12-09/out='
-for \verb=<output_file_prefix>=.  The \verb=stereo= program will
-create a directory called \verb=results-10-12-09/= and place files
-named \verb=out-L.tif=, \verb=out-PC.tif=, etc. in that directory.
+The \texttt{\textit{output\_file\_prefix}} is prepended to all
+output data files.  For example, setting \texttt{\textit{output\_file\_prefix}}
+to `\texttt{out}' will yield files with names like \texttt{out-L.tif}
+and \texttt{out-PC.tif}.  To keep stereo pipeline results organized
+in sub-directories, we recommend using an output prefix like
+`\texttt{results-10-12-09/out}' for \texttt{\textit{output\_file\_prefix}}.  The
+\texttt{stereo} program will create a directory called
+\texttt{results-10-12-09/out} and place files named \texttt{out-L.tif},
+\texttt{out-PC.tif}, etc. in that directory.
 
-\begin{longtable}{|l|p{10cm}|}
+\begin{longtable}{|l|p{7.5cm}|}
 \caption{Command-line options for stereo}
 \label{tbl:stereo}
 \endfirsthead
@@ -51,15 +50,14 @@ named \verb=out-L.tif=, \verb=out-PC.tif=, etc. in that directory.
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
-\verb#--help, -h# & Display this help information\\ \hline
-\verb#--cache arg (=1800)# & Set the maximum cache available in megabytes\\ \hline
-\verb#--threads arg (=0)# & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
-\verb#--session-type arg# & Select the stereo session type to use for processing. Usually the program can select this automatically for file extension. [options: pinhole isis]\\ \hline
-\verb#--stereo-file arg (=./stereo.default)# & Define the stereo.default file to use\\ \hline
-\verb#--entry-point# & Pipeline entry point [options 1-4]\\ \hline
-\verb#--debug-level# & Sets the output debugging level\\ \hline
-\verb#--draft-mode arg# & Cause the pyramid correlator to save out debug imagery named with this prefix\\ \hline
-\verb#--optimized-correlator# & Cause scale space search to not be performed\\ \hline
+\texttt{--help|-h} & Display this help information\\ \hline
+\texttt{--cache \textit{integer(=1800)}} & Set the maximum cache available in megabytes\\ \hline
+\texttt{--threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
+\texttt{--session-type pinhole|isis} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
+\texttt{--stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
+\texttt{--entry-point|-e 1|2|3|4} & Pipeline entry point \\ \hline
+\texttt{-draft-mode \textit{debug-image-prefix}} & Cause the pyramid correlator to save out debug imagery named with this prefix\\ \hline
+\texttt{--optimized-correlator} & Cause scale space search to not be performed\\ \hline
 \end{longtable}
 
 More information about the stereo.default configuration file can be found in Appendix \ref{ch:stereodefault} on page \pageref{ch:stereodefault}.  Similarly, \texttt{stereo} creates a lot of files, and they are all described in Appendix \ref{chapter:outputfiles} on page \pageref{chapter:outputfiles}.
@@ -67,10 +65,10 @@ More information about the stereo.default configuration file can be found in App
 \subsection{Entry Points}
 \label{entrypoints}
 
-The {\tt stereo -e <number>} option can be used to restart a {\tt
-  stereo} job partway through the stereo correlation process.
+The \texttt{stereo -e \textit{number}} option can be used to restart
+a {\tt stereo} job partway through the stereo correlation process.
 Restarting can be handy when debugging while iterating on {\tt
-  stereo.default} settings.
+stereo.default} settings.
 
 Stage 0 (Preprocessing) normalizes the two images and aligns them
 by locating interest points and matching them in both images. The
@@ -120,13 +118,13 @@ statistics when tuning the search range settings in the
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\verb#--help# & Display this help\\ \hline
-\verb#--cache arg (=1024)# & Cache size, in megabytes \\ \hline
-\verb#--input-file arg# & Explicitly specify the input file \\ \hline
-\verb#-o arg# & specify the output file prefix \\ \hline
-\verb#-t arg (=tif)# & Specify the outfile type \\ \hline
-\verb#-d arg (=29)# & Set the debugging output level \\ \hline
-\verb#--float-pixels# & Save the resulting debug images as 32 bit floating point files ( if supported by the selected file type ) \\ \hline
+\texttt{--help} & Display this help\\ \hline
+\texttt{--cache \textit{integer(=1024)}} & Cache size, in megabytes \\ \hline
+\texttt{--input-file \textit{filename}} & Explicitly specify the input file \\ \hline
+\texttt{-o \textit{filename}} & specify the output file prefix \\ \hline
+\texttt{-t \textit{type(=tif)}} & Specify the outfile type \\ \hline
+\texttt{-d \textit{integer(=29)}} & Set the debugging output level \\ \hline
+\texttt{--float-pixels} & Save the resulting debug images as 32 bit floating point files (if supported by the selected file type) \\ \hline
 \end{longtable}
 
 %--------------------------------------------------------------------------
@@ -138,26 +136,23 @@ Options & Description \\ \hline \hline
 
 The \texttt{point2dem} program produces a GeoTIFF terrain model or an orthographic image from a point cloud image produced by the {\tt stereo} command.
 
-Example:
-\begin{verbatim}
-point2dem <output-prefix>-PC.tif -o stereo/filename --xyz -r moon --default-value -10000 -n
-\end{verbatim}
+Example:\\
+\hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename --xyz -r moon $\backslash$} \\
+\hspace*{4em}\texttt{--default-value -10000 -n}
 
 This produces a digital elevation model that has been referenced to
 the lunar spheroid of 1737.4~km.  Pixels with no data will be set to a
-value of -10000, and the resulting DEM will be saved in a simple
-cylindrical map projection.  The resulting DEM is stored by default as
+value of -10000, and the resulting \ac{DEM} will be saved in a simple
+cylindrical map projection.  The resulting \ac{DEM} is stored by default as
 a one channel, 32-bit floating point GeoTIFF file.
 
 The {\tt -n} option creates an 8-bit, normalized version of the DEM
 that can be easily loaded into a standard image viewing application
 for debugging.
 
-Example:
-\begin{verbatim}
-point2dem <output-prefix>-PC.tif -o stereo/filename --xyz -r moon
- --orthoimage <output-prefix>-L.tif
-\end{verbatim}
+Another example: \\
+\hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename --xyz -r moon $\backslash$} \\
+\hspace*{4em}\texttt{--orthoimage \textit{output-prefix}-L.tif}
 
 This command takes the left input image and orthographically projects
 it onto the 3D terrain produced by the Stereo Pipeline.  The resulting
@@ -173,41 +168,41 @@ simple cylindrical map projection.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\verb#--help# & Display this table \\ \hline
-\verb#--default-value# & Explicitly set the default missing pixel value. By default, the min z value is used. \\ \hline
-\verb#--use-alpha# & Create images that have an alpha channel \\ \hline
-\verb#-s arg(=0)# & Set the DEM post size (if this value is 0, the post spacing size is computed for you) \\ \hline
-\verb#-n# & Also write a normalized version of the DEM (for debugging) \\ \hline
-\verb#--orthoimage arg# & Write an orthoimage based on the texture file given as an argument to this command line option \\ \hline
-\verb#--grayscale# & Use grayscale image processing for creating the orthoimage \\ \hline
-\verb#--offset-files# & Also write a pair of ASCII offset files (for debugging) \\ \hline
-\verb#--cache arg (=2048)# & Cache size, in megabytes \\ \hline
-\verb#--input-file arg# & Explicitly specify the input file \\ \hline
-\verb#--texture-file arg# & Explicitly specify the texture file \\ \hline
-\verb#-o arg# & Specify the output prefix \\ \hline
-\verb#-t arg (=tif)# & Specify the output file type \\ \hline
-\verb#-d arg (=29)# & Set the debugging output level. (0-50+) \\ \hline
-\verb#--xyz-to-lonlat# & Convert from XYZ coordinates to LLA coordinates \\ \hline
-\verb#-r arg# & Set a reference surface to a hard coded value (one of [mmon, mars]). This will override manually set datum information. \\ \hline
-\verb#--semi-major-axis arg (=0)# & Set the dimensions of the datum \\ \hline
-\verb#--semi-minor-axis arg (=0)# & Set the dimensions of the datum \\ \hline
-\verb#--x-offset arg (=0)# & Add a horizontal offset to the DEM \\ \hline
-\verb#--y-offset arg (=0)# & Add a horizontal offset to the DEM \\ \hline
-\verb#--z-offset arg (=0)# & Add a vertical offset to the DEM \\ \hline
-\verb#--sinusoidal# & Save using a sinusoidal projection \\ \hline
-\verb#--mercator# & Save using a Mercator projection \\ \hline
-\verb#--transverse-mercator# & Save using transverse Mercator projection \\ \hline
-\verb#--orthographic# & Save using an orthographic projection \\ \hline
-\verb#--stereographic# & Save using a stereographic projection \\ \hline
-\verb#--lambert-azimuthal# & Save using a Lambert azimuthal projection \\ \hline
-\verb#--utm arg# & Save using a UTM projection with the given zone \\ \hline
-\verb#--proj-lat arg# & The center of projection latitude (if applicable) \\ \hline
-\verb#--proj-lon arg# & The center of projection longitude (if applicable) \\ \hline
-\verb#--proj-scale arg# & The projection scale (if applicable) \\ \hline
-\verb#--rotation-order arg (=xyz)# & Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization \\ \hline
-\verb#--phi-rotation arg (=0)# & Set a rotation angle phi \\ \hline
-\verb#--omega-rotation arg (=0)# & Set a rotation angle omega \\ \hline
-\verb#--kappa-rotation arg (=0)# & Set a rotation angle kappa \\ \hline
+\texttt{--help} & Display this table \\ \hline
+\texttt{--default-value \textit{float(=min-z)}} & Explicitly set the default missing pixel value. By default, the minimum z value in the model is used. \\ \hline
+\texttt{--use-alpha} & Create images that have an alpha channel \\ \hline
+\texttt{-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
+\texttt{-n} & Also write a normalized version of the \ac{DEM} (for debugging) \\ \hline
+\texttt{--orthoimage \textit{texture-file}} & Write an orthoimage based on the texture file given as an argument to this command line option \\ \hline
+\texttt{--grayscale} & Use grayscale image processing for creating the orthoimage \\ \hline
+\texttt{--offset-files} & Also write a pair of ASCII offset files (for debugging) \\ \hline
+\texttt{--cache \textit{integer(=2048)}} & Cache size, in megabytes \\ \hline
+\texttt{--input-file \textit{pointcloud-file}} & Explicitly specify the input file \\ \hline
+\texttt{--texture-file \textit{texture-file}} & Explicitly specify the texture file \\ \hline
+\texttt{-o \textit{output-prefix}} & Specify the output prefix \\ \hline
+\texttt{-t \textit{type(=tif)}} & Specify the output file type \\ \hline
+\texttt{-d \textit{integer(=29)}} & Set the debugging output level. (0-50+) \\ \hline
+\texttt{--xyz-to-lonlat} & Convert from XYZ coordinates to longitude, latitude, altitude coordinates \\ \hline
+\texttt{-r moon|mars} & Set a reference surface to a hard coded value. This will override manually set datum information. \\ \hline
+\texttt{--semi-major-axis \textit{float(=0)}} & Set the dimensions of the datum \\ \hline
+\texttt{--semi-minor-axis \textit{float(=0)}} & Set the dimensions of the datum \\ \hline
+\texttt{--x-offset \textit{float(=0)}} & Add a horizontal offset to the \ac{DEM} \\ \hline
+\texttt{--y-offset \textit{float(=0)}} & Add a horizontal offset to the \ac{DEM} \\ \hline
+\texttt{--z-offset arg \textit{float(=0)}} & Add a vertical offset to the \ac{DEM} \\ \hline
+\texttt{--sinusoidal} & Save using a sinusoidal projection \\ \hline
+\texttt{--mercator} & Save using a Mercator projection \\ \hline
+\texttt{--transverse-mercator} & Save using transverse Mercator projection \\ \hline
+\texttt{--orthographic} & Save using an orthographic projection \\ \hline
+\texttt{--stereographic} & Save using a stereographic projection \\ \hline
+\texttt{--lambert-azimuthal} & Save using a Lambert azimuthal projection \\ \hline
+\texttt{--utm \textit{zone}} & Save using a UTM projection with the given zone \\ \hline
+\texttt{--proj-lat \textit{float}} & The center of projection latitude (if applicable) \\ \hline
+\texttt{--proj-lon \textit{float}} & The center of projection longitude (if applicable) \\ \hline
+\texttt{--proj-scale \textit{float}} & The projection scale (if applicable) \\ \hline
+\texttt{--rotation-order \textit{order(=xyz)}} & Set the order of an euler angle rotation applied to the 3D points prior to \ac{DEM} rasterization \\ \hline
+\texttt{--phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline
+\texttt{--omega-rotation \textit{float(=0)}} & Set a rotation angle omega \\ \hline
+\texttt{--kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa \\ \hline
 \end{longtable}
 
 \section{point2mesh}
@@ -220,16 +215,16 @@ is not bundled with the Stereo Pipeline, but the \texttt{osgviewer} program
 is.  You can download and install this package separately from 
 \url{http://www.openscenegraph.org/}.}
 
-Unlike DEMs, The 3D mesh is not meant to be used as a finished
+Unlike \acp{DEM}, The 3D mesh is not meant to be used as a finished
 scientific product.  Rather, it can be used for fast visualization
 to create a 3D view of the generated terrain.
 
 The \texttt{point2mesh} program requires a point cloud file and an
-optional texture file (normally left image, \texttt{<output-prefix-PC.tif}
-and \texttt{<output-prefix>-L.tif}). When a texture file is not
-provided, a 1D texture is applied in the local Z direction that
-produces a rough rendition of a contour map.  In either case,
-\texttt{point2mesh} will produce a \texttt{<output-prefix>.ive}
+optional texture file (\texttt{\textit{output-prefix}-PC.tif} and
+normally \texttt{\textit{output-prefix}-L.tif}). When a texture
+file is not provided, a 1D texture is applied in the local Z direction
+that produces a rough rendition of a contour map.  In either case,
+\texttt{point2mesh} will produce a \texttt{\textit{output-prefix}.ive}
 file that contains the 3D model in OpenSceneGraph format.
 
 Two options for \texttt{osgviewer} bear pointing out: the \texttt{-l}
@@ -246,21 +241,19 @@ according to how much detail is desired, but remember that large
 models will impact the frame rate of the 3D viewer and affect
 performance.
 
-Example:
-\begin{verbatim}
-      point2mesh -l -s 2 <output-prefix>-PC.tif <output-prefix>-L.tif
-\end{verbatim}
+Example:\\
+\hspace*{2em}\texttt{point2mesh -l -s 2 \textit{output-prefix}-PC.tif \textit{output-prefix}-L.tif}
 
-To view the resulting \verb#*.ive#, use \verb#osgviewer#
+To view the resulting \texttt{\textit{output-prefix}.ive} file use 
+\texttt{osgviewer}.
 
-\begin{verbatim}
-      # Fullscreen
-      osgviewer output.ive
-      # or Windowed
-      osgviewer output.ive --window 50 50 1000 1000
-\end{verbatim}
+\hspace*{2em}Fullscreen:\\
+\hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.ive}
 
-Inside \verb#osgviewer#, the keys L, T, and W can be used to toggle on
+\hspace*{2em}or Windowed:\\
+\hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.ive.ive --window 50 50 1000 1000}
+
+Inside \texttt{osgviewer}, the keys L, T, and W can be used to toggle on
 and off lighting, texture, and wireframe modes.  The left, middle, and
 right mouse buttons control rotation, panning, and zooming of the
 model.
@@ -274,21 +267,21 @@ model.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\verb#--help# & Display this help \\ \hline
-\verb#--simplify-mesh arg# & Run OSG Simplifier on mesh, 1.0 = 100\% \\ \hline
-\verb#--smooth-mesh# & Run OSG Smoother on mesh \\ \hline
-\verb#--use-delaunay# & Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with noise issues. \\ \hline
-\verb#-s arg (=10)# & Sampling step size for mesher. \\ \hline
-\verb#--input-file arg# & Explicitly specify the input file \\ \hline
-\verb#--texture-file arg# & Explicitly specify the texture file \\ \hline
-\verb#-o arg# & Specify the output prefix \\ \hline
-\verb#-t arg (=ive)# & Specify the output file type \\ \hline
-\verb#-l# & Enables shades and light on the mesh \\ \hline
-\verb#--center# & Center the model around the origin. Use this option if you are experiencing numerical precision issues. \\ \hline
-\verb#--rotation-order arg (=xyz)# & Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization \\ \hline
-\verb#--phi-rotation arg (=0)# & Set a rotation angle phi \\ \hline
-\verb#--omega-rotation arg (=0)# & Set a rotation angle omega \\ \hline
-\verb#--kappa-rotation arg (=0)# & Set a rotation angle kappa \\ \hline
+\texttt{--help} & Display this help \\ \hline
+\texttt{--simplify-mesh \textit{float}} & Run OSG Simplifier on mesh, 1.0 = 100\% \\ \hline
+\texttt{--smooth-mesh} & Run OSG Smoother on mesh \\ \hline
+\texttt{--use-delaunay} & Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with noise issues. \\ \hline
+\texttt{-s \textit{integer(=10)}} & Sampling step size for mesher. \\ \hline
+\texttt{--input-file \textit{pointcloud-file}} & Explicitly specify the input file \\ \hline
+\texttt{--texture-file \textit{texture-file}} & Explicitly specify the texture file \\ \hline
+\texttt{-o \textit{output-prefix}} & Specify the output prefix \\ \hline
+\texttt{-t \textit{type(=ive)}} & Specify the output file type \\ \hline
+\texttt{-l} & Enables shades and light on the mesh \\ \hline
+\texttt{--center} & Center the model around the origin. Use this option if you are experiencing numerical precision issues. \\ \hline
+\texttt{--rotation-order \textit{order(=xyz)}} & Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization \\ \hline
+\texttt{--phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline
+\texttt{--omega-rotation \textit{float(=0)}} & Set a rotation angle omega \\ \hline
+\texttt{--kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa \\ \hline
 \end{longtable}
 
 %% \section{orthoproject}
@@ -326,14 +319,14 @@ Options & Description \\ \hline \hline
 \section{orbitviz}
 \label{orbitviz}
 
-Produces a Google Earth kml file useful for visualizing camera
-position. The input for this tool is one or more \verb#*.cub# files.
+Produces a Google Earth \ac{KML} file useful for visualizing camera
+position. The input for this tool is one or more \texttt{*.cub} files.
 
 \begin{figure}[ht]
   \begin{center}
   \includegraphics[width=6in]{images/orbitviz_ge_result.png}
   \end{center}
-  \caption{ Example of a KML visualization produced with {\tt
+  \caption{ Example of a \ac{KML} visualization produced with {\tt
       orbitviz} depicting camera locations for the Apollo 15 Metric
     Camera during orbit 33 of the Apollo command module.}
   \label{fig:orbitviz_example}
@@ -348,10 +341,10 @@ position. The input for this tool is one or more \verb#*.cub# files.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\verb#--help# & Display this help \\ \hline
-\verb#-o arg (=orbit.kml)# & Specifies the output file name \\ \hline
-\verb#-s arg (=1)# & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
-\verb#--use-simple-placemarks# & Draw simple icons at camera locations, instead of a coordinate model \\ \hline
+\texttt{--help} & Display this help \\ \hline
+\texttt{-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
+\texttt{-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
+\texttt{--use-simple-placemarks} & Draw simple icons at camera locations, instead of a coordinate model \\ \hline
 \end{longtable}
 
 
@@ -361,7 +354,7 @@ Options & Description \\ \hline \hline
 
 \section{isis\_adjust}
 
-Bundle Adjustment for ISIS images. This tool supports adjustment of
+Bundle Adjustment for \ac{ISIS} images. This tool supports adjustment of
 linescan cameras as well as simple frame cameras. For an in depth view
 into how to use this tool, please read Chapter
 \ref{ch:bundle_adjustment}.
@@ -375,25 +368,25 @@ into how to use this tool, please read Chapter
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\verb#--help# & Display this help \\ \hline
-\verb#-c arg# & Load a control network from a file \\ \hline
-\verb#--cost-function arg (=L2)# & Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy] \\ \hline
-\verb#--bundle-adjuster arg (=Sparse)# & Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse] \\ \hline
-\verb#--disable-camera-const# & Disable the camera constraint error. This allows the cameras to move to pretty much anywhere. \\ \hline
-\verb#--disable-gcp-const# & Disable the GCP constraint error. \\ \hline
-\verb#--gcp-scalar arg (=1)# & Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files. \\ \hline
-\verb#-l arg# & Set the initial value of the LM paramater \texttt{g\_lambda}. If not set the algorithm will find the optimum starting point. \\ \hline
-\verb#--min-matches arg (=30)# & Set the minimum number of matches between images that will be considered. \\ \hline
-\verb#--max-iterations arg (=25)# & Set the maximum number of iterations \\ \hline
-\verb#--poly-order arg (=0)# & Set the order of the polynomial used to adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2. \\ \hline
-\verb#--position-sigma arg (=100)# & Set the sigma (uncertainty) of the spacecraft position. (meters) \\ \hline
-\verb#--pose-sigma arg (=.1)# & Set the sigma (uncertainty) of the spacecraft pose. (radians) \\ \hline
-\verb#-r arg (=10)# & Changes the detail of the Bundle Adjustment Report. Valid values are 0 to 100 \\ \hline
-\verb#--robust-threshold arg (=10)# & Set the threshold for robust cost functions. \\ \hline
-\verb#-s# & Saves all camera/point/pixel information between iterations for later viewing in \texttt{bundlevis} \\ \hline
-\verb#--seed-with-previous# & Use previous \texttt{isis\_adjust} files at starting for this run \\ \hline
-\verb#--write-isis-cnet-also# & Writes an ISIS style control network \\ \hline
-\verb#--write-kml arg# & Selecting this will cause a KML file to be written with the GCPs. Set this flag to 1 and it will also write all the 3D position estimates of the points it is tracking in the KML. \\ \hline
+\texttt{--help} & Display this help \\ \hline
+\texttt{--cnet|-c \textit{control-network-file}} & Load a control network from a file \\ \hline
+\texttt{--cost-function \textit{function(=L2)}} & Choose a robust cost function from \texttt{[L1|L2|Cauchy|Huber|PseudoHuberL1|L2|Cauchy|} \texttt{Huber|PseudoHuber]} \\ \hline
+\texttt{--bundle-adjuster \textit{adjuster(=Sparse)}} & Choose a bundle adjustment version from \texttt{[Ref|Sparse|RobustRef|RobustSparse]} \\ \hline
+\texttt{--disable-camera-const} & Disable the camera constraint error. This allows the cameras to move to pretty much anywhere. \\ \hline
+\texttt{--disable-gcp-const} & Disable the GCP constraint error. \\ \hline
+\texttt{--gcp-scalar \textit{multiplier(=1)}} & Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files. \\ \hline
+\texttt{--lamda|-l \textit{float}} & Set the initial value of the LM paramater \texttt{g\_lambda}. If not set the algorithm will find the optimum starting point. \\ \hline
+\texttt{--min-matches \textit{integer(=5)}} & Set the minimum number of matches between images that will be considered. \\ \hline
+\texttt{--max-iterations \textit{integer(=25)}} & Set the maximum number of iterations \\ \hline
+\texttt{--poly-order \textit{integer(=0)}} & Set the order of the polynomial used to adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2. \\ \hline
+\texttt{--position-sigma \textit{float(=100)}} & Set the sigma (uncertainty) of the spacecraft position. (meters) \\ \hline
+\texttt{--pose-sigma \textit{float(=0.1)}} & Set the sigma (uncertainty) of the spacecraft pose. (radians) \\ \hline
+\texttt{--report-level|-r \textit{integer(=10)}} & Changes the detail of the Bundle Adjustment Report. Valid values are 0 to 100 \\ \hline
+\texttt{--robust-threshold \textit{float(=10)}} & Set the threshold for robust cost functions. \\ \hline
+\texttt{--save-iteration-data|-s} & Saves all camera/point/pixel information between iterations for later viewing in \texttt{bundlevis} \\ \hline
+\texttt{--seed-with-previous} & Use previous \texttt{isis\_adjust} files at starting for this run \\ \hline
+\texttt{--write-isis-cnet-also} & Writes an ISIS style control network \\ \hline
+\texttt{--write-kml [0|1(=0)]} & Selecting this will cause a KML file to be written with the GCPs. Set this flag to 1 and it will also write all the 3D position estimates of the points it is tracking in the KML. \\ \hline
 \end{longtable}
 
 %% \section{bundle\_adjust}
@@ -437,17 +430,17 @@ information.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\verb#--help# & Display this help \\ \hline
-\verb#-c arg# & Load the camera parameters for each iteration from this file \\ \hline
-\verb#-p arg# & Load the 3D points parameters for each iteration from this file \\ \hline
-\verb#-x arg# & Load pixel information data. Allowing for an illustration of the pixel data over time \\ \hline
-\verb#-n arg# & Load a control network for point and camera relationship status \\ \hline
-\verb#--additional-pnt-files# & Plot additional point files simultaneously with the above data \\ \hline
-\verb#--fullscreen# & Render with the entire screen \\ \hline
-\verb#--stereo# & Render in anagylph mode \\ \hline
-\verb#--show-moon# & Draw a wireframe moon \\ \hline
-\verb#--show-mars# & Draw a wireframe mars \\ \hline
-\verb#--show-earth# & Draw a wireframe earth \\ \hline
+\texttt{--help} & Display this help \\ \hline
+\texttt{--camera-iteration-file|-c \textit{filename}} & Load the camera parameters for each iteration from this file \\ \hline
+\texttt{--points-iteration-file|-p \textit{filename}} & Load the 3D points parameters for each iteration from this file \\ \hline
+\texttt{--pixel-iteration-file|-x \textit{filename}} & Load pixel information data. Allowing for an illustration of the pixel data over time \\ \hline
+\texttt{--control-network-file|-n \textit{filename}} & Load a control network for point and camera relationship status \\ \hline
+\texttt{--additional-pnt-files \textit{filename(s)}} & Plot additional point files simultaneously with the above data \\ \hline
+\texttt{--fullscreen} & Render with the entire screen \\ \hline
+\texttt{--stereo} & Render in anagylph mode \\ \hline
+\texttt{--show-moon} & Draw a wireframe moon \\ \hline
+\texttt{--show-mars} & Draw a wireframe mars \\ \hline
+\texttt{--show-earth} & Draw a wireframe earth \\ \hline
 \end{longtable}
 
 

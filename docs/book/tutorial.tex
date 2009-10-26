@@ -10,22 +10,20 @@ programs that can convert that point cloud into a mesh for viewing
 or a gridded terrain model for use in other ways.
 
 So at the highest, most abstract level, if you have two image files
-(say \texttt{image\_file1} and \texttt{image\_file2} ) this command
-makes point clouds (and a bunch of other files):
+this command makes point clouds (and a bunch of other files):
 
-\begin{verbatim}
-    stereo image_file1 image_file2 stereo-output
-\end{verbatim}
-\noindent
+\texttt{  ISIS 3> stereo \textit{image\_file1 image\_file2} stereo-output}
+\smallskip
+
 Then you can make a mesh or a \ac{DEM} file with either of the following
 commands.  The \texttt{stereo-output-PC.tif} and
 \texttt{stereo-output-L.tif} files are created by the \texttt{stereo}
 program run above):
 
 \begin{verbatim}
-    point2mesh stereo-output-PC.tif stereo-output-L.tif
+  ISIS 3> point2mesh stereo-output-PC.tif stereo-output-L.tif
 
-    point2dem stereo-output-PC.tif stereo-output-L.tif
+  ISIS 3> point2dem stereo-output-PC.tif stereo-output-L.tif
 \end{verbatim}
 \noindent
 There are a number of ways to fine-tune parameters and
@@ -107,11 +105,12 @@ directory of your Stereo Pipeline distribution.
 
 These raw \ac{PDS} images (\texttt{M0100115.imq} and \texttt{E0201461.imq})
 need to be imported into the \ac{ISIS} environment and radiometrically
-calibrated.  You will need to be in an ISIS environment (have set the
-\texttt{ISISROOT} environment variable and sourced the appropriate
-ISIS 3 Startup script, as detailed in the ISIS 3 instructions, we will
-denote this state with the `\texttt{ISIS 3>}' prompt).  Then you can
-use the \texttt{mocproc} program, like so:
+calibrated.  You will need to be in an \ac{ISIS} environment (have
+set the \texttt{ISISROOT} environment variable and sourced the
+appropriate \ac{ISIS} 3 Startup script, as detailed in the \ac{ISIS}
+3 instructions, we will denote this state with the `\texttt{ISIS
+3>}' prompt).  Then you can use the \texttt{mocproc} program, like
+so:
 
 \begin{verbatim}
     ISIS 3> mocproc from= M0100115.imq to= M0100115.cub Mapping= NO

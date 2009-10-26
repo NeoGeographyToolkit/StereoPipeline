@@ -13,7 +13,7 @@ suitable for science analysis, mission planning, and public outreach.
 \begin{figure}[tb] 
    \centering
    \includegraphics[width=6.5in]{images/introduction/p19view2.png} 
-   \caption{This 3D model was generated from \ac{MOC} image
+   \caption{This 3D model was generated from a \acf{MOC} image
      pair M01/00115 and E02/01461 (34.66N, 141.29E).  The complete
      stereo reconstruction process takes approximately five minutes on
      a 3.0~GHz workstation for input images of this size ($1024 \times 8064$
@@ -117,7 +117,20 @@ of how stereo mapping and bundle adjustment can be used together to
 produce high quality results.  Please don't hesitate to contact us if
 you have any questions!
 
-\section{The USGS Integrated Software for Imagers and Spectrometers}
+\section{Software Foundations}
+
+\subsection{NASA Vision Workbench}
+
+The Stereo Pipeline is built upon the Vision Workbench software
+which is a general purpose image processing and computer vision
+library also developed by the \ac{IRG}.  Some of the tools discussed
+in this document are actually Vision Workbench programs, but any
+distribution of the Stereo Pipeline requires the Vision Workbench.
+Unless you're compiling the Vision Workbench and Stereo Pipeline from
+source, the distinctions probably won't matter to you.  
+
+
+\subsection{The USGS Integrated Software for Imagers and Spectrometers}
 
 This version of the Stereo Pipeline must be installed alongside a
 compatible version of the \ac{USGS} \ac{ISIS}. \ac{ISIS} is widely
@@ -177,6 +190,61 @@ to:
 \begin{quote}
 \indent \href{mailto:stereo-pipeline-owner@lists.nasa.gov}{stereo-pipeline-owner@lists.nasa.gov}
 \end{quote}
+
+\section{Typographical Conventions}
+
+Names of programs that are meant to be run on the command line are
+written in a constant-width font, like the \texttt{stereo} program,
+as are options to those programs.
+
+An indented line of constant-width text can be typed into your
+terminal, these lines will either begin with a `\texttt{>}' to
+denote a regular shell, or with `\texttt{ISIS}' which denotes an
+\ac{ISIS}-enabled shell (which means you have set the \texttt{ISISROOT}
+environment variable and sourced the appropriate \ac{ISIS} 3 Startup
+script, as detailed in the \ac{ISIS} 3 instructions).
+\begin{verbatim}
+  > ls
+
+  ISIS 3> pds2isis
+\end{verbatim}
+
+Italicized constant-width text denotes an option or argument that
+a user will need to supply.  For example, `\texttt{stereo E0201461.map.cub
+M0100115.map.cub out}' is specific, but `\texttt{stereo \textit{left-image
+right-image} out}' indicates that \texttt{\textit{left-image}} and
+\texttt{\textit{right-image}} are not the names of specific files,
+but dummy parameters which need to be replaced with actual file
+names.
+
+Square brackets denote optional options or values to a command, and
+items separated by a vertical bar are either aliases for each other, or
+different, specific options.  Default arguments are prefixed by an equals
+sign within parentheses, and line continuation with a backslash:
+
+\texttt{  point2dem [--help|-h] [-r moon|mars] [-s \textit{float(=0)}] $\backslash$ } \\
+\hspace*{6em}\texttt{[-o \textit{output-filename}] \textit{pointcloud}-PC.tif}
+
+The above indicates a run of the \texttt{point2dem} program.  The
+only argument that it requires is a point cloud file, which is
+produced by the \texttt{stereo} program and ends in \texttt{-PC.tif},
+although its prefix could be anything (hence the italics for that
+part).  Everything else is in square brackets indicating that they
+are optional.
+
+Both \texttt{--help} and \texttt{-h} are really the same thing (both
+will get you help).  Similarly, the argument to the \texttt{-r}
+option must be either \texttt{moon} or \texttt{mars}.  The \texttt{-s}
+option takes a floating point value as its argument, and has a
+default value of zero.  The \texttt{-o} option takes a filename
+that will be used as the output \ac{DEM}.
+
+Although there are two lines of constant-width text, the backslash at the end
+of the first line indicates that the command continues on the second line.  You 
+can either type everything into one long line on your own terminal, or use the
+backslash character (or appropriate line continuation character) and a return to 
+continue typing on a second line in your terminal.
+
 
 \section{Warnings to users of the Ames Stereo Pipeline ALPHA}
 

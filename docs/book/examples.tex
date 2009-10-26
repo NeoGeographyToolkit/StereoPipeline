@@ -2,10 +2,10 @@
 \label{ch:examples}
 
 This chapter showcases a variety of results that are possible when
-processing different data sets with the Stereo Pipeline. It is also a
-shortened guide that shows the commands and stereo.default files used
-to process data. We hope that these are useful templates that will get
-you started in processing your own data.
+processing different data sets with the Stereo Pipeline. It is also
+a shortened guide that shows the commands and \texttt{stereo.default}
+files used to process data. We hope that these are useful templates
+that will get you started in processing your own data.
 
 \section{Guidelines for Selecting Stereo Pairs}
 
@@ -21,28 +21,28 @@ these errors will propagate through to the resulting data products.
 Although images do not need to be map projected before running the
 \texttt{stereo} program, we recommend that you do run {\tt cam2map}
 beforehand, especially for image pairs that contain large topographic
-variation (and therefore large disparity differences across the scene,
-\emph{e.g. Valles Marineris}).  Map projection is especially necessary
-when processing HiRISE images. This removes the large disparity
-differences between HiRISE images and leaves only the small detail for
-the Stereo Pipeline to compute. Remember that ISIS can work backwards
-through a map-projection when applying the camera model, so the
-geometric integrity of your images will not be sacrified if you map
-project first.
+variation (and therefore large disparity differences across the
+scene, e.g. Valles Marineris).  Map projection is especially necessary
+when processing \ac{HiRISE} images. This removes the large disparity
+differences between \ac{HiRISE} images and leaves only the small
+detail for the Stereo Pipeline to compute. Remember that \ac{ISIS}
+can work backwards through a map-projection when applying the camera
+model, so the geometric integrity of your images will not be sacrified
+if you map project first.
 
 Excessively noisy images will not correlate well, so images should be
 photometrically calibrated in whatever fashion suits your purposes. If
 there are photometric problems with the images, those photometric
 defects can be misinterpreted as topography.
 
-Remember, in order for \texttt{stereo} to process stereo pairs in ISIS
-CUBE format, the images must have had SPICE data associated by running
-ISIS's \texttt{spiceinit} program run on them first.
+Remember, in order for \texttt{stereo} to process stereo pairs in
+\ac{ISIS} cube format, the images must have had SPICE data associated
+by running ISIS's \texttt{spiceinit} program run on them first.
 
 \section{Mars Reconaissance Orbiter HiRISE}
 
-HiRISE is one of the most challenging cameras to use when making 3D
-models because HiRISE exposures can be several gigabytes each. Working
+\ac{HiRISE} is one of the most challenging cameras to use when making 3D
+models because \ac{HiRISE} exposures can be several gigabytes each. Working
 with this data requires patience as it will take time.
 
 One important fact to know about HiRISE is that it is composed of
@@ -52,30 +52,36 @@ terrain but at a slightly different time and a slightly different
 angle. Mosiacing the CCDs together to a single image is not a simple
 process and involves living with some imperfections.
 
-At this time, we recommend mosaicking CCDs using the scripts available
-at your institution (both USGS and University of Arizona have this
-capability). Having said that, we are also providing a script that
-will take raw HiRISE images and combine them into a mosaic name
-\texttt{hiedr2mosaic.py}. Our script takes all red CCDs and projects
-them using the ISIS {\tt noproj} command into the perspective of RED5
-CCD. From there, {\tt hijitreg} is performed to work out the relative
-offsets between CCDs. Finally the CCDs are mosaicked together using
-the average offset listed from {\tt hijitreg} using the {\tt handmos}
-command. Below is an outline of what our script does.  It is based on
-the tutorial provided on the USGS ISIS website.
+One cannot simply use the \ac{HiRISE} RDR products, as they do not
+have the required geometric stability.  Instead, the \ac{HiRISE}
+EDR products must be assembled using \ac{ISIS} \texttt{noproj}.
+The USGS distributes a script in use by the \ac{HiRISE} team that
+works forward from the team-produced `balance' cubes, which provides
+a de-jittered, noproj'ed mosaic of a single observation, which is
+perfectly suitable for use by the Stereo Pipeline (this script was
+originally engineered to provide input for SOCET SET).  However,
+the `balance' cubes are not available to the general public, and
+so we include a program (\texttt{hiedr2mosaic.py})that will take
+\ac{PDS} available \ac{HiRISE} EDR products and walk through the
+processing steps required to provide good input images for
+\texttt{stereo}.
+
+The program takes all the red CCDs and projects them using the \ac{ISIS}
+{\tt noproj} command into the perspective of RED5 CCD. From there,
+{\tt hijitreg} is performed to work out the relative offsets between
+CCDs. Finally the CCDs are mosaicked together using the average
+offset listed from {\tt hijitreg} using the {\tt handmos} command.
+Below is an outline of the processing.
 
 \begin{verbatim}
     hi2isis           # Import HiRISE IMG to Isis
-    spiceinit         # Attach spice data
     hical             # Calibrate
-    histitch          # Turn 20 files into 10
-    cubenorm          # Remove boundary between histitchs
+    histitch          # Assemble whole-CCD images from the channels
     spiceinit
     spicefit          # For good measure
     noproj            # Project all images into perspective of RED5
     hijitreg          # Work out alignment between CCDs
     handmos           # Mosaic to single file
-    cubenorm          # Clean up divisions
 \end{verbatim}
 
 To use our script, first go to the directory containing all of
@@ -104,54 +110,18 @@ the {\tt stereo.default} search range can be centered around zero.
     stereo first.norm.equ.cub second.norm.equ.cub result/output
 \end{verbatim}
 
-In the future, it is our understanding that the HiRISE team will be
-producing stitch but non-map--projected imagery to the PDS. If this
-happens, most of the above commands will no longer be required.
+In the future, the HiRISE team will be producing de-jittered, noproj'ed
+imagery in the \texttt{extras/} directory of their \ac{PDS} volume.
+When this happens, most of the above commands will no longer be required,
+as you will be able to just run \texttt{cam2map} on their provided imagery.
 
 \subsection{Columbia Hills}
 
-The following description is taken and shortened from the HiRISE
-instrument website.
-\url{http://hirise.lpl.arizona.edu/PSP_001513_1655}
-
-\begin{quotation}
-This HiRISE image shows the landing site of the Mars Exploration Rover
-Spirit. The impact crater in the upper left-hand portion of the image
-is "Bonneville Crater," which was investigated by Spirit shortly after
-landing. In the lower right-hand portion of the image is "Husband
-Hill," a large hill that Spirit climbed and where it spent much of its
-now nearly three-year mission.
-
-The bright irregularly-shaped feature in the area north-west of
-Bonneville Crater is Spirit's parachute, now lying on the Martian
-surface. Near the parachute is the cone-shaped "backshell" that helped
-protect Spirit's lander during its seven-month journey to Mars. The
-backshell appears relatively undamaged by its impact with the martian
-surface. Wrinkles and folds in the parachute fabric are clearly
-visible.
-
-Immediately south west of Bonneville Crater shows Spirit's lander. The
-crater in the upper left-hand portion of the image, just to the
-northwest of the lander, is the one that the Mars Exploration Rover
-team named "Sleepy Hollow."
-
-The north rim of Bonneville Crater shows the damaged remnant of the
-heat shield that protected the vehicle during the high-speed entry
-through the Martian atmosphere. The heat shield impacted the surface
-after being separated from the vehicle during the final stages of the
-descent.
-
-South of Husband Hill shows the current location of Spirit. Toward the
-top of the image is "Home Plate," a plateau of layered rocks that
-Spirit explored during the early part of its third year on
-Mars. Spirit itself is clearly seen just to the southeast of Home
-Plate. Also visible are the tracks made by the rover before it arrived
-at its current location.
-
-Written by: Steve Squyres
-\end{quotation}
-
-\subsubsection*{Screenshot}
+\ac{HiRISE} observations
+\href{http://hirise.lpl.arizona.edu/PSP_001513_1655}{PSP\_001513\_1655} and
+\href{http://hirise.lpl.arizona.edu/PSP_001777_1650}{PSP\_001777\_1650}
+are on the floor of Gusev Crater and cover the area where the \ac{MER} 
+Spirit landed and has roved, including the Columbia Hills.
 
 \begin{figure}[h!]
 \centering
@@ -159,32 +129,35 @@ Written by: Steve Squyres
   \hfil
   \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/hirise/chills_hirise_ge_example.png}}
 \caption{Example output using HiRISE images PSP\_001513\_1655 and
-  PSP\_001777\_1650 of East Mareotis Tholus.}
+  PSP\_001777\_1650 of the Columbia Hills.}
 \label{fig:hirise_chills_example}
 \end{figure}
 
 \subsubsection*{Commands}
 
+Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
-    % Download all of the RED IMG for PSP_001513_1655 & %
-    %                                 PSP_001777_1650   %
-    ~/hiedr2mosaic.py PSP_001513_1655_RED0_0.IMG
-    ~/hiedr2mosaic.py PSP_001777_1650_RED0_0.IMG
-    cam2map from=PSP_001513_1655_REDmosaic.norm.cub to=PSP_001513_1655_REDmosaic.map.cub
-    cam2map from=PSP_001777_1650_REDmosaic.norm.cub map=PSP_001513_1655_REDmosaic.map.cub ...
-            to=PSP_001777_1650_REDmosaic.norm.cub matchmap=true
-    bandnorm from=PSP_001513_1655_REDmosaic.map.cub to=PSP_001513_1655_REDmosaic.map.norm.cub
-    bandnorm from=PSP_001777_1650_REDmosaic.map.cub to=PSP_001777_1650_REDmosaic.map.norm.cub
-    ls *.map.norm.cub > fromlist
-    ls *1513*.map.norm.cyb > holdlist
-    equalizer fromlist=fromlist holdlist=holdlist
-    rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
-    mkdir result
-    stereo PSP_001513_1655.map.norm.equ.cub PSP_001777_1650.map.norm.equ.cub result/output
+  ISIS 3> hiedr2mosaic.py PSP_001513_1655_RED0_0.IMG
+  ISIS 3> hiedr2mosaic.py PSP_001777_1650_RED0_0.IMG
+  ISIS 3> cam2map from=PSP_001513_1655_REDmosaic.norm.cub \
+                    to=PSP_001513_1655_REDmosaic.map.cub
+  ISIS 3> cam2map from=PSP_001777_1650_REDmosaic.norm.cub \
+                   map=PSP_001513_1655_REDmosaic.map.cub \
+                    to=PSP_001777_1650_REDmosaic.norm.cub matchmap=true
+  ISIS 3> bandnorm from=PSP_001513_1655_REDmosaic.map.cub \
+                     to=PSP_001513_1655_REDmosaic.map.norm.cub
+  ISIS 3> bandnorm from=PSP_001777_1650_REDmosaic.map.cub \
+                     to=PSP_001777_1650_REDmosaic.map.norm.cub
+  ISIS 3> ls *.map.norm.cub > fromlist
+  ISIS 3> ls *1513*.map.norm.cub > holdlist
+  ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
+  ISIS 3> rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
+  ISIS 3> mkdir result
+  ISIS 3> stereo PSP_001513_1655.map.norm.equ.cub \
+                 PSP_001777_1650.map.norm.equ.cub result/output
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
-
+\subsubsection*{stereo.default}
 \begin{verbatim}
     ### PREPROCESSING
 
@@ -235,35 +208,10 @@ Written by: Steve Squyres
 
 \subsection{East Mareotis Tholus}
 
-The description is taken from the HiRISE instrument website.
-\url{http://hirise.lpl.arizona.edu/PSP_001760_2160}
-
-\begin{quotation}
-East Mareotis Tholus is a small volcano in Tempe Terra, Mars. This
-area is on the northeast edge of the Tharsis bulge that was built up
-by many large and small volcanoes.
-
-One of the many questions we hope to address with HiRISE is the
-relative roles of the giant shield volcanoes (such as Olympus Mons)
-and smaller volcanic features (such as East Mareotis Tholus).
-
-The anaglyph covers 4.4 x 6.9 km (2.7 x 4.9 miles) and the topography
-can be viewed using red-blue glasses. The elongated pit at the summit
-of the volcano is where the lava issued forth. The large circular hole
-just to the SW of the vent is an impact crater. The gouges in the
-ground to the SE of the volcano are tectonic fissures (called graben)
-that are now filled with sand dunes. The area is covered with large
-amounts of wind-blown dust, so it is not surprising that lava flows
-and other smaller volcanic features are not visible.
-
-However, the smooth shape of the volcano, and the lack of lava layers
-exposed in the impact crater, allow for the possiblity that this
-volcano is composed largely of ash, rather than lava flows.
-
-Written by: Laszlo P. Keszthelyi
-\end{quotation}
-
-\subsubsection*{Screenshot}
+\ac{HiRISE} observations
+\href{http://hirise.lpl.arizona.edu/PSP_001760_2160}{PSP\_001760\_2160} and
+\href{http://hirise.lpl.arizona.edu/PSP_001364_2160}{PSP\_001364\_2160} 
+cover East Mareotis Tholus, a small volcano in Tempe Terra.
 
 \begin{figure}[h!]
 \centering
@@ -277,26 +225,29 @@ Written by: Laszlo P. Keszthelyi
 
 \subsubsection*{Commands}
 
+Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
-    % Download all of the RED IMG for PSP_001364_2160 & %
-    %                                 PSP_001760_2160   %
-    ~/hiedr2mosaic.py PSP_001364_2160_RED0_0.IMG
-    ~/hiedr2mosaic.py PSP_001760_2160_RED0_0.IMG
-    cam2map from=PSP_001364_2160_REDmosaic.norm.cub to=PSP_001364_2160_REDmosaic.map.cub
-    cam2map from=PSP_001760_2160_REDmosaic.norm.cub map=PSP_001364_2160_REDmosaic.map.cub ...
-            to=PSP_001760_2160_REDmosaic.map.cub matchmap=true
-    bandnorm from=PSP_001364_2160_REDmosaic.map.cub to=PSP_001364_2160_REDmosaic.map.norm.cub
-    bandnorm from=PSP_001760_2160_REDmosaic.map.cub to=PSP_001760_2160_REDmosaic.map.norm.cub
-    ls *.map.norm.cub > fromlist
-    ls *1760*.map.norm.cub > holdlist
-    equalizer fromlist=fromlist holdlist=holdlist
-    rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
-    mkdir result
-    stereo PSP_001364_2160.map.norm.equ.cub PSP_001760_2160.map.norm.equ.cub result/output
+  ISIS 3> hiedr2mosaic.py PSP_001364_2160_RED0_0.IMG
+  ISIS 3> hiedr2mosaic.py PSP_001760_2160_RED0_0.IMG
+  ISIS 3> cam2map from=PSP_001364_2160_REDmosaic.norm.cub \
+                    to=PSP_001364_2160_REDmosaic.map.cub
+  ISIS 3> cam2map from=PSP_001760_2160_REDmosaic.norm.cub \
+                   map=PSP_001364_2160_REDmosaic.map.cub \
+                    to=PSP_001760_2160_REDmosaic.map.cub matchmap=true
+  ISIS 3> bandnorm from=PSP_001364_2160_REDmosaic.map.cub \
+                     to=PSP_001364_2160_REDmosaic.map.norm.cub
+  ISIS 3> bandnorm from=PSP_001760_2160_REDmosaic.map.cub \
+                     to=PSP_001760_2160_REDmosaic.map.norm.cub
+  ISIS 3> ls *.map.norm.cub > fromlist
+  ISIS 3> ls *1760*.map.norm.cub > holdlist
+  ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
+  ISIS 3> rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
+  ISIS 3> mkdir result
+  ISIS 3> stereo PSP_001364_2160.map.norm.equ.cub \
+                 PSP_001760_2160.map.norm.equ.cub result/output
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
-
+\subsubsection*{stereo.default}
 \begin{verbatim}
     ### PREPROCESSING
 
@@ -347,16 +298,16 @@ Written by: Laszlo P. Keszthelyi
 
 \subsection{North Terra Meridiani Crop}
 
-HiRISE website only has to say that this is `Layered Materials within
-a Small Crater'. Hopefully you'll still agree that this is cool.
-
-\subsubsection*{Screenshot}
+\ac{HiRISE} observations
+\href{http://hirise.lpl.arizona.edu/PSP_001981_1825}{PSP\_001981\_1825} and
+\href{http://hirise.lpl.arizona.edu/PSP_002258_1825}{PSP\_002258\_1825}
+show a small crater filled by layered material.
 
 \begin{figure}[h!]
 \centering
-  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/hirise/nterra_example.png}}
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[height=2.5in]{images/examples/hirise/nterra_example.png}}
   \hfil
-  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/hirise/nterra_ge_example.png}}
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[height=2.5in]{images/examples/hirise/nterra_ge_example.png}}
 \caption{Example output using cropped HiRISE data of North Terra Meridiani.}
 \label{fig:hirise_nterra_example}
 \end{figure}
@@ -366,31 +317,34 @@ a Small Crater'. Hopefully you'll still agree that this is cool.
 Notice here that we have applied a crop to select a subset of these
 HiRISE images that we are interested in.  Cropping is often an
 efficient way to go because it greatly reduces the amount of
-computation necessary to get results in a limited area.
-
+computation necessary to get results in a limited area.  As always,
+Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
-    % Download all of the IMG for PSP_001981_1825 & %
-    %                             PSP_002258_1825   %
-    ~/hiedr2mosaic.py PSP_001981_1825_RED0_0.IMG
-    ~/hiedr2mosaic.py PSP_002258_1825_RED0_0.IMG
-    cam2map from=PSP_001981_1825_REDmosaic.norm.cub to=PSP_001981_1825_REDmosaic.map.cub
-    cam2map from=PSP_002258_1825_REDmosaic.norm.cub map=PSP_001981_1825_REDmosaic.map.cub ...
-            to=PSP_002258_1825_REDmosaic.map.cub matchmap=true
-    bandnorm from=PSP_001981_1825_REDmosaic.map.cub to=PSP_001981_1825_REDmosaic.map.norm.cub
-    bandnorm from=PSP_002258_1825_REDmosaic.map.cub to=PSP_002258_1825_REDmosaic.map.norm.cub
-    ls *.map.norm.cub > fromlist
-    ls *1981*.map.norm.cub > holdlist
-    equalizer fromlist=fromlist holdlist=holdlist
-    crop from=PSP_001981_1825_REDmosaic.map.norm.equ.cub to=PSP_001981_1825.crop.cub ...
-         sample=7497 line=41318 nsamp=10000 nline=10000
-    crop from=PSP_002258_1825_REDmosaic.map.norm.equ.cub to=PSP_002258_1825.crop.cub ...
-         sample=7982 line=41310 nsamp=10000 nline=10000
-    rm *REDmosaic*.cub
-    mkdir result
-    stereo PSP_001981_1825.crop.cub PSP_002258_1825.crop.cub result/output
+  ISIS 3> hiedr2mosaic.py PSP_001981_1825_RED0_0.IMG
+  ISIS 3> hiedr2mosaic.py PSP_002258_1825_RED0_0.IMG
+  ISIS 3> cam2map from=PSP_001981_1825_REDmosaic.norm.cub \
+                    to=PSP_001981_1825_REDmosaic.map.cub
+  ISIS 3> cam2map from=PSP_002258_1825_REDmosaic.norm.cub \
+                   map=PSP_001981_1825_REDmosaic.map.cub \
+                    to=PSP_002258_1825_REDmosaic.map.cub matchmap=true
+  ISIS 3> bandnorm from=PSP_001981_1825_REDmosaic.map.cub \
+                     to=PSP_001981_1825_REDmosaic.map.norm.cub
+  ISIS 3> bandnorm from=PSP_002258_1825_REDmosaic.map.cub \
+                     to=PSP_002258_1825_REDmosaic.map.norm.cub
+  ISIS 3> ls *.map.norm.cub > fromlist
+  ISIS 3> ls *1981*.map.norm.cub > holdlist
+  ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
+  ISIS 3> crop from=PSP_001981_1825_REDmosaic.map.norm.equ.cub \
+                 to=PSP_001981_1825.crop.cub sample=7497 line=41318 nsamp=10000 nline=10000
+  ISIS 3> crop from=PSP_002258_1825_REDmosaic.map.norm.equ.cub \
+                 to=PSP_002258_1825.crop.cub sample=7982 line=41310 nsamp=10000 nline=10000
+  ISIS 3> rm *REDmosaic*.cub
+  ISIS 3> mkdir result
+  ISIS 3> stereo PSP_001981_1825.crop.cub \
+                 PSP_002258_1825.crop.cub result/output
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
+\subsubsection*{stereo.default}
 
 \begin{verbatim}
     ### PREPROCESSING
@@ -458,20 +412,22 @@ computation necessary to get results in a limited area.
 
 \subsubsection*{Commands}
 
+Download the \ac{CTX} images P02\_001981\_1823\_XI\_02N356W.IMG and
+P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
 \begin{verbatim}
-    % Download P02_001981_1823_XI_02N356W.IMG &
-    %          P03_002258_1817_XI_01N356W.IMG
-    mroctx2isis from=P02_001981_1823_XI_02N356W.IMG to=P02_001981_1823_XI_02N356W.cub
-    mroctx2isis from=P03_002258_1817_XI_01N356W.IMG to=P03_002258_1817_XI_01N356W.cub
-    spiceinit from=P02_001981_1823_XI_02N356W.cub
-    spiceinit from=P03_002258_1817_XI_01N356W.cub
-    ctxcal from=P02_001981_1823_XI_02N356W.cub to=P02_001981_1823_XI_02N356W.cal.cub
-    ctxcal from=P03_002258_1817_XI_01N356W.cub to=P03_002258_1817_XI_01N356W.cal.cub
-    cam2map from=P02_001981_1823_XI_02N356W.cal.cub to=P02_001981_1823_XI_02N356W.map.cub
-    cam2map from=P03_002258_1817_XI_01N356W.cal.cub to=P03_002258_1817_XI_01N356W.map.cub
+  ISIS 3> mroctx2isis from=P02_001981_1823_XI_02N356W.IMG to=P02_001981_1823.cub
+  ISIS 3> mroctx2isis from=P03_002258_1817_XI_01N356W.IMG to=P03_002258_1817.cub
+  ISIS 3> spiceinit from=P02_001981_1823.cub
+  ISIS 3> spiceinit from=P03_002258_1817.cub
+  ISIS 3> ctxcal from=P02_001981_1823.cub to=P02_001981_1823.cal.cub
+  ISIS 3> ctxcal from=P03_002258_1817.cub to=P03_002258_1817.cal.cub
+  ISIS 3> cam2map from=P02_001981_1823.cal.cub to=P02_001981_1823.map.cub
+  ISIS 3> cam2map from=P03_002258_1817.cal.cub to=P03_002258_1817.map.cub
+  ISIS 3> mkdir result
+  ISIS 3> stereo P02_001981_1823.map.cub P03_002258_1817.map.cub results/out
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
+\subsubsection*{stereo.default}
 
 \begin{verbatim}
     ### PREPROCESSING
@@ -524,34 +480,33 @@ computation necessary to get results in a limited area.
 \section{Mars Global Surveyor MOC-NA}
 
 In the Stereo Pipeline Tutorial in Chapter~\ref{ch:tutorial}, we
-showed you how to process a MOC-NA stereo pair that covered the
-Galaxius Fluctus channel. In this section we will show you more
-examples, some of which exhibit a problem common to stereo pairs from
-linescan imagers: ``Spacecraft jitter'' is caused by oscillations on
-the spacecraft due to the movement of other spacecraft hardware.  All
-spacecraft wobble around to some degree but some, especially Mars
-Global Surveyor, are particularly succeptible.
+showed you how to process a narrow angle \ac{MOC} stereo pair that
+covered a portion of Hrad Vallis. In this section we will show you
+more examples, some of which exhibit a problem common to stereo
+pairs from linescan imagers: ``spacecraft jitter'' is caused by
+oscillations of the spacecraft due to the movement of other spacecraft
+hardware.  All spacecraft wobble around to some degree but some,
+especially Mars Global Surveyor, are particularly susceptible.
 
 Jitter causes wave-like distortions along the track of the satellite
-orbit in DEMs produced from linescan camera images.  This effect can
-be very subtle or quite pronounced, so it is important to check you
+orbit in \acp{DEM} produced from linescan camera images.  This effect can
+be very subtle or quite pronounced, so it is important to check your
 data products carefully for any sign of this type of artifact. The
 following examples will show the typical distortions created by this
 problem.
 
-Note that the science teams of HiRISE and LROC are actively working on
-detecting and correctly modeling jitter in their respective SPICE
-data. If they succeed in this, the distortions will still being in the
-raw imagery, but the jitter will no longer produce ripple artifacts in
-the DEMs produced using ours or other stereo reconstruction software.
+Note that the science teams of \ac{HiRISE} and \ac{LROC} are actively
+working on detecting and correctly modeling jitter in their respective
+SPICE data. If they succeed in this, the distortions will still
+be present in the raw imagery, but the jitter will no longer produce
+ripple artifacts in the DEMs produced using ours or other stereo
+reconstruction software.
 
 \subsection{Ceraunius Tholus}
 
-Ceraunius Tholus is a steep volcano that is part of the Uranius group
-on Mars. It can be found at 23.96 N and 262.60 E. This DEM crosses the
-volcano's caldera.
-
-\subsubsection*{Screenshot}
+Ceraunius Tholus is a volcano in northern Tharsis on Mars. It can
+be found at 23.96 N and 262.60 E. This \ac{DEM} crosses the volcano's
+caldera.
 
 \begin{figure}[h!]
 \centering
@@ -564,17 +519,17 @@ volcano's caldera.
 
 \subsubsection*{Commands}
 
+Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 \begin{verbatim}
-    % Download M0806047.img & R0701361.img
-    moc2isis f=M0806047.img t=M0806047.cub mapping=no
-    moc2isis f=R0701361.img t=R0701361.cub mapping=no
-    cam2map from=M0806047.cub to=M0806047.map.cub
-    cam2map from=R0701361.cub map=M0806047.map.cub to=R0701361.map.cub matchmap=true
-    mkdir result
-    stereo M0806047.map.cub R0701361.map.cub result/output
+  ISIS 3> moc2isis f=M0806047.img t=M0806047.cub mapping=no
+  ISIS 3> moc2isis f=R0701361.img t=R0701361.cub mapping=no
+  ISIS 3> cam2map from=M0806047.cub to=M0806047.map.cub
+  ISIS 3> cam2map from=R0701361.cub map=M0806047.map.cub to=R0701361.map.cub matchmap=true
+  ISIS 3> mkdir result
+  ISIS 3> stereo M0806047.map.cub R0701361.map.cub result/output
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
+\subsubsection*{stereo.default}
 
 \begin{verbatim}
     ### PREPROCESSING
@@ -626,11 +581,8 @@ volcano's caldera.
 
 \subsection{North Tharsis}
 
-The Malin Space Science System's website describes this image as the
-`Throughs and terraces in northern Tharsis'. This DEM is located at
-20.20 N and 118.18 W on Mars.
-
-\subsubsection*{Screenshot}
+These images cover troughs and terraces in northern Tharsis. 
+This \ac{DEM} is located at 20.20 N and 118.18 W on Mars.
 
 \begin{figure}[h!]
 \centering
@@ -643,17 +595,17 @@ The Malin Space Science System's website describes this image as the
 
 \subsubsection*{Commands}
 
+Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 \begin{verbatim}
-    % Download M0803097.img & S0701420.img
-    moc2isis f=M0803097.img t=M0803097.cub mapping=no
-    moc2isis f=S0701420.img t=S0701420.cub mapping=no
-    cam2map from=M0803097.cub to=M0803097.map.cub
-    cam2map from=S0701420.cub map=M0803097.map.cub to=S0701420.map.cub matchmap=true
-    mkdr result
-    stereo M0803097.map.cub S0701420.map.cub result/output
+  ISIS 3> moc2isis f=M0803097.img t=M0803097.cub mapping=no
+  ISIS 3> moc2isis f=S0701420.img t=S0701420.cub mapping=no
+  ISIS 3> cam2map from=M0803097.cub to=M0803097.map.cub
+  ISIS 3> cam2map from=S0701420.cub map=M0803097.map.cub to=S0701420.map.cub matchmap=true
+  ISIS 3> mkdir result
+  ISIS 3> stereo M0803097.map.cub S0701420.map.cub result/output
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
+\subsubsection*{stereo.default}
 
 \begin{verbatim}
     ### PREPROCESSING
@@ -703,96 +655,100 @@ The Malin Space Science System's website describes this image as the
     FAR_UNIVERSE_RADIUS 0.0
 \end{verbatim}
 
-
-\section{Lunar Reconaissance Orbiter LROC-NA}
-
-\subsection{Lee-Lincoln Scarp}
-
-This stereo pair covers the Taurus-Littrow valley on the Moon where,
-on December 11, 1972, the astronauts of Apollo 17 landed. However,
-this stereo pair does not contain the landing site.  It is slightly
-west; focusing on the Lee-Lincoln scarp that is on North Massif. The
-scarp is an 80 m high feature that is the only visible sign of a deep
-fault.
-
-\subsubsection*{Screenshot}
-
-\begin{figure}[h!]
-\centering
-  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-example.png}}
-  \hfil
-  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-ge_example.png}}
-\caption{Example output possible with a LROC NA stereo pair, using only a single CCDs from observations.}
-\label{fig:lroc-na-example}
-\end{figure}
-
-\subsubsection*{Commands}
-
-\begin{verbatim}
-    % Download nacl00002db8.* & nacl00004c86.*
-    % process with unreleased tools to make cubes
-    cam2map from=nacl00002db8.cub to=nacl00002db8.map.cub
-    cam2map from=nacl00004c86.cub map=nacl00002db8.map.cub ...
-            to=nacl00004c86.map.cub matchmap=true
-    mkdir result
-    stereo nacl00002db8.map.cub nacl00004c86.map.cub result/output
-\end{verbatim}
-
-\subsubsection*{Stereo Default}
-
-\begin{verbatim}
-    ### PREPROCESSING
-
-    DO_INTERESTPOINT_ALIGNMENT 0
-    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
-    DO_EPIPOLAR_ALIGNMENT 0
-
-    FORCE_USE_ENTIRE_RANGE 1
-    DO_INDIVIDUAL_NORMALIZATION 0
-
-    PREPROCESSING_FILTER_MODE 2
-
-    SLOG_KERNEL_WIDTH 1.5
-
-    ### CORRELATION
-
-    COST_BLUR 12
-    COST_MODE 2
-
-    H_KERNEL 29
-    V_KERNEL 29
-
-    H_CORR_MIN -425
-    H_CORR_MAX 150
-    V_CORR_MIN -100
-    V_CORR_MAX 100
-
-    SUBPIXEL_MODE 2
-
-    SUBPIXEL_H_KERNEL 25
-    SUBPIXEL_V_KERNEL 25
-
-    ### FILTERING
-
-    FILL_HOLES 1
-
-    RM_H_HALF_KERN 5
-    RM_V_HALF_KERN 5
-    RM_MIN_MATCHES 60 # Units = percent
-    RM_THRESHOLD 3
-    RM_CLEANUP_PASSES 1
-
-    ### DOTCLOUD
-
-    NEAR_UNIVERSE_RADIUS 0.0
-    FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
+% NOTE: LROC data has not been released, this section is inappropriate
+% for the general public at this time, it'll just frustrate them, 
+% although consider it a hidden Easter-egg for those that download the
+% source--and read the LaTeX source!  Make sure to uncomment upon LROC public
+% release.
+% 
+%
+% \section{Lunar Reconaissance Orbiter LROC NAC}
+% 
+% \subsection{Lee-Lincoln Scarp}
+% 
+% This stereo pair covers the Taurus-Littrow valley on the Moon where,
+% on December 11, 1972, the astronauts of Apollo 17 landed. However,
+% this stereo pair does not contain the landing site.  It is slightly
+% west; focusing on the Lee-Lincoln scarp that is on North Massif. The
+% scarp is an 80~m high feature that is the only visible sign of a deep
+% fault.
+% 
+% \begin{figure}[h!]
+% \centering
+%   \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-example.png}}
+%   \hfil
+%   \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-ge_example.png}}
+% \caption{Example output possible with a LROC NA stereo pair, using only a single CCDs from observations.}
+% \label{fig:lroc-na-example}
+% \end{figure}
+% 
+% \subsubsection*{Commands}
+% 
+% \begin{verbatim}
+%     % Download nacl00002db8.* & nacl00004c86.*
+%     % process with unreleased tools to make cubes
+%     ISIS 3> cam2map from=nacl00002db8.cub to=nacl00002db8.map.cub
+%     ISIS 3> cam2map from=nacl00004c86.cub map=nacl00002db8.map.cub ...
+%     ISIS 3>         to=nacl00004c86.map.cub matchmap=true
+%     ISIS 3> mkdir result
+%     ISIS 3> stereo nacl00002db8.map.cub nacl00004c86.map.cub result/output
+% \end{verbatim}
+% 
+% \subsubsection*{stereo.default}
+% 
+% \begin{verbatim}
+%     ### PREPROCESSING
+% 
+%     DO_INTERESTPOINT_ALIGNMENT 0
+%     INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+%     DO_EPIPOLAR_ALIGNMENT 0
+% 
+%     FORCE_USE_ENTIRE_RANGE 1
+%     DO_INDIVIDUAL_NORMALIZATION 0
+% 
+%     PREPROCESSING_FILTER_MODE 2
+% 
+%     SLOG_KERNEL_WIDTH 1.5
+% 
+%     ### CORRELATION
+% 
+%     COST_BLUR 12
+%     COST_MODE 2
+% 
+%     H_KERNEL 29
+%     V_KERNEL 29
+% 
+%     H_CORR_MIN -425
+%     H_CORR_MAX 150
+%     V_CORR_MIN -100
+%     V_CORR_MAX 100
+% 
+%     SUBPIXEL_MODE 2
+% 
+%     SUBPIXEL_H_KERNEL 25
+%     SUBPIXEL_V_KERNEL 25
+% 
+%     ### FILTERING
+% 
+%     FILL_HOLES 1
+% 
+%     RM_H_HALF_KERN 5
+%     RM_V_HALF_KERN 5
+%     RM_MIN_MATCHES 60 # Units = percent
+%     RM_THRESHOLD 3
+%     RM_CLEANUP_PASSES 1
+% 
+%     ### DOTCLOUD
+% 
+%     NEAR_UNIVERSE_RADIUS 0.0
+%     FAR_UNIVERSE_RADIUS 0.0
+% \end{verbatim}
 
 
 \section{Apollo 15 Metric Camera Images}
 
 Apollo Metric images were all taken at regular intervals, which means
-that the same stereo.default can be used for all sequential pairs of
+that the same \texttt{stereo.default} can be used for all sequential pairs of
 images. Apollo Metric images are ideal for stereo processing.  They
 produce consistent, excellent results.
 
@@ -810,8 +766,6 @@ general public usage.
 Ansgarius C is a small crater on the west edge of the farside of the
 Moon near the equator. It is east of Kapteyn A and B.
 
-\subsubsection*{Screenshot}
-
 \begin{figure}[h!]
 \centering
   \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/metric/metric_example.png}}
@@ -823,20 +777,19 @@ Moon near the equator. It is east of Kapteyn A and B.
 
 \subsubsection*{Commands}
 
+Process Apollo TIFF files into \ac{ISIS}.
 \begin{verbatim}
-    % Process tif files with not yet released commands %
-    reduce from=AS15-M-2380.cub to=sub4-AS15-M-2380.cub sscale=4 lscale=4
-    reduce from=AS15-M-2381.cub to=sub4-AS15-M-2381.cub sscale=4 lscale=4
-    spiceinit from=sub4-AS15-M-2380.cub
-    spiceinit from=sub4-AS15-M-2381.cub
-    ipfind --max 10000 sub4*.cub
-    ipmatch -i 50 -r homography sub4*.cub
-    mkdir result
-    stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub result/output
+  ISIS 3> reduce from=AS15-M-2380.cub to=sub4-AS15-M-2380.cub sscale=4 lscale=4
+  ISIS 3> reduce from=AS15-M-2381.cub to=sub4-AS15-M-2381.cub sscale=4 lscale=4
+  ISIS 3> spiceinit from=sub4-AS15-M-2380.cub
+  ISIS 3> spiceinit from=sub4-AS15-M-2381.cub
+  ISIS 3> ipfind --max 10000 sub4*.cub
+  ISIS 3> ipmatch -i 50 -r homography sub4*.cub
+  ISIS 3> mkdir result
+  ISIS 3> stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub result/output
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
-
+\subsubsection*{stereo.default}
 \begin{verbatim}
     ### PREPROCESSING
 
@@ -892,10 +845,10 @@ Moon near the equator. It is east of Kapteyn A and B.
 \section{MESSENGER MDIS}
 
 These results are a proof of concept showing off the strength of
-building the Stereo Pipeline on top of ISIS. Support for
-processing MDIS stereo pairs was not a goal during our design of the
-software, but the fact that an MDIS camera model exists in ISIS means
-that it too can be processed by the Stereo Pipeline.
+building the Stereo Pipeline on top of \ac{ISIS}. Support for processing
+MDIS stereo pairs was not a goal during our design of the software,
+but the fact that an MDIS camera model exists in ISIS means that
+it too can be processed by the Stereo Pipeline.
 
 For future mappers, we suggest checking out Mercury Flyby 3 data which
 was not available at the time of this writing. Flyby 3 and Flyby 2
@@ -904,15 +857,13 @@ camera.
 
 \subsection{Wide Angle on flyby 2}
 
-In most flyby imagery it is very hard to find good stereo pairs. This
-pair was taken from a single flyby just seconds apart. Note also that
-this pair is taken from different wave lengths \emph{(The letter at
-  the end of the file designates the current filter being used on the
-  wide angle camera)}. Unfortunately there is not enough of a
+In most flyby imagery it is very hard to find good stereo pairs.
+This pair was taken from a single flyby just seconds apart. Note
+also that this pair is taken from different wavelengths (the letter
+at the end of the filename designates the current filter being used
+on the wide angle camera). Unfortunately there is not enough of a
 perspective change here to make anything other than the spherical
 surface, but that alone is still an interesting result nonetheless.
-
-\subsubsection*{Screenshot}
 
 \begin{figure}[h!]
   \begin{center}
@@ -925,18 +876,17 @@ surface, but that alone is still an interesting result nonetheless.
 \subsubsection*{Commands}
 
 \begin{verbatim}
-    mdis2isis from=EW0108825359A.IMG to=EW0108825359A.cub
-    mdis2isis from=EW0108825379C.IMG to=EW0108825379C.cub
-    spiceinit from=EW0108825359A.cub
-    spiceinit from=EW0108825359C.cub
-    ipfind --max 10000 *.cub
-    ipmatch -i 10 -r homography *.cub
-    mkdir result
-    stereo EW0108825359A.cub EW0108825379C.cub stereo/output
+  ISIS 3> mdis2isis from=EW0108825359A.IMG to=EW0108825359A.cub
+  ISIS 3> mdis2isis from=EW0108825379C.IMG to=EW0108825379C.cub
+  ISIS 3> spiceinit from=EW0108825359A.cub
+  ISIS 3> spiceinit from=EW0108825359C.cub
+  ISIS 3> ipfind --max 10000 *.cub
+  ISIS 3> ipmatch -i 10 -r homography *.cub
+  ISIS 3> mkdir result
+  ISIS 3> stereo EW0108825359A.cub EW0108825379C.cub stereo/output
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
-
+\subsubsection*{stereo.default}
 \begin{verbatim}
     ### PREPROCESSING
 
@@ -989,29 +939,27 @@ surface, but that alone is still an interesting result nonetheless.
 \section{Cassini ISS NAC}
 
 This is a proof of concept showing the strength of building the Stereo
-Pipeline on top of ISIS.  Support for processing ISS NAC stereo pairs
+Pipeline on top of \ac{ISIS}.  Support for processing ISS NAC stereo pairs
 was not a goal during our design of the software, but the fact that a
-camera model exists in ISIS means that it too can be processed by the
+camera model exists in \ac{ISIS} means that it too can be processed by the
 Stereo Pipeline.
 
-Identifying stereo pairs from satellites that do not orbit their
+Identifying stereo pairs from spacecraft that do not orbit their
 target is a challenge. We have found that one usually has to settle
 with images that are not ideal: different lighting, little perspective
 change, and little or no stereo parallax. So far we have had little
-succes with Cassini's difficult data, but nonetheless we provide this
-example as a potential starting point.
+success with Cassini's data, but nonetheless we provide this example
+as a potential starting point.
 
 \subsection{Rhea}
 
-Rhea is the second largest moon of Saturn and is roughly 1/3rd the
-size of our own Moon. This example show, at the top right of both
-images,a gaint impact basin named Tirawa that is 220 miles across. The
+Rhea is the second largest moon of Saturn and is roughly a third the
+size of our own Moon. This example shows, at the top right of both
+images,a giant impact basin named Tirawa that is 220~miles across. The
 bright white area south of Tirawa is ejecta from a new crater.  The
 lack of texture in this area poses a challenge for our correlator. The
 results are just barely useful: the Tirawa impact can barely be made
 out in the 3D data while the new crater and ejecta become only noise.
-
-\subsubsection*{Screenshot}
 
 \begin{figure}[p]
 \centering
@@ -1028,28 +976,27 @@ out in the 3D data while the new crater and ejecta become only noise.
 
 \subsubsection*{Commands}
 
+Download the N1511700120\_1.IMG and W1567133629\_1.IMG images from the \ac{PDS}.
 \begin{verbatim}
-    % Download N1511700120_1.IMG and W1567133629_1.IMG
-    ciss2isis f=N1511700120_1.IMG t=N1511700120_1.cub
-    ciss2isis f=W1567133629_1.IMG t=W1567133629_1.cub
-    cisscal from=N1511700120_1.cub to=N1511700120_1.lev1.cub
-    cisscal from=W1567133629_1.cub to=W1567133629_1.lev1.cub
-    fillgap from=W1567133629_1.lev1.cub to=W1567133629_1.fill.cub %Only one image
-                                                                  %exhibits the problem
-    cubenorm from=N1511700120_1.lev1.cub to=N1511700120_1.norm.cub
-    cubenorm from=W1567133629_1.fill.cub to=W1567133629_1.norm.cub
-    cam2map from=N1511700120_1.norm.cub to=N1511700120_1.map.cub
-    cam2map from=W1567133629_1.norm.cub map=N1511700120_1.map.cub ...
-            to=W1567133629_1.map.cub matchmap=true;
-    ls *.map.cub > fromlist
-    ls N*.map.cub > holdlist
-    equalizer fromlist=fromlist holdlist=holdlist
-    mkdir result
-    stereo N1511700120_1.map.equ.cub W1567133629_1.map.equ.cub result/rhea
+  ISIS 3> ciss2isis f=N1511700120_1.IMG t=N1511700120_1.cub
+  ISIS 3> ciss2isis f=W1567133629_1.IMG t=W1567133629_1.cub
+  ISIS 3> cisscal from=N1511700120_1.cub to=N1511700120_1.lev1.cub
+  ISIS 3> cisscal from=W1567133629_1.cub to=W1567133629_1.lev1.cub
+  ISIS 3> fillgap from=W1567133629_1.lev1.cub to=W1567133629_1.fill.cub %Only one image
+                                                                        %exhibits the problem
+  ISIS 3> cubenorm from=N1511700120_1.lev1.cub to=N1511700120_1.norm.cub
+  ISIS 3> cubenorm from=W1567133629_1.fill.cub to=W1567133629_1.norm.cub
+  ISIS 3> cam2map from=N1511700120_1.norm.cub to=N1511700120_1.map.cub
+  ISIS 3> cam2map from=W1567133629_1.norm.cub map=N1511700120_1.map.cub \
+  ISIS 3>           to=W1567133629_1.map.cub matchmap=true;
+  ISIS 3> ls *.map.cub > fromlist
+  ISIS 3> ls N*.map.cub > holdlist
+  ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
+  ISIS 3> mkdir result
+  ISIS 3> stereo N1511700120_1.map.equ.cub W1567133629_1.map.equ.cub result/rhea
 \end{verbatim}
 
-\subsubsection*{Stereo Default}
-
+\subsubsection*{stereo.default}
 \begin{verbatim}
     ### PREPROCESSING
 
