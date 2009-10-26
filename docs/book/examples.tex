@@ -67,7 +67,7 @@ processing steps required to provide good input images for
 \texttt{stereo}.
 
 The program takes all the red CCDs and projects them using the \ac{ISIS}
-{\tt noproj} command into the perspective of RED5 CCD. From there,
+{\tt noproj} command into the perspective of the RED5 CCD. From there,
 {\tt hijitreg} is performed to work out the relative offsets between
 CCDs. Finally the CCDs are mosaicked together using the average
 offset listed from {\tt hijitreg} using the {\tt handmos} command.
@@ -99,15 +99,15 @@ the first image. This means the images will share the same origin and
 the {\tt stereo.default} search range can be centered around zero.
 
 \begin{verbatim}
-    cam2map f=first.cub t=first.map.cub
-    cam2map f=second.cub map=first.map.cub t=second.map.cub matchmap=true
-    bandnorm f=first.map.cub t=first.norm.cub
-    bandnorm f=second.map.cub t=second.norm.cub
-    ls first.norm.cub second.norm.cub > fromlist
-    ls first.norm.cub > holdlist
-    equalizer fromlist=fromlist holdlist=holdlist
-    mkdir result
-    stereo first.norm.equ.cub second.norm.equ.cub result/output
+  ISIS 3> cam2map f=first.cub t=first.map.cub
+  ISIS 3> cam2map f=second.cub map=first.map.cub t=second.map.cub matchmap=true
+  ISIS 3> bandnorm f=first.map.cub t=first.norm.cub
+  ISIS 3> bandnorm f=second.map.cub t=second.norm.cub
+  ISIS 3> ls first.norm.cub second.norm.cub > fromlist
+  ISIS 3> ls first.norm.cub > holdlist
+  ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
+  ISIS 3> mkdir result
+  ISIS 3> stereo first.norm.equ.cub second.norm.equ.cub result/output
 \end{verbatim}
 
 In the future, the HiRISE team will be producing de-jittered, noproj'ed
@@ -655,15 +655,13 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
     FAR_UNIVERSE_RADIUS 0.0
 \end{verbatim}
 
-% NOTE: LROC data has not been released, this section is inappropriate
-% for the general public at this time, it'll just frustrate them, 
-% although consider it a hidden Easter-egg for those that download the
-% source--and read the LaTeX source!  Make sure to uncomment upon LROC public
-% release.
-% 
-%
-% \section{Lunar Reconaissance Orbiter LROC NAC}
-% 
+\section{Lunar Reconaissance Orbiter LROC NAC}
+
+When \ac{LROC} image data are released, map projection processes
+very similar to those run on other linescan imagers can be used.
+The example \texttt{stereo.default} file would be a good place to
+start from, as well.
+
 % \subsection{Lee-Lincoln Scarp}
 % 
 % This stereo pair covers the Taurus-Littrow valley on the Moon where,
@@ -681,68 +679,66 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 % \caption{Example output possible with a LROC NA stereo pair, using only a single CCDs from observations.}
 % \label{fig:lroc-na-example}
 % \end{figure}
-% 
-% \subsubsection*{Commands}
-% 
-% \begin{verbatim}
-%     % Download nacl00002db8.* & nacl00004c86.*
-%     % process with unreleased tools to make cubes
-%     ISIS 3> cam2map from=nacl00002db8.cub to=nacl00002db8.map.cub
-%     ISIS 3> cam2map from=nacl00004c86.cub map=nacl00002db8.map.cub ...
-%     ISIS 3>         to=nacl00004c86.map.cub matchmap=true
-%     ISIS 3> mkdir result
-%     ISIS 3> stereo nacl00002db8.map.cub nacl00004c86.map.cub result/output
-% \end{verbatim}
-% 
-% \subsubsection*{stereo.default}
-% 
-% \begin{verbatim}
-%     ### PREPROCESSING
-% 
-%     DO_INTERESTPOINT_ALIGNMENT 0
-%     INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
-%     DO_EPIPOLAR_ALIGNMENT 0
-% 
-%     FORCE_USE_ENTIRE_RANGE 1
-%     DO_INDIVIDUAL_NORMALIZATION 0
-% 
-%     PREPROCESSING_FILTER_MODE 2
-% 
-%     SLOG_KERNEL_WIDTH 1.5
-% 
-%     ### CORRELATION
-% 
-%     COST_BLUR 12
-%     COST_MODE 2
-% 
-%     H_KERNEL 29
-%     V_KERNEL 29
-% 
-%     H_CORR_MIN -425
-%     H_CORR_MAX 150
-%     V_CORR_MIN -100
-%     V_CORR_MAX 100
-% 
-%     SUBPIXEL_MODE 2
-% 
-%     SUBPIXEL_H_KERNEL 25
-%     SUBPIXEL_V_KERNEL 25
-% 
-%     ### FILTERING
-% 
-%     FILL_HOLES 1
-% 
-%     RM_H_HALF_KERN 5
-%     RM_V_HALF_KERN 5
-%     RM_MIN_MATCHES 60 # Units = percent
-%     RM_THRESHOLD 3
-%     RM_CLEANUP_PASSES 1
-% 
-%     ### DOTCLOUD
-% 
-%     NEAR_UNIVERSE_RADIUS 0.0
-%     FAR_UNIVERSE_RADIUS 0.0
-% \end{verbatim}
+
+\subsubsection*{Commands}
+
+\begin{verbatim}
+    ISIS 3> cam2map from=lroc-1sthalf.cub to=lroc-1sthalf.map.cub
+    ISIS 3> cam2map from=lroc-2ndhalf.cub map=lroc-2ndhalf.map.cub \
+    ISIS 3>         to=lroc-1sthalf.map.cub matchmap=true
+    ISIS 3> mkdir result
+    ISIS 3> stereo lroc-1sthalf.map.cub lroc-2ndhalf.map.cub result/output
+\end{verbatim}
+
+\subsubsection*{stereo.default}
+
+\begin{verbatim}
+    ### PREPROCESSING
+
+    DO_INTERESTPOINT_ALIGNMENT 0
+    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+    DO_EPIPOLAR_ALIGNMENT 0
+
+    FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 0
+
+    PREPROCESSING_FILTER_MODE 2
+
+    SLOG_KERNEL_WIDTH 1.5
+
+    ### CORRELATION
+
+    COST_BLUR 12
+    COST_MODE 2
+
+    H_KERNEL 29
+    V_KERNEL 29
+
+    H_CORR_MIN -425
+    H_CORR_MAX 150
+    V_CORR_MIN -100
+    V_CORR_MAX 100
+
+    SUBPIXEL_MODE 2
+
+    SUBPIXEL_H_KERNEL 25
+    SUBPIXEL_V_KERNEL 25
+
+    ### FILTERING
+
+    FILL_HOLES 1
+
+    RM_H_HALF_KERN 5
+    RM_V_HALF_KERN 5
+    RM_MIN_MATCHES 60 # Units = percent
+    RM_THRESHOLD 3
+    RM_CLEANUP_PASSES 1
+
+    ### DOTCLOUD
+
+    NEAR_UNIVERSE_RADIUS 0.0
+    FAR_UNIVERSE_RADIUS 0.0
+\end{verbatim}
 
 
 \section{Apollo 15 Metric Camera Images}
