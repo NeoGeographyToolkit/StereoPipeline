@@ -11,8 +11,8 @@ option that matches the platform you wish to use. The required \ac{ISIS}
 version is listed next to the name; choose the newest version you
 have available.
 
-\item [{\ac{USGS}~\ac{ISIS}~Binary~Distribution.}] The Stereo Pipeline depends
-on \ac{ISIS} version 3 from the USGS\@. Their installation guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
+\item [{USGS~ISIS~Binary~Distribution.}] The Stereo Pipeline depends
+on \ac{ISIS} version 3 from the \ac{USGS}\@. Their installation guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
 You must use their binaries as-is; if you need to recompile, you must
 follow the \emph{Source Installation} guide in Section~\ref{sec:Source-Installation}.
 Note also that the \ac{USGS} does not provide any version of \ac{ISIS} but the
@@ -25,13 +25,13 @@ current one. If you need a past version, you must retain it yourself.
 \item[{Fetch~Stereo~Pipeline}] ~\\
 Download the Stereo Pipeline from \url{http://ti.arc.nasa.gov/stereopipeline}.
 
-\item [{Fetch~\ac{ISIS}\_Binaries}] ~\\
+\item [{Fetch~ISIS~Binaries}] ~\\
 \verb#rsync -azv --delete isisdist.wr.usgs.gov::isis3_ARCH_OS/isis .#
 
-\item [{Fetch~\ac{ISIS}\_Data}] ~\\
+\item [{Fetch~ISIS~Data}] ~\\
 \verb#rsync -azv --delete isisdist.wr.usgs.gov::isis3data/data .#
 
-\item [{Untar~\acl{ASP}}] ~\\
+\item [{Untar~Stereo~Pipeline}] ~\\
 \verb#tar xzvf StereoPipeline-VERSION-ARCH-OS.tar.gz#
 
 % Verbatim has way too much white space. Couldn't seem to take care of it with
@@ -187,5 +187,3 @@ lists the supported options.
 \hline
 \end{longtable}\caption{\label{tab:Supported-configure-options}Supported configure options}
 \end{table}
-
-\end{document}
