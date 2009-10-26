@@ -1,15 +1,61 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
-import os, glob, subprocess, sys, string;
+#  __BEGIN_LICENSE__
+#  Copyright (C) 2006-2009 United States Government as represented by
+#  the Administrator of the National Aeronautics and Space Administration.
+#  All Rights Reserved.
+#  __END_LICENSE__
 
-# Note: Feed this one IMG file. This expects to find other 19 IMG
-# files in the same directory. Apply this only from the directory of
-# the file.
+
+import os, glob, optparse, re, shutil, subprocess, sys, string;
 
 job_pool = [];
-num_working_threads = 4;
 
-def add_job( cmd ):
+def man(option, opt, value, parser):
+    print >>sys.stderr, parser.usage
+    print >>sys.stderr, '''\
+This program operates on HiRISE EDR (.IMG) channel files, and performs the 
+following ISIS 3 operations:
+ * Converts to ISIS format (hi2isis)
+ * Performs radiometric calibration (hical)
+ * Stitches the channel files together into single CCD files (histitch)
+ * Attaches SPICE information (spiceinit and spicefit)
+ * Removes camera distortions from the CCD images (noproj)
+ * Perfroms jitter analysis (hijitreg)
+ * Mosaics individual CCDs into one unified image file (handmos)
+ * Normalizes the mosaic (cubenorm)
+
+'''
+    sys.exit()
+
+class Usage(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+class CCDs(dict):
+    def __init__(self, cubes, match=5):
+        self.prefix = os.path.commonprefix( cubes )
+        dict.__init__(self)
+        tuples = []
+        for cub in cubes:
+            number = int( cub[len(self.prefix)] )
+            self[number] = cub
+        self.set_match( match )
+
+    def min(self):
+        return min( self.keys() )
+    
+    def max(self):
+        return max( self.keys() )
+
+    def set_match(self, cube):
+        self.match = cube
+
+    def matchcube(self):
+        return self[self.match]
+
+
+def add_job( cmd, num_working_threads=4 ):
     if ( len(job_pool) >= num_working_threads):
         job_pool[0].wait();
         job_pool.pop(0);
@@ -38,165 +84,289 @@ def read_flatfile( flat ):
             averages[1] = float(crop);
     return averages;
 
-def is_post_isis_3_1_20():
-    # Weird method to find to location of ISIS
+def isisversion(verbose=False):
     p = subprocess.Popen("echo $ISISROOT", shell=True, stdout=subprocess.PIPE);
     path = p.stdout.read();
     path = path.strip()
 
-    print path;
+    if( verbose ): print path;
     f = open(path+"/inc/Constants.h",'r');
     for line in f:
-        if ( line.rfind("std::string version(") > 0 ):
+         if ( line.rfind("std::string version(") > 0 ):
             index = line.find("\"3");
             index_e = line.rfind("|");
-            version = line[index+1:index_e];
-            print "\tFound Isis Version: "+version;
-            index = version.rfind(".");
-            if ( int(version[index+1:].strip(string.letters+string.whitespace)) > 20 ):
-                return True;
+            version = line[index+1:index_e].rstrip()
+            if( verbose ): print "\tFound Isis Version: "+version;
+            version_strings = version.split('.')
+            version_ints = [int(item) for item in version_strings]
+            version_tuple = tuple( version_ints )
+            return version_tuple
+
+    raise Exception( "Could not find a version string in " + f.str() )
+    return False
+	
+
+# def is_post_isis_3_1_20():
+#     # Weird method to find to location of ISIS
+#     p = subprocess.Popen("echo $ISISROOT", shell=True, stdout=subprocess.PIPE);
+#     path = p.stdout.read();
+#     path = path.strip()
+# 
+#     print path;
+#     f = open(path+"/inc/Constants.h",'r');
+#     for line in f:
+#         if ( line.rfind("std::string version(") > 0 ):
+#             index = line.find("\"3");
+#             index_e = line.rfind("|");
+#             version = line[index+1:index_e];
+#             print "\tFound Isis Version: "+version;
+#             index = version.rfind(".");
+#             if ( int(version[index+1:].strip(string.letters+string.whitespace)) > 20 ):
+#                 return True;
+#             else:
+#                 return False;
+#     return False;
+
+def hi2isis( img_files, threads ):
+    hi2isis_cubs = []
+    for img in img_files:
+        # Expect to end in .IMG, change to end in .cub
+        to_cub = os.path.splitext( os.path.basename(img) )[0] + '.cub'
+        if( os.path.exists(to_cub) ):
+            print to_cub + ' exists, skipping hi2isis.'
+        else:
+            cmd = 'hi2isis from= '+ img +' to= '+ to_cub
+            add_job(cmd, threads)
+        hi2isis_cubs.append( to_cub )
+    wait_on_all_jobs()
+    return hi2isis_cubs
+
+def hical( cub_files, threads, delete=False ):
+    hical_cubs = []
+    for cub in cub_files:
+        # Expect to end in .cub, change to end in .hical.cub
+        to_cub = os.path.splitext(cub)[0] + '.hical.cub'
+        if( os.path.exists(to_cub) ):
+            print to_cub + ' exists, skipping hical.'
+        else:
+            cmd = 'hical from=  '+ cub +' to= '+ to_cub
+            add_job(cmd, threads)
+        hical_cubs.append( to_cub )
+    wait_on_all_jobs()
+    if( delete ):
+        for cub in cub_files: os.remove( cub )
+        hical_log_files = glob.glob( os.path.commonprefix(cub_files) + '*.hical.log' )
+        for file in hical_log_files: os.remove( file )
+    return hical_cubs
+
+def histitch( cub_files, threads, delete=False ):
+    histitch_cubs = []
+    to_del_cubs = []
+    # Strictly, we should probably look in the image headers, but instead we'll
+    # assume that people have kept a sane naming convention for their files, such
+    # that the name consists of prefix + 'N_C' + suffix
+    # where prefix we extract below and the 'N_C' string is where N is the CCD number
+    # and C is the channel number.
+    prefix = os.path.commonprefix( cub_files )
+    channel_files = [[None]*2 for i in range(10)]
+    pattern = re.compile(r"(\d)_(\d)")
+    for cub in cub_files:
+        match = re.match( pattern, cub[len(prefix):] )
+        if( match ):
+            ccd = match.group(1)
+            channel = match.group(2)
+            # print 'ccd: ' + ccd + ' channel: '+ channel
+            channel_files[int(ccd)][int(channel)] = cub
+        else:
+            raise Exception( 'Could not find a CCD and channel identifier in ' + cub )
+
+    for i in range(10):
+        to_cub = prefix + str(i) + '.histitch.cub'
+
+        if( channel_files[i][0] and channel_files[i][1] ):
+            if( os.path.exists(to_cub) ):
+                print to_cub + ' exists, skipping histitch.'
             else:
-                return False;
-    return False;
+                cmd = 'histitch balance= TRUE from1= '+ channel_files[i][0] \
+                        +' from2= '+ channel_files[i][1] +' to= '+ to_cub
+                add_job(cmd, threads)
+                to_del_cubs.append( channel_files[i][0] )
+                to_del_cubs.append( channel_files[i][1] )
+            histitch_cubs.append( to_cub )
+        elif( channel_files[i][0] or channel_files[i][1] ):
+            found = ''
+            if( channel_files[i][0] ):  found = channel_files[i][0]
+            else:                       found = channel_files[i][1]
+            print 'Found '+ found  +' but not the matching channel file. Skipping histitch.'
+
+    wait_on_all_jobs()
+    if( delete ):
+        for cub in to_del_cubs: os.remove( cub )
+    return histitch_cubs
+
+def spice( cub_files, threads):
+    for cub in cub_files:
+        cmd = 'spiceinit from= '+ cub
+        add_job(cmd, threads)
+    wait_on_all_jobs()
+    for cub in cub_files:
+        cmd = 'spicefit from= '+ cub
+        add_job(cmd, threads)
+    wait_on_all_jobs()
+    return
+
+def noproj( CCD_object, delete=False ):
+    noproj_CCDs = []
+    for i in range( CCD_object.min(), CCD_object.max()+1 ):
+        to_cub = CCD_object.prefix + str(i) + '.noproj.cub'
+        if os.path.exists( to_cub ):
+            print to_cub + ' exists, skipping noproj.'
+        else:
+            cmd = 'noproj from= '+ CCD_object[i]    \
+                +' match= '+ CCD_object.matchcube() \
+                +' source= frommatch to= '+ to_cub
+            print cmd
+            os.system(cmd)
+        noproj_CCDs.append( to_cub )
+    if( delete ):
+        for cub in CCD_object.values(): os.remove( cub )
+    return CCDs( noproj_CCDs, CCD_object.match )
+
+# Check for failure for hijitreg.  Sometimes bombs?  Default to zeros.
+def hijitreg( noproj_CCDs, threads ):
+    for i in range( noproj_CCDs.min(), noproj_CCDs.max() ):
+        j = i + 1;
+        cmd = 'hijitreg from= '+ noproj_CCDs[i]         \
+            +' match= '+ noproj_CCDs[j]                 \
+            + ' flatfile= flat_'+str(i)+'_'+str(j)+'.txt'
+        add_job(cmd, threads)
+    wait_on_all_jobs()
+
+    averages = dict()
+
+    for i in range( noproj_CCDs.min(), noproj_CCDs.max() ):
+        flat_file = 'flat_'+str(i)+'_'+str(i+1)+'.txt'
+        averages[i] = read_flatfile( flat_file )
+        os.remove( flat_file )
+
+    return averages
+
+def mosaic( noprojed_CCDs, averages ):
+    mosaic = noprojed_CCDs.prefix+'.mos_hijitreged.cub'
+    shutil.copy( noprojed_CCDs.matchcube(), mosaic )
+    sample_sum = 1;
+    line_sum = 1;
+    for i in range( noprojed_CCDs.match-1, noprojed_CCDs.min()-1, -1):
+        sample_sum  += averages[i][0]
+        line_sum    += averages[i][1]
+        handmos( noprojed_CCDs[i], mosaic, 
+                 str( int(round( sample_sum )) ),
+                 str( int(round( line_sum )) ) )
+            
+    sample_sum = 1;
+    line_sum = 1;
+    for i in range( noprojed_CCDs.match+1, noprojed_CCDs.max()+1, 1):
+        sample_sum  -= averages[i-1][0]
+        line_sum    -= averages[i-1][1]
+        handmos( noprojed_CCDs[i], mosaic, 
+                 str( int(round( sample_sum )) ),
+                 str( int(round( line_sum )) ) )
+    
+    return mosaic
+
+
+def handmos( fromcub, tocub, outsamp, outline ):
+    cmd = 'handmos from= '+ fromcub +' mosaic= '+ tocub \
+            +' outsample= '+ outsamp \
+            +' outline= '+   outline
+
+    if( isisversion() > (3,1,20) ):
+        # ISIS 3.1.21+
+        cmd += ' priority= beneath'
+    else:
+        # ISIS 3.1.20-
+        cmd += ' input= beneath'
+    os.system(cmd)
+    return
+
+def cubenorm( fromcub, delete=False ):
+    tocub = os.path.splitext(cub)[0] + '.norm.cub'
+    cmd = 'cubenorm from= '+ fromcub+' to= '+ to_cub
+    print cmd
+    os.system(cmd)
+    if( delete ):
+        os.remove( fromcub )
+    return tocub
+    
 
 #----------------------------
 
-if (len(sys.argv) != 2 ):
-    print "Input error:";
-    print "Usage:";
-    print "    " + sys.argv[0] + " ESP_011595_1725_RED0_0.IMG";
-    sys.exit();
+def main():
+    try:
+        try:
+            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][-m match] HiRISE-EDR.IMG-files "
+            parser = optparse.OptionParser(usage=usage)
+            parser.set_defaults(delete=True)
+            parser.set_defaults(match=5)
+            parser.set_defaults(threads=4)
+            parser.add_option("--manual", action="callback", callback=man,
+                              help="Read the manual.")
+            parser.add_option("-t", "--threads", dest="threads",
+                              help="Number of threads to use.")
+            parser.add_option("-m", "--match", dest="match",
+                              help="CCD number of match CCD")
+            parser.add_option("-k", "--keep", action="store_false", 
+                              dest="delete",
+                              help="Will not delete intermediate files.")
 
-right_index = sys.argv[1].rfind("_");
-prefix = sys.argv[1][:right_index-1];
+            (options, args) = parser.parse_args()
 
-# Prestep 1 - Determine Isis Version
-post_isis_20 = is_post_isis_3_1_20();
+            if not args: parser.error("need .IMG files")
 
-# Prestep 2 - Determine the number range of files
-list_of_files = glob.glob(prefix+"*.IMG");
-ccd_min = 10;
-ccd_max = 0;
-for line in list_of_files:
-    index = line.find("RED");
-    ccd_number = int(line[index+3:index+4]);
-    if ( ccd_number > ccd_max ):
-        ccd_max = ccd_number;
-    if ( ccd_number < ccd_min ):
-        ccd_min = ccd_number;
-print "\tMin CCD index: "+str(ccd_min);
-print "\tMax CCD index: "+str(ccd_max);
-print;
+        except optparse.OptionError, msg:
+            raise Usage(msg)
 
-# Step 1 - hi2isis
-for i in range(ccd_min,ccd_max+1):
-    cmd = "hi2isis from="+prefix+str(i)+"_0.IMG to="+prefix+str(i)+"_0.cub"
-    add_job(cmd);
-    cmd = "hi2isis from="+prefix+str(i)+"_1.IMG to="+prefix+str(i)+"_1.cub"
-    add_job(cmd);
-wait_on_all_jobs();
+        # # Determine Isis Version
+        # post_isis_20 = is_post_isis_3_1_20();
 
-# Step 2 - spiceinit
-for i in range(ccd_min,ccd_max+1):
-    cmd = "spiceinit from="+prefix+str(i)+"_0.cub";
-    add_job(cmd);
-    cmd = "spiceinit from="+prefix+str(i)+"_1.cub";
-    add_job(cmd);
-wait_on_all_jobs();
+        # hi2isis
+        hi2isised = hi2isis( args, options.threads )
 
-# Step 3 - hical
-for i in range(ccd_min,ccd_max+1):
-    cmd = "hical from="+prefix+str(i)+"_0.cub to="+prefix+str(i)+"_0.cal.cub";
-    add_job(cmd);
-    cmd = "hical from="+prefix+str(i)+"_1.cub to="+prefix+str(i)+"_1.cal.cub";
-    add_job(cmd);
-wait_on_all_jobs();
-os.system("rm "+prefix+"?_?.cub");
+        # hical
+        hicaled = hical( hi2isised, options.threads, options.delete )
 
-# Step 4 - histitch
-for i in range(ccd_min,ccd_max+1):
-    cmd = "histitch from1="+prefix+str(i)+"_0.cal.cub from2="+prefix+str(i)+"_1.cal.cub to="+prefix+str(i)+".cub";
-    add_job(cmd);
-wait_on_all_jobs();
-os.system("rm "+prefix+"?_?.cal.cub");
+        # histitch
+        histitched = histitch( hicaled, options.threads, options.delete )
 
-# Step 5 - cubenorm
-for i in range(ccd_min,ccd_max+1):
-    cmd = "cubenorm from="+prefix+str(i)+".cub to="+prefix+str(i)+".norm.cub";
-    add_job(cmd);
-wait_on_all_jobs();
-os.system("rm "+prefix+"?.cub");
+        # attach spice
+        spice( histitched, options.threads )
 
-# Step 6 - spiceinit & spicefit
-for i in range(ccd_min,ccd_max+1):
-    cmd = "spiceinit from="+prefix+str(i)+".norm.cub";
-    add_job(cmd);
-wait_on_all_jobs();
-for i in range(ccd_min,ccd_max+1):
-    cmd = "spicefit from="+prefix+str(i)+".norm.cub";
-    add_job(cmd);
-wait_on_all_jobs();
+        CCD_files = CCDs( histitched, options.match )
 
-# Step 7 - noproj - must be done sequentially
-for i in range(ccd_min,ccd_max+1):
-    cmd = "noproj from="+prefix+str(i)+".norm.cub match="+prefix+"5.norm.cub to="+prefix+str(i)+".noproj.cub source=frommatch";
-    os.system(cmd);
-os.system("rm "+prefix+"?.norm.cub")
+        # noproj
+        noprojed_CCDs = noproj( CCD_files, options.delete )
 
-# Step 8 - hijitreg
-for i in range(ccd_min,ccd_max):
-    j = i + 1;
-    cmd = "hijitreg from="+prefix+str(i)+".noproj.cub match="+prefix+str(j)+".noproj.cub flatfile=flat_"+str(i)+"_"+str(j)+".txt";
-    add_job(cmd);
-wait_on_all_jobs();
+        # hijitreg
+        averages = hijitreg( noprojed_CCDs, options.threads )
 
-# Step 9 - Read averages
-average_sample = [];
-average_line = [];
-for i in range(ccd_min,ccd_max):
-    flat_file = "flat_"+str(i)+"_"+str(i+1)+".txt";
-    averages = read_flatfile( flat_file );
-    average_sample.append(averages[0]);
-    average_line.append(averages[1]);
+        # mosaic handmos
+        mosaicked = mosaic( noprojed_CCDs, averages )
 
-# Step 10 - Handmos
-os.system("cp "+prefix+"5.noproj.cub "+prefix+"mosaic.cub");
-for i in range(4,ccd_min-1,-1):
-    sample_sum = 0.0;
-    line_sum = 0.0;
-    for s in range(4,i-1,-1):
-        sample_sum += average_sample[s-ccd_min];
-        line_sum += average_line[s-ccd_min];
-    cmd = "";
-    if ( post_isis_20 ):
-        # ISIS 3.1.21+
-        cmd = "handmos from="+prefix+str(i)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1 priority=beneath";
-    else:
-        # ISIS 3.1.20-
-        cmd = "handmos from="+prefix+str(i)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1 input=beneath";
-    os.system(cmd);
+        # Clean up noproj files
+        if( options.delete ):
+          for cub in noprojed_CCDs.values():
+              os.remove( cub )
 
-for i in range(6,ccd_max+1,1):
-    sample_sum = 0.0;
-    line_sum = 0.0;
-    for s in range(5,i,1):
-        sample_sum -= average_sample[s-ccd_min];
-        line_sum -= average_line[s-ccd_min];
-    cmd = "";
-    if ( post_isis_20 ):
-        # ISIS 3.1.21+
-        cmd = "handmos from="+prefix+str(i)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1 priority=beneath";
-    else:
-        # ISIS 3.1.20-
-       cmd = "handmos from="+prefix+str(i)+".noproj.cub mosaic="+prefix+"mosaic.cub outsample="+str(int(round(sample_sum)))+" outline="+str(int(round(line_sum)))+" outband=1 input=beneath"; 
-    os.system(cmd);
+        # Run a final cubenorm across the image:
+        cubenorm( mosaicked, options.delete )
 
-# Clean up
-os.system("rm "+prefix+"?.noproj.cub" );
-os.system("rm flat_?_?.txt");
+        print "Finished"
 
-# Step 11 - cubenorm mosaic
-os.system("cubenorm from="+prefix+"mosaic.cub to="+prefix+"mosaic.norm.cub");
-os.system("rm "+prefix+"mosaic.cub");
+    except Usage, err:
+        print >>sys.stderr, err.msg
+        # print >>sys.stderr, "for help use --help"
+        return 2
+    
 
-print "Finished"
+if __name__ == "__main__":
+    sys.exit(main())
