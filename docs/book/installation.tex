@@ -1,80 +1,189 @@
 \chapter{Installation}
 
-\emph{ML: this chapter is for you to rewrite once you get it all figured out.}
+\section{Binary Installation}
 
-\section{Obtaining the USGS Integrated Software for Imagers and Spectrometers (ISIS)}
+This is the recommended method. Only two things are required:
 
-The prebuilt binary route is not completely plug and play.  The
-Ames Stereo Pipeline is built against the Integrated Software for
-Imagers and Spectrometers (ISIS) suite, and you'll have to have
-that installed on your system already.
+\begin{description}
+\item [{Stereo~Pipeline~tarball.}] The main Stereo Pipeline page is \url{http://ti.arc.nasa.gov/stereopipeline}.
+In the upper-right, there is a list of files. Download the \emph{Binary}
+option that matches the platform you wish to use. The required \ac{ISIS}
+version is listed next to the name; choose the newest version you
+have available.
 
-Current ISIS version 3.1.20
+\item [{USGS~ISIS~Binary~Distribution.}] The Stereo Pipeline depends
+on \ac{ISIS} version 3 from the \ac{USGS}\@. Their installation guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
+You must use their binaries as-is; if you need to recompile, you must
+follow the \emph{Source Installation} guide in Section~\ref{sec:Source-Installation}.
+Note also that the \ac{USGS} does not provide any version of \ac{ISIS} but the
+current one. If you need a past version, you must retain it yourself.
+\end{description}
 
-\url{http://isis.astrogeology.usgs.gov/}
+\subsection{Quickstart}
+\begin{description}
 
-\section{Installing the Ames Stereo Pipeline}
+\item[{Fetch~Stereo~Pipeline}] ~\\
+Download the Stereo Pipeline from \url{http://ti.arc.nasa.gov/stereopipeline}.
 
-There are two ways to get the Ames Stereo Pipeline, you can either
-download the source code and build it yourself, or you can download
-prebuilt binaries for your system.  Building the code from source can
-be quite an undertaking, and we recommend it only for the most
-advanced users.  Most users will want to download and install the
-binary distribution.
+\item [{Fetch~ISIS~Binaries}] ~\\
+\verb#rsync -azv --delete isisdist.wr.usgs.gov::isis3_ARCH_OS/isis .#
 
-You can find the Ames Stereo Pipeline at \emph{URL?}
+\item [{Fetch~ISIS~Data}] ~\\
+\verb#rsync -azv --delete isisdist.wr.usgs.gov::isis3data/data .#
 
-\section{Installing the Pre-Built Binaries}
+\item [{Untar~Stereo~Pipeline}] ~\\
+\verb#tar xzvf StereoPipeline-VERSION-ARCH-OS.tar.gz#
 
-When you download and unpack the prebuilt binary, called the
-\texttt{isis\_stereovision} package (so named because it is a binary
-build of the NASA Vision Workbench and the Ames Stereo Pipeline
-built against ISIS), you will have a directory called
-\texttt{isis\_stereovision/} which you can place anywhere on your
-system.
+% Verbatim has way too much white space. Couldn't seem to take care of it with
+% vskip/vspace negative. Sigh.
+\item [{Add~Stereo~Pipeline~to~Path~(optional)}] ~\\
+\verb#(bash) export PATH="/path/to/StereoPipeline/bin:${PATH}"# \\
+\verb#(csh)  setenv PATH "/path/to/StereoPipeline/bin:${PATH}"#
 
-The remainder of the setup is very, very similar to how ISIS itself
-is set up.
+% Grrrr. Why doesn't it keep this together? Sprinkling in \nopagebreak
+% doesn't seem to work... Forcing a pagebreak instead
+\pagebreak
+\item[Set~Up~Isis] ~\\
+\verb#(bash)# \\
+\verb#    export ISISROOT=/path/to/isisroot# \\
+\verb#    source $ISISROOT/scripts/isis3Startup.sh# \\
+\verb#(csh)# \\
+\verb#    setenv ISISROOT /path/to/isisroot# \\
+\verb#    source $ISISROOT/scripts/isis3Startup.csh#
 
-First define an \texttt{ISIS\_STEREOVISION} environment variable like so:
+\item [{Try~It~Out!}] ~\\
+See the next chapter (Chapter~\ref{ch:tutorial}) for an example!
+\end{description}
+
+\subsection{Common Traps}
+
+Here are some errors you might see, and what it could mean. Treat
+these as templates for problems--- in practice, the error messages might
+be slightly different.
+
 \begin{verbatim}
- csh: setenv ISIS\_STEREOVISION /path/to/isis\_stereovision
-bash: set ISIS\_STEREOVISION=/path/to/isis\_stereovision
-\end{verbatim}
-
-Then, source the appropriate \texttt{isis\_stereovisionStart} script:
-\begin{verbatim}
- csh: source isis\_stereovisionStart.csh
-bash: . isis\_stereovisionStart.sh
-\end{verbatim}
-
-\subsection*{Usage}
-
-Some of the provided programs do not require the ISIS environment
-to be set up, others do.  If you run into a problem like:
-\begin{verbatim}
-    dyld: Library not loaded: \$ISISROOT/lib/libisis3.dylib
-      Referenced from: /path/to/isis\_stereovision/isis\_stereovision/bin/program
-      Reason: image not found
-    Trace/BPT trap
+stereo: error while loading shared libraries: libisis3.so:
+    cannot open shared object file: No such file or directory
 \end{verbatim}
 
 You just need to set up your ISIS environment.
 
-\section{Advanced: Building Ames Stereo Pipeline from Source}
+\begin{verbatim}
+dyld: Library not loaded: $ISISROOT/lib/libisis3.dylib
+Referenced from: /some/path/goes/here/bin/program
+Reason: image not found Trace/BPT trap
+\end{verbatim}
 
-\subsection{Software Dependencies}
+You just need to set up your ISIS environment.
 
-\subsubsection{The NASA Vision Workbench}
+\begin{verbatim}
+point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
+[...]
+99%  Vertices:   [************************************************************] Complete!
+       > size: 82212 vertices
+Drawing Triangle Strips
+Attaching Texture Data
+zsh: bus error  point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
+\end{verbatim}
 
-\emph{MJB: of course, don't forget to mention the SP's explicit dependence on the VW.}
+The source of this problem is an old version of OpenSceneGraph in
+your library path. Check your \verb#LD_LIBRARY_PATH# (for Linux),
+\verb#DYLD_LIBRARY_PATH# (for OSX), or your \verb#DYLD_FALLBACK_LIBRARY_PATH#
+(for OSX) to see if you have an old version listed, and remove if
+from the path if that is the case. It is not necessary to remove the
+old versions from your computer, you just need to remove the reference
+to them from your library path.
 
-\subsubsection{USGS Intergrated Software for Imagers and Spectrometers}
+\section{\label{sec:Source-Installation}Source Installation}
 
-The Ames Stereo Pipeline depends on the Integrated Software for Imagers and Spectrometers (ISIS), version 3.1.17, availalbe from the USGS (http://isis.astrogeology.usgs.gov).  
+This method is for advanced users only.
 
+\subsection{Dependency List}
 
-The horror!
+This is a list of direct dependencies of Stereo Pipeline. Some libraries
+(like ISIS) have dependencies of their own which are not covered here.
 
-List Dependecies ...
+\begin{description}
+\item [{Boost}] (Required) \url{http://www.boost.org/}\\
+Version 1.35 or greater is required. Along with the base library
+set, the Stereo Pipeline specifically requires: Program Options, Filesystem,
+Thread, and Graph.
 
+\item [{LAPACK}] (Required)\\
+There are many sources for LAPACK\@. For OSX, you can use the
+vecLib framework. For Linux, you can use the netlib LAPACK/CLAPACK
+distributions, or Intel's MKL, or any of a number of others. The math
+is unfortunately not a hotspot in the code, though, so using a faster
+LAPACK implementation will not change much. Therefore, you should
+probably just use the LAPACK your package manager (RPM for Red Hat
+Linux, Yast for SuSE, etc.) has available.
+
+\item [{ISIS}] (Recommended) \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}\\
+The USGS Integrated Software for Imagers and Spectrometers (ISIS) library. This
+library handles the camera models and image formats used for instruments.
+
+\item [{OpenSceneGraph}] (Optional) \url{http://www.openscenegraph.org/}\\
+OpenSceneGraph is required to run the \texttt{point2mesh} tool
+(See Section~\ref{point2mesh}).
+
+\item [{Vision~Workbench}] (Required) \url{http://ti.arc.nasa.gov/visionworkbench/}\\
+Vision Workbench forms much of the core processing code of the
+Stereo Pipeline.
+
+\end{description}
+
+\subsection{Build System}
+
+The build system is built on GNU autotools. In-depth information on
+autotools is available from \url{http://sources.redhat.com/autobook/}.
+The basics, however, are simple. To compile the source code, first
+run \verb#./configure# from the top-level directory. This will search
+for the dependencies and enable the modules you requested. There are
+a number of options that can be passed to \verb#configure#; many
+of these options can also be placed into a \verb#config.options#
+file (in the form of \verb#VARIABLE="VALUE"#) in the same directory
+as \verb#configure#. Table \ref{tab:Supported-configure-options}
+lists the supported options.
+
+\begin{table}
+\begin{longtable}{|l|l|c|m{5cm}|}
+\hline
+\textbf{Variable Name}                & \textbf{Configure option}               & \textbf{Default} & \textbf{Function}\tabularnewline
+\hline
+\hline
+\small\verb#PREFIX#                   & \small\verb#--prefix#                   & /usr/local       & Set the install prefix (ex: binaries will go in \$PREFIX/bin)\tabularnewline
+\hline
+\small\verb#HAVE_PKG_XXX#             & \small\verb#--with-xxx#                 & auto             & Set to {}``no'' to disable package XXX, or a path to only search that path\tabularnewline
+\hline
+\small\verb#PKG_PATHS#                & \small\verb#--with-pkg-paths#           & many             & Prepend to default list of search paths\tabularnewline
+\hline
+\small\verb#ENABLE_PKG_PATHS_DEFAULT# & \small\verb#--enable-pkg-paths-default# & yes              & Append built-in list of search paths\tabularnewline
+\hline
+\small\verb#ENABLE_OPTIMIZE#          & \small\verb#--enable-optimize#          & 3                & Level of compiler optimization?\tabularnewline
+\hline
+\small\verb#ENABLE_DEBUG#             & \small\verb#--enable-debug#             & no               & How much debug information?\tabularnewline
+\hline
+\small\verb#ENABLE_CCACHE#            & \small\verb#--enable-ccache#            & no               & Use \verb#ccache# if available\tabularnewline
+\hline
+\small\verb#ENABLE_RPATH#             & \small\verb#--enable-rpath#             & no               & Set RPATH on built binaries and libraries\tabularnewline
+\hline
+\small\verb#ENABLE_ARCH_LIBS#         & \small\verb#--enable-arch-libs#         & no               & Pass in 64 or 32 to look for libraries by default in \verb#lib64# or \verb#lib32#\tabularnewline
+\hline
+\small\verb#ENABLE_PROFILE#           & \small\verb#--enable-profile#           & no               & Use function profiling?\tabularnewline
+\hline
+\small\verb#PKG_XXX_CPPFLAGS#         &                                         &                  & Append value to CPPFLAGS for package XXX\tabularnewline
+\hline
+\small\verb#PKG_XXX_LDFLAGS#          &                                         &                  & Prepend value to LDFLAGS for package XXX\tabularnewline
+\hline
+\small\verb#PKG_XXX_LIBS#             &                                         &                  & Override the required libraries for package XXX\tabularnewline
+\hline
+\small\verb#PKG_XXX_MORE_LIBS#        &                                         &                  & Append to required libraries for package XXX\tabularnewline
+\hline
+\small\verb#ENABLE_EXCEPTIONS#        & \small\verb#--enable-exceptions#        & yes              & Use C++ exceptions? Disable at own risk.\tabularnewline
+\hline
+\small\verb#ENABLE_MULTI_ARCH#        & \small\verb#--enable-multi-arch#        & no               & OSX Only: Build \emph{Fat} binary with space-separated list of arches\tabularnewline
+\hline
+\small\verb#ENABLE_AS_NEEDED#         & \small\verb#--enable-as-needed#         & no               & Pass --as-needed to GNU linker. Use at your own risk.\tabularnewline
+\hline
+\end{longtable}\caption{\label{tab:Supported-configure-options}Supported configure options}
+\end{table}

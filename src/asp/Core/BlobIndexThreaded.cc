@@ -8,7 +8,7 @@
 /// \file BlobIndexThreaded.cc
 ///
 
-#include <asp/Core/BlobIndexThreaded.h>
+#include "BlobIndexThreaded.h"
 
 using namespace vw;
 using namespace blob;

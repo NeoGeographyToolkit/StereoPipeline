@@ -307,15 +307,8 @@ namespace blob {
       std::vector<vw::BBox2i> local_bboxes;
       std::vector<vw::uint32> local_index;
       for ( vw::uint32 i = 0; i < bindex.num_blobs(); i++ ) {
-        if ( m_max_area > 0 ) {
-          if ( bindex.blob(i).size() < m_max_area ) {
-            local_bboxes.push_back( bindex.blob(i).bounding_box() );
-            local_index.push_back(i);
-          }
-        } else {
-          local_bboxes.push_back( bindex.blob(i).bounding_box() );
-          local_index.push_back(i);
-        }
+        local_bboxes.push_back( bindex.blob(i).bounding_box() );
+        local_index.push_back(i);
       }
 
       // Apply offset to bboxes
@@ -363,7 +356,6 @@ class BlobIndexThreaded {
     : m_max_area(max_area), m_tile_size(tile_size) {
 
     // User needs to remember to give a pixel mask'd input
-
     {
       vw::Stopwatch sw;
       sw.start();
@@ -382,10 +374,7 @@ class BlobIndexThreaded {
       queue.join_all();
 
       sw.stop();
-      //std::cout << "Time used in threads: " << sw.elapsed_seconds() << " s\n";
     }
-
-    //std::cout << "Number of blobs before: " << m_c_blob.size() << std::endl;
 
     {
       vw::Stopwatch sw;
@@ -393,10 +382,17 @@ class BlobIndexThreaded {
       consolidate( vw::Vector2i( src.impl().cols(), src.impl().rows() ),
                    vw::Vector2i( m_tile_size, m_tile_size ) );
       sw.stop();
-      //std::cout << "Time used to \"consoliate\": " << sw.elapsed_seconds() << " s\n";
     }
 
-    //std::cout << "Number of blobs after: " << m_c_blob.size() << std::endl;
+    // Cull blobs that are too big. Needs to be done after
+    // consolidationñ
+    if ( m_max_area > 0 )
+      for ( std::vector<blob::BlobCompressed>::iterator iter = m_c_blob.begin();
+            iter != m_c_blob.end(); iter++ )
+        if ( iter->size() > m_max_area ) {
+          iter = m_c_blob.erase( iter );
+          iter--;
+        }
   }
 
   // Access for the users
