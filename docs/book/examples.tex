@@ -61,10 +61,10 @@ a de-jittered, noproj'ed mosaic of a single observation, which is
 perfectly suitable for use by the Stereo Pipeline (this script was
 originally engineered to provide input for SOCET SET).  However,
 the `balance' cubes are not available to the general public, and
-so we include a program (\texttt{hiedr2mosaic.py})that will take
-\ac{PDS} available \ac{HiRISE} EDR products and walk through the
-processing steps required to provide good input images for
-\texttt{stereo}.
+so we include a program (\texttt{hiedr2mosaic.py}, written in
+\href{http://www.python.org}{Python}) that will take \ac{PDS}
+available \ac{HiRISE} EDR products and walk through the processing
+steps required to provide good input images for \texttt{stereo}.
 
 The program takes all the red CCDs and projects them using the \ac{ISIS}
 {\tt noproj} command into the perspective of the RED5 CCD. From there,
@@ -84,13 +84,26 @@ Below is an outline of the processing.
     handmos           # Mosaic to single file
 \end{verbatim}
 
-To use our script, first go to the directory containing all of
-HiRISE's RED \texttt{IMG} files. Then feed the script one of those
-\texttt{IMG} files.
+To use our script, first go to the directory where you have downloaded
+the HiRISE's RED EDR \texttt{IMG} files. You can run the 
+\texttt{hiedr2mosaic.py} program without any arguments to view a short
+help statement, with the \texttt{-h} option to view a longer help statement,
+or just run the program on the EDR files like so:
 
 \begin{verbatim}
-    hiedr2mosaic.py PSP_??????_????_RED?_?.IMG
+    hiedr2mosaic.py *.IMG
 \end{verbatim}
+
+If you have more than one Obsevation's worth of EDRs in that
+directory, then limit the program to just one observation's EDRs
+at a time, e.g. \texttt{hiedr2mosaic.py PSP\_001513\_1655*IMG}.  If you
+run into problems, try using the \texttt{-k} option to retain all of 
+the intermediary image files to help track down the issue.  The
+\texttt{hiedr2mosaic.py} program will create a single mosaic file 
+with the extension \texttt{.mos\_hijitreged.norm.cub}.  Be warned that
+the operations carried out by \texttt{hiedr2mosaic.py} can take many 
+hours to complete on the very large HiRISE images.
+
 
 Finally we recommend map projecting the product and normalizing both
 images in the stereo pair using the same dynamic range. Notice that we
@@ -99,8 +112,9 @@ the first image. This means the images will share the same origin and
 the {\tt stereo.default} search range can be centered around zero.
 
 \begin{verbatim}
-  ISIS 3> cam2map f=first.cub t=first.map.cub
-  ISIS 3> cam2map f=second.cub map=first.map.cub t=second.map.cub matchmap=true
+  ISIS 3> cam2map f=first.mos_hijitreged.norm.cub t=first.map.cub
+  ISIS 3> cam2map f=second.mos_hijitreged.norm.cub map=first.map.cub \
+          to=second.map.cub matchmap=true
   ISIS 3> bandnorm f=first.map.cub t=first.norm.cub
   ISIS 3> bandnorm f=second.map.cub t=second.norm.cub
   ISIS 3> ls first.norm.cub second.norm.cub > fromlist
@@ -137,11 +151,11 @@ Spirit landed and has roved, including the Columbia Hills.
 
 Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
-  ISIS 3> hiedr2mosaic.py PSP_001513_1655_RED0_0.IMG
-  ISIS 3> hiedr2mosaic.py PSP_001777_1650_RED0_0.IMG
-  ISIS 3> cam2map from=PSP_001513_1655_REDmosaic.norm.cub \
+  ISIS 3> hiedr2mosaic.py PSP_001513_1655_RED*.IMG
+  ISIS 3> hiedr2mosaic.py PSP_001777_1650_RED*.IMG
+  ISIS 3> cam2map from=PSP_001513_1655_RED.mos_hijitreged.norm.cub \
                     to=PSP_001513_1655_REDmosaic.map.cub
-  ISIS 3> cam2map from=PSP_001777_1650_REDmosaic.norm.cub \
+  ISIS 3> cam2map from=PSP_001777_1650_RED.mos_hijitreged.norm.cub \
                    map=PSP_001513_1655_REDmosaic.map.cub \
                     to=PSP_001777_1650_REDmosaic.norm.cub matchmap=true
   ISIS 3> bandnorm from=PSP_001513_1655_REDmosaic.map.cub \
@@ -227,11 +241,11 @@ cover East Mareotis Tholus, a small volcano in Tempe Terra.
 
 Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
-  ISIS 3> hiedr2mosaic.py PSP_001364_2160_RED0_0.IMG
-  ISIS 3> hiedr2mosaic.py PSP_001760_2160_RED0_0.IMG
-  ISIS 3> cam2map from=PSP_001364_2160_REDmosaic.norm.cub \
+  ISIS 3> hiedr2mosaic.py PSP_001364_2160_RED*.IMG
+  ISIS 3> hiedr2mosaic.py PSP_001760_2160_RED*.IMG
+  ISIS 3> cam2map from=PSP_001364_2160_RED.mos_hijitreged.norm.cub \
                     to=PSP_001364_2160_REDmosaic.map.cub
-  ISIS 3> cam2map from=PSP_001760_2160_REDmosaic.norm.cub \
+  ISIS 3> cam2map from=PSP_001760_2160_RED.mos_hijitreged.norm.cub \
                    map=PSP_001364_2160_REDmosaic.map.cub \
                     to=PSP_001760_2160_REDmosaic.map.cub matchmap=true
   ISIS 3> bandnorm from=PSP_001364_2160_REDmosaic.map.cub \
@@ -320,11 +334,11 @@ efficient way to go because it greatly reduces the amount of
 computation necessary to get results in a limited area.  As always,
 Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
-  ISIS 3> hiedr2mosaic.py PSP_001981_1825_RED0_0.IMG
-  ISIS 3> hiedr2mosaic.py PSP_002258_1825_RED0_0.IMG
-  ISIS 3> cam2map from=PSP_001981_1825_REDmosaic.norm.cub \
+  ISIS 3> hiedr2mosaic.py PSP_001981_1825_RED*.IMG
+  ISIS 3> hiedr2mosaic.py PSP_002258_1825_RED*.IMG
+  ISIS 3> cam2map from=PSP_001981_1825_RED.mos_hijitreged.norm.cub \
                     to=PSP_001981_1825_REDmosaic.map.cub
-  ISIS 3> cam2map from=PSP_002258_1825_REDmosaic.norm.cub \
+  ISIS 3> cam2map from=PSP_002258_1825_RED.mos_hijitreged.norm.cub \
                    map=PSP_001981_1825_REDmosaic.map.cub \
                     to=PSP_002258_1825_REDmosaic.map.cub matchmap=true
   ISIS 3> bandnorm from=PSP_001981_1825_REDmosaic.map.cub \

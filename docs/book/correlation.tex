@@ -174,15 +174,15 @@ Stereo Pipeline does its best to automatically detect and eliminate
 these blunders, but the effectiveness of these outlier rejection
 strategies does vary depending on the quality of the input imagery.
 
-When tuning up your {\tt stereo.default} file, you will find that it
-is very helpful to look at the raw output of the disparity map
+When tuning up your {\tt stereo.default} file, you will find that
+it is very helpful to look at the raw output of the disparity map
 initialization step.  This can be done using the {\tt disparitydebug}
-tool, which converts the {\tt <output\_prefix>-D.exr} file into a pair
-of normal images that contain the horizontal and vertical components
-of disparity.  You can open these in a standard image viewing
-application and see immediately which pixels were matched
-successfully, and which were not.  Stereo matching blunders are
-usually also obvious when inspecting these images.  With a good
+tool, which converts the \texttt{\textit{output\_prefix}-D.exr}
+file into a pair of normal images that contain the horizontal and
+vertical components of disparity.  You can open these in a standard
+image viewing application and see immediately which pixels were
+matched successfully, and which were not.  Stereo matching blunders
+are usually also obvious when inspecting these images.  With a good
 intuition for the effects of various {\tt stereo.default} parameters
 and a good intuition for reading the output of {\tt disparitydebug},
 it is possible to quickly identify and address most problems.
@@ -205,8 +205,8 @@ value.
 
 This method is easy to implement and extremely fast to compute, but it
 exhibits a problem known as pixel-locking: the sub-pixel disparities
-tend toward their integer estimates and can create noticeable "stair
-steps" on surfaces that should be
+tend toward their integer estimates and can create noticeable ``stair
+steps'' on surfaces that should be
 smooth \citep{Stein06:attenuating,Szeliski03sampling}.  See
 e.g. Figure~\ref{fig:parabola_subpixel}. Furthermore, the parabola
 subpixel mode is not capable of refining a disparity estimate by more
