@@ -23,7 +23,7 @@ m4_pattern_allow([^PKG_VW_LIBS_TEMP$])
 ##################################################
 
 dnl TODO BEFORE RELEASE: update package version
-AC_INIT([NASA Ames Stereo Pipeline], [2.1], [asp@nx.arc.nasa.gov], [StereoPipeline])
+AC_INIT([NASA Ames Stereo Pipeline], [1.0.0], [asp@nx.arc.nasa.gov], [StereoPipeline])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
@@ -43,7 +43,7 @@ dnl     revision++
 dnl (see http://sources.redhat.com/autobook/autobook/autobook_91.html)
 dnl
 dnl LIBTOOL_VERSION=current:revision:age
-LIBTOOL_VERSION=1:0:0
+LIBTOOL_VERSION=2:0:0
 AC_SUBST(LIBTOOL_VERSION)
 
 # load the config.options
