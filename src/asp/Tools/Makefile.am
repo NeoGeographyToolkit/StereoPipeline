@@ -13,7 +13,7 @@ bin_PROGRAMS =
 
 if MAKE_APP_STEREO
   bin_PROGRAMS += stereo
-  stereo_SOURCES = stereo.cc
+  stereo_SOURCES = stereo.cc stereo.h
   stereo_LDADD = $(APP_STEREO_LIBS)
 endif
 
@@ -61,7 +61,7 @@ endif
 
 if MAKE_APP_BUNDLEVIS
   bin_PROGRAMS += bundlevis
-  bundlevis_SOURCES = bundlevis.cc
+  bundlevis_SOURCES = bundlevis.cc bundlevis.h
   bundlevis_LDADD = $(APP_BUNDLEVIS_LIBS)
 endif
 
