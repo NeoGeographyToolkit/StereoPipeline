@@ -1,6 +1,8 @@
 \chapter{Data Processing Examples}
 \label{ch:examples}
 
+\definecolor{lgray}{gray}{0.95}
+
 This chapter showcases a variety of results that are possible when
 processing different data sets with the Stereo Pipeline. It is also
 a shortened guide that shows the commands and \texttt{stereo.default}
@@ -172,7 +174,9 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \end{verbatim}
 
 \subsubsection*{stereo.default}
-\begin{verbatim}
+
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -218,7 +222,8 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \subsection{East Mareotis Tholus}
 
@@ -262,7 +267,9 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \end{verbatim}
 
 \subsubsection*{stereo.default}
-\begin{verbatim}
+
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -308,7 +315,8 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \subsection{North Terra Meridiani Crop}
 
@@ -360,7 +368,8 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
 \subsubsection*{stereo.default}
 
-\begin{verbatim}
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -406,14 +415,12 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
-
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \section{Mars Reconnaissance Orbiter CTX}
 
 \subsection{North Terra Meridiani}
-
-\subsubsection*{Screenshot}
 
 \begin{figure}[h!]
 \centering
@@ -443,7 +450,8 @@ P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
 
 \subsubsection*{stereo.default}
 
-\begin{verbatim}
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 1
@@ -489,7 +497,8 @@ P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \section{Mars Global Surveyor MOC-NA}
 
@@ -545,7 +554,8 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 
 \subsubsection*{stereo.default}
 
-\begin{verbatim}
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -591,7 +601,8 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \subsection{North Tharsis}
 
@@ -621,7 +632,8 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 
 \subsubsection*{stereo.default}
 
-\begin{verbatim}
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -667,7 +679,8 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \section{Lunar Reconaissance Orbiter LROC NAC}
 
@@ -706,7 +719,8 @@ start from, as well.
 
 \subsubsection*{stereo.default}
 
-\begin{verbatim}
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -752,8 +766,8 @@ start from, as well.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
-
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \section{Apollo 15 Metric Camera Images}
 
@@ -800,7 +814,9 @@ Process Apollo TIFF files into \ac{ISIS}.
 \end{verbatim}
 
 \subsubsection*{stereo.default}
-\begin{verbatim}
+
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 1
@@ -849,8 +865,8 @@ Process Apollo TIFF files into \ac{ISIS}.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
-
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \section{MESSENGER MDIS}
 
@@ -897,7 +913,9 @@ surface, but that alone is still an interesting result nonetheless.
 \end{verbatim}
 
 \subsubsection*{stereo.default}
-\begin{verbatim}
+
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 1
@@ -943,8 +961,8 @@ surface, but that alone is still an interesting result nonetheless.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-
-\end{verbatim}
+\end{Verbatim}
+\end{minipage}\end{center}
 
 \section{Cassini ISS NAC}
 
@@ -1007,7 +1025,9 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images from the \ac{PDS}.
 \end{verbatim}
 
 \subsubsection*{stereo.default}
-\begin{verbatim}
+
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -1053,4 +1073,5 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images from the \ac{PDS}.
 
     NEAR_UNIVERSE_RADIUS 0.0
     FAR_UNIVERSE_RADIUS 0.0
-\end{verbatim}
+\end{Verbatim}
+\end{minipage}\end{center}

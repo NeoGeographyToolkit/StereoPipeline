@@ -234,15 +234,24 @@ the example data set. It has a few key properties:
 \end{verbatim}
 \noindent
 
-The first says, \emph{`Don't do interest point alignment!'} since
-we have map-projected the images. The other four lines define what
-ranges the left image should search inside the right image for a
-match. The values above are tuned to make up for the offset that
-is found in the map projected images. It may come to mind that we
-map projected the images using the same settings, why would there
-be an offset? The reason for this is because \ac{ISIS} doesn't have a
-perfect surface to project on to and that the camera position is
-slightly off.
+The first says, \emph{`Don't do interest point alignment!'} since we
+have map-projected the images. The other four lines define what ranges
+the left image should search inside the right image for a match. The
+values above are tuned to make up for the offset that is found in the
+map projected images. It may come to mind that we map projected the
+images using the same settings, why would there be an offset? The
+reason for this is because \ac{ISIS} doesn't have a perfect surface to
+project on to and that the camera position is slightly off. Selecting
+these values can be a little tricky and is the most manual process of
+the entire pipeline. The simplest way is letting \texttt{stereo}
+perform one round with auto, then using a program called
+\texttt{disparitydebug} to see the search ranges used. From
+\texttt{disparitydebug}'s output images it can be determined which
+direction the search window will need to be expanded or
+contracted. Worst case scenario is by hand looking at a few points,
+subtracting locations from the first image from the second image, and
+then expanding the box by 50\%. Future versions of the software will
+try to focus on this weak point.
 
 Here is how the \texttt{stereo} program is called (there should be a
 \texttt{stereo.default} file distributed along with the example data
