@@ -5,7 +5,7 @@
 This is the recommended method. Only two things are required:
 
 \begin{description}
-\item [{Stereo~Pipeline~tarball.}] The main Stereo Pipeline page is \url{http://ti.arc.nasa.gov/stereopipeline}.
+\item [{Stereo~Pipeline~Tarball.}] The main Stereo Pipeline page is \url{http://ti.arc.nasa.gov/stereopipeline}.
 In the upper-right, there is a list of files. Download the \emph{Binary}
 option that matches the platform you wish to use. The required \ac{ISIS}
 version is listed next to the name; choose the newest version you
@@ -14,42 +14,42 @@ have available.
 \item [{USGS~ISIS~Binary~Distribution.}] The Stereo Pipeline depends
 on \ac{ISIS} version 3 from the \ac{USGS}\@. Their installation guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
 You must use their binaries as-is; if you need to recompile, you must
-follow the \emph{Source Installation} guide in Section~\ref{sec:Source-Installation}.
+follow the \emph{Source Installation} guide for the Stereo Pipeline in Section~\ref{sec:Source-Installation}.
 Note also that the \ac{USGS} does not provide any version of \ac{ISIS} but the
 current one. If you need a past version, you must retain it yourself.
 \end{description}
 
-\subsection{Quickstart}
+\subsection{Quick Start}
 \begin{description}
 
 \item[{Fetch~Stereo~Pipeline}] ~\\
 Download the Stereo Pipeline from \url{http://ti.arc.nasa.gov/stereopipeline}.
 
 \item [{Fetch~ISIS~Binaries}] ~\\
-\verb#rsync -azv --delete isisdist.wr.usgs.gov::isis3_ARCH_OS/isis .#
+\texttt{rsync -azv --delete isisdist.wr.usgs.gov::isis3\_\textit{ARCH\_OS}/isis .}
 
 \item [{Fetch~ISIS~Data}] ~\\
 \verb#rsync -azv --delete isisdist.wr.usgs.gov::isis3data/data .#
 
 \item [{Untar~Stereo~Pipeline}] ~\\
-\verb#tar xzvf StereoPipeline-VERSION-ARCH-OS.tar.gz#
+\texttt{tar xzvf StereoPipeline-\textit{VERSION-ARCH-OS}.tar.gz}
 
 % Verbatim has way too much white space. Couldn't seem to take care of it with
 % vskip/vspace negative. Sigh.
 \item [{Add~Stereo~Pipeline~to~Path~(optional)}] ~\\
-\verb#(bash) export PATH="/path/to/StereoPipeline/bin:${PATH}"# \\
-\verb#(csh)  setenv PATH "/path/to/StereoPipeline/bin:${PATH}"#
+bash: \texttt{export PATH="\textit{/path/to/StereoPipeline}/bin:\$\{PATH\}"} \\
+csh:  \texttt{setenv PATH "\textit{/path/to/StereoPipeline}/bin:\$\{PATH\}"}
 
 % Grrrr. Why doesn't it keep this together? Sprinkling in \nopagebreak
 % doesn't seem to work... Forcing a pagebreak instead
 \pagebreak
 \item[Set~Up~Isis] ~\\
-\verb#(bash)# \\
-\verb#    export ISISROOT=/path/to/isisroot# \\
-\verb#    source $ISISROOT/scripts/isis3Startup.sh# \\
-\verb#(csh)# \\
-\verb#    setenv ISISROOT /path/to/isisroot# \\
-\verb#    source $ISISROOT/scripts/isis3Startup.csh#
+bash: \\
+\hspace*{2em}\texttt{export ISISROOT=\textit{/path/to/isisroot}} \\
+\hspace*{2em}\texttt{source \$ISISROOT/scripts/isis3Startup.sh} \\
+csh: \\
+\hspace*{2em}\texttt{setenv ISISROOT \textit{/path/to/isisroot}} \\
+\hspace*{2em}\texttt{source \$ISISROOT/scripts/isis3Startup.csh}
 
 \item [{Try~It~Out!}] ~\\
 See the next chapter (Chapter~\ref{ch:tutorial}) for an example!
@@ -58,7 +58,7 @@ See the next chapter (Chapter~\ref{ch:tutorial}) for an example!
 \subsection{Common Traps}
 
 Here are some errors you might see, and what it could mean. Treat
-these as templates for problems--- in practice, the error messages might
+these as templates for problems--in practice, the error messages might
 be slightly different.
 
 \begin{verbatim}
@@ -89,11 +89,12 @@ zsh: bus error  point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
 The source of this problem is an old version of OpenSceneGraph in
 your library path. Check your \verb#LD_LIBRARY_PATH# (for Linux),
 \verb#DYLD_LIBRARY_PATH# (for OSX), or your \verb#DYLD_FALLBACK_LIBRARY_PATH#
-(for OSX) to see if you have an old version listed, and remove if
+(for OSX) to see if you have an old version listed, and remove it
 from the path if that is the case. It is not necessary to remove the
 old versions from your computer, you just need to remove the reference
 to them from your library path.
 
+\pagebreak
 \section{\label{sec:Source-Installation}Source Installation}
 
 This method is for advanced users only.
@@ -101,7 +102,7 @@ This method is for advanced users only.
 \subsection{Dependency List}
 
 This is a list of direct dependencies of Stereo Pipeline. Some libraries
-(like ISIS) have dependencies of their own which are not covered here.
+(like \ac{ISIS}) have dependencies of their own which are not covered here.
 
 \begin{description}
 \item [{Boost}] (Required) \url{http://www.boost.org/}\\
@@ -119,8 +120,12 @@ probably just use the LAPACK your package manager (RPM for Red Hat
 Linux, Yast for SuSE, etc.) has available.
 
 \item [{ISIS}] (Recommended) \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}\\
-The USGS Integrated Software for Imagers and Spectrometers (ISIS) library. This
-library handles the camera models and image formats used for instruments.
+The \ac{USGS} \acf{ISIS}
+library. This library handles the camera models and image formats used
+for instruments.  \ac{ISIS} is usually downloaded and used as a binary
+distribution.  Compilation of \ac{ISIS} from source can be challenging,
+and their support forums may provide assistance:
+\url{https://isis.astrogeology.usgs.gov/IsisSupport/}.
 
 \item [{OpenSceneGraph}] (Optional) \url{http://www.openscenegraph.org/}\\
 OpenSceneGraph is required to run the \texttt{point2mesh} tool

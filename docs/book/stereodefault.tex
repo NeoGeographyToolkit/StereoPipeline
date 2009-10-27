@@ -191,7 +191,7 @@ values listed after the parameter name.
   Note: Commenting out these settings will cause \texttt{stereo} to make an
   attempt to guess its search range using interest points.
 
-\item[SUBPIXEL\_MODE \textnormal{\small{(= 0,1,2,3)}}] \hfill \\
+\item[SUBPIXEL\_MODE \textnormal{\small{(= 0,1,2,3)}} (default = 2)] \hfill \\
   This parameter selects the subpixel correlation method. These
   algorithms are arranged in order of decreasing speed and increasing
   quality. Parabola subpixel is very fast but will produce results
@@ -200,7 +200,7 @@ values listed after the parameter name.
   best quality. When tuning {\tt stereo.default} parameters, it is
   expedient to start out using parabola subpixel as a ``draft mode.''
   When the results are looking good with parabola subpixel, then they
-  will look even better with subpixel mode 3.
+  will look even better with subpixel mode 2.
 
   \begin{description}
     \item[0 - no subpixel refinement]
@@ -212,8 +212,8 @@ values listed after the parameter name.
   For a visual comparison of the quality of these subpixel modes,
   refer back to Chapter:\ref{ch:correlation}.
 
-\item[SUBPIXEL\_H\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 25)]
-\item[SUBPIXEL\_V\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 25)] \hfill \\
+\item[SUBPIXEL\_H\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 35)]
+\item[SUBPIXEL\_V\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 35)] \hfill \\
   Specify the size of the horizontal \emph{(H)} and vertical
   \emph{(V)} size (in pixels) of the subpixel correlation kernel.
 

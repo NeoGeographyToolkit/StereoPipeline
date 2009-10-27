@@ -477,7 +477,7 @@ int main( int argc, char *argv[] ){
   //Boost Program options
   po::options_description desc("Options");
   desc.add_options()
-    ("help", "Display this help message")
+    ("help,h", "Display this help message")
     ("simplify-mesh",     po::value<float>(&simplify_percent),
        "Run OSG Simplifier on mesh, 1.0 = 100%")
     ("smooth-mesh",

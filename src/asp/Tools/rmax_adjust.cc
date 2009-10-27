@@ -290,7 +290,7 @@ int main(int argc, char* argv[]) {
     ("report-level,r",po::value<int>(&report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report")
     ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
     ("match-debug-images,d", "Create debug images when you run ipmatch.")
-    ("help", "Display this help message")
+    ("help,h", "Display this help message")
     ("verbose,v", "Verbose output");
 
   po::options_description hidden_options("");

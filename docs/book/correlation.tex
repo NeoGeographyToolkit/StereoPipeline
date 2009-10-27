@@ -41,7 +41,7 @@ Chapter~\ref{ch:bundle_adjustment}.
 Next, the left and right images are roughly aligned using one of
 two methods: (1) a linear transform of the right image based on
 automated tie-point measurements, or (2) map projection of both the
-left and right image using the \ac{ISIS} \texttt{cam2map} command.  The
+left and right images using the \ac{ISIS} \texttt{cam2map} command.  The
 former option is done automatically by the stereo pipeline when the
 \texttt{DO\_INTERESTPOINT\_ALIGNMENT} variable in the
 \texttt{stereo.default} file is turned on.
@@ -174,15 +174,15 @@ Stereo Pipeline does its best to automatically detect and eliminate
 these blunders, but the effectiveness of these outlier rejection
 strategies does vary depending on the quality of the input imagery.
 
-When tuning up your {\tt stereo.default} file, you will find that it
-is very helpful to look at the raw output of the disparity map
+When tuning up your {\tt stereo.default} file, you will find that
+it is very helpful to look at the raw output of the disparity map
 initialization step.  This can be done using the {\tt disparitydebug}
-tool, which converts the {\tt <output\_prefix>-D.exr} file into a pair
-of normal images that contain the horizontal and vertical components
-of disparity.  You can open these in a standard image viewing
-application and see immediately which pixels were matched
-successfully, and which were not.  Stereo matching blunders are
-usually also obvious when inspecting these images.  With a good
+tool, which converts the \texttt{\textit{output\_prefix}-D.exr}
+file into a pair of normal images that contain the horizontal and
+vertical components of disparity.  You can open these in a standard
+image viewing application and see immediately which pixels were
+matched successfully, and which were not.  Stereo matching blunders
+are usually also obvious when inspecting these images.  With a good
 intuition for the effects of various {\tt stereo.default} parameters
 and a good intuition for reading the output of {\tt disparitydebug},
 it is possible to quickly identify and address most problems.
@@ -196,7 +196,7 @@ will be marked as invalid.  All valid pixels are then adjusted in the
 sub-pixel refinement stage based on the \texttt{SUBPIXEL\_MODE} setting.
 
 The first mode is parabola-fitting sub-pixel refinement
-(\texttt{SUBPXEL\_MODE 1}).  This technique fits a 2D parabola to
+(\texttt{SUBPIXEL\_MODE 1}).  This technique fits a 2D parabola to
 points on the correlation cost surface in an 8-connected neighborhood
 around the cost value that was the ``best'' as measured during
 disparity map initialization. The parabola's minimum can then be
@@ -205,8 +205,8 @@ value.
 
 This method is easy to implement and extremely fast to compute, but it
 exhibits a problem known as pixel-locking: the sub-pixel disparities
-tend toward their integer estimates and can create noticeable "stair
-steps" on surfaces that should be
+tend toward their integer estimates and can create noticeable ``stair
+steps'' on surfaces that should be
 smooth \citep{Stein06:attenuating,Szeliski03sampling}.  See
 e.g. Figure~\ref{fig:parabola_subpixel}. Furthermore, the parabola
 subpixel mode is not capable of refining a disparity estimate by more
@@ -257,14 +257,14 @@ distortion due to foreshortening.
 
 This affine-adaptive behavior is based on the Lucas-Kanade template
 tracking algorithm, a classic algorithm in the field of computer
-vision.  We have extended this technique; developing a
-Bayesian model that treats the Lucas-Kanade parameters as random
-variables in an Expectation Maximization (EM) framework.  This
-statistical model also includes a Gaussian mixture component to
-model image noise that is the basis for the robustness of our
+vision \citep{Baker04:lucas-kanade}.  We have extended this technique;
+developing a Bayesian model that treats the Lucas-Kanade parameters
+as random variables in an Expectation Maximization (EM) framework.
+This statistical model also includes a Gaussian mixture component
+to model image noise that is the basis for the robustness of our
 algorithm.  We will not go into depth on our approach here, but we
-encourage interested readers to read our papers on the
-topic \citep{nefian:bayes_em, broxton:isvc09}.
+encourage interested readers to read our papers on the topic
+\citep{nefian:bayes_em, broxton:isvc09}.
 
 However we do note that, like the computations in the disparity map
 initialization stage, we adopt a multi-scale approach for sub-pixel

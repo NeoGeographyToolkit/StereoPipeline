@@ -989,7 +989,7 @@ int main(int argc, char* argv[]){
     ("show-moon","This will add a transparent Moon to the display")
     ("show-mars","This will add a transparent Mars to the display")
     ("show-earth","This will add a transparent Earth to the display")
-    ("help","Display this help message");
+    ("help,h","Display this help message");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc,argv,general_options),vm);

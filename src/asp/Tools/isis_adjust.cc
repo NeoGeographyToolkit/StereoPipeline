@@ -556,7 +556,7 @@ int main(int argc, char* argv[]) {
     ("max-iterations", po::value<int>(&g_max_iterations)->default_value(25), "Set the maximum number of iterations.")
     ("poly-order", po::value<int>(&polynomial_order)->default_value(0), "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
     ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft position. (meters)")
-    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(1.0/10.0), "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
+    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(0.1), "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
     ("report-level,r", po::value<int>(&g_report_level)->default_value(10), "Changes the detail of the Bundle Adjustment Report")
     ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
     ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")

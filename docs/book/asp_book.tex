@@ -8,17 +8,17 @@
 \usepackage{amsfonts, psfrag, fancyhdr, layout, appendix, subfigure, array}
 \usepackage{wrapfig}
 \usepackage{color}
-\definecolor{violet}{rgb}{0.5,0,1}
-\definecolor{brown}{rgb}{0.4,0.26,0.13}
-\definecolor{gray}{gray}{0.35}
+\definecolor{gray}{gray}{0.25}
 \usepackage[numbers]{natbib}
 \usepackage[nolist,nohyperlinks]{acronym}
 \usepackage{url}
-\usepackage[pdftex,colorlinks=true,urlcolor=blue,citecolor=gray,linkcolor=gray]{hyperref}
 \usepackage{longtable}
+\usepackage{fancyvrb}
 
 \usepackage[T1]{fontenc}
 \usepackage[latin9]{inputenc}
+
+\usepackage[pdftex,colorlinks=true,urlcolor=blue,citecolor=gray,linkcolor=gray]{hyperref}
 
 % Set equal margins on book style
 %\setlength{\oddsidemargin}{53pt}
@@ -118,6 +118,12 @@ DRAFT}
 \acro{ULCN}{Unified Lunar Coordinate Network}
 \acro{HiRISE}{High Resolution Imaging Science Experiment}
 \acro{LROC}{Lunar Reconnaissance Orbiter Camera}
+\acro{GCP}{ground control point}
+\acro{CTX}{Context Camera}
+\acro{THEMIS}{Thermal Emission Imaging System}
+\acro{ET}{ephemeris time}
+\acro{PVL}{Parameter Value Language}
+\acro{KML}{Keyhole Markup Language}
 \end{acronym}
 
 
@@ -142,12 +148,11 @@ DRAFT}
 \include{tools}
 \include{stereodefault}
 \include{outputfiles}
-
-% This is disabled for now.  Move SURF example into the distribution somewhere.
-% \include{scripting}
+\include{scripting}
 
 % Create the References list
 \bibliographystyle{plainnat}
+\phantomsection % to make hyperref behave
 \addcontentsline{toc}{chapter}{\bibname}
 \bibliography{bibliography.bib}
 
