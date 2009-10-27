@@ -18,7 +18,7 @@ this command makes point clouds (and a bunch of other files):
 Then you can make a mesh or a \ac{DEM} file with either of the following
 commands.  The \texttt{\textit{stereo-output}-PC.tif} and
 \texttt{\textit{stereo-output}-L.tif} files are created by the \texttt{stereo}
-program run above):
+program run above.
 
 \hspace*{2em}\texttt{ISIS 3> point2mesh \textit{stereo-output}-PC.tif \textit{stereo-output}-L.tif}
 \smallskip
@@ -170,11 +170,13 @@ ensure two things: (1) that the second image is summed or scaled down
 instead of being magnified up, and (2) that we are minimizing the file
 sizes to make processing by the Stereo Pipeline more efficient.
 
-Technically, the same end result could be achieved by using the 
+Technically, the same end result could be achieved by using the
 \texttt{mocproc} program alone, and using its \texttt{map=} option
 (behaves identically to \texttt{cam2map}'s), but if you were to use
-bundle adjustment (see Chapter \ref{ch:bundle_adjustment}, page \pageref{ch:bundle_adjustment}), you would do so between the initial \texttt{mocproc} 
-with \texttt{Mapping= NO} and the \texttt{cam2map} step.
+bundle adjustment (see Chapter \ref{ch:bundle_adjustment}, page
+\pageref{ch:bundle_adjustment}), you would do so between the initial
+\texttt{mocproc} with \texttt{Mapping= NO} and the \texttt{cam2map}
+step.
 
 \section{Running the Stereo Pipeline}
 

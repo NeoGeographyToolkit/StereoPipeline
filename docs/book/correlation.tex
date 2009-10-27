@@ -41,7 +41,7 @@ Chapter~\ref{ch:bundle_adjustment}.
 Next, the left and right images are roughly aligned using one of
 two methods: (1) a linear transform of the right image based on
 automated tie-point measurements, or (2) map projection of both the
-left and right image using the \ac{ISIS} \texttt{cam2map} command.  The
+left and right images using the \ac{ISIS} \texttt{cam2map} command.  The
 former option is done automatically by the stereo pipeline when the
 \texttt{DO\_INTERESTPOINT\_ALIGNMENT} variable in the
 \texttt{stereo.default} file is turned on.
@@ -196,7 +196,7 @@ will be marked as invalid.  All valid pixels are then adjusted in the
 sub-pixel refinement stage based on the \texttt{SUBPIXEL\_MODE} setting.
 
 The first mode is parabola-fitting sub-pixel refinement
-(\texttt{SUBPXEL\_MODE 1}).  This technique fits a 2D parabola to
+(\texttt{SUBPIXEL\_MODE 1}).  This technique fits a 2D parabola to
 points on the correlation cost surface in an 8-connected neighborhood
 around the cost value that was the ``best'' as measured during
 disparity map initialization. The parabola's minimum can then be
