@@ -4,13 +4,14 @@
 SURF \emph{v1.0.9} is a fast a relatively robust interest point
 algorithm. It is not open source, but it is freely available for
 academic uses at \url{http://www.vision.ee.ethz.ch/~surf/}. This
-software currently only available for Windows and Linux 32 bit.
+software is currently only available for Windows and Linux 32 bit.
 
 SURF creates it own results files. What is available online was
 probably only meant for demonstrations. What we've done is created a
 patch that allows the SURF match utility, \texttt{match.ln}, to create
-Vision Workbench match files. The patch is available in
-\verb=STEREOPIPELINE/examples/surf_match.patch=.
+Vision Workbench match files. The patch is available as the 
+\texttt{surf\_match.patch} in the \texttt{examples/} directory of the
+Stereo Pipeline distribution.
 
 \section{How to apply and compile}
 
@@ -19,8 +20,8 @@ code. Then copy \texttt{surf\_match.patch} to the active directory. At
 this point you are ready to start running the following commands.
 
 \begin{verbatim}
-        patch < surf_match.patch
-        make match.ln
+    > patch < surf_match.patch
+    > make match.ln
 \end{verbatim}
 
 \definecolor{lgray}{gray}{0.95}
@@ -46,21 +47,21 @@ example found in Section \ref{sec:ba_example}.
 
 SURF code only works with images in the grayscale format PGM. A free
 Linux utility to convert the images is \texttt{mogrify}. That utility
-is part of the package \texttt{imagemagick} and is likely to be
+is part of the package \texttt{ImageMagick} and is likely to be
 available in most package managers.
 
-Below is the commands to take an input of PNG files, process them with
-SURF, and then finally create a match file which can be used by the
-likes of \texttt{isis\_adjust}.
+Below are the commands to take an input of PNG files, process them with
+SURF, and then finally create a match file which can be used by 
+\texttt{isis\_adjust}.
 
 \begin{verbatim}
-        mogrify -format pgm m1000254.png r0901059.png
-        surf.ln -i m1000254.pgm -o m1000254.surf
-        surf.ln -i r0901059.pgm -o r0901059.surf
-        match.ln -k1 m1000254.surf -k2 r0901059.surf
-                 -im1 m1000254.pgm -im2 r0901059.pgm
-                 -o out.pgm -m m1000254__r0901059.match
-        rm m1000254.pgm r0901059.pgm *.surf
+    > mogrify -format pgm m1000254.png r0901059.png
+    > surf.ln -i m1000254.pgm -o m1000254.surf
+    > surf.ln -i r0901059.pgm -o r0901059.surf
+    > match.ln -k1 m1000254.surf -k2 r0901059.surf \
+             -im1 m1000254.pgm -im2 r0901059.pgm \
+             -o out.pgm -m m1000254__r0901059.match
+    > rm m1000254.pgm r0901059.pgm *.surf
 \end{verbatim}
 
 \begin{center}

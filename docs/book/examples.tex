@@ -176,7 +176,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for HiRISE Columbia Hills]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -269,7 +269,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for HiRISE East Mareotis Tholus]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -369,7 +369,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for HiRISE North Terra Meridiani Crop]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -418,11 +418,13 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \end{Verbatim}
 \end{minipage}\end{center}
 
+\vfill
+
 \section{Mars Reconnaissance Orbiter CTX}
 
 \subsection{North Terra Meridiani}
 
-\begin{figure}[h!]
+\begin{figure}[b!]
 \centering
   \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/ctx/n_terra_meridiani_ctx.png}}
   \hfil
@@ -448,10 +450,12 @@ P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
   ISIS 3> stereo P02_001981_1823.map.cub P03_002258_1817.map.cub results/out
 \end{verbatim}
 
+\vfill
+
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for CTX North Terra Meridiani]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 1
@@ -555,7 +559,7 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for MOC Ceraunius Tholus]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -604,6 +608,7 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 \end{Verbatim}
 \end{minipage}\end{center}
 
+\pagebreak
 \subsection{North Tharsis}
 
 These images cover troughs and terraces in northern Tharsis. 
@@ -630,10 +635,12 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
   ISIS 3> stereo M0803097.map.cub S0701420.map.cub result/output
 \end{verbatim}
 
+\vfill
+
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for MOC North Tharsis]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -712,7 +719,7 @@ start from, as well.
 \begin{verbatim}
     ISIS 3> cam2map from=lroc-1sthalf.cub to=lroc-1sthalf.map.cub
     ISIS 3> cam2map from=lroc-2ndhalf.cub map=lroc-2ndhalf.map.cub \
-    ISIS 3>         to=lroc-1sthalf.map.cub matchmap=true
+                    to=lroc-1sthalf.map.cub matchmap=true
     ISIS 3> mkdir result
     ISIS 3> stereo lroc-1sthalf.map.cub lroc-2ndhalf.map.cub result/output
 \end{verbatim}
@@ -720,7 +727,7 @@ start from, as well.
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for LROC NAC]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0
@@ -816,7 +823,7 @@ Process Apollo TIFF files into \ac{ISIS}.
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for Apollo 15 Metric Camera]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 1
@@ -915,7 +922,7 @@ surface, but that alone is still an interesting result nonetheless.
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for MDIS]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 1
@@ -1027,7 +1034,7 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images from the \ac{PDS}.
 \subsubsection*{stereo.default}
 
 \begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small]
+\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for Cassini ISS]
     ### PREPROCESSING
 
     DO_INTERESTPOINT_ALIGNMENT 0

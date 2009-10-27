@@ -14,7 +14,7 @@ have available.
 \item [{USGS~ISIS~Binary~Distribution.}] The Stereo Pipeline depends
 on \ac{ISIS} version 3 from the \ac{USGS}\@. Their installation guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
 You must use their binaries as-is; if you need to recompile, you must
-follow the \emph{Source Installation} guide in Section~\ref{sec:Source-Installation}.
+follow the \emph{Source Installation} guide for the Stereo Pipeline in Section~\ref{sec:Source-Installation}.
 Note also that the \ac{USGS} does not provide any version of \ac{ISIS} but the
 current one. If you need a past version, you must retain it yourself.
 \end{description}
@@ -120,10 +120,11 @@ probably just use the LAPACK your package manager (RPM for Red Hat
 Linux, Yast for SuSE, etc.) has available.
 
 \item [{ISIS}] (Recommended) \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}\\
-The USGS Integrated Software for Imagers and Spectrometers (ISIS)
+The \ac{USGS} \acf{ISIS}
 library. This library handles the camera models and image formats used
-for instruments. The developers of ISIS have not meant for their users
-to compile the source code. If you wish to, check their forum:
+for instruments.  \ac{ISIS} is usually downloaded and used as a binary
+distribution.  Compilation of \ac{ISIS} from source can be challenging,
+and their support forums may provide assistance:
 \url{https://isis.astrogeology.usgs.gov/IsisSupport/}.
 
 \item [{OpenSceneGraph}] (Optional) \url{http://www.openscenegraph.org/}\\
