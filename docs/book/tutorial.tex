@@ -132,7 +132,7 @@ usually written out to a file named \texttt{print.prt}).  Refer to
 Figure~\ref{p19-images} to see the results at this stage of
 processing.
 
-\begin{figure}[b!]
+\begin{figure}[t!]
 \begin{minipage}{5.2in}
 \includegraphics[height=3.7in]{images/p19-images.png}
 \hfill
@@ -180,13 +180,15 @@ magnified up, and (2) that we are minimizing the file sizes to make
 processing in the Stereo Pipeline more efficient.
 
 Technically, the same end result could be achieved by using the
-\texttt{mocproc} program alone, and using its \texttt{map=} option (it
-behaves identically to \texttt{cam2map}), but this would not allow you
-to force the two images into the same map projection.  Furthermore, if
-you choose to conduct bundle adjustment (see Chapter
-\ref{ch:bundle_adjustment}, page \pageref{ch:bundle_adjustment}) as a
-pre-processing step, you would do so between \texttt{mocproc} and
-\texttt{cam2map}.
+\texttt{mocproc} program alone, and using its \texttt{map=
+M0100115.map.cub} option for the run of \texttt{mocproc} on
+\texttt{E0201461.cub} (it behaves identically to \texttt{cam2map}).
+However, this would not allow for determining which of the two
+images had the worse resolution and extracting their minimum
+intersecting bounding box (see below).  Furthermore, if you choose
+to conduct bundle adjustment (see Chapter \ref{ch:bundle_adjustment},
+page \pageref{ch:bundle_adjustment}) as a pre-processing step, you
+would do so between \texttt{mocproc} (as run above) and \texttt{cam2map}.
 
 The above procedure is in the case of two images which cover similar
 real estate on the ground.  If you have a pair of images where one
@@ -237,8 +239,8 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
 Now compare the boundaries of the two above and determine the intersection to use as the boundaries for \texttt{cam2map}:
 
 \begin{Verbatim}
-  ISIS 3> cam2map from=M0100115.cub to=M0100115.map.cub MINLAT= 34.10 MAXLAT= 34.44 \
-                  MINLON= 141.50 MAXLON= 141.63
+  ISIS 3> cam2map from=M0100115.cub to=M0100115.map.cub DEFAULTRANGE= CAMERA \
+                  MINLAT= 34.10 MAXLAT= 34.44 MINLON= 141.50 MAXLON= 141.63
   ISIS 3> cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
 \end{Verbatim}
 
@@ -248,11 +250,9 @@ parameter to mimic the map projection of the first.  These two
 images aren't radically different in areal coverage, so this isn't
 really necessary for these images, its just an example.
 
-\vfill
-
 \section{Running the Stereo Pipeline}
 
-Once the data has been prepared for processing, we envoke the the
+Once the data has been prepared for processing, we invoke the the
 \texttt{stereo} program (page \pageref{stereo}).  The \texttt{stereo}
 program can generate a number of output files, and you may find it
 helpful to create a directory to store the results of stereo
@@ -263,7 +263,6 @@ processing, as illustrated below.
     E0201461.cub   E0201461.map.cub   M0100115.cub   M0100115.map.cub
     ISIS 3> mkdir results
 \end{verbatim}
-\noindent
 
 \subsection{Setting Options in the \texttt{stereo.default} File}
 
@@ -303,16 +302,15 @@ the example data set. It has these key properties:
         V_CORR_MIN -280
         V_CORR_MAX -265
 \end{verbatim}
-\noindent
 
 The first says, \emph{`Don't do interest point alignment!'} since we
 have map-projected the images. The other four lines define the range
 that should be searched by scanning a template from the left image
 over the right image. The values above are tuned to the range of
-offsets that is found in this particular set of map projected images.
+offsets that are found in this particular set of map projected images.
 
 Given that we map projected the images using the same settings, you
-may be wondering why would there still be an offset. The reason is
+may be wondering why there would still be an offset. The reason is
 twofold: (1) the camera position may be slightly off, resulting in
 slight mis-alignment between stereo images; or (2) \ac{ISIS} doesn't
 have a perfect surface to project onto during map projection, so small
@@ -320,7 +318,7 @@ terrain features still produce changes in perspective.  (In fact,
 these are precisely the features we are hoping to detect!)
 
 \begin{center}
-\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
+\fcolorbox{black}{lgray}{ \begin{minipage}{6in}
 
    Given the uncertainties due to (1) and (2) above, it can be tricky
    to select a good search range for the \texttt{stereo.default} file.
@@ -368,20 +366,23 @@ Once invoked, \texttt{stereo} proceeds through several stages that are
 detailed on page \pageref{entrypoints}.  Intermediate and final output
 files are generated as it goes.  See Appendix
 \ref{chapter:outputfiles}, page \pageref{chapter:outputfiles} for a
-comprehensive listing.  Many of these files are useful diagnosing and
+comprehensive listing.  Many of these files are useful for diagnosing and
 debugging problems.  For example, as Figure~\ref{p19-stereo-output}
 shows, a quick look at some of the TIFF files in the \texttt{results/}
 directory provides some insight into the process.
 
-\begin{figure}
-\begin{center}
-\includegraphics[width=5in]{images/p19-stereo-output.png}
+\begin{figure}[t!]
+\begin{minipage}{4in}
+\includegraphics[width=4in]{images/p19-stereo-output.png}
+\end{minipage}
+\hfill
+\begin{minipage}{2.9in}
 \caption[P19 stereo output images]{
     \label{p19-stereo-output}
 	These are the four viewable \texttt{.tif} files created by the
         \texttt{stereo} program.  On the left are the two aligned,
         pre-processed images: (\texttt{E0201461-M0100115-L.tif} and
-        \texttt{E0201461-M0100115-R.tif}).  The two are mask images
+        \texttt{E0201461-M0100115-R.tif}).  The next two are mask images
         (\texttt{E0201461-M0100115-lMask.tif} and
         \texttt{E0201461-M0100115-rMask.tif}), which indicate which
         pixels in the aligned images are good to use in stereo
@@ -389,7 +390,7 @@ directory provides some insight into the process.
         map'', (\texttt{E0201461-M0100115-GoodPixelMap.tif}), which
         indicates (in gray) which were successfully matched with the
         correlator, and (in red) those that were not matched.}
-\end{center}
+\end{minipage}
 \end{figure}
 
 % \begin{figure}
@@ -425,8 +426,6 @@ red pixels in the overlap area, then you need to go back and tune your
 be a good time to make a copy of \texttt{stereo.default} as you tune
 the parameters to improve the results.
 
-\pagebreak
-
 Another handy debugging tool is the \texttt{disparitydebug} program,
 which allows you to generate viewable versions of the intermediate
 results from the stereo correlation algorithm.
@@ -450,7 +449,7 @@ proceed to make a mesh or a \ac{DEM} by processing
 \texttt{E0201461-M0100115-PC.tif} using the \texttt{point2mesh} or
 \texttt{point2dem} tools, respectively.
 
-\begin{figure}[t!]
+\begin{figure}[b!]
 \begin{minipage}{4in}
 \includegraphics[width=4in]{images/p19-disparity.png}
 \end{minipage}
@@ -471,7 +470,7 @@ proceed to make a mesh or a \ac{DEM} by processing
         these MOC images were acquired by rolling the spacecraft
         across-track, most of the disparity that represents topography
         is present in the horizontal disparity map.  The vertical
-        disparity map shows disparity due to ``washboarding,'' which
+        disparity map shows disparity due to ``wash-boarding,'' which
         is not from topography but from spacecraft movement. Note
         however that the horizontal and vertical disparity images are
         normalized independently.  Although both have the same range
@@ -533,7 +532,7 @@ The \texttt{point2dem} program (page \pageref{point2dem}) creates a
 The resulting TIFF file is map projected and will contain
 georeferencing information stored as GeoTIFF tags.  The
 ``--xyz-to-lonlat'' option is {\em required} in most common uses, as
-it transforms the results from a cartesion, body-centered coordinate
+it transforms the results from a Cartesian, body-centered coordinate
 system to the longitude, latitude, altitude spherical coordinate
 system.  You can specify a coordinate system (e.g., mercator,
 sinusoidal) and a reference spheroid (i.e., calculated for the Moon or
@@ -565,11 +564,12 @@ The \texttt{point2dem} program can be used in many different ways.  Be
 sure to explore all of the options.
 
 \begin{figure}
-\begin{minipage}{5in}
-\includegraphics[width=5in]{images/p19-norm_ortho.png}
-\end{minipage}
 \hfill
-\begin{minipage}{1.5in}
+\begin{minipage}{3in}
+\includegraphics[width=3in]{images/p19-norm_ortho.png}
+\end{minipage}
+\hspace{2em}
+\begin{minipage}{2in}
 \caption[P19 Normalized DEM and Orthophoto]{
     \label{p19-norm_ortho}
 	The image on the left is a normalized DEM (generated using the
@@ -577,7 +577,9 @@ sure to explore all of the options.
         and high terrain values as white.  The image on the right is
         the left input image projected onto the DEM (created using the
         \texttt{--orthoimage} option to \texttt{point2dem}).  }
-\end{minipage} \end{figure}
+\end{minipage} 
+\hfill
+\end{figure}
 
 % \begin{figure}
 % \begin{center}
@@ -654,16 +656,16 @@ remote server over the Internet.
 
 The \texttt{image2qtree} program can only be used on 8-bit image files
 with georeferencing information (e.g. grayscale or RGB geotiff
-images). In this example, it can be used to process
+images). In this example, it can be used to process \\
 \texttt{E0201461-M0100115-DEM-normalized.tif},
-\texttt{E0201461-M0100115-DRG.tif} \texttt{hrad-shaded.tif},
+\texttt{E0201461-M0100115-DRG.tif} \texttt{hrad-shaded.tif}, \\
 \texttt{hrad-colorized.tif}, and \texttt{hrad-shaded-colorized.tif}
 
 \begin{verbatim}
     ISIS 3> image2qtree hrad-shaded-colorized.tif -m kml --draw-order 100
 \end{verbatim}
 
-\begin{figure}[b!]
+\begin{figure}
 \begin{center}
 \includegraphics[width=6in]{images/p19-googlemars.png}
 \caption[Hrad shaded colorized DEM as a KML overlay] {
