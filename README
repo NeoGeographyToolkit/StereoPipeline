@@ -59,7 +59,7 @@ DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
 
 B. Third-Party Libraries
 
-This distribution includes some bundled third-party software as a
+This distribution may include some bundled third-party software as a
 convenience to the user.  This software, located in the "thirdparty/"
 directory, is not covered by the above-mentioned distribution
 agreement or copyright.  See the included documentation for detailed
