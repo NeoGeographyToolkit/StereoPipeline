@@ -120,11 +120,15 @@ There are also \texttt{Ingestion} and \texttt{Calibration} parameters
 whose defaults are `\texttt{YES}' which will bring the image into
 the \ac{ISIS} format and perform radiometric calibration.  By setting
 the \texttt{Mapping} parameter to `\texttt{NO}' the resultant file
-will be an \ac{ISIS} cube file that is calibrated, but not map-projected.
-Note that while we have not explicitly run \texttt{spiceinit}, the
-Ingestion portion of \texttt{mocproc} quietly ran \texttt{spiceinit}
-for you (you'll find the record of it in the \ac{ISIS} Session Log,
-usually written out to a file named \texttt{print.prt}).
+will be an \ac{ISIS} cube file that is calibrated, but not
+map-projected.  Note that while we have not explicitly run
+\texttt{spiceinit}, the Ingestion portion of \texttt{mocproc} quietly
+ran \texttt{spiceinit} for you (you'll find the record of it in the
+\ac{ISIS} Session Log, usually written out to a file named
+\texttt{print.prt}).  This is important, as the Stereo Pipeline
+requires that the SPICE information be attached to images that it
+operates on.
+
 
 \begin{figure}[b!]
 \begin{minipage}{5.2in}
@@ -164,11 +168,12 @@ image centered on the center of that image.  The projection of
 \texttt{E0201461.cub} used the \texttt{map=} parameter to indicate
 that \texttt{cam2map} should use the same map projection parameters
 as those of \texttt{M0100115.map.cub} (including center of projection,
-and map scale) in creating the projected image.  By map projecting the
-image with the worse resolution first, and then matching to that, we
-ensure two things: (1) that the second image is summed or scaled down
-instead of being magnified up, and (2) that we are minimizing the file
-sizes to make processing by the Stereo Pipeline more efficient.
+map extents, map scale, etc.) in creating the projected image.  By
+map projecting the image with the worse resolution first, and then
+matching to that, we ensure two things: (1) that the second image
+is summed or scaled down instead of being magnified up, and (2)
+that we are minimizing the file sizes to make processing by the
+Stereo Pipeline more efficient.
 
 Technically, the same end result could be achieved by using the
 \texttt{mocproc} program alone, and using its \texttt{map=} option
@@ -177,6 +182,68 @@ bundle adjustment (see Chapter \ref{ch:bundle_adjustment}, page
 \pageref{ch:bundle_adjustment}), you would do so between the initial
 \texttt{mocproc} with \texttt{Mapping= NO} and the \texttt{cam2map}
 step.
+
+The above procedure is in the case of two images which cover similar
+real estate on the ground.  If you have a pair of images where one
+image has a footprint on the ground that is much larger than the
+other, only the area that is common to both (the mathematical
+intersection of their areas) should be kept to perform correlation
+on (since non-overlapping regions don't contribute to the stereo
+solution).  If the image with the larger footprint size also happens
+to be the image with the better resolution (i.e. the image run through
+\texttt{cam2map} second with the \texttt{map=} parameter), then the
+above \texttt{cam2map} procedure with \texttt{matchmap=true} will take care
+of it just fine.  Otherwise you'll need to figure out the latitude
+and longitude boundaries of the intersection boundary 
+(with the \ac{ISIS} \texttt{camrange} program).  Then use that smaller
+boundary as the arguments to the \texttt{MINLAT}, \texttt{MAXLAT},
+\texttt{MINLON}, and \texttt{MAXLON} parameters of the first run
+of \texttt{cam2map}.  So in the above example, after \texttt{mocproc} with
+\texttt{Mapping= NO} you'd do this:
+
+\begin{Verbatim}[commandchars=\\\{\}]
+  ISIS 3> camrange fr= M0100115.cub
+          \textnormal{[ ... lots of} camrange \textnormal{ output omitted ... ]}
+  Group = UniversalGroundRange
+    LatitudeType       = Planetocentric
+    LongitudeDirection = PositiveEast
+    LongitudeDomain    = 360
+    MinimumLatitude    = 34.079818835324
+    MaximumLatitude    = 34.436797628116
+    MinimumLongitude   = 141.50666207418
+    MaximumLongitude   = 141.62534719278
+  End_Group
+          \textnormal{[ ... more output of} camrange \textnormal{ omitted ... ]}
+
+  ISIS 3> camrange fr= E0201461.cub
+          \textnormal{[ ... lots of} camrange \textnormal{ output omitted ... ]}
+  Group = UniversalGroundRange
+    LatitudeType       = Planetocentric
+    LongitudeDirection = PositiveEast
+    LongitudeDomain    = 360
+    MinimumLatitude    = 34.103893080982
+    MaximumLatitude    = 34.547719435156
+    MinimumLongitude   = 141.48853937384
+    MaximumLongitude   = 141.62919740048
+  End_Group
+          \textnormal{[ ... more output of} camrange \textnormal{ omitted ... ]}
+\end{Verbatim}
+
+Now compare the boundaries of the two above and determine the intersection to use as the boundaries for \texttt{cam2map}:
+
+\begin{Verbatim}
+  ISIS 3> cam2map from=M0100115.cub to=M0100115.map.cub MINLAT= 34.10 MAXLAT= 34.44 \
+                  MINLON= 141.50 MAXLON= 141.63
+  ISIS 3> cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
+\end{Verbatim}
+
+You only have to do the boundaries explicitly for the first run of
+\texttt{cam2map}, because the second one uses the \texttt{map=}
+parameter to mimic the map projection of the first.  These two
+images aren't radically different in areal coverage, so this isn't
+really necessary for these images, its just an example.
+
+\vfill
 
 \section{Running the Stereo Pipeline}
 
