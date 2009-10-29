@@ -85,10 +85,11 @@ def read_flatfile( flat ):
     return averages;
 
 def isisversion(verbose=False):
-    p = subprocess.Popen("echo $ISISROOT", shell=True, stdout=subprocess.PIPE);
-    path = p.stdout.read();
-    path = path.strip()
-
+    path = ''
+    try: path = os.environ['ISISROOT']
+    except KeyError, msg:
+        raise Exception( "The ISIS environment does not seem to be enabled.\nThe " + str(msg) + " environment variable must be set." )
+	
     if( verbose ): print path;
     f = open(path+"/inc/Constants.h",'r');
     for line in f:
@@ -102,7 +103,7 @@ def isisversion(verbose=False):
             version_tuple = tuple( version_ints )
             return version_tuple
 
-    raise Exception( "Could not find a version string in " + f.str() )
+    raise Exception( "Could not find an ISIS version string in " + f.str() )
     return False
 	
 
@@ -290,8 +291,8 @@ def handmos( fromcub, tocub, outsamp, outline ):
     return
 
 def cubenorm( fromcub, delete=False ):
-    tocub = os.path.splitext(cub)[0] + '.norm.cub'
-    cmd = 'cubenorm from= '+ fromcub+' to= '+ to_cub
+    tocub = os.path.splitext(fromcub)[0] + '.norm.cub'
+    cmd = 'cubenorm from= '+ fromcub+' to= '+ tocub
     print cmd
     os.system(cmd)
     if( delete ):
@@ -328,6 +329,7 @@ def main():
 
         # # Determine Isis Version
         # post_isis_20 = is_post_isis_3_1_20();
+        isisversion( True )
 
         # hi2isis
         hi2isised = hi2isis( args, options.threads )
@@ -361,11 +363,17 @@ def main():
         cubenorm( mosaicked, options.delete )
 
         print "Finished"
+        return 0
 
     except Usage, err:
         print >>sys.stderr, err.msg
         # print >>sys.stderr, "for help use --help"
         return 2
+
+	# To more easily debug this program, comment out this catch block.
+    except Exception, err:
+        sys.stderr.write( str(err) + '\n' )
+        return 1
     
 
 if __name__ == "__main__":
