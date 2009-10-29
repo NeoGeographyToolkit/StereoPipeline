@@ -191,20 +191,20 @@ pre-processing step, you would do so between \texttt{mocproc} and
 The above procedure is in the case of two images which cover similar
 real estate on the ground.  If you have a pair of images where one
 image has a footprint on the ground that is much larger than the
-other, only the area that is common to both (the mathematical
-intersection of their areas) should be kept to perform correlation
-on (since non-overlapping regions don't contribute to the stereo
-solution).  If the image with the larger footprint size also happens
-to be the image with the better resolution (i.e. the image run through
-\texttt{cam2map} second with the \texttt{map=} parameter), then the
-above \texttt{cam2map} procedure with \texttt{matchmap=true} will take care
-of it just fine.  Otherwise you'll need to figure out the latitude
-and longitude boundaries of the intersection boundary 
-(with the \ac{ISIS} \texttt{camrange} program).  Then use that smaller
-boundary as the arguments to the \texttt{MINLAT}, \texttt{MAXLAT},
-\texttt{MINLON}, and \texttt{MAXLON} parameters of the first run
-of \texttt{cam2map}.  So in the above example, after \texttt{mocproc} with
-\texttt{Mapping= NO} you'd do this:
+other, only the area that is common to both (the intersection of their
+areas) should be kept to perform correlation (since non-overlapping
+regions don't contribute to the stereo solution).  If the image with
+the larger footprint size also happens to be the image with the better
+resolution (i.e. the image run through \texttt{cam2map} second with
+the \texttt{map=} parameter), then the above \texttt{cam2map}
+procedure with \texttt{matchmap=true} will take care of it just fine.
+Otherwise you'll need to figure out the latitude and longitude
+boundaries of the intersection boundary (with the \ac{ISIS}
+\texttt{camrange} program).  Then use that smaller boundary as the
+arguments to the \texttt{MINLAT}, \texttt{MAXLAT}, \texttt{MINLON},
+and \texttt{MAXLON} parameters of the first run of \texttt{cam2map}.
+So in the above example, after \texttt{mocproc} with \texttt{Mapping=
+  NO} you'd do this:
 
 \begin{Verbatim}[commandchars=\\\{\}]
   ISIS 3> camrange fr= M0100115.cub
