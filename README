@@ -66,73 +66,9 @@ agreement or copyright.  See the included documentation for detailed
 copyright and license information for any third-party software.  In
 addition, various pieces of the NGT depend on additional
 third-party libraries that the user is expected to have installed.
-Information of where to obtain non-bundled third-party libraries is
-provided in section 3, "INSTALLATION".
 
 ************************************************************************
-3. INSTALLATION AND USE
-
-A. Obtaining the Software
-
-If you are reading this text then presumably you have a copy of
-the software.  However, you can obtain the most recent version from
-
-  http://ti.arc.nasa.gov/project/ngt
-
-Before attempting to configure, build or install the NGT
-you should obtain and install any prerequisite libraries that you
-need.  The only absolute requirement is the Boost.  The others are
-either required to build a specific module, or will enable a
-particular feature if available.  A complete list of dependencies
-is shown in the table below, where each library is noted as being
-either a required or optional dependency of one or modules.  All of
-these libraries are distributed under some variation on the themes
-of the MIT and BSD licenses.  See each individual library's
-documentation for details.
-
-+------------------+-------------+-----------------------------------------+
-| Library          | Required?   | Source Website                          |
-+------------------+-------------+-----------------------------------------+
-| Vision Workbench | Required    | http://ti.arc.nasa.gov/visionworkbench/ |
-| Boost            | Required    | http://www.boost.org/                   |
-| ISIS             | Recommended | http://isis.astrogeology.usgs.gov/      |
-| OpenSceneGraph   | Optional    | http://www.openscenegraph.org/          |
-+------------------+-------------+-----------------------------------------+
-
-
-B. Building and Installing
-
-Once you have obtained and installed all of the prerequisite software
-the process of building the NGT itself is generally
-straightforward.  There are four steps:
-
-i. Configure the library.  This is usually as simple as running the
-"./configure" script from within the root NGT package directory.
-
-ii. Build the tools by running "make".
-
-iii. Install the tools by running "make install".
-
-While this simple sequence will suffice for most users, the configure
-script has many options that you can use to adjust various properties,
-such as compiler optimization flags or the search paths used to find
-required libraries.  See the "INSTALL" file in this directory for more
-detailed information.
-
-C. Using the Library
-
-When you install the library it will place files into three
-subdirectories in the installation location.  The header files which
-you will need to develop software using the library are located in the
-"include/" subdirectory.  The compiled libraries, which you will need
-to link your software against, are located in the "lib/" subdirectory.
-You will need to configure your software development environment as
-appropriate to locate these files.  Finally, a number of command-line
-tools are provided in the "bin/" directory.  See the documentation for a
-complete list of the tools.
-
-************************************************************************
-4. DOCUMENTATION
+3. DOCUMENTATION
 
 The primary source of documentation is the Stereo Pipeline Book, which
 is provided in source form along with this distribution.  It includes a
@@ -144,7 +80,7 @@ package.  The original source for this document can be found in
 This operation requires the latex typesetting package.
 
 ************************************************************************
-5. CONTACTS & CREDITS
+4. CONTACTS & CREDITS
 
 A. Mailing List
 
@@ -153,7 +89,7 @@ the NGT user mailing list:
 
   stereo-pipeline@lists.nasa.gov
 
-To subscribe to this list, send an empty email messoge with the subject
+To subscribe to this list, send an empty email message with the subject
 'subscribe' (without the quotes) to
 
   stereo-pipeline@lists.nasa.gov
@@ -169,7 +105,7 @@ should all be sent to the main stereo-pipeline list above.
 B. Credits
 
 The NGT was developed within the Autonomous Systems and
-Robotics area of the Inteligent Systems Division at NASA's Ames
+Robotics area of the Intelligent Systems Division at NASA's Ames
 Research Center.  It leverages the Intelligent Robotics Group's (IRG)
 extensive experience developing surface reconstruction and tools for
 planetary exploration---e.g. the Mars Pathfinder and Mars Exploration

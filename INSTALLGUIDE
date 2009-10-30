@@ -1,73 +1,57 @@
-# __BEGIN_LICENSE__
-# 
-# Copyright (C) 2006 United States Government as represented by the
-# Administrator of the National Aeronautics and Space Administration
-# (NASA).  All Rights Reserved.
-# 
-# Copyright 2006 Carnegie Mellon University. All rights reserved.
-# 
-# This software is distributed under the NASA Open Source Agreement
-# (NOSA), version 1.3.  The NOSA has been approved by the Open Source
-# Initiative.  See the file COPYING at the top of the distribution
-# directory tree for the complete NOSA document.
-# 
-# THE SUBJECT SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
-# KIND, EITHER EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT
-# LIMITED TO, ANY WARRANTY THAT THE SUBJECT SOFTWARE WILL CONFORM TO
-# SPECIFICATIONS, ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
-# A PARTICULAR PURPOSE, OR FREEDOM FROM INFRINGEMENT, ANY WARRANTY THAT
-# THE SUBJECT SOFTWARE WILL BE ERROR FREE, OR ANY WARRANTY THAT
-# DOCUMENTATION, IF PROVIDED, WILL CONFORM TO THE SUBJECT SOFTWARE.
-# 
-# __END_LICENSE__
+INSTALLATION AND USE
 
+A. Obtaining the Software
 
-Installation, short version
-===========================
+If you are reading this text then presumably you have a copy of
+the software.  However, you can obtain the most recent version from
 
-./configure
-make
-make install
+  http://ti.arc.nasa.gov/project/ngt
 
-Optionally, copy over one of the cofigure.options.something to
-configure.options and edit for your particular environment.
+Before attempting to configure, build or install the NGT you should
+obtain and install any prerequisite libraries that you need.  The only
+absolute requirement is the Boost.  The others are either required to
+build a specific module, or will enable a particular feature if
+available.  A complete list of dependencies is shown in the table below,
+where each library is noted as being either a required or optional
+dependency of one or modules.  See each individual library's
+documentation for details.
 
++------------------+-------------+-----------------------------------------+
+| Library          | Required?   | Source Website                          |
++------------------+-------------+-----------------------------------------+
+| Vision Workbench | Required    | http://ti.arc.nasa.gov/visionworkbench/ |
+| Boost            | Required    | http://www.boost.org/                   |
+| ISIS             | Recommended | http://isis.astrogeology.usgs.gov/      |
+| OpenSceneGraph   | Optional    | http://www.openscenegraph.org/          |
++------------------+-------------+-----------------------------------------+
 
-Optional module installations
-=============================
+B. Building and Installing
 
-MBA
----
-This software is included in the Stereo Pipeline's thirdparty directory.
-Before the Stereo Pipeline can be configured to work with it, it must
-be built.  Simply running make in its directory should do the trick.  If
-you have includes in non-standard locations, you may need to add them to
-the INCLUDEDIRS variable in the Makefile.
+Once you have obtained and installed all of the prerequisite software
+the process of building the NGT itself is generally
+straightforward.  There are four steps:
 
-Once it is built, add this line:
+i. Configure the library.  This is usually as simple as running the
+"./configure" script from within the root NGT package directory.
 
-`pwd`/thirdparty/MBA_1.0_gpl
+ii. Build the tools by running "make".
 
-to the PKG_PATHS variable in your config.options file.  Then you run the
-Stereo Pipeline's configure script, it should be found.
+iii. Install the tools by running "make install".
 
+While this simple sequence will suffice for most users, the configure
+script has many options that you can use to adjust various properties,
+such as compiler optimization flags or the search paths used to find
+required libraries.  See the "INSTALL" file in this directory for more
+detailed information.
 
-CSPICE
-------
-The C version of the SPICE toolkit can be found at http://naif.jpl.nasa.gov/naif/
-which contains complete instructions for its installation on your system.
+C. Using the Library
 
-If you have installed cspice in /usr/local/cspice, then add that directory to the
-PKG_PATHS variable in your config.options file.  
-
-At the time of this writing, the cspice toolkit builds its library
-files without the "lib" prefix which is required by the GNU linker
-tools.  If you find that even after adding the cspice directory to
-your PKG_PATHS variable that Stereo Pipeline's configure script is
-still not finding it, visit your cspice's lib directory (e.g.
-/usr/local/cspice/lib/).  If that directory contains library files (*.a)
-that don't start with "lib", then you'll need to make some symbolic links,
-for example:
-
-ln -s cspice.a libcspice.a
-ln -s csupport.a libcsupport.a
+When you install the library it will place files into three
+subdirectories in the installation location.  The header files which
+you will need to develop software using the library are located in the
+"include/" subdirectory.  The compiled libraries, which you will need
+to link your software against, are located in the "lib/" subdirectory.
+You will need to configure your software development environment as
+appropriate to locate these files.  Finally, a number of command-line
+tools are provided in the "bin/" directory.  See the documentation for a
+complete list of the tools.
