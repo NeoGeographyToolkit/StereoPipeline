@@ -4,36 +4,42 @@
 A. Neo-Geography Toolkit
 
 The Neo-Geography Toolkit (NGT) is a collection of tools for automated
-processing of geospatial data, including images and maps. It is capable of
-processing raw raster data from remote sensing instruments and transforming it
-into useful cartographic products, such as visible image base maps, topographic
-models, etc. Additionally, components of the NGT can perform data processing on
-extremely large geospatial data sets (up to several tens of terabytes) via
-parallel processing pipelines. Finally, it can also transform raw metadata (i.e.
-SPICE kernels and PDS image labels), vector data (e.g., 2D/3D shape files), and
-geo-tagged data sets into standard NeoGeography data formats, such as KML.
-
-NGT is an evolving collection of loosely connected open-source modules designed
-by the NASA Ames Intelligent Robotics Group. Modules of the NGT will be released
-one at a time, as they reach maturity. To date, we have completed only one
-module: the NASA Ames Stereo Pipeline, but more will soon follow. Check this
-website for the latest updates.
+processing of geospatial data, including images and maps. It is capable
+of processing raw raster data from remote sensing instruments and
+transforming it into useful cartographic products, such as visible image
+base maps, topographic models, etc. Additionally, components of the NGT
+can perform data processing on extremely large geospatial data sets (up
+to several tens of terabytes) via parallel processing pipelines.
+Finally, it can also transform raw metadata (i.e.  SPICE kernels and PDS
+image labels), vector data (e.g., 2D/3D shape files), and geo-tagged
+data sets into standard NeoGeography data formats, such as KML.  NGT is
+an evolving collection of loosely connected open-source modules designed
+by the NASA Ames Intelligent Robotics Group. Modules of the NGT will be
+released one at a time, as they reach maturity. To date, we have
+completed only one module: the NASA Ames Stereo Pipeline, but more will
+soon follow. Check this website for the latest updates.
 
 B. Stereo Pipeline
 
 The NASA Ames Stereo Pipeline (ASP) is a suite of automated geodesy &
-stereogrammetry tools designed for processing planetary imagery captured from
-orbiting and landed robotic explorers on other planets. It was designed to
-process stereo imagery captured by NASA spacecraft and produce cartographic
-products including digital elevation models (DEMs), ortho-projected imagery, and
-3D models. These data products are suitable for science analysis, mission
-planning, and public outreach.
+stereogrammetry tools designed for processing planetary imagery captured
+from orbiting and landed robotic explorers on other planets. It was
+designed to process stereo imagery captured by NASA spacecraft and
+produce cartographic products including digital elevation models (DEMs),
+ortho-projected imagery, and 3D models. These data products are suitable
+for science analysis, mission planning, and public outreach.
 
-This version of the Stereo Pipeline is designed as an add-on to an existing
-installation of the USGS Integrated Software for Imagers and Spectrometers
-(ISIS). ISIS is widely used in the planetary science community for processing
-raw spacecraft imagery into high level data products of scientific interest such
-as map projected and mosaicked imagery.
+This version of the Stereo Pipeline is designed as an add-on to an
+existing installation of the USGS Integrated Software for Imagers and
+Spectrometers (ISIS). ISIS is widely used in the planetary science
+community for processing raw spacecraft imagery into high level data
+products of scientific interest such as map projected and mosaicked
+imagery.
+
+This version of the Stereo Pipeline is tested against ISIS version
+3.1.21. The Stereo Pipeline binary distribution requires this version.
+The source distribution recommends this version, but may work with other
+versions.
 
 ************************************************************************
 2. LICENSE (see COPYING for the full text)
@@ -70,14 +76,15 @@ third-party libraries that the user is expected to have installed.
 ************************************************************************
 3. DOCUMENTATION
 
-The primary source of documentation is the Stereo Pipeline Book, which
-is provided in source form along with this distribution.  It includes a
-gentle introduction to using the Stereo Pipeline, as well as
-documentation for each of its major processes.  A copy of this document
-in PDF format should be available from wherever you obtained this
-package.  The original source for this document can be found in
-"docs/book" and it can be built by running "make" in that directory.
-This operation requires the latex typesetting package.
+The primary source of documentation is the Stereo Pipeline Book. The
+binary distribution contains the book, named "asp_book.pdf", and the
+source distribution contains the LaTeX source of the book in the
+docs/book subdirectory.
+
+The book includes a gentle introduction to using the Stereo Pipeline, as
+well as documentation for each of its major processes.  A copy of this
+document in PDF format is also available from wherever you obtained this
+package.
 
 ************************************************************************
 4. CONTACTS & CREDITS
