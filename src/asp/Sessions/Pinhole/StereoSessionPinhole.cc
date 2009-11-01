@@ -238,9 +238,8 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(st
     else
       return epipolar_right_cahv;
   }
-
-  // Keypoint alignment
-  else if ( stereo_settings().keypoint_alignment ) {
+  else {
+    // Keypoint alignment and everything else just gets camera models
     if (boost::ends_with(boost::to_lower_copy(camera_file),".cahvor") ||
         boost::ends_with(boost::to_lower_copy(camera_file),".cmod") ) {
       return boost::shared_ptr<vw::camera::CameraModel>( new CAHVORModel(camera_file) );
@@ -254,8 +253,6 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(st
     }
 
 
-  } else {
-    vw_throw(ArgumentErr() << "PinholeStereoSession: no alignment method was selected in your stereo.default file..\n");
   }
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
