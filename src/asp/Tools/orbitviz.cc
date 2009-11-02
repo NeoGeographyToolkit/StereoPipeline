@@ -184,20 +184,24 @@ int main(int argc, char* argv[]) {
                          "plane_highlight" );
   }
   // Placemarks
-  for ( unsigned i = 0; i < camera_models.size(); i++ )
+  for ( unsigned i = 0; i < camera_models.size(); i++ ) {
+    cartography::XYZtoLonLatRadFunctor func;
+    Vector3 lon_lat_alt = func(camera_models[i]->camera_center(Vector2()));
     if (vm.count("use_path_to_dae_model"))
       kml.append_model( path_to_outside_model,
-                        camera_models[i]->camera_center(Vector2()),
+                        lon_lat_alt.x(), lon_lat_alt.y(),
                         camera_models[i]->camera_pose(Vector2()),
-                        camera_names[i], "", scale );
+                        camera_names[i], "",
+                        lon_lat_alt.z()*scale - 6371e3, scale );
     else {
-      // Converting to lon lat radius
-      cartography::XYZtoLonLatRadFunctor func;
-      Vector3 lon_lat_alt = func(camera_models[i]->camera_center(Vector2()));
       kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
                             camera_names[i], "", "camera_placemark",
                             lon_lat_alt.z()*scale - 6371e3, true );
     }
+
+    // Note to future programmer:
+    // 6371e3 meters is the radius of earth. Everything in GE appears to measured against this radius
+  }
   kml.close_kml();
   exit(0);
 }
