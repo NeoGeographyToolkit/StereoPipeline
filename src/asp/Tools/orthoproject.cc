@@ -112,7 +112,6 @@ int main(int argc, char* argv[]) {
   // to specify the type, size, help string, etc, of the command line
   // arguments.
   int debug_level;
-  unsigned cache_size;
   std::string dem_file, image_file, camera_model_file, output_file;
   std::string stereo_session_string;
   double mpp;
@@ -129,9 +128,8 @@ int main(int argc, char* argv[]) {
     ("match-dem,m", "Match the georeferencing parameters and dimensions of the input DEM.")
     ("min", po::value<float>(&lo), "Explicitly specify the range of the normalization (for ISIS images only).")
     ("max", po::value<float>(&hi), "Explicitly specify the range of the normalization (for ISIS images only).")
-    ("cache", po::value<unsigned>(&cache_size)->default_value(2048), "Cache size, in megabytes")
-    ("session-type,t", po::value<std::string>(&stereo_session_string)->default_value("pinhole"), "Select the stereo session type to use for processing. [default: pinhole]")
-    ("debug-level,d", po::value<int>(&debug_level)->default_value(vw::DebugMessage-1), "Set the debugging output level. (0-50+)");
+    ("session-type,t", po::value<std::string>(&stereo_session_string), "Select the stereo session type to use for processing. [default: pinhole]")
+    ("draw-debug,d", "Draw the normalized DEM that ortho is rasterizing on");
 
   po::options_description positional_options("Positional Options");
   positional_options.add_options()
@@ -161,10 +159,6 @@ int main(int argc, char* argv[]) {
     std::cout << visible_options << std::endl;
     return 1;
   }
-
-  // Set the Vision Workbench debug level
-  set_debug_level(debug_level);
-  vw_system_cache().resize( cache_size*1024*1024 ); // Set cache size
 
   // Create a fresh stereo session and query it for the camera models.
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
@@ -262,6 +256,7 @@ int main(int argc, char* argv[]) {
   // in these cases for now.
   double scale = 0;
   if (vm.count("ppd")) {
+    std::cout << "\tUsing PPD\n";
     if (dem_georef.is_projected()) {
       std::cout << "Input DEM is in a map projection.  Cannot specify resolution in pixels per degree.  Use meters per pixel (-mpp) instead.";
       exit(0);
@@ -269,6 +264,7 @@ int main(int argc, char* argv[]) {
       scale = 1/ppd;
     }
   } else if (vm.count("mpp")) {
+    std::cout << "\tUsing MPP\n";
     if (dem_georef.is_projected()) {
       scale = mpp;
     } else {
@@ -285,9 +281,12 @@ int main(int argc, char* argv[]) {
   // If the user has supplied a scale, we use it.  Otherwise, we
   // compute the optimal scale of image based on the camera model.
   if (scale == 0) {
+    std::cout << "Haven't supplied scale!\n";
     float lonlat_scale;
     BBox2 image_bbox = camera_bbox(dem_georef, camera_model, texture_image.cols(), texture_image.rows(), lonlat_scale);
+    std::cout << "Image BBox: " << image_bbox << std::endl;
     BBox2 dem_bbox = dem_georef.lonlat_bounding_box(dem);
+    std::cout << "DEM BBox: " << dem_bbox << std::endl;
 
     // Use a bbox where both the image and the DEM have valid data.
     // Throw an error if there turns out to be no overlap.
@@ -309,23 +308,43 @@ int main(int argc, char* argv[]) {
     // Convert the scale into the projected space
     scale = lonlat_scale * diff2 / diff1;
   }
+
+  double output_width = fabs(double(dem.cols()) * dem_georef.transform()(0,0)) / scale;
+  double output_height = fabs(double(dem.rows()) * dem_georef.transform()(1,1)) / scale;
+
   Matrix3x3 drg_trans = drg_georef.transform();
+  // This weird polarity checking is to make sure the output has been
+  // transposed after going through reprojection. Normally this is the
+  // case. Yet with grid data from GMT, it is not.     -ZMM
+  if ( drg_trans(0,0) < 0 ) {
+    drg_trans(0,2) += (output_width-1)*scale;
+  }
   drg_trans(0,0) = scale;
+  if ( drg_trans(1,1) > 0 ) {
+    drg_trans(1,2) += (output_height-1)*scale;
+  }
   drg_trans(1,1) = -scale;
   drg_georef.set_transform(drg_trans);
   std::cout << "DRG Transform: " << drg_georef.transform() << "\n";
 
-  double output_width = double(dem.cols()) * dem_georef.transform()(0,0) / drg_georef.transform()(0,0);
-  double output_height = double(dem.rows()) * dem_georef.transform()(1,1) / drg_georef.transform()(1,1);
+  std::cout << "Output WH: " << output_width << " " << output_height << std::endl;
+
   GeoTransform trans(dem_georef, drg_georef);
   ImageViewRef<PixelMask<PixelGray<float> > > output_dem = crop(transform(dem, trans,
                                                                           ZeroEdgeExtension(),
                                                                           BilinearInterpolation()),
                                                                 BBox2i(0,0,output_width,output_height));
+  if ( vm.count("draw-debug") ) {
+    write_image( camera_model_file+"_debug.tif", normalize(output_dem) );
+  }
+
+  std::cout << "Output DEM: " << output_dem.cols() << " " << output_dem.rows() << std::endl;
 
   ImageViewRef<PixelGrayA<uint8> > final_result = orthoproject(output_dem, drg_georef,
                                                                texture_image, camera_model,
                                                                BilinearInterpolation(), ZeroEdgeExtension());
+
+  std::cout << "Final Result: " << final_result.cols() << " " << final_result.rows() << std::endl;
 
   DiskImageResourceGDAL rsrc(output_file, final_result.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
   write_georeference(rsrc, drg_georef);
