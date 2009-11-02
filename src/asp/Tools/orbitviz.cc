@@ -69,13 +69,15 @@ int main(int argc, char* argv[]) {
   std::vector<std::string> input_files;
   std::string out_file;
   double scale;
+  std::string path_to_outside_model;
+  bool loading_image_camera_order = true;
 
   po::options_description visible_options("Options");
   visible_options.add_options()
     ("help,h", "Display this help message")
     ("output,o", po::value<std::string>(&out_file)->default_value("orbit.kml"), "The output kml file that will be written")
     ("scale,s", po::value<double>(&scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount. Ex: To scale moon alt. measures up to earth size, use 3.66")
-    ("use-simple-placemarks", "Draw simple icons at camera locations, instead of a coordinate model");
+    ("use_path_to_dae_model,u", po::value<std::string>(&path_to_outside_model), "Instead of using an icon to mark a camera, use a 3D model with extension .dae");
 
   po::options_description hidden_options("");
   hidden_options.add_options()
@@ -95,26 +97,39 @@ int main(int argc, char* argv[]) {
   // help, we print an usage message.
   std::ostringstream help;
   help << "\nUsage: " << argv[0] << " [options] <input image> <input camera model> <...and repeat...>\n\n";
-  help << "Note: All cameras and their images must be of the same session\ntype. Must have at least 2 cameras and models. In the event of\nusing just straight cubes with positioning information, leave a\nplace holder for camera model.\n\n";
+  help << "Note: All cameras and their images must be of the same session type. Camera models only can be used as input for stereo sessions pinhole and isis.";
   help << visible_options << std::endl;
+
+  // Determining if feed only camera model
+  if ( input_files.size() == 1 )
+    loading_image_camera_order = false;
+  else if ( input_files.size() > 1 ) {
+    std::string first_extension = input_files[0].substr( input_files[0].size()-4,4 );
+    if ( boost::iends_with(input_files[1], first_extension ) )
+      loading_image_camera_order = false;
+  }
 
   // Checking to see if the user flubbed
   if( vm.count("help") ||
-      input_files.size() < 2 ) {
+      input_files.size() == 0 ||
+      (loading_image_camera_order && input_files.size() < 2 ) ) {
     std::cout << help.str();
     return 1;
   }
 
   // Look up for session type based on file extensions
   if (stereo_session_string.size() == 0) {
-    if ( boost::iends_with(input_files[1], ".cahvor") ||
-         boost::iends_with(input_files[1], ".cahv") ||
-         boost::iends_with(input_files[1], ".pin") ||
-         boost::iends_with(input_files[1], ".tsai") ) {
+    int testing_i = 0;
+    if ( loading_image_camera_order )
+      testing_i = 1;
+    if ( boost::iends_with(input_files[testing_i], ".cahvor") ||
+         boost::iends_with(input_files[testing_i], ".cahv") ||
+         boost::iends_with(input_files[testing_i], ".pin") ||
+         boost::iends_with(input_files[testing_i], ".tsai") ) {
       vw_out(0) << "\t--> Detected pinhole camera file\n";
       stereo_session_string = "pinhole";
     }
-    else if (boost::iends_with(input_files[0], ".cub") ) {
+    else if (boost::iends_with(input_files[testing_i], ".cub") ) {
       vw_out(0) << "\t--> Detected ISIS cube file\n";
       stereo_session_string = "isis";
     }
@@ -127,18 +142,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  // Additional Error checks on arguments
-  bool cube_only_isis = false;
-  if ( stereo_session_string != "isis" && input_files.size() < 4 ) {
-    std::cout << help.str();
-    return 1;
-  } else if ( "isis" && boost::iends_with(input_files[1], ".cub") )
-    cube_only_isis = true;
-
   StereoSession* session = StereoSession::create(stereo_session_string);
 
   // Data to be loaded
-  unsigned no_cameras = cube_only_isis ? input_files.size() : input_files.size() / 2;
+  unsigned no_cameras = loading_image_camera_order ? input_files.size()/2 : input_files.size();
   std::cout << "Number of cameras: " << no_cameras << std::endl;
   std::vector<boost::shared_ptr<camera::CameraModel> > camera_models(no_cameras);
   std::vector<std::string> camera_names(no_cameras);
@@ -147,27 +154,27 @@ int main(int argc, char* argv[]) {
   for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
        load_i++) {
     camera_names[load_i] = input_files[read_i];
-    read_i += cube_only_isis ? 1 : 2;
+    read_i += loading_image_camera_order ? 2 : 1;
   }
 
   // Building Camera Models
   for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
        load_i++) {
-    if (cube_only_isis) {
-      camera_models[load_i] = session->camera_model( input_files[read_i],
-                                                     input_files[read_i] );
-      read_i++;
-    } else {
+    if (loading_image_camera_order) {
       camera_models[load_i] = session->camera_model( input_files[read_i],
                                                      input_files[read_i+1] );
       read_i+=2;
+    } else {
+      camera_models[load_i] = session->camera_model( input_files[read_i],
+                                                     input_files[read_i] );
+      read_i++;
     }
   }
 
   // Create the KML file.
   KMLFile kml( out_file, "orbitviz" );
   // Style listing
-  if (vm.count("use-simple-placemarks")) {
+  if ( !vm.count("use_path_to_dae_model")) {
     // Placemark Style
     kml.append_style( "plane", "", 1.2,
                       "http://maps.google.com/mapfiles/kml/shapes/airports.png");
@@ -178,10 +185,11 @@ int main(int argc, char* argv[]) {
   }
   // Placemarks
   for ( unsigned i = 0; i < camera_models.size(); i++ )
-    if (!vm.count("use-simple-placemarks"))
-      kml.append_coordinate( camera_models[i]->camera_center(Vector2()),
-                             camera_models[i]->camera_pose(Vector2()),
-                             camera_names[i], "", scale );
+    if (vm.count("use_path_to_dae_model"))
+      kml.append_model( path_to_outside_model,
+                        camera_models[i]->camera_center(Vector2()),
+                        camera_models[i]->camera_pose(Vector2()),
+                        camera_names[i], "", scale );
     else {
       // Converting to lon lat radius
       cartography::XYZtoLonLatRadFunctor func;
