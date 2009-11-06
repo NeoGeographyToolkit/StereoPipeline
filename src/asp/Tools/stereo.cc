@@ -7,8 +7,10 @@
 
 /// \file stereo.cc
 ///
+#define USE_GRAPHICS
 
 #include <asp/Tools/stereo.h>
+
 
 void print_usage(po::options_description const& visible_options) {
   vw_out(0) << "\nUsage: stereo [options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n"
@@ -55,7 +57,6 @@ correlator_helper( DiskImageView<PixelGray<float> > & left_disk_image,
 // MAIN
 //***********************************************************************
 int main(int argc, char* argv[]) {
-
   TerminateHandler th[] = {BacktraceTerminate, PrettyTerminate, DefaultTerminate};
 
   for (int i = 0; i < 3; ++i)
@@ -530,15 +531,36 @@ int main(int argc, char* argv[]) {
         // LogPreprocessingFilter...
         vw_out(0) << "\t--> Using EM Subpixel mode " << stereo_settings().subpixel_mode << std::endl;
         vw_out(0) << "\t--> Mode 3 does internal preprocessing; settings will be ignored. " << std::endl;
-        write_image("course_map.tif", disparity_disk_image);
-        disparity_map = stereo::EMSubpixelCorrelatorView<float32>(channels_to_planes(left_disk_image),
-        channels_to_planes(right_disk_image),
-        disparity_disk_image, false);
+        	
+	stereo::EMSubpixelCorrelatorView<float32> em_correlator(channels_to_planes(left_disk_image),
+								channels_to_planes(right_disk_image),
+								disparity_disk_image, 2);
+	em_correlator.set_em_iter_max(10);
+	em_correlator.set_inner_iter_max(3);
+	em_correlator.set_kernel_size(Vector2i(stereo_settings().subpixel_h_kern,
+					       stereo_settings().subpixel_v_kern));
+	em_correlator.set_pyramid_levels(1);
+	em_correlator.set_debug_region(BBox2i(25,25,1,1));
+
+	
+	ImageViewRef<PixelMask<Vector<float, 5> > > em_temp = em_correlator;
+	
+	disparity_map = per_pixel_filter(em_temp, stereo::EMSubpixelCorrelatorView<float32>::ExtractDisparityFunctor());
+	
+	/*
+	
+	DiskImageResourceOpenEXR em_disparity_map_rsrc(out_prefix + "-F5.exr");
+	block_write_image(em_disparity_map_rsrc, em_correlator,
+			  TerminalProgressCallback(InfoMessage, "\t--> EM Refinement :"));
+	
+	DiskImageView<PixelMask<Vector<float, 5> > > em_disparity_disk_image(out_prefix + "-F5.exr");
+	*/
+	//per_pixel_filter(em_correlator, stereo::EMSubpixelCorrelatorView<float32>::ExtractDisparityFunctor());
       } else {
         vw_out(0) << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << std::endl;
         vw_out(0) << "\t--> Doing nothing\n";
       }
-
+      
       // Create a disk image resource and prepare to write a tiled
       // OpenEXR.
       DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
