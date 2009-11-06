@@ -7,7 +7,6 @@
 
 /// \file stereo.cc
 ///
-#define USE_GRAPHICS
 
 #include <asp/Tools/stereo.h>
 
