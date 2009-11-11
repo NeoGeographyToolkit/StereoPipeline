@@ -111,7 +111,6 @@ int main(int argc, char* argv[]) {
   // Boost has a nice command line parsing utility, which we use here
   // to specify the type, size, help string, etc, of the command line
   // arguments.
-  int debug_level;
   std::string dem_file, image_file, camera_model_file, output_file;
   std::string stereo_session_string;
   double mpp;
@@ -280,54 +279,49 @@ int main(int argc, char* argv[]) {
 
   // If the user has supplied a scale, we use it.  Otherwise, we
   // compute the optimal scale of image based on the camera model.
-  if (scale == 0) {
-    std::cout << "Haven't supplied scale!\n";
-    float lonlat_scale;
-    BBox2 image_bbox = camera_bbox(dem_georef, camera_model, texture_image.cols(), texture_image.rows(), lonlat_scale);
-    std::cout << "Image BBox: " << image_bbox << std::endl;
-    BBox2 dem_bbox = dem_georef.lonlat_bounding_box(dem);
-    std::cout << "DEM BBox: " << dem_bbox << std::endl;
+  BBox2 projection_bbox, dem_bbox;
+  {
+    float mpp_auto_scale;
+    BBox2 image_bbox = camera_bbox(dem_georef, camera_model, texture_image.cols(), texture_image.rows(), mpp_auto_scale);
+    dem_bbox = dem_georef.bounding_box(dem);
 
     // Use a bbox where both the image and the DEM have valid data.
     // Throw an error if there turns out to be no overlap.
-    BBox2 bbox = image_bbox;
-    bbox.crop(dem_bbox);
+    projection_bbox = image_bbox;
+    projection_bbox.crop(dem_bbox);
 
-    if (bbox.width() == 0 || bbox.height() == 0) {
+    std::cout << "Intersect BBox: " << projection_bbox << std::endl;
+
+    if ( projection_bbox.width() == 0 ||
+         projection_bbox.height() == 0) {
       std::cout << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
       exit(0);
     }
 
-    float diff1 = bbox.max().x()-bbox.min().x();
+    if ( scale == 0 ) {
+      std::cout << "Recommended MPP Scale: " << mpp_auto_scale << std::endl;
+      scale = mpp_auto_scale;
+    }
 
-    // Convert the lon/lat bounding box into the map projection.
-    bbox.min() = dem_georef.lonlat_to_point(bbox.min());
-    bbox.max() = dem_georef.lonlat_to_point(bbox.max());
-    float diff2 = bbox.max().x()-bbox.min().x();
-
-    // Convert the scale into the projected space
-    scale = lonlat_scale * diff2 / diff1;
   }
 
-  double output_width = fabs(double(dem.cols()) * dem_georef.transform()(0,0)) / scale;
-  double output_height = fabs(double(dem.rows()) * dem_georef.transform()(1,1)) / scale;
+  double output_width = projection_bbox.width() / scale;
+  double output_height = projection_bbox.height() / scale;
 
   Matrix3x3 drg_trans = drg_georef.transform();
+  // Fixing for translation
+  drg_trans(0,2) = projection_bbox.min().x();
+  drg_trans(1,2) = projection_bbox.min().y();
   // This weird polarity checking is to make sure the output has been
   // transposed after going through reprojection. Normally this is the
   // case. Yet with grid data from GMT, it is not.     -ZMM
-  if ( drg_trans(0,0) < 0 ) {
-    drg_trans(0,2) += (output_width-1)*scale;
-  }
+  if ( drg_trans(0,0) < 0 )
+    drg_trans(0,2) = projection_bbox.max().x();
   drg_trans(0,0) = scale;
-  if ( drg_trans(1,1) > 0 ) {
-    drg_trans(1,2) += (output_height-1)*scale;
-  }
+  if ( drg_trans(1,1) > 0 )
+    drg_trans(1,2) = projection_bbox.max().y();
   drg_trans(1,1) = -scale;
   drg_georef.set_transform(drg_trans);
-  std::cout << "DRG Transform: " << drg_georef.transform() << "\n";
-
-  std::cout << "Output WH: " << output_width << " " << output_height << std::endl;
 
   GeoTransform trans(dem_georef, drg_georef);
   ImageViewRef<PixelMask<PixelGray<float> > > output_dem = crop(transform(dem, trans,
