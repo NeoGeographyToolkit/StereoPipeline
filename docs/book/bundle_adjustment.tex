@@ -157,7 +157,7 @@ not required.
 
 \begin{description}
 
-\item[\texttt{--cnet|-c \textit{control-network-file}}] \hfill \\
+\item[\texttt{-\/-cnet|-c \textit{control-network-file}}] \hfill \\
   \emph{Optional.} This option will force {\tt isis\_adjust} to
   use a pre-built built control network. This control network can
   either be in the \ac{USGS} \ac{ISIS} ``cnet'' format or in the binary Vision
@@ -169,7 +169,7 @@ not required.
   \texttt{isis\_adjust} program will then create its own control
   network file and save it as \texttt{isis\_adjust.cnet}.
 
-\item[\texttt{--cost-function L1|L2|Cauchy|Huber|PseudoHuber(=L2)} ] \hfill \\
+\item[\texttt{-\/-cost-function L1|L2|Cauchy|Huber|PseudoHuber(=L2)} ] \hfill \\
   Sets the cost function used for bundle adjustment. Default is \texttt{L2}
   which is the normal squared error. The full list of available options
   are:
@@ -187,7 +187,7 @@ not required.
   cost functions are performed by post-weighting the original errors yet
   still using equations derived for squared error.
 
-\item[\texttt{--bundle-adjuster Ref|Sparse|RobustRef|RobustSparse(=Sparse)}] \hfill \\
+\item[\texttt{-\/-bundle-adjuster Ref|Sparse|RobustRef|RobustSparse(=Sparse)}] \hfill \\
   Sets the bundle adjustment code to be used. The standard to use is
   \texttt{Sparse}, which is a traditional squared error derived method that
   utilizes sparse matrices to obtain speed. Here are the complete list
@@ -206,24 +206,24 @@ not required.
   adjustment algorithms are still experimental and are a work in
   progress.
 
-\item[\texttt{--disable-camera-const}] \hfill \\
+\item[\texttt{-\/-disable-camera-const}] \hfill \\
   \emph{Optional.} This disables the camera constraint error. Useful
   for debugging and just exploring what are the effects of this cost
   function.
 
-\item[\texttt{--disable-gcp-const}] \hfill \\
+\item[\texttt{-\/-disable-gcp-const}] \hfill \\
   \emph{Optional.} This disables the \ac{GCP} constraint error even
   if \acp{GCP} are provided. Useful for debugging and just exploring
   what the effects are of \acp{GCP}.
 
-\item[\texttt{--gcp-scalar \textit{multiplier(=1)}}] \hfill \\
+\item[\texttt{-\/-gcp-scalar \textit{multiplier(=1)}}] \hfill \\
   \emph{Optional.} Sets the multiplier that is used to adjust the
   sigma (or uncertainty) of the \aclp{GCP}. The sigmas of
   \aclp{GCP} are defined in the \ac{GCP} data file, so this
   option is useful when debugging for universally scaling \ac{GCP} sigmas
   up or down.
 
-\item[\texttt{--lambda|-l \textit{float}}] \hfill \\
+\item[\texttt{-\/-lambda|-l \textit{float}}] \hfill \\
   \emph{Optional.} This sets the starting value for $\lambda$: the
   parameter in the Levenberg Marquardt (LMA) optimization algorithm
   that selects between Gauss-Newton optimization and gradient
@@ -231,13 +231,13 @@ not required.
   argument can be used to override its initial value. \emph{This is an
   advanced setting, not recommended for normal use.}
 
-\item[\texttt{--min-matches \textit{integer(=5)}}] \hfill \\
+\item[\texttt{-\/-min-matches \textit{integer(=5)}}] \hfill \\
   Set the minimum number of tie-points that are required between a
   pair of images for them to be included in the control network. This
   option is useful for eliminating tie-points from image pairs that
   have only a handful of poor or erroneous matches.
 
-\item[\texttt{--max-iterations \textit{integer(=25)}}] \hfill \\
+\item[\texttt{-\/-max-iterations \textit{integer(=25)}}] \hfill \\
   Sets the maximum number of iterations for bundle adjustment. The
   number of required iterations will vary by problem size, so this
   parameter allows the user to decide how much time they're willing
@@ -246,7 +246,7 @@ not required.
   tens or hundreds of iterations may be required for problems with
   hundreds or thousands of images.
 
-\item[\texttt{--poly-order \textit{integer(=0)}}] \hfill \\
+\item[\texttt{-\/-poly-order \textit{integer(=0)}}] \hfill \\
   \emph{Optional.} Sets the order of the polynomial that is used for
   adjustment. Using zero means only apply offset to the camera
   parameters that are not time dependent. That setting is recommend
@@ -257,15 +257,15 @@ not required.
     beyond a 2nd order polynomial would be ill-defined. 3rd order may
     work with a good dose of ground control points.}
 
-\item[\texttt{--position-sigma \textit{float(=100)}}] \hfill \\
+\item[\texttt{-\/-position-sigma \textit{float(=100)}}] \hfill \\
   Sets the sigma (or uncertainty) of the spacecraft position in
   units of meters.
 
-\item[\texttt{--pose-sigma \textit{float(=0.1)}}] \hfill \\
+\item[\texttt{-\/-pose-sigma \textit{float(=0.1)}}] \hfill \\
   Sets the sigma (or uncertainty) of the spacecraft pose in units
   of radians.
 
-\item[\texttt{--report-level|-r \textit{integer(=10)}}] \hfill \\
+\item[\texttt{-\/-report-level|-r \textit{integer(=10)}}] \hfill \\
   \emph{Optional.} Sets the report level for the final bundle
   adjustment report.  This report is saved as
   \texttt{isis\_adjust.report}. Report levels available are:
@@ -281,24 +281,24 @@ not required.
     \item[110 - Debug, Write Jacobian Matrix (massive human readable)]
   \end{description}
 
-\item[\texttt{--robust-threshold \textit{float(=10)}}] \hfill \\
+\item[\texttt{-\/-robust-threshold \textit{float(=10)}}] \hfill \\
   Sets the robust threshold; an additional parameter specifically for
-  the \texttt{PseudoHuber}, \texttt{Huber}, and \texttt{Cauchy} arguments to the   \texttt{--cost-function} option.
+  the \texttt{PseudoHuber}, \texttt{Huber}, and \texttt{Cauchy} arguments to the   \texttt{-\/-cost-function} option.
 
-\item[\texttt{--save-iteration-data|-s}] \hfill \\
+\item[\texttt{-\/-save-iteration-data|-s}] \hfill \\
   \emph{Optional.} Use to write {\tt bundlevis} visualization files.
 
-\item[\texttt{--seed-with-previous}] \hfill \\
+\item[\texttt{-\/-seed-with-previous}] \hfill \\
   \emph{Optional.} Loads up the previous {\tt isis\_adjust} session's
   adjustment file and uses them as a starting point for this session.
 
-\item[\texttt{--write-isis-cnet-also}] \hfill \\
+\item[\texttt{-\/-write-isis-cnet-also}] \hfill \\
   \emph{Optional.} Write an \ac{ISIS} \ac{PVL} style control network file to
   \texttt{isis\_adjust.net}. The output file is very large compared to
   the binary output, \texttt{isis\_adjust.cnet}, but is human readable
   and compatible with the \ac{ISIS} 3 \texttt{qnet} tool.
 
-\item[\texttt{--write-kml [0|1(=0)]}] \hfill \\
+\item[\texttt{-\/-write-kml [0|1(=0)]}] \hfill \\
   \emph{Optional.} Providing this option with a zero will have the
   program write a \ac{KML} file showing the location of all the \acp{GCP}
   and be colored according to their final error. Providing this
@@ -307,7 +307,7 @@ not required.
   for having a quick visualization of where stress points might exist in
   a bundle adjustment problem when there are many cameras.
 
-\item[\texttt{--help|-h}] \hfill \\
+\item[\texttt{-\/-help|-h}] \hfill \\
   Provides a shortened list of the above.
 
 \end{description}
@@ -353,7 +353,7 @@ implosion (the resulting terrain looks unrecognizably noisy). This
 most often results from a high number of outlying, bad tie-point
 measurements. These bad constraints can be removed by hand or
 mitigated using one of the robust cost modes (e.g. by using the
-\texttt{--cost-function} argument for \texttt{isis\_adjust}).
+\texttt{-\/-cost-function} argument for \texttt{isis\_adjust}).
 
 \subsection{Options}
 
@@ -362,46 +362,46 @@ that can be given to \texttt{bundlevis} from the command line.
 
 \begin{description}
 
-\item[\texttt{--camera-iteration-file|-c \textit{bundlevis-camera-iteration-file}}] \hfill \\
+\item[\texttt{-\/-camera-iteration-file|-c \textit{bundlevis-camera-iteration-file}}] \hfill \\
   \emph{Optional.} Supply a camera iteration file that was produced by
        \texttt{isis\_adjust}.  \texttt{bundlevis} will only draw cameras
        if you supply a camera iteration file.
 
-\item[\texttt{--points-iteration-file|-p \textit{bundlevis-point-iteration-file}}] \hfill \\
+\item[\texttt{-\/-points-iteration-file|-p \textit{bundlevis-point-iteration-file}}] \hfill \\
   \emph{Optional.} Supply a point iteration file that was produced by
        \texttt{isis\_adjust}.  \texttt{bundlevis} will only draw 3D points
        if you supply a point iteration file.
 
-\item[\texttt{--control-network-file|-n \textit{Vision-Workbench-binary-control-network-file}}] \hfill \\
+\item[\texttt{-\/-control-network-file|-n \textit{Vision-Workbench-binary-control-network-file}}] \hfill \\
   \emph{Optional.} Supply a control network file that was produced by
        {\tt isis\_adjust}.  This allows {\tt bundlevis} to show the
        relationship between points and cameras when used in
-       conjunction with \texttt{--camera-iteration-file} and
-       \texttt{--points-iteration-file}.
+       conjunction with \texttt{-\/-camera-iteration-file} and
+       \texttt{-\/-points-iteration-file}.
 
-\item[\texttt{--additional-pnt-files \textit{bundlevis-point-iteration-files}}] \hfill \\
+\item[\texttt{-\/-additional-pnt-files \textit{bundlevis-point-iteration-files}}] \hfill \\
   \emph{Optional.} Supply additional points to be animated alongside
   the camera and 3D points.  The files given must be in the same
   format as a \texttt{bundlevis} point iteration file and have the same number
   of iterations.
 
-\item[\texttt{--fullscreen}] \hfill \\
+\item[\texttt{-\/-fullscreen}] \hfill \\
   \emph{Optional.} Displays \texttt{bundlevis} using the entire screen;
   otherwise the program loads in a window. \emph{The fullscreen option
     does not work correctly with dual screen systems.}
 
-\item[\texttt{--stereo}] \hfill \\
+\item[\texttt{-\/-stereo}] \hfill \\
   \emph{Optional.} Render the 3D scene in red/blue anaglyph mode.
 
-\item[\texttt{--show-moon}] \hfill \\
+\item[\texttt{-\/-show-moon}] \hfill \\
   \emph{Optional.} Draws a wireframe sphere with a radius of 1737.3~km
   that represents the Moon.
 
-\item[\texttt{--show-mars}] \hfill \\
+\item[\texttt{-\/-show-mars}] \hfill \\
   \emph{Optional.} Draws a wireframe sphere with a radius of 3397~km
   that represents Mars.
 
-\item[\texttt{--show-earth}] \hfill \\
+\item[\texttt{-\/-show-earth}] \hfill \\
   \emph{Optional.} Draws a wireframe sphere that represents the Earth.
 
 \end{description}
@@ -649,7 +649,7 @@ The other lines describe where this \ac{GCP} is found in each image:
 Make a {\tt .gcp} file for every ground control point, then be sure
 to feed them as an input to {\tt isis\_adjust}. Remember that you
 can scale the sigma of all ground control points by using the {\tt
---gcp-scalar} flag. This can save time by allowing you to make
+-\/-gcp-scalar} flag. This can save time by allowing you to make
 adjustments without needing to edit all of the files individually.
 
 \subsection{Sharing Data with ISIS 3's qnet program}

@@ -531,7 +531,7 @@ The \texttt{point2dem} program (page \pageref{point2dem}) creates a
 \noindent
 The resulting TIFF file is map projected and will contain
 georeferencing information stored as GeoTIFF tags.  The
-``--xyz-to-lonlat'' option is {\em required} in most common uses, as
+\texttt{-\/-xyz-to-lonlat} option is {\em required} in most common uses, as
 it transforms the results from a Cartesian, body-centered coordinate
 system to the longitude, latitude, altitude spherical coordinate
 system.  You can specify a coordinate system (e.g., mercator,
@@ -550,7 +550,7 @@ pixels, and will not render well in typical image viewers.
 
 The \texttt{point2dem} program can also be used to orthoproject raw
 satellite imagery onto the \ac{DEM}. To do this, invoke
-\texttt{point2dem} just as before, but add the \texttt{--orthoimage}
+\texttt{point2dem} just as before, but add the \texttt{-\/-orthoimage}
 option and specify the use of the left image file as the texture file
 to use for the projection:
 
@@ -576,7 +576,7 @@ sure to explore all of the options.
         \texttt{-n} option), which shows low terrain values as black
         and high terrain values as white.  The image on the right is
         the left input image projected onto the DEM (created using the
-        \texttt{--orthoimage} option to \texttt{point2dem}).  }
+        \texttt{-\/-orthoimage} option to \texttt{point2dem}).  }
 \end{minipage} 
 \hfill
 \end{figure}
