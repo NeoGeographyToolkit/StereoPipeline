@@ -164,7 +164,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   std::string tex_file;
   if ( init_tex_file.size() ) {
     DiskImageView<PixelGray<uint8> > previous_texture(init_tex_file);
-    tex_file = "point2mesh_texture";
+    tex_file = prefix_from_pointcloud_filename(init_tex_file) + "-tex";
     if (point_image.impl().cols() > 4096 ||
         point_image.impl().rows() > 4096 ) {
       std::cout << "Resampling to reduce texture size:\n";
