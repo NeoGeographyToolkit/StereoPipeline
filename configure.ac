@@ -281,6 +281,7 @@ AX_APP(BUNDLEVIS,      [src/asp/Tools], no,  [BOOST_COMMON OPENSCENEGRAPH VW VW_
 AX_APP(ISISADJUST,     [src/asp/Tools], yes, [CORE ISISIO])
 AX_APP(RESULTS,        [src/asp/Tools], yes, [ISISIO])
 AX_APP(RECONSTRUCT,    [src/asp/Tools], no,  [BOOST_ALL VW VW_CARTOGRAPHY])
+AX_APP(ALIGNDEM,       [src/asp/Tools], yes, [BOOST_COMMON VW VW_CARTOGRAPHY VW_INTEREST_POINT])
 
 
 # These are here (instead of inside the APP macro where they belong)
@@ -304,6 +305,7 @@ AM_CONDITIONAL(MAKE_APP_BUNDLEVIS, [test "$MAKE_APP_BUNDLEVIS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_ISISADJUST, [test "$MAKE_APP_ISISADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RECONSTRUCT, [test "$MAKE_APP_RECONSTRUCT" = "yes"])
+AM_CONDITIONAL(MAKE_APP_ALIGNDEM, [test "$MAKE_APP_ALIGNDEM" = "yes"])
 
 ##################################################
 # final processing

@@ -89,6 +89,12 @@ if MAKE_APP_RECONSTRUCT
   reconstruct_LDADD = $(APP_RECONSTRUCT_LIBS)
 endif
 
+if MAKE_APP_ALIGNDEM
+  bin_PROGRAMS += aligndem
+  aligndem_SOURCES = aligndem.cc
+  aligndem_LDADD = $(APP_ALIGNDEM_LIBS)
+endif
+
 ##############################################################################
 #                             Tests                                          #
 ##############################################################################
