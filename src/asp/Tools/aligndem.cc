@@ -30,6 +30,67 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+template <class DemAccT>
+class DemToPointAccessor {
+  DemAccT m_dem_acc;
+  GeoReference m_georef;
+  int m_i, m_j;
+public:
+  typedef Vector3 pixel_type;
+  typedef pixel_type result_type;
+  DemToPointAccessor( DemAccT dem_acc, GeoReference georef ) : m_dem_acc(dem_acc), m_georef(georef), m_i(0), m_j(0) {}
+
+  inline DemToPointAccessor& next_col() { m_dem_acc.advance(  1, 0 ); m_i++; return *this; }
+  inline DemToPointAccessor& prev_col() { m_dem_acc.advance( -1, 0 ); m_i--; return *this; }
+  inline DemToPointAccessor& next_row() { m_dem_acc.advance( 0,  1 ); m_j++; return *this; }
+  inline DemToPointAccessor& prev_row() { m_dem_acc.advance( 0, -1 ); m_j--; return *this; }
+  inline DemToPointAccessor& next_plane() { m_dem_acc.next_plane(); return *this; }
+  inline DemToPointAccessor& prev_plane() { m_dem_acc.prev_plane(); return *this; }
+  inline DemToPointAccessor& advance( ptrdiff_t di, ptrdiff_t dj, ptrdiff_t dp=0 ) { m_dem_acc.advance(di,dj,dp); m_i += di; m_j += dj; return *this; }
+
+  inline result_type operator*() const { 
+    Vector2 lonlat = m_georef.point_to_lonlat(m_georef.pixel_to_point(Vector2(m_i, m_j)));
+    return Vector3(lonlat.x(), lonlat.y(), *m_dem_acc); 
+  }
+};
+
+template <class DemT>
+class DemToPointView : public ImageViewBase<DemToPointView<DemT> > {
+  DemT m_dem;
+  GeoReference m_georef;
+                       
+  public:
+    typedef Vector3 pixel_type;
+    typedef pixel_type result_type;
+    typedef DemToPointAccessor<typename DemT::pixel_accessor> pixel_accessor;
+
+    DemToPointView(DemT const& dem, GeoReference georef) : m_dem(dem), m_georef(georef) {}
+
+    inline int32 cols() const { return m_dem.cols(); }
+    inline int32 rows() const { return m_dem.rows(); }
+    inline int32 planes() const { return m_dem.planes(); }
+
+    inline pixel_accessor origin() const { return pixel_accessor(m_dem.origin(), m_georef); }
+    inline result_type operator()( int32 i, int32 j, int32 p=0 ) const {
+      Vector2 lonlat = m_georef.point_to_lonlat(m_georef.pixel_to_point(Vector2(i, j)));
+      return Vector3(lonlat.x(), lonlat.y(), m_dem(i, j, p));
+    }
+  
+    /// \cond INTERNAL 
+    typedef DemToPointView prerasterize_type;
+    inline prerasterize_type prerasterize( BBox2i const& ) const { return *this; } 
+    template <class DestT> 
+    inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { 
+      vw::rasterize(prerasterize(bbox), dest, bbox); 
+    }
+    /// \endcond
+};
+
+template <class DemT>
+inline DemToPointView<DemT> dem_to_point(DemT const& dem, GeoReference georef) {
+  return DemToPointView<DemT>(dem, georef);
+}
+
 // Draw the two images side by side with matching interest points
 // shown with lines.
 static void write_match_image(std::string out_file_name,
@@ -208,6 +269,8 @@ int main( int argc, char *argv[] ) {
                         dem1_rsrc(dem1_name), dem2_rsrc(dem2_name);
 
   DiskImageView<double> dem1_dmg(dem1_name), dem2_dmg(dem2_name);
+  InterpolationView<EdgeExtensionView<DiskImageView<double>, ZeroEdgeExtension>, BilinearInterpolation> dem1_interp = interpolate(dem1_dmg, BilinearInterpolation(), ZeroEdgeExtension());
+  InterpolationView<EdgeExtensionView<DiskImageView<double>, ZeroEdgeExtension>, BilinearInterpolation> dem2_interp = interpolate(dem2_dmg, BilinearInterpolation(), ZeroEdgeExtension());
 
   GeoReference ortho1_georef, ortho2_georef, dem1_georef, dem2_georef;
   read_georeference(ortho1_georef, ortho1_rsrc);
@@ -221,38 +284,37 @@ int main( int argc, char *argv[] ) {
   
   vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
 
-  std::vector<Vector4> ransac_ip1, ransac_ip2;
+  std::vector<Vector3> ransac_ip1, ransac_ip2;
 
   for (unsigned i = 0; i < matched_ip1.size(); i++) {
-    Vector2 point1 = ortho1_georef.pixel_to_point(Vector2(matched_ip1[i].x, matched_ip1[i].y));
-    Vector2 point2 = ortho2_georef.pixel_to_point(Vector2(matched_ip2[i].x, matched_ip2[i].y));
+    Vector2 point1 = ortho1_georef.point_to_lonlat(ortho1_georef.pixel_to_point(Vector2(matched_ip1[i].x, matched_ip1[i].y)));
+    Vector2 point2 = ortho2_georef.point_to_lonlat(ortho2_georef.pixel_to_point(Vector2(matched_ip2[i].x, matched_ip2[i].y)));
 
-    Vector2 dem_pixel1_d = dem1_georef.point_to_pixel(point1);
-    Vector2 dem_pixel2_d = dem2_georef.point_to_pixel(point2);
+    Vector2 dem_pixel1 = dem1_georef.point_to_pixel(dem1_georef.lonlat_to_point(point1));
+    Vector2 dem_pixel2 = dem2_georef.point_to_pixel(dem2_georef.lonlat_to_point(point2));
 
-    Vector2i dem_pixel1(lround(dem_pixel1_d.x()), lround(dem_pixel1_d.y()));
-    Vector2i dem_pixel2(lround(dem_pixel2_d.x()), lround(dem_pixel2_d.y()));
-
-    if (BBox2i(0, 0, dem1_dmg.rows(), dem1_dmg.cols()).contains(dem_pixel1) &&
-        BBox2i(0, 0, dem2_dmg.rows(), dem2_dmg.cols()).contains(dem_pixel2)) {
-      ransac_ip1.push_back(Vector4(point1.x(), point1.y(), dem1_dmg(dem_pixel1.x(), dem_pixel1.y()), 1));
-      ransac_ip2.push_back(Vector4(point2.x(), point2.y(), dem2_dmg(dem_pixel2.x(), dem_pixel2.y()), 1));
+    if (BBox2i(0, 0, dem1_dmg.cols(), dem1_dmg.rows()).contains(dem_pixel1) &&
+        BBox2i(0, 0, dem2_dmg.cols(), dem2_dmg.rows()).contains(dem_pixel2)) {
+      ransac_ip1.push_back(lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), dem1_interp(dem_pixel1.x(), dem_pixel1.y()))));
+      ransac_ip2.push_back(lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), dem2_interp(dem_pixel2.x(), dem_pixel2.y()))));
     }
   }
 
   std::vector<int> indices;
   Matrix<double> trans;
   math::RandomSampleConsensus<math::AffineFittingFunctorN<3>,math::HomogeneousL2NormErrorMetric<3> >
-    ransac( math::AffineFittingFunctorN<3>(), math::HomogeneousL2NormErrorMetric<3>(), 1 );
-  trans = ransac( ransac_ip1, ransac_ip2 );
-  indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
+    ransac( math::AffineFittingFunctorN<3>(), math::HomogeneousL2NormErrorMetric<3>(), 5);
+  trans = ransac(ransac_ip1, ransac_ip2);
+  indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2);
   
   vw_out(0) << "\t    * Ransac Result: " << trans << "\n";
   vw_out(0) << "\t                     # inliers: " << indices.size() << "\n";
 
-  /* debug
+  ImageViewRef<Vector3> point1 = dem_to_point(dem1_dmg, dem1_georef);
+
+  /*
   for (unsigned i = 0; i < indices.size(); i++) {
-    cout << ransac_ip1[indices[i]].x() << ", " << ransac_ip2[indices[i]].x() << endl;
+    cout << trans*Vector4(ransac_ip1[indices[i]].x(),ransac_ip1[indices[i]].y(),ransac_ip1[indices[i]].z(),1) << ", " << ransac_ip2[indices[i]] << endl;
   }
   */
 
