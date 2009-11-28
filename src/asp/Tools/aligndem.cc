@@ -30,6 +30,29 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
+class PointCloudTransformFunctor : public ReturnFixedType<Vector3> {
+    Matrix<double> m_trans;
+  public:
+    PointCloudTransformFunctor(Matrix<double> trans) : m_trans(trans) {}
+
+    template <class ArgT>
+    inline Vector3 operator()(ArgT pt) const {
+      if (pt == Vector3())
+        return pt;
+      Vector4 result = m_trans * Vector4(pt.x(), pt.y(), pt.z(), 1);
+      if (result[3] != 1)
+        result /= result[3];
+      return Vector3(result.x(), result.y(), result.z());
+    } 
+};
+
+template <class ImageT>
+inline UnaryPerPixelView<ImageT, PointCloudTransformFunctor>
+pointcloud_transform(ImageViewBase<ImageT> const& image, Matrix<double> trans) {
+  PointCloudTransformFunctor func(trans);
+  return UnaryPerPixelView<ImageT, PointCloudTransformFunctor>(image.impl(), func);
+}
+
 template <class DemAccT>
 class DemToPointAccessor {
   DemAccT m_dem_acc;
@@ -50,7 +73,9 @@ public:
 
   inline result_type operator*() const { 
     Vector2 lonlat = m_georef.point_to_lonlat(m_georef.pixel_to_point(Vector2(m_i, m_j)));
-    return Vector3(lonlat.x(), lonlat.y(), *m_dem_acc); 
+    if (*m_dem_acc == -100000)
+      return Vector3();
+    return Vector3(lonlat.x(), lonlat.y(), *m_dem_acc+3396000.0); 
   }
 };
 
@@ -72,8 +97,10 @@ class DemToPointView : public ImageViewBase<DemToPointView<DemT> > {
 
     inline pixel_accessor origin() const { return pixel_accessor(m_dem.origin(), m_georef); }
     inline result_type operator()( int32 i, int32 j, int32 p=0 ) const {
+      if (m_dem(i,j,p) == -100000)
+        return Vector3();
       Vector2 lonlat = m_georef.point_to_lonlat(m_georef.pixel_to_point(Vector2(i, j)));
-      return Vector3(lonlat.x(), lonlat.y(), m_dem(i, j, p));
+      return Vector3(lonlat.x(), lonlat.y(), m_dem(i, j, p)+3396000.0);
     }
   
     /// \cond INTERNAL 
@@ -295,23 +322,28 @@ int main( int argc, char *argv[] ) {
 
     if (BBox2i(0, 0, dem1_dmg.cols(), dem1_dmg.rows()).contains(dem_pixel1) &&
         BBox2i(0, 0, dem2_dmg.cols(), dem2_dmg.rows()).contains(dem_pixel2)) {
-      ransac_ip1.push_back(lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), dem1_interp(dem_pixel1.x(), dem_pixel1.y()))));
-      ransac_ip2.push_back(lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), dem2_interp(dem_pixel2.x(), dem_pixel2.y()))));
+      ransac_ip1.push_back(lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), 3396000.0+dem1_interp(dem_pixel1.x(), dem_pixel1.y()))));
+      ransac_ip2.push_back(lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), 3396000.0+dem2_interp(dem_pixel2.x(), dem_pixel2.y()))));
     }
   }
 
   std::vector<int> indices;
   Matrix<double> trans;
   math::RandomSampleConsensus<math::AffineFittingFunctorN<3>,math::HomogeneousL2NormErrorMetric<3> >
-    ransac( math::AffineFittingFunctorN<3>(), math::HomogeneousL2NormErrorMetric<3>(), 5);
+    ransac( math::AffineFittingFunctorN<3>(), math::HomogeneousL2NormErrorMetric<3>(), 50);
   trans = ransac(ransac_ip1, ransac_ip2);
   indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2);
   
   vw_out(0) << "\t    * Ransac Result: " << trans << "\n";
   vw_out(0) << "\t                     # inliers: " << indices.size() << "\n";
 
-  ImageViewRef<Vector3> point1 = dem_to_point(dem1_dmg, dem1_georef);
+  ImageViewRef<Vector3> point_cloud = pointcloud_transform(lon_lat_radius_to_xyz(dem_to_point(dem1_dmg, dem1_georef)), trans);
+  //ImageViewRef<Vector3> point_cloud = lon_lat_radius_to_xyz(dem_to_point(dem1_dmg, dem1_georef));
 
+  DiskImageResourceGDAL point_cloud_rsrc("output-PC.tif", point_cloud.format(), 
+                                         Vector2i(vw_settings().default_tile_size(), 
+                                         vw_settings().default_tile_size()) );
+  block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "\t--> Transforming: "));
   /*
   for (unsigned i = 0; i < indices.size(); i++) {
     cout << trans*Vector4(ransac_ip1[indices[i]].x(),ransac_ip1[indices[i]].y(),ransac_ip1[indices[i]].z(),1) << ", " << ransac_ip2[indices[i]] << endl;
