@@ -53,71 +53,6 @@ pointcloud_transform(ImageViewBase<ImageT> const& image, Matrix<double> trans) {
   return UnaryPerPixelView<ImageT, PointCloudTransformFunctor>(image.impl(), func);
 }
 
-template <class DemAccT>
-class DemToPointAccessor {
-  DemAccT m_dem_acc;
-  GeoReference m_georef;
-  int m_i, m_j;
-public:
-  typedef Vector3 pixel_type;
-  typedef pixel_type result_type;
-  DemToPointAccessor( DemAccT dem_acc, GeoReference georef ) : m_dem_acc(dem_acc), m_georef(georef), m_i(0), m_j(0) {}
-
-  inline DemToPointAccessor& next_col() { m_dem_acc.advance(  1, 0 ); m_i++; return *this; }
-  inline DemToPointAccessor& prev_col() { m_dem_acc.advance( -1, 0 ); m_i--; return *this; }
-  inline DemToPointAccessor& next_row() { m_dem_acc.advance( 0,  1 ); m_j++; return *this; }
-  inline DemToPointAccessor& prev_row() { m_dem_acc.advance( 0, -1 ); m_j--; return *this; }
-  inline DemToPointAccessor& next_plane() { m_dem_acc.next_plane(); return *this; }
-  inline DemToPointAccessor& prev_plane() { m_dem_acc.prev_plane(); return *this; }
-  inline DemToPointAccessor& advance( ptrdiff_t di, ptrdiff_t dj, ptrdiff_t dp=0 ) { m_dem_acc.advance(di,dj,dp); m_i += di; m_j += dj; return *this; }
-
-  inline result_type operator*() const { 
-    Vector2 lonlat = m_georef.point_to_lonlat(m_georef.pixel_to_point(Vector2(m_i, m_j)));
-    if (*m_dem_acc == -100000)
-      return Vector3();
-    return Vector3(lonlat.x(), lonlat.y(), *m_dem_acc+3396000.0); 
-  }
-};
-
-template <class DemT>
-class DemToPointView : public ImageViewBase<DemToPointView<DemT> > {
-  DemT m_dem;
-  GeoReference m_georef;
-                       
-  public:
-    typedef Vector3 pixel_type;
-    typedef pixel_type result_type;
-    typedef DemToPointAccessor<typename DemT::pixel_accessor> pixel_accessor;
-
-    DemToPointView(DemT const& dem, GeoReference georef) : m_dem(dem), m_georef(georef) {}
-
-    inline int32 cols() const { return m_dem.cols(); }
-    inline int32 rows() const { return m_dem.rows(); }
-    inline int32 planes() const { return m_dem.planes(); }
-
-    inline pixel_accessor origin() const { return pixel_accessor(m_dem.origin(), m_georef); }
-    inline result_type operator()( int32 i, int32 j, int32 p=0 ) const {
-      if (m_dem(i,j,p) == -100000)
-        return Vector3();
-      Vector2 lonlat = m_georef.point_to_lonlat(m_georef.pixel_to_point(Vector2(i, j)));
-      return Vector3(lonlat.x(), lonlat.y(), m_dem(i, j, p)+3396000.0);
-    }
-  
-    /// \cond INTERNAL 
-    typedef DemToPointView prerasterize_type;
-    inline prerasterize_type prerasterize( BBox2i const& ) const { return *this; } 
-    template <class DestT> 
-    inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { 
-      vw::rasterize(prerasterize(bbox), dest, bbox); 
-    }
-    /// \endcond
-};
-
-template <class DemT>
-inline DemToPointView<DemT> dem_to_point(DemT const& dem, GeoReference georef) {
-  return DemToPointView<DemT>(dem, georef);
-}
-
 // Draw the two images side by side with matching interest points
 // shown with lines.
 static void write_match_image(std::string out_file_name,
@@ -337,8 +272,10 @@ int main( int argc, char *argv[] ) {
   vw_out(0) << "\t    * Ransac Result: " << trans << "\n";
   vw_out(0) << "\t                     # inliers: " << indices.size() << "\n";
 
-  ImageViewRef<Vector3> point_cloud = pointcloud_transform(lon_lat_radius_to_xyz(dem_to_point(dem1_dmg, dem1_georef)), trans);
-  //ImageViewRef<Vector3> point_cloud = lon_lat_radius_to_xyz(dem_to_point(dem1_dmg, dem1_georef));
+  ImageViewRef<PixelMask<double> > dem1_masked(create_mask(dem1_dmg, -100000));
+
+  ImageViewRef<Vector3> point_cloud = lon_lat_radius_to_xyz(project_point_image(dem_to_point_image(dem1_masked, dem1_georef), dem1_georef, false));
+  ImageViewRef<Vector3> point_cloud_trans = pointcloud_transform(point_cloud, trans);
 
   DiskImageResourceGDAL point_cloud_rsrc("output-PC.tif", point_cloud.format(), 
                                          Vector2i(vw_settings().default_tile_size(), 
