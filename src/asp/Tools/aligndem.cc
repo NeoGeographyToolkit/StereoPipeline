@@ -30,66 +30,27 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-class PointCloudTransformFunctor : public ReturnFixedType<Vector3> {
-    Matrix<double> m_trans;
-  public:
-    PointCloudTransformFunctor(Matrix<double> trans) : m_trans(trans) {}
+template <int dim>
+class HomogeneousTransformFunctor : public UnaryReturnSameType {
+    Matrix<double,dim+1,dim+1> m_trans;
 
-    template <class ArgT>
-    inline Vector3 operator()(ArgT pt) const {
-      if (pt == Vector3())
+  public:
+    HomogeneousTransformFunctor(Matrix<double,dim+1,dim+1> trans) : m_trans(trans) {}
+
+    inline Vector<double,dim> operator()(Vector<double,dim> pt) const {
+      if (pt == Vector<double,dim>())
         return pt;
-      Vector4 result = m_trans * Vector4(pt.x(), pt.y(), pt.z(), 1);
-      if (result[3] != 1)
-        result /= result[3];
-      return Vector3(result.x(), result.y(), result.z());
+
+      Vector<double,dim+1> pt_h;
+      subvector(pt_h, 0, dim) = pt;
+      pt_h[dim] = 1;
+
+      Vector<double,dim+1> result = m_trans * pt_h;
+      if (result[dim] != 1)
+        result /= result[dim];
+      return subvector(result,0,3);
     } 
 };
-
-template <class ImageT>
-inline UnaryPerPixelView<ImageT, PointCloudTransformFunctor>
-pointcloud_transform(ImageViewBase<ImageT> const& image, Matrix<double> trans) {
-  PointCloudTransformFunctor func(trans);
-  return UnaryPerPixelView<ImageT, PointCloudTransformFunctor>(image.impl(), func);
-}
-
-// Draw the two images side by side with matching interest points
-// shown with lines.
-static void write_match_image(std::string out_file_name,
-                              std::string const& file1,
-                              std::string const& file2,
-                              std::vector<InterestPoint> matched_ip1,
-                              std::vector<InterestPoint> matched_ip2) {
-  // Skip image pairs with no matches.
-  if (matched_ip1.size() == 0)
-    return;
-
-  DiskImageView<PixelRGB<uint8> > src1(file1);
-  DiskImageView<PixelRGB<uint8> > src2(file2);
-
-  mosaic::ImageComposite<PixelRGB<uint8> > composite;
-  composite.insert(pixel_cast<PixelRGB<uint8> >(channel_cast_rescale<uint8>(src1.impl())),0,0);
-  composite.insert(pixel_cast<PixelRGB<uint8> >(channel_cast_rescale<uint8>(src2.impl())),src1.impl().cols(),0);
-  composite.set_draft_mode( true );
-  composite.prepare();
-
-  // Rasterize the composite so that we can draw on it.
-  ImageView<PixelRGB<uint8> > comp = composite;
-
-  // Draw a red line between matching interest points
-  for (unsigned int i = 0; i < matched_ip1.size(); ++i) {
-    Vector2 start(matched_ip1[i].x, matched_ip1[i].y);
-    Vector2 end(matched_ip2[i].x+src1.impl().cols(), matched_ip2[i].y);
-    for (float r=0; r<1.0; r+=1/norm_2(end-start)){
-      int i = (int)(0.5 + start.x() + r*(end.x()-start.x()));
-      int j = (int)(0.5 + start.y() + r*(end.y()-start.y()));
-      if (i >=0 && j >=0 && i < comp.cols() && j < comp.rows())
-        comp(i,j) = PixelRGB<uint8>(255, 0, 0);
-    }
-  }
-
-  write_image(out_file_name, comp, TerminalProgressCallback(InfoMessage, "Writing debug image: "));
-}
 
 // Duplicate matches for any given interest point probably indicate a
 // poor match, so we cull those out here.
@@ -194,10 +155,12 @@ void match_orthoimages( string const& left_image_name,
 
 int main( int argc, char *argv[] ) {
   string dem1_name, dem2_name, ortho1_name, ortho2_name, output_prefix;
+  float default_value;
 
   po::options_description desc("Options");
   desc.add_options()
     ("help,h", "Display this help message")
+    ("default-value", po::value<float>(&default_value), "The value of missing pixels in the first dem")
     ("dem1", po::value<string>(&dem1_name), "Explicitly specify the first dem")
     ("dem2", po::value<string>(&dem2_name), "Explicitly specify the second dem")
     ("ortho1", po::value<string>(&ortho1_name), "Explicitly specify the first orthoimage")
@@ -206,11 +169,10 @@ int main( int argc, char *argv[] ) {
     ;
 
   po::positional_options_description p;
-  p.add("ortho1", 1);
   p.add("dem1", 1);
-  p.add("ortho2", 1);
+  p.add("ortho1", 1);
   p.add("dem2", 1);
-  p.add("output-prefix", 1);
+  p.add("ortho2", 1);
 
   po::variables_map vm;
   po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
@@ -221,10 +183,16 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  if( vm.count("dem1") != 1 || vm.count("dem2") != 1 || vm.count("ortho1") != 1 || vm.count("ortho2") != 1) {
-    cout << "Usage: " << argv[0] << "ortho1 dem1 ortho2 dem2 output-prefix" << endl;
+  if( vm.count("dem1") != 1 || vm.count("dem2") != 1 || 
+      vm.count("ortho1") != 1 || vm.count("ortho2") != 1 || 
+      vm.count("default-value") != 1) {
+    cout << "Usage: " << argv[0] << "ortho1 dem1 ortho2 dem2 --default-value #" << endl;
     cout << desc << endl;
     return 1;
+  }
+
+  if (vm.count("output-prefix") != 1) {
+    output_prefix = change_extension(fs::path(dem1_name), "").string();
   }
 
   DiskImageResourceGDAL ortho1_rsrc(ortho1_name), ortho2_rsrc(ortho2_name),
@@ -255,10 +223,13 @@ int main( int argc, char *argv[] ) {
     Vector2 dem_pixel1 = dem1_georef.point_to_pixel(dem1_georef.lonlat_to_point(point1));
     Vector2 dem_pixel2 = dem2_georef.point_to_pixel(dem2_georef.lonlat_to_point(point2));
 
+    double alt1 = dem1_georef.datum().radius(dem_pixel1.x(), dem_pixel1.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
+    double alt2 = dem2_georef.datum().radius(dem_pixel2.x(), dem_pixel2.y()) + dem2_interp(dem_pixel2.x(), dem_pixel2.y());
+
     if (BBox2i(0, 0, dem1_dmg.cols(), dem1_dmg.rows()).contains(dem_pixel1) &&
         BBox2i(0, 0, dem2_dmg.cols(), dem2_dmg.rows()).contains(dem_pixel2)) {
-      ransac_ip1.push_back(lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), 3396000.0+dem1_interp(dem_pixel1.x(), dem_pixel1.y()))));
-      ransac_ip2.push_back(lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), 3396000.0+dem2_interp(dem_pixel2.x(), dem_pixel2.y()))));
+      ransac_ip1.push_back(lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), alt1)));
+      ransac_ip2.push_back(lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), alt2)));
     }
   }
 
@@ -272,20 +243,15 @@ int main( int argc, char *argv[] ) {
   vw_out(0) << "\t    * Ransac Result: " << trans << "\n";
   vw_out(0) << "\t                     # inliers: " << indices.size() << "\n";
 
-  ImageViewRef<PixelMask<double> > dem1_masked(create_mask(dem1_dmg, -100000));
+  ImageViewRef<PixelMask<double> > dem1_masked(create_mask(dem1_dmg, default_value));
 
   ImageViewRef<Vector3> point_cloud = lon_lat_radius_to_xyz(project_point_image(dem_to_point_image(dem1_masked, dem1_georef), dem1_georef, false));
-  ImageViewRef<Vector3> point_cloud_trans = pointcloud_transform(point_cloud, trans);
+  ImageViewRef<Vector3> point_cloud_trans = per_pixel_filter(point_cloud, HomogeneousTransformFunctor<3>(trans));
 
-  DiskImageResourceGDAL point_cloud_rsrc("output-PC.tif", point_cloud.format(), 
+  DiskImageResourceGDAL point_cloud_rsrc(output_prefix + "-PC.tif", point_cloud_trans.format(), 
                                          Vector2i(vw_settings().default_tile_size(), 
-                                         vw_settings().default_tile_size()) );
-  block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "\t--> Transforming: "));
-  /*
-  for (unsigned i = 0; i < indices.size(); i++) {
-    cout << trans*Vector4(ransac_ip1[indices[i]].x(),ransac_ip1[indices[i]].y(),ransac_ip1[indices[i]].z(),1) << ", " << ransac_ip2[indices[i]] << endl;
-  }
-  */
+                                                  vw_settings().default_tile_size()));
+  block_write_image(point_cloud_rsrc, point_cloud_trans, TerminalProgressCallback(InfoMessage, "\t--> Transforming: "));
 
   return 0;
 }
