@@ -186,7 +186,7 @@ int main( int argc, char *argv[] ) {
   if( vm.count("dem1") != 1 || vm.count("dem2") != 1 || 
       vm.count("ortho1") != 1 || vm.count("ortho2") != 1 || 
       vm.count("default-value") != 1) {
-    cout << "Usage: " << argv[0] << "ortho1 dem1 ortho2 dem2 --default-value #" << endl;
+    cout << "Usage: " << argv[0] << "dem1 ortho1 dem2 ortho2 --default-value #" << endl;
     cout << desc << endl;
     return 1;
   }
