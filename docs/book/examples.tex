@@ -1011,19 +1011,21 @@ out in the 3D data while the new crater and ejecta become only noise.
 
 \subsubsection*{Commands}
 
-Download the N1511700120\_1.IMG and W1567133629\_1.IMG images from the \ac{PDS}.
+Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.LBL) files from the \ac{PDS}.
 \begin{verbatim}
-  ISIS 3> ciss2isis f=N1511700120_1.IMG t=N1511700120_1.cub
-  ISIS 3> ciss2isis f=W1567133629_1.IMG t=W1567133629_1.cub
+  ISIS 3> ciss2isis f=N1511700120_1.LBL t=N1511700120_1.cub
+  ISIS 3> ciss2isis f=W1567133629_1.LBL t=W1567133629_1.cub
   ISIS 3> cisscal from=N1511700120_1.cub to=N1511700120_1.lev1.cub
   ISIS 3> cisscal from=W1567133629_1.cub to=W1567133629_1.lev1.cub
   ISIS 3> fillgap from=W1567133629_1.lev1.cub to=W1567133629_1.fill.cub %Only one image
                                                                         %exhibits the problem
   ISIS 3> cubenorm from=N1511700120_1.lev1.cub to=N1511700120_1.norm.cub
   ISIS 3> cubenorm from=W1567133629_1.fill.cub to=W1567133629_1.norm.cub
+  ISIS 3> spiceinit fr= N1511700120_1.norm.cub
+  ISIS 3> spiceinit fr= W1567133629_1.norm.cub
   ISIS 3> cam2map from=N1511700120_1.norm.cub to=N1511700120_1.map.cub
   ISIS 3> cam2map from=W1567133629_1.norm.cub map=N1511700120_1.map.cub \
-  ISIS 3>           to=W1567133629_1.map.cub matchmap=true;
+  ISIS 3>           to=W1567133629_1.map.cub matchmap=true
   ISIS 3> ls *.map.cub > fromlist
   ISIS 3> ls N*.map.cub > holdlist
   ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
