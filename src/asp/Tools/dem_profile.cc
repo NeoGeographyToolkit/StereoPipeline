@@ -30,8 +30,8 @@ static std::string prefix_from_filename(std::string const& filename) {
 int main ( int argc, char *argv[] ) {
 
   std::string input_file;
-  std::vector<double> start_ll, end_ll;
-  std::vector<double> start_px, end_px;
+  std::string start_ll, end_ll;
+  std::string start_px, end_px;
   double idx_column, idx_row;
   double nodata_value;
 
@@ -42,33 +42,30 @@ int main ( int argc, char *argv[] ) {
     ("col", po::value<double>(&idx_column), "Process only a single column at this index")
     ("row", po::value<double>(&idx_row), "Process only a single row at this index")
     ("nodata-value", po::value<double>(&nodata_value), "Set the nodata value that is used in the DEM")
-    //    ("ll-start", po::value<std::vector<double> >(&start_ll), "Start a profile at this Lon Lat location")
-    //("ll-end", po::value<std::vector<double> >(&end_ll), "End a profile at this Lon Lat location")
-    //("px-start", po::value<std::vector<double> >(&start_px)->composing(), "Start a profile at this pixel location")
-    //("px-end", po::value<std::vector<double> >(&end_px), "End a profile at this pixel location")
-    ("i,input-dem", po::value<std::string>(&input_file), "Input DEM to use/")
+    //("ll-start", po::value<std::string>(&start_ll), "Start a profile at this Lon Lat location")
+    //("ll-end", po::value<std::string>(&end_ll), "End a profile at this Lon Lat location")
+    ("px-start", po::value<std::string>(&start_px)->composing(), "Start a profile at this pixel location")
+    ("px-end", po::value<std::string>(&end_px), "End a profile at this pixel location")
     ("help,h", "Display this help message");
 
-  /*
   po::options_description hidden_options("");
   hidden_options.add_options()
-    ("input-dem", po::value<std::vector<std::string> >(&input_file));
-  */
+    ("input-dem", po::value<std::string>(&input_file));
 
   po::options_description options("Allowed Options");
-  options.add(general_options);
+  options.add(general_options).add(hidden_options);
 
-  //po::positional_options_description pos;
-  //pos.add("input-dem", -1);
+  po::positional_options_description pos;
+  pos.add("input-dem", 1);
 
-  po::store( po::command_line_parser( argc, argv ).options(options).run(), vm );
+  po::store( po::command_line_parser( argc, argv ).options(options).positional(pos).run(), vm );
   po::notify( vm );
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <dem-file> [options] \n\n";
   usage << general_options << "\n";
 
-  if ( vm.count("help") ) {
+  if ( vm.count("help") || !vm.count("input-dem") ) {
     vw_out(0) << usage.str() << "\n";
     return 1;
   } else if ( vm.count("ll-start") ^ vm.count("ll-end") ) {
@@ -81,15 +78,7 @@ int main ( int argc, char *argv[] ) {
     return 1;
   } else if ( vm.count("ll-start") && ( start_ll.size() != 2 ||
                                         end_ll.size() != 2 ) ) {
-    vw_out(0) << "Start and End Lon Lat locations require 2 values, longitude and latitude.\n"; 
-  } else if ( vm.count("px-start") && ( start_px.size() != 2 ||
-                                        end_px.size() != 2 ) ) {
-    vw_out(0) << "Start and End pixel locations require 2 values, column and row.\n";
-    vw_out(0) << "start: " << start_px.size() << " end: " << end_px.size() << "\n";
-    for ( uint i = 0; i  < start_px.size(); i++ )
-      vw_out(0) << "\t" << start_px[i] << "\n";
-    vw_out(0) << usage.str() << "\n";
-    return 1;
+    vw_out(0) << "Start and End Lon Lat locations require 2 values, longitude and latitude.\n";
   }
 
   // Finally starting to perform some work
@@ -99,15 +88,21 @@ int main ( int argc, char *argv[] ) {
   ImageViewRef<PixelMask<float> > dem;
   if ( vm.count("nodata-value") ) {
     vw_out(0) << "\t--> Masking nodata value: " << nodata_value << "\n";
-    dem = create_mask( disk_dem_file, nodata_value );
+    dem = interpolate(create_mask( disk_dem_file, nodata_value ),
+                      BicubicInterpolation(),
+                      ZeroEdgeExtension());
   } else {
     DiskImageResource *disk_dem_rsrc = DiskImageResource::open(input_file);
     if ( disk_dem_rsrc->has_nodata_value() ) {
       nodata_value = disk_dem_rsrc->nodata_value();
       vw_out(0) << "\t--> Extracted nodata value from file: " << nodata_value << "\n";
-      dem = create_mask( disk_dem_file, nodata_value );
+      dem = interpolate(create_mask( disk_dem_file, nodata_value ),
+                        BicubicInterpolation(),
+                        ZeroEdgeExtension());
     } else {
-      dem = pixel_cast<PixelMask<float> >(disk_dem_file);
+      dem = interpolate(pixel_cast<PixelMask<float> >(disk_dem_file),
+                        BicubicInterpolation(),
+                        ZeroEdgeExtension());
     }
   }
 
@@ -122,9 +117,37 @@ int main ( int argc, char *argv[] ) {
     start = Vector2(0,idx_row);
     end = Vector2(dem.cols()-1,idx_row);
   } else if ( vm.count("ll-start") && vm.count("ll-end") ) {
+    // Parsing string into a ll coordinate.
+    if ( start_ll.find(',') == std::string::npos ||
+         end_ll.find(',') == std::string::npos ) {
+      vw_out(0) << "Longitude and Latitude values must be delimited by a comma.\n";
+      vw_out(0) << "\tEx: --ll-start -109.54,33.483\n\n";
+      vw_out(0) << usage.str() << "\n";
+      return 1;
+    }
+
+    size_t s_break = start_px.find(',');
+    size_t e_break = end_px.find(',');
+
+    Vector2 ll_start, ll_end;
+
   } else if ( vm.count("px-start") && vm.count("px-end") ) {
-    //start = Vector2( start_px[0], start_px[1] );
-    //end = Vector2( end_px[0], end_px[1] );
+    // Parsing string into pixel coordinates.
+    if ( start_px.find(',') == std::string::npos ||
+         end_px.find(',') == std::string::npos ) {
+      vw_out(0) << "Column and Row pixel values must be delimited by a comma.\n";
+      vw_out(0) << "\tEx: --px-start 65,109\n\n";
+      vw_out(0) << usage.str() << "\n";
+      return 1;
+    }
+
+    size_t s_break = start_px.find(',');
+    size_t e_break = end_px.find(',');
+
+    start.x() = atof(start_px.substr(0,s_break).c_str());
+    start.y() = atof(start_px.substr(s_break+1, start_px.size()-s_break-1).c_str());
+    end.x() = atof(end_px.substr(0,e_break).c_str());
+    end.y() = atof(end_px.substr(e_break+1, end_px.size()-e_break-1).c_str());
   } else {
     // Dial down the middle if the user provides only a DEM.
     start = Vector2( dem.cols()/2, 0);
@@ -149,6 +172,9 @@ int main ( int argc, char *argv[] ) {
   Vector2i delta = end - start;
   for ( float r = 0; r < 1.0; r +=1/norm_2(delta) ) {
     Vector2 c_idx = Vector2(0.5,0.5) + start + r*delta;
+
+    if ( !dem(int(c_idx.x()),int(c_idx.y())).valid() )
+      continue;
 
     Vector2 lonlat_loc = georef.pixel_to_lonlat( c_idx );
     double altitude = dem( c_idx.x(), c_idx.y() );
