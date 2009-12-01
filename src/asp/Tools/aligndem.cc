@@ -217,14 +217,14 @@ int main( int argc, char *argv[] ) {
   std::vector<Vector3> ransac_ip1, ransac_ip2;
 
   for (unsigned i = 0; i < matched_ip1.size(); i++) {
-    Vector2 point1 = ortho1_georef.point_to_lonlat(ortho1_georef.pixel_to_point(Vector2(matched_ip1[i].x, matched_ip1[i].y)));
-    Vector2 point2 = ortho2_georef.point_to_lonlat(ortho2_georef.pixel_to_point(Vector2(matched_ip2[i].x, matched_ip2[i].y)));
+    Vector2 point1 = ortho1_georef.pixel_to_lonlat(Vector2(matched_ip1[i].x, matched_ip1[i].y));
+    Vector2 point2 = ortho2_georef.pixel_to_lonlat(Vector2(matched_ip2[i].x, matched_ip2[i].y));
 
-    Vector2 dem_pixel1 = dem1_georef.point_to_pixel(dem1_georef.lonlat_to_point(point1));
-    Vector2 dem_pixel2 = dem2_georef.point_to_pixel(dem2_georef.lonlat_to_point(point2));
+    Vector2 dem_pixel1 = dem1_georef.lonlat_to_pixel(point1);
+    Vector2 dem_pixel2 = dem2_georef.lonlat_to_pixel(point2);
 
-    double alt1 = dem1_georef.datum().radius(dem_pixel1.x(), dem_pixel1.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
-    double alt2 = dem2_georef.datum().radius(dem_pixel2.x(), dem_pixel2.y()) + dem2_interp(dem_pixel2.x(), dem_pixel2.y());
+    double alt1 = dem1_georef.datum().radius(point1.x(), point2.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
+    double alt2 = dem2_georef.datum().radius(point1.x(), point2.y()) + dem2_interp(dem_pixel2.x(), dem_pixel2.y());
 
     if (BBox2i(0, 0, dem1_dmg.cols(), dem1_dmg.rows()).contains(dem_pixel1) &&
         BBox2i(0, 0, dem2_dmg.cols(), dem2_dmg.rows()).contains(dem_pixel2)) {
