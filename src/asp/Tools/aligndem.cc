@@ -48,7 +48,7 @@ class HomogeneousTransformFunctor : public UnaryReturnSameType {
       Vector<double,dim+1> result = m_trans * pt_h;
       if (result[dim] != 1)
         result /= result[dim];
-      return subvector(result,0,3);
+      return subvector(result,0,dim);
     } 
 };
 
@@ -223,11 +223,11 @@ int main( int argc, char *argv[] ) {
     Vector2 dem_pixel1 = dem1_georef.lonlat_to_pixel(point1);
     Vector2 dem_pixel2 = dem2_georef.lonlat_to_pixel(point2);
 
-    double alt1 = dem1_georef.datum().radius(point1.x(), point2.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
-    double alt2 = dem2_georef.datum().radius(point1.x(), point2.y()) + dem2_interp(dem_pixel2.x(), dem_pixel2.y());
-
     if (BBox2i(0, 0, dem1_dmg.cols(), dem1_dmg.rows()).contains(dem_pixel1) &&
         BBox2i(0, 0, dem2_dmg.cols(), dem2_dmg.rows()).contains(dem_pixel2)) {
+      double alt1 = dem1_georef.datum().radius(point1.x(), point1.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
+      double alt2 = dem2_georef.datum().radius(point2.x(), point2.y()) + dem2_interp(dem_pixel2.x(), dem_pixel2.y());
+
       ransac_ip1.push_back(lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), alt1)));
       ransac_ip2.push_back(lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), alt2)));
     }
