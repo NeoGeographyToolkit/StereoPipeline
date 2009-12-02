@@ -56,8 +56,8 @@ GeoReference compute_geotransform_from_camera(ImageViewBase<ViewT> const& view,
   bbox.crop(dem_bbox);
 
   if (bbox.width() == 0 || bbox.height() == 0) {
-    std::cout << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
-    exit(0);
+    vw_out(0) << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
+    return 0;
   }
 
   float diff1 = bbox.max().x()-bbox.min().x();
@@ -128,7 +128,8 @@ int main(int argc, char* argv[]) {
     ("min", po::value<float>(&lo), "Explicitly specify the range of the normalization (for ISIS images only).")
     ("max", po::value<float>(&hi), "Explicitly specify the range of the normalization (for ISIS images only).")
     ("session-type,t", po::value<std::string>(&stereo_session_string), "Select the stereo session type to use for processing. [default: pinhole]")
-    ("draw-debug,d", "Draw the normalized DEM that ortho is rasterizing on");
+    ("draw-debug,d", "Draw the normalized DEM that ortho is rasterizing on")
+    ("double-raster-size", "Double render size to get around artifact that we don't auto crop with terrain in mind");
 
   po::options_description positional_options("Positional Options");
   positional_options.add_options()
@@ -154,8 +155,8 @@ int main(int argc, char* argv[]) {
   if( vm.count("help") ||
       !vm.count("dem") ||
       !vm.count("camera-image") || !vm.count("camera-model")) {
-    std::cout << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
-    std::cout << visible_options << std::endl;
+    vw_out(0) << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
+    vw_out(0) << visible_options << std::endl;
     return 1;
   }
 
@@ -198,8 +199,8 @@ int main(int argc, char* argv[]) {
     }
   } else {
     if (!vm.count("output-file")) {
-      std::cout << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
-      std::cout << visible_options << std::endl;
+      vw_out(0) << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
+      vw_out(0) << visible_options << std::endl;
       return 1;
     }
   }
@@ -225,7 +226,7 @@ int main(int argc, char* argv[]) {
   ImageViewRef<PixelMask<PixelGray<float> > > dem = pixel_cast<PixelMask<PixelGray<float> > >(dem_disk_image);
 
   if (vm.count("nodata-value")) {
-    std::cout << "\t--> Using " << nodata_value << " as the missing data value for the DEM.\n";
+    vw_out(0) << "\t--> Using " << nodata_value << " as the missing data value for the DEM.\n";
     dem = create_mask(dem_disk_image, nodata_value);
   }
 
@@ -239,9 +240,9 @@ int main(int argc, char* argv[]) {
   if (stereo_session_string == "isis") {
     if (lo == 0 && hi == 0) {
       min_max_channel_values(float_texture_disk_image, lo, hi);
-      std::cout << "\t--> Normalizing ISIS pixel range range: [" << lo << "  " << hi << "]\n";
+      vw_out(0) << "\t--> Normalizing ISIS pixel range range: [" << lo << "  " << hi << "]\n";
     } else {
-      std::cout << "\t--> Using user-specified normalization range: [" << lo << "  " << hi << "]\n";
+      vw_out(0) << "\t--> Using user-specified normalization range: [" << lo << "  " << hi << "]\n";
     }
     texture_image = channel_cast_rescale<uint8>(normalize_retain_alpha(remove_isis_special_pixels(float_texture_disk_image, PixelGrayA<float>(lo)), lo, hi, 0, 1.0));
   }
@@ -255,27 +256,24 @@ int main(int argc, char* argv[]) {
   // in these cases for now.
   double scale = 0;
   if (vm.count("ppd")) {
-    std::cout << "\tUsing PPD\n";
     if (dem_georef.is_projected()) {
-      std::cout << "Input DEM is in a map projection.  Cannot specify resolution in pixels per degree.  Use meters per pixel (-mpp) instead.";
-      exit(0);
+      vw_out(0) << "Input DEM is in a map projection.  Cannot specify resolution in pixels per degree.  Use meters per pixel (-mpp) instead.";
+      return 1;
     } else {
       scale = 1/ppd;
     }
   } else if (vm.count("mpp")) {
-    std::cout << "\tUsing MPP\n";
     if (dem_georef.is_projected()) {
       scale = mpp;
     } else {
-      std::cout << "Input DEM is in a simple cylindrical map projection (Plate Carree).  Cannot specify resolution in meters per pixel.  Use pixels per degree (-ppd) instead.";
-      exit(0);
+      vw_out(0) << "Input DEM is in a simple cylindrical map projection (Plate Carree).  Cannot specify resolution in meters per pixel.  Use pixels per degree (-ppd) instead.";
+      return 1;
     }
   }
 
   vw_out(0) << "\nOrthoprojecting:\n";
 
   GeoReference drg_georef = dem_georef;
-  std::cout << "DEM Transform: " << dem_georef.transform() << "\n";
 
   // If the user has supplied a scale, we use it.  Otherwise, we
   // compute the optimal scale of image based on the camera model.
@@ -283,6 +281,12 @@ int main(int argc, char* argv[]) {
   {
     float mpp_auto_scale;
     BBox2 image_bbox = camera_bbox(dem_georef, camera_model, texture_image.cols(), texture_image.rows(), mpp_auto_scale);
+    if ( vm.count("double-raster-size") ) {
+      double width = image_bbox.width();
+      double height = image_bbox.height();
+      image_bbox.min() -= Vector2(width,height)/2;
+      image_bbox.max() += Vector2(width,height)/2;
+    }
     dem_bbox = dem_georef.bounding_box(dem);
 
     // Use a bbox where both the image and the DEM have valid data.
@@ -290,16 +294,13 @@ int main(int argc, char* argv[]) {
     projection_bbox = image_bbox;
     projection_bbox.crop(dem_bbox);
 
-    std::cout << "Intersect BBox: " << projection_bbox << std::endl;
-
     if ( projection_bbox.width() == 0 ||
          projection_bbox.height() == 0) {
-      std::cout << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
-      exit(0);
+      vw_out(0) << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
+      return 1;
     }
 
     if ( scale == 0 ) {
-      std::cout << "Recommended MPP Scale: " << mpp_auto_scale << std::endl;
       scale = mpp_auto_scale;
     }
 
@@ -326,19 +327,16 @@ int main(int argc, char* argv[]) {
   GeoTransform trans(dem_georef, drg_georef);
   ImageViewRef<PixelMask<PixelGray<float> > > output_dem = crop(transform(dem, trans,
                                                                           ZeroEdgeExtension(),
-                                                                          BilinearInterpolation()),
+                                                                          BicubicInterpolation()),
                                                                 BBox2i(0,0,output_width,output_height));
   if ( vm.count("draw-debug") ) {
     write_image( camera_model_file+"_debug.tif", normalize(output_dem) );
   }
 
-  std::cout << "Output DEM: " << output_dem.cols() << " " << output_dem.rows() << std::endl;
 
   ImageViewRef<PixelGrayA<uint8> > final_result = orthoproject(output_dem, drg_georef,
                                                                texture_image, camera_model,
-                                                               BilinearInterpolation(), ZeroEdgeExtension());
-
-  std::cout << "Final Result: " << final_result.cols() << " " << final_result.rows() << std::endl;
+                                                               BicubicInterpolation(), ZeroEdgeExtension());
 
   DiskImageResourceGDAL rsrc(output_file, final_result.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
   write_georeference(rsrc, drg_georef);
