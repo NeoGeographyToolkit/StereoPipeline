@@ -307,11 +307,8 @@ AM_CONDITIONAL(MAKE_APP_ISISADJUST, [test "$MAKE_APP_ISISADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RECONSTRUCT, [test "$MAKE_APP_RECONSTRUCT" = "yes"])
 AM_CONDITIONAL(MAKE_APP_ALIGNDEM, [test "$MAKE_APP_ALIGNDEM" = "yes"])
-<<<<<<< .mine
 AM_CONDITIONAL(MAKE_APP_GEODIFF, [test "$MAKE_APP_GEODIFF" = "yes"])
-=======
 AM_CONDITIONAL(MAKE_APP_DEMPROFILE, [test "$MAKE_APP_DEMPROFILE" = "yes"])
->>>>>>> .r1053
 
 ##################################################
 # final processing
