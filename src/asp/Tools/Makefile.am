@@ -95,6 +95,12 @@ if MAKE_APP_ALIGNDEM
   aligndem_LDADD = $(APP_ALIGNDEM_LIBS)
 endif
 
+if MAKE_APP_GEODIFF
+  bin_PROGRAMS += geodiff
+  geodiff_SOURCES = geodiff.cc
+  geodiff_LDADD = $(APP_GEODIFF_LIBS)
+endif
+
 if MAKE_APP_DEMPROFILE
   bin_PROGRAMS += dem_profile
   dem_profile_SOURCES = dem_profile.cc

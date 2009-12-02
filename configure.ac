@@ -282,8 +282,8 @@ AX_APP(ISISADJUST,     [src/asp/Tools], yes, [CORE ISISIO])
 AX_APP(RESULTS,        [src/asp/Tools], yes, [ISISIO])
 AX_APP(RECONSTRUCT,    [src/asp/Tools], no,  [BOOST_ALL VW VW_CARTOGRAPHY])
 AX_APP(ALIGNDEM,       [src/asp/Tools], yes, [BOOST_COMMON VW VW_CARTOGRAPHY VW_INTEREST_POINT])
+AX_APP(GEODIFF,       [src/asp/Tools], yes, [BOOST_COMMON VW VW_CARTOGRAPHY ISISIO])
 AX_APP(DEMPROFILE,     [src/asp/Tools], yes, [VW VW_CARTOGRAPHY BOOST_COMMON])
-
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -307,7 +307,11 @@ AM_CONDITIONAL(MAKE_APP_ISISADJUST, [test "$MAKE_APP_ISISADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RECONSTRUCT, [test "$MAKE_APP_RECONSTRUCT" = "yes"])
 AM_CONDITIONAL(MAKE_APP_ALIGNDEM, [test "$MAKE_APP_ALIGNDEM" = "yes"])
+<<<<<<< .mine
+AM_CONDITIONAL(MAKE_APP_GEODIFF, [test "$MAKE_APP_GEODIFF" = "yes"])
+=======
 AM_CONDITIONAL(MAKE_APP_DEMPROFILE, [test "$MAKE_APP_DEMPROFILE" = "yes"])
+>>>>>>> .r1053
 
 ##################################################
 # final processing
