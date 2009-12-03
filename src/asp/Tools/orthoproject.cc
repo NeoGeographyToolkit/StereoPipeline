@@ -280,7 +280,9 @@ int main(int argc, char* argv[]) {
   BBox2 projection_bbox, dem_bbox;
   {
     float mpp_auto_scale;
-    BBox2 image_bbox = camera_bbox(dem_georef, camera_model, texture_image.cols(), texture_image.rows(), mpp_auto_scale);
+    BBox2 image_bbox = camera_bbox( dem, dem_georef, camera_model,
+                                    texture_image.cols(), texture_image.rows(), mpp_auto_scale);
+
     if ( vm.count("double-raster-size") ) {
       double width = image_bbox.width();
       double height = image_bbox.height();

@@ -10,10 +10,8 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 
-#include <vw/Camera/BundleAdjust.h>
 #include <vw/Camera.h>
 #include <vw/Stereo/StereoModel.h>
-#include <vw/Cartography.h>
 
 using namespace vw;
 using namespace vw::camera;
