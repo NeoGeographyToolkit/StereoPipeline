@@ -214,7 +214,7 @@ int main( int argc, char *argv[] ) {
   
   vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
 
-  std::vector<Vector3> ransac_ip1, ransac_ip2;
+  std::vector<Vector4> ransac_ip1, ransac_ip2;
 
   for (unsigned i = 0; i < matched_ip1.size(); i++) {
     Vector2 point1 = ortho1_georef.pixel_to_lonlat(Vector2(matched_ip1[i].x, matched_ip1[i].y));
@@ -227,16 +227,19 @@ int main( int argc, char *argv[] ) {
         BBox2i(0, 0, dem2_dmg.cols(), dem2_dmg.rows()).contains(dem_pixel2)) {
       double alt1 = dem1_georef.datum().radius(point1.x(), point1.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
       double alt2 = dem2_georef.datum().radius(point2.x(), point2.y()) + dem2_interp(dem_pixel2.x(), dem_pixel2.y());
+    
+      Vector3 xyz1 = lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), alt1));
+      Vector3 xyz2 = lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), alt2));
 
-      ransac_ip1.push_back(lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), alt1)));
-      ransac_ip2.push_back(lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), alt2)));
+      ransac_ip1.push_back(Vector4(xyz1.x(), xyz1.y(), xyz1.z(), 1));
+      ransac_ip2.push_back(Vector4(xyz2.x(), xyz2.y(), xyz2.z(), 1));
     }
   }
 
   std::vector<int> indices;
   Matrix<double> trans;
-  math::RandomSampleConsensus<math::AffineFittingFunctorN<3>,math::HomogeneousL2NormErrorMetric<3> >
-    ransac( math::AffineFittingFunctorN<3>(), math::HomogeneousL2NormErrorMetric<3>(), 50);
+  math::RandomSampleConsensus<math::AffineFittingFunctorN<3>,math::L2NormErrorMetric>
+    ransac( math::AffineFittingFunctorN<3>(), math::L2NormErrorMetric(), 10);
   trans = ransac(ransac_ip1, ransac_ip2);
   indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2);
   
