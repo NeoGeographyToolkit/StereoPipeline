@@ -68,6 +68,11 @@ public:
   int cost_blur;
   int cost_mode;
 
+  // EMSubpixelCorrelator Options (mode 3 only)
+  int subpixel_affine_iter;
+  int subpixel_em_iter;
+  int subpixel_pyramid_levels;
+
   // Filtering Options
   int rm_h_half_kern;      /* low confidence pixel removal kernel size */
   int rm_v_half_kern;
