@@ -72,11 +72,6 @@ correlator_helper( DiskImageView<PixelGray<float> > & left_disk_image,
 // MAIN
 //***********************************************************************
 int main(int argc, char* argv[]) {
-  TerminateHandler th[] = {BacktraceTerminate, PrettyTerminate, DefaultTerminate};
-
-  for (int i = 0; i < 3; ++i)
-    if (set_terminate_handler(th[i]))
-      break;
 
   // The default file type are automatically registered the first time
   // a file is opened or created, however we want to override some of
@@ -322,7 +317,7 @@ int main(int argc, char* argv[]) {
 
     try {
       DiskImageView<PixelGray<vw::float32> > Lsub(l_sub_file);
-      DiskImageView<PixelGray<vw::float32> > Rsub(r_sub_file);  
+      DiskImageView<PixelGray<vw::float32> > Rsub(r_sub_file);
       vw_out(0) << "\t--> Using cached subsampled image.\n";
     } catch (vw::Exception const& e) {
       vw_out(0) << "\t--> Creating previews. Subsampling by " << sub_scale
@@ -546,40 +541,40 @@ int main(int argc, char* argv[]) {
         // LogPreprocessingFilter...
         vw_out(0) << "\t--> Using EM Subpixel mode " << stereo_settings().subpixel_mode << std::endl;
         vw_out(0) << "\t--> Mode 3 does internal preprocessing; settings will be ignored. " << std::endl;
-        	
-	stereo::EMSubpixelCorrelatorView<float32> em_correlator(channels_to_planes(left_disk_image),
-								channels_to_planes(right_disk_image),
-								disparity_disk_image, -1);
-	em_correlator.set_em_iter_max(stereo_settings().subpixel_em_iter);
-	em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter);
-	em_correlator.set_kernel_size(Vector2i(stereo_settings().subpixel_h_kern,
-					       stereo_settings().subpixel_v_kern));
-	em_correlator.set_pyramid_levels(stereo_settings().subpixel_pyramid_levels);
-	//em_correlator.set_debug_region(BBox2i(25,25,1,1));
-	
-	//ImageView<PixelMask<Vector<float, 2> > > test_view(400, 400);
-	
-	DiskImageResourceOpenEXR em_disparity_map_rsrc(out_prefix + "-F6.exr", em_correlator.format());
-	
-	block_write_image(em_disparity_map_rsrc, em_correlator,
-			  TerminalProgressCallback(InfoMessage, "\t--> EM Refinement :"));
-	
-	DiskImageResource *em_disparity_map_rsrc_2 = DiskImageResourceOpenEXR::construct_open(out_prefix + "-F6.exr");
-	DiskImageView<PixelMask<Vector<float, 5> > > em_disparity_disk_image(em_disparity_map_rsrc_2);
-	
-	ImageViewRef<Vector<float, 3> > disparity_uncertainty = per_pixel_filter(em_disparity_disk_image,
-										 stereo::EMSubpixelCorrelatorView<float32>::ExtractUncertaintyFunctor());
-	ImageViewRef<float> spectral_uncertainty = per_pixel_filter(disparity_uncertainty,
-								    stereo::EMSubpixelCorrelatorView<float32>::SpectralRadiusUncertaintyFunctor());
-	write_image(out_prefix+"-US.tif", spectral_uncertainty);	
-	write_image(out_prefix+"-U.tif", disparity_uncertainty);
-	
-	disparity_map = per_pixel_filter(em_disparity_disk_image, stereo::EMSubpixelCorrelatorView<float32>::ExtractDisparityFunctor());
+
+        stereo::EMSubpixelCorrelatorView<float32> em_correlator(channels_to_planes(left_disk_image),
+                                                                channels_to_planes(right_disk_image),
+                                                                disparity_disk_image, -1);
+        em_correlator.set_em_iter_max(stereo_settings().subpixel_em_iter);
+        em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter);
+        em_correlator.set_kernel_size(Vector2i(stereo_settings().subpixel_h_kern,
+                                               stereo_settings().subpixel_v_kern));
+        em_correlator.set_pyramid_levels(stereo_settings().subpixel_pyramid_levels);
+        //em_correlator.set_debug_region(BBox2i(25,25,1,1));
+
+        //ImageView<PixelMask<Vector<float, 2> > > test_view(400, 400);
+
+        DiskImageResourceOpenEXR em_disparity_map_rsrc(out_prefix + "-F6.exr", em_correlator.format());
+
+        block_write_image(em_disparity_map_rsrc, em_correlator,
+                          TerminalProgressCallback(InfoMessage, "\t--> EM Refinement :"));
+
+        DiskImageResource *em_disparity_map_rsrc_2 = DiskImageResourceOpenEXR::construct_open(out_prefix + "-F6.exr");
+        DiskImageView<PixelMask<Vector<float, 5> > > em_disparity_disk_image(em_disparity_map_rsrc_2);
+
+        ImageViewRef<Vector<float, 3> > disparity_uncertainty = per_pixel_filter(em_disparity_disk_image,
+                                                                                 stereo::EMSubpixelCorrelatorView<float32>::ExtractUncertaintyFunctor());
+        ImageViewRef<float> spectral_uncertainty = per_pixel_filter(disparity_uncertainty,
+                                                                    stereo::EMSubpixelCorrelatorView<float32>::SpectralRadiusUncertaintyFunctor());
+        write_image(out_prefix+"-US.tif", spectral_uncertainty);
+        write_image(out_prefix+"-U.tif", disparity_uncertainty);
+
+        disparity_map = per_pixel_filter(em_disparity_disk_image, stereo::EMSubpixelCorrelatorView<float32>::ExtractDisparityFunctor());
       } else {
         vw_out(0) << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << std::endl;
         vw_out(0) << "\t--> Doing nothing\n";
       }
-      
+
       // Create a disk image resource and prepare to write a tiled
       // OpenEXR.
       DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
@@ -774,22 +769,6 @@ int main(int argc, char* argv[]) {
                                                                             camera_model1.get() ,
                                                                             camera_model2.get() );
 
-
-      if(stereo_settings().subpixel_mode == 3) {
-	
-      }
-
-      // For debugging...
-      //       std::cout << "Computing Error image\n";
-      //       ImageView<float> error_img (stereo_image.cols(), stereo_image.rows() );
-      //       for (unsigned j=0; j < error_img.rows(); ++j) {
-      //         for (unsigned i=0; i < error_img.cols(); ++i) {
-      //           error_img(i,j) = stereo_image.error(i,j);
-      //         }
-      //       }
-      //       std::cout << "Done.\n";
-      //       write_image("error-image.tif", error_img);
-
       // If the distance from the left camera center to a point is
       // greater than the universe radius, we remove that pixel and
       // replace it with a zero vector, which is the missing pixel value
@@ -800,8 +779,8 @@ int main(int argc, char* argv[]) {
       stereo::UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)),
                                                       stereo_settings().near_universe_radius,
                                                       stereo_settings().far_universe_radius);
-      
-      ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);           
+
+      ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
 
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format(),
