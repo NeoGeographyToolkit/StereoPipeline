@@ -147,28 +147,14 @@ int main(int argc, char* argv[]) {
   // Data to be loaded
   unsigned no_cameras = loading_image_camera_order ? input_files.size()/2 : input_files.size();
   std::cout << "Number of cameras: " << no_cameras << std::endl;
-  std::vector<boost::shared_ptr<camera::CameraModel> > camera_models(no_cameras);
   std::vector<std::string> camera_names(no_cameras);
+  cartography::XYZtoLonLatRadFunctor conv_func;
 
   // Copying file names
   for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
        load_i++) {
     camera_names[load_i] = input_files[read_i];
     read_i += loading_image_camera_order ? 2 : 1;
-  }
-
-  // Building Camera Models
-  for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
-       load_i++) {
-    if (loading_image_camera_order) {
-      camera_models[load_i] = session->camera_model( input_files[read_i],
-                                                     input_files[read_i+1] );
-      read_i+=2;
-    } else {
-      camera_models[load_i] = session->camera_model( input_files[read_i],
-                                                     input_files[read_i] );
-      read_i++;
-    }
   }
 
   // Create the KML file.
@@ -183,25 +169,39 @@ int main(int argc, char* argv[]) {
     kml.append_stylemap( "camera_placemark", "plane",
                          "plane_highlight" );
   }
-  // Placemarks
-  for ( unsigned i = 0; i < camera_models.size(); i++ ) {
-    cartography::XYZtoLonLatRadFunctor func;
-    Vector3 lon_lat_alt = func(camera_models[i]->camera_center(Vector2()));
+
+  // Building Camera Models and then writing to KML
+  for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
+       load_i++) {
+    boost::shared_ptr<camera::CameraModel> current_camera;
+    if (loading_image_camera_order) {
+      current_camera = session->camera_model( input_files[read_i],
+                                              input_files[read_i+1] );
+      read_i+=2;
+    } else {
+      current_camera = session->camera_model( input_files[read_i],
+                                              input_files[read_i] );
+      read_i++;
+    }
+
+    // Adding Placemarks
+    Vector3 lon_lat_alt = conv_func(current_camera->camera_center(Vector2()));
     if (vm.count("use_path_to_dae_model"))
       kml.append_model( path_to_outside_model,
                         lon_lat_alt.x(), lon_lat_alt.y(),
-                        camera_models[i]->camera_pose(Vector2()),
-                        camera_names[i], "",
+                        current_camera->camera_pose(Vector2()),
+                        camera_names[load_i], "",
                         lon_lat_alt.z()*scale - 6371e3, scale );
     else {
       kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
-                            camera_names[i], "", "camera_placemark",
+                            camera_names[load_i], "", "camera_placemark",
                             lon_lat_alt.z()*scale - 6371e3, true );
     }
 
     // Note to future programmer:
     // 6371e3 meters is the radius of earth. Everything in GE appears to measured against this radius
   }
+
   kml.close_kml();
   exit(0);
 }
