@@ -7,6 +7,11 @@
 
 /// \file ControlNetworkLoader.h
 ///
+/// An optimized loader that builds an intermediate data product
+/// before converting to a control network. Contains additional error
+/// checking looking for 'spiral errors', or control points that develop
+/// measures to the same image in multiple places due to poor interest
+/// point performance.
 
 #ifndef __CONTROL_NETWORK_LOADER_H__
 #define __CONTROL_NETWORK_LOADER_H__

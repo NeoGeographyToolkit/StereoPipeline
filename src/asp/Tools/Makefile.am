@@ -55,7 +55,7 @@ endif
 
 if MAKE_APP_ISISADJUST
   bin_PROGRAMS += isis_adjust
-  isis_adjust_SOURCES = isis_adjust.cc
+  isis_adjust_SOURCES = isis_adjust.cc isis_adjust.h
   isis_adjust_LDADD = $(APP_ISISADJUST_LIBS)
 endif
 

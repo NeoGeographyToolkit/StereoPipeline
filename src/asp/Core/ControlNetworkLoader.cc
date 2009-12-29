@@ -185,173 +185,196 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
   for ( unsigned i = 0; i < image_files.size(); i++ )
     crn.push_back( CameraRelation( i,
                                    prefix_from_filename( image_files[i] )));
-  vw_out(0) << "Loading matches:\n";
-  for ( unsigned i = 0; i < image_files.size(); ++i ) {
-    for ( unsigned j = i+1; j < image_files.size(); ++j ) {
-      std::string match_filename =
-        prefix_from_filename( image_files[i] ) + "__" +
-        prefix_from_filename( image_files[j] ) + ".match";
+  {
+    TerminalProgressCallback progress(vw::InfoMessage,"Match Files:  ");
+    progress.report_progress(0);
+    int32 num_load_rejected = 0;
+    for ( unsigned i = 0; i < image_files.size(); ++i ) {
+      progress.report_progress(float(i)/float(image_files.size()));
+      for ( unsigned j = i+1; j < image_files.size(); ++j ) {
+        std::string match_filename =
+          prefix_from_filename( image_files[i] ) + "__" +
+          prefix_from_filename( image_files[j] ) + ".match";
 
-      if ( !fs::exists( match_filename ) ) {
-        match_filename = remove_path(prefix_from_filename( image_files[i] ) )
-          + "__" + remove_path(prefix_from_filename(image_files[j]))+".match";
-        if (!fs::exists( match_filename))
-          continue;
-      }
+        if ( !fs::exists( match_filename ) ) {
+          match_filename = remove_path(prefix_from_filename( image_files[i] ) )
+            + "__" + remove_path(prefix_from_filename(image_files[j]))+".match";
+          if (!fs::exists( match_filename))
+            continue;
+        }
 
-      std::vector<InterestPoint> ip1, ip2;
-      read_binary_match_file( match_filename, ip1, ip2 );
-      if ( int( ip1.size() ) < min_matches ) {
-        vw_out(0) << "\t" << match_filename << "    " << i << " <-> "
-                  << j << " : " << ip1.size() << " matches. [rejected]\n";
-      } else {
-        vw_out(0) << "\t" << match_filename << "    " << i << " <-> "
-                  << j << " : " << ip1.size() << " matches.\n";
+        std::vector<InterestPoint> ip1, ip2;
+        read_binary_match_file( match_filename, ip1, ip2 );
+        if ( int( ip1.size() ) < min_matches ) {
+          vw_out(DebugMessage,"asp") << "\t" << match_filename << "    "
+                                     << i << " <-> " << j << " : "
+                                     << ip1.size() << " matches. [rejected]\n";
+          num_load_rejected += ip1.size();
+        } else {
+          vw_out(DebugMessage,"asp") << "\t" << match_filename << "    "
+                                     << i << " <-> " << j << " : "
+                                     << ip1.size() << " matches.\n";
 
-        // Loading individual matches now
-        for ( unsigned k = 0; k < ip1.size(); k++ ) {
-          boost::shared_ptr<InterestPtRelation> ipr1, ipr2;
-          ipr1 = crn[i].FindMatching( ip1[k] );
-          ipr2 = crn[j].FindMatching( ip2[k] );
+          // Loading individual matches now
+          for ( unsigned k = 0; k < ip1.size(); k++ ) {
+            boost::shared_ptr<InterestPtRelation> ipr1, ipr2;
+            ipr1 = crn[i].FindMatching( ip1[k] );
+            ipr2 = crn[j].FindMatching( ip2[k] );
 
-          // Match hasn't been previously loaded
-          if ( ipr1 == boost::shared_ptr<InterestPtRelation>() ) {
-            ipr1 = boost::shared_ptr<InterestPtRelation>( new InterestPtRelation( ip1[k], i ) );
-            crn[i].AttachIpr( ipr1 );
+            // Match hasn't been previously loaded
+            if ( ipr1 == boost::shared_ptr<InterestPtRelation>() ) {
+              ipr1 = boost::shared_ptr<InterestPtRelation>( new InterestPtRelation( ip1[k], i ) );
+              crn[i].AttachIpr( ipr1 );
+            }
+            if ( ipr2 == boost::shared_ptr<InterestPtRelation>() ) {
+              ipr2 = boost::shared_ptr<InterestPtRelation>( new InterestPtRelation( ip2[k], j ) );
+              crn[j].AttachIpr( ipr2 );
+            }
+
+            // Doubly linking
+            ipr1->AttachIpr( ipr2 );
+            ipr2->AttachIpr( ipr1 );
           }
-          if ( ipr2 == boost::shared_ptr<InterestPtRelation>() ) {
-            ipr2 = boost::shared_ptr<InterestPtRelation>( new InterestPtRelation( ip2[k], j ) );
-            crn[j].AttachIpr( ipr2 );
-          }
-
-          // Doubly linking
-          ipr1->AttachIpr( ipr2 );
-          ipr2->AttachIpr( ipr1 );
         }
       }
     }
+    progress.report_finished();
+    if ( num_load_rejected != 0 )
+      vw_out(WarningMessage,"asp") << "\tDidn't load " << num_load_rejected << " matches due to inadequacy.\n";
   }
 
   // 2.) Build Control Network finally
   int spiral_error_count = 0;
-  vw_out(0) << "Assembling Control Network:\n";
-  for ( unsigned i = 0; i < crn.size() -1; ++i ) {
-    typedef boost::shared_ptr<InterestPtRelation> ipr;
+  {
+    TerminalProgressCallback progress(vw::InfoMessage,"Assembly:     ");
+    progress.report_progress(0);
+    for ( unsigned i = 0; i < crn.size() -1; ++i ) {
+      progress.report_progress(float(i)/float(crn.size()-1));
+      typedef boost::shared_ptr<InterestPtRelation> ipr;
 
-    // Iterating over match relations and building control points for
-    // them.
-    for ( std::list<ipr>::iterator iter = crn[i].relations.begin();
-          iter != crn[i].relations.end(); iter++ ) {
-      // 2.1) Building a listing of interest points for a control
-      // point
-      std::list<ipr> interestpts;
-      interestpts.push_back(*iter);
-      (*iter)->RecursiveListing( interestpts );
+      // Iterating over match relations and building control points for
+      // them.
+      for ( std::list<ipr>::iterator iter = crn[i].relations.begin();
+            iter != crn[i].relations.end(); iter++ ) {
+        // 2.1) Building a listing of interest points for a control
+        // point
+        std::list<ipr> interestpts;
+        interestpts.push_back(*iter);
+        (*iter)->RecursiveListing( interestpts );
 
-      ControlPoint cpoint( ControlPoint::TiePoint );
+        ControlPoint cpoint( ControlPoint::TiePoint );
 
-      // Now removing listed interest points from CRN, and then adding
-      // control measure
-      // 2.2) Adding this location
-      {
-        ControlMeasure m( (*iter)->ip->x,
-                          (*iter)->ip->y,
-                          (*iter)->ip->scale,
-                          (*iter)->ip->scale,
-                          (*iter)->camera_id );
-        cpoint.add_measure( m );
-      }
-      // 2.3) Adding & Removing all the other locations
-      std::list<ipr>::iterator measure = interestpts.begin();
-      measure++;
-      for ( ; measure != interestpts.end(); measure++ ) {
-        crn[(*measure)->camera_id].relations.remove(*measure);
-        ControlMeasure m( (*measure)->ip->x,
-                          (*measure)->ip->y,
-                          (*measure)->ip->scale,
-                          (*measure)->ip->scale,
-                          (*measure)->camera_id );
-        cpoint.add_measure( m );
-      }
-      // 2.4) Removing this location
-      iter = crn[i].relations.erase(iter);
-      iter--;
-      // 2.5) Checking for a spiral error
-      {
-        std::list<unsigned> previous_camera;
-        bool match = false;
-        for ( std::list<ipr>::iterator interest = interestpts.begin();
-              interest != interestpts.end(); interest++ ) {
-          for ( std::list<unsigned>::iterator previous = previous_camera.begin();
-                previous != previous_camera.end(); previous++ ) {
-            if ((*previous) == (*interest)->camera_id) {
-              match = true;
-              break;
+        // Now removing listed interest points from CRN, and then adding
+        // control measure
+        // 2.2) Adding this location
+        {
+          ControlMeasure m( (*iter)->ip->x,
+                            (*iter)->ip->y,
+                            (*iter)->ip->scale,
+                            (*iter)->ip->scale,
+                            (*iter)->camera_id );
+          cpoint.add_measure( m );
+        }
+        // 2.3) Adding & Removing all the other locations
+        std::list<ipr>::iterator measure = interestpts.begin();
+        measure++;
+        for ( ; measure != interestpts.end(); measure++ ) {
+          crn[(*measure)->camera_id].relations.remove(*measure);
+          ControlMeasure m( (*measure)->ip->x,
+                            (*measure)->ip->y,
+                            (*measure)->ip->scale,
+                            (*measure)->ip->scale,
+                            (*measure)->camera_id );
+          cpoint.add_measure( m );
+        }
+        // 2.4) Removing this location
+        iter = crn[i].relations.erase(iter);
+        iter--;
+        // 2.5) Checking for a spiral error
+        {
+          std::list<unsigned> previous_camera;
+          bool match = false;
+          for ( std::list<ipr>::iterator interest = interestpts.begin();
+                interest != interestpts.end(); interest++ ) {
+            for ( std::list<unsigned>::iterator previous = previous_camera.begin();
+                  previous != previous_camera.end(); previous++ ) {
+              if ((*previous) == (*interest)->camera_id) {
+                match = true;
+                break;
+              }
+            }
+            previous_camera.push_back( (*interest)->camera_id );
+            if ( match ) {
+              continue;
             }
           }
-          previous_camera.push_back( (*interest)->camera_id );
           if ( match ) {
+            spiral_error_count++;
             continue;
           }
         }
-        if ( match ) {
-          spiral_error_count++;
-          continue;
-        }
-      }
 
-      // 2.6) If haven't left for spiral error, add new control point
-      if ( cpoint.size() > 1 )
-        cnet->add_control_point( cpoint );
+        // 2.6) If haven't left for spiral error, add new control point
+        if ( cpoint.size() > 1 )
+          cnet->add_control_point( cpoint );
+      }
     }
+    progress.report_finished();
+    if ( spiral_error_count != 0 )
+      vw_out(WarningMessage,"asp") << "\t" << spiral_error_count << " control points removed due to spiral errors.\n";
   }
-  if ( spiral_error_count != 0 )
-    vw_out(0) << "\t" << spiral_error_count << " control points removed because of spiral errors.\n";
 
   VW_ASSERT( cnet->size() != 0, vw::Aborted() << "Failed to load any points, Control Network Empty\n");
 
   // 3.) Triangulating Positions
-  for ( unsigned i = 0; i < cnet->size(); i++ ) {
+  {
+    TerminalProgressCallback progress(vw::InfoMessage,"Triangulating:");
+    progress.report_progress(0);
+    for ( unsigned i = 0; i < cnet->size(); i++ ) {
+      progress.report_progress(float(i)/float(cnet->size()));
 
-    std::vector< Vector3 > positions;
-    double error = 0, error_sum = 0;
+      std::vector< Vector3 > positions;
+      double error = 0, error_sum = 0;
 
-    const double min_convergence_angle = 5.0*3.1415/180.0;
+      const double min_convergence_angle = 5.0*3.1415/180.0;
 
-    // 3.1) Building a permutation listing of triangulation
-    for ( unsigned j = 0; j < (*cnet)[i].size(); j++ ) {
-      for ( unsigned k = j+1; k < (*cnet)[i].size(); k++ ) {
+      // 3.1) Building a permutation listing of triangulation
+      for ( unsigned j = 0; j < (*cnet)[i].size(); j++ ) {
+        for ( unsigned k = j+1; k < (*cnet)[i].size(); k++ ) {
 
-        StereoModel sm( camera_models[ (*cnet)[i][j].image_id()].get(),
-                        camera_models[ (*cnet)[i][k].image_id()].get() );
+          StereoModel sm( camera_models[ (*cnet)[i][j].image_id()].get(),
+                          camera_models[ (*cnet)[i][k].image_id()].get() );
 
-        if ( sm.convergence_angle( (*cnet)[i][j].position(),
-                                   (*cnet)[i][k].position() ) >
-             min_convergence_angle ) {
-          positions.push_back( sm( (*cnet)[i][j].position(),
-                                   (*cnet)[i][k].position(),
-                                   error ) );
-          error_sum += error;
+          if ( sm.convergence_angle( (*cnet)[i][j].position(),
+                                     (*cnet)[i][k].position() ) >
+               min_convergence_angle ) {
+            positions.push_back( sm( (*cnet)[i][j].position(),
+                                     (*cnet)[i][k].position(),
+                                     error ) );
+            error_sum += error;
+          }
         }
       }
+
+      // 3.2) Summing, Averaging and Storing
+      error_sum /= positions.size();
+      Vector3 position_avg;
+      for ( unsigned j = 0; j < positions.size(); j++ )
+        position_avg += positions[j]/positions.size();
+
+      (*cnet)[i].set_position( position_avg );
     }
-
-    // 3.2) Summing, Averaging and Storing
-    error_sum /= positions.size();
-    Vector3 position_avg;
-    for ( unsigned j = 0; j < positions.size(); j++ )
-      position_avg += positions[j]/positions.size();
-
-    (*cnet)[i].set_position( position_avg );
-
+    progress.report_finished();
   }
 }
 
 // Loads GCPs the traditional route
 void add_ground_control_points_past( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
                                      std::vector<std::string> image_files ) {
-  vw_out(0) << "\nLoading Ground Control Points:\n";
+  TerminalProgressCallback progress(vw::InfoMessage,"Ground Contrl:");
+  progress.report_progress(0);
   for ( unsigned i = 0; i < image_files.size(); ++i ) {
+    progress.report_progress(float(i)/float(image_files.size()));
     std::string potential_gcp = prefix_from_filename( image_files[i] ) + ".gcp";
 
     if ( fs::exists( potential_gcp ) ) {
@@ -368,7 +391,7 @@ void add_ground_control_points_past( boost::shared_ptr<vw::camera::ControlNetwor
         istr >> pix[0] >> pix[1] >> loc[0] >> loc[1] >> loc[2] >> sigma[0] >> sigma[1] >> sigma[2];
         if (loc[0] !=0) {  // ignore blank lines
           Vector3 xyz = cartography::lon_lat_radius_to_xyz(loc);
-          vw_out(0) << "GCP: " << xyz << "\n";
+          vw_out(DebugMessage,"asp") << "GCP: " << xyz << "\n";
 
           ControlMeasure m(pix[0], pix[1], 1.0, 1.0, i);
           ControlPoint cpoint(ControlPoint::GroundControlPoint);
@@ -401,10 +424,11 @@ void add_ground_control_points_past( boost::shared_ptr<vw::camera::ControlNetwor
       }
       istr.close();
 
-      vw_out(0) << "\t" << potential_gcp << "    " << " : "
-                << count << " GCPs.\n";
+      vw_out(DebugMessage,"asp") << "\t" << potential_gcp << "    " << " : "
+                                 << count << " GCPs.\n";
     }
   }
+  progress.report_finished();
 }
 
 // This sifts out from a vector of strings, a listing of GCPs.  This
@@ -441,19 +465,22 @@ add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
   for ( unsigned i = 0; i < image_files.size(); i++ )
     pathless_image_files.push_back(remove_path(image_files[i]));
 
-  vw_out(0) << "\nLoading Ground Control Points:\n";
+  TerminalProgressCallback progress(vw::InfoMessage,"Ground Contrl:");
+  progress.report_progress(0);
   for ( std::vector<std::string>::const_iterator gcp_name = gcp_files.begin();
         gcp_name != gcp_files.end(); gcp_name++ ) {
 
     if ( !fs::exists( *gcp_name ) )
       continue;
 
+    progress.report_incremental_progress(.01);
+
     // Data to be loaded
     std::vector<Vector2> measure_locations;
     std::vector<std::string> measure_cameras;
     Vector3 world_location, world_sigma;
 
-    vw_out(0) << "\tLoading \"" << *gcp_name << "\".\n";
+    vw_out(DebugMessage,"asp") << "\tLoading \"" << *gcp_name << "\".\n";
     int count = 0;
     std::ifstream ifile( (*gcp_name).c_str() );
     while (!ifile.eof()) {
@@ -476,7 +503,7 @@ add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
 
     // Building Control Point
     Vector3 xyz = cartography::lon_lat_radius_to_xyz(world_location);
-    vw_out(0) << "\t\tLocation: " << xyz << std::endl;
+    vw_out(DebugMessage,"asp") << "\t\tLocation: " << xyz << std::endl;
     ControlPoint cpoint(ControlPoint::GroundControlPoint);
     cpoint.set_position(xyz[0],xyz[1],xyz[2]);
     cpoint.set_sigma(world_sigma[0],world_sigma[1],world_sigma[2]);
@@ -493,11 +520,11 @@ add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
           break;
       }
       if ( camera_index == image_files.size() ) {
-        vw_out(0) << "\t\tWarning: no image found matching "
-                  << *m_iter_name << std::endl;
+        vw_out(WarningMessage,"asp") << "\t\tWarning: no image found matching "
+                                     << *m_iter_name << std::endl;
       } else {
-        vw_out(0) << "\t\tAdded Measure: " << *m_iter_name << " #"
-                  << camera_index << std::endl;
+        vw_out(DebugMessage,"asp") << "\t\tAdded Measure: " << *m_iter_name << " #"
+                                   << camera_index << std::endl;
         ControlMeasure cm( (*m_iter_loc).x(), (*m_iter_loc).y(),
                            1.0, 1.0, camera_index );
         cpoint.add_measure( cm );
@@ -509,4 +536,5 @@ add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
     // Appended GCP
     cnet->add_control_point(cpoint);
   }
+  progress.report_finished();
 }

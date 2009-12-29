@@ -4,40 +4,21 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
 /// \file isis_adjust.cc
 ///
+/// Utility for performing bundle adjustment of ISIS3 cube files. This
+/// is a highly experimental program and reading of the bundle
+/// adjustment chapter is required before use of this program.
 
-// Boost
-#include <boost/algorithm/string.hpp>
-#include <boost/program_options.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <boost/algorithm/string.hpp>
+#include <asp/Tools/isis_adjust.h>
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-// Vision Workbench
-#include <vw/Camera/ControlNetwork.h>
-#include <vw/Camera/BundleAdjust.h>
-#include <vw/Math.h>
-#include <vw/InterestPoint.h>
-#include <vw/Core/Debugging.h>
 using namespace vw;
 using namespace vw::math;
 using namespace vw::camera;
 using namespace vw::ip;
-
-// Standard
-#include <stdlib.h>
-#include <iostream>
-#include <iomanip>
-
-// Ames Stereo Pipeline
-#include <asp/Core/ControlNetworkLoader.h>
-#include <asp/IsisIO.h>
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/ISIS/StereoSessionIsis.h>
 
 // Global variables
 float g_spacecraft_position_sigma;
@@ -52,310 +33,16 @@ int g_max_iterations;
 int g_report_level;
 bool g_kml_all;
 
-// A useful snippet for working with files
-static std::string prefix_from_filename( std::string const& filename ){
-  std::string result = filename;
-  int index = result.find(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
-// This is the Bundle Adjustment model
-template <unsigned positionParam, unsigned poseParam>
-class IsisBundleAdjustmentModel : public camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel < positionParam,
-                                                                                                        poseParam >,
-                                                                            (positionParam+poseParam), 3>{
-  typedef Vector<double, positionParam+poseParam> camera_vector_t;
-  typedef Vector<double, 3> point_vector_t;
-
-  std::vector< boost::shared_ptr<IsisAdjustCameraModel> > m_cameras;
-  boost::shared_ptr<ControlNetwork> m_network;
-  std::vector<camera_vector_t> a;
-  std::vector<point_vector_t> b;
-  std::vector<camera_vector_t> a_initial;
-  std::vector<point_vector_t> b_initial;
-  std::vector< std::string > m_files;
-  int m_num_pixel_observations;
-
-public:
-
-  IsisBundleAdjustmentModel( std::vector< boost::shared_ptr< vw::camera::IsisAdjustCameraModel> > const& camera_models,
-                             boost::shared_ptr<ControlNetwork> network,
-                             std::vector< std::string > input_names ) :
-    m_cameras( camera_models ), m_network(network), a( camera_models.size() ),
-    b( network->size()), a_initial( camera_models.size() ),
-    b_initial( network->size() ), m_files( input_names ){
-
-    // Compute the number of observations from the bundle.
-    m_num_pixel_observations = 0;
-    for (unsigned i = 0; i < network->size(); ++i)
-      m_num_pixel_observations += (*network)[i].size();
-
-    // Set up the A and B vectors, storing the initial values.
-    for (unsigned j = 0; j < m_cameras.size(); ++j) {
-      // I'm using what is already in the IsisAdjust camera file as
-      // the orginal starting point for the problem. This way I can
-      // nudge it with error and see what it is doing for debuging
-      boost::shared_ptr<BaseEquation> posF = m_cameras[j]->getPositionFuncPoint();
-      boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->getPoseFuncPoint();
-
-      a[j] = camera_vector_t();
-      // Setting new equations defined by a_j
-      for (unsigned n = 0; n < posF->size(); ++n)
-        a[j][n] = (*posF)[n];
-      for (unsigned n = 0; n < poseF->size(); ++n)
-        a[j][n + posF->size()] = (*poseF)[n];
-      a_initial[j] = a[j];
-    }
-
-    // Setting up B vectors
-    for (unsigned i = 0; i < network->size(); ++i) {
-      b[i] = (*m_network)[i].position();
-      b_initial[i] = b[i];
-    }
-
-    // Checking to see if this Control Network is compatible with
-    // IsisBundleAdjustmentModel
-    if ( (*m_network)[0][0].description() != "millimeters" )
-      vw_out(0) << "WARNING: Control Network doesn't seem to be in the correct units for the Control Measure for this problem (millimeters)" << std::endl;
-
-  }
-
-  // Return a reference to the camera and point parameters.
-  camera_vector_t A_parameters( int j ) const { return a[j]; }
-  point_vector_t B_parameters( int i ) const { return b[i]; }
-  void set_A_parameters(int j, camera_vector_t const& a_j) { a[j] = a_j; }
-  void set_B_parameters(int i, point_vector_t const& b_i) { b[i] = b_i; }
-
-  // Approximate the jacobian for small variations in the a_j
-  // parameters ( camera parameters ).
-  virtual Matrix<double, 2, positionParam+poseParam> A_jacobian( unsigned i, unsigned j,
-                                                                 camera_vector_t const& a_j,
-                                                                 point_vector_t const& b_i ) {
-    // Old implementation
-    Matrix<double> partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
-
-    //TODO: Give me an analytical solution again, remember the
-    //calculation of euler angles must match Michael's implementation
-
-    return partial_derivatives;
-  }
-
-  // Analytically computed jacobian for variations in the b_i
-  // parameters ( 3d point locations ).
-  virtual Matrix<double, 2, 3> B_jacobian ( unsigned i, unsigned j,
-                                            camera_vector_t const& a_j,
-                                            point_vector_t const& b_i ) {
-    Matrix<double> partial_derivatives(2,3);
-    partial_derivatives = camera::BundleAdjustmentModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
-
-    //TODO: Analytical solution
-
-    return partial_derivatives;
-  }
-
-  // Return Initial parameters. (Used by the bundle adjuster )
-  camera_vector_t A_initial( int j ) const { return a_initial[j]; }
-  point_vector_t B_initial( int i ) const { return b_initial[i]; }
-
-  // Return general sizes
-  unsigned num_cameras() const { return a.size(); }
-  unsigned num_points() const { return b.size(); }
-  unsigned num_pixel_observations() const { return m_num_pixel_observations; }
-
-  // Return pixel observations -> supposedly used by Bundlevis
-  // eventually i think
-  unsigned num_observations_of_point ( const int& i ) const { return (*m_network)[i].size(); }
-  unsigned corresponding_camera_for_measure( const int& i, const int& m ) {
-    return (*m_network)[i][m].image_id();
-  }
-
-  // Return the covariance of the camera parameters for camera j.
-  inline Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned j ) {
-    Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
-    for ( unsigned i = 0; i <positionParam; ++i )
-      result(i,i) = 1/pow(g_spacecraft_position_sigma,2);
-    for ( unsigned i = positionParam; i < (positionParam+poseParam); ++i )
-      result(i,i) = 1/pow(g_spacecraft_pose_sigma,2);
-    return result;
-  }
-
-  // Return the covariance of the point parameters for point i.
-  inline Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) {
-    Matrix< double, 3, 3> result;
-    Vector3 sigmas = (*m_network)[i].sigma();
-    sigmas = g_gcp_scalar*sigmas;
-    for ( unsigned u = 0; u < 3; ++u)
-      result(u,u) = 1/(sigmas[u]*sigmas[u]);
-
-    // It is assumed that the GCP is defined in a local tangent frame
-    // (East-North-Up)
-    float lon = atan2(b[i][1],b[i][0]);
-    float clon = cos(lon);
-    float slon = sin(lon);
-    float radius = sqrt( b[i][0]*b[i][0] +
-                         b[i][1]*b[i][1] +
-                         b[i][2]*b[i][2] );
-    float z_over_radius = b[i][2]/radius;
-    float sqrt_1_minus = sqrt(1-z_over_radius*z_over_radius);
-    Matrix< double, 3, 3> ecef_to_local;
-    ecef_to_local(0,0) = -slon;
-    ecef_to_local(0,1) = clon;
-    ecef_to_local(1,0) = -z_over_radius*clon;
-    ecef_to_local(1,1) = -z_over_radius*slon;
-    ecef_to_local(1,2) = sqrt_1_minus;
-    ecef_to_local(2,0) = sqrt_1_minus*clon;
-    ecef_to_local(2,1) = sqrt_1_minus*slon;
-    ecef_to_local(2,2) = z_over_radius;
-
-    // Rotatation matrix I want to use is ecef_to_local^T
-    // How to rotate a covariance matrix = R*E*R^T
-
-    // Rotating inverse covariance matrix
-    result = transpose(ecef_to_local)*result*ecef_to_local;
-
-    return result;
-  }
-
-  // This is for writing isis_adjust file for later
-  void write_adjustment( int j, std::string const& filename ) {
-    std::ofstream ostr( filename.c_str() );
-
-    write_equation( ostr, m_cameras[j]->getPositionFuncPoint() );
-    write_equation( ostr, m_cameras[j]->getPoseFuncPoint() );
-
-    ostr.close();
-  }
-
-  std::vector< boost::shared_ptr< CameraModel > > adjusted_cameras() {
-
-    std::vector< boost::shared_ptr<camera::CameraModel> > cameras;
-    for ( unsigned i = 0; i < m_cameras.size(); i++) {
-      cameras.push_back(boost::shared_dynamic_cast<CameraModel>(m_cameras[i]));
-    }
-    return cameras;
-  }
-
-  boost::shared_ptr< IsisAdjustCameraModel > adjusted_camera( int j ) {
-
-    // Adjusting position and pose equations
-    boost::shared_ptr<BaseEquation> posF = m_cameras[j]->getPositionFuncPoint();
-    boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->getPoseFuncPoint();
-
-    // Setting new equations defined by a_j
-    for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = a[j][n];
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = a[j][n + posF->size()];
-
-    return m_cameras[j];
-  }
-
-  // Given the 'a' vector ( camera model paramters ) for the j'th
-  // image, and the 'b' vector (3D point location ) for the i'th
-  // point, return the location of b_i on imager j in
-  // millimeters. !!Warning!! This gives data back in millimeters
-  // which is different from most implementations.
-  Vector2 operator() ( unsigned i, unsigned j, camera_vector_t const& a_j, point_vector_t const& b_i ) const {
-    // Warning! This operation can not be allowed to change the camera properties.
-
-    // Loading equations
-    boost::shared_ptr<BaseEquation> posF = m_cameras[j]->getPositionFuncPoint();
-    boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->getPoseFuncPoint();
-
-    // Applying new equation constants
-    for (unsigned n = 0; n < posF->size(); ++n)
-      (*posF)[n] = a_j[n];
-    for (unsigned n = 0; n < poseF->size(); ++n)
-      (*poseF)[n] = a_j[n + posF->size()];
-
-    // Determine what time to use for the camera forward
-    // projection. Sorry that this is a search, I don't have a better
-    // idea. :/
-    int m = 0;
-    while ( (*m_network)[i][m].image_id() != int(j) )
-      m++;
-    if ( int(j) != (*m_network)[i][m].image_id() )
-      vw_throw( LogicErr() << "ISIS Adjust: Failed to find measure matching camera id." );
-
-    // Performing the forward projection. This is specific to the
-    // IsisAdjustCameraModel. The first argument is really just
-    // passing the time instance to load up a pinhole model for.
-    //std::cout << "DBG: ephemeris time " << m_network[i][m].ephemeris_time() << std::endl;
-    Vector3 forward_projection = m_cameras[j]->point_to_mm_time( Vector3( 0, 0, (*m_network)[i][m].ephemeris_time() ), b_i );
-
-    // Giving back the millimeter measurement.
-    return Vector2( forward_projection[0], forward_projection[1] );
-  }
-
-  void parse_camera_parameters(camera_vector_t a_j,
-                               Vector3 &position_correction,
-                               Vector3 &pose_correction) const {
-    position_correction = subvector(a_j, 0, 3);
-    pose_correction = subvector(a_j, 3, 3);
-  }
-
-  // Errors on the image plane
-  std::string image_unit( void ) { return "millimeters"; }
-  void image_errors( std::vector<double>& mm_errors ) {
-    mm_errors.clear();
-    for (unsigned i = 0; i < m_network->size(); ++i )
-      for (unsigned m = 0; m < (*m_network)[i].size(); ++m ) {
-        int camera_idx = (*m_network)[i][m].image_id();
-        Vector2 mm_error = (*m_network)[i][m].focalplane() - (*this)(i, camera_idx, a[camera_idx],b[i]);
-        mm_errors.push_back(norm_2(mm_error));
-      }
-  }
-
-  // Errors for camera position
-  void camera_position_errors( std::vector<double>& camera_position_errors ) {
-    camera_position_errors.clear();
-    for (unsigned j=0; j < this->num_cameras(); ++j ) {
-      // TODO: This needs to be compliant if the BA is using a
-      // non-zero order equation
-      Vector3 position_initial = subvector(a_initial[j],0,3);
-      Vector3 position_now = subvector(a[j],0,3);
-      camera_position_errors.push_back(norm_2(position_initial-position_now));
-    }
-  }
-
-  // Errors for camera pose
-  void camera_pose_errors( std::vector<double>& camera_pose_errors ) {
-    camera_pose_errors.clear();
-    for (unsigned j=0; j < this->num_cameras(); ++j ) {
-      // TODO: This needs to be compliant if the BA is using a
-      // non-zero order equation
-      Vector3 pose_initial = subvector(a_initial[j],3,3);
-      Vector3 pose_now = subvector(a[j],3,3);
-      camera_pose_errors.push_back(norm_2(pose_initial-pose_now));
-    }
-  }
-
-  // Errors for gcp errors
-  void gcp_errors( std::vector<double>& gcp_errors ) {
-    gcp_errors.clear();
-    for (unsigned i=0; i < this->num_points(); ++i )
-      if ((*m_network)[i].type() == ControlPoint::GroundControlPoint) {
-        point_vector_t p1 = b_initial[i];
-        point_vector_t p2 = b[i];
-        gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
-      }
-  }
-
-  // Give access to the control network
-  boost::shared_ptr<ControlNetwork> control_network(void) {
-    return m_network;
-  }
-};
-
-// Perform bundle adjustment
+// Helper Function to allow selection of different Bundle Adjustment Algorithms.
+//------------------------------------------------------------------------------
 template <class AdjusterT>
 void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_function ) {
   // Building the Bundle Adjustment Model and applying the Bundle
   // Adjuster.
   typename AdjusterT::model_type
-    ba_model( g_camera_adjust_models , g_cnet, g_input_files );
+    ba_model( g_camera_adjust_models , g_cnet, g_input_files,
+              g_spacecraft_position_sigma, g_spacecraft_pose_sigma,
+              g_gcp_scalar );
   AdjusterT bundle_adjuster( ba_model, cost_function,
                              !g_vm.count("disable-camera-const"),
                              !g_vm.count("disable-gcp-const"));
@@ -416,7 +103,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
               estimate3d += triangulation;
               // Do I want to do anything with the error?
             } else
-              vw_out(DebugMessage, "bundle_adjustment") << "Error: Failed a retriangulation.\n";
+              vw_out(DebugMessage, "bundle_adjustment") << "Error: Failed at retriangulation.\n";
           }
         }
 
@@ -533,6 +220,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
 }
 
 // Main Executable
+// -----------------------------------------------------------------------
 int main(int argc, char* argv[]) {
 
   std::string cnet_file;
@@ -546,23 +234,33 @@ int main(int argc, char* argv[]) {
   po::options_description general_options("Options");
   general_options.add_options()
     ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
-    ("cost-function", po::value<std::string>(&robust_cost_function)->default_value("L2"), "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
-    ("bundle-adjuster", po::value<std::string>(&bundle_adjustment_type)->default_value("Sparse"), "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse]")
+    ("cost-function", po::value<std::string>(&robust_cost_function)->default_value("L2"),
+     "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
+    ("bundle-adjuster", po::value<std::string>(&bundle_adjustment_type)->default_value("Sparse"),
+     "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse]")
     ("disable-camera-const", "Disable camera constraint error")
     ("disable-gcp-const", "Disable GCP constraint error")
-    ("gcp-scalar", po::value<float>(&g_gcp_scalar)->default_value(1.0), "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
+    ("gcp-scalar", po::value<float>(&g_gcp_scalar)->default_value(1.0),
+     "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
     ("lambda,l", po::value<double>(&g_lambda), "Set the intial value of the LM parameter g_lambda")
-    ("min-matches", po::value<int>(&min_matches)->default_value(30), "Set the minimum number of matches between images that will be considered.")
+    ("min-matches", po::value<int>(&min_matches)->default_value(30),
+     "Set the minimum number of matches between images that will be considered.")
     ("max-iterations", po::value<int>(&g_max_iterations)->default_value(25), "Set the maximum number of iterations.")
-    ("poly-order", po::value<int>(&polynomial_order)->default_value(0), "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
-    ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0), "Set the sigma (uncertainty) of the spacecraft position. (meters)")
-    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(0.1), "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
-    ("report-level,r", po::value<int>(&g_report_level)->default_value(10), "Changes the detail of the Bundle Adjustment Report")
-    ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
+    ("poly-order", po::value<int>(&polynomial_order)->default_value(0),
+     "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
+    ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0),
+     "Set the sigma (uncertainty) of the spacecraft position. (meters)")
+    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(0.1),
+     "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
+    ("report-level,r", po::value<int>(&g_report_level)->default_value(10),
+     "Changes the detail of the Bundle Adjustment Report")
+    ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0),
+     "Set the threshold for robust cost functions.")
     ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
     ("seed-with-previous", "Use previous isis_adjust files at starting point for this run.")
     ("write-isis-cnet-also", "Writes an ISIS style control network")
-    ("write-kml", po::value<bool>(&g_kml_all), "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates")
+    ("write-kml", po::value<bool>(&g_kml_all),
+     "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates")
     ("help,h", "Display this help message");
 
   po::options_description hidden_options("");
@@ -620,14 +318,22 @@ int main(int argc, char* argv[]) {
   // Loading the image data into the camera models. Also applying
   // blank equations to define the cameras
   std::vector< boost::shared_ptr<CameraModel> > camera_models( g_input_files.size() );
-  for ( unsigned i = 0; i < g_input_files.size(); ++i ) {
-    vw_out(0) << "Loading: " << g_input_files[i] << std::endl;
+  {
+    vw_out(0) << "Loading Camera Models:\n";
+    vw_out(0) << "----------------------\n";
+    TerminalProgressCallback progress(vw::InfoMessage,"Camera Models:");
+    progress.report_progress(0);
+    for ( unsigned i = 0; i < g_input_files.size(); ++i ) {
+      progress.report_progress(float(i)/float(g_input_files.size()));
+      vw_out(DebugMessage,"asp") << "Loading: " << g_input_files[i] << std::endl;
 
-    // Equations defining the delta
-    boost::shared_ptr<BaseEquation> posF( new PolyEquation(polynomial_order) );
-    boost::shared_ptr<BaseEquation> poseF( new PolyEquation(polynomial_order) );
-    boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( g_input_files[i], posF, poseF ) );
-    camera_models[i] = p;
+      // Equations defining the delta
+      boost::shared_ptr<BaseEquation> posF( new PolyEquation(polynomial_order) );
+      boost::shared_ptr<BaseEquation> poseF( new PolyEquation(polynomial_order) );
+      boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( g_input_files[i], posF, poseF ) );
+      camera_models[i] = p;
+    }
+    progress.report_finished();
   }
 
   // Checking to see if there is a cnet file to load up
@@ -673,7 +379,8 @@ int main(int argc, char* argv[]) {
     }
 
   } else {
-    // Building new Control Network
+    vw_out(0) << "Building Control Network:\n";
+    vw_out(0) << "-------------------------\n";
     build_control_network( g_cnet,
                            camera_models,
                            g_input_files,
@@ -683,39 +390,52 @@ int main(int argc, char* argv[]) {
                                g_gcp_files );
   }
 
+  // Need to typecast all the models to feed to the Bundle Adjustment
+  // model, kinda ugly.
+  g_camera_adjust_models.resize( camera_models.size() );
+  for ( unsigned j = 0; j < camera_models.size(); ++j )
+    g_camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
+
   // Double checking to make sure that the Control Network is set up
   // for ephemeris time. We continue to do this with loaded control
   // networks as a strict ISIS style control network will not record
   // Ephemeris Time.
   {
-    vw_out(0) << "\nCalculating focal plane measurements for Control Network:\n";
+    vw_out(0) << "Calculating focal plane measurements:\n";
+    vw_out(0) << "-------------------------------------\n";
+    TerminalProgressCallback progress;
+    progress.report_progress(0);
 
     // Applying millimeter conversion
     for (unsigned i = 0; i < g_cnet->size(); ++i ) {
-      for ( unsigned m = 0; m < (*g_cnet)[i].size(); ++m ) {
-        if ( (*g_cnet)[i][m].ephemeris_time() == 0 ) {
+      progress.report_progress(float(i)/float(g_cnet->size()));
+      for ( ControlPoint::iterator cm = (*g_cnet)[i].begin();
+            cm != (*g_cnet)[i].end(); cm++ ) {
+        if ( cm->ephemeris_time() == 0 ) {
           // Loading camera used by measure
-          boost::shared_ptr< IsisAdjustCameraModel > cam =
-            boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[ (*g_cnet)[i][m].image_id() ] );
+          //boost::shared_ptr< IsisAdjustCameraModel > cam =
+          //  boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[ (*g_cnet)[i][m].image_id() ] );
 
-          Vector3 mm_time = cam->pixel_to_mm_time( (*g_cnet)[i][m].position() );
-          (*g_cnet)[i][m].set_focalplane( mm_time[0], mm_time[1] );
-          (*g_cnet)[i][m].set_ephemeris_time( mm_time[2] );
-          (*g_cnet)[i][m].set_description( "millimeters" );
-          (*g_cnet)[i][m].set_serial( cam->serial_number() );
-          (*g_cnet)[i][m].set_pixels_dominant( false );
+          Vector3 mm_time = g_camera_adjust_models[cm->image_id()]->pixel_to_mm_time( cm->position() );
+          cm->set_focalplane( mm_time[0], mm_time[1] );
+          cm->set_ephemeris_time( mm_time[2] );
+          cm->set_description( "millimeters" );
+          cm->set_serial( g_camera_adjust_models[cm->image_id()]->serial_number() );
+          cm->set_pixels_dominant( false );
 
-          Vector2 mm_over_pixel = cam->mm_over_pixel( (*g_cnet)[i][m].position() );
+          Vector2 mm_over_pixel = g_camera_adjust_models[cm->image_id()]->mm_over_pixel( cm->position() );
 
-          Vector2 sigma = (*g_cnet)[i][m].sigma();
+          Vector2 sigma = cm->sigma();
           sigma = elem_prod( sigma, mm_over_pixel );
-          (*g_cnet)[i][m].set_sigma( sigma );
+          cm->set_sigma( sigma );
         }
       }
     }
+    progress.report_finished();
 
     // Writing ISIS Control Network
     g_cnet->write_binary("isis_adjust");
+    vw_out(0) << "\n";
   }
 
   VW_DEBUG_ASSERT( g_cnet->size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
@@ -725,12 +445,6 @@ int main(int argc, char* argv[]) {
     vw_out(0) << "Writing ISIS-style Control Network.\n";
     g_cnet->write_isis("isis_adjust");
   }
-
-  // Need to typecast all the models to feed to the Bundle Adjustment
-  // model, kinda ugly.
-  g_camera_adjust_models.resize( camera_models.size() );
-  for ( unsigned j = 0; j < camera_models.size(); ++j )
-    g_camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
 
   // Switching based on cost function
   {
