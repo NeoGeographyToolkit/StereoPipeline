@@ -165,15 +165,31 @@ approximate_search_range( std::string left_image,
       ImageViewRef<PixelGray<float32> > right_sub_image = right_sub_disk_image;
 
       // Interest Point module detector code.
-      ip::OBALoGInterestOperator interest_operator( 0.07 );
-      ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 500 );
+      float ipgain = 0.07;
       std::list<ip::InterestPoint> ip1, ip2;
-      vw_out(0) << "\t    * Processing " << left_image << "...\n" << std::flush;
-      ip1 = detect_interest_points( left_sub_image, detector );
-      vw_out(0) << "Located " << ip1.size() << " points.\n";
-      vw_out(0) << "\t    * Processing " << right_image << "...\n" << std::flush;
-      ip2 = detect_interest_points( right_sub_image, detector );
-      vw_out(0) << "Located " << ip2.size() << " points.\n";
+      while ( ip1.size() < 500 || ip2.size() < 500 ) {
+        ip1.clear(); ip2.clear();
+
+        ip::OBALoGInterestOperator interest_operator( ipgain );
+        ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator );
+
+        vw_out(0) << "\t    * Processing " << left_image << "...\n" << std::flush;
+        ip1 = detect_interest_points( left_sub_image, detector );
+        vw_out(0) << "Located " << ip1.size() << " points.\n";
+        vw_out(0) << "\t    * Processing " << right_image << "...\n" << std::flush;
+        ip2 = detect_interest_points( right_sub_image, detector );
+        vw_out(0) << "Located " << ip2.size() << " points.\n";
+
+        ipgain *= 0.75;
+      }
+
+      // Making sure we don't exceed 2000 points
+      ip1.sort();
+      ip2.sort();
+      if ( ip1.size() > 2000 )
+        ip1.resize(2000);
+      if ( ip2.size() > 2000 )
+        ip2.resize(2000);
 
       vw_out(0) << "\t    * Generating descriptors..." << std::flush;
       ip::SGradDescriptorGenerator descriptor;
