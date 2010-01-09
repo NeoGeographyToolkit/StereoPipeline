@@ -165,8 +165,8 @@ approximate_search_range( std::string left_image,
       ImageViewRef<PixelGray<float32> > right_sub_image = right_sub_disk_image;
 
       // Interest Point module detector code.
-      ip::LogInterestOperator log_detector;
-      ip::ScaledInterestPointDetector<ip::LogInterestOperator> detector(log_detector, 500);
+      ip::OBALoGInterestOperator interest_operator( 0.07 );
+      ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 500 );
       std::list<ip::InterestPoint> ip1, ip2;
       vw_out(0) << "\t    * Processing " << left_image << "...\n" << std::flush;
       ip1 = detect_interest_points( left_sub_image, detector );
@@ -176,7 +176,7 @@ approximate_search_range( std::string left_image,
       vw_out(0) << "Located " << ip2.size() << " points.\n";
 
       vw_out(0) << "\t    * Generating descriptors..." << std::flush;
-      ip::PatchDescriptorGenerator descriptor;
+      ip::SGradDescriptorGenerator descriptor;
       descriptor( left_sub_image, ip1 );
       descriptor( right_sub_image, ip2 );
       vw_out(0) << "done.\n";
@@ -194,7 +194,7 @@ approximate_search_range( std::string left_image,
     ip2_copy = ip::read_binary_ip_file(right_ip_file);
 
     vw_out(0) << "\t    * Matching interest points\n";
-    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.8);
+    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
 
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
             false, TerminalProgressCallback( InfoMessage, "\t    Matching: "));
