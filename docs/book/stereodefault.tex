@@ -234,14 +234,16 @@ values listed after the parameter name.
   from poor stereo matching will be filled by an inpainting
   algorithm. Inpainting is a convolution method that takes the values
   at the edges of holes and spreads those values inward. This method
-  performs best for small holes. The inpaint method is currently
-  hard-coded so that it doesn't attempt to inpaint holes greater than
-  100,000 pixels in total size.
+  performs best for small holes.
 
   Note: you can always use the good pixel mask image ({\tt
     *-GoodPixelMap.TIF}) to determine which pixels represent ``real''
   data matched by the stereo correlator, and which pixels represent
   interpolated data produced by inpainting.
+
+\item[FILL\_HOLE\_MAX\_SIZE \textnormal{\small{(= \emph{integer})}} (default = 100,000)] \hfill \\
+  This defines the maximum size of a hole that the inpainting
+  technique should attempt. Default is 100,000 pixels.
 
 \item[RM\_H\_HALF\_KERN \textnormal{\small{(= \emph{integer})}} (default = 5)]
 \item[RM\_V\_HALF\_KERN \textnormal{\small{(= \emph{integer})}} (default = 5)] \hfill \\

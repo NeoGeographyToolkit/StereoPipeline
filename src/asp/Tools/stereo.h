@@ -167,18 +167,15 @@ approximate_search_range( std::string left_image,
       // Interest Point module detector code.
       float ipgain = 0.07;
       std::list<ip::InterestPoint> ip1, ip2;
-      while ( ip1.size() < 500 || ip2.size() < 500 ) {
+      vw_out(0) << "\t    * Processing for Interest Points.\n";
+      while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
         ip1.clear(); ip2.clear();
 
         ip::OBALoGInterestOperator interest_operator( ipgain );
         ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator );
 
-        vw_out(0) << "\t    * Processing " << left_image << "...\n" << std::flush;
         ip1 = detect_interest_points( left_sub_image, detector );
-        vw_out(0) << "Located " << ip1.size() << " points.\n";
-        vw_out(0) << "\t    * Processing " << right_image << "...\n" << std::flush;
         ip2 = detect_interest_points( right_sub_image, detector );
-        vw_out(0) << "Located " << ip2.size() << " points.\n";
 
         ipgain *= 0.75;
       }
@@ -186,10 +183,10 @@ approximate_search_range( std::string left_image,
       // Making sure we don't exceed 2000 points
       ip1.sort();
       ip2.sort();
-      if ( ip1.size() > 2000 )
-        ip1.resize(2000);
-      if ( ip2.size() > 2000 )
-        ip2.resize(2000);
+      if ( ip1.size() > 3000 )
+        ip1.resize(3000);
+      if ( ip2.size() > 3000 )
+        ip2.resize(3000);
 
       vw_out(0) << "\t    * Generating descriptors..." << std::flush;
       ip::SGradDescriptorGenerator descriptor;

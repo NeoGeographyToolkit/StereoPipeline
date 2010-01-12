@@ -126,6 +126,7 @@ StereoSettings::StereoSettings() {
 
   // Filtering Options
   ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
+  ASSOC_INT("FILL_HOLE_MAX_SIZE", fill_hole_max_size, 100000, "max size in pixels that should be filled");
   ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
   ASSOC_INT("RM_V_HALF_KERN", rm_v_half_kern, 5, "");
   ASSOC_INT("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");

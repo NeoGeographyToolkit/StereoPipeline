@@ -81,6 +81,8 @@ public:
   int rm_cleanup_passes;   /* number of times to perform cleanup
                               in the post-processing phase */
   int fill_holes;
+  int fill_hole_max_size;  /* Maximum hole size in pixels that we'll attempt
+                              to fill */
   int mask_flatfield;      /* Masks pixels in the input images that are less
                               than 0.  (For use with apollo metric camera...) */
 

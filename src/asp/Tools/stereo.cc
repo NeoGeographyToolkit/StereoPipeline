@@ -700,7 +700,7 @@ int main(int argc, char* argv[]) {
       ImageViewRef<PixelMask<Vector2f> > hole_filled_disp_map;
       if(stereo_settings().fill_holes) {
         vw_out(0) << "\t--> Filling holes with Inpainting method.\n";
-        BlobIndexThreaded bindex( invert_mask( filtered_disparity_map ), 100000 );
+        BlobIndexThreaded bindex( invert_mask( filtered_disparity_map ), stereo_settings().fill_holes );
         vw_out(0) << "\t    * Identified " << bindex.num_blobs() << " holes\n";
         hole_filled_disp_map = InpaintView<DiskImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
       } else {
