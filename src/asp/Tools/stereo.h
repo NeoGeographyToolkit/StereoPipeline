@@ -94,11 +94,19 @@ void remove_duplicates(std::vector<ip::InterestPoint> &ip1,
   ip2 = new_ip2;
 }
 
-static std::string prefix_from_filename(std::string const& filename) {
+static inline std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
   int index = result.rfind(".");
   if (index != -1)
     result.erase(index, result.size());
+  return result;
+}
+
+static inline std::string remove_dir_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.find("/");
+  if (index != -1)
+    result.erase(0,index+1);
   return result;
 }
 
@@ -142,7 +150,7 @@ approximate_search_range( std::string left_image,
     prefix_from_filename( right_image ) + ".vwip";
   std::string match_file =
     prefix_from_filename( left_image ) + "__" +
-    prefix_from_filename( right_image ) + ".match";
+    remove_dir_from_filename(prefix_from_filename( right_image )) + ".match";
 
   // Building / Loading Interest point data
   if ( fs::exists(match_file) ) {
@@ -221,8 +229,8 @@ approximate_search_range( std::string left_image,
 
     try {
       Matrix<double> trans;
-      math::RandomSampleConsensus<math::TranslationRotationFittingFunctor,math::InterestPointErrorMetric>
-        ransac( math::TranslationRotationFittingFunctor(), math::InterestPointErrorMetric(), 25 );
+      math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
+        ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 25 );
       trans = ransac( ransac_ip1, ransac_ip2 );
       vw_out(DebugMessage) << "\t    * Ransac Result: " << trans << std::endl;
       indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
