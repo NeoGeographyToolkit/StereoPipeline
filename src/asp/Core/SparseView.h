@@ -213,15 +213,15 @@ class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
 
   // Debug structure
   void print_structure( void ) const {
-    vw_out(0) << "SparseView Structure:\n";
+    vw_out() << "SparseView Structure:\n";
     for ( vw::uint32 i = 0; i < m_data->size(); i++ ) {
-      vw_out(0) << i << " | ";
+      vw_out() << i << " | ";
       for ( typename map_type::const_iterator it = (*m_data)[i].begin();
             it != (*m_data)[i].end(); it++ ) {
         vw::int32 start = it->first - it->second.size();
-        vw_out(0) << "(" << start << "->" << it->first << ")";
+        vw_out() << "(" << start << "->" << it->first << ")";
       }
-      vw_out(0) << "\n";
+      vw_out() << "\n";
     }
 
   }

@@ -56,7 +56,7 @@ GeoReference compute_geotransform_from_camera(ImageViewBase<ViewT> const& view,
   bbox.crop(dem_bbox);
 
   if (bbox.width() == 0 || bbox.height() == 0) {
-    vw_out(0) << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
+    vw_out() << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
     return 0;
   }
 
@@ -155,8 +155,8 @@ int main(int argc, char* argv[]) {
   if( vm.count("help") ||
       !vm.count("dem") ||
       !vm.count("camera-image") || !vm.count("camera-model")) {
-    vw_out(0) << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
-    vw_out(0) << visible_options << std::endl;
+    vw_out() << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
+    vw_out() << visible_options << std::endl;
     return 1;
   }
 
@@ -173,20 +173,20 @@ int main(int argc, char* argv[]) {
          boost::iends_with(camera_model_file, ".cahv") ||
          boost::iends_with(camera_model_file, ".pin") ||
          boost::iends_with(camera_model_file, ".tsai") ) {
-      vw_out(0) << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
+      vw_out() << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
       stereo_session_string = "pinhole";
     }
 
     else if (boost::iends_with(image_file, ".cub") ) {
-      vw_out(0) << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
+      vw_out() << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
       stereo_session_string = "isis";
     }
 
     else {
-      vw_out(0) << "\n\n******************************************************************\n";
-      vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
-      vw_out(0) << "using the -t switch.  Options include: [pinhole isis].\n";
-      vw_out(0) << "******************************************************************\n\n";
+      vw_out() << "\n\n******************************************************************\n";
+      vw_out() << "Could not determine stereo session type.   Please set it explicitly\n";
+      vw_out() << "using the -t switch.  Options include: [pinhole isis].\n";
+      vw_out() << "******************************************************************\n\n";
       exit(0);
     }
   }
@@ -199,8 +199,8 @@ int main(int argc, char* argv[]) {
     }
   } else {
     if (!vm.count("output-file")) {
-      vw_out(0) << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
-      vw_out(0) << visible_options << std::endl;
+      vw_out() << "\nUsage: orthoproject [options] <dem filename> <camera image> <camera model> <output filename>\n";
+      vw_out() << visible_options << std::endl;
       return 1;
     }
   }
@@ -226,7 +226,7 @@ int main(int argc, char* argv[]) {
   ImageViewRef<PixelMask<PixelGray<float> > > dem = pixel_cast<PixelMask<PixelGray<float> > >(dem_disk_image);
 
   if (vm.count("nodata-value")) {
-    vw_out(0) << "\t--> Using " << nodata_value << " as the missing data value for the DEM.\n";
+    vw_out() << "\t--> Using " << nodata_value << " as the missing data value for the DEM.\n";
     dem = create_mask(dem_disk_image, nodata_value);
   }
 
@@ -240,9 +240,9 @@ int main(int argc, char* argv[]) {
   if (stereo_session_string == "isis") {
     if (lo == 0 && hi == 0) {
       min_max_channel_values(float_texture_disk_image, lo, hi);
-      vw_out(0) << "\t--> Normalizing ISIS pixel range range: [" << lo << "  " << hi << "]\n";
+      vw_out() << "\t--> Normalizing ISIS pixel range range: [" << lo << "  " << hi << "]\n";
     } else {
-      vw_out(0) << "\t--> Using user-specified normalization range: [" << lo << "  " << hi << "]\n";
+      vw_out() << "\t--> Using user-specified normalization range: [" << lo << "  " << hi << "]\n";
     }
     texture_image = channel_cast_rescale<uint8>(normalize_retain_alpha(remove_isis_special_pixels(float_texture_disk_image, PixelGrayA<float>(lo)), lo, hi, 0, 1.0));
   }
@@ -257,7 +257,7 @@ int main(int argc, char* argv[]) {
   double scale = 0;
   if (vm.count("ppd")) {
     if (dem_georef.is_projected()) {
-      vw_out(0) << "Input DEM is in a map projection.  Cannot specify resolution in pixels per degree.  Use meters per pixel (-mpp) instead.";
+      vw_out() << "Input DEM is in a map projection.  Cannot specify resolution in pixels per degree.  Use meters per pixel (-mpp) instead.";
       return 1;
     } else {
       scale = 1/ppd;
@@ -266,12 +266,12 @@ int main(int argc, char* argv[]) {
     if (dem_georef.is_projected()) {
       scale = mpp;
     } else {
-      vw_out(0) << "Input DEM is in a simple cylindrical map projection (Plate Carree).  Cannot specify resolution in meters per pixel.  Use pixels per degree (-ppd) instead.";
+      vw_out() << "Input DEM is in a simple cylindrical map projection (Plate Carree).  Cannot specify resolution in meters per pixel.  Use pixels per degree (-ppd) instead.";
       return 1;
     }
   }
 
-  vw_out(0) << "\nOrthoprojecting:\n";
+  vw_out() << "\nOrthoprojecting:\n";
 
   GeoReference drg_georef = dem_georef;
 
@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
 
     if ( projection_bbox.width() == 0 ||
          projection_bbox.height() == 0) {
-      vw_out(0) << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
+      vw_out() << "Image bounding box (" << image_bbox << ") and DEM bounding box (" << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
       return 1;
     }
 

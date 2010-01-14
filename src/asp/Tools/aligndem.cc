@@ -83,7 +83,7 @@ void match_orthoimages( string const& left_image_name,
                         std::vector<InterestPoint> & matched_ip2 )
 {
 
-  vw_out(0) << "\t--> Finding Interest Points for the orthoimages\n";
+  vw_out() << "\t--> Finding Interest Points for the orthoimages\n";
 
   fs::path left_image_path(left_image_name), right_image_path(right_image_name);
   string left_ip_file = change_extension(left_image_path, ".vwip").string();
@@ -93,9 +93,9 @@ void match_orthoimages( string const& left_image_name,
   // Building / Loading Interest point data
   if ( fs::exists(match_file) ) {
 
-    vw_out(0) << "\t    * Using cached match file.\n";
+    vw_out() << "\t    * Using cached match file.\n";
     read_binary_match_file(match_file, matched_ip1, matched_ip2);
-    vw_out(0) << "\t    * " << matched_ip1.size() << " matches\n";
+    vw_out() << "\t    * " << matched_ip1.size() << " matches\n";
 
   } else {
     std::vector<InterestPoint> ip1_copy, ip2_copy;
@@ -104,7 +104,7 @@ void match_orthoimages( string const& left_image_name,
          !fs::exists(right_ip_file) ) {
 
       // Worst case, no interest point operations have been performed before
-      vw_out(0) << "\t    * Locating Interest Points\n";
+      vw_out() << "\t    * Locating Interest Points\n";
       DiskImageView<PixelGray<float32> > left_disk_image(left_image_name);
       DiskImageView<PixelGray<float32> > right_disk_image(right_image_name);
 
@@ -112,32 +112,32 @@ void match_orthoimages( string const& left_image_name,
       LogInterestOperator log_detector;
       ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 500);
       std::list<InterestPoint> ip1, ip2;
-      vw_out(0) << "\t    * Processing " << left_image_name << "...\n" << std::flush;
+      vw_out() << "\t    * Processing " << left_image_name << "...\n" << std::flush;
       ip1 = detect_interest_points( left_disk_image, detector );
-      vw_out(0) << "Located " << ip1.size() << " points.\n";
-      vw_out(0) << "\t    * Processing " << right_image_name << "...\n" << std::flush;
+      vw_out() << "Located " << ip1.size() << " points.\n";
+      vw_out() << "\t    * Processing " << right_image_name << "...\n" << std::flush;
       ip2 = detect_interest_points( right_disk_image, detector );
-      vw_out(0) << "Located " << ip2.size() << " points.\n";
+      vw_out() << "Located " << ip2.size() << " points.\n";
 
-      vw_out(0) << "\t    * Generating descriptors..." << std::flush;
+      vw_out() << "\t    * Generating descriptors..." << std::flush;
       PatchDescriptorGenerator descriptor;
       descriptor( left_disk_image, ip1 );
       descriptor( right_disk_image, ip2 );
-      vw_out(0) << "done.\n";
+      vw_out() << "done.\n";
 
       // Writing out the results
-      vw_out(0) << "\t    * Caching interest points: "
+      vw_out() << "\t    * Caching interest points: "
                 << left_ip_file << " & " << right_ip_file << std::endl;
       write_binary_ip_file( left_ip_file, ip1 );
       write_binary_ip_file( right_ip_file, ip2 );
 
     }
     
-    vw_out(0) << "\t    * Using cached IPs.\n";
+    vw_out() << "\t    * Using cached IPs.\n";
     ip1_copy = read_binary_ip_file(left_ip_file);
     ip2_copy = read_binary_ip_file(right_ip_file);
 
-    vw_out(0) << "\t    * Matching interest points\n";
+    vw_out() << "\t    * Matching interest points\n";
     InterestPointMatcher<L2NormMetric,NullConstraint> matcher(0.8);
 
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
@@ -147,7 +147,7 @@ void match_orthoimages( string const& left_image_name,
     vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
 
 
-    vw_out(0) << "\t    * Caching matches: " << match_file << "\n";
+    vw_out() << "\t    * Caching matches: " << match_file << "\n";
     write_binary_match_file( match_file, matched_ip1, matched_ip2);
   }
 
@@ -212,7 +212,7 @@ int main( int argc, char *argv[] ) {
 
   match_orthoimages(ortho1_name, ortho2_name, matched_ip1, matched_ip2);
   
-  vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
+  vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
 
   std::vector<Vector4> ransac_ip1, ransac_ip2;
 
@@ -243,8 +243,8 @@ int main( int argc, char *argv[] ) {
   trans = ransac(ransac_ip1, ransac_ip2);
   indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2);
   
-  vw_out(0) << "\t    * Ransac Result: " << trans << "\n";
-  vw_out(0) << "\t                     # inliers: " << indices.size() << "\n";
+  vw_out() << "\t    * Ransac Result: " << trans << "\n";
+  vw_out() << "\t                     # inliers: " << indices.size() << "\n";
 
   ImageViewRef<PixelMask<double> > dem1_masked(create_mask(dem1_dmg, default_value));
 

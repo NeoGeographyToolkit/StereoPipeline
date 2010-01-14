@@ -66,19 +66,19 @@ int main ( int argc, char *argv[] ) {
   usage << general_options << "\n";
 
   if ( vm.count("help") || !vm.count("input-dem") ) {
-    vw_out(0) << usage.str() << "\n";
+    vw_out() << usage.str() << "\n";
     return 1;
   } else if ( vm.count("ll-start") ^ vm.count("ll-end") ) {
-    vw_out(0) << "Must specify both ends if creating a Lat Lon Profile!\n";
-    vw_out(0) << usage.str() << "\n";
+    vw_out() << "Must specify both ends if creating a Lat Lon Profile!\n";
+    vw_out() << usage.str() << "\n";
     return 1;
   } else if ( vm.count("px-start") ^ vm.count("px-end") ) {
-    vw_out(0) << "Must specify both ends if creating a Pixel Profile!\n";
-    vw_out(0) << usage.str() << "\n";
+    vw_out() << "Must specify both ends if creating a Pixel Profile!\n";
+    vw_out() << usage.str() << "\n";
     return 1;
   } else if ( vm.count("ll-start") && ( start_ll.size() != 2 ||
                                         end_ll.size() != 2 ) ) {
-    vw_out(0) << "Start and End Lon Lat locations require 2 values, longitude and latitude.\n";
+    vw_out() << "Start and End Lon Lat locations require 2 values, longitude and latitude.\n";
   }
 
   // Finally starting to perform some work
@@ -87,7 +87,7 @@ int main ( int argc, char *argv[] ) {
   DiskImageView<float> disk_dem_file( input_file );
   ImageViewRef<PixelMask<float> > dem;
   if ( vm.count("nodata-value") ) {
-    vw_out(0) << "\t--> Masking nodata value: " << nodata_value << "\n";
+    vw_out() << "\t--> Masking nodata value: " << nodata_value << "\n";
     dem = interpolate(create_mask( disk_dem_file, nodata_value ),
                       BicubicInterpolation(),
                       ZeroEdgeExtension());
@@ -95,7 +95,7 @@ int main ( int argc, char *argv[] ) {
     DiskImageResource *disk_dem_rsrc = DiskImageResource::open(input_file);
     if ( disk_dem_rsrc->has_nodata_value() ) {
       nodata_value = disk_dem_rsrc->nodata_value();
-      vw_out(0) << "\t--> Extracted nodata value from file: " << nodata_value << "\n";
+      vw_out() << "\t--> Extracted nodata value from file: " << nodata_value << "\n";
       dem = interpolate(create_mask( disk_dem_file, nodata_value ),
                         BicubicInterpolation(),
                         ZeroEdgeExtension());
@@ -120,9 +120,9 @@ int main ( int argc, char *argv[] ) {
     // Parsing string into a ll coordinate.
     if ( start_ll.find(',') == std::string::npos ||
          end_ll.find(',') == std::string::npos ) {
-      vw_out(0) << "Longitude and Latitude values must be delimited by a comma.\n";
-      vw_out(0) << "\tEx: --ll-start -109.54,33.483\n\n";
-      vw_out(0) << usage.str() << "\n";
+      vw_out() << "Longitude and Latitude values must be delimited by a comma.\n";
+      vw_out() << "\tEx: --ll-start -109.54,33.483\n\n";
+      vw_out() << usage.str() << "\n";
       return 1;
     }
 
@@ -135,9 +135,9 @@ int main ( int argc, char *argv[] ) {
     // Parsing string into pixel coordinates.
     if ( start_px.find(',') == std::string::npos ||
          end_px.find(',') == std::string::npos ) {
-      vw_out(0) << "Column and Row pixel values must be delimited by a comma.\n";
-      vw_out(0) << "\tEx: --px-start 65,109\n\n";
-      vw_out(0) << usage.str() << "\n";
+      vw_out() << "Column and Row pixel values must be delimited by a comma.\n";
+      vw_out() << "\tEx: --px-start 65,109\n\n";
+      vw_out() << usage.str() << "\n";
       return 1;
     }
 
@@ -155,14 +155,14 @@ int main ( int argc, char *argv[] ) {
   }
 
   // Debug
-  vw_out(0) << "Start: " << start << "\n";
-  vw_out(0) << "End:   " << end << "\n";
+  vw_out() << "Start: " << start << "\n";
+  vw_out() << "End:   " << end << "\n";
 
   // Working out the output file
   BBox2i bound = bounding_box( dem );
   if ( !bound.contains( start ) ||
        !bound.contains( end ) ) {
-    vw_out(0) << "Given coordinates are not with in the image!\nExiting early .....\n";
+    vw_out() << "Given coordinates are not with in the image!\nExiting early .....\n";
     return 1;
   }
 

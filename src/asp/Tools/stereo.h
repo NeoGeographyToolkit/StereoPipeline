@@ -139,7 +139,7 @@ approximate_search_range( std::string left_image,
                           std::string right_image,
                           float scale ) {
 
-  vw_out(0) << "\t--> Using interest points to determine search window.\n";
+  vw_out() << "\t--> Using interest points to determine search window.\n";
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   float i_scale = 1.0/scale;
 
@@ -155,7 +155,7 @@ approximate_search_range( std::string left_image,
   // Building / Loading Interest point data
   if ( fs::exists(match_file) ) {
 
-    vw_out(0) << "\t    * Using cached match file.\n";
+    vw_out() << "\t    * Using cached match file.\n";
     ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
 
   } else {
@@ -166,7 +166,7 @@ approximate_search_range( std::string left_image,
          !fs::exists(right_ip_file) ) {
 
       // Worst case, no interest point operations have been performed before
-      vw_out(0) << "\t    * Locating Interest Points\n";
+      vw_out() << "\t    * Locating Interest Points\n";
       DiskImageView<PixelGray<float32> > left_sub_disk_image(left_image);
       DiskImageView<PixelGray<float32> > right_sub_disk_image(right_image);
       ImageViewRef<PixelGray<float32> > left_sub_image = left_sub_disk_image;
@@ -175,7 +175,7 @@ approximate_search_range( std::string left_image,
       // Interest Point module detector code.
       float ipgain = 0.07;
       std::list<ip::InterestPoint> ip1, ip2;
-      vw_out(0) << "\t    * Processing for Interest Points.\n";
+      vw_out() << "\t    * Processing for Interest Points.\n";
       while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
         ip1.clear(); ip2.clear();
 
@@ -196,32 +196,32 @@ approximate_search_range( std::string left_image,
       if ( ip2.size() > 3000 )
         ip2.resize(3000);
 
-      vw_out(0) << "\t    * Generating descriptors..." << std::flush;
+      vw_out() << "\t    * Generating descriptors..." << std::flush;
       ip::SGradDescriptorGenerator descriptor;
       descriptor( left_sub_image, ip1 );
       descriptor( right_sub_image, ip2 );
-      vw_out(0) << "done.\n";
+      vw_out() << "done.\n";
 
       // Writing out the results
-      vw_out(0) << "\t    * Caching interest points: "
+      vw_out() << "\t    * Caching interest points: "
                 << left_ip_file << " & " << right_ip_file << std::endl;
       ip::write_binary_ip_file( left_ip_file, ip1 );
       ip::write_binary_ip_file( right_ip_file, ip2 );
 
     }
 
-    vw_out(0) << "\t    * Using cached IPs.\n";
+    vw_out() << "\t    * Using cached IPs.\n";
     ip1_copy = ip::read_binary_ip_file(left_ip_file);
     ip2_copy = ip::read_binary_ip_file(right_ip_file);
 
-    vw_out(0) << "\t    * Matching interest points\n";
+    vw_out() << "\t    * Matching interest points\n";
     ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
 
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
             false, TerminalProgressCallback( InfoMessage, "\t    Matching: "));
     vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
 
-    vw_out(0) << "\t    * Rejecting outliers using RANSAC.\n";
+    vw_out() << "\t    * Rejecting outliers using RANSAC.\n";
     remove_duplicates(matched_ip1, matched_ip2);
     std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
     std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
@@ -235,10 +235,10 @@ approximate_search_range( std::string left_image,
       vw_out(DebugMessage) << "\t    * Ransac Result: " << trans << std::endl;
       indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
     } catch (...) {
-      vw_out(0) << "-------------------------------WARNING---------------------------------\n";
-      vw_out(0) << "\t    RANSAC failed! Unable to auto detect search range.\n\n";
-      vw_out(0) << "\t    Please proceed cautiously!\n";
-      vw_out(0) << "-------------------------------WARNING---------------------------------\n";
+      vw_out() << "-------------------------------WARNING---------------------------------\n";
+      vw_out() << "\t    RANSAC failed! Unable to auto detect search range.\n\n";
+      vw_out() << "\t    Please proceed cautiously!\n";
+      vw_out() << "-------------------------------WARNING---------------------------------\n";
       return BBox2i(-10,-10,20,20);
     }
 
@@ -252,7 +252,7 @@ approximate_search_range( std::string left_image,
       matched_ip2 = inlier_ip2;
     }
 
-    vw_out(0) << "\t    * Caching matches: " << match_file << "\n";
+    vw_out() << "\t    * Caching matches: " << match_file << "\n";
     write_binary_match_file( match_file, matched_ip1, matched_ip2);
   }
 
@@ -272,7 +272,7 @@ approximate_search_range( std::string left_image,
   search_range.min() -= offset;
   search_range.max() += offset;
 
-  vw_out(0) << "\t--> Dectected search range: " << search_range << "\n";
+  vw_out() << "\t--> Dectected search range: " << search_range << "\n";
   return search_range;
 }
 

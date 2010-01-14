@@ -338,7 +338,7 @@ int main(int argc, char* argv[]) {
   if ( vm.count("cnet") ) {
     // Loading a Control Network
 
-    vw_out(0) << "Loading control network from file: " << cnet_file << "\n";
+    vw_out() << "Loading control network from file: " << cnet_file << "\n";
     cnet->read_binary(cnet_file);
 
   } else {

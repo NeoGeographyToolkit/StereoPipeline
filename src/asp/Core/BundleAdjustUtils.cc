@@ -62,6 +62,6 @@ void compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const
       max_error = std::max(max_error, error);
     }
   }
-  vw_out(0) << "\nStereo Intersection Residuals -- Min: " << min_error
-            << "  Max: " << max_error << "  Average: " << (error_sum/n) << "\n";
+  vw_out() << "\nStereo Intersection Residuals -- Min: " << min_error
+           << "  Max: " << max_error << "  Average: " << (error_sum/n) << "\n";
 }

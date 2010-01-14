@@ -75,7 +75,7 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
                                   prefix_from_filename( input_file2 ) + ".match" ) ) {
     // Is there a match file linking these 2 images?
 
-    vw_out(0) << "\t--> Found cached interest point match file: "
+    vw_out() << "\t--> Found cached interest point match file: "
               << ( prefix_from_filename(input_file1) + "__" +
                    prefix_from_filename(input_file2) + ".match" ) << "\n";
     read_binary_match_file( ( prefix_from_filename( input_file1 ) + "__" +
@@ -89,7 +89,7 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
     if ( exists( prefix_from_filename(input_file1) + ".vwip") &&
          exists( prefix_from_filename(input_file2) + ".vwip") ) {
       // Is there at least VWIP already done for both images?
-      vw_out(0) << "\t--> Found cached interest point files: "
+      vw_out() << "\t--> Found cached interest point files: "
                 << ( prefix_from_filename(input_file1) + ".vwip" ) << "\n"
                 << "\t                                       "
                 << ( prefix_from_filename(input_file2) + ".vwip" ) << "\n";
@@ -100,7 +100,7 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
 
     } else {
       // Performing interest point detector
-      vw_out(0) << "\t--> Locating Interest Points\n";
+      vw_out() << "\t--> Locating Interest Points\n";
       InterestPointList ip1, ip2;
       DiskImageView<PixelGray<float> > left_disk_image( input_file1 );
       DiskImageView<PixelGray<float> > right_disk_image( input_file2 );
@@ -111,21 +111,21 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
       LogInterestOperator log_detector;
       ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 500);
 
-      vw_out(0) << "\t    Processing " << input_file1 << "\n";
+      vw_out() << "\t    Processing " << input_file1 << "\n";
       ip1 = detect_interest_points( left_image, detector );
-      vw_out(0) << "\t    Located " << ip1.size() << " points.\n";
-      vw_out(0) << "\t    Processing " << input_file2 << "\n";
+      vw_out() << "\t    Located " << ip1.size() << " points.\n";
+      vw_out() << "\t    Processing " << input_file2 << "\n";
       ip2 = detect_interest_points( right_image, detector );
-      vw_out(0) << "\t    Located " << ip2.size() << " points.\n";
+      vw_out() << "\t    Located " << ip2.size() << " points.\n";
 
-      vw_out(0) << "\t    Generating descriptors...\n";
+      vw_out() << "\t    Generating descriptors...\n";
       PatchDescriptorGenerator descriptor;
       descriptor( left_image, ip1 );
       descriptor( right_image, ip2 );
-      vw_out(0) << "\t    done.\n";
+      vw_out() << "\t    done.\n";
 
       // Writing out the results
-      vw_out(0) << "\t    Caching interest points: "
+      vw_out() << "\t    Caching interest points: "
                 << (prefix_from_filename(input_file1)+".vwip") << ", "
                 << (prefix_from_filename(input_file2)+".vwip") << "\n";
       write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
@@ -138,7 +138,7 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
                                       ".vwip");
     }
 
-    vw_out(0) << "\t--> Matching interest points\n";
+    vw_out() << "\t--> Matching interest points\n";
     InterestPointMatcher<L2NormMetric,NullConstraint> matcher(0.8);
 
     matcher(ip1_copy, ip2_copy,
@@ -146,7 +146,7 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
             false,
             TerminalProgressCallback( InfoMessage, "\t    Matching: "));
 
-    vw_out(0) << "\t    Caching matches: "
+    vw_out() << "\t    Caching matches: "
               << ( prefix_from_filename(input_file1)+"__"+
                    prefix_from_filename(input_file2)+".match") << "\n";
 
@@ -158,7 +158,7 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
   vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
                       << " putative matches.\n";
 
-  vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
+  vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
   std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
   remove_duplicates(ransac_ip1, ransac_ip2);
@@ -175,9 +175,9 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
 
   } catch (...) {
 
-    vw_out(0) << "\n*************************************************************\n";
-    vw_out(0) << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
-    vw_out(0) << "*************************************************************\n\n";
+    vw_out() << "\n*************************************************************\n";
+    vw_out() << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
+    vw_out() << "*************************************************************\n\n";
     T.set_size(3,3);
     T.set_identity();
   }
@@ -267,7 +267,7 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
 
   if ( stereo_settings().epipolar_alignment ) {
 
-    vw_out(0) << "\t--> Performing epipolar alignment\n";
+    vw_out() << "\t--> Performing epipolar alignment\n";
 
     // Load the two images and fetch the two camera models
     boost::shared_ptr<camera::CameraModel> left_camera = this->camera_model(input_file1, m_left_camera_file);
@@ -318,7 +318,7 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
 
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
-  vw_out(0) << "\t--> Writing pre-aligned images.\n";
+  vw_out() << "\t--> Writing pre-aligned images.\n";
   write_image(output_file1, channel_cast_rescale<uint8>(Limg));
   write_image(output_file2, channel_cast_rescale<uint8>(Rimg));
 }
@@ -340,7 +340,7 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
       read_matrix(align_matrix, m_out_prefix + "-align.exr");
       vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
     } catch ( vw::IOErr &e ) {
-      vw_out(0) << "\nCould not read in alignment matrix: " << m_out_prefix << "-align.exr. Exiting. \n\n";
+      vw_out() << "\nCould not read in alignment matrix: " << m_out_prefix << "-align.exr. Exiting. \n\n";
       exit(1);
     }
 

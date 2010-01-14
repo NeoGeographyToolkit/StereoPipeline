@@ -150,13 +150,13 @@ int main( int argc, char *argv[] ) {
   usage << std::endl << desc << std::endl;
 
   if( vm.count("help") ) {
-    vw_out(0) << usage.str();
+    vw_out() << usage.str();
     return 1;
   }
 
   if( vm.count("input-file") != 1 ) {
-    vw_out(0) << "Error: Must specify exactly one pointcloud file and one texture file!" << std::endl;
-    vw_out(0) << usage.str();
+    vw_out() << "Error: Must specify exactly one pointcloud file and one texture file!" << std::endl;
+    vw_out() << usage.str();
     return 1;
   }
 
@@ -169,13 +169,13 @@ int main( int argc, char *argv[] ) {
 
   // Apply an (optional) rotation to the 3D points before building the mesh.
   if (phi_rot != 0 || omega_rot != 0 || kappa_rot != 0) {
-    vw_out(0) << "\t--> Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
+    vw_out() << "\t--> Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
     Matrix3x3 rotation_trans = math::euler_to_rotation_matrix(phi_rot,omega_rot,kappa_rot,rot_order);
     point_image = per_pixel_filter(point_image, PointTransFunc(rotation_trans));
   }
 
   if (vm.count("xyz-to-lonlat") ) {
-    vw_out(0) << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
+    vw_out() << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
     point_image = cartography::xyz_to_lon_lat_radius(point_image);
   }
 
@@ -185,7 +185,7 @@ int main( int argc, char *argv[] ) {
   if ( reference_spheroid != "" ) {
     if (reference_spheroid == "mars") {
       const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396000.0;
-      vw_out(0) << "\t--> Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
+      vw_out() << "\t--> Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
       datum = cartography::Datum("D_MARS",
                                  "MARS",
                                  "Reference Meridian",
@@ -194,7 +194,7 @@ int main( int argc, char *argv[] ) {
                                  0.0);
     } else if (reference_spheroid == "moon") {
       const double LUNAR_RADIUS = 1737400;
-      vw_out(0) << "\t--> Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
+      vw_out() << "\t--> Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
       datum = cartography::Datum("D_MOON",
                                  "MOON",
                                  "Reference Meridian",
@@ -202,11 +202,11 @@ int main( int argc, char *argv[] ) {
                                  LUNAR_RADIUS,
                                  0.0);
     } else {
-      vw_out(0) << "\t--> Unknown reference spheroid: " << reference_spheroid << ".  Current options are [ moon , mars ]\nExiting.\n\n";
+      vw_out() << "\t--> Unknown reference spheroid: " << reference_spheroid << ".  Current options are [ moon , mars ]\nExiting.\n\n";
       exit(0);
     }
   } else if (semi_major != 0 && semi_minor != 0) {
-    vw_out(0) << "\t--> Re-referencing altitude values to user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
+    vw_out() << "\t--> Re-referencing altitude values to user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
     datum = cartography::Datum("User Specified Datum",
                                "User Specified Spheroid",
                                "Reference Meridian",
@@ -214,7 +214,7 @@ int main( int argc, char *argv[] ) {
   }
 
   if (x_offset != 0 || y_offset != 0 || z_offset != 0) {
-    vw_out(0) << "\t--> Applying offset: " << x_offset << " " << y_offset << " " << z_offset << "\n";
+    vw_out() << "\t--> Applying offset: " << x_offset << " " << y_offset << " " << z_offset << "\n";
     point_image = point_image_offset(point_image, Vector3(x_offset,y_offset,z_offset));
   }
 
@@ -271,11 +271,11 @@ int main( int argc, char *argv[] ) {
   }
 
   vw::BBox3 dem_bbox = rasterizer.bounding_box();
-  vw_out(0) << "\nDEM Bounding box: " << dem_bbox << "\n";
+  vw_out() << "\nDEM Bounding box: " << dem_bbox << "\n";
 
   // Now we are ready to specify the affine transform.
   Matrix3x3 georef_affine_transform = rasterizer.geo_transform();
-  vw_out(0) << "Georeferencing Transform: " << georef_affine_transform << "\n";
+  vw_out() << "Georeferencing Transform: " << georef_affine_transform << "\n";
   georef.set_transform(georef_affine_transform);
 
   // Write out a georeferenced orthoimage of the DTM with alpha.
@@ -294,7 +294,7 @@ int main( int argc, char *argv[] ) {
   } else {
 
     { // Write out the DEM.
-      vw_out(0) << "\nWriting DEM.\n";
+      vw_out() << "\nWriting DEM.\n";
       ImageViewRef<PixelGray<float> > block_dem_raster =
         block_cache(rasterizer, Vector2i(rasterizer.cols(), 2024), 0);
       write_georeferenced_image( out_prefix + "-DEM." + output_file_type,
@@ -304,7 +304,7 @@ int main( int argc, char *argv[] ) {
 
     // Write out a normalized version of the DTM (for debugging)
     if (vm.count("normalized")) {
-      vw_out(0) << "\nWriting normalized DEM.\n";
+      vw_out() << "\nWriting normalized DEM.\n";
 
       DiskImageView<PixelGray<float> > dem_image(out_prefix + "-DEM." + output_file_type);
 
@@ -316,7 +316,7 @@ int main( int argc, char *argv[] ) {
 
   // Write out the offset files
   if (vm.count("offset-files")) {
-    vw_out(0) << "Offset: " << dem_bbox.min().x()/rasterizer.spacing() << "   " << dem_bbox.max().y()/rasterizer.spacing() << "\n";
+    vw_out() << "Offset: " << dem_bbox.min().x()/rasterizer.spacing() << "   " << dem_bbox.max().y()/rasterizer.spacing() << "\n";
     std::string offset_filename = out_prefix + "-DRG.offset";
     FILE* offset_file = fopen(offset_filename.c_str(), "w");
     fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.spacing()), -int(dem_bbox.max().y()/rasterizer.spacing()));

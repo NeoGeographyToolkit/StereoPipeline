@@ -126,18 +126,18 @@ int main(int argc, char* argv[]) {
          boost::iends_with(input_files[testing_i], ".cahv") ||
          boost::iends_with(input_files[testing_i], ".pin") ||
          boost::iends_with(input_files[testing_i], ".tsai") ) {
-      vw_out(0) << "\t--> Detected pinhole camera file\n";
+      vw_out() << "\t--> Detected pinhole camera file\n";
       stereo_session_string = "pinhole";
     }
     else if (boost::iends_with(input_files[testing_i], ".cub") ) {
-      vw_out(0) << "\t--> Detected ISIS cube file\n";
+      vw_out() << "\t--> Detected ISIS cube file\n";
       stereo_session_string = "isis";
     }
     else {
-      vw_out(0) << "\n\n******************************************************************\n";
-      vw_out(0) << "Could not determine stereo session type.   Please set it explicitly\n";
-      vw_out(0) << "using the -t switch.\n";
-      vw_out(0) << "******************************************************************\n\n";
+      vw_out() << "\n\n******************************************************************\n";
+      vw_out() << "Could not determine stereo session type.   Please set it explicitly\n";
+      vw_out() << "using the -t switch.\n";
+      vw_out() << "******************************************************************\n\n";
       exit(0);
     }
   }

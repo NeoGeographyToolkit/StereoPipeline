@@ -73,14 +73,14 @@ namespace blob {
     void decompress( std::list<vw::Vector2i>& output ) const;
 
     void print( void ) const {
-      vw::vw_out(0) << "BlobCompressed | min: " << m_min << "\n";
+      vw::vw_out() << "BlobCompressed | min: " << m_min << "\n";
       for ( vw::uint32 i = 0; i < m_row_start.size(); i++ ) {
-        vw::vw_out(0) << " " << i << "|";
+        vw::vw_out() << " " << i << "|";
         for ( std::list<vw::int32>::const_iterator s_iter = m_row_start[i].begin(),
                 e_iter = m_row_end[i].begin(); s_iter != m_row_start[i].end();
               s_iter++, e_iter++ )
-          vw::vw_out(0) << "(" << *s_iter << "<>" << *e_iter << ")";
-        vw::vw_out(0) <<"\n";
+          vw::vw_out() << "(" << *s_iter << "<>" << *e_iter << ")";
+        vw::vw_out() <<"\n";
       }
     }
   };

@@ -76,17 +76,17 @@ int main( int argc, char *argv[] ) {
     output_prefix = prefix_from_filename(input_file_name);
   }
 
-  vw_out(0) << "Opening " << input_file_name << "\n";
+  vw_out() << "Opening " << input_file_name << "\n";
   DiskImageView<PixelMask<Vector2f> > disk_disparity_map(input_file_name);
 
-  vw_out(0) << "\t--> Computing disparity range \n";
+  vw_out() << "\t--> Computing disparity range \n";
   BBox2 disp_range = get_disparity_range(disk_disparity_map);
-  vw_out(0) << "\t    Horizontal - [" << disp_range.min().x() << " " << disp_range.max().x() << "]    Vertical: [" << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
+  vw_out() << "\t    Horizontal - [" << disp_range.min().x() << " " << disp_range.max().x() << "]    Vertical: [" << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
 
   ImageViewRef<float32> horizontal = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)),disk_disparity_map));
   ImageViewRef<float32> vertical = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)),disk_disparity_map));
 
-  vw_out(0) << "\t--> Saving disparity debug images\n";
+  vw_out() << "\t--> Saving disparity debug images\n";
   if (vm.count("float-pixels")) {
     write_image( output_prefix + "-H." + output_file_type, horizontal, TerminalProgressCallback(InfoMessage,"\t    Left  : "));
     write_image( output_prefix + "-V." + output_file_type, vertical, TerminalProgressCallback(InfoMessage,"\t    Right : "));

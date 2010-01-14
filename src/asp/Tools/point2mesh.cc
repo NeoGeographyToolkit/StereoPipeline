@@ -519,11 +519,11 @@ int main( int argc, char *argv[] ){
   usage << desc << std::endl;
 
   if( vm.count("help") ) {
-    vw_out(0) << usage.str() << std::endl;
+    vw_out() << usage.str() << std::endl;
     return 1;
   } else if ( vm.count("input-file") != 1 ) {
-    vw_out(0) << "Error: Must specify at least a pointcloud file!" << std::endl;
-    vw_out(0) << usage.str();
+    vw_out() << "Error: Must specify at least a pointcloud file!" << std::endl;
+    vw_out() << usage.str();
     return 1;
   }
 

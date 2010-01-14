@@ -112,7 +112,7 @@ public:
     // Checking to see if this Control Network is compatible with
     // IsisBundleAdjustmentModel
     if ( (*m_network)[0][0].description() != "millimeters" )
-      vw_out(0) << "WARNING: Control Network doesn't seem to be in the correct units for the Control Measure for this problem (millimeters)" << std::endl;
+      vw_out() << "WARNING: Control Network doesn't seem to be in the correct units for the Control Measure for this problem (millimeters)" << std::endl;
 
   }
 

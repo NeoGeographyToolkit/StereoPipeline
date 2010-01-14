@@ -70,8 +70,8 @@ void StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
   inv_scale_matrix(1, 1) = inv_scale_matrix(0, 0);
   align_matrix = align_matrix * scale_matrix;
   align_matrix = inv_scale_matrix * align_matrix;
-  vw_out(0) << "StereoSessionKeypoint::adjust_align_matrix(): scaled alignment matrix:\n";
-  vw_out(0) << align_matrix << std::endl;
+  vw_out() << "StereoSessionKeypoint::adjust_align_matrix(): scaled alignment matrix:\n";
+  vw_out() << align_matrix << std::endl;
 }
 
 vw::math::Matrix<double>
@@ -181,7 +181,7 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
 void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, std::string & output_file) {
   //  output_file = input_file;
   output_file = m_out_prefix + "-F-corrected.exr";
-  vw_out(0) << "Processing disparity map to remove the earlier effects of interest point alignment.\n";
+  vw_out() << "Processing disparity map to remove the earlier effects of interest point alignment.\n";
 
   DiskImageView<PixelMask<Vector2f> > disparity_map(input_file);
 

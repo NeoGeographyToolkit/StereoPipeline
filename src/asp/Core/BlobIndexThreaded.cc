@@ -140,9 +140,9 @@ void BlobCompressed::add_row( Vector2i const& start,
 
     if ( (start.x() < m_row_start.back().back()+m_min.x()) &&
          !m_row_start.back().empty() ) {
-      vw_out(0) << "start: " << start << " w: " << width << std::endl;
-      vw_out(0) << "front() = " <<  m_row_start.back().back() << std::endl;
-      vw_out(0) << "min.x() << " << m_min.x() << std::endl;
+      vw_out() << "start: " << start << " w: " << width << std::endl;
+      vw_out() << "front() = " <<  m_row_start.back().back() << std::endl;
+      vw_out() << "min.x() << " << m_min.x() << std::endl;
       vw_throw(vw::NoImplErr() << "It appears a segment is trying to be inserted out of order.\n" );
     }
 
@@ -222,13 +222,13 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
         }
         // Checking for error and debug
         if ( !found_good_spot ) {
-          vw_out(0) << "index =  " << m_index << std::endl;
-          vw_out(0) << "Have: min[" << m_min << "] ";
+          vw_out() << "index =  " << m_index << std::endl;
+          vw_out() << "Have: min[" << m_min << "] ";
           for ( std::list<int32>::const_iterator m_i_str = m_row_start[m_index].begin(),
                   m_i_end = m_row_end[m_index].begin();
                 m_i_str != m_row_start[m_index].end(); m_i_str++, m_i_end++ )
-            vw_out(0) << "(" << *m_i_str << "-" << *m_i_end << ")";
-          vw_out(0) << "\nTrying to insert singleton: (" << *v_singleton_start << "-"
+            vw_out() << "(" << *m_i_str << "-" << *m_i_end << ")";
+          vw_out() << "\nTrying to insert singleton: (" << *v_singleton_start << "-"
                     << *v_singleton_end << ")\n";
 
           vw_throw( vw::NoImplErr() << "BlobCompressed: Seems to be inserting an overlapping blob compressed object.\n" );

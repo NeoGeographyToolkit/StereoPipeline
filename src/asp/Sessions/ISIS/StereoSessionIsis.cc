@@ -89,7 +89,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
                    filename_from_path( input_file2 ) + ".match" ) ) {
     // Is there a match file linking these 2 image?
 
-    vw_out(0) << "\t--> Found cached interest point match file: "
+    vw_out() << "\t--> Found cached interest point match file: "
               << ( prefix_from_filename(input_file1) + "__" +
                    filename_from_path(input_file2) + ".match" ) << "\n";
     read_binary_match_file( ( prefix_from_filename(input_file1) + "__" +
@@ -104,7 +104,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
     math::AffineFittingFunctor aff_fit;
     Matrix<double> seed = aff_fit( list2, list1 );
     Matrix<double> align = fitting( list2, list1, seed );  // LMA optimization second
-    vw_out(0) << "\tFit = " << align << std::endl;
+    vw_out() << "\tFit = " << align << std::endl;
     return align;
 
   } else {
@@ -115,7 +115,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
     if ( fs::exists( prefix_from_filename(input_file1) + ".vwip" ) &&
          fs::exists( prefix_from_filename(input_file2) + ".vwip" ) ) {
       // Found VWIPs already done before
-      vw_out(0) << "\t--> Found cached interest point files: "
+      vw_out() << "\t--> Found cached interest point files: "
                 << ( prefix_from_filename(input_file1) + ".vwip" ) << "\n"
                 << "\t                                       "
                 << ( prefix_from_filename(input_file2) + ".vwip" ) << "\n";
@@ -126,7 +126,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
 
     } else {
       // Worst case, no interest point operations have been performed before
-      vw_out(0) << "\t--> Locating Interest Points\n";
+      vw_out() << "\t--> Locating Interest Points\n";
       ip::InterestPointList ip1, ip2;
       DiskImageView<PixelGray<float> > left_disk_image(input_file1);
       DiskImageView<PixelGray<float> > right_disk_image(input_file2);
@@ -138,21 +138,21 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
       // Interest Point module detector code.
       ip::LogInterestOperator log_detector;
       ip::ScaledInterestPointDetector<ip::LogInterestOperator> detector(log_detector, 500);
-      vw_out(0) << "\t    Processing " << input_file1 << "\n";
+      vw_out() << "\t    Processing " << input_file1 << "\n";
       ip1 = detect_interest_points( left_image, detector );
-      vw_out(0) << "\t    Located " << ip1.size() << " points.\n";
-      vw_out(0) << "\t    Processing " << input_file2 << "\n";
+      vw_out() << "\t    Located " << ip1.size() << " points.\n";
+      vw_out() << "\t    Processing " << input_file2 << "\n";
       ip2 = detect_interest_points( right_image, detector );
-      vw_out(0) << "\t    Located " << ip2.size() << " points.\n";
+      vw_out() << "\t    Located " << ip2.size() << " points.\n";
 
-      vw_out(0) << "\t    Generating descriptors...\n";
+      vw_out() << "\t    Generating descriptors...\n";
       ip::PatchDescriptorGenerator descriptor;
       descriptor( left_image, ip1 );
       descriptor( right_image, ip2 );
-      vw_out(0) << "\t    done.\n";
+      vw_out() << "\t    done.\n";
 
       // Writing out the results
-      vw_out(0) << "\t    Caching interest points: "
+      vw_out() << "\t    Caching interest points: "
                 << (prefix_from_filename(input_file1) + ".vwip") << ", "
                 << (prefix_from_filename(input_file2) + ".vwip") << "\n";
       ip::write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
@@ -164,7 +164,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
 
     }
 
-    vw_out(0) << "\t--> Matching interest points\n";
+    vw_out() << "\t--> Matching interest points\n";
     ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.8);
 
     matcher(ip1_copy, ip2_copy,
@@ -172,7 +172,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
             false,
             TerminalProgressCallback( InfoMessage, "\t    Matching: "));
 
-    vw_out(0) << "\t    Caching matches: "
+    vw_out() << "\t    Caching matches: "
               << ( prefix_from_filename(input_file1) + "__" +
                    prefix_from_filename(input_file2) + ".match") << "\n";
 
@@ -185,7 +185,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
   vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
                       << " putative matches.\n";
 
-  vw_out(0) << "\t--> Rejecting outliers using RANSAC.\n";
+  vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
   remove_duplicates(matched_ip1, matched_ip2);
   std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
   std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
@@ -201,9 +201,9 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
     vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
 
   } catch (...) {
-    vw_out(0) << "\n*************************************************************\n";
-    vw_out(0) << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
-    vw_out(0) << "*************************************************************\n\n";
+    vw_out() << "\n*************************************************************\n";
+    vw_out() << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
+    vw_out() << "*************************************************************\n\n";
     T.set_size(3,3);
     T.set_identity();
   }
@@ -289,10 +289,10 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
   if ( stereo_settings().keypoint_alignment) {
     if ( left_rsrc.is_map_projected() ||
          right_rsrc.is_map_projected() ) {
-      vw_out(0) << "-------------------------------WARNING---------------------------------\n";
-      vw_out(0) << "\tOne our more of the input files is map projected. Interest Point\n";
-      vw_out(0) << "\talignment is not recommend in this case.\n";
-      vw_out(0) << "-------------------------------WARNING---------------------------------\n";
+      vw_out() << "-------------------------------WARNING---------------------------------\n";
+      vw_out() << "\tOne our more of the input files is map projected. Interest Point\n";
+      vw_out() << "\talignment is not recommend in this case.\n";
+      vw_out() << "-------------------------------WARNING---------------------------------\n";
     }
     align_matrix = determine_image_alignment(input_file1, input_file2,
                                              lo, hi );
@@ -303,7 +303,7 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
   ImageViewRef<PixelGray<float> > Limg;
   ImageViewRef<PixelGray<float> > Rimg;
   if (stereo_settings().individually_normalize == 0 ) {
-    vw_out(0) << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
+    vw_out() << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
     Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, lo),
                            lo, hi, 0.0, 1.0));
     Rimg = clamp(transform(normalize(remove_isis_special_pixels(right_disk_image, right_lo, right_hi, lo),
@@ -311,7 +311,7 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
                            HomographyTransform(align_matrix),
                            left_disk_image.cols(), left_disk_image.rows()));
   } else {
-    vw_out(0) << "\t--> Individually normalizing.\n";
+    vw_out() << "\t--> Individually normalizing.\n";
     Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image, left_lo,
                                                       left_hi, left_lo),
                            left_lo, left_hi, 0.0, 1.0));
@@ -322,7 +322,7 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
                            left_disk_image.cols(), left_disk_image.rows()));
   }
   // Write the results to disk.
-  vw_out(0) << "\t--> Writing normalized images.\n";
+  vw_out() << "\t--> Writing normalized images.\n";
   DiskImageResourceGDAL left_out_rsrc( output_file1, Limg.format(),
                                        Vector2i(vw_settings().default_tile_size(),
                                                 vw_settings().default_tile_size()) );
@@ -350,7 +350,7 @@ StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
   // (use at your own risk)
   // ****************************************************
   if (stereo_settings().mask_flatfield) {
-    vw_out(0) << "\t--> Masking pixels that are less than 0.0.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
+    vw_out() << "\t--> Masking pixels that are less than 0.0.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
     output_file = m_out_prefix + "-R-masked.exr";
     DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
     DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
@@ -393,7 +393,7 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
     read_matrix(align_matrix, m_out_prefix + "-align.exr");
     vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
   } catch (vw::IOErr &e) {
-    vw_out(0) << "\nCould not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
+    vw_out() << "\nCould not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
     exit(1);
   }
 
@@ -418,7 +418,7 @@ StereoSessionIsis::camera_model(std::string image_file,
                                 std::string camera_file) {
 
   if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
-    vw_out(0) << "\t--> Using adjusted Isis Camera Model: " << camera_file << "\n";
+    vw_out() << "\t--> Using adjusted Isis Camera Model: " << camera_file << "\n";
 
     // Creating Equations for the files
     std::ifstream input( camera_file.c_str() );
@@ -430,7 +430,7 @@ StereoSessionIsis::camera_model(std::string image_file,
     return boost::shared_ptr<camera::CameraModel>(new IsisAdjustCameraModel( image_file, posF, poseF ));
 
   } else {
-    vw_out(0) << "\t--> Using standard Isis camera model: " << image_file << "\n";
+    vw_out() << "\t--> Using standard Isis camera model: " << image_file << "\n";
     return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
   }
 

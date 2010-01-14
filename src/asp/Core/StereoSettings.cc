@@ -157,8 +157,8 @@ void StereoSettings::read(std::string const& filename) {
     exit(EXIT_FAILURE);
   }
 
-  vw::vw_out(0) << "*************************************************************\n";
-  vw::vw_out(0) << "Reading Stereo Settings file: " << filename << "\n";
+  vw::vw_out() << "*************************************************************\n";
+  vw::vw_out() << "Reading Stereo Settings file: " << filename << "\n";
 
   std::string name, value, line;
   int c;
@@ -174,14 +174,14 @@ void StereoSettings::read(std::string const& filename) {
       try {
         po::store(po::parse_config_file(ss, m_desc), m_vm);
       } catch (boost::program_options::unknown_option &e) {
-        vw::vw_out(0) << "\tWARNING --> Unknown stereo settings option: " << line << "\n";
+        vw::vw_out() << "\tWARNING --> Unknown stereo settings option: " << line << "\n";
       }
     }
     ignoreline(fp);
   }
 
   po::notify(m_vm);
-  vw::vw_out(0) << "*************************************************************\n";
+  vw::vw_out() << "*************************************************************\n";
   fp.close();
 }
 

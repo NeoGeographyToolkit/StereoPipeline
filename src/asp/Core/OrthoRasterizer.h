@@ -61,7 +61,7 @@ namespace cartography {
             m_bbox.grow(m_point_image(i,j));
       }
       progress_callback.report_finished();
-      vw_out(0) << "Raster bounding box: " << m_bbox << "\n";
+      vw_out() << "Raster bounding box: " << m_bbox << "\n";
 
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);

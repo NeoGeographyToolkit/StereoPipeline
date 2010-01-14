@@ -53,15 +53,15 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
   if ( cost_function.name_tag() != "L2Error" )
     bundle_adjuster.set_control( 1 ); // Shutting off fast Fletcher-style control
   if ( g_vm.count( "seed-with-previous" ) ) {
-    vw_out(0) << "Seeding with previous ISIS adjustment files.\n";
-    vw_out(0) << "\tLoading up previous ISIS adjustments\n";
+    vw_out() << "Seeding with previous ISIS adjustment files.\n";
+    vw_out() << "\tLoading up previous ISIS adjustments\n";
     for (unsigned j = 0; j < g_input_files.size(); ++j ) {
       std::string adjust_file = prefix_from_filename( g_input_files[j] ) +
         ".isis_adjust";
 
       // Loading and forcing in the adjustment
       if ( fs::exists( adjust_file ) ) {
-        vw_out(0) << "\t\tFound: " << adjust_file << std::endl;
+        vw_out() << "\t\tFound: " << adjust_file << std::endl;
         std::ifstream input( adjust_file.c_str() );
         Vector<double> camera_vector = ba_model.A_parameters( j );
         for ( unsigned n = 0; n < camera_vector.size(); n++ )
@@ -114,7 +114,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
 
     // Repushing the position in control network into BA model
     {
-      vw_out(0) << "\tPush new triangulation results back into BA model\n";
+      vw_out() << "\tPush new triangulation results back into BA model\n";
 
       for ( unsigned i = 0; i < g_cnet->size(); ++i )
         ba_model.set_B_parameters( i, (*g_cnet)[i].position() );
@@ -210,7 +210,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
 
   // Option to write KML of control network
   if ( g_vm.count("write-kml") ) {
-    vw_out(0) << "Writing KML of Control Network.\n";
+    vw_out() << "Writing KML of Control Network.\n";
     reporter.write_control_network_kml( !g_kml_all );
   }
 
@@ -281,13 +281,13 @@ int main(int argc, char* argv[]) {
   usage << general_options << std::endl;
 
   if ( g_vm.count("help") ) {
-    vw_out(0) << usage.str() << std::endl;
+    vw_out() << usage.str() << std::endl;
     return 1;
   }
 
   if ( g_vm.count("input-files") < 1 ) {
-    vw_out(0) << "Error: Must specify at least one input file!" << std::endl << std::endl;
-    vw_out(0) << usage.str();
+    vw_out() << "Error: Must specify at least one input file!" << std::endl << std::endl;
+    vw_out() << usage.str();
     return 1;
   }
   g_gcp_files = sort_out_gcps( g_input_files );
@@ -299,7 +299,7 @@ int main(int argc, char* argv[]) {
           robust_cost_function == "l1" ||
           robust_cost_function == "l2" ||
           robust_cost_function == "cauchy" ) ) {
-    vw_out(0) << "Unknown robust cost function: " << robust_cost_function
+    vw_out() << "Unknown robust cost function: " << robust_cost_function
               << ". Options are : [ PseudoHuber, Huber, L1, L2, Cauchy]\n";
     exit(1);
   }
@@ -310,7 +310,7 @@ int main(int argc, char* argv[]) {
           bundle_adjustment_type == "sparse" ||
           bundle_adjustment_type == "robustref" ||
           bundle_adjustment_type == "robustsparse" ) ) {
-    vw_out(0) << "Unknown bundle adjustment version: " << bundle_adjustment_type
+    vw_out() << "Unknown bundle adjustment version: " << bundle_adjustment_type
               << ". Options are : [Ref, Sparse, RobustRef, RobustSparse]\n";
     exit(1);
   }
@@ -319,8 +319,8 @@ int main(int argc, char* argv[]) {
   // blank equations to define the cameras
   std::vector< boost::shared_ptr<CameraModel> > camera_models( g_input_files.size() );
   {
-    vw_out(0) << "Loading Camera Models:\n";
-    vw_out(0) << "----------------------\n";
+    vw_out() << "Loading Camera Models:\n";
+    vw_out() << "----------------------\n";
     TerminalProgressCallback progress(vw::InfoMessage,"Camera Models:");
     progress.report_progress(0);
     for ( unsigned i = 0; i < g_input_files.size(); ++i ) {
@@ -339,7 +339,7 @@ int main(int argc, char* argv[]) {
   // Checking to see if there is a cnet file to load up
   g_cnet = boost::shared_ptr<ControlNetwork>( new ControlNetwork("IsisAdjust Control Network (in mm)"));
   if ( g_vm.count("cnet") ){
-    vw_out(0) << "Loading control network from file: " << cnet_file << "\n";
+    vw_out() << "Loading control network from file: " << cnet_file << "\n";
 
     std::vector<std::string> tokens;
     boost::split( tokens, cnet_file, boost::is_any_of(".") );
@@ -379,8 +379,8 @@ int main(int argc, char* argv[]) {
     }
 
   } else {
-    vw_out(0) << "Building Control Network:\n";
-    vw_out(0) << "-------------------------\n";
+    vw_out() << "Building Control Network:\n";
+    vw_out() << "-------------------------\n";
     build_control_network( g_cnet,
                            camera_models,
                            g_input_files,
@@ -401,8 +401,8 @@ int main(int argc, char* argv[]) {
   // networks as a strict ISIS style control network will not record
   // Ephemeris Time.
   {
-    vw_out(0) << "Calculating focal plane measurements:\n";
-    vw_out(0) << "-------------------------------------\n";
+    vw_out() << "Calculating focal plane measurements:\n";
+    vw_out() << "-------------------------------------\n";
     TerminalProgressCallback progress;
     progress.report_progress(0);
 
@@ -435,14 +435,14 @@ int main(int argc, char* argv[]) {
 
     // Writing ISIS Control Network
     g_cnet->write_binary("isis_adjust");
-    vw_out(0) << "\n";
+    vw_out() << "\n";
   }
 
   VW_DEBUG_ASSERT( g_cnet->size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
 
   // Option to write ISIS-style control network
   if ( g_vm.count("write-isis-cnet-also") ) {
-    vw_out(0) << "Writing ISIS-style Control Network.\n";
+    vw_out() << "Writing ISIS-style Control Network.\n";
     g_cnet->write_isis("isis_adjust");
   }
 
@@ -478,14 +478,14 @@ int main(int argc, char* argv[]) {
       if ( robust_cost_function == "l2" ) {
         perform_bundleadjustment<BundleAdjustmentRobustRef< ModelType,L2Error> >( L2Error() );
       } else {
-        vw_out(0) << "Robust Reference implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
+        vw_out() << "Robust Reference implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
         exit(1);
       }
     } else if ( bundle_adjustment_type == "robustsparse" ) {
       if ( robust_cost_function == "l2" ) {
         perform_bundleadjustment<BundleAdjustmentRobustSparse< ModelType,L2Error> >( L2Error() );
       } else {
-        vw_out(0) << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
+        vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
         exit(1);
       }
     }
