@@ -8,6 +8,6 @@ clean:
 	rm -rf *.o *~ \#* *.aux *.log 
 
 distclean: clean
-	rm -rf generate asp_book.toc asp_book.pdf .libs
+	rm -rf generate asp_book.toc asp_book.pdf .libs asp_book.out
 
 .PHONY: images clean distclean all

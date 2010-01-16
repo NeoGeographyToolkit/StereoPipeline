@@ -272,7 +272,7 @@ approximate_search_range( std::string left_image,
   search_range.min() -= offset;
   search_range.max() += offset;
 
-  vw_out() << "\t--> Dectected search range: " << search_range << "\n";
+  vw_out() << "\t--> Detected search range: " << search_range << "\n";
   return search_range;
 }
 
