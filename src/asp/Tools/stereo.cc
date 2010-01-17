@@ -264,9 +264,9 @@ int main(int argc, char* argv[]) {
       left_image  = fast_median_filter(left_rectified_image, 7);
       right_image = fast_median_filter(right_rectified_image, 7);
       write_image(out_prefix+"-median-L.tif", left_image,
-                  TerminalProgressCallback(InfoMessage, "\t--> Median Left: "));
+                  TerminalProgressCallback( "asp", "\t--> Median L: "));
       write_image(out_prefix+"-median-R.tif", right_image,
-                  TerminalProgressCallback(InfoMessage, "\t--> Median Right: "));
+                  TerminalProgressCallback( "asp", "\t--> Median R: "));
     }
 
     try {
@@ -286,9 +286,9 @@ int main(int argc, char* argv[]) {
                                          Vector2i(vw_settings().default_tile_size(),
                                                   vw_settings().default_tile_size()) );
       block_write_image(l_mask_rsrc, Lmask,
-                        TerminalProgressCallback(InfoMessage, "\t    Mask Left: "));
+                        TerminalProgressCallback("asp", "\t    Mask L: "));
       block_write_image(r_mask_rsrc, Rmask,
-                        TerminalProgressCallback(InfoMessage, "\t    Mask Right: "));
+                        TerminalProgressCallback("asp", "\t    Mask R: "));
     }
 
     // Produce subsampled images
@@ -333,9 +333,9 @@ int main(int argc, char* argv[]) {
                                                  sub_tile_size) );
       vw_settings().set_default_num_threads(sub_threads);
       block_write_image(l_sub_rsrc, Lsub,
-                        TerminalProgressCallback(InfoMessage, "\t    Sub Left: "));
+                        TerminalProgressCallback("asp", "\t    Sub L: "));
       block_write_image(r_sub_rsrc, Rsub,
-                        TerminalProgressCallback(InfoMessage, "\t    Sub Right: "));
+                        TerminalProgressCallback("asp", "\t    Sub R: "));
       vw_settings().set_default_num_threads();
     }
 
@@ -557,7 +557,7 @@ int main(int argc, char* argv[]) {
         DiskImageResourceOpenEXR em_disparity_map_rsrc(out_prefix + "-F6.exr", em_correlator.format());
 
         block_write_image(em_disparity_map_rsrc, em_correlator,
-                          TerminalProgressCallback(InfoMessage, "\t--> EM Refinement :"));
+                          TerminalProgressCallback("asp", "\t--> EM Refinement :"));
 
         DiskImageResource *em_disparity_map_rsrc_2 = DiskImageResourceOpenEXR::construct_open(out_prefix + "-F6.exr");
         DiskImageView<PixelMask<Vector<float, 5> > > em_disparity_disk_image(em_disparity_map_rsrc_2);
@@ -581,7 +581,7 @@ int main(int argc, char* argv[]) {
       disparity_map_rsrc2.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
                                           std::min(vw_settings().default_tile_size(), disparity_map.rows()));
       block_write_image( disparity_map_rsrc2, disparity_map,
-                         TerminalProgressCallback(InfoMessage, "\t--> Refinement :") );
+                         TerminalProgressCallback("asp", "\t--> Refinement :") );
 
     } catch (IOErr &e) {
       vw_out(ErrorMessage) << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n";
@@ -637,9 +637,9 @@ int main(int argc, char* argv[]) {
                                              Vector2i(vw_settings().default_tile_size(),
                                                       vw_settings().default_tile_size()) );
           block_write_image(l_mask_rsrc, Lmaskmore,
-                            TerminalProgressCallback(InfoMessage, "\t   Reduce LMask: "));
+                            TerminalProgressCallback("asp", "\t   Reduce LMask: "));
           block_write_image(r_mask_rsrc, Rmaskmore,
-                            TerminalProgressCallback(InfoMessage, "\t   Reduce RMask: "));
+                            TerminalProgressCallback("asp", "\t   Reduce RMask: "));
         }
         DiskImageView<vw::uint8> left_mask( out_prefix+"-lMaskMore.tif" );
         DiskImageView<vw::uint8> right_mask( out_prefix+"-rMaskMore.tif" );
@@ -652,7 +652,7 @@ int main(int argc, char* argv[]) {
         filtered_disparity_map_rsrc.set_block_size( Vector2i( vw_settings().default_tile_size(),
                                                               vw_settings().default_tile_size() ) );
         block_write_image( filtered_disparity_map_rsrc, disparity_map,
-                           TerminalProgressCallback(InfoMessage, "\t--> Writing: ") );
+                           TerminalProgressCallback("asp", "\t--> Writing: ") );
 
         // Removing extra masks
         std::string lmask = out_prefix+"-lMaskMore.tif",
@@ -692,7 +692,7 @@ int main(int argc, char* argv[]) {
                                                  Vector2i(sub_tile_size,
                                                           sub_tile_size ) );
           block_write_image( good_pixel_rsrc, good_pixel,
-                             TerminalProgressCallback(InfoMessage, "\t    Writing: "));
+                             TerminalProgressCallback("asp", "\t    Writing: "));
           vw_settings().set_default_num_threads(sub_threads);
         }
       }
@@ -700,7 +700,7 @@ int main(int argc, char* argv[]) {
       ImageViewRef<PixelMask<Vector2f> > hole_filled_disp_map;
       if(stereo_settings().fill_holes) {
         vw_out() << "\t--> Filling holes with Inpainting method.\n";
-        BlobIndexThreaded bindex( invert_mask( filtered_disparity_map ), stereo_settings().fill_holes );
+        BlobIndexThreaded bindex( invert_mask( filtered_disparity_map ), stereo_settings().fill_hole_max_size );
         vw_out() << "\t    * Identified " << bindex.num_blobs() << " holes\n";
         hole_filled_disp_map = InpaintView<DiskImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
       } else {
@@ -714,7 +714,7 @@ int main(int argc, char* argv[]) {
                                                   hole_filled_disp_map.rows()));
 
       block_write_image(disparity_map_rsrc, hole_filled_disp_map,
-                        TerminalProgressCallback(InfoMessage, "\t--> Filtering: ") );
+                        TerminalProgressCallback("asp", "\t--> Filtering: ") );
 
       // Delete temporary file
       std::string temp_file =  out_prefix+"-FTemp.exr";
@@ -789,7 +789,7 @@ int main(int argc, char* argv[]) {
 
       if ( stereo_session_string == "isis" ) {
         write_image(point_cloud_rsrc, point_cloud,
-                    TerminalProgressCallback(InfoMessage, "\t--> Triangulating: "));
+                    TerminalProgressCallback("asp", "\t--> Triangulating: "));
       } else
         block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "\t--> Triangulating: "));
       vw_out() << "\t--> " << universe_radius_func;
