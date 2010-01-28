@@ -1,0 +1,15 @@
+GTEST_DIR = $(top_srcdir)/thirdparty/gtest
+
+libgtest_la_SOURCES = $(GTEST_DIR)/src/gtest-all.cc $(top_srcdir)/src/test/test_main.cc
+# this empty assignment prevents AM_LDFLAGS from applying to libgtest
+libgtest_la_LDFLAGS =
+
+check_LTLIBRARIES = libgtest.la
+
+AM_CPPFLAGS += -DTEST_SRCDIR="\"$(top_srcdir)/$(subdir)\"" -I$(GTEST_DIR) -I$(GTEST_DIR)/include -g
+LDADD = libgtest.la
+
+# This makes sure we're using the c++ linker
+LINK = $(CXXLINK)
+
+# vim: filetype=automake:
