@@ -345,6 +345,7 @@ AC_CONFIG_FILES([                       \
   src/asp/Core/Makefile                 \
   src/asp/SpiceIO/Makefile              \
   src/asp/IsisIO/Makefile               \
+  src/asp/IsisIO/tests/Makefile         \
   src/asp/Sessions/Makefile             \
   src/asp/Sessions/ISIS/Makefile        \
   src/asp/Sessions/Keypoint/Makefile    \

@@ -32,7 +32,7 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@ -version-info @LIBTOOL_VERSION@
 
-SUBDIRS = .
+SUBDIRS = . tests
 
 includedir = $(prefix)/include/asp/IsisIO
 
