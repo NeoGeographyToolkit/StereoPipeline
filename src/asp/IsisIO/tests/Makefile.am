@@ -23,7 +23,7 @@ endif
 ########################################################################
 
 AM_CPPFLAGS = @ASP_CPPFLAGS@
-AM_LDFLAGS  = @ASP_LDFLAGS@ @MODULE_ISISIO_LIBS@
+AM_LDFLAGS  = @ASP_LDFLAGS@ @PKG_ISISIO_LIBS@
 
 check_PROGRAMS = $(TESTS)
 #CLEANFILES = log.txt
