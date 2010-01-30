@@ -22,7 +22,7 @@ IsisCameraModel::IsisCameraModel( std::string cube_filename ) {
   m_label.Read( cubefile.Expanded() );
 
   // Opening Isis::Camera
-  m_camera == Isis::CameraFactory::Create( m_label );
+  m_camera = Isis::CameraFactory::Create( m_label );
 
   // Creating copy of alpha cube
   m_alphacube = new Isis::AlphaCube( m_label );
@@ -43,7 +43,7 @@ IsisCameraModel::~IsisCameraModel() {
 
 // Methods
 //-----------------------------------------------
-Vector2 point_to_pixel( Vector3 const& point ) const {
+Vector2 IsisCameraModel::point_to_pixel( Vector3 const& point ) const {
 
   // There is no optimized method for this as we need to use the
   // linescan camera's ground map to figure out where the camera
@@ -53,13 +53,14 @@ Vector2 point_to_pixel( Vector3 const& point ) const {
   m_camera->SetUniversalGround( lon_lat_radius[1],
                                 lon_lat_radius[0],
                                 lon_lat_radius[2] );
+  Vector2 result;
   result[0] = m_camera->Sample() - 1;  // ISIS indexes on 1
   result[1] = m_camera->Line() - 1;
 
   return result;
 }
 
-Vector3 pixel_to_vector( Vector2 const& pix ) const {
+Vector3 IsisCameraModel::pixel_to_vector( Vector2 const& pix ) const {
   // ISIS indexes from (1,1);
   Vector2 px = pix;
   px += Vector2(1,1);
@@ -74,9 +75,9 @@ Vector3 pixel_to_vector( Vector2 const& pix ) const {
                              m_detectmap->DetectorLine() );
     m_distortmap->SetFocalPlane( m_focalmap->FocalPlaneX(),
                                  m_focalmap->FocalPlaneY() );
-    result[0] = distortmap->UndistortedFocalPlaneX();
-    result[1] = distortmap->UndistortedFocalPlaneY();
-    result[2] = distortmap->UndistortedFocalPlaneZ();
+    result[0] = m_distortmap->UndistortedFocalPlaneX();
+    result[1] = m_distortmap->UndistortedFocalPlaneY();
+    result[2] = m_distortmap->UndistortedFocalPlaneZ();
     result = normalize( result );
     std::vector<double> lookC(3);
     lookC[0] = result[0];
@@ -102,7 +103,7 @@ Vector3 pixel_to_vector( Vector2 const& pix ) const {
   return result;
 }
 
-Vector3 camera_center( Vector2 const& pix ) const {
+Vector3 IsisCameraModel::camera_center( Vector2 const& pix ) const {
   // ISIS indexes from (1,1);
   Vector2 px = pix;
   px += Vector2(1,1);
@@ -137,8 +138,8 @@ Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
   }
 
   // Convert from instrument frame -> J2000 -> Body Fixed frame
-  std::vector<double> rot_inst = cam->InstrumentRotation()->Matrix();
-  std::vector<double> rot_body = cam->BodyRotation()->Matrix();
+  std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
+  std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
@@ -154,5 +155,6 @@ int IsisCameraModel::samples( void ) const {
 }
 
 std::string IsisCameraModel::serial_number( void ) const {
-  return Isis::SerialNumber::Compose(m_label,true);
+  Isis::Pvl copy( m_label );
+  return Isis::SerialNumber::Compose(copy,true);
 }
