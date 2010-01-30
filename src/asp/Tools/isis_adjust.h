@@ -111,8 +111,8 @@ public:
 
     // Checking to see if this Control Network is compatible with
     // IsisBundleAdjustmentModel
-    if ( (*m_network)[0][0].description() != "millimeters" )
-      vw_out() << "WARNING: Control Network doesn't seem to be in the correct units for the Control Measure for this problem (millimeters)" << std::endl;
+    if ( !(*m_network)[0][0].is_pixels_dominant() )
+      vw_out(WarningMessage,"asp") << "WARNING: Control Network doesn't appear to be using pixels" << std::endl;
 
   }
 
@@ -277,10 +277,10 @@ public:
     // IsisAdjustCameraModel. The first argument is really just
     // passing the time instance to load up a pinhole model for.
     //std::cout << "DBG: ephemeris time " << m_network[i][m].ephemeris_time() << std::endl;
-    Vector3 forward_projection = m_cameras[j]->point_to_mm_time( Vector3( 0, 0, (*m_network)[i][m].ephemeris_time() ), b_i );
+    Vector2 forward_projection = m_cameras[j]->point_to_pixel( b_i );
 
-    // Giving back the millimeter measurement.
-    return Vector2( forward_projection[0], forward_projection[1] );
+    // Giving back the pixel measurement.
+    return forward_projection;
   }
 
   void parse_camera_parameters(camera_vector_t a_j,
@@ -291,14 +291,14 @@ public:
   }
 
   // Errors on the image plane
-  std::string image_unit( void ) { return "millimeters"; }
-  void image_errors( std::vector<double>& mm_errors ) {
-    mm_errors.clear();
+  std::string image_unit( void ) { return "px"; }
+  void image_errors( std::vector<double>& px_errors ) {
+    px_errors.clear();
     for (unsigned i = 0; i < m_network->size(); ++i )
       for (unsigned m = 0; m < (*m_network)[i].size(); ++m ) {
         int camera_idx = (*m_network)[i][m].image_id();
-        Vector2 mm_error = (*m_network)[i][m].focalplane() - (*this)(i, camera_idx, a[camera_idx],b[i]);
-        mm_errors.push_back(norm_2(mm_error));
+        Vector2 px_error = (*m_network)[i][m].position() - (*this)(i, camera_idx, a[camera_idx],b[i]);
+        px_errors.push_back(norm_2(px_error));
       }
   }
 

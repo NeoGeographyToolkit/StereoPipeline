@@ -74,7 +74,6 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
         boost::shared_ptr<IsisAdjustCameraModel> temp = ba_model.adjusted_camera(j);
         // The above command indirectly stores the current A_vector
         // into the camera model
-
       }
     }
 
@@ -143,13 +142,13 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
     for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
 
       boost::shared_ptr<IsisAdjustCameraModel> camera = ba_model.adjusted_camera(j);
+      float center_sample = camera->samples()/2;
 
       // Saving points along the line of the camera
       for ( int i = 0; i < camera->lines(); i+=(camera->lines()/8) ) {
-        Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
+        Vector3 position = camera->camera_center( Vector2(center_sample,i) );
         ostr_camera << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
-        Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
-        pose = pose / norm_2(pose);
+        Quaternion<double> pose = camera->camera_pose( Vector2(center_sample,i) );
         Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
         ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
       }
@@ -175,7 +174,8 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
       std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
       for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
         Vector3 point = ba_model.B_parameters(i);
-        ostr_points << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
+        ostr_points << std::setprecision(18) << i << "\t" << point[0]
+                    << "\t" << point[1] << "\t" << point[2] << std::endl;
       }
 
       // Recording Camera Data
@@ -183,15 +183,17 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
       for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
 
         boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
+        float center_sample = camera->samples()/2;
 
         // Saving points along the line of the camera
         for ( int i = 0; i < camera->lines(); i+=(camera->lines()/8) ) {
-          Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
-          ostr_camera << std::setprecision(18) << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
-          Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
-          pose = pose / norm_2(pose);
+          Vector3 position = camera->camera_center( Vector2(center_sample,i) );
+          ostr_camera << std::setprecision(18) << std::setprecision(18) << j
+                      << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
+          Quaternion<double> pose = camera->camera_pose( Vector2(center_sample,i) );
           Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-          ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
+          ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t"
+                      << euler[1] << "\t" << euler[2] << std::endl;
         }
       }
     } // end of saving data
@@ -396,12 +398,9 @@ int main(int argc, char* argv[]) {
   for ( unsigned j = 0; j < camera_models.size(); ++j )
     g_camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
 
-  // Double checking to make sure that the Control Network is set up
-  // for ephemeris time. We continue to do this with loaded control
-  // networks as a strict ISIS style control network will not record
-  // Ephemeris Time.
+  // Assigning extra data to control network
   {
-    vw_out() << "Calculating focal plane measurements:\n";
+    vw_out() << "Calculating additional measurements:\n";
     vw_out() << "-------------------------------------\n";
     TerminalProgressCallback progress;
     progress.report_progress(0);
@@ -413,21 +412,9 @@ int main(int argc, char* argv[]) {
             cm != (*g_cnet)[i].end(); cm++ ) {
         if ( cm->ephemeris_time() == 0 ) {
           // Loading camera used by measure
-          //boost::shared_ptr< IsisAdjustCameraModel > cam =
-          //  boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[ (*g_cnet)[i][m].image_id() ] );
-
-          Vector3 mm_time = g_camera_adjust_models[cm->image_id()]->pixel_to_mm_time( cm->position() );
-          cm->set_focalplane( mm_time[0], mm_time[1] );
-          cm->set_ephemeris_time( mm_time[2] );
-          cm->set_description( "millimeters" );
+          cm->set_description( "px" );
           cm->set_serial( g_camera_adjust_models[cm->image_id()]->serial_number() );
-          cm->set_pixels_dominant( false );
-
-          Vector2 mm_over_pixel = g_camera_adjust_models[cm->image_id()]->mm_over_pixel( cm->position() );
-
-          Vector2 sigma = cm->sigma();
-          sigma = elem_prod( sigma, mm_over_pixel );
-          cm->set_sigma( sigma );
+          cm->set_pixels_dominant( true );
         }
       }
     }
@@ -438,7 +425,7 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n";
   }
 
-  VW_DEBUG_ASSERT( g_cnet->size() != 0, vw::MathErr() << "Control network conversion error to millimeter time" );
+  VW_DEBUG_ASSERT( g_cnet->size() != 0, vw::MathErr() << "Control network build error" );
 
   // Option to write ISIS-style control network
   if ( g_vm.count("write-isis-cnet-also") ) {
