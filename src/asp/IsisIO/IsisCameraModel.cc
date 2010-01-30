@@ -11,6 +11,7 @@
 // ISIS
 #include <Filename.h>
 #include <SerialNumber.h>
+#include <LineScanCameraGroundMap.h>
 
 using namespace vw;
 using namespace vw::camera;
@@ -24,6 +25,10 @@ IsisCameraModel::IsisCameraModel( std::string cube_filename ) {
   // Opening Isis::Camera
   m_camera = Isis::CameraFactory::Create( m_label );
 
+  VW_ASSERT( m_camera->GetCameraType() == 2 ||
+             m_camera->GetCameraType() == 0,
+             NoImplErr() << "IsisCameraModel has not been tested on anything other than LineScan and Frame camera models" );
+
   // Creating copy of alpha cube
   m_alphacube = new Isis::AlphaCube( m_label );
 
@@ -31,6 +36,7 @@ IsisCameraModel::IsisCameraModel( std::string cube_filename ) {
   m_distortmap = m_camera->DistortionMap();
   m_focalmap = m_camera->FocalPlaneMap();
   m_detectmap = m_camera->DetectorMap();
+  m_groundmap = m_camera->GroundMap();
 }
 
 // Destructor
@@ -45,19 +51,51 @@ IsisCameraModel::~IsisCameraModel() {
 //-----------------------------------------------
 Vector2 IsisCameraModel::point_to_pixel( Vector3 const& point ) const {
 
-  // There is no optimized method for this as we need to use the
-  // linescan camera's ground map to figure out where the camera
-  // is. That's an optimization problem :(.
-
-  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius(point);
-  m_camera->SetUniversalGround( lon_lat_radius[1],
-                                lon_lat_radius[0],
-                                lon_lat_radius[2] );
   Vector2 result;
-  result[0] = m_camera->Sample() - 1;  // ISIS indexes on 1
-  result[1] = m_camera->Line() - 1;
 
-  return result;
+  if ( m_camera->GetCameraType() == 2 ) {
+    // Isis's LineScanCameraGroundMap seems unreliable. It fails with
+    // out response. This method was going to happening anyway when we
+    // get to IsisAdjustCameraModel as I need to plug my own functions
+    // to the spice and do not want to destroy the original spice data
+    // and fit a polynomial to it like Isis's Jigsaw.
+    //
+    // This method also avoids conversion to LonLatRadius.
+    result = optimized_linescan_point_to_pixel( point );
+  } else if ( m_camera->GetCameraType() == 0 ) {
+    // Frame Camera .. avoid conversion to LLA
+    // (position is constant here .. so don't worry about setting ET)
+    double ipos[3];
+    m_camera->InstrumentPosition(ipos);
+    Vector3 instru(ipos[0],ipos[1],ipos[2]);
+    instru *= 1000;
+    Vector3 lookB = normalize(point-instru);
+    std::vector<double> lookB_copy(3);
+    lookB_copy[0] = lookB[0];
+    lookB_copy[1] = lookB[1];
+    lookB_copy[2] = lookB[2];
+    std::vector<double> lookJ = m_camera->BodyRotation()->J2000Vector(lookB_copy);
+    std::vector<double> lookC = m_camera->InstrumentRotation()->ReferenceVector(lookJ);
+    Vector3 look;
+    look[0] = lookC[0];
+    look[1] = lookC[1];
+    look[2] = lookC[2];
+    look = m_camera->FocalLength() * ( look / look[2] );
+    m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
+    m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
+                               m_distortmap->FocalPlaneY() );
+    m_detectmap->SetDetector( m_focalmap->DetectorSample(),
+                              m_focalmap->DetectorLine() );
+    Vector2 pixel( m_detectmap->ParentSample(),
+                   m_detectmap->ParentLine() );
+    pixel[0] = m_alphacube->BetaSample( pixel[0] );
+    pixel[1] = m_alphacube->BetaLine( pixel[1] );
+    result = pixel;
+  } else {
+    vw_throw( NoImplErr() << "IsisCameraModel::point_to_pixel does not support any cameras other than LineScan and Frame" );
+  }
+
+  return result-Vector2(1,1); // (Isis references from 1)
 }
 
 Vector3 IsisCameraModel::pixel_to_vector( Vector2 const& pix ) const {
@@ -157,4 +195,91 @@ int IsisCameraModel::samples( void ) const {
 std::string IsisCameraModel::serial_number( void ) const {
   Isis::Pvl copy( m_label );
   return Isis::SerialNumber::Compose(copy,true);
+}
+
+IsisCameraModel::EphemerisLMA::result_type
+IsisCameraModel::EphemerisLMA::operator()( IsisCameraModel::EphemerisLMA::domain_type const& x ) const {
+
+  // Setting Ephemeris Time
+  m_camera->SetEphemerisTime( x[0] );
+
+  // Calculating the look direction in camera frame
+  double ipos[3];
+  m_camera->InstrumentPosition(ipos);
+  Vector3 instru( ipos[0], ipos[1], ipos[2] );
+  instru *= 1000;  // Spice gives in km
+  Vector3 lookB = normalize( m_point - instru );
+  std::vector<double> lookB_copy(3);
+  lookB_copy[0] = lookB[0];
+  lookB_copy[1] = lookB[1];
+  lookB_copy[2] = lookB[2];
+  std::vector<double> lookJ = m_camera->BodyRotation()->J2000Vector(lookB_copy);
+  std::vector<double> lookC = m_camera->InstrumentRotation()->ReferenceVector(lookJ);
+  Vector3 look;
+  look[0] = lookC[0];
+  look[1] = lookC[1];
+  look[2] = lookC[2];
+
+  // Projecting to pixel
+  look = m_camera->FocalLength() * (look / look[2]);
+  m_distortmap->SetUndistortedFocalPlane(look[0], look[1]);
+  m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
+                             m_distortmap->FocalPlaneY() );
+  result_type result(1);
+  result[0] = m_focalmap->DetectorLineOffset() - m_focalmap->DetectorLine();
+
+  return result;
+}
+
+Vector2 IsisCameraModel::optimized_linescan_point_to_pixel( Vector3 const& point ) const {
+
+  // First seed LMA with an ephemeris time in the middle of the image
+  double middle = m_camera->Lines() / 2;
+  m_detectmap->SetParent( 1, m_alphacube->AlphaLine(middle) );
+  double start_e = m_camera->EphemerisTime();
+
+  // Build LMA
+  EphemerisLMA model( point, m_camera, m_distortmap, m_focalmap );
+  int status;
+  Vector<double> objective(1);
+  Vector<double> start(1);
+  start[0] = start_e;
+  Vector<double> solution_e = math::levenberg_marquardt( model,
+                                                         start,
+                                                         objective,
+                                                         status );
+
+  // Make sure we found ideal time
+  VW_ASSERT( status > 0,
+             MathErr() << " Unable to project point into linescan camera " );
+
+  // Converting now to pixel
+  m_camera->SetEphemerisTime( solution_e[0] );
+  double ipos[3];
+  m_camera->InstrumentPosition(ipos);
+  Vector3 instru(ipos[0],ipos[1],ipos[2]);
+  instru *= 1000;
+  Vector3 lookB = normalize(point-instru);
+  std::vector<double> lookB_copy(3);
+  lookB_copy[0] = lookB[0];
+  lookB_copy[1] = lookB[1];
+  lookB_copy[2] = lookB[2];
+  std::vector<double> lookJ = m_camera->BodyRotation()->J2000Vector(lookB_copy);
+  std::vector<double> lookC = m_camera->InstrumentRotation()->ReferenceVector(lookJ);
+  Vector3 look;
+  look[0] = lookC[0];
+  look[1] = lookC[1];
+  look[2] = lookC[2];
+  look = m_camera->FocalLength() * ( look / look[2] );
+  m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
+  m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
+                             m_distortmap->FocalPlaneY() );
+  m_detectmap->SetDetector( m_focalmap->DetectorSample(),
+                            m_focalmap->DetectorLine() );
+  Vector2 pixel( m_detectmap->ParentSample(),
+                 m_detectmap->ParentLine() );
+  pixel[0] = m_alphacube->BetaSample( pixel[0] );
+  pixel[1] = m_alphacube->BetaLine( pixel[1] );
+
+  return pixel;
 }

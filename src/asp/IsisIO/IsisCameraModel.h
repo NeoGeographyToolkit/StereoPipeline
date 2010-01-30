@@ -17,6 +17,7 @@
 
 // VW
 #include <vw/Camera/CameraModel.h>
+#include <vw/Math/LevenbergMarquardt.h>
 
 // ISIS
 #include <Pvl.h>
@@ -26,6 +27,7 @@
 #include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
 #include <CameraFocalPlaneMap.h>
+#include <CameraGroundMap.h>
 
 namespace vw {
 namespace camera {
@@ -73,12 +75,33 @@ namespace camera {
     virtual std::string serial_number(void) const;
 
   protected:
+    class EphemerisLMA : public math::LeastSquaresModelBase<EphemerisLMA> {
+      Vector3 m_point;
+      Isis::Camera* m_camera;
+      Isis::CameraDistortionMap *m_distortmap;
+      Isis::CameraFocalPlaneMap *m_focalmap;
+    public:
+      typedef Vector<double> result_type; // Back project result
+      typedef Vector<double> domain_type; // Ephemeris time
+      typedef Matrix<double> jacobian_type;
+
+      inline EphemerisLMA( Vector3 const& point,
+                           Isis::Camera* camera,
+                           Isis::CameraDistortionMap* distortmap,
+                           Isis::CameraFocalPlaneMap* focalmap ) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap) {}
+
+      inline result_type operator()( domain_type const& x ) const;
+    };
+
+    Vector2 optimized_linescan_point_to_pixel( Vector3 const& point) const;
+
     Isis::Pvl m_label;
     Isis::Camera *m_camera;
     Isis::AlphaCube *m_alphacube;
     Isis::CameraDistortionMap *m_distortmap;
     Isis::CameraFocalPlaneMap *m_focalmap;
     Isis::CameraDetectorMap   *m_detectmap;
+    Isis::CameraGroundMap     *m_groundmap;
   };
 
 }}

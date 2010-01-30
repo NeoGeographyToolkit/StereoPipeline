@@ -132,7 +132,7 @@ TEST(IsisCameraModel, camera_model) {
     std::cout << "File: " << files[j] << "\n";
     std::cout << "------------------------------------\n";
 
-    for ( uint i = 0; i < 10; i++ ) {
+    for ( uint i = 0; i < 2; i++ ) {
       Vector2 pixel;
       pixel[0] = rand() % ( 10 * cam.samples() ) + 10;
       pixel[0] /= 10;
@@ -149,7 +149,7 @@ TEST(IsisCameraModel, camera_model) {
         noise[1] /= 10;
         Vector3 temp = cam.pixel_to_vector( noise );
       }
-      point *= 200;
+      point *= 100000; // 100 km below
       point += cam.camera_center( pixel );
       for ( uint k = 0; k < 5; k++ ) {
         // Apply noise to make sure we are not using stored values
