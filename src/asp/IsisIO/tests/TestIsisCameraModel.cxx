@@ -134,18 +134,18 @@ TEST(IsisCameraModel, camera_model) {
 
     for ( uint i = 0; i < 10; i++ ) {
       Vector2 pixel;
-      pixel[0] = rand() % ( 10 * cam.getSamples() ) + 10;
+      pixel[0] = rand() % ( 10 * cam.samples() ) + 10;
       pixel[0] /= 10;
-      pixel[1] = rand() % ( 10 * cam.getLines() ) + 10;
+      pixel[1] = rand() % ( 10 * cam.lines() ) + 10;
       pixel[1] /= 10;
 
       Vector3 point = cam.pixel_to_vector( pixel );
       for ( uint k = 0; k < 5; k++ ) {
         // Apply noise to make sure we are not using stored values
         Vector2 noise;
-        noise[0] = rand() % ( 10 * cam.getSamples() ) + 10;
+        noise[0] = rand() % ( 10 * cam.samples() ) + 10;
         noise[0] /= 10;
-        noise[1] = rand() % ( 10 * cam.getLines() ) + 10;
+        noise[1] = rand() % ( 10 * cam.lines() ) + 10;
         noise[1] /= 10;
         Vector3 temp = cam.pixel_to_vector( noise );
       }
@@ -154,9 +154,9 @@ TEST(IsisCameraModel, camera_model) {
       for ( uint k = 0; k < 5; k++ ) {
         // Apply noise to make sure we are not using stored values
         Vector2 noise;
-        noise[0] = rand() % ( 10 * cam.getSamples() ) + 10;
+        noise[0] = rand() % ( 10 * cam.samples() ) + 10;
         noise[0] /= 10;
-        noise[1] = rand() % ( 10 * cam.getLines() ) + 10;
+        noise[1] = rand() % ( 10 * cam.lines() ) + 10;
         noise[1] /= 10;
         Vector3 temp = cam.camera_center( noise );
       }
