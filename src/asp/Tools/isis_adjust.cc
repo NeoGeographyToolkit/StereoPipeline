@@ -398,14 +398,19 @@ int main(int argc, char* argv[]) {
   for ( unsigned j = 0; j < camera_models.size(); ++j )
     g_camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
 
-  // Assigning extra data to control network
+  // Applying serial numbers
   {
-    vw_out() << "Calculating additional measurements:\n";
+    vw_out() << "Applying serial numbers:\n";
     vw_out() << "-------------------------------------\n";
     TerminalProgressCallback progress;
     progress.report_progress(0);
 
-    // Applying millimeter conversion
+    // Gather serials first
+    std::vector<std::string> serials;
+    for ( uint i = 0; i < g_camera_adjust_models.size(); i++ )
+      serials.push_back( g_camera_adjust_models[i]->serial_number() );
+
+    // And apply
     for (unsigned i = 0; i < g_cnet->size(); ++i ) {
       progress.report_progress(float(i)/float(g_cnet->size()));
       for ( ControlPoint::iterator cm = (*g_cnet)[i].begin();
@@ -413,7 +418,7 @@ int main(int argc, char* argv[]) {
         if ( cm->ephemeris_time() == 0 ) {
           // Loading camera used by measure
           cm->set_description( "px" );
-          cm->set_serial( g_camera_adjust_models[cm->image_id()]->serial_number() );
+          cm->set_serial( serials[cm->image_id()] );
           cm->set_pixels_dominant( true );
         }
       }
