@@ -6,7 +6,6 @@
 
 // ASP & VW
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <vw/Cartography/PointImageManipulation.h>
 
 // ISIS
 #include <Filename.h>
@@ -103,7 +102,7 @@ Vector3 IsisCameraModel::pixel_to_vector( Vector2 const& pix ) const {
     result[2] = lookC[2];
   } else {
     // Map Projected Image
-    m_camera->SetImage(pix[0],pix[1]);
+    m_camera->SetImage(px[0],px[1]);
     double p[3];
 
     // Compute Instrument and Ground Pts
@@ -117,9 +116,8 @@ Vector3 IsisCameraModel::pixel_to_vector( Vector2 const& pix ) const {
 }
 
 Vector3 IsisCameraModel::camera_center( Vector2 const& pix ) const {
-  // ISIS indexes from (1,1);
-  Vector2 px = pix;
-  px += Vector2(1,1);
+  // Converting to ISIS index
+  Vector2 px = pix + Vector2(1,1);
 
   if ( !m_camera->HasProjection() ) {
     // Standard Image
@@ -156,7 +154,7 @@ Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
-  return Quaternion<double>(R_inst*inverse(R_body));
+  return Quaternion<double>(R_inst*transpose(R_body));
 }
 
 // serial_number
@@ -169,7 +167,7 @@ std::string IsisCameraModel::serial_number( void ) const {
 
 // EphemerisLMA::operator()
 //
-// LMA algorithm for projecting point to linescan camera
+// LMA for projecting point to linescan camera
 IsisCameraModel::EphemerisLMA::result_type
 IsisCameraModel::EphemerisLMA::operator()( IsisCameraModel::EphemerisLMA::domain_type const& x ) const {
 
@@ -260,8 +258,7 @@ IsisCameraModel::optimized_linescan_point_to_pixel( Vector3 const& point ) const
   // Build LMA
   EphemerisLMA model( point, m_camera, m_distortmap, m_focalmap );
   int status;
-  Vector<double> objective(1);
-  Vector<double> start(1);
+  Vector<double> objective(1), start(1);
   start[0] = start_e;
   Vector<double> solution_e = math::levenberg_marquardt( model,
                                                          start,

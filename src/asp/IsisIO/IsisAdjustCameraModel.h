@@ -8,41 +8,14 @@
 #ifndef __VW_CAMERAMODEL_ISISADJUST_H__
 #define __VW_CAMERAMODEL_ISISADJUST_H__
 
-// VW
-#include <vw/Math/Vector.h>
-#include <vw/Math/Matrix.h>
-#include <vw/Camera/CameraModel.h>
-#include <vw/Camera/PinholeModel.h>
-#include <vw/Cartography/PointImageManipulation.h>
-
-// STD
-#include <iomanip>
-
 // ASP
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/Equation.h>
-
-// Isis Header
-#include <Cube.h>
-#include <Camera.h>
-#include <CameraDetectorMap.h>
-#include <CameraDistortionMap.h>
-#include <CameraFocalPlaneMap.h>
 
 namespace vw {
 namespace camera {
 
   class IsisAdjustCameraModel : public IsisCameraModel {
-  protected:
-    mutable double m_current_time;
-    void* m_isis_alpha_cube;
-
-    void set_image( double const& sample, double const& line) const;
-    void set_time( double const& time ) const;
-
-    boost::shared_ptr<BaseEquation> m_position_func;
-    boost::shared_ptr<BaseEquation> m_pose_func;
-
 
   public:
     //-------------------------------------------------------------------
@@ -57,7 +30,7 @@ namespace camera {
     virtual std::string type() const { return "IsisAdjust"; }
 
     //-------------------------------------------------------------------
-    //  Traditional Camera Routines
+    //  Modification of Traditional Camera Routines
     //-------------------------------------------------------------------
 
     virtual Vector2 point_to_pixel( Vector3 const& point) const;
@@ -68,48 +41,47 @@ namespace camera {
 
     virtual Quaternion<double> camera_pose( Vector2 const& pix = Vector2() ) const;
 
-    virtual int getLines( void ) const;
-
-    virtual int getSamples( void ) const;
-
-    virtual std::string serial_number(void) const;
-
-    //-------------------------------------------------------------------
-    //  Non-Traditional Camera Routines
-    //-------------------------------------------------------------------
-
-    Vector3 pixel_to_mm_time( Vector2 const& pix ) const;
-
-    Vector2 mm_time_to_pixel( Vector3 const& mm_time ) const;
-
-    Vector3 point_to_mm_time( Vector3 const& mm_time, Vector3 const& point ) const;
-
-    Vector3 mm_time_to_vector( Vector3 const& mm_time ) const;
-
-    Vector3 camera_center( Vector3 const& mm_time ) const;
-
-    Quaternion<double> camera_pose( Vector3 const& mm_time ) const;
-
-    double undistorted_focal( Vector3 const& mm_time ) const;
-
-    Vector2 mm_over_pixel( Vector2 const& pix ) const;
-
     //-------------------------------------------------------------------
     // Interfacing with equations
     //-------------------------------------------------------------------
 
-    boost::shared_ptr<BaseEquation> getPositionFuncPoint( void ){
-      return m_position_func;
-    }
+    boost::shared_ptr<BaseEquation>
+      position_func ( void ) { return m_position_f; }
 
-    boost::shared_ptr<BaseEquation> getPoseFuncPoint( void ) {
-      return m_pose_func;
-    }
+    boost::shared_ptr<BaseEquation>
+      pose_func ( void ) { return m_pose_f; }
 
+  protected:
+    boost::shared_ptr<BaseEquation> m_position_f, m_pose_f;
 
+  private:
+    // These algorithms are different from IsisCameraModel in that
+    // they use the adjustment functions in m_position_f and m_pose_f.
+    class EphemerisLMA : public math::LeastSquaresModelBase<EphemerisLMA> {
+      Vector3 m_point;
+      Isis::Camera* m_camera;
+      Isis::CameraDistortionMap *m_distortmap;
+      Isis::CameraFocalPlaneMap *m_focalmap;
+      boost::shared_ptr<BaseEquation> m_position_f, m_pose_f;
+    public:
+      typedef Vector<double> result_type; // Back project result
+      typedef Vector<double> domain_type; // Ephemeris time
+      typedef Matrix<double> jacobian_type;
+
+      inline EphemerisLMA( Vector3 const& point,
+                           Isis::Camera* camera,
+                           Isis::CameraDistortionMap* distortmap,
+                           Isis::CameraFocalPlaneMap* focalmap,
+                           boost::shared_ptr<BaseEquation> position,
+                           boost::shared_ptr<BaseEquation> pose ) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap), m_position_f(position), m_pose_f(pose) {}
+
+      inline result_type operator()( domain_type const& x ) const;
+    };
+
+    inline Vector2 project_using_current( Vector3 const& point ) const;
+    Vector2 optimized_linescan_point_to_pixel( Vector3 const& point ) const;
   };
 
-}
-}
+}}
 
 #endif//__VW_CAMERAMODEL_ISISADJUST_H__

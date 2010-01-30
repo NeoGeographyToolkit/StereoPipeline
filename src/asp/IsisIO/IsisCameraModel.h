@@ -62,7 +62,8 @@ namespace camera {
     // Returns the position of the focal point of the camera
     virtual Vector3 camera_center(Vector2 const& pix = Vector2() ) const;
 
-    //  Pose is a rotation which moves a vector in camera coordinates into world coordinates.
+    // Pose is a rotation which moves a vector in camera coordinates
+    // into world coordinates.
     virtual Quaternion<double> camera_pose(Vector2 const& pix = Vector2() ) const;
 
     // Returns the number of lines is the ISIS cube
