@@ -129,7 +129,10 @@ TEST(IsisCameraModel, camera_model) {
 
     IsisCameraModel cam(files[j]);
 
-    for ( uint i = 0; i < 500; i++ ) {
+    std::cout << "File: " << files[j] << "\n";
+    std::cout << "------------------------------------\n";
+
+    for ( uint i = 0; i < 10; i++ ) {
       Vector2 pixel;
       pixel[0] = rand() % ( 10 * cam.getSamples() ) + 10;
       pixel[0] /= 10;
@@ -137,8 +140,26 @@ TEST(IsisCameraModel, camera_model) {
       pixel[1] /= 10;
 
       Vector3 point = cam.pixel_to_vector( pixel );
+      for ( uint k = 0; k < 5; k++ ) {
+        // Apply noise to make sure we are not using stored values
+        Vector2 noise;
+        noise[0] = rand() % ( 10 * cam.getSamples() ) + 10;
+        noise[0] /= 10;
+        noise[1] = rand() % ( 10 * cam.getLines() ) + 10;
+        noise[1] /= 10;
+        Vector3 temp = cam.pixel_to_vector( noise );
+      }
       point *= 200;
       point += cam.camera_center( pixel );
+      for ( uint k = 0; k < 5; k++ ) {
+        // Apply noise to make sure we are not using stored values
+        Vector2 noise;
+        noise[0] = rand() % ( 10 * cam.getSamples() ) + 10;
+        noise[0] /= 10;
+        noise[1] = rand() % ( 10 * cam.getLines() ) + 10;
+        noise[1] /= 10;
+        Vector3 temp = cam.camera_center( noise );
+      }
 
       Vector2 rpixel = cam.point_to_pixel( point );
       EXPECT_NEAR( pixel[0], rpixel[0], 0.001 );
