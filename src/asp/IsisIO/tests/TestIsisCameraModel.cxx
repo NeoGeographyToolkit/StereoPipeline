@@ -132,7 +132,7 @@ TEST(IsisCameraModel, camera_model) {
     std::cout << "File: " << files[j] << "\n";
     std::cout << "------------------------------------\n";
 
-    for ( uint i = 0; i < 2; i++ ) {
+    for ( uint i = 0; i < 100; i++ ) {
       Vector2 pixel;
       pixel[0] = rand() % ( 10 * cam.samples() ) + 10;
       pixel[0] /= 10;

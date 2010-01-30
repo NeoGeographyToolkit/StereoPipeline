@@ -65,32 +65,7 @@ Vector2 IsisCameraModel::point_to_pixel( Vector3 const& point ) const {
   } else if ( m_camera->GetCameraType() == 0 ) {
     // Frame Camera .. avoid conversion to LLA
     // (position is constant here .. so don't worry about setting ET)
-    double ipos[3];
-    m_camera->InstrumentPosition(ipos);
-    Vector3 instru(ipos[0],ipos[1],ipos[2]);
-    instru *= 1000;
-    Vector3 lookB = normalize(point-instru);
-    std::vector<double> lookB_copy(3);
-    lookB_copy[0] = lookB[0];
-    lookB_copy[1] = lookB[1];
-    lookB_copy[2] = lookB[2];
-    std::vector<double> lookJ = m_camera->BodyRotation()->J2000Vector(lookB_copy);
-    std::vector<double> lookC = m_camera->InstrumentRotation()->ReferenceVector(lookJ);
-    Vector3 look;
-    look[0] = lookC[0];
-    look[1] = lookC[1];
-    look[2] = lookC[2];
-    look = m_camera->FocalLength() * ( look / look[2] );
-    m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
-    m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
-                               m_distortmap->FocalPlaneY() );
-    m_detectmap->SetDetector( m_focalmap->DetectorSample(),
-                              m_focalmap->DetectorLine() );
-    Vector2 pixel( m_detectmap->ParentSample(),
-                   m_detectmap->ParentLine() );
-    pixel[0] = m_alphacube->BetaSample( pixel[0] );
-    pixel[1] = m_alphacube->BetaLine( pixel[1] );
-    result = pixel;
+    result = project_using_current( point );
   } else {
     vw_throw( NoImplErr() << "IsisCameraModel::point_to_pixel does not support any cameras other than LineScan and Frame" );
   }
@@ -184,19 +159,17 @@ Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
   return Quaternion<double>(R_inst*inverse(R_body));
 }
 
-int IsisCameraModel::lines( void ) const {
-  return m_camera->Lines();
-}
-
-int IsisCameraModel::samples( void ) const {
-  return m_camera->Samples();
-}
-
+// serial_number
+//
+// Produce serial_number to identify this file
 std::string IsisCameraModel::serial_number( void ) const {
   Isis::Pvl copy( m_label );
   return Isis::SerialNumber::Compose(copy,true);
 }
 
+// EphemerisLMA::operator()
+//
+// LMA algorithm for projecting point to linescan camera
 IsisCameraModel::EphemerisLMA::result_type
 IsisCameraModel::EphemerisLMA::operator()( IsisCameraModel::EphemerisLMA::domain_type const& x ) const {
 
@@ -231,30 +204,15 @@ IsisCameraModel::EphemerisLMA::operator()( IsisCameraModel::EphemerisLMA::domain
   return result;
 }
 
-Vector2 IsisCameraModel::optimized_linescan_point_to_pixel( Vector3 const& point ) const {
-
-  // First seed LMA with an ephemeris time in the middle of the image
-  double middle = m_camera->Lines() / 2;
-  m_detectmap->SetParent( 1, m_alphacube->AlphaLine(middle) );
-  double start_e = m_camera->EphemerisTime();
-
-  // Build LMA
-  EphemerisLMA model( point, m_camera, m_distortmap, m_focalmap );
-  int status;
-  Vector<double> objective(1);
-  Vector<double> start(1);
-  start[0] = start_e;
-  Vector<double> solution_e = math::levenberg_marquardt( model,
-                                                         start,
-                                                         objective,
-                                                         status );
-
-  // Make sure we found ideal time
-  VW_ASSERT( status > 0,
-             MathErr() << " Unable to project point into linescan camera " );
-
-  // Converting now to pixel
-  m_camera->SetEphemerisTime( solution_e[0] );
+// project_using_current
+//
+// Assuming that m_camera's ephemeris time (position and pose) have
+// been set correctly by previous functions, project this point into
+// pixels on the camera.
+//
+// This is to reduce repeated code. Returns in ISIS indexed.
+inline Vector2
+IsisCameraModel::project_using_current( Vector3 const& point ) const {
   double ipos[3];
   m_camera->InstrumentPosition(ipos);
   Vector3 instru(ipos[0],ipos[1],ipos[2]);
@@ -280,6 +238,41 @@ Vector2 IsisCameraModel::optimized_linescan_point_to_pixel( Vector3 const& point
                  m_detectmap->ParentLine() );
   pixel[0] = m_alphacube->BetaSample( pixel[0] );
   pixel[1] = m_alphacube->BetaLine( pixel[1] );
-
   return pixel;
+}
+
+// optimized_linescan_point_to_pixel
+//
+// This solves for the correct ephemeris time of a linescan camera
+// that represents an accurate projection of a point into the
+// camera. This is a replacement for LineScanCameraGroundMap from
+// Isis.
+//
+// Returns ISIS indexed pixel location.
+Vector2
+IsisCameraModel::optimized_linescan_point_to_pixel( Vector3 const& point ) const {
+
+  // First seed LMA with an ephemeris time in the middle of the image
+  double middle = m_camera->Lines() / 2;
+  m_detectmap->SetParent( 1, m_alphacube->AlphaLine(middle) );
+  double start_e = m_camera->EphemerisTime();
+
+  // Build LMA
+  EphemerisLMA model( point, m_camera, m_distortmap, m_focalmap );
+  int status;
+  Vector<double> objective(1);
+  Vector<double> start(1);
+  start[0] = start_e;
+  Vector<double> solution_e = math::levenberg_marquardt( model,
+                                                         start,
+                                                         objective,
+                                                         status );
+
+  // Make sure we found ideal time
+  VW_ASSERT( status > 0,
+             MathErr() << " Unable to project point into linescan camera " );
+
+  // Converting now to pixel
+  m_camera->SetEphemerisTime( solution_e[0] );
+  return project_using_current( point );
 }
