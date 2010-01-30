@@ -4,149 +4,139 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
+// ASP & VW
+#include <asp/IsisIO/IsisCameraModel.h>
 #include <vw/Cartography/PointImageManipulation.h>
 
-#include <asp/IsisIO/IsisCameraModel.h>
-
-// Isis Headers
-#include <Cube.h>
-#include <Camera.h>
-#include <CameraDetectorMap.h>
-#include <CameraDistortionMap.h>
-#include <CameraFocalPlaneMap.h>
-#include <Pvl.h>
+// ISIS
+#include <Filename.h>
 #include <SerialNumber.h>
 
 using namespace vw;
 using namespace vw::camera;
 
+// Constructor
+IsisCameraModel::IsisCameraModel( std::string cube_filename ) {
+  // Opening Label
+  Isis::Filename cubefile( cube_filename.c_str() );
+  m_label.Read( cubefile.Expanded() );
 
-IsisCameraModel::IsisCameraModel(std::string cube_filename) {
-  Isis::Cube* cube_ptr = new Isis::Cube;
-  m_isis_cube = cube_ptr;
+  // Opening Isis::Camera
+  m_camera == Isis::CameraFactory::Create( m_label );
 
-  cube_ptr->Open(cube_filename);
+  // Creating copy of alpha cube
+  m_alphacube = new Isis::AlphaCube( m_label );
 
-  if ( !(cube_ptr->IsOpen()) )
-      vw_throw(IOErr() << "IsisCameraModel: Could not open cube file: \"" << cube_filename << "\".");
-
-  try {
-    // Generate a camera model for this Cube
-    m_isis_camera_ptr = cube_ptr->Camera();
-    Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-
-    // Determine the start and end time for the image.
-    this->set_image(0,0);
-    double start_time = cam->EphemerisTime();
-    this->set_image(0,cam->Lines());
-    double end_time = cam->EphemerisTime();
-    vw_out(VerboseDebugMessage,"stereo") << "\t     Time range: [" << start_time << " " << end_time << "]  " << (end_time-start_time) << "\n";
-    vw_out(VerboseDebugMessage,"stereo") << "\t     Existing range : [" << cam->CacheStartTime() << " " << cam->CacheEndTime() << "]  " << ( cam->CacheEndTime() - cam->CacheStartTime() ) << "\n";
-    if (end_time > start_time) {
-      m_max_ephemeris = end_time;
-      m_min_ephemeris = start_time;
-    } else {
-      m_max_ephemeris = start_time;
-      m_min_ephemeris = end_time;
-    }
-    // Cache important values (such as sun angles, orientations, etc)
-    //     try {
-    //       std::cout << "\tCaching SPICE information..." << std::flush;
-    //       cam->CreateCache(start_time, end_time, cam->Lines());
-    //       std::cout << " done.\n";
-    //     } catch (Isis::iException &e) {
-    //       std::cout << " failed.\n\t" << e.what() << "\n";
-    //     }
-
-  } catch (Isis::iException &e) {
-    m_isis_camera_ptr = 0;
-    vw_throw(IOErr() << "IsisCameraModel: failed to instantiate a camera model from " << cube_filename << ". " << e.what());
-  }
+  // Gutting Isis::Camera
+  m_distortmap = m_camera->DistortionMap();
+  m_focalmap = m_camera->FocalPlaneMap();
+  m_detectmap = m_camera->DetectorMap();
 }
 
+// Destructor
 IsisCameraModel::~IsisCameraModel() {
-  if (m_isis_cube) {
-    static_cast<Isis::Cube*>(m_isis_cube)->Close();
-    delete static_cast<Isis::Cube*>(m_isis_cube);
-  }
+  if ( m_camera )
+    delete m_camera;
+  if ( m_alphacube )
+    delete m_alphacube;
 }
 
-// Calling cam->SetImage() is actually very expensive, so we avoid
-// calling it twice in a row with the same line/sample pair.
-void IsisCameraModel::set_image(double sample, double line) const {
-  if (m_current_line != line || m_current_sample != sample) {
-    Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-    // ISIS indexes the top left as (1,1) while VW uses (0,0)
-    cam->SetImage(sample+1, line+1);
-    m_current_line = line;
-    m_current_sample = sample;
-  }
-}
+// Methods
+//-----------------------------------------------
+Vector2 point_to_pixel( Vector3 const& point ) const {
 
+  // There is no optimized method for this as we need to use the
+  // linescan camera's ground map to figure out where the camera
+  // is. That's an optimization problem :(.
 
-Vector2 IsisCameraModel::point_to_pixel(Vector3 const& point) const {
-  Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-
-  // Convert into "Universal Ground" coordinates
   Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius(point);
+  m_camera->SetUniversalGround( lon_lat_radius[1],
+                                lon_lat_radius[0],
+                                lon_lat_radius[2] );
+  result[0] = m_camera->Sample() - 1;  // ISIS indexes on 1
+  result[1] = m_camera->Line() - 1;
 
-  // Set the current "active" pixel for the upcoming computation
-  cam->SetUniversalGround(lon_lat_radius[1], lon_lat_radius[0], lon_lat_radius[2]);
-
-  //   std::cout << "LON LAT RAD: " << lon_lat_radius << " ---> ";
-  //   std::cout << cam->Line() << " " << cam->Sample() << "\n"
-  // ISIS indexes the top left as (1,1) while VW uses (0,0)
-  return Vector2(cam->Sample()-1, cam->Line()-1);
+  return result;
 }
 
-Vector3 IsisCameraModel::pixel_to_vector (Vector2 const& pix) const {
-  Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
+Vector3 pixel_to_vector( Vector2 const& pix ) const {
+  // ISIS indexes from (1,1);
+  Vector2 px = pix;
+  px += Vector2(1,1);
 
-  // This is the foolproof method for setting the current pixel of
-  // interest.  However, this method is very slow because it check for
-  // an intersection with the planetary datum on every call.
-  this->set_image(pix[0],pix[1]);
+  Vector3 result;
+  if ( !m_camera->HasProjection() ) {
+    // Standard Image
+    px[0] = m_alphacube->AlphaSample(px[0]);
+    px[1] = m_alphacube->AlphaLine(px[1]);
+    m_detectmap->SetParent( px[0], px[1] );
+    m_focalmap->SetDetector( m_detectmap->DetectorSample(),
+                             m_detectmap->DetectorLine() );
+    m_distortmap->SetFocalPlane( m_focalmap->FocalPlaneX(),
+                                 m_focalmap->FocalPlaneY() );
+    result[0] = distortmap->UndistortedFocalPlaneX();
+    result[1] = distortmap->UndistortedFocalPlaneY();
+    result[2] = distortmap->UndistortedFocalPlaneZ();
+    result = normalize( result );
+    std::vector<double> lookC(3);
+    lookC[0] = result[0];
+    lookC[1] = result[1];
+    lookC[2] = result[2];
+    std::vector<double> lookJ = m_camera->InstrumentRotation()->J2000Vector(lookC);
+    lookC = m_camera->BodyRotation()->ReferenceVector(lookJ);
+    result[0] = lookC[0];
+    result[1] = lookC[1];
+    result[2] = lookC[2];
+  } else {
+    // Map Projected Image
+    m_camera->SetImage(pix[0],pix[1]);
+    double p[3];
 
-  // Compute ground point
-  double p[3];
-  cam->InstrumentPosition(p);
-  Vector3 instrument_pt(p[0],p[1],p[2]);
-
-  // Compute vector from the spacecraft to the ground intersection point
-  cam->Coordinate(p);
-  Vector3 ground_pt(p[0],p[1],p[2]);
-  return normalize(ground_pt - instrument_pt);
-
-
-//   Quaternion<double> look_transform = this->camera_pose(pix);
-//   return inverse(look_transform).rotate(Vector3(0,0,1));
+    // Compute Instrument and Ground Pts
+    m_camera->InstrumentPosition(p);
+    Vector3 instrument_pt(p[0],p[1],p[2]);
+    m_camera->Coordinate(p);
+    Vector3 ground_pt(p[0],p[1],p[2]);
+    result = normalize( ground_pt - instrument_pt );
+  }
+  return result;
 }
 
-Vector3 IsisCameraModel::camera_center(Vector2 const& pix ) const {
-  Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
+Vector3 camera_center( Vector2 const& pix ) const {
+  // ISIS indexes from (1,1);
+  Vector2 px = pix;
+  px += Vector2(1,1);
 
-  // This is the foolproof method for setting the current pixel of
-  // interest.  However, this method is very slow because it check for
-  // an intersection with the planetary datum on every call.
-  this->set_image(pix[0],pix[1]);
-
-  // On the other hand, this call is *much* faster because it directly
-  // updates the DetectorMap object and the ephemeris time without
-  // engaging any of the other "heavy machinery" involved with a call
-  // to cam->SetImage().  However, this is violating some abstraction
-  // barriers, and it may not be correct for all camera models.
-  //  cam->DetectorMap()->SetParent(pix[0],pix[1]);
+  if ( !m_camera->HasProjection() ) {
+    // Standard Image
+    px[0] = m_alphacube->AlphaSample(px[0]);
+    px[1] = m_alphacube->AlphaLine(px[1]);
+    m_detectmap->SetParent( px[0], px[1] );
+  } else {
+    // Map Projected Image
+    m_camera->SetImage( px[0], px[1] );
+  }
   double pos[3];
-  cam->InstrumentPosition(pos);
+  m_camera->InstrumentPosition(pos);
   return Vector3(pos[0]*1000,pos[1]*1000,pos[2]*1000);
 }
 
 Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
-  Isis::Camera* cam  = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-  this->set_image(pix[0],pix[1]);
+  // ISIS indexes from (1,1);
+  Vector2 px = pix;
+  px += Vector2(1,1);
 
-  // Convert from instrument frame --> J2000 frame --> Mars body-fixed frame
+  if ( !m_camera->HasProjection() ) {
+    // Standard Image
+    px[0] = m_alphacube->AlphaSample(px[0]);
+    px[1] = m_alphacube->AlphaLine(px[1]);
+    m_detectmap->SetParent( px[0], px[1] );
+  } else {
+    // Map Projected Image
+    m_camera->SetImage( px[0], px[1] );
+  }
+
+  // Convert from instrument frame -> J2000 -> Body Fixed frame
   std::vector<double> rot_inst = cam->InstrumentRotation()->Matrix();
   std::vector<double> rot_body = cam->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
@@ -155,20 +145,14 @@ Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
   return Quaternion<double>(R_inst*inverse(R_body));
 }
 
-
-int IsisCameraModel::getLines( void ) const {
-  Isis::Camera* cam = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-  return cam->Lines();
+int IsisCameraModel::lines( void ) const {
+  return m_camera->Lines();
 }
 
-int IsisCameraModel::getSamples( void ) const {
-  Isis::Camera* cam = static_cast<Isis::Camera*>(m_isis_camera_ptr);
-  return cam->Samples();
+int IsisCameraModel::samples( void ) const {
+  return m_camera->Samples();
 }
 
 std::string IsisCameraModel::serial_number( void ) const {
-  Isis::Cube* cube = static_cast<Isis::Cube*>(m_isis_cube);
-  Isis::Pvl* label = cube->Label();
-  std::string serial = Isis::SerialNumber::Compose(*label,true);
-  return serial;
+  return Isis::SerialNumber::Compose(m_label,true);
 }

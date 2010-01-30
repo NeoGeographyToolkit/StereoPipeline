@@ -15,11 +15,23 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 
+// VW
 #include <vw/Camera/CameraModel.h>
+
+// ISIS
+#include <Pvl.h>
+#include <AlphaCube.h>
+#include <Camera.h>
+#include <CameraFactory.h>
+#include <CameraDetectorMap.h>
+#include <CameraDistortionMap.h>
+#include <CameraFocalPlaneMap.h>
 
 namespace vw {
 namespace camera {
 
+  // This is largely just a shortened reimplementation of ISIS's
+  // Camera.cpp.
   class IsisCameraModel : public CameraModel {
 
   public:
@@ -34,7 +46,6 @@ namespace camera {
     //------------------------------------------------------------------
     // Methods
     //------------------------------------------------------------------
-
 
     //  Computes the image of the point 'point' in 3D space on the
     //  image plane.  Returns a pixel location (col, row) where the
@@ -53,25 +64,23 @@ namespace camera {
     virtual Quaternion<double> camera_pose(Vector2 const& pix = Vector2() ) const;
 
     // Returns the number of lines is the ISIS cube
-    virtual int getLines(void) const;
+    virtual int lines(void) const;
 
     // Returns the number of samples in the ISIS cube
-    virtual int getSamples(void) const;
+    virtual int samples(void) const;
 
     // Returns the serial number of the ISIS cube
     virtual std::string serial_number(void) const;
 
   protected:
-    mutable double m_current_line, m_current_sample;
-    mutable double m_max_ephemeris, m_min_ephemeris;
-    void set_image(double sample, double line) const;
-
-    // A void pointer which is cast to Isis::Camera* in the
-    // implentation of the methods below.
-    void* m_isis_camera_ptr;
-    void* m_isis_cube;
+    Isis::Pvl m_label;
+    Isis::Camera *m_camera;
+    Isis::AlphaCube *m_alphacube;
+    Isis::CameraDistortionMap *m_distortmap;
+    Isis::CameraFocalPlaneMap *m_focalmap;
+    Isis::CameraDetectorMap   *m_detectmap;
   };
 
-}}      // namespace vw::camera
+}}
 
 #endif  //__VW_CAMERA_ISIS_H__
