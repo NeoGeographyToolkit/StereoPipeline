@@ -145,7 +145,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
       boost::shared_ptr<IsisAdjustCameraModel> camera = ba_model.adjusted_camera(j);
 
       // Saving points along the line of the camera
-      for ( int i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
+      for ( int i = 0; i < camera->lines(); i+=(camera->lines()/8) ) {
         Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
         ostr_camera << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
         Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
@@ -185,7 +185,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
         boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
 
         // Saving points along the line of the camera
-        for ( int i = 0; i < camera->getLines(); i+=(camera->getLines()/8) ) {
+        for ( int i = 0; i < camera->lines(); i+=(camera->lines()/8) ) {
           Vector3 position = camera->camera_center( Vector2(0,i) ); // This calls legacy support
           ostr_camera << std::setprecision(18) << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
           Quaternion<double> pose = camera->camera_pose( Vector2(0,i) ); // Legacy as well
