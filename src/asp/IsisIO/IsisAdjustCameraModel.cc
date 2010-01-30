@@ -5,6 +5,7 @@
 // __END_LICENSE__
 
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
+#include <vw/Math/EulerAngles.h>
 
 using namespace vw;
 using namespace vw::camera;
@@ -57,7 +58,6 @@ Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
 
   // Finding rotation from camera frame to world frame
   Quaternion<double> look_transform = camera_pose( pix );
-  result = inverse( look_transform ).rotate( result );
 
   Vector3 result;
   if ( !m_camera->HasProjection() ) {
@@ -92,7 +92,7 @@ Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
 }
 
 Vector3
-IsisAdjustCameraModel::camera_center( Vector2 const& pix = Vector2() ) const {
+IsisAdjustCameraModel::camera_center( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
 
@@ -112,7 +112,7 @@ IsisAdjustCameraModel::camera_center( Vector2 const& pix = Vector2() ) const {
 }
 
 Quaternion<double>
-IsisAdjustCameraModel::camera_pose( Vector2 const& pix = Vector2() ) const {
+IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
 
@@ -126,18 +126,18 @@ IsisAdjustCameraModel::camera_pose( Vector2 const& pix = Vector2() ) const {
     m_camera->SetImage( px[0], px[1] );
   }
   // Convert from instrument frame-> J2000 frame --> Globe centered-fixed
-  std::vector<double> rot_inst = cam->InstrumentRotation()->Matrix();
-  std::vector<double> rot_body = cam->BodyRotation()->Matrix();
+  std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
+  std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   // Evaluating pose function
-  Vector3 angles = m_pose_func->evaluate( m_camera->EphemerisTime() );
+  Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
 
   Quaternion<double> quat ( R_inst * transpose(R_body) *
-                            euler_to_rotation_matrix( angles[0],
-                                                      angles[1],
-                                                      angles[2],
-                                                      "xyz" ) );
+                            math::euler_to_rotation_matrix( angles[0],
+                                                            angles[1],
+                                                            angles[2],
+                                                            "xyz" ) );
   quat = quat / norm_2( quat );
   return quat;
 }
@@ -161,9 +161,12 @@ IsisAdjustCameraModel::EphemerisLMA::operator()( IsisCameraModel::EphemerisLMA::
   instru *= 1000;
   instru += m_position_f->evaluate( x[0] );
 
-  Vector3 lookB = normalize(point-instru);
-  Vector3 angles = m_pose_func->evaluate( x[0] );
-  lookB = euler_to_rotation_matrix( angles[0], angles[1], angles[2], "xyz" ) * lookB;
+  Vector3 lookB = normalize( m_point - instru );
+  Vector3 angles = m_pose_f->evaluate( x[0] );
+  lookB = math::euler_to_rotation_matrix( angles[0],
+                                          angles[1],
+                                          angles[2],
+                                          "xyz" ) * lookB;
 
   std::vector<double> lookB_copy(3);
   lookB_copy[0] = lookB[0];
@@ -201,8 +204,11 @@ IsisAdjustCameraModel::project_using_current( Vector3 const& point ) const {
   instru += m_position_f->evaluate( m_camera->EphemerisTime() );
 
   Vector3 lookB = normalize(point-instru);
-  Vector3 angles = m_pose_func->evaluate( m_camera->EphemerisTime() );
-  lookB = euler_to_rotation_matrix( angles[0], angles[1], angles[2], "xyz" ) * lookB;
+  Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
+  lookB = math::euler_to_rotation_matrix( angles[0],
+                                          angles[1],
+                                          angles[2],
+                                          "xyz" ) * lookB;
 
   std::vector<double> lookB_copy(3);
   lookB_copy[0] = lookB[0];

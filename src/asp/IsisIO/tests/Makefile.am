@@ -11,10 +11,11 @@
 
 if MAKE_MODULE_ISISIO
 
-TestIsisCameraModel_SOURCES    = TestIsisCameraModel.cxx
-TestEphemerisEquations_SOURCES = TestEphemerisEquations.cxx
+TestIsisCameraModel_SOURCES       = TestIsisCameraModel.cxx
+TestEphemerisEquations_SOURCES    = TestEphemerisEquations.cxx
+TestIsisAdjustCameraModel_SOURCES = TestIsisAdjustCameraModel.cxx
 
-TESTS = TestIsisCameraModel TestEphemerisEquations
+TESTS = TestIsisCameraModel TestEphemerisEquations TestIsisAdjustCameraModel
 
 endif
 

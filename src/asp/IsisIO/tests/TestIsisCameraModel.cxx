@@ -6,8 +6,6 @@
 
 #include <gtest/gtest.h>
 
-#include <time.h>
-
 #include <vw/Math/Vector.h>
 #include <vw/Core/Debugging.h>
 #include <asp/IsisIO/IsisCameraModel.h>
@@ -23,6 +21,16 @@ using namespace vw;
 using namespace vw::camera;
 
 double DELTA = 1e-8;
+
+Vector2 generate_random( int const& xsize,
+                         int const& ysize ) {
+  Vector2 pixel;
+  pixel[0] = rand() % ( 10 * xsize - 10 ) + 10;
+  pixel[0] /= 10;
+  pixel[1] = rand() % ( 10 * ysize - 10 ) + 10;
+  pixel[1] /= 10;
+  return pixel;
+}
 
 TEST(IsisCameraModel, groundmap_chk) {
   // Run two methods ..
@@ -47,11 +55,8 @@ TEST(IsisCameraModel, groundmap_chk) {
     std::vector<Vector2> pixel_sets;
     srand( time(NULL) );
     for ( uint i = 0; i < 1000; i++ ) {
-      Vector2 pixel;
-      pixel[0] = rand() % ( 10 * cube_ptr->Samples() ) + 10;
-      pixel[0] /= 10;
-      pixel[1] = rand() % ( 10 * cube_ptr->Lines() ) + 10;
-      pixel[1] /= 10;
+      Vector2 pixel = generate_random( cam->Samples(),
+                                       cam->Lines() );
       pixel_sets.push_back(pixel);
     }
 
@@ -133,31 +138,22 @@ TEST(IsisCameraModel, camera_model) {
     std::cout << "------------------------------------\n";
 
     for ( uint i = 0; i < 100; i++ ) {
-      Vector2 pixel;
-      pixel[0] = rand() % ( 10 * cam.samples() ) + 10;
-      pixel[0] /= 10;
-      pixel[1] = rand() % ( 10 * cam.lines() ) + 10;
-      pixel[1] /= 10;
+      Vector2 pixel = generate_random( cam.samples(),
+                                       cam.lines() );
 
       Vector3 point = cam.pixel_to_vector( pixel );
       for ( uint k = 0; k < 5; k++ ) {
         // Apply noise to make sure we are not using stored values
-        Vector2 noise;
-        noise[0] = rand() % ( 10 * cam.samples() ) + 10;
-        noise[0] /= 10;
-        noise[1] = rand() % ( 10 * cam.lines() ) + 10;
-        noise[1] /= 10;
+        Vector2 noise = generate_random( cam.samples(),
+                                         cam.lines() );
         Vector3 temp = cam.pixel_to_vector( noise );
       }
       point *= 100000; // 100 km below
       point += cam.camera_center( pixel );
       for ( uint k = 0; k < 5; k++ ) {
         // Apply noise to make sure we are not using stored values
-        Vector2 noise;
-        noise[0] = rand() % ( 10 * cam.samples() ) + 10;
-        noise[0] /= 10;
-        noise[1] = rand() % ( 10 * cam.lines() ) + 10;
-        noise[1] /= 10;
+        Vector2 noise = generate_random( cam.samples(),
+                                         cam.lines() );
         Vector3 temp = cam.camera_center( noise );
       }
 
