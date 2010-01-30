@@ -801,5 +801,7 @@ int main(int argc, char* argv[]) {
 
   }
 
+  vw_out() << "\n[ " << current_posix_time_string() << " ] : FINISHED \n";
+
   return(EXIT_SUCCESS);
 }
