@@ -59,7 +59,7 @@ void RPNEquation::string_to_eqn( std::string& str,
   // Breaks a string into the equation format used internally
   commands.clear();
   consts.clear();
-  boost::split( commands, str, boost::is_any_of(" =n"));
+  boost::split( commands, str, boost::is_any_of(" ="));
 
   // Cleaning out any tokens that are just ""
   for(std::vector<std::string>::iterator iter = commands.begin();
@@ -111,7 +111,7 @@ double RPNEquation::evaluate( std::vector<std::string>& commands,
       rpn_stack.pop();
       rpn_stack.push( buffer );
     } else if ( *iter == "abs" ) {
-      buffer = abs( rpn_stack.top() );
+      buffer = fabs( rpn_stack.top() );
       rpn_stack.pop();
       rpn_stack.push( buffer );
     } else if ( rpn_stack.size() < 2 ) {

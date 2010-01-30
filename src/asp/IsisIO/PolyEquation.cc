@@ -81,6 +81,7 @@ void PolyEquation::write( std::ofstream& f ) {
     case 1:
       pointer = &m_y_coeff;
       break;
+    default:
     case 2:
       pointer = &m_z_coeff;
       break;
@@ -118,6 +119,7 @@ void PolyEquation::read( std::ifstream& f ) {
     case 1:
       pointer = &m_y_coeff;
       break;
+    default:
     case 2:
       pointer = &m_z_coeff;
       break;
