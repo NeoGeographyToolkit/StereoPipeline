@@ -180,7 +180,7 @@ approximate_search_range( std::string left_image,
         ip1.clear(); ip2.clear();
 
         ip::OBALoGInterestOperator interest_operator( ipgain );
-        ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator );
+        ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
 
         ip1 = detect_interest_points( left_sub_image, detector );
         ip2 = detect_interest_points( right_sub_image, detector );
