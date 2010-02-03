@@ -28,8 +28,8 @@ namespace isis {
 
   class IsisInterface {
   public:
-    IsisInterface() {}
-    virtual ~IsisInterface() {}
+    IsisInterface( std::string const& file );
+    virtual ~IsisInterface();
 
     virtual std::string type() = 0;
     static IsisInterface* open( std::string const& filename );
@@ -42,13 +42,13 @@ namespace isis {
     // fast and not too full of conditionals.
 
     virtual vw::Vector2
-      point_to_pixel( vw::Vector3 const& point ) const;
+      point_to_pixel( vw::Vector3 const& point ) const = 0;
     virtual vw::Vector3
-      pixel_to_vector( vw::Vector2 const& pix ) const;
+      pixel_to_vector( vw::Vector2 const& pix ) const = 0;
     virtual vw::Vector3
-      camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+      camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const = 0;
     virtual vw::Quaternion<double>
-      camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+      camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const = 0;
 
     // General information
     //------------------------------------------------------

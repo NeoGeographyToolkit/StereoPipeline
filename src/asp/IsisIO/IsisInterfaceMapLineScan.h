@@ -17,7 +17,8 @@ namespace isis {
   class IsisInterfaceMapLineScan : public IsisInterface {
 
   public:
-    IsisInterfaceMapLineScan( std::string const& file ) {}
+    IsisInterfaceMapLineScan( std::string const& file ) :
+      IsisInterface(file) {}
 
     virtual ~IsisInterfaceMapLineScan() {}
 

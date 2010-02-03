@@ -23,8 +23,22 @@ using namespace vw;
 using namespace asp;
 using namespace asp::isis;
 
+IsisInterface::IsisInterface( std::string const& file ) {
+  // Opening labels and camera
+  Isis::Filename cubefile( file.c_str() );
+  m_label.Read( cubefile.Expanded() );
+
+  // Opening Isis::Camera
+  m_camera = Isis::CameraFactory::Create( m_label );
+}
+
+IsisInterface::~IsisInterface(void) {
+  if (m_camera)
+    delete m_camera;
+}
+
 IsisInterface* IsisInterface::open( std::string const& filename ) {
-  // Opening Labels
+  // Opening Labels (This should be done somehow though labels)
   Isis::Filename cubefile( filename.c_str() );
   Isis::Pvl label;
   label.Read( cubefile.Expanded() );

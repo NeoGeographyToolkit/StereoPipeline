@@ -17,7 +17,8 @@ namespace isis {
   class IsisInterfaceMapFrame : public IsisInterface {
 
   public:
-    IsisInterfaceMapFrame( std::string const& file ) {}
+    IsisInterfaceMapFrame( std::string const& file ) :
+      IsisInterface(file) {}
 
     virtual ~IsisInterfaceMapFrame() {}
 
