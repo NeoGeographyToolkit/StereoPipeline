@@ -59,9 +59,10 @@ IsisInterfaceMapFrame::point_to_pixel( Vector3 const& point ) const {
                               m_distortmap->UndistortedFocalPlaneY(),
                               m_distortmap->UndistortedFocalPlaneZ() );
 
-  Vector2 result( m_camera->Sample(),
-                  m_camera->Line() );
-
+  m_projection->SetGround( m_camera->UniversalLatitude(),
+                           m_camera->UniversalLongitude() );
+  Vector2 result( m_projection->WorldX(),
+                  m_projection->WorldY() );
   return result - Vector2(1,1);
 }
 
@@ -88,17 +89,7 @@ IsisInterfaceMapFrame::pixel_to_vector( Vector2 const& pix ) const {
   }
   lon_lat_radius[2] *= 1000;
   Vector3 point = cartography::lon_lat_radius_to_xyz(lon_lat_radius);
-  Vector3 result = normalize(point-m_center);
-
-  {
-    m_camera->SetImage(px[0],px[1]);
-    double ip[3], coord[3];
-    m_camera->InstrumentPosition(ip);
-    m_camera->Coordinate(coord);
-    VectorProxy<double,3> ipv(ip), coordv(coord);
-  }
-
-  return result;
+  return normalize(point-m_center);
 }
 
 Vector3 IsisInterfaceMapFrame::camera_center( Vector2 const& pix ) const {

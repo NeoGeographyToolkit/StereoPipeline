@@ -23,7 +23,6 @@ IsisInterfaceLineScan::IsisInterfaceLineScan( std::string const& filename ) : Is
 
 // Custom Function to help avoid over invoking the deeply buried
 // functions of Isis::Sensor
-
 void IsisInterfaceLineScan::SetTime( Vector2 const& px, bool calc ) const {
   if ( px != m_c_location ) {
     m_c_location = px;

@@ -207,7 +207,7 @@ TEST(IsisCameraModel, camera_model) {
   std::vector<std::string> files;
   files.push_back("E1701676.reduce.cub");
   files.push_back("5165r.cub");
-  //files.push_back("E0201461.tiny.cub"); // Map Projecteded
+  files.push_back("E0201461.tiny.cub"); // Map Projected
   files.push_back("5165r.map.cub");
 
   srand( time(NULL) );
@@ -225,7 +225,7 @@ TEST(IsisCameraModel, camera_model) {
                                        cam.lines() );
 
       Vector3 point = cam.pixel_to_vector( pixel );
-      for ( uint k = 0; k < 0; k++ ) {
+      for ( uint k = 0; k < 2; k++ ) {
         // Apply noise to make sure we are not using stored values
         Vector2 noise = generate_random( cam.samples(),
                                          cam.lines() );
@@ -233,7 +233,7 @@ TEST(IsisCameraModel, camera_model) {
       }
       point *= 70000; // 70 km below
       point += cam.camera_center( pixel );
-      for ( uint k = 0; k < 0; k++ ) {
+      for ( uint k = 0; k < 2; k++ ) {
         // Apply noise to make sure we are not using stored values
         Vector2 noise = generate_random( cam.samples(),
                                          cam.lines() );

@@ -27,7 +27,10 @@ namespace isis {
   public:
     IsisInterfaceMapFrame( std::string const& file );
 
-    virtual ~IsisInterfaceMapFrame() {}
+    virtual ~IsisInterfaceMapFrame() {
+      if ( m_projection )
+        delete m_projection;
+    }
 
     virtual std::string type()  { return "MapFrame"; }
 

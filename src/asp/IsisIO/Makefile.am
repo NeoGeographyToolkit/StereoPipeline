@@ -22,7 +22,7 @@ include_HEADERS = BaseEquation.h Equation.h PolyEquation.h            \
 libaspIsisIO_la_SOURCES = DiskImageResourceIsis.cc Equation.cc        \
 		  PolyEquation.cc RPNEquation.cc IsisInterface.cc     \
 		  IsisInterfaceFrame.cc IsisInterfaceLineScan.cc      \
-		  IsisInterfaceMapFrame.cc
+		  IsisInterfaceMapFrame.cc IsisInterfaceMapLineScan.cc
 # IsisAdjustCameraModel.cc
 
 libaspIsisIO_la_LIBADD = @MODULE_ISISIO_LIBS@
