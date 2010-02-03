@@ -10,7 +10,7 @@
 #include <asp/IsisIO/RPNEquation.h>
 
 using namespace vw;
-using namespace vw::camera;
+using namespace asp;
 
 double DELTA = 1e-6;
 

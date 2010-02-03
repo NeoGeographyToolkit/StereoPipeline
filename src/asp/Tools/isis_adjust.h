@@ -91,8 +91,8 @@ public:
       // I'm using what is already in the IsisAdjust camera file as
       // the orginal starting point for the problem. This way I can
       // nudge it with error and see what it is doing for debuging
-      boost::shared_ptr<BaseEquation> posF = m_cameras[j]->position_func();
-      boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->pose_func();
+      boost::shared_ptr<asp::BaseEquation> posF = m_cameras[j]->position_func();
+      boost::shared_ptr<asp::BaseEquation> poseF = m_cameras[j]->pose_func();
 
       a[j] = camera_vector_t();
       // Setting new equations defined by a_j
@@ -234,8 +234,8 @@ public:
   boost::shared_ptr< IsisAdjustCameraModel > adjusted_camera( int j ) {
 
     // Adjusting position and pose equations
-    boost::shared_ptr<BaseEquation> posF = m_cameras[j]->position_func();
-    boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->pose_func();
+    boost::shared_ptr<asp::BaseEquation> posF = m_cameras[j]->position_func();
+    boost::shared_ptr<asp::BaseEquation> poseF = m_cameras[j]->pose_func();
 
     // Setting new equations defined by a_j
     for (unsigned n = 0; n < posF->size(); ++n)
@@ -255,8 +255,8 @@ public:
     // Warning! This operation can not be allowed to change the camera properties.
 
     // Loading equations
-    boost::shared_ptr<BaseEquation> posF = m_cameras[j]->position_func();
-    boost::shared_ptr<BaseEquation> poseF = m_cameras[j]->pose_func();
+    boost::shared_ptr<asp::BaseEquation> posF = m_cameras[j]->position_func();
+    boost::shared_ptr<asp::BaseEquation> poseF = m_cameras[j]->pose_func();
 
     // Applying new equation constants
     for (unsigned n = 0; n < posF->size(); ++n)

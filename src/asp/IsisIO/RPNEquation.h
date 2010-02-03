@@ -5,16 +5,15 @@
 // __END_LICENSE__
 
 
-#ifndef __VW_CAMERA_RPN_EQUATION__
-#define __VW_CAMERA_RPN_EQUATION__
+#ifndef __ASP_RPN_EQUATION__
+#define __ASP_RPN_EQUATION__
 
 // STL
 #include <vector>
 // ASP
 #include <asp/IsisIO/BaseEquation.h>
 
-namespace vw{
-namespace camera{
+namespace asp {
 
   // RPN Equation
   // .. is an equation defined by a string containing Reverse Polish
@@ -58,6 +57,6 @@ namespace camera{
     void read( std::ifstream &f );
   };
 
-}}
+}
 
-#endif//__VW_CAMERA_RPN_EQUATION__
+#endif//__ASP_RPN_EQUATION__

@@ -8,14 +8,14 @@
 #include <asp/IsisIO/Equation.h>
 
 using namespace vw;
-using namespace camera;
+using namespace asp;
 
 // Useful tools
 //-------------------------------------------------------
 
 // Debugging output of coefficients (constants)
-std::ostream& vw::camera::operator<<( std::ostream& os,
-                                      boost::shared_ptr<BaseEquation> eq ) {
+std::ostream& asp::operator<<( std::ostream& os,
+                               boost::shared_ptr<BaseEquation> eq ) {
   os << "Vector Equation-----------------------------\n";
   os << " " << eq->type() << std::endl;
   os << " Time Offset: " << eq->get_time_offset() << "\n";
@@ -35,12 +35,12 @@ std::ostream& vw::camera::operator<<( std::ostream& os,
 }
 
 // Determines equation type and write appropriate
-void vw::camera::write_equation( std::ofstream& f, boost::shared_ptr<BaseEquation> eq ) {
+void asp::write_equation( std::ofstream& f, boost::shared_ptr<BaseEquation> eq ) {
   f << eq->type() << "\n";
   eq->write( f );
 }
 // Determines equation type from file and return appropriate
-boost::shared_ptr<BaseEquation> vw::camera::read_equation( std::ifstream& f) {
+boost::shared_ptr<BaseEquation> asp::read_equation( std::ifstream& f) {
   boost::shared_ptr<BaseEquation> eq;
 
   std::string buffer = "";

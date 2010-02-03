@@ -13,7 +13,7 @@
 #include <boost/algorithm/string.hpp>
 
 using namespace vw;
-using namespace camera;
+using namespace asp;
 
 // Constructors
 //---------------------------------------------

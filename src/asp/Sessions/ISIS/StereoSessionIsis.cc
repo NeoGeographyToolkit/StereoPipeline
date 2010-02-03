@@ -29,6 +29,7 @@ namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace vw::camera;
+using namespace asp;
 
 // Internally used simple functions
 static std::string prefix_from_filename(std::string const& filename) {
@@ -422,8 +423,8 @@ StereoSessionIsis::camera_model(std::string image_file,
 
     // Creating Equations for the files
     std::ifstream input( camera_file.c_str() );
-    boost::shared_ptr<BaseEquation> posF = read_equation( input );
-    boost::shared_ptr<BaseEquation> poseF = read_equation( input );
+    boost::shared_ptr<asp::BaseEquation> posF = read_equation( input );
+    boost::shared_ptr<asp::BaseEquation> poseF = read_equation( input );
     input.close();
 
     // Finally creating camera model

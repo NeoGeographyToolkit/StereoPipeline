@@ -330,8 +330,8 @@ int main(int argc, char* argv[]) {
       vw_out(DebugMessage,"asp") << "Loading: " << g_input_files[i] << std::endl;
 
       // Equations defining the delta
-      boost::shared_ptr<BaseEquation> posF( new PolyEquation(polynomial_order) );
-      boost::shared_ptr<BaseEquation> poseF( new PolyEquation(polynomial_order) );
+      boost::shared_ptr<asp::BaseEquation> posF( new asp::PolyEquation(polynomial_order) );
+      boost::shared_ptr<asp::BaseEquation> poseF( new asp::PolyEquation(polynomial_order) );
       boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( g_input_files[i], posF, poseF ) );
       camera_models[i] = p;
     }

@@ -10,6 +10,7 @@
 
 using namespace vw;
 using namespace vw::camera;
+using namespace asp;
 
 Vector2 generate_random( int const& xsize,
                          int const& ysize ) {

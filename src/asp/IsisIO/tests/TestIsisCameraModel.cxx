@@ -88,8 +88,6 @@ TEST(IsisCameraModel, mapprojected) {
     Vector3 new_point = instru*1000+50000*dir;
     new_point /= 1000;
     std::cout << "NPt: " << new_point << "\n";
-
-    
   }
 
   delete cam;
@@ -241,8 +239,8 @@ TEST(IsisCameraModel, camera_model) {
       }
 
       Vector2 rpixel = cam.point_to_pixel( point );
-      EXPECT_NEAR( pixel[0], rpixel[0], 0.001 );
-      EXPECT_NEAR( pixel[1], rpixel[1], 0.001 );
+      EXPECT_NEAR( pixel[0], rpixel[0], 0.02 );
+      EXPECT_NEAR( pixel[1], rpixel[1], 0.02 );
     }
 
   }

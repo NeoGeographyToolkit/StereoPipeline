@@ -5,18 +5,16 @@
 // __END_LICENSE__
 
 
-#ifndef __VW_CAMERA_BASE_EQUATION__
-#define __VW_CAMERA_BASE_EQUATION__
+#ifndef __ASP_BASE_EQUATION__
+#define __ASP_BASE_EQUATION__
 
 // STL
 #include <fstream>
 #include <iostream>
 // VW
 #include <vw/Math/Vector.h>
-// Other Forms
 
-namespace vw {
-namespace camera {
+namespace asp {
 
   // Vector Equation is a method
   // used to modify an IsisCameraModel through
@@ -27,7 +25,7 @@ namespace camera {
   //
   class BaseEquation {
   protected:
-    Vector3 m_cached_output;
+    vw::Vector3 m_cached_output;
     double m_cached_time;
     double m_time_offset;
 
@@ -40,12 +38,12 @@ namespace camera {
     virtual std::string type() const = 0;
 
     //Evaluates the equation at time T
-    Vector3 evaluate( double const& t ) {
+    vw::Vector3 evaluate( double const& t ) {
       if ( t != m_cached_time )
         update( t );
       return m_cached_output;
     }
-    Vector3 operator()( double const& t ) { return evaluate(t);}
+    vw::Vector3 operator()( double const& t ) { return evaluate(t);}
 
     // Tells the number of constants defining the equation
     // This is especially vague as it is meant for interaction with a
@@ -71,6 +69,6 @@ namespace camera {
   };
 
 
-}}
+}
 
-#endif//__VW_CAMERA_BASE_EQUATION__
+#endif//__ASP_BASE_EQUATION__

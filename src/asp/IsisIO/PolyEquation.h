@@ -5,28 +5,27 @@
 // __END_LICENSE__
 
 
-#ifndef __VW_CAMERA_POLY_EQUATION__
-#define __VW_CAMERA_POLY_EQUATION__
+#ifndef __ASP_POLY_EQUATION__
+#define __ASP_POLY_EQUATION__
 
 #include <asp/IsisIO/BaseEquation.h>
 
-namespace vw {
-namespace camera {
+namespace asp {
 
   // Polynomial Equation
   // .. is a vector equation described by an n'th order polynomial
   class PolyEquation : public BaseEquation {
-    Vector<double> m_x_coeff;
-    Vector<double> m_y_coeff;
-    Vector<double> m_z_coeff;
+    vw::Vector<double> m_x_coeff;
+    vw::Vector<double> m_y_coeff;
+    vw::Vector<double> m_z_coeff;
 
     void update ( double const& t );
   public:
     PolyEquation( int order = 0 );
     PolyEquation( int, int, int );
-    PolyEquation( Vector<double>& x,
-                  Vector<double>& y,
-                  Vector<double>& z ) : m_x_coeff(x), m_y_coeff(y), m_z_coeff(z) {
+    PolyEquation( vw::Vector<double>& x,
+                  vw::Vector<double>& y,
+                  vw::Vector<double>& z ) : m_x_coeff(x), m_y_coeff(y), m_z_coeff(z) {
       m_cached_time = -1;
       m_time_offset = 0;
     }
@@ -39,6 +38,6 @@ namespace camera {
     void read( std::ifstream &f );
   };
 
-}}
+}
 
-#endif//__VW_CAMERA_POLY_EQUATION__
+#endif//__ASP_POLY_EQUATION__

@@ -16,14 +16,13 @@ include_HEADERS = BaseEquation.h Equation.h PolyEquation.h            \
 		  IsisCameraModel.h            \
 		  IsisInterface.h IsisInterfaceFrame.h                \
 		  IsisInterfaceLineScan.h IsisInterfaceMapFrame.h     \
-		  IsisInterfaceMapLineScan.h
-# IsisAdjustCameraModel.h
+		  IsisInterfaceMapLineScan.h IsisAdjustCameraModel.h
 
 libaspIsisIO_la_SOURCES = DiskImageResourceIsis.cc Equation.cc        \
 		  PolyEquation.cc RPNEquation.cc IsisInterface.cc     \
 		  IsisInterfaceFrame.cc IsisInterfaceLineScan.cc      \
-		  IsisInterfaceMapFrame.cc IsisInterfaceMapLineScan.cc
-# IsisAdjustCameraModel.cc
+		  IsisInterfaceMapFrame.cc IsisInterfaceMapLineScan.cc \
+		  IsisAdjustCameraModel.cc
 
 libaspIsisIO_la_LIBADD = @MODULE_ISISIO_LIBS@
 

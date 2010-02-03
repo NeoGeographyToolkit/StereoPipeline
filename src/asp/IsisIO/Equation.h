@@ -5,15 +5,14 @@
 // __END_LICENSE__
 
 
-#ifndef __VW_CAMERA_EQUATION_H__
-#define __VW_CAMERA_EQUATION_H__
+#ifndef __ASP_EQUATION_H__
+#define __ASP_EQUATION_H__
 
 #include <asp/IsisIO/BaseEquation.h>
 #include <asp/IsisIO/PolyEquation.h>
 #include <asp/IsisIO/RPNEquation.h>
 
-namespace vw {
-namespace camera {
+namespace asp {
 
   // Useful tools
   //-------------------------------------------------------
@@ -26,6 +25,6 @@ namespace camera {
   // Determines equation type from file and return appropriate
   boost::shared_ptr<BaseEquation> read_equation( std::ifstream& f);
 
-}}
+}
 
-#endif//__VW_CAMERA_EQUATION_H__
+#endif//__ASP_EQUATION_H__
