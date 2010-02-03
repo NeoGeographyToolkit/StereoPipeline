@@ -66,7 +66,8 @@ IsisInterfaceFrame::point_to_pixel( Vector3 const& point ) const {
   return result-Vector2(1,1);
 }
 
-Vector3 IsisInterfaceFrame::pixel_to_vector( Vector2 const& pix ) const {
+Vector3
+IsisInterfaceFrame::pixel_to_vector( Vector2 const& pix ) const {
   Vector2 px = pix + Vector2(1,1);
 
   Vector3 result;

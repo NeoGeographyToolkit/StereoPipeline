@@ -103,7 +103,9 @@ TEST(IsisCameraModel, groundmap_chk) {
 
   std::vector<std::string> files;
   files.push_back("E1701676.reduce.cub"); // Linescan
-  files.push_back("5165r.cub");         // Frame
+  files.push_back("5165r.cub");           // Frame
+  files.push_back("5165r.map.cub");
+  files.push_back("E0201461.tiny.cub");
 
   for ( uint j = 0; j < files.size(); j++ ) {
 
@@ -116,6 +118,12 @@ TEST(IsisCameraModel, groundmap_chk) {
     Isis::Camera* cam = Isis::CameraFactory::Create( label );
     Isis::AlphaCube alphacube( label );
 
+    std::cout << "CameraType: " << cam->GetCameraType() << "\n";
+
+    double m_delta = 1e-8;
+    if ( cam->HasProjection() )
+      m_delta = 2e-2; // Cameras and Projections don't always line up
+
     // Ripping out the parts of the Camera Model
     Isis::CameraDistortionMap* distortmap = cam->DistortionMap();
     Isis::CameraFocalPlaneMap* focalmap = cam->FocalPlaneMap();
@@ -124,7 +132,7 @@ TEST(IsisCameraModel, groundmap_chk) {
     // Building test set
     std::vector<Vector2> pixel_sets;
     srand( time(NULL) );
-    for ( uint i = 0; i < 2; i++ ) {
+    for ( uint i = 0; i < 1000; i++ ) {
       Vector2 pixel = generate_random( cam->Samples(),
                                        cam->Lines() );
       pixel_sets.push_back(pixel);
@@ -135,7 +143,7 @@ TEST(IsisCameraModel, groundmap_chk) {
     Timer *t = new Timer("No GroundMap Solution");
 
     //for ( uint i = 0; i < pixel_sets.size(); i++ ) {
-    for ( uint i = 0; i < 10000; i++ ) {
+    for ( uint i = 0; i < pixel_sets.size(); i++ ) {
       Vector2 pixel = pixel_sets[i];
       Vector3 nog_solution;
 
@@ -187,9 +195,9 @@ TEST(IsisCameraModel, groundmap_chk) {
     delete t;
 
     for ( uint i = 0; i < pixel_sets.size(); i++ ) {
-      EXPECT_NEAR( nog_solution_sets[i][0], g_solution_sets[i][0], DELTA );
-      EXPECT_NEAR( nog_solution_sets[i][1], g_solution_sets[i][1], DELTA );
-      EXPECT_NEAR( nog_solution_sets[i][2], g_solution_sets[i][2], DELTA );
+      EXPECT_NEAR( nog_solution_sets[i][0], g_solution_sets[i][0], m_delta );
+      EXPECT_NEAR( nog_solution_sets[i][1], g_solution_sets[i][1], m_delta );
+      EXPECT_NEAR( nog_solution_sets[i][2], g_solution_sets[i][2], m_delta );
     }
   }
 }
@@ -198,8 +206,10 @@ TEST(IsisCameraModel, camera_model) {
   // Circle Check
   std::vector<std::string> files;
   files.push_back("E1701676.reduce.cub");
-  //files.push_back("E0201461.tiny.cub"); // Map Projected
   files.push_back("5165r.cub");
+  //files.push_back("E0201461.tiny.cub"); // Map Projecteded
+  files.push_back("5165r.map.cub");
+
   srand( time(NULL) );
   for ( uint j = 0; j < files.size(); j++ ) {
 

@@ -11,16 +11,25 @@
 #ifndef __ASP_ISIS_INTERFACE_MAP_FRAME_H__
 #define __ASP_ISIS_INTERFACE_MAP_FRAME_H__
 
+// ASP
+#include <asp/IsisIO/IsisInterface.h>
+
+// Isis
+#include <AlphaCube.h>
+#include <Projection.h>
+
 namespace asp {
 namespace isis {
 
   class IsisInterfaceMapFrame : public IsisInterface {
 
   public:
-    IsisInterfaceMapFrame( std::string const& file ) :
-      IsisInterface(file) {}
+    IsisInterfaceMapFrame( std::string const& file );
 
-    virtual ~IsisInterfaceMapFrame() {}
+    virtual ~IsisInterfaceMapFrame() {
+      if ( m_alphacube )
+        delete m_alphacube;
+    }
 
     virtual std::string type()  { return "MapFrame"; }
 
@@ -28,26 +37,23 @@ namespace isis {
     //-------------------------------------------------
 
     virtual vw::Vector2
-      point_to_pixel( vw::Vector3 const& point ) const {
-      vw::vw_throw( vw::NoImplErr() << "MapFrame unfinished" );
-      return vw::Vector2();
-    }
+      point_to_pixel( vw::Vector3 const& point ) const;
     virtual vw::Vector3
-      pixel_to_vector( vw::Vector2 const& pix ) const {
-      vw::vw_throw( vw::NoImplErr() << "MapFrame unfinished" );
-      return vw::Vector3();
-    }
+      pixel_to_vector( vw::Vector2 const& pix ) const;
     virtual vw::Vector3
-      camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const {
-      vw::vw_throw( vw::NoImplErr() << "MapFrame unfinished" );
-      return vw::Vector3();
-    }
+      camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
     virtual vw::Quaternion<double>
-      camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const {
-      vw::vw_throw( vw::NoImplErr() << "MapFrame unfinished" );
-      return vw::Quaternion<double>();
-    }
+      camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
 
+  protected:
+
+    // Custom Variables
+    Isis::AlphaCube   *m_alphacube;
+    Isis::Projection  *m_projection;
+
+    vw::Vector3 m_center;
+    vw::Quaternion<double> m_pose;
+    double m_radii[3];
   };
 
 }}

@@ -53,13 +53,15 @@ IsisInterface* IsisInterface::open( std::string const& filename ) {
     if ( camera->HasProjection() )
       result = new IsisInterfaceMapFrame( filename );
     else
-      return new IsisInterfaceFrame( filename );
+      result = new IsisInterfaceFrame( filename );
+    break;
   case 2:
     // Linescan Camera
     if ( camera->HasProjection() )
-      return new IsisInterfaceMapLineScan( filename );
+      result = new IsisInterfaceMapLineScan( filename );
     else
-      return new IsisInterfaceLineScan( filename );
+      result = new IsisInterfaceLineScan( filename );
+    break;
   default:
     vw_throw( NoImplErr() << "Don't support Isis Camera Type " << camera->GetCameraType() << " at this moment" );
   }
