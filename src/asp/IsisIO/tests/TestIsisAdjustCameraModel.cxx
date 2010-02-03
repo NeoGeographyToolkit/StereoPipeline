@@ -23,7 +23,7 @@ Vector2 generate_random( int const& xsize,
 
 TEST(IsisAdjustCameraModel, NoFunctions) {
   std::vector<std::string> files;
-  files.push_back("E1701676.crop.cub");
+  files.push_back("E1701676.reduce.cub");
   files.push_back("5165r.cub");
   srand( time(NULL) );
   for ( uint j = 0; j < files.size(); j++ ) {
@@ -61,7 +61,7 @@ TEST(IsisAdjustCameraModel, NoFunctions) {
 
 TEST(IsisAdjustCameraModel, PolyFunctions) {
   std::vector<std::string> files;
-  files.push_back("E1701676.crop.cub");
+  files.push_back("E1701676.reduce.cub");
   files.push_back("5165r.cub");
   srand( time(NULL) );
   for ( uint j = 0; j < files.size(); j++ ) {
@@ -120,7 +120,7 @@ TEST(IsisAdjustCameraModel, PolyFunctions) {
 
 TEST(IsisAdjustCameraModel, RPNFunctions) {
   std::vector<std::string> files;
-  files.push_back("E1701676.crop.cub");
+  files.push_back("E1701676.reduce.cub");
   files.push_back("5165r.cub");
   srand( time(NULL) );
   for ( uint j = 0; j < files.size(); j++ ) {

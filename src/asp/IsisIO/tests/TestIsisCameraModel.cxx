@@ -11,8 +11,11 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 
 // Additional Headers required for ISIS
-#include <Cube.h>
+#include <Filename.h>
+#include <CameraFactory.h>
 #include <Camera.h>
+#include <Pvl.h>
+#include <AlphaCube.h>
 #include <CameraFocalPlaneMap.h>
 #include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
@@ -32,19 +35,29 @@ Vector2 generate_random( int const& xsize,
   return pixel;
 }
 
+TEST(IsisCameraModel, mproject_chk) {
+  std::string files("E0201461.tiny.cub"); // Map Projected Linescan
+}
+
 TEST(IsisCameraModel, groundmap_chk) {
   // Run two methods ..
   // solve for vector out with and without the groundmap solution
   // prove that they get the same values
 
   std::vector<std::string> files;
-  files.push_back("E1701676.crop.cub");
-  files.push_back("5165r.cub");
+  files.push_back("E1701676.reduce.cub"); // Linescan
+  files.push_back("5165r.cub");         // Frame
 
   for ( uint j = 0; j < files.size(); j++ ) {
-    Isis::Cube* cube_ptr = new Isis::Cube;
-    cube_ptr->Open( files[j].c_str() );
-    Isis::Camera* cam = cube_ptr->Camera();
+
+    std::cout << "File: " << files[j] << "\n";
+    std::cout << "------------------------------------\n";
+
+    Isis::Filename cubefile( files[j].c_str() );
+    Isis::Pvl label;
+    label.Read( cubefile.Expanded() );
+    Isis::Camera* cam = Isis::CameraFactory::Create( label );
+    Isis::AlphaCube alphacube( label );
 
     // Ripping out the parts of the Camera Model
     Isis::CameraDistortionMap* distortmap = cam->DistortionMap();
@@ -54,7 +67,7 @@ TEST(IsisCameraModel, groundmap_chk) {
     // Building test set
     std::vector<Vector2> pixel_sets;
     srand( time(NULL) );
-    for ( uint i = 0; i < 1000; i++ ) {
+    for ( uint i = 0; i < 2; i++ ) {
       Vector2 pixel = generate_random( cam->Samples(),
                                        cam->Lines() );
       pixel_sets.push_back(pixel);
@@ -64,12 +77,14 @@ TEST(IsisCameraModel, groundmap_chk) {
 
     Timer *t = new Timer("No GroundMap Solution");
 
-    for ( uint i = 0; i < pixel_sets.size(); i++ ) {
+    //for ( uint i = 0; i < pixel_sets.size(); i++ ) {
+    for ( uint i = 0; i < 10000; i++ ) {
       Vector2 pixel = pixel_sets[i];
       Vector3 nog_solution;
 
       // No Ground Map Solution
-      detectmap->SetParent( pixel[0], pixel[1] );
+      detectmap->SetParent( alphacube.AlphaSample(pixel[0]),
+                            alphacube.AlphaLine(pixel[1]) );
       focalmap->SetDetector( detectmap->DetectorSample(),
                              detectmap->DetectorLine() );
       distortmap->SetFocalPlane( focalmap->FocalPlaneX(),
@@ -119,15 +134,14 @@ TEST(IsisCameraModel, groundmap_chk) {
       EXPECT_NEAR( nog_solution_sets[i][1], g_solution_sets[i][1], DELTA );
       EXPECT_NEAR( nog_solution_sets[i][2], g_solution_sets[i][2], DELTA );
     }
-
-    cube_ptr->Close();
   }
 }
 
 TEST(IsisCameraModel, camera_model) {
+  return;
   // Circle Check
   std::vector<std::string> files;
-  files.push_back("E1701676.crop.cub");
+  files.push_back("E1701676.reduce.cub");
   files.push_back("5165r.cub");
   srand( time(NULL) );
   for ( uint j = 0; j < files.size(); j++ ) {
