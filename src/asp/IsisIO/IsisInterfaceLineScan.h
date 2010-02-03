@@ -11,12 +11,18 @@
 #ifndef __ASP_ISIS_INTERFACE_LINESCAN_H__
 #define __ASP_ISIS_INTERFACE_LINESCAN_H__
 
+#include <asp/IsisIO/IsisInterface.h>
+
 namespace asp {
 namespace isis {
 
-  class IsisInterfaceLineScan {
+  class IsisInterfaceLineScan : public IsisInterface {
 
   public:
+    IsisInterfaceLineScan( std::string const& file ) {}
+
+    virtual ~IsisInterfaceLineScan() {}
+
     virtual std::string type()  { return "LineScan"; }
 
   };

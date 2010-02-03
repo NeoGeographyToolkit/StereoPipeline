@@ -11,12 +11,15 @@
 #include <asp/IsisIO/IsisInterfaceMapLineScan.h>
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
 
+// VW
+#include <vw/Core.h>
+
 // ISIS
 #include <Filename.h>
-#include <Pvl.h>
-#include <Camera.h>
 #include <CameraFactory.h>
+#include <SerialNumber.h>
 
+using namespace vw;
 using namespace asp;
 using namespace asp::isis;
 
@@ -28,16 +31,18 @@ IsisInterface* IsisInterface::open( std::string const& filename ) {
 
   Isis::Camera* camera = Isis::CameraFactory::Create( label );
 
+  IsisInterface* result;
+
   switch ( camera->GetCameraType() ) {
   case 0:
     // Framing Camera
-    if ( camera->HasProjection )
-      return new IsisInterfaceMapFrame( filename );
+    if ( camera->HasProjection() )
+      result = new IsisInterfaceMapFrame( filename );
     else
       return new IsisInterfaceFrame( filename );
   case 2:
     // Linescan Camera
-    if ( camera->HasProjection )
+    if ( camera->HasProjection() )
       return new IsisInterfaceMapLineScan( filename );
     else
       return new IsisInterfaceLineScan( filename );
@@ -45,5 +50,10 @@ IsisInterface* IsisInterface::open( std::string const& filename ) {
     vw_throw( NoImplErr() << "Don't support Isis Camera Type " << camera->GetCameraType() << " at this moment" );
   }
 
-  return NULL;
+  return result;
+}
+
+std::string IsisInterface::serial_number( void ) const {
+  Isis::Pvl copy( m_label );
+  return Isis::SerialNumber::Compose( copy, true );
 }

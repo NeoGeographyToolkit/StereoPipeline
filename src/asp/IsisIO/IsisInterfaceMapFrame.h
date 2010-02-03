@@ -14,9 +14,13 @@
 namespace asp {
 namespace isis {
 
-  class IsisInterfaceMapFrame {
+  class IsisInterfaceMapFrame : public IsisInterface {
 
   public:
+    IsisInterfaceMapFrame( std::string const& file ) {}
+
+    virtual ~IsisInterfaceMapFrame() {}
+
     virtual std::string type()  { return "MapFrame"; }
 
   };

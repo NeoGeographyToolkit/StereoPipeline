@@ -11,12 +11,18 @@
 #ifndef __ASP_ISIS_INTERFACE_FRAME_H__
 #define __ASP_ISIS_INTERFACE_FRAME_H__
 
+#include <asp/IsisIO/IsisInterface.h>
+
 namespace asp {
 namespace isis {
 
-  class IsisInterfaceFrame {
+  class IsisInterfaceFrame : public IsisInterface {
 
   public:
+    IsisInterfaceFrame( std::string const& filename ) {}
+
+    virtual ~IsisInterfaceFrame() {}
+
     virtual std::string type()  { return "Frame"; }
 
   };
