@@ -13,11 +13,16 @@ if MAKE_MODULE_ISISIO
 
 include_HEADERS = BaseEquation.h Equation.h PolyEquation.h            \
 		  RPNEquation.h DiskImageResourceIsis.h               \
-		  IsisCameraModel.h IsisAdjustCameraModel.h
+		  IsisCameraModel.h            \
+		  IsisInterface.h IsisInterfaceFrame.h                \
+		  IsisInterfaceLineScan.h IsisInterfaceMapFrame.h     \
+		  IsisInterfaceMapLineScan.h
+# IsisAdjustCameraModel.h
 
 libaspIsisIO_la_SOURCES = DiskImageResourceIsis.cc Equation.cc        \
-		  PolyEquation.cc RPNEquation.cc IsisCameraModel.cc   \
-		  IsisAdjustCameraModel.cc
+		  PolyEquation.cc RPNEquation.cc IsisInterface.cc     \
+		  IsisInterfaceFrame.cc IsisInterfaceLineScan.cc
+# IsisAdjustCameraModel.cc
 
 libaspIsisIO_la_LIBADD = @MODULE_ISISIO_LIBS@
 

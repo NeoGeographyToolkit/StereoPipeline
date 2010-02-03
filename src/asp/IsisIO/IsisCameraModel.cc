@@ -6,14 +6,20 @@
 
 // ASP & VW
 #include <asp/IsisIO/IsisCameraModel.h>
+#include <vw/Cartography/SimplePointImageManipulation.h>
+#include <asp/IsisIO/IsisInterface.h>
 
 // ISIS
 #include <Filename.h>
 #include <SerialNumber.h>
 #include <LineScanCameraGroundMap.h>
+#include <CameraFactory.h>
+#include <ProjectionFactory.h>
 
 using namespace vw;
 using namespace vw::camera;
+using namespace asp;
+using namespace asp::isis;
 
 // Constructor
 IsisCameraModel::IsisCameraModel( std::string cube_filename ) {
@@ -23,6 +29,11 @@ IsisCameraModel::IsisCameraModel( std::string cube_filename ) {
 
   // Opening Isis::Camera
   m_camera = Isis::CameraFactory::Create( m_label );
+
+  if ( m_camera->HasProjection() ) {
+    m_projection = Isis::ProjectionFactory::CreateFromCube( m_label );
+    m_camera->Radii(m_radii);
+  }
 
   VW_ASSERT( m_camera->GetCameraType() == 2 ||
              m_camera->GetCameraType() == 0,
@@ -36,6 +47,11 @@ IsisCameraModel::IsisCameraModel( std::string cube_filename ) {
   m_focalmap = m_camera->FocalPlaneMap();
   m_detectmap = m_camera->DetectorMap();
   m_groundmap = m_camera->GroundMap();
+
+  // Delete this later
+  IsisInterface* interface = IsisInterface::open( cube_filename );
+  std::cout << "Opened " << interface->type() << "\n";
+  delete interface;
 }
 
 // Destructor
@@ -52,7 +68,19 @@ Vector2 IsisCameraModel::point_to_pixel( Vector3 const& point ) const {
 
   Vector2 result;
 
-  if ( m_camera->GetCameraType() == 2 ) {
+  if ( m_camera->HasProjection() ) {
+    if ( m_projection->IsSky() )
+      vw_throw( NoImplErr() << "IsisCameraModel doesn't support skymaps.");
+    // The problem here is that the radius information about a point
+    // is completely lost. This may or may not be a problem .. I'm
+    // just very uncertain about what this would do. It seems like we
+    // are probably breaking some assumptions.
+    Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius( point );
+    m_projection->SetUniversalGround( lon_lat_radius[1],
+                                      lon_lat_radius[0] );
+    result[0] = m_projection->WorldX();
+    result[1] = m_projection->WorldY();
+  } else if ( m_camera->GetCameraType() == 2 ) {
     // Isis's LineScanCameraGroundMap seems unreliable. It fails with
     // out response. This method was going to happening anyway when we
     // get to IsisAdjustCameraModel as I need to plug my own functions
@@ -74,8 +102,7 @@ Vector2 IsisCameraModel::point_to_pixel( Vector3 const& point ) const {
 
 Vector3 IsisCameraModel::pixel_to_vector( Vector2 const& pix ) const {
   // ISIS indexes from (1,1);
-  Vector2 px = pix;
-  px += Vector2(1,1);
+  Vector2 px = pix + Vector2(1,1);
 
   Vector3 result;
   if ( !m_camera->HasProjection() ) {
@@ -101,16 +128,69 @@ Vector3 IsisCameraModel::pixel_to_vector( Vector2 const& pix ) const {
     result[1] = lookC[1];
     result[2] = lookC[2];
   } else {
-    // Map Projected Image
-    m_camera->SetImage(px[0],px[1]);
-    double p[3];
+    if ( m_projection->IsSky() ) {
+      vw_throw( NoImplErr() << "IsisCameraModel doesn't support skymaps" );
+    } else {
+      m_projection->SetWorld(px[0],px[1]);
+      Vector3 lon_lat_radius(m_projection->UniversalLongitude(),
+                             m_projection->UniversalLatitude(),
+                             0);
 
-    // Compute Instrument and Ground Pts
-    m_camera->InstrumentPosition(p);
-    Vector3 instrument_pt(p[0],p[1],p[2]);
-    m_camera->Coordinate(p);
-    Vector3 ground_pt(p[0],p[1],p[2]);
-    result = normalize( ground_pt - instrument_pt );
+      // Solving for radius
+      if ( m_camera->HasElevationModel() ) {
+        std::cout << "DEM\n";
+        lon_lat_radius[2] = m_camera->DemRadius( lon_lat_radius[1],
+                                                 lon_lat_radius[0] );
+      } else {
+        std::cout << "RADII\n";
+        double bclon = m_radii[1]*cos(lon_lat_radius[0]);
+        double aslon = m_radii[0]*sin(lon_lat_radius[0]);
+        double cclat = m_radii[2]*cos(lon_lat_radius[1]);
+        double xyradius = m_radii[0] * m_radii[1] / sqrt(bclon*bclon + aslon*aslon);
+        double xyslat = xyradius*sin(lon_lat_radius[1]);
+        lon_lat_radius[2] = xyradius * m_radii[2] / sqrt(cclat*cclat + xyslat*xyslat );
+      }
+      lon_lat_radius[2];
+      Vector3 point = cartography::lon_lat_radius_to_xyz(lon_lat_radius);
+
+      if ( m_camera->GetCameraType() == 2 ) {
+        // LineScan ( must solve for ephemeris time );
+        double middle = m_camera->Lines() / 2;
+        m_detectmap->SetParent( 1, m_alphacube->AlphaLine(middle) );
+        double start_e = m_camera->EphemerisTime();
+
+        // Build LMA
+        EphemerisLMA model( point, m_camera, m_distortmap, m_focalmap );
+        int status;
+        Vector<double> objective(1), start(1);
+        start[0] = start_e;
+        Vector<double> solution_e = math::levenberg_marquardt( model,
+                                                               start,
+                                                               objective,
+                                                               status );
+        // Make sure we found ideal time
+        VW_ASSERT( status > 0,
+                   MathErr() << " Unable to project point into linescan camera " );
+        // Now setting the time (thus the position)
+        m_camera->SetEphemerisTime( solution_e[0] );
+      }
+
+      double p[3];
+      m_camera->InstrumentPosition(p);
+      VectorProxy<double,3> instru( p );
+      result = normalize( point - instru );
+
+      // Alternative
+      if ( !m_camera->SetImage(px[0],px[1]) )
+        std::cout << "MPROJ Pixel Vector failed\n";
+      double k[3];
+      VectorProxy<double,3> kv( k );
+      m_camera->Coordinate(k);
+      m_camera->InstrumentPosition( k );
+      instru = kv;
+      std::cout << point << " - " << instru << "\n";
+      result = normalize( point - instru );
+    }
   }
   return result;
 }
@@ -126,17 +206,18 @@ Vector3 IsisCameraModel::camera_center( Vector2 const& pix ) const {
     m_detectmap->SetParent( px[0], px[1] );
   } else {
     // Map Projected Image
-    m_camera->SetImage( px[0], px[1] );
+    if ( !m_camera->SetImage( px[0], px[1] ) )
+      std::cout << "MapProj for camera center failed\n";
   }
   double pos[3];
   m_camera->InstrumentPosition(pos);
+  std::cout << "center: " << pos[0] << " " << pos[1] << " " << pos[2] << "\n";
   return Vector3(pos[0]*1000,pos[1]*1000,pos[2]*1000);
 }
 
 Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
   // ISIS indexes from (1,1);
-  Vector2 px = pix;
-  px += Vector2(1,1);
+  Vector2 px = pix + Vector2(1,1);
 
   if ( !m_camera->HasProjection() ) {
     // Standard Image
@@ -145,7 +226,8 @@ Quaternion<double> IsisCameraModel::camera_pose(Vector2 const& pix ) const {
     m_detectmap->SetParent( px[0], px[1] );
   } else {
     // Map Projected Image
-    m_camera->SetImage( px[0], px[1] );
+    if ( !m_camera->SetImage( px[0], px[1] ) )
+      std::cout << "MapProj for camera_pose failed \n";
   }
 
   // Convert from instrument frame -> J2000 -> Body Fixed frame

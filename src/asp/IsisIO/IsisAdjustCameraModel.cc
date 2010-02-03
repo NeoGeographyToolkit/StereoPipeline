@@ -21,6 +21,10 @@ IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
   m_position_f( position_func ),
   m_pose_f( pose_func ) {
 
+  // Throw error if this is map projected image
+  if ( m_camera->HasProjection() )
+    vw_throw( NoImplErr() << "Don't support map projected images" );
+
   // Adjusting time offset so equations are reference from middle of cache
   double middle_et = m_camera->CacheStartTime() + (m_camera->CacheEndTime()-m_camera->CacheStartTime())/2.0;
   m_position_f->set_time_offset( middle_et );

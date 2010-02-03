@@ -4,15 +4,15 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+// ASP
+#include <asp/IsisIO/IsisInterfaceFrame.h>
+
 using namespace vw;
 using namespace asp;
 using namespace asp::isis;
 
-// ASP
-#include <asp/IsisIO/IsisInterfaceFrame.h>
-
 // Constructor
-IsisIterfaceFrame::IsisInterfaceFrame( std::string const& filename ) :
+IsisInterfaceFrame::IsisInterfaceFrame( std::string const& filename ) :
   IsisInterface(filename) {
 
   // Gutting Isis::Camera
@@ -94,7 +94,7 @@ Vector3 IsisInterfaceFrame::pixel_to_vector( Vector2 const& pix ) const {
   return result;
 }
 
-Vector3 IsisInterfaceFrame( Vector2 const& pix ) const {
+Vector3 IsisInterfaceFrame::camera_center( Vector2 const& pix ) const {
   return m_center;
 }
 

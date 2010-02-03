@@ -9,10 +9,12 @@
 #include <vw/Math/Vector.h>
 #include <vw/Core/Debugging.h>
 #include <asp/IsisIO/IsisCameraModel.h>
+#include <vw/Cartography/SimplePointImageManipulation.h>
 
 // Additional Headers required for ISIS
 #include <Filename.h>
 #include <CameraFactory.h>
+#include <ProjectionFactory.h>
 #include <Camera.h>
 #include <Pvl.h>
 #include <AlphaCube.h>
@@ -35,8 +37,63 @@ Vector2 generate_random( int const& xsize,
   return pixel;
 }
 
-TEST(IsisCameraModel, mproject_chk) {
-  std::string files("E0201461.tiny.cub"); // Map Projected Linescan
+TEST(IsisCameraModel, mapprojected) {
+  std::string file("E0201461.tiny.cub");
+  Isis::Filename cubefile( file.c_str() );
+  Isis::Pvl label;
+  label.Read( cubefile.Expanded() );
+  Isis::Camera* cam = Isis::CameraFactory::Create( label );
+  Isis::AlphaCube alphacube( label );
+  Isis::Projection* proj = Isis::ProjectionFactory::CreateFromCube( label );
+  Isis::CameraDetectorMap* detectmap = cam->DetectorMap();
+
+  // This is testing the assumption that we don't need to invoke much
+  // of the camera model to do a pixel to vector.
+
+  srand( time(NULL) );
+  for ( uint i = 0; i < 2; i++ ) {
+    Vector2 pixel = generate_random( cam->Samples(),
+                                     cam->Lines() );
+    Vector2 noise = generate_random( cam->Samples(),
+                                     cam->Lines() );
+
+    proj->SetWorld( pixel[0], pixel[1] );
+    Vector3 lon_lat_radius( proj->UniversalLongitude(),
+                            proj->UniversalLatitude(),
+                            0 );
+    if ( cam->HasElevationModel() ) {
+      lon_lat_radius[2] = cam->DemRadius( lon_lat_radius[1],
+                                          lon_lat_radius[0] );
+    } else {
+      vw_throw( NoImplErr() << " don't support ellipsoids at the moment" );
+    }
+    cam->SetImage( noise[0], noise[1] );
+    cam->SetUniversalGround( lon_lat_radius[1],
+                             lon_lat_radius[0],
+                             lon_lat_radius[2] );
+    std::cout << "Set to: " << pixel << "\n";
+    std::cout << "Turned to: " << cam->Sample() << "," << cam->Line() << " px\n";
+    double ip[3];
+    cam->InstrumentPosition( ip );
+    VectorProxy<double,3> instru( ip );
+    double bc[3];
+    cam->Coordinate( bc );
+    VectorProxy<double,3> coord( bc );
+    Vector3 alt = cartography::lon_lat_radius_to_xyz( lon_lat_radius );
+    std::cout << "Instrument: " << instru << "\n";
+    std::cout << "Coord: " << coord << "\n";
+    std::cout << "Alt: " << alt << "\n";
+
+    Vector3 dir = normalize( alt - instru );
+    Vector3 new_point = instru*1000+50000*dir;
+    new_point /= 1000;
+    std::cout << "NPt: " << new_point << "\n";
+
+    
+  }
+
+  delete cam;
+  delete proj;
 }
 
 TEST(IsisCameraModel, groundmap_chk) {
@@ -138,10 +195,10 @@ TEST(IsisCameraModel, groundmap_chk) {
 }
 
 TEST(IsisCameraModel, camera_model) {
-  return;
   // Circle Check
   std::vector<std::string> files;
   files.push_back("E1701676.reduce.cub");
+  //files.push_back("E0201461.tiny.cub"); // Map Projected
   files.push_back("5165r.cub");
   srand( time(NULL) );
   for ( uint j = 0; j < files.size(); j++ ) {
@@ -151,20 +208,22 @@ TEST(IsisCameraModel, camera_model) {
     std::cout << "File: " << files[j] << "\n";
     std::cout << "------------------------------------\n";
 
-    for ( uint i = 0; i < 100; i++ ) {
+    Timer t(files[j]+"'s time: ");
+
+    for ( uint i = 0; i < 2; i++ ) {
       Vector2 pixel = generate_random( cam.samples(),
                                        cam.lines() );
 
       Vector3 point = cam.pixel_to_vector( pixel );
-      for ( uint k = 0; k < 5; k++ ) {
+      for ( uint k = 0; k < 0; k++ ) {
         // Apply noise to make sure we are not using stored values
         Vector2 noise = generate_random( cam.samples(),
                                          cam.lines() );
         Vector3 temp = cam.pixel_to_vector( noise );
       }
-      point *= 100000; // 100 km below
+      point *= 70000; // 70 km below
       point += cam.camera_center( pixel );
-      for ( uint k = 0; k < 5; k++ ) {
+      for ( uint k = 0; k < 0; k++ ) {
         // Apply noise to make sure we are not using stored values
         Vector2 noise = generate_random( cam.samples(),
                                          cam.lines() );

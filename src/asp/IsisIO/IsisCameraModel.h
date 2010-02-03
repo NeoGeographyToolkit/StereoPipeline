@@ -12,22 +12,26 @@
 #ifndef __VW_CAMERAMODEL_ISIS_H__
 #define __VW_CAMERAMODEL_ISIS_H__
 
+// VW
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
-
-// VW
 #include <vw/Camera/CameraModel.h>
-#include <vw/Math/LevenbergMarquardt.h>
+//#include <vw/Math/LevenbergMarquardt.h>
 
+// ASP
+#include <asp/IsisIO/IsisInterface.h>
+
+/*
 // ISIS
 #include <Pvl.h>
 #include <AlphaCube.h>
 #include <Camera.h>
-#include <CameraFactory.h>
 #include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
 #include <CameraFocalPlaneMap.h>
 #include <CameraGroundMap.h>
+#include <Projection.h>
+*/
 
 namespace vw {
 namespace camera {
@@ -40,9 +44,12 @@ namespace camera {
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    IsisCameraModel(std::string cube_filename);
-
-    virtual ~IsisCameraModel();
+    IsisCameraModel(std::string cube_filename) {
+      m_interface = asp::isis::IsisInterface::open( cube_filename );
+    }
+    virtual ~IsisCameraModel() {
+      delete m_interface;
+    }
     virtual std::string type() const { return "Isis"; }
 
     //------------------------------------------------------------------
@@ -52,30 +59,37 @@ namespace camera {
     //  Computes the image of the point 'point' in 3D space on the
     //  image plane.  Returns a pixel location (col, row) where the
     //  point appears in the image.
-    virtual Vector2 point_to_pixel(Vector3 const& point) const;
+    virtual Vector2 point_to_pixel(Vector3 const& point) const {
+      return m_interface->point_to_pixel( point ); }
 
     // Returns a (normalized) pointing vector from the camera center
     //  through the position of the pixel 'pix' on the image plane.
-    virtual Vector3 pixel_to_vector (Vector2 const& pix) const;
+    virtual Vector3 pixel_to_vector (Vector2 const& pix) const {
+      return m_interface->pixel_to_vector( pix ); }
 
 
     // Returns the position of the focal point of the camera
-    virtual Vector3 camera_center(Vector2 const& pix = Vector2() ) const;
+    virtual Vector3 camera_center(Vector2 const& pix = Vector2() ) const {
+      return m_interface->camera_center( pix ); }
 
     // Pose is a rotation which moves a vector in camera coordinates
     // into world coordinates.
-    virtual Quaternion<double> camera_pose(Vector2 const& pix = Vector2() ) const;
+    virtual Quaternion<double> camera_pose(Vector2 const& pix = Vector2() ) const {
+      return m_interface->camera_pose( pix ); }
 
     // Returns the number of lines is the ISIS cube
-    virtual int lines(void) const { return m_camera->Lines(); }
+    int lines(void) const { return m_interface->lines(); }
 
     // Returns the number of samples in the ISIS cube
-    virtual int samples(void) const{ return m_camera->Samples(); }
+    int samples(void) const{ return m_interface->samples(); }
 
     // Returns the serial number of the ISIS cube
-    virtual std::string serial_number(void) const;
+    std::string serial_number(void) const {
+      return m_interface->serial_number(); }
 
   protected:
+    asp::isis::IsisInterface* m_interface;
+    /*
     Isis::Pvl m_label;
     Isis::Camera *m_camera;
     Isis::AlphaCube *m_alphacube;
@@ -83,6 +97,8 @@ namespace camera {
     Isis::CameraFocalPlaneMap *m_focalmap;
     Isis::CameraDetectorMap   *m_detectmap;
     Isis::CameraGroundMap     *m_groundmap;
+    Isis::Projection          *m_projection;
+    double m_radii[3];
 
   private:
     class EphemerisLMA : public math::LeastSquaresModelBase<EphemerisLMA> {
@@ -105,6 +121,7 @@ namespace camera {
 
     inline Vector2 project_using_current( Vector3 const& point ) const;
     Vector2 optimized_linescan_point_to_pixel( Vector3 const& point) const;
+    */
   };
 
 }}

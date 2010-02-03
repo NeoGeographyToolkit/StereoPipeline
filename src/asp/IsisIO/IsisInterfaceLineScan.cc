@@ -4,12 +4,12 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+// ASP
+#include <asp/IsisIO/IsisInterfaceLineScan.h>
+
 using namespace vw;
 using namespace asp;
 using namespace asp::isis;
-
-// ASP
-#include <asp/IsisIO/IsisInterfaceFrame.h>
 
 // Construct
 IsisInterfaceLineScan::IsisInterfaceLineScan( std::string const& filename ) : IsisInterface(filename) {
@@ -33,7 +33,7 @@ void IsisInterfaceLineScan::SetTime( Vector2 const& px, bool calc ) const {
     if ( calc ) {
       // Calculating Spacecraft position and pose
       double ipos[3];
-      m_camera->InstrumentPosition(pos);
+      m_camera->InstrumentPosition(ipos);
       m_center[0] = ipos[0];
       m_center[1] = ipos[1];
       m_center[2] = ipos[2];
@@ -43,7 +43,7 @@ void IsisInterfaceLineScan::SetTime( Vector2 const& px, bool calc ) const {
       std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
       MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
       MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-      m_pose = Quaternion<double>(R_inst*transpose(R_bosy));
+      m_pose = Quaternion<double>(R_inst*transpose(R_body));
     }
   }
 }
@@ -85,7 +85,7 @@ IsisInterfaceLineScan::EphemerisLMA::operator()( IsisInterfaceLineScan::Ephemeri
 }
 
 Vector2
-IisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
+IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
 
   // First seed LMA with an ephemeris time in the middle of the image
   double middle = lines() / 2;
@@ -158,7 +158,7 @@ IsisInterfaceLineScan::pixel_to_vector( Vector2 const& pix ) const {
   result[1] = m_distortmap->UndistortedFocalPlaneY();
   result[2] = m_distortmap->UndistortedFocalPlaneZ();
   result = normalize( result );
-  result = invert(m_pose).rotate(result);
+  result = inverse(m_pose).rotate(result);
   return result;
 }
 
