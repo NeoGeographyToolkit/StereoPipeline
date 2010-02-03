@@ -15,8 +15,9 @@
 #include <asp/IsisIO/IsisInterface.h>
 
 // Isis
-#include <AlphaCube.h>
 #include <Projection.h>
+#include <CameraGroundMap.h>
+#include <CameraDistortionMap.h>
 
 namespace asp {
 namespace isis {
@@ -26,10 +27,7 @@ namespace isis {
   public:
     IsisInterfaceMapFrame( std::string const& file );
 
-    virtual ~IsisInterfaceMapFrame() {
-      if ( m_alphacube )
-        delete m_alphacube;
-    }
+    virtual ~IsisInterfaceMapFrame() {}
 
     virtual std::string type()  { return "MapFrame"; }
 
@@ -48,8 +46,9 @@ namespace isis {
   protected:
 
     // Custom Variables
-    Isis::AlphaCube   *m_alphacube;
     Isis::Projection  *m_projection;
+    Isis::CameraGroundMap *m_groundmap;
+    Isis::CameraDistortionMap *m_distortmap;
 
     vw::Vector3 m_center;
     vw::Quaternion<double> m_pose;

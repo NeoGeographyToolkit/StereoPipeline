@@ -20,7 +20,8 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
   IsisInterface(filename) {
 
   // Gutting Isis::Camera
-  m_alphacube  = new Isis::AlphaCube( m_label );
+  m_groundmap = m_camera->GroundMap();
+  m_distortmap = m_camera->DistortionMap();
   m_projection = Isis::ProjectionFactory::CreateFromCube( m_label );
   m_camera->Radii( m_radii );
 
@@ -43,11 +44,24 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
 Vector2
 IsisInterfaceMapFrame::point_to_pixel( Vector3 const& point ) const {
   Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius( point );
-  m_projection->SetUniversalGround( lon_lat_radius[1],
-                                    lon_lat_radius[0] );
-  Vector2 result;
-  result[0] = m_projection->WorldX();
-  result[1] = m_projection->WorldY();
+  if ( lon_lat_radius[0] < 0 )
+    lon_lat_radius[0] += 360;
+
+  // Projecting into the camera
+  m_groundmap->SetGround( lon_lat_radius[1],
+                          lon_lat_radius[0],
+                          lon_lat_radius[2] );
+  m_distortmap->SetUndistortedFocalPlane( m_groundmap->FocalPlaneX(),
+                                          m_groundmap->FocalPlaneY() );
+
+  // Projection back out on to DEM
+  m_groundmap->SetFocalPlane( m_distortmap->UndistortedFocalPlaneX(),
+                              m_distortmap->UndistortedFocalPlaneY(),
+                              m_distortmap->UndistortedFocalPlaneZ() );
+
+  Vector2 result( m_camera->Sample(),
+                  m_camera->Line() );
+
   return result - Vector2(1,1);
 }
 
@@ -60,11 +74,9 @@ IsisInterfaceMapFrame::pixel_to_vector( Vector2 const& pix ) const {
 
   // Solving for radius
   if ( m_camera->HasElevationModel() ) {
-    std::cout << "DEM\n";
     lon_lat_radius[2] = m_camera->DemRadius( lon_lat_radius[1],
                                              lon_lat_radius[0] );
   } else {
-    std::cout << "RADII\n";
     Vector2 lon_lat = subvector(lon_lat_radius,0,2);
     lon_lat = lon_lat * M_PI/180;
     double bclon = m_radii[1]*cos(lon_lat[0]);
@@ -76,8 +88,17 @@ IsisInterfaceMapFrame::pixel_to_vector( Vector2 const& pix ) const {
   }
   lon_lat_radius[2] *= 1000;
   Vector3 point = cartography::lon_lat_radius_to_xyz(lon_lat_radius);
+  Vector3 result = normalize(point-m_center);
 
-  return normalize(point-m_center);
+  {
+    m_camera->SetImage(px[0],px[1]);
+    double ip[3], coord[3];
+    m_camera->InstrumentPosition(ip);
+    m_camera->Coordinate(coord);
+    VectorProxy<double,3> ipv(ip), coordv(coord);
+  }
+
+  return result;
 }
 
 Vector3 IsisInterfaceMapFrame::camera_center( Vector2 const& pix ) const {
