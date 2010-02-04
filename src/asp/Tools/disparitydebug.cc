@@ -88,11 +88,15 @@ int main( int argc, char *argv[] ) {
 
   vw_out() << "\t--> Saving disparity debug images\n";
   if (vm.count("float-pixels")) {
-    write_image( output_prefix + "-H." + output_file_type, horizontal, TerminalProgressCallback(InfoMessage,"\t    Left  : "));
-    write_image( output_prefix + "-V." + output_file_type, vertical, TerminalProgressCallback(InfoMessage,"\t    Right : "));
+    write_image( output_prefix + "-H." + output_file_type, horizontal,
+                 TerminalProgressCallback("asp","\t    Left  : "));
+    write_image( output_prefix + "-V." + output_file_type, vertical,
+                 TerminalProgressCallback("asp","\t    Right : "));
   } else {
-    write_image( output_prefix + "-H." + output_file_type, channel_cast_rescale<uint8>(horizontal), TerminalProgressCallback(InfoMessage,"\t    Left  : "));
-    write_image( output_prefix + "-V." + output_file_type, channel_cast_rescale<uint8>(vertical), TerminalProgressCallback(InfoMessage,"\t    Right : "));
+    write_image( output_prefix + "-H." + output_file_type, channel_cast_rescale<uint8>(horizontal),
+                 TerminalProgressCallback("asp","\t    Left  : "));
+    write_image( output_prefix + "-V." + output_file_type, channel_cast_rescale<uint8>(vertical),
+                 TerminalProgressCallback("asp","\t    Right : "));
   }
 
   return 0;

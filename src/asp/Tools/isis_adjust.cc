@@ -323,7 +323,7 @@ int main(int argc, char* argv[]) {
   {
     vw_out() << "Loading Camera Models:\n";
     vw_out() << "----------------------\n";
-    TerminalProgressCallback progress(vw::InfoMessage,"Camera Models:");
+    TerminalProgressCallback progress("asp","Camera Models:");
     progress.report_progress(0);
     for ( unsigned i = 0; i < g_input_files.size(); ++i ) {
       progress.report_progress(float(i)/float(g_input_files.size()));
@@ -402,7 +402,7 @@ int main(int argc, char* argv[]) {
   {
     vw_out() << "Applying serial numbers:\n";
     vw_out() << "-------------------------------------\n";
-    TerminalProgressCallback progress;
+    TerminalProgressCallback progress("asp","");
     progress.report_progress(0);
 
     // Gather serials first

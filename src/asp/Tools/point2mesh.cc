@@ -173,7 +173,8 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
       std::cout << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
       DiskImageResourceGDAL tex_rsrc(tex_file+".tif",new_texture.format(),
                                      Vector2i(256,256) );
-      block_write_image(tex_rsrc,new_texture, TerminalProgressCallback(InfoMessage,"\tSubsampling:") );
+      block_write_image(tex_rsrc,new_texture,
+                        TerminalProgressCallback("asp","\tSubsampling:") );
     } else {
       // Always saving as an 8bit texture. These second handedly
       // normalizes the data for us (which is a problem for datasets
@@ -181,7 +182,8 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
       // 0-1).
       DiskImageResourceGDAL tex_rsrc(tex_file+".tif",previous_texture.format(),
                                      Vector2i(256,256) );
-      block_write_image(tex_rsrc, previous_texture, TerminalProgressCallback(InfoMessage,"\tNormalizing:") );
+      block_write_image(tex_rsrc, previous_texture,
+                        TerminalProgressCallback("asp","\tNormalizing:") );
     }
     // When we subsample, we use tiff because we can block write the image.
     // However, trying to load the tiff with osg causes problems because
@@ -210,7 +212,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
     unsigned num_rows = point_image.impl().rows()/step_size;
     unsigned num_cols = point_image.impl().cols()/step_size;
 
-    TerminalProgressCallback progress(InfoMessage,"\tVertices:   ");
+    TerminalProgressCallback progress("asp", "\tVertices:   ");
     double progress_mult = 1.0/double(num_rows*num_cols);
 
     for (unsigned r = 0; r < (num_rows); ++r ){

@@ -342,7 +342,7 @@ int main(int argc, char* argv[]) {
 
   DiskImageResourceGDAL rsrc(output_file, final_result.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
   write_georeference(rsrc, drg_georef);
-  write_image(rsrc, final_result, TerminalProgressCallback());
+  write_image(rsrc, final_result, TerminalProgressCallback("asp",""));
 
 
 //   // If the user has specified that we match the georeferencing

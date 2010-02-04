@@ -141,7 +141,7 @@ void match_orthoimages( string const& left_image_name,
     InterestPointMatcher<L2NormMetric,NullConstraint> matcher(0.8);
 
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-            false, TerminalProgressCallback( InfoMessage, "\t    Matching: "));
+            false, TerminalProgressCallback( "asp", "\t    Matching: "));
     
     remove_duplicates(matched_ip1, matched_ip2);
     vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
@@ -254,7 +254,8 @@ int main( int argc, char *argv[] ) {
   DiskImageResourceGDAL point_cloud_rsrc(output_prefix + "-PC.tif", point_cloud_trans.format(), 
                                          Vector2i(vw_settings().default_tile_size(), 
                                                   vw_settings().default_tile_size()));
-  block_write_image(point_cloud_rsrc, point_cloud_trans, TerminalProgressCallback(InfoMessage, "\t--> Transforming: "));
+  block_write_image(point_cloud_rsrc, point_cloud_trans,
+                    TerminalProgressCallback("asp", "\t--> Transforming: "));
 
   return 0;
 }

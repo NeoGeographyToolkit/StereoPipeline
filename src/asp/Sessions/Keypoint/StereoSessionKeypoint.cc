@@ -53,9 +53,9 @@ std::string StereoSessionKeypoint::create_subsampled_align_image(std::string con
 
   DiskImageView<PixelGray<float> > disk_image(image_file);
 
-  std::cout << "StereoSessionKeypoint::create_subsampled_align_image(): subsampling... \n";
+  std::cout << "StereoSessionKeypoint::create_subsampled_align_image():\n";
   double sub_sampling = stereo_settings().keypoint_align_subsampling;
-  write_image(align_image_file, channel_cast_rescale<uint8>(resample(disk_image, 1.0 / double(sub_sampling))), TerminalProgressCallback());
+  write_image(align_image_file, channel_cast_rescale<uint8>(resample(disk_image, 1.0 / double(sub_sampling))), TerminalProgressCallback("asp","Subsampling:"));
 
   return align_image_file;
 }
@@ -129,7 +129,8 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
 
   InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
   std::vector<InterestPoint> matched_ip1, matched_ip2;
-  matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false, TerminalProgressCallback());
+  matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false,
+          TerminalProgressCallback("asp",""));
   vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
 
   std::vector<Vector3> ransac_ip1(matched_ip1.size());
@@ -174,8 +175,10 @@ void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
 
-  write_image(output_file1, channel_cast_rescale<uint8>(Limg), TerminalProgressCallback());
-  write_image(output_file2, channel_cast_rescale<uint8>(Rimg), TerminalProgressCallback());
+  write_image(output_file1, channel_cast_rescale<uint8>(Limg),
+              TerminalProgressCallback("asp",""));
+  write_image(output_file2, channel_cast_rescale<uint8>(Rimg),
+              TerminalProgressCallback("asp",""));
 }
 
 void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, std::string & output_file) {
@@ -203,5 +206,6 @@ void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, s
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
   result = stereo::disparity_range_mask(result, right_disk_image.cols(), right_disk_image.rows());
 
-  write_image(output_file, result, TerminalProgressCallback() );
+  write_image(output_file, result,
+              TerminalProgressCallback("asp","") );
 }

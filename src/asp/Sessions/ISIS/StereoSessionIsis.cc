@@ -171,7 +171,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
     matcher(ip1_copy, ip2_copy,
             matched_ip1, matched_ip2,
             false,
-            TerminalProgressCallback( InfoMessage, "\t    Matching: "));
+            TerminalProgressCallback( "asp", "\t    Matching: "));
 
     vw_out() << "\t    Caching matches: "
               << ( prefix_from_filename(input_file1) + "__" +
@@ -328,13 +328,13 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
                                        Vector2i(vw_settings().default_tile_size(),
                                                 vw_settings().default_tile_size()) );
   block_write_image( left_out_rsrc, Limg,
-                     TerminalProgressCallback(InfoMessage, "\t    Left:  "));
+                     TerminalProgressCallback("asp", "\t    Left:  "));
 
   DiskImageResourceGDAL right_out_rsrc( output_file2, Rimg.format(),
                                         Vector2i(vw_settings().default_tile_size(),
                                                  vw_settings().default_tile_size()) );
   block_write_image( right_out_rsrc, Rimg,
-                     TerminalProgressCallback(InfoMessage, "\t    Right: "));
+                     TerminalProgressCallback("asp", "\t    Right: "));
 }
 
 // Stage 2: Correlation
@@ -373,7 +373,8 @@ StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
     DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
     disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
                                        std::min(vw_settings().default_tile_size(),disparity_map.rows()));
-    block_write_image( disparity_map_rsrc, disparity_map, TerminalProgressCallback(InfoMessage, "\t--> Saving Mask :") );
+    block_write_image( disparity_map_rsrc, disparity_map,
+                       TerminalProgressCallback( "asp", "\t--> Saving Mask :") );
   }
 }
 
@@ -411,7 +412,7 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
   disparity_corrected_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
                                            std::min(vw_settings().default_tile_size(),disparity_map.rows()));
   block_write_image( disparity_corrected_rsrc, result,
-                     TerminalProgressCallback(InfoMessage, "\t    Processing:"));
+                     TerminalProgressCallback("asp", "\t    Processing:"));
 }
 
 boost::shared_ptr<vw::camera::CameraModel>

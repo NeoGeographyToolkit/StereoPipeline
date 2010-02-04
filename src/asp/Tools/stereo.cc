@@ -791,7 +791,8 @@ int main(int argc, char* argv[]) {
         write_image(point_cloud_rsrc, point_cloud,
                     TerminalProgressCallback("asp", "\t--> Triangulating: "));
       } else
-        block_write_image(point_cloud_rsrc, point_cloud, TerminalProgressCallback(InfoMessage, "\t--> Triangulating: "));
+        block_write_image(point_cloud_rsrc, point_cloud,
+                          TerminalProgressCallback("asp", "\t--> Triangulating: "));
       vw_out() << "\t--> " << universe_radius_func;
     } catch (IOErr &e) {
       vw_out() << "\nUnable to start at point cloud stage -- could not read input files.\n"

@@ -144,7 +144,7 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
     matcher(ip1_copy, ip2_copy,
             matched_ip1, matched_ip2,
             false,
-            TerminalProgressCallback( InfoMessage, "\t    Matching: "));
+            TerminalProgressCallback( "asp", "\t    Matching: "));
 
     vw_out() << "\t    Caching matches: "
               << ( prefix_from_filename(input_file1)+"__"+
@@ -350,7 +350,7 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
     DiskImageView<PixelGray<float> > right_disk_image( m_right_image_file );
     result = stereo::disparity_range_mask( result, right_disk_image.cols(), right_disk_image.rows());
 
-    write_image(output_file, result, TerminalProgressCallback(ErrorMessage, "\t    Saving: ") );
+    write_image(output_file, result, TerminalProgressCallback("asp", "\t    Saving: ") );
 
   } else {
     vw_throw(ArgumentErr() << "PinholeStereoSession: unselected alignment option.\n");

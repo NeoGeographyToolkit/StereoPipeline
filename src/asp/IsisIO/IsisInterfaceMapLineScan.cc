@@ -137,17 +137,14 @@ Vector2
 IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
 
   // First seed LMA with an ephemeris time in the middle of the image
-  double middle = lines() / 2;
-  m_detectmap->SetParent( 1, m_alphacube->AlphaLine(middle) );
-  double start_e = m_camera->EphemerisTime();
-
+  double middle_et = m_camera->CacheStartTime() + (m_camera->CacheEndTime()-m_camera->CacheStartTime())/2.0;
   Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius( point );
 
   // Build LMA
   EphemerisLMA model( point, m_camera, m_distortmap, m_focalmap );
   int status;
   Vector<double> objective(1), start(1);
-  start[0] = start_e;
+  start[0] = middle_et;
   Vector<double> solution_e = math::levenberg_marquardt( model,
                                                          start,
                                                          objective,
@@ -223,11 +220,13 @@ IsisInterfaceMapLineScan::pixel_to_vector( Vector2 const& pix ) const {
   Vector3 point = cartography::lon_lat_radius_to_xyz(lon_lat_radius);
   Vector3 result = normalize(point-m_center);
 
+  /*
   m_camera->SetImage( px[0], px[1] );
   double ip[3], cd[3];
   m_camera->InstrumentPosition(ip);
   m_camera->Coordinate(cd);
   VectorProxy<double,3> ipv(ip), cdv(cd);
+  */
 
   return result;
 }

@@ -93,7 +93,8 @@ int main( int argc, char *argv[] ) {
                                          Vector2i(vw_settings().default_tile_size(), 
                                                   vw_settings().default_tile_size()));
   write_georeference(output_rsrc, dem1_georef);
-  block_write_image(output_rsrc, diff, TerminalProgressCallback(InfoMessage, "\t--> Differencing: "));
+  block_write_image(output_rsrc, diff,
+                    TerminalProgressCallback("asp", "\t--> Differencing: "));
 
   return 0;
 }

@@ -52,7 +52,7 @@ namespace cartography {
       // Compute the bounding box that encompasses all of the
       // available points.
       vw_out(DebugMessage) << "Computing raster bounding box...\n";
-      TerminalProgressCallback progress_callback;
+      TerminalProgressCallback progress_callback("asp","");
       progress_callback.report_progress(0);
       for (int32 j = 0; j < m_point_image.rows(); j++) {
         progress_callback.report_progress(float(j)/m_point_image.rows());

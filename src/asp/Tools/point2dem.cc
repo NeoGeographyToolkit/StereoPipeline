@@ -285,10 +285,14 @@ int main( int argc, char *argv[] ) {
     rasterizer.set_texture(texture);
     ImageViewRef<PixelGray<float> > block_drg_raster = block_cache(rasterizer, Vector2i(rasterizer.cols(), 2048), 0);
     if (vm.count("use-alpha")) {
-      write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(apply_mask(block_drg_raster,PixelGray<float>(-32000))), georef, TerminalProgressCallback() );
+      write_georeferenced_image(out_prefix + "-DRG.tif",
+                                channel_cast_rescale<uint8>(apply_mask(block_drg_raster,PixelGray<float>(-32000))),
+                                georef, TerminalProgressCallback("asp","") );
     }
     else {
-      write_georeferenced_image(out_prefix + "-DRG.tif", channel_cast_rescale<uint8>(block_drg_raster), georef, TerminalProgressCallback() );
+      write_georeferenced_image(out_prefix + "-DRG.tif",
+                                channel_cast_rescale<uint8>(block_drg_raster),
+                                georef, TerminalProgressCallback("asp","") );
     }
 
   } else {
@@ -299,7 +303,7 @@ int main( int argc, char *argv[] ) {
         block_cache(rasterizer, Vector2i(rasterizer.cols(), 2024), 0);
       write_georeferenced_image( out_prefix + "-DEM." + output_file_type,
                                  block_dem_raster, georef,
-                                 TerminalProgressCallback());
+                                 TerminalProgressCallback("asp",""));
     }
 
     // Write out a normalized version of the DTM (for debugging)
@@ -310,7 +314,7 @@ int main( int argc, char *argv[] ) {
 
       write_georeferenced_image( out_prefix + "-DEM-normalized.tif",
                                  channel_cast_rescale<uint8>(normalize(dem_image)),
-                                 georef, TerminalProgressCallback() );
+                                 georef, TerminalProgressCallback("asp","") );
     }
   }
 
