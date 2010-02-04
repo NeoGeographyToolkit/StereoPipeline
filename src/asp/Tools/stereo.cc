@@ -164,7 +164,7 @@ int main(int argc, char* argv[]) {
   BBox2i search_range(Vector2i(stereo_settings().h_corr_min, stereo_settings().v_corr_min),
                       Vector2i(stereo_settings().h_corr_max, stereo_settings().v_corr_max));
 
-  // Set the Vision Workbench debug level
+  // Set the Vision Workbench threads
   if ( num_threads != 0 ) {
     vw_out() << "\t--> Setting number of processing threads to: "
               << num_threads << std::endl;
@@ -244,6 +244,11 @@ int main(int argc, char* argv[]) {
   // we have a record of the most recent stereo.default that was used
   // with this data set.
   stereo_settings().copy_settings(stereo_default_filename, out_prefix + "-stereo.default");
+  
+  // Common GDAL options
+  DiskImageResourceGDAL::Options gdal_options;
+  gdal_options["COMPRESS"] = "LZW";
+  gdal_options["BIGTIFF"] = "IF_SAFER";
 
   /*********************************************************************************/
   /*                            preprocessing step                                 */
@@ -281,10 +286,12 @@ int main(int argc, char* argv[]) {
 
       DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(),
                                          Vector2i(vw_settings().default_tile_size(),
-                                                  vw_settings().default_tile_size()) );
+                                                  vw_settings().default_tile_size()),
+					 gdal_options );
       DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
                                          Vector2i(vw_settings().default_tile_size(),
-                                                  vw_settings().default_tile_size()) );
+                                                  vw_settings().default_tile_size()),
+					 gdal_options );
       block_write_image(l_mask_rsrc, Lmask,
                         TerminalProgressCallback("asp", "\t    Mask L: "));
       block_write_image(r_mask_rsrc, Rmask,
@@ -327,10 +334,12 @@ int main(int argc, char* argv[]) {
       ImageViewRef<PixelGray<vw::float32> > Rsub = resample(right_image, sub_scale);
       DiskImageResourceGDAL l_sub_rsrc( l_sub_file, Lsub.format(),
                                         Vector2i(sub_tile_size,
-                                                 sub_tile_size) );
+                                                 sub_tile_size),
+					gdal_options );
       DiskImageResourceGDAL r_sub_rsrc( r_sub_file, Rsub.format(),
                                         Vector2i(sub_tile_size,
-                                                 sub_tile_size) );
+                                                 sub_tile_size),
+					gdal_options );
       vw_settings().set_default_num_threads(sub_threads);
       block_write_image(l_sub_rsrc, Lsub,
                         TerminalProgressCallback("asp", "\t    Sub L: "));
@@ -428,10 +437,11 @@ int main(int argc, char* argv[]) {
     }
 
     // Create a disk image resource and prepare to write a tiled
-    // OpenEXR.
-    DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-D.exr", disparity_map.format() );
-    disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
-                                       std::min(vw_settings().default_tile_size(),disparity_map.rows()), true);
+    DiskImageResourceGDAL disparity_map_rsrc(out_prefix + "-D.tif",
+					     disparity_map.format(),
+					     Vector2i(vw_settings().default_tile_size(),
+						      vw_settings().default_tile_size()),
+					     gdal_options );
     block_write_image( disparity_map_rsrc, disparity_map );
   }
 
@@ -454,7 +464,7 @@ int main(int argc, char* argv[]) {
       }
       DiskImageView<PixelGray<float> > left_disk_image(filename_L);
       DiskImageView<PixelGray<float> > right_disk_image(filename_R);
-      DiskImageView<PixelMask<Vector2f> > disparity_disk_image(out_prefix + "-D.exr");
+      DiskImageView<PixelMask<Vector2f> > disparity_disk_image(out_prefix + "-D.tif");
       ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
 
       if (stereo_settings().subpixel_mode == 0) {
@@ -576,10 +586,10 @@ int main(int argc, char* argv[]) {
       }
 
       // Create a disk image resource and prepare to write a tiled
-      // OpenEXR.
-      DiskImageResourceOpenEXR disparity_map_rsrc2(out_prefix + "-R.exr", disparity_map.format() );
-      disparity_map_rsrc2.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
-                                          std::min(vw_settings().default_tile_size(), disparity_map.rows()));
+      DiskImageResourceGDAL disparity_map_rsrc2(out_prefix + "-R.tif", disparity_map.format(),
+						Vector2i(vw_settings().default_tile_size(),
+							 vw_settings().default_tile_size()),
+						gdal_options );
       block_write_image( disparity_map_rsrc2, disparity_map,
                          TerminalProgressCallback("asp", "\t--> Refinement :") );
 
@@ -599,7 +609,7 @@ int main(int argc, char* argv[]) {
 
 
     std::string post_correlation_fname;
-    session->pre_filtering_hook(out_prefix+"-R.exr", post_correlation_fname);
+    session->pre_filtering_hook(out_prefix+"-R.tif", post_correlation_fname);
 
     try {
 
@@ -631,11 +641,13 @@ int main(int argc, char* argv[]) {
           Lmaskmore = apply_mask(edge_mask(left_mask,0,mask_buffer));
           Rmaskmore = apply_mask(edge_mask(right_mask,0,mask_buffer));
           DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMaskMore.tif", Lmaskmore.format(),
-                                         Vector2i(vw_settings().default_tile_size(),
-                                                  vw_settings().default_tile_size()) );
+					     Vector2i(vw_settings().default_tile_size(),
+						      vw_settings().default_tile_size()),
+					     gdal_options );
           DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMaskMore.tif", Rmaskmore.format(),
                                              Vector2i(vw_settings().default_tile_size(),
-                                                      vw_settings().default_tile_size()) );
+                                                      vw_settings().default_tile_size()),
+					     gdal_options );
           block_write_image(l_mask_rsrc, Lmaskmore,
                             TerminalProgressCallback("asp", "\t   Reduce LMask: "));
           block_write_image(r_mask_rsrc, Rmaskmore,
@@ -648,9 +660,10 @@ int main(int argc, char* argv[]) {
                                                 left_mask, right_mask );
 
         vw_out() << "\t--> Rasterizing filtered disparity map to disk. \n";
-        DiskImageResourceOpenEXR filtered_disparity_map_rsrc( out_prefix+"-FTemp.exr", disparity_map.format() );
-        filtered_disparity_map_rsrc.set_block_size( Vector2i( vw_settings().default_tile_size(),
-                                                              vw_settings().default_tile_size() ) );
+        DiskImageResourceGDAL filtered_disparity_map_rsrc( out_prefix+"-FTemp.tif", disparity_map.format(),
+							   Vector2i(vw_settings().default_tile_size(),
+								    vw_settings().default_tile_size()),
+							   gdal_options );
         block_write_image( filtered_disparity_map_rsrc, disparity_map,
                            TerminalProgressCallback("asp", "\t--> Writing: ") );
 
@@ -660,7 +673,7 @@ int main(int argc, char* argv[]) {
         unlink( lmask.c_str() );
         unlink( rmask.c_str() );
       }
-      DiskImageView<PixelMask<Vector2f> > filtered_disparity_map( out_prefix+"-FTemp.exr" );
+      DiskImageView<PixelMask<Vector2f> > filtered_disparity_map( out_prefix+"-FTemp.tif" );
 
       {
         vw_out() << "\t--> Creating \"Good Pixel\" image: "
@@ -688,9 +701,11 @@ int main(int argc, char* argv[]) {
           ImageViewRef<PixelRGB<uint8> > good_pixel = resample(stereo::missing_pixel_image(filtered_disparity_map),
                                                                sub_scale);
           vw_settings().set_default_num_threads(sub_threads);
-          DiskImageResourceGDAL good_pixel_rsrc( out_prefix + "-GoodPixelMap.tif", good_pixel.format(),
+          DiskImageResourceGDAL good_pixel_rsrc( out_prefix + "-GoodPixelMap.tif",
+						 good_pixel.format(),
                                                  Vector2i(sub_tile_size,
-                                                          sub_tile_size ) );
+                                                          sub_tile_size ),
+						 gdal_options );
           block_write_image( good_pixel_rsrc, good_pixel,
                              TerminalProgressCallback("asp", "\t    Writing: "));
           vw_settings().set_default_num_threads(sub_threads);
@@ -707,17 +722,16 @@ int main(int argc, char* argv[]) {
         hole_filled_disp_map = filtered_disparity_map;
       }
 
-      DiskImageResourceOpenEXR disparity_map_rsrc(out_prefix + "-F.exr", hole_filled_disp_map.format() );
-      disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),
-                                                  hole_filled_disp_map.cols()),
-                                         std::min(vw_settings().default_tile_size(),
-                                                  hole_filled_disp_map.rows()));
-
+      DiskImageResourceGDAL disparity_map_rsrc(out_prefix + "-F.tif",
+					       hole_filled_disp_map.format(),
+					       Vector2i(vw_settings().default_tile_size(),
+							vw_settings().default_tile_size()),
+					       gdal_options );
       block_write_image(disparity_map_rsrc, hole_filled_disp_map,
                         TerminalProgressCallback("asp", "\t--> Filtering: ") );
 
       // Delete temporary file
-      std::string temp_file =  out_prefix+"-FTemp.exr";
+      std::string temp_file =  out_prefix+"-FTemp.tif";
       unlink( temp_file.c_str() );
     } catch (IOErr &e) {
       vw_out() << "\nUnable to start at filtering stage -- could not read input files.\n"
@@ -758,7 +772,7 @@ int main(int argc, char* argv[]) {
       }
 
       std::string prehook_filename;
-      session->pre_pointcloud_hook(out_prefix+"-F.exr", prehook_filename);
+      session->pre_pointcloud_hook(out_prefix+"-F.tif", prehook_filename);
       DiskImageView<PixelMask<Vector2f> > disparity_map(prehook_filename);
 
       // Apply the stereo model.  This yields a image of 3D points in
@@ -785,7 +799,8 @@ int main(int argc, char* argv[]) {
 
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format(),
                                              Vector2i(vw_settings().default_tile_size(),
-                                                      vw_settings().default_tile_size()) );
+                                                      vw_settings().default_tile_size()),
+					     gdal_options );
 
       if ( stereo_session_string == "isis" ) {
         write_image(point_cloud_rsrc, point_cloud,
