@@ -586,7 +586,7 @@ int main(int argc, char* argv[]) {
       }
 
       // Create a disk image resource and prepare to write a tiled
-      DiskImageResourceGDAL disparity_map_rsrc2(out_prefix + "-R.tif", disparity_map.format(),
+      DiskImageResourceGDAL disparity_map_rsrc2(out_prefix + "-RD.tif", disparity_map.format(),
                                                 Vector2i(vw_settings().default_tile_size(),
                                                          vw_settings().default_tile_size()),
                                                 gdal_options );
@@ -609,7 +609,7 @@ int main(int argc, char* argv[]) {
 
 
     std::string post_correlation_fname;
-    session->pre_filtering_hook(out_prefix+"-R.tif", post_correlation_fname);
+    session->pre_filtering_hook(out_prefix+"-RD.tif", post_correlation_fname);
 
     try {
 
