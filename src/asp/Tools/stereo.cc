@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
   // we have a record of the most recent stereo.default that was used
   // with this data set.
   stereo_settings().copy_settings(stereo_default_filename, out_prefix + "-stereo.default");
-  
+
   // Common GDAL options
   DiskImageResourceGDAL::Options gdal_options;
   gdal_options["COMPRESS"] = "LZW";
@@ -287,11 +287,11 @@ int main(int argc, char* argv[]) {
       DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(),
                                          Vector2i(vw_settings().default_tile_size(),
                                                   vw_settings().default_tile_size()),
-					 gdal_options );
+                                         gdal_options );
       DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
                                          Vector2i(vw_settings().default_tile_size(),
                                                   vw_settings().default_tile_size()),
-					 gdal_options );
+                                         gdal_options );
       block_write_image(l_mask_rsrc, Lmask,
                         TerminalProgressCallback("asp", "\t    Mask L: "));
       block_write_image(r_mask_rsrc, Rmask,
@@ -335,11 +335,11 @@ int main(int argc, char* argv[]) {
       DiskImageResourceGDAL l_sub_rsrc( l_sub_file, Lsub.format(),
                                         Vector2i(sub_tile_size,
                                                  sub_tile_size),
-					gdal_options );
+                                        gdal_options );
       DiskImageResourceGDAL r_sub_rsrc( r_sub_file, Rsub.format(),
                                         Vector2i(sub_tile_size,
                                                  sub_tile_size),
-					gdal_options );
+                                        gdal_options );
       vw_settings().set_default_num_threads(sub_threads);
       block_write_image(l_sub_rsrc, Lsub,
                         TerminalProgressCallback("asp", "\t    Sub L: "));
@@ -438,10 +438,10 @@ int main(int argc, char* argv[]) {
 
     // Create a disk image resource and prepare to write a tiled
     DiskImageResourceGDAL disparity_map_rsrc(out_prefix + "-D.tif",
-					     disparity_map.format(),
-					     Vector2i(vw_settings().default_tile_size(),
-						      vw_settings().default_tile_size()),
-					     gdal_options );
+                                             disparity_map.format(),
+                                             Vector2i(vw_settings().default_tile_size(),
+                                                      vw_settings().default_tile_size()),
+                                             gdal_options );
     block_write_image( disparity_map_rsrc, disparity_map );
   }
 
@@ -587,9 +587,9 @@ int main(int argc, char* argv[]) {
 
       // Create a disk image resource and prepare to write a tiled
       DiskImageResourceGDAL disparity_map_rsrc2(out_prefix + "-R.tif", disparity_map.format(),
-						Vector2i(vw_settings().default_tile_size(),
-							 vw_settings().default_tile_size()),
-						gdal_options );
+                                                Vector2i(vw_settings().default_tile_size(),
+                                                         vw_settings().default_tile_size()),
+                                                gdal_options );
       block_write_image( disparity_map_rsrc2, disparity_map,
                          TerminalProgressCallback("asp", "\t--> Refinement :") );
 
@@ -641,13 +641,13 @@ int main(int argc, char* argv[]) {
           Lmaskmore = apply_mask(edge_mask(left_mask,0,mask_buffer));
           Rmaskmore = apply_mask(edge_mask(right_mask,0,mask_buffer));
           DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMaskMore.tif", Lmaskmore.format(),
-					     Vector2i(vw_settings().default_tile_size(),
-						      vw_settings().default_tile_size()),
-					     gdal_options );
+                                             Vector2i(vw_settings().default_tile_size(),
+                                                      vw_settings().default_tile_size()),
+                                             gdal_options );
           DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMaskMore.tif", Rmaskmore.format(),
                                              Vector2i(vw_settings().default_tile_size(),
                                                       vw_settings().default_tile_size()),
-					     gdal_options );
+                                             gdal_options );
           block_write_image(l_mask_rsrc, Lmaskmore,
                             TerminalProgressCallback("asp", "\t   Reduce LMask: "));
           block_write_image(r_mask_rsrc, Rmaskmore,
@@ -661,9 +661,9 @@ int main(int argc, char* argv[]) {
 
         vw_out() << "\t--> Rasterizing filtered disparity map to disk. \n";
         DiskImageResourceGDAL filtered_disparity_map_rsrc( out_prefix+"-FTemp.tif", disparity_map.format(),
-							   Vector2i(vw_settings().default_tile_size(),
-								    vw_settings().default_tile_size()),
-							   gdal_options );
+                                                           Vector2i(vw_settings().default_tile_size(),
+                                                                    vw_settings().default_tile_size()),
+                                                           gdal_options );
         block_write_image( filtered_disparity_map_rsrc, disparity_map,
                            TerminalProgressCallback("asp", "\t--> Writing: ") );
 
@@ -702,10 +702,10 @@ int main(int argc, char* argv[]) {
                                                                sub_scale);
           vw_settings().set_default_num_threads(sub_threads);
           DiskImageResourceGDAL good_pixel_rsrc( out_prefix + "-GoodPixelMap.tif",
-						 good_pixel.format(),
+                                                 good_pixel.format(),
                                                  Vector2i(sub_tile_size,
                                                           sub_tile_size ),
-						 gdal_options );
+                                                 gdal_options );
           block_write_image( good_pixel_rsrc, good_pixel,
                              TerminalProgressCallback("asp", "\t    Writing: "));
           vw_settings().set_default_num_threads(sub_threads);
@@ -723,10 +723,10 @@ int main(int argc, char* argv[]) {
       }
 
       DiskImageResourceGDAL disparity_map_rsrc(out_prefix + "-F.tif",
-					       hole_filled_disp_map.format(),
-					       Vector2i(vw_settings().default_tile_size(),
-							vw_settings().default_tile_size()),
-					       gdal_options );
+                                               hole_filled_disp_map.format(),
+                                               Vector2i(vw_settings().default_tile_size(),
+                                                        vw_settings().default_tile_size()),
+                                               gdal_options );
       block_write_image(disparity_map_rsrc, hole_filled_disp_map,
                         TerminalProgressCallback("asp", "\t--> Filtering: ") );
 
@@ -800,7 +800,7 @@ int main(int argc, char* argv[]) {
       DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format(),
                                              Vector2i(vw_settings().default_tile_size(),
                                                       vw_settings().default_tile_size()),
-					     gdal_options );
+                                             gdal_options );
 
       if ( stereo_session_string == "isis" ) {
         write_image(point_cloud_rsrc, point_cloud,
