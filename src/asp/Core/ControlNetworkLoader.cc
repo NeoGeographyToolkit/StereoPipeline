@@ -186,7 +186,7 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
     crn.push_back( CameraRelation( i,
                                    prefix_from_filename( image_files[i] )));
   {
-    TerminalProgressCallback progress(vw::InfoMessage,"Match Files:  ");
+    TerminalProgressCallback progress("asp","Match Files:  ");
     progress.report_progress(0);
     int32 num_load_rejected = 0;
     for ( unsigned i = 0; i < image_files.size(); ++i ) {
@@ -246,7 +246,7 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
   // 2.) Build Control Network finally
   int spiral_error_count = 0;
   {
-    TerminalProgressCallback progress(vw::InfoMessage,"Assembly:     ");
+    TerminalProgressCallback progress("asp","Assembly:     ");
     progress.report_progress(0);
     for ( unsigned i = 0; i < crn.size() -1; ++i ) {
       progress.report_progress(float(i)/float(crn.size()-1));
@@ -328,7 +328,7 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
 
   // 3.) Triangulating Positions
   {
-    TerminalProgressCallback progress(vw::InfoMessage,"Triangulating:");
+    TerminalProgressCallback progress("asp","Triangulating:");
     progress.report_progress(0);
     for ( unsigned i = 0; i < cnet->size(); i++ ) {
       progress.report_progress(float(i)/float(cnet->size()));
@@ -371,7 +371,7 @@ void build_control_network( boost::shared_ptr<ControlNetwork> cnet,
 // Loads GCPs the traditional route
 void add_ground_control_points_past( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
                                      std::vector<std::string> image_files ) {
-  TerminalProgressCallback progress(vw::InfoMessage,"Ground Contrl:");
+  TerminalProgressCallback progress("asp","Ground Contrl:");
   progress.report_progress(0);
   for ( unsigned i = 0; i < image_files.size(); ++i ) {
     progress.report_progress(float(i)/float(image_files.size()));
@@ -465,7 +465,7 @@ add_ground_control_points( boost::shared_ptr<vw::camera::ControlNetwork> cnet,
   for ( unsigned i = 0; i < image_files.size(); i++ )
     pathless_image_files.push_back(remove_path(image_files[i]));
 
-  TerminalProgressCallback progress(vw::InfoMessage,"Ground Contrl:");
+  TerminalProgressCallback progress("asp","Ground Contrl:");
   progress.report_progress(0);
   for ( std::vector<std::string>::const_iterator gcp_name = gcp_files.begin();
         gcp_name != gcp_files.end(); gcp_name++ ) {
