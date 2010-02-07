@@ -75,19 +75,27 @@ void IsisAdjustCameraModel::SetTime( Vector2 const& px,
       m_center[1] = ipos[1];
       m_center[2] = ipos[2];
       m_center *= 1000;
-      m_center += m_position_f->evaluate( m_camera->EphemerisTime() );
+      //m_center += m_position_f->evaluate( m_camera->EphemerisTime() );
 
       std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
       std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
       MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
       MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-      Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
+      //Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
 
-      m_pose = Quaternion<double>(R_inst*transpose(R_body)*
-                                  math::euler_to_rotation_matrix( angles[0],
-                                                                  angles[1],
-                                                                  angles[2],
-                                                                  "xyz") );
+      //m_pose = Quaternion<double>(R_inst*transpose(R_body)*
+      //                            math::euler_to_rotation_matrix( angles[0],
+      //                                                            angles[1],
+      //                                                            angles[2],
+      //                                                            "xyz") );
+      //std::cout << "Pose: " << m_pose << "\n";
+      m_pose = Quaternion<double>( R_inst*transpose(R_body) );
+      //std::cout << "Lside: " << lside << "\n";
+      //Quaternion<double> temp( lside*math::euler_to_quaternion( angles[0],
+      //                                                          angles[1],
+      //                                                          angles[2],
+      //                                                          "xyz" ) );
+      //std::cout << "Temp: " << temp << "\n";
     }
   }
 }
@@ -121,7 +129,6 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
 
     // Converting now to pixel
     m_camera->SetEphemerisTime( solution_e[0] );
-
   } else if ( m_camera->GetCameraType() != 0 ) {
     vw_throw( NoImplErr() << "IsisAdjustCameraModel::point_to_pixel does not support any cmaeras other than LineScane and Frame" );
   }
@@ -133,23 +140,29 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
   m_center[1] = ipos[1];
   m_center[2] = ipos[2];
   m_center *= 1000;
-  m_center += m_position_f->evaluate( m_camera->EphemerisTime() );
+  //m_center += m_position_f->evaluate( m_camera->EphemerisTime() );
 
   // Pulling out camera pose
   std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
   std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
+  //Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
+  //m_pose = Quaternion<double>(R_inst*transpose(R_body)*
+  //                            math::euler_to_rotation_matrix( angles[0],
+  //                                                            angles[1],
+  //                                                            angles[2],
+  //                                                            "xyz") );
+  m_pose = Quaternion<double>(R_inst*transpose(R_body));
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  m_pose = Quaternion<double>(R_inst*transpose(R_body)*
-                              math::euler_to_rotation_matrix( angles[0],
-                                                              angles[1],
-                                                              angles[2],
-                                                              "xyz") );
+  Quaternion<double> pose_adj( m_pose*math::euler_to_quaternion( angles[0],
+                                                                 angles[1],
+                                                                 angles[2],
+                                                                "xyz" ) );
 
   // Actually projecting point now
-  Vector3 look = normalize( point - m_center );
-  look = m_pose.rotate( look );
+  Vector3 look = normalize( point - (m_center+m_position_f->evaluate(m_camera->EphemerisTime())) );
+  look = pose_adj.rotate( look );
   look = m_camera->FocalLength() * ( look / look[2] );
   m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
   m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
@@ -180,7 +193,8 @@ Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
   result = normalize( result );
 
   // Apply rotation of image camera
-  result = inverse( m_pose ).rotate( result );
+  Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
+  result = inverse( m_pose*math::euler_to_quaternion(angles[0],angles[1],angles[2],"xyz") ).rotate( result );
   return result;
 }
 
@@ -189,7 +203,7 @@ IsisAdjustCameraModel::camera_center( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
-  return m_center;
+  return m_center+m_position_f->evaluate( m_camera->EphemerisTime() );
 }
 
 Quaternion<double>
@@ -197,7 +211,8 @@ IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
-  return m_pose;
+  Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
+  return m_pose*math::euler_to_quaternion( angles[0],angles[1],angles[2],"xyz" );
 }
 
 std::string IsisAdjustCameraModel::serial_number() const {

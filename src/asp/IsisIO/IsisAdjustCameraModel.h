@@ -85,7 +85,7 @@ namespace camera {
     Isis::CameraDetectorMap   *m_detectmap;
 
   private:
-    mutable Vector2 m_c_location; // Current pixel location
+    mutable Vector2 m_c_location; // Current pixel location (Prior to funcs)
     mutable Vector3 m_center;
     mutable Quaternion<double> m_pose;
     void SetTime( Vector2 const& px, bool calc=true ) const;
@@ -112,9 +112,6 @@ namespace camera {
 
       inline result_type operator()( domain_type const& x ) const;
     };
-
-    //    inline Vector2 project_using_current( Vector3 const& point ) const;
-    //    Vector2 optimized_linescan_point_to_pixel( Vector3 const& point ) const;
   };
 
 }}

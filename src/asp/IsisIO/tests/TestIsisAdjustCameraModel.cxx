@@ -126,10 +126,10 @@ TEST(IsisAdjustCameraModel, RPNFunctions) {
   srand( time(NULL) );
   for ( uint j = 0; j < files.size(); j++ ) {
     std::string xpos_eq = "t 2 * 100 / 99 +";
-    std::string ypos_eq = "t .8 * 10000 -";
-    std::string zpos_eq = "t 2 * 2000 +";
-    std::string xang_eq = ".05";
-    std::string yang_eq = "-.03 t *";
+    std::string ypos_eq = "t .8 * 1000 -";
+    std::string zpos_eq = "t .5 * 2000 +";
+    std::string xang_eq = ".005";
+    std::string yang_eq = "-.013 t *";
     std::string zang_eq = "0";
     boost::shared_ptr<BaseEquation> position( new RPNEquation( xpos_eq,
                                                                ypos_eq,
@@ -140,8 +140,10 @@ TEST(IsisAdjustCameraModel, RPNFunctions) {
     IsisAdjustCameraModel cam( files[j], position, pose );
     std::cout << "File: " << files[j] << "\n";
     std::cout << "---------------------------------------\n";
+    std::cout << "Position ET offset: " << position->get_time_offset() << "\n";
+    std::cout << "Pose ET offset: " << pose->get_time_offset() << "\n";
 
-    for ( uint i = 0; i < 100; i++ ) {
+    for ( uint i = 0; i < 2; i++ ) {
       Vector2 pixel = generate_random( cam.samples(),
                                        cam.lines() );
       Vector3 point = cam.pixel_to_vector( pixel );
