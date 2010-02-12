@@ -164,6 +164,11 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
   double overall_delta = 2;
   int no_improvement_count = 0;
   while ( overall_delta ) {
+    // Determine if it is time to quit
+    if ( bundle_adjuster.iterations() >= g_max_iterations || abs_tol < 0.01
+         || rel_tol < 1e-10 || no_improvement_count > 5 )
+      break;
+
     overall_delta = bundle_adjuster.update( abs_tol, rel_tol );
     reporter.loop_tie_in();
 
@@ -202,11 +207,6 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
       no_improvement_count++;
     else
       no_improvement_count = 0;
-
-    // Determine if it is time to quit
-    if ( bundle_adjuster.iterations() > g_max_iterations || abs_tol < 0.01
-         || rel_tol < 1e-10 || no_improvement_count > 5 )
-      break;
   }
   reporter.end_tie_in();
 
