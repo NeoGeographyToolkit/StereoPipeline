@@ -312,18 +312,16 @@ int main(int argc, char* argv[]) {
   double output_height = projection_bbox.height() / scale;
 
   Matrix3x3 drg_trans = drg_georef.transform();
-  // Fixing for translation
-  drg_trans(0,2) = projection_bbox.min().x();
-  drg_trans(1,2) = projection_bbox.min().y();
   // This weird polarity checking is to make sure the output has been
   // transposed after going through reprojection. Normally this is the
   // case. Yet with grid data from GMT, it is not.     -ZMM
   if ( drg_trans(0,0) < 0 )
     drg_trans(0,2) = projection_bbox.max().x();
+  else
+    drg_trans(0,2) = projection_bbox.min().x();
   drg_trans(0,0) = scale;
-  if ( drg_trans(1,1) > 0 )
-    drg_trans(1,2) = projection_bbox.max().y();
   drg_trans(1,1) = -scale;
+  drg_trans(1,2) = projection_bbox.max().y();
   drg_georef.set_transform(drg_trans);
 
   GeoTransform trans(dem_georef, drg_georef);
