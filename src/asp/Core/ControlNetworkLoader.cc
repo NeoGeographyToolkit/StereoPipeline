@@ -52,7 +52,7 @@ using namespace vw::ip;
 
 static std::string prefix_from_filename( std::string const& filename ){
   std::string result = filename;
-  int index = result.find(".");
+  int index = result.rfind(".");
   if (index != -1)
     result.erase(index, result.size());
   return result;
