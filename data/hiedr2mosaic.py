@@ -97,6 +97,7 @@ def isisversion(verbose=False):
             index = line.find("\"3");
             index_e = line.rfind("|");
             version = line[index+1:index_e].rstrip()
+            version = version.rstrip(string.ascii_letters);
             if( verbose ): print "\tFound Isis Version: "+version;
             version_strings = version.split('.')
             version_ints = [int(item) for item in version_strings]
