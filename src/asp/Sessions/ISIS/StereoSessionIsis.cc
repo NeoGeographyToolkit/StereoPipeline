@@ -137,17 +137,23 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
         normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0);
 
       // Interest Point module detector code.
-      ip::LogInterestOperator log_detector;
-      ip::ScaledInterestPointDetector<ip::LogInterestOperator> detector(log_detector, 500);
-      vw_out() << "\t    Processing " << input_file1 << "\n";
-      ip1 = detect_interest_points( left_image, detector );
+      float ipgain = 0.08;
+      while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
+        ip1.clear(); ip2.clear();
+        ip::OBALoGInterestOperator interest_operator( ipgain );
+        ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
+        vw_out() << "\t    Processing " << input_file1 << "\n";
+        ip1 = detect_interest_points( left_image, detector );
+        vw_out() << "\t    Processing " << input_file2 << "\n";
+        ip2 = detect_interest_points( right_image, detector );
+
+        ipgain *= 0.75;
+      }
       vw_out() << "\t    Located " << ip1.size() << " points.\n";
-      vw_out() << "\t    Processing " << input_file2 << "\n";
-      ip2 = detect_interest_points( right_image, detector );
       vw_out() << "\t    Located " << ip2.size() << " points.\n";
 
       vw_out() << "\t    Generating descriptors...\n";
-      ip::PatchDescriptorGenerator descriptor;
+      ip::SGradDescriptorGenerator descriptor;
       descriptor( left_image, ip1 );
       descriptor( right_image, ip2 );
       vw_out() << "\t    done.\n";
@@ -162,24 +168,15 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
       // Reading back into the vector interestpoint format
       ip1_copy = ip::read_binary_ip_file( prefix_from_filename(input_file1) + ".vwip" );
       ip2_copy = ip::read_binary_ip_file( prefix_from_filename(input_file2) + ".vwip" );
-
     }
 
     vw_out() << "\t--> Matching interest points\n";
-    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.8);
+    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
 
     matcher(ip1_copy, ip2_copy,
             matched_ip1, matched_ip2,
             false,
             TerminalProgressCallback( "asp", "\t    Matching: "));
-
-    vw_out() << "\t    Caching matches: "
-              << ( prefix_from_filename(input_file1) + "__" +
-                   prefix_from_filename(input_file2) + ".match") << "\n";
-
-    write_binary_match_file( prefix_from_filename(input_file1) + "__" +
-                             prefix_from_filename(input_file2) + ".match",
-                             matched_ip1, matched_ip2);
 
   } // End matching
 
@@ -195,10 +192,12 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
                        << " duplicate matches.\n";
 
   Matrix<double> T;
+  std::vector<int> indices;
   try {
 
     math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 10 );
     T = ransac( ransac_ip2, ransac_ip1 );
+    indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
     vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
 
   } catch (...) {
@@ -208,6 +207,24 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
     T.set_size(3,3);
     T.set_identity();
   }
+
+  vw_out() << "\t    Caching matches: "
+              << ( prefix_from_filename(input_file1) + "__" +
+                   prefix_from_filename(input_file2) + ".match") << "\n";
+
+  { // Keeping only inliers
+    std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
+    for ( unsigned i = 0; i < indices.size(); i++ ) {
+      inlier_ip1.push_back( matched_ip1[indices[i]] );
+      inlier_ip2.push_back( matched_ip2[indices[i]] );
+    }
+    matched_ip1 = inlier_ip1;
+    matched_ip2 = inlier_ip2;
+  }
+
+  write_binary_match_file( prefix_from_filename(input_file1) + "__" +
+                           prefix_from_filename(input_file2) + ".match",
+                           matched_ip1, matched_ip2);
 
   return T;
 }
