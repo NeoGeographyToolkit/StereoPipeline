@@ -41,6 +41,9 @@ void asp::write_equation( std::ofstream& f, boost::shared_ptr<BaseEquation> eq )
 }
 // Determines equation type from file and return appropriate
 boost::shared_ptr<BaseEquation> asp::read_equation( std::ifstream& f) {
+  if ( !f.is_open() )
+    vw_throw( IOErr() << "Unable to open equation file\n" );
+
   boost::shared_ptr<BaseEquation> eq;
 
   std::string buffer = "";
