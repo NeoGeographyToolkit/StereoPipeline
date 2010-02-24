@@ -100,6 +100,7 @@ int main( int argc, char *argv[] ) {
   double proj_lat=0, proj_lon=0, proj_scale=1;
   double x_offset, y_offset, z_offset;
   unsigned utm_zone;
+  std::string cache_dir;
 
   po::options_description desc("Options");
   desc.add_options()
@@ -136,7 +137,8 @@ int main( int argc, char *argv[] ) {
     ("rotation-order", po::value<std::string>(&rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
-    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa");
+    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa")
+    ("cache-dir", po::value<std::string>(&cache_dir)->default_value("/tmp"),"Change if can't right large images to /tmp");
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -250,7 +252,9 @@ int main( int argc, char *argv[] ) {
   // Rasterize the results to a temporary file on disk so as to speed
   // up processing in the orthorasterizer, which accesses each pixel
   // multiple times.
-  DiskCacheImageView<Vector3> point_image_cache(point_image, "tif");
+  DiskCacheImageView<Vector3> point_image_cache(point_image, "tif",
+                                                TerminalProgressCallback("asp","Cache: "),
+                                                cache_dir);
 
 
   // ----> For debugging: (for Larry) <-----
