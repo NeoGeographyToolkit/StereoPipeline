@@ -185,7 +185,8 @@ int main(int argc, char* argv[]) {
     if ( (boost::iends_with(cam_file1, ".cahvor") && boost::iends_with(cam_file2, ".cahvor")) ||
          (boost::iends_with(cam_file1, ".cahv") && boost::iends_with(cam_file2, ".cahv")) ||
          (boost::iends_with(cam_file1, ".pin") && boost::iends_with(cam_file2, ".pin")) ||
-         (boost::iends_with(cam_file1, ".tsai") && boost::iends_with(cam_file2, ".tsai")) ) {
+         (boost::iends_with(cam_file1, ".tsai") && boost::iends_with(cam_file2, ".tsai")) ||
+         (boost::iends_with(cam_file1, ".cmod") && boost::iends_with(cam_file2, ".cmod")) ) {
          vw_out() << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
          stereo_session_string = "pinhole";
     }
