@@ -248,8 +248,13 @@ int main(int argc, char* argv[]) {
 
   // Common GDAL options
   DiskImageResourceGDAL::Options gdal_options;
+#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
   gdal_options["COMPRESS"] = "LZW";
-  gdal_options["BIGTIFF"] = "IF_SAFER";
+  gdal_options["BIGTIFF"] = "NO";
+#else
+  gdal_options["COMPRESS"] = "NONE";
+  gdal_options["BIGTIFF"] = "NO";
+#endif
 
   /*********************************************************************************/
   /*                            preprocessing step                                 */
@@ -264,6 +269,12 @@ int main(int argc, char* argv[]) {
     DiskImageView<PixelGray<float> > right_rectified_image(pre_preprocess_file2);
     ImageViewRef<PixelGray<float> > left_image = left_rectified_image;
     ImageViewRef<PixelGray<float> > right_image = right_rectified_image;
+
+#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
+    // Determining if BigTiff is required
+    if ( left_rectified_image.cols()*left_rectified_image.rows() > 10e6 )
+      gdal_options["BIGTIFF"] = "IF_SAFER";
+#endif
 
     if (MEDIAN_FILTER == 1){
       vw_out() << "\t--> Median filtering.\n" << std::flush;
@@ -379,6 +390,12 @@ int main(int argc, char* argv[]) {
     DiskImageView<PixelGray<float> > left_disk_image(filename_L);
     DiskImageView<PixelGray<float> > right_disk_image(filename_R);
 
+#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
+    // Determining if BigTiff is required
+    if ( left_disk_image.cols()*left_disk_image.rows() > 10e6 )
+      gdal_options["BIGTIFF"] = "IF_SAFER";
+#endif
+
     ImageViewRef<PixelMask<Vector2f> > disparity_map;
     stereo::CorrelatorType cost_mode = stereo::ABS_DIFF_CORRELATOR;
     if (stereo_settings().cost_mode == 1)
@@ -467,6 +484,12 @@ int main(int argc, char* argv[]) {
       DiskImageView<PixelGray<float> > right_disk_image(filename_R);
       DiskImageView<PixelMask<Vector2f> > disparity_disk_image(out_prefix + "-D.tif");
       ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
+
+#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
+      // Determining if BigTiff is required
+      if ( left_disk_image.cols()*left_disk_image.rows() > 10e6 )
+        gdal_options["BIGTIFF"] = "IF_SAFER";
+#endif
 
       if (stereo_settings().subpixel_mode == 0) {
         // Do nothing
