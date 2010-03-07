@@ -991,13 +991,20 @@ int main(int argc, char* argv[]){
     ("show-earth","This will add a transparent Earth to the display")
     ("help,h","Display this help message");
 
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc,argv,general_options),vm);
-  po::notify(vm);
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << "[options] <filename> ... " << std::endl << std::endl;
   usage << general_options << std::endl;
+
+  po::variables_map vm;
+  try {
+    po::store(po::parse_command_line(argc,argv,general_options),vm);
+    po::notify(vm);
+  } catch (po::error &e) {
+    std::cout << "An error occured while parsing command line arguments.\n";
+    std::cout << "\t" << e.what() << "\n\n";
+    std::cout << usage.str();
+    return 1;
+  }
 
   if (vm.count("help")){
     std::cout<<usage.str();

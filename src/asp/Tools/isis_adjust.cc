@@ -275,12 +275,19 @@ int main(int argc, char* argv[]) {
   po::positional_options_description p;
   p.add("input-files", -1);
 
-  po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), g_vm );
-  po::notify( g_vm );
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <isis cube files> ... " << std::endl << std::endl;
   usage << general_options << std::endl;
+
+  try {
+    po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), g_vm );
+    po::notify( g_vm );
+  } catch (po::error &e) {
+    std::cout << "An error occured while parsing command line arguments.\n";
+    std::cout << "\t" << e.what() << "\n\n";
+    std::cout << usage.str();
+    return 1;
+  }
 
   if ( g_vm.count("help") ) {
     vw_out() << usage.str() << std::endl;

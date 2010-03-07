@@ -512,13 +512,20 @@ int main( int argc, char *argv[] ){
   p.add("input-file",   1);
   p.add("texture-file", 1);
 
-  po::variables_map vm;
-  po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
-  po::notify( vm );
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << "[options] <pointcloud> <texture-file> ... " << std::endl << std::endl;
   usage << desc << std::endl;
+
+  po::variables_map vm;
+  try {
+    po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
+    po::notify( vm );
+  } catch (po::error &e) {
+    std::cout << "An error occured while parsing command line arguments.\n";
+    std::cout << "\t" << e.what() << "\n\n";
+    std::cout << usage.str();
+    return 1;
+  }
 
   if( vm.count("help") ) {
     vw_out() << usage.str() << std::endl;

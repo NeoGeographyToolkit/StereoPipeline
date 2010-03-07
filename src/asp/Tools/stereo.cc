@@ -138,8 +138,15 @@ int main(int argc, char* argv[]) {
   all_options.add(visible_options).add(positional_options);
 
   po::variables_map vm;
-  po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_options_desc).run(), vm );
-  po::notify( vm );
+  try {
+    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_options_desc).run(), vm );
+    po::notify( vm );
+  } catch (po::error &e) {
+    std::cout << "An error occured while parsing command line arguments.\n";
+    std::cout << "\t" << e.what() << "\n\n";
+    print_usage(visible_options);
+    return 1;
+  }
 
   // If the command line wasn't properly formed or the user requested
   // help, we print an usage message.

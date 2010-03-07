@@ -20,7 +20,6 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
-#include <boost/algorithm/string.hpp>
 
 // Vision Workbench
 #include <vw/Camera/ControlNetwork.h>

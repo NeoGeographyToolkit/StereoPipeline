@@ -89,16 +89,23 @@ int main(int argc, char* argv[]) {
   po::positional_options_description p;
   p.add("input-files", -1);
 
-  po::variables_map vm;
-  po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
-  po::notify( vm );
-
   // If the command line wasn't properly formed or the user requested
   // help, we print an usage message.
   std::ostringstream help;
   help << "\nUsage: " << argv[0] << " [options] <input image> <input camera model> <...and repeat...>\n\n";
   help << "Note: All cameras and their images must be of the same session type. Camera models only can be used as input for stereo sessions pinhole and isis.";
   help << visible_options << std::endl;
+
+  po::variables_map vm;
+  try {
+    po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
+    po::notify( vm );
+  } catch (po::error &e) {
+    std::cout << "An error occured while parsing command line arguments.\n";
+    std::cout << "\t" << e.what() << "\n\n";
+    std::cout << help.str();
+    return 1;
+  }
 
   // Determining if feed only camera model
   if ( input_files.size() == 1 )
