@@ -109,6 +109,8 @@ AX_ARG_ENABLE(qt-qmake,      yes, [none],            [Allow qmake detection of Q
 
 AX_PKG_PTHREADS
 
+AX_PKG(OPEN_MPI, [], [-D_REENTRANT  -Wl,-u,_munmap -Wl,-multiply_defined,suppress -lmpi_cxx -lmpi -lopen-rte -lopen-pal -lutil], [mpi.h])
+
 AX_PKG_BOOST
 if test x"$HAVE_PKG_BOOST" == "xyes"; then
   AX_PKG_BOOST_CHECK_VERSION([ASP_])
@@ -121,6 +123,8 @@ if test x"$HAVE_PKG_BOOST" == "xyes"; then
   AX_PKG_BOOST_LIB(THREAD,          [-lboost_thread],          [boost/thread/thread.hpp],   [$PKG_BOOST_DATETIME_LIBS], [boost/thread/condition.hpp])
   AX_PKG_BOOST_LIB(IOSTREAMS,       [-lboost_iostreams],       [boost/iostreams/stream_buffer.hpp])
   AX_PKG_BOOST_LIB(GRAPH,           [],                        [boost/graph/adjacency_list.hpp])
+  AX_PKG_BOOST_LIB(MPI,             [-lboost_mpi],             [boost/mpi.hpp], [$PKG_OPEN_MPI_LIBS])
+  AX_PKG_BOOST_LIB(SERIALIZATION,   [-lboost_serialization],   [boost/serialization/string.hpp], [$PKG_OPEN_MPI_LIBS $PKG_BOOST_MPI_LIBS])
 fi
 
 # This provides an easy way for users to override the threads options
@@ -271,6 +275,7 @@ AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [BOOST_COM
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST SPICE], [TCMALLOC PROFILER] )
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [BOOST ISIS VW VW_CAMERA VW_CARTOGRAPHY], [TCMALLOC PROFILER] )
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [], [SPICEIO ISISIO TCMALLOC PROFILER])
+AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [CORE ISISIO], [OPEN_MPI BOOST_MPI BOOST_SERIALIZATION VW_ALL])
 
 AX_APP(STEREO,         [src/asp/Tools], yes, [CORE SESSIONS], [TCMALLOC PROFILER])
 AX_APP(ORTHOPROJECT,   [src/asp/Tools], yes, [CORE SESSIONS], [TCMALLOC PROFILER])
@@ -295,6 +300,7 @@ AM_CONDITIONAL(MAKE_MODULE_CORE, [test "$MAKE_MODULE_CORE" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_ISISIO, [test "$MAKE_MODULE_ISISIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SPICEIO, [test "$MAKE_MODULE_SPICEIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_SESSIONS" = "yes"])
+AM_CONDITIONAL(MAKE_MODULE_MPI, [test "$MAKE_MODULE_MPI" = "yes"])
 
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREOGUI, [test "$MAKE_APP_STEREOGUI" = "yes"])
@@ -355,6 +361,7 @@ AC_CONFIG_FILES([                       \
   src/asp/Sessions/Keypoint/Makefile    \
   src/asp/Sessions/Pinhole/Makefile     \
   src/asp/Sessions/RMAX/Makefile        \
+  src/asp/MPI/Makefile                  \
   src/asp/Tools/Makefile
 ])
 

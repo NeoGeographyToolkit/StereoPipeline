@@ -23,11 +23,13 @@ spiceio_headers = SpiceIO.h
 
 tools_subdirs = Tools
 
+mpi_subdirs = MPI
+
 include_HEADERS = $(core_headers) $(spiceio_headers)            \
 	  $(isisio_headers) $(sessions_headers) asp_config.h
 
 SUBDIRS = $(core_subdirs) $(spiceio_subdirs) $(isisio_subdirs) \
-	  $(sessions_subdirs) $(tools_subdirs)
+	  $(sessions_subdirs) $(tools_subdirs) $(mpi_subdirs)
 
 CLEANFILES = asp_config.h.pre.in~
 
