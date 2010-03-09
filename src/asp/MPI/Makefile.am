@@ -11,7 +11,7 @@
 
 if MAKE_MODULE_MPI
 
-include_HEADERS =
+include_HEADERS = BundleAdjustmentMPISparse.h
 
 #libaspMPI_la_SOURCES =
 

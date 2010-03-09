@@ -1,50 +1,24 @@
-#include <boost/mpi.hpp>
-#include <iostream>
-#include <string>
-#include <boost/serialization/string.hpp>
-namespace mpi = boost::mpi;
-
 #include <vw/Core.h>
 using namespace vw;
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
-enum SlaveTask {
-  SolveJacobian,
-  SolveUpdateError,
-  Finish
-};
+#include <asp/MPI/BundleAdjustmentMPI.h>
 
 int main ( int argc, char* argv[] ) {
   mpi::environment env(argc,argv);
   mpi::communicator world;
+  std::vector<std::string> input_file_names;
 
   std::srand(time(0)+world.rank());
 
+  // All MPI's slave work is in
+  // BundleAdjustmentMPI.
   if (world.rank() > 0) {
-    vw_out(DebugMessage, "mpi_slave") << "\tSlave " << world.rank()
-                                      << ": Starting\n";
-    int task;
-    while (true) {
-      broadcast(world, task, 0);
-      if ( task == SolveJacobian ) {
-        vw_out(DebugMessage, "mpi_slave") << "\tSlave " << world.rank()
-                                          << " : Solving Jacobian\n";
-        std::vector<int> mydata;
-        for ( uint i = 0; i < world.rank(); i++ )
-          mydata.push_back( std::rand() );
-        gather(world, mydata, 0);
-      } else if ( task == SolveUpdateError ) {
-        vw_out(DebugMessage, "mpi_slave") << "\tSlave " << world.rank() << " : Update Error\n";
-      } else if ( task == Finish ) {
-        vw_out(DebugMessage, "mpi_slave") << "\tSlave " << world.rank() << " : finished\n";
-        return 0;
-      }
-    }
+    camera::MPISlave slave(world);
+    return 0;
   }
-
-  std::vector<std::string> input_file_names;
 
   // Main starts here
   po::options_description general_options("Options");
@@ -101,7 +75,7 @@ int main ( int argc, char* argv[] ) {
     std::vector<int> my_data;
     my_data.push_back(0);
     my_data.push_back(12);
-    gather(world, my_data, all_data, 0);
+    //gather(world, my_data, all_data, 0);
     for ( uint i = 0; i < all_data.size(); i++ ) {
       vw_out() << "Job " << i << " : produced " << all_data[i].size() << "\n";
     }
