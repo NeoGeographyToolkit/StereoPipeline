@@ -161,7 +161,7 @@ AX_PKG_ONE_OF(LAPACK,
 AX_PKG(VW_CORE, [BOOST BOOST_THREAD BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM LAPACK], [-lvwCore], [vw/Core/Log.h] )
 AX_PKG(VW_MATH, [VW_CORE], [-lvwMath], [vw/Math/LinearAlgebra.h])
 AX_PKG(VW_IMAGE,  [VW_CORE], [-lvwImage], [vw/Image/ImageView.h])
-AX_PKG(VW_FILEIO, [VW_IMAGE VW_CORE], [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h])
+AX_PKG(VW_FILEIO, [VW_IMAGE VW_CORE], [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
 AX_GROUP_PKG(VW, [VW_CORE VW_MATH VW_IMAGE VW_FILEIO])
 
 AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],      [vw/Camera/CAHVModel.h])
