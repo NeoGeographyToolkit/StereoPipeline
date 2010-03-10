@@ -19,8 +19,6 @@ include_HEADERS = BundleAdjustmentMPISparse.h
 
 #lib_LTLIBRARIES = libaspMPI.la
 
-endif
-
 if ENABLE_EXCEPTIONS
 
 MPI_LOCAL_LIBS = @MODULE_MPI_LIBS@
@@ -29,6 +27,8 @@ isis_mpi_adjust_SOURCES = isis_mpi_adjust.cc
 isis_mpi_adjust_LDADD   = @PKG_VW_CAMERA_LIBS@ $(MPI_LOCAL_LIBS)
 
 bin_PROGRAMS = isis_mpi_adjust
+
+endif
 
 endif
 
