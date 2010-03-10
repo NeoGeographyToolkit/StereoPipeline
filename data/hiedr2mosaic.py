@@ -328,21 +328,23 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
+        num_threads = int(options.threads);
+
         # # Determine Isis Version
         # post_isis_20 = is_post_isis_3_1_20();
         isisversion( True )
 
         # hi2isis
-        hi2isised = hi2isis( args, options.threads )
+        hi2isised = hi2isis( args, num_threads )
 
         # hical
-        hicaled = hical( hi2isised, options.threads, options.delete )
+        hicaled = hical( hi2isised, num_threads, options.delete )
 
         # histitch
-        histitched = histitch( hicaled, options.threads, options.delete )
+        histitched = histitch( hicaled, num_threads, options.delete )
 
         # attach spice
-        spice( histitched, options.threads )
+        spice( histitched, num_threads )
 
         CCD_files = CCDs( histitched, options.match )
 
@@ -350,7 +352,7 @@ def main():
         noprojed_CCDs = noproj( CCD_files, options.delete )
 
         # hijitreg
-        averages = hijitreg( noprojed_CCDs, options.threads )
+        averages = hijitreg( noprojed_CCDs, num_threads )
 
         # mosaic handmos
         mosaicked = mosaic( noprojed_CCDs, averages )
