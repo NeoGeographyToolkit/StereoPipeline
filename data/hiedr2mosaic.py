@@ -14,7 +14,7 @@ job_pool = [];
 def man(option, opt, value, parser):
     print >>sys.stderr, parser.usage
     print >>sys.stderr, '''\
-This program operates on HiRISE EDR (.IMG) channel files, and performs the 
+This program operates on HiRISE EDR (.IMG) channel files, and performs the
 following ISIS 3 operations:
  * Converts to ISIS format (hi2isis)
  * Performs radiometric calibration (hical)
@@ -44,7 +44,7 @@ class CCDs(dict):
 
     def min(self):
         return min( self.keys() )
-    
+
     def max(self):
         return max( self.keys() )
 
@@ -89,7 +89,7 @@ def isisversion(verbose=False):
     try: path = os.environ['ISISROOT']
     except KeyError, msg:
         raise Exception( "The ISIS environment does not seem to be enabled.\nThe " + str(msg) + " environment variable must be set." )
-	
+
     if( verbose ): print path;
     f = open(path+"/inc/Constants.h",'r');
     for line in f:
@@ -106,14 +106,14 @@ def isisversion(verbose=False):
 
     raise Exception( "Could not find an ISIS version string in " + f.str() )
     return False
-	
+
 
 # def is_post_isis_3_1_20():
 #     # Weird method to find to location of ISIS
 #     p = subprocess.Popen("echo $ISISROOT", shell=True, stdout=subprocess.PIPE);
 #     path = p.stdout.read();
 #     path = path.strip()
-# 
+#
 #     print path;
 #     f = open(path+"/inc/Constants.h",'r');
 #     for line in f:
@@ -261,19 +261,19 @@ def mosaic( noprojed_CCDs, averages ):
     for i in range( noprojed_CCDs.match-1, noprojed_CCDs.min()-1, -1):
         sample_sum  += averages[i][0]
         line_sum    += averages[i][1]
-        handmos( noprojed_CCDs[i], mosaic, 
+        handmos( noprojed_CCDs[i], mosaic,
                  str( int(round( sample_sum )) ),
                  str( int(round( line_sum )) ) )
-            
+
     sample_sum = 1;
     line_sum = 1;
     for i in range( noprojed_CCDs.match+1, noprojed_CCDs.max()+1, 1):
         sample_sum  -= averages[i-1][0]
         line_sum    -= averages[i-1][1]
-        handmos( noprojed_CCDs[i], mosaic, 
+        handmos( noprojed_CCDs[i], mosaic,
                  str( int(round( sample_sum )) ),
                  str( int(round( line_sum )) ) )
-    
+
     return mosaic
 
 
@@ -299,7 +299,7 @@ def cubenorm( fromcub, delete=False ):
     if( delete ):
         os.remove( fromcub )
     return tocub
-    
+
 
 #----------------------------
 
@@ -314,10 +314,10 @@ def main():
             parser.add_option("--manual", action="callback", callback=man,
                               help="Read the manual.")
             parser.add_option("-t", "--threads", dest="threads",
-                              help="Number of threads to use.")
+                              help="Number of threads to use.",type="int")
             parser.add_option("-m", "--match", dest="match",
                               help="CCD number of match CCD")
-            parser.add_option("-k", "--keep", action="store_false", 
+            parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
                               help="Will not delete intermediate files.")
 
@@ -328,23 +328,21 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
-        num_threads = int(options.threads);
-
         # # Determine Isis Version
         # post_isis_20 = is_post_isis_3_1_20();
         isisversion( True )
 
         # hi2isis
-        hi2isised = hi2isis( args, num_threads )
+        hi2isised = hi2isis( args, options.threads )
 
         # hical
-        hicaled = hical( hi2isised, num_threads, options.delete )
+        hicaled = hical( hi2isised, options.threads, options.delete )
 
         # histitch
-        histitched = histitch( hicaled, num_threads, options.delete )
+        histitched = histitch( hicaled, options.threads, options.delete )
 
         # attach spice
-        spice( histitched, num_threads )
+        spice( histitched, options.threads )
 
         CCD_files = CCDs( histitched, options.match )
 
@@ -352,7 +350,7 @@ def main():
         noprojed_CCDs = noproj( CCD_files, options.delete )
 
         # hijitreg
-        averages = hijitreg( noprojed_CCDs, num_threads )
+        averages = hijitreg( noprojed_CCDs, options.threads )
 
         # mosaic handmos
         mosaicked = mosaic( noprojed_CCDs, averages )
@@ -377,7 +375,7 @@ def main():
     except Exception, err:
         sys.stderr.write( str(err) + '\n' )
         return 1
-    
+
 
 if __name__ == "__main__":
     sys.exit(main())
