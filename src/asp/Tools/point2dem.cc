@@ -193,7 +193,7 @@ int main( int argc, char *argv[] ) {
   cartography::Datum datum;
   if ( reference_spheroid != "" ) {
     if (reference_spheroid == "mars") {
-      const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396000.0;
+      const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396190.0;
       vw_out() << "\t--> Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
       datum = cartography::Datum("D_MARS",
                                  "MARS",
