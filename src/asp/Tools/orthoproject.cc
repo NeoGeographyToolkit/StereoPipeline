@@ -22,7 +22,6 @@ namespace fs = boost::filesystem;
 #include <vw/FileIO.h>
 #include <vw/Camera.h>
 #include <vw/Cartography.h>
-#include <vw/Cartography/OrthoImageView.h>
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
@@ -177,6 +176,7 @@ int main(int argc, char* argv[]) {
   // guess here based on the file suffixes.
   if (stereo_session_string.size() == 0) {
     if ( boost::iends_with(camera_model_file, ".cahvor") ||
+         boost::iends_with(camera_model_file, ".cmod") ||
          boost::iends_with(camera_model_file, ".cahv") ||
          boost::iends_with(camera_model_file, ".pin") ||
          boost::iends_with(camera_model_file, ".tsai") ) {
