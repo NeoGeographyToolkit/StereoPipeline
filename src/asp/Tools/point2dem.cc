@@ -195,21 +195,11 @@ int main( int argc, char *argv[] ) {
     if (reference_spheroid == "mars") {
       const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396190.0;
       vw_out() << "\t--> Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
-      datum = cartography::Datum("D_MARS",
-                                 "MARS",
-                                 "Reference Meridian",
-                                 MOLA_PEDR_EQUATORIAL_RADIUS,
-                                 MOLA_PEDR_EQUATORIAL_RADIUS,
-                                 0.0);
+      datum.set_well_known_datum("D_MARS");
     } else if (reference_spheroid == "moon") {
       const double LUNAR_RADIUS = 1737400;
       vw_out() << "\t--> Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
-      datum = cartography::Datum("D_MOON",
-                                 "MOON",
-                                 "Reference Meridian",
-                                 LUNAR_RADIUS,
-                                 LUNAR_RADIUS,
-                                 0.0);
+      datum.set_well_known_datum("D_MOON");
     } else {
       vw_out() << "\t--> Unknown reference spheroid: " << reference_spheroid << ".  Current options are [ moon , mars ]\nExiting.\n\n";
       exit(0);
