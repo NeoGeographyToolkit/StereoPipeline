@@ -21,7 +21,7 @@ AC_DEFUN([AX_FIND_FILES],
       if test ! -z "$ax_find_files_paths" ; then
         AX_LOG([Find Files: Found ${ax_find_files_paths}])
       else
-        AX_LOG([Fine Files: Not Found])
+        AX_LOG([Find Files: Not Found])
         ax_find_files_passed=no
         break
       fi

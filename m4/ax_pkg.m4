@@ -1,20 +1,21 @@
 dnl __BEGIN_LICENSE__
-dnl Copyright (C) 2006-2009 United States Government as represented by
+dnl Copyright (C) 2006-2010 United States Government as represented by
 dnl the Administrator of the National Aeronautics and Space Administration.
 dnl All Rights Reserved.
 dnl __END_LICENSE__
 
 
+m4_ifdef([_AX_FIXUPS], [], [m4_include([m4/fixups.m4])])
+
 dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>, <relative lib path>, <required-functions>])
 AC_DEFUN([AX_PKG],
 [
 
-  AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
-  AC_ARG_WITH(m4_tolower([[$1]]),
-    AC_HELP_STRING([--with-]m4_tolower([[$1]]), [enable searching for the $1 package @<:@auto@:>@]),
+  m4_divert_once([INIT_PREPARE], [dnl
+  AC_ARG_WITH(my_tolower([$1]),
+    AS_HELP_STRING([--with-]my_tolower([$1]), [look for the $1 package]),
     [ HAVE_PKG_$1=$withval ]
-  )
-  AC_DIVERT_POP()dnl
+  )])
 
   ADD_$1_CPPFLAGS="$PKG_$1_CPPFLAGS"
   PKG_$1_CPPFLAGS=""

@@ -1,25 +1,24 @@
 dnl __BEGIN_LICENSE__
-dnl Copyright (C) 2006-2009 United States Government as represented by
+dnl Copyright (C) 2006-2010 United States Government as represented by
 dnl the Administrator of the National Aeronautics and Space Administration.
 dnl All Rights Reserved.
 dnl __END_LICENSE__
 
 
-# Usage: AX_PKG_BOOST
+m4_ifdef([_AX_FIXUPS], [], [m4_include([m4/fixups.m4])])
+
+# Usage: AX_PKG_BOOST(<required boost libs> [,boost_lib, how-to-detect-lib]*)
 AC_DEFUN([AX_PKG_BOOST],
 [
-  AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
+  m4_divert_once([INIT_PREPARE], [dnl
   AC_ARG_WITH(boost,
-    AC_HELP_STRING([--with-boost], [enable searching for the boost package @<:@auto@:>@]),
+    AS_HELP_STRING([--with-boost], [look for the boost package]),
     [ HAVE_PKG_BOOST=$withval ]
-  )
-  AC_DIVERT_POP()dnl
-
-  AC_MSG_CHECKING(for package BOOST)
+  )])
 
   AC_LANG_ASSERT(C++)
 
-  if test -n "${HAVE_PKG_BOOST}" && test "${HAVE_PKG_BOOST}" != "yes" && test "${HAVE_PKG_BOOST}" != "no" && test x"${HAVE_PKG_BOOST#no:}" == "x$HAVE_PKG_BOOST"; then
+  if test -n "${HAVE_PKG_BOOST}" && test "${HAVE_PKG_BOOST}" != "yes" && test "${HAVE_PKG_BOOST}" != "no" && test x"${HAVE_PKG_BOOST#no:}" = "x$HAVE_PKG_BOOST"; then
     PKG_PATHS_BOOST="${HAVE_PKG_BOOST}"
   else
     PKG_PATHS_BOOST="${PKG_PATHS}"
@@ -27,88 +26,69 @@ AC_DEFUN([AX_PKG_BOOST],
 
   # Skip testing if the user has overridden
   if test "no" = "$HAVE_PKG_BOOST"; then
-    AC_MSG_RESULT([no (disabled by user)])
+    HAVE_PKG_BOOST="no:disabled by user"
+  elif test x"${HAVE_PKG_BOOST#no:}" != "x$HAVE_PKG_BOOST"; then # read as: if has_prefix(HAVE_PKG_BOOST, "no:")
+    :
+  else
+
+    HAVE_PKG_BOOST=no
+
+    for ax_boost_base_path in $PKG_PATHS_BOOST; do
+      boost_base_path_glob="${ax_boost_base_path}/include/boost-*"
+      for ax_boost_inc_path in ${ax_boost_base_path}/include `echo ${boost_base_path_glob} | xargs -n1 | sort -r` ; do
+        AX_LOG([Checking for a boost in ${ax_boost_inc_path}])
+        if test -f "${ax_boost_inc_path}/boost/version.hpp"; then
+          AC_MSG_NOTICE([Checking if Boost at ${ax_boost_inc_path}/boost is OK])
+
+          AX_EXTRACT_CPP_SYMBOL([BOOST_VERSION], [#include <boost/version.hpp>], [BOOST_VERSION=$output],
+            [AX_LOG([Couldn't get boost version for $ax_boost_inc_path/boost]); continue;],
+            ["-I${ax_boost_inc_path}"])
+
+          AX_LOG([Found boost includes at ${ax_boost_inc_path}, version(${BOOST_VERSION})])
+
+          PKG_BOOST_INCDIR="${ax_boost_inc_path}"
+          PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_LIBDIR}"
+
+          # In case it's not in lib64 despite specifying lib64...
+          if test ! -d $PKG_BOOST_LIBDIR -a x"${AX_OTHER_LIBDIR}" != "x"; then
+            PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_OTHER_LIBDIR}"
+          fi
+
+          m4_for([idx], 3, $#, 2, [m4_do(m4_argn(idx, $@)) ])
+
+          missing=
+          AC_FOREACH([required], $1,
+          [AS_IF([test x"$HAVE_PKG_]required[" != "xyes"], [missing="${missing} required"])
+          ])
+
+          AS_IF([test -n "$missing"], [AC_MSG_NOTICE([${ax_boost_inc_path}/boost is missing these required libraries: $missing]); continue;],
+          [
+          HAVE_PKG_BOOST="yes"
+          break 2
+          ])
+        fi
+      done
+    done
+
+  fi
+
+  AC_MSG_CHECKING(for package BOOST)
+
+  if test "${HAVE_PKG_BOOST}" = "yes" ; then
+    ax_have_pkg_bool=1
+    OTHER_CPPFLAGS="${OTHER_CPPFLAGS} -I${PKG_BOOST_INCDIR}"
+    OTHER_LDFLAGS="${OTHER_LDFLAGS} -L${PKG_BOOST_LIBDIR}"
+    AC_MSG_RESULT([yes])
   elif test x"${HAVE_PKG_BOOST#no:}" != "x$HAVE_PKG_BOOST"; then # read as: if has_prefix(HAVE_PKG_BOOST, "no:")
     dnl { and } break AC_MSG_RESULT
     reason="${HAVE_PKG_BOOST#no:}"
     AC_MSG_RESULT([no ($reason)])
-    HAVE_PKG_BOOST=no
   else
-
-    PKG_BOOST_CPPFLAGS=
-    PKG_BOOST_LIBS=
     HAVE_PKG_BOOST=no
-
-    ax_pkg_old_cppflags="$CPPFLAGS"
-    ax_pkg_old_ldflags="$LDFLAGS"
-
-    for ax_boost_base_path in $PKG_PATHS_BOOST; do
-      # First look for a system-style installation
-      AX_LOG([Checking for a boost in ${ax_boost_base_path}])
-
-      if test -f "${ax_boost_base_path}/include/boost/version.hpp" ; then
-        AX_LOG([Found a system-style boost])
-        PKG_BOOST_INCDIR="${ax_boost_base_path}/include"
-        PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_LIBDIR}"
-        HAVE_PKG_BOOST="yes"
-      else
-        # Next look for a default-style installation
-        for ax_boost_inc_path in `ls -d ${ax_boost_base_path}/include/boost-* 2> /dev/null` ; do
-          AX_LOG([Checking for default-style boost in ${ax_boost_inc_path}])
-          if test -f "${ax_boost_inc_path}/boost/version.hpp"; then
-            AX_LOG([Found a default-style boost in ${ax_boost_inc_path}])
-            # At the moment we greedily accept the first one we find, regardless of version
-            PKG_BOOST_INCDIR="${ax_boost_inc_path}"
-            PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_LIBDIR}"
-            HAVE_PKG_BOOST="yes"
-          fi
-        done
-      fi
-
-      if test x"${HAVE_PKG_BOOST}" = "xyes"; then
-
-        HAVE_PKG_BOOST="no"
-
-        # In case it's not in lib64 despite specifying lib64...
-        if test ! -d $PKG_BOOST_LIBDIR -a x"${AX_OTHER_LIBDIR}" != "x"; then
-          PKG_BOOST_LIBDIR="${ax_boost_base_path}/${AX_OTHER_LIBDIR}"
-        fi
-
-        CPPFLAGS="$ax_pkg_old_cppflags -I${PKG_BOOST_INCDIR}"
-        LDFLAGS="$ax_pkg_old_ldflags -L${PKG_BOOST_LIBDIR}"
-
-        echo "#include <boost/version.hpp>" > conftest.h
-
-        dnl check for the header
-        dnl otherwise, check next path
-        AC_LINK_IFELSE(
-          AC_LANG_PROGRAM([#include "conftest.h"],[]),
-          [ HAVE_PKG_BOOST=yes; break; ])
-
-        HAVE_PKG_BOOST="no"
-        unset PKG_BOOST_INCDIR
-        unset PKG_BOOST_LIBDIR
-
-      fi
-
-    done
-
-    CPPFLAGS="$ax_pkg_old_cppflags"
-    LDFLAGS="$ax_pkg_old_ldflags"
-
-    AC_MSG_RESULT([$HAVE_PKG_BOOST])
-
-  fi
-
-  if test "${HAVE_PKG_BOOST}" = "yes" ; then
-    ax_have_pkg_bool=1
-    PKG_BOOST_CPPFLAGS="-I${PKG_BOOST_INCDIR}"
-    PKG_BOOST_LIBS="-L${PKG_BOOST_LIBDIR}"
-    OTHER_CPPFLAGS="${OTHER_CPPFLAGS} ${PKG_BOOST_CPPFLAGS}"
-    OTHER_LDFLAGS="${OTHER_LDFLAGS} ${PKG_BOOST_LIBS}"
-  else
     ax_have_pkg_bool=0
+    AC_MSG_RESULT([no])
   fi
+
   AC_DEFINE_UNQUOTED([HAVE_PKG_BOOST],
                      [$ax_have_pkg_bool],
                      [Define to 1 if the BOOST package is available.])

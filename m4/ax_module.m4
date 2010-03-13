@@ -5,6 +5,8 @@ dnl All Rights Reserved.
 dnl __END_LICENSE__
 
 
+m4_ifdef([_AX_FIXUPS], [], [m4_include([m4/fixups.m4])])
+
 # Usage: AX_MODULE(<name>, <directory>, <library>, <default>, <prerequisites>, <required dependencies>[, <optional dependencies>])
 AC_DEFUN([AX_MODULE],
 [
@@ -38,7 +40,7 @@ AC_DEFUN([AX_MODULE],
 
     HAVE_PKG_$1_SRC=yes
 
-    AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
+    m4_divert_once([INIT_PREPARE], [dnl
       # Silently ignore modules that don't exist in this distribution
       # I'm diverting the output, so i need to do this twice.
       if test -d "$srcdir/$2" ; then
@@ -46,14 +48,13 @@ AC_DEFUN([AX_MODULE],
         if test -n "$ENABLE_MODULE_$1"; then
             WANT_MODULE_$1="$ENABLE_MODULE_$1"
         fi
-
-        AC_ARG_ENABLE([module-]m4_tolower([[$1]]),
-          AC_HELP_STRING([--enable-module-]m4_tolower([[$1]]), [enable the $1 module @<:@$4@:>@]),
-          [ ENABLE_MODULE_$1=$enableval; WANT_MODULE_$1=$enableval; ],
-          [ if test x"$ENABLE_MODULE_$1" = x; then ENABLE_MODULE_$1=`/bin/echo -n $4 | tr [A-Z] [a-z]` ; fi ]
-        )
       fi
-    AC_DIVERT_POP()dnl
+
+      AC_ARG_ENABLE([module-]my_tolower([$1]),
+        AS_HELP_STRING([--enable-module-]my_tolower([$1]), [enable the $1 module @<:@$4@:>@]),
+        [ ENABLE_MODULE_$1=$enableval; WANT_MODULE_$1=$enableval; ],
+        [ if test x"$ENABLE_MODULE_$1" = x; then ENABLE_MODULE_$1=`/bin/echo -n $4 | tr [A-Z] [a-z]` ; fi ]
+      )])
 
     AC_MSG_CHECKING([whether to build module $1])
     ax_module_enable=$ENABLE_MODULE_$1
@@ -72,7 +73,7 @@ AC_DEFUN([AX_MODULE],
             PKG_$1_LIBS="$PKG_$1_LIBS `var_uniq \`get_rpath ${PKG_$1_LIBS}\``"
           fi
           MODULE_$1_LIBS="$PKG_$1_LIBS"
-          m4_ifval([$3], [PKG_$1_LIBS="$PKG_$1_LIBS \$(top_builddir)/$2/$3"])
+          m4_ifval([$3], [PKG_$1_LIBS="\$(top_builddir)/$2/$3 $PKG_$1_LIBS"])
           AC_MSG_RESULT([yes])])])
 
     AS_VAR_POPDEF([missing])

@@ -18,14 +18,34 @@ AX_ARG_ENABLE(profile,       no, [none],            [generate profiling data])
 AX_ARG_ENABLE(arch-libs,     no, [none],            [force /lib64 (=64) or /lib32 (=32) instead of /lib])
 AX_ARG_ENABLE(ccache,        no, [none],            [try to use ccache, if available])
 AX_ARG_ENABLE(multi-arch,    [], [none],            [build multi-arch (universal) binaries])
+AX_ARG_ENABLE(no-undefined,  no, [none],            [set -Wl,-no-undefined (might break linking)])
 AX_ARG_ENABLE(rpath,         no, [none],            [set RPATH/RUNPATH on generated binaries])
 AX_ARG_ENABLE(as-needed,     no, [none],            [set -Wl,-as-needed (might break linking)])
-
+AX_ARG_ENABLE(google-tcmalloc, yes, [none],            [Try to use google perftools' tcmalloc])
+AX_ARG_ENABLE(google-profiler,  no, [none],            [Try to use google perftools' cpu profiler])
 
 
 ##################################################
 # Handle options
 ##################################################
+
+if test x"$ENABLE_GOOGLE_TCMALLOC" != x"yes"; then
+  HAVE_PKG_TCMALLOC=no:disabled
+fi
+if test x"$ENABLE_GOOGLE_PROFILER" != x"yes"; then
+  HAVE_PKG_GOOGLE_PROFILER=no:disabled
+fi
+
+AX_PKG(TCMALLOC,        [], [-ltcmalloc], [google/tcmalloc.h])
+AX_PKG(GOOGLE_PROFILER, [], [-lprofiler], [google/profiler.h])
+
+if test x"$HAVE_PKG_TCMALLOC" = x"yes"; then
+  LIBS="$LIBS $PKG_TCMALLOC_LIBS"
+fi
+
+if test x"$HAVE_PKG_GOOGLE_PROFILER" = x"yes"; then
+  LIBS="$LIBS $PKG_GOOGLE_PROFILER_LIBS"
+fi
 
 # Pass apple gcc options to build a universal binary
 for arch in $ENABLE_MULTI_ARCH; do
@@ -54,7 +74,9 @@ else
 fi
 
 # These are good if they're supported
-AX_TRY_CPPFLAGS([-Wl,-no-undefined], [OTHER_LDFLAGS="$OTHER_LDFLAGS -Wl,-no-undefined"])
+if test x"$ENABLE_NO_UNDEFINED" = "xyes"; then
+    AX_TRY_CPPFLAGS([-Wl,-no-undefined], [OTHER_LDFLAGS="$OTHER_LDFLAGS -Wl,-no-undefined"])
+fi
 
 if test x"$ENABLE_AS_NEEDED" = "xyes"; then
     AX_TRY_CPPFLAGS([-Wl,-as-needed],    [OTHER_LDFLAGS="$OTHER_LDFLAGS -Wl,-as-needed"])
@@ -62,9 +84,9 @@ fi
 
 # Debugging
 case "$ENABLE_DEBUG" in
-    yes|1) AX_CFLAGS="$AX_CFLAGS -g -DDEBUG -Wall" ;;
-    2)     AX_CFLAGS="$AX_CFLAGS -g -DDEBUG -D_GLIBCXX_DEBUG -Wall" ;;
-    no)    AX_CFLAGS="$AX_CFLAGS -DNDEBUG -Wall" ;;
+    yes|1) AX_CFLAGS="$AX_CFLAGS -g -DDEBUG" ;;
+    2)     AX_CFLAGS="$AX_CFLAGS -g -DDEBUG -D_GLIBCXX_DEBUG" ;;
+    no)    AX_CFLAGS="$AX_CFLAGS -DNDEBUG" ;;
     ignore) ;;
     *)     AC_MSG_ERROR([Unknown debug option: "$ENABLE_DEBUG"]) ;;
 esac
@@ -73,8 +95,6 @@ esac
 case "$ENABLE_OPTIMIZE" in
     yes)     AX_CFLAGS="$AX_CFLAGS -O3" ;;
     3|2|1)   AX_CFLAGS="$AX_CFLAGS -O$ENABLE_OPTIMIZE" ;;
-    coreduo) AX_CFLAGS="$AX_CFLAGS -O4 -march=prescott -mtune=prescott -funroll-loops -msse -msse2 -msse3 -mfpmath=sse -ftree-vectorize" ;;
-    sse3)    AX_CFLAGS="$AX_CFLAGS -O4 -funroll-loops -msse -msse2 -msse3 -mfpmath=sse -ftree-vectorize" ;;
     no|0)    AC_MSG_WARN([*** The Vision Workbench may not work properly with optimization disabled! ***])
              AX_CFLAGS="$AX_CFLAGS -O0" ;;
     ignore)  ;;
@@ -85,8 +105,13 @@ if test x"$ENABLE_PROFILE" = "xyes"; then
     AX_TRY_CPPFLAGS([-pg], [AX_CFLAGS="$AX_CFLAGS -pg"], [AC_MSG_ERROR([Cannot enable profiling: compiler doesn't seem to support it])])
 fi
 
-CFLAGS="$AX_CFLAGS $CFLAGS"
-CXXFLAGS="$AX_CFLAGS $CXXFLAGS"
+AX_TRY_CPPFLAGS([-Wno-missing-field-initializers], [
+  CFLAGS="-Wno-missing-field-initializers $CFLAGS "
+  CXXFLAGS="-Wno-missing-field-initializers $CXXFLAGS"
+])
+
+CFLAGS="-Wall -Wextra -Wno-unused-parameter $AX_CFLAGS $CFLAGS"
+CXXFLAGS="-Wall -Wextra -Wno-unused-parameter $AX_CFLAGS $CXXFLAGS"
 
 # These need to be here because automake-1.6 is dumb and does not properly
 # process AM_CONDITIONALs unless the first argument is a simple string.

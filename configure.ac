@@ -1,8 +1,9 @@
 dnl __BEGIN_LICENSE__
-dnl Copyright (C) 2006, 2007 United States Government as represented by
+dnl Copyright (C) 2009-2010 United States Government as represented by
 dnl the Administrator of the National Aeronautics and Space Administration.
 dnl All Rights Reserved.
 dnl __END_LICENSE__
+
 
 m4_pattern_forbid([^AX_])
 m4_pattern_allow([^AX_CFLAGS$])
@@ -17,18 +18,22 @@ m4_pattern_allow([^PKG_PATHS_[A-Z_]+$])
 m4_pattern_allow([^PKG_BOOST_INCDIR$])
 m4_pattern_allow([^PKG_BOOST_LIBDIR$])
 m4_pattern_allow([^PKG_VW_LIBS_TEMP$])
+m4_pattern_allow([^PKG_ARBITRARY_QT_NEEDED_HEADERS$])
 
 ##################################################
 # A few starting bits
 ##################################################
 
+AC_PREREQ([2.59])
 dnl TODO BEFORE RELEASE: update package version
 AC_INIT([NASA Ames Stereo Pipeline], [1.0.1_pre], [asp@nx.arc.nasa.gov], [StereoPipeline])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
-AM_INIT_AUTOMAKE([nostdinc])
+AM_INIT_AUTOMAKE([nostdinc 1.8.5])
 AX_CONFIG_HEADER_PREFIX([src/asp/asp_config.h], [ASP_])
+
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 dnl TODO RIGHT BEFORE RELEASE: update libtool version
 dnl if abi changes in any way:
@@ -43,23 +48,18 @@ dnl     revision++
 dnl (see http://sources.redhat.com/autobook/autobook/autobook_91.html)
 dnl
 dnl LIBTOOL_VERSION=current:revision:age
-LIBTOOL_VERSION=2:0:0
+LIBTOOL_VERSION=4:0:0
 AC_SUBST(LIBTOOL_VERSION)
 
+m4_divert_text([INIT_PREPARE], [dnl
 # load the config.options
 if test -f ./config.options; then
   AX_LOG([using config.options << EOF])
   AX_LOG([`cat ./config.options`])
   AX_LOG([EOF])
-  source ./config.options
+  . ./config.options
 fi
-
-dnl Process all the --with and --enable options here, so the variables are
-dnl available later
-m4_define(AX_DIVERSION_PROCESS_OPTIONS, 42)
-m4_undivert(AX_DIVERSION_PROCESS_OPTIONS)
-
-
+])
 
 ##################################################
 # Find the necessary programs
@@ -71,6 +71,9 @@ m4_undivert(AX_DIVERSION_PROCESS_OPTIONS)
 CFLAGS="$CFLAGS"
 CXXFLAGS="$CXXFLAGS"
 
+# Disable static libraries by default
+AM_DISABLE_STATIC
+
 # Find the tools
 AC_PROG_CC
 AC_PROG_CXX
@@ -81,6 +84,13 @@ AC_PROG_MAKE_SET
 AC_LANG(C++)
 AX_COMMON_OPTIONS
 
+# Does the compiler support noreturn?
+AX_CHECK_FUNCTION_ATTRIBUTE([noreturn])
+AX_CHECK_FUNCTION_ATTRIBUTE([deprecated])
+
+# Looking for posix headers
+AC_CHECK_HEADERS([unistd.h pwd.h])
+AC_CHECK_FUNCS([getpwuid getpid])
 
 ##################################################
 # Compilation options
@@ -111,20 +121,32 @@ AX_PKG_PTHREADS
 
 AX_PKG(OPEN_MPI, [], [-D_REENTRANT  -Wl,-u,_munmap -Wl,-multiply_defined,suppress -lmpi_cxx -lmpi -lopen-rte -lopen-pal -lutil], [mpi.h])
 
-AX_PKG_BOOST
-if test x"$HAVE_PKG_BOOST" == "xyes"; then
-  AX_PKG_BOOST_CHECK_VERSION([ASP_])
-  AC_MSG_NOTICE([Stereo will be built using Boost version $BOOST_VERSION])
+AX_PKG_BOOST([BOOST_PROGRAM_OPTIONS BOOST_SYSTEM BOOST_FILESYSTEM BOOST_THREAD BOOST_GRAPH],
+  BOOST_PROGRAM_OPTIONS,
+    [AX_PKG_BOOST_LIB(PROGRAM_OPTIONS, [-lboost_program_options], [boost/program_options.hpp], [boost::program_options::options_description("Rawr");])],
+  BOOST_SYSTEM,
+    [AX_PKG_BOOST_LIB(SYSTEM,          [-lboost_system],          [boost/system/error_code.hpp], [boost::system::error_code();])],
+  BOOST_FILESYSTEM,
+    [AX_PKG_BOOST_LIB(FILESYSTEM,      [-lboost_filesystem],      [boost/filesystem/path.hpp], [boost::filesystem::path();], [$PKG_BOOST_SYSTEM_LIBS])],
+  BOOST_REGEX,
+    [AX_PKG_BOOST_LIB(REGEX,           [-lboost_regex],           [boost/regex.hpp], [boost::regex(".*");])],
+  BOOST_DATETIME,
+    [AX_PKG_BOOST_LIB(DATETIME,        [-lboost_date_time],       [boost/date_time/gregorian/gregorian_types.hpp])],
+  BOOST_THREAD,
+    [AX_PKG_BOOST_LIB(THREAD,          [-lboost_thread],          [boost/thread/thread.hpp], [boost::mutex();], [$PKG_BOOST_DATETIME_LIBS], [boost/thread/condition.hpp])],
+  BOOST_IOSTREAMS,
+    [AX_PKG_BOOST_LIB(IOSTREAMS,       [-lboost_iostreams],       [boost/iostreams/device/mapped_file.hpp], [boost::iostreams::mapped_file_source();])],
+  BOOST_GRAPH,
+    [AX_PKG_BOOST_LIB(GRAPH,           [],                        [boost/graph/adjacency_list.hpp])],
+  BOOST_MPI,
+    [AX_PKG_BOOST_LIB(MPI,             [-lboost_mpi],             [boost/mpi.hpp], [], [$PKG_OPEN_MPI_LIBS])],
+  BOOST_SERIALIZATION,
+    [AX_PKG_BOOST_LIB(SERIALIZATION,   [-lboost_serialization],   [boost/serialization/string.hpp], [], [$PKG_OPEN_MPI_LIBS $PKG_BOOST_MPI_LIBS])]
+)
 
-  AX_PKG_BOOST_LIB(PROGRAM_OPTIONS, [-lboost_program_options], [boost/program_options.hpp])
-  AX_PKG_BOOST_LIB(SYSTEM,          [-lboost_system],          [boost/system/error_code.hpp])
-  AX_PKG_BOOST_LIB(FILESYSTEM,      [-lboost_filesystem],      [boost/filesystem/path.hpp], [$PKG_BOOST_SYSTEM_LIBS])
-  AX_PKG_BOOST_LIB(DATETIME,        [-lboost_date_time],       [boost/date_time/gregorian/gregorian_types.hpp])
-  AX_PKG_BOOST_LIB(THREAD,          [-lboost_thread],          [boost/thread/thread.hpp],   [$PKG_BOOST_DATETIME_LIBS], [boost/thread/condition.hpp])
-  AX_PKG_BOOST_LIB(IOSTREAMS,       [-lboost_iostreams],       [boost/iostreams/stream_buffer.hpp])
-  AX_PKG_BOOST_LIB(GRAPH,           [],                        [boost/graph/adjacency_list.hpp])
-  AX_PKG_BOOST_LIB(MPI,             [-lboost_mpi],             [boost/mpi.hpp], [$PKG_OPEN_MPI_LIBS])
-  AX_PKG_BOOST_LIB(SERIALIZATION,   [-lboost_serialization],   [boost/serialization/string.hpp], [$PKG_OPEN_MPI_LIBS $PKG_BOOST_MPI_LIBS])
+if test x"$HAVE_PKG_BOOST" = "xyes"; then
+  AX_PKG_BOOST_CHECK_VERSION([VW_])
+  AC_MSG_NOTICE([Using Boost header version $BOOST_VERSION, library suffix $PKG_BOOST_SAME_SUFFIX])
 fi
 
 # This provides an easy way for users to override the threads options
@@ -175,7 +197,7 @@ AX_PKG_ONE_OF(GL,
     [AX_PKG_APPLE([GL], [], [-framework OpenGL -framework GLUT -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib])],
   LINUX_GL,
     [AX_PKG(X11, [], [-lXext -lX11 -lXmu -lXi -lXt], [])
-     AX_PKG(LINUX_GL, [X11], [-lGL -lGLU -lglut], [GL/gl.h GL/glu.h GL/glut.h], [])])
+     AX_PKG(LINUX_GL, [X11], [-lglut -lGLU -lGL], [GL/gl.h GL/glu.h GL/glut.h], [], [], [glCreateShader])])
 
 AX_PKG(OPENSCENEGRAPH, [GL], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
 
@@ -189,7 +211,7 @@ if test "$ENABLE_QT_QMAKE" = no; then
   AX_GROUP_PKG([QT_QMAKE])
 else
   # Qt with AutoTroll.
-  AT_WITH_QT([+gui +sql +opengl], [], [], [HAVE_PKG_QT_QMAKE="no:missing QT"], [])
+  AT_WITH_QT([+gui +sql +opengl +network], [], [], [HAVE_PKG_QT_QMAKE="no:missing QT"], [])
 
   if test x"$HAVE_PKG_QT_QMAKE" != x"no:missing QT"; then
       AT_REQUIRE_QT_VERSION([4.0], [HAVE_PKG_QT_QMAKE="no:wrong QT version"], [])
@@ -214,18 +236,20 @@ AX_PKG_ONE_OF(QT,
       AX_PKG(ARBITRARY_QT, [], [-lQtCore], [$PKG_ARBITRARY_QT_NEEDED_HEADERS])],
     APPLE_QMAKE_QT, [AX_PKG_APPLE(QMAKE_QT, [GL QT_QMAKE], [])],
     LINUX_QMAKE_QT,
-     [AX_PKG(QT_QMAKE_OPENGL, [QT_QMAKE], [], [QtOpenGL])
-      AX_PKG(QT_QMAKE_GUI,    [QT_QMAKE], [], [QLabel])
-      AX_PKG(QT_QMAKE_SQL,    [QT_QMAKE], [], [QtSql])
-      AX_GROUP_PKG(LINUX_QMAKE_QT, [QT_QMAKE QT_QMAKE_GUI QT_QMAKE_OPENGL QT_QMAKE_SQL])],
+     [AX_PKG(QT_QMAKE_OPENGL,  [QT_QMAKE], [], [QtOpenGL])
+      AX_PKG(QT_QMAKE_GUI,     [QT_QMAKE], [], [QLabel])
+      AX_PKG(QT_QMAKE_SQL,     [QT_QMAKE], [], [QtSql])
+      AX_PKG(QT_QMAKE_NETWORK, [QT_QMAKE], [], [QtNetwork])
+      AX_GROUP_PKG(LINUX_QMAKE_QT, [QT_QMAKE QT_QMAKE_GUI QT_QMAKE_OPENGL QT_QMAKE_SQL QT_QMAKE_NETWORK])],
     GUESS_QT,
      [PKG_QT_GUESS_BASE_CPPFLAGS="$PKG_QT_GUESS_BASE_CPPFLAGS -DQT_SHARED"
       AX_PKG(QT_GUESS_BASE,   [],                           [],           [QtCore/qstring.h])
       AX_PKG(QT_GUESS_CORE,   [QT_GUESS_BASE],              [-lQtCore],   [QtCore],   [QtCore])
       AX_PKG(QT_GUESS_GUI,    [QT_GUESS_CORE],              [-lQtGui],    [QtGui],    [QtGui])
       AX_PKG(QT_GUESS_SQL,    [QT_GUESS_CORE],              [-lQtSql],    [QtSql],    [QtSql])
+      AX_PKG(QT_GUESS_NETWORK,[QT_GUESS_CORE],              [-lQtNetwork],[QtNetwork],[QtNetwork])
       AX_PKG(QT_GUESS_OPENGL, [QT_GUESS_CORE QT_GUESS_GUI], [-lQtOpenGL], [QtOpenGL], [QtOpenGL])
-      AX_GROUP_PKG(GUESS_QT,  [QT_GUESS_BASE QT_GUESS_CORE QT_GUESS_GUI QT_GUESS_SQL QT_GUESS_OPENGL])])
+      AX_GROUP_PKG(GUESS_QT,  [QT_GUESS_BASE QT_GUESS_CORE QT_GUESS_GUI QT_GUESS_SQL QT_GUESS_NETWORK QT_GUESS_OPENGL])])
 
 AX_PKG_ONE_OF(QWT,
     APPLE_QWT, [AX_PKG_APPLE(QWT, [QT], [-lqwt.5])],
@@ -365,7 +389,7 @@ AC_CONFIG_FILES([                       \
   src/asp/Sessions/Pinhole/Makefile     \
   src/asp/Sessions/RMAX/Makefile        \
   src/asp/MPI/Makefile                  \
-  src/asp/Tools/Makefile
+  src/asp/Tools/Makefile                \
 ])
 
 AC_OUTPUT

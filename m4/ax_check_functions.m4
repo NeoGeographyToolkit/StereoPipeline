@@ -1,5 +1,5 @@
 dnl __BEGIN_LICENSE__
-dnl Copyright (C) 2006-2009 United States Government as represented by
+dnl Copyright (C) 2006-2010 United States Government as represented by
 dnl the Administrator of the National Aeronautics and Space Administration.
 dnl All Rights Reserved.
 dnl __END_LICENSE__
@@ -40,7 +40,7 @@ AC_DEFUN([AX_CHECK_FUNCTIONS],
   done
 
   m4_ifval([$3], [
-      if test x"$check_function_missing_libs" == x"no"; then
+      if test x"$check_function_missing_libs" = x"no"; then
         $3
       fi
   ])

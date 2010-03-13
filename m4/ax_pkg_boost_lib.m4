@@ -1,9 +1,13 @@
 dnl __BEGIN_LICENSE__
-dnl Copyright (C) 2006-2009 United States Government as represented by
+dnl Copyright (C) 2006-2010 United States Government as represented by
 dnl the Administrator of the National Aeronautics and Space Administration.
 dnl All Rights Reserved.
 dnl __END_LICENSE__
 
+
+m4_ifdef([_AX_FIXUPS], [], [m4_include([m4/fixups.m4])])
+
+m4_pattern_allow([^PKG_BOOST_SAME_SUFFIX])
 
 dnl Here's a new version of AX_PKG_BOOST_LIB designed to find the
 dnl multithreaded boost libraries and boost libraries that are just weirdly
@@ -19,7 +23,7 @@ dnl Boost with the string in said variable somewhere inside the Boost
 dnl library names, but after the initial name of the library (specified
 dnl as the second parameter to this function). A blank value will give
 dnl normal behavior.
-# Usage: AX_PKG_BOOST_LIB(<name>, <libraries>, <header>, [<ldflags>, <other-headers>])
+# Usage: AX_PKG_BOOST_LIB(<name>, <libraries>, <header>, <function>[, <dep-libs>, <other-headers>])
 AC_DEFUN([AX_PKG_BOOST_LIB],
 [
   AC_MSG_CHECKING(for package BOOST_$1)
@@ -31,72 +35,92 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
 
     HAVE_PKG_BOOST_$1=no
 
+    module=no eval BOOST_LIB_SUFFIX=$shrext_cmds
+
     # Check for general Boost presence
-    if test "x${HAVE_PKG_BOOST}" = "xyes" ; then
-      # Check for required headers
-      AX_FIND_FILES([$3],[${PKG_BOOST_INCDIR}])
-      if test ! -z "$ax_find_files_path" ; then
-        # Check for required libraries with no suffix, aside from the one
-        # given by environment variable.
-        AX_FIND_FILES([`echo $2 | sed "s/-l\([[^[:space:]]]*\)/lib\1${BOOST_LIBRARIES_SUFFIX}.*/g"`],[$PKG_BOOST_LIBDIR])
-        if test ! -z "$ax_find_files_path" ; then
-          HAVE_PKG_BOOST_$1="yes"
-          ax_pkg_boost_lib=`echo $2 | sed "s/\(-l[[^[:space:]]]*\)/\1${BOOST_LIBRARIES_SUFFIX}/g"`
-          PKG_BOOST_$1_LIBS="$PKG_BOOST_LIBS $ax_pkg_boost_lib $4"
+    if test -n "$PKG_BOOST_INCDIR" -a -n "$PKG_BOOST_LIBDIR"; then
+
+    m4_ifval([$2], [
+        boost_name="$2"
+        boost_name="${boost_name#-l}"
+        # The SAME_SUFFIX macro is sticky from the previously-searched-for boost lib.
+        # They should all have the same suffix.
+        if test -n "${PKG_BOOST_SAME_SUFFIX}"; then
+          AX_LOG([Reusing suffix ${PKG_BOOST_SAME_SUFFIX}])
+          libglob="${PKG_BOOST_LIBDIR}/lib${boost_name}${PKG_BOOST_SAME_SUFFIX}"
+          boost_want_suffix=
         else
-          # Check for required libraries with some suffix. We have to check
-          # for both a suffix before ${BOOST_LIBRARIES_SUFFIX} (pre-suffix)
-          # and a suffix after (for example) the -mt (post-suffix), because
-          # boost likes to stick the name of the compiler before the -mt.
-          # Extremely annoying.
-
-          ax_pkg_boost_lib=`echo $2 | awk '{print [$]1}' | sed 's/-l\([[^[:space:]-]]*\).*/lib\1/g'`
-          ax_pkg_boost_file=`ls ${PKG_BOOST_LIBDIR}/${ax_pkg_boost_lib}-*${BOOST_LIBRARIES_SUFFIX}${BOOST_LIBRARIES_SUFFIX:+*} | head -n 1 | sed "s,^${PKG_BOOST_LIBDIR}/\(.*\),\1,"`
-
-          # The pre-suffix.
-          ax_pkg_boost_presuffix=`echo ${ax_pkg_boost_file} | sed "s/${ax_pkg_boost_lib}\([[^.]]*\)${BOOST_LIBRARIES_SUFFIX}.*/\1/"`
-
-          # The post-suffix.
-          ax_pkg_boost_postsuffix=`echo ${ax_pkg_boost_file} | sed "s/${ax_pkg_boost_lib}${ax_pkg_boost_presuffix}${BOOST_LIBRARIES_SUFFIX}\([[^.]]*\).*/\1/"`
-
-          AX_FIND_FILES([`echo $2 | sed "s/-l\([[^[:space:]]]*\)/lib\1${ax_pkg_boost_presuffix}${BOOST_LIBRARIES_SUFFIX}${ax_pkg_boost_postsuffix}.*/g"`],[$PKG_BOOST_LIBDIR])
-          if test ! -z $ax_find_files_path ; then
-            HAVE_PKG_BOOST_$1="yes"
-            PKG_BOOST_$1_LIBS=`echo $2 | sed "s/[[^ ]]*/&${ax_pkg_boost_presuffix}${BOOST_LIBRARIES_SUFFIX}${ax_pkg_boost_postsuffx}/g"`
-            PKG_BOOST_$1_LIBS="$PKG_BOOST_LIBS $PKG_BOOST_$1_LIBS $4"
+          AX_LOG([No known suffix. Figuring one out.])
+          libglob="${PKG_BOOST_LIBDIR}/lib${boost_name}*${BOOST_LIB_SUFFIX:-.so}*"
+          # If they ask for a suffix, look for it first
+          if test -n "${BOOST_LIBRARIES_SUFFIX}"; then
+            boost_want_suffix="${PKG_BOOST_LIBDIR}/lib${boost_name}${BOOST_LIBRARIES_SUFFIX}${BOOST_LIB_SUFFIX:-.so}*"
+          else
+            boost_want_suffix=
           fi
         fi
-      fi
-    fi
-  fi
+      ])
 
-  # Check to make sure we found a working one
-  ax_pkg_old_cppflags="$CPPFLAGS"
-  ax_pkg_old_libs="$LIBS"
+      ax_pkg_old_cppflags="$CPPFLAGS"
+      ax_pkg_old_libs="$LIBS"
 
-  echo > conftest.h
-  for header in $5 ; do
-    echo "#include <$header>" >> conftest.h
-  done
-  for header in $3 ; do
-    echo "#include <$header>" >> conftest.h
-  done
+      m4_ifval([$2], [
+        dnl first try the requested suffix, then try in descending filename
+        dnl length, descending asciibetically.  For boost, longer filenames
+        dnl mean they probably have more information (maybe version?). In this
+        dnl scheme, we prefer longer filenames to shorter ones, and greater
+        dnl version numbers to lesser ones.
+        for boost_libpath in $boost_want_suffix `for i in ${libglob}; do echo "${#i} $i"; done | sort -nr | cut -d ' ' -f 2`; do
+      ], [
+        for boost_libpath in boost_header_only; do
+      ])
 
-  CPPFLAGS="$CPPFLAGS $PKG_BOOST_CPPFLAGS"
-  LIBS="$LIBS $PKG_BOOST_$1_LIBS"
+        AX_LOG([Checking to see if $boost_libpath works])
+        m4_ifval([$2], [
+          dnl If the glob doesn't expand, we'll get the same path back. Check for that.
+          AS_IF([test ! -f ${boost_libpath}], [continue])
+          dnl for libboost_library_name-blah-pants.so.4.3.5
+          dnl    stem is libboost_library_name-blah-pants
+          boost_lib_stem="`basename ${boost_libpath%${BOOST_LIB_SUFFIX:-.so}*}`"
+          dnl post is .so.4.3.5
+          boost_lib_post="${boost_libpath#*${boost_lib_stem}}"
+          dnl and suffix is -blah-pants.so.4.3.5
+          PKG_BOOST_SAME_SUFFIX="${boost_lib_stem#lib${boost_name}}${boost_lib_post}"
+          PKG_BOOST_$1_LIBS="-L${PKG_BOOST_LIBDIR} -l${boost_lib_stem#lib} $5"
 
-  AC_LINK_IFELSE(
-    AC_LANG_PROGRAM([#include "conftest.h"],[]),
-    [ HAVE_PKG_BOOST_$1=yes ], [ HAVE_PKG_BOOST_$1=no ] )
+          if test ! -z "${PKG_BOOST_$1_MORE_LIBS}"; then
+            AX_LOG([APPEND: BOOST_]$1[ libs ($PKG_BOOST_]$1[_LIBS) with $PKG_BOOST_]$1[_MORE_LIBS])
+            PKG_BOOST_$1_LIBS="$PKG_BOOST_$1_LIBS $PKG_BOOST_$1_MORE_LIBS"
+          fi
 
-  CPPFLAGS="$ax_pkg_old_cppflags"
-  LIBS="$ax_pkg_old_libs"
+          AX_LOG([Using suffix ${PKG_BOOST_SAME_SUFFIX}])
+        ])
+
+        PKG_BOOST_$1_CPPFLAGS="-I${PKG_BOOST_INCDIR}"
+
+        # Check to make sure we found a working one
+        CPPFLAGS="$ax_pkg_old_cppflags $PKG_BOOST_$1_CPPFLAGS"
+        LIBS="$ax_pkg_old_libs $PKG_BOOST_$1_LIBS"
+
+        AC_LINK_IFELSE(
+          AC_LANG_PROGRAM(m4_foreach_w([header], [$6 $3], [@%:@include <header>
+]), [[$4]]), [ HAVE_PKG_BOOST_$1=yes; break; ], [ continue ] )
+      done
+
+      CPPFLAGS="$ax_pkg_old_cppflags"
+      LIBS="$ax_pkg_old_libs"
+
+    fi # PKG_BOOST_INCDIR/LIBDIR set.
+  fi # User override
 
   AC_MSG_RESULT([$HAVE_PKG_BOOST_]$1)
 
   if test "${HAVE_PKG_BOOST_$1}" = "yes" ; then
     ax_have_pkg_bool=1
   else
+    PKG_BOOST_SAME_SUFFIX=
+    PKG_BOOST_$1_CPPFLAGS=
+    PKG_BOOST_$1_LIBS=
     ax_have_pkg_bool=0
   fi
   AC_DEFINE_UNQUOTED([HAVE_PKG_BOOST_$1],

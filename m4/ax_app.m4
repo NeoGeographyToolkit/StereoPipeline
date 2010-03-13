@@ -38,7 +38,7 @@ AC_DEFUN([AX_APP],
 
     HAVE_PKG_$1_SRC=yes
 
-    AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
+    m4_divert_once([INIT_PREPARE], [dnl
       # Silently ignore apps that don't exist in this distribution
       # I'm diverting the output, so i need to do this twice.
       if test -d "$srcdir/$2" ; then
@@ -46,14 +46,13 @@ AC_DEFUN([AX_APP],
         if test -n "$ENABLE_APP_$1"; then
             WANT_APP_$1="$ENABLE_APP_$1"
         fi
-
-        AC_ARG_ENABLE([app-]m4_tolower([[$1]]),
-          AC_HELP_STRING([--enable-app-]m4_tolower([[$1]]), [enable the $1 app @<:@$3@:>@]),
-          [ ENABLE_APP_$1=$enableval; WANT_APP_$1=$enableval; ],
-          [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`/bin/echo -n $3 | tr [A-Z] [a-z]` ; fi ]
-        )
       fi
-    AC_DIVERT_POP()dnl
+
+      AC_ARG_ENABLE([app-]my_tolower([$1]),
+        AS_HELP_STRING([--enable-app-]my_tolower([$1]), [enable the $1 app @<:@$3@:>@]),
+        [ ENABLE_APP_$1=$enableval; WANT_APP_$1=$enableval; ],
+        [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`/bin/echo -n $3 | tr [A-Z] [a-z]` ; fi ]
+      )])
 
 
     AC_MSG_CHECKING([whether to build app $1])

@@ -1,32 +1,33 @@
 dnl __BEGIN_LICENSE__
-dnl Copyright (C) 2006-2009 United States Government as represented by
+dnl Copyright (C) 2006-2010 United States Government as represented by
 dnl the Administrator of the National Aeronautics and Space Administration.
 dnl All Rights Reserved.
 dnl __END_LICENSE__
 
 
+m4_ifdef([_AX_FIXUPS], [], [m4_include([m4/fixups.m4])])
+
 dnl Usage: AX_PKG_APPLE(<name>, <dependencies>, <ldflags>)
 dnl This is an AX_PKG for apple-specific packages.
 AC_DEFUN([AX_PKG_APPLE],
 [
-  AS_VAR_PUSHDEF([pkg], [APPLE_]m4_toupper([[$1]]))
+  AS_VAR_PUSHDEF([pkg], [APPLE_]my_toupper([$1]))
   AS_VAR_PUSHDEF([have_pkg], [HAVE_PKG_]pkg)
   AS_VAR_PUSHDEF([pkg_c], [PKG_]pkg[_CPPFLAGS])
   AS_VAR_PUSHDEF([pkg_l], [PKG_]pkg[_LIBS])
   AS_VAR_PUSHDEF([bool], [ax_pkg_apple_have_pkg_bool])
 
-  AC_DIVERT_PUSH(AX_DIVERSION_PROCESS_OPTIONS)dnl
-  AC_ARG_WITH(m4_tolower(pkg),
-    AC_HELP_STRING([--with-]m4_tolower(pkg), [enable searching for the pkg package @<:@auto@:>@]),
+  m4_divert_once([INIT_PREPARE], [dnl
+  AC_ARG_WITH([apple_]my_tolower([$1]),
+    AS_HELP_STRING([--with-apple_]my_tolower([$1]), [look for the APPLE_$1 package]),
     [ HAVE_PKG_pkg=$withval ]
-  )
-  AC_DIVERT_POP()dnl
+  )])
 
   AC_MSG_CHECKING(for package pkg)
 
   AS_IF([test x"$host_vendor" != "xapple"], [ bool=0; AC_MSG_RESULT([no]) ],
    [AS_VAR_PUSHDEF([missing], [ax_pkg_apple_missing_deps])
-    AX_LOAD_DEPS(pkg, m4_toupper([[$2]]), missing)
+    AX_LOAD_DEPS(pkg, my_toupper([$2]), missing)
 
     pkg_l="$pkg_l $3"
 
