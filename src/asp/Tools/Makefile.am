@@ -107,6 +107,12 @@ if MAKE_APP_DEMPROFILE
   dem_profile_LDADD = $(APP_DEMPROFILE_LIBS)
 endif
 
+if MAKE_APP_PLATEORTHOPROJECT
+  bin_PROGRAMS += plateorthoproject
+  plateorthoproject_SOURCES = plateorthoproject.cc
+  plateorthoproject_LDADD = $(APP_PLATEORTHOPROJECT_LIBS)
+endif
+
 ##############################################################################
 #                             Tests                                          #
 ##############################################################################
