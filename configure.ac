@@ -180,17 +180,19 @@ AX_PKG_ONE_OF(LAPACK,
      AX_PKG(STANDALONE_FLAPACK, [STANDALONE_FBLAS STANDALONE_F2C], [-llapack], [], [], [], [dgelss_])
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
-AX_PKG(VW_CORE, [BOOST BOOST_THREAD BOOST_PROGRAM_OPTIONS BOOST_FILESYSTEM LAPACK], [-lvwCore], [vw/Core/Log.h] )
-AX_PKG(VW_MATH, [VW_CORE], [-lvwMath], [vw/Math/LinearAlgebra.h])
-AX_PKG(VW_IMAGE,  [VW_CORE], [-lvwImage], [vw/Image/ImageView.h])
-AX_PKG(VW_FILEIO, [VW_IMAGE], [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
-AX_PKG(VW_PLATE, [VW_FILEIO], [-lvwPlate], [vw/Plate/PlateFile.h])
-AX_GROUP_PKG(VW, [VW_CORE VW_MATH VW_IMAGE VW_FILEIO])
+# Vision Workbench Core
+AX_PKG(VW_CORE,  [BOOST_THREAD BOOST LAPACK], [-lvwCore],   [vw/Core/Log.h] )
+AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h])
+AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
+AX_PKG(VW_FILEIO,[VW_IMAGE BOOST_SYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
+AX_GROUP_PKG(VW, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
 
-AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],      [vw/Camera/CAHVModel.h])
-AX_PKG(VW_STEREO,         [VW VW_CAMERA],       [-lvwStereo],      [vw/Stereo/OptimizedCorrelator.h])
-AX_PKG(VW_CARTOGRAPHY,    [VW VW_CAMERA],       [-lvwCartography], [vw/Cartography/GeoReference.h])
-AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint])
+# Vision Workbench Secondaries
+AX_PKG(VW_PLATE,          [VW_FILEIO],          [-lvwPlate],        [vw/Plate/PlateFile.h])
+AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
+AX_PKG(VW_STEREO,         [VW_CAMERA VW],       [-lvwStereo],       [vw/Stereo/OptimizedCorrelator.h])
+AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA VW],       [-lvwCartography],  [vw/Cartography/GeoReference.h])
+AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint],[vw/InterestPoint/InterestData.h])
 
 AX_PKG_ONE_OF(GL,
   APPLE_GL,
@@ -276,11 +278,7 @@ dnl dependent 3rd party libraries depend on (for whatever reason).
 dnl Thus, we link against LAPACK here because it defines these missing
 dnl BLAS symbols in the event that we need them.
 AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
-AX_PKG(ISIS, [QT ISIS3RDPARTY], [-lisis3], [SpecialPixel.h])
-
-# Additional Google PerfTools
-AX_PKG(TCMALLOC, [], [-ltcmalloc], [])
-AX_PKG(PROFILER, [], [-lprofiler], [])
+AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
 
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -292,33 +290,32 @@ AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"
 # module definitions
 ##################################################
 
-AX_GROUP_PKG(BOOST_COMMON, [BOOST BOOST_PROGRAM_OPTIONS])
-AX_GROUP_PKG(BOOST_ALL,    [BOOST_COMMON BOOST_FILESYSTEM BOOST_SYSTEM BOOST_DATETIME BOOST_THREAD BOOST_IOSTREAMS])
-AX_GROUP_PKG(VW_ALL,       [VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_POINT VW])
+AX_GROUP_PKG(BOOST_MOST, [BOOST_DATETIME BOOST_IOSTREAMS BOOST])
+AX_GROUP_PKG(VW_ALL,     [VW_CARTOGRAPHY VW_STEREO VW_CAMERA VW_INTEREST_POINT VW])
 
-AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL BOOST_COMMON BOOST_FILESYSTEM BOOST_SYSTEM BOOST_THREAD], [LAPACK TCMALLOC PROFILER])
-AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST SPICE], [TCMALLOC PROFILER] )
-AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CAMERA VW_CARTOGRAPHY BOOST], [TCMALLOC PROFILER] )
-AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [], [SPICEIO ISISIO TCMALLOC PROFILER])
-AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [CORE ISISIO], [OPEN_MPI BOOST_MPI BOOST_SERIALIZATION VW_ALL])
+AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL BOOST_MOST], [LAPACK])
+AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_MOST SPICE])
+AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
+AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [], [ISISIO SPICEIO])
+AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
 
-AX_APP(STEREO,         [src/asp/Tools], yes, [SESSIONS], [TCMALLOC PROFILER])
-AX_APP(ORTHOPROJECT,   [src/asp/Tools], yes, [SESSIONS], [TCMALLOC PROFILER])
-AX_APP(BUNDLEADJUST,   [src/asp/Tools], no,  [SESSIONS], [TCMALLOC PROFILER])
-AX_APP(ORBITVIZ,       [src/asp/Tools], yes, [SESSIONS], [TCMALLOC PROFILER])
-AX_APP(DISPARITYDEBUG, [src/asp/Tools], yes, [VW_STEREO VW BOOST_COMMON], [TCMALLOC PROFILER])
-AX_APP(POINT2MESH,     [src/asp/Tools], yes, [OPENSCENEGRAPH VW BOOST_COMMON], [TCMALLOC PROFILER])
-AX_APP(POINT2DEM,      [src/asp/Tools], yes, [CORE], [TCMALLOC PROFILER])
-AX_APP(RMAX2CAHVOR,    [src/asp/Tools], no,  [SESSIONS], [TCMALLOC PROFILER])
-AX_APP(RMAXADJUST,     [src/asp/Tools], no,  [SESSIONS], [TCMALLOC PROFILER])
-AX_APP(BUNDLEVIS,      [src/asp/Tools], no,  [OPENSCENEGRAPH VW_CAMERA VW BOOST_COMMON], [TCMALLOC PROFILER])
-AX_APP(ISISADJUST,     [src/asp/Tools], yes, [ISISIO CORE], [TCMALLOC PROFILER])
-AX_APP(RESULTS,        [src/asp/Tools], yes, [ISISIO], [TCMALLOC PROFILER])
-AX_APP(RECONSTRUCT,    [src/asp/Tools], no,  [VW_CARTOGRAPHY VW BOOST_ALL], [TCMALLOC PROFILER])
-AX_APP(ALIGNDEM,       [src/asp/Tools], yes, [VW_CARTOGRAPHY VW_INTEREST_POINT VW BOOST_COMMON], [TCMALLOC PROFILER])
-AX_APP(GEODIFF,        [src/asp/Tools], yes, [ISISIO VW BOOST_COMMON], [TCMALLOC PROFILER])
-AX_APP(DEMPROFILE,     [src/asp/Tools], yes, [VW_CARTOGRAPHY VW BOOST_COMMON], [TCMALLOC PROFILER])
-AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no, [SESSIONS ISISIO VW_PLATE], [TCMALLOC PROFILER])
+AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
+AX_APP(ORTHOPROJECT,     [src/asp/Tools], yes, [SESSIONS])
+AX_APP(BUNDLEADJUST,     [src/asp/Tools], no,  [SESSIONS])
+AX_APP(ORBITVIZ,         [src/asp/Tools], yes, [SESSIONS])
+AX_APP(DISPARITYDEBUG,   [src/asp/Tools], yes, [VW_STEREO])
+AX_APP(POINT2MESH,       [src/asp/Tools], yes, [OPENSCENEGRAPH VW])
+AX_APP(POINT2DEM,        [src/asp/Tools], yes, [CORE])
+AX_APP(RMAX2CAHVOR,      [src/asp/Tools], no,  [SESSIONS])
+AX_APP(RMAXADJUST,       [src/asp/Tools], no,  [SESSIONS])
+AX_APP(BUNDLEVIS,        [src/asp/Tools], no,  [OPENSCENEGRAPH VW_CAMERA])
+AX_APP(ISISADJUST,       [src/asp/Tools], yes, [ISISIO CORE])
+AX_APP(RESULTS,          [src/asp/Tools], yes, [ISISIO])
+AX_APP(RECONSTRUCT,      [src/asp/Tools], no,  [VW_CARTOGRAPHY VW])
+AX_APP(ALIGNDEM,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW_INTEREST_POINT])
+AX_APP(GEODIFF,          [src/asp/Tools], yes, [ISISIO VW BOOST])
+AX_APP(DEMPROFILE,       [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
+AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [SESSIONS ISISIO VW_PLATE])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
