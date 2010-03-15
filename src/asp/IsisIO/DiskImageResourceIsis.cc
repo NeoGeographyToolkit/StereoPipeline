@@ -41,8 +41,8 @@ namespace vw {
   }
 
   /// Bind the resource to a file for writing.
-  void DiskImageResourceIsis::create(std::string const& filename,
-                                     ImageFormat const& format)
+  void DiskImageResourceIsis::create(std::string const& /*filename*/,
+                                     ImageFormat const& /*format*/)
   {
     throw NoImplErr() << "The Isis driver does not yet support creation of Isis files";
   }
@@ -153,10 +153,9 @@ namespace vw {
   }
 
   // Write the given buffer into the disk image.
-  void DiskImageResourceIsis::write(ImageBuffer const& src, BBox2i const& bbox)
-  {
-    throw NoImplErr() <<
-      "The Isis driver does not yet support creation of Isis files";
+  void DiskImageResourceIsis::write(ImageBuffer const& /*src*/, BBox2i const& /*bbox*/) {
+    vw_throw ( NoImplErr() <<
+               "The Isis driver does not yet support creation of Isis files" );
   }
 
   // A FileIO hook to open a file for reading

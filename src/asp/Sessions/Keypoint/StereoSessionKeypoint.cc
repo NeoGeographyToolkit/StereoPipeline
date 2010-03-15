@@ -159,7 +159,7 @@ StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1,
   return align_matrix;
 }
 
-void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
+void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& /*input_file1*/, std::string const& /*input_file2*/,
                                                    std::string & output_file1, std::string & output_file2) {
 
   // Determine the alignment matrix using keypoint matching techniques.

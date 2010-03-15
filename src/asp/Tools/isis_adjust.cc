@@ -174,7 +174,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
     } else if ( rel_tol < 1e-10 ) {
       reporter() << "Triggered 'Rel Tol " << rel_tol << " < 1e-10'\n";
       break;
-    } else if ( no_improvement_count > 2 ) {
+    } else if ( no_improvement_count > 4 ) {
       reporter() << "Triggered break, unable to improve after "
                  << no_improvement_count << " iterations\n";
       break;

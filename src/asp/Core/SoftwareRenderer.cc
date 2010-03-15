@@ -602,7 +602,7 @@ FillTriangle(GraphicsState *gc, Vertex *a, Vertex *b, Vertex *c)
 inline void
 MapToWindow(Coords &coords,
             const double ndcMap[3][2],
-            double x0, double y0, double width, double height,
+            double /*x0*/, double /*y0*/, double width, double height,
             Coords &result)
 {
   // The separation of NDC and viewport mappings might seem silly

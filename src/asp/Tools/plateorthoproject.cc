@@ -158,8 +158,6 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
   else
     vw_throw( ArgumentErr() << "Unknown datum, \"" << opt.datum << "\".\n" );
 
-  unsigned region_size = pow(2.0,opt.level);
-
   // Loading up input image - We load up in a float format mostly
   // because a fail in VW. VW doesn't seem to understand uint16
   // types. Also ISIS doesn't let us expect an input channel range.

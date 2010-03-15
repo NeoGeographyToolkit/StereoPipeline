@@ -177,7 +177,7 @@ class InpaintView : public vw::ImageViewBase<InpaintView<ViewT> > {
 
   inline pixel_accessor origin() const { return pixel_accessor(*this,0,0); }
 
-  inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 p=0 ) const {
+  inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 /*p*/=0 ) const {
     sparse_type pixel_ref;
     if ( m_patches.contains(i,j, pixel_ref) ) {
       //std::cout << "Pixel: " << *pixel_ptr << std::endl;
@@ -187,7 +187,7 @@ class InpaintView : public vw::ImageViewBase<InpaintView<ViewT> > {
   }
 
   typedef InpaintView<ViewT> prerasterize_type;
-  inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const { return *this; }
+  inline prerasterize_type prerasterize( vw::BBox2i const& /*bbox*/ ) const { return *this; }
   template <class DestT>
   inline void rasterize( DestT const& dest, vw::BBox2i const& bbox ) const {
     vw::rasterize( prerasterize(bbox), dest, bbox );

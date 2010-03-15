@@ -99,7 +99,7 @@ namespace blob {
     template <class SourceT>
     BlobIndexCustom( vw::ImageViewBase<SourceT> const& src,
                      vw::ImageView<vw::uint32>& dst,
-                     uint max_area=0 ) {
+                     uint /*max_area*/=0 ) {
 
       if ( src.impl().planes() > 1 )
         vw_throw( vw::NoImplErr()

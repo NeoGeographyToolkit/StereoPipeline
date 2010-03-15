@@ -43,7 +43,7 @@ inline void ignorespace(std::istream& s) {
   int c;
   if(s.eof())
     return;
-  while((c = s.get()) != EOF && is_space_char(c));
+  while((c = s.get()) != EOF && is_space_char(c)){}
   if(c != EOF)
     s.unget();
 }
@@ -53,7 +53,7 @@ inline void ignoreline(std::istream& s) {
   int c;
   if(s.eof())
     return;
-  while((c = s.get()) != EOF && c != '\n');
+  while((c = s.get()) != EOF && c != '\n'){}
 }
 
 // Read from stream until (but not including) the next space character. Ignores space characters at beginning.
@@ -144,7 +144,8 @@ StereoSettings::StereoSettings() {
 
   int argc = 1;
   char* argv[1];
-  argv[0] = "dummyprogname";
+  argv[0] = (char*)malloc(2*sizeof(char));
+  argv[0][0] = 'a';
   po::store(po::parse_command_line(argc, argv, m_desc), m_vm);
   po::notify(m_vm);
 }

@@ -95,10 +95,10 @@ IsisInterfaceFrame::pixel_to_vector( Vector2 const& pix ) const {
   return result;
 }
 
-Vector3 IsisInterfaceFrame::camera_center( Vector2 const& pix ) const {
+Vector3 IsisInterfaceFrame::camera_center( Vector2 const& /*pix*/ ) const {
   return m_center;
 }
 
-Quaternion<double> IsisInterfaceFrame::camera_pose( Vector2 const& pix ) const {
+Quaternion<double> IsisInterfaceFrame::camera_pose( Vector2 const& /*pix*/ ) const {
   return m_pose;
 }

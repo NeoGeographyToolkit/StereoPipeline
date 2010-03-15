@@ -185,7 +185,7 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
   return T;
 }
 
-boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(std::string image_file,
+boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(std::string /*image_file*/,
                                                                               std::string camera_file) {
   // Epipolar Alignment
   if ( stereo_settings().epipolar_alignment ) {

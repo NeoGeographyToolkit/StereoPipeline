@@ -521,7 +521,7 @@ class pointAutoMatrixCallback : public osg::NodeCallback
   pointAutoMatrixCallback( PointIter* point ) {
     _point = point;
   }
-  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv )
+  virtual void operator() ( osg::Node* node, osg::NodeVisitor* /*nv*/ )
   {
     int buffer = _point->getStep();
 

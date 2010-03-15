@@ -88,7 +88,7 @@ namespace cartography {
 
     inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
-    inline result_type operator()( int i, int j, int p=0 ) const {
+    inline result_type operator()( int /*i*/, int /*j*/, int /*p*/=0 ) const {
       vw_throw(NoImplErr() << "OrthoRasterizersView::operator()(double i, double j, int32 p) has not been implemented.");
       return pixel_type();
     }

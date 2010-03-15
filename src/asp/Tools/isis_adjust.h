@@ -165,7 +165,7 @@ public:
   }
 
   // Return the covariance of the camera parameters for camera j.
-  inline Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned j ) {
+  inline Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned /*j*/ ) {
     Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
     for ( unsigned i = 0; i <positionParam; ++i )
       result(i,i) = 1/pow(m_spacecraft_position_sigma,2);
