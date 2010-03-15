@@ -467,7 +467,6 @@ BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
 
 int main( int argc, char *argv[] ){
   //Main Variables
-  set_debug_level(VerboseDebugMessage+11);
   std::string pointcloud_filename, output_prefix = "", output_file_type, texture_file_name;
   unsigned step_size;
   osg::ref_ptr<osg::Group> root = new osg::Group();
@@ -479,7 +478,6 @@ int main( int argc, char *argv[] ){
   //Boost Program options
   po::options_description desc("Options");
   desc.add_options()
-    ("help,h", "Display this help message")
     ("simplify-mesh",     po::value<float>(&simplify_percent),
        "Run OSG Simplifier on mesh, 1.0 = 100%")
     ("smooth-mesh",
@@ -506,7 +504,8 @@ int main( int argc, char *argv[] ){
     ("omega-rotation",    po::value<double>(&omega_rot)->default_value(0),
        "Set a rotation angle omega")
     ("kappa-rotation",    po::value<double>(&kappa_rot)->default_value(0),
-       "Set a rotation angle kappa");
+       "Set a rotation angle kappa")
+    ("help,h", "Display this help message");
 
   po::positional_options_description p;
   p.add("input-file",   1);

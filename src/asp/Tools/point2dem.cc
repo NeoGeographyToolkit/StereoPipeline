@@ -89,7 +89,6 @@ public:
 
 
 int main( int argc, char *argv[] ) {
-  set_debug_level(VerboseDebugMessage+11);
 
   std::string pointcloud_filename, out_prefix = "", output_file_type, texture_filename;
   float dem_spacing, default_value=0;
