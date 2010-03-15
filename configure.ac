@@ -181,10 +181,10 @@ AX_PKG_ONE_OF(LAPACK,
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
 # Vision Workbench Core
-AX_PKG(VW_CORE,  [BOOST_THREAD BOOST LAPACK], [-lvwCore],   [vw/Core/Log.h] )
+AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore],   [vw/Core/Log.h] )
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
-AX_PKG(VW_FILEIO,[VW_IMAGE BOOST_SYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
+AX_PKG(VW_FILEIO,[VW_IMAGE BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
 AX_GROUP_PKG(VW, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
 
 # Vision Workbench Secondaries
