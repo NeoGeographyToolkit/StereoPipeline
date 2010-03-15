@@ -12,6 +12,7 @@
 #include <vw/Plate/TileManipulation.h>
 #include <vw/Plate/PlateCarreePlateManager.h>
 #include <vw/Plate/ToastPlateManager.h>
+#include <vw/Plate/PlateView.h>
 using namespace vw;
 using namespace vw::platefile;
 
@@ -40,6 +41,7 @@ struct Options {
   string session;
   string output_mode;
   int output_scale;
+  bool output_uint8;
 
   // Output
   string output_url;
@@ -51,10 +53,11 @@ struct Options {
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("Orthoprojects imagery into a plate file");
   general_options.add_options()
-    ("dem-id", po::value<int>(&opt.dem_id)->default_value(1), "DEM's transaction ID in input platefile")
+    ("dem-id", po::value<int>(&opt.dem_id)->default_value(-1), "DEM's transaction ID in input platefile")
     ("level,l", po::value<int>(&opt.level)->default_value(-1), "Level at which to find input DEM.")
     ("output-id", po::value<int>(&opt.output_id), "Output transaction ID to use. If not provided, one will be solved for.")
     ("output-scale", po::value<int>(&opt.output_scale)->default_value(1), "Output scale, a 2 will double the out resolution of the orthoprojection.")
+    ("output-uint8", "This is what we use for public releases.")
     ("mode,m", po::value<string>(&opt.output_mode)->default_value("equi"), "Output mode [equi]")
     ("datum,d", po::value<string>(&opt.datum)->default_value("earth"), "Datum to use [earth, moon, mars].")
     ("session-type,t", po::value<string>(&opt.session), "Select the stereo session type to use for processing. [Options are pinhole, isis, ...]")
@@ -131,6 +134,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   boost::to_lower(opt.datum);
   if ( opt.output_scale < 1 )
     vw_throw( ArgumentErr() << "Output scaling can't be less than one.\n" );
+  opt.output_uint8 = vm.count("output-uint8") > 0;
 }
 
 // --- Internal Operations ---
@@ -156,9 +160,11 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
 
   unsigned region_size = pow(2.0,opt.level);
 
-  // Loading up input image
-  DiskImageView<PixelT> texture_disk_image(opt.camera_image);
-  ImageViewRef<PixelT> texture_image = texture_disk_image;
+  // Loading up input image - We load up in a float format mostly
+  // because a fail in VW. VW doesn't seem to understand uint16
+  // types. Also ISIS doesn't let us expect an input channel range.
+  DiskImageView<PixelGrayA<float> > texture_disk_image(opt.camera_image);
+  ImageViewRef<PixelT> texture_image = pixel_cast_rescale<PixelT>(texture_disk_image);
 
   // Camera Center's
   Vector3 camera_center = camera_model->camera_center(Vector2());
@@ -167,88 +173,63 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
 
   // Normalize between 0->1 since ISIS is crazy
   if ( opt.session == "isis" ) {
-    typedef typename CompoundChannelType<PixelT>::type channel_type;
-    channel_type lo, hi;
+    float32 lo, hi;
     min_max_channel_values(texture_disk_image, lo, hi);
     std::cout << " Low: " << lo << " Hi: " << hi << "\n";
-    texture_image = normalize(remove_isis_special_pixels(texture_disk_image),lo,hi,ChannelRange<channel_type>::min(),ChannelRange<channel_type>::max());
-    std::cout << " CMin: " << ChannelRange<channel_type>::min() << " CMax: " << ChannelRange<channel_type>::max() << "\n";
+    texture_image = pixel_cast_rescale<PixelT>(normalize_retain_alpha(remove_isis_special_pixels(texture_disk_image, PixelGrayA<float>(lo)),lo,hi,0.0,1.0));
   }
 
   // Performing rough approximation of which tiles this camera touches
   BBox2 image_alt = camera_bbox( input_georef, camera_model,
                                  texture_image.cols(), texture_image.rows() );
-  Vector2 start_tile = input_georef.lonlat_to_pixel(image_alt.min())/float(input_plate->default_tile_size());
-  Vector2 end_tile = input_georef.lonlat_to_pixel(image_alt.max())/float(input_plate->default_tile_size());
-  Vector2i start_tile_i;
-  start_tile_i[0] = floor(start_tile[0]);
-  start_tile_i[1] = floor(start_tile[1]);
-  Vector2i end_tile_i;
-  end_tile_i[0] = floor(end_tile[0]);
-  end_tile_i[1] = floor(end_tile[1]);
-  if ( end_tile_i[0] < start_tile_i[0] )
-    std::swap(end_tile_i[0],start_tile_i[0]);
-  if ( end_tile_i[1] < start_tile_i[1] )
-    std::swap(end_tile_i[1],start_tile_i[1]);
-  end_tile_i += Vector2i(1,1);
+  BBox2i dem_square; // Is in pixels
+  dem_square.grow( input_georef.lonlat_to_pixel(image_alt.min()) );
+  dem_square.grow( input_georef.lonlat_to_pixel(image_alt.max()) );
+  dem_square.expand(pow(2.0,opt.level-1)); // Just for good measure
+                                           // since we are
+                                           // intersecting with an
+                                           // approximation
 
-  // Attempting to project over platefile
-  for ( int32 i = start_tile_i[0]; i < end_tile_i[0]; i++ ) {
-    for ( int32 j = start_tile_i[1]; j < end_tile_i[1]; j++ ) {
+  // Building plateview to extract a single DEM
+  PlateView<PixelGrayA<float32> > input_view( opt.input_url );
+  dem_square.crop( bounding_box(input_view) );
+  ImageViewRef<PixelGrayA<float32> > input_view_ref = resample(crop(input_view,dem_square),
+                                                               opt.output_scale,
+                                                               opt.output_scale,
+                                                               ZeroEdgeExtension(),
+                                                               BicubicInterpolation());
+  cartography::GeoReference dem_georef = input_georef;
+  Vector2 top_left_ll = input_georef.pixel_to_lonlat( dem_square.min() );
+  Matrix3x3 T = dem_georef.transform();
+  T(0,2) = top_left_ll[0];
+  T(1,2) = top_left_ll[1];
+  T(0,0) /= float(opt.output_scale);
+  T(1,1) /= float(opt.output_scale);
+  dem_georef.set_transform(T);
 
-      // Polling for DEM tile
-      ImageView<PixelGrayA<float32> > dem_tile;
-      try {
-        TileHeader th = input_plate->read(dem_tile,i,j,opt.level,
-                                          opt.dem_id, true);
-      } catch (TileNotFoundErr &e) {
-        // Not found, continue on
-        continue;
-      }
+  std::cout << "\t--> Orthoprojecting into DEM square with transform:\n"
+            << "\t    " << dem_georef << "\n";
+  ImageView<PixelT> projection = orthoproject(input_view_ref, dem_georef,
+                                              texture_image, camera_model,
+                                              BicubicInterpolation(),
+                                              ZeroEdgeExtension());
 
-      // Creating this tile's georeference
-      cartography::GeoReference dem_georef = input_georef;
-      Vector2 top_left_ll = input_georef.pixel_to_lonlat(Vector2(i,j)*input_plate->default_tile_size());
-      Matrix3x3 T = dem_georef.transform();
-      T(0,2) = top_left_ll[0];
-      T(1,2) = top_left_ll[1];
-      dem_georef.set_transform(T);
+  // Push to output plate file
+  if ( opt.output_mode == "equi" ) {
+    boost::shared_ptr<PlateCarreePlateManager<PixelT> > pm(
+      new PlateCarreePlateManager<PixelT> (output_plate) );
 
-      std::cout << "\t--> Orthoprojecting onto tile (" << i << "," << j << ")\n"
-                << "\t    with transform " << dem_georef << "\n";
+    pm->insert(projection, opt.camera_image,
+               opt.output_id, dem_georef, false,
+               TerminalProgressCallback( "asp.plateorthoproject", "\t    Processing") );
+  } else if ( opt.output_mode == "toast" ) {
+    boost::shared_ptr<ToastPlateManager<PixelT> > pm(
+      new ToastPlateManager<PixelT> (output_plate) );
 
-      cartography::GeoReference drg_georef = dem_georef;
-      Matrix3x3 drg_trans = drg_georef.transform();
-      drg_trans(0,0) /= opt.output_scale;
-      drg_trans(1,1) /= opt.output_scale;
-      drg_georef.set_transform(drg_trans);
-
-      cartography::GeoTransform trans(dem_georef, drg_georef);
-      ImageViewRef<PixelGrayA<float32> > output_dem = transform(dem_tile, trans, ZeroEdgeExtension(), BicubicInterpolation());
-
-      ImageView<PixelT> projection = orthoproject(output_dem, drg_georef,
-                                                  texture_image, camera_model,
-                                                  BicubicInterpolation(), ZeroEdgeExtension());
-
-      // Push to output plate file
-      if ( opt.output_mode == "equi" ) {
-        boost::shared_ptr<PlateCarreePlateManager<PixelT> > pm(
-          new PlateCarreePlateManager<PixelT> (output_plate) );
-
-        pm->insert(projection, opt.camera_image,
-                   opt.output_id, drg_georef, false,
-                   TerminalProgressCallback( "asp.plateorthoproject", "\t    Processing") );
-      } else if ( opt.output_mode == "toast" ) {
-        boost::shared_ptr<ToastPlateManager<PixelT> > pm(
-          new ToastPlateManager<PixelT> (output_plate) );
-
-        pm->insert(projection, opt.camera_image,
-                   opt.output_id, drg_georef, false,
-                   TerminalProgressCallback( "asp.plateorthoproject", "\t    Processing") );
-      }
-
-    } // for j loop
-  }   // for i loop
+    pm->insert(projection, opt.camera_image,
+               opt.output_id, dem_georef, false,
+               TerminalProgressCallback( "asp.plateorthoproject", "\t    Processing") );
+  }
 }
 
 void do_run( Options& opt ) {
@@ -276,6 +257,9 @@ void do_run( Options& opt ) {
     pixel_format = rsrc->pixel_format();
     channel_type = rsrc->channel_type();
 
+    if ( opt.output_uint8 )
+      channel_type = VW_CHANNEL_UINT8;
+
     // Plate files should always have an alpha channel.
     if (pixel_format == VW_PIXEL_GRAY)
       pixel_format = VW_PIXEL_GRAYA;
@@ -283,9 +267,9 @@ void do_run( Options& opt ) {
       pixel_format = VW_PIXEL_RGBA;
     delete rsrc;
   } catch (vw::Exception &e) {
-    vw_out(ErrorMessage) << "An error occured: " << e.what() << "\n";
-    exit(1);
+    vw_throw( ArgumentErr() << "An error occured while finding pixel type: " << e.what() << "\n" );
   }
+
   string tile_filetype;
   if (channel_type == VW_CHANNEL_FLOAT32)
     tile_filetype = "tif";
