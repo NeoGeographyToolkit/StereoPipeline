@@ -163,11 +163,22 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
   // This is the sparse implementation of the code
   double overall_delta = 2;
   int no_improvement_count = 0;
-  while ( overall_delta ) {
+  while ( true ) {
     // Determine if it is time to quit
-    if ( bundle_adjuster.iterations() >= g_max_iterations || abs_tol < 0.01
-         || rel_tol < 1e-10 || no_improvement_count > 5 )
+    if ( bundle_adjuster.iterations() >= g_max_iterations ) {
+      reporter() << "Triggered 'Max Iterations'\n";
       break;
+    } else if ( abs_tol < 0.01 ) {
+      reporter() << "Triggered 'Abs Tol " << abs_tol << " < 0.01'\n";
+      break;
+    } else if ( rel_tol < 1e-10 ) {
+      reporter() << "Triggered 'Rel Tol " << rel_tol << " < 1e-10'\n";
+      break;
+    } else if ( no_improvement_count > 2 ) {
+      reporter() << "Triggered break, unable to improve after "
+                 << no_improvement_count << " iterations\n";
+      break;
+    }
 
     overall_delta = bundle_adjuster.update( abs_tol, rel_tol );
     reporter.loop_tie_in();
@@ -203,7 +214,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
       }
     } // end of saving data
 
-    if ( overall_delta == ScalarTypeLimits<double>::highest() )
+    if ( overall_delta == 0 )
       no_improvement_count++;
     else
       no_improvement_count = 0;
@@ -239,7 +250,7 @@ int main(int argc, char* argv[]) {
     ("cost-function", po::value<std::string>(&robust_cost_function)->default_value("L2"),
      "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
     ("bundle-adjuster", po::value<std::string>(&bundle_adjustment_type)->default_value("Sparse"),
-     "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse]")
+     "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]")
     ("disable-camera-const", "Disable camera constraint error")
     ("disable-gcp-const", "Disable GCP constraint error")
     ("gcp-scalar", po::value<float>(&g_gcp_scalar)->default_value(1.0),
@@ -318,9 +329,10 @@ int main(int argc, char* argv[]) {
   if ( !( bundle_adjustment_type == "ref" ||
           bundle_adjustment_type == "sparse" ||
           bundle_adjustment_type == "robustref" ||
-          bundle_adjustment_type == "robustsparse" ) ) {
+          bundle_adjustment_type == "robustsparse" ||
+	  bundle_adjustment_type == "robustsparsekgcp" ) ) {
     vw_out() << "Unknown bundle adjustment version: " << bundle_adjustment_type
-              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse]\n";
+              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]\n";
     exit(1);
   }
 
@@ -483,6 +495,13 @@ int main(int argc, char* argv[]) {
     } else if ( bundle_adjustment_type == "robustsparse" ) {
       if ( robust_cost_function == "l2" ) {
         perform_bundleadjustment<BundleAdjustmentRobustSparse< ModelType,L2Error> >( L2Error() );
+      } else {
+        vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
+        exit(1);
+      }
+    } else if ( bundle_adjustment_type == "robustsparsekgcp" ) {
+      if ( robust_cost_function == "l2" ) {
+        perform_bundleadjustment<BundleAdjustmentRobustSparseKGCP< ModelType,L2Error> >( L2Error() );
       } else {
         vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
         exit(1);
