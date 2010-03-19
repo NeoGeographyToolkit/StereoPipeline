@@ -769,6 +769,8 @@ int main(int argc, char* argv[]) {
                 << e.what() << "\nExiting.\n\n";
       exit(0);
     }
+
+    
   }
 
 
@@ -781,6 +783,10 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 4 --> TRIANGULATION \n";
 
     try {
+      std::string prehook_filename;
+      session->pre_pointcloud_hook(out_prefix+"-F.tif", prehook_filename);
+      DiskImageView<PixelMask<Vector2f> > disparity_map(prehook_filename);
+
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       session->camera_models(camera_model1, camera_model2);
 
@@ -801,10 +807,6 @@ int main(int argc, char* argv[]) {
                                                                                position_correction,
                                                                                pose_correction));
       }
-
-      std::string prehook_filename;
-      session->pre_pointcloud_hook(out_prefix+"-F.tif", prehook_filename);
-      DiskImageView<PixelMask<Vector2f> > disparity_map(prehook_filename);
 
       // Apply the stereo model.  This yields a image of 3D points in
       // space.  We build this image and immediately write out the

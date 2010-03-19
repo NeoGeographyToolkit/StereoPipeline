@@ -26,7 +26,7 @@ SUBDIRS = . Keypoint Pinhole RMAX
 
 if HAVE_PKG_ISIS
 SUBDIRS += ISIS
-libaspSessions_la_SOURCES += ISIS/StereoSessionIsis.cc
+libaspSessions_la_SOURCES += ISIS/StereoSessionIsis.cc ISIS/PhotometricOutlier.cc
 endif
 
 

@@ -21,6 +21,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
+#include <asp/Sessions/ISIS/PhotometricOutlier.h>
 
 // Boost
 #include <boost/filesystem/operations.hpp>
@@ -400,7 +401,18 @@ void
 StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
                                        std::string & output_file) {
 
-  DiskImageView<PixelMask<Vector2f> > disparity_map(input_file);
+  // ****************************************************
+  // The following code is for Apollo Metric Camera ONLY!
+  // (use at your own risk)
+  // ****************************************************
+  std::string dust_result = input_file;
+  if ( stereo_settings().mask_flatfield ) {
+    vw_out() << "\t--> Masking pixels that appear to be dust.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
+    photometric_outlier_rejection( m_out_prefix, input_file,
+                                   dust_result, stereo_settings().h_kern );
+  }
+
+  DiskImageView<PixelMask<Vector2f> > disparity_map(dust_result);
   ImageViewRef<PixelMask<Vector2f> > result = disparity_map;
   output_file = m_out_prefix + "-F-corrected.exr";
 

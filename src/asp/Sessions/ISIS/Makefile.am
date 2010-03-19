@@ -9,7 +9,7 @@
 # sources
 #########################################################################
 
-include_HEADERS = StereoSessionIsis.h
+include_HEADERS = StereoSessionIsis.h PhotometricOutlier.h
 
 #########################################################################
 # general
