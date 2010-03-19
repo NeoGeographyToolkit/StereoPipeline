@@ -33,6 +33,8 @@ namespace camera {
   class MPISlave {
     mpi::communicator & m_world;
     std::vector<boost::shared_ptr<CameraModel> > m_cameras;
+    unsigned m_camera_start;
+
   public:
     MPISlave( mpi::communicator & world) : m_world(world) {
       vw_out(DebugMessage,"mpi_slave") << "\tSlave " << m_world.rank()
@@ -46,10 +48,15 @@ namespace camera {
           m_cameras.resize(0);
           std::vector<std::string> camera_files;
           broadcast(m_world, camera_files, 0);
-          BOOST_FOREACH( std::string camera_file, camera_files ) {
+          m_camera_start = (m_world.rank()-1)*float(camera_files.size())/float(m_world.size()-1);
+          unsigned cam_e = m_world.rank()*float(camera_files.size())/float(m_world.size()-1);
+          for ( unsigned i = m_camera_start; i < cam_e; i++ ) {
+            vw_out(DebugMessage,"mpi_slave") << "\tSlave " << m_world.rank()
+                                             << " : Loading "
+                                             << camera_files[i] << "\n";
             boost::shared_ptr<asp::BaseEquation> posF( new asp::PolyEquation(0) );
             boost::shared_ptr<asp::BaseEquation> poseF( new asp::PolyEquation(0) );
-            m_cameras.push_back( boost::shared_ptr<IsisAdjustCameraModel>( new IsisAdjustCameraModel( camera_file,
+            m_cameras.push_back( boost::shared_ptr<IsisAdjustCameraModel>( new IsisAdjustCameraModel( camera_files[i],
                                                                                                       posF, poseF )));
           }
         } else if ( task == LoadControlNetwork ) {

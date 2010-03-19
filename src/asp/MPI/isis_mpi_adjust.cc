@@ -4,14 +4,14 @@ using namespace vw;
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
+#include <asp/Core/ControlNetworkLoader.h>
 #include <asp/MPI/BundleAdjustmentMPI.h>
 
 int main ( int argc, char* argv[] ) {
   mpi::environment env(argc,argv);
   mpi::communicator world;
   std::vector<std::string> input_file_names;
-
-  std::srand(time(0)+world.rank());
+  std::vector<std::string> gcp_file_names;
 
   // All MPI's slave work is in
   // BundleAdjustmentMPI.
@@ -64,6 +64,21 @@ int main ( int argc, char* argv[] ) {
     broadcast(world, task, 0);
     return 1;
   }
+
+  // Loading camera models
+  gcp_file_names = sort_out_gcps( input_file_names );
+  {
+    int task = LoadCameraModels;
+    broadcast(world, task, 0);
+    broadcast(world, input_file_names, 0);
+
+    
+  }
+
+  // Building control network & saving control network
+
+  // Telling slaves to load control network and to load up their
+  // respective camera models.
 
   // Performing task
   int task;
