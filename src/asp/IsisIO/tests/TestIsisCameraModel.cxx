@@ -45,7 +45,6 @@ TEST(IsisCameraModel, mapprojected) {
   Isis::Camera* cam = Isis::CameraFactory::Create( label );
   Isis::AlphaCube alphacube( label );
   Isis::Projection* proj = Isis::ProjectionFactory::CreateFromCube( label );
-  Isis::CameraDetectorMap* detectmap = cam->DetectorMap();
 
   // This is testing the assumption that we don't need to invoke much
   // of the camera model to do a pixel to vector.
