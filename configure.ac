@@ -193,6 +193,7 @@ AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/C
 AX_PKG(VW_STEREO,         [VW_CAMERA VW],       [-lvwStereo],       [vw/Stereo/OptimizedCorrelator.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA VW],       [-lvwCartography],  [vw/Cartography/GeoReference.h])
 AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint],[vw/InterestPoint/InterestData.h])
+AX_PKG(VW_PHOTOMETRY,     [VW],                 [-lvwPhotometry])
 
 AX_PKG_ONE_OF(GL,
   APPLE_GL,
@@ -311,7 +312,7 @@ AX_APP(RMAXADJUST,       [src/asp/Tools], no,  [SESSIONS])
 AX_APP(BUNDLEVIS,        [src/asp/Tools], no,  [OPENSCENEGRAPH VW_CAMERA])
 AX_APP(ISISADJUST,       [src/asp/Tools], yes, [ISISIO CORE])
 AX_APP(RESULTS,          [src/asp/Tools], yes, [ISISIO])
-AX_APP(RECONSTRUCT,      [src/asp/Tools], no,  [VW_CARTOGRAPHY VW])
+AX_APP(RECONSTRUCT,      [src/asp/Tools], no,  [VW_PHOTOMETRY VW_CARTOGRAPHY VW])
 AX_APP(ALIGNDEM,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW_INTEREST_POINT])
 AX_APP(GEODIFF,          [src/asp/Tools], yes, [ISISIO VW BOOST])
 AX_APP(DEMPROFILE,       [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
