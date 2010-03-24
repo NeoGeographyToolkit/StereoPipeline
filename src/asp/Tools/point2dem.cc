@@ -137,7 +137,7 @@ int main( int argc, char *argv[] ) {
     ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
     ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa")
-    ("cache-dir", po::value<std::string>(&cache_dir)->default_value("/tmp"),"Change if can't right large images to /tmp");
+    ("cache-dir", po::value<std::string>(&cache_dir)->default_value("/tmp"),"Change if can't write large files to /tmp (i.e. Super Computer)");
 
   po::positional_options_description p;
   p.add("input-file", 1);

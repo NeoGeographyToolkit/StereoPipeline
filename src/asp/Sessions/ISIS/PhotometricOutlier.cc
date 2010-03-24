@@ -13,6 +13,7 @@
 #include <vw/FileIO.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Sessions/ISIS/PhotometricOutlier.h>
+#include <asp/Core/StereoSettings.h>
 
 using namespace vw;
 
@@ -25,12 +26,12 @@ void vw::photometric_outlier_rejection( std::string const& prefix,
   DiskImageView<PixelGray<float> > right_disk_image(prefix+"-R.tif");
   DiskImageView<PixelMask<Vector2f> > disparity_disk_image( input_disparity );
   stereo::DisparityTransform trans( disparity_disk_image );
-  DiskCacheImageView<PixelGray<float> > right_proj( transform( right_disk_image, trans, ZeroEdgeExtension() ), "tif", TerminalProgressCallback("asp","Projecting R:") );
+  DiskCacheImageView<PixelGray<float> > right_proj( transform( right_disk_image, trans, ZeroEdgeExtension() ), "tif", TerminalProgressCallback("asp","Projecting R:"), stereo_settings().cache_dir);
 
   // Differencing Left and Projected Right
   ImageViewRef<PixelMask<PixelGray<float32> > > right_mask = create_mask(right_proj);
   DiskImageView<PixelGray<float32> > left_image(prefix+"-L.tif");
-  DiskCacheImageView<PixelGray<float> > diff( abs(apply_mask(copy_mask(left_image,right_mask))-right_proj), "tif", TerminalProgressCallback("asp","\tDifference:") );
+  DiskCacheImageView<PixelGray<float> > diff( abs(apply_mask(copy_mask(left_image,right_mask))-right_proj), "tif", TerminalProgressCallback("asp","\tDifference:"), stereo_settings().cache_dir);
   ChannelAccumulator<math::CDFAccumulator<float32> > cdf;
   for_each_pixel(diff, cdf);
   float thresh = cdf.quantile(0.999); // Pulling out last bin of CDF

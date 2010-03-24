@@ -27,14 +27,6 @@ void print_usage(po::options_description const& visible_options) {
   vw_out() << visible_options << std::endl;
 }
 
-void print_image_format(ImageFormat const & imf) {
-  std::cout << "cols: " << (int)imf.cols << std::endl;
-  std::cout << "rows: " << (int)imf.rows << std::endl;
-  std::cout << "planes: " << (int)imf.planes << std::endl;
-  std::cout << "pixel: " << (int)imf.pixel_format << std::endl;
-  std::cout << "channel: " << (int)imf.channel_type << std::endl;
-}
-
 // Correlator View
 template <class FilterT>
 inline stereo::CorrelatorView<PixelGray<float>,vw::uint8,FilterT>

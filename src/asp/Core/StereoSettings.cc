@@ -77,6 +77,7 @@ StereoSettings::StereoSettings() {
 #define ASSOC_INT(X,Y,V,D)             m_desc.add_options()(X, po::value<int>(&(this->Y))->default_value(V), D)
 #define ASSOC_FLOAT(X,Y,V,D)           m_desc.add_options()(X, po::value<float>(&(this->Y))->default_value(V), D)
 #define ASSOC_DOUBLE(X,Y,V,D)          m_desc.add_options()(X, po::value<double>(&(this->Y))->default_value(V), D)
+#define ASSOC_STRING(X,Y,V,D)          m_desc.add_options()(X, po::value<std::string>(&(this->Y))->default_value(V), D)
 
   // ---------------------
   // Preprocessing options
@@ -122,7 +123,6 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("SUBPIXEL_EM_ITER", subpixel_em_iter, 15, "Maximum number of EM iterations for EMSubpixelCorrelator");
   ASSOC_INT("SUBPIXEL_AFFINE_ITER", subpixel_affine_iter, 5, "Maximum number of affine optimization iterations for EMSubpixelCorrelator");
   ASSOC_INT("SUBPIXEL_PYRAMID_LEVELS", subpixel_pyramid_levels, 3, "Number of pyramid levels for EMSubpixelCorrelator");
-  
 
   // Filtering Options
   ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
@@ -138,9 +138,13 @@ StereoSettings::StereoSettings() {
   ASSOC_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius, 0.0, "radius of inner boundary of universe [m]");
   ASSOC_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius, 0.0, "radius of outer boundary of universe [m]");
 
+  // System Settings
+  ASSOC_STRING("CACHE_DIR", cache_dir, "/tmp", "Change if can't write large files to /tmp (i.e. Super Computer)");
+
 #undef ASSOC_INT
 #undef ASSOC_FLOAT
 #undef ASSOC_DOUBLE
+#undef ASSOC_STRING
 
   int argc = 1;
   char* argv[1];
