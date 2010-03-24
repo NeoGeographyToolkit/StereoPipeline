@@ -45,17 +45,6 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace vw::math;
 using namespace vw::cartography;
-/*
-#include "shape_from_shading.h"
-#include "shape.h"
-#include "albedo.h"
-#include "exposure.h"
-#include "reflectance.h"
-#include "reconstruct.h"
-#include "shadow.h"
-#include "index.h"
-#include "weights.h"
-*/
 #include <math.h>
 
 /// Erases a file suffix if one exists and returns the base string
@@ -326,8 +315,7 @@ vector<int> makeOverlapList(vector<int> inputIndices, int currIndex, int maxNumP
 
 int main( int argc, char *argv[] ) {
  
-  DiskImageView<PixelMask<PixelGray<uint8> > >  input_img(string("../data/lola/ldem_45N_100m.tif")); 
-
+ 
   std::vector<std::string> input_files;
   int num_matches;
 
@@ -369,14 +357,16 @@ int main( int argc, char *argv[] ) {
   }
 
 
-  printf("NUM FILES = %d\n", input_files.size() );
+  printf("NUM FILES = %d\n", (int)input_files.size() );
+
   GlobalParams globalParams;
   globalParams.reflectanceType = NO_REFL;
   //globalParams.reflectanceType = LUNAR_LAMBERT;
   //globalParams.reflectanceType = LAMBERT;
   globalParams.slopeType = 1;
   globalParams.shadowThresh = 40;
-  string exposureInfoFilename = "../results/exposure/exposureInfo_0.txt";
+ 
+  
   //string spacecraftPosFilename = "";
   //string sunPosFilename = "";
   globalParams.albedoInitType = 1;
@@ -392,6 +382,12 @@ int main( int argc, char *argv[] ) {
   globalParams.maxNumIter = 10;
   globalParams.maxNextOverlappingImages = 2;
   globalParams.maxPrevOverlappingImages = 2;
+ 
+  string homeDir = "/Users/anefian/projects/reconstruct";
+  string sunPosFilename = homeDir + "/data/sunpos.txt";
+  string spacecraftPosFilename = homeDir + "/data/spacecraftpos.txt";
+  string initExpTimeFile = homeDir + "data/exposureTime.txt";
+  string exposureInfoFilename = homeDir + "/results/exposure/exposureInfo_0.txt";
 
   //reflectanceConst = 60;
   //add all filename;
@@ -399,56 +395,53 @@ int main( int argc, char *argv[] ) {
   //create the downsampled DRG files
   std::vector<std::string> DRG_sub4_files(input_files.size());
   for (unsigned i = 0; i < input_files.size(); ++i) {
-       
        std::string temp = sufix_from_filename(input_files[i]);
-       DRG_sub4_files[i] = "../data/orbit33_DRG_sub4" + temp;
+       DRG_sub4_files[i] = homeDir + "/data/orbit33_DRG_sub4" + temp;
        printf("DRG_sub4_files[%d] = %s\n", i, DRG_sub4_files[i].c_str());
-       
   }
 
+   
   // Create the output file names
   std::vector<std::string> output_files(input_files.size());
   for (unsigned i = 0; i < input_files.size(); ++i) {
-       
        std::string temp = sufix_from_filename(input_files[i]);
-       output_files[i] = "../results/albedo" + prefix_from_filename(temp) + "_TM.tif";
-       //printf("output_files[%d] = %s\n", i, output_files[i].c_str());
-       
+       output_files[i] = homeDir + "/results/albedo" + prefix_from_filename(temp) + "_TM.tif";
+       printf("output_files[%d] = %s\n", i, output_files[i].c_str());
   }
 
   // Create the error file names
   std::vector<std::string> error_files(input_files.size());
   for (unsigned i = 0; i < input_files.size(); ++i) {
        std::string temp = sufix_from_filename(input_files[i]);
-       error_files[i] = "../results/error" + prefix_from_filename(temp) + "_err.tif";
+       error_files[i] = homeDir + "/results/error" + prefix_from_filename(temp) + "_err.tif";
   }
  
   // Create the index file names
   std::vector<std::string> index_files(input_files.size());
   for (unsigned i = 0; i < input_files.size(); ++i) {
        std::string temp = sufix_from_filename(input_files[i]);
-       index_files[i] = "../results/index/" + prefix_from_filename(temp) + "_index.tif";
+       index_files[i] = homeDir + "/results/index/" + prefix_from_filename(temp) + "_index.tif";
   }
 
   // Create the shadow map file names
   std::vector<std::string> shadow_files(input_files.size());
   for (unsigned i = 0; i < input_files.size(); ++i) {
        std::string temp = sufix_from_filename(input_files[i]);
-       shadow_files[i] = "../results/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
+       shadow_files[i] = homeDir + "/results/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
   }
 
   // Create the reflectance file names
   std::vector<std::string> reflectance_files(input_files.size());
   for (unsigned i = 0; i < input_files.size(); ++i) {
        std::string temp = sufix_from_filename(input_files[i]);
-       reflectance_files[i] = "../results/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
+       reflectance_files[i] = homeDir + "/results/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
   }
 
   // Create the DEM error file names
   std::vector<std::string> DEM_var2_files(input_files.size());
   for (unsigned i = 0; i < input_files.size(); ++i) {
        std::string temp = sufix_from_filename(input_files[i]);
-       DEM_var2_files[i] = "../results/DEM_errors/" + prefix_from_filename(temp) + "_DEM_err.tif";
+       DEM_var2_files[i] = homeDir + "/results/DEM_errors/" + prefix_from_filename(temp) + "_DEM_err.tif";
   }
 
   //Create the DEM filenames
@@ -457,25 +450,17 @@ int main( int argc, char *argv[] ) {
   std::vector<std::string> var2_DEM_files(input_files.size());
   for (unsigned i = 0; i < input_files.size(); ++i) {
        std::string temp = sufix_from_filename(input_files[i]);
-       DEM_files[i] = "../data/orbit33_DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
-       mean_DEM_files[i] = "../results/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
-       var2_DEM_files[i] = "../results/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
-       //printf("mean_DEM_files[%d] = %s, var2_DEM_files[%d] = %s\n", i, mean_DEM_files[i].c_str(), i, var2_DEM_files[i].c_str());
+       DEM_files[i] = homeDir + "/data/orbit33_DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
+       mean_DEM_files[i] = homeDir + "/results/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
+       var2_DEM_files[i] = homeDir + "/results/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
   }
 
   std::vector<Vector3> sunPositions;
-  char *sunPosFilename = new char[500];
-  strcpy(sunPosFilename, "sunpos.txt");
-  sunPositions = ReadSunPosition(sunPosFilename, input_files.size());
-  delete sunPosFilename; 
-  
+  sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), input_files.size());
+ 
   std::vector<Vector3> spacecraftPositions;
-  
-  char *spacecraftPosFilename = new char[500];
-  strcpy(spacecraftPosFilename, "spacecraftpos.txt");
-  spacecraftPositions = ReadSpacecraftPosition(spacecraftPosFilename, input_files.size());
-  delete spacecraftPosFilename; 
-  
+  spacecraftPositions = ReadSpacecraftPosition((char*)spacecraftPosFilename.c_str(), input_files.size());
+ 
  
   std::vector<modelParams> modelParamsArray(input_files.size());
   std::vector<float> avgReflectanceArray(input_files.size());
@@ -510,7 +495,7 @@ int main( int argc, char *argv[] ) {
       modelParamsArray[i].spacecraftPosition[2] = 1000*spacecraftPositions[i][2];
 
       std::string temp = sufix_from_filename(input_files[i]);
-      modelParamsArray[i].infoFilename = "../results/info/"+prefix_less3_from_filename(temp)+".txt";
+      modelParamsArray[i].infoFilename = homeDir + "/results/info/"+prefix_less3_from_filename(temp)+".txt";
 
       printf("Computing the weights...");
       if (globalParams.useWeights == 1){         
@@ -630,7 +615,7 @@ int main( int argc, char *argv[] ) {
   }
  
   if (globalParams.exposureInitType == 3){
-    string initExpTimeFile = "exposureTime.txt";
+  
     std ::vector<float> expTimeArray = ReadExposureInfoFile(initExpTimeFile, input_files.size());
     modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;//1.2;//1.0;
     for (unsigned int i = 1; i < input_files.size(); ++i) {
@@ -688,8 +673,11 @@ int main( int argc, char *argv[] ) {
     char* currExposureInfoFilename_char = new char[500];
     char* prevExposureInfoFilename_char = new char[500];
 
-    sprintf (currExposureInfoFilename_char, "../results/exposure/exposureInfo_%d.txt", iter);
-    sprintf (prevExposureInfoFilename_char, "../results/exposure/exposureInfo_%d.txt", iter-1);
+    //sprintf (currExposureInfoFilename_char, "../results/exposure/exposureInfo_%d.txt", iter);
+    //sprintf (prevExposureInfoFilename_char, "../results/exposure/exposureInfo_%d.txt", iter-1);
+
+    sprintf (currExposureInfoFilename_char, (char*)(homeDir + "/results/exposure/exposureInfo_%d.txt").c_str(), iter);
+    sprintf (prevExposureInfoFilename_char, (char*)(homeDir + "/results/exposure/exposureInfo_%d.txt").c_str(), iter-1);
     currExposureInfoFilename = string(currExposureInfoFilename_char);
     prevExposureInfoFilename = string(prevExposureInfoFilename_char);
 
