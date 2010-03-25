@@ -26,7 +26,7 @@
 // Boost
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/operations.hpp>
-using namespace boost::filesystem;
+namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace vw::ip;
@@ -35,14 +35,6 @@ using namespace vw::camera;
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
-static std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
 }
 
 // Duplicate matches for any given interest point probably indicate a
@@ -71,32 +63,29 @@ static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &i
 vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std::string const& input_file1, std::string const& input_file2 ) {
 
   std::vector<InterestPoint> matched_ip1, matched_ip2;
-  if ( boost::filesystem::exists( prefix_from_filename( input_file1 ) + "__" +
-                                  prefix_from_filename( input_file2 ) + ".match" ) ) {
+  std::string match_filename = fs::path( input_file1 ).replace_extension("").string() + "__" + fs::path( input_file2 ).stem() + ".match";
+  if ( fs::exists( match_filename ) ) {
     // Is there a match file linking these 2 images?
 
     vw_out() << "\t--> Found cached interest point match file: "
-              << ( prefix_from_filename(input_file1) + "__" +
-                   prefix_from_filename(input_file2) + ".match" ) << "\n";
-    read_binary_match_file( ( prefix_from_filename( input_file1 ) + "__" +
-                              prefix_from_filename( input_file2 ) + ".match" ),
+              <<  match_filename<< "\n";
+    read_binary_match_file( match_filename,
                             matched_ip1, matched_ip2 );
   } else {
 
     // Need to at least match the files
     std::vector<InterestPoint> ip1_copy, ip2_copy;
-
-    if ( exists( prefix_from_filename(input_file1) + ".vwip") &&
-         exists( prefix_from_filename(input_file2) + ".vwip") ) {
+    std::string ip1_filename = fs::path( input_file1 ).replace_extension("vwip").string();
+    std::string ip2_filename = fs::path( input_file2 ).replace_extension("vwip").string();
+    if ( fs::exists( ip1_filename ) &&
+         fs::exists( ip2_filename ) ) {
       // Is there at least VWIP already done for both images?
       vw_out() << "\t--> Found cached interest point files: "
-                << ( prefix_from_filename(input_file1) + ".vwip" ) << "\n"
+                << ip1_filename << "\n"
                 << "\t                                       "
-                << ( prefix_from_filename(input_file2) + ".vwip" ) << "\n";
-      ip1_copy = read_binary_ip_file( prefix_from_filename(input_file1)+
-                                      ".vwip");
-      ip2_copy = read_binary_ip_file( prefix_from_filename(input_file2)+
-                                      ".vwip");
+                << ip2_filename << "\n";
+      ip1_copy = read_binary_ip_file( ip1_filename );
+      ip2_copy = read_binary_ip_file( ip2_filename );
 
     } else {
       // Performing interest point detector
@@ -126,16 +115,14 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
 
       // Writing out the results
       vw_out() << "\t    Caching interest points: "
-                << (prefix_from_filename(input_file1)+".vwip") << ", "
-                << (prefix_from_filename(input_file2)+".vwip") << "\n";
-      write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
-      write_binary_ip_file(prefix_from_filename(input_file2)+".vwip", ip2);
+                << ip1_filename << ", "
+                << ip2_filename << "\n";
+      write_binary_ip_file( ip1_filename, ip1);
+      write_binary_ip_file( ip2_filename, ip2);
 
       // Reading back into the vector format
-      ip1_copy = read_binary_ip_file( prefix_from_filename(input_file1)+
-                                      ".vwip");
-      ip2_copy = read_binary_ip_file( prefix_from_filename(input_file2)+
-                                      ".vwip");
+      ip1_copy = read_binary_ip_file( ip1_filename );
+      ip2_copy = read_binary_ip_file( ip2_filename );
     }
 
     vw_out() << "\t--> Matching interest points\n";
@@ -147,12 +134,10 @@ vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std
             TerminalProgressCallback( "asp", "\t    Matching: "));
 
     vw_out() << "\t    Caching matches: "
-              << ( prefix_from_filename(input_file1)+"__"+
-                   prefix_from_filename(input_file2)+".match") << "\n";
+              << match_filename << "\n";
 
-    write_binary_match_file(prefix_from_filename(input_file1) + "__" +
-                            prefix_from_filename(input_file2) + ".match",
-                            matched_ip1, matched_ip2);
+    write_binary_match_file( match_filename,
+                             matched_ip1, matched_ip2);
   } // End matching
 
   vw_out(InfoMessage) << "\t--> " << matched_ip1.size()

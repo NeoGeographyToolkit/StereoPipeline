@@ -94,22 +94,6 @@ void remove_duplicates(std::vector<ip::InterestPoint> &ip1,
   ip2 = new_ip2;
 }
 
-static inline std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
-static inline std::string remove_dir_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.find("/");
-  if (index != -1)
-    result.erase(0,index+1);
-  return result;
-}
-
 // Posix time is not fully supported in the version of Boost for RHEL
 // Workstation 4
 #ifndef __APPLE__
@@ -145,12 +129,12 @@ approximate_search_range( std::string left_image,
 
   // String names
   std::string left_ip_file =
-    prefix_from_filename( left_image ) + ".vwip";
+    fs::path( left_image ).replace_extension("vwip").string();
   std::string right_ip_file =
-    prefix_from_filename( right_image ) + ".vwip";
+    fs::path( right_image ).replace_extension("vwip").string();
   std::string match_file =
-    prefix_from_filename( left_image ) + "__" +
-    remove_dir_from_filename(prefix_from_filename( right_image )) + ".match";
+    fs::path( left_image ).replace_extension("").string() + "__" +
+    fs::path( right_image ).stem() + ".match";
 
   // Building / Loading Interest point data
   if ( fs::exists(match_file) ) {
@@ -188,7 +172,7 @@ approximate_search_range( std::string left_image,
         ipgain *= 0.75;
       }
 
-      // Making sure we don't exceed 2000 points
+      // Making sure we don't exceed 3000 points
       ip1.sort();
       ip2.sort();
       if ( ip1.size() > 3000 )

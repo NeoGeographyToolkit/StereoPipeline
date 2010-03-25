@@ -35,14 +35,6 @@ using namespace vw::camera;
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #endif
 
-static std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
 // Bundle adjustment functor
 class BundleAdjustmentModel : public camera::BundleAdjustmentModelBase<BundleAdjustmentModel, 7, 4> {
 
@@ -416,7 +408,7 @@ int main(int argc, char* argv[]) {
   reporter.end_tie_in();
 
   for (unsigned int i=0; i < ba_model.num_cameras(); ++i)
-    ba_model.write_adjustment(i, prefix_from_filename(image_files[i])+".adjust");
+    ba_model.write_adjustment(i, fs::path(image_files[i]).replace_extension("adjust").string() );
 
   // Compute the post-adjustment residuals
   std::vector<boost::shared_ptr<CameraModel> > adjusted_cameras = ba_model.adjusted_cameras();

@@ -56,8 +56,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
     vw_out() << "Seeding with previous ISIS adjustment files.\n";
     vw_out() << "\tLoading up previous ISIS adjustments\n";
     for (unsigned j = 0; j < g_input_files.size(); ++j ) {
-      std::string adjust_file = prefix_from_filename( g_input_files[j] ) +
-        ".isis_adjust";
+      std::string adjust_file = fs::path( g_input_files[j] ).replace_extension("isis_adjust").string();
 
       // Loading and forcing in the adjustment
       if ( fs::exists( adjust_file ) ) {
@@ -228,7 +227,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
   }
 
   for ( unsigned int i = 0; i < ba_model.num_cameras(); ++i )
-    ba_model.write_adjustment( i, prefix_from_filename( g_input_files[i] ) + ".isis_adjust");
+    ba_model.write_adjustment( i, fs::path( g_input_files[i] ).replace_extension("isis_adjust").string());
 
 }
 

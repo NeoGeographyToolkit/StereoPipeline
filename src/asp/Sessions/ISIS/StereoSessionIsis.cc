@@ -32,26 +32,6 @@ using namespace vw;
 using namespace vw::camera;
 using namespace asp;
 
-// Internally used simple functions
-static std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
-static std::string filename_from_path(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  index = result.rfind("/");
-  if (index != -1)
-    result.erase(0, index + 1);
-  return result;
-}
-
 // Duplicate matches for any given interest point probably indicate a
 // poor match, so we cull those out here.
 void remove_duplicates(std::vector<ip::InterestPoint> &ip1,
@@ -87,15 +67,13 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
                                              std::string const& input_file2, float lo, float hi) {
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  if ( fs::exists( prefix_from_filename( input_file1 ) + "__" +
-                   filename_from_path( input_file2 ) + ".match" ) ) {
+  std::string match_filename = fs::path( input_file1 ).replace_extension("").string() + "__" + fs::path( input_file2 ).stem() + ".match";
+  if ( fs::exists( match_filename ) ) {
     // Is there a match file linking these 2 image?
 
     vw_out() << "\t--> Found cached interest point match file: "
-              << ( prefix_from_filename(input_file1) + "__" +
-                   filename_from_path(input_file2) + ".match" ) << "\n";
-    read_binary_match_file( ( prefix_from_filename(input_file1) + "__" +
-                              filename_from_path(input_file2) + ".match" ),
+             << match_filename << "\n";
+    read_binary_match_file( match_filename,
                             matched_ip1, matched_ip2 );
 
     // Fitting a matrix immediately (no RANSAC)
@@ -113,18 +91,17 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
 
     // Next best thing.. VWIPs?
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-
-    if ( fs::exists( prefix_from_filename(input_file1) + ".vwip" ) &&
-         fs::exists( prefix_from_filename(input_file2) + ".vwip" ) ) {
+    std::string ip1_filename = fs::path( input_file1 ).replace_extension("vwip").string();
+    std::string ip2_filename = fs::path( input_file2 ).replace_extension("vwip").string();
+    if ( fs::exists( ip1_filename ) &&
+         fs::exists( ip2_filename ) ) {
       // Found VWIPs already done before
       vw_out() << "\t--> Found cached interest point files: "
-                << ( prefix_from_filename(input_file1) + ".vwip" ) << "\n"
+                << ip1_filename << "\n"
                 << "\t                                       "
-                << ( prefix_from_filename(input_file2) + ".vwip" ) << "\n";
-      ip1_copy = ip::read_binary_ip_file( prefix_from_filename(input_file1) +
-                                          ".vwip" );
-      ip2_copy = ip::read_binary_ip_file( prefix_from_filename(input_file2) +
-                                          ".vwip" );
+                << ip2_filename << "\n";
+      ip1_copy = ip::read_binary_ip_file( ip1_filename );
+      ip2_copy = ip::read_binary_ip_file( ip2_filename );
 
     } else {
       // Worst case, no interest point operations have been performed before
@@ -161,14 +138,14 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
 
       // Writing out the results
       vw_out() << "\t    Caching interest points: "
-                << (prefix_from_filename(input_file1) + ".vwip") << ", "
-                << (prefix_from_filename(input_file2) + ".vwip") << "\n";
-      ip::write_binary_ip_file(prefix_from_filename(input_file1)+".vwip", ip1);
-      ip::write_binary_ip_file(prefix_from_filename(input_file2)+".vwip", ip2);
+                << ip1_filename << ", "
+                << ip2_filename << "\n";
+      ip::write_binary_ip_file(ip1_filename, ip1);
+      ip::write_binary_ip_file(ip2_filename, ip2);
 
       // Reading back into the vector interestpoint format
-      ip1_copy = ip::read_binary_ip_file( prefix_from_filename(input_file1) + ".vwip" );
-      ip2_copy = ip::read_binary_ip_file( prefix_from_filename(input_file2) + ".vwip" );
+      ip1_copy = ip::read_binary_ip_file( ip1_filename );
+      ip2_copy = ip::read_binary_ip_file( ip2_filename );
     }
 
     vw_out() << "\t--> Matching interest points\n";
@@ -210,8 +187,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
   }
 
   vw_out() << "\t    Caching matches: "
-              << ( prefix_from_filename(input_file1) + "__" +
-                   prefix_from_filename(input_file2) + ".match") << "\n";
+              << match_filename << "\n";
 
   { // Keeping only inliers
     std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
@@ -223,8 +199,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
     matched_ip2 = inlier_ip2;
   }
 
-  write_binary_match_file( prefix_from_filename(input_file1) + "__" +
-                           prefix_from_filename(input_file2) + ".match",
+  write_binary_match_file( match_filename,
                            matched_ip1, matched_ip2);
 
   return T;

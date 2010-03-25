@@ -34,15 +34,6 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 
-// A useful snippet for working with files
-static std::string prefix_from_filename( std::string const& filename ){
-  std::string result = filename;
-  int index = result.find(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
 namespace vw {
 namespace camera {
 

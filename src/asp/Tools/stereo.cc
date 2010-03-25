@@ -787,14 +787,16 @@ int main(int argc, char* argv[]) {
       // here and incorporate them into our camera model.
       Vector3 position_correction;
       Quaternion<double> pose_correction;
-      if (fs::exists(prefix_from_filename(in_file1)+".adjust")) {
-        read_adjustments(prefix_from_filename(in_file1)+".adjust", position_correction, pose_correction);
+      if (fs::exists(fs::path(in_file1).replace_extension("adjust"))) {
+        read_adjustments(fs::path(in_file1).replace_extension("adjust").string(),
+                         position_correction, pose_correction);
         camera_model1 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model1,
                                                                                position_correction,
                                                                                pose_correction));
       }
-      if (fs::exists(prefix_from_filename(in_file2)+".adjust")) {
-        read_adjustments(prefix_from_filename(in_file2)+".adjust", position_correction, pose_correction);
+      if (fs::exists(fs::path(in_file2).replace_extension("adjust"))) {
+        read_adjustments(fs::path(in_file2).replace_extension("adjust").string(),
+                         position_correction, pose_correction);
         camera_model2 = boost::shared_ptr<CameraModel>(new AdjustedCameraModel(camera_model2,
                                                                                position_correction,
                                                                                pose_correction));

@@ -20,8 +20,10 @@
 
 #include <stdlib.h>
 
+#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
@@ -32,15 +34,6 @@ using namespace vw::stereo;
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
-// Erases a file suffix if one exists and returns the base string
-static std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
 }
 
 int main( int argc, char *argv[] ) {
@@ -80,7 +73,7 @@ int main( int argc, char *argv[] ) {
   }
 
   if( output_prefix == "" ) {
-    output_prefix = prefix_from_filename(input_file_name);
+    output_prefix = fs::path(input_file_name).stem();
   }
 
   vw_out() << "Opening " << input_file_name << "\n";
