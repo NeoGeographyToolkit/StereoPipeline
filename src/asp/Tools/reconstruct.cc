@@ -205,13 +205,24 @@ int main( int argc, char *argv[] ) {
   globalParams.maxNumIter = 10;
   globalParams.maxNextOverlappingImages = 2;
   globalParams.maxPrevOverlappingImages = 2;
- 
-  string homeDir = "/Users/anefian/projects/stereopipeline";
+  //string homeDir = "/Users/anefian/projects/stereopipeline";
+  string homeDir = "../../../..";
+  string dataDir = "/data/orbit33";
+  string resDir = "/results/orbit33";
+
+  /*
   string sunPosFilename = homeDir + "/data/orbit33/sunpos.txt";
   string spacecraftPosFilename = homeDir + "/data/orbit33/spacecraftpos.txt";
   string initExpTimeFile = homeDir + "/data/orbit33/exposureTime.txt";
   string exposureInfoFilename = homeDir + "/results/orbit33/exposure/exposureInfo_0.txt";
- 
+  */
+
+  string sunPosFilename = homeDir + dataDir + "/sunpos.txt";
+  string spacecraftPosFilename = homeDir + dataDir + "/spacecraftpos.txt";
+  string initExpTimeFile = homeDir + dataDir + "/exposureTime.txt";
+
+  string exposureInfoFilename = homeDir + resDir + "/exposure/exposureInfo_0.txt";
+
   std::vector<Vector3> sunPositions;
   sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), input_files.size());
  
@@ -268,18 +279,20 @@ int main( int argc, char *argv[] ) {
           overlap_indices = makeOverlapList(input_indices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
 
 	  std::vector<modelParams> overlap_params(overlap_indices.size());
-	  std::vector<std::string> overlap_DEM_files(overlap_indices.size());
+	  //std::vector<std::string> overlap_DEM_files(overlap_indices.size());
   
 	  for (unsigned int j = 0; j < overlap_indices.size(); j++){
             overlap_params[j] = modelParamsArray[overlap_indices[j]];
-            overlap_DEM_files[j] = modelParamsArray[overlap_indices[j]].DEMFilename;
+            //overlap_DEM_files[j] = modelParamsArray[overlap_indices[j]].DEMFilename;
 	  }
-  
-	  InitDEM(modelParamsArray[i].DEMFilename, 
-		  modelParamsArray[i].meanDEMFilename, 
-		  modelParamsArray[i].var2DEMFilename, 
-		  modelParamsArray[i], overlap_DEM_files, overlap_params, globalParams);
-    
+          
+	  //InitDEM(modelParamsArray[i].DEMFilename, 
+	  //	  modelParamsArray[i].meanDEMFilename, 
+	  //	  modelParamsArray[i].var2DEMFilename, 
+	  //	  modelParamsArray[i], overlap_DEM_files, overlap_params, globalParams);
+	  
+          InitDEM(modelParamsArray[i], overlap_params, globalParams);
+
       }
    }  
 
@@ -304,8 +317,6 @@ int main( int argc, char *argv[] ) {
     for (unsigned int i = 0; i < input_files.size(); ++i) {
 
        printf("%s\n", modelParamsArray[i].reliefFilename.c_str());
-       //avgReflectanceArray[i] = computeImageReflectance(input_files[i], mean_DEM_files[i], shadow_files[i],  
-       //			                                modelParamsArray[i], reflectance_files[i], globalParams);
        avgReflectanceArray[i] = computeImageReflectance(modelParamsArray[i].inputFilename, 
                                                         modelParamsArray[i].meanDEMFilename, 
                                                         modelParamsArray[i].shadowFilename,  
@@ -436,8 +447,8 @@ int main( int argc, char *argv[] ) {
     char* currExposureInfoFilename_char = new char[500];
     char* prevExposureInfoFilename_char = new char[500];
 
-    sprintf (currExposureInfoFilename_char, (char*)(homeDir + "/results/orbit33/exposure/exposureInfo_%d.txt").c_str(), iter);
-    sprintf (prevExposureInfoFilename_char, (char*)(homeDir + "/results/orbit33/exposure/exposureInfo_%d.txt").c_str(), iter-1);
+    sprintf (currExposureInfoFilename_char, (char*)(homeDir + resDir + "/exposure/exposureInfo_%d.txt").c_str(), iter);
+    sprintf (prevExposureInfoFilename_char, (char*)(homeDir + resDir + "/exposure/exposureInfo_%d.txt").c_str(), iter-1);
     currExposureInfoFilename = string(currExposureInfoFilename_char);
     prevExposureInfoFilename = string(prevExposureInfoFilename_char);
 
