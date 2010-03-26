@@ -196,7 +196,7 @@ int main( int argc, char *argv[] ) {
   globalParams.exposureInitType = 0;
   globalParams.exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
   globalParams.exposureInitRefIndex = 0;   //the reference frame
-  globalParams.DEMInitType = 1;//0;
+  globalParams.DEMInitType = 0;//1;
   globalParams.shadowInitType = 0;//1;
   //globalParams.re_estimateExposure = 1;
   //globalParams.re_estimateAlbedo = 1;
@@ -246,7 +246,7 @@ int main( int argc, char *argv[] ) {
       modelParamsArray[i].spacecraftPosition[2] = 1000*spacecraftPositions[i][2];
 
       std::string temp = sufix_from_filename(input_files[i]);
-      modelParamsArray[i].infoFilename = homeDir + "/results/orbit33/info/"+prefix_less3_from_filename(temp)+".txt";
+      /*
       modelParamsArray[i].DEMFilename = homeDir + "/data/orbit33/orbit33_DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
       modelParamsArray[i].meanDEMFilename = homeDir + "/results/orbit33/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
       modelParamsArray[i].var2DEMFilename = homeDir + "/results/orbit33/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
@@ -255,7 +255,17 @@ int main( int argc, char *argv[] ) {
       modelParamsArray[i].shadowFilename = homeDir + "/results/orbit33/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
       modelParamsArray[i].errorFilename = homeDir + "/results/orbit33/error" + prefix_from_filename(temp) + "_err.tif";
       modelParamsArray[i].outputFilename = homeDir  + "/results/orbit33/albedo" + prefix_from_filename(temp) + "_TM.tif";
-      modelParamsArray[i].inputFilename = input_files[i];
+      */
+      modelParamsArray[i].DEMFilename     = homeDir + dataDir + "/orbit33_DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
+      modelParamsArray[i].infoFilename    = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
+      modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
+      modelParamsArray[i].var2DEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
+      modelParamsArray[i].reliefFilename  = homeDir + resDir + "/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
+
+      modelParamsArray[i].shadowFilename  = homeDir + resDir + "/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
+      modelParamsArray[i].errorFilename   = homeDir + resDir + "/error" + prefix_from_filename(temp) + "_err.tif";
+      modelParamsArray[i].outputFilename  = homeDir  + resDir + "/albedo" + prefix_from_filename(temp) + "_TM.tif";
+      modelParamsArray[i].inputFilename   = input_files[i];
 
       if (globalParams.useWeights == 1){      
           printf("Computing the weights...");           
@@ -282,8 +292,8 @@ int main( int argc, char *argv[] ) {
 	  //std::vector<std::string> overlap_DEM_files(overlap_indices.size());
   
 	  for (unsigned int j = 0; j < overlap_indices.size(); j++){
-            overlap_params[j] = modelParamsArray[overlap_indices[j]];
-            //overlap_DEM_files[j] = modelParamsArray[overlap_indices[j]].DEMFilename;
+              overlap_params[j] = modelParamsArray[overlap_indices[j]];
+              //overlap_DEM_files[j] = modelParamsArray[overlap_indices[j]].DEMFilename;
 	  }
           
 	  //InitDEM(modelParamsArray[i].DEMFilename, 
@@ -410,12 +420,15 @@ int main( int argc, char *argv[] ) {
          }
 
          if (globalParams.reflectanceType == NO_REFL){
-
+           /*
            InitImageMosaicByBlocks(modelParamsArray[i].inputFilename, 
                                    modelParamsArray[i], 
                                    modelParamsArray[i].shadowFilename, 
                                    modelParamsArray[i].outputFilename, 
                                    overlap_img_files, overlap_params, globalParams);
+	   */
+           InitImageMosaicByBlocks(modelParamsArray[i], overlap_params, globalParams);
+
 	 }
          else{
 
