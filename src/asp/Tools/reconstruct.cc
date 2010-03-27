@@ -197,7 +197,7 @@ int main( int argc, char *argv[] ) {
   globalParams.exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
   globalParams.exposureInitRefIndex = 0;   //the reference frame
   globalParams.DEMInitType = 0;//1;
-  globalParams.shadowInitType = 0;//1;
+  globalParams.shadowInitType = 1;//0;
   //globalParams.re_estimateExposure = 1;
   //globalParams.re_estimateAlbedo = 1;
   globalParams.computeErrors = 0;//1;
@@ -205,18 +205,11 @@ int main( int argc, char *argv[] ) {
   globalParams.maxNumIter = 10;
   globalParams.maxNextOverlappingImages = 2;
   globalParams.maxPrevOverlappingImages = 2;
-  //string homeDir = "/Users/anefian/projects/stereopipeline";
   string homeDir = "../../../..";
   string dataDir = "/data/orbit33";
   string resDir = "/results/orbit33";
 
-  /*
-  string sunPosFilename = homeDir + "/data/orbit33/sunpos.txt";
-  string spacecraftPosFilename = homeDir + "/data/orbit33/spacecraftpos.txt";
-  string initExpTimeFile = homeDir + "/data/orbit33/exposureTime.txt";
-  string exposureInfoFilename = homeDir + "/results/orbit33/exposure/exposureInfo_0.txt";
-  */
-
+  
   string sunPosFilename = homeDir + dataDir + "/sunpos.txt";
   string spacecraftPosFilename = homeDir + dataDir + "/spacecraftpos.txt";
   string initExpTimeFile = homeDir + dataDir + "/exposureTime.txt";
@@ -294,7 +287,8 @@ int main( int argc, char *argv[] ) {
    if (globalParams.shadowInitType == 1){
       printf("start computing the shadow maps ...\n");  
       for (unsigned int i = 0; i < input_files.size(); i++){
-           ComputeSaveShadowMap (modelParamsArray[i].inputFilename, modelParamsArray[i].shadowFilename, globalParams);
+	//ComputeSaveShadowMap (modelParamsArray[i].inputFilename, modelParamsArray[i].shadowFilename, globalParams);
+        ComputeSaveShadowMap (modelParamsArray[i], globalParams);
       }
       printf("done computing the shadow maps!\n");
    }
@@ -322,10 +316,11 @@ int main( int argc, char *argv[] ) {
        else{
            modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*avgReflectanceArray[0])/avgReflectanceArray[i];
        }
+
        printf("exposure Time = %f\n", modelParamsArray[i].exposureTime);
     
        AppendExposureInfoToFile(exposureInfoFilename, 
-                                modelParamsArray[i].inputFilename, 
+                                //modelParamsArray[i].inputFilename, 
                                 modelParamsArray[i]);
     }
   }
@@ -365,7 +360,7 @@ int main( int argc, char *argv[] ) {
        }
        printf("exposure Time = %f\n", modelParamsArray[i].exposureTime);
        AppendExposureInfoToFile(exposureInfoFilename, 
-                                modelParamsArray[i].inputFilename, 
+                                //modelParamsArray[i].inputFilename, 
                                 modelParamsArray[i]);
     }
   }
@@ -379,7 +374,7 @@ int main( int argc, char *argv[] ) {
          modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*expTimeArray[i])/expTimeArray[0];
          printf("expTimeArray[%d] = %f\n", i,  modelParamsArray[i].exposureTime);
          AppendExposureInfoToFile(exposureInfoFilename, 
-                                  modelParamsArray[i].inputFilename, 
+                                  //modelParamsArray[i].inputFilename, 
                                   modelParamsArray[i]);
     }
   }
@@ -403,11 +398,10 @@ int main( int argc, char *argv[] ) {
 
          if (globalParams.reflectanceType == NO_REFL){
         
-           InitImageMosaicByBlocks(modelParamsArray[i], overlap_params, globalParams);
+             InitImageMosaicByBlocks(modelParamsArray[i], overlap_params, globalParams);
 
 	 }
          else{
-
              InitAlbedoMap(modelParamsArray[i].inputFilename, 
                            modelParamsArray[i], 
                            modelParamsArray[i].meanDEMFilename, 
@@ -423,7 +417,6 @@ int main( int argc, char *argv[] ) {
   //---------------------------------------------------------------------------------
 
 
- //#if 0
   //re-estimate the parameters of the image formation model
   float overallError;
   
@@ -478,7 +471,7 @@ int main( int argc, char *argv[] ) {
 
           //create the exposureInfoFilename 
           AppendExposureInfoToFile(currExposureInfoFilename, 
-                                   modelParamsArray[i].inputFilename, 
+                                   //modelParamsArray[i].inputFilename, 
                                    modelParamsArray[i]);
       }
    
@@ -700,7 +693,7 @@ int main( int argc, char *argv[] ) {
        */
   }
   #endif
-  //#endif
+
 }
 
 
