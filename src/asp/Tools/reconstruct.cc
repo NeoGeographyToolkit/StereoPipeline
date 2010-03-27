@@ -246,16 +246,7 @@ int main( int argc, char *argv[] ) {
       modelParamsArray[i].spacecraftPosition[2] = 1000*spacecraftPositions[i][2];
 
       std::string temp = sufix_from_filename(input_files[i]);
-      /*
-      modelParamsArray[i].DEMFilename = homeDir + "/data/orbit33/orbit33_DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
-      modelParamsArray[i].meanDEMFilename = homeDir + "/results/orbit33/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
-      modelParamsArray[i].var2DEMFilename = homeDir + "/results/orbit33/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
-      modelParamsArray[i].reliefFilename = homeDir + "/results/orbit33/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
-
-      modelParamsArray[i].shadowFilename = homeDir + "/results/orbit33/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
-      modelParamsArray[i].errorFilename = homeDir + "/results/orbit33/error" + prefix_from_filename(temp) + "_err.tif";
-      modelParamsArray[i].outputFilename = homeDir  + "/results/orbit33/albedo" + prefix_from_filename(temp) + "_TM.tif";
-      */
+     
       modelParamsArray[i].DEMFilename     = homeDir + dataDir + "/orbit33_DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
       modelParamsArray[i].infoFilename    = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
       modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
@@ -289,18 +280,11 @@ int main( int argc, char *argv[] ) {
           overlap_indices = makeOverlapList(input_indices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
 
 	  std::vector<modelParams> overlap_params(overlap_indices.size());
-	  //std::vector<std::string> overlap_DEM_files(overlap_indices.size());
   
 	  for (unsigned int j = 0; j < overlap_indices.size(); j++){
               overlap_params[j] = modelParamsArray[overlap_indices[j]];
-              //overlap_DEM_files[j] = modelParamsArray[overlap_indices[j]].DEMFilename;
 	  }
-          
-	  //InitDEM(modelParamsArray[i].DEMFilename, 
-	  //	  modelParamsArray[i].meanDEMFilename, 
-	  //	  modelParamsArray[i].var2DEMFilename, 
-	  //	  modelParamsArray[i], overlap_DEM_files, overlap_params, globalParams);
-	  
+          	  
           InitDEM(modelParamsArray[i], overlap_params, globalParams);
 
       }
@@ -308,10 +292,8 @@ int main( int argc, char *argv[] ) {
 
 
    if (globalParams.shadowInitType == 1){
-       //estimate the shadows
       printf("start computing the shadow maps ...\n");  
       for (unsigned int i = 0; i < input_files.size(); i++){
-           printf("i = %d, filename = %s\n", i, input_files[i].c_str());
            ComputeSaveShadowMap (modelParamsArray[i].inputFilename, modelParamsArray[i].shadowFilename, globalParams);
       }
       printf("done computing the shadow maps!\n");
@@ -420,13 +402,7 @@ int main( int argc, char *argv[] ) {
          }
 
          if (globalParams.reflectanceType == NO_REFL){
-           /*
-           InitImageMosaicByBlocks(modelParamsArray[i].inputFilename, 
-                                   modelParamsArray[i], 
-                                   modelParamsArray[i].shadowFilename, 
-                                   modelParamsArray[i].outputFilename, 
-                                   overlap_img_files, overlap_params, globalParams);
-	   */
+        
            InitImageMosaicByBlocks(modelParamsArray[i], overlap_params, globalParams);
 
 	 }
@@ -490,9 +466,7 @@ int main( int argc, char *argv[] ) {
            
           if (globalParams.reflectanceType == NO_REFL){
               //no use of reflectance map
-              ComputeExposure(modelParamsArray[i].inputFilename, 
-                              modelParamsArray[i].outputFilename, 
-                              &modelParamsArray[i], globalParams);
+              ComputeExposure(&modelParamsArray[i], globalParams);
 	  }
           else{
               //use reflectance map
@@ -535,27 +509,21 @@ int main( int argc, char *argv[] ) {
           for (unsigned int j = 0; j < overlap_indices.size(); j++){
                overlapParamsArray[j] = modelParamsArray[overlap_indices[j]];
                overlap_img_files[j] = input_files[overlap_indices[j]];
-               //overlapShadowFilesArray[j] = shadow_files[overlap_indices[j]];
                overlapShadowFilesArray[j] = modelParamsArray[overlap_indices[j]].shadowFilename;
 	  }
                      
           if (globalParams.reflectanceType == NO_REFL){
               //no use of the reflectance map
-              UpdateImageMosaic(modelParamsArray[i].inputFilename, 
-                                modelParamsArray[i].shadowFilename, 
-                                overlap_img_files, 
-			        modelParamsArray[i], 
-                                overlapParamsArray,
-			        overlapShadowFilesArray, 
-                                modelParamsArray[i].outputFilename,
-                                globalParams);
+            
+             UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
+            
 	  }
           else{
               //use reflectance
               ComputeAlbedoMap(modelParamsArray[i].inputFilename, 
                                modelParamsArray[i].meanDEMFilename, 
                                modelParamsArray[i].shadowFilename, 
-                               overlap_img_files, 
+                               overlap_img_files,
 			       modelParamsArray[i], 
                                overlapParamsArray,
 			       overlapShadowFilesArray, 
@@ -590,7 +558,6 @@ int main( int argc, char *argv[] ) {
           for (unsigned int j = 0; j < overlap_indices.size(); j++){
                overlapParamsArray[j] = modelParamsArray[overlap_indices[j]];
                overlap_img_files[j] = input_files[overlap_indices[j]];
-               //overlapShadowFilesArray[j] = shadow_files[overlap_indices[j]];
                overlapShadowFilesArray[j] = modelParamsArray[overlap_indices[j]].shadowFilename;
 	  }
            
