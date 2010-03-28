@@ -183,8 +183,8 @@ int main( int argc, char *argv[] ) {
   printf("NUM FILES = %d\n", (int)input_files.size() );
 
   GlobalParams globalParams;
-  globalParams.reflectanceType = NO_REFL;
-  //globalParams.reflectanceType = LUNAR_LAMBERT;
+  //globalParams.reflectanceType = NO_REFL;
+  globalParams.reflectanceType = LUNAR_LAMBERT;
   //globalParams.reflectanceType = LAMBERT;
   globalParams.slopeType = 1;
   globalParams.shadowThresh = 40;
@@ -193,7 +193,7 @@ int main( int argc, char *argv[] ) {
   //string spacecraftPosFilename = "";
   //string sunPosFilename = "";
   globalParams.albedoInitType = 1;
-  globalParams.exposureInitType = 0;
+  globalParams.exposureInitType = 1;//0;
   globalParams.exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
   globalParams.exposureInitRefIndex = 0;   //the reference frame
   globalParams.DEMInitType = 0;//1;
@@ -287,8 +287,7 @@ int main( int argc, char *argv[] ) {
    if (globalParams.shadowInitType == 1){
       printf("start computing the shadow maps ...\n");  
       for (unsigned int i = 0; i < input_files.size(); i++){
-	//ComputeSaveShadowMap (modelParamsArray[i].inputFilename, modelParamsArray[i].shadowFilename, globalParams);
-        ComputeSaveShadowMap (modelParamsArray[i], globalParams);
+          ComputeSaveShadowMap (modelParamsArray[i], globalParams);
       }
       printf("done computing the shadow maps!\n");
    }
@@ -303,12 +302,8 @@ int main( int argc, char *argv[] ) {
     for (unsigned int i = 0; i < input_files.size(); ++i) {
 
        printf("%s\n", modelParamsArray[i].reliefFilename.c_str());
-       avgReflectanceArray[i] = computeImageReflectance(modelParamsArray[i].inputFilename, 
-                                                        modelParamsArray[i].meanDEMFilename, 
-                                                        modelParamsArray[i].shadowFilename,  
-			                                modelParamsArray[i], 
-                                                        modelParamsArray[i].reliefFilename, 
-                                                        globalParams);
+      
+       avgReflectanceArray[i] = computeImageReflectance(modelParamsArray[i], globalParams);
 
        if (i==0){
 	   modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue; 
@@ -319,9 +314,7 @@ int main( int argc, char *argv[] ) {
 
        printf("exposure Time = %f\n", modelParamsArray[i].exposureTime);
     
-       AppendExposureInfoToFile(exposureInfoFilename, 
-                                //modelParamsArray[i].inputFilename, 
-                                modelParamsArray[i]);
+       AppendExposureInfoToFile(exposureInfoFilename, modelParamsArray[i]);
     }
   }
   
@@ -332,36 +325,21 @@ int main( int argc, char *argv[] ) {
         float reflectanceRatio;
         if (i==0){
 	    modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
-         
-            reflectanceRatio = computeImageReflectance(modelParamsArray[i].inputFilename, 
-                                                       modelParamsArray[i].inputFilename, 
-                                                       modelParamsArray[i].meanDEMFilename, 
-                                                       modelParamsArray[i].shadowFilename, 
-                                                       modelParamsArray[i].shadowFilename, 
-                                                       modelParamsArray[i], 
-                                                       modelParamsArray[i],
-	                                               modelParamsArray[i].reliefFilename, 
+          
+            reflectanceRatio = computeImageReflectance(modelParamsArray[i], modelParamsArray[i],
                                                        globalParams);
 	 
        }
        else{
+	 
+           reflectanceRatio = computeImageReflectance(modelParamsArray[i], modelParamsArray[i-1],
+                                                       globalParams);
 
-           reflectanceRatio = computeImageReflectance(modelParamsArray[i].inputFilename, 
-                                                      modelParamsArray[i-1].inputFilename, 
-                                                      modelParamsArray[i].meanDEMFilename, 
-                                                      modelParamsArray[i].shadowFilename, 
-                                                      modelParamsArray[i-1].shadowFilename, 
-                                                      modelParamsArray[i], 
-                                                      modelParamsArray[i-1],
-                                                      modelParamsArray[i].reliefFilename, 
-                                                      globalParams);
          
 	   modelParamsArray[i].exposureTime = (modelParamsArray[i-1].exposureTime)/reflectanceRatio;
        }
        printf("exposure Time = %f\n", modelParamsArray[i].exposureTime);
-       AppendExposureInfoToFile(exposureInfoFilename, 
-                                //modelParamsArray[i].inputFilename, 
-                                modelParamsArray[i]);
+       AppendExposureInfoToFile(exposureInfoFilename, modelParamsArray[i]);
     }
   }
  
@@ -370,12 +348,9 @@ int main( int argc, char *argv[] ) {
     std ::vector<float> expTimeArray = ReadExposureInfoFile(initExpTimeFile, input_files.size());
     modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
     for (unsigned int i = 1; i < input_files.size(); ++i) {
-         //modelParamsArray[i].exposureTime = expTimeArray[i];
          modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*expTimeArray[i])/expTimeArray[0];
          printf("expTimeArray[%d] = %f\n", i,  modelParamsArray[i].exposureTime);
-         AppendExposureInfoToFile(exposureInfoFilename, 
-                                  //modelParamsArray[i].inputFilename, 
-                                  modelParamsArray[i]);
+         AppendExposureInfoToFile(exposureInfoFilename, modelParamsArray[i]);
     }
   }
 
@@ -389,11 +364,9 @@ int main( int argc, char *argv[] ) {
          vector<int> overlap_indices;
          overlap_indices = makeOverlapList(input_indices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
          std::vector<modelParams> overlap_params(overlap_indices.size());
-         std::vector<string> overlap_img_files(overlap_indices.size());
 
          for (unsigned int j = 0; j < overlap_indices.size(); j++){
               overlap_params[j] = modelParamsArray[overlap_indices[j]];
-              overlap_img_files[j] = input_files[overlap_indices[j]];
          }
 
          if (globalParams.reflectanceType == NO_REFL){
@@ -402,12 +375,8 @@ int main( int argc, char *argv[] ) {
 
 	 }
          else{
-             InitAlbedoMap(modelParamsArray[i].inputFilename, 
-                           modelParamsArray[i], 
-                           modelParamsArray[i].meanDEMFilename, 
-		           modelParamsArray[i].shadowFilename, 
-                           modelParamsArray[i].outputFilename, 
-                           overlap_img_files, overlap_params, globalParams);
+	  
+             InitAlbedoMosaic(modelParamsArray[i], overlap_params, globalParams);
 	 }
       
     }
@@ -463,16 +432,13 @@ int main( int argc, char *argv[] ) {
 	  }
           else{
               //use reflectance map
-              ComputeExposure(modelParamsArray[i].inputFilename, 
-                              modelParamsArray[i].outputFilename, 
-                              modelParamsArray[i].meanDEMFilename, 
-                              &modelParamsArray[i], globalParams);
+             
+              ComputeExposureAlbedo(&modelParamsArray[i], globalParams);
+
 	  }
 
           //create the exposureInfoFilename 
-          AppendExposureInfoToFile(currExposureInfoFilename, 
-                                   //modelParamsArray[i].inputFilename, 
-                                   modelParamsArray[i]);
+          AppendExposureInfoToFile(currExposureInfoFilename, modelParamsArray[i]);
       }
    
 
@@ -497,38 +463,26 @@ int main( int argc, char *argv[] ) {
           overlap_indices = makeOverlapList(input_indices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
      
           std::vector<modelParams> overlapParamsArray(overlap_indices.size());
-          std::vector<string> overlap_img_files(overlap_indices.size());
-          std::vector<string> overlapShadowFilesArray(overlap_indices.size());
+        
           for (unsigned int j = 0; j < overlap_indices.size(); j++){
                overlapParamsArray[j] = modelParamsArray[overlap_indices[j]];
-               overlap_img_files[j] = input_files[overlap_indices[j]];
-               overlapShadowFilesArray[j] = modelParamsArray[overlap_indices[j]].shadowFilename;
 	  }
                      
           if (globalParams.reflectanceType == NO_REFL){
               //no use of the reflectance map
-            
-             UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
+              UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
             
 	  }
           else{
               //use reflectance
-              ComputeAlbedoMap(modelParamsArray[i].inputFilename, 
-                               modelParamsArray[i].meanDEMFilename, 
-                               modelParamsArray[i].shadowFilename, 
-                               overlap_img_files,
-			       modelParamsArray[i], 
-                               overlapParamsArray,
-			       overlapShadowFilesArray, 
-                               modelParamsArray[i].outputFilename,
-                               globalParams);
+              UpdateAlbedoMosaic(modelParamsArray[i], overlapParamsArray, globalParams);
 	}
 	  	 
      }
 
 
-     //TO DO: re-estimate the shape
-     //for (unsigned int i = 1; i < input_files.size(); ++i) {
+     //TO DO: re-estimate the shape - shape from shading
+     //for (unsigned int i = 0; i < input_files.size(); ++i) {
      //   printf("iter = %d, shape, i = %d, filename = %s\n\n", iter, i, input_files[i].c_str());          
      //}
 
