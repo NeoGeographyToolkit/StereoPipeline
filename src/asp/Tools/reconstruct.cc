@@ -200,7 +200,7 @@ int main( int argc, char *argv[] ) {
   globalParams.shadowInitType = 1;//0;
   //globalParams.re_estimateExposure = 1;
   //globalParams.re_estimateAlbedo = 1;
-  globalParams.computeErrors = 0;//1;
+  globalParams.computeErrors = 1;//0;
   globalParams.useWeights = 1;//0;
   globalParams.maxNumIter = 10;
   globalParams.maxNextOverlappingImages = 2;
@@ -221,7 +221,6 @@ int main( int argc, char *argv[] ) {
  
   std::vector<Vector3> spacecraftPositions;
   spacecraftPositions = ReadSpacecraftPosition((char*)spacecraftPosFilename.c_str(), input_files.size());
- 
  
   std::vector<modelParams> modelParamsArray(input_files.size());
   std::vector<float> avgReflectanceArray(input_files.size());
@@ -259,7 +258,7 @@ int main( int argc, char *argv[] ) {
     }
 
    }
-    vector<int> input_indices(input_files.size());
+   vector<int> input_indices(input_files.size());
    for (unsigned int i = 0; i < input_files.size(); i++){
        input_indices[i] = i;
    } 
@@ -431,10 +430,8 @@ int main( int argc, char *argv[] ) {
               ComputeExposure(&modelParamsArray[i], globalParams);
 	  }
           else{
-              //use reflectance map
-             
+              //use reflectance map      
               ComputeExposureAlbedo(&modelParamsArray[i], globalParams);
-
 	  }
 
           //create the exposureInfoFilename 
@@ -500,36 +497,26 @@ int main( int argc, char *argv[] ) {
           overlap_indices = makeOverlapList(input_indices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
          
           std::vector<modelParams> overlapParamsArray(overlap_indices.size());
-          std::vector<string> overlap_img_files(overlap_indices.size());
-          std::vector<string> overlapShadowFilesArray(overlap_indices.size());
           for (unsigned int j = 0; j < overlap_indices.size(); j++){
                overlapParamsArray[j] = modelParamsArray[overlap_indices[j]];
-               overlap_img_files[j] = input_files[overlap_indices[j]];
-               overlapShadowFilesArray[j] = modelParamsArray[overlap_indices[j]].shadowFilename;
 	  }
-           
-         
+          
           //use reflectance
           float avgError;
           int numSamples;
-          ComputeAlbedoErrorMap(modelParamsArray[i].inputFilename, 
-                                modelParamsArray[i].meanDEMFilename, 
-                                modelParamsArray[i].shadowFilename, 
-                                modelParamsArray[i].outputFilename,
-                                overlap_img_files, 
-			        modelParamsArray[i], 
-                                overlapParamsArray,
-			        overlapShadowFilesArray,
-                                modelParamsArray[i].errorFilename, 
-                                globalParams, &avgError, &numSamples);
+        
+          ComputeReconstructionErrorMap(modelParamsArray[i],
+                                        overlapParamsArray,
+                                        globalParams,
+                                        &avgError, &numSamples);
            
           if (i ==0){
-	    overallAvgError = avgError;
-            overallNumSamples = numSamples;
+	     overallAvgError = avgError;
+             overallNumSamples = numSamples;
 	  }
           else{
-             overallAvgError = (overallAvgError*overallNumSamples + avgError*numSamples)/(overallNumSamples + numSamples);
-             overallNumSamples = overallNumSamples + numSamples;
+              overallAvgError = (overallAvgError*overallNumSamples + avgError*numSamples)/(overallNumSamples + numSamples);
+              overallNumSamples = overallNumSamples + numSamples;
 	  }	 
       }   
       printf("iter = %d, overallAvgError = %f\n", iter, overallAvgError);
