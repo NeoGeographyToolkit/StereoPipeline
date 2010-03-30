@@ -24,12 +24,12 @@
 // Vision Workbench
 #include <vw/Camera/ControlNetwork.h>
 #include <vw/Camera/BundleAdjust.h>
+#include <vw/Camera/ControlNetworkLoader.h>
 #include <vw/Math.h>
 #include <vw/InterestPoint.h>
 #include <vw/Core/Debugging.h>
 
 // Ames Stereo Pipeline
-#include <asp/Core/ControlNetworkLoader.h>
 #include <asp/IsisIO.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
@@ -332,5 +332,23 @@ public:
     return m_network;
   }
 };
+
+// This sifts out from a vector of strings, a listing of GCPs.  This
+// should be useful for those programs who accept their data in a mass
+// input vector.
+std::vector<std::string>
+sort_out_gcps( std::vector<std::string>& image_files ) {
+  std::vector<std::string> gcp_files;
+  std::vector<std::string>::iterator it = image_files.begin();
+  while ( it != image_files.end() ) {
+    if ( boost::iends_with(*it, ".gcp") ){
+      gcp_files.push_back( *it );
+      it = image_files.erase( it );
+    } else
+      it++;
+  }
+
+  return gcp_files;
+}
 
 }}

@@ -12,12 +12,11 @@
 if MAKE_MODULE_CORE
 
 include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
-		  ControlNetworkLoader.h InpaintView.h MedianFilter.h    \
-		  OrthoRasterizer.h SoftwareRenderer.h BundleAdjustUtils.h
+                  InpaintView.h MedianFilter.h OrthoRasterizer.h         \
+                  SoftwareRenderer.h BundleAdjustUtils.h
 
 libaspCore_la_SOURCES = BlobIndexThreaded.cc BundleAdjustUtils.cc        \
-		  ControlNetworkLoader.cc SoftwareRenderer.cc            \
-		  StereoSettings.cc
+                  SoftwareRenderer.cc StereoSettings.cc
 
 libaspCore_la_LIBADD = @MODULE_CORE_LIBS@
 

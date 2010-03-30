@@ -329,7 +329,7 @@ int main(int argc, char* argv[]) {
           bundle_adjustment_type == "sparse" ||
           bundle_adjustment_type == "robustref" ||
           bundle_adjustment_type == "robustsparse" ||
-	  bundle_adjustment_type == "robustsparsekgcp" ) ) {
+          bundle_adjustment_type == "robustsparsekgcp" ) ) {
     vw_out() << "Unknown bundle adjustment version: " << bundle_adjustment_type
               << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]\n";
     exit(1);
@@ -401,11 +401,11 @@ int main(int argc, char* argv[]) {
   } else {
     vw_out() << "Building Control Network:\n";
     vw_out() << "-------------------------\n";
-    build_control_network( g_cnet,
+    build_control_network( (*g_cnet),
                            camera_models,
                            g_input_files,
                            min_matches );
-    add_ground_control_points( g_cnet,
+    add_ground_control_points( (*g_cnet),
                                g_input_files,
                                g_gcp_files );
   }

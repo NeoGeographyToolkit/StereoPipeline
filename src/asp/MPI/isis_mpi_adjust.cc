@@ -4,8 +4,26 @@ using namespace vw;
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
-#include <asp/Core/ControlNetworkLoader.h>
+#include <vw/Camera/ControlNetworkLoader.h>
 #include <asp/MPI/BundleAdjustmentMPI.h>
+
+// This sifts out from a vector of strings, a listing of GCPs.  This
+// should be useful for those programs who accept their data in a mass
+// input vector.
+std::vector<std::string>
+sort_out_gcps( std::vector<std::string>& image_files ) {
+  std::vector<std::string> gcp_files;
+  std::vector<std::string>::iterator it = image_files.begin();
+  while ( it != image_files.end() ) {
+    if ( boost::iends_with(*it, ".gcp") ){
+      gcp_files.push_back( *it );
+      it = image_files.erase( it );
+    } else
+      it++;
+  }
+
+  return gcp_files;
+}
 
 int main ( int argc, char* argv[] ) {
   mpi::environment env(argc,argv);
@@ -71,8 +89,6 @@ int main ( int argc, char* argv[] ) {
     int task = LoadCameraModels;
     broadcast(world, task, 0);
     broadcast(world, input_file_names, 0);
-
-    
   }
 
   // Building control network & saving control network
