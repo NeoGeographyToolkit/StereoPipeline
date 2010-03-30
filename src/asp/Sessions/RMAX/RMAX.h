@@ -15,10 +15,8 @@
 #include <string>
 #include <vw/FileIO/DiskImageResourcePNG.h>
 #include <vw/Camera/CAHVORModel.h>
-#include <vw/Camera/BundleAdjust.h>
+#include <vw/BundleAdjustment.h>
 #include <vw/Core.h>
-
-using namespace vw;
 
 struct ImageInfo {
   std::string filename;

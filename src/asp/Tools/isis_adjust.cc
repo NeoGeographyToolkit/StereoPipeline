@@ -19,6 +19,7 @@ using namespace vw;
 using namespace vw::math;
 using namespace vw::camera;
 using namespace vw::ip;
+using namespace vw::ba;
 
 // Global variables
 float g_spacecraft_position_sigma;
@@ -462,45 +463,45 @@ int main(int argc, char* argv[]) {
 
     if ( bundle_adjustment_type == "ref" ) {
       if ( robust_cost_function == "pseudohuber" ) {
-        perform_bundleadjustment<BundleAdjustmentRef< ModelType, PseudoHuberError > >( PseudoHuberError(robust_outlier_threshold) );
+        perform_bundleadjustment<AdjustRef< ModelType, PseudoHuberError > >( PseudoHuberError(robust_outlier_threshold) );
       } else if ( robust_cost_function == "huber" ) {
-        perform_bundleadjustment<BundleAdjustmentRef< ModelType, HuberError > >( HuberError(robust_outlier_threshold) );
+        perform_bundleadjustment<AdjustRef< ModelType, HuberError > >( HuberError(robust_outlier_threshold) );
       } else if ( robust_cost_function == "l1" ) {
-        perform_bundleadjustment<BundleAdjustmentRef< ModelType, L1Error > >( L1Error() );
+        perform_bundleadjustment<AdjustRef< ModelType, L1Error > >( L1Error() );
       } else if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<BundleAdjustmentRef< ModelType, L2Error > >( L2Error() );
+        perform_bundleadjustment<AdjustRef< ModelType, L2Error > >( L2Error() );
       } else if ( robust_cost_function == "cauchy" ) {
-        perform_bundleadjustment<BundleAdjustmentRef< ModelType, CauchyError > >( CauchyError(robust_outlier_threshold) );
+        perform_bundleadjustment<AdjustRef< ModelType, CauchyError > >( CauchyError(robust_outlier_threshold) );
       }
     } else if ( bundle_adjustment_type == "sparse" ) {
       if ( robust_cost_function == "pseudohuber" ) {
-        perform_bundleadjustment<BundleAdjustmentSparse< ModelType, PseudoHuberError > >( PseudoHuberError(robust_outlier_threshold) );
+        perform_bundleadjustment<AdjustSparse< ModelType, PseudoHuberError > >( PseudoHuberError(robust_outlier_threshold) );
       } else if ( robust_cost_function == "huber" ) {
-        perform_bundleadjustment<BundleAdjustmentSparse< ModelType, HuberError > >( HuberError(robust_outlier_threshold) );
+        perform_bundleadjustment<AdjustSparse< ModelType, HuberError > >( HuberError(robust_outlier_threshold) );
       } else if ( robust_cost_function == "l1" ) {
-        perform_bundleadjustment<BundleAdjustmentSparse< ModelType, L1Error > >( L1Error() );
+        perform_bundleadjustment<AdjustSparse< ModelType, L1Error > >( L1Error() );
       } else if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<BundleAdjustmentSparse< ModelType, L2Error > >( L2Error() );
+        perform_bundleadjustment<AdjustSparse< ModelType, L2Error > >( L2Error() );
       } else if ( robust_cost_function == "cauchy" ) {
-        perform_bundleadjustment<BundleAdjustmentSparse< ModelType, CauchyError > >( CauchyError(robust_outlier_threshold) );
+        perform_bundleadjustment<AdjustSparse< ModelType, CauchyError > >( CauchyError(robust_outlier_threshold) );
       }
     } else if ( bundle_adjustment_type == "robustref" ) {
       if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<BundleAdjustmentRobustRef< ModelType,L2Error> >( L2Error() );
+        perform_bundleadjustment<AdjustRobustRef< ModelType,L2Error> >( L2Error() );
       } else {
         vw_out() << "Robust Reference implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
         exit(1);
       }
     } else if ( bundle_adjustment_type == "robustsparse" ) {
       if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<BundleAdjustmentRobustSparse< ModelType,L2Error> >( L2Error() );
+        perform_bundleadjustment<AdjustRobustSparse< ModelType,L2Error> >( L2Error() );
       } else {
         vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
         exit(1);
       }
     } else if ( bundle_adjustment_type == "robustsparsekgcp" ) {
       if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<BundleAdjustmentRobustSparseKGCP< ModelType,L2Error> >( L2Error() );
+        perform_bundleadjustment<AdjustRobustSparseKGCP< ModelType,L2Error> >( L2Error() );
       } else {
         vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
         exit(1);

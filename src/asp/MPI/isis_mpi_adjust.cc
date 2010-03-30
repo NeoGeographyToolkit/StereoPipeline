@@ -4,7 +4,7 @@ using namespace vw;
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
-#include <vw/Camera/ControlNetworkLoader.h>
+#include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <asp/MPI/BundleAdjustmentMPI.h>
 
 // This sifts out from a vector of strings, a listing of GCPs.  This

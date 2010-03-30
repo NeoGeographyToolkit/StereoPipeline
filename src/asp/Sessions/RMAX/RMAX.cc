@@ -13,6 +13,9 @@
 #define RMAX_GLOBAL_EASTING (582680)
 #define RMAX_GLOBAL_NORTHING (4141480)
 
+using namespace vw;
+using namespace vw::camera;
+
 void read_image_info( std::string const& filename, ImageInfo& info ) {
   vw::vw_out(vw::DebugMessage) << "Reading image info from " << filename << std::endl;;
   vw::DiskImageResourcePNG png( filename );

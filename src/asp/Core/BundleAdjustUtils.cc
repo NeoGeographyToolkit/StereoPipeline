@@ -10,13 +10,14 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 
-#include <vw/Camera.h>
+#include <vw/Camera/CameraModel.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Stereo/StereoModel.h>
 
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::stereo;
-using namespace vw::ip;
+using namespace vw::ba;
 
 void read_adjustments(std::string const& filename,
                       Vector3& position_correction,
