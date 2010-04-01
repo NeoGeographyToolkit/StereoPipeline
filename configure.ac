@@ -303,7 +303,7 @@ AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [ISISIO CORE],
 
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 AX_APP(ORTHOPROJECT,     [src/asp/Tools], yes, [SESSIONS])
-AX_APP(BUNDLEADJUST,     [src/asp/Tools], no,  [SESSIONS])
+AX_APP(BUNDLEADJUST,     [src/asp/Tools], no,  [VW_BUNDLEADJUSTMENT SESSIONS])
 AX_APP(ORBITVIZ,         [src/asp/Tools], yes, [SESSIONS])
 AX_APP(DISPARITYDEBUG,   [src/asp/Tools], yes, [VW_STEREO])
 AX_APP(POINT2MESH,       [src/asp/Tools], yes, [OPENSCENEGRAPH VW])

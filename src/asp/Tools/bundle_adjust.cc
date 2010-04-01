@@ -16,19 +16,18 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 #include <vw/Camera/CAHVORModel.h>
-#include <vw/Camera/BundleAdjustmentSparse.h>
-#include <vw/Camera/BundleAdjustReport.h>
+#include <vw/BundleAdjustment.h>
 #include <vw/Math.h>
 
 using namespace vw;
 using namespace vw::camera;
+using namespace vw::ba;
 
 #include <stdlib.h>
 #include <iostream>
 
 #include <asp/Sessions.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Core/ControlNetworkLoader.h>
 #include <asp/Core/StereoSettings.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
@@ -36,7 +35,7 @@ using namespace vw::camera;
 #endif
 
 // Bundle adjustment functor
-class BundleAdjustmentModel : public camera::BundleAdjustmentModelBase<BundleAdjustmentModel, 7, 4> {
+class BundleAdjustmentModel : public ba::ModelBase<BundleAdjustmentModel, 7, 4> {
 
   typedef Vector<double,7> camera_vector_t;
   typedef Vector<double,4> point_vector_t;
@@ -104,7 +103,7 @@ public:
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
   // Return the covariance of the camera parameters for camera j.
-  inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned j ) const {
+  inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned /*j*/ ) const {
     Matrix<double,camera_params_n,camera_params_n> result;
     result(0,0) = 1/400.0;
     result(1,1) = 1/400.0;
@@ -117,7 +116,7 @@ public:
   }
 
   // Return the covariance of the point parameters for point i.
-  inline Matrix<double,point_params_n,point_params_n> B_inverse_covariance ( unsigned i ) const {
+  inline Matrix<double,point_params_n,point_params_n> B_inverse_covariance ( unsigned /*i*/ ) const {
     Matrix<double,point_params_n,point_params_n> result;
     result(0,0) = 1/1e-16;
     result(1,1) = 1/1e-16;
@@ -138,7 +137,7 @@ public:
   // image, and the 'b' vector (3D point location) for the i'th
   // point, return the location of b_i on imager j in pixel
   // coordinates.
-  Vector2 operator() ( unsigned i, unsigned j, camera_vector_t const& a_j, point_vector_t const& b_i ) const {
+  Vector2 operator() ( unsigned /*i*/, unsigned j, camera_vector_t const& a_j, point_vector_t const& b_i ) const {
     Vector3 position_correction;
     Quaternion<double> pose_correction;
     parse_camera_parameters(a_j, position_correction, pose_correction);
@@ -252,6 +251,25 @@ public:
 
 };
 
+
+// This sifts out from a vector of strings, a listing of GCPs.  This
+// should be useful for those programs who accept their data in a mass
+// input vector.
+std::vector<std::string>
+sort_out_gcps( std::vector<std::string>& image_files ) {
+  std::vector<std::string> gcp_files;
+  std::vector<std::string>::iterator it = image_files.begin();
+  while ( it != image_files.end() ) {
+    if ( boost::iends_with(*it, ".gcp") ){
+      gcp_files.push_back( *it );
+      it = image_files.erase( it );
+    } else
+      it++;
+  }
+
+  return gcp_files;
+}
+
 int main(int argc, char* argv[]) {
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
@@ -299,13 +317,20 @@ int main(int argc, char* argv[]) {
   po::positional_options_description p;
   p.add("input-files", -1);
 
-  po::variables_map vm;
-  po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
-  po::notify( vm );
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <image filenames>..." << std::endl << std::endl;
   usage << general_options << std::endl;
+
+  po::variables_map vm;
+  try {
+    po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
+    po::notify( vm );
+  } catch ( po::error &e ) {
+    std::cout << "An error occured while parsing command line arguments.\n";
+    std::cout << "\t" << e.what() << "\n\n";
+    std::cout << usage.str();
+    return 1;
+  }
 
   if( vm.count("help") ) {
     std::cout << usage.str() << std::endl;
@@ -354,10 +379,10 @@ int main(int argc, char* argv[]) {
   }
 
   if (!vm.count("cnet") ) {
-    build_control_network( cnet, camera_models,
+    build_control_network( (*cnet), camera_models,
                            image_files,
                            min_matches );
-    add_ground_control_points( cnet,
+    add_ground_control_points( (*cnet),
                                image_files,
                                gcp_files );
 
@@ -365,7 +390,7 @@ int main(int argc, char* argv[]) {
   }
 
   BundleAdjustmentModel ba_model(camera_models, cnet);
-  BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error());
+  AdjustSparse<BundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error());
 
   if (vm.count("lambda"))
     bundle_adjuster.set_lambda(lambda);
@@ -379,7 +404,7 @@ int main(int argc, char* argv[]) {
     ostr.close();
   }
 
-  BundleAdjustReport<BundleAdjustmentSparse<BundleAdjustmentModel, L2Error> > 
+  BundleAdjustReport<AdjustSparse<BundleAdjustmentModel, L2Error> >
     reporter( "Bundle Adjust", ba_model, bundle_adjuster, report_level );
 
   double abs_tol = 1e10, rel_tol=1e10;
