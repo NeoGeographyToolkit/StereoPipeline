@@ -11,12 +11,19 @@
 
 if MAKE_MODULE_CORE
 
+if HAVE_PKG_VW_BUNDLEADJUSTMENT
+
+ba_headers = BundleAdjustUtils.h
+ba_sources = BundleAdjustUtils.cc
+
+endif
+
 include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
                   InpaintView.h MedianFilter.h OrthoRasterizer.h         \
-                  SoftwareRenderer.h BundleAdjustUtils.h
+                  SoftwareRenderer.h $(ba_headers)
 
-libaspCore_la_SOURCES = BlobIndexThreaded.cc BundleAdjustUtils.cc        \
-                  SoftwareRenderer.cc StereoSettings.cc
+libaspCore_la_SOURCES = BlobIndexThreaded.cc SoftwareRenderer.cc         \
+                  StereoSettings.cc $(ba_sources)
 
 libaspCore_la_LIBADD = @MODULE_CORE_LIBS@
 

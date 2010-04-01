@@ -200,6 +200,8 @@ AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint],[vw/Interest
 AX_PKG(VW_PHOTOMETRY,     [VW],                 [-lvwPhotometry])
 AX_PKG(VW_BUNDLEADJUSTMENT, [VW_INTEREST_POINT VW_CARTOGRAPHY VW_STEREO], [-lvwBundleAdjustment], [vw/BundleAdjustment/AdjustBase.h])
 
+AM_CONDITIONAL(HAVE_PKG_VW_BUNDLEADJUSTMENT, [test "$HAVE_PKG_VW_BUNDLEADJUSTMENT" = "yes"])
+
 AX_PKG_ONE_OF(GL,
   APPLE_GL,
     [AX_PKG_APPLE([GL], [], [-framework OpenGL -framework GLUT -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib])],
