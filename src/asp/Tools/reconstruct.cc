@@ -17,21 +17,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <boost/operators.hpp>
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/convenience.hpp>
-#include <boost/filesystem/fstream.hpp>
-namespace fs = boost::filesystem;
 
 #include <vw/Core.h>
 #include <vw/Image.h>
 #include <vw/FileIO.h>
 #include <vw/Cartography.h>
 #include <vw/Math.h>
-//#include <vw/Photometry.h>
+
+using namespace vw;
+using namespace vw::math;
+using namespace vw::cartography;
 
 #include <vw/Photometry/Albedo.h>
 #include <vw/Photometry/Exposure.h>
@@ -43,20 +40,15 @@ namespace fs = boost::filesystem;
 #include <vw/Photometry/Weights.h>
 #include <vw/Photometry/Misc.h>
 
-using namespace vw;
-using namespace vw::math;
-using namespace vw::cartography;
-#include <math.h>
+using namespace vw::photometry;
 
-vector<int> makeOverlapList(vector<int> inputIndices, int currIndex, int maxNumPrevIndices, int maxNumNextIndices)
-{
-  int i;
-  int numPrevIndices;
-  int numNextIndices;
+std::vector<int> makeOverlapList(std::vector<int> inputIndices, int currIndex,
+                                 int maxNumPrevIndices, int maxNumNextIndices) {
+  int i, numPrevIndices, numNextIndices;
 
   //determine the number of previous overlapping files
-  if (currIndex == 0){
-      numPrevIndices = 0;
+  if (currIndex == 0) {
+    numPrevIndices = 0;
   }
   else{
     int tempNumPrevIndices = currIndex - maxNumPrevIndices;
@@ -81,17 +73,17 @@ vector<int> makeOverlapList(vector<int> inputIndices, int currIndex, int maxNumP
   printf("curr index = %d\n", currIndex);
   printf("numPrevIndices = %d, numNextIndices = %d\n", numPrevIndices, numNextIndices);
 
-  vector<int> overlapIndices(numPrevIndices+numNextIndices);
+  std::vector<int> overlapIndices(numPrevIndices+numNextIndices);
   int tmpIndex = 0;
   for (i = currIndex - numPrevIndices; i < currIndex; i++){
-       overlapIndices[tmpIndex] = inputIndices[i];
-       printf("%d %d\n", tmpIndex, overlapIndices[i - (currIndex - numPrevIndices)]);
-       tmpIndex++;
+    overlapIndices[tmpIndex] = inputIndices[i];
+    printf("%d %d\n", tmpIndex, overlapIndices[i - (currIndex - numPrevIndices)]);
+    tmpIndex++;
   }
   for (i = currIndex+1; i <= currIndex + numNextIndices; i++){
-       overlapIndices[tmpIndex] = inputIndices[i];
-       printf("%d %d\n", tmpIndex, overlapIndices[tmpIndex]);
-       tmpIndex++;
+    overlapIndices[tmpIndex] = inputIndices[i];
+    printf("%d %d\n", tmpIndex, overlapIndices[tmpIndex]);
+    tmpIndex++;
   }
 
   printf("-------------------------------------------\n");
@@ -176,11 +168,11 @@ int main( int argc, char *argv[] ) {
   globalParams.maxNextOverlappingImages = 2;
   globalParams.maxPrevOverlappingImages = 2;
 
-  string sunPosFilename = homeDir + dataDir + "/sunpos.txt";
-  string spacecraftPosFilename = homeDir + dataDir + "/spacecraftpos.txt";
-  string initExpTimeFile = homeDir + dataDir + "/exposureTime.txt";
+  std::string sunPosFilename = homeDir + dataDir + "/sunpos.txt";
+  std::string spacecraftPosFilename = homeDir + dataDir + "/spacecraftpos.txt";
+  std::string initExpTimeFile = homeDir + dataDir + "/exposureTime.txt";
 
-  string exposureInfoFilename = homeDir + resDir + "/exposure/exposureInfo_0.txt";
+  std::string exposureInfoFilename = homeDir + resDir + "/exposure/exposureInfo_0.txt";
 
   std::vector<Vector3> sunPositions;
   sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), input_files.size());
@@ -220,7 +212,7 @@ int main( int argc, char *argv[] ) {
     vw_out( VerboseDebugMessage, "photometry" ) << modelParamsArray[i] << "\n";
   }
 
-  vector<int> inputIndices(input_files.size());
+  std::vector<int> inputIndices(input_files.size());
   for (unsigned int i = 0; i < input_files.size(); i++){
     inputIndices[i] = i;
   }
@@ -232,7 +224,7 @@ int main( int argc, char *argv[] ) {
     for (unsigned int i = 0; i < input_files.size(); ++i) {
       callback.report_progress(float(i)/float(input_files.size()));
 
-      vector<int> overlapIndices;
+      std::vector<int> overlapIndices;
       overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
       std::vector<ModelParams> overlapParams(overlapIndices.size());
 
@@ -301,13 +293,14 @@ int main( int argc, char *argv[] ) {
         modelParamsArray[i].exposureTime = (modelParamsArray[i-1].exposureTime)/reflectanceRatio;
       }
       printf("exposure Time = %f\n", modelParamsArray[i].exposureTime);
-      AppendExposureInfoToFile(exposureInfoFilename, modelParamsArray[i]);
+      AppendExposureInfoToFile(exposureInfoFilename,
+                               modelParamsArray[i]);
     }
   }
 
   if (globalParams.exposureInitType == 3){
 
-    std ::vector<float> expTimeArray = ReadExposureInfoFile(initExpTimeFile, input_files.size());
+    std::vector<float> expTimeArray = ReadExposureInfoFile(initExpTimeFile, input_files.size());
     modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
     for (unsigned int i = 1; i < input_files.size(); ++i) {
       modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*expTimeArray[i])/expTimeArray[0];
@@ -322,7 +315,7 @@ int main( int argc, char *argv[] ) {
     for (unsigned int i = 0; i < input_files.size(); ++i) {
       callback.report_progress(float(i)/float(input_files.size()));
 
-      vector<int> overlapIndices;
+      std::vector<int> overlapIndices;
       overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
       std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
 
@@ -340,7 +333,7 @@ int main( int argc, char *argv[] ) {
   }
 
 
-  //--------------------------------------------------------------------------------
+  //-----------------------------------------------------------
 
 
   //re-estimate the parameters of the image formation model
@@ -348,16 +341,16 @@ int main( int argc, char *argv[] ) {
 
   for (int iter = 1; iter < globalParams.maxNumIter; iter++){
 
-    string currExposureInfoFilename;
-    string prevExposureInfoFilename;
+    std::string currExposureInfoFilename;
+    std::string prevExposureInfoFilename;
 
     char* currExposureInfoFilename_char = new char[500];
     char* prevExposureInfoFilename_char = new char[500];
 
     sprintf (currExposureInfoFilename_char, (char*)(homeDir + resDir + "/exposure/exposureInfo_%d.txt").c_str(), iter);
     sprintf (prevExposureInfoFilename_char, (char*)(homeDir + resDir + "/exposure/exposureInfo_%d.txt").c_str(), iter-1);
-    currExposureInfoFilename = string(currExposureInfoFilename_char);
-    prevExposureInfoFilename = string(prevExposureInfoFilename_char);
+    currExposureInfoFilename = std::string(currExposureInfoFilename_char);
+    prevExposureInfoFilename = std::string(prevExposureInfoFilename_char);
 
     delete currExposureInfoFilename_char;
     delete prevExposureInfoFilename_char;
@@ -380,20 +373,20 @@ int main( int argc, char *argv[] ) {
     //re-estimate the exposure time
     for (unsigned int i = 0; i < input_files.size(); ++i) {
 
-          printf("iter = %d, exposure, i = %d, filename = %s\n\n", iter, i, input_files[i].c_str());
+      printf("iter = %d, exposure, i = %d, filename = %s\n\n", iter, i, input_files[i].c_str());
 
-          if (globalParams.reflectanceType == NO_REFL){
-              //no use of reflectance map
-              ComputeExposure(&modelParamsArray[i], globalParams);
-          }
-          else{
-              //use reflectance map
-              ComputeExposureAlbedo(&modelParamsArray[i], globalParams);
-          }
-
-          //create the exposureInfoFilename
-          AppendExposureInfoToFile(currExposureInfoFilename, modelParamsArray[i]);
+      if (globalParams.reflectanceType == NO_REFL){
+        //no use of reflectance map
+        ComputeExposure(&modelParamsArray[i], globalParams);
       }
+      else{
+        //use reflectance map
+        ComputeExposureAlbedo(&modelParamsArray[i], globalParams);
+      }
+
+      //create the exposureInfoFilename
+      AppendExposureInfoToFile(currExposureInfoFilename, modelParamsArray[i]);
+    }
 
      /*
      exposureTimeVector = ReadExposureInfoFile(currExposureInfoFilename,input_files.size());
@@ -402,27 +395,27 @@ int main( int argc, char *argv[] ) {
      }
      */
 
-     for (unsigned int i = 0; i < input_files.size(); ++i) {
+    for (unsigned int i = 0; i < input_files.size(); ++i) {
 
-          vector<int> overlapIndices;
-          overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
-          std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
+      std::vector<int> overlapIndices;
+      overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
+      std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
 
-          for (unsigned int j = 0; j < overlapIndices.size(); j++){
-               overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
-          }
+      for (unsigned int j = 0; j < overlapIndices.size(); j++){
+        overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
+      }
 
-          if (globalParams.reflectanceType == NO_REFL){
-              //no use of the reflectance map
-              UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
+      if (globalParams.reflectanceType == NO_REFL){
+        //no use of the reflectance map
+        UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
 
-          }
-          else{
-              //use reflectance
-              UpdateAlbedoMosaic(modelParamsArray[i], overlapParamsArray, globalParams);
-        }
+      }
+      else{
+        //use reflectance
+        UpdateAlbedoMosaic(modelParamsArray[i], overlapParamsArray, globalParams);
+      }
 
-     }
+    }
 
 
      //TO DO: re-estimate the shape - shape from shading
@@ -430,48 +423,44 @@ int main( int argc, char *argv[] ) {
      //   printf("iter = %d, shape, i = %d, filename = %s\n\n", iter, i, input_files[i].c_str());
      //}
 
-     if (globalParams.computeErrors == 1){
+    if (globalParams.computeErrors == 1){
 
-        //compute the errors
-       float overallAvgError = 0;
-       int overallNumSamples = 0;
+      //compute the errors
+      float overallAvgError = 0;
+      int overallNumSamples = 0;
 
-       for (unsigned int i = 0; i < input_files.size(); ++i) {
+      for (unsigned int i = 0; i < input_files.size(); ++i) {
+        //printf("expT[%d] = %f\n", i, modelParamsArray[i].exposureTime);
+        std::vector<int> overlapIndices;
 
-          //printf("expT[%d] = %f\n", i, modelParamsArray[i].exposureTime);
-          vector<int> overlapIndices;
+        overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
 
-          overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
+        std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
+        for (unsigned int j = 0; j < overlapIndices.size(); j++){
+          overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
+        }
 
-          std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
-          for (unsigned int j = 0; j < overlapIndices.size(); j++){
-               overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
-          }
+        //use reflectance
+        float avgError;
+        int numSamples;
 
-          //use reflectance
-          float avgError;
-          int numSamples;
+        ComputeReconstructionErrorMap(modelParamsArray[i],
+                                      overlapParamsArray,
+                                      globalParams,
+                                      &avgError, &numSamples);
 
-          ComputeReconstructionErrorMap(modelParamsArray[i],
-                                        overlapParamsArray,
-                                        globalParams,
-                                        &avgError, &numSamples);
-
-          if (i ==0){
-              overallAvgError = avgError;
-              overallNumSamples = numSamples;
-          }
-          else{
-              overallAvgError = (overallAvgError*overallNumSamples + avgError*numSamples)/(overallNumSamples + numSamples);
-              overallNumSamples = overallNumSamples + numSamples;
-          }
+        if (i ==0){
+          overallAvgError = avgError;
+          overallNumSamples = numSamples;
+        }
+        else{
+          overallAvgError = (overallAvgError*overallNumSamples + avgError*numSamples)/(overallNumSamples + numSamples);
+          overallNumSamples = overallNumSamples + numSamples;
+        }
       }
       printf("iter = %d, overallAvgError = %f\n", iter, overallAvgError);
-     }
-
-
+    }
   }
-
 
 
   #if 0
@@ -522,7 +511,7 @@ int main( int argc, char *argv[] ) {
          }
       }
 
-        printf("test3\n");
+      printf("test3\n");
       //DiskImageView<PixelMask<PixelGray<float> > >  origDEM(DEM_file);
       //TO DO: change this such that the init_dem will be the sie of the origImage+1;
       ImageView<PixelGray<double> > init_dem(origImage.cols()+1, origImage.rows()+1);
@@ -572,13 +561,6 @@ int main( int argc, char *argv[] ) {
 
        optimize_conjugate_gradient(&image_predicted, &image, &dem, &init_dem, &albedo, &light_direction);
        printf("test6\n");
-       /*
-       for (unsigned k=0; k < origImage.rows()+1; ++k) {
-         for (unsigned l=0; l < origImage.cols()+1; ++l) {
-           printf("dem(%d, %d) = %f, %f\n", l, k, (float)init_dem(l,k), (float)dem(l,k) );
-         }
-       }
-       */
   }
   #endif
 
