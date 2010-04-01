@@ -15,6 +15,7 @@
 #include <vector>
 
 // VW
+#include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
 #include <vw/Image/ImageViewBase.h>
 #include <vw/Image/PixelMask.h>
@@ -213,15 +214,15 @@ class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
 
   // Debug structure
   void print_structure( void ) const {
-    vw_out() << "SparseView Structure:\n";
+    vw::vw_out() << "SparseView Structure:\n";
     for ( vw::uint32 i = 0; i < m_data->size(); i++ ) {
-      vw_out() << i << " | ";
+      vw::vw_out() << i << " | ";
       for ( typename map_type::const_iterator it = (*m_data)[i].begin();
             it != (*m_data)[i].end(); it++ ) {
         vw::int32 start = it->first - it->second.size();
-        vw_out() << "(" << start << "->" << it->first << ")";
+        vw::vw_out() << "(" << start << "->" << it->first << ")";
       }
-      vw_out() << "\n";
+      vw::vw_out() << "\n";
     }
 
   }

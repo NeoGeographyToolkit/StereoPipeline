@@ -305,7 +305,7 @@ AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL BO
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_MOST SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [], [ISISIO SPICEIO])
-AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
+AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
 
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 AX_APP(ORTHOPROJECT,     [src/asp/Tools], yes, [SESSIONS])

@@ -11,6 +11,10 @@
 
 #include <asp/Tools/stereo.h>
 
+using namespace vw;
+using namespace vw::camera;
+using namespace vw::cartography;
+
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
@@ -761,8 +765,6 @@ int main(int argc, char* argv[]) {
                 << e.what() << "\nExiting.\n\n";
       exit(0);
     }
-
-    
   }
 
 
@@ -782,6 +784,7 @@ int main(int argc, char* argv[]) {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       session->camera_models(camera_model1, camera_model2);
 
+#if HAVE_PKG_VW_BUNDLEADJUSTMENT
       // If the user has generated a set of position and pose
       // corrections using the bundle_adjust program, we read them in
       // here and incorporate them into our camera model.
@@ -801,6 +804,7 @@ int main(int argc, char* argv[]) {
                                                                                position_correction,
                                                                                pose_correction));
       }
+#endif
 
       // Apply the stereo model.  This yields a image of 3D points in
       // space.  We build this image and immediately write out the
