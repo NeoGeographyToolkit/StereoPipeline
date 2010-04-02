@@ -29,6 +29,19 @@ AX_ARG_ENABLE(google-profiler,  no, [none],            [Try to use google perfto
 # Handle options
 ##################################################
 
+# Sometimes we have /foo/lib64 and /foo/lib confusion on 64-bit machines,
+# so we'll use possibly both if one doesn't appear for a certain
+# library path.
+AX_OTHER_LIBDIR="lib"
+if test x"$ENABLE_ARCH_LIBS" = "x64"; then
+  AX_LIBDIR="lib64"
+elif test x"$ENABLE_ARCH_LIBS" = "x32"; then
+  AX_LIBDIR="lib32"
+else
+  AX_LIBDIR="lib"
+  AX_OTHER_LIBDIR=""
+fi
+
 if test x"$ENABLE_GOOGLE_TCMALLOC" != x"yes"; then
   HAVE_PKG_TCMALLOC=no:disabled
 fi
@@ -58,19 +71,6 @@ if test x"$ENABLE_CCACHE" = x"yes"; then
         CC="$CCACHE $CC"
         CXX="$CCACHE $CXX"
     fi
-fi
-
-# Sometimes we have /foo/lib64 and /foo/lib confusion on 64-bit machines,
-# so we'll use possibly both if one doesn't appear for a certain
-# library path.
-AX_OTHER_LIBDIR="lib"
-if test x"$ENABLE_ARCH_LIBS" = "x64"; then
-  AX_LIBDIR="lib64"
-elif test x"$ENABLE_ARCH_LIBS" = "x32"; then
-  AX_LIBDIR="lib32"
-else
-  AX_LIBDIR="lib"
-  AX_OTHER_LIBDIR=""
 fi
 
 # These are good if they're supported
