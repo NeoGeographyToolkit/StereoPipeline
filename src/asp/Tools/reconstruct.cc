@@ -25,21 +25,11 @@ namespace po = boost::program_options;
 #include <vw/FileIO.h>
 #include <vw/Cartography.h>
 #include <vw/Math.h>
+#include <vw/Photometry.h>
 
 using namespace vw;
 using namespace vw::math;
 using namespace vw::cartography;
-
-#include <vw/Photometry/Albedo.h>
-#include <vw/Photometry/Exposure.h>
-#include <vw/Photometry/Reconstruct.h>
-#include <vw/Photometry/Reflectance.h>
-#include <vw/Photometry/Shadow.h>
-#include <vw/Photometry/Shape.h>
-#include <vw/Photometry/ShapeFromShading.h>
-#include <vw/Photometry/Weights.h>
-#include <vw/Photometry/Misc.h>
-
 using namespace vw::photometry;
 
 std::vector<int> makeOverlapList(std::vector<int> inputIndices, int currIndex,
@@ -94,14 +84,14 @@ std::vector<int> makeOverlapList(std::vector<int> inputIndices, int currIndex,
 int main( int argc, char *argv[] ) {
 
   std::vector<std::string> input_files;
-  int num_matches;
+  //int num_matches;
   std::string homeDir;
   std::string dataDir = "/data/orbit33";
   std::string resDir = "/results/orbit33";
 
   po::options_description general_options("Options");
   general_options.add_options()
-    ("num-matches,m", po::value<int>(&num_matches)->default_value(1000), "Number of points to match for linear regression.")
+    //("num-matches,m", po::value<int>(&num_matches)->default_value(1000), "Number of points to match for linear regression.")
     ("project-directory,d", po::value<std::string>(&homeDir)->default_value("../../../.."), "Base directory where data folders and result folders are.")
     ("help,h", "Display this help message");
 
@@ -418,10 +408,21 @@ int main( int argc, char *argv[] ) {
     }
 
 
-     //TO DO: re-estimate the shape - shape from shading
-     //for (unsigned int i = 0; i < input_files.size(); ++i) {
-     //   printf("iter = %d, shape, i = %d, filename = %s\n\n", iter, i, input_files[i].c_str());
-     //}
+     //re-estimate the height map  - shape from shading
+     for (unsigned int i = 0; i < input_files.size(); ++i) {
+          if (globalParams.reflectanceType != NO_REFL){
+	     printf("iter = %d, height map computation i = %d, filename = %s\n\n", iter, i, modelParamsArray[i].inputFilename.c_str());
+             
+             std::vector<int> overlapIndices;
+             overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
+             std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
+             for (unsigned int j = 0; j < overlapIndices.size(); j++){
+                  overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
+             }
+              
+             UpdateHeightMap(modelParamsArray[i], overlapParamsArray, globalParams);
+	  }     
+     }
 
     if (globalParams.computeErrors == 1){
 
@@ -430,7 +431,7 @@ int main( int argc, char *argv[] ) {
       int overallNumSamples = 0;
 
       for (unsigned int i = 0; i < input_files.size(); ++i) {
-        //printf("expT[%d] = %f\n", i, modelParamsArray[i].exposureTime);
+  
         std::vector<int> overlapIndices;
 
         overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
