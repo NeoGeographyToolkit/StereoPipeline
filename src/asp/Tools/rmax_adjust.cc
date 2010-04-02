@@ -16,20 +16,36 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 #include <vw/Camera/CAHVORModel.h>
-#include <vw/Camera/BundleAdjustmentSparse.h>
-#include <vw/Camera/BundleAdjustReport.h>
-#include <vw/Camera/ControlNetwork.h>
+#include <vw/BundleAdjustment.h>
 #include <vw/Math.h>
 #include <vw/Math/LevenbergMarquardt.h>
 
 using namespace vw;
 using namespace vw::camera;
+using namespace vw::ba;
 
 #include <stdlib.h>
 #include <iostream>
 
 #include <asp/Sessions/RMAX/RMAX.h>
-#include <asp/Core/ControlNetworkLoader.h>
+
+// This sifts out from a vector of strings, a listing of GCPs.  This
+// should be useful for those programs who accept their data in a mass
+// input vector.
+std::vector<std::string>
+sort_out_gcps( std::vector<std::string>& image_files ) {
+  std::vector<std::string> gcp_files;
+  std::vector<std::string>::iterator it = image_files.begin();
+  while ( it != image_files.end() ) {
+    if ( boost::iends_with(*it, ".gcp") ){
+      gcp_files.push_back( *it );
+      it = image_files.erase( it );
+    } else
+      it++;
+  }
+
+  return gcp_files;
+}
 
 static std::string prefix_from_filename(std::string const& filename) {
   std::string result = filename;
@@ -39,7 +55,7 @@ static std::string prefix_from_filename(std::string const& filename) {
   return result;
 }
 
-class HelicopterBundleAdjustmentModel : public camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3> {
+class HelicopterBundleAdjustmentModel : public ba::ModelBase<HelicopterBundleAdjustmentModel, 6, 3> {
 
   typedef Vector<double,6> camera_vector_t;
   typedef Vector<double,3> point_vector_t;
@@ -95,7 +111,7 @@ public:
   virtual Matrix<double, 2, 6> A_jacobian ( unsigned i, unsigned j,
                                             Vector<double, 6> const& a_j,
                                             Vector<double, 3> const& b_i ) {
-    Matrix<double> partial_derivatives = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::A_jacobian(i,j,a_j,b_i);
+    Matrix<double> partial_derivatives = ba::ModelBase<HelicopterBundleAdjustmentModel, 6, 3>::A_jacobian(i,j,a_j,b_i);
 
     return partial_derivatives;
   }
@@ -105,7 +121,7 @@ public:
   virtual Matrix<double, 2, 3> B_jacobian ( unsigned i, unsigned j,
                                             Vector<double, 6> const& a_j,
                                             Vector<double, 3> const& b_i ) {
-    Matrix<double> partial_derivatives = camera::BundleAdjustmentModelBase<HelicopterBundleAdjustmentModel, 6, 3>::B_jacobian(i,j,a_j,b_i);
+    Matrix<double> partial_derivatives = ba::ModelBase<HelicopterBundleAdjustmentModel, 6, 3>::B_jacobian(i,j,a_j,b_i);
 
     return partial_derivatives;
   }
@@ -139,7 +155,7 @@ public:
   }
 
   // Return the covariance of the camera parameters for camera j.
-  inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned j ) {
+  inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned /*j*/ ) {
     Matrix<double,camera_params_n,camera_params_n> result;
     result(0,0) = 1/1;  // Position sigma = 1 meter
     result(1,1) = 1/1;
@@ -151,7 +167,7 @@ public:
   }
 
   // Return the covariance of the point parameters for point i.
-  inline Matrix<double,point_params_n,point_params_n> B_inverse_covariance ( unsigned i ) {
+  inline Matrix<double,point_params_n,point_params_n> B_inverse_covariance ( unsigned /*i*/ ) {
     Matrix<double,point_params_n,point_params_n> result;
     result(0,0) = 1/1000.0;  // Point sigma = 1000 meters ( we set this to be
     result(1,1) = 1/1000.0;  // so large that it essentially removes point position
@@ -207,7 +223,7 @@ public:
   // image, and the 'b' vector (3D point location) for the i'th
   // point, return the location of b_i on imager j in pixel
   // coordinates.
-  Vector2 operator() ( unsigned i, unsigned j, Vector<double,6> const& a_j, Vector<double,3> const& b_i ) const {
+  Vector2 operator() ( unsigned /*i*/, unsigned j, Vector<double,6> const& a_j, Vector<double,3> const& b_i ) const {
     Vector3 position_correction = subvector(a_j, 0, 3);
     Vector3 pose_correction = subvector(a_j, 3,3);
     camera::CAHVORModel cam = rmax_image_camera_model(m_image_infos[j], position_correction, pose_correction);
@@ -290,8 +306,7 @@ int main(int argc, char* argv[]) {
     ("report-level,r",po::value<int>(&report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report")
     ("run-match,m", "Run ipmatch to create .match files from overlapping images.")
     ("match-debug-images,d", "Create debug images when you run ipmatch.")
-    ("help,h", "Display this help message")
-    ("verbose,v", "Verbose output");
+    ("help,h", "Display this help message");
 
   po::options_description hidden_options("");
   hidden_options.add_options()
@@ -343,9 +358,9 @@ int main(int argc, char* argv[]) {
 
   } else {
     // Building a Control Network
-    build_control_network( cnet, camera_models,
+    build_control_network( *cnet, camera_models,
                            image_files, min_matches );
-    add_ground_control_points( cnet,
+    add_ground_control_points( *cnet,
                                image_files,
                                gcp_files );
 
@@ -353,11 +368,10 @@ int main(int argc, char* argv[]) {
   }
 
   HelicopterBundleAdjustmentModel ba_model(image_infos, cnet);
-  BundleAdjustmentSparse<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error());
+  AdjustSparse<HelicopterBundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error());
 
-  if (vm.count("lambda")) {
+  if (vm.count("lambda"))
     bundle_adjuster.set_lambda(lambda);
-  }
 
   //Clearing the monitoring text files to be used for saving camera params
   if (vm.count("save-iteration-data")){
@@ -378,7 +392,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Reporter
-  BundleAdjustReport<BundleAdjustmentSparse<HelicopterBundleAdjustmentModel, L2Error> >
+  BundleAdjustReport<AdjustSparse<HelicopterBundleAdjustmentModel, L2Error> >
     reporter( "RMAX Adjust", ba_model, bundle_adjuster, report_level );
 
   // Performing Bundle Adjustment
