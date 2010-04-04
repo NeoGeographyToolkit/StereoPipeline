@@ -427,11 +427,11 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
                                            std::vector<PointIter*>& points,
                                            std::vector<CameraIter*>& cameras,
-                                           vw::camera::ControlNetwork* cnet,
+                                           vw::ba::ControlNetwork* cnet,
                                            int* step ) {
   std::cout << "Loading Control Network : " << cnetFile << std::endl;
 
-  cnet = new vw::camera::ControlNetwork("Bundlevis");
+  cnet = new vw::ba::ControlNetwork("Bundlevis");
   cnet->read_binary( cnetFile );
 
   if ( cnet->size() != points.size() ) {
@@ -447,7 +447,7 @@ std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
   std::vector<ConnLineIter*> connLineData;
   // For every point
   for ( unsigned p = 0; p < cnet->size(); ++p ) {
-    points[p]->setGCP( (*cnet)[p].type() == vw::camera::ControlPoint::GroundControlPoint  );
+    points[p]->setGCP( (*cnet)[p].type() == vw::ba::ControlPoint::GroundControlPoint  );
 
     if (cameras.size()) {
       // For every measure
@@ -963,7 +963,7 @@ int main(int argc, char* argv[]){
   std::string pixel_iter_file;
   std::string control_net_file;
   std::vector<std::string> additional_pnt_files;
-  vw::camera::ControlNetwork* cnet = NULL;
+  vw::ba::ControlNetwork* cnet = NULL;
   std::vector<PointIter*> pointData;
   std::vector<CameraIter*> cameraData;
   std::vector<ConnLineIter*> connLineData;

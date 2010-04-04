@@ -45,7 +45,7 @@ namespace po = boost::program_options;
 #include <vector>
 
 //VisionWorkbench
-#include <vw/Camera/ControlNetwork.h>
+#include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Math.h>
 
 // PointIter, the lowest quantum of points
@@ -96,7 +96,7 @@ class PointIter : public osg::Referenced {
   std::string _description;
   std::vector<osg::Vec3f> _position;
   std::vector<float> _error;
-  vw::camera::ControlPoint* _controlPoint;
+  vw::ba::ControlPoint* _controlPoint;
 };
 
 // CameraIter, the lowest quantum of cameras
@@ -223,7 +223,7 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 std::vector<ConnLineIter*> loadControlNet( std::string cnetFile ,
                                            std::vector<PointIter*>& points,
                                            std::vector<CameraIter*>& cameras,
-                                           vw::camera::ControlNetwork* cnet,
+                                           vw::ba::ControlNetwork* cnet,
                                            int* step );
 
 // This builds the entire scene
