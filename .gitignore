@@ -1,0 +1,69 @@
+# git-ls-files --others --exclude-from=.git/info/exclude
+# Lines that start with '#' are comments.
+# For a project mostly in C, the following would be a good set of
+# exclude patterns (uncomment them if you want to use them):
+
+*.[oa]
+*~
+*.l[oa]
+*.deps
+*.libs
+*Makefile
+*Makefile.in
+*.DS_Store
+
+data/apollo
+data/mi-stereo
+data/orbit33
+data/p19
+results
+
+# Standard stuff
+INSTALL
+aclocal.m4
+autom4te.cache/
+build/
+config.log
+config.options
+config.status
+config/ar.sh
+config/config.guess
+config/config.sub
+config/depcomp
+config/install-sh
+config/ltmain.sh
+config/missing
+configure
+libtool
+m4/libtool.m4
+m4/ltoptions.m4
+m4/ltsugar.m4
+m4/ltversion.m4
+m4/lt~obsolete.m4
+src/asp/asp_config.h
+src/asp/asp_config.h.pre
+src/asp/asp_config.h.pre.in
+src/asp/stamp-h1
+
+# Tests
+src/asp/IsisIO/tests/TestEphemerisEquations
+src/asp/IsisIO/tests/TestIsisAdjustCameraModel
+src/asp/IsisIO/tests/TestIsisCameraModel
+
+# Tools
+src/asp/MPI/isis_mpi_adjust
+src/asp/Tools/bundlevis
+src/asp/Tools/disparitydebug
+src/asp/Tools/isis_adjust
+src/asp/Tools/orbitviz
+src/asp/Tools/orthoproject
+src/asp/Tools/plateorthoproject
+src/asp/Tools/point2dem
+src/asp/Tools/point2mesh
+src/asp/Tools/stereo
+src/asp/Tools/aligndem
+src/asp/Tools/bundle_adjust
+src/asp/Tools/dem_profile
+src/asp/Tools/geodiff
+src/asp/Tools/rmax2cahvor
+src/asp/Tools/rmax_adjust
