@@ -20,19 +20,24 @@ using namespace asp;
 PolyEquation::PolyEquation ( int order ) {
   if ( order < 0 )
     vw_throw( ArgumentErr() << "PolyEquation: Polynomial order must be greater than zero." );
+  if ( order > 254 )
+    vw_throw( ArgumentErr() << "PolyEquation: Polynomial order must be less than 255" );
   m_x_coeff.set_size( order + 1 );
   m_y_coeff.set_size( order + 1 );
   m_z_coeff.set_size( order + 1 );
-  for ( unsigned i = 0; i < m_x_coeff.size(); i++ )
+  for ( int i = 0; i < order+1; i++ )
     m_x_coeff[i] = m_y_coeff[i] = m_z_coeff[i] = 0;
   m_cached_time = -1;
   m_time_offset = 0;
+  m_max_length = uint8(order)+1;
 }
 PolyEquation::PolyEquation( int order_x,
                             int order_y,
                             int order_z ) {
   if ( order_x < 0 || order_y < 0 || order_z < 0 )
     vw_throw( ArgumentErr() << "PolyEquation: Polynomial order must be greater than zero." );
+  if ( order_x > 254 || order_y > 254 || order_z > 254 )
+    vw_throw( ArgumentErr() << "PolyEquation: Polynomial order must be less than 255" );
   m_x_coeff.set_size(order_x+1);
   m_y_coeff.set_size(order_y+1);
   m_z_coeff.set_size(order_z+1);
@@ -44,6 +49,7 @@ PolyEquation::PolyEquation( int order_x,
     m_z_coeff[i] = 0;
   m_cached_time = -1;
   m_time_offset = 0;
+  m_max_length = uint8( std::max( order_x, std::max( order_y, order_z ) ) ) + 1;
 }
 
 // Update
@@ -51,15 +57,9 @@ PolyEquation::PolyEquation( int order_x,
 void PolyEquation::update( double const& t ) {
   m_cached_time = t;
   double delta_t = t-m_time_offset;
-  Vector<double> powers;
-  unsigned max_len = m_x_coeff.size();
-  if ( max_len < m_y_coeff.size() )
-    max_len = m_y_coeff.size();
-  if ( max_len < m_z_coeff.size() )
-    max_len = m_z_coeff.size();
-  powers.set_size( max_len );
+  Vector<double> powers( m_max_length );
   powers[0] = 1;
-  for ( unsigned i = 1; i < powers.size(); i++ )
+  for ( uint8 i = 1; i < m_max_length; i++ )
     powers[i] = powers[i-1]*delta_t;
   m_cached_output[0] = sum( elem_prod(m_x_coeff,
                                       subvector(powers,0,m_x_coeff.size())) );

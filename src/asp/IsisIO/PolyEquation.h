@@ -18,6 +18,7 @@ namespace asp {
     vw::Vector<double> m_x_coeff;
     vw::Vector<double> m_y_coeff;
     vw::Vector<double> m_z_coeff;
+    vw::uint8 m_max_length; // Maximum order + 1
 
     void update ( double const& t );
   public:
@@ -28,6 +29,10 @@ namespace asp {
                   vw::Vector<double>& z ) : m_x_coeff(x), m_y_coeff(y), m_z_coeff(z) {
       m_cached_time = -1;
       m_time_offset = 0;
+      if ( x.size() > 254 || y.size() > 254 || z.size() > 254 )
+        vw::vw_throw( vw::ArgumentErr() << "PolyEquation: Polynomial order must be less than 255" );
+      m_max_length = vw::uint8( std::max( x.size(),
+                                          std::max( y.size(), z.size() ) ) ) + 1;
     }
     std::string type() const {  return "PolyEquation"; }
 
