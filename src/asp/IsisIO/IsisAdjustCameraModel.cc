@@ -75,27 +75,12 @@ void IsisAdjustCameraModel::SetTime( Vector2 const& px,
       m_center[1] = ipos[1];
       m_center[2] = ipos[2];
       m_center *= 1000;
-      //m_center += m_position_f->evaluate( m_camera->EphemerisTime() );
 
       std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
       std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
       MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
       MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-      //Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-
-      //m_pose = Quaternion<double>(R_inst*transpose(R_body)*
-      //                            math::euler_to_rotation_matrix( angles[0],
-      //                                                            angles[1],
-      //                                                            angles[2],
-      //                                                            "xyz") );
-      //std::cout << "Pose: " << m_pose << "\n";
       m_pose = Quaternion<double>( R_inst*transpose(R_body) );
-      //std::cout << "Lside: " << lside << "\n";
-      //Quaternion<double> temp( lside*math::euler_to_quaternion( angles[0],
-      //                                                          angles[1],
-      //                                                          angles[2],
-      //                                                          "xyz" ) );
-      //std::cout << "Temp: " << temp << "\n";
     }
   }
 }
@@ -140,25 +125,15 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
   m_center[1] = ipos[1];
   m_center[2] = ipos[2];
   m_center *= 1000;
-  //m_center += m_position_f->evaluate( m_camera->EphemerisTime() );
 
   // Pulling out camera pose
   std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
   std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-  //Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  //m_pose = Quaternion<double>(R_inst*transpose(R_body)*
-  //                            math::euler_to_rotation_matrix( angles[0],
-  //                                                            angles[1],
-  //                                                            angles[2],
-  //                                                            "xyz") );
   m_pose = Quaternion<double>(R_inst*transpose(R_body));
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  Quaternion<double> pose_adj( m_pose*math::euler_to_quaternion( angles[0],
-                                                                 angles[1],
-                                                                 angles[2],
-                                                                "xyz" ) );
+  Quaternion<double> pose_adj( m_pose*math::euler_xyz_to_quaternion( angles ) );
 
   // Actually projecting point now
   Vector3 look = normalize( point - (m_center+m_position_f->evaluate(m_camera->EphemerisTime())) );
@@ -194,7 +169,7 @@ Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
 
   // Apply rotation of image camera
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  result = inverse( m_pose*math::euler_to_quaternion(angles[0],angles[1],angles[2],"xyz") ).rotate( result );
+  result = inverse( m_pose*math::euler_xyz_to_quaternion(angles) ).rotate( result );
   return result;
 }
 
@@ -212,7 +187,7 @@ IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  return m_pose*math::euler_to_quaternion( angles[0],angles[1],angles[2],"xyz" );
+  return m_pose*math::euler_xyz_to_quaternion( angles );
 }
 
 std::string IsisAdjustCameraModel::serial_number() const {
@@ -265,86 +240,3 @@ IsisAdjustCameraModel::EphemerisLMA::operator()( IsisAdjustCameraModel::Ephemeri
 
   return result;
 }
-
-/*
-// project_using_current
-//
-// Assuming that m_camera's ephemeris time (position and pose) have
-// been set correctly by previous functions, project this point into
-// pixels on the camera.
-//
-// This is to reduce repeated code. Returns in ISIS indexed.
-inline Vector2
-IsisAdjustCameraModel::project_using_current( Vector3 const& point ) const {
-  double ipos[3];
-  m_camera->InstrumentPosition(ipos);
-  Vector3 instru(ipos[0],ipos[1],ipos[2]);
-  instru *= 1000;
-  instru += m_position_f->evaluate( m_camera->EphemerisTime() );
-
-  Vector3 lookB = normalize(point-instru);
-  Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  lookB = math::euler_to_rotation_matrix( angles[0],
-                                          angles[1],
-                                          angles[2],
-                                          "xyz" ) * lookB;
-
-  std::vector<double> lookB_copy(3);
-  lookB_copy[0] = lookB[0];
-  lookB_copy[1] = lookB[1];
-  lookB_copy[2] = lookB[2];
-  std::vector<double> lookJ = m_camera->BodyRotation()->J2000Vector(lookB_copy);
-  std::vector<double> lookC = m_camera->InstrumentRotation()->ReferenceVector(lookJ);
-  Vector3 look;
-  look[0] = lookC[0];
-  look[1] = lookC[1];
-  look[2] = lookC[2];
-  look = m_camera->FocalLength() * ( look / look[2] );
-  m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
-  m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
-                             m_distortmap->FocalPlaneY() );
-  m_detectmap->SetDetector( m_focalmap->DetectorSample(),
-                            m_focalmap->DetectorLine() );
-  Vector2 pixel( m_detectmap->ParentSample(),
-                 m_detectmap->ParentLine() );
-  pixel[0] = m_alphacube->BetaSample( pixel[0] );
-  pixel[1] = m_alphacube->BetaLine( pixel[1] );
-  return pixel;
-}
-
-// optimized_linescan_point_to_pixel
-//
-// This solves for the correct ephemeris time of a linescan camera
-// that represents an accurate projection of a point into the
-// camera. This is a replacement for LineScanCameraGroundMap from
-// Isis.
-//
-// Returns ISIS indexed pixel location.
-Vector2
-IsisAdjustCameraModel::optimized_linescan_point_to_pixel( Vector3 const& point ) const {
-
-  // First seed LMA with an ephemeris time in the middle of the image
-  double middle = m_camera->Lines() / 2;
-  m_detectmap->SetParent( 1, m_alphacube->AlphaLine(middle) );
-  double start_e = m_camera->EphemerisTime();
-
-  // Build LMA
-  EphemerisLMA model( point, m_camera, m_distortmap,
-                      m_focalmap, m_position_f, m_pose_f );
-  int status;
-  Vector<double> objective(1), start(1);
-  start[0] = start_e;
-  Vector<double> solution_e = math::levenberg_marquardt( model,
-                                                         start,
-                                                         objective,
-                                                         status );
-
-  // Make sure we found ideal time
-  VW_ASSERT( status > 0,
-             MathErr() << " Unable to project point into linescan camera " );
-
-  // Converting now to pixel
-  m_camera->SetEphemerisTime( solution_e[0] );
-  return project_using_current( point );
-}
-*/
