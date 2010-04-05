@@ -135,8 +135,8 @@ int main( int argc, char *argv[] ) {
   vw_out() << "Number of Files = " << input_files.size() << "\n";
 
   GlobalParams globalParams;
-  //globalParams.reflectanceType = NO_REFL;
-  globalParams.reflectanceType = LUNAR_LAMBERT;
+  globalParams.reflectanceType = NO_REFL;
+  //globalParams.reflectanceType = LUNAR_LAMBERT;
   //globalParams.reflectanceType = LAMBERT;
   globalParams.slopeType = 1;
   globalParams.shadowThresh = 40;
