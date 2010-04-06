@@ -40,7 +40,7 @@ class CCDs(dict):
         for cub in cubes:
             number = int( cub[len(self.prefix)] )
             self[number] = cub
-        self.set_match( match )
+        self.set_match( int(match) )
 
     def min(self):
         return min( self.keys() )
