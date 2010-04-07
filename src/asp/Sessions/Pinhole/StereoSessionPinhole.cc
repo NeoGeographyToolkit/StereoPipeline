@@ -298,7 +298,9 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
                      left_disk_image.cols(), left_disk_image.rows());
 
   } else {
-    vw_throw(ArgumentErr() << "PinholeStereoSession: no alignment method was selected in your stereo.default file..\n");
+    // Do nothing just provide the original files.
+    Limg = left_disk_image;
+    Rimg = right_disk_image;
   }
 
   output_file1 = m_out_prefix + "-L.tif";
