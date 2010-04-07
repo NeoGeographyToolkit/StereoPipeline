@@ -20,6 +20,9 @@
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
+#include <boost/filesystem/convenience.hpp>
+namespace fs = boost::filesystem;
+
 #include <vw/Core.h>
 #include <vw/Image.h>
 #include <vw/FileIO.h>
@@ -173,6 +176,19 @@ int main( int argc, char *argv[] ) {
   std::vector<ModelParams> modelParamsArray(input_files.size());
   std::vector<float> avgReflectanceArray(input_files.size());
 
+  // Double check to make sure all folders exist
+  if ( !fs::exists(homeDir+resDir+"/DEM") )
+    fs::create_directory(homeDir+resDir+"/DEM");
+  if ( !fs::exists(homeDir+resDir+"/info") )
+    fs::create_directory(homeDir+resDir+"/info");
+  if ( !fs::exists(homeDir+resDir+"/reflectance") )
+    fs::create_directory(homeDir+resDir+"/reflectance");
+  if ( !fs::exists(homeDir+resDir+"/shadow") )
+    fs::create_directory(homeDir+resDir+"/shadow");
+  if ( !fs::exists(homeDir+resDir+"/error") )
+    fs::create_directory(homeDir+resDir+"/error");
+  if ( !fs::exists(homeDir+resDir+"/albedo") )
+    fs::create_directory(homeDir+resDir+"/albedo");
 
   for (unsigned int i = 0; i < input_files.size(); ++i) {
     modelParamsArray[i].exposureTime = globalParams.exposureInitRefValue;
@@ -184,6 +200,7 @@ int main( int argc, char *argv[] ) {
     std::string temp = sufix_from_filename(input_files[i]);
     modelParamsArray[i].inputFilename   = input_files[i];
     modelParamsArray[i].DEMFilename     = homeDir + dataDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
+
     modelParamsArray[i].infoFilename    = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
     modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
     modelParamsArray[i].var2DEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
