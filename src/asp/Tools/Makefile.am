@@ -113,6 +113,12 @@ if MAKE_APP_PLATEORTHOPROJECT
   plateorthoproject_LDADD = $(APP_PLATEORTHOPROJECT_LIBS)
 endif
 
+if MAKE_APP_HSVMERGE
+  bin_PROGRAMS += hsv_merge
+  hsv_merge_SOURCES = hsv_merge.cc
+  hsv_merge_LDADD = $(APP_HSVMERGE_LIBS)
+endif
+
 ##############################################################################
 #                             Tests                                          #
 ##############################################################################

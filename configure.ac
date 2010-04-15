@@ -324,6 +324,7 @@ AX_APP(ALIGNDEM,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW_INTEREST_POINT
 AX_APP(GEODIFF,          [src/asp/Tools], yes, [ISISIO VW BOOST])
 AX_APP(DEMPROFILE,       [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [SESSIONS ISISIO VW_PLATE])
+AX_APP(HSVMERGE,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -351,6 +352,7 @@ AM_CONDITIONAL(MAKE_APP_ALIGNDEM, [test "$MAKE_APP_ALIGNDEM" = "yes"])
 AM_CONDITIONAL(MAKE_APP_GEODIFF, [test "$MAKE_APP_GEODIFF" = "yes"])
 AM_CONDITIONAL(MAKE_APP_DEMPROFILE, [test "$MAKE_APP_DEMPROFILE" = "yes"])
 AM_CONDITIONAL(MAKE_APP_PLATEORTHOPROJECT, [test "$MAKE_APP_PLATEORTHOPROJECT" = "yes"])
+AM_CONDITIONAL(MAKE_APP_HSVMERGE, [test "$MAKE_APP_HSVMERGE" = "yes"])
 
 ##################################################
 # final processing
