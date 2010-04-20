@@ -306,6 +306,7 @@ AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [], [ISISIO SPICEIO])
 AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
+AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [],          no,  [VW_PLATE], [BOOST])
 
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 AX_APP(ORTHOPROJECT,     [src/asp/Tools], yes, [SESSIONS])
@@ -333,6 +334,7 @@ AM_CONDITIONAL(MAKE_MODULE_ISISIO, [test "$MAKE_MODULE_ISISIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SPICEIO, [test "$MAKE_MODULE_SPICEIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_SESSIONS" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_MPI, [test "$MAKE_MODULE_MPI" = "yes"])
+AM_CONDITIONAL(MAKE_MODULE_PHOTOMETRYTK, [test "$MAKE_MODULE_PHOTOMETRYTK" = "yes"])
 
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREOGUI, [test "$MAKE_APP_STEREOGUI" = "yes"])
@@ -397,6 +399,7 @@ AC_CONFIG_FILES([                       \
   src/asp/Sessions/RMAX/Makefile        \
   src/asp/MPI/Makefile                  \
   src/asp/Tools/Makefile                \
+  src/asp/PhotometryTK/Makefile         \
 ])
 
 AC_OUTPUT
