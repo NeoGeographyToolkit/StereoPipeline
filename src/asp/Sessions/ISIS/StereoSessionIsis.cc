@@ -179,9 +179,7 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
     vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
 
   } catch (...) {
-    vw_out() << "\n*************************************************************\n";
-    vw_out() << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
-    vw_out() << "*************************************************************\n\n";
+    vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
     T.set_size(3,3);
     T.set_identity();
   }
@@ -283,10 +281,8 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
   if ( stereo_settings().keypoint_alignment) {
     if ( left_rsrc.is_map_projected() ||
          right_rsrc.is_map_projected() ) {
-      vw_out() << "-------------------------------WARNING---------------------------------\n";
-      vw_out() << "\tOne our more of the input files is map projected. Interest Point\n";
-      vw_out() << "\talignment is not recommend in this case.\n";
-      vw_out() << "-------------------------------WARNING---------------------------------\n";
+      vw_out(WarningMessage,"console") << "One or more of the input files is Map Projected.\n"
+                                       << "\tInterest Point alignment is not recommend in this case.\n";
     }
     align_matrix = determine_image_alignment(input_file1, input_file2,
                                              lo, hi );

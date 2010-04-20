@@ -67,3 +67,16 @@ src/asp/Tools/dem_profile
 src/asp/Tools/geodiff
 src/asp/Tools/rmax2cahvor
 src/asp/Tools/rmax_adjust
+
+# Doc
+docs/book/*aux
+docs/book/*log
+docs/book/*out
+docs/book/*pdf
+docs/book/*toc
+docs/photometry/*aux
+docs/photometry/*log
+docs/photometry/*out
+docs/photometry/*pdf
+docs/photometry/*toc
+docs/photometry/graph/*pdf

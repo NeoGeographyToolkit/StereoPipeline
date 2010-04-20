@@ -1,0 +1,130 @@
+\chapter{Development Plan}
+\label{ch:developmentplan}
+
+\begin{wrapfigure}{r}{0.4\textwidth}
+  \vspace{-120pt}
+  \begin{center}
+    \includegraphics[width=0.4\textwidth]{graph/phoalgorithm}
+  \end{center}
+  \vspace{-20pt}
+  \caption{Algorithm Outline.}
+  \vspace{-10pt}
+\end{wrapfigure}
+
+\section{Algorithm Outline}
+
+\begin{enumerate}
+\item Stereo Processing
+\item Initialize Photometry
+  \begin{itemize}
+    \item \textbf{Initialize DEMs and Blend} \hfill \\
+      This should be done with the already provided
+      \texttt{image2plate} and \texttt{platereduce}.
+    \item \textbf{Ingest DRGs} \hfill \\
+      This involves thresholding the DRG for shadows and then solves
+      for a grassfire weighting. The weighting and the masking are the
+      same thing and should be stored inside the alpha channel for
+      quick access.
+    \item \textbf{Seed Reflectance Images} \hfill \\
+      Load up camera models, and use SPICE to determine Sun's
+      location.
+    \item \textbf{Seed Exposure Time} \hfill \\
+      Somehow uses ratio of reflectance returns from previous step.
+    \item \textbf{Seed Albedo Image} \hfill \\
+      Use this equation:
+      \[
+      A_{ij}=\sum_{k}\frac{I^{k}_{ij}}{R^{k}_{ij}T^{k}}
+      \]
+  \end{itemize}
+\item Iterate Solution
+  \begin{itemize}
+    \item \textbf{Re-estimate Exposure} \hfill \\
+      \[
+      \hat{T^{k}} = T^{k}+\frac{\sum_{ij}(I^{k}_{ij}-T^{k}A_{ij}R^{k}_{ij})A_{ij}R^{k}_{ij}S^{k}_{ij}}{\sum_{ij}(A_{ij}R^{k}_{ij}S^k_{ij})^{2}}
+      \]
+    \item \textbf{Re-estimate Albedo} \hfill \\
+      \[
+      \hat{A_{ij}} = A_{ij}+\frac{\sum_{k}(I^k_{ij}-T^kA_{ij}R^k_{ij})T^kR^k_{ij}S^{k}_{ij}}{\sum_{k}(T^kR^k_{ij}S^k_{ij})^2}
+      \]
+    \item \textbf{Re-estimate DEM} \hfill \\
+      \emph{MAGIC!}
+    \item \textbf{Re-calculate Reflectance} \hfill \\
+      Refer back to the cameras.
+    \item \textbf{Calculate Error} \hfill \\
+      Error is used to determine if we're improving.
+      \[
+      \epsilon=\sum_{k}\sum_{ij}((I^k_{ij}-A_{ij}T^kR^k_{ij})S^k_{ij})^2
+      \]
+  \end{itemize}
+\end{enumerate}
+
+\section{Content of Files}
+
+These files represent the results and working files from one session
+of the Photometry Toolkit. One project is inside a
+\emph{PhoBundle}. Here's the contents:
+
+\begin{itemize}
+  \item \textbf{Albedo.plate} \hfill \\
+    PixelGrayA<uint8>
+  \item \textbf{DEM.plate} \hfill \\
+    PixelGrayA<int16>
+  \item \textbf{DEMVariance.plate} \hfill \\
+    PixelGrayA<int16>
+  \item \textbf{Mask.plate} \hfill \\
+    PixelGrayA<float32>
+  \item \textbf{DRG.plate} \hfill \\
+    PixelGrayA<uint8>
+  \item \textbf{Reflectance.plate} \hfill \\
+    PixelGrayA<float32>
+  \item \textbf{Error.plate} \hfill \\
+    PixelGrayA<uint8>
+\end{itemize}
+
+The platefiles Albedo, DEM, DEMVariance, and Mask are very similar and
+operate like normal plates do. These files are global image mosaics
+where the highest transaction ID represents the current working
+version. DEMVariance and Mask are both helpful plate files that are
+used for reporting; but they're not used again after the
+initialization step.
+
+The platefiles DRG, Reflectance, and Error are a little more
+tricky. They represent multiple K Camera's and their history. Their
+transaction IDs involve a little math so that $ID_{transaction} =
+100*k+i$. Where $k$ is the camera number and $i$ is the iteration
+number. We provide only enough room for a hundred transactions.
+
+There's also one other file, the \emph{PhoFile} which contains most of
+the project information. If your familiar with the original Photometry
+module, this is the model params and the global params stitched
+together. I imagine this this file will probably use
+proto-buffers. Here's an outline of the contents.
+
+\begin{itemize}
+  \item PhoFile \hfill \\
+    \begin{description}
+      \item[Project Message] \hfill \\
+        This contains Datum along with various information transaction
+        IDs.
+      \item[Repeated Camera Message] \hfill \\
+        This contains the exposure time along with the Vector3 for the
+        Sun Position and the Spacecraft Position.
+    \end{description}
+\end{itemize}
+
+\section{Executables}
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+  \vspace{-50pt}
+  \begin{center}
+    \includegraphics[width=0.5\textwidth]{graph/executables}
+  \end{center}
+  \caption{Executables}
+\end{wrapfigure}
+
+Everything inside the Photometry Toolkit will hopefully fit
+comfortably inside 2 python scripts, \texttt{phoinit.py} and
+\texttt{phosolve.py}. As expected, \texttt{phoinit.py} creates all the
+files to start with. \texttt{phosolve.py} performs all the
+iterations. In the end when the user wants the results, they must
+perform \texttt{snapshot} or \texttt{plate2tile} to get the results.
