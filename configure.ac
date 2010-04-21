@@ -191,6 +191,20 @@ AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.
 AX_PKG(VW_FILEIO,[VW_IMAGE BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
 AX_GROUP_PKG(VW, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
 
+# Double Check again that VW_FILEIO really was built with the correct 3rdParty.
+AX_EXTRACT_CPP_SYMBOL([VW_HAVE_PKG_OPENEXR], [#include <vw/config.h>],
+  [VW_HAS_OPENEXR=$output], [VW_HAS_OPENEXR=0], ["$PKG_VW_CORE_CPPFLAGS"])
+AX_EXTRACT_CPP_SYMBOL([VW_HAVE_PKG_GDAL], [#include <vw/config.h>],
+  [VW_HAS_GDAL=$output], [VW_HAS_GDAL=0], ["$PKG_VW_CORE_CPPFLAGS"])
+if test x"$HAVE_PKG_VW_CORE" = "xyes"; then
+   if test x"$VW_HAS_OPENEXR" = "x0"; then
+      AC_MSG_ERROR([VW doesn't have OpenEXR support! Rebuild VW with OpenEXR support.])
+   fi
+   if test x"$VW_HAS_GDAL" = "x0"; then
+      AC_MSG_ERROR([VW doesn't have GDAL support! Rebuild VW with GDAL support.])
+   fi
+fi
+
 # Vision Workbench Secondaries
 AX_PKG(VW_PLATE,          [VW_FILEIO],          [-lvwPlate],        [vw/Plate/PlateFile.h])
 AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
