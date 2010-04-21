@@ -11,6 +11,8 @@
 *Makefile
 *Makefile.in
 *.DS_Store
+*.pb.cc
+*.pb.h
 
 data/apollo
 data/mi-stereo
@@ -67,6 +69,16 @@ src/asp/Tools/dem_profile
 src/asp/Tools/geodiff
 src/asp/Tools/rmax2cahvor
 src/asp/Tools/rmax_adjust
+
+# Photometry Toolkit
+src/asp/PhotometryTK/phodrg2plate
+src/asp/PhotometryTK/phoinitalbedo
+src/asp/PhotometryTK/phoinitfile
+src/asp/PhotometryTK/phoitalbedo
+src/asp/PhotometryTK/phoitdem
+src/asp/PhotometryTK/phoiterror
+src/asp/PhotometryTK/phoitreflect
+src/asp/PhotometryTK/phoittime
 
 # Doc
 docs/book/*aux

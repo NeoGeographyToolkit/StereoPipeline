@@ -15,8 +15,6 @@ protocol_headers = ProjectFile.pb.h
 protocol_sources = ProjectFile.pb.cc
 
 BUILT_SOURCES          = $(protocol_sources)
-
-#include_HEADERS        =
 nodist_include_HEADERS = $(protocol_headers)
 
 if ENABLE_EXCEPTIONS
@@ -46,7 +44,7 @@ phoittime_SOURCES     = phoittime.cc
 phoittime_LDADD       = @MODULE_PHOTOMETRYTK_LIBS@
 
 bin_PROGRAMS = phodrg2plate phoinitalbedo phoinitfile phoitalbedo \
-	phoitdem phoiterror phoitreflect phoittime
+               phoitdem phoiterror phoitreflect phoittime
 
 endif
 
@@ -55,8 +53,7 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@
 
-# How do we install scripts ?
-#dist_noinst_SCRIPTS = phoinit.py phosolve.py
+bin_SCRIPTS = phoinit.py phosolve.py
 
 SUBDIRS = .
 CLEANFILES = $(protocol_headers) $(protocol_sources)
