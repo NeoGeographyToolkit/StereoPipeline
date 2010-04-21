@@ -1,0 +1,28 @@
+package asp.photometrytk;
+
+message Project {
+    optional string name = 1; // Optional Description
+    required string bundle_dir = 2;
+
+    // Properties of the run
+    required int32 max_iterations = 3 [default=100];
+    enum ReflectanceType {
+        NONE = 0;
+        LAMBERTIAN = 1;
+        LUNARL_GASKALL = 2;
+        LUNARL_MCEWEN = 3;
+    }
+    required ReflectanceType reflectance = 4 [default=NONE];
+    optional double rel_tol = 5 [default=1e-2]; // Minimum improvement between
+                                                // iterations
+    optional double abs_tol = 6 [default=1e-2]; // Absolute shut off  of error
+}
+
+message Camera {
+    required string name = 1;
+    required double exposure_t = 2;
+    optional double ephemeris_t = 3;
+    optional int32 base_transaction_id = 4;
+    repeated double sun_vec = 5;
+    repeated double cam_vec = 6;
+}

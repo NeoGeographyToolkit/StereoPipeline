@@ -11,7 +11,13 @@
 
 if MAKE_MODULE_PHOTOMETRYTK
 
-#include_HEADERS =
+protocol_headers = ProjectFile.pb.h
+protocol_sources = ProjectFile.pb.cc
+
+BUILT_SOURCES          = $(protocol_sources)
+
+#include_HEADERS        =
+nodist_include_HEADERS = $(protocol_headers)
 
 if ENABLE_EXCEPTIONS
 
@@ -49,10 +55,13 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@
 
-dist_noinst_SCRIPTS = phoinit.py phosolve.py
+# How do we install scripts ?
+#dist_noinst_SCRIPTS = phoinit.py phosolve.py
 
 SUBDIRS = .
+CLEANFILES = $(protocol_headers) $(protocol_sources)
 
 #includedir = $(prefix)/include/asp/PhotometryTK
 
 include $(top_srcdir)/config/rules.mak
+include $(top_srcdir)/thirdparty/protobuf.mak

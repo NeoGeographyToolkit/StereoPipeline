@@ -302,6 +302,8 @@ dnl BLAS symbols in the event that we need them.
 AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
 
+AX_PKG(PROTOBUF, [PTHREADS], [-lprotobuf], [google/protobuf/stubs/common.h])
+
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.
 AM_CONDITIONAL(HAVE_PKG_SPICE, [test "$HAVE_PKG_SPICE" = "yes"])
@@ -315,13 +317,14 @@ AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"
 AX_GROUP_PKG(BOOST_MOST, [BOOST_DATETIME BOOST_IOSTREAMS BOOST])
 AX_GROUP_PKG(VW_ALL,     [VW_CARTOGRAPHY VW_STEREO VW_CAMERA VW_INTEREST_POINT VW])
 
+# Module
 AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL BOOST_MOST], [LAPACK])
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_MOST SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [], [ISISIO SPICEIO])
 AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
-AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [],          no,  [VW_PLATE], [BOOST])
 
+# Tools
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 AX_APP(ORTHOPROJECT,     [src/asp/Tools], yes, [SESSIONS])
 AX_APP(BUNDLEADJUST,     [src/asp/Tools], no,  [VW_BUNDLEADJUSTMENT SESSIONS])
@@ -340,6 +343,9 @@ AX_APP(GEODIFF,          [src/asp/Tools], yes, [ISISIO VW BOOST])
 AX_APP(DEMPROFILE,       [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [SESSIONS ISISIO VW_PLATE])
 AX_APP(HSVMERGE,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
+
+# Toolkits (like module, but doesn't build a library)
+AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [], no,  [PROTOBUF VW_PLATE], [BOOST])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
