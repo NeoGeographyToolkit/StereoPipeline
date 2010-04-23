@@ -1,4 +1,12 @@
-all: setup final
+all: graph setup final
+
+.SUFFIXES:.dot .pdf
+
+.dot.pdf:
+	@dot -Teps $< | epstopdf -f -o=$@
+
+graph: graph/asp_deps.pdf
+	@echo "Graphing ..."
 
 setup:
 	@echo "Running Latex pass 1/3 ..."

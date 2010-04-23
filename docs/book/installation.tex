@@ -97,12 +97,18 @@ to them from your library path.
 \pagebreak
 \section{\label{sec:Source-Installation}Source Installation}
 
-This method is for advanced users only.
+This method is for advanced users with moderate build system experience. Some dependencies such as ISIS and it's dependencies \emph{(like SuperLU, Qwt, CSpice)} use custom build systems. Because of this and time, we won't help with questions on how to build dependencies.
 
 \subsection{Dependency List}
 
 This is a list of direct dependencies of Stereo Pipeline. Some libraries
 (like \ac{ISIS}) have dependencies of their own which are not covered here.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=5in]{graph/asp_deps.pdf}
+  \caption{Graph outlining some dependencies.}
+\end{figure}
 
 \begin{description}
 \item [{Boost}] (Required) \url{http://www.boost.org/}\\

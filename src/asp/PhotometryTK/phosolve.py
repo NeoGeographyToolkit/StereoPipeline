@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, optparse, multiprocessing;
+import os, optparse, multiprocessing, sys;
 
 class Usage(Exception):
     def __init__(self,msg):

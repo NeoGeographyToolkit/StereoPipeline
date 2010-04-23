@@ -1,0 +1,58 @@
+graph g {
+
+layout="sfdp";
+//maxiter=1000000000;
+//overlap=false;
+mode="KK";
+//defaultdist=5;
+//normalize=true;
+//Damping=0.6;
+pad=0.1;
+
+
+node [fontname="Helvetica"];
+// ASP
+node [fontsize=15,shape=ellipse,style=bold];
+"Ames Stereo Pipeline";
+// Important Nodes
+node [fontsize=12,shape=box,style=bold];
+"Vision Workbench"; "ISIS";
+// Minor Nodes
+node [fontsize=9,shape=ellipse,style=filled];
+"GDAL"; "OpenEXR"; "Lapack"; "Boost 1.35+";"Qt 4.6.2";
+"Jama"; "TNT"; "GSL 1.14"; "GMM 3.0.0"; "Proj4";
+"SuperLU 3.0"; "CSpice"; "Qwt 5.2.1"; "Geos"; "Z";
+"Xerces-C 2.7"; "ILM Base";
+
+// Optional Nodes
+node [fontsize=9,style=dashed]; "Open Scene Graph";
+"Kakadu";
+
+
+"Vision Workbench" -- "Ames Stereo Pipeline"
+"Open Scene Graph" -- "Ames Stereo Pipeline"
+"ISIS" -- "Ames Stereo Pipeline"
+"Boost 1.35+" -- "Ames Stereo Pipeline"
+
+"GDAL" -- "Vision Workbench"
+"OpenEXR" -- "Vision Workbench";
+"ILM Base" -- "OpenEXR";
+"Lapack" -- "Vision Workbench";
+"Boost 1.35+" -- "Vision Workbench";
+"Proj4" -- "Vision Workbench";
+"Z" -- "Vision Workbench";
+
+"Qt 4.6.2" -- "ISIS";
+"Jama" -- "ISIS";
+"Boost 1.35+" -- "ISIS";
+"TNT" -- "ISIS";
+"GSL 1.14" -- "ISIS";
+"GMM 3.0.0" -- "ISIS";
+"SuperLU 3.0" -- "ISIS";
+"CSpice" -- "ISIS";
+"Qwt 5.2.1" -- "ISIS";
+"Xerces-C 2.7" -- "ISIS";
+"Kakadu" -- "ISIS";
+"Geos" -- "ISIS";
+
+}
