@@ -18,13 +18,13 @@
 \item Initialize Photometry
   \begin{itemize}
     \item \textbf{Initialize DEMs and Blend} \hfill \\
-      This should be done with the already provided
+      This should be done with the already provided The DEM variance found is optional written here.
       \texttt{image2plate} and \texttt{platereduce}.
     \item \textbf{Ingest DRGs} \hfill \\
       This involves thresholding the DRG for shadows and then solves
       for a grassfire weighting. The weighting and the masking are the
       same thing and should be stored inside the alpha channel for
-      quick access.
+      quick access. The masks used is optional written.
     \item \textbf{Seed Reflectance Images} \hfill \\
       Load up camera models, and use SPICE to determine Sun's
       location.
@@ -128,3 +128,27 @@ comfortably inside 2 python scripts, \texttt{phoinit.py} and
 files to start with. \texttt{phosolve.py} performs all the
 iterations. In the end when the user wants the results, they must
 perform \texttt{snapshot} or \texttt{plate2tile} to get the results.
+
+\subsection{Individual calls}
+
+Eventually the the python scripts should negate the need for
+this. Here are the actual executables called and the settings to use.
+
+\begin{verbatim}
+  > sudo $(START UP AMQP COMMAND)
+  > (in a different terminal) index_server $(PROJECT DIR)
+  > cd $(DEM_DIR)
+  > ls *DEM.tif | xargs -n 1 -P 10 grassfirealpha --nodata -10000
+  > ls *grass.tif | xargs -n 1 -P 10 image2plate -o
+      pf://index/DEM_blend.plate --file tif -m equi
+  > for i in {0..$(NUM LEVELS)}; do platereduce --end_t 1999 -t 2000
+      pf://index/DEM_blend.plate -l $i & done
+  > plate2plate -o pf://index/DEM.plate -i pf://index/DEM_blend.plate
+      --filter identity --bottom 10 --skim
+  > (in other terminal, kill index_server)
+  > rm -rf DEM.plate
+  > (in other terminal, restart index_server)
+  > j=0; for i in $(ls *DRG.tif);
+      do phodrg2plate $i $((j*10)) & j=$((j+1)); done
+  >
+\end{verbatim}
