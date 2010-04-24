@@ -17,6 +17,9 @@ protocol_sources = ProjectFile.pb.cc
 BUILT_SOURCES          = $(protocol_sources)
 nodist_include_HEADERS = $(protocol_headers)
 
+include_HEADERS = ProjectFileIO.h
+libaspPhotometryTK_la_SOURCES = $(protocol_sources)
+
 if ENABLE_EXCEPTIONS
 
 phodrg2plate_SOURCES  = phodrg2plate.cc
@@ -48,17 +51,25 @@ bin_PROGRAMS = phodrg2plate phoinitalbedo phoinitfile phoitalbedo \
 
 endif
 
+libaspPhotometryTK_la_LIBADD = @MODULE_PHOTOMETRYTK_LIBS@
+
+lib_LTLIBRARIES = libaspPhotometryTK.la
+
 endif
+
+#########################################################################
+# general
+#########################################################################
 
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@
 
 bin_SCRIPTS = phoinit.py phosolve.py
 
-SUBDIRS = .
+SUBDIRS = . tests
 CLEANFILES = $(protocol_headers) $(protocol_sources)
 
-#includedir = $(prefix)/include/asp/PhotometryTK
+includedir = $(prefix)/include/asp/PhotometryTK
 
 include $(top_srcdir)/config/rules.mak
 include $(top_srcdir)/thirdparty/protobuf.mak

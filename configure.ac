@@ -345,7 +345,7 @@ AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [SESSIONS ISISIO VW_PLATE])
 AX_APP(HSVMERGE,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 
 # Toolkits (like module, but doesn't build a library)
-AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [], no,  [PROTOBUF VW_PLATE], [BOOST])
+AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [libaspPhotometryTK.la], no,  [PROTOBUF VW_PLATE], [BOOST])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -420,6 +420,7 @@ AC_CONFIG_FILES([                       \
   src/asp/MPI/Makefile                  \
   src/asp/Tools/Makefile                \
   src/asp/PhotometryTK/Makefile         \
+  src/asp/PhotometryTK/tests/Makefile   \
 ])
 
 AC_OUTPUT

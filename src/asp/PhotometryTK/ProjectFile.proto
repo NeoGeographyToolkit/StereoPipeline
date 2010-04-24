@@ -1,24 +1,25 @@
-package asp.photometrytk;
+package asp.pho;
 
-message Project {
+message ProjectMeta {
     optional string name = 1; // Optional Description
-    required string bundle_dir = 2;
 
     // Properties of the run
-    required int32 max_iterations = 3 [default=100];
+    optional int32 max_iterations = 2 [default=100];
     enum ReflectanceType {
         NONE = 0;
         LAMBERTIAN = 1;
         LUNARL_GASKALL = 2;
         LUNARL_MCEWEN = 3;
     }
-    required ReflectanceType reflectance = 4 [default=NONE];
-    optional double rel_tol = 5 [default=1e-2]; // Minimum improvement between
+    required ReflectanceType reflectance = 3 [default=NONE];
+    optional double rel_tol = 4 [default=1e-2]; // Minimum improvement between
                                                 // iterations
-    optional double abs_tol = 6 [default=1e-2]; // Absolute shut off  of error
+    optional double abs_tol = 5 [default=1e-2]; // Absolute shut off  of error
+
+    required int32 num_cameras = 6;
 }
 
-message Camera {
+message CameraMeta {
     required string name = 1;
     required double exposure_t = 2;
     optional double ephemeris_t = 3;
