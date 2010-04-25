@@ -1,0 +1,30 @@
+digraph g {
+
+//layout="neato";
+
+// Executables
+image2plate; platereduce; phoinitfile; "platereduce?";
+phodrg2plate; phoinitet; phoinitalbedo;
+
+// Servers
+node [shape=box3d]
+ptk_server; index_server;
+
+// Result Nodes
+node [fontsize=9,shape=folder,style=solid]
+"DEM.plate"; "DEMVariance.plate"; "DRG.plate";
+"Reflectance.plate"; "PTK File"; "Albedo.plate";
+
+image2plate -> platereduce -> "DEM.plate" -> index_server;
+"platereduce?" -> "DEMVariance.plate"
+"DEM.plate" -> phoinitfile -> "PTK File" -> ptk_server;
+"PTK File" -> phodrg2plate -> "DRG.plate";
+phodrg2plate -> "Reflectance.plate";
+phodrg2plate -> phoinitet;
+phoinitet -> "PTK File";
+phoinitet -> phoinitalbedo;
+phoinitalbedo -> "Albedo.plate";
+
+label = "phoinit.py";
+
+}

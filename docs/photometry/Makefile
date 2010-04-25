@@ -5,7 +5,7 @@ all: graph setup final
 .dot.pdf:
 	@dot -Teps $< | epstopdf -f -o=$@
 
-graph: graph/phoalgorithm.pdf graph/executables.pdf
+graph: graph/phoalgorithm.pdf graph/exec_init.pdf graph/exec_solve.pdf
 	@echo "Graphing ..."
 
 setup:

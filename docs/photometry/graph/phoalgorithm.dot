@@ -1,6 +1,4 @@
 digraph g {
-viewport="250,670,.7,'2.8 BSD'"
-
 node [style=filled];
 
 subgraph cluster_0 {
@@ -10,17 +8,10 @@ subgraph cluster_0 {
 }
 
 subgraph cluster_1 {
-        color=black;
-        "Re-estimate Exposure" -> "Re-estimate Albedo";
-        "Re-estimate Albedo" -> "Re-estimate DEM";
-        "Re-estimate DEM" -> "Re-calculate Reflectance" -> "Calculate Error";
-        "Calculate Error" -> "Re-estimate Exposure";
-        label="Re-estimate Model Loop";
+        orthoproject -> "phoinit.py";
+        "phoinit.py" -> "phosolve.py";
+        "phosolve.py" -> "phosolve.py";
+        label = "Photometry Toolkit";
 }
-
-orthoproject -> "Initialize DEMs and Blend";
-"Initialize DEMs and Blend" -> "Ingest DRGs";
-"Ingest DRGs" -> "Solve Reflectance" -> "Seed Exposure Time" -> "Seed Albedo Images";
-"Seed Albedo Images" -> "Re-estimate Exposure";
 
 }

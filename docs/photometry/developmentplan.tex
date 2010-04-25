@@ -1,15 +1,17 @@
 \chapter{Development Plan}
 \label{ch:developmentplan}
 
-\begin{wrapfigure}{r}{0.4\textwidth}
-  \vspace{-120pt}
+\begin{wrapfigure}{r}{0.3\textwidth}
+  \vspace{-40pt}
   \begin{center}
-    \includegraphics[width=0.4\textwidth]{graph/phoalgorithm}
+    \includegraphics[width=0.25\textwidth]{graph/phoalgorithm}
   \end{center}
-  \vspace{-20pt}
-  \caption{Algorithm Outline.}
-  \vspace{-10pt}
+  \caption{Toolkit Outline}
+  \vspace{-90pt}
 \end{wrapfigure}
+
+This provides a general outline of the Photometry Toolkit and how I
+currently envision it working.
 
 \section{Algorithm Outline}
 
@@ -115,11 +117,10 @@ proto-buffers. Here's an outline of the contents.
 \section{Executables}
 
 \begin{wrapfigure}{r}{0.5\textwidth}
-  \vspace{-50pt}
   \begin{center}
-    \includegraphics[width=0.5\textwidth]{graph/executables}
+    \includegraphics[width=0.5\textwidth]{graph/exec_init}
   \end{center}
-  \caption{Executables}
+  \caption{Initialization Executables}
 \end{wrapfigure}
 
 Everything inside the Photometry Toolkit will hopefully fit
@@ -129,10 +130,18 @@ files to start with. \texttt{phosolve.py} performs all the
 iterations. In the end when the user wants the results, they must
 perform \texttt{snapshot} or \texttt{plate2tile} to get the results.
 
+\begin{wrapfigure}{r}{0.5\textwidth}
+  \begin{center}
+    \includegraphics[width=0.5\textwidth]{graph/exec_solve}
+  \end{center}
+  \caption{Iteration Executables}
+\end{wrapfigure}
+
 \subsection{Individual calls}
 
 Eventually the the python scripts should negate the need for
-this. Here are the actual executables called and the settings to use.
+this. Here are the actual executables called and the settings to
+use. Delete this section some time in the future.
 
 \begin{verbatim}
   > sudo $(START UP AMQP COMMAND)
