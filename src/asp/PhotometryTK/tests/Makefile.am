@@ -11,9 +11,10 @@
 
 if MAKE_MODULE_PHOTOMETRYTK
 
-TestProjectFileIO_SOURCES = TestProjectFileIO.cxx
+TestProjectFileIO_SOURCES  = TestProjectFileIO.cxx
+TestProjectService_SOURCES = TestProjectService.cxx
 
-TESTS = TestProjectFileIO
+TESTS = TestProjectFileIO TestProjectService
 
 endif
 

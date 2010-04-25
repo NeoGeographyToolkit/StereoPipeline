@@ -27,3 +27,56 @@ message CameraMeta {
     repeated double sun_vec = 5;
     repeated double cam_vec = 6;
 }
+
+// Project File Service
+// ------------------------------------------------
+
+message ProjectOpenRequest {
+  required string name = 1;
+}
+message ProjectOpenReply {
+  required ProjectMeta meta = 1;
+  required int32 project_id = 2;
+}
+
+
+message CameraCreateRequest {
+  required int32 project_id = 1;
+  required CameraMeta meta = 2;
+}
+message CameraCreateReply {
+  required int32 project_id = 1; // echo if success
+  required int32 camera_id = 2;  // assigns number
+}
+
+
+message CameraReadRequest {
+  required int32 project_id = 1;
+  required int32 camera_id = 2;
+}
+message CameraReadReply {
+  required int32 project_id = 1; // echo if success
+  required int32 camera_id = 2;  // echo if success
+  required CameraMeta meta = 3;
+}
+
+
+message CameraWriteRequest {
+  required int32 project_id = 1;
+  required int32 camera_id  = 2;
+  required CameraMeta meta  = 3;
+}
+message CameraWriteReply {
+  required int32 project_id = 1; // echo if success
+  required int32 camera_id  = 2; // echo if success
+}
+
+service ProjectService {
+  // Project start
+  rpc OpenRequest (ProjectOpenRequest) returns (ProjectOpenReply);
+
+  // Camera Interface
+  rpc CameraCreate (CameraCreateRequest) returns (CameraCreateReply);
+  rpc CameraRead (CameraReadRequest) returns (CameraReadReply);
+  rpc CameraWrite (CameraWriteRequest) returns (CameraWriteReply);
+}

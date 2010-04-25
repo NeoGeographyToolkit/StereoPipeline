@@ -17,8 +17,11 @@ protocol_sources = ProjectFile.pb.cc
 BUILT_SOURCES          = $(protocol_sources)
 nodist_include_HEADERS = $(protocol_headers)
 
-include_HEADERS = ProjectFileIO.h
-libaspPhotometryTK_la_SOURCES = $(protocol_sources)
+include_HEADERS = ProjectFileIO.h ProjectService.h
+libaspPhotometryTK_la_SOURCES = $(protocol_sources) ProjectService.cc
+
+libaspPhotometryTK_la_LIBADD = @MODULE_PHOTOMETRYTK_LIBS@
+lib_LTLIBRARIES = libaspPhotometryTK.la
 
 if ENABLE_EXCEPTIONS
 
@@ -46,14 +49,15 @@ phoitreflect_LDADD    = @MODULE_PHOTOMETRYTK_LIBS@
 phoittime_SOURCES     = phoittime.cc
 phoittime_LDADD       = @MODULE_PHOTOMETRYTK_LIBS@
 
+ptk_server_SOURCES    = ptk_server.cc
+ptk_server_LDADD      = @MODULE_PHOTOMETRYTK_LIBS@ libaspPhotometryTK.la
+
 bin_PROGRAMS = phodrg2plate phoinitalbedo phoinitfile phoitalbedo \
-               phoitdem phoiterror phoitreflect phoittime
+               phoitdem phoiterror phoitreflect phoittime         \
+	       ptk_server
 
 endif
 
-libaspPhotometryTK_la_LIBADD = @MODULE_PHOTOMETRYTK_LIBS@
-
-lib_LTLIBRARIES = libaspPhotometryTK.la
 
 endif
 

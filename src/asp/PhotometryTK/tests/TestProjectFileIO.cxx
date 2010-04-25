@@ -26,14 +26,14 @@ TEST(ProjectFileIO, circle_test) {
   cam_st.back().set_name( "back" );
   cam_st.front().set_exposure_t( 2 );
   cam_st.back().set_exposure_t( 4 );
-  write_pho_project( "test.prj", proj_st,
+  write_pho_project( "test.ptk", proj_st,
                      cam_st.begin(), cam_st.end() );
 
   // Read test data
   {
     ProjectMeta proj_end;
     std::list<CameraMeta> cam_end;
-    read_pho_project( "test.prj", proj_end,
+    read_pho_project( "test.ptk", proj_end,
                       cam_end );
 
     EXPECT_EQ( proj_st.name(), proj_end.name() );

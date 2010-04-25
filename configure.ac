@@ -302,13 +302,34 @@ dnl BLAS symbols in the event that we need them.
 AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
 
+AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])
 AX_PKG(PROTOBUF, [PTHREADS], [-lprotobuf], [google/protobuf/stubs/common.h])
+
+dnl check for recent rabbitmq; this can go away soon, it's just to prevent a
+dnl flag-day upgrade
+if test x"$HAVE_PKG_RABBITMQ_C" = "xyes"; then
+  AS_VAR_PUSHDEF([ac_var], rabbitmq_void_rpc_reply)dnl
+  AC_COMPILE_IFELSE(AC_LANG_PROGRAM([[
+    #include <stdlib.h>
+    #include <stdint.h>
+    #include <amqp.h>
+  ]], [[
+    amqp_get_rpc_reply();
+  ]]), [AS_VAR_SET(ac_var,yes)], [AS_VAR_SET(ac_var,no)])
+
+  AS_IF([test x"$ac_var" = "xyes"],
+    [AC_DEFINE([RABBITMQ_VOID_RPC_REPLY], [1], [Is amqp_get_rpc_reply void?])],
+    [AC_DEFINE([RABBITMQ_VOID_RPC_REPLY], [0], [Is amqp_get_rpc_reply void?])])
+  AS_VAR_POPDEF([ac_var])dnl
+fi
 
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.
 AM_CONDITIONAL(HAVE_PKG_SPICE, [test "$HAVE_PKG_SPICE" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_ISIS, [test "$HAVE_PKG_ISIS" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_RABBITMQ_C, [test "$HAVE_PKG_RABBITMQ_C" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_PROTOBUF, [test "$HAVE_PKG_PROTOBUF" = "yes"])
 
 ##################################################
 # module definitions
@@ -345,7 +366,7 @@ AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [SESSIONS ISISIO VW_PLATE])
 AX_APP(HSVMERGE,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 
 # Toolkits (like module, but doesn't build a library)
-AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [libaspPhotometryTK.la], no,  [PROTOBUF VW_PLATE], [BOOST])
+AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [libaspPhotometryTK.la], no, [RABBITMQ_C PROTOBUF VW_PLATE], [BOOST])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.

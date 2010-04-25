@@ -8,6 +8,7 @@
 #define __PROJECT_FILE_IO_H__
 
 #include <vw/Core/FundamentalTypes.h>
+#include <vw/Core/Exception.h>
 #include <asp/PhotometryTK/ProjectFile.pb.h>
 #include <algorithm>
 #include <fstream>
@@ -50,7 +51,12 @@ namespace pho {
   void write_pho_project( std::string const& file,
                           ProjectMeta const& prj,
                           IterT cam_start, IterT cam_end ) {
-    std::fstream output( file.c_str(), std::ios::out | std::ios::trunc | std::ios::binary );
+    // Forcing file extension type
+    std::string filename = file.substr(0,file.rfind("."));
+    filename += ".ptk";
+
+    std::fstream output( filename.c_str(),
+                         std::ios::out | std::ios::trunc | std::ios::binary );
 
     output << vw::int32( prj.ByteSize() );
     prj.SerializeToOstream(&output);
@@ -66,6 +72,8 @@ namespace pho {
                          ContainerT& cams ) {
     cams.clear(); prj.Clear();
     std::fstream input( file.c_str(), std::ios::in | std::ios::binary );
+    if ( !input )
+      vw::vw_throw( vw::IOErr() << "Unable to open \"" << file << "\"." );
     {
       vw::int32 bytes;
       input >> bytes;

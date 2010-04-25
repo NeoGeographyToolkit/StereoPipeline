@@ -13,6 +13,7 @@
 *.DS_Store
 *.pb.cc
 *.pb.h
+*#
 
 data/apollo
 data/mi-stereo
@@ -69,6 +70,7 @@ src/asp/Tools/dem_profile
 src/asp/Tools/geodiff
 src/asp/Tools/rmax2cahvor
 src/asp/Tools/rmax_adjust
+src/asp/Tools/hsv_merge
 
 # Photometry Toolkit
 src/asp/PhotometryTK/phodrg2plate
@@ -79,6 +81,10 @@ src/asp/PhotometryTK/phoitdem
 src/asp/PhotometryTK/phoiterror
 src/asp/PhotometryTK/phoitreflect
 src/asp/PhotometryTK/phoittime
+src/asp/PhotometryTK/ptk_server
+src/asp/PhotometryTK/tests/TestProjectFileIO
+src/asp/PhotometryTK/tests/TestProjectService
+src/asp/PhotometryTK/tests/*.ptk*
 
 # Doc
 docs/book/*aux
@@ -86,6 +92,7 @@ docs/book/*log
 docs/book/*out
 docs/book/*pdf
 docs/book/*toc
+docs/book/graph/*pdf
 docs/photometry/*aux
 docs/photometry/*log
 docs/photometry/*out
