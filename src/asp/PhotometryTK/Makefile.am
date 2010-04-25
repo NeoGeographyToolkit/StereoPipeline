@@ -17,8 +17,9 @@ protocol_sources = ProjectFile.pb.cc
 BUILT_SOURCES          = $(protocol_sources)
 nodist_include_HEADERS = $(protocol_headers)
 
-include_HEADERS = ProjectFileIO.h ProjectService.h
-libaspPhotometryTK_la_SOURCES = $(protocol_sources) ProjectService.cc
+include_HEADERS = ProjectFileIO.h ProjectService.h RemoteProjectFile.h
+libaspPhotometryTK_la_SOURCES = $(protocol_sources) ProjectService.cc  \
+                  RemoteProjectFile.cc
 
 libaspPhotometryTK_la_LIBADD = @MODULE_PHOTOMETRYTK_LIBS@
 lib_LTLIBRARIES = libaspPhotometryTK.la
@@ -33,6 +34,9 @@ phoinitalbedo_LDADD   = @MODULE_PHOTOMETRYTK_LIBS@
 
 phoinitfile_SOURCES   = phoinitfile.cc
 phoinitfile_LDADD     = @MODULE_PHOTOMETRYTK_LIBS@
+
+phoinitet_SOURCES     = phoinitet.cc
+phoinitet_LDADD       = @MODULE_PHOTOMETRYTK_LIBS@ libaspPhotometryTK.la
 
 phoitalbedo_SOURCES   = phoitalbedo.cc
 phoitalbedo_LDADD     = @MODULE_PHOTOMETRYTK_LIBS@
@@ -54,7 +58,7 @@ ptk_server_LDADD      = @MODULE_PHOTOMETRYTK_LIBS@ libaspPhotometryTK.la
 
 bin_PROGRAMS = phodrg2plate phoinitalbedo phoinitfile phoitalbedo \
                phoitdem phoiterror phoitreflect phoittime         \
-	       ptk_server
+	       ptk_server phoinitet
 
 endif
 

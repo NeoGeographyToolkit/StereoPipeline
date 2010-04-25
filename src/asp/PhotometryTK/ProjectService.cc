@@ -65,8 +65,9 @@ ProjectServiceImpl::ProjectServiceImpl( std::string root_directory ) :
     vw_throw( IOErr() << "There are no project files where the server started.\n" );
 
   for (size_t i = 0; i < ptkfiles.size(); ++i ) {
+    int32 index = m_ptk_lookup.size();
     m_ptk_lookup[fs::path(ptkfiles[i]).relative_path().string()] =
-      m_ptk_lookup.size()+1;
+      index;
     m_project_metas.push_back( ProjectMeta() );
     m_camera_metas.push_back( std::vector<CameraMeta>() );
     read_pho_project( root_directory+"/"+ptkfiles[i],
@@ -117,6 +118,8 @@ ProjectServiceImpl::OpenRequest(::google::protobuf::RpcController* /*controller*
     // Fail
     response->set_project_id( -1 );
     *(response->mutable_meta()) = ProjectMeta();
+    response->mutable_meta()->set_reflectance( ProjectMeta::NONE );
+    response->mutable_meta()->set_num_cameras( 0 );
   }
   done->Run();
 }
@@ -133,6 +136,8 @@ ProjectServiceImpl::CameraCreate(::google::protobuf::RpcController* /*controller
   response->set_camera_id( m_camera_metas[request->project_id()].size() );
   m_camera_metas[request->project_id()].push_back( request->meta() );
   m_project_metas[request->project_id()].set_num_cameras( response->camera_id() );
+  // Set Base Transaction ID
+  m_camera_metas[request->project_id()].back().set_base_transaction_id( m_project_metas[request->project_id()].max_iterations()*(m_camera_metas[request->project_id()].size()-1) );
   done->Run();
 }
 
