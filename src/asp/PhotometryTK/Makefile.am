@@ -26,35 +26,37 @@ lib_LTLIBRARIES = libaspPhotometryTK.la
 
 if ENABLE_EXCEPTIONS
 
+PTK_LOCAL_LIBS = @MODULE_PHOTOMETRYTK_LIBS@ libaspPhotometryTK.la
+
 phodrg2plate_SOURCES  = phodrg2plate.cc
-phodrg2plate_LDADD    = @MODULE_PHOTOMETRYTK_LIBS@
+phodrg2plate_LDADD    = $(PTK_LOCAL_LIBS)
 
 phoinitalbedo_SOURCES = phoinitalbedo.cc
-phoinitalbedo_LDADD   = @MODULE_PHOTOMETRYTK_LIBS@
+phoinitalbedo_LDADD   = $(PTK_LOCAL_LIBS)
 
 phoinitfile_SOURCES   = phoinitfile.cc
-phoinitfile_LDADD     = @MODULE_PHOTOMETRYTK_LIBS@
+phoinitfile_LDADD     = $(PTK_LOCAL_LIBS)
 
 phoinitet_SOURCES     = phoinitet.cc
-phoinitet_LDADD       = @MODULE_PHOTOMETRYTK_LIBS@ libaspPhotometryTK.la
+phoinitet_LDADD       = $(PTK_LOCAL_LIBS)
 
 phoitalbedo_SOURCES   = phoitalbedo.cc
-phoitalbedo_LDADD     = @MODULE_PHOTOMETRYTK_LIBS@
+phoitalbedo_LDADD     = $(PTK_LOCAL_LIBS)
 
 phoitdem_SOURCES      = phoitdem.cc
-phoitdem_LDADD        = @MODULE_PHOTOMETRYTK_LIBS@
+phoitdem_LDADD        = $(PTK_LOCAL_LIBS)
 
 phoiterror_SOURCES    = phoiterror.cc
-phoiterror_LDADD      = @MODULE_PHOTOMETRYTK_LIBS@
+phoiterror_LDADD      = $(PTK_LOCAL_LIBS)
 
 phoitreflect_SOURCES  = phoitreflect.cc
-phoitreflect_LDADD    = @MODULE_PHOTOMETRYTK_LIBS@
+phoitreflect_LDADD    = $(PTK_LOCAL_LIBS)
 
 phoittime_SOURCES     = phoittime.cc
-phoittime_LDADD       = @MODULE_PHOTOMETRYTK_LIBS@
+phoittime_LDADD       = $(PTK_LOCAL_LIBS)
 
 ptk_server_SOURCES    = ptk_server.cc
-ptk_server_LDADD      = @MODULE_PHOTOMETRYTK_LIBS@ libaspPhotometryTK.la
+ptk_server_LDADD      = $(PTK_LOCAL_LIBS)
 
 bin_PROGRAMS = phodrg2plate phoinitalbedo phoinitfile phoitalbedo \
                phoitdem phoiterror phoitreflect phoittime         \

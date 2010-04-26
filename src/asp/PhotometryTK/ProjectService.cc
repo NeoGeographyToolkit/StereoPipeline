@@ -81,15 +81,19 @@ void ProjectServiceImpl::sync() {
   for ( size_t i = 0; i < m_project_metas.size(); i++ ) {
     vw_out() << "\t--> Syncing project files for "
              << m_project_metas[i].name() <<  " to disk.\n";
+
+    std::string ptk_file = m_root_directory+"/"+m_project_metas[i].name();
+
     // Delete bak
-    fs::remove(m_root_directory+"/"+m_project_metas[i].name()+".bak");
+    if ( fs::exists(ptk_file+".bak") )
+      fs::remove(ptk_file+".bak");
 
     // Move current ptk to bak
-    fs::rename(m_root_directory+"/"+m_project_metas[i].name(),
-               m_root_directory+"/"+m_project_metas[i].name()+".bak");
+    fs::rename(ptk_file,
+               ptk_file+".bak");
 
     // Save ptk
-    write_pho_project( m_root_directory+"/"+m_project_metas[i].name(),
+    write_pho_project( ptk_file,
                        m_project_metas[i],
                        m_camera_metas[i].begin(),
                        m_camera_metas[i].end() );
