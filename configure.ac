@@ -174,7 +174,9 @@ AX_PKG_ONE_OF(GL,
 
 AX_PKG(OPENSCENEGRAPH, [GL], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
 
-AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
+AX_PKG_ONE_OF(SPICE,
+    SPICE_SUBDIR, [AX_PKG(SPICE_SUBDIR, [], [-lcspice], [SpiceUsr.h SpiceZfc.h], [naif])],
+    SPICE_TOP,    [AX_PKG(SPICE_TOP,    [], [-lcspice], [SpiceUsr.h SpiceZfc.h])])
 
 if test "$HAVE_PKG_QT" = no; then
     ENABLE_QT_QMAKE=no
