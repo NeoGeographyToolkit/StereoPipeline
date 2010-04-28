@@ -174,9 +174,7 @@ AX_PKG_ONE_OF(GL,
 
 AX_PKG(OPENSCENEGRAPH, [GL], [-losg -losgDB -lOpenThreads -losgViewer -losgText -losgGA -losgFX -losgTerrain -losgUtil], [osg/ref_ptr])
 
-AX_PKG_ONE_OF(SPICE,
-    SPICE_SUBDIR, [AX_PKG(SPICE_SUBDIR, [], [-lcspice], [SpiceUsr.h SpiceZfc.h], [naif])],
-    SPICE_TOP,    [AX_PKG(SPICE_TOP,    [], [-lcspice], [SpiceUsr.h SpiceZfc.h])])
+AX_PKG(SPICE, [], [-lcspice], [SpiceUsr.h SpiceZfc.h])
 
 if test "$HAVE_PKG_QT" = no; then
     ENABLE_QT_QMAKE=no
@@ -233,28 +231,22 @@ AX_PKG_ONE_OF(GSL,
     GSL_HASBLAS,  [AX_PKG(GSL_HASBLAS,  [LAPACK], [-lgsl])],
     GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
-AX_PKG(GEOS,    [], [-lgeos])
-AX_PKG(XERCESC, [], [-lxerces-c])
-
-AX_PKG_ONE_OF(SUPERLU,
-    SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
-    SUPERLU_VER_30, [AX_PKG(SUPERLU_VER_30, [LAPACK], [-lsuperlu_3.0])],
-    SUPERLU_PLAIN,  [AX_PKG(SUPERLU_PLAIN,  [LAPACK], [-lsuperlu], [])])
-
-AX_PKG_ONE_OF(KAKADU,
-    KAKADU_SPLIT,   [AX_PKG(KAKADU_SPLIT,   [], [-lkdu -lkdu_apps])],
-    KAKADU_63_JOIN, [AX_PKG(KAKADU_63_JOIN, [], [-lkdu_a63R])])
+if test x"$host_vendor" = "xapple"; then
+    AX_PKG(GEOS,    [],             [-lgeos-3.0.0], [])
+    AX_PKG(SUPERLU, [],             [-lsuperlu_3.0], [])
+    AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
+else
+    AX_PKG(GEOS,    [],             [-lgeos])
+    AX_PKG(SUPERLU, [LAPACK],       [-lsuperlu])
+    AX_PKG(XERCESC, [],             [-lxerces-c])
+fi
 
 dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems,
 dnl the ISIS compilation does not resolve certain BLAS symbols that its
 dnl dependent 3rd party libraries depend on (for whatever reason).
 dnl Thus, we link against LAPACK here because it defines these missing
 dnl BLAS symbols in the event that we need them.
-
-AX_PKG_ONE_OF(ISIS3RDPARTY,
-    APPLE_ISIS3RDPARTY, [AX_PKG_APPLE(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC KAKADU])],
-    LINUX_ISIS3RDPARTY, [AX_PKG(LINUX_ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC KAKADU SUPERLU])])
-
+AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
 AX_PKG(ISIS, [QT ISIS3RDPARTY], [-lisis3], [SpecialPixel.h])
 
 # These are here (instead of inside the PKG macro where they belong)
@@ -273,7 +265,7 @@ AX_GROUP_PKG(VW_ALL,       [VW VW_CAMERA VW_CARTOGRAPHY VW_STEREO VW_INTEREST_PO
 
 AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [],     [BOOST_COMMON BOOST_FILESYSTEM BOOST_SYSTEM BOOST_THREAD VW_ALL], [LAPACK])
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST SPICE], [] )
-AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [BOOST ISIS VW VW_CAMERA VW_CARTOGRAPHY] )
+AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [BOOST ISIS VW VW_CAMERA VW_CARTOGRAPHY], [] )
 AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [], [SPICEIO ISISIO])
 
 AX_APP(STEREO,         [src/asp/Tools], yes, [CORE SESSIONS])
