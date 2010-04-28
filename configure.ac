@@ -284,22 +284,22 @@ AX_PKG_ONE_OF(GSL,
     GSL_HASBLAS,  [AX_PKG(GSL_HASBLAS,  [LAPACK], [-lgsl])],
     GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
-if test x"$host_vendor" = "xapple"; then
-    AX_PKG(GEOS,    [],             [-lgeos-3.0.0], [])
-    AX_PKG(SUPERLU, [],             [-lsuperlu_3.0], [])
-    AX_PKG(XERCESC, [],             [-lxerces-c.28], [])
-else
-    AX_PKG(GEOS,    [],             [-lgeos])
-    AX_PKG(SUPERLU, [LAPACK],       [-lsuperlu])
-    AX_PKG(XERCESC, [],             [-lxerces-c])
-fi
+AX_PKG(GEOS,    [], [-lgeos])
+AX_PKG(XERCESC, [], [-lxerces-c])
 
-dnl We need to link ISIS3RDPARTY against LAPACK because, on some systems,
-dnl the ISIS compilation does not resolve certain BLAS symbols that its
-dnl dependent 3rd party libraries depend on (for whatever reason).
-dnl Thus, we link against LAPACK here because it defines these missing
-dnl BLAS symbols in the event that we need them.
-AX_PKG(ISIS3RDPARTY, [SUPERLU LAPACK GSL QWT GEOS SPICE XERCESC], [])
+AX_PKG_ONE_OF(SUPERLU,
+    SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
+    SUPERLU_VER_30, [AX_PKG(SUPERLU_VER_30, [LAPACK], [-lsuperlu_3.0])],
+    SUPERLU_PLAIN,  [AX_PKG(SUPERLU_PLAIN,  [LAPACK], [-lsuperlu], [])])
+
+AX_PKG_ONE_OF(KAKADU,
+    KAKADU_SPLIT,   [AX_PKG(KAKADU_SPLIT,   [], [-lkdu -lkdu_apps])],
+    KAKADU_63_JOIN, [AX_PKG(KAKADU_63_JOIN, [], [-lkdu_a63R])])
+
+AX_PKG_ONE_OF(ISIS3RDPARTY,
+    APPLE_ISIS3RDPARTY, [AX_PKG_APPLE(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC KAKADU])],
+    LINUX_ISIS3RDPARTY, [AX_PKG(LINUX_ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC KAKADU SUPERLU])])
+
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
 
 AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])
