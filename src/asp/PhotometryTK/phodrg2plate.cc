@@ -18,10 +18,12 @@
 #include <vw/Cartography.h>
 #include <vw/Plate/PlateFile.h>
 #include <vw/Plate/PlateCarreePlateManager.h>
+#include <asp/PhotometryTK/RemoteProjectFile.h>
 
 using namespace vw;
 using namespace vw::cartography;
 using namespace vw::platefile;
+using namespace asp::pho;
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
@@ -29,22 +31,28 @@ namespace po = boost::program_options;
 using namespace std;
 
 struct Options {
-  // For spawning multiple jobs
-  int job_id, num_jobs;
-
   // Input
-  std::string drg_file, cam_file;
+  std::string ptk_url, drg_file, cam_file;
 
   // Output
-  int transaction_id;
+  std::string output_dir;
 };
 
 void do_creation( Options const& opt ) {
+  // Load up camera information
+  RemoteProjectFile remote_ptk( opt.ptk_url );
 
   // Load up DRG
   DiskImageView<PixelMask<PixelGray<uint8> > > drg_image( opt.drg_file );
   GeoReference georef;
   read_georeference( georef, opt.drg_file );
+
+  // Request creation of new camera meta
+  CameraMeta cam_meta;
+  cam_meta.set_name(opt.drg_file);
+  cam_meta.set_exposure_t( 1.0 );
+  int32 cam_id = remote_ptk.CreateCameraMeta( cam_meta );
+  std::cout << "Assigned Camera ID: " << cam_id << "\n";
 
   { // Insert DRG
     boost::shared_ptr<PlateFile> drg_plate =
@@ -54,7 +62,7 @@ void do_creation( Options const& opt ) {
                                                    VW_CHANNEL_UINT8 ) );
     PlateCarreePlateManager< PixelGrayA<uint8> > drg_manager( drg_plate );
     drg_manager.insert( mask_to_alpha( drg_image ), opt.drg_file,
-                        opt.transaction_id, georef, false,
+                        cam_id+1, georef, false,
                         TerminalProgressCallback( "photometrytk",
                                                   "\tProcessing" ) );
   }
@@ -67,7 +75,7 @@ void do_creation( Options const& opt ) {
                                                    VW_CHANNEL_FLOAT32 ) );
     PlateCarreePlateManager< PixelGrayA<float32> > ref_manager( ref_plate );
     ref_manager.insert( mask_to_alpha(copy_mask(ConstantView<PixelGray<float32> >(1.0, drg_image.cols(), drg_image.rows() ), drg_image)),
-                        opt.drg_file, opt.transaction_id, georef, false,
+                        opt.drg_file, cam_id+1, georef, false,
                         TerminalProgressCallback( "photometrytk",
                                                   "\tProcessing" ) );
   }
@@ -78,17 +86,17 @@ void do_creation( Options const& opt ) {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("job_id,j", po::value<int>(&opt.job_id)->default_value(0), "")
-    ("num_jobs,n", po::value<int>(&opt.num_jobs)->default_value(1), "")
-    ("transaction_id,t", po::value<int>(&opt.transaction_id)->default_value(-1), "")
+    ("output-dir,o", po::value<std::string>(&opt.output_dir)->default_value(""))
     ("help,h", "Display this help message");
 
   po::options_description positional("");
   positional.add_options()
+    ("ptk_url",  po::value<std::string>(&opt.ptk_url),  "Input PTK Url")
     ("drg_file", po::value<std::string>(&opt.drg_file), "Input DRG file")
     ("cam_file", po::value<std::string>(&opt.cam_file), "Input Camera file");
 
   po::positional_options_description positional_desc;
+  positional_desc.add("ptk_url", 1);
   positional_desc.add("drg_file", 1);
   positional_desc.add("cam_file", 1);
 
@@ -105,12 +113,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
 
   std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [programmer hasn't filled this out]\n";
+  usage << "Usage: " << argv[0] << " <ptk-url> <drg-file> <cam-file>\n";
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
-  if ( opt.drg_file.empty() )
-    vw_throw( ArgumentErr() << "Missing input DRG!\n"
+  if ( opt.drg_file.empty() || opt.ptk_url.empty() )
+    vw_throw( ArgumentErr() << "Missing input DRG or URL!\n"
               << usage.str() << general_options );
 }
 
@@ -127,7 +135,13 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  do_creation( opt );
+  try {
+    do_creation( opt );
+  } catch ( const ArgumentErr& e ) {
+    vw_out() << "Error from input arguments:\n\n"
+             << e.what() << "\n";
+    return 1;
+  }
 
   return 0;
 }

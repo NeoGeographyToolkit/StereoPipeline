@@ -26,6 +26,8 @@ asp::pho::RemoteProjectFile::RemoteProjectFile( std::string const& url ) {
     ProjectOpenReply response;
     m_ptk_service->OpenRequest( m_rpc_controller.get(), &request, &response,
                                 google::protobuf::NewCallback(&null_closure) );
+    if ( response.project_id() < 0 )
+      vw_throw( ArgumentErr() << "Unable to open remote project file. Check url.\n" );
     m_project_id = response.project_id();
   }
 }

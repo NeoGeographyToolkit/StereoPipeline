@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
     float dt = float(Stopwatch::microtime() - t0) / 1e6;
     t0 = Stopwatch::microtime();
 
-    std::cout << "[index_server] : "
+    std::cout << "[ptk_server] : "
               << float(queries/dt) << " qps    "
               << float(bytes/dt)/1000.0 << " kB/sec    "
               << n_outstanding_messages << " outstanding messages                          \r"

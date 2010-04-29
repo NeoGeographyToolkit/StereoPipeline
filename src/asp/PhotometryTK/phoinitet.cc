@@ -84,6 +84,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url>\n";
 
+  if ( opt.ptk_url.empty() )
+    vw_throw( ArgumentErr() << "Missing ptk url.\n"
+              << usage.str() << general_options );
+
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
 }
@@ -101,7 +105,13 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  do_et_solve( opt );
+  try {
+    do_et_solve( opt );
+  } catch ( const ArgumentErr& e ) {
+    vw_out() << "Error from input arguments:\n\n"
+             << e.what() << "\n";
+    return 1;
+  }
 
   return 0;
 }
