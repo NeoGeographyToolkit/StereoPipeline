@@ -7,7 +7,7 @@
 #  __END_LICENSE__
 
 
-import os, glob, optparse, re, shutil, subprocess, sys, string;
+import os, glob, optparse, re, shutil, subprocess, sys
 
 job_pool = [];
 
@@ -36,7 +36,6 @@ class CCDs(dict):
     def __init__(self, cubes, match=5):
         self.prefix = os.path.commonprefix( cubes )
         dict.__init__(self)
-        tuples = []
         for cub in cubes:
             number = int( cub[len(self.prefix)] )
             self[number] = cub
