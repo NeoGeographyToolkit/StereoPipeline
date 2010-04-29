@@ -84,6 +84,7 @@ src/asp/PhotometryTK/phoittime
 src/asp/PhotometryTK/ptk_server
 src/asp/PhotometryTK/tests/TestProjectFileIO
 src/asp/PhotometryTK/tests/TestProjectService
+src/asp/PhotometryTK/tests/TestAlbedoAccumulators
 src/asp/PhotometryTK/tests/*.ptk*
 
 # Doc

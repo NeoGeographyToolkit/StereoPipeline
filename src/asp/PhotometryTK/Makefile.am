@@ -17,7 +17,8 @@ protocol_sources = ProjectFile.pb.cc
 BUILT_SOURCES          = $(protocol_sources)
 nodist_include_HEADERS = $(protocol_headers)
 
-include_HEADERS = ProjectFileIO.h ProjectService.h RemoteProjectFile.h
+include_HEADERS = ProjectFileIO.h ProjectService.h RemoteProjectFile.h \
+                  AlbedoAccumulators.h ImageAccumulators.h
 libaspPhotometryTK_la_SOURCES = $(protocol_sources) ProjectService.cc  \
                   RemoteProjectFile.cc
 
