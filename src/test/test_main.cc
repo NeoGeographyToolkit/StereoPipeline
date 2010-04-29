@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <test/Helpers.h>
 #include <vw/Core/Settings.h>
 
 int main(int argc, char **argv) {
