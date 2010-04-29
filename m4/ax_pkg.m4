@@ -7,7 +7,7 @@ dnl __END_LICENSE__
 
 m4_ifdef([_AX_FIXUPS], [], [m4_include([m4/fixups.m4])])
 
-dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>, <relative lib path>, <required-functions>])
+dnl Usage: AX_PKG(<name>, <dependencies>, <libraries>, <headers>[, <relative include path>, <relative lib path>, <required-functions>, <optional-deps>])
 AC_DEFUN([AX_PKG],
 [
 
@@ -60,6 +60,9 @@ AC_DEFUN([AX_PKG],
     AX_LOAD_DEPS([$1], [$2], [missing])
     AS_IF([test -n "$missing"], [AC_MSG_RESULT([no ([missing] $missing)]); HAVE_PKG_$1=no])
     AS_VAR_POPDEF([missing])
+
+    dnl load some optional deps
+    AX_LOAD_DEPS([$1], [$8])
 
     if test "x$HAVE_PKG_$1" = "xno" ; then
       # printed the result already
