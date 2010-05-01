@@ -45,8 +45,8 @@ class BundleAdjustmentModel : public ba::ModelBase<BundleAdjustmentModel, 7, 4> 
 
   std::vector<camera_vector_t> a;
   std::vector<point_vector_t> b;
-  std::vector<camera_vector_t> a_initial;
-  std::vector<point_vector_t> b_initial;
+  std::vector<camera_vector_t> a_target;
+  std::vector<point_vector_t> b_target;
   int m_num_pixel_observations;
 
   double m_huber_pixel_threshold;
@@ -55,7 +55,7 @@ public:
   BundleAdjustmentModel(std::vector<boost::shared_ptr<CameraModel> > const& cameras,
                         boost::shared_ptr<ControlNetwork> network) :
     m_cameras(cameras), m_network(network), a(cameras.size()),
-    b(network->size()), a_initial(cameras.size()), b_initial(network->size()) {
+    b(network->size()), a_target(cameras.size()), b_target(network->size()) {
 
     m_huber_pixel_threshold = 100; // outlier rejection threshold (pixels)
 
@@ -68,7 +68,7 @@ public:
     for (unsigned j = 0; j < m_cameras.size(); ++j) {
       a[j] = camera_vector_t();
       subvector(a[j],3,4) = Vector4(1,0,0,0);
-      a_initial[j] = a[j];
+      a_target[j] = a[j];
     }
 
     for (unsigned i = 0; i < network->size(); ++i) {
@@ -77,7 +77,7 @@ public:
       p(3) = 1.0;
       subvector(p,0,3) = (*m_network)[i].position();
       b[i] = normalize(p);
-      b_initial[i] = b[i];
+      b_target[i] = b[i];
     }
   }
 
@@ -95,8 +95,8 @@ public:
   }
 
   // Return the initial parameters
-  camera_vector_t A_initial(int j) const { return a_initial[j]; }
-  point_vector_t B_initial(int i) const { return b_initial[i]; }
+  camera_vector_t A_target(int j) const { return a_target[j]; }
+  point_vector_t B_target(int i) const { return b_target[i]; }
 
   unsigned num_cameras() const { return a.size(); }
   unsigned num_points() const { return b.size(); }
@@ -183,7 +183,7 @@ public:
       Vector3 position_initial, position_now;
       Quaternion<double> pose_initial, pose_now;
 
-      parse_camera_parameters(a_initial[j], position_initial, pose_initial);
+      parse_camera_parameters(a_target[j], position_initial, pose_initial);
       parse_camera_parameters(a[j], position_now, pose_now);
 
       camera_position_errors.push_back(norm_2(position_initial-position_now));
@@ -198,7 +198,7 @@ public:
       Vector3 position_initial, position_now;
       Quaternion<double> pose_initial, pose_now;
 
-      parse_camera_parameters(a_initial[j], position_initial, pose_initial);
+      parse_camera_parameters(a_target[j], position_initial, pose_initial);
       parse_camera_parameters(a[j], position_now, pose_now);
 
       Vector3 axis_initial, axis_now;
@@ -215,7 +215,7 @@ public:
     gcp_errors.clear();
     for (unsigned i=0; i < this->num_points(); ++i)
       if ((*m_network)[i].type() == ControlPoint::GroundControlPoint) {
-        point_vector_t p1 = b_initial[i]/b_initial[i](3);
+        point_vector_t p1 = b_target[i]/b_target[i](3);
         point_vector_t p2 = b[i]/b[i](3);
         gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
       }

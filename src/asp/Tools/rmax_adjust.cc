@@ -4,7 +4,6 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
 /// \file rmax_adjust.cc
 ///
 
@@ -66,8 +65,8 @@ class HelicopterBundleAdjustmentModel : public ba::ModelBase<HelicopterBundleAdj
 
   std::vector<camera_vector_t> a;
   std::vector<point_vector_t> b;
-  std::vector<camera_vector_t> a_initial;
-  std::vector<point_vector_t> b_initial;
+  std::vector<camera_vector_t> a_target;
+  std::vector<point_vector_t> b_target;
   int m_num_pixel_observations;
 
 public:
@@ -76,7 +75,7 @@ public:
                                   boost::shared_ptr<ControlNetwork> network) :
     m_image_infos(image_infos), m_network(network),
     a(image_infos.size()), b(network->size()),
-    a_initial(image_infos.size()), b_initial(network->size()) {
+    a_target(image_infos.size()), b_target(network->size()) {
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
@@ -86,12 +85,12 @@ public:
     // Set up the a and b vectors, storing the initial values.
     for (unsigned j = 0; j < m_image_infos.size(); ++j) {
       a[j] = camera_vector_t();
-      a_initial[j] = a[j];
+      a_target[j] = a[j];
     }
 
     for (unsigned i = 0; i < m_network->size(); ++i) {
       b[i] = (*m_network)[i].position();
-      b_initial[i] = b[i];
+      b_target[i] = b[i];
     }
 
   }
@@ -127,8 +126,8 @@ public:
   }
 
   // Return the initial parameters
-  camera_vector_t A_initial(int j) const { return a_initial[j]; }
-  point_vector_t B_initial(int i) const { return b_initial[i]; }
+  camera_vector_t A_target(int j) const { return a_target[j]; }
+  point_vector_t B_target(int i) const { return b_target[i]; }
 
   // Return general sizes
   unsigned num_cameras() const { return a.size(); }
@@ -247,7 +246,7 @@ public:
     camera_position_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j) {
       Vector3 position_initial, position_now;
-      position_initial = subvector(a_initial[j],0,3);
+      position_initial = subvector(a_target[j],0,3);
       position_now = subvector(a[j],0,3);
 
       camera_position_errors.push_back(norm_2(position_initial-position_now));
@@ -259,7 +258,7 @@ public:
     camera_pose_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j) {
       Vector3 pose_initial, pose_now;
-      pose_initial = subvector(a_initial[j],3,3);
+      pose_initial = subvector(a_target[j],3,3);
       pose_now = subvector(a[j],3,3);
 
       camera_pose_errors.push_back(norm_2(pose_initial-pose_now));
@@ -271,7 +270,7 @@ public:
     gcp_errors.clear();
     for (unsigned i=0; i < this->num_points(); ++i)
       if ((*m_network)[i].type() == ControlPoint::GroundControlPoint) {
-        point_vector_t p1 = b_initial[i]/b_initial[i](3);
+        point_vector_t p1 = b_target[i]/b_target[i](3);
         point_vector_t p2 = b[i]/b[i](3);
         gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
       }

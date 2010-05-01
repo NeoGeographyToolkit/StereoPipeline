@@ -45,8 +45,8 @@ class IsisBundleAdjustmentModel : public vw::ba::ModelBase< IsisBundleAdjustment
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
   std::vector<camera_vector_t> a;
   std::vector<point_vector_t> b;
-  std::vector<camera_vector_t> a_initial;
-  std::vector<point_vector_t> b_initial;
+  std::vector<camera_vector_t> a_target;
+  std::vector<point_vector_t> b_target;
   std::vector< std::string > m_files;
   int m_num_pixel_observations;
   float m_spacecraft_position_sigma;
@@ -61,8 +61,8 @@ public:
                              float const& spacecraft_position_sigma,
                              float const& spacecraft_pose_sigma, float const& gcp_scalar ) :
   m_cameras( camera_models ), m_network(network), a( camera_models.size() ),
-    b( network->size()), a_initial( camera_models.size() ),
-    b_initial( network->size() ), m_files( input_names ),
+    b( network->size()), a_target( camera_models.size() ),
+    b_target( network->size() ), m_files( input_names ),
     m_spacecraft_position_sigma(spacecraft_position_sigma),
     m_spacecraft_pose_sigma(spacecraft_pose_sigma), m_gcp_scalar(gcp_scalar) {
 
@@ -85,13 +85,13 @@ public:
         a[j][n] = (*posF)[n];
       for (unsigned n = 0; n < poseF->size(); ++n)
         a[j][n + posF->size()] = (*poseF)[n];
-      a_initial[j] = a[j];
+      a_target[j] = a[j];
     }
 
     // Setting up B vectors
     for (unsigned i = 0; i < network->size(); ++i) {
       b[i] = (*m_network)[i].position();
-      b_initial[i] = b[i];
+      b_target[i] = b[i];
     }
 
     // Checking to see if this Control Network is compatible with
@@ -135,8 +135,8 @@ public:
   }
 
   // Return Initial parameters. (Used by the bundle adjuster )
-  camera_vector_t A_initial( int j ) const { return a_initial[j]; }
-  point_vector_t B_initial( int i ) const { return b_initial[i]; }
+  camera_vector_t A_target( int j ) const { return a_target[j]; }
+  point_vector_t B_target( int i ) const { return b_target[i]; }
 
   // Return general sizes
   unsigned num_cameras() const { return a.size(); }
@@ -298,7 +298,7 @@ public:
     for (unsigned j=0; j < this->num_cameras(); ++j ) {
       // TODO: This needs to be compliant if the BA is using a
       // non-zero order equation
-      vw::Vector3 position_initial = subvector(a_initial[j],0,3);
+      vw::Vector3 position_initial = subvector(a_target[j],0,3);
       vw::Vector3 position_now = subvector(a[j],0,3);
       camera_position_errors.push_back(norm_2(position_initial-position_now));
     }
@@ -310,7 +310,7 @@ public:
     for (unsigned j=0; j < this->num_cameras(); ++j ) {
       // TODO: This needs to be compliant if the BA is using a
       // non-zero order equation
-      vw::Vector3 pose_initial = subvector(a_initial[j],3,3);
+      vw::Vector3 pose_initial = subvector(a_target[j],3,3);
       vw::Vector3 pose_now = subvector(a[j],3,3);
       camera_pose_errors.push_back(norm_2(pose_initial-pose_now));
     }
@@ -321,7 +321,7 @@ public:
     gcp_errors.clear();
     for (unsigned i=0; i < this->num_points(); ++i )
       if ((*m_network)[i].type() == vw::ba::ControlPoint::GroundControlPoint) {
-        point_vector_t p1 = b_initial[i];
+        point_vector_t p1 = b_target[i];
         point_vector_t p2 = b[i];
         gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
       }
