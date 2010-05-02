@@ -683,49 +683,51 @@ int main(int argc, char* argv[]) {
         // Applying additional clipping from the edge. We make new
         // mask files to avoid a weird and tricky segfault due to
         // ownership issues.
-        {
-          DiskImageView<vw::uint8> left_mask( out_prefix+"-lMask.tif" );
-          DiskImageView<vw::uint8> right_mask( out_prefix+"-rMask.tif" );
-          int mask_buffer = std::max( stereo_settings().subpixel_h_kern,
-                                      stereo_settings().subpixel_v_kern );
-          ImageViewRef<vw::uint8> Lmaskmore, Rmaskmore;
-          Lmaskmore = apply_mask(edge_mask(left_mask,0,mask_buffer));
-          Rmaskmore = apply_mask(edge_mask(right_mask,0,mask_buffer));
-          DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMaskMore.tif",
-                                             Lmaskmore.format(),
-                                             raster_tile_size,
-                                             gdal_options );
-          DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMaskMore.tif",
-                                             Rmaskmore.format(),
-                                             raster_tile_size,
-                                             gdal_options );
-          block_write_image(l_mask_rsrc, Lmaskmore,
-                            TerminalProgressCallback("asp", "\t   Reduce LMask: "));
-          block_write_image(r_mask_rsrc, Rmaskmore,
-                            TerminalProgressCallback("asp", "\t   Reduce RMask: "));
-        }
-        DiskImageView<vw::uint8> left_mask( out_prefix+"-lMaskMore.tif" );
-        DiskImageView<vw::uint8> right_mask( out_prefix+"-rMaskMore.tif" );
+        DiskImageView<vw::uint8> left_mask( out_prefix+"-lMask.tif" );
+        DiskImageView<vw::uint8> right_mask( out_prefix+"-rMask.tif" );
+        int mask_buffer = std::max( stereo_settings().subpixel_h_kern,
+                                    stereo_settings().subpixel_v_kern );
+        ImageViewRef<vw::uint8> Lmaskmore, Rmaskmore;
+        Lmaskmore = apply_mask(edge_mask(left_mask,0,mask_buffer));
+        Rmaskmore = apply_mask(edge_mask(right_mask,0,mask_buffer));
+        DiskCacheImageView<vw::uint8>
+          left_red_mask(Lmaskmore, "tif",
+                        TerminalProgressCallback("asp","\t  Reduce LMask:"),
+                        stereo_settings().cache_dir);
+        DiskCacheImageView<vw::uint8>
+          right_red_mask(Rmaskmore, "tif",
+                         TerminalProgressCallback("asp","\t  Reduce RMask:"),
+                         stereo_settings().cache_dir);
 
         disparity_map = stereo::disparity_mask( disparity_map,
-                                                left_mask, right_mask );
+                                                left_red_mask, right_red_mask );
+
+        DiskCacheImageView<PixelMask<Vector2f> >
+          filtered_disp(disparity_map, "tif",
+                        TerminalProgressCallback("asp","\t  Intermediate:"),
+                        stereo_settings().cache_dir);
 
         vw_out() << "\t--> Rasterizing filtered disparity map to disk. \n";
-        DiskImageResourceGDAL filtered_disparity_map_rsrc( out_prefix+"-FTemp.tif", disparity_map.format(),
-                                                           raster_tile_size,
-                                                           gdal_options );
-        block_write_image( filtered_disparity_map_rsrc, disparity_map,
-                           TerminalProgressCallback("asp", "\t--> Writing: ") );
-
-        // Removing extra masks
-        std::string lmask = out_prefix+"-lMaskMore.tif",
-          rmask = out_prefix+"-rMaskMore.tif";
-        unlink( lmask.c_str() );
-        unlink( rmask.c_str() );
+        BlobIndexThreaded bindex( filtered_disp,
+                                  stereo_settings().erode_max_size );
+        vw_out() << "\t    * Eroding " << bindex.num_blobs() << " islands\n";
+        ImageViewRef<PixelMask<Vector2f> > erode_disp_map;
+        erode_disp_map = ErodeView<DiskCacheImageView<PixelMask<Vector2f> > >(filtered_disp, bindex );
+        //erode_disp_map = filtered_disp;
+        DiskImageResourceGDAL erode_map_rsrc(out_prefix+"-FTemp.tif",
+                                             erode_disp_map.format(),
+                                             raster_tile_size,
+                                             gdal_options );
+        block_write_image( erode_map_rsrc, erode_disp_map,
+                           TerminalProgressCallback("asp", "\t--> Eroding: "));
       }
+
+      { // Erode away small islands of good data. (They're probably mistakes)
+      }
+
       DiskImageView<PixelMask<Vector2f> > filtered_disparity_map( out_prefix+"-FTemp.tif" );
 
-      {
+      { // Write Good Pixel Map
         vw_out() << "\t--> Creating \"Good Pixel\" image: "
                   << (out_prefix + "-GoodPixelMap.tif") << "\n";
         {
@@ -762,6 +764,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
+      // Fill Holes
       ImageViewRef<PixelMask<Vector2f> > hole_filled_disp_map;
       if(stereo_settings().fill_holes) {
         vw_out() << "\t--> Filling holes with Inpainting method.\n";

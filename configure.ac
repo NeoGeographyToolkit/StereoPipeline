@@ -433,6 +433,7 @@ AC_CONFIG_FILES([                       \
   src/Makefile                          \
   src/asp/Makefile                      \
   src/asp/Core/Makefile                 \
+  src/asp/Core/tests/Makefile           \
   src/asp/SpiceIO/Makefile              \
   src/asp/IsisIO/Makefile               \
   src/asp/IsisIO/tests/Makefile         \

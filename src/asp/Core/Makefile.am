@@ -20,7 +20,7 @@ endif
 
 include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
                   InpaintView.h MedianFilter.h OrthoRasterizer.h         \
-                  SoftwareRenderer.h $(ba_headers)
+                  SoftwareRenderer.h ErodeView.h $(ba_headers)
 
 libaspCore_la_SOURCES = BlobIndexThreaded.cc SoftwareRenderer.cc         \
                   StereoSettings.cc $(ba_sources)
@@ -38,7 +38,7 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@ -version-info @LIBTOOL_VERSION@
 
-SUBDIRS = .
+SUBDIRS = . tests
 
 includedir = $(prefix)/include/asp/Core
 

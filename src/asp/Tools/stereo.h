@@ -36,6 +36,7 @@ namespace fs = boost::filesystem;
 #include <asp/Core/MedianFilter.h>
 #include <asp/Core/BlobIndexThreaded.h>
 #include <asp/Core/InpaintView.h>
+#include <asp/Core/ErodeView.h>
 
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1

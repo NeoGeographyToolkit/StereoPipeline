@@ -125,6 +125,7 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("SUBPIXEL_PYRAMID_LEVELS", subpixel_pyramid_levels, 3, "Number of pyramid levels for EMSubpixelCorrelator");
 
   // Filtering Options
+  ASSOC_INT("ERODE_MAX_SIZE", erode_max_size, 1000, "max size of islands that should be removed");
   ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
   ASSOC_INT("FILL_HOLE_MAX_SIZE", fill_hole_max_size, 100000, "max size in pixels that should be filled");
   ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");

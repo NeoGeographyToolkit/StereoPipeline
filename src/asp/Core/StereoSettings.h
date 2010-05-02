@@ -80,11 +80,12 @@ public:
   int rm_threshold;        /* rm_treshold < disp[n]-disp[m] reject pxl */
   int rm_cleanup_passes;   /* number of times to perform cleanup
                               in the post-processing phase */
+  int erode_max_size;      /* Max island size in pixels that it'll remove*/
   int fill_holes;
   int fill_hole_max_size;  /* Maximum hole size in pixels that we'll attempt
                               to fill */
   int mask_flatfield;      /* Masks pixels in the input images that are less
-                              than 0.  (For use with apollo metric camera...) */
+                              than 0. (For use with apollo metric camera...) */
 
   // Triangulation Options
   float near_universe_radius;  /* radius of the universe in meters */

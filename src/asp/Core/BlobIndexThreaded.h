@@ -20,6 +20,7 @@
 #include <vw/Core/ThreadPool.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Algorithms.h> // include Boost::Graph
+#include <vw/Image/Manipulation.h>
 
 // BlobIndex (Multi) Threaded
 ///////////////////////////////////////
@@ -402,11 +403,22 @@ class BlobIndexThreaded {
     m_c_blob[index].decompress(output);
   }
   blob::BlobCompressed const& compressed_blob( vw::uint32 const& index ) const {
-    return m_c_blob[index];
-  }
+    return m_c_blob[index]; }
+  typedef std::vector<blob::BlobCompressed>::iterator blob_iterator;
+  typedef std::vector<blob::BlobCompressed>::const_iterator const_blob_iterator;
+  blob_iterator begin() { return m_c_blob.begin(); }
+  const_blob_iterator begin() const { return m_c_blob.begin(); }
+  blob_iterator end() { return m_c_blob.end(); }
+  const_blob_iterator end() const { return m_c_blob.end(); }
+
   vw::BBox2i const& blob_bbox( vw::uint32 const& index ) const {
-    return m_blob_bbox[index];
-  }
+    return m_blob_bbox[index]; }
+  typedef std::vector<vw::BBox2i>::iterator bbox_iterator;
+  typedef std::vector<vw::BBox2i>::const_iterator const_bbox_iterator;
+  bbox_iterator bbox_begin() { return m_blob_bbox.begin(); }
+  const_bbox_iterator bbox_begin() const { return m_blob_bbox.begin(); }
+  bbox_iterator bbox_end() { return m_blob_bbox.end(); }
+  const_bbox_iterator bbox_end() const { return m_blob_bbox.end(); }
 };
 
 #endif//__BLOB_INDEX_THREADED_H__
