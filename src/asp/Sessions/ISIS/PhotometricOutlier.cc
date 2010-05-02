@@ -35,9 +35,9 @@ void vw::photometric_outlier_rejection( std::string const& prefix,
   DiskImageView<PixelGray<float32> > left_image(prefix+"-L.tif");
   DiskCacheImageView<PixelGray<float> > diff( abs(apply_mask(copy_mask(left_image,right_mask))-right_proj), "tif", TerminalProgressCallback("asp","\tDifference:"), stereo_settings().cache_dir);
   ChannelAccumulator<math::CDFAccumulator<float32> > cdf;
-  cdf.resize(3000,1001);
+  cdf.resize(8000,2001);
   for_each_pixel(diff, cdf);
-  float thresh = cdf.quantile(0.9985); // Pulling out last bin of CDF
+  float thresh = cdf.quantile(0.99985); // Pulling out last bin of CDF
   vw_out() << "\t  Using threshold: " << thresh << "\n";
 
   // Thresholding image and dilating

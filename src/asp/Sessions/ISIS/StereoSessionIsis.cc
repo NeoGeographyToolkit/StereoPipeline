@@ -326,6 +326,26 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
                      TerminalProgressCallback("asp", "\t    Right: "));
 }
 
+inline std::string write_shadow_mask( std::string const& output_prefix,
+                                      std::string const& input_image,
+                                      std::string const& mask_postfix ) {
+  // This thresholds at -25000 as the input sub4s for Apollo that I've
+  // processed have a range somewhere between -32000 and +32000. -ZMM
+  DiskImageView<PixelGray<float> > disk_image( input_image );
+  DiskImageView<uint8> disk_mask( output_prefix + mask_postfix );
+  ImageViewRef<uint8> mask =
+    apply_mask(intersect_mask(create_mask(disk_mask),
+                              create_mask(threshold(disk_image,-25000,0,1.0))));
+  std::string output_mask =
+    output_prefix+mask_postfix.substr(0,mask_postfix.size()-4)+"Debug.tif";
+
+  DiskImageResourceGDAL out_mask_rsrc( output_mask, mask.format(),
+                                       Vector2i(vw_settings().default_tile_size(),
+                                                vw_settings().default_tile_size()) );
+  block_write_image( out_mask_rsrc, mask );
+  return output_mask;
+}
+
 // Stage 2: Correlation
 //
 // Pre file is a pair of grayscale images.  ( ImageView<PixelGray<float> > )
@@ -342,22 +362,21 @@ StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
   if (stereo_settings().mask_flatfield) {
     vw_out() << "\t--> Masking pixels that are less than 0.0.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
     output_file = m_out_prefix + "-R-masked.exr";
-    DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
-    DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
-    DiskImageView<uint8> left_disk_mask( m_out_prefix + "-lMask.tif");
-    DiskImageView<uint8> right_disk_mask( m_out_prefix + "-rMask.tif");
 
-    ImageViewRef<PixelMask<uint8> > Lmask = intersect_mask(create_mask(left_disk_mask),
-                                                           create_mask(clamp(left_disk_image,0,1e6)));
-    ImageViewRef<PixelMask<uint8> > Rmask = intersect_mask(create_mask(right_disk_mask),
-                                                           create_mask(clamp(right_disk_image,0,1e6)));
+    std::string shadowLmask_name =
+      write_shadow_mask( m_out_prefix, m_left_image_file,
+                         "-lMask.tif" );
+    std::string shadowRmask_name =
+      write_shadow_mask( m_out_prefix, m_right_image_file,
+                         "-rMask.tif" );
 
-    write_image(m_out_prefix + "-lMaskDebug.tif", Lmask);
-    write_image(m_out_prefix + "-rMaskDebug.tif", Rmask);
+    DiskImageView<uint8> shadowLmask( shadowLmask_name );
+    DiskImageView<uint8> shadowRmask( shadowRmask_name );
 
     DiskImageView<PixelMask<Vector2f> > disparity_disk_image(input_file);
     ImageViewRef<PixelMask<Vector2f> > disparity_map =
-      stereo::disparity_mask(disparity_disk_image, Lmask, Rmask);
+      stereo::disparity_mask(disparity_disk_image,
+                             shadowLmask, shadowRmask );
 
     DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
     disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),

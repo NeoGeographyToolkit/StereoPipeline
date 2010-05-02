@@ -259,26 +259,29 @@ int main(int argc, char* argv[]) {
   gdal_options["BIGTIFF"] = "NO";
 #endif
 
-  /*********************************************************************************/
-  /*                            user safety check                                  */
-  /*********************************************************************************/
+  Vector2i raster_tile_size(vw_settings().default_tile_size(),
+                            vw_settings().default_tile_size());
+
+  /***************************************************************************/
+  /*                         user safety check                               */
+  /***************************************************************************/
   {
     boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
     session->camera_models(camera_model1,camera_model2);
 
     // Do the camera's appear to be in the same location?
     if ( norm_2(camera_model1->camera_center(Vector2()) -
-		camera_model2->camera_center(Vector2())) < 1e-3 )
+                camera_model2->camera_center(Vector2())) < 1e-3 )
       vw_out(WarningMessage,"console")
              << "Your cameras appear to be in the same location!\n"
-	     << "\tYou should be double check your given camera\n"
-	     << "\tmodels as most likely stereo won't be able\n"
-	     << "\tto triangulate or perform epipolar rectification.\n";
+             << "\tYou should be double check your given camera\n"
+             << "\tmodels as most likely stereo won't be able\n"
+             << "\tto triangulate or perform epipolar rectification.\n";
   }
 
-  /*********************************************************************************/
-  /*                            preprocessing step                                 */
-  /*********************************************************************************/
+  /***************************************************************************/
+  /*                         preprocessing step                              */
+  /***************************************************************************/
   if (entry_point <= PREPROCESSING) {
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 0 --> PREPROCESSING \n";
 
@@ -316,13 +319,13 @@ int main(int argc, char* argv[]) {
       ImageViewRef<vw::uint8> Lmask = pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(left_image, 0, 0)),0,0,255));
       ImageViewRef<vw::uint8> Rmask = pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(right_image, 0, 0)),0,0,255));
 
-      DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif", Lmask.format(),
-                                         Vector2i(vw_settings().default_tile_size(),
-                                                  vw_settings().default_tile_size()),
+      DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMask.tif",
+                                         Lmask.format(),
+                                         raster_tile_size,
                                          gdal_options );
-      DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif", Rmask.format(),
-                                         Vector2i(vw_settings().default_tile_size(),
-                                                  vw_settings().default_tile_size()),
+      DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMask.tif",
+                                         Rmask.format(),
+                                         raster_tile_size,
                                          gdal_options );
       block_write_image(l_mask_rsrc, Lmask,
                         TerminalProgressCallback("asp", "\t    Mask L: "));
@@ -387,9 +390,9 @@ int main(int argc, char* argv[]) {
       search_range = approximate_search_range( l_sub_file, r_sub_file, sub_scale );
   }
 
-  /*********************************************************************************/
-  /*                       Discrete (integer) Correlation                          */
-  /*********************************************************************************/
+  /***************************************************************************/
+  /*                  Discrete (integer) Correlation                         */
+  /***************************************************************************/
   if( entry_point <= CORRELATION ) {
     if (entry_point == CORRELATION)
         vw_out() << "\nStarting at the CORRELATION stage.\n";
@@ -477,15 +480,14 @@ int main(int argc, char* argv[]) {
     // Create a disk image resource and prepare to write a tiled
     DiskImageResourceGDAL disparity_map_rsrc(out_prefix + "-D.tif",
                                              disparity_map.format(),
-                                             Vector2i(vw_settings().default_tile_size(),
-                                                      vw_settings().default_tile_size()),
+                                             raster_tile_size,
                                              gdal_options );
     block_write_image( disparity_map_rsrc, disparity_map );
   }
 
-  /*********************************************************************************/
-  /*                            Subpixel Refinement                                */
-  /*********************************************************************************/
+  /***************************************************************************/
+  /*                        Subpixel Refinement                              */
+  /***************************************************************************/
   if( entry_point <= REFINEMENT ) {
     if (entry_point == REFINEMENT)
       vw_out() << "\nStarting at the REFINEMENT stage.\n";
@@ -520,58 +522,62 @@ int main(int argc, char* argv[]) {
           vw_out() << "\t    SLOG preprocessing width: "
                    << stereo_settings().slogW << "\n";
           typedef stereo::SlogStereoPreprocessingFilter PreFilter;
-          disparity_map = stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                                          channels_to_planes(left_disk_image),
-                                                          channels_to_planes(right_disk_image),
-                                                          stereo_settings().subpixel_h_kern,
-                                                          stereo_settings().subpixel_v_kern,
-                                                          stereo_settings().do_h_subpixel,
-                                                          stereo_settings().do_v_subpixel,
-                                                          stereo_settings().subpixel_mode,
-                                                          PreFilter(stereo_settings().slogW),
-                                                          false);
+          disparity_map =
+            stereo::SubpixelView<PreFilter>(disparity_disk_image,
+                                            channels_to_planes(left_disk_image),
+                                            channels_to_planes(right_disk_image),
+                                            stereo_settings().subpixel_h_kern,
+                                            stereo_settings().subpixel_v_kern,
+                                            stereo_settings().do_h_subpixel,
+                                            stereo_settings().do_v_subpixel,
+                                            stereo_settings().subpixel_mode,
+                                            PreFilter(stereo_settings().slogW),
+                                            false);
         } else if (stereo_settings().pre_filter_mode == 2) {
           vw_out() << "\t    LOG preprocessing width: "
                    << stereo_settings().slogW << "\n";
           typedef stereo::LogStereoPreprocessingFilter PreFilter;
-          disparity_map = stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                                          channels_to_planes(left_disk_image),
-                                                          channels_to_planes(right_disk_image),
-                                                          stereo_settings().subpixel_h_kern,
-                                                          stereo_settings().subpixel_v_kern,
-                                                          stereo_settings().do_h_subpixel,
-                                                          stereo_settings().do_v_subpixel,
-                                                          stereo_settings().subpixel_mode,
-                                                          PreFilter(stereo_settings().slogW),
-                                                          false);
+          disparity_map =
+            stereo::SubpixelView<PreFilter>(disparity_disk_image,
+                                            channels_to_planes(left_disk_image),
+                                            channels_to_planes(right_disk_image),
+                                            stereo_settings().subpixel_h_kern,
+                                            stereo_settings().subpixel_v_kern,
+                                            stereo_settings().do_h_subpixel,
+                                            stereo_settings().do_v_subpixel,
+                                            stereo_settings().subpixel_mode,
+                                            PreFilter(stereo_settings().slogW),
+                                            false);
 
         } else if (stereo_settings().pre_filter_mode == 1) {
           vw_out() << "\t    BLUR preprocessing width: "
                    << stereo_settings().slogW << "\n";
           typedef stereo::BlurStereoPreprocessingFilter PreFilter;
-          disparity_map = stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                                          channels_to_planes(left_disk_image),
-                                                          channels_to_planes(right_disk_image),
-                                                          stereo_settings().subpixel_h_kern,
-                                                          stereo_settings().subpixel_v_kern,
-                                                          stereo_settings().do_h_subpixel,
-                                                          stereo_settings().do_v_subpixel,
-                                                          stereo_settings().subpixel_mode,
-                                                          PreFilter(stereo_settings().slogW),
-                                                          false);
+          disparity_map =
+            stereo::SubpixelView<PreFilter>(disparity_disk_image,
+                                            channels_to_planes(left_disk_image),
+                                            channels_to_planes(right_disk_image),
+                                            stereo_settings().subpixel_h_kern,
+                                            stereo_settings().subpixel_v_kern,
+                                            stereo_settings().do_h_subpixel,
+                                            stereo_settings().do_v_subpixel,
+                                            stereo_settings().subpixel_mode,
+                                            PreFilter(stereo_settings().slogW),
+                                            false);
         } else {
           vw_out() << "\t    NO preprocessing" << std::endl;
           typedef stereo::NullStereoPreprocessingFilter PreFilter;
-          disparity_map = stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                                          channels_to_planes(left_disk_image),
-                                                          channels_to_planes(right_disk_image),
-                                                          stereo_settings().subpixel_h_kern,
-                                                          stereo_settings().subpixel_v_kern,
-                                                          stereo_settings().do_h_subpixel,
-                                                          stereo_settings().do_v_subpixel,
-                                                          stereo_settings().subpixel_mode,
-                                                          PreFilter(),
-                                                          false);
+          disparity_map =
+            stereo::SubpixelView<PreFilter>(disparity_disk_image,
+                                            channels_to_planes(left_disk_image),
+                                            channels_to_planes(right_disk_image),
+                                            stereo_settings().subpixel_h_kern,
+                                            stereo_settings().subpixel_v_kern,
+                                            stereo_settings().do_h_subpixel,
+                                            stereo_settings().do_v_subpixel,
+                                            stereo_settings().subpixel_mode,
+                                            PreFilter(),
+                                            false);
         }
       } else if (stereo_settings().subpixel_mode == 2) {
         // Bayes EM
@@ -580,16 +586,17 @@ int main(int argc, char* argv[]) {
         vw_out() << "\t--> Forcing use of LOG filter with "
                  << stereo_settings().slogW << " sigma blur.\n";
         typedef stereo::LogStereoPreprocessingFilter PreFilter;
-        disparity_map = stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                                        channels_to_planes(left_disk_image),
-                                                        channels_to_planes(right_disk_image),
-                                                        stereo_settings().subpixel_h_kern,
-                                                        stereo_settings().subpixel_v_kern,
-                                                        stereo_settings().do_h_subpixel,
-                                                        stereo_settings().do_v_subpixel,
-                                                        stereo_settings().subpixel_mode,
-                                                        PreFilter(stereo_settings().slogW),
-                                                        false);
+        disparity_map =
+          stereo::SubpixelView<PreFilter>(disparity_disk_image,
+                                          channels_to_planes(left_disk_image),
+                                          channels_to_planes(right_disk_image),
+                                          stereo_settings().subpixel_h_kern,
+                                          stereo_settings().subpixel_v_kern,
+                                          stereo_settings().do_h_subpixel,
+                                          stereo_settings().do_v_subpixel,
+                                          stereo_settings().subpixel_mode,
+                                          PreFilter(stereo_settings().slogW),
+                                          false);
       } else if (stereo_settings().subpixel_mode == 3) {
         // Affine and Bayes subpixel refinement always use the
         // LogPreprocessingFilter...
@@ -630,9 +637,9 @@ int main(int argc, char* argv[]) {
       }
 
       // Create a disk image resource and prepare to write a tiled
-      DiskImageResourceGDAL disparity_map_rsrc2(out_prefix + "-RD.tif", disparity_map.format(),
-                                                Vector2i(vw_settings().default_tile_size(),
-                                                         vw_settings().default_tile_size()),
+      DiskImageResourceGDAL disparity_map_rsrc2(out_prefix + "-RD.tif",
+                                                disparity_map.format(),
+                                                raster_tile_size,
                                                 gdal_options );
       block_write_image( disparity_map_rsrc2, disparity_map,
                          TerminalProgressCallback("asp", "\t--> Refinement :") );
@@ -684,13 +691,13 @@ int main(int argc, char* argv[]) {
           ImageViewRef<vw::uint8> Lmaskmore, Rmaskmore;
           Lmaskmore = apply_mask(edge_mask(left_mask,0,mask_buffer));
           Rmaskmore = apply_mask(edge_mask(right_mask,0,mask_buffer));
-          DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMaskMore.tif", Lmaskmore.format(),
-                                             Vector2i(vw_settings().default_tile_size(),
-                                                      vw_settings().default_tile_size()),
+          DiskImageResourceGDAL l_mask_rsrc( out_prefix+"-lMaskMore.tif",
+                                             Lmaskmore.format(),
+                                             raster_tile_size,
                                              gdal_options );
-          DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMaskMore.tif", Rmaskmore.format(),
-                                             Vector2i(vw_settings().default_tile_size(),
-                                                      vw_settings().default_tile_size()),
+          DiskImageResourceGDAL r_mask_rsrc( out_prefix+"-rMaskMore.tif",
+                                             Rmaskmore.format(),
+                                             raster_tile_size,
                                              gdal_options );
           block_write_image(l_mask_rsrc, Lmaskmore,
                             TerminalProgressCallback("asp", "\t   Reduce LMask: "));
@@ -705,8 +712,7 @@ int main(int argc, char* argv[]) {
 
         vw_out() << "\t--> Rasterizing filtered disparity map to disk. \n";
         DiskImageResourceGDAL filtered_disparity_map_rsrc( out_prefix+"-FTemp.tif", disparity_map.format(),
-                                                           Vector2i(vw_settings().default_tile_size(),
-                                                                    vw_settings().default_tile_size()),
+                                                           raster_tile_size,
                                                            gdal_options );
         block_write_image( filtered_disparity_map_rsrc, disparity_map,
                            TerminalProgressCallback("asp", "\t--> Writing: ") );
@@ -768,8 +774,7 @@ int main(int argc, char* argv[]) {
 
       DiskImageResourceGDAL disparity_map_rsrc(out_prefix + "-F.tif",
                                                hole_filled_disp_map.format(),
-                                               Vector2i(vw_settings().default_tile_size(),
-                                                        vw_settings().default_tile_size()),
+                                               raster_tile_size,
                                                gdal_options );
       block_write_image(disparity_map_rsrc, hole_filled_disp_map,
                         TerminalProgressCallback("asp", "\t--> Filtering: ") );
@@ -785,9 +790,9 @@ int main(int argc, char* argv[]) {
   }
 
 
-  /******************************************************************************/
-  /*                               TRIANGULATION                                */
-  /******************************************************************************/
+  /***************************************************************************/
+  /*                            TRIANGULATION                                */
+  /***************************************************************************/
   if (entry_point <= POINT_CLOUD) {
     if (entry_point == POINT_CLOUD)
       vw_out() << "\nStarting at the TRIANGULATION stage.\n";
@@ -845,9 +850,9 @@ int main(int argc, char* argv[]) {
       ImageViewRef<Vector3> point_cloud = per_pixel_filter(stereo_image, universe_radius_func);
 
 
-      DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif", point_cloud.format(),
-                                             Vector2i(vw_settings().default_tile_size(),
-                                                      vw_settings().default_tile_size()),
+      DiskImageResourceGDAL point_cloud_rsrc(out_prefix + "-PC.tif",
+                                             point_cloud.format(),
+                                             raster_tile_size,
                                              gdal_options );
 
       if ( stereo_session_string == "isis" ) {
