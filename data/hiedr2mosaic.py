@@ -7,7 +7,7 @@
 #  __END_LICENSE__
 
 
-import os, glob, optparse, re, shutil, subprocess, sys
+import os, glob, optparse, re, shutil, subprocess, sys, string
 
 job_pool = [];
 
