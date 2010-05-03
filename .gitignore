@@ -48,7 +48,11 @@ src/asp/asp_config.h.pre
 src/asp/asp_config.h.pre.in
 src/asp/stamp-h1
 
-# Tests
+# Core
+src/asp/Core/tests/TestBlobIndexThreaded
+src/asp/Core/tests/TestErodeView
+
+# IsisIO
 src/asp/IsisIO/tests/TestEphemerisEquations
 src/asp/IsisIO/tests/TestIsisAdjustCameraModel
 src/asp/IsisIO/tests/TestIsisCameraModel

@@ -11,9 +11,10 @@
 
 if MAKE_MODULE_CORE
 
-TestErodeView_SOURCES       = TestErodeView.cxx
+TestErodeView_SOURCES         = TestErodeView.cxx
+TestBlobIndexThreaded_SOURCES = TestBlobIndexThreaded.cxx
 
-TESTS = TestErodeView
+TESTS = TestErodeView TestBlobIndexThreaded
 
 endif
 
@@ -25,6 +26,7 @@ AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@ @PKG_CORE_LIBS@
 
 check_PROGRAMS = $(TESTS)
+EXTRA_DIST = ThreadTest1.tif ThreadTest2.tif ThreadTest3.tif
 
 include $(top_srcdir)/config/rules.mak
 include $(top_srcdir)/config/tests.am

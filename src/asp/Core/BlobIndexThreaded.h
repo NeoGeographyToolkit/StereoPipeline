@@ -385,8 +385,7 @@ class BlobIndexThreaded {
       sw.stop();
     }
 
-    // Cull blobs that are too big. Needs to be done after
-    // consolidationñ
+    // Cull blobs that are too big.
     if ( m_max_area > 0 )
       for ( std::vector<blob::BlobCompressed>::iterator iter = m_c_blob.begin();
             iter != m_c_blob.end(); iter++ )
