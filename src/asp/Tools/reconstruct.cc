@@ -138,8 +138,8 @@ int main( int argc, char *argv[] ) {
   vw_out() << "Number of Files = " << input_files.size() << "\n";
 
   GlobalParams globalParams;
-  globalParams.reflectanceType = NO_REFL;
-  //globalParams.reflectanceType = LUNAR_LAMBERT;
+  //globalParams.reflectanceType = NO_REFL;
+  globalParams.reflectanceType = LUNAR_LAMBERT;
   //globalParams.reflectanceType = LAMBERT;
   globalParams.slopeType = 1;
   globalParams.shadowThresh = 40;
@@ -147,16 +147,17 @@ int main( int argc, char *argv[] ) {
 
   //string spacecraftPosFilename = "";
   //string sunPosFilename = "";
-  globalParams.albedoInitType = 1;
-  globalParams.exposureInitType = 1;//0;
+  globalParams.albedoInitType = 0;//1;
+  globalParams.exposureInitType = 0;//1;
   globalParams.exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
   globalParams.exposureInitRefIndex = 0;   //the reference frame
   globalParams.DEMInitType = 0;//1;
-  globalParams.shadowInitType = 1;//0;
-  //globalParams.re_estimateExposure = 1;
-  //globalParams.re_estimateAlbedo = 1;
-  globalParams.computeErrors = 1;//0;
-  globalParams.useWeights = 1;//0;
+  globalParams.shadowInitType = 0;//1;
+  globalParams.updateExposure = 0;//1;
+  globalParams.updateAlbedo = 0;//1;
+  globalParams.updateHeight = 1;
+  globalParams.computeErrors = 0;//1;
+  globalParams.useWeights = 0;//1;
   globalParams.maxNumIter = 10;
   globalParams.maxNextOverlappingImages = 2;
   globalParams.maxPrevOverlappingImages = 2;
@@ -202,7 +203,9 @@ int main( int argc, char *argv[] ) {
     modelParamsArray[i].DEMFilename     = homeDir + dataDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
 
     modelParamsArray[i].infoFilename    = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
-    modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
+    //modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
+    //DEM sub 4 by Taemin 
+    modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM2.tif";
     modelParamsArray[i].var2DEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
     modelParamsArray[i].reliefFilename  = homeDir + resDir + "/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
     modelParamsArray[i].shadowFilename  = homeDir + resDir + "/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
@@ -253,6 +256,8 @@ int main( int argc, char *argv[] ) {
     }
     callback.report_finished();
   }
+
+  printf("numIter = %d\n", globalParams.maxNumIter);
 
   //compute the reflectance images
   if (globalParams.exposureInitType == 1){
@@ -362,84 +367,69 @@ int main( int argc, char *argv[] ) {
     delete currExposureInfoFilename_char;
     delete prevExposureInfoFilename_char;
 
-
-    /*
-      string prevExposureInfoFilename = string("../results/exposure/exposureInfo_0.txt");
-      string currExposureInfoFilename = string("../results/exposure/exposureInfo.txt");
-      vector<float> exposureTimeVector;
-
-      exposureTimeVector = ReadExposureInfoFile(prevExposureInfoFilename,input_files.size());
-      for (unsigned int i = 0; i < input_files.size(); i++){
-          modelParamsArray[i].exposureTime = exposureTimeVector[i];
-      }
-      AppendExposureInfoToFile(currExposureInfoFilename, input_files[0], modelParamsArray[0]);
-    */
-
     overallError = 0.0;
 
-    //re-estimate the exposure time
-    for (unsigned int i = 0; i < input_files.size(); ++i) {
+    
+    if (globalParams.updateExposure == 1){ //re-estimate the exposure time
+      
+       for (unsigned int i = 0; i < input_files.size(); ++i) {
 
-      printf("iter = %d, exposure, i = %d, filename = %s\n\n", iter, i, input_files[i].c_str());
+	printf("iter = %d, exposure, i = %d, filename = %s\n\n", iter, i, input_files[i].c_str());
 
-      if (globalParams.reflectanceType == NO_REFL){
-        //no use of reflectance map
-        ComputeExposure(&modelParamsArray[i], globalParams);
+	if (globalParams.reflectanceType == NO_REFL){
+	  //no use of reflectance map
+	  ComputeExposure(&modelParamsArray[i], globalParams);
+	}
+	else{
+	  //use reflectance map
+	  ComputeExposureAlbedo(&modelParamsArray[i], globalParams);
+	}
+
+	//create the exposureInfoFilename
+	AppendExposureInfoToFile(currExposureInfoFilename, modelParamsArray[i]);
       }
-      else{
-        //use reflectance map
-        ComputeExposureAlbedo(&modelParamsArray[i], globalParams);
-      }
+   }
 
-      //create the exposureInfoFilename
-      AppendExposureInfoToFile(currExposureInfoFilename, modelParamsArray[i]);
-    }
+   if (globalParams.updateAlbedo == 1){
 
-     /*
-     exposureTimeVector = ReadExposureInfoFile(currExposureInfoFilename,input_files.size());
-     for (unsigned int i = 0; i < input_files.size(); i++){
-          modelParamsArray[i].exposureTime = exposureTimeVector[i];
-     }
-     */
-
-    for (unsigned int i = 0; i < input_files.size(); ++i) {
-
-      std::vector<int> overlapIndices;
-      overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
-      std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
-
-      for (unsigned int j = 0; j < overlapIndices.size(); j++){
-        overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
-      }
-
-      if (globalParams.reflectanceType == NO_REFL){
-        //no use of the reflectance map
-        UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
-
-      }
-      else{
-        //use reflectance
-        UpdateAlbedoMosaic(modelParamsArray[i], overlapParamsArray, globalParams);
-      }
-
-    }
-
-
-     //re-estimate the height map  - shape from shading
      for (unsigned int i = 0; i < input_files.size(); ++i) {
-          if (globalParams.reflectanceType != NO_REFL){
-	     printf("iter = %d, height map computation i = %d, filename = %s\n\n", iter, i, modelParamsArray[i].inputFilename.c_str());
+
+       std::vector<int> overlapIndices;
+       overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
+       std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
+
+       for (unsigned int j = 0; j < overlapIndices.size(); j++){
+	 overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
+       }
+
+       if (globalParams.reflectanceType == NO_REFL){
+	 //no use of the reflectance map
+	 UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
+       }
+       else{
+	 //use reflectance
+	 UpdateAlbedoMosaic(modelParamsArray[i], overlapParamsArray, globalParams);
+       }
+    }
+   }
+
+   //re-estimate the height map  - shape from shading
+   if ((globalParams.reflectanceType != NO_REFL) && (globalParams.updateHeight == 1)){
+
+       for (unsigned int i = 0; i < input_files.size(); ++i) {
+       
+	  printf("iter = %d, height map computation i = %d, filename = %s\n\n", iter, i, modelParamsArray[i].inputFilename.c_str());
              
-             std::vector<int> overlapIndices;
-             overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
-             std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
-             for (unsigned int j = 0; j < overlapIndices.size(); j++){
-                  overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
-             }
+          std::vector<int> overlapIndices;
+          overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
+          std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
+          for (unsigned int j = 0; j < overlapIndices.size(); j++){
+               overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
+          }
               
-             UpdateHeightMap(modelParamsArray[i], overlapParamsArray, globalParams);
-	  }     
-     }
+          UpdateHeightMap(modelParamsArray[i], overlapParamsArray, globalParams);
+	}     
+    }
 
     if (globalParams.computeErrors == 1){
 
@@ -480,7 +470,7 @@ int main( int argc, char *argv[] ) {
     }
   }
 
-
+  /*
   #if 0
   for (unsigned int i = 1; i < input_files.size(); ++i) {
 
@@ -498,11 +488,11 @@ int main( int argc, char *argv[] ) {
       DiskImageView<PixelMask<PixelGray<uint8> > > curr_image(input_files[i]);
       printf("img_width = %d, img_height = %d\n", curr_image.cols(), curr_image.rows());
 
-      /*
-      ComputeSaveAlbedoMap(input_files[i], input_files[i-1], output_files[i], output_files[i-1], DEM_file, modelParamsArray[i], modelParamsArray[i-1]);
+      
+      //ComputeSaveAlbedoMap(input_files[i], input_files[i-1], output_files[i], output_files[i-1], DEM_file, modelParamsArray[i], modelParamsArray[i-1]);
 
-      ComputeSaveError(input_files[i], output_files[i], DEM_file, error_files[i], modelParamsArray[i]);
-      */
+      //ComputeSaveError(input_files[i], output_files[i], DEM_file, error_files[i], modelParamsArray[i]);
+      
 
       printf("test1\n");
       //read the original image-VERY UNEFFICIENT!!!!
@@ -581,7 +571,7 @@ int main( int argc, char *argv[] ) {
        printf("test6\n");
   }
   #endif
-
+  */
 }
 
 
