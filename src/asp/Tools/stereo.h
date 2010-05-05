@@ -39,7 +39,7 @@ namespace fs = boost::filesystem;
 #include <asp/Core/ErodeView.h>
 
 // Support for ISIS image files
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #endif
 

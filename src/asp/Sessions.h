@@ -11,7 +11,7 @@
 
 #include <asp/Sessions/StereoSession.h>
 
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 #endif
 

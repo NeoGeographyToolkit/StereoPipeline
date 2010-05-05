@@ -232,7 +232,7 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
 
 void do_run( Options& opt ) {
 
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 

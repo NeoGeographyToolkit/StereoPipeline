@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
   // our own FileIO driver code.
   DiskImageResource::register_default_file_types();
 
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   // Register the Isis file handler with the Vision Workbench
   // DiskImageResource system.
   DiskImageResource::register_file_type(".cub",
@@ -176,7 +176,7 @@ int main(int argc, char* argv[]) {
 
   // Create a fresh stereo session and query it for the camera models.
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 

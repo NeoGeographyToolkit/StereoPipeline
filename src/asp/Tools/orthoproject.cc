@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
 
   // Create a fresh stereo session and query it for the camera models.
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
@@ -241,7 +241,7 @@ int main(int argc, char* argv[]) {
   ImageViewRef<PixelGrayA<uint8> > texture_image = texture_disk_image;
   DiskImageView<PixelGrayA<float> > float_texture_disk_image(image_file);
 
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   // ISIS cubes need to be normalized because their pixels are often
   // photometrically calibrated.
   if (stereo_session_string == "isis") {

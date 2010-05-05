@@ -30,7 +30,7 @@ using namespace vw::ba;
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/StereoSettings.h>
 
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #endif
 
@@ -272,7 +272,7 @@ sort_out_gcps( std::vector<std::string>& image_files ) {
 
 int main(int argc, char* argv[]) {
 
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   // Register the Isis file handler with the Vision Workbench
   // DiskImageResource system.
   DiskImageResource::register_file_type(".cub",
@@ -283,7 +283,7 @@ int main(int argc, char* argv[]) {
 
   // Register all stereo session types
   StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
 #endif
 
