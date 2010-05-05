@@ -702,24 +702,39 @@ int main(int argc, char* argv[]) {
         disparity_map = stereo::disparity_mask( disparity_map,
                                                 left_red_mask, right_red_mask );
 
-        DiskCacheImageView<PixelMask<Vector2f> >
-          filtered_disp(disparity_map, "tif",
-                        TerminalProgressCallback("asp","\t  Intermediate:"),
-                        stereo_settings().cache_dir);
+        if ( stereo_settings().mask_flatfield ) {
+          // This is only turned on for apollo. Blob detection doesn't work to
+          // great when tracking a whole lot of spots. HiRISE seems to keep breaking
+          // this so I've keep it turned off.
+          //
+          // The crash happens inside Boost Graph when dealing with large number
+          // of blobs.
+          DiskCacheImageView<PixelMask<Vector2f> >
+            filtered_disp(disparity_map, "tif",
+                          TerminalProgressCallback("asp","\t  Intermediate:"),
+                          stereo_settings().cache_dir);
 
-        vw_out() << "\t--> Rasterizing filtered disparity map to disk. \n";
-        BlobIndexThreaded bindex( filtered_disp,
-                                  stereo_settings().erode_max_size );
-        vw_out() << "\t    * Eroding " << bindex.num_blobs() << " islands\n";
-        ImageViewRef<PixelMask<Vector2f> > erode_disp_map;
-        erode_disp_map = ErodeView<DiskCacheImageView<PixelMask<Vector2f> > >(filtered_disp, bindex );
-        //erode_disp_map = filtered_disp;
-        DiskImageResourceGDAL erode_map_rsrc(out_prefix+"-FTemp.tif",
-                                             erode_disp_map.format(),
-                                             raster_tile_size,
-                                             gdal_options );
-        block_write_image( erode_map_rsrc, erode_disp_map,
-                           TerminalProgressCallback("asp", "\t--> Eroding: "));
+          vw_out() << "\t--> Rasterizing filtered disparity map to disk. \n";
+          BlobIndexThreaded bindex( filtered_disp,
+                                    stereo_settings().erode_max_size );
+          vw_out() << "\t    * Eroding " << bindex.num_blobs() << " islands\n";
+          ImageViewRef<PixelMask<Vector2f> > erode_disp_map;
+          erode_disp_map = ErodeView<DiskCacheImageView<PixelMask<Vector2f> > >(filtered_disp, bindex );
+          //erode_disp_map = filtered_disp;
+          DiskImageResourceGDAL erode_map_rsrc(out_prefix+"-FTemp.tif",
+                                               erode_disp_map.format(),
+                                               raster_tile_size,
+                                               gdal_options );
+          block_write_image( erode_map_rsrc, erode_disp_map,
+                             TerminalProgressCallback("asp", "\t--> Eroding: "));
+        } else {
+          DiskImageResourceGDAL filt_rsrc( out_prefix+"-FTemp.tif",
+                                           disparity_map.format(),
+                                           raster_tile_size,
+                                           gdal_options );
+          block_write_image( filt_rsrc, disparity_map,
+                             TerminalProgressCallback("asp", "\t--> Filterd: "));
+        }
       }
 
       { // Erode away small islands of good data. (They're probably mistakes)
