@@ -198,6 +198,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline
 \texttt{-\/-omega-rotation \textit{float(=0)}} & Set a rotation angle omega \\ \hline
 \texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa \\ \hline
+\texttt{-\/-cache-dir \textit{path(=/tmp)}} & Sets directory to use for temporary files. Specify another directory if system is restrictive to large files in /tmp. \\ \hline
 \end{longtable}
 
 \section{point2mesh}
@@ -339,7 +340,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display this help \\ \hline
 \texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
 \texttt{-\/-scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
-\texttt{-\/-use-simple-placemarks} & Draw simple icons at camera locations, instead of a coordinate model \\ \hline
+\texttt{-\/-use\_path\_to\_dae\_model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
 \end{longtable}
 
 
@@ -366,7 +367,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display this help \\ \hline
 \texttt{-\/-cnet|-c \textit{control-network-file}} & Load a control network from a file \\ \hline
 \texttt{-\/-cost-function \textit{function(=L2)}} & Choose a robust cost function from \texttt{[L1|L2|Cauchy|Huber|PseudoHuberL1|L2|Cauchy|} \texttt{Huber|PseudoHuber]} \\ \hline
-\texttt{-\/-bundle-adjuster \textit{adjuster(=Sparse)}} & Choose a bundle adjustment version from \texttt{[Ref|Sparse|RobustRef|RobustSparse]} \\ \hline
+\texttt{-\/-bundle-adjuster \textit{adjuster(=Sparse)}} & Choose a bundle adjustment version from \texttt{[Ref|Sparse|RobustRef|RobustSparse|RobustSparseKGCP]} \\ \hline
 \texttt{-\/-disable-camera-const} & Disable the camera constraint error. This allows the cameras to move to pretty much anywhere. \\ \hline
 \texttt{-\/-disable-gcp-const} & Disable the GCP constraint error. \\ \hline
 \texttt{-\/-gcp-scalar \textit{multiplier(=1)}} & Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files. \\ \hline

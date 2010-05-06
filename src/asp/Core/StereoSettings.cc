@@ -125,14 +125,14 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("SUBPIXEL_PYRAMID_LEVELS", subpixel_pyramid_levels, 3, "Number of pyramid levels for EMSubpixelCorrelator");
 
   // Filtering Options
-  ASSOC_INT("ERODE_MAX_SIZE", erode_max_size, 1000, "max size of islands that should be removed");
-  ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
-  ASSOC_INT("FILL_HOLE_MAX_SIZE", fill_hole_max_size, 100000, "max size in pixels that should be filled");
   ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
   ASSOC_INT("RM_V_HALF_KERN", rm_v_half_kern, 5, "");
   ASSOC_INT("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");
   ASSOC_INT("RM_THRESHOLD", rm_threshold, 3, "rm_threshold > disp[n]-disp[m] pixels are not matching");
   ASSOC_INT("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
+  ASSOC_INT("ERODE_MAX_SIZE", erode_max_size, 1000, "max size of islands that should be removed");
+  ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
+  ASSOC_INT("FILL_HOLE_MAX_SIZE", fill_hole_max_size, 100000, "max size in pixels that should be filled");
   ASSOC_INT("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
 
   // Triangulation Options

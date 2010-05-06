@@ -13,7 +13,7 @@ detect.
 
 The Stereo Pipeline includes a powerful suite of tools for correcting
 camera position and orientation errors using a process called
-\emph{bundle adjustment}.  Bundle adjustment is the process of
+\emph{bundle adjustment}. Bundle adjustment is the process of
 simultaneously adjusting the properties of many cameras and the 3D
 locations of the objects they see in order to minimize the error
 between the estimated, back-projected pixel location of the 3D
@@ -52,7 +52,7 @@ properties can be loaded into the \texttt{stereo} program which
 uses its own method for triangulating 3D feature locations.
 
 When using the Stereo Pipeline, bundle adjustment is an optional step
-between the capture of images and the creation of \acp{DEM}.  The bundle
+between the capture of images and the creation of \acp{DEM}. The bundle
 adjustment process described below should be completed prior to
 running the \texttt{stereo} command.
 
@@ -64,16 +64,21 @@ bundle adjustment into the stereo work flow not only results in
 way to co-register your \acp{DEM} with other existing data sets and
 geodetic control networks.
 
+At the moment however, Bundle Adjustment does not automatically work
+against outside DEMs from sources such as laser altimeters. Hand
+picked \acp{GCP} are the only way for \acp{ASP} to register to those
+types of sources.
 
 \subsection{A deeper understanding}
 
 In bundle adjustment the position and orientation of each camera
-station are determined jointly with the 3D position of a set of
-image tie-points points chosen in the overlapping regions between
-images.  Tie-points are automatically extracted using the SURF
-robust feature extraction algorithm \citep{surf08}.  Outliers are
-rejected using the RANSAC method \citep{fischler81} and trimmed to
-1000 matches that are spread evenly across the images.
+station are determined jointly with the 3D position of a set of image
+tie-points points chosen in the overlapping regions between images.
+Tie-points are automatically extracted using Vision Workbench's
+Interest Point module, or alternatively the SURF robust feature
+extraction algorithm \citep{surf08}. Outliers are then rejected using the
+RANSAC method \citep{fischler81} and trimmed to 1000 matches that are
+spread evenly across the images.
 
 \begin{figure}[b!]
   \begin{center}
@@ -90,7 +95,7 @@ parameters that minimize the projection error given by ${\bf \epsilon}
 on the image plane, $C_j$ are the camera parameters, and $X_k$ are the
 3D positions associated with features $I_k$. $I(C_j, X_k)$ is an image
 formation model (i.e. forward projection) for a given camera and 3D
-point.  The optimization of the cost function uses the
+point. The optimization of the cost function uses the
 Levenberg-Marquardt algorithm (LMA). Speed is improved by using sparse
 methods as described in \citet{hartley04}.
 
@@ -124,7 +129,7 @@ based on camera type.  It can perform bundle adjustment on images
 from line-scan imagers like \ac{MOC}, \ac{LROC} NAC, \ac{HiRISE},
 and the \ac{CTX}.  The \texttt{isis\_adjust} program can also perform
 bundle adjustment on traditional frame cameras (e.g. Apollo Metric
-Camera).  Theoretically it should also work with push-frame
+Camera). Theoretically it should also work with push-frame
 imagers like the \ac{THEMIS} VIS, and \ac{LROC} WAC, though this is
 untested.
 
@@ -187,7 +192,7 @@ not required.
   cost functions are performed by post-weighting the original errors yet
   still using equations derived for squared error.
 
-\item[\texttt{-\/-bundle-adjuster Ref|Sparse|RobustRef|RobustSparse(=Sparse)}] \hfill \\
+\item[\texttt{-\/-bundle-adjuster Ref|Sparse|RobustRef|RobustSparse|RobustSparseKGCP(=Sparse)}] \hfill \\
   Sets the bundle adjustment code to be used. The standard to use is
   \texttt{Sparse}, which is a traditional squared error derived method that
   utilizes sparse matrices to obtain speed. Here are the complete list
@@ -198,6 +203,7 @@ not required.
     \item[Sparse] Default implementation.
     \item[RobustRef]
     \item[RobustSparse]
+    \item[RobustSparseKGCP]
   \end{description}
 
   The ending methods are experimental student-t derived bundle
@@ -476,21 +482,23 @@ For reference, the following \ac{ISIS} commands are how to convert
 the \ac{MOC} images to \ac{ISIS} cubes.
 
 \begin{verbatim}
-  ISIS 3> mocproc from= m1000254.imq to= m1000254.cub Mapping= NO
-  ISIS 3> mocproc from= r0901059.imq to= r0901059.cub Mapping= NO
+  ISIS 3> mocproc from= m1000254.imq to= m1000254.cub mapping=no
+  ISIS 3> mocproc from= r0901059.imq to= r0901059.cub mapping=no
 \end{verbatim}
 
-You will note that we do not perform map-projection on these files
-(\texttt{Mapping= NO}).  Bundle adjustment is about the adjustment
-of the cameras themselves and their relationship to how 3D points
-project onto their focal planes, not how their data are transformed
-into known map projections.  Although bundle adjustment could be 
-performed on map-projected images, \texttt{isis\_adjust} would just
-have to apply the inverse of the map projection to extract focal plane
-coordinates for each pixel anyway.  So it is more efficient to operate
-on non-map-projected images for this step.
+You will note that the resulting images are not map projected. Bundle
+adjustment requires the ability to project arbitrary 3D points into
+the camera frame. The process of map projecting an image dissociates
+the camera model from the image. Map projecting can be perceived as
+the generation of a new infinitely large camera sensor that is
+perfectly parallel to the surface of its subject ( and thus spherical
+). At this point it's extremely hard to project a random point into
+the camera's image. The math would follow the transformation from
+projection into the camera frame, then projected back down to surface
+that ISIS uses, then finally up into the infinitely large sensor. The
+\texttt{isis\_adjust} program does not support this.
 
-At this point, we need to automatically generate tie-points between
+At this point in order, we need to automatically generate tie-points between
 these two images.  This can be done using the \texttt{ipfind} and
 \texttt{ipmatch} utilities.  These tools do not (currently) work
 with photometrically calibrated images, so we must first convert
@@ -503,11 +511,11 @@ these images to a standard format using the \ac{ISIS} program
 \end{verbatim}
 
 Here is how to process those newly created PNG files for tie-points
-using these Vision Workbench tools.
+using the Interest Point Module tools from Vision Workbench.
 
 \begin{verbatim}
-  > ipfind  m1000254.png r0901059.png
-  > ipmatch m1000254.png r0901059.png -d -r homography -i 20
+  > ipfind  m1000254.png r0901059.png --int obalog --des sgrad -g 1.2
+  > ipmatch m1000254.png r0901059.png -d -r homography -i 30
 \end{verbatim}
 
 \begin{center}
@@ -520,7 +528,7 @@ using these Vision Workbench tools.
     have included a small example program that converts SURF output to
     a Vision Workbench style match file.  \\ \\ For this example it is
     okay to use the results from \texttt{ipfind} and
-    \texttt{ipmatch}. Expect to find approximately 65 matched
+    \texttt{ipmatch}. Expect to find approximately 100 matched
     points. Your results will be slightly different due to the random
     nature of RANSAC.
 
@@ -534,7 +542,7 @@ the maximum iterations to 100 and chosen the option to create a
 detailed report file of \texttt{isis\_adjust}'s results.
 
 \begin{verbatim}
-  ISIS 3> isis_adjust *.cub -s --max 100 -r 50
+  ISIS 3> isis_adjust *.cub -s --max 30 -r 50
 \end{verbatim}
 
 This command will produce considerable debugging output and will

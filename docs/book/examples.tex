@@ -41,6 +41,34 @@ Remember, in order for \texttt{stereo} to process stereo pairs in
 \ac{ISIS} cube format, the images must have had SPICE data associated
 by running ISIS's \texttt{spiceinit} program run on them first.
 
+\subsection{Comparing Examples to your System}
+
+Since our first release we reperformed some of these examples and
+recorded their processing time so you the user can judge how long it
+will take you. Our examples were processed on our server called
+'Lunokhod 2'. This server is a Dell PowerEdge Rack 900 purchased in
+late 2009. Below are its specifications:
+
+\begin{center}
+\begin{tabular}{ l | l }
+CPU & Dual E7420 Xeon at 2.13 GHz \emph{(16 logical cores)} \\ \hline
+Memory & 64 GB @ 667 MHz \\ \hline
+Storage & Local RAID5 \\ \hline
+OS & Red Hat Enterprise Linux 5.5 \\ \hline
+Color & Dell Graphite \\
+\end{tabular}
+\end{center}
+
+The times recorded are listed in wall hours and CPU hours. Wall-hours
+are how long it took the job to complete from the user's
+perspective. CPU-hours are how much processing time it took to
+complete. If the job took 30 wall-minutes on a 2 core system, it spent
+30 minutes in CPU 1 and CPU 2. Thus, the total CPU-hours would be
+1. This example, though correct, is not what always happens in the
+real world. Inefficiency with managing multiple threads or the
+complete lack of multithreaded code will bring wall hours up to CPU
+hours. Your required CPU hours will vary based on CPU architecture.
+
 \section{Mars Reconnaissance Orbiter HiRISE}
 
 \ac{HiRISE} is one of the most challenging cameras to use when making 3D
@@ -106,7 +134,6 @@ with the extension \texttt{.mos\_hijitreged.norm.cub}.  Be warned that
 the operations carried out by \texttt{hiedr2mosaic.py} can take many 
 hours to complete on the very large HiRISE images.
 
-
 Finally we recommend map projecting the product and normalizing both
 images in the stereo pair using the same dynamic range. Notice that we
 map project the second image using the same map settings and crop of
@@ -132,6 +159,13 @@ When this happens, most of the above commands will no longer be required,
 as you will be able to just run \texttt{cam2map} on their provided imagery.
 
 \subsection{Columbia Hills}
+
+\begin{tabular}{ r c r c}
+\multicolumn{3}{l}{ \emph{Prepping Files} } \\
+Wall Time & \texttt{+36:00:00.0} & CPU Time & \texttt{+36:00:00.0} \\
+\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
+Wall Time & \texttt{} & CPU Time & \texttt{} \\
+\end{tabular}
 
 \ac{HiRISE} observations
 \href{http://hirise.lpl.arizona.edu/PSP_001513_1655}{PSP\_001513\_1655} and
@@ -164,13 +198,10 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
                      to=PSP_001513_1655_REDmosaic.map.norm.cub
   ISIS 3> bandnorm from=PSP_001777_1650_REDmosaic.map.cub \
                      to=PSP_001777_1650_REDmosaic.map.norm.cub
-  ISIS 3> ls *.map.norm.cub > fromlist
-  ISIS 3> ls *1513*.map.norm.cub > holdlist
-  ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
-  ISIS 3> rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
+  ISIS 3> rm *REDmosaic.map.cub
   ISIS 3> mkdir result
-  ISIS 3> stereo PSP_001513_1655.map.norm.equ.cub \
-                 PSP_001777_1650.map.norm.equ.cub result/output
+  ISIS 3> stereo PSP_001513_1655.map.norm.cub \
+                 PSP_001777_1650.map.norm.cub result/output
 \end{verbatim}
 
 \subsubsection*{stereo.default}
@@ -210,13 +241,13 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -226,6 +257,13 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \end{minipage}\end{center}
 
 \subsection{East Mareotis Tholus}
+
+\begin{tabular}{ r c r c}
+\multicolumn{3}{l}{ \emph{Prepping Files} } \\
+Wall Time & \texttt{04:02:11.00} & CPU Time & \texttt{04:05:26.81} \\
+\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
+Wall Time & \texttt{} & CPU Time & \texttt{} \\
+\end{tabular}
 
 \ac{HiRISE} observations
 \href{http://hirise.lpl.arizona.edu/PSP_001760_2160}{PSP\_001760\_2160} and
@@ -296,20 +334,20 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
     V_CORR_MIN -80
     V_CORR_MAX 50
 
-    SUBPIXEL_MODE 0
+    SUBPIXEL_MODE 2
 
     SUBPIXEL_H_KERNEL 25
     SUBPIXEL_V_KERNEL 25
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -403,13 +441,13 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -489,13 +527,13 @@ P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -531,6 +569,13 @@ reconstruction software.
 
 \subsection{Ceraunius Tholus}
 
+\begin{tabular}{ r c r c}
+\multicolumn{3}{l}{ \emph{Prepping Files} } \\
+Wall Time & \texttt{00:02:42.30} & CPU Time & \texttt{00:02:42.06} \\
+\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
+Wall Time & \texttt{01:22:17.00} & CPU Time & \texttt{03:14:45.78} \\
+\end{tabular}
+
 Ceraunius Tholus is a volcano in northern Tharsis on Mars. It can
 be found at 23.96 N and 262.60 E. This \ac{DEM} crosses the volcano's
 caldera.
@@ -547,9 +592,12 @@ caldera.
 \subsubsection*{Commands}
 
 Download the M08/06047 and R07/01361 images from the \ac{PDS}.
+
 \begin{verbatim}
-  ISIS 3> moc2isis f=M0806047.img t=M0806047.cub mapping=no
-  ISIS 3> moc2isis f=R0701361.img t=R0701361.cub mapping=no
+  ISIS 3> moc2isis f=M0806047.img t=M0806047.cub
+  ISIS 3> moc2isis f=R0701361.img t=R0701361.cub
+  ISIS 3> spiceinit from=M0806047.cub
+  ISIS 3> spiceinit from=R0701361.cub
   ISIS 3> cam2map from=M0806047.cub to=M0806047.map.cub
   ISIS 3> cam2map from=R0701361.cub map=M0806047.map.cub to=R0701361.map.cub matchmap=true
   ISIS 3> mkdir result
@@ -593,13 +641,13 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -611,7 +659,14 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 \pagebreak
 \subsection{North Tharsis}
 
-These images cover troughs and terraces in northern Tharsis. 
+\begin{tabular}{ r c r c}
+\multicolumn{3}{l}{ \emph{Prepping Files} } \\
+Wall Time & \texttt{00:01:57.52} & CPU Time & \texttt{00:01:56.79} \\
+\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
+Wall Time & \texttt{01:44:34.00} & CPU Time & \texttt{04:12:25.11} \\
+\end{tabular}
+
+These images cover troughs and terraces in northern Tharsis.
 This \ac{DEM} is located at 20.20 N and 118.18 W on Mars.
 
 \begin{figure}[h!]
@@ -627,8 +682,8 @@ This \ac{DEM} is located at 20.20 N and 118.18 W on Mars.
 
 Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 \begin{verbatim}
-  ISIS 3> moc2isis f=M0803097.img t=M0803097.cub mapping=no
-  ISIS 3> moc2isis f=S0701420.img t=S0701420.cub mapping=no
+  ISIS 3> moc2isis f=M0803097.img t=M0803097.cub
+  ISIS 3> moc2isis f=S0701420.img t=S0701420.cub
   ISIS 3> cam2map from=M0803097.cub to=M0803097.map.cub
   ISIS 3> cam2map from=S0701420.cub map=M0803097.map.cub to=S0701420.map.cub matchmap=true
   ISIS 3> mkdir result
@@ -674,13 +729,13 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -689,39 +744,45 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 \end{Verbatim}
 \end{minipage}\end{center}
 
+\pagebreak
+
 \section{Lunar Reconaissance Orbiter LROC NAC}
 
-When \ac{LROC} image data are released, map projection processes
-very similar to those run on other linescan imagers can be used.
-The example \texttt{stereo.default} file would be a good place to
-start from, as well.
+\subsection{Lee-Lincoln Scarp}
 
-% \subsection{Lee-Lincoln Scarp}
-% 
-% This stereo pair covers the Taurus-Littrow valley on the Moon where,
-% on December 11, 1972, the astronauts of Apollo 17 landed. However,
-% this stereo pair does not contain the landing site.  It is slightly
-% west; focusing on the Lee-Lincoln scarp that is on North Massif. The
-% scarp is an 80~m high feature that is the only visible sign of a deep
-% fault.
-% 
-% \begin{figure}[h!]
-% \centering
-%   \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-example.png}}
-%   \hfil
-%   \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-ge_example.png}}
-% \caption{Example output possible with a LROC NA stereo pair, using only a single CCDs from observations.}
-% \label{fig:lroc-na-example}
-% \end{figure}
+This stereo pair covers the Taurus-Littrow valley on the Moon where,
+on December 11, 1972, the astronauts of Apollo 17 landed. However,
+this stereo pair does not contain the landing site.  It is slightly
+west; focusing on the Lee-Lincoln scarp that is on North Massif. The
+scarp is an 80~m high feature that is the only visible sign of a deep
+fault.
+
+\begin{figure}[h!]
+\centering
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-example.png}}
+  \hfil
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-ge_example.png}}
+\caption{Example output possible with a LROC NA stereo pair, using only a single CCDs from observations.}
+\label{fig:lroc-na-example}
+\end{figure}
 
 \subsubsection*{Commands}
 
+Download the EDRs for the left CCDs for observations M104318871 and
+M104318871. Alternatively you can search by original IDs of 2DB8 and
+4C86 in the PDS.
+
+%    ISIS 3> lronac2isis from=M104318871LE.img to=M104318871LE.cub
+%    ISIS 3> lronac2isis from=M104311715LE.img to=M104311715LE.cub
+%    ISIS 3> lronaccal from=M104318871LE.cub to=M104318871LE.cal.cub
+%    ISIS 3> lronaccal from=M104311715LE.cub to=M104311715LE.cal.cub
 \begin{verbatim}
-    ISIS 3> cam2map from=lroc-1sthalf.cub to=lroc-1sthalf.map.cub
-    ISIS 3> cam2map from=lroc-2ndhalf.cub map=lroc-2ndhalf.map.cub \
-                    to=lroc-1sthalf.map.cub matchmap=true
+    ISIS 3> -- isis lro tools yet to be released --
+    ISIS 3> cam2map from=M104318871LE.cal.cub to=M104318871LE.map.cub
+    ISIS 3> cam2map from=M104311715LE.cal.cub map=M104318871LE.map.cub \
+                    to=M104311715LE.map.cub matchmap=true
     ISIS 3> mkdir result
-    ISIS 3> stereo lroc-1sthalf.map.cub lroc-2ndhalf.map.cub result/output
+    ISIS 3> stereo M104318871LE.map.cub M104311715LE.map.cub result/output
 \end{verbatim}
 
 \subsubsection*{stereo.default}
@@ -761,13 +822,13 @@ start from, as well.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -777,6 +838,10 @@ start from, as well.
 \end{minipage}\end{center}
 
 \section{Apollo 15 Metric Camera Images}
+
+\begin{tabular}{ r c r c}
+
+\end{tabular}
 
 Apollo Metric images were all taken at regular intervals, which means
 that the same \texttt{stereo.default} can be used for all sequential pairs of
@@ -793,6 +858,13 @@ available, but these images should soon be released into the PDS for
 general public usage.
 
 \subsection{Ansgarius C}
+
+\begin{tabular}{ r c r c}
+\multicolumn{3}{l}{ \emph{Prepping Files} } \\
+Wall Time & \texttt{00:00:02.11} & CPU Time & \texttt{00:00:01.29} \\
+\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
+Wall Time & \texttt{01:52:23.00} & CPU Time & \texttt{21:36:07.61} \\
+\end{tabular}
 
 Ansgarius C is a small crater on the west edge of the farside of the
 Moon near the equator. It is east of Kapteyn A and B.
@@ -814,8 +886,6 @@ Process Apollo TIFF files into \ac{ISIS}.
   ISIS 3> reduce from=AS15-M-2381.cub to=sub4-AS15-M-2381.cub sscale=4 lscale=4
   ISIS 3> spiceinit from=sub4-AS15-M-2380.cub
   ISIS 3> spiceinit from=sub4-AS15-M-2381.cub
-  ISIS 3> ipfind --max 10000 sub4*.cub
-  ISIS 3> ipmatch -i 50 -r homography sub4*.cub
   ISIS 3> mkdir result
   ISIS 3> stereo sub4-AS15-M-2380.cub sub4-AS15-M-2381.cub result/output
 \end{verbatim}
@@ -860,13 +930,13 @@ Process Apollo TIFF files into \ac{ISIS}.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -874,6 +944,8 @@ Process Apollo TIFF files into \ac{ISIS}.
     FAR_UNIVERSE_RADIUS 0.0
 \end{Verbatim}
 \end{minipage}\end{center}
+
+\pagebreak
 
 \section{MESSENGER MDIS}
 
@@ -913,8 +985,6 @@ surface, but that alone is still an interesting result nonetheless.
   ISIS 3> mdis2isis from=EW0108825379C.IMG to=EW0108825379C.cub
   ISIS 3> spiceinit from=EW0108825359A.cub
   ISIS 3> spiceinit from=EW0108825359C.cub
-  ISIS 3> ipfind --max 10000 *.cub
-  ISIS 3> ipmatch -i 10 -r homography *.cub
   ISIS 3> mkdir result
   ISIS 3> stereo EW0108825359A.cub EW0108825379C.cub stereo/output
 \end{verbatim}
@@ -956,13 +1026,13 @@ surface, but that alone is still an interesting result nonetheless.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 
@@ -1070,13 +1140,13 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 
     ### FILTERING
 
-    FILL_HOLES 1
-
     RM_H_HALF_KERN 5
     RM_V_HALF_KERN 5
     RM_MIN_MATCHES 60 # Units = percent
     RM_THRESHOLD 3
     RM_CLEANUP_PASSES 1
+
+    FILL_HOLES 1
 
     ### DOTCLOUD
 

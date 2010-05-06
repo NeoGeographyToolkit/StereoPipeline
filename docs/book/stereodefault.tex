@@ -27,6 +27,12 @@ values listed after the parameter name.
 \bigskip
 
 \begin{description}
+\item[CACHE\_DIR \textnormal (default = /tmp)] \hfill \\
+  Place for to store intermediate files for when Stereo Pipeline can't
+  store entire image in memory. User should change directory if
+  operating system has limit on filesize inside the \texttt{/tmp}
+  directory.
+
 \item[DO\_INTERESTPOINT\_ALIGNMENT \textnormal (default = 0)] \hfill \\
   When \texttt{DO\_INTERESTPOINT\_ALIGNMENT} is set to 1,
   \texttt{stereo} will attempt to pre-align the images by
@@ -229,22 +235,6 @@ values listed after the parameter name.
 
 \begin{description}
 
-\item[FILL\_HOLES \textnormal{\small{(= 0,1)}} (default = 1)] \hfill \\
-  When this option is on, the holes in the disparity map that result
-  from poor stereo matching will be filled by an inpainting
-  algorithm. Inpainting is a convolution method that takes the values
-  at the edges of holes and spreads those values inward. This method
-  performs best for small holes.
-
-  Note: you can always use the good pixel mask image ({\tt
-    *-GoodPixelMap.TIF}) to determine which pixels represent ``real''
-  data matched by the stereo correlator, and which pixels represent
-  interpolated data produced by inpainting.
-
-\item[FILL\_HOLE\_MAX\_SIZE \textnormal{\small{(= \emph{integer})}} (default = 100,000)] \hfill \\
-  This defines the maximum size of a hole that the inpainting
-  technique should attempt. Default is 100,000 pixels.
-
 \item[RM\_H\_HALF\_KERN \textnormal{\small{(= \emph{integer})}} (default = 5)]
 \item[RM\_V\_HALF\_KERN \textnormal{\small{(= \emph{integer})}} (default = 5)] \hfill \\
   Taken together, the RM\_* settings adjust the behavior of an outlier
@@ -272,6 +262,30 @@ values listed after the parameter name.
   Select the number of outlier removal passes that are carried out.
   Each pass will erode pixels that do not match their neighbors.  One
   pass is usually sufficient.
+
+%\item[ERODE\_MAX\_SIZE \textnormal{\small{(= \emph{integer})}} (default = 1,000)] \hfill \\
+%  Max island size in pixels that will removed post above filter. The
+%  filter above removes high gradients and will leave spots behind that
+%  belong to a mis-correlation. This process will attempt to identify
+%  and remove them. \underline{Never set this value to zero as it will
+%    remove everything.} This process can not be shut off but you can
+%  set the value to 1 where it then removes single isolated pixels.
+%
+\item[FILL\_HOLES \textnormal{\small{(= 0,1)}} (default = 1)] \hfill \\
+  When this option is on, the holes in the disparity map that result
+  from poor stereo matching will be filled by an inpainting
+  algorithm. Inpainting is a convolution method that takes the values
+  at the edges of holes and spreads those values inward. This method
+  performs best for small holes.
+
+  Note: you can always use the good pixel mask image ({\tt
+    *-GoodPixelMap.TIF}) to determine which pixels represent ``real''
+  data matched by the stereo correlator, and which pixels represent
+  interpolated data produced by inpainting.
+
+\item[FILL\_HOLE\_MAX\_SIZE \textnormal{\small{(= \emph{integer})}} (default = 100,000)] \hfill \\
+  This defines the maximum size of a hole that the inpainting
+  technique should attempt. Default is 100,000 pixels.
 
 \end{description}
 
