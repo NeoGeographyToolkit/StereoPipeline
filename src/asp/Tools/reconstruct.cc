@@ -11,6 +11,8 @@
 #pragma warning(disable:4996)
 #endif
 
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <fstream>
 #include <vector>
@@ -34,6 +36,7 @@ using namespace vw;
 using namespace vw::math;
 using namespace vw::cartography;
 using namespace vw::photometry;
+using namespace std;
 
 std::vector<int> makeOverlapList(std::vector<int> inputIndices, int currIndex,
                                  int maxNumPrevIndices, int maxNumNextIndices) {
@@ -82,6 +85,105 @@ std::vector<int> makeOverlapList(std::vector<int> inputIndices, int currIndex,
   printf("-------------------------------------------\n");
 
   return overlapIndices;
+}
+
+int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
+{
+
+
+      int MAX_LENGTH = 5000;
+      char line[MAX_LENGTH];
+      ifstream configFile(config_filename);
+      if (configFile.is_open()){
+        printf("file found\n");
+	
+        configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "REFLECTANCE_TYPE %d\n", &(settings->reflectanceType));
+        printf("REFLECTANCE_TYPE %d\n", settings->reflectanceType);
+
+        configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "SLOPE_TYPE %d\n", &(settings->slopeType));
+
+        configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "SHADOW_THRESH %f\n", &(settings->shadowThresh));
+
+	configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "ALBEDO_INIT_TYPE %d\n", &(settings->albedoInitType));
+        printf("ALBEDO_INIT_TYPE %d\n", settings->albedoInitType);
+        
+        configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "EXPOSURE_INIT_TYPE %d", &(settings->exposureInitType));
+        printf("EXPOSURE_INIT_TYPE %d\n", settings->exposureInitType);
+	
+        configFile.getline(line, MAX_LENGTH);
+        int exposureInitRefValue;
+	sscanf(line, "EXPOSURE_INIT_REF_VAL %d",&exposureInitRefValue);
+        settings->exposureInitRefValue = exposureInitRefValue/10.0; 
+        printf("EXPOSURE_INIT_REF_VAL %f\n", settings->exposureInitRefValue);
+	
+        configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "EXPOSURE_INIT_REF_IDX %d", &(settings->exposureInitRefIndex));
+	configFile.getline(line, MAX_LENGTH);
+        printf("exposureInitRefIndex = %d\n", settings->exposureInitRefIndex);
+        
+	sscanf(line, "DEM_INIT_TYPE %d", &(settings->DEMInitType));
+        //settings->exposureInitRefIndex =   settings->exposureInitRefIndex/10.0;
+	configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "SHADOW_INIT_TYPE %d", &(settings->shadowInitType));
+	configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "UPDATE_EXPOSURE %d", &(settings->updateExposure));
+	configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "UPDATE_ALBEDO  %d", &(settings->updateAlbedo));
+	
+        configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "UPDATE_HEIGHT %d", &(settings->updateHeight));
+        printf("UPDATE_HEIGHT %d\n", settings->updateHeight);
+	
+        configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "COMPUTE_ERRORS %d", &(settings->computeErrors));
+	configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "USE_WEIGHTS %d", &(settings->useWeights));
+
+	configFile.getline(line, MAX_LENGTH);
+        sscanf(line, "MAX_NUM_ITER %d", &(settings->maxNumIter));
+        printf("maxNumIter = %d\n", settings->maxNumIter);
+	
+        configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "MAX_NEXT_OVERLAP_IMAGES %d", &(settings->maxNextOverlappingImages));
+	configFile.getline(line, MAX_LENGTH);
+	sscanf(line, "MAX_PREV_OVERLAP_IMAGES %d", &(settings->maxPrevOverlappingImages));
+	configFile.getline(line, MAX_LENGTH);
+     
+	configFile.close();
+        
+        return(1);
+      }
+      else{
+         printf("configFile not FOUND\n");
+         //settings->reflectanceType = NO_REFL;
+	 settings->reflectanceType = LUNAR_LAMBERT;
+	 settings->reflectanceType = LAMBERT;
+	 settings->slopeType = 1;
+	 settings->shadowThresh = 40;
+
+	 //string spacecraftPosFilename = "";
+	 //string sunPosFilename = "";
+	 settings->albedoInitType = 0;//1;
+	 settings->exposureInitType = 0;//1;
+	 settings->exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
+	 settings->exposureInitRefIndex = 0;   //the reference frame
+	 settings->DEMInitType = 0;//1;
+	 settings->shadowInitType = 0;//1;
+	 settings->updateExposure = 0;//1;
+	 settings->updateAlbedo = 0;//1;
+	 settings->updateHeight = 1;
+	 settings->computeErrors = 0;//1;
+	 settings->useWeights = 0;//1;
+	 settings->maxNumIter = 10;
+	 settings->maxNextOverlappingImages = 2;
+	 settings->maxPrevOverlappingImages = 2;
+	 return(0);
+      }
 }
 
 int main( int argc, char *argv[] ) {
@@ -138,29 +240,36 @@ int main( int argc, char *argv[] ) {
   vw_out() << "Number of Files = " << input_files.size() << "\n";
 
   GlobalParams globalParams;
-  //globalParams.reflectanceType = NO_REFL;
-  globalParams.reflectanceType = LUNAR_LAMBERT;
-  //globalParams.reflectanceType = LAMBERT;
-  globalParams.slopeType = 1;
-  globalParams.shadowThresh = 40;
+  string configFilename = "photometry_settings.txt";
 
+  int configFileFound = ReadConfigFile((char*)configFilename.c_str(), &globalParams);
+  
+ if (configFileFound == 0){
+    printf("configFile not FOUND\n");
+    //globalParams.reflectanceType = NO_REFL;
+    globalParams.reflectanceType = LUNAR_LAMBERT;
+    //globalParams.reflectanceType = LAMBERT;
+    globalParams.slopeType = 1;
+    globalParams.shadowThresh = 40;
 
-  //string spacecraftPosFilename = "";
-  //string sunPosFilename = "";
-  globalParams.albedoInitType = 0;//1;
-  globalParams.exposureInitType = 0;//1;
-  globalParams.exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
-  globalParams.exposureInitRefIndex = 0;   //the reference frame
-  globalParams.DEMInitType = 0;//1;
-  globalParams.shadowInitType = 0;//1;
-  globalParams.updateExposure = 0;//1;
-  globalParams.updateAlbedo = 0;//1;
-  globalParams.updateHeight = 1;
-  globalParams.computeErrors = 0;//1;
-  globalParams.useWeights = 0;//1;
-  globalParams.maxNumIter = 10;
-  globalParams.maxNextOverlappingImages = 2;
-  globalParams.maxPrevOverlappingImages = 2;
+    //string spacecraftPosFilename = "";
+    //string sunPosFilename = "";
+    globalParams.albedoInitType = 0;//1;
+    globalParams.exposureInitType = 0;//1;
+    globalParams.exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
+    globalParams.exposureInitRefIndex = 0;   //the reference frame
+    globalParams.DEMInitType = 0;//1;
+    globalParams.shadowInitType = 0;//1;
+    globalParams.updateExposure = 0;//1;
+    globalParams.updateAlbedo = 0;//1;
+    globalParams.updateHeight = 1;
+    globalParams.computeErrors = 0;//1;
+    globalParams.useWeights = 0;//1;
+    globalParams.maxNumIter = 10;
+    globalParams.maxNextOverlappingImages = 2;
+    globalParams.maxPrevOverlappingImages = 2;
+  }
+  
 
   std::string sunPosFilename = homeDir + dataDir + "/sunpos.txt";
   std::string spacecraftPosFilename = homeDir + dataDir + "/spacecraftpos.txt";
