@@ -189,11 +189,11 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
   ISIS 3> hiedr2mosaic.py PSP_001513_1655_RED*.IMG
   ISIS 3> hiedr2mosaic.py PSP_001777_1650_RED*.IMG
-  ISIS 3> cam2map from=PSP_001513_1655_RED.mos_hijitreged.norm.cub \
-                    to=PSP_001513_1655_REDmosaic.map.cub
   ISIS 3> cam2map from=PSP_001777_1650_RED.mos_hijitreged.norm.cub \
-                   map=PSP_001513_1655_REDmosaic.map.cub \
-                    to=PSP_001777_1650_REDmosaic.norm.cub matchmap=true
+                    to=PSP_001777_1650_REDmosaic.norm.cub
+  ISIS 3> cam2map from=PSP_001513_1655_RED.mos_hijitreged.norm.cub \
+                   map=PSP_001777_1650_REDmosaic.norm.cub \
+                    to=PSP_001513_1655_REDmosaic.map.cub matchmap=true
   ISIS 3> bandnorm from=PSP_001513_1655_REDmosaic.map.cub \
                      to=PSP_001513_1655_REDmosaic.map.norm.cub
   ISIS 3> bandnorm from=PSP_001777_1650_REDmosaic.map.cub \
@@ -262,7 +262,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \multicolumn{3}{l}{ \emph{Prepping Files} } \\
 Wall Time & \texttt{04:02:11.00} & CPU Time & \texttt{04:05:26.81} \\
 \multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
-Wall Time & \texttt{} & CPU Time & \texttt{} \\
+Wall Time & \texttt{59:51:01.00} & CPU Time & \texttt{164:55:02.36} \\
 \end{tabular}
 
 \ac{HiRISE} observations
@@ -717,10 +717,7 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
     H_KERNEL 25
     V_KERNEL 25
 
-    H_CORR_MIN -50
-    H_CORR_MAX 0
-    V_CORR_MIN -85
-    V_CORR_MAX 0
+    # Don't specify search range. Let it auto-detect.
 
     SUBPIXEL_MODE 2
 
