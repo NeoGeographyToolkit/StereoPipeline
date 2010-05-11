@@ -87,14 +87,16 @@ namespace pho {
     vw::ImageView<accum_pixel_type> m_nominator, m_denominator;
     vw::ImageView<accum_pixel_type> m_t_grad, m_t_error; // temporaries to avoid
                                                          // excessive memory allocations.
+    vw::ImageView<double> m_sum_weight;
     void reset( void ) {
       vw::fill(m_nominator, accum_pixel_type() );
       vw::fill(m_denominator, accum_pixel_type() );
+      vw::fill(m_sum_weight, 0 );
     }
   public:
     AlbedoDeltaAccumulator( vw::int32 const& cols, vw::int32 const& rows ) :
     m_nominator(cols,rows), m_denominator(cols,rows),
-      m_t_grad(cols,rows), m_t_error(cols,rows) {
+      m_t_grad(cols,rows), m_t_error(cols,rows), m_sum_weight(cols,rows) {
       this->reset();
     }
 
@@ -111,12 +113,15 @@ namespace pho {
       // Update accumulators
       m_nominator += m_t_grad * m_t_error * select_channel(image,1);
       m_denominator += m_t_grad * m_t_grad * select_channel(image,1);
+
+      m_sum_weight += select_channel(image,1);
     }
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
     result_type result(void) {
       result_type r = m_nominator / m_denominator;
+      select_channel(r,1) = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
       this->reset();
       return r;
     }
@@ -129,14 +134,16 @@ namespace pho {
     vw::ImageView<PixelT> m_nominator, m_denominator;
     vw::ImageView<PixelT> m_t_error; // temporary to avoid
                                  // excessive memory allocations.
+    vw::ImageView<double> m_sum_weight;
     void reset( void ) {
       vw::fill(m_nominator, PixelT() );
       vw::fill(m_denominator, PixelT() );
+      vw::fill(m_sum_weight, 0 );
     }
   public:
     AlbedoDeltaNRAccumulator( vw::int32 const& cols, vw::int32 const& rows ) :
     m_nominator( cols, rows ), m_denominator( cols, rows ),
-      m_t_error( cols, rows ) {
+      m_t_error( cols, rows ), m_sum_weight( cols, rows ) {
       this->reset(); // OCD
     }
 
@@ -151,12 +158,15 @@ namespace pho {
       // Update accumulators
       m_nominator += t * m_t_error * select_channel(image,1);
       m_denominator += t * t * select_channel(image,1);
+
+      m_sum_weight += select_channel(image,1);
     }
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
     result_type result(void) {
       result_type r = m_nominator / m_denominator;
+      select_channel(r,1) = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
       this->reset();
       return r;
     }

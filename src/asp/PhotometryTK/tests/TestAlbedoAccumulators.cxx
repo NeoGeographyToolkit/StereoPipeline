@@ -164,10 +164,94 @@ TEST_F( AlbedoAccumulatorTestFloat, AlbedoInitNR ) {
 }
 
 TEST_F( AlbedoAccumulatorTestInt, AlbedoDelta ) {
+  typedef PixelGrayA<uint8> Px;
+  AlbedoDeltaAccumulator<Px > accu(2,2);
+  typedef AlbedoDeltaAccumulator<Px >::result_type result_type;
+  result_type null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
+
+  // Accumulate one image
+  accu( image, albedo, reflectance, exposure_t );
+  result_type result = accu.result();
+  EXPECT_PIXEL_EQ( Px(0,255), result(0,0) );
+  EXPECT_PIXEL_EQ( Px(255,255), result(0,1) ); // Integer wrap
+  EXPECT_PIXEL_EQ( Px(),      result(1,0) );
+  EXPECT_PIXEL_EQ( Px(255,255), result(1,1) ); // Integer wrap
+
+  null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
+
+  // Accumulate two images
+  accu( image, albedo, reflectance, exposure_t );
+  accu( image2, albedo, reflectance2, exposure_t2 );
+  result = accu.result();
+  EXPECT_PIXEL_EQ( Px(0,255), result(0,0) );
+  EXPECT_PIXEL_EQ( Px(0,255), result(0,1) );
+  EXPECT_PIXEL_EQ( Px(0,255), result(1,0) );
+  EXPECT_PIXEL_EQ( Px(254,255), result(1,1) );
+
+  null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
 }
 
 TEST_F( AlbedoAccumulatorTestFloat, AlbedoDelta ) {
+  typedef PixelGrayA<float> Px;
+  AlbedoDeltaAccumulator<Px > accu(2,2);
+  typedef AlbedoDeltaAccumulator<Px >::result_type result_type;
+  result_type null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
+
+  // Accumulate one image
+  accu( image, albedo, reflectance, exposure_t );
+  result_type result = accu.result();
+  EXPECT_PIXEL_EQ( Px(0,1), result(0,0) );
+  EXPECT_PIXEL_EQ( Px(-1,1), result(0,1));
+  EXPECT_PIXEL_EQ( Px(),    result(1,0) );
+  EXPECT_PIXEL_EQ( Px(-1,1), result(1,1));
+
+  null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
+
+  // Accumulate two images
+  accu( image, albedo, reflectance, exposure_t );
+  accu( image2, albedo, reflectance2, exposure_t2 );
+  result = accu.result();
+  EXPECT_PIXEL_EQ( Px(0,1), result(0,0) );
+  EXPECT_PIXEL_NEAR( Px(-0.225806,1), result(0,1), 1e-6 );
+  EXPECT_PIXEL_NEAR( Px(-0.222222,1), result(1,0), 1e-6 );
+  EXPECT_PIXEL_NEAR( Px(-2.153846,1), result(1,1), 1e-6 );
+
+  null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
 }
 
 TEST_F( AlbedoAccumulatorTestFloat, AlbedoDeltaNR ) {
+  typedef PixelGrayA<float> Px;
+  AlbedoDeltaNRAccumulator<Px > accu(2,2);
+  typedef AlbedoDeltaNRAccumulator<Px >::result_type result_type;
+  result_type null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
+
+  // Accumulate one image
+  accu( image, albedo, exposure_t );
+  result_type result = accu.result();
+  EXPECT_PIXEL_EQ( Px(0,1),  result(0,0) );
+  EXPECT_PIXEL_EQ( Px(-1,1), result(0,1) );
+  EXPECT_PIXEL_EQ( Px(),     result(1,0) );
+  EXPECT_PIXEL_EQ( Px(1,1),  result(1,1) );
+
+  null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
+
+  // Accumulate two images
+  accu( image, albedo, exposure_t );
+  accu( image2, albedo, exposure_t2 );
+  result = accu.result();
+  EXPECT_PIXEL_NEAR( Px(1.384615,1), result(0,0), 1e-6 );
+  EXPECT_PIXEL_NEAR( Px(1.322581,1), result(0,1), 1e-6 );
+  EXPECT_PIXEL_NEAR( Px(3.333333,1), result(1,0), 1e-6 );
+  EXPECT_PIXEL_NEAR( Px(0.04,    1), result(1,1), 1e-6 );
+
+  null = accu.result();
+  EXPECT_IMAGE_NULL( Px, null );
 }
