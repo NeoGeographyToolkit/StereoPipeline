@@ -1,5 +1,8 @@
 # GNU Makefile for LaTeX stuff using the latex-mk system.
 
+%.pdf : %.dot
+	@dot -Teps $< | epstopdf -f -o=$@
+
 NAME = asp_book
 TEXSRCS =	acknowledgments.tex \
 			bundle_adjustment.tex \
@@ -13,7 +16,10 @@ TEXSRCS =	acknowledgments.tex \
 			stereodefault.tex \
 			tools.tex \
 			tutorial.tex
-# CLEAN_FILES+= $(wildcard *.aux)
+OTHER_PDF=	graph/asp_deps.pdf
+OTHER+=		$(OTHER_PDF)
+
+CLEAN_FILES+= $(OTHER_PDF)
 USE_PDFLATEX = YES
 VIEWPDF = open
 

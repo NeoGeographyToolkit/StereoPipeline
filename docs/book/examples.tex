@@ -22,6 +22,7 @@ these errors will propagate through to the resulting data products.
 
 Although images do not need to be map projected before running the
 \texttt{stereo} program, we recommend that you do run {\tt cam2map}
+(or \texttt{cam2map4stereo.py})
 beforehand, especially for image pairs that contain large topographic
 variation (and therefore large disparity differences across the
 scene, e.g. Valles Marineris).  Map projection is especially necessary
@@ -141,9 +142,7 @@ the first image. This means the images will share the same origin and
 the {\tt stereo.default} search range can be centered around zero.
 
 \begin{verbatim}
-  ISIS 3> cam2map f=first.mos_hijitreged.norm.cub t=first.map.cub
-  ISIS 3> cam2map f=second.mos_hijitreged.norm.cub map=first.map.cub \
-          to=second.map.cub matchmap=true
+  ISIS 3> cam2map4stereo.py first.mos_hijitreged.norm.cub second.mos_hijitreged.norm.cub 
   ISIS 3> bandnorm f=first.map.cub t=first.norm.cub
   ISIS 3> bandnorm f=second.map.cub t=second.norm.cub
   ISIS 3> ls first.norm.cub second.norm.cub > fromlist
@@ -156,7 +155,7 @@ the {\tt stereo.default} search range can be centered around zero.
 In the future, the HiRISE team will be producing de-jittered, noproj'ed
 imagery in the \texttt{extras/} directory of their \ac{PDS} volume.
 When this happens, most of the above commands will no longer be required,
-as you will be able to just run \texttt{cam2map} on their provided imagery.
+as you will be able to just run \texttt{cam2map4stereo.py} on their provided imagery.
 
 \subsection{Columbia Hills}
 
@@ -189,20 +188,19 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
   ISIS 3> hiedr2mosaic.py PSP_001513_1655_RED*.IMG
   ISIS 3> hiedr2mosaic.py PSP_001777_1650_RED*.IMG
-  ISIS 3> cam2map from=PSP_001777_1650_RED.mos_hijitreged.norm.cub \
-                    to=PSP_001777_1650_REDmosaic.norm.cub
-  ISIS 3> cam2map from=PSP_001513_1655_RED.mos_hijitreged.norm.cub \
-                   map=PSP_001777_1650_REDmosaic.norm.cub \
-                    to=PSP_001513_1655_REDmosaic.map.cub matchmap=true
-  ISIS 3> bandnorm from=PSP_001513_1655_REDmosaic.map.cub \
-                     to=PSP_001513_1655_REDmosaic.map.norm.cub
-  ISIS 3> bandnorm from=PSP_001777_1650_REDmosaic.map.cub \
-                     to=PSP_001777_1650_REDmosaic.map.norm.cub
-  ISIS 3> rm *REDmosaic.map.cub
+  ISIS 3> cam2map4stereo.py PSP_001777_1650_RED.mos_hijitreged.norm.cub \
+                            PSP_001513_1655_RED.mos_hijitreged.norm.cub
+  ISIS 3> bandnorm from=PSP_001513_1655_RED.map.cub \
+                     to=PSP_001513_1655_RED.map.norm.cub
+  ISIS 3> bandnorm from=PSP_001777_1650_RED.map.cub \
+                     to=PSP_001777_1650_RED.map.norm.cub
+  ISIS 3> rm *RED.map.cub
   ISIS 3> mkdir result
   ISIS 3> stereo PSP_001513_1655.map.norm.cub \
                  PSP_001777_1650.map.norm.cub result/output
 \end{verbatim}
+
+\clearpage
 
 \subsubsection*{stereo.default}
 
@@ -256,6 +254,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \end{Verbatim}
 \end{minipage}\end{center}
 
+\clearpage
 \subsection{East Mareotis Tholus}
 
 \begin{tabular}{ r c r c}
@@ -286,19 +285,16 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \begin{verbatim}
   ISIS 3> hiedr2mosaic.py PSP_001364_2160_RED*.IMG
   ISIS 3> hiedr2mosaic.py PSP_001760_2160_RED*.IMG
-  ISIS 3> cam2map from=PSP_001364_2160_RED.mos_hijitreged.norm.cub \
-                    to=PSP_001364_2160_REDmosaic.map.cub
-  ISIS 3> cam2map from=PSP_001760_2160_RED.mos_hijitreged.norm.cub \
-                   map=PSP_001364_2160_REDmosaic.map.cub \
-                    to=PSP_001760_2160_REDmosaic.map.cub matchmap=true
-  ISIS 3> bandnorm from=PSP_001364_2160_REDmosaic.map.cub \
-                     to=PSP_001364_2160_REDmosaic.map.norm.cub
-  ISIS 3> bandnorm from=PSP_001760_2160_REDmosaic.map.cub \
-                     to=PSP_001760_2160_REDmosaic.map.norm.cub
+  ISIS 3> cam2map4stereo.py PSP_001364_2160_RED.mos_hijitreged.norm.cub \
+                            PSP_001760_2160_RED.mos_hijitreged.norm.cub
+  ISIS 3> bandnorm from=PSP_001364_2160_RED.map.cub \
+                     to=PSP_001364_2160_RED.map.norm.cub
+  ISIS 3> bandnorm from=PSP_001760_2160_RED.map.cub \
+                     to=PSP_001760_2160_RED.map.norm.cub
   ISIS 3> ls *.map.norm.cub > fromlist
   ISIS 3> ls *1760*.map.norm.cub > holdlist
   ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
-  ISIS 3> rm *REDmosaic.map.norm.cub *REDmosaic.map.cub
+  ISIS 3> rm *RED.map.norm.cub *RED.map.cub
   ISIS 3> mkdir result
   ISIS 3> stereo PSP_001364_2160.map.norm.equ.cub \
                  PSP_001760_2160.map.norm.equ.cub result/output
@@ -356,6 +352,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \end{Verbatim}
 \end{minipage}\end{center}
 
+\clearpage
 \subsection{North Terra Meridiani Crop}
 
 \ac{HiRISE} observations
@@ -400,8 +397,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
                  to=PSP_002258_1825.crop.cub sample=7982 line=41310 nsamp=10000 nline=10000
   ISIS 3> rm *REDmosaic*.cub
   ISIS 3> mkdir result
-  ISIS 3> stereo PSP_001981_1825.crop.cub \
-                 PSP_002258_1825.crop.cub result/output
+  ISIS 3> stereo PSP_001981_1825.crop.cub PSP_002258_1825.crop.cub result/output
 \end{verbatim}
 
 \subsubsection*{stereo.default}
@@ -482,8 +478,7 @@ P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
   ISIS 3> spiceinit from=P03_002258_1817.cub
   ISIS 3> ctxcal from=P02_001981_1823.cub to=P02_001981_1823.cal.cub
   ISIS 3> ctxcal from=P03_002258_1817.cub to=P03_002258_1817.cal.cub
-  ISIS 3> cam2map from=P02_001981_1823.cal.cub to=P02_001981_1823.map.cub
-  ISIS 3> cam2map from=P03_002258_1817.cal.cub to=P03_002258_1817.map.cub
+  ISIS 3> cam2map4stereo.py P02_001981_1823.cal.cub P03_002258_1817.cal.cub
   ISIS 3> mkdir result
   ISIS 3> stereo P02_001981_1823.map.cub P03_002258_1817.map.cub results/out
 \end{verbatim}
@@ -542,6 +537,7 @@ P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
 \end{Verbatim}
 \end{minipage}\end{center}
 
+\clearpage
 \section{Mars Global Surveyor MOC-NA}
 
 In the Stereo Pipeline Tutorial in Chapter~\ref{ch:tutorial}, we
@@ -580,7 +576,7 @@ Ceraunius Tholus is a volcano in northern Tharsis on Mars. It can
 be found at 23.96 N and 262.60 E. This \ac{DEM} crosses the volcano's
 caldera.
 
-\begin{figure}[h!]
+\begin{figure}[h]
 \centering
   \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/mocna/ceraunius_tholus_mocna.png}}
   \hfil
@@ -598,8 +594,7 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
   ISIS 3> moc2isis f=R0701361.img t=R0701361.cub
   ISIS 3> spiceinit from=M0806047.cub
   ISIS 3> spiceinit from=R0701361.cub
-  ISIS 3> cam2map from=M0806047.cub to=M0806047.map.cub
-  ISIS 3> cam2map from=R0701361.cub map=M0806047.map.cub to=R0701361.map.cub matchmap=true
+  ISIS 3> cam2map4stereo.py M0806047.cub R0701361.cub
   ISIS 3> mkdir result
   ISIS 3> stereo M0806047.map.cub R0701361.map.cub result/output
 \end{verbatim}
@@ -684,8 +679,7 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 \begin{verbatim}
   ISIS 3> moc2isis f=M0803097.img t=M0803097.cub
   ISIS 3> moc2isis f=S0701420.img t=S0701420.cub
-  ISIS 3> cam2map from=M0803097.cub to=M0803097.map.cub
-  ISIS 3> cam2map from=S0701420.cub map=M0803097.map.cub to=S0701420.map.cub matchmap=true
+  ISIS 3> cam2map4stereo.py M0803097.cub S0701420.cub
   ISIS 3> mkdir result
   ISIS 3> stereo M0803097.map.cub S0701420.map.cub result/output
 \end{verbatim}

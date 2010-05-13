@@ -46,16 +46,17 @@ former option is done automatically by the stereo pipeline when the
 \texttt{DO\_INTERESTPOINT\_ALIGNMENT} variable in the
 \texttt{stereo.default} file is turned on.
 
-The latter option, running {\tt cam2map}, must be carried out by
-the user prior to invoking the {\tt stereo} command.  Map projecting
-the images using \ac{ISIS} eliminates any unusual distortion in the
-image due to the unusual camera acquisition modes (e.g. pitching
-``ROTO'' maneuvers during image acquisition for \ac{MOC}, or highly
-elliptical orbits and changing line exposure times for the \acl{HRSC},
-\acs{HRSC}).  It also eliminates some of the perspective differences
-in the image pair that are due to large terrain features by taking
-the existing low-res terrain model into account (e.g. the \acl{MOLA},
-\acs{MOLA}, or \acl{ULCN}, \acs{ULCN}, 2005 models).
+The latter option, running {\tt cam2map} (or \texttt{cam2map4stereo.py}),
+must be carried out by the user prior to invoking the {\tt stereo}
+command.  Map projecting the images using \ac{ISIS} eliminates any
+unusual distortion in the image due to the unusual camera acquisition
+modes (e.g. pitching ``ROTO'' maneuvers during image acquisition
+for \ac{MOC}, or highly elliptical orbits and changing line exposure
+times for the \acl{HRSC}, \acs{HRSC}).  It also eliminates some of
+the perspective differences in the image pair that are due to large
+terrain features by taking the existing low-res terrain model into
+account (e.g. the \acl{MOLA}, \acs{MOLA}, or \acl{ULCN}, \acs{ULCN},
+2005 models).
 
 In essence, map projecting the images results in a pair of very
 closely matched images that are as close to ideal as possible given
