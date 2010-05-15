@@ -86,6 +86,8 @@ src/asp/PhotometryTK/phoiterror
 src/asp/PhotometryTK/phoitreflect
 src/asp/PhotometryTK/phoittime
 src/asp/PhotometryTK/ptk_server
+src/asp/PhotometryTK/mipmap
+src/asp/PhotometryTK/phoinitet
 src/asp/PhotometryTK/tests/TestProjectFileIO
 src/asp/PhotometryTK/tests/TestProjectService
 src/asp/PhotometryTK/tests/TestAlbedoAccumulators

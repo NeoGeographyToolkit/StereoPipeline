@@ -59,9 +59,12 @@ phoittime_LDADD       = $(PTK_LOCAL_LIBS)
 ptk_server_SOURCES    = ptk_server.cc
 ptk_server_LDADD      = $(PTK_LOCAL_LIBS)
 
+mipmap_SOURCES        = mipmap.cc
+mipmap_LDADD          = $(PTK_LOCAL_LIBS)
+
 bin_PROGRAMS = phodrg2plate phoinitalbedo phoinitfile phoitalbedo \
                phoitdem phoiterror phoitreflect phoittime         \
-	       ptk_server phoinitet
+               ptk_server phoinitet mipmap
 
 endif
 

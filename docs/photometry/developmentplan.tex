@@ -161,5 +161,7 @@ use. Delete this section some time in the future.
   > // Below can be ran in parallel
   > for i in $(ls *DRG.tif);
       do phodrg2plate pf://ptk/debug_apollo.ptk $i; done
-  > 
+  > for i in {0..$(NUM PROCESSES)};
+      do phoinitalbedo -j $i -n 10 pf://ptk/debug_apollo.ptk & done
+  > mipmap pf://index/Albedo.plate
 \end{verbatim}

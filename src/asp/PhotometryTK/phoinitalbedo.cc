@@ -46,7 +46,7 @@ void init_albedo( Options const& opt ) {
   {
     int region_size = pow(2.0,drg_platefile->num_levels()-1);
     BBox2i full_region(0,0,region_size,region_size);
-    std::list<BBox2i> all_workunits = bbox_tiles(full_region,4,4);
+    std::list<BBox2i> all_workunits = bbox_tiles(full_region,8,8);
     int count = 0;
     BOOST_FOREACH(const BBox2i& c, all_workunits ) {
       if ( count == opt.num_jobs )
@@ -82,9 +82,9 @@ void init_albedo( Options const& opt ) {
 
     // See if there's any tiles in this area to begin with
     std::list<TileHeader> h_tile_records;
-    h_tile_records = drg_platefile->search_by_location( workunit.min().x()/4,
-                                                        workunit.min().y()/4,
-                                                        drg_platefile->num_levels()-3,
+    h_tile_records = drg_platefile->search_by_location( workunit.min().x()/8,
+                                                        workunit.min().y()/8,
+                                                        drg_platefile->num_levels()-4,
                                                         0, 1000, true );
     if ( h_tile_records.empty() )
       continue;
