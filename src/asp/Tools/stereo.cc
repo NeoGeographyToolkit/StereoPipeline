@@ -184,7 +184,7 @@ int main(int argc, char* argv[]) {
 
   // If the user hasn't specified a stereo session type, we take a
   // guess here based on the file suffixes.
-  if (stereo_session_string.size() == 0) {
+  if (stereo_session_string.empty()) {
     if ( (boost::iends_with(cam_file1, ".cahvor") && boost::iends_with(cam_file2, ".cahvor")) ||
          (boost::iends_with(cam_file1, ".cahv") && boost::iends_with(cam_file2, ".cahv")) ||
          (boost::iends_with(cam_file1, ".pin") && boost::iends_with(cam_file2, ".pin")) ||
@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
   bool check_for_camera_models = true;
   if ( stereo_session_string == "isis" ) {
     // Fix the ordering of the arguments if the user only supplies 3
-    if (out_prefix.size() == 0)
+    if (out_prefix.empty())
       out_prefix = cam_file1;
     check_for_camera_models = false;
   }

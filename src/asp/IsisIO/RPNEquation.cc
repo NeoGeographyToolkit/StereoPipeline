@@ -83,7 +83,7 @@ double RPNEquation::evaluate( std::vector<std::string>& commands,
                               std::vector<double>& consts,
                               double const& t ) {
   // Evaluates an equation in the internal format
-  if ( commands.size() == 0 )
+  if ( commands.empty() )
     return 0;
   int consts_index = 0;
   std::stack<double> rpn_stack;

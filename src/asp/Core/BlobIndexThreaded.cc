@@ -161,7 +161,7 @@ void BlobCompressed::add_row( Vector2i const& start,
 void BlobCompressed::absorb( BlobCompressed const& victim ) {
 
   // First check to see if I'm empty
-  if ( m_row_start.size() == 0 ) {
+  if ( m_row_start.empty() ) {
     m_min = victim.min();
     for ( int i = 0; i < victim.num_rows(); i++ ) {
       m_row_start.push_back( victim.start(i) );
