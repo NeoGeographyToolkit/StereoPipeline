@@ -30,8 +30,8 @@ namespace pho {
                      vw::ImageViewBase<RViewT> const& reflectance,
                      double const& t ) {
       m_sum_weight += select_channel(image.impl(),1);
-      m_sum += select_channel(image.impl(),0)*select_channel(image.impl(),1) /
-        ( t*reflectance.impl() );
+      m_sum += vw::channel_cast<double>(select_channel(image.impl(),0))*
+        vw::channel_cast<double>(select_channel(image.impl(),1)) / ( t*reflectance.impl() );
     }
 
     // Result
@@ -67,7 +67,8 @@ namespace pho {
     void operator()( vw::ImageViewBase<IViewT> const& image,
                      double const& t ) {
       m_sum_weight += select_channel(image.impl(),1);
-      m_sum += select_channel(image.impl(),0)*select_channel(image.impl(),1) / t;
+      m_sum += vw::channel_cast<double>(select_channel(image.impl(),0)) *
+        vw::channel_cast<double>(select_channel(image.impl(),1)) / t;
     }
 
     // Result
@@ -107,12 +108,15 @@ namespace pho {
                      vw::ImageViewBase<RViewT> const& reflectance,
                      double const& t ) {
       // Intermediates
-      m_t_grad = t * reflectance;
-      m_t_error = select_channel(image,0) - t * previous_albedo * reflectance;
+      m_t_grad = t * vw::channel_cast<double>(reflectance);
+      m_t_error = vw::channel_cast<double>(select_channel(image,0)) -
+        t * vw::channel_cast<double>(previous_albedo) * vw::channel_cast<double>(reflectance);
 
       // Update accumulators
-      m_nominator += m_t_grad * m_t_error * select_channel(image,1);
-      m_denominator += m_t_grad * m_t_grad * select_channel(image,1);
+      m_nominator += m_t_grad * m_t_error *
+        vw::channel_cast<double>(select_channel(image,1));
+      m_denominator += m_t_grad * m_t_grad *
+        vw::channel_cast<double>(select_channel(image,1));
 
       m_sum_weight += select_channel(image,1);
     }
@@ -153,11 +157,14 @@ namespace pho {
                      vw::ImageViewBase<AViewT> const& previous_albedo,
                      double const& t ) {
       // Intermediate
-      m_t_error = select_channel(image,0) - t*previous_albedo;
+      m_t_error = vw::channel_cast<double>(select_channel(image,0)) -
+        t*vw::channel_cast<double>(previous_albedo);
 
       // Update accumulators
-      m_nominator += t * m_t_error * select_channel(image,1);
-      m_denominator += t * t * select_channel(image,1);
+      m_nominator += t * m_t_error *
+        vw::channel_cast<double>(select_channel(image,1));
+      m_denominator += t * t *
+        vw::channel_cast<double>(select_channel(image,1));
 
       m_sum_weight += select_channel(image,1);
     }

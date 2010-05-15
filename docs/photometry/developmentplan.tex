@@ -155,9 +155,11 @@ use. Delete this section some time in the future.
   > plate2plate -o pf://index/DEM.plate -i pf://index/DEM_blend.plate
       --filter identity --bottom 10 --skim
   > (in other terminal, kill index_server)
-  > rm -rf DEM.plate
+  > rm -rf DEM_blend.plate
   > (in other terminal, restart index_server)
-  > j=0; for i in $(ls *DRG.tif);
-      do phodrg2plate $i $((j*10)) & j=$((j+1)); done
-  >
+  > phoinitfile debug_apollo
+  > // Below can be ran in parallel
+  > for i in $(ls *DRG.tif);
+      do phodrg2plate pf://ptk/debug_apollo.ptk $i; done
+  > 
 \end{verbatim}
