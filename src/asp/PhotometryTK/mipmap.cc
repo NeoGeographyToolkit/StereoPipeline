@@ -29,13 +29,6 @@ void perform_mipmap( Options const& opt ) {
   boost::shared_ptr<PlateFile> platefile =
     boost::shared_ptr<PlateFile>( new PlateFile(opt.url) );
 
-  // Testing
-  {
-    BBox2i valid_spot(2380,1824,8,8);
-    std::list<TileHeader> valid_tile_records = platefile->search_by_region(12,valid_spot,-1,-1,1);
-    std::cout << "Found " << valid_tile_records.size() << " valid tiles.\n";
-  }
-
   PlateCarreePlateManager<PixelGrayA<uint8> > platemanager( platefile );
 
   int full = pow(2.0,platefile->num_levels()-1);
@@ -43,18 +36,12 @@ void perform_mipmap( Options const& opt ) {
   BBox2i affected_tiles(0,quarter,full-1,quarter*2-1);
   std::cout << "Affected Tiles: " << affected_tiles << "\n";
 
-  int transaction_id =
-    platefile->transaction_request("Mipmap lowest level", -1 );
-  std::cout << "Received write transaction: " << transaction_id << "\n";
-  std::cout << "\t" << platefile->num_levels() << "\n";
   platefile->write_request();
   platemanager.mipmap(platefile->num_levels()-1,
                       affected_tiles, -1,
                       TerminalProgressCallback("photometrytk",
                                                "Mipmapping:") );
   platefile->write_complete();
-  platefile->transaction_complete(transaction_id, false);
-
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {

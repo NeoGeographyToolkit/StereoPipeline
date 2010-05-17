@@ -139,7 +139,7 @@ ProjectServiceImpl::CameraCreate(::google::protobuf::RpcController* /*controller
   response->set_project_id( request->project_id() );
   response->set_camera_id( m_camera_metas[request->project_id()].size() );
   m_camera_metas[request->project_id()].push_back( request->meta() );
-  m_project_metas[request->project_id()].set_num_cameras( response->camera_id() );
+  m_project_metas[request->project_id()].set_num_cameras( response->camera_id()+1 );
   // Set Base Transaction ID
   m_camera_metas[request->project_id()].back().set_base_transaction_id( m_project_metas[request->project_id()].max_iterations()*(m_camera_metas[request->project_id()].size()-1) );
   done->Run();

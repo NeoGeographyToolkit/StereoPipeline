@@ -58,7 +58,7 @@ protected:
 };
 
 typedef AlbedoAccumulatorTest<uint8> AlbedoAccumulatorTestInt;
-typedef AlbedoAccumulatorTest<uint8> AlbedoAccumulatorTestFloat;
+typedef AlbedoAccumulatorTest<float> AlbedoAccumulatorTestFloat;
 
 #define EXPECT_IMAGE_NULL( p, i ) \
   EXPECT_EQ( p(), i(0,0) );       \

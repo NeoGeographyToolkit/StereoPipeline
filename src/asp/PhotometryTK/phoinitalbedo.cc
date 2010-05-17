@@ -24,6 +24,8 @@ using namespace asp::pho;
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
+#include <map>
+
 using namespace std;
 
 struct Options {
@@ -38,6 +40,17 @@ void init_albedo( Options const& opt ) {
 
   // Open up project file
   RemoteProjectFile remote_ptk( opt.ptk_url );
+  ProjectMeta project_info;
+  remote_ptk.OpenProjectMeta( project_info );
+
+  // Build up map with current exposure values
+  std::vector<double> exposure_t( project_info.num_cameras() );
+  for ( unsigned i = 0; i < project_info.num_cameras(); i++ ) {
+    CameraMeta current_cam;
+    remote_ptk.ReadCameraMeta( i, current_cam );
+    exposure_t[i] = current_cam.exposure_t();
+    std::cout << "exposure[" << i << "] = " << exposure_t[i] << "\n";
+  }
 
   // Divey up jobs and find work space
   boost::shared_ptr<PlateFile> drg_platefile =
@@ -68,58 +81,63 @@ void init_albedo( Options const& opt ) {
   int transaction_id =
     albedo_platefile->transaction_request(ostr.str(),-1);
 
-  // iterating and processing input
-  AlbedoInitNRAccumulator< PixelGrayA<uint8> > albedo_accu( drg_platefile->default_tile_size(), drg_platefile->default_tile_size() );
-  ImageView<PixelGrayA<uint8> > image_temp;
-
-  albedo_platefile->write_request();
-
   TerminalProgressCallback tpc("photometrytk", "");
   double tpc_inc = 1.0/float(workunits.size());
+  albedo_platefile->write_request();
+  ImageView<PixelGrayA<uint8> > image_temp;
 
-  BOOST_FOREACH(const BBox2i& workunit, workunits) {
-    tpc.report_incremental_progress( tpc_inc );
+  if ( project_info.reflectance() ==
+       ProjectMeta::NONE ) {
 
-    // See if there's any tiles in this area to begin with
-    std::list<TileHeader> h_tile_records;
-    h_tile_records = drg_platefile->search_by_location( workunit.min().x()/8,
-                                                        workunit.min().y()/8,
-                                                        drg_platefile->num_levels()-4,
-                                                        0, 1000, true );
-    if ( h_tile_records.empty() )
-      continue;
+    // iterating and processing input
+    AlbedoInitNRAccumulator< PixelGrayA<uint8> > albedo_accu( drg_platefile->default_tile_size(), drg_platefile->default_tile_size() );
 
-    for ( int ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
-      for ( int iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
+    BOOST_FOREACH(const BBox2i& workunit, workunits) {
+      tpc.report_incremental_progress( tpc_inc );
 
-        // Polling for DRG Tiles
-        std::list<TileHeader> tile_records;
-        tile_records = drg_platefile->search_by_location( ix, iy,
-                                                          drg_platefile->num_levels()-1,
+      // See if there's any tiles in this area to begin with
+      std::list<TileHeader> h_tile_records;
+      h_tile_records = drg_platefile->search_by_location( workunit.min().x()/8,
+                                                          workunit.min().y()/8,
+                                                          drg_platefile->num_levels()-4,
                                                           0, 1000, true );
+      if ( h_tile_records.empty() )
+        continue;
 
-        // No Tiles? No Problem!
-        if ( tile_records.size() == 0 )
-          continue;
+      for ( int ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
+        for ( int iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
 
-        // Feeding accumulator
-        BOOST_FOREACH( const TileHeader& tile, tile_records ) {
-          drg_platefile->read( image_temp, ix, iy,
-                               drg_platefile->num_levels()-1,
-                               tile.transaction_id(), true );
+          // Polling for DRG Tiles
+          std::list<TileHeader> tile_records;
+          tile_records = drg_platefile->search_by_location( ix, iy,
+                                                            drg_platefile->num_levels()-1,
+                                                            0, 1000, true );
 
-          // From transaction id figure out the exposure time
-          albedo_accu(image_temp, 1);
+          // No Tiles? No Problem!
+          if ( tile_records.empty() )
+            continue;
+
+          // Feeding accumulator
+          BOOST_FOREACH( const TileHeader& tile, tile_records ) {
+            drg_platefile->read( image_temp, ix, iy,
+                                 drg_platefile->num_levels()-1,
+                                 tile.transaction_id(), true );
+
+            albedo_accu(image_temp, exposure_t[tile.transaction_id()-1]);
+          }
+          image_temp = albedo_accu.result();
+
+          // Write result
+          albedo_platefile->write_update(image_temp,ix,iy,
+                                         drg_platefile->num_levels()-1,
+                                         transaction_id);
         }
-        image_temp = albedo_accu.result();
-
-        // Write result
-        albedo_platefile->write_update(image_temp,ix,iy,
-                                       drg_platefile->num_levels()-1,
-                                       transaction_id);
-
       }
     }
+  } else {
+    // Has Reflectance
+    AlbedoInitAccumulator< PixelGrayA<uint8> > albedo_accu( drg_platefile->default_tile_size(),drg_platefile->default_tile_size() );
+    vw_throw( NoImplErr() << "Albedo Initialization with Reflectance is incomplete." );
   }
 
   tpc.report_finished();

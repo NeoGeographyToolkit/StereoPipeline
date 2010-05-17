@@ -91,6 +91,7 @@ src/asp/PhotometryTK/phoinitet
 src/asp/PhotometryTK/tests/TestProjectFileIO
 src/asp/PhotometryTK/tests/TestProjectService
 src/asp/PhotometryTK/tests/TestAlbedoAccumulators
+src/asp/PhotometryTK/tests/TestTimeAccumulators
 src/asp/PhotometryTK/tests/*.ptk*
 
 # Doc
