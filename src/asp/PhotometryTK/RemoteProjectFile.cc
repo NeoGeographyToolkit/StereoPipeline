@@ -50,6 +50,15 @@ void asp::pho::RemoteProjectFile::OpenProjectMeta( ProjectMeta& meta ) {
   CHECK_PROJECT_ID();
   meta = response.meta();
 }
+void asp::pho::RemoteProjectFile::UpdateIteration( int32 const& i ) {
+  ProjectUpdateRequest request;
+  request.set_project_id( m_project_id );
+  request.set_iteration( i );
+  ProjectUpdateReply response;
+  m_ptk_service->ProjectUpdate( m_rpc_controller.get(), &request, &response,
+                                google::protobuf::NewCallback(&null_closure) );
+  CHECK_PROJECT_ID();
+}
 int32 asp::pho::RemoteProjectFile::CreateCameraMeta( CameraMeta const& meta ) {
   CameraCreateRequest request;
   request.set_project_id( m_project_id );

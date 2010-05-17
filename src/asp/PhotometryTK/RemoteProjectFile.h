@@ -17,6 +17,7 @@ namespace pho {
     RemoteProjectFile( std::string const& url );
 
     void OpenProjectMeta( ProjectMeta& meta );
+    void UpdateIteration( vw::int32 const& i );
     // Returns it's index
     // --- User should read back camera meta
     vw::int32 CreateCameraMeta( CameraMeta const& meta );

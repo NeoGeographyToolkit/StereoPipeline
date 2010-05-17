@@ -30,6 +30,10 @@ namespace pho {
                              const ::asp::pho::ProjectOpenRequest* request,
                              ::asp::pho::ProjectOpenReply* response,
                              ::google::protobuf::Closure* done);
+    virtual void ProjectUpdate(::google::protobuf::RpcController* controller,
+                               const ::asp::pho::ProjectUpdateRequest* request,
+                               ::asp::pho::ProjectUpdateReply* response,
+                               ::google::protobuf::Closure* done);
     virtual void CameraCreate(::google::protobuf::RpcController* controller,
                               const ::asp::pho::CameraCreateRequest* request,
                               ::asp::pho::CameraCreateReply* response,

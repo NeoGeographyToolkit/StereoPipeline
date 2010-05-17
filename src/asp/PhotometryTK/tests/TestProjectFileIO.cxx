@@ -19,6 +19,7 @@ TEST(ProjectFileIO, circle_test) {
   proj_st.set_name("monkey");
   proj_st.set_reflectance( ProjectMeta::LUNARL_GASKALL );
   proj_st.set_num_cameras( 2 );
+
   std::list<CameraMeta> cam_st;
   cam_st.push_back( CameraMeta() );
   cam_st.push_back( CameraMeta() );

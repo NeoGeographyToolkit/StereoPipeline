@@ -32,9 +32,6 @@ PTK_LOCAL_LIBS = @MODULE_PHOTOMETRYTK_LIBS@ libaspPhotometryTK.la
 phodrg2plate_SOURCES  = phodrg2plate.cc
 phodrg2plate_LDADD    = $(PTK_LOCAL_LIBS)
 
-phoinitalbedo_SOURCES = phoinitalbedo.cc
-phoinitalbedo_LDADD   = $(PTK_LOCAL_LIBS)
-
 phoinitfile_SOURCES   = phoinitfile.cc
 phoinitfile_LDADD     = $(PTK_LOCAL_LIBS)
 
@@ -62,7 +59,7 @@ ptk_server_LDADD      = $(PTK_LOCAL_LIBS)
 mipmap_SOURCES        = mipmap.cc
 mipmap_LDADD          = $(PTK_LOCAL_LIBS)
 
-bin_PROGRAMS = phodrg2plate phoinitalbedo phoinitfile phoitalbedo \
+bin_PROGRAMS = phodrg2plate phoinitfile phoitalbedo \
                phoitdem phoiterror phoitreflect phoittime         \
                ptk_server phoinitet mipmap
 

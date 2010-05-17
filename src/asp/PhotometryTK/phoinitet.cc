@@ -48,7 +48,7 @@ void do_et_solve( Options const& opt ) {
   // Debug Testing
   proj_meta.PrintDebugString();
   std::cout << "-- CAMERAS -----------------\n";
-  for ( uint i = 0; i < proj_meta.num_cameras(); i++ ) {
+  for ( int32 i = 0; i < proj_meta.num_cameras(); i++ ) {
     CameraMeta cam_meta;
     remote_ptk.ReadCameraMeta( i, cam_meta );
     cam_meta.PrintDebugString();

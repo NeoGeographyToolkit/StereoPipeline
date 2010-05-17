@@ -5,18 +5,19 @@ message ProjectMeta {
 
     // Properties of the run
     optional int32 max_iterations = 2 [default=100];
+    optional int32 current_iteration = 3 [default=0];
     enum ReflectanceType {
         NONE = 0;
         LAMBERTIAN = 1;
         LUNARL_GASKALL = 2;
         LUNARL_MCEWEN = 3;
     }
-    required ReflectanceType reflectance = 3 [default=NONE];
-    optional double rel_tol = 4 [default=1e-2]; // Minimum improvement between
+    required ReflectanceType reflectance = 4 [default=NONE];
+    optional double rel_tol = 5 [default=1e-2]; // Minimum improvement between
                                                 // iterations
-    optional double abs_tol = 5 [default=1e-2]; // Absolute shut off  of error
+    optional double abs_tol = 6 [default=1e-2]; // Absolute shut off  of error
 
-    required int32 num_cameras = 6;
+    required int32 num_cameras = 7;
 }
 
 message CameraMeta {
@@ -37,6 +38,16 @@ message ProjectOpenRequest {
 message ProjectOpenReply {
   required ProjectMeta meta = 1;
   required int32 project_id = 2;
+}
+
+
+message ProjectUpdateRequest {
+  required int32 project_id = 1;
+  required int32 iteration = 2;
+}
+
+message ProjectUpdateReply {
+  required int32 project_id = 1; // echo if success
 }
 
 
@@ -74,6 +85,9 @@ message CameraWriteReply {
 service ProjectService {
   // Project start
   rpc OpenRequest (ProjectOpenRequest) returns (ProjectOpenReply);
+
+  // Project Interface
+  rpc ProjectUpdate (ProjectUpdateRequest) returns (ProjectUpdateReply);
 
   // Camera Interface
   rpc CameraCreate (CameraCreateRequest) returns (CameraCreateReply);

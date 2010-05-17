@@ -129,6 +129,24 @@ ProjectServiceImpl::OpenRequest(::google::protobuf::RpcController* /*controller*
 }
 
 void
+ProjectServiceImpl::ProjectUpdate(::google::protobuf::RpcController* /*controller*/,
+                                  const ::asp::pho::ProjectUpdateRequest* request,
+                                  ::asp::pho::ProjectUpdateReply* response,
+                                  ::google::protobuf::Closure* done) {
+  if ( request->project_id() < 0 ||
+       request->project_id() >= int32(m_project_metas.size()) ) {
+    response->set_project_id( -1 );
+    done->Run();
+    return;
+  }
+
+  // Setting iteration
+  m_project_metas[ request->project_id() ].set_current_iteration(request->iteration());
+  response->set_project_id( request->project_id() );
+  done->Run();
+}
+
+void
 ProjectServiceImpl::CameraCreate(::google::protobuf::RpcController* /*controller*/,
                                  const ::asp::pho::CameraCreateRequest* request,
                                  ::asp::pho::CameraCreateReply* response,
