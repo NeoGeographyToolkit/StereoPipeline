@@ -49,25 +49,25 @@ typedef TimeAccumulatorTest<uint8> TimeAccumulatorTestInt;
 typedef TimeAccumulatorTest<float> TimeAccumulatorTestFloat;
 
 TEST_F( TimeAccumulatorTestInt, TimeDelta ) {
-  TimeDeltaAccumulator<PixelGrayA<uint8>, uint8> taccum( exposure_t );
+  TimeDeltaAccumulator taccum( exposure_t );
   for_each_pixel(image,albedo,reflectance,taccum);
   EXPECT_NEAR( -0.048387, taccum.value(), 1e-6 );
 }
 
 TEST_F( TimeAccumulatorTestFloat, TimeDelta ) {
-  TimeDeltaAccumulator<PixelGrayA<float>, float> taccum( exposure_t );
+  TimeDeltaAccumulator taccum( exposure_t );
   for_each_pixel(image,albedo,reflectance,taccum);
   EXPECT_NEAR( -0.048387, taccum.value(), 1e-6 );
 }
 
 TEST_F( TimeAccumulatorTestInt, TimeDeltaNR ) {
-  TimeDeltaNRAccumulator<PixelGrayA<uint8> > taccum( exposure_t );
+  TimeDeltaNRAccumulator taccum( exposure_t );
   for_each_pixel(image,albedo,taccum);
   EXPECT_NEAR( 0.03691275, taccum.value(), 1e-8);
 }
 
 TEST_F( TimeAccumulatorTestFloat, TimeDeltaNR ) {
-  TimeDeltaNRAccumulator<PixelGrayA<float> > taccum( exposure_t );
+  TimeDeltaNRAccumulator taccum( exposure_t );
   for_each_pixel(image,albedo,taccum);
   EXPECT_NEAR( 0.03691275, taccum.value(), 1e-8);
 }

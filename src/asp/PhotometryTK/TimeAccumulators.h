@@ -5,15 +5,16 @@ namespace asp {
 namespace pho {
 
   // Re-estimate time exposure with reflectance
-  template <class AValT, class RValT>
   class TimeDeltaAccumulator : public vw::ReturnFixedType<void> {
     double m_numerator, m_denominator;
     double m_curr_time;
   public:
     typedef double value_type;
 
-    TimeDeltaAccumulator(double t) : m_curr_time(t) {}
+    TimeDeltaAccumulator(double t) : m_numerator(0),
+      m_denominator(0), m_curr_time(t) {}
 
+    template <class AValT, class RValT>
     void operator()( AValT const& drg, AValT const& albedo, RValT const& reflectance ) {
       double i = drg[0], a = albedo[0], s = drg[1], r = reflectance;
       double inter = a*r*s;
@@ -27,15 +28,16 @@ namespace pho {
   };
 
   // Re-estimate time exposure with-out reflectance
-  template <class AValT>
   class TimeDeltaNRAccumulator : public vw::ReturnFixedType<void> {
     double m_numerator, m_denominator;
     double m_curr_time;
   public:
     typedef double value_type;
 
-    TimeDeltaNRAccumulator(double t) : m_curr_time(t) {}
+    TimeDeltaNRAccumulator(double t) : m_numerator(0),
+      m_denominator(0), m_curr_time(t) {}
 
+    template <class AValT>
     void operator()( AValT const& drg, AValT const& albedo ) {
       double i = drg[0], s = drg[1], a = albedo[0];
       double inter = a*s;

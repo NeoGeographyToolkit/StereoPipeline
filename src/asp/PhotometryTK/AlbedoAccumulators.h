@@ -83,15 +83,14 @@ namespace pho {
 
   template <class PixelT>
   class AlbedoDeltaAccumulator : public ImageAccumulatorBase<AlbedoDeltaAccumulator<PixelT> > {
-    typedef typename vw::CompoundChannelCast<PixelT, double>::type accum_pixel_type;
     typedef typename vw::PixelChannelType<PixelT>::type channel_type;
-    vw::ImageView<accum_pixel_type> m_nominator, m_denominator;
-    vw::ImageView<accum_pixel_type> m_t_grad, m_t_error; // temporaries to avoid
-                                                         // excessive memory allocations.
+    vw::ImageView<double> m_nominator, m_denominator;
+    vw::ImageView<double> m_t_grad, m_t_error; // temporaries to avoid
+                                               // excessive memory allocations.
     vw::ImageView<double> m_sum_weight;
     void reset( void ) {
-      vw::fill(m_nominator, accum_pixel_type() );
-      vw::fill(m_denominator, accum_pixel_type() );
+      vw::fill(m_nominator, 0 );
+      vw::fill(m_denominator, 0 );
       vw::fill(m_sum_weight, 0 );
     }
   public:
@@ -110,7 +109,7 @@ namespace pho {
       // Intermediates
       m_t_grad = t * vw::channel_cast<double>(reflectance);
       m_t_error = vw::channel_cast<double>(select_channel(image,0)) -
-        t * vw::channel_cast<double>(previous_albedo) * vw::channel_cast<double>(reflectance);
+        t * vw::channel_cast<double>(select_channel(previous_albedo,0)) * vw::channel_cast<double>(reflectance);
 
       // Update accumulators
       m_nominator += m_t_grad * m_t_error *
@@ -124,7 +123,8 @@ namespace pho {
     // Result
     typedef vw::ImageView<PixelT> result_type;
     result_type result(void) {
-      result_type r = m_nominator / m_denominator;
+      result_type r(m_t_error.cols(), m_t_error.rows());
+      select_channel(r,0) = m_nominator / m_denominator;
       select_channel(r,1) = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
       this->reset();
       return r;
@@ -133,15 +133,14 @@ namespace pho {
 
   template <class PixelT>
   class AlbedoDeltaNRAccumulator : public ImageAccumulatorBase<AlbedoDeltaNRAccumulator<PixelT> > {
-    typedef typename vw::CompoundChannelCast<PixelT, double>::type accum_pixel_type;
     typedef typename vw::PixelChannelType<PixelT>::type channel_type;
-    vw::ImageView<PixelT> m_nominator, m_denominator;
-    vw::ImageView<PixelT> m_t_error; // temporary to avoid
-                                 // excessive memory allocations.
+    vw::ImageView<double> m_nominator, m_denominator;
+    vw::ImageView<double> m_t_error; // temporary to avoid
+                                     // excessive memory allocations.
     vw::ImageView<double> m_sum_weight;
     void reset( void ) {
-      vw::fill(m_nominator, PixelT() );
-      vw::fill(m_denominator, PixelT() );
+      vw::fill(m_nominator, 0 );
+      vw::fill(m_denominator, 0 );
       vw::fill(m_sum_weight, 0 );
     }
   public:
@@ -158,7 +157,7 @@ namespace pho {
                      double const& t ) {
       // Intermediate
       m_t_error = vw::channel_cast<double>(select_channel(image,0)) -
-        t*vw::channel_cast<double>(previous_albedo);
+        t*vw::channel_cast<double>(select_channel(previous_albedo,0));
 
       // Update accumulators
       m_nominator += t * m_t_error *
@@ -172,7 +171,8 @@ namespace pho {
     // Result
     typedef vw::ImageView<PixelT> result_type;
     result_type result(void) {
-      result_type r = m_nominator / m_denominator;
+      result_type r(m_t_error.cols(), m_t_error.rows());
+      select_channel(r,0) = m_nominator / m_denominator;
       select_channel(r,1) = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
       this->reset();
       return r;

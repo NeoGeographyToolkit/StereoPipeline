@@ -18,7 +18,8 @@ BUILT_SOURCES          = $(protocol_sources)
 nodist_include_HEADERS = $(protocol_headers)
 
 include_HEADERS = ProjectFileIO.h ProjectService.h RemoteProjectFile.h \
-                  AlbedoAccumulators.h ImageAccumulators.h
+                  AlbedoAccumulators.h ImageAccumulators.h             \
+                  ErrorAccumulators.h TimeAccumulators.h
 libaspPhotometryTK_la_SOURCES = $(protocol_sources) ProjectService.cc  \
                   RemoteProjectFile.cc
 
@@ -59,8 +60,8 @@ ptk_server_LDADD      = $(PTK_LOCAL_LIBS)
 mipmap_SOURCES        = mipmap.cc
 mipmap_LDADD          = $(PTK_LOCAL_LIBS)
 
-bin_PROGRAMS = phodrg2plate phoinitfile phoitalbedo \
-               phoitdem phoiterror phoitreflect phoittime         \
+bin_PROGRAMS = phodrg2plate phoinitfile phoitalbedo        \
+               phoitdem phoiterror phoitreflect phoittime  \
                ptk_server phoinitet mipmap
 
 endif

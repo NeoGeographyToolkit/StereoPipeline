@@ -86,7 +86,7 @@ void update_exposure( Options& opt ) {
 
     if ( project_info.reflectance() == ProjectMeta::NONE ) {
       // Accumulating time exposure
-      TimeDeltaNRAccumulator<PixelGrayA<uint8> > taccum(cam_info.exposure_t());
+      TimeDeltaNRAccumulator taccum(cam_info.exposure_t());
 
       // Updating current time exposure
       BOOST_FOREACH( const TileHeader& drg_tile, drg_tiles ) {
@@ -100,7 +100,7 @@ void update_exposure( Options& opt ) {
     } else {
       vw_throw( NoImplErr() << "Sorry, reflectance code is incomplete.\n" );
       // Accumulating time exposure
-      TimeDeltaAccumulator<PixelGrayA<uint8>, float> taccum(cam_info.exposure_t());
+      TimeDeltaAccumulator taccum(cam_info.exposure_t());
 
       // Updating current time exposure
     }
