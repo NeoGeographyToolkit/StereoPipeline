@@ -15,9 +15,10 @@ TestProjectFileIO_SOURCES      = TestProjectFileIO.cxx
 TestProjectService_SOURCES     = TestProjectService.cxx
 TestAlbedoAccumulators_SOURCES = TestAlbedoAccumulators.cxx
 TestTimeAccumulators_SOURCES   = TestTimeAccumulators.cxx
+TestErrorAccumulators_SOURCES  = TestErrorAccumulators.cxx
 
 TESTS = TestProjectFileIO TestProjectService TestAlbedoAccumulators   \
-        TestTimeAccumulators
+        TestTimeAccumulators TestErrorAccumulators
 
 endif
 
