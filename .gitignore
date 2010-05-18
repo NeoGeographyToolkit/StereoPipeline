@@ -93,6 +93,7 @@ src/asp/PhotometryTK/tests/TestProjectService
 src/asp/PhotometryTK/tests/TestAlbedoAccumulators
 src/asp/PhotometryTK/tests/TestTimeAccumulators
 src/asp/PhotometryTK/tests/TestErrorAccumulators
+src/asp/PhotometryTK/tests/TestFullIteration
 src/asp/PhotometryTK/tests/*.ptk*
 
 # Doc
