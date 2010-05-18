@@ -47,7 +47,7 @@ by running ISIS's \texttt{spiceinit} program run on them first.
 Since our first release we reperformed some of these examples and
 recorded their processing time so you the user can judge how long it
 will take you. Our examples were processed on our server called
-'Lunokhod 2'. This server is a Dell PowerEdge Rack 900 purchased in
+`Lunokhod 2'. This server is a Dell PowerEdge Rack 900 purchased in
 late 2009. Below are its specifications:
 
 \begin{center}
@@ -159,11 +159,9 @@ as you will be able to just run \texttt{cam2map4stereo.py} on their provided ima
 
 \subsection{Columbia Hills}
 
-\begin{tabular}{ r c r c}
-\multicolumn{3}{l}{ \emph{Prepping Files} } \\
-Wall Time & \texttt{+36:00:00.0} & CPU Time & \texttt{+36:00:00.0} \\
-\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
-Wall Time & \texttt{} & CPU Time & \texttt{} \\
+\begin{tabular}{ l r c r c}
+\textit{Prepping Files:}       & Wall Time & \texttt{+36:00:00.0} & CPU Time & \texttt{+36:00:00.0} \\
+\textit{Processing in Stereo:} & Wall Time & \texttt{} & CPU Time & \texttt{} \\
 \end{tabular}
 
 \ac{HiRISE} observations
@@ -257,11 +255,9 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \clearpage
 \subsection{East Mareotis Tholus}
 
-\begin{tabular}{ r c r c}
-\multicolumn{3}{l}{ \emph{Prepping Files} } \\
-Wall Time & \texttt{04:02:11.00} & CPU Time & \texttt{04:05:26.81} \\
-\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
-Wall Time & \texttt{59:51:01.00} & CPU Time & \texttt{164:55:02.36} \\
+\begin{tabular}{l r c r c}
+\textit{Prepping Files:}       & Wall Time & \texttt{04:02:11.00} & CPU Time & \texttt{04:05:26.81} \\
+\textit{Processing in Stereo:} & Wall Time & \texttt{59:51:01.00} & CPU Time & \texttt{164:55:02.36} \\
 \end{tabular}
 
 \ac{HiRISE} observations
@@ -565,11 +561,9 @@ reconstruction software.
 
 \subsection{Ceraunius Tholus}
 
-\begin{tabular}{ r c r c}
-\multicolumn{3}{l}{ \emph{Prepping Files} } \\
-Wall Time & \texttt{00:02:42.30} & CPU Time & \texttt{00:02:42.06} \\
-\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
-Wall Time & \texttt{01:22:17.00} & CPU Time & \texttt{03:14:45.78} \\
+\begin{tabular}{l r c r c}
+\textit{Prepping Files:}       & Wall Time & \texttt{00:02:42.30} & CPU Time & \texttt{00:02:42.06} \\
+\textit{Processing in Stereo:} & Wall Time & \texttt{01:22:17.00} & CPU Time & \texttt{03:14:45.78} \\
 \end{tabular}
 
 Ceraunius Tholus is a volcano in northern Tharsis on Mars. It can
@@ -654,11 +648,9 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 \pagebreak
 \subsection{North Tharsis}
 
-\begin{tabular}{ r c r c}
-\multicolumn{3}{l}{ \emph{Prepping Files} } \\
-Wall Time & \texttt{00:01:57.52} & CPU Time & \texttt{00:01:56.79} \\
-\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
-Wall Time & \texttt{01:44:34.00} & CPU Time & \texttt{04:12:25.11} \\
+\begin{tabular}{l r c r c}
+\textit{Prepping Files:}       & Wall Time & \texttt{00:01:57.52} & CPU Time & \texttt{00:01:56.79} \\
+\textit{Processing in Stereo:} & Wall Time & \texttt{01:44:34.00} & CPU Time & \texttt{04:12:25.11} \\
 \end{tabular}
 
 These images cover troughs and terraces in northern Tharsis.
@@ -962,11 +954,14 @@ perspective change here to make anything other than the spherical
 surface, but that alone is still an interesting result nonetheless.
 
 \begin{figure}[h!]
-  \begin{center}
-  \includegraphics[width=5in]{images/examples/mdis/mdis_wide_example.png}
-  \end{center}
+\begin{minipage}{4in}
+\includegraphics[width=4in]{images/examples/mdis/mdis_wide_example.png}
+\end{minipage}
+\hfill
+\begin{minipage}{2in}
   \caption{ A rough attempt at stereo reconstruction from MDIS imagery. }
   \label{fig:mdis_attempt}
+\end{minipage}
 \end{figure}
 
 \subsubsection*{Commands}
@@ -1031,6 +1026,8 @@ surface, but that alone is still an interesting result nonetheless.
     FAR_UNIVERSE_RADIUS 0.0
 \end{Verbatim}
 \end{minipage}\end{center}
+
+\clearpage
 
 \section{Cassini ISS NAC}
 

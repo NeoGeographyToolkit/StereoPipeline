@@ -5,18 +5,36 @@
 This is the recommended method. Only two things are required:
 
 \begin{description}
-\item [{Stereo~Pipeline~Tarball.}] The main Stereo Pipeline page is \url{http://ti.arc.nasa.gov/stereopipeline}.
-In the upper-right, there is a list of files. Download the \emph{Binary}
+\item [{Stereo~Pipeline~Tarball.}] The main Stereo Pipeline page is \\
+\url{http://ti.arc.nasa.gov/tech/asr/intelligent-robotics/ngt/stereo/}.
+Download the \emph{Binary}
 option that matches the platform you wish to use. The required \ac{ISIS}
 version is listed next to the name; choose the newest version you
 have available.
 
 \item [{USGS~ISIS~Binary~Distribution.}] The Stereo Pipeline depends
-on \ac{ISIS} version 3 from the \ac{USGS}\@. Their installation guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
-You must use their binaries as-is; if you need to recompile, you must
-follow the \emph{Source Installation} guide for the Stereo Pipeline in Section~\ref{sec:Source-Installation}.
-Note also that the \ac{USGS} does not provide any version of \ac{ISIS} but the
-current one. If you need a past version, you must retain it yourself.
+on \ac{ISIS} version 3 from the \ac{USGS}\@. Their installation
+guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
+You must use their binaries as-is; if you need to recompile, you
+must follow the \emph{Source Installation} guide for the Stereo
+Pipeline in Section~\ref{sec:Source-Installation}.  Note also that
+the \ac{USGS} provides only the current version of \ac{ISIS} and
+the previous version (denoted with a `\texttt{\_OLD}' suffix) via
+their \texttt{rsync} service.  If the current version is newer than
+the version of ISIS that the Stereo Pipeline is compiled against,
+be assured that we're working on rolling out a new version.  In the
+meantime, you should be able to sync the previous version of ISIS
+which should work with Stereo Pipeline.  To do so, view the listing
+of modules that is provided via the `\texttt{rsync isisdist.wr.usgs.gov::}'
+command.  You should see several modules listed with the `\texttt{\_OLD}'
+suffix.  Select the one that is appropriate for your system, and
+\texttt{rsync} according to the instructions.
+
+If you have a need to keep current with ISIS, but don't want to
+loose the ability to use Stereo Pipeline while we update our binaries
+to the new current version of ISIS, you may wish to retain the
+version of ISIS that matches your version of Stereo Pipeline.
+
 \end{description}
 
 \subsection{Quick Start}
@@ -40,9 +58,6 @@ Download the Stereo Pipeline from \url{http://ti.arc.nasa.gov/stereopipeline}.
 bash: \texttt{export PATH="\textit{/path/to/StereoPipeline}/bin:\$\{PATH\}"} \\
 csh:  \texttt{setenv PATH "\textit{/path/to/StereoPipeline}/bin:\$\{PATH\}"}
 
-% Grrrr. Why doesn't it keep this together? Sprinkling in \nopagebreak
-% doesn't seem to work... Forcing a pagebreak instead
-\pagebreak
 \item[Set~Up~Isis] ~\\
 bash: \\
 \hspace*{2em}\texttt{export ISISROOT=\textit{/path/to/isisroot}} \\
@@ -97,11 +112,11 @@ to them from your library path.
 \pagebreak
 \section{\label{sec:Source-Installation}Source Installation}
 
-This method is for advanced users with moderate build system experience. Some dependencies such as ISIS and it's dependencies \emph{(like SuperLU, Qwt, CSpice)} use custom build systems. Because of this and time, we won't help with questions on how to build dependencies.
+This method is for advanced users with moderate build system experience. Some dependencies such as ISIS and its dependencies \emph{(like SuperLU, Qwt, CSpice)} use custom build systems. Because of this and time, we won't help with questions on how to build dependencies.
 
 \subsection{Dependency List}
 
-This is a list of direct dependencies of Stereo Pipeline. Some libraries
+This is a list of the direct dependencies of Stereo Pipeline. Some libraries
 (like \ac{ISIS}) have dependencies of their own which are not covered here.
 
 \begin{figure}[h]
@@ -152,7 +167,7 @@ Stereo Pipeline.
 The build system is built on GNU autotools. In-depth information on
 autotools is available from \url{http://sources.redhat.com/autobook/}.
 The basics, however, are simple. To compile the source code, first
-run \verb#./configure# from the top-level directory. This will search
+run~\verb#./configure# from the top-level directory. This will search
 for the dependencies and enable the modules you requested. There are
 a number of options that can be passed to \verb#configure#; many
 of these options can also be placed into a \verb#config.options#

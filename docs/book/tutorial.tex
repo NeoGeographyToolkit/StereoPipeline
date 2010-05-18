@@ -329,24 +329,26 @@ these are precisely the features we are hoping to detect!)
 \begin{center}
 \fcolorbox{black}{lgray}{ \begin{minipage}{6in}
 
-   Given the uncertainties due to (1) and (2) above, it can be tricky
-   to select a good search range for the \texttt{stereo.default} file.
-   One way is to let \texttt{stereo} perform one round of auto search
-   range search.  Look at the results using the
-   \texttt{disparitydebug} program.  The output images will clearly
-   show good data or bad data depending on whether the search range is
-   correct.  If the edges of these images look degrade, then the
-   search range may need to be expanded by hand.
+Given the uncertainties due to (1) and (2) above, it can be tricky
+to select a good search range for the \texttt{stereo.default} file.
+One way is to let \texttt{stereo} perform one round of auto search
+range search.  Look at the results using the
+\texttt{disparitydebug} program.  The output images will clearly
+show good data or bad data depending on whether the search range is
+correct.  If the edges of these images look degraded, then the
+search range may need to be expanded by hand.
 
-   The worst case scenario is to determine search range by hand by
-   opening both images in qview and comparing the coordinates of
-   points that you can match visually. Subtract locations from the
-   first image from the second image, will yield offsets that must be
-   in the search range.  Build a bounding box around several of these
-   sampled offset,s and then expand the box by 50\%.  This will
-   produce good results in most images. Future versions of the
-   software will try to better assist the user in automatically
-   determining the correlation window.
+\medskip
+
+The worst case scenario is to determine search range by hand by
+opening both images in qview and comparing the coordinates of
+points that you can match visually. Subtract locations from the
+first image from the second image, will yield offsets that must be
+in the search range.  Build a bounding box around several of these
+sampled offsets and then expand the box by 50\%.  This will
+produce good results in most images. Future versions of the
+software will try to better assist the user in automatically
+determining the correlation window.
 
 \end{minipage}}
 \end{center}
@@ -488,6 +490,8 @@ proceed to make a mesh or a \ac{DEM} by processing
 \end{minipage}
 \end{figure}
 
+\clearpage
+
 \section{Visualizing the Results}
 
 When \texttt{stereo} finishes, it will have produced a point cloud
@@ -515,7 +519,7 @@ lighting with the `L' key, toggle texturing with the 'T' key, and
 toggle wireframe mode with the 'W'.  Press '?' to see a variety of
 other interactive options.
 
-\begin{figure}[t]
+\begin{figure}[h!]
 \begin{minipage}{5in}
 \includegraphics[width=5in]{images/p19-osg.png}
 \end{minipage}
@@ -574,10 +578,10 @@ sure to explore all of the options.
 
 \begin{figure}
 \hfill
-\begin{minipage}{3in}
-\includegraphics[width=3in]{images/p19-norm_ortho.png}
+\begin{minipage}{3.5in}
+\includegraphics[width=3.5in]{images/p19-norm_ortho.png}
 \end{minipage}
-\hspace{2em}
+\hfill
 \begin{minipage}{2in}
 \caption[P19 Normalized DEM and Orthophoto]{
     \label{p19-norm_ortho}
@@ -614,6 +618,8 @@ sure to explore all of the options.
 % \end{center}
 % \end{figure}
 
+\clearpage
+
 \subsection{Generating Color Hillshade Maps}
 
 Once you have generated a \ac{DEM} file, you can use the Vision Workbench's
@@ -644,15 +650,17 @@ the \ac{DEM} and the shaded relief file that should be used:
     ISIS 3> colormap E0201461-M0100115-DEM.tif -s hrad-shaded.tif -o hrad-color-shaded.tif
 \end{verbatim}
 
-\begin{figure}
+\begin{figure}[b!]
 \begin{center}
-\includegraphics[width=5in]{images/p19-colorized-shaded.png}
+\includegraphics[width=4.7in]{images/p19-colorized-shaded.png}
 \caption[Hrad colorized and shaded relief]{
     \label{hrad-color}
 	The colorized DEM, the shaded relief image, and the colorized hillshade.
     }
 \end{center}
 \end{figure}
+
+\clearpage
 
 \subsection{Building Overlays for Moon and Mars mode in Google Earth}
 
@@ -674,7 +682,7 @@ images). In this example, it can be used to process \\
     ISIS 3> image2qtree hrad-shaded-colorized.tif -m kml --draw-order 100
 \end{verbatim}
 
-\begin{figure}
+\begin{figure}[b!]
 \begin{center}
 \includegraphics[width=6in]{images/p19-googlemars.png}
 \caption[Hrad shaded colorized DEM as a KML overlay] {
