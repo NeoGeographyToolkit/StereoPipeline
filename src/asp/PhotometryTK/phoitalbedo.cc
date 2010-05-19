@@ -32,6 +32,7 @@ using namespace std;
 struct Options {
   // Input
   std::string ptk_url;
+  int level;
 
   // For spawning multiple jobs
   int job_id, num_jobs;
@@ -65,7 +66,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
       h_tile_records =
         drg_plate->search_by_location( workunit.min().x()/8,
                                        workunit.min().y()/8,
-                                       drg_plate->num_levels()-4,
+                                       opt.level - 3,
                                        0, max_tid, true );
       if ( h_tile_records.empty() )
         continue;
@@ -74,8 +75,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
         for ( int iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
           // Polling for DRG Tiles
           std::list<TileHeader> tile_records =
-            drg_plate->search_by_location( ix, iy,
-                                           drg_plate->num_levels()-1,
+            drg_plate->search_by_location( ix, iy, opt.level,
                                            0, max_tid, true );
 
           // No Tiles? No Problem!
@@ -84,8 +84,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 
           // Feeding accumulator
           BOOST_FOREACH( const TileHeader& tile, tile_records ) {
-            drg_plate->read( image_temp, ix, iy,
-                             drg_plate->num_levels()-1,
+            drg_plate->read( image_temp, ix, iy, opt.level,
                              tile.transaction_id(), true );
 
             accum(image_temp, exposure_ts[tile.transaction_id()-1]);
@@ -93,9 +92,8 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
           image_temp = accum.result();
 
           // Write result
-          albedo_plate->write_update(image_temp,ix,iy,
-                                     drg_plate->num_levels()-1,
-                                     transaction_id);
+          albedo_plate->write_update(image_temp, ix, iy,
+                                     opt.level, transaction_id);
 
         } // end for iy
       }   // end for ix
@@ -138,8 +136,7 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
       h_tile_records =
         drg_plate->search_by_location( workunit.min().x()/8,
                                        workunit.min().y()/8,
-                                       drg_plate->num_levels()-4,
-                                       0, max_tid, true );
+                                       opt.level - 3, 0, max_tid, true );
       if ( h_tile_records.empty() )
         continue;
 
@@ -148,8 +145,7 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 
           // Polling for DRG Tiles
           std::list<TileHeader> tile_records =
-            drg_plate->search_by_location( ix, iy,
-                                           drg_plate->num_levels()-1,
+            drg_plate->search_by_location( ix, iy, opt.level,
                                            0, max_tid, true );
 
           // No Tiles? No Problem!
@@ -158,13 +154,11 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 
           // Polling for current albedo
           albedo_plate->read( current_albedo, ix, iy,
-                              drg_plate->num_levels()-1,
-                              -1, true );
+                              opt.level, -1, true );
 
           // Feeding accumulator
           BOOST_FOREACH( const TileHeader& tile, tile_records ) {
-            drg_plate->read( image_temp, ix, iy,
-                             drg_plate->num_levels()-1,
+            drg_plate->read( image_temp, ix, iy, opt.level,
                              tile.transaction_id(), true );
 
             accum(image_temp, current_albedo,
@@ -173,10 +167,9 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
           image_temp = accum.result();
 
           // Write result
-          albedo_plate->write_update(image_temp+current_albedo,ix,iy,
-                                     drg_plate->num_levels()-1,
-                                     transaction_id);
-
+          select_channel(current_albedo,0) += select_channel(image_temp,0);
+          albedo_plate->write_update(current_albedo, ix, iy,
+                                     opt.level, transaction_id);
         } // end for iy
       }   // end for ix
     }     // end foreach
@@ -193,6 +186,7 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
+    ("level,l", po::value<int>(&opt.level)->default_value(-1), "Default is to process at lowest level.")
     ("job_id,j", po::value<int>(&opt.job_id)->default_value(0), "")
     ("num_jobs,n", po::value<int>(&opt.num_jobs)->default_value(1), "")
     ("help,h", "Display this help message");
@@ -256,10 +250,14 @@ int main( int argc, char *argv[] ) {
                                                   VW_PIXEL_GRAYA,
                                                   VW_CHANNEL_FLOAT32 ) );
 
+    // Setting up working level
+    if ( opt.level < 0 )
+      opt.level = drg_plate->num_levels() - 1;
+
     // Diving up jobs and deciding work units
     std::list<BBox2i> workunits;
     {
-      int region_size = pow(2.0,drg_plate->num_levels()-1);
+      int region_size = pow(2.0,opt.level);
       BBox2i full_region(0,region_size/4,region_size,region_size/2);
       std::list<BBox2i> all_workunits = bbox_tiles(full_region,8,8);
       int count = 0;
@@ -278,7 +276,12 @@ int main( int argc, char *argv[] ) {
       CameraMeta current_cam;
       remote_ptk->ReadCameraMeta( i, current_cam );
       exposure_t[i] = current_cam.exposure_t();
-      std::cout << "exposure[" << i << "] = " << exposure_t[i] << "\n";
+    }
+
+    // Double check for an iteration error
+    if ( albedo_plate->num_levels() == 0 ) {
+      project_info.set_current_iteration(0);
+      remote_ptk->UpdateIteration(0);
     }
 
     // Determine if we're updating or initializing
@@ -293,10 +296,6 @@ int main( int argc, char *argv[] ) {
       initial_albedo( opt, project_info, drg_plate,
                       albedo_plate, reflect_plate, workunits, exposure_t );
     }
-
-    // Increment iterations
-    if ( opt.job_id == 0 )
-      remote_ptk->UpdateIteration(project_info.current_iteration()+1);
 
   } catch ( const ArgumentErr& e ) {
     vw_out() << e.what() << std::endl;

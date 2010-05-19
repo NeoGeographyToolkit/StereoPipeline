@@ -104,8 +104,13 @@ void update_exposure( Options& opt ) {
 
       // Updating current time exposure
     }
-    if ( !opt.dry_run )
+    if ( !opt.dry_run ) {
       remote_ptk.WriteCameraMeta(j, cam_info);
+
+      // Increment iterations
+      if ( opt.job_id == 0 )
+        remote_ptk.UpdateIteration(project_info.current_iteration()+1);
+    }
     std::cout << "Camera[" << j << "] updated exposure time: "
               << cam_info.exposure_t() << "\n";
 
@@ -141,7 +146,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   }
 
   std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [programmer hasn't filled this out]\n";
+  usage << "Usage: " << argv[0] << " <ptk-url>\n";
   opt.dry_run = vm.count("dry-run");
 
   if ( vm.count("help") )

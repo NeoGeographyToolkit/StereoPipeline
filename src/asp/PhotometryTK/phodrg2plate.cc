@@ -43,7 +43,7 @@ void do_creation( Options const& opt ) {
   RemoteProjectFile remote_ptk( opt.ptk_url );
 
   // Load up DRG
-  DiskImageView<PixelMask<PixelGray<uint8> > > drg_image( opt.drg_file );
+  DiskImageView<PixelGrayA<uint8> > drg_image( opt.drg_file );
   GeoReference georef;
   read_georeference( georef, opt.drg_file );
 
@@ -61,12 +61,13 @@ void do_creation( Options const& opt ) {
                                                    VW_PIXEL_GRAYA,
                                                    VW_CHANNEL_UINT8 ) );
     PlateCarreePlateManager< PixelGrayA<uint8> > drg_manager( drg_plate );
-    drg_manager.insert( mask_to_alpha( drg_image ), opt.drg_file,
+    drg_manager.insert( drg_image, opt.drg_file,
                         cam_id+1, georef, false,
                         TerminalProgressCallback( "photometrytk",
                                                   "\tProcessing" ) );
   }
 
+  /*
   { // Create Reflectance ( at the moment it's just white )
     boost::shared_ptr<PlateFile> ref_plate =
       boost::shared_ptr<PlateFile>( new PlateFile( "pf://index/Reflectance.plate",
@@ -74,12 +75,12 @@ void do_creation( Options const& opt ) {
                                                    VW_PIXEL_GRAYA,
                                                    VW_CHANNEL_FLOAT32 ) );
     PlateCarreePlateManager< PixelGrayA<float32> > ref_manager( ref_plate );
-    ref_manager.insert( mask_to_alpha(copy_mask(ConstantView<PixelGray<float32> >(1.0, drg_image.cols(), drg_image.rows() ), drg_image)),
+    ref_manager.insert( mask_to_alpha(copy_mask(ConstantView<PixelGray<float32> >(1.0, drg_image.cols(), drg_image.rows() ), alpha_to_mask(drg_image))),
                         opt.drg_file, cam_id+1, georef, false,
                         TerminalProgressCallback( "photometrytk",
                                                   "\tProcessing" ) );
   }
-
+  */
 
 }
 

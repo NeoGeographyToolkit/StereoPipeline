@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
 import os, optparse, multiprocessing, sys;
+from multiprocessing import Pool
+
+def job_func(cmd):
+    os.system(cmd);
+    return cmd;
 
 class Usage(Exception):
     def __init__(self,msg):
@@ -9,8 +14,14 @@ class Usage(Exception):
 def main():
     try:
         try:
-            usage = "phosolve.py [--help] not-sure-yet "
+            usage = "phosolve.py [--help][--threads N][--level N] ptk-url "
             parser = optparse.OptionParser(usage=usage);
+            parser.set_defaults(threads=10)
+            parser.set_defaults(level=-1)
+            parser.add_option("-t", "--threads", dest="threads",
+                              help="Number of threads to use.",type="int")
+            parser.add_option("-l", "--level", dest="level",
+                              help="Lowest level to process at.",type="int")
 
             (options, args) = parser.parse_args()
 
@@ -19,7 +30,35 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
-        return 0
+        pool = Pool(processes=options.threads)
+
+        for iteration in range(100):
+            # Perform Albedo
+            albedo_cmd = []
+            for i in range(2*options.threads):
+                cmd = "phoitalbedo "
+                if ( options.level > 0 ):
+                    cmd = cmd + "-l "+str(options.level)+" "
+                cmd = cmd + "-j "+str(i)+" -n "+str(2*options.threads)+" "+args[0]
+                albedo_cmd.append( cmd )
+            results = [pool.apply_async(job_func, (cmd,)) for cmd in albedo_cmd]
+            for result in results:
+                result.get()
+
+            # Mipmap up the levels
+            os.system("mipmap pf://index/Albedo.plate")
+
+            # Update the Time Estimate
+            time_cmd = []
+            for i in range(options.threads):
+                cmd = "phoittime "
+                if ( options.level > 0 ):
+                    cmd = cmd + "-l "+str(options.level-2)+" "
+                cmd = cmd + "-j "+str(i)+" -n "+str(options.threads)+" "+args[0]
+                time_cmd.append(cmd)
+            results = [pool.apply_async(job_func, (cmd,)) for cmd in time_cmd]
+            for result in results:
+                result.get()
 
     except Usage, err:
         print >>sys.stderr, err.msg
