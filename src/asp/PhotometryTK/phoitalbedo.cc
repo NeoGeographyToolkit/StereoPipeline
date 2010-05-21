@@ -54,10 +54,10 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   TerminalProgressCallback tpc("photometrytk", "Initial");
   double tpc_inc = 1.0/float(workunits.size());
   albedo_plate->write_request();
-  ImageView<PixelGrayA<uint8> > image_temp;
+  ImageView<PixelGrayA<float> > image_temp;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
-    AlbedoInitNRAccumulator<PixelGrayA<uint8> > accum( tile_size, tile_size );
+    AlbedoInitNRAccumulator<PixelGrayA<float> > accum( tile_size, tile_size );
     BOOST_FOREACH(const BBox2i& workunit, workunits) {
       tpc.report_incremental_progress( tpc_inc );
 
@@ -99,7 +99,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
       }   // end for ix
     }     // end foreach
   } else {
-    AlbedoInitAccumulator<PixelGrayA<uint8> > accum( tile_size, tile_size );
+    AlbedoInitAccumulator<PixelGrayA<float> > accum( tile_size, tile_size );
     vw_throw( NoImplErr() << "Sorry, reflectance code is incomplete.\n" );
   }
 
@@ -124,10 +124,10 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   TerminalProgressCallback tpc("photometrytk", "Update");
   double tpc_inc = 1.0/float(workunits.size());
   albedo_plate->write_request();
-  ImageView<PixelGrayA<uint8> > image_temp, current_albedo;
+  ImageView<PixelGrayA<float32> > image_temp, current_albedo;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
-    AlbedoDeltaNRAccumulator<PixelGrayA<uint8> > accum( tile_size, tile_size );
+    AlbedoDeltaNRAccumulator<PixelGrayA<float> > accum( tile_size, tile_size );
     BOOST_FOREACH(const BBox2i& workunit, workunits) {
       tpc.report_incremental_progress( tpc_inc );
 
@@ -174,7 +174,7 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
       }   // end for ix
     }     // end foreach
   } else {
-    AlbedoDeltaAccumulator<PixelGrayA<uint8> > accum( tile_size, tile_size );
+    AlbedoDeltaAccumulator<PixelGrayA<float> > accum( tile_size, tile_size );
     vw_throw( NoImplErr() << "Sorry, reflectance code is incomplete.\n" );
   }
 
@@ -243,7 +243,7 @@ int main( int argc, char *argv[] ) {
       boost::shared_ptr<PlateFile>( new PlateFile("pf://index/Albedo.plate",
                                                   "equi", "", 256, "tif",
                                                   VW_PIXEL_GRAYA,
-                                                  VW_CHANNEL_UINT8 ) );
+                                                  VW_CHANNEL_FLOAT32 ) );
     if ( project_info.reflectance() != ProjectMeta::NONE )
       boost::shared_ptr<PlateFile>( new PlateFile("pf://index/Reflectance.plate",
                                                   "equi", "", 256, "tif",

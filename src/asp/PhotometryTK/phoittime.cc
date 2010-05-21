@@ -60,7 +60,7 @@ void update_exposure( Options& opt ) {
     boost::shared_ptr<PlateFile>( new PlateFile("pf://index/Albedo.plate",
                                                 "equi", "", 256, "tif",
                                                 VW_PIXEL_GRAYA,
-                                                VW_CHANNEL_UINT8 ) );
+                                                VW_CHANNEL_FLOAT32 ) );
   if ( project_info.reflectance() != ProjectMeta::NONE )
     boost::shared_ptr<PlateFile>( new PlateFile("pf://index/Reflectance.plate",
                                                 "equi", "", 256, "tif",
