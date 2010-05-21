@@ -38,7 +38,7 @@ void perform_mipmap( Options const& opt ) {
 
   platefile->write_request();
   platemanager.mipmap(platefile->num_levels()-1,
-                      affected_tiles, -1,
+                      affected_tiles, -1, false,
                       TerminalProgressCallback("photometrytk",
                                                "Mipmapping:") );
   platefile->write_complete();

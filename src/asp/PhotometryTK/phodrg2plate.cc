@@ -62,7 +62,7 @@ void do_creation( Options const& opt ) {
                                                    VW_CHANNEL_UINT8 ) );
     PlateCarreePlateManager< PixelGrayA<uint8> > drg_manager( drg_plate );
     drg_manager.insert( drg_image, opt.drg_file,
-                        cam_id+1, georef, false,
+                        cam_id+1, georef, false, false,
                         TerminalProgressCallback( "photometrytk",
                                                   "\tProcessing" ) );
   }
