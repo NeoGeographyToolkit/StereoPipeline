@@ -60,9 +60,12 @@ ptk_server_LDADD      = $(PTK_LOCAL_LIBS)
 mipmap_SOURCES        = mipmap.cc
 mipmap_LDADD          = $(PTK_LOCAL_LIBS)
 
+shadow_mask_SOURCES   = shadow_mask.cc
+shadow_mask_LDADD     = $(PTK_LOCAL_LIBS)
+
 bin_PROGRAMS = phodrg2plate phoinitfile phoitalbedo        \
                phoitdem phoiterror phoitreflect phoittime  \
-               ptk_server phoinitet mipmap
+               ptk_server phoinitet mipmap shadow_mask
 
 endif
 

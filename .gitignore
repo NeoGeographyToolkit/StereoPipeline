@@ -88,12 +88,14 @@ src/asp/PhotometryTK/phoittime
 src/asp/PhotometryTK/ptk_server
 src/asp/PhotometryTK/mipmap
 src/asp/PhotometryTK/phoinitet
+src/asp/PhotometryTK/shadow_mask
 src/asp/PhotometryTK/tests/TestProjectFileIO
 src/asp/PhotometryTK/tests/TestProjectService
 src/asp/PhotometryTK/tests/TestAlbedoAccumulators
 src/asp/PhotometryTK/tests/TestTimeAccumulators
 src/asp/PhotometryTK/tests/TestErrorAccumulators
 src/asp/PhotometryTK/tests/TestFullIteration
+src/asp/PhotometryTK/tests/shadow_mask
 src/asp/PhotometryTK/tests/*.ptk*
 
 # Doc
