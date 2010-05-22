@@ -184,6 +184,9 @@ AX_PKG_ONE_OF(LAPACK,
      AX_PKG(STANDALONE_FLAPACK, [STANDALONE_FBLAS STANDALONE_F2C], [-llapack], [], [], [], [dgelss_])
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
+AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])
+AX_PKG(PROTOBUF, [PTHREADS], [-lprotobuf], [google/protobuf/stubs/common.h])
+
 # Vision Workbench Core
 AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore],   [vw/Core/Log.h] )
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h])
@@ -206,7 +209,7 @@ if test x"$HAVE_PKG_VW_CORE" = "xyes"; then
 fi
 
 # Vision Workbench Secondaries
-AX_PKG(VW_PLATE,          [VW_FILEIO],          [-lvwPlate],        [vw/Plate/PlateFile.h])
+AX_PKG(VW_PLATE, [VW_FILEIO PROTOBUF RABBITMQ_C], [-lvwPlate],      [vw/Plate/PlateFile.h])
 AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW_CAMERA],          [-lvwStereo],       [vw/Stereo/OptimizedCorrelator.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA],          [-lvwCartography],  [vw/Cartography/GeoReference.h])
@@ -304,9 +307,6 @@ else
 fi
 
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
-
-AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])
-AX_PKG(PROTOBUF, [PTHREADS], [-lprotobuf], [google/protobuf/stubs/common.h])
 
 dnl check for recent rabbitmq; this can go away soon, it's just to prevent a
 dnl flag-day upgrade
