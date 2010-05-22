@@ -253,6 +253,8 @@ int main( int argc, char *argv[] ) {
     // Setting up working level
     if ( opt.level < 0 )
       opt.level = drg_plate->num_levels() - 1;
+    if ( opt.level >= drg_plate->num_levels() )
+      vw_throw( ArgumentErr() << "Can't request level higher than available in DRG plate" );
 
     // Diving up jobs and deciding work units
     std::list<BBox2i> workunits;
@@ -279,7 +281,8 @@ int main( int argc, char *argv[] ) {
     }
 
     // Double check for an iteration error
-    if ( albedo_plate->num_levels() == 0 ) {
+    if ( albedo_plate->num_levels() == 0 ||
+         opt.level >= albedo_plate->num_levels() ) {
       project_info.set_current_iteration(0);
       remote_ptk->UpdateIteration(0);
     }

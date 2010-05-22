@@ -38,12 +38,27 @@ void shadow_mask_nodata( Options& opt,
 }
 
 template <class PixelT>
+class ThresholdAlphaFunctor : public UnaryReturnSameType {
+  typedef typename vw::PixelChannelType<PixelT>::type channel_type;
+  double m_threshold;
+public:
+  ThresholdAlphaFunctor( double t ) : m_threshold(t) {}
+
+  template <class ArgT>
+  inline ArgT operator()( ArgT const& arg ) const {
+    ArgT copy = arg;
+    if ( PixelGray<channel_type>(copy) <= m_threshold ) {
+      copy.a() = 0;
+    }
+    return copy;
+  }
+};
+
+template <class PixelT>
 void shadow_mask_alpha( Options& opt,
                         std::string input,
                         std::string output ) {
   typedef typename PixelChannelType<PixelT>::type ChannelT;
-  typedef typename PixelWithoutAlpha<PixelT>::type PNAlphaT;
-  typedef typename MaskedPixelType<PNAlphaT>::type PMaskT;
   if ( opt.threshold < 0 ) {
     ChannelRange<ChannelT> helper;
     opt.threshold = 0.1*helper.max();
@@ -52,10 +67,9 @@ void shadow_mask_alpha( Options& opt,
   cartography::GeoReference georef;
   cartography::read_georeference(georef, input);
   DiskImageView<PixelT> input_image(input);
-  ImageViewRef<PMaskT> masked_input = alpha_to_mask(input_image);
-  ImageViewRef<PMaskT> result =
-    intersect_mask(masked_input,create_mask(threshold(apply_mask(masked_input),opt.threshold)));
-  cartography::write_georeferenced_image(output, mask_to_alpha(result), georef,
+  ImageViewRef<PixelT> result =
+    UnaryPerPixelView<DiskImageView<PixelT>,ThresholdAlphaFunctor<PixelT> >(input_image,ThresholdAlphaFunctor<PixelT>(opt.threshold));
+  cartography::write_georeferenced_image(output, result, georef,
                                          TerminalProgressCallback("photometrytk","Writing:"));
 }
 
