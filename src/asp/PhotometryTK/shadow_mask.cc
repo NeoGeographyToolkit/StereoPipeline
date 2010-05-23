@@ -12,6 +12,7 @@ struct Options {
   // Input
   std::vector<std::string> input_files;
   double nodata, threshold;
+  bool feather;
 };
 
 // Operational Code
@@ -35,6 +36,7 @@ void shadow_mask_nodata( Options& opt,
     intersect_mask(masked_input,create_mask(threshold(input_image,opt.threshold)));
   cartography::write_georeferenced_image(output, create_mask(result,opt.nodata),
                                          georef, TerminalProgressCallback("photometrytk","Writing:"));
+
 }
 
 template <class PixelT>
@@ -55,22 +57,56 @@ public:
 };
 
 template <class PixelT>
+struct MultiplyAlphaFunctor : public vw::ReturnFixedType<PixelT> {
+  template <class Pixel2T>
+  inline PixelT operator()( PixelT const& arg1, Pixel2T const& arg2 ) const {
+    PixelT copy = arg1;
+    copy.a() = float(copy.a()) * float(arg2);
+    if ( copy.a() == 0 && arg1.a() != 0 && arg2 != 0 )
+      copy.a() = arg1.a();
+    return copy;
+  }
+};
+
+template <class Image1T, class Image2T>
+BinaryPerPixelView<Image1T,Image2T,MultiplyAlphaFunctor<typename Image1T::pixel_type> >
+inline multiply_alpha( ImageViewBase<Image1T> const& image,
+                       ImageViewBase<Image2T> const& multiply ) {
+  typedef MultiplyAlphaFunctor<typename Image1T::pixel_type> FuncT;
+  return BinaryPerPixelView<Image1T,Image2T,FuncT>( image.impl(), multiply.impl(), FuncT() );
+}
+
+template <class PixelT>
 void shadow_mask_alpha( Options& opt,
                         std::string input,
                         std::string output ) {
   typedef typename PixelChannelType<PixelT>::type ChannelT;
+  typedef typename PixelWithoutAlpha<PixelT>::type PixelNoAT;
+  ChannelRange<ChannelT> helper;
   if ( opt.threshold < 0 ) {
-    ChannelRange<ChannelT> helper;
     opt.threshold = 0.1*helper.max();
   }
 
   cartography::GeoReference georef;
   cartography::read_georeference(georef, input);
   DiskImageView<PixelT> input_image(input);
-  ImageViewRef<PixelT> result =
-    UnaryPerPixelView<DiskImageView<PixelT>,ThresholdAlphaFunctor<PixelT> >(input_image,ThresholdAlphaFunctor<PixelT>(opt.threshold));
-  cartography::write_georeferenced_image(output, result, georef,
-                                         TerminalProgressCallback("photometrytk","Writing:"));
+  if ( opt.feather ) {
+    ImageViewRef<PixelNoAT> invert_holes =
+      threshold(apply_mask(alpha_to_mask(input_image),helper.max()),
+                opt.threshold,0,helper.max());
+    ImageView<int32> dist = grassfire(invert_holes);
+    ImageViewRef<double> alpha_mod = clamp(channel_cast<double>(dist)/15.0,1.0);
+    ImageViewRef<PixelT> result = multiply_alpha( input_image, alpha_mod );
+
+    cartography::write_georeferenced_image(output, result, georef,
+                                           TerminalProgressCallback("photometrytk","Writing:"));
+  } else {
+    ImageViewRef<PixelT> result =
+      UnaryPerPixelView<DiskImageView<PixelT>,ThresholdAlphaFunctor<PixelT> >(input_image,ThresholdAlphaFunctor<PixelT>(opt.threshold));
+
+    cartography::write_georeferenced_image(output, result, georef,
+                                           TerminalProgressCallback("photometrytk","Writing:"));
+  }
 }
 
 // Code for handing input
@@ -79,6 +115,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("nodata-value", po::value<double>(&opt.nodata), "Value that is nodata in the input image. Not used if input has alpha.")
     ("threshold,t", po::value<double>(&opt.threshold), "Value used to detect shadows.")
+    ("feather", "Feather pre-existing alpha around the newly masked shadows. Only for images with alpha already.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
@@ -102,6 +139,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <image-files>\n";
+  opt.feather = vm.count("feather");
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
