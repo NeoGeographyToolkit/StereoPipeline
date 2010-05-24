@@ -1,3 +1,57 @@
+*** RELEASE 1.0.1, 24 MAY 2010 ***
+
+CORE
+ - Control Network Loader removed and sent to VW's Bundle Adjustment Module.
+ - Build system can now use Google PerfTools.
+ - Kakadu was made optional in build system (ISIS 3.2.x uses this).
+
+ISISIO
+ - Optimized IsisCameraModel to use IsisInterface. Custom code can be loaded up
+   for individual camera types so we don't have to run through ISIS's entire
+   camera model. This allows us not to call GroundMap when the camera is not
+   map projected.
+ - Added a series of tests for the IsisCameraModel that perform unit tests
+   with MOC and Galileo.
+ - Added custom project code for Linescan cameras so not to rely on ISIS's
+   LineScanCameraGroundMap. This code is a bit more precise.
+
+MPI
+ - Added new optional module called MPI that builds on top of
+   Boost MPI. This is experimental development code and is not used for
+   anything in binary release yet.
+
+PHOTOMETRYTK
+ - Added new optional module call the Photometry Toolkit. This is
+   experimental development code and is not use for anything released
+   in the binary yet. This code focuses on future research of massive
+   mosaics (+100GB) and the ability to perform basic photometric corrections.
+
+SESSIONS
+ - Pinhole session modified to read CMOD files as well.
+
+SPICEIO
+
+TOOLS
+ - Made orthoproject more robust against odd input georeferences.
+ - orthoproject's auto scale and crop works again.
+ - Point2mesh's texture is written to a different file.
+ - Added aligndem and geodiff; which are experimental DEM alignment utilities.
+ - Added a quick experimental DEM profile utility called dem_profile.
+ - stereo now detects correlation settings automatically using OBALoG and 
+   SGrad1 interest point functions.
+ - Added cam2map4stereo.py
+ - Remove excessive serial number calculations in isis_adjust.
+ - Update isis_adjust to VW's new Bundle Adjustment module for a 2x improvement.
+ - Stereo should now use LZW compression by default.
+ - Point2dem and Stereo have added option to use directory other than /tmp for
+   intermediate files.
+ - Point2dem now uses MOLA datum instead of its previous truncated value.
+ - Added safety check to stereo to make sure user is not supplying the
+   same camera.
+
+TESTS
+ - Switched from CXXTests to GTest framework.
+
 *** RELEASE 1.0.0, 23 OCTOBER ***
 
 CORE
