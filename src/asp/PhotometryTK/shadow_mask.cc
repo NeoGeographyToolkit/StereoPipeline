@@ -61,20 +61,13 @@ struct MultiplyAlphaFunctor : public vw::ReturnFixedType<PixelT> {
   template <class Pixel2T>
   inline PixelT operator()( PixelT const& arg1, Pixel2T const& arg2 ) const {
     PixelT copy = arg1;
-    copy.a() = float(copy.a()) * float(arg2);
-    if ( copy.a() == 0 && arg1.a() != 0 && arg2 != 0 )
-      copy.a() = arg1.a();
+    copy.a() = double(copy.a()) * arg2;
+    if ( !boost::is_floating_point<typename CompoundChannelType<PixelT>::type>::value &&
+         copy.a() == 0 && arg1.a() != 0 && arg2 != 0 )
+      copy.a() = 1;
     return copy;
   }
 };
-
-template <class Image1T, class Image2T>
-BinaryPerPixelView<Image1T,Image2T,MultiplyAlphaFunctor<typename Image1T::pixel_type> >
-inline multiply_alpha( ImageViewBase<Image1T> const& image,
-                       ImageViewBase<Image2T> const& multiply ) {
-  typedef MultiplyAlphaFunctor<typename Image1T::pixel_type> FuncT;
-  return BinaryPerPixelView<Image1T,Image2T,FuncT>( image.impl(), multiply.impl(), FuncT() );
-}
 
 template <class PixelT>
 void shadow_mask_alpha( Options& opt,
@@ -95,14 +88,15 @@ void shadow_mask_alpha( Options& opt,
       threshold(apply_mask(alpha_to_mask(input_image),helper.max()),
                 opt.threshold,0,helper.max());
     ImageView<int32> dist = grassfire(invert_holes);
-    ImageViewRef<double> alpha_mod = clamp(channel_cast<double>(dist)/15.0,1.0);
-    ImageViewRef<PixelT> result = multiply_alpha( input_image, alpha_mod );
+    ImageViewRef<double> alpha_mod =
+      clamp(channel_cast<double>(dist)/40.0,1.0);
+    ImageViewRef<PixelT> result = per_pixel_filter( input_image, alpha_mod, MultiplyAlphaFunctor<PixelT>() );
 
     cartography::write_georeferenced_image(output, result, georef,
                                            TerminalProgressCallback("photometrytk","Writing:"));
   } else {
     ImageViewRef<PixelT> result =
-      UnaryPerPixelView<DiskImageView<PixelT>,ThresholdAlphaFunctor<PixelT> >(input_image,ThresholdAlphaFunctor<PixelT>(opt.threshold));
+      per_pixel_filter( input_image, ThresholdAlphaFunctor<PixelT>(opt.threshold) );
 
     cartography::write_georeferenced_image(output, result, georef,
                                            TerminalProgressCallback("photometrytk","Writing:"));
