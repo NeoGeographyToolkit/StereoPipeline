@@ -3,7 +3,7 @@ all: graph setup final
 .SUFFIXES:.dot .pdf
 
 .dot.pdf:
-	@dot -Teps $< | epstopdf -f -o=$@
+	@dot -Teps $< | epstopdf -f > $@
 
 graph: graph/asp_deps.pdf
 	@echo "Graphing ..."
@@ -12,7 +12,7 @@ setup:
 	@echo "Running Latex pass 1/3 ..."
 	@pdflatex -interaction nonstopmode asp_book.tex | egrep 'Error' | perl -nle 'print "  *** $$_"'
 	@echo "Running Latex pass 2/3 ..."
-	@pdflatex -interaction nonstopmode asp_book.tex > /dev/null
+	@pdflatex -interaction nonstopmode asp_book.tex | egrep 'Error' | perl -nle 'print "  *** $$_"'
 
 final:
 	@echo "Running Latex pass 3/3 ..."
