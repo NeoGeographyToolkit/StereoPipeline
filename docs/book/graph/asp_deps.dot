@@ -8,6 +8,7 @@ mode="KK";
 //normalize=true;
 //Damping=0.6;
 pad=0.1;
+K=1.5
 
 
 node [fontname="Helvetica"];
