@@ -21,43 +21,50 @@ using namespace vw::camera;
 using namespace vw::ip;
 using namespace vw::ba;
 
-// Global variables
-float g_spacecraft_position_sigma;
-float g_spacecraft_pose_sigma;
-float g_gcp_scalar;
-boost::shared_ptr<ControlNetwork> g_cnet;
-po::variables_map g_vm;
-std::vector< boost::shared_ptr< IsisAdjustCameraModel > > g_camera_adjust_models;
-std::vector<std::string> g_input_files, g_gcp_files;
-double g_lambda;
-int g_max_iterations;
-int g_report_level;
-bool g_kml_all;
+struct Options {
+  Options( void ) : lambda(-1), seed_previous(false) {}
+  // Input
+  std::string cnet_file, cost_function, ba_type;
+  std::vector<std::string> input_names, gcp_names;
+  double cam_position_sigma, cam_pose_sigma, gcp_scalar,
+    lambda, robust_threshold;
+  int max_iterations, report_level, min_matches, poly_order;
+
+  // Boolean Settings
+  bool seed_previous, disable_camera, disable_gcp,
+    save_iteration, write_kml, all_kml, write_isis_cnet;
+
+  // Common Variables
+  std::vector<std::string> camera_serials;
+  boost::shared_ptr<ControlNetwork> cnet;
+  std::vector< boost::shared_ptr< IsisAdjustCameraModel > > camera_models;
+};
 
 // Helper Function to allow selection of different Bundle Adjustment Algorithms.
 //------------------------------------------------------------------------------
 template <class AdjusterT>
-void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_function ) {
+void do_ba( typename AdjusterT::cost_type const& cost_function,
+                               Options const& opt ) {
   // Building the Bundle Adjustment Model and applying the Bundle
   // Adjuster.
   typename AdjusterT::model_type
-    ba_model( g_camera_adjust_models , g_cnet, g_input_files,
-              g_spacecraft_position_sigma, g_spacecraft_pose_sigma,
-              g_gcp_scalar );
+    ba_model( opt.camera_models, opt.cnet, opt.input_names,
+              opt.cam_position_sigma, opt.cam_pose_sigma,
+              opt.gcp_scalar );
   AdjusterT bundle_adjuster( ba_model, cost_function,
-                             !g_vm.count("disable-camera-const"),
-                             !g_vm.count("disable-gcp-const"));
+                             !opt.disable_camera, !opt.disable_gcp);
 
   // Handling options to modify Bundle Adjuster
-  if ( g_vm.count( "lambda" ) )
-    bundle_adjuster.set_lambda( g_lambda );
+  if ( opt.lambda > 0 )
+    bundle_adjuster.set_lambda( opt.lambda );
   if ( cost_function.name_tag() != "L2Error" )
     bundle_adjuster.set_control( 1 ); // Shutting off fast Fletcher-style control
-  if ( g_vm.count( "seed-with-previous" ) ) {
+  if ( opt.seed_previous ) {
     vw_out() << "Seeding with previous ISIS adjustment files.\n";
     vw_out() << "\tLoading up previous ISIS adjustments\n";
-    for (unsigned j = 0; j < g_input_files.size(); ++j ) {
-      std::string adjust_file = fs::path( g_input_files[j] ).replace_extension("isis_adjust").string();
+    for (unsigned j = 0; j < opt.input_names.size(); ++j ) {
+      std::string adjust_file =
+        fs::path( opt.input_names[j] ).replace_extension("isis_adjust").string();
 
       // Loading and forcing in the adjustment
       if ( fs::exists( adjust_file ) ) {
@@ -80,8 +87,8 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
     // Retriangulating position of control points in control network
     {
       std::vector<boost::shared_ptr<CameraModel> > cameras = ba_model.adjusted_cameras();
-      for ( ControlNetwork::iterator cp = g_cnet->begin();
-            cp != g_cnet->end(); ++cp ) {
+      for ( ControlNetwork::iterator cp = opt.cnet->begin();
+            cp != opt.cnet->end(); ++cp ) {
         if ( cp->type() != ControlPoint::TiePoint )
           continue; // We don't move GCPs, this seems correct.
         int count = 0;
@@ -115,13 +122,13 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
     {
       vw_out() << "\tPush new triangulation results back into BA model\n";
 
-      for ( unsigned i = 0; i < g_cnet->size(); ++i )
-        ba_model.set_B_parameters( i, (*g_cnet)[i].position() );
+      for ( unsigned i = 0; i < opt.cnet->size(); ++i )
+        ba_model.set_B_parameters( i, (*opt.cnet)[i].position() );
     }
   }
 
   // Clearing the monitoring text files
-  if ( g_vm.count( "save-iteration-data" ) ) {
+  if ( opt.save_iteration ) {
     std::ofstream ostr( "iterCameraParam.txt", std::ios::out );
     ostr << "";
     ostr.close();
@@ -156,7 +163,8 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
   }
 
   // Reporter
-  BundleAdjustReport< AdjusterT > reporter( "ISIS Adjust", ba_model, bundle_adjuster, g_report_level);
+  BundleAdjustReport< AdjusterT > reporter( "ISIS Adjust", ba_model,
+                                            bundle_adjuster, opt.report_level);
 
   // Performing the Bundle Adjustment
   double abs_tol = 1e10, rel_tol = 1e10;
@@ -165,7 +173,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
   int no_improvement_count = 0;
   while ( true ) {
     // Determine if it is time to quit
-    if ( bundle_adjuster.iterations() >= g_max_iterations ) {
+    if ( bundle_adjuster.iterations() >= opt.max_iterations ) {
       reporter() << "Triggered 'Max Iterations'\n";
       break;
     } else if ( abs_tol < 0.01 ) {
@@ -184,7 +192,7 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
     reporter.loop_tie_in();
 
     //Writing recording data for Bundlevis
-    if ( g_vm.count("save-iteration-data") ) {
+    if ( opt.save_iteration ) {
 
       // Recording Points Data
       std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
@@ -222,291 +230,282 @@ void perform_bundleadjustment( typename AdjusterT::cost_type const& cost_functio
   reporter.end_tie_in();
 
   // Option to write KML of control network
-  if ( g_vm.count("write-kml") ) {
+  if ( opt.write_kml ) {
     vw_out() << "Writing KML of Control Network.\n";
-    reporter.write_control_network_kml( !g_kml_all );
+    reporter.write_control_network_kml( !opt.all_kml );
   }
 
   for ( unsigned int i = 0; i < ba_model.num_cameras(); ++i )
-    ba_model.write_adjustment( i, fs::path( g_input_files[i] ).replace_extension("isis_adjust").string());
+    ba_model.write_adjustment( i, fs::path( opt.input_names[i] ).replace_extension("isis_adjust").string() );
 
 }
 
 // Main Executable
 // -----------------------------------------------------------------------
-int main(int argc, char* argv[]) {
-
-  std::string cnet_file;
-  std::string robust_cost_function;
-  std::string bundle_adjustment_type;
-  int min_matches;
-  double robust_outlier_threshold;
-  int polynomial_order;
-
-  // BOOST Program Options code
-  po::options_description general_options("Options");
+void handle_arguments( int argc, char *argv[], Options& opt ) {
+  po::options_description general_options("");
   general_options.add_options()
-    ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
-    ("cost-function", po::value<std::string>(&robust_cost_function)->default_value("L2"),
+    ("cnet,c", po::value(&opt.cnet_file), "Load a control network from a file")
+    ("cost-function", po::value(&opt.cost_function)->default_value("L2"),
      "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
-    ("bundle-adjuster", po::value<std::string>(&bundle_adjustment_type)->default_value("Sparse"),
+    ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Sparse"),
      "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]")
     ("disable-camera-const", "Disable camera constraint error")
     ("disable-gcp-const", "Disable GCP constraint error")
-    ("gcp-scalar", po::value<float>(&g_gcp_scalar)->default_value(1.0),
+    ("gcp-scalar", po::value(&opt.gcp_scalar)->default_value(1.0),
      "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
-    ("lambda,l", po::value<double>(&g_lambda), "Set the intial value of the LM parameter g_lambda")
-    ("min-matches", po::value<int>(&min_matches)->default_value(30),
+    ("lambda,l", po::value(&opt.lambda), "Set the intial value of the LM parameter g_lambda")
+    ("min-matches", po::value(&opt.min_matches)->default_value(30),
      "Set the minimum number of matches between images that will be considered.")
-    ("max-iterations", po::value<int>(&g_max_iterations)->default_value(25), "Set the maximum number of iterations.")
-    ("poly-order", po::value<int>(&polynomial_order)->default_value(0),
+    ("max-iterations", po::value(&opt.max_iterations)->default_value(25), "Set the maximum number of iterations.")
+    ("poly-order", po::value(&opt.poly_order)->default_value(0),
      "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
-    ("position-sigma", po::value<float>(&g_spacecraft_position_sigma)->default_value(100.0),
+    ("position-sigma", po::value(&opt.cam_position_sigma)->default_value(100.0),
      "Set the sigma (uncertainty) of the spacecraft position. (meters)")
-    ("pose-sigma", po::value<float>(&g_spacecraft_pose_sigma)->default_value(0.1),
+    ("pose-sigma", po::value(&opt.cam_pose_sigma)->default_value(0.1),
      "Set the sigma (uncertainty) of the spacecraft pose. (radians)")
-    ("report-level,r", po::value<int>(&g_report_level)->default_value(10),
+    ("report-level,r", po::value(&opt.report_level)->default_value(10),
      "Changes the detail of the Bundle Adjustment Report")
-    ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0),
+    ("robust-threshold", po::value(&opt.robust_threshold)->default_value(10.0),
      "Set the threshold for robust cost functions.")
     ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
     ("seed-with-previous", "Use previous isis_adjust files at starting point for this run.")
     ("write-isis-cnet-also", "Writes an ISIS style control network")
-    ("write-kml", po::value<bool>(&g_kml_all),
+    ("write-kml", po::value(&opt.all_kml),
      "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates")
     ("help,h", "Display this help message");
 
-  po::options_description hidden_options("");
-  hidden_options.add_options()
-    ("input-files", po::value<std::vector<std::string> >(&g_input_files));
+  po::options_description positional("");
+  positional.add_options()
+    ("input-files", po::value<std::vector<std::string> >(&opt.input_names));
 
-  po::options_description options("Allowed Options");
-  options.add(general_options).add(hidden_options);
+  po::positional_options_description positional_desc;
+  positional_desc.add("input-files", -1);
 
-  po::positional_options_description p;
-  p.add("input-files", -1);
+  po::options_description all_options;
+  all_options.add(general_options).add(positional);
+
+  po::variables_map vm;
+  try {
+    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
+    po::notify( vm );
+  } catch (po::error &e ) {
+    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
+              << e.what() << general_options );
+  }
 
   std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <isis cube files> ... " << std::endl << std::endl;
-  usage << general_options << std::endl;
+  usage << "Usage: " << argv[0] << " [options] <isis cube files> ...\n";
 
+  if ( vm.count("help") )
+    vw_throw( ArgumentErr() << usage.str() << general_options );
+  if ( opt.input_names.empty() )
+    vw_throw( ArgumentErr() << "Missing input cube files!\n"
+              << usage.str() << general_options );
+  opt.gcp_names = sort_out_gcps( opt.input_names );
+
+  // checking results of booleans
+  opt.seed_previous = vm.count("seed-with-previous");
+  opt.disable_camera = vm.count("disable-camera-const");
+  opt.disable_gcp = vm.count("disable-gcp-const");
+  opt.save_iteration = vm.count("save-iteration-data");
+  opt.write_kml = vm.count("write-kml");
+  opt.write_isis_cnet = vm.count("write-isis-cnet-also");
+
+  // double checking the string inputs
+  boost::to_lower( opt.cost_function );
+  if ( !( opt.cost_function == "pseudohuber" ||
+          opt.cost_function == "huber" ||
+          opt.cost_function == "l1" ||
+          opt.cost_function == "l2" ||
+          opt.cost_function == "cauchy" ) )
+    vw_throw( ArgumentErr() << "Unknown robust cost function: " << opt.cost_function
+              << ". Options are : [ PseudoHuber, Huber, L1, L2, Cauchy]\n" );
+  boost::to_lower( opt.ba_type );
+  if ( !( opt.ba_type == "ref" ||
+          opt.ba_type == "sparse" ||
+          opt.ba_type == "robustref" ||
+          opt.ba_type == "robustsparse" ||
+          opt.ba_type == "robustsparsekgcp" ) )
+    vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
+              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]\n" );
+}
+
+int main(int argc, char* argv[]) {
+
+  Options opt;
   try {
-    po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), g_vm );
-    po::notify( g_vm );
-  } catch (po::error &e) {
-    std::cout << "An error occured while parsing command line arguments.\n";
-    std::cout << "\t" << e.what() << "\n\n";
-    std::cout << usage.str();
-    return 1;
-  }
+    handle_arguments( argc, argv, opt );
 
-  if ( g_vm.count("help") ) {
-    vw_out() << usage.str() << std::endl;
-    return 1;
-  }
+    // Loading the image data into the camera models. Also applying
+    // blank equations to define the cameras
+    std::vector< boost::shared_ptr<CameraModel> > camera_models;
+    {
+      vw_out() << "Loading Camera Models:\n";
+      vw_out() << "----------------------\n";
+      TerminalProgressCallback progress("asp","Camera Models:");
+      progress.report_progress(0);
+      double tpc_inc = 1/double(opt.input_names.size());
+      BOOST_FOREACH( std::string const& input, opt.input_names ) {
+        progress.report_incremental_progress( tpc_inc );
+        vw_out(DebugMessage,"asp") << "Loading: " << input << "\n";
 
-  if ( g_vm.count("input-files") < 1 ) {
-    vw_out() << "Error: Must specify at least one input file!" << std::endl << std::endl;
-    vw_out() << usage.str();
-    return 1;
-  }
-  g_gcp_files = sort_out_gcps( g_input_files );
-
-  // Checking cost function strings
-  boost::to_lower( robust_cost_function );
-  if ( !( robust_cost_function == "pseudohuber" ||
-          robust_cost_function == "huber" ||
-          robust_cost_function == "l1" ||
-          robust_cost_function == "l2" ||
-          robust_cost_function == "cauchy" ) ) {
-    vw_out() << "Unknown robust cost function: " << robust_cost_function
-              << ". Options are : [ PseudoHuber, Huber, L1, L2, Cauchy]\n";
-    exit(1);
-  }
-
-  // Checking bundle adjustment type string
-  boost::to_lower( bundle_adjustment_type );
-  if ( !( bundle_adjustment_type == "ref" ||
-          bundle_adjustment_type == "sparse" ||
-          bundle_adjustment_type == "robustref" ||
-          bundle_adjustment_type == "robustsparse" ||
-          bundle_adjustment_type == "robustsparsekgcp" ) ) {
-    vw_out() << "Unknown bundle adjustment version: " << bundle_adjustment_type
-              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]\n";
-    exit(1);
-  }
-
-  // Loading the image data into the camera models. Also applying
-  // blank equations to define the cameras
-  std::vector< boost::shared_ptr<CameraModel> > camera_models( g_input_files.size() );
-  {
-    vw_out() << "Loading Camera Models:\n";
-    vw_out() << "----------------------\n";
-    TerminalProgressCallback progress("asp","Camera Models:");
-    progress.report_progress(0);
-    for ( unsigned i = 0; i < g_input_files.size(); ++i ) {
-      progress.report_progress(float(i)/float(g_input_files.size()));
-      vw_out(DebugMessage,"asp") << "Loading: " << g_input_files[i] << std::endl;
-
-      // Equations defining the delta
-      boost::shared_ptr<asp::BaseEquation> posF( new asp::PolyEquation(polynomial_order) );
-      boost::shared_ptr<asp::BaseEquation> poseF( new asp::PolyEquation(polynomial_order) );
-      boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( g_input_files[i], posF, poseF ) );
-      camera_models[i] = p;
+        boost::shared_ptr<asp::BaseEquation> posF( new asp::PolyEquation( opt.poly_order ) );
+        boost::shared_ptr<asp::BaseEquation> poseF( new asp::PolyEquation( opt.poly_order ) );
+        boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( input, posF, poseF ) );
+        camera_models.push_back( p );
+      }
+      progress.report_finished();
     }
-    progress.report_finished();
-  }
 
-  // Checking to see if there is a cnet file to load up
-  g_cnet = boost::shared_ptr<ControlNetwork>( new ControlNetwork("IsisAdjust Control Network (in mm)"));
-  if ( g_vm.count("cnet") ){
-    vw_out() << "Loading control network from file: " << cnet_file << "\n";
+    // Need to typecast all the models to feed to the Bundle Adjustment
+    // model, kinda ugly.
+    opt.camera_models.resize( camera_models.size() );
+    for ( unsigned j = 0; j < camera_models.size(); ++j )
+      opt.camera_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
 
-    std::vector<std::string> tokens;
-    boost::split( tokens, cnet_file, boost::is_any_of(".") );
-    if ( tokens[tokens.size()-1] == "net" ) {
-      // An ISIS style control network
-      g_cnet->read_isis( cnet_file );
-    } else if ( tokens[tokens.size()-1] == "cnet" ) {
-      // A VW binary style
-      g_cnet->read_binary( cnet_file );
+    // Extract serials
+    opt.camera_serials.clear();
+    BOOST_FOREACH( boost::shared_ptr<IsisAdjustCameraModel> ccam, opt.camera_models ) {
+      opt.camera_serials.push_back( ccam->serial_number() );
+    }
+
+    // Loading/Building Control Network
+    opt.cnet = boost::shared_ptr<ControlNetwork>( new ControlNetwork("IsisAdjust") );
+    if ( !opt.cnet_file.empty() ) {
+      vw_out() << "Loading control network from file: " << opt.cnet_file << "\n";
+
+      std::vector<std::string> tokens;
+      boost::split( tokens, opt.cnet_file, boost::is_any_of(".") );
+      if ( tokens[tokens.size()-1] == "net" ) {
+        // An ISIS style control network
+        opt.cnet->read_isis( opt.cnet_file );
+      } else if ( tokens[tokens.size()-1] == "cnet" ) {
+        // A VW binary style
+        opt.cnet->read_binary( opt.cnet_file );
+      } else {
+        vw_throw( IOErr() << "Unknown Control Network file extension, \""
+                  << tokens[tokens.size()-1] << "\"." );
+      }
+
+      // Assigning camera id number for Control Measures
+      BOOST_FOREACH( ControlPoint & cp, *opt.cnet ) {
+        BOOST_FOREACH( ControlMeasure & cm, cp ) {
+          bool found = false;
+          for ( unsigned s = 0; s < opt.camera_serials.size(); ++s ) {
+            if ( cm.serial() == opt.camera_serials[s] ) {
+              cm.set_image_id( s );
+              found = true;
+              break;
+            }
+          }
+          if (!found)
+            vw_throw( InputErr() << "ISIS Adjust doesn't seem to have a camera for serial, \""
+                      << cm.serial() << "\", found in loaded Control Network" );
+        }
+      }
     } else {
-      vw_throw( IOErr() << "Unknown Control Network file extension, \""
-                << tokens[tokens.size()-1] << "\"." );
+      vw_out() << "Building Control Network:\n";
+      vw_out() << "-------------------------\n";
+      build_control_network( (*opt.cnet), camera_models,
+                             opt.input_names,
+                             opt.min_matches );
+      add_ground_control_points( (*opt.cnet),
+                                 opt.input_names,
+                                 opt.gcp_names );
     }
 
-    // Assigning camera id number for Control Measures
-    std::vector<std::string> camera_serials;
-    for ( unsigned i = 0; i < camera_models.size(); ++i ) {
-      boost::shared_ptr< IsisAdjustCameraModel > cam =
-        boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[i] );
-      camera_serials.push_back( cam->serial_number() );
-    }
-    for ( unsigned i = 0; i < g_cnet->size(); ++i ) {
-      for ( unsigned m = 0; m < (*g_cnet)[i].size(); ++m ) {
-        bool found = false;
-        // Determining which camera matches the serial string
-        for ( unsigned s = 0; s < camera_serials.size(); ++s ) {
-          if ( (*g_cnet)[i][m].serial() == camera_serials[s] ) {
-            (*g_cnet)[i][m].set_image_id( s );
-            found = true;
-            break;
+    {
+      vw_out() << "Applying serial numbers:\n";
+      vw_out() << "-------------------------------------\n";
+      TerminalProgressCallback progress("asp","");
+      progress.report_progress(0);
+      double tpc_inc = 1.0/double(opt.cnet->size());
+
+      BOOST_FOREACH( ControlPoint & cp, *opt.cnet ) {
+        progress.report_incremental_progress( tpc_inc );
+        BOOST_FOREACH( ControlMeasure & cm, cp ) {
+          if ( cm.ephemeris_time() == 0 ) {
+            cm.set_description( "px" );
+            cm.set_serial( opt.camera_serials[cm.image_id()] );
+            cm.set_pixels_dominant(true);
           }
         }
-        if (!found)
-          vw_throw( InputErr() << "ISIS Adjust doesn't seem to have a camera for serial, \""
-                    << (*g_cnet)[i][m].serial() << "\", found in loaded Control Network" );
       }
+      progress.report_finished();
+
+      // Writing ISIS Control Network
+      opt.cnet->write_binary("isis_adjust");
+      vw_out() << "\n";
     }
 
-  } else {
-    vw_out() << "Building Control Network:\n";
-    vw_out() << "-------------------------\n";
-    build_control_network( (*g_cnet),
-                           camera_models,
-                           g_input_files,
-                           min_matches );
-    add_ground_control_points( (*g_cnet),
-                               g_input_files,
-                               g_gcp_files );
-  }
+    VW_DEBUG_ASSERT( opt.cnet->size() != 0, vw::MathErr() << "Control network build error" );
 
-  // Need to typecast all the models to feed to the Bundle Adjustment
-  // model, kinda ugly.
-  g_camera_adjust_models.resize( camera_models.size() );
-  for ( unsigned j = 0; j < camera_models.size(); ++j )
-    g_camera_adjust_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
+    // Option to write ISIS-style control network
+    if ( opt.write_isis_cnet ) {
+      vw_out() << "Writing ISIS-style Control Network.\n";
+      opt.cnet->write_isis("isis_adjust");
+    }
 
-  // Applying serial numbers
-  {
-    vw_out() << "Applying serial numbers:\n";
-    vw_out() << "-------------------------------------\n";
-    TerminalProgressCallback progress("asp","");
-    progress.report_progress(0);
+    // Switching based on cost function
+    {
+      typedef IsisBundleAdjustmentModel<3,3> ModelType;
 
-    // Gather serials first
-    std::vector<std::string> serials;
-    for ( uint i = 0; i < g_camera_adjust_models.size(); i++ )
-      serials.push_back( g_camera_adjust_models[i]->serial_number() );
-
-    // And apply
-    for (unsigned i = 0; i < g_cnet->size(); ++i ) {
-      progress.report_progress(float(i)/float(g_cnet->size()));
-      for ( ControlPoint::iterator cm = (*g_cnet)[i].begin();
-            cm != (*g_cnet)[i].end(); cm++ ) {
-        if ( cm->ephemeris_time() == 0 ) {
-          // Loading camera used by measure
-          cm->set_description( "px" );
-          cm->set_serial( serials[cm->image_id()] );
-          cm->set_pixels_dominant( true );
+      if ( opt.ba_type == "ref" ) {
+        if ( opt.cost_function == "pseudohuber" ) {
+          do_ba<AdjustRef< ModelType, PseudoHuberError > >( PseudoHuberError(opt.robust_threshold), opt );
+        } else if ( opt.cost_function == "huber" ) {
+          do_ba<AdjustRef< ModelType, HuberError > >( HuberError(opt.robust_threshold), opt );
+        } else if ( opt.cost_function == "l1" ) {
+          do_ba<AdjustRef< ModelType, L1Error > >( L1Error(), opt );
+        } else if ( opt.cost_function == "l2" ) {
+          do_ba<AdjustRef< ModelType, L2Error > >( L2Error(), opt );
+        } else if ( opt.cost_function == "cauchy" ) {
+          do_ba<AdjustRef< ModelType, CauchyError > >( CauchyError(opt.robust_threshold), opt );
+        }
+      } else if ( opt.ba_type == "sparse" ) {
+        if ( opt.cost_function == "pseudohuber" ) {
+          do_ba<AdjustSparse< ModelType, PseudoHuberError > >( PseudoHuberError(opt.robust_threshold), opt );
+        } else if ( opt.cost_function == "huber" ) {
+          do_ba<AdjustSparse< ModelType, HuberError > >( HuberError(opt.robust_threshold), opt );
+        } else if ( opt.cost_function == "l1" ) {
+          do_ba<AdjustSparse< ModelType, L1Error > >( L1Error(), opt );
+        } else if ( opt.cost_function == "l2" ) {
+          do_ba<AdjustSparse< ModelType, L2Error > >( L2Error(), opt );
+        } else if ( opt.cost_function == "cauchy" ) {
+          do_ba<AdjustSparse< ModelType, CauchyError > >( CauchyError(opt.robust_threshold), opt );
+        }
+      } else if ( opt.ba_type == "robustref" ) {
+        if ( opt.cost_function == "l2" ) {
+          do_ba<AdjustRobustRef< ModelType,L2Error> >( L2Error(), opt );
+        } else {
+          vw_out() << "Robust Reference implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
+          exit(1);
+        }
+      } else if ( opt.ba_type == "robustsparse" ) {
+        if ( opt.cost_function == "l2" ) {
+          do_ba<AdjustRobustSparse< ModelType,L2Error> >( L2Error(), opt );
+        } else {
+          vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
+          exit(1);
+        }
+      } else if ( opt.ba_type == "robustsparsekgcp" ) {
+        if ( opt.cost_function == "l2" ) {
+          do_ba<AdjustRobustSparseKGCP< ModelType,L2Error> >( L2Error(), opt );
+        } else {
+          vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
+          exit(1);
         }
       }
     }
-    progress.report_finished();
 
-    // Writing ISIS Control Network
-    g_cnet->write_binary("isis_adjust");
-    vw_out() << "\n";
+  } catch ( const ArgumentErr& e ) {
+    vw_out() << e.what() << std::endl;
+    return 1;
+  } catch ( const Exception& e ) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
   }
 
-  VW_DEBUG_ASSERT( g_cnet->size() != 0, vw::MathErr() << "Control network build error" );
-
-  // Option to write ISIS-style control network
-  if ( g_vm.count("write-isis-cnet-also") ) {
-    vw_out() << "Writing ISIS-style Control Network.\n";
-    g_cnet->write_isis("isis_adjust");
-  }
-
-  // Switching based on cost function
-  {
-    typedef IsisBundleAdjustmentModel<3,3> ModelType;
-
-    if ( bundle_adjustment_type == "ref" ) {
-      if ( robust_cost_function == "pseudohuber" ) {
-        perform_bundleadjustment<AdjustRef< ModelType, PseudoHuberError > >( PseudoHuberError(robust_outlier_threshold) );
-      } else if ( robust_cost_function == "huber" ) {
-        perform_bundleadjustment<AdjustRef< ModelType, HuberError > >( HuberError(robust_outlier_threshold) );
-      } else if ( robust_cost_function == "l1" ) {
-        perform_bundleadjustment<AdjustRef< ModelType, L1Error > >( L1Error() );
-      } else if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<AdjustRef< ModelType, L2Error > >( L2Error() );
-      } else if ( robust_cost_function == "cauchy" ) {
-        perform_bundleadjustment<AdjustRef< ModelType, CauchyError > >( CauchyError(robust_outlier_threshold) );
-      }
-    } else if ( bundle_adjustment_type == "sparse" ) {
-      if ( robust_cost_function == "pseudohuber" ) {
-        perform_bundleadjustment<AdjustSparse< ModelType, PseudoHuberError > >( PseudoHuberError(robust_outlier_threshold) );
-      } else if ( robust_cost_function == "huber" ) {
-        perform_bundleadjustment<AdjustSparse< ModelType, HuberError > >( HuberError(robust_outlier_threshold) );
-      } else if ( robust_cost_function == "l1" ) {
-        perform_bundleadjustment<AdjustSparse< ModelType, L1Error > >( L1Error() );
-      } else if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<AdjustSparse< ModelType, L2Error > >( L2Error() );
-      } else if ( robust_cost_function == "cauchy" ) {
-        perform_bundleadjustment<AdjustSparse< ModelType, CauchyError > >( CauchyError(robust_outlier_threshold) );
-      }
-    } else if ( bundle_adjustment_type == "robustref" ) {
-      if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<AdjustRobustRef< ModelType,L2Error> >( L2Error() );
-      } else {
-        vw_out() << "Robust Reference implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
-        exit(1);
-      }
-    } else if ( bundle_adjustment_type == "robustsparse" ) {
-      if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<AdjustRobustSparse< ModelType,L2Error> >( L2Error() );
-      } else {
-        vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
-        exit(1);
-      }
-    } else if ( bundle_adjustment_type == "robustsparsekgcp" ) {
-      if ( robust_cost_function == "l2" ) {
-        perform_bundleadjustment<AdjustRobustSparseKGCP< ModelType,L2Error> >( L2Error() );
-      } else {
-        vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
-        exit(1);
-      }
-    }
-  }
   return 0;
 }
