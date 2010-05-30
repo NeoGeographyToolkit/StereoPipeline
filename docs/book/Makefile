@@ -1,22 +1,16 @@
-all: graph setup final
+all: graph final
 
 .SUFFIXES:.dot .pdf
 
 .dot.pdf:
-	@dot -Teps $< | epstopdf -f > $@
+	@dot -Tpdf $< > $@
 
 graph: graph/asp_deps.pdf
 	@echo "Graphing ..."
 
-setup:
-	@echo "Running Latex pass 1/3 ..."
-	@pdflatex -interaction nonstopmode asp_book.tex | egrep 'Error' | perl -nle 'print "  *** $$_"'
-	@echo "Running Latex pass 2/3 ..."
-	@pdflatex -interaction nonstopmode asp_book.tex | egrep 'Error' | perl -nle 'print "  *** $$_"'
-
 final:
-	@echo "Running Latex pass 3/3 ..."
-	@pdflatex -interaction nonstopmode asp_book.tex | egrep 'Error|Warning|Underfull|Overfull|Output written on' | grep -v 'pdf inclusion' | perl -nle 'print "  *** $$_"'
+	@echo "Calling Latex-MK ..."
+	@latex-mk --pdflatex asp_book.tex
 
 clean:
 	rm -rf *.o *~ \#* *.aux *.log
