@@ -1,5 +1,6 @@
 # GNU Makefile for LaTeX stuff using the latex-mk system.
 
+# Rule to convert .dot files into .pdf files.
 %.pdf : %.dot
 	@dot -Teps $< | epstopdf -f -o=$@
 
@@ -15,12 +16,25 @@ TEXSRCS =	acknowledgments.tex \
 			stereo_testing_plan.tex \
 			stereodefault.tex \
 			tools.tex \
-			tutorial.tex
+			tutorial.tex \
+			vwlogconfig.tex
 OTHER_PDF=	graph/asp_deps.pdf
 OTHER+=		$(OTHER_PDF)
 
 CLEAN_FILES+= $(OTHER_PDF)
 USE_PDFLATEX = YES
-VIEWPDF = open
 
-include /opt/macports/share/latex-mk/latex.gmk
+# Use 'open' on Mac systems to view the PDF
+OS := $(shell uname -s)
+ifeq ($(OS),Darwin)
+VIEWPDF = open
+endif
+
+# The latex-mk GNU make file only exists in one place, but this series
+# of places should find it on most systems, including it where it is found,
+# quietly failing otherwise.
+#
+# If it isn't coming up on yours, just add your location of latex.gmk to 
+# this list, and it should get picked up.
+-include /usr/local/share/latex-mk/latex.gmk \
+         /opt/macports/share/latex-mk/latex.gmk
