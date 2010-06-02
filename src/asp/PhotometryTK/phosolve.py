@@ -18,10 +18,13 @@ def main():
             parser = optparse.OptionParser(usage=usage);
             parser.set_defaults(threads=10)
             parser.set_defaults(level=-1)
+            parser.set_defaults(iterations=100)
             parser.add_option("-t", "--threads", dest="threads",
-                              help="Number of threads to use.",type="int")
+                              help="Number of threads to use",type="int")
             parser.add_option("-l", "--level", dest="level",
-                              help="Lowest level to process at.",type="int")
+                              help="Lowest level to process at",type="int")
+            parser.add_option("-i", "--iter", dest="iterations",
+                              help="Max iterations to perform",type="int")
 
             (options, args) = parser.parse_args()
 
@@ -32,7 +35,7 @@ def main():
 
         pool = Pool(processes=options.threads)
 
-        for iteration in range(100):
+        for iteration in range(options.iterations):
             # Perform Albedo
             albedo_cmd = []
             for i in range(2*options.threads):
