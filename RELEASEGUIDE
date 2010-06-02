@@ -1,0 +1,31 @@
+HOW TO ROLL A RELEASE
+
+Here's a developer checklist for performing a binary release
+
+1.) Modify build system
+
+Inside configure.ac, remove "_post" and increment version number from AC_INIT line.
+
+2.) Update ISIS Version in README
+
+3.) Update NEWS
+
+Just summarize all commits that have happened since last release
+
+4.) Commit and Tag release in repo
+
+5.) Download and operate Lundy's binary builder on OSX10.6, x86_32, and x86_64
+
+Code modification to Binary Builder will probably have to happen here as dependencies will have probably changed.
+
+6.) Test all binary release on different machines by just running the example dataset
+
+7.) Build docs
+
+8.) Update website
+
+9.) Modify build system
+
+Inside configure.ac, append "_post" to version number in AC_INIT line.
+
+10.) Commit changes.
