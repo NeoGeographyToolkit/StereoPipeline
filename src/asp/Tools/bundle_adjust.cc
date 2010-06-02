@@ -35,10 +35,10 @@ using namespace vw::ba;
 #endif
 
 // Bundle adjustment functor
-class BundleAdjustmentModel : public ba::ModelBase<BundleAdjustmentModel, 7, 4> {
+class BundleAdjustmentModel : public ba::ModelBase<BundleAdjustmentModel, 7, 3> {
 
   typedef Vector<double,7> camera_vector_t;
-  typedef Vector<double,4> point_vector_t;
+  typedef Vector<double,3> point_vector_t;
 
   std::vector<boost::shared_ptr<CameraModel> > m_cameras;
   boost::shared_ptr<ControlNetwork> m_network;
@@ -49,15 +49,11 @@ class BundleAdjustmentModel : public ba::ModelBase<BundleAdjustmentModel, 7, 4> 
   std::vector<point_vector_t> b_target;
   int m_num_pixel_observations;
 
-  double m_huber_pixel_threshold;
-
 public:
   BundleAdjustmentModel(std::vector<boost::shared_ptr<CameraModel> > const& cameras,
                         boost::shared_ptr<ControlNetwork> network) :
     m_cameras(cameras), m_network(network), a(cameras.size()),
     b(network->size()), a_target(cameras.size()), b_target(network->size()) {
-
-    m_huber_pixel_threshold = 100; // outlier rejection threshold (pixels)
 
     // Compute the number of observations from the bundle.
     m_num_pixel_observations = 0;
@@ -72,16 +68,10 @@ public:
     }
 
     for (unsigned i = 0; i < network->size(); ++i) {
-      // We track 3d points as homogeneous vectors
-      point_vector_t p;
-      p(3) = 1.0;
-      subvector(p,0,3) = (*m_network)[i].position();
-      b[i] = normalize(p);
+      b[i] = (*m_network)[i].position();
       b_target[i] = b[i];
     }
   }
-
-  double pixel_outlier_threshold() const { return m_huber_pixel_threshold; }
 
   // Return a reference to the camera and point parameters.
   camera_vector_t A_parameters(int j) const { return a[j]; }
@@ -91,7 +81,7 @@ public:
     subvector(a[j],3,4) = normalize(subvector(a_j,3,4));
   }
   void set_B_parameters(int i, point_vector_t const& b_i) {
-    b[i] = normalize(b_i);
+    b[i] = b_i;
   }
 
   // Return the initial parameters
@@ -105,23 +95,22 @@ public:
   // Return the covariance of the camera parameters for camera j.
   inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned /*j*/ ) const {
     Matrix<double,camera_params_n,camera_params_n> result;
-    result(0,0) = 1/400.0;
-    result(1,1) = 1/400.0;
-    result(2,2) = 1/400.0;
-    result(3,3) = 1/1e-16;
-    result(3,3) = 1/1e-16;
-    result(3,3) = 1/1e-16;
-    result(3,3) = 1/1e-16;
+    result(0,0) = 1/10.0;
+    result(1,1) = 1/10.0;
+    result(2,2) = 1/10.0;
+    result(3,3) = 1/1e-3;
+    result(3,3) = 1/1e-3;
+    result(3,3) = 1/1e-3;
+    result(3,3) = 1/1e-3;
     return result;
   }
 
   // Return the covariance of the point parameters for point i.
   inline Matrix<double,point_params_n,point_params_n> B_inverse_covariance ( unsigned /*i*/ ) const {
     Matrix<double,point_params_n,point_params_n> result;
-    result(0,0) = 1/1e-16;
-    result(1,1) = 1/1e-16;
-    result(2,2) = 1/1e-16;
-    result(3,3) = 1/1e-16;
+    result(0,0) = 1/20;
+    result(1,1) = 1/20;
+    result(2,2) = 1/20;
     return result;
   }
 
@@ -137,13 +126,14 @@ public:
   // image, and the 'b' vector (3D point location) for the i'th
   // point, return the location of b_i on imager j in pixel
   // coordinates.
-  Vector2 operator() ( unsigned /*i*/, unsigned j, camera_vector_t const& a_j, point_vector_t const& b_i ) const {
+  Vector2 operator() ( unsigned /*i*/, unsigned j,
+                       camera_vector_t const& a_j,
+                       point_vector_t const& b_i ) const {
     Vector3 position_correction;
     Quaternion<double> pose_correction;
     parse_camera_parameters(a_j, position_correction, pose_correction);
-    point_vector_t p = b_i/b_i(3); // Renormalize
-    boost::shared_ptr<CameraModel> cam(new AdjustedCameraModel(m_cameras[j], position_correction, pose_correction));
-    return cam->point_to_pixel(subvector(p,0,3));
+    AdjustedCameraModel cam(m_cameras[j], position_correction, pose_correction);
+    return cam.point_to_pixel(b_i);
   }
 
   void write_adjustment(int j, std::string const& filename) const {
@@ -249,6 +239,29 @@ public:
     }
   }
 
+  void bundlevis_cameras_append(std::string const& filename) {
+    std::ofstream ostr(filename.c_str(),std::ios::app);
+    for ( unsigned j = 0; j < a.size(); j++ ) {
+      Vector3 position_correction;
+      Quaternion<double> pose_correction;
+      parse_camera_parameters(a[j], position_correction, pose_correction);
+      AdjustedCameraModel cam(m_cameras[j],
+                              position_correction, pose_correction);
+      Vector3 position = cam.camera_center( Vector2() );
+      ostr << std::setprecision(8) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
+      Quaternion<double> pose = cam.camera_pose( Vector2() );
+      Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
+      ostr << std::setprecision(8) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
+    }
+  }
+
+  void bundlevis_points_append(std::string const& filename) {
+    std::ofstream ostr(filename.c_str(),std::ios::app);
+    for ( unsigned i = 0; i < b.size(); i++ ) {
+      ostr << i << std::setprecision(8) << "\t" << b[i][0] << "\t"
+           << b[i][1] << "\t" << b[i][2] << "\n";
+    }
+  }
 };
 
 
@@ -389,50 +402,59 @@ int main(int argc, char* argv[]) {
     cnet->write_binary("control");
   }
 
+  // Change the starting position for points
+  BOOST_FOREACH( ControlPoint & cp, *cnet ) {
+    unsigned j = cp[0].image_id();
+    cp.set_position( camera_models[j]->camera_center( cp[0].position() ) + 10*camera_models[j]->pixel_to_vector( cp[0].position() ) );
+  }
+
   BundleAdjustmentModel ba_model(camera_models, cnet);
-  AdjustSparse<BundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error());
+  AdjustSparse<BundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error(), false, false);
 
   if (vm.count("lambda"))
     bundle_adjuster.set_lambda(lambda);
 
   //Clearing the monitoring text files to be used for saving camera params
   if (vm.count("save-iteration-data")){
-    std::ofstream ostr("iterCameraParam.txt",std::ios::out);
-    ostr << "";
-    ostr.open("iterPointsParam.txt",std::ios::out);
-    ostr << "";
-    ostr.close();
+    fs::remove("iterCameraParam.txt");
+    fs::remove("iterPointsParam.txt");
+
+    // Write the starting locations
+    ba_model.bundlevis_cameras_append("iterCameraParam.txt");
+    ba_model.bundlevis_points_append("iterPointsParam.txt");
   }
 
   BundleAdjustReport<AdjustSparse<BundleAdjustmentModel, L2Error> >
     reporter( "Bundle Adjust", ba_model, bundle_adjuster, report_level );
 
   double abs_tol = 1e10, rel_tol=1e10;
-  while(bundle_adjuster.update(abs_tol, rel_tol)) {
-    reporter.loop_tie_in();
-
-    // Writing Current Camera Parameters to file for later reading in MATLAB
-    if (vm.count("save-iteration-data")) {
-
-      //Writing this iterations camera data
-      ba_model.write_adjusted_cameras_append("iterCameraParam.txt");
-
-      //Writing this iterations point data
-      std::ofstream ostr_points("iterPointsParam.txt",std::ios::app);
-      for (unsigned i = 0; i < ba_model.num_points(); ++i){
-        Vector<double,4> current_point = ba_model.B_parameters(i);
-        current_point /= current_point(3);
-        ostr_points << i << "\t" << current_point(0) << "\t" << current_point(1) << "\t" << current_point(2) << "\n";
-      }
+  double overall_delta = 2;
+  while ( true ) {
+    // Determine if it is time to quit
+    if ( bundle_adjuster.iterations() >= 20 ) {
+      reporter() << "Triggered 'Max Iterations'\n";
+      break;
+    } else if ( abs_tol < 0.01 ) {
+      reporter() << "Triggered 'Abs Tol " << abs_tol << " < 0.01'\n";
+      break;
+    } else if ( rel_tol < 1e-10 ) {
+      reporter() << "Triggered 'Rel Tol " << rel_tol << " < 1e-10'\n";
+      break;
     }
 
-    if (bundle_adjuster.iterations() > 20 || abs_tol < 0.01 || rel_tol < 1e-16)
-      break;
+    overall_delta = bundle_adjuster.update( abs_tol, rel_tol );
+    reporter.loop_tie_in();
+
+    // Writing Current Camera Parameters to file for later reading
+    if (vm.count("save-iteration-data")) {
+      ba_model.bundlevis_cameras_append("iterCameraParam.txt");
+      ba_model.bundlevis_points_append("iterPointsParam.txt");
+    }
   }
 
   reporter.end_tie_in();
 
-  for (unsigned int i=0; i < ba_model.num_cameras(); ++i)
+  for (unsigned i=0; i < ba_model.num_cameras(); ++i)
     ba_model.write_adjustment(i, fs::path(image_files[i]).replace_extension("adjust").string() );
 
   // Compute the post-adjustment residuals
