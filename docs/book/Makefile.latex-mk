@@ -30,12 +30,7 @@ ifeq ($(OS),Darwin)
 VIEWPDF = open
 endif
 
-# The latex-mk GNU make file only exists in one place, but this series
-# of places should find it on most systems, including it where it is found,
-# quietly failing otherwise.
-#
-# If it isn't coming up on yours, just add your location of latex.gmk to 
-# this list, and it should get picked up.
+# This should find the location of the latex.gmk file on your system
 GMKFILE := $(shell which latex-mk | awk -F 'latex-mk' '{print $$1}')
 GMKFILE := $(GMKFILE)../share/latex-mk/latex.gmk
 
