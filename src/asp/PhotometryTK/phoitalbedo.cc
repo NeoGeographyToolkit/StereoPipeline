@@ -34,14 +34,17 @@ struct Options {
   std::string ptk_url;
   int level;
 
+  bool perform_2band;
+
   // For spawning multiple jobs
   int job_id, num_jobs;
 };
 
+template <class AccumulatorT>
 void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
                      boost::shared_ptr<PlateFile> drg_plate,
                      boost::shared_ptr<PlateFile> albedo_plate,
-                     boost::shared_ptr<PlateFile> reflect_plate,
+                     boost::shared_ptr<PlateFile> /*reflect_plate*/,
                      std::list<BBox2i> const& workunits,
                      std::vector<double> const& exposure_ts ) {
   int32 max_tid = ptk_meta.max_iterations() *
@@ -57,7 +60,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   ImageView<PixelGrayA<float> > image_temp;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
-    AlbedoInitNRAccumulator<PixelGrayA<float> > accum( tile_size, tile_size );
+    AccumulatorT accum( tile_size, tile_size );
     BOOST_FOREACH(const BBox2i& workunit, workunits) {
       tpc.report_incremental_progress( tpc_inc );
 
@@ -94,7 +97,6 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
           // Write result
           albedo_plate->write_update(image_temp, ix, iy,
                                      opt.level, transaction_id);
-
         } // end for iy
       }   // end for ix
     }     // end foreach
@@ -111,7 +113,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
                     boost::shared_ptr<PlateFile> drg_plate,
                     boost::shared_ptr<PlateFile> albedo_plate,
-                    boost::shared_ptr<PlateFile> reflect_plate,
+                    boost::shared_ptr<PlateFile> /*reflect_plate*/,
                     std::list<BBox2i> const& workunits,
                     std::vector<double> const& exposure_ts ) {
   int32 max_tid = ptk_meta.max_iterations() *
@@ -189,6 +191,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("level,l", po::value<int>(&opt.level)->default_value(-1), "Default is to process at lowest level.")
     ("job_id,j", po::value<int>(&opt.job_id)->default_value(0), "")
     ("num_jobs,n", po::value<int>(&opt.num_jobs)->default_value(1), "")
+    ("2band", "Perform 2 Band mosaic of albedo. This should be used as a last step.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
@@ -212,6 +215,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url>\n";
+
+  opt.perform_2band = vm.count("2band");
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
@@ -288,18 +293,22 @@ int main( int argc, char *argv[] ) {
     }
 
     // Determine if we're updating or initializing
-    if ( project_info.current_iteration() ) {
-      std::cout << "Updating Albedo [ iteration "
+    if ( opt.perform_2band ) {
+      std::cout << "2 Band Albedo [ iteration "
                 << project_info.current_iteration() << " ]\n";
-      update_albedo( opt, project_info, drg_plate,
-                     albedo_plate, reflect_plate, workunits, exposure_t );
+      initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
     } else {
-      std::cout << "Initialize Albedo [ iteration "
-                << project_info.current_iteration() << " ]\n";
-      initial_albedo( opt, project_info, drg_plate,
-                      albedo_plate, reflect_plate, workunits, exposure_t );
+      if ( project_info.current_iteration() ) {
+        std::cout << "Updating Albedo [ iteration "
+                  << project_info.current_iteration() << " ]\n";
+        update_albedo( opt, project_info, drg_plate,
+                       albedo_plate, reflect_plate, workunits, exposure_t );
+      } else {
+        std::cout << "Initialize Albedo [ iteration "
+                  << project_info.current_iteration() << " ]\n";
+        initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
+      }
     }
-
   } catch ( const ArgumentErr& e ) {
     vw_out() << e.what() << std::endl;
     return 1;
