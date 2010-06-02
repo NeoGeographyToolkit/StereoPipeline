@@ -75,6 +75,7 @@ src/asp/Tools/geodiff
 src/asp/Tools/rmax2cahvor
 src/asp/Tools/rmax_adjust
 src/asp/Tools/hsv_merge
+src/asp/Tools/reconstruct
 
 # Photometry Toolkit
 src/asp/PhotometryTK/phodrg2plate
@@ -104,6 +105,8 @@ docs/book/*log
 docs/book/*out
 docs/book/*pdf
 docs/book/*toc
+docs/book/*bbl
+docs/book/*blg
 docs/book/graph/*pdf
 docs/photometry/*aux
 docs/photometry/*log
