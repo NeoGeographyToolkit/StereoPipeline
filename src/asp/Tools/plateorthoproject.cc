@@ -218,14 +218,14 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
       new PlateCarreePlateManager<PixelT> (output_plate) );
 
     pm->insert(projection, opt.camera_image,
-               opt.output_id, dem_georef, false,
+               opt.output_id, dem_georef, false, false,
                TerminalProgressCallback( "asp.plateorthoproject", "\t    Processing") );
   } else if ( opt.output_mode == "toast" ) {
     boost::shared_ptr<ToastPlateManager<PixelT> > pm(
       new ToastPlateManager<PixelT> (output_plate) );
 
     pm->insert(projection, opt.camera_image,
-               opt.output_id, dem_georef, false,
+               opt.output_id, dem_georef, false, false,
                TerminalProgressCallback( "asp.plateorthoproject", "\t    Processing") );
   }
 }
