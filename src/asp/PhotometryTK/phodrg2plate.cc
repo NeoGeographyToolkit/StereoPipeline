@@ -55,9 +55,15 @@ void do_creation( Options const& opt ) {
   int32 cam_id = remote_ptk.CreateCameraMeta( cam_meta );
   std::cout << "Assigned Camera ID: " << cam_id << "\n";
 
+  // Find relative urls for platefiles
+  std::string hostname, exchange, file_name, plate_prefix;
+  int port;
+  asp::pho::parse_url( opt.ptk_url, hostname, port, exchange, file_name );
+  plate_prefix = "pf://"+hostname+":"+boost::lexical_cast<std::string>(port)+"/index/";
+
   { // Insert DRG
     boost::shared_ptr<PlateFile> drg_plate =
-      boost::shared_ptr<PlateFile>( new PlateFile( "pf://index/DRG.plate",
+      boost::shared_ptr<PlateFile>( new PlateFile( plate_prefix+"DRG.plate",
                                                    "equi", "", 256, "tif",
                                                    VW_PIXEL_GRAYA,
                                                    VW_CHANNEL_UINT8 ) );
@@ -71,7 +77,7 @@ void do_creation( Options const& opt ) {
   /*
   { // Create Reflectance ( at the moment it's just white )
     boost::shared_ptr<PlateFile> ref_plate =
-      boost::shared_ptr<PlateFile>( new PlateFile( "pf://index/Reflectance.plate",
+      boost::shared_ptr<PlateFile>( new PlateFile( plate_prefix+"Reflectance.plate",
                                                    "equi", "", 256, "tif",
                                                    VW_PIXEL_GRAYA,
                                                    VW_CHANNEL_FLOAT32 ) );

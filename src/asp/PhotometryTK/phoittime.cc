@@ -50,20 +50,26 @@ void update_exposure( Options& opt ) {
   minidx = float(project_info.num_cameras()*opt.job_id)/float(opt.num_jobs);
   maxidx = float(project_info.num_cameras()*(opt.job_id+1))/float(opt.num_jobs);
 
+  // URL Decomposition
+  std::string hostname, exchange, file_name, plate_prefix;
+  int port;
+  asp::pho::parse_url( opt.ptk_url, hostname, port, exchange, file_name );
+  plate_prefix = "pf://"+hostname+":"+boost::lexical_cast<std::string>(port)+"/index/";
+
   // Load platefile
   boost::shared_ptr<PlateFile> drg_plate, albedo_plate, reflect_plate;
   drg_plate =
-    boost::shared_ptr<PlateFile>( new PlateFile("pf://index/DRG.plate",
+    boost::shared_ptr<PlateFile>( new PlateFile(plate_prefix+"DRG.plate",
                                                 "equi", "", 256, "tif",
                                                 VW_PIXEL_GRAYA,
                                                 VW_CHANNEL_UINT8 ) );
   albedo_plate =
-    boost::shared_ptr<PlateFile>( new PlateFile("pf://index/Albedo.plate",
+    boost::shared_ptr<PlateFile>( new PlateFile(plate_prefix+"Albedo.plate",
                                                 "equi", "", 256, "tif",
                                                 VW_PIXEL_GRAYA,
                                                 VW_CHANNEL_FLOAT32 ) );
   if ( project_info.reflectance() != ProjectMeta::NONE )
-    boost::shared_ptr<PlateFile>( new PlateFile("pf://index/Reflectance.plate",
+    boost::shared_ptr<PlateFile>( new PlateFile(plate_prefix+"Reflectance.plate",
                                                 "equi", "", 256, "tif",
                                                 VW_PIXEL_GRAYA,
                                                 VW_CHANNEL_FLOAT32 ) );

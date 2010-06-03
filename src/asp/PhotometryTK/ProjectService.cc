@@ -106,11 +106,6 @@ ProjectServiceImpl::OpenRequest(::google::protobuf::RpcController* /*controller*
                                 ::asp::pho::ProjectOpenReply* response,
                                 ::google::protobuf::Closure* done) {
   std::string request_ptk = request->name();
-  {
-    size_t findx = request_ptk.find("ptk/");
-    if ( findx != std::string::npos )
-      request_ptk = request_ptk.substr(findx+4);
-  }
 
   std::map<std::string,int>::iterator it =
     m_ptk_lookup.find( request_ptk );
