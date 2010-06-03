@@ -19,6 +19,7 @@
 #include <vw/Plate/PlateCarreePlateManager.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/AlbedoAccumulators.h>
+#include <asp/Core/Macros.h>
 using namespace vw;
 using namespace vw::platefile;
 using namespace asp::pho;
@@ -309,13 +310,7 @@ int main( int argc, char *argv[] ) {
         initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
       }
     }
-  } catch ( const ArgumentErr& e ) {
-    vw_out() << e.what() << std::endl;
-    return 1;
-  } catch ( const Exception& e ) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  }
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

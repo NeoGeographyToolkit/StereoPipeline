@@ -9,6 +9,7 @@
 #include <vw/Image.h>
 #include <vw/Plate/PlateFile.h>
 #include <vw/Plate/PlateCarreePlateManager.h>
+#include <asp/Core/Macros.h>
 
 using namespace vw;
 using namespace vw::platefile;
@@ -84,13 +85,7 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
     perform_mipmap( opt );
-  } catch ( const ArgumentErr& e ) {
-    vw_out() << e.what() << std::endl;
-    return 1;
-  } catch ( const Exception& e ) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  }
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

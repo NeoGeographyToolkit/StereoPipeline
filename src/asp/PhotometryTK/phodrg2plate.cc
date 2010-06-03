@@ -19,6 +19,7 @@
 #include <vw/Plate/PlateFile.h>
 #include <vw/Plate/PlateCarreePlateManager.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
+#include <asp/Core/Macros.h>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -128,21 +129,8 @@ int main( int argc, char *argv[] ) {
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
-  } catch ( const ArgumentErr& e ) {
-    vw_out() << e.what() << std::endl;
-    return 1;
-  } catch ( const Exception& e ) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  }
-
-  try {
     do_creation( opt );
-  } catch ( const ArgumentErr& e ) {
-    vw_out() << "Error from input arguments:\n\n"
-             << e.what() << "\n";
-    return 1;
-  }
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

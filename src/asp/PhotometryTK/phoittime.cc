@@ -18,6 +18,7 @@
 #include <vw/Plate/PlateFile.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/TimeAccumulators.h>
+#include <asp/Core/Macros.h>
 using namespace vw;
 using namespace vw::platefile;
 using namespace asp::pho;
@@ -162,13 +163,7 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
     update_exposure( opt );
-  } catch ( const ArgumentErr& e ) {
-    vw_out() << e.what() << std::endl;
-    return 1;
-  } catch ( const Exception& e ) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  }
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

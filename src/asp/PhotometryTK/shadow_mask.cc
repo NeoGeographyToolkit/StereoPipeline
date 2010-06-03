@@ -7,6 +7,8 @@ namespace po = boost::program_options;
 #include <vw/Cartography.h>
 using namespace vw;
 
+#include <asp/Core/Macros.h>
+
 struct Options {
   Options() : nodata(-1), threshold(-1) {}
   // Input
@@ -211,16 +213,8 @@ int main( int argc, char *argv[] ) {
         }
         break;
       }
-
     }
-
-  } catch ( const ArgumentErr& e ) {
-    vw_out() << e.what() << std::endl;
-    return 1;
-  } catch ( const Exception& e ) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  }
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
