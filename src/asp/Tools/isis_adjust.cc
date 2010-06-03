@@ -10,6 +10,7 @@
 /// is a highly experimental program and reading of the bundle
 /// adjustment chapter is required before use of this program.
 
+#include <asp/Core/Macros.h>
 #include <asp/Tools/isis_adjust.h>
 
 namespace po = boost::program_options;
@@ -277,7 +278,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("input-files", po::value<std::vector<std::string> >(&opt.input_names));
+    ("input-files", po::value(&opt.input_names));
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
@@ -499,13 +500,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-  } catch ( const ArgumentErr& e ) {
-    vw_out() << e.what() << std::endl;
-    return 1;
-  } catch ( const Exception& e ) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  }
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
