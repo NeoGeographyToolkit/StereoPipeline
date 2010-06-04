@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.6
 
 import os, optparse, multiprocessing, sys;
 from multiprocessing import Pool
@@ -35,8 +35,12 @@ def main():
 
         pool = Pool(processes=options.threads)
 
+        # Finding URL for Albedo
+        albedo_url = args[0][:args[0].find("/ptk/")]+"/index/Albedo.plate"
+
         for iteration in range(options.iterations):
             # Perform Albedo
+            print " --- ALBEDO ---"
             albedo_cmd = []
             for i in range(2*options.threads):
                 cmd = "phoitalbedo "
@@ -49,10 +53,12 @@ def main():
                 result.get()
 
             # Mipmap up the levels
-            os.system("mipmap pf://index/Albedo.plate")
+            print " --- MIPMAP ---"
+            os.system("mipmap "+albedo_url)
 
             # Update the Time Estimate
             time_cmd = []
+            print " --- TIME ---"
             for i in range(options.threads):
                 cmd = "phoittime "
                 if ( options.level > 0 ):
