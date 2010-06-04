@@ -20,5 +20,6 @@
 #include <asp/Core/SoftwareRenderer.h>
 #include <asp/Core/SparseView.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/Macros.h>
 
 #endif//__ASP_CORE_H__

@@ -37,6 +37,7 @@ namespace fs = boost::filesystem;
 #include <asp/Core/BlobIndexThreaded.h>
 #include <asp/Core/InpaintView.h>
 #include <asp/Core/ErodeView.h>
+#include <asp/Core/Macros.h>
 
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
@@ -61,6 +62,25 @@ enum { PREPROCESSING = 0,
        POINT_CLOUD,
        WIRE_MESH,
        NUM_STAGES};
+
+// 'Global Scoped' Variables
+struct Options {
+  // Input
+  std::string in_file1, in_file2, cam_file1, cam_file2,
+    extra_arg1, extra_arg2, extra_arg3, extra_arg4;
+
+  // Settings
+  int entry_point, num_threads;
+  std::string stereo_session_string, stereo_default_filename;
+  boost::shared_ptr<StereoSession> session;        // Used to extract cameras
+  vw::DiskImageResourceGDAL::Options gdal_options; // Repeated format options
+  vw::Vector2i raster_tile_size;                   // Write tile size
+  vw::BBox2i search_range;                         // Correlation search window
+  bool optimized_correlator, draft_mode;
+
+  // Output
+  std::string out_prefix, corr_debug_prefix;
+};
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -114,150 +134,6 @@ namespace vw {
   }
 #endif
 
-  // approximate search range
-  //  Find interest points and grow them into a search range
-  BBox2i
-    approximate_search_range( std::string left_image,
-                              std::string right_image,
-                              float scale ) {
-
-    vw_out() << "\t--> Using interest points to determine search window.\n";
-    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-    float i_scale = 1.0/scale;
-
-    // String names
-    std::string left_ip_file =
-      fs::path( left_image ).replace_extension("vwip").string();
-    std::string right_ip_file =
-      fs::path( right_image ).replace_extension("vwip").string();
-    std::string match_file =
-      fs::path( left_image ).replace_extension("").string() + "__" +
-      fs::path( right_image ).stem() + ".match";
-
-    // Building / Loading Interest point data
-    if ( fs::exists(match_file) ) {
-
-      vw_out() << "\t    * Using cached match file.\n";
-      ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
-
-    } else {
-
-      std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-
-      if ( !fs::exists(left_ip_file) ||
-           !fs::exists(right_ip_file) ) {
-
-        // Worst case, no interest point operations have been performed before
-        vw_out() << "\t    * Locating Interest Points\n";
-        DiskImageView<PixelGray<float32> > left_sub_disk_image(left_image);
-        DiskImageView<PixelGray<float32> > right_sub_disk_image(right_image);
-        ImageViewRef<PixelGray<float32> > left_sub_image = left_sub_disk_image;
-        ImageViewRef<PixelGray<float32> > right_sub_image = right_sub_disk_image;
-
-        // Interest Point module detector code.
-        float ipgain = 0.07;
-        std::list<ip::InterestPoint> ip1, ip2;
-        vw_out() << "\t    * Processing for Interest Points.\n";
-        while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
-          ip1.clear(); ip2.clear();
-
-          ip::OBALoGInterestOperator interest_operator( ipgain );
-          ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
-
-          ip1 = detect_interest_points( left_sub_image, detector );
-          ip2 = detect_interest_points( right_sub_image, detector );
-
-          ipgain *= 0.75;
-        }
-
-        // Making sure we don't exceed 3000 points
-        ip1.sort();
-        ip2.sort();
-        if ( ip1.size() > 3000 )
-          ip1.resize(3000);
-        if ( ip2.size() > 3000 )
-          ip2.resize(3000);
-
-        vw_out() << "\t    * Generating descriptors..." << std::flush;
-        ip::SGradDescriptorGenerator descriptor;
-        descriptor( left_sub_image, ip1 );
-        descriptor( right_sub_image, ip2 );
-        vw_out() << "done.\n";
-
-        // Writing out the results
-        vw_out() << "\t    * Caching interest points: "
-                 << left_ip_file << " & " << right_ip_file << std::endl;
-        ip::write_binary_ip_file( left_ip_file, ip1 );
-        ip::write_binary_ip_file( right_ip_file, ip2 );
-
-      }
-
-      vw_out() << "\t    * Using cached IPs.\n";
-      ip1_copy = ip::read_binary_ip_file(left_ip_file);
-      ip2_copy = ip::read_binary_ip_file(right_ip_file);
-
-      vw_out() << "\t    * Matching interest points\n";
-      ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
-
-      matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-              false, TerminalProgressCallback( "asp", "\t    Matching: "));
-      vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
-
-      vw_out() << "\t    * Rejecting outliers using RANSAC.\n";
-      remove_duplicates(matched_ip1, matched_ip2);
-      std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
-      std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
-      std::vector<int> indices;
-
-      try {
-        Matrix<double> trans;
-        math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
-          ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 25 );
-        trans = ransac( ransac_ip1, ransac_ip2 );
-        vw_out(DebugMessage) << "\t    * Ransac Result: " << trans << std::endl;
-        indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
-      } catch (...) {
-        vw_out() << "-------------------------------WARNING---------------------------------\n";
-        vw_out() << "\t    RANSAC failed! Unable to auto detect search range.\n\n";
-        vw_out() << "\t    Please proceed cautiously!\n";
-        vw_out() << "-------------------------------WARNING---------------------------------\n";
-        return BBox2i(-10,-10,20,20);
-      }
-
-      { // Keeping only inliers
-        std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-        for ( unsigned i = 0; i < indices.size(); i++ ) {
-          inlier_ip1.push_back( matched_ip1[indices[i]] );
-          inlier_ip2.push_back( matched_ip2[indices[i]] );
-        }
-        matched_ip1 = inlier_ip1;
-        matched_ip2 = inlier_ip2;
-      }
-
-      vw_out() << "\t    * Caching matches: " << match_file << "\n";
-      write_binary_match_file( match_file, matched_ip1, matched_ip2);
-    }
-
-    // Find search window based on interest point matches
-    BBox2i search_range;
-    for (unsigned i = 0; i < matched_ip1.size(); i++) {
-      Vector2i translation = ( i_scale*Vector2i(matched_ip2[i].x, matched_ip2[i].y) -
-                               i_scale*Vector2i(matched_ip1[i].x, matched_ip1[i].y) );
-
-      if ( i == 0 ) {
-        search_range.min() = translation;
-        search_range.max() = translation + Vector2i(1,1);
-      } else
-        search_range.grow( translation );
-    }
-    Vector2i offset = search_range.size()/4; // So we can grow by 50%
-    search_range.min() -= offset;
-    search_range.max() += offset;
-
-    vw_out() << "\t--> Detected search range: " << search_range << "\n";
-    return search_range;
-  }
-
-}
+} // end namespace vw
 
 #endif//__ASP_STEREO_H__
