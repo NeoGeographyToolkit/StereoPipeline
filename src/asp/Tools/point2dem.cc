@@ -31,6 +31,7 @@ using namespace vw;
 using namespace vw::cartography;
 
 #include <asp/Core/OrthoRasterizer.h>
+#include <asp/Core/Macros.h>
 
 // Erases a file suffix if one exists and returns the base string
 static std::string prefix_from_pointcloud_filename(std::string const& filename) {
@@ -87,248 +88,295 @@ public:
   Vector3 operator() (Vector3 const& pt) const { return m_trans*pt; }
 };
 
+enum ProjectionType {
+  NONXYZ,
+  SINUSOIDAL,
+  MERCATOR,
+  TRANSVERSEMERCATOR,
+  ORTHOGRAPHIC,
+  STEREOGRAPHIC,
+  LAMBERTAZIMUTHAL,
+  UTM
+};
 
-int main( int argc, char *argv[] ) {
+struct Options {
+  // Input
+  std::string pointcloud_filename, texture_filename;
 
-  std::string pointcloud_filename, out_prefix = "", output_file_type, texture_filename;
-  float dem_spacing, default_value=0;
+  // Settings
+  float dem_spacing, default_value;
   double semi_major, semi_minor;
   std::string reference_spheroid;
   double phi_rot, omega_rot, kappa_rot;
   std::string rot_order;
-  double proj_lat=0, proj_lon=0, proj_scale=1;
+  double proj_lat, proj_lon, proj_scale;
   double x_offset, y_offset, z_offset;
   unsigned utm_zone;
   std::string cache_dir;
+  ProjectionType projection;
+  bool has_default_value, has_alpha, do_normalize;
 
-  po::options_description desc("Options");
-  desc.add_options()
-    ("help,h", "Display this help message")
-    ("default-value", po::value<float>(&default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
+  // Output
+  std::string  out_prefix, output_file_type;
+};
+
+void handle_arguments( int argc, char *argv[], Options& opt ) {
+  po::options_description general_options("");
+  general_options.add_options()
+    ("default-value", po::value(&opt.default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
     ("use-alpha", "Create images that have an alpha channel")
-    ("dem-spacing,s", po::value<float>(&dem_spacing)->default_value(0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
+    ("dem-spacing,s", po::value(&opt.dem_spacing), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
     ("normalized,n", "Also write a normalized version of the DEM (for debugging)")
-    ("orthoimage", po::value<std::string>(&texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
-    ("grayscale", "Use grayscale image processing for creating the orthoimage")
-    ("offset-files", "Also write a pair of ascii offset files (for debugging)")
-    ("input-file", po::value<std::string>(&pointcloud_filename), "Explicitly specify the input file")
-    ("texture-file", po::value<std::string>(&texture_filename), "Specify texture filename")
-    ("output-prefix,o", po::value<std::string>(&out_prefix), "Specify the output prefix")
-    ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("tif"), "Specify the output file")
+    ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
+    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
+    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
     ("xyz-to-lonlat", "Convert from xyz coordinates to longitude, latitude, altitude coordinates.")
-    ("reference-spheroid,r", po::value<std::string>(&reference_spheroid)->default_value(""),"Set a reference surface to a hard coded value (one of [moon , mars].  This will override manually set datum information.")
-    ("semi-major-axis", po::value<double>(&semi_major)->default_value(0),"Set the dimensions of the datum.")
-    ("semi-minor-axis", po::value<double>(&semi_minor)->default_value(0),"Set the dimensions of the datum.")
-    ("x-offset", po::value<double>(&x_offset)->default_value(0), "Add a horizontal offset to the DEM")
-    ("y-offset", po::value<double>(&y_offset)->default_value(0), "Add a horizontal offset to the DEM")
-    ("z-offset", po::value<double>(&z_offset)->default_value(0), "Add a vertical offset to the DEM")
-
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [moon , mars].  This will override manually set datum information.")
+    ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
+    ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
+    ("x-offset", po::value(&opt.x_offset), "Add a horizontal offset to the DEM")
+    ("y-offset", po::value(&opt.y_offset), "Add a horizontal offset to the DEM")
+    ("z-offset", po::value(&opt.z_offset), "Add a vertical offset to the DEM")
     ("sinusoidal", "Save using a sinusoidal projection")
     ("mercator", "Save using a Mercator projection")
     ("transverse-mercator", "Save using a transverse Mercator projection")
     ("orthographic", "Save using an orthographic projection")
     ("stereographic", "Save using a stereographic projection")
     ("lambert-azimuthal", "Save using a Lambert azimuthal projection")
-    ("utm", po::value<unsigned>(&utm_zone), "Save using a UTM projection with the given zone")
-    ("proj-lat", po::value<double>(&proj_lat), "The center of projection latitude (if applicable)")
-    ("proj-lon", po::value<double>(&proj_lon), "The center of projection longitude (if applicable)")
-    ("proj-scale", po::value<double>(&proj_scale), "The projection scale (if applicable)")
-    ("rotation-order", po::value<std::string>(&rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
-    ("phi-rotation", po::value<double>(&phi_rot)->default_value(0),"Set a rotation angle phi")
-    ("omega-rotation", po::value<double>(&omega_rot)->default_value(0),"Set a rotation angle omega")
-    ("kappa-rotation", po::value<double>(&kappa_rot)->default_value(0),"Set a rotation angle kappa")
-    ("cache-dir", po::value<std::string>(&cache_dir)->default_value("/tmp"),"Change if can't write large files to /tmp (i.e. Super Computer)");
+    ("utm", po::value(&opt.utm_zone), "Save using a UTM projection with the given zone")
+    ("proj-lat", po::value(&opt.proj_lat), "The center of projection latitude (if applicable)")
+    ("proj-lon", po::value(&opt.proj_lon), "The center of projection longitude (if applicable)")
+    ("proj-scale", po::value(&opt.proj_scale), "The projection scale (if applicable)")
+    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
+    ("phi-rotation", po::value(&opt.phi_rot),"Set a rotation angle phi")
+    ("omega-rotation", po::value(&opt.omega_rot),"Set a rotation angle omega")
+    ("kappa-rotation", po::value(&opt.kappa_rot),"Set a rotation angle kappa")
+    ("cache-dir", po::value(&opt.cache_dir)->default_value("/tmp"),"Change if can't write large files to /tmp (i.e. Super Computer)")
+    ("help,h", "Display this help message");
 
-  po::positional_options_description p;
-  p.add("input-file", 1);
+  po::options_description positional("");
+  positional.add_options()
+    ("input-file", po::value(&opt.pointcloud_filename), "Input Point Cloud");
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <pointcloud> ..." << std::endl;
-  usage << std::endl << desc << std::endl;
+  po::positional_options_description positional_desc;
+  positional_desc.add("input-file", 1);
+
+  po::options_description all_options;
+  all_options.add(general_options).add(positional);
 
   po::variables_map vm;
   try {
-    po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
+    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
     po::notify( vm );
   } catch (po::error &e) {
-    std::cout << "An error occured while parsing command line arguments.\n";
-    std::cout << "\t" << e.what() << "\n\n";
-    std::cout << usage.str();
-    return 1;
+    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
+              << e.what() << general_options );
   }
 
-  if( vm.count("help") ) {
-    vw_out() << usage.str();
-    return 1;
-  }
+  std::ostringstream usage;
+  usage << "Usage: " << argv[0] << " <point-cloud> ...\n";
 
-  if( vm.count("input-file") != 1 ) {
-    vw_out() << "Error: Must specify exactly one pointcloud file and one texture file!" << std::endl;
-    vw_out() << usage.str();
-    return 1;
-  }
+  if ( opt.pointcloud_filename.empty() )
+    vw_throw( ArgumentErr() << "Missing point cloud.\n"
+              << usage.str() << general_options );
+  if ( vm.count("help") )
+    vw_throw( ArgumentErr() << usage.str() << general_options );
+  if ( opt.out_prefix.empty() )
+    opt.out_prefix =
+      prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
-  if( out_prefix == "" ) {
-    out_prefix = prefix_from_pointcloud_filename(pointcloud_filename);
-  }
-
-  DiskImageView<Vector3> point_disk_image(pointcloud_filename);
-  ImageViewRef<Vector3> point_image = point_disk_image;
-
-  // Apply an (optional) rotation to the 3D points before building the mesh.
-  if (phi_rot != 0 || omega_rot != 0 || kappa_rot != 0) {
-    vw_out() << "\t--> Applying rotation sequence: " << rot_order << "      Angles: " << phi_rot << "   " << omega_rot << "  " << kappa_rot << "\n";
-    Matrix3x3 rotation_trans = math::euler_to_rotation_matrix(phi_rot,omega_rot,kappa_rot,rot_order);
-    point_image = per_pixel_filter(point_image, PointTransFunc(rotation_trans));
-  }
-
-  if (vm.count("xyz-to-lonlat") ) {
-    vw_out() << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
-    point_image = cartography::xyz_to_lon_lat_radius(point_image);
-  }
-
-  // Select a cartographic DATUM.  There are several hard coded datums
-  // that can be used here, or the user can specify their own.
-  cartography::Datum datum;
-  if ( reference_spheroid != "" ) {
-    if (reference_spheroid == "mars") {
-      const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396190.0;
-      vw_out() << "\t--> Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
-      datum.set_well_known_datum("D_MARS");
-    } else if (reference_spheroid == "moon") {
-      const double LUNAR_RADIUS = 1737400;
-      vw_out() << "\t--> Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
-      datum.set_well_known_datum("D_MOON");
-    } else {
-      vw_out() << "\t--> Unknown reference spheroid: " << reference_spheroid << ".  Current options are [ moon , mars ]\nExiting.\n\n";
-      exit(0);
-    }
-  } else if (semi_major != 0 && semi_minor != 0) {
-    vw_out() << "\t--> Re-referencing altitude values to user supplied datum.  Semi-major: " << semi_major << "  Semi-minor: " << semi_minor << "\n";
-    datum = cartography::Datum("User Specified Datum",
-                               "User Specified Spheroid",
-                               "Reference Meridian",
-                               semi_major, semi_minor, 0.0);
-  }
-
-  if (x_offset != 0 || y_offset != 0 || z_offset != 0) {
-    vw_out() << "\t--> Applying offset: " << x_offset << " " << y_offset << " " << z_offset << "\n";
-    point_image = point_image_offset(point_image, Vector3(x_offset,y_offset,z_offset));
-  }
-
-  // Set up the georeferencing information.  We specify everything
-  // here except for the affine transform, which is defined later once
-  // we know the bounds of the orthorasterizer view.  However, we can
-  // still reproject the points in the point image without the affine
-  // transform because this projection never requires us to convert to
-  // or from pixel space.
-  GeoReference georef(datum);
-
-  // If the data was left in cartesian coordinates, we need to give
-  // the DEM a projection that uses some physical units (meters),
-  // rather than lon, lat.  This is actually mainly for compatibility
-  // with Viz, and it's sort of a hack, but it's left in for the time
-  // being.
-  //
-  // Otherwise, we honor the user's requested projection and convert
-  // the points if necessary.
+  boost::to_lower( opt.reference_spheroid );
   if (!vm.count("xyz-to-lonlat"))
-    georef.set_mercator(0,0,1);
-  else if( vm.count("sinusoidal") ) georef.set_sinusoidal(proj_lon);
-  else if( vm.count("mercator") ) georef.set_mercator(proj_lat,proj_lon,proj_scale);
-  else if( vm.count("transverse-mercator") ) georef.set_transverse_mercator(proj_lat,proj_lon,proj_scale);
-  else if( vm.count("orthographic") ) georef.set_orthographic(proj_lat,proj_lon);
-  else if( vm.count("stereographic") ) georef.set_stereographic(proj_lat,proj_lon,proj_scale);
-  else if( vm.count("lambert-azimuthal") ) georef.set_lambert_azimuthal(proj_lat,proj_lon);
-  else if( vm.count("utm") ) georef.set_UTM( utm_zone );
+    opt.projection = NONXYZ;
+  if ( vm.count("sinusoidal") )
+    opt.projection = SINUSOIDAL;
+  if ( vm.count("mercator") )
+    opt.projection = MERCATOR;
+  if ( vm.count("transverse-mercator") )
+    opt.projection = TRANSVERSEMERCATOR;
+  if ( vm.count("orthographic") )
+    opt.projection = ORTHOGRAPHIC;
+  if ( vm.count("stereographic") )
+    opt.projection = STEREOGRAPHIC;
+  if ( vm.count("lambert-azimuthal") )
+    opt.projection = LAMBERTAZIMUTHAL;
+  if ( vm.count("utm") )
+    opt.projection = UTM;
+  opt.has_default_value = vm.count("default-value");
+  opt.has_alpha = vm.count("use-alpha");
+  opt.do_normalize = vm.count("normalized");
+}
 
-  if (vm.count("xyz-to-lonlat"))
-    point_image = cartography::project_point_image(point_image, georef);
+int main( int argc, char *argv[] ) {
 
-  // Rasterize the results to a temporary file on disk so as to speed
-  // up processing in the orthorasterizer, which accesses each pixel
-  // multiple times.
-  DiskCacheImageView<Vector3> point_image_cache(point_image, "tif",
-                                                TerminalProgressCallback("asp","Cache: "),
-                                                cache_dir);
+  Options opt;
+  try {
+    handle_arguments( argc, argv, opt );
 
+    DiskImageView<Vector3> point_disk_image(opt.pointcloud_filename);
+    ImageViewRef<Vector3> point_image = point_disk_image;
 
-  // ----> For debugging: (for Larry) <-----
-  //  write_image("test2.tif", channel_cast<float>(select_channel(point_image_cache,2)-1134.2), TerminalProgressCallback());
-
-  // write out the DEM, texture, and extrapolation mask as
-  // georeferenced files.
-  OrthoRasterizerView<PixelGray<float> > rasterizer(point_image_cache, select_channel(point_image_cache,2), dem_spacing);
-  if (!vm.count("default-value") ) {
-    rasterizer.set_use_minz_as_default(true);
-  } else {
-    rasterizer.set_use_minz_as_default(false);
-    rasterizer.set_default_value(default_value);
-  }
-
-  if (vm.count("use-alpha")) {
-    rasterizer.set_use_alpha(true);
-  }
-
-  vw::BBox3 dem_bbox = rasterizer.bounding_box();
-  vw_out() << "\nDEM Bounding box: " << dem_bbox << "\n";
-
-  // Now we are ready to specify the affine transform.
-  Matrix3x3 georef_affine_transform = rasterizer.geo_transform();
-  vw_out() << "Georeferencing Transform: " << georef_affine_transform << "\n";
-  georef.set_transform(georef_affine_transform);
-
-  // Write out a georeferenced orthoimage of the DTM with alpha.
-  if (vm.count("orthoimage")) {
-    rasterizer.set_use_minz_as_default(false);
-    DiskImageView<PixelGray<float> > texture(texture_filename);
-    rasterizer.set_texture(texture);
-    ImageViewRef<PixelGray<float> > block_drg_raster = block_cache(rasterizer, Vector2i(rasterizer.cols(), 2048), 0);
-    if (vm.count("use-alpha")) {
-      write_georeferenced_image(out_prefix + "-DRG.tif",
-                                channel_cast_rescale<uint8>(apply_mask(block_drg_raster,PixelGray<float>(-32000))),
-                                georef, TerminalProgressCallback("asp","") );
-    }
-    else {
-      write_georeferenced_image(out_prefix + "-DRG.tif",
-                                channel_cast_rescale<uint8>(block_drg_raster),
-                                georef, TerminalProgressCallback("asp","") );
+    // Apply an (optional) rotation to the 3D points before building the mesh.
+    if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
+      vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
+               << "      Angles: " << opt.phi_rot << "   "
+               << opt.omega_rot << "  " << opt.kappa_rot << "\n";
+      Matrix3x3 rotation_trans =
+        math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,
+                                       opt.kappa_rot, opt.rot_order);
+      point_image =
+        per_pixel_filter(point_image, PointTransFunc(rotation_trans));
     }
 
-  } else {
-
-    { // Write out the DEM.
-      vw_out() << "\nWriting DEM.\n";
-      ImageViewRef<PixelGray<float> > block_dem_raster =
-        block_cache(rasterizer, Vector2i(rasterizer.cols(), 2024), 0);
-      write_georeferenced_image( out_prefix + "-DEM." + output_file_type,
-                                 block_dem_raster, georef,
-                                 TerminalProgressCallback("asp",""));
+    if ( opt.projection != NONXYZ ) {
+      vw_out() << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
+      point_image = cartography::xyz_to_lon_lat_radius(point_image);
     }
 
-    // Write out a normalized version of the DTM (for debugging)
-    if (vm.count("normalized")) {
-      vw_out() << "\nWriting normalized DEM.\n";
-
-      DiskImageView<PixelGray<float> > dem_image(out_prefix + "-DEM." + output_file_type);
-
-      write_georeferenced_image( out_prefix + "-DEM-normalized.tif",
-                                 channel_cast_rescale<uint8>(normalize(dem_image)),
-                                 georef, TerminalProgressCallback("asp","") );
+    // Select a cartographic DATUM.  There are several hard coded datums
+    // that can be used here, or the user can specify their own.
+    cartography::Datum datum;
+    if ( opt.reference_spheroid != "" ) {
+      if (opt.reference_spheroid == "mars") {
+        const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396190.0;
+        vw_out() << "\t--> Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
+        datum.set_well_known_datum("D_MARS");
+      } else if (opt.reference_spheroid == "moon") {
+        const double LUNAR_RADIUS = 1737400;
+        vw_out() << "\t--> Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
+        datum.set_well_known_datum("D_MOON");
+      } else {
+        vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
+                  << opt.reference_spheroid
+                  << ". Current options are [ moon, mars ]\nExiting." );
+      }
+    } else if (opt.semi_major != 0 && opt.semi_minor != 0) {
+      vw_out() << "\t--> Re-referencing altitude values to user supplied datum.  Semi-major: " << opt.semi_major << "  Semi-minor: " << opt.semi_minor << "\n";
+      datum = cartography::Datum("User Specified Datum",
+                                 "User Specified Spheroid",
+                                 "Reference Meridian",
+                                 opt.semi_major, opt.semi_minor, 0.0);
     }
-  }
 
-  // Write out the offset files
-  if (vm.count("offset-files")) {
-    vw_out() << "Offset: " << dem_bbox.min().x()/rasterizer.spacing() << "   " << dem_bbox.max().y()/rasterizer.spacing() << "\n";
-    std::string offset_filename = out_prefix + "-DRG.offset";
-    FILE* offset_file = fopen(offset_filename.c_str(), "w");
-    fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.spacing()), -int(dem_bbox.max().y()/rasterizer.spacing()));
-    fclose(offset_file);
-    offset_filename = out_prefix + "-DEM-normalized.offset";
-    offset_file = fopen(offset_filename.c_str(), "w");
-    fprintf(offset_file, "%d\n%d\n", int(dem_bbox.min().x()/rasterizer.spacing()), -int(dem_bbox.max().y()/rasterizer.spacing()));
-    fclose(offset_file);
-  }
+    if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
+      vw_out() << "\t--> Applying offset: " << opt.x_offset
+               << " " << opt.y_offset << " " << opt.z_offset << "\n";
+      point_image =
+        point_image_offset(point_image,
+                           Vector3(opt.x_offset,opt.y_offset,opt.z_offset));
+    }
+
+    // Set up the georeferencing information.  We specify everything
+    // here except for the affine transform, which is defined later once
+    // we know the bounds of the orthorasterizer view.  However, we can
+    // still reproject the points in the point image without the affine
+    // transform because this projection never requires us to convert to
+    // or from pixel space.
+    GeoReference georef(datum);
+
+    // If the data was left in cartesian coordinates, we need to give
+    // the DEM a projection that uses some physical units (meters),
+    // rather than lon, lat.  This is actually mainly for compatibility
+    // with Viz, and it's sort of a hack, but it's left in for the time
+    // being.
+    //
+    // Otherwise, we honor the user's requested projection and convert
+    // the points if necessary.
+    switch( opt.projection ) {
+    case NONXYZ:
+      georef.set_mercator(0,0,1); break;
+    case SINUSOIDAL:
+      georef.set_sinusoidal(opt.proj_lon); break;
+    case MERCATOR:
+      georef.set_mercator(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
+    case TRANSVERSEMERCATOR:
+      georef.set_transverse_mercator(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
+    case ORTHOGRAPHIC:
+      georef.set_orthographic(opt.proj_lat,opt.proj_lon); break;
+    case STEREOGRAPHIC:
+      georef.set_stereographic(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
+    case LAMBERTAZIMUTHAL:
+      georef.set_lambert_azimuthal(opt.proj_lat,opt.proj_lon); break;
+    case UTM:
+      georef.set_UTM( opt.utm_zone ); break;
+    }
+
+    if ( opt.projection != NONXYZ )
+      point_image = cartography::project_point_image(point_image, georef);
+
+    // Rasterize the results to a temporary file on disk so as to speed
+    // up processing in the orthorasterizer, which accesses each pixel
+    // multiple times.
+    DiskCacheImageView<Vector3>
+      point_image_cache(point_image, "tif",
+                        TerminalProgressCallback("asp","Cache: "),
+                        opt.cache_dir);
+
+    // write out the DEM, texture, and extrapolation mask as
+    // georeferenced files.
+    OrthoRasterizerView<PixelGray<float> >
+      rasterizer(point_image_cache,
+                 select_channel(point_image_cache,2),
+                 opt.dem_spacing);
+    if (!opt.has_default_value) {
+      rasterizer.set_use_minz_as_default(true);
+    } else {
+      rasterizer.set_use_minz_as_default(false);
+      rasterizer.set_default_value(opt.default_value);
+    }
+
+    if (opt.has_alpha)
+      rasterizer.set_use_alpha(true);
+
+    vw::BBox3 dem_bbox = rasterizer.bounding_box();
+    vw_out() << "\nDEM Bounding box: " << dem_bbox << "\n";
+
+    // Now we are ready to specify the affine transform.
+    Matrix3x3 georef_affine_transform = rasterizer.geo_transform();
+    vw_out() << "Georeferencing Transform: " << georef_affine_transform << "\n";
+    georef.set_transform(georef_affine_transform);
+
+    // Write out a georeferenced orthoimage of the DTM with alpha.
+    if (!opt.texture_filename.empty()) {
+      rasterizer.set_use_minz_as_default(false);
+      DiskImageView<PixelGray<float> > texture(opt.texture_filename);
+      rasterizer.set_texture(texture);
+      ImageViewRef<PixelGray<float> > block_drg_raster =
+        block_cache(rasterizer, Vector2i(rasterizer.cols(), 2048), 0);
+      if (opt.has_alpha) {
+        write_georeferenced_image(opt.out_prefix + "-DRG.tif",
+                                  channel_cast_rescale<uint8>(apply_mask(block_drg_raster,PixelGray<float>(-32000))),
+                                  georef, TerminalProgressCallback("asp","") );
+      } else {
+        write_georeferenced_image(opt.out_prefix + "-DRG.tif",
+                                  channel_cast_rescale<uint8>(block_drg_raster),
+                                  georef, TerminalProgressCallback("asp","") );
+      }
+    } else {
+      { // Write out the DEM.
+        vw_out() << "\nWriting DEM.\n";
+        ImageViewRef<PixelGray<float> > block_dem_raster =
+          block_cache(rasterizer, Vector2i(rasterizer.cols(), 2024), 0);
+        write_georeferenced_image( opt.out_prefix + "-DEM." +
+                                   opt.output_file_type,
+                                   block_dem_raster, georef,
+                                   TerminalProgressCallback("asp",""));
+      }
+
+      // Write out a normalized version of the DTM (for debugging)
+      if (opt.do_normalize) {
+        vw_out() << "\nWriting normalized DEM.\n";
+
+        DiskImageView<PixelGray<float> >
+          dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
+
+        write_georeferenced_image( opt.out_prefix + "-DEM-normalized.tif",
+                                   channel_cast_rescale<uint8>(normalize(dem_image)),
+                                   georef, TerminalProgressCallback("asp","") );
+      }
+    }
+
+  } ASP_STANDARD_CATCHES;
+
   return 0;
 }
