@@ -100,7 +100,7 @@ void update_exposure( Options& opt ) {
         drg_plate->read( drg_temp, drg_tile.col(), drg_tile.row(),
                          opt.level, j+1, true );
         albedo_plate->read( albedo_temp, drg_tile.col(), drg_tile.row(),
-                            opt.level, -1, true );
+                            opt.level, -1, false );
         for_each_pixel(drg_temp, albedo_temp, taccum);
       }
       cam_info.set_exposure_t(cam_info.exposure_t()+taccum.value());
