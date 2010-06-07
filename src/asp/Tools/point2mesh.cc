@@ -24,6 +24,7 @@ namespace po = boost::program_options;
 #include <vw/Math.h>
 #include <vw/Image.h>
 #include <vw/FileIO.h>
+#include <asp/Core/Macros.h>
 using namespace vw;
 
 //OpenSceneGraph
@@ -461,169 +462,183 @@ BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
   return result;
 }
 
-// ---------------------------------------------------------
 // MAIN
 // ---------------------------------------------------------
 
-int main( int argc, char *argv[] ){
-  //Main Variables
-  std::string pointcloud_filename, output_prefix = "", output_file_type, texture_file_name;
+struct Options {
+  Options() : root( new osg::Group() ), simplify_percent(0) {};
+  // Input
+  std::string pointcloud_filename, texture_file_name;
+
+  // Settings
   unsigned step_size;
-  osg::ref_ptr<osg::Group> root = new osg::Group();
-  float simplify_percent = 0.0;
+  osg::ref_ptr<osg::Group> root;
+  float simplify_percent;
   osg::Vec3f dataNormal;
   std::string rot_order;
   double phi_rot, omega_rot, kappa_rot;
+  bool center, enable_lighting, smooth_mesh, simplify_mesh;
 
-  //Boost Program options
-  po::options_description desc("Options");
-  desc.add_options()
-    ("simplify-mesh",     po::value<float>(&simplify_percent),
+  // Output
+  std::string output_prefix, output_file_type;
+};
+
+void handle_arguments( int argc, char *argv[], Options& opt ) {
+  po::options_description general_options("");
+  general_options.add_options()
+    ("simplify-mesh", po::value(&opt.simplify_percent),
        "Run OSG Simplifier on mesh, 1.0 = 100%")
-    ("smooth-mesh",
-       "Run OSG Smoother on mesh")
-    ("use-delaunay",
-       "Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with serious noise issues.")
-    ("step,s",            po::value<unsigned>(&step_size)->default_value(10),
+    ("smooth-mesh", "Run OSG Smoother on mesh")
+    ("use-delaunay", "Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with serious noise issues.")
+    ("step,s", po::value(&opt.step_size)->default_value(10),
        "Step size for mesher, sets the polygons size per point")
-    ("input-file",        po::value<std::string>(&pointcloud_filename),
-       "Explicitly specify the input file")
-    ("texture-file",      po::value<std::string>(&texture_file_name),
-       "Explicity specify the texture file")
-    ("output-prefix,o",   po::value<std::string>(&output_prefix),
+    ("output-prefix,o", po::value(&opt.output_prefix),
        "Specify the output prefix")
-    ("output-filetype,t", po::value<std::string>(&output_file_type)->default_value("ive"),
+    ("output-filetype,t",
+       po::value(&opt.output_file_type)->default_value("ive"),
        "Specify the output file")
-    ("enable-lighting,l",
-     "Enables shades and light on the mesh" )
+    ("enable-lighting,l", "Enables shades and light on the mesh" )
     ("center", "Center the model around the origin.  Use this option if you are experiencing numerical precision issues.")
-    ("rotation-order",    po::value<std::string>(&rot_order)->default_value("xyz"),
+    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),
        "Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
-    ("phi-rotation",      po::value<double>(&phi_rot)->default_value(0),
-       "Set a rotation angle phi")
-    ("omega-rotation",    po::value<double>(&omega_rot)->default_value(0),
-       "Set a rotation angle omega")
-    ("kappa-rotation",    po::value<double>(&kappa_rot)->default_value(0),
-       "Set a rotation angle kappa")
+    ("phi-rotation", po::value(&opt.phi_rot), "Set a rotation angle phi")
+    ("omega-rotation", po::value(&opt.omega_rot), "Set a rotation angle omega")
+    ("kappa-rotation", po::value(&opt.kappa_rot), "Set a rotation angle kappa")
     ("help,h", "Display this help message");
 
-  po::positional_options_description p;
-  p.add("input-file",   1);
-  p.add("texture-file", 1);
+  po::options_description positional("");
+  positional.add_options()
+    ("input-file", po::value(&opt.pointcloud_filename),
+       "Explicitly specify the input file")
+    ("texture-file", po::value(&opt.texture_file_name),
+       "Explicity specify the texture file");
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << "[options] <pointcloud> <texture-file> ... " << std::endl << std::endl;
-  usage << desc << std::endl;
+  po::positional_options_description positional_desc;
+  positional_desc.add("input-file", 1);
+  positional_desc.add("texture-file", 1);
+
+  po::options_description all_options;
+  all_options.add(general_options).add(positional);
 
   po::variables_map vm;
   try {
-    po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
+    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
     po::notify( vm );
   } catch (po::error &e) {
-    std::cout << "An error occured while parsing command line arguments.\n";
-    std::cout << "\t" << e.what() << "\n\n";
-    std::cout << usage.str();
-    return 1;
+    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
+              << e.what() << general_options );
   }
 
-  if( vm.count("help") ) {
-    vw_out() << usage.str() << std::endl;
-    return 1;
-  } else if ( vm.count("input-file") != 1 ) {
-    vw_out() << "Error: Must specify at least a pointcloud file!" << std::endl;
-    vw_out() << usage.str();
-    return 1;
-  }
+  std::ostringstream usage;
+  usage << "Usage: " << argv[0] << "[options] <pointcloud> <texture-file> ...\n";
 
-  if( output_prefix == "" ) {
-    output_prefix = prefix_from_pointcloud_filename(pointcloud_filename);
-  }
+  if ( vm.count("help" ) )
+    vw_throw( ArgumentErr() << usage.str() << general_options );
+  if ( opt.pointcloud_filename.empty() )
+    vw_throw( ArgumentErr() << "Missing point cloud.\n"
+              << usage.str() << general_options );
+  if ( opt.output_prefix.empty() )
+    opt.output_prefix =
+      prefix_from_pointcloud_filename( opt.pointcloud_filename );
+  opt.center = vm.count("center");
+  opt.enable_lighting = vm.count("enable-lighting");
+  opt.smooth_mesh = vm.count("smooth-mesh");
+  opt.simplify_mesh = vm.count("simplify-mesh");
+}
 
-  // Loading point cloud!
-  DiskImageView<Vector3> point_disk_image(pointcloud_filename);
-  ImageViewRef<Vector3> point_image = point_disk_image;
+int main( int argc, char *argv[] ){
 
-  // Centering Option (helpful if you are experiencing round-off error...)
-  if (vm.count("center")) {
-    BBox<float,3> bbox = point_image_bbox(point_disk_image);
-    std::cout << "\t--> Centering model around the origin.\n";
-    std::cout << "\t    Initial point image bounding box: " << bbox << "\n";
-    Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;
-    std::cout << "\t    Midpoint: " << midpoint << "\n";
-    point_image = point_image_offset(point_image, -midpoint);
-    BBox<float,3> bbox2 = point_image_bbox(point_image);
-    std::cout << "\t    Re-centered point image bounding box: " << bbox2 << "\n";
-  }
+  Options opt;
+  try {
+    handle_arguments( argc, argv, opt );
 
-  // Applying option rotations before hand
-  if ( phi_rot != 0 || omega_rot != 0 || kappa_rot != 0 ) {
-    std::cout << "Applying rotation sequence: " << rot_order << "\tAngles: " << phi_rot << "   " << omega_rot << "   " << kappa_rot << std::endl;
-    Matrix3x3 rotation_trans = math::euler_to_rotation_matrix( phi_rot, omega_rot , kappa_rot , rot_order );
-    point_image = vw::per_pixel_filter(point_image, PointTransFunc( rotation_trans ) );
-  }
+    // Loading point cloud!
+    DiskImageView<Vector3> point_disk_image(opt.pointcloud_filename);
+    ImageViewRef<Vector3> point_image = point_disk_image;
 
-  // Building Mesh
-  std::cout << "\nGenerating 3D mesh from point cloud:\n";
-  {
-    root->addChild(build_mesh(point_image, step_size, texture_file_name , dataNormal, vm.count("enable-lighting") ));
-
-    if ( vm.count( "texture-file" ) ) {
-
-      // Turning off lighting and other likes
-      osg::StateSet* stateSet = new osg::StateSet();
-      if ( !vm.count("enable-lighting") )
-        stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
-      stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
-      root->setStateSet( stateSet );
-
-    } else {
-
-      std::cout << "Adding contour coloring\n";
-      osg::StateSet* stateSet = create1DTexture( root.get() , dataNormal );
-      if ( !vm.count("enable-lighting") )
-        stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
-      stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
-      root->setStateSet( stateSet );
-
+    // Centering Option (helpful if you are experiencing round-off error...)
+    if (opt.center) {
+      BBox<float,3> bbox = point_image_bbox(point_disk_image);
+      std::cout << "\t--> Centering model around the origin.\n";
+      std::cout << "\t    Initial point image bounding box: " << bbox << "\n";
+      Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;
+      std::cout << "\t    Midpoint: " << midpoint << "\n";
+      point_image = point_image_offset(point_image, -midpoint);
+      BBox<float,3> bbox2 = point_image_bbox(point_image);
+      std::cout << "\t    Re-centered point image bounding box: " << bbox2 << "\n";
     }
-  }
 
-  // Smooth Option
-  if ( vm.count( "smooth-mesh" ) ) {
+    // Applying option rotations before hand
+    if ( opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0 ) {
+      std::cout << "Applying rotation sequence: " << opt.rot_order
+                << "\tAngles: " << opt.phi_rot << "   " << opt.omega_rot
+                << "   " << opt.kappa_rot << std::endl;
+      Matrix3x3 rotation_trans =
+        math::euler_to_rotation_matrix( opt.phi_rot, opt.omega_rot,
+                                        opt.kappa_rot, opt.rot_order );
+      point_image =
+        vw::per_pixel_filter(point_image, PointTransFunc( rotation_trans ) );
+    }
 
-    std::cout << "Smoothing Data\n";
-    osgUtil::SmoothingVisitor sv;
-    root->accept(sv);
+    // Building Mesh
+    std::cout << "\nGenerating 3D mesh from point cloud:\n";
+    {
+      opt.root->addChild(build_mesh(point_image, opt.step_size, opt.texture_file_name, opt.dataNormal, opt.enable_lighting ));
 
-  }
+      if ( !opt.texture_file_name.empty() ) {
+        // Turning off lighting and other likes
+        osg::StateSet* stateSet = new osg::StateSet();
+        if ( !opt.enable_lighting )
+          stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
+        stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
+        opt.root->setStateSet( stateSet );
 
-  // Simplify Option
-  if ( vm.count( "simplify-mesh" ) ) {
+      } else {
+        std::cout << "Adding contour coloring\n";
+        osg::StateSet* stateSet =
+          create1DTexture( opt.root.get() , opt.dataNormal );
+        if ( !opt.enable_lighting )
+          stateSet->setMode( GL_LIGHTING , osg::StateAttribute::OFF );
+        stateSet->setMode( GL_BLEND , osg::StateAttribute::ON );
+        opt.root->setStateSet( stateSet );
+      }
+    }
 
-    if ( simplify_percent == 0.0 )
-      simplify_percent = 1.0;
+    // Smooth Option
+    if ( opt.smooth_mesh ) {
+      std::cout << "Smoothing Data\n";
+      osgUtil::SmoothingVisitor sv;
+      opt.root->accept(sv);
+    }
 
-    std::cout << "Simplifying Data\n";
-    osgUtil::Simplifier simple;
-    simple.setSmoothing( vm.count( "smooth-mesh" ) );
-    simple.setSampleRatio( simplify_percent );
-    root->accept(simple);
+    // Simplify Option
+    if ( opt.simplify_mesh ) {
+      if ( opt.simplify_percent == 0.0 )
+        opt.simplify_percent = 1.0;
 
-  }
+      std::cout << "Simplifying Data\n";
+      osgUtil::Simplifier simple;
+      simple.setSmoothing( opt.smooth_mesh );
+      simple.setSampleRatio( opt.simplify_percent );
+      opt.root->accept(simple);
+    }
 
-  // Optimizing Data
-  {
-    std::cout << "Optimizing Data\n";
-    osgUtil::Optimizer optimizer;
-    optimizer.optimize( root.get() );
-  }
+    // Optimizing Data
+    {
+      std::cout << "Optimizing Data\n";
+      osgUtil::Optimizer optimizer;
+      optimizer.optimize( opt.root.get() );
+    }
 
-  // Saving Data
-  std::cout << "\nSaving Data:\n";
-  {
-    std::ostringstream os;
-    os << output_prefix << "." << output_file_type;
-    osgDB::writeNodeFile( *root.get() , os.str() );
-  }
+    // Saving Data
+    {
+      std::cout << "\nSaving Data:\n";
+      std::ostringstream os;
+      os << opt.output_prefix << "." << opt.output_file_type;
+      osgDB::writeNodeFile( *opt.root.get() , os.str() );
+    }
 
+  } ASP_STANDARD_CATCHES;
+
+  return 0;
 }
