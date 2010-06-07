@@ -86,6 +86,25 @@ std::vector<int> makeOverlapList(std::vector<int> inputIndices, int currIndex,
 
   return overlapIndices;
 }
+void ChangeNoValDEM(ModelParams imgParam, float oldVal, float newVal)
+{
+    unsigned int k, l;
+    std::string DEMFilename = imgParam.DEMFilename;
+
+    DiskImageView<PixelGray<float> >  DEM(DEMFilename);
+    GeoReference DEM_geo;
+    read_georeference(DEM_geo, DEMFilename);
+
+    for (k = 0 ; k < (unsigned)DEM.rows(); ++k) {
+       for (l = 0; l < (unsigned)DEM.cols(); ++l) {
+          if (DEM(l,k) == oldVal) {
+	      DEM(l,k) = newVal;
+	  }
+       }
+    }
+
+    write_georeferenced_image(DEMFilename, DEM, DEM_geo, TerminalProgressCallback("{Core}","Processing:"));
+}
 
 int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
 {
@@ -162,7 +181,7 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
          printf("configFile not FOUND\n");
          //settings->reflectanceType = NO_REFL;
 	 settings->reflectanceType = LUNAR_LAMBERT;
-	 settings->reflectanceType = LAMBERT;
+	 //settings->reflectanceType = LAMBERT;
 	 settings->slopeType = 1;
 	 settings->shadowThresh = 40;
 
@@ -191,6 +210,8 @@ int main( int argc, char *argv[] ) {
   std::vector<std::string> input_files;
   //int num_matches;
   std::string homeDir;
+  //std::string dataDir = "/data/CTX";
+  //std::string resDir = "/results/CTX";
   std::string dataDir = "/data/orbit33";
   std::string resDir = "/results/orbit33";
 
@@ -276,13 +297,13 @@ int main( int argc, char *argv[] ) {
   std::string initExpTimeFile = homeDir + dataDir + "/exposureTime.txt";
 
   std::string exposureInfoFilename = homeDir + resDir + "/exposure/exposureInfo_0.txt";
-
+  
   std::vector<Vector3> sunPositions;
   sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), input_files.size());
 
   std::vector<Vector3> spacecraftPositions;
   spacecraftPositions = ReadSpacecraftPosition((char*)spacecraftPosFilename.c_str(), input_files.size());
-
+  
   std::vector<ModelParams> modelParamsArray(input_files.size());
   std::vector<float> avgReflectanceArray(input_files.size());
 
@@ -312,9 +333,9 @@ int main( int argc, char *argv[] ) {
     modelParamsArray[i].DEMFilename     = homeDir + dataDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
 
     modelParamsArray[i].infoFilename    = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
-    //modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
+    modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
     //DEM sub 4 by Taemin 
-    modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM2.tif";
+    //modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM2.tif";
     modelParamsArray[i].var2DEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
     modelParamsArray[i].reliefFilename  = homeDir + resDir + "/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
     modelParamsArray[i].shadowFilename  = homeDir + resDir + "/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
@@ -338,6 +359,10 @@ int main( int argc, char *argv[] ) {
 
   if (globalParams.DEMInitType == 1){
     //initialize the DEM files
+    //float oldVal;
+    //float newVal;
+    //ChangeNoValDEM(imgParam[0], oldVal, newVal);
+   
     TerminalProgressCallback callback("photometry","Init DEM:");
     callback.report_progress(0);
     for (unsigned int i = 0; i < input_files.size(); ++i) {
@@ -422,12 +447,21 @@ int main( int argc, char *argv[] ) {
   if (globalParams.exposureInitType == 3){
 
     std::vector<float> expTimeArray = ReadExposureInfoFile(initExpTimeFile, input_files.size());
-    modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
-    for (unsigned int i = 1; i < input_files.size(); ++i) {
-      modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*expTimeArray[i])/expTimeArray[0];
-      printf("expTimeArray[%d] = %f\n", i,  modelParamsArray[i].exposureTime);
-      AppendExposureInfoToFile(exposureInfoFilename, modelParamsArray[i]);
+    if (globalParams.exposureInitRefValue == 0){
+       for(unsigned int i = 0; i < input_files.size(); ++i) {
+	   modelParamsArray[i].exposureTime = expTimeArray[i];
+	   printf("expTimeArray[%d] = %f\n", i,  modelParamsArray[i].exposureTime);
+       }
     }
+    else{
+         modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
+	 for (unsigned int i = 1; i < input_files.size(); ++i) {
+	   modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*expTimeArray[i])/expTimeArray[0];
+	   printf("expTimeArray[%d] = %f\n", i,  modelParamsArray[i].exposureTime);
+	   //AppendExposureInfoToFile(exposureInfoFilename, modelParamsArray[i]);
+	 }
+    }
+  
   }
 
   if (globalParams.albedoInitType == 1){
@@ -521,8 +555,8 @@ int main( int argc, char *argv[] ) {
        }
     }
    }
-
-   //re-estimate the height map  - shape from shading
+    
+    //re-estimate the height map  - shape from shading
    if ((globalParams.reflectanceType != NO_REFL) && (globalParams.updateHeight == 1)){
 
        for (unsigned int i = 0; i < input_files.size(); ++i) {
