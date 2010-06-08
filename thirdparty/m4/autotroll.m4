@@ -1,3 +1,10 @@
+dnl __BEGIN_LICENSE__
+dnl Copyright (C) 2006-2010 United States Government as represented by
+dnl the Administrator of the National Aeronautics and Space Administration.
+dnl All Rights Reserved.
+dnl __END_LICENSE__
+
+
 # Build Qt apps with the autotools (Autoconf/Automake).
 # M4 macros.
 # This file is part of AutoTroll.

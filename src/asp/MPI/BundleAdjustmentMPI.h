@@ -4,6 +4,7 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+
 /// \file BundleAdjustmentMPI.h
 ///
 /// Header to define MPI interactions

@@ -1,3 +1,10 @@
+# __BEGIN_LICENSE__
+# Copyright (C) 2006-2010 United States Government as represented by
+# the Administrator of the National Aeronautics and Space Administration.
+# All Rights Reserved.
+# __END_LICENSE__
+
+
 GTEST_DIR = $(top_srcdir)/thirdparty/gtest
 
 libgtest_la_SOURCES = $(GTEST_DIR)/src/gtest-all.cc $(top_srcdir)/src/test/test_main.cc
