@@ -62,7 +62,22 @@ namespace isis {
     //------------------------------------------------------
     Isis::Pvl m_label;
     Isis::Camera* m_camera;
+
+    friend std::ostream& operator<<( std::ostream&, IsisInterface* );
   };
+
+  // IOstream interface
+  // -------------------------------------------------------
+  inline std::ostream& operator<<( std::ostream& os, IsisInterface* i ) {
+    os << "IsisInterface" << i->type()
+       << "( Serial=" << i->serial_number()
+       << std::setprecision(9)
+       << ", f=" << i->m_camera->FocalLength()
+       << " mm, pitch=" << i->m_camera->PixelPitch()
+       << " mm/px," << std::setprecision(6)
+       << "Center=" << i->camera_center() << " )";
+    return os;
+  }
 
 }}
 

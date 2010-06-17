@@ -89,40 +89,18 @@ namespace camera {
 
   protected:
     asp::isis::IsisInterface* m_interface;
-    /*
-    Isis::Pvl m_label;
-    Isis::Camera *m_camera;
-    Isis::AlphaCube *m_alphacube;
-    Isis::CameraDistortionMap *m_distortmap;
-    Isis::CameraFocalPlaneMap *m_focalmap;
-    Isis::CameraDetectorMap   *m_detectmap;
-    Isis::CameraGroundMap     *m_groundmap;
-    Isis::Projection          *m_projection;
-    double m_radii[3];
 
-  private:
-    class EphemerisLMA : public math::LeastSquaresModelBase<EphemerisLMA> {
-      Vector3 m_point;
-      Isis::Camera* m_camera;
-      Isis::CameraDistortionMap *m_distortmap;
-      Isis::CameraFocalPlaneMap *m_focalmap;
-    public:
-      typedef Vector<double> result_type; // Back project result
-      typedef Vector<double> domain_type; // Ephemeris time
-      typedef Matrix<double> jacobian_type;
-
-      inline EphemerisLMA( Vector3 const& point,
-                           Isis::Camera* camera,
-                           Isis::CameraDistortionMap* distortmap,
-                           Isis::CameraFocalPlaneMap* focalmap ) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap) {}
-
-      inline result_type operator()( domain_type const& x ) const;
-    };
-
-    inline Vector2 project_using_current( Vector3 const& point ) const;
-    Vector2 optimized_linescan_point_to_pixel( Vector3 const& point) const;
-    */
+    friend std::ostream& operator<<( std::ostream&, IsisCameraModel const& );
   };
+
+  // IOstream interface
+  // ---------------------------------------------
+  inline std::ostream& operator<<( std::ostream& os,
+                                   IsisCameraModel const& i ) {
+    os << "IsisCameraModel" << i.lines() << "x" << i.samples() << "( "
+       << i.m_interface << " )";
+    return os;
+  }
 
 }}
 
