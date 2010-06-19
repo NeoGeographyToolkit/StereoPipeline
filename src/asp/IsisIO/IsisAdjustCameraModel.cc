@@ -7,7 +7,7 @@
 
 // ASP & VW
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
-#include <vw/Math/EulerAngles.h>
+#include <vw/Math/Quaternion.h>
 
 // Isis
 #include <Filename.h>
@@ -134,7 +134,7 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   m_pose = Quaternion<double>(R_inst*transpose(R_body));
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  Quaternion<double> pose_adj( m_pose*math::euler_xyz_to_quaternion( angles ) );
+  Quaternion<double> pose_adj( m_pose*math::axis_angle_to_quaternion( angles ) );
 
   // Actually projecting point now
   Vector3 look = normalize( point - (m_center+m_position_f->evaluate(m_camera->EphemerisTime())) );
@@ -170,7 +170,7 @@ Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
 
   // Apply rotation of image camera
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  result = inverse( m_pose*math::euler_xyz_to_quaternion(angles) ).rotate( result );
+  result = inverse( m_pose*math::axis_angle_to_quaternion(angles) ).rotate( result );
   return result;
 }
 
@@ -188,7 +188,7 @@ IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  return m_pose*math::euler_xyz_to_quaternion( angles );
+  return m_pose*math::axis_angle_to_quaternion( angles );
 }
 
 std::string IsisAdjustCameraModel::serial_number() const {
@@ -217,10 +217,7 @@ IsisAdjustCameraModel::EphemerisLMA::operator()( IsisAdjustCameraModel::Ephemeri
 
   Vector3 lookB = normalize( m_point - instru );
   Vector3 angles = m_pose_f->evaluate( x[0] );
-  lookB = math::euler_to_rotation_matrix( angles[0],
-                                          angles[1],
-                                          angles[2],
-                                          "xyz" ) * lookB;
+  lookB = math::axis_angle_to_matrix( angles ) * lookB;
 
   std::vector<double> lookB_copy(3);
   lookB_copy[0] = lookB[0];

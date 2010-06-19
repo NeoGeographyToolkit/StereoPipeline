@@ -16,22 +16,9 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/CameraModel.h>
-//#include <vw/Math/LevenbergMarquardt.h>
 
 // ASP
 #include <asp/IsisIO/IsisInterface.h>
-
-/*
-// ISIS
-#include <Pvl.h>
-#include <AlphaCube.h>
-#include <Camera.h>
-#include <CameraDetectorMap.h>
-#include <CameraDistortionMap.h>
-#include <CameraFocalPlaneMap.h>
-#include <CameraGroundMap.h>
-#include <Projection.h>
-*/
 
 namespace vw {
 namespace camera {
