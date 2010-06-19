@@ -160,8 +160,11 @@ public:
     for (unsigned i = 0; i < m_network->size(); ++i)
       for(unsigned m = 0; m < (*m_network)[i].size(); ++m) {
         int camera_idx = (*m_network)[i][m].image_id();
-        Vector2 pixel_error = (*m_network)[i][m].position() - (*this)(i, camera_idx,
-                                                                   a[camera_idx],b[i]);
+        Vector2 pixel_error;
+        try {
+          pixel_error = (*m_network)[i][m].position() -
+            (*this)(i, camera_idx,a[camera_idx],b[i]);
+        } catch ( camera::PixelToRayErr &e ) {}
         pix_errors.push_back(norm_2(pixel_error));
       }
   }
