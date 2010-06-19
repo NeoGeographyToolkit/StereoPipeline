@@ -203,7 +203,7 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(st
       left_cahv = CAHVModel(m_left_camera_file);
       right_cahv = CAHVModel(m_right_camera_file);
 
-    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") ) {
+    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pinhole") ) {
       PinholeModel left_pin(m_left_camera_file);
       PinholeModel right_pin(m_right_camera_file);
       left_cahv = linearize_camera(left_pin);
@@ -231,7 +231,7 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(st
     } else if ( boost::ends_with(boost::to_lower_copy(camera_file),".cahv") ||
                 boost::ends_with(boost::to_lower_copy(camera_file),".pin") ) {
       return boost::shared_ptr<vw::camera::CameraModel>( new CAHVModel(camera_file) );
-    } else if ( boost::ends_with(boost::to_lower_copy(camera_file),"tsai") ) {
+    } else if ( boost::ends_with(boost::to_lower_copy(camera_file),".pinhole") ) {
       return boost::shared_ptr<vw::camera::CameraModel> ( new PinholeModel(camera_file) );
     } else {
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported cameara file type.\n");
@@ -275,7 +275,7 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
       Limg = transform(left_disk_image, CameraTransform<CAHVModel, CAHVModel>(left_cahv, *left_epipolar_cahv));
       Rimg = transform(right_disk_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
 
-    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") ) {
+    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pinhole") ) {
       PinholeModel left_pin(m_left_camera_file);
       PinholeModel right_pin(m_right_camera_file);
       Limg = transform(left_disk_image, CameraTransform<PinholeModel, CAHVModel>(left_pin, *left_epipolar_cahv));
