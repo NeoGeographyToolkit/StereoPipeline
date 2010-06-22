@@ -11,6 +11,8 @@
 #include <vw/Core/Debugging.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <vw/Cartography/SimplePointImageManipulation.h>
+#include <test/Helpers.h>
+#include <boost/foreach.hpp>
 
 // Additional Headers required for ISIS
 #include <Filename.h>
@@ -71,8 +73,7 @@ TEST(IsisCameraModel, mapprojected) {
     cam->SetUniversalGround( lon_lat_radius[1],
                              lon_lat_radius[0],
                              lon_lat_radius[2] );
-    std::cout << "Set to: " << pixel << "\n";
-    std::cout << "Turned to: " << cam->Sample() << "," << cam->Line() << " px\n";
+    EXPECT_VECTOR_NEAR( Vector2(cam->Sample(),cam->Line()), pixel, 1e-3 );
     double ip[3];
     cam->InstrumentPosition( ip );
     VectorProxy<double,3> instru( ip );
@@ -192,11 +193,9 @@ TEST(IsisCameraModel, groundmap_chk) {
 
     delete t;
 
-    for ( uint i = 0; i < pixel_sets.size(); i++ ) {
-      EXPECT_NEAR( nog_solution_sets[i][0], g_solution_sets[i][0], m_delta );
-      EXPECT_NEAR( nog_solution_sets[i][1], g_solution_sets[i][1], m_delta );
-      EXPECT_NEAR( nog_solution_sets[i][2], g_solution_sets[i][2], m_delta );
-    }
+    for ( uint i = 0; i < pixel_sets.size(); i++ )
+      EXPECT_VECTOR_NEAR( nog_solution_sets[i],
+                          g_solution_sets[i], m_delta );
   }
 }
 
@@ -209,14 +208,13 @@ TEST(IsisCameraModel, camera_model) {
   files.push_back("5165r.map.cub");
 
   srand( time(NULL) );
-  for ( uint j = 0; j < files.size(); j++ ) {
+  BOOST_FOREACH( std::string const& cube, files ) {
+    IsisCameraModel cam(cube);
 
-    IsisCameraModel cam(files[j]);
-
-    std::cout << "File: " << files[j] << "\n";
+    std::cout << "File: " << cube << "\n";
     std::cout << "------------------------------------\n";
 
-    Timer t(files[j]+"'s time: ");
+    Timer t(cube+"'s time: ");
 
     for ( uint i = 0; i < 2; i++ ) {
       Vector2 pixel = generate_random( cam.samples(),
@@ -239,9 +237,15 @@ TEST(IsisCameraModel, camera_model) {
       }
 
       Vector2 rpixel = cam.point_to_pixel( point );
-      EXPECT_NEAR( pixel[0], rpixel[0], 0.02 );
-      EXPECT_NEAR( pixel[1], rpixel[1], 0.02 );
+      EXPECT_VECTOR_NEAR( pixel, rpixel, 0.02 );
     }
 
+    Vector2 center_pixel( cam.lines(), cam.samples() );
+    center_pixel /= 2;
+    Quat center_pose = cam.camera_pose(center_pixel);
+    double angle_from_z =
+      acos(dot_prod(Vector3(0,0,1),inverse(center_pose).rotate(cam.pixel_to_vector(center_pixel))));
+    std::cout << "F: " << cube << " " << angle_from_z << "\n";
+    EXPECT_LT( angle_from_z, 0.5 );
   }
 }

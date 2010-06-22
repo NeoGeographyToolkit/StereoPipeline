@@ -81,6 +81,19 @@ TEST_F(IsisAdjustCameraTest, NoFunctions) {
       Vector2 rpixel = cam.point_to_pixel( points[i] );
       EXPECT_VECTOR_NEAR( pixels[i], rpixel, 0.001 );
     }
+
+    // check enforcement that pose returns the rotation from camera
+    // frame to world frame.
+    Vector2 center_pixel( cam.lines(), cam.samples() );
+    center_pixel /= 2;
+    Quat center_pose = cam.camera_pose(center_pixel);
+    double angle_from_z =
+      acos(dot_prod(Vector3(0,0,1),inverse(center_pose).rotate(cam.pixel_to_vector(center_pixel))));
+    EXPECT_LT( angle_from_z, 0.5 );
+    center_pose = noa_cam.camera_pose(center_pixel);
+    angle_from_z =
+      acos(dot_prod(Vector3(0,0,1),inverse(center_pose).rotate(noa_cam.pixel_to_vector(center_pixel))));
+    EXPECT_LT( angle_from_z, 0.5 );
   }
 }
 
