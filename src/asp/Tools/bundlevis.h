@@ -109,23 +109,12 @@ class CameraIter : public osg::Referenced  {
     std::vector<osg::Vec3f> m_position;
     std::vector<osg::Vec3f> m_euler;
  public:
-  CameraIter (const int& ID, int* step) {
-    m_ID = ID;
-    m_step = step;
-    m_vertices = 1;
-    m_drawConnLines = false;
-    m_isPushbroom = false;
-
-    std::ostringstream os;
-    os << "Camera: " << m_ID+1;
-    m_description = os.str();
-  }
-  CameraIter (const int& ID, int* step, const int& vertices) {
+    CameraIter (const int& ID, int* step, int const& vertices = 1) {
     m_ID = ID;
     m_step = step;
     m_vertices = vertices;
     m_drawConnLines = false;
-    m_isPushbroom = true;
+    m_isPushbroom = vertices > 1;
 
     std::ostringstream os;
     os << "Camera: " << m_ID+1;
@@ -133,7 +122,8 @@ class CameraIter : public osg::Referenced  {
   }
   int getStep(void) { return *m_step; }
   unsigned size(void) { return m_position.size()/m_vertices; }
-  void addIteration( const osg::Vec3f& newPos, const osg::Vec3f& newEuler ) {
+  void addIteration( const osg::Vec3f& newPos,
+                     const osg::Vec3f& newEuler ) {
     if (!m_isPushbroom) {
       m_position.push_back( newPos );
       m_euler.push_back( newEuler );
