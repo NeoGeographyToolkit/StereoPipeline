@@ -805,115 +805,73 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 }
 
 // This is the event handler, mouse, and keyboard.
-bool AllEventHandler::handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa ) {
+bool AllEventHandler::handle( const osgGA::GUIEventAdapter& ea,
+                              osgGA::GUIActionAdapter& aa ) {
   // Note: for some reason, you should only perform getEventType()
   // once.
-  //if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN){
-  switch(ea.getEventType()) {
-  case( osgGA::GUIEventAdapter::KEYDOWN ):
-    {
-      switch (ea.getKey()){
-      case 'z':     //Step Backwards
-        {
-          int buffer = (*_step);
-          buffer--;
-          if ( buffer < 1 )
-            buffer = _numIter;
-          (*_step) = buffer;
-          break;
-        }
-      case 'x':     //Play
-        {
-          _playControl->setPlay();
-          break;
-        }
-      case 'c':     //Pause
-        {
-          _playControl->setPause();
-          break;
-        }
-      case 'v':     //Stop
-        {
-          _playControl->setStop();
-          break;
-        }
-      case 'b':     //Step Forward
-        {
-          int buffer = (*_step);
-          buffer++;
-          if ( buffer > _numIter )
-            buffer = 1;
-          (*_step) = buffer;
-          break;
-        }
-      case '0':     //Show all steps
-        {
-          (*_step) = 0;
-          break;
-        }
-      case '1':     //Move to the first frame
-        {
-          (*_step) = 1;
-          break;
-        }
-      case '2':     //Move ro a place somewhere in between
-        {
-          (*_step) = (int)( (_numIter * 2) / 9 );
-          break;
-        }
-      case '3':
-        {
-          (*_step) = (int)( (_numIter * 3) / 9 );
-          break;
-        }
-      case '4':
-        {
-          (*_step) = (int)( (_numIter * 4) / 9 );
-          break;
-        }
-      case '5':
-        {
-          (*_step) = (int)( (_numIter * 5) / 9 );
-          break;
-        }
-      case '6':
-        {
-          (*_step) = (int)( (_numIter * 6) / 9 );
-          break;
-        }
-      case '7':
-        {
-          (*_step) = (int)( (_numIter * 7) / 9 );
-          break;
-        }
-      case '8':
-        {
-          (*_step) = (int)( (_numIter * 8) / 9 );
-          break;
-        }
-      case '9':     //Move to the last frame
-        {
-          (*_step) = _numIter;
-          break;
-        }
-      default:
-        break;
-      }
-    }
-    break;
-  case ( osgGA::GUIEventAdapter::PUSH ):
-    {
+  osgGA::GUIEventAdapter::EventType event = ea.getEventType();
 
-      // If there was a user keypress
-      osgViewer::View* view = dynamic_cast< osgViewer::View* >(&aa);
-      if (view)
-        pick( view, ea );
+  if ( event == osgGA::GUIEventAdapter::KEYDOWN ) {
+    switch (ea.getKey()){
+    case 'z':     //Step Backwards
+      if ( *m_step - 1 < 1 )
+        *m_step = m_numIter;
+      else
+        (*m_step)--;
+      break;
+    case 'x':     //Play
+      m_playControl->setPlay();
+      break;
+    case 'c':     //Pause
+      m_playControl->setPause();
+      break;
+    case 'v':     //Stop
+      m_playControl->setStop();
+      break;
+    case 'b':     //Step Forward
+      if ( *m_step + 1 > m_numIter )
+        *m_step = 1;
+      else
+        (*m_step)++;
+      break;
+    case '0':     //Show all steps
+      *m_step = 0;
+      break;
+    case '1':     //Move to the first frame
+      *m_step = 1;
+      break;
+    case '2':     //Move ro a place somewhere in between
+      *m_step = (m_numIter * 2) / 9;
+      break;
+    case '3':
+      *m_step = (m_numIter * 3) / 9;
+      break;
+    case '4':
+      *m_step = (m_numIter * 4) / 9;
+      break;
+    case '5':
+      *m_step = (m_numIter * 5) / 9;
+      break;
+    case '6':
+      *m_step = (m_numIter * 6) / 9;
+      break;
+    case '7':
+      *m_step = (m_numIter * 7) / 9;
+      break;
+    case '8':
+      *m_step = (m_numIter * 8) / 9;
+      break;
+    case '9':     //Move to the last frame
+      *m_step = m_numIter;
+      break;
+    default:
+      break;
     }
-    break;
-  default:
-    break;
+  } else if ( event == osgGA::GUIEventAdapter::PUSH ) {
+    osgViewer::View* view = dynamic_cast< osgViewer::View* >(&aa);
+    if (view)
+      pick( view, ea );
   }
-
   return false;
 }
 
@@ -924,15 +882,15 @@ void AllEventHandler::pick( osgViewer::View* view, const osgGA::GUIEventAdapter&
   float y = ea.getY();
 
   if (view->computeIntersections( x, y, intersections )){
-
     //I only care about the first intersection event
-    osgUtil::LineSegmentIntersector::Intersections::iterator hit = intersections.begin();
-
+    osgUtil::LineSegmentIntersector::Intersections::iterator hit =
+      intersections.begin();
     if (!hit->nodePath.empty() && !(hit->nodePath.back()->getName().empty())){
       std::cout << hit->nodePath.back()->getName() << std::endl;
 
       // Now I'll determine if it's a point
-      PointIter* point = dynamic_cast< PointIter* >( hit->nodePath.back()->getUserData() );
+      PointIter* point =
+        dynamic_cast< PointIter* >( hit->nodePath.back()->getUserData() );
       if ( point ) {
 
         point->setDrawConnLines( !point->getDrawConnLines() );
@@ -940,7 +898,8 @@ void AllEventHandler::pick( osgViewer::View* view, const osgGA::GUIEventAdapter&
       }
 
       // Well... snap, is it a camera?
-      CameraIter* camera = dynamic_cast< CameraIter* >( hit->nodePath.back()->getUserData() );
+      CameraIter* camera =
+        dynamic_cast< CameraIter* >( hit->nodePath.back()->getUserData() );
       if ( camera ) {
 
         camera->setDrawConnLines( !camera->getDrawConnLines() );
