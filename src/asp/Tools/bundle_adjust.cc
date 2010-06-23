@@ -250,19 +250,24 @@ public:
       parse_camera_parameters(a[j], position_correction, pose_correction);
       AdjustedCameraModel cam(m_cameras[j],
                               position_correction, pose_correction);
-      Vector3 position = cam.camera_center( Vector2() );
-      ostr << std::setprecision(8) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
-      Quaternion<double> pose = cam.camera_pose( Vector2() );
-      Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-      ostr << std::setprecision(8) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
+      std::cout << cam.camera_pose(Vector2()) << "\n";
+      Vector3 position =
+        cam.camera_center( Vector2() );
+      Quaternion<double> pose =
+        cam.camera_pose( Vector2() );
+      ostr << std::setprecision(18) << j << "\t" << position[0] << "\t"
+           << position[1] << "\t" << position[2] << "\t";
+      ostr << pose[0] << "\t" << pose[1] << "\t"
+           << pose[2] << "\t" << pose[3] << "\n";
     }
   }
 
   void bundlevis_points_append(std::string const& filename) {
     std::ofstream ostr(filename.c_str(),std::ios::app);
-    for ( unsigned i = 0; i < b.size(); i++ ) {
-      ostr << i << std::setprecision(8) << "\t" << b[i][0] << "\t"
-           << b[i][1] << "\t" << b[i][2] << "\n";
+    unsigned i = 0;
+    BOOST_FOREACH( point_vector_t const& p, b ) {
+      ostr << i++ << std::setprecision(18) << "\t" << p[0] << "\t"
+           << p[1] << "\t" << p[2] << "\n";
     }
   }
 };
@@ -432,6 +437,7 @@ int main(int argc, char* argv[]) {
 
   double abs_tol = 1e10, rel_tol=1e10;
   double overall_delta = 2;
+  int no_improvement_count = 0;
   while ( true ) {
     // Determine if it is time to quit
     if ( bundle_adjuster.iterations() >= 20 ) {
@@ -440,8 +446,12 @@ int main(int argc, char* argv[]) {
     } else if ( abs_tol < 0.01 ) {
       reporter() << "Triggered 'Abs Tol " << abs_tol << " < 0.01'\n";
       break;
-    } else if ( rel_tol < 1e-10 ) {
+    } else if ( rel_tol < 1e-6 ) {
       reporter() << "Triggered 'Rel Tol " << rel_tol << " < 1e-10'\n";
+      break;
+    } else if ( no_improvement_count > 4 ) {
+      reporter() << "Triggered break, unable to improve after "
+                 << no_improvement_count << " iterations\n";
       break;
     }
 
@@ -453,8 +463,11 @@ int main(int argc, char* argv[]) {
       ba_model.bundlevis_cameras_append("iterCameraParam.txt");
       ba_model.bundlevis_points_append("iterPointsParam.txt");
     }
+    if ( overall_delta == 0 )
+      no_improvement_count++;
+    else
+      no_improvement_count = 0;
   }
-
   reporter.end_tie_in();
 
   for (unsigned i=0; i < ba_model.num_cameras(); ++i)

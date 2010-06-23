@@ -332,6 +332,35 @@ public:
   boost::shared_ptr<vw::ba::ControlNetwork> control_network(void) {
     return m_network;
   }
+
+  void bundlevis_cameras_append(std::string const& filename ) {
+    std::ofstream ostr(filename.c_str(),std::ios::app);
+    for ( unsigned j = 0; j < this->num_cameras(); ++j ) {
+      boost::shared_ptr<vw::camera::IsisAdjustCameraModel> camera =
+        this->adjusted_camera(j);
+      float center_sample = camera->samples()/2;
+
+      for ( int i = 0; i < camera->lines(); i+=(camera->lines()/4) ) {
+        vw::Vector3 position =
+          camera->camera_center( vw::Vector2(center_sample,i) );
+        vw::Quat pose =
+          camera->camera_pose( vw::Vector2(center_sample,i) );
+        ostr << std::setprecision(18) << j << "\t" << position[0] << "\t"
+             << position[1] << "\t" << position[2] << "\t";
+        ostr << pose[0] << "\t" << pose[1] << "\t"
+             << pose[2] << "\t" << pose[3] << "\n";
+      }
+    }
+  }
+
+  void bundlevis_points_append(std::string const& filename ) {
+    std::ofstream ostr(filename.c_str(),std::ios::app);
+    unsigned i = 0;
+    BOOST_FOREACH( point_vector_t const& p, b ) {
+      ostr << i++ << std::setprecision(18) << "\t" << p[0] << "\t"
+           << p[1] << "\t" << p[2] << "\n";
+    }
+  }
 };
 
 // This sifts out from a vector of strings, a listing of GCPs.  This

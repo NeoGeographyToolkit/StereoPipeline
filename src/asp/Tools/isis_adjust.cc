@@ -131,37 +131,12 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
 
   // Clearing the monitoring text files
   if ( opt.save_iteration ) {
-    std::ofstream ostr( "iterCameraParam.txt", std::ios::out );
-    ostr << "";
-    ostr.close();
-    ostr.open( "iterPointsParam.txt", std::ios::out );
-    ostr << "";
-    ostr.close();
+    fs::remove("iterPointsParam.txt");
+    fs::remove("iterCameraParam.txt");
 
-    // Now saving the initial starting data:
-    // Recording Points Data
-    std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
-    for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
-      Vector3 point = ba_model.B_parameters(i);
-      ostr_points << std::setprecision(18) << i << "\t" << point[0] << "\t" << point[1] << "\t" << point[2] << std::endl;
-    }
-
-    // Recording Camera Data
-    std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
-    for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
-
-      boost::shared_ptr<IsisAdjustCameraModel> camera = ba_model.adjusted_camera(j);
-      float center_sample = camera->samples()/2;
-
-      // Saving points along the line of the camera
-      for ( int i = 0; i < camera->lines(); i+=(camera->lines()/8) ) {
-        Vector3 position = camera->camera_center( Vector2(center_sample,i) );
-        ostr_camera << std::setprecision(18) << j << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
-        Quaternion<double> pose = camera->camera_pose( Vector2(center_sample,i) );
-        Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-        ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t" << euler[1] << "\t" << euler[2] << std::endl;
-      }
-    }
+    // Write the starting locations
+    ba_model.bundlevis_cameras_append("iterCameraParam.txt");
+    ba_model.bundlevis_points_append("iterPointsParam.txt");
   }
 
   // Reporter
@@ -181,7 +156,7 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
     } else if ( abs_tol < 0.01 ) {
       reporter() << "Triggered 'Abs Tol " << abs_tol << " < 0.01'\n";
       break;
-    } else if ( rel_tol < 1e-10 ) {
+    } else if ( rel_tol < 1e-6 ) {
       reporter() << "Triggered 'Rel Tol " << rel_tol << " < 1e-10'\n";
       break;
     } else if ( no_improvement_count > 4 ) {
@@ -195,33 +170,8 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
 
     //Writing recording data for Bundlevis
     if ( opt.save_iteration ) {
-
-      // Recording Points Data
-      std::ofstream ostr_points("iterPointsParam.txt", std::ios::app);
-      for ( unsigned i = 0; i < ba_model.num_points(); ++i ) {
-        Vector3 point = ba_model.B_parameters(i);
-        ostr_points << std::setprecision(18) << i << "\t" << point[0]
-                    << "\t" << point[1] << "\t" << point[2] << std::endl;
-      }
-
-      // Recording Camera Data
-      std::ofstream ostr_camera("iterCameraParam.txt", std::ios::app);
-      for ( unsigned j = 0; j < ba_model.num_cameras(); ++j ) {
-
-        boost::shared_ptr< IsisAdjustCameraModel > camera = ba_model.adjusted_camera(j);
-        float center_sample = camera->samples()/2;
-
-        // Saving points along the line of the camera
-        for ( int i = 0; i < camera->lines(); i+=(camera->lines()/8) ) {
-          Vector3 position = camera->camera_center( Vector2(center_sample,i) );
-          ostr_camera << std::setprecision(18) << std::setprecision(18) << j
-                      << "\t" << position[0] << "\t" << position[1] << "\t" << position[2];
-          Quaternion<double> pose = camera->camera_pose( Vector2(center_sample,i) );
-          Vector3 euler = rotation_matrix_to_euler_xyz( pose.rotation_matrix() );
-          ostr_camera << std::setprecision(18) << "\t" << euler[0] << "\t"
-                      << euler[1] << "\t" << euler[2] << std::endl;
-        }
-      }
+      ba_model.bundlevis_cameras_append("iterCameraParam.txt");
+      ba_model.bundlevis_points_append("iterPointsParam.txt");
     } // end of saving data
 
     if ( overall_delta == 0 )
