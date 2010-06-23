@@ -53,15 +53,11 @@ namespace camera {
     //-------------------------------------------------------------------
 
     virtual Vector2 point_to_pixel( Vector3 const& point) const;
-
     virtual Vector3 pixel_to_vector( Vector2 const& pix ) const;
-
     virtual Vector3 camera_center( Vector2 const& pix = Vector2() ) const;
-
-    virtual Quaternion<double> camera_pose( Vector2 const& pix = Vector2() ) const;
+    virtual Quat camera_pose( Vector2 const& pix = Vector2() ) const;
 
     int lines() const { return m_camera->Lines(); }
-
     int samples() const { return m_camera->Samples(); }
 
     std::string serial_number() const;
@@ -88,7 +84,7 @@ namespace camera {
   private:
     mutable Vector2 m_c_location; // Current pixel location (Prior to funcs)
     mutable Vector3 m_center;
-    mutable Quaternion<double> m_pose;
+    mutable Quat m_pose;
     void SetTime( Vector2 const& px, bool calc=true ) const;
 
     // These algorithms are different from IsisCameraModel in that

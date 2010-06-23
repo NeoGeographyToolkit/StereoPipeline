@@ -38,8 +38,7 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
   std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-
-  m_pose = Quaternion<double>(R_inst*transpose(R_body));
+  m_pose = Quat(R_body*transpose(R_inst));
 }
 
 Vector2
@@ -97,6 +96,6 @@ Vector3 IsisInterfaceMapFrame::camera_center( Vector2 const& /*pix*/ ) const {
   return m_center;
 }
 
-Quaternion<double> IsisInterfaceMapFrame::camera_pose( Vector2 const& /*pix*/ ) const {
+Quat IsisInterfaceMapFrame::camera_pose( Vector2 const& /*pix*/ ) const {
   return m_pose;
 }

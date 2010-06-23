@@ -35,7 +35,9 @@ IsisInterfaceFrame::IsisInterfaceFrame( std::string const& filename ) :
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
-  m_pose = Quaternion<double>(R_inst*transpose(R_body));
+  // Instrument Rotation = Spacecraft to Camera's Frame
+  // Body Rotation = Spacecraft to World Frame
+  m_pose = Quat(R_body*transpose(R_inst));
 }
 
 Vector2
@@ -96,10 +98,12 @@ IsisInterfaceFrame::pixel_to_vector( Vector2 const& pix ) const {
   return result;
 }
 
-Vector3 IsisInterfaceFrame::camera_center( Vector2 const& /*pix*/ ) const {
+Vector3
+IsisInterfaceFrame::camera_center( Vector2 const& /*pix*/ ) const {
   return m_center;
 }
 
-Quaternion<double> IsisInterfaceFrame::camera_pose( Vector2 const& /*pix*/ ) const {
+Quat
+IsisInterfaceFrame::camera_pose( Vector2 const& /*pix*/ ) const {
   return m_pose;
 }

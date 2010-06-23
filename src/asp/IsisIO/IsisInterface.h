@@ -48,7 +48,7 @@ namespace isis {
       pixel_to_vector( vw::Vector2 const& pix ) const = 0;
     virtual vw::Vector3
       camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const = 0;
-    virtual vw::Quaternion<double>
+    virtual vw::Quat
       camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const = 0;
 
     // General information

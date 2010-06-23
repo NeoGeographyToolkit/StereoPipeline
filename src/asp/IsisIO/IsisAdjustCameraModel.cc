@@ -81,7 +81,7 @@ void IsisAdjustCameraModel::SetTime( Vector2 const& px,
       std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
       MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
       MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-      m_pose = Quaternion<double>( R_inst*transpose(R_body) );
+      m_pose = Quat( R_inst*transpose(R_body) );
     }
   }
 }
@@ -132,9 +132,9 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
   std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-  m_pose = Quaternion<double>(R_inst*transpose(R_body));
+  m_pose = Quat(R_inst*transpose(R_body));
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  Quaternion<double> pose_adj( m_pose*math::axis_angle_to_quaternion( angles ) );
+  Quat pose_adj( m_pose*math::axis_angle_to_quaternion( angles ) );
 
   // Actually projecting point now
   Vector3 look = normalize( point - (m_center+m_position_f->evaluate(m_camera->EphemerisTime())) );
@@ -182,13 +182,13 @@ IsisAdjustCameraModel::camera_center( Vector2 const& pix ) const {
   return m_center+m_position_f->evaluate( m_camera->EphemerisTime() );
 }
 
-Quaternion<double>
+Quat
 IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
   Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
-  return m_pose*math::axis_angle_to_quaternion( angles );
+  return inverse(m_pose*math::axis_angle_to_quaternion( angles ) );
 }
 
 std::string IsisAdjustCameraModel::serial_number() const {

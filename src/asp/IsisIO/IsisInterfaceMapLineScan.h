@@ -50,7 +50,7 @@ namespace isis {
       pixel_to_vector( vw::Vector2 const& pix ) const;
     virtual vw::Vector3
       camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
-    virtual vw::Quaternion<double>
+    virtual vw::Quat
       camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
 
   protected:
@@ -68,7 +68,7 @@ namespace isis {
     // Custom Functions
     mutable vw::Vector2 m_c_location;
     mutable vw::Vector3 m_center;
-    mutable vw::Quaternion<double> m_pose;
+    mutable vw::Quat m_pose;
     double m_radii[3];
     void SetTime( vw::Vector2 const& px,
                   bool calc=false ) const;

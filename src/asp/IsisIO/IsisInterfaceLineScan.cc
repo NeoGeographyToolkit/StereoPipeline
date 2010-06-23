@@ -43,7 +43,7 @@ void IsisInterfaceLineScan::SetTime( Vector2 const& px, bool calc ) const {
       std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
       MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
       MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-      m_pose = Quaternion<double>(R_inst*transpose(R_body));
+      m_pose = Quat(R_body*transpose(R_inst));
     }
   }
 }
@@ -123,10 +123,9 @@ IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
   std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
+  m_pose = Quat(R_body*transpose(R_inst));
 
-  m_pose = Quaternion<double>(R_inst*transpose(R_body));
-
-  look = m_pose.rotate( look );
+  look = inverse(m_pose).rotate( look );
   look = m_camera->FocalLength() * ( look / look[2] );
   m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
   m_focalmap->SetFocalPlane( m_distortmap->FocalPlaneX(),
@@ -158,7 +157,7 @@ IsisInterfaceLineScan::pixel_to_vector( Vector2 const& pix ) const {
   result[1] = m_distortmap->UndistortedFocalPlaneY();
   result[2] = m_distortmap->UndistortedFocalPlaneZ();
   result = normalize( result );
-  result = inverse(m_pose).rotate(result);
+  result = m_pose.rotate(result);
   return result;
 }
 
@@ -169,7 +168,7 @@ IsisInterfaceLineScan::camera_center( Vector2 const& pix ) const {
   return m_center;
 }
 
-Quaternion<double>
+Quat
 IsisInterfaceLineScan::camera_pose( Vector2 const& pix ) const {
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );

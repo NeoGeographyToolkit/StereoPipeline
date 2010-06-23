@@ -44,7 +44,7 @@ namespace isis {
       pixel_to_vector( vw::Vector2 const& pix ) const;
     virtual vw::Vector3
       camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
-    virtual vw::Quaternion<double>
+    virtual vw::Quat
       camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
 
   protected:
@@ -55,7 +55,7 @@ namespace isis {
     Isis::CameraDistortionMap *m_distortmap;
 
     vw::Vector3 m_center;
-    vw::Quaternion<double> m_pose;
+    vw::Quat m_pose;
     double m_radii[3];
   };
 
