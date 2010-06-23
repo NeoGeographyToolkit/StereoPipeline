@@ -49,18 +49,12 @@ osg::Geode* build3Axis( float const& line_length ){
 
 // This builds the matrix transform for a camera
 osg::MatrixTransform*
-CameraIter::matrix_transform( const int& step, const int& vertice = 0 ) {
+CameraIter::matrix_transform( int const& step, int const& vertice = 0 ) {
   osg::MatrixTransform* mt = new osg::MatrixTransform;
 
-  osg::Vec3f euler = this->euler( step, vertice );
+  osg::Matrixf rot;
+  this->pose( step, vertice ).set( rot );
   osg::Vec3f position = this->position( step, vertice );
-
-  Matrix3x3 temp =
-    math::euler_to_rotation_matrix( euler[0], euler[1], euler[2], "xyz" );
-  osg::Matrix rot( temp(0,0), temp(1,0), temp(2,0), 0,
-                   temp(0,1), temp(1,1), temp(2,1), 0,
-                   temp(0,2), temp(1,2), temp(2,2), 0,
-                   0, 0, 0, 1);
   osg::Matrix trans( 1,   0,   0,   0,
                      0,   1,   0,   0,
                      0,   0,   1,   0,
@@ -78,9 +72,7 @@ std::vector<PointIter*> loadPointData( std::string pntFile,
 
   // Determing the number of lines in the file
   std::ifstream file(pntFile.c_str(), std::ios::in);
-  int numLines = 0;
-  int numPoints = 0;
-  int numTimeIter = 0;
+  int numLines = 0, numPoints = 0, numTimeIter = 0;
   char c;
   while (!file.eof()){
     c=file.get();
@@ -196,95 +188,77 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
     for ( int j = 0; j < numCameras; ++j ){
       float float_fill_buffer;
 
-      if ( numCameraParam == 1 ) {  // This is a EULER angle camera model
+      if ( numCameraParam == 1 ) {
+        // Simple Camera
+
         // First one is just the Camera ID
         file >> float_fill_buffer;
         if (float_fill_buffer != j)
           std::cout << "Reading number mismatch. Reading camera " << j
                    << ", found it to be " << float_fill_buffer << std::endl;
 
-        osg::Vec3f vec_fill_buffer1, vec_fill_buffer2;
+        osg::Vec3f position_buffer;
+        osg::Quat  pose_buffer;
 
         // This whole conditional mess is to handle NAN, at least I
         // hope it works!
-        if (!(file >> vec_fill_buffer1[0])) {
-          file >> throwAway;
-          vec_fill_buffer1[0] = 0;
+        for ( unsigned i = 0; i < 3; i++ ) {
+          if (!(file >> position_buffer[i])) {
+            file >> throwAway;
+            position_buffer[i] = 0;
+          }
         }
-        if (!(file >> vec_fill_buffer1[1])) {
+        // Reason for this .. is that the Quat is written in VW format
+        if (!(file >> pose_buffer[3])) {
           file >> throwAway;
-          vec_fill_buffer1[1] = 0;
+          pose_buffer[3] = 0;
         }
-        if (!(file >> vec_fill_buffer1[2])) {
-          file >> throwAway;
-          vec_fill_buffer1[2] = 0;
-        }
-        if (!(file >> vec_fill_buffer2[0])) {
-          file >> throwAway;
-          vec_fill_buffer2[0] = 0;
-        }
-        if (!(file >> vec_fill_buffer2[1])) {
-          file >> throwAway;
-          vec_fill_buffer2[1] = 0;
-        }
-        if (!(file >> vec_fill_buffer2[2])) {
-          file >> throwAway;
-          vec_fill_buffer2[2] = 0;
+        for ( unsigned i = 0; i < 3; i++ ) {
+          if (!(file >> pose_buffer[i])) {
+            file >> throwAway;
+            pose_buffer[i] = 0;
+          }
         }
 
         // Now attaching the data
-        cameraData[j]->add_iteration( vec_fill_buffer1,
-                                     vec_fill_buffer2 );
-      } else { // The data is probable a linescan camera .... need to add a new draw ability
-
-        std::vector< osg::Vec3f> bufferPosition;
-        std::vector< osg::Vec3f> bufferPose;
-        osg::Vec3f vec_fill_buffer;
-        bufferPosition.clear();
-        bufferPose.clear();
+        cameraData[j]->add_iteration( position_buffer,
+                                      pose_buffer );
+      } else {
+        // Linescan Camera
+        std::vector< osg::Vec3f> position_buffer;
+        std::vector< osg::Quat> pose_buffer;
 
         // Going through all the vertice data which was given
         for ( int p = 0; p < numCameraParam; ++p ) {
-
           // The first on is just the Camera ID
           file >> float_fill_buffer;
           if ( float_fill_buffer != j)
             std::cout << "Reading number mismatch. Reading camera " << j
                       << ", found it to be " << float_fill_buffer << std::endl;
 
-          if (!(file >> vec_fill_buffer[0])) {
-            file >> throwAway;
-            vec_fill_buffer[0] = 0;
+          position_buffer.push_back( osg::Vec3f() );
+          for ( unsigned i = 0; i < 3; i++ ) {
+            if (!(file >> position_buffer.back()[i])) {
+              file >> throwAway;
+              position_buffer.back()[i] = 0;
+            }
           }
-          if (!(file >> vec_fill_buffer[1])) {
+          pose_buffer.push_back( osg::Quat() );
+          if (!(file >> pose_buffer.back()[3])) { // Files are written
+                                                  // in VW notation
             file >> throwAway;
-            vec_fill_buffer[1] = 0;
+            pose_buffer.back()[3] = 0;
           }
-          if (!(file >> vec_fill_buffer[2])) {
-            file >> throwAway;
-            vec_fill_buffer[2] = 0;
+          for ( unsigned i = 0; i < 3; i++ ) {
+            if (!(file >> pose_buffer.back()[i])) {
+              file >> throwAway;
+              pose_buffer.back()[i] = 0;
+            }
           }
-
-          bufferPosition.push_back( vec_fill_buffer );
-
-          if (!(file >> vec_fill_buffer[0])) {
-            file >> throwAway;
-            vec_fill_buffer[0] = 0;
-          }
-          if (!(file >> vec_fill_buffer[1])) {
-            file >> throwAway;
-            vec_fill_buffer[1] = 0;
-          }
-          if (!(file >> vec_fill_buffer[2])) {
-            file >> throwAway;
-            vec_fill_buffer[2] = 0;
-          }
-
-          bufferPose.push_back( vec_fill_buffer );
         }
 
         // Cool.. now I'm going to attach this data
-        cameraData[j]->add_iteration( bufferPosition, bufferPose );
+        cameraData[j]->add_iteration( position_buffer, pose_buffer );
       }
     }
   }

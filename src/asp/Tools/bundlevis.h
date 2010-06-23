@@ -75,9 +75,7 @@ class PointIter : public osg::Referenced {
     m_position.push_back( newPos );
     m_error.push_back( newError );
   }
-  osg::Vec3f position( const int& step ) const {
-    return m_position.at( step );
-  }
+  osg::Vec3f position( const int& step ) { return m_position.at( step ); }
   float error( const int& step ) const { return m_error.at( step ); }
   void toggle_drawconnlines(void) { m_drawConnLines = !m_drawConnLines; }
   bool is_drawconnlines( void ) const { return m_drawConnLines; }
@@ -90,12 +88,11 @@ class PointIter : public osg::Referenced {
 class CameraIter : public osg::Referenced  {
     int* m_step;
     int m_ID;
-    int m_vertices;
-    bool m_drawConnLines;
-    bool m_isPushbroom;
+    unsigned m_vertices;
+    bool m_drawConnLines, m_isPushbroom;
     std::string m_description;
     std::vector<osg::Vec3f> m_position;
-    std::vector<osg::Vec3f> m_euler;
+    std::vector<osg::Quat> m_pose;
  public:
     CameraIter (const int& ID, int* step, int const& vertices = 1) {
     m_ID = ID;
@@ -110,23 +107,23 @@ class CameraIter : public osg::Referenced  {
   }
   int step(void) const { return *m_step; }
   unsigned size(void) const { return m_position.size()/m_vertices; }
-  void add_iteration( const osg::Vec3f& newPos,
-                      const osg::Vec3f& newEuler ) {
+  void add_iteration( const osg::Vec3f& position,
+                      const osg::Quat&  pose ) {
     if (!m_isPushbroom) {
-      m_position.push_back( newPos );
-      m_euler.push_back( newEuler );
+      m_position.push_back( position);
+      m_pose.push_back( pose );
     } else {
       std::cout << "ERROR CAMERA: Trying to add frame like data to non-frame camera" << std::endl;
     }
   }
-  void add_iteration( const std::vector<osg::Vec3f>& newPos,
-                      const std::vector<osg::Vec3f>& newEuler ) {
+  void add_iteration( std::vector<osg::Vec3f> const& position,
+                      std::vector<osg::Quat> const& pose ) {
     if (m_isPushbroom){
-      if ( int(newPos.size()) == m_vertices ) {
-        for (int i = 0; i < m_vertices; ++i) {
-          m_position.push_back( newPos[i] );
-          m_euler.push_back( newEuler[i] );
-        }
+      if ( pose.size() == m_vertices ) {
+        std::copy( position.begin(), position.end(),
+                   std::back_inserter(m_position) );
+        std::copy( pose.begin(), pose.end(),
+                   std::back_inserter(m_pose) );
       } else {
         std::cout << "ERROR PUSHBROOM CAMERA: This data doesn't look like it belongs to me" << std::endl;
       }
@@ -134,21 +131,17 @@ class CameraIter : public osg::Referenced  {
       std::cout << "ERROR CAMERA: Trying to add pushbroom like data to non-pushbroom camera" << std::endl;
     }
   }
-  osg::Vec3f position( const int& step ) const {
-    return m_position.at( step*m_vertices ); }
-  osg::Vec3f euler( const int& step ) const {
-    return m_euler.at( step*m_vertices ); }
-  osg::Vec3f position( const int& step, const int& vert ) const {
-    return m_position.at( step*m_vertices + vert ); }
-  osg::Vec3f euler( const int& step, const int& vert ) const {
-    return m_euler.at( step*m_vertices + vert ); }
+  osg::Vec3f position( int const& step, int const& vert=0 ) const {
+    return m_position.at( step*m_vertices+vert ); }
+  osg::Quat pose( int const& step, int const& vert=0 ) const {
+    return m_pose.at( step*m_vertices+vert ); }
   std::string description( void ) const {
     return m_description; }
   void toggle_drawconnlines(void) { m_drawConnLines = !m_drawConnLines; }
   bool is_drawconnlines( void ) const { return m_drawConnLines; }
   bool is_pushbroom( void ) const { return m_isPushbroom; }
   int num_vertices( void ) const { return m_vertices; }
-  osg::MatrixTransform* matrix_transform ( const int& step, const int& vert );
+  osg::MatrixTransform* matrix_transform ( int const&, int const& );
 
 };
 
@@ -408,19 +401,9 @@ class cameraMatrixCallback : public osg::NodeCallback {
       //Moving the transform to reflect the current step
       osg::MatrixTransform* mt = dynamic_cast<osg::MatrixTransform*>(node);
 
-      osg::Vec3f euler = m_camera->euler( buffer - 1, m_vertice );
       osg::Vec3f position = m_camera->position( buffer - 1, m_vertice );
-
-      vw::Matrix3x3 temp =
-        vw::math::euler_to_rotation_matrix(euler[0],
-                                           euler[1],
-                                           euler[2],
-                                           "xyz" );
-
-      osg::Matrix rot( temp(0,0), temp(0,1), temp(0,2), 0,
-                       temp(1,0), temp(1,1), temp(1,2), 0,
-                       temp(2,0), temp(2,1), temp(2,2), 0,
-                       0, 0, 0, 1);
+      osg::Matrixf rot;
+      m_camera->pose( buffer - 1, m_vertice ).set( rot );
 
       osg::Matrix trans( 1,   0,   0,   0,
                          0,   1,   0,   0,
