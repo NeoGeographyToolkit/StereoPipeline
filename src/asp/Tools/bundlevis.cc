@@ -52,13 +52,9 @@ osg::MatrixTransform*
 CameraIter::matrix_transform( int const& step, int const& vertice = 0 ) {
   osg::MatrixTransform* mt = new osg::MatrixTransform;
 
-  osg::Matrixf rot;
-  this->pose( step, vertice ).set( rot );
-  osg::Vec3f position = this->position( step, vertice );
-  osg::Matrix trans( 1,   0,   0,   0,
-                     0,   1,   0,   0,
-                     0,   0,   1,   0,
-                     position[0], position[1], position[2],   1 );
+  osg::Matrixf rot, trans;
+  rot.makeRotate( this->pose( step, vertice ) );
+  trans.makeTranslate( this->position( step, vertice ) );
   mt->setMatrix( rot*trans );
   mt->setUpdateCallback( new cameraMatrixCallback( this, vertice ));
 

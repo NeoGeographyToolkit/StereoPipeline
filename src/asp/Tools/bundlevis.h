@@ -401,18 +401,10 @@ class cameraMatrixCallback : public osg::NodeCallback {
       //Moving the transform to reflect the current step
       osg::MatrixTransform* mt = dynamic_cast<osg::MatrixTransform*>(node);
 
-      osg::Vec3f position = m_camera->position( buffer - 1, m_vertice );
-      osg::Matrixf rot;
-      m_camera->pose( buffer - 1, m_vertice ).set( rot );
-
-      osg::Matrix trans( 1,   0,   0,   0,
-                         0,   1,   0,   0,
-                         0,   0,   1,   0,
-                         position[0],   position[1],   position[2],   1 );
-
-      osg::Matrix result( rot*trans );
-
-      mt->setMatrix( result );
+      osg::Matrixf rot, trans;
+      rot.makeRotate( m_camera->pose( buffer - 1, m_vertice ) );
+      trans.makeTranslate( m_camera->position( buffer -1, m_vertice ) );
+      mt->setMatrix( rot*trans );
     }
 
     m_previousStep = buffer;
