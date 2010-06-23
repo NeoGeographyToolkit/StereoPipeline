@@ -50,6 +50,14 @@ namespace po = boost::program_options;
 
 // PointIter, the lowest quantum of points
 class PointIter : public osg::Referenced {
+    int* _step;
+    int _ID;
+    bool _drawConnLines;
+    bool _isGCP;
+    std::string _description;
+    std::vector<osg::Vec3f> _position;
+    std::vector<float> _error;
+    vw::ba::ControlPoint* _controlPoint;
  public:
   PointIter (const int& ID, int* step) {
     _ID = ID;
@@ -88,19 +96,18 @@ class PointIter : public osg::Referenced {
   const std::string getDescription( void ) {
     return _description;
   }
- private:
-  int* _step;
-  int _ID;
-  bool _drawConnLines;
-  bool _isGCP;
-  std::string _description;
-  std::vector<osg::Vec3f> _position;
-  std::vector<float> _error;
-  vw::ba::ControlPoint* _controlPoint;
 };
 
 // CameraIter, the lowest quantum of cameras
 class CameraIter : public osg::Referenced  {
+    int* _step;
+    int _ID;
+    int _vertices;
+    bool _drawConnLines;
+    bool _isPushbroom;
+    std::string _description;
+    std::vector<osg::Vec3f> _position;
+    std::vector<osg::Vec3f> _euler;
  public:
   CameraIter (const int& ID, int* step) {
     _ID = ID;
@@ -178,19 +185,14 @@ class CameraIter : public osg::Referenced  {
   }
   osg::MatrixTransform* buildMatrixTransform( const int& step, const int& vert );
 
- private:
-  int* _step;
-  int _ID;
-  int _vertices;
-  bool _drawConnLines;
-  bool _isPushbroom;
-  std::string _description;
-  std::vector<osg::Vec3f> _position;
-  std::vector<osg::Vec3f> _euler;
 };
 
 // ConnLinesIter, the quanta of connecting lines between point and cameras
 class ConnLineIter {
+  int* _step;
+  PointIter* _point;
+  CameraIter* _camera;
+  osg::Vec4f colour;
  public:
   ConnLineIter (PointIter* point, CameraIter* camera, int* step) {
     _point = point;
@@ -204,11 +206,6 @@ class ConnLineIter {
   }
   PointIter* getPoint(void) { return _point; };
   CameraIter* getCamera(void) { return _camera; };
- private:
-  int* _step;
-  PointIter* _point;
-  CameraIter* _camera;
-  osg::Vec4f colour;
 };
 
 // This will load a point data file
@@ -233,6 +230,10 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 
 // Playback control
 class PlaybackControl {
+  int* _step;
+  bool _play;
+  bool _pause;
+  bool _stop;
  public:
   PlaybackControl(int* step){
     _step = step;
@@ -244,15 +245,13 @@ class PlaybackControl {
   void setPause(){ _play = false; _stop = false; _pause = true; }
   void setStop(){ _play = false; _stop = true; _pause = false; (*_step) = 1; }
   bool getPlay(){ return _play; }
- private:
-  int* _step;
-  bool _play;
-  bool _pause;
-  bool _stop;
 };
 
 // Event Handler for Mouse and Keyboard
 class AllEventHandler : public osgGA::GUIEventHandler{
+  int* _step;
+  int _numIter;
+  PlaybackControl* _playControl;
  public:
   AllEventHandler( int* step, const int& numIter, PlaybackControl* playControl ) {
     _step = step;
@@ -261,10 +260,6 @@ class AllEventHandler : public osgGA::GUIEventHandler{
   }
   bool handle( const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa );
   void pick( osgViewer::View* view, const osgGA::GUIEventAdapter& ea );
- private:
-  int* _step;
-  int _numIter;
-  PlaybackControl* _playControl;
 };
 
 // This is a draw back for a collection of points in a single geometry
@@ -396,6 +391,10 @@ struct linesDrawCallback : public osg::Drawable::DrawCallback {
 
 // This is a update callback, it's meant just to work with playback control
 class playbackNodeCallback : public osg::NodeCallback {
+  PlaybackControl* _playback;
+  int* _step;
+  int _maxIter;
+  unsigned _delayCount;
  public:
   playbackNodeCallback( int* step , int maxIter, PlaybackControl* playback ){
     _playback = playback;
@@ -417,23 +416,20 @@ class playbackNodeCallback : public osg::NodeCallback {
     }
     traverse( node, nv );
   }
- private:
-  PlaybackControl* _playback;
-  int* _step;
-  int _maxIter;
-  unsigned _delayCount;
 };
 
 // This is an update callback for the matrix that transforms the 3
 // axis representing the camera
 class cameraMatrixCallback : public osg::NodeCallback {
+  int _previousStep;
+  int _vertice;
+  CameraIter* _camera;
  public:
   cameraMatrixCallback( CameraIter* camera, const int& vertice = 0 ) {
     _camera = camera;
     _vertice = vertice;
   }
-  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv )
-  {
+  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv ) {
     int buffer = _camera->getStep();
 
     //When displaying all... just display end
@@ -472,15 +468,13 @@ class cameraMatrixCallback : public osg::NodeCallback {
     _previousStep = buffer;
     traverse( node, nv );
   }
- private:
-  int _previousStep;
-  int _vertice;
-  CameraIter* _camera;
 };
 
 // This is an update callback for the auto matrix that transforms the
 // hit square and text for the camera
 class cameraAutoMatrixCallback : public osg::NodeCallback {
+  int _previousStep;
+  CameraIter* _camera;
  public:
   cameraAutoMatrixCallback( CameraIter* camera ) {
     _camera = camera;
@@ -501,14 +495,13 @@ class cameraAutoMatrixCallback : public osg::NodeCallback {
     _previousStep = buffer;
     traverse( node, nv );
   }
- private:
-  int _previousStep;
-  CameraIter* _camera;
 };
 
 // This is an update callback for the automatrix that transforms the
 // hit square and text for the points
 class pointAutoMatrixCallback : public osg::NodeCallback {
+  int _previousStep;
+  PointIter* _point;
  public:
   pointAutoMatrixCallback( PointIter* point ) {
     _point = point;
@@ -526,9 +519,6 @@ class pointAutoMatrixCallback : public osg::NodeCallback {
       autoT->setPosition( _point->getPosition( buffer - 1 ) );
     }
   }
- private:
-  int _previousStep;
-  PointIter* _point;
 };
 
 // This just builds the 3 Axis that represents the camera
