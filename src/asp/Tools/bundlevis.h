@@ -268,8 +268,7 @@ class AllEventHandler : public osgGA::GUIEventHandler{
 };
 
 // This is a draw back for a collection of points in a single geometry
-struct pointsDrawCallback : public osg::Drawable::DrawCallback
-{
+struct pointsDrawCallback : public osg::Drawable::DrawCallback {
   pointsDrawCallback( std::vector<PointIter*>* points ) {
     _points = points;
     _previousStep = 0;
@@ -325,8 +324,7 @@ struct pointsDrawCallback : public osg::Drawable::DrawCallback
 };
 
 // This is a drawback for the lines representing the path of a pushbroom
-struct pushbroomDrawCallback : public osg::Drawable::DrawCallback
-{
+struct pushbroomDrawCallback : public osg::Drawable::DrawCallback {
   pushbroomDrawCallback( CameraIter* camera ) {
     _camera = camera;
   }
@@ -365,8 +363,7 @@ struct pushbroomDrawCallback : public osg::Drawable::DrawCallback
 };
 
 // This is a draw back for the lines connecting cameras and points
-struct linesDrawCallback : public osg::Drawable::DrawCallback
-{
+struct linesDrawCallback : public osg::Drawable::DrawCallback {
   linesDrawCallback( ConnLineIter* connLine ) {
     _connLine = connLine;
   }
@@ -398,8 +395,7 @@ struct linesDrawCallback : public osg::Drawable::DrawCallback
 };
 
 // This is a update callback, it's meant just to work with playback control
-class playbackNodeCallback : public osg::NodeCallback
-{
+class playbackNodeCallback : public osg::NodeCallback {
  public:
   playbackNodeCallback( int* step , int maxIter, PlaybackControl* playback ){
     _playback = playback;
@@ -430,8 +426,7 @@ class playbackNodeCallback : public osg::NodeCallback
 
 // This is an update callback for the matrix that transforms the 3
 // axis representing the camera
-class cameraMatrixCallback : public osg::NodeCallback
-{
+class cameraMatrixCallback : public osg::NodeCallback {
  public:
   cameraMatrixCallback( CameraIter* camera, const int& vertice = 0 ) {
     _camera = camera;
@@ -485,14 +480,12 @@ class cameraMatrixCallback : public osg::NodeCallback
 
 // This is an update callback for the auto matrix that transforms the
 // hit square and text for the camera
-class cameraAutoMatrixCallback : public osg::NodeCallback
-{
+class cameraAutoMatrixCallback : public osg::NodeCallback {
  public:
   cameraAutoMatrixCallback( CameraIter* camera ) {
     _camera = camera;
   }
-  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv )
-  {
+  virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv ) {
     int buffer = _camera->getStep();
 
     //When display all... just display end
@@ -515,14 +508,12 @@ class cameraAutoMatrixCallback : public osg::NodeCallback
 
 // This is an update callback for the automatrix that transforms the
 // hit square and text for the points
-class pointAutoMatrixCallback : public osg::NodeCallback
-{
+class pointAutoMatrixCallback : public osg::NodeCallback {
  public:
   pointAutoMatrixCallback( PointIter* point ) {
     _point = point;
   }
-  virtual void operator() ( osg::Node* node, osg::NodeVisitor* /*nv*/ )
-  {
+  virtual void operator() ( osg::Node* node, osg::NodeVisitor* /*nv*/ ) {
     int buffer = _point->getStep();
 
     //When display all... just display end

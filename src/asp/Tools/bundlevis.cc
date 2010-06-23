@@ -10,9 +10,6 @@
 
 #include "bundlevis.h"
 
-#define PROGRAM_NAME "Bundlevis v2.1"
-#define PI 3.14159265
-
 // This builds the 3 Axis that represents the camera
 osg::Geode* build3Axis( float const& line_length ){
   osg::Geode* axisGeode = new osg::Geode();
@@ -205,10 +202,10 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
     for ( int j = 0; j < numCameras; ++j ){
       float float_fill_buffer;
 
-      if ( numCameraParam == 6 ) {         // This is a CAHVOR camera parameter
-
-        //Right now I'm not going to worry myself with if the correct orientation is
-        //calculated.. This will just get camera bore pointed in the right direction
+      if ( numCameraParam == 6 ) {
+        // This is a CAHVOR camera parameter
+        // Right now I'm not going to worry myself with if the correct orientation is
+        // calculated.. This will just get camera bore pointed in the right direction
         std::vector<osg::Vec3f> buffer;
         osg::Vec3f vec_fill_buffer;
         buffer.clear();
@@ -243,7 +240,7 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
         for ( int p = 0; p < 3; ++p )
           pointing[p] = buffer[1][p];
 
-        double alpha = atan2( pointing[1] , pointing[0]) - PI/2;
+        double alpha = atan2( pointing[1] , pointing[0]) - M_PI/2;
 
         vw::Matrix<double, 3, 3> zrot;
         zrot(0,0) = cos(alpha);
@@ -254,7 +251,7 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 
         pointing = transpose(zrot)*pointing;
 
-        double beta = atan2( pointing[2], pointing[1] ) - PI/2;
+        double beta = atan2( pointing[2], pointing[1] ) - M_PI/2;
 
         vw::Matrix<double, 3, 3> xrot;
         xrot(0,0) = 1;
@@ -305,7 +302,7 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 
         if (sum > 0.1) {
           // I'm guessing beta was off by 180
-          vec_fill_buffer[1] = PI;
+          vec_fill_buffer[1] = M_PI;
           vec_fill_buffer[2] = acos(rot_W2Cam(0,0)/cos(vec_fill_buffer[1]));
           // First check
           if (fabs(rot_W2Cam(0,1) - (-cos(vec_fill_buffer[1])*sin(vec_fill_buffer[2]))) > 0.1) {
@@ -1097,7 +1094,7 @@ int main(int argc, char* argv[]){
     traits->windowDecoration = true;
     traits->doubleBuffer = true;
     traits->sharedContext = 0;
-    traits->windowName = PROGRAM_NAME;
+    traits->windowName = "Bundlevis 2.1";
     traits->vsync = true;
     traits->useMultiThreadedOpenGLEngine = false;
     traits->supportsResize = true;
