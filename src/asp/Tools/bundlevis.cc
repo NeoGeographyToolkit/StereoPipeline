@@ -10,6 +10,8 @@
 
 #include "bundlevis.h"
 
+using namespace vw;
+
 // This builds the 3 Axis that represents the camera
 osg::Geode* build3Axis( float const& line_length ){
   osg::Geode* axisGeode = new osg::Geode();
@@ -52,23 +54,17 @@ osg::MatrixTransform* CameraIter::buildMatrixTransform( const int& step, const i
   osg::Vec3f euler = this->getEuler( step, vertice );
   osg::Vec3f position = this->getPosition( step, vertice );
 
-  vw::Matrix3x3 temp = vw::math::euler_to_rotation_matrix( euler[0],
-                                                           euler[1],
-                                                           euler[2],
-                                                           "xyz" );
-
+  Matrix3x3 temp =
+    math::euler_to_rotation_matrix( euler[0], euler[1], euler[2], "xyz" );
   osg::Matrix rot( temp(0,0), temp(1,0), temp(2,0), 0,
                    temp(0,1), temp(1,1), temp(2,1), 0,
                    temp(0,2), temp(1,2), temp(2,2), 0,
                    0, 0, 0, 1);
-
   osg::Matrix trans( 1,   0,   0,   0,
                      0,   1,   0,   0,
                      0,   0,   1,   0,
                      position[0], position[1], position[2],   1 );
-
   mt->setMatrix( rot*trans );
-
   mt->setUpdateCallback( new cameraMatrixCallback( this, vertice ));
 
   return mt;
@@ -152,10 +148,8 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 
   // Determing the number of lines in the file
   std::ifstream file(camFile.c_str(), std::ios::in);
-  int numLines = 0;
-  int numCameras = 0;
-  int numTimeIter = 0;
-  int numCameraParam = 0;
+  int numLines = 0, numCameras = 0;
+  int numTimeIter = 0, numCameraParam = 0;
   char c;
   int last_camera = 2000;
   while (!file.eof()){
@@ -236,13 +230,13 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
         }
 
         // Converting CAHVOR to euler angles
-        vw::Vector3 pointing;
+        Vector3 pointing;
         for ( int p = 0; p < 3; ++p )
           pointing[p] = buffer[1][p];
 
         double alpha = atan2( pointing[1] , pointing[0]) - M_PI/2;
 
-        vw::Matrix<double, 3, 3> zrot;
+        Matrix<double, 3, 3> zrot;
         zrot(0,0) = cos(alpha);
         zrot(0,1) = -sin(alpha);
         zrot(1,0) = -zrot(0,1);
@@ -253,14 +247,14 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 
         double beta = atan2( pointing[2], pointing[1] ) - M_PI/2;
 
-        vw::Matrix<double, 3, 3> xrot;
+        Matrix<double, 3, 3> xrot;
         xrot(0,0) = 1;
         xrot(1,1) = cos(beta);
         xrot(1,2) = -sin(beta);
         xrot(2,1) = -xrot(1,2);
         xrot(2,2) = xrot(1,1);
 
-        vw::Matrix<double, 3, 3> rot_W2Cam = transpose(xrot) * transpose(zrot);
+        Matrix<double, 3, 3> rot_W2Cam = transpose(xrot) * transpose(zrot);
 
 
         // Calculating euler angles from matrix
@@ -283,7 +277,7 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
         double ca = cos(vec_fill_buffer[0]), sa = sin(vec_fill_buffer[0]);
         double cb = cos(vec_fill_buffer[1]), sb = sin(vec_fill_buffer[1]);
         double cc = cos(vec_fill_buffer[2]), sc = sin(vec_fill_buffer[2]);
-        vw::Matrix<double, 3, 3> check;
+        Matrix<double, 3, 3> check;
         check(0,0) = cb*cc;
         check(0,1) = -cb*sc;
         check(0,2) = sb;
@@ -424,11 +418,11 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
                                            std::vector<PointIter*>& points,
                                            std::vector<CameraIter*>& cameras,
-                                           vw::ba::ControlNetwork* cnet,
+                                           ba::ControlNetwork* cnet,
                                            int* step ) {
   std::cout << "Loading Control Network : " << cnetFile << std::endl;
 
-  cnet = new vw::ba::ControlNetwork("Bundlevis");
+  cnet = new ba::ControlNetwork("Bundlevis");
   cnet->read_binary( cnetFile );
 
   if ( cnet->size() != points.size() ) {
@@ -444,7 +438,7 @@ std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
   std::vector<ConnLineIter*> connLineData;
   // For every point
   for ( unsigned p = 0; p < cnet->size(); ++p ) {
-    points[p]->setGCP( (*cnet)[p].type() == vw::ba::ControlPoint::GroundControlPoint  );
+    points[p]->setGCP( (*cnet)[p].type() == ba::ControlPoint::GroundControlPoint  );
 
     if (cameras.size()) {
       // For every measure
@@ -471,7 +465,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
                         std::vector<CameraIter*>& cameras,
                         std::vector<ConnLineIter*>& connLines,
                         std::vector< std::vector<PointIter*> >& addPoints,
-                        vw::BBox3f const* point_cloud ) {
+                        BBox3f const* point_cloud ) {
 
   osg::Group* scene = new osg::Group();
 
@@ -914,18 +908,16 @@ int main(int argc, char* argv[]){
 
   //Variables to be used later in this section
   int* controlStep = new int(0);
-  std::string camera_iter_file;
-  std::string points_iter_file;
-  std::string pixel_iter_file;
-  std::string control_net_file;
+  std::string camera_iter_file, points_iter_file;
+  std::string pixel_iter_file, control_net_file;
   std::vector<std::string> additional_pnt_files;
-  vw::ba::ControlNetwork* cnet = NULL;
+  ba::ControlNetwork* cnet = NULL;
   std::vector<PointIter*> pointData;
   std::vector<CameraIter*> cameraData;
   std::vector<ConnLineIter*> connLineData;
   std::vector<std::vector<PointIter*> > addPointData;
   PlaybackControl* playControl = new PlaybackControl(controlStep);
-  vw::BBox3f* point_cloud;
+  BBox3f* point_cloud;
 
   //OpenSceneGraph Variable which are important overall
   osgViewer::Viewer viewer;
@@ -997,24 +989,24 @@ int main(int argc, char* argv[]){
   //////////////////////////////////////////////////////////
   //Gathering Statistics about point cloud
   {
-    point_cloud = new vw::BBox3f();
+    point_cloud = new BBox3f();
 
     if (vm.count("points-iteration-file")) {
       for (unsigned i = 0; i < pointData.size(); ++i){
         osg::Vec3f temp = pointData[i]->getPosition(0);
-        point_cloud->grow( vw::Vector3( temp[0], temp[1], temp[2] ));
+        point_cloud->grow( Vector3( temp[0], temp[1], temp[2] ));
       }
     }
 
     if (vm.count("camera-iteration-file")) {
       for (unsigned i = 0; i < cameraData.size(); ++i){
         osg::Vec3f temp = cameraData[i]->getPosition(0);
-        point_cloud->grow( vw::Vector3( temp[0], temp[1], temp[2] ));
+        point_cloud->grow( Vector3( temp[0], temp[1], temp[2] ));
       }
     }
 
-    vw::Vector3 center = point_cloud->center();
-    vw::Vector3 size = point_cloud->size();
+    Vector3 center = point_cloud->center();
+    Vector3 size = point_cloud->size();
 
     std::cout << "Point Cloud:\n\t> Center " << center << "\n\t> Size " << size << std::endl;
   }
