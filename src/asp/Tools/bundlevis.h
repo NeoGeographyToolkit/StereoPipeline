@@ -69,33 +69,21 @@ class PointIter : public osg::Referenced {
     os << "Point: " << m_ID+1;
     m_description = os.str();
   }
-  int getStep(void) { return *m_step; }
-  unsigned size(void) { return m_position.size(); }
-  void addIteration( osg::Vec3f& newPos, float const& newError ) {
+  int step(void) const { return *m_step; }
+  unsigned size(void) const { return m_position.size(); }
+  void add_iteration( osg::Vec3f& newPos, float const& newError ) {
     m_position.push_back( newPos );
     m_error.push_back( newError );
   }
-  const osg::Vec3f getPosition( const int& step ) {
+  osg::Vec3f position( const int& step ) const {
     return m_position.at( step );
   }
-  const float getError( const int& step ) {
-    return m_error.at( step );
-  }
-  void setDrawConnLines( bool value ) {
-    m_drawConnLines = value;
-  }
-  bool getDrawConnLines( void ) {
-    return m_drawConnLines;
-  }
-  void setGCP( bool value ) {
-    m_isGCP = value;
-  }
-  bool getGCP(void ) {
-    return m_isGCP;
-  }
-  const std::string getDescription( void ) {
-    return m_description;
-  }
+  float error( const int& step ) const { return m_error.at( step ); }
+  void toggle_drawconnlines(void) { m_drawConnLines = !m_drawConnLines; }
+  bool is_drawconnlines( void ) const { return m_drawConnLines; }
+  void set_gcp( bool value ) { m_isGCP = value; }
+  bool is_gcp(void ) const { return m_isGCP; }
+  std::string description( void ) const { return m_description; }
 };
 
 // CameraIter, the lowest quantum of cameras
@@ -120,10 +108,10 @@ class CameraIter : public osg::Referenced  {
     os << "Camera: " << m_ID+1;
     m_description = os.str();
   }
-  int getStep(void) { return *m_step; }
-  unsigned size(void) { return m_position.size()/m_vertices; }
-  void addIteration( const osg::Vec3f& newPos,
-                     const osg::Vec3f& newEuler ) {
+  int step(void) const { return *m_step; }
+  unsigned size(void) const { return m_position.size()/m_vertices; }
+  void add_iteration( const osg::Vec3f& newPos,
+                      const osg::Vec3f& newEuler ) {
     if (!m_isPushbroom) {
       m_position.push_back( newPos );
       m_euler.push_back( newEuler );
@@ -131,8 +119,8 @@ class CameraIter : public osg::Referenced  {
       std::cout << "ERROR CAMERA: Trying to add frame like data to non-frame camera" << std::endl;
     }
   }
-  void addIteration( const std::vector<osg::Vec3f>& newPos,
-                     const std::vector<osg::Vec3f>& newEuler ) {
+  void add_iteration( const std::vector<osg::Vec3f>& newPos,
+                      const std::vector<osg::Vec3f>& newEuler ) {
     if (m_isPushbroom){
       if ( int(newPos.size()) == m_vertices ) {
         for (int i = 0; i < m_vertices; ++i) {
@@ -146,25 +134,21 @@ class CameraIter : public osg::Referenced  {
       std::cout << "ERROR CAMERA: Trying to add pushbroom like data to non-pushbroom camera" << std::endl;
     }
   }
-  const osg::Vec3f getPosition( const int& step ) {
+  osg::Vec3f position( const int& step ) const {
     return m_position.at( step*m_vertices ); }
-  const osg::Vec3f getEuler( const int& step ) {
+  osg::Vec3f euler( const int& step ) const {
     return m_euler.at( step*m_vertices ); }
-  const osg::Vec3f getPosition( const int& step, const int& vert ) {
+  osg::Vec3f position( const int& step, const int& vert ) const {
     return m_position.at( step*m_vertices + vert ); }
-  const osg::Vec3f getEuler( const int& step, const int& vert ) {
+  osg::Vec3f euler( const int& step, const int& vert ) const {
     return m_euler.at( step*m_vertices + vert ); }
-  const std::string getDescription( void ) {
+  std::string description( void ) const {
     return m_description; }
-  void setDrawConnLines( bool value ) {
-    m_drawConnLines = value; }
-  bool getDrawConnLines( void ) {
-    return m_drawConnLines; }
-  bool getIsPushbroom( void ) {
-    return m_isPushbroom; }
-  int getVertices( void ) {
-    return m_vertices; }
-  osg::MatrixTransform* buildMatrixTransform( const int& step, const int& vert );
+  void toggle_drawconnlines(void) { m_drawConnLines = !m_drawConnLines; }
+  bool is_drawconnlines( void ) const { return m_drawConnLines; }
+  bool is_pushbroom( void ) const { return m_isPushbroom; }
+  int num_vertices( void ) const { return m_vertices; }
+  osg::MatrixTransform* matrix_transform ( const int& step, const int& vert );
 
 };
 
@@ -181,12 +165,12 @@ class ConnLineIter {
     m_step = step;
     colour.set(0.5f,0.5f,0.5f,1.0f);
   }
-  int getStep(void) { return (*m_step); }
-  bool getToDraw( void ) {
-    return m_point->getDrawConnLines() || m_camera->getDrawConnLines();
+  int step(void) const { return (*m_step); }
+  bool is_drawable( void ) const {
+    return m_point->is_drawconnlines() || m_camera->is_drawconnlines();
   }
-  PointIter* getPoint(void) { return m_point; };
-  CameraIter* getCamera(void) { return m_camera; };
+  PointIter* point(void) { return m_point; };
+  CameraIter* camera(void) { return m_camera; };
 };
 
 // This will load a point data file
@@ -222,10 +206,10 @@ class PlaybackControl {
     m_stop = false;
     m_pause = false;
   }
-  void setPlay(){ m_play = true; m_stop = false; m_pause = false; }
-  void setPause(){ m_play = false; m_stop = false; m_pause = true; }
-  void setStop(){ m_play = false; m_stop = true; m_pause = false; *m_step = 1; }
-  bool getPlay(){ return m_play; }
+  void set_play(){ m_play = true; m_stop = false; m_pause = false; }
+  void set_pause(){ m_play = false; m_stop = false; m_pause = true; }
+  void set_stop(){ m_play = false; m_stop = true; m_pause = false; *m_step = 1; }
+  bool is_play(){ return m_play; }
 };
 
 // Event Handler for Mouse and Keyboard
@@ -251,11 +235,8 @@ struct pointsDrawCallback : public osg::Drawable::DrawCallback {
   }
 
   virtual void drawImplementation( osg::RenderInfo& renderInfo,
-                                   const osg::Drawable* drawable ) const
-  {
-    //osg::State& state = *renderInfo.getState();
-
-    int buffer = (*m_points)[0]->getStep();
+                                   const osg::Drawable* drawable ) const {
+    int buffer = (*m_points)[0]->step();
 
     if ( m_previousStep != buffer ) {
       // Time to change vector data
@@ -269,16 +250,16 @@ struct pointsDrawCallback : public osg::Drawable::DrawCallback {
         // Here we will draw a line to the just the last step
         for ( unsigned i = 0; i < (*m_points).size()*2; i+=2 ){
           (*vertices)[i] =
-            (*m_points)[i/2]->getPosition( buffer - 1 );
+            (*m_points)[i/2]->position( buffer - 1 );
           (*vertices)[i+1] =
-            (*m_points)[i/2]->getPosition( buffer - 2 );
+            (*m_points)[i/2]->position( buffer - 2 );
         }
 
       } else if ( buffer == 1 ) {
         // There will be no lines, but only points
         for ( unsigned i = 0; i < (*m_points).size()*2; i+=2 ){
           (*vertices)[i] =
-            (*m_points)[i/2]->getPosition( 0 );
+            (*m_points)[i/2]->position( 0 );
           (*vertices)[i+1] =
             (*vertices)[i];
         }
@@ -287,16 +268,15 @@ struct pointsDrawCallback : public osg::Drawable::DrawCallback {
         // Here the line goes between the first and last iteration
         for ( unsigned i = 0; i < (*m_points).size()*2; i+=2 ){
           (*vertices)[i] =
-            (*m_points)[i/2]->getPosition( (*m_points)[0]->size() - 1 );
+            (*m_points)[i/2]->position( (*m_points)[0]->size() - 1 );
           (*vertices)[i+1] =
-            (*m_points)[i/2]->getPosition( 0 );
+            (*m_points)[i/2]->position( 0 );
         }
       }
 
     }
 
     m_previousStep = buffer;
-
     drawable->drawImplementation( renderInfo );
   }
 
@@ -313,7 +293,7 @@ struct pushbroomDrawCallback : public osg::Drawable::DrawCallback {
   virtual void drawImplementation( osg::RenderInfo& renderInfo,
                                    const osg::Drawable* drawable ) const
   {
-    int buffer = m_camera->getStep();
+    int buffer = m_camera->step();
 
     if ( m_previousStep != buffer ) {
       // Time to change vector data
@@ -324,13 +304,13 @@ struct pushbroomDrawCallback : public osg::Drawable::DrawCallback {
         dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
 
       if ( buffer == 0 ) { // Draw the last instance
-        for ( int i = 0; i < m_camera->getVertices(); ++i )
-          (*vertices)[i] = m_camera->getPosition( m_camera->size() - 1, i);
+        for ( int i = 0; i < m_camera->num_vertices(); ++i )
+          (*vertices)[i] = m_camera->position( m_camera->size() - 1, i);
 
       } else {             // normal
 
-        for ( int i = 0; i < m_camera->getVertices(); ++i )
-          (*vertices)[i] = m_camera->getPosition( buffer-1, i );
+        for ( int i = 0; i < m_camera->num_vertices(); ++i )
+          (*vertices)[i] = m_camera->position( buffer-1, i );
 
       }
     }
@@ -352,10 +332,10 @@ struct linesDrawCallback : public osg::Drawable::DrawCallback {
 
   virtual void drawImplementation( osg::RenderInfo& renderInfo,
                                    const osg::Drawable* drawable ) const {
-    int buffer = m_connLine->getStep();
+    int buffer = m_connLine->step();
 
     if ( buffer == 0 )
-      buffer = m_connLine->getPoint()->size();
+      buffer = m_connLine->point()->size();
 
     if ( m_previousStep != buffer ) {
       osg::Geometry* geometry =
@@ -363,13 +343,13 @@ struct linesDrawCallback : public osg::Drawable::DrawCallback {
       osg::Vec3Array* vertices =
         dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray());
 
-      (*vertices)[0] = m_connLine->getPoint()->getPosition( buffer - 1 );
-      (*vertices)[1] = m_connLine->getCamera()->getPosition( buffer - 1 );
+      (*vertices)[0] = m_connLine->point()->position( buffer - 1 );
+      (*vertices)[1] = m_connLine->camera()->position( buffer - 1 );
     }
 
     m_previousStep = buffer;
 
-    if ( m_connLine->getToDraw() )
+    if ( m_connLine->is_drawable() )
       drawable->drawImplementation( renderInfo );
   }
 
@@ -395,7 +375,7 @@ class playbackNodeCallback : public osg::NodeCallback {
     m_delayCount++;
     m_delayCount &= 0x01;
 
-    if ( m_playback->getPlay() && !m_delayCount ) {
+    if ( m_playback->is_play() && !m_delayCount ) {
       int buffer = *m_step;
       buffer++;
       if ( buffer > m_maxIter )
@@ -418,7 +398,7 @@ class cameraMatrixCallback : public osg::NodeCallback {
     m_vertice = vertice;
   }
   virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv ) {
-    int buffer = m_camera->getStep();
+    int buffer = m_camera->step();
 
     //When displaying all... just display end
     if ( buffer == 0 )
@@ -428,8 +408,8 @@ class cameraMatrixCallback : public osg::NodeCallback {
       //Moving the transform to reflect the current step
       osg::MatrixTransform* mt = dynamic_cast<osg::MatrixTransform*>(node);
 
-      osg::Vec3f euler = m_camera->getEuler( buffer - 1, m_vertice );
-      osg::Vec3f position = m_camera->getPosition( buffer - 1, m_vertice );
+      osg::Vec3f euler = m_camera->euler( buffer - 1, m_vertice );
+      osg::Vec3f position = m_camera->position( buffer - 1, m_vertice );
 
       vw::Matrix3x3 temp =
         vw::math::euler_to_rotation_matrix(euler[0],
@@ -467,7 +447,7 @@ class cameraAutoMatrixCallback : public osg::NodeCallback {
     m_camera = camera;
   }
   virtual void operator() ( osg::Node* node, osg::NodeVisitor* nv ) {
-    int buffer = m_camera->getStep();
+    int buffer = m_camera->step();
 
     //When display all... just display end
     if ( buffer == 0 )
@@ -476,7 +456,7 @@ class cameraAutoMatrixCallback : public osg::NodeCallback {
     if ( buffer != m_previousStep ) {
       osg::AutoTransform* autoT = dynamic_cast< osg::AutoTransform* >(node);
 
-      autoT->setPosition( m_camera->getPosition( buffer - 1 ) );
+      autoT->setPosition( m_camera->position( buffer - 1 ) );
     }
 
     m_previousStep = buffer;
@@ -494,7 +474,7 @@ class pointAutoMatrixCallback : public osg::NodeCallback {
     m_point = point;
   }
   virtual void operator() ( osg::Node* node, osg::NodeVisitor* /*nv*/ ) {
-    int buffer = m_point->getStep();
+    int buffer = m_point->step();
 
     //When display all... just display end
     if ( buffer == 0 )
@@ -503,7 +483,7 @@ class pointAutoMatrixCallback : public osg::NodeCallback {
     if ( buffer != m_previousStep ) {
       osg::AutoTransform* autoT = dynamic_cast< osg::AutoTransform* >(node);
 
-      autoT->setPosition( m_point->getPosition( buffer - 1 ) );
+      autoT->setPosition( m_point->position( buffer - 1 ) );
     }
   }
 };

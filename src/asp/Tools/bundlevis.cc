@@ -48,11 +48,12 @@ osg::Geode* build3Axis( float const& line_length ){
 }
 
 // This builds the matrix transform for a camera
-osg::MatrixTransform* CameraIter::buildMatrixTransform( const int& step, const int& vertice = 0 ) {
+osg::MatrixTransform*
+CameraIter::matrix_transform( const int& step, const int& vertice = 0 ) {
   osg::MatrixTransform* mt = new osg::MatrixTransform;
 
-  osg::Vec3f euler = this->getEuler( step, vertice );
-  osg::Vec3f position = this->getPosition( step, vertice );
+  osg::Vec3f euler = this->euler( step, vertice );
+  osg::Vec3f position = this->position( step, vertice );
 
   Matrix3x3 temp =
     math::euler_to_rotation_matrix( euler[0], euler[1], euler[2], "xyz" );
@@ -73,7 +74,6 @@ osg::MatrixTransform* CameraIter::buildMatrixTransform( const int& step, const i
 // This will load a points iteration file
 std::vector<PointIter*> loadPointData( std::string pntFile,
                                        int* step ){
-
   std::cout << "Loading Points Iteration Data : " << pntFile << std::endl;
 
   // Determing the number of lines in the file
@@ -126,7 +126,7 @@ std::vector<PointIter*> loadPointData( std::string pntFile,
       file >> vec_fill_buffer[2];
 
       // Now attaching the data
-      pointData[i]->addIteration( vec_fill_buffer,
+      pointData[i]->add_iteration( vec_fill_buffer,
                                   0.0f);
 
     }
@@ -233,7 +233,7 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
         }
 
         // Now attaching the data
-        cameraData[j]->addIteration( vec_fill_buffer1,
+        cameraData[j]->add_iteration( vec_fill_buffer1,
                                      vec_fill_buffer2 );
       } else { // The data is probable a linescan camera .... need to add a new draw ability
 
@@ -284,14 +284,14 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
         }
 
         // Cool.. now I'm going to attach this data
-        cameraData[j]->addIteration( bufferPosition, bufferPose );
+        cameraData[j]->add_iteration( bufferPosition, bufferPose );
       }
     }
   }
 
-  if ( (cameraData[0]->size())/(cameraData[0]->getVertices()) != (unsigned) numTimeIter )
+  if ( (cameraData[0]->size())/(cameraData[0]->num_vertices()) != (unsigned) numTimeIter )
     std::cout << "Number of Time Iterations found, " << numTimeIter
-              << ", not equal loaded, " << cameraData[0]->size()/cameraData[0]->getVertices()
+              << ", not equal loaded, " << cameraData[0]->size()/cameraData[0]->num_vertices()
              << std::endl;
   return cameraData;
 }
@@ -320,7 +320,7 @@ std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
   std::vector<ConnLineIter*> connLineData;
   // For every point
   for ( unsigned p = 0; p < cnet->size(); ++p ) {
-    points[p]->setGCP( (*cnet)[p].type() == ba::ControlPoint::GroundControlPoint  );
+    points[p]->set_gcp( (*cnet)[p].type() == ba::ControlPoint::GroundControlPoint  );
 
     if (cameras.size()) {
       // For every measure
@@ -367,7 +367,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     geometry->setVertexArray( vertices );
 
     for ( unsigned i = 0; i < points.size()*2; i+=2 ) {
-      (*vertices)[i] = points[i/2]->getPosition(0);
+      (*vertices)[i] = points[i/2]->position(0);
       (*vertices)[i+1] = (*vertices)[i] + osg::Vec3f(0.0f, 0.0f, 0.1f);
     }
 
@@ -378,7 +378,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     osg::TemplateIndexArray<unsigned int, osg::Array::UIntArrayType, 2,2> *colorIndexArray =
       new osg::TemplateIndexArray<unsigned int, osg::Array::UIntArrayType, 2,2>(points.size()*2 );
     for ( unsigned i = 0; i < points.size()*2; i+=2 ) {
-      (*colorIndexArray)[i] = (*colorIndexArray)[i+1] = points[i/2]->getGCP();
+      (*colorIndexArray)[i] = (*colorIndexArray)[i+1] = points[i/2]->is_gcp();
     }
     geometry->setColorArray( colours );
     geometry->setColorIndices( colorIndexArray );
@@ -420,7 +420,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     geometry->setVertexArray( vertices );
 
     for ( unsigned i = 0; i < addPoints[n].size()*2; i+=2 ) {
-      (*vertices)[i] = addPoints[n][i/2]->getPosition(0);
+      (*vertices)[i] = addPoints[n][i/2]->position(0);
       (*vertices)[i+1] = (*vertices)[i] + osg::Vec3f(0.0f, 0.0f, 0.1f);
     }
 
@@ -472,7 +472,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     osg::Group* camerasGroup = new osg::Group;
 
     for (unsigned j = 0; j < cameras.size(); ++j){
-      osg::MatrixTransform* mt = cameras[j]->buildMatrixTransform( 0 );
+      osg::MatrixTransform* mt = cameras[j]->matrix_transform( 0 );
       mt->addChild( the3Axis );
       camerasGroup->addChild( mt );
     }
@@ -481,20 +481,20 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     osg::Group* pushbroomGroup = new osg::Group;
     {
       for (unsigned j = 0; j < cameras.size(); ++j){
-        if ( cameras[j]->getIsPushbroom() ) {
+        if ( cameras[j]->is_pushbroom() ) {
           std::cout << "Found a Linescan Camera" << std::endl;
 
           osg::Geometry* geometry = new osg::Geometry;
 
           // Setting up vertices
-          osg::Vec3Array* vertices = new osg::Vec3Array( cameras[j]->getVertices() );
+          osg::Vec3Array* vertices = new osg::Vec3Array( cameras[j]->num_vertices() );
           geometry->setVertexArray( vertices );
 
           geometry->setUseDisplayList( false );
           geometry->setDrawCallback( new pushbroomDrawCallback( cameras[j] ) );
 
           for ( unsigned i = 0; i < vertices->size(); ++i ){
-            (*vertices)[i] = cameras[j]->getPosition( 0, i );
+            (*vertices)[i] = cameras[j]->position( 0, i );
           }
 
           // Setting up color
@@ -517,7 +517,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
           pushbroomGroup->addChild( geode );
 
           // Also throwing in another 3Axis at the end of the line
-          osg::MatrixTransform* mt = cameras[j]->buildMatrixTransform(0, cameras[j]->getVertices()-1);
+          osg::MatrixTransform* mt = cameras[j]->matrix_transform(0, cameras[j]->num_vertices()-1);
           mt->addChild( the3Axis );
           pushbroomGroup->addChild( mt );
         }
@@ -536,8 +536,8 @@ osg::Node* createScene( std::vector<PointIter*>& points,
       osg::Geometry* geometry = new osg::Geometry;
 
       osg::Vec3Array* vertices = new osg::Vec3Array( 2 );
-      (*vertices)[0] = connLines[i]->getPoint()->getPosition( 0 );
-      (*vertices)[1] = connLines[i]->getCamera()->getPosition( 0 );
+      (*vertices)[0] = connLines[i]->point()->position( 0 );
+      (*vertices)[1] = connLines[i]->camera()->position( 0 );
       geometry->setVertexArray( vertices );
 
       osg::Vec4Array* colours = new osg::Vec4Array( 1 );
@@ -586,7 +586,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
                                                         0,
                                                         4 ) );
         osg::Geode* geode = new osg::Geode;
-        geode->setName( cameras[j]->getDescription() );
+        geode->setName( cameras[j]->description() );
         geode->setUserData( cameras[j] );
         geode->addDrawable( geometry );
 
@@ -608,7 +608,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
         autoT->setAutoScaleToScreen( true );
         autoT->setMinimumScale( 0.0f );
         autoT->setMaximumScale( 0.1f * scale );
-        autoT->setPosition( cameras[j]->getPosition( 0 ) );
+        autoT->setPosition( cameras[j]->position( 0 ) );
         autoT->setUpdateCallback( new cameraAutoMatrixCallback( cameras[j] ));
 
         hitTargetGroup->addChild( autoT );
@@ -650,7 +650,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
         osg::Geode* geode =new osg::Geode;
         geode->addDrawable( text );
         geode->addDrawable( text );
-        geode->setName( points[i]->getDescription() );
+        geode->setName( points[i]->description() );
         geode->addDrawable( geometry );
         geode->setUserData( points[i] );
 
@@ -667,7 +667,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
         autoT->setAutoScaleToScreen( true );
         autoT->setMinimumScale( 0.0f );
         autoT->setMaximumScale( 0.0005f * scale );
-        autoT->setPosition( points[i]->getPosition( 0 ) );
+        autoT->setPosition( points[i]->position( 0 ) );
         autoT->setUpdateCallback( new pointAutoMatrixCallback( points[i] ));
 
         hitTargetGroup->addChild( autoT );
@@ -696,13 +696,13 @@ bool AllEventHandler::handle( const osgGA::GUIEventAdapter& ea,
         (*m_step)--;
       break;
     case 'x':     //Play
-      m_playControl->setPlay();
+      m_playControl->set_play();
       break;
     case 'c':     //Pause
-      m_playControl->setPause();
+      m_playControl->set_pause();
       break;
     case 'v':     //Stop
-      m_playControl->setStop();
+      m_playControl->set_stop();
       break;
     case 'b':     //Step Forward
       if ( *m_step + 1 > m_numIter )
@@ -768,8 +768,7 @@ void AllEventHandler::pick( osgViewer::View* view, const osgGA::GUIEventAdapter&
       PointIter* point =
         dynamic_cast< PointIter* >( hit->nodePath.back()->getUserData() );
       if ( point ) {
-
-        point->setDrawConnLines( !point->getDrawConnLines() );
+        point->toggle_drawconnlines();
         return;
       }
 
@@ -777,8 +776,7 @@ void AllEventHandler::pick( osgViewer::View* view, const osgGA::GUIEventAdapter&
       CameraIter* camera =
         dynamic_cast< CameraIter* >( hit->nodePath.back()->getUserData() );
       if ( camera ) {
-
-        camera->setDrawConnLines( !camera->getDrawConnLines() );
+        camera->toggle_drawconnlines();
         return;
       }
     }
@@ -875,14 +873,14 @@ int main(int argc, char* argv[]){
 
     if (vm.count("points-iteration-file")) {
       for (unsigned i = 0; i < pointData.size(); ++i){
-        osg::Vec3f temp = pointData[i]->getPosition(0);
+        osg::Vec3f temp = pointData[i]->position(0);
         point_cloud->grow( Vector3( temp[0], temp[1], temp[2] ));
       }
     }
 
     if (vm.count("camera-iteration-file")) {
       for (unsigned i = 0; i < cameraData.size(); ++i){
-        osg::Vec3f temp = cameraData[i]->getPosition(0);
+        osg::Vec3f temp = cameraData[i]->position(0);
         point_cloud->grow( Vector3( temp[0], temp[1], temp[2] ));
       }
     }
