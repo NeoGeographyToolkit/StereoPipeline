@@ -119,12 +119,15 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
         configFile.getline(line, MAX_LENGTH);
 	sscanf(line, "REFLECTANCE_TYPE %d\n", &(settings->reflectanceType));
         printf("REFLECTANCE_TYPE %d\n", settings->reflectanceType);
+       
+        configFile.getline(line, MAX_LENGTH);
+        int shadowThresh;
+	sscanf(line, "SHADOW_THRESH %d\n", &(shadowThresh));
+        settings->shadowThresh = (float)shadowThresh; 
+        printf("SHADOW_THRESH %f\n", settings->shadowThresh);
 
         configFile.getline(line, MAX_LENGTH);
 	sscanf(line, "SLOPE_TYPE %d\n", &(settings->slopeType));
-
-        configFile.getline(line, MAX_LENGTH);
-	sscanf(line, "SHADOW_THRESH %f\n", &(settings->shadowThresh));
 
 	configFile.getline(line, MAX_LENGTH);
 	sscanf(line, "ALBEDO_INIT_TYPE %d\n", &(settings->albedoInitType));
