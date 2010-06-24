@@ -293,17 +293,17 @@ AX_PKG(XERCESC, [], [-lxerces-c])
 
 AX_PKG_ONE_OF(SUPERLU,
     SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
-    SUPERLU_VER_30, [AX_PKG(SUPERLU_VER_30, [LAPACK], [-lsuperlu_3.0])],
-    SUPERLU_PLAIN,  [AX_PKG(SUPERLU_PLAIN,  [LAPACK], [-lsuperlu], [])])
+    SUPERLU_PLAIN,  [AX_PKG(SUPERLU_PLAIN,  [LAPACK], [-lsuperlu], [])],
+    SUPERLU_VER_30, [AX_PKG(SUPERLU_VER_30, [LAPACK], [-lsuperlu_3.0])])
 
 AX_PKG_ONE_OF(KAKADU,
     KAKADU_SPLIT,   [AX_PKG(KAKADU_SPLIT,   [], [-lkdu -lkdu_apps])],
     KAKADU_63_JOIN, [AX_PKG(KAKADU_63_JOIN, [], [-lkdu_a63R])])
 
 if test x"$host_vendor" = "xapple"; then
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC],        [],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC PROTOBUF],        [],[],[],[],[],[KAKADU])
 else
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU],[],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU PROTOBUF],[],[],[],[],[],[KAKADU])
 fi
 
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
