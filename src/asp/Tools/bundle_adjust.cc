@@ -387,14 +387,20 @@ int main(int argc, char* argv[]) {
   if (stereosession_type == "pinhole")
     stereo_settings().keypoint_alignment = true;
 
-  std::vector<boost::shared_ptr<CameraModel> > camera_models(image_files.size());
-  std::cout << "Loading Camera Models:\n";
-  for (unsigned i = 0; i < image_files.size(); ++i) {
-    std::cout << "\t" << image_files[i] << "\n";
-    if (stereosession_type == "pinhole")
-      camera_models[i] = session->camera_model(image_files[i],image_files[i]);
-    else
-      camera_models[i] = session->camera_model(image_files[i]);
+  std::vector<boost::shared_ptr<CameraModel> > camera_models;
+  {
+    TerminalProgressCallback progress("asp","Camera Models:");
+    progress.report_progress(0);
+    double tpc_inc = 1/double(image_files.size());
+    BOOST_FOREACH( std::string const& input, image_files ) {
+      progress.report_incremental_progress(tpc_inc);
+      vw_out(DebugMessage,"asp") << "Loading: " << input << "\n";
+      if (stereosession_type == "pinhole")
+        camera_models.push_back(session->camera_model(input,input));
+      else
+        camera_models.push_back(session->camera_model(input));
+    }
+    progress.report_finished();
   }
 
   if (!vm.count("cnet") ) {
