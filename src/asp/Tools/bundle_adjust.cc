@@ -35,9 +35,9 @@ using namespace vw::ba;
 #endif
 
 // Bundle adjustment functor
-class BundleAdjustmentModel : public ba::ModelBase<BundleAdjustmentModel, 7, 3> {
+class BundleAdjustmentModel : public ba::ModelBase<BundleAdjustmentModel, 6, 3> {
 
-  typedef Vector<double,7> camera_vector_t;
+  typedef Vector<double,6> camera_vector_t;
   typedef Vector<double,3> point_vector_t;
 
   std::vector<boost::shared_ptr<CameraModel> > m_cameras;
@@ -61,11 +61,12 @@ public:
       m_num_pixel_observations += (*network)[i].size();
 
     // Set up the a and b vectors, storing the initial values.
+    /*
     for (unsigned j = 0; j < m_cameras.size(); ++j) {
       a[j] = camera_vector_t();
-      subvector(a[j],3,4) = Vector4(1,0,0,0);
       a_target[j] = a[j];
     }
+    */
 
     for (unsigned i = 0; i < network->size(); ++i) {
       b[i] = (*m_network)[i].position();
@@ -77,8 +78,7 @@ public:
   camera_vector_t A_parameters(int j) const { return a[j]; }
   point_vector_t B_parameters(int i) const { return b[i]; }
   void set_A_parameters(int j, camera_vector_t const& a_j) {
-    subvector(a[j],0,3) = subvector(a_j,0,3);
-    subvector(a[j],3,4) = normalize(subvector(a_j,3,4));
+    a[j] = a_j;
   }
   void set_B_parameters(int i, point_vector_t const& b_i) {
     b[i] = b_i;
@@ -93,20 +93,21 @@ public:
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
   // Return the covariance of the camera parameters for camera j.
-  inline Matrix<double,camera_params_n,camera_params_n> A_inverse_covariance ( unsigned /*j*/ ) const {
+  inline Matrix<double,camera_params_n,camera_params_n>
+  A_inverse_covariance ( unsigned /*j*/ ) const {
     Matrix<double,camera_params_n,camera_params_n> result;
-    result(0,0) = 1/10.0;
-    result(1,1) = 1/10.0;
-    result(2,2) = 1/10.0;
-    result(3,3) = 1/1e-3;
-    result(3,3) = 1/1e-3;
-    result(3,3) = 1/1e-3;
-    result(3,3) = 1/1e-3;
+    result(0,0) = 1/100.0;
+    result(1,1) = 1/100.0;
+    result(2,2) = 1/100.0;
+    result(3,3) = 1/1e-1;
+    result(4,4) = 1/1e-1;
+    result(5,5) = 1/1e-1;
     return result;
   }
 
   // Return the covariance of the point parameters for point i.
-  inline Matrix<double,point_params_n,point_params_n> B_inverse_covariance ( unsigned /*i*/ ) const {
+  inline Matrix<double,point_params_n,point_params_n>
+  B_inverse_covariance ( unsigned /*i*/ ) const {
     Matrix<double,point_params_n,point_params_n> result;
     result(0,0) = 1/20;
     result(1,1) = 1/20;
@@ -116,10 +117,9 @@ public:
 
   void parse_camera_parameters(camera_vector_t a_j,
                                Vector3 &position_correction,
-                               Quaternion<double> &pose_correction) const {
+                               Quat &pose_correction) const {
     position_correction = subvector(a_j, 0, 3);
-    Vector4 q = normalize(subvector(a_j, 3, 4));
-    pose_correction = Quaternion<double>(q[0], q[1], q[2], q[3]);
+    pose_correction = axis_angle_to_quaternion( subvector(a_j,3,3) );
   }
 
   // Given the 'a' vector (camera model parameters) for the j'th
@@ -130,7 +130,7 @@ public:
                        camera_vector_t const& a_j,
                        point_vector_t const& b_i ) const {
     Vector3 position_correction;
-    Quaternion<double> pose_correction;
+    Quat pose_correction;
     parse_camera_parameters(a_j, position_correction, pose_correction);
     AdjustedCameraModel cam(m_cameras[j], position_correction, pose_correction);
     return cam.point_to_pixel(b_i);
@@ -138,7 +138,7 @@ public:
 
   void write_adjustment(int j, std::string const& filename) const {
     Vector3 position_correction;
-    Quaternion<double> pose_correction;
+    Quat pose_correction;
     parse_camera_parameters(a[j], position_correction, pose_correction);
     write_adjustments(filename, position_correction, pose_correction);
   }
@@ -148,7 +148,7 @@ public:
     std::vector<boost::shared_ptr<camera::CameraModel> > result(m_cameras.size());
     for (unsigned j = 0; j < result.size(); ++j) {
       Vector3 position_correction;
-      Quaternion<double> pose_correction;
+      Quat pose_correction;
       parse_camera_parameters(a[j], position_correction, pose_correction);
       result[j] = boost::shared_ptr<camera::CameraModel>( new AdjustedCameraModel( m_cameras[j], position_correction, pose_correction ) );
     }
@@ -175,7 +175,7 @@ public:
     camera_position_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j) {
       Vector3 position_initial, position_now;
-      Quaternion<double> pose_initial, pose_now;
+      Quat pose_initial, pose_now;
 
       parse_camera_parameters(a_target[j], position_initial, pose_initial);
       parse_camera_parameters(a[j], position_now, pose_now);
@@ -190,7 +190,7 @@ public:
     camera_pose_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j) {
       Vector3 position_initial, position_now;
-      Quaternion<double> pose_initial, pose_now;
+      Quat pose_initial, pose_now;
 
       parse_camera_parameters(a_target[j], position_initial, pose_initial);
       parse_camera_parameters(a[j], position_now, pose_now);
@@ -225,7 +225,7 @@ public:
 
     for (unsigned j=0; j < a.size();++j){
       Vector3 position_correction;
-      Quaternion<double> pose_correction;
+      Quat pose_correction;
       parse_camera_parameters(a[j], position_correction, pose_correction);
 
       camera::CAHVORModel cam;
@@ -247,14 +247,12 @@ public:
     std::ofstream ostr(filename.c_str(),std::ios::app);
     for ( unsigned j = 0; j < a.size(); j++ ) {
       Vector3 position_correction;
-      Quaternion<double> pose_correction;
+      Quat pose_correction;
       parse_camera_parameters(a[j], position_correction, pose_correction);
       AdjustedCameraModel cam(m_cameras[j],
                               position_correction, pose_correction);
-      Vector3 position =
-        cam.camera_center( Vector2() );
-      Quaternion<double> pose =
-        cam.camera_pose( Vector2() );
+      Vector3 position = cam.camera_center( Vector2() );
+      Quat pose = cam.camera_pose( Vector2() );
       ostr << std::setprecision(18) << j << "\t" << position[0] << "\t"
            << position[1] << "\t" << position[2] << "\t";
       ostr << pose[0] << "\t" << pose[1] << "\t"
@@ -408,12 +406,6 @@ int main(int argc, char* argv[]) {
                                gcp_files );
 
     cnet->write_binary("control");
-  }
-
-  // Change the starting position for points
-  BOOST_FOREACH( ControlPoint & cp, *cnet ) {
-    unsigned j = cp[0].image_id();
-    cp.set_position( camera_models[j]->camera_center( cp[0].position() ) + 10*camera_models[j]->pixel_to_vector( cp[0].position() ) );
   }
 
   BundleAdjustmentModel ba_model(camera_models, cnet);
