@@ -143,7 +143,8 @@ public:
     write_adjustments(filename, position_correction, pose_correction);
   }
 
-  std::vector<boost::shared_ptr<camera::CameraModel> > adjusted_cameras() const {
+  std::vector<boost::shared_ptr<camera::CameraModel> >
+  adjusted_cameras() const {
     std::vector<boost::shared_ptr<camera::CameraModel> > result(m_cameras.size());
     for (unsigned j = 0; j < result.size(); ++j) {
       Vector3 position_correction;
@@ -250,7 +251,6 @@ public:
       parse_camera_parameters(a[j], position_correction, pose_correction);
       AdjustedCameraModel cam(m_cameras[j],
                               position_correction, pose_correction);
-      std::cout << cam.camera_pose(Vector2()) << "\n";
       Vector3 position =
         cam.camera_center( Vector2() );
       Quaternion<double> pose =
