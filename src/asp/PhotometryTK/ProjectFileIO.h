@@ -41,7 +41,7 @@ namespace pho {
         char* i = new char[bytes];
         m_stream->read(i,bytes);
         cam.ParseFromArray(i,bytes);
-        delete i;
+        delete [] i;
       }
     };
   }
