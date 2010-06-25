@@ -60,14 +60,8 @@ public:
     for (unsigned i = 0; i < network->size(); ++i)
       m_num_pixel_observations += (*network)[i].size();
 
-    // Set up the a and b vectors, storing the initial values.
-    /*
-    for (unsigned j = 0; j < m_cameras.size(); ++j) {
-      a[j] = camera_vector_t();
-      a_target[j] = a[j];
-    }
-    */
-
+    // Set up the b vectors, storing the initial values.
+    // a vector however just starts out zero
     for (unsigned i = 0; i < network->size(); ++i) {
       b[i] = (*m_network)[i].position();
       b_target[i] = b[i];
@@ -356,28 +350,11 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  if( vm.count("input-files") < 1) {
-    if ( vm.count("cnet") ) {
-      std::cout << "Loading control network from file: " << cnet_file << "\n";
-
-      // Deciding which Control Network we have
-      std::vector<std::string> tokens;
-      boost::split( tokens, cnet_file, boost::is_any_of(".") );
-      if ( tokens[tokens.size()-1] == "net" ) {
-        // An ISIS style control network
-        cnet->read_isis( cnet_file );
-      } else if ( tokens[tokens.size()-1] == "cnet" ) {
-        // A VW binary style
-        cnet->read_binary( cnet_file );
-      } else {
-        vw_throw( IOErr() << "Unknown Control Network file extension, \""
-                  << tokens[tokens.size()-1] << "\"." );
-      }
-    } else {
-      std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
-      std::cout << usage.str();
-      return 1;
-    }
+  if ( image_files.empty() &&
+       !vm.count("cnet") ) {
+    std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
+    std::cout << usage.str();
+    return 1;
   }
   gcp_files = sort_out_gcps( image_files );
 
@@ -412,7 +389,24 @@ int main(int argc, char* argv[]) {
                                gcp_files );
 
     cnet->write_binary("control");
+  } else  {
+    std::cout << "Loading control network from file: " << cnet_file << "\n";
+
+    // Deciding which Control Network we have
+    std::vector<std::string> tokens;
+    boost::split( tokens, cnet_file, boost::is_any_of(".") );
+    if ( tokens.back() == "net" ) {
+      // An ISIS style control network
+      cnet->read_isis( cnet_file );
+    } else if ( tokens.back() == "cnet" ) {
+      // A VW binary style
+      cnet->read_binary( cnet_file );
+    } else {
+      vw_throw( IOErr() << "Unknown Control Network file extension, \""
+                << tokens.back() << "\"." );
+    }
   }
+
 
   BundleAdjustmentModel ba_model(camera_models, cnet);
   AdjustSparse<BundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error(), false, false);
