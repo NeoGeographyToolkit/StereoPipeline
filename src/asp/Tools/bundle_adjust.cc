@@ -8,6 +8,7 @@
 /// \file bundle_adjust.cc
 ///
 
+#include <asp/Core/Macros.h>
 #include <asp/Tools/bundle_adjust.h>
 
 namespace po = boost::program_options;
@@ -39,139 +40,30 @@ sort_out_gcps( std::vector<std::string>& image_files ) {
   return gcp_files;
 }
 
-int main(int argc, char* argv[]) {
-
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  // Register the Isis file handler with the Vision Workbench
-  // DiskImageResource system.
-  DiskImageResource::register_file_type(".cub",
-                                        DiskImageResourceIsis::type_static(),
-                                        &DiskImageResourceIsis::construct_open,
-                                        &DiskImageResourceIsis::construct_create);
-#endif
-
-  // Register all stereo session types
-  StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
-#endif
-
+struct Options {
   std::vector<std::string> image_files, gcp_files;
-  std::string cnet_file, stereosession_type;
-  boost::shared_ptr<ControlNetwork> cnet( new ControlNetwork("My first control network"));
-  double lambda;
-  double robust_outlier_threshold;
-  int report_level;
-  int min_matches;
+  std::string cnet_file, stereosession_type, ba_type;
 
-  po::options_description general_options("Options");
-  general_options.add_options()
-    ("session-type,t", po::value<std::string>(&stereosession_type)->default_value("isis"), "Select the stereo session type to use for processing.")
-    ("cnet,c", po::value<std::string>(&cnet_file), "Load a control network from a file")
-    ("lambda,l", po::value<double>(&lambda), "Set the initial value of the LM parameter lambda")
-    ("robust-threshold", po::value<double>(&robust_outlier_threshold)->default_value(10.0), "Set the threshold for robust cost functions.")
-    ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
-    ("min-matches", po::value<int>(&min_matches)->default_value(30), "Set the minimum  number of matches between images that will be considered.")
-    ("report-level,r",po::value<int>(&report_level)->default_value(10),"Changes the detail of the Bundle Adjustment Report")
-    ("help", "Display this help message")
-    ("verbose", "Verbose output");
+  double lambda, robust_outlier_threshold;
+  int report_level, min_matches, max_iterations;
 
-  po::options_description hidden_options("");
-  hidden_options.add_options()
-    ("input-files", po::value<std::vector<std::string> >(&image_files));
+  bool save_iteration;
 
-  po::options_description options("Allowed Options");
-  options.add(general_options).add(hidden_options);
-
-  po::positional_options_description p;
-  p.add("input-files", -1);
-
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <image filenames>..." << std::endl << std::endl;
-  usage << general_options << std::endl;
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
-    po::notify( vm );
-  } catch ( po::error &e ) {
-    std::cout << "An error occured while parsing command line arguments.\n";
-    std::cout << "\t" << e.what() << "\n\n";
-    std::cout << usage.str();
-    return 1;
-  }
-
-  if( vm.count("help") ) {
-    std::cout << usage.str() << std::endl;
-    return 1;
-  }
-
-  if ( image_files.empty() &&
-       !vm.count("cnet") ) {
-    std::cout << "Error: Must specify at least one input file!" << std::endl << std::endl;
-    std::cout << usage.str();
-    return 1;
-  }
-  gcp_files = sort_out_gcps( image_files );
-
-  // Read in the camera model and image info for the input images.
-  StereoSession* session = StereoSession::create(stereosession_type);
-
-  if (stereosession_type == "pinhole")
-    stereo_settings().keypoint_alignment = true;
-
+  boost::shared_ptr<ControlNetwork> cnet;
   std::vector<boost::shared_ptr<CameraModel> > camera_models;
-  {
-    TerminalProgressCallback progress("asp","Camera Models:");
-    progress.report_progress(0);
-    double tpc_inc = 1/double(image_files.size());
-    BOOST_FOREACH( std::string const& input, image_files ) {
-      progress.report_incremental_progress(tpc_inc);
-      vw_out(DebugMessage,"asp") << "Loading: " << input << "\n";
-      if (stereosession_type == "pinhole")
-        camera_models.push_back(session->camera_model(input,input));
-      else
-        camera_models.push_back(session->camera_model(input));
-    }
-    progress.report_finished();
-  }
+};
 
-  if (!vm.count("cnet") ) {
-    build_control_network( (*cnet), camera_models,
-                           image_files,
-                           min_matches );
-    add_ground_control_points( (*cnet),
-                               image_files,
-                               gcp_files );
+template <class AdjusterT>
+void do_ba( typename  AdjusterT::cost_type const& cost_function,
+            Options const& opt ) {
+  BundleAdjustmentModel ba_model(opt.camera_models, opt.cnet);
+  AdjusterT bundle_adjuster(ba_model, cost_function, false, false);
 
-    cnet->write_binary("control");
-  } else  {
-    std::cout << "Loading control network from file: " << cnet_file << "\n";
-
-    // Deciding which Control Network we have
-    std::vector<std::string> tokens;
-    boost::split( tokens, cnet_file, boost::is_any_of(".") );
-    if ( tokens.back() == "net" ) {
-      // An ISIS style control network
-      cnet->read_isis( cnet_file );
-    } else if ( tokens.back() == "cnet" ) {
-      // A VW binary style
-      cnet->read_binary( cnet_file );
-    } else {
-      vw_throw( IOErr() << "Unknown Control Network file extension, \""
-                << tokens.back() << "\"." );
-    }
-  }
-
-
-  BundleAdjustmentModel ba_model(camera_models, cnet);
-  AdjustRobustSparse<BundleAdjustmentModel, L2Error> bundle_adjuster(ba_model, L2Error(), false, false);
-
-  if (vm.count("lambda"))
-    bundle_adjuster.set_lambda(lambda);
+  if ( opt.lambda > 0 )
+    bundle_adjuster.set_lambda( opt.lambda );
 
   //Clearing the monitoring text files to be used for saving camera params
-  if (vm.count("save-iteration-data")){
+  if (opt.save_iteration){
     fs::remove("iterCameraParam.txt");
     fs::remove("iterPointsParam.txt");
 
@@ -180,15 +72,16 @@ int main(int argc, char* argv[]) {
     ba_model.bundlevis_points_append("iterPointsParam.txt");
   }
 
-  BundleAdjustReport<AdjustRobustSparse<BundleAdjustmentModel, L2Error> >
-    reporter( "Bundle Adjust", ba_model, bundle_adjuster, report_level );
+  BundleAdjustReport<AdjusterT >
+    reporter( "Bundle Adjust", ba_model, bundle_adjuster,
+              opt.report_level );
 
   double abs_tol = 1e10, rel_tol=1e10;
   double overall_delta = 2;
   int no_improvement_count = 0;
   while ( true ) {
     // Determine if it is time to quit
-    if ( bundle_adjuster.iterations() >= 20 ) {
+    if ( bundle_adjuster.iterations() >= opt.max_iterations ) {
       reporter() << "Triggered 'Max Iterations'\n";
       break;
     } else if ( abs_tol < 0.01 ) {
@@ -207,7 +100,7 @@ int main(int argc, char* argv[]) {
     reporter.loop_tie_in();
 
     // Writing Current Camera Parameters to file for later reading
-    if (vm.count("save-iteration-data")) {
+    if (opt.save_iteration) {
       ba_model.bundlevis_cameras_append("iterCameraParam.txt");
       ba_model.bundlevis_points_append("iterPointsParam.txt");
     }
@@ -219,5 +112,158 @@ int main(int argc, char* argv[]) {
   reporter.end_tie_in();
 
   for (unsigned i=0; i < ba_model.num_cameras(); ++i)
-    ba_model.write_adjustment(i, fs::path(image_files[i]).replace_extension("adjust").string() );
+    ba_model.write_adjustment(i, fs::path(opt.image_files[i]).replace_extension("adjust").string() );
+}
+
+void handle_arguments( int argc, char *argv[], Options& opt ) {
+    po::options_description general_options("");
+  general_options.add_options()
+    ("cnet,c", po::value(&opt.cnet_file),
+     "Load a control network from a file")
+    ("bundle-adjuster", po::value(&opt.ba_type)->default_value("RobustSparse"),
+     "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
+    ("session-type,t", po::value(&opt.stereosession_type)->default_value("isis"),
+     "Select the stereo session type to use for processing.")
+    ("lambda,l", po::value(&opt.lambda)->default_value(-1),
+     "Set the initial value of the LM parameter lambda")
+    ("robust-threshold", po::value(&opt.robust_outlier_threshold)->default_value(10.0),
+     "Set the threshold for robust cost functions.")
+    ("min-matches", po::value(&opt.min_matches)->default_value(30),
+     "Set the minimum  number of matches between images that will be considered.")
+    ("max-iterations", po::value(&opt.max_iterations)->default_value(25), "Set the maximum number of iterations.")
+    ("report-level,r",po::value(&opt.report_level)->default_value(10),
+     "Changes the detail of the Bundle Adjustment Report")
+    ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
+    ("help,h", "Display this help message");
+
+  po::options_description positional("");
+  positional.add_options()
+    ("input-files", po::value(&opt.image_files));
+
+  po::positional_options_description positional_desc;
+  positional_desc.add("input-files", -1);
+
+  po::options_description all_options;
+  all_options.add(general_options).add(positional);
+
+  po::variables_map vm;
+  try {
+    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
+    po::notify( vm );
+  } catch (po::error &e ) {
+    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
+              << e.what() << general_options );
+  }
+
+  std::ostringstream usage;
+  usage << "Usage: " << argv[0] << " [options] <image filenames> ...\n";
+
+  if ( vm.count("help") )
+    vw_throw( ArgumentErr() << usage.str() << general_options );
+  if ( opt.image_files.empty() )
+    vw_throw( ArgumentErr() << "Missing input cube files!\n"
+              << usage.str() << general_options );
+  opt.gcp_files = sort_out_gcps( opt.image_files );
+  opt.save_iteration = vm.count("save-iteration-data");
+  boost::to_lower( opt.stereosession_type );
+  boost::to_lower( opt.ba_type );
+  if ( !( opt.ba_type == "ref" ||
+          opt.ba_type == "sparse" ||
+          opt.ba_type == "robustref" ||
+          opt.ba_type == "robustsparse" ||
+          opt.ba_type == "robustsparsekgcp" ) )
+    vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
+              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]\n" );
+}
+
+int main(int argc, char* argv[]) {
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+  // Register the Isis file handler with the Vision Workbench
+  // DiskImageResource system.
+  DiskImageResource::register_file_type(".cub",
+                                        DiskImageResourceIsis::type_static(),
+                                        &DiskImageResourceIsis::construct_open,
+                                        &DiskImageResourceIsis::construct_create);
+#endif
+
+  // Register all stereo session types
+  StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+#endif
+
+  Options opt;
+  try {
+    handle_arguments( argc, argv, opt );
+
+    // Read in the camera model and image info for the input images.
+    StereoSession* session =
+      StereoSession::create(opt.stereosession_type);
+
+    if (opt.stereosession_type == "pinhole")
+      stereo_settings().keypoint_alignment = true;
+
+    {
+      TerminalProgressCallback progress("asp","Camera Models:");
+      progress.report_progress(0);
+      double tpc_inc = 1/double(opt.image_files.size());
+      BOOST_FOREACH( std::string const& input, opt.image_files ) {
+        progress.report_incremental_progress(tpc_inc);
+        vw_out(DebugMessage,"asp") << "Loading: " << input << "\n";
+        if (opt.stereosession_type == "pinhole")
+          opt.camera_models.push_back(session->camera_model(input,input));
+        else
+          opt.camera_models.push_back(session->camera_model(input));
+      }
+      progress.report_finished();
+    }
+
+    opt.cnet = boost::shared_ptr<ControlNetwork>( new ControlNetwork("BundleAdjust") );
+    if ( opt.cnet_file.empty() ) {
+      build_control_network( (*opt.cnet), opt.camera_models,
+                             opt.image_files,
+                             opt.min_matches );
+      add_ground_control_points( (*opt.cnet),
+                                 opt.image_files,
+                                 opt.gcp_files );
+
+      opt.cnet->write_binary("control");
+    } else  {
+      std::cout << "Loading control network from file: "
+                << opt.cnet_file << "\n";
+
+      // Deciding which Control Network we have
+      std::vector<std::string> tokens;
+      boost::split( tokens, opt.cnet_file, boost::is_any_of(".") );
+      if ( tokens.back() == "net" ) {
+        // An ISIS style control network
+        opt.cnet->read_isis( opt.cnet_file );
+      } else if ( tokens.back() == "cnet" ) {
+        // A VW binary style
+        opt.cnet->read_binary( opt.cnet_file );
+      } else {
+        vw_throw( IOErr() << "Unknown Control Network file extension, \""
+                  << tokens.back() << "\"." );
+      }
+    }
+
+        // Switching based on cost function
+    {
+      typedef BundleAdjustmentModel ModelType;
+
+      if ( opt.ba_type == "ref" ) {
+        do_ba<AdjustRef< ModelType, L2Error > >( L2Error(), opt );
+      } else if ( opt.ba_type == "sparse" ) {
+        do_ba<AdjustSparse< ModelType, L2Error > >( L2Error(), opt );
+      } else if ( opt.ba_type == "robustref" ) {
+        do_ba<AdjustRobustRef< ModelType,L2Error> >( L2Error(), opt );
+      } else if ( opt.ba_type == "robustsparse" ) {
+        do_ba<AdjustRobustSparse< ModelType,L2Error> >( L2Error(), opt );
+      } else if ( opt.ba_type == "robustsparsekgcp" ) {
+        do_ba<AdjustRobustSparseKGCP< ModelType,L2Error> >( L2Error(), opt );
+      }
+    }
+
+  } ASP_STANDARD_CATCHES;
 }
