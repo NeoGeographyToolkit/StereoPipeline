@@ -170,7 +170,6 @@ public:
   }
 
   // Errors for camera pose
-  std::string camera_pose_units(){ return "degrees"; }
   void camera_pose_errors( std::vector<double>& camera_pose_errors ) {
     camera_pose_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j) {
