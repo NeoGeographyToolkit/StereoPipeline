@@ -19,7 +19,7 @@ endif
 
 if MAKE_APP_BUNDLEADJUST
   bin_PROGRAMS += bundle_adjust
-  bundle_adjust_SOURCES = bundle_adjust.cc
+  bundle_adjust_SOURCES = bundle_adjust.cc bundle_adjust.h
   bundle_adjust_LDADD = $(APP_BUNDLEADJUST_LIBS)
 endif
 
