@@ -125,7 +125,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("default-value", po::value(&opt.default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
     ("use-alpha", "Create images that have an alpha channel")
-    ("dem-spacing,s", po::value(&opt.dem_spacing), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
+    ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
     ("normalized,n", "Also write a normalized version of the DEM (for debugging)")
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
