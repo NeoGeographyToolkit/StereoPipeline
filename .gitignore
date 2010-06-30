@@ -1,52 +1,67 @@
-# git-ls-files --others --exclude-from=.git/info/exclude
-# Lines that start with '#' are comments.
-# For a project mostly in C, the following would be a good set of
-# exclude patterns (uncomment them if you want to use them):
-
+# Generally ignorable files.
 *.[oa]
 *~
 *.l[oa]
-*.deps
-*.libs
-*Makefile
-*Makefile.in
-*.DS_Store
+*.vect
+*.bak
+*.bck
+*.gcda
+*.gcno
+*.moc.cc
+.DS_Store
 *.pb.cc
 *.pb.h
 *#
+/.vimrc.local
+/.project.root
+/vw.tags
+/tags
+/build
+/INSTALL
+/*.trace
+/.gcno.stamp
+/.gcda.stamp
 
-data/apollo
-data/mi-stereo
-data/orbit33
-data/p19
-results
+/data/apollo
+/data/mi-stereo
+/data/orbit33
+/data/p19
+/results
 
-# Standard stuff
-INSTALL
-aclocal.m4
-autom4te.cache/
-build/
-config.log
-config.options
-config.status
-config/ar.sh
-config/config.guess
-config/config.sub
-config/depcomp
-config/install-sh
-config/ltmain.sh
-config/missing
-configure
-libtool
-m4/libtool.m4
-m4/ltoptions.m4
-m4/ltsugar.m4
-m4/ltversion.m4
-m4/lt~obsolete.m4
-src/asp/asp_config.h
-src/asp/asp_config.h.pre
-src/asp/asp_config.h.pre.in
-src/asp/stamp-h1
+# Autotools Stuff
+Makefile
+Makefile.in
+.deps
+/aclocal.m4
+/autom4te.cache
+/config/ar.sh
+/config.cache
+/config/compile
+/config/config.guess
+/config/config.sub
+/config/depcomp
+/config/install-sh
+/config.log
+/config/ltmain.sh
+/config/missing
+/config/mkinstalldirs
+/config.options
+/config/py-compile
+/config.status
+/configure
+/src/asp/asp_config.h
+/src/asp/asp_config.h.pre
+/src/asp/asp_config.h.pre.in
+/src/asp/stamp-h1
+
+# Libtool Stuff
+.libs
+/m4/libtool.m4
+/m4/lt~obsolete.m4
+/m4/ltoptions.m4
+/m4/ltsugar.m4
+/m4/ltversion.m4
+/libtool
 
 # Core
 src/asp/Core/tests/TestBlobIndexThreaded
