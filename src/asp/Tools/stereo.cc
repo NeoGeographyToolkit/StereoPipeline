@@ -86,7 +86,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (!vm.count("left-input-image") || !vm.count("right-input-image") ||
       !vm.count("left-camera-model") )
     vw_throw( ArgumentErr() << "Missing all of the correct input files.\n"
-              << usage << general_options );
+              << usage.str() << general_options );
 }
 
 int main(int argc, char* argv[]) {
