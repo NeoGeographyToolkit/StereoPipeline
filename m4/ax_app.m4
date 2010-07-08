@@ -5,6 +5,8 @@ dnl All Rights Reserved.
 dnl __END_LICENSE__
 
 
+m4_ifdef([_AX_FIXUPS], [], [m4_include([m4/fixups.m4])])
+
 # Usage: AX_APP(<name>, <directory>, <default>, <required dependencies>[, <optional dependencies>])
 AC_DEFUN([AX_APP],
 [
@@ -53,7 +55,6 @@ AC_DEFUN([AX_APP],
         [ ENABLE_APP_$1=$enableval; WANT_APP_$1=$enableval; ],
         [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`/bin/echo -n $3 | tr [A-Z] [a-z]` ; fi ]
       )])
-
 
     AC_MSG_CHECKING([whether to build app $1])
     ax_app_enable=$ENABLE_APP_$1
