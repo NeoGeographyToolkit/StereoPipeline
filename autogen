@@ -9,10 +9,11 @@ ugly_version() {
 
 am_version=$(automake --version | head -n1 | cut -d ' ' -f 4)
 
+# It's actually fixed in 1.9.5b, but my version comparison strips the b
+am_working=$(ugly_version "1.9.6")
 am_v2=$(ugly_version "$am_version")
-am_broken=$(ugly_version "1.9.5b")
 
-if test "$am_v2" \< "$am_broken" ; then
+if test "$am_v2" \< "$am_working" ; then
     topdir="$(cd `dirname $0` && pwd)"
 
     echo "WARNING: automake < 1.9.5b doesn't know how to handle relative"
