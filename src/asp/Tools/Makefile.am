@@ -126,6 +126,8 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
+bin_SCRIPTS = cam2map4stereo.py hiedr2mosaic.py
+
 SUBDIRS = .
 
 includedir = $(prefix)/include/asp/Tools
