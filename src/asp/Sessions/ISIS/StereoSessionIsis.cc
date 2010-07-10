@@ -10,8 +10,10 @@
 
 // Vision Workbench
 #include <vw/Image.h>
-#include <vw/Math.h>
 #include <vw/FileIO.h>
+#include <vw/Math/Functors.h>
+#include <vw/Math/Geometry.h>
+#include <vw/Math/RANSAC.h>
 #include <vw/InterestPoint.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography.h>
@@ -237,9 +239,15 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
     ImageViewRef<PixelMask<PixelGray<float> > > left_valid =
       subsample(create_mask( left_disk_image, left_rsrc.valid_minimum(), left_rsrc.valid_maximum() ),
                 left_stat_scale );
-    min_max_channel_values( left_valid, left_lo, left_hi);
-    left_mean = mean_channel_value( left_valid );
-    left_std = stddev_channel_value( left_valid );
+    ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
+    for_each_pixel( left_valid, accumulator );
+    left_lo = accumulator.quantile(0);
+    left_hi = accumulator.quantile(1);
+    left_mean = accumulator.approximate_mean();
+    left_std  = accumulator.approximate_stddev();
+    //min_max_channel_values( left_valid, left_lo, left_hi);
+    //left_mean = mean_channel_value( left_valid );
+    //left_std = stddev_channel_value( left_valid );
     vw_out(InfoMessage) << "\t    Left: [ lo:" << left_lo << " hi:" << left_hi
                         << " m: " << left_mean << " s: " << left_std <<  "]\n";
   }
@@ -249,11 +257,18 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
     ImageViewRef<PixelMask<PixelGray<float> > > right_valid =
       subsample(create_mask( right_disk_image, right_rsrc.valid_minimum(), right_rsrc.valid_maximum() ),
                 right_stat_scale );
-    min_max_channel_values( right_valid, right_lo, right_hi);
-    right_mean = mean_channel_value( right_valid );
-    right_std = stddev_channel_value( right_valid );
-    vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:" << right_hi
-                        << " m: " << right_mean << " s: " << right_std << "]\n";
+    ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
+    for_each_pixel( right_valid, accumulator );
+    right_lo = accumulator.quantile(0);
+    right_hi = accumulator.quantile(1);
+    right_mean = accumulator.approximate_mean();
+    right_std  = accumulator.approximate_stddev();
+    //min_max_channel_values( right_valid, right_lo, right_hi);
+    //right_mean = mean_channel_value( right_valid );
+    //right_std = stddev_channel_value( right_valid );
+    vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:"
+                        << right_hi << " m: " << right_mean << " s: "
+                        << right_std << "]\n";
   }
 
   // Normalizing to -+2 sigmas around mean
@@ -403,7 +418,6 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
   }
 
   DiskImageView<PixelMask<Vector2f> > disparity_map(dust_result);
-  ImageViewRef<PixelMask<Vector2f> > result = disparity_map;
   output_file = m_out_prefix + "-F-corrected.exr";
 
   // We used a homography to line up the images, we may want
@@ -418,14 +432,14 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
     exit(1);
   }
 
-  result = stereo::transform_disparities(disparity_map, HomographyTransform(align_matrix));
-
   // Remove pixels that are outside the bounds of the secondary image.
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
-  result = stereo::disparity_range_mask(result,
-                                        Vector2f(0,0),
-                                        Vector2f( right_disk_image.cols(),
-                                                  right_disk_image.rows() ) );
+  ImageViewRef<PixelMask<Vector2f> > result =
+    stereo::disparity_range_mask(stereo::transform_disparities(disparity_map,
+                                          HomographyTransform(align_matrix)),
+                                 Vector2f(0,0),
+                                 Vector2f( right_disk_image.cols(),
+                                           right_disk_image.rows() ) );
 
   DiskImageResourceOpenEXR disparity_corrected_rsrc(output_file, result.format() );
   disparity_corrected_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
