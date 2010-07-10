@@ -49,10 +49,8 @@ namespace vw {
 
         // Worst case, no interest point operations have been performed before
         vw_out() << "\t    * Locating Interest Points\n";
-        DiskImageView<PixelGray<float32> > left_sub_disk_image(left_image);
-        DiskImageView<PixelGray<float32> > right_sub_disk_image(right_image);
-        ImageViewRef<PixelGray<float32> > left_sub_image = left_sub_disk_image;
-        ImageViewRef<PixelGray<float32> > right_sub_image = right_sub_disk_image;
+        DiskImageView<PixelGray<float32> > left_sub_image(left_image);
+        DiskImageView<PixelGray<float32> > right_sub_image(right_image);
 
         // Interest Point module detector code.
         float ipgain = 0.07;
@@ -168,28 +166,14 @@ namespace vw {
                                         pre_preprocess_file1,
                                         pre_preprocess_file2);
 
-    DiskImageView<PixelGray<float> > left_rectified_image(pre_preprocess_file1),
-      right_rectified_image(pre_preprocess_file2);
-    ImageViewRef<PixelGray<float> > left_image = left_rectified_image,
-      right_image = right_rectified_image;
+    DiskImageView<PixelGray<float> > left_image(pre_preprocess_file1),
+      right_image(pre_preprocess_file2);
 
 #if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
     // Determining if BigTiff is required
-    if ( left_rectified_image.cols()*left_rectified_image.rows() > 10e6 )
+    if ( left_image.cols()*left_image.rows() > 10e6 )
       opt.gdal_options["BIGTIFF"] = "IF_SAFER";
 #endif
-
-    /*
-      if (MEDIAN_FILTER == 1){
-      vw_out() << "\t--> Median filtering.\n" << std::flush;
-      left_image  = fast_median_filter(left_rectified_image, 7);
-      right_image = fast_median_filter(right_rectified_image, 7);
-      write_image(out_prefix+"-median-L.tif", left_image,
-      TerminalProgressCallback( "asp", "\t--> Median L: "));
-      write_image(out_prefix+"-median-R.tif", right_image,
-      TerminalProgressCallback( "asp", "\t--> Median R: "));
-      }
-    */
 
     try {
       DiskImageView<PixelGray<uint8> > testa(opt.out_prefix+"-lMask.tif");
