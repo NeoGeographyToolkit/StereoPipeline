@@ -12,6 +12,45 @@
 
 namespace vw {
 
+  // This uses a struct as partial template specialization is not
+  // allowed for functions in C++.
+  template <class ViewT, int N>
+  struct MultipleDisparityCleanUp {
+
+    MultipleDisparityCleanUp<ViewT,N-1> inner_func;
+
+    typedef typename MultipleDisparityCleanUp<ViewT,N-1>::result_type inner_type;
+    typedef UnaryPerPixelAccessorView< EdgeExtensionView< UnaryPerPixelAccessorView<EdgeExtensionView<inner_type,ZeroEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> >, ZeroEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> > result_type;
+
+    inline result_type operator()( ImageViewBase<ViewT> const& input,
+                                   int const& h_half_kern,
+                                   int const& v_half_kern,
+                                   double const& pixel_thres,
+                                   double const& rej_thres )  {
+      return stereo::disparity_clean_up(
+                                inner_func(input.impl(), h_half_kern,
+                                           v_half_kern, pixel_thres,
+                                           rej_thres), h_half_kern,
+                                v_half_kern, pixel_thres, rej_thres);
+    }
+  };
+
+  template <class ViewT>
+  struct MultipleDisparityCleanUp<ViewT,1> {
+
+    typedef UnaryPerPixelAccessorView< EdgeExtensionView< UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ZeroEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> >, ZeroEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> > result_type;
+
+    inline result_type operator()( ImageViewBase<ViewT> const& input,
+                                   int const& h_half_kern,
+                                   int const& v_half_kern,
+                                   double const& pixel_thres,
+                                   double const& rej_thres ) {
+      return stereo::disparity_clean_up(
+                                input.impl(), h_half_kern,
+                                v_half_kern, pixel_thres, rej_thres);
+    }
+  };
+
   void stereo_filtering( Options& opt ) {
     if (opt.entry_point == FILTERING)
       vw_out() << "\nStarting at the FILTERING stage.\n";
@@ -29,16 +68,6 @@ namespace vw {
       {
         // Apply filtering for high frequencies
         DiskImageView<PixelMask<Vector2f> > disparity_disk_image(post_correlation_fname);
-        ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
-
-        vw_out() << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
-        for (int i = 0; i < stereo_settings().rm_cleanup_passes; ++i)
-          disparity_map =
-            stereo::disparity_clean_up(disparity_map,
-                                       stereo_settings().rm_h_half_kern,
-                                       stereo_settings().rm_v_half_kern,
-                                       stereo_settings().rm_threshold,
-                                       stereo_settings().rm_min_matches/100.0);
 
         // Applying additional clipping from the edge. We make new
         // mask files to avoid a weird and tricky segfault due to
@@ -59,8 +88,53 @@ namespace vw {
                          TerminalProgressCallback("asp","\t  Reduce RMask:"),
                          stereo_settings().cache_dir);
 
-        disparity_map = stereo::disparity_mask( disparity_map,
-                                                left_red_mask, right_red_mask );
+        vw_out() << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
+        ImageViewRef<PixelMask<Vector2f> > disparity_map;
+        typedef DiskImageView<PixelMask<Vector2f> > input_type;
+        if ( stereo_settings().rm_cleanup_passes == 1 )
+          disparity_map =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+                  disparity_disk_image,stereo_settings().rm_h_half_kern,
+                  stereo_settings().rm_v_half_kern,
+                  stereo_settings().rm_threshold,
+                  stereo_settings().rm_min_matches/100.0),
+                                   left_red_mask, right_red_mask);
+        else if ( stereo_settings().rm_cleanup_passes == 2 )
+          disparity_map =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+                  disparity_disk_image,stereo_settings().rm_h_half_kern,
+                  stereo_settings().rm_v_half_kern,
+                  stereo_settings().rm_threshold,
+                  stereo_settings().rm_min_matches/100.0),
+                                   left_red_mask, right_red_mask);
+        else if ( stereo_settings().rm_cleanup_passes == 3 )
+          disparity_map =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+                  disparity_disk_image,stereo_settings().rm_h_half_kern,
+                  stereo_settings().rm_v_half_kern,
+                  stereo_settings().rm_threshold,
+                  stereo_settings().rm_min_matches/100.0),
+                                   left_red_mask, right_red_mask);
+        else if ( stereo_settings().rm_cleanup_passes == 4 )
+          disparity_map =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+                  disparity_disk_image,stereo_settings().rm_h_half_kern,
+                  stereo_settings().rm_v_half_kern,
+                  stereo_settings().rm_threshold,
+                  stereo_settings().rm_min_matches/100.0),
+                                   left_red_mask, right_red_mask);
+        else if ( stereo_settings().rm_cleanup_passes >= 5 )
+          disparity_map =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+                  disparity_disk_image,stereo_settings().rm_h_half_kern,
+                  stereo_settings().rm_v_half_kern,
+                  stereo_settings().rm_threshold,
+                  stereo_settings().rm_min_matches/100.0),
+                                   left_red_mask, right_red_mask);
+        else
+          disparity_map =
+            stereo::disparity_mask(disparity_disk_image,
+                                   left_red_mask, right_red_mask);
 
         if ( stereo_settings().mask_flatfield ) {
           // This is only turned on for apollo. Blob detection doesn't
@@ -93,7 +167,7 @@ namespace vw {
                                            opt.raster_tile_size,
                                            opt.gdal_options );
           block_write_image( filt_rsrc, disparity_map,
-                             TerminalProgressCallback("asp", "\t--> Filterd: "));
+                             TerminalProgressCallback("asp", "\t--> Filtering: "));
         }
       }
 
