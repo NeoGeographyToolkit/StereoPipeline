@@ -66,7 +66,8 @@ namespace vw {
 
 vw::math::Matrix<double>
 StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
-                                             std::string const& input_file2, float lo, float hi) {
+                                             std::string const& input_file2,
+                                             float lo, float hi) {
 
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   std::string match_filename = fs::path( input_file1 ).replace_extension("").string() + "__" + fs::path( input_file2 ).stem() + ".match";
@@ -93,8 +94,10 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
 
     // Next best thing.. VWIPs?
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-    std::string ip1_filename = fs::path( input_file1 ).replace_extension("vwip").string();
-    std::string ip2_filename = fs::path( input_file2 ).replace_extension("vwip").string();
+    std::string ip1_filename =
+      fs::path( input_file1 ).replace_extension("vwip").string();
+    std::string ip2_filename =
+      fs::path( input_file2 ).replace_extension("vwip").string();
     if ( fs::exists( ip1_filename ) &&
          fs::exists( ip2_filename ) ) {
       // Found VWIPs already done before
@@ -112,9 +115,11 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
       DiskImageView<PixelGray<float> > left_disk_image(input_file1);
       DiskImageView<PixelGray<float> > right_disk_image(input_file2);
       ImageViewRef<PixelGray<float> > left_image =
-        normalize(remove_isis_special_pixels(left_disk_image, lo), lo, hi, 0, 1.0);
+        normalize(remove_isis_special_pixels(left_disk_image, lo),
+                  lo, hi, 0, 1.0);
       ImageViewRef<PixelGray<float> > right_image =
-        normalize(remove_isis_special_pixels(right_disk_image, lo), lo, hi, 0, 1.0);
+        normalize(remove_isis_special_pixels(right_disk_image, lo),
+                  lo, hi, 0, 1.0);
 
       // Interest Point module detector code.
       float ipgain = 0.08;
@@ -205,13 +210,15 @@ StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
   return T;
 }
 
-// Do not attempt interest point alignment; assume ISIS images are already map projected.
-// Simply remove the special pixels and normalize between 0 and 1 (so that the image masks
-// are found properly)
+// Do not attempt interest point alignment; assume ISIS images are
+// already map projected.  Simply remove the special pixels and
+// normalize between 0 and 1 (so that the image masks are found
+// properly)
 void
-StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
-                                          std::string & output_file1, std::string & output_file2) {
-
+StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
+                                          std::string const& input_file2,
+                                          std::string & output_file1,
+                                          std::string & output_file2) {
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
 
@@ -245,9 +252,7 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
     left_hi = accumulator.quantile(1);
     left_mean = accumulator.approximate_mean();
     left_std  = accumulator.approximate_stddev();
-    //min_max_channel_values( left_valid, left_lo, left_hi);
-    //left_mean = mean_channel_value( left_valid );
-    //left_std = stddev_channel_value( left_valid );
+
     vw_out(InfoMessage) << "\t    Left: [ lo:" << left_lo << " hi:" << left_hi
                         << " m: " << left_mean << " s: " << left_std <<  "]\n";
   }
@@ -263,9 +268,7 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1, std::s
     right_hi = accumulator.quantile(1);
     right_mean = accumulator.approximate_mean();
     right_std  = accumulator.approximate_stddev();
-    //min_max_channel_values( right_valid, right_lo, right_hi);
-    //right_mean = mean_channel_value( right_valid );
-    //right_std = stddev_channel_value( right_valid );
+
     vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:"
                         << right_hi << " m: " << right_mean << " s: "
                         << right_std << "]\n";
@@ -428,7 +431,8 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
     read_matrix(align_matrix, m_out_prefix + "-align.exr");
     vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
   } catch (vw::IOErr &e) {
-    vw_out() << "\nCould not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
+    vw_out() << "\nCould not read in aligment matrix: " << m_out_prefix
+             << "-align.exr.  Exiting. \n\n";
     exit(1);
   }
 
