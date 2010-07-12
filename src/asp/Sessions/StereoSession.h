@@ -61,11 +61,11 @@ class StereoSession {
                               matched_ip1, matched_ip2 );
 
       // Fitting a matrix immediately (no RANSAC)
-      math::HomographyFittingFunctor fitting;
+      vw::math::HomographyFittingFunctor fitting;
       remove_duplicates( matched_ip1, matched_ip2 );
       std::vector<Vector3> list1 = iplist_to_vectorlist(matched_ip1);
       std::vector<Vector3> list2 = iplist_to_vectorlist(matched_ip2);
-      math::AffineFittingFunctor aff_fit;
+      vw::math::AffineFittingFunctor aff_fit;
       Matrix<double> seed = aff_fit( list2, list1 );
       Matrix<double> align = fitting( list2, list1, seed );  // LMA optimization second
       vw_out() << "\tFit = " << align << std::endl;
@@ -153,14 +153,14 @@ class StereoSession {
     std::vector<int> indices;
     try {
 
-      math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 10 );
+      vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 10 );
       T = ransac( ransac_ip2, ransac_ip1 );
       indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
       vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
 
     } catch (...) {
       vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
-      T = math::identity_matrix<3>();
+      T = vw::math::identity_matrix<3>();
     }
 
     vw_out() << "\t    Caching matches: "
