@@ -27,7 +27,7 @@ struct Options {
   Options( void ) : lambda(-1), seed_previous(false) {}
   // Input
   std::string cnet_file, cost_function, ba_type;
-  std::vector<std::string> input_names, gcp_names;
+  std::vector<std::string> input_names, gcp_names, gcp_cnet_names;
   double cam_position_sigma, cam_pose_sigma, gcp_scalar,
     lambda, robust_threshold;
   int max_iterations, report_level, min_matches, poly_order;
@@ -254,7 +254,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.input_names.empty() )
     vw_throw( ArgumentErr() << "Missing input cube files!\n"
               << usage.str() << general_options );
-  opt.gcp_names = sort_out_gcps( opt.input_names );
+  sort_out_gcp( opt.input_names, opt.gcp_names );
+  sort_out_gcpcnets( opt.input_names, opt.gcp_cnet_names );
 
   // checking results of booleans
   opt.seed_previous = vm.count("seed-with-previous");
@@ -365,6 +366,7 @@ int main(int argc, char* argv[]) {
       add_ground_control_points( (*opt.cnet),
                                  opt.input_names,
                                  opt.gcp_names );
+      
     }
 
     {

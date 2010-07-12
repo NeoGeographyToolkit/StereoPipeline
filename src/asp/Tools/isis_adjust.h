@@ -363,20 +363,46 @@ public:
   }
 };
 
+template<typename In, typename Out, typename Pred>
+Out copy_if(In first, In last, Out res, Pred Pr)
+{
+  while (first != last)
+  {
+    if (Pr(*first))
+      *res++ = *first;
+    ++first;
+  }
+  return res;
+}
+
 // This sifts out from a vector of strings, a listing of GCPs.  This
 // should be useful for those programs who accept their data in a mass
 // input vector.
-std::vector<std::string>
-sort_out_gcps( std::vector<std::string>& image_files ) {
-  std::vector<std::string> gcp_files;
-  std::vector<std::string>::iterator it = image_files.begin();
-  while ( it != image_files.end() ) {
-    if ( boost::iends_with(*it, ".gcp") ){
-      gcp_files.push_back( *it );
-      it = image_files.erase( it );
-    } else
-      it++;
-  }
+bool IsGCP( std::string const& name ) {
+  return boost::iends_with(name,".gcp");
+}
 
-  return gcp_files;
+template <class IContainT, class OContainT>
+void sort_out_gcp( IContainT& input, OContainT& output ) {
+  copy_if( input.begin(), input.end(),
+           std::back_inserter(output), IsGCP );
+  typename IContainT::iterator new_end =
+    std::remove_if(input.begin(), input.end(), IsGCP);
+  input.erase(new_end,input.end());
+}
+
+// This sifts out from a vector of strings, a listing of input CNET
+// GCPs. This should be useful for those programs who accept their data
+// in a mass input vector.
+bool IsGCPCnet( std::string const& name ) {
+  return boost::iends_with(name,".net") || boost::iends_with(name,".cnet");
+}
+
+template <class IContainT, class OContainT>
+void sort_out_gcpcnets( IContainT& input, OContainT& output ) {
+  copy_if( input.begin(), input.end(),
+           std::back_inserter(output), IsGCPCnet );
+  typename IContainT::iterator new_end =
+    std::remove_if(input.begin(), input.end(), IsGCPCnet );
+  input.erase(new_end,input.end());
 }
