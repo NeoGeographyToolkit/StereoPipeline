@@ -107,6 +107,12 @@ class StereoSession {
 
           ipgain *= 0.75;
         }
+        if ( ip1.size() > 10000 ) {
+          ip1.sort(); ip1.resize(10000);
+        }
+        if ( ip2.size() > 10000 ) {
+          ip2.sort(); ip2.resize(10000);
+        }
         vw_out() << "\t    Located " << ip1.size() << " points.\n";
         vw_out() << "\t    Located " << ip2.size() << " points.\n";
 
