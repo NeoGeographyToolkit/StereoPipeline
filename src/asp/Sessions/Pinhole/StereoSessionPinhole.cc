@@ -20,7 +20,6 @@
 #include <vw/Camera/CameraTransform.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <vw/InterestPoint.h>
 #include <vw/Math.h>
 
 // Boost
@@ -37,141 +36,9 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-// Duplicate matches for any given interest point probably indicate a
-// poor match, so we cull those out here.
-static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
-  std::vector<Vector3> new_ip1, new_ip2;
-
-  for (unsigned i = 0; i < ip1.size(); ++i) {
-    bool bad_entry = false;
-    for (unsigned j = 0; j < ip1.size(); ++j) {
-      if (i != j &&
-          (ip1[i] == ip1[j] || ip2[i] == ip2[j])) {
-        bad_entry = true;
-      }
-    }
-    if (!bad_entry) {
-      new_ip1.push_back(ip1[i]);
-      new_ip2.push_back(ip2[i]);
-    }
-  }
-
-  ip1 = new_ip1;
-  ip2 = new_ip2;
-}
-
-vw::math::Matrix<double> StereoSessionPinhole::determine_keypoint_alignment( std::string const& input_file1, std::string const& input_file2 ) {
-
-  std::vector<InterestPoint> matched_ip1, matched_ip2;
-  std::string match_filename = fs::path( input_file1 ).replace_extension("").string() + "__" + fs::path( input_file2 ).stem() + ".match";
-  if ( fs::exists( match_filename ) ) {
-    // Is there a match file linking these 2 images?
-
-    vw_out() << "\t--> Found cached interest point match file: "
-              <<  match_filename<< "\n";
-    read_binary_match_file( match_filename,
-                            matched_ip1, matched_ip2 );
-  } else {
-
-    // Need to at least match the files
-    std::vector<InterestPoint> ip1_copy, ip2_copy;
-    std::string ip1_filename = fs::path( input_file1 ).replace_extension("vwip").string();
-    std::string ip2_filename = fs::path( input_file2 ).replace_extension("vwip").string();
-    if ( fs::exists( ip1_filename ) &&
-         fs::exists( ip2_filename ) ) {
-      // Is there at least VWIP already done for both images?
-      vw_out() << "\t--> Found cached interest point files: "
-                << ip1_filename << "\n"
-                << "\t                                       "
-                << ip2_filename << "\n";
-      ip1_copy = read_binary_ip_file( ip1_filename );
-      ip2_copy = read_binary_ip_file( ip2_filename );
-
-    } else {
-      // Performing interest point detector
-      vw_out() << "\t--> Locating Interest Points\n";
-      InterestPointList ip1, ip2;
-      DiskImageView<PixelGray<float> > left_disk_image( input_file1 );
-      DiskImageView<PixelGray<float> > right_disk_image( input_file2 );
-      ImageViewRef<PixelGray<float> > left_image = left_disk_image;
-      ImageViewRef<PixelGray<float> > right_image = right_disk_image;
-
-      // Interest Point Module Detector Code
-      LogInterestOperator log_detector;
-      ScaledInterestPointDetector<LogInterestOperator> detector(log_detector, 500);
-
-      vw_out() << "\t    Processing " << input_file1 << "\n";
-      ip1 = detect_interest_points( left_image, detector );
-      vw_out() << "\t    Located " << ip1.size() << " points.\n";
-      vw_out() << "\t    Processing " << input_file2 << "\n";
-      ip2 = detect_interest_points( right_image, detector );
-      vw_out() << "\t    Located " << ip2.size() << " points.\n";
-
-      vw_out() << "\t    Generating descriptors...\n";
-      PatchDescriptorGenerator descriptor;
-      descriptor( left_image, ip1 );
-      descriptor( right_image, ip2 );
-      vw_out() << "\t    done.\n";
-
-      // Writing out the results
-      vw_out() << "\t    Caching interest points: "
-                << ip1_filename << ", "
-                << ip2_filename << "\n";
-      write_binary_ip_file( ip1_filename, ip1);
-      write_binary_ip_file( ip2_filename, ip2);
-
-      // Reading back into the vector format
-      ip1_copy = read_binary_ip_file( ip1_filename );
-      ip2_copy = read_binary_ip_file( ip2_filename );
-    }
-
-    vw_out() << "\t--> Matching interest points\n";
-    InterestPointMatcher<L2NormMetric,NullConstraint> matcher(0.8);
-
-    matcher(ip1_copy, ip2_copy,
-            matched_ip1, matched_ip2,
-            false,
-            TerminalProgressCallback( "asp", "\t    Matching: "));
-
-    vw_out() << "\t    Caching matches: "
-              << match_filename << "\n";
-
-    write_binary_match_file( match_filename,
-                             matched_ip1, matched_ip2);
-  } // End matching
-
-  vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
-                      << " putative matches.\n";
-
-  vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
-  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
-  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-  remove_duplicates(ransac_ip1, ransac_ip2);
-  vw_out(DebugMessage) << "\t--> Removed "
-                       << matched_ip1.size() - ransac_ip1.size()
-                       << " duplicate matches.\n";
-
-  Matrix<double> T;
-  try {
-
-    math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 10);
-    T = ransac(ransac_ip2, ransac_ip1);
-    vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
-
-  } catch (...) {
-
-    vw_out() << "\n*************************************************************\n";
-    vw_out() << "WARNING: Automatic Alignment Failed!  Proceed with caution...\n";
-    vw_out() << "*************************************************************\n\n";
-    T.set_size(3,3);
-    T.set_identity();
-  }
-
-  return T;
-}
-
-boost::shared_ptr<vw::camera::CameraModel> StereoSessionPinhole::camera_model(std::string /*image_file*/,
-                                                                              std::string camera_file) {
+boost::shared_ptr<vw::camera::CameraModel>
+StereoSessionPinhole::camera_model(std::string /*image_file*/,
+                                   std::string camera_file) {
   // Epipolar Alignment
   if ( stereo_settings().epipolar_alignment ) {
     // Load the image
@@ -255,13 +122,15 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
     vw_out() << "\t--> Performing epipolar alignment\n";
 
     // Load the two images and fetch the two camera models
-    boost::shared_ptr<camera::CameraModel> left_camera = this->camera_model(input_file1, m_left_camera_file);
-    boost::shared_ptr<camera::CameraModel> right_camera = this->camera_model(input_file2, m_right_camera_file);
+    boost::shared_ptr<camera::CameraModel> left_camera =
+      this->camera_model(input_file1, m_left_camera_file);
+    boost::shared_ptr<camera::CameraModel> right_camera =
+      this->camera_model(input_file2, m_right_camera_file);
     CAHVModel* left_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*left_camera));
     CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*right_camera));
 
     // Remove lens distortion and create epipolar rectified images.
-    if (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahvor")  ||
+    if (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahvor") ||
         boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cmod") ) {
       CAHVORModel left_cahvor(m_left_camera_file);
       CAHVORModel right_cahvor(m_right_camera_file);
@@ -287,8 +156,9 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
 
   } else if ( stereo_settings().keypoint_alignment ) {
 
-    Matrix<double> align_matrix(3,3);
-    align_matrix = determine_keypoint_alignment( input_file1, input_file2 );
+    Matrix<double> align_matrix;
+    align_matrix = determine_image_align( input_file1, input_file2,
+                                          left_disk_image, right_disk_image);
     write_matrix( m_out_prefix + "-align.exr", align_matrix );
 
     // Applying alignment transform
@@ -327,17 +197,21 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
       read_matrix(align_matrix, m_out_prefix + "-align.exr");
       vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
     } catch ( vw::IOErr &e ) {
-      vw_out() << "\nCould not read in alignment matrix: " << m_out_prefix << "-align.exr. Exiting. \n\n";
+      vw_out() << "\nCould not read in alignment matrix: " << m_out_prefix
+               << "-align.exr. Exiting. \n\n";
       exit(1);
     }
 
-    result = stereo::transform_disparities( disparity_map,HomographyTransform(align_matrix));
+    result = stereo::transform_disparities( disparity_map,
+                                            HomographyTransform(align_matrix));
 
     // Remove pixels that are outside the bounds of the second image
     DiskImageView<PixelGray<float> > right_disk_image( m_right_image_file );
-    result = stereo::disparity_range_mask( result, right_disk_image.cols(), right_disk_image.rows());
+    result = stereo::disparity_range_mask( result, right_disk_image.cols(),
+                                           right_disk_image.rows());
 
-    write_image(output_file, result, TerminalProgressCallback("asp", "\t    Saving: ") );
+    write_image(output_file, result,
+                TerminalProgressCallback("asp", "\t    Saving: ") );
 
   } else {
     vw_throw(ArgumentErr() << "PinholeStereoSession: unselected alignment option.\n");

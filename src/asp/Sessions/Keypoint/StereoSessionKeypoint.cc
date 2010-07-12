@@ -25,29 +25,6 @@
 using namespace vw;
 using namespace vw::ip;
 
-// Duplicate matches for any given interest point probably indicate a
-// poor match, so we cull those out here.
-static void remove_duplicates(std::vector<Vector3> &ip1, std::vector<Vector3> &ip2) {
-  std::vector<Vector3> new_ip1, new_ip2;
-
-  for (unsigned i = 0; i < ip1.size(); ++i) {
-    bool bad_entry = false;
-    for (unsigned j = 0; j < ip1.size(); ++j) {
-      if (i != j &&
-          (ip1[i] == ip1[j] || ip2[i] == ip2[j])) {
-        bad_entry = true;
-      }
-    }
-    if (!bad_entry) {
-      new_ip1.push_back(ip1[i]);
-      new_ip2.push_back(ip2[i]);
-    }
-  }
-
-  ip1 = new_ip1;
-  ip2 = new_ip2;
-}
-
 std::string StereoSessionKeypoint::create_subsampled_align_image(std::string const& image_file, std::string const& suffix) {
   std::string align_image_file(m_out_prefix + std::string("-normalized-align-sub-") + suffix);
 
@@ -74,96 +51,34 @@ void StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
   vw_out() << align_matrix << std::endl;
 }
 
-vw::math::Matrix<double>
-StereoSessionKeypoint::determine_image_alignment(std::string const& input_file1, std::string const& input_file2) {
-  std::string left_align_image_file(input_file1), right_align_image_file(input_file2);
+void
+StereoSessionKeypoint::pre_preprocessing_hook(std::string const&/*input_file1*/,
+                                              std::string const&/*input_file2*/,
+                                              std::string & output_file1,
+                                              std::string & output_file2) {
+
+  std::string left_align_image_file(m_left_image_file),
+    right_align_image_file(m_right_image_file);
 
   double sub_sampling = stereo_settings().keypoint_align_subsampling;
   if (sub_sampling > 1) {
-    left_align_image_file = create_subsampled_align_image(input_file1, "L.tif");
-    right_align_image_file = create_subsampled_align_image(input_file2, "R.tif");
+    left_align_image_file =
+      create_subsampled_align_image(m_left_image_file, "L.tif");
+    right_align_image_file =
+      create_subsampled_align_image(m_right_image_file, "R.tif");
   }
 
   // Load the two images
-  DiskImageView<PixelGray<float> > left_disk_image(left_align_image_file);
-  DiskImageView<PixelGray<float> > right_disk_image(right_align_image_file);
-
-  std::cout << "StereoSessionKeypoint::determine_image_alignment(): aligning "
-            << left_align_image_file << " and " << right_align_image_file << std::endl;
-
-  // Image Alignment
-  //
-  // Images are aligned by computing interest points, matching
-  // them using a standard 2-Norm nearest-neighor metric, and then
-  // rejecting outliers by fitting a similarity between the
-  // putative matches using RANSAC.
-
-  // Interest points are matched in image chunk of <= 2048x2048
-  // pixels to conserve memory.
-  vw_out(InfoMessage) << "\nInterest Point Detection:\n";
-
-  // Interest Point module detector code.
-  ScaledInterestPointDetector<LogInterestOperator> detector;
-  InterestPointList ip1 = detect_interest_points(left_disk_image, detector);
-  InterestPointList ip2 = detect_interest_points(right_disk_image, detector);
-  vw_out(InfoMessage) << "Left image: " << ip1.size() << " points.  Right image: " << ip2.size() << "\n";
-
-  // Generate descriptors for interest points.
-  // TODO: Switch to a more sophisticated descriptor
-  vw_out(InfoMessage) << "\tGenerating descriptors... " << std::flush;
-  PatchDescriptorGenerator descriptor;
-  descriptor(left_disk_image, ip1);
-  descriptor(right_disk_image, ip2);
-  vw_out(InfoMessage) << "done.\n";
-
-  // The basic interest point matcher does not impose any
-  // constraints on the matched interest points.
-  vw_out(InfoMessage) << "\nInterest Point Matching:\n";
-  double matcher_threshold = 0.8;
-
-  // RANSAC needs the matches as a vector, and so does the matcher.
-  // this is messy, but for now we simply make a copy.
-  std::vector<InterestPoint> ip1_copy(ip1.size()), ip2_copy(ip2.size());
-  std::copy(ip1.begin(), ip1.end(), ip1_copy.begin());
-  std::copy(ip2.begin(), ip2.end(), ip2_copy.begin());
-
-  InterestPointMatcher<L2NormMetric,NullConstraint> matcher(matcher_threshold);
-  std::vector<InterestPoint> matched_ip1, matched_ip2;
-  matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2, false,
-          TerminalProgressCallback("asp",""));
-  vw_out(InfoMessage) << "Found " << matched_ip1.size() << " putative matches.\n";
-
-  std::vector<Vector3> ransac_ip1(matched_ip1.size());
-  std::vector<Vector3> ransac_ip2(matched_ip2.size());
-  for (unsigned i = 0; i < matched_ip1.size();++i ) {
-    ransac_ip1[i] = Vector3(matched_ip1[i].x, matched_ip1[i].y,1);
-    ransac_ip2[i] = Vector3(matched_ip2[i].x, matched_ip2[i].y,1);
-  }
-
-  remove_duplicates(ransac_ip1, ransac_ip2);
-
-  // RANSAC is used to fit a similarity transform between the
-  // matched sets of points
-  vw::math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(),
-                                                                                                          vw::math::InterestPointErrorMetric(),
-                                                                                                          10 ); // inlier_threshold
-
-  std::vector<Vector3> result_ip1;
-  std::vector<Vector3> result_ip2;
-  vw_out(InfoMessage) << "\nRunning RANSAC:\n";
-  Matrix<double> align_matrix(ransac(ransac_ip2,ransac_ip1));
-
-  if (sub_sampling > 1)
-    scale_align_matrix(align_matrix);
-
-  return align_matrix;
-}
-
-void StereoSessionKeypoint::pre_preprocessing_hook(std::string const& /*input_file1*/, std::string const& /*input_file2*/,
-                                                   std::string & output_file1, std::string & output_file2) {
+  DiskImageView<PixelGray<float> > left_align_image(left_align_image_file);
+  DiskImageView<PixelGray<float> > right_align_image(right_align_image_file);
 
   // Determine the alignment matrix using keypoint matching techniques.
-  Matrix<double> align_matrix = determine_image_alignment(m_left_image_file, m_right_image_file);
+  Matrix<double> align_matrix = determine_image_align(left_align_image_file,
+                                                      right_align_image_file,
+                                                      left_align_image,
+                                                      right_align_image);
+  if (sub_sampling > 1)
+    scale_align_matrix(align_matrix);
   ::write_matrix(m_out_prefix + "-align.exr", align_matrix);
 
   DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);

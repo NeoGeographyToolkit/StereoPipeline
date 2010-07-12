@@ -129,11 +129,6 @@ UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type> >
 
 class StereoSessionIsis: public StereoSession {
 
-  vw::math::Matrix<double>
-  determine_image_alignment( std::string const& input_file1,
-                             std::string const& input_file2,
-                             float lo, float hi );
-
 public:
 
   virtual ~StereoSessionIsis() {}

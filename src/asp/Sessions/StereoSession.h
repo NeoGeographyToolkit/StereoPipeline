@@ -11,9 +11,17 @@
 #ifndef __STEREO_SESSION_H__
 #define __STEREO_SESSION_H__
 
+#include <vw/Image/ImageViewBase.h>
 #include <vw/Camera/CameraModel.h>
 
+#include <vw/Math/Functors.h>
+#include <vw/Math/Geometry.h>
+#include <vw/Math/RANSAC.h>
+#include <vw/InterestPoint.h>
+
 #include <boost/shared_ptr.hpp>
+#include <boost/filesystem/operations.hpp>
+
 
 class StereoSession {
 
@@ -22,6 +30,156 @@ class StereoSession {
     m_left_camera_file, m_right_camera_file, m_out_prefix;
   std::string m_extra_argument1, m_extra_argument2,
     m_extra_argument3, m_extra_argument4;
+
+  // Duplicate matches for any given interest point probably indicate a
+  // poor match, so we cull those out here.
+  void remove_duplicates(std::vector<vw::ip::InterestPoint> &ip1,
+                         std::vector<vw::ip::InterestPoint> &ip2);
+
+  template <class ImageT1, class ImageT2>
+  vw::Matrix3x3
+  determine_image_align( std::string const& input_file1,
+                         std::string const& input_file2,
+                         vw::ImageViewBase<ImageT1> const& input1,
+                         vw::ImageViewBase<ImageT2> const& input2 ) {
+    namespace fs = boost::filesystem;
+    using namespace vw;
+
+    ImageT1 const& image1 = input1.impl();
+    ImageT2 const& image2 = input2.impl();
+    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+    std::string match_filename =
+      fs::path( input_file1 ).replace_extension("").string() + "__" +
+      fs::path( input_file2 ).stem() + ".match";
+
+    if ( fs::exists( match_filename ) ) {
+      // Is there a match file linking these 2 image?
+
+      vw_out() << "\t--> Found cached interest point match file: "
+               << match_filename << "\n";
+      read_binary_match_file( match_filename,
+                              matched_ip1, matched_ip2 );
+
+      // Fitting a matrix immediately (no RANSAC)
+      math::HomographyFittingFunctor fitting;
+      remove_duplicates( matched_ip1, matched_ip2 );
+      std::vector<Vector3> list1 = iplist_to_vectorlist(matched_ip1);
+      std::vector<Vector3> list2 = iplist_to_vectorlist(matched_ip2);
+      math::AffineFittingFunctor aff_fit;
+      Matrix<double> seed = aff_fit( list2, list1 );
+      Matrix<double> align = fitting( list2, list1, seed );  // LMA optimization second
+      vw_out() << "\tFit = " << align << std::endl;
+      return align;
+
+    } else {
+
+      // Next best thing.. VWIPs?
+      std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
+      std::string ip1_filename =
+        fs::path( input_file1 ).replace_extension("vwip").string();
+      std::string ip2_filename =
+        fs::path( input_file2 ).replace_extension("vwip").string();
+      if ( fs::exists( ip1_filename ) &&
+           fs::exists( ip2_filename ) ) {
+        // Found VWIPs already done before
+        vw_out() << "\t--> Found cached interest point files: "
+                 << ip1_filename << "\n"
+                 << "\t                                       "
+                 << ip2_filename << "\n";
+        ip1_copy = ip::read_binary_ip_file( ip1_filename );
+        ip2_copy = ip::read_binary_ip_file( ip2_filename );
+
+      } else {
+        // Worst case, no interest point operations have been performed before
+        vw_out() << "\t--> Locating Interest Points\n";
+        ip::InterestPointList ip1, ip2;
+
+        // Interest Point module detector code.
+        float ipgain = 0.08;
+        while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
+          ip1.clear(); ip2.clear();
+          ip::OBALoGInterestOperator interest_operator( ipgain );
+          ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
+          vw_out() << "\t    Processing " << input_file1 << "\n";
+          ip1 = detect_interest_points( image1, detector );
+          vw_out() << "\t    Processing " << input_file2 << "\n";
+          ip2 = detect_interest_points( image2, detector );
+
+          ipgain *= 0.75;
+        }
+        vw_out() << "\t    Located " << ip1.size() << " points.\n";
+        vw_out() << "\t    Located " << ip2.size() << " points.\n";
+
+        vw_out() << "\t    Generating descriptors...\n";
+        ip::SGradDescriptorGenerator descriptor;
+        descriptor( image1, ip1 );
+        descriptor( image2, ip2 );
+        vw_out() << "\t    done.\n";
+
+        // Writing out the results
+        vw_out() << "\t    Caching interest points: "
+                 << ip1_filename << ", "
+                 << ip2_filename << "\n";
+        ip::write_binary_ip_file(ip1_filename, ip1);
+        ip::write_binary_ip_file(ip2_filename, ip2);
+
+        // Reading back into the vector interestpoint format
+        ip1_copy = ip::read_binary_ip_file( ip1_filename );
+        ip2_copy = ip::read_binary_ip_file( ip2_filename );
+      }
+
+      vw_out() << "\t--> Matching interest points\n";
+      ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
+
+      matcher(ip1_copy, ip2_copy,
+              matched_ip1, matched_ip2,
+              false,
+              TerminalProgressCallback( "asp", "\t    Matching: "));
+
+    } // End matching
+
+    vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
+                        << " putative matches.\n";
+
+    vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
+    remove_duplicates(matched_ip1, matched_ip2);
+    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
+    std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
+    vw_out(DebugMessage) << "\t--> Removed "
+                         << matched_ip1.size() - ransac_ip1.size()
+                         << " duplicate matches.\n";
+
+    Matrix<double> T;
+    std::vector<int> indices;
+    try {
+
+      math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 10 );
+      T = ransac( ransac_ip2, ransac_ip1 );
+      indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
+      vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
+
+    } catch (...) {
+      vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
+      T = math::identity_matrix<3>();
+    }
+
+    vw_out() << "\t    Caching matches: "
+             << match_filename << "\n";
+
+    { // Keeping only inliers
+      std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
+      for ( unsigned i = 0; i < indices.size(); i++ ) {
+        inlier_ip1.push_back( matched_ip1[indices[i]] );
+        inlier_ip2.push_back( matched_ip2[indices[i]] );
+      }
+      matched_ip1 = inlier_ip1;
+      matched_ip2 = inlier_ip2;
+    }
+
+    write_binary_match_file( match_filename,
+                             matched_ip1, matched_ip2);
+    return T;
+  }
 
  public:
   void initialize (std::string const& left_image_file,

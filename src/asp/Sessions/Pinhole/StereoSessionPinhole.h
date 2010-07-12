@@ -8,16 +8,12 @@
 /// \file StereoSessionPinhole.h
 ///
 
-#ifndef __PINHOLE_STEREO_SESSION_H__
-#define __PINHOLE_STEREO_SESSION_H__
+#ifndef __STEREO_SESSION_PINHOLE_H__
+#define __STEREO_SESSION_PINHOLE_H__
 
 #include <asp/Sessions/StereoSession.h>
 
 class StereoSessionPinhole: public StereoSession {
-
-  vw::math::Matrix<double>
-  determine_keypoint_alignment( std::string const& input_file1,
-                                std::string const& input_file2 );
 
  public:
 
@@ -47,4 +43,4 @@ class StereoSessionPinhole: public StereoSession {
   static StereoSession* construct() { return new StereoSessionPinhole; }
 };
 
-#endif // __PINHOLE_STEREO_SESSION_H__
+#endif // __STEREO_SESSION_PINHOLE_H__

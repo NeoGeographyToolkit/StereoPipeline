@@ -34,7 +34,7 @@ public:
   virtual void pre_pointcloud_hook(std::string const& input_file, std::string & output_file);
 
 protected:
-  vw::math::Matrix<double> determine_image_alignment(std::string const& input_file1, std::string const& input_file2);
+
   // To speed up things one can optionally sub-sample the images
   virtual std::string create_subsampled_align_image(std::string const& image_file, std::string const& suffix);
   void scale_align_matrix(vw::math::Matrix<double> & align_matrix);

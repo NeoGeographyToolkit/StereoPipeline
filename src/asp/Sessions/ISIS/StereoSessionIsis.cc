@@ -34,180 +34,9 @@ using namespace vw;
 using namespace vw::camera;
 using namespace asp;
 
-// Duplicate matches for any given interest point probably indicate a
-// poor match, so we cull those out here.
-void remove_duplicates(std::vector<ip::InterestPoint> &ip1,
-                       std::vector<ip::InterestPoint> &ip2) {
-  std::vector<ip::InterestPoint> new_ip1, new_ip2;
-
-  for (unsigned i = 0; i < ip1.size(); ++i) {
-    bool bad_entry = false;
-    for (unsigned j = 0; j < ip1.size(); ++j) {
-      if (i != j &&
-          ((ip1[i].x == ip1[j].x && ip1[i].y == ip1[j].y) ||
-           (ip2[i].x == ip2[j].x && ip2[i].y == ip2[j].y)) ) {
-        bad_entry = true;
-      }
-    }
-    if (!bad_entry) {
-      new_ip1.push_back(ip1[i]);
-      new_ip2.push_back(ip2[i]);
-    }
-  }
-
-  ip1 = new_ip1;
-  ip2 = new_ip2;
-}
-
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
-vw::math::Matrix<double>
-StereoSessionIsis::determine_image_alignment(std::string const& input_file1,
-                                             std::string const& input_file2,
-                                             float lo, float hi) {
-
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  std::string match_filename = fs::path( input_file1 ).replace_extension("").string() + "__" + fs::path( input_file2 ).stem() + ".match";
-  if ( fs::exists( match_filename ) ) {
-    // Is there a match file linking these 2 image?
-
-    vw_out() << "\t--> Found cached interest point match file: "
-             << match_filename << "\n";
-    read_binary_match_file( match_filename,
-                            matched_ip1, matched_ip2 );
-
-    // Fitting a matrix immediately (no RANSAC)
-    math::HomographyFittingFunctor fitting;
-    remove_duplicates( matched_ip1, matched_ip2 );
-    std::vector<Vector3> list1 = iplist_to_vectorlist(matched_ip1);
-    std::vector<Vector3> list2 = iplist_to_vectorlist(matched_ip2);
-    math::AffineFittingFunctor aff_fit;
-    Matrix<double> seed = aff_fit( list2, list1 );
-    Matrix<double> align = fitting( list2, list1, seed );  // LMA optimization second
-    vw_out() << "\tFit = " << align << std::endl;
-    return align;
-
-  } else {
-
-    // Next best thing.. VWIPs?
-    std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-    std::string ip1_filename =
-      fs::path( input_file1 ).replace_extension("vwip").string();
-    std::string ip2_filename =
-      fs::path( input_file2 ).replace_extension("vwip").string();
-    if ( fs::exists( ip1_filename ) &&
-         fs::exists( ip2_filename ) ) {
-      // Found VWIPs already done before
-      vw_out() << "\t--> Found cached interest point files: "
-                << ip1_filename << "\n"
-                << "\t                                       "
-                << ip2_filename << "\n";
-      ip1_copy = ip::read_binary_ip_file( ip1_filename );
-      ip2_copy = ip::read_binary_ip_file( ip2_filename );
-
-    } else {
-      // Worst case, no interest point operations have been performed before
-      vw_out() << "\t--> Locating Interest Points\n";
-      ip::InterestPointList ip1, ip2;
-      DiskImageView<PixelGray<float> > left_disk_image(input_file1);
-      DiskImageView<PixelGray<float> > right_disk_image(input_file2);
-      ImageViewRef<PixelGray<float> > left_image =
-        normalize(remove_isis_special_pixels(left_disk_image, lo),
-                  lo, hi, 0, 1.0);
-      ImageViewRef<PixelGray<float> > right_image =
-        normalize(remove_isis_special_pixels(right_disk_image, lo),
-                  lo, hi, 0, 1.0);
-
-      // Interest Point module detector code.
-      float ipgain = 0.08;
-      while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
-        ip1.clear(); ip2.clear();
-        ip::OBALoGInterestOperator interest_operator( ipgain );
-        ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
-        vw_out() << "\t    Processing " << input_file1 << "\n";
-        ip1 = detect_interest_points( left_image, detector );
-        vw_out() << "\t    Processing " << input_file2 << "\n";
-        ip2 = detect_interest_points( right_image, detector );
-
-        ipgain *= 0.75;
-      }
-      vw_out() << "\t    Located " << ip1.size() << " points.\n";
-      vw_out() << "\t    Located " << ip2.size() << " points.\n";
-
-      vw_out() << "\t    Generating descriptors...\n";
-      ip::SGradDescriptorGenerator descriptor;
-      descriptor( left_image, ip1 );
-      descriptor( right_image, ip2 );
-      vw_out() << "\t    done.\n";
-
-      // Writing out the results
-      vw_out() << "\t    Caching interest points: "
-                << ip1_filename << ", "
-                << ip2_filename << "\n";
-      ip::write_binary_ip_file(ip1_filename, ip1);
-      ip::write_binary_ip_file(ip2_filename, ip2);
-
-      // Reading back into the vector interestpoint format
-      ip1_copy = ip::read_binary_ip_file( ip1_filename );
-      ip2_copy = ip::read_binary_ip_file( ip2_filename );
-    }
-
-    vw_out() << "\t--> Matching interest points\n";
-    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
-
-    matcher(ip1_copy, ip2_copy,
-            matched_ip1, matched_ip2,
-            false,
-            TerminalProgressCallback( "asp", "\t    Matching: "));
-
-  } // End matching
-
-  vw_out(InfoMessage) << "\t--> " << matched_ip1.size()
-                      << " putative matches.\n";
-
-  vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
-  remove_duplicates(matched_ip1, matched_ip2);
-  std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
-  std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-  vw_out(DebugMessage) << "\t--> Removed "
-                       << matched_ip1.size() - ransac_ip1.size()
-                       << " duplicate matches.\n";
-
-  Matrix<double> T;
-  std::vector<int> indices;
-  try {
-
-    math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 10 );
-    T = ransac( ransac_ip2, ransac_ip1 );
-    indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
-    vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
-
-  } catch (...) {
-    vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
-    T.set_size(3,3);
-    T.set_identity();
-  }
-
-  vw_out() << "\t    Caching matches: "
-              << match_filename << "\n";
-
-  { // Keeping only inliers
-    std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-    for ( unsigned i = 0; i < indices.size(); i++ ) {
-      inlier_ip1.push_back( matched_ip1[indices[i]] );
-      inlier_ip2.push_back( matched_ip2[indices[i]] );
-    }
-    matched_ip1 = inlier_ip1;
-    matched_ip2 = inlier_ip2;
-  }
-
-  write_binary_match_file( match_filename,
-                           matched_ip1, matched_ip2);
-
-  return T;
 }
 
 // Do not attempt interest point alignment; assume ISIS images are
@@ -260,7 +89,8 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     vw_out(InfoMessage) << "\t--> Computing statistics values for the right image\n";
     int right_stat_scale = int(ceil(sqrt(float(right_disk_image.cols())*float(right_disk_image.rows()) / 1000000)));
     ImageViewRef<PixelMask<PixelGray<float> > > right_valid =
-      subsample(create_mask( right_disk_image, right_rsrc.valid_minimum(), right_rsrc.valid_maximum() ),
+      subsample(create_mask( right_disk_image, right_rsrc.valid_minimum(),
+                             right_rsrc.valid_maximum() ),
                 right_stat_scale );
     ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
     for_each_pixel( right_valid, accumulator );
@@ -287,8 +117,10 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     if ( right_hi > right_mean + 2*right_std )
       right_hi = right_mean + 2*right_std;
 
-    vw_out(InfoMessage) << "\t    Left changed: [ lo:"<<left_lo<<" hi:"<<left_hi<<"]\n";
-    vw_out(InfoMessage) << "\t    Right changed: [ lo:"<<right_lo<<" hi:"<<right_hi<<"]\n";
+    vw_out(InfoMessage) << "\t    Left changed: [ lo:"
+                        << left_lo << " hi:" << left_hi << "]\n";
+    vw_out(InfoMessage) << "\t    Right changed: [ lo:"
+                        << right_lo << " hi:" << right_hi << "]\n";
   }
 
   // Working out alignment
@@ -302,8 +134,16 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
       vw_out(WarningMessage,"console") << "One or more of the input files is Map Projected.\n"
                                        << "\tInterest Point alignment is not recommend in this case.\n";
     }
-    align_matrix = determine_image_alignment(input_file1, input_file2,
-                                             lo, hi );
+    DiskImageView<PixelGray<float> > left_disk_image(input_file1);
+    DiskImageView<PixelGray<float> > right_disk_image(input_file2);
+    ImageViewRef<PixelGray<float> > left_view =
+      normalize(remove_isis_special_pixels(left_disk_image, lo),
+                lo, hi, 0, 1.0);
+    ImageViewRef<PixelGray<float> > right_view =
+      normalize(remove_isis_special_pixels(right_disk_image, lo),
+                lo, hi, 0, 1.0);
+    align_matrix = determine_image_align(input_file1, input_file2,
+                                         left_view, right_view );
   }
   write_matrix( m_out_prefix + "-align.exr", align_matrix );
 
@@ -312,7 +152,8 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   ImageViewRef<PixelGray<float> > Rimg;
   if (stereo_settings().individually_normalize == 0 ) {
     vw_out() << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-    Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image, left_lo, left_hi, lo),
+    Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image,
+                                                      left_lo, left_hi, lo),
                            lo, hi, 0.0, 1.0));
     Rimg = clamp(transform(normalize(remove_isis_special_pixels(right_disk_image, right_lo, right_hi, lo),
                                      lo, hi, 0.0, 1.0),
