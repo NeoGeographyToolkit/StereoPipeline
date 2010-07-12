@@ -77,7 +77,7 @@ StereoSessionPinhole::camera_model(std::string /*image_file*/,
       right_cahv = linearize_camera(right_pin);
 
     } else {
-      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported cameara file type.\n");
+      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
     }
 
     // Create epipolar recitified camera views
@@ -101,7 +101,7 @@ StereoSessionPinhole::camera_model(std::string /*image_file*/,
     } else if ( boost::ends_with(boost::to_lower_copy(camera_file),".pinhole") ) {
       return boost::shared_ptr<vw::camera::CameraModel> ( new PinholeModel(camera_file) );
     } else {
-      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported cameara file type.\n");
+      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
     }
 
 
