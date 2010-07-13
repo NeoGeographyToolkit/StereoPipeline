@@ -224,9 +224,8 @@ int main(int argc, char* argv[]) {
       build_control_network( (*opt.cnet), opt.camera_models,
                              opt.image_files,
                              opt.min_matches );
-      add_ground_control_points( (*opt.cnet),
-                                 opt.image_files,
-                                 opt.gcp_files );
+      add_ground_control_points( (*opt.cnet), opt.image_files,
+                                 opt.gcp_files.begin(), opt.gcp_files.end() );
 
       opt.cnet->write_binary("control");
     } else  {
