@@ -96,7 +96,8 @@ enum ProjectionType {
   ORTHOGRAPHIC,
   STEREOGRAPHIC,
   LAMBERTAZIMUTHAL,
-  UTM
+  UTM,
+  PLATECARREE
 };
 
 struct Options {
@@ -186,22 +187,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
   boost::to_lower( opt.reference_spheroid );
-  if (!vm.count("xyz-to-lonlat"))
-    opt.projection = NONXYZ;
-  if ( vm.count("sinusoidal") )
-    opt.projection = SINUSOIDAL;
-  if ( vm.count("mercator") )
-    opt.projection = MERCATOR;
-  if ( vm.count("transverse-mercator") )
-    opt.projection = TRANSVERSEMERCATOR;
-  if ( vm.count("orthographic") )
-    opt.projection = ORTHOGRAPHIC;
-  if ( vm.count("stereographic") )
-    opt.projection = STEREOGRAPHIC;
-  if ( vm.count("lambert-azimuthal") )
-    opt.projection = LAMBERTAZIMUTHAL;
-  if ( vm.count("utm") )
-    opt.projection = UTM;
+  if (!vm.count("xyz-to-lonlat"))        opt.projection = NONXYZ;
+  else if ( vm.count("sinusoidal") )     opt.projection = SINUSOIDAL;
+  else if ( vm.count("mercator") )       opt.projection = MERCATOR;
+  else if ( vm.count("transverse-mercator") ) opt.projection = TRANSVERSEMERCATOR;
+  else if ( vm.count("orthographic") )   opt.projection = ORTHOGRAPHIC;
+  else if ( vm.count("stereographic") )  opt.projection = STEREOGRAPHIC;
+  else if ( vm.count("lambert-azimuthal") ) opt.projection = LAMBERTAZIMUTHAL;
+  else if ( vm.count("utm") )            opt.projection = UTM;
+  else                                   opt.projection = PLATECARREE;
   opt.has_default_value = vm.count("default-value");
   opt.has_alpha = vm.count("use-alpha");
   opt.do_normalize = vm.count("normalized");
@@ -299,6 +293,8 @@ int main( int argc, char *argv[] ) {
       georef.set_lambert_azimuthal(opt.proj_lat,opt.proj_lon); break;
     case UTM:
       georef.set_UTM( opt.utm_zone ); break;
+    default: // Handles plate carree
+      break;
     }
 
     if ( opt.projection != NONXYZ )
