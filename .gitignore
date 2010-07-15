@@ -116,6 +116,7 @@ src/asp/PhotometryTK/tests/*.ptk*
 
 # Control Network Toolkit
 src/asp/ControlNetTK/reduce_match
+src/asp/ControlNetTK/cnet_build
 
 # Doc
 docs/book/*aux

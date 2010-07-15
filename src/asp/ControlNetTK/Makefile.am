@@ -23,7 +23,10 @@ CNETTK_LOCAL_LIBS = @MODULE_CONTROLNETTK_LIBS@
 reduce_match_SOURCES = reduce_match.cc
 reduce_match_LDADD   = $(CNETTK_LOCAL_LIBS)
 
-bin_PROGRAMS = reduce_match
+cnet_build_SOURCES = cnet_build.cc
+cnet_build_LDADD   = $(CNETTK_LOCAL_LIBS)
+
+bin_PROGRAMS = reduce_match cnet_build
 
 endif
 
