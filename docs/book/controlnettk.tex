@@ -72,7 +72,14 @@ the simplists is just a brute force permutation of all possible
 combinations. Here's how:
 
 \begin{verbatim}
-    ASP   > pairlist_all *.tif | xargs -n2 -P 10 ipmatch -r homography
+    ASP   > pairlist_all.py *.tif | xargs -n2 -P 10 ipmatch -r homography
+\end{verbatim}
+
+Alternatively we could just match between images that happen to be
+sequential by name.
+
+\begin{verbatim}
+    ASP   > pairlist_seq.py *.tif | xargs -n2 -P 10 ipmatch -r homography
 \end{verbatim}
 
 Though for large datasets it doesn't seem approriate to compare all
@@ -83,7 +90,7 @@ degrees. \emph{This code may or may not exist yet. I wrote down a mock
   up of what I'd like to happen.}
 
 \begin{verbatim}
-    ASP   > pairlist_degree *cub -a 10 -iextension tif |
+    ASP   > pairlist_degree.py *cub -a 10 -iextension tif |
               xargs -n2 -P 10 ipmatch -r homography
 \end{verbatim}
 

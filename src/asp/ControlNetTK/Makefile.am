@@ -36,7 +36,7 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@
 
-bin_SCRIPTS = pairlist_all.py pairlist_seq.py
+bin_SCRIPTS = pairlist_all.py pairlist_seq.py pairlist_degree.py
 
 includedir = $(prefix)/include/asp/ControlNetTK
 
