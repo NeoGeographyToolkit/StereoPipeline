@@ -114,6 +114,9 @@ src/asp/PhotometryTK/tests/TestFullIteration
 src/asp/PhotometryTK/tests/shadow_mask
 src/asp/PhotometryTK/tests/*.ptk*
 
+# Control Network Toolkit
+src/asp/ControlNetTK/reduce_match
+
 # Doc
 docs/book/*aux
 docs/book/*log

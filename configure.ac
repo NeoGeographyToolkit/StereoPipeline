@@ -1,4 +1,4 @@
-dnl __BEGIN_LICENSE__
+'dnl __BEGIN_LICENSE__
 dnl Copyright (C) 2006-2010 United States Government as represented by
 dnl the Administrator of the National Aeronautics and Space Administration.
 dnl All Rights Reserved.
@@ -370,6 +370,7 @@ AX_APP(HSVMERGE,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 
 # Toolkits (like module, but doesn't build a library)
 AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [libaspPhotometryTK.la], no, [RABBITMQ_C PROTOBUF VW_PLATE], [BOOST])
+AX_MODULE(CONTROLNETTK, [src/asp/ControlNetTK], [], no, [VW_BUNDLEADJUSTMENT], [BOOST])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
@@ -379,6 +380,7 @@ AM_CONDITIONAL(MAKE_MODULE_SPICEIO, [test "$MAKE_MODULE_SPICEIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_SESSIONS" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_MPI, [test "$MAKE_MODULE_MPI" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_PHOTOMETRYTK, [test "$MAKE_MODULE_PHOTOMETRYTK" = "yes"])
+AM_CONDITIONAL(MAKE_MODULE_CONTROLNETTK, [test "$MAKE_MODULE_CONTROLNETTK" = "yes"])
 
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREOGUI, [test "$MAKE_APP_STEREOGUI" = "yes"])
@@ -446,6 +448,7 @@ AC_CONFIG_FILES([                       \
   src/asp/Tools/Makefile                \
   src/asp/PhotometryTK/Makefile         \
   src/asp/PhotometryTK/tests/Makefile   \
+  src/asp/ControlNetTK/Makefile         \
 ])
 
 AC_OUTPUT
