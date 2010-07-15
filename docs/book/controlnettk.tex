@@ -1,0 +1,100 @@
+\chapter{Control Network Toolkit}
+\label{ch:controlnettk}
+
+This chapter covers the first additional boost of tools for \ac{ASP}!
+Control Networks are a data structure that at it's core contains image
+features that can be tracked in multiple images. Since these features
+can be tracked in multiple images, they can be triangulated and
+represent a 3D location. This control network can then be used in
+processes such as Bundle Adjustment to refine camera locations. These
+refined locations allows for seamless mosaics for a clear view of the
+subject.
+
+\emph{Warning: This toolkit is not finished but this documentation
+  serves as a place holder for an Official release.}
+
+So .. I'm not too excited about writing documentation at this hour but
+I'm willing to provide some examples. The method of developing a
+control network with \ac{VW} and \ac{ASP} is that we try to track as
+many 'natural' features and then reduce into a control network. This
+is done in a 6 step process.
+
+\begin{itemize}
+\item Detect features using a second order filter.
+\item Describe these features by their surroundings with a tag.
+\item Match tags of interest points between images.
+\item Filter these matches for error using RANSAC.
+\item Reduce matches further for ease of processing and also to assure uniform distribution.
+\item Collect all pair-wise matches and write as Control Network.
+\end{itemize}
+
+I'm going to provide with an example of how to use this software with
+Apollo Metric images. Hopefully you can follow along with whatever
+imagery you happen to have around.
+
+We are going to start out first by gathering interest points \emph{(or
+  features)} and this is accomplished with a tool called
+\texttt{ipfind}. This handy tool is provided by \ac{VW} and is not
+built against ISIS. This means it can only read cube files through a
+library called GDAL. To make sure cubes files can be read correctly by
+GDAL and thus ipfind, we'll have to convert our input imagery to
+something more reliable like TIFFs.
+
+\begin{verbatim}
+    ISIS 3> isis2std from=INPUT to=OUTPUT.tif format=TIFF
+\end{verbatim}
+
+I don't like to call isis2std on every file myself. Here's the
+commands I use to do this in parallel.
+
+\begin{verbatim}
+    ISIS 3> echo *.cub | xargs -n1 echo |
+              awk -F "." '{print "from="$1".cub to="$1".tif format=TIFF"}' |
+              xargs -n3 -P 10 isis2std
+\end{verbatim}
+
+The directory should now be filled with TIFF format doppelgangers. We
+are ready to perform \texttt{ipfind} which will detect features and
+describe them in one go. The results of each operation will be saved
+in a \texttt{.vwip} file which will later be read during
+matching. There are many algorithms that \texttt{ipfind} can use for
+detection and description but the defaults of OBALoG and SGrad should
+do fine for most situations. Also note that \texttt{ipfind} has a
+debug flag '-d' which can be used to output debug images that show the
+location of all detected features.
+
+\begin{verbatim}
+    ASP   > echo *.tif | xargs -n1 -P 10 ipfind
+\end{verbatim}
+
+Matching is calculated pairwise. There are many ways to do this, but
+the simplists is just a brute force permutation of all possible
+combinations. Here's how:
+
+\begin{verbatim}
+    ASP   > pairlist_all *.tif | xargs -n2 -P 10 ipmatch -r homography
+\end{verbatim}
+
+Though for large datasets it doesn't seem approriate to compare all
+images to each other as the physically don't see each other in
+anyway. A good way of reducing the matches is by deciding to only do
+match between images that are only seperated by a few
+degrees. \emph{This code may or may not exist yet. I wrote down a mock
+  up of what I'd like to happen.}
+
+\begin{verbatim}
+    ASP   > pairlist_degree *cub -a 10 -iextension tif |
+              xargs -n2 -P 10 ipmatch -r homography
+\end{verbatim}
+
+If you've been reading the output from ipmatch, you may have noticed
+that some pair wise matches might have more than a 100 matches! This
+is probably overkill for some cases and could potentially chock an
+application further down the process. Also at this point, or interest
+points could be located anywhere. The worst case is that all matched
+feature have managed to clump around interesting objects like a
+sparkly crater or a sharp cut rill. We can't enforce that the matched
+features are evenly placed, but we can trim them down to be somewhat
+even.
+
+Enter stage left, \texttt{reduce\_match}.
