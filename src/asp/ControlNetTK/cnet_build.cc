@@ -124,7 +124,7 @@ int main( int argc, char* argv[] ) {
     }
 
     vw_out() << "Building Control Network\n";
-    ControlNetwork cnet( "Control Network Toolkit" );
+    ControlNetwork cnet( "ControlNetworkTK" );
     build_control_network( cnet, camera_models,
                            opt.input_names, 10 );
     add_ground_control_points( cnet, opt.input_names,
