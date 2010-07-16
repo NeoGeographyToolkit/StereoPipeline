@@ -84,24 +84,50 @@ sequential by name.
 
 Though for large datasets it doesn't seem approriate to compare all
 images to each other as the physically don't see each other in
-anyway. A good way of reducing the matches is by deciding to only do
-match between images that are only seperated by a few
-degrees. \emph{This code may or may not exist yet. I wrote down a mock
-  up of what I'd like to happen.}
+anyway. A good way of reducing the matches is by deciding to only
+calculate matches between images that are separated by no more than a
+few degrees. This is what \texttt{pairlist_degree.py} can
+do. Internally it calls \texttt{camrange} and this can take a
+while. I'd recommend saving the output to a file before sending out to
+ipmatch.
 
 \begin{verbatim}
-    ASP   > pairlist_degree.py *cub -a 10 -iextension tif |
+    ISIS 3> pairlist_degree.py *cub -a 10 -iext tif > pairs_to_process.lst
+    ISIS 3> cat pairs_to_process.lst |
               xargs -n2 -P 10 ipmatch -r homography
 \end{verbatim}
 
 If you've been reading the output from ipmatch, you may have noticed
-that some pair wise matches might have more than a 100 matches! This
-is probably overkill for some cases and could potentially chock an
-application further down the process. Also at this point, or interest
+that some pair-wise matches might have more than a 100 matches! This
+is probably overkill for some cases and could potentially choke an
+application further down the process. Also at this point, our interest
 points could be located anywhere. The worst case is that all matched
-feature have managed to clump around interesting objects like a
+features have managed to clump around interesting objects like a
 sparkly crater or a sharp cut rill. We can't enforce that the matched
 features are evenly placed, but we can trim them down to be somewhat
 even.
 
-Enter stage left, \texttt{reduce\_match}.
+Enter stage left, \texttt{reduce\_match}. This utility will thin down
+the matches so that they are evenly distributed. You specify the
+minimum and maximum amount of matches that can exist for a pair of
+images. Setting the maximum trims down excessive matches. The minimum
+however will actually delete match files that have to few matches. The
+filtering function RANSAC that is used to remove outliers does not
+have a graceful failure. When that algorithm fails it will return all
+outliers but usually with the minimum number of matches to solve for
+its fitting functor. Using a homography fitting functor means 8
+matches. We'll go ahead and delete anything 10 and under.
+
+\begin{verbatim}
+    ASP   > cat *.match | xargs -n1 -P 10 reduce_match --min 10 --max 100
+\end{verbatim}
+
+Finally we are ready to collect all pairwise matches into a single
+control network. From the same directory that houses all match files
+and cube files, we will call the command
+\texttt{cnet\_build}. Assuming we want to build an ISIS style control
+network, here's how to perform the last step.
+
+\begin{verbatim}
+    ASP   > cnet_build *.cub -t isis -o asp_control
+\end{verbatim}
