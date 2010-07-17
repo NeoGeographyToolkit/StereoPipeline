@@ -2,25 +2,22 @@
 \label{ch:controlnettk}
 
 This chapter covers the first additional boost of tools for \ac{ASP}!
-Control Networks are a data structure that at it's core contains image
+Control Networks are a data structure that at their core contain image
 features that can be tracked in multiple images. Since these features
 can be tracked in multiple images, they can be triangulated and
 represent a 3D location. This control network can then be used in
-processes such as Bundle Adjustment to refine camera locations. These
-refined locations allows for seamless mosaics for a clear view of the
-subject.
+processes such as Bundle Adjustment using tools like
+\texttt{isis\_adjust} and \texttt{jigsaw}.
 
 \emph{Warning: This toolkit is not finished but this documentation
-  serves as a place holder for an Official release.}
+  hopes to allow some use in its early state.}
 
-So .. I'm not too excited about writing documentation at this hour but
-I'm willing to provide some examples. The method of developing a
-control network with \ac{VW} and \ac{ASP} is that we try to track as
-many 'natural' features and then reduce into a control network. This
-is done in a 6 step process.
+The method of developing a control network with \ac{VW} and \ac{ASP}
+is that we try to track as many 'natural' features and then reduce
+into a control network. This is done in a 6 step process.
 
 \begin{itemize}
-\item Detect features using a second order filter.
+\item Detect features using a second order filter \emph{(LoG)}.
 \item Describe these features by their surroundings with a tag.
 \item Match tags of interest points between images.
 \item Filter these matches for error using RANSAC.
@@ -28,9 +25,14 @@ is done in a 6 step process.
 \item Collect all pair-wise matches and write as Control Network.
 \end{itemize}
 
-I'm going to provide with an example of how to use this software with
+I'm going to provide an example of how to use this software with
 Apollo Metric images. Hopefully you can follow along with whatever
-imagery you happen to have around.
+imagery you happen to have around. Note in the example below we use a
+lot of calls to \texttt{xargs}. That command is helpful for spawning
+multiple processes to work on a pool of jobs. The argument \emph{\-P 10}
+states that at most it should have 10 processes running
+simultaneously. Lower that value to the number of cores available on
+your system.
 
 We are going to start out first by gathering interest points \emph{(or
   features)} and this is accomplished with a tool called
@@ -48,9 +50,8 @@ I don't like to call isis2std on every file myself. Here's the
 commands I use to do this in parallel.
 
 \begin{verbatim}
-    ISIS 3> echo *.cub | xargs -n1 echo |
-              awk -F "." '{print "from="$1".cub to="$1".tif format=TIFF"}' |
-              xargs -n3 -P 10 isis2std
+    ISIS 3> echo *.cub | xargs -n1 echo | awk -F "." '{print $1}' |
+              xargs -n1 -P 10 -I {} isis2std from={}.cub to={}.tif format=TIFF
 \end{verbatim}
 
 The directory should now be filled with TIFF format doppelgangers. We
@@ -64,8 +65,12 @@ debug flag '-d' which can be used to output debug images that show the
 location of all detected features.
 
 \begin{verbatim}
-    ASP   > echo *.tif | xargs -n1 -P 10 ipfind
+    ASP   > echo *.tif | xargs -n1 -P 10 ipfind --max 10000
 \end{verbatim}
+
+Notice the options \emph{\-\-max 10000} used for the \texttt{ipfind}
+example. This is to limit the number of detected interest points so
+that the next step doesn't take too long.
 
 Matching is calculated pairwise. There are many ways to do this, but
 the simplists is just a brute force permutation of all possible
@@ -86,7 +91,7 @@ Though for large datasets it doesn't seem approriate to compare all
 images to each other as the physically don't see each other in
 anyway. A good way of reducing the matches is by deciding to only
 calculate matches between images that are separated by no more than a
-few degrees. This is what \texttt{pairlist_degree.py} can
+few degrees. This is what \texttt{pairlist\_degree.py} can
 do. Internally it calls \texttt{camrange} and this can take a
 while. I'd recommend saving the output to a file before sending out to
 ipmatch.
@@ -119,7 +124,7 @@ its fitting functor. Using a homography fitting functor means 8
 matches. We'll go ahead and delete anything 10 and under.
 
 \begin{verbatim}
-    ASP   > cat *.match | xargs -n1 -P 10 reduce_match --min 10 --max 100
+    ASP   > echo *.match | xargs -n1 -P 10 reduce_match --min 10 --max 100
 \end{verbatim}
 
 Finally we are ready to collect all pairwise matches into a single
@@ -131,3 +136,18 @@ network, here's how to perform the last step.
 \begin{verbatim}
     ASP   > cnet_build *.cub -t isis -o asp_control
 \end{verbatim}
+
+Let's go ahead and see how the results turned out in qnet!
+
+\begin{verbatim}
+    ISIS 3> echo *.cub | xargs -n1 echo > cube.lst
+    ISIS 3> qnet
+\end{verbatim}
+
+Inside qnet you'll want to click 'open'. On the first dialog you'll
+pick out the \emph{cube.lst} file we just created. On the second, we
+pick our created control network \emph{asp\_control.net}.
+
+\begin{center}
+\includegraphics[height=3.7in]{images/cnettk_qnet_screen.png}
+\end{center}
