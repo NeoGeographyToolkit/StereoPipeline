@@ -9,16 +9,16 @@
 // Algorithm for removing interest points
 inline void remove_max( std::vector<std::vector<InterestPoint> > &b_ip1,
                         std::vector<std::vector<InterestPoint> > &b_ip2 ) {
-  int max_index = 0;
-  int max_count = 0;
+  unsigned max_index = 0;
+  unsigned max_count = 0;
   for ( unsigned i = 0; i < b_ip1.size(); i++ )
     if (b_ip1[i].size() > max_count ) {
       max_count = b_ip1[i].size();
       max_index = i;
     }
 
-  int point_idx = 0;
-  int point_interest = -200000;
+  unsigned point_idx = 0;
+  unsigned point_interest = -200000;
   for ( unsigned i = 0; i < b_ip1[max_index].size(); i++ ) {
     if ( b_ip1[max_index][i].interest > point_interest ) {
       point_interest = b_ip1[max_index][i].interest;
@@ -39,13 +39,13 @@ std::vector<BBox2i> divide_block( BBox2i const& orginal,
 
   Vector2 lmin, lmax;
 
-  for ( unsigned i = 0; i < div_x; i++ ) {
+  for ( int i = 0; i < div_x; i++ ) {
     lmin.x() = min.x() + i*orginal.width()/float(div_x);
     if ( i == div_x -1 )
       lmax.x() = orginal.max().x();
     else
       lmax.x() = min.x() + (i+1)*orginal.width()/float(div_x);
-    for ( unsigned j = 0; j < div_y; j++ ) {
+    for ( int j = 0; j < div_y; j++ ) {
       lmin.y() = min.y() + j*orginal.height()/float(div_y);
       if ( j == div_y-1 )
         lmax.y() = orginal.max().y();
@@ -61,7 +61,7 @@ std::vector<BBox2i> divide_block( BBox2i const& orginal,
 
 void equalization( std::vector<vw::ip::InterestPoint>& l_ip,
                    std::vector<vw::ip::InterestPoint>& r_ip,
-                   int max_points ) {
+                   unsigned max_points ) {
 
   // Checking for early exit condition
   if ( l_ip.size() <= max_points ) {
@@ -90,7 +90,7 @@ void equalization( std::vector<vw::ip::InterestPoint>& l_ip,
       }
 
   // Finding how many points there are
-  int count = 0;
+  unsigned count = 0;
   for ( unsigned b = 0; b < b_ip1.size(); ++b )
     count += b_ip1[b].size();
 

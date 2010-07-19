@@ -5,8 +5,8 @@
 
 // Boost
 #include <boost/program_options.hpp>
-namespace po = boost::program_options;
 #include <boost/filesystem/operations.hpp>
+namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 // Vision Workbench
@@ -22,12 +22,12 @@ using namespace vw::ip;
 int main( int argc, char* argv[] ) {
 
   std::vector<std::string> match_files;
-  int max_points, min_points;
+  unsigned max_points, min_points;
 
   po::options_description general_options("Options");
   general_options.add_options()
-    ("max-pts,m",po::value<int>(&max_points)->default_value(100),"Max points a pair can have. If it execeeds we trim.")
-    ("min-pts,n",po::value<int>(&min_points)->default_value(10),"Minimum points a pair is required to have. Delete if fails this.")
+    ("max-pts,m",po::value(&max_points)->default_value(100),"Max points a pair can have. If it execeeds we trim.")
+    ("min-pts,n",po::value(&min_points)->default_value(10),"Minimum points a pair is required to have. Delete if fails this.")
     ("help,h", "Display this help message");
 
   po::options_description hidden_options("");
