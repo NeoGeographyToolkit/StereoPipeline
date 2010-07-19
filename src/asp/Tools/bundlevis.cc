@@ -8,7 +8,8 @@
 /// \file bundlevis.cc
 ///
 
-#include "bundlevis.h"
+#include <vw/Core/ProgressCallback.h>
+#include <asp/Tools/bundlevis.h>
 
 using namespace vw;
 
@@ -317,7 +318,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
                         std::vector<CameraIter*>& cameras,
                         std::vector<ConnLineIter*>& connLines,
                         std::vector< std::vector<PointIter*> >& addPoints,
-                        BBox3f const* point_cloud ) {
+                        BBox3f const* point_cloud, double cam_distance ) {
 
   osg::Group* scene = new osg::Group();
 
@@ -434,7 +435,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     osg::Geode* the3Axis;
 
     if ( point_cloud ) {
-      the3Axis = build3Axis( norm_2(point_cloud->size())/20 );
+      the3Axis = build3Axis( cam_distance*0.8 );
     } else {
       the3Axis = build3Axis( 1.0 );
     }
@@ -450,10 +451,11 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     // 3b.) Draw potential pushbroom camera lines
     osg::Group* pushbroomGroup = new osg::Group;
     {
+      vw::TerminalProgressCallback tpc("asp","Loading Camera: ");
+      tpc.report_progress(0);
       for (unsigned j = 0; j < cameras.size(); ++j){
+        tpc.report_progress(float(j)/float(cameras.size()));
         if ( cameras[j]->is_pushbroom() ) {
-          std::cout << "Found a Linescan Camera" << std::endl;
-
           osg::Geometry* geometry = new osg::Geometry;
 
           // Setting up vertices
@@ -493,6 +495,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
         }
       }
       camerasGroup->addChild( pushbroomGroup );
+      tpc.report_finished();
     }
 
     scene->addChild( camerasGroup );
@@ -531,7 +534,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
 
   // 5.) Build hit points, surfaces that the mouse intersector can use
   {
-    double scale = norm_2(point_cloud->size())/20;
+    double scale = cam_distance * 0.5;
     osg::Group* hitTargetGroup = new osg::Group;
 
     // Targets for cameras
@@ -552,9 +555,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
         geometry->setVertexArray( vertices );
         geometry->setColorArray( colours );
         geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
-        geometry->addPrimitiveSet( new osg::DrawArrays( osg::PrimitiveSet::QUADS,
-                                                        0,
-                                                        4 ) );
+        geometry->addPrimitiveSet( new osg::DrawArrays( osg::PrimitiveSet::QUADS, 0, 4 ) );
         osg::Geode* geode = new osg::Geode;
         geode->setName( cameras[j]->description() );
         geode->setUserData( cameras[j] );
@@ -564,7 +565,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
         osgText::Text* text = new osgText::Text;
         std::ostringstream os;
         os << (j + 1);
-        text->setCharacterSize( 100.0 );
+        text->setCharacterSize( 70.0 );
         //text->setFontResolution(40,40);
         text->setText( os.str() );
         text->setAlignment( osgText::Text::CENTER_CENTER );
@@ -767,7 +768,8 @@ int main(int argc, char* argv[]){
   std::vector<ConnLineIter*> connLineData;
   std::vector<std::vector<PointIter*> > addPointData;
   PlaybackControl* playControl = new PlaybackControl(controlStep);
-  BBox3f* point_cloud;
+  BBox3f *point_cloud;        // World size of the objects
+  double q25_camera_distance; // Average distance between cameras
 
   //OpenSceneGraph Variable which are important overall
   osgViewer::Viewer viewer;
@@ -842,17 +844,27 @@ int main(int argc, char* argv[]){
     point_cloud = new BBox3f();
 
     if (vm.count("points-iteration-file")) {
-      for (unsigned i = 0; i < pointData.size(); ++i){
-        osg::Vec3f temp = pointData[i]->position(0);
-        point_cloud->grow( Vector3( temp[0], temp[1], temp[2] ));
+      BOOST_FOREACH( PointIter* pitr, pointData ) {
+        point_cloud->grow( Vector3(pitr->position(0)[0], pitr->position(0)[1],
+                                   pitr->position(0)[2]) );
       }
     }
 
+    q25_camera_distance = 1.0;
     if (vm.count("camera-iteration-file")) {
+      math::CDFAccumulator<double> distance_cdf;
+      Vector3 past_vtemp;
       for (unsigned i = 0; i < cameraData.size(); ++i){
         osg::Vec3f temp = cameraData[i]->position(0);
-        point_cloud->grow( Vector3( temp[0], temp[1], temp[2] ));
+        Vector3 vtemp( temp[0], temp[1], temp[2] );
+        point_cloud->grow( vtemp );
+        if ( i > 0 ) {
+          distance_cdf( norm_2(past_vtemp - vtemp) );
+        }
+        past_vtemp = vtemp;
       }
+      distance_cdf.update();
+      q25_camera_distance = distance_cdf.quantile(0.25);
     }
 
     Vector3 center = point_cloud->center();
@@ -960,11 +972,9 @@ int main(int argc, char* argv[]){
   //////////////////////////////////////////////////////////
   //Building Scene
   {
-    root->addChild( createScene( pointData,
-                                 cameraData,
-                                 connLineData,
-                                 addPointData,
-                                 point_cloud ) );
+    root->addChild( createScene( pointData,    cameraData,
+                                 connLineData, addPointData,
+                                 point_cloud,  q25_camera_distance ) );
 
     // Optimizing the Scene (seems like good practice in OSG)
     osgUtil::Optimizer optimizer;
