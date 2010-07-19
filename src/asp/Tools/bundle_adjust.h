@@ -141,7 +141,7 @@ public:
   }
 
   // Errors on the image plane
-  void image_errors( std::vector<double>& pix_errors ) {
+  void image_errors( std::vector<double>& pix_errors ) const {
     pix_errors.clear();
     for (unsigned i = 0; i < m_network->size(); ++i)
       for(unsigned m = 0; m < (*m_network)[i].size(); ++m) {
@@ -156,7 +156,7 @@ public:
   }
 
   // Errors for camera position
-  void camera_position_errors( std::vector<double>& camera_position_errors ) {
+  void camera_position_errors( std::vector<double>& camera_position_errors ) const {
     camera_position_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j) {
       vw::Vector3 position_initial, position_now;
@@ -170,7 +170,7 @@ public:
   }
 
   // Errors for camera pose
-  void camera_pose_errors( std::vector<double>& camera_pose_errors ) {
+  void camera_pose_errors( std::vector<double>& camera_pose_errors ) const {
     camera_pose_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j) {
       vw::Vector3 position_initial, position_now;
@@ -189,7 +189,7 @@ public:
   }
 
   // Errors for gcp errors
-  void gcp_errors( std::vector<double>& gcp_errors ) {
+  void gcp_errors( std::vector<double>& gcp_errors ) const {
     gcp_errors.clear();
     for (unsigned i=0; i < this->num_points(); ++i)
       if ( (*m_network)[i].type() ==
@@ -201,11 +201,11 @@ public:
   }
 
   // Give access to the control network
-  boost::shared_ptr<vw::ba::ControlNetwork> control_network(void) {
+  boost::shared_ptr<vw::ba::ControlNetwork> control_network(void) const {
     return m_network;
   }
 
-  void bundlevis_cameras_append(std::string const& filename) {
+  void bundlevis_cameras_append(std::string const& filename) const {
     std::ofstream ostr(filename.c_str(),std::ios::app);
     for ( unsigned j = 0; j < a.size(); j++ ) {
       vw::Vector3 position_correction;
@@ -223,7 +223,7 @@ public:
     }
   }
 
-  void bundlevis_points_append(std::string const& filename) {
+  void bundlevis_points_append(std::string const& filename) const {
     std::ofstream ostr(filename.c_str(),std::ios::app);
     unsigned i = 0;
     BOOST_FOREACH( point_vector_t const& p, b ) {

@@ -108,33 +108,6 @@ public:
   void set_A_parameters(int j, camera_vector_t const& a_j) { a[j] = a_j; }
   void set_B_parameters(int i, point_vector_t const& b_i) { b[i] = b_i; }
 
-  // Approximate the jacobian for small variations in the a_j
-  // parameters ( camera parameters ).
-  inline vw::Matrix<double, 2, positionParam+poseParam> A_jacobian( unsigned i, unsigned j,
-                                                                    camera_vector_t const& a_j,
-                                                                    point_vector_t const& b_i ) {
-    // Old implementation
-    vw::Matrix<double> partial_derivatives = vw::ba::ModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::A_jacobian(i, j, a_j, b_i);
-
-    //TODO: Give me an analytical solution again, remember the
-    //calculation of euler angles must match Michael's implementation
-
-    return partial_derivatives;
-  }
-
-  // Analytically computed jacobian for variations in the b_i
-  // parameters ( 3d point locations ).
-  inline vw::Matrix<double, 2, 3> B_jacobian ( unsigned i, unsigned j,
-                                               camera_vector_t const& a_j,
-                                               point_vector_t const& b_i ) {
-    vw::Matrix<double> partial_derivatives(2,3);
-    partial_derivatives = vw::ba::ModelBase< IsisBundleAdjustmentModel, positionParam+poseParam, 3>::B_jacobian(i, j, a_j, b_i);
-
-    //TODO: Analytical solution
-
-    return partial_derivatives;
-  }
-
   // Return Initial parameters. (Used by the bundle adjuster )
   camera_vector_t A_target( int j ) const { return a_target[j]; }
   point_vector_t B_target( int i ) const { return b_target[i]; }
@@ -147,12 +120,12 @@ public:
   // Return pixel observations -> supposedly used by Bundlevis
   // eventually i think
   unsigned num_observations_of_point ( const int& i ) const { return (*m_network)[i].size(); }
-  unsigned corresponding_camera_for_measure( const int& i, const int& m ) {
+  unsigned corresponding_camera_for_measure( const int& i, const int& m ) const {
     return (*m_network)[i][m].image_id();
   }
 
   // Return the covariance of the camera parameters for camera j.
-  inline vw::Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned /*j*/ ) {
+  inline vw::Matrix<double, (positionParam+poseParam), (positionParam+poseParam)> A_inverse_covariance ( unsigned /*j*/ ) const {
     vw::Matrix< double, (positionParam+poseParam), (positionParam+poseParam) > result;
     for ( unsigned i = 0; i <positionParam; ++i )
       result(i,i) = 1/pow(m_spacecraft_position_sigma,2);
@@ -162,7 +135,7 @@ public:
   }
 
   // Return the covariance of the point parameters for point i.
-  inline vw::Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) {
+  inline vw::Matrix<double, 3, 3> B_inverse_covariance ( unsigned i ) const {
     vw::Matrix< double, 3, 3> result;
     vw::Vector3 sigmas = (*m_network)[i].sigma();
     sigmas = m_gcp_scalar*sigmas;
@@ -199,7 +172,7 @@ public:
   }
 
   // This is for writing isis_adjust file for later
-  void write_adjustment( int j, std::string const& filename ) {
+  void write_adjustment( int j, std::string const& filename ) const {
     std::ofstream ostr( filename.c_str() );
 
     write_equation( ostr, m_cameras[j]->position_func() );
@@ -208,8 +181,8 @@ public:
     ostr.close();
   }
 
-  std::vector< boost::shared_ptr< vw::camera::CameraModel > > adjusted_cameras() {
-
+  std::vector< boost::shared_ptr< vw::camera::CameraModel > >
+  adjusted_cameras() const {
     std::vector< boost::shared_ptr<vw::camera::CameraModel> > cameras;
     for ( unsigned i = 0; i < m_cameras.size(); i++) {
       cameras.push_back(boost::shared_dynamic_cast<vw::camera::CameraModel>(m_cameras[i]));
@@ -218,8 +191,7 @@ public:
   }
 
   boost::shared_ptr< vw::camera::IsisAdjustCameraModel >
-  adjusted_camera( int j ) {
-
+  adjusted_camera( int j ) const {
     // Adjusting position and pose equations
     boost::shared_ptr<asp::BaseEquation> posF = m_cameras[j]->position_func();
     boost::shared_ptr<asp::BaseEquation> poseF = m_cameras[j]->pose_func();
@@ -241,7 +213,6 @@ public:
   vw::Vector2 operator() ( unsigned i, unsigned j,
                            camera_vector_t const& a_j,
                            point_vector_t const& b_i ) const {
-    // Warning! This operation can not be allowed to change the camera properties.
 
     // Loading equations
     boost::shared_ptr<asp::BaseEquation> posF = m_cameras[j]->position_func();
@@ -265,7 +236,6 @@ public:
     // Performing the forward projection. This is specific to the
     // IsisAdjustCameraModel. The first argument is really just
     // passing the time instance to load up a pinhole model for.
-    //std::cout << "DBG: ephemeris time " << m_network[i][m].ephemeris_time() << std::endl;
     vw::Vector2 forward_projection =
       m_cameras[j]->point_to_pixel( b_i );
 
@@ -281,20 +251,20 @@ public:
   }
 
   // Errors on the image plane
-  std::string image_unit( void ) { return "px"; }
-  void image_errors( std::vector<double>& px_errors ) {
+  std::string image_unit( void ) const { return "px"; }
+  void image_errors( std::vector<double>& px_errors ) const {
     px_errors.clear();
     for (unsigned i = 0; i < m_network->size(); ++i )
       for (unsigned m = 0; m < (*m_network)[i].size(); ++m ) {
         int camera_idx = (*m_network)[i][m].image_id();
-        vw::Vector2 px_error =
-          (*m_network)[i][m].position() - (*this)(i, camera_idx, a[camera_idx],b[i]);
+        vw::Vector2 px_error = (*m_network)[i][m].position() -
+          (*this)(i, camera_idx, a[camera_idx],b[i]);
         px_errors.push_back(norm_2(px_error));
       }
   }
 
   // Errors for camera position
-  void camera_position_errors( std::vector<double>& camera_position_errors ) {
+  void camera_position_errors( std::vector<double>& camera_position_errors ) const {
     camera_position_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j ) {
       // TODO: This needs to be compliant if the BA is using a
@@ -306,7 +276,7 @@ public:
   }
 
   // Errors for camera pose
-  void camera_pose_errors( std::vector<double>& camera_pose_errors ) {
+  void camera_pose_errors( std::vector<double>& camera_pose_errors ) const {
     camera_pose_errors.clear();
     for (unsigned j=0; j < this->num_cameras(); ++j ) {
       // TODO: This needs to be compliant if the BA is using a
@@ -318,7 +288,7 @@ public:
   }
 
   // Errors for gcp errors
-  void gcp_errors( std::vector<double>& gcp_errors ) {
+  void gcp_errors( std::vector<double>& gcp_errors ) const {
     gcp_errors.clear();
     for (unsigned i=0; i < this->num_points(); ++i )
       if ((*m_network)[i].type() == vw::ba::ControlPoint::GroundControlPoint) {
@@ -329,11 +299,11 @@ public:
   }
 
   // Give access to the control network
-  boost::shared_ptr<vw::ba::ControlNetwork> control_network(void) {
+  boost::shared_ptr<vw::ba::ControlNetwork> control_network(void) const {
     return m_network;
   }
 
-  void bundlevis_cameras_append(std::string const& filename ) {
+  void bundlevis_cameras_append(std::string const& filename ) const {
     std::ofstream ostr(filename.c_str(),std::ios::app);
     for ( unsigned j = 0; j < this->num_cameras(); ++j ) {
       boost::shared_ptr<vw::camera::IsisAdjustCameraModel> camera =
@@ -353,7 +323,7 @@ public:
     }
   }
 
-  void bundlevis_points_append(std::string const& filename ) {
+  void bundlevis_points_append(std::string const& filename ) const {
     std::ofstream ostr(filename.c_str(),std::ios::app);
     unsigned i = 0;
     BOOST_FOREACH( point_vector_t const& p, b ) {
