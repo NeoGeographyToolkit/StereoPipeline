@@ -115,10 +115,11 @@ namespace cartography {
       float *render_buffer_ptr = &(render_buffer(0,0));
 
       // Setup a software renderer and the orthographic view matrix
-      vw::stereo::SoftwareRenderer renderer = vw::stereo::SoftwareRenderer(buffered_bbox.width(),
-                                                                           buffered_bbox.height(),
-                                                                           render_buffer_ptr);
-      renderer.Ortho2D(local_bbox.min().x(), local_bbox.max().x(), local_bbox.min().y(), local_bbox.max().y());
+      vw::stereo::SoftwareRenderer renderer(buffered_bbox.width(),
+                                            buffered_bbox.height(),
+                                            render_buffer_ptr);
+      renderer.Ortho2D(local_bbox.min().x(), local_bbox.max().x(),
+                       local_bbox.min().y(), local_bbox.max().y());
 
       // Set up the default color value
       if (m_use_alpha) {
