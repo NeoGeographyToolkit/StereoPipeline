@@ -223,11 +223,31 @@ int main( int argc, char *argv[] ) {
     }
 
     if ( opt.projection != NONXYZ ) {
+      // First determine if we should using a longitude range between
+      // [-180, 180] or [0,360]. We determine this by looking at the
+      // average location of the points. If the average location has a
+      // negative x value (think in ECEF coordinates) then we should
+      // be using [0,360].
+      int subsample_amt = norm_2(Vector2(point_image.cols(),point_image.rows())) / 1024;
+      if (subsample_amt < 1 ) subsample_amt = 1;
+      Vector3 avg_location =
+        mean_pixel_value(subsample(point_image, subsample_amt));
+
       vw_out() << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
-      point_image = cartography::xyz_to_lon_lat_radius(point_image);
+      point_image =
+        cartography::xyz_to_lon_lat_radius(point_image, true,
+                                           avg_location[0] >= 0);
     }
 
-    // Select a cartographic DATUM.  There are several hard coded datums
+    if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
+      vw_out() << "\t--> Applying offset: " << opt.x_offset
+               << " " << opt.y_offset << " " << opt.z_offset << "\n";
+      point_image =
+        point_image_offset(point_image,
+                           Vector3(opt.x_offset,opt.y_offset,opt.z_offset));
+    }
+
+    // Select a cartographic datum. There are several hard coded datums
     // that can be used here, or the user can specify their own.
     cartography::Datum datum;
     if ( opt.reference_spheroid != "" ) {
@@ -250,14 +270,6 @@ int main( int argc, char *argv[] ) {
                                  "User Specified Spheroid",
                                  "Reference Meridian",
                                  opt.semi_major, opt.semi_minor, 0.0);
-    }
-
-    if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
-      vw_out() << "\t--> Applying offset: " << opt.x_offset
-               << " " << opt.y_offset << " " << opt.z_offset << "\n";
-      point_image =
-        point_image_offset(point_image,
-                           Vector3(opt.x_offset,opt.y_offset,opt.z_offset));
     }
 
     // Set up the georeferencing information.  We specify everything
