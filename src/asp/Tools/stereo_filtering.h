@@ -101,7 +101,7 @@ namespace vw {
                                    left_red_mask, right_red_mask);
         else if ( stereo_settings().rm_cleanup_passes == 2 )
           disparity_map =
-            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,2>()(
                   disparity_disk_image,stereo_settings().rm_h_half_kern,
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
@@ -109,7 +109,7 @@ namespace vw {
                                    left_red_mask, right_red_mask);
         else if ( stereo_settings().rm_cleanup_passes == 3 )
           disparity_map =
-            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,3>()(
                   disparity_disk_image,stereo_settings().rm_h_half_kern,
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
@@ -117,7 +117,7 @@ namespace vw {
                                    left_red_mask, right_red_mask);
         else if ( stereo_settings().rm_cleanup_passes == 4 )
           disparity_map =
-            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,4>()(
                   disparity_disk_image,stereo_settings().rm_h_half_kern,
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
@@ -125,7 +125,7 @@ namespace vw {
                                    left_red_mask, right_red_mask);
         else if ( stereo_settings().rm_cleanup_passes >= 5 )
           disparity_map =
-            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,5>()(
                   disparity_disk_image,stereo_settings().rm_h_half_kern,
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
