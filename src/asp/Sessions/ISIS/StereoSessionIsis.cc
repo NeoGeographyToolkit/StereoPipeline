@@ -39,10 +39,87 @@ namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
-// Do not attempt interest point alignment; assume ISIS images are
-// already map projected.  Simply remove the special pixels and
-// normalize between 0 and 1 (so that the image masks are found
-// properly)
+// Process a single ISIS image to find an ideal min max. The reason we
+// need to do this, is that ASP is to get image intensity values in
+// the range of 0-1. To some extent we are compressing the dynamic
+// range, but we try to minimize that.
+void find_ideal_isis_range( std::string const& in_file,
+                            std::string const& tag,
+                            float & isis_lo, float & isis_hi ) {
+
+  DiskImageView<PixelGray<float> > disk_image(in_file);
+  DiskImageResourceIsis isis_rsrc(in_file);
+
+  float isis_mean, isis_std;
+
+  // Calculating statistics. We subsample the images so statistics
+  // only does about a million samples.
+  {
+    vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
+    int left_stat_scale = int(ceil(sqrt(float(disk_image.cols())*float(disk_image.rows()) / 1000000)));
+    ImageViewRef<PixelMask<PixelGray<float> > > valid =
+      subsample(create_mask( disk_image, isis_rsrc.valid_minimum(), isis_rsrc.valid_maximum() ),
+                left_stat_scale );
+    ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
+    for_each_pixel( valid, accumulator );
+    isis_lo = accumulator.quantile(0);
+    isis_hi = accumulator.quantile(1);
+    isis_mean = accumulator.approximate_mean();
+    isis_std  = accumulator.approximate_stddev();
+
+    vw_out(InfoMessage) << "\t  "+tag+": [ lo:" << isis_lo << " hi:" << isis_hi
+                        << " m: " << isis_mean << " s: " << isis_std <<  "]\n";
+  }
+
+  // Normalizing to -+2 sigmas around mean
+  if ( stereo_settings().force_max_min == 0 ) {
+    vw_out(InfoMessage) << "\t--> Adjusting hi and lo to -+2 sigmas around mean.\n";
+
+    if ( isis_lo < isis_mean - 2*isis_std )
+      isis_lo = isis_mean - 2*isis_std;
+    if ( isis_hi > isis_mean + 2*isis_std )
+      isis_hi = isis_mean + 2*isis_std;
+
+    vw_out(InfoMessage) << "\t    "+tag+" changed: [ lo:"
+                        << isis_lo << " hi:" << isis_hi << "]\n";
+  }
+}
+
+// This actually modifies and writes the pre-processed image.
+void write_preprocessed_isis_image( std::string const& in_file,
+                                    std::string const& out_file,
+                                    std::string const& tag,
+                                    float const& isis_lo, float const& isis_hi,
+                                    float const& out_lo, float const& out_hi,
+                                    Matrix<double> const& matrix,
+                                    Vector2i const& crop_size ) {
+  DiskImageView<PixelGray<float> > disk_image(in_file);
+  ImageViewRef<PixelGray<float> > applied_image;
+  if ( matrix == math::identity_matrix<3>() ) {
+    applied_image =
+      crop(clamp(normalize(remove_isis_special_pixels(disk_image,
+                                                      isis_lo, isis_hi, out_lo),
+                           out_lo, out_hi, 0.0, 1.0)),
+           0, 0, crop_size[0], crop_size[1]);
+  } else {
+    applied_image =
+      clamp(transform(normalize(remove_isis_special_pixels(disk_image,
+                                                           isis_lo, isis_hi,
+                                                           out_lo),
+                                out_lo, out_hi, 0.0, 1.0),
+                      HomographyTransform(matrix),
+                      crop_size[0], crop_size[1]));
+  }
+
+  // Write the results to disk.
+  vw_out() << "\t--> Writing normalized images.\n";
+  DiskImageResourceGDAL out_rsrc( out_file, applied_image.format(),
+                                  Vector2i(vw_settings().default_tile_size(),
+                                           vw_settings().default_tile_size()));
+  block_write_image( out_rsrc, applied_image,
+                     TerminalProgressCallback("asp", "\t  "+tag+":  "));
+}
+
 void
 StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
                                           std::string const& input_file2,
@@ -59,69 +136,11 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     return;
   } catch (vw::Exception const& e) {}
 
-  DiskImageView<PixelGray<float> > left_disk_image(input_file1);
-  DiskImageView<PixelGray<float> > right_disk_image(input_file2);
-  DiskImageResourceIsis left_rsrc(input_file1);
-  DiskImageResourceIsis right_rsrc(input_file2);
-
   float left_lo, left_hi, right_lo, right_hi;
-  float left_mean, left_std, right_mean, right_std;
-
-  // Calculating statistics. We subsample the images so statistics
-  // only does about a million samples.
-  {
-    vw_out(InfoMessage) << "\t--> Computing statistics for the left image\n";
-    int left_stat_scale = int(ceil(sqrt(float(left_disk_image.cols())*float(left_disk_image.rows()) / 1000000)));
-    ImageViewRef<PixelMask<PixelGray<float> > > left_valid =
-      subsample(create_mask( left_disk_image, left_rsrc.valid_minimum(), left_rsrc.valid_maximum() ),
-                left_stat_scale );
-    ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
-    for_each_pixel( left_valid, accumulator );
-    left_lo = accumulator.quantile(0);
-    left_hi = accumulator.quantile(1);
-    left_mean = accumulator.approximate_mean();
-    left_std  = accumulator.approximate_stddev();
-
-    vw_out(InfoMessage) << "\t    Left: [ lo:" << left_lo << " hi:" << left_hi
-                        << " m: " << left_mean << " s: " << left_std <<  "]\n";
-  }
-  {
-    vw_out(InfoMessage) << "\t--> Computing statistics values for the right image\n";
-    int right_stat_scale = int(ceil(sqrt(float(right_disk_image.cols())*float(right_disk_image.rows()) / 1000000)));
-    ImageViewRef<PixelMask<PixelGray<float> > > right_valid =
-      subsample(create_mask( right_disk_image, right_rsrc.valid_minimum(),
-                             right_rsrc.valid_maximum() ),
-                right_stat_scale );
-    ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
-    for_each_pixel( right_valid, accumulator );
-    right_lo = accumulator.quantile(0);
-    right_hi = accumulator.quantile(1);
-    right_mean = accumulator.approximate_mean();
-    right_std  = accumulator.approximate_stddev();
-
-    vw_out(InfoMessage) << "\t    Right: [ lo:" << right_lo << " hi:"
-                        << right_hi << " m: " << right_mean << " s: "
-                        << right_std << "]\n";
-  }
-
-  // Normalizing to -+2 sigmas around mean
-  if ( stereo_settings().force_max_min == 0 ) {
-    vw_out(InfoMessage) << "\t--> Adjusting hi and lo to -+2 sigmas around mean.\n";
-
-    if ( left_lo < left_mean - 2*left_std )
-      left_lo = left_mean - 2*left_std;
-    if ( right_lo < right_mean - 2*right_std )
-      right_lo = right_mean - 2*right_std;
-    if ( left_hi > left_mean + 2*left_std )
-      left_hi = left_mean + 2*left_std;
-    if ( right_hi > right_mean + 2*right_std )
-      right_hi = right_mean + 2*right_std;
-
-    vw_out(InfoMessage) << "\t    Left changed: [ lo:"
-                        << left_lo << " hi:" << left_hi << "]\n";
-    vw_out(InfoMessage) << "\t    Right changed: [ lo:"
-                        << right_lo << " hi:" << right_hi << "]\n";
-  }
+  find_ideal_isis_range( input_file1, "left",
+                         left_lo, left_hi );
+  find_ideal_isis_range( input_file2, "right",
+                         right_lo, right_hi );
 
   // Working out alignment
   float lo = std::min (left_lo, right_lo);  // Finding global
@@ -129,11 +148,6 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   Matrix<double> align_matrix(3,3);
   align_matrix.set_identity();
   if ( stereo_settings().keypoint_alignment) {
-    if ( left_rsrc.is_map_projected() ||
-         right_rsrc.is_map_projected() ) {
-      vw_out(WarningMessage,"console") << "One or more of the input files is Map Projected.\n"
-                                       << "\tInterest Point alignment is not recommend in this case.\n";
-    }
     DiskImageView<PixelGray<float> > left_disk_image(input_file1);
     DiskImageView<PixelGray<float> > right_disk_image(input_file2);
     ImageViewRef<PixelGray<float> > left_view =
@@ -147,42 +161,31 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   }
   write_matrix( m_out_prefix + "-align.exr", align_matrix );
 
+  // Getting left image size
+  Vector2i left_size;
+  {
+    DiskImageView<PixelGray<float> > left_image(input_file1);
+    left_size = Vector2i(left_image.cols(), left_image.rows());
+  }
+
   // Apply alignment and normalization
-  ImageViewRef<PixelGray<float> > Limg;
-  ImageViewRef<PixelGray<float> > Rimg;
   if (stereo_settings().individually_normalize == 0 ) {
     vw_out() << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-    Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image,
-                                                      left_lo, left_hi, lo),
-                           lo, hi, 0.0, 1.0));
-    Rimg = clamp(transform(normalize(remove_isis_special_pixels(right_disk_image, right_lo, right_hi, lo),
-                                     lo, hi, 0.0, 1.0),
-                           HomographyTransform(align_matrix),
-                           left_disk_image.cols(), left_disk_image.rows()));
+    write_preprocessed_isis_image( input_file1, output_file1, "left",
+                                   left_lo, left_hi, lo, hi,
+                                   math::identity_matrix<3>(), left_size );
+    write_preprocessed_isis_image( input_file2, output_file2, "right",
+                                   right_lo, right_hi, lo, hi,
+                                   align_matrix, left_size );
   } else {
     vw_out() << "\t--> Individually normalizing.\n";
-    Limg = clamp(normalize(remove_isis_special_pixels(left_disk_image, left_lo,
-                                                      left_hi, left_lo),
-                           left_lo, left_hi, 0.0, 1.0));
-    Rimg = clamp(transform(normalize(remove_isis_special_pixels(right_disk_image, right_lo,
-                                                                right_hi, right_lo),
-                                     right_lo, right_hi, 0.0, 1.0),
-                           HomographyTransform(align_matrix),
-                           left_disk_image.cols(), left_disk_image.rows()));
+    write_preprocessed_isis_image( input_file1, output_file1, "left",
+                                   left_lo, left_hi, left_lo, left_hi,
+                                   math::identity_matrix<3>(), left_size );
+    write_preprocessed_isis_image( input_file2, output_file2, "right",
+                                   right_lo, right_hi, right_lo, right_hi,
+                                   align_matrix, left_size );
   }
-  // Write the results to disk.
-  vw_out() << "\t--> Writing normalized images.\n";
-  DiskImageResourceGDAL left_out_rsrc( output_file1, Limg.format(),
-                                       Vector2i(vw_settings().default_tile_size(),
-                                                vw_settings().default_tile_size()) );
-  block_write_image( left_out_rsrc, Limg,
-                     TerminalProgressCallback("asp", "\t    Left:  "));
-
-  DiskImageResourceGDAL right_out_rsrc( output_file2, Rimg.format(),
-                                        Vector2i(vw_settings().default_tile_size(),
-                                                 vw_settings().default_tile_size()) );
-  block_write_image( right_out_rsrc, Rimg,
-                     TerminalProgressCallback("asp", "\t    Right: "));
 }
 
 inline std::string write_shadow_mask( std::string const& output_prefix,

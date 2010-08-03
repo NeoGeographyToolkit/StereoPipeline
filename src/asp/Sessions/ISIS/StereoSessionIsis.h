@@ -118,11 +118,11 @@ public:
 
 template <class ViewT>
 UnaryPerPixelView<ViewT, IsisSpecialPixelFunc<typename ViewT::pixel_type> >
-  remove_isis_special_pixels(ImageViewBase<ViewT> &image,
-                             typename ViewT::pixel_type replacement_low = typename ViewT::pixel_type(),
-                             typename ViewT::pixel_type replacement_high = typename ViewT::pixel_type(),
-                             typename ViewT::pixel_type replacement_null = typename ViewT::pixel_type()) {
-  return per_pixel_filter(image.impl(), IsisSpecialPixelFunc<typename ViewT::pixel_type>(replacement_low,replacement_high,replacement_null));
+remove_isis_special_pixels(ImageViewBase<ViewT> &image,
+                           typename ViewT::pixel_type r_low = typename ViewT::pixel_type(),
+                           typename ViewT::pixel_type r_high = typename ViewT::pixel_type(),
+                           typename ViewT::pixel_type r_null = typename ViewT::pixel_type()) {
+  return per_pixel_filter(image.impl(), IsisSpecialPixelFunc<typename ViewT::pixel_type>(r_low,r_high,r_null));
 }
 
 } // namespace vw
