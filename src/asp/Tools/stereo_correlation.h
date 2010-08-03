@@ -72,12 +72,6 @@ namespace vw {
     DiskImageView<PixelGray<float> > left_disk_image(filename_L),
       right_disk_image(filename_R);
 
-#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
-    // Determining if BigTiff is required
-    if ( left_disk_image.cols()*left_disk_image.rows() > 10e6 )
-      opt.gdal_options["BIGTIFF"] = "IF_SAFER";
-#endif
-
     ImageViewRef<PixelMask<Vector2f> > disparity_map;
     stereo::CorrelatorType cost_mode = stereo::ABS_DIFF_CORRELATOR;
     if (stereo_settings().cost_mode == 1)

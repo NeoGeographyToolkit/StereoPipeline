@@ -196,7 +196,15 @@ int main(int argc, char* argv[]) {
     // Common GDAL options
 #if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
     opt.gdal_options["COMPRESS"] = "LZW";
-    opt.gdal_options["BIGTIFF"] = "NO";
+    {
+      // We really don't want to use BIGTIFF unless we have to. It's
+      // hard to find viewers for bigtiff.
+      DiskImageView<PixelGray<uint8> > test(opt.in_file1);
+      if ( test.cols()*test.rows() > 10e6 )
+        opt.gdal_options["BIGTIFF"] = "IF_SAFER";
+      else
+        opt.gdal_options["BIGTIFF"] = "NO";
+    }
 #else
     opt.gdal_options["COMPRESS"] = "NONE";
     opt.gdal_options["BIGTIFF"] = "NO";

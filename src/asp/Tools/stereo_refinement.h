@@ -37,12 +37,6 @@ namespace vw {
       DiskImageView<PixelMask<Vector2f> > disparity_disk_image(opt.out_prefix + "-D.tif");
       ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
 
-#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
-      // Determining if BigTiff is required
-      if ( left_disk_image.cols()*left_disk_image.rows() > 10e6 )
-        opt.gdal_options["BIGTIFF"] = "IF_SAFER";
-#endif
-
       if (stereo_settings().subpixel_mode == 0) {
         // Do nothing
       } else if (stereo_settings().subpixel_mode == 1) {

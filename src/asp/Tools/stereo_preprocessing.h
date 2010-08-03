@@ -169,12 +169,6 @@ namespace vw {
     DiskImageView<PixelGray<float> > left_image(pre_preprocess_file1),
       right_image(pre_preprocess_file2);
 
-#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
-    // Determining if BigTiff is required
-    if ( left_image.cols()*left_image.rows() > 10e6 )
-      opt.gdal_options["BIGTIFF"] = "IF_SAFER";
-#endif
-
     try {
       DiskImageView<PixelGray<uint8> > testa(opt.out_prefix+"-lMask.tif");
       DiskImageView<PixelGray<uint8> > testb(opt.out_prefix+"-rMask.tif");
