@@ -85,6 +85,26 @@ void find_ideal_isis_range( std::string const& in_file,
   }
 }
 
+// This tells the GDAL settings we should be using
+//
+// I don't like having this hear. We should somehow use the settings
+// decided by stereo. Unfortunately Sessions can not depend on the tool.
+vw::DiskImageResourceGDAL::Options
+gdal_settings( int32 const& cols, int32 const& rows ) {
+  vw::DiskImageResourceGDAL::Options option;
+#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
+  option["COMPRESS"] = "LZW";
+  if ( cols*rows > 10e6 )
+    option["BIGTIFF"] = "IF_SAFER";
+  else
+    option["BIGTIFF"] = "NO";
+#else
+  option["COMPRESS"] = "NONE";
+  option["BIGTIFF"] = "NO";
+#endif
+  return option;
+}
+
 // This actually modifies and writes the pre-processed image.
 void write_preprocessed_isis_image( std::string const& in_file,
                                     std::string const& out_file,
@@ -115,7 +135,9 @@ void write_preprocessed_isis_image( std::string const& in_file,
   vw_out() << "\t--> Writing normalized images.\n";
   DiskImageResourceGDAL out_rsrc( out_file, applied_image.format(),
                                   Vector2i(vw_settings().default_tile_size(),
-                                           vw_settings().default_tile_size()));
+                                           vw_settings().default_tile_size()),
+                                  gdal_settings(applied_image.cols(),
+                                                applied_image.rows()));
   block_write_image( out_rsrc, applied_image,
                      TerminalProgressCallback("asp", "\t  "+tag+":  "));
 }
@@ -201,9 +223,11 @@ inline std::string write_shadow_mask( std::string const& output_prefix,
   std::string output_mask =
     output_prefix+mask_postfix.substr(0,mask_postfix.size()-4)+"Debug.tif";
 
-  DiskImageResourceGDAL out_mask_rsrc( output_mask, mask.format(),
-                                       Vector2i(vw_settings().default_tile_size(),
-                                                vw_settings().default_tile_size()) );
+  DiskImageResourceGDAL
+    out_mask_rsrc( output_mask, mask.format(),
+                   Vector2i(vw_settings().default_tile_size(),
+                            vw_settings().default_tile_size()),
+                   gdal_settings( mask.cols(), mask.rows()) );
   block_write_image( out_mask_rsrc, mask );
   return output_mask;
 }
