@@ -58,7 +58,9 @@ void find_ideal_isis_range( std::string const& in_file,
     vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
     int left_stat_scale = int(ceil(sqrt(float(disk_image.cols())*float(disk_image.rows()) / 1000000)));
     ImageViewRef<PixelMask<PixelGray<float> > > valid =
-      subsample(create_mask( disk_image, isis_rsrc.valid_minimum(), isis_rsrc.valid_maximum() ),
+      subsample(create_mask( edge_extend(disk_image, ConstantEdgeExtension()),
+                             isis_rsrc.valid_minimum(),
+                             isis_rsrc.valid_maximum() ),
                 left_stat_scale );
     ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
     for_each_pixel( valid, accumulator );
@@ -117,9 +119,10 @@ void write_preprocessed_isis_image( std::string const& in_file,
   ImageViewRef<PixelGray<float> > applied_image;
   if ( matrix == math::identity_matrix<3>() ) {
     applied_image =
-      crop(clamp(normalize(remove_isis_special_pixels(disk_image,
-                                                      isis_lo, isis_hi, out_lo),
+      crop(edge_extend(clamp(normalize(remove_isis_special_pixels(disk_image,
+                                                                  isis_lo, isis_hi, out_lo),
                            out_lo, out_hi, 0.0, 1.0)),
+                       ZeroEdgeExtension()),
            0, 0, crop_size[0], crop_size[1]);
   } else {
     applied_image =
