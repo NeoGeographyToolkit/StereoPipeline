@@ -26,7 +26,7 @@ using namespace vw::ba;
 struct Options {
   Options( void ) : lambda(-1), seed_previous(false) {}
   // Input
-  std::string cnet_file, cost_function, ba_type;
+  std::string cnet_file, cost_function, ba_type, output_prefix;
   std::vector<std::string> input_names, gcp_names, gcp_cnet_names;
   double cam_position_sigma, cam_pose_sigma, gcp_scalar,
     lambda, robust_threshold;
@@ -140,7 +140,7 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
   }
 
   // Reporter
-  BundleAdjustReport< AdjusterT > reporter( "ISIS Adjust", ba_model,
+  BundleAdjustReport< AdjusterT > reporter( opt.output_prefix, ba_model,
                                             bundle_adjuster, opt.report_level);
 
   // Performing the Bundle Adjustment
@@ -210,6 +210,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("min-matches", po::value(&opt.min_matches)->default_value(30),
      "Set the minimum number of matches between images that will be considered.")
     ("max-iterations", po::value(&opt.max_iterations)->default_value(25), "Set the maximum number of iterations.")
+    ("output-prefix,o", po::value(&opt.output_prefix)->default_value("isis_adjust"), "Output files use this prefix")
     ("poly-order", po::value(&opt.poly_order)->default_value(0),
      "Set the order of the polynomial used adjust the camera properties. If using a frame camera, leave at 0 (meaning scalar offsets). For line scan cameras try 2.")
     ("position-sigma", po::value(&opt.cam_position_sigma)->default_value(100.0),
@@ -390,7 +391,7 @@ int main(int argc, char* argv[]) {
       progress.report_finished();
 
       // Writing ISIS Control Network
-      opt.cnet->write_binary("isis_adjust");
+      opt.cnet->write_binary(opt.output_prefix);
       vw_out() << "\n";
     }
 
@@ -399,7 +400,7 @@ int main(int argc, char* argv[]) {
     // Option to write ISIS-style control network
     if ( opt.write_isis_cnet ) {
       vw_out() << "Writing ISIS-style Control Network.\n";
-      opt.cnet->write_isis("isis_adjust");
+      opt.cnet->write_isis(opt.output_prefix);
     }
 
     // Switching based on cost function
