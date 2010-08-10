@@ -34,6 +34,12 @@ def angle_diff( lat_s, lat_f, lon_s, lon_f ):
     adiff = math.atan2(top,bot)
     return adiff
 
+def angle_diffd( lat_s, lat_f, lon_s, lon_f ):
+    return math.degrees(angle_diff(math.radians(lat_s),
+                                   math.radians(lat_f),
+                                   math.radians(lon_s),
+                                   math.radians(lon_f)))
+
 def main():
     try:
         try:
@@ -57,33 +63,49 @@ def main():
         image_lon = dict()
 
         for i in range(0,len(args)):
-            cmd = "camrange from="+args[i];
+            # First find out size of the image
+            cmd = "catlab from="+args[i];
             p = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE);
             cmd_return = p.stdout.readlines();
             group = ""
-            min_lat = ""
-            max_lat = ""
-            min_lon = ""
-            max_lon = ""
+            samples = ""
+            lines = ""
             for line in cmd_return:
                 if line.find("Group = ") >= 0:
                     group = line.split()[2]
-                if line.find("MinimumLatitude") >= 0 and group == "UniversalGroundRange":
-                    min_lat = line.split()[2]
-                if line.find("MaximumLatitude") >= 0 and group == "UniversalGroundRange":
-                    max_lat = line.split()[2]
-                if line.find("MinimumLongitude") >= 0 and group == "UniversalGroundRange":
-                    min_lon = line.split()[2]
-                if line.find("MaximumLongitude") >= 0 and group == "UniversalGroundRange":
-                    max_lon = line.split()[2]
-            image_lat[args[i]] = (float(max_lat)-float(min_lat))/2;
-            image_lon[args[i]] = (float(max_lon)-float(min_lon))/2;
+                if line.find("Samples") >= 0 and group == "Dimensions":
+                    samples = line.split()[2]
+                if line.find("Lines") >= 0 and group == "Dimensions":
+                    lines = line.split()[2]
+                    continue;
+            center_sample = float(samples)/2;
+            center_line =   float(lines)/2;
+
+            # Fetching the Lat Long of the center pixel - We could at
+            # some point fetch the corners and do something more
+            # interesting
+            latitude = ""
+            longitude = ""
+            cmd = "campt from="+args[i]+" line="+str(center_line)+" sample="+str(center_sample);
+            p = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE);
+            cmd_return = p.stdout.readlines();
+            for line in cmd_return:
+                if line.find("PlanetocentricLatitude") >= 0:
+                    latitude = line.split()[2]
+                if line.find("PositiveWest360Longitude") >= 0:
+                    longitude = line.split()[2]
+
+            image_lat[args[i]] = float(latitude)
+            image_lon[args[i]] = float(longitude)
 
         # Performing second pass to figure out what images appear to
         # be side by side.
         for i in range(0,len(args)-1):
             for j in range(i+1,len(args)):
-                angle = math.degrees(angle_diff(math.radians(image_lat[args[i]]), math.radians(image_lat[args[j]]), math.radians(image_lon[args[i]]), math.radians(image_lon[args[j]])))
+                angle = angle_diffd(image_lat[args[i]],
+                                    image_lat[args[j]],
+                                    image_lon[args[i]],
+                                    image_lon[args[j]])
                 if ( angle < options.angle ):
                     if ""==options.ext:
                         print args[i]+" "+args[j]
@@ -92,13 +114,13 @@ def main():
 
     except Usage, err:
         print >>sys.stderr, err.msg
-        # print >>sys.stderr, "for help use --help"
+        print >>sys.stderr, "for help use --help"
         return 2
 
     # To more easily debug this program, comment out this catch block.
-    #except Exception, err:
-    #    sys.stderr.write( str(err) + '\n' )
-    #    return 1
+    except Exception, err:
+        sys.stderr.write( str(err) + '\n' )
+        return 1
 
 
 if __name__ == "__main__":
