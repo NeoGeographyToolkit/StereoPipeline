@@ -44,10 +44,11 @@ version of ISIS that matches your version of Stereo Pipeline.
 Download the Stereo Pipeline from \url{http://ti.arc.nasa.gov/stereopipeline}.
 
 \item [{Fetch~ISIS~Binaries}] ~\\
-\texttt{rsync -azv -\/-delete isisdist.wr.usgs.gov::isis3\_\textit{ARCH\_OS}/isis .}
+\texttt{rsync -azv -\/-delete isisdist.wr.usgs.gov::isis3\_\textit{ARCH\_OS\_VERSION}/isis .}
 
 \item [{Fetch~ISIS~Data}] ~\\
-\verb#rsync -azv --delete isisdist.wr.usgs.gov::isis3data/data .#
+\texttt{rsync -azv --delete isisdist.wr.usgs.gov::isis3data/data/base data/}\\
+\texttt{rsync -azv --delete isisdist.wr.usgs.gov::isis3data/data/\textit{MISSION} data/}
 
 \item [{Untar~Stereo~Pipeline}] ~\\
 \texttt{tar xzvf StereoPipeline-\textit{VERSION-ARCH-OS}.tar.gz}
