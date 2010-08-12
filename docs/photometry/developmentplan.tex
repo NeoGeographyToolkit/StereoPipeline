@@ -159,9 +159,9 @@ use. Delete this section some time in the future.
   > (in other terminal, restart index_server)
   > phoinitfile debug_apollo
   > // Below can be ran in parallel
-  > for i in $(ls *DRG.tif);
-      do phodrg2plate pf://ptk/debug_apollo.ptk $i; done
-  > for i in {0..$(NUM PROCESSES)};
-      do phoinitalbedo -j $i -n 10 pf://ptk/debug_apollo.ptk & done
+  > echo *.tif | xargs -n1 echo |
+      xargs -n1 -P10 phodrg2plate pf://ptk/project.ptk
+  > echo {0..9} | xargs -n1 echo |
+      xargs -n1 -P10 -I{} phoinitalbedo -j {} -n 10 pf://ptk/project.ptk
   > mipmap pf://index/Albedo.plate
 \end{verbatim}
