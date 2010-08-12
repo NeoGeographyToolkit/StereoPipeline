@@ -363,7 +363,7 @@ AX_APP(ISISADJUST,       [src/asp/Tools], yes, [VW_BUNDLEADJUSTMENT ISISIO CORE]
 AX_APP(RESULTS,          [src/asp/Tools], yes, [ISISIO])
 AX_APP(RECONSTRUCT,      [src/asp/Tools], no,  [VW_PHOTOMETRY VW_CARTOGRAPHY VW])
 AX_APP(ALIGNDEM,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW_INTEREST_POINT])
-AX_APP(GEODIFF,          [src/asp/Tools], yes, [ISISIO VW BOOST])
+AX_APP(GEODIFF,          [src/asp/Tools], yes, [VW_CARTOGRAPHY VW BOOST])
 AX_APP(DEMPROFILE,       [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [SESSIONS ISISIO VW_PLATE])
 AX_APP(HSVMERGE,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])

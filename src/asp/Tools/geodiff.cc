@@ -14,11 +14,7 @@ namespace fs = boost::filesystem;
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Cartography.h>
-#include <vw/InterestPoint.h>
 #include <vw/Math.h>
-#include <vw/Mosaic/ImageComposite.h>
-
-#include <asp/IsisIO/DiskImageResourceIsis.h>                                                                                                                                                                                                  
 
 using std::cout;
 using std::endl;
@@ -26,12 +22,6 @@ using std::string;
 
 using namespace vw;
 using namespace vw::cartography;
-using namespace vw::ip;
-
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
 
 int main( int argc, char *argv[] ) {
   string dem1_name, dem2_name, output_prefix;
@@ -75,8 +65,6 @@ int main( int argc, char *argv[] ) {
 
   DiskImageView<double> dem1_dmg(dem1_name), dem2_dmg(dem2_name);
 
-  DiskImageResourceIsis dem2_isis_rsrc(dem2_name);
-  
   GeoReference dem1_georef, dem2_georef;
   read_georeference(dem1_georef, dem1_rsrc);
   read_georeference(dem2_georef, dem2_rsrc);
