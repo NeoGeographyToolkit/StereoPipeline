@@ -184,9 +184,7 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
 void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
                                                std::string & output_file ) {
 
-  if ( stereo_settings().epipolar_alignment ) {
-    output_file = input_file;
-  } else if ( stereo_settings().keypoint_alignment ) {
+  if ( stereo_settings().keypoint_alignment ) {
 
     DiskImageView<PixelMask<Vector2f> > disparity_map( input_file );
     output_file = m_out_prefix + "-F-corrected.exr";
@@ -214,6 +212,6 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
                 TerminalProgressCallback("asp", "\t    Saving: ") );
 
   } else {
-    vw_throw(ArgumentErr() << "PinholeStereoSession: unselected alignment option.\n");
+    output_file = input_file;
   }
 }
