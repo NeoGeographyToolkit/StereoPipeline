@@ -49,7 +49,7 @@ namespace asp {
                  std::string z_eq );
     std::string type() const { return "RPNEquation"; }
 
-    unsigned size(void) const { return m_x_consts.size() +
+    unsigned size() const { return m_x_consts.size() +
         m_y_consts.size() + m_z_consts.size(); }
     double& operator[]( unsigned const& n );
 

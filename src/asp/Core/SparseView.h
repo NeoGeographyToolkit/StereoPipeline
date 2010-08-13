@@ -49,7 +49,7 @@ class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
   bool m_allow_overlap;
 
   // Group leaves together if possible
-  void refactor( void ) {}
+  void refactor() {}
 
  public:
   typedef typename vw::UnmaskedPixelType<PixelT>::type pixel_type;
@@ -57,7 +57,7 @@ class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
   typedef vw::ProceduralPixelAccessor<SparseView<PixelT> > pixel_accessor;
 
   // Number of filled points in SparseView
-  vw::uint32 size( void ) const {
+  vw::uint32 size() const {
     return 0; // FIX THIS!
   }
 
@@ -213,7 +213,7 @@ class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
   }
 
   // Debug structure
-  void print_structure( void ) const {
+  void print_structure() const {
     vw::vw_out() << "SparseView Structure:\n";
     for ( vw::uint32 i = 0; i < m_data->size(); i++ ) {
       vw::vw_out() << i << " | ";

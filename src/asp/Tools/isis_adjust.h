@@ -251,7 +251,7 @@ public:
   }
 
   // Errors on the image plane
-  std::string image_unit( void ) const { return "px"; }
+  std::string image_unit() const { return "px"; }
   void image_errors( std::vector<double>& px_errors ) const {
     px_errors.clear();
     for (unsigned i = 0; i < m_network->size(); ++i )
@@ -299,7 +299,7 @@ public:
   }
 
   // Give access to the control network
-  boost::shared_ptr<vw::ba::ControlNetwork> control_network(void) const {
+  boost::shared_ptr<vw::ba::ControlNetwork> control_network() const {
     return m_network;
   }
 

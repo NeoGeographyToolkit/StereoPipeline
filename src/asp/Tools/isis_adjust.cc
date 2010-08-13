@@ -24,7 +24,7 @@ using namespace vw::ip;
 using namespace vw::ba;
 
 struct Options {
-  Options( void ) : lambda(-1), seed_previous(false) {}
+  Options() : lambda(-1), seed_previous(false) {}
   // Input
   std::string cnet_file, cost_function, ba_type, output_prefix;
   std::vector<std::string> input_names, gcp_names, gcp_cnet_names;

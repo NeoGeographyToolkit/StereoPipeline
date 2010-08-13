@@ -36,7 +36,7 @@ namespace asp {
     }
     std::string type() const {  return "PolyEquation"; }
 
-    unsigned size(void) const { return m_x_coeff.size()+m_y_coeff.size()+m_z_coeff.size(); }
+    unsigned size() const { return m_x_coeff.size()+m_y_coeff.size()+m_z_coeff.size(); }
     double& operator[]( unsigned const& n );
 
     void write( std::ofstream &f );

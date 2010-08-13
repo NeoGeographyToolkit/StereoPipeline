@@ -65,13 +65,13 @@ namespace camera {
       return m_interface->camera_pose( pix ); }
 
     // Returns the number of lines is the ISIS cube
-    int lines(void) const { return m_interface->lines(); }
+    int lines() const { return m_interface->lines(); }
 
     // Returns the number of samples in the ISIS cube
-    int samples(void) const{ return m_interface->samples(); }
+    int samples() const{ return m_interface->samples(); }
 
     // Returns the serial number of the ISIS cube
-    std::string serial_number(void) const {
+    std::string serial_number() const {
       return m_interface->serial_number(); }
 
   protected:

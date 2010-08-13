@@ -201,7 +201,7 @@ public:
   }
 
   // Give access to the control network
-  boost::shared_ptr<vw::ba::ControlNetwork> control_network(void) const {
+  boost::shared_ptr<vw::ba::ControlNetwork> control_network() const {
     return m_network;
   }
 

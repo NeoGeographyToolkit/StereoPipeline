@@ -278,7 +278,7 @@ public:
   }
 
   // Give access to the control network
-  boost::shared_ptr<ControlNetwork> control_network(void) {
+  boost::shared_ptr<ControlNetwork> control_network() {
     return m_network;
   }
 };

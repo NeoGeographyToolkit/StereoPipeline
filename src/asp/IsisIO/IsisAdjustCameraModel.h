@@ -67,10 +67,10 @@ namespace camera {
     //-------------------------------------------------------------------
 
     boost::shared_ptr<asp::BaseEquation>
-      position_func ( void ) { return m_position_f; }
+      position_func() { return m_position_f; }
 
     boost::shared_ptr<asp::BaseEquation>
-      pose_func ( void ) { return m_pose_f; }
+      pose_func() { return m_pose_f; }
 
   protected:
     boost::shared_ptr<asp::BaseEquation> m_position_f, m_pose_f;

@@ -33,7 +33,7 @@ IsisInterface::IsisInterface( std::string const& file ) {
   m_camera = Isis::CameraFactory::Create( m_label );
 }
 
-IsisInterface::~IsisInterface(void) {
+IsisInterface::~IsisInterface() {
   if (m_camera)
     delete m_camera;
 }
@@ -70,7 +70,7 @@ IsisInterface* IsisInterface::open( std::string const& filename ) {
   return result;
 }
 
-std::string IsisInterface::serial_number( void ) const {
+std::string IsisInterface::serial_number() const {
   Isis::Pvl copy( m_label );
   return Isis::SerialNumber::Compose( copy, true );
 }

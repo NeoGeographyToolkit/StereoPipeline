@@ -21,7 +21,7 @@ namespace pho {
     typedef typename vw::PixelChannelType<PixelT>::type channel_type;
     vw::ImageView<accum_pixel_type> m_sum;
     vw::ImageView<double> m_sum_weight;
-    void reset( void ) {
+    void reset() {
       vw::fill(m_sum, accum_pixel_type() );
       vw::fill(m_sum_weight, 0 );
     }
@@ -43,7 +43,7 @@ namespace pho {
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
-    result_type result(void) {
+    result_type result() {
       // Normalize
       result_type r = m_sum/m_sum_weight;
       // Apply alpha
@@ -59,7 +59,7 @@ namespace pho {
     typedef typename vw::PixelChannelType<PixelT>::type channel_type;
     vw::ImageView<accum_pixel_type> m_sum;
     vw::ImageView<double> m_sum_weight;
-    void reset( void ) {
+    void reset() {
       vw::fill(m_sum, accum_pixel_type() );
       vw::fill(m_sum_weight, 0 );
     }
@@ -80,7 +80,7 @@ namespace pho {
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
-    result_type result(void) {
+    result_type result() {
       result_type r = m_sum/m_sum_weight;
       select_channel(r,1) = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
       this->reset();
@@ -95,7 +95,7 @@ namespace pho {
     vw::ImageView<double> m_t_grad, m_t_error; // temporaries to avoid
                                                // excessive memory allocations.
     vw::ImageView<double> m_sum_weight;
-    void reset( void ) {
+    void reset() {
       vw::fill(m_nominator, 0 );
       vw::fill(m_denominator, 0 );
       vw::fill(m_sum_weight, 0 );
@@ -129,7 +129,7 @@ namespace pho {
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
-    result_type result(void) {
+    result_type result() {
       result_type r(m_t_error.cols(), m_t_error.rows());
       select_channel(r,0) = m_nominator / m_denominator;
       select_channel(r,1) = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
@@ -145,7 +145,7 @@ namespace pho {
     vw::ImageView<double> m_t_error; // temporary to avoid
                                      // excessive memory allocations.
     vw::ImageView<double> m_sum_weight;
-    void reset( void ) {
+    void reset() {
       vw::fill(m_nominator, 0 );
       vw::fill(m_denominator, 0 );
       vw::fill(m_sum_weight, 0 );
@@ -177,7 +177,7 @@ namespace pho {
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
-    result_type result(void) {
+    result_type result() {
       result_type r(m_t_error.cols(), m_t_error.rows());
       select_channel(r,0) = m_nominator / m_denominator;
       select_channel(r,1) = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
@@ -196,7 +196,7 @@ namespace pho {
     // Intermediates
     vw::ImageView<double> m_curr_sum, m_curr_low, m_curr_high;
 
-    void reset( void ) {
+    void reset() {
       vw::fill( m_low_f_sum, 0 );
       vw::fill( m_sum_weight, 0 );
       vw::fill( m_high_f_sum, accum_pixel_type() );
@@ -242,7 +242,7 @@ namespace pho {
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
-    result_type result(void) {
+    result_type result() {
       // Normalize
       result_type r = m_low_f_sum/m_sum_weight + m_high_f_sum;
       // Apply alpha
@@ -262,7 +262,7 @@ namespace pho {
     // Intermediates
     vw::ImageView<double> m_curr_sum, m_curr_low, m_curr_high;
 
-    void reset( void ) {
+    void reset() {
       vw::fill( m_low_f_sum, 0 );
       vw::fill( m_sum_weight, 0 );
       vw::fill( m_high_f_sum, accum_pixel_type() );
@@ -307,7 +307,7 @@ namespace pho {
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
-    result_type result(void) {
+    result_type result() {
       // Normalize
       result_type r = m_low_f_sum/m_sum_weight + m_high_f_sum;
       // Apply alpha

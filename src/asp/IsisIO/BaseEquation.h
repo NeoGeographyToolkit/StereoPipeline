@@ -49,7 +49,7 @@ namespace asp {
     // This is especially vague as it is meant for interaction with a
     // bundle adjuster. BA just wants to roll through the constants
     // and redefine them.
-    virtual unsigned size( void ) const = 0;
+    virtual unsigned size() const = 0;
     virtual double& operator[]( unsigned const& n ) = 0;
     const double& operator[]( unsigned const& n ) const {
       return this->operator[](n);
@@ -60,7 +60,7 @@ namespace asp {
       m_cached_time = -1;
       m_time_offset = offset;
     }
-    double get_time_offset(void) const { return m_time_offset; }
+    double get_time_offset() const { return m_time_offset; }
 
     // FileIO routines
     virtual void write( std::ofstream &f ) = 0;

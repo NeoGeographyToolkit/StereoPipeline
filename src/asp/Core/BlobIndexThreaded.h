@@ -45,7 +45,7 @@ namespace blob {
     std::vector<std::list<vw::int32> > m_row_start; // assumed to be ordered
     std::vector<std::list<vw::int32> > m_row_end;
     void shift_x( vw::int32 const& value );
-    void refactor( void );
+    void refactor();
   public:
     BlobCompressed( vw::Vector2i const& top_left,
                     std::vector<std::list<vw::int32> > const& row_start,
@@ -73,7 +73,7 @@ namespace blob {
     // Dump into stupid format
     void decompress( std::list<vw::Vector2i>& output ) const;
 
-    void print( void ) const {
+    void print() const {
       vw::vw_out() << "BlobCompressed | min: " << m_min << "\n";
       for ( vw::uint32 i = 0; i < m_row_start.size(); i++ ) {
         vw::vw_out() << " " << i << "|";
@@ -293,7 +293,7 @@ namespace blob {
     m_view(view), m_bbox(bbox), m_append_mutex(mutex),
       m_c_blob(blobs), m_blob_bbox(blob_boxes), m_id(id), m_max_area(max_area) {}
 
-    void operator()(void) {
+    void operator()() {
       vw::ImageView<vw::uint32> index_image(m_bbox.width(),
                                     m_bbox.height() );
       vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": started\n";

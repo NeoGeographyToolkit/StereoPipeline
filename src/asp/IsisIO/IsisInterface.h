@@ -53,9 +53,9 @@ namespace isis {
 
     // General information
     //------------------------------------------------------
-    int lines(void) const { return m_camera->Lines(); }
-    int samples(void) const { return m_camera->Samples(); }
-    std::string serial_number(void) const;
+    int lines() const { return m_camera->Lines(); }
+    int samples() const { return m_camera->Samples(); }
+    std::string serial_number() const;
 
   protected:
     // Standard Variables

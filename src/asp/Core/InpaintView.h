@@ -50,7 +50,7 @@ namespace inpaint_p {
                  boost::shared_ptr<vw::Mutex> insert ) :
     m_view(view), m_c_blob(c_blob), m_patches(sparse), m_id(id), m_crop(crop), m_insert(insert) {}
 
-    void operator()(void) {
+    void operator()() {
       vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": started\n";
 
       // Gathering information about blob

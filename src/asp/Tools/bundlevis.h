@@ -69,19 +69,19 @@ class PointIter : public osg::Referenced {
     os << "Point: " << m_ID+1;
     m_description = os.str();
   }
-  int step(void) const { return *m_step; }
-  unsigned size(void) const { return m_position.size(); }
+  int step() const { return *m_step; }
+  unsigned size() const { return m_position.size(); }
   void add_iteration( osg::Vec3f& newPos, float const& newError ) {
     m_position.push_back( newPos );
     m_error.push_back( newError );
   }
   osg::Vec3f position( const int& step ) { return m_position.at( step ); }
   float error( const int& step ) const { return m_error.at( step ); }
-  void toggle_drawconnlines(void) { m_drawConnLines = !m_drawConnLines; }
-  bool is_drawconnlines( void ) const { return m_drawConnLines; }
+  void toggle_drawconnlines() { m_drawConnLines = !m_drawConnLines; }
+  bool is_drawconnlines() const { return m_drawConnLines; }
   void set_gcp( bool value ) { m_isGCP = value; }
-  bool is_gcp(void ) const { return m_isGCP; }
-  std::string description( void ) const { return m_description; }
+  bool is_gcp() const { return m_isGCP; }
+  std::string description() const { return m_description; }
 };
 
 // CameraIter, the lowest quantum of cameras
@@ -105,8 +105,8 @@ class CameraIter : public osg::Referenced  {
     os << "Camera: " << m_ID+1;
     m_description = os.str();
   }
-  int step(void) const { return *m_step; }
-  unsigned size(void) const { return m_position.size()/m_vertices; }
+  int step() const { return *m_step; }
+  unsigned size() const { return m_position.size()/m_vertices; }
   void add_iteration( const osg::Vec3f& position,
                       const osg::Quat&  pose ) {
     if (!m_isPushbroom) {
@@ -135,12 +135,12 @@ class CameraIter : public osg::Referenced  {
     return m_position.at( step*m_vertices+vert ); }
   osg::Quat pose( int const& step, int const& vert=0 ) const {
     return m_pose.at( step*m_vertices+vert ); }
-  std::string description( void ) const {
+  std::string description() const {
     return m_description; }
-  void toggle_drawconnlines(void) { m_drawConnLines = !m_drawConnLines; }
-  bool is_drawconnlines( void ) const { return m_drawConnLines; }
-  bool is_pushbroom( void ) const { return m_isPushbroom; }
-  int num_vertices( void ) const { return m_vertices; }
+  void toggle_drawconnlines() { m_drawConnLines = !m_drawConnLines; }
+  bool is_drawconnlines() const { return m_drawConnLines; }
+  bool is_pushbroom() const { return m_isPushbroom; }
+  int num_vertices() const { return m_vertices; }
   osg::MatrixTransform* matrix_transform ( int const&, int const& );
 
 };
@@ -158,12 +158,12 @@ class ConnLineIter {
     m_step = step;
     colour.set(0.5f,0.5f,0.5f,1.0f);
   }
-  int step(void) const { return (*m_step); }
-  bool is_drawable( void ) const {
+  int step() const { return (*m_step); }
+  bool is_drawable() const {
     return m_point->is_drawconnlines() || m_camera->is_drawconnlines();
   }
-  PointIter* point(void) { return m_point; };
-  CameraIter* camera(void) { return m_camera; };
+  PointIter* point() { return m_point; };
+  CameraIter* camera() { return m_camera; };
 };
 
 // This will load a point data file
@@ -464,6 +464,6 @@ class pointAutoMatrixCallback : public osg::NodeCallback {
 };
 
 // This just builds the 3 Axis that represents the camera
-osg::Geode* build3Axis( void );
+osg::Geode* build3Axis();
 
 #endif

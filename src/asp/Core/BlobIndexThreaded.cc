@@ -31,7 +31,7 @@ void BlobCompressed::shift_x( int32 const& value ) {
 
 // refactor()
 //----------------------------
-void BlobCompressed::refactor( void ) {
+void BlobCompressed::refactor() {
   for ( uint32 i = 0; i < m_row_end.size(); i++ ) {
     std::list<int32>::iterator iter_n_start = m_row_start[i].begin(),
       iter_end = m_row_end[i].begin();

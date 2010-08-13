@@ -21,7 +21,7 @@ public:
   StereoSettings();
   void read(std::string const& filename);
   void copy_settings(std::string const& filename, std::string const& destination);
-  bool is_search_defined( void ) {
+  bool is_search_defined() {
     return h_corr_min != 0 || h_corr_max != 0 ||
            v_corr_min != 0 || v_corr_max != 0;
   }

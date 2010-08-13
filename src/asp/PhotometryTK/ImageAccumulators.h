@@ -21,7 +21,7 @@ namespace pho {
     // Implementations must provide a reset the returns the accumulator
     // to a default set without allocating new memory. This exists to help
     // enforce the developer.
-    void reset( void ) {
+    void reset() {
       impl().reset();
     }
 
