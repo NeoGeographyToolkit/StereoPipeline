@@ -79,7 +79,7 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS = @ASP_LDFLAGS@
 
-bin_SCRIPTS = phoinit.py phosolve.py
+bin_SCRIPTS = phoinit.py phosolve.py pmipmap.py
 
 SUBDIRS = . tests
 CLEANFILES = $(protocol_headers) $(protocol_sources)

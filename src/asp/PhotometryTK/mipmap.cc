@@ -29,7 +29,7 @@ struct Options {
 
   // Region string break down
   BBox2i region_bbox;
-  int level;
+  int level, top_level;
 };
 
 void perform_mipmap( Options & opt ) {
@@ -87,14 +87,16 @@ void perform_mipmap( Options & opt ) {
   platefile->write_request();
   platemanager.mipmap(opt.level, opt.region_bbox, -1, false,
                       TerminalProgressCallback("photometrytk",
-                                               "Mipmapping:") );
+                                               "Mipmapping:"),
+                      opt.top_level);
   platefile->write_complete();
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("region", po::value<std::string>(&opt.region), "where arg = <ul_x>,<ul_y>:<lr_x>,<lr_y>@<level> - Limit the snapshot to the region bounded by these upper left (ul) and lower right (lr) coordinates at the level specified.")
+    ("region", po::value(&opt.region), "Where arg = <ul_x>,<ul_y>:<lr_x>,<lr_y>@<level> - Limit the snapshot to the region bounded by these upper left (ul) and lower right (lr) coordinates at the level specified.")
+    ("top-level", po::value(&opt.top_level)->default_value(0), "Top level to process to. Default is to process to the very top, which is zero.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
