@@ -16,6 +16,8 @@ using namespace vw;
 using namespace vw::platefile;
 
 #include <boost/program_options.hpp>
+#include <boost/tokenizer.hpp>
+#include <boost/lexical_cast.hpp>
 namespace po = boost::program_options;
 
 using namespace std;
@@ -23,9 +25,14 @@ using namespace std;
 struct Options {
   // Input
   std::string url;
+  std::string region; // <ul_x>,<ul_y>:<lr_x>,<lr_y>@<level>
+
+  // Region string break down
+  BBox2i region_bbox;
+  int level;
 };
 
-void perform_mipmap( Options const& opt ) {
+void perform_mipmap( Options & opt ) {
 
   // Load up Plate File
   boost::shared_ptr<PlateFile> platefile =
@@ -33,14 +40,52 @@ void perform_mipmap( Options const& opt ) {
 
   PlateCarreePlateManager<PixelGrayA<uint8> > platemanager( platefile );
 
-  int full = pow(2.0,platefile->num_levels()-1);
-  int quarter = full/4;
-  BBox2i affected_tiles(0,quarter,full-1,quarter*2-1);
-  std::cout << "Affected Tiles: " << affected_tiles << "\n";
+  // Parsing region string
+  if (!opt.region.empty()) {
+    boost::char_separator<char> sep(",:@");
+    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+    tokenizer tokens( opt.region, sep);
+    tokenizer::iterator tok_iter = tokens.begin();
+
+    if (tok_iter == tokens.end())
+      vw_throw( ArgumentErr() << "Region argument is incomplete\n" );
+    opt.region_bbox.min()[0] = boost::lexical_cast<int>(*tok_iter);
+    ++tok_iter;
+
+    if (tok_iter == tokens.end())
+      vw_throw( ArgumentErr() << "Region argument is incomplete\n" );
+    opt.region_bbox.min()[1] = boost::lexical_cast<int>(*tok_iter);
+    ++tok_iter;
+
+    if (tok_iter == tokens.end())
+      vw_throw( ArgumentErr() << "Region argument is incomplete\n" );
+    opt.region_bbox.max()[0] = boost::lexical_cast<int>(*tok_iter);
+    ++tok_iter;
+
+    if (tok_iter == tokens.end())
+      vw_throw( ArgumentErr() << "Region argument is incomplete\n" );
+    opt.region_bbox.max()[1] = boost::lexical_cast<int>(*tok_iter);
+    ++tok_iter;
+
+    if (tok_iter == tokens.end())
+      vw_throw( ArgumentErr() << "Region argument is incomplete\n" );
+    opt.level = boost::lexical_cast<int>(*tok_iter);
+    ++tok_iter;
+
+    if (tok_iter != tokens.end())
+      vw_throw( ArgumentErr() << "Region argument has too many arguments\n" );
+  } else {
+    // Process everything!
+    opt.level = platefile->num_levels()-1;
+    int full = pow(2.0,opt.level);
+    int quarter = full/4;
+    opt.region_bbox = BBox2i(0,quarter,full-1,quarter*2-1);
+  }
+  vw_out() << "Processing: " << opt.region_bbox
+           << " at level " << opt.level << "\n";
 
   platefile->write_request();
-  platemanager.mipmap(platefile->num_levels()-1,
-                      affected_tiles, -1, false,
+  platemanager.mipmap(opt.level, opt.region_bbox, -1, false,
                       TerminalProgressCallback("photometrytk",
                                                "Mipmapping:") );
   platefile->write_complete();
@@ -49,6 +94,7 @@ void perform_mipmap( Options const& opt ) {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
+    ("region", po::value<std::string>(&opt.region), "where arg = <ul_x>,<ul_y>:<lr_x>,<lr_y>@<level> - Limit the snapshot to the region bounded by these upper left (ul) and lower right (lr) coordinates at the level specified.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
