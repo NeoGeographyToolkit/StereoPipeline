@@ -36,7 +36,7 @@ struct Options {
   bool seed_previous, disable_camera, disable_gcp,
     save_iteration, write_kml, all_kml, write_isis_cnet;
 
-  // Common Variables
+  // Common Variable
   std::vector<std::string> camera_serials;
   boost::shared_ptr<ControlNetwork> cnet;
   std::vector< boost::shared_ptr< IsisAdjustCameraModel > > camera_models;
@@ -357,6 +357,12 @@ int main(int argc, char* argv[]) {
             vw_throw( InputErr() << "ISIS Adjust doesn't seem to have a camera for serial, \""
                       << cm.serial() << "\", found in loaded Control Network" );
         }
+
+        // See if we need to triangulate the Control Point
+        if ( cp.position() == Vector3() ) {
+          triangulate_control_point( cp, camera_models,
+                                     8.726646E-2 ); // require 5 degrees
+        } // end cp check
       }
     } else {
       vw_out() << "Building Control Network:\n";
