@@ -162,6 +162,6 @@ use. Delete this section some time in the future.
   > echo *.tif | xargs -n1 echo |
       xargs -n1 -P10 phodrg2plate pf://ptk/project.ptk
   > echo {0..9} | xargs -n1 echo |
-      xargs -n1 -P10 -I{} phoinitalbedo -j {} -n 10 pf://ptk/project.ptk
+      xargs -n1 -P10 -I{} phoitalbedo -j {} -n 10 pf://ptk/project.ptk
   > mipmap pf://index/Albedo.plate
 \end{verbatim}
