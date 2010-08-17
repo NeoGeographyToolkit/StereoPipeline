@@ -194,7 +194,7 @@ int main(int argc, char* argv[]) {
         if (!opt.path_to_outside_model.empty())
           kml.append_model( opt.path_to_outside_model,
                             lon_lat_alt.x(), lon_lat_alt.y(),
-                            current_camera->camera_pose(Vector2()),
+                            inverse(current_camera->camera_pose(Vector2())),
                             camera_names[load_i], "",
                             lon_lat_alt.z()*opt.scale - 6371e3, opt.scale );
         else {
