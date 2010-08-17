@@ -62,6 +62,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("output,o", po::value(&opt.out_file)->default_value("orbit.kml"), "The output kml file that will be written")
     ("scale,s", po::value(&opt.scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount. Ex: To scale moon alt. measures up to earth size, use 3.66")
+    ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
     ("use_path_to_dae_model,u", po::value(&opt.path_to_outside_model), "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
     ("help,h", "Display this help message");
 
