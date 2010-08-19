@@ -48,8 +48,8 @@ struct Options {
   std::string stereo_session_string, path_to_outside_model;
 
   // Settings
-  double scale;
   bool loading_image_camera_order;
+  std::string datum;
 
   // Output
   std::string out_file;
@@ -61,8 +61,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("output,o", po::value(&opt.out_file)->default_value("orbit.kml"), "The output kml file that will be written")
-    ("scale,s", po::value(&opt.scale)->default_value(1.0), "Scale the size of the coordinate axes by this amount. Ex: To scale moon alt. measures up to earth size, use 3.66")
     ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
+    ("reference-spheroid,r", po::value(&opt.datum)->default_value("moon"), "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
     ("use_path_to_dae_model,u", po::value(&opt.path_to_outside_model), "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
     ("help,h", "Display this help message");
 
@@ -175,6 +175,20 @@ int main(int argc, char* argv[]) {
                              "plane_highlight" );
       }
 
+      // Load up datum
+      cartography::Datum datum;
+      if ( opt.datum == "mars" ) {
+	datum.set_well_known_datum("D_MARS");
+      } else if ( opt.datum == "moon" ) {
+	datum.set_well_known_datum("D_MOON");
+      } else if ( opt.datum == "wgs84" ) {
+	datum.set_well_known_datum("WGS84");
+      } else {
+	vw_out() << "Unknown spheriod request: " << opt.datum << "\n";
+	vw_out() << "->  Defaulting to WGS84\n";
+	datum.set_well_known_datum("WGS84");
+      }
+
       // Building Camera Models and then writing to KML
       for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
            load_i++) {
@@ -191,16 +205,18 @@ int main(int argc, char* argv[]) {
 
         // Adding Placemarks
         Vector3 lon_lat_alt = conv_func(current_camera->camera_center(Vector2()));
+	lon_lat_alt[2] -= datum.radius(lon_lat_alt[0], lon_lat_alt[1]);
+
         if (!opt.path_to_outside_model.empty())
           kml.append_model( opt.path_to_outside_model,
                             lon_lat_alt.x(), lon_lat_alt.y(),
                             inverse(current_camera->camera_pose(Vector2())),
                             camera_names[load_i], "",
-                            lon_lat_alt.z()*opt.scale - 6371e3, opt.scale );
+                            lon_lat_alt[2], 1 );
         else {
           kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
                                 camera_names[load_i], "", "camera_placemark",
-                                lon_lat_alt.z()*opt.scale - 6371e3, true );
+                                lon_lat_alt[2], true );
         }
 
         // Note to future programmer:
