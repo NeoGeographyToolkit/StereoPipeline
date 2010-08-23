@@ -136,6 +136,7 @@ StereoSettings::StereoSettings() {
   ASSOC_INT("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
 
   // Triangulation Options
+  ASSOC_STRING("UNIVERSE_CENTER", universe_center, "NONE", "center for radius measurements [CAMERA, ZERO, NONE]");
   ASSOC_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius, 0.0, "radius of inner boundary of universe [m]");
   ASSOC_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius, 0.0, "radius of outer boundary of universe [m]");
 

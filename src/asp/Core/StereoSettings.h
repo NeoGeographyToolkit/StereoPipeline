@@ -88,6 +88,7 @@ public:
                               than 0. (For use with apollo metric camera...) */
 
   // Triangulation Options
+  std::string universe_center; /* center for the radius clipping   */
   float near_universe_radius;  /* radius of the universe in meters */
   float far_universe_radius;   /* radius of the universe in meters */
 

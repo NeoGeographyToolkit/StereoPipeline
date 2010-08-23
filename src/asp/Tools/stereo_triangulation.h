@@ -68,10 +68,18 @@ namespace vw {
       //
       // We apply the universe radius here and then write the result
       // directly to a file on disk.
-      stereo::UniverseRadiusFunc universe_radius_func(camera_model1->camera_center(Vector2(0,0)),
-                                                      stereo_settings().near_universe_radius,
-                                                      stereo_settings().far_universe_radius);
-
+      stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
+      if ( stereo_settings().universe_center == "CAMERA" ) {
+        universe_radius_func =
+          stereo::UniverseRadiusFunc(camera_model1->camera_center(Vector2()),
+                                     stereo_settings().near_universe_radius,
+                                     stereo_settings().far_universe_radius);
+      } else if ( stereo_settings().universe_center == "ZERO" ) {
+        universe_radius_func =
+          stereo::UniverseRadiusFunc(Vector3(),
+                                     stereo_settings().near_universe_radius,
+                                     stereo_settings().far_universe_radius);
+      }
       ImageViewRef<Vector3> point_cloud =
         per_pixel_filter(stereo_image, universe_radius_func);
 
@@ -87,6 +95,7 @@ namespace vw {
         block_write_image(point_cloud_rsrc, point_cloud,
                           TerminalProgressCallback("asp", "\t--> Triangulating: "));
       vw_out() << "\t--> " << universe_radius_func;
+
     } catch (IOErr &e) {
       vw_throw( ArgumentErr() << "\nUnable to start at point cloud stage -- could not read input files.\n"
                 << e.what() << "\nExiting.\n\n" );
