@@ -370,12 +370,14 @@ int main(int argc, char* argv[]) {
       build_control_network( (*opt.cnet), camera_models,
                              opt.input_names,
                              opt.min_matches );
-      add_ground_control_points( (*opt.cnet), opt.input_names,
-                                 opt.gcp_names.begin(), opt.gcp_names.end() );
-      add_ground_control_cnets( (*opt.cnet), opt.input_names,
-                                opt.gcp_cnet_names.begin(),
-                                opt.gcp_cnet_names.end() );
     }
+
+    // Load up GCPs
+    add_ground_control_points( (*opt.cnet), opt.input_names,
+                               opt.gcp_names.begin(), opt.gcp_names.end() );
+    add_ground_control_cnets( (*opt.cnet), opt.input_names,
+                              opt.gcp_cnet_names.begin(),
+                              opt.gcp_cnet_names.end() );
 
     {
       vw_out() << "Applying serial numbers:\n";
