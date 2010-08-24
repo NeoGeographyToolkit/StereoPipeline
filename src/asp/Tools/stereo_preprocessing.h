@@ -114,7 +114,7 @@ namespace vw {
         trans = ransac( ransac_ip1, ransac_ip2 );
         vw_out(DebugMessage) << "\t    * Ransac Result: " << trans << std::endl;
         indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
-      } catch (...) {
+      } catch ( vw::math::RANSACErr const& e ) {
         vw_out() << "-------------------------------WARNING---------------------------------\n";
         vw_out() << "\t    RANSAC failed! Unable to auto detect search range.\n\n";
         vw_out() << "\t    Please proceed cautiously!\n";
