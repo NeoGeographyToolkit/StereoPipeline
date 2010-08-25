@@ -22,24 +22,17 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 #include <vw/Core.h>
-#include <vw/Image.h>
 #include <vw/Math.h>
-#include <vw/FileIO.h>
+#include <vw/FileIO/KML.h>
 #include <vw/Camera.h>
-#include <vw/Stereo.h>
 #include <vw/Cartography.h>
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::stereo;
 using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
-
 #include <asp/Sessions.h>
-
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-#include <asp/IsisIO/DiskImageResourceIsis.h>
-#endif
+#include <asp/IsisIO/IsisCameraModel.h>
 
 struct Options {
   Options() : loading_image_camera_order(true) {}
@@ -48,7 +41,7 @@ struct Options {
   std::string stereo_session_string, path_to_outside_model;
 
   // Settings
-  bool loading_image_camera_order;
+  bool loading_image_camera_order, write_csv;
   std::string datum;
 
   // Output
@@ -63,7 +56,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output,o", po::value(&opt.out_file)->default_value("orbit.kml"), "The output kml file that will be written")
     ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
     ("reference-spheroid,r", po::value(&opt.datum)->default_value("moon"), "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
-    ("use_path_to_dae_model,u", po::value(&opt.path_to_outside_model), "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
+    ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model), "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
+    ("write-csv", "write a csv file with the orbital the data.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
@@ -103,6 +97,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
        (opt.loading_image_camera_order && opt.input_files.size() < 2) )
     vw_throw( ArgumentErr() << usage.str() << general_options );
 
+  opt.write_csv = vm.count("write-csv");
 
   // Look up for session type based on file extensions
   if (opt.stereo_session_string.empty()) {
@@ -129,15 +124,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 }
 
 int main(int argc, char* argv[]) {
-
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  // Register the Isis file handler with the Vision Workbench
-  // DiskImageResource system.
-  DiskImageResource::register_file_type(".cub",
-                                        DiskImageResourceIsis::type_static(),
-                                        &DiskImageResourceIsis::construct_open,
-                                        &DiskImageResourceIsis::construct_create);
-#endif
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
@@ -178,16 +164,18 @@ int main(int argc, char* argv[]) {
       // Load up datum
       cartography::Datum datum;
       if ( opt.datum == "mars" ) {
-	datum.set_well_known_datum("D_MARS");
+        datum.set_well_known_datum("D_MARS");
       } else if ( opt.datum == "moon" ) {
-	datum.set_well_known_datum("D_MOON");
+        datum.set_well_known_datum("D_MOON");
       } else if ( opt.datum == "wgs84" ) {
-	datum.set_well_known_datum("WGS84");
+        datum.set_well_known_datum("WGS84");
       } else {
-	vw_out() << "Unknown spheriod request: " << opt.datum << "\n";
-	vw_out() << "->  Defaulting to WGS84\n";
-	datum.set_well_known_datum("WGS84");
+        vw_out() << "Unknown spheriod request: " << opt.datum << "\n";
+        vw_out() << "->  Defaulting to WGS84\n";
+        datum.set_well_known_datum("WGS84");
       }
+
+      std::ofstream csv_file("orbit_positions.csv");
 
       // Building Camera Models and then writing to KML
       for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
@@ -203,9 +191,23 @@ int main(int argc, char* argv[]) {
           read_i++;
         }
 
+        if ( opt.write_csv ) {
+          csv_file << opt.input_files[read_i] << ", ";
+
+          boost::shared_ptr<IsisCameraModel> isis_cam =
+            boost::shared_dynamic_cast<IsisCameraModel>(current_camera);
+          if ( isis_cam != NULL ) {
+            csv_file << isis_cam->serial_number() << ", ";
+          }
+          Vector3 xyz = current_camera->camera_center(Vector2());
+          csv_file << std::setprecision(12);
+          csv_file << xyz[0] << ", "
+                   << xyz[1] << ", " << xyz[2] << "\n";
+        }
+
         // Adding Placemarks
         Vector3 lon_lat_alt = conv_func(current_camera->camera_center(Vector2()));
-	lon_lat_alt[2] -= datum.radius(lon_lat_alt[0], lon_lat_alt[1]);
+        lon_lat_alt[2] -= datum.radius(lon_lat_alt[0], lon_lat_alt[1]);
 
         if (!opt.path_to_outside_model.empty())
           kml.append_model( opt.path_to_outside_model,
@@ -219,10 +221,9 @@ int main(int argc, char* argv[]) {
                                 lon_lat_alt[2], true );
         }
 
-        // Note to future programmer:
-        // 6371e3 meters is the radius of earth. Everything in GE appears to measured against this radius
       }
 
+      csv_file.close();
       kml.close_kml();
   } ASP_STANDARD_CATCHES;
 
