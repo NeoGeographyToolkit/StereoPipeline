@@ -172,7 +172,7 @@ int main( int argc, char** argv ) {
       src_map_type src_cam_idx_to_serial;
       float inc_amt = 1.0/float(src_cnet.size());
       {
-        TerminalProgressCallback tpc("",source_cnet+" Idx:");
+        TerminalProgressCallback tpc("cnet",source_cnet+" Idx:");
         BOOST_FOREACH( ControlPoint const& cp, src_cnet ) {
           tpc.report_incremental_progress( inc_amt );
           BOOST_FOREACH( ControlMeasure const& cm, cp ) {
@@ -185,7 +185,7 @@ int main( int argc, char** argv ) {
       }
 
       {
-        TerminalProgressCallback tpc("",source_cnet+" Merge:");
+        TerminalProgressCallback tpc("cnet",source_cnet+" Merge:");
         BOOST_FOREACH( ControlPoint const& cp, src_cnet ) {
           tpc.report_incremental_progress(inc_amt );
 

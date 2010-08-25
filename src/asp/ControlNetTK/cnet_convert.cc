@@ -99,7 +99,7 @@ int main( int argc, char** argv) {
     std::map<std::string,int> serial_to_id;
     if ( opt.convert_serial_to_name ) {
       {
-        TerminalProgressCallback tpc( "", "Loading Cameras:" );
+        TerminalProgressCallback tpc( "cnet", "Loading Cameras:" );
         std::ifstream list_of_cubes(opt.camera_list_file.c_str());
         std::string buf;
         int count = 0;

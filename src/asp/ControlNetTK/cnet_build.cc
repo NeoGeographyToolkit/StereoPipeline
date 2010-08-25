@@ -118,10 +118,14 @@ int main( int argc, char* argv[] ) {
     std::vector< boost::shared_ptr<CameraModel> > camera_models;
     opt.serial_names.clear();
     vw_out() << "Loading Camera Models\n";
+    TerminalProgressCallback tpc("cnet","");
+    double inc_amt = 1.0/double(opt.input_names.size());
     BOOST_FOREACH( std::string const& name, opt.input_names ) {
+      tpc.report_incremental_progress(inc_amt);
       camera_models.push_back( boost::shared_ptr<CameraModel>( new IsisCameraModel(name) ));
       opt.serial_names.push_back( boost::shared_dynamic_cast<IsisCameraModel>(camera_models.back())->serial_number() );
     }
+    tpc.report_finished();
 
     vw_out() << "Building Control Network\n";
     ControlNetwork cnet( "ControlNetworkTK" );
@@ -134,8 +138,11 @@ int main( int argc, char* argv[] ) {
                               opt.gcp_cnet_names.end() );
 
     vw_out() << "Applying Serial Numbers\n";
+    tpc.report_progress(0);
+    inc_amt = 1.0/double(cnet.size());
     // Applying serial numbers
     BOOST_FOREACH( ControlPoint & cp, cnet ) {
+      tpc.report_incremental_progress(inc_amt);
       BOOST_FOREACH( ControlMeasure & cm, cp ) {
         if ( cm.ephemeris_time() == 0 ) {
           cm.set_description( "px" );
@@ -144,6 +151,7 @@ int main( int argc, char* argv[] ) {
         }
       }
     }
+    tpc.report_finished();
 
     vw_out() << "Saving Control Network\n";
     if ( opt.cnet_output_type == "isis" ) {
