@@ -151,3 +151,22 @@ pick our created control network \emph{asp\_control.net}.
 \begin{center}
 \includegraphics[height=3.7in]{images/cnettk_qnet_screen.png}
 \end{center}
+
+Occasionally you might find yourself not quite satisfied with results
+of Control Network Toolkit. Don't worry, we won't take it
+personally. However there are still some options available to you. You
+could do manual tie point additions with \texttt{qnet}. However, this
+can be a slow and scary process if you need to load up the entire
+control network. Instead you can just load up the problem images and
+do manual tie pointing. Then afterwards you could merge this smaller
+control network with the large control network you created with
+\texttt{cnet\_merge}.
+
+\begin{verbatim}
+    ASP   > cnet_merge large.cnet small.net -o larger.cnet
+\end{verbatim}
+
+The above command will create an even larger control network which
+contains both \emph{large.cnet} and \emph{small.net}. This is helpful
+for filling in those spots where the automatic control network failed
+to work.
