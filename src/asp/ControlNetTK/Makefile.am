@@ -26,7 +26,13 @@ reduce_match_LDADD   = $(CNETTK_LOCAL_LIBS)
 cnet_build_SOURCES = cnet_build.cc
 cnet_build_LDADD   = $(CNETTK_LOCAL_LIBS)
 
-bin_PROGRAMS = reduce_match cnet_build
+cnet_convert_SOURCES = cnet_convert.cc
+cnet_convert_LDADD   = $(CNETTK_LOCAL_LIBS)
+
+cnet_merge_SOURCES   = cnet_merge.cc
+cnet_merge_LDADD     = $(CNETTK_LOCAL_LIBS)
+
+bin_PROGRAMS = reduce_match cnet_build cnet_convert cnet_merge
 
 endif
 
