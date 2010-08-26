@@ -340,8 +340,8 @@ int main( int argc, char *argv[] ) {
     //DEM sub 4 by Taemin 
     //modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
     //modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM2.tif";
-    //modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4_old" + prefix_less3_from_filename(temp) + "DEM2.tif";
-    modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4_aranew" + prefix_less3_from_filename(temp) + "DEM_out.tif";
+    modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4_old" + prefix_less3_from_filename(temp) + "DEM2.tif";
+    //modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4_aranew" + prefix_less3_from_filename(temp) + "DEM_out.tif";
 
     //sfsDEM and errorheight by Josh
     modelParamsArray[i].sfsDEMFilename = homeDir + resDir + "/DEM_sfs" + prefix_less3_from_filename(temp) + "sfsDEM_out.tif";
