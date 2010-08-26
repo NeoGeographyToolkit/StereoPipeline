@@ -69,9 +69,6 @@ void equalization( std::vector<vw::ip::InterestPoint>& l_ip,
     return;
   }
 
-  //TerminalProgressCallback progress;
-  //progress.report_progress(0);
-
   // Reducing to an even distribution
   std::cout << "Building Bounding Boxes:\n";
   BBox2i total_bbox;
@@ -95,13 +92,10 @@ void equalization( std::vector<vw::ip::InterestPoint>& l_ip,
     count += b_ip1[b].size();
 
   // Remove until less that max
-  //int diff = count - max_points;
   while ( count > max_points ) {
-    //progress.report_progress(1-float(count-max_points)/float(diff));
     remove_max( b_ip1, b_ip2 );
     count--;
   }
-  //progress.report_finished();
 
   // Reorganize back into correct form
   l_ip.clear();
