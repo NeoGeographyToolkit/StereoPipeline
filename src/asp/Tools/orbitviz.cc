@@ -32,7 +32,10 @@ using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
 #include <asp/Sessions.h>
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/IsisIO/IsisCameraModel.h>
+#endif
 
 struct Options {
   Options() : loading_image_camera_order(true) {}
@@ -194,11 +197,14 @@ int main(int argc, char* argv[]) {
         if ( opt.write_csv ) {
           csv_file << opt.input_files[read_i] << ", ";
 
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
           boost::shared_ptr<IsisCameraModel> isis_cam =
             boost::shared_dynamic_cast<IsisCameraModel>(current_camera);
           if ( isis_cam != NULL ) {
             csv_file << isis_cam->serial_number() << ", ";
           }
+#endif
+
           Vector3 xyz = current_camera->camera_center(Vector2());
           csv_file << std::setprecision(12);
           csv_file << xyz[0] << ", "
