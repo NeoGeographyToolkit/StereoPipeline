@@ -56,10 +56,14 @@ struct Options {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("output,o", po::value(&opt.out_file)->default_value("orbit.kml"), "The output kml file that will be written")
-    ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
-    ("reference-spheroid,r", po::value(&opt.datum)->default_value("moon"), "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
-    ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model), "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
+    ("output,o", po::value(&opt.out_file)->default_value("orbit.kml"),
+     "The output kml file that will be written")
+    ("session-type,t", po::value(&opt.stereo_session_string),
+     "Select the stereo session type to use for processing. [options: pinhole isis]")
+    ("reference-spheroid,r", po::value(&opt.datum)->default_value("moon"),
+     "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
+    ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
+     "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
     ("write-csv", "write a csv file with the orbital the data.")
     ("help,h", "Display this help message");
 
@@ -179,23 +183,22 @@ int main(int argc, char* argv[]) {
       }
 
       std::ofstream csv_file("orbit_positions.csv");
+      if ( !csv_file.is_open() )
+	vw_throw( IOErr() << "Unable to open output file.\n" );
 
       // Building Camera Models and then writing to KML
       for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
            load_i++) {
         boost::shared_ptr<camera::CameraModel> current_camera;
-        if (opt.loading_image_camera_order) {
+        if (opt.loading_image_camera_order)
           current_camera = session->camera_model( opt.input_files[read_i],
                                                   opt.input_files[read_i+1] );
-          read_i+=2;
-        } else {
+	else
           current_camera = session->camera_model( opt.input_files[read_i],
                                                   opt.input_files[read_i] );
-          read_i++;
-        }
-
+	
         if ( opt.write_csv ) {
-          csv_file << opt.input_files[read_i] << ", ";
+          csv_file << camera_names[load_i] << ", ";
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
           boost::shared_ptr<IsisCameraModel> isis_cam =
@@ -227,6 +230,8 @@ int main(int argc, char* argv[]) {
                                 lon_lat_alt[2], true );
         }
 
+	// Increment
+	read_i += opt.loading_image_camera_order ? 2 : 1;
       }
 
       csv_file.close();
