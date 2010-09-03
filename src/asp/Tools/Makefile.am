@@ -119,6 +119,12 @@ if MAKE_APP_HSVMERGE
   hsv_merge_LDADD = $(APP_HSVMERGE_LIBS)
 endif
 
+if MAKE_APP_ISISADJUSTWRITE
+  bin_PROGRAMS += isis_adjust_write
+  isis_adjust_write_SOURCES = isis_adjust_write.cc
+  isis_adjust_write_LDADD   = $(APP_ISISADJUSTWRITE_LIBS)
+endif
+
 ##############################################################################
 #                             Tests                                          #
 ##############################################################################
