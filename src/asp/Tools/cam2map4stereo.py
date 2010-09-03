@@ -17,8 +17,9 @@ but takes two input images.  With no arguments, the program determines
 the minimum overlap of the two images, and the worst common resolution,
 and then map-projects the two images to this identical area and resolution.
 
-If you want to change the default output file naming scheme, you'll have to
-edit the code, but you'll only have to change the mapfile routine.
+Using the --lat and --lon options allows you to select portions of
+the image, ideal for small initial test runs or cropping out just
+that portion of the image you need.
 '''
     sys.exit()
 
@@ -38,12 +39,12 @@ class ImgInfo:
         self.minlon = None
         self.maxlon = None
 
-def mapfile( cube ):
+def mapfile( cube, suffix ):
     items = cube.split('.')
-    mapname = items[0] + '.map.cub'
+    mapname = '.'.join([items[0], suffix, 'cub'])
 
     if( os.path.exists(mapname) ):
-        items.insert(len(items)-1, 'map')
+        items.insert(len(items)-1, suffix)
         mapname = '.'.join(items)
 
         if( os.path.exists(mapname) ):
@@ -83,10 +84,11 @@ def camrange( cube ):
 def main():
     try:
         try:
-            usage = "usage: cam2map4stereo.py [--help][--manual][--map mapfile][--pixres CAMERA|MAP|MPP|PPD][--resolution float][--interp NN|BI|CC][--lat min:max][--lon min:max] image1.cub image2.cub "
+            usage = "usage: cam2map4stereo.py [--help][--manual][--map mapfile][--pixres CAMERA|MAP|MPP|PPD][--resolution float][--interp NN|BI|CC][--lat min:max][--lon min:max][--suffix string] image1.cub image2.cub "
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(dryrun=False)
             parser.set_defaults(pixres='MPP')
+            parser.set_defaults(suffix='map')
             parser.add_option("--manual", action="callback", callback=man,
                               help="Read the manual.")
             parser.add_option("-m", "--map", dest="map",
@@ -101,6 +103,8 @@ def main():
                               help="Latitude range for cam2map.")
             parser.add_option("-o", "--lon", dest="lon", 
                               help="Longitude range for cam2map.")
+            parser.add_option("-s", "--suffix", dest="suffix", 
+                              help="Suffix that gets inserted in the output file names.")
             parser.add_option("-n", "--dry-run", dest="dryrun", 
                               action="store_true", 
                               help="Make calculations, but print cam2map command, but don't actually run it.")
@@ -136,7 +140,7 @@ def main():
         
         # call cam2map with the arguments
 
-        cam2map = ['cam2map', 'from=' + args[0], 'to='+ mapfile( args[0] )]
+        cam2map = ['cam2map', 'from=' + args[0], 'to='+ mapfile( args[0], options.suffix )]
 
         if( options.map ):
             cam2map.append( 'map=' + options.map )
@@ -163,7 +167,7 @@ def main():
 
         # Run for second image  
         cam2map[1] = 'from=' + args[1]
-        cam2map[2] = 'to='+ mapfile( args[1] )
+        cam2map[2] = 'to='+ mapfile( args[1], options.suffix )
         cam2map_cmd = ' '.join(cam2map)
         if( options.dryrun ):
             print cam2map_cmd
@@ -173,12 +177,12 @@ def main():
         print "Finished"
         return 0
 
-    except Usage as err:
+    except Usage, err:
         print >>sys.stderr, err.msg
         # print >>sys.stderr, "for help use --help"
         return 2
 
-    except MapExists as e:
+    except MapExists, e:
         print >>sys.stderr, 'The file '+ e.msg +' already exists, delete first.'
         return 3
 
