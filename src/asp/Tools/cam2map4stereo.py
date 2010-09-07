@@ -100,9 +100,9 @@ def main():
             parser.add_option("-i", "--interp", dest="interp", 
                               help="Pixel interpolation scheme for cam2map.")
             parser.add_option("-a", "--lat", dest="lat", 
-                              help="Latitude range for cam2map.")
+                              help="Latitude range for cam2map where LAT is minlat:maxlat.")
             parser.add_option("-o", "--lon", dest="lon", 
-                              help="Longitude range for cam2map.")
+                              help="Longitude range for cam2map where LON is minlon:maxlon.")
             parser.add_option("-s", "--suffix", dest="suffix", 
                               help="Suffix that gets inserted in the output file names.")
             parser.add_option("-n", "--dry-run", dest="dryrun", 
