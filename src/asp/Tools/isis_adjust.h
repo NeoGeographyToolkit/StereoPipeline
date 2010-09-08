@@ -181,15 +181,6 @@ public:
     ostr.close();
   }
 
-  std::vector< boost::shared_ptr< vw::camera::CameraModel > >
-  adjusted_cameras() const {
-    std::vector< boost::shared_ptr<vw::camera::CameraModel> > cameras;
-    for ( unsigned i = 0; i < m_cameras.size(); i++) {
-      cameras.push_back(boost::shared_dynamic_cast<vw::camera::CameraModel>(m_cameras[i]));
-    }
-    return cameras;
-  }
-
   boost::shared_ptr< vw::camera::IsisAdjustCameraModel >
   adjusted_camera( int j ) const {
     // Adjusting position and pose equations
@@ -203,6 +194,14 @@ public:
       (*poseF)[n] = a[j][n + posF->size()];
 
     return m_cameras[j];
+  }
+
+  std::vector< boost::shared_ptr< vw::camera::CameraModel > >
+  adjusted_cameras() const {
+    std::vector< boost::shared_ptr<vw::camera::CameraModel> > cameras;
+    for ( unsigned j = 0; j < m_cameras.size(); j++)
+      cameras.push_back( adjusted_camera(j) );
+    return cameras;
   }
 
   // Given the 'a' vector ( camera model paramters ) for the j'th
@@ -223,15 +222,6 @@ public:
       (*posF)[n] = a_j[n];
     for (unsigned n = 0; n < poseF->size(); ++n)
       (*poseF)[n] = a_j[n + posF->size()];
-
-    // Determine what time to use for the camera forward
-    // projection. Sorry that this is a search, I don't have a better
-    // idea. :/
-    int m = 0;
-    while ( (*m_network)[i][m].image_id() != int(j) )
-      m++;
-    if ( int(j) != (*m_network)[i][m].image_id() )
-      vw_throw( vw::LogicErr() << "ISIS Adjust: Failed to find measure matching camera id." );
 
     // Performing the forward projection. This is specific to the
     // IsisAdjustCameraModel. The first argument is really just

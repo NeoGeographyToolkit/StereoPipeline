@@ -63,7 +63,6 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
     bundle_adjuster.set_control( 1 ); // Shutting off fast Fletcher-style control
   if ( opt.seed_previous ) {
     vw_out() << "Seeding with previous ISIS adjustment files.\n";
-    vw_out() << "\tLoading up previous ISIS adjustments\n";
     for (unsigned j = 0; j < opt.input_names.size(); ++j ) {
       std::string adjust_file =
         fs::path( opt.input_names[j] ).replace_extension("isis_adjust").string();
@@ -86,56 +85,20 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
 	for ( unsigned i = 0; i < pose_eq->size(); i++, insert_i++ )
 	  camera_vector[insert_i] = (*pose_eq)[i];
         ba_model.set_A_parameters( j, camera_vector );
-
-        // Store new A_vector into the ISIS Adjust Camera Models we
-        // use.
-        boost::shared_ptr<IsisAdjustCameraModel> temp = ba_model.adjusted_camera(j);
-        // The above command indirectly stores the current A_vector
-        // into the camera model
       }
     }
 
     // Retriangulating position of control points in control network
-    {
-      std::vector<boost::shared_ptr<CameraModel> > cameras = ba_model.adjusted_cameras();
-      for ( ControlNetwork::iterator cp = opt.cnet->begin();
-            cp != opt.cnet->end(); ++cp ) {
-        if ( cp->type() != ControlPoint::TiePoint )
-          continue; // We don't move GCPs, this seems correct.
-        int count = 0;
-        Vector3 estimate3d(0,0,0);
-        // Running permutation of all measures
-        for ( ControlPoint::const_iterator m1 = (*cp).begin()+1;
-              m1 != (*cp).end(); ++m1 ) {
-          for ( ControlPoint::const_iterator m2 = (*cp).begin();
-                m2 != m1; ++m2 ) {
-            stereo::StereoModel sm( cameras[m1->image_id()].get(),
-                                    cameras[m2->image_id()].get() );
-            double error;
-            Vector3 triangulation = sm( m1->position(),
-                                        m2->position(),
-                                        error );
-            if ( triangulation != Vector3() ) {
-              count++;
-              estimate3d += triangulation;
-              // Do I want to do anything with the error?
-            } else
-              vw_out(DebugMessage, "bundle_adjustment") << "Error: Failed at retriangulation.\n";
-          }
-        }
-
-        estimate3d /= count;
-        cp->set_position( estimate3d );
-      }
+    std::vector<boost::shared_ptr<CameraModel> > camera_models = ba_model.adjusted_cameras();
+    BOOST_FOREACH( ControlPoint & cp, *opt.cnet ) {
+      triangulate_control_point( cp, camera_models,
+				 8.726646E-2 ); // require 5 degrees
     }
 
     // Repushing the position in control network into BA model
-    {
-      vw_out() << "\tPush new triangulation results back into BA model\n";
-
-      for ( unsigned i = 0; i < opt.cnet->size(); ++i )
-        ba_model.set_B_parameters( i, (*opt.cnet)[i].position() );
-    }
+    vw_out() << "\tPush new triangulation results back into BA model\n";
+    for ( unsigned i = 0; i < opt.cnet->size(); ++i )
+      ba_model.set_B_parameters( i, (*opt.cnet)[i].position() );
   }
 
   // Clearing the monitoring text files
