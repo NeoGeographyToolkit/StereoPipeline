@@ -70,12 +70,21 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
 
       // Loading and forcing in the adjustment
       if ( fs::exists( adjust_file ) ) {
-        vw_out() << "\t\tFound: " << adjust_file << std::endl;
+	// Reading in isis_adjust file
         std::ifstream input( adjust_file.c_str() );
+	boost::shared_ptr<asp::BaseEquation> position_eq = asp::read_equation(input);
+	boost::shared_ptr<asp::BaseEquation> pose_eq = asp::read_equation(input);
+	input.close();
         Vector<double> camera_vector = ba_model.A_parameters( j );
-        for ( unsigned n = 0; n < camera_vector.size(); n++ )
-          input >> camera_vector[n];
-        input.close();
+	if ( camera_vector.size() != pose_eq->size()+position_eq->size() )
+	  vw_throw( IOErr() << "Isis Adjust files have incorrect number parameters for BA session." );
+
+	// Apply said contents to BA's A state
+	unsigned insert_i = 0;
+	for ( unsigned i = 0; i < position_eq->size(); i++, insert_i++ )
+	  camera_vector[insert_i] = (*position_eq)[i];
+	for ( unsigned i = 0; i < pose_eq->size(); i++, insert_i++ )
+	  camera_vector[insert_i] = (*pose_eq)[i];
         ba_model.set_A_parameters( j, camera_vector );
 
         // Store new A_vector into the ISIS Adjust Camera Models we
