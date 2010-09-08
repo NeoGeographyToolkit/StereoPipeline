@@ -5,7 +5,7 @@
 # All Rights Reserved.
 # __END_LICENSE__
 
-import optparse, sys, subprocess, math;
+import optparse, sys, subprocess, math, os;
 from math import cos, sin;
 
 class Usage(Exception):
@@ -59,44 +59,29 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
+        isis_position_extract = os.path.realpath(__file__)
+        isis_position_extract = isis_position_extract[:isis_position_extract.rfind("/")] + "/../libexec/isis_position_extract"
+
         image_lat = dict()
         image_lon = dict()
 
-        for i in range(0,len(args)):
-            # First find out size of the image
-            cmd = "catlab from="+args[i];
-            p = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE);
-            cmd_return = p.stdout.readlines();
-            group = ""
-            samples = ""
-            lines = ""
-            for line in cmd_return:
-                if line.find("Group = ") >= 0:
-                    group = line.split()[2]
-                if line.find("Samples") >= 0 and group == "Dimensions":
-                    samples = line.split()[2]
-                if line.find("Lines") >= 0 and group == "Dimensions":
-                    lines = line.split()[2]
-                    continue;
-            center_sample = float(samples)/2;
-            center_line =   float(lines)/2;
-
+        step_size = 1;
+        if ( args[1].rfind(".isis_adjust") >= 0 ):
+            step_size = 2;
+        for i in range(0,len(args),step_size):
             # Fetching the Lat Long of the center pixel - We could at
             # some point fetch the corners and do something more
             # interesting
             latitude = ""
             longitude = ""
-            cmd = "campt from="+args[i]+" line="+str(center_line)+" sample="+str(center_sample);
+            cmd = isis_position_extract+" "+args[i];
+            if ( step_size > 1):
+                cmd = cmd+" "+args[i+1]
             p = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE);
-            cmd_return = p.stdout.readlines();
-            for line in cmd_return:
-                if line.find("PlanetocentricLatitude") >= 0:
-                    latitude = line.split()[2]
-                if line.find("PositiveWest360Longitude") >= 0:
-                    longitude = line.split()[2]
+            cmd_return = p.stdout.readline().strip();
 
-            image_lat[args[i]] = float(latitude)
-            image_lon[args[i]] = float(longitude)
+            image_lat[args[i]] = float(cmd_return.split()[1])
+            image_lon[args[i]] = float(cmd_return.split()[0])
 
         # Performing second pass to figure out what images appear to
         # be side by side.

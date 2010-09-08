@@ -32,7 +32,11 @@ cnet_convert_LDADD   = $(CNETTK_LOCAL_LIBS)
 cnet_merge_SOURCES   = cnet_merge.cc
 cnet_merge_LDADD     = $(CNETTK_LOCAL_LIBS)
 
+isis_position_extract_SOURCES = isis_position_extract.cc
+isis_position_extract_LDADD   = $(CNETTK_LOCAL_LIBS)
+
 bin_PROGRAMS = reduce_match cnet_build cnet_convert cnet_merge
+libexec_PROGRAMS = isis_position_extract
 
 endif
 
