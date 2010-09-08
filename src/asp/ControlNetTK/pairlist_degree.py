@@ -7,6 +7,7 @@
 
 import optparse, sys, subprocess, math, os;
 from math import cos, sin;
+from multiprocessing import Pool
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -40,6 +41,14 @@ def angle_diffd( lat_s, lat_f, lon_s, lon_f ):
                                    math.radians(lon_s),
                                    math.radians(lon_f)))
 
+def extract_camera_position_func(cmd):
+    p = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE);
+    cmd_return = p.stdout.readline().strip();
+
+    lon = float(cmd_return.split()[0])
+    lat = float(cmd_return.split()[1])
+    return [cmd.split()[1], lon, lat ]
+
 def main():
     try:
         try:
@@ -47,10 +56,13 @@ def main():
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(angle=6)
             parser.set_defaults(ext="")
+            parser.set_defaults(threads=4)
             parser.add_option("-a", "--angle", dest="angle",
                               help="Max degree seperation between images.", type="float")
             parser.add_option("--iextension", dest="ext",
                               help="Output extension to use.", type="string")
+            parser.add_option("-t", "--threads", dest="threads",
+                              help="Number of threads to use.", type="int")
 
             (options,args) = parser.parse_args()
 
@@ -62,12 +74,13 @@ def main():
         isis_position_extract = os.path.realpath(__file__)
         isis_position_extract = isis_position_extract[:isis_position_extract.rfind("/")] + "/../libexec/isis_position_extract"
 
-        image_lat = dict()
-        image_lon = dict()
+        image_lonlat = dict()
 
+        # Building position extraction commands
         step_size = 1;
         if ( args[1].rfind(".isis_adjust") >= 0 ):
             step_size = 2;
+        position_extract_cmds = []
         for i in range(0,len(args),step_size):
             # Fetching the Lat Long of the center pixel - We could at
             # some point fetch the corners and do something more
@@ -77,20 +90,23 @@ def main():
             cmd = isis_position_extract+" "+args[i];
             if ( step_size > 1):
                 cmd = cmd+" "+args[i+1]
-            p = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE);
-            cmd_return = p.stdout.readline().strip();
+            position_extract_cmds.append(cmd)
 
-            image_lat[args[i]] = float(cmd_return.split()[1])
-            image_lon[args[i]] = float(cmd_return.split()[0])
+        # Processing extraction commands
+        pool = Pool(processes=options.threads)
+        results = [pool.apply_async(extract_camera_position_func, (cmd,)) for cmd in position_extract_cmds]
+        for result in results:
+            output = result.get()
+            image_lonlat[output[0]] = [output[1], output[2]]
 
         # Performing second pass to figure out what images appear to
         # be side by side.
-        for i in range(0,len(args)-1):
-            for j in range(i+1,len(args)):
-                angle = angle_diffd(image_lat[args[i]],
-                                    image_lat[args[j]],
-                                    image_lon[args[i]],
-                                    image_lon[args[j]])
+        for i in range(0,len(args)-step_size,step_size):
+            for j in range(i+step_size,len(args),step_size):
+                l_lonlat = image_lonlat[args[i]]
+                r_lonlat = image_lonlat[args[j]]
+                angle = angle_diffd(l_lonlat[1], r_lonlat[1],
+                                    l_lonlat[0], r_lonlat[0])
                 if ( angle < options.angle ):
                     if ""==options.ext:
                         print args[i]+" "+args[j]
