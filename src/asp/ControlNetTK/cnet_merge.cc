@@ -200,6 +200,10 @@ int main( int argc, char** argv ) {
                                     src_cam_idx_to_serial,
                                     dst_serial_to_cam_idx,
                                     dst_max_cam_idx );
+
+	  if ( dst_index1 == dst_crn.size() )
+	    dst_crn.add_node( CameraNode<IPFeature>(dst_index1,"") );
+
           f_itr dst_feature1;
           if ( opt.close < 0 ) {
             dst_feature1 = std::find_if( dst_crn[dst_index1].begin(),
@@ -220,6 +224,10 @@ int main( int argc, char** argv ) {
                                       src_cam_idx_to_serial,
                                       dst_serial_to_cam_idx,
                                       dst_max_cam_idx );
+
+	    if ( dst_index2 == dst_crn.size() )
+	      dst_crn.add_node( CameraNode<IPFeature>(dst_index2,"") );
+
             f_itr dst_feature2;
             if ( opt.close < 0 ) {
               dst_feature2 = std::find_if( dst_crn[dst_index2].begin(),
