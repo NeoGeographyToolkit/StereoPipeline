@@ -467,17 +467,18 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
 Download the \ac{CTX} images P02\_001981\_1823\_XI\_02N356W.IMG and
 P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
-\begin{verbatim}
+\begin{Verbatim}[commandchars=\\\{\}]
   ISIS 3> mroctx2isis from=P02_001981_1823_XI_02N356W.IMG to=P02_001981_1823.cub
   ISIS 3> mroctx2isis from=P03_002258_1817_XI_01N356W.IMG to=P03_002258_1817.cub
   ISIS 3> spiceinit from=P02_001981_1823.cub
   ISIS 3> spiceinit from=P03_002258_1817.cub
   ISIS 3> ctxcal from=P02_001981_1823.cub to=P02_001981_1823.cal.cub
   ISIS 3> ctxcal from=P03_002258_1817.cub to=P03_002258_1817.cal.cub
+    \textnormal{you can also optionally run} ctxevenodd \textnormal{on the} cal.cub \textnormal{files, if needed}
   ISIS 3> cam2map4stereo.py P02_001981_1823.cal.cub P03_002258_1817.cal.cub
   ISIS 3> mkdir result
   ISIS 3> stereo P02_001981_1823.map.cub P03_002258_1817.map.cub results/out
-\end{verbatim}
+\end{Verbatim}
 
 \vfill
 

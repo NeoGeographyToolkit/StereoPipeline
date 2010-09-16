@@ -312,13 +312,15 @@ Options & Description \\ \hline \hline
 %% \verb#-d arg (=29)# & Set the debugging output level. (0-50+) \\ \hline
 %% \end{longtable}
 
+\clearpage
+
 \section{orbitviz}
 \label{orbitviz}
 
 Produces a Google Earth \ac{KML} file useful for visualizing camera
 position. The input for this tool is one or more \texttt{*.cub} files.
 
-\begin{figure}[!t]
+\begin{figure}[!b]
   \begin{center}
   \includegraphics[width=6in]{images/orbitviz_ge_result.png}
   \end{center}
@@ -411,6 +413,8 @@ Options & Description \\ \hline \hline
 %% \verb# -r arg (=10)# & Changes the detail of the Bundle Adjustment Report ( values range from 0 to 100 ). \\ \hline
 %% \end{longtable}
 
+\clearpage
+
 \section{bundlevis}
 \label{bundlevis}
 
@@ -439,6 +443,8 @@ Options & Description \\ \hline \hline
 \texttt{-\/-show-mars} & Draw a wireframe mars \\ \hline
 \texttt{-\/-show-earth} & Draw a wireframe earth \\ \hline
 \end{longtable}
+
+\clearpage
 
 \section{cam2map4stereo.py}
 \label{cam2map4stereo}
@@ -473,6 +479,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-lat=\textit{LAT}|-a \textit{LAT}} & Latitude range for \texttt{cam2map}, where \texttt{LAT} is of the form \textit{min:max}.  So to specify a latitude range between -5 and 10 degrees, it would look like \texttt{-\/-lat=-5:10}. \\ \hline
 \texttt{-\/-lon=\textit{LON}|-o \textit{LON}} & Longitude range for \texttt{cam2map}, where \texttt{LON} is of the form \textit{min:max}.  So to specify a longitude range between 45 and 47 degrees, it would look like \texttt{-\/-lon=40:47}. \\ \hline
 \texttt{-\/-dry-run|-n} & Make calculations, and print the \texttt{cam2map} command that would be executed, but don't actually run it.\\ \hline
+\texttt{-\/-suffix|-s} & Suffix that gets inserted in the output file names, defaults to `map'.\\ \hline
 \end{longtable}
 
 
