@@ -118,6 +118,9 @@ src/asp/PhotometryTK/tests/*.ptk*
 # Control Network Toolkit
 src/asp/ControlNetTK/reduce_match
 src/asp/ControlNetTK/cnet_build
+src/asp/ControlNetTK/cnet_convert
+src/asp/ControlNetTK/cnet_merge
+src/asp/ControlNetTK/isis_position_extract
 
 # Doc
 docs/book/*aux
