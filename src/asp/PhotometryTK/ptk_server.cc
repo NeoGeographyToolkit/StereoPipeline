@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  std::string queue_name = AmqpRpcClient::UniqueQueueName("ptk_server");
+  std::string queue_name = unique_name("ptk_server");
 
   boost::shared_ptr<AmqpConnection> connection( new AmqpConnection(hostname, port) );
   boost::shared_ptr<AmqpRpcServer> server( new AmqpRpcServer(connection, exchange_name, 

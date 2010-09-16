@@ -18,6 +18,7 @@
 #include <vw/Image.h>
 #include <vw/Plate/PlateFile.h>
 #include <vw/Plate/PlateCarreePlateManager.h>
+#include <vw/Plate/TileManipulation.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/AlbedoAccumulators.h>
 #include <asp/Core/Macros.h>

@@ -21,7 +21,7 @@ asp::pho::RemoteProjectFile::RemoteProjectFile( std::string const& url ) {
   m_projectname = ptk_name;
 
   std::string queue_name =
-    AmqpRpcClient::UniqueQueueName("remote_ptk_"+ptk_name);
+    unique_name("remote_ptk_"+ptk_name);
 
   boost::shared_ptr<AmqpConnection> conn(new AmqpConnection(hostname,port));
   m_rpc_controller.reset(new AmqpRpcClient(conn,exchange,queue_name,"ptk"));
