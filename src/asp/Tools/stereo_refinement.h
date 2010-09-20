@@ -32,8 +32,8 @@ namespace vw {
         filename_R = out_prefix+"-R.tif";
         }
       */
-      DiskImageView<PixelGray<float> > left_disk_image(filename_L),
-        right_disk_image(filename_R);
+      typedef DiskImageView<PixelGray<float> > InnerView;
+      InnerView left_disk_image(filename_L), right_disk_image(filename_R);
       DiskImageView<PixelMask<Vector2f> > disparity_disk_image(opt.out_prefix + "-D.tif");
       ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
 
@@ -47,9 +47,8 @@ namespace vw {
                    << stereo_settings().slogW << "\n";
           typedef stereo::SlogStereoPreprocessingFilter PreFilter;
           disparity_map =
-            stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                            channels_to_planes(left_disk_image),
-                                            channels_to_planes(right_disk_image),
+            stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
+                                            left_disk_image, right_disk_image,
                                             stereo_settings().subpixel_h_kern,
                                             stereo_settings().subpixel_v_kern,
                                             stereo_settings().do_h_subpixel,
@@ -62,9 +61,8 @@ namespace vw {
                    << stereo_settings().slogW << "\n";
           typedef stereo::LogStereoPreprocessingFilter PreFilter;
           disparity_map =
-            stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                            channels_to_planes(left_disk_image),
-                                            channels_to_planes(right_disk_image),
+            stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
+                                            left_disk_image, right_disk_image,
                                             stereo_settings().subpixel_h_kern,
                                             stereo_settings().subpixel_v_kern,
                                             stereo_settings().do_h_subpixel,
@@ -78,9 +76,9 @@ namespace vw {
                    << stereo_settings().slogW << "\n";
           typedef stereo::BlurStereoPreprocessingFilter PreFilter;
           disparity_map =
-            stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                            channels_to_planes(left_disk_image),
-                                            channels_to_planes(right_disk_image),
+            stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
+                                            left_disk_image,
+                                            right_disk_image,
                                             stereo_settings().subpixel_h_kern,
                                             stereo_settings().subpixel_v_kern,
                                             stereo_settings().do_h_subpixel,
@@ -92,9 +90,9 @@ namespace vw {
           vw_out() << "\t    NO preprocessing" << std::endl;
           typedef stereo::NullStereoPreprocessingFilter PreFilter;
           disparity_map =
-            stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                            channels_to_planes(left_disk_image),
-                                            channels_to_planes(right_disk_image),
+            stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
+                                            left_disk_image,
+                                            right_disk_image,
                                             stereo_settings().subpixel_h_kern,
                                             stereo_settings().subpixel_v_kern,
                                             stereo_settings().do_h_subpixel,
@@ -111,9 +109,9 @@ namespace vw {
                  << stereo_settings().slogW << " sigma blur.\n";
         typedef stereo::LogStereoPreprocessingFilter PreFilter;
         disparity_map =
-          stereo::SubpixelView<PreFilter>(disparity_disk_image,
-                                          channels_to_planes(left_disk_image),
-                                          channels_to_planes(right_disk_image),
+          stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
+                                          left_disk_image,
+                                          right_disk_image,
                                           stereo_settings().subpixel_h_kern,
                                           stereo_settings().subpixel_v_kern,
                                           stereo_settings().do_h_subpixel,
