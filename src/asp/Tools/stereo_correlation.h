@@ -79,72 +79,37 @@ namespace vw {
     else if (stereo_settings().cost_mode == 2)
       cost_mode = stereo::NORM_XCORR_CORRELATOR;
 
-    if (opt.optimized_correlator) {
-      if (stereo_settings().pre_filter_mode == 3) {
-        vw_out() << "\t--> Using LOG pre-processing filter with width: "
-                 << stereo_settings().slogW << std::endl;
-        disparity_map =
-          correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
-                             stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW),
-                             opt.search_range, cost_mode, false,
-                             opt.corr_debug_prefix, false );
-      } else if (stereo_settings().pre_filter_mode == 2) {
-        vw_out() << "\t--> Using LOG pre-processing filter with width: "
-                 << stereo_settings().slogW << std::endl;
-        disparity_map =
-          correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
-                             stereo::LogStereoPreprocessingFilter(stereo_settings().slogW),
-                             opt.search_range, cost_mode, false,
-                             opt.corr_debug_prefix, false );
-      } else if (stereo_settings().pre_filter_mode == 1) {
-        vw_out() << "\t--> Using BLUR pre-processing filter with width: "
-                 << stereo_settings().slogW << std::endl;
-        disparity_map =
-          correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
-                             stereo::BlurStereoPreprocessingFilter(stereo_settings().slogW),
-                             opt.search_range, cost_mode, false,
-                             opt.corr_debug_prefix, false );
-      } else {
-        vw_out() << "\t--> Using NO pre-processing filter: " << std::endl;
-        disparity_map =
-          correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
-                             stereo::NullStereoPreprocessingFilter(),
-                             opt.search_range, cost_mode, false,
-                             opt.corr_debug_prefix, false );
-      }
+    if (stereo_settings().pre_filter_mode == 3) {
+      vw_out() << "\t--> Using SLOG pre-processing filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+      disparity_map =
+        correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
+                           stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW),
+                           opt.search_range, cost_mode, opt.draft_mode,
+                           opt.corr_debug_prefix, opt.optimized_correlator );
+    } else if ( stereo_settings().pre_filter_mode == 2 ) {
+      vw_out() << "\t--> Using LOG pre-processing filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+      disparity_map =
+        correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
+                           stereo::LogStereoPreprocessingFilter(stereo_settings().slogW),
+                           opt.search_range, cost_mode, opt.draft_mode,
+                           opt.corr_debug_prefix, opt.optimized_correlator );
+    } else if ( stereo_settings().pre_filter_mode == 1 ) {
+      vw_out() << "\t--> Using BLUR pre-processing filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+      disparity_map =
+        correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
+                           stereo::BlurStereoPreprocessingFilter(stereo_settings().slogW),
+                           opt.search_range, cost_mode, opt.draft_mode,
+                           opt.corr_debug_prefix, opt.optimized_correlator );
     } else {
-      if (stereo_settings().pre_filter_mode == 3) {
-        vw_out() << "\t--> Using SLOG pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n";
-        disparity_map =
-          correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
-                             stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW),
-                             opt.search_range, cost_mode, opt.draft_mode,
-                             opt.corr_debug_prefix );
-      } else if ( stereo_settings().pre_filter_mode == 2 ) {
-        vw_out() << "\t--> Using LOG pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n";
-        disparity_map =
-          correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
-                             stereo::LogStereoPreprocessingFilter(stereo_settings().slogW),
-                             opt.search_range, cost_mode, opt.draft_mode,
-                             opt.corr_debug_prefix );
-      } else if ( stereo_settings().pre_filter_mode == 1 ) {
-        vw_out() << "\t--> Using BLUR pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n";
-        disparity_map =
-          correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
-                             stereo::BlurStereoPreprocessingFilter(stereo_settings().slogW),
-                             opt.search_range, cost_mode, opt.draft_mode,
-                             opt.corr_debug_prefix );
-      } else {
-        vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
-        disparity_map =
-          correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
-                             stereo::NullStereoPreprocessingFilter(),
-                             opt.search_range, cost_mode, opt.draft_mode,
-                             opt.corr_debug_prefix );
-      }
+      vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
+      disparity_map =
+        correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
+                           stereo::NullStereoPreprocessingFilter(),
+                           opt.search_range, cost_mode, opt.draft_mode,
+                           opt.corr_debug_prefix, opt.optimized_correlator );
     }
 
     // Create a disk image resource and prepare to write a tiled
