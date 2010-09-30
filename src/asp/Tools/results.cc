@@ -58,11 +58,6 @@ using namespace vw::stereo;
 
 using namespace std;
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
 //***********************************************************************
 // MAIN
 //***********************************************************************

@@ -22,10 +22,6 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-namespace vw {
-  template<> struct PixelFormatID<Vector<float, 3> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()

@@ -85,8 +85,6 @@ struct Options {
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
 
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-
   // Duplicate matches for any given interest point probably indicate a
   // poor match, so we cull those out here.
   void remove_duplicates(std::vector<ip::InterestPoint> &ip1,

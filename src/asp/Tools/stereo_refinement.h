@@ -47,59 +47,52 @@ namespace vw {
                    << stereo_settings().slogW << "\n";
           typedef stereo::SlogStereoPreprocessingFilter PreFilter;
           disparity_map =
-            stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
-                                            left_disk_image, right_disk_image,
-                                            stereo_settings().subpixel_h_kern,
-                                            stereo_settings().subpixel_v_kern,
-                                            stereo_settings().do_h_subpixel,
-                                            stereo_settings().do_v_subpixel,
-                                            stereo_settings().subpixel_mode,
-                                            PreFilter(stereo_settings().slogW),
-                                            false);
+            stereo::subpixel_refine( disparity_disk_image,
+                                     left_disk_image, right_disk_image,
+                                     stereo_settings().subpixel_h_kern,
+                                     stereo_settings().subpixel_v_kern,
+                                     stereo_settings().do_h_subpixel,
+                                     stereo_settings().do_v_subpixel,
+                                     stereo_settings().subpixel_mode,
+                                     PreFilter(stereo_settings().slogW) );
         } else if (stereo_settings().pre_filter_mode == 2) {
           vw_out() << "\t    LOG preprocessing width: "
                    << stereo_settings().slogW << "\n";
           typedef stereo::LogStereoPreprocessingFilter PreFilter;
           disparity_map =
-            stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
-                                            left_disk_image, right_disk_image,
-                                            stereo_settings().subpixel_h_kern,
-                                            stereo_settings().subpixel_v_kern,
-                                            stereo_settings().do_h_subpixel,
-                                            stereo_settings().do_v_subpixel,
-                                            stereo_settings().subpixel_mode,
-                                            PreFilter(stereo_settings().slogW),
-                                            false);
-
+            stereo::subpixel_refine(disparity_disk_image,
+                                    left_disk_image, right_disk_image,
+                                    stereo_settings().subpixel_h_kern,
+                                    stereo_settings().subpixel_v_kern,
+                                    stereo_settings().do_h_subpixel,
+                                    stereo_settings().do_v_subpixel,
+                                    stereo_settings().subpixel_mode,
+                                    PreFilter(stereo_settings().slogW) );
         } else if (stereo_settings().pre_filter_mode == 1) {
           vw_out() << "\t    BLUR preprocessing width: "
                    << stereo_settings().slogW << "\n";
           typedef stereo::BlurStereoPreprocessingFilter PreFilter;
           disparity_map =
-            stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
-                                            left_disk_image,
-                                            right_disk_image,
-                                            stereo_settings().subpixel_h_kern,
-                                            stereo_settings().subpixel_v_kern,
-                                            stereo_settings().do_h_subpixel,
-                                            stereo_settings().do_v_subpixel,
-                                            stereo_settings().subpixel_mode,
-                                            PreFilter(stereo_settings().slogW),
-                                            false);
+            stereo::subpixel_refine(disparity_disk_image,
+                                    left_disk_image, right_disk_image,
+                                    stereo_settings().subpixel_h_kern,
+                                    stereo_settings().subpixel_v_kern,
+                                    stereo_settings().do_h_subpixel,
+                                    stereo_settings().do_v_subpixel,
+                                    stereo_settings().subpixel_mode,
+                                    PreFilter(stereo_settings().slogW) );
         } else {
           vw_out() << "\t    NO preprocessing" << std::endl;
           typedef stereo::NullStereoPreprocessingFilter PreFilter;
           disparity_map =
-            stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
-                                            left_disk_image,
-                                            right_disk_image,
-                                            stereo_settings().subpixel_h_kern,
-                                            stereo_settings().subpixel_v_kern,
-                                            stereo_settings().do_h_subpixel,
-                                            stereo_settings().do_v_subpixel,
-                                            stereo_settings().subpixel_mode,
-                                            PreFilter(),
-                                            false);
+            stereo::subpixel_refine(disparity_disk_image,
+                                    left_disk_image, right_disk_image,
+                                    stereo_settings().subpixel_h_kern,
+                                    stereo_settings().subpixel_v_kern,
+                                    stereo_settings().do_h_subpixel,
+                                    stereo_settings().do_v_subpixel,
+                                    stereo_settings().subpixel_mode,
+                                    PreFilter() );
         }
       } else if (stereo_settings().subpixel_mode == 2) {
         // Bayes EM
@@ -109,16 +102,14 @@ namespace vw {
                  << stereo_settings().slogW << " sigma blur.\n";
         typedef stereo::LogStereoPreprocessingFilter PreFilter;
         disparity_map =
-          stereo::SubpixelView<PreFilter, InnerView>(disparity_disk_image,
-                                          left_disk_image,
-                                          right_disk_image,
-                                          stereo_settings().subpixel_h_kern,
-                                          stereo_settings().subpixel_v_kern,
-                                          stereo_settings().do_h_subpixel,
-                                          stereo_settings().do_v_subpixel,
-                                          stereo_settings().subpixel_mode,
-                                          PreFilter(stereo_settings().slogW),
-                                          false);
+          stereo::subpixel_refine(disparity_disk_image,
+                                  left_disk_image, right_disk_image,
+                                  stereo_settings().subpixel_h_kern,
+                                  stereo_settings().subpixel_v_kern,
+                                  stereo_settings().do_h_subpixel,
+                                  stereo_settings().do_v_subpixel,
+                                  stereo_settings().subpixel_mode,
+                                  PreFilter(stereo_settings().slogW) );
       } else if (stereo_settings().subpixel_mode == 3) {
         // Affine and Bayes subpixel refinement always use the
         // LogPreprocessingFilter...

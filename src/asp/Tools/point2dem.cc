@@ -75,7 +75,6 @@ inline point_image_offset( ImageViewBase<ImageT> const& image, Vector3 const& of
   return UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
 }
 
-
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };

@@ -53,14 +53,6 @@ namespace vw {
       }
 #endif
 
-      // Apply the stereo model.  This yields a image of 3D points in
-      // space.  We build this image and immediately write out the
-      // results to disk.
-      vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
-      stereo::StereoView<DiskImageView<PixelMask<Vector2f> > > stereo_image(disparity_map,
-                                                                            camera_model1.get() ,
-                                                                            camera_model2.get() );
-
       // If the distance from the left camera center to a point is
       // greater than the universe radius, we remove that pixel and
       // replace it with a zero vector, which is the missing pixel value
@@ -80,8 +72,14 @@ namespace vw {
                                      stereo_settings().near_universe_radius,
                                      stereo_settings().far_universe_radius);
       }
+
+      // Apply radius function and stereo model in one go
+      vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
       ImageViewRef<Vector3> point_cloud =
-        per_pixel_filter(stereo_image, universe_radius_func);
+        per_pixel_filter(stereo::stereo_triangulate( disparity_map,
+                                                     camera_model1.get(),
+                                                     camera_model2.get() ),
+                         universe_radius_func);
 
       DiskImageResourceGDAL point_cloud_rsrc(opt.out_prefix + "-PC.tif",
                                              point_cloud.format(),

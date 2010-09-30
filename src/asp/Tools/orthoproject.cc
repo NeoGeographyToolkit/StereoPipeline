@@ -28,11 +28,6 @@ using namespace vw::cartography;
 
 #include <asp/Sessions.h>
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
 template <class ViewT, class DemViewT>
 GeoReference compute_geotransform_from_camera(ImageViewBase<ViewT> const& view,
                                               boost::shared_ptr<CameraModel> camera,

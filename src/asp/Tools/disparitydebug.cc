@@ -32,11 +32,6 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace vw::stereo;
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
 struct Options {
   // Input
   std::string input_file_name;
