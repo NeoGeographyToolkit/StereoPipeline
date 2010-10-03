@@ -548,6 +548,10 @@ int main( int argc, char *argv[] ) {
       }
     }
 
+    // must initialize reflectance file even if it is not used to calculate exposure time
+    for (unsigned int i = 0; i < input_files.size(); ++i) {
+        computeImageReflectance(modelParamsArray[i], globalParams);
+    }
   }
 
   if (globalParams.albedoInitType == 1){
