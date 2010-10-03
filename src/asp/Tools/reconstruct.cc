@@ -365,17 +365,23 @@ int main( int argc, char *argv[] ) {
 
   // Double check to make sure all folders exist
   if ( !fs::exists(homeDir+resDir+"/DEM") )
-    fs::create_directory(homeDir+resDir+"/DEM");
+    fs::create_directories(homeDir+resDir+"/DEM");
+  if ( !fs::exists(homeDir+resDir+"/DEM_sub4") )
+    fs::create_directories(homeDir+resDir+"/DEM_sub4");
+  if ( !fs::exists(homeDir+resDir+"/DEM_sfs") )
+    fs::create_directories(homeDir+resDir+"/DEM_sfs");
   if ( !fs::exists(homeDir+resDir+"/info") )
-    fs::create_directory(homeDir+resDir+"/info");
+    fs::create_directories(homeDir+resDir+"/info");
   if ( !fs::exists(homeDir+resDir+"/reflectance") )
-    fs::create_directory(homeDir+resDir+"/reflectance");
+    fs::create_directories(homeDir+resDir+"/reflectance");
   if ( !fs::exists(homeDir+resDir+"/shadow") )
-    fs::create_directory(homeDir+resDir+"/shadow");
+    fs::create_directories(homeDir+resDir+"/shadow");
   if ( !fs::exists(homeDir+resDir+"/error") )
-    fs::create_directory(homeDir+resDir+"/error");
+    fs::create_directories(homeDir+resDir+"/error");
   if ( !fs::exists(homeDir+resDir+"/albedo") )
-    fs::create_directory(homeDir+resDir+"/albedo");
+    fs::create_directories(homeDir+resDir+"/albedo");
+  if ( !fs::exists(homeDir+resDir+"/exposure") )
+    fs::create_directories(homeDir+resDir+"/exposure");
 
   for (unsigned int i = 0; i < input_files.size(); ++i) {
     modelParamsArray[i].exposureTime = globalParams.exposureInitRefValue;
@@ -403,7 +409,7 @@ int main( int argc, char *argv[] ) {
     */
 
     //quick debug version --- START
-    modelParamsArray[i].DEMFilename         = homeDir + dataDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM.tif";
+    modelParamsArray[i].DEMFilename         = homeDir + dataDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM2.tif";
     modelParamsArray[i].infoFilename        = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
     modelParamsArray[i].meanDEMFilename     = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM_out.tif";   
     modelParamsArray[i].var2DEMFilename     = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
