@@ -111,68 +111,52 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
 {
   int MAX_LENGTH = 5000;
   char line[MAX_LENGTH];
+  char inName[MAX_LENGTH];
+  char inVal[MAX_LENGTH];
+  char *commentPos;
   ifstream configFile(config_filename);
+  int ret;
+
+#define CHECK_VAR(name, fmt, assignTo) \
+    if (0 == strcmp(inName, name)) { \
+        int ret = sscanf(inVal, fmt, &(settings->assignTo)); \
+    }
+
   if (configFile.is_open()){
     printf("CONFIG FILE FOUND\n");
 
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "REFLECTANCE_TYPE %d\n", &(settings->reflectanceType));
+    while (!configFile.eof()) {
+        configFile.getline(line, MAX_LENGTH);
 
-    configFile.getline(line, MAX_LENGTH);
-    int shadowThresh;
-    sscanf(line, "SHADOW_THRESH %d\n", &(shadowThresh));
-    settings->shadowThresh = (float)shadowThresh; 
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "SLOPE_TYPE %d\n", &(settings->slopeType));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "ALBEDO_INIT_TYPE %d\n", &(settings->albedoInitType));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "EXPOSURE_INIT_TYPE %d", &(settings->exposureInitType));
-
-    configFile.getline(line, MAX_LENGTH);
-    int exposureInitRefValue;
-    sscanf(line, "EXPOSURE_INIT_REF_VAL %d",&exposureInitRefValue);
-    settings->exposureInitRefValue = exposureInitRefValue/10.0; 
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "EXPOSURE_INIT_REF_IDX %d", &(settings->exposureInitRefIndex));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "DEM_INIT_TYPE %d", &(settings->DEMInitType));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "SHADOW_INIT_TYPE %d", &(settings->shadowInitType));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "UPDATE_EXPOSURE %d", &(settings->updateExposure));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "UPDATE_ALBEDO  %d", &(settings->updateAlbedo));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "UPDATE_HEIGHT %d", &(settings->updateHeight));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "COMPUTE_ERRORS %d", &(settings->computeErrors));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "USE_WEIGHTS %d", &(settings->useWeights));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "MAX_NUM_ITER %d", &(settings->maxNumIter));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "MAX_NEXT_OVERLAP_IMAGES %d", &(settings->maxNextOverlappingImages));
-
-    configFile.getline(line, MAX_LENGTH);
-    sscanf(line, "MAX_PREV_OVERLAP_IMAGES %d", &(settings->maxPrevOverlappingImages));
-
-    configFile.getline(line, MAX_LENGTH);
-
+        // truncate comments
+        commentPos = strchr(line, '#');
+        if (NULL != commentPos) {
+            *commentPos = '\0';
+        }
+        ret = sscanf(line, "%s %s\n", inName, inVal);
+        if (2 != ret) continue;
+        
+        CHECK_VAR("REFLECTANCE_TYPE", "%d", reflectanceType);
+        CHECK_VAR("SHADOW_THRESH", "%f", shadowThresh);
+        CHECK_VAR("SLOPE_TYPE", "%d", slopeType);
+        CHECK_VAR("ALBEDO_INIT_TYPE", "%d", albedoInitType);
+        CHECK_VAR("EXPOSURE_INIT_TYPE", "%d", exposureInitType);
+        CHECK_VAR("EXPOSURE_INIT_REF_VAL", "%d", exposureInitRefValue);
+        CHECK_VAR("EXPOSURE_INIT_REF_IDX", "%d", exposureInitRefIndex);
+        CHECK_VAR("DEM_INIT_TYPE", "%d", DEMInitType);
+        CHECK_VAR("SHADOW_INIT_TYPE", "%d", shadowInitType);
+        CHECK_VAR("UPDATE_EXPOSURE", "%d", updateExposure);
+        CHECK_VAR("UPDATE_ALBEDO", "%d", updateAlbedo);
+        CHECK_VAR("UPDATE_HEIGHT", "%d", updateHeight);
+        CHECK_VAR("COMPUTE_ERRORS", "%d", computeErrors);
+        CHECK_VAR("USE_WEIGHTS", "%d", useWeights);
+        CHECK_VAR("MAX_NUM_ITER", "%d", maxNumIter);
+        CHECK_VAR("MAX_NEXT_OVERLAP_IMAGES", "%d", maxNextOverlappingImages);
+        CHECK_VAR("MAX_PREV_OVERLAP_IMAGES", "%d", maxPrevOverlappingImages);
+    }
     configFile.close();
+
+    settings->exposureInitRefValue /= 10.0;
 
     return(1);
   }
