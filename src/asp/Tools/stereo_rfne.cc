@@ -9,11 +9,7 @@
 //#define USE_GRAPHICS
 
 #include <asp/Tools/stereo.h>
-#include <asp/Tools/stereo_preprocessing.h>
-#include <asp/Tools/stereo_correlation.h>
 #include <asp/Tools/stereo_refinement.h>
-#include <asp/Tools/stereo_filtering.h>
-#include <asp/Tools/stereo_triangulation.h>
 
 using namespace vw;
 
@@ -46,22 +42,10 @@ int main(int argc, char* argv[]) {
 
     // Internal Processes
     //---------------------------------------------------------
-    if (opt.entry_point <= PREPROCESSING)
-      stereo_preprocessing( opt );
+    stereo_refinement( opt );
 
-    if (opt.entry_point <= CORRELATION )
-      stereo_correlation( opt );
-
-    if (opt.entry_point <= REFINEMENT )
-      stereo_refinement( opt );
-
-    if (opt.entry_point <= FILTERING)
-      stereo_filtering( opt );
-
-    if (opt.entry_point <= POINT_CLOUD)
-      stereo_triangulation( opt );
-
-    vw_out() << "\n[ " << current_posix_time_string() << " ] : FINISHED \n";
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : REFINEMENT FINISHED \n";
 
   } ASP_STANDARD_CATCHES;
 

@@ -83,7 +83,11 @@ src/asp/Tools/orthoproject
 src/asp/Tools/plateorthoproject
 src/asp/Tools/point2dem
 src/asp/Tools/point2mesh
-src/asp/Tools/stereo
+src/asp/Tools/stereo_corr
+src/asp/Tools/stereo_fltr
+src/asp/Tools/stereo_pprc
+src/asp/Tools/stereo_rfne
+src/asp/Tools/stereo_tri
 src/asp/Tools/aligndem
 src/asp/Tools/bundle_adjust
 src/asp/Tools/dem_profile

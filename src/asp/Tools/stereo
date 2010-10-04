@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+# Copyright (C) 2006-2010 United States Government as represented by
+# the Administrator of the National Aeronautics and Space Administration.
+# All Rights Reserved.
+# __END_LICENSE__
+
+import os, optparse, sys;
+
+class Usage(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+def main():
+    try:
+        try:
+            usage = "Usage: stereo [options] <Left_input_image> <Right_input_image>\n              [Left_camera_file] [Right_camera_file] <output_file_prefix>\n    Extensions are automaticaly added to the output files.\n    Camera model arguments may be optional for some stereo\n    session types (e.g. isis). Stereo parameters should be\n    set in the stereo.default file."
+            parser = optparse.OptionParser(usage=usage)
+            parser.set_defaults(threads=0)
+            parser.set_defaults(stereo_default_filename="./stereo.default")
+            parser.set_defaults(entry_point=0)
+            parser.set_defaults(draft_mode=False)
+            parser.set_defaults(optimized=False)
+            parser.add_option("--threads", dest="threads", type="int",
+                              help="Select the number of processors (threads) to use.")
+            parser.add_option("-t", "--session-type", dest="stereo_session_string",
+                              help="Select the stereo session type to use for processing. [options: pinhole isis]")
+            parser.add_option("-s", "--stereo-file", dest="stereo_default_filename",
+                              help="Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
+            parser.add_option("-e", "--entry-point", dest="entry_point",
+                              help="Pipeline entry point (an integer from 1-4)",
+                              type="int")
+            parser.add_option("--draft-mode", dest="draft_mode",
+                              action="store_true",
+                              help="Cause pyramid correlator to save out debug imagery.")
+            parser.add_option("--optimized-correlator", dest="optimized",
+                              action="store_true",
+                              help="Use the optimized correlator instead of the pyramid correlator.")
+
+            (options, args) = parser.parse_args()
+
+            if not args:
+                print "ERROR: Missing input files\n"
+                parser.print_help()
+                return 2
+
+        except optparse.OptionError, msg:
+            raise Usage(msg)
+
+        cmd_args=""
+        if ( options.draft_mode ):
+            cmd_args=cmd_args+" --draft-mode"
+        if ( options.optimized ):
+            cmd_args=cmd_args+" --optimized-correlator"
+        if ( options.threads > 0 ):
+            cmd_args=cmd_args+" --threads "+str(options.threads)
+        if ( options.stereo_session_string != "" ):
+            cmd_args=cmd_args+" --session-type "+options.stereo_session_string
+        cmd_args=cmd_args+" --stereo-file "+options.stereo_default_filename
+        for arg in args:
+            cmd_args=cmd_args+" "+arg
+
+        if ( options.entry_point <= 0 ):
+            os.system("stereo_pprc "+cmd_args)
+        if ( options.entry_point <= 1 ):
+            os.system("stereo_corr "+cmd_args)
+        if ( options.entry_point <= 2 ):
+            os.system("stereo_rfne "+cmd_args)
+        if ( options.entry_point <= 3 ):
+            os.system("stereo_fltr "+cmd_args)
+        if ( options.entry_point <= 4 ):
+            os.system("stereo_tri "+cmd_args)
+
+        return 0
+
+    except Usage, err:
+        print >>sys.stderr, err.msg
+        return 2
+
+    # To more easily debug this program, comment out this catch block.
+    #except Exception, err:
+    #    sys.stderr.write( str(err) + '\n' )
+    #    return 1
+
+if __name__ == "__main__":
+    sys.exit(main())

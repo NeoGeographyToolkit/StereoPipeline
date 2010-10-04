@@ -12,9 +12,17 @@
 bin_PROGRAMS =
 
 if MAKE_APP_STEREO
-  bin_PROGRAMS += stereo
-  stereo_SOURCES = stereo.cc stereo.h
-  stereo_LDADD = $(APP_STEREO_LIBS)
+  bin_PROGRAMS += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
+  stereo_corr_SOURCES = stereo_corr.cc
+  stereo_corr_LDADD   = $(APP_STEREO_LIBS)
+  stereo_fltr_SOURCES = stereo_fltr.cc
+  stereo_fltr_LDADD   = $(APP_STEREO_LIBS)
+  stereo_pprc_SOURCES = stereo_pprc.cc
+  stereo_pprc_LDADD   = $(APP_STEREO_LIBS)
+  stereo_rfne_SOURCES = stereo_rfne.cc
+  stereo_rfne_LDADD   = $(APP_STEREO_LIBS)
+  stereo_tri_SOURCES  = stereo_tri.cc
+  stereo_tri_LDADD    = $(APP_STEREO_LIBS)
 endif
 
 if MAKE_APP_BUNDLEADJUST
@@ -132,7 +140,7 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
-bin_SCRIPTS = cam2map4stereo.py hiedr2mosaic.py
+bin_SCRIPTS = cam2map4stereo.py hiedr2mosaic.py stereo
 
 SUBDIRS = .
 
