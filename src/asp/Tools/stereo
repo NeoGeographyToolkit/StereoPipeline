@@ -5,7 +5,7 @@
 # All Rights Reserved.
 # __END_LICENSE__
 
-import os, optparse, sys;
+import os, optparse, sys, types;
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -54,7 +54,7 @@ def main():
             cmd_args=cmd_args+" --optimized-correlator"
         if ( options.threads > 0 ):
             cmd_args=cmd_args+" --threads "+str(options.threads)
-        if ( options.stereo_session_string != "" ):
+        if not isinstance(options.stereo_session_string,types.NoneType):
             cmd_args=cmd_args+" --session-type "+options.stereo_session_string
         cmd_args=cmd_args+" --stereo-file "+options.stereo_default_filename
         for arg in args:

@@ -9,6 +9,9 @@
 #define __ASP_STEREO_FILTERING_H__
 
 #include <asp/Tools/stereo.h>
+#include <asp/Core/BlobIndexThreaded.h>
+#include <asp/Core/InpaintView.h>
+#include <asp/Core/ErodeView.h>
 
 namespace vw {
 

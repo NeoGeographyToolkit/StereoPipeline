@@ -14,9 +14,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/convenience.hpp>
-#include <boost/filesystem/fstream.hpp>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -25,19 +22,12 @@ namespace fs = boost::filesystem;
 #include <vw/Image.h>
 #include <vw/Math.h>
 #include <vw/FileIO.h>
-#include <vw/Camera/CameraModel.h>
 #include <vw/Stereo.h>
-#include <vw/Cartography.h>
-#include <vw/Math/EulerAngles.h>
-#include <vw/InterestPoint.h>
 
-#include <asp/Sessions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/MedianFilter.h>
-#include <asp/Core/BlobIndexThreaded.h>
-#include <asp/Core/InpaintView.h>
-#include <asp/Core/ErodeView.h>
 #include <asp/Core/Macros.h>
+#include <asp/Sessions.h>
 
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
@@ -297,12 +287,6 @@ namespace vw {
 
   // Register Session types
   void stereo_register_sessions() {
-
-    // The default file type are automatically registered the first time
-    // a file is opened or created, however we want to override some of
-    // the defaults, so we explicitly register them here before registering
-    // our own FileIO driver code.
-    DiskImageResource::register_default_file_types();
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     // Register the Isis file handler with the Vision Workbench

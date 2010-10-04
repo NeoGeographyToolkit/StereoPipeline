@@ -11,6 +11,8 @@
 #define __ASP_STEREO_TRIANGULATION_H__
 
 #include <asp/Tools/stereo.h>
+#include <vw/Cartography.h>
+#include <vw/Camera/CameraModel.h>
 
 namespace vw {
 
