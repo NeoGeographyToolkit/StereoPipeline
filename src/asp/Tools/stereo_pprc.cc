@@ -42,6 +42,7 @@ int main(int argc, char* argv[]) {
 
     // Internal Processes
     //---------------------------------------------------------
+    vw_out() << "Using \"" << opt.stereo_default_filename << "\"\n";
     stereo_preprocessing( opt );
 
     vw_out() << "\n[ " << current_posix_time_string()

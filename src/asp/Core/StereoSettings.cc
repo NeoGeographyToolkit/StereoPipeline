@@ -157,15 +157,11 @@ StereoSettings::StereoSettings() {
 }
 
 void StereoSettings::read(std::string const& filename) {
-
   std::ifstream fp(filename.c_str());
   if(!fp) {
     std::cerr << "Error: cannot open stereo default file: " << filename << "\n";
     exit(EXIT_FAILURE);
   }
-
-  vw::vw_out() << "*************************************************************\n";
-  vw::vw_out() << "Reading Stereo Settings file: " << filename << "\n";
 
   std::string name, value, line;
   int c;
@@ -173,7 +169,11 @@ void StereoSettings::read(std::string const& filename) {
   while(!fp.eof()) {
     ignorespace(fp);
     if(!fp.eof() && (c = fp.peek()) != '#') {
-      std::istringstream ss; //NOTE: cannot move this up with other variable declarations because then calling store(parse_config_file()) multiple times does not work as expected
+      std::istringstream ss; //NOTE: cannot move this up with other
+                             //variable declarations because then
+                             //calling store(parse_config_file())
+                             //multiple times does not work as
+                             //expected
       getword(fp, name);
       getword(fp, value);
       line = name.append(" = ").append(value);
@@ -188,7 +188,6 @@ void StereoSettings::read(std::string const& filename) {
   }
 
   po::notify(m_vm);
-  vw::vw_out() << "*************************************************************\n";
   fp.close();
 }
 

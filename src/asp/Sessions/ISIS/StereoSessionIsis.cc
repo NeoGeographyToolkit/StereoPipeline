@@ -328,8 +328,6 @@ StereoSessionIsis::camera_model(std::string image_file,
                                 std::string camera_file) {
 
   if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
-    vw_out() << "\t--> Using adjusted Isis Camera Model: " << camera_file << "\n";
-
     // Creating Equations for the files
     std::ifstream input( camera_file.c_str() );
     boost::shared_ptr<asp::BaseEquation> posF = read_equation( input );
@@ -340,7 +338,6 @@ StereoSessionIsis::camera_model(std::string image_file,
     return boost::shared_ptr<camera::CameraModel>(new IsisAdjustCameraModel( image_file, posF, poseF ));
 
   } else {
-    vw_out() << "\t--> Using standard Isis camera model: " << image_file << "\n";
     return boost::shared_ptr<camera::CameraModel>(new IsisCameraModel(image_file));
   }
 
