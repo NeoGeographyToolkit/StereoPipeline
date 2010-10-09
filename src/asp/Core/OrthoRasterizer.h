@@ -133,8 +133,8 @@ namespace cartography {
       const int numColorComponents = 1;             // We only need gray scale
       const int numVertexComponents = 2;            // DEMs are 2D
 
-      for (int32 row = *m_row_start; row < m_point_image.rows(); ++row) {
-        for (int32 col = 0; col < m_point_image.cols(); ++col) {
+      for (int32 row = *m_row_start; row < m_point_image.rows()-1; ++row) {
+        for (int32 col = 0; col < m_point_image.cols()-1; ++col) {
           if (local_bbox.contains(m_point_image(col,row)) ) {
             float vertices[12], intensities[6];
             int triangle_count;

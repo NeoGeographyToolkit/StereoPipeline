@@ -363,7 +363,7 @@ int main( int argc, char *argv[] ) {
       { // Write out the DEM.
         vw_out() << "\nWriting DEM.\n";
         ImageViewRef<PixelGray<float> > block_dem_raster =
-          block_cache(rasterizer, Vector2i(rasterizer.cols(), 2024), 0);
+          block_cache(rasterizer, Vector2i(rasterizer.cols(), 128), 0);
         write_georeferenced_image( opt.out_prefix + "-DEM." +
                                    opt.output_file_type,
                                    block_dem_raster, georef,
