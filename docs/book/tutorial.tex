@@ -440,23 +440,23 @@ the parameters to improve the results.
 Another handy debugging tool is the \texttt{disparitydebug} program,
 which allows you to generate viewable versions of the intermediate
 results from the stereo correlation algorithm.
-\texttt{disparitydebug} converts information in \texttt{.exr}
-disparity files into two TIFF images that contain horizontal and
-vertical components of the disparity (i.e. matching offsets for each
-pixel in the horizontal and vertical directions).  There are actually
-four flavors of disparity map: the \texttt{-D.exr}, the
-\texttt{-R.exr}, the \texttt{-F-corrected.exr}, and \texttt{-F.exr}.
-You can run \texttt{disparitydebug} on any of them.  Each shows the
-disparity map at the different stages of processing.
+\texttt{disparitydebug} converts information in the disparity image
+files into two TIFF images that contain horizontal and vertical
+components of the disparity (i.e. matching offsets for each pixel in
+the horizontal and vertical directions).  There are actually four
+flavors of disparity map: the \texttt{-D.tif}, the \texttt{-RD.tif},
+the \texttt{-F-corrected.tif}, and \texttt{-F.tif}.  You can run
+\texttt{disparitydebug} on any of them.  Each shows the disparity map
+at the different stages of processing.
 
 \begin{verbatim}
     ISIS 3> cd results
-    ISIS 3> disparitydebug E0201461-M0100115-F.exr
+    ISIS 3> disparitydebug E0201461-M0100115-F.tif
 \end{verbatim}
 
-If the TIFF files from \texttt{disparitydebug} look okay, then the
-point cloud image are most likely ready for post-processing.  You can
-proceed to make a mesh or a \ac{DEM} by processing
+If the output H and V files from \texttt{disparitydebug} look okay,
+then the point cloud image are most likely ready for post-processing.
+You can proceed to make a mesh or a \ac{DEM} by processing
 \texttt{E0201461-M0100115-PC.tif} using the \texttt{point2mesh} or
 \texttt{point2dem} tools, respectively.
 
