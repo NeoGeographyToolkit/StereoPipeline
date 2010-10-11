@@ -123,7 +123,8 @@ struct Options {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("default-value", po::value(&opt.default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
+    ("default-value", po::value(&opt.default_value)->default_value(std::numeric_limits<float>::max()), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
+    ("nodata-value", po::value(&opt.default_value), "Nodata value to use on output. This is the same as default-value.")
     ("use-alpha", "Create images that have an alpha channel")
     ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
     ("normalized,n", "Also write a normalized version of the DEM (for debugging)")
@@ -364,10 +365,18 @@ int main( int argc, char *argv[] ) {
         vw_out() << "\nWriting DEM.\n";
         ImageViewRef<PixelGray<float> > block_dem_raster =
           block_cache(rasterizer, Vector2i(rasterizer.cols(), 128), 0);
-        write_georeferenced_image( opt.out_prefix + "-DEM." +
-                                   opt.output_file_type,
-                                   block_dem_raster, georef,
-                                   TerminalProgressCallback("asp",""));
+        if ( opt.output_file_type == "tif" && opt.has_default_value ) {
+          DiskImageResourceGDAL rsrc( opt.out_prefix + "-DEM.tif",
+                                      block_dem_raster.format() );
+          rsrc.set_nodata_value( opt.default_value );
+          write_georeference( rsrc, georef );
+          write_image( rsrc, block_dem_raster, TerminalProgressCallback("asp","") );
+        } else {
+          write_georeferenced_image( opt.out_prefix + "-DEM." +
+                                     opt.output_file_type,
+                                     block_dem_raster, georef,
+                                     TerminalProgressCallback("asp",""));
+        }
       }
 
       // Write out a normalized version of the DTM (for debugging)
