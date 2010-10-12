@@ -30,6 +30,8 @@
 #include <boost/shared_ptr.hpp>
 namespace fs = boost::filesystem;
 
+#include <algorithm>
+
 using namespace vw;
 using namespace vw::camera;
 using namespace asp;
@@ -268,8 +270,10 @@ StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
                              shadowLmask, shadowRmask );
 
     DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
-    disparity_map_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
-                                       std::min(vw_settings().default_tile_size(),disparity_map.rows()));
+    disparity_map_rsrc.set_tiled_write(std::min<uint32>(vw_settings().default_tile_size(),
+                                                        disparity_map.cols()),
+                                       std::min<uint32>(vw_settings().default_tile_size(),
+                                                        disparity_map.rows()));
     block_write_image( disparity_map_rsrc, disparity_map,
                        TerminalProgressCallback( "asp", "\t--> Saving Mask :") );
   }
@@ -317,8 +321,10 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
                                            right_disk_image.rows() ) );
 
   DiskImageResourceOpenEXR disparity_corrected_rsrc(output_file, result.format() );
-  disparity_corrected_rsrc.set_tiled_write(std::min(vw_settings().default_tile_size(),disparity_map.cols()),
-                                           std::min(vw_settings().default_tile_size(),disparity_map.rows()));
+  disparity_corrected_rsrc.set_tiled_write(std::min<uint32>(vw_settings().default_tile_size(),
+                                                            disparity_map.cols()),
+                                           std::min<uint32>(vw_settings().default_tile_size(),
+                                                            disparity_map.rows()));
   block_write_image( disparity_corrected_rsrc, result,
                      TerminalProgressCallback("asp", "\t    Processing:"));
 }
