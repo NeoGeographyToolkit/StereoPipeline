@@ -95,7 +95,7 @@ namespace inpaint_p {
             }
 
       // Iterate and apply convolution seperately to each channel
-      for ( int c = 0; c < vw::PixelNumChannels<typename SourceT::pixel_type>::value;
+      for ( vw::uint32 c = 0; c < vw::PixelNumChannels<typename SourceT::pixel_type>::value;
             c++ )
         for ( int d = 0; d < 10*max_distance*max_distance; d++ )
           for ( std::list<vw::Vector2i>::const_iterator iter = processing_order.begin();

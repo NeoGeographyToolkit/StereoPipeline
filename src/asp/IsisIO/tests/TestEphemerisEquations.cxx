@@ -17,7 +17,7 @@ double DELTA = 1e-6;
 
 TEST(EphemerisEquations, polynomial_equal_order) {
   PolyEquation poly(0);
-  EXPECT_EQ( poly.size(), 3 );
+  EXPECT_EQ( poly.size(), 3u );
   EXPECT_EQ( poly.type(), "PolyEquation" );
   poly[0] = 10;
   poly[1] = 1;
@@ -38,7 +38,7 @@ TEST(EphemerisEquations, polynomial_equal_order) {
   EXPECT_EQ( 20,  test[2] );
 
   PolyEquation poly2(1);
-  EXPECT_EQ( poly2.size(), 6 );
+  EXPECT_EQ( poly2.size(), 6u );
   poly2[0] = 10; poly2[1] = 0.5;
   poly2[2] = 5; poly2[3] = -0.5;
   poly2[4] = 0; poly2[5] = 6;
@@ -51,7 +51,7 @@ TEST(EphemerisEquations, polynomial_equal_order) {
 
 TEST(EphemerisEquations, polynomial_variable_order) {
   PolyEquation poly(0,2,1);
-  EXPECT_EQ( 6, poly.size() );
+  EXPECT_EQ( 6u, poly.size() );
   EXPECT_EQ( poly.type(), "PolyEquation" );
   poly[0] = 11;
   poly[1] = -5; poly[2] = 0.6; poly[3] = .1;
@@ -77,7 +77,7 @@ TEST(EphemerisEquations, polynomial_defined_const) {
   PolyEquation poly(x_coeff,
                     y_coeff,
                     z_coeff);
-  EXPECT_EQ( 6, poly.size() );
+  EXPECT_EQ( 6u, poly.size() );
   EXPECT_EQ( poly.type(), "PolyEquation" );
   EXPECT_EQ( -5, poly[1] );
 
@@ -92,7 +92,7 @@ TEST(EphemerisEquations, reversepolish) {
   std::string y_eq("t sin 4 * t +");
   std::string z_eq("t t 2 * * 5 t / - abs");
   RPNEquation rpn( x_eq, y_eq, z_eq );
-  EXPECT_EQ( 5, rpn.size() );
+  EXPECT_EQ( 5u, rpn.size() );
   EXPECT_EQ( "RPNEquation", rpn.type() );
 
   Vector3 test = rpn(-1.5);

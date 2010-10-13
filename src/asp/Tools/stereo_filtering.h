@@ -191,12 +191,12 @@ namespace vw {
           // and greater than or equal to 64 px;
           int previous_num_threads = vw_settings().default_num_threads();
           int sub_threads = vw_settings().default_num_threads() + 1;
-          int tile_power = 0;
+          uint32 tile_power = 0;
           while ( tile_power < 6 && sub_threads > 1) {
             sub_threads--;
-            tile_power = int( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
+            tile_power = uint32( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
           }
-          int sub_tile_size = int ( pow(2., tile_power) );
+          uint32 sub_tile_size = 1 << tile_power;
           if ( sub_tile_size > vw_settings().default_tile_size() )
             sub_tile_size = vw_settings().default_tile_size();
 

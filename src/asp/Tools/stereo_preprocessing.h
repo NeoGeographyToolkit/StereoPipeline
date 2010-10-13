@@ -69,7 +69,7 @@ namespace vw {
       sub_threads--;
       tile_power = int( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
     }
-    int sub_tile_size = int ( pow(2., tile_power) );
+    uint32 sub_tile_size = 1u << tile_power;
     if ( sub_tile_size > vw_settings().default_tile_size() )
       sub_tile_size = vw_settings().default_tile_size();
 

@@ -20,7 +20,7 @@ TEST(ErodeView, basic_test) {
   EXPECT_TRUE( is_valid(test(1,1)) );
 
   BlobIndexThreaded bindex( test, 100 );
-  EXPECT_EQ( 1, bindex.num_blobs() );
+  EXPECT_EQ( 1u, bindex.num_blobs() );
 
   ImageViewRef<PixelMask<uint8> > erode_ref =
     ErodeView<ImageView<PixelMask<uint8> > >( test, bindex );
