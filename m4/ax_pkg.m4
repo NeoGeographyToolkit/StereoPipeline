@@ -133,7 +133,7 @@ AC_DEFUN([AX_PKG],
         dnl check for the headers and libs. if found, keep going.
         dnl otherwise, check next path
         AC_LINK_IFELSE(
-          AC_LANG_PROGRAM([#include "conftest.h"],[]),
+          [AC_LANG_PROGRAM([#include "conftest.h"],[])],
           [ HAVE_PKG_$1=yes ], [continue] )
 
         m4_ifval([$7],

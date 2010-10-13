@@ -103,8 +103,8 @@ AC_DEFUN([AX_PKG_BOOST_LIB],
         LIBS="$ax_pkg_old_libs $PKG_BOOST_$1_LIBS"
 
         AC_LINK_IFELSE(
-          AC_LANG_PROGRAM(m4_foreach_w([header], [$6 $3], [@%:@include <header>
-]), [[$4]]), [ HAVE_PKG_BOOST_$1=yes; break; ], [ continue ] )
+          [AC_LANG_PROGRAM(m4_foreach_w([header], [$6 $3], [@%:@include <header>
+]), [[$4]])], [ HAVE_PKG_BOOST_$1=yes; break; ], [ continue ] )
       done
 
       CPPFLAGS="$ax_pkg_old_cppflags"

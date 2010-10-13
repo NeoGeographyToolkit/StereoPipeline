@@ -312,18 +312,16 @@ dnl check for recent rabbitmq; this can go away soon, it's just to prevent a
 dnl flag-day upgrade
 if test x"$HAVE_PKG_RABBITMQ_C" = "xyes"; then
   AS_VAR_PUSHDEF([ac_var], rabbitmq_void_rpc_reply)dnl
-  AC_COMPILE_IFELSE(AC_LANG_PROGRAM([[
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
     #include <stdlib.h>
     #include <stdint.h>
     #include <amqp.h>
   ]], [[
     amqp_get_rpc_reply();
-  ]]), [AS_VAR_SET(ac_var,yes)], [AS_VAR_SET(ac_var,no)])
-
-  AS_IF([test x"$ac_var" = "xyes"],
-    [AC_DEFINE([RABBITMQ_VOID_RPC_REPLY], [1], [Is amqp_get_rpc_reply void?])],
-    [AC_DEFINE([RABBITMQ_VOID_RPC_REPLY], [0], [Is amqp_get_rpc_reply void?])])
-  AS_VAR_POPDEF([ac_var])dnl
+    x.library_error;
+  ]])], [], [
+    HAVE_PKG_RABBITMQ_C="no:current version is too old"
+    AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])])
 fi
 
 # These are here (instead of inside the PKG macro where they belong)

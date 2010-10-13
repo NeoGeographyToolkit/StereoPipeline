@@ -16,7 +16,7 @@ AC_DEFUN([AX_TRY_CPPFLAGS],
     [
         save_CPPFLAGS="$CPPFLAGS"
         CPPFLAGS="$CPPFLAGS $1"
-        AC_LINK_IFELSE(AC_LANG_PROGRAM(), [AS_VAR_SET(ac_var,yes)], [AS_VAR_SET(ac_var,no)])
+        AC_LINK_IFELSE([AC_LANG_PROGRAM()], [AS_VAR_SET(ac_var,yes)], [AS_VAR_SET(ac_var,no)])
         CPPFLAGS="$save_CPPFLAGS"
     ])
     AS_IF([test AS_VAR_GET(ac_var) = yes], [m4_default([$2], [CPPFLAGS="$CPPFLAGS $1"])], [$3])

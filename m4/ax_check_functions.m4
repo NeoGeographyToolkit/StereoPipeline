@@ -25,7 +25,7 @@ AC_DEFUN([AX_CHECK_FUNCTIONS],
     echo ["Checking for $func in $LIBS"] >&AS_MESSAGE_LOG_FD
 
     AC_LINK_IFELSE(
-      AC_LANG_CALL([],[$func]),
+      [AC_LANG_CALL([],[$func])],
       [check_function_got_it=yes],
       [
         check_function_missing_libs=yes
