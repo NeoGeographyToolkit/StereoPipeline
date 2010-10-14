@@ -60,7 +60,7 @@ struct Options {
     extra_arg1, extra_arg2, extra_arg3, extra_arg4;
 
   // Settings
-  int entry_point, num_threads;
+  vw::uint32 num_threads;
   std::string stereo_session_string, stereo_default_filename;
   boost::shared_ptr<StereoSession> session;        // Used to extract cameras
   vw::DiskImageResourceGDAL::Options gdal_options; // Repeated format options
@@ -129,7 +129,6 @@ namespace vw {
       ("threads", po::value(&opt.num_threads)->default_value(0), "Select the number of processors (threads) to use.")
       ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
-      ("entry-point,e", po::value(&opt.entry_point)->default_value(0), "Pipeline Entry Point (an integer from 1-4)")
       ("draft-mode", po::value(&opt.corr_debug_prefix), "Cause the pyramid correlator to save out debug imagery named with this prefix.")
       ("optimized-correlator", "Use the optimized correlator instead of the pyramid correlator.")
       ("help,h", "Display this help message");

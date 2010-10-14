@@ -17,8 +17,6 @@
 namespace vw {
 
   void stereo_triangulation( Options const& opt ) {
-    if (opt.entry_point == POINT_CLOUD)
-      vw_out() << "\nStarting at the TRIANGULATION stage.\n";
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 4 --> TRIANGULATION \n";
 

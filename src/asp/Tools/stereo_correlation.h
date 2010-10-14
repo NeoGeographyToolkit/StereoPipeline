@@ -192,8 +192,6 @@ namespace vw {
 
   void stereo_correlation( Options& opt ) {
 
-    if (opt.entry_point == CORRELATION)
-      vw_out() << "\nStarting at the CORRELATION stage.\n";
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 1 --> CORRELATION \n";
 

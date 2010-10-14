@@ -52,7 +52,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
                      std::vector<double> const& exposure_ts ) {
   int32 max_tid = ptk_meta.max_iterations() *
     ptk_meta.num_cameras();
-  int32 tile_size = albedo_plate->default_tile_size();
+  uint32 tile_size = albedo_plate->default_tile_size();
   std::ostringstream ostr;
   ostr << "Albedo Initialize [id=" << opt.job_id << "]";
   int transaction_id =
@@ -121,7 +121,7 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
                     std::vector<double> const& exposure_ts ) {
   int32 max_tid = ptk_meta.max_iterations() *
     ptk_meta.num_cameras();
-  int32 tile_size = albedo_plate->default_tile_size();
+  uint32 tile_size = albedo_plate->default_tile_size();
   std::ostringstream ostr;
   ostr << "Albedo Update [id=" << opt.job_id << "]";
   int transaction_id =

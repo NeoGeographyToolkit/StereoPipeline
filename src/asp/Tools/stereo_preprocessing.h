@@ -63,11 +63,11 @@ namespace vw {
     // is a little slow on releasing so it will probably use 1.5GiB
     // memory during subsampling) Also tile size must be a power of 2
     // and greater than or equal to 64 px;
-    int sub_threads = vw_settings().default_num_threads() + 1;
-    int tile_power = 0;
+    uint32 sub_threads = vw_settings().default_num_threads() + 1;
+    uint32 tile_power = 0;
     while ( tile_power < 6 && sub_threads > 1) {
       sub_threads--;
-      tile_power = int( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
+      tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
     }
     uint32 sub_tile_size = 1u << tile_power;
     if ( sub_tile_size > vw_settings().default_tile_size() )
@@ -93,7 +93,7 @@ namespace vw {
                                         Vector2i(sub_tile_size,
                                                  sub_tile_size),
                                         opt.gdal_options );
-      int previous_num_threads = vw_settings().default_num_threads();
+      uint32 previous_num_threads = vw_settings().default_num_threads();
       vw_settings().set_default_num_threads(sub_threads);
       block_write_image(l_sub_rsrc, Lsub,
                         TerminalProgressCallback("asp", "\t    Sub L: "));

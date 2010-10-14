@@ -16,8 +16,6 @@ namespace vw {
 
   void stereo_refinement( Options& opt ) {
 
-    if (opt.entry_point == REFINEMENT)
-      vw_out() << "\nStarting at the REFINEMENT stage.\n";
     vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
 
     try {
