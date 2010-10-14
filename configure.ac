@@ -310,19 +310,24 @@ AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
 
 dnl check for recent rabbitmq; this can go away soon, it's just to prevent a
 dnl flag-day upgrade
+old_CXXFLAGS="$CXXFLAGS"
+old_LDFLAGS="$LDFLAGS"
+CXXFLAGS="$CXXFLAGS $PKG_RABBITMQ_C_CPPFLAGS"
+LDFLAGS="$LDFLAGS $PKG_RABBITMQ_C_LIBS"
 if test x"$HAVE_PKG_RABBITMQ_C" = "xyes"; then
-  AS_VAR_PUSHDEF([ac_var], rabbitmq_void_rpc_reply)dnl
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
     #include <stdlib.h>
     #include <stdint.h>
     #include <amqp.h>
   ]], [[
-    amqp_get_rpc_reply();
+    amqp_rpc_reply_t x;
     x.library_error;
   ]])], [], [
     HAVE_PKG_RABBITMQ_C="no:current version is too old"
     AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])])
 fi
+CXXFLAGS="$old_CXXFLAGS"
+LDFLAGS="$old_LDFLAGS"
 
 # These are here (instead of inside the PKG macro where they belong)
 # for backwards compatability with older versions of automake.
