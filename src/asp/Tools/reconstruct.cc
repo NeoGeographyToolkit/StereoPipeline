@@ -409,7 +409,7 @@ int main( int argc, char *argv[] ) {
     */
 
     //quick debug version --- START
-    modelParamsArray[i].DEMFilename         = homeDir + dataDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM2.tif";
+    modelParamsArray[i].DEMFilename         = homeDir + dataDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM.tif";
     modelParamsArray[i].infoFilename        = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
     modelParamsArray[i].meanDEMFilename     = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM_out.tif";   
     modelParamsArray[i].var2DEMFilename     = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
