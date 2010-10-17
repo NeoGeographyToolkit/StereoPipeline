@@ -123,7 +123,7 @@ struct Options {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("default-value", po::value(&opt.default_value)->default_value(std::numeric_limits<float>::max()), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
+    ("default-value", po::value(&opt.default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
     ("nodata-value", po::value(&opt.default_value), "Nodata value to use on output. This is the same as default-value.")
     ("use-alpha", "Create images that have an alpha channel")
     ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
@@ -196,7 +196,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   else if ( vm.count("lambert-azimuthal") ) opt.projection = LAMBERTAZIMUTHAL;
   else if ( vm.count("utm") )            opt.projection = UTM;
   else                                   opt.projection = PLATECARREE;
-  opt.has_default_value = vm.count("default-value");
+  opt.has_default_value = vm.count("default-value") || vm.count("nodata-value");
   opt.has_alpha = vm.count("use-alpha");
   opt.do_normalize = vm.count("normalized");
 }
@@ -386,9 +386,15 @@ int main( int argc, char *argv[] ) {
         DiskImageView<PixelGray<float> >
           dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
-        write_georeferenced_image( opt.out_prefix + "-DEM-normalized.tif",
-                                   channel_cast_rescale<uint8>(normalize(dem_image)),
-                                   georef, TerminalProgressCallback("asp","") );
+        if ( opt.has_default_value ) {
+          write_georeferenced_image( opt.out_prefix + "-DEM-normalized.tif",
+                                     apply_mask(channel_cast_rescale<uint8>(normalize(create_mask(dem_image,opt.default_value)))),
+                                     georef, TerminalProgressCallback("asp","") );
+        } else {
+          write_georeferenced_image( opt.out_prefix + "-DEM-normalized.tif",
+                                     channel_cast_rescale<uint8>(normalize(dem_image)),
+                                     georef, TerminalProgressCallback("asp","") );
+        }
       }
     }
 
