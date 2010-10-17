@@ -61,15 +61,20 @@ def main():
             cmd_args=cmd_args+" "+arg
 
         if ( options.entry_point <= 0 ):
-            os.system("stereo_pprc "+cmd_args)
+            if os.system("stereo_pprc "+cmd_args):
+                raise Exception("Stereo step 0: Preprocessing failed.")
         if ( options.entry_point <= 1 ):
-            os.system("stereo_corr "+cmd_args)
+            if os.system("stereo_corr "+cmd_args):
+                raise Exception("Stereo step 1: Correlation failed.")
         if ( options.entry_point <= 2 ):
-            os.system("stereo_rfne "+cmd_args)
+            if os.system("stereo_rfne "+cmd_args):
+                raise Exception("Stereo step 2: Refinement failed.")
         if ( options.entry_point <= 3 ):
-            os.system("stereo_fltr "+cmd_args)
+            if os.system("stereo_fltr "+cmd_args):
+                raise Exception("Stereo step 3: Filtering failed.")
         if ( options.entry_point <= 4 ):
-            os.system("stereo_tri "+cmd_args)
+            if os.system("stereo_tri "+cmd_args):
+                raise Exception("Stereo step 4: Triangulation failed.")
 
         return 0
 
@@ -78,9 +83,9 @@ def main():
         return 2
 
     # To more easily debug this program, comment out this catch block.
-    #except Exception, err:
-    #    sys.stderr.write( str(err) + '\n' )
-    #    return 1
+    except Exception, err:
+        sys.stderr.write( str(err) + '\n' )
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())
