@@ -35,12 +35,12 @@ using namespace std;
 struct Options {
   // Input
   std::string ptk_url;
-  int level;
+  int32 level;
 
   bool perform_2band;
 
   // For spawning multiple jobs
-  int job_id, num_jobs;
+  int32 job_id, num_jobs;
 };
 
 template <class AccumulatorT>
@@ -55,7 +55,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   uint32 tile_size = albedo_plate->default_tile_size();
   std::ostringstream ostr;
   ostr << "Albedo Initialize [id=" << opt.job_id << "]";
-  int transaction_id =
+  int32 transaction_id =
     albedo_plate->transaction_request(ostr.str(),-1);
   TerminalProgressCallback tpc("photometrytk", "Initial");
   double tpc_inc = 1.0/float(workunits.size());
@@ -77,8 +77,8 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
       if ( h_tile_records.empty() )
         continue;
 
-      for ( int ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
-        for ( int iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
+      for ( int32 ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
+        for ( int32 iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
           // Polling for DRG Tiles
           std::list<TileHeader> tile_records =
             drg_plate->search_by_location( ix, iy, opt.level,
@@ -124,7 +124,7 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   uint32 tile_size = albedo_plate->default_tile_size();
   std::ostringstream ostr;
   ostr << "Albedo Update [id=" << opt.job_id << "]";
-  int transaction_id =
+  int32 transaction_id =
     albedo_plate->transaction_request(ostr.str(),-1);
   TerminalProgressCallback tpc("photometrytk", "Update");
   double tpc_inc = 1.0/float(workunits.size());
@@ -145,8 +145,8 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
       if ( h_tile_records.empty() )
         continue;
 
-      for ( int ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
-        for ( int iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
+      for ( int32 ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
+        for ( int32 iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
 
           // Polling for DRG Tiles
           std::list<TileHeader> tile_records =
@@ -191,15 +191,15 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("level,l", po::value<int>(&opt.level)->default_value(-1), "Default is to process at lowest level.")
-    ("job_id,j", po::value<int>(&opt.job_id)->default_value(0), "")
-    ("num_jobs,n", po::value<int>(&opt.num_jobs)->default_value(1), "")
+    ("level,l", po::value(&opt.level)->default_value(-1), "Default is to process at lowest level.")
+    ("job_id,j", po::value(&opt.job_id)->default_value(0), "")
+    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "")
     ("2band", "Perform 2 Band mosaic of albedo. This should be used as a last step.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
   positional.add_options()
-    ("ptk_url",  po::value<std::string>(&opt.ptk_url),  "Input PTK Url");
+    ("ptk_url",  po::value(&opt.ptk_url),  "Input PTK Url");
 
   po::positional_options_description positional_desc;
   positional_desc.add("ptk_url", 1);
@@ -242,7 +242,7 @@ int main( int argc, char *argv[] ) {
 
     // URL decomposition
     std::string hostname, exchange, file_name, plate_prefix, plate_postfix;
-    int port;
+    int32 port;
     asp::pho::parse_url( opt.ptk_url, hostname, port, exchange, file_name );
     plate_prefix = "pf://"+hostname+":"+boost::lexical_cast<std::string>(port)+"/index/";
     plate_postfix = "?cache_size=1";
@@ -277,10 +277,10 @@ int main( int argc, char *argv[] ) {
     // Diving up jobs and deciding work units
     std::list<BBox2i> workunits;
     {
-      int region_size = pow(2.0,opt.level);
+      int32 region_size = 1 << opt.level;
       BBox2i full_region(0,region_size/4,region_size,region_size/2);
       std::list<BBox2i> all_workunits = bbox_tiles(full_region,8,8);
-      int count = 0;
+      int32 count = 0;
       BOOST_FOREACH(const BBox2i& c, all_workunits ) {
         if ( count == opt.num_jobs )
           count = 0;

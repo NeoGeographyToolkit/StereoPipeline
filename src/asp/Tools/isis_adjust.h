@@ -209,7 +209,7 @@ public:
   // point, return the location of b_i on imager j in
   // millimeters. !!Warning!! This gives data back in millimeters
   // which is different from most implementations.
-  vw::Vector2 operator() ( unsigned i, unsigned j,
+  vw::Vector2 operator() ( unsigned /*i*/, unsigned j,
                            camera_vector_t const& a_j,
                            point_vector_t const& b_i ) const {
 

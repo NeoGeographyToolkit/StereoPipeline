@@ -327,18 +327,19 @@ int main(int argc, char* argv[]) {
   drg_georef.set_transform(drg_trans);
 
   GeoTransform trans(dem_georef, drg_georef);
-  ImageViewRef<PixelMask<PixelGray<float> > > output_dem = crop(transform(dem, trans,
-                                                                          ZeroEdgeExtension(),
-                                                                          BicubicInterpolation()),
-                                                                BBox2i(0,0,output_width,output_height));
-  if ( vm.count("draw-debug") ) {
+  ImageViewRef<PixelMask<PixelGray<float> > > output_dem =
+    crop(transform(dem, trans,
+                   ZeroEdgeExtension(),
+                   BicubicInterpolation()),
+         BBox2i(0,0,int32(output_width),int32(output_height)));
+
+  if ( vm.count("draw-debug") )
     write_image( camera_model_file+"_debug.tif", normalize(output_dem) );
-  }
 
-
-  ImageViewRef<PixelGrayA<uint8> > final_result = orthoproject(output_dem, drg_georef,
-                                                               texture_image, camera_model,
-                                                               BicubicInterpolation(), ZeroEdgeExtension());
+  ImageViewRef<PixelGrayA<uint8> > final_result =
+    orthoproject(output_dem, drg_georef,
+                 texture_image, camera_model,
+                 BicubicInterpolation(), ZeroEdgeExtension());
 
   DiskImageResourceGDAL rsrc(output_file, final_result.format(), Vector2i(vw_settings().default_tile_size(),vw_settings().default_tile_size()) );
   write_georeference(rsrc, drg_georef);

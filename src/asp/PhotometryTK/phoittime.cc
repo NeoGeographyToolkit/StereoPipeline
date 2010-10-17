@@ -88,8 +88,8 @@ void update_exposure( Options& opt ) {
     // Deciding working area
     if ( opt.level < 0 )
       opt.level = drg_plate->num_levels() - 1;
-    int full = pow(2.0,opt.level);
-    int quarter = full/4;
+    int32 full = 1 << opt.level;
+    int32 quarter = full/4;
     BBox2i affected_tiles(0,quarter,full-1,quarter*2-1);
     std::list<TileHeader> drg_tiles =
       drg_plate->search_by_region(opt.level, affected_tiles,j+1,j+1,1);

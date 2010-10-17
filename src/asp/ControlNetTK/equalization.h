@@ -18,7 +18,7 @@ inline void remove_max( std::vector<std::vector<InterestPoint> > &b_ip1,
     }
 
   unsigned point_idx = 0;
-  unsigned point_interest = -200000;
+  float point_interest = std::numeric_limits<float>::min();
   for ( unsigned i = 0; i < b_ip1[max_index].size(); i++ ) {
     if ( b_ip1[max_index][i].interest > point_interest ) {
       point_interest = b_ip1[max_index][i].interest;

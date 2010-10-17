@@ -77,8 +77,8 @@ void perform_mipmap( Options & opt ) {
   } else {
     // Process everything!
     opt.level = platefile->num_levels()-1;
-    int full = pow(2.0,opt.level);
-    int quarter = full/4;
+    int32 full = 1 << opt.level;
+    int32 quarter = full/4;
     opt.region_bbox = BBox2i(0,quarter,full-1,quarter*2-1);
   }
   vw_out() << "Processing: " << opt.region_bbox

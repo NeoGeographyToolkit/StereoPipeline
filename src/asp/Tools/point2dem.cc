@@ -228,7 +228,7 @@ int main( int argc, char *argv[] ) {
       // average location of the points. If the average location has a
       // negative x value (think in ECEF coordinates) then we should
       // be using [0,360].
-      int subsample_amt = norm_2(Vector2i(point_image.cols(),point_image.rows())) / 1024;
+      int32 subsample_amt = int32(norm_2(Vector2i(point_image.cols(),point_image.rows()))) / 1024;
       if (subsample_amt < 1 ) subsample_amt = 1;
       Vector3 avg_location =
         mean_pixel_value(subsample(point_image, subsample_amt));

@@ -40,10 +40,11 @@ void shadow_mask_nodata( Options& opt,
   cartography::GeoReference georef;
   cartography::read_georeference(georef, input);
   DiskImageView<PixelT> input_image(input);
-  ImageViewRef<PMaskT> masked_input = create_mask(input_image,opt.nodata);
+  ImageViewRef<PMaskT> masked_input =
+    create_mask(input_image, boost::numeric_cast<ChannelT>(opt.nodata));
   ImageViewRef<PMaskT> result =
-    intersect_mask(masked_input,create_mask(threshold(input_image,opt.threshold)));
-  cartography::write_georeferenced_image(output, create_mask(result,opt.nodata),
+    intersect_mask(masked_input,create_mask(threshold(input_image,boost::numeric_cast<ChannelT>(opt.threshold))));
+  cartography::write_georeferenced_image(output, create_mask(result,boost::numeric_cast<ChannelT>(opt.nodata)),
                                          georef, TerminalProgressCallback("photometrytk","Writing:"));
 
 }
@@ -69,8 +70,9 @@ template <class PixelT>
 struct MultiplyAlphaFunctor : public vw::ReturnFixedType<PixelT> {
   template <class Pixel2T>
   inline PixelT operator()( PixelT const& arg1, Pixel2T const& arg2 ) const {
+    typedef typename CompoundChannelType<PixelT>::type ChannelT;
     PixelT copy = arg1;
-    copy.a() = double(copy.a()) * arg2;
+    copy.a() = boost::numeric_cast<ChannelT>(float(copy.a()) * arg2);
     if ( !boost::is_floating_point<typename CompoundChannelType<PixelT>::type>::value &&
          copy.a() == 0 && arg1.a() != 0 && arg2 != 0 )
       copy.a() = 1;
@@ -85,9 +87,8 @@ void shadow_mask_alpha( Options& opt,
   typedef typename PixelChannelType<PixelT>::type ChannelT;
   typedef typename PixelWithoutAlpha<PixelT>::type PixelNoAT;
   ChannelRange<ChannelT> helper;
-  if ( opt.threshold < 0 ) {
+  if ( opt.threshold < 0 )
     opt.threshold = 0.1*helper.max();
-  }
 
   cartography::GeoReference georef;
   cartography::read_georeference(georef, input);
@@ -95,7 +96,7 @@ void shadow_mask_alpha( Options& opt,
   if ( opt.feather ) {
     ImageViewRef<PixelNoAT> invert_holes =
       threshold(apply_mask(alpha_to_mask(input_image),helper.max()),
-                opt.threshold,0,helper.max());
+                ChannelT(opt.threshold),0,helper.max());
     ImageView<int32> dist = grassfire(invert_holes);
     ImageViewRef<double> alpha_mod =
       clamp(channel_cast<double>(dist)/40.0,1.0);
@@ -116,14 +117,14 @@ void shadow_mask_alpha( Options& opt,
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata-value", po::value<double>(&opt.nodata), "Value that is nodata in the input image. Not used if input has alpha.")
-    ("threshold,t", po::value<double>(&opt.threshold), "Value used to detect shadows.")
+    ("nodata-value", po::value(&opt.nodata), "Value that is nodata in the input image. Not used if input has alpha.")
+    ("threshold,t", po::value(&opt.threshold), "Value used to detect shadows.")
     ("feather", "Feather pre-existing alpha around the newly masked shadows. Only for images with alpha already.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
   positional.add_options()
-    ("input-files", po::value<std::vector<std::string> >(&opt.input_files));
+    ("input-files", po::value(&opt.input_files));
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);

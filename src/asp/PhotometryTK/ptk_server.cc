@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
               << float(bytes/dt)/1000.0 << " kB/sec    "
               << n_outstanding_messages << " outstanding messages                          \r"
               << std::flush;
-    sleep(1.0);
+    sleep(1u);
   }
 
   std::cout << "\nShutting down the index service safely.\n";

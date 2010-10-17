@@ -21,13 +21,13 @@ namespace fs = boost::filesystem;
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Core/Macros.h>
 
-int find_destination_index( int const& source_idx,
-                            std::map<int,std::string> const& src_map,
-                            std::map<std::string,int> & dst_map,
-                            int & dst_max_idx ) {
+size_t find_destination_index( int const& source_idx,
+                               std::map<int,std::string> const& src_map,
+                               std::map<std::string,int> & dst_map,
+                               size_t & dst_max_idx ) {
   std::map<std::string,int>::iterator search =
     dst_map.find( src_map.find(source_idx)->second );
-  int dst_index;
+  size_t dst_index;
   if ( search == dst_map.end() ) {
     dst_max_idx++;
     dst_index = dst_max_idx;
@@ -139,7 +139,7 @@ int main( int argc, char** argv ) {
     print_cnet_statistics( dst_cnet );
 
     std::map<std::string,int> dst_serial_to_cam_idx;
-    int dst_max_cam_idx = -1;
+    size_t dst_max_cam_idx = 0;
     {
       float inc_amt = 1.0/float(dst_cnet.size());
       TerminalProgressCallback tpc("","Destination Idx:");
@@ -195,14 +195,14 @@ int main( int argc, char** argv ) {
           ControlPoint::const_iterator cm1, cm2;
           cm1 = cm2 = cp.begin();
           cm2++;
-          int dst_index1 =
+          size_t dst_index1 =
             find_destination_index( cm1->image_id(),
                                     src_cam_idx_to_serial,
                                     dst_serial_to_cam_idx,
                                     dst_max_cam_idx );
 
-	  if ( dst_index1 == dst_crn.size() )
-	    dst_crn.add_node( CameraNode<IPFeature>(dst_index1,"") );
+          if ( dst_index1 == dst_crn.size() )
+            dst_crn.add_node( CameraNode<IPFeature>(dst_index1,"") );
 
           f_itr dst_feature1;
           if ( opt.close < 0 ) {
@@ -219,14 +219,14 @@ int main( int argc, char** argv ) {
             dst_feature1 = dst_crn[dst_index1].begin();
           }
           while ( cm2 != cp.end() ) {
-            int dst_index2 =
+            size_t dst_index2 =
               find_destination_index( cm2->image_id(),
                                       src_cam_idx_to_serial,
                                       dst_serial_to_cam_idx,
                                       dst_max_cam_idx );
 
-	    if ( dst_index2 == dst_crn.size() )
-	      dst_crn.add_node( CameraNode<IPFeature>(dst_index2,"") );
+            if ( dst_index2 == dst_crn.size() )
+              dst_crn.add_node( CameraNode<IPFeature>(dst_index2,"") );
 
             f_itr dst_feature2;
             if ( opt.close < 0 ) {
