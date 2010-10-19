@@ -22,7 +22,7 @@ stereo: cubes
 	$(STEREO) $(MAPPED) $(RESULTSDIR)/$(OUT)
 
 disparity: stereo
-	cd $(RESULTSDIR); disparitydebug $(OUT)-F.exr
+	cd $(RESULTSDIR); disparitydebug $(OUT)-F.tif
 
 mesh: stereo
 	cd $(RESULTSDIR); point2mesh $(OUT)-PC.tif $(OUT)-L.tif
