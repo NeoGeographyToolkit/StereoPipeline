@@ -179,7 +179,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("gcp-scalar", po::value(&opt.gcp_scalar)->default_value(1.0),
      "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
     ("lambda,l", po::value(&opt.lambda), "Set the intial value of the LM parameter g_lambda")
-    ("min-matches", po::value(&opt.min_matches)->default_value(30),
+    ("min-matches", po::value(&opt.min_matches)->default_value(5),
      "Set the minimum number of matches between images that will be considered.")
     ("max-iterations", po::value(&opt.max_iterations)->default_value(25), "Set the maximum number of iterations.")
     ("output-prefix,o", po::value(&opt.output_prefix)->default_value("isis_adjust"), "Output files use this prefix")

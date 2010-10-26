@@ -63,6 +63,7 @@ struct Options {
   // Input
   std::vector<std::string> input_names, gcp_names,
     gcp_cnet_names, serial_names;
+  int min_matches;
 
   // Output
   std::string cnet_output;
@@ -74,6 +75,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("o,output-cnet", po::value(&opt.cnet_output)->default_value("cnet_built"), "Output file for control network.")
     ("t,type-of-cnet", po::value(&opt.cnet_output_type)->default_value("binary"), "Types of cnets are [binary,isis]")
+    ("min-matches", po::value(&opt.min_matches)->default_value(5))
     ("help,h", "Display this help message");
 
   po::options_description positional("");
@@ -130,7 +132,7 @@ int main( int argc, char* argv[] ) {
     vw_out() << "Building Control Network\n";
     ControlNetwork cnet( "ControlNetworkTK" );
     build_control_network( cnet, camera_models,
-                           opt.input_names, 10 );
+                           opt.input_names, opt.min_matches );
     add_ground_control_points( cnet, opt.input_names,
                                opt.gcp_names.begin(), opt.gcp_names.end() );
     add_ground_control_cnets( cnet, opt.input_names,
