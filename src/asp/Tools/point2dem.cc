@@ -88,7 +88,6 @@ public:
 };
 
 enum ProjectionType {
-  NONXYZ,
   SINUSOIDAL,
   MERCATOR,
   TRANSVERSEMERCATOR,
@@ -131,7 +130,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
-    ("xyz-to-lonlat", "Convert from xyz coordinates to longitude, latitude, altitude coordinates.")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [moon , mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
     ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
@@ -171,7 +169,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     po::notify( vm );
   } catch (po::error &e) {
     vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
+              << e.what() << "\n" << general_options );
   }
 
   std::ostringstream usage;
@@ -187,8 +185,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
   boost::to_lower( opt.reference_spheroid );
-  if (!vm.count("xyz-to-lonlat"))        opt.projection = NONXYZ;
-  else if ( vm.count("sinusoidal") )     opt.projection = SINUSOIDAL;
+  if ( vm.count("sinusoidal") )     opt.projection = SINUSOIDAL;
   else if ( vm.count("mercator") )       opt.projection = MERCATOR;
   else if ( vm.count("transverse-mercator") ) opt.projection = TRANSVERSEMERCATOR;
   else if ( vm.count("orthographic") )   opt.projection = ORTHOGRAPHIC;
@@ -222,22 +219,20 @@ int main( int argc, char *argv[] ) {
         per_pixel_filter(point_image, PointTransFunc(rotation_trans));
     }
 
-    if ( opt.projection != NONXYZ ) {
-      // First determine if we should using a longitude range between
-      // [-180, 180] or [0,360]. We determine this by looking at the
-      // average location of the points. If the average location has a
-      // negative x value (think in ECEF coordinates) then we should
-      // be using [0,360].
-      int32 subsample_amt = int32(norm_2(Vector2i(point_image.cols(),point_image.rows()))) / 1024;
-      if (subsample_amt < 1 ) subsample_amt = 1;
-      Vector3 avg_location =
-        mean_pixel_value(subsample(point_image, subsample_amt));
+    // First determine if we should using a longitude range between
+    // [-180, 180] or [0,360]. We determine this by looking at the
+    // average location of the points. If the average location has a
+    // negative x value (think in ECEF coordinates) then we should
+    // be using [0,360].
+    int32 subsample_amt = int32(norm_2(Vector2i(point_image.cols(),point_image.rows()))) / 1024;
+    if (subsample_amt < 1 ) subsample_amt = 1;
+    Vector3 avg_location =
+      mean_pixel_value(subsample(point_image, subsample_amt));
 
-      vw_out() << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
-      point_image =
-        cartography::xyz_to_lon_lat_radius(point_image, true,
-                                           avg_location[0] >= 0);
-    }
+    vw_out() << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
+    point_image =
+      cartography::xyz_to_lon_lat_radius(point_image, true,
+                                         avg_location[0] >= 0);
 
     if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.x_offset
@@ -289,8 +284,6 @@ int main( int argc, char *argv[] ) {
     // Otherwise, we honor the user's requested projection and convert
     // the points if necessary.
     switch( opt.projection ) {
-    case NONXYZ:
-      georef.set_mercator(0,0,1); break;
     case SINUSOIDAL:
       georef.set_sinusoidal(opt.proj_lon); break;
     case MERCATOR:
@@ -309,8 +302,7 @@ int main( int argc, char *argv[] ) {
       break;
     }
 
-    if ( opt.projection != NONXYZ )
-      point_image = cartography::project_point_image(point_image, georef);
+    point_image = cartography::project_point_image(point_image, georef);
 
     // Rasterize the results to a temporary file on disk so as to speed
     // up processing in the orthorasterizer, which accesses each pixel
@@ -332,6 +324,9 @@ int main( int argc, char *argv[] ) {
       rasterizer.set_use_minz_as_default(false);
       rasterizer.set_default_value(opt.default_value);
     }
+
+    if ( opt.dem_spacing == 0.0 )
+      vw_out() << "DEM spacing automatically set to: " << rasterizer.spacing() << "\n";
 
     if (opt.has_alpha)
       rasterizer.set_use_alpha(true);

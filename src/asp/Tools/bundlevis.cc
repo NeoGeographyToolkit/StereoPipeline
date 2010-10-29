@@ -69,6 +69,8 @@ std::vector<PointIter*> loadPointData( std::string pntFile,
 
   // Determing the number of lines in the file
   std::ifstream file(pntFile.c_str(), std::ios::in);
+  if ( !file.is_open() )
+    vw_throw( ArgumentErr() << "Unable to open: " << pntFile << "!\n" );
   int numLines = 0, numPoints = 0, numTimeIter = 0;
   char c;
   while (!file.eof()){
@@ -137,6 +139,8 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
 
   // Determing the number of lines in the file
   std::ifstream file(camFile.c_str(), std::ios::in);
+  if ( !file.is_open() )
+    vw_throw( ArgumentErr() << "Unable to open: " << camFile << "!\n" );
   int numLines = 0, numCameras = 0;
   int numTimeIter = 0, numCameraParam = 0;
   char c;
