@@ -35,6 +35,7 @@ struct Options {
   double rel_tol, abs_tol;
 
   // Output
+  std::string output_mode;
   std::string output_prefix;
 };
 
@@ -58,6 +59,8 @@ void create_ptk( Options const& opt ) {
     proj_meta.set_reflectance( ProjectMeta::NONE );
   }
 
+  proj_meta.set_plate_manager( opt.output_mode );
+
   std::list<CameraMeta> emptycams;
   write_pho_project( opt.output_prefix, proj_meta,
                      emptycams.begin(), emptycams.end() );
@@ -67,6 +70,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("max_iterations", po::value<int32>(&opt.max_iterations)->default_value(100), "")
+    ("mode,m", po::value<std::string>(&opt.output_mode)->default_value("equi"), "Output mode [toast, equi, polar]")
     ("reflectance_type", po::value<std::string>(&opt.reflectance_type)->default_value("none"), "Reflectance options are [none, lambertian, gaskall, mcewen]")
     ("rel_tol", po::value<double>(&opt.rel_tol)->default_value(1e-2), "Minimium required amount of improvement between iterations")
     ("abs_tol", po::value<double>(&opt.abs_tol)->default_value(1e-2), "Error shutoff threshold.")
@@ -93,6 +97,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <projectname> <optional project settings> \n";
+
+  boost::to_lower( opt.output_mode );
+  if ( !( opt.output_mode == "equi" || opt.output_mode == "toast" ||
+          opt.output_mode == "polar" ) )
+    vw_throw( ArgumentErr() << "Unknown mode: \"" << opt.output_mode
+              << "\".\n\n" << usage.str() << general_options );
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );

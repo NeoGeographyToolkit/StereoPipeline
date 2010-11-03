@@ -18,6 +18,8 @@ message ProjectMeta {
     optional double abs_tol = 6 [default=1e-2]; // Absolute shut off  of error
 
     required int32 num_cameras = 7;
+
+    optional string plate_manager = 8 [default="equi"];
 }
 
 message CameraMeta {

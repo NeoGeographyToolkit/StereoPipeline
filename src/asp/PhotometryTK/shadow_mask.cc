@@ -17,10 +17,10 @@ using namespace vw;
 #include <asp/Core/Macros.h>
 
 struct Options {
-  Options() : nodata(-1), threshold(-1) {}
+  Options() : nodata(std::numeric_limits<double>::max()), threshold(-1), percent(-1) {}
   // Input
   std::vector<std::string> input_files;
-  double nodata, threshold;
+  double nodata, threshold, percent;
   bool feather;
 };
 
@@ -29,24 +29,47 @@ template <class PixelT>
 void shadow_mask_nodata( Options& opt,
                          std::string input,
                          std::string output ) {
-  VW_ASSERT( opt.nodata != -1, ArgumentErr() << "Missing user supplied nodata value" );
+  double session_nodata = opt.nodata;
+  if ( session_nodata == std::numeric_limits<double>::max() ) {
+    DiskImageResource *rsrc = DiskImageResource::open(input);
+    if ( rsrc->has_nodata_value() ) {
+      session_nodata = rsrc->nodata_value();
+      vw_out() << "\t--> Using nodata value: " << session_nodata << "\n";
+    } else {
+      vw_throw( ArgumentErr() << "Missing user supplied nodata value" );
+    }
+    delete rsrc;
+  }
   typedef typename PixelChannelType<PixelT>::type ChannelT;
   typedef typename MaskedPixelType<PixelT>::type PMaskT;
-  if ( opt.threshold < 0 ) {
-    ChannelRange<ChannelT> helper;
-    opt.threshold = 0.1*helper.max();
-  }
 
   cartography::GeoReference georef;
   cartography::read_georeference(georef, input);
   DiskImageView<PixelT> input_image(input);
   ImageViewRef<PMaskT> masked_input =
-    create_mask(input_image, boost::numeric_cast<ChannelT>(opt.nodata));
-  ImageViewRef<PMaskT> result =
-    intersect_mask(masked_input,create_mask(threshold(input_image,boost::numeric_cast<ChannelT>(opt.threshold))));
-  cartography::write_georeferenced_image(output, create_mask(result,boost::numeric_cast<ChannelT>(opt.nodata)),
-                                         georef, TerminalProgressCallback("photometrytk","Writing:"));
+    create_mask(input_image, boost::numeric_cast<ChannelT>(session_nodata));
 
+  double session_threshold = opt.threshold;
+  if ( opt.threshold < 0 && opt.percent < 0 ) {
+    ChannelRange<ChannelT> helper;
+    session_threshold = 0.1*helper.max();
+  } else if ( opt.percent > 0 ) {
+    ChannelT min, max;
+    min_max_channel_values( masked_input, min, max );
+    session_threshold = min + boost::numeric_cast<ChannelT>((float(max-min)*opt.percent)/100.0f);
+  }
+
+  vw_out() << "\t--> Using threshold value: " << session_threshold << "\n";
+
+  ImageViewRef<PixelT> result =
+    apply_mask(intersect_mask(masked_input,create_mask(threshold(input_image,boost::numeric_cast<ChannelT>(session_threshold)))),boost::numeric_cast<ChannelT>(session_nodata));
+
+  DiskImageResource* output_rsrc = DiskImageResource::create(output, result.format());
+  output_rsrc->set_nodata_value( session_nodata );
+  cartography::write_georeference( *output_rsrc, georef );
+  block_write_image( *output_rsrc, result,
+                     TerminalProgressCallback("photometrytk","Writing:") );
+  delete output_rsrc;
 }
 
 template <class PixelT>
@@ -86,17 +109,27 @@ void shadow_mask_alpha( Options& opt,
                         std::string output ) {
   typedef typename PixelChannelType<PixelT>::type ChannelT;
   typedef typename PixelWithoutAlpha<PixelT>::type PixelNoAT;
-  ChannelRange<ChannelT> helper;
-  if ( opt.threshold < 0 )
-    opt.threshold = 0.1*helper.max();
 
   cartography::GeoReference georef;
   cartography::read_georeference(georef, input);
   DiskImageView<PixelT> input_image(input);
+  ChannelRange<ChannelT> helper;
+
+  double session_threshold = opt.threshold;
+  if ( opt.threshold < 0 && opt.percent < 0 ) {
+    session_threshold = 0.1*helper.max();
+  } else if ( opt.percent > 0 ) {
+    ChannelT min, max;
+    min_max_channel_values( input_image, min, max );
+    session_threshold = min + boost::numeric_cast<ChannelT>((float(max-min)*opt.percent)/100.0f);
+  }
+
+  vw_out() << "\t--> Using threshold value: " << session_threshold << "\n";
+
   if ( opt.feather ) {
     ImageViewRef<PixelNoAT> invert_holes =
       threshold(apply_mask(alpha_to_mask(input_image),helper.max()),
-                ChannelT(opt.threshold),0,helper.max());
+                ChannelT(session_threshold),0,helper.max());
     ImageView<int32> dist = grassfire(invert_holes);
     ImageViewRef<double> alpha_mod =
       clamp(channel_cast<double>(dist)/40.0,1.0);
@@ -106,7 +139,7 @@ void shadow_mask_alpha( Options& opt,
                                            TerminalProgressCallback("photometrytk","Writing:"));
   } else {
     ImageViewRef<PixelT> result =
-      per_pixel_filter( input_image, ThresholdAlphaFunctor<PixelT>(opt.threshold) );
+      per_pixel_filter( input_image, ThresholdAlphaFunctor<PixelT>(session_threshold) );
 
     cartography::write_georeferenced_image(output, result, georef,
                                            TerminalProgressCallback("photometrytk","Writing:"));
@@ -118,7 +151,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("nodata-value", po::value(&opt.nodata), "Value that is nodata in the input image. Not used if input has alpha.")
-    ("threshold,t", po::value(&opt.threshold), "Value used to detect shadows.")
+    ("threshold,t", po::value(&opt.threshold), "Intensity value used to detect shadows.")
+    ("percent,p", po::value(&opt.percent), "Percent value of valid pixels used to detect shadows. This is an alternative to threshold option.")
     ("feather", "Feather pre-existing alpha around the newly masked shadows. Only for images with alpha already.")
     ("help,h", "Display this help message");
 
