@@ -538,21 +538,17 @@ The \texttt{point2dem} program (page \pageref{point2dem}) creates a
 \ac{DEM} from the point cloud file.
 
 \begin{verbatim}
-    ISIS 3> point2dem --xyz-to-lonlat E0201461-M0100115-PC.tif
+    ISIS 3> point2dem E0201461-M0100115-PC.tif
 \end{verbatim}
 
 \noindent
 The resulting TIFF file is map projected and will contain
-georeferencing information stored as GeoTIFF tags.  The
-\texttt{-\/-xyz-to-lonlat} option is {\em required} in most common uses, as
-it transforms the results from a Cartesian, body-centered coordinate
-system to the longitude, latitude, altitude spherical coordinate
-system.  You can specify a coordinate system (e.g., mercator,
-sinusoidal) and a reference spheroid (i.e., calculated for the Moon or
-Mars).
+georeferencing information stored as GeoTIFF tags. You can specify a
+coordinate system (e.g., mercator, sinusoidal) and a reference
+spheroid (i.e., calculated for the Moon or Mars).
 
 \begin{verbatim}
-    ISIS 3> point2dem --xyz-to-lonlat -r mars E0201461-M0100115-PC.tif
+    ISIS 3> point2dem -r mars E0201461-M0100115-PC.tif
 \end{verbatim}
 
 \noindent
@@ -568,7 +564,7 @@ option and specify the use of the left image file as the texture file
 to use for the projection:
 
 \begin{verbatim}
-    ISIS 3> point2dem --xyz-to-lonlat -r mars --orthoimage E0201461-M0100115-L.tif \
+    ISIS 3> point2dem -r mars --orthoimage E0201461-M0100115-L.tif \
         E0201461-M0100115-PC.tif
 \end{verbatim}
 

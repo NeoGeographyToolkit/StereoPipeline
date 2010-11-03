@@ -134,7 +134,7 @@ Options & Description \\ \hline \hline
 The \texttt{point2dem} program produces a GeoTIFF terrain model or an orthographic image from a point cloud image produced by the {\tt stereo} command.
 
 Example:\\
-\hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename -\/-xyz -r moon $\backslash$} \\
+\hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename -r moon $\backslash$} \\
 \hspace*{4em}\texttt{-\/-default-value -10000 -n}
 
 This produces a digital elevation model that has been referenced to
@@ -148,7 +148,7 @@ that can be easily loaded into a standard image viewing application
 for debugging.
 
 Another example: \\
-\hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename -\/-xyz -r moon $\backslash$} \\
+\hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename -r moon $\backslash$} \\
 \hspace*{4em}\texttt{-\/-orthoimage \textit{output-prefix}-L.tif}
 
 This command takes the left input image and orthographically projects
@@ -177,7 +177,6 @@ Options & Description \\ \hline \hline
 \texttt{-\/-texture-file \textit{texture-file}} & Explicitly specify the texture file \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the output file type \\ \hline
-\texttt{-\/-xyz-to-lonlat} & Convert from XYZ coordinates to longitude, latitude, altitude coordinates \\ \hline
 \texttt{-\/-reference-spheroid|-r moon|mars} & Set a reference surface to a hard coded value. This will override manually set datum information. \\ \hline
 \texttt{-\/-semi-major-axis \textit{float(=0)}} & Set the dimensions of the datum in meters\\ \hline
 \texttt{-\/-semi-minor-axis \textit{float(=0)}} & Set the dimensions of the datum in meters\\ \hline
