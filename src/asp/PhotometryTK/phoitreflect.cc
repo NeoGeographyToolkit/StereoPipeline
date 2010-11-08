@@ -31,8 +31,8 @@ struct Options {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("job_id,j", po::value<int>(&opt.job_id)->default_value(0), "")
-    ("num_jobs,n", po::value<int>(&opt.num_jobs)->default_value(1), "")
+    ("job_id,j", po::value(&opt.job_id)->default_value(0), "")
+    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "")
     ("help,h", "Display this help message");
 
   po::variables_map vm;

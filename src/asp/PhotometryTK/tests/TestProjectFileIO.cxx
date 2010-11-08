@@ -13,6 +13,8 @@ using namespace vw;
 using namespace asp;
 using namespace asp::pho;
 
+namespace fs = boost::filesystem;
+
 TEST(ProjectFileIO, circle_test) {
 
   // Write test data
@@ -44,4 +46,6 @@ TEST(ProjectFileIO, circle_test) {
     EXPECT_EQ( proj_st.num_cameras(),
                proj_end.num_cameras() );
   }
+
+  fs::remove_all("test.ptk");
 }

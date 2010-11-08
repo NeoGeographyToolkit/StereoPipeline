@@ -9,7 +9,7 @@
 
 #include <vw/Image.h>
 #include <vw/Plate/PlateFile.h>
-#include <vw/Plate/PlateCarreePlateManager.h>
+#include <vw/Plate/PlateManager.h>
 #include <asp/Core/Macros.h>
 
 using namespace vw;
@@ -38,7 +38,8 @@ void perform_mipmap( Options & opt ) {
   boost::shared_ptr<PlateFile> platefile =
     boost::shared_ptr<PlateFile>( new PlateFile(opt.url) );
 
-  PlateCarreePlateManager<PixelGrayA<uint8> > platemanager( platefile );
+  PlateManager<PixelGrayA<uint8> >* platemanager =
+    PlateManager<PixelGrayA<uint8> >::make("equi",platefile);
 
   // Parsing region string
   if (!opt.region.empty()) {
@@ -85,11 +86,12 @@ void perform_mipmap( Options & opt ) {
            << " at level " << opt.level << "\n";
 
   platefile->write_request();
-  platemanager.mipmap(opt.level, opt.region_bbox, -1, false,
+  platemanager->mipmap(opt.level, opt.region_bbox, -1, false,
                       TerminalProgressCallback("photometrytk",
                                                "Mipmapping:"),
                       opt.top_level);
   platefile->write_complete();
+  delete platemanager;
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -101,7 +103,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("url",  po::value<std::string>(&opt.url),  "Input platefile Url");
+    ("url",  po::value(&opt.url),  "Input platefile Url");
 
   po::positional_options_description positional_desc;
   positional_desc.add("url", 1);

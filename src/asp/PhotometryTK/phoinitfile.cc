@@ -31,7 +31,7 @@ using namespace std;
 struct Options {
   // Input for project file
   int32 max_iterations;
-  std::string reflectance_type;
+  std::string reflectance_type, datum;
   double rel_tol, abs_tol;
 
   // Output
@@ -60,6 +60,7 @@ void create_ptk( Options const& opt ) {
   }
 
   proj_meta.set_plate_manager( opt.output_mode );
+  proj_meta.set_datum_name( opt.datum );
 
   std::list<CameraMeta> emptycams;
   write_pho_project( opt.output_prefix, proj_meta,
@@ -69,16 +70,21 @@ void create_ptk( Options const& opt ) {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("max_iterations", po::value<int32>(&opt.max_iterations)->default_value(100), "")
-    ("mode,m", po::value<std::string>(&opt.output_mode)->default_value("equi"), "Output mode [toast, equi, polar]")
-    ("reflectance_type", po::value<std::string>(&opt.reflectance_type)->default_value("none"), "Reflectance options are [none, lambertian, gaskall, mcewen]")
-    ("rel_tol", po::value<double>(&opt.rel_tol)->default_value(1e-2), "Minimium required amount of improvement between iterations")
-    ("abs_tol", po::value<double>(&opt.abs_tol)->default_value(1e-2), "Error shutoff threshold.")
+    ("max_iterations", po::value(&opt.max_iterations)->default_value(100), "")
+    ("mode,m", po::value(&opt.output_mode)->default_value("equi"),
+     "Output mode [toast, equi, polar]")
+    ("datum,d", po::value(&opt.datum)->default_value("D_MOON"),
+     "Datum options are [WGS84,WGS72,D_MOON,D_MARS]")
+    ("reflectance_type", po::value(&opt.reflectance_type)->default_value("none"), "Reflectance options are [none, lambertian, gaskall, mcewen]")
+    ("rel_tol", po::value(&opt.rel_tol)->default_value(1e-2),
+     "Minimium required amount of improvement between iterations")
+    ("abs_tol", po::value(&opt.abs_tol)->default_value(1e-2),
+     "Error shutoff threshold.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
   positional.add_options()
-    ("output_prefix", po::value<std::string>(&opt.output_prefix), "Output prefix");
+    ("output_prefix", po::value(&opt.output_prefix), "Output prefix");
 
   po::positional_options_description positional_desc;
   positional_desc.add("output_prefix", 1);

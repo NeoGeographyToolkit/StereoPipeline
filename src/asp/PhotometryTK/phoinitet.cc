@@ -13,9 +13,11 @@
 // If reflectance equals "none", this excutable does nothing.
 
 #include <vw/Image.h>
+#include <vw/Plate/PlateFile.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/Core/Macros.h>
 using namespace vw;
+using namespace vw::platefile;
 using namespace asp::pho;
 
 #include <boost/program_options.hpp>
@@ -28,7 +30,7 @@ struct Options {
   int job_id, num_jobs;
 
   // Input
-  std::string ptk_url;
+  Url ptk_url;
 };
 
 void do_et_solve( Options const& opt ) {
@@ -36,7 +38,7 @@ void do_et_solve( Options const& opt ) {
 
   // Pull project information
   ProjectMeta proj_meta;
-  remote_ptk.OpenProjectMeta( proj_meta );
+  remote_ptk.get_project( proj_meta );
 
   if ( proj_meta.reflectance() == ProjectMeta::NONE ) {
     std::cout << "Ah! Nothing to be done!\n";
@@ -52,7 +54,7 @@ void do_et_solve( Options const& opt ) {
   std::cout << "-- CAMERAS -----------------\n";
   for ( int32 i = 0; i < proj_meta.num_cameras(); i++ ) {
     CameraMeta cam_meta;
-    remote_ptk.ReadCameraMeta( i, cam_meta );
+    remote_ptk.get_camera( i, cam_meta );
     cam_meta.PrintDebugString();
   }
 }
@@ -60,13 +62,13 @@ void do_et_solve( Options const& opt ) {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("job_id,j", po::value<int>(&opt.job_id)->default_value(0), "")
-    ("num_jobs,n", po::value<int>(&opt.num_jobs)->default_value(1), "")
+    ("job_id,j", po::value(&opt.job_id)->default_value(0), "")
+    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
   positional.add_options()
-    ("ptkurl", po::value<std::string>(&opt.ptk_url), "Input PTK Url");
+    ("ptkurl", po::value(&opt.ptk_url), "Input PTK Url");
 
   po::positional_options_description positional_desc;
   positional_desc.add("ptkurl", 1);
@@ -86,7 +88,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url>\n";
 
-  if ( opt.ptk_url.empty() )
+  if ( opt.ptk_url.string().empty() )
     vw_throw( ArgumentErr() << "Missing ptk url.\n"
               << usage.str() << general_options );
 

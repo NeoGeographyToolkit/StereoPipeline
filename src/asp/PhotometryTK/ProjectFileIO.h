@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <fstream>
 
+#include <boost/filesystem.hpp>
+
 namespace asp {
 namespace pho {
 
@@ -52,11 +54,18 @@ namespace pho {
   void write_pho_project( std::string const& file,
                           ProjectMeta const& prj,
                           IterT cam_start, IterT cam_end ) {
-    // Forcing file extension type
-    std::string filename = file.substr(0,file.rfind("."));
-    filename += ".ptk";
+    namespace fs = boost::filesystem;
 
-    std::fstream output( filename.c_str(),
+    // Forcing file extension type
+    std::string directory = file.substr(0,file.rfind("."));
+    directory += ".ptk";
+
+    // Check that the directory is there
+    fs::create_directory( directory );
+
+    // Actually start writing
+    std::string prj_file = directory + "/photometrytk.dat";
+    std::fstream output( prj_file.c_str(),
                          std::ios::out | std::ios::trunc | std::ios::binary );
 
     output << vw::int32( prj.ByteSize() );
@@ -71,8 +80,12 @@ namespace pho {
   void read_pho_project( std::string const& file,
                          ProjectMeta& prj,
                          ContainerT& cams ) {
+    namespace fs = boost::filesystem;
     cams.clear(); prj.Clear();
-    std::fstream input( file.c_str(), std::ios::in | std::ios::binary );
+
+    BOOST_ASSERT( fs::is_directory(file) );
+    std::string prj_file = file + "/photometrytk.dat";
+    std::fstream input( prj_file.c_str(), std::ios::in | std::ios::binary );
     if ( !input )
       vw::vw_throw( vw::IOErr() << "Unable to open \"" << file << "\"." );
     {

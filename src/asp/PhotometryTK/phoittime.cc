@@ -32,7 +32,7 @@ using namespace std;
 
 struct Options {
   // Input
-  std::string ptk_url;
+  Url ptk_url;
   bool dry_run;
 
   // For spawning multiple jobs
@@ -44,44 +44,21 @@ void update_exposure( Options& opt ) {
   // Open up project file
   RemoteProjectFile remote_ptk( opt.ptk_url );
   ProjectMeta project_info;
-  remote_ptk.OpenProjectMeta( project_info );
+  remote_ptk.get_project( project_info );
 
   // Deciding what cameras
   int minidx, maxidx;
   minidx = float(project_info.num_cameras()*opt.job_id)/float(opt.num_jobs);
   maxidx = float(project_info.num_cameras()*(opt.job_id+1))/float(opt.num_jobs);
 
-  // URL Decomposition
-  std::string hostname, exchange, file_name, plate_prefix, plate_postfix;
-  int port;
-  asp::pho::parse_url( opt.ptk_url, hostname, port, exchange, file_name );
-  plate_prefix = "pf://"+hostname+":"+boost::lexical_cast<std::string>(port)+"/index/";
-  plate_postfix = "?cache_size=1";
-
   // Load platefile
   boost::shared_ptr<PlateFile> drg_plate, albedo_plate, reflect_plate;
-  drg_plate =
-    boost::shared_ptr<PlateFile>( new PlateFile(plate_prefix+"DRG.plate"+
-                                                plate_postfix,
-                                                "equi", "", 256, "tif",
-                                                VW_PIXEL_GRAYA,
-                                                VW_CHANNEL_UINT8 ) );
-  albedo_plate =
-    boost::shared_ptr<PlateFile>( new PlateFile(plate_prefix+"Albedo.plate"+
-                                                plate_postfix,
-                                                "equi", "", 256, "tif",
-                                                VW_PIXEL_GRAYA,
-                                                VW_CHANNEL_FLOAT32 ) );
-  if ( project_info.reflectance() != ProjectMeta::NONE )
-    boost::shared_ptr<PlateFile>( new PlateFile(plate_prefix+"Reflectance.plate"+
-                                                plate_postfix,
-                                                "equi", "", 256, "tif",
-                                                VW_PIXEL_GRAYA,
-                                                VW_CHANNEL_FLOAT32 ) );
+  remote_ptk.get_platefiles(drg_plate,albedo_plate,reflect_plate);
+
   for (int j = minidx; j < maxidx; j++ ) {
     // Pick up current time exposure
     CameraMeta cam_info;
-    remote_ptk.ReadCameraMeta(j, cam_info);
+    remote_ptk.get_camera(j, cam_info);
     std::cout << "Camera[" << j << "]         exposure time: "
               << cam_info.exposure_t() << "\n";
 
@@ -117,11 +94,11 @@ void update_exposure( Options& opt ) {
       // Updating current time exposure
     }
     if ( !opt.dry_run ) {
-      remote_ptk.WriteCameraMeta(j, cam_info);
+      remote_ptk.set_camera(j, cam_info);
 
       // Increment iterations
       if ( opt.job_id == 0 )
-        remote_ptk.UpdateIteration(project_info.current_iteration()+1);
+        remote_ptk.set_iteration(project_info.current_iteration()+1);
     }
     std::cout << "Camera[" << j << "] updated exposure time: "
               << cam_info.exposure_t() << "\n";
@@ -132,15 +109,15 @@ void update_exposure( Options& opt ) {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("level,l", po::value<int>(&opt.level)->default_value(-1), "Default is to process lowest level.")
+    ("level,l", po::value(&opt.level)->default_value(-1), "Default is to process lowest level.")
     ("dry-run", "Don't write results")
-    ("job_id,j", po::value<int>(&opt.job_id)->default_value(0), "")
-    ("num_jobs,n", po::value<int>(&opt.num_jobs)->default_value(1), "")
+    ("job_id,j", po::value(&opt.job_id)->default_value(0), "")
+    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
   positional.add_options()
-    ("ptk_url",  po::value<std::string>(&opt.ptk_url),  "Input PTK Url");
+    ("ptk_url",  po::value(&opt.ptk_url),  "Input PTK Url");
 
   po::positional_options_description positional_desc;
   positional_desc.add("ptk_url", 1);
@@ -163,7 +140,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
-  if ( opt.ptk_url.empty() )
+  if ( opt.ptk_url.string().empty() )
     vw_throw( ArgumentErr() << "Missing project file url!\n"
               << usage.str() << general_options );
 }

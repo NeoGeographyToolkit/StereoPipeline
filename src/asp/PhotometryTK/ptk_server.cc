@@ -4,22 +4,24 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
 #include <vw/Core/Stopwatch.h>
-#include <vw/Plate/RpcServices.h>
-#include <vw/Plate/AmqpConnection.h>
+#include <vw/Core/Log.h>
+#include <vw/Plate/Rpc.h>
+#include <vw/Plate/HTTPUtils.h>
+#include <vw/Plate/IndexService.h>
 #include <asp/PhotometryTK/ProjectService.h>
-#include <google/protobuf/descriptor.h>
+#include <asp/Core/Macros.h>
 #include <signal.h>
 
+#include <google/protobuf/descriptor.h>
+
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 using namespace vw;
 using namespace vw::platefile;
 using namespace asp::pho;
-
-// Global variable
-boost::shared_ptr<ProjectServiceImpl> g_service;
 
 // -- Signal Handler ---------------------
 
@@ -38,138 +40,133 @@ void sig_sync( int sig_num ) {
   signal(sig_num, sig_sync);
 }
 
-// -- Main Loop --------------------------
-
-class ServerTask {
-  boost::shared_ptr<AmqpRpcServer> m_server;
-
-public:
-
-  ServerTask(boost::shared_ptr<AmqpRpcServer> server) : m_server(server) {}
-
-  void operator()() {
-    std::cout << "\t--> Listening for messages.\n";
-    m_server->run();
-  }
-
-  void kill() { m_server->shutdown(); }
+struct Options {
+  Url url, index_url;
+  std::string ptk_file;
+  float sync_interval;
+  bool debug, help;
 };
 
-int main(int argc, char** argv) {
-  std::string exchange_name, root_directory;
-  std::string hostname;
-  float sync_interval;
-  int port;
+// -- Main Loop --------------------------
 
+void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("Runs a mosaicking daemon that listens for mosaicking requests coming in over the AMQP bus..\n\nGeneral Options:");
   general_options.add_options()
-    ("exchange,e", po::value<std::string>(&exchange_name)->default_value("ptk"),
-     "Specify the name of the AMQP exchange to use for the index service.")
-    ("hostname", po::value<std::string>(&hostname)->default_value("localhost"),
-     "Specify the hostname of the AMQP server to use for remote procedure calls (RPCs).")
-    ("port,p", po::value<int>(&port)->default_value(5672),
-     "Specify the port of the AMQP server to use for remote procedure calls (RPCs).")
-    ("sync-interval,s", po::value<float>(&sync_interval)->default_value(60),
+    ("url", po::value(&opt.url), "Url to listen in on")
+    ("sync-interval,s", po::value(&opt.sync_interval)->default_value(60),
      "Specify the time interval (in minutes) for automatically synchronizing the index to disk.")
-    ("debug", "Output debug messages.")
-    ("help,h", "Display this help message");
+    ("debug", po::bool_switch(&opt.debug)->default_value(false),
+     "Output debug messages.")
+    ("help,h", po::bool_switch(&opt.help)->default_value(false),
+     "Display this help message");
 
   po::options_description hidden_options("");
   hidden_options.add_options()
-    ("root-directory", po::value<std::string>(&root_directory));
+    ("ptk-file", po::value(&opt.ptk_file));
 
   po::options_description options("Allowed Options");
   options.add(general_options).add(hidden_options);
 
   po::positional_options_description p;
-  p.add("root-directory", -1);
+  p.add("ptk-file", -1);
 
   po::variables_map vm;
   po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
   po::notify( vm );
 
   std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " root_directory" << std::endl << std::endl;
+  usage << "Usage: " << argv[0] << " <ptk file> --url <url>" << std::endl << std::endl;
   usage << general_options << std::endl;
 
-  if( vm.count("help") ) {
-    std::cout << usage.str();
-    return 0;
-  }
+  if ( opt.help )
+    vw_throw( ArgumentErr() << usage.str() );
+  if ( opt.ptk_file.size() < 5 )
+    vw_throw( ArgumentErr() << "Error: must specify a ptk file to be servering!\n\n" << usage.str() );
+}
 
-  if( vm.count("root-directory") != 1 ) {
-    std::cerr << "Error: must specify a root directory that contains plate files!"
-              << std::endl << std::endl;
-    std::cout << usage.str();
-    return 1;
-  }
+int main(int argc, char** argv) {
 
-  std::string queue_name = unique_name("ptk_server");
+  Options opt;
+  try {
+    handle_arguments( argc, argv, opt );
 
-  boost::shared_ptr<AmqpConnection> connection( new AmqpConnection(hostname, port) );
-  boost::shared_ptr<AmqpRpcServer> server( new AmqpRpcServer(connection, exchange_name, 
-                                                             queue_name, vm.count("debug")) );
-  g_service.reset( new ProjectServiceImpl(root_directory) );
-  server->bind_service(g_service, "ptk");
+    // Install Unix Signal Handlers.  These will help us to gracefully
+    // recover and salvage the index under most unexpected error
+    // conditions.
+    signal(SIGINT,  sig_unexpected_shutdown);
+    signal(SIGUSR1, sig_sync);
 
-  // Start the server task in another thread
-  boost::shared_ptr<ServerTask> server_task( new ServerTask(server) );
-  Thread server_thread( server_task );
+    // Clean & Create new url
+    if ( opt.ptk_file.substr(opt.ptk_file.size()-4,4) != ".ptk" )
+      vw_throw( ArgumentErr() << "Failed to provide input ptk file." );
+    opt.index_url = opt.url;
+    opt.index_url.path( opt.index_url.path()+"_index" );
+    fs::path ptk_path( opt.ptk_file );
+    std::string ptk_path_str = ptk_path.parent_path().string();
+    if ( ptk_path_str.empty() )
+      ptk_path_str = ".";
 
-  // Install Unix Signal Handlers.  These will help us to gracefully
-  // recover and salvage the index under most unexpected error
-  // conditions.
-  signal(SIGINT,  sig_unexpected_shutdown);
-  signal(SIGUSR1, sig_sync);
+    // Start the ptk server task in another thread
+    RpcServer<ProjectServiceImpl> server_1(opt.url, new ProjectServiceImpl(ptk_path_str));
+    RpcServer<IndexServiceImpl> server_2(opt.index_url, new IndexServiceImpl(ptk_path_str+"/"+ptk_path.filename()+"/"));
+    vw_out(InfoMessage) << "Starting ptk server\n";
+    vw_out(InfoMessage) << "\tw/ URL: " << opt.url << "\n";
+    vw_out(InfoMessage) << "Starting index server\n";
+    vw_out(InfoMessage) << "\tw/ URL: " << opt.index_url << "\n";
+    uint64 sync_interval_us = uint64(opt.sync_interval * 60000000);
+    uint64 t0 = Stopwatch::microtime(), t1;
+    uint64 next_sync = t0 + sync_interval_us;
 
-  std::cout << "Starting photometry project server\n\n";
-  long long t0 = Stopwatch::microtime();
+    size_t success = 0, fail = 0, calls = 0;
 
-  
-  long long sync_interval_seconds = uint64(sync_interval * 60);
-  long long seconds_until_sync = sync_interval_seconds;
+    while(process_messages) {
+      bool should_sync = force_sync || (Stopwatch::microtime() >= next_sync);
 
-  while(process_messages) {
-    // Check to see if the user generated a sync signal.
-    if (force_sync) {
-      std::cout << "\nReceived signal USR1.  Synchronizing project files to disk:\n";
-      long long sync_t0 = Stopwatch::microtime();
-      g_service->sync();
-      float sync_dt = float(Stopwatch::microtime() - sync_t0) / 1e6;
-      std::cout << "Sync complete (took " << sync_dt << " seconds).\n";
-      force_sync = false;
+      if ( should_sync ) {
+        vw_out(InfoMessage) << "\nStarting sync to disk. (" << (force_sync ? "auto" : "manual") << ")\n";
+        uint64 s0 = Stopwatch::microtime();
+        server_1.impl()->sync();
+        server_2.impl()->sync();
+        uint64 s1 = Stopwatch::microtime();
+        next_sync = s1 + sync_interval_us;
+        vw_out(InfoMessage) << "Sync complete (took " << float(s1-s0) / 1e6  << " seconds).\n";
+        force_sync = false;
+      }
+
+      t1 = Stopwatch::microtime();
+
+      size_t success_dt, fail_dt, calls_dt;
+      {
+        ThreadMap::Locked stats = server_2.stats();
+        success_dt = stats.get("msgs");
+        fail_dt    = stats.get("server_error") + stats.get("client_error");
+        calls_dt = success_dt + fail_dt;
+        stats.clear();
+      }
+      success += success_dt;
+      fail    += fail_dt;
+      calls   += calls_dt;
+
+      float dt = float(t1 - t0) / 1e6f;
+      t0 = t1;
+
+      vw_out(InfoMessage)
+        << "[ptk_server] : "
+        << float(calls_dt)/dt << " qps "
+        << "(" << (100. * success / (calls ? calls : 1)) << "% success)                    \r"
+        << std::flush;
+
+      Thread::sleep_ms(1000);
     }
 
-    // Check to see if our sync timeout has occurred.
-    if (seconds_until_sync-- <= 0) {
-      std::cout << "\nAutomatic sync of project files started (interval = " << sync_interval << " minutes).\n";
-      long long sync_t0 = Stopwatch::microtime();
-      g_service->sync();
-      float sync_dt = float(Stopwatch::microtime() - sync_t0) / 1e6;
-      std::cout << "Sync complete (took " << sync_dt << " seconds).\n";
+    server_2.stop();
+    vw_out(InfoMessage) << "\nShutting down the index service safely.\n";
+    server_2.impl()->sync();
+    server_1.stop();
+    vw_out(InfoMessage) << "\nShutting down the ptk service safely.\n";
+    server_1.impl()->sync();
 
-      // Restart the count-down
-      seconds_until_sync = sync_interval_seconds;
-    }
-
-    int queries = server->queries_processed();
-    size_t bytes = server->bytes_processed();
-    int n_outstanding_messages = server->incoming_message_queue_size();
-    server->reset_stats();
-
-    float dt = float(Stopwatch::microtime() - t0) / 1e6;
-    t0 = Stopwatch::microtime();
-
-    std::cout << "[ptk_server] : "
-              << float(queries/dt) << " qps    "
-              << float(bytes/dt)/1000.0 << " kB/sec    "
-              << n_outstanding_messages << " outstanding messages                          \r"
-              << std::flush;
-    sleep(1u);
-  }
-
-  std::cout << "\nShutting down the index service safely.\n";
-  g_service->sync();
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

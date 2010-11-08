@@ -20,6 +20,7 @@ message ProjectMeta {
     required int32 num_cameras = 7;
 
     optional string plate_manager = 8 [default="equi"];
+    optional string datum_name = 9 [default="WGS84"];
 }
 
 message CameraMeta {

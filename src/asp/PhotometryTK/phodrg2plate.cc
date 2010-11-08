@@ -18,7 +18,7 @@
 #include <vw/FileIO.h>
 #include <vw/Cartography.h>
 #include <vw/Plate/PlateFile.h>
-#include <vw/Plate/PlateCarreePlateManager.h>
+#include <vw/Plate/PlateManager.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/Core/Macros.h>
 
@@ -33,8 +33,13 @@ namespace po = boost::program_options;
 using namespace std;
 
 struct Options {
+  Options() : nodata_value(std::numeric_limits<double>::max()) {}
   // Input
-  std::string ptk_url, drg_file, cam_file;
+  Url ptk_url;
+  std::string drg_file, cam_file;
+
+  // Settings
+  double nodata_value;
 
   // Output
   std::string output_dir;
@@ -43,6 +48,8 @@ struct Options {
 void do_creation( Options const& opt ) {
   // Load up camera information
   RemoteProjectFile remote_ptk( opt.ptk_url );
+  ProjectMeta prj_meta;
+  remote_ptk.get_project( prj_meta );
 
   // Load up DRG
   DiskImageView<PixelGrayA<uint8> > drg_image( opt.drg_file );
@@ -53,56 +60,44 @@ void do_creation( Options const& opt ) {
   CameraMeta cam_meta;
   cam_meta.set_name(opt.drg_file);
   cam_meta.set_exposure_t( 1.0 );
-  int32 cam_id = remote_ptk.CreateCameraMeta( cam_meta );
+  int32 cam_id = remote_ptk.add_camera( cam_meta );
   std::cout << "Assigned Camera ID: " << cam_id << "\n";
 
   // Find relative urls for platefiles
-  std::string hostname, exchange, file_name, plate_prefix;
-  int port;
-  asp::pho::parse_url( opt.ptk_url, hostname, port, exchange, file_name );
-  plate_prefix = "pf://"+hostname+":"+boost::lexical_cast<std::string>(port)+"/index/";
+  boost::shared_ptr<PlateFile> drg, albedo, reflectance;
+  remote_ptk.get_platefiles(drg,albedo,reflectance);
 
   { // Insert DRG
-    boost::shared_ptr<PlateFile> drg_plate =
-      boost::shared_ptr<PlateFile>( new PlateFile( plate_prefix+"DRG.plate",
-                                                   "equi", "", 256, "tif",
-                                                   VW_PIXEL_GRAYA,
-                                                   VW_CHANNEL_UINT8 ) );
-    PlateCarreePlateManager< PixelGrayA<uint8> > drg_manager( drg_plate );
-    drg_manager.insert( drg_image, opt.drg_file,
-                        cam_id+1, georef, false, false,
-                        TerminalProgressCallback( "photometrytk",
-                                                  "\tProcessing" ) );
+    PlateManager<PixelGrayA<uint8> >* pm =
+      PlateManager<PixelGrayA<uint8> >::make(prj_meta.plate_manager(),drg);
+    pm->insert( drg_image, opt.drg_file, cam_id+1, georef, false, false,
+                TerminalProgressCallback( "photometrytk", "\tProcessing" ) );
+    delete pm;
   }
 
   /*
   { // Create Reflectance ( at the moment it's just white )
-    boost::shared_ptr<PlateFile> ref_plate =
-      boost::shared_ptr<PlateFile>( new PlateFile( plate_prefix+"Reflectance.plate",
-                                                   "equi", "", 256, "tif",
-                                                   VW_PIXEL_GRAYA,
-                                                   VW_CHANNEL_FLOAT32 ) );
-    PlateCarreePlateManager< PixelGrayA<float32> > ref_manager( ref_plate );
+    PlateCarreePlateManager< PixelGrayA<float32> > ref_manager( reflectance );
     ref_manager.insert( mask_to_alpha(copy_mask(ConstantView<PixelGray<float32> >(1.0, drg_image.cols(), drg_image.rows() ), alpha_to_mask(drg_image))),
                         opt.drg_file, cam_id+1, georef, false,
                         TerminalProgressCallback( "photometrytk",
                                                   "\tProcessing" ) );
   }
   */
-
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("output-dir,o", po::value<std::string>(&opt.output_dir)->default_value(""))
+    ("output-dir,o", po::value(&opt.output_dir)->default_value(""))
+    ("nodata-value", po::value(&opt.nodata_value), "Explicitly set the value to treat as no data in the input file.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
   positional.add_options()
-    ("ptk_url",  po::value<std::string>(&opt.ptk_url),  "Input PTK Url")
-    ("drg_file", po::value<std::string>(&opt.drg_file), "Input DRG file")
-    ("cam_file", po::value<std::string>(&opt.cam_file), "Input Camera file");
+    ("ptk_url",  po::value(&opt.ptk_url),  "Input PTK Url")
+    ("drg_file", po::value(&opt.drg_file), "Input DRG file")
+    ("cam_file", po::value(&opt.cam_file), "Input Camera file");
 
   po::positional_options_description positional_desc;
   positional_desc.add("ptk_url", 1);
@@ -126,7 +121,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
-  if ( opt.drg_file.empty() || opt.ptk_url.empty() )
+  if ( opt.drg_file.empty() || opt.ptk_url.string().empty() )
     vw_throw( ArgumentErr() << "Missing input DRG or URL!\n"
               << usage.str() << general_options );
 }

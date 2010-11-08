@@ -92,12 +92,12 @@ void ProjectServiceImpl::sync() {
     std::string ptk_file = m_root_directory+"/"+m_project_metas[i].name();
 
     // Delete bak
-    if ( fs::exists(ptk_file+".bak") )
-      fs::remove(ptk_file+".bak");
+    if ( fs::exists(ptk_file+"/photometrytk.bak") )
+      fs::remove(ptk_file+"/photometrytk.bak");
 
     // Move current ptk to bak
-    fs::rename(ptk_file,
-               ptk_file+".bak");
+    fs::rename(ptk_file+"/photometrytk.dat",
+               ptk_file+"/photometrytk.bak");
 
     // Save ptk
     write_pho_project( ptk_file,
