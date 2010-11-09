@@ -437,6 +437,7 @@ AC_SUBST(ASP_LDFLAGS)
 
 AC_CONFIG_FILES([                       \
   Makefile                              \
+  data/Makefile                         \
   src/Makefile                          \
   src/asp/Makefile                      \
   src/asp/Core/Makefile                 \

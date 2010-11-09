@@ -11,7 +11,7 @@
 
 ACLOCAL_AMFLAGS = -I m4 -I thirdparty/m4
 
-SUBDIRS = src
+SUBDIRS = src data
 
 EXTRA_DIST = \
 	INSTALLGUIDE \
@@ -21,6 +21,10 @@ EXTRA_DIST = \
 	data \
 	docs \
 	stereo.default.example
+
+dist_doc_DATA = AUTHORS COPYING README
+exampledir = $(docdir)/examples
+dist_example_DATA = stereo.default.example
 
 ########################################################################
 # special top-level rules
