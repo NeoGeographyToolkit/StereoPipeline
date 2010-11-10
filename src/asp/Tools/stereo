@@ -5,7 +5,7 @@
 # All Rights Reserved.
 # __END_LICENSE__
 
-import os, optparse, sys, types;
+import os, optparse, sys, types, subprocess;
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -60,20 +60,27 @@ def main():
         for arg in args:
             cmd_args=cmd_args+" "+arg
 
+        local_path = os.path.realpath(__file__)[:-6]
+        cmd_list = cmd_args.split();
         if ( options.entry_point <= 0 ):
-            if os.system("stereo_pprc "+cmd_args):
+            retcode = subprocess.call([local_path+"stereo_pprc"]+cmd_list)
+            if not (retcode == 0):
                 raise Exception("Stereo step 0: Preprocessing failed.")
         if ( options.entry_point <= 1 ):
-            if os.system("stereo_corr "+cmd_args):
+            retcode = subprocess.call([local_path+"stereo_corr"]+cmd_list)
+            if not (retcode == 0):
                 raise Exception("Stereo step 1: Correlation failed.")
         if ( options.entry_point <= 2 ):
-            if os.system("stereo_rfne "+cmd_args):
+            retcode = subprocess.call([local_path+"stereo_rfne"]+cmd_list)
+            if not (retcode == 0):
                 raise Exception("Stereo step 2: Refinement failed.")
         if ( options.entry_point <= 3 ):
-            if os.system("stereo_fltr "+cmd_args):
+            retcode = subprocess.call([local_path+"stereo_fltr"]+cmd_list)
+            if not (retcode == 0):
                 raise Exception("Stereo step 3: Filtering failed.")
         if ( options.entry_point <= 4 ):
-            if os.system("stereo_tri "+cmd_args):
+            retcode = subprocess.call([local_path+"stereo_tri"]+cmd_list)
+            if not (retcode == 0):
                 raise Exception("Stereo step 4: Triangulation failed.")
 
         return 0
