@@ -6,7 +6,7 @@
 # __END_LICENSE__
 
 
-import os, glob, optparse, re, shutil, subprocess, sys, string;
+import os, optparse, subprocess, sys
 from subprocess import CalledProcessError
 
 def man(option, opt, value, parser):
