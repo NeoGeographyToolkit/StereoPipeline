@@ -63,14 +63,16 @@ if __name__ == '__main__':
         p.print_help()
         die('\nERROR: Missing input files', code=2)
 
-    args = opt.args
+    args = []
+
+    if opt.args is not None:
+        args = opt.args
     if opt.session is not None:
         args.extend(['--session-type', opt.session])
     if opt.threads is not None:
         args.extend(['--threads', str(opt.threads)])
 
-
-    args.extend([' --stereo-file', opt.filename])
+    args.extend(['--stereo-file', opt.filename])
     args.extend(files)
 
     try:
