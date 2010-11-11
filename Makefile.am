@@ -22,6 +22,8 @@ EXTRA_DIST = \
 	docs \
 	stereo.default.example
 
+# This var isn't defined in autoconf < 2.60?
+docdir = ${datadir}/doc/${PACKAGE}
 dist_doc_DATA = AUTHORS COPYING README
 exampledir = $(docdir)/examples
 dist_example_DATA = stereo.default.example
