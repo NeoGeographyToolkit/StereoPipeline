@@ -40,6 +40,10 @@ int main(int argc, char* argv[]) {
           << "\tto triangulate or perform epipolar rectification.\n";
     }
 
+    // Integer correlator requires 1024 px tiles
+    //---------------------------------------------------------
+    vw_settings().set_default_tile_size(1024);
+
     // Internal Processes
     //---------------------------------------------------------
     stereo_correlation( opt );
