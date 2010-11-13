@@ -10,7 +10,7 @@ import optparse
 import subprocess
 import os.path as P
 
-def run(bin, *args, **kw):
+def run(bin, args, **kw):
     binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), bin)
     call = [binpath]
     call.extend(args)
@@ -47,9 +47,9 @@ if __name__ == '__main__':
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Pipeline entry point (an integer from 0-4)', type='int')
-    p.add_option('--draft-mode',           dest='args', action='append_const', const='--draft-mode',
+    p.add_option('--draft-mode',           dest='draft_mode',  default=False, action='store_true',
                  help='Cause pyramid correlator to save out debug imagery.')
-    p.add_option('--optimized-correlator', dest='args', action='append_const', const='--optimized-correlator',
+    p.add_option('--optimized-correlator', dest='optimized',   default=False, action='store_true',
                  help='Use the optimized correlator instead of the pyramid correlator.')
     p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
@@ -65,27 +65,29 @@ if __name__ == '__main__':
 
     args = []
 
-    if opt.args is not None:
-        args = opt.args
     if opt.session is not None:
         args.extend(['--session-type', opt.session])
     if opt.threads is not None:
         args.extend(['--threads', str(opt.threads)])
+    if opt.draft_mode:
+        args.append('--draft-mode')
+    if opt.optimized:
+        args.append('--optimized-correlator')
 
     args.extend(['--stereo-file', opt.filename])
     args.extend(files)
 
     try:
         if ( opt.entry_point <= 0 ):
-            run('stereo_pprc', *args, msg='0: Preprocessing')
+            run('stereo_pprc', args, msg='0: Preprocessing')
         if ( opt.entry_point <= 1 ):
-            run('stereo_corr', *args, msg='1: Correlation')
+            run('stereo_corr', args, msg='1: Correlation')
         if ( opt.entry_point <= 2 ):
-            run('stereo_rfne', *args, msg='2: Refinement')
+            run('stereo_rfne', args, msg='2: Refinement')
         if ( opt.entry_point <= 3 ):
-            run('stereo_fltr', *args, msg='3: Filtering')
+            run('stereo_fltr', args, msg='3: Filtering')
         if ( opt.entry_point <= 4 ):
-            run('stereo_tri', *args,  msg='4: Triangulation')
+            run('stereo_tri', args,  msg='4: Triangulation')
     except Exception, e:
         if not opt.debug:
             die(e)
