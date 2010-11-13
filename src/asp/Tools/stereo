@@ -51,6 +51,8 @@ if __name__ == '__main__':
                  help='Cause pyramid correlator to save out debug imagery.')
     p.add_option('--optimized-correlator', dest='optimized',   default=False, action='store_true',
                  help='Use the optimized correlator instead of the pyramid correlator.')
+    p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
+                 help='Tell GDAL to not create bigtiffs.')
     p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
     p.add_option('--debug',                dest='debug',       default=False, action='store_true',
@@ -73,6 +75,8 @@ if __name__ == '__main__':
         args.append('--draft-mode')
     if opt.optimized:
         args.append('--optimized-correlator')
+    if opt.no_bigtiff:
+        args.append('--no-bigtiff')
 
     args.extend(['--stereo-file', opt.filename])
     args.extend(files)

@@ -131,6 +131,7 @@ namespace vw {
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
       ("draft-mode", po::value(&opt.corr_debug_prefix), "Cause the pyramid correlator to save out debug imagery named with this prefix.")
       ("optimized-correlator", "Use the optimized correlator instead of the pyramid correlator.")
+      ("no-bigtiff", "Tell GDAL to not create bigtiffs.")
       ("help,h", "Display this help message");
 
     po::options_description positional("");
@@ -245,15 +246,12 @@ namespace vw {
     // Common GDAL options
 #if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
     opt.gdal_options["COMPRESS"] = "LZW";
-    {
-      // We really don't want to use BIGTIFF unless we have to. It's
-      // hard to find viewers for bigtiff.
-      DiskImageView<PixelGray<uint8> > test(opt.in_file1);
-      if ( test.cols()*test.rows() > 10e6 )
-        opt.gdal_options["BIGTIFF"] = "IF_SAFER";
-      else
-        opt.gdal_options["BIGTIFF"] = "NO";
-    }
+    // We really don't want to use BIGTIFF unless we have to. It's
+    // hard to find viewers for bigtiff.
+    if ( vm.count("no-bigtiff") )
+      opt.gdal_options["BIGTIFF"] = "NO";
+    else
+      opt.gdal_options["BIGTIFF"] = "IF_SAFER";
 #else
     opt.gdal_options["COMPRESS"] = "NONE";
     opt.gdal_options["BIGTIFF"] = "NO";
