@@ -88,8 +88,8 @@ int main ( int argc, char *argv[] ) {
                       ZeroEdgeExtension());
   } else {
     DiskImageResource *disk_dem_rsrc = DiskImageResource::open(input_file);
-    if ( disk_dem_rsrc->has_nodata_value() ) {
-      nodata_value = disk_dem_rsrc->nodata_value();
+    if ( disk_dem_rsrc->has_nodata_read() ) {
+      nodata_value = disk_dem_rsrc->nodata_read();
       vw_out() << "\t--> Extracted nodata value from file: " << nodata_value << "\n";
       dem = interpolate(create_mask( disk_dem_file, nodata_value ),
                         BicubicInterpolation(),
