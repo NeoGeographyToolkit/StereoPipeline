@@ -270,10 +270,11 @@ StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
                              shadowLmask, shadowRmask );
 
     DiskImageResourceOpenEXR disparity_map_rsrc(output_file, disparity_map.format() );
-    disparity_map_rsrc.set_tiled_write(std::min<uint32>(vw_settings().default_tile_size(),
-                                                        disparity_map.cols()),
-                                       std::min<uint32>(vw_settings().default_tile_size(),
-                                                        disparity_map.rows()));
+    Vector2i block_size(std::min<size_t>(vw_settings().default_tile_size(),
+                                         disparity_map.cols()),
+                        std::min<size_t>(vw_settings().default_tile_size(),
+                                         disparity_map.rows()));
+    disparity_map_rsrc.set_block_write_size(block_size);
     block_write_image( disparity_map_rsrc, disparity_map,
                        TerminalProgressCallback( "asp", "\t--> Saving Mask :") );
   }
@@ -321,10 +322,11 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
                                            right_disk_image.rows() ) );
 
   DiskImageResourceOpenEXR disparity_corrected_rsrc(output_file, result.format() );
-  disparity_corrected_rsrc.set_tiled_write(std::min<uint32>(vw_settings().default_tile_size(),
-                                                            disparity_map.cols()),
-                                           std::min<uint32>(vw_settings().default_tile_size(),
-                                                            disparity_map.rows()));
+  Vector2i block_size(std::min<size_t>(vw_settings().default_tile_size(),
+                                       disparity_map.cols()),
+                      std::min<size_t>(vw_settings().default_tile_size(),
+                                       disparity_map.rows()));
+  disparity_corrected_rsrc.set_block_write_size(block_size);
   block_write_image( disparity_corrected_rsrc, result,
                      TerminalProgressCallback("asp", "\t    Processing:"));
 }

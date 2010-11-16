@@ -363,7 +363,7 @@ int main( int argc, char *argv[] ) {
         if ( opt.output_file_type == "tif" && opt.has_default_value ) {
           DiskImageResourceGDAL rsrc( opt.out_prefix + "-DEM.tif",
                                       block_dem_raster.format() );
-          rsrc.set_nodata_value( opt.default_value );
+          rsrc.set_nodata_write( opt.default_value );
           write_georeference( rsrc, georef );
           write_image( rsrc, block_dem_raster, TerminalProgressCallback("asp","") );
         } else {

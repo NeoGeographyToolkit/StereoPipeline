@@ -35,7 +35,7 @@ namespace vw {
   // much faster to let the ISIS driver aggregate smaller blocks by
   // making a larger request rather than caching those blocks
   // ourselves.
-  Vector2i DiskImageResourceIsis::block_size() const
+  Vector2i DiskImageResourceIsis::block_read_size() const
   {
     return Vector2i(2048,2048);
   }

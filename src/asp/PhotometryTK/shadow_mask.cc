@@ -32,8 +32,8 @@ void shadow_mask_nodata( Options& opt,
   double session_nodata = opt.nodata;
   if ( session_nodata == std::numeric_limits<double>::max() ) {
     DiskImageResource *rsrc = DiskImageResource::open(input);
-    if ( rsrc->has_nodata_value() ) {
-      session_nodata = rsrc->nodata_value();
+    if ( rsrc->has_nodata_read() ) {
+      session_nodata = rsrc->nodata_read();
       vw_out() << "\t--> Using nodata value: " << session_nodata << "\n";
     } else {
       vw_throw( ArgumentErr() << "Missing user supplied nodata value" );
@@ -65,7 +65,7 @@ void shadow_mask_nodata( Options& opt,
     apply_mask(intersect_mask(masked_input,create_mask(threshold(input_image,boost::numeric_cast<ChannelT>(session_threshold)))),boost::numeric_cast<ChannelT>(session_nodata));
 
   DiskImageResource* output_rsrc = DiskImageResource::create(output, result.format());
-  output_rsrc->set_nodata_value( session_nodata );
+  output_rsrc->set_nodata_write( session_nodata );
   cartography::write_georeference( *output_rsrc, georef );
   block_write_image( *output_rsrc, result,
                      TerminalProgressCallback("photometrytk","Writing:") );

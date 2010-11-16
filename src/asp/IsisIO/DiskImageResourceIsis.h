@@ -36,7 +36,12 @@ namespace vw {
     static std::string type_static() { return "ISIS"; }
     virtual std::string type() { return type_static(); }
 
-    virtual Vector2i block_size() const;
+    virtual bool has_block_write()  const {return false;}
+    virtual bool has_nodata_write() const {return false;}
+    virtual bool has_block_read()   const {return true;}
+    virtual bool has_nodata_read()  const {return true;}
+
+    virtual Vector2i block_read_size() const;
 
     virtual void read(ImageBuffer const& dest, BBox2i const& bbox) const;
     virtual void write(ImageBuffer const& dest, BBox2i const& bbox);
@@ -53,7 +58,6 @@ namespace vw {
     // Note: Isis has many types of invalid pixels. If creating a mask
     // of valid pixels, please use only pixels within the valid range
     // provided in the functions below.
-    bool has_nodata_value() const { return true; }
     double nodata_value() const;
     double valid_minimum() const;
     double valid_maximum() const;
