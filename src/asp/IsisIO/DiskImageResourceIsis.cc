@@ -175,7 +175,7 @@ namespace vw {
 
   /// Info about special pixel types in ISIS
   //  --------------------------------------
-  double DiskImageResourceIsis::nodata_value() const {
+  double DiskImageResourceIsis::nodata_read() const {
     switch (m_format.channel_type) {
     case VW_CHANNEL_FLOAT64:
       return Isis::NULL8;

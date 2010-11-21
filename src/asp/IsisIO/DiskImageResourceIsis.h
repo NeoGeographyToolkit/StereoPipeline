@@ -58,7 +58,7 @@ namespace vw {
     // Note: Isis has many types of invalid pixels. If creating a mask
     // of valid pixels, please use only pixels within the valid range
     // provided in the functions below.
-    double nodata_value() const;
+    double nodata_read() const;
     double valid_minimum() const;
     double valid_maximum() const;
 
