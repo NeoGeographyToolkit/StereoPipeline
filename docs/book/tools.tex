@@ -56,7 +56,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
 \texttt{-\/-entry-point|-e 1|2|3|4} & Pipeline entry point \\ \hline
 \texttt{-draft-mode \textit{debug-image-prefix}} & Cause the pyramid correlator to save out debug imagery named with this prefix\\ \hline
-\texttt{-\/-optimized-correlator} & Cause scale space search to not be performed\\ \hline
+\texttt{-\/-optimized-correlator} & Cause scale space search to not be performed and will hurt quality. This option is for software debugging.\\ \hline
 \end{longtable}
 
 More information about the stereo.default configuration file can be found in Appendix \ref{ch:stereodefault} on page \pageref{ch:stereodefault}.  Similarly, \texttt{stereo} creates a lot of files, and they are all described in Appendix \ref{chapter:outputfiles} on page \pageref{chapter:outputfiles}.
@@ -85,6 +85,31 @@ algorithm.  This phase also creates a ``good pixel'' map.
 
 Stage 4 (Triangulation) generates a 3D point cloud from the disparity
 map.
+
+\subsection{Decomposition of Stereo}
+
+Users watching their system closely will notice that the stereo
+executable is actually a python script that makes calls to seperate
+C++ executables for each entry point.
+
+Stage 0 (Preprocessing) calls \texttt{stereo\_pprc}. Multithreaded.
+
+Stage 1 (Disparity Map Initialization) calls
+\texttt{stereo\_corr}. Multithreaded.
+
+Stage 2 (Sub-pixel Refinement) class \texttt{stereo\_rfne}. Multithreaded.
+
+Stage 3 (Outlier Rejection and Hole Filling) calls
+\texttt{stereo\_fltr}. Multithreaded.
+
+Stage 4 (Triangulation) calls \texttt{stereo\_tri}. Single-Threaded.
+
+All of the sub-programs have the same interface as
+\texttt{stereo}. Users processing a large number of stereo pairs on a
+cluster my find it advantageous to call these executables in their own
+manner. An example would be to run stages 0-3 in order for each stereo
+pair. Then run several sessions of \texttt{stereo\_tri} since it is
+single threaded.
 
 \section{disparitydebug}
 \label{disparitydebug}

@@ -33,18 +33,12 @@
 # message from the cache sub-system.
 
 [general]
-default_num_threads = 8
-system_cache_size = 2000000000 # ~ 2 GB
+default_num_threads = 16
+write_pool_size = 40
+system_cache_size = 1024000000 # ~ 1 GB
 
 [logfile console]
 20 = thread
 * = cache
-VerboseDebugMessage = *
-# This turns off all progress bars to the console.
+# Below turns off all progress bars to the console.
 0 = *.progress
-
-# Turn on DebugMessage logging for both subsystems  
-# to a file on disk.
-[logfile /temp/vw_test.log]
-40 = cache
-40 = thread
