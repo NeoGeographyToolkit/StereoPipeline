@@ -501,9 +501,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("center", "Center the model around the origin.  Use this option if you are experiencing numerical precision issues.")
     ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),
        "Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
-    ("phi-rotation", po::value(&opt.phi_rot), "Set a rotation angle phi")
-    ("omega-rotation", po::value(&opt.omega_rot), "Set a rotation angle omega")
-    ("kappa-rotation", po::value(&opt.kappa_rot), "Set a rotation angle kappa")
+    ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),
+     "Set a rotation angle phi")
+    ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),
+     "Set a rotation angle omega")
+    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),
+     "Set a rotation angle kappa")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
