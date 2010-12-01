@@ -96,6 +96,7 @@ src/asp/Tools/rmax2cahvor
 src/asp/Tools/rmax_adjust
 src/asp/Tools/hsv_merge
 src/asp/Tools/reconstruct
+src/asp/Tools/results
 
 # Photometry Toolkit
 src/asp/PhotometryTK/phodrg2plate
@@ -126,6 +127,11 @@ src/asp/ControlNetTK/cnet_convert
 src/asp/ControlNetTK/cnet_merge
 src/asp/ControlNetTK/isis_position_extract
 
+# Data
+data/MOC/*cub
+data/MOC/*prt
+data/MOC/results
+
 # Doc
 docs/book/*aux
 docs/book/*log
@@ -134,6 +140,7 @@ docs/book/*pdf
 docs/book/*toc
 docs/book/*bbl
 docs/book/*blg
+docs/book/*old
 docs/book/graph/*pdf
 docs/photometry/*aux
 docs/photometry/*log
