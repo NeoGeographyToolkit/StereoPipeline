@@ -45,14 +45,13 @@ struct Options {
   std::string output_dir;
 };
 
-void do_creation( Options const& opt ) {
+void do_creation( Options& opt ) {
   // Load up camera information
   RemoteProjectFile remote_ptk( opt.ptk_url );
   ProjectMeta prj_meta;
   remote_ptk.get_project( prj_meta );
 
-  // Load up DRG
-  DiskImageView<PixelGrayA<uint8> > drg_image( opt.drg_file );
+  // Load up GeoReference
   GeoReference georef;
   read_georeference( georef, opt.drg_file );
 
@@ -67,11 +66,26 @@ void do_creation( Options const& opt ) {
   boost::shared_ptr<PlateFile> drg, albedo, reflectance;
   remote_ptk.get_platefiles(drg,albedo,reflectance);
 
-  { // Insert DRG
+  // Determine if we have a nodata value
+  if ( opt.nodata_value == std::numeric_limits<double>::max() ) {
+    boost::shared_ptr<DiskImageResource> rsrc( DiskImageResource::open(opt.drg_file) );
+    if ( rsrc->has_nodata_read() )
+      opt.nodata_value = rsrc->nodata_read();
+  }
+
+  {
     PlateManager<PixelGrayA<uint8> >* pm =
       PlateManager<PixelGrayA<uint8> >::make(prj_meta.plate_manager(),drg);
-    pm->insert( drg_image, opt.drg_file, cam_id+1, georef, false, false,
-                TerminalProgressCallback( "photometrytk", "\tProcessing" ) );
+    // Insert DRG
+    if ( opt.nodata_value != std::numeric_limits<double>::max() ) {
+      pm->insert( mask_to_alpha(create_mask(DiskImageView<PixelGray<uint8> >(opt.drg_file),opt.nodata_value)),
+                  opt.drg_file, cam_id+1, georef, false, false,
+                  TerminalProgressCallback( "photometrytk", "\tProcessing" ) );
+    } else {
+      pm->insert( DiskImageView<PixelGrayA<uint8> >( opt.drg_file ),
+                  opt.drg_file, cam_id+1, georef, false, false,
+                  TerminalProgressCallback( "photometrytk", "\tProcessing" ) );
+    }
     delete pm;
   }
 
