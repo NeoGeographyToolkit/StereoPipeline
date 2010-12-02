@@ -41,8 +41,12 @@ def main():
 
         # First call the server .. see if the plate file still exists
         # and how many levels.
-        filename = args[0][args[0].find("/index/")+7:]
-        p = subprocess.Popen("index_client",shell=True,stdout=subprocess.PIPE)
+        filename = args[0][args[0].rfind("/")+1:]
+        basename = args[0][:args[0].rfind("/")]
+        print filename
+        print basename
+        p = subprocess.Popen("index_client -u "+basename,
+                             shell=True,stdout=subprocess.PIPE)
         cmd_return = p.stdout.readlines()
         max_level = 0;
         for line in cmd_return:
@@ -50,6 +54,7 @@ def main():
                 if line.find(filename) >= 0:
                     max_level = int(line[line.find("MaxLevel[")+9:line.rfind("]")])
                     break
+        print "Found Max Level: "+str(max_level)
 
         # Now start solving for the number of jobs.
         for l in range(max_level,0,-(options.levels)):
