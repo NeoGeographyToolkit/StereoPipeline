@@ -283,7 +283,8 @@ namespace vw {
                                              disparity_map.format(),
                                              opt.raster_tile_size,
                                              opt.gdal_options );
-    block_write_image( disparity_map_rsrc, disparity_map );
+    block_write_image( disparity_map_rsrc, disparity_map,
+                       TerminalProgressCallback("asp", "\t--> Correlation :") );
   }
 
 } //end namespace vw
