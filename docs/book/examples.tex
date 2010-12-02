@@ -53,9 +53,12 @@ late 2009. Below are its specifications:
 \begin{center}
 \begin{tabular}{ l | l }
 CPU & Dual E7420 Xeon at 2.13 GHz \emph{(16 logical cores)} \\ \hline
-Memory & 64 GB @ 667 MHz \\ \hline
+FSB & 1066 MHz \\ \hline
+L2 Cache & 8 MB \\ \hline
+Memory & 64 GB @ 667 MHz (mis-matched?) \\ \hline
 Storage & Local RAID5 \\ \hline
 OS & Red Hat Enterprise Linux 5.5 \\ \hline
+BogoMIPS & 4256 \\ \hline
 Color & Dell Graphite \\
 \end{tabular}
 \end{center}
@@ -68,7 +71,10 @@ complete. If the job took 30 wall-minutes on a 2 core system, it spent
 1. This example, though correct, is not what always happens in the
 real world. Inefficiency with managing multiple threads or the
 complete lack of multithreaded code will bring wall hours up to CPU
-hours. Your required CPU hours will vary based on CPU architecture.
+hours. Your required CPU hours will vary based on CPU
+architecture. Estimating your required CPU hours for your system can
+be done by scaling with the BogoMIPS measurements. This can be read
+from Linux systems with the command: \texttt{cat /proc/cpuinfo}
 
 \section{Mars Reconnaissance Orbiter HiRISE}
 
