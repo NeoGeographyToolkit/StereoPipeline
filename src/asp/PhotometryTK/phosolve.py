@@ -22,7 +22,7 @@ def main():
         try:
             usage = "phosolve.py [--help][--threads N][--level N] ptk-url "
             parser = optparse.OptionParser(usage=usage);
-            parser.set_defaults(threads=10)
+            parser.set_defaults(threads=2)
             parser.set_defaults(level=-1)
             parser.set_defaults(iterations=100)
             parser.add_option("-t", "--threads", dest="threads",
@@ -42,7 +42,7 @@ def main():
         pool = Pool(processes=options.threads)
 
         # Finding URL for Albedo
-        albedo_url = args[0][:args[0].find("/ptk/")]+"/index/Albedo.plate"
+        albedo_url = args[0][:args[0].rfind("/")]+"_index/Albedo.plate"
 
         for iteration in range(options.iterations):
             # Perform Albedo
