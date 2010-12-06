@@ -85,12 +85,20 @@ void perform_mipmap( Options & opt ) {
   vw_out() << "Processing: " << opt.region_bbox
            << " at level " << opt.level << "\n";
 
+  std::ostringstream description;
+  description << "Mipmap job of region: "
+              << opt.region_bbox << " at level "
+              << opt.level;
+  Transaction transaction_id =
+    platefile->transaction_request( description.str(), -1 );
   platefile->write_request();
-  platemanager->mipmap(opt.level, opt.region_bbox, -1, false,
-                      TerminalProgressCallback("photometrytk",
-                                               "Mipmapping:"),
-                      opt.top_level);
+  platemanager->mipmap(opt.level, opt.region_bbox, -1,
+                       transaction_id, false,
+                       TerminalProgressCallback("photometrytk",
+                                                "Mipmapping:"),
+                       opt.top_level);
   platefile->write_complete();
+  platefile->transaction_complete(transaction_id, true);
   delete platemanager;
 }
 
