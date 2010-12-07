@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 
     // Integer correlator requires 1024 px tiles
     //---------------------------------------------------------
-    vw_settings().set_default_tile_size(1024);
+    opt.raster_tile_size = Vector2i(1024,1024);
 
     // Internal Processes
     //---------------------------------------------------------
