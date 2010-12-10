@@ -49,35 +49,21 @@ namespace vw {
 
   /// Bind the resource to a file for reading.  Confirm that we can open
   /// the file and that it has a sane pixel format.
-  void DiskImageResourceIsis::open(std::string const& filename)
-  {
-
-    Isis::Cube cube;
+  void DiskImageResourceIsis::open(std::string const& filename) {
+    m_cube = boost::shared_ptr<Isis::Cube>( new Isis::Cube() );
     m_filename = filename;
-    cube.Open(filename);
-
-    if ( !(cube.IsOpen()) ) {
-      vw_throw(IOErr() << "DiskImageResourceIsis: Could not open cube file: \"" << filename << "\".");
-    }
-
-    // Testing or ZACK
-    Isis::Projection* iproj = NULL;
-    m_is_projected = false;
-    try {
-      iproj = cube.Projection();
-      m_is_projected = true;
-    } catch(Isis::iException &e) {
-      e.Clear();
-    }
+    m_cube->Open( m_filename );
+    VW_ASSERT( m_cube->IsOpen(),
+               IOErr() << "DiskImageResourceIsis: Could not open cube file: \"" << filename << "\"." );
 
     // Extract the dimensions of the image
-    m_format.planes = cube.Bands();
-    m_format.cols = cube.Samples();
-    m_format.rows = cube.Lines();
+    m_format.planes = m_cube->Bands();
+    m_format.cols = m_cube->Samples();
+    m_format.rows = m_cube->Lines();
 
     m_format.pixel_format = VW_PIXEL_SCALAR;
 
-    Isis::PixelType isis_ptype = cube.PixelType();
+    Isis::PixelType isis_ptype = m_cube->PixelType();
     switch (isis_ptype) {
     case Isis::UnsignedByte:
       m_bytes_per_pixel = 1;
@@ -114,29 +100,23 @@ namespace vw {
     default:
       vw_throw(IOErr() << "DiskImageResourceIsis: Unknown pixel type.");
     }
-
-    // Close the cube file
-    cube.Close();
   }
 
   /// Read the disk image into the given buffer.
   void DiskImageResourceIsis::read(ImageBuffer const& dest, BBox2i const& bbox) const
   {
-    Isis::Cube cube;
-    cube.Open(m_filename);
-
-    if ( !(cube.IsOpen()) ) {
-      vw_throw(IOErr() << "DiskImageResourceIsis: Could not open cube file: \"" << m_filename << "\".");
-    }
-
-    VW_ASSERT(bbox.max().x() <= cube.Samples() || bbox.max().y() <= cube.Lines(),
-              IOErr() << "DiskImageResourceIsis: requested bbox " << bbox << " exceeds image dimensions [" << cube.Samples() << " " << cube.Lines() << "]");
+    VW_ASSERT(bbox.max().x() <= m_cube->Samples() ||
+              bbox.max().y() <= m_cube->Lines(),
+              IOErr() << "DiskImageResourceIsis: requested bbox " << bbox
+              << " exceeds image dimensions [" << m_cube->Samples()
+              << " " << m_cube->Lines() << "]");
 
     // Read in the requested tile from the cube file.  Note that ISIS
     // cube pixel indices appear to be 1-based.
-    Isis::Portal buffer( bbox.width(), bbox.height(), cube.PixelType() );
+    Isis::Portal buffer( bbox.width(), bbox.height(),
+                         m_cube->PixelType() );
     buffer.SetPosition(bbox.min().x()+1, bbox.min().y()+1, 1);
-    cube.Read(buffer);
+    m_cube->Read(buffer);
 
     // Create generic image buffer from the Isis data.
     ImageBuffer src;
@@ -148,8 +128,6 @@ namespace vw {
     src.rstride = m_bytes_per_pixel * bbox.width();
     src.pstride = m_bytes_per_pixel * bbox.width() * bbox.height();
     convert(dest, src);
-
-    cube.Close();
   }
 
   // Write the given buffer into the disk image.
@@ -220,5 +198,8 @@ namespace vw {
     default:
       return Isis::VALID_MAX1;
     }
+  }
+  bool DiskImageResourceIsis::is_map_projected() const {
+    return m_cube->HasProjection();
   }
 }

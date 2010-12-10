@@ -16,6 +16,10 @@
 #include <vw/Image/PixelTypes.h>
 #include <vw/FileIO/DiskImageResource.h>
 
+namespace Isis {
+  class Cube;
+}
+
 namespace vw {
 
   class DiskImageResourceIsis : public DiskImageResource {
@@ -63,14 +67,13 @@ namespace vw {
     double valid_maximum() const;
 
     // Additional cube informat
-    bool is_map_projected() const { return m_is_projected; }
+    bool is_map_projected() const;
 
   private:
-
+    boost::shared_ptr<Isis::Cube> m_cube;
     std::string m_filename;
     int m_bytes_per_pixel;
     Vector2i m_native_block_size;
-    bool m_is_projected;
   };
 
 } // namespace vw
