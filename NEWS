@@ -1,3 +1,25 @@
+*** RELEASE 1.0.2, 9 DECEMBER 2010 ***
+
+ISISIO
+ - IsisCameraModel support operator<< style printing.
+ - Correct camera pose return to be consistent with VW.
+ - Change IsisCameraModel to use shared_ptr to block memory leak.
+
+TOOLS
+ - Executables should catch VW and Standard errors and print human readable
+   responses.
+ - Stereo is now a python script that call multiple executables.
+ - Change correlation progress bar to track total completion.
+ - Bundle_Adjust and ISIS_Adjust switch from eulers to quaternions.
+ - Bundlevis dropped CAHVOR support. Added progress bar. Converted statistics
+   with CDFAccumulator.
+ - Point2dem remove excessive rotation call
+ - Enforce tile rasterization size to 1024 during integer correlation.
+ - Select tools should now write their nodata value in the TIFF metadata.
+
+PHOTOMETRYTK
+ - Still unreleased, and still under development.
+
 *** RELEASE 1.0.1, 24 MAY 2010 ***
 
 CORE
@@ -37,7 +59,7 @@ TOOLS
  - Point2mesh's texture is written to a different file.
  - Added aligndem and geodiff; which are experimental DEM alignment utilities.
  - Added a quick experimental DEM profile utility called dem_profile.
- - stereo now detects correlation settings automatically using OBALoG and 
+ - stereo now detects correlation settings automatically using OBALoG and
    SGrad1 interest point functions.
  - Added cam2map4stereo.py
  - Remove excessive serial number calculations in isis_adjust.
