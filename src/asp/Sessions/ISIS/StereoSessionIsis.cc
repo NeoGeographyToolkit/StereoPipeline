@@ -49,8 +49,8 @@ void find_ideal_isis_range( std::string const& in_file,
                             std::string const& tag,
                             float & isis_lo, float & isis_hi ) {
 
-  DiskImageView<PixelGray<float> > disk_image(in_file);
-  DiskImageResourceIsis isis_rsrc(in_file);
+  boost::shared_ptr<DiskImageResourceIsis> isis_rsrc( new DiskImageResourceIsis(in_file) );
+  DiskImageView<PixelGray<float> > disk_image(isis_rsrc);
 
   float isis_mean, isis_std;
 
@@ -59,13 +59,13 @@ void find_ideal_isis_range( std::string const& in_file,
   {
     vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
     int left_stat_scale = int(ceil(sqrt(float(disk_image.cols())*float(disk_image.rows()) / 1000000)));
-    ImageViewRef<PixelMask<PixelGray<float> > > valid =
-      subsample(create_mask( edge_extend(disk_image, ConstantEdgeExtension()),
-                             isis_rsrc.valid_minimum(),
-                             isis_rsrc.valid_maximum() ),
-                left_stat_scale );
     ChannelAccumulator<math::CDFAccumulator<float> > accumulator;
-    for_each_pixel( valid, accumulator );
+    for_each_pixel(
+      subsample(create_mask( edge_extend(disk_image, ConstantEdgeExtension()),
+                             isis_rsrc->valid_minimum(),
+                             isis_rsrc->valid_maximum() ),
+                left_stat_scale ),
+      accumulator );
     isis_lo = accumulator.quantile(0);
     isis_hi = accumulator.quantile(1);
     isis_mean = accumulator.approximate_mean();
