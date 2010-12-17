@@ -69,21 +69,21 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
 
       // Loading and forcing in the adjustment
       if ( fs::exists( adjust_file ) ) {
-	// Reading in isis_adjust file
+        // Reading in isis_adjust file
         std::ifstream input( adjust_file.c_str() );
-	boost::shared_ptr<asp::BaseEquation> position_eq = asp::read_equation(input);
-	boost::shared_ptr<asp::BaseEquation> pose_eq = asp::read_equation(input);
-	input.close();
+        boost::shared_ptr<asp::BaseEquation> position_eq = asp::read_equation(input);
+        boost::shared_ptr<asp::BaseEquation> pose_eq = asp::read_equation(input);
+        input.close();
         Vector<double> camera_vector = ba_model.A_parameters( j );
-	if ( camera_vector.size() != pose_eq->size()+position_eq->size() )
-	  vw_throw( IOErr() << "Isis Adjust files have incorrect number parameters for BA session." );
+        if ( camera_vector.size() != pose_eq->size()+position_eq->size() )
+          vw_throw( IOErr() << "Isis Adjust files have incorrect number parameters for BA session." );
 
-	// Apply said contents to BA's A state
-	unsigned insert_i = 0;
-	for ( unsigned i = 0; i < position_eq->size(); i++, insert_i++ )
-	  camera_vector[insert_i] = (*position_eq)[i];
-	for ( unsigned i = 0; i < pose_eq->size(); i++, insert_i++ )
-	  camera_vector[insert_i] = (*pose_eq)[i];
+        // Apply said contents to BA's A state
+        unsigned insert_i = 0;
+        for ( unsigned i = 0; i < position_eq->size(); i++, insert_i++ )
+          camera_vector[insert_i] = (*position_eq)[i];
+        for ( unsigned i = 0; i < pose_eq->size(); i++, insert_i++ )
+          camera_vector[insert_i] = (*pose_eq)[i];
         ba_model.set_A_parameters( j, camera_vector );
       }
     }
@@ -92,7 +92,7 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
     std::vector<boost::shared_ptr<CameraModel> > camera_models = ba_model.adjusted_cameras();
     BOOST_FOREACH( ControlPoint & cp, *opt.cnet ) {
       triangulate_control_point( cp, camera_models,
-				 8.726646E-2 ); // require 5 degrees
+                                 8.726646E-2 ); // require 5 degrees
     }
 
     // Repushing the position in control network into BA model
