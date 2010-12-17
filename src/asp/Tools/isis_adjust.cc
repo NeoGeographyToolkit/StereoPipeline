@@ -369,19 +369,9 @@ int main(int argc, char* argv[]) {
         }
       }
       progress.report_finished();
-
-      // Writing ISIS Control Network
-      opt.cnet->write_binary(opt.output_prefix);
-      vw_out() << "\n";
     }
 
     VW_DEBUG_ASSERT( opt.cnet->size() != 0, vw::MathErr() << "Control network build error" );
-
-    // Option to write ISIS-style control network
-    if ( opt.write_isis_cnet ) {
-      vw_out() << "Writing ISIS-style Control Network.\n";
-      opt.cnet->write_isis(opt.output_prefix);
-    }
 
     // Switching based on cost function
     {
@@ -433,6 +423,16 @@ int main(int argc, char* argv[]) {
           exit(1);
         }
       }
+    }
+
+    // Writing ISIS Control Network
+    opt.cnet->write_binary(opt.output_prefix);
+    vw_out() << "\n";
+
+    // Option to write ISIS-style control network
+    if ( opt.write_isis_cnet ) {
+      vw_out() << "Writing ISIS-style Control Network.\n";
+      opt.cnet->write_isis(opt.output_prefix);
     }
 
   } ASP_STANDARD_CATCHES;
