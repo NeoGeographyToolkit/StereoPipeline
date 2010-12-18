@@ -44,7 +44,7 @@ namespace camera {
                            boost::shared_ptr<asp::BaseEquation> position_func,
                            boost::shared_ptr<asp::BaseEquation> pose_func );
 
-    virtual ~IsisAdjustCameraModel();
+    virtual ~IsisAdjustCameraModel(){}
 
     virtual std::string type() const { return "IsisAdjust"; }
 
@@ -75,9 +75,9 @@ namespace camera {
   protected:
     boost::shared_ptr<asp::BaseEquation> m_position_f, m_pose_f;
     Isis::Pvl m_label;
-    Isis::Camera *m_camera;
-    Isis::AlphaCube *m_alphacube;
-    Isis::CameraDistortionMap *m_distortmap;
+    boost::shared_ptr<Isis::Camera> m_camera;
+    boost::shared_ptr<Isis::AlphaCube> m_alphacube;
+    Isis::CameraDistortionMap *m_distortmap;  // m_camera has ownership
     Isis::CameraFocalPlaneMap *m_focalmap;
     Isis::CameraDetectorMap   *m_detectmap;
 
@@ -91,7 +91,7 @@ namespace camera {
     // they use the adjustment functions in m_position_f and m_pose_f.
     class EphemerisLMA : public math::LeastSquaresModelBase<EphemerisLMA> {
       Vector3 m_point;
-      Isis::Camera* m_camera;
+      boost::shared_ptr<Isis::Camera> m_camera;
       Isis::CameraDistortionMap *m_distortmap;
       Isis::CameraFocalPlaneMap *m_focalmap;
       boost::shared_ptr<asp::BaseEquation> m_position_f, m_pose_f;
@@ -101,7 +101,7 @@ namespace camera {
       typedef Matrix<double> jacobian_type;
 
       inline EphemerisLMA( Vector3 const& point,
-                           Isis::Camera* camera,
+                           boost::shared_ptr<Isis::Camera> camera,
                            Isis::CameraDistortionMap* distortmap,
                            Isis::CameraFocalPlaneMap* focalmap,
                            boost::shared_ptr<asp::BaseEquation> position,

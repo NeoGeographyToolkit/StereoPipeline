@@ -32,13 +32,13 @@ IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
   // Opening labels and camera
   Isis::Filename cubefile( cube_filename.c_str() );
   m_label.Read( cubefile.Expanded() );
-  m_camera = Isis::CameraFactory::Create( m_label );
+  m_camera = boost::shared_ptr<Isis::Camera>(Isis::CameraFactory::Create( m_label ));
 
   // Gutting Camera
   m_distortmap = m_camera->DistortionMap();
   m_focalmap   = m_camera->FocalPlaneMap();
   m_detectmap  = m_camera->DetectorMap();
-  m_alphacube  = new Isis::AlphaCube( m_label );
+  m_alphacube  = boost::shared_ptr<Isis::AlphaCube>( new Isis::AlphaCube( m_label ) );
 
   // Throw error if this is map projected image
   if ( m_camera->HasProjection() )
@@ -48,13 +48,6 @@ IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
   double middle_et = m_camera->CacheStartTime() + (m_camera->CacheEndTime()-m_camera->CacheStartTime())/2.0;
   m_position_f->set_time_offset( middle_et );
   m_pose_f->set_time_offset( middle_et );
-}
-
-IsisAdjustCameraModel::~IsisAdjustCameraModel() {
-  if ( m_camera )
-    delete m_camera;
-  if ( m_alphacube )
-    delete m_alphacube;
 }
 
 //-------------------------------------------------------------------------
