@@ -133,6 +133,12 @@ if MAKE_APP_ISISADJUSTWRITE
   isis_adjust_write_LDADD   = $(APP_ISISADJUSTWRITE_LIBS)
 endif
 
+if MAKE_APP_ISISADJUSTCAMERAERR
+  bin_PROGRAMS += isis_adjust_camera_err
+  isis_adjust_camera_err_SOURCES = isis_adjust_camera_err.cc
+  isis_adjust_camera_err_LDADD   = $(APP_ISISADJUSTCAMERAERR_LIBS)
+endif
+
 ##############################################################################
 #                             Tests                                          #
 ##############################################################################

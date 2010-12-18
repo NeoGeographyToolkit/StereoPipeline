@@ -376,7 +376,8 @@ AX_APP(GEODIFF,          [src/asp/Tools], yes, [VW_CARTOGRAPHY VW BOOST])
 AX_APP(DEMPROFILE,       [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [SESSIONS ISISIO VW_PLATE])
 AX_APP(HSVMERGE,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
-AX_APP(ISISADJUSTWRITE,  [src/asp/Tools], yes, [ISISIO CORE])
+AX_APP(ISISADJUSTWRITE,  [src/asp/Tools], no, [ISISIO CORE])
+AX_APP(ISISADJUSTCAMERAERR, [src/asp/Tools], no, [ISISIO CORE VW_BUNDLEADJUSTMENT])
 
 # Toolkits (like module, but doesn't build a library)
 AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [libaspPhotometryTK.la], no, [RABBITMQ_C PROTOBUF VW_PLATE], [BOOST])
@@ -412,6 +413,7 @@ AM_CONDITIONAL(MAKE_APP_DEMPROFILE, [test "$MAKE_APP_DEMPROFILE" = "yes"])
 AM_CONDITIONAL(MAKE_APP_PLATEORTHOPROJECT, [test "$MAKE_APP_PLATEORTHOPROJECT" = "yes"])
 AM_CONDITIONAL(MAKE_APP_HSVMERGE, [test "$MAKE_APP_HSVMERGE" = "yes"])
 AM_CONDITIONAL(MAKE_APP_ISISADJUSTWRITE, [test "$MAKE_APP_ISISADJUSTWRITE" = "yes"])
+AM_CONDITIONAL(MAKE_APP_ISISADJUSTCAMERAERR, [test "$MAKE_APP_ISISADJUSTCAMERAERR" = "yes"])
 
 ##################################################
 # final processing
