@@ -37,6 +37,12 @@ dnl Fix for early autoconf that doesn't export these
 AC_SUBST([abs_top_srcdir])
 AC_SUBST([abs_top_builddir])
 
+# This var isn't defined in autoconf < 2.60
+if test -z "$docdir" ; then
+  docdir = '${datadir}/doc/${PACKAGE_TARNAME}'
+  AC_SUBST(docdir)
+fi
+
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 dnl TODO RIGHT BEFORE RELEASE: update libtool version

@@ -1,5 +1,3 @@
-#This var isn't defined in autoconf < 2.60?
-docdir = ${datadir}/doc/${PACKAGE}
 exampledir = $(docdir)/examples
 dist_example_DATA = surf_match.patch
 
