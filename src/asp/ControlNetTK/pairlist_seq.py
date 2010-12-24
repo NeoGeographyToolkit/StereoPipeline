@@ -16,6 +16,10 @@ def main():
         try:
             usage = "usage: pairlist_seq.py [--help] <image files>"
             parser = optparse.OptionParser(usage=usage)
+            parser.set_defaults(overlap_count=1)
+            parser.add_option("-c","--overlap-count", dest="overlap_count",
+                              help="The sequential overlap amount to make pairs.",
+                              type="int")
 
             (options,args) = parser.parse_args()
 
@@ -25,7 +29,9 @@ def main():
             raise Usage(msg)
 
         for i in range(0,len(args)-1):
-            print args[i]+" "+args[i+1]
+            for j in range(1,options.overlap_count):
+                if ( i+j < len(args) ):
+                    print args[i]+" "+args[i+j]
 
     except Usage, err:
         print >>sys.stderr, err.msg
