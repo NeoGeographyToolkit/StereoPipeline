@@ -139,6 +139,12 @@ if MAKE_APP_ISISADJUSTCAMERAERR
   isis_adjust_camera_err_LDADD   = $(APP_ISISADJUSTCAMERAERR_LIBS)
 endif
 
+if MAKE_APP_ISISADJUSTCNETCLIP
+  bin_PROGRAMS += isis_adjust_cnet_clip
+  isis_adjust_cnet_clip_SOURCES = isis_adjust_cnet_clip.cc
+  isis_adjust_cnet_clip_LDADD   = $(APP_ISISADJUSTCNETCLIP_LIBS)
+endif
+
 ##############################################################################
 #                             Tests                                          #
 ##############################################################################
