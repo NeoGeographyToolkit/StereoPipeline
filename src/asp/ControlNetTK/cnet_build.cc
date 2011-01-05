@@ -13,6 +13,7 @@ using namespace vw::ba;
 
 #include <asp/Core/Macros.h>
 #include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/IsisIO/IsisAdjustCameraModel.h>
 using namespace vw::camera;
 
 template<typename In, typename Out, typename Pred>
@@ -64,6 +65,7 @@ struct Options {
   std::vector<std::string> input_names, gcp_names,
     gcp_cnet_names, serial_names;
   int min_matches;
+  bool isis_adjust;
 
   // Output
   std::string cnet_output;
@@ -75,6 +77,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("o,output-cnet", po::value(&opt.cnet_output)->default_value("cnet_built"), "Output file for control network.")
     ("t,type-of-cnet", po::value(&opt.cnet_output_type)->default_value("binary"), "Types of cnets are [binary,isis]")
+    ("isis-adjust", po::bool_switch(&opt.isis_adjust)->default_value(false),
+     "Use isis_adjust camera models for triangulation")
     ("min-matches", po::value(&opt.min_matches)->default_value(5))
     ("help,h", "Display this help message");
 
@@ -123,9 +127,22 @@ int main( int argc, char* argv[] ) {
     TerminalProgressCallback tpc("cnet","");
     double inc_amt = 1.0/double(opt.input_names.size());
     BOOST_FOREACH( std::string const& name, opt.input_names ) {
+      std::string adjust_file =
+        fs::path( name ).replace_extension("isis_adjust").string();
+      if ( opt.isis_adjust && fs::exists( adjust_file ) ) {
+        std::ifstream input( adjust_file.c_str() );
+        boost::shared_ptr<asp::BaseEquation> position_eq = asp::read_equation(input);
+        boost::shared_ptr<asp::BaseEquation> pose_eq = asp::read_equation(input);
+        input.close();
+
+        camera_models.push_back( boost::shared_ptr<CameraModel>( new IsisAdjustCameraModel( name, position_eq, pose_eq ) ) );
+        opt.serial_names.push_back( boost::shared_dynamic_cast<IsisAdjustCameraModel>(camera_models.back())->serial_number() );
+      } else {
+        camera_models.push_back( boost::shared_ptr<CameraModel>( new IsisCameraModel(name) ));
+        opt.serial_names.push_back( boost::shared_dynamic_cast<IsisCameraModel>(camera_models.back())->serial_number() );
+      }
+
       tpc.report_incremental_progress(inc_amt);
-      camera_models.push_back( boost::shared_ptr<CameraModel>( new IsisCameraModel(name) ));
-      opt.serial_names.push_back( boost::shared_dynamic_cast<IsisCameraModel>(camera_models.back())->serial_number() );
     }
     tpc.report_finished();
 

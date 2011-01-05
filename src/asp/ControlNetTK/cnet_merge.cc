@@ -135,9 +135,10 @@ int main( int argc, char** argv ) {
     ControlNetwork dst_cnet("destination");
     dst_cnet.read_binary( opt.destination_cnet );
 
-    vw_out() << "Destination Control Network:\n";
+    vw_out() << "Input " << opt.destination_cnet << ":\n";
     print_cnet_statistics( dst_cnet );
 
+    // Filling in dst_serial and dst_max_cam_idx
     std::map<std::string,int> dst_serial_to_cam_idx;
     size_t dst_max_cam_idx = 0;
     {
@@ -156,7 +157,6 @@ int main( int argc, char** argv ) {
       }
       tpc.report_finished();
     }
-    vw_out() << "Input Control Network has " << dst_max_cam_idx+1 << " cameras.\n";
 
     CameraRelationNetwork<IPFeature> dst_crn;
     dst_crn.read_controlnetwork( dst_cnet );
@@ -165,7 +165,9 @@ int main( int argc, char** argv ) {
       ControlNetwork src_cnet("source");
       src_cnet.read_binary( source_cnet );
 
-      vw_out() << "Input " << source_cnet << ":\n";
+      // The reason we have a destination input, is that it specifies
+      // the camera indexing we should use.
+      vw_out() << "Destination Input " << source_cnet << ":\n";
       print_cnet_statistics( src_cnet );
 
       typedef std::map<int,std::string> src_map_type;

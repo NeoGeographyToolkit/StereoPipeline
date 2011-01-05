@@ -275,8 +275,18 @@ int main(int argc, char* argv[]) {
         progress.report_incremental_progress( tpc_inc );
         vw_out(DebugMessage,"asp") << "Loading: " << input << "\n";
 
+        std::string adjust_file =
+          fs::path( input ).replace_extension("isis_adjust").string();
+
         boost::shared_ptr<asp::BaseEquation> posF( new asp::PolyEquation( opt.poly_order ) );
         boost::shared_ptr<asp::BaseEquation> poseF( new asp::PolyEquation( opt.poly_order ) );
+        if ( fs::exists( adjust_file ) && opt.seed_previous ) {
+          vw_out(DebugMessage,"asp") << "Loading already adjusted.\n";
+          std::ifstream input( adjust_file.c_str() );
+          boost::shared_ptr<asp::BaseEquation> posF = asp::read_equation(input);
+          boost::shared_ptr<asp::BaseEquation> poseF = asp::read_equation(input);
+          input.close();
+        }
         boost::shared_ptr<CameraModel> p ( new IsisAdjustCameraModel( input, posF, poseF ) );
         camera_models.push_back( p );
       }
