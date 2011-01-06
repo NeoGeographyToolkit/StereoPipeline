@@ -125,6 +125,18 @@ int main( int argc, char* argv[] ) {
                 << tokens[tokens.size()-1] << "\"." );
     }
 
+    vw_out() << "Assigning Indexing:\n";
+    BOOST_FOREACH( ba::ControlPoint& cp, cnet ) {
+      BOOST_FOREACH( ba::ControlMeasure& cm, cp ) {
+        std::map<std::string,size_t>::const_iterator id =
+          serial_to_camera_model.find( cm.serial() );
+        if ( id != serial_to_camera_model.end() )
+          cm.set_image_id( id->second );
+        else
+          vw_throw( IOErr() << "Control Network has serial not associated with input cameras, \"" << cm.serial() << "\"." );
+      }
+    }
+
     vw_out() << "Iterating through control points.\n";
     std::vector<double>  cp_error( cnet.size() );
     std::fill( cp_error.begin(), cp_error.end(), 0 );
