@@ -39,7 +39,7 @@ AC_SUBST([abs_top_builddir])
 
 # This var isn't defined in autoconf < 2.60
 if test -z "$docdir" ; then
-  docdir = '${datadir}/doc/${PACKAGE_TARNAME}'
+  docdir='${datadir}/doc/${PACKAGE_TARNAME}'
   AC_SUBST(docdir)
 fi
 
