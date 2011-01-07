@@ -26,11 +26,14 @@ namespace fs = boost::filesystem;
 struct Options {
   std::string cnet_file;
   std::vector<std::string> input_names;
+  bool find_median;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
+    ("find-median", po::bool_switch(&opt.find_median)->default_value(false),
+     "Find median when reporting high error cameras.")
     ("help,h", "Display this help message");
 
   po::options_description positional("");
@@ -143,8 +146,6 @@ int main( int argc, char* argv[]) {
     std::fill( average_count.begin(), average_count.end(), 0 );
     BOOST_FOREACH( ba::ControlPoint & cp, cnet ) {
       BOOST_FOREACH( ba::ControlMeasure & cm, cp ) {
-        cm.set_image_id( serial_to_camera_model[cm.serial()] );
-
         Vector2 reprojection =
           camera_models[cm.image_id()].point_to_pixel( cp.position() );
         average_count[cm.image_id()]++;
@@ -193,8 +194,27 @@ int main( int argc, char* argv[]) {
     vw_out() << "-------------------------------------\n";
     for ( size_t i = 0; i < average_error.size(); i++ ) {
       if ( average_error[i] - mean > stddev ) {
-        vw_out() << id_to_filename[i] << " ["
-                 << average_error[i] << " px]\n";
+        if ( opt.find_median ) {
+          MedianAccumulator<double> cmedian_acc;
+          StdDevAccumulator<double> cstddev_acc;
+          BOOST_FOREACH( ba::ControlPoint const& cp, cnet ) {
+            BOOST_FOREACH( ba::ControlMeasure const& cm, cp ) {
+              if ( cm.image_id() == i ) {
+                Vector2 reprojection =
+                  camera_models[cm.image_id()].point_to_pixel( cp.position() );
+                double error = norm_2(reprojection-cm.position());
+                cmedian_acc(error);
+                cstddev_acc(error);
+              }
+            }
+          }
+          vw_out() << id_to_filename[i] << "[ m: " << average_error[i]
+                   << " std: " << cstddev_acc.value()
+                   << " md: " <<  cmedian_acc.value() << " px ]\n";
+        } else {
+          vw_out() << id_to_filename[i] << " ["
+                   << average_error[i] << " px]\n";
+        }
       }
     }
 
