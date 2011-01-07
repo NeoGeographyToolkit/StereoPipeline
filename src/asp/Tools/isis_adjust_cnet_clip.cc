@@ -26,11 +26,16 @@ struct Options {
   std::string cnet_file;
   std::vector<std::string> input_names;
   double std_dev_clip;
+  bool dry_run, verify;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
+    ("dry-run", po::bool_switch(&opt.dry_run)->default_value(false),
+     "Don't actually write the output control network")
+    ("verify,v", po::bool_switch(&opt.verify)->default_value(false),
+     "Verify that control points were actually clipped")
     ("s,std-dev-clip", po::value(&opt.std_dev_clip)->default_value(2),
      "How many std_dev away must a control point be to be clipped.")
     ("help,h", "Display this help message");
@@ -80,6 +85,7 @@ int main( int argc, char* argv[] ) {
     std::map<std::string,size_t> serial_to_camera_model;
     std::map<size_t,std::string> id_to_filename;
     {
+      bool start=true;
       vw_out() << "Loading Camera Models:\n";
       vw_out() << "----------------------\n";
       TerminalProgressCallback progress("asp","Camera Models:");
@@ -95,11 +101,19 @@ int main( int argc, char* argv[] ) {
         typedef boost::shared_ptr<asp::BaseEquation> shared_eq;
         shared_eq posF, poseF;
         if ( fs::exists( adjust_file ) ) {
+          if ( start ) {
+            vw_out() << "Using adjust file\n";
+            start = false;
+          }
           std::ifstream input( adjust_file.c_str() );
           posF = asp::read_equation(input);
           poseF = asp::read_equation(input);
           input.close();
         } else {
+          if ( start ) {
+            vw_out() << "Not using adjust file\n";
+            start = false;
+          }
           posF = shared_eq( new asp::PolyEquation( 0 ) );
           poseF = shared_eq( new asp::PolyEquation( 0 ) );
         }
@@ -145,7 +159,6 @@ int main( int argc, char* argv[] ) {
       ba::ControlNetwork::iterator cp_it = cnet.begin();
       while ( cp_it != cnet.end() ) {
         BOOST_FOREACH( ba::ControlMeasure& cm, *cp_it ) {
-          cm.set_image_id( serial_to_camera_model[cm.serial()] );
           Vector2 reprojection =
             camera_models[cm.image_id()].point_to_pixel( cp_it->position() );
           *error_it += norm_2(reprojection-cm.position());
@@ -174,7 +187,7 @@ int main( int argc, char* argv[] ) {
     size_t delete_count = 0;
     while ( error_it != cp_error.rend() ) {
 
-      if ( *error_it - mean > opt.std_dev_clip*stddev ) {
+      if ( *error_it > opt.std_dev_clip*stddev+mean ) {
         cnet.delete_control_point( error_index );
         delete_count++;
       }
@@ -186,7 +199,28 @@ int main( int argc, char* argv[] ) {
     vw_out() << "Removed " << delete_count << " of " << cp_error.size()
              << " control points.\n";
 
-    cnet.write_binary(fs::path(opt.cnet_file).stem()+"-clipped.cnet");
+    size_t index = 0;
+    if ( opt.verify ) {
+      BOOST_FOREACH( ba::ControlPoint const& cp, cnet ) {
+        double error = 0;
+        BOOST_FOREACH( ba::ControlMeasure const& cm, cp ) {
+          Vector2 reprojection =
+            camera_models[cm.image_id()].point_to_pixel( cp.position() );
+          error += norm_2(reprojection-cm.position());
+        }
+        error /= cp.size();
+        if ( error - mean > opt.std_dev_clip*stddev ) {
+          vw_out() << "ERROR! Control point has error higher than expected.\n";
+          vw_out() << "\t" << error << " > "
+                   << mean+opt.std_dev_clip*stddev << "\n";
+          vw_out() << "index = " << index << "\n";
+        }
+        index++;
+      }
+    }
+
+    if ( !opt.dry_run )
+      cnet.write_binary(fs::path(opt.cnet_file).stem()+"-clipped.cnet");
 
   } ASP_STANDARD_CATCHES;
 
