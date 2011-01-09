@@ -159,9 +159,9 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
     reporter.write_control_network_kml( !opt.all_kml );
   }
 
-  for ( unsigned int i = 0; i < ba_model.num_cameras(); ++i )
+  // Writing out results and applying solution back CNet
+  for ( size_t i = 0; i < ba_model.num_cameras(); ++i )
     ba_model.write_adjustment( i, fs::path( opt.input_names[i] ).replace_extension("isis_adjust").string() );
-
 }
 
 // Main Executable

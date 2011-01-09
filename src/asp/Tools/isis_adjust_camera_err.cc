@@ -144,14 +144,22 @@ int main( int argc, char* argv[]) {
     std::vector<size_t> average_count( camera_models.size() );
     std::fill( average_error.begin(), average_error.end(), 0 );
     std::fill( average_count.begin(), average_count.end(), 0 );
+    math::CDFAccumulator<double> cdf_accu;
     BOOST_FOREACH( ba::ControlPoint & cp, cnet ) {
       BOOST_FOREACH( ba::ControlMeasure & cm, cp ) {
         Vector2 reprojection =
           camera_models[cm.image_id()].point_to_pixel( cp.position() );
         average_count[cm.image_id()]++;
-        average_error[cm.image_id()] += norm_2(reprojection-cm.position());
+        double error = norm_2(reprojection-cm.position());
+        average_error[cm.image_id()] += error;
+        cdf_accu(error);
       }
     }
+    cdf_accu.update();
+    vw_out() << "CDF [" << cdf_accu.quantile(0.0) << " "
+             << cdf_accu.quantile(0.25) << " " << cdf_accu.quantile(0.5)
+             << " " << cdf_accu.quantile(0.75) << " "
+             << cdf_accu.quantile(1.0) << "]\n";
 
     // Calculate average and accumulators
     MeanAccumulator<double> mean_acc;

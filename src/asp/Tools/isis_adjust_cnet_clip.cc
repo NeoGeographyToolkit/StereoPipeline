@@ -189,7 +189,8 @@ int main( int argc, char* argv[] ) {
     size_t delete_count = 0;
     while ( error_it != cp_error.rend() ) {
 
-      if ( *error_it > opt.std_dev_clip*stddev+mean ) {
+      if ( *error_it > opt.std_dev_clip*stddev+mean &&
+           *error_it > 2.0 ) {
         cnet.delete_control_point( error_index );
         delete_count++;
       }
@@ -219,7 +220,8 @@ int main( int argc, char* argv[] ) {
           error += norm_2(reprojection-cm.position());
         }
         error /= cp.size();
-        if ( error - mean > opt.std_dev_clip*stddev ) {
+        if ( error - mean > opt.std_dev_clip*stddev &&
+             error > 2.0 ) {
           vw_out() << "ERROR! Control point has error higher than expected.\n";
           vw_out() << "\t" << error << " > "
                    << mean+opt.std_dev_clip*stddev << "\n";

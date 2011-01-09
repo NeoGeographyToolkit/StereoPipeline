@@ -113,14 +113,14 @@ public:
   point_vector_t B_target( int i ) const { return b_target[i]; }
 
   // Return general sizes
-  unsigned num_cameras() const { return a.size(); }
-  unsigned num_points() const { return b.size(); }
+  size_t num_cameras() const { return a.size(); }
+  size_t num_points() const { return b.size(); }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
   // Return pixel observations -> supposedly used by Bundlevis
   // eventually i think
-  unsigned num_observations_of_point ( const int& i ) const { return (*m_network)[i].size(); }
-  unsigned corresponding_camera_for_measure( const int& i, const int& m ) const {
+  size_t num_observations_of_point ( const int& i ) const { return (*m_network)[i].size(); }
+  size_t corresponding_camera_for_measure( const int& i, const int& m ) const {
     return (*m_network)[i][m].image_id();
   }
 
