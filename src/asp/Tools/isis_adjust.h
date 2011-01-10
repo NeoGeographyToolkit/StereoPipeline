@@ -45,7 +45,8 @@ class IsisBundleAdjustmentModel : public vw::ba::ModelBase< IsisBundleAdjustment
   std::vector< boost::shared_ptr<vw::camera::IsisAdjustCameraModel> > m_cameras;
   boost::shared_ptr<vw::ba::ControlNetwork> m_network;
   std::vector<camera_vector_t> a;
-  std::vector<point_vector_t> b;
+  //std::vector<point_vector_t> b; // b is not required as we'll be
+                                   // using the cnet for storage.
   std::vector<camera_vector_t> a_target;
   std::vector<point_vector_t> b_target;
   std::vector< std::string > m_files;
@@ -62,7 +63,7 @@ public:
                              float const& spacecraft_position_sigma,
                              float const& spacecraft_pose_sigma, float const& gcp_scalar ) :
   m_cameras( camera_models ), m_network(network), a( camera_models.size() ),
-    b( network->size()), a_target( camera_models.size() ),
+    a_target( camera_models.size() ),
     b_target( network->size() ), m_files( input_names ),
     m_spacecraft_position_sigma(spacecraft_position_sigma),
     m_spacecraft_pose_sigma(spacecraft_pose_sigma), m_gcp_scalar(gcp_scalar) {
@@ -91,8 +92,7 @@ public:
 
     // Setting up B vectors
     for (unsigned i = 0; i < network->size(); ++i) {
-      b[i] = (*m_network)[i].position();
-      b_target[i] = b[i];
+      b_target[i] = (*m_network)[i].position();
     }
 
     // Checking to see if this Control Network is compatible with
@@ -104,9 +104,9 @@ public:
 
   // Return a reference to the camera and point parameters.
   camera_vector_t A_parameters( int j ) const { return a[j]; }
-  point_vector_t B_parameters( int i ) const { return b[i]; }
+  point_vector_t B_parameters( int i ) const { return (*m_network)[i].position(); }
   void set_A_parameters(int j, camera_vector_t const& a_j) { a[j] = a_j; }
-  void set_B_parameters(int i, point_vector_t const& b_i) { b[i] = b_i; }
+  void set_B_parameters(int i, point_vector_t const& b_i) { (*m_network)[i].set_position(b_i); }
 
   // Return Initial parameters. (Used by the bundle adjuster )
   camera_vector_t A_target( int j ) const { return a_target[j]; }
@@ -114,7 +114,7 @@ public:
 
   // Return general sizes
   size_t num_cameras() const { return a.size(); }
-  size_t num_points() const { return b.size(); }
+  size_t num_points() const { return m_network->size(); }
   unsigned num_pixel_observations() const { return m_num_pixel_observations; }
 
   // Return pixel observations -> supposedly used by Bundlevis
@@ -144,13 +144,17 @@ public:
 
     // It is assumed that the GCP is defined in a local tangent frame
     // (East-North-Up)
-    float lon = atan2(b[i][1],b[i][0]);
+    float lon = atan2((*m_network)[i].position()[1],
+                      (*m_network)[i].position()[0]);
     float clon = cos(lon);
     float slon = sin(lon);
-    float radius = sqrt( b[i][0]*b[i][0] +
-                         b[i][1]*b[i][1] +
-                         b[i][2]*b[i][2] );
-    float z_over_radius = b[i][2]/radius;
+    float radius = sqrt( (*m_network)[i].position()[0] *
+                         (*m_network)[i].position()[0] +
+                         (*m_network)[i].position()[1] *
+                         (*m_network)[i].position()[1] +
+                         (*m_network)[i].position()[2] *
+                         (*m_network)[i].position()[2] );
+    float z_over_radius = (*m_network)[i].position()[2]/radius;
     float sqrt_1_minus = sqrt(1-z_over_radius*z_over_radius);
     vw::Matrix< double, 3, 3> ecef_to_local;
     ecef_to_local(0,0) = -slon;
@@ -287,9 +291,9 @@ public:
   void bundlevis_points_append(std::string const& filename ) const {
     std::ofstream ostr(filename.c_str(),std::ios::app);
     unsigned i = 0;
-    BOOST_FOREACH( point_vector_t const& p, b ) {
-      ostr << i++ << std::setprecision(18) << "\t" << p[0] << "\t"
-           << p[1] << "\t" << p[2] << "\n";
+    BOOST_FOREACH( vw::ba::ControlPoint const& cp, *m_network ) {
+      ostr << i++ << std::setprecision(18) << "\t" << cp.position()[0] << "\t"
+           << cp.position()[1] << "\t" << cp.position()[2] << "\n";
     }
   }
 };
