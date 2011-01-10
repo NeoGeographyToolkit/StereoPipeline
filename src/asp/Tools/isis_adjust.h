@@ -242,50 +242,21 @@ public:
 
   // Errors on the image plane
   std::string image_unit() const { return "px"; }
-  void image_errors( std::vector<double>& px_errors ) const {
-    px_errors.clear();
-    for (unsigned i = 0; i < m_network->size(); ++i )
-      for (unsigned m = 0; m < (*m_network)[i].size(); ++m ) {
-        int camera_idx = (*m_network)[i][m].image_id();
-        vw::Vector2 px_error = (*m_network)[i][m].position() -
-          (*this)(i, camera_idx, a[camera_idx],b[i]);
-        px_errors.push_back(norm_2(px_error));
-      }
+  inline double image_compare( vw::Vector2 const& meas,
+                               vw::Vector2 const& obj ) {
+    return norm_2(meas-obj);
   }
-
-  // Errors for camera position
-  void camera_position_errors( std::vector<double>& camera_position_errors ) const {
-    camera_position_errors.clear();
-    for (unsigned j=0; j < this->num_cameras(); ++j ) {
-      // TODO: This needs to be compliant if the BA is using a
-      // non-zero order equation
-      vw::Vector3 position_initial = subvector(a_target[j],0,3);
-      vw::Vector3 position_now = subvector(a[j],0,3);
-      camera_position_errors.push_back(norm_2(position_initial-position_now));
-    }
+  inline double position_compare( camera_vector_t const& meas,
+                                  camera_vector_t const& obj ) {
+    return norm_2(subvector(meas,0,3)-subvector(obj,0,3));
   }
-
-  // Errors for camera pose
-  void camera_pose_errors( std::vector<double>& camera_pose_errors ) const {
-    camera_pose_errors.clear();
-    for (unsigned j=0; j < this->num_cameras(); ++j ) {
-      // TODO: This needs to be compliant if the BA is using a
-      // non-zero order equation
-      vw::Vector3 pose_initial = subvector(a_target[j],3,3);
-      vw::Vector3 pose_now = subvector(a[j],3,3);
-      camera_pose_errors.push_back(norm_2(pose_initial-pose_now));
-    }
+  inline double pose_compare( camera_vector_t const& meas,
+                              camera_vector_t const& obj ) {
+    return norm_2(subvector(meas,3,3)-subvector(obj,3,3));
   }
-
-  // Errors for gcp errors
-  void gcp_errors( std::vector<double>& gcp_errors ) const {
-    gcp_errors.clear();
-    for (unsigned i=0; i < this->num_points(); ++i )
-      if ((*m_network)[i].type() == vw::ba::ControlPoint::GroundControlPoint) {
-        point_vector_t p1 = b_target[i];
-        point_vector_t p2 = b[i];
-        gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
-      }
+  inline double gcp_compare( point_vector_t const& meas,
+                             point_vector_t const& obj ) {
+    return norm_2(meas-obj);
   }
 
   // Give access to the control network
