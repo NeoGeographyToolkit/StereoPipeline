@@ -119,7 +119,7 @@ osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direc
   // Texture Coordinate Generator
   osg::TexGen* texgen = new osg::TexGen;
   texgen->setMode( osg::TexGen::OBJECT_LINEAR );
-  std::cout << "Direction Vector being used " << Direction.x() << " " << Direction.y() << " " << Direction.z() << std::endl;
+  vw_out() << "Direction Vector being used " << Direction.x() << " " << Direction.y() << " " << Direction.z() << std::endl;
   texgen->setPlane( osg::TexGen::S , osg::Plane( zScale*Direction.x() , zScale*Direction.y() , zScale*Direction.z() , -zBase ) );
 
   osg::Material* material = new osg::Material;
@@ -155,8 +155,8 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
   dataNormal = osg::Vec3f( 0.0f , 0.0f , 0.0f );
 
-  std::cout << "\t--> Orginal size: [" << point_image.impl().cols() << ", " << point_image.impl().rows() << "]\n";
-  std::cout << "\t--> Subsampled:   [" << point_image.impl().cols()/step_size << ", "
+  vw_out() << "\t--> Orginal size: [" << point_image.impl().cols() << ", " << point_image.impl().rows() << "]\n";
+  vw_out() << "\t--> Subsampled:   [" << point_image.impl().cols()/step_size << ", "
             << point_image.impl().rows()/step_size << "]\n";
 
   //////////////////////////////////////////////////
@@ -168,10 +168,10 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
     tex_file = prefix_from_pointcloud_filename(init_tex_file) + "-tex";
     if (point_image.impl().cols() > 4096 ||
         point_image.impl().rows() > 4096 ) {
-      std::cout << "Resampling to reduce texture size:\n";
+      vw_out() << "Resampling to reduce texture size:\n";
       float tex_sub_scale = 4096.0/float(std::max(previous_texture.cols(),previous_texture.rows()));
       ImageViewRef<PixelGray<uint8> > new_texture = resample(previous_texture,tex_sub_scale);
-      std::cout << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
+      vw_out() << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
       DiskImageResourceGDAL tex_rsrc(tex_file+".tif",new_texture.format(),
                                      Vector2i(256,256) );
       block_write_image(tex_rsrc,new_texture,
@@ -297,7 +297,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
     }
     progress.report_finished();
 
-    std::cout << "\t > size: " << vertices->size() << " vertices\n";
+    vw_out() << "\t > size: " << vertices->size() << " vertices\n";
 
     geometry->setVertexArray( vertices );
 
@@ -319,7 +319,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
   //////////////////////////////////////////////////
   /// Deciding How to draw triangle strips
-  std::cout << "Drawing Triangle Strips\n";
+  vw_out() << "Drawing Triangle Strips\n";
   {
     unsigned col_steps = point_image.impl().cols()/step_size;
 
@@ -332,7 +332,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
         unsigned pointing_index = r*(col_steps) + c;
 
-        //std::cout << "V: " << vertices->at(pointing_index)[0] << " " << vertices->at(pointing_index)[1] << " " << vertices->at(pointing_index)[2] << std::endl;
+        //vw_out() << "V: " << vertices->at(pointing_index)[0] << " " << vertices->at(pointing_index)[1] << " " << vertices->at(pointing_index)[2] << std::endl;
 
         if (add_direction_down) {
 
@@ -387,7 +387,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   /// Adding texture to the DTM
   if (tex_file.size()){
 
-    std::cout << "Attaching Texture Data\n";
+    vw_out() << "Attaching Texture Data\n";
 
     osg::Image* textureImage = osgDB::readImageFile(tex_file.c_str());
 
@@ -398,10 +398,10 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
         osg::StateSet* stateset = geometry->getOrCreateStateSet();
         stateset->setTextureAttributeAndModes(0,texture,osg::StateAttribute::ON);
       } else {
-        std::cout << "Failed to open texture data in " << tex_file << std::endl;
+        vw_out() << "Failed to open texture data in " << tex_file << std::endl;
       }
     } else {
-      std::cout << "Failed to open texture data in " << tex_file << std::endl;
+      vw_out() << "Failed to open texture data in " << tex_file << std::endl;
     }
   }
 
@@ -488,17 +488,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("simplify-mesh", po::value(&opt.simplify_percent),
        "Run OSG Simplifier on mesh, 1.0 = 100%")
-    ("smooth-mesh", "Run OSG Smoother on mesh")
+    ("smooth-mesh", po::bool_switch(&opt.smooth_mesh)->default_value(false),
+     "Run OSG Smoother on mesh")
     ("use-delaunay", "Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with serious noise issues.")
     ("step,s", po::value(&opt.step_size)->default_value(10),
-       "Step size for mesher, sets the polygons size per point")
+     "Step size for mesher, sets the polygons size per point")
     ("output-prefix,o", po::value(&opt.output_prefix),
-       "Specify the output prefix")
+     "Specify the output prefix")
     ("output-filetype,t",
-       po::value(&opt.output_file_type)->default_value("ive"),
-       "Specify the output file")
-    ("enable-lighting,l", "Enables shades and light on the mesh" )
-    ("center", "Center the model around the origin.  Use this option if you are experiencing numerical precision issues.")
+     po::value(&opt.output_file_type)->default_value("ive"),
+     "Specify the output file")
+    ("enable-lighting,l",
+     po::bool_switch(&opt.enable_lighting)->default_value(false),
+     "Enables shades and light on the mesh" )
+    ("center", po::bool_switch(&opt.center)->default_value(false),
+     "Center the model around the origin. Use this option if you are experiencing numerical precision issues.")
     ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),
        "Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),
@@ -543,9 +547,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.output_prefix.empty() )
     opt.output_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
-  opt.center = vm.count("center");
-  opt.enable_lighting = vm.count("enable-lighting");
-  opt.smooth_mesh = vm.count("smooth-mesh");
   opt.simplify_mesh = vm.count("simplify-mesh");
 }
 
@@ -562,20 +563,20 @@ int main( int argc, char *argv[] ){
     // Centering Option (helpful if you are experiencing round-off error...)
     if (opt.center) {
       BBox<float,3> bbox = point_image_bbox(point_disk_image);
-      std::cout << "\t--> Centering model around the origin.\n";
-      std::cout << "\t    Initial point image bounding box: " << bbox << "\n";
+      vw_out() << "\t--> Centering model around the origin.\n";
+      vw_out() << "\t    Initial point image bounding box: " << bbox << "\n";
       Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;
-      std::cout << "\t    Midpoint: " << midpoint << "\n";
+      vw_out() << "\t    Midpoint: " << midpoint << "\n";
       point_image = point_image_offset(point_image, -midpoint);
       BBox<float,3> bbox2 = point_image_bbox(point_image);
-      std::cout << "\t    Re-centered point image bounding box: " << bbox2 << "\n";
+      vw_out() << "\t    Re-centered point image bounding box: " << bbox2 << "\n";
     }
 
     // Applying option rotations before hand
     if ( opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0 ) {
-      std::cout << "Applying rotation sequence: " << opt.rot_order
-                << "\tAngles: " << opt.phi_rot << "   " << opt.omega_rot
-                << "   " << opt.kappa_rot << std::endl;
+      vw_out() << "Applying rotation sequence: " << opt.rot_order
+               << "\tAngles: " << opt.phi_rot << "   " << opt.omega_rot
+               << "   " << opt.kappa_rot << std::endl;
       Matrix3x3 rotation_trans =
         math::euler_to_rotation_matrix( opt.phi_rot, opt.omega_rot,
                                         opt.kappa_rot, opt.rot_order );
@@ -583,9 +584,9 @@ int main( int argc, char *argv[] ){
         vw::per_pixel_filter(point_image, PointTransFunc( rotation_trans ) );
     }
 
-    // Building Mesh
-    std::cout << "\nGenerating 3D mesh from point cloud:\n";
+
     {
+      vw_out() << "\nGenerating 3D mesh from point cloud:\n";
       opt.root->addChild(build_mesh(point_image, opt.step_size, opt.texture_file_name, opt.dataNormal, opt.enable_lighting ));
 
       if ( !opt.texture_file_name.empty() ) {
@@ -597,7 +598,7 @@ int main( int argc, char *argv[] ){
         opt.root->setStateSet( stateSet );
 
       } else {
-        std::cout << "Adding contour coloring\n";
+        vw_out() << "Adding contour coloring\n";
         osg::StateSet* stateSet =
           create1DTexture( opt.root.get() , opt.dataNormal );
         if ( !opt.enable_lighting )
@@ -607,35 +608,31 @@ int main( int argc, char *argv[] ){
       }
     }
 
-    // Smooth Option
     if ( opt.smooth_mesh ) {
-      std::cout << "Smoothing Data\n";
+      vw_out() << "Smoothing Data\n";
       osgUtil::SmoothingVisitor sv;
       opt.root->accept(sv);
     }
 
-    // Simplify Option
     if ( opt.simplify_mesh ) {
       if ( opt.simplify_percent == 0.0 )
         opt.simplify_percent = 1.0;
 
-      std::cout << "Simplifying Data\n";
+      vw_out() << "Simplifying Data\n";
       osgUtil::Simplifier simple;
       simple.setSmoothing( opt.smooth_mesh );
       simple.setSampleRatio( opt.simplify_percent );
       opt.root->accept(simple);
     }
 
-    // Optimizing Data
     {
-      std::cout << "Optimizing Data\n";
+      vw_out() << "Optimizing Data\n";
       osgUtil::Optimizer optimizer;
       optimizer.optimize( opt.root.get() );
     }
 
-    // Saving Data
     {
-      std::cout << "\nSaving Data:\n";
+      vw_out() << "\nSaving Data:\n";
       std::ostringstream os;
       os << opt.output_prefix << "." << opt.output_file_type;
       osgDB::writeNodeFile( *opt.root.get() , os.str() );

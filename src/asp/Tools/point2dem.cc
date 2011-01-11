@@ -124,9 +124,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("default-value", po::value(&opt.default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
     ("nodata-value", po::value(&opt.default_value), "Nodata value to use on output. This is the same as default-value.")
-    ("use-alpha", "Create images that have an alpha channel")
+    ("use-alpha", po::bool_switch(&opt.has_alpha)->default_value(false),
+     "Create images that have an alpha channel")
     ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
-    ("normalized,n", "Also write a normalized version of the DEM (for debugging)")
+    ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
+     "Also write a normalized version of the DEM (for debugging)")
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
@@ -185,7 +187,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
   boost::to_lower( opt.reference_spheroid );
-  if ( vm.count("sinusoidal") )     opt.projection = SINUSOIDAL;
+  if ( vm.count("sinusoidal") )          opt.projection = SINUSOIDAL;
   else if ( vm.count("mercator") )       opt.projection = MERCATOR;
   else if ( vm.count("transverse-mercator") ) opt.projection = TRANSVERSEMERCATOR;
   else if ( vm.count("orthographic") )   opt.projection = ORTHOGRAPHIC;
@@ -194,8 +196,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   else if ( vm.count("utm") )            opt.projection = UTM;
   else                                   opt.projection = PLATECARREE;
   opt.has_default_value = vm.count("default-value") || vm.count("nodata-value");
-  opt.has_alpha = vm.count("use-alpha");
-  opt.do_normalize = vm.count("normalized");
 }
 
 int main( int argc, char *argv[] ) {

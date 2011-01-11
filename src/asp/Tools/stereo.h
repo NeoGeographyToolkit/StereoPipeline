@@ -129,8 +129,9 @@ namespace vw {
       ("threads", po::value(&opt.num_threads)->default_value(0), "Select the number of processors (threads) to use.")
       ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
-      ("draft-mode", po::value(&opt.corr_debug_prefix), "Cause the pyramid correlator to save out debug imagery named with this prefix.")
-      ("optimized-correlator", "Use the optimized correlator instead of the pyramid correlator.")
+      ("draft-mode", po::value(&opt.corr_debug_prefix),"Cause the pyramid correlator to save out debug imagery named with this prefix.")
+      ("optimized-correlator", po::bool_switch(&opt.optimized_correlator)->default_value(false),
+       "Use the optimized correlator instead of the pyramid correlator.")
       ("no-bigtiff", "Tell GDAL to not create bigtiffs.")
       ("help,h", "Display this help message");
 
@@ -175,7 +176,6 @@ namespace vw {
           << "  Camera model arguments may be optional for some stereo session types (e.g. isis).\n"
           << "  Stereo parameters should be set in the stereo.default file.\n\n";
 
-    opt.optimized_correlator = vm.count("optimized-correlator");
     opt.draft_mode = vm.count("draft-mode");
 
     if ( vm.count("help") )

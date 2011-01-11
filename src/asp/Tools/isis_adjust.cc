@@ -174,8 +174,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
     ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Sparse"),
      "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]")
-    ("disable-camera-const", "Disable camera constraint error")
-    ("disable-gcp-const", "Disable GCP constraint error")
+    ("disable-camera-const", po::bool_switch(&opt.disable_camera)->default_value(false),
+     "Disable camera constraint error")
+    ("disable-gcp-const", po::bool_switch(&opt.disable_gcp)->default_value(false),
+     "Disable GCP constraint error")
     ("gcp-scalar", po::value(&opt.gcp_scalar)->default_value(1.0),
      "Sets a scalar to multiply to the sigmas (uncertainty) defined for the gcps. GCP sigmas are defined in the .gcp files.")
     ("lambda,l", po::value(&opt.lambda), "Set the intial value of the LM parameter g_lambda")
@@ -193,9 +195,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Changes the detail of the Bundle Adjustment Report")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(10.0),
      "Set the threshold for robust cost functions.")
-    ("save-iteration-data,s", "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
-    ("seed-with-previous", "Use previous isis_adjust files at starting point for this run.")
-    ("write-isis-cnet-also", "Writes an ISIS style control network")
+    ("save-iteration-data,s", po::bool_switch(&opt.save_iteration)->default_value(false),
+     "Saves all camera/point/pixel information between iterations for later viewing in Bundlevis")
+    ("seed-with-previous", po::bool_switch(&opt.seed_previous)->default_value(false),
+     "Use previous isis_adjust files at starting point for this run.")
+    ("write-isis-cnet-also", po::bool_switch(&opt.write_isis_cnet)->default_value(false),
+     "Writes an ISIS style control network")
     ("write-kml", po::value(&opt.all_kml),
      "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates")
     ("help,h", "Display this help message");
@@ -230,13 +235,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   sort_out_gcp( opt.input_names, opt.gcp_names );
   sort_out_gcpcnets( opt.input_names, opt.gcp_cnet_names );
 
-  // checking results of booleans
-  opt.seed_previous = vm.count("seed-with-previous");
-  opt.disable_camera = vm.count("disable-camera-const");
-  opt.disable_gcp = vm.count("disable-gcp-const");
-  opt.save_iteration = vm.count("save-iteration-data");
   opt.write_kml = vm.count("write-kml");
-  opt.write_isis_cnet = vm.count("write-isis-cnet-also");
 
   // double checking the string inputs
   boost::to_lower( opt.cost_function );
