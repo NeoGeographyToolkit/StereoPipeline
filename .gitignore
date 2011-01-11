@@ -77,7 +77,8 @@ src/asp/MPI/isis_mpi_adjust
 src/asp/Tools/bundlevis
 src/asp/Tools/disparitydebug
 src/asp/Tools/isis_adjust
-src/asp/Tools/isis_adjust_write
+src/asp/Tools/isis_adjust_camera_err
+src/asp/Tools/isis_adjust_cnet_clip
 src/asp/Tools/orbitviz
 src/asp/Tools/orthoproject
 src/asp/Tools/plateorthoproject
