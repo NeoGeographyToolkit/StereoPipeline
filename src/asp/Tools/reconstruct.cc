@@ -38,73 +38,94 @@ using namespace vw::cartography;
 using namespace vw::photometry;
 using namespace std;
 
-std::vector<int> makeOverlapList(std::vector<int> inputIndices, int currIndex,
-    int maxNumPrevIndices, int maxNumNextIndices) {
-  int i, numPrevIndices, numNextIndices;
+//this will be used to compute the makeOverlapList in a more general way.
+//it takes into consideration any set of overlapping images.
+Vector4 ComputeGeoBoundary(GeoReference Geo, int width, int height)
+{
+ 
+  Vector4 corners;
+  Vector2 leftTopPixel(0,0);
+  Vector2 leftTopLonLat = Geo.pixel_to_lonlat(leftTopPixel);
 
-  //determine the number of previous overlapping files
-  if (currIndex == 0) {
-    numPrevIndices = 0;
-  }
-  else{
-    int tempNumPrevIndices = currIndex - maxNumPrevIndices;
-    printf("tempNumPrevFiles = %d\n", tempNumPrevIndices);
-    if (tempNumPrevIndices < 0){
-      numPrevIndices = currIndex;
-    }
-    else{
-      numPrevIndices = maxNumPrevIndices;
-    }
-  }
+  Vector2 rightBottomPixel(width-1, height-1);
+  Vector2 rightBottomLonLat = Geo.pixel_to_lonlat(rightBottomPixel);
+  
+  float minLon = leftTopLonLat(0);
+  float minLat = leftTopLonLat(1);
+  float maxLon = rightBottomLonLat(0);
+  float maxLat = rightBottomLonLat(1);
 
-  //determine the number of next overlapping files
-  int temp = inputIndices.size() - (currIndex+1);
-  if (temp < maxNumPrevIndices){
-    numNextIndices = temp;
-  }
-  else{
-    numNextIndices = maxNumNextIndices;
+  if (maxLat<minLat){
+     float temp = minLat;
+     minLat = maxLat;
+     maxLat = temp;    
   }
 
-  printf("curr index = %d\n", currIndex);
-  printf("numPrevIndices = %d, numNextIndices = %d\n", numPrevIndices, numNextIndices);
-
-  std::vector<int> overlapIndices(numPrevIndices+numNextIndices);
-  int tmpIndex = 0;
-  for (i = currIndex - numPrevIndices; i < currIndex; i++){
-    overlapIndices[tmpIndex] = inputIndices[i];
-    printf("%d %d\n", tmpIndex, overlapIndices[i - (currIndex - numPrevIndices)]);
-    tmpIndex++;
-  }
-  for (i = currIndex+1; i <= currIndex + numNextIndices; i++){
-    overlapIndices[tmpIndex] = inputIndices[i];
-    printf("%d %d\n", tmpIndex, overlapIndices[tmpIndex]);
-    tmpIndex++;
+  if (maxLon<minLon){
+     float temp = minLon;
+     minLon = maxLon;
+     maxLon = temp;    
   }
 
-  printf("-------------------------------------------\n");
+  corners(0) = minLon;
+  corners(1) = maxLon;
+  corners(2) = minLat;
+  corners(3) = maxLat;
+
+  return corners;
+}
+
+//this function determines the image overlap for the general case
+//it takes into consideration any set of overlapping images.
+std::vector<int> makeOverlapList(std::vector<std::string> inputFiles, string currFile) {
+  
+  std::vector<int> overlapIndices;
+  
+  DiskImageView<PixelMask<PixelGray<uint8> > >  currImage(currFile);
+  GeoReference currGeo;
+  read_georeference(currGeo, currFile);
+  Vector4 currCorners = ComputeGeoBoundary(currGeo, currImage.cols(), currImage.rows());
+
+  for (unsigned int i = 0; i < inputFiles.size(); i++){
+
+       int lonOverlap = 0;
+       int latOverlap = 0; 
+
+       DiskImageView<PixelMask<PixelGray<uint8> > >  image(inputFiles[i]);
+       GeoReference geo;
+       read_georeference(geo, inputFiles[i]);
+       int width = image.cols();
+       int height = image.rows();
+       Vector4 corners = ComputeGeoBoundary(geo, width, height);
+       
+       if(  ((corners(0)>currCorners(0)) && (corners(0)<currCorners(1))) //minlon in interval 
+	    ||((corners(1)>currCorners(0)) && (corners(1)<currCorners(1)))) //maxlon in interval
+       {
+         lonOverlap = 1;
+       }
+       if(  ((corners(2)>currCorners(2)) && (corners(2)<currCorners(3))) //minlat in interval 
+	    ||((corners(3)>currCorners(2)) && (corners(3)<currCorners(3)))) //maxlat in interval
+       {
+         latOverlap = 1;
+       }
+     
+       if ((lonOverlap == 1) && (latOverlap == 1)){
+           overlapIndices.push_back(i);
+       }
+  }
 
   return overlapIndices;
 }
 
-void ChangeNoValDEM(ModelParams imgParam, float oldVal, float newVal)
+std::vector<vector<int> > makeOverlapList(std::vector<std::string> inputFiles) 
 {
-  unsigned int k, l;
-  std::string DEMFilename = imgParam.DEMFilename;
+  std::vector<vector<int> > overlapIndices;
+  overlapIndices.resize(inputFiles.size());
 
-  DiskImageView<PixelGray<float> >  DEM(DEMFilename);
-  GeoReference DEM_geo;
-  read_georeference(DEM_geo, DEMFilename);
-
-  for (k = 0 ; k < (unsigned)DEM.rows(); ++k) {
-    for (l = 0; l < (unsigned)DEM.cols(); ++l) {
-      if (DEM(l,k) == oldVal) {
-        DEM(l,k) = newVal;
-      }
-    }
+  for (unsigned int i = 0; i < inputFiles.size(); ++i) {  
+      overlapIndices[i] = makeOverlapList(inputFiles, inputFiles[i]);
   }
-
-  write_georeferenced_image(DEMFilename, DEM, DEM_geo, TerminalProgressCallback("{Core}","Processing:"));
+  return overlapIndices;  
 }
 
 int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
@@ -155,7 +176,8 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
         CHECK_VAR("MAX_PREV_OVERLAP_IMAGES", "%d", maxPrevOverlappingImages);
     }
     configFile.close();
-
+    settings->exposureInitRefValue = 12;
+    cout<<settings->exposureInitRefValue<<endl;
     settings->exposureInitRefValue /= 10.0;
 
     return(1);
@@ -168,8 +190,6 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
     settings->slopeType = 1;
     settings->shadowThresh = 40;
 
-    //string spacecraftPosFilename = "";
-    //string sunPosFilename = "";
     settings->albedoInitType = 0;//1;
     settings->exposureInitType = 0;//1;
     settings->exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
@@ -184,6 +204,7 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
     settings->maxNumIter = 10;
     settings->maxNextOverlappingImages = 2;
     settings->maxPrevOverlappingImages = 2;
+
     return(0);
   }
 }
@@ -210,71 +231,27 @@ void PrintGlobalParams(struct GlobalParams *settings)
 }
 
 
-//TO DO : modify this function to get the georef of the original DEM and divide the transform by 4
-void MaskToNoValDataDEM(std::string outFile, std::string inFile)
-{
-  GeoReference geo;
-  read_georeference(geo, inFile);
-  DiskImageView<PixelMask<PixelGray<float> > >  inImage(inFile);
-
-  int cols = inImage.cols();
-  int rows = inImage.rows();
-
-  ImageView<PixelGray<float> >  outImage(cols, rows);
-  for (int x=0; x<cols; ++x){
-    for (int y=0; y<rows; ++y){
-      outImage(x, y) = -10000;
-      if ( is_valid(inImage(x,y)) ){
-        outImage(x,y) = (float)inImage(x,y);
-      }
-    }
-  }
-
-  write_georeferenced_image(outFile, outImage, geo, TerminalProgressCallback("photometry","Processing:"));
-}
-
-
-void ChangeDEMGeoreference(string outFile, string inFile, string origDEMFilename)
-{
-  GeoReference geo;
-  read_georeference(geo, origDEMFilename);
-
-  DiskImageView<PixelGray<float> >   inImage(inFile);
-
-  int cols = inImage.cols();
-  int rows = inImage.rows();
-
-  ImageView<PixelGray<float> >  outImage(cols, rows);
-  for (int x=0; x<cols; ++x){
-    for (int y=0; y<rows; ++y){
-      outImage(x,y) = (float)inImage(x,y);
-    }
-  }
-
-  Matrix<double> H = geo.transform();
-
-  H(0,0) *= 4;
-  H(1,1) *= 4;
-  geo.set_transform(H);
-
-  write_georeferenced_image(outFile, outImage, geo, TerminalProgressCallback("photometry","Processing:"));
-
-}
 
 int main( int argc, char *argv[] ) {
 
   std::vector<std::string> input_files;
 
-  std::string homeDir;
-
-  std::string dataDir = "/data/orbit33";
-  std::string resDir = "/results/orbit33";
+  std::string cubDir = "../data/cub";
+  std::string DEMDir = "../data/DEM";
+  std::string exposureDir = "../data/exposure";
+  std::string resDir = "../results";
+  std::string configFilename = "photometry_settings.txt";
 
   po::options_description general_options("Options");
   general_options.add_options()
-    //("num-matches,m", po::value<int>(&num_matches)->default_value(1000), "Number of points to match for linear regression.")
-    ("project-directory,d", po::value<std::string>(&homeDir)->default_value("../../../.."), "Base directory where data folders and result folders are.")
+  
+    ("dem-directory,d", po::value<std::string>(&DEMDir)->default_value("../data/DEM"), "DEM directory.")
+    ("space info-directory,s", po::value<std::string>(&cubDir)->default_value("../data/cub"), "space info directory.")
+    ("exposure-directory,e", po::value<std::string>(&exposureDir)->default_value("../data/exposure"), "exposure time directory.")
+    ("res-directory,r", po::value<std::string>(&resDir)->default_value("../results"), "results directory.")
+    ("config-filename,c", po::value<std::string>(&resDir)->default_value("photometry_settings.txt"), "configuration filename.")
     ("help,h", "Display this help message");
+  
 
   po::options_description hidden_options("");
 
@@ -316,43 +293,17 @@ int main( int argc, char *argv[] ) {
   vw_out() << "Number of Files = " << input_files.size() << "\n";
 
   GlobalParams globalParams;
-  string configFilename = "photometry_settings.txt";
+  //string configFilename = "photometry_settings.txt";
 
   int configFileFound = ReadConfigFile((char*)configFilename.c_str(), &globalParams);
 
   PrintGlobalParams(&globalParams);
-  /*
-  if (configFileFound == 0){
-  printf("configFile NOT FOUND\n");
-  //globalParams.reflectanceType = NO_REFL;
-  globalParams.reflectanceType = LUNAR_LAMBERT;
-  //globalParams.reflectanceType = LAMBERT;
-  globalParams.slopeType = 1;
-  globalParams.shadowThresh = 40;
-
-  //string spacecraftPosFilename = "";
-  //string sunPosFilename = "";
-  globalParams.albedoInitType = 0;//1;
-  globalParams.exposureInitType = 0;//1;
-  globalParams.exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
-  globalParams.exposureInitRefIndex = 0;   //the reference frame
-  globalParams.DEMInitType = 0;//1;
-  globalParams.shadowInitType = 0;//1;
-  globalParams.updateExposure = 0;//1;
-  globalParams.updateAlbedo = 0;//1;
-  globalParams.updateHeight = 1;
-  globalParams.computeErrors = 0;//1;
-  globalParams.useWeights = 0;//1;
-  globalParams.maxNumIter = 10;
-  globalParams.maxNextOverlappingImages = 2;
-  globalParams.maxPrevOverlappingImages = 2;
-  }
-  */
-
-  std::string sunPosFilename = homeDir + dataDir + "/sunpos.txt";
-  std::string spacecraftPosFilename = homeDir + dataDir + "/spacecraftpos.txt";
-  std::string initExpTimeFile = homeDir + dataDir + "/exposureTime.txt";
-  std::string exposureInfoFilename = homeDir + resDir + "/exposure/exposureInfo_0.txt";
+  
+  std::string sunPosFilename = cubDir + "/sunpos.txt";
+  std::string spacecraftPosFilename = cubDir + "/spacecraftpos.txt";
+  std::string initExpTimeFile = exposureDir + "/exposureTime.txt";
+  //std::string exposureInfoFilename = resDir + "/exposure/exposureInfo_0.txt";
+  std::string exposureInfoFilename = resDir + "/exposure/exposureInfo.txt";
 
   std::vector<Vector3> sunPositions;
   sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), input_files.size());
@@ -363,70 +314,49 @@ int main( int argc, char *argv[] ) {
   std::vector<ModelParams> modelParamsArray(input_files.size());
   std::vector<float> avgReflectanceArray(input_files.size());
 
-  // Double check to make sure all folders exist
-  if ( !fs::exists(homeDir+resDir+"/DEM") )
-    fs::create_directories(homeDir+resDir+"/DEM");
-  if ( !fs::exists(homeDir+resDir+"/DEM_sub4") )
-    fs::create_directories(homeDir+resDir+"/DEM_sub4");
-  if ( !fs::exists(homeDir+resDir+"/DEM_sfs") )
-    fs::create_directories(homeDir+resDir+"/DEM_sfs");
-  if ( !fs::exists(homeDir+resDir+"/info") )
-    fs::create_directories(homeDir+resDir+"/info");
-  if ( !fs::exists(homeDir+resDir+"/reflectance") )
-    fs::create_directories(homeDir+resDir+"/reflectance");
-  if ( !fs::exists(homeDir+resDir+"/shadow") )
-    fs::create_directories(homeDir+resDir+"/shadow");
-  if ( !fs::exists(homeDir+resDir+"/error") )
-    fs::create_directories(homeDir+resDir+"/error");
-  if ( !fs::exists(homeDir+resDir+"/albedo") )
-    fs::create_directories(homeDir+resDir+"/albedo");
-  if ( !fs::exists(homeDir+resDir+"/exposure") )
-    fs::create_directories(homeDir+resDir+"/exposure");
-
+  // Double check to make sure all folders exist  
+  if ( !fs::exists(resDir) )
+    fs::create_directory(resDir);
+  if ( !fs::exists(resDir+"/DEM") )
+    fs::create_directory(resDir+"/DEM");
+  if ( !fs::exists(resDir+"/info") )
+    fs::create_directory(resDir+"/info");
+  if ( !fs::exists(resDir+"/reflectance") )
+    fs::create_directory(resDir+"/reflectance");
+  if ( !fs::exists(resDir+"/shadow") )
+    fs::create_directory(resDir+"/shadow");
+  if ( !fs::exists(resDir+"/error") )
+    fs::create_directory(resDir+"/error");
+  if ( !fs::exists(resDir+"/albedo") )
+    fs::create_directory(resDir+"/albedo");
+  if ( !fs::exists(resDir+"/exposure") )
+    fs::create_directory(resDir+"/exposure");
+  if ( !fs::exists(resDir+"/weight") )
+    fs::create_directory(resDir+"/weight");
+  
   for (unsigned int i = 0; i < input_files.size(); ++i) {
+  
+    std::string temp = sufix_from_filename(input_files[i]);
+  
     modelParamsArray[i].exposureTime = globalParams.exposureInitRefValue;
     modelParamsArray[i].rescalingParams[0] = 1;
     modelParamsArray[i].rescalingParams[1] = 0;
-    modelParamsArray[i].sunPosition = 1000*sunPositions[i];
+    modelParamsArray[i].sunPosition        = 1000*sunPositions[i];
     modelParamsArray[i].spacecraftPosition = 1000*spacecraftPositions[i];
-
-    std::string temp = sufix_from_filename(input_files[i]);
-
-    modelParamsArray[i].inputFilename   = input_files[i];
-    /*
-    modelParamsArray[i].DEMFilename     = homeDir + dataDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM.tif";
-    modelParamsArray[i].infoFilename    = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
-    modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";
-    //DEM sub 4 by Taemin 
-    //modelParamsArray[i].meanDEMFilename = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM2.tif";
-    modelParamsArray[i].var2DEMFilename = homeDir + resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
-    modelParamsArray[i].reliefFilename  = homeDir + resDir + "/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
-    modelParamsArray[i].shadowFilename  = homeDir + resDir + "/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
-    modelParamsArray[i].errorFilename   = homeDir + resDir + "/error" + prefix_from_filename(temp) + "_err.tif";
-    modelParamsArray[i].outputFilename  = homeDir + resDir + "/albedo" + prefix_from_filename(temp) + "_TM.tif";
-    modelParamsArray[i].sfsDEMFilename  = homeDir + resDir + "/DEM_sfs" + prefix_less3_from_filename(temp) + "DEM_sfst.tif";  
-    modelParamsArray[i].errorHeightFilename = homeDir + resDir + "/error" + prefix_from_filename(temp) + "_errheight.tif";
-    */
-
-    //quick debug version --- START
-    modelParamsArray[i].DEMFilename         = homeDir + dataDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM.tif";
-    modelParamsArray[i].infoFilename        = homeDir + resDir +"/info/" + prefix_less3_from_filename(temp)+".txt";
-    modelParamsArray[i].meanDEMFilename     = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM_out.tif";   
-    modelParamsArray[i].var2DEMFilename     = homeDir + resDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
-    modelParamsArray[i].reliefFilename      = homeDir + resDir + "/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
-    modelParamsArray[i].shadowFilename      = homeDir + resDir + "/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
-    modelParamsArray[i].errorFilename       = homeDir + resDir + "/error" + prefix_from_filename(temp) + "_err.tif";
-    modelParamsArray[i].outputFilename      = homeDir + resDir + "/albedo" + prefix_from_filename(temp) + "_TM.tif";
-    modelParamsArray[i].sfsDEMFilename      = homeDir + resDir + "/DEM_sfs" + prefix_less3_from_filename(temp) + "DEM_sfs.tif";
-    modelParamsArray[i].errorHeightFilename = homeDir + resDir + "/error" + prefix_from_filename(temp) + "_errheight.tif";
-    //quick debug version --- END
-
-    //MaskToNoValDataDEM(homeDir + dataDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM.tif", 
-    //                   homeDir + dataDir + "/DEM_sub4_1" + prefix_less3_from_filename(temp) + "DEM2.tif");
-
-    //ChangeDEMGeoreference(homeDir + dataDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM.tif", 
-    //                      homeDir + dataDir + "/DEM_sub4" + prefix_less3_from_filename(temp) + "DEM.tif",
-    //                      homeDir + dataDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM.tif");
+    modelParamsArray[i].inputFilename       = input_files[i];
+    modelParamsArray[i].DEMFilename         = DEMDir + prefix_less3_from_filename(temp) + "DEM.tif";
+    modelParamsArray[i].infoFilename        = resDir + "/info/" + prefix_less3_from_filename(temp)+".txt";
+    modelParamsArray[i].meanDEMFilename     = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";   
+    modelParamsArray[i].var2DEMFilename     = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
+    modelParamsArray[i].reliefFilename      = resDir + "/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
+    modelParamsArray[i].shadowFilename      = resDir + "/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
+    modelParamsArray[i].errorFilename       = resDir + "/error" + prefix_from_filename(temp) + "_err.tif";
+    modelParamsArray[i].outputFilename      = resDir + "/albedo" + prefix_from_filename(temp) + "_albedo.tif";
+    modelParamsArray[i].sfsDEMFilename      = resDir + "/DEM_sfs" + prefix_less3_from_filename(temp) + "DEM_sfs.tif";
+    modelParamsArray[i].errorHeightFilename = resDir + "/error" + prefix_from_filename(temp) + "_height_err.tif";
+    //modelParamsArray[i].weightFilename      =  resDir + "/weights" + prefix_from_filename(temp) + "_weight.txt";
+    //modelParamsArray[i].exposureFilename    =  resDir + "/exposure" + prefix_from_filename(temp) + "_exposure.txt";
+  
 
     if (globalParams.useWeights == 1) {
       vw_out( VerboseDebugMessage, "photometry" ) << "Computing weights ... ";
@@ -437,32 +367,34 @@ int main( int argc, char *argv[] ) {
 
     vw_out( VerboseDebugMessage, "photometry" ) << modelParamsArray[i] << "\n";
   }
-
-  std::vector<int> inputIndices(input_files.size());
-  for (unsigned int i = 0; i < input_files.size(); i++){
-    inputIndices[i] = i;
+  
+  std::vector<vector<int> > overlapIndicesArray = makeOverlapList(input_files); 
+ 
+  /*
+  if (globalParams.useWeights == 1) {
+      vw_out( VerboseDebugMessage, "photometry" ) << "Computing weights ... ";
+      modelParamsArray[i].centerLineDEM = ComputeDEMCenterLine(modelParamsArray[i].DEMFilename, &(modelParamsArray[i].maxDistArrayDEM));
+      modelParamsArray[i].centerLine = ComputeImageCenterLine(modelParamsArray[i].inputFilename, &(modelParamsArray[i].maxDistArray));
+      //TO DO: save to file
+      vw_out( VerboseDebugMessage, "photometry" ) << "Done.\n";
   }
+  */
 
   if (globalParams.DEMInitType == 1){
-    //initialize the DEM files
-    //float oldVal;
-    //float newVal;
-    //ChangeNoValDEM(imgParam[0], oldVal, newVal);
-
+   
     TerminalProgressCallback callback("photometry","Init DEM:");
     callback.report_progress(0);
     for (unsigned int i = 0; i < input_files.size(); ++i) {
       callback.report_progress(float(i)/float(input_files.size()));
 
-      std::vector<int> overlapIndices;
-      overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
-      std::vector<ModelParams> overlapParams(overlapIndices.size());
-
-      for (unsigned int j = 0; j < overlapIndices.size(); j++){
-        overlapParams[j] = modelParamsArray[overlapIndices[j]];
+      
+      std::vector<ModelParams> overlapParamsArray(overlapIndicesArray[i].size());
+      for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
+        overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
       }
-
-      InitDEM(modelParamsArray[i], overlapParams, globalParams);
+      
+      InitDEM(modelParamsArray[i], overlapParamsArray, globalParams); 
+     
     }
     callback.report_finished();
   }
@@ -477,11 +409,7 @@ int main( int argc, char *argv[] ) {
     callback.report_finished();
   }
 
-  printf("numIter = %d\n", globalParams.maxNumIter);
-
-  //compute the reflectance images
-  if (globalParams.exposureInitType == 1){
-    modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
+  if (globalParams.reflectanceType != NO_REFL){ //compute reflectance
 
     TerminalProgressCallback callback("photometry","Init Reflectance:");
     callback.report_progress(0);
@@ -490,12 +418,31 @@ int main( int argc, char *argv[] ) {
       vw_out(VerboseDebugMessage,"photometry") << modelParamsArray[i].reliefFilename << "\n";
 
       avgReflectanceArray[i] = computeImageReflectance(modelParamsArray[i],
-          globalParams);
-      if ( i == 0 )
-        modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
-      else
-        modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*avgReflectanceArray[0])/avgReflectanceArray[i];
+						       globalParams);
+    }
+    callback.report_finished();
+  }
 
+  //compute the reflectance images
+  if (globalParams.exposureInitType == 1){
+    modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
+
+    TerminalProgressCallback callback("photometry","Init Exposure Time:");
+    callback.report_progress(0);
+    for (unsigned int i = 0; i < input_files.size(); ++i) {
+      callback.report_progress(float(i)/float(input_files.size()));
+      vw_out(VerboseDebugMessage,"photometry") << modelParamsArray[i].reliefFilename << "\n";
+
+      //avgReflectanceArray[i] = computeImageReflectance(modelParamsArray[i],
+      //					       globalParams);
+      if ( i == 0 ){
+        modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
+        cout<<"0: "<<modelParamsArray[0].exposureTime<<endl;
+      }
+      else{
+        modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*avgReflectanceArray[0])/avgReflectanceArray[i];
+        cout<<i<<": "<<modelParamsArray[i].exposureTime<<endl;
+      }
       vw_out(VerboseDebugMessage,"photometry") << "\tExposure Time = "
         << modelParamsArray[i].exposureTime
         << "\n";
@@ -544,7 +491,6 @@ int main( int argc, char *argv[] ) {
       for (unsigned int i = 1; i < input_files.size(); ++i) {
         modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*expTimeArray[i])/expTimeArray[0];
         printf("expTimeArray[%d] = %f\n", i,  modelParamsArray[i].exposureTime);
-        //AppendExposureInfoToFile(exposureInfoFilename, modelParamsArray[i]);
       }
     }
 
@@ -559,20 +505,18 @@ int main( int argc, char *argv[] ) {
     callback.report_progress(0);
     for (unsigned int i = 0; i < input_files.size(); ++i) {
       callback.report_progress(float(i)/float(input_files.size()));
-
-      std::vector<int> overlapIndices;
-      overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
-      std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
-
-      for (unsigned int j = 0; j < overlapIndices.size(); j++)
-        overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
-
+ 
+      std::vector<ModelParams> overlapParamsArray(overlapIndicesArray[i].size());
+      for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++)
+        overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
+      
       if (globalParams.reflectanceType == NO_REFL)
         InitImageMosaicByBlocks(modelParamsArray[i],
-            overlapParamsArray, globalParams);
+				overlapParamsArray, globalParams);
       else
         InitAlbedoMosaic(modelParamsArray[i],
-            overlapParamsArray, globalParams);
+			 overlapParamsArray, globalParams);
+      
     }
     callback.report_finished();
   }
@@ -586,28 +530,11 @@ int main( int argc, char *argv[] ) {
 
   for (int iter = 1; iter < globalParams.maxNumIter; iter++){
 
-    std::string currExposureInfoFilename;
-    std::string prevExposureInfoFilename;
-
-    char* currExposureInfoFilename_char = new char[500];
-    char* prevExposureInfoFilename_char = new char[500];
-
-    sprintf (currExposureInfoFilename_char, (char*)(homeDir + resDir + "/exposure/exposureInfo_%d.txt").c_str(), iter);
-    sprintf (prevExposureInfoFilename_char, (char*)(homeDir + resDir + "/exposure/exposureInfo_%d.txt").c_str(), iter-1);
-    currExposureInfoFilename = std::string(currExposureInfoFilename_char);
-    prevExposureInfoFilename = std::string(prevExposureInfoFilename_char);
-
-    delete currExposureInfoFilename_char;
-    delete prevExposureInfoFilename_char;
-
     overallError = 0.0;
-
 
     if (globalParams.updateExposure == 1){ //re-estimate the exposure time
 
-      for (unsigned int i = 0; i < input_files.size(); ++i) {
-
-        printf("iter = %d, exposure, i = %d, filename = %s\n\n", iter, i, input_files[i].c_str());
+      for (unsigned int i = 0; i < input_files.size(); ++i) {   
 
         if (globalParams.reflectanceType == NO_REFL){
           //no use of reflectance map
@@ -619,7 +546,7 @@ int main( int argc, char *argv[] ) {
         }
 
         //create the exposureInfoFilename
-        AppendExposureInfoToFile(currExposureInfoFilename, modelParamsArray[i]);
+        AppendExposureInfoToFile(exposureInfoFilename, modelParamsArray[i]);
       }
     }
 
@@ -627,14 +554,11 @@ int main( int argc, char *argv[] ) {
 
       for (unsigned int i = 0; i < input_files.size(); ++i) {
 
-        std::vector<int> overlapIndices;
-        overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages);
-        std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
-
-        for (unsigned int j = 0; j < overlapIndices.size(); j++){
-          overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
+        std::vector<ModelParams> overlapParamsArray(overlapIndicesArray[i].size());
+        for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
+          overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
         }
-
+        
         if (globalParams.reflectanceType == NO_REFL){
           //no use of the reflectance map
           UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
@@ -650,16 +574,12 @@ int main( int argc, char *argv[] ) {
     if ((globalParams.reflectanceType != NO_REFL) && (globalParams.updateHeight == 1)){
 
       for (unsigned int i = 0; i < input_files.size(); ++i) {
-
-        printf("iter = %d, height map computation i = %d, filename = %s\n\n", iter, i, modelParamsArray[i].inputFilename.c_str());
-
-        std::vector<int> overlapIndices;
-        overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
-        std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
-        for (unsigned int j = 0; j < overlapIndices.size(); j++){
-          overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
+   
+        std::vector<ModelParams> overlapParamsArray(overlapIndicesArray[i].size());
+        for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
+          overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
         }
-
+	  
         UpdateHeightMap(modelParamsArray[i], overlapParamsArray, globalParams);
       }
     }
@@ -672,23 +592,19 @@ int main( int argc, char *argv[] ) {
 
       for (unsigned int i = 0; i < input_files.size(); ++i) {
 
-        std::vector<int> overlapIndices;
-
-        overlapIndices = makeOverlapList(inputIndices, i, globalParams.maxPrevOverlappingImages, globalParams.maxNextOverlappingImages );
-
-        std::vector<ModelParams> overlapParamsArray(overlapIndices.size());
-        for (unsigned int j = 0; j < overlapIndices.size(); j++){
-          overlapParamsArray[j] = modelParamsArray[overlapIndices[j]];
+        std::vector<ModelParams> overlapParamsArray(overlapIndicesArray[i].size());
+        for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
+          overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
         }
-
+	
         //use reflectance
         float avgError;
         int numSamples;
 
         ComputeReconstructionErrorMap(modelParamsArray[i],
-            overlapParamsArray,
-            globalParams,
-            &avgError, &numSamples);
+				      overlapParamsArray,
+				      globalParams,
+				      &avgError, &numSamples);
 
         if (i ==0){
           overallAvgError = avgError;
