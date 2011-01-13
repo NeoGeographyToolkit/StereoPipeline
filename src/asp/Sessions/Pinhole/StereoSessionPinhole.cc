@@ -70,12 +70,12 @@ StereoSessionPinhole::camera_model(std::string /*image_file*/,
       left_cahv = CAHVModel(m_left_camera_file);
       right_cahv = CAHVModel(m_right_camera_file);
 
-    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pinhole") ) {
+    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pinhole") ||
+                boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") ) {
       PinholeModel left_pin(m_left_camera_file);
       PinholeModel right_pin(m_right_camera_file);
       left_cahv = linearize_camera(left_pin);
       right_cahv = linearize_camera(right_pin);
-
     } else {
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
     }
