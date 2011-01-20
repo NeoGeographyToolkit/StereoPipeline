@@ -297,7 +297,7 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
   }
 
   DiskImageView<PixelMask<Vector2f> > disparity_map(dust_result);
-  output_file = m_out_prefix + "-F-corrected.exr";
+  output_file = m_out_prefix + "-F-corrected.tif";
 
   // We used a homography to line up the images, we may want
   // to generate pre-alignment disparities before passing this information
@@ -321,12 +321,11 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
                                  Vector2f( right_disk_image.cols(),
                                            right_disk_image.rows() ) );
 
-  DiskImageResourceOpenEXR disparity_corrected_rsrc(output_file, result.format() );
-  Vector2i block_size(std::min<size_t>(vw_settings().default_tile_size(),
-                                       disparity_map.cols()),
-                      std::min<size_t>(vw_settings().default_tile_size(),
-                                       disparity_map.rows()));
-  disparity_corrected_rsrc.set_block_write_size(block_size);
+  DiskImageResourceGDAL
+    disparity_corrected_rsrc( output_file, result.format(),
+                              Vector2i(vw_settings().default_tile_size(),
+                                       vw_settings().default_tile_size()),
+                              gdal_settings( result.cols(), result.rows() ) );
   block_write_image( disparity_corrected_rsrc, result,
                      TerminalProgressCallback("asp", "\t    Processing:"));
 }

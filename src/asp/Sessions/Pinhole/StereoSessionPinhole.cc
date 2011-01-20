@@ -189,8 +189,7 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
   if ( stereo_settings().keypoint_alignment ) {
 
     DiskImageView<PixelMask<Vector2f> > disparity_map( input_file );
-    output_file = m_out_prefix + "-F-corrected.exr";
-    ImageViewRef<PixelMask<Vector2f> > result;
+    output_file = m_out_prefix + "-F-corrected.tif";
 
     vw::Matrix<double> align_matrix;
     try {
@@ -202,13 +201,14 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
       exit(1);
     }
 
-    result = stereo::transform_disparities( disparity_map,
-                                            HomographyTransform(align_matrix));
-
     // Remove pixels that are outside the bounds of the second image
     DiskImageView<PixelGray<float> > right_disk_image( m_right_image_file );
-    result = stereo::disparity_range_mask( result, right_disk_image.cols(),
-                                           right_disk_image.rows());
+    ImageViewRef<PixelMask<Vector2f> > result =
+      stereo::disparity_range_mask( stereo::transform_disparities( disparity_map,
+                                             HomographyTransform(align_matrix)),
+                                    Vector2f(0,0),
+                                    Vector2f( right_disk_image.cols(),
+                                              right_disk_image.rows()) );
 
     write_image(output_file, result,
                 TerminalProgressCallback("asp", "\t    Saving: ") );

@@ -24,6 +24,8 @@ namespace vw {
       std::string prehook_filename;
       opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif",
                                        prehook_filename);
+      vw_out(VerboseDebugMessage,"asp") << "Disparity Map for Triangulation: "
+                                        << prehook_filename << "\n";
       DiskImageView<PixelMask<Vector2f> > disparity_map(prehook_filename);
 
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
@@ -81,6 +83,8 @@ namespace vw {
                                                      camera_model2.get() ),
                          universe_radius_func);
 
+      vw_out(VerboseDebugMessage,"asp") << "Writing Point Cloud: "
+                                        << opt.out_prefix + "-PC.tif\n";
       DiskImageResourceGDAL point_cloud_rsrc(opt.out_prefix + "-PC.tif",
                                              point_cloud.format(),
                                              opt.raster_tile_size,
