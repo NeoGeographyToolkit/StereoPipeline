@@ -30,14 +30,27 @@ int main(int argc, char* argv[]) {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1,camera_model2);
 
-      // Do the camera's appear to be in the same location?
+      // Do the cameras appear to be in the same location?
       if ( norm_2(camera_model1->camera_center(Vector2()) -
                   camera_model2->camera_center(Vector2())) < 1e-3 )
         vw_out(WarningMessage,"console")
           << "Your cameras appear to be in the same location!\n"
-          << "\tYou should be double check your given camera\n"
+          << "\tYou should double check your given camera\n"
           << "\tmodels as most likely stereo won't be able\n"
           << "\tto triangulate or perform epipolar rectification.\n";
+
+      // Can cameras triangulate to point at something in front of them?
+      stereo::StereoModel model( camera_model1.get(), camera_model2.get() );
+      double error;
+      Vector3 point = model( Vector2(), Vector2(), error );
+      if ( dot_prod( camera_model1->pixel_to_vector(Vector2()),
+                     point - camera_model1->camera_center(Vector2()) ) < 0 )
+        vw_out(WarningMessage,"console")
+          << "Your cameras appear to no be pointing at the same location!\n"
+          << "\tA test vector triangulated backwards through\n"
+          << "\tthe camera models. You should double check\n"
+          << "\tyour input models as most likely stereo won't\n"
+          << "\tbe able to triangulate.\n";
     }
 
     // Internal Processes
