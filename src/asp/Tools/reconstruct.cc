@@ -245,8 +245,6 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
         CHECK_VAR("SLOPE_TYPE", "%d", slopeType);
         CHECK_VAR("ALBEDO_INIT_TYPE", "%d", albedoInitType);
         CHECK_VAR("EXPOSURE_INIT_TYPE", "%d", exposureInitType);
-        CHECK_VAR("EXPOSURE_INIT_REF_VAL", "%d", exposureInitRefValue);
-        CHECK_VAR("EXPOSURE_INIT_REF_IDX", "%d", exposureInitRefIndex);
         CHECK_VAR("DEM_INIT_TYPE", "%d", DEMInitType);
         CHECK_VAR("SHADOW_INIT_TYPE", "%d", shadowInitType);
         CHECK_VAR("UPDATE_EXPOSURE", "%d", updateExposure);
@@ -255,28 +253,22 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
         CHECK_VAR("COMPUTE_ERRORS", "%d", computeErrors);
         CHECK_VAR("USE_WEIGHTS", "%d", useWeights);
         CHECK_VAR("MAX_NUM_ITER", "%d", maxNumIter);
-        CHECK_VAR("MAX_NEXT_OVERLAP_IMAGES", "%d", maxNextOverlappingImages);
-        CHECK_VAR("MAX_PREV_OVERLAP_IMAGES", "%d", maxPrevOverlappingImages);
+        CHECK_VAR("NO_DEM_DATA_VAL", "%d", noDEMDataValue);
     }
     configFile.close();
-    settings->exposureInitRefValue = 12;
-    cout<<settings->exposureInitRefValue<<endl;
-    settings->exposureInitRefValue /= 10.0;
+    settings->TRConst = 1.24; //this will go into config file
+    
 
     return(1);
   }
   else{
     printf("configFile NOT FOUND\n");
-    //settings->reflectanceType = NO_REFL;
     settings->reflectanceType = LUNAR_LAMBERT;
-    //settings->reflectanceType = LAMBERT;
     settings->slopeType = 1;
     settings->shadowThresh = 40;
 
     settings->albedoInitType = 0;//1;
     settings->exposureInitType = 0;//1;
-    settings->exposureInitRefValue = 1.2; //initial estimate of the exposure time for the reference frame
-    settings->exposureInitRefIndex = 0;   //the reference frame
     settings->DEMInitType = 0;//1;
     settings->shadowInitType = 0;//1;
     settings->updateExposure = 0;//1;
@@ -285,8 +277,8 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
     settings->computeErrors = 0;//1;
     settings->useWeights = 0;//1;
     settings->maxNumIter = 10;
-    settings->maxNextOverlappingImages = 2;
-    settings->maxPrevOverlappingImages = 2;
+    settings->noDEMDataValue = -10000;
+    settings->TRConst = 1.24;
 
     return(0);
   }
@@ -299,8 +291,6 @@ void PrintGlobalParams(struct GlobalParams *settings)
   printf("SLOPE_TYPE %d\n", settings->slopeType);
   printf("ALBEDO_INIT_TYPE %d\n", settings->albedoInitType);
   printf("EXPOSURE_INIT_TYPE %d\n", settings->exposureInitType);
-  printf("EXPOSURE_INIT_REF_VAL %f\n", settings->exposureInitRefValue);
-  printf("EXPOSURE_INIT_REF_INDEX  %d\n", settings->exposureInitRefIndex);
   printf("DEM_INIT_TYPE %d\n", settings->DEMInitType);
   printf("SHADOW_INIT_TYPE %d\n", settings->shadowInitType);
   printf("UPDATE_EXPOSURE %d\n", settings->updateExposure);
@@ -309,8 +299,8 @@ void PrintGlobalParams(struct GlobalParams *settings)
   printf("COMPUTE_ERRORS %d\n", settings->computeErrors);
   printf("USE_WEIGHTS %d\n", settings->useWeights);
   printf("MAX_NUM_ITER  %d\n", settings->maxNumIter);
-  printf("MAX_NEXT_OVERLAP_IMAGES %d\n", settings->maxNextOverlappingImages);
-  printf("MAX_PREV_OVERLAP_IMAGES %d\n", settings->maxPrevOverlappingImages);
+  printf("NO_DEM_DATA_VAL %d\n", settings->noDEMDataValue);
+  printf("TR_CONST %f\n", settings->TRConst);
 }
 
 int main( int argc, char *argv[] ) {
@@ -419,16 +409,12 @@ int main( int argc, char *argv[] ) {
   //this will contain all the DRG files
   for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
 
-    //std::string temp = sufix_from_filename(imageFiles[i]);
     std::string temp = sufix_from_filename(DRGFiles[i]);
-    modelParamsArray[i].exposureTime = globalParams.exposureInitRefValue;
-    modelParamsArray[i].rescalingParams[0]  = 1;//these variables will be removed.
-    modelParamsArray[i].rescalingParams[1]  = 0;//these variables will be removed.
+    modelParamsArray[i].exposureTime = 1.0;
     modelParamsArray[i].sunPosition         = 1000*sunPositions[i];
     modelParamsArray[i].spacecraftPosition  = 1000*spacecraftPositions[i];
     modelParamsArray[i].inputFilename       = DRGFiles[i];//these filenames have full path
     modelParamsArray[i].DEMFilename         = DEMDir + prefix_less3_from_filename(temp) + "DEM.tif";
-
     modelParamsArray[i].infoFilename        = resDir + "/info/" + prefix_less3_from_filename(temp)+"info.txt";
     modelParamsArray[i].meanDEMFilename     = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";   
     modelParamsArray[i].var2DEMFilename     = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
@@ -438,8 +424,8 @@ int main( int argc, char *argv[] ) {
     modelParamsArray[i].outputFilename      = resDir + "/albedo" + prefix_from_filename(temp) + "_albedo.tif";
     modelParamsArray[i].sfsDEMFilename      = resDir + "/DEM_sfs" + prefix_less3_from_filename(temp) + "DEM_sfs.tif";
     modelParamsArray[i].errorHeightFilename = resDir + "/error" + prefix_from_filename(temp) + "_height_err.tif";
-    //modelParamsArray[i].weightFilename      =  resDir + "/weights" + prefix_from_filename(temp) + "_weight.txt";
-    //modelParamsArray[i].exposureFilename    =  resDir + "/exposure" + prefix_from_filename(temp) + "_exposure.txt";
+    modelParamsArray[i].weightFilename      =  resDir + "/weight" + prefix_from_filename(temp) + "_weight.txt";
+    modelParamsArray[i].exposureFilename    =  resDir + "/exposure" + prefix_from_filename(temp) + "_exposure.txt";
   
     ReadExposureInfoFromFile(&(modelParamsArray[i]));
 
@@ -518,29 +504,14 @@ int main( int argc, char *argv[] ) {
   //compute exposure time from the reflectance images assuming average equal albedo
   if (globalParams.exposureInitType == 1){
 
-    //modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
-
     TerminalProgressCallback callback("photometry","Init Exposure Time:");
     callback.report_progress(0);
   
-    //for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
     for (unsigned int i = 0; i < imageFiles.size(); ++i) {
       callback.report_progress(float(i)/float(DRGFiles.size()));
  
-      float TRConst = 1.24;//modelParamsArray[0].exposureTime*avgReflectanceArray[0]; //this should in the configuration file
-
-      modelParamsArray[inputIndices[i]].exposureTime = TRConst/avgReflectanceArray[i];
-      //modelParamsArray[i].exposureTime = TRConst/avgReflectanceArray[i];
-      /*
-      if ( i == 0 ){
-        modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
-        cout<<"0: "<<modelParamsArray[0].exposureTime<<endl;
-      }
-      else{
-        modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*avgReflectanceArray[0])/avgReflectanceArray[i];
-        cout<<i<<": "<<modelParamsArray[i].exposureTime<<endl;
-      }
-      */
+      modelParamsArray[inputIndices[i]].exposureTime = globalParams.TRConst/avgReflectanceArray[i];
+     
       vw_out(VerboseDebugMessage,"photometry") << "\tExposure Time = "
         << modelParamsArray[inputIndices[i]].exposureTime
         << "\n";
@@ -549,50 +520,7 @@ int main( int argc, char *argv[] ) {
     }
     callback.report_finished();
   }
-
-  //not used: must be removed - START
-  if (globalParams.exposureInitType == 2){
-    //initialize the exposure times from overlaping areas - Not working well and not clear why?
-    printf("compute reflectance ...\n");
-    for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
-      float reflectanceRatio;
-      if (i==0){
-        modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
-      }
-      else{
-        reflectanceRatio = computeImageReflectance(modelParamsArray[i], modelParamsArray[i-1],
-						   globalParams);
-
-        modelParamsArray[i].exposureTime = (modelParamsArray[i-1].exposureTime)/reflectanceRatio;
-      }
-      printf("exposure Time = %f\n", modelParamsArray[i].exposureTime);
-      SaveExposureInfoToFile(modelParamsArray[i]);
-    }
-  }
-  //not used: must be removed - END
-
-  if (globalParams.exposureInitType == 3){ //read exposure time from file
-
-    std::vector<float> expTimeArray = ReadExposureInfoFile(initExpTimeFile, DRGFiles.size());
-    if (globalParams.exposureInitRefValue == 0){
-      for(unsigned int i = 0; i < DRGFiles.size(); ++i) {
-        modelParamsArray[i].exposureTime = expTimeArray[i];
-        printf("expTimeArray[%d] = %f\n", i,  modelParamsArray[i].exposureTime);
-      }
-    }
-    else{
-      modelParamsArray[0].exposureTime = globalParams.exposureInitRefValue;
-      for (unsigned int i = 1; i < DRGFiles.size(); ++i) {
-        modelParamsArray[i].exposureTime = (modelParamsArray[0].exposureTime*expTimeArray[i])/expTimeArray[0];
-        printf("expTimeArray[%d] = %f\n", i,  modelParamsArray[i].exposureTime);
-      }
-    }
-
-    for(unsigned int i = 0; i < DRGFiles.size(); ++i) {
-      SaveExposureInfoToFile(modelParamsArray[i]);
-    }
-  }
-
+ 
   if (globalParams.albedoInitType == 1){
 
     TerminalProgressCallback callback("photometry","Init Albedo:");
