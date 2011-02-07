@@ -70,28 +70,12 @@ std::vector<int> ReadOverlapIndices(string filename, int i)
   std::vector<int>  overlapIndices;
   return overlapIndices;
 }
-
-//saves weights to file. it will be move to weights.cc
-void SaveWeightsParamsToFile(struct ModelParams modelParams)
-{
-  FILE *fp;
-  fp = fopen((char*)(modelParams.infoFilename).c_str(), "w");
-  /*
-  for (int i = 0; i < modelParams.centerLineDEM.size(); i++){
-      fprintf(fp, "%f", modelParams.centerLineDEM[i]);
-  }
-  for (int i = 0; i < modelParams.centerLine.size(); i++){
-      fprintf(fp, "%f", modelParams.centerLine[i]);
-  }
-  */
-  fclose(fp);
-}
-
+/*
 //saves exposure info to file. it will be move to exposure.cc
 void SaveExposureInfoToFile(struct ModelParams modelParams)
 {
   FILE *fp;
-  fp = fopen((char*)(modelParams.infoFilename).c_str(), "w");
+  fp = fopen((char*)(modelParams.exposureFilename).c_str(), "w");
   fprintf(fp, "%f", modelParams.exposureTime);
   fclose(fp);
 }
@@ -99,7 +83,7 @@ void SaveExposureInfoToFile(struct ModelParams modelParams)
 void ReadExposureInfoFromFile(struct ModelParams *modelParams)
 {
   FILE *fp;
-  fp = fopen((char*)(modelParams->infoFilename).c_str(), "r");
+  fp = fopen((char*)(modelParams->exposureFilename).c_str(), "r");
   if (fp == NULL){
     modelParams->exposureTime = 1;
   }
@@ -108,7 +92,7 @@ void ReadExposureInfoFromFile(struct ModelParams *modelParams)
     fclose(fp);
   }
 }
- 
+*/
 //this will be used to compute the makeOverlapList in a more general way.
 //it takes into consideration any set of overlapping images.
 Vector4 ComputeGeoBoundary(GeoReference Geo, int width, int height)
@@ -220,6 +204,8 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
   char *commentPos;
   ifstream configFile(config_filename);
   int ret;
+  
+ 
 
 #define CHECK_VAR(name, fmt, assignTo) \
     if (0 == strcmp(inName, name)) { \
@@ -241,6 +227,7 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
         if (2 != ret) continue;
         
         CHECK_VAR("REFLECTANCE_TYPE", "%d", reflectanceType);
+        CHECK_VAR("SAVE_REFLECTANCE", "%d", saveReflectance);
         CHECK_VAR("SHADOW_THRESH", "%f", shadowThresh);
         CHECK_VAR("SLOPE_TYPE", "%d", slopeType);
         CHECK_VAR("ALBEDO_INIT_TYPE", "%d", albedoInitType);
@@ -252,18 +239,20 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
         CHECK_VAR("UPDATE_HEIGHT", "%d", updateHeight);
         CHECK_VAR("COMPUTE_ERRORS", "%d", computeErrors);
         CHECK_VAR("USE_WEIGHTS", "%d", useWeights);
+        CHECK_VAR("SAVE_WEIGHTS", "%d", saveWeights);
         CHECK_VAR("MAX_NUM_ITER", "%d", maxNumIter);
         CHECK_VAR("NO_DEM_DATA_VAL", "%d", noDEMDataValue);
     }
     configFile.close();
     settings->TRConst = 1.24; //this will go into config file
-    
+    //settings->saveWeights=1;
 
     return(1);
   }
   else{
     printf("configFile NOT FOUND\n");
     settings->reflectanceType = LUNAR_LAMBERT;
+    settings->saveReflectance = 1;
     settings->slopeType = 1;
     settings->shadowThresh = 40;
 
@@ -275,9 +264,10 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
     settings->updateAlbedo = 0;//1;
     settings->updateHeight = 1;
     settings->computeErrors = 0;//1;
-    settings->useWeights = 0;//1;
+    settings->useWeights = 1;//0;
+    settings->saveWeights = 1;//0;
     settings->maxNumIter = 10;
-    settings->noDEMDataValue = -10000;
+    settings->noDEMDataValue = -32767;
     settings->TRConst = 1.24;
 
     return(0);
@@ -287,6 +277,7 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
 void PrintGlobalParams(struct GlobalParams *settings)
 {
   printf("REFLECTANCE_TYPE %d\n", settings->reflectanceType);
+  printf("SAVE_REFLECTANCE %d\n", settings->saveReflectance);
   printf("SHADOW_THRESH %f\n", settings->shadowThresh);
   printf("SLOPE_TYPE %d\n", settings->slopeType);
   printf("ALBEDO_INIT_TYPE %d\n", settings->albedoInitType);
@@ -298,6 +289,7 @@ void PrintGlobalParams(struct GlobalParams *settings)
   printf("UPDATE_HEIGHT %d\n", settings->updateHeight);
   printf("COMPUTE_ERRORS %d\n", settings->computeErrors);
   printf("USE_WEIGHTS %d\n", settings->useWeights);
+  printf("SAVE_WEIGHTS %d\n", settings->saveWeights);
   printf("MAX_NUM_ITER  %d\n", settings->maxNumIter);
   printf("NO_DEM_DATA_VAL %d\n", settings->noDEMDataValue);
   printf("TR_CONST %f\n", settings->TRConst);
@@ -312,6 +304,7 @@ int main( int argc, char *argv[] ) {
   std::string exposureDir = "../data/exposure";
   std::string resDir = "../results";
   std::string configFilename = "photometry_settings.txt";
+  
 
   po::options_description general_options("Options");
   general_options.add_options()
@@ -410,9 +403,15 @@ int main( int argc, char *argv[] ) {
   for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
 
     std::string temp = sufix_from_filename(DRGFiles[i]);
-    modelParamsArray[i].exposureTime = 1.0;
+    modelParamsArray[i].exposureTime        = 1.0;
     modelParamsArray[i].sunPosition         = 1000*sunPositions[i];
     modelParamsArray[i].spacecraftPosition  = 1000*spacecraftPositions[i];
+  
+    modelParamsArray[i].centerLineDEM = NULL;
+    modelParamsArray[i].centerLine = NULL;
+    modelParamsArray[i].maxDistArray = NULL;
+    modelParamsArray[i].maxDistArrayDEM = NULL;
+
     modelParamsArray[i].inputFilename       = DRGFiles[i];//these filenames have full path
     modelParamsArray[i].DEMFilename         = DEMDir + prefix_less3_from_filename(temp) + "DEM.tif";
     modelParamsArray[i].infoFilename        = resDir + "/info/" + prefix_less3_from_filename(temp)+"info.txt";
@@ -424,40 +423,54 @@ int main( int argc, char *argv[] ) {
     modelParamsArray[i].outputFilename      = resDir + "/albedo" + prefix_from_filename(temp) + "_albedo.tif";
     modelParamsArray[i].sfsDEMFilename      = resDir + "/DEM_sfs" + prefix_less3_from_filename(temp) + "DEM_sfs.tif";
     modelParamsArray[i].errorHeightFilename = resDir + "/error" + prefix_from_filename(temp) + "_height_err.tif";
-    modelParamsArray[i].weightFilename      =  resDir + "/weight" + prefix_from_filename(temp) + "_weight.txt";
-    modelParamsArray[i].exposureFilename    =  resDir + "/exposure" + prefix_from_filename(temp) + "_exposure.txt";
+    modelParamsArray[i].weightFilename      = resDir + "/weight" + prefix_from_filename(temp) + "_weight.txt";
+    modelParamsArray[i].exposureFilename    = resDir + "/exposure" + prefix_from_filename(temp) + "_exposure.txt";
   
     ReadExposureInfoFromFile(&(modelParamsArray[i]));
-
+    
     if (globalParams.useWeights == 1) {
       vw_out( VerboseDebugMessage, "photometry" ) << "Computing weights ... ";
-      modelParamsArray[i].centerLineDEM = ComputeDEMCenterLine(modelParamsArray[i].DEMFilename, &(modelParamsArray[i].maxDistArrayDEM));
-      modelParamsArray[i].centerLine = ComputeImageCenterLine(modelParamsArray[i].inputFilename, &(modelParamsArray[i].maxDistArray));
+
+      //try to read the weight files, otherwise build them
+      ReadWeightsParamsFromFile(&modelParamsArray[i]);
+
+      if (modelParamsArray[i].centerLineDEM == NULL){
+	
+	  modelParamsArray[i].centerLineDEM = ComputeDEMCenterLine(modelParamsArray[i].DEMFilename, globalParams.noDEMDataValue,
+                                                                   &(modelParamsArray[i].maxDistArrayDEM));
+          modelParamsArray[i].centerLine = ComputeImageCenterLine(modelParamsArray[i].inputFilename,
+                                                                  &(modelParamsArray[i].maxDistArray));
+         
+          if (globalParams.saveWeights == 1){
+            SaveWeightsParamsToFile(modelParamsArray[i]);
+	  }
+      }
+
       vw_out( VerboseDebugMessage, "photometry" ) << "Done.\n";
     }
-
+    
     vw_out( VerboseDebugMessage, "photometry" ) << modelParamsArray[i] << "\n";
   }
   
+
   std::vector<vector<int> > overlapIndicesArray = makeOverlapList(imageFiles, DRGFiles); 
   printOverlapList(overlapIndicesArray);
-
+ 
+  
   std::vector<int> inputIndices = GetInputIndices(imageFiles, DRGFiles);
  
 
   //TO DO: save the overlapIndicesArray list 
  
-  /*
-  if (globalParams.useWeights == 1) {
-      vw_out( VerboseDebugMessage, "photometry" ) << "Computing weights ... ";
-      for (int i = 0; i <input_files.size(); i++)      
-         modelParamsArray[i].centerLineDEM = ComputeDEMCenterLine(modelParamsArray[i].DEMFilename, &(modelParamsArray[i].maxDistArrayDEM));
-         modelParamsArray[i].centerLine = ComputeImageCenterLine(modelParamsArray[i].inputFilename, &(modelParamsArray[i].maxDistArray));
-         SaveWeightsParamsToFile(modelParamsArray);
-      }
-      vw_out( VerboseDebugMessage, "photometry" ) << "Done.\n";
+ if (globalParams.shadowInitType == 1){
+    TerminalProgressCallback callback("photometry","Init Shadow:");
+    callback.report_progress(0);
+    for (unsigned int i = 0; i < imageFiles.size(); i++){ 
+      callback.report_progress(float(i)/float(imageFiles.size()));
+      ComputeSaveShadowMap (modelParamsArray[inputIndices[i]], globalParams);
+    }
+    callback.report_finished();
   }
-  */
 
   if (globalParams.DEMInitType == 1){
    
@@ -471,11 +484,15 @@ int main( int argc, char *argv[] ) {
         overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
       }
       
-     InitDEM(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams); 
+      if ((globalParams.useWeights == 1) && (modelParamsArray[inputIndices[i]].centerLineDEM == NULL)){
+          ReadWeightsParamsFromFile(&modelParamsArray[inputIndices[i]]);
+      }
+
+      InitDEM(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams); 
     }
     callback.report_finished();
   }
-
+  /*
   if (globalParams.shadowInitType == 1){
     TerminalProgressCallback callback("photometry","Init Shadow:");
     callback.report_progress(0);
@@ -485,8 +502,8 @@ int main( int argc, char *argv[] ) {
     }
     callback.report_finished();
   }
-
-  if (globalParams.reflectanceType != NO_REFL){ //compute reflectance
+  */
+  if ((globalParams.reflectanceType != NO_REFL) && (globalParams.saveReflectance == 1)){ //compute reflectance
 
     TerminalProgressCallback callback("photometry","Init Reflectance:");
     callback.report_progress(0);
@@ -495,6 +512,9 @@ int main( int argc, char *argv[] ) {
       callback.report_progress(float(i)/float(imageFiles.size()));
       vw_out(VerboseDebugMessage,"photometry") << modelParamsArray[inputIndices[i]].reliefFilename << "\n";
    
+      //TO DO: check to see that file exists
+      //TO DO: if file does not exist compute.
+      //compute and save the refectance image.
       avgReflectanceArray[i] = computeImageReflectance(modelParamsArray[inputIndices[i]],
 						       globalParams);
     }
