@@ -14,16 +14,15 @@ namespace fs = boost::filesystem;
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/InterestPoint/Matcher.h>
 using namespace vw;
-using namespace vw::ip;
 
-// From this project
-#include "equalization.h"
-
+// Stereo Pipeline
+#include <asp/ControlNetTK/Equalization.h>
 #include <asp/Core/Macros.h>
+using namespace asp;
 
 struct Options {
   std::vector<std::string> match_files;
-  unsigned max_points, min_points;
+  size_t max_points, min_points;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -68,8 +67,8 @@ int main( int argc, char* argv[] ) {
     BOOST_FOREACH( std::string const& matchfile, opt.match_files ) {
       vw_out() << "Loading: " << matchfile << "\n";
 
-      std::vector<InterestPoint> ip1, ip2;
-      read_binary_match_file( matchfile, ip1, ip2 );
+      std::vector<ip::InterestPoint> ip1, ip2;
+      ip::read_binary_match_file( matchfile, ip1, ip2 );
       vw_out() << "\t> Found " << ip1.size() << " matches.\n";
 
       if ( ip1.size() < opt.min_points ) {
@@ -79,10 +78,10 @@ int main( int argc, char* argv[] ) {
       }
 
       vw_out() << "Performing equalization\n";
-      equalization( ip1, ip2, opt.max_points );
+      cnettk::equalization( ip1, ip2, opt.max_points );
 
       // Finally write back out the reduced match file
-      write_binary_match_file( matchfile, ip1, ip2 );
+      ip::write_binary_match_file( matchfile, ip1, ip2 );
       vw_out() << "Wrote back: " << matchfile << "\n";
     }
   } ASP_STANDARD_CATCHES;

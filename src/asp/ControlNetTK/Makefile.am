@@ -11,7 +11,7 @@
 
 if MAKE_MODULE_CONTROLNETTK
 
-include_HEADERS =
+include_HEADERS = Equalization.h
 
 #libaspControlNetTK_la_LIBADD = @MODULE_PHOTOMETRYTK_LIBS@
 #lib_LTLIBRARIES = libaspControlNetTK.la
