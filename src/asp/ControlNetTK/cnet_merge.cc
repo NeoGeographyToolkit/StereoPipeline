@@ -129,6 +129,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main( int argc, char** argv ) {
 
   Options opt;
+  std::vector<ControlPoint> ground_cp; // These guys are just appended.
+
   try {
     handle_arguments( argc, argv, opt );
 
@@ -190,6 +192,20 @@ int main( int argc, char** argv ) {
         TerminalProgressCallback tpc("cnet",source_cnet+" Merge:");
         BOOST_FOREACH( ControlPoint const& cp, src_cnet ) {
           tpc.report_incremental_progress(inc_amt );
+
+          // Escape condition for GCPs
+          if ( cp.type() == ControlPoint::GroundControlPoint ) {
+            ground_cp.push_back( cp );
+            BOOST_FOREACH( ControlMeasure & cm, ground_cp.back() ) {
+              size_t new_index =
+                find_destination_index( cm.image_id(),
+                                        src_cam_idx_to_serial,
+                                        dst_serial_to_cam_idx,
+                                        dst_max_cam_idx );
+              cm.set_image_id( new_index );
+            }
+            continue;
+          }
 
           typedef boost::shared_ptr<IPFeature> f_ptr;
           typedef std::list<f_ptr>::iterator f_itr;
@@ -259,6 +275,7 @@ int main( int argc, char** argv ) {
     }
 
     dst_crn.write_controlnetwork( dst_cnet );
+    dst_cnet.add_control_points( ground_cp );
     vw_out() << "Output Control Network:\n";
     print_cnet_statistics( dst_cnet );
 

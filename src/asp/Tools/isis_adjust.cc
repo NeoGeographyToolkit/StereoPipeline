@@ -91,14 +91,11 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
     // Retriangulating position of control points in control network
     std::vector<boost::shared_ptr<CameraModel> > camera_models = ba_model.adjusted_cameras();
     BOOST_FOREACH( ControlPoint & cp, *opt.cnet ) {
-      triangulate_control_point( cp, camera_models,
-                                 8.726646E-2 ); // require 5 degrees
+      if ( cp.type() == ControlPoint::TiePoint ) {
+        triangulate_control_point( cp, camera_models,
+                                   8.726646E-2 ); // require 5 degrees
+      }
     }
-
-    // Repushing the position in control network into BA model
-    vw_out() << "\tPush new triangulation results back into BA model\n";
-    for ( unsigned i = 0; i < opt.cnet->size(); ++i )
-      ba_model.set_B_parameters( i, (*opt.cnet)[i].position() );
   }
 
   // Clearing the monitoring text files
