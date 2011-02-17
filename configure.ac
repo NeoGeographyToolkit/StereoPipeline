@@ -219,6 +219,7 @@ AX_PKG(VW_PLATE, [VW_FILEIO PROTOBUF RABBITMQ_C], [-lvwPlate],      [vw/Plate/Pl
 AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW_CAMERA],          [-lvwStereo],       [vw/Stereo/OptimizedCorrelator.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA],          [-lvwCartography],  [vw/Cartography/GeoReference.h])
+AX_PKG(VW_MOSAIC,         [VW_CARTOGRAPHY],     [-lvwMosaic],       [vw/Mosaic/ImageComposite.h])
 AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint],[vw/InterestPoint/InterestData.h])
 AX_PKG(VW_PHOTOMETRY,     [VW VW_CARTOGRAPHY],  [-lvwPhotometry])
 AX_PKG(VW_BUNDLEADJUSTMENT, [VW_INTEREST_POINT VW_CARTOGRAPHY VW_STEREO], [-lvwBundleAdjustment], [vw/BundleAdjustment/AdjustBase.h])
@@ -294,8 +295,9 @@ AX_PKG_ONE_OF(GSL,
     GSL_HASBLAS,  [AX_PKG(GSL_HASBLAS,  [LAPACK], [-lgsl])],
     GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
+AX_PKG(CURL,    [], [-lcurl])
 AX_PKG(GEOS,    [], [-lgeos])
-AX_PKG(XERCESC, [], [-lxerces-c])
+AX_PKG(XERCESC, [CURL], [-lxerces-c])
 
 AX_PKG_ONE_OF(SUPERLU,
     SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
@@ -369,11 +371,11 @@ AX_APP(RMAX2CAHVOR,      [src/asp/Tools], no,  [SESSIONS])
 AX_APP(RMAXADJUST,       [src/asp/Tools], no,  [VW_BUNDLEADJUSTMENT SESSIONS])
 AX_APP(BUNDLEVIS,        [src/asp/Tools], no,  [OPENSCENEGRAPH VW_BUNDLEADJUSTMENT])
 AX_APP(ISISADJUST,       [src/asp/Tools], yes, [VW_BUNDLEADJUSTMENT ISISIO CORE])
-AX_APP(RESULTS,          [src/asp/Tools], yes, [ISISIO])
+AX_APP(RESULTS,          [src/asp/Tools], no,  [ISISIO])
 AX_APP(RECONSTRUCT,      [src/asp/Tools], no,  [VW_PHOTOMETRY VW_CARTOGRAPHY VW])
-AX_APP(ALIGNDEM,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW_INTEREST_POINT])
-AX_APP(GEODIFF,          [src/asp/Tools], yes, [VW_CARTOGRAPHY VW BOOST])
-AX_APP(DEMPROFILE,       [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
+AX_APP(ALIGNDEM,         [src/asp/Tools], no,  [VW_MOSAIC VW_CARTOGRAPHY VW_INTEREST_POINT])
+AX_APP(GEODIFF,          [src/asp/Tools], no,  [VW_CARTOGRAPHY VW BOOST])
+AX_APP(DEMPROFILE,       [src/asp/Tools], no,  [VW_CARTOGRAPHY VW])
 AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [SESSIONS ISISIO VW_PLATE])
 AX_APP(HSVMERGE,         [src/asp/Tools], yes, [VW_CARTOGRAPHY VW])
 AX_APP(ISISADJUSTCAMERAERR, [src/asp/Tools], no, [ISISIO CORE VW_BUNDLEADJUSTMENT])
