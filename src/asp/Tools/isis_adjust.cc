@@ -156,7 +156,14 @@ void do_ba( typename AdjusterT::cost_type const& cost_function,
     reporter.write_control_network_kml( !opt.all_kml );
   }
 
-  // Writing out results and applying solution back CNet
+  // Re-apply GCP measure to control network
+  for ( size_t i = 0; i < opt.cnet->size(); i++ ) {
+    if ( (*opt.cnet)[i].type() == ControlPoint::GroundControlPoint ) {
+      (*opt.cnet)[i].set_position( ba_model.B_target(i) );
+    }
+  }
+
+  // Writing out results
   for ( size_t i = 0; i < ba_model.num_cameras(); ++i )
     ba_model.write_adjustment( i, fs::path( opt.input_names[i] ).replace_extension("isis_adjust").string() );
 }

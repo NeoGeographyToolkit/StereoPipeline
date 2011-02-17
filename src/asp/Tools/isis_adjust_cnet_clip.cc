@@ -189,6 +189,11 @@ int main( int argc, char* argv[] ) {
     size_t delete_count = 0;
     while ( error_it != cp_error.rend() ) {
 
+      // Never delete a ground control point
+      if ( cnet[error_index].type() ==
+           ba::ControlPoint::GroundControlPoint )
+        continue;
+
       if ( *error_it > opt.std_dev_clip*stddev+mean &&
            *error_it > 2.0 ) {
         cnet.delete_control_point( error_index );
