@@ -16,8 +16,8 @@
 #include <vw/Math.h>
 #include <vw/InterestPoint.h>
 
-void read_adjustments(std::string const& filename, vw::Vector3& position_correction, vw::math::Quaternion<double>& pose_correction);
-void write_adjustments(std::string const& filename, vw::Vector3 const& position_correction, vw::math::Quaternion<double> const& pose_correction);
+void read_adjustments(std::string const& filename, vw::Vector3& position_correction, vw::Quat& pose_correction);
+void write_adjustments(std::string const& filename, vw::Vector3 const& position_correction, vw::Quat const& pose_correction);
 
 void compute_stereo_residuals(std::vector<boost::shared_ptr<vw::camera::CameraModel> > const& camera_models,
                               vw::ba::ControlNetwork const& cnet);

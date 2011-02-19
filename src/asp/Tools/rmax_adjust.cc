@@ -106,26 +106,6 @@ public:
     b[i] = b_i;
   }
 
-  // Approximate the jacobian for small variations in the a_j
-  // parameters (camera parameters).
-  virtual Matrix<double, 2, 6> A_jacobian ( unsigned i, unsigned j,
-                                            Vector<double, 6> const& a_j,
-                                            Vector<double, 3> const& b_i ) {
-    Matrix<double> partial_derivatives = ba::ModelBase<HelicopterBundleAdjustmentModel, 6, 3>::A_jacobian(i,j,a_j,b_i);
-
-    return partial_derivatives;
-  }
-
-  // Analytically computed jacobian for variations in the b_i
-  // parameters (3d point locations).
-  virtual Matrix<double, 2, 3> B_jacobian ( unsigned i, unsigned j,
-                                            Vector<double, 6> const& a_j,
-                                            Vector<double, 3> const& b_i ) {
-    Matrix<double> partial_derivatives = ba::ModelBase<HelicopterBundleAdjustmentModel, 6, 3>::B_jacobian(i,j,a_j,b_i);
-
-    return partial_derivatives;
-  }
-
   // Return the initial parameters
   camera_vector_t A_target(int j) const { return a_target[j]; }
   point_vector_t B_target(int i) const { return b_target[i]; }
@@ -360,9 +340,8 @@ int main(int argc, char* argv[]) {
     // Building a Control Network
     build_control_network( *cnet, camera_models,
                            image_files, min_matches );
-    add_ground_control_points( *cnet,
-                               image_files,
-                               gcp_files );
+    add_ground_control_points( *cnet, image_files,
+                               gcp_files.begin(), gcp_files.end() );
 
     cnet->write_binary("rmax_adjust");
   }

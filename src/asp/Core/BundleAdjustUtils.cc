@@ -21,17 +21,18 @@ using namespace vw::ba;
 
 void read_adjustments(std::string const& filename,
                       Vector3& position_correction,
-                      Quaternion<double>& pose_correction) {
+                      Quat& pose_correction) {
+  Vector4 q_buffer;
   std::ifstream istr(filename.c_str());
   istr >> position_correction[0] >> position_correction[1]
        >> position_correction[2];
-  istr >> pose_correction.w() >> pose_correction.x()
-       >> pose_correction.y() >> pose_correction.z();
+  istr >> q_buffer[0] >> q_buffer[1] >> q_buffer[2] >> q_buffer[3];
+  pose_correction = Quat(q_buffer);
 }
 
 void write_adjustments(std::string const& filename,
                        Vector3 const& position_correction,
-                       Quaternion<double> const& pose_correction) {
+                       Quat const& pose_correction) {
   std::ofstream ostr(filename.c_str());
   ostr << position_correction[0] << " " << position_correction[1] << " " << position_correction[2] << "\n";
   ostr << pose_correction.w() << " " << pose_correction.x() << " "
@@ -46,11 +47,11 @@ void compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const
   double error_sum = 0;
   double min_error = ScalarTypeLimits<double>::highest();
   double max_error = ScalarTypeLimits<double>::lowest();
-  for (unsigned i = 0; i < cnet.size(); ++i) {
-    for (unsigned j = 0; j+1 < cnet[i].size(); ++j) {
+  for (size_t i = 0; i < cnet.size(); ++i) {
+    for (size_t j = 0; j+1 < cnet[i].size(); ++j) {
       ++n;
-      int cam1 = cnet[i][j].image_id();
-      int cam2 = cnet[i][j+1].image_id();
+      size_t cam1 = cnet[i][j].image_id();
+      size_t cam2 = cnet[i][j+1].image_id();
       Vector2 pix1 = cnet[i][j].position();
       Vector2 pix2 = cnet[i][j+1].position();
 
