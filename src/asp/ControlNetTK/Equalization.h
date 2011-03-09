@@ -73,15 +73,16 @@ namespace cnettk {
 
     // Checking for early exit condition
     if ( l_ip.size() <= max_points ) {
-      std::cout << "\t> Exiting early, found less than " << max_points << " matches.\n";
+      vw_out() << "\t> Exiting early, found less than " << max_points << " matches." << std::endl;
       return;
     }
 
     // Reducing to an even distribution
-    std::cout << "Building Bounding Boxes:\n";
+    vw_out() << "Building Bounding Boxes:" << std::endl;
     BBox2f total_bbox;
     for ( size_t i = 0; i < l_ip.size(); ++i )
       total_bbox.grow( Vector2f( l_ip[i].x, l_ip[i].y ) );
+    vw_out(DebugMessage,"equalization") << "Total bbox: " << total_bbox << "\n";
     std::vector<BBox2f> bboxes;
     if ( max_points < 10 )
       bboxes = divide_block( total_bbox, 2, 2 );
@@ -90,7 +91,7 @@ namespace cnettk {
     else if ( max_points < 110 )
       bboxes = divide_block( total_bbox, 5, 5 );
     else
-      divide_block( total_bbox, 10, 10 );
+      bboxes = divide_block( total_bbox, 10, 10 );
     std::vector<std::vector<ip::InterestPoint> > b_ip1;
     std::vector<std::vector<ip::InterestPoint> > b_ip2;
     b_ip1.resize( bboxes.size() );
