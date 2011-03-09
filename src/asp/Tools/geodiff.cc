@@ -25,44 +25,51 @@ using namespace vw::cartography;
 
 int main( int argc, char *argv[] ) {
   string dem1_name, dem2_name, output_prefix;
-  float default_value;
+  double default_value;
 
   po::options_description desc("Options");
   desc.add_options()
     ("help,h", "Display this help message")
-    ("default-value", po::value<float>(&default_value), "The value of missing pixels in the first dem")
-    ("dem1", po::value<string>(&dem1_name), "Explicitly specify the first dem")
-    ("dem2", po::value<string>(&dem2_name), "Explicitly specify the second dem")
-    ("output-prefix,o", po::value<string>(&output_prefix), "Specify the output prefix")
-    ;
+    ("default-value", po::value(&default_value), "The value of missing pixels in the first dem")
+    ("output-prefix,o", po::value(&output_prefix), "Specify the output prefix");
+
+  po::options_description positional("");
+  positional.add_options()
+    ("dem1", po::value(&dem1_name), "Explicitly specify the first dem")
+    ("dem2", po::value(&dem2_name), "Explicitly specify the second dem");
 
   po::positional_options_description p;
   p.add("dem1", 1);
   p.add("dem2", 1);
 
+  po::options_description all_options;
+  all_options.add(desc).add(positional);
+
   po::variables_map vm;
-  po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
-  po::notify( vm );
+  try {
+    po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
+    po::notify( vm );
+  } catch (po::error &e) {
+    cout << "Error parsing: " << e.what() << "\n\t" << desc << "\n";
+    return 1;
+  }
 
-  if( vm.count("help") ) {
+  if ( dem1_name.empty() || dem2_name.empty() || vm.count("help" ) ) {
+    cout << "Usage: " << argv[0] << " <dem1> <dem2> " << endl;
     cout << desc << endl;
     return 1;
   }
 
-  if( vm.count("dem1") != 1 || vm.count("dem2") != 1 || 
-      vm.count("default-value") != 1) {
-    cout << "Usage: " << argv[0] << "dem1.tif dem2.cub --default-value #" << endl;
-    cout << desc << endl;
-    return 1;
-  }
-
-  if (vm.count("output-prefix") != 1) {
+  if ( output_prefix.empty() ) {
     fs::path dem1_path(dem1_name), dem2_path(dem2_name);
     output_prefix = (dem1_path.branch_path() / (fs::basename(dem1_path) + "__" + fs::basename(dem2_path))).string();
   }
 
   DiskImageResourceGDAL dem1_rsrc(dem1_name), dem2_rsrc(dem2_name);
-
+  if ( !vm.count("default-value") && dem1_rsrc.has_nodata_read() ) {
+    default_value = dem1_rsrc.nodata_read();
+    vw_out() << "\tFound input nodata value: " << default_value << endl;
+  }
   DiskImageView<double> dem1_dmg(dem1_name), dem2_dmg(dem2_name);
 
   GeoReference dem1_georef, dem2_georef;
