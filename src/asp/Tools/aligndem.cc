@@ -147,7 +147,7 @@ void match_orthoimages( string const& left_image_name,
 
     remove_duplicates(matched_ip1, matched_ip2);
     vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
-    asp::cnettk::equalization( matched_ip1, matched_ip2, 200 );
+    asp::cnettk::equalization( matched_ip1, matched_ip2, 800 );
     vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " thinned matches.\n";
 
     vw_out() << "\t    * Caching matches: " << match_file << "\n";
@@ -235,6 +235,10 @@ int main( int argc, char *argv[] ) {
     Vector2 dem_pixel1 = dem1_georef.lonlat_to_pixel(point1);
     Vector2 dem_pixel2 = dem2_georef.lonlat_to_pixel(point2);
 
+    // I don't trust the accuracy of this code. The values for the
+    // alignment matrix varies greatly with the number of matched
+    // points.
+
     if (BBox2i(0, 0, dem1_dmg.cols(), dem1_dmg.rows()).contains(dem_pixel1) &&
         BBox2i(0, 0, dem2_dmg.cols(), dem2_dmg.rows()).contains(dem_pixel2)) {
       double alt1 = dem1_georef.datum().radius(point1.x(), point1.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
@@ -257,6 +261,15 @@ int main( int argc, char *argv[] ) {
 
   vw_out() << "\t    * Ransac Result: " << trans << "\n";
   vw_out() << "\t                     # inliers: " << indices.size() << "\n";
+
+  { // Saving transform to human readable text
+    std::string filename = (fs::path(dem1_name).branch_path() / (fs::basename(fs::path(dem1_name)) + "__" + fs::basename(fs::path(dem2_name)) + "-Matrix.txt")).string();
+    std::ofstream ofile( filename.c_str() );
+    ofile << std::setprecision(15) << std::flush;
+    ofile << "# inliers: " << indices.size() << endl;
+    ofile << trans << endl;
+    ofile.close();
+  }
 
   ImageViewRef<PixelMask<double> > dem1_masked(create_mask(dem1_dmg, default_value));
 
