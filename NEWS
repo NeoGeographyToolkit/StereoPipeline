@@ -1,3 +1,33 @@
+*** RELEASE 1.0.3, 11 MARCH 2011 ***
+
+ISISIO
+ - Make quaternion interaction compliant with VW changes.
+
+SESSIONS
+ - Correct reading of TSAI camera format.
+
+TOOLS
+ - Reduce memory footprint of ISIS_Adjust.
+ - MOC Example rewritten.
+ - Improve dash script that loads libraries on startup of application.
+
+VISION WORKBENCH benefits
+ - KD-Tree search replace with FLANN, a fast approximate nearest
+   neighbors. This improves speed of ipmatch, and ip alignment
+   option in stereo.
+ - Removed exception catch in Bayesian affine sub-pixel.
+ - Fixed type deduction problem on 32 bit systems.
+ - Pyramid Correlator code cleaned up. Minimal speed improvement.
+ - Fixed Camera Relation Network's memory leak.
+ - Fix image2qtree normalization and manual geo-positioning.
+ - Correct random seed call with faster solution.
+ - Default raster tile size changed to 256.
+ - Fix deadlocking in loading of ".vwrc", Vision Workbench's settings file.
+
+KNOWN ISSUES
+ - OSX seems to do excessive locking during multi-threaded rendering.
+   This problem is non-existant in RHEL5 and is still a mystery.
+
 *** RELEASE 1.0.2, 9 DECEMBER 2010 ***
 
 ISISIO
