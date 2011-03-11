@@ -190,21 +190,20 @@ int main( int argc, char* argv[] ) {
     while ( error_it != cp_error.rend() ) {
 
       // Never delete a ground control point
-      if ( cnet[error_index].type() ==
-           ba::ControlPoint::GroundControlPoint )
-        continue;
+      if ( cnet[error_index].type() !=
+           ba::ControlPoint::GroundControlPoint ) {
 
-      if ( *error_it > opt.std_dev_clip*stddev+mean &&
-           *error_it > 2.0 ) {
-        cnet.delete_control_point( error_index );
-        delete_count++;
-      }
-      if ( opt.clip_radius ) {
-        double radius = norm_2( cnet[error_index].position() );
-        if ( radius < 1737100*0.8 ||
-             radius > 1737100*1.2 ) {
+        if ( *error_it > opt.std_dev_clip*stddev+mean &&
+             *error_it > 2.0 ) {
           cnet.delete_control_point( error_index );
           delete_count++;
+        } else if ( opt.clip_radius ) {
+          double radius = norm_2( cnet[error_index].position() );
+          if ( radius < 1737100*0.8 ||
+               radius > 1737100*1.2 ) {
+            cnet.delete_control_point( error_index );
+            delete_count++;
+          }
         }
       }
 
