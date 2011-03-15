@@ -49,9 +49,9 @@ namespace asp {
     // This is especially vague as it is meant for interaction with a
     // bundle adjuster. BA just wants to roll through the constants
     // and redefine them.
-    virtual unsigned size() const = 0;
-    virtual double& operator[]( unsigned const& n ) = 0;
-    const double& operator[]( unsigned const& n ) const {
+    virtual size_t size() const = 0;
+    virtual double& operator[]( size_t const& n ) = 0;
+    const double& operator[]( size_t const& n ) const {
       return this->operator[](n);
     }
 

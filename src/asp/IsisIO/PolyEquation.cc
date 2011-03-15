@@ -134,7 +134,7 @@ void PolyEquation::read( std::ifstream& f ) {
 
 // Constant Access
 //-----------------------------------------------
-double& PolyEquation::operator[]( unsigned const& n ) {
+double& PolyEquation::operator[]( size_t const& n ) {
   m_cached_time = -1;
   if ( n >= m_x_coeff.size()+m_y_coeff.size()+m_z_coeff.size() )
     vw_throw( ArgumentErr() << "PolyEquation: invalid index.");

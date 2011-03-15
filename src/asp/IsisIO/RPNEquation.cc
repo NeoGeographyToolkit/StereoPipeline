@@ -209,7 +209,7 @@ void RPNEquation::read( std::ifstream &f ) {
 
 // Constant Access
 //-----------------------------------------------------
-double& RPNEquation::operator[]( unsigned const& n ) {
+double& RPNEquation::operator[]( size_t const& n ) {
   m_cached_time = -1;
   if ( n >= m_x_consts.size() + m_y_consts.size()
        + m_z_consts.size() )

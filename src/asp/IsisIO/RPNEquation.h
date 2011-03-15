@@ -49,9 +49,9 @@ namespace asp {
                  std::string z_eq );
     std::string type() const { return "RPNEquation"; }
 
-    unsigned size() const { return m_x_consts.size() +
+    size_t size() const { return m_x_consts.size() +
         m_y_consts.size() + m_z_consts.size(); }
-    double& operator[]( unsigned const& n );
+    double& operator[]( size_t const& n );
 
     void write( std::ofstream &f );
     void read( std::ifstream &f );
