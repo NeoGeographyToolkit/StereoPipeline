@@ -169,14 +169,14 @@ int main( int argc, char** argv ) {
 
       // The reason we have a destination input, is that it specifies
       // the camera indexing we should use.
-      vw_out() << "Destination Input " << source_cnet << ":\n";
+      vw_out() << "Inserting \"" << source_cnet << "\":\n";
       print_cnet_statistics( src_cnet );
 
       typedef std::map<int,std::string> src_map_type;
       src_map_type src_cam_idx_to_serial;
       float inc_amt = 1.0/float(src_cnet.size());
       {
-        TerminalProgressCallback tpc("cnet",source_cnet+" Idx:");
+        TerminalProgressCallback tpc("cnet","Indexing:");
         BOOST_FOREACH( ControlPoint const& cp, src_cnet ) {
           tpc.report_incremental_progress( inc_amt );
           BOOST_FOREACH( ControlMeasure const& cm, cp ) {
@@ -189,7 +189,7 @@ int main( int argc, char** argv ) {
       }
 
       {
-        TerminalProgressCallback tpc("cnet",source_cnet+" Merge:");
+        TerminalProgressCallback tpc("cnet","Merging: ");
         BOOST_FOREACH( ControlPoint const& cp, src_cnet ) {
           tpc.report_incremental_progress(inc_amt );
 
@@ -197,11 +197,14 @@ int main( int argc, char** argv ) {
           if ( cp.type() == ControlPoint::GroundControlPoint ) {
             ground_cp.push_back( cp );
             BOOST_FOREACH( ControlMeasure & cm, ground_cp.back() ) {
+
               size_t new_index =
                 find_destination_index( cm.image_id(),
                                         src_cam_idx_to_serial,
                                         dst_serial_to_cam_idx,
                                         dst_max_cam_idx );
+              if ( new_index == dst_crn.size() )
+                dst_crn.add_node( CameraNode<IPFeature>(new_index,"") );
               cm.set_image_id( new_index );
             }
             continue;
