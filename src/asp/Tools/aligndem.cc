@@ -82,7 +82,8 @@ void remove_duplicates(std::vector<InterestPoint> &ip1,
 void match_orthoimages( string const& left_image_name,
                         string const& right_image_name,
                         std::vector<InterestPoint> & matched_ip1,
-                        std::vector<InterestPoint> & matched_ip2 )
+                        std::vector<InterestPoint> & matched_ip2,
+                        size_t const& max_points )
 {
 
   vw_out() << "\t--> Finding Interest Points for the orthoimages\n";
@@ -147,7 +148,7 @@ void match_orthoimages( string const& left_image_name,
 
     remove_duplicates(matched_ip1, matched_ip2);
     vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
-    asp::cnettk::equalization( matched_ip1, matched_ip2, 800 );
+    asp::cnettk::equalization( matched_ip1, matched_ip2, max_points );
     vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " thinned matches.\n";
 
     vw_out() << "\t    * Caching matches: " << match_file << "\n";
@@ -158,12 +159,14 @@ void match_orthoimages( string const& left_image_name,
 
 int main( int argc, char *argv[] ) {
   string dem1_name, dem2_name, ortho1_name, ortho2_name, output_prefix;
-  double default_value;
+  double dem1_nodata, dem2_nodata;
+  size_t max_points;
 
   po::options_description desc("Options");
   desc.add_options()
     ("help,h", "Display this help message")
-    ("default-value", po::value(&default_value), "The value of missing pixels in the first dem")
+    ("max-match-points", po::value(&max_points)->default_value(800), "The max number of points that will be enforced after matching.")
+    ("default-value", po::value(&dem1_nodata), "The value of missing pixels in the first dem")
     ("output-prefix,o", po::value(&output_prefix), "Specify the output prefix");
 
   po::options_description positional("");
@@ -204,15 +207,32 @@ int main( int argc, char *argv[] ) {
   DiskImageResourceGDAL ortho1_rsrc(ortho1_name), ortho2_rsrc(ortho2_name),
     dem1_rsrc(dem1_name), dem2_rsrc(dem2_name);
 
-  // Pull out default value
+  // Pull out dem nodatas
   if ( !vm.count("default-value") && dem1_rsrc.has_nodata_read() ) {
-    default_value = dem1_rsrc.nodata_read();
-    vw_out() << "\tFound input nodata value: " << default_value << endl;
+    dem1_nodata = dem1_rsrc.nodata_read();
+    vw_out() << "\tFound DEM1 input nodata value: " << dem1_nodata << endl;
+  }
+  if ( dem2_rsrc.has_nodata_read() ) {
+    dem2_nodata = dem2_rsrc.nodata_read();
+    vw_out() << "\tFound DEM2 input nodata value: " << dem2_nodata << endl;
+  } else {
+    vw_out() << "\tMissing nodata value for DEM2. Using DEM1 nodata value.\n";
+    dem2_nodata = dem1_nodata;
   }
 
-  DiskImageView<double> dem1_dmg(dem1_name), dem2_dmg(dem2_name);
-  InterpolationView<EdgeExtensionView<DiskImageView<double>, ZeroEdgeExtension>, BilinearInterpolation> dem1_interp = interpolate(dem1_dmg, BilinearInterpolation(), ZeroEdgeExtension());
-  InterpolationView<EdgeExtensionView<DiskImageView<double>, ZeroEdgeExtension>, BilinearInterpolation> dem2_interp = interpolate(dem2_dmg, BilinearInterpolation(), ZeroEdgeExtension());
+  typedef DiskImageView<double> dem_type;
+  dem_type dem1_dmg(dem1_name), dem2_dmg(dem2_name);
+
+  typedef InterpolationView<EdgeExtensionView<dem_type, ConstantEdgeExtension>, BilinearInterpolation> bilinear_type;
+  typedef InterpolationView<EdgeExtensionView<dem_type, ConstantEdgeExtension>, NearestPixelInterpolation> nearest_type;
+  bilinear_type dem1_interp =
+    interpolate(dem1_dmg, BilinearInterpolation(), ConstantEdgeExtension());
+  bilinear_type dem2_interp =
+    interpolate(dem2_dmg, BilinearInterpolation(), ConstantEdgeExtension());
+  nearest_type dem1_nearest =
+    interpolate(dem1_dmg, NearestPixelInterpolation(), ConstantEdgeExtension());
+  nearest_type dem2_nearest =
+    interpolate(dem2_dmg, NearestPixelInterpolation(), ConstantEdgeExtension());
 
   GeoReference ortho1_georef, ortho2_georef, dem1_georef, dem2_georef;
   read_georeference(ortho1_georef, ortho1_rsrc);
@@ -222,25 +242,21 @@ int main( int argc, char *argv[] ) {
 
   std::vector<InterestPoint> matched_ip1, matched_ip2;
 
-  match_orthoimages(ortho1_name, ortho2_name, matched_ip1, matched_ip2);
+  match_orthoimages(ortho1_name, ortho2_name,
+                    matched_ip1, matched_ip2, max_points);
 
   vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
-
   std::vector<Vector4> ransac_ip1, ransac_ip2;
-
-  for (unsigned i = 0; i < matched_ip1.size(); i++) {
+  for (size_t i = 0; i < matched_ip1.size(); i++) {
     Vector2 point1 = ortho1_georef.pixel_to_lonlat(Vector2(matched_ip1[i].x, matched_ip1[i].y));
     Vector2 point2 = ortho2_georef.pixel_to_lonlat(Vector2(matched_ip2[i].x, matched_ip2[i].y));
 
     Vector2 dem_pixel1 = dem1_georef.lonlat_to_pixel(point1);
     Vector2 dem_pixel2 = dem2_georef.lonlat_to_pixel(point2);
 
-    // I don't trust the accuracy of this code. The values for the
-    // alignment matrix varies greatly with the number of matched
-    // points.
+    if ( dem1_nearest(dem_pixel1.x(),dem_pixel1.y()) != dem1_nodata &&
+         dem2_nearest(dem_pixel2.x(),dem_pixel2.y()) != dem2_nodata ) {
 
-    if (BBox2i(0, 0, dem1_dmg.cols(), dem1_dmg.rows()).contains(dem_pixel1) &&
-        BBox2i(0, 0, dem2_dmg.cols(), dem2_dmg.rows()).contains(dem_pixel2)) {
       double alt1 = dem1_georef.datum().radius(point1.x(), point1.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
       double alt2 = dem2_georef.datum().radius(point2.x(), point2.y()) + dem2_interp(dem_pixel2.x(), dem_pixel2.y());
 
@@ -249,6 +265,8 @@ int main( int argc, char *argv[] ) {
 
       ransac_ip1.push_back(Vector4(xyz1.x(), xyz1.y(), xyz1.z(), 1));
       ransac_ip2.push_back(Vector4(xyz2.x(), xyz2.y(), xyz2.z(), 1));
+    } else {
+      cout << "Actually dropped something.\n";
     }
   }
 
@@ -271,7 +289,7 @@ int main( int argc, char *argv[] ) {
     ofile.close();
   }
 
-  ImageViewRef<PixelMask<double> > dem1_masked(create_mask(dem1_dmg, default_value));
+  ImageViewRef<PixelMask<double> > dem1_masked(create_mask(dem1_dmg, dem1_nodata));
 
   ImageViewRef<Vector3> point_cloud = lon_lat_radius_to_xyz(project_point_image(dem_to_point_image(dem1_masked, dem1_georef), dem1_georef, false));
   ImageViewRef<Vector3> point_cloud_trans = per_pixel_filter(point_cloud, HomogeneousTransformFunctor<3>(trans));
