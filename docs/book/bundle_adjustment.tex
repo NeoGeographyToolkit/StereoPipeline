@@ -73,12 +73,23 @@ types of sources.
 
 In bundle adjustment the position and orientation of each camera
 station are determined jointly with the 3D position of a set of image
-tie-points points chosen in the overlapping regions between images.
-Tie-points are automatically extracted using Vision Workbench's
-Interest Point module, or alternatively the SURF robust feature
-extraction algorithm \citep{surf08}. Outliers are then rejected using the
-RANSAC method \citep{fischler81} and trimmed to 1000 matches that are
-spread evenly across the images.
+tie-points points chosen in the overlapping regions between
+images. Tie points, like they sound, tie individual camera images
+together. Their physical manifestation would be a rock or small crater
+than can be observed across multiple images.
+
+Tie-points can be automatically extracted using Vision Workbench's
+Interest Point module or through a number of outside methods such as
+the famous SURF\citep{surf08}. Creating a tie point is a three step
+process. First, all images are processed for their natural {\it
+  'interesting'} points. In most algorithms, an interest point is
+defined as a place where image gradients accumulate together into a
+peak. These interesting points are then described by the texture that
+surrounds them. Finally the described interesting points are matched
+across the multiple images. A single matched pair of interest points
+is now a tie point to use in bundle adjustment. In application, there
+is also a little filtering of the tie points with RANSAC
+\citep{fischler81}.
 
 \begin{figure}[b!]
   \begin{center}
@@ -89,27 +100,41 @@ spread evenly across the images.
 \end{figure}
 
 Our bundle adjustment approach follows the method described
-in~\cite{triggs00} and determines the best camera
-parameters that minimize the projection error given by ${\bf \epsilon}
-= \sum_k\sum_j(I_k-I(C_j, X_k))^2$ where $I_k$ are feature locations
-on the image plane, $C_j$ are the camera parameters, and $X_k$ are the
-3D positions associated with features $I_k$. $I(C_j, X_k)$ is an image
+in~\cite{triggs00} and determines the best camera parameters that
+minimize the projection error given by ${\bf \epsilon} =
+\sum_k\sum_j(I_k-I(C_j, X_k))^2$ where $I_k$ are the tie points on the
+image plane, $C_j$ are the camera parameters, and $X_k$ are the 3D
+positions associated with features $I_k$. $I(C_j, X_k)$ is an image
 formation model (i.e. forward projection) for a given camera and 3D
-point. The optimization of the cost function uses the
-Levenberg-Marquardt algorithm (LMA). Speed is improved by using sparse
-methods as described in \citet{hartley04}.
+point. To recap, it projects the 3D point, $X_k$, into the camera with
+parameters $C_j$. This produces a predicted image location for the 3D
+point that is compared against the observed location, $I_k$. We reduce
+this error with the Levenberg-Marquardt algorithm (LMA). Speed is
+improved by using sparse methods as described in \citet{hartley04}.
 
-To eliminate the gauge freedom inherent in this problem, we add two
-additional error metrics to this cost function to constrain the position
-and scale of the overall solution. First, ${\bf \epsilon} =
-\sum_j(C_j^{initial}-C_j)^2$ constrains camera parameters to stay
-relatively close to their initial values.  Second, a small handful of
-3D ground control points are chosen by hand and added to the
+Even though the arithmetic for bundle adjustment sounds clever. There
+are faults with the base implementation. Imagine a case where all
+cameras and 3D points were collapsed into a single point. If you
+evaluate the above cost function, you'll find that the error is indeed
+zero. Sadly, this is not the correct solution if the images were taken
+from orbit. Another example is if a translation was applied equally to
+all 3D points and camera locations. This again would not effect the
+cost function. This fault comes bundle adjustment's inability to
+control scale and translation of the solution. It will correct
+geometric shape of the problem. Yet it can not guarantee that solution
+will have correct scale and translation.
+
+We attempt to fix this problem by adding two additional cost functions
+to bundle adjustment. First of which is ${\bf \epsilon} =
+\sum_j(C_j^{initial}-C_j)^2$. This constrains camera parameters to
+stay relatively close to their initial values. Second, a small handful
+of 3D ground control points can be chosen by hand and added to the
 error metric as ${\bf \epsilon} = \sum_k(X_k^{gcp}-X_k)^2$ to
 constrain these points to known locations in the planetary coordinate
-frame.  In the cost functions discussed above, errors are weighted by
-the inverse covariance of the measurement that gave rise to the
-constraint.
+frame. A physical example of a ground control point could be the
+location of a lander that has a well known location. In the cost
+functions discussed above, errors are weighted by the inverse
+covariance of the measurement that gave rise to the constraint.
 
 Like other iterative optimization methods, there are several
 conditions that will cause bundle adjustment to terminate.  When
@@ -122,16 +147,22 @@ may not have finished refining the parameters of the cameras.
 
 \section{Performing bundle adjustment with isis\_adjust}
 
-The \texttt{isis\_adjust} program is designed to perform bundle
-adjustment on images supported by USGS's \ac{ISIS} 3 software
-package.  The \texttt{isis\_adjust} program does not discriminate
-based on camera type.  It can perform bundle adjustment on images
-from line-scan imagers like \ac{MOC}, \ac{LROC} NAC, \ac{HiRISE},
-and the \ac{CTX}.  The \texttt{isis\_adjust} program can also perform
-bundle adjustment on traditional frame cameras (e.g. Apollo Metric
-Camera). Theoretically it should also work with push-frame
-imagers like the \ac{THEMIS} VIS, and \ac{LROC} WAC, though this is
-untested.
+First off, let it be known that USGS's \ac{ISIS} has its own bundle
+adjustment software called \texttt{jigsaw}. It has a long history and
+is supported by a team of skilled developers. Despite this, Ames
+Stereo Pipeline provides an alternative called \texttt{isis\_adjust}
+that has its own benefits.
+
+Like \texttt{jigsaw}, the \texttt{isis\_adjust} program is designed to
+perform bundle adjustment on images supported by \ac{ISIS} 3
+software package.  The \texttt{isis\_adjust} program does not
+discriminate based on camera type.  It can perform bundle adjustment
+on images from line-scan imagers like \ac{MOC}, \ac{LROC} NAC,
+\ac{HiRISE}, and the \ac{CTX}. The \texttt{isis\_adjust} program can
+also perform bundle adjustment on traditional frame cameras
+(e.g. Apollo Metric Camera). Theoretically it should also work with
+push-frame imagers like the \ac{THEMIS} VIS, and \ac{LROC} WAC, though
+this is untested.
 
 The \texttt{isis\_adjust} program works by first converting all
 pixel measurements in an image to measurements defined on the ideal
@@ -153,6 +184,21 @@ for.  Many forms of $f(t)$ could be used; the only limit is the
 number of parameters in the equations. Some initial work hints that
 anything greater than a second order polynomial becomes an ill-posed
 problem, but we hope to investigate this further in the future.
+
+Our \texttt{isis\_adjust} implements multiple bundle adjustment
+algorithms which can be selected from the command line. It implements
+the standard sparse algorithm that can be found in literature. It also
+implements our research work into robust cost functions. This allows
+the algorithm to ignore measurements that it thinks to be outliers.
+
+Finally, \texttt{isis\_adjust} stores its solution for a camera as a
+delta that can be added to the camera's original SPICE in a separate
+file. Those files have the extension \texttt{*.isis\_adjust}. This is
+less than ideal and one feature that we value in \ac{ISIS}'s
+\texttt{jigsaw}. Their software overwrites the SPICE information in
+the cube file. This means that \texttt{jigsaw} results can be used in
+other \ac{ISIS} programs like \texttt{cam2map}. This is not the case
+with \texttt{isis\_adjust}'s results.
 
 \subsection{Options}
 
@@ -258,8 +304,8 @@ not required.
   parameters that are not time dependent. That setting is recommend
   for frame cameras. Linescan imagers should using either a first
   order polynomial or a second order. Increasing this number too high can
-  lead to a problem that is ill-defined and would prevent the algorithm 
-	from converging on a solution. \emph{Initial work suggest that anything
+  lead to a problem that is ill-defined and would prevent the algorithm
+  from converging on a solution. \emph{Initial work suggest that anything
     beyond a 2nd order polynomial would be ill-defined. 3rd order may
     work with a good dose of ground control points.}
 
@@ -354,12 +400,13 @@ control network.  You may need to choose some tie-points between
 these images by hand or add additional images that overlap with the
 problem area.
 
-The second common sign of a failure is a point cloud explosion or
-implosion (the resulting terrain looks unrecognizably noisy). This
-most often results from a high number of outlying, bad tie-point
-measurements. These bad constraints can be removed by hand or
-mitigated using one of the robust cost modes (e.g. by using the
-\texttt{-\/-cost-function} argument for \texttt{isis\_adjust}).
+The second common sign of a failure is a point cloud explosion (the
+resulting terrain looks unrecognizably noisy). This most often results
+from a high number of outlying, bad tie-point measurements that the
+bundle adjustment algorithm can't recover from. These bad constraints
+can be removed by hand or mitigated using one of the robust cost modes
+(e.g. by using the \texttt{-\/-cost-function} argument for
+\texttt{isis\_adjust}).
 
 \subsection{Options}
 
@@ -492,16 +539,16 @@ the camera frame. The process of map projecting an image dissociates
 the camera model from the image. Map projecting can be perceived as
 the generation of a new infinitely large camera sensor that is
 perfectly parallel to the surface of its subject ( and thus spherical
-). At this point it's extremely hard to project a random point into
-the camera's image. The math would follow the transformation from
+). That makes it extremely hard to project a random point into
+the camera's original model. The math would follow the transformation from
 projection into the camera frame, then projected back down to surface
 that ISIS uses, then finally up into the infinitely large sensor. The
 \texttt{isis\_adjust} program does not support this.
 
-At this point in order, we need to automatically generate tie-points between
-these two images.  This can be done using the \texttt{ipfind} and
-\texttt{ipmatch} utilities.  These tools do not (currently) work
-with photometrically calibrated images, so we must first convert
+At this point, we need to automatically generate tie-points between
+these two images. This can be done using the \texttt{ipfind} and
+\texttt{ipmatch} utilities. These tools do not reliably (currently)
+work with photometrically calibrated images, so we must first convert
 these images to a standard format using the \ac{ISIS} program
 \texttt{isis2std}:
 
@@ -514,23 +561,24 @@ Here is how to process those newly created PNG files for tie-points
 using the Interest Point Module tools from Vision Workbench.
 
 \begin{verbatim}
-  > ipfind  m1000254.png r0901059.png --int obalog --des sgrad -g 1.2
+  > ipfind  m1000254.png r0901059.png -g 1.2
   > ipmatch m1000254.png r0901059.png -d -r homography -i 30
 \end{verbatim}
 
 \begin{center}
 \fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
 
-    We are aware that the tie-point tools available in Vision
-    Workbench do not always produce enough matches for bundle
-    adjustment. An alternative that we have found that works quite
-    well is to use an outside method such as SURF \citep{surf08}. We
-    have included a small example program that converts SURF output to
-    a Vision Workbench style match file.  \\ \\ For this example it is
-    okay to use the results from \texttt{ipfind} and
-    \texttt{ipmatch}. Expect to find approximately 100 matched
-    points. Your results will be slightly different due to the random
-    nature of RANSAC.
+    Be aware that the tie-point tools available in Vision Workbench do
+    not always produce enough matches for bundle adjustment. An
+    alternative would be to use outside code such as SURF. We have
+    included a patch at the end of the book that converts SURF output
+    to a Vision Workbench style match file. In extreme cases, users
+    can be forced to make measurements themselves. This can be
+    performed with \ac{ISIS}'s \texttt{qnet} progam.  \\ \\ For this
+    example we found that \texttt{ipfind} and \texttt{ipmatch} work
+    great. Expect to find approximately 100 matched points. Your
+    results will be slightly different due to the random nature of
+    RANSAC.
 
 \end{minipage}}
 \end{center}
@@ -538,25 +586,32 @@ using the Interest Point Module tools from Vision Workbench.
 Finally it is time to start bundle adjustment. There are many options
 that can be used at this stage.  We have chosen those required to
 create visualization data for \texttt{bundlevis}.  We have also set
-the maximum iterations to 100 and chosen the option to create a
+the maximum iterations to 100 and chose the option to create a
 detailed report file of \texttt{isis\_adjust}'s results.
 
 \begin{verbatim}
   ISIS 3> isis_adjust *.cub -s --max 30 -r 50
 \end{verbatim}
 
-This command will produce considerable debugging output and will
-place many output files in the current working directory. Don't
-panic--this is perfectly normal! If you look through the output in
-the terminal or alternatively in the output report file,
+Before you hit enter, notice that we are not feeding the interest
+point match files to \texttt{isis\_adjust}. Instead, we only provide
+the camera files. During run time, the program will see that it
+doesn't have any image measurements in the form of a control
+network. In that case it will attempt to build its own by searching
+the current working directory for \texttt{*.match} files.
+
+Now you have permission to run \texttt{isis\_adjust}. You'll see the
+command will produce considerable debugging output and will place many
+output files in the current working directory. If you look through the
+output in the terminal or alternatively in the output report file,
 \texttt{isis\_adjust.report}, you'll see that the problem did not
 converge but reduced most of the error in the first 40 iterations
-(again, your results may vary slightly). The lack of convergence
-is worrisome and a few (like 3) ground control points would probably
-help considerably.  Notice that the error improved only slightly
-after those first 40 iterations, but the shape of the pointcloud and
-the camera paths changed considerably. This untwisting of the
-cameras can be seen next in \texttt{bundlevis}.
+(again, your results may vary slightly). The lack of convergence is
+worrisome and a few (like 3) ground control points would probably help
+considerably.  Notice that the error improved only slightly after
+those first 40 iterations, but the shape of the pointcloud and the
+camera paths changed considerably. This untwisting of the cameras can
+be seen next in \texttt{bundlevis}.
 
 Visualizing all of the data that was exported for \texttt{bundlevis}
 can be carried out as follows:
@@ -567,7 +622,7 @@ can be carried out as follows:
 \end{verbatim}
 
 Press escape to exit out of \texttt{bundlevis} when finished.  You may
-also want to try viewing the data with a wireframe of Mars to give
+also want to try viewing the data with a wire-frame of Mars to give
 some perspective. Note, you will have to zoom in very far since the
 size of a MOC frame is quite small relative to the size of Mars!
 
@@ -580,19 +635,18 @@ Producing a DEM using the newly created corrections is the same as
 covered in the Tutorial on page \pageref{ch:tutorial}, with one small
 difference: \texttt{stereo} needs to know of the existence of the
 correction files, \texttt{m1000254.isis\_adjust} and
-\texttt{r0901059.isis\_adjust}.  The \ac{MOC} images should also be 
-map-projected with \texttt{cam2map} (as the Tutorial shows) to create
-the \texttt{.map.cub} files that \texttt{stereo} will operate on.
+\texttt{r0901059.isis\_adjust}.
 
 \begin{verbatim}
-  ISIS 3> stereo m1000254.map.cub r0901059.map.cub m1000254.isis_adjust \
+  ISIS 3> stereo m1000254.cub r0901059.cub m1000254.isis_adjust \
                  r0901059.isis_adjust MOC_RESULTS/M1000254_R0901059
 \end{verbatim}
 
-Note the two new arguments (\texttt{*.isis\_adjust}) to
-\texttt{stereo} that provide it with the necessary corrections. When
-providing outside camera models for images, they are always the 3rd
-and 4th argument for \texttt{stereo}.
+The two new arguments (\texttt{*.isis\_adjust}) provide
+\texttt{stereo} with the necessary corrections. When providing outside
+camera models for images, they are always the 3rd and 4th argument for
+\texttt{stereo}. This is also how \texttt{stereo} can be made to
+operate on images from standard consumer cameras.
 
 \subsection{Processing with Ground Control Points}
 
