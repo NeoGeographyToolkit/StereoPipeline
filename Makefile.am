@@ -22,7 +22,7 @@ EXTRA_DIST = \
 	docs \
 	stereo.default.example
 
-dist_doc_DATA = AUTHORS COPYING README
+dist_doc_DATA = AUTHORS COPYING README NEWS THIRDPARTYLICENSES
 exampledir = $(docdir)/examples
 dist_example_DATA = stereo.default.example
 
