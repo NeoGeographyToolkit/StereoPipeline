@@ -155,13 +155,22 @@ StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
 
-  try {
-    DiskImageView<PixelGray<float32> > out1(output_file1);
-    DiskImageView<PixelGray<float32> > out2(output_file2);
-    vw_out(InfoMessage) << "Skipping normalization step, using cached images: " <<
-      output_file1 << " and " << output_file2 << "\n";
-    return;
-  } catch (vw::Exception const& e) {}
+
+  if ( fs::exists(output_file1) && fs::exists(output_file2) ) {
+    try {
+      vw_log().console_log().rule_set().add_rule(-1,"fileio");
+      DiskImageView<PixelGray<float32> > out1(output_file1);
+      DiskImageView<PixelGray<float32> > out2(output_file2);
+      vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
+      vw_settings().reload_config();
+      return;
+    } catch (vw::ArgumentErr const& e) {
+      // This throws on a corrupted file.
+      vw_settings().reload_config();
+    } catch (vw::IOErr const& e) {
+      vw_settings().reload_config();
+    }
+  }
 
   float left_lo, left_hi, right_lo, right_hi;
   find_ideal_isis_range( input_file1, "left",
@@ -306,7 +315,7 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
   try {
     read_matrix(align_matrix, m_out_prefix + "-align.exr");
     vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
-  } catch (vw::IOErr &e) {
+  } catch (vw::IOErr const& e) {
     vw_out() << "\nCould not read in aligment matrix: " << m_out_prefix
              << "-align.exr.  Exiting. \n\n";
     exit(1);

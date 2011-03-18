@@ -27,13 +27,22 @@ namespace vw {
     DiskImageView<PixelGray<float> > left_image(pre_preprocess_file1),
       right_image(pre_preprocess_file2);
 
+    bool rebuild = false;
     try {
+      vw_log().console_log().rule_set().add_rule(-1,"fileio");
       DiskImageView<PixelGray<uint8> > testa(opt.out_prefix+"-lMask.tif");
       DiskImageView<PixelGray<uint8> > testb(opt.out_prefix+"-rMask.tif");
-      vw_out() << "\t--> Using cached image masks.\n";
-    } catch (vw::Exception const& e) {
+      vw_settings().reload_config();
+    } catch (vw::IOErr const& e) {
+      vw_settings().reload_config();
+      rebuild = true;
+    } catch (vw::ArgumentErr const& e ) {
+      // Throws on a corrupted file.
+      vw_settings().reload_config();
+      rebuild = true;
+    }
+    if (rebuild) {
       vw_out() << "\t--> Generating image masks... \n";
-
       ImageViewRef<vw::uint8> Lmask =
         pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(left_image, 0, 0)),0,0,255));
       ImageViewRef<vw::uint8> Rmask =
