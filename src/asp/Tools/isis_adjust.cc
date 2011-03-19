@@ -177,7 +177,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("cost-function", po::value(&opt.cost_function)->default_value("L2"),
      "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
     ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Sparse"),
-     "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]")
+     "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse]")
     ("disable-camera-const", po::bool_switch(&opt.disable_camera)->default_value(false),
      "Disable camera constraint error")
     ("disable-gcp-const", po::bool_switch(&opt.disable_gcp)->default_value(false),
@@ -254,10 +254,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( !( opt.ba_type == "ref" ||
           opt.ba_type == "sparse" ||
           opt.ba_type == "robustref" ||
-          opt.ba_type == "robustsparse" ||
-          opt.ba_type == "robustsparsekgcp" ) )
+          opt.ba_type == "robustsparse" ) )
     vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
-              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]\n" );
+              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse]\n" );
 }
 
 int main(int argc, char* argv[]) {
@@ -424,13 +423,6 @@ int main(int argc, char* argv[]) {
       } else if ( opt.ba_type == "robustsparse" ) {
         if ( opt.cost_function == "l2" ) {
           do_ba<AdjustRobustSparse< ModelType,L2Error> >( L2Error(), opt );
-        } else {
-          vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
-          exit(1);
-        }
-      } else if ( opt.ba_type == "robustsparsekgcp" ) {
-        if ( opt.cost_function == "l2" ) {
-          do_ba<AdjustRobustSparseKGCP< ModelType,L2Error> >( L2Error(), opt );
         } else {
           vw_out() << "Robust Sparse implementation doesn't allow the selection of different cost functions. Exiting!\n\n";
           exit(1);

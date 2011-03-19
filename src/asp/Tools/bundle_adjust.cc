@@ -170,10 +170,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( !( opt.ba_type == "ref" ||
           opt.ba_type == "sparse" ||
           opt.ba_type == "robustref" ||
-          opt.ba_type == "robustsparse" ||
-          opt.ba_type == "robustsparsekgcp" ) )
+          opt.ba_type == "robustsparse" ) )
     vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
-              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse, RobustSparseKGCP]\n" );
+              << ". Options are : [Ref, Sparse, RobustRef, RobustSparse]\n" );
 }
 
 int main(int argc, char* argv[]) {
@@ -247,7 +246,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-        // Switching based on cost function
+    // Switching based on cost function
     {
       typedef BundleAdjustmentModel ModelType;
 
@@ -259,8 +258,6 @@ int main(int argc, char* argv[]) {
         do_ba<AdjustRobustRef< ModelType,L2Error> >( L2Error(), opt );
       } else if ( opt.ba_type == "robustsparse" ) {
         do_ba<AdjustRobustSparse< ModelType,L2Error> >( L2Error(), opt );
-      } else if ( opt.ba_type == "robustsparsekgcp" ) {
-        do_ba<AdjustRobustSparseKGCP< ModelType,L2Error> >( L2Error(), opt );
       }
     }
 
