@@ -199,8 +199,8 @@ int main( int argc, char* argv[] ) {
           delete_count++;
         } else if ( opt.clip_radius ) {
           double radius = norm_2( cnet[error_index].position() );
-          if ( radius < 1737100*0.8 ||
-               radius > 1737100*1.2 ) {
+          if ( radius < 1737.4e3-50e3 ||
+               radius > 1737.4e3+50e3 ) {
             cnet.delete_control_point( error_index );
             delete_count++;
           }
