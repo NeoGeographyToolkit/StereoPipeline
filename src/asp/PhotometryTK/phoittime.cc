@@ -77,6 +77,8 @@ void update_exposure( Options& opt ) {
       // Accumulating time exposure
       TimeDeltaNRAccumulator taccum(cam_info.exposure_t());
 
+      std::cout << "About to print TimeDeltaNRAccumulator values\n";
+
       // Updating current time exposure
       BOOST_FOREACH( const TileHeader& drg_tile, drg_tiles ) {
         drg_plate->read( drg_temp, drg_tile.col(), drg_tile.row(),
@@ -84,6 +86,7 @@ void update_exposure( Options& opt ) {
         albedo_plate->read( albedo_temp, drg_tile.col(), drg_tile.row(),
                             opt.level, -1, false );
         for_each_pixel(drg_temp, albedo_temp, taccum);
+	std::cout << "iter taccum val=[" << taccum.value() << "]\n";
       }
       cam_info.set_exposure_t(cam_info.exposure_t()+taccum.value());
     } else {

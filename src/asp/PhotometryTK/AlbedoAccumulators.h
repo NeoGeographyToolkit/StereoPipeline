@@ -161,24 +161,38 @@ namespace pho {
     template <class IViewT, class AViewT>
     void operator()( vw::ImageViewBase<IViewT> const& image,
                      vw::ImageViewBase<AViewT> const& previous_albedo,
-                     double const& t ) {
+                     double const& t ) {      
+      std::cout << "t=[" << t << "]\n";
+      //double imgval = vw::channel_cast<double>(select_channel(image,0));
+      //double prevalb = vw::channel_cast<double>(select_channel(previous_albedo,0));
+      //std::cout << "img=[" << imgval << "] prev_albedo=[" << prevalb << "]\n";
       // Intermediate
+      //m_t_error = imgval - t*prevalb;
       m_t_error = vw::channel_cast<double>(select_channel(image,0)) -
-        t*vw::channel_cast<double>(select_channel(previous_albedo,0));
+	t*vw::channel_cast<double>(select_channel(previous_albedo,0));
+
+      //std::cout << "m_t_error=[" << m_t_error << "]\n";
 
       // Update accumulators
       m_nominator += t * m_t_error *
         vw::channel_cast<double>(select_channel(image,1));
       m_denominator += t * t *
         vw::channel_cast<double>(select_channel(image,1));
+      //std::cout << "m_nominator=[" << m_nominator << "] m_denominator=[" << m_denominator << "]\n";
 
       m_sum_weight += select_channel(image,1);
+      //std::cout << "m_sum_weight=[" << m_sum_weight << "]\n";
     }
 
     // Result
     typedef vw::ImageView<PixelT> result_type;
     result_type result() {
       result_type r(m_t_error.cols(), m_t_error.rows());
+      //double grey = m_nominator / m_denominator;
+      //double alpha = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
+      //std::cout << "result[grey]=[" << grey << "]\n";
+      //std::cout << "result[alpha]=[" << alpha << "]\n";
+
       select_channel(r,0) = m_nominator / m_denominator;
       select_channel(r,1) = vw::channel_cast_rescale<channel_type>(threshold(m_sum_weight,0));
       this->reset();

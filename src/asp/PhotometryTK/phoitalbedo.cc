@@ -271,6 +271,7 @@ int main( int argc, char *argv[] ) {
       CameraMeta current_cam;
       remote_ptk.get_camera( i, current_cam );
       exposure_t[i] = current_cam.exposure_t();
+      std::cout << "exposure_t[" << i << "] = [" << exposure_t[i] << "]\n";
     }
 
     // Double check for an iteration error

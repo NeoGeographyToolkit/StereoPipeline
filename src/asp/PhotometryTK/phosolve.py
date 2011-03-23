@@ -59,8 +59,13 @@ def main():
                 result.get()
 
             # Mipmap up the levels
+            # Need to add region arguments based on level
+            #
+            tiles_per_side = 2**options.level
+            region_arg = "0,0:%d,%d@%d" % (tiles_per_side, tiles_per_side, options.level)
+
             print " --- MIPMAP ---"
-            os.system("mipmap "+albedo_url)
+            os.system("mipmap --region "+region_arg+" "+albedo_url)
 
             # Update the Time Estimate
             time_cmd = []
@@ -68,7 +73,7 @@ def main():
             for i in range(options.threads):
                 cmd = "phoittime "
                 if ( options.level > 0 ):
-                    cmd = cmd + "-l "+str(options.level-2)+" "
+                    cmd = cmd + "-l "+str(options.level)+" "
                 cmd = cmd + "-j "+str(i)+" -n "+str(options.threads)+" "+args[0]
                 time_cmd.append(cmd)
             results = [pool.apply_async(job_func, (cmd,)) for cmd in time_cmd]
