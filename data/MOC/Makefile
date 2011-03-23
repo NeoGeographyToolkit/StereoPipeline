@@ -33,9 +33,22 @@ $(PREFIX).ive: $(POINTCLOUD)
 $(PREFIX)-DRG.tif: $(POINTCLOUD)
 	cd $(RESULTSDIR); \
 	point2dem -r mars -n $(OUT)-PC.tif; \
-	point2dem -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif
+	point2dem -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
 
-products: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif
+$(PREFIX)-DEM.tif: $(POINTCLOUD)
+	cd $(RESULTSDIR); \
+	point2dem -r mars --nodata -32767 $(OUT)-PC.tif;
+
+$(PREFIX)-OrthoR.tif: $(PREFIX)-DEM.tif
+	cd $(RESULTSDIR); \
+	orthoproject $(OUT)-DEM.tif ../M0100115.cub $(OUT)-OrthoR.tif;
+
+
+$(PREFIX)-OrthoL.tif: $(PREFIX)-DEM.tif
+	cd $(RESULTSDIR); \
+	orthoproject $(OUT)-DEM.tif ../E0201461.cub $(OUT)-OrthoL.tif;
+
+products: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif
 
 clean:
 	rm -rf $(RESULTSDIR)
