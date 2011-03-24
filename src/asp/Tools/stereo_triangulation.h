@@ -85,17 +85,17 @@ namespace vw {
 
       vw_out(VerboseDebugMessage,"asp") << "Writing Point Cloud: "
                                         << opt.out_prefix + "-PC.tif\n";
-      DiskImageResourceGDAL point_cloud_rsrc(opt.out_prefix + "-PC.tif",
-                                             point_cloud.format(),
-                                             opt.raster_tile_size,
-                                             opt.gdal_options );
 
-      if ( opt.stereo_session_string == "isis" ) {
-        write_image(point_cloud_rsrc, point_cloud,
+      DiskImageResource* rsrc =
+        asp::build_gdal_rsrc( opt.out_prefix + "-PC.tif",
+                              point_cloud, opt );
+      if ( opt.stereo_session_string == "isis" )
+        write_image(*rsrc, point_cloud,
                     TerminalProgressCallback("asp", "\t--> Triangulating: "));
-      } else
-        block_write_image(point_cloud_rsrc, point_cloud,
+      else
+        block_write_image(*rsrc, point_cloud,
                           TerminalProgressCallback("asp", "\t--> Triangulating: "));
+      delete rsrc;
       vw_out() << "\t--> " << universe_radius_func;
 
     } catch (IOErr &e) {

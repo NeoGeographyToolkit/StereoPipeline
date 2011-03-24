@@ -12,11 +12,6 @@
 #define __ASP_STEREO_H__
 
 #include <boost/algorithm/string.hpp>
-#include <boost/program_options.hpp>
-#include <boost/filesystem/path.hpp>
-
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
 
 #include <vw/Core.h>
 #include <vw/Image.h>
@@ -27,7 +22,11 @@ namespace fs = boost::filesystem;
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/MedianFilter.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/Sessions.h>
+
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
@@ -54,17 +53,14 @@ enum { PREPROCESSING = 0,
        NUM_STAGES};
 
 // 'Global Scoped' Variables
-struct Options {
+struct Options : asp::BaseOptions {
   // Input
   std::string in_file1, in_file2, cam_file1, cam_file2,
     extra_arg1, extra_arg2, extra_arg3, extra_arg4;
 
   // Settings
-  vw::uint32 num_threads;
   std::string stereo_session_string, stereo_default_filename;
   boost::shared_ptr<StereoSession> session;        // Used to extract cameras
-  vw::DiskImageResourceGDAL::Options gdal_options; // Repeated format options
-  vw::Vector2i raster_tile_size;                   // Write tile size
   vw::BBox2i search_range;                         // Correlation search window
   bool optimized_correlator, draft_mode;
 
@@ -126,14 +122,12 @@ namespace vw {
   void handle_arguments( int argc, char *argv[], Options& opt ) {
     po::options_description general_options("");
     general_options.add_options()
-      ("threads", po::value(&opt.num_threads)->default_value(0), "Select the number of processors (threads) to use.")
       ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
       ("draft-mode", po::value(&opt.corr_debug_prefix),"Cause the pyramid correlator to save out debug imagery named with this prefix.")
       ("optimized-correlator", po::bool_switch(&opt.optimized_correlator)->default_value(false),
-       "Use the optimized correlator instead of the pyramid correlator.")
-      ("no-bigtiff", "Tell GDAL to not create bigtiffs.")
-      ("help,h", "Display this help message");
+       "Use the optimized correlator instead of the pyramid correlator.");
+    general_options.add( asp::BaseOptionsDescription(opt) );
 
     po::options_description positional("");
     positional.add_options()
@@ -158,46 +152,28 @@ namespace vw {
     positional_desc.add("extra_argument3", 1);
     positional_desc.add("extra_argument4", 1);
 
-    po::options_description all_options;
-    all_options.add(general_options).add(positional);
-
-    po::variables_map vm;
-    try {
-      po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-      po::notify( vm );
-    } catch (po::error &e) {
-      vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-                << e.what() << general_options );
-    }
-
     std::ostringstream usage;
     usage << "Usage: " << argv[0] << " [options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n"
           << "  Extensions are automaticaly added to the output files.\n"
           << "  Camera model arguments may be optional for some stereo session types (e.g. isis).\n"
-          << "  Stereo parameters should be set in the stereo.default file.\n\n";
+          << "  Stereo parameters should be set in the stereo.default file.\n";
+
+    po::variables_map vm =
+      asp::check_command_line( argc, argv, opt, general_options,
+                               positional, positional_desc, usage.str() );
 
     opt.draft_mode = vm.count("draft-mode");
 
-    if ( vm.count("help") )
-      vw_throw( ArgumentErr() << usage.str() << general_options );
     if (!vm.count("left-input-image") || !vm.count("right-input-image") ||
         !vm.count("left-camera-model") )
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n"
-                << usage.str() << general_options );
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
+                << usage.str() << "\n" << general_options );
 
     // If the user hasn't specified a stereo session type, we take a
     // guess here based on the file suffixes.
     if (opt.stereo_session_string.empty()) {
-      if ( ( boost::iends_with(opt.cam_file1, ".cahvor") &&
-             boost::iends_with(opt.cam_file2, ".cahvor") ) ||
-           ( boost::iends_with(opt.cam_file1, ".cahv") &&
-             boost::iends_with(opt.cam_file2, ".cahv") ) ||
-           ( boost::iends_with(opt.cam_file1, ".pin") &&
-             boost::iends_with(opt.cam_file2, ".pin") ) ||
-           ( boost::iends_with(opt.cam_file1, ".tsai") &&
-             boost::iends_with(opt.cam_file2, ".tsai") ) ||
-           ( boost::iends_with(opt.cam_file1, ".cmod") &&
-             boost::iends_with(opt.cam_file2, ".cmod") ) ) {
+      if ( asp::has_cam_extension( opt.cam_file1 ) &&
+           asp::has_cam_extension( opt.cam_file2 ) ) {
         vw_out() << "\t--> Detected pinhole camera files. "
                  << "Executing pinhole stereo pipeline.\n";
         opt.stereo_session_string = "pinhole";
@@ -243,30 +219,8 @@ namespace vw {
                             opt.out_prefix, opt.extra_arg1, opt.extra_arg2,
                             opt.extra_arg3, opt.extra_arg4);
 
-    // Common GDAL options
-#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
-    opt.gdal_options["COMPRESS"] = "LZW";
-    // We really don't want to use BIGTIFF unless we have to. It's
-    // hard to find viewers for bigtiff.
-    if ( vm.count("no-bigtiff") )
-      opt.gdal_options["BIGTIFF"] = "NO";
-    else
-      opt.gdal_options["BIGTIFF"] = "IF_SAFER";
-#else
-    opt.gdal_options["COMPRESS"] = "NONE";
-    opt.gdal_options["BIGTIFF"] = "NO";
-#endif
-
-    opt.raster_tile_size = Vector2i(vw_settings().default_tile_size(),
-                                    vw_settings().default_tile_size());
-
     // Finally read in the stereo settings
     stereo_settings().read(opt.stereo_default_filename);
-    if ( opt.num_threads != 0 ) {
-      vw_out() << "\t--> Setting number of processing threads to: "
-               << opt.num_threads << std::endl;
-      vw_settings().set_default_num_threads(opt.num_threads);
-    }
 
     // Set search range from stereo.default file
     opt.search_range = BBox2i(Vector2i(stereo_settings().h_corr_min,

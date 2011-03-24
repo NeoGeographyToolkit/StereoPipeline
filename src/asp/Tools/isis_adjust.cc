@@ -12,6 +12,7 @@
 /// adjustment chapter is required before use of this program.
 
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/Tools/isis_adjust.h>
 
 namespace po = boost::program_options;
@@ -23,7 +24,7 @@ using namespace vw::camera;
 using namespace vw::ip;
 using namespace vw::ba;
 
-struct Options {
+struct Options : public asp::BaseOptions {
   Options() : lambda(-1), seed_previous(false) {}
   // Input
   std::string cnet_file, cost_function, ba_type, output_prefix;
@@ -46,7 +47,7 @@ struct Options {
 //------------------------------------------------------------------------------
 template <class AdjusterT>
 void do_ba( typename AdjusterT::cost_type const& cost_function,
-                               Options const& opt ) {
+            Options const& opt ) {
   // Building the Bundle Adjustment Model and applying the Bundle
   // Adjuster.
   typename AdjusterT::model_type
@@ -206,8 +207,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("write-isis-cnet-also", po::bool_switch(&opt.write_isis_cnet)->default_value(false),
      "Writes an ISIS style control network")
     ("write-kml", po::value(&opt.all_kml),
-     "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates")
-    ("help,h", "Display this help message");
+     "Selecting this will cause a kml to be writting of the GCPs, send with a true and it will also write all the 3d estimates");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -216,23 +217,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e ) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <isis cube files> ...\n";
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.input_names.empty() )
     vw_throw( ArgumentErr() << "Missing input cube files!\n"
               << usage.str() << general_options );

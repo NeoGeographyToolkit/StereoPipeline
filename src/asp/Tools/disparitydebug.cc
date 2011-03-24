@@ -20,19 +20,18 @@
 
 #include <stdlib.h>
 
-#include <boost/filesystem/path.hpp>
-#include <boost/program_options.hpp>
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
-
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 using namespace vw;
 using namespace vw::stereo;
 
-struct Options {
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
+
+struct Options : asp::BaseOptions {
   // Input
   std::string input_file_name;
 
@@ -46,8 +45,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
-    ("float-pixels", "Save the resulting debug images as 32 bit floating point files (if supported by the selected files type.")
-    ("help,h", "Display this help message");
+    ("float-pixels", "Save the resulting debug images as 32 bit floating point files (if supported by the selected files type.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -56,23 +55,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <input disparity map> \n";
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.input_file_name.empty() )
     vw_throw( ArgumentErr() << "Missing input file!\n"
               << usage.str() << general_options );

@@ -152,13 +152,9 @@ namespace vw {
         vw_out() << "\t--> Doing nothing\n";
       }
 
-      // Create a disk image resource and prepare to write a tiled
-      DiskImageResourceGDAL disparity_map_rsrc2(opt.out_prefix + "-RD.tif",
-                                                disparity_map.format(),
-                                                opt.raster_tile_size,
-                                                opt.gdal_options );
-      block_write_image( disparity_map_rsrc2, disparity_map,
-                         TerminalProgressCallback("asp", "\t--> Refinement :") );
+      asp::block_write_gdal_image( opt.out_prefix + "-RD.tif",
+                                   disparity_map, opt,
+                                   TerminalProgressCallback("asp", "\t--> Refinement :") );
 
     } catch (IOErr &e) {
       vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n" );

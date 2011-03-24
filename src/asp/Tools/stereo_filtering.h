@@ -156,19 +156,13 @@ namespace vw {
           ImageViewRef<PixelMask<Vector2f> > erode_disp_map;
           erode_disp_map = ErodeView<DiskCacheImageView<PixelMask<Vector2f> > >(filtered_disp, bindex );
           //erode_disp_map = filtered_disp;
-          DiskImageResourceGDAL erode_map_rsrc(opt.out_prefix+"-FTemp.tif",
-                                               erode_disp_map.format(),
-                                               opt.raster_tile_size,
-                                               opt.gdal_options );
-          block_write_image( erode_map_rsrc, erode_disp_map,
-                             TerminalProgressCallback("asp", "\t--> Eroding: "));
+          asp::block_write_gdal_image( opt.out_prefix+"-FTemp.tif",
+                                       erode_disp_map, opt,
+                                       TerminalProgressCallback("asp", "\t--> Eroding: ") );
         } else {
-          DiskImageResourceGDAL filt_rsrc( opt.out_prefix+"-FTemp.tif",
-                                           disparity_map.format(),
-                                           opt.raster_tile_size,
-                                           opt.gdal_options );
-          block_write_image( filt_rsrc, disparity_map,
-                             TerminalProgressCallback("asp", "\t--> Filtering: "));
+          asp::block_write_gdal_image( opt.out_prefix+"-FTemp.tif",
+                                       disparity_map, opt,
+                                       TerminalProgressCallback("asp", "\t--> Filtering: ") );
         }
       }
 
@@ -226,12 +220,9 @@ namespace vw {
         hole_filled_disp_map = filtered_disparity_map;
       }
 
-      DiskImageResourceGDAL disparity_map_rsrc(opt.out_prefix + "-F.tif",
-                                               hole_filled_disp_map.format(),
-                                               opt.raster_tile_size,
-                                               opt.gdal_options );
-      block_write_image(disparity_map_rsrc, hole_filled_disp_map,
-                        TerminalProgressCallback("asp", "\t--> Filtering: ") );
+      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
+                                   hole_filled_disp_map, opt,
+                                   TerminalProgressCallback("asp", "\t--> Filtering: ") );
 
       // Delete temporary file
       std::string temp_file =  opt.out_prefix+"-FTemp.tif";

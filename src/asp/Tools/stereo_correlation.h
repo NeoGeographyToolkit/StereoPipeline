@@ -278,13 +278,9 @@ namespace vw {
                            opt.corr_debug_prefix, !opt.optimized_correlator );
     }
 
-    // Create a disk image resource and prepare to write a tiled
-    DiskImageResourceGDAL disparity_map_rsrc(opt.out_prefix + "-D.tif",
-                                             disparity_map.format(),
-                                             opt.raster_tile_size,
-                                             opt.gdal_options );
-    block_write_image( disparity_map_rsrc, disparity_map,
-                       TerminalProgressCallback("asp", "\t--> Correlation :") );
+    asp::block_write_gdal_image( opt.out_prefix + "-D.tif",
+                                 disparity_map, opt,
+                                 TerminalProgressCallback("asp", "\t--> Correlation :") );
   }
 
 } //end namespace vw

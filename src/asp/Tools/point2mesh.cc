@@ -16,16 +16,14 @@
 #include <stddef.h>
 #include <math.h>
 
-//Boost
-#include <boost/program_options.hpp>
-namespace po = boost::program_options;
-
 //VisionWorkbench
 #include <vw/Math.h>
 #include <vw/Image.h>
 #include <vw/FileIO.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 using namespace vw;
+namespace po = boost::program_options;
 
 //OpenSceneGraph
 #include <osg/Geode>
@@ -74,6 +72,24 @@ static std::string prefix_from_pointcloud_filename(std::string const& filename) 
   // No match
   return result;
 }
+
+struct Options : asp::BaseOptions {
+  Options() : root( new osg::Group() ), simplify_percent(0) {};
+  // Input
+  std::string pointcloud_filename, texture_file_name;
+
+  // Settings
+  uint32 step_size;
+  osg::ref_ptr<osg::Group> root;
+  float simplify_percent;
+  osg::Vec3f dataNormal;
+  std::string rot_order;
+  double phi_rot, omega_rot, kappa_rot;
+  bool center, enable_lighting, smooth_mesh, simplify_mesh;
+
+  // Output
+  std::string output_prefix, output_file_type;
+};
 
 // ---------------------------------------------------------
 // BUILD MESH
@@ -144,7 +160,8 @@ osg::StateSet* create1DTexture( osg::Node* loadedModel , const osg::Vec3f& Direc
 // Takes in an image and builds geodes for every triangle strip.
 // ---------------------------------------------------------
 template <class ViewT>
-osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& step_size, const std::string& init_tex_file, osg::Vec3f& dataNormal, bool light) {
+osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
+                       Options& opt ) {
 
   //const ViewT& point_image_impl = point_image.impl();
   osg::Geode* mesh = new osg::Geode();
@@ -153,38 +170,34 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   osg::Vec2Array* texcoords = new osg::Vec2Array();
   osg::Vec3Array* normals = new osg::Vec3Array();
 
-  dataNormal = osg::Vec3f( 0.0f , 0.0f , 0.0f );
+  opt.dataNormal = osg::Vec3f( 0.0f , 0.0f , 0.0f );
 
   vw_out() << "\t--> Orginal size: [" << point_image.impl().cols() << ", " << point_image.impl().rows() << "]\n";
-  vw_out() << "\t--> Subsampled:   [" << point_image.impl().cols()/step_size << ", "
-            << point_image.impl().rows()/step_size << "]\n";
+  vw_out() << "\t--> Subsampled:   [" << point_image.impl().cols()/opt.step_size << ", "
+            << point_image.impl().rows()/opt.step_size << "]\n";
 
   //////////////////////////////////////////////////
   // Deciding how to reduce the texture size
   //   Max texture width or height is 4096
   std::string tex_file;
-  if ( init_tex_file.size() ) {
-    DiskImageView<PixelGray<uint8> > previous_texture(init_tex_file);
-    tex_file = prefix_from_pointcloud_filename(init_tex_file) + "-tex";
+  if ( opt.texture_file_name.size() ) {
+    DiskImageView<PixelGray<uint8> > previous_texture(opt.texture_file_name);
+    tex_file = prefix_from_pointcloud_filename(opt.texture_file_name) + "-tex";
     if (point_image.impl().cols() > 4096 ||
         point_image.impl().rows() > 4096 ) {
       vw_out() << "Resampling to reduce texture size:\n";
       float tex_sub_scale = 4096.0/float(std::max(previous_texture.cols(),previous_texture.rows()));
       ImageViewRef<PixelGray<uint8> > new_texture = resample(previous_texture,tex_sub_scale);
       vw_out() << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
-      DiskImageResourceGDAL tex_rsrc(tex_file+".tif",new_texture.format(),
-                                     Vector2i(256,256) );
-      block_write_image(tex_rsrc,new_texture,
-                        TerminalProgressCallback("asp","\tSubsampling:") );
+      asp::block_write_gdal_image( tex_file+".tif", new_texture, opt,
+                                   TerminalProgressCallback("asp","\tSubsampling:") );
     } else {
       // Always saving as an 8bit texture. These second handedly
       // normalizes the data for us (which is a problem for datasets
       // like HiRISE which will feed us tiffs with values outside of
       // 0-1).
-      DiskImageResourceGDAL tex_rsrc(tex_file+".tif",previous_texture.format(),
-                                     Vector2i(256,256) );
-      block_write_image(tex_rsrc, previous_texture,
-                        TerminalProgressCallback("asp","\tNormalizing:") );
+      asp::block_write_gdal_image( tex_file+".tif", previous_texture, opt,
+                                   TerminalProgressCallback("asp","\tNormalizing:") );
     }
     // When we subsample, we use tiff because we can block write the image.
     // However, trying to load the tiff with osg causes problems because
@@ -210,25 +223,25 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   {
 
     // Some constants for the calculation in here
-    unsigned num_rows = point_image.impl().rows()/step_size;
-    unsigned num_cols = point_image.impl().cols()/step_size;
+    uint32 num_rows = point_image.impl().rows()/opt.step_size;
+    uint32 num_cols = point_image.impl().cols()/opt.step_size;
 
     TerminalProgressCallback progress("asp", "\tVertices:   ");
     double progress_mult = 1.0/double(num_rows*num_cols);
 
-    for (unsigned r = 0; r < (num_rows); ++r ){
-      for (unsigned c = 0; c < (num_cols); ++c ){
+    for ( uint32 r = 0; r < (num_rows); ++r ){
+      for (uint32 c = 0; c < (num_cols); ++c ){
         progress.report_progress((r*num_cols+c)*progress_mult);
 
-        unsigned r_step = r * step_size;
-        unsigned c_step = c * step_size;
+        uint32 r_step = r * opt.step_size;
+        uint32 c_step = c * opt.step_size;
 
         vertices->push_back( osg::Vec3f( point_image.impl()(c_step,r_step)[0] ,
                                          point_image.impl()(c_step,r_step)[1] ,
                                          point_image.impl()(c_step,r_step)[2] ) );
 
         // Calculating normals, if the user wants shading
-        if (light) {
+        if (opt.enable_lighting) {
           Vector3 temp_normal;
 
           // These calculations seems backwards from what they should
@@ -237,41 +250,41 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
           // Is quadrant 1 normal calculation possible?
           if ( (r > 0) && ( (c+1) < (num_cols)) ) {
-            if ( (point_image.impl()(c_step+step_size,r_step) != Vector3(0,0,0)) &&
-                 (point_image.impl()(c_step,r_step-step_size) != Vector3(0,0,0)) ) {
-              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step+step_size,r_step) -
+            if ( (point_image.impl()(c_step+opt.step_size,r_step) != Vector3(0,0,0)) &&
+                 (point_image.impl()(c_step,r_step-opt.step_size) != Vector3(0,0,0)) ) {
+              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step+opt.step_size,r_step) -
                                                                 point_image.impl()(c_step,r_step),
-                                                                point_image.impl()(c_step,r_step-step_size) -
+                                                                point_image.impl()(c_step,r_step-opt.step_size) -
                                                                 point_image.impl()(c_step,r_step) ) );
             }
           }
           // Is quadrant 2 normal calculation possible?
           if ( ( (c+1) < (num_cols) ) && ((r+1) < (num_rows))){
-            if ( (point_image.impl()(c_step,r_step+step_size) != Vector3(0,0,0)) &&
-                 (point_image.impl()(c_step+step_size,r_step) != Vector3(0,0,0)) ) {
-              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step,r_step+step_size) -
+            if ( (point_image.impl()(c_step,r_step+opt.step_size) != Vector3(0,0,0)) &&
+                 (point_image.impl()(c_step+opt.step_size,r_step) != Vector3(0,0,0)) ) {
+              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step,r_step+opt.step_size) -
                                                                 point_image.impl()(c_step,r_step),
-                                                                point_image.impl()(c_step+step_size,r_step) -
+                                                                point_image.impl()(c_step+opt.step_size,r_step) -
                                                                 point_image.impl()(c_step,r_step) ) );
             }
           }
           // Is quadrant 3 normal calculation possible?
           if ( ((r+1) < (num_rows)) && (c>0) ) {
-            if ( (point_image.impl()(c_step-step_size,r_step) != Vector3(0,0,0)) &&
-                 (point_image.impl()(c_step,r_step+step_size) != Vector3(0,0,0)) ) {
-              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step-step_size,r_step) -
+            if ( (point_image.impl()(c_step-opt.step_size,r_step) != Vector3(0,0,0)) &&
+                 (point_image.impl()(c_step,r_step+opt.step_size) != Vector3(0,0,0)) ) {
+              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step-opt.step_size,r_step) -
                                                                 point_image.impl()(c_step,r_step),
-                                                                point_image.impl()(c_step,r_step+step_size) -
+                                                                point_image.impl()(c_step,r_step+opt.step_size) -
                                                                 point_image.impl()(c_step,r_step) ) );
             }
           }
           // Is quadrant 4 normal calculation possible?
           if ( (c>0) && (r>0) ) {
-            if ( (point_image.impl()(c_step,r_step-step_size) != Vector3(0,0,0)) &&
-                 (point_image.impl()(c_step-step_size,r_step) != Vector3(0,0,0)) ) {
-              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step,r_step-step_size) -
+            if ( (point_image.impl()(c_step,r_step-opt.step_size) != Vector3(0,0,0)) &&
+                 (point_image.impl()(c_step-opt.step_size,r_step) != Vector3(0,0,0)) ) {
+              temp_normal = temp_normal + normalize(cross_prod( point_image.impl()(c_step,r_step-opt.step_size) -
                                                                 point_image.impl()(c_step,r_step),
-                                                                point_image.impl()(c_step-step_size,r_step) -
+                                                                point_image.impl()(c_step-opt.step_size,r_step) -
                                                                 point_image.impl()(c_step,r_step) ) );
             }
           }
@@ -289,9 +302,9 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
                     (point_image.impl()(c_step,r_step)[1] != 0 ) &&
                     (point_image.impl()(c_step,r_step)[2] != 0 ) ) {
           //I'm calculating the main normal for the data.
-          dataNormal[0] += point_image.impl()(c_step,r_step)[0];
-          dataNormal[1] += point_image.impl()(c_step,r_step)[1];
-          dataNormal[2] += point_image.impl()(c_step,r_step)[2];
+          opt.dataNormal[0] += point_image.impl()(c_step,r_step)[0];
+          opt.dataNormal[1] += point_image.impl()(c_step,r_step)[1];
+          opt.dataNormal[2] += point_image.impl()(c_step,r_step)[2];
         }
       }
     }
@@ -301,13 +314,13 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
 
     geometry->setVertexArray( vertices );
 
-    if (light)
+    if (opt.enable_lighting)
       geometry->setNormalArray( normals );
 
     if ( tex_file.size() ) {
       geometry->setTexCoordArray( 0,texcoords );
     } else {
-      dataNormal.normalize();
+      opt.dataNormal.normalize();
     }
 
     osg::Vec4Array* colour = new osg::Vec4Array();
@@ -321,16 +334,17 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image, const int& s
   /// Deciding How to draw triangle strips
   vw_out() << "Drawing Triangle Strips\n";
   {
-    unsigned col_steps = point_image.impl().cols()/step_size;
+    uint32 col_steps = point_image.impl().cols()/opt.step_size;
 
-    for (int r = 0; r < ( point_image.impl().rows()/step_size - 1); ++r){
+    for (uint32 r = 0;
+         r < ( point_image.impl().rows()/opt.step_size - 1); ++r){
 
       bool add_direction_down = true;
       osg::DrawElementsUInt* dui = new osg::DrawElementsUInt(GL_TRIANGLE_STRIP);
 
-      for (unsigned c = 0; c < ( col_steps ); ++c){
+      for (uint32 c = 0; c < ( col_steps ); ++c){
 
-        unsigned pointing_index = r*(col_steps) + c;
+        uint32 pointing_index = r*(col_steps) + c;
 
         //vw_out() << "V: " << vertices->at(pointing_index)[0] << " " << vertices->at(pointing_index)[1] << " " << vertices->at(pointing_index)[2] << std::endl;
 
@@ -465,24 +479,6 @@ BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
 // MAIN
 // ---------------------------------------------------------
 
-struct Options {
-  Options() : root( new osg::Group() ), simplify_percent(0) {};
-  // Input
-  std::string pointcloud_filename, texture_file_name;
-
-  // Settings
-  unsigned step_size;
-  osg::ref_ptr<osg::Group> root;
-  float simplify_percent;
-  osg::Vec3f dataNormal;
-  std::string rot_order;
-  double phi_rot, omega_rot, kappa_rot;
-  bool center, enable_lighting, smooth_mesh, simplify_mesh;
-
-  // Output
-  std::string output_prefix, output_file_type;
-};
-
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
@@ -510,8 +506,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),
      "Set a rotation angle omega")
     ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),
-     "Set a rotation angle kappa")
-    ("help,h", "Display this help message");
+     "Set a rotation angle kappa");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -524,23 +520,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("input-file", 1);
   positional_desc.add("texture-file", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << "[options] <pointcloud> <texture-file> ...\n";
 
-  if ( vm.count("help" ) )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.pointcloud_filename.empty() )
     vw_throw( ArgumentErr() << "Missing point cloud.\n"
               << usage.str() << general_options );
@@ -587,7 +573,7 @@ int main( int argc, char *argv[] ){
 
     {
       vw_out() << "\nGenerating 3D mesh from point cloud:\n";
-      opt.root->addChild(build_mesh(point_image, opt.step_size, opt.texture_file_name, opt.dataNormal, opt.enable_lighting ));
+      opt.root->addChild(build_mesh(point_image, opt));
 
       if ( !opt.texture_file_name.empty() ) {
         // Turning off lighting and other likes

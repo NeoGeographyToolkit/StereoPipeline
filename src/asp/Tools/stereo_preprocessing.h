@@ -48,16 +48,10 @@ namespace vw {
       ImageViewRef<vw::uint8> Rmask =
         pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(right_image, 0, 0)),0,0,255));
 
-      DiskImageResourceGDAL l_mask_rsrc( opt.out_prefix+"-lMask.tif",
-                                         Lmask.format(), opt.raster_tile_size,
-                                         opt.gdal_options );
-      DiskImageResourceGDAL r_mask_rsrc( opt.out_prefix+"-rMask.tif",
-                                         Rmask.format(), opt.raster_tile_size,
-                                         opt.gdal_options );
-      block_write_image(l_mask_rsrc, Lmask,
-                        TerminalProgressCallback("asp", "\t    Mask L: "));
-      block_write_image(r_mask_rsrc, Rmask,
-                        TerminalProgressCallback("asp", "\t    Mask R: "));
+      asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif", Lmask, opt,
+                                   TerminalProgressCallback("asp", "\t    Mask L: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif", Rmask, opt,
+                                   TerminalProgressCallback("asp", "\t    Mask R: ") );
     }
 
     // Produce subsampled images, these will be used later for Auto

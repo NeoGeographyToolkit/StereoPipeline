@@ -20,9 +20,6 @@
 
 #include <stdlib.h>
 
-#include <boost/program_options.hpp>
-namespace po = boost::program_options;
-
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Math.h>
@@ -32,6 +29,9 @@ using namespace vw::cartography;
 
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
 
 // Erases a file suffix if one exists and returns the base string
 static std::string prefix_from_pointcloud_filename(std::string const& filename) {
@@ -98,7 +98,7 @@ enum ProjectionType {
   PLATECARREE
 };
 
-struct Options {
+struct Options : asp::BaseOptions {
   // Input
   std::string pointcloud_filename, texture_filename;
 
@@ -152,8 +152,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega")
     ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa")
-    ("cache-dir", po::value(&opt.cache_dir)->default_value("/tmp"),"Change if can't write large files to /tmp (i.e. Super Computer)")
-    ("help,h", "Display this help message");
+    ("cache-dir", po::value(&opt.cache_dir)->default_value("/tmp"),"Change if can't write large files to /tmp (i.e. Super Computer)");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -162,26 +162,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << "\n" << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <point-cloud> ...\n";
+
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
 
   if ( opt.pointcloud_filename.empty() )
     vw_throw( ArgumentErr() << "Missing point cloud.\n"
               << usage.str() << general_options );
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
@@ -361,11 +351,13 @@ int main( int argc, char *argv[] ) {
         ImageViewRef<PixelGray<float> > block_dem_raster =
           block_cache(rasterizer, Vector2i(rasterizer.cols(), 128), 0);
         if ( opt.output_file_type == "tif" && opt.has_default_value ) {
-          DiskImageResourceGDAL rsrc( opt.out_prefix + "-DEM.tif",
-                                      block_dem_raster.format() );
-          rsrc.set_nodata_write( opt.default_value );
-          write_georeference( rsrc, georef );
-          write_image( rsrc, block_dem_raster, TerminalProgressCallback("asp","") );
+          DiskImageResourceGDAL* rsrc =
+            asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif",
+                                  block_dem_raster, opt );
+          rsrc->set_nodata_write( opt.default_value );
+          write_georeference( *rsrc, georef );
+          write_image( *rsrc, block_dem_raster, TerminalProgressCallback("asp","") );
+          delete rsrc;
         } else {
           write_georeferenced_image( opt.out_prefix + "-DEM." +
                                      opt.output_file_type,

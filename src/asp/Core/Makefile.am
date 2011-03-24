@@ -20,7 +20,8 @@ endif
 
 include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
                   InpaintView.h MedianFilter.h OrthoRasterizer.h         \
-                  SoftwareRenderer.h ErodeView.h $(ba_headers) Macros.h
+                  SoftwareRenderer.h ErodeView.h $(ba_headers) Macros.h  \
+                  Common.h
 
 libaspCore_la_SOURCES = BlobIndexThreaded.cc SoftwareRenderer.cc         \
                   StereoSettings.cc $(ba_sources)
