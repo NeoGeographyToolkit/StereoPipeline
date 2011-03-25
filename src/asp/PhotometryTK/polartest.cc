@@ -66,6 +66,26 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw(ArgumentErr() << "Y must be > 0\n" << usage.str() << general_options );    
 }
 
+template<typename ImageAlphaT>
+void printImageRegionValues(ImageAlphaT img, int colstart, int colend, int rowstart, int rowend)
+{
+  return;
+  typename ImageAlphaT::pixel_type pix;
+
+  /****** PRINT 10x10 image region of croppedAlbedoImg HERE *****/
+  std::cout.precision(4);
+  std::cout.setf(ios::fixed,ios::floatfield);
+
+  for(int r = rowstart; r < rowend; r++) {
+    for(int c = colstart; c < colend; c++) {
+      if (c > colstart) std::cout << "\t";
+      pix = img(c, r, 0);
+      std::cout << pix[0];
+    }
+    std::cout << "\n";
+  }
+}
+
 void dostuff(Options& opt)
 {
   std::cout << "url=[" << opt.ptk_url << "] x=[" << opt.tilex << "] y=[" << opt.tiley << "]\n";
@@ -90,9 +110,9 @@ void dostuff(Options& opt)
   int x = size * opt.tilex;
   int y = size * opt.tiley;
 
-  int pixmapmincol = size/2 + x - pixmapsize/2;
+  int pixmapmincol = size/2 - pixmapsize/2;
   int pixmapmaxcol = pixmapmincol + pixmapsize;
-  int pixmapminrow = size/2 + y - pixmapsize/2;
+  int pixmapminrow = size/2 - pixmapsize/2;
   int pixmapmaxrow = pixmapminrow + pixmapsize;
 
   std::cout << "Default tile size=[" << size << "]\n";
@@ -101,8 +121,15 @@ void dostuff(Options& opt)
   std::cout << "pixmap lr corner=(" << pixmapmaxcol << ", " << pixmapmaxrow << ")\n";
 
   BBox2i bbox(opt.tilex, opt.tiley, size, size);
-  std::list<TileHeader> all_tiles = drg_plate->search_by_region(level, bbox,0, -1, 0);
+  std::list<TileHeader> all_tiles = drg_plate->search_by_location(opt.tilex, opt.tiley, level ,0 , -1);
   //std::cout << "DRG TILES IN REGION=[" << tiles.size() << "]\n";
+
+  std::map<int32,TileHeader> tileMappedByTid;
+  std::list<TileHeader>::iterator iter;
+  for(iter = all_tiles.begin(); iter != all_tiles.end(); iter++) {
+    int tid = (*iter).transaction_id();
+    tileMappedByTid[tid] = *iter;
+  }
 
   //croppedDRG.search_for_tiles(bbox);
   BOOST_FOREACH(const TileHeader& tileIndex, all_tiles) {
@@ -111,15 +138,15 @@ void dostuff(Options& opt)
 
   //Index//croppedDRG.search_for_tiles(bbox);
 
-  ImageView<PixelGrayA<uint8> > croppedDRGImg;
+  ImageView<PixelGrayA<float32> > croppedDRGImg;
 
   ImageView<PixelGrayA<float32> > croppedAlbedoImg;
-  ImageView<PixelGrayA<float32> > image_tmp;
+  ImageView<PixelGrayA<float32> > image_tmp(size, size, 1);
   
   // Sanity check: output bounded tile location as a single image so we can verify we started with a reasonable tile-set.
   
-  AlbedoInitNRAccumulator<PixelGrayA<float> > initAccum(size, size);
-  AlbedoDeltaNRAccumulator<PixelGrayA<float> > deltaAccum(size, size);
+  AlbedoInitNRAccumulator<PixelGrayA<float32> > initAccum(size, size);
+  AlbedoDeltaNRAccumulator<PixelGrayA<float32> > deltaAccum(size, size);
 
   std::vector<double> exposures;
   exposures.reserve(maxcams);
@@ -145,13 +172,19 @@ void dostuff(Options& opt)
 
       drg_plate->read( croppedDRGImg, drg_tile.col(), drg_tile.row(),
 		       level, tid, true );
+
+      ostringstream drgTilePath;
+      drgTilePath << "/tmp/drg_" << iters << "_" << tid << ".tif";
+      //write_image(drgTilePath.str(), croppedDRGImg);
+
+      printImageRegionValues(croppedDRGImg, pixmapmincol, pixmapmaxcol, pixmapminrow, pixmapmaxrow);
       
       std::cout << "croppedDRGImg dims=(" << croppedDRGImg.rows() << ", " << croppedDRGImg.cols() << ", " << croppedDRGImg.planes() << ")\n";
       
       if (0 == iters)
-	initAccum(image_tmp, exposures[tid-1]);
+	initAccum(croppedDRGImg, exposures[tid-1]);
       else
-	deltaAccum(image_tmp, croppedAlbedoImg, exposures[tid-1]);
+	deltaAccum(croppedDRGImg, croppedAlbedoImg, exposures[tid-1]);
     }
     if (0 == iters)
       croppedAlbedoImg = initAccum.result();
@@ -160,26 +193,37 @@ void dostuff(Options& opt)
       select_channel(croppedAlbedoImg, 0) += select_channel(image_tmp, 0);
     }
     
-    /****** PRINT 10x10 image region of croppedAlbedoImg HERE *****/
+    printImageRegionValues(croppedAlbedoImg, pixmapmincol, pixmapmaxcol, pixmapminrow, pixmapmaxrow);
 
+    // Write intermediate Albedo images
+    ostringstream albedoPath;
+    albedoPath << "/tmp/albedo" << iters << ".tif";
+    write_image(albedoPath.str(), croppedAlbedoImg);
+    
     // Update exposures
     for(int j = 0; j < maxcams; j++) {
       CameraMeta cam_info;
       remote_ptk.get_camera(j, cam_info);
       
       TimeDeltaNRAccumulator taccum(cam_info.exposure_t());
-      
-      std::list<TileHeader> tiles = drg_plate->search_by_region(level, bbox, j+1, j+1, 0);
-      
-      BOOST_FOREACH( const TileHeader& drg_tile, tiles) {
-	drg_plate->read ( croppedDRGImg, drg_tile.col(), drg_tile.row(),
-			  level, j+1, true );
-	
-      }
-      cam_info.set_exposure_t(cam_info.exposure_t()+taccum.value());
 
+      if (tileMappedByTid.find(j+1) == tileMappedByTid.end())
+	continue;
+
+      TileHeader& drg_tile = tileMappedByTid[j+1];
+      
+      drg_plate->read ( croppedDRGImg, drg_tile.col(), drg_tile.row(),
+			level, j+1, true );
+      
+      for_each_pixel(croppedDRGImg, croppedAlbedoImg, taccum);
+
+      double expt = taccum.value();
+
+      cam_info.set_exposure_t(cam_info.exposure_t()+expt);
       remote_ptk.set_camera(j, cam_info);
     }
+
+    iters++;
   }
 }
 

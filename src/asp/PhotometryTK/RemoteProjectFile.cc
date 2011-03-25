@@ -59,6 +59,7 @@ namespace pho {
     CHECK_PROJECT_ID();
     meta = response.meta();
   }
+
   void RemoteProjectFile::set_iteration( int32 const& i ) {
     ProjectUpdateRequest request;
     request.set_project_id( m_project_id );
@@ -68,6 +69,7 @@ namespace pho {
                              null_callback() );
     CHECK_PROJECT_ID();
   }
+
   int32 RemoteProjectFile::add_camera( CameraMeta const& meta ) {
     CameraCreateRequest request;
     request.set_project_id( m_project_id );
@@ -100,6 +102,34 @@ namespace pho {
     CHECK_PROJECT_ID();
     CHECK_CAMERA_ID(i);
   }
+
+  void RemoteProjectFile::get_pixvals(vw::float32& min, vw::float32& max)
+  {
+    PixvalReadRequest request;
+    request.set_project_id( m_project_id );
+    
+    PixvalReadReply response;
+    m_client->PixvalRead( m_client.get(), &request, &response,
+			  null_callback() );
+    CHECK_PROJECT_ID();
+
+    min = response.min_pixval();
+    max = response.max_pixval();
+  }
+
+  void RemoteProjectFile::set_pixvals(vw::float32 const& min, vw::float32 const& max)
+  {
+    PixvalWriteRequest request;
+    request.set_project_id( m_project_id );
+    request.set_min_pixval( min );
+    request.set_max_pixval( max );
+    
+    PixvalWriteReply response;
+    m_client->PixvalWrite( m_client.get(), &request, &response,
+			   null_callback() );
+    CHECK_PROJECT_ID();
+  }
+
   void RemoteProjectFile::get_platefiles( boost::shared_ptr<vw::platefile::PlateFile>& drg,
                                           boost::shared_ptr<vw::platefile::PlateFile>& albedo,
                                           boost::shared_ptr<vw::platefile::PlateFile>& reflect ) const {

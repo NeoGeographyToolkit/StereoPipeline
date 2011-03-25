@@ -181,6 +181,8 @@ ProjectServiceImpl::CameraRead(::google::protobuf::RpcController* /*controller*/
 
   *(response->mutable_meta()) =
     m_camera_metas[request->project_id()][request->camera_id()];
+
+  done->Run();
 }
 
 void
@@ -196,4 +198,46 @@ ProjectServiceImpl::CameraWrite(::google::protobuf::RpcController* /*controller*
   response->set_camera_id( request->camera_id() );
   m_camera_metas[request->project_id()][request->camera_id()] =
     request->meta();
+
+  done->Run();
+}
+
+void 
+ProjectServiceImpl::PixvalRead(::google::protobuf::RpcController* controller,
+			       const ::asp::pho::PixvalReadRequest* request,
+			       ::asp::pho::PixvalReadReply* response,
+			       ::google::protobuf::Closure* done) 
+{
+  if ( request->project_id() < 0 ||
+       request->project_id() >= int32(m_project_metas.size()) ) {
+    response->set_project_id( -1 );
+    done->Run();
+    return;
+  }
+  
+  response->set_min_pixval( m_project_metas[ request->project_id() ].min_pixval() );
+  response->set_max_pixval( m_project_metas[ request->project_id() ].max_pixval() );
+  response->set_project_id( request->project_id() );
+
+  done->Run();
+}
+
+void 
+ProjectServiceImpl::PixvalWrite(::google::protobuf::RpcController* controller,
+				const ::asp::pho::PixvalWriteRequest* request,
+				::asp::pho::PixvalWriteReply* response,
+				::google::protobuf::Closure* done) 
+{
+  if ( request->project_id() < 0 ||
+       request->project_id() >= int32(m_project_metas.size()) ) {
+    response->set_project_id( -1 );
+    done->Run();
+    return;
+  }
+
+  m_project_metas[ request->project_id() ].set_min_pixval( request->min_pixval() );
+  m_project_metas[ request->project_id() ].set_max_pixval( request->max_pixval() );
+  response->set_project_id( request->project_id() );
+
+  done->Run();
 }

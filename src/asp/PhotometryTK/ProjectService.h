@@ -54,6 +54,16 @@ namespace pho {
                              ::asp::pho::CameraWriteReply* response,
                              ::google::protobuf::Closure* done);
 
+    virtual void PixvalRead(::google::protobuf::RpcController* controller,
+			    const ::asp::pho::PixvalReadRequest* request,
+			    ::asp::pho::PixvalReadReply* response,
+			    ::google::protobuf::Closure* done);
+
+    virtual void PixvalWrite(::google::protobuf::RpcController* controller,
+			     const ::asp::pho::PixvalWriteRequest* request,
+			     ::asp::pho::PixvalWriteReply* response,
+			     ::google::protobuf::Closure* done);
+
   };
 
 }} //end namespace asp::pho

@@ -59,7 +59,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   TerminalProgressCallback tpc("photometrytk", "Initial");
   double tpc_inc = 1.0/float(workunits.size());
   albedo_plate->write_request();
-  ImageView<PixelGrayA<float> > image_temp;
+  ImageView<PixelGrayA<float32> > image_temp;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
     AccumulatorT accum( tile_size, tile_size );
@@ -73,8 +73,10 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
                                        workunit.min().y()/8,
                                        opt.level - 3,
                                        0, max_tid, true );
-      if ( h_tile_records.empty() )
+      if ( h_tile_records.empty() ) {
+	//std::cout << "No tile recs found.\n";
         continue;
+      }
 
       for ( int32 ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
         for ( int32 iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
@@ -96,14 +98,30 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
           }
           image_temp = accum.result();
 
+	  boost::scoped_ptr<DstMemoryImageResource> r(DstMemoryImageResource::create("tif", image_temp.format()));
+	  write_image(*r, image_temp);
+	  albedo_plate->write_update(r->data(), r->size(), ix, iy, opt.level, transaction_id, "tif");
+
           // Write result
-          albedo_plate->write_update(image_temp, ix, iy,
-                                     opt.level, transaction_id);
+          //albedo_plate->write_update(image_temp, ix, iy,
+	  //                         opt.level, transaction_id);
+
+	  ostringstream albedoPath;
+	  albedoPath << "/tmp/albedo_" << ix << "_" << iy << "_" << transaction_id;
+	  std::string bad = albedoPath.str()+".bad.tif";
+	  std::string good = albedoPath.str()+".tif";
+
+	  std::ofstream imgof(bad.c_str(), std::ios::binary|std::ios::out);
+	  imgof.write(reinterpret_cast<const char*>(r->data()), r->size());
+	  imgof.close();
+
+	  write_image(good, image_temp);
+
         } // end for iy
       }   // end for ix
     }     // end foreach
   } else {
-    AlbedoInitAccumulator<PixelGrayA<float> > accum( tile_size, tile_size );
+    AlbedoInitAccumulator<PixelGrayA<float32> > accum( tile_size, tile_size );
     vw_throw( NoImplErr() << "Sorry, reflectance code is incomplete.\n" );
   }
 
@@ -131,7 +149,7 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   ImageView<PixelGrayA<float32> > image_temp, current_albedo;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
-    AlbedoDeltaNRAccumulator<PixelGrayA<float> > accum( tile_size, tile_size );
+    AlbedoDeltaNRAccumulator<PixelGrayA<float32> > accum( tile_size, tile_size );
     BOOST_FOREACH(const BBox2i& workunit, workunits) {
       tpc.report_incremental_progress( tpc_inc );
 
@@ -141,8 +159,10 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
         drg_plate->search_by_location( workunit.min().x()/8,
                                        workunit.min().y()/8,
                                        opt.level - 3, 0, max_tid, true );
-      if ( h_tile_records.empty() )
+      if ( h_tile_records.empty() ) {
+	//std::cout << "No tile recs found.\n";
         continue;
+      }
 
       for ( int32 ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
         for ( int32 iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
@@ -174,11 +194,16 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
           select_channel(current_albedo,0) += select_channel(image_temp,0);
           albedo_plate->write_update(current_albedo, ix, iy,
                                      opt.level, transaction_id);
+
+	  ostringstream albedoPath;
+	  albedoPath << "/tmp/albedo_" << ix << "_" << iy << ".tif";
+	  write_image(albedoPath.str(), current_albedo);
+
         } // end for iy
       }   // end for ix
     }     // end foreach
   } else {
-    AlbedoDeltaAccumulator<PixelGrayA<float> > accum( tile_size, tile_size );
+    AlbedoDeltaAccumulator<PixelGrayA<float32> > accum( tile_size, tile_size );
     vw_throw( NoImplErr() << "Sorry, reflectance code is incomplete.\n" );
   }
 
@@ -285,7 +310,7 @@ int main( int argc, char *argv[] ) {
     if ( opt.perform_2band ) {
       std::cout << "2 Band Albedo [ iteration "
                 << project_info.current_iteration() << " ]\n";
-      initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
+      initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float32> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
     } else {
       if ( project_info.current_iteration() ) {
         std::cout << "Updating Albedo [ iteration "
@@ -295,7 +320,7 @@ int main( int argc, char *argv[] ) {
       } else {
         std::cout << "Initialize Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
-        initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
+        initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float32> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
       }
     }
   } ASP_STANDARD_CATCHES;

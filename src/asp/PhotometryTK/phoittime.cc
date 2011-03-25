@@ -70,7 +70,7 @@ void update_exposure( Options& opt ) {
     BBox2i affected_tiles(0,quarter,full-1,quarter*2-1);
     std::list<TileHeader> drg_tiles =
       drg_plate->search_by_region(opt.level, affected_tiles,j+1,j+1,1);
-    ImageView<PixelGrayA<uint8> > drg_temp, albedo_temp;
+    ImageView<PixelGrayA<float32> > drg_temp, albedo_temp;
     std::cout << "Num drg tiles: " << drg_tiles.size() << "\n";
 
     if ( project_info.reflectance() == ProjectMeta::NONE ) {

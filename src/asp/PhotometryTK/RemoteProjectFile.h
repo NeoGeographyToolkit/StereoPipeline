@@ -31,6 +31,10 @@ namespace pho {
 
     void get_project( ProjectMeta& meta ) const;
     void set_iteration( vw::int32 const& i );
+
+    void get_pixvals(vw::float32& min, vw::float32& max);
+    void set_pixvals(vw::float32 const& min, vw::float32 const& max);
+
     // Returns it's index
     // --- User should read back camera meta
     vw::int32 add_camera( CameraMeta const& meta );
