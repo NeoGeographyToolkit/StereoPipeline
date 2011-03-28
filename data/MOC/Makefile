@@ -20,6 +20,12 @@ M0100115.map.cub: M0100115.cub
 E0201461.map.cub: E0201461.cub M0100115.map.cub
 	cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
 
+M0100115.map/M0100115.kml: M0100115.map.cub
+	image2qtree -m kml --normalize $<
+
+E0201461.map/E0201461.kml: E0201461.map.cub
+	image2qtree -m kml --normalize $<
+
 $(POINTCLOUD): $(MAPPED)
 	mkdir -p $(RESULTSDIR)
 	$(STEREO) $(MAPPED) $(RESULTSDIR)/$(OUT)
@@ -48,10 +54,11 @@ $(PREFIX)-OrthoL.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); \
 	orthoproject $(OUT)-DEM.tif ../E0201461.cub $(OUT)-OrthoL.tif;
 
-products: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif
+products: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml 
 
 clean:
 	rm -rf $(RESULTSDIR)
+	rm -rf M0100115.map E0201461.map
 
 distclean: clean
 	rm -rf print.prt *.cub
