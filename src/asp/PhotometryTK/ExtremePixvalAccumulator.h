@@ -24,11 +24,15 @@ namespace pho {
     
     void operator()( PixelT const& pix ) {
       ChannelType pixVal = pix[0];
-      if (pixVal > m_maxpixval) {
-	m_maxpixval = pixVal;
+      return (*this)(pixVal);
+    }
+
+    void operator()( ChannelType const& pixval ) {
+      if (pixval > m_maxpixval) {
+	m_maxpixval = pixval;
       }
-      if (pixVal < m_minpixval) {
-	m_minpixval = pixVal;
+      if (pixval < m_minpixval) {
+	m_minpixval = pixval;
       }
     }
 

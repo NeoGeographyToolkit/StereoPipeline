@@ -20,6 +20,7 @@
 #include <vw/Plate/TileManipulation.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/AlbedoAccumulators.h>
+#include <asp/PhotometryTK/ExtremePixvalAccumulator.h>
 #include <asp/Core/Macros.h>
 using namespace vw;
 using namespace vw::platefile;
@@ -42,8 +43,25 @@ struct Options {
   int32 job_id, num_jobs;
 };
 
-template <class AccumulatorT>
-void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
+void update_job_pixvals(int32 job_id, float32 min, float32 max)
+{
+  ostringstream ostr;
+  ostr << "/tmp/job" << job_id << "_pixvals.tmp";
+
+  ofstream tmpfile(ostr.str().c_str(), std::ios::in);
+  tmpfile.precision(10);
+  tmpfile.setf(std::ios::fixed);
+
+  tmpfile << min << "\n";
+  tmpfile << max << "\n";
+
+  tmpfile.close();
+}
+
+template <class AlbedoAccumulatorT, class PixvalAccumulatorT>
+void initial_albedo( Options const& opt,
+		     ProjectMeta const& ptk_meta,
+		     PixvalAccumulatorT& pixvalAccum,
                      boost::shared_ptr<PlateFile> drg_plate,
                      boost::shared_ptr<PlateFile> albedo_plate,
                      boost::shared_ptr<PlateFile> /*reflect_plate*/,
@@ -63,7 +81,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   ImageView<PixelGray<float32> > image_noalpha;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
-    AccumulatorT accum( tile_size, tile_size );
+    AlbedoAccumulatorT accum( tile_size, tile_size );
     BOOST_FOREACH(const BBox2i& workunit, workunits) {
       tpc.report_incremental_progress( tpc_inc );
 
@@ -101,28 +119,11 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 
 	  image_noalpha = vw::pixel_cast<PixelGray<float32> >(image_temp);
 
-	  /*
-	  boost::scoped_ptr<DstMemoryImageResource> r(DstMemoryImageResource::create("tif", image_temp.format()));
-	  write_image(*r, image_temp);
-	  albedo_plate->write_update(r->data(), r->size(), ix, iy, opt.level, transaction_id, "tif");
-	  */
+	  for_each_pixel(image_temp, pixvalAccum);
 
           // Write result
           albedo_plate->write_update(image_noalpha, ix, iy,
 				     opt.level, transaction_id);
-	  /*
-	  ostringstream albedoPath;
-	  albedoPath << "/tmp/albedo_" << ix << "_" << iy << "_" << transaction_id;
-	  std::string bad = albedoPath.str()+".bad.tif";
-	  std::string good = albedoPath.str()+".tif";
-
-	  std::ofstream imgof(bad.c_str(), std::ios::binary|std::ios::out);
-	  imgof.write(reinterpret_cast<const char*>(r->data()), r->size());
-	  imgof.close();
-
-	  write_image(good, image_temp);
-	  */
-
         } // end for iy
       }   // end for ix
     }     // end foreach
@@ -136,7 +137,10 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   albedo_plate->transaction_complete(transaction_id,true);
 }
 
-void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
+template<class PixvalAccumulatorT>
+void update_albedo( Options const& opt, 
+		    ProjectMeta const& ptk_meta,
+		    PixvalAccumulatorT& pixvalAccum,
                     boost::shared_ptr<PlateFile> drg_plate,
                     boost::shared_ptr<PlateFile> albedo_plate,
                     boost::shared_ptr<PlateFile> /*reflect_plate*/,
@@ -199,6 +203,8 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 
           // Write result
           select_channel(current_albedo,0) += select_channel(image_temp,0);
+
+	  for_each_pixel(current_albedo, pixvalAccum);
 
 	  image_noalpha = vw::pixel_cast<PixelGray<float32> >(current_albedo);
 
@@ -312,23 +318,34 @@ int main( int argc, char *argv[] ) {
       remote_ptk.set_iteration(0);
     }
 
+    // Initialize pixval accumulator
+    float32 minPixval = project_info.min_pixval();
+    float32 maxPixval = project_info.max_pixval();
+    ExtremePixvalAccumulator<PixelGrayA<float32> > pixvalAccum(minPixval, maxPixval);
+
     // Determine if we're updating or initializing
     if ( opt.perform_2band ) {
       std::cout << "2 Band Albedo [ iteration "
                 << project_info.current_iteration() << " ]\n";
-      initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float32> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
+      initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float32> >, ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, pixvalAccum, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
     } else {
       if ( project_info.current_iteration() ) {
         std::cout << "Updating Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
-        update_albedo( opt, project_info, drg_plate,
-                       albedo_plate, reflect_plate, workunits, exposure_t );
+        update_albedo<ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, 
+									pixvalAccum, drg_plate,
+									albedo_plate, reflect_plate, workunits, exposure_t );
       } else {
         std::cout << "Initialize Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
-        initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float32> > >( opt, project_info, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
+        initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float32> >, ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, pixvalAccum, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
       }
     }
+
+    // Write out pixval results for this job    
+    pixvalAccum.values(minPixval, maxPixval);
+    update_job_pixvals(opt.job_id, minPixval, maxPixval);
+    
   } ASP_STANDARD_CATCHES;
 
   return 0;

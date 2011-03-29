@@ -61,12 +61,34 @@ namespace pho {
   }
 
   void RemoteProjectFile::set_iteration( int32 const& i ) {
-    ProjectUpdateRequest request;
+    IterationUpdateRequest request;
     request.set_project_id( m_project_id );
     request.set_iteration( i );
-    ProjectUpdateReply response;
-    m_client->ProjectUpdate( m_client.get(), &request, &response,
-                             null_callback() );
+    IterationUpdateReply response;
+    m_client->IterationUpdate( m_client.get(), &request, &response,
+			       null_callback() );
+    CHECK_PROJECT_ID();
+  }
+
+  void RemoteProjectFile::set_init_error( float32 const& init_error )
+  {
+    InitErrorUpdateRequest request;
+    request.set_project_id( m_project_id );
+    request.set_init_error( init_error );
+    InitErrorUpdateReply response;
+    m_client->InitErrorUpdate( m_client.get(), &request, &response,
+			       null_callback() );
+    CHECK_PROJECT_ID();
+  }
+
+  void RemoteProjectFile::set_last_error( float32 const& last_error )
+  {
+    LastErrorUpdateRequest request;
+    request.set_project_id( m_project_id );
+    request.set_last_error( last_error );
+    LastErrorUpdateReply response;
+    m_client->LastErrorUpdate( m_client.get(), &request, &response,
+			       null_callback() );
     CHECK_PROJECT_ID();
   }
 
@@ -101,20 +123,6 @@ namespace pho {
                            null_callback() );
     CHECK_PROJECT_ID();
     CHECK_CAMERA_ID(i);
-  }
-
-  void RemoteProjectFile::get_pixvals(vw::float32& min, vw::float32& max)
-  {
-    PixvalReadRequest request;
-    request.set_project_id( m_project_id );
-    
-    PixvalReadReply response;
-    m_client->PixvalRead( m_client.get(), &request, &response,
-			  null_callback() );
-    CHECK_PROJECT_ID();
-
-    min = response.min_pixval();
-    max = response.max_pixval();
   }
 
   void RemoteProjectFile::set_pixvals(vw::float32 const& min, vw::float32 const& max)

@@ -131,10 +131,10 @@ ProjectServiceImpl::OpenRequest(::google::protobuf::RpcController* /*controller*
 }
 
 void
-ProjectServiceImpl::ProjectUpdate(::google::protobuf::RpcController* /*controller*/,
-                                  const ::asp::pho::ProjectUpdateRequest* request,
-                                  ::asp::pho::ProjectUpdateReply* response,
-                                  ::google::protobuf::Closure* done) {
+ProjectServiceImpl::IterationUpdate(::google::protobuf::RpcController* controller,
+				    const ::asp::pho::IterationUpdateRequest* request,
+				    ::asp::pho::IterationUpdateReply* response,
+				    ::google::protobuf::Closure* done) {
   if ( request->project_id() < 0 ||
        request->project_id() >= int32(m_project_metas.size()) ) {
     response->set_project_id( -1 );
@@ -142,8 +142,41 @@ ProjectServiceImpl::ProjectUpdate(::google::protobuf::RpcController* /*controlle
     return;
   }
 
-  // Setting iteration
   m_project_metas[ request->project_id() ].set_current_iteration(request->iteration());
+  response->set_project_id( request->project_id() );
+  done->Run();
+}
+
+void
+ProjectServiceImpl::InitErrorUpdate(::google::protobuf::RpcController* controller,
+				    const ::asp::pho::InitErrorUpdateRequest* request,
+				    ::asp::pho::InitErrorUpdateReply* response,
+				    ::google::protobuf::Closure* done) {
+  if ( request->project_id() < 0 ||
+       request->project_id() >= int32(m_project_metas.size()) ) {
+    response->set_project_id( -1 );
+    done->Run();
+    return;
+  }
+
+  m_project_metas[ request->project_id() ].set_init_error(request->init_error());
+  response->set_project_id( request->project_id() );
+  done->Run();
+}
+
+void
+ProjectServiceImpl::LastErrorUpdate(::google::protobuf::RpcController* controller,
+				    const ::asp::pho::LastErrorUpdateRequest* request,
+				    ::asp::pho::LastErrorUpdateReply* response,
+				    ::google::protobuf::Closure* done) {
+  if ( request->project_id() < 0 ||
+       request->project_id() >= int32(m_project_metas.size()) ) {
+    response->set_project_id( -1 );
+    done->Run();
+    return;
+  }
+
+  m_project_metas[ request->project_id() ].set_last_error(request->last_error());
   response->set_project_id( request->project_id() );
   done->Run();
 }
@@ -198,26 +231,6 @@ ProjectServiceImpl::CameraWrite(::google::protobuf::RpcController* /*controller*
   response->set_camera_id( request->camera_id() );
   m_camera_metas[request->project_id()][request->camera_id()] =
     request->meta();
-
-  done->Run();
-}
-
-void 
-ProjectServiceImpl::PixvalRead(::google::protobuf::RpcController* controller,
-			       const ::asp::pho::PixvalReadRequest* request,
-			       ::asp::pho::PixvalReadReply* response,
-			       ::google::protobuf::Closure* done) 
-{
-  if ( request->project_id() < 0 ||
-       request->project_id() >= int32(m_project_metas.size()) ) {
-    response->set_project_id( -1 );
-    done->Run();
-    return;
-  }
-  
-  response->set_min_pixval( m_project_metas[ request->project_id() ].min_pixval() );
-  response->set_max_pixval( m_project_metas[ request->project_id() ].max_pixval() );
-  response->set_project_id( request->project_id() );
 
   done->Run();
 }

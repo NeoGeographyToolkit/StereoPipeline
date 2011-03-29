@@ -23,6 +23,8 @@ message ProjectMeta {
     optional string datum_name = 9 [default="WGS84"];
     required double min_pixval = 10 [default=0]; // Update this so we can normalize at the end
     required double max_pixval = 11 [default=0]; // Update this so we can normalize at the end
+    required double init_error = 12 [default=0]; // Save initial error so we can compare later error values
+    required double last_error = 13 [default=0]; // Update this so we can gauge quality of results
 }
 
 message CameraMeta {
@@ -45,16 +47,32 @@ message ProjectOpenReply {
   required int32 project_id = 2;
 }
 
-
-message ProjectUpdateRequest {
+message IterationUpdateRequest {
   required int32 project_id = 1;
   required int32 iteration = 2;
 }
 
-message ProjectUpdateReply {
-  required int32 project_id = 1; // echo if success
+message IterationUpdateReply {
+  required int32 project_id = 1;
 }
 
+message InitErrorUpdateRequest {
+  required int32 project_id = 1;
+  required double init_error = 2;
+}
+
+message InitErrorUpdateReply {
+  required int32 project_id = 1;
+}
+
+message LastErrorUpdateRequest {
+  required int32 project_id = 1;
+  required double last_error = 2;
+}
+
+message LastErrorUpdateReply {
+  required int32 project_id = 1;
+}
 
 message CameraCreateRequest {
   required int32 project_id = 1;
@@ -63,16 +81,6 @@ message CameraCreateRequest {
 message CameraCreateReply {
   required int32 project_id = 1; // echo if success
   required int32 camera_id = 2;  // assigns number
-}
-
-message PixvalReadRequest {
-  required int32 project_id = 1;
-}
-
-message PixvalReadReply {
-  required int32 project_id = 1;
-  required double min_pixval = 2;
-  required double max_pixval = 3;
 }
 
 message PixvalWriteRequest {
@@ -110,10 +118,11 @@ service ProjectService {
   rpc OpenRequest (ProjectOpenRequest) returns (ProjectOpenReply);
 
   // Project Interface
-  rpc ProjectUpdate (ProjectUpdateRequest) returns (ProjectUpdateReply);
+  rpc IterationUpdate (IterationUpdateRequest) returns (IterationUpdateReply);
+  rpc InitErrorUpdate (InitErrorUpdateRequest) returns (InitErrorUpdateReply);
+  rpc LastErrorUpdate (LastErrorUpdateRequest) returns (LastErrorUpdateReply);
 
   // Max/min pixval Interface
-  rpc PixvalRead (PixvalReadRequest) returns (PixvalReadReply);
   rpc PixvalWrite (PixvalWriteRequest) returns (PixvalWriteReply);
 
   // Camera Interface

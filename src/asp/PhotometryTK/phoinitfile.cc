@@ -48,6 +48,8 @@ void create_ptk( Options const& opt ) {
   proj_meta.set_abs_tol( opt.abs_tol );
   proj_meta.set_min_pixval( 0 );
   proj_meta.set_max_pixval( 0 );
+  proj_meta.set_init_error( 0 );
+  proj_meta.set_last_error( 0 );
 
   std::string reftype = opt.reflectance_type;
   boost::to_lower( reftype );

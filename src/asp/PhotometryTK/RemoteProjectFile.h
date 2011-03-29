@@ -31,8 +31,8 @@ namespace pho {
 
     void get_project( ProjectMeta& meta ) const;
     void set_iteration( vw::int32 const& i );
-
-    void get_pixvals(vw::float32& min, vw::float32& max);
+    void set_init_error( vw::float32 const& init_error );
+    void set_last_error( vw::float32 const& last_error );
     void set_pixvals(vw::float32 const& min, vw::float32 const& max);
 
     // Returns it's index

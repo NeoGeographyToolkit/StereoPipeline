@@ -37,10 +37,18 @@ namespace pho {
                              const ::asp::pho::ProjectOpenRequest* request,
                              ::asp::pho::ProjectOpenReply* response,
                              ::google::protobuf::Closure* done);
-    virtual void ProjectUpdate(::google::protobuf::RpcController* controller,
-                               const ::asp::pho::ProjectUpdateRequest* request,
-                               ::asp::pho::ProjectUpdateReply* response,
-                               ::google::protobuf::Closure* done);
+    virtual void IterationUpdate(::google::protobuf::RpcController* controller,
+				 const ::asp::pho::IterationUpdateRequest* request,
+				 ::asp::pho::IterationUpdateReply* response,
+				 ::google::protobuf::Closure* done);
+    virtual void InitErrorUpdate(::google::protobuf::RpcController* controller,
+				 const ::asp::pho::InitErrorUpdateRequest* request,
+				 ::asp::pho::InitErrorUpdateReply* response,
+				 ::google::protobuf::Closure* done);
+    virtual void LastErrorUpdate(::google::protobuf::RpcController* controller,
+				 const ::asp::pho::LastErrorUpdateRequest* request,
+				 ::asp::pho::LastErrorUpdateReply* response,
+				 ::google::protobuf::Closure* done);
     virtual void CameraCreate(::google::protobuf::RpcController* controller,
                               const ::asp::pho::CameraCreateRequest* request,
                               ::asp::pho::CameraCreateReply* response,
@@ -53,12 +61,6 @@ namespace pho {
                              const ::asp::pho::CameraWriteRequest* request,
                              ::asp::pho::CameraWriteReply* response,
                              ::google::protobuf::Closure* done);
-
-    virtual void PixvalRead(::google::protobuf::RpcController* controller,
-			    const ::asp::pho::PixvalReadRequest* request,
-			    ::asp::pho::PixvalReadReply* response,
-			    ::google::protobuf::Closure* done);
-
     virtual void PixvalWrite(::google::protobuf::RpcController* controller,
 			     const ::asp::pho::PixvalWriteRequest* request,
 			     ::asp::pho::PixvalWriteReply* response,

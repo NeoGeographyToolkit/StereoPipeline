@@ -19,7 +19,8 @@ nodist_include_HEADERS = $(protocol_headers)
 
 include_HEADERS = ProjectFileIO.h ProjectService.h RemoteProjectFile.h \
                   AlbedoAccumulators.h ImageAccumulators.h             \
-                  ErrorAccumulators.h TimeAccumulators.h
+                  ErrorAccumulators.h TimeAccumulators.h               \
+                  ExtremePixvalAccumulator.h
 libaspPhotometryTK_la_SOURCES = $(protocol_sources) ProjectService.cc  \
                   RemoteProjectFile.cc
 
@@ -63,12 +64,12 @@ mipmap_LDADD          = $(PTK_LOCAL_LIBS)
 shadow_mask_SOURCES   = shadow_mask.cc
 shadow_mask_LDADD     = $(PTK_LOCAL_LIBS)
 
-polartest_SOURCES     = polartest.cc
-polartest_LDADD       = $(PTK_LOCAL_LIBS)
+phoitnorm_SOURCES     = phoitnorm.cc
+phoitnorm_LDADD       = $(PTK_LOCAL_LIBS)
 
 bin_PROGRAMS = phodrg2plate phoinitfile phoitalbedo        \
                phoitdem phoiterror phoitreflect phoittime  \
-               ptk_server phoinitet mipmap shadow_mask polartest
+               ptk_server phoinitet mipmap shadow_mask phoitnorm
 
 endif
 
