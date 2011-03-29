@@ -60,6 +60,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   double tpc_inc = 1.0/float(workunits.size());
   albedo_plate->write_request();
   ImageView<PixelGrayA<float32> > image_temp;
+  ImageView<PixelGray<float32> > image_noalpha;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
     AccumulatorT accum( tile_size, tile_size );
@@ -98,14 +99,18 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
           }
           image_temp = accum.result();
 
+	  image_noalpha = vw::pixel_cast<PixelGray<float32> >(image_temp);
+
+	  /*
 	  boost::scoped_ptr<DstMemoryImageResource> r(DstMemoryImageResource::create("tif", image_temp.format()));
 	  write_image(*r, image_temp);
 	  albedo_plate->write_update(r->data(), r->size(), ix, iy, opt.level, transaction_id, "tif");
+	  */
 
           // Write result
-          //albedo_plate->write_update(image_temp, ix, iy,
-	  //                         opt.level, transaction_id);
-
+          albedo_plate->write_update(image_noalpha, ix, iy,
+				     opt.level, transaction_id);
+	  /*
 	  ostringstream albedoPath;
 	  albedoPath << "/tmp/albedo_" << ix << "_" << iy << "_" << transaction_id;
 	  std::string bad = albedoPath.str()+".bad.tif";
@@ -116,6 +121,7 @@ void initial_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 	  imgof.close();
 
 	  write_image(good, image_temp);
+	  */
 
         } // end for iy
       }   // end for ix
@@ -147,6 +153,7 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
   double tpc_inc = 1.0/float(workunits.size());
   albedo_plate->write_request();
   ImageView<PixelGrayA<float32> > image_temp, current_albedo;
+  ImageView<PixelGray<float32> > image_noalpha;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
     AlbedoDeltaNRAccumulator<PixelGrayA<float32> > accum( tile_size, tile_size );
@@ -192,12 +199,11 @@ void update_albedo( Options const& opt, ProjectMeta const& ptk_meta,
 
           // Write result
           select_channel(current_albedo,0) += select_channel(image_temp,0);
-          albedo_plate->write_update(current_albedo, ix, iy,
-                                     opt.level, transaction_id);
 
-	  ostringstream albedoPath;
-	  albedoPath << "/tmp/albedo_" << ix << "_" << iy << ".tif";
-	  write_image(albedoPath.str(), current_albedo);
+	  image_noalpha = vw::pixel_cast<PixelGray<float32> >(current_albedo);
+
+          albedo_plate->write_update(image_noalpha, ix, iy,
+                                     opt.level, transaction_id);
 
         } // end for iy
       }   // end for ix
@@ -296,7 +302,7 @@ int main( int argc, char *argv[] ) {
       CameraMeta current_cam;
       remote_ptk.get_camera( i, current_cam );
       exposure_t[i] = current_cam.exposure_t();
-      std::cout << "exposure_t[" << i << "] = [" << exposure_t[i] << "]\n";
+      //std::cout << "exposure_t[" << i << "] = [" << exposure_t[i] << "]\n";
     }
 
     // Double check for an iteration error

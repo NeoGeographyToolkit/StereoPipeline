@@ -19,6 +19,7 @@
 #include <vw/Plate/PlateFile.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/TimeAccumulators.h>
+#include <asp/PhotometryTK/ExtremePixvalAccumulator.h>
 #include <asp/Core/Macros.h>
 using namespace vw;
 using namespace vw::platefile;
@@ -55,6 +56,12 @@ void update_exposure( Options& opt ) {
   boost::shared_ptr<PlateFile> drg_plate, albedo_plate, reflect_plate;
   remote_ptk.get_platefiles(drg_plate,albedo_plate,reflect_plate);
 
+  float32 minPixval = 0;
+  float32 maxPixval = 0;
+  remote_ptk.get_pixvals(minPixval, maxPixval);
+
+  ExtremePixvalAccumulator<PixelGrayA<float32> > pixvalAccum(minPixval, maxPixval);
+  
   for (int j = minidx; j < maxidx; j++ ) {
     // Pick up current time exposure
     CameraMeta cam_info;
@@ -86,7 +93,9 @@ void update_exposure( Options& opt ) {
         albedo_plate->read( albedo_temp, drg_tile.col(), drg_tile.row(),
                             opt.level, -1, false );
         for_each_pixel(drg_temp, albedo_temp, taccum);
-	std::cout << "iter taccum val=[" << taccum.value() << "]\n";
+
+	// Keep track of min and max pixvals for normalizing at the end of phosolve
+	for_each_pixel(albedo_temp, pixvalAccum);
       }
       cam_info.set_exposure_t(cam_info.exposure_t()+taccum.value());
     } else {
@@ -98,6 +107,13 @@ void update_exposure( Options& opt ) {
     }
     if ( !opt.dry_run ) {
       remote_ptk.set_camera(j, cam_info);
+
+      // Update extreme pixvals
+      pixvalAccum.values(minPixval, maxPixval);
+      remote_ptk.set_pixvals(minPixval, maxPixval);
+
+      vw::vw_out().precision(4);
+      vw::vw_out() << "min=[" << minPixval << "] max=[" << maxPixval << "]\n";
 
       // Increment iterations
       if ( opt.job_id == 0 )

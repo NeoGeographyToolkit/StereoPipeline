@@ -141,6 +141,8 @@ namespace pho {
     typedef boost::shared_ptr<PlateFile> PlatePtr;
     vw_out(DebugMessage,"ptk") << "Loading platefiles with base url:\n\t"
                                << base_url << "\n";
+
+    // Temporarily keeping drg as UINT8 til bug is fixed with DstMemoryImageResource
     drg =
       PlatePtr( new PlateFile(base_url+"DRG.plate"+postfix,
                               project_info.plate_manager(), "", 256, "tif",
@@ -148,12 +150,12 @@ namespace pho {
     albedo =
       PlatePtr( new PlateFile(base_url+"Albedo.plate"+postfix,
                               project_info.plate_manager(), "", 256, "tif",
-                              VW_PIXEL_GRAYA, VW_CHANNEL_UINT8) );
+                              VW_PIXEL_GRAYA, VW_CHANNEL_FLOAT32) );
     if ( project_info.reflectance() != ProjectMeta::NONE ) {
       reflect =
         PlatePtr( new PlateFile(base_url+"Reflectance.plate"+postfix,
                                 project_info.plate_manager(), "", 256, "tif",
-                                VW_PIXEL_GRAYA, VW_CHANNEL_UINT8) );
+                                VW_PIXEL_GRAYA, VW_CHANNEL_FLOAT32) );
     }
   }
 

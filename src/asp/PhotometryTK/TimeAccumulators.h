@@ -18,9 +18,9 @@ namespace pho {
   public:
     typedef double value_type;
 
-    TimeDeltaAccumulator(double t) : m_numerator(0),
+  TimeDeltaAccumulator(double t) : m_numerator(0),
       m_denominator(0), m_curr_time(t) {}
-
+    
     template <class AValT, class RValT>
     void operator()( AValT const& drg, AValT const& albedo, RValT const& reflectance ) {
       double i = drg[0], a = albedo[0], s = drg[1], r = reflectance;

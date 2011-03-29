@@ -38,8 +38,8 @@ void perform_mipmap( Options & opt ) {
   boost::shared_ptr<PlateFile> platefile =
     boost::shared_ptr<PlateFile>( new PlateFile(opt.url) );
 
-  PlateManager<PixelGrayA<uint8> >* platemanager =
-    PlateManager<PixelGrayA<uint8> >::make("equi",platefile);
+  PlateManager<PixelGray<float32> >* platemanager =
+    PlateManager<PixelGray<float32> >::make("equi",platefile);
 
   // Parsing region string
   if (!opt.region.empty()) {

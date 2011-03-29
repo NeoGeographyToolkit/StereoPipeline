@@ -162,7 +162,7 @@ namespace pho {
     void operator()( vw::ImageViewBase<IViewT> const& image,
                      vw::ImageViewBase<AViewT> const& previous_albedo,
                      double const& t ) {      
-      std::cout << "t=[" << t << "]\n";
+      //std::cout << "t=[" << t << "]\n";
       //double imgval = vw::channel_cast<double>(select_channel(image,0));
       //double prevalb = vw::channel_cast<double>(select_channel(previous_albedo,0));
       //std::cout << "img=[" << imgval << "] prev_albedo=[" << prevalb << "]\n";
