@@ -189,6 +189,11 @@ std::string IsisAdjustCameraModel::serial_number() const {
   return Isis::SerialNumber::Compose( copy, true );
 }
 
+double IsisAdjustCameraModel::ephemeris_time( Vector2 const& pix ) const {
+  SetTime( pix, false );
+  return m_camera->EphemerisTime();
+}
+
 //-------------------------------------------------------------------------
 //  Solver for projecting points into the camera
 //-------------------------------------------------------------------------

@@ -66,6 +66,8 @@ namespace camera {
     // Interfacing with equations
     //-------------------------------------------------------------------
 
+    double ephemeris_time( Vector2 const& pix ) const;
+
     boost::shared_ptr<asp::BaseEquation>
       position_func() { return m_position_f; }
 

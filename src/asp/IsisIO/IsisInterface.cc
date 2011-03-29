@@ -74,3 +74,8 @@ std::string IsisInterface::serial_number() const {
   Isis::Pvl copy( m_label );
   return Isis::SerialNumber::Compose( copy, true );
 }
+
+double IsisInterface::ephemeris_time( vw::Vector2 const& pix ) const {
+  m_camera->SetImage( pix[0]+1, pix[1]+1 );
+  return m_camera->EphemerisTime();
+}

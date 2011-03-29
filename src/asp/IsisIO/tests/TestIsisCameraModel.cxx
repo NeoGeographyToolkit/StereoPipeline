@@ -238,6 +238,7 @@ TEST(IsisCameraModel, camera_model) {
 
       Vector2 rpixel = cam.point_to_pixel( point );
       EXPECT_VECTOR_NEAR( pixel, rpixel, 0.02 );
+      EXPECT_TRUE( cam.ephemeris_time(Vector2()) );
     }
 
     Vector2 center_pixel( cam.lines(), cam.samples() );

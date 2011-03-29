@@ -72,6 +72,11 @@ namespace camera {
     std::string serial_number() const {
       return m_interface->serial_number(); }
 
+    // Returns the ephemeris time for a pixel
+    double ephemeris_time( Vector2 const& pix ) const {
+      return m_interface->ephemeris_time( pix );
+    }
+
   protected:
     boost::shared_ptr<asp::isis::IsisInterface> m_interface;
 

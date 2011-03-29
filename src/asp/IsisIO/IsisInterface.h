@@ -56,6 +56,7 @@ namespace isis {
     int lines() const { return m_camera->Lines(); }
     int samples() const { return m_camera->Samples(); }
     std::string serial_number() const;
+    double ephemeris_time( vw::Vector2 const& pix ) const;
 
   protected:
     // Standard Variables
