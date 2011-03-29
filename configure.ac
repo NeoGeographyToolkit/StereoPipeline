@@ -421,7 +421,7 @@ AM_CONDITIONAL(MAKE_APP_ISISADJUSTCNETCLIP, [test "$MAKE_APP_ISISADJUSTCNETCLIP"
 # final processing
 ##################################################
 
-ASP_CPPFLAGS="-I\${top_srcdir}/src $OTHER_CPPFLAGS"
+ASP_CPPFLAGS="-I\${top_srcdir}/src $OTHER_CPPFLAGS -DBOOST_FILESYSTEM_VERSION=2"
 ASP_LDFLAGS="$OTHER_LDFLAGS"
 
 # Do this last, to make sure it's not overridden
