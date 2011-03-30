@@ -4,7 +4,7 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-// (Pho)tometry (It)eration Normalizing module
+// (Pho)tometry (It)eration (Norm)alizing module
 //
 // Reads min and max pixel values from the Project File and
 // uses these to normalize across the entire Albedo.plate
@@ -121,6 +121,10 @@ void normalize_plate( Options const& opt, ProjectMeta const& ptk_meta,
       } // end for iy
     } // end for ix
   } // end foreach
+
+  tpc.report_finished();
+  albedo_plate->write_complete();
+  albedo_plate->transaction_complete(transaction_id,true);
 }
 
 int main( int argc, char *argv[] ) {

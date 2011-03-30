@@ -12,6 +12,9 @@
 namespace asp {
 namespace pho {
 
+  static const std::string JOB_PIXVAL_PATH_PREFIX = "/tmp/job";
+  static const std::string JOB_PIXVAL_PATH_SUFFIX = "_pixvals.tmp";
+
   template<typename PixelT>
   class ExtremePixvalAccumulator : public vw::ReturnFixedType<void> {
     typedef typename vw::PixelChannelType<PixelT>::type ChannelType;

@@ -46,14 +46,12 @@ struct Options {
 void update_job_pixvals(int32 job_id, float32 min, float32 max)
 {
   ostringstream ostr;
-  ostr << "/tmp/job" << job_id << "_pixvals.tmp";
+  ostr << JOB_PIXVAL_PATH_PREFIX << job_id << JOB_PIXVAL_PATH_SUFFIX;
+  //"/tmp/job" << job_id << "_pixvals.tmp";
 
-  ofstream tmpfile(ostr.str().c_str(), std::ios::in);
-  tmpfile.precision(10);
-  tmpfile.setf(std::ios::fixed);
-
-  tmpfile << min << "\n";
-  tmpfile << max << "\n";
+  ofstream tmpfile(ostr.str().c_str(), std::ios::in|std::ios::binary);
+  tmpfile.write((char*)&min, sizeof(float32));
+  tmpfile.write((char*)&max, sizeof(float32));
 
   tmpfile.close();
 }
