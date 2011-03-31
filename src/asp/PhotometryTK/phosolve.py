@@ -58,6 +58,9 @@ def main():
             for result in results:
                 result.get()
 
+            # Pull together per-job pixval extremum
+            job_func("phoitpixvals -n %d %s" % (2*options.threads,args[0]))
+
             # Mipmap up the levels
             # Need to add region arguments based on level
             #
@@ -65,7 +68,7 @@ def main():
             region_arg = "0,0:%d,%d@%d" % (tiles_per_side, tiles_per_side, options.level)
 
             print " --- MIPMAP ---"
-            os.system("mipmap --region "+region_arg+" "+albedo_url)
+            job_func("mipmap --region "+region_arg+" "+albedo_url)
 
             # Update the Time Estimate
             time_cmd = []
@@ -79,6 +82,14 @@ def main():
             results = [pool.apply_async(job_func, (cmd,)) for cmd in time_cmd]
             for result in results:
                 result.get()
+
+        norm_cmd = []
+        for i in range(options.threads):
+            cmd = "phoitnorm -l %d -j %d -n %d %s" % (options.level, i, options.threads, args[0]))
+            norm_cmd.append(cmd)
+        results = [pool.apply_async(job_func, (cmd,)) for cmd in norm_cmd]
+        for result in results:
+            result.get()
 
     except Usage, err:
         print >>sys.stderr, err.msg
