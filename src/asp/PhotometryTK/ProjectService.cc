@@ -236,10 +236,10 @@ ProjectServiceImpl::CameraWrite(::google::protobuf::RpcController* /*controller*
 }
 
 void 
-ProjectServiceImpl::PixvalWrite(::google::protobuf::RpcController* controller,
-				const ::asp::pho::PixvalWriteRequest* request,
-				::asp::pho::PixvalWriteReply* response,
-				::google::protobuf::Closure* done) 
+ProjectServiceImpl::PixvalAdd(::google::protobuf::RpcController* controller,
+			      const ::asp::pho::PixvalAddRequest* request,
+			      ::asp::pho::PixvalAddReply* response,
+			      ::google::protobuf::Closure* done) 
 {
   if ( request->project_id() < 0 ||
        request->project_id() >= int32(m_project_metas.size()) ) {
@@ -248,9 +248,64 @@ ProjectServiceImpl::PixvalWrite(::google::protobuf::RpcController* controller,
     return;
   }
 
-  m_project_metas[ request->project_id() ].set_min_pixval( request->min_pixval() );
-  m_project_metas[ request->project_id() ].set_max_pixval( request->max_pixval() );
+  m_project_metas[ request->project_id() ].add_min_pixval_vec( request->min_pixval() );
+  m_project_metas[ request->project_id() ].add_max_pixval_vec( request->max_pixval() );
   response->set_project_id( request->project_id() );
+
+  done->Run();
+}
+
+void 
+ProjectServiceImpl::PixvalGetAndReset(::google::protobuf::RpcController* controller,
+				      const ::asp::pho::PixvalGetAndResetRequest* request,
+				      ::asp::pho::PixvalGetAndResetReply* response,
+				      ::google::protobuf::Closure* done)
+{
+  if ( request->project_id() < 0 ||
+       request->project_id() >= int32(m_project_metas.size()) ) {
+    response->set_project_id( -1 );
+    done->Run();
+    return;
+  }
+
+  if (m_project_metas[ request->project_id() ].min_pixval_vec_size() == 0 ||
+      m_project_metas[ request->project_id() ].max_pixval_vec_size() == 0) {
+    response->set_project_id( request->project_id() );
+    response->set_min_pixval( m_project_metas[ request->project_id() ].min_pixval() );
+    response->set_max_pixval( m_project_metas[ request->project_id() ].max_pixval() );
+    
+    done->Run();
+    return;
+  }
+
+  double min = 0;
+  for(int i = 0; i < m_project_metas[ request->project_id() ].min_pixval_vec_size(); i++) {
+    double newmin = m_project_metas[ request->project_id() ].min_pixval_vec(i);
+    //std::cout << "newmin=" << newmin << "\n";
+    if (0 == i) min = newmin;
+    else {
+      if (newmin < min) min = newmin;
+    }
+  }
+  m_project_metas[ request->project_id() ].set_min_pixval(min);
+
+  double max = 0;
+  for(int i = 0; i < m_project_metas[ request->project_id() ].max_pixval_vec_size(); i++) {
+    double newmax = m_project_metas[ request->project_id() ].max_pixval_vec(i);
+    //std::cout << "newmax=" << newmax << "\n";
+    if (0 == i) max = newmax;
+    else {
+      if (newmax > max) max = newmax;
+    }
+  }
+  m_project_metas[ request->project_id() ].set_max_pixval(max);
+  
+  m_project_metas[ request->project_id() ].clear_min_pixval_vec();
+  m_project_metas[ request->project_id() ].clear_max_pixval_vec();
+
+  response->set_project_id( request->project_id() );
+  response->set_min_pixval(min);
+  response->set_max_pixval(max);
 
   done->Run();
 }

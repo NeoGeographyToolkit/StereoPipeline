@@ -23,6 +23,10 @@ TEST(ProjectFileIO, circle_test) {
   proj_st.set_name("monkey");
   proj_st.set_reflectance( ProjectMeta::LUNARL_GASKALL );
   proj_st.set_num_cameras( 256 );
+  proj_st.set_min_pixval( 1 );
+  proj_st.set_max_pixval( 2 );
+  proj_st.set_init_error( 0.05 );
+  proj_st.set_last_error( 0.15 );
 
   std::list<CameraMeta> cam_st;
   for ( size_t i = 0; i < 256; i++ ) {
@@ -64,6 +68,14 @@ TEST(ProjectFileIO, circle_test) {
       EXPECT_NEAR( double(i), cam.exposure_t(), 1e-6 );
       i++;
     }
+    EXPECT_EQ( proj_st.min_pixval(),
+	       proj_end.min_pixval() );
+    EXPECT_EQ( proj_st.max_pixval(),
+	       proj_end.max_pixval() );
+    EXPECT_EQ( proj_st.init_error(),
+	       proj_end.init_error() );
+    EXPECT_EQ( proj_st.last_error(),
+	       proj_end.last_error() );
   }
 
   fs::remove_all("test.ptk");

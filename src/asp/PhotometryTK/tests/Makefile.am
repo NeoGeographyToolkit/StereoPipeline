@@ -17,9 +17,11 @@ TestAlbedoAccumulators_SOURCES = TestAlbedoAccumulators.cxx
 TestTimeAccumulators_SOURCES   = TestTimeAccumulators.cxx
 TestErrorAccumulators_SOURCES  = TestErrorAccumulators.cxx
 TestFullIteration_SOURCES      = TestFullIteration.cxx
+TestRecursiveBBoxAccumulator_SOURCES   = TestRecursiveBBoxAccumulator.cxx
 
 TESTS = TestProjectFileIO TestProjectService TestAlbedoAccumulators   \
-        TestTimeAccumulators TestErrorAccumulators TestFullIteration
+        TestTimeAccumulators TestErrorAccumulators TestFullIteration \
+        TestRecursiveBBoxAccumulator
 
 endif
 

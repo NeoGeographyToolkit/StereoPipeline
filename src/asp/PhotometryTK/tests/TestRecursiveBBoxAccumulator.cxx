@@ -4,6 +4,7 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+#include <gtest/gtest.h>
 #include <asp/PhotometryTK/RecursiveBBoxAccumulator.h>
 
 using namespace vw;
@@ -36,12 +37,40 @@ public:
   }
 };
 
-int main( int argc, char *argv[] ) 
-{
+class RecursiveBBoxAccumulatorTest : public ::testing::Test {
+protected:
+  RecursiveBBoxAccumulatorTest() {}
+
+  virtual void SetUp() {
+    int tiles = 1024*1024;
+    for(int i = 0; i < 9; i++) {
+      int size = 1<<(2*i);
+      levelSizeMap[i] = size;
+      levelValMap[i] = tiles/size;
+    }
+  }
+
+  std::map<int,int> levelSizeMap;
+  std::map<int,int> levelValMap;
+};
+
+TEST_F( RecursiveBBoxAccumulatorTest, SumOnes ) {
   TestAccumFunc<int,Vector2i> funcProto;
   
-  RecursiveBBoxAccumulator<TestAccumFunc<int,Vector2i> > accum(64, funcProto);
+  RecursiveBBoxAccumulator<TestAccumFunc<int,Vector2i> > accum(16, funcProto);
 
   BBox2i box(0,0,1024,1024);
   TestAccumFunc<int,Vector2i> ret = accum(box);
+
+  std::map<int,std::vector<double> > rt = accum.getRecurseTracking();
+  std::map<int,std::vector<double> >::iterator iter;
+  for(iter = rt.begin(); iter != rt.end(); iter++) {
+    int level = (*iter).first;
+    std::vector<double> vals = (*iter).second;
+
+    EXPECT_EQ( levelSizeMap[level], vals.size() );
+    EXPECT_EQ( levelValMap[level], vals[0] );
+
+    std::cout << "[" << level << "] = (" << vals.size() << " * [" << vals[0] << "] )\n";
+  }  
 }

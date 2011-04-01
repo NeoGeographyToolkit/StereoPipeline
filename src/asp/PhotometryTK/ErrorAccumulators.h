@@ -8,6 +8,11 @@
 #ifndef __ASP_PHO_ERROR_ACCUMULATORS_H__
 #define __ASP_PHO_ERROR_ACCUMULATORS_H__
 
+#include <asp/pho/RecursiveBBoxAccumulator.h>
+
+using vw;
+using vw::plate;
+
 namespace asp {
 namespace pho {
 
@@ -48,6 +53,59 @@ namespace pho {
 
     value_type value() const {
       return m_error_sum;
+    }
+  };
+
+  // Wraps error accumulator
+  template<typename ScalarT, typename ElementT>
+  class ErrorAccumulatorFunc : public AccumulatorFunc<ScalarT, ElementT> {
+  protected:
+    int m_level;
+    int32 m_maxTid;
+    double m_exposureTime;
+    boost::shared_ptr<PlateFile> m_drg;
+    boost::shared_ptr<PlateFile> m_albedo;
+    boost::shared_ptr<PlateFile> m_reflect;
+
+    ScalarT m_sum;
+    
+  public:
+    ErrorAccumulatorFunc(int level,
+			 int32 maxTid,
+			 double exposureTime,
+			 boost::shared_ptr<PlateFile> drg,
+			 boost::shared_ptr<PlateFile> albedo,
+			 boost::shared_ptr<PlateFile> reflect) : 
+    m_level(level), m_maxTid(maxTid), m_exposureTime(exposureTime), m_drg(drg), m_albedo(albedo), m_reflect(reflect), m_sum(0) {}
+    
+    ErrorAccumulatorFunc(ErrorAccumulatorFunc const& other) :
+    m_level(level), m_maxTid(maxTid), m_exposureTime(other.m_exposureTime), m_drg(other.m_drg), m_albedo(other.m_albedo), m_reflect(other.m_reflect), m_sum(0) {}
+
+    ~ErrorAccumulatorFunc() {}
+
+    /**
+     * For this class, ElementT must be something that holds to int values
+     * and has array accessor operators.
+     */
+    void operator()(ElementT const& e) {
+      int ix = e[0];
+      int iy = e[1];
+
+      ErrorAccumulator pixAccum(m_exposureTime);
+
+      std::list<TileHeader> drg_tiles = 
+	m_drg->search_by_location( ix, iy, m_level, 0, m_maxTid, true );
+
+      BOOST_FOREACH(const TileHeader& drg_tile, drg_tiles) {
+      }
+    }
+
+    void operator()(AccumulatorFunc<ScalarT,ElementT> const& e) {
+      m_sum += e.value();
+    }
+
+    ScalarT value() const {
+      return m_sum;
     }
   };
 

@@ -25,6 +25,8 @@ message ProjectMeta {
     required double max_pixval = 11 [default=0]; // Update this so we can normalize at the end
     required double init_error = 12 [default=0]; // Save initial error so we can compare later error values
     required double last_error = 13 [default=0]; // Update this so we can gauge quality of results
+    repeated double min_pixval_vec = 14;
+    repeated double max_pixval_vec = 15;
 }
 
 message CameraMeta {
@@ -83,14 +85,24 @@ message CameraCreateReply {
   required int32 camera_id = 2;  // assigns number
 }
 
-message PixvalWriteRequest {
+message PixvalAddRequest {
   required int32 project_id = 1;
   required double min_pixval = 2;
   required double max_pixval = 3;
 }
 
-message PixvalWriteReply {
+message PixvalAddReply {
   required int32 project_id = 1;
+}
+
+message PixvalGetAndResetRequest {
+  required int32 project_id = 1;
+}
+
+message PixvalGetAndResetReply {
+  required int32 project_id = 1;
+  required double min_pixval = 2;
+  required double max_pixval = 3;
 }
 
 message CameraReadRequest {
@@ -123,7 +135,8 @@ service ProjectService {
   rpc LastErrorUpdate (LastErrorUpdateRequest) returns (LastErrorUpdateReply);
 
   // Max/min pixval Interface
-  rpc PixvalWrite (PixvalWriteRequest) returns (PixvalWriteReply);
+  rpc PixvalAdd (PixvalAddRequest) returns (PixvalAddReply);
+  rpc PixvalGetAndReset (PixvalGetAndResetRequest) returns (PixvalGetAndResetReply);
 
   // Camera Interface
   rpc CameraCreate (CameraCreateRequest) returns (CameraCreateReply);

@@ -33,7 +33,8 @@ namespace pho {
     void set_iteration( vw::int32 const& i );
     void set_init_error( vw::float32 const& init_error );
     void set_last_error( vw::float32 const& last_error );
-    void set_pixvals(vw::float32 const& min, vw::float32 const& max);
+    void add_pixvals(vw::float32 const& min, vw::float32 const& max);
+    void get_and_reset_pixvals(vw::float32& min, vw::float32& max);
 
     // Returns it's index
     // --- User should read back camera meta

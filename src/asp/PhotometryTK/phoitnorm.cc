@@ -71,7 +71,9 @@ void handle_arguments( int argc, char* argv[], Options& opt ) {
               << usage.str() << general_options );  
 }
 
-void normalize_plate( Options const& opt, ProjectMeta const& ptk_meta,
+void normalize_plate( Options const& opt, 
+		      RemoteProjectFile& remote_ptk,
+		      ProjectMeta const& ptk_meta,
 		      boost::shared_ptr<PlateFile> drg_plate,
 		      boost::shared_ptr<PlateFile> albedo_plate,
 		      std::list<BBox2i> const& workunits ) {
@@ -85,8 +87,11 @@ void normalize_plate( Options const& opt, ProjectMeta const& ptk_meta,
   ImageView<PixelGrayA<float32> > image_temp;
   ImageView<PixelGray<float32> > image_noalpha;
 
-  float32 minPixval = ptk_meta.min_pixval();
-  float32 maxPixval = ptk_meta.max_pixval();
+  float32 minPixval = 0;
+  float32 maxPixval = 0;
+  remote_ptk.get_and_reset_pixvals(minPixval, maxPixval);
+
+  std::cout << "phoitnorm: normalizing with old pixvals min=[" << minPixval << "] max=[" << maxPixval << "]\n";
 
   BOOST_FOREACH(const BBox2i& workunit, workunits) {
     tpc.report_incremental_progress( tpc_inc );
@@ -160,7 +165,7 @@ int main( int argc, char *argv[] ) {
         count++;      
       }
 
-      normalize_plate(opt, project_info, drg_plate, albedo_plate, workunits );
+      normalize_plate(opt, remote_ptk, project_info, drg_plate, albedo_plate, workunits );
     }
   } ASP_STANDARD_CATCHES;
 }

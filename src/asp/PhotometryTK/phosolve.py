@@ -58,9 +58,6 @@ def main():
             for result in results:
                 result.get()
 
-            # Pull together per-job pixval extremum
-            job_func("phoitpixvals -n %d %s" % (2*options.threads,args[0]))
-
             # Mipmap up the levels
             # Need to add region arguments based on level
             #
@@ -85,7 +82,7 @@ def main():
 
         norm_cmd = []
         for i in range(options.threads):
-            cmd = "phoitnorm -l %d -j %d -n %d %s" % (options.level, i, options.threads, args[0]))
+            cmd = "phoitnorm -l %d -j %d -n %d %s" % (options.level, i, options.threads, args[0])
             norm_cmd.append(cmd)
         results = [pool.apply_async(job_func, (cmd,)) for cmd in norm_cmd]
         for result in results:

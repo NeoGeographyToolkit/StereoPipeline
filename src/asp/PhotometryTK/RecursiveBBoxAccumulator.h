@@ -41,16 +41,23 @@ namespace pho {
     int m_accumListMaxSize;
     AccumFuncT m_funcProto;
 
-    // Debugging only - remove once tested
-    int m_recurseLevel;
+    // Debugging
+    bool m_debuggingOn;
+    std::map<int,std::vector<double> > m_recurseTracking;
 
   public:
-  RecursiveBBoxAccumulator(int accumListMaxSize, AccumFuncT const& func) : m_accumListMaxSize(accumListMaxSize), m_funcProto(func), m_recurseLevel(-1) {}
+  RecursiveBBoxAccumulator(int accumListMaxSize, AccumFuncT const& func) : m_accumListMaxSize(accumListMaxSize), m_funcProto(func), m_debuggingOn(false) {}
 
-    AccumFuncT operator()(BBox2i const& box) {
+    void debug(bool on) {
+      m_debuggingOn = on;
+    }
+
+    std::map<int,std::vector<double> > getRecurseTracking() {
+      return m_recurseTracking;
+    }
+
+    AccumFuncT operator()(BBox2i const& box, int recurseLevel=0) {
       
-      m_recurseLevel++;
-
       int tileCount = box.width() * box.height();
 
       if (tileCount <= m_accumListMaxSize) {
@@ -60,31 +67,24 @@ namespace pho {
 	  for(int32 iy = box.min().y(); iy < box.max().y(); iy++) {
 	    Vector2i tile(ix, iy);
 	    f(tile);
-	    //std::cout << "adding value to func\n";
 	  }
 	}
-
-	std::cout << "sum at level [" << m_recurseLevel << "] = " << f.value() << "\n";
+	
+	if (m_debuggingOn) m_recurseTracking[recurseLevel].push_back(f.value());
 
 	return f;
       }
       else {
 	std::list<BBox2i> boxes = bbox_tiles(box, box.width()/2, box.height()/2);
 
-	//std::cout << "boxes=" << boxes.size() << "\n";
-
 	std::list<BBox2i>::iterator iter;
 	AccumFuncT f(m_funcProto);
 	for(iter = boxes.begin(); iter != boxes.end(); iter++) {
-	  f( (*this)(*iter) );
-	  //std::cout << "adding value to func\n";
+	  f( (*this)(*iter, recurseLevel+1) );
 	}
 
-	std::cout << "sum at level [" << m_recurseLevel << "] = " << f.value() << "\n";
-	
-	if (m_recurseLevel > 0)
-	  m_recurseLevel--;
-	
+	if (m_debuggingOn) m_recurseTracking[recurseLevel].push_back(f.value());
+		
 	return f;
       }
     }

@@ -43,19 +43,6 @@ struct Options {
   int32 job_id, num_jobs;
 };
 
-void update_job_pixvals(int32 job_id, float32 min, float32 max)
-{
-  ostringstream ostr;
-  ostr << JOB_PIXVAL_PATH_PREFIX << job_id << JOB_PIXVAL_PATH_SUFFIX;
-  //"/tmp/job" << job_id << "_pixvals.tmp";
-
-  ofstream tmpfile(ostr.str().c_str(), std::ios::in|std::ios::binary);
-  tmpfile.write((char*)&min, sizeof(float32));
-  tmpfile.write((char*)&max, sizeof(float32));
-
-  tmpfile.close();
-}
-
 template <class AlbedoAccumulatorT, class PixvalAccumulatorT>
 void initial_albedo( Options const& opt,
 		     ProjectMeta const& ptk_meta,
@@ -317,8 +304,8 @@ int main( int argc, char *argv[] ) {
     }
 
     // Initialize pixval accumulator
-    float32 minPixval = project_info.min_pixval();
-    float32 maxPixval = project_info.max_pixval();
+    float32 minPixval = 0;
+    float32 maxPixval = 0;
     ExtremePixvalAccumulator<PixelGrayA<float32> > pixvalAccum(minPixval, maxPixval);
 
     // Determine if we're updating or initializing
@@ -342,7 +329,12 @@ int main( int argc, char *argv[] ) {
 
     // Write out pixval results for this job    
     pixvalAccum.values(minPixval, maxPixval);
-    update_job_pixvals(opt.job_id, minPixval, maxPixval);
+
+    std::cout.precision(10);
+    std::cout.setf(std::ios::fixed);
+    std::cout << "pixvals so far: min=[" << minPixval << "] max=[" << maxPixval << "]\n";
+
+    remote_ptk.add_pixvals(minPixval, maxPixval);
     
   } ASP_STANDARD_CATCHES;
 

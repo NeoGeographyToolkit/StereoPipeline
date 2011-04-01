@@ -61,10 +61,14 @@ namespace pho {
                              const ::asp::pho::CameraWriteRequest* request,
                              ::asp::pho::CameraWriteReply* response,
                              ::google::protobuf::Closure* done);
-    virtual void PixvalWrite(::google::protobuf::RpcController* controller,
-			     const ::asp::pho::PixvalWriteRequest* request,
-			     ::asp::pho::PixvalWriteReply* response,
-			     ::google::protobuf::Closure* done);
+    virtual void PixvalAdd(::google::protobuf::RpcController* controller,
+			   const ::asp::pho::PixvalAddRequest* request,
+			   ::asp::pho::PixvalAddReply* response,
+			   ::google::protobuf::Closure* done);
+    virtual void PixvalGetAndReset(::google::protobuf::RpcController* controller,
+				   const ::asp::pho::PixvalGetAndResetRequest* request,
+				   ::asp::pho::PixvalGetAndResetReply* response,
+				   ::google::protobuf::Closure* done);
 
   };
 
