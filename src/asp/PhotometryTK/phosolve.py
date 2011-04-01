@@ -31,6 +31,8 @@ def main():
                               help="Lowest level to process at",type="int")
             parser.add_option("-i", "--iter", dest="iterations",
                               help="Max iterations to perform",type="int")
+            parser.add_option('-n', action='store_true', dest="norm",
+                              help="Normalize at the end of this call",default=False)
 
             (options, args) = parser.parse_args()
 
@@ -80,13 +82,14 @@ def main():
             for result in results:
                 result.get()
 
-        norm_cmd = []
-        for i in range(options.threads):
-            cmd = "phoitnorm -l %d -j %d -n %d %s" % (options.level, i, options.threads, args[0])
-            norm_cmd.append(cmd)
-        results = [pool.apply_async(job_func, (cmd,)) for cmd in norm_cmd]
-        for result in results:
-            result.get()
+        if ( options.norm ):
+            norm_cmd = []
+            for i in range(options.threads):
+                cmd = "phoitnorm -l %d -j %d -n %d %s" % (options.level, i, options.threads, args[0])
+                norm_cmd.append(cmd)
+            results = [pool.apply_async(job_func, (cmd,)) for cmd in norm_cmd]
+            for result in results:
+                result.get()
 
     except Usage, err:
         print >>sys.stderr, err.msg
