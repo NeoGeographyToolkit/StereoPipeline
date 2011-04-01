@@ -6,12 +6,16 @@
 # __END_LICENSE__
 
 
-import os, optparse, multiprocessing, sys;
+import os, optparse, multiprocessing, sys, subprocess, shlex;
 from multiprocessing import Pool
 
 def job_func(cmd):
-    os.system(cmd);
-    return cmd;
+    #print "Running [", cmd, "]\n"
+    args = shlex.split(cmd)
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    print proc.stderr.read()
+    print proc.stdout.read()
+    return cmd
 
 class Usage(Exception):
     def __init__(self,msg):
@@ -51,10 +55,14 @@ def main():
             print " --- ALBEDO ---"
             albedo_cmd = []
             for i in range(2*options.threads):
-                cmd = "phoitalbedo "
+                levelArg = ""
+                cmdTmp = "phoitalbedo %s -j %d -n %d %s"
                 if ( options.level > 0 ):
-                    cmd = cmd + "-l "+str(options.level)+" "
-                cmd = cmd + "-j "+str(i)+" -n "+str(2*options.threads)+" "+args[0]
+                    levelArg = "-l %d" % (options.level)
+                cmd = cmdTmp % (levelArg, i, 2*options.threads, args[0])
+                #cmd = cmd + "-l "+str(options.level)+" "
+                #cmd = "phoitalbedo -j %d -n %d %s" % (options.level, i, 2*options.threads, args[0])
+                #cmd = cmd + "-j "+str(i)+" -n "+str(2*options.threads)+" "+args[0]
                 albedo_cmd.append( cmd )
             results = [pool.apply_async(job_func, (cmd,)) for cmd in albedo_cmd]
             for result in results:
@@ -73,10 +81,11 @@ def main():
             time_cmd = []
             print " --- TIME ---"
             for i in range(options.threads):
-                cmd = "phoittime "
+                levelArg = ""
+                cmdTmp = "phoittime %s -j %d -n %d %s"
                 if ( options.level > 0 ):
-                    cmd = cmd + "-l "+str(options.level)+" "
-                cmd = cmd + "-j "+str(i)+" -n "+str(options.threads)+" "+args[0]
+                    levelArg = "-l %d" % (options.level)
+                cmd = cmdTmp % (levelArg, i, options.threads, args[0])
                 time_cmd.append(cmd)
             results = [pool.apply_async(job_func, (cmd,)) for cmd in time_cmd]
             for result in results:
