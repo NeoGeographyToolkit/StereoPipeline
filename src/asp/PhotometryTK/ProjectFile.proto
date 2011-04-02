@@ -36,6 +36,8 @@ message CameraMeta {
     optional int32 base_transaction_id = 4;
     repeated double sun_vec = 5;
     repeated double cam_vec = 6;
+    required double init_error = 7;
+    required double last_error = 8;
 }
 
 // Project File Service

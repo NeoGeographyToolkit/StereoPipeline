@@ -62,7 +62,7 @@ namespace pho {
       
       int tileCount = box.width() * box.height();
 
-      if (tileCount <= m_accumListMaxSize) {
+      if (tileCount <= m_accumListMaxSize || box.width() == 1 || box.height() == 1) {
 	AccumFuncT f(m_funcProto);
 
 	for(int32 ix = box.min().x(); ix < box.max().x(); ix++) {
@@ -71,19 +71,32 @@ namespace pho {
 	    f(tile);
 	  }
 	}
-	
+
+	/*	
+	if (f.value() > 0)
+	  std::cout << "LEAF Partial sum @[" << recurseLevel << "] = [" << f.value() << "]\n";
+	*/
+
 	if (m_debuggingOn) m_recurseTracking[recurseLevel].push_back(f.value());
 
 	return f;
       }
       else {
-	std::list<BBox2i> boxes = bbox_tiles(box, box.width()/2, box.height()/2);
+	int wnew = (box.width() <= 1)?1:(box.width()/2);
+	int hnew = (box.height() <= 1)?1:(box.height()/2);
+
+	std::list<BBox2i> boxes = bbox_tiles(box, wnew, hnew);
 
 	std::list<BBox2i>::iterator iter;
 	AccumFuncT f(m_funcProto);
 	for(iter = boxes.begin(); iter != boxes.end(); iter++) {
 	  f( (*this)(*iter, recurseLevel+1) );
 	}
+
+	/*
+	if (f.value() > 0)
+	  std::cout << "INTERNAL Partial sum @[" << recurseLevel << "] = [" << f.value() << "]\n";
+	*/
 
 	if (m_debuggingOn) m_recurseTracking[recurseLevel].push_back(f.value());
 		

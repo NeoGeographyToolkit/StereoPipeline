@@ -77,6 +77,13 @@ def main():
             print " --- MIPMAP ---"
             job_func("mipmap --region "+region_arg+" "+albedo_url)
 
+            # Update the error
+            #error_cmd = []
+            #print " --- ERROR ---"
+            #for i in range(options.threads):
+            #    levelArg = ""
+            #    cmdTmp = "phoiterror %s -j %d
+
             # Update the Time Estimate
             time_cmd = []
             print " --- TIME ---"

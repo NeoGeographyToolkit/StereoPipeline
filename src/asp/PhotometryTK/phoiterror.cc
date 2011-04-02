@@ -17,8 +17,10 @@
 
 #include <vw/Image.h>
 #include <asp/Core/Macros.h>
+#include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/ErrorAccumulators.h>
 using namespace vw;
+using namespace asp::pho;
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
@@ -53,7 +55,7 @@ void update_error( Options& opt ) {
     CameraMeta cam_info;
     remote_ptk.get_camera(j, cam_info);
 
-    ErrorNRAccumulatorFunc funcProto(opt.level, j+1, cam_info.exposure_t(), drg_plate, albedo_plate);
+    ErrorNRAccumulatorFunc<double,Vector2i> funcProto(opt.level, j+1, cam_info.exposure_t(), drg_plate, albedo_plate);
     
     std::cout << "Camera[" << j << "]         exposure time: "
               << cam_info.exposure_t() << "\n";
@@ -62,13 +64,25 @@ void update_error( Options& opt ) {
     int32 quarter = full/4;
     BBox2i affected_tiles(0,quarter,full-1,quarter*2-1);
 
-    RecursiveBBoxAccumulator accum(32, funcProto);
+    RecursiveBBoxAccumulator<ErrorNRAccumulatorFunc<double,Vector2i> > accum(32, funcProto);
 
-    ErrorNRAccumulatorFunc funcResult = accum(affected_tiles);
+    ErrorNRAccumulatorFunc<double,Vector2i> funcResult = accum(affected_tiles);
+
+    std::cout << "cam[" << j << "] error=[" << funcResult.value() << "]\n";
 
     // Once I have the API, call funcResult.value() and 
     // add it to the existing value in the current camera
+    if (project_info.current_iteration() == 0) {
+      cam_info.set_init_error(funcResult.value());
+    }
+    else {
+      cam_info.set_last_error(funcResult.value());
+    }
   }
+
+  // Compare init error and most recent error:
+  std::cout << "Init error=[" << project_info.get_init_error() << "]\n";
+  std::cout << "Last error=[" << project_info.get_last_error() << "]\n";
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -79,9 +93,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "")
     ("help,h", "Display this help message");
 
+  po::options_description positional("");
+  positional.add_options()
+    ("ptk_url",  po::value(&opt.ptk_url),  "Input PTK Url");
+
+  po::positional_options_description positional_desc;
+  positional_desc.add("ptk_url", 1);
+
+  po::options_description all_options;
+  all_options.add(general_options).add(positional);
+
   po::variables_map vm;
   try {
-    po::store( po::command_line_parser( argc, argv ).options(general_options).run(), vm );
+    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
     po::notify( vm );
   } catch (po::error &e) {
     vw_throw( ArgumentErr() << "Error parsing input:\n\t"

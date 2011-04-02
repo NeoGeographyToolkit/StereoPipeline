@@ -70,26 +70,32 @@ namespace pho {
     CHECK_PROJECT_ID();
   }
 
-  void RemoteProjectFile::set_init_error( float32 const& init_error )
+  float32 RemoteProjectFile::get_init_error()
   {
-    InitErrorUpdateRequest request;
-    request.set_project_id( m_project_id );
-    request.set_init_error( init_error );
-    InitErrorUpdateReply response;
-    m_client->InitErrorUpdate( m_client.get(), &request, &response,
-			       null_callback() );
-    CHECK_PROJECT_ID();
+    ProjectMeta meta;
+    get_project( meta );
+    double totalError = 0;
+    for(int i = 0; i < meta.num_cameras(); i++) {
+      CameraMeta cam;
+      get_camera( i, cam );
+      totalError += cam.init_error();
+    }
+    
+    return totalError;
   }
 
-  void RemoteProjectFile::set_last_error( float32 const& last_error )
+  float32 RemoteProjectFile::get_last_error()
   {
-    LastErrorUpdateRequest request;
-    request.set_project_id( m_project_id );
-    request.set_last_error( last_error );
-    LastErrorUpdateReply response;
-    m_client->LastErrorUpdate( m_client.get(), &request, &response,
-			       null_callback() );
-    CHECK_PROJECT_ID();
+    ProjectMeta meta;
+    get_project( meta );
+    double totalError = 0;
+    for(int i = 0; i < meta.num_cameras(); i++) {
+      CameraMeta cam;
+      get_camera( i, cam );
+      totalError += cam.last_error();
+    }
+
+    return totalError;
   }
 
   int32 RemoteProjectFile::add_camera( CameraMeta const& meta ) {
