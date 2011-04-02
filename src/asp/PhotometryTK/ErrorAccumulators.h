@@ -8,10 +8,9 @@
 #ifndef __ASP_PHO_ERROR_ACCUMULATORS_H__
 #define __ASP_PHO_ERROR_ACCUMULATORS_H__
 
-#include <asp/pho/RecursiveBBoxAccumulator.h>
+#include <asp/PhotometryTK/RecursiveBBoxAccumulator.h>
 
-using vw;
-using vw::plate;
+using namespace vw;
 
 namespace asp {
 namespace pho {
@@ -58,30 +57,28 @@ namespace pho {
 
   // Wraps error accumulator
   template<typename ScalarT, typename ElementT>
-  class ErrorAccumulatorFunc : public AccumulatorFunc<ScalarT, ElementT> {
+  class ErrorNRAccumulatorFunc : public AccumulatorFunc<ScalarT, ElementT> {
   protected:
     int m_level;
-    int32 m_maxTid;
+    int32 m_transactionId;
     double m_exposureTime;
     boost::shared_ptr<PlateFile> m_drg;
     boost::shared_ptr<PlateFile> m_albedo;
-    boost::shared_ptr<PlateFile> m_reflect;
 
     ScalarT m_sum;
     
   public:
-    ErrorAccumulatorFunc(int level,
-			 int32 maxTid,
-			 double exposureTime,
-			 boost::shared_ptr<PlateFile> drg,
-			 boost::shared_ptr<PlateFile> albedo,
-			 boost::shared_ptr<PlateFile> reflect) : 
-    m_level(level), m_maxTid(maxTid), m_exposureTime(exposureTime), m_drg(drg), m_albedo(albedo), m_reflect(reflect), m_sum(0) {}
+    ErrorNRAccumulatorFunc(int level,
+			   int32 transactionId,
+			   double exposureTime,
+			   boost::shared_ptr<PlateFile> drg,
+			   boost::shared_ptr<PlateFile> albedo) : 
+    m_level(level), m_transactionId(transactionId), m_exposureTime(exposureTime), m_drg(drg), m_albedo(albedo), m_sum(0) {}
     
-    ErrorAccumulatorFunc(ErrorAccumulatorFunc const& other) :
-    m_level(level), m_maxTid(maxTid), m_exposureTime(other.m_exposureTime), m_drg(other.m_drg), m_albedo(other.m_albedo), m_reflect(other.m_reflect), m_sum(0) {}
+    ErrorNRAccumulatorFunc(ErrorNRAccumulatorFunc const& other) :
+    m_level(other.m_level), m_transactionId(other.m_transactionId), m_exposureTime(other.m_exposureTime), m_drg(other.m_drg), m_albedo(other.m_albedo), m_sum(other.m_sum) {}
 
-    ~ErrorAccumulatorFunc() {}
+    ~ErrorNRAccumulatorFunc() {}
 
     /**
      * For this class, ElementT must be something that holds to int values
@@ -91,13 +88,22 @@ namespace pho {
       int ix = e[0];
       int iy = e[1];
 
-      ErrorAccumulator pixAccum(m_exposureTime);
+      ErrorNRAccumulator pixAccum(m_exposureTime);
+
+      ImageView<PixelGrayA<float32> > drgTemp;
+      ImageView<PixelGrayA<float32> > albedoTemp;
 
       std::list<TileHeader> drg_tiles = 
-	m_drg->search_by_location( ix, iy, m_level, 0, m_maxTid, true );
+	m_drg->search_by_location( ix, iy, m_level, m_transactionId, m_transactionId, true );
 
       BOOST_FOREACH(const TileHeader& drg_tile, drg_tiles) {
+	m_drg->read( drgTemp, ix, iy, m_level, m_transactionId, true );
+	m_albedo->read( albedoTemp, ix, iy, m_level, -1, false );
+
+	for_each_pixel(drgTemp, albedoTemp, pixAccum);
       }
+
+      m_sum = pixAccum.value();
     }
 
     void operator()(AccumulatorFunc<ScalarT,ElementT> const& e) {
@@ -106,6 +112,10 @@ namespace pho {
 
     ScalarT value() const {
       return m_sum;
+    }
+
+    void reset() {
+      m_sum = 0;
     }
   };
 

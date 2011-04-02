@@ -33,6 +33,8 @@ namespace pho {
     virtual void operator()(AccumulatorFunc const& e)=0;
     
     virtual ScalarT value() const=0;
+
+    virtual void reset()=0;
   };
 
   template<typename AccumFuncT>
