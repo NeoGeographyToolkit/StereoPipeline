@@ -78,11 +78,13 @@ void update_error( Options& opt ) {
     else {
       cam_info.set_last_error(funcResult.value());
     }
+
+    remote_ptk.set_camera(j, cam_info);
   }
 
   // Compare init error and most recent error:
-  std::cout << "Init error=[" << project_info.get_init_error() << "]\n";
-  std::cout << "Last error=[" << project_info.get_last_error() << "]\n";
+  std::cout << "Init error=[" << remote_ptk.get_init_error() << "]\n";
+  std::cout << "Last error=[" << remote_ptk.get_last_error() << "]\n";
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {

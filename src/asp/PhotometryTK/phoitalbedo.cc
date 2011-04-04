@@ -330,9 +330,11 @@ int main( int argc, char *argv[] ) {
     // Write out pixval results for this job    
     pixvalAccum.values(minPixval, maxPixval);
 
+    /*
     std::cout.precision(10);
     std::cout.setf(std::ios::fixed);
     std::cout << "pixvals so far: min=[" << minPixval << "] max=[" << maxPixval << "]\n";
+    */
 
     remote_ptk.add_pixvals(minPixval, maxPixval);
     

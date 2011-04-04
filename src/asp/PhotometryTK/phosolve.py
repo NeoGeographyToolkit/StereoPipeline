@@ -50,19 +50,16 @@ def main():
         # Finding URL for Albedo
         albedo_url = args[0][:args[0].rfind("/")]+"_index/Albedo.plate"
 
+        levelArg = ""
+        if ( options.level > 0 ):
+            levelArg = "-l %d" % (options.level)
+
         for iteration in range(options.iterations):
             # Perform Albedo
             print " --- ALBEDO ---"
             albedo_cmd = []
             for i in range(2*options.threads):
-                levelArg = ""
-                cmdTmp = "phoitalbedo %s -j %d -n %d %s"
-                if ( options.level > 0 ):
-                    levelArg = "-l %d" % (options.level)
-                cmd = cmdTmp % (levelArg, i, 2*options.threads, args[0])
-                #cmd = cmd + "-l "+str(options.level)+" "
-                #cmd = "phoitalbedo -j %d -n %d %s" % (options.level, i, 2*options.threads, args[0])
-                #cmd = cmd + "-j "+str(i)+" -n "+str(2*options.threads)+" "+args[0]
+                cmd = "phoitalbedo %s -j %d -n %d %s" % (levelArg, i, 2*options.threads, args[0])
                 albedo_cmd.append( cmd )
             results = [pool.apply_async(job_func, (cmd,)) for cmd in albedo_cmd]
             for result in results:
@@ -78,21 +75,20 @@ def main():
             job_func("mipmap --region "+region_arg+" "+albedo_url)
 
             # Update the error
-            #error_cmd = []
-            #print " --- ERROR ---"
-            #for i in range(options.threads):
-            #    levelArg = ""
-            #    cmdTmp = "phoiterror %s -j %d
+            error_cmd = []
+            print " --- ERROR ---"
+            for i in range(options.threads):
+                cmd = "phoiterror %s -j %d -n %d %s" % (levelArg, i, options.threads, args[0])
+                error_cmd.append(cmd)
+            results = [pool.apply_async(job_func, (cmd,)) for cmd in error_cmd]
+            for result in results:
+                result.get()
 
             # Update the Time Estimate
             time_cmd = []
             print " --- TIME ---"
             for i in range(options.threads):
-                levelArg = ""
-                cmdTmp = "phoittime %s -j %d -n %d %s"
-                if ( options.level > 0 ):
-                    levelArg = "-l %d" % (options.level)
-                cmd = cmdTmp % (levelArg, i, options.threads, args[0])
+                cmd = "phoittime %s -j %d -n %d %s" % (levelArg, i, options.threads, args[0])
                 time_cmd.append(cmd)
             results = [pool.apply_async(job_func, (cmd,)) for cmd in time_cmd]
             for result in results:
