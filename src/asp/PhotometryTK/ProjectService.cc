@@ -148,40 +148,6 @@ ProjectServiceImpl::IterationUpdate(::google::protobuf::RpcController* controlle
 }
 
 void
-ProjectServiceImpl::InitErrorUpdate(::google::protobuf::RpcController* controller,
-				    const ::asp::pho::InitErrorUpdateRequest* request,
-				    ::asp::pho::InitErrorUpdateReply* response,
-				    ::google::protobuf::Closure* done) {
-  if ( request->project_id() < 0 ||
-       request->project_id() >= int32(m_project_metas.size()) ) {
-    response->set_project_id( -1 );
-    done->Run();
-    return;
-  }
-
-  m_project_metas[ request->project_id() ].set_init_error(request->init_error());
-  response->set_project_id( request->project_id() );
-  done->Run();
-}
-
-void
-ProjectServiceImpl::LastErrorUpdate(::google::protobuf::RpcController* controller,
-				    const ::asp::pho::LastErrorUpdateRequest* request,
-				    ::asp::pho::LastErrorUpdateReply* response,
-				    ::google::protobuf::Closure* done) {
-  if ( request->project_id() < 0 ||
-       request->project_id() >= int32(m_project_metas.size()) ) {
-    response->set_project_id( -1 );
-    done->Run();
-    return;
-  }
-
-  m_project_metas[ request->project_id() ].set_last_error(request->last_error());
-  response->set_project_id( request->project_id() );
-  done->Run();
-}
-
-void
 ProjectServiceImpl::CameraCreate(::google::protobuf::RpcController* /*controller*/,
                                  const ::asp::pho::CameraCreateRequest* request,
                                  ::asp::pho::CameraCreateReply* response,

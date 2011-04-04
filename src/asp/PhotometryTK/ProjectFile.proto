@@ -23,10 +23,8 @@ message ProjectMeta {
     optional string datum_name = 9 [default="WGS84"];
     required double min_pixval = 10 [default=0]; // Update this so we can normalize at the end
     required double max_pixval = 11 [default=0]; // Update this so we can normalize at the end
-    required double init_error = 12 [default=0]; // Save initial error so we can compare later error values
-    required double last_error = 13 [default=0]; // Update this so we can gauge quality of results
-    repeated double min_pixval_vec = 14;
-    repeated double max_pixval_vec = 15;
+    repeated double min_pixval_vec = 13;
+    repeated double max_pixval_vec = 14;
 }
 
 message CameraMeta {
