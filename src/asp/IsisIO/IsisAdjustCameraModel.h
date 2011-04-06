@@ -59,6 +59,7 @@ namespace camera {
 
     int lines() const { return m_camera->Lines(); }
     int samples() const { return m_camera->Samples(); }
+    Vector3 sun_position( Vector2 const& pix = Vector2() ) const;
 
     std::string serial_number() const;
 

@@ -79,3 +79,11 @@ double IsisInterface::ephemeris_time( vw::Vector2 const& pix ) const {
   m_camera->SetImage( pix[0]+1, pix[1]+1 );
   return m_camera->EphemerisTime();
 }
+
+vw::Vector3 IsisInterface::sun_position( vw::Vector2 const& pix ) const {
+  m_camera->SetImage( pix[0]+1, pix[1]+1 );
+  Vector3 sun;
+  m_camera->SunPosition( &sun[0] );
+  sun *= 1000;
+  return sun;
+}

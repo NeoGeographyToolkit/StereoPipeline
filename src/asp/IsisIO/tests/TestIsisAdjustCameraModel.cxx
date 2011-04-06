@@ -77,7 +77,12 @@ TEST_F(IsisAdjustCameraTest, NoFunctions) {
                           noa_cam.camera_pose( pixels[i] ).rotation_matrix(),
                           0.001 );
 
-      EXPECT_TRUE( cam.ephemeris_time(pixels.size()) );
+      EXPECT_TRUE( cam.ephemeris_time(pixels[i]) );
+      EXPECT_TRUE( cam.sun_position(pixels[i]) != Vector3() );
+      EXPECT_EQ( cam.ephemeris_time(pixels[i]),
+                 noa_cam.ephemeris_time(pixels[i]));
+      EXPECT_VECTOR_NEAR( cam.sun_position(pixels[i]),
+                          noa_cam.sun_position(pixels[i]), 1e-8 );
 
       // Test Circle Projection
       Vector2 rpixel = cam.point_to_pixel( points[i] );

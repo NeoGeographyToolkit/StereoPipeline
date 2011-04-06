@@ -27,11 +27,8 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
   m_camera->Radii( m_radii );
 
   // Calculating Center (just once)
-  double ipos[3];
-  m_camera->InstrumentPosition(ipos);
-  m_center[0] = ipos[0]*1000;
-  m_center[1] = ipos[1]*1000;
-  m_center[2] = ipos[2]*1000;
+  m_camera->InstrumentPosition(&m_center[0]);
+  m_center *= 1000;
 
   // Calculating Pose (just once)
   std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();

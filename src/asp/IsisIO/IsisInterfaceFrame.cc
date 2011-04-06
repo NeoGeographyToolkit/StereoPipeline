@@ -23,11 +23,8 @@ IsisInterfaceFrame::IsisInterfaceFrame( std::string const& filename ) :
   m_alphacube  = new Isis::AlphaCube( m_label );
 
   // Calculating Center (just once)
-  double ipos[3];
-  m_camera->InstrumentPosition(ipos);
-  m_center[0] = ipos[0]*1000;
-  m_center[1] = ipos[1]*1000;
-  m_center[2] = ipos[2]*1000;
+  m_camera->InstrumentPosition(&m_center[0]);
+  m_center *= 1000;
 
   // Calculating Pose (just once)
   std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
@@ -47,14 +44,10 @@ IsisInterfaceFrame::point_to_pixel( Vector3 const& point ) const {
   Vector3 look;
   look = normalize( point - m_center );
   std::vector<double> lookB_copy(3);
-  lookB_copy[0] = look[0];
-  lookB_copy[1] = look[1];
-  lookB_copy[2] = look[2];
+  std::copy( look.begin(), look.end(), lookB_copy.begin() );
   lookB_copy = m_camera->BodyRotation()->J2000Vector(lookB_copy);
   lookB_copy = m_camera->InstrumentRotation()->ReferenceVector(lookB_copy);
-  look[0] = lookB_copy[0];
-  look[1] = lookB_copy[1];
-  look[2] = lookB_copy[2];
+  std::copy( lookB_copy.begin(), lookB_copy.end(), look.begin() );
   look = m_camera->FocalLength() * ( look / look[2] );
 
   // Back Projecting
@@ -87,14 +80,10 @@ IsisInterfaceFrame::pixel_to_vector( Vector2 const& pix ) const {
   result[2] = m_distortmap->UndistortedFocalPlaneZ();
   result = normalize( result );
   std::vector<double> look(3);
-  look[0] = result[0];
-  look[1] = result[1];
-  look[2] = result[2];
+  std::copy( result.begin(), result.end(), look.begin() );
   look = m_camera->InstrumentRotation()->J2000Vector(look);
   look = m_camera->BodyRotation()->ReferenceVector(look);
-  result[0] = look[0];
-  result[1] = look[1];
-  result[2] = look[2];
+  std::copy( look.begin(), look.end(), result.begin() );
   return result;
 }
 

@@ -47,9 +47,9 @@ namespace isis {
     virtual vw::Vector3
       pixel_to_vector( vw::Vector2 const& pix ) const = 0;
     virtual vw::Vector3
-      camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const = 0;
+      camera_center( vw::Vector2 const& pix = vw::Vector2() ) const = 0;
     virtual vw::Quat
-      camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const = 0;
+      camera_pose( vw::Vector2 const& pix = vw::Vector2() ) const = 0;
 
     // General information
     //------------------------------------------------------
@@ -57,6 +57,7 @@ namespace isis {
     int samples() const { return m_camera->Samples(); }
     std::string serial_number() const;
     double ephemeris_time( vw::Vector2 const& pix ) const;
+    vw::Vector3 sun_position( vw::Vector2 const& pix = vw::Vector2() ) const;
 
   protected:
     // Standard Variables

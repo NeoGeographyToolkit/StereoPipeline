@@ -73,8 +73,12 @@ namespace camera {
       return m_interface->serial_number(); }
 
     // Returns the ephemeris time for a pixel
-    double ephemeris_time( Vector2 const& pix ) const {
+    double ephemeris_time( Vector2 const& pix = Vector2() ) const {
       return m_interface->ephemeris_time( pix );
+    }
+
+    Vector3 sun_position( Vector2 const& pix = Vector2() ) const {
+      return m_interface->sun_position( pix );
     }
 
   protected:

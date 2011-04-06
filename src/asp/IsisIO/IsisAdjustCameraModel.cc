@@ -63,11 +63,7 @@ void IsisAdjustCameraModel::SetTime( Vector2 const& px,
 
     if ( calc ) {
       // Calculating Spacecraft position and pose
-      double ipos[3];
-      m_camera->InstrumentPosition(ipos);
-      m_center[0] = ipos[0];
-      m_center[1] = ipos[1];
-      m_center[2] = ipos[2];
+      m_camera->InstrumentPosition(&m_center[0]);
       m_center *= 1000;
 
       std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
@@ -113,11 +109,7 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
   }
 
   // Pulling out camera position for current time
-  double ipos[3];
-  m_camera->InstrumentPosition(ipos);
-  m_center[0] = ipos[0];
-  m_center[1] = ipos[1];
-  m_center[2] = ipos[2];
+  m_camera->InstrumentPosition(&m_center[0]);
   m_center *= 1000;
 
   // Pulling out camera pose
@@ -190,8 +182,16 @@ std::string IsisAdjustCameraModel::serial_number() const {
 }
 
 double IsisAdjustCameraModel::ephemeris_time( Vector2 const& pix ) const {
-  SetTime( pix, false );
+  SetTime( pix+Vector2(1,1), false );
   return m_camera->EphemerisTime();
+}
+
+Vector3 IsisAdjustCameraModel::sun_position( Vector2 const& pix ) const {
+  SetTime( pix+Vector2(1,1), false );
+  Vector3 sun;
+  m_camera->SunPosition( &sun[0] );
+  sun *= 1000;
+  return sun;
 }
 
 //-------------------------------------------------------------------------
@@ -207,9 +207,8 @@ IsisAdjustCameraModel::EphemerisLMA::operator()( IsisAdjustCameraModel::Ephemeri
   // Setting Ephemeris Time
   m_camera->SetEphemerisTime( x[0] );
 
-  double ipos[3];
-  m_camera->InstrumentPosition(ipos);
-  Vector3 instru(ipos[0],ipos[1],ipos[2]);
+  Vector3 instru;
+  m_camera->InstrumentPosition(&instru[0]);
   instru *= 1000;
   instru += m_position_f->evaluate( x[0] );
 

@@ -32,11 +32,7 @@ void IsisInterfaceLineScan::SetTime( Vector2 const& px, bool calc ) const {
 
     if ( calc ) {
       // Calculating Spacecraft position and pose
-      double ipos[3];
-      m_camera->InstrumentPosition(ipos);
-      m_center[0] = ipos[0];
-      m_center[1] = ipos[1];
-      m_center[2] = ipos[2];
+      m_camera->InstrumentPosition(&m_center[0]);
       m_center *= 1000;
 
       std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
@@ -56,21 +52,16 @@ IsisInterfaceLineScan::EphemerisLMA::operator()( IsisInterfaceLineScan::Ephemeri
   m_camera->SetEphemerisTime( x[0] );
 
   // Calculating the look direction in camera frame
-  double ipos[3];
-  m_camera->InstrumentPosition(ipos);
-  VectorProxy<double,3> instru(ipos);
+  Vector3 instru;
+  m_camera->InstrumentPosition(&instru[0]);
   instru *= 1000;  // Spice gives in km
   Vector3 lookB = normalize( m_point - instru );
   std::vector<double> lookB_copy(3);
-  lookB_copy[0] = lookB[0];
-  lookB_copy[1] = lookB[1];
-  lookB_copy[2] = lookB[2];
+  std::copy( lookB.begin(), lookB.end(), lookB_copy.begin() );
   std::vector<double> lookJ = m_camera->BodyRotation()->J2000Vector(lookB_copy);
   std::vector<double> lookC = m_camera->InstrumentRotation()->ReferenceVector(lookJ);
   Vector3 look;
-  look[0] = lookC[0];
-  look[1] = lookC[1];
-  look[2] = lookC[2];
+  std::copy( lookC.begin(), lookC.end(), look.begin() );
 
   // Projecting to mm focal plane
   look = m_camera->FocalLength() * (look / look[2]);
@@ -110,11 +101,7 @@ IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
   m_camera->SetEphemerisTime( solution_e[0] );
 
   // Working out pointing
-  double ipos[3];
-  m_camera->InstrumentPosition(ipos);
-  m_center[0] = ipos[0];
-  m_center[1] = ipos[1];
-  m_center[2] = ipos[2];
+  m_camera->InstrumentPosition(&m_center[0]);
   m_center *= 1000;
   Vector3 look = normalize(point-m_center);
 
