@@ -42,6 +42,71 @@ Remember, in order for \texttt{stereo} to process stereo pairs in
 \ac{ISIS} cube format, the images must have had SPICE data associated
 by running ISIS's \texttt{spiceinit} program run on them first.
 
+\subsection{Combatting long run times}
+
+The factor that predominantly determines running time in the Stereo
+Pipeline is the size of the search space considered by the correlation
+algorithm.  These are set in the \texttt{stereo.default} file using
+the H\_CORR\_MIN, H\_CORR\_MAX, V\_CORR\_MIN, and V\_CORR\_MAX
+parameters.  If you comment these parameters out (either by putting
+a `\texttt{\#}' at the beginning of their line or deleting them from
+your \texttt{stereo.default} file), the Stereo Pipeline will try to
+automatically determine the search range for you, but this does not
+always work perfectly.  A spurious bad match can lead the pipeline
+to select a search range that is far too large, and performance
+will suffer as a result.  If you know (or can estimate) the range
+of horizontal and vertical offsets you expect to see between the
+two images, then you may want to try setting the search range
+yourself in your stereo.default using the aforementioned parameters.
+
+More generally, here are three strategies that tend to keep the
+search range small and run-times low:
+
+\begin{enumerate}
+\item You can crop your stereo pair (using the ISIS \texttt{crop}
+command) to a small region of interest within a
+large stereo pair.  ISIS and the Stereo Pipeline will keep track
+of these crop parameters automatically and take them into account
+when applying the camera model during triangulation.  You may want
+to work with a cropped pair when you first start working with a new
+data set.  Run times will be much lower (minutes instead of days),
+and you can quickly tune things up before scaling things up.
+
+\item The ISIS \texttt{reduce} command can be used to subsample the
+image pair.  In this case, you are trading resolution for speed,
+so this probably only makes sense for debugging or ``previewing'' 3D
+terrain. That said, subsampling will tend to increase the signal
+to noise ratio, so it may also be helpful for pulling 3D terrain
+out of noisy, low quality images.
+
+\item You can map project the images (using the ISIS \texttt{cam2map}
+command or the \texttt{cam2map4stereo.py} program provided with the
+Stereo Pipeline).  If you project both images into the same map
+projection and same pixel scale, then they will be aligned modulo
+uncertainty in spacecraft telemetry (typically 10-100's of meters
+of error when the image is projected onto the ground).  By default
+\texttt{cam2map} will also project the image onto the local elevation
+model (MOLA or LOLA), which removes the stereo disparity in the
+images that is due to coarse topography.  The resulting image pair
+has only small position offsets and fine 3D detail left to discover,
+so the search range can be kept very small and run times can be
+improved.  Again, ISIS and the Stereo Pipeline will keep track of
+how these map projections affect the camera model, and take them
+into account when building up the 3D mesh via triangulation.  If
+you use \texttt{cam2map}, be sure that DO\_INTERESTPOINT\_ALIGNMENT
+= 0 in your \texttt{stereo.default}.  Note also that the \texttt{-\/-lat}
+and \texttt{-\/-lon} arguments to \texttt{cam2map4stereo.py} can be
+used to crop your stereo images, and the \texttt{-\/-resolution}
+argument can be used to subsample them.
+\end{enumerate}
+
+If you are working with very large images, we highly recommend
+cropping or subsampling and working with smaller sized images while
+you fine-tune the parameters in the \texttt{stereo.default} file,
+and once you get satisfactory results to apply those parameters to
+the full images.
+
+
 \subsection{Comparing Examples to your System}
 
 Since our first release we reperformed some of these examples and
