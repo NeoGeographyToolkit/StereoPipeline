@@ -39,6 +39,11 @@ void update_error( Options& opt ) {
   ProjectMeta project_info;
   remote_ptk.get_project( project_info );
 
+  // Save last error before we overwrite it
+  float32 initError = remote_ptk.get_init_error();
+  float32 lastError = remote_ptk.get_last_error();
+  float32 currError = 0.0;
+
   // Deciding what cameras
   int minidx, maxidx;
   minidx = float(project_info.num_cameras()*opt.job_id)/float(opt.num_jobs);
@@ -57,7 +62,7 @@ void update_error( Options& opt ) {
 
     ErrorNRAccumulatorFunc<double,Vector2i> funcProto(opt.level, j+1, cam_info.exposure_t(), drg_plate, albedo_plate);
     
-    std::cout << "Camera[" << j << "]         exposure time: "
+    std::cerr << "Camera[" << j << "]         exposure time: "
               << cam_info.exposure_t() << "\n";
 
     int32 full = 1 << opt.level;
@@ -68,7 +73,7 @@ void update_error( Options& opt ) {
 
     ErrorNRAccumulatorFunc<double,Vector2i> funcResult = accum(affected_tiles);
 
-    std::cout << "cam[" << j << "] error=[" << funcResult.value() << "]\n";
+    std::cerr << "cam[" << j << "] error=[" << funcResult.value() << "]\n";
 
     // Once I have the API, call funcResult.value() and 
     // add it to the existing value in the current camera
@@ -82,9 +87,14 @@ void update_error( Options& opt ) {
     remote_ptk.set_camera(j, cam_info);
   }
 
+  currError = remote_ptk.get_last_error();
+
   // Compare init error and most recent error:
-  std::cout << "Init error=[" << remote_ptk.get_init_error() << "]\n";
-  std::cout << "Last error=[" << remote_ptk.get_last_error() << "]\n";
+  std::cerr << "Init error=[" << initError << "]\n";
+  std::cerr << "Last error=[" << lastError << "]\n";
+  std::cerr << "Curr error=[" << currError << "]\n";
+
+  std::cout << initError << " " << lastError << " " << currError << "\n";
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
