@@ -33,6 +33,7 @@ namespace pho {
     void set_iteration( vw::int32 const& i );
     vw::float32 get_init_error();
     vw::float32 get_last_error();
+    vw::float32 get_curr_error();
     void add_pixvals(vw::float32 const& min, vw::float32 const& max);
     void get_and_reset_pixvals(vw::float32& min, vw::float32& max);
 

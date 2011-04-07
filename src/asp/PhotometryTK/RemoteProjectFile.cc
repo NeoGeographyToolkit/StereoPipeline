@@ -98,6 +98,20 @@ namespace pho {
     return totalError;
   }
 
+  float32 RemoteProjectFile::get_curr_error()
+  {
+    ProjectMeta meta;
+    get_project( meta );
+    double totalError = 0;
+    for(int i = 0; i < meta.num_cameras(); i++) {
+      CameraMeta cam;
+      get_camera( i, cam );
+      totalError += cam.curr_error();
+    }
+
+    return totalError;
+  }
+
   int32 RemoteProjectFile::add_camera( CameraMeta const& meta ) {
     CameraCreateRequest request;
     request.set_project_id( m_project_id );
@@ -173,7 +187,7 @@ namespace pho {
     drg =
       PlatePtr( new PlateFile(base_url+"DRG.plate"+postfix,
                               project_info.plate_manager(), "", 256, "tif",
-                              VW_PIXEL_GRAYA, VW_CHANNEL_UINT8) );
+                              VW_PIXEL_GRAYA, VW_CHANNEL_FLOAT32) );
     albedo =
       PlatePtr( new PlateFile(base_url+"Albedo.plate"+postfix,
                               project_info.plate_manager(), "", 256, "tif",

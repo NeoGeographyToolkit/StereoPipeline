@@ -36,6 +36,7 @@ message CameraMeta {
     repeated double cam_vec = 6;
     required double init_error = 7;
     required double last_error = 8;
+    required double curr_error = 9;
 }
 
 // Project File Service

@@ -84,6 +84,9 @@ def main():
             for result in results:
                 result.get()
 
+            # Run error again with zero jobs, just to output totals for the entire plate
+            job_func("phoiterror -l %d -j 0 -n 0 %s" % (options.level, args[0]))
+
             # Update the Time Estimate
             time_cmd = []
             print " --- TIME ---"

@@ -61,6 +61,7 @@ void do_creation( Options& opt ) {
   cam_meta.set_exposure_t( 1.0 );
   cam_meta.set_init_error( 0.0 );
   cam_meta.set_last_error( 0.0 );
+  cam_meta.set_curr_error( 0.0 );
   int32 cam_id = remote_ptk.add_camera( cam_meta );
   std::cout << "Assigned Camera ID: " << cam_id << "\n";
 
@@ -76,15 +77,15 @@ void do_creation( Options& opt ) {
   }
 
   {
-    PlateManager<PixelGrayA<uint8> >* pm =
-      PlateManager<PixelGrayA<uint8> >::make(prj_meta.plate_manager(),drg);
+    PlateManager<PixelGrayA<float32> >* pm =
+      PlateManager<PixelGrayA<float32> >::make(prj_meta.plate_manager(),drg);
     // Insert DRG
     if ( opt.nodata_value != std::numeric_limits<double>::max() ) {
-      pm->insert( mask_to_alpha(create_mask(DiskImageView<PixelGray<uint8> >(opt.drg_file),opt.nodata_value)),
+      pm->insert( mask_to_alpha(create_mask(DiskImageView<PixelGray<float32> >(opt.drg_file),opt.nodata_value)),
                   opt.drg_file, cam_id+1, georef, false, false,
                   TerminalProgressCallback( "photometrytk", "\tProcessing" ) );
     } else {
-      pm->insert( DiskImageView<PixelGrayA<uint8> >( opt.drg_file ),
+      pm->insert( DiskImageView<PixelGrayA<float32> >( opt.drg_file ),
                   opt.drg_file, cam_id+1, georef, false, false,
                   TerminalProgressCallback( "photometrytk", "\tProcessing" ) );
     }
