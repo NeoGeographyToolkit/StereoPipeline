@@ -146,7 +146,7 @@ endif
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
 
-bin_SCRIPTS = cam2map4stereo.py hiedr2mosaic.py stereo
+bin_SCRIPTS = cam2map4stereo.py hiedr2mosaic.py stereo time_trials
 
 SUBDIRS = .
 

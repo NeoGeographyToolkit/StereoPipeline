@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+import os, sys, optparse, string, subprocess, math
+
+def main():
+    try:
+        usage = "usage: time_trials [options] command"
+        parser = optparse.OptionParser(usage=usage)
+        parser.set_defaults(trials=5)
+        parser.add_option("--trials", dest="trials",
+                          help="Number of trials to run.", type="int")
+
+        (options, args) = parser.parse_args()
+
+        if not args: raise Exception('No input command')
+
+    except optparse.OptionError, msg:
+        print >>sys.stderr, msg
+        return 2
+
+    print "Running command: [%s]" % args[0]
+
+    mean = 0.0
+    stddev = 0.0
+
+    for i in range(0,options.trials):
+        print " -> trial %i / %i " % (i+1,options.trials),
+        p = subprocess.Popen("( time %s ) 2>&1 | tail -n2 | head -n1"%args[0] , shell=True, stdout=subprocess.PIPE)
+        output = p.stdout.read().strip().split()[1]
+        minutes = float(output[:output.find("m")])
+        seconds = float(output[output.find("m")+1:-1])
+        time = minutes*60+seconds
+        print time
+
+        # Accumulate values
+        mean += time / float(options.trials)
+        stddev += time * time  / float(options.trials)
+
+    stddev = stddev - mean*mean
+    stddev = math.sqrt(stddev)
+
+    print
+    print "Mean:   %.3f" % mean
+    print "StdDev: %.3f" % stddev
+
+if __name__ == "__main__":
+    sys.exit(main())
