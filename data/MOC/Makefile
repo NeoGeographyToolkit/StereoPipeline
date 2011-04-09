@@ -49,12 +49,16 @@ $(PREFIX)-OrthoR.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); \
 	orthoproject $(OUT)-DEM.tif ../M0100115.cub $(OUT)-OrthoR.tif;
 
-
 $(PREFIX)-OrthoL.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); \
 	orthoproject $(OUT)-DEM.tif ../E0201461.cub $(OUT)-OrthoL.tif;
 
-products: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml 
+$(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
+	cd $(RESULTSDIR); \
+	hillshade $(OUT)-DEM.tif; \
+	colormap -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
+
+products: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
 
 clean:
 	rm -rf $(RESULTSDIR)
