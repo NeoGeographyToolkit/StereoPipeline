@@ -4,7 +4,7 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 
-// This executable is not meant to be used by people directory. This
+// This executable is not meant to be used by people directly. This
 // is a helper utility for pairlist_degree.py
 
 using namespace vw;

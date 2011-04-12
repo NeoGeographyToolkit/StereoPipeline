@@ -19,10 +19,11 @@ namespace fs = boost::filesystem;
 
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 
 #include <fstream>
 
-struct Options {
+struct Options : public asp::BaseOptions {
   // Input
   std::string cnet_file;
   std::string camera_list_file;
@@ -37,8 +38,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("convert-serial-to-name", "Convert the serial numbers in cnet to filenames.")
-    ("output-prefix,o", po::value(&opt.output_prefix)->default_value("converted"), "Output prefix for new control network.")
-    ("help,h", "Display this help message");
+    ("output-prefix,o", po::value(&opt.output_prefix)->default_value("converted"), "Output prefix for new control network.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -49,26 +50,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("cnet-file", 1 );
   positional_desc.add("camera-list-file", 1 );
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <cnet_file> <list_of_cameras>\n";
+
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
 
   opt.convert_isis = vm.count("convert-isis");
   opt.convert_serial_to_name = vm.count("convert-serial-to-name");
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( !vm.count("cnet-file") )
     vw_throw( ArgumentErr() << "Missing required input file.\n"
               << usage.str() << general_options );

@@ -18,9 +18,10 @@ using namespace vw;
 // Stereo Pipeline
 #include <asp/ControlNetTK/Equalization.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 using namespace asp;
 
-struct Options {
+struct Options : public asp::BaseOptions {
   std::vector<std::string> match_files;
   size_t max_points, min_points;
 };
@@ -29,8 +30,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("max-pts,m",po::value(&opt.max_points)->default_value(100),"Max points a pair can have. If it execeeds we trim.")
-    ("min-pts,n",po::value(&opt.min_points)->default_value(10),"Minimum points a pair is required to have. Delete if fails this.")
-    ("help,h", "Display this help message");
+    ("min-pts,n",po::value(&opt.min_points)->default_value(10),"Minimum points a pair is required to have. Delete if fails this.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -39,22 +40,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e ) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <match-files> ...\n\n";
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.match_files.empty() )
     vw_throw( ArgumentErr() << "Must specify at least one input file!\n\n" << usage.str() );
 }

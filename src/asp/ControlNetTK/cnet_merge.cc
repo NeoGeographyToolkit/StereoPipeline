@@ -20,6 +20,7 @@ namespace fs = boost::filesystem;
 
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 
 size_t find_destination_index( int const& source_idx,
                                std::map<int,std::string> const& src_map,
@@ -72,7 +73,7 @@ struct ContainsCloseMeasure {
   }
 };
 
-struct Options {
+struct Options : public asp::BaseOptions {
   // Input
   std::string destination_cnet;
   std::vector<std::string> source_cnets;
@@ -89,8 +90,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-prefix,o", po::value(&opt.output_prefix)->default_value("merged"),
      "Output prefix for merge control network.")
     ("close-px", po::value(&opt.close)->default_value(-1),
-     "Merge measurements are that are this pixel close. Leave -1 to only merge exact measurements." )
-    ("help,h", "Display this help message");
+     "Merge measurements are that are this pixel close. Leave -1 to only merge exact measurements." );
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -101,23 +102,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("dest-cnet", 1 );
   positional_desc.add("source-cnets", -1 );
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <dest> <source1> ... <sourceN>\n";
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.destination_cnet.empty() )
     vw_throw( ArgumentErr() << "Missing destination cnets.\n"
               << usage.str() << general_options );

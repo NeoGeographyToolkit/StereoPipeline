@@ -127,6 +127,7 @@ src/asp/ControlNetTK/cnet_build
 src/asp/ControlNetTK/cnet_convert
 src/asp/ControlNetTK/cnet_merge
 src/asp/ControlNetTK/isis_position_extract
+src/asp/ControlNetTK/render_gcp
 
 # Data
 data/MOC/*cub

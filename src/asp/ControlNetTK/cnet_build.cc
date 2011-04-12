@@ -12,6 +12,7 @@ using namespace vw;
 using namespace vw::ba;
 
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 using namespace vw::camera;
@@ -60,7 +61,7 @@ void sort_out_gcpcnets( IContainT& input, OContainT& output ) {
   input.erase(new_end,input.end());
 }
 
-struct Options {
+struct Options : public asp::BaseOptions {
   // Input
   std::vector<std::string> input_names, gcp_names,
     gcp_cnet_names, serial_names;
@@ -79,8 +80,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t,type-of-cnet", po::value(&opt.cnet_output_type)->default_value("binary"), "Types of cnets are [binary,isis]")
     ("isis-adjust", po::bool_switch(&opt.isis_adjust)->default_value(false),
      "Use isis_adjust camera models for triangulation")
-    ("min-matches", po::value(&opt.min_matches)->default_value(5))
-    ("help,h", "Display this help message");
+    ("min-matches", po::value(&opt.min_matches)->default_value(5));
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -89,23 +90,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e ) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " [options] <isis cube files> ...\n";
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.input_names.empty() )
     vw_throw( ArgumentErr() << "Missing input cube files!\n"
               << usage.str() << general_options );
