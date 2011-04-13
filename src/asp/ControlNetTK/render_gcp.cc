@@ -13,6 +13,11 @@ namespace fs = boost::filesystem;
 #include <asp/Core/Common.h>
 using namespace vw;
 
+// Support for ISIS image files
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#include <asp/IsisIO/DiskImageResourceIsis.h>
+#endif
+
 struct Options : public asp::BaseOptions {
   std::vector<std::pair<std::string,Vector2> > input_files;
   std::string gcp_file;
@@ -53,6 +58,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 }
 
 int main( int argc, char *argv[] ) {
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+  // Register the Isis file handler with the Vision Workbench
+  // DiskImageResource system.
+  DiskImageResource::register_file_type(".cub",
+                                        DiskImageResourceIsis::type_static(),
+                                        &DiskImageResourceIsis::construct_open,
+                                        &DiskImageResourceIsis::construct_create);
+#endif 
 
   Options opt;
   try {
