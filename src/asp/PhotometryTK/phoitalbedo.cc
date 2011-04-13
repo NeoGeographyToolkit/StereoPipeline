@@ -78,7 +78,7 @@ void initial_albedo( Options const& opt,
                                        opt.level - 3,
                                        0, max_tid, true );
       if ( h_tile_records.empty() ) {
-	//std::cout << "No tile recs found.\n";
+	//std::cerr << "No tile recs found.\n";
         continue;
       }
 
@@ -156,7 +156,7 @@ void update_albedo( Options const& opt,
                                        workunit.min().y()/8,
                                        opt.level - 3, 0, max_tid, true );
       if ( h_tile_records.empty() ) {
-	//std::cout << "No tile recs found.\n";
+	//std::cerr << "No tile recs found.\n";
         continue;
       }
 
@@ -293,7 +293,7 @@ int main( int argc, char *argv[] ) {
       CameraMeta current_cam;
       remote_ptk.get_camera( i, current_cam );
       exposure_t[i] = current_cam.exposure_t();
-      //std::cout << "exposure_t[" << i << "] = [" << exposure_t[i] << "]\n";
+      //std::cerr << "exposure_t[" << i << "] = [" << exposure_t[i] << "]\n";
     }
 
     // Double check for an iteration error
@@ -310,18 +310,18 @@ int main( int argc, char *argv[] ) {
 
     // Determine if we're updating or initializing
     if ( opt.perform_2band ) {
-      std::cout << "2 Band Albedo [ iteration "
+      std::cerr << "2 Band Albedo [ iteration "
                 << project_info.current_iteration() << " ]\n";
       initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float32> >, ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, pixvalAccum, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
     } else {
       if ( project_info.current_iteration() ) {
-        std::cout << "Updating Albedo [ iteration "
+        std::cerr << "Updating Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
         update_albedo<ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, 
 									pixvalAccum, drg_plate,
 									albedo_plate, reflect_plate, workunits, exposure_t );
       } else {
-        std::cout << "Initialize Albedo [ iteration "
+        std::cerr << "Initialize Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
         initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float32> >, ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, pixvalAccum, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
       }
@@ -331,9 +331,9 @@ int main( int argc, char *argv[] ) {
     pixvalAccum.values(minPixval, maxPixval);
 
     /*
-    std::cout.precision(10);
-    std::cout.setf(std::ios::fixed);
-    std::cout << "pixvals so far: min=[" << minPixval << "] max=[" << maxPixval << "]\n";
+    std::cerr.precision(10);
+    std::cerr.setf(std::ios::fixed);
+    std::cerr << "pixvals so far: min=[" << minPixval << "] max=[" << maxPixval << "]\n";
     */
 
     remote_ptk.add_pixvals(minPixval, maxPixval);

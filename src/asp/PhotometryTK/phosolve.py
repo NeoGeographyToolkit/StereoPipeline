@@ -9,13 +9,24 @@
 import os, optparse, multiprocessing, sys, subprocess, shlex;
 from multiprocessing import Pool
 
-def job_func(cmd):
+def job_func(cmd,printStdOut=True):
     #print "Running [", cmd, "]\n"
     args = shlex.split(cmd)
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     print proc.stderr.read()
-    print proc.stdout.read()
-    return cmd
+    if (printStdOut):
+        print proc.stdout.read()
+    else:
+        return proc.stdout.read()
+
+def halt_iterations(initErr, lastErr, currErr):
+    # Determine halting
+    default_error_delta_threshold = 0.01
+    curr_delta = currErr - lastErr
+    if ( curr_delta <= default_error_delta_threshold ):
+        return true
+    else:
+        return false
 
 class Usage(Exception):
     def __init__(self,msg):
@@ -85,7 +96,15 @@ def main():
                 result.get()
 
             # Run error again with zero jobs, just to output totals for the entire plate
-            job_func("phoiterror -l %d -j 0 -n 0 %s" % (options.level, args[0]))
+            errvals = job_func("phoiterror -l %d -j 0 -n 0 %s" % (options.level, args[0]), false)
+            errvalList = errvals.split()
+            initErr = float(errvalList[0])
+            lastErr = float(errvalList[1])
+            currErr = float(errvalList[2])
+            print "ERROR VALS = [%s] [%s] [%s]\n" % (initErr, lastErr, currErr);
+
+            if ( halt_iterations(initErr, lastErr, currErr) ):
+                iteration = options.iterations + 1
 
             # Update the Time Estimate
             time_cmd = []
