@@ -190,10 +190,10 @@ void update_albedo( Options const& opt,
           select_channel(current_albedo,0) += select_channel(image_temp,0);
 
 	  for_each_pixel(current_albedo, pixvalAccum);
+	  
+	  //image_noalpha = vw::pixel_cast<PixelGray<float32> >(current_albedo);
 
-	  image_noalpha = vw::pixel_cast<PixelGray<float32> >(current_albedo);
-
-          albedo_plate->write_update(image_noalpha, ix, iy,
+          albedo_plate->write_update(current_albedo, ix, iy,
                                      opt.level, transaction_id);
 
         } // end for iy

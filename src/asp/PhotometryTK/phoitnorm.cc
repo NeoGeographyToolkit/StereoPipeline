@@ -119,9 +119,9 @@ void normalize_plate( Options const& opt,
 
 	image_temp = normalize( image_temp, minPixval, maxPixval, 0, 1 );
 	
-	image_noalpha = vw::pixel_cast<PixelGray<float32> >(image_temp);
+	//image_noalpha = vw::pixel_cast<PixelGray<float32> >(image_temp);
 
- 	albedo_plate->write_update(image_noalpha, ix, iy,
+ 	albedo_plate->write_update(image_temp, ix, iy,
 				   opt.level, transaction_id);
       } // end for iy
     } // end for ix
