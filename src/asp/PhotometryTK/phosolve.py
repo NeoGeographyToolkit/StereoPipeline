@@ -24,9 +24,9 @@ def halt_iterations(initErr, lastErr, currErr):
     default_error_delta_threshold = 0.01
     curr_delta = currErr - lastErr
     if ( curr_delta <= default_error_delta_threshold ):
-        return true
+        return True
     else:
-        return false
+        return False
 
 class Usage(Exception):
     def __init__(self,msg):
@@ -69,8 +69,8 @@ def main():
             # Perform Albedo
             print " --- ALBEDO ---"
             albedo_cmd = []
-            for i in range(2*options.threads):
-                cmd = "phoitalbedo %s -j %d -n %d %s" % (levelArg, i, 2*options.threads, args[0])
+            for i in range(options.threads):
+                cmd = "phoitalbedo %s -j %d -n %d %s" % (levelArg, i, options.threads, args[0])
                 albedo_cmd.append( cmd )
             results = [pool.apply_async(job_func, (cmd,)) for cmd in albedo_cmd]
             for result in results:
@@ -95,8 +95,10 @@ def main():
             for result in results:
                 result.get()
 
+            print "--- ERROR FINAL ---"
+
             # Run error again with zero jobs, just to output totals for the entire plate
-            errvals = job_func("phoiterror -l %d -j 0 -n 0 %s" % (options.level, args[0]), false)
+            errvals = job_func("phoiterror -l %d -j 0 -n 0 %s" % (options.level, args[0]), False)
             errvalList = errvals.split()
             initErr = float(errvalList[0])
             lastErr = float(errvalList[1])

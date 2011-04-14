@@ -62,6 +62,8 @@ void update_error( Options& opt ) {
     CameraMeta cam_info;
     remote_ptk.get_camera(j, cam_info);
 
+    std::cerr << "Beginning error calculation for cam[" << j << "]\n";
+
     ErrorNRAccumulatorFunc<double,Vector2i> funcProto(opt.level, j+1, cam_info.exposure_t(), drg_plate, albedo_plate);
     
     //std::cerr << "Camera[" << j << "]         exposure time: "
