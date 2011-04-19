@@ -102,11 +102,10 @@ namespace pho {
       {
         vw::int32 bytes;
         input.read( (char*)&(bytes), 4 );
-        char* i = new char[bytes];
-        input.read(i,bytes);
-        if ( !prj.ParseFromArray(i,bytes) )
+	boost::scoped_array<char> i(new char[bytes]);
+        input.read(i.get(),bytes);
+        if ( !prj.ParseFromArray(i.get(),bytes) )
           vw::vw_throw( vw::IOErr() << "Failed reading project meta!\n" );
-        delete i;
       }
       cams.resize( prj.num_cameras() );
       std::for_each( cams.begin(), cams.end(),
