@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <fstream>
 
+#include <boost/scoped_array.hpp>
 #include <boost/filesystem.hpp>
 
 namespace asp {
