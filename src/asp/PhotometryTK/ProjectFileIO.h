@@ -42,11 +42,10 @@ namespace pho {
       void operator()( CameraMeta& cam ) {
         vw::int32 bytes;
         m_stream->read( (char*)&(bytes), 4 );
-        char* i = new char[bytes];
-        m_stream->read(i,bytes);
-        if ( !cam.ParseFromArray(i,bytes) )
+	boost::scoped_array<char> i(new char[bytes]);
+        m_stream->read(i.get(),bytes);
+        if ( !cam.ParseFromArray(i.get(),bytes) )
           vw::vw_throw( vw::IOErr() << "Failed reading camera meta!\n" );
-        delete [] i;
       }
     };
   }
