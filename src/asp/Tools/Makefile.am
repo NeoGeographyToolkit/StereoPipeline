@@ -139,6 +139,12 @@ if MAKE_APP_ISISADJUSTCNETCLIP
   isis_adjust_cnet_clip_LDADD   = $(APP_ISISADJUSTCNETCLIP_LIBS)
 endif
 
+if MAKE_APP_MER2CAMERA
+  bin_PROGRAMS += mer2camera
+  mer2camera_SOURCES = mer2camera.cc
+  mer2camera_LDADD   = $(APP_MER2CAMERA_LIBS)
+endif
+
 ##############################################################################
 #                             Tests                                          #
 ##############################################################################
