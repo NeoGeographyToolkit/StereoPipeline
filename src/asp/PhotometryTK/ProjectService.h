@@ -8,7 +8,7 @@
 #ifndef __ASP_PHOTOMETRYTK_PROJECT_SERVICE_H__
 #define __ASP_PHOTOMETRYTK_PROJECT_SERVICE_H__
 
-#include <vw/Core/FundamentalTypes.h>
+#include <vw/Plate/FundamentalTypes.h>
 #include <asp/PhotometryTK/ProjectFile.pb.h>
 
 #include <google/protobuf/service.h>

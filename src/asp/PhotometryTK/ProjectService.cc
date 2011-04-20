@@ -7,9 +7,13 @@
 
 #include <vw/Core/Log.h>
 #include <vw/Core/Exception.h>
+#include <vw/Plate/Exception.h>
 #include <asp/PhotometryTK/ProjectService.h>
 #include <asp/PhotometryTK/ProjectFileIO.h>
+
 using namespace vw;
+using namespace vw::platefile;
+
 using namespace asp::pho;
 
 #include <boost/regex.hpp>
@@ -38,13 +42,15 @@ glob_ptk_filenames( std::string const& root_directory ) {
   return result;
 }
 
+#define METHOD_IMPL(Name, Input, Output) \
+  void ProjectServiceImpl::Name(::google::protobuf::RpcController*, const Input* request, Output* response, ::google::protobuf::Closure* done)
+
 // Range checking macros
 #define CHECK_PROJECT_RANGE()                               \
   if ( request->project_id() < 0 ||                         \
        request->project_id() >= int32(m_project_metas.size()) ) { \
     response->set_project_id( -1 );                         \
     response->set_camera_id( -1 );                          \
-    done->Run();                                            \
     return;                                                 \
   }
 
@@ -55,7 +61,6 @@ glob_ptk_filenames( std::string const& root_directory ) {
        int32(m_camera_metas[ request->project_id() ].size()) ) { \
     response->set_project_id( request->project_id() );      \
     response->set_camera_id( -1 );                          \
-    done->Run();                                            \
     return;                                                 \
   }
 
@@ -107,11 +112,9 @@ void ProjectServiceImpl::sync() {
   }
 }
 
-void
-ProjectServiceImpl::OpenRequest(::google::protobuf::RpcController* /*controller*/,
-                                const ::asp::pho::ProjectOpenRequest* request,
-                                ::asp::pho::ProjectOpenReply* response,
-                                ::google::protobuf::Closure* done) {
+METHOD_IMPL(OpenRequest, ::asp::pho::ProjectOpenRequest, ::asp::pho::ProjectOpenReply) {
+  detail::RequireCall call(done);
+
   std::string request_ptk = request->name();
 
   std::map<std::string,int>::iterator it =
@@ -127,31 +130,24 @@ ProjectServiceImpl::OpenRequest(::google::protobuf::RpcController* /*controller*
     response->mutable_meta()->set_reflectance( ProjectMeta::NONE );
     response->mutable_meta()->set_num_cameras( 0 );
   }
-  done->Run();
 }
 
-void
-ProjectServiceImpl::IterationUpdate(::google::protobuf::RpcController* controller,
-				    const ::asp::pho::IterationUpdateRequest* request,
-				    ::asp::pho::IterationUpdateReply* response,
-				    ::google::protobuf::Closure* done) {
+METHOD_IMPL(IterationUpdate, ::asp::pho::IterationUpdateRequest, ::asp::pho::IterationUpdateReply) {
+  detail::RequireCall call(done);
+
   if ( request->project_id() < 0 ||
        request->project_id() >= int32(m_project_metas.size()) ) {
     response->set_project_id( -1 );
-    done->Run();
     return;
   }
 
   m_project_metas[ request->project_id() ].set_current_iteration(request->iteration());
   response->set_project_id( request->project_id() );
-  done->Run();
 }
 
-void
-ProjectServiceImpl::CameraCreate(::google::protobuf::RpcController* /*controller*/,
-                                 const ::asp::pho::CameraCreateRequest* request,
-                                 ::asp::pho::CameraCreateReply* response,
-                                 ::google::protobuf::Closure* done) {
+METHOD_IMPL(CameraCreate, ::asp::pho::CameraCreateRequest, ::asp::pho::CameraCreateReply) {
+  detail::RequireCall call(done);
+
   CHECK_PROJECT_RANGE();
 
   // Adding camera meta
@@ -161,14 +157,11 @@ ProjectServiceImpl::CameraCreate(::google::protobuf::RpcController* /*controller
   m_project_metas[request->project_id()].set_num_cameras( response->camera_id()+1 );
   // Set Base Transaction ID
   m_camera_metas[request->project_id()].back().set_base_transaction_id( m_project_metas[request->project_id()].max_iterations()*(m_camera_metas[request->project_id()].size()-1) );
-  done->Run();
 }
 
-void
-ProjectServiceImpl::CameraRead(::google::protobuf::RpcController* /*controller*/,
-                               const ::asp::pho::CameraReadRequest* request,
-                               ::asp::pho::CameraReadReply* response,
-                               ::google::protobuf::Closure* done) {
+METHOD_IMPL(CameraRead, ::asp::pho::CameraReadRequest, ::asp::pho::CameraReadReply) {
+  detail::RequireCall call(done);
+
   // Set empty meta .. for the error checking
   *(response->mutable_meta()) = CameraMeta();
   CHECK_PROJECT_RANGE();
@@ -180,15 +173,11 @@ ProjectServiceImpl::CameraRead(::google::protobuf::RpcController* /*controller*/
 
   *(response->mutable_meta()) =
     m_camera_metas[request->project_id()][request->camera_id()];
-
-  done->Run();
 }
 
-void
-ProjectServiceImpl::CameraWrite(::google::protobuf::RpcController* /*controller*/,
-                                const ::asp::pho::CameraWriteRequest* request,
-                                ::asp::pho::CameraWriteReply* response,
-                                ::google::protobuf::Closure* done) {
+METHOD_IMPL(CameraWrite, ::asp::pho::CameraWriteRequest, ::asp::pho::CameraWriteReply) {
+  detail::RequireCall call(done);
+
   CHECK_PROJECT_RANGE();
   CHECK_CAMERA_RANGE();
 
@@ -197,40 +186,28 @@ ProjectServiceImpl::CameraWrite(::google::protobuf::RpcController* /*controller*
   response->set_camera_id( request->camera_id() );
   m_camera_metas[request->project_id()][request->camera_id()] =
     request->meta();
-
-  done->Run();
 }
 
-void 
-ProjectServiceImpl::PixvalAdd(::google::protobuf::RpcController* controller,
-			      const ::asp::pho::PixvalAddRequest* request,
-			      ::asp::pho::PixvalAddReply* response,
-			      ::google::protobuf::Closure* done) 
-{
+METHOD_IMPL(PixvalAdd, ::asp::pho::PixvalAddRequest, ::asp::pho::PixvalAddReply) {
+  detail::RequireCall call(done);
+
   if ( request->project_id() < 0 ||
        request->project_id() >= int32(m_project_metas.size()) ) {
     response->set_project_id( -1 );
-    done->Run();
     return;
   }
 
   m_project_metas[ request->project_id() ].add_min_pixval_vec( request->min_pixval() );
   m_project_metas[ request->project_id() ].add_max_pixval_vec( request->max_pixval() );
   response->set_project_id( request->project_id() );
-
-  done->Run();
 }
 
-void 
-ProjectServiceImpl::PixvalGetAndReset(::google::protobuf::RpcController* controller,
-				      const ::asp::pho::PixvalGetAndResetRequest* request,
-				      ::asp::pho::PixvalGetAndResetReply* response,
-				      ::google::protobuf::Closure* done)
-{
+METHOD_IMPL(PixvalGetAndReset, ::asp::pho::PixvalGetAndResetRequest, ::asp::pho::PixvalGetAndResetReply) {
+  detail::RequireCall call(done);
+
   if ( request->project_id() < 0 ||
        request->project_id() >= int32(m_project_metas.size()) ) {
     response->set_project_id( -1 );
-    done->Run();
     return;
   }
 
@@ -238,9 +215,7 @@ ProjectServiceImpl::PixvalGetAndReset(::google::protobuf::RpcController* control
       m_project_metas[ request->project_id() ].max_pixval_vec_size() == 0) {
     response->set_project_id( request->project_id() );
     response->set_min_pixval( m_project_metas[ request->project_id() ].min_pixval() );
-    response->set_max_pixval( m_project_metas[ request->project_id() ].max_pixval() );
-    
-    done->Run();
+    response->set_max_pixval( m_project_metas[ request->project_id() ].max_pixval() );    
     return;
   }
 
@@ -272,6 +247,5 @@ ProjectServiceImpl::PixvalGetAndReset(::google::protobuf::RpcController* control
   response->set_project_id( request->project_id() );
   response->set_min_pixval(min);
   response->set_max_pixval(max);
+ }
 
-  done->Run();
-}
