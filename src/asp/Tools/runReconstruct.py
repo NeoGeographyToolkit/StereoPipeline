@@ -17,20 +17,27 @@ from string import Template
 
 DEFAULT_MISSION = 'a15'
 DEFAULT_DATA_DIR = '$HOME/$mission'
-DEFAULT_RESULTS_DIR = '$HOME/results/$mission/${subsampleLevel}_${date}'
+DEFAULT_RESULTS_DIR = '$HOME/results/$mission/$name'
 DEFAULT_RECONSTRUCT_BINARY = './reconstruct'
 DEFAULT_SUB = 'sub16'
 DEFAULT_NUM_PROCESSORS = 14
 # 0 means process all
 DEFAULT_NUM_FILES = 0
+DEFAULT_REGION = 'all'
+DEFAULT_EXTRA = 'std'
+DEFAULT_NAME = '${date}_${time}_${subsampleLevel}_${region}_${extra}'
 
 DEFAULT_STEPS = ['weights', '0', '1', '2', 'jpg', 'kml']
+
+COLORMAP = '%s/projects/VisionWorkbench/build/x86_64_linux_gcc4.1/bin/colormap' % os.environ['HOME']
 
 ######################################################################
 # GENERIC HELPERS
 ######################################################################
 
 MAX_EXPAND_STACK_DEPTH = 4
+
+jobQueueG = None
 
 def expand(tmpl, env):
     escaped = re.sub(r'\$\$', '00DOLLAR00', tmpl)
@@ -90,7 +97,31 @@ class JobQueue(object):
             dosys('rm -f %s' % jobsFileName)
         self.clear()
 
-jobQueueG = None
+def convertToJpeg(tif, jpg):
+    stem = os.path.splitext(tif)[0]
+    if 'DEM' in tif:
+        # file is a 16-bit TIFF DEM -- colormap to tif then convert to jpg
+        tmp = stem + '_CMAP.tif'
+        jobQueueG.addJob('%s %s -o %s' % (COLORMAP, tif, tmp), 0)
+        jobQueueG.addJob('convert %s %s' % (tmp, jpg), 1)
+        jobQueueG.addJob('rm -f %s' % tmp, 2)
+    else:
+        # use GDAL to convert band 1 to jpeg
+        # (convert doesn't work well with GRAYA images)
+        # (colormap doesn't work well with binary valued GRAYA images)
+        jobQueueG.addJob('gdal_translate -b 1 -of JPEG -scale -ot Byte %s %s' % (tif, jpg))
+
+def convertDirectory(opts, suffix):
+    resultsDir = expand('$resultsDir', vars(opts))
+    jpgDir = '%s/%sJpg' % (resultsDir, suffix)
+    jobQueueG.addJob('mkdir -p %s' % jpgDir, 0)
+    tifs = glob('%s/%s/*.tif' % (resultsDir, suffix))
+    tifs.sort()
+    for tif in tifs:
+        jpg = '%s/%s.jpg' % (jpgDir, os.path.splitext(os.path.basename(tif))[0])
+        if getTime(tif) > getTime(jpg):
+            convertToJpeg(tif, jpg)
+    jobQueueG.run()
 
 ######################################################################
 # RECONSTRUCT SCRIPTS
@@ -121,22 +152,17 @@ def run_kml(opts, drgs):
     pass # implement me
 
 def run_jpg(opts, drgs):
-    resultsDir = expand('$resultsDir', vars(opts))
-    jpgDir = '%s/albedoJpg' % resultsDir
-    dosys('mkdir -p %s' % jpgDir)
-    tifs = glob('%s/albedo/*.tif' % resultsDir)
-    for tif in tifs:
-        jpg = '%s/%s.jpg' % (jpgDir, os.path.splitext(os.path.basename(tif))[0])
-        if getTime(tif) > getTime(jpg):
-            jobQueueG.addJob('convert -contrast-stretch 0x0 %s %s' % (tif, jpg))
-    jobQueueG.run()
+    convertDirectory(opts, 'shadow')
+    convertDirectory(opts, 'reflectance')
+    convertDirectory(opts, 'albedo')
+    convertDirectory(opts, 'DEM')
 
 def runStep(opts, drgs, stepName):
-    logging.info("""
-######################################################################
-# RUNNING STEP %s
-######################################################################
-""" % stepName)
+    logging.info('')
+    logging.info('######################################################################')
+    logging.info('# RUNNING STEP %s' % stepName)
+    logging.info('######################################################################')
+    logging.info('')
     funcName = 'run_%s' % stepName
     if funcName in globals():
         func = globals()[funcName]
@@ -146,7 +172,7 @@ def runStep(opts, drgs, stepName):
 
 def runMaster(opts):
     global jobQueueG
-    jobQueueG = JobQueue(opts.numProcessors, deleteTmpFiles=False)
+    jobQueueG = JobQueue(opts.numProcessors)
 
     if opts.subsampleLevel:
         opts.undersub = '_' + opts.subsampleLevel
@@ -163,19 +189,12 @@ def runMaster(opts):
     logging.info('First DRG: %s' % drgs[0])
     logging.info('Last DRG:  %s' % drgs[-1])
 
-    if opts.clean:
-        dosys(expand('rm -rf $resultsDir', vars(opts)))
-
     for step in opts.steps:
         runStep(opts, drgs, step)
 
 def main():
     import optparse
     parser = optparse.OptionParser('usage: %prog')
-
-    parser.add_option('-c', '--clean',
-                      action='store_true', default=False,
-                      help='Delete output directory before beginning')
 
     parser.add_option('-m', '--mission',
                       default=DEFAULT_MISSION,
@@ -209,34 +228,56 @@ def main():
                       action='store_true', default=False,
                       help='Show config and exit')
 
+    parser.add_option('--region',
+                      default=DEFAULT_REGION,
+                      help='Region to process [%default]')
+
+    parser.add_option('--extra',
+                      default=DEFAULT_EXTRA,
+                      help='Extra label that appears at end of name [%default]')
+
+    parser.add_option('--name',
+                      default=DEFAULT_NAME,
+                      help='Basename of results directory [%default]')
+
     opts, args = parser.parse_args()
+
+    # stuff extra information into opts
     if args:
         opts.steps = args
     else:
         opts.steps = DEFAULT_STEPS
     opts.HOME = os.environ['HOME']
     opts.date = time.strftime('%Y%m%d')
+    opts.time = time.strftime('%H%M%S')
+
+    # set up logging params
+    resultsDir = expand('$resultsDir', vars(opts))
+    logTimeStr = datetime.datetime.now().isoformat()
+    logTimeStr = re.sub(r':', '', logTimeStr)
+    logTimeStr = re.sub(r'\.\d+$', '', logTimeStr)
+    logTmpl = resultsDir + '/log-%s.txt'
+    logFile = logTmpl % logTimeStr
+    opts.logFile = logFile
+
+    # debug opts if user requested it
     if opts.showConfig:
         import json
         print json.dumps(vars(opts), indent=4, sort_keys=True)
         sys.exit(0)
 
-    # set up logging
-    resultsDir = expand('$resultsDir', vars(opts))
-    timeStr = datetime.datetime.now().isoformat()
-    timeStr = re.sub(r':', '', timeStr)
-    timeStr = re.sub(r'\.\d+$', '', timeStr)
-    fnameTmpl = resultsDir + '/reconstructLog-%s.txt'
-    fname = fnameTmpl % timeStr
-    fnameLatest = fnameTmpl % 'latest'
-    if os.path.lexists(fnameLatest):
-        os.unlink(fnameLatest)
-    os.symlink(fname, fnameLatest)
-    print 'Logging to %s' % fname
-    logging.basicConfig(filename=fname,
+    # start logging
+    print 'Logging to %s' % logFile
+    latestLogFile = logTmpl % 'latest'
+    os.system('mkdir -p %s' % resultsDir)
+    if os.path.lexists(latestLogFile):
+        os.unlink(latestLogFile)
+    os.symlink(os.path.basename(logFile), latestLogFile)
+    logging.basicConfig(filename=logFile,
                         level=logging.DEBUG,
                         format="%(levelname)-6s %(asctime)-15s %(message)s")
 
+    # do the real work
     runMaster(opts)
 
 if __name__ == '__main__':
