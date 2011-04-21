@@ -6,3 +6,6 @@ dist_examplemoc_DATA = MOC/E0201461.imq MOC/M0100115.imq MOC/Makefile MOC/stereo
 
 examplek10dir = $(docdir)/examples/K10
 dist_examplek10_DATA = K10/Makefile K10/black_left.tsai K10/black_right.tsai K10/left4.png K10/right4.png K10/stereo.default
+
+examplemerdir = $(docdir)/examples/MER
+dist_examplemer_DATA = MER/Makefile MER/stereo.default MER/stereo.default.navcam
