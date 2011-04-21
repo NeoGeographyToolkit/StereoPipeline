@@ -26,6 +26,18 @@
 /data/mi-stereo
 /data/orbit33
 /data/p19
+/data/MER/*.img
+/data/MER/*.cahvor
+/data/MER/*.tif
+/data/MER/mi01
+/data/MER/nav01
+/data/MER/pan01
+/data/MOC_BA/*.IMG
+/data/MOC/*.vwip
+/data/MOC/*.tif
+/data/K10/results
+/data/MOC/E0201461.map
+/data/MOC/M0100115.map
 /results
 
 # Autotools Stuff
@@ -98,6 +110,7 @@ src/asp/Tools/rmax_adjust
 src/asp/Tools/hsv_merge
 src/asp/Tools/reconstruct
 src/asp/Tools/results
+src/asp/Tools/mer2camera
 
 # Photometry Toolkit
 src/asp/PhotometryTK/phodrg2plate
