@@ -90,6 +90,9 @@ ProjectServiceImpl::ProjectServiceImpl( std::string root_directory ) :
 }
 
 void ProjectServiceImpl::sync() {
+
+  Mutex::Lock lock(m_mutex);
+
   for ( size_t i = 0; i < m_project_metas.size(); i++ ) {
     vw_out() << "\t--> Syncing project files for "
              << m_project_metas[i].name() <<  " to disk.\n";
@@ -115,6 +118,8 @@ void ProjectServiceImpl::sync() {
 METHOD_IMPL(OpenRequest, ::asp::pho::ProjectOpenRequest, ::asp::pho::ProjectOpenReply) {
   detail::RequireCall call(done);
 
+  Mutex::Lock lock(m_mutex);
+
   std::string request_ptk = request->name();
 
   std::map<std::string,int>::iterator it =
@@ -135,6 +140,8 @@ METHOD_IMPL(OpenRequest, ::asp::pho::ProjectOpenRequest, ::asp::pho::ProjectOpen
 METHOD_IMPL(IterationUpdate, ::asp::pho::IterationUpdateRequest, ::asp::pho::IterationUpdateReply) {
   detail::RequireCall call(done);
 
+  Mutex::Lock lock(m_mutex);
+
   if ( request->project_id() < 0 ||
        request->project_id() >= int32(m_project_metas.size()) ) {
     response->set_project_id( -1 );
@@ -147,6 +154,8 @@ METHOD_IMPL(IterationUpdate, ::asp::pho::IterationUpdateRequest, ::asp::pho::Ite
 
 METHOD_IMPL(CameraCreate, ::asp::pho::CameraCreateRequest, ::asp::pho::CameraCreateReply) {
   detail::RequireCall call(done);
+
+  Mutex::Lock lock(m_mutex);
 
   CHECK_PROJECT_RANGE();
 
@@ -161,6 +170,8 @@ METHOD_IMPL(CameraCreate, ::asp::pho::CameraCreateRequest, ::asp::pho::CameraCre
 
 METHOD_IMPL(CameraRead, ::asp::pho::CameraReadRequest, ::asp::pho::CameraReadReply) {
   detail::RequireCall call(done);
+
+  Mutex::Lock lock(m_mutex);
 
   // Set empty meta .. for the error checking
   *(response->mutable_meta()) = CameraMeta();
@@ -178,6 +189,8 @@ METHOD_IMPL(CameraRead, ::asp::pho::CameraReadRequest, ::asp::pho::CameraReadRep
 METHOD_IMPL(CameraWrite, ::asp::pho::CameraWriteRequest, ::asp::pho::CameraWriteReply) {
   detail::RequireCall call(done);
 
+  Mutex::Lock lock(m_mutex);
+
   CHECK_PROJECT_RANGE();
   CHECK_CAMERA_RANGE();
 
@@ -190,6 +203,8 @@ METHOD_IMPL(CameraWrite, ::asp::pho::CameraWriteRequest, ::asp::pho::CameraWrite
 
 METHOD_IMPL(PixvalAdd, ::asp::pho::PixvalAddRequest, ::asp::pho::PixvalAddReply) {
   detail::RequireCall call(done);
+
+  Mutex::Lock lock(m_mutex);
 
   if ( request->project_id() < 0 ||
        request->project_id() >= int32(m_project_metas.size()) ) {
@@ -204,6 +219,8 @@ METHOD_IMPL(PixvalAdd, ::asp::pho::PixvalAddRequest, ::asp::pho::PixvalAddReply)
 
 METHOD_IMPL(PixvalGetAndReset, ::asp::pho::PixvalGetAndResetRequest, ::asp::pho::PixvalGetAndResetReply) {
   detail::RequireCall call(done);
+
+  Mutex::Lock lock(m_mutex);
 
   if ( request->project_id() < 0 ||
        request->project_id() >= int32(m_project_metas.size()) ) {

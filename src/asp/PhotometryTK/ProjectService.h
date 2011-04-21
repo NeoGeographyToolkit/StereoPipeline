@@ -8,6 +8,7 @@
 #ifndef __ASP_PHOTOMETRYTK_PROJECT_SERVICE_H__
 #define __ASP_PHOTOMETRYTK_PROJECT_SERVICE_H__
 
+#include <vw/Core/Thread.h>
 #include <vw/Plate/FundamentalTypes.h>
 #include <asp/PhotometryTK/ProjectFile.pb.h>
 
@@ -27,6 +28,8 @@ namespace pho {
     std::map<std::string,vw::int32> m_ptk_lookup;
     std::vector<ProjectMeta> m_project_metas;
     std::vector<std::vector<CameraMeta> > m_camera_metas;
+
+    vw::Mutex m_mutex;
 
   public:
     ProjectServiceImpl(std::string root_directory);
