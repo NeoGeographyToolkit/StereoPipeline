@@ -79,6 +79,9 @@ class JobQueue(object):
         self.jobs = []
 
     def run(self):
+        if not self.jobs:
+            # avoid error about max() with no args
+            return
         maxStep = max([step for step, job in self.jobs])
         for currentStep in xrange(0, maxStep+1):
             #print '\n*** JobQueue: running step %d of %d ***\n' % (currentStep+1, maxStep+1)
@@ -149,7 +152,47 @@ def run_2(opts, drgs):
     runReconstruct(opts, drgs, 2)
 
 def run_kml(opts, drgs):
-    pass # implement me
+    resultsDir = expand('$resultsDir', vars(opts))
+
+    # subsample
+    albedoDir = '%s/albedo' % resultsDir
+    albedoSmallDir = '%s/albedoSmall' % resultsDir
+    dosys('mkdir -p %s' % albedoSmallDir)
+    tifs = glob('%s/*.tif' % albedoDir)
+    for tif in tifs:
+        small = '%s/%s' % (albedoSmallDir, os.path.basename(tif))
+        if getTime(tif) > getTime(small):
+            jobQueueG.addJob('gdal_translate -outsize 25%% 25%% %s %s'
+                             % (tif, small))
+    jobQueueG.run()
+
+    # generate kml
+    smalls = glob('%s/*.tif' % albedoSmallDir)
+    albedoKmlDir = '%s/albedoKml' % resultsDir
+    if getTime(smalls[0]) > getTime(albedoKmlDir):
+        allSmalls = ' '.join(smalls)
+        oldDir = os.getcwd()
+        os.chdir(resultsDir)
+        dosys('image2qtree -m kml -o albedoKml %s' % allSmalls)
+        os.chdir(oldDir)
+
+    # generate networklink
+    netLinkFile = '%s/albedoKml/net.kml' % resultsDir
+    netLink = file(netLinkFile, 'w')
+    hrefSuffix = expand('', vars(opts))
+    text = expand("""<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <NetworkLink>
+    <name>$name/albedoKml</name>
+    <Link>
+      <href>http://localhost:8080/$mission/$name/albedoKml/albedoKml.kml</href>
+    </Link>
+  </NetworkLink>
+</kml>
+""",
+                  vars(opts))
+    netLink.write(text)
+    netLink.close()
 
 def run_jpg(opts, drgs):
     convertDirectory(opts, 'shadow')
