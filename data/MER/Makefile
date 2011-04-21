@@ -9,11 +9,13 @@
 
 all: imagery stereo mesh
 
-imagery: 1p270664103esf90csp2566l2m1.tif 1p270664103esf90csp2566r2m1.tif 1n270487304eff90cip1952l0m1.tif 1n270487304eff90cip1952r0m1.tif 2m147677487eff8800p2976m2f1.tif 2m147677547eff8800p2976m2f1.tif 1p270664103esf90csp2566l2m1.cahvor 1p270664103esf90csp2566r2m1.cahvor 1n270487304eff90cip1952l0m1.cahvor 1n270487304eff90cip1952r0m1.cahvor 2m147677487eff8800p2976m2f1.cahvor 2m147677547eff8800p2976m2f1.cahvor #2f194370083effap00p1214l0m1.tif 2f194370083effap00p1214r0m1.tif 2r195521583effaq00p1301l0m1.tif 2r195521583effaq00p1301r0m1.tif 2f191703508effanhep1110l0m1.tif 2f191703508effanhep1110r0m1.tif
+imagery: 1p270664103esf90csp2566l2m1.tif 1p270664103esf90csp2566r2m1.tif 1n270487304eff90cip1952l0m1.tif 1n270487304eff90cip1952r0m1.tif 2m147677487eff8800p2976m2f1.tif 2m147677547eff8800p2976m2f1.tif 1p270664103esf90csp2566l2m1.cahvor 1p270664103esf90csp2566r2m1.cahvor 1n270487304eff90cip1952l0m1.cahvor 1n270487304eff90cip1952r0m1.cahvor 2m147677487eff8800p2976m2f1.cahvor 2m147677547eff8800p2976m2f1.cahvor 2f194370083fflap00p1214r0m1.tif 2f194370083fflap00p1214r0m1.cahv 2f194370083fflap00p1214l0m1.tif 2f194370083fflap00p1214l0m1.cahv
 
-stereo: pan01/pan01-PC.tif nav01/nav01-PC.tif mi01/mi01-PC.tif
+#2f194370083effap00p1214l0m1.tif 2f194370083effap00p1214r0m1.tif 2r195521583effaq00p1301l0m1.tif 2r195521583effaq00p1301r0m1.tif 2f191703508effanhep1110l0m1.tif 2f191703508effanhep1110r0m1.tif
 
-mesh: pan01/pan01.ive nav01/nav01.ive mi01/mi01.ive
+stereo: pan01/pan01-PC.tif nav01/nav01-PC.tif mi01/mi01-PC.tif fh01lin/fh01lin-PC.tif
+
+mesh: pan01/pan01.ive nav01/nav01.ive mi01/mi01.ive fh01lin/fh01lin.ive
 
 # Actual processing
 ###############################################
@@ -36,6 +38,9 @@ nav01/nav01-PC.tif: imagery
 mi01/mi01-PC.tif: imagery
 	stereo 2m147677487eff8800p2976m2f1.tif 2m147677547eff8800p2976m2f1.tif 2m147677487eff8800p2976m2f1.cahvor 2m147677547eff8800p2976m2f1.cahvor mi01/mi01
 
+fh01lin/fh01lin-PC.tif: imagery
+	stereo 2f194370083fflap00p1214r0m1.tif 2f194370083fflap00p1214l0m1.tif 2f194370083fflap00p1214r0m1.cahv 2f194370083fflap00p1214l0m1.cahv fh01lin/fh01lin
+
 pan01/pan01.ive: pan01/pan01-PC.tif
 	point2mesh -s 1 -l pan01/pan01-PC.tif pan01/pan01-L.tif
 
@@ -44,6 +49,9 @@ nav01/nav01.ive: nav01/nav01-PC.tif
 
 mi01/mi01.ive: mi01/mi01-PC.tif
 	point2mesh -s 1 -l mi01/mi01-PC.tif mi01/mi01-L.tif
+
+fh01lin/fh01lin.ive: fh01lin/fh01lin-PC.tif
+	point2mesh -s 1 -l fh01lin/fh01lin-PC.tif fh01lin/fh01lin-L.tif
 
 # Downloading data
 ##############################################
@@ -63,6 +71,11 @@ mi01/mi01.ive: mi01/mi01-PC.tif
 	wget -O 2f194370083effap00p1214l0m1.img 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit//mer2ho_0xxx/data/sol0766/edr//2f194370083effap00p1214l0m1.img+AND+RT+%3D+RAW'
 2f194370083effap00p1214r0m1.img:
 	wget -O 2f194370083effap00p1214r0m1.img 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit//mer2ho_0xxx/data/sol0766/edr//2f194370083effap00p1214r0m1.img+AND+RT+%3D+RAW'
+# FH01 (linearized)
+2f194370083fflap00p1214r0m1.img:
+	wget -O 2f194370083fflap00p1214r0m1.img 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit//mer2ho_0xxx/data/sol0766/rdr//2f194370083fflap00p1214r0m1.img+AND+RT+%3D+RAW'
+2f194370083fflap00p1214l0m1.img:
+	wget -O 2f194370083fflap00p1214l0m1.img 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit//mer2ho_0xxx/data/sol0766/rdr//2f194370083fflap00p1214l0m1.img+AND+RT+%3D+RAW'
 # RH01
 2r195521583effaq00p1301l0m1.img:
 	wget -O 2r195521583effaq00p1301l0m1.img 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+/data/mer/spirit//mer2ho_0xxx/data/sol0779/edr//2r195521583effaq00p1301l0m1.img+AND+RT+%3D+RAW'
