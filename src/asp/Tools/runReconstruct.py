@@ -15,11 +15,11 @@ from string import Template
 # EDITABLE CONFIG
 ######################################################################
 
-DEFAULT_MISSION = 'a15'
-DEFAULT_DATA_DIR = '$HOME/$mission'
-DEFAULT_RESULTS_DIR = '$HOME/results/$mission/$name'
+DEFAULT_MISSION = 'a31'
+DEFAULT_DATA_DIR = '$HOME/data/input/$mission'
+DEFAULT_RESULTS_DIR = '$HOME/data/results/$mission/$name'
 DEFAULT_RECONSTRUCT_BINARY = './reconstruct'
-DEFAULT_SUB = 'sub16'
+DEFAULT_SUB = 'sub32'
 DEFAULT_NUM_PROCESSORS = 14
 # 0 means process all
 DEFAULT_NUM_FILES = 0
@@ -27,9 +27,12 @@ DEFAULT_REGION = 'all'
 DEFAULT_EXTRA = 'std'
 DEFAULT_NAME = '${date}_${time}_${subsampleLevel}_${region}_${extra}'
 
-DEFAULT_STEPS = ['weights', '0', '1', '2', 'jpg', 'kml']
+DEFAULT_STEPS = ['weights', '0', '1', '2', 'jpg', 'kml', 'html']
 
-COLORMAP = '%s/projects/VisionWorkbench/build/x86_64_linux_gcc4.1/bin/colormap' % os.environ['HOME']
+VW_BIN_DIR = '%s/projects/VisionWorkbench/build/x86_64_linux_gcc4.1/bin' % os.environ['HOME']
+COLORMAP = '%s/colormap' % VW_BIN_DIR
+HILLSHADE = '%s/hillshade' % VW_BIN_DIR
+USE_HILLSHADE = True
 
 ######################################################################
 # GENERIC HELPERS
@@ -104,10 +107,17 @@ def convertToJpeg(tif, jpg):
     stem = os.path.splitext(tif)[0]
     if 'DEM' in tif:
         # file is a 16-bit TIFF DEM -- colormap to tif then convert to jpg
-        tmp = stem + '_CMAP.tif'
-        jobQueueG.addJob('%s %s -o %s' % (COLORMAP, tif, tmp), 0)
-        jobQueueG.addJob('convert %s %s' % (tmp, jpg), 1)
-        jobQueueG.addJob('rm -f %s' % tmp, 2)
+        cmap = stem + '_CMAP.tif'
+        if USE_HILLSHADE:
+            hs = stem + '_HILLSHADE.tif'
+            jobQueueG.addJob('%s --nodata-value=-32767 %s -o %s' % (HILLSHADE, tif, hs), 0)
+            jobQueueG.addJob('rm -f %s' % hs, 2)
+            hillshadeArg = '-s %s' % hs
+        else:
+            hillshadeArg = ''
+        jobQueueG.addJob('%s --nodata-value=-32767 %s %s -o %s' % (COLORMAP, hillshadeArg, tif, cmap), 1)
+        jobQueueG.addJob('convert %s %s' % (cmap, jpg), 2)
+        jobQueueG.addJob('rm -f %s' % cmap, 3)
     else:
         # use GDAL to convert band 1 to jpeg
         # (convert doesn't work well with GRAYA images)
@@ -173,6 +183,7 @@ def run_kml(opts, drgs):
         allSmalls = ' '.join(smalls)
         oldDir = os.getcwd()
         os.chdir(resultsDir)
+        logging.info('cwd = %s' % os.getcwd())
         dosys('image2qtree -m kml -o albedoKml %s' % allSmalls)
         os.chdir(oldDir)
 
@@ -181,11 +192,11 @@ def run_kml(opts, drgs):
     netLink = file(netLinkFile, 'w')
     hrefSuffix = expand('', vars(opts))
     text = expand("""<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
+<kml xmlns="http://www.opengis.net/kml/2.2" hint="target=moon">
   <NetworkLink>
     <name>$name/albedoKml</name>
     <Link>
-      <href>http://localhost:8080/$mission/$name/albedoKml/albedoKml.kml</href>
+      <href>http://localhost:8080/results/$mission/$name/albedoKml/albedoKml.kml</href>
     </Link>
   </NetworkLink>
 </kml>
@@ -199,6 +210,41 @@ def run_jpg(opts, drgs):
     convertDirectory(opts, 'reflectance')
     convertDirectory(opts, 'albedo')
     convertDirectory(opts, 'DEM')
+
+ROWS_PER_PAGE = 5
+
+def genHtmlPage(opts, drgs, i, n):
+    resultsDir = expand('$resultsDir', vars(opts))
+    htmlDir = '%s/html' % resultsDir
+    htmlFile = '%s/page%03d.html' % (htmlDir, i)
+    startIndex = i*ROWS_PER_PAGE
+    rows = drgs[startIndex:(startIndex+ROWS_PER_PAGE)]
+    out = file(htmlFile, 'w')
+    for i in xrange(n):
+        out.write('<a href="page%03d.html">%d</a>\n' % (i, i))
+    resultsUrl = expand('/results/$mission/$name', vars(opts))
+    for drg in rows:
+        drgBase = os.path.splitext(os.path.basename(drg))[0]
+        drgBase = re.sub(r'-DRG$', '', drgBase)
+        demUrl = '%s/DEMJpg/%s-DEM_out.jpg' % (resultsUrl, drgBase)
+        shadowUrl = '%s/shadowJpg/%s-DRG_shadow.jpg' % (resultsUrl, drgBase)
+        reflectanceUrl = '%s/reflectanceJpg/%s-DRG_reflectance.jpg' % (resultsUrl, drgBase)
+        albedoUrl = '%s/albedoJpg/%s-DRG_albedo.jpg' % (resultsUrl, drgBase)
+        out.write('<div>\n')
+        out.write('<a href="%s"><img width="128" height="128" src="%s"/></a>\n' % (demUrl, demUrl))
+        out.write('<a href="%s"><img width="128" height="128" src="%s"/></a>\n' % (shadowUrl, shadowUrl))
+        out.write('<a href="%s"><img width="128" height="128" src="%s"/></a>\n' % (reflectanceUrl, reflectanceUrl))
+        out.write('<a href="%s"><img width="128" height="128" src="%s"/></a>\n' % (albedoUrl, albedoUrl))
+        out.write('</div>\n')
+    out.close()
+
+def run_html(opts, drgs):
+    resultsDir = expand('$resultsDir', vars(opts))
+    htmlDir = '%s/html' % resultsDir
+    dosys('mkdir -p %s' % htmlDir)
+    n = len(drgs) // ROWS_PER_PAGE
+    for i in xrange(n):
+        genHtmlPage(opts, drgs, i, n)
 
 def runStep(opts, drgs, stepName):
     logging.info('')
