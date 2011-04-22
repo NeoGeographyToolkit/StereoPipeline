@@ -44,8 +44,8 @@ std::vector<int> GetInputIndices(std::vector<std::string> inputFiles, std::vecto
 {
 
   std::vector<int>  inputIndices;
-  for (int j = 0; j < inputFiles.size(); j++){
-    for (int i = 0; i < DRGFiles.size(); i++){
+  for (int j = 0; j < (int)inputFiles.size(); j++){
+    for (int i = 0; i < (int)DRGFiles.size(); i++){
       if (DRGFiles[i].compare(inputFiles[j])==0){
        inputIndices.push_back(i);
       }
@@ -186,9 +186,9 @@ std::vector<vector<int> > makeOverlapList(std::vector<std::string> inputFiles, s
 
 void printOverlapList(std::vector<vector<int> > overlapIndices)
 {
-  for (int i=0; i < overlapIndices.size(); i++){
+  for (int i=0; i < (int)overlapIndices.size(); i++){
     printf("%d: ", i);
-    for (int j = 0; j < overlapIndices[i].size(); j++){
+    for (int j = 0; j < (int)overlapIndices[i].size(); j++){
       printf("%d ", overlapIndices[i][j]);
     }
     printf("\n");
@@ -209,7 +209,7 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
 
 #define CHECK_VAR(name, fmt, assignTo) \
     if (0 == strcmp(inName, name)) { \
-        int ret = sscanf(inVal, fmt, &(settings->assignTo)); \
+        sscanf(inVal, fmt, &(settings->assignTo)); \
     }
 
   if (configFile.is_open()){
@@ -295,8 +295,55 @@ void PrintGlobalParams(struct GlobalParams *settings)
   printf("TR_CONST %f\n", settings->TRConst);
 }
 
+struct FlaggedImage {
+  bool useImage;
+  std::string path;
+  
+  FlaggedImage(bool useImage_, const std::string& path_) :
+    useImage(useImage_),
+    path(path_)
+  {}
+};
+
+void readImagesFile(std::vector<FlaggedImage>& images,
+                    const std::string& imagesFileName)
+{
+  std::ifstream imagesFile(imagesFileName.c_str());
+  if (!imagesFile) {
+    std::cerr << "ERROR: readImagesFile: can't open " << imagesFileName
+              << " for reading: " << strerror(errno) << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  images.clear();
+
+  std::string line;
+  int lineNo = 1;
+  while (std::getline(imagesFile, line)) {
+    int useImage;
+    char path[1024];
+
+    // ignore blank lines
+    if (line.size() == 0) continue;
+    // ignore comment lines
+    if ('#' == line[0]) continue;
+
+    if (2 != sscanf(line.c_str(), "%d %1023s", &useImage, path)) {
+      std::cerr << "ERROR: readImagesFile: " << imagesFileName
+                << ": line " << lineNo
+                << ": expected '%d %s' format" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    
+    images.push_back(FlaggedImage((bool)useImage, path));
+
+    lineNo++;
+  }
+}
+
 int main( int argc, char *argv[] ) {
 
+  std::vector<std::string> inputDRGFiles;
   std::vector<std::string> DRGFiles;
   std::vector<std::string> imageFiles;
   std::string cubDir = "../data/cub";
@@ -304,7 +351,7 @@ int main( int argc, char *argv[] ) {
   std::string exposureDir = "../data/exposure";
   std::string resDir = "../results";
   std::string configFilename = "photometry_settings.txt";
-  
+  std::string imagesFile = "";
 
   po::options_description general_options("Options");
   general_options.add_options()
@@ -314,6 +361,7 @@ int main( int argc, char *argv[] ) {
     ("space info-directory,s", po::value<std::string>(&cubDir)->default_value("../data/cub"), "space info directory.")
     ("exposure-directory,e", po::value<std::string>(&exposureDir)->default_value("../data/exposure"), "exposure time directory.")
     ("res-directory,r", po::value<std::string>(&resDir)->default_value("../results"), "results directory.")
+    ("images-file,f", po::value<std::string>(&imagesFile)->default_value(imagesFile), "path to file listing images to use")
     ("config-filename,c", po::value<std::string>(&configFilename)->default_value("photometry_settings.txt"), "configuration filename.")
     ("help,h", "Display this help message");
   
@@ -321,13 +369,13 @@ int main( int argc, char *argv[] ) {
   po::options_description hidden_options("");
 
   hidden_options.add_options()
-    ("DRGFiles", po::value<std::vector<std::string> >(&DRGFiles));
+    ("inputDRGFiles", po::value<std::vector<std::string> >(&inputDRGFiles));
  
   po::options_description options("Allowed Options");
   options.add(general_options).add(hidden_options);
 
   po::positional_options_description p;
-  p.add("DRGFiles", -1);
+  p.add("inputDRGFiles", -1);
 
   std::ostringstream usage;
   usage << "Description: main code for mosaic,albedo and shape reconstruction from multiple images" << std::endl << std::endl;
@@ -349,19 +397,23 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  if( vm.count("DRGFiles") < 1 ) {
-    std::cerr << "Error: Must specify at least one orthoprojected image file!" << std::endl << std::endl;
-    std::cerr << usage.str();
-    return 1;
-  }
+  std::vector<FlaggedImage> flaggedDrgFiles;
+  if( imagesFile.size() == 0 ) {
+    if ( vm.count("inputDRGFiles") < 1 ) {
+      std::cerr << "Error: Must specify either -f option or at least one orthoprojected image file!" << std::endl << std::endl;
+      std::cerr << usage.str();
+      return 1;
+    }
 
-  vw_out() << "Number of Files = " << DRGFiles.size() << "\n";
-  if (imageFiles.size() == 0){
-    imageFiles = DRGFiles;
+    for (int i=0; i < (int)inputDRGFiles.size(); i++) {
+      flaggedDrgFiles.push_back(FlaggedImage(true, inputDRGFiles[i]));
+    }
+  } else {
+    readImagesFile(flaggedDrgFiles, imagesFile);
   }
 
   GlobalParams globalParams;
-  int configFileFound = ReadConfigFile((char*)configFilename.c_str(), &globalParams);
+  ReadConfigFile((char*)configFilename.c_str(), &globalParams);
   PrintGlobalParams(&globalParams);
   
   std::string sunPosFilename = cubDir + "/sunpos.txt";
@@ -370,13 +422,12 @@ int main( int argc, char *argv[] ) {
   std::string exposureInfoFilename = resDir + "/exposure/exposureInfo.txt";
 
   std::vector<Vector3> sunPositions;
-  sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), DRGFiles.size());
+  sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), flaggedDrgFiles.size());
 
   std::vector<Vector3> spacecraftPositions;
-  spacecraftPositions = ReadSpacecraftPosition((char*)spacecraftPosFilename.c_str(), DRGFiles.size());
+  spacecraftPositions = ReadSpacecraftPosition((char*)spacecraftPosFilename.c_str(), flaggedDrgFiles.size());
 
-  std::vector<ModelParams> modelParamsArray(DRGFiles.size());
-  std::vector<float> avgReflectanceArray(DRGFiles.size());
+  std::vector<ModelParams> modelParamsArray;
 
   // Double check to make sure all folders exist  
   if ( !fs::exists(resDir) )
@@ -400,12 +451,17 @@ int main( int argc, char *argv[] ) {
   
 
   //this will contain all the DRG files
-  for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
+  int i = 0;
+  for (unsigned int j = 0; j < flaggedDrgFiles.size(); ++j) {
+    if (!flaggedDrgFiles[j].useImage) continue;
+
+    DRGFiles.push_back(flaggedDrgFiles[j].path);
+    modelParamsArray.push_back(ModelParams());
 
     std::string temp = sufix_from_filename(DRGFiles[i]);
     modelParamsArray[i].exposureTime        = 1.0;
-    modelParamsArray[i].sunPosition         = 1000*sunPositions[i];
-    modelParamsArray[i].spacecraftPosition  = 1000*spacecraftPositions[i];
+    modelParamsArray[i].sunPosition         = 1000*sunPositions[j];
+    modelParamsArray[i].spacecraftPosition  = 1000*spacecraftPositions[j];
   
     modelParamsArray[i].centerLineDEM = NULL;
     modelParamsArray[i].centerLine = NULL;
@@ -450,8 +506,14 @@ int main( int argc, char *argv[] ) {
     }
     
     vw_out( VerboseDebugMessage, "photometry" ) << modelParamsArray[i] << "\n";
+
+    i++;
   }
   
+  vw_out() << "Number of Files = " << DRGFiles.size() << "\n";
+  if (imageFiles.size() == 0){
+    imageFiles = DRGFiles;
+  }
 
   std::vector<vector<int> > overlapIndicesArray = makeOverlapList(imageFiles, DRGFiles); 
   printOverlapList(overlapIndicesArray);
@@ -503,6 +565,7 @@ int main( int argc, char *argv[] ) {
     callback.report_finished();
   }
   */
+  std::vector<float> avgReflectanceArray(DRGFiles.size());
   if ((globalParams.reflectanceType != NO_REFL) && (globalParams.saveReflectance == 1)){ //compute reflectance
 
     TerminalProgressCallback callback("photometry","Init Reflectance:");

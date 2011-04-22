@@ -144,11 +144,19 @@ def run_weights(opts, drgs):
     pass # implement me
 
 def runReconstruct(opts, drgs, step):
+    resultsDir = expand('$resultsDir', vars(opts))
+    dosys('mkdir -p %s' % resultsDir)
+    imagesFile = '%s/images.txt' % resultsDir
+    out = file(imagesFile, 'w')
+    for drg in drgs:
+        out.write('1 %s\n' % drg) 
+    out.close()
+
     opts.settings = 'photometry_init_%s_settings.txt' % step
-    opts.allFiles = ' '.join(drgs)
+    opts.imagesFile = imagesFile
     for f in drgs:
         opts.inputFile = f
-        cmd = '$reconstructBinary -d $dataDir/DEM$undersub -s $dataDir/meta -e $dataDir/meta -r $resultsDir -c $settings -i $inputFile $allFiles'
+        cmd = '$reconstructBinary -d $dataDir/DEM$undersub -s $dataDir/meta -e $dataDir/meta -r $resultsDir -c $settings -i $inputFile -f $imagesFile'
         jobQueueG.addJob(expand(cmd, vars(opts)))
     jobQueueG.run()
 
