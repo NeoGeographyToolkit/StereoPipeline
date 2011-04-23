@@ -58,6 +58,8 @@ def main():
 
         pool = Pool(processes=options.threads)
 
+        do_error = True
+
         # Finding URL for Albedo
         albedo_url = args[0][:args[0].rfind("/")]+"_index/Albedo.plate"
 
@@ -85,28 +87,29 @@ def main():
             print " --- MIPMAP ---"
             job_func("mipmap --region "+region_arg+" "+albedo_url)
 
-            # Update the error
-            error_cmd = []
-            print " --- ERROR ---"
-            for i in range(options.threads):
-                cmd = "phoiterror %s -j %d -n %d %s" % (levelArg, i, options.threads, args[0])
-                error_cmd.append(cmd)
-            results = [pool.apply_async(job_func, (cmd,)) for cmd in error_cmd]
-            for result in results:
-                result.get()
+            if (do_error):
+                # Update the error
+                error_cmd = []
+                print " --- ERROR ---"
+                for i in range(options.threads):
+                    cmd = "phoiterror %s -j %d -n %d %s" % (levelArg, i, options.threads, args[0])
+                    error_cmd.append(cmd)
+                results = [pool.apply_async(job_func, (cmd,)) for cmd in error_cmd]
+                for result in results:
+                    result.get()
 
-            print "--- ERROR FINAL ---"
+                print "--- ERROR FINAL ---"
 
-            # Run error again with zero jobs, just to output totals for the entire plate
-            errvals = job_func("phoiterror -l %d -j 0 -n 0 %s" % (options.level, args[0]), False)
-            errvalList = errvals.split()
-            initErr = float(errvalList[0])
-            lastErr = float(errvalList[1])
-            currErr = float(errvalList[2])
-            print "ERROR VALS = [%s] [%s] [%s]\n" % (initErr, lastErr, currErr);
+                # Run error again with zero jobs, just to output totals for the entire plate
+                errvals = job_func("phoiterror -l %d -j 0 -n 0 %s" % (options.level, args[0]), False)
+                errvalList = errvals.split()
+                initErr = float(errvalList[0])
+                lastErr = float(errvalList[1])
+                currErr = float(errvalList[2])
+                print "ERROR VALS = [%s] [%s] [%s]\n" % (initErr, lastErr, currErr);
 
-            if ( halt_iterations(initErr, lastErr, currErr) ):
-                iteration = options.iterations + 1
+                if ( halt_iterations(initErr, lastErr, currErr) ):
+                    iteration = options.iterations + 1
 
             # Update the Time Estimate
             time_cmd = []

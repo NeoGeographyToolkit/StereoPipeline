@@ -21,6 +21,7 @@ using namespace asp::pho;
 namespace fs = boost::filesystem;
 
 // Search Function
+/*
 std::vector<std::string> inline
 glob_ptk_filenames( std::string const& root_directory ) {
   std::vector<std::string> result;
@@ -41,24 +42,16 @@ glob_ptk_filenames( std::string const& root_directory ) {
 
   return result;
 }
+*/
 
 #define METHOD_IMPL(Name, Input, Output) \
   void ProjectServiceImpl::Name(::google::protobuf::RpcController*, const Input* request, Output* response, ::google::protobuf::Closure* done)
-
-// Range checking macros
-#define CHECK_PROJECT_RANGE()                               \
-  if ( request->project_id() < 0 ||                         \
-       request->project_id() >= int32(m_project_metas.size()) ) { \
-    response->set_project_id( -1 );                         \
-    response->set_camera_id( -1 );                          \
-    return;                                                 \
-  }
 
 
 #define CHECK_CAMERA_RANGE()                                \
   if ( request->camera_id() < 0 ||                          \
        request->camera_id() >=                              \
-       int32(m_camera_metas[ request->project_id() ].size()) ) { \
+       int32(m_camera_metas.size()) ) { \
     response->set_project_id( request->project_id() );      \
     response->set_camera_id( -1 );                          \
     return;                                                 \
@@ -72,10 +65,16 @@ ProjectServiceImpl::ProjectServiceImpl( std::string root_directory ) :
 
   // Search for all the project files within a given root directory.
   // Project files end in a ptk
-  std::vector<std::string> ptkfiles = glob_ptk_filenames( root_directory );
-  if ( ptkfiles.size() < 1 )
-    vw_throw( IOErr() << "There are no project files where the server started.\n" );
+  //std::vector<std::string> ptkfiles = glob_ptk_filenames( root_directory );
+  //if ( ptkfiles.size() < 1 )
+  //vw_throw( IOErr() << "There are no project files where the server started.\n" );
 
+  read_pho_project( root_directory,
+		    m_project_meta,
+		    m_camera_metas );
+  m_project_meta.set_name( fs::path( root_directory ).relative_path().string() );
+
+  /*
   for (size_t i = 0; i < ptkfiles.size(); ++i ) {
     int32 index = m_ptk_lookup.size();
     m_ptk_lookup[fs::path(ptkfiles[i]).relative_path().string()] =
@@ -87,41 +86,51 @@ ProjectServiceImpl::ProjectServiceImpl( std::string root_directory ) :
                       m_camera_metas.back() );
     m_project_metas.back().set_name( fs::path(ptkfiles[i]).relative_path().string() );
   }
+  */
 }
 
 void ProjectServiceImpl::sync() {
 
-  Mutex::Lock lock(m_mutex);
+  Mutex::Lock iulock(m_iterUpMutex);
+  Mutex::Lock cclock(m_camCreateMutex);
+  Mutex::Lock cwlock(m_camWriteMutex);
+  Mutex::Lock alock(m_pixAddMutex);
+  Mutex::Lock rlock(m_pixResetMutex);
 
-  for ( size_t i = 0; i < m_project_metas.size(); i++ ) {
+  vw_out() << "\t--> Syncing project files for " << m_project_meta.name() << " to disk.\n";
+
+  //  for ( size_t i = 0; i < m_project_metas.size(); i++ ) {
+  /*
     vw_out() << "\t--> Syncing project files for "
              << m_project_metas[i].name() <<  " to disk.\n";
+  */
 
-    std::string ptk_file = m_root_directory+"/"+m_project_metas[i].name();
+  std::string ptk_file = m_root_directory; //+"/"+m_project_metas[i].name();
 
-    // Delete bak
-    if ( fs::exists(ptk_file+"/photometrytk.bak") )
-      fs::remove(ptk_file+"/photometrytk.bak");
+  // Delete bak
+  if ( fs::exists(ptk_file+"/photometrytk.bak") )
+    fs::remove(ptk_file+"/photometrytk.bak");
 
-    // Move current ptk to bak
-    fs::rename(ptk_file+"/photometrytk.dat",
-               ptk_file+"/photometrytk.bak");
+  // Move current ptk to bak
+  fs::rename(ptk_file+"/photometrytk.dat",
+	     ptk_file+"/photometrytk.bak");
 
-    // Save ptk
-    write_pho_project( ptk_file,
-                       m_project_metas[i],
-                       m_camera_metas[i].begin(),
-                       m_camera_metas[i].end() );
-  }
+  // Save ptk
+  write_pho_project( ptk_file,
+		     m_project_meta,
+		     m_camera_metas.begin(),
+		     m_camera_metas.end() );
 }
 
 METHOD_IMPL(OpenRequest, ::asp::pho::ProjectOpenRequest, ::asp::pho::ProjectOpenReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock lock(m_mutex);
-
   std::string request_ptk = request->name();
 
+  response->set_project_id( 0 );
+  *(response->mutable_meta()) = m_project_meta;
+
+  /*
   std::map<std::string,int>::iterator it =
     m_ptk_lookup.find( request_ptk );
   if ( it != m_ptk_lookup.end() ) {
@@ -135,133 +144,109 @@ METHOD_IMPL(OpenRequest, ::asp::pho::ProjectOpenRequest, ::asp::pho::ProjectOpen
     response->mutable_meta()->set_reflectance( ProjectMeta::NONE );
     response->mutable_meta()->set_num_cameras( 0 );
   }
+  */
 }
 
 METHOD_IMPL(IterationUpdate, ::asp::pho::IterationUpdateRequest, ::asp::pho::IterationUpdateReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock lock(m_mutex);
+  Mutex::Lock syncLock(m_iterUpMutex);
 
-  if ( request->project_id() < 0 ||
-       request->project_id() >= int32(m_project_metas.size()) ) {
-    response->set_project_id( -1 );
-    return;
-  }
-
-  m_project_metas[ request->project_id() ].set_current_iteration(request->iteration());
-  response->set_project_id( request->project_id() );
+  m_project_meta.set_current_iteration(request->iteration());
+  response->set_project_id( 0 );
 }
 
 METHOD_IMPL(CameraCreate, ::asp::pho::CameraCreateRequest, ::asp::pho::CameraCreateReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock lock(m_mutex);
-
-  CHECK_PROJECT_RANGE();
+  Mutex::Lock syncLock(m_camCreateMutex);
 
   // Adding camera meta
-  response->set_project_id( request->project_id() );
-  response->set_camera_id( m_camera_metas[request->project_id()].size() );
-  m_camera_metas[request->project_id()].push_back( request->meta() );
-  m_project_metas[request->project_id()].set_num_cameras( response->camera_id()+1 );
+  response->set_project_id( 0 );
+  response->set_camera_id( m_camera_metas.size() );
+  m_camera_metas.push_back( request->meta() );
+  m_project_meta.set_num_cameras( response->camera_id()+1 );
   // Set Base Transaction ID
-  m_camera_metas[request->project_id()].back().set_base_transaction_id( m_project_metas[request->project_id()].max_iterations()*(m_camera_metas[request->project_id()].size()-1) );
+  m_camera_metas.back().set_base_transaction_id( m_project_meta.max_iterations()*(m_camera_metas.size()-1) );
 }
 
 METHOD_IMPL(CameraRead, ::asp::pho::CameraReadRequest, ::asp::pho::CameraReadReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock lock(m_mutex);
-
   // Set empty meta .. for the error checking
   *(response->mutable_meta()) = CameraMeta();
-  CHECK_PROJECT_RANGE();
   CHECK_CAMERA_RANGE();
 
   // echo correct
-  response->set_project_id( request->project_id() );
+  response->set_project_id( 0 );
   response->set_camera_id( request->camera_id() );
 
   *(response->mutable_meta()) =
-    m_camera_metas[request->project_id()][request->camera_id()];
+    m_camera_metas[request->camera_id()];
 }
 
 METHOD_IMPL(CameraWrite, ::asp::pho::CameraWriteRequest, ::asp::pho::CameraWriteReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock lock(m_mutex);
+  Mutex::Lock syncLock(m_camWriteMutex);
 
-  CHECK_PROJECT_RANGE();
   CHECK_CAMERA_RANGE();
 
   // echo correct
-  response->set_project_id( request->project_id() );
+  response->set_project_id( 0 );
   response->set_camera_id( request->camera_id() );
-  m_camera_metas[request->project_id()][request->camera_id()] =
-    request->meta();
+  m_camera_metas[request->camera_id()] = request->meta();
 }
 
 METHOD_IMPL(PixvalAdd, ::asp::pho::PixvalAddRequest, ::asp::pho::PixvalAddReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock lock(m_mutex);
+  Mutex::Lock syncLock(m_pixAddMutex);
 
-  if ( request->project_id() < 0 ||
-       request->project_id() >= int32(m_project_metas.size()) ) {
-    response->set_project_id( -1 );
-    return;
-  }
-
-  m_project_metas[ request->project_id() ].add_min_pixval_vec( request->min_pixval() );
-  m_project_metas[ request->project_id() ].add_max_pixval_vec( request->max_pixval() );
-  response->set_project_id( request->project_id() );
+  m_project_meta.add_min_pixval_vec( request->min_pixval() );
+  m_project_meta.add_max_pixval_vec( request->max_pixval() );
+  response->set_project_id( 0 );
 }
 
 METHOD_IMPL(PixvalGetAndReset, ::asp::pho::PixvalGetAndResetRequest, ::asp::pho::PixvalGetAndResetReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock lock(m_mutex);
+  Mutex::Lock syncLock(m_pixResetMutex);
 
-  if ( request->project_id() < 0 ||
-       request->project_id() >= int32(m_project_metas.size()) ) {
-    response->set_project_id( -1 );
-    return;
-  }
-
-  if (m_project_metas[ request->project_id() ].min_pixval_vec_size() == 0 ||
-      m_project_metas[ request->project_id() ].max_pixval_vec_size() == 0) {
-    response->set_project_id( request->project_id() );
-    response->set_min_pixval( m_project_metas[ request->project_id() ].min_pixval() );
-    response->set_max_pixval( m_project_metas[ request->project_id() ].max_pixval() );    
+  if (m_project_meta.min_pixval_vec_size() == 0 ||
+      m_project_meta.max_pixval_vec_size() == 0) {
+    response->set_project_id( 0 );
+    response->set_min_pixval( m_project_meta.min_pixval() );
+    response->set_max_pixval( m_project_meta.max_pixval() );    
     return;
   }
 
   double min = 0;
-  for(int i = 0; i < m_project_metas[ request->project_id() ].min_pixval_vec_size(); i++) {
-    double newmin = m_project_metas[ request->project_id() ].min_pixval_vec(i);
+  for(int i = 0; i < m_project_meta.min_pixval_vec_size(); i++) {
+    double newmin = m_project_meta.min_pixval_vec(i);
     //std::cout << "newmin=" << newmin << "\n";
     if (0 == i) min = newmin;
     else {
       if (newmin < min) min = newmin;
     }
   }
-  m_project_metas[ request->project_id() ].set_min_pixval(min);
+  m_project_meta.set_min_pixval(min);
 
   double max = 0;
-  for(int i = 0; i < m_project_metas[ request->project_id() ].max_pixval_vec_size(); i++) {
-    double newmax = m_project_metas[ request->project_id() ].max_pixval_vec(i);
+  for(int i = 0; i < m_project_meta.max_pixval_vec_size(); i++) {
+    double newmax = m_project_meta.max_pixval_vec(i);
     //std::cout << "newmax=" << newmax << "\n";
     if (0 == i) max = newmax;
     else {
       if (newmax > max) max = newmax;
     }
   }
-  m_project_metas[ request->project_id() ].set_max_pixval(max);
+  m_project_meta.set_max_pixval(max);
   
-  m_project_metas[ request->project_id() ].clear_min_pixval_vec();
-  m_project_metas[ request->project_id() ].clear_max_pixval_vec();
+  m_project_meta.clear_min_pixval_vec();
+  m_project_meta.clear_max_pixval_vec();
 
-  response->set_project_id( request->project_id() );
+  response->set_project_id( 0 );
   response->set_min_pixval(min);
   response->set_max_pixval(max);
  }

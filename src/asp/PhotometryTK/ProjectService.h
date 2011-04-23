@@ -25,11 +25,14 @@ namespace pho {
   class ProjectServiceImpl : public ProjectService {
     std::string m_root_directory;
 
-    std::map<std::string,vw::int32> m_ptk_lookup;
-    std::vector<ProjectMeta> m_project_metas;
-    std::vector<std::vector<CameraMeta> > m_camera_metas;
+    ProjectMeta m_project_meta;
+    std::vector<CameraMeta> m_camera_metas;
 
-    vw::Mutex m_mutex;
+    vw::Mutex m_iterUpMutex;
+    vw::Mutex m_camCreateMutex;
+    vw::Mutex m_camWriteMutex;
+    vw::Mutex m_pixAddMutex;
+    vw::Mutex m_pixResetMutex;
 
   public:
     ProjectServiceImpl(std::string root_directory);
