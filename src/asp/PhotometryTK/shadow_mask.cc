@@ -7,7 +7,9 @@
 
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
@@ -201,9 +203,16 @@ int main( int argc, char *argv[] ) {
       delete rsrc;
 
       vw_out() << "Loading: " << input << "\n";
+
+      fs::path input_path(input);
+      std::string output = "./"+input_path.stem()+"_shdw" + input_path.extension();
+      
+      vw_out() << "Output = [" << output << "]\n";
+      /*
       size_t pt_idx = input.rfind(".");
       std::string output = input.substr(0,pt_idx)+"_shdw" +
         input.substr(pt_idx,input.size()-pt_idx);
+      */
 
       switch (pixel_format) {
       case VW_PIXEL_GRAY:
