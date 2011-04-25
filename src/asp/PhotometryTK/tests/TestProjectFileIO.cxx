@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 #include <asp/PhotometryTK/ProjectFileIO.h>
 #include <list>
+#include <boost/foreach.hpp>
 
 using namespace vw;
 using namespace asp;
@@ -21,15 +22,20 @@ TEST(ProjectFileIO, circle_test) {
   ProjectMeta proj_st;
   proj_st.set_name("monkey");
   proj_st.set_reflectance( ProjectMeta::LUNARL_GASKALL );
-  proj_st.set_num_cameras( 2 );
+  proj_st.set_num_cameras( 256 );
 
   std::list<CameraMeta> cam_st;
-  cam_st.push_back( CameraMeta() );
-  cam_st.push_back( CameraMeta() );
+  for ( size_t i = 0; i < 256; i++ ) {
+    cam_st.push_back( CameraMeta() );
+    cam_st.back().set_name( "monkey" );
+  }
   cam_st.front().set_name( "front" );
   cam_st.back().set_name( "back" );
-  cam_st.front().set_exposure_t( 2 );
-  cam_st.back().set_exposure_t( 4 );
+  size_t i = 0;
+  BOOST_FOREACH( CameraMeta& cam, cam_st ) {
+    cam.set_exposure_t( i );
+    i++;
+  }
   write_pho_project( "test.ptk", proj_st,
                      cam_st.begin(), cam_st.end() );
 
@@ -45,6 +51,19 @@ TEST(ProjectFileIO, circle_test) {
                proj_end.reflectance() );
     EXPECT_EQ( proj_st.num_cameras(),
                proj_end.num_cameras() );
+    EXPECT_EQ( proj_st.num_cameras(),
+               cam_st.size() );
+    EXPECT_EQ( proj_end.num_cameras(),
+               cam_end.size() );
+    EXPECT_EQ( cam_st.front().name(),
+               cam_end.front().name() );
+    EXPECT_EQ( cam_st.back().name(),
+               cam_end.back().name() );
+    size_t i = 0;
+    BOOST_FOREACH( CameraMeta const& cam, cam_end ) {
+      EXPECT_NEAR( double(i), cam.exposure_t(), 1e-6 );
+      i++;
+    }
   }
 
   fs::remove_all("test.ptk");

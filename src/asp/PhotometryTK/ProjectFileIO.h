@@ -21,28 +21,31 @@ namespace pho {
 
   // Functors to help me
   namespace hidden {
-    template <class StreamT>
     struct WriteCameraMeta {
-      StreamT* m_stream;
-      WriteCameraMeta( StreamT* stream ) : m_stream(stream) {}
+      std::ostream* m_stream;
+      WriteCameraMeta( std::ostream* stream ) : m_stream(stream) {}
 
       void operator()( CameraMeta& cam ) {
-        (*m_stream) << vw::int32(cam.ByteSize());
-        cam.SerializeToOstream( m_stream );
+        // ByteSize is just 'int' in protobuf. We typecast to be
+        // consistent across platforms.
+        vw::int32 bytes = cam.ByteSize();
+        m_stream->write( (char*)&bytes, 4);
+        if ( !cam.SerializeToOstream( m_stream ) )
+          vw::vw_throw( vw::IOErr() << "Failed writing camera meta!\n" );
       }
     };
 
-    template <class StreamT>
     struct ReadCameraMeta {
-      StreamT* m_stream;
-      ReadCameraMeta( StreamT* stream ) : m_stream(stream) {}
+      std::istream* m_stream;
+      ReadCameraMeta( std::istream* stream ) : m_stream(stream) {}
 
       void operator()( CameraMeta& cam ) {
         vw::int32 bytes;
-        (*m_stream) >> bytes;
+        m_stream->read( (char*)&(bytes), 4 );
         char* i = new char[bytes];
         m_stream->read(i,bytes);
-        cam.ParseFromArray(i,bytes);
+        if ( !cam.ParseFromArray(i,bytes) )
+          vw::vw_throw( vw::IOErr() << "Failed reading camera meta!\n" );
         delete [] i;
       }
     };
@@ -63,17 +66,24 @@ namespace pho {
     // Check that the directory is there
     fs::create_directory( directory );
 
-    // Actually start writing
     std::string prj_file = directory + "/photometrytk.dat";
-    std::fstream output( prj_file.c_str(),
-                         std::ios::out | std::ios::trunc | std::ios::binary );
+    try { // Actually start writing
+      std::fstream output( prj_file.c_str(),
+                           std::ios::out | std::ios::trunc | std::ios::binary );
+      output.exceptions(std::ofstream::failbit | std::ofstream::badbit);
 
-    output << vw::int32( prj.ByteSize() );
-    prj.SerializeToOstream(&output);
-    std::for_each( cam_start, cam_end,
-                   hidden::WriteCameraMeta<std::fstream>( &output ) );
+      vw::int32 bytes = prj.ByteSize();
+      output.write( (char*)&bytes, 4 );
+      if ( !prj.SerializeToOstream(&output) )
+        vw::vw_throw( vw::IOErr() << "Failed writing project meta!\n" );
+      std::for_each( cam_start, cam_end,
+                     hidden::WriteCameraMeta( &output ) );
 
-    output.close();
+    } catch ( const std::ofstream::failure& e ) {
+      vw::vw_throw( vw::IOErr() << "write_pho_project: Could not write file: " << file << " (" << e.what() << ")" );
+    } catch ( const vw::IOErr& e ) {
+      vw::vw_throw( vw::IOErr() << "write_pho_project: Could not write file: " << file << " (" << e.what() << ")" );
+    }
   }
 
   template <class ContainerT>
@@ -85,22 +95,27 @@ namespace pho {
 
     BOOST_ASSERT( fs::is_directory(file) );
     std::string prj_file = file + "/photometrytk.dat";
-    std::fstream input( prj_file.c_str(), std::ios::in | std::ios::binary );
-    if ( !input )
-      vw::vw_throw( vw::IOErr() << "Unable to open \"" << file << "\"." );
-    {
-      vw::int32 bytes;
-      input >> bytes;
-      char* i = new char[bytes];
-      input.read(i,bytes);
-      prj.ParseFromArray(i,bytes);
-      delete i;
-    }
-    cams.resize( prj.num_cameras() );
-    std::for_each( cams.begin(), cams.end(),
-                   hidden::ReadCameraMeta<std::fstream>( &input ) );
 
-    input.close();
+    try {
+      std::fstream input( prj_file.c_str(), std::ios::in | std::ios::binary );
+      input.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+      {
+        vw::int32 bytes;
+        input.read( (char*)&(bytes), 4 );
+        char* i = new char[bytes];
+        input.read(i,bytes);
+        if ( !prj.ParseFromArray(i,bytes) )
+          vw::vw_throw( vw::IOErr() << "Failed reading project meta!\n" );
+        delete i;
+      }
+      cams.resize( prj.num_cameras() );
+      std::for_each( cams.begin(), cams.end(),
+                     hidden::ReadCameraMeta( &input ) );
+    } catch ( const std::ifstream::failure& e ) {
+      vw::vw_throw( vw::IOErr() << "read_pho_project: Could not read file: " << file << " (" << e.what() << ")" );
+    } catch ( const vw::IOErr& e ) {
+      vw::vw_throw( vw::IOErr() << "read_pho_project: Could not read file: " << file << " (" << e.what() << ")" );
+    }
   }
 
 }} // namespace asp::pho
