@@ -91,11 +91,7 @@ ProjectServiceImpl::ProjectServiceImpl( std::string root_directory ) :
 
 void ProjectServiceImpl::sync() {
 
-  Mutex::Lock iulock(m_iterUpMutex);
-  Mutex::Lock cclock(m_camCreateMutex);
-  Mutex::Lock cwlock(m_camWriteMutex);
-  Mutex::Lock alock(m_pixAddMutex);
-  Mutex::Lock rlock(m_pixResetMutex);
+  Mutex::Lock lock(m_mutex);
 
   vw_out() << "\t--> Syncing project files for " << m_project_meta.name() << " to disk.\n";
 
@@ -150,7 +146,7 @@ METHOD_IMPL(OpenRequest, ::asp::pho::ProjectOpenRequest, ::asp::pho::ProjectOpen
 METHOD_IMPL(IterationUpdate, ::asp::pho::IterationUpdateRequest, ::asp::pho::IterationUpdateReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock syncLock(m_iterUpMutex);
+  Mutex::Lock lock(m_mutex);
 
   m_project_meta.set_current_iteration(request->iteration());
   response->set_project_id( 0 );
@@ -159,7 +155,7 @@ METHOD_IMPL(IterationUpdate, ::asp::pho::IterationUpdateRequest, ::asp::pho::Ite
 METHOD_IMPL(CameraCreate, ::asp::pho::CameraCreateRequest, ::asp::pho::CameraCreateReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock syncLock(m_camCreateMutex);
+  Mutex::Lock lock(m_mutex);
 
   // Adding camera meta
   response->set_project_id( 0 );
@@ -188,7 +184,7 @@ METHOD_IMPL(CameraRead, ::asp::pho::CameraReadRequest, ::asp::pho::CameraReadRep
 METHOD_IMPL(CameraWrite, ::asp::pho::CameraWriteRequest, ::asp::pho::CameraWriteReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock syncLock(m_camWriteMutex);
+  Mutex::Lock lock(m_mutex);
 
   CHECK_CAMERA_RANGE();
 
@@ -201,7 +197,7 @@ METHOD_IMPL(CameraWrite, ::asp::pho::CameraWriteRequest, ::asp::pho::CameraWrite
 METHOD_IMPL(PixvalAdd, ::asp::pho::PixvalAddRequest, ::asp::pho::PixvalAddReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock syncLock(m_pixAddMutex);
+  Mutex::Lock lock(m_mutex);
 
   m_project_meta.add_min_pixval_vec( request->min_pixval() );
   m_project_meta.add_max_pixval_vec( request->max_pixval() );
@@ -211,7 +207,7 @@ METHOD_IMPL(PixvalAdd, ::asp::pho::PixvalAddRequest, ::asp::pho::PixvalAddReply)
 METHOD_IMPL(PixvalGetAndReset, ::asp::pho::PixvalGetAndResetRequest, ::asp::pho::PixvalGetAndResetReply) {
   detail::RequireCall call(done);
 
-  Mutex::Lock syncLock(m_pixResetMutex);
+  Mutex::Lock lock(m_mutex);
 
   if (m_project_meta.min_pixval_vec_size() == 0 ||
       m_project_meta.max_pixval_vec_size() == 0) {
@@ -250,4 +246,3 @@ METHOD_IMPL(PixvalGetAndReset, ::asp::pho::PixvalGetAndResetRequest, ::asp::pho:
   response->set_min_pixval(min);
   response->set_max_pixval(max);
  }
-

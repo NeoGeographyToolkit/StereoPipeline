@@ -28,11 +28,7 @@ namespace pho {
     ProjectMeta m_project_meta;
     std::vector<CameraMeta> m_camera_metas;
 
-    vw::Mutex m_iterUpMutex;
-    vw::Mutex m_camCreateMutex;
-    vw::Mutex m_camWriteMutex;
-    vw::Mutex m_pixAddMutex;
-    vw::Mutex m_pixResetMutex;
+    vw::Mutex m_mutex;
 
   public:
     ProjectServiceImpl(std::string root_directory);
