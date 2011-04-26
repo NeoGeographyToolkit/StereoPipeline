@@ -30,6 +30,9 @@ TEST(ProjectFileIO, circle_test) {
   for ( size_t i = 0; i < 256; i++ ) {
     cam_st.push_back( CameraMeta() );
     cam_st.back().set_name( "monkey" );
+    cam_st.back().set_init_error( 0.0 );
+    cam_st.back().set_last_error( 0.0 );
+    cam_st.back().set_curr_error( 0.0 );
   }
   cam_st.front().set_name( "front" );
   cam_st.back().set_name( "back" );

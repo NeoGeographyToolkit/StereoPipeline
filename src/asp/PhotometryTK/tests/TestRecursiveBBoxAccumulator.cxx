@@ -35,6 +35,10 @@ public:
   ScalarT value() const {
     return m_sum;
   }
+
+  void reset() {
+    m_sum = 0;
+  }
 };
 
 class RecursiveBBoxAccumulatorTest : public ::testing::Test {
