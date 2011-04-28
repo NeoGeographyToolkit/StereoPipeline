@@ -1,5 +1,6 @@
 #include <vw/Camera/CAHVModel.h>
 #include <vw/Camera/CAHVORModel.h>
+#include <vw/Camera/CAHVOREModel.h>
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -106,7 +107,8 @@ int main( int argc, char** argv ) {
     }
 
     vw_out() << "Found camera type: " << camera_type << std::endl;
-    if ( camera_type != "cahv" && camera_type != "cahvor" )
+    if ( camera_type != "cahv" && camera_type != "cahvor" &&
+         camera_type != "cahvore" )
       vw_throw( IOErr() << "Unknown camera type: " << camera_type << "\n" );
 
     // Convert the camera properties to Vector3
@@ -123,13 +125,17 @@ int main( int argc, char** argv ) {
       if ( tokens[tokens.size()-1].empty() )
         tokens.erase(tokens.begin()+(tokens.size()-1));
 
-      if ( tokens.size() != 3 )
+      if ( tokens.size() == 3 ) {
+        Vector3 temp;
+        temp[0] = boost::lexical_cast<double>(tokens[0]);
+        temp[1] = boost::lexical_cast<double>(tokens[1]);
+        temp[2] = boost::lexical_cast<double>(tokens[2]);
+        camera_vectors.push_back(temp);
+      } else if ( tokens.size() == 1 ) {
+        camera_vectors.push_back(Vector3(boost::lexical_cast<double>(tokens[0]),0,0));
+      } else {
         vw_throw( IOErr() << "Error parsing vector: " << str << "\n" );
-      Vector3 temp;
-      temp[0] = boost::lexical_cast<double>(tokens[0]);
-      temp[1] = boost::lexical_cast<double>(tokens[1]);
-      temp[2] = boost::lexical_cast<double>(tokens[2]);
-      camera_vectors.push_back(temp);
+      }
     }
 
     // Writing out our results
@@ -147,6 +153,16 @@ int main( int argc, char** argv ) {
                                   camera_vectors[4],
                                   camera_vectors[5] );
       camera.write( opt.output_prefix + ".cahvor" );
+    } else if ( camera_type == "cahvore" ) {
+      camera::CAHVOREModel camera( camera_vectors[0],
+                                   camera_vectors[1],
+                                   camera_vectors[2],
+                                   camera_vectors[3],
+                                   camera_vectors[4],
+                                   camera_vectors[5],
+                                   camera_vectors[6],
+                                   camera_vectors[8][0]);
+      camera.write( opt.output_prefix + ".cahvore" );
     }
   } ASP_STANDARD_CATCHES;
 

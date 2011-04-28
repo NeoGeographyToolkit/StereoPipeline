@@ -9,9 +9,7 @@
 
 all: imagery stereo mesh
 
-imagery: 1p270664103esf90csp2566l2m1.tif 1p270664103esf90csp2566r2m1.tif 1n270487304eff90cip1952l0m1.tif 1n270487304eff90cip1952r0m1.tif 2m147677487eff8800p2976m2f1.tif 2m147677547eff8800p2976m2f1.tif 1p270664103esf90csp2566l2m1.cahvor 1p270664103esf90csp2566r2m1.cahvor 1n270487304eff90cip1952l0m1.cahvor 1n270487304eff90cip1952r0m1.cahvor 2m147677487eff8800p2976m2f1.cahvor 2m147677547eff8800p2976m2f1.cahvor 2f194370083fflap00p1214r0m1.tif 2f194370083fflap00p1214r0m1.cahv 2f194370083fflap00p1214l0m1.tif 2f194370083fflap00p1214l0m1.cahv
-
-#2f194370083effap00p1214l0m1.tif 2f194370083effap00p1214r0m1.tif 2r195521583effaq00p1301l0m1.tif 2r195521583effaq00p1301r0m1.tif 2f191703508effanhep1110l0m1.tif 2f191703508effanhep1110r0m1.tif
+imagery: 1p270664103esf90csp2566l2m1.tif 1p270664103esf90csp2566r2m1.tif 1n270487304eff90cip1952l0m1.tif 1n270487304eff90cip1952r0m1.tif 2m147677487eff8800p2976m2f1.tif 2m147677547eff8800p2976m2f1.tif 1p270664103esf90csp2566l2m1.cahvor 1p270664103esf90csp2566r2m1.cahvor 1n270487304eff90cip1952l0m1.cahvor 1n270487304eff90cip1952r0m1.cahvor 2m147677487eff8800p2976m2f1.cahvor 2m147677547eff8800p2976m2f1.cahvor 2f194370083fflap00p1214r0m1.tif 2f194370083fflap00p1214r0m1.cahv 2f194370083fflap00p1214l0m1.tif 2f194370083fflap00p1214l0m1.cahv 2f194370083effap00p1214l0m1.tif 2f194370083effap00p1214r0m1.tif 2r195521583effaq00p1301l0m1.tif 2r195521583effaq00p1301r0m1.tif 2f191703508effanhep1110l0m1.tif 2f191703508effanhep1110r0m1.tif 2f194370083effap00p1214l0m1.cahvore 2f194370083effap00p1214r0m1.cahvore 2r195521583effaq00p1301l0m1.cahvore 2r195521583effaq00p1301r0m1.cahvore 2f191703508effanhep1110l0m1.cahvore 2f191703508effanhep1110r0m1.cahvore
 
 stereo: pan01/pan01-PC.tif nav01/nav01-PC.tif mi01/mi01-PC.tif fh01lin/fh01lin-PC.tif
 
@@ -27,6 +25,9 @@ mesh: pan01/pan01.ive nav01/nav01.ive mi01/mi01.ive fh01lin/fh01lin.ive
 	mer2camera $<
 
 %.cahv: %.img
+	mer2camera $<
+
+%.cahvore: %.img
 	mer2camera $<
 
 pan01/pan01-PC.tif: imagery
@@ -97,7 +98,7 @@ fh01lin/fh01lin.ive: fh01lin/fh01lin-PC.tif
 ##############################################
 
 clean:
-	rm -rf *.cahv *.cahvor *.tif nav01 pan01 mi01
+	rm -rf *.cahv *.cahvor *.tif nav01 pan01 mi01 fh01lin fh01 rh01 fh02
 
 distclean: clean
 	rm *.img *.IMG *~

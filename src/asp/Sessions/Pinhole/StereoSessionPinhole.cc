@@ -17,6 +17,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/CAHVModel.h>
 #include <vw/Camera/CAHVORModel.h>
+#include <vw/Camera/CAHVOREModel.h>
 #include <vw/Camera/CameraTransform.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Stereo/DisparityMap.h>
@@ -89,17 +90,19 @@ StereoSessionPinhole::camera_model(std::string /*image_file*/,
       return epipolar_left_cahv;
     else
       return epipolar_right_cahv;
-  }
-  else {
+  } else {
     // Keypoint alignment and everything else just gets camera models
-    if (boost::ends_with(boost::to_lower_copy(camera_file),".cahvor") ||
-        boost::ends_with(boost::to_lower_copy(camera_file),".cmod") ) {
+    std::string lcase_file = boost::to_lower_copy(camera_file);
+    if (boost::ends_with(lcase_file,".cahvore") ) {
+      return boost::shared_ptr<vw::camera::CameraModel>( new CAHVOREModel(camera_file) );
+    } else if (boost::ends_with(lcase_file,".cahvor") ||
+               boost::ends_with(lcase_file,".cmod") ) {
       return boost::shared_ptr<vw::camera::CameraModel>( new CAHVORModel(camera_file) );
-    } else if ( boost::ends_with(boost::to_lower_copy(camera_file),".cahv") ||
-                boost::ends_with(boost::to_lower_copy(camera_file),".pin") ) {
+    } else if ( boost::ends_with(lcase_file,".cahv") ||
+                boost::ends_with(lcase_file,".pin") ) {
       return boost::shared_ptr<vw::camera::CameraModel>( new CAHVModel(camera_file) );
-    } else if ( boost::ends_with(boost::to_lower_copy(camera_file),".pinhole") ||
-                boost::ends_with(boost::to_lower_copy(camera_file),".tsai") ) {
+    } else if ( boost::ends_with(lcase_file,".pinhole") ||
+                boost::ends_with(lcase_file,".tsai") ) {
       return boost::shared_ptr<vw::camera::CameraModel> ( new PinholeModel(camera_file) );
     } else {
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
