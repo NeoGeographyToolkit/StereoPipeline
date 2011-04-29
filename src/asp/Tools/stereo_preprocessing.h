@@ -11,6 +11,7 @@
 #define __ASP_STEREO_PREPROCESSING_H__
 
 #include <asp/Tools/stereo.h>
+#include <asp/Core/ThreadedEdgeMask.h>
 
 namespace vw {
 
@@ -43,15 +44,17 @@ namespace vw {
     }
     if (rebuild) {
       vw_out() << "\t--> Generating image masks... \n";
-      ImageViewRef<vw::uint8> Lmask =
-        pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(left_image, 0, 0)),0,0,255));
-      ImageViewRef<vw::uint8> Rmask =
-        pixel_cast<vw::uint8>(threshold(apply_mask(edge_mask(right_image, 0, 0)),0,0,255));
 
-      asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif", Lmask, opt,
-                                   TerminalProgressCallback("asp", "\t    Mask L: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif", Rmask, opt,
-                                   TerminalProgressCallback("asp", "\t    Mask R: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
+                             apply_mask(copy_mask(constant_view(uint8(255),left_image.cols(),
+                                                                left_image.rows() ),
+                                                  asp::threaded_edge_mask(left_image,0,1024))),
+                             opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
+                             apply_mask(copy_mask(constant_view(uint8(255),right_image.cols(),
+                                                                right_image.rows() ),
+                                                  asp::threaded_edge_mask(right_image,0,1024))),
+                             opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
     }
 
     // Produce subsampled images, these will be used later for Auto
