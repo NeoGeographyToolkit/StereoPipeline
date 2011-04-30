@@ -164,19 +164,21 @@ namespace blob {
                 // Left
                 p_s_acc.advance(-1,0);
                 p_d_acc.advance(-1,0);
-                if ( is_valid(*p_s_acc) )
-                  if ( (*d_acc != 0) && (*d_acc != *p_d_acc) ) {
+                if ( is_valid(*p_s_acc) ) {
+                  if ( (*d_acc != 0) && (*d_acc != *p_d_acc) )
                     boost::add_edge(*p_d_acc,*d_acc,connections);
-                  } else
+                  else
                     *d_acc = *p_d_acc;
+                }
                 // Upper Left
                 p_s_acc.advance(0,-1);
                 p_d_acc.advance(0,-1);
-                if ( is_valid(*p_s_acc) )
-                  if ( (*d_acc != 0) && (*d_acc != *p_d_acc) ) {
+                if ( is_valid(*p_s_acc) ) {
+                  if ( (*d_acc != 0) && (*d_acc != *p_d_acc) )
                     boost::add_edge(*p_d_acc,*d_acc,connections);
-                  } else
+                  else
                     *d_acc = *p_d_acc;
+                }
               } else {
                 p_s_acc.advance(-1,-1);
                 p_d_acc.advance(-1,-1);
@@ -184,20 +186,23 @@ namespace blob {
               // Upper
               p_s_acc.advance(1,0);
               p_d_acc.advance(1,0);
-              if ( is_valid(*p_s_acc) )
-                if ( (*d_acc != 0) && (*d_acc != *p_d_acc) ) {
+              if ( is_valid(*p_s_acc) ) {
+                if ( (*d_acc != 0) && (*d_acc != *p_d_acc) )
                   boost::add_edge(*p_d_acc,*d_acc,connections);
-                } else
+                else
                   *d_acc = *p_d_acc;
+              }
               // Upper Right
               p_s_acc.advance(1,0);
               p_d_acc.advance(1,0);
-              if ( i != 1 )
-                if ( is_valid(*p_s_acc) )
-                  if ( (*d_acc != 0) && (*d_acc != *p_d_acc) ) {
+              if ( i != 1 ) {
+                if ( is_valid(*p_s_acc) ) {
+                  if ( (*d_acc != 0) && (*d_acc != *p_d_acc) )
                     boost::add_edge(*p_d_acc,*d_acc,connections);
-                  } else
+                  else
                     *d_acc = *p_d_acc;
+                }
+              }
               // Setting if not
               p_s_acc.advance(-1,1);
               p_d_acc.advance(-1,1);
