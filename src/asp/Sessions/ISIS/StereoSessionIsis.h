@@ -103,14 +103,14 @@ public:
     typedef typename CompoundChannelType<PixelT>::type channel_type;
     typedef Helper<channel_type, void> help;
     for (size_t n = 0; n < CompoundNumChannels<PixelT>::value; ++n) {
-      if (help::IsSpecial(compound_select_channel<const channel_type&>(pix,n)))
+      if (help::IsSpecial(compound_select_channel<const channel_type&>(pix,n))) {
         if (help::IsHighPixel(compound_select_channel<const channel_type&>(pix,n)))
           return m_replacement_high;
         else if ( help::IsNull(compound_select_channel<const channel_type&>(pix,n)))
           return m_replacement_null;
         else
           return m_replacement_low;
-
+      }
     }
     return pix;
   }
