@@ -125,11 +125,10 @@ values listed after the parameter name.
   determined by the SLOG\_KERNEL\_WIDTH variable below.
 
   The choice of pre-processing filter must be made with thought to the
-  cost function being used (see COST\_MODE, below).  LoG filter preprocessing
-  provides good immunity to variations in lighting conditions
-  and is usually the recommended choice.  Signed LoG provides a speed
-  advantage only when using the absolute difference cost function.
-  Blurred preprocessing can sometimes produce the best results with
+  cost function being used (see COST\_MODE, below).  LoG filter
+  preprocessing provides good immunity to variations in lighting
+  conditions and is usually the recommended choice. Blurred
+  preprocessing can sometimes produce the best results with
   well-calibrated images when working with the normalized cross
   correlation cost function.
 
@@ -151,10 +150,16 @@ values listed after the parameter name.
 \begin{description}
 
 \item[COST\_MODE \textnormal{\small{(= 0,1,2)}}] (default = 2) \hfill \\
-  The cost function used during initialization. As mention above,
-  it is best to use absolute differences when working with the SLoG
-  preprocessing filter. Otherwise, using the normalized cross
-  correlation cost function is recommended.
+
+  This defines the cost function used during integer
+  correlation. Squared difference is the fastest cost
+  function. However it comes at the price of not being resilient
+  against noise. Absolute difference is the next fastest and is a
+  better choice. Normalized cross correlation is the slowest but is
+  designed to be more robust against image intensity changes and
+  slight lighting differences. Normalized cross correlation is about
+  2x slower than absolute difference and about 3x slower than squared
+  difference.
 
   \begin{description}
     \item[0 - absolute difference]
