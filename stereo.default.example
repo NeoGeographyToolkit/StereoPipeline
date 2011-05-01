@@ -33,8 +33,8 @@ SLOG_KERNEL_WIDTH 1.5
 
 # Select a cost function to use for initialization:
 #
-# 0 - absolute difference (fast -- use in conjunction with SLoG)
-# 1 - squared difference
+# 0 - absolute difference (fast)
+# 1 - squared difference  (faster .. but usually bad)
 # 2 - normalized cross correlation (recommended)
 
 COST_MODE 2
