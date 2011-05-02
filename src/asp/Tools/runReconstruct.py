@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import math
 import os
 import sys
 import re
@@ -27,7 +28,14 @@ DEFAULT_REGION = 'all'
 DEFAULT_EXTRA = 'std'
 DEFAULT_NAME = '${date}_${time}_${subsampleLevel}_${region}_${extra}'
 
-DEFAULT_STEPS = ['weights', '0', '1', '2', 'jpg', 'kml', 'html']
+DEFAULT_STEPS = ['weights',
+                 '0',
+                 '1',
+                 '2',
+                 'jpg',
+                 'kml',
+                 'html',
+                 ]
 
 VW_BIN_DIR = '%s/projects/VisionWorkbench/build/x86_64_linux_gcc4.1/bin' % os.environ['HOME']
 COLORMAP = '%s/colormap' % VW_BIN_DIR
@@ -156,7 +164,9 @@ def runReconstruct(opts, drgs, step):
     opts.imagesFile = imagesFile
     for f in drgs:
         opts.inputFile = f
-        cmd = '$reconstructBinary -d $dataDir/DEM$undersub -s $dataDir/meta -e $dataDir/meta -r $resultsDir -c $settings -i $inputFile -f $imagesFile'
+        if opts.feb13:
+            opts.feb13 = '--feb13'
+        cmd = '$reconstructBinary -d $dataDir/DEM$undersub -s $dataDir/meta -e $dataDir/meta -r $resultsDir -c $settings -i $inputFile -f $imagesFile $feb13'
         jobQueueG.addJob(expand(cmd, vars(opts)))
     jobQueueG.run()
 
@@ -250,7 +260,7 @@ def run_html(opts, drgs):
     resultsDir = expand('$resultsDir', vars(opts))
     htmlDir = '%s/html' % resultsDir
     dosys('mkdir -p %s' % htmlDir)
-    n = len(drgs) // ROWS_PER_PAGE
+    n = int(math.ceil(float(len(drgs)) / ROWS_PER_PAGE))
     for i in xrange(n):
         genHtmlPage(opts, drgs, i, n)
 
@@ -336,6 +346,10 @@ def main():
     parser.add_option('--name',
                       default=DEFAULT_NAME,
                       help='Basename of results directory [%default]')
+
+    parser.add_option('--feb13',
+                      action='store_true', default=False,
+                      help='Use InitAlbedoMosaicFeb13()')
 
     opts, args = parser.parse_args()
 
