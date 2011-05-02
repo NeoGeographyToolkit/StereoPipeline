@@ -130,9 +130,23 @@ Vector4 ComputeGeoBoundary(GeoReference Geo, int width, int height)
   return corners;
 }
 
+struct ImageRecord {
+  bool useImage;
+  std::string path;
+  double north, west, south, east;
+  
+  ImageRecord(void) {}
+  ImageRecord(const std::string& path_) :
+    useImage(true),
+    path(path_),
+    north(-999.0)
+  {}
+};
+
 //this function determines the image overlap for the general case
 //it takes into consideration any set of overlapping images.
-std::vector<int> makeOverlapList(std::vector<std::string> inputFiles, string currFile) {
+std::vector<int> makeOverlapList(const std::vector<ModelParams>& inputFiles,
+                                 const std::string& currFile) {
   
   std::vector<int> overlapIndices;
   
@@ -145,13 +159,19 @@ std::vector<int> makeOverlapList(std::vector<std::string> inputFiles, string cur
 
        int lonOverlap = 0;
        int latOverlap = 0; 
+       const ModelParams& params = inputFiles[i];
 
-       DiskImageView<PixelMask<PixelGray<uint8> > >  image(inputFiles[i]);
-       GeoReference geo;
-       read_georeference(geo, inputFiles[i]);
-       int width = image.cols();
-       int height = image.rows();
-       Vector4 corners = ComputeGeoBoundary(geo, width, height);
+       Vector4 corners;
+       if (params.corners(3) == -999.0) {
+         DiskImageView<PixelMask<PixelGray<uint8> > >  image(params.inputFilename);
+         GeoReference geo;
+         read_georeference(geo, params.inputFilename);
+         int width = image.cols();
+         int height = image.rows();
+         corners = ComputeGeoBoundary(geo, width, height);
+       } else {
+         corners = params.corners;
+       }
        
        if(  ((corners(0)>currCorners(0)) && (corners(0)<currCorners(1))) //minlon in interval 
 	    ||((corners(1)>currCorners(0)) && (corners(1)<currCorners(1)))) //maxlon in interval
@@ -173,7 +193,8 @@ std::vector<int> makeOverlapList(std::vector<std::string> inputFiles, string cur
 }
 
 
-std::vector<vector<int> > makeOverlapList(std::vector<std::string> inputFiles, std::vector<std::string> DRGFiles) 
+std::vector<vector<int> > makeOverlapList(const std::vector<std::string>& inputFiles,
+                                          const std::vector<ModelParams>& DRGFiles) 
 {
   std::vector<vector<int> > overlapIndices;
   overlapIndices.resize(inputFiles.size());
@@ -295,17 +316,7 @@ void PrintGlobalParams(struct GlobalParams *settings)
   printf("TR_CONST %f\n", settings->TRConst);
 }
 
-struct FlaggedImage {
-  bool useImage;
-  std::string path;
-  
-  FlaggedImage(bool useImage_, const std::string& path_) :
-    useImage(useImage_),
-    path(path_)
-  {}
-};
-
-void readImagesFile(std::vector<FlaggedImage>& images,
+void readImagesFile(std::vector<ImageRecord>& images,
                     const std::string& imagesFileName)
 {
   std::ifstream imagesFile(imagesFileName.c_str());
@@ -320,22 +331,31 @@ void readImagesFile(std::vector<FlaggedImage>& images,
   std::string line;
   int lineNo = 1;
   while (std::getline(imagesFile, line)) {
-    int useImage;
     char path[1024];
+    int useImage;
+    ImageRecord rec;
 
     // ignore blank lines
     if (line.size() == 0) continue;
     // ignore comment lines
     if ('#' == line[0]) continue;
 
-    if (2 != sscanf(line.c_str(), "%d %1023s", &useImage, path)) {
+    if (6 != sscanf(line.c_str(), "%d %1023s %lf %lf %lf %lf",
+                    &useImage,
+                    path,
+                    &rec.north,
+                    &rec.west,
+                    &rec.south,
+                    &rec.east)) {
       std::cerr << "ERROR: readImagesFile: " << imagesFileName
                 << ": line " << lineNo
-                << ": expected '%d %s' format" << std::endl;
+                << ": expected '%d %s %f %f %f %f' format" << std::endl;
       exit(EXIT_FAILURE);
     }
+    rec.useImage = useImage;
+    rec.path = path;
     
-    images.push_back(FlaggedImage((bool)useImage, path));
+    images.push_back(rec);
 
     lineNo++;
   }
@@ -398,7 +418,7 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  std::vector<FlaggedImage> flaggedDrgFiles;
+  std::vector<ImageRecord> drgRecords;
   if( imagesFile.size() == 0 ) {
     if ( vm.count("inputDRGFiles") < 1 ) {
       std::cerr << "Error: Must specify either -f option or at least one orthoprojected image file!" << std::endl << std::endl;
@@ -407,10 +427,10 @@ int main( int argc, char *argv[] ) {
     }
 
     for (int i=0; i < (int)inputDRGFiles.size(); i++) {
-      flaggedDrgFiles.push_back(FlaggedImage(true, inputDRGFiles[i]));
+      drgRecords.push_back(ImageRecord(inputDRGFiles[i]));
     }
   } else {
-    readImagesFile(flaggedDrgFiles, imagesFile);
+    readImagesFile(drgRecords, imagesFile);
   }
 
   GlobalParams globalParams;
@@ -423,10 +443,10 @@ int main( int argc, char *argv[] ) {
   std::string exposureInfoFilename = resDir + "/exposure/exposureInfo.txt";
 
   std::vector<Vector3> sunPositions;
-  sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), flaggedDrgFiles.size());
+  sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), drgRecords.size());
 
   std::vector<Vector3> spacecraftPositions;
-  spacecraftPositions = ReadSpacecraftPosition((char*)spacecraftPosFilename.c_str(), flaggedDrgFiles.size());
+  spacecraftPositions = ReadSpacecraftPosition((char*)spacecraftPosFilename.c_str(), drgRecords.size());
 
   std::vector<ModelParams> modelParamsArray;
 
@@ -453,10 +473,10 @@ int main( int argc, char *argv[] ) {
 
   //this will contain all the DRG files
   int i = 0;
-  for (unsigned int j = 0; j < flaggedDrgFiles.size(); ++j) {
-    if (!flaggedDrgFiles[j].useImage) continue;
+  for (unsigned int j = 0; j < drgRecords.size(); ++j) {
+    if (!drgRecords[j].useImage) continue;
 
-    DRGFiles.push_back(flaggedDrgFiles[j].path);
+    DRGFiles.push_back(drgRecords[j].path);
     modelParamsArray.push_back(ModelParams());
 
     std::string temp = sufix_from_filename(DRGFiles[i]);
@@ -483,29 +503,20 @@ int main( int argc, char *argv[] ) {
     modelParamsArray[i].weightFilename      = resDir + "/weight" + prefix_from_filename(temp) + "_weight.txt";
     modelParamsArray[i].exposureFilename    = resDir + "/exposure" + prefix_from_filename(temp) + "_exposure.txt";
   
+    const ImageRecord& rec = drgRecords[j];
+    modelParamsArray[i].corners = Vector4(rec.west, rec.east, rec.south, rec.north);
+
     ReadExposureInfoFromFile(&(modelParamsArray[i]));
     
-    if (globalParams.useWeights == 1) {
-      vw_out( VerboseDebugMessage, "photometry" ) << "Computing weights ... ";
+    modelParamsArray[i].centerLine = NULL;
+    modelParamsArray[i].maxDistArray = NULL;
+    modelParamsArray[i].centerLineDEM = NULL;
+    modelParamsArray[i].maxDistArrayDEM = NULL;
+    modelParamsArray[i].horCenterLine = NULL;
+    modelParamsArray[i].maxVerDistArray = NULL;
+    modelParamsArray[i].horCenterLineDEM = NULL;
+    modelParamsArray[i].maxVerDistArrayDEM = NULL;
 
-      //try to read the weight files, otherwise build them
-      ReadWeightsParamsFromFile(&modelParamsArray[i]);
-
-      if (modelParamsArray[i].centerLineDEM == NULL){
-	
-	  modelParamsArray[i].centerLineDEM = ComputeDEMCenterLine(modelParamsArray[i].DEMFilename, globalParams.noDEMDataValue,
-                                                                   &(modelParamsArray[i].maxDistArrayDEM));
-          modelParamsArray[i].centerLine = ComputeImageCenterLine(modelParamsArray[i].inputFilename,
-                                                                  &(modelParamsArray[i].maxDistArray));
-         
-          if (globalParams.saveWeights == 1){
-            SaveWeightsParamsToFile(modelParamsArray[i]);
-	  }
-      }
-
-      vw_out( VerboseDebugMessage, "photometry" ) << "Done.\n";
-    }
-    
     vw_out( VerboseDebugMessage, "photometry" ) << modelParamsArray[i] << "\n";
 
     i++;
@@ -516,13 +527,52 @@ int main( int argc, char *argv[] ) {
     imageFiles = DRGFiles;
   }
 
-  std::vector<vector<int> > overlapIndicesArray = makeOverlapList(imageFiles, DRGFiles); 
+  std::vector<vector<int> > overlapIndicesArray = makeOverlapList(imageFiles, modelParamsArray); 
   printOverlapList(overlapIndicesArray);
  
-  
   std::vector<int> inputIndices = GetInputIndices(imageFiles, DRGFiles);
  
+  // set up weights only for images that we want to process or that
+  // overlap one of the files we want to process
+  std::vector<int> relevantIndices;
+  for (unsigned int i=0; i < inputIndices.size(); i++) {
+    relevantIndices.push_back(inputIndices[i]);
+  }
+  for (unsigned int i=0; i < overlapIndicesArray.size(); i++) {
+    const std::vector<int>& ov = overlapIndicesArray[i];
+    for (unsigned int j=0; j < ov.size(); j++) {
+      relevantIndices.push_back(ov[j]);
+    }
+  }
 
+  if (globalParams.useWeights == 1) {
+    vw_out( VerboseDebugMessage, "photometry" ) << "Computing weights ... ";
+    
+    for (unsigned int i=0; i < relevantIndices.size(); i++) {
+      int j = relevantIndices[i];
+
+      if (modelParamsArray[j].centerLineDEM != NULL) continue;
+
+      // first try to read the weight files
+      ReadWeightsParamsFromFile(&modelParamsArray[j]);
+      
+      if (modelParamsArray[j].centerLineDEM != NULL) continue;
+        
+      // weights not written yet, build them
+      modelParamsArray[j].centerLineDEM = ComputeDEMCenterLine(modelParamsArray[j].DEMFilename, globalParams.noDEMDataValue,
+                                                               &(modelParamsArray[j].maxDistArrayDEM));
+      modelParamsArray[j].centerLine = ComputeImageCenterLine(modelParamsArray[j].inputFilename,
+                                                              &(modelParamsArray[j].maxDistArray));
+      
+      if (globalParams.saveWeights == 1){
+        SaveWeightsParamsToFile(modelParamsArray[j]);
+      }
+    }
+    
+    vw_out( VerboseDebugMessage, "photometry" ) << "Done.\n";
+  }
+    
+  
   //TO DO: save the overlapIndicesArray list 
  
  if (globalParams.shadowInitType == 1){
