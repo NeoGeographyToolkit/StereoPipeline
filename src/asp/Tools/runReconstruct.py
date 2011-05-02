@@ -20,7 +20,7 @@ DEFAULT_MISSION = 'a31'
 DEFAULT_DATA_DIR = '$HOME/data/input/$mission'
 DEFAULT_RESULTS_DIR = '$HOME/data/results/$mission/$name'
 DEFAULT_RECONSTRUCT_BINARY = './reconstruct'
-DEFAULT_SUB = 'sub32'
+DEFAULT_SUB = 'sub64'
 DEFAULT_NUM_PROCESSORS = 14
 # 0 means process all
 DEFAULT_NUM_FILES = 0
@@ -77,10 +77,11 @@ def getTime(f):
     return s[stat.ST_MTIME]
 
 class JobQueue(object):
-    def __init__(self, numProcessors=1, deleteTmpFiles=True):
+    def __init__(self, numProcessors=1, deleteTmpFiles=True, logDir='.'):
         self.numProcessors = numProcessors
         self.deleteTmpFiles = deleteTmpFiles
         self.jobs = []
+        self.logDir = logDir
         
     def addJob(self, job, step=0):
         logging.debug('addJob %s [step %s]' % (job, step))
@@ -105,7 +106,10 @@ class JobQueue(object):
                 jobsFile.write('%s\n' % job)
             jobsFile.close()
             logging.info('Running JobQueue files from: %s' % jobsFileName)
-            dosys('cat %s | xargs -t -P%d -I__cmd__ bash -c __cmd__' % (jobsFileName, self.numProcessors),
+            dosys('cat %s | xargs -t -P%d -I__cmd__ ./runWithLog.py %s __cmd__'
+                  % (jobsFileName,
+                     self.numProcessors,
+                     self.logDir),
                   stopOnErr=True)
         if self.deleteTmpFiles:
             dosys('rm -f %s' % jobsFileName)
@@ -313,6 +317,10 @@ def getUllrIsEmpty(ullr):
 def getUllrsOverlap(a, b):
     return getUllrIsEmpty(getUllrIntersection(a, b))
 
+class DrgRecord(object):
+    def __init__(self):
+        self.flag = True
+
 def writeDrgIndex(opts):
     resultsDir = expand('$resultsDir', vars(opts))
     imagesFile = '%s/images.txt' % resultsDir
@@ -323,38 +331,44 @@ def writeDrgIndex(opts):
         drgs.sort()
         logging.info('Number of matches: %d' % len(drgs))
 
-        drgSelected = dict([(drg, True) for drg in drgs])
+        drgRecords = dict([(drg, DrgRecord()) for drg in drgs])
         if opts.region != 'all':
             boundsFile = expand('$dataDir/meta/$region.kml', vars(opts))
             logging.info('Limiting processing to DRGs overlapping GroundOverlay bounds from KML %s' % boundsFile)
             bounds = getUllrFromKml(boundsFile)
             logging.info('Bounds are: %s' % str(bounds))
-            for drg in drgs:
-                drgBounds = getUllrFromTiff(drg)
-                flag = not getUllrsOverlap(bounds, drgBounds)
-                drgSelected[drg] = flag
-                logging.debug('%s bounds %s overlap flag = %s' % (os.path.splitext(os.path.basename(drg))[0], drgBounds, flag))
-            numOverlapping = len([1 for drg, flag in drgSelected.iteritems() if flag])
+        for drg in drgs:
+            rec = drgRecords[drg]
+            rec.ullr = getUllrFromTiff(drg)
+            drgShort = os.path.splitext(os.path.basename(drg))[0]
+            if opts.region != 'all':
+                rec.flag = not getUllrsOverlap(bounds, rec.ullr)
+                logging.debug('%s bounds %s overlap flag = %s' % (drgShort, rec.ullr, rec.flag))
+
+        if opts.region != 'all':
+            numOverlapping = len([1 for rec in drgRecords.itervalues() if rec.flag])
             logging.info('Number of DRGs overlapping bounds: %d' % numOverlapping)
 
         if opts.numFiles > 0:
             logging.info('Limiting processing to first %d DRGs that matched so far' % opts.numFiles)
             drgCount = 0
             for drg in drgs:
-                if drgSelected[drg]:
+                rec = drgRecords[drg]
+                if rec.flag:
                     drgCount += 1
                 if drgCount > opts.numFiles:
-                    drgSelected[drg] = False
+                    rec.flag = False
 
         out = file(imagesFile, 'w')
         for drg in drgs:
-            out.write('%s %s\n' % (int(drgSelected[drg]), drg))
+            rec = drgRecords[drg]
+            out.write('%s %s %.6f %.6f %.6f %.6f\n' % ((int(rec.flag), drg) + rec.ullr))
         out.close()
 
     inDrgs = file(imagesFile, 'r')
     remaining = []
     for line in inDrgs:
-        flagStr, drg = line.split()
+        flagStr, drg = line.split()[:2]
         flag = int(flagStr)
         if flag:
             remaining.append(drg)
@@ -370,16 +384,17 @@ def writeDrgIndex(opts):
     return remaining
 
 def runMaster(opts):
+    resultsDir = expand('$resultsDir', vars(opts))
+    dosys('mkdir -p %s' % resultsDir)
+
     global jobQueueG
-    jobQueueG = JobQueue(opts.numProcessors)
+    jobQueueG = JobQueue(opts.numProcessors,
+                         logDir='%s/logs' % resultsDir)
 
     if opts.subsampleLevel:
         opts.undersub = '_' + opts.subsampleLevel
     else:
         opts.undersub = ''
-
-    resultsDir = expand('$resultsDir', vars(opts))
-    dosys('mkdir -p %s' % resultsDir)
 
     drgs = writeDrgIndex(opts)
 
