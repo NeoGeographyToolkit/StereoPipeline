@@ -65,8 +65,12 @@ def expand(tmpl, env):
 def dosys(cmd, stopOnErr=False):
     logging.info(cmd)
     ret = os.system(cmd)
-    if stopOnErr and ret != 0:
-        raise Exception('command exited with non-zero return value %d' % ret)
+    if ret != 0:
+        msg = 'command exited with non-zero return value %d' % ret
+        if stopOnErr:
+            raise Exception(msg)
+        else:
+            logging.info(msg)
     return ret
 
 def getTime(f):
@@ -192,15 +196,16 @@ def run_kml(opts, drgs):
     jobQueueG.run()
 
     # generate kml
-    smalls = glob('%s/*.tif' % albedoSmallDir)
+    oldDir = os.getcwd()
+    os.chdir(resultsDir)
+    smalls = glob('albedoSmall/*.tif')
+    smalls.sort()
     albedoKmlDir = '%s/albedoKml' % resultsDir
     if getTime(smalls[0]) > getTime(albedoKmlDir):
         allSmalls = ' '.join(smalls)
-        oldDir = os.getcwd()
-        os.chdir(resultsDir)
         logging.info('cwd = %s' % os.getcwd())
         dosys('image2qtree -m kml -o albedoKml %s' % allSmalls)
-        os.chdir(oldDir)
+    os.chdir(oldDir)
 
     # generate networklink
     netLinkFile = '%s/albedoKml/net.kml' % resultsDir
