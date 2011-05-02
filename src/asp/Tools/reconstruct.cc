@@ -352,6 +352,7 @@ int main( int argc, char *argv[] ) {
   std::string resDir = "../results";
   std::string configFilename = "photometry_settings.txt";
   std::string imagesFile = "";
+  bool useFeb13 = false;
 
   po::options_description general_options("Options");
   general_options.add_options()
@@ -363,8 +364,8 @@ int main( int argc, char *argv[] ) {
     ("res-directory,r", po::value<std::string>(&resDir)->default_value("../results"), "results directory.")
     ("images-file,f", po::value<std::string>(&imagesFile)->default_value(imagesFile), "path to file listing images to use")
     ("config-filename,c", po::value<std::string>(&configFilename)->default_value("photometry_settings.txt"), "configuration filename.")
+    ("feb13", po::bool_switch(&useFeb13), "Use Feb 13 version of InitAlbedoMosaic")
     ("help,h", "Display this help message");
-  
 
   po::options_description hidden_options("");
 
@@ -618,13 +619,18 @@ int main( int argc, char *argv[] ) {
         overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
       }
       
-      if (globalParams.reflectanceType == NO_REFL)
+      if (globalParams.reflectanceType == NO_REFL) {
         InitImageMosaicByBlocks(modelParamsArray[inputIndices[i]],
 				overlapParamsArray, globalParams);
-      else
-        InitAlbedoMosaic(modelParamsArray[inputIndices[i]],
-			 overlapParamsArray, globalParams);
-      
+      } else {
+        if (useFeb13) {
+          InitAlbedoMosaicFeb13(modelParamsArray[inputIndices[i]],
+                                overlapParamsArray, globalParams);
+        } else {
+          InitAlbedoMosaic(modelParamsArray[inputIndices[i]],
+                           overlapParamsArray, globalParams);
+        }
+      }      
     }
     callback.report_finished();
   }
