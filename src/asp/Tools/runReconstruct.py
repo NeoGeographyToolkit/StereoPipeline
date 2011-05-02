@@ -153,15 +153,8 @@ def run_weights(opts, drgs):
 
 def runReconstruct(opts, drgs, step):
     resultsDir = expand('$resultsDir', vars(opts))
-    dosys('mkdir -p %s' % resultsDir)
-    imagesFile = '%s/images.txt' % resultsDir
-    out = file(imagesFile, 'w')
-    for drg in drgs:
-        out.write('1 %s\n' % drg) 
-    out.close()
-
     opts.settings = 'photometry_init_%s_settings.txt' % step
-    opts.imagesFile = imagesFile
+    opts.imagesFile = '%s/images.txt' % resultsDir
     for f in drgs:
         opts.inputFile = f
         if opts.feb13:
@@ -277,6 +270,105 @@ def runStep(opts, drgs, stepName):
         raise ValueError('invalid step name %s' % stepName)
     func(opts, drgs)
 
+def getKmlField(field, kmlText):
+    return float(re.search(r'<%s>(.*)</%s>' % (field, field), kmlText).group(1))
+
+def getUllrFromKml(kmlName):
+    kmlText = file(kmlName, 'r').read()
+    north = getKmlField('north', kmlText)
+    south = getKmlField('south', kmlText)
+    east = getKmlField('east', kmlText)
+    west = getKmlField('west', kmlText)
+    return (north, west, south, east)
+                            
+def getGdalInfo(tiff):
+    tmp = '/tmp/%s-getres.txt' % os.environ['USER']
+    dosys('gdalinfo %s > %s' % (tiff, tmp))
+    return file(tmp, 'r').read()
+
+def getUllrFromTiff(tiff):
+    ptext = getGdalInfo(tiff)
+    
+    ulmatch = re.search(r'Upper Left\s+\((.*)\)', ptext)
+    ulcoords = ulmatch.group(1)
+    west, north = [float(val) for val in ulcoords.split(',')]
+    
+    lrmatch = re.search(r'Lower Right\s+\((.*)\)', ptext)
+    lrcoords = lrmatch.group(1)
+    east, south = [float(val) for val in lrcoords.split(',')]
+    
+    return (north, west, south, east)
+
+def getUllrIntersection(*ullrs):
+    north = min([b[0] for b in ullrs])
+    west = max([b[1] for b in ullrs])
+    south = max([b[2] for b in ullrs])
+    east = min([b[3] for b in ullrs])
+    return (north, west, south, east)
+
+def getUllrIsEmpty(ullr):
+    north, west, south, east = ullr
+    return not ((west < east) and (south < north))
+
+def getUllrsOverlap(a, b):
+    return getUllrIsEmpty(getUllrIntersection(a, b))
+
+def writeDrgIndex(opts):
+    resultsDir = expand('$resultsDir', vars(opts))
+    imagesFile = '%s/images.txt' % resultsDir
+    if not os.path.exists(imagesFile):
+        drgPattern = expand('$dataDir/DRG$undersub/*.tif', vars(opts))
+        logging.info('Processing DRGs matching pattern: %s' % drgPattern)
+        drgs = glob(drgPattern)
+        drgs.sort()
+        logging.info('Number of matches: %d' % len(drgs))
+
+        drgSelected = dict([(drg, True) for drg in drgs])
+        if opts.region != 'all':
+            boundsFile = expand('$dataDir/meta/$region.kml', vars(opts))
+            logging.info('Limiting processing to DRGs overlapping GroundOverlay bounds from KML %s' % boundsFile)
+            bounds = getUllrFromKml(boundsFile)
+            logging.info('Bounds are: %s' % str(bounds))
+            for drg in drgs:
+                drgBounds = getUllrFromTiff(drg)
+                flag = not getUllrsOverlap(bounds, drgBounds)
+                drgSelected[drg] = flag
+                logging.debug('%s bounds %s overlap flag = %s' % (os.path.splitext(os.path.basename(drg))[0], drgBounds, flag))
+            numOverlapping = len([1 for drg, flag in drgSelected.iteritems() if flag])
+            logging.info('Number of DRGs overlapping bounds: %d' % numOverlapping)
+
+        if opts.numFiles > 0:
+            logging.info('Limiting processing to first %d DRGs that matched so far' % opts.numFiles)
+            drgCount = 0
+            for drg in drgs:
+                if drgSelected[drg]:
+                    drgCount += 1
+                if drgCount > opts.numFiles:
+                    drgSelected[drg] = False
+
+        out = file(imagesFile, 'w')
+        for drg in drgs:
+            out.write('%s %s\n' % (int(drgSelected[drg]), drg))
+        out.close()
+
+    inDrgs = file(imagesFile, 'r')
+    remaining = []
+    for line in inDrgs:
+        flagStr, drg = line.split()
+        flag = int(flagStr)
+        if flag:
+            remaining.append(drg)
+    inDrgs.close()
+
+    logging.info('Number of remaining DRGs: %s' % len(remaining))
+    logging.info('First DRG: %s' % remaining[0])
+    logging.info('Last DRG:  %s' % remaining[-1])
+    logging.debug('Remaining DRGs:')
+    for drg in remaining:
+        logging.debug('  ' + drg)
+
+    return remaining
+
 def runMaster(opts):
     global jobQueueG
     jobQueueG = JobQueue(opts.numProcessors)
@@ -285,16 +377,11 @@ def runMaster(opts):
         opts.undersub = '_' + opts.subsampleLevel
     else:
         opts.undersub = ''
-    drgPattern = expand('$dataDir/DRG$undersub/*.tif', vars(opts))
-    logging.info('Processing DRGs matching pattern: %s' % drgPattern)
-    drgs = glob(drgPattern)
-    drgs.sort()
-    logging.info('Number of matches: %d' % len(drgs))
-    if opts.numFiles > 0:
-        logging.info('Limiting processing to first %d DRGs' % opts.numFiles)
-        drgs = drgs[:opts.numFiles]
-    logging.info('First DRG: %s' % drgs[0])
-    logging.info('Last DRG:  %s' % drgs[-1])
+
+    resultsDir = expand('$resultsDir', vars(opts))
+    dosys('mkdir -p %s' % resultsDir)
+
+    drgs = writeDrgIndex(opts)
 
     for step in opts.steps:
         runStep(opts, drgs, step)
