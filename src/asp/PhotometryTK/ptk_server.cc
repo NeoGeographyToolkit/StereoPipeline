@@ -102,9 +102,6 @@ int main(int argc, char** argv) {
     opt.index_url = opt.url;
     opt.index_url.path( opt.index_url.path()+"_index" );
     fs::path ptk_path( opt.ptk_file );
-    //std::string ptk_path_str = ptk_path.parent_path().string();
-    //if ( ptk_path_str.empty() )
-    // ptk_path_str = ".";
 
     // Start the ptk server task in another thread
     RpcServer<ProjectServiceImpl> server_1(opt.url, new ProjectServiceImpl(ptk_path.string()));

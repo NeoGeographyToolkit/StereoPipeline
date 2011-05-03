@@ -20,30 +20,6 @@ using namespace asp::pho;
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
 
-// Search Function
-/*
-std::vector<std::string> inline
-glob_ptk_filenames( std::string const& root_directory ) {
-  std::vector<std::string> result;
-
-  if ( !fs::exists( root_directory ) )
-    vw_throw( IOErr() << "Could not access the root directory: \"" <<
-              root_directory << "\"" );
-
-  boost::regex re;
-  re.assign(".*\\.ptk", boost::regex_constants::icase);
-
-  fs::directory_iterator end_itr; // eof
-
-  for ( fs::directory_iterator itr( root_directory ); itr != end_itr; ++itr ) {
-    if (boost::regex_match(itr->leaf(), re))
-      result.push_back(itr->leaf());
-  }
-
-  return result;
-}
-*/
-
 #define METHOD_IMPL(Name, Input, Output) \
   void ProjectServiceImpl::Name(::google::protobuf::RpcController*, const Input* request, Output* response, ::google::protobuf::Closure* done)
 
@@ -63,30 +39,11 @@ glob_ptk_filenames( std::string const& root_directory ) {
 ProjectServiceImpl::ProjectServiceImpl( std::string root_directory ) :
   m_root_directory( fs::system_complete(root_directory).string() ) {
 
-  // Search for all the project files within a given root directory.
-  // Project files end in a ptk
-  //std::vector<std::string> ptkfiles = glob_ptk_filenames( root_directory );
-  //if ( ptkfiles.size() < 1 )
-  //vw_throw( IOErr() << "There are no project files where the server started.\n" );
-
   read_pho_project( root_directory,
 		    m_project_meta,
 		    m_camera_metas );
   m_project_meta.set_name( fs::path( root_directory ).relative_path().string() );
 
-  /*
-  for (size_t i = 0; i < ptkfiles.size(); ++i ) {
-    int32 index = m_ptk_lookup.size();
-    m_ptk_lookup[fs::path(ptkfiles[i]).relative_path().string()] =
-      index;
-    m_project_metas.push_back( ProjectMeta() );
-    m_camera_metas.push_back( std::vector<CameraMeta>() );
-    read_pho_project( root_directory+"/"+ptkfiles[i],
-                      m_project_metas.back(),
-                      m_camera_metas.back() );
-    m_project_metas.back().set_name( fs::path(ptkfiles[i]).relative_path().string() );
-  }
-  */
 }
 
 void ProjectServiceImpl::sync() {
@@ -94,12 +51,6 @@ void ProjectServiceImpl::sync() {
   Mutex::Lock lock(m_mutex);
 
   vw_out() << "\t--> Syncing project files for " << m_project_meta.name() << " to disk.\n";
-
-  //  for ( size_t i = 0; i < m_project_metas.size(); i++ ) {
-  /*
-    vw_out() << "\t--> Syncing project files for "
-             << m_project_metas[i].name() <<  " to disk.\n";
-  */
 
   std::string ptk_file = m_root_directory; //+"/"+m_project_metas[i].name();
 
@@ -125,22 +76,6 @@ METHOD_IMPL(OpenRequest, ::asp::pho::ProjectOpenRequest, ::asp::pho::ProjectOpen
 
   response->set_project_id( 0 );
   *(response->mutable_meta()) = m_project_meta;
-
-  /*
-  std::map<std::string,int>::iterator it =
-    m_ptk_lookup.find( request_ptk );
-  if ( it != m_ptk_lookup.end() ) {
-    // Success
-    response->set_project_id( it->second );
-    *(response->mutable_meta()) = m_project_metas[ it->second ];
-  } else {
-    // Fail
-    response->set_project_id( -1 );
-    *(response->mutable_meta()) = ProjectMeta();
-    response->mutable_meta()->set_reflectance( ProjectMeta::NONE );
-    response->mutable_meta()->set_num_cameras( 0 );
-  }
-  */
 }
 
 METHOD_IMPL(IterationUpdate, ::asp::pho::IterationUpdateRequest, ::asp::pho::IterationUpdateReply) {
