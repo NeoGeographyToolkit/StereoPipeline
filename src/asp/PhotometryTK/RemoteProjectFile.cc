@@ -21,9 +21,8 @@ namespace pho {
 
     m_url = url;
     std::string path = url.path();
-    std::cout << "Path: " << path << "\n";
     size_t divider = path.rfind("/");
-    m_url.path( path.substr(0,divider+1) );
+    m_url.path( path.substr(0,divider == 0 ? divider+1 : divider ) );
     m_projectname = path.substr(divider+1,path.size()-divider-1);
 
     vw_out(DebugMessage,"ptk") << "Attempting to load ptk server at \""

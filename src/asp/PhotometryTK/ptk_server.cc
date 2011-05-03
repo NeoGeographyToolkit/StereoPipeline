@@ -102,7 +102,8 @@ int main(int argc, char** argv) {
     std::string scheme = opt.url.scheme();
     if ( scheme == "pf" || scheme == "amqp" ) {
 #if defined(VW_HAVE_PKG_RABBITMQ_C) && VW_HAVE_PKG_RABBITMQ_C==1
-      opt.index_url = Url( opt.url.path()+"_index" );
+      opt.index_url = opt.url;
+      opt.index_url.path( opt.url.path()+"_index" );
 #else
       vw_throw( ArgumentErr() << "ptk_server: This build does not support AMQP.\n" );
 #endif
