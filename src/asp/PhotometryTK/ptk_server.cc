@@ -99,8 +99,26 @@ int main(int argc, char** argv) {
     // Clean & Create new url
     if ( opt.ptk_file.substr(opt.ptk_file.size()-4,4) != ".ptk" )
       vw_throw( ArgumentErr() << "Failed to provide input ptk file." );
-    opt.index_url = opt.url;
-    opt.index_url.path( opt.index_url.path()+"_index" );
+    std::string scheme = opt.url.scheme();
+    if ( scheme == "pf" || scheme == "amqp" ) {
+#if defined(VW_HAVE_PKG_RABBITMQ_C) && VW_HAVE_PKG_RABBITMQ_C==1
+      opt.index_url = Url( opt.url.path()+"_index" );
+#else
+      vw_throw( ArgumentErr() << "ptk_server: This build does not support AMQP.\n" );
+#endif
+    } else if ( scheme == "zmq" || scheme == "zmq+ipc" ||
+		scheme == "zmq+tcp" || scheme == "zmq+inproc" ) {
+#if defined(VW_HAVE_PKG_ZEROMQ) && VW_HAVE_PKG_ZEROMQ==1
+      opt.index_url = Url( opt.url.scheme() + "://" + opt.url.hostname() + ":" +
+			   boost::lexical_cast<std::string>(opt.url.port()+1) );
+#else
+      vw_throw( ArgumentErr() << "ptk_server: This build does not support ZeroMQ.\n" );
+#endif
+    } else {
+      vw_throw( ArgumentErr() << "ptk_server: Unknown URL scheme \"" << scheme
+		<< "\".\n" );
+    }
+
     fs::path ptk_path( opt.ptk_file );
 
     // Start the ptk server task in another thread

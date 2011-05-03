@@ -21,8 +21,9 @@ namespace pho {
 
     m_url = url;
     std::string path = url.path();
+    std::cout << "Path: " << path << "\n";
     size_t divider = path.rfind("/");
-    m_url.path( path.substr(0,divider) );
+    m_url.path( path.substr(0,divider+1) );
     m_projectname = path.substr(divider+1,path.size()-divider-1);
 
     vw_out(DebugMessage,"ptk") << "Attempting to load ptk server at \""
@@ -177,13 +178,23 @@ namespace pho {
     ProjectMeta project_info;
     this->get_project( project_info );
 
-    std::string base_url = m_url.string()+"_index/";
+    std::string base_url, scheme = m_url.scheme();
+    if ( scheme == "pf" || scheme == "amqp" ) {
+      base_url = m_url.string()+"_index/";
+    } else if ( scheme == "zmq" || scheme == "zmq+ipc" ||
+		scheme == "zmq+tcp" || scheme == "zmq+inproc" ) {
+      base_url = m_url.scheme() + "://"+m_url.hostname()+":"+
+	boost::lexical_cast<std::string>(m_url.port()+1)+"/";
+    } else {
+      vw_throw( ArgumentErr() << "ptk_server: Unknown URL scheme \"" << scheme
+		<< "\".\n" );
+    }
+
     std::string postfix("?cache_size=1");
     typedef boost::shared_ptr<PlateFile> PlatePtr;
     vw_out(DebugMessage,"ptk") << "Loading platefiles with base url:\n\t"
                                << base_url << "\n";
 
-    // Temporarily keeping drg as UINT8 til bug is fixed with DstMemoryImageResource
     drg =
       PlatePtr( new PlateFile(base_url+"DRG.plate"+postfix,
                               project_info.plate_manager(), "", 256, "tif",
