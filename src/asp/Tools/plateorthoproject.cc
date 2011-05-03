@@ -18,6 +18,9 @@ using namespace vw;
 using namespace vw::platefile;
 
 #include <asp/Sessions.h>
+#include <asp/Core/Common.h>
+#include <asp/Core/Macros.h>
+#include <asp/IsisIO/DiskImageResourceIsis.h>
 
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
@@ -28,51 +31,41 @@ namespace fs = boost::filesystem;
 using namespace std;
 
 // --- Standard Terminal Args ---
+struct Options : public asp::BaseOptions {
+  Options() : output_id(-1) {}
 
-struct Options {
   // Input
   string input_url;
-  string camera_image; // For ISIS, these are the same
-  string camera_model;
-  int dem_id;
-  int level;
+  string camera_image, camera_model; // For ISIS, these are the same
+  int32 dem_id, level;
 
   // Settings
-  string datum;
-  string session;
-  string output_mode;
-  int output_scale;
-  bool output_uint8;
+  string datum, session, output_mode;
 
   // Output
   string output_url;
   int output_id; // transaction id
-
-  Options() : output_id(-1) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("Orthoprojects imagery into a plate file");
   general_options.add_options()
-    ("dem-id", po::value<int>(&opt.dem_id)->default_value(-1), "DEM's transaction ID in input platefile")
-    ("level,l", po::value<int>(&opt.level)->default_value(-1), "Level at which to find input DEM.")
-    ("output-id", po::value<int>(&opt.output_id), "Output transaction ID to use. If not provided, one will be solved for.")
-    ("output-scale", po::value<int>(&opt.output_scale)->default_value(1), "Output scale, a 2 will double the out resolution of the orthoprojection.")
-    ("output-uint8", "This is what we use for public releases.")
-    ("mode,m", po::value<string>(&opt.output_mode)->default_value("equi"), "Output mode [equi]")
-    ("datum,d", po::value<string>(&opt.datum)->default_value("earth"), "Datum to use [earth, moon, mars].")
-    ("session-type,t", po::value<string>(&opt.session), "Select the stereo session type to use for processing. [Options are pinhole, isis, ...]")
-    ("help", "Display this help message");
+    ("dem-id", po::value(&opt.dem_id)->default_value(-1), "DEM's transaction ID in input platefile")
+    ("level,l", po::value(&opt.level)->default_value(-1), "Level at which to find input DEM.")
+    ("output-id", po::value(&opt.output_id),
+     "Output transaction ID to use. If not provided, one will be solved for.")
+    ("mode,m", po::value(&opt.output_mode)->default_value("equi"), "Output mode [toast, equi, polar]")
+    ("datum,d", po::value(&opt.datum)->default_value("earth"), "Datum to use [earth, moon, mars].")
+    ("session-type,t", po::value(&opt.session),
+     "Select the stereo session type to use for processing. [Options are pinhole, isis, ...]");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description hidden_options("");
   hidden_options.add_options()
-    ("input-url", po::value<string>(&opt.input_url), "")
-    ("camera-image", po::value<string>(&opt.camera_image), "")
-    ("camera-model", po::value<string>(&opt.camera_model), "")
-    ("output-url", po::value<string>(&opt.output_url), "");
-
-  po::options_description options("");
-  options.add(general_options).add(hidden_options);
+    ("input-url", po::value(&opt.input_url), "")
+    ("camera-image", po::value(&opt.camera_image), "")
+    ("camera-model", po::value(&opt.camera_model), "")
+    ("output-url", po::value(&opt.output_url), "");
 
   po::positional_options_description p;
   p.add("input-url",1);
@@ -80,21 +73,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   p.add("camera-model",1);
   p.add("output-url",1);
 
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(options).positional(p).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <input-plate> <camera-image> <camera-model> <output-plate> [options]\n";
 
-  if ( vm.count("help") || opt.input_url.empty() ||
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             hidden_options, p, usage.str() );
+
+  if ( opt.input_url.empty() ||
        opt.camera_image.empty() || opt.camera_model.empty() )
-    vw_throw( ArgumentErr() << usage.str() << options );
+    vw_throw( ArgumentErr() << "Missing input files!\n\n" << usage.str() << general_options);
 
   // Detecting session type
   boost::to_lower(opt.session);
@@ -127,27 +115,24 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.output_url = opt.camera_model;
       opt.camera_model = "";
     } else {
-      vw_throw( ArgumentErr() << usage.str() << options );
+      vw_throw( ArgumentErr() << usage.str() << general_options );
     }
   }
 
   // Final clean up and saving user from themselves
   boost::to_lower(opt.datum);
-  if ( opt.output_scale < 1 )
-    vw_throw( ArgumentErr() << "Output scaling can't be less than one.\n" );
-  opt.output_uint8 = vm.count("output-uint8") > 0;
 }
 
 // --- Internal Operations ---
-
 template <class PixelT>
 void do_projection(boost::shared_ptr<PlateFile> input_plate,
                    boost::shared_ptr<PlateFile> output_plate,
                    boost::shared_ptr<camera::CameraModel> camera_model,
                    Options& opt) {
+  typedef PixelGrayA<float> InputT;
 
-  PlateCarreePlateManager<PixelGrayA<float > > input_pm(input_plate);
-  cartography::GeoReference input_georef = input_pm.georeference(opt.level);
+  boost::scoped_ptr<PlateManager<InputT> > input_pm( PlateManager<InputT >::make(opt.output_mode, input_plate ) );
+  cartography::GeoReference input_georef = input_pm->georeference(opt.level);
 
   // Finding and setting our Datum
   if ( opt.datum == "earth" )
@@ -162,20 +147,21 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
   // Loading up input image - We load up in a float format mostly
   // because a fail in VW. VW doesn't seem to understand uint16
   // types. Also ISIS doesn't let us expect an input channel range.
-  DiskImageView<PixelGrayA<float> > texture_disk_image(opt.camera_image);
-  ImageViewRef<PixelT> texture_image = pixel_cast_rescale<PixelT>(texture_disk_image);
+  DiskImageView<PixelT> texture_disk_image(opt.camera_image);
+  ImageViewRef<PixelT> texture_image = texture_disk_image;
 
   // Camera Center's
   Vector3 camera_center = camera_model->camera_center(Vector2());
   Vector3 camera_lla = cartography::xyz_to_lon_lat_radius( camera_center );
-  std::cout << "Camera's location = " << camera_lla << "\n";
+  vw_out() << "\tLoaded Camera Location: " << camera_lla << " [deg deg meters]\n";
 
-  // Normalize between 0->1 since ISIS is crazy
+  // Normalize between 0->1 since ISIS is crazy (not really)
   if ( opt.session == "isis" ) {
-    float32 lo, hi;
-    min_max_channel_values(texture_disk_image, lo, hi);
-    std::cout << " Low: " << lo << " Hi: " << hi << "\n";
-    texture_image = pixel_cast_rescale<PixelT>(normalize_retain_alpha(remove_isis_special_pixels(texture_disk_image, PixelGrayA<float>(lo)),lo,hi,0.0,1.0));
+    DiskImageResourceIsis isis_rsrc( opt.camera_image );
+    texture_image =
+      normalize_retain_alpha(remove_isis_special_pixels(texture_disk_image),
+                             isis_rsrc.valid_minimum(),isis_rsrc.valid_maximum(),
+                             ChannelRange<PixelT>::min(), ChannelRange<PixelT>::max() );
   }
 
   // Performing rough approximation of which tiles this camera touches
@@ -190,45 +176,33 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
                                            // approximation
 
   // Building plateview to extract a single DEM
-  PlateView<PixelGrayA<float32> > input_view( opt.input_url );
+  PlateView<InputT > input_view( opt.input_url );
+  input_view.set_level( opt.level );
   dem_square.crop( bounding_box(input_view) );
-  ImageViewRef<PixelGrayA<float32> > input_view_ref = resample(crop(input_view,dem_square),
-                                                               opt.output_scale,
-                                                               opt.output_scale,
-                                                               ZeroEdgeExtension(),
-                                                               BicubicInterpolation());
+  ImageViewRef<InputT > input_view_ref =
+    crop(input_view,dem_square);
+
   cartography::GeoReference dem_georef = input_georef;
   Vector2 top_left_ll = input_georef.pixel_to_lonlat( dem_square.min() );
   Matrix3x3 T = dem_georef.transform();
   T(0,2) = top_left_ll[0];
   T(1,2) = top_left_ll[1];
-  T(0,0) /= float(opt.output_scale);
-  T(1,1) /= float(opt.output_scale);
   dem_georef.set_transform(T);
 
-  std::cout << "\t--> Orthoprojecting into DEM square with transform:\n"
-            << "\t    " << dem_georef << "\n";
-  ImageView<PixelT> projection = orthoproject(input_view_ref, dem_georef,
-                                              texture_image, camera_model,
-                                              BicubicInterpolation(),
-                                              ZeroEdgeExtension());
+  vw_out() << "\t--> Orthoprojecting into DEM square with transform:\n"
+           << "\t    " << dem_georef << "\n";
+  ImageViewRef<PixelT> projection =
+    orthoproject(input_view_ref, dem_georef,
+                 texture_image, camera_model,
+                 BicubicInterpolation(),
+                 ZeroEdgeExtension());
 
   // Push to output plate file
-  if ( opt.output_mode == "equi" ) {
-    boost::shared_ptr<PlateCarreePlateManager<PixelT> > pm(
-      new PlateCarreePlateManager<PixelT> (output_plate) );
-
-    pm->insert(projection, opt.camera_image,
-               opt.output_id, dem_georef, false, false,
-               TerminalProgressCallback( "asp.plateorthoproject", "\t    Processing") );
-  } else if ( opt.output_mode == "toast" ) {
-    boost::shared_ptr<ToastPlateManager<PixelT> > pm(
-      new ToastPlateManager<PixelT> (output_plate) );
-
-    pm->insert(projection, opt.camera_image,
-               opt.output_id, dem_georef, false, false,
-               TerminalProgressCallback( "asp.plateorthoproject", "\t    Processing") );
-  }
+  boost::scoped_ptr<PlateManager<PixelT> > output_pm( PlateManager<PixelT>::make( opt.output_mode, output_plate ) );
+  output_pm->insert(projection, opt.camera_image,
+                    opt.output_id, dem_georef, false, false,
+                    TerminalProgressCallback( "asp.plateorthoproject",
+                                              "\t   Processing") );
 }
 
 void do_run( Options& opt ) {
@@ -256,24 +230,24 @@ void do_run( Options& opt ) {
     pixel_format = rsrc->pixel_format();
     channel_type = rsrc->channel_type();
 
-    if ( opt.output_uint8 )
-      channel_type = VW_CHANNEL_UINT8;
-
     // Plate files should always have an alpha channel.
     if (pixel_format == VW_PIXEL_GRAY)
       pixel_format = VW_PIXEL_GRAYA;
     if (pixel_format == VW_PIXEL_RGB)
       pixel_format = VW_PIXEL_RGBA;
+
     delete rsrc;
   } catch (vw::Exception &e) {
     vw_throw( ArgumentErr() << "An error occured while finding pixel type: " << e.what() << "\n" );
   }
 
   string tile_filetype;
-  if (channel_type == VW_CHANNEL_FLOAT32)
+  if (channel_type == VW_CHANNEL_FLOAT32 ||
+      channel_type == VW_CHANNEL_INT16 )
     tile_filetype = "tif";
   else
     tile_filetype = "png";
+
   boost::shared_ptr<PlateFile> input_plate =
     boost::shared_ptr<PlateFile>( new PlateFile(opt.input_url) );
   boost::shared_ptr<PlateFile> output_plate =
@@ -317,7 +291,6 @@ void do_run( Options& opt ) {
 }
 
 // --- Interface to Terminal ----
-
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -327,13 +300,7 @@ int main( int argc, char *argv[] ) {
     // Farm out task from here
     do_run( opt );
 
-  } catch ( const ArgumentErr& e ) {
-    vw_out() << e.what() << std::endl;
-    return 1;
-  } catch ( const Exception& e ) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  }
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }
