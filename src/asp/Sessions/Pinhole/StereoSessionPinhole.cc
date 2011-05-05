@@ -45,6 +45,8 @@ StereoSessionPinhole::camera_model(std::string /*image_file*/,
     // Load the image
     DiskImageView<PixelGray<float> > left_image(m_left_image_file);
     DiskImageView<PixelGray<float> > right_image(m_right_image_file);
+    Vector2i left_image_size( left_image.cols(), left_image.rows() ),
+      right_image_size( right_image.cols(), right_image.rows() );
 
     bool is_left_camera = true;
     if (camera_file == m_left_camera_file)
@@ -55,24 +57,30 @@ StereoSessionPinhole::camera_model(std::string /*image_file*/,
       (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
 
     // Return the appropriate camera model object
+    std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
     CAHVModel left_cahv, right_cahv;
-    if (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahvor")  ||
-        boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cmod") ) {
+    if (boost::ends_with(lcase_file, ".cahvore") ) {
+      CAHVOREModel left_cahvore(m_left_camera_file);
+      CAHVOREModel right_cahvore(m_right_camera_file);
+      left_cahv =
+        linearize_camera(left_cahvore, left_image_size, left_image_size);
+      right_cahv =
+        linearize_camera(right_cahvore, right_image_size, right_image_size);
+    } else if (boost::ends_with(lcase_file, ".cahvor")  ||
+               boost::ends_with(lcase_file, ".cmod") ) {
       CAHVORModel left_cahvor(m_left_camera_file);
       CAHVORModel right_cahvor(m_right_camera_file);
-      left_cahv = linearize_camera(left_cahvor,
-                                   left_image.cols(), left_image.rows(),
-                                   left_image.cols(), left_image.rows());
-      right_cahv = linearize_camera(right_cahvor,
-                                    right_image.cols(), right_image.rows(),
-                                    right_image.cols(), right_image.rows());
-    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahv") ||
-                boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pin" )) {
+      left_cahv =
+        linearize_camera(left_cahvor, left_image_size, left_image_size);
+      right_cahv =
+        linearize_camera(right_cahvor, right_image_size, right_image_size);
+    } else if ( boost::ends_with(lcase_file, ".cahv") ||
+                boost::ends_with(lcase_file, ".pin" )) {
       left_cahv = CAHVModel(m_left_camera_file);
       right_cahv = CAHVModel(m_right_camera_file);
 
-    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pinhole") ||
-                boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") ) {
+    } else if ( boost::ends_with(lcase_file, ".pinhole") ||
+                boost::ends_with(lcase_file, ".tsai") ) {
       PinholeModel left_pin(m_left_camera_file);
       PinholeModel right_pin(m_right_camera_file);
       left_cahv = linearize_camera(left_pin);
@@ -120,6 +128,7 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
   DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
   ImageViewRef<PixelGray<float> > Limg, Rimg;
+  std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
   if ( stereo_settings().epipolar_alignment ) {
 
@@ -134,22 +143,28 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
     CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*right_camera));
 
     // Remove lens distortion and create epipolar rectified images.
-    if (boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahvor") ||
-        boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cmod") ) {
+    if (boost::ends_with(lcase_file, ".cahvore")) {
+      CAHVOREModel left_cahvore(m_left_camera_file);
+      CAHVOREModel right_cahvore(m_right_camera_file);
+      Limg = transform(left_disk_image, CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore, *left_epipolar_cahv));
+
+      Rimg = transform(right_disk_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));
+    } else if (boost::ends_with(lcase_file, ".cahvor") ||
+               boost::ends_with(lcase_file, ".cmod") ) {
       CAHVORModel left_cahvor(m_left_camera_file);
       CAHVORModel right_cahvor(m_right_camera_file);
       Limg = transform(left_disk_image, CameraTransform<CAHVORModel, CAHVModel>(left_cahvor, *left_epipolar_cahv));
       Rimg = transform(right_disk_image, CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, *right_epipolar_cahv));
 
-    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".cahv") ||
-                boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pin" )) {
+    } else if ( boost::ends_with(lcase_file, ".cahv") ||
+                boost::ends_with(lcase_file, ".pin" )) {
       CAHVModel left_cahv(m_left_camera_file);
       CAHVModel right_cahv(m_right_camera_file);
       Limg = transform(left_disk_image, CameraTransform<CAHVModel, CAHVModel>(left_cahv, *left_epipolar_cahv));
       Rimg = transform(right_disk_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
 
-    } else if ( boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".pinhole") ||
-                boost::ends_with(boost::to_lower_copy(m_left_camera_file), ".tsai") ) {
+    } else if ( boost::ends_with(lcase_file, ".pinhole") ||
+                boost::ends_with(lcase_file, ".tsai") ) {
       PinholeModel left_pin(m_left_camera_file);
       PinholeModel right_pin(m_right_camera_file);
       Limg = transform(left_disk_image, CameraTransform<PinholeModel, CAHVModel>(left_pin, *left_epipolar_cahv));
@@ -181,8 +196,8 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
   vw_out() << "\t--> Writing pre-aligned images.\n";
-  write_image(output_file1, channel_cast_rescale<uint8>(Limg));
-  write_image(output_file2, channel_cast_rescale<uint8>(Rimg));
+  write_image(output_file1, Limg);
+  write_image(output_file2, Rimg);
 }
 
 // Reverse any pre-alignment that might have been done to the disparity map

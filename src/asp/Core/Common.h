@@ -89,7 +89,8 @@ namespace asp {
     std::string ext = ipath.extension();
     if ( ext == ".cahvor" || ext == ".cahv" ||
          ext == ".pin" || ext == ".pinhole" ||
-         ext == ".tsai" || ext == ".cmod" )
+         ext == ".tsai" || ext == ".cmod" ||
+         ext == ".cahvore" )
       return true;
     return false;
   }
