@@ -147,10 +147,7 @@ void do_projection( Options& opt,
                  texture_image, camera_model,
                  BicubicInterpolation(), ZeroEdgeExtension());
 
-  DiskImageResourceGDAL* rsrc = asp::build_gdal_rsrc(opt.output_file, final_result, opt );
-  write_georeference(*rsrc, drg_georef);
-  write_image(*rsrc, final_result, TerminalProgressCallback("asp",""));
-  delete rsrc;
+  asp::write_gdal_georeferenced_image( opt.output_file, final_result, drg_georef, opt, TerminalProgressCallback("asp","") );
 }
 
 int main(int argc, char* argv[]) {

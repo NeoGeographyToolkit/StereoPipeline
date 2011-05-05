@@ -16,6 +16,7 @@
 #include <vw/Image/ImageIO.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Math/Vector.h>
+#include <vw/Cartography/GeoReference.h>
 
 namespace asp {
 
@@ -106,9 +107,8 @@ namespace asp {
                                vw::ImageViewBase<ImageT> const& image,
                                BaseOptions const& opt,
                                vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
-    vw::DiskImageResourceGDAL* rsrc = build_gdal_rsrc( filename, image, opt );
+    boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
-    delete rsrc;
   }
 
   template <class ImageT>
@@ -116,9 +116,19 @@ namespace asp {
                          vw::ImageViewBase<ImageT> const& image,
                          BaseOptions const& opt,
                          vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
-    vw::DiskImageResourceGDAL* rsrc = build_gdal_rsrc( filename, image, opt );
+    boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
     vw::write_image( *rsrc, image.impl(), progress_callback );
-    delete rsrc;
+  }
+
+  template <class ImageT>
+  void write_gdal_georeferenced_image( const std::string &filename,
+                                       vw::ImageViewBase<ImageT> const& image,
+                                       vw::cartography::GeoReference const& georef,
+                                       BaseOptions const& opt,
+                                       vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
+    boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
+    vw::cartography::write_georeference(*rsrc, georef);
+    vw::write_image( *rsrc, image.impl(), progress_callback );
   }
 
 }
