@@ -108,16 +108,16 @@ int main(int argc, char** argv) {
       vw_throw( ArgumentErr() << "ptk_server: This build does not support AMQP.\n" );
 #endif
     } else if ( scheme == "zmq" || scheme == "zmq+ipc" ||
-		scheme == "zmq+tcp" || scheme == "zmq+inproc" ) {
+                scheme == "zmq+tcp" || scheme == "zmq+inproc" ) {
 #if defined(VW_HAVE_PKG_ZEROMQ) && VW_HAVE_PKG_ZEROMQ==1
       opt.index_url = Url( opt.url.scheme() + "://" + opt.url.hostname() + ":" +
-			   boost::lexical_cast<std::string>(opt.url.port()+1) );
+                           boost::lexical_cast<std::string>(opt.url.port()+1) );
 #else
       vw_throw( ArgumentErr() << "ptk_server: This build does not support ZeroMQ.\n" );
 #endif
     } else {
       vw_throw( ArgumentErr() << "ptk_server: Unknown URL scheme \"" << scheme
-		<< "\".\n" );
+                << "\".\n" );
     }
 
     fs::path ptk_path( opt.ptk_file );
@@ -136,6 +136,14 @@ int main(int argc, char** argv) {
     size_t success = 0, fail = 0, calls = 0;
 
     while(process_messages) {
+      if ( server_1.error() ) {
+        vw_out(InfoMessage) << "PTK Service has terminated with message: " << server_1.error() << "\n";
+        break;
+      } else if ( server_2.error() ) {
+        vw_out(InfoMessage) << "Index Service has terminated with message: " << server_2.error() << "\n";
+        break;
+      }
+
       bool should_sync = force_sync || (Stopwatch::microtime() >= next_sync);
 
       if ( should_sync ) {
