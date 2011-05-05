@@ -77,15 +77,6 @@ message LastErrorUpdateReply {
   required int32 project_id = 1;
 }
 
-message CameraCreateRequest {
-  required int32 project_id = 1;
-  required CameraMeta meta = 2;
-}
-message CameraCreateReply {
-  required int32 project_id = 1; // echo if success
-  required int32 camera_id = 2;  // assigns number
-}
-
 message PixvalAddRequest {
   required int32 project_id = 1;
   required double min_pixval = 2;
@@ -104,6 +95,15 @@ message PixvalGetAndResetReply {
   required int32 project_id = 1;
   required double min_pixval = 2;
   required double max_pixval = 3;
+}
+
+message CameraCreateRequest {
+  required int32 project_id = 1;
+  required CameraMeta meta = 2;
+}
+message CameraCreateReply {
+  required int32 project_id = 1; // echo if success
+  required int32 camera_id = 2;  // assigns number
 }
 
 message CameraReadRequest {
@@ -125,6 +125,8 @@ message CameraWriteReply {
   required int32 project_id = 1; // echo if success
   required int32 camera_id  = 2; // echo if success
 }
+
+option cc_generic_services = true;
 
 service ProjectService {
   // Project start
