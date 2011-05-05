@@ -351,18 +351,16 @@ int main( int argc, char *argv[] ) {
         ImageViewRef<PixelGray<float> > block_dem_raster =
           block_cache(rasterizer, Vector2i(rasterizer.cols(), 128), 0);
         if ( opt.output_file_type == "tif" && opt.has_default_value ) {
-          DiskImageResourceGDAL* rsrc =
-            asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif",
-                                  block_dem_raster, opt );
+          boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", block_dem_raster, opt) );
           rsrc->set_nodata_write( opt.default_value );
           write_georeference( *rsrc, georef );
-          write_image( *rsrc, block_dem_raster, TerminalProgressCallback("asp","") );
-          delete rsrc;
+          write_image( *rsrc, block_dem_raster,
+                       TerminalProgressCallback("asp","") );
         } else {
-          write_georeferenced_image( opt.out_prefix + "-DEM." +
-                                     opt.output_file_type,
-                                     block_dem_raster, georef,
-                                     TerminalProgressCallback("asp",""));
+          asp::write_gdal_georeferenced_image(
+               opt.out_prefix + "-DEM." + opt.output_file_type,
+               block_dem_raster, georef, opt,
+               TerminalProgressCallback("asp","") );
         }
       }
 
@@ -374,13 +372,15 @@ int main( int argc, char *argv[] ) {
           dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
         if ( opt.has_default_value ) {
-          write_georeferenced_image( opt.out_prefix + "-DEM-normalized.tif",
-                                     apply_mask(channel_cast_rescale<uint8>(normalize(create_mask(dem_image,opt.default_value)))),
-                                     georef, TerminalProgressCallback("asp","") );
+          asp::write_gdal_georeferenced_image(
+                   opt.out_prefix + "-DEM-normalized.tif",
+                   apply_mask(channel_cast_rescale<uint8>(normalize(create_mask(dem_image,opt.default_value)))),
+                   georef, opt, TerminalProgressCallback("asp","") );
         } else {
-          write_georeferenced_image( opt.out_prefix + "-DEM-normalized.tif",
-                                     channel_cast_rescale<uint8>(normalize(dem_image)),
-                                     georef, TerminalProgressCallback("asp","") );
+          asp::write_gdal_georeferenced_image(
+                   opt.out_prefix + "-DEM-normalized.tif",
+                   channel_cast_rescale<uint8>(normalize(dem_image)),
+                   georef, opt, TerminalProgressCallback("asp","") );
         }
       }
     }

@@ -124,7 +124,8 @@ int main( int argc, char *argv[] ) {
 
       count++;
     }
-    write_image( opt.output_file, output );
+    asp::write_gdal_image( opt.output_file, output, opt,
+                           TerminalProgressCallback("asp","") );
 
   } ASP_STANDARD_CATCHES;
 
