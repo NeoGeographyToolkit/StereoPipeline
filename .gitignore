@@ -11,6 +11,7 @@
 .DS_Store
 *.pb.cc
 *.pb.h
+*.pyc
 *#
 /.vimrc.local
 /.project.root
