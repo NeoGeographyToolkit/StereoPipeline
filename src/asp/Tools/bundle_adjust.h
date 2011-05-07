@@ -140,64 +140,24 @@ public:
     return result;
   }
 
-  // Errors on the image plane
-  void image_errors( std::vector<double>& pix_errors ) const {
-    pix_errors.clear();
-    for (unsigned i = 0; i < m_network->size(); ++i)
-      for(unsigned m = 0; m < (*m_network)[i].size(); ++m) {
-        int camera_idx = (*m_network)[i][m].image_id();
-        vw::Vector2 pixel_error;
-        try {
-          pixel_error = (*m_network)[i][m].position() -
-            (*this)(i, camera_idx,a[camera_idx],b[i]);
-        } catch ( vw::camera::PixelToRayErr &e ) {}
-        pix_errors.push_back(norm_2(pixel_error));
-      }
+  inline double image_compare( vw::Vector2 const& meas,
+                               vw::Vector2 const& obj ) {
+    return norm_2( meas - obj );
   }
 
-  // Errors for camera position
-  void camera_position_errors( std::vector<double>& camera_position_errors ) const {
-    camera_position_errors.clear();
-    for (unsigned j=0; j < this->num_cameras(); ++j) {
-      vw::Vector3 position_initial, position_now;
-      vw::Quat pose_initial, pose_now;
-
-      parse_camera_parameters(a_target[j], position_initial, pose_initial);
-      parse_camera_parameters(a[j], position_now, pose_now);
-
-      camera_position_errors.push_back(norm_2(position_initial-position_now));
-    }
+  inline double position_compare( camera_vector_t const& meas,
+                                  camera_vector_t const& obj ) {
+    return norm_2( subvector(meas,0,3) - subvector(obj,0,3) );
   }
 
-  // Errors for camera pose
-  void camera_pose_errors( std::vector<double>& camera_pose_errors ) const {
-    camera_pose_errors.clear();
-    for (unsigned j=0; j < this->num_cameras(); ++j) {
-      vw::Vector3 position_initial, position_now;
-      vw::Quat pose_initial, pose_now;
-
-      parse_camera_parameters(a_target[j], position_initial, pose_initial);
-      parse_camera_parameters(a[j], position_now, pose_now);
-
-      vw::Vector3 axis_initial, axis_now;
-      double angle_initial, angle_now;
-      pose_initial.axis_angle(axis_initial, angle_initial);
-      pose_now.axis_angle(axis_now, angle_now);
-
-      camera_pose_errors.push_back(fabs(angle_initial-angle_now) * 180.0/M_PI);
-    }
+  inline double pose_compare( camera_vector_t const& meas,
+                              camera_vector_t const& obj ) {
+    return norm_2( subvector(meas,3,3) - subvector(obj,3,3) );
   }
 
-  // Errors for gcp errors
-  void gcp_errors( std::vector<double>& gcp_errors ) const {
-    gcp_errors.clear();
-    for (unsigned i=0; i < this->num_points(); ++i)
-      if ( (*m_network)[i].type() ==
-           vw::ba::ControlPoint::GroundControlPoint ) {
-        point_vector_t p1 = b_target[i]/b_target[i](3);
-        point_vector_t p2 = b[i]/b[i](3);
-        gcp_errors.push_back(norm_2(subvector(p1,0,3) - subvector(p2,0,3)));
-      }
+  inline double gcp_compare( point_vector_t const& meas,
+                             point_vector_t const& obj ) {
+    return norm_2(meas - obj);
   }
 
   // Give access to the control network
