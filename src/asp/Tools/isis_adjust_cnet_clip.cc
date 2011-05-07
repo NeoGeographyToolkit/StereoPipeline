@@ -26,7 +26,7 @@ struct Options {
   std::string cnet_file;
   std::vector<std::string> input_names;
   double std_dev_clip;
-  bool dry_run, verify, clip_radius;
+  bool dry_run, verify, clip_radius, clip_value;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -38,6 +38,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Verify that control points were actually clipped")
     ("clip-radius", po::bool_switch(&opt.clip_radius)->default_value(false),
      "If the points don't seem to be near the radius of the moon, clip'em.")
+    ("clip-value", po::bool_switch(&opt.clip_value)->default_value(false),
+     "If the point's error is not less than 2, clip'em.")
     ("s,std-dev-clip", po::value(&opt.std_dev_clip)->default_value(2),
      "How many std_dev away must a control point be to be clipped.")
     ("help,h", "Display this help message");
@@ -204,6 +206,9 @@ int main( int argc, char* argv[] ) {
             cnet.delete_control_point( error_index );
             delete_count++;
           }
+        } else if (opt.clip_value && *error_it > 2.0 ) {
+          cnet.delete_control_point( error_index );
+          delete_count++;
         }
       }
 
