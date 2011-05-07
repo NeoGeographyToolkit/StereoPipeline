@@ -35,11 +35,14 @@ cnet_merge_LDADD     = $(CNETTK_LOCAL_LIBS)
 isis_position_extract_SOURCES = isis_position_extract.cc
 isis_position_extract_LDADD   = $(CNETTK_LOCAL_LIBS)
 
+vw_position_extract_SOURCES = vw_position_extract.cc
+vw_position_extract_LDADD   = $(CNETTK_LOCAL_LIBS)
+
 render_gcp_SOURCES = render_gcp.cc
 render_gcp_LDADD   = $(CNETTK_LOCAL_LIBS)
 
 bin_PROGRAMS = reduce_match cnet_build cnet_convert cnet_merge render_gcp
-libexec_PROGRAMS = isis_position_extract
+libexec_PROGRAMS = isis_position_extract vw_position_extract
 
 endif
 

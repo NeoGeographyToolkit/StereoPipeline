@@ -1,6 +1,5 @@
 #include <vw/Core.h>
 #include <vw/Math/Vector.h>
-#include <vw/Cartography/SimplePointImageManipulation.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 
@@ -40,7 +39,8 @@ int main( int argc, char* argv[] ) {
   } else
     return 1;
 
-  // Figure out the average position of the camera by running 5 locations
+  // Figure out the average position of the camera by running 5 locations.
+  // This is only important for linescan cameras.
   Vector3 camera_position;
   camera_position += camera_model->camera_center(Vector2())/5;
   camera_position += camera_model->camera_center(image_size-Vector2(1,1))/5;
@@ -48,9 +48,7 @@ int main( int argc, char* argv[] ) {
   camera_position += camera_model->camera_center(Vector2(image_size[0]-1,0))/5;
   camera_position += camera_model->camera_center(image_size/2)/5;
 
-  Vector3 camera_llr = cartography::XYZtoLonLatRadFunctor::apply( camera_position );
-
-  std::cout << std::setprecision(15) << camera_llr[0] << " " << camera_llr[1] << " " << camera_llr[2] << "\n";
-
+  std::cout << std::setprecision(15) << camera_position[0] << " "
+            << camera_position[1] << " " << camera_position[2] << "\n";
   return 0;
 }
