@@ -20,7 +20,6 @@
 #include <vw/Plate/TileManipulation.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/AlbedoAccumulators.h>
-#include <asp/PhotometryTK/ExtremePixvalAccumulator.h>
 #include <asp/Core/Macros.h>
 using namespace vw;
 using namespace vw::platefile;
@@ -63,7 +62,6 @@ void initial_albedo( Options const& opt,
   double tpc_inc = 1.0/float(workunits.size());
   albedo_plate->write_request();
   ImageView<PixelGrayA<float32> > image_temp;
-  ImageView<PixelGray<float32> > image_noalpha;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
     AlbedoAccumulatorT accum( tile_size, tile_size );
@@ -93,21 +91,20 @@ void initial_albedo( Options const& opt,
           if ( tile_records.empty() )
             continue;
 
+          size_t i = 0;
           // Feeding accumulator
           BOOST_FOREACH( const TileHeader& tile, tile_records ) {
             drg_plate->read( image_temp, ix, iy, opt.level,
                              tile.transaction_id(), true );
 
+
             accum(image_temp, exposure_ts[tile.transaction_id()-1]);
           }
           image_temp = accum.result();
-
-	  image_noalpha = vw::pixel_cast<PixelGray<float32> >(image_temp);
-
-	  for_each_pixel(image_temp, pixvalAccum);
+	  for_each_pixel(alpha_to_mask(image_temp), pixvalAccum);
 
           // Write result
-          albedo_plate->write_update(image_noalpha, ix, iy,
+          albedo_plate->write_update(image_temp, ix, iy,
 				     opt.level, transaction_id);
         } // end for iy
       }   // end for ix
@@ -142,7 +139,6 @@ void update_albedo( Options const& opt,
   double tpc_inc = 1.0/float(workunits.size());
   albedo_plate->write_request();
   ImageView<PixelGrayA<float32> > image_temp, current_albedo;
-  ImageView<PixelGray<float32> > image_noalpha;
 
   if ( ptk_meta.reflectance() == ProjectMeta::NONE ) {
     AlbedoDeltaNRAccumulator<PixelGrayA<float32> > accum( tile_size, tile_size );
@@ -186,13 +182,11 @@ void update_albedo( Options const& opt,
           }
           image_temp = accum.result();
 
-          // Write result
+
           select_channel(current_albedo,0) += select_channel(image_temp,0);
+          for_each_pixel(alpha_to_mask(current_albedo), pixvalAccum);
 
-	  for_each_pixel(current_albedo, pixvalAccum);
-	  
-	  //image_noalpha = vw::pixel_cast<PixelGray<float32> >(current_albedo);
-
+          // Write result
           albedo_plate->write_update(current_albedo, ix, iy,
                                      opt.level, transaction_id);
 
@@ -304,39 +298,28 @@ int main( int argc, char *argv[] ) {
     }
 
     // Initialize pixval accumulator
-    float32 minPixval = 0;
-    float32 maxPixval = 0;
-    ExtremePixvalAccumulator<PixelGrayA<float32> > pixvalAccum(minPixval, maxPixval);
+    ChannelAccumulator<MinMaxAccumulator<float32> > minmaxacc;
 
     // Determine if we're updating or initializing
     if ( opt.perform_2band ) {
       std::cerr << "2 Band Albedo [ iteration "
                 << project_info.current_iteration() << " ]\n";
-      initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float32> >, ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, pixvalAccum, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
+      initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float32> > >( opt, project_info, minmaxacc, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
     } else {
       if ( project_info.current_iteration() ) {
         std::cerr << "Updating Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
-        update_albedo<ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, 
-									pixvalAccum, drg_plate,
-									albedo_plate, reflect_plate, workunits, exposure_t );
+        update_albedo( opt, project_info, minmaxacc, drg_plate,
+                       albedo_plate, reflect_plate, workunits, exposure_t );
       } else {
         std::cerr << "Initialize Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
-        initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float32> >, ExtremePixvalAccumulator<PixelGrayA<float32> > >( opt, project_info, pixvalAccum, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
+        initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float32> > >( opt, project_info, minmaxacc, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
       }
     }
 
-    // Write out pixval results for this job    
-    pixvalAccum.values(minPixval, maxPixval);
-
-    /*
-    std::cerr.precision(10);
-    std::cerr.setf(std::ios::fixed);
-    std::cerr << "pixvals so far: min=[" << minPixval << "] max=[" << maxPixval << "]\n";
-    */
-
-    remote_ptk.add_pixvals(minPixval, maxPixval);
+    remote_ptk.add_pixvals(minmaxacc.minimum(),
+                           minmaxacc.maximum());
     
   } ASP_STANDARD_CATCHES;
 

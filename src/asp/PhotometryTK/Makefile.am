@@ -20,7 +20,6 @@ nodist_include_HEADERS = $(protocol_headers)
 include_HEADERS = ProjectFileIO.h ProjectService.h RemoteProjectFile.h \
                   AlbedoAccumulators.h ImageAccumulators.h             \
                   ErrorAccumulators.h TimeAccumulators.h               \
-                  ExtremePixvalAccumulator.h \
                   RecursiveBBoxAccumulator.h
 libaspPhotometryTK_la_SOURCES = $(protocol_sources) ProjectService.cc  \
                   RemoteProjectFile.cc
