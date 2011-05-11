@@ -62,12 +62,14 @@ def camrange( cube ):
         print 'Running ' + cmd
         subprocess.check_call(cmd, shell=True)
 
+        getkey_path = os.environ['ISISROOT']+'/bin/getkey'
+
         # extract information
-        info.resolution = subprocess.Popen(["getkey", "from= "+ tmpfile, "grpname= PixelResolution", "keyword= Lowest"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.minlat = subprocess.Popen(["getkey", "from= "+ tmpfile, "grpname= UniversalGroundRange", "keyword= MinimumLatitude"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.maxlat = subprocess.Popen(["getkey", "from= "+ tmpfile, "grpname= UniversalGroundRange", "keyword= MaximumLatitude"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.minlon = subprocess.Popen(["getkey", "from= "+ tmpfile, "grpname= UniversalGroundRange", "keyword= MinimumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
-        info.maxlon = subprocess.Popen(["getkey", "from= "+ tmpfile, "grpname= UniversalGroundRange", "keyword= MaximumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.resolution = subprocess.Popen([getkey_path, "from= "+ tmpfile, "grpname= PixelResolution", "keyword= Lowest"], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.minlat = subprocess.Popen([getkey_path, "from= "+ tmpfile, "grpname= UniversalGroundRange", "keyword= MinimumLatitude"], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.maxlat = subprocess.Popen([getkey_path, "from= "+ tmpfile, "grpname= UniversalGroundRange", "keyword= MaximumLatitude"], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.minlon = subprocess.Popen([getkey_path, "from= "+ tmpfile, "grpname= UniversalGroundRange", "keyword= MinimumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
+        info.maxlon = subprocess.Popen([getkey_path, "from= "+ tmpfile, "grpname= UniversalGroundRange", "keyword= MaximumLongitude"], stdout=subprocess.PIPE).communicate()[0].strip()
 
         os.remove( tmpfile )
 
