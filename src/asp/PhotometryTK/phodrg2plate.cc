@@ -138,7 +138,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
-  if ( opt.drg_file.empty() || opt.ptk_url.string().empty() )
+  if ( opt.drg_file.empty() || opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing input DRG or URL!\n"
               << usage.str() << general_options );
 }

@@ -88,7 +88,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url>\n";
 
-  if ( opt.ptk_url.string().empty() )
+  if ( opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing ptk url.\n"
               << usage.str() << general_options );
 

@@ -66,7 +66,7 @@ void handle_arguments( int argc, char* argv[], Options& opt ) {
   
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
-  if ( opt.ptk_url.string().empty() )
+  if ( opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing project file url!\n"
               << usage.str() << general_options );  
 }

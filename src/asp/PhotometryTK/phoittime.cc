@@ -59,8 +59,8 @@ void update_exposure( Options& opt ) {
     // Pick up current time exposure
     CameraMeta cam_info;
     remote_ptk.get_camera(j, cam_info);
-    std::cout << "Camera[" << j << "]         exposure time: "
-              << cam_info.exposure_t() << "\n";
+
+    double prv_exposure_time = cam_info.exposure_t();
 
     // Deciding working area
     if ( opt.level < 0 )
@@ -76,8 +76,6 @@ void update_exposure( Options& opt ) {
     if ( project_info.reflectance() == ProjectMeta::NONE ) {
       // Accumulating time exposure
       TimeDeltaNRAccumulator taccum(cam_info.exposure_t());
-
-      std::cout << "About to print TimeDeltaNRAccumulator values\n";
 
       // Updating current time exposure
       BOOST_FOREACH( const TileHeader& drg_tile, drg_tiles ) {
@@ -102,8 +100,9 @@ void update_exposure( Options& opt ) {
       if ( opt.job_id == 0 )
         remote_ptk.set_iteration(project_info.current_iteration()+1);
     }
-    std::cout << "Camera[" << j << "] updated exposure time: "
-              << cam_info.exposure_t() << "\n";
+    vw_out() << "Camera[" << j << "] updated exposure time: "
+             << cam_info.exposure_t() << " delta "
+             << cam_info.exposure_t() - prv_exposure_time << "\n";
 
   }
 }
@@ -142,7 +141,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( vm.count("help") )
     vw_throw( ArgumentErr() << usage.str() << general_options );
-  if ( opt.ptk_url.string().empty() )
+  if ( opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing project file url!\n"
               << usage.str() << general_options );
 }
