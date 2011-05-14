@@ -21,6 +21,7 @@
 #include <vw/Plate/PlateManager.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -32,7 +33,7 @@ namespace po = boost::program_options;
 
 using namespace std;
 
-struct Options {
+struct Options : asp::BaseOptions {
   Options() : nodata_value(std::numeric_limits<double>::max()) {}
   // Input
   Url ptk_url;
@@ -63,7 +64,6 @@ void do_creation( Options& opt ) {
   cam_meta.set_last_error( 0.0 );
   cam_meta.set_curr_error( 0.0 );
   int32 cam_id = remote_ptk.add_camera( cam_meta );
-  std::cout << "Assigned Camera ID: " << cam_id << "\n";
 
   // Find relative urls for platefiles
   boost::shared_ptr<PlateFile> drg, albedo, reflectance;
@@ -107,8 +107,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-dir,o", po::value(&opt.output_dir)->default_value(""))
-    ("nodata-value", po::value(&opt.nodata_value), "Explicitly set the value to treat as no data in the input file.")
-    ("help,h", "Display this help message");
+    ("nodata-value", po::value(&opt.nodata_value), "Explicitly set the value to treat as no data in the input file.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -121,23 +121,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("drg_file", 1);
   positional_desc.add("cam_file", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url> <drg-file> <cam-file>\n";
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.drg_file.empty() || opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing input DRG or URL!\n"
               << usage.str() << general_options );

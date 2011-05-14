@@ -20,6 +20,7 @@
 #include <vw/Image.h>
 #include <asp/PhotometryTK/ProjectFileIO.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 using namespace vw;
 using namespace asp::pho;
 
@@ -28,7 +29,7 @@ namespace po = boost::program_options;
 
 using namespace std;
 
-struct Options {
+struct Options : asp::BaseOptions {
   // Input for project file
   int32 max_iterations;
   std::string reflectance_type, datum;
@@ -81,8 +82,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("rel_tol", po::value(&opt.rel_tol)->default_value(1e-2),
      "Minimium required amount of improvement between iterations")
     ("abs_tol", po::value(&opt.abs_tol)->default_value(1e-2),
-     "Error shutoff threshold.")
-    ("help,h", "Display this help message");
+     "Error shutoff threshold.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -91,29 +92,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("output_prefix", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <projectname> <optional project settings> \n";
+
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
 
   boost::to_lower( opt.output_mode );
   if ( !( opt.output_mode == "equi" || opt.output_mode == "toast" ||
           opt.output_mode == "polar" ) )
     vw_throw( ArgumentErr() << "Unknown mode: \"" << opt.output_mode
               << "\".\n\n" << usage.str() << general_options );
-
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.output_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix!\n"
               << usage.str() << general_options );

@@ -15,6 +15,7 @@
 #include <vw/Plate/TileManipulation.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 using namespace vw;
 using namespace vw::platefile;
 using namespace asp::pho;
@@ -25,7 +26,7 @@ namespace po = boost::program_options;
 
 using namespace std;
 
-struct Options {
+struct Options : asp::BaseOptions {
   // Input
   Url ptk_url;
   int32 level;
@@ -39,8 +40,8 @@ void handle_arguments( int argc, char* argv[], Options& opt ) {
   general_options.add_options()
     ("level,l", po::value(&opt.level)->default_value(-1), "Default is to process at lowest level.")
     ("job_id,j", po::value(&opt.job_id)->default_value(0), "")
-    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "")
-    ("help,h", "Display this help message");
+    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -49,34 +50,24 @@ void handle_arguments( int argc, char* argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("ptk_url", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url>\n";
-  
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing project file url!\n"
               << usage.str() << general_options );  
 }
 
 void normalize_plate( Options const& opt, 
-		      RemoteProjectFile& remote_ptk,
-		      ProjectMeta const& ptk_meta,
-		      boost::shared_ptr<PlateFile> drg_plate,
-		      boost::shared_ptr<PlateFile> albedo_plate,
-		      std::list<BBox2i> const& workunits ) {
+                      RemoteProjectFile& remote_ptk,
+                      ProjectMeta const& ptk_meta,
+                      boost::shared_ptr<PlateFile> drg_plate,
+                      boost::shared_ptr<PlateFile> albedo_plate,
+                      std::list<BBox2i> const& workunits ) {
   int32 max_tid = ptk_meta.max_iterations() * ptk_meta.num_cameras();
   std::ostringstream ostr;
   ostr << "Albedo Normalization [id=" << opt.job_id << "]";
@@ -91,38 +82,36 @@ void normalize_plate( Options const& opt,
   float32 maxPixval = 0;
   remote_ptk.get_and_reset_pixvals(minPixval, maxPixval);
 
-  std::cout << "phoitnorm: normalizing with old pixvals min=[" << minPixval << "] max=[" << maxPixval << "]\n";
+  vw_out() << "phoitnorm: normalizing with old pixvals min=[" << minPixval << "] max=[" << maxPixval << "]\n";
 
   BOOST_FOREACH(const BBox2i& workunit, workunits) {
     tpc.report_incremental_progress( tpc_inc );
     
     std::list<TileHeader> test_lower_res_tiles;
     test_lower_res_tiles = drg_plate->search_by_location(workunit.min().x()/8,
-							 workunit.min().y()/8,
-							 opt.level - 3, 0, 
-							 max_tid, true );
+                                                         workunit.min().y()/8,
+                                                         opt.level - 3, 0, 
+                                                         max_tid, true );
     if ( test_lower_res_tiles.empty() ) {
       continue;
     }
 
     for( int32 ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
       for( int32 iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
-	std::list<TileHeader> tiles =
-	  drg_plate->search_by_location( ix, iy, opt.level,
-					 0, max_tid, true );
-	
-	if ( tiles.empty() )
-	  continue;
-	
-	albedo_plate->read( image_temp, ix, iy,
-			    opt.level, -1, true );
+        std::list<TileHeader> tiles =
+          drg_plate->search_by_location( ix, iy, opt.level,
+                                         0, max_tid, true );
+        
+        if ( tiles.empty() )
+          continue;
+        
+        albedo_plate->read( image_temp, ix, iy,
+                            opt.level, -1, true );
 
-	image_temp = normalize( image_temp, minPixval, maxPixval, 0, 1 );
-	
-	//image_noalpha = vw::pixel_cast<PixelGray<float32> >(image_temp);
+        image_temp = normalize( image_temp, minPixval, maxPixval, 0, 1 );
 
- 	albedo_plate->write_update(image_temp, ix, iy,
-				   opt.level, transaction_id);
+        albedo_plate->write_update(image_temp, ix, iy,
+                                   opt.level, transaction_id);
       } // end for iy
     } // end for ix
   } // end foreach

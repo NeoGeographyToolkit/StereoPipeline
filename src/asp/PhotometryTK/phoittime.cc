@@ -20,6 +20,7 @@
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/TimeAccumulators.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 using namespace vw;
 using namespace vw::platefile;
 using namespace asp::pho;
@@ -30,7 +31,7 @@ namespace po = boost::program_options;
 
 using namespace std;
 
-struct Options {
+struct Options : asp::BaseOptions {
   // Input
   Url ptk_url;
   bool dry_run;
@@ -71,7 +72,6 @@ void update_exposure( Options& opt ) {
     std::list<TileHeader> drg_tiles =
       drg_plate->search_by_region(opt.level, affected_tiles,j+1,j+1,1);
     ImageView<PixelGrayA<float32> > drg_temp, albedo_temp;
-    std::cout << "Num drg tiles: " << drg_tiles.size() << "\n";
 
     if ( project_info.reflectance() == ProjectMeta::NONE ) {
       // Accumulating time exposure
@@ -113,8 +113,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("level,l", po::value(&opt.level)->default_value(-1), "Default is to process lowest level.")
     ("dry-run", "Don't write results")
     ("job_id,j", po::value(&opt.job_id)->default_value(0), "")
-    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "")
-    ("help,h", "Display this help message");
+    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -123,24 +123,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("ptk_url", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url>\n";
+
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   opt.dry_run = vm.count("dry-run");
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing project file url!\n"
               << usage.str() << general_options );

@@ -36,6 +36,9 @@
 /data/MER/nav01
 /data/MER/pan01
 /data/MER/fh01lin
+/data/MER/fh01
+/data/MER/fh02
+/data/MER/rh01
 /data/MOC_BA/*.IMG
 /data/MOC/*.vwip
 /data/MOC/*.tif

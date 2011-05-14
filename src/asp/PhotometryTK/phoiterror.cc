@@ -17,6 +17,7 @@
 
 #include <vw/Image.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/ErrorAccumulators.h>
 using namespace vw;
@@ -27,7 +28,7 @@ namespace po = boost::program_options;
 
 using namespace std;
 
-struct Options {
+struct Options : asp::BaseOptions {
   Url ptk_url;
 
   // For spawning multiple jobs
@@ -62,12 +63,7 @@ void update_error( Options& opt ) {
     CameraMeta cam_info;
     remote_ptk.get_camera(j, cam_info);
 
-    std::cerr << "Beginning error calculation for cam[" << j << "]\n";
-
     ErrorNRAccumulatorFunc<double,Vector2i> funcProto(opt.level, j+1, cam_info.exposure_t(), drg_plate, albedo_plate);
-    
-    //std::cerr << "Camera[" << j << "]         exposure time: "
-    //        << cam_info.exposure_t() << "\n";
 
     int32 full = 1 << opt.level;
     int32 quarter = full/4;
@@ -77,14 +73,13 @@ void update_error( Options& opt ) {
 
     ErrorNRAccumulatorFunc<double,Vector2i> funcResult = accum(affected_tiles);
 
-    std::cerr << "cam[" << j << "] error=[" << funcResult.value() << "]\n";
+    vw_out() << "cam[" << j << "] error=[" << funcResult.value() << "]\n";
 
-    // Once I have the API, call funcResult.value() and 
+    // Once I have the API, call funcResult.value() and
     // add it to the existing value in the current camera
     if (project_info.current_iteration() == 0) {
       cam_info.set_init_error(funcResult.value());
-    }
-    else {
+    } else {
       cam_info.set_last_error(cam_info.curr_error());
       cam_info.set_curr_error(funcResult.value());
     }
@@ -99,11 +94,9 @@ void update_error( Options& opt ) {
     float32 currError = remote_ptk.get_curr_error();
 
     // Compare init error and most recent error:
-    std::cerr << "Init error=[" << initError << "]\n";
-    std::cerr << "Last error=[" << lastError << "]\n";
-    std::cerr << "Curr error=[" << currError << "]\n";
-    
-    std::cout << initError << " " << lastError << " " << currError << "\n";
+    vw_out() << "Init error=[" << initError << "]\n";
+    vw_out() << "Last error=[" << lastError << "]\n";
+    vw_out() << "Curr error=[" << currError << "]\n";
   }
 }
 
@@ -112,8 +105,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("level,l", po::value(&opt.level)->default_value(-1), "Default is to process lowest level.")
     ("job_id,j", po::value(&opt.job_id)->default_value(0), "")
-    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "If num_jobs is 0, don't process anything, just output the error values for the full plate")
-    ("help,h", "Display this help message");
+    ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "If num_jobs is 0, don't process anything, just output the error values for the full plate");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -122,23 +115,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("ptk_url", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url>\n";
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   if ( opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing project file url!\n"
               << usage.str() << general_options );

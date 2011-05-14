@@ -21,6 +21,7 @@
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/AlbedoAccumulators.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 using namespace vw;
 using namespace vw::platefile;
 using namespace asp::pho;
@@ -31,7 +32,7 @@ namespace po = boost::program_options;
 
 using namespace std;
 
-struct Options {
+struct Options : asp::BaseOptions {
   // Input
   Url ptk_url;
   int32 level;
@@ -44,8 +45,8 @@ struct Options {
 
 template <class AlbedoAccumulatorT, class PixvalAccumulatorT>
 void initial_albedo( Options const& opt,
-		     ProjectMeta const& ptk_meta,
-		     PixvalAccumulatorT& pixvalAccum,
+                     ProjectMeta const& ptk_meta,
+                     PixvalAccumulatorT& pixvalAccum,
                      boost::shared_ptr<PlateFile> drg_plate,
                      boost::shared_ptr<PlateFile> albedo_plate,
                      boost::shared_ptr<PlateFile> /*reflect_plate*/,
@@ -75,10 +76,8 @@ void initial_albedo( Options const& opt,
                                        workunit.min().y()/8,
                                        opt.level - 3,
                                        0, max_tid, true );
-      if ( h_tile_records.empty() ) {
-	//std::cerr << "No tile recs found.\n";
+      if ( h_tile_records.empty() )
         continue;
-      }
 
       for ( int32 ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
         for ( int32 iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
@@ -101,11 +100,11 @@ void initial_albedo( Options const& opt,
             accum(image_temp, exposure_ts[tile.transaction_id()-1]);
           }
           image_temp = accum.result();
-	  for_each_pixel(alpha_to_mask(image_temp), pixvalAccum);
+          for_each_pixel(alpha_to_mask(image_temp), pixvalAccum);
 
           // Write result
           albedo_plate->write_update(image_temp, ix, iy,
-				     opt.level, transaction_id);
+                                     opt.level, transaction_id);
         } // end for iy
       }   // end for ix
     }     // end foreach
@@ -121,8 +120,8 @@ void initial_albedo( Options const& opt,
 
 template<class PixvalAccumulatorT>
 void update_albedo( Options const& opt, 
-		    ProjectMeta const& ptk_meta,
-		    PixvalAccumulatorT& pixvalAccum,
+                    ProjectMeta const& ptk_meta,
+                    PixvalAccumulatorT& pixvalAccum,
                     boost::shared_ptr<PlateFile> drg_plate,
                     boost::shared_ptr<PlateFile> albedo_plate,
                     boost::shared_ptr<PlateFile> /*reflect_plate*/,
@@ -151,10 +150,8 @@ void update_albedo( Options const& opt,
         drg_plate->search_by_location( workunit.min().x()/8,
                                        workunit.min().y()/8,
                                        opt.level - 3, 0, max_tid, true );
-      if ( h_tile_records.empty() ) {
-	//std::cerr << "No tile recs found.\n";
+      if ( h_tile_records.empty() )
         continue;
-      }
 
       for ( int32 ix = workunit.min().x(); ix < workunit.max().x(); ix++ ) {
         for ( int32 iy = workunit.min().y(); iy < workunit.max().y(); iy++ ) {
@@ -209,8 +206,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("level,l", po::value(&opt.level)->default_value(-1), "Default is to process at lowest level.")
     ("job_id,j", po::value(&opt.job_id)->default_value(0), "")
     ("num_jobs,n", po::value(&opt.num_jobs)->default_value(1), "")
-    ("2band", "Perform 2 Band mosaic of albedo. This should be used as a last step.")
-    ("help,h", "Display this help message");
+    ("2band", "Perform 2 Band mosaic of albedo. This should be used as a last step.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -219,25 +216,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("ptk_url", 1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << " <ptk-url>\n";
 
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage.str() );
+
   opt.perform_2band = vm.count("2band");
 
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.ptk_url == Url() )
     vw_throw( ArgumentErr() << "Missing project file url!\n"
               << usage.str() << general_options );
@@ -302,17 +289,17 @@ int main( int argc, char *argv[] ) {
 
     // Determine if we're updating or initializing
     if ( opt.perform_2band ) {
-      std::cerr << "2 Band Albedo [ iteration "
+      vw_out() << "2 Band Albedo [ iteration "
                 << project_info.current_iteration() << " ]\n";
       initial_albedo<Albedo2BandNRAccumulator<PixelGrayA<float32> > >( opt, project_info, minmaxacc, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
     } else {
       if ( project_info.current_iteration() ) {
-        std::cerr << "Updating Albedo [ iteration "
+        vw_out() << "Updating Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
         update_albedo( opt, project_info, minmaxacc, drg_plate,
                        albedo_plate, reflect_plate, workunits, exposure_t );
       } else {
-        std::cerr << "Initialize Albedo [ iteration "
+        vw_out() << "Initialize Albedo [ iteration "
                   << project_info.current_iteration() << " ]\n";
         initial_albedo<AlbedoInitNRAccumulator<PixelGrayA<float32> > >( opt, project_info, minmaxacc, drg_plate, albedo_plate, reflect_plate, workunits, exposure_t );
       }
