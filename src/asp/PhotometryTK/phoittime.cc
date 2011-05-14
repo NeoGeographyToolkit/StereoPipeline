@@ -67,8 +67,7 @@ void update_exposure( Options& opt ) {
     if ( opt.level < 0 )
       opt.level = drg_plate->num_levels() - 1;
     int32 full = 1 << opt.level;
-    int32 quarter = full/4;
-    BBox2i affected_tiles(0,quarter,full-1,quarter*2-1);
+    BBox2i affected_tiles(0,0,full,full);
     std::list<TileHeader> drg_tiles =
       drg_plate->search_by_region(opt.level, affected_tiles,j+1,j+1,1);
     ImageView<PixelGrayA<float32> > drg_temp, albedo_temp;

@@ -53,8 +53,7 @@ void update_error( Options& opt ) {
 
     if (opt.level < 0 )
       opt.level = drg_plate->num_levels() - 1;
-  }
-  else {
+  } else {
     minidx = 0;
     maxidx = 0;
   }
@@ -66,8 +65,7 @@ void update_error( Options& opt ) {
     ErrorNRAccumulatorFunc<double,Vector2i> funcProto(opt.level, j+1, cam_info.exposure_t(), drg_plate, albedo_plate);
 
     int32 full = 1 << opt.level;
-    int32 quarter = full/4;
-    BBox2i affected_tiles(0,quarter,full-1,quarter*2-1);
+    BBox2i affected_tiles(0,0,full-1,full-1);
 
     RecursiveBBoxAccumulator<ErrorNRAccumulatorFunc<double,Vector2i> > accum(32, funcProto);
 
