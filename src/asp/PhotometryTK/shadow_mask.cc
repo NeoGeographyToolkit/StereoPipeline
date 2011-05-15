@@ -4,21 +4,19 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
-#include <boost/foreach.hpp>
-#include <boost/program_options.hpp>
-#include <boost/filesystem.hpp>
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
-
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Cartography.h>
-using namespace vw;
-
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
+#include <boost/foreach.hpp>
 
-struct Options {
+using namespace vw;
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
+
+
+struct Options : asp::BaseOptions {
   Options() : nodata(std::numeric_limits<double>::max()), threshold(-1), percent(-1) {}
   // Input
   std::vector<std::string> input_files;
@@ -66,12 +64,8 @@ void shadow_mask_nodata( Options& opt,
   ImageViewRef<PixelT> result =
     apply_mask(intersect_mask(masked_input,create_mask(threshold(input_image,boost::numeric_cast<ChannelT>(session_threshold)))),boost::numeric_cast<ChannelT>(session_nodata));
 
-  DiskImageResource* output_rsrc = DiskImageResource::create(output, result.format());
-  output_rsrc->set_nodata_write( session_nodata );
-  cartography::write_georeference( *output_rsrc, georef );
-  block_write_image( *output_rsrc, result,
-                     TerminalProgressCallback("photometrytk","Writing:") );
-  delete output_rsrc;
+  asp::write_gdal_georeferenced_image( output, result, georef, opt,
+                                       TerminalProgressCallback("photometrytk","Writing:") );
 }
 
 template <class PixelT>
@@ -137,14 +131,14 @@ void shadow_mask_alpha( Options& opt,
       clamp(channel_cast<double>(dist)/40.0,1.0);
     ImageViewRef<PixelT> result = per_pixel_filter( input_image, alpha_mod, MultiplyAlphaFunctor<PixelT>() );
 
-    cartography::write_georeferenced_image(output, result, georef,
-                                           TerminalProgressCallback("photometrytk","Writing:"));
+    asp::write_gdal_georeferenced_image( output, result, georef, opt,
+                                         TerminalProgressCallback("photometrytk","Writing:"));
   } else {
     ImageViewRef<PixelT> result =
       per_pixel_filter( input_image, ThresholdAlphaFunctor<PixelT>(session_threshold) );
 
-    cartography::write_georeferenced_image(output, result, georef,
-                                           TerminalProgressCallback("photometrytk","Writing:"));
+    asp::write_gdal_georeferenced_image( output, result, georef, opt,
+                                         TerminalProgressCallback("photometrytk","Writing:"));
   }
 }
 
@@ -155,8 +149,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("nodata-value", po::value(&opt.nodata), "Value that is nodata in the input image. Not used if input has alpha.")
     ("threshold,t", po::value(&opt.threshold), "Intensity value used to detect shadows.")
     ("percent,p", po::value(&opt.percent), "Percent value of valid pixels used to detect shadows. This is an alternative to threshold option.")
-    ("feather", "Feather pre-existing alpha around the newly masked shadows. Only for images with alpha already.")
-    ("help,h", "Display this help message");
+    ("feather", "Feather pre-existing alpha around the newly masked shadows. Only for images with alpha already.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -165,27 +159,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
+  std::string usage = "Usage: " + std::string(argv[0]) + " [options] <image_files>\n";
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage );
 
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error &e) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <image-files>\n";
   opt.feather = vm.count("feather");
-
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.input_files.empty() )
     vw_throw( ArgumentErr() << "Missing input files!\n"
-              << usage.str() << general_options );
+              << usage << general_options );
 }
 
 int main( int argc, char *argv[] ) {
@@ -206,13 +188,7 @@ int main( int argc, char *argv[] ) {
 
       fs::path input_path(input);
       std::string output = "./"+input_path.stem()+"_shdw" + input_path.extension();
-      
       vw_out() << "Output = [" << output << "]\n";
-      /*
-      size_t pt_idx = input.rfind(".");
-      std::string output = input.substr(0,pt_idx)+"_shdw" +
-        input.substr(pt_idx,input.size()-pt_idx);
-      */
 
       switch (pixel_format) {
       case VW_PIXEL_GRAY:
