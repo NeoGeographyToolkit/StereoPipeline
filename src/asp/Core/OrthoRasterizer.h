@@ -51,17 +51,15 @@ namespace cartography {
 
       // Compute the bounding box that encompasses all of the
       // available points.
+      //
+      // I think this can be replaced with something just doing our
+      // boxed x pattern.
       vw_out(DebugMessage) << "Computing raster bounding box...\n";
-      TerminalProgressCallback progress_callback("asp","");
-      progress_callback.report_progress(0);
       for (int32 j = 0; j < m_point_image.rows(); j++) {
-        progress_callback.report_progress(float(j)/m_point_image.rows());
         for (int32 i= 0; i < m_point_image.cols(); i++)
           if (m_point_image(i,j) != Vector3())
             m_bbox.grow(m_point_image(i,j));
       }
-      progress_callback.report_finished();
-      vw_out() << "Raster bounding box: " << m_bbox << "\n";
 
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);

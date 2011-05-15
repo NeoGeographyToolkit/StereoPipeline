@@ -30,7 +30,6 @@ using namespace vw::cartography;
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
-#include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
 // Erases a file suffix if one exists and returns the base string
@@ -206,30 +205,7 @@ int main( int argc, char *argv[] ) {
         math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,
                                        opt.kappa_rot, opt.rot_order);
       point_image =
-        per_pixel_filter(point_image, PointTransFunc(rotation_trans));
-    }
-
-    // First determine if we should using a longitude range between
-    // [-180, 180] or [0,360]. We determine this by looking at the
-    // average location of the points. If the average location has a
-    // negative x value (think in ECEF coordinates) then we should
-    // be using [0,360].
-    int32 subsample_amt = int32(norm_2(Vector2i(point_image.cols(),point_image.rows()))) / 1024;
-    if (subsample_amt < 1 ) subsample_amt = 1;
-    Vector3 avg_location =
-      mean_pixel_value(subsample(point_image, subsample_amt));
-
-    vw_out() << "\t--> Reprojecting points into longitude, latitude, altitude.\n";
-    point_image =
-      cartography::xyz_to_lon_lat_radius(point_image, true,
-                                         avg_location[0] >= 0);
-
-    if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
-      vw_out() << "\t--> Applying offset: " << opt.x_offset
-               << " " << opt.y_offset << " " << opt.z_offset << "\n";
-      point_image =
-        point_image_offset(point_image,
-                           Vector3(opt.x_offset,opt.y_offset,opt.z_offset));
+        per_pixel_filter(point_disk_image, PointTransFunc(rotation_trans));
     }
 
     // Select a cartographic datum. There are several hard coded datums
@@ -238,11 +214,13 @@ int main( int argc, char *argv[] ) {
     if ( opt.reference_spheroid != "" ) {
       if (opt.reference_spheroid == "mars") {
         const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396190.0;
-        vw_out() << "\t--> Re-referencing altitude values using standard MOLA spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
+        vw_out() << "\t--> Re-referencing altitude values using standard MOLA\n"
+                 << "\t    spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
         datum.set_well_known_datum("D_MARS");
       } else if (opt.reference_spheroid == "moon") {
         const double LUNAR_RADIUS = 1737400;
-        vw_out() << "\t--> Re-referencing altitude values using standard lunar spherical radius: " << LUNAR_RADIUS << "\n";
+        vw_out() << "\t--> Re-referencing altitude values using standard lunar\n"
+                 << "\t    spherical radius: " << LUNAR_RADIUS << "\n";
         datum.set_well_known_datum("D_MOON");
       } else {
         vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
@@ -250,7 +228,8 @@ int main( int argc, char *argv[] ) {
                   << ". Current options are [ moon, mars ]\nExiting." );
       }
     } else if (opt.semi_major != 0 && opt.semi_minor != 0) {
-      vw_out() << "\t--> Re-referencing altitude values to user supplied datum.  Semi-major: " << opt.semi_major << "  Semi-minor: " << opt.semi_minor << "\n";
+      vw_out() << "\t--> Re-referencing altitude values to user supplied datum.\n"
+               << "\t    Semi-major: " << opt.semi_major << "  Semi-minor: " << opt.semi_minor << "\n";
       datum = cartography::Datum("User Specified Datum",
                                  "User Specified Spheroid",
                                  "Reference Meridian",
@@ -292,7 +271,34 @@ int main( int argc, char *argv[] ) {
       break;
     }
 
-    point_image = cartography::project_point_image(point_image, georef);
+    // Determine if we should using a longitude range between
+    // [-180, 180] or [0,360]. We determine this by looking at the
+    // average location of the points. If the average location has a
+    // negative x value (think in ECEF coordinates) then we should
+    // be using [0,360].
+    int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),point_image.rows()))/1024.0);
+    if (subsample_amt < 1 ) subsample_amt = 1;
+    PixelAccumulator<MeanAccumulator<Vector3> > mean_accum;
+    for_each_pixel( subsample(point_image, subsample_amt),
+                    mean_accum,
+                    TerminalProgressCallback("asp","Statistics: ") );
+    Vector3 avg_location = mean_accum.value();
+
+    // We trade off readability here to avoid ImageViewRef dereferences
+    if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
+      vw_out() << "\t--> Applying offset: " << opt.x_offset
+               << " " << opt.y_offset << " " << opt.z_offset << "\n";
+      point_image =
+        project_point_image(
+          point_image_offset(
+            xyz_to_lon_lat_radius(point_image, true, avg_location[0] >= 0 ),
+            Vector3(opt.x_offset,opt.y_offset,opt.z_offset)), georef);
+    } else {
+      point_image =
+        project_point_image(
+          xyz_to_lon_lat_radius(point_image, true, avg_location[0] >= 0 ),
+          georef);
+    }
 
     // Rasterize the results to a temporary file on disk so as to speed
     // up processing in the orthorasterizer, which accesses each pixel
@@ -301,6 +307,11 @@ int main( int argc, char *argv[] ) {
       point_image_cache(point_image, "tif",
                         TerminalProgressCallback("asp","Cache: "),
                         opt.cache_dir);
+    /*
+    BlockRasterizeView<ImageViewRef<Vector3> > point_image_cache =
+      block_cache(point_image,Vector2i(point_image.cols(),
+                                       vw_settings().default_tile_size()),0);
+    */
 
     // write out the DEM, texture, and extrapolation mask as
     // georeferenced files.
@@ -315,59 +326,49 @@ int main( int argc, char *argv[] ) {
       rasterizer.set_default_value(opt.default_value);
     }
 
-    if ( opt.dem_spacing == 0.0 )
-      vw_out() << "DEM spacing automatically set to: " << rasterizer.spacing() << "\n";
+    vw_out() << "\t--> DEM spacing: " << rasterizer.spacing() << " pt/px\n";
+    vw_out() << "\t             or: " << 1.0/rasterizer.spacing() << " px/pt\n";
 
     if (opt.has_alpha)
       rasterizer.set_use_alpha(true);
 
-    vw::BBox3 dem_bbox = rasterizer.bounding_box();
-    vw_out() << "\nDEM Bounding box: " << dem_bbox << "\n";
-
     // Now we are ready to specify the affine transform.
-    Matrix3x3 georef_affine_transform = rasterizer.geo_transform();
-    vw_out() << "Georeferencing Transform: " << georef_affine_transform << "\n";
-    georef.set_transform(georef_affine_transform);
+    georef.set_transform(rasterizer.geo_transform());
+    vw_out() << "\nOutput Georeference: \n\t" << georef << std::endl;
 
-    // Write out a georeferenced orthoimage of the DTM with alpha.
     if (!opt.texture_filename.empty()) {
+      // Write out a georeferenced orthoimage of the DTM with alpha.
       rasterizer.set_use_minz_as_default(false);
       DiskImageView<PixelGray<float> > texture(opt.texture_filename);
       rasterizer.set_texture(texture);
-      ImageViewRef<PixelGray<float> > block_drg_raster =
-        block_cache(rasterizer, Vector2i(rasterizer.cols(), 2048), 0);
-      if (opt.has_alpha) {
-        write_georeferenced_image(opt.out_prefix + "-DRG.tif",
-                                  channel_cast_rescale<uint8>(apply_mask(block_drg_raster,PixelGray<float>(-32000))),
-                                  georef, TerminalProgressCallback("asp","") );
-      } else {
-        write_georeferenced_image(opt.out_prefix + "-DRG.tif",
-                                  channel_cast_rescale<uint8>(block_drg_raster),
-                                  georef, TerminalProgressCallback("asp","") );
-      }
+      asp::write_gdal_georeferenced_image(opt.out_prefix + "-DRG.tif",
+        block_cache(channel_cast_rescale<uint8>(rasterizer),
+                    Vector2i(rasterizer.cols(),
+                             vw_settings().default_tile_size()) ),
+        georef, opt, TerminalProgressCallback("asp","DRG:") );
     } else {
       { // Write out the DEM.
-        vw_out() << "\nWriting DEM.\n";
-        ImageViewRef<PixelGray<float> > block_dem_raster =
-          block_cache(rasterizer, Vector2i(rasterizer.cols(), 128), 0);
+        typedef OrthoRasterizerView<PixelGray<float> > OrthoViewT;
+        BlockRasterizeView<OrthoViewT> block_dem_raster =
+          block_cache(rasterizer,
+                      Vector2i(rasterizer.cols(),
+                               vw_settings().default_tile_size()) );
         if ( opt.output_file_type == "tif" && opt.has_default_value ) {
           boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", block_dem_raster, opt) );
           rsrc->set_nodata_write( opt.default_value );
           write_georeference( *rsrc, georef );
           write_image( *rsrc, block_dem_raster,
-                       TerminalProgressCallback("asp","") );
+                       TerminalProgressCallback("asp","DEM: ") );
         } else {
           asp::write_gdal_georeferenced_image(
                opt.out_prefix + "-DEM." + opt.output_file_type,
                block_dem_raster, georef, opt,
-               TerminalProgressCallback("asp","") );
+               TerminalProgressCallback("asp","DEM: ") );
         }
       }
 
       // Write out a normalized version of the DTM (for debugging)
       if (opt.do_normalize) {
-        vw_out() << "\nWriting normalized DEM.\n";
-
         DiskImageView<PixelGray<float> >
           dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
@@ -375,12 +376,12 @@ int main( int argc, char *argv[] ) {
           asp::write_gdal_georeferenced_image(
                    opt.out_prefix + "-DEM-normalized.tif",
                    apply_mask(channel_cast_rescale<uint8>(normalize(create_mask(dem_image,opt.default_value)))),
-                   georef, opt, TerminalProgressCallback("asp","") );
+                   georef, opt, TerminalProgressCallback("asp","Normalized:") );
         } else {
           asp::write_gdal_georeferenced_image(
                    opt.out_prefix + "-DEM-normalized.tif",
                    channel_cast_rescale<uint8>(normalize(dem_image)),
-                   georef, opt, TerminalProgressCallback("asp","") );
+                   georef, opt, TerminalProgressCallback("asp","Normalized:") );
         }
       }
     }
