@@ -303,11 +303,13 @@ int main( int argc, char *argv[] ) {
     // Rasterize the results to a temporary file on disk so as to speed
     // up processing in the orthorasterizer, which accesses each pixel
     // multiple times.
+    typedef DiskCacheImageView<Vector3> PointCacheT;
     DiskCacheImageView<Vector3>
       point_image_cache(point_image, "tif",
                         TerminalProgressCallback("asp","Cache: "),
                         opt.cache_dir);
     /*
+    typedef BlockRasterizeView<ImageViewRef<Vector3> > PointCacheT;
     BlockRasterizeView<ImageViewRef<Vector3> > point_image_cache =
       block_cache(point_image,Vector2i(point_image.cols(),
                                        vw_settings().default_tile_size()),0);
@@ -315,7 +317,7 @@ int main( int argc, char *argv[] ) {
 
     // write out the DEM, texture, and extrapolation mask as
     // georeferenced files.
-    OrthoRasterizerView<PixelGray<float> >
+    OrthoRasterizerView<PixelGray<float>, PointCacheT>
       rasterizer(point_image_cache,
                  select_channel(point_image_cache,2),
                  opt.dem_spacing);
@@ -348,7 +350,7 @@ int main( int argc, char *argv[] ) {
         georef, opt, TerminalProgressCallback("asp","DRG:") );
     } else {
       { // Write out the DEM.
-        typedef OrthoRasterizerView<PixelGray<float> > OrthoViewT;
+        typedef OrthoRasterizerView<PixelGray<float>, PointCacheT > OrthoViewT;
         BlockRasterizeView<OrthoViewT> block_dem_raster =
           block_cache(rasterizer,
                       Vector2i(rasterizer.cols(),

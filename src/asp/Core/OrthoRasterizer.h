@@ -22,50 +22,89 @@
 // The SoftwareRenderer actual "renders" the 3D scene, textures it,
 // and then returns a 2D orthographic view.
 #include <asp/Core/SoftwareRenderer.h>
+#include <boost/math/special_functions/next.hpp>
 
 namespace vw {
 namespace cartography {
 
-  template <class PixelT>
-  class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT> > {
-    ImageViewRef<Vector3> m_point_image;
+  template <class PixelT, class ImageT>
+  class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT, ImageT> > {
+    ImageT m_point_image;
     ImageViewRef<float> m_texture;
     BBox3 m_bbox;
     double m_spacing;
     double m_default_value;
     bool m_minz_as_default;
     bool m_use_alpha;
-    int* m_row_start;
+
+    // We could actually use a quadtree here .. but this should be a
+    // good enough improvement.
+    typedef std::pair<BBox3, BBox2i> BBoxPair;
+    std::vector<BBoxPair > m_point_image_boundaries;
+
+    struct GrowBBoxAccumulator {
+      BBox3 bbox;
+      void operator()( Vector3 const& v ) { if (v != Vector3()) bbox.grow(v); }
+    };
+
+    struct RemoveSoftInvalid : ReturnFixedType<PixelT> {
+      template <class T>
+      PixelT operator()( T const& v ) const {
+        if ( v == -32000 )
+          return PixelT();
+        return v;
+      }
+    };
 
   public:
     typedef PixelT pixel_type;
     typedef const PixelT result_type;
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
 
-    template <class PointViewT, class TextureViewT>
-    OrthoRasterizerView(PointViewT point_cloud, TextureViewT texture, double spacing = 0.0) :
+    template <class TextureViewT>
+    OrthoRasterizerView(ImageT point_cloud, TextureViewT texture, double spacing = 0.0) :
       m_point_image(point_cloud), m_texture(ImageView<float>(1,1)), // dummy value
       m_default_value(0), m_minz_as_default(true), m_use_alpha(false) {
 
       set_texture(texture.impl());
 
-      // Compute the bounding box that encompasses all of the
-      // available points.
-      //
-      // I think this can be replaced with something just doing our
-      // boxed x pattern.
+      // Compute the bounding box that encompasses tiles within the image
       vw_out(DebugMessage) << "Computing raster bounding box...\n";
-      for (int32 j = 0; j < m_point_image.rows(); j++) {
-        for (int32 i= 0; i < m_point_image.cols(); i++)
-          if (m_point_image(i,j) != Vector3())
-            m_bbox.grow(m_point_image(i,j));
+
+      static const int32 BBOX_SPACING = 256;
+      int32 x_divisions = (m_point_image.cols() - 1)/BBOX_SPACING + 1;
+      int32 y_divisions = (m_point_image.rows() - 1)/BBOX_SPACING + 1;
+      BBox2i image_bbox(0,0,m_point_image.cols(),m_point_image.rows());
+
+      for ( int32 xi = 0; xi < x_divisions; ++xi ) {
+        for ( int32 yi = 0; yi < y_divisions; ++yi ) {
+          BBox2i local_spot( xi * BBOX_SPACING, yi * BBOX_SPACING,
+                             BBOX_SPACING, BBOX_SPACING );
+          local_spot.crop( image_bbox );
+
+          // The tiles need to overlap so we extend max by 1 px.
+          if ( local_spot.max()[0] != image_bbox.max()[0] )
+            ++local_spot.max()[0];
+          if ( local_spot.max()[1] != image_bbox.max()[1] )
+            ++local_spot.max()[1];
+
+          GrowBBoxAccumulator accum;
+          for_each_pixel( crop(m_point_image,local_spot), accum );
+          if ( !accum.bbox.empty() ) {
+            // HACK UNTIL BBOX is fixed!
+            accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
+            accum.bbox.max()[1] = boost::math::float_next(accum.bbox.max()[1]);
+            m_point_image_boundaries.push_back( std::make_pair( accum.bbox, local_spot ) );
+            m_bbox.grow( accum.bbox );
+          }
+        }
       }
+
+      if ( m_bbox.empty() )
+        vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
 
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);
-
-      // Initialize variables associated with rendering optimization.
-      m_row_start = new int(0);
     }
 
     /// You can change the texture after the class has been
@@ -99,8 +138,7 @@ namespace cartography {
       // extra triangles that would have fallen off the border
       // otherwise.
       BBox2i buffered_bbox = bbox;
-      buffered_bbox.min() -= Vector2i(4,4);
-      buffered_bbox.max() += Vector2i(4,4);
+      buffered_bbox.expand(4);
 
       // This ensures that our bounding box is properly sized.
       BBox3 local_bbox = m_bbox;
@@ -128,52 +166,93 @@ namespace cartography {
         renderer.Clear(m_default_value);
       }
 
-      const int numColorComponents = 1;             // We only need gray scale
-      const int numVertexComponents = 2;            // DEMs are 2D
+      static const int NUM_COLOR_COMPONENTS = 1;  // We only need gray scale
+      static const int NUM_VERTEX_COMPONENTS = 2; // DEMs are 2D
 
-      for (int32 row = *m_row_start; row < m_point_image.rows()-1; ++row) {
-        for (int32 col = 0; col < m_point_image.cols()-1; ++col) {
-          if (local_bbox.contains(m_point_image(col,row)) ) {
-            float vertices[12], intensities[6];
-            int triangle_count;
+      float vertices[12], intensities[6];
+      int triangle_count;
+      renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, vertices);
+      renderer.SetColorPointer(NUM_COLOR_COMPONENTS, intensities);
 
-            // Create the two triangles covering this "pixel"
-            this->create_triangles(row, col, triangle_count, vertices, intensities);
-            renderer.SetVertexPointer(numVertexComponents, vertices);
+      BOOST_FOREACH( BBoxPair const& boundary,
+                     m_point_image_boundaries ) {
+        if ( local_bbox.intersects( boundary.first ) ) {
+          // Pull a copy of the input image
+          ImageView<Vector3> point_copy =
+            crop(m_point_image, boundary.second );
+          typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
+          PointAcc row_acc = point_copy.origin();
+          for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
+            PointAcc point_ul = row_acc;
+            for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
+              if (local_bbox.contains(*point_ul) &&
+                  *point_ul != Vector3() ) {
 
-            // Draw pixels into the texture buffer
-            renderer.SetColorPointer(numColorComponents, intensities);
+                PointAcc point_ur = point_ul; point_ur.next_col();
+                PointAcc point_ll = point_ul; point_ll.next_row();
+                PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-            // Render the polygon!
-            for (int i = 0; i < triangle_count; ++i)
-              renderer.DrawPolygon(i * 3, 3);
+                if ( *point_lr == Vector3() ) {
+                  point_ul.next_col();
+                  continue;
+                }
+
+                vertices[0] = (*point_ll).x();  // LL
+                vertices[1] = (*point_ll).y();
+                vertices[2] = (*point_lr).x(); // LR
+                vertices[3] = (*point_lr).y();
+                vertices[4] = (*point_ul).x();     // UL
+                vertices[5] = (*point_ul).y();
+
+
+                vertices[6]  = (*point_ul).x(); // UL
+                vertices[7]  = (*point_ul).y();
+                vertices[8]  = (*point_lr).x(); // LR
+                vertices[9]  = (*point_lr).y();
+                vertices[10] = (*point_ur).x(); // UR
+                vertices[11] = (*point_ur).y();
+
+                int32 tcol = col + boundary.second.min()[0];
+                int32 trow = row + boundary.second.min()[1];
+
+                intensities[0] = m_texture(tcol,  trow+1);
+                intensities[1] = m_texture(tcol+1,trow+1);
+                intensities[2] = m_texture(tcol,  trow);
+
+                intensities[3] = m_texture(tcol,  trow);
+                intensities[4] = m_texture(tcol+1,trow+1);
+                intensities[5] = m_texture(tcol+1,trow);
+
+                // triangle 1 is: LL, LR, UL
+                if ( *point_ll != Vector3() )
+                  renderer.DrawPolygon(0, 3);
+
+                // triangle 2 is: UL, LR, UR
+                if ( *point_ur != Vector3() )
+                  renderer.DrawPolygon(3, 3);
+              }
+              point_ul.next_col();
+            }
+            row_acc.next_row();
           }
-        }
-      }
+        } // end cond
+      }   // end foreach
 
       // The software renderer returns an image which will render
       // upside down in most image formats, so we correct that here.
       // We also introduce transparent pixels into the result where
       // necessary.
-      ImageView<PixelT> result(render_buffer.cols(), render_buffer.rows());
-      for (int j = 0; j < render_buffer.rows(); ++j) {
-        for (int i = 0; i < render_buffer.cols(); ++i) {
-          if (render_buffer(i,render_buffer.rows()-1-j) == -32000) {
-            result(i,j) = PixelT();
-          } else {
-            result(i,j) = PixelT(render_buffer(i,render_buffer.rows()-1-j));
-          }
-        }
-      }
+      ImageView<PixelT> result =
+        flip_vertical(per_pixel_filter(render_buffer, RemoveSoftInvalid()));
 
       // This may seem confusing, but we must crop here so that the
       // good pixel data is placed into the coordinates specified by
       // the bbox.  This allows rasterize to touch those pixels
       // using the coordinates inside the bbox.  The pixels outside
       // those coordinates are invalid, but they never get accessed.
-      return CropView<ImageView<pixel_type> > (result, BBox2i(-(buffered_bbox.min().x()),
-                                                              -(buffered_bbox.min().y()),
-                                                              cols(), rows()));
+      return CropView<ImageView<pixel_type> > (result, BBox2i(-buffered_bbox.min().x(),
+                                                              -buffered_bbox.min().y(),
+                                                              result.cols(), result.rows()));
     }
     template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
       vw::rasterize( prerasterize(bbox), dest, bbox );
@@ -220,54 +299,14 @@ namespace cartography {
       return geo_transform;
     }
 
-    inline void create_triangles(int row, int col,
-                                int &triangleCount,
-                                float vertices[12],
-                                float intensities[6]) const
-    {
-      triangleCount = 0;
-
-      // triangle 1 is: LL, LR, UL
-      if (m_point_image(col,row+1)   != Vector3() &&   // LL
-          m_point_image(col+1,row+1) != Vector3() &&   // LR
-          m_point_image(col,row)     != Vector3() )    // UL
-        {
-          vertices[0] = m_point_image(col, row+1).x();  // LL
-          vertices[1] = m_point_image(col, row+1).y();
-          vertices[2] = m_point_image(col+1,row+1).x(); // LR
-          vertices[3] = m_point_image(col+1,row+1).y();
-          vertices[4] = m_point_image(col,row).x();     // UL
-          vertices[5] = m_point_image(col,row).y();
-
-          intensities[0] = m_texture(col, row+1); // LL
-          intensities[1] = m_texture(col+1,row+1);// LR
-          intensities[2] = m_texture(col,row);    // UL
-
-          triangleCount++;
-        }
-
-      // triangle 2 is: UL, LR, UR
-      if (m_point_image(col,row)     != Vector3() &&   // UL
-          m_point_image(col+1,row+1) != Vector3() &&   // LR
-          m_point_image(col+1,row)   != Vector3() )    // UR
-        {
-          int vertex0 = triangleCount * 6;
-          int elev0 = triangleCount * 3;
-
-          vertices[vertex0] = m_point_image(col,row).x(); // UL
-          vertices[vertex0 + 1] = m_point_image(col,row).y();
-          vertices[vertex0 + 2] = m_point_image(col+1,row+1).x(); // LR
-          vertices[vertex0 + 3] = m_point_image(col+1,row+1).y();
-          vertices[vertex0 + 4] = m_point_image(col+1,row).x(); // UR
-          vertices[vertex0 + 5] = m_point_image(col+1,row).y();
-
-          intensities[elev0] = m_texture(col,row);
-          intensities[elev0 + 1] = m_texture(col+1,row+1);
-          intensities[elev0 + 2] = m_texture(col+1,row);
-
-          triangleCount++;
-        }
-    }
   };
+
+  template <class PixelT, class ImageT, class TextureT>
+  OrthoRasterizerView<PixelT, ImageT>
+  ortho_rasterizer( ImageViewBase<ImageT> const& point_cloud,
+                    ImageViewBase<TextureT> const& texture,
+                    double spacing = 0.0 ) {
+    return OrthoRasterizerView<PixelT,ImageT>(point_cloud.impl(),texture.impl(),spacing);
+  }
 
 }} // namespace vw::cartography
