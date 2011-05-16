@@ -303,17 +303,10 @@ int main( int argc, char *argv[] ) {
     // Rasterize the results to a temporary file on disk so as to speed
     // up processing in the orthorasterizer, which accesses each pixel
     // multiple times.
-    typedef DiskCacheImageView<Vector3> PointCacheT;
-    DiskCacheImageView<Vector3>
-      point_image_cache(point_image, "tif",
-                        TerminalProgressCallback("asp","Cache: "),
-                        opt.cache_dir);
-    /*
     typedef BlockRasterizeView<ImageViewRef<Vector3> > PointCacheT;
     BlockRasterizeView<ImageViewRef<Vector3> > point_image_cache =
-      block_cache(point_image,Vector2i(point_image.cols(),
+      block_cache(point_image,Vector2i(vw_settings().default_tile_size(),
                                        vw_settings().default_tile_size()),0);
-    */
 
     // write out the DEM, texture, and extrapolation mask as
     // georeferenced files.
@@ -344,27 +337,20 @@ int main( int argc, char *argv[] ) {
       DiskImageView<PixelGray<float> > texture(opt.texture_filename);
       rasterizer.set_texture(texture);
       asp::write_gdal_georeferenced_image(opt.out_prefix + "-DRG.tif",
-        block_cache(channel_cast_rescale<uint8>(rasterizer),
-                    Vector2i(rasterizer.cols(),
-                             vw_settings().default_tile_size()) ),
-        georef, opt, TerminalProgressCallback("asp","DRG:") );
+             channel_cast_rescale<uint8>(rasterizer),
+             georef, opt, TerminalProgressCallback("asp","DRG:") );
     } else {
       { // Write out the DEM.
-        typedef OrthoRasterizerView<PixelGray<float>, PointCacheT > OrthoViewT;
-        BlockRasterizeView<OrthoViewT> block_dem_raster =
-          block_cache(rasterizer,
-                      Vector2i(rasterizer.cols(),
-                               vw_settings().default_tile_size()) );
         if ( opt.output_file_type == "tif" && opt.has_default_value ) {
-          boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", block_dem_raster, opt) );
+          boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", rasterizer, opt) );
           rsrc->set_nodata_write( opt.default_value );
           write_georeference( *rsrc, georef );
-          write_image( *rsrc, block_dem_raster,
+          write_image( *rsrc, rasterizer,
                        TerminalProgressCallback("asp","DEM: ") );
         } else {
           asp::write_gdal_georeferenced_image(
                opt.out_prefix + "-DEM." + opt.output_file_type,
-               block_dem_raster, georef, opt,
+               rasterizer, georef, opt,
                TerminalProgressCallback("asp","DEM: ") );
         }
       }
