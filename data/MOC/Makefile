@@ -38,12 +38,11 @@ $(PREFIX).ive: $(POINTCLOUD)
 
 $(PREFIX)-DRG.tif: $(POINTCLOUD)
 	cd $(RESULTSDIR); \
-	point2dem -r mars -n $(OUT)-PC.tif; \
 	point2dem -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
 
 $(PREFIX)-DEM.tif: $(POINTCLOUD)
 	cd $(RESULTSDIR); \
-	point2dem -r mars --nodata -32767 $(OUT)-PC.tif;
+	point2dem -r mars -n --nodata -32767 $(OUT)-PC.tif;
 
 $(PREFIX)-OrthoR.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); \
