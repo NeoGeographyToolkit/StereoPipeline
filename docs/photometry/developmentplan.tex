@@ -290,6 +290,29 @@ Viewing should now be much easier in VWV.
   > vwv pf:///polar_index/Albedo.plate
 \end{verbatim}
 
+\subsection{Using ZMQ instead}
+
+The above examples are using RabbitMQ for the message passing. I've
+since become a fan of using ZeroMQ as it doesn't require a server to
+be started. Remember that RabbitMQ has an erlang executable running in
+the background that occasionally crashes after a length of time.
+
+So here's the above examples rewritten to show how to use ZMQ, however
+not everything works at this point in time.
+
+\begin{verbatim}
+  > phoinitfile secret_base -m polar --max 100
+  > ptk_server secret_base.ptk --url zmq://*.5566
+
+In new terminal:
+  > parallel -j -2 phodrg2plate zmq://localhost:5566/secret_base.ptk ::: *.tif
+  > phoitalbedo zmq://localhost:5566/secret_base.ptk -l 10
+\end{verbatim}
+
+Unforunately, \texttt{vwv} across ZMQ doesn't seem to be working at all. For
+the time being I just kill the \texttt{ptk\_server} and run \texttt{vwv} on the
+platefile directly.
+
 \subsection{Running once at high resolution and extracting result}
 
 Meh.
