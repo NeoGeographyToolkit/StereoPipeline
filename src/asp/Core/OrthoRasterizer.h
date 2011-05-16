@@ -62,7 +62,8 @@ namespace cartography {
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
 
     template <class TextureViewT>
-    OrthoRasterizerView(ImageT point_cloud, TextureViewT texture, double spacing = 0.0) :
+    OrthoRasterizerView(ImageT point_cloud, TextureViewT texture, double spacing = 0.0,
+                        const ProgressCallback& progress = ProgressCallback::dummy_instance()) :
       m_point_image(point_cloud), m_texture(ImageView<float>(1,1)), // dummy value
       m_default_value(0), m_minz_as_default(true), m_use_alpha(false) {
 
@@ -76,8 +77,9 @@ namespace cartography {
       int32 y_divisions = (m_point_image.rows() - 1)/BBOX_SPACING + 1;
       BBox2i image_bbox(0,0,m_point_image.cols(),m_point_image.rows());
 
-      for ( int32 xi = 0; xi < x_divisions; ++xi ) {
-        for ( int32 yi = 0; yi < y_divisions; ++yi ) {
+      for ( int32 yi = 0; yi < y_divisions; ++yi ) {
+        progress.report_fractional_progress(yi,y_divisions);
+        for ( int32 xi = 0; xi < x_divisions; ++xi ) {
           BBox2i local_spot( xi * BBOX_SPACING, yi * BBOX_SPACING,
                              BBOX_SPACING, BBOX_SPACING );
           local_spot.crop( image_bbox );
@@ -99,6 +101,7 @@ namespace cartography {
           }
         }
       }
+      progress.report_finished();
 
       if ( m_bbox.empty() )
         vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
@@ -170,7 +173,6 @@ namespace cartography {
       static const int NUM_VERTEX_COMPONENTS = 2; // DEMs are 2D
 
       float vertices[12], intensities[6];
-      int triangle_count;
       renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, vertices);
       renderer.SetColorPointer(NUM_COLOR_COMPONENTS, intensities);
 
@@ -304,9 +306,10 @@ namespace cartography {
   template <class PixelT, class ImageT, class TextureT>
   OrthoRasterizerView<PixelT, ImageT>
   ortho_rasterizer( ImageViewBase<ImageT> const& point_cloud,
-                    ImageViewBase<TextureT> const& texture,
-                    double spacing = 0.0 ) {
-    return OrthoRasterizerView<PixelT,ImageT>(point_cloud.impl(),texture.impl(),spacing);
+                    ImageViewBase<TextureT> const& texture, double spacing = 0.0,
+                    const ProgressCallback& progress = ProgressCallback::dummy_instance()) {
+    return OrthoRasterizerView<PixelT,ImageT>(point_cloud.impl(),texture.impl(),
+                                              spacing, progress );
   }
 
 }} // namespace vw::cartography

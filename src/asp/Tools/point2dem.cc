@@ -311,9 +311,8 @@ int main( int argc, char *argv[] ) {
     // write out the DEM, texture, and extrapolation mask as
     // georeferenced files.
     OrthoRasterizerView<PixelGray<float>, PointCacheT>
-      rasterizer(point_image_cache,
-                 select_channel(point_image_cache,2),
-                 opt.dem_spacing);
+      rasterizer(point_image_cache, select_channel(point_image_cache,2),
+                 opt.dem_spacing, TerminalProgressCallback("asp","QuadTree: ") );
     if (!opt.has_default_value) {
       rasterizer.set_use_minz_as_default(true);
     } else {
