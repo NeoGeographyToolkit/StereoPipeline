@@ -360,12 +360,12 @@ int main( int argc, char *argv[] ) {
           dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
         if ( opt.has_default_value ) {
-          asp::write_gdal_georeferenced_image(
+          asp::block_write_gdal_image(
                    opt.out_prefix + "-DEM-normalized.tif",
                    apply_mask(channel_cast_rescale<uint8>(normalize(create_mask(dem_image,opt.default_value)))),
                    georef, opt, TerminalProgressCallback("asp","Normalized:") );
         } else {
-          asp::write_gdal_georeferenced_image(
+          asp::block_write_gdal_image(
                    opt.out_prefix + "-DEM-normalized.tif",
                    channel_cast_rescale<uint8>(normalize(dem_image)),
                    georef, opt, TerminalProgressCallback("asp","Normalized:") );
