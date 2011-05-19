@@ -8,11 +8,16 @@ MAPPED = E0201461.map.cub M0100115.map.cub
 PREFIX = $(RESULTSDIR)/$(OUT)
 POINTCLOUD = $(PREFIX)-PC.tif
 
+RESULTSDIRU = results-unmapped
+UNMAPPED = E0201461.cub M0100115.cub
+PREFIXU = $(RESULTSDIRU)/$(OUT)
+POINTCLOUDU = $(PREFIXU)-PC.tif
+
 # Pattern rule to create .cub files from .imq files
 %.cub: %.imq
 	mocproc from= $< to= $@ Mapping= NO
 
-all: products
+all: products_map products_unmap
 
 M0100115.map.cub: M0100115.cub
 	cam2map from=M0100115.cub to=M0100115.map.cub
@@ -57,10 +62,32 @@ $(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
 	hillshade $(OUT)-DEM.tif; \
 	colormap -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
 
-products: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
+products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
+
+$(POINTCLOUDU): $(UNMAPPED)
+	mkdir -p $(RESULTSDIRU)
+	$(STEREO) $(UNMAPPED) $(RESULTSDIRU)/$(OUT) -s stereo.unmapped
+
+$(PREFIXU).ive: $(POINTCLOUDU)
+	cd $(RESULTSDIRU); point2mesh $(OUT)-PC.tif $(OUT)-L.tif
+
+$(PREFIXU)-DRG.tif: $(POINTCLOUDU)
+	cd $(RESULTSDIRU); \
+	point2dem -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
+
+$(PREFIXU)-DEM.tif: $(POINTCLOUDU)
+	cd $(RESULTSDIRU); \
+	point2dem -r mars -n --nodata -32767 $(OUT)-PC.tif;
+
+$(PREFIXU)-DEM_CMAP.tif: $(PREFIXU)-DEM.tif
+	cd $(RESULTSDIRU); \
+	hillshade $(OUT)-DEM.tif; \
+	colormap -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
+
+products_unmap: $(PREFIXU).ive $(PREFIXU)-DRG.tif $(PREFIXU)-DEM_CMAP.tif
 
 clean:
-	rm -rf $(RESULTSDIR)
+	rm -rf $(RESULTSDIR) $(RESULTSDIRU)
 	rm -rf M0100115.map E0201461.map
 
 distclean: clean
