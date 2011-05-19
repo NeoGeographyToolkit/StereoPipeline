@@ -4,6 +4,7 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+#include <vw/Core/System.h>
 #include <vw/Core/ThreadPool.h>
 #include <vw/Image/MaskViews.h>
 #include <boost/foreach.hpp>
@@ -156,7 +157,7 @@ namespace asp {
 
     ThreadedEdgeMaskView( ViewT const& view,
                           unmasked_pixel_type const& mask_value,
-                          vw::int32 block_size,
+                          vw::int32 mask_buffer = 0, vw::int32 block_size = vw::vw_settings().default_tile_size(),
                           const vw::ProgressCallback &progress_callback = vw::ProgressCallback::dummy_instance() ) :
       m_view(view), m_left( new vw::int32[view.rows()]), m_right( new vw::int32[view.rows()] ), m_top( new vw::int32[view.cols()] ), m_bottom( new vw::int32[view.cols()] ) {
       using namespace vw;
@@ -177,13 +178,22 @@ namespace asp {
         queue.add_task(task);
       }
       queue.join_all();
+
+      // Apply mask_buffer
+      std::for_each( m_left.get(), m_left.get()+view.rows(),
+                     vw::ArgValInPlaceSumFunctor<vw::int32>( mask_buffer ) );
+      std::for_each( m_right.get(), m_right.get()+view.rows(),
+                     vw::ArgValInPlaceDifferenceFunctor<vw::int32>( mask_buffer ) );
+      std::for_each( m_top.get(), m_top.get()+view.cols(),
+                     vw::ArgValInPlaceSumFunctor<vw::int32>( mask_buffer ) );
+      std::for_each( m_bottom.get(), m_bottom.get()+view.cols(),
+                     vw::ArgValInPlaceDifferenceFunctor<vw::int32>( mask_buffer ) );
     }
 
     // Specialized deep copy constructor
     ThreadedEdgeMaskView( ThreadedEdgeMaskView const& other,
                           vw::BBox2i const& box ) :
-      m_view( constant_view(typename ViewT::pixel_type(0),
-                            box.width(), box.height() ) ) {
+      m_view( crop(other.m_view,box) ) {
       // Note to future authors: Actually copying other's m_view
       // causes locking issues on write.
 
@@ -244,9 +254,11 @@ namespace asp {
   template <class ViewT>
   ThreadedEdgeMaskView<ViewT> threaded_edge_mask( vw::ImageViewBase<ViewT> const& v,
                                                   typename ViewT::pixel_type value,
-                                                  vw::int32 block_size,
+                                                  vw::int32 mask_buffer = 0,
+                                                  vw::int32 block_size = vw::vw_settings().default_tile_size(),
                                                   const vw::ProgressCallback &progress_callback = vw::ProgressCallback::dummy_instance() ) {
-    return ThreadedEdgeMaskView<ViewT>( v.impl(), value, block_size, progress_callback );
+    return ThreadedEdgeMaskView<ViewT>( v.impl(), value, mask_buffer,
+                                        block_size, progress_callback );
   }
 }
 

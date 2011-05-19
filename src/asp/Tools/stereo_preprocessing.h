@@ -48,12 +48,12 @@ namespace vw {
       asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
                              apply_mask(copy_mask(constant_view(uint8(255),left_image.cols(),
                                                                 left_image.rows() ),
-                                                  asp::threaded_edge_mask(left_image,0,1024))),
+                                                  asp::threaded_edge_mask(left_image,0,0,1024))),
                              opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
       asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
                              apply_mask(copy_mask(constant_view(uint8(255),right_image.cols(),
                                                                 right_image.rows() ),
-                                                  asp::threaded_edge_mask(right_image,0,1024))),
+                                                  asp::threaded_edge_mask(right_image,0,0,1024))),
                              opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
     }
 

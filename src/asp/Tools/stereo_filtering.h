@@ -12,6 +12,7 @@
 #include <asp/Core/BlobIndexThreaded.h>
 #include <asp/Core/InpaintView.h>
 #include <asp/Core/ErodeView.h>
+#include <asp/Core/ThreadedEdgeMask.h>
 
 namespace vw {
 
@@ -77,19 +78,15 @@ namespace vw {
         DiskImageView<vw::uint8> right_mask( opt.out_prefix+"-rMask.tif" );
         int mask_buffer = std::max( stereo_settings().subpixel_h_kern,
                                     stereo_settings().subpixel_v_kern );
-        ImageViewRef<vw::uint8> Lmaskmore, Rmaskmore;
-        Lmaskmore = apply_mask(edge_mask(left_mask,0,mask_buffer));
-        Rmaskmore = apply_mask(edge_mask(right_mask,0,mask_buffer));
-        DiskCacheImageView<vw::uint8>
-          left_red_mask(Lmaskmore, "tif",
-                        TerminalProgressCallback("asp","\t  Reduce LMask:"),
-                        stereo_settings().cache_dir);
-        DiskCacheImageView<vw::uint8>
-          right_red_mask(Rmaskmore, "tif",
-                         TerminalProgressCallback("asp","\t  Reduce RMask:"),
-                         stereo_settings().cache_dir);
 
-        vw_out() << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " passes).\n";
+        // This is light weight .. don't worry about caching. All cost
+        // is on construction of the edge_mask.
+        ImageViewRef<vw::uint8> Lmaskmore =
+          apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024));
+        ImageViewRef<vw::uint8> Rmaskmore =
+          apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024));
+
+        vw_out() << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " pass).\n";
         ImageViewRef<PixelMask<Vector2f> > disparity_map;
         typedef DiskImageView<PixelMask<Vector2f> > input_type;
         if ( stereo_settings().rm_cleanup_passes == 1 )
@@ -99,7 +96,7 @@ namespace vw {
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
                   stereo_settings().rm_min_matches/100.0),
-                                   left_red_mask, right_red_mask);
+                                   Lmaskmore, Rmaskmore);
         else if ( stereo_settings().rm_cleanup_passes == 2 )
           disparity_map =
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,2>()(
@@ -107,7 +104,7 @@ namespace vw {
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
                   stereo_settings().rm_min_matches/100.0),
-                                   left_red_mask, right_red_mask);
+                                   Lmaskmore, Rmaskmore);
         else if ( stereo_settings().rm_cleanup_passes == 3 )
           disparity_map =
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,3>()(
@@ -115,7 +112,7 @@ namespace vw {
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
                   stereo_settings().rm_min_matches/100.0),
-                                   left_red_mask, right_red_mask);
+                                   Lmaskmore, Rmaskmore);
         else if ( stereo_settings().rm_cleanup_passes == 4 )
           disparity_map =
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,4>()(
@@ -123,7 +120,7 @@ namespace vw {
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
                   stereo_settings().rm_min_matches/100.0),
-                                   left_red_mask, right_red_mask);
+                                   Lmaskmore, Rmaskmore);
         else if ( stereo_settings().rm_cleanup_passes >= 5 )
           disparity_map =
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,5>()(
@@ -131,11 +128,11 @@ namespace vw {
                   stereo_settings().rm_v_half_kern,
                   stereo_settings().rm_threshold,
                   stereo_settings().rm_min_matches/100.0),
-                                   left_red_mask, right_red_mask);
+                                   Lmaskmore, Rmaskmore);
         else
           disparity_map =
             stereo::disparity_mask(disparity_disk_image,
-                                   left_red_mask, right_red_mask);
+                                   Lmaskmore, Rmaskmore);
 
         if ( stereo_settings().mask_flatfield ) {
           // This is only turned on for apollo. Blob detection doesn't
