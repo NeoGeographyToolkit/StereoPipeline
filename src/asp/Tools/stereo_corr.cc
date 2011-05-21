@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 
     // user safety check
     //---------------------------------------------------------
-    {
+    try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1,camera_model2);
 
@@ -38,6 +38,10 @@ int main(int argc, char* argv[]) {
           << "\tYou should be double check your given camera\n"
           << "\tmodels as most likely stereo won't be able\n"
           << "\tto triangulate or perform epipolar rectification.\n";
+    } catch ( camera::PixelToRayErr const& e ) {
+    } catch ( camera::PointToPixelErr const& e ) {
+      // Silent. Top Left pixel might not be valid on a map
+      // projected image.
     }
 
     // Integer correlator requires 1024 px tiles
