@@ -81,14 +81,10 @@ TEST(IsisCameraModel, mapprojected) {
     cam->Coordinate( bc );
     VectorProxy<double,3> coord( bc );
     Vector3 alt = cartography::lon_lat_radius_to_xyz( lon_lat_radius );
-    std::cout << "Instrument: " << instru << "\n";
-    std::cout << "Coord: " << coord << "\n";
-    std::cout << "Alt: " << alt << "\n";
 
     Vector3 dir = normalize( alt - instru );
     Vector3 new_point = instru*1000+50000*dir;
     new_point /= 1000;
-    std::cout << "NPt: " << new_point << "\n";
   }
 
   delete cam;
@@ -214,7 +210,6 @@ TEST(IsisCameraModel, camera_model) {
     for ( size_t i = 0; i < 2; i++ ) {
       Vector2 pixel = generate_random( cam.samples(),
                                        cam.lines() );
-      std::cout << "Using pixel: " << pixel << "\n";
       Vector3 point = cam.pixel_to_vector( pixel );
       for ( size_t k = 0; k < 2; k++ ) {
         // Apply noise to make sure we are not using stored values

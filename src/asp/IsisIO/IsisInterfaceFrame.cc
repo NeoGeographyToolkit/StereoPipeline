@@ -14,13 +14,12 @@ using namespace asp::isis;
 
 // Constructor
 IsisInterfaceFrame::IsisInterfaceFrame( std::string const& filename ) :
-  IsisInterface(filename) {
+  IsisInterface(filename), m_alphacube( m_label ) {
 
   // Gutting Isis::Camera
   m_distortmap = m_camera->DistortionMap();
   m_focalmap   = m_camera->FocalPlaneMap();
   m_detectmap  = m_camera->DetectorMap();
-  m_alphacube  = new Isis::AlphaCube( m_label );
 
   // Calculating Center (just once)
   m_camera->InstrumentPosition(&m_center[0]);
@@ -39,10 +38,8 @@ IsisInterfaceFrame::IsisInterfaceFrame( std::string const& filename ) :
 
 Vector2
 IsisInterfaceFrame::point_to_pixel( Vector3 const& point ) const {
-  Vector2 result;
 
-  Vector3 look;
-  look = normalize( point - m_center );
+  Vector3 look = normalize( point - m_center );
   std::vector<double> lookB_copy(3);
   std::copy( look.begin(), look.end(), lookB_copy.begin() );
   lookB_copy = m_camera->BodyRotation()->J2000Vector(lookB_copy);
@@ -56,34 +53,26 @@ IsisInterfaceFrame::point_to_pixel( Vector3 const& point ) const {
                              m_distortmap->FocalPlaneY() );
   m_detectmap->SetDetector( m_focalmap->DetectorSample(),
                             m_focalmap->DetectorLine() );
-  result[0] = m_alphacube->BetaSample( m_detectmap->ParentSample() );
-  result[1] = m_alphacube->BetaLine( m_detectmap->ParentLine() );
-
-  return result-Vector2(1,1);
+  return Vector2( m_alphacube.BetaSample( m_detectmap->ParentSample() ) - 1,
+                  m_alphacube.BetaLine( m_detectmap->ParentLine() ) - 1 );
 }
 
 Vector3
-IsisInterfaceFrame::pixel_to_vector( Vector2 const& pix ) const {
-  Vector2 px = pix + Vector2(1,1);
-
-  Vector3 result;
-
-  px[0] = m_alphacube->AlphaSample(px[0]);
-  px[1] = m_alphacube->AlphaLine(px[1]);
-  m_detectmap->SetParent( px[0], px[1] );
+IsisInterfaceFrame::pixel_to_vector( Vector2 const& px ) const {
+  m_detectmap->SetParent( m_alphacube.AlphaSample(px[0]+1),
+                          m_alphacube.AlphaLine(px[1]+1));
   m_focalmap->SetDetector( m_detectmap->DetectorSample(),
                            m_detectmap->DetectorLine() );
   m_distortmap->SetFocalPlane( m_focalmap->FocalPlaneX(),
                                m_focalmap->FocalPlaneY() );
-  result[0] = m_distortmap->UndistortedFocalPlaneX();
-  result[1] = m_distortmap->UndistortedFocalPlaneY();
-  result[2] = m_distortmap->UndistortedFocalPlaneZ();
-  result = normalize( result );
   std::vector<double> look(3);
-  std::copy( result.begin(), result.end(), look.begin() );
+  look[0] = m_distortmap->UndistortedFocalPlaneX();
+  look[1] = m_distortmap->UndistortedFocalPlaneY();
+  look[2] = m_distortmap->UndistortedFocalPlaneZ();
+  VectorProxy<double,3> result( &look[0] );
+  result = normalize( result );
   look = m_camera->InstrumentRotation()->J2000Vector(look);
   look = m_camera->BodyRotation()->ReferenceVector(look);
-  std::copy( look.begin(), look.end(), result.begin() );
   return result;
 }
 

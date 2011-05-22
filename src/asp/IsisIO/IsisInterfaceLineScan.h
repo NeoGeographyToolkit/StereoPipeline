@@ -52,34 +52,16 @@ namespace isis {
     Isis::CameraDistortionMap *m_distortmap;
     Isis::CameraFocalPlaneMap *m_focalmap;
     Isis::CameraDetectorMap   *m_detectmap;
-    Isis::AlphaCube           *m_alphacube;
+    mutable Isis::AlphaCube   m_alphacube; // Doesn't use const
 
   private:
 
     // Custom Fuctions
-    mutable vw::Vector2 m_c_location;  // Clean away some consts
+    mutable vw::Vector2 m_c_location;
     mutable vw::Vector3 m_center;
     mutable vw::Quat m_pose;
     void SetTime( vw::Vector2 const& px,
                   bool calc=false ) const;
-    class EphemerisLMA : public vw::math::LeastSquaresModelBase<EphemerisLMA> {
-      vw::Vector3 m_point;
-      Isis::Camera* m_camera;
-      Isis::CameraDistortionMap *m_distortmap;
-      Isis::CameraFocalPlaneMap *m_focalmap;
-    public:
-      typedef vw::Vector<double> result_type; // Back project result
-      typedef vw::Vector<double> domain_type; // Ephemeris time
-      typedef vw::Matrix<double> jacobian_type;
-
-      inline EphemerisLMA( vw::Vector3 const& point,
-                           Isis::Camera* camera,
-                           Isis::CameraDistortionMap* distortmap,
-                           Isis::CameraFocalPlaneMap* focalmap ) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap) {}
-
-      inline result_type operator()( domain_type const& x ) const;
-    };
-
   };
 
 }}

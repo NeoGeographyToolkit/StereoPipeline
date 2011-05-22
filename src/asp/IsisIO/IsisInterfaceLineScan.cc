@@ -13,13 +13,12 @@ using namespace asp;
 using namespace asp::isis;
 
 // Construct
-IsisInterfaceLineScan::IsisInterfaceLineScan( std::string const& filename ) : IsisInterface(filename) {
+IsisInterfaceLineScan::IsisInterfaceLineScan( std::string const& filename ) : IsisInterface(filename), m_alphacube( m_label ) {
 
   // Gutting Isis::Camera
   m_distortmap = m_camera->DistortionMap();
   m_focalmap   = m_camera->FocalPlaneMap();
   m_detectmap  = m_camera->DetectorMap();
-  m_alphacube  = new Isis::AlphaCube( m_label );
 }
 
 // Custom Function to help avoid over invoking the deeply buried
@@ -27,8 +26,8 @@ IsisInterfaceLineScan::IsisInterfaceLineScan( std::string const& filename ) : Is
 void IsisInterfaceLineScan::SetTime( Vector2 const& px, bool calc ) const {
   if ( px != m_c_location ) {
     m_c_location = px;
-    m_detectmap->SetParent( m_alphacube->AlphaSample(px[0]),
-                            m_alphacube->AlphaLine(px[1]) );
+    m_detectmap->SetParent( m_alphacube.AlphaSample(px[0]),
+                            m_alphacube.AlphaLine(px[1]) );
 
     if ( calc ) {
       // Calculating Spacecraft position and pose
@@ -44,9 +43,28 @@ void IsisInterfaceLineScan::SetTime( Vector2 const& px, bool calc ) const {
   }
 }
 
+class EphemerisLMA : public vw::math::LeastSquaresModelBase<EphemerisLMA> {
+  vw::Vector3 m_point;
+  Isis::Camera* m_camera;
+  Isis::CameraDistortionMap *m_distortmap;
+  Isis::CameraFocalPlaneMap *m_focalmap;
+public:
+  typedef vw::Vector<double> result_type; // Back project result
+  typedef vw::Vector<double> domain_type; // Ephemeris time
+  typedef vw::Matrix<double> jacobian_type;
+
+  inline EphemerisLMA( vw::Vector3 const& point,
+                       Isis::Camera* camera,
+                       Isis::CameraDistortionMap* distortmap,
+                       Isis::CameraFocalPlaneMap* focalmap ) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap) {}
+
+  inline result_type operator()( domain_type const& x ) const;
+};
+
+
 // LMA for projecting point to linescan camera
-IsisInterfaceLineScan::EphemerisLMA::result_type
-IsisInterfaceLineScan::EphemerisLMA::operator()( IsisInterfaceLineScan::EphemerisLMA::domain_type const& x ) const {
+EphemerisLMA::result_type
+EphemerisLMA::operator()( EphemerisLMA::domain_type const& x ) const {
 
   // Setting Ephemeris Time
   m_camera->SetEphemerisTime( x[0] );
@@ -80,11 +98,11 @@ IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
 
   // First seed LMA with an ephemeris time in the middle of the image
   double middle = lines() / 2;
-  m_detectmap->SetParent( 1, m_alphacube->AlphaLine(middle) );
+  m_detectmap->SetParent( 1, m_alphacube.AlphaLine(middle) );
   double start_e = m_camera->EphemerisTime();
 
   // Build LMA
-  EphemerisLMA model( point, m_camera, m_distortmap, m_focalmap );
+  EphemerisLMA model( point, m_camera.get(), m_distortmap, m_focalmap );
   int status;
   Vector<double> objective(1), start(1);
   start[0] = start_e;
@@ -121,8 +139,8 @@ IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
                             m_focalmap->DetectorLine() );
   Vector2 pixel( m_detectmap->ParentSample(),
                  m_detectmap->ParentLine() );
-  pixel[0] = m_alphacube->BetaSample( pixel[0] );
-  pixel[1] = m_alphacube->BetaLine( pixel[1] );
+  pixel[0] = m_alphacube.BetaSample( pixel[0] );
+  pixel[1] = m_alphacube.BetaLine( pixel[1] );
   SetTime( pixel, false );
 
   pixel -= Vector2(1,1);

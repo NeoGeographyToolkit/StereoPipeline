@@ -28,11 +28,6 @@ namespace isis {
   public:
     IsisInterfaceMapFrame( std::string const& file );
 
-    virtual ~IsisInterfaceMapFrame() {
-      if ( m_projection )
-        delete m_projection;
-    }
-
     virtual std::string type()  { return "MapFrame"; }
 
     // Standard Methods
@@ -43,14 +38,14 @@ namespace isis {
     virtual vw::Vector3
       pixel_to_vector( vw::Vector2 const& pix ) const;
     virtual vw::Vector3
-      camera_center( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+      camera_center( vw::Vector2 const& pix = vw::Vector2() ) const;
     virtual vw::Quat
-      camera_pose( vw::Vector2 const& pix = vw::Vector2(1,1) ) const;
+      camera_pose( vw::Vector2 const& pix = vw::Vector2() ) const;
 
   protected:
 
     // Custom Variables
-    Isis::Projection  *m_projection;
+    boost::scoped_ptr<Isis::Projection> m_projection;
     Isis::CameraGroundMap *m_groundmap;
     Isis::CameraDistortionMap *m_distortmap;
 

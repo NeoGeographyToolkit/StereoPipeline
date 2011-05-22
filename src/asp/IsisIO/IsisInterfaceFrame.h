@@ -29,11 +29,6 @@ namespace isis {
   public:
     IsisInterfaceFrame( std::string const& filename );
 
-    virtual ~IsisInterfaceFrame() {
-      if ( m_alphacube )
-        delete m_alphacube;
-    }
-
     virtual std::string type()  { return "Frame"; }
 
     // Standard Methods
@@ -54,7 +49,7 @@ namespace isis {
     Isis::CameraDistortionMap *m_distortmap;
     Isis::CameraFocalPlaneMap *m_focalmap;
     Isis::CameraDetectorMap   *m_detectmap;
-    Isis::AlphaCube           *m_alphacube;
+    mutable Isis::AlphaCube   m_alphacube;
 
     vw::Vector3 m_center;
     vw::Quat m_pose;

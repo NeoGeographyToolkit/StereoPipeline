@@ -18,12 +18,11 @@ using namespace asp::isis;
 
 // Constructor
 IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
-  IsisInterface(filename) {
+  IsisInterface(filename), m_projection( Isis::ProjectionFactory::CreateFromCube( m_label ) ) {
 
   // Gutting Isis::Camera
   m_groundmap = m_camera->GroundMap();
   m_distortmap = m_camera->DistortionMap();
-  m_projection = Isis::ProjectionFactory::CreateFromCube( m_label );
   m_camera->Radii( m_radii );
 
   // Calculating Center (just once)
@@ -58,15 +57,13 @@ IsisInterfaceMapFrame::point_to_pixel( Vector3 const& point ) const {
 
   m_projection->SetGround( m_camera->UniversalLatitude(),
                            m_camera->UniversalLongitude() );
-  Vector2 result( m_projection->WorldX(),
-                  m_projection->WorldY() );
-  return result - Vector2(1,1);
+  return Vector2( m_projection->WorldX() - 1,
+                  m_projection->WorldY() - 1 );
 }
 
 Vector3
-IsisInterfaceMapFrame::pixel_to_vector( Vector2 const& pix ) const {
-  Vector2 px = pix + Vector2(1,1);
-  m_projection->SetWorld(px[0],px[1]);
+IsisInterfaceMapFrame::pixel_to_vector( Vector2 const& px ) const {
+  m_projection->SetWorld(px[0] + 1, px[1] + 1);
   Vector3 lon_lat_radius( m_projection->UniversalLongitude(),
                           m_projection->UniversalLatitude(), 0 );
 

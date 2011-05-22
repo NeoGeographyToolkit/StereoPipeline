@@ -31,10 +31,8 @@ namespace camera {
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    IsisCameraModel(std::string cube_filename) {
-      m_interface =
-        boost::shared_ptr<asp::isis::IsisInterface>(asp::isis::IsisInterface::open( cube_filename ) );
-    }
+    IsisCameraModel(std::string cube_filename) :
+      m_interface(asp::isis::IsisInterface::open( cube_filename )) {}
     virtual std::string type() const { return "Isis"; }
 
     //------------------------------------------------------------------

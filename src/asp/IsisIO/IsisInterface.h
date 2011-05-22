@@ -30,7 +30,7 @@ namespace isis {
   class IsisInterface {
   public:
     IsisInterface( std::string const& file );
-    virtual ~IsisInterface();
+    virtual ~IsisInterface(){}
 
     virtual std::string type() = 0;
     static IsisInterface* open( std::string const& filename );
@@ -63,7 +63,7 @@ namespace isis {
     // Standard Variables
     //------------------------------------------------------
     Isis::Pvl m_label;
-    Isis::Camera* m_camera;
+    boost::scoped_ptr<Isis::Camera> m_camera;
 
     friend std::ostream& operator<<( std::ostream&, IsisInterface* );
   };

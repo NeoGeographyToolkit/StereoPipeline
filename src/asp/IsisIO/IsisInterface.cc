@@ -30,12 +30,7 @@ IsisInterface::IsisInterface( std::string const& file ) {
   m_label.Read( cubefile.Expanded() );
 
   // Opening Isis::Camera
-  m_camera = Isis::CameraFactory::Create( m_label );
-}
-
-IsisInterface::~IsisInterface() {
-  if (m_camera)
-    delete m_camera;
+  m_camera.reset(Isis::CameraFactory::Create( m_label ));
 }
 
 IsisInterface* IsisInterface::open( std::string const& filename ) {
@@ -84,6 +79,5 @@ vw::Vector3 IsisInterface::sun_position( vw::Vector2 const& pix ) const {
   m_camera->SetImage( pix[0]+1, pix[1]+1 );
   Vector3 sun;
   m_camera->SunPosition( &sun[0] );
-  sun *= 1000;
-  return sun;
+  return sun * 1000;
 }

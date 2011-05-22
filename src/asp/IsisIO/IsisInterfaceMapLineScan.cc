@@ -87,7 +87,7 @@ IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
   Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius( point );
 
   // Build LMA
-  EphemerisLMA model( point, m_camera, m_distortmap, m_focalmap );
+  EphemerisLMA model( point, m_camera.get(), m_distortmap, m_focalmap );
   int status;
   Vector<double> objective(1), start(1);
   start[0] = middle_et;
