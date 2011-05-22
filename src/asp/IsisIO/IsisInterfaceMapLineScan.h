@@ -14,15 +14,12 @@
 
 // ASP & VW
 #include <asp/IsisIO/IsisInterface.h>
-#include <vw/Math/LevenbergMarquardt.h>
 
 // Isis
 #include <Projection.h>
-#include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
 #include <CameraGroundMap.h>
 #include <CameraFocalPlaneMap.h>
-#include <AlphaCube.h>
 
 namespace asp {
 namespace isis {
@@ -31,13 +28,6 @@ namespace isis {
 
   public:
     IsisInterfaceMapLineScan( std::string const& file );
-
-    virtual ~IsisInterfaceMapLineScan() {
-      if ( m_projection )
-        delete m_projection;
-      if ( m_alphacube )
-        delete m_alphacube;
-    }
 
     virtual std::string type()  { return "MapLineScan"; }
 
@@ -56,39 +46,11 @@ namespace isis {
   protected:
 
     // Custom Variables
-    Isis::Projection          *m_projection;
-    Isis::CameraDetectorMap   *m_detectmap;
+    boost::scoped_ptr<Isis::Projection> m_projection;
     Isis::CameraDistortionMap *m_distortmap;
     Isis::CameraGroundMap     *m_groundmap;
     Isis::CameraFocalPlaneMap *m_focalmap;
-    Isis::AlphaCube           *m_alphacube;
 
-  private:
-
-    // Custom Functions
-    mutable vw::Vector2 m_c_location;
-    mutable vw::Vector3 m_center;
-    mutable vw::Quat m_pose;
-    double m_radii[3];
-    void SetTime( vw::Vector2 const& px,
-                  bool calc=false ) const;
-    class EphemerisLMA : public vw::math::LeastSquaresModelBase<EphemerisLMA> {
-      vw::Vector3 m_point;
-      Isis::Camera* m_camera;
-      Isis::CameraDistortionMap *m_distortmap;
-      Isis::CameraFocalPlaneMap *m_focalmap;
-    public:
-      typedef vw::Vector<double> result_type; // Back project result
-      typedef vw::Vector<double> domain_type; // Ephemeris time
-      typedef vw::Matrix<double> jacobian_type;
-
-      inline EphemerisLMA( vw::Vector3 const& point,
-                           Isis::Camera* camera,
-                           Isis::CameraDistortionMap* distortmap,
-                           Isis::CameraFocalPlaneMap* focalmap ) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap) {}
-
-      inline result_type operator()( domain_type const& x ) const;
-    };
   };
 
 }}
