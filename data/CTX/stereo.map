@@ -1,0 +1,105 @@
+#############################
+##      PREPROCESSING      ##
+#############################
+
+# Pre-alignment options
+
+DO_INTERESTPOINT_ALIGNMENT 0
+INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+DO_EPIPOLAR_ALIGNMENT 0
+
+# Normalization options
+
+FORCE_USE_ENTIRE_RANGE 1
+DO_INDIVIDUAL_NORMALIZATION 0
+
+# Preprocessing filter mode:
+#
+# 0 - None
+# 1 - Gaussian Blur
+# 2 - Laplacian of Gaussian Blur (recommended)
+# 3 - Sign of the LoG Filter
+
+PREPROCESSING_FILTER_MODE 3
+
+# Gaussian convolution kernel size (1-sigma) for pre-processing
+# modes 1, 2 and 3.
+
+SLOG_KERNEL_WIDTH 1.5
+
+#########################################################################
+###########################    CORRELATION    ###########################
+#########################################################################
+
+# Select a cost function to use for initialization:
+#
+# 0 - absolute difference (fast)
+# 1 - squared difference  (faster .. but usually bad)
+# 2 - normalized cross correlation (recommended)
+
+COST_MODE 0
+
+# Turn this up to improve the results of the discrete correlation
+# step.  This will reduce the number of missing pixels, but reduce the
+# overall accuracy of the disparity estimates.
+#
+# WARNING: Cost blurring must be used in conjunction with affine
+# adaptive window subpixel below, which are capable of achieving
+# highly accurate results even when seeded by slightly inaccurate
+# results from the initialization step.
+
+COST_BLUR 0
+
+# Initialization step: correlation kernel size
+
+H_KERNEL 25
+V_KERNEL 25
+
+# Initializaion step: correlation window size
+#H_CORR_MIN -100
+#H_CORR_MAX 100
+#V_CORR_MIN -100
+#V_CORR_MAX 100
+
+# Subpixel step: subpixel modes
+#
+# 0 - disable subpixel correlation (fastest)
+# 1 - parabola fitting (draft mode - not as accurate)
+# 2 - affine adaptive window, bayes EM weighting (slower, but much more accurate)
+
+SUBPIXEL_MODE 2
+
+# Subpixel step: correlation kernel size
+
+SUBPIXEL_H_KERNEL 25
+SUBPIXEL_V_KERNEL 25
+
+
+
+#########################################################################
+############################    FILTERING    ############################
+#########################################################################
+
+# Fill in holes up to 100,000 pixels in size with an inpainting method
+
+FILL_HOLES 1
+
+# Automatic "erode" low confidence pixels
+
+RM_H_HALF_KERN 5       # Note: a 5*5 halfkernel = 11*11 kernel -> 121 pixels
+RM_V_HALF_KERN 5
+RM_MIN_MATCHES 60      # Units = percent
+RM_THRESHOLD 3
+RM_CLEANUP_PASSES 1
+
+
+#########################################################################
+#########################    POST_PROCESSING    #########################
+#########################################################################
+
+# Size max of the universe in meters and altitude off the ground.
+# Setting both values to zero turns this post-processing step off.
+
+NEAR_UNIVERSE_RADIUS 0.0
+FAR_UNIVERSE_RADIUS 0.0
+
