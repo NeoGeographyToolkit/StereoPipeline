@@ -1,8 +1,9 @@
 // __BEGIN_LICENSE__
-// Copyright (C) 2006-2010 United States Government as represented by
+// Copyright (C) 2006-2011 United States Government as represented by
 // the Administrator of the National Aeronautics and Space Administration.
 // All Rights Reserved.
 // __END_LICENSE__
+
 
 /// This application finds the error statistics of all control points
 /// in a control network. It then modifies the control network to

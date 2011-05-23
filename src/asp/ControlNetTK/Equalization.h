@@ -1,3 +1,10 @@
+// __BEGIN_LICENSE__
+// Copyright (C) 2006-2011 United States Government as represented by
+// the Administrator of the National Aeronautics and Space Administration.
+// All Rights Reserved.
+// __END_LICENSE__
+
+
 // This will knock off weak points where we already have a lot of
 // points. This is hopefully to produce a better distribution.
 #ifndef __ASP_CONTROLNETTK_EQUALIZATION_H__

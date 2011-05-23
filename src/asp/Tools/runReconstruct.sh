@@ -1,4 +1,10 @@
 #!/bin/sh
+# __BEGIN_LICENSE__
+# Copyright (C) 2006-2011 United States Government as represented by
+# the Administrator of the National Aeronautics and Space Administration.
+# All Rights Reserved.
+# __END_LICENSE__
+
 
 export DATA_DIR=/home/mfsmith3/a15
 RESULTS_DIR=$HOME/results/a15/sub16

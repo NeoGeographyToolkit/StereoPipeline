@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # __BEGIN_LICENSE__
-# Copyright (C) 2006-2010 United States Government as represented by
+# Copyright (C) 2006-2011 United States Government as represented by
 # the Administrator of the National Aeronautics and Space Administration.
 # All Rights Reserved.
 # __END_LICENSE__
+
 
 import optparse, sys, subprocess, math, os;
 from math import cos, sin;
