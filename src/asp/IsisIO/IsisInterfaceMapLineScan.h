@@ -46,6 +46,7 @@ namespace isis {
   protected:
 
     // Custom Variables
+    mutable vw::Vector2 m_cache_px;
     boost::scoped_ptr<Isis::Projection> m_projection;
     Isis::CameraDistortionMap *m_distortmap;
     Isis::CameraGroundMap     *m_groundmap;

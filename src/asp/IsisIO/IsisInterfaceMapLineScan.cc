@@ -26,6 +26,7 @@ IsisInterfaceMapLineScan::IsisInterfaceMapLineScan( std::string const& filename 
   m_distortmap = m_camera->DistortionMap();
   m_groundmap = m_camera->GroundMap();
   m_focalmap = m_camera->FocalPlaneMap();
+  m_cache_px[0] = m_cache_px[1] = std::numeric_limits<double>::quiet_NaN();
 }
 
 // Custom Functions
@@ -123,18 +124,22 @@ IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
 
   m_projection->SetGround( m_camera->UniversalLatitude(),
                            m_camera->UniversalLongitude() );
-  return Vector2( m_projection->WorldX()-1,
-                  m_projection->WorldY()-1 );
+  m_cache_px = Vector2( m_projection->WorldX()-1,
+                        m_projection->WorldY()-1 );
+  return m_cache_px;
 }
 
 Vector3
 IsisInterfaceMapLineScan::camera_center( Vector2 const& px ) const {
-  if (!m_projection->SetWorld( px[0]+1,
-                               px[1]+1 ))
-    vw_throw( camera::PixelToRayErr() << "Failed to SetWorld." );
-  if (!m_groundmap->SetGround( m_projection->UniversalLatitude(),
-                               m_projection->UniversalLongitude() ) )
-    vw_throw( camera::PixelToRayErr() << "Failed to SetGround." );
+  if ( px != m_cache_px ) {
+    m_cache_px = px;
+    if (!m_projection->SetWorld( px[0]+1,
+                                 px[1]+1 ))
+      vw_throw( camera::PixelToRayErr() << "Failed to SetWorld." );
+    if (!m_groundmap->SetGround( m_projection->UniversalLatitude(),
+                                 m_projection->UniversalLongitude() ) )
+      vw_throw( camera::PixelToRayErr() << "Failed to SetGround." );
+  }
   Vector3 position;
   m_camera->InstrumentPosition( &position[0] );
   return position * 1e3;
