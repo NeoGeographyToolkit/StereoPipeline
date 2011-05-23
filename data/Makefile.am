@@ -16,3 +16,6 @@ dist_examplek10_DATA = K10/Makefile K10/black_left.tsai K10/black_right.tsai K10
 
 examplemerdir = $(docdir)/examples/MER
 dist_examplemer_DATA = MER/Makefile MER/stereo.default MER/stereo.default.navcam
+
+examplectxdir = $(docdir)/examples/CTX
+dist_examplectx_DATA = CTX/Makefile CTX/stereo.default CTX/stereo.map
