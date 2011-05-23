@@ -1,3 +1,33 @@
+*** RELEASE 1.0.4, 23 MAY 2011 ***
+
+SESSIONS
+ - Added support for CAHVORE in pinhole sessions.
+
+TOOLS
+ - Hide GDAL warnings caused by our file integrity checks.
+ - Mostly added standardized options for settings threads and BigTIFF.
+ - Have orthoproject return same type as input plus alpha channel.
+ - Improved edge_masking, speeds up stereo_fltr and stereo_pprc.
+ - Have cam2map4stereo.py explictly use ISIS's getkey command.
+ - Fix and optimized point2dem. Remove caching and improved rendering
+   times. This should fix BigTIFF problems that have been reported.
+ - Improve triangulation times slightly when using map projected
+   linescan camers.
+
+EXAMPLES
+ - Added orthoproject, image2qtree, colormap, hillshade examples to MOC.
+ - Added K10 example dataset.
+ - Added MER example dataset.
+ - Added a non-map projected MOC example.
+ - Added CTX example dataset.
+
+DOCS
+ - Append notes from Michael about run times.
+
+VISION WORKBENCH benefits
+ - Added threaded writing to colormap and hillshade.
+ - Fix hillshade problems with int16 DEMs.
+
 *** RELEASE 1.0.3.1, 16 MARCH 2011 ***
 
 GENERAL
