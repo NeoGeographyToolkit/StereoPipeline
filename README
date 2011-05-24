@@ -67,10 +67,12 @@ B. Third-Party Libraries
 
 This distribution may include some bundled third-party software as a
 convenience to the user.  This software, located in the "thirdparty/"
-directory, is not covered by the above-mentioned distribution
-agreement or copyright.  See the included documentation for detailed
-copyright and license information for any third-party software or
-check the THIRDPARTYLICENSES file.  In addition, various pieces of the NGT
+directory of the source code release, is not covered by the
+above-mentioned distribution agreement or copyright. Binary releases
+distribute third party software in both the "bin" and "lib"
+directories. See the included documentation for detailed copyright
+and license information for any third-party software or check the
+THIRDPARTYLICENSES file.  In addition, various pieces of the NGT
 depend on additional third-party libraries that the user is expected
 to have installed.
 
