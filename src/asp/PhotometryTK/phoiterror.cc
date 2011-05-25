@@ -21,6 +21,7 @@
 #include <asp/PhotometryTK/RemoteProjectFile.h>
 #include <asp/PhotometryTK/ErrorAccumulators.h>
 using namespace vw;
+using namespace vw::platefile;
 using namespace asp::pho;
 
 #include <boost/program_options.hpp>

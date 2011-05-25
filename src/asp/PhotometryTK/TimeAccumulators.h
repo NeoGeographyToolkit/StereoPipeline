@@ -24,7 +24,7 @@ namespace pho {
     template <class AValT, class RValT>
     void operator()( AValT const& drg, AValT const& albedo, RValT const& reflectance ) {
       double i = drg[0], a = albedo[0], s = alpha_channel(drg),
-        r = non_alpha_channels(reflectance);
+        r = vw::compound_select_channel<double>(reflectance,0);
       double inter = a*r;
       m_numerator += (i - m_curr_time*a*r)*inter*s;
       m_denominator += inter*inter*s;
