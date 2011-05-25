@@ -80,7 +80,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   try {
     po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
     po::notify( vm );
-  } catch (po::error &e) {
+  } catch (po::error const& e) {
     vw_throw( ArgumentErr() << "Error parsing input:\n\t"
               << e.what() << general_options );
   }

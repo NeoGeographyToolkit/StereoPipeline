@@ -803,7 +803,7 @@ int main(int argc, char* argv[]){
   try {
     po::store(po::parse_command_line(argc,argv,general_options),vm);
     po::notify(vm);
-  } catch (po::error &e) {
+  } catch (po::error const& e) {
     std::cout << "An error occured while parsing command line arguments.\n";
     std::cout << "\t" << e.what() << "\n\n";
     std::cout << usage.str();

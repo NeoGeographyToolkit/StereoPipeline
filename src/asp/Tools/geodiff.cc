@@ -49,7 +49,7 @@ int main( int argc, char *argv[] ) {
   try {
     po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
     po::notify( vm );
-  } catch (po::error &e) {
+  } catch (po::error const& e) {
     cout << "Error parsing: " << e.what() << "\n\t" << desc << "\n";
     return 1;
   }

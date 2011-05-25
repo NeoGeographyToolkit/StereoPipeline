@@ -63,7 +63,7 @@ namespace asp {
       all_options.add(public_options).add(hidden_options);
       po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional).run(), vm );
       po::notify( vm );
-    } catch (po::error &e) {
+    } catch (po::error const& e) {
       vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
                     << e.what() << "\n" << help << "\n" << public_options );
     }

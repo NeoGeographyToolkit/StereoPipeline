@@ -156,7 +156,7 @@ namespace vw {
                                    disparity_map, opt,
                                    TerminalProgressCallback("asp", "\t--> Refinement :") );
 
-    } catch (IOErr &e) {
+    } catch (IOErr const& e) {
       vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n" );
     }
 

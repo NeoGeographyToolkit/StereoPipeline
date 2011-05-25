@@ -180,7 +180,7 @@ void StereoSettings::read(std::string const& filename) {
       ss.str(line);
       try {
         po::store(po::parse_config_file(ss, m_desc), m_vm);
-      } catch (boost::program_options::unknown_option &e) {
+      } catch (boost::program_options::unknown_option const& e) {
         vw::vw_out() << "\tWARNING --> Unknown stereo settings option: " << line << "\n";
       }
     }

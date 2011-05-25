@@ -81,7 +81,7 @@ int main( int argc, char *argv[] ) {
   try {
     po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
     po::notify( vm );
-  } catch ( po::error & e ) {
+  } catch ( po::error const& e ) {
     std::cout << "An error occured while parsing command line arguments.\n";
     std::cout << "\t" << e.what() << "\n\n";
     std::cout << desc << std::endl;
@@ -107,7 +107,7 @@ int main( int argc, char *argv[] ) {
     default: do_merge<float32>( opt );
     }
 
-  } catch ( Exception& e ) {
+  } catch ( Exception const& e ) {
     std::cerr << "Error: " << e.what() << std::endl;
   }
   return 0;

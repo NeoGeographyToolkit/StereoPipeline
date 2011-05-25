@@ -98,7 +98,7 @@ namespace vw {
       delete rsrc;
       vw_out() << "\t--> " << universe_radius_func;
 
-    } catch (IOErr &e) {
+    } catch (IOErr const& e) {
       vw_throw( ArgumentErr() << "\nUnable to start at point cloud stage -- could not read input files.\n"
                 << e.what() << "\nExiting.\n\n" );
     }

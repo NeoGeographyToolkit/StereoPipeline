@@ -237,7 +237,7 @@ void do_run( Options& opt ) {
       pixel_format = VW_PIXEL_RGBA;
 
     delete rsrc;
-  } catch (vw::Exception &e) {
+  } catch (vw::Exception const& e) {
     vw_throw( ArgumentErr() << "An error occured while finding pixel type: " << e.what() << "\n" );
   }
 

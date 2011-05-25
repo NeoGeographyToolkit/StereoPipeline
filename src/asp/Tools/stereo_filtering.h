@@ -224,7 +224,7 @@ namespace vw {
       // Delete temporary file
       std::string temp_file =  opt.out_prefix+"-FTemp.tif";
       unlink( temp_file.c_str() );
-    } catch (IOErr &e) {
+    } catch (IOErr const& e) {
       vw_throw( ArgumentErr() << "\nUnable to start at filtering stage -- could not read input files.\n"
                 << e.what() << "\nExiting.\n\n" );
     }

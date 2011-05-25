@@ -110,7 +110,7 @@ void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, s
   try {
     ::read_matrix(align_matrix, m_out_prefix + "-align.exr");
     std::cout << "Alignment Matrix: " << align_matrix << "\n";
-  } catch (vw::IOErr &e) {
+  } catch (vw::IOErr const& e) {
     std::cout << "Could not read in aligment matrix: " << m_out_prefix << "-align.exr.  Exiting. \n\n";
     exit(1);
   }

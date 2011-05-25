@@ -213,7 +213,7 @@ void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
     try {
       read_matrix(align_matrix, m_out_prefix + "-align.exr");
       vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
-    } catch ( vw::IOErr &e ) {
+    } catch ( vw::IOErr const& e ) {
       vw_out() << "\nCould not read in alignment matrix: " << m_out_prefix
                << "-align.exr. Exiting. \n\n";
       exit(1);
