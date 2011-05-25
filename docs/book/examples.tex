@@ -523,7 +523,25 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
 \section{Mars Reconnaissance Orbiter CTX}
 
+\ac{CTX} is a moderate camera to work with. Processing times
+for \ac{CTX} can be pretty long because of the file sizes
+involved. Luckily the disparity between images is relatively small,
+allowing efficient computation.
+
 \subsection{North Terra Meridiani}
+
+\begin{tabular}{l r c r c}
+\textit{Processing in Stereo:} & Wall Time & \texttt{13:28:04.00} & CPU Time & \texttt{45:54:50.10} \\
+\end{tabular}
+
+In this example, we use map projected images. Map projecting the
+images is the most reliable way to align the images for
+correlation. However when possible, use non-map-projected images with
+the \texttt{DO\_INTERESTPOINT\_ALIGNMENT} option. This greatly improves
+speed. For all cases using linescan cameras, triangulation of
+map-projected images is 10x slower than non-map-projected images.
+
+This example is distributed in the \texttt{examples/CTX} directory.
 
 \begin{figure}[b!]
 \centering
