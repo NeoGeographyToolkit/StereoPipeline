@@ -110,7 +110,6 @@ struct Options : asp::BaseOptions {
   double proj_lat, proj_lon, proj_scale;
   double x_offset, y_offset, z_offset;
   unsigned utm_zone;
-  std::string cache_dir;
   ProjectionType projection;
   bool has_default_value, has_alpha, do_normalize;
 
@@ -150,8 +149,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega")
-    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa")
-    ("cache-dir", po::value(&opt.cache_dir)->default_value("/tmp"),"Change if can't write large files to /tmp (i.e. Super Computer)");
+    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
