@@ -1,6 +1,19 @@
 # This is makefile to run the demo for MRO CTX of North Terra Meridiani
 
-STEREO = stereo
+# Users with custom paths must override this variable
+EXECDIR ?= ../../bin/
+
+# Executables
+ifeq ($(EXECDIR),)
+	EEXECDIR=
+else
+	EEXECDIR=../$(EXECDIR)
+endif
+STEREO = $(EXECDIR)stereo
+POINT2DEM = $(EEXECDIR)point2dem
+HILLSHADE = $(EEXECDIR)hillshade
+COLORMAP = $(EEXECDIR)colormap
+CAM2MAP4STEREO = $(EXECDIR)cam2map4stereo.py
 
 all: nonmap/nonmap-DEM_CMAP.tif map/map-DEM_CMAP.tif
 
@@ -19,34 +32,34 @@ P03_002258_1817_XI_01N356W.IMG:
 nonmapprojected: P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub
 
 mapprojected: nonmapprojected
-	cam2map4stereo.py P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub
+	$(CAM2MAP4STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub
 
 map/map-PC.tif: mapprojected
 	$(STEREO) P02_001981_1823_XI_02N356W.map.cub P03_002258_1817_XI_01N356W.map.cub map/map -s stereo.map
 
 map/map-DEM.tif: map/map-PC.tif
 	cd map; \
-	point2dem -r mars --nodata -32767 map-PC.tif
+	$(POINT2DEM) -r mars --nodata -32767 map-PC.tif
 
 map/map-DEM_CMAP.tif: map/map-DEM.tif
 	cd map; \
-	hillshade map-DEM.tif; \
-	colormap -s map-DEM_HILLSHADE.tif map-DEM.tif
+	$(HILLSHADE) map-DEM.tif; \
+	$(COLORMAP) -s map-DEM_HILLSHADE.tif map-DEM.tif
 
 nonmap/nonmap-PC.tif: nonmapprojected
 	$(STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.default
 
 nonmap/nonmap-DEM.tif: nonmap/nonmap-PC.tif
 	cd nonmap; \
-	point2dem -r mars --nodata -32767 nonmap-PC.tif
+	$(POINT2DEM) -r mars --nodata -32767 nonmap-PC.tif
 
 nonmap/nonmap-DEM_CMAP.tif: nonmap/nonmap-DEM.tif
 	cd nonmap; \
-	hillshade nonmap-DEM.tif; \
-	colormap -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif
+	$(HILLSHADE) nonmap-DEM.tif; \
+	$(COLORMAP) -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif
 
 clean:
 	rm -rf nonmap map *.vwip
 
 distclean:
-	rm -rf *.cub
+	rm -rf *.cub map *~ *.match

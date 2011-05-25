@@ -1,9 +1,27 @@
 # This Makefile executes the steps detailed in Chapter 3 of the
 # Stereo Pipeline Users' Guide
 
+# Users with custom paths must override this variable
+EXECDIR ?= ../../bin/
+
+# Executables
+ifeq ($(EXECDIR),)
+	EEXECDIR=
+else
+	EEXECDIR=../$(EXECDIR)
+endif
+STEREO = $(EXECDIR)stereo
+IMAGE2QTREE = $(EXECDIR)image2qtree
+POINT2DEM = $(EEXECDIR)point2dem
+ORTHOPROJECT = $(EEXECDIR)orthoproject
+HILLSHADE = $(EEXECDIR)hillshade
+COLORMAP = $(EEXECDIR)colormap
+DISPARITYDEBUG = $(EEXECDIR)disparitydebug
+POINT2MESH = $(EEXECDIR)point2mesh
+
+# Output variables
 RESULTSDIR = results
 OUT = E0201461-M0100115
-STEREO = stereo
 MAPPED = E0201461.map.cub M0100115.map.cub
 PREFIX = $(RESULTSDIR)/$(OUT)
 POINTCLOUD = $(PREFIX)-PC.tif
@@ -26,41 +44,37 @@ E0201461.map.cub: E0201461.cub M0100115.map.cub
 	cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
 
 M0100115.map/M0100115.kml: M0100115.map.cub
-	image2qtree -m kml --normalize $<
+	$(IMAGE2QTREE) -m kml --normalize $<
 
 E0201461.map/E0201461.kml: E0201461.map.cub
-	image2qtree -m kml --normalize $<
+	$(IMAGE2QTREE) -m kml --normalize $<
 
 $(POINTCLOUD): $(MAPPED)
 	mkdir -p $(RESULTSDIR)
 	$(STEREO) $(MAPPED) $(RESULTSDIR)/$(OUT)
 
 $(PREFIX)-F-H.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); disparitydebug $(OUT)-F.tif
+	cd $(RESULTSDIR); $(DISPARITYDEBUG) $(OUT)-F.tif
 
 $(PREFIX).ive: $(POINTCLOUD)
-	cd $(RESULTSDIR); point2mesh $(OUT)-PC.tif $(OUT)-L.tif
+	cd $(RESULTSDIR); $(POINT2MESH) $(OUT)-PC.tif $(OUT)-L.tif
 
 $(PREFIX)-DRG.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); \
-	point2dem -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
+	cd $(RESULTSDIR); $(POINT2DEM) -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
 
 $(PREFIX)-DEM.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); \
-	point2dem -r mars -n --nodata -32767 $(OUT)-PC.tif;
+	cd $(RESULTSDIR); $(POINT2DEM) -r mars -n --nodata -32767 $(OUT)-PC.tif;
 
 $(PREFIX)-OrthoR.tif: $(PREFIX)-DEM.tif
-	cd $(RESULTSDIR); \
-	orthoproject $(OUT)-DEM.tif ../M0100115.cub $(OUT)-OrthoR.tif;
+	cd $(RESULTSDIR); $(ORTHOPROJECT) $(OUT)-DEM.tif ../M0100115.cub $(OUT)-OrthoR.tif;
 
 $(PREFIX)-OrthoL.tif: $(PREFIX)-DEM.tif
-	cd $(RESULTSDIR); \
-	orthoproject $(OUT)-DEM.tif ../E0201461.cub $(OUT)-OrthoL.tif;
+	cd $(RESULTSDIR); $(ORTHOPROJECT) $(OUT)-DEM.tif ../E0201461.cub $(OUT)-OrthoL.tif;
 
 $(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); \
-	hillshade $(OUT)-DEM.tif; \
-	colormap -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
+	$(HILLSHADE) $(OUT)-DEM.tif; \
+	$(COLORMAP) -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
 
 products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
 
@@ -69,20 +83,20 @@ $(POINTCLOUDU): $(UNMAPPED)
 	$(STEREO) $(UNMAPPED) $(RESULTSDIRU)/$(OUT) -s stereo.unmapped
 
 $(PREFIXU).ive: $(POINTCLOUDU)
-	cd $(RESULTSDIRU); point2mesh $(OUT)-PC.tif $(OUT)-L.tif
+	cd $(RESULTSDIRU); $(POINT2MESH) $(OUT)-PC.tif $(OUT)-L.tif
 
 $(PREFIXU)-DRG.tif: $(POINTCLOUDU)
 	cd $(RESULTSDIRU); \
-	point2dem -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
+	$(POINT2DEM) -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
 
 $(PREFIXU)-DEM.tif: $(POINTCLOUDU)
 	cd $(RESULTSDIRU); \
-	point2dem -r mars -n --nodata -32767 $(OUT)-PC.tif;
+	$(POINT2DEM) -r mars -n --nodata -32767 $(OUT)-PC.tif;
 
 $(PREFIXU)-DEM_CMAP.tif: $(PREFIXU)-DEM.tif
 	cd $(RESULTSDIRU); \
-	hillshade $(OUT)-DEM.tif; \
-	colormap -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
+	$(HILLSHADE) $(OUT)-DEM.tif; \
+	$(COLORMAP) -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
 
 products_unmap: $(PREFIXU).ive $(PREFIXU)-DRG.tif $(PREFIXU)-DEM_CMAP.tif
 

@@ -10,9 +10,21 @@
 # features like image subsampling/mask generation should be shut
 # off. Our image integer correlation also needs some fiddling.
 
+# Users with custom paths must override this variable
+EXECDIR ?= ../../bin/
+
+# Executables
+ifeq ($(EXECDIR),)
+	EEXECDIR=
+else
+	EEXECDIR=../$(EXECDIR)
+endif
+STEREO = $(EXECDIR)stereo
+DISPARITYDEBUG = $(EEXECDIR)disparitydebug
+POINT2MESH = $(EEXECDIR)point2mesh
+
 RESULTSDIR = results
 OUT = k10black
-STEREO = stereo
 PREFIX = $(RESULTSDIR)/$(OUT)
 
 all: $(PREFIX)-F-H.tif $(PREFIX).ive
@@ -22,10 +34,10 @@ $(PREFIX)-PC.tif:
 	$(STEREO) left4.png right4.png black_left.tsai black_right.tsai $(PREFIX)
 
 $(PREFIX)-F-H.tif: $(PREFIX)-PC.tif
-	cd $(RESULTSDIR); disparitydebug $(OUT)-F.tif
+	cd $(RESULTSDIR); $(DISPARITYDEBUG) $(OUT)-F.tif
 
 $(PREFIX).ive: $(PREFIX)-PC.tif
-	cd $(RESULTSDIR); point2mesh -s 1 $(OUT)-PC.tif $(OUT)-L.tif
+	cd $(RESULTSDIR); $(POINT2MESH) -s 1 $(OUT)-PC.tif $(OUT)-L.tif
 
 clean:
 	rm -rf $(RESULTSDIR)
