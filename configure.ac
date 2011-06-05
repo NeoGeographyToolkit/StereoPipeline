@@ -383,7 +383,6 @@ AX_APP(ISISADJUSTCNETCLIP, [src/asp/Tools], no, [ISISIO CORE VW_BUNDLEADJUSTMENT
 AX_APP(MER2CAMERA,       [src/asp/Tools], yes, [VW_CAMERA VW])
 
 # Toolkits (like module, but doesn't build a library)
-AX_MODULE(PHOTOMETRYTK, [src/asp/PhotometryTK], [libaspPhotometryTK.la], no, [RABBITMQ_C PROTOBUF VW_PLATE], [BOOST])
 AX_MODULE(CONTROLNETTK, [src/asp/ControlNetTK], [], no, [VW_BUNDLEADJUSTMENT ISISIO], [BOOST])
 
 # These are here (instead of inside the APP macro where they belong)
@@ -393,7 +392,6 @@ AM_CONDITIONAL(MAKE_MODULE_ISISIO, [test "$MAKE_MODULE_ISISIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SPICEIO, [test "$MAKE_MODULE_SPICEIO" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_SESSIONS, [test "$MAKE_MODULE_SESSIONS" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_MPI, [test "$MAKE_MODULE_MPI" = "yes"])
-AM_CONDITIONAL(MAKE_MODULE_PHOTOMETRYTK, [test "$MAKE_MODULE_PHOTOMETRYTK" = "yes"])
 AM_CONDITIONAL(MAKE_MODULE_CONTROLNETTK, [test "$MAKE_MODULE_CONTROLNETTK" = "yes"])
 
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
@@ -464,8 +462,6 @@ AC_CONFIG_FILES([                       \
   src/asp/Sessions/RMAX/Makefile        \
   src/asp/MPI/Makefile                  \
   src/asp/Tools/Makefile                \
-  src/asp/PhotometryTK/Makefile         \
-  src/asp/PhotometryTK/tests/Makefile   \
   src/asp/ControlNetTK/Makefile         \
 ])
 
