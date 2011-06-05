@@ -138,28 +138,29 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
   std::cout << "Loading Cameras Iteration Data : " << camFile << std::endl;
 
   // Determing the number of lines in the file
-  std::ifstream file(camFile.c_str(), std::ios::in);
+  std::ifstream file(camFile.c_str(), std::ifstream::in);
   if ( !file.is_open() )
     vw_throw( ArgumentErr() << "Unable to open: " << camFile << "!\n" );
-  int numLines = 0, numCameras = 0;
-  int numTimeIter = 0, numCameraParam = 0;
-  char c;
-  int last_camera = 2000;
-  while (!file.eof()){
-    c=file.get();
-    if (c == '\n') {
-      int buffer;
-      numLines++;
-      file >> buffer;
-      if (buffer > numCameras)
-        numCameras = buffer;
-      if (buffer != last_camera){
-        last_camera = buffer;
-        numCameraParam = 0;
-      } else {
+  int32 numLines = 0, numCameras = 0, numTimeIter = 0, numCameraParam = 1;
+  int32 last_camera = -1, buffer;
+  while (file.good()){
+    int32 read_cam_idx;
+    file >> buffer;
+    if (file.eof())
+      break;
+
+    if ( numCameras == 0 ) {
+      if ( buffer == last_camera )
         numCameraParam++;
-      }
+      last_camera = buffer;
     }
+    if ( buffer > numCameras )
+      numCameras = buffer;
+
+    numLines++;
+    char c = file.get();
+    while ( c != '\n' && !file.eof() )
+      c = file.get();
   }
   numCameras++;
   numTimeIter=numLines/(numCameras*numCameraParam);
@@ -387,7 +388,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
   }
 
   // 2.b Adding additional points
-  for ( unsigned n = 0; n < addPoints.size(); ++n ) {
+  for ( size_t n = 0; n < addPoints.size(); ++n ) {
     osg::Geometry* geometry = new osg::Geometry;
 
     // Setting up vertices
@@ -552,7 +553,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
       osg::Vec4Array* colours = new osg::Vec4Array(1);
       (*colours)[0].set( 1.0f, 1.0f, 1.0f, 0.0f );
 
-      for ( unsigned j = 0; j < cameras.size(); ++j ) {
+      for ( size_t j = 0; j < cameras.size(); ++j ) {
 
         // Geode that is the target
         osg::Geometry* geometry = new osg::Geometry;
@@ -601,7 +602,7 @@ osg::Node* createScene( std::vector<PointIter*>& points,
       osg::Vec4Array* colours = new osg::Vec4Array(1);
       (*colours)[0].set( 0.0f, 0.0f, 0.0f, 0.0f );
 
-      for ( unsigned i = 0; i < points.size(); ++i ) {
+      for ( size_t i = 0; i < points.size(); ++i ) {
 
         // Geode that is the target
         osg::Geometry* geometry = new osg::Geometry;
@@ -772,7 +773,7 @@ int main(int argc, char* argv[]){
   std::vector<ConnLineIter*> connLineData;
   std::vector<std::vector<PointIter*> > addPointData;
   PlaybackControl* playControl = new PlaybackControl(controlStep);
-  BBox3f *point_cloud;        // World size of the objects
+  boost::scoped_ptr<BBox3f> point_cloud;        // World size of the objects
   double q25_camera_distance; // Average distance between cameras
 
   //OpenSceneGraph Variable which are important overall
@@ -845,36 +846,51 @@ int main(int argc, char* argv[]){
   //////////////////////////////////////////////////////////
   //Gathering Statistics about point cloud
   {
-    point_cloud = new BBox3f();
+    math::CDFAccumulator<double> xcdf, ycdf, zcdf, dcdf;
 
     if (vm.count("points-iteration-file")) {
       BOOST_FOREACH( PointIter* pitr, pointData ) {
-        point_cloud->grow( Vector3(pitr->position(0)[0], pitr->position(0)[1],
-                                   pitr->position(0)[2]) );
+        xcdf( pitr->position(0)[0] );
+        ycdf( pitr->position(0)[1] );
+        zcdf( pitr->position(0)[2] );
       }
     }
 
-    q25_camera_distance = 1.0;
+    Vector3 before;
     if (vm.count("camera-iteration-file")) {
-      math::CDFAccumulator<double> distance_cdf;
-      Vector3 past_vtemp;
-      for (unsigned i = 0; i < cameraData.size(); ++i){
-        osg::Vec3f temp = cameraData[i]->position(0);
-        Vector3 vtemp( temp[0], temp[1], temp[2] );
-        point_cloud->grow( vtemp );
-        if ( i > 0 ) {
-          distance_cdf( norm_2(past_vtemp - vtemp) );
+      BOOST_FOREACH( CameraIter* citr, cameraData ) {
+        xcdf( citr->position(0)[0] );
+        ycdf( citr->position(0)[1] );
+        zcdf( citr->position(0)[2] );
+        if ( before == Vector3() ) {
+          before = Vector3( citr->position(0)[0],
+                            citr->position(0)[1],
+                            citr->position(0)[2] );
+        } else {
+          Vector3 current( citr->position(0)[0],
+                           citr->position(0)[1],
+                           citr->position(0)[2] );
+          dcdf( norm_2(current-before) );
+          before = current;
         }
-        past_vtemp = vtemp;
       }
-      distance_cdf.update();
-      q25_camera_distance = distance_cdf.quantile(0.25);
     }
+
+    xcdf.update(); ycdf.update(); zcdf.update(); dcdf.update();
+    point_cloud.reset( new BBox3f(Vector3(xcdf.quantile(.1),
+                                          ycdf.quantile(.1),
+                                          zcdf.quantile(.1)),
+                                  Vector3(xcdf.quantile(.9),
+                                          ycdf.quantile(.9),
+                                          zcdf.quantile(.9))) );
+    q25_camera_distance = dcdf.quantile(.25);
+    if (q25_camera_distance < 1 ) q25_camera_distance = 1;
 
     Vector3 center = point_cloud->center();
     Vector3 size = point_cloud->size();
 
-    std::cout << "Point Cloud:\n\t> Center " << center << "\n\t> Size " << size << std::endl;
+    std::cout << "Point Cloud:\n\t> Center " << center << "\n\t> Size " << size;
+    std::cout << "\n\t> CSize " << q25_camera_distance << std::endl;
   }
 
   //////////////////////////////////////////////////////////
@@ -978,13 +994,14 @@ int main(int argc, char* argv[]){
   {
     root->addChild( createScene( pointData,    cameraData,
                                  connLineData, addPointData,
-                                 point_cloud,  q25_camera_distance ) );
+                                 point_cloud.get(),  q25_camera_distance ) );
 
     // Optimizing the Scene (seems like good practice in OSG)
     osgUtil::Optimizer optimizer;
     optimizer.optimize( root.get() );
 
-    viewer.setCameraManipulator( new osgGA::TrackballManipulator() );
+    osgGA::TrackballManipulator* trackball = new osgGA::TrackballManipulator();
+    viewer.setCameraManipulator( trackball );
     viewer.setSceneData( root.get() );
 
     int numIter;
@@ -1000,6 +1017,10 @@ int main(int argc, char* argv[]){
                                                         numIter,
                                                         playControl) );
 
+    trackball->setDistance(norm_2(point_cloud->size()));
+    trackball->setCenter( osg::Vec3(point_cloud->center()[0],
+                                    point_cloud->center()[1],
+                                    point_cloud->center()[2]) );
   }
 
   //////////////////////////////////////////////////////////
@@ -1012,6 +1033,7 @@ int main(int argc, char* argv[]){
   }
 
   viewer.realize();
+  std::cout << "Ptr: " << viewer.getCameraWithFocus() << "\n";
   viewer.run();
   std::cout << "Ending\n";
 
