@@ -198,8 +198,10 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
   vw_out() << "\t--> Writing pre-aligned images.\n";
-  write_image(output_file1, Limg);
-  write_image(output_file2, Rimg);
+  block_write_gdal_image( output_file1, Limg, m_options,
+                          TerminalProgressCallback("asp","\t  L:  ") );
+  block_write_gdal_image( output_file2, Rimg, m_options,
+                          TerminalProgressCallback("asp","\t  R:  ") );
 }
 
 // Reverse any pre-alignment that might have been done to the disparity map
@@ -230,9 +232,8 @@ void asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_fil
                                     Vector2f( right_disk_image.cols(),
                                               right_disk_image.rows()) );
 
-    write_image(output_file, result,
-                TerminalProgressCallback("asp", "\t    Saving: ") );
-
+    block_write_gdal_image( output_file, result, m_options,
+                            TerminalProgressCallback("asp", "\t    Saving: ") );
   } else {
     output_file = input_file;
   }
