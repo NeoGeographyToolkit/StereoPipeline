@@ -22,28 +22,33 @@ namespace {
   ConstructMapType *stereo_session_construct_map = 0;
 }
 
-void StereoSession::remove_duplicates(std::vector<vw::ip::InterestPoint> &ip1,
-                                      std::vector<vw::ip::InterestPoint> &ip2) {
+void StereoSession::remove_duplicates(std::vector<vw::ip::InterestPoint> &ip1v,
+                                      std::vector<vw::ip::InterestPoint> &ip2v) {
   using namespace vw;
-  std::vector<ip::InterestPoint> new_ip1, new_ip2;
+  typedef std::vector<ip::IntersetPoint> IPVector;
+  IPVector new_ip1v, new_ip2v;
+  new_ip1v.reserve( ip1v.size() );
+  new_ip2v.reserve( ip2v.size() );
 
-  for (unsigned i = 0; i < ip1.size(); ++i) {
+  for ( IPVector::iterator ip1 = ip1v.begin();
+        ip1 < ip1v.end() - 1; ip1++ ) {
     bool bad_entry = false;
-    for (unsigned j = 0; j < ip1.size(); ++j) {
-      if (i != j &&
-          ((ip1[i].x == ip1[j].x && ip1[i].y == ip1[j].y) ||
-           (ip2[i].x == ip2[j].x && ip2[i].y == ip2[j].y)) ) {
+    for ( IPVector::iterator ip2 = ip1 + 1;
+          ip2 < ip2v.end(); ip2++ ) {
+      if ( ip1->x == ip2->x &&
+           ip1->y == ip2->y &&
+           ip1->scale == ip2->scale ) {
         bad_entry = true;
+        break;
       }
     }
-    if (!bad_entry) {
-      new_ip1.push_back(ip1[i]);
-      new_ip2.push_back(ip2[i]);
+    if ( !bad_entry ) {
+      new_ip1v.push_back( *ip1 );
+      new_ip2v.push_back( *ip2 );
     }
   }
-
-  ip1 = new_ip1;
-  ip2 = new_ip2;
+  ip1v = new_ip1v;
+  ip2v = new_ip2v;
 }
 
 void StereoSession::register_session_type( std::string const& id,
@@ -55,7 +60,7 @@ void StereoSession::register_session_type( std::string const& id,
 
 static void register_default_session_types() {
   static bool already = false;
-  if( already ) return;
+  if ( already ) return;
   already = true;
   StereoSession::register_session_type( "pinhole",
                                         &StereoSessionPinhole::construct);
