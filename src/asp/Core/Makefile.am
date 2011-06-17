@@ -23,8 +23,8 @@ include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
                   SoftwareRenderer.h ErodeView.h $(ba_headers) Macros.h  \
                   Common.h ThreadedEdgeMask.h
 
-libaspCore_la_SOURCES = BlobIndexThreaded.cc SoftwareRenderer.cc         \
-                  StereoSettings.cc $(ba_sources)
+libaspCore_la_SOURCES = BlobIndexThreaded.cc Common.cc                   \
+                  SoftwareRenderer.cc StereoSettings.cc $(ba_sources)
 
 libaspCore_la_LIBADD = @MODULE_CORE_LIBS@
 

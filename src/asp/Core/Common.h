@@ -21,33 +21,18 @@
 
 namespace asp {
 
+  // Standard Options
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;
     vw::Vector2i raster_tile_size;
     vw::uint32 num_threads;
 
-    BaseOptions() {
-#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
-      gdal_options["COMPRESS"] = "LZW";
-#else
-      gdal_options["COMPRESS"] = "NONE";
-      gdal_options["BIGTIFF"] = "NO";
-#endif
-      raster_tile_size =
-        vw::Vector2i(vw::vw_settings().default_tile_size(),
-                     vw::vw_settings().default_tile_size());
-    }
+    BaseOptions();
   };
 
+  // An object to let Program Options know about our standard options
   struct BaseOptionsDescription : public boost::program_options::options_description {
-    BaseOptionsDescription( BaseOptions& opt) {
-      namespace po = boost::program_options;
-      (*this).add_options()
-        ("threads", po::value(&opt.num_threads)->default_value(0),
-         "Select the number of processors (threads) to use.")
-        ("no-bigtiff", "Tell GDAL to not create bigtiffs.")
-        ("help,h", "Display this help message");
-    }
+    BaseOptionsDescription( BaseOptions& opt);
   };
 
   boost::program_options::variables_map
@@ -55,46 +40,9 @@ namespace asp {
                       boost::program_options::options_description const& public_options,
                       boost::program_options::options_description const& hidden_options,
                       boost::program_options::positional_options_description const& positional,
-                      std::string const& help ) {
-    namespace po = boost::program_options;
-    po::variables_map vm;
-    try {
-      po::options_description all_options;
-      all_options.add(public_options).add(hidden_options);
-      po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional).run(), vm );
-      po::notify( vm );
-    } catch (po::error const& e) {
-      vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
-                    << e.what() << "\n" << help << "\n" << public_options );
-    }
-    // We really don't want to use BIGTIFF unless we have to. It's
-    // hard to find viewers for bigtiff.
-    if ( vm.count("no-bigtiff") ) {
-      opt.gdal_options["BIGTIFF"] = "NO";
-    } else {
-      opt.gdal_options["BIGTIFF"] = "IF_SAFER";
-    }
-    if ( vm.count("help") )
-      vw::vw_throw( vw::ArgumentErr() << help << "\n" << public_options );
-    if ( opt.num_threads != 0 ) {
-      vw::vw_out() << "\t--> Setting number of processing threads to: "
-                   << opt.num_threads << std::endl;
-      vw::vw_settings().set_default_num_threads(opt.num_threads);
-    }
+                      std::string const& help );
 
-    return vm;
-  }
-
-  bool has_cam_extension( std::string input ) {
-    boost::filesystem::path ipath( input );
-    std::string ext = ipath.extension();
-    if ( ext == ".cahvor" || ext == ".cahv" ||
-         ext == ".pin" || ext == ".pinhole" ||
-         ext == ".tsai" || ext == ".cmod" ||
-         ext == ".cahvore" )
-      return true;
-    return false;
-  }
+  bool has_cam_extension( std::string const& input );
 
   template <class ImageT>
   vw::DiskImageResourceGDAL*
