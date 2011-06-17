@@ -89,28 +89,9 @@ void find_ideal_isis_range( std::string const& in_file,
   }
 }
 
-// This tells the GDAL settings we should be using
-//
-// I don't like having this here. We should somehow use the settings
-// decided by stereo. Unfortunately Sessions can not depend on the tool.
-vw::DiskImageResourceGDAL::Options
-gdal_settings( int32 const& cols, int32 const& rows ) {
-  vw::DiskImageResourceGDAL::Options option;
-#if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
-  option["COMPRESS"] = "LZW";
-  if ( cols*rows > 10e6 )
-    option["BIGTIFF"] = "IF_SAFER";
-  else
-    option["BIGTIFF"] = "NO";
-#else
-  option["COMPRESS"] = "NONE";
-  option["BIGTIFF"] = "NO";
-#endif
-  return option;
-}
-
 // This actually modifies and writes the pre-processed image.
-void write_preprocessed_isis_image( std::string const& in_file,
+void write_preprocessed_isis_image( BaseOptions const& opt,
+                                    std::string const& in_file,
                                     std::string const& out_file,
                                     std::string const& tag,
                                     float const& isis_lo, float const& isis_hi,
@@ -138,13 +119,8 @@ void write_preprocessed_isis_image( std::string const& in_file,
 
   // Write the results to disk.
   vw_out() << "\t--> Writing normalized images.\n";
-  DiskImageResourceGDAL out_rsrc( out_file, applied_image.format(),
-                                  Vector2i(vw_settings().default_tile_size(),
-                                           vw_settings().default_tile_size()),
-                                  gdal_settings(applied_image.cols(),
-                                                applied_image.rows()));
-  block_write_image( out_rsrc, applied_image,
-                     TerminalProgressCallback("asp", "\t  "+tag+":  "));
+  block_write_gdal_image( out_file, applied_image, opt,
+                          TerminalProgressCallback("asp", "\t  "+tag+":  ") );
 }
 
 void
@@ -206,24 +182,25 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   // Apply alignment and normalization
   if (stereo_settings().individually_normalize == 0 ) {
     vw_out() << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-    write_preprocessed_isis_image( input_file1, output_file1, "left",
+    write_preprocessed_isis_image( m_options, input_file1, output_file1, "left",
                                    left_lo, left_hi, lo, hi,
                                    math::identity_matrix<3>(), left_size );
-    write_preprocessed_isis_image( input_file2, output_file2, "right",
+    write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
                                    right_lo, right_hi, lo, hi,
                                    align_matrix, left_size );
   } else {
     vw_out() << "\t--> Individually normalizing.\n";
-    write_preprocessed_isis_image( input_file1, output_file1, "left",
+    write_preprocessed_isis_image( m_options, input_file1, output_file1, "left",
                                    left_lo, left_hi, left_lo, left_hi,
                                    math::identity_matrix<3>(), left_size );
-    write_preprocessed_isis_image( input_file2, output_file2, "right",
+    write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
                                    right_lo, right_hi, right_lo, right_hi,
                                    align_matrix, left_size );
   }
 }
 
-inline std::string write_shadow_mask( std::string const& output_prefix,
+inline std::string write_shadow_mask( BaseOptions const& opt,
+                                      std::string const& output_prefix,
                                       std::string const& input_image,
                                       std::string const& mask_postfix ) {
   // This thresholds at -25000 as the input sub4s for Apollo that I've
@@ -236,12 +213,8 @@ inline std::string write_shadow_mask( std::string const& output_prefix,
   std::string output_mask =
     output_prefix+mask_postfix.substr(0,mask_postfix.size()-4)+"Debug.tif";
 
-  DiskImageResourceGDAL
-    out_mask_rsrc( output_mask, mask.format(),
-                   Vector2i(vw_settings().default_tile_size(),
-                            vw_settings().default_tile_size()),
-                   gdal_settings( mask.cols(), mask.rows()) );
-  block_write_image( out_mask_rsrc, mask );
+  block_write_gdal_image( output_mask, mask, opt,
+                          TerminalProgressCallback("asp","\t  Shadow:") );
   return output_mask;
 }
 
@@ -263,10 +236,10 @@ asp::StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
     output_file = m_out_prefix + "-R-masked.exr";
 
     std::string shadowLmask_name =
-      write_shadow_mask( m_out_prefix, m_left_image_file,
+      write_shadow_mask( m_options, m_out_prefix, m_left_image_file,
                          "-lMask.tif" );
     std::string shadowRmask_name =
-      write_shadow_mask( m_out_prefix, m_right_image_file,
+      write_shadow_mask( m_options, m_out_prefix, m_right_image_file,
                          "-rMask.tif" );
 
     DiskImageView<uint8> shadowLmask( shadowLmask_name );
@@ -329,13 +302,8 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
                                  Vector2f( right_disk_image.cols(),
                                            right_disk_image.rows() ) );
 
-  DiskImageResourceGDAL
-    disparity_corrected_rsrc( output_file, result.format(),
-                              Vector2i(vw_settings().default_tile_size(),
-                                       vw_settings().default_tile_size()),
-                              gdal_settings( result.cols(), result.rows() ) );
-  block_write_image( disparity_corrected_rsrc, result,
-                     TerminalProgressCallback("asp", "\t    Processing:"));
+  block_write_gdal_image( output_file, result, m_options,
+                          TerminalProgressCallback("asp", "\t    Processing:") );
 }
 
 boost::shared_ptr<vw::camera::CameraModel>
