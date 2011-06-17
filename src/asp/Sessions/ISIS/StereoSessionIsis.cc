@@ -9,7 +9,6 @@
 ///
 
 // Vision Workbench
-#include <vw/Image.h>
 #include <vw/FileIO.h>
 #include <vw/Math/Functors.h>
 #include <vw/Math/Geometry.h>
@@ -17,6 +16,7 @@
 #include <vw/InterestPoint.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography.h>
+
 // Stereo Pipeline
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 #include <asp/IsisIO/IsisCameraModel.h>
@@ -91,7 +91,7 @@ void find_ideal_isis_range( std::string const& in_file,
 
 // This tells the GDAL settings we should be using
 //
-// I don't like having this hear. We should somehow use the settings
+// I don't like having this here. We should somehow use the settings
 // decided by stereo. Unfortunately Sessions can not depend on the tool.
 vw::DiskImageResourceGDAL::Options
 gdal_settings( int32 const& cols, int32 const& rows ) {
@@ -148,13 +148,12 @@ void write_preprocessed_isis_image( std::string const& in_file,
 }
 
 void
-StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
-                                          std::string const& input_file2,
-                                          std::string & output_file1,
-                                          std::string & output_file2) {
+asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
+                                               std::string const& input_file2,
+                                               std::string & output_file1,
+                                               std::string & output_file2) {
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
-
 
   if ( fs::exists(output_file1) && fs::exists(output_file2) ) {
     try {
@@ -251,8 +250,8 @@ inline std::string write_shadow_mask( std::string const& output_prefix,
 // Pre file is a pair of grayscale images.  ( ImageView<PixelGray<float> > )
 // Post file is a disparity map.            ( ImageView<PixelMask<Vector2f> > )
 void
-StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
-                                      std::string & output_file) {
+asp::StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
+                                           std::string & output_file) {
   output_file = input_file;
 
   // ****************************************************
@@ -291,8 +290,8 @@ StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
 
 // Reverse any pre-alignment that was done to the images.
 void
-StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
-                                       std::string & output_file) {
+asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
+                                            std::string & output_file) {
 
   // ****************************************************
   // The following code is for Apollo Metric Camera ONLY!
@@ -340,8 +339,8 @@ StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
 }
 
 boost::shared_ptr<vw::camera::CameraModel>
-StereoSessionIsis::camera_model(std::string image_file,
-                                std::string camera_file) {
+asp::StereoSessionIsis::camera_model(std::string const& image_file,
+                                     std::string const& camera_file) {
 
   if (boost::ends_with(boost::to_lower_copy(camera_file), ".isis_adjust")){
     // Creating Equations for the files

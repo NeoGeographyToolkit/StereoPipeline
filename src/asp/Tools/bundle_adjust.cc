@@ -187,9 +187,9 @@ int main(int argc, char* argv[]) {
 #endif
 
   // Register all stereo session types
-  StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
+  asp::StereoSession::register_session_type( "rmax", &asp::StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+  asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
 #endif
 
   Options opt;
@@ -197,8 +197,8 @@ int main(int argc, char* argv[]) {
     handle_arguments( argc, argv, opt );
 
     // Read in the camera model and image info for the input images.
-    StereoSession* session =
-      StereoSession::create(opt.stereosession_type);
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+    SessionPtr session(asp::StereoSession::create(opt.stereosession_type));
 
     if (opt.stereosession_type == "pinhole")
       stereo_settings().keypoint_alignment = true;
@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
       progress.report_finished();
     }
 
-    opt.cnet = boost::shared_ptr<ControlNetwork>( new ControlNetwork("BundleAdjust") );
+    opt.cnet.reset( new ControlNetwork("BundleAdjust") );
     if ( opt.cnet_file.empty() ) {
       build_control_network( (*opt.cnet), opt.camera_models,
                              opt.image_files,

@@ -13,17 +13,18 @@
 
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 
-class StereoSessionRmax: public StereoSession {
+namespace asp {
+  class StereoSessionRmax : public StereoSession {
+  public:
+    virtual ~StereoSessionRmax() {}
 
-public:
+    // Correct lens distortion and epipolar-rectify the images
+    virtual boost::shared_ptr<vw::camera::CameraModel>
+    camera_model(std::string const& image_file,
+                 std::string const& camera_file = "");
 
-  virtual ~StereoSessionRmax() {}
-
-  // Correct lens distortion and epipolar-rectify the images
-  virtual boost::shared_ptr<vw::camera::CameraModel> camera_model(std::string image_file,
-                                                                  std::string camera_file = "");
-
-  static StereoSession* construct() { return new StereoSessionRmax; }
-};
+    static StereoSession* construct() { return new StereoSessionRmax; }
+  };
+} // end namespace asp
 
 #endif // __RMAX_STEREO_SESSION_H__

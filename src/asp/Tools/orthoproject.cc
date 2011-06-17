@@ -136,7 +136,7 @@ void do_projection( Options& opt,
                << opt.lo << "  " << opt.hi << "]\n";
     }
     texture_image =
-      pixel_cast_rescale<PixelT >(normalize(remove_isis_special_pixels(float_texture_disk_image, opt.lo), opt.lo, opt.hi, 0, 1));
+      pixel_cast_rescale<PixelT >(normalize(asp::remove_isis_special_pixels(float_texture_disk_image, opt.lo), opt.lo, opt.hi, 0, 1));
   }
 #endif
 
@@ -157,9 +157,9 @@ int main(int argc, char* argv[]) {
     handle_arguments( argc, argv, opt );
 
     // Create a fresh stereo session and query it for the camera models.
-    StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
+    asp::StereoSession::register_session_type( "rmax", &asp::StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+    asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
 #endif
 
     // If the user hasn't specified a stereo session type, we take a
@@ -198,10 +198,11 @@ int main(int argc, char* argv[]) {
     // models for various missions.  Hence, we create two identical
     // camera models, but only one is used.  The last four empty strings
     // are dummy arguments.
-    boost::shared_ptr<StereoSession> session( StereoSession::create(opt.stereo_session) );
-    session->initialize(opt.image_file, opt.image_file,
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+    SessionPtr session( asp::StereoSession::create(opt.stereo_session) );
+    session->initialize(opt, opt.image_file, opt.image_file,
                         opt.camera_model_file, opt.camera_model_file,
-                        opt.output_file, "", "","","" );
+                        opt.output_file, "","","","" );
     boost::shared_ptr<camera::CameraModel> camera_model;
     camera_model = session->camera_model(opt.image_file, opt.camera_model_file);
 

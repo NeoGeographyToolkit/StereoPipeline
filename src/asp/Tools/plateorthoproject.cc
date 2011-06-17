@@ -159,7 +159,7 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
   if ( opt.session == "isis" ) {
     DiskImageResourceIsis isis_rsrc( opt.camera_image );
     texture_image =
-      normalize_retain_alpha(remove_isis_special_pixels(texture_disk_image),
+      normalize_retain_alpha(asp::remove_isis_special_pixels(texture_disk_image),
                              isis_rsrc.valid_minimum(),isis_rsrc.valid_maximum(),
                              ChannelRange<PixelT>::min(), ChannelRange<PixelT>::max() );
   }
@@ -208,12 +208,13 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
 void do_run( Options& opt ) {
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+  asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
 #endif
 
   // Extracting camera model from stereo session
-  StereoSession* session = StereoSession::create(opt.session);
-  session->initialize(opt.camera_image, opt.camera_image,
+  typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+  SessionPtr session( asp::StereoSession::create(opt.session) );
+  session->initialize(opt, opt.camera_image, opt.camera_image,
                       opt.camera_model, opt.camera_model,
                       "", "", "", "", "" );
   boost::shared_ptr<camera::CameraModel> camera_model;
@@ -248,13 +249,12 @@ void do_run( Options& opt ) {
   else
     tile_filetype = "png";
 
-  boost::shared_ptr<PlateFile> input_plate =
-    boost::shared_ptr<PlateFile>( new PlateFile(opt.input_url) );
-  boost::shared_ptr<PlateFile> output_plate =
-    boost::shared_ptr<PlateFile>( new PlateFile(opt.output_url,
-                                                opt.output_mode, "",
-                                                256, tile_filetype,
-                                                pixel_format, channel_type) );
+  typedef boost::shared_ptr<PlateFile> PlatePtr;
+  PlatePtr input_plate( new PlateFile(opt.input_url) );
+  PlatePtr output_plate( new PlateFile(opt.output_url,
+                                       opt.output_mode, "",
+                                       256, tile_filetype,
+                                       pixel_format, channel_type) );
   switch( pixel_format ) {
   case VW_PIXEL_GRAYA:
     switch( channel_type ) {

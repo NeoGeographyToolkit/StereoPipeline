@@ -18,26 +18,25 @@
 // This creates an anonymous namespace where the lookup table for
 // stereo sessions lives.
 namespace {
-  typedef std::map<std::string,StereoSession::construct_func> ConstructMapType;
+  typedef std::map<std::string,asp::StereoSession::construct_func> ConstructMapType;
   ConstructMapType *stereo_session_construct_map = 0;
 }
 
-void StereoSession::remove_duplicates(std::vector<vw::ip::InterestPoint> &ip1v,
-                                      std::vector<vw::ip::InterestPoint> &ip2v) {
+void asp::StereoSession::remove_duplicates(std::vector<vw::ip::InterestPoint> &ip1v,
+                                           std::vector<vw::ip::InterestPoint> &ip2v) {
   using namespace vw;
-  typedef std::vector<ip::IntersetPoint> IPVector;
+  typedef std::vector<ip::InterestPoint> IPVector;
   IPVector new_ip1v, new_ip2v;
   new_ip1v.reserve( ip1v.size() );
   new_ip2v.reserve( ip2v.size() );
 
-  for ( IPVector::iterator ip1 = ip1v.begin();
-        ip1 < ip1v.end() - 1; ip1++ ) {
+  for ( IPVector::iterator ip1 = ip1v.begin(), ip2 = ip2v.begin();
+        ip1 < ip1v.end() - 1; ip1++, ip2++ ) {
     bool bad_entry = false;
-    for ( IPVector::iterator ip2 = ip1 + 1;
-          ip2 < ip2v.end(); ip2++ ) {
-      if ( ip1->x == ip2->x &&
-           ip1->y == ip2->y &&
-           ip1->scale == ip2->scale ) {
+    for ( IPVector::iterator ip1a = ip1 + 1, ip2a = ip2 + 1;
+          ip1a < ip1v.end(); ip1a++, ip2a++ ) {
+      if ( ip1->x == ip1a->x && ip1->y == ip1a->y &&
+           ip2->x == ip2a->x && ip2->y == ip2a->y ) {
         bad_entry = true;
         break;
       }
@@ -51,8 +50,8 @@ void StereoSession::remove_duplicates(std::vector<vw::ip::InterestPoint> &ip1v,
   ip2v = new_ip2v;
 }
 
-void StereoSession::register_session_type( std::string const& id,
-                                           StereoSession::construct_func func) {
+void asp::StereoSession::register_session_type( std::string const& id,
+                                                asp::StereoSession::construct_func func) {
   if( ! stereo_session_construct_map )
     stereo_session_construct_map = new ConstructMapType();
   stereo_session_construct_map->insert( std::make_pair( id, func ) );
@@ -62,11 +61,11 @@ static void register_default_session_types() {
   static bool already = false;
   if ( already ) return;
   already = true;
-  StereoSession::register_session_type( "pinhole",
-                                        &StereoSessionPinhole::construct);
+  asp::StereoSession::register_session_type( "pinhole",
+                                             &asp::StereoSessionPinhole::construct);
 }
 
-StereoSession* StereoSession::create( std::string const& session_type ) {
+asp::StereoSession* asp::StereoSession::create( std::string const& session_type ) {
   register_default_session_types();
   if( stereo_session_construct_map ) {
     ConstructMapType::const_iterator i =

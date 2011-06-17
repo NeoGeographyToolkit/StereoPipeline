@@ -38,8 +38,8 @@ namespace vw {
 }
 
 boost::shared_ptr<vw::camera::CameraModel>
-StereoSessionPinhole::camera_model(std::string /*image_file*/,
-                                   std::string camera_file) {
+asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
+                                        std::string const& camera_file) {
   // Epipolar Alignment
   if ( stereo_settings().epipolar_alignment ) {
     // Load the image
@@ -121,8 +121,10 @@ StereoSessionPinhole::camera_model(std::string /*image_file*/,
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
 
-void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1, std::string const& input_file2,
-                                                  std::string &output_file1, std::string &output_file2) {
+void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1,
+                                                       std::string const& input_file2,
+                                                       std::string &output_file1,
+                                                       std::string &output_file2) {
 
   // Load the images
   DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
@@ -201,8 +203,8 @@ void StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1
 }
 
 // Reverse any pre-alignment that might have been done to the disparity map
-void StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
-                                               std::string & output_file ) {
+void asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
+                                                    std::string & output_file ) {
 
   if ( stereo_settings().keypoint_alignment ) {
 

@@ -133,109 +133,110 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 int main(int argc, char* argv[]) {
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+  asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
 #endif
 
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
 
-      StereoSession* session = StereoSession::create(opt.stereo_session_string);
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+    SessionPtr session( asp::StereoSession::create(opt.stereo_session_string) );
 
-      // Data to be loaded
-      unsigned no_cameras = opt.loading_image_camera_order ? opt.input_files.size()/2 : opt.input_files.size();
-      vw_out() << "Number of cameras: " << no_cameras << std::endl;
-      std::vector<std::string> camera_names(no_cameras);
-      cartography::XYZtoLonLatRadFunctor conv_func;
+    // Data to be loaded
+    unsigned no_cameras = opt.loading_image_camera_order ? opt.input_files.size()/2 : opt.input_files.size();
+    vw_out() << "Number of cameras: " << no_cameras << std::endl;
+    std::vector<std::string> camera_names(no_cameras);
+    cartography::XYZtoLonLatRadFunctor conv_func;
 
-      // Copying file names
-      for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
-           load_i++) {
-        camera_names[load_i] = opt.input_files[read_i];
-        read_i += opt.loading_image_camera_order ? 2 : 1;
-      }
+    // Copying file names
+    for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
+         load_i++) {
+      camera_names[load_i] = opt.input_files[read_i];
+      read_i += opt.loading_image_camera_order ? 2 : 1;
+    }
 
-      // Create the KML file.
-      KMLFile kml( opt.out_file, "orbitviz" );
-      // Style listing
-      if ( opt.path_to_outside_model.empty() ) {
-        // Placemark Style
-        kml.append_style( "plane", "", 1.2,
-                          "http://maps.google.com/mapfiles/kml/shapes/airports.png");
-        kml.append_style( "plane_highlight", "", 1.4,
-                          "http://maps.google.com/mapfiles/kml/shapes/airports.png");
-        kml.append_stylemap( "camera_placemark", "plane",
-                             "plane_highlight" );
-      }
+    // Create the KML file.
+    KMLFile kml( opt.out_file, "orbitviz" );
+    // Style listing
+    if ( opt.path_to_outside_model.empty() ) {
+      // Placemark Style
+      kml.append_style( "plane", "", 1.2,
+                        "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+      kml.append_style( "plane_highlight", "", 1.4,
+                        "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+      kml.append_stylemap( "camera_placemark", "plane",
+                           "plane_highlight" );
+    }
 
-      // Load up datum
-      cartography::Datum datum;
-      if ( opt.datum == "mars" ) {
-        datum.set_well_known_datum("D_MARS");
-      } else if ( opt.datum == "moon" ) {
-        datum.set_well_known_datum("D_MOON");
-      } else if ( opt.datum == "wgs84" ) {
-        datum.set_well_known_datum("WGS84");
-      } else {
-        vw_out() << "Unknown spheriod request: " << opt.datum << "\n";
-        vw_out() << "->  Defaulting to WGS84\n";
-        datum.set_well_known_datum("WGS84");
-      }
+    // Load up datum
+    cartography::Datum datum;
+    if ( opt.datum == "mars" ) {
+      datum.set_well_known_datum("D_MARS");
+    } else if ( opt.datum == "moon" ) {
+      datum.set_well_known_datum("D_MOON");
+    } else if ( opt.datum == "wgs84" ) {
+      datum.set_well_known_datum("WGS84");
+    } else {
+      vw_out() << "Unknown spheriod request: " << opt.datum << "\n";
+      vw_out() << "->  Defaulting to WGS84\n";
+      datum.set_well_known_datum("WGS84");
+    }
 
-      std::ofstream csv_file("orbit_positions.csv");
-      if ( !csv_file.is_open() )
-	vw_throw( IOErr() << "Unable to open output file.\n" );
+    std::ofstream csv_file("orbit_positions.csv");
+    if ( !csv_file.is_open() )
+      vw_throw( IOErr() << "Unable to open output file.\n" );
 
-      // Building Camera Models and then writing to KML
-      for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
-           load_i++) {
-        boost::shared_ptr<camera::CameraModel> current_camera;
-        if (opt.loading_image_camera_order)
-          current_camera = session->camera_model( opt.input_files[read_i],
-                                                  opt.input_files[read_i+1] );
-	else
-          current_camera = session->camera_model( opt.input_files[read_i],
-                                                  opt.input_files[read_i] );
+    // Building Camera Models and then writing to KML
+    for (unsigned load_i = 0, read_i = 0; load_i < no_cameras;
+         load_i++) {
+      boost::shared_ptr<camera::CameraModel> current_camera;
+      if (opt.loading_image_camera_order)
+        current_camera = session->camera_model( opt.input_files[read_i],
+                                                opt.input_files[read_i+1] );
+      else
+        current_camera = session->camera_model( opt.input_files[read_i],
+                                                opt.input_files[read_i] );
 	
-        if ( opt.write_csv ) {
-          csv_file << camera_names[load_i] << ", ";
+      if ( opt.write_csv ) {
+        csv_file << camera_names[load_i] << ", ";
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-          boost::shared_ptr<IsisCameraModel> isis_cam =
-            boost::shared_dynamic_cast<IsisCameraModel>(current_camera);
-          if ( isis_cam != NULL ) {
-            csv_file << isis_cam->serial_number() << ", ";
-          }
+        boost::shared_ptr<IsisCameraModel> isis_cam =
+          boost::shared_dynamic_cast<IsisCameraModel>(current_camera);
+        if ( isis_cam != NULL ) {
+          csv_file << isis_cam->serial_number() << ", ";
+        }
 #endif
 
-          Vector3 xyz = current_camera->camera_center(Vector2());
-          csv_file << std::setprecision(12);
-          csv_file << xyz[0] << ", "
-                   << xyz[1] << ", " << xyz[2] << "\n";
-        }
-
-        // Adding Placemarks
-        Vector3 lon_lat_alt = conv_func(current_camera->camera_center(Vector2()));
-        lon_lat_alt[2] -= datum.radius(lon_lat_alt[0], lon_lat_alt[1]);
-
-        if (!opt.path_to_outside_model.empty())
-          kml.append_model( opt.path_to_outside_model,
-                            lon_lat_alt.x(), lon_lat_alt.y(),
-                            inverse(current_camera->camera_pose(Vector2())),
-                            camera_names[load_i], "",
-                            lon_lat_alt[2], 1 );
-        else {
-          kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
-                                camera_names[load_i], "", "camera_placemark",
-                                lon_lat_alt[2], true );
-        }
-
-	// Increment
-	read_i += opt.loading_image_camera_order ? 2 : 1;
+        Vector3 xyz = current_camera->camera_center(Vector2());
+        csv_file << std::setprecision(12);
+        csv_file << xyz[0] << ", "
+                 << xyz[1] << ", " << xyz[2] << "\n";
       }
 
-      csv_file.close();
-      kml.close_kml();
+      // Adding Placemarks
+      Vector3 lon_lat_alt = conv_func(current_camera->camera_center(Vector2()));
+      lon_lat_alt[2] -= datum.radius(lon_lat_alt[0], lon_lat_alt[1]);
+
+      if (!opt.path_to_outside_model.empty())
+        kml.append_model( opt.path_to_outside_model,
+                          lon_lat_alt.x(), lon_lat_alt.y(),
+                          inverse(current_camera->camera_pose(Vector2())),
+                          camera_names[load_i], "",
+                          lon_lat_alt[2], 1 );
+      else {
+        kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
+                              camera_names[load_i], "", "camera_placemark",
+                              lon_lat_alt[2], true );
+      }
+
+      // Increment
+      read_i += opt.loading_image_camera_order ? 2 : 1;
+    }
+
+    csv_file.close();
+    kml.close_kml();
   } ASP_STANDARD_CATCHES;
 
   return 0;

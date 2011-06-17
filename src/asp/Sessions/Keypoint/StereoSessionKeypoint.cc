@@ -25,7 +25,9 @@
 using namespace vw;
 using namespace vw::ip;
 
-std::string StereoSessionKeypoint::create_subsampled_align_image(std::string const& image_file, std::string const& suffix) {
+std::string
+asp::StereoSessionKeypoint::create_subsampled_align_image(std::string const& image_file,
+                                                          std::string const& suffix) {
   std::string align_image_file(m_out_prefix + std::string("-normalized-align-sub-") + suffix);
 
   DiskImageView<PixelGray<float> > disk_image(image_file);
@@ -37,7 +39,7 @@ std::string StereoSessionKeypoint::create_subsampled_align_image(std::string con
   return align_image_file;
 }
 
-void StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
+void asp::StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
   Matrix<double> scale_matrix = vw::math::identity_matrix(3);
   Matrix<double> inv_scale_matrix = vw::math::identity_matrix(3);
   double sub_sampling = stereo_settings().keypoint_align_subsampling;
@@ -52,10 +54,10 @@ void StereoSessionKeypoint::scale_align_matrix(Matrix<double> & align_matrix) {
 }
 
 void
-StereoSessionKeypoint::pre_preprocessing_hook(std::string const&/*input_file1*/,
-                                              std::string const&/*input_file2*/,
-                                              std::string & output_file1,
-                                              std::string & output_file2) {
+asp::StereoSessionKeypoint::pre_preprocessing_hook(std::string const&/*input_file1*/,
+                                                   std::string const&/*input_file2*/,
+                                                   std::string & output_file1,
+                                                   std::string & output_file2) {
 
   std::string left_align_image_file(m_left_image_file),
     right_align_image_file(m_right_image_file);
@@ -96,7 +98,8 @@ StereoSessionKeypoint::pre_preprocessing_hook(std::string const&/*input_file1*/,
               TerminalProgressCallback("asp",""));
 }
 
-void StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file, std::string & output_file) {
+void asp::StereoSessionKeypoint::pre_pointcloud_hook(std::string const& input_file,
+                                                     std::string & output_file) {
   //  output_file = input_file;
   output_file = m_out_prefix + "-F-corrected.exr";
   vw_out() << "Processing disparity map to remove the earlier effects of interest point alignment.\n";

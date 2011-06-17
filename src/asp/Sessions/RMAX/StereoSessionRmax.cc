@@ -16,8 +16,9 @@
 using namespace vw;
 using namespace vw::camera;
 
-boost::shared_ptr<vw::camera::CameraModel> StereoSessionRmax::camera_model(std::string image_file,
-                                                                           std::string /*camera_file*/) {
+boost::shared_ptr<vw::camera::CameraModel>
+asp::StereoSessionRmax::camera_model(std::string const& image_file,
+                                     std::string const& /*camera_file*/) {
   ImageInfo info;
   read_image_info( image_file, info );
   CAHVORModel* cahvor = new CAHVORModel;

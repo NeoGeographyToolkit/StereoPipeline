@@ -60,7 +60,7 @@ struct Options : asp::BaseOptions {
 
   // Settings
   std::string stereo_session_string, stereo_default_filename;
-  boost::shared_ptr<StereoSession> session;        // Used to extract cameras
+  boost::shared_ptr<asp::StereoSession> session;   // Used to extract cameras
   vw::BBox2i search_range;                         // Correlation search window
   bool optimized_correlator, draft_mode;
 
@@ -213,8 +213,8 @@ namespace vw {
       }
     }
 
-    opt.session = boost::shared_ptr<StereoSession>( StereoSession::create(opt.stereo_session_string) );
-    opt.session->initialize(opt.in_file1, opt.in_file2,
+    opt.session.reset( asp::StereoSession::create(opt.stereo_session_string) );
+    opt.session->initialize(opt, opt.in_file1, opt.in_file2,
                             opt.cam_file1, opt.cam_file2,
                             opt.out_prefix, opt.extra_arg1, opt.extra_arg2,
                             opt.extra_arg3, opt.extra_arg4);
@@ -248,9 +248,9 @@ namespace vw {
                                           &DiskImageResourceIsis::construct_create);
 #endif
 
-    StereoSession::register_session_type( "rmax", &StereoSessionRmax::construct);
+    asp::StereoSession::register_session_type( "rmax", &asp::StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    StereoSession::register_session_type( "isis", &StereoSessionIsis::construct);
+    asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
 #endif
 
   }
