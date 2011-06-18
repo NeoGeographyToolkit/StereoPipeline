@@ -383,7 +383,7 @@ AX_APP(ISISADJUSTCNETCLIP, [src/asp/Tools], no,[VW_BUNDLEADJUSTMENT CORE ISISIO]
 AX_APP(MER2CAMERA,       [src/asp/Tools], yes, [VW VW_CAMERA CORE])
 
 # Toolkits (like module, but doesn't build a library)
-AX_MODULE(CONTROLNETTK, [src/asp/ControlNetTK], [], no, [VW_BUNDLEADJUSTMENT ISISIO], [BOOST])
+AX_MODULE(CONTROLNETTK, [src/asp/ControlNetTK], [], no, [VW_BUNDLEADJUSTMENT CORE ISISIO], [BOOST])
 
 # These are here (instead of inside the APP macro where they belong)
 # for backwards compatability with older versions of automake.
