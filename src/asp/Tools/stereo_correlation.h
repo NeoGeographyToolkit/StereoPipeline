@@ -67,7 +67,14 @@ namespace vw {
           ip2 = detect_interest_points( right_sub_image, detector );
 
           ipgain *= 0.75;
+	  if ( ipgain < 1e-2 ) {
+	    vw_out() << "\t    * Unable to find desirable amount of Interest Points.\n";
+	    break;
+	  }
         }
+
+	if ( ip1.size() < 8 || ip2.size() < 8 )
+	  vw_throw( InputErr() << "Unable to extract interest points from input images [" << left_image << "," << right_image << "]! Unable to continue." );
 
         // Making sure we don't exceed 3000 points
         ip1.sort();
