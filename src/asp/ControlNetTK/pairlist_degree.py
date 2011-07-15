@@ -60,10 +60,13 @@ def main():
         position_extract_cmds = []
         step_size = 1;
 
+        args.sort() # Make sure the isis_adjust are correctly placed
+
         # Building position extraction commands
         if ( args[0].rfind(".cub") >= 0 ):
             if ( args[1].rfind(".isis_adjust") >= 0 ):
                 step_size = 2;
+            sys.stderr.write("Found %d cameras." % (len(args)/step_size))
             for i in range(0,len(args),step_size):
                 # Fetching the Lat Long of the center pixel - We could at
                 # some point fetch the corners and do something more
@@ -73,6 +76,7 @@ def main():
                     cmd = cmd+" "+args[i+1]
                 position_extract_cmds.append(cmd)
         else:
+            sys.stderr.write("Found %d cameras." % len(args))
             for i in args:
                 cmd = vw_position_extract+" "+i
                 position_extract_cmds.append(cmd);
