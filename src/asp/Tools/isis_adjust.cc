@@ -28,7 +28,7 @@ struct Options : public asp::BaseOptions {
   Options() : lambda(-1), seed_previous(false) {}
   // Input
   std::string cnet_file, cost_function, ba_type, output_prefix;
-  std::vector<std::string> input_names, gcp_names, gcp_cnet_names;
+  std::vector<std::string> input_names, gcp_names, gcp_cnet_names, directory_names;
   double cam_position_sigma, cam_pose_sigma, gcp_scalar,
     lambda, robust_threshold;
   int max_iterations, report_level, min_matches, poly_order;
@@ -179,6 +179,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Choose a robust cost function from [PseudoHuber, Huber, L1, L2, Cauchy]")
     ("bundle-adjuster", po::value(&opt.ba_type)->default_value("Sparse"),
      "Choose a bundle adjustment version from [Ref, Sparse, RobustRef, RobustSparse]")
+    ("directory,d", po::value(&opt.directory_names),
+     "Directory(-ies) to search for match files. Defaults with current directory.")
     ("disable-camera-const", po::bool_switch(&opt.disable_camera)->default_value(false),
      "Disable camera constraint error")
     ("disable-gcp-const", po::bool_switch(&opt.disable_gcp)->default_value(false),
@@ -248,6 +250,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           opt.ba_type == "robustsparse" ) )
     vw_throw( ArgumentErr() << "Unknown bundle adjustment version: " << opt.ba_type
               << ". Options are : [Ref, Sparse, RobustRef, RobustSparse]\n" );
+  if ( opt.directory_names.empty() )
+    opt.directory_names.push_back( std::string(".") );
 }
 
 int main(int argc, char* argv[]) {
@@ -300,7 +304,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Loading/Building Control Network
-    opt.cnet = boost::shared_ptr<ControlNetwork>( new ControlNetwork("IsisAdjust") );
+    opt.cnet.reset( new ControlNetwork("IsisAdjust") );
     if ( !opt.cnet_file.empty() ) {
       vw_out() << "Loading control network from file: " << opt.cnet_file << "\n";
 
@@ -342,9 +346,9 @@ int main(int argc, char* argv[]) {
     } else {
       vw_out() << "Building Control Network:\n";
       vw_out() << "-------------------------\n";
-      build_control_network( (*opt.cnet), camera_models,
-                             opt.input_names,
-                             opt.min_matches );
+      build_control_network( *opt.cnet, camera_models,
+                             opt.input_names, opt.min_matches,
+                             opt.directory_names );
     }
 
     // Load up GCPs
