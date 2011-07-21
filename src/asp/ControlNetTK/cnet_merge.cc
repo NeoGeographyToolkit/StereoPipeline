@@ -150,6 +150,15 @@ int main( int argc, char** argv ) {
         }
       }
       tpc.report_finished();
+
+      // Filter out ground control points as CRNs don't store the measurement.
+      for ( size_t i = 0; i < dst_cnet.size(); i++ ) {
+        if ( dst_cnet[i].type() == ControlPoint::GroundControlPoint ) {
+          ground_cp.push_back( dst_cnet[i] );
+          dst_cnet.delete_control_point(i);
+          i--;
+        }
+      }
     }
 
     CameraRelationNetwork<IPFeature> dst_crn;
@@ -269,7 +278,11 @@ int main( int argc, char** argv ) {
       }
     }
 
-    dst_crn.write_controlnetwork( dst_cnet );
+    try {
+      dst_crn.write_controlnetwork( dst_cnet );
+    } catch ( ArgumentErr const& e ) {
+      dst_cnet.clear();
+    }
     dst_cnet.add_control_points( ground_cp );
     vw_out() << "Output Control Network:\n";
     print_cnet_statistics( dst_cnet );
