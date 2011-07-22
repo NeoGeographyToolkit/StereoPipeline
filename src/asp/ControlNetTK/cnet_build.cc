@@ -71,7 +71,7 @@ void sort_out_gcpcnets( IContainT& input, OContainT& output ) {
 struct Options : public asp::BaseOptions {
   // Input
   std::vector<std::string> input_names, gcp_names,
-    gcp_cnet_names, serial_names;
+    gcp_cnet_names, serial_names, directory_names;
   int min_matches;
   bool isis_adjust;
 
@@ -83,6 +83,8 @@ struct Options : public asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
+    ("directory,d", po::value(&opt.directory_names),
+     "Directory(-ies) to search for match files. Defaults with current directory.")
     ("o,output-cnet", po::value(&opt.cnet_output)->default_value("cnet_built"), "Output file for control network.")
     ("t,type-of-cnet", po::value(&opt.cnet_output_type)->default_value("binary"), "Types of cnets are [binary,isis]")
     ("isis-adjust", po::bool_switch(&opt.isis_adjust)->default_value(false),
@@ -112,6 +114,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // double checking the string inputs
   boost::to_lower( opt.cnet_output_type );
+  if ( opt.directory_names.empty() )
+    opt.directory_names.push_back( std::string(".") );
 }
 
 int main( int argc, char* argv[] ) {
@@ -147,7 +151,8 @@ int main( int argc, char* argv[] ) {
     vw_out() << "Building Control Network\n";
     ControlNetwork cnet( "ControlNetworkTK" );
     build_control_network( cnet, camera_models,
-                           opt.input_names, opt.min_matches );
+                           opt.input_names, opt.min_matches,
+                           opt.directory_names);
     add_ground_control_points( cnet, opt.input_names,
                                opt.gcp_names.begin(), opt.gcp_names.end() );
     add_ground_control_cnets( cnet, opt.input_names,
