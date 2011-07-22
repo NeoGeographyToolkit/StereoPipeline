@@ -71,31 +71,6 @@ struct Options : asp::BaseOptions {
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
 
-  // Duplicate matches for any given interest point probably indicate a
-  // poor match, so we cull those out here.
-  void remove_duplicates(std::vector<ip::InterestPoint> &ip1,
-                         std::vector<ip::InterestPoint> &ip2) {
-    std::vector<ip::InterestPoint> new_ip1, new_ip2;
-
-    for (unsigned i = 0; i < ip1.size(); ++i) {
-      bool bad_entry = false;
-      for (unsigned j = 0; j < ip1.size(); ++j) {
-        if (i != j &&
-            ((ip1[i].x == ip1[j].x && ip1[i].y == ip1[j].y) ||
-             (ip2[i].x == ip2[j].x && ip2[i].y == ip2[j].y)) ) {
-          bad_entry = true;
-        }
-      }
-      if (!bad_entry) {
-        new_ip1.push_back(ip1[i]);
-        new_ip2.push_back(ip2[i]);
-      }
-    }
-
-    ip1 = new_ip1;
-    ip2 = new_ip2;
-  }
-
   // Posix time is not fully supported in the version of Boost for RHEL
   // Workstation 4
 #ifndef __APPLE__

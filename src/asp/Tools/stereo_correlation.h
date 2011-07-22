@@ -110,16 +110,15 @@ namespace vw {
       vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
 
       vw_out() << "\t    * Rejecting outliers using RANSAC.\n";
-      remove_duplicates(matched_ip1, matched_ip2);
+      ip::remove_duplicates(matched_ip1, matched_ip2);
       std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
       std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
-      std::vector<int> indices;
+      std::vector<size_t> indices;
 
       try {
-        Matrix<double> trans;
         math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
           ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 25 );
-        trans = ransac( ransac_ip1, ransac_ip2 );
+        Matrix<double> trans = ransac( ransac_ip1, ransac_ip2 );
         vw_out(DebugMessage) << "\t    * Ransac Result: " << trans << std::endl;
         indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
       } catch ( vw::math::RANSACErr const& e ) {
@@ -132,7 +131,7 @@ namespace vw {
 
       { // Keeping only inliers
         std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-        for ( unsigned i = 0; i < indices.size(); i++ ) {
+        for ( size_t i = 0; i < indices.size(); i++ ) {
           inlier_ip1.push_back( matched_ip1[indices[i]] );
           inlier_ip2.push_back( matched_ip2[indices[i]] );
         }

@@ -34,11 +34,6 @@ namespace asp {
     std::string m_extra_argument1, m_extra_argument2,
       m_extra_argument3, m_extra_argument4;
 
-    // Duplicate matches for any given interest point probably indicate a
-    // poor match, so we cull those out here.
-    void remove_duplicates(std::vector<vw::ip::InterestPoint> &ip1,
-                           std::vector<vw::ip::InterestPoint> &ip2);
-
     template <class ImageT1, class ImageT2>
     vw::Matrix3x3
     determine_image_align( std::string const& input_file1,
@@ -159,7 +154,7 @@ namespace asp {
                            << " duplicate matches.\n";
 
       Matrix<double> T;
-      std::vector<int> indices;
+      std::vector<size_t> indices;
       try {
 
         vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 10 );
@@ -177,7 +172,7 @@ namespace asp {
 
       { // Keeping only inliers
         std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-        for ( unsigned i = 0; i < indices.size(); i++ ) {
+        for ( size_t i = 0; i < indices.size(); i++ ) {
           inlier_ip1.push_back( matched_ip1[indices[i]] );
           inlier_ip2.push_back( matched_ip2[indices[i]] );
         }
