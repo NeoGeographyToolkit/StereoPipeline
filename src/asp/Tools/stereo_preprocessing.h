@@ -61,7 +61,11 @@ namespace vw {
     // search range. They're also a handy debug tool.
     int smallest_edge = std::min(std::min(left_image.cols(), left_image.rows()),
                                  std::min(right_image.cols(), right_image.rows()) );
-    float sub_scale = 2048.0 / float(smallest_edge);;
+    float sub_scale =
+      sqrt(1500.0 * 1500.0 / float(left_image.cols() * left_image.rows()));
+    sub_scale +=
+      sqrt(1500.0 * 1500.0 / float(right_image.cols() * right_image.rows()));
+    sub_scale /= 2;
     if ( sub_scale > 1 ) sub_scale = 1;
 
     // Solving for the number of threads and the tile size to use for
