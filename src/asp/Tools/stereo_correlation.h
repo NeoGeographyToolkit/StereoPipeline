@@ -67,14 +67,14 @@ namespace vw {
           ip2 = detect_interest_points( right_sub_image, detector );
 
           ipgain *= 0.75;
-	  if ( ipgain < 1e-2 ) {
-	    vw_out() << "\t    * Unable to find desirable amount of Interest Points.\n";
-	    break;
-	  }
+          if ( ipgain < 1e-2 ) {
+            vw_out() << "\t    * Unable to find desirable amount of Interest Points.\n";
+            break;
+          }
         }
 
-	if ( ip1.size() < 8 || ip2.size() < 8 )
-	  vw_throw( InputErr() << "Unable to extract interest points from input images [" << left_image << "," << right_image << "]! Unable to continue." );
+        if ( ip1.size() < 8 || ip2.size() < 8 )
+          vw_throw( InputErr() << "Unable to extract interest points from input images [" << left_image << "," << right_image << "]! Unable to continue." );
 
         // Making sure we don't exceed 3000 points
         ip1.sort();
@@ -83,6 +83,14 @@ namespace vw {
           ip1.resize(3000);
         if ( ip2.size() > 3000 )
           ip2.resize(3000);
+
+        // Stripping out orientation .. this allows for a better
+        // possibility of interest point matches.
+        //
+        // This is no loss as images at this point are already aligned
+        // since the dense correlator is not rotation invariant.
+        BOOST_FOREACH( ip::InterestPoint& ip, ip1 ) ip.orientation = 0;
+        BOOST_FOREACH( ip::InterestPoint& ip, ip2 ) ip.orientation = 0;
 
         vw_out() << "\t    * Generating descriptors..." << std::flush;
         ip::SGradDescriptorGenerator descriptor;
@@ -103,7 +111,7 @@ namespace vw {
       ip2_copy = ip::read_binary_ip_file(right_ip_file);
 
       vw_out() << "\t    * Matching interest points\n";
-      ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
+      ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.6);
 
       matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
               false, TerminalProgressCallback( "asp", "\t    Matching: "));
@@ -116,10 +124,24 @@ namespace vw {
       std::vector<size_t> indices;
 
       try {
+        // Figure out the inlier threshold .. it should be about 3% of
+        // the edge lengths. This is a bit of a magic number, but I'm
+        // pulling from experience that an inlier threshold of 30
+        // worked best for 1024^2 AMC imagery.
+        DiskImageView<PixelGray<float32> > left_sub_image(left_image);
+        DiskImageView<PixelGray<float32> > right_sub_image(right_image);
+        float inlier_threshold =
+          0.0075 * left_sub_image.cols() +
+          0.0075 * left_sub_image.rows() +
+          0.0075 * right_sub_image.cols() +
+          0.0075 * right_sub_image.rows();
+
         math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
-          ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 25 );
+          ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), inlier_threshold );
         Matrix<double> trans = ransac( ransac_ip1, ransac_ip2 );
         vw_out(DebugMessage) << "\t    * Ransac Result: " << trans << std::endl;
+        vw_out(DebugMessage) << "\t      inlier thresh: "
+                             << inlier_threshold << " px" << std::endl;
         indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
       } catch ( vw::math::RANSACErr const& e ) {
         vw_out() << "-------------------------------WARNING---------------------------------\n";
