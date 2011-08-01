@@ -550,19 +550,30 @@ these two images. This can be done using the \texttt{ipfind} and
 \texttt{ipmatch} utilities. These tools do not reliably (currently)
 work with photometrically calibrated images, so we must first convert
 these images to a standard format using the \ac{ISIS} program
-\texttt{isis2std}:
+\texttt{isis2std} or \texttt{gdal\_translate}. The utility
+\texttt{gdal\_translate} is the preferred option as it is able to
+produce lossless compressed images.
 
 \begin{verbatim}
-  ISIS 3> isis2std from= m1000254.cub to= m1000254.png format= PNG
-  ISIS 3> isis2std from= r0901059.cub to= r0901059.png format= PNG
+  ISIS 3> isis2std from= m1000254.cub to= m1000254.tif format=TIFF
+  ISIS 3> isis2std from= r0901059.cub to= r0901059.tif format=TIFF
 \end{verbatim}
 
-Here is how to process those newly created PNG files for tie-points
+or ...
+
+\begin{verbatim}
+  ISIS 3> gdal_translate -of GTiff -scale -ot Byte
+              -co COMPRESS=LZW -co TILED=yes m1000254.cub m1000254.tif
+  ISIS 3> gdal_translate -of GTiff -scale -ot Byte
+              -co COMPRESS=LZW -co TILED=yes r0901059.cub r0901059.tif
+\end{verbatim}
+
+Here is how to process those newly created TIFF files for tie-points
 using the Interest Point Module tools from Vision Workbench.
 
 \begin{verbatim}
-  > ipfind  m1000254.png r0901059.png -g 1.2
-  > ipmatch m1000254.png r0901059.png -d -r homography -i 30
+  > ipfind  m1000254.tif r0901059.tif -g 1.2
+  > ipmatch m1000254.tif r0901059.tif -d -r homography -i 30
 \end{verbatim}
 
 \begin{center}
