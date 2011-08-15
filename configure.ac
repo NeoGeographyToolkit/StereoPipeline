@@ -198,7 +198,8 @@ AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore], 
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
 AX_PKG(VW_FILEIO,[VW_IMAGE BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
-AX_GROUP_PKG(VW, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
+AX_PKG(VW_TOOLS, [VW_IMAGE VW_MATH VW_CORE BOOST_FILESYSTEM BOOST_PROGRAM_OPTIONS THREADS], [-lvwTools], [vw/tools/Common.h])
+AX_GROUP_PKG(VW, [VW_TOOLS VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
 
 # Double Check again that VW_FILEIO really was built with the correct 3rdParty.
 AX_EXTRACT_CPP_SYMBOL([VW_HAVE_PKG_OPENEXR], [#include <vw/config.h>],

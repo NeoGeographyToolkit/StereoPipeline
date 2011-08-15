@@ -23,6 +23,7 @@
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/tools/Common.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 using namespace vw;
@@ -36,7 +37,6 @@ struct Options : asp::BaseOptions {
   std::string input_file_name;
 
   // Output
-  bool float_output;
   std::string output_prefix, output_file_type;
 };
 
@@ -44,8 +44,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix")
-    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
-    ("float-pixels", "Save the resulting debug images as 32 bit floating point files (if supported by the selected files type.");
+    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -65,9 +64,31 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.input_file_name.empty() )
     vw_throw( ArgumentErr() << "Missing input file!\n"
               << usage.str() << general_options );
-  if ( opt.output_prefix == "" )
+  if ( opt.output_prefix.empty() )
     opt.output_prefix = fs::path(opt.input_file_name).stem();
-  opt.float_output = vm.count("float-pixels");
+}
+
+template <class PixelT>
+void do_disparity_visualization(Options& opt) {
+  DiskImageView<PixelT > disk_disparity_map(opt.input_file_name);
+
+  vw_out() << "\t--> Computing disparity range \n";
+  BBox2 disp_range = get_disparity_range(disk_disparity_map);
+  vw_out() << "\t    Horizontal - [" << disp_range.min().x()
+           << " " << disp_range.max().x() << "]    Vertical: ["
+           << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
+
+  typedef typename PixelChannelType<PixelT>::type ChannelT;
+  ImageViewRef<ChannelT> horizontal = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x())),disk_disparity_map));
+  ImageViewRef<ChannelT> vertical = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y())),disk_disparity_map));
+
+  vw_out() << "\t--> Saving disparity debug images\n";
+  block_write_gdal_image( opt.output_prefix+"-H."+opt.output_file_type,
+                          channel_cast_rescale<uint8>(horizontal),
+                          opt, TerminalProgressCallback("asp","\t    Left  : "));
+  block_write_gdal_image( opt.output_prefix + "-V." + opt.output_file_type,
+                          channel_cast_rescale<uint8>(vertical),
+                          opt, TerminalProgressCallback("asp","\t    Right : "));
 }
 
 int main( int argc, char *argv[] ) {
@@ -77,30 +98,29 @@ int main( int argc, char *argv[] ) {
     handle_arguments( argc, argv, opt );
 
     vw_out() << "Opening " << opt.input_file_name << "\n";
-    DiskImageView<PixelMask<Vector2f> > disk_disparity_map(opt.input_file_name);
+    ImageFormat fmt = tools::taste_image(opt.input_file_name);
 
-    vw_out() << "\t--> Computing disparity range \n";
-    BBox2 disp_range = get_disparity_range(disk_disparity_map);
-    vw_out() << "\t    Horizontal - [" << disp_range.min().x()
-             << " " << disp_range.max().x() << "]    Vertical: ["
-             << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
+    std::cout << "Pixel format: "
+              << pixel_format_name(fmt.pixel_format) << "\n";
 
-    ImageViewRef<float32> horizontal = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x(),0,1)),disk_disparity_map));
-    ImageViewRef<float32> vertical = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y(),0,1)),disk_disparity_map));
-
-    vw_out() << "\t--> Saving disparity debug images\n";
-    if (opt.float_output) {
-      write_image( opt.output_prefix + "-H." + opt.output_file_type, horizontal,
-                   TerminalProgressCallback("asp","\t    Left  : "));
-      write_image( opt.output_prefix + "-V." + opt.output_file_type, vertical,
-                   TerminalProgressCallback("asp","\t    Right : "));
-    } else {
-      write_image( opt.output_prefix + "-H." + opt.output_file_type,
-                   channel_cast_rescale<uint8>(horizontal),
-                   TerminalProgressCallback("asp","\t    Left  : "));
-      write_image( opt.output_prefix + "-V." + opt.output_file_type,
-                   channel_cast_rescale<uint8>(vertical),
-                   TerminalProgressCallback("asp","\t    Right : "));
+    switch(fmt.pixel_format) {
+    case VW_PIXEL_GENERIC_2_CHANNEL:
+      switch (fmt.channel_type) {
+      case VW_CHANNEL_INT32:
+        do_disparity_visualization<Vector2i>(opt); break;
+      default:
+        do_disparity_visualization<Vector2f>(opt); break;
+      } break;
+    case VW_PIXEL_RGB:
+    case VW_PIXEL_GENERIC_3_CHANNEL:
+      switch (fmt.channel_type) {
+      case VW_CHANNEL_INT32:
+        do_disparity_visualization<PixelMask<Vector2i> >(opt); break;
+      default:
+        do_disparity_visualization<PixelMask<Vector2f> >(opt); break;
+      } break;
+    default:
+      vw_throw( ArgumentErr() << "Unsupported pixel format. Expected GENERIC 2 or 3 CHANNEL image." );
     }
 
   } ASP_STANDARD_CATCHES;
