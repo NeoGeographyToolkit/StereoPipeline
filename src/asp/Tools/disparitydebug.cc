@@ -79,8 +79,16 @@ void do_disparity_visualization(Options& opt) {
            << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
 
   typedef typename PixelChannelType<PixelT>::type ChannelT;
-  ImageViewRef<ChannelT> horizontal = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,0), disp_range.min().x(), disp_range.max().x())),disk_disparity_map));
-  ImageViewRef<ChannelT> vertical = apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,1), disp_range.min().y(), disp_range.max().y())),disk_disparity_map));
+  ImageViewRef<ChannelT> horizontal =
+    apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,0),
+                                         disp_range.min().x(), disp_range.max().x(),
+                                         ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max())),
+                         disk_disparity_map));
+  ImageViewRef<ChannelT> vertical =
+    apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,1),
+                                         disp_range.min().y(), disp_range.max().y(),
+                                         ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max())),
+                         disk_disparity_map));
 
   vw_out() << "\t--> Saving disparity debug images\n";
   block_write_gdal_image( opt.output_prefix+"-H."+opt.output_file_type,
