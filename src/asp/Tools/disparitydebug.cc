@@ -100,9 +100,6 @@ int main( int argc, char *argv[] ) {
     vw_out() << "Opening " << opt.input_file_name << "\n";
     ImageFormat fmt = tools::taste_image(opt.input_file_name);
 
-    std::cout << "Pixel format: "
-              << pixel_format_name(fmt.pixel_format) << "\n";
-
     switch(fmt.pixel_format) {
     case VW_PIXEL_GENERIC_2_CHANNEL:
       switch (fmt.channel_type) {
