@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
       if ( dot_prod( camera_model1->pixel_to_vector(Vector2()),
                      point - camera_model1->camera_center(Vector2()) ) < 0 )
         vw_out(WarningMessage,"console")
-          << "Your cameras appear to no be pointing at the same location!\n"
+          << "Your cameras appear not to be pointing at the same location!\n"
           << "\tA test vector triangulated backwards through\n"
           << "\tthe camera models. You should double check\n"
           << "\tyour input models as most likely stereo won't\n"
