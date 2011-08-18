@@ -77,11 +77,19 @@ namespace vw {
 
       // Apply radius function and stereo model in one go
       vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
-      ImageViewRef<Vector3> point_cloud =
-        per_pixel_filter(stereo::stereo_triangulate( disparity_map,
-                                                     camera_model1.get(),
-                                                     camera_model2.get() ),
-                         universe_radius_func);
+      ImageViewRef<Vector3> point_cloud;
+      if ( stereo_settings().use_least_squares )
+        point_cloud =
+          per_pixel_filter(stereo::lsq_stereo_triangulate( disparity_map,
+                                                           camera_model1.get(),
+                                                           camera_model2.get() ),
+                           universe_radius_func);
+      else
+        point_cloud =
+          per_pixel_filter(stereo::stereo_triangulate( disparity_map,
+                                                       camera_model1.get(),
+                                                       camera_model2.get() ),
+                           universe_radius_func);
 
       vw_out(VerboseDebugMessage,"asp") << "Writing Point Cloud: "
                                         << opt.out_prefix + "-PC.tif\n";

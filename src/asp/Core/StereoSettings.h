@@ -91,6 +91,7 @@ public:
   std::string universe_center; /* center for the radius clipping   */
   float near_universe_radius;  /* radius of the universe in meters */
   float far_universe_radius;   /* radius of the universe in meters */
+  int   use_least_squares;     /* use a more rigorous triangulation */
 
   // System Settings
   std::string cache_dir;   /* DiskCacheViews will use this directory */

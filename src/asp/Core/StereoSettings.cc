@@ -139,6 +139,7 @@ StereoSettings::StereoSettings() {
   ASSOC_STRING("UNIVERSE_CENTER", universe_center, "NONE", "center for radius measurements [CAMERA, ZERO, NONE]");
   ASSOC_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius, 0.0, "radius of inner boundary of universe [m]");
   ASSOC_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius, 0.0, "radius of outer boundary of universe [m]");
+  ASSOC_INT("USE_LEAST_SQUARES", use_least_squares, 0, "use a more rigorous triangulation");
 
   // System Settings
   ASSOC_STRING("CACHE_DIR", cache_dir, "/tmp", "Change if can't write large files to /tmp (i.e. Super Computer)");
