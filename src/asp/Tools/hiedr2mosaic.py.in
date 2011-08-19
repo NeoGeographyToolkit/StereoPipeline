@@ -304,7 +304,7 @@ def cubenorm( fromcub, delete=False ):
 def main():
     try:
         try:
-            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][-m match] HiRISE-EDR.IMG-files "
+            usage = "usage: hiedr2mosaic.py [--help][--manual][--threads N][--keep][-m match] HiRISE-EDR.IMG-files\n  [ASP [@]ASP_VERSION[@]]"
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(delete=True)
             parser.set_defaults(match=5)

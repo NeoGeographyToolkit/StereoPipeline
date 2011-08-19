@@ -145,14 +145,21 @@ if MAKE_APP_MER2CAMERA
   mer2camera_LDADD   = $(APP_MER2CAMERA_LIBS)
 endif
 
+# Scripts
 ##############################################################################
-#                             Tests                                          #
+
+python_tool_scripts = stereo time_trials cam2map4stereo.py hiedr2mosaic.py
+bin_SCRIPTS = $(python_tool_scripts)
+CLEANFILES = $(python_tool_scripts)
+
+$(python_tool_scripts): %: %.in
+	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
+	chmod +x $@
+
 ##############################################################################
 
 AM_CPPFLAGS = @ASP_CPPFLAGS@
 AM_LDFLAGS  = @ASP_LDFLAGS@
-
-bin_SCRIPTS = cam2map4stereo.py hiedr2mosaic.py stereo time_trials
 
 SUBDIRS = .
 

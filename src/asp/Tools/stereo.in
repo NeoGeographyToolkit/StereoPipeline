@@ -36,7 +36,8 @@ if __name__ == '__main__':
         Camera model arguments may be optional for some stereo
         session types (e.g. isis). Stereo parameters should be
         set in the stereo.default file.
-    '''
+
+  [ASP [@]ASP_VERSION[@]]'''
 
     p = optparse.OptionParser(usage=usage)
     p.add_option('--threads',              dest='threads',     type='int',

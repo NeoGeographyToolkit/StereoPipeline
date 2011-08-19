@@ -4,7 +4,7 @@ import os, sys, optparse, string, subprocess, math
 
 def main():
     try:
-        usage = "usage: time_trials [options] command"
+        usage = "usage: time_trials [options] command\n  [ASP [@]ASP_VERSION[@]]"
         parser = optparse.OptionParser(usage=usage)
         parser.set_defaults(trials=5)
         parser.add_option("--trials", dest="trials",
