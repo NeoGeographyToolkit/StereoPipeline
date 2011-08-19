@@ -159,16 +159,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " <point-cloud> ...\n";
-
+  std::string usage("<point-cloud> ...");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   if ( opt.pointcloud_filename.empty() )
     vw_throw( ArgumentErr() << "Missing point cloud.\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );

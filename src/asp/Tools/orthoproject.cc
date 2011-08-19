@@ -68,17 +68,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("camera-model",1);
   positional_desc.add("output-file",1);
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <dem> <camera-image> <camera-model> <output>\n";
-
+  std::string usage("[options] <dem> <camera-image> <camera-model> <output>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   if ( opt.dem_file.empty() || opt.image_file.empty() ||
        opt.camera_model_file.empty() )
     vw_throw( ArgumentErr() << "Missing input files!\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   if ( !color_text.empty() ) {
     opt.do_color=true;
     typedef boost::tokenizer<boost::char_separator<char> > tokenizer;

@@ -40,7 +40,7 @@ sort_out_gcps( std::vector<std::string>& image_files ) {
   return gcp_files;
 }
 
-struct Options {
+struct Options : public asp::BaseOptions {
   std::vector<std::string> image_files, gcp_files;
   std::string cnet_file, stereosession_type, ba_type;
 
@@ -116,7 +116,7 @@ void do_ba( typename  AdjusterT::cost_type const& cost_function,
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
-    po::options_description general_options("");
+  po::options_description general_options("");
   general_options.add_options()
     ("cnet,c", po::value(&opt.cnet_file),
      "Load a control network from a file")
@@ -133,8 +133,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-iterations", po::value(&opt.max_iterations)->default_value(25), "Set the maximum number of iterations.")
     ("report-level,r",po::value(&opt.report_level)->default_value(10),
      "Changes the detail of the Bundle Adjustment Report")
-    ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.")
-    ("help,h", "Display this help message");
+    ("save-iteration-data,s", "Saves all camera information between iterations to iterCameraParam.txt, it also saves point locations for all iterations in iterPointsParam.txt.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -143,26 +143,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
+  std::string usage("[options] <image filenames> ...");
+  po::variables_map vm =
+    asp::check_command_line(argc, argv, opt, general_options,
+                            positional, positional_desc, usage);
 
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error const& e ) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <image filenames> ...\n";
-
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.image_files.empty() )
     vw_throw( ArgumentErr() << "Missing input cube files!\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   opt.gcp_files = sort_out_gcps( opt.image_files );
   opt.save_iteration = vm.count("save-iteration-data");
   boost::to_lower( opt.stereosession_type );

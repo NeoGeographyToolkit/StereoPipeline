@@ -49,16 +49,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("gcp-file", 1);
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <gcp file> \n";
-
+  std::string usage("[options] <gcp file>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   if ( opt.gcp_file.empty() )
     vw_throw( ArgumentErr() << "Missing input GCP file!\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   if ( opt.output_file.empty() )
     opt.output_file =
       fs::path( opt.gcp_file ).stem()+"-render.tif";

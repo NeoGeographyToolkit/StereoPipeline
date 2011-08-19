@@ -37,7 +37,7 @@ using namespace vw::cartography;
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif
 
-struct Options {
+struct Options : public asp::BaseOptions {
   Options() : loading_image_camera_order(true) {}
   // Input
   std::vector<std::string> input_files;
@@ -64,8 +64,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Set a reference surface to a hard coded value (one of [moon, mars, wgs84].)")
     ("use-path-to-dae-model,u", po::value(&opt.path_to_outside_model),
      "Instead of using an icon to mark a camera, use a 3D model with extension .dae")
-    ("write-csv", "write a csv file with the orbital the data.")
-    ("help,h", "Display this help message");
+    ("write-csv", "write a csv file with the orbital the data.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -74,21 +74,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
-
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error const& e ) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <input image> <input camera model> <...and repeat...>\n";
-  usage << "Note: All cameras and their images must be of the same session type. Camera models only can be used as input for stereo sessions pinhole and isis.\n\n";
+  std::string usage("[options] <input image> <input camera model> <...and repeat...>\nNote: All cameras and their images must be of the same session type. Camera models only can be used as input for stereo sessions pinhole and isis.");
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage );
 
   // Determining if feed only camera model
   if ( opt.input_files.size() == 1 )
@@ -100,9 +89,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       opt.loading_image_camera_order = false;
   }
 
-  if ( vm.count("help") || opt.input_files.size() == 0 ||
+  if ( opt.input_files.size() == 0 ||
        (opt.loading_image_camera_order && opt.input_files.size() < 2) )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
+    vw_throw( ArgumentErr() << usage << general_options );
 
   opt.write_csv = vm.count("write-csv");
 

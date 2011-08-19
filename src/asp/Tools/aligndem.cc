@@ -164,17 +164,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("dem2", 1);
   positional_desc.add("ortho2", 1);
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " <dem1> <ortho1> <dem2> <ortho2>" << endl;
-
+  std::string usage("<dem1> <ortho1> <dem2> <ortho2>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   if ( opt.dem1_name.empty() || opt.dem2_name.empty() ||
        opt.ortho1_name.empty() || opt.ortho2_name.empty() )
     vw_throw( ArgumentErr() << "Missing input files.\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   if ( opt.output_prefix.empty() )
     opt.output_prefix = change_extension(fs::path(opt.dem1_name), "").string();
 }

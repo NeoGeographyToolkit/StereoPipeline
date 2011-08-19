@@ -99,16 +99,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <isis cube files> ...\n";
-
+  std::string usage("[options] <isis cube files> ...");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   if ( opt.input_names.empty() )
     vw_throw( ArgumentErr() << "Missing input cube files!\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   sort_out_gcp( opt.input_names, opt.gcp_names );
   sort_out_gcpcnets( opt.input_names, opt.gcp_cnet_names );
 

@@ -40,7 +40,7 @@ namespace asp {
                       boost::program_options::options_description const& public_options,
                       boost::program_options::options_description const& hidden_options,
                       boost::program_options::positional_options_description const& positional,
-                      std::string const& help );
+                      std::string & usage_comment );
 
   bool has_cam_extension( std::string const& input );
 

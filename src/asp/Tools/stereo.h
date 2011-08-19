@@ -127,22 +127,17 @@ namespace vw {
     positional_desc.add("extra_argument3", 1);
     positional_desc.add("extra_argument4", 1);
 
-    std::ostringstream usage;
-    usage << "Usage: " << argv[0] << " [options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n"
-          << "  Extensions are automaticaly added to the output files.\n"
-          << "  Camera model arguments may be optional for some stereo session types (e.g. isis).\n"
-          << "  Stereo parameters should be set in the stereo.default file.\n";
-
+    std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g. isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options,
-                               positional, positional_desc, usage.str() );
+                               positional, positional_desc, usage );
 
     opt.draft_mode = vm.count("draft-mode");
 
     if (!vm.count("left-input-image") || !vm.count("right-input-image") ||
         !vm.count("left-camera-model") )
       vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
-                << usage.str() << "\n" << general_options );
+                << usage << general_options );
 
     // If the user hasn't specified a stereo session type, we take a
     // guess here based on the file suffixes.

@@ -73,16 +73,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   p.add("camera-model",1);
   p.add("output-url",1);
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " <input-plate> <camera-image> <camera-model> <output-plate> [options]\n";
-
+  std::string usage("<input-plate> <camera-image> <camera-model> <output-plate> [options]");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             hidden_options, p, usage.str() );
+                             hidden_options, p, usage );
 
   if ( opt.input_url.empty() ||
        opt.camera_image.empty() || opt.camera_model.empty() )
-    vw_throw( ArgumentErr() << "Missing input files!\n\n" << usage.str() << general_options);
+    vw_throw( ArgumentErr() << "Missing input files!\n\n" << usage << general_options);
 
   // Detecting session type
   boost::to_lower(opt.session);
@@ -115,7 +113,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.output_url = opt.camera_model;
       opt.camera_model = "";
     } else {
-      vw_throw( ArgumentErr() << usage.str() << general_options );
+      vw_throw( ArgumentErr() << usage << general_options );
     }
   }
 

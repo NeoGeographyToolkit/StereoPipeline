@@ -103,19 +103,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("dest-cnet", 1 );
   positional_desc.add("source-cnets", -1 );
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <dest> <source1> ... <sourceN>\n";
-
+  std::string usage("[options] <dest> <source1> ... <sourceN>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   if ( opt.destination_cnet.empty() )
     vw_throw( ArgumentErr() << "Missing destination cnets.\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   if ( opt.source_cnets.empty() )
     vw_throw( ArgumentErr() << "Missing source cnets.\n"
-              << usage.str() << general_options );
+              << usage << general_options );
 }
 
 int main( int argc, char** argv ) {

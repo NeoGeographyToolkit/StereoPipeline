@@ -5,6 +5,11 @@
 // __END_LICENSE__
 
 #include <asp/Core/Common.h>
+#include <vw/config.h>
+#include <asp/asp_config.h>
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+#include <Constants.h>
+#endif
 
 using namespace vw;
 namespace po = boost::program_options;
@@ -30,12 +35,25 @@ asp::BaseOptionsDescription::BaseOptionsDescription( asp::BaseOptions& opt ) {
     ("help,h", "Display this help message");
 }
 
+// User should only put the arguments to their application in the
+// usage_comment argument. We'll finish filling in the repeated
+// information;
 po::variables_map
 asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::options_description const& public_options,
                          po::options_description const& hidden_options,
                          po::positional_options_description const& positional,
-                         std::string const& help ) {
+                         std::string & usage_comment ) {
+  // Finish filling in the usage_comment;
+  std::ostringstream ostr;
+  ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";
+  ostr << "  [ASP " << ASP_VERSION << "][VW " << VW_VERSION << "]";
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+  ostr << "[ISIS " << Isis::version << "]";
+#endif
+  ostr << "\n\n";
+  usage_comment = ostr.str();
+
   po::variables_map vm;
   try {
     po::options_description all_options;
@@ -44,7 +62,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     po::notify( vm );
   } catch (po::error const& e) {
     vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
-                  << e.what() << "\n" << help << "\n" << public_options );
+                  << e.what() << "\n" << usage_comment << public_options );
   }
   // We really don't want to use BIGTIFF unless we have to. It's
   // hard to find viewers for bigtiff.
@@ -54,7 +72,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     opt.gdal_options["BIGTIFF"] = "IF_SAFER";
   }
   if ( vm.count("help") )
-    vw::vw_throw( vw::ArgumentErr() << help << "\n" << public_options );
+    vw::vw_throw( vw::ArgumentErr() << usage_comment << public_options );
   if ( opt.num_threads != 0 ) {
     vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;

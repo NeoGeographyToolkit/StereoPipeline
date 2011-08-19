@@ -51,19 +51,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("cnet-file", 1 );
   positional_desc.add("camera-list-file", 1 );
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <cnet_file> <list_of_cameras>\n";
-
+  std::string usage("[options] <cnet_file> <list_of_cameras>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   opt.convert_isis = vm.count("convert-isis");
   opt.convert_serial_to_name = vm.count("convert-serial-to-name");
 
   if ( !vm.count("cnet-file") )
     vw_throw( ArgumentErr() << "Missing required input file.\n"
-              << usage.str() << general_options );
+              << usage << general_options );
 }
 
 int main( int argc, char** argv) {

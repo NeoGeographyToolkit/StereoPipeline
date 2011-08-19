@@ -13,6 +13,7 @@
 #include <vw/Core/ProgressCallback.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 
 #include <boost/algorithm/string.hpp>
@@ -24,7 +25,7 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-struct Options {
+struct Options : public asp::BaseOptions {
   std::string cnet_file;
   std::vector<std::string> input_names;
   bool find_median;
@@ -34,8 +35,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("find-median", po::bool_switch(&opt.find_median)->default_value(false),
-     "Find median when reporting high error cameras.")
-    ("help,h", "Display this help message");
+     "Find median when reporting high error cameras.");
+  general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
@@ -46,29 +47,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("cnet-file", 1);
   positional_desc.add("input-files", -1);
 
-  po::options_description all_options;
-  all_options.add(general_options).add(positional);
+  std::string usage("<cnet_file> <isis cube files> ...");
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options,
+                             positional, positional_desc, usage );
 
-  po::variables_map vm;
-  try {
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional_desc).run(), vm );
-    po::notify( vm );
-  } catch (po::error const& e ) {
-    vw_throw( ArgumentErr() << "Error parsing input:\n\t"
-              << e.what() << general_options );
-  }
-
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <cnet_file> <isis cube files> ...\n";
-
-  if ( vm.count("help") )
-    vw_throw( ArgumentErr() << usage.str() << general_options );
   if ( opt.input_names.empty() )
     vw_throw( ArgumentErr() << "Missing input cube files!\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   if ( opt.cnet_file.empty() )
     vw_throw( ArgumentErr() << "Missing input control network!\n"
-              << usage.str() << general_options );
+              << usage << general_options );
 }
 
 int main( int argc, char* argv[]) {

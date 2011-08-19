@@ -42,16 +42,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("img-file", 1);
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <img_file>\n";
-
+  std::string usage("[options] <img_file>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   if ( opt.img_file.empty() )
     vw_throw( ArgumentErr() << "Missing required input file.\n"
-              << usage.str() << general_options );
+              << usage << general_options );
   if ( opt.output_prefix.empty() )
     opt.output_prefix = fs::path(opt.img_file).stem();
 }

@@ -47,15 +47,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
-  std::ostringstream usage;
-  usage << "Usage: " << argv[0] << " [options] <match-files> ...\n\n";
-
+  std::string usage("[options] <match-files> ...");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
-                             positional, positional_desc, usage.str() );
+                             positional, positional_desc, usage );
 
   if ( opt.match_files.empty() )
-    vw_throw( ArgumentErr() << "Must specify at least one input file!\n\n" << usage.str() );
+    vw_throw( ArgumentErr() << "Must specify at least one input file!\n\n" << usage );
 }
 
 int main( int argc, char* argv[] ) {
