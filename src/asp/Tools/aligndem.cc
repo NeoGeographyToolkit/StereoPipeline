@@ -252,7 +252,7 @@ int main( int argc, char *argv[] ) {
       }
     }
 
-    std::vector<int> indices;
+    std::vector<size_t> indices;
     Matrix<double> trans;
     math::RandomSampleConsensus<math::AffineFittingFunctorN<3>,math::L2NormErrorMetric>
       ransac( math::AffineFittingFunctorN<3>(), math::L2NormErrorMetric(), 10);
