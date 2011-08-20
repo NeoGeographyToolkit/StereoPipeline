@@ -32,6 +32,7 @@ asp::BaseOptionsDescription::BaseOptionsDescription( asp::BaseOptions& opt ) {
     ("threads", po::value(&opt.num_threads)->default_value(0),
      "Select the number of processors (threads) to use.")
     ("no-bigtiff", "Tell GDAL to not create bigtiffs.")
+    ("version,v", "Display the version of software.")
     ("help,h", "Display this help message");
 }
 
@@ -47,11 +48,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   // Finish filling in the usage_comment;
   std::ostringstream ostr;
   ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";
-  ostr << "  [ASP " << ASP_VERSION << "][VW " << VW_VERSION << "]";
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  ostr << "[ISIS " << Isis::version << "]";
-#endif
-  ostr << "\n\n";
+  ostr << "  [ASP " << ASP_VERSION << "]\n\n";
   usage_comment = ostr.str();
 
   po::variables_map vm;
@@ -73,6 +70,16 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   }
   if ( vm.count("help") )
     vw::vw_throw( vw::ArgumentErr() << usage_comment << public_options );
+  if ( vm.count("version") )
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+    vw::vw_throw( vw::ArgumentErr() << ASP_PACKAGE_STRING << "\n\n"
+                  << "Built against:\n  " << VW_PACKAGE_STRING << "\n  ISIS "
+                  << Isis::version << "\n  BOOST " << ASP_BOOST_VERSION << "\n" );
+#else
+    vw::vw_throw( vw::ArgumentErr() << ASP_PACKAGE_STRING << "\n\n"
+                  << "Built against:\n  " << VW_PACKAGE_STRING
+                  << "\n  BOOST " << ASP_BOOST_VERSION << "\n" );
+#endif
   if ( opt.num_threads != 0 ) {
     vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;

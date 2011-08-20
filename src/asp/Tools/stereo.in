@@ -58,11 +58,13 @@ if __name__ == '__main__':
                  help=optparse.SUPPRESS_HELP)
     p.add_option('--debug',                dest='debug',       default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
+    p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
+                 help='Display the version of software.')
 
     global opt
     (opt, files) = p.parse_args()
 
-    if not files:
+    if not files and not opt.version:
         p.print_help()
         die('\nERROR: Missing input files', code=2)
 
@@ -78,6 +80,8 @@ if __name__ == '__main__':
         args.append('--optimized-correlator')
     if opt.no_bigtiff:
         args.append('--no-bigtiff')
+    if opt.version:
+        args.append('-v')
 
     args.extend(['--stereo-file', opt.filename])
     args.extend(files)
