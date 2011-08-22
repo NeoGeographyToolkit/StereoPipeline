@@ -299,29 +299,24 @@ SetInitialParameters(GraphicsState *gc, const Vertex *a, real dx, real dy)
 static void
 DrawFlatGraySpan(GraphicsState *graphicsState)
 {
-  int x = graphicsState->rasterInfo.frag.x;
-  int y = graphicsState->rasterInfo.frag.y;
-  int length = graphicsState->rasterInfo.length;
-  real gray = graphicsState->rasterInfo.frag.color.r;
-  float *span = &(graphicsState->buffer[y * graphicsState->width + x]);
-
-  for (int i = 0; i < length; i++)
-    span[i] = float(gray);
+  std::fill_n(&(graphicsState->buffer[graphicsState->rasterInfo.frag.y * graphicsState->width +
+					graphicsState->rasterInfo.frag.x]),
+	      graphicsState->rasterInfo.length,
+	      float(graphicsState->rasterInfo.frag.color.r));
 }
 
 static void
 DrawGraySpan(GraphicsState *graphicsState)
 {
-  int x = graphicsState->rasterInfo.frag.x;
-  int y = graphicsState->rasterInfo.frag.y;
-  int length = graphicsState->rasterInfo.length;
-  float *span = &(graphicsState->buffer[y * graphicsState->width + x]);
+  float *span =
+    &(graphicsState->buffer[graphicsState->rasterInfo.frag.y * graphicsState->width +
+			    graphicsState->rasterInfo.frag.x]);
 
   real gray = graphicsState->rasterInfo.frag.color.r;
   real drdx = graphicsState->rasterInfo.colorIter.drdx;
 
-  for (int i = 0; i < length; i++) {
-    span[i] = float(gray);
+  for (int i = graphicsState->rasterInfo.length; i > 0; --i) {
+    *span++ = float(gray);
     gray += drdx;
   }
 }

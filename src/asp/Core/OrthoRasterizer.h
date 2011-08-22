@@ -140,15 +140,25 @@ namespace cartography {
       // Buffer the bounding box slightly so that we render a few
       // extra triangles that would have fallen off the border
       // otherwise.
+      //
+      // This is a quality option, if this buffer is not large enough
+      // we might not rasterize faces which are large, due to slope
+      // from the camera perspective. Realize this data is still
+      // gridded in the camera perspective.
       BBox2i buffered_bbox = bbox;
-      buffered_bbox.expand(4);
+      buffered_bbox.expand(std::max(bbox.width(),bbox.height())/16);
 
       // This ensures that our bounding box is properly sized.
-      BBox3 local_bbox = m_bbox;
-      local_bbox.min().x() = m_bbox.min().x() + (buffered_bbox.min().x() * m_spacing);
-      local_bbox.min().y() = m_bbox.max().y() - (buffered_bbox.max().y() * m_spacing);
-      local_bbox.max().x() = local_bbox.min().x() + (buffered_bbox.width() * m_spacing);
-      local_bbox.max().y() = local_bbox.min().y() + (buffered_bbox.height() * m_spacing);
+      BBox3 buf_local_3d_bbox = m_bbox;
+      buf_local_3d_bbox.min().x() = m_bbox.min().x() + (buffered_bbox.min().x() * m_spacing);
+      buf_local_3d_bbox.min().y() = m_bbox.max().y() - (buffered_bbox.max().y() * m_spacing);
+      buf_local_3d_bbox.max().x() = buf_local_3d_bbox.min().x() + (buffered_bbox.width() * m_spacing);
+      buf_local_3d_bbox.max().y() = buf_local_3d_bbox.min().y() + (buffered_bbox.height() * m_spacing);
+      BBox3 local_3d_bbox = m_bbox;
+      local_3d_bbox.min().x() = m_bbox.min().x() + (bbox.min().x() * m_spacing);
+      local_3d_bbox.min().y() = m_bbox.max().y() - (bbox.max().y() * m_spacing);
+      local_3d_bbox.max().x() = local_3d_bbox.min().x() + (bbox.width() * m_spacing);
+      local_3d_bbox.max().y() = local_3d_bbox.min().y() + (bbox.height() * m_spacing);
 
       ImageView<float> render_buffer(buffered_bbox.width(), buffered_bbox.height());
       float *render_buffer_ptr = &(render_buffer(0,0));
@@ -157,8 +167,8 @@ namespace cartography {
       vw::stereo::SoftwareRenderer renderer(buffered_bbox.width(),
                                             buffered_bbox.height(),
                                             render_buffer_ptr);
-      renderer.Ortho2D(local_bbox.min().x(), local_bbox.max().x(),
-                       local_bbox.min().y(), local_bbox.max().y());
+      renderer.Ortho2D(buf_local_3d_bbox.min().x(), buf_local_3d_bbox.max().x(),
+                       buf_local_3d_bbox.min().y(), buf_local_3d_bbox.max().y());
 
       // Set up the default color value
       if (m_use_alpha) {
@@ -172,13 +182,13 @@ namespace cartography {
       static const int NUM_COLOR_COMPONENTS = 1;  // We only need gray scale
       static const int NUM_VERTEX_COMPONENTS = 2; // DEMs are 2D
 
-      float vertices[12], intensities[6];
+      float vertices[10], intensities[5];
       renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, vertices);
       renderer.SetColorPointer(NUM_COLOR_COMPONENTS, intensities);
 
       BOOST_FOREACH( BBoxPair const& boundary,
                      m_point_image_boundaries ) {
-        if ( local_bbox.intersects( boundary.first ) ) {
+        if ( local_3d_bbox.intersects( boundary.first ) ) {
           // Pull a copy of the input image
           ImageView<Vector3> point_copy =
             crop(m_point_image, boundary.second );
@@ -187,32 +197,36 @@ namespace cartography {
           for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
             PointAcc point_ul = row_acc;
             for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
-              if (local_bbox.contains(*point_ul) &&
-                  *point_ul != Vector3() ) {
+              if ( *point_ul != Vector3() ) {
 
                 PointAcc point_ur = point_ul; point_ur.next_col();
                 PointAcc point_ll = point_ul; point_ll.next_row();
                 PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-                if ( *point_lr == Vector3() ) {
+		// Verify the point UL and LR are in the rasterable
+		// area. Then just verify that at least one vertice is
+		// placed in the viewable area.
+		if ( *point_lr == Vector3() ||
+		     !buf_local_3d_bbox.contains(*point_ul) ||
+		     !buf_local_3d_bbox.contains(*point_lr) ||
+		     !(local_3d_bbox.contains(*point_ul) ||
+		       local_3d_bbox.contains(*point_ur) ||
+		       local_3d_bbox.contains(*point_ll) ||
+		       local_3d_bbox.contains(*point_lr) ) ) {
                   point_ul.next_col();
                   continue;
                 }
 
-                vertices[0] = (*point_ll).x();  // LL
+                vertices[0] = (*point_ll).x(); // LL
                 vertices[1] = (*point_ll).y();
                 vertices[2] = (*point_lr).x(); // LR
                 vertices[3] = (*point_lr).y();
-                vertices[4] = (*point_ul).x();     // UL
+                vertices[4] = (*point_ul).x(); // UL
                 vertices[5] = (*point_ul).y();
-
-
-                vertices[6]  = (*point_ul).x(); // UL
-                vertices[7]  = (*point_ul).y();
-                vertices[8]  = (*point_lr).x(); // LR
-                vertices[9]  = (*point_lr).y();
-                vertices[10] = (*point_ur).x(); // UR
-                vertices[11] = (*point_ur).y();
+                vertices[6] = (*point_lr).x(); // LR
+                vertices[7] = (*point_lr).y();
+                vertices[8] = (*point_ur).x(); // UR
+                vertices[9] = (*point_ur).y();
 
                 int32 tcol = col + boundary.second.min()[0];
                 int32 trow = row + boundary.second.min()[1];
@@ -220,18 +234,18 @@ namespace cartography {
                 intensities[0] = m_texture(tcol,  trow+1);
                 intensities[1] = m_texture(tcol+1,trow+1);
                 intensities[2] = m_texture(tcol,  trow);
-
-                intensities[3] = m_texture(tcol,  trow);
-                intensities[4] = m_texture(tcol+1,trow+1);
-                intensities[5] = m_texture(tcol+1,trow);
+                intensities[3] = m_texture(tcol+1,trow+1);
+                intensities[4] = m_texture(tcol+1,trow);
 
                 // triangle 1 is: LL, LR, UL
-                if ( *point_ll != Vector3() )
+                if ( *point_ll != Vector3() &&
+		     buf_local_3d_bbox.contains(*point_lr) )
                   renderer.DrawPolygon(0, 3);
 
                 // triangle 2 is: UL, LR, UR
-                if ( *point_ur != Vector3() )
-                  renderer.DrawPolygon(3, 3);
+                if ( *point_ur != Vector3() &&
+		     buf_local_3d_bbox.contains(*point_ur) )
+                  renderer.DrawPolygon(2, 3);
               }
               point_ul.next_col();
             }
@@ -254,7 +268,7 @@ namespace cartography {
       // those coordinates are invalid, but they never get accessed.
       return CropView<ImageView<pixel_type> > (result, BBox2i(-buffered_bbox.min().x(),
                                                               -buffered_bbox.min().y(),
-                                                              result.cols(), result.rows()));
+                                                              cols(), rows()));
     }
     template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
       vw::rasterize( prerasterize(bbox), dest, bbox );
