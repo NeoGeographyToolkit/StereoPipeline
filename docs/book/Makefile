@@ -19,10 +19,12 @@ TEXSRCS =	acknowledgments.tex \
 			tutorial.tex \
 			vwlogconfig.tex
 OTHER_PDF=	graph/asp_deps.pdf
-OTHER+=		$(OTHER_PDF)
+OTHER+=		$(OTHER_PDF) asp_book.tex
 
-CLEAN_FILES+= $(OTHER_PDF)
+CLEAN_FILES+= $(OTHER_PDF) asp_book.tex
 USE_PDFLATEX = YES
+
+ASP_VERSION:=$(shell cat ../../src/asp/asp_config.h | grep ASP_VERSION --color=no | awk -F\" '{print $$2}' | sed 's/_/\\\\_/g')
 
 # Use 'open' on Mac systems to view the PDF
 OS := $(shell uname -s)
@@ -35,3 +37,6 @@ GMKFILE := $(shell which latex-mk | awk -F 'latex-mk' '{print $$1}')
 GMKFILE := $(GMKFILE)../share/latex-mk/latex.gmk
 
 include $(GMKFILE)
+
+asp_book.tex: asp_book.tex.in
+	sed 's/\[@\]ASP_VERSION\[@\]/$(ASP_VERSION)/g' < $< > $@
