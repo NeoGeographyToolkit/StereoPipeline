@@ -4,10 +4,11 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+#include <asp/Core/Macros.h>
+#include <asp/Core/Common.h>
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
-
 #include <boost/filesystem/path.hpp>
 namespace fs = boost::filesystem;
 
@@ -43,7 +44,7 @@ replace_channel( ImageViewBase<Image1T> const& image1,
 }
 
 // Standard Arguments
-struct Options {
+struct Options : public asp::BaseOptions {
   std::string input_rgb, input_gray;
   std::string output_file;
 };
@@ -56,10 +57,11 @@ void do_merge(Options const& opt) {
   cartography::GeoReference georef;
   cartography::read_georeference(georef, opt.input_rgb);
 
-  ImageViewRef<PixelRGB<ChannelT> > result = pixel_cast<PixelRGB<ChannelT> >(replace_channel(pixel_cast<PixelHSV<ChannelT> >(rgb_image),2,shaded_image));
+  ImageViewRef<PixelRGB<ChannelT> > result =
+    pixel_cast<PixelRGB<ChannelT> >(replace_channel(pixel_cast<PixelHSV<ChannelT> >(rgb_image),2,shaded_image));
 
-  cartography::write_georeferenced_image( opt.output_file, result, georef,
-                                          TerminalProgressCallback("tools.hsv_merge","Writing:") );
+  block_write_gdal_image( opt.output_file, result, georef, opt,
+                          TerminalProgressCallback("tools.hsv_merge","Writing:") );
 }
 
 // Handle input
@@ -67,34 +69,30 @@ int main( int argc, char *argv[] ) {
 
   Options opt;
 
-  po::options_description desc("Description: Mimicks hsv_merge.py by Frank Warmerdam and Trent Hare. Use it to combine results from gdaldem.");
-  desc.add_options()
-    ("input-rgb", po::value<std::string>(&opt.input_rgb), "Explicitly specify the input rgb image.")
-    ("input-gray", po::value<std::string>(&opt.input_gray), "Explicitly specify the input gray image.")
-    ("output-file,o", po::value<std::string>(&opt.output_file), "Specify the output file.")
-    ("help,h", "Display this help message");
-  po::positional_options_description p;
-  p.add("input-rgb", 1 );
-  p.add("input-gray", 1 );
-
-  po::variables_map vm;
   try {
-    po::store( po::command_line_parser( argc, argv ).options(desc).positional(p).run(), vm );
-    po::notify( vm );
-  } catch ( po::error const& e ) {
-    std::cout << "An error occured while parsing command line arguments.\n";
-    std::cout << "\t" << e.what() << "\n\n";
-    std::cout << desc << std::endl;
-    return 1;
-  }
+    po::options_description desc("Description: Mimicks hsv_merge.py by Frank Warmerdam and Trent Hare. Use it to combine results from gdaldem.");
+    desc.add_options()
+      ("output-file,o", po::value(&opt.output_file), "Specify the output file.");
+    desc.add( asp::BaseOptionsDescription(opt) );
 
-  if( vm.count("help") ||
-      (opt.input_rgb == "" && opt.input_gray == "" ) ) {
-    std::cout << desc << std::endl;
-    return 1;
-  }
+    po::options_description hidden("");
+    hidden.add_options()
+      ("input-rgb", po::value(&opt.input_rgb), "Explicitly specify the input rgb image.")
+      ("input-gray", po::value(&opt.input_gray), "Explicitly specify the input gray image.");
 
-  try {
+    po::positional_options_description p;
+    p.add("input-rgb", 1 );
+    p.add("input-gray", 1 );
+
+    std::string usage("[options] <input rgb> <input gray>");
+    po::variables_map vm =
+      asp::check_command_line( argc, argv, opt, desc,
+                               hidden, p, usage );
+
+    if ( opt.input_rgb.empty() || opt.input_gray.empty() )
+      vw_throw( ArgumentErr() << "Missing required input files.\n"
+                << usage << desc );
+
     // Get the input RGB's type
     DiskImageResource *rsrc = DiskImageResource::open(opt.input_rgb);
     ChannelTypeEnum channel_type = rsrc->channel_type();
