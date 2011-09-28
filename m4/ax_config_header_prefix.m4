@@ -19,6 +19,13 @@ AC_DEFUN([AX_CONFIG_HEADER_PREFIX],
     echo "#ifndef __$2_CONFIG_H__" >> "$1.new"
     echo "#define __$2_CONFIG_H__" >> "$1.new"
     sed -e 's/#define /#define $2/' -e 's/#undef /#undef $2/' < "$1.pre" >> "$1.new"
+    if git show > /dev/null; then
+       echo >> "$1.new"
+       echo "/* Commit ID of this build */" >> "$1.new"
+       echo "#define $2COMMIT_ID \""`git show --abbrev-commit | head -1 | sed 's/commit //'`"\"" >> "$1.new"
+       echo >> "$1.new"
+    fi
+
     echo "#endif // __$2_CONFIG_H__" >> "$1.new"
     if test -f "$1" && diff "$1" "$1.new" > /dev/null ; then
       echo "config.status: $1 is unchanged"

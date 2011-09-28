@@ -7,6 +7,8 @@
 #include <asp/Core/Common.h>
 #include <vw/config.h>
 #include <asp/asp_config.h>
+#include <gdal_version.h>
+#include <proj_api.h>
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <Constants.h>
 #endif
@@ -70,16 +72,24 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   }
   if ( vm.count("help") )
     vw::vw_throw( vw::ArgumentErr() << usage_comment << public_options );
-  if ( vm.count("version") )
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    vw::vw_throw( vw::ArgumentErr() << ASP_PACKAGE_STRING << "\n\n"
-                  << "Built against:\n  " << VW_PACKAGE_STRING << "\n  ISIS "
-                  << Isis::version << "\n  BOOST " << ASP_BOOST_VERSION << "\n" );
-#else
-    vw::vw_throw( vw::ArgumentErr() << ASP_PACKAGE_STRING << "\n\n"
-                  << "Built against:\n  " << VW_PACKAGE_STRING
-                  << "\n  BOOST " << ASP_BOOST_VERSION << "\n" );
+  if ( vm.count("version") ) {
+    std::ostringstream ostr;
+    ostr << ASP_PACKAGE_STRING  << "\n";
+#if defined(ASP_COMMIT_ID)
+    ostr << "  Build ID: " << ASP_COMMIT_ID << "\n";
 #endif
+    ostr << "\nBuilt against:\n  " << VW_PACKAGE_STRING << "\n";
+#if defined(VW_COMMIT_ID)
+    ostr << "    Build ID: " << VW_COMMIT_ID << "\n";
+#endif
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+    ostr << "  USGS ISIS " << Isis::version << "\n";
+#endif
+    ostr << "  Boost C++ Libraries " << ASP_BOOST_VERSION << "\n";
+    ostr << "  GDAL " << GDAL_RELEASE_NAME << " | " << GDAL_RELEASE_DATE << "\n";
+    ostr << "  Proj.4 " << PJ_VERSION << "\n";
+    vw::vw_throw( vw::ArgumentErr() << ostr.str() );
+  }
   if ( opt.num_threads != 0 ) {
     vw::vw_out() << "\t--> Setting number of processing threads to: "
                  << opt.num_threads << std::endl;
