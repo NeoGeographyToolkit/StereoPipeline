@@ -20,10 +20,11 @@ namespace vw {
   // approximate search range
   //  Find interest points and grow them into a search range
   BBox2i
-  approximate_search_range( std::string left_image,
-                            std::string right_image,
+  approximate_search_range( std::string const& left_image,
+                            std::string const& right_image,
                             float scale ) {
 
+    typedef PixelGray<float32> PixelT;
     vw_out() << "\t--> Using interest points to determine search window.\n";
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     float i_scale = 1.0/scale;
@@ -52,8 +53,8 @@ namespace vw {
 
         // Worst case, no interest point operations have been performed before
         vw_out() << "\t    * Locating Interest Points\n";
-        DiskImageView<PixelGray<float32> > left_sub_image(left_image);
-        DiskImageView<PixelGray<float32> > right_sub_image(right_image);
+        DiskImageView<PixelT> left_sub_image(left_image);
+        DiskImageView<PixelT> right_sub_image(right_image);
 
         // Interest Point module detector code.
         float ipgain = 0.07;
@@ -79,12 +80,12 @@ namespace vw {
           vw_throw( InputErr() << "Unable to extract interest points from input images [" << left_image << "," << right_image << "]! Unable to continue." );
 
         // Making sure we don't exceed 3000 points
-        ip1.sort();
-        ip2.sort();
-        if ( ip1.size() > 3000 )
-          ip1.resize(3000);
-        if ( ip2.size() > 3000 )
-          ip2.resize(3000);
+        if ( ip1.size() > 3000 ) {
+          ip1.sort(); ip1.resize(3000);
+        }
+        if ( ip2.size() > 3000 ) {
+          ip2.sort(); ip2.resize(3000);
+        }
 
         // Stripping out orientation .. this allows for a better
         // possibility of interest point matches.
@@ -130,8 +131,8 @@ namespace vw {
         // the edge lengths. This is a bit of a magic number, but I'm
         // pulling from experience that an inlier threshold of 30
         // worked best for 1024^2 AMC imagery.
-        DiskImageView<PixelGray<float32> > left_sub_image(left_image);
-        DiskImageView<PixelGray<float32> > right_sub_image(right_image);
+        DiskImageView<PixelT> left_sub_image(left_image);
+        DiskImageView<PixelT> right_sub_image(right_image);
         float inlier_threshold =
           0.0075 * left_sub_image.cols() +
           0.0075 * left_sub_image.rows() +
