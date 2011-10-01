@@ -158,8 +158,7 @@ namespace asp {
 
     ThreadedEdgeMaskView( ViewT const& view,
                           unmasked_pixel_type const& mask_value,
-                          vw::int32 mask_buffer = 0, vw::int32 block_size = vw::vw_settings().default_tile_size(),
-                          const vw::ProgressCallback &progress_callback = vw::ProgressCallback::dummy_instance() ) :
+                          vw::int32 mask_buffer = 0, vw::int32 block_size = vw::vw_settings().default_tile_size()) :
       m_view(view), m_left( new vw::int32[view.rows()]), m_right( new vw::int32[view.rows()] ), m_top( new vw::int32[view.cols()] ), m_bottom( new vw::int32[view.cols()] ) {
       using namespace vw;
 
@@ -256,10 +255,9 @@ namespace asp {
   ThreadedEdgeMaskView<ViewT> threaded_edge_mask( vw::ImageViewBase<ViewT> const& v,
                                                   typename ViewT::pixel_type value,
                                                   vw::int32 mask_buffer = 0,
-                                                  vw::int32 block_size = vw::vw_settings().default_tile_size(),
-                                                  const vw::ProgressCallback &progress_callback = vw::ProgressCallback::dummy_instance() ) {
+                                                  vw::int32 block_size = vw::vw_settings().default_tile_size()) {
     return ThreadedEdgeMaskView<ViewT>( v.impl(), value, mask_buffer,
-                                        block_size, progress_callback );
+                                        block_size );
   }
 }
 

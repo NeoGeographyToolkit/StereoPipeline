@@ -57,58 +57,52 @@ namespace vw {
                              opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
     }
 
-    // Produce subsampled images, these will be used later for Auto
-    // search range. They're also a handy debug tool.
-    int smallest_edge = std::min(std::min(left_image.cols(), left_image.rows()),
-                                 std::min(right_image.cols(), right_image.rows()) );
-    float sub_scale =
-      sqrt(1500.0 * 1500.0 / float(left_image.cols() * left_image.rows()));
-    sub_scale +=
-      sqrt(1500.0 * 1500.0 / float(right_image.cols() * right_image.rows()));
-    sub_scale /= 2;
-    if ( sub_scale > 1 ) sub_scale = 1;
-
-    // Solving for the number of threads and the tile size to use for
-    // subsampling while only using 500 MiB of memory. (The cache code
-    // is a little slow on releasing so it will probably use 1.5GiB
-    // memory during subsampling) Also tile size must be a power of 2
-    // and greater than or equal to 64 px;
-    uint32 sub_threads = vw_settings().default_num_threads() + 1;
-    uint32 tile_power = 0;
-    while ( tile_power < 6 && sub_threads > 1) {
-      sub_threads--;
-      tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
-    }
-    uint32 sub_tile_size = 1u << tile_power;
-    if ( sub_tile_size > vw_settings().default_tile_size() )
-      sub_tile_size = vw_settings().default_tile_size();
-
-    std::string l_sub_file = opt.out_prefix+"-L_sub.tif";
-    std::string r_sub_file = opt.out_prefix+"-R_sub.tif";
     try {
-      DiskImageView<PixelGray<float> > testa(l_sub_file);
-      DiskImageView<PixelGray<float> > testb(r_sub_file);
+      // This confusing try catch is to see if the subsampled images
+      // actually have content.
+      DiskImageView<PixelGray<float> > testa(opt.out_prefix+"-L_sub.tif");
+      DiskImageView<PixelGray<float> > testb(opt.out_prefix+"-R_sub.tif");
       vw_out() << "\t--> Using cached subsampled image.\n";
     } catch (vw::Exception const& e) {
+      // Produce subsampled images, these will be used later for Auto
+      // search range. They're also a handy debug tool.
+      float sub_scale =
+        sqrt(1500.0 * 1500.0 / float(left_image.cols() * left_image.rows()));
+      sub_scale +=
+        sqrt(1500.0 * 1500.0 / float(right_image.cols() * right_image.rows()));
+      sub_scale /= 2;
+      if ( sub_scale > 1 ) sub_scale = 1;
+
+      // Solving for the number of threads and the tile size to use for
+      // subsampling while only using 500 MiB of memory. (The cache code
+      // is a little slow on releasing so it will probably use 1.5GiB
+      // memory during subsampling) Also tile size must be a power of 2
+      // and greater than or equal to 64 px;
+      uint32 sub_threads = vw_settings().default_num_threads() + 1;
+      uint32 tile_power = 0;
+      while ( tile_power < 6 && sub_threads > 1) {
+        sub_threads--;
+        tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
+      }
+      uint32 sub_tile_size = 1u << tile_power;
+      if ( sub_tile_size > vw_settings().default_tile_size() )
+        sub_tile_size = vw_settings().default_tile_size();
+
+      // Change writing parameters to ideal threads and tiles
       vw_out() << "\t--> Creating previews. Subsampling by " << sub_scale
                << " by using " << sub_tile_size << " tile size and "
                << sub_threads << " threads.\n";
-      ImageViewRef<PixelGray<vw::float32> > Lsub = resample(left_image, sub_scale);
-      ImageViewRef<PixelGray<vw::float32> > Rsub = resample(right_image, sub_scale);
-      DiskImageResourceGDAL l_sub_rsrc( l_sub_file, Lsub.format(),
-                                        Vector2i(sub_tile_size,
-                                                 sub_tile_size),
-                                        opt.gdal_options );
-      DiskImageResourceGDAL r_sub_rsrc( r_sub_file, Rsub.format(),
-                                        Vector2i(sub_tile_size,
-                                                 sub_tile_size),
-                                        opt.gdal_options );
+      Vector2i previous_tile_size = opt.raster_tile_size;
+      opt.raster_tile_size = Vector2i(sub_tile_size,sub_tile_size);
       uint32 previous_num_threads = vw_settings().default_num_threads();
       vw_settings().set_default_num_threads(sub_threads);
-      block_write_image(l_sub_rsrc, Lsub,
-                        TerminalProgressCallback("asp", "\t    Sub L: "));
-      block_write_image(r_sub_rsrc, Rsub,
-                        TerminalProgressCallback("asp", "\t    Sub R: "));
+      asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
+                                   resample(left_image, sub_scale), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub L: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
+                                   resample(right_image, sub_scale), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub R: ") );
+      opt.raster_tile_size = previous_tile_size;
       vw_settings().set_default_num_threads(previous_num_threads);
     }
   }

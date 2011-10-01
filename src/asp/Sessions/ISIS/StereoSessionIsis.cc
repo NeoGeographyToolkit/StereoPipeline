@@ -94,8 +94,8 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
                                     std::string const& in_file,
                                     std::string const& out_file,
                                     std::string const& tag,
-                                    float const& isis_lo, float const& isis_hi,
-                                    float const& out_lo, float const& out_hi,
+                                    float isis_lo, float isis_hi,
+                                    float out_lo, float out_hi,
                                     Matrix<double> const& matrix,
                                     Vector2i const& crop_size ) {
   DiskImageView<PixelGray<float> > disk_image(in_file);
@@ -109,12 +109,12 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
            0, 0, crop_size[0], crop_size[1]);
   } else {
     applied_image =
-      clamp(transform(normalize(remove_isis_special_pixels(disk_image,
+      transform(clamp(normalize(remove_isis_special_pixels(disk_image,
                                                            isis_lo, isis_hi,
                                                            out_lo),
-                                out_lo, out_hi, 0.0, 1.0),
-                      HomographyTransform(matrix),
-                      crop_size[0], crop_size[1]));
+                                out_lo, out_hi, 0.0, 1.0)),
+                HomographyTransform(matrix),
+                crop_size[0], crop_size[1]);
   }
 
   // Write the results to disk.
