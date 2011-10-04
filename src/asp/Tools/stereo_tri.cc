@@ -206,7 +206,7 @@ void stereo_triangulation( Options const& opt ) {
   }
 }
 
-int main(int argc, char* argv[]) {
+int main( int argc, char* argv[] ) {
 
   stereo_register_sessions();
   Options opt;

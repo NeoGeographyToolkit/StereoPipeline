@@ -11,6 +11,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
+#include <asp/Sessions/RPC/StereoSessionRPC.h>
 
 #include <vw/Core/Exception.h>
 
@@ -66,6 +67,8 @@ static void register_default_session_types() {
                                              &asp::StereoSessionPinhole::construct );
   asp::StereoSession::register_session_type( "dg",
                                              &asp::StereoSessionDG::construct );
+  asp::StereoSession::register_session_type( "rpc",
+                                             &asp::StereoSessionRPC::construct );
 }
 
 asp::StereoSession* asp::StereoSession::create( std::string const& session_type ) {

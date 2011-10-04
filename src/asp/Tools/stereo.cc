@@ -97,11 +97,18 @@ void vw::handle_arguments( int argc, char *argv[], Options& opt ) {
   // Some specialization here so that the user doesn't need to list
   // camera models on the command line for certain stereo session
   // types.  (e.g. isis).
+  //
+  // TODO: This modification of arguments should probably happen in
+  // initialization and not be dependent on Stereo knowing what
+  // session it is in.
   bool check_for_camera_models = true;
-  if ( opt.stereo_session_string == "isis" ) {
+  if ( opt.stereo_session_string == "isis" ||
+       opt.stereo_session_string == "rpc" ) {
     // Fix the ordering of the arguments if the user only supplies 3
-    if (opt.out_prefix.empty())
+    if (opt.out_prefix.empty()) {
       opt.out_prefix = opt.cam_file1;
+      opt.cam_file1.clear();
+    }
     check_for_camera_models = false;
   }
 
@@ -157,7 +164,7 @@ void vw::stereo_register_sessions() {
                                         &DiskImageResourceIsis::construct_open,
                                         &DiskImageResourceIsis::construct_create);
 #endif
-
+  asp::StereoSession::register_session_type( "rpc",  &asp::StereoSessionRPC::construct);
   asp::StereoSession::register_session_type( "rmax", &asp::StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);

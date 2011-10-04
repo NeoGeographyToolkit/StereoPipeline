@@ -96,7 +96,10 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 3 ):
             run('stereo_fltr', args, msg='3: Filtering')
         if ( opt.entry_point <= 4 ):
-            run('stereo_tri', args,  msg='4: Triangulation')
+            tri = 'stereo_tri'
+            if ( opt.session.lowercase == "rpc" ):
+                tri += '_rpc'
+            run(tri,           args, msg='4: Triangulation')
     except Exception, e:
         if not opt.debug:
             die(e)
