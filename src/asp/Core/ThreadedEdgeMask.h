@@ -18,7 +18,8 @@ namespace asp {
   template <class ViewT>
   class ThreadedEdgeMaskView : public vw::ImageViewBase<ThreadedEdgeMaskView<ViewT> > {
 
-    vw::ImageViewRef<typename ViewT::pixel_type> m_view;
+    ViewT m_view;
+
     typedef boost::shared_array<vw::int32> SharedArray;
     SharedArray m_left, m_right, m_top, m_bottom;
 
@@ -32,7 +33,7 @@ namespace asp {
 
     // Task that checks individual blocks for edges
     class EdgeMaskTask : public vw::Task, private boost::noncopyable {
-      vw::ImageViewRef<typename ViewT::pixel_type> m_view;
+      ViewT m_view;
       typename ViewT::pixel_type m_mask_value;
       vw::BBox2i m_bbox;   // Region of image we're working in
       typedef std::vector<vw::int32> Array;
@@ -44,7 +45,7 @@ namespace asp {
       // you wish to test every pixel.
       const static vw::int32 STEP_SIZE=5;
     public:
-      EdgeMaskTask(vw::ImageViewRef<typename ViewT::pixel_type> const& view,
+      EdgeMaskTask(ViewT const& view,
                    typename ViewT::pixel_type mask_value,
                    vw::BBox2i bbox, SharedArray left, SharedArray right,
                    SharedArray top, SharedArray bottom ) :
@@ -60,8 +61,7 @@ namespace asp {
         using namespace vw;
 
         // Rasterizing local tile
-        ImageView<typename ViewT::pixel_type> copy =
-          crop( m_view, m_bbox );
+        ImageView<typename ViewT::pixel_type> copy( crop(m_view, m_bbox ) );
 
         { // Detecting Edges
           // Search left and right side
@@ -148,6 +148,36 @@ namespace asp {
       }
     };
 
+    // Specialized deep copy constructor (private)
+    template <class OViewT>
+    ThreadedEdgeMaskView( ViewT const& view,
+                          ThreadedEdgeMaskView<OViewT> const& other,
+                          vw::BBox2i const& box ) :
+      m_view( view ), m_left(new vw::int32[box.height()]), m_right(new vw::int32[box.height()]),
+      m_top(new vw::int32[box.width()]), m_bottom(new vw::int32[box.width()]) {
+      using namespace vw;
+
+      // Copy only sections that we need
+      std::copy( other.m_left.get()+box.min()[1],
+                 other.m_left.get()+box.max()[1], m_left.get() );
+      std::copy( other.m_right.get()+box.min()[1],
+                 other.m_right.get()+box.max()[1], m_right.get() );
+      std::copy( other.m_top.get()+box.min()[0],
+                 other.m_top.get()+box.max()[0], m_top.get() );
+      std::copy( other.m_bottom.get()+box.min()[0],
+                 other.m_bottom.get()+box.max()[0], m_bottom.get() );
+
+      // Modify to new coordinate system
+      std::for_each( m_left.get(), m_left.get()+box.height(),
+                     ArgValInPlaceSumFunctor<int32>( -box.min()[0] ) );
+      std::for_each( m_right.get(), m_right.get()+box.height(),
+                     ArgValInPlaceSumFunctor<int32>( -box.min()[0] ) );
+      std::for_each( m_top.get(), m_top.get()+box.width(),
+                     ArgValInPlaceSumFunctor<int32>( -box.min()[1] ) );
+      std::for_each( m_bottom.get(), m_bottom.get()+box.width(),
+                     ArgValInPlaceSumFunctor<int32>( -box.min()[1] ) );
+    }
+
   public:
 
     typedef typename ViewT::pixel_type orig_pixel_type;
@@ -158,8 +188,10 @@ namespace asp {
 
     ThreadedEdgeMaskView( ViewT const& view,
                           unmasked_pixel_type const& mask_value,
-                          vw::int32 mask_buffer = 0, vw::int32 block_size = vw::vw_settings().default_tile_size()) :
-      m_view(view), m_left( new vw::int32[view.rows()]), m_right( new vw::int32[view.rows()] ), m_top( new vw::int32[view.cols()] ), m_bottom( new vw::int32[view.cols()] ) {
+                          vw::int32 mask_buffer = 0,
+                          vw::int32 block_size = vw::vw_settings().default_tile_size()) :
+      m_view(view), m_left( new vw::int32[view.rows()]), m_right( new vw::int32[view.rows()] ),
+      m_top( new vw::int32[view.cols()] ), m_bottom( new vw::int32[view.cols()] ) {
       using namespace vw;
 
       std::fill( m_left.get(), m_left.get()+view.rows(), view.cols() );
@@ -190,40 +222,6 @@ namespace asp {
                      vw::ArgValInPlaceDifferenceFunctor<vw::int32>( mask_buffer ) );
     }
 
-    // Specialized deep copy constructor
-    ThreadedEdgeMaskView( ThreadedEdgeMaskView const& other,
-                          vw::BBox2i const& box ) :
-      m_view( crop(other.m_view,box) ) {
-      // Note to future authors: Actually copying other's m_view
-      // causes locking issues on write.
-
-      using namespace vw;
-      SharedArray left( new int32[box.height()] ); m_left = left;
-      SharedArray right( new int32[box.height()] ); m_right = right;
-      SharedArray top( new int32[box.width()] ); m_top = top;
-      SharedArray bottom( new int32[box.width()] ); m_bottom = bottom;
-
-      // Copy only sections that we need
-      std::copy( other.m_left.get()+box.min()[1],
-                 other.m_left.get()+box.max()[1], m_left.get() );
-      std::copy( other.m_right.get()+box.min()[1],
-                 other.m_right.get()+box.max()[1], m_right.get() );
-      std::copy( other.m_top.get()+box.min()[0],
-                 other.m_top.get()+box.max()[0], m_top.get() );
-      std::copy( other.m_bottom.get()+box.min()[0],
-                 other.m_bottom.get()+box.max()[0], m_bottom.get() );
-
-      // Modify to new coordinate system
-      std::for_each( m_left.get(), m_left.get()+box.height(),
-                     ArgValInPlaceSumFunctor<int32>( -box.min()[0] ) );
-      std::for_each( m_right.get(), m_right.get()+box.height(),
-                     ArgValInPlaceSumFunctor<int32>( -box.min()[0] ) );
-      std::for_each( m_top.get(), m_top.get()+box.width(),
-                     ArgValInPlaceSumFunctor<int32>( -box.min()[1] ) );
-      std::for_each( m_bottom.get(), m_bottom.get()+box.width(),
-                     ArgValInPlaceSumFunctor<int32>( -box.min()[1] ) );
-    }
-
     inline vw::int32 cols() const { return m_view.cols(); }
     inline vw::int32 rows() const { return m_view.rows(); }
     inline vw::int32 planes() const { return m_view.planes(); }
@@ -237,11 +235,13 @@ namespace asp {
         return pixel_type();
     }
 
-    typedef vw::CropView<ThreadedEdgeMaskView<ViewT > > prerasterize_type;
+    typedef vw::CropView<ThreadedEdgeMaskView<vw::CropView<typename ViewT::prerasterize_type> > > prerasterize_type;
     inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const {
       // We are deep copying a small section of ThreadedEdgeMaskView
       // and then uncropping back to original coordinates.
-      return vw::crop(ThreadedEdgeMaskView<ViewT>( *this, bbox ),
+      typedef ThreadedEdgeMaskView<vw::CropView<typename ViewT::prerasterize_type> > inner_type;
+      return vw::crop(inner_type( vw::crop(m_view.prerasterize(bbox),bbox),
+                                  *this, bbox ),
                       -bbox.min()[0], -bbox.min()[1],
                       this->cols(), this->rows() );
     }
@@ -249,6 +249,10 @@ namespace asp {
     template <class DestT> inline void rasterize( DestT const& dest, vw::BBox2i const& bbox ) const {
       vw::rasterize( prerasterize(bbox), dest, bbox );
     }
+
+    // Friend other types of threaded edge mask
+    template <class OViewT>
+    friend class ThreadedEdgeMaskView;
   };
 
   template <class ViewT>
