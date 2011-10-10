@@ -212,7 +212,7 @@ namespace vw {
                                   stereo_settings().fill_hole_max_size );
         vw_out() << "\t    * Identified " << bindex.num_blobs() << " holes\n";
         hole_filled_disp_map =
-          InpaintView<DiskImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
+          asp::InpaintView<DiskImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
       } else {
         hole_filled_disp_map = filtered_disparity_map;
       }
