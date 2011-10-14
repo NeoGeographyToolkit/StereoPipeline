@@ -9,9 +9,6 @@
 #include <asp/asp_config.h>
 #include <gdal_version.h>
 #include <proj_api.h>
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-#include <Constants.h>
-#endif
 
 using namespace vw;
 namespace po = boost::program_options;
@@ -83,7 +80,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     ostr << "    Build ID: " << VW_COMMIT_ID << "\n";
 #endif
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    ostr << "  USGS ISIS " << Isis::version << "\n";
+    ostr << "  USGS ISIS " << ASP_ISIS_VERSION << "\n";
 #endif
     ostr << "  Boost C++ Libraries " << ASP_BOOST_VERSION << "\n";
     ostr << "  GDAL " << GDAL_RELEASE_NAME << " | " << GDAL_RELEASE_DATE << "\n";
