@@ -316,6 +316,9 @@ else
 fi
 
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
+if test x"$HAVE_PKG_ISIS" = "xyes"; then
+  AX_PKG_ISIS_CHECK_VERSION()
+fi
 
 dnl check for recent rabbitmq; this can go away soon, it's just to prevent a
 dnl flag-day upgrade
