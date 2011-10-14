@@ -7,6 +7,7 @@
 
 // ASP
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
+#include <iTime.h>
 
 using namespace vw;
 using namespace asp;
@@ -67,7 +68,7 @@ EphemerisLMA::result_type
 EphemerisLMA::operator()( EphemerisLMA::domain_type const& x ) const {
 
   // Setting Ephemeris Time
-  m_camera->SetEphemerisTime( x[0] );
+  m_camera->SetTime(Isis::iTime(x[0]));
 
   // Calculating the look direction in camera frame
   Vector3 instru;
@@ -99,7 +100,7 @@ IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
   // First seed LMA with an ephemeris time in the middle of the image
   double middle = lines() / 2;
   m_detectmap->SetParent( 1, m_alphacube.AlphaLine(middle) );
-  double start_e = m_camera->EphemerisTime();
+  double start_e = m_camera->Time().Et();
 
   // Build LMA
   EphemerisLMA model( point, m_camera.get(), m_distortmap, m_focalmap );
@@ -116,7 +117,7 @@ IsisInterfaceLineScan::point_to_pixel( Vector3 const& point ) const {
              MathErr() << " Unable to project point into linescan camera " );
 
   // Converting now to pixel
-  m_camera->SetEphemerisTime( solution_e[0] );
+  m_camera->SetTime(Isis::iTime( solution_e[0] ));
 
   // Working out pointing
   m_camera->InstrumentPosition(&m_center[0]);

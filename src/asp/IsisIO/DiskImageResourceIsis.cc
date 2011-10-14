@@ -52,18 +52,18 @@ namespace vw {
   void DiskImageResourceIsis::open(std::string const& filename) {
     m_cube = boost::shared_ptr<Isis::Cube>( new Isis::Cube() );
     m_filename = filename;
-    m_cube->Open( m_filename );
-    VW_ASSERT( m_cube->IsOpen(),
+    m_cube->open( m_filename );
+    VW_ASSERT( m_cube->isOpen(),
                IOErr() << "DiskImageResourceIsis: Could not open cube file: \"" << filename << "\"." );
 
     // Extract the dimensions of the image
-    m_format.planes = m_cube->Bands();
-    m_format.cols = m_cube->Samples();
-    m_format.rows = m_cube->Lines();
+    m_format.planes = m_cube->getBandCount();
+    m_format.cols = m_cube->getSampleCount();
+    m_format.rows = m_cube->getLineCount();
 
     m_format.pixel_format = VW_PIXEL_SCALAR;
 
-    Isis::PixelType isis_ptype = m_cube->PixelType();
+    Isis::PixelType isis_ptype = m_cube->getPixelType();
     switch (isis_ptype) {
     case Isis::UnsignedByte:
       m_bytes_per_pixel = 1;
@@ -105,18 +105,18 @@ namespace vw {
   /// Read the disk image into the given buffer.
   void DiskImageResourceIsis::read(ImageBuffer const& dest, BBox2i const& bbox) const
   {
-    VW_ASSERT(bbox.max().x() <= m_cube->Samples() ||
-              bbox.max().y() <= m_cube->Lines(),
+    VW_ASSERT(bbox.max().x() <= m_cube->getSampleCount() ||
+              bbox.max().y() <= m_cube->getLineCount(),
               IOErr() << "DiskImageResourceIsis: requested bbox " << bbox
-              << " exceeds image dimensions [" << m_cube->Samples()
-              << " " << m_cube->Lines() << "]");
+              << " exceeds image dimensions [" << m_cube->getSampleCount()
+              << " " << m_cube->getLineCount() << "]");
 
     // Read in the requested tile from the cube file.  Note that ISIS
     // cube pixel indices appear to be 1-based.
     Isis::Portal buffer( bbox.width(), bbox.height(),
-                         m_cube->PixelType() );
+                         m_cube->getPixelType() );
     buffer.SetPosition(bbox.min().x()+1, bbox.min().y()+1, 1);
-    m_cube->Read(buffer);
+    m_cube->read(buffer);
 
     // Create generic image buffer from the Isis data.
     ImageBuffer src;
@@ -200,6 +200,8 @@ namespace vw {
     }
   }
   bool DiskImageResourceIsis::is_map_projected() const {
-    return m_cube->HasProjection();
+    // They used to have a HasProjection. I'm not sure if this fix is
+    // the correct method now.
+    return m_cube->getProjection() != NULL;
   }
 }

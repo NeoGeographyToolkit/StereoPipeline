@@ -13,6 +13,9 @@
 
 // ISIS
 #include <ProjectionFactory.h>
+#include <iTime.h>
+#include <Latitude.h>
+#include <Longitude.h>
 
 using namespace vw;
 using namespace asp;
@@ -54,7 +57,7 @@ EphemerisLMA::result_type
 EphemerisLMA::operator()( EphemerisLMA::domain_type const& x ) const {
 
   // Setting Ephemeris Time
-  m_camera->SetEphemerisTime( x[0] );
+  m_camera->SetTime( Isis::iTime( x[0] ));
 
   // Calculating the look direction in camera frame
   Vector3 instru;
@@ -84,7 +87,8 @@ Vector2
 IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
 
   // First seed LMA with an ephemeris time in the middle of the image
-  double middle_et = m_camera->CacheStartTime() + (m_camera->CacheEndTime()-m_camera->CacheStartTime())/2.0;
+  double middle_et =
+    m_camera->CacheStartTime().Et() + (m_camera->CacheEndTime().Et()-m_camera->CacheStartTime().Et())/2.0;
   Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius( point );
 
   // Build LMA
@@ -102,7 +106,7 @@ IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
              camera::PointToPixelErr() << " Unable to project point into linescan camera " );
 
   // Setting to camera time to solution
-  m_camera->SetEphemerisTime( solution_e[0] );
+  m_camera->SetTime( Isis::iTime( solution_e[0] ) );
 
   // Working out pointing
   Vector3 center;
@@ -136,8 +140,8 @@ IsisInterfaceMapLineScan::camera_center( Vector2 const& px ) const {
     if (!m_projection->SetWorld( px[0]+1,
                                  px[1]+1 ))
       vw_throw( camera::PixelToRayErr() << "Failed to SetWorld." );
-    if (!m_groundmap->SetGround( m_projection->UniversalLatitude(),
-                                 m_projection->UniversalLongitude() ) )
+    if (!m_groundmap->SetGround( Isis::Latitude(m_projection->UniversalLatitude(),Isis::Angle::Degrees),
+                                 Isis::Longitude(m_projection->UniversalLongitude(),Isis::Angle::Degrees) ) )
       vw_throw( camera::PixelToRayErr() << "Failed to SetGround." );
   }
   Vector3 position;

@@ -11,6 +11,13 @@
 
 // ISIS
 #include <ProjectionFactory.h>
+#include <Projection.h>
+#include <CameraGroundMap.h>
+#include <CameraDistortionMap.h>
+#include <Distance.h>
+#include <SurfacePoint.h>
+#include <Latitude.h>
+#include <Longitude.h>
 
 using namespace vw;
 using namespace asp;
@@ -44,9 +51,10 @@ IsisInterfaceMapFrame::point_to_pixel( Vector3 const& point ) const {
     lon_lat_radius[0] += 360;
 
   // Projecting into the camera
-  m_groundmap->SetGround( lon_lat_radius[1],
-                          lon_lat_radius[0],
-                          lon_lat_radius[2] );
+  m_groundmap->SetGround(
+    Isis::SurfacePoint( Isis::Latitude( lon_lat_radius[1], Isis::Angle::Degrees ),
+                        Isis::Longitude( lon_lat_radius[0], Isis::Angle::Degrees ),
+                        Isis::Distance( lon_lat_radius[2], Isis::Distance::Meters ) ) );
   m_distortmap->SetUndistortedFocalPlane( m_groundmap->FocalPlaneX(),
                                           m_groundmap->FocalPlaneY() );
 
@@ -69,19 +77,19 @@ IsisInterfaceMapFrame::pixel_to_vector( Vector2 const& px ) const {
 
   // Solving for radius
   if ( m_camera->HasElevationModel() ) {
-    lon_lat_radius[2] = m_camera->DemRadius( lon_lat_radius[1],
-                                             lon_lat_radius[0] );
+    lon_lat_radius[2] =
+      m_camera->DemRadius( Isis::Latitude(lon_lat_radius[1], Isis::Angle::Degrees),
+                           Isis::Longitude(lon_lat_radius[0], Isis::Angle::Degrees) ).GetMeters();
   } else {
     Vector2 lon_lat = subvector(lon_lat_radius,0,2);
     lon_lat = lon_lat * M_PI/180;
-    double bclon = m_radii[1]*cos(lon_lat[0]);
-    double aslon = m_radii[0]*sin(lon_lat[0]);
-    double cclat = m_radii[2]*cos(lon_lat[1]);
-    double xyradius = m_radii[0] * m_radii[1] / sqrt(bclon*bclon + aslon*aslon);
+    double bclon = m_radii[1].GetMeters()*cos(lon_lat[0]);
+    double aslon = m_radii[0].GetMeters()*sin(lon_lat[0]);
+    double cclat = m_radii[2].GetMeters()*cos(lon_lat[1]);
+    double xyradius = m_radii[0].GetMeters() * m_radii[1].GetMeters() / sqrt(bclon*bclon + aslon*aslon);
     double xyslat = xyradius*sin(lon_lat[1]);
-    lon_lat_radius[2] = xyradius * m_radii[2] / sqrt(cclat*cclat + xyslat*xyslat );
+    lon_lat_radius[2] = xyradius * m_radii[2].GetMeters() / sqrt(cclat*cclat + xyslat*xyslat );
   }
-  lon_lat_radius[2] *= 1000;
   Vector3 point = cartography::lon_lat_radius_to_xyz(lon_lat_radius);
   return normalize(point-m_center);
 }

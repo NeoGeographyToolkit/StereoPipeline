@@ -19,6 +19,7 @@
 #include <Filename.h>
 #include <CameraFactory.h>
 #include <SerialNumber.h>
+#include <iTime.h>
 
 using namespace vw;
 using namespace asp;
@@ -72,7 +73,7 @@ std::string IsisInterface::serial_number() const {
 
 double IsisInterface::ephemeris_time( vw::Vector2 const& pix ) const {
   m_camera->SetImage( pix[0]+1, pix[1]+1 );
-  return m_camera->EphemerisTime();
+  return m_camera->Time().Et();
 }
 
 vw::Vector3 IsisInterface::sun_position( vw::Vector2 const& pix ) const {

@@ -13,7 +13,7 @@
 #include <Filename.h>
 #include <CameraFactory.h>
 #include <SerialNumber.h>
-
+#include <iTime.h>
 
 using namespace vw;
 using namespace vw::camera;
@@ -45,7 +45,7 @@ IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
     vw_throw( NoImplErr() << "Don't support map projected images" );
 
   // Adjusting time offset so equations are reference from middle of cache
-  double middle_et = m_camera->CacheStartTime() + (m_camera->CacheEndTime()-m_camera->CacheStartTime())/2.0;
+  double middle_et = m_camera->CacheStartTime().Et() + (m_camera->CacheEndTime().Et()-m_camera->CacheStartTime().Et())/2.0;
   m_position_f->set_time_offset( middle_et );
   m_pose_f->set_time_offset( middle_et );
 }
@@ -85,7 +85,7 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
   if ( m_camera->GetCameraType() == 2 ) {
     // Use own LMA to find correct ephemeris time. This also gives the
     // ability to use own functions for ET.
-    double start_e = m_camera->CacheStartTime() + (m_camera->CacheEndTime()-m_camera->CacheStartTime())/2.0;
+    double start_e = m_camera->CacheStartTime().Et() + (m_camera->CacheEndTime().Et()-m_camera->CacheStartTime().Et())/2.0;
 
     // Build LMA
     EphemerisLMA model( point, m_camera, m_distortmap,
@@ -103,7 +103,7 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
                MathErr() << " Unable to project point into linescan camera " );
 
     // Converting now to pixel
-    m_camera->SetEphemerisTime( solution_e[0] );
+    m_camera->SetTime( Isis::iTime( solution_e[0] ) );
   } else if ( m_camera->GetCameraType() != 0 ) {
     vw_throw( NoImplErr() << "IsisAdjustCameraModel::point_to_pixel does not support any cmaeras other than LineScane and Frame" );
   }
@@ -118,11 +118,11 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   m_pose = Quat(R_inst*transpose(R_body));
-  Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
+  Vector3 angles = m_pose_f->evaluate( m_camera->Time().Et() );
   Quat pose_adj( m_pose*math::axis_angle_to_quaternion( angles ) );
 
   // Actually projecting point now
-  Vector3 look = normalize( point - (m_center+m_position_f->evaluate(m_camera->EphemerisTime())) );
+  Vector3 look = normalize( point - (m_center+m_position_f->evaluate(m_camera->Time().Et())) );
   look = pose_adj.rotate( look );
   look = m_camera->FocalLength() * ( look / look[2] );
   m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
@@ -154,7 +154,7 @@ Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
   result = normalize( result );
 
   // Apply rotation of image camera
-  Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
+  Vector3 angles = m_pose_f->evaluate( m_camera->Time().Et() );
   result = inverse( m_pose*math::axis_angle_to_quaternion(angles) ).rotate( result );
   return result;
 }
@@ -164,7 +164,7 @@ IsisAdjustCameraModel::camera_center( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
-  return m_center+m_position_f->evaluate( m_camera->EphemerisTime() );
+  return m_center+m_position_f->evaluate( m_camera->Time().Et() );
 }
 
 Quat
@@ -172,7 +172,7 @@ IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
-  Vector3 angles = m_pose_f->evaluate( m_camera->EphemerisTime() );
+  Vector3 angles = m_pose_f->evaluate( m_camera->Time().Et() );
   return inverse(m_pose*math::axis_angle_to_quaternion( angles ) );
 }
 
@@ -183,7 +183,7 @@ std::string IsisAdjustCameraModel::serial_number() const {
 
 double IsisAdjustCameraModel::ephemeris_time( Vector2 const& pix ) const {
   SetTime( pix+Vector2(1,1), false );
-  return m_camera->EphemerisTime();
+  return m_camera->Time().Et();
 }
 
 Vector3 IsisAdjustCameraModel::sun_position( Vector2 const& pix ) const {
@@ -205,7 +205,7 @@ IsisAdjustCameraModel::EphemerisLMA::result_type
 IsisAdjustCameraModel::EphemerisLMA::operator()( IsisAdjustCameraModel::EphemerisLMA::domain_type const& x ) const {
 
   // Setting Ephemeris Time
-  m_camera->SetEphemerisTime( x[0] );
+  m_camera->SetTime( Isis::iTime( x[0] ) );
 
   Vector3 instru;
   m_camera->InstrumentPosition(&instru[0]);

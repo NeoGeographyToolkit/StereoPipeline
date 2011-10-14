@@ -15,10 +15,10 @@
 // ASP
 #include <asp/IsisIO/IsisInterface.h>
 
-// Isis
-#include <Projection.h>
-#include <CameraGroundMap.h>
-#include <CameraDistortionMap.h>
+// Isis forward declaration
+class Isis::CameraGroundMap;
+class Isis::CameraDistortionMap;
+#include <Distance.h>
 
 namespace asp {
 namespace isis {
@@ -51,7 +51,7 @@ namespace isis {
 
     vw::Vector3 m_center;
     vw::Quat m_pose;
-    double m_radii[3];
+    Isis::Distance m_radii[3];
   };
 
 }}
