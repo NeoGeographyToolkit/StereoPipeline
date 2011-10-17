@@ -24,6 +24,10 @@
 #include <CameraFocalPlaneMap.h>
 #include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
+#include <Projection.h>
+#include <Latitude.h>
+#include <Longitude.h>
+#include <Distance.h>
 
 using namespace vw;
 using namespace vw::camera;
@@ -64,8 +68,9 @@ TEST(IsisCameraModel, mapprojected) {
                             proj->UniversalLatitude(),
                             0 );
     if ( cam->HasElevationModel() ) {
-      lon_lat_radius[2] = cam->DemRadius( lon_lat_radius[1],
-                                          lon_lat_radius[0] );
+      lon_lat_radius[2] =
+        cam->DemRadius( Isis::Latitude(lon_lat_radius[1], Isis::Latitude::Degrees),
+                        Isis::Longitude(lon_lat_radius[0], Isis::Longitude::Degrees) ).GetMeters();
     } else {
       vw_throw( NoImplErr() << " don't support ellipsoids at the moment" );
     }
