@@ -299,6 +299,10 @@ AX_PKG_ONE_OF(GSL,
 AX_PKG(CURL,    [], [-lcurl])
 AX_PKG(GEOS,    [], [-lgeos])
 AX_PKG(XERCESC, [CURL], [-lxerces-c])
+AX_PKG(UFCONFIG, [], [-lufconfig])
+AX_PKG(AMD, [UFCONFIG], [-lamd])
+AX_PKG(COLAMD, [UFCONFIG], [-lcolamd])
+AX_PKG(CHOLMOD, [AMD COLAMD], [-lcholmod])
 
 AX_PKG_ONE_OF(SUPERLU,
     SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
@@ -312,7 +316,7 @@ AX_PKG_ONE_OF(KAKADU,
 if test x"$host_vendor" = "xapple"; then
     AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC PROTOBUF],        [],[],[],[],[],[KAKADU])
 else
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU PROTOBUF],[],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU PROTOBUF CHOLMOD],[],[],[],[],[],[KAKADU])
 fi
 
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
