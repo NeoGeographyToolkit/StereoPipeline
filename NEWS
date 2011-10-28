@@ -1,3 +1,25 @@
+*** RELEASE 1.0.5, 27 OCT 2011 ***
+
+GENERAL
+ - Fixed ASP to work with ISIS 3.3.0's new API changes and library
+   dependencies.
+
+SESSIONS
+ - Enabled parallel writing in Pinhole Session.
+
+TOOLS
+ - Fix possible infinite loop in stereo_corr's search range.
+ - Shutoff rotation invariance in automatic search range for better
+   quality results. This is possible because the input images are
+   already aligned.
+ - Sub image produced by stereo_pprc are now limited to around 8MB.
+ - Fix disparity_debug to work with integer disparities as well.
+ - All ASP tools should now have a '--version' option.
+ - Bug fix point2dem where rasterizer was accessing outside of
+   allocated memory.
+ - Speed up mask generation in stereo_pprc by avoiding mutex.
+ - Speed up hole filling in stereo_fltr by avoiding mutex.
+
 *** RELEASE 1.0.4, 23 MAY 2011 ***
 
 SESSIONS
