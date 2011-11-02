@@ -191,6 +191,7 @@ AX_PKG_ONE_OF(LAPACK,
      AX_GROUP_PKG(STANDALONE_FLAPACK_FBLAS, [STANDALONE_FLAPACK STANDALONE_FBLAS STANDALONE_F2C])])
 
 AX_PKG(RABBITMQ_C, [], [-lrabbitmq], [stdlib.h stdint.h amqp.h])
+AX_PKG(ZEROMQ,     [], [-lzmq],      [zmq.hpp])
 AX_PKG(PROTOBUF, [PTHREADS], [-lprotobuf], [google/protobuf/stubs/common.h])
 
 # Vision Workbench Core
@@ -216,7 +217,10 @@ if test x"$HAVE_PKG_VW_CORE" = "xyes"; then
 fi
 
 # Vision Workbench Secondaries
-AX_PKG(VW_PLATE, [VW_FILEIO PROTOBUF RABBITMQ_C], [-lvwPlate],      [vw/Plate/PlateFile.h])
+AX_PKG(VW_PLATE,          [VW_FILEIO PROTOBUF], [-lvwPlate],        [vw/Plate/PlateFile.h], [], [], [], [ZEROMQ RABBITMQ_C])
+if test x"$HAVE_PKG_ZEROMQ" = "xno" && test x"$HAVE_PKG_RABBITMQ_C" = "xno" && test x"$HAVE_PKG_VW_PLATE" = "xyes"; then
+   AC_MSG_ERROR([VW_PLATE requires either ZEROMQ or RABBITMQ_C or BOTH.])
+fi
 AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW_CAMERA],          [-lvwStereo],       [vw/Stereo/OptimizedCorrelator.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA],          [-lvwCartography],  [vw/Cartography/GeoReference.h], [], [], [], [PROTOBUF])
