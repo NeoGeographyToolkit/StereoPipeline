@@ -40,7 +40,7 @@ struct Options : public asp::BaseOptions {
   int32 dem_id, level;
 
   // Settings
-  string datum, session, output_mode;
+  string datum, session, output_mode, mask_image;
 
   // Output
   string output_url;
@@ -55,6 +55,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-id", po::value(&opt.output_id),
      "Output transaction ID to use. If not provided, one will be solved for.")
     ("mode,m", po::value(&opt.output_mode)->default_value("equi"), "Output mode [toast, equi, polar]")
+    ("mask", po::value(&opt.mask_image), "Input single channel image with same aspect ratio as camera image whose pixel with maximum value define valid pixels from projection.")
     ("datum,d", po::value(&opt.datum)->default_value("earth"), "Datum to use [earth, moon, mars].")
     ("session-type,t", po::value(&opt.session),
      "Select the stereo session type to use for processing. [Options are pinhole, isis, ...]");
@@ -142,9 +143,7 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
   else
     vw_throw( ArgumentErr() << "Unknown datum, \"" << opt.datum << "\".\n" );
 
-  // Loading up input image - We load up in a float format mostly
-  // because a fail in VW. VW doesn't seem to understand uint16
-  // types. Also ISIS doesn't let us expect an input channel range.
+  // Loading up input image
   DiskImageView<PixelT> texture_disk_image(opt.camera_image);
   ImageViewRef<PixelT> texture_image = texture_disk_image;
 
@@ -160,6 +159,21 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
       normalize_retain_alpha(asp::remove_isis_special_pixels(texture_disk_image),
                              isis_rsrc.valid_minimum(),isis_rsrc.valid_maximum(),
                              ChannelRange<PixelT>::min(), ChannelRange<PixelT>::max() );
+  }
+
+  if ( !opt.mask_image.empty() ) {
+    DiskImageView<uint8> mask(opt.mask_image);
+    if ( bounding_box(mask) != bounding_box(texture_image ) ) {
+      vw_out(WarningMessage) << "Mask image does not have same size as input. Attempting to scale to correct size.\n";
+      VW_ASSERT( fabs( float(mask.cols())/float(mask.rows()) - float(texture_image.cols())/float(texture_image.rows()) ) < 1e-2,
+                 ArgumentErr() << "Mask image does not have same aspect ratio as camera image. Unable to use as mask!" );
+      texture_image = mask_to_alpha(copy_mask(alpha_to_mask(texture_image),
+                                              create_mask(resize(DiskImageView<uint8>(mask),
+                                                                 texture_image.cols(), texture_image.rows(),
+                                                                 ZeroEdgeExtension(), NearestPixelInterpolation()),0)));
+    } else {
+      texture_image = mask_to_alpha(copy_mask(alpha_to_mask(texture_image),create_mask(DiskImageView<uint8>(mask),0)));
+    }
   }
 
   // Performing rough approximation of which tiles this camera touches
