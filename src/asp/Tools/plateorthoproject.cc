@@ -4,7 +4,6 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
 #include <vw/Image.h>
 #include <vw/Camera.h>
 #include <vw/FileIO.h>
@@ -179,27 +178,42 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
   // Performing rough approximation of which tiles this camera touches
   BBox2 image_alt = camera_bbox( input_georef, camera_model,
                                  texture_image.cols(), texture_image.rows() );
+  std::cout << "Original lonlat: " << image_alt << "\n";
+
   BBox2i dem_square; // Is in pixels
   dem_square.grow( input_georef.lonlat_to_pixel(image_alt.min()) );
   dem_square.grow( input_georef.lonlat_to_pixel(image_alt.max()) );
-  dem_square.expand(pow(2.0,opt.level-1)); // Just for good measure
-                                           // since we are
-                                           // intersecting with an
-                                           // approximation
+  dem_square.max() += Vector2i(1,1);
+
+  // Expand rough draft DEM square to the 256 boundaries
+  dem_square.min() = floor(Vector2f(dem_square.min())/256.)*256;
+  dem_square.max() = ceil(Vector2f(dem_square.max())/256.)*256;
+
+  // Render a low res version of the DEM and use that to get a better approximation
+  PlateView<InputT > input_view( opt.input_url );
+  input_view.set_level( opt.level > 4 ? opt.level - 3 : opt.level );
+  image_alt = camera_bbox(copy(crop(input_view, opt.level > 4 ? dem_square / 8 : dem_square)),
+                          crop(resample(input_georef, opt.level > 4 ? 1./8. : 1),
+                               opt.level > 4 ? dem_square / 8 : dem_square),
+                          camera_model, texture_image.cols(), texture_image.rows());
+  std::cout << "Post lonlst: " << image_alt << "\n";
+
+  dem_square = BBox2i();
+  dem_square.grow( input_georef.lonlat_to_pixel(image_alt.min()) );
+  dem_square.grow( input_georef.lonlat_to_pixel(image_alt.max()) );
+  dem_square.max() += Vector2i(1,1);
+
+  // Expand rough draft DEM square to the 256 boundaries
+  dem_square.min() = floor(Vector2f(dem_square.min())/256.)*256;
+  dem_square.max() = ceil(Vector2f(dem_square.max())/256.)*256;
 
   // Building plateview to extract a single DEM
-  PlateView<InputT > input_view( opt.input_url );
   input_view.set_level( opt.level );
   dem_square.crop( bounding_box(input_view) );
   ImageViewRef<InputT > input_view_ref =
     crop(input_view,dem_square);
 
-  cartography::GeoReference dem_georef = input_georef;
-  Vector2 top_left_ll = input_georef.pixel_to_lonlat( dem_square.min() );
-  Matrix3x3 T = dem_georef.transform();
-  T(0,2) = top_left_ll[0];
-  T(1,2) = top_left_ll[1];
-  dem_georef.set_transform(T);
+  cartography::GeoReference dem_georef = crop(input_georef, dem_square);
 
   vw_out() << "\t--> Orthoprojecting into DEM square with transform:\n"
            << "\t    " << dem_georef << "\n";
