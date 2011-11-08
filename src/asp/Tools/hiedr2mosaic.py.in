@@ -88,44 +88,35 @@ def isisversion(verbose=False):
     except KeyError, msg:
         raise Exception( "The ISIS environment does not seem to be enabled.\nThe " + str(msg) + " environment variable must be set." )
 
-    if( verbose ): print path;
+    version = None
+    if os.path.exists( path+'/version' ):
+        v = open( path+"/version", 'r')
+        version = v.readline().strip()
+        v.close()
+
     f = open(path+"/inc/Constants.h",'r');
     for line in f:
          if ( line.rfind("std::string version(") > 0 ):
-            index = line.find("\"3");
+            index = line.find("version(\"");
             index_e = line.rfind("|");
-            version = line[index+1:index_e].rstrip()
-            version = version.rstrip(string.ascii_letters);
-            if( verbose ): print "\tFound Isis Version: "+version;
-            version_strings = version.split('.')
-            version_ints = [int(item) for item in version_strings]
-            version_tuple = tuple( version_ints )
-            return version_tuple
+            version = line[index+9:index_e].rstrip()
+            #version = version +'b'
+    f.close() 
+
+    if( version ):
+        if( verbose ): print "\tFound Isis Version: "+version+ " at "+path
+        alphaend = version.lstrip(string.digits+'.')
+        version_numbers = version.rstrip(string.ascii_letters);
+        version_strings = version_numbers.split('.')
+        version_list = []
+        version_list = [int(item) for item in version_strings]
+        if( alphaend ): version_list.append( alphaend )
+        version_tuple = tuple( version_list )
+        return version_tuple
 
     raise Exception( "Could not find an ISIS version string in " + f.str() )
     return False
 
-
-# def is_post_isis_3_1_20():
-#     # Weird method to find to location of ISIS
-#     p = subprocess.Popen("echo $ISISROOT", shell=True, stdout=subprocess.PIPE);
-#     path = p.stdout.read();
-#     path = path.strip()
-#
-#     print path;
-#     f = open(path+"/inc/Constants.h",'r');
-#     for line in f:
-#         if ( line.rfind("std::string version(") > 0 ):
-#             index = line.find("\"3");
-#             index_e = line.rfind("|");
-#             version = line[index+1:index_e];
-#             print "\tFound Isis Version: "+version;
-#             index = version.rfind(".");
-#             if ( int(version[index+1:].strip(string.letters+string.whitespace)) > 20 ):
-#                 return True;
-#             else:
-#                 return False;
-#     return False;
 
 def hi2isis( img_files, threads ):
     hi2isis_cubs = []
@@ -370,9 +361,9 @@ def main():
         return 2
 
 	# To more easily debug this program, comment out this catch block.
-    except Exception, err:
-        sys.stderr.write( str(err) + '\n' )
-        return 1
+    # except Exception, err:
+    #     sys.stderr.write( str(err) + '\n' )
+    #     return 1
 
 
 if __name__ == "__main__":
