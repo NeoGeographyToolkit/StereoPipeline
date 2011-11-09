@@ -67,9 +67,9 @@ namespace vw {
       // Produce subsampled images, these will be used later for Auto
       // search range. They're also a handy debug tool.
       float sub_scale =
-        sqrt(1500.0 * 1500.0 / float(left_image.cols() * left_image.rows()));
+        sqrt(1500.0 * 1500.0 / (float(left_image.cols()) * float(left_image.rows())));
       sub_scale +=
-        sqrt(1500.0 * 1500.0 / float(right_image.cols() * right_image.rows()));
+        sqrt(1500.0 * 1500.0 / (float(right_image.cols()) * float(right_image.rows())));
       sub_scale /= 2;
       if ( sub_scale > 1 ) sub_scale = 1;
 
