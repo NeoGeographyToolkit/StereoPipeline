@@ -93,31 +93,35 @@ src/asp/IsisIO/tests/TestIsisCameraModel
 
 # Tools
 src/asp/MPI/isis_mpi_adjust
+src/asp/Tools/aligndem
+src/asp/Tools/bundle_adjust
 src/asp/Tools/bundlevis
+src/asp/Tools/cam2map4stereo.py
+src/asp/Tools/dem_profile
 src/asp/Tools/disparitydebug
+src/asp/Tools/geodiff
+src/asp/Tools/hiedr2mosaic.py
+src/asp/Tools/hsv_merge
 src/asp/Tools/isis_adjust
 src/asp/Tools/isis_adjust_camera_err
 src/asp/Tools/isis_adjust_cnet_clip
+src/asp/Tools/mer2camera
 src/asp/Tools/orbitviz
 src/asp/Tools/orthoproject
 src/asp/Tools/plateorthoproject
 src/asp/Tools/point2dem
 src/asp/Tools/point2mesh
+src/asp/Tools/reconstruct
+src/asp/Tools/results
+src/asp/Tools/rmax2cahvor
+src/asp/Tools/rmax_adjust
+src/asp/Tools/stereo
 src/asp/Tools/stereo_corr
 src/asp/Tools/stereo_fltr
 src/asp/Tools/stereo_pprc
 src/asp/Tools/stereo_rfne
 src/asp/Tools/stereo_tri
-src/asp/Tools/aligndem
-src/asp/Tools/bundle_adjust
-src/asp/Tools/dem_profile
-src/asp/Tools/geodiff
-src/asp/Tools/rmax2cahvor
-src/asp/Tools/rmax_adjust
-src/asp/Tools/hsv_merge
-src/asp/Tools/reconstruct
-src/asp/Tools/results
-src/asp/Tools/mer2camera
+src/asp/Tools/time_trials
 
 # Photometry Toolkit
 src/asp/PhotometryTK/phodrg2plate
