@@ -178,7 +178,6 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
   // Performing rough approximation of which tiles this camera touches
   BBox2 image_alt = camera_bbox( input_georef, camera_model,
                                  texture_image.cols(), texture_image.rows() );
-  std::cout << "Original lonlat: " << image_alt << "\n";
 
   BBox2i dem_square; // Is in pixels
   dem_square.grow( input_georef.lonlat_to_pixel(image_alt.min()) );
@@ -196,7 +195,6 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
                           crop(resample(input_georef, opt.level > 4 ? 1./8. : 1),
                                opt.level > 4 ? dem_square / 8 : dem_square),
                           camera_model, texture_image.cols(), texture_image.rows());
-  std::cout << "Post lonlst: " << image_alt << "\n";
 
   dem_square = BBox2i();
   dem_square.grow( input_georef.lonlat_to_pixel(image_alt.min()) );
@@ -209,9 +207,8 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
 
   // Building plateview to extract a single DEM
   input_view.set_level( opt.level );
-  dem_square.crop( bounding_box(input_view) );
   ImageViewRef<InputT > input_view_ref =
-    crop(input_view,dem_square);
+    crop(edge_extend(input_view, PeriodicEdgeExtension()),dem_square);
 
   cartography::GeoReference dem_georef = crop(input_georef, dem_square);
 
