@@ -89,7 +89,6 @@ IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
   // First seed LMA with an ephemeris time in the middle of the image
   double middle_et =
     m_camera->CacheStartTime().Et() + (m_camera->CacheEndTime().Et()-m_camera->CacheStartTime().Et())/2.0;
-  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius( point );
 
   // Build LMA
   EphemerisLMA model( point, m_camera.get(), m_distortmap, m_focalmap );

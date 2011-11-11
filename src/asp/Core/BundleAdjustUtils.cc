@@ -58,7 +58,7 @@ void compute_stereo_residuals(std::vector<boost::shared_ptr<CameraModel> > const
       StereoModel sm( camera_models[cam1].get(),
                       camera_models[cam2].get() );
       double error;
-      Vector3 pos = sm(pix1,pix2,error);
+      sm(pix1,pix2,error);
       error_sum += error;
       min_error = std::min(min_error, error);
       max_error = std::max(max_error, error);
