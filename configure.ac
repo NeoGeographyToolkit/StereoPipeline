@@ -197,10 +197,11 @@ AC_PATH_TOOL( PROTOC, [protoc], [no], [$PKG_PATHS_PROTOBUF/bin$PATH_SEPARATOR$PA
 if test x"$PROTOC" = "xno" && test x"$HAVE_PKG_PROTOBUF" = "xyes"; then
   AC_MSG_ERROR([cannot find protoc used by protobuf])
 fi
+AX_PKG(FLANN,      [], [-lflann_cpp],[flann/flann.hpp])
 
 # Vision Workbench Core
 AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore],   [vw/Core/Log.h] )
-AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h])
+AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h], [], [], [], [FLANN])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
 AX_PKG(VW_FILEIO,[VW_IMAGE BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
 AX_PKG(VW_TOOLS, [VW_IMAGE VW_MATH VW_CORE BOOST_FILESYSTEM BOOST_PROGRAM_OPTIONS THREADS], [-lvwTools], [vw/tools/Common.h])
@@ -360,6 +361,7 @@ AM_CONDITIONAL(HAVE_PKG_ISIS, [test "$HAVE_PKG_ISIS" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_OPENSCENEGRAPH, [test "$HAVE_PKG_OPENSCENEGRAPH" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_RABBITMQ_C, [test "$HAVE_PKG_RABBITMQ_C" = "yes"])
 AM_CONDITIONAL(HAVE_PKG_PROTOBUF, [test "$HAVE_PKG_PROTOBUF" = "yes"])
+AM_CONDITIONAL(HAVE_PKG_FLANN, [test "$HAVE_PKG_FLANN" = "yes"])
 
 ##################################################
 # module definitions
