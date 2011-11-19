@@ -15,7 +15,28 @@
 
 namespace asp {
 
-  class StereoSessionPinhole: public StereoSession {
+  class StereoSessionPinhole : public StereoSession {
+    // This should probably be factored into the greater StereoSession
+    // as ISIS Session does something very similar to this.
+    template <class ViewT>
+    vw::Vector4f gather_stats( vw::ImageViewBase<ViewT> const& view_base,
+                               std::string const& tag) {
+      using namespace vw;
+      vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
+      ViewT image = view_base.impl();
+      int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
+
+      ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
+      for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
+                                 stat_scale ), accumulator );
+      Vector4f result( accumulator.quantile(0),
+                       accumulator.quantile(1),
+                       accumulator.approximate_mean(),
+                       accumulator.approximate_stddev() );
+      vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
+                          << " m: " << result[2] << " s: " << result[3] << " ]\n";
+      return result;
+    }
 
   public:
 

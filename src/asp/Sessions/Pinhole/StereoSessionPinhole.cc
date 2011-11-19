@@ -45,6 +45,7 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
     // Load the image
     DiskImageView<PixelGray<float> > left_image(m_left_image_file);
     DiskImageView<PixelGray<float> > right_image(m_right_image_file);
+
     Vector2i left_image_size( left_image.cols(), left_image.rows() ),
       right_image_size( right_image.cols(), right_image.rows() );
 
@@ -129,6 +130,10 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
   // Load the images
   DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
   DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+
+  Vector4f left_stats = gather_stats( left_disk_image, "left" ),
+    right_stats = gather_stats( right_disk_image, "right" );
+
   ImageViewRef<PixelGray<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
@@ -195,12 +200,43 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
     Rimg = right_disk_image;
   }
 
+  // Apply our normalization options
+  if ( stereo_settings().force_max_min > 0 ) {
+    if ( stereo_settings().individually_normalize > 0 ) {
+      vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
+      Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
+      Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
+    } else {
+      float low = std::min(left_stats[0], right_stats[0]);
+      float hi  = std::max(left_stats[1], right_stats[1]);
+      vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+      Limg = normalize( Limg, low, hi, 0, 1.0 );
+      Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+    }
+  } else {
+    if ( stereo_settings().individually_normalize > 0 ) {
+      vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
+      Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
+                        left_stats[2] + 2*left_stats[3], 0, 1.0 );
+      Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
+                        right_stats[2] + 2*right_stats[3], 0, 1.0 );
+    } else {
+      float low = std::min(left_stats[2] - 2*left_stats[3],
+                           right_stats[2] - 2*right_stats[3]);
+      float hi  = std::max(left_stats[2] + 2*left_stats[3],
+                           right_stats[2] + 2*right_stats[3]);
+      vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+      Limg = normalize( Limg, low, hi, 0, 1.0 );
+      Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+    }
+  }
+
   output_file1 = m_out_prefix + "-L.tif";
   output_file2 = m_out_prefix + "-R.tif";
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( output_file1, Limg, m_options,
                           TerminalProgressCallback("asp","\t  L:  ") );
-  block_write_gdal_image( output_file2, Rimg, m_options,
+  block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), m_options,
                           TerminalProgressCallback("asp","\t  R:  ") );
 }
 

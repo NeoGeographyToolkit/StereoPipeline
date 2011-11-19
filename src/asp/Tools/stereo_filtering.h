@@ -170,8 +170,8 @@ namespace vw {
                  << (opt.out_prefix + "-GoodPixelMap.tif") << "\n";
         {
           // Sub-sampling so that the user can actually view it.
-          float sub_scale = 2048 / float( std::min( filtered_disparity_map.cols(),
-                                                    filtered_disparity_map.rows() ) );
+          float sub_scale = 2048.0 / float( std::min( filtered_disparity_map.cols(),
+                                                      filtered_disparity_map.rows() ) );
           if ( sub_scale > 1 ) sub_scale = 1;
           // Solving for the number of threads and the tile size to use for
           // subsampling while only using 500 MiB of memory. (The cache code
