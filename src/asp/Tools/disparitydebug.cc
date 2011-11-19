@@ -71,7 +71,16 @@ void do_disparity_visualization(Options& opt) {
   DiskImageView<PixelT > disk_disparity_map(opt.input_file_name);
 
   vw_out() << "\t--> Computing disparity range \n";
-  BBox2 disp_range = get_disparity_range(disk_disparity_map);
+
+  // We don't want to sample every pixel as the image might be very
+  // large. Let's subsample the image so that it is rough 1000x1000
+  // samples.
+  float subsample_amt =
+    float(disk_disparity_map.cols())*float(disk_disparity_map.rows()) / ( 1000.f * 1000.f );
+  BBox2 disp_range =
+    get_disparity_range(subsample(disk_disparity_map,
+                                  subsample_amt > 1 ? subsample_amt : 1));
+
   vw_out() << "\t    Horizontal - [" << disp_range.min().x()
            << " " << disp_range.max().x() << "]    Vertical: ["
            << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
