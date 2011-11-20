@@ -7,7 +7,6 @@
 
 
 import os, optparse, subprocess, sys
-from subprocess import CalledProcessError
 
 def man(option, opt, value, parser):
     print >>sys.stderr, parser.usage
@@ -60,7 +59,9 @@ def camrange( cube ):
     cmd = 'camrange from= '+ cube +' to= '+ tmpfile
     try:
         print 'Running ' + cmd
-        subprocess.check_call(cmd, shell=True)
+        result = subprocess.call(cmd, shell=True)
+        if not result == 0:
+            raise Exception('ProcessError', 'Non zero return code ('+str(result)+')')
 
         getkey_path = os.environ['ISISROOT']+'/bin/getkey'
 
@@ -73,9 +74,6 @@ def camrange( cube ):
 
         os.remove( tmpfile )
 
-    except CalledProcessError, e:
-        print >>sys.stderr, "Non-zero return code ("+ str(e.returncode) +"): ", e
-        raise e
     except OSError, e:
         print >>sys.stderr, "Execution failed:", e
         raise e
@@ -165,7 +163,9 @@ def main():
         if( options.dryrun ):
             print cam2map_cmd
         else:
-            subprocess.check_call(cam2map_cmd, shell=True)
+            code = subprocess.call(cam2map_cmd, shell=True)
+            if not code == 0:
+                raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
 
         # Run for second image  
         cam2map[1] = 'from=' + args[1]
@@ -174,7 +174,9 @@ def main():
         if( options.dryrun ):
             print cam2map_cmd
         else:
-            subprocess.check_call(cam2map_cmd, shell=True)
+            code = subprocess.call(cam2map_cmd, shell=True)
+            if not code == 0:
+                raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
         
         print "Finished"
         return 0
