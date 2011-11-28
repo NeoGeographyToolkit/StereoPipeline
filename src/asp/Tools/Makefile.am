@@ -10,8 +10,10 @@
 ########################################################################
 
 bin_PROGRAMS =
+python_tool_scripts =
 
 if MAKE_APP_STEREO
+  python_tool_scripts += stereo
   bin_PROGRAMS += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
   stereo_corr_SOURCES = stereo_corr.cc
   stereo_corr_LDADD   = $(APP_STEREO_LIBS)
@@ -148,7 +150,7 @@ endif
 # Scripts
 ##############################################################################
 
-python_tool_scripts = stereo time_trials cam2map4stereo.py hiedr2mosaic.py lronac4staged.py
+python_tool_scripts += time_trials cam2map4stereo.py hiedr2mosaic.py lronac4staged.py
 bin_SCRIPTS = $(python_tool_scripts)
 CLEANFILES = $(python_tool_scripts)
 
