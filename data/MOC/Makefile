@@ -2,14 +2,17 @@
 # Stereo Pipeline Users' Guide
 
 # Users with custom paths must override this variable
+# EXECDIR  == executable directory
+# EEXECDIR == executable directory if in a result dir. (For handling
+#             relative paths)
 EXECDIR ?= ../../bin/
-
-# Executables
 ifeq ($(EXECDIR),)
-	EEXECDIR=
+	EEXECDIR=$(EXECDIR)
 else
 	EEXECDIR=../$(EXECDIR)
 endif
+
+# Executables
 STEREO = $(EXECDIR)stereo
 IMAGE2QTREE = $(EXECDIR)image2qtree
 POINT2DEM = $(EEXECDIR)point2dem
@@ -20,14 +23,14 @@ DISPARITYDEBUG = $(EEXECDIR)disparitydebug
 POINT2MESH = $(EEXECDIR)point2mesh
 
 # Output variables
-RESULTSDIR = results
-OUT = E0201461-M0100115
+RESULTSDIR = map
+OUT = map
 MAPPED = E0201461.map.cub M0100115.map.cub
 PREFIX = $(RESULTSDIR)/$(OUT)
 POINTCLOUD = $(PREFIX)-PC.tif
 
-RESULTSDIRU = results-unmapped
-UNMAPPED = E0201461.cub M0100115.cub
+RESULTSDIRU = nonmap
+NONMAPPED = E0201461.cub M0100115.cub
 PREFIXU = $(RESULTSDIRU)/$(OUT)
 POINTCLOUDU = $(PREFIXU)-PC.tif
 
@@ -35,7 +38,7 @@ POINTCLOUDU = $(PREFIXU)-PC.tif
 %.cub: %.imq
 	mocproc from= $< to= $@ Mapping= NO
 
-all: products_map products_unmap
+all: products_map products_nonmap
 
 M0100115.map.cub: M0100115.cub
 	cam2map from=M0100115.cub to=M0100115.map.cub
@@ -51,7 +54,7 @@ E0201461.map/E0201461.kml: E0201461.map.cub
 
 $(POINTCLOUD): $(MAPPED)
 	mkdir -p $(RESULTSDIR)
-	$(STEREO) $(MAPPED) $(RESULTSDIR)/$(OUT)
+	$(STEREO) $(MAPPED) $(RESULTSDIR)/$(OUT) -s stereo.map
 
 $(PREFIX)-F-H.tif: $(POINTCLOUD)
 	cd $(RESULTSDIR); $(DISPARITYDEBUG) $(OUT)-F.tif
@@ -78,9 +81,9 @@ $(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
 
 products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
 
-$(POINTCLOUDU): $(UNMAPPED)
+$(POINTCLOUDU): $(NONMAPPED)
 	mkdir -p $(RESULTSDIRU)
-	$(STEREO) $(UNMAPPED) $(RESULTSDIRU)/$(OUT) -s stereo.unmapped
+	$(STEREO) $(NONMAPPED) $(RESULTSDIRU)/$(OUT) -s stereo.nonmap
 
 $(PREFIXU).ive: $(POINTCLOUDU)
 	cd $(RESULTSDIRU); $(POINT2MESH) $(OUT)-PC.tif $(OUT)-L.tif
@@ -98,7 +101,7 @@ $(PREFIXU)-DEM_CMAP.tif: $(PREFIXU)-DEM.tif
 	$(HILLSHADE) $(OUT)-DEM.tif; \
 	$(COLORMAP) -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
 
-products_unmap: $(PREFIXU).ive $(PREFIXU)-DRG.tif $(PREFIXU)-DEM_CMAP.tif
+products_nonmap: $(PREFIXU).ive $(PREFIXU)-DRG.tif $(PREFIXU)-DEM_CMAP.tif
 
 clean:
 	rm -rf $(RESULTSDIR) $(RESULTSDIRU)

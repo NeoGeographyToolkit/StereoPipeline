@@ -1,14 +1,17 @@
 # This is makefile to run the demo for MRO CTX of North Terra Meridiani
 
 # Users with custom paths must override this variable
+# EXECDIR  == executable directory
+# EEXECDIR == executable directory if in a result dir. (For handling
+#             relative paths)
 EXECDIR ?= ../../bin/
-
-# Executables
 ifeq ($(EXECDIR),)
-	EEXECDIR=
+	EEXECDIR=$(EXECDIR)
 else
 	EEXECDIR=../$(EXECDIR)
 endif
+
+# Executables
 STEREO = $(EXECDIR)stereo
 POINT2DEM = $(EEXECDIR)point2dem
 HILLSHADE = $(EEXECDIR)hillshade
@@ -47,7 +50,7 @@ map/map-DEM_CMAP.tif: map/map-DEM.tif
 	$(COLORMAP) -s map-DEM_HILLSHADE.tif map-DEM.tif
 
 nonmap/nonmap-PC.tif: nonmapprojected
-	$(STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.default
+	$(STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap
 
 nonmap/nonmap-DEM.tif: nonmap/nonmap-PC.tif
 	cd nonmap; \
