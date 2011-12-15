@@ -192,6 +192,9 @@ namespace cartography {
           // Pull a copy of the input image
           ImageView<Vector3> point_copy =
             crop(m_point_image, boundary.second );
+          ImageView<float> texture_copy =
+            crop(m_texture, BBox2i( boundary.second.min(),
+                                    boundary.second.max()+Vector2i(1,1) ) );
           typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
           PointAcc row_acc = point_copy.origin();
           for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
@@ -203,16 +206,16 @@ namespace cartography {
                 PointAcc point_ll = point_ul; point_ll.next_row();
                 PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-		// Verify the point UL and LR are in the rasterable
-		// area. Then just verify that at least one vertice is
-		// placed in the viewable area.
-		if ( *point_lr == Vector3() ||
-		     !buf_local_3d_bbox.contains(*point_ul) ||
-		     !buf_local_3d_bbox.contains(*point_lr) ||
-		     !(local_3d_bbox.contains(*point_ul) ||
-		       local_3d_bbox.contains(*point_ur) ||
-		       local_3d_bbox.contains(*point_ll) ||
-		       local_3d_bbox.contains(*point_lr) ) ) {
+                // Verify the point UL and LR are in the rasterable
+                // area. Then just verify that at least one vertice is
+                // placed in the viewable area.
+                if ( *point_lr == Vector3() ||
+                     !buf_local_3d_bbox.contains(*point_ul) ||
+                     !buf_local_3d_bbox.contains(*point_lr) ||
+                     !(local_3d_bbox.contains(*point_ul) ||
+                       local_3d_bbox.contains(*point_ur) ||
+                       local_3d_bbox.contains(*point_ll) ||
+                       local_3d_bbox.contains(*point_lr) ) ) {
                   point_ul.next_col();
                   continue;
                 }
@@ -228,23 +231,20 @@ namespace cartography {
                 vertices[8] = (*point_ur).x(); // UR
                 vertices[9] = (*point_ur).y();
 
-                int32 tcol = col + boundary.second.min()[0];
-                int32 trow = row + boundary.second.min()[1];
-
-                intensities[0] = m_texture(tcol,  trow+1);
-                intensities[1] = m_texture(tcol+1,trow+1);
-                intensities[2] = m_texture(tcol,  trow);
-                intensities[3] = m_texture(tcol+1,trow+1);
-                intensities[4] = m_texture(tcol+1,trow);
+                intensities[0] = texture_copy(col,  row+1);
+                intensities[1] = texture_copy(col+1,row+1);
+                intensities[2] = texture_copy(col,  row);
+                intensities[3] = texture_copy(col+1,row+1);
+                intensities[4] = texture_copy(col+1,row);
 
                 // triangle 1 is: LL, LR, UL
                 if ( *point_ll != Vector3() &&
-		     buf_local_3d_bbox.contains(*point_lr) )
+                     buf_local_3d_bbox.contains(*point_lr) )
                   renderer.DrawPolygon(0, 3);
 
                 // triangle 2 is: UL, LR, UR
                 if ( *point_ur != Vector3() &&
-		     buf_local_3d_bbox.contains(*point_ur) )
+                     buf_local_3d_bbox.contains(*point_ur) )
                   renderer.DrawPolygon(2, 3);
               }
               point_ul.next_col();

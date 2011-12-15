@@ -340,10 +340,10 @@ int main( int argc, char *argv[] ) {
           boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", rasterizer, opt) );
           rsrc->set_nodata_write( opt.default_value );
           write_georeference( *rsrc, georef );
-          write_image( *rsrc, rasterizer,
-                       TerminalProgressCallback("asp","DEM: ") );
+          block_write_image( *rsrc, rasterizer,
+                             TerminalProgressCallback("asp","DEM: ") );
         } else {
-          asp::write_gdal_georeferenced_image(
+          asp::block_write_gdal_image(
                opt.out_prefix + "-DEM." + opt.output_file_type,
                rasterizer, georef, opt,
                TerminalProgressCallback("asp","DEM: ") );
