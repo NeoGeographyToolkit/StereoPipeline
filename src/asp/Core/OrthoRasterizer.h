@@ -193,8 +193,7 @@ namespace cartography {
           ImageView<Vector3> point_copy =
             crop(m_point_image, boundary.second );
           ImageView<float> texture_copy =
-            crop(m_texture, BBox2i( boundary.second.min(),
-                                    boundary.second.max()+Vector2i(1,1) ) );
+            crop(m_texture, boundary.second );
           typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
           PointAcc row_acc = point_copy.origin();
           for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
