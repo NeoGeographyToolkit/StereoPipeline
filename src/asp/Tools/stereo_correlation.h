@@ -12,6 +12,8 @@
 
 #include <asp/Tools/stereo.h>
 #include <vw/InterestPoint.h>
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics.hpp>
 
 namespace vw {
 
@@ -166,21 +168,18 @@ namespace vw {
     }
 
     // Find search window based on interest point matches
-    BBox2i search_range;
-    for (unsigned i = 0; i < matched_ip1.size(); i++) {
-      Vector2i translation = ( i_scale*Vector2i(matched_ip2[i].x, matched_ip2[i].y) -
-                               i_scale*Vector2i(matched_ip1[i].x, matched_ip1[i].y) );
-
-      if ( i == 0 ) {
-        search_range.min() = translation;
-        search_range.max() = translation + Vector2i(1,1);
-      } else
-        search_range.grow( translation );
+    namespace ba = boost::accumulators;
+    ba::accumulator_set<float, ba::stats<ba::tag::variance> > acc_x, acc_y;
+    for (size_t i = 0; i < matched_ip1.size(); i++) {
+      Vector2f translation( i_scale*(Vector2f(matched_ip2[i].x, matched_ip2[i].y) -
+                                     Vector2f(matched_ip1[i].x, matched_ip1[i].y)) );
+      acc_x(translation.x());
+      acc_y(translation.y());
     }
-    Vector2i offset = search_range.size()/4; // So we can grow by 50%
-    search_range.min() -= offset;
-    search_range.max() += offset;
-
+    Vector2f mean( ba::mean(acc_x), ba::mean(acc_y) );
+    Vector2f stddev( sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)) );
+    BBox2i search_range( mean - 2.5*stddev,
+                         mean + 2.5*stddev );
     vw_out() << "\t--> Detected search range: " << search_range << "\n";
     return search_range;
   }
