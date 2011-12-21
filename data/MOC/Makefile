@@ -24,14 +24,13 @@ POINT2MESH = $(EEXECDIR)point2mesh
 
 # Output variables
 RESULTSDIR = map
-OUT = map
 MAPPED = E0201461.map.cub M0100115.map.cub
-PREFIX = $(RESULTSDIR)/$(OUT)
+PREFIX = $(RESULTSDIR)/$(RESULTSDIR)
 POINTCLOUD = $(PREFIX)-PC.tif
 
 RESULTSDIRU = nonmap
 NONMAPPED = E0201461.cub M0100115.cub
-PREFIXU = $(RESULTSDIRU)/$(OUT)
+PREFIXU = $(RESULTSDIRU)/$(RESULTSDIRU)
 POINTCLOUDU = $(PREFIXU)-PC.tif
 
 # Pattern rule to create .cub files from .imq files
@@ -54,52 +53,52 @@ E0201461.map/E0201461.kml: E0201461.map.cub
 
 $(POINTCLOUD): $(MAPPED)
 	mkdir -p $(RESULTSDIR)
-	$(STEREO) $(MAPPED) $(RESULTSDIR)/$(OUT) -s stereo.map
+	$(STEREO) $(MAPPED) $(PREFIX) -s stereo.map
 
 $(PREFIX)-F-H.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(DISPARITYDEBUG) $(OUT)-F.tif
+	cd $(RESULTSDIR); $(DISPARITYDEBUG) $(RESULTSDIR)-F.tif
 
 $(PREFIX).ive: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(POINT2MESH) $(OUT)-PC.tif $(OUT)-L.tif
+	cd $(RESULTSDIR); $(POINT2MESH) $(RESULTSDIR)-PC.tif $(RESULTSDIR)-L.tif
 
 $(PREFIX)-DRG.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(POINT2DEM) -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
+	cd $(RESULTSDIR); $(POINT2DEM) -r mars --orthoimage $(RESULTSDIR)-L.tif $(RESULTSDIR)-PC.tif;
 
 $(PREFIX)-DEM.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(POINT2DEM) -r mars -n --nodata -32767 $(OUT)-PC.tif;
+	cd $(RESULTSDIR); $(POINT2DEM) -r mars -n --nodata -32767 $(RESULTSDIR)-PC.tif;
 
 $(PREFIX)-OrthoR.tif: $(PREFIX)-DEM.tif
-	cd $(RESULTSDIR); $(ORTHOPROJECT) $(OUT)-DEM.tif ../M0100115.cub $(OUT)-OrthoR.tif;
+	cd $(RESULTSDIR); $(ORTHOPROJECT) $(RESULTSDIR)-DEM.tif ../M0100115.cub $(RESULTSDIR)-OrthoR.tif;
 
 $(PREFIX)-OrthoL.tif: $(PREFIX)-DEM.tif
-	cd $(RESULTSDIR); $(ORTHOPROJECT) $(OUT)-DEM.tif ../E0201461.cub $(OUT)-OrthoL.tif;
+	cd $(RESULTSDIR); $(ORTHOPROJECT) $(RESULTSDIR)-DEM.tif ../E0201461.cub $(RESULTSDIR)-OrthoL.tif;
 
 $(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); \
-	$(HILLSHADE) $(OUT)-DEM.tif; \
-	$(COLORMAP) -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
+	$(HILLSHADE) $(RESULTSDIR)-DEM.tif; \
+	$(COLORMAP) -s $(RESULTSDIR)-DEM_HILLSHADE.tif $(RESULTSDIR)-DEM.tif
 
 products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
 
 $(POINTCLOUDU): $(NONMAPPED)
 	mkdir -p $(RESULTSDIRU)
-	$(STEREO) $(NONMAPPED) $(RESULTSDIRU)/$(OUT) -s stereo.nonmap
+	$(STEREO) $(NONMAPPED) $(PREFIXU) -s stereo.nonmap
 
 $(PREFIXU).ive: $(POINTCLOUDU)
-	cd $(RESULTSDIRU); $(POINT2MESH) $(OUT)-PC.tif $(OUT)-L.tif
+	cd $(RESULTSDIRU); $(POINT2MESH) $(RESULTSDIRU)-PC.tif $(RESULTSDIRU)-L.tif
 
 $(PREFIXU)-DRG.tif: $(POINTCLOUDU)
 	cd $(RESULTSDIRU); \
-	$(POINT2DEM) -r mars --orthoimage $(OUT)-L.tif $(OUT)-PC.tif;
+	$(POINT2DEM) -r mars --orthoimage $(RESULTSDIRU)-L.tif $(RESULTSDIRU)-PC.tif;
 
 $(PREFIXU)-DEM.tif: $(POINTCLOUDU)
 	cd $(RESULTSDIRU); \
-	$(POINT2DEM) -r mars -n --nodata -32767 $(OUT)-PC.tif;
+	$(POINT2DEM) -r mars -n --nodata -32767 $(RESULTSDIRU)-PC.tif;
 
 $(PREFIXU)-DEM_CMAP.tif: $(PREFIXU)-DEM.tif
 	cd $(RESULTSDIRU); \
-	$(HILLSHADE) $(OUT)-DEM.tif; \
-	$(COLORMAP) -s $(OUT)-DEM_HILLSHADE.tif $(OUT)-DEM.tif
+	$(HILLSHADE) $(RESULTSDIRU)-DEM.tif; \
+	$(COLORMAP) -s $(RESULTSDIRU)-DEM_HILLSHADE.tif $(RESULTSDIRU)-DEM.tif
 
 products_nonmap: $(PREFIXU).ive $(PREFIXU)-DRG.tif $(PREFIXU)-DEM_CMAP.tif
 
