@@ -13,30 +13,16 @@
 
 #define CALC_PIXEL_NUM_VALS 256
 
-#include <vw/Core/FundamentalTypes.h>
+#include <vw/Math/Vector.h>
+#include <vw/Image.h>
 
 namespace vw {
 
-  uint8 find_median_in_histogram(Vector<int, CALC_PIXEL_NUM_VALS> histogram, int kernSize) {
-    int acc = 0;
-    int acc_limit = kernSize * kernSize / 2;
-
-    uint8 i = 0;
-
-    for (;;) {
-      acc += histogram(i);
-
-      if (acc >= acc_limit)
-        break;
-
-      i++;
-    }
-
-    return i;
-  }
+  uint8 find_median_in_histogram(Vector<int, CALC_PIXEL_NUM_VALS> histogram,
+                                 int kernSize);
 
   template<class ImageT>
-    ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> const& img,  int kernSize) {
+  ImageView<typename ImageT::pixel_type> fast_median_filter(ImageViewBase<ImageT> const& img,  int kernSize) {
     typedef typename ImageT::pixel_type PixelT;
 
     ImageView<uint8> src = pixel_cast_rescale<uint8>(img.impl());
@@ -97,27 +83,25 @@ namespace vw {
       }
     }
 
-    ImageView<PixelT> result_scaled = pixel_cast_rescale<PixelT>(result);
-
-    return result_scaled;
-
+    return pixel_cast_rescale<PixelT>(result);
   }
+
   template<class PixelT>
-    class MedianFilterFunctor:public ReturnFixedType<PixelT>
+  class MedianFilterFunctor:public ReturnFixedType<PixelT>
   {
     int m_kernel_width;
     int m_kernel_height;
 
   public:
-  MedianFilterFunctor(int kernel_width, int kernel_height):
-    m_kernel_width(kernel_width),
+    MedianFilterFunctor(int kernel_width, int kernel_height):
+      m_kernel_width(kernel_width),
       m_kernel_height(kernel_height){}
 
     BBox2i work_area() const{ return BBox2i(Vector2i(-m_kernel_width/2, -m_kernel_height/2),
                                             Vector2i(m_kernel_width/2, m_kernel_height/2));  }
 
     template<class PixelAccessorT>
-      typename PixelAccessorT::pixel_type operator()(PixelAccessorT const& acc) const{
+    typename PixelAccessorT::pixel_type operator()(PixelAccessorT const& acc) const{
 
       Vector<int, CALC_PIXEL_NUM_VALS> histogram;
 
@@ -134,11 +118,11 @@ namespace vw {
   };
 
   template<class ViewT>
-    UnaryPerPixelAccessorView<EdgeExtensionView<ViewT, ZeroEdgeExtension>, MedianFilterFunctor<typename ViewT::pixel_type> >
-    my_median_filter(ImageViewBase<ViewT> const& input, int kernel_width, int kernel_height)
-    {
-      return UnaryPerPixelAccessorView<EdgeExtensionView<ViewT, ZeroEdgeExtension>, MedianFilterFunctor<typename ViewT::pixel_type> >(edge_extend(input, ZeroEdgeExtension()), MedianFilterFunctor<typename ViewT::pixel_type> (kernel_width, kernel_height));
-    }
+  UnaryPerPixelAccessorView<EdgeExtensionView<ViewT, ZeroEdgeExtension>, MedianFilterFunctor<typename ViewT::pixel_type> >
+  my_median_filter(ImageViewBase<ViewT> const& input, int kernel_width, int kernel_height)
+  {
+    return UnaryPerPixelAccessorView<EdgeExtensionView<ViewT, ZeroEdgeExtension>, MedianFilterFunctor<typename ViewT::pixel_type> >(edge_extend(input, ZeroEdgeExtension()), MedianFilterFunctor<typename ViewT::pixel_type> (kernel_width, kernel_height));
+  }
 
 }
 
