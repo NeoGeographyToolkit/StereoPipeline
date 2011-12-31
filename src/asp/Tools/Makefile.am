@@ -15,15 +15,15 @@ python_tool_scripts =
 if MAKE_APP_STEREO
   python_tool_scripts += stereo
   bin_PROGRAMS += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
-  stereo_corr_SOURCES = stereo_corr.cc
+  stereo_corr_SOURCES = stereo_corr.cc stereo.cc
   stereo_corr_LDADD   = $(APP_STEREO_LIBS)
-  stereo_fltr_SOURCES = stereo_fltr.cc
+  stereo_fltr_SOURCES = stereo_fltr.cc stereo.cc
   stereo_fltr_LDADD   = $(APP_STEREO_LIBS)
-  stereo_pprc_SOURCES = stereo_pprc.cc
+  stereo_pprc_SOURCES = stereo_pprc.cc stereo.cc
   stereo_pprc_LDADD   = $(APP_STEREO_LIBS)
-  stereo_rfne_SOURCES = stereo_rfne.cc
+  stereo_rfne_SOURCES = stereo_rfne.cc stereo.cc
   stereo_rfne_LDADD   = $(APP_STEREO_LIBS)
-  stereo_tri_SOURCES  = stereo_tri.cc
+  stereo_tri_SOURCES  = stereo_tri.cc stereo.cc
   stereo_tri_LDADD    = $(APP_STEREO_LIBS)
 endif
 
