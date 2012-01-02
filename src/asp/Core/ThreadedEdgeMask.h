@@ -40,16 +40,16 @@ namespace asp {
       typedef boost::shared_array<vw::int32> SharedArray;
       SharedArray g_left, g_right, g_top, g_bottom;
       Array m_left, m_right, m_top, m_bottom;
-
       // This how much we increment after we test a pixel. Set to 1 if
       // you wish to test every pixel.
-      const static vw::int32 STEP_SIZE=5;
+      const vw::int32 STEP_SIZE;
     public:
       EdgeMaskTask(ViewT const& view,
                    typename ViewT::pixel_type mask_value,
+                   vw::int32 search_step,
                    vw::BBox2i bbox, SharedArray left, SharedArray right,
                    SharedArray top, SharedArray bottom ) :
-        m_view(view), m_mask_value(mask_value), m_bbox(bbox), g_left(left), g_right(right), g_top(top), g_bottom(bottom), m_left( m_bbox.height() ), m_right( m_bbox.height() ), m_top( m_bbox.width() ), m_bottom( m_bbox.width() ) {
+        m_view(view), m_mask_value(mask_value), m_bbox(bbox), g_left(left), g_right(right), g_top(top), g_bottom(bottom), m_left( m_bbox.height() ), m_right( m_bbox.height() ), m_top( m_bbox.width() ), m_bottom( m_bbox.width() ), STEP_SIZE(search_step) {
 
         std::fill( m_left.begin(), m_left.end(), -1 );
         std::fill( m_right.begin(), m_right.end(), -1 );
@@ -205,8 +205,19 @@ namespace asp {
       std::vector<BBox2i> bboxes =
         image_blocks( m_view, block_size, block_size );
 
+      // Figure out an ideal search step size. Smaller means we're
+      // more likely to catch small features. Bigger step size means
+      // will move a lot faster.
+      int32 search_step = norm_2(Vector2i(m_view.cols(),m_view.rows())) / 500;
+      if (search_step < 1 ) search_step = 1;
+      else if ( search_step > 10 ) search_step = 10;
+      VW_OUT(DebugMessage, "threadededgemask")
+        << "Setting search step to " << search_step << std::endl;
+
       BOOST_FOREACH( BBox2i const& box, bboxes ) {
-        boost::shared_ptr<EdgeMaskTask> task(new EdgeMaskTask(m_view, mask_value, box, m_left, m_right, m_top, m_bottom ) );
+        VW_OUT(DebugMessage, "threadededgemask")
+          << "Created EdgeMaskTask for " << box << std::endl;
+        boost::shared_ptr<EdgeMaskTask> task(new EdgeMaskTask(m_view, mask_value, search_step, box, m_left, m_right, m_top, m_bottom ) );
         queue.add_task(task);
       }
       queue.join_all();
@@ -233,6 +244,17 @@ namespace asp {
         return pixel_type(m_view(i,j,p));
       else
         return pixel_type();
+    }
+
+    vw::BBox2i active_area() const {
+      return vw::BBox2i( vw::Vector2i(*std::min_element(&m_left[0],
+                                                        &m_left[rows()])+1,
+                                      *std::min_element(&m_top[0],
+                                                        &m_top[cols()])+1),
+                         vw::Vector2i(*std::max_element(&m_right[0],
+                                                        &m_right[rows()]),
+                                      *std::max_element(&m_bottom[0],
+                                                        &m_bottom[cols()])) );
     }
 
     typedef vw::CropView<ThreadedEdgeMaskView<vw::CropView<typename ViewT::prerasterize_type> > > prerasterize_type;

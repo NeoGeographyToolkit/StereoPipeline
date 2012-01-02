@@ -85,6 +85,7 @@ Makefile.in
 # Core
 src/asp/Core/tests/TestBlobIndexThreaded
 src/asp/Core/tests/TestErodeView
+src/asp/Core/tests/TestThreadedEdgeMask
 
 # IsisIO
 src/asp/IsisIO/tests/TestEphemerisEquations
