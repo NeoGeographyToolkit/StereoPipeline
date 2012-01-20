@@ -13,9 +13,7 @@
 
 
 #include <string>
-#include <vw/FileIO/DiskImageResourcePNG.h>
 #include <vw/Camera/CAHVORModel.h>
-#include <vw/Core.h>
 
 struct ImageInfo {
   std::string filename;

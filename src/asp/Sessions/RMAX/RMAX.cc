@@ -10,6 +10,9 @@
 
 #include <asp/Sessions/RMAX/RMAX.h>
 
+#include <vw/Core.h>
+#include <vw/FileIO/DiskImageResourcePNG.h>
+
 #define RMAX_GLOBAL_EASTING (582680)
 #define RMAX_GLOBAL_NORTHING (4141480)
 
@@ -17,8 +20,8 @@ using namespace vw;
 using namespace vw::camera;
 
 void read_image_info( std::string const& filename, ImageInfo& info ) {
-  vw::vw_out(vw::DebugMessage) << "Reading image info from " << filename << std::endl;;
-  vw::DiskImageResourcePNG png( filename );
+  vw_out(DebugMessage) << "Reading image info from " << filename << std::endl;;
+  DiskImageResourcePNG png( filename );
   info.filename = filename;
   for( unsigned i=0; i<png.num_comments(); ++i ) {
     std::string const& key = png.get_comment(i).key;
@@ -42,9 +45,9 @@ void read_image_info( std::string const& filename, ImageInfo& info ) {
   }
 }
 
-vw::camera::CAHVORModel rmax_image_camera_model( ImageInfo const& info,
-                                                 vw::Vector3 const& position_correction,
-                                                 vw::Vector3 const& pose_correction) {
+camera::CAHVORModel rmax_image_camera_model( ImageInfo const& info,
+                                             Vector3 const& position_correction,
+                                             Vector3 const& pose_correction) {
   // Bundle Adjustment
   double r = info.roll + pose_correction[0];
   double p = info.pitch + pose_correction[1];
