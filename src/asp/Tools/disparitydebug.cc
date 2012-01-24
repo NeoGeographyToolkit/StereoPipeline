@@ -131,8 +131,26 @@ int main( int argc, char *argv[] ) {
       default:
         do_disparity_visualization<PixelMask<Vector2f> >(opt); break;
       } break;
+    case VW_PIXEL_SCALAR:
+      // OpenEXR stores everything as planar, so this allows us to
+      // still read that data.
+      if ( fmt.planes == 2 ) {
+        switch (fmt.channel_type) {
+        case VW_CHANNEL_INT32:
+          do_disparity_visualization<Vector2i>(opt); break;
+        default:
+          do_disparity_visualization<Vector2f>(opt); break;
+        } break;
+      } else if ( fmt.planes == 3 ) {
+        switch (fmt.channel_type) {
+        case VW_CHANNEL_INT32:
+          do_disparity_visualization<PixelMask<Vector2i> >(opt); break;
+        default:
+          do_disparity_visualization<PixelMask<Vector2f> >(opt); break;
+        } break;
+      }
     default:
-      vw_throw( ArgumentErr() << "Unsupported pixel format. Expected GENERIC 2 or 3 CHANNEL image." );
+      vw_throw( ArgumentErr() << "Unsupported pixel format. Expected GENERIC 2 or 3 CHANNEL image. Instead got [" << pixel_format_name(fmt.pixel_format) << "]" );
     }
 
   } ASP_STANDARD_CATCHES;
