@@ -38,8 +38,6 @@ using namespace vw::cartography;
 using namespace vw::photometry;
 using namespace std;
 
-
-
 std::vector<int> GetInputIndices(std::vector<std::string> inputFiles, std::vector<std::string> DRGFiles)
 {
 
@@ -173,19 +171,30 @@ std::vector<int> makeOverlapList(const std::vector<ModelParams>& inputFiles,
          corners = params.corners;
        }
        
-       if(  ((corners(0)>currCorners(0)) && (corners(0)<currCorners(1))) //minlon in interval 
-	    ||((corners(1)>currCorners(0)) && (corners(1)<currCorners(1)))) //maxlon in interval
-       {
-         lonOverlap = 1;
-       }
-       if(  ((corners(2)>currCorners(2)) && (corners(2)<currCorners(3))) //minlat in interval 
-	    ||((corners(3)>currCorners(2)) && (corners(3)<currCorners(3)))) //maxlat in interval
-       {
-         latOverlap = 1;
-       }
-     
-       if ((lonOverlap == 1) && (latOverlap == 1)){
-           overlapIndices.push_back(i);
+       if (corners(0) > corners(1) || currCorners(0) > currCorners(1))
+         {
+           std::cout << "Must never happen: " << __FILE__ << " at line " << __LINE__ << std::endl;
+           exit(1);
+         }
+       
+       if ( std::max(corners(0), currCorners(0)) < std::min(corners(1), currCorners(1)) )
+         {
+           lonOverlap = 1;
+         }
+       
+       if (corners(2) > corners(3) || currCorners(2) > currCorners(3))
+         {
+           std::cout << "Must never happen: " << __FILE__ << " at line " << __LINE__ << std::endl;
+           exit(1);
+         }
+       
+       if ( std::max(corners(2), currCorners(2)) < std::min(corners(3), currCorners(3)) )
+         {
+           latOverlap = 1;
+         }
+       
+       if (lonOverlap == 1 && latOverlap == 1 && currFile != params.inputFilename){
+         overlapIndices.push_back(i);
        }
   }
 
@@ -207,6 +216,7 @@ std::vector<vector<int> > makeOverlapList(const std::vector<std::string>& inputF
 
 void printOverlapList(std::vector<vector<int> > overlapIndices)
 {
+  
   for (int i=0; i < (int)overlapIndices.size(); i++){
     printf("%d: ", i);
     for (int j = 0; j < (int)overlapIndices[i].size(); j++){
@@ -315,7 +325,6 @@ void PrintGlobalParams(struct GlobalParams *settings)
   printf("NO_DEM_DATA_VAL %d\n", settings->noDEMDataValue);
   printf("TR_CONST %f\n", settings->TRConst);
 }
-
 void readImagesFile(std::vector<ImageRecord>& images,
                     const std::string& imagesFileName)
 {
@@ -469,7 +478,6 @@ int main( int argc, char *argv[] ) {
     fs::create_directory(resDir+"/exposure");
   if ( !fs::exists(resDir+"/weight") )
     fs::create_directory(resDir+"/weight");
-  
 
   //this will contain all the DRG files
   int i = 0;
@@ -484,10 +492,10 @@ int main( int argc, char *argv[] ) {
     modelParamsArray[i].sunPosition         = 1000*sunPositions[j];
     modelParamsArray[i].spacecraftPosition  = 1000*spacecraftPositions[j];
   
-    modelParamsArray[i].centerLineDEM = NULL;
-    modelParamsArray[i].centerLine = NULL;
-    modelParamsArray[i].maxDistArray = NULL;
-    modelParamsArray[i].maxDistArrayDEM = NULL;
+    modelParamsArray[i].hCenterLineDEM      = NULL;
+    modelParamsArray[i].hCenterLine         = NULL;
+    modelParamsArray[i].hMaxDistArray       = NULL;
+    modelParamsArray[i].hMaxDistArrayDEM    = NULL;
 
     modelParamsArray[i].inputFilename       = DRGFiles[i];//these filenames have full path
     modelParamsArray[i].DEMFilename         = DEMDir + prefix_less3_from_filename(temp) + "DEM.tif";
@@ -508,20 +516,20 @@ int main( int argc, char *argv[] ) {
 
     ReadExposureInfoFromFile(&(modelParamsArray[i]));
     
-    modelParamsArray[i].centerLine = NULL;
-    modelParamsArray[i].maxDistArray = NULL;
-    modelParamsArray[i].centerLineDEM = NULL;
-    modelParamsArray[i].maxDistArrayDEM = NULL;
-    modelParamsArray[i].horCenterLine = NULL;
-    modelParamsArray[i].maxVerDistArray = NULL;
-    modelParamsArray[i].horCenterLineDEM = NULL;
-    modelParamsArray[i].maxVerDistArrayDEM = NULL;
+    modelParamsArray[i].hCenterLine      = NULL;
+    modelParamsArray[i].hMaxDistArray    = NULL;
+    modelParamsArray[i].hCenterLineDEM   = NULL;
+    modelParamsArray[i].hMaxDistArrayDEM = NULL;
+    modelParamsArray[i].vCenterLine      = NULL;
+    modelParamsArray[i].vMaxDistArray    = NULL;
+    modelParamsArray[i].vCenterLineDEM   = NULL;
+    modelParamsArray[i].vMaxDistArrayDEM = NULL;
 
     vw_out( VerboseDebugMessage, "photometry" ) << modelParamsArray[i] << "\n";
 
     i++;
   }
-  
+
   vw_out() << "Number of Files = " << DRGFiles.size() << "\n";
   if (imageFiles.size() == 0){
     imageFiles = DRGFiles;
@@ -529,7 +537,7 @@ int main( int argc, char *argv[] ) {
 
   std::vector<vector<int> > overlapIndicesArray = makeOverlapList(imageFiles, modelParamsArray); 
   printOverlapList(overlapIndicesArray);
- 
+
   std::vector<int> inputIndices = GetInputIndices(imageFiles, DRGFiles);
  
   // set up weights only for images that we want to process or that
@@ -551,18 +559,27 @@ int main( int argc, char *argv[] ) {
     for (unsigned int i=0; i < relevantIndices.size(); i++) {
       int j = relevantIndices[i];
 
-      if (modelParamsArray[j].centerLineDEM != NULL) continue;
+      if (modelParamsArray[j].hCenterLineDEM != NULL) continue;
 
       // first try to read the weight files
       ReadWeightsParamsFromFile(&modelParamsArray[j]);
       
-      if (modelParamsArray[j].centerLineDEM != NULL) continue;
+      if (modelParamsArray[j].hCenterLineDEM != NULL) continue;
         
       // weights not written yet, build them
-      modelParamsArray[j].centerLineDEM = ComputeDEMCenterLine(modelParamsArray[j].DEMFilename, globalParams.noDEMDataValue,
-                                                               &(modelParamsArray[j].maxDistArrayDEM));
-      modelParamsArray[j].centerLine = ComputeImageCenterLine(modelParamsArray[j].inputFilename,
-                                                              &(modelParamsArray[j].maxDistArray));
+      
+      // Horizontal
+      modelParamsArray[j].hCenterLineDEM = ComputeDEMHCenterLine(modelParamsArray[j].DEMFilename,
+                                                               globalParams.noDEMDataValue,
+                                                               &(modelParamsArray[j].hMaxDistArrayDEM));
+      modelParamsArray[j].hCenterLine = ComputeImageHCenterLine(modelParamsArray[j].inputFilename,
+                                                              &(modelParamsArray[j].hMaxDistArray));
+      // Vertical
+      modelParamsArray[j].vCenterLineDEM = ComputeDEMVCenterLine(modelParamsArray[j].DEMFilename,
+                                                               globalParams.noDEMDataValue,
+                                                               &(modelParamsArray[j].vMaxDistArrayDEM));
+      modelParamsArray[j].vCenterLine = ComputeImageVCenterLine(modelParamsArray[j].inputFilename,
+                                                              &(modelParamsArray[j].vMaxDistArray));
       
       if (globalParams.saveWeights == 1){
         SaveWeightsParamsToFile(modelParamsArray[j]);
@@ -597,7 +614,7 @@ int main( int argc, char *argv[] ) {
         overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
       }
       
-      if ((globalParams.useWeights == 1) && (modelParamsArray[inputIndices[i]].centerLineDEM == NULL)){
+      if ((globalParams.useWeights == 1) && (modelParamsArray[inputIndices[i]].hCenterLineDEM == NULL)){
           ReadWeightsParamsFromFile(&modelParamsArray[inputIndices[i]]);
       }
 
@@ -654,7 +671,7 @@ int main( int argc, char *argv[] ) {
     }
     callback.report_finished();
   }
- 
+
   if (globalParams.albedoInitType == 1){
 
     TerminalProgressCallback callback("photometry","Init Albedo:");
@@ -691,7 +708,6 @@ int main( int argc, char *argv[] ) {
 
   //re-estimate the parameters of the image formation model
   float overallError;
-
   for (int iter = 1; iter < globalParams.maxNumIter; iter++){
 
     overallError = 0.0;
@@ -703,8 +719,7 @@ int main( int argc, char *argv[] ) {
         if (globalParams.reflectanceType == NO_REFL){
           //no use of reflectance map
           ComputeExposure(&modelParamsArray[i], globalParams);
-        }
-        else{
+        }else{
           //use reflectance map
           ComputeExposureAlbedo(&modelParamsArray[i], globalParams);
         }
@@ -726,15 +741,15 @@ int main( int argc, char *argv[] ) {
         if (globalParams.reflectanceType == NO_REFL){
           //no use of the reflectance map
           UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
-        }
-        else{
+        }else{
           //use reflectance
           UpdateAlbedoMosaic(modelParamsArray[i], overlapParamsArray, globalParams);
         }
       }
     }
-
+        
     //re-estimate the height map  - shape from shading
+    
     if ((globalParams.reflectanceType != NO_REFL) && (globalParams.updateHeight == 1)){
 
       for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
@@ -743,7 +758,7 @@ int main( int argc, char *argv[] ) {
         for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
           overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
         }
-	  
+
         UpdateHeightMap(modelParamsArray[i], overlapParamsArray, globalParams);
       }
     }
@@ -781,5 +796,7 @@ int main( int argc, char *argv[] ) {
       }
       printf("iter = %d, overallAvgError = %f\n", iter, overallAvgError);
     }
+    
   }
+
 }
