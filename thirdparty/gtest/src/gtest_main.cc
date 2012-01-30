@@ -1,10 +1,3 @@
-// __BEGIN_LICENSE__
-// Copyright (C) 2006-2011 United States Government as represented by
-// the Administrator of the National Aeronautics and Space Administration.
-// All Rights Reserved.
-// __END_LICENSE__
-
-
 // Copyright 2006, Google Inc.
 // All rights reserved.
 //
@@ -36,9 +29,9 @@
 
 #include <iostream>
 
-#include <gtest/gtest.h>
+#include "gtest/gtest_ASP.h"
 
-int main(int argc, char **argv) {
+GTEST_API_ int main(int argc, char **argv) {
   std::cout << "Running main() from gtest_main.cc\n";
 
   testing::InitGoogleTest(&argc, argv);

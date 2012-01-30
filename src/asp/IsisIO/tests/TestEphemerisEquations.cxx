@@ -4,8 +4,7 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
-#include <gtest/gtest.h>
+#include <test/Helpers.h>
 
 #include <asp/IsisIO/PolyEquation.h>
 #include <asp/IsisIO/RPNEquation.h>

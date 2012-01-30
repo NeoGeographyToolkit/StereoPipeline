@@ -13,8 +13,9 @@ if MAKE_MODULE_CORE
 
 TestErodeView_SOURCES         = TestErodeView.cxx
 TestBlobIndexThreaded_SOURCES = TestBlobIndexThreaded.cxx
+TestThreadedEdgeMask_SOURCES  = TestThreadedEdgeMask.cxx
 
-TESTS = TestErodeView TestBlobIndexThreaded
+TESTS = TestErodeView TestBlobIndexThreaded TestThreadedEdgeMask
 
 endif
 

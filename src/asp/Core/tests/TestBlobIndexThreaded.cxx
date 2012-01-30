@@ -4,8 +4,7 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
-#include <gtest/gtest.h>
+#include <test/Helpers.h>
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>

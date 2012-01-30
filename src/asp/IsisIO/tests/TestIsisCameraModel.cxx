@@ -4,14 +4,12 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
-#include <gtest/gtest.h>
+#include <test/Helpers.h>
 
 #include <vw/Math/Vector.h>
 #include <vw/Core/Debugging.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <vw/Cartography/SimplePointImageManipulation.h>
-#include <test/Helpers.h>
 #include <boost/foreach.hpp>
 
 // Additional Headers required for ISIS
