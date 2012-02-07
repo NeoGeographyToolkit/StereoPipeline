@@ -12,6 +12,7 @@
 *.pb.cc
 *.pb.h
 *.pyc
+*.match
 *#
 /.vimrc.local
 /.project.root
@@ -92,6 +93,9 @@ src/asp/IsisIO/tests/TestEphemerisEquations
 src/asp/IsisIO/tests/TestIsisAdjustCameraModel
 src/asp/IsisIO/tests/TestIsisCameraModel
 
+# Sessions
+src/asp/Sessions/tests/TestStereoSessionDG
+
 # Tools
 src/asp/MPI/isis_mpi_adjust
 src/asp/Tools/aligndem
@@ -156,9 +160,13 @@ src/asp/ControlNetTK/render_gcp
 src/asp/ControlNetTK/vw_position_extract
 
 # Data
+data/*/nonmap
+data/*/map
 data/MOC/*cub
 data/MOC/*prt
 data/MOC/results
+data/CTX/*.cub
+data/CTX/*.IMG
 
 # Doc
 docs/book/*aux

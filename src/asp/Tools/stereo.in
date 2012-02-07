@@ -43,7 +43,7 @@ if __name__ == '__main__':
     p.add_option('--threads',              dest='threads',     type='int',
                  help='Select the number of processors (threads) to use.')
     p.add_option('-t', '--session-type',   dest='session',
-                 help='Select the stereo session type to use for processing. [options: pinhole isis]')
+                 help='Select the stereo session type to use for processing. [options: pinhole isis dg]')
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,

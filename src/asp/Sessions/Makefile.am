@@ -16,13 +16,14 @@ include_HEADERS = StereoSession.h
 libaspSessions_la_SOURCES = StereoSession.cc \
 		  Keypoint/StereoSessionKeypoint.cc \
 		  Pinhole/StereoSessionPinhole.cc RMAX/RMAX.cc		\
-		  RMAX/StereoSessionRmax.cc
+		  RMAX/StereoSessionRmax.cc DG/StereoSessionDG.cc       \
+		  DG/XMLBase.cc DG/XML.cc
 
 libaspSessions_la_LIBADD = @MODULE_SESSIONS_LIBS@
 
 lib_LTLIBRARIES = libaspSessions.la
 
-SUBDIRS = . Keypoint Pinhole RMAX
+SUBDIRS = . Keypoint Pinhole RMAX DG tests
 
 if HAVE_PKG_ISIS
 SUBDIRS += ISIS

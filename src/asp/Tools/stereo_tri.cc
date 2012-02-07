@@ -137,6 +137,18 @@ int main(int argc, char* argv[]) {
           << "\tmodels as most likely stereo won't be able\n"
           << "\tto triangulate or perform epipolar rectification.\n";
 
+      // Developer friendly help
+      VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << camera_model1->camera_center(Vector2()) << "\n"
+                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(camera_model1->camera_center(Vector2())) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << camera_model2->camera_center(Vector2()) << "\n"
+                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(camera_model2->camera_center(Vector2())) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << camera_model1->pixel_to_vector(Vector2()) << "\n"
+                                 << "      dot against pos: " << dot_prod(camera_model1->pixel_to_vector(Vector2()),
+                                                                          camera_model1->camera_center(Vector2())) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << camera_model2->pixel_to_vector(Vector2()) << "\n"
+                                 << "      dot against pos: " << dot_prod(camera_model2->pixel_to_vector(Vector2()),
+                                                                          camera_model2->camera_center(Vector2())) << "\n";
+
       // Can cameras triangulate to point at something in front of them?
       stereo::StereoModel model( camera_model1.get(), camera_model2.get() );
       double error;

@@ -478,6 +478,8 @@ AC_CONFIG_FILES([                       \
   src/asp/Sessions/Keypoint/Makefile    \
   src/asp/Sessions/Pinhole/Makefile     \
   src/asp/Sessions/RMAX/Makefile        \
+  src/asp/Sessions/DG/Makefile          \
+  src/asp/Sessions/tests/Makefile       \
   src/asp/MPI/Makefile                  \
   src/asp/Tools/Makefile                \
   src/asp/ControlNetTK/Makefile         \

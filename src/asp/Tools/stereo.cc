@@ -77,15 +77,20 @@ void vw::handle_arguments( int argc, char *argv[], Options& opt ) {
       vw_out() << "\t--> Detected pinhole camera files. "
                << "Executing pinhole stereo pipeline.\n";
       opt.stereo_session_string = "pinhole";
-    } else if (boost::iends_with(opt.in_file1, ".cub") &&
-               boost::iends_with(opt.in_file2, ".cub")) {
+    } else if (boost::iends_with(boost::to_lower_copy(opt.in_file1), ".cub") &&
+               boost::iends_with(boost::to_lower_copy(opt.in_file2), ".cub")) {
       vw_out() << "\t--> Detected ISIS cube files. "
                << "Executing ISIS stereo pipeline.\n";
       opt.stereo_session_string = "isis";
+    } else if (boost::iends_with(boost::to_lower_copy(opt.cam_file1), ".xml") &&
+               boost::iends_with(boost::to_lower_copy(opt.cam_file2), ".xml")) {
+      vw_out() << "\t--> Detected likely Digital Globe XML files. "
+               << "Executing DG stereo pipeline.\n";
+      opt.stereo_session_string = "dg";
     } else {
       vw_throw( ArgumentErr() << "Could not determine stereo session type. "
                 << "Please set it explicitly.\n"
-                << "using the -t switch. Options include: [pinhole isis].\n" );
+                << "using the -t switch. Options include: [pinhole isis dg].\n" );
     }
   }
 

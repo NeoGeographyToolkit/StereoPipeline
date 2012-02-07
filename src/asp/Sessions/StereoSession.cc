@@ -10,6 +10,7 @@
 
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
+#include <asp/Sessions/DG/StereoSessionDG.h>
 
 #include <vw/Core/Exception.h>
 
@@ -50,7 +51,9 @@ static void register_default_session_types() {
   if ( already ) return;
   already = true;
   asp::StereoSession::register_session_type( "pinhole",
-                                             &asp::StereoSessionPinhole::construct);
+                                             &asp::StereoSessionPinhole::construct );
+  asp::StereoSession::register_session_type( "dg",
+                                             &asp::StereoSessionDG::construct );
 }
 
 asp::StereoSession* asp::StereoSession::create( std::string const& session_type ) {

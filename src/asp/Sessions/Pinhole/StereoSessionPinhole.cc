@@ -259,7 +259,7 @@ void asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_fil
     vw::Matrix<double> align_matrix;
     try {
       read_matrix(align_matrix, m_out_prefix + "-align.exr");
-      vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
+      vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";
     } catch ( vw::IOErr const& e ) {
       vw_out() << "\nCould not read in alignment matrix: " << m_out_prefix
                << "-align.exr. Exiting. \n\n";
@@ -276,7 +276,7 @@ void asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_fil
                                               right_disk_image.rows()) );
 
     block_write_gdal_image( output_file, result, m_options,
-                            TerminalProgressCallback("asp", "\t    Saving: ") );
+                            TerminalProgressCallback("asp", "\tRemoving H: ") );
   } else {
     output_file = input_file;
   }
