@@ -22,11 +22,27 @@ namespace {
   ConstructMapType *stereo_session_construct_map = 0;
 }
 
-void asp::StereoSession::register_session_type( std::string const& id,
-                                                asp::StereoSession::construct_func func) {
-  if( ! stereo_session_construct_map )
-    stereo_session_construct_map = new ConstructMapType();
-  stereo_session_construct_map->insert( std::make_pair( id, func ) );
+// Pass over all the string variables we use
+void asp::StereoSession::initialize( asp::BaseOptions const& options,
+                                     std::string const& left_image_file,
+                                     std::string const& right_image_file,
+                                     std::string const& left_camera_file,
+                                     std::string const& right_camera_file,
+                                     std::string const& out_prefix,
+                                     std::string const& extra_argument1,
+                                     std::string const& extra_argument2,
+                                     std::string const& extra_argument3,
+                                     std::string const& extra_argument4) {
+  m_options = options;
+  m_left_image_file = left_image_file;
+  m_right_image_file = right_image_file;
+  m_left_camera_file = left_camera_file;
+  m_right_camera_file = right_camera_file;
+  m_out_prefix = out_prefix;
+  m_extra_argument1 = extra_argument1;
+  m_extra_argument2 = extra_argument2;
+  m_extra_argument3 = extra_argument3;
+  m_extra_argument4 = extra_argument4;
 }
 
 static void register_default_session_types() {
@@ -48,4 +64,78 @@ asp::StereoSession* asp::StereoSession::create( std::string const& session_type 
   vw_throw( vw::NoImplErr() << "Unsuppported stereo session type: "
             << session_type );
   return 0; // never reached
+}
+
+void asp::StereoSession::register_session_type( std::string const& id,
+                                                asp::StereoSession::construct_func func) {
+  if( ! stereo_session_construct_map )
+    stereo_session_construct_map = new ConstructMapType();
+  stereo_session_construct_map->insert( std::make_pair( id, func ) );
+}
+
+// Base class implementation of processing steps. All of these don't
+// perform any thing, they're just place holders.
+void asp::StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
+                                       boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+  cam1 = camera_model(m_left_image_file, m_left_camera_file);
+  cam2 = camera_model(m_right_image_file, m_right_camera_file);
+}
+
+void asp::StereoSession::pre_preprocessing_hook(std::string const& input_file1,
+                                                std::string const& input_file2,
+                                                std::string &output_file1,
+                                                std::string &output_file2) {
+  output_file1 = input_file1;
+  output_file2 = input_file2;
+}
+
+void asp::StereoSession::post_preprocessing_hook(std::string const& input_file1,
+                                                 std::string const& input_file2,
+                                                 std::string &output_file1,
+                                                 std::string &output_file2) {
+  output_file1 = input_file1;
+  output_file2 = input_file2;
+}
+
+void asp::StereoSession::pre_correlation_hook(std::string const& input_file1,
+                                              std::string const& input_file2,
+                                              std::string &output_file1,
+                                              std::string &output_file2) {
+  output_file1 = input_file1;
+  output_file2 = input_file2;
+}
+
+void asp::StereoSession::post_correlation_hook(std::string const& input_file,
+                                               std::string & output_file) {
+  output_file = input_file;
+}
+
+void asp::StereoSession::pre_filtering_hook(std::string const& input_file,
+                                            std::string & output_file) {
+  output_file = input_file;
+}
+
+void asp::StereoSession::post_filtering_hook(std::string const& input_file,
+                                             std::string & output_file) {
+  output_file = input_file;
+}
+
+void asp::StereoSession::pre_pointcloud_hook(std::string const& input_file,
+                                             std::string & output_file) {
+  output_file = input_file;
+}
+
+void asp::StereoSession::post_pointcloud_hook(std::string const& input_file,
+                                              std::string & output_file) {
+  output_file = input_file;
+}
+
+void asp::StereoSession::pre_wiremesh_hook(std::string const& input_file,
+                                           std::string & output_file) {
+  output_file = input_file;
+}
+
+void asp::StereoSession::post_wiremesh_hook(std::string const& input_file,
+                                            std::string & output_file) {
+  output_file = input_file;
 }
