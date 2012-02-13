@@ -50,8 +50,8 @@ void stereo_refinement( Options& opt ) {
         disparity_map =
           stereo::subpixel_refine( disparity_disk_image,
                                    left_disk_image, right_disk_image,
-                                   stereo_settings().subpixel_h_kern,
-                                   stereo_settings().subpixel_v_kern,
+                                   stereo_settings().subpixel_kernel[0],
+                                   stereo_settings().subpixel_kernel[1],
                                    stereo_settings().do_h_subpixel,
                                    stereo_settings().do_v_subpixel,
                                    stereo_settings().subpixel_mode,
@@ -63,8 +63,8 @@ void stereo_refinement( Options& opt ) {
         disparity_map =
           stereo::subpixel_refine(disparity_disk_image,
                                   left_disk_image, right_disk_image,
-                                  stereo_settings().subpixel_h_kern,
-                                  stereo_settings().subpixel_v_kern,
+                                  stereo_settings().subpixel_kernel[0],
+                                  stereo_settings().subpixel_kernel[1],
                                   stereo_settings().do_h_subpixel,
                                   stereo_settings().do_v_subpixel,
                                   stereo_settings().subpixel_mode,
@@ -76,8 +76,8 @@ void stereo_refinement( Options& opt ) {
         disparity_map =
           stereo::subpixel_refine(disparity_disk_image,
                                   left_disk_image, right_disk_image,
-                                  stereo_settings().subpixel_h_kern,
-                                  stereo_settings().subpixel_v_kern,
+                                  stereo_settings().subpixel_kernel[0],
+                                  stereo_settings().subpixel_kernel[1],
                                   stereo_settings().do_h_subpixel,
                                   stereo_settings().do_v_subpixel,
                                   stereo_settings().subpixel_mode,
@@ -88,8 +88,8 @@ void stereo_refinement( Options& opt ) {
         disparity_map =
           stereo::subpixel_refine(disparity_disk_image,
                                   left_disk_image, right_disk_image,
-                                  stereo_settings().subpixel_h_kern,
-                                  stereo_settings().subpixel_v_kern,
+                                  stereo_settings().subpixel_kernel[0],
+                                  stereo_settings().subpixel_kernel[1],
                                   stereo_settings().do_h_subpixel,
                                   stereo_settings().do_v_subpixel,
                                   stereo_settings().subpixel_mode,
@@ -105,8 +105,8 @@ void stereo_refinement( Options& opt ) {
       disparity_map =
         stereo::subpixel_refine(disparity_disk_image,
                                 left_disk_image, right_disk_image,
-                                stereo_settings().subpixel_h_kern,
-                                stereo_settings().subpixel_v_kern,
+                                stereo_settings().subpixel_kernel[0],
+                                stereo_settings().subpixel_kernel[1],
                                 stereo_settings().do_h_subpixel,
                                 stereo_settings().do_v_subpixel,
                                 stereo_settings().subpixel_mode,
@@ -125,8 +125,7 @@ void stereo_refinement( Options& opt ) {
                                  disparity_disk_image, -1);
       em_correlator.set_em_iter_max(stereo_settings().subpixel_em_iter);
       em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter);
-      em_correlator.set_kernel_size(Vector2i(stereo_settings().subpixel_h_kern,
-                                             stereo_settings().subpixel_v_kern));
+      em_correlator.set_kernel_size(stereo_settings().subpixel_kernel);
       em_correlator.set_pyramid_levels(stereo_settings().subpixel_pyramid_levels);
 
       DiskImageResourceOpenEXR em_disparity_map_rsrc(opt.out_prefix + "-F6.exr", em_correlator.format());

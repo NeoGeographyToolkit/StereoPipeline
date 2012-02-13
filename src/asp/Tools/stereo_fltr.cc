@@ -82,8 +82,7 @@ void stereo_filtering( Options& opt ) {
       // ownership issues.
       DiskImageView<vw::uint8> left_mask( opt.out_prefix+"-lMask.tif" );
       DiskImageView<vw::uint8> right_mask( opt.out_prefix+"-rMask.tif" );
-      int mask_buffer = std::max( stereo_settings().subpixel_h_kern,
-                                  stereo_settings().subpixel_v_kern );
+      int32 mask_buffer = max( stereo_settings().subpixel_kernel );
 
       // This is light weight .. don't worry about caching. All cost
       // is on construction of the edge_mask.

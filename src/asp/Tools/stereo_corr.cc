@@ -195,7 +195,7 @@ correlator_helper( DiskImageView<PixelGray<float> > & left_disk_image,
                    DiskImageView<PixelGray<float> > & right_disk_image,
                    DiskImageView<vw::uint8> & left_mask,
                    DiskImageView<vw::uint8> & right_mask,
-                   FilterT const& filter_func, vw::BBox2i & search_range,
+                   FilterT const& filter_func,
                    stereo::CorrelatorType const& cost_mode,
                    bool draft_mode,
                    std::string & corr_debug_prefix,
@@ -205,9 +205,8 @@ correlator_helper( DiskImageView<PixelGray<float> > & left_disk_image,
                                   left_mask, right_mask, filter_func,
                                   use_pyramid );
 
-  corr_view.set_search_range(search_range);
-  corr_view.set_kernel_size(Vector2i(stereo_settings().h_kern,
-                                     stereo_settings().v_kern));
+  corr_view.set_search_range(stereo_settings().search_range);
+  corr_view.set_kernel_size(stereo_settings().kernel);
   corr_view.set_cross_corr_threshold(stereo_settings().xcorr_threshold);
   corr_view.set_corr_score_threshold(stereo_settings().corrscore_rejection_threshold);
   corr_view.set_correlator_options(stereo_settings().cost_blur, cost_mode);
@@ -228,8 +227,7 @@ void stereo_correlation( Options& opt ) {
 
   // Working out search range if need be
   if (stereo_settings().is_search_defined()) {
-    vw_out() << "\t--> Using user defined search range: "
-             << opt.search_range << "\n";
+    vw_out() << "\t--> Using user defined search range.\n";
   } else {
     std::string l_sub_file = opt.out_prefix+"-L_sub.tif";
     std::string r_sub_file = opt.out_prefix+"-R_sub.tif";
@@ -246,7 +244,7 @@ void stereo_correlation( Options& opt ) {
       sub_scale /= 4;
     }
 
-    opt.search_range =
+    stereo_settings().search_range =
       approximate_search_range( l_sub_file, r_sub_file, sub_scale );
   }
 
@@ -282,7 +280,7 @@ void stereo_correlation( Options& opt ) {
     disparity_map =
       correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
                          stereo::SlogStereoPreprocessingFilter(stereo_settings().slogW),
-                         opt.search_range, cost_mode, opt.draft_mode,
+                         cost_mode, opt.draft_mode,
                          opt.corr_debug_prefix, !opt.optimized_correlator );
   } else if ( stereo_settings().pre_filter_mode == 2 ) {
     vw_out() << "\t--> Using LOG pre-processing filter with "
@@ -290,7 +288,7 @@ void stereo_correlation( Options& opt ) {
     disparity_map =
       correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
                          stereo::LogStereoPreprocessingFilter(stereo_settings().slogW),
-                         opt.search_range, cost_mode, opt.draft_mode,
+                         cost_mode, opt.draft_mode,
                          opt.corr_debug_prefix, !opt.optimized_correlator );
   } else if ( stereo_settings().pre_filter_mode == 1 ) {
     vw_out() << "\t--> Using BLUR pre-processing filter with "
@@ -298,14 +296,14 @@ void stereo_correlation( Options& opt ) {
     disparity_map =
       correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
                          stereo::BlurStereoPreprocessingFilter(stereo_settings().slogW),
-                         opt.search_range, cost_mode, opt.draft_mode,
+                         cost_mode, opt.draft_mode,
                          opt.corr_debug_prefix, !opt.optimized_correlator );
   } else {
     vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
     disparity_map =
       correlator_helper( left_disk_image, right_disk_image, Lmask, Rmask,
                          stereo::NullStereoPreprocessingFilter(),
-                         opt.search_range, cost_mode, opt.draft_mode,
+                         cost_mode, opt.draft_mode,
                          opt.corr_debug_prefix, !opt.optimized_correlator );
   }
 

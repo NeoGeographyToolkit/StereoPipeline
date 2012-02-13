@@ -11,20 +11,19 @@
 #include <boost/version.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
-namespace po = boost::program_options;
+
+#include <vw/Math/Vector.h>
+#include <vw/Math/BBox.h>
 
 class StereoSettings {
-  po::options_description m_desc;
-  po::variables_map m_vm;
+  boost::program_options::options_description m_desc;
+  boost::program_options::variables_map m_vm;
 
 public:
   StereoSettings();
   void read(std::string const& filename);
   void copy_settings(std::string const& filename, std::string const& destination);
-  bool is_search_defined() {
-    return h_corr_min != 0 || h_corr_max != 0 ||
-           v_corr_min != 0 || v_corr_max != 0;
-  }
+  bool is_search_defined() const;
 
   // ----------------
   // Public variables
@@ -41,28 +40,23 @@ public:
   int individually_normalize;     /* if > 1, normalize the images
                                      individually with their
                                      own hi's and low */
-  int force_max_min;          // Use entire dynamic range of image..
-  int pre_filter_mode;        /* 0 = None
-                                 1 = Gaussian Blur
-                                 2 = Log Filter
-                                 3 = SLog Filter  */
-  float slogW;                // Preprocessing filter width
+  int force_max_min;           // Use entire dynamic range of image..
+  int pre_filter_mode;         /* 0 = None
+                                  1 = Gaussian Blur
+                                  2 = Log Filter
+                                  3 = SLog Filter  */
+  float slogW;                 // Preprocessing filter width
 
   // Correlation Options
-  int h_kern;              /* kernel width first pass */
-  int v_kern;              /* kernel height first pass*/
-  int subpixel_h_kern;     /* kernel width first pass */
-  int subpixel_v_kern;     /* kernel height first pass*/
-  int h_corr_max;          /* correlation window max x */
-  int h_corr_min;          /* correlation window min x */
-  int v_corr_max;          /* correlation window max y */
-  int v_corr_min;          /* correlation window min y */
-  int do_h_subpixel;       /* Both of these must on    */
+  vw::Vector2i kernel;         // Correlation kernel
+  vw::Vector2i subpixel_kernel;// Subpixel correlation kernel
+  vw::BBox2i search_range;     // Correlation search range
+  int do_h_subpixel;           /* Both of these must on    */
   int do_v_subpixel;
-  int subpixel_mode;       /* 0 = parabola fitting
-                              1 = affine, robust weighting
-                              2 = affine, bayes weighting
-                              3 = affine, bayes EM weighting */
+  int subpixel_mode;           /* 0 = parabola fitting
+                                  1 = affine, robust weighting
+                                  2 = affine, bayes weighting
+                                  3 = affine, bayes EM weighting */
   float xcorr_threshold;
   float corrscore_rejection_threshold;
   int cost_blur;

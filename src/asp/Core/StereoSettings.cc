@@ -13,6 +13,9 @@
 #include <vw/Core/Log.h>
 #include <fstream>
 
+namespace po = boost::program_options;
+using namespace vw;
+
 // ---------------------------------------------------
 // Create a single instance of the StereoSettings
 // ---------------------------------------------------
@@ -105,17 +108,17 @@ StereoSettings::StereoSettings() {
   ASSOC_FLOAT("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
   ASSOC_FLOAT("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_threshold, 1.1, "");
   ASSOC_INT("COST_BLUR", cost_blur, 0, "Reduces the number of missing pixels by blurring the fitness landscape computed by the cost function.");
-  ASSOC_INT("H_KERNEL", h_kern, 25, "kernel width");
-  ASSOC_INT("V_KERNEL", v_kern, 25, "kernel height");
+  ASSOC_INT("H_KERNEL", kernel[0], 25, "kernel width");
+  ASSOC_INT("V_KERNEL", kernel[1], 25, "kernel height");
 
-  ASSOC_INT("H_CORR_MAX", h_corr_max, 0, "correlation window size max x");
-  ASSOC_INT("H_CORR_MIN", h_corr_min, 0, "correlation window size min x");
-  ASSOC_INT("V_CORR_MAX", v_corr_max, 0, "correlation window size max y");
-  ASSOC_INT("V_CORR_MIN", v_corr_min, 0, "correlation window size min y");
+  ASSOC_INT("H_CORR_MAX", search_range.max()[0], 0, "correlation window size max x");
+  ASSOC_INT("H_CORR_MIN", search_range.min()[0], 0, "correlation window size min x");
+  ASSOC_INT("V_CORR_MAX", search_range.max()[1], 0, "correlation window size max y");
+  ASSOC_INT("V_CORR_MIN", search_range.min()[1], 0, "correlation window size min y");
 
   ASSOC_INT("SUBPIXEL_MODE", subpixel_mode, 2, "0 - no subpixel, 1 - parabola, 2 - bayes EM");
-  ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_h_kern, 35, "subpixel kernel width");
-  ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_v_kern, 35, "subpixel kernel height");
+  ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_kernel[0], 35, "subpixel kernel width");
+  ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_kernel[1], 35, "subpixel kernel height");
   ASSOC_INT("DO_H_SUBPIXEL", do_h_subpixel, 1, "Do vertical subpixel interpolation.");
   ASSOC_INT("DO_V_SUBPIXEL", do_v_subpixel, 1, "Do horizontal subpixel interpolation.");
 
@@ -198,4 +201,9 @@ void StereoSettings::copy_settings(std::string const& filename, std::string cons
   out<<in.rdbuf(); // copy file
   in.close();
   out.close();
+}
+
+bool StereoSettings::is_search_defined() const {
+  return !( search_range.min() == Vector2i() &&
+            search_range.max() == Vector2i() );
 }

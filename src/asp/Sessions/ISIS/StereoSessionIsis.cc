@@ -274,7 +274,7 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
   if ( stereo_settings().mask_flatfield ) {
     vw_out() << "\t--> Masking pixels that appear to be dust.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
     photometric_outlier_rejection( m_out_prefix, input_file,
-                                   dust_result, stereo_settings().h_kern );
+                                   dust_result, stereo_settings().kernel[0] );
   }
 
   DiskImageView<PixelMask<Vector2f> > disparity_map(dust_result);
