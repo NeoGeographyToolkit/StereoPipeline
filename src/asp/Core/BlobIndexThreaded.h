@@ -240,7 +240,7 @@ namespace blob {
             if ( (*d_acc) != 0 ) {
               if ( building_segment && (index != component[*d_acc]) ) {
                 vw_throw(vw::LogicErr() << "Insert seems wrong.\n");
-                // I believe they way it's processed this shouldn't
+                // I believe the way it's processed this shouldn't
                 // happen
               } else if (!building_segment) {
                 building_segment = true;
@@ -356,9 +356,9 @@ class BlobIndexThreaded {
  public:
   // Constructor does most of the processing work
   template <class SourceT>
-    BlobIndexThreaded( vw::ImageViewBase<SourceT> const& src,
-                       vw::int32 const& max_area = 0,
-                       vw::int32 const& tile_size = vw::vw_settings().default_tile_size() )
+  BlobIndexThreaded( vw::ImageViewBase<SourceT> const& src,
+		     vw::int32 const& max_area = 0,
+		     vw::int32 const& tile_size = vw::vw_settings().default_tile_size() )
     : m_max_area(max_area), m_tile_size(tile_size) {
 
     // User needs to remember to give a pixel mask'd input
@@ -371,7 +371,7 @@ class BlobIndexThreaded {
       std::vector<vw::BBox2i> bboxes = image_blocks( src.impl(),
                                                      m_tile_size,
                                                      m_tile_size );
-      for ( unsigned i = 0; i < bboxes.size(); ++i ) {
+      for ( size_t i = 0; i < bboxes.size(); ++i ) {
         boost::shared_ptr<task_type> task(new task_type(src, bboxes[i], m_insert_mutex,
                                                         m_c_blob, m_blob_bbox,
                                                         i, m_max_area ));

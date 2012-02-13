@@ -136,13 +136,12 @@ void BlobCompressed::add_row( Vector2i const& start,
     if ( start.y() == m_min.y()+int32(m_row_start.size()) ) {
        m_row_start.resize(m_row_start.size()+1);
        m_row_end.resize(m_row_start.size());
-    }
-
-    if ( (start.x() < m_row_start.back().back()+m_min.x()) &&
-         !m_row_start.back().empty() ) {
-      vw_out() << "start: " << start << " w: " << width << std::endl;
-      vw_out() << "front() = " <<  m_row_start.back().back() << std::endl;
-      vw_out() << "min.x() << " << m_min.x() << std::endl;
+    } else if ( (start.x() < m_row_start.back().back()+m_min.x()) &&
+		!m_row_start.back().empty() ) {
+      // If we are not appending, check to see if were adding to this row in order
+      vw_out(ErrorMessage) << "start: " << start << " w: " << width << std::endl;
+      vw_out(ErrorMessage) << "front() = " <<  m_row_start.back().back() << std::endl;
+      vw_out(ErrorMessage) << "min.x() << " << m_min.x() << std::endl;
       vw_throw(vw::NoImplErr() << "It appears a segment is trying to be inserted out of order.\n" );
     }
 
