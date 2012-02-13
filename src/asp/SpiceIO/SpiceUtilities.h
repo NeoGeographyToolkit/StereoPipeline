@@ -18,6 +18,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 
+namespace asp {
 namespace spice {
 
   VW_DEFINE_EXCEPTION(SpiceErr, vw::Exception);
@@ -57,6 +58,6 @@ namespace spice {
                   std::string const& planet,
                   std::string const& instrument);
 
-} // namespace spice
+}} // namespace asp::spice
 
 #endif // __SPICE_H__

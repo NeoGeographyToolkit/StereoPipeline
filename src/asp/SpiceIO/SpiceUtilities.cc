@@ -26,6 +26,7 @@
 using namespace std;
 using namespace vw;
 
+namespace asp {
 namespace spice {
 
   // The maximum SPICE message length (currently) is 23*80 = 1840
@@ -261,4 +262,4 @@ namespace spice {
     load_kernels(kernel_list);
   }
 
-} // namespace spice
+}} // namespace asp::spice
