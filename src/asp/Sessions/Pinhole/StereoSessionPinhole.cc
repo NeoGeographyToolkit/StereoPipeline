@@ -183,9 +183,16 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
 
   } else if ( stereo_settings().keypoint_alignment ) {
 
-    Matrix<double> align_matrix;
-    align_matrix = determine_image_align( input_file1, input_file2,
-                                          left_disk_image, right_disk_image);
+    float low = std::min(left_stats[0], right_stats[0]);
+    float hi  = std::max(left_stats[1], right_stats[1]);
+    float gain_guess = 1.0f / (hi - low);
+    if ( gain_guess < 1.0f )
+      gain_guess = 1.0f;
+
+    Matrix<double> align_matrix =
+      determine_image_align( input_file1, input_file2,
+                             left_disk_image, right_disk_image,
+                             gain_guess );
     write_matrix( m_out_prefix + "-align.exr", align_matrix );
 
     // Applying alignment transform

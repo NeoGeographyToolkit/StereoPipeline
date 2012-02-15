@@ -34,12 +34,19 @@ namespace asp {
     std::string m_extra_argument1, m_extra_argument2,
       m_extra_argument3, m_extra_argument4;
 
+    // Helper function for determing image alignment.
+    //
+    // This expect image intensities to be between 0 and 1.0. If you
+    // know the range before hand will be 0.25 to 0.75, you can give a
+    // helping hand by setting the gain_guess parameter to 2.0 in that
+    // case.
     template <class ImageT1, class ImageT2>
     vw::Matrix3x3
     determine_image_align( std::string const& input_file1,
                            std::string const& input_file2,
                            vw::ImageViewBase<ImageT1> const& input1,
-                           vw::ImageViewBase<ImageT2> const& input2 ) {
+                           vw::ImageViewBase<ImageT2> const& input2,
+                           float gain_guess = 1.0 ) {
       namespace fs = boost::filesystem;
       using namespace vw;
 
@@ -93,7 +100,7 @@ namespace asp {
           ip::InterestPointList ip1, ip2;
 
           // Interest Point module detector code.
-          float ipgain = 0.08;
+          float ipgain = 0.08 / gain_guess;
           while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
             ip1.clear(); ip2.clear();
             ip::OBALoGInterestOperator interest_operator( ipgain );
