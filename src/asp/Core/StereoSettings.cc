@@ -146,6 +146,7 @@ StereoSettings::StereoSettings() {
 
   // System Settings
   ASSOC_STRING("CACHE_DIR", cache_dir, "/tmp", "Change if can't write large files to /tmp (i.e. Super Computer)");
+  ASSOC_STRING("TIF_COMPRESS", tif_compress, "", "Compression option for TIF");
 
 #undef ASSOC_INT
 #undef ASSOC_FLOAT

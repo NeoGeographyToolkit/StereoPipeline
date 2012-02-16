@@ -88,7 +88,8 @@ public:
   int   use_least_squares;     /* use a more rigorous triangulation */
 
   // System Settings
-  std::string cache_dir;   /* DiskCacheViews will use this directory */
+  std::string cache_dir;    /* DiskCacheViews will use this directory */
+  std::string tif_compress; // Options are [None, LZW, Deflate, Packbits]
 };
 
 /// Return the singleton instance of the stereo setting structure.

@@ -113,14 +113,29 @@ void vw::handle_arguments( int argc, char *argv[], Options& opt ) {
     }
   }
 
+  // Finally read in the stereo settings
+  stereo_settings().read(opt.stereo_default_filename);
+
+  // Pull out the TIFF compression option
+  if ( !stereo_settings().tif_compress.empty() ) {
+    boost::to_lower( stereo_settings().tif_compress );
+    if ( stereo_settings().tif_compress == "lzw" ) {
+      opt.gdal_options["COMPRESS"] = "LZW";
+    } else if ( stereo_settings().tif_compress == "packbits" ) {
+      opt.gdal_options["COMPRESS"] = "PACKBITS";
+    } else if ( stereo_settings().tif_compress == "deflate" ) {
+      opt.gdal_options["COMPRESS"] = "DEFLATE";
+    } else {
+      vw_out(WarningMessage) << "Unknown value for TIF_COMPRESSION options, \""
+                             << stereo_settings().tif_compress << "\"\n";
+    }
+  }
+
   opt.session.reset( asp::StereoSession::create(opt.stereo_session_string) );
   opt.session->initialize(opt, opt.in_file1, opt.in_file2,
                           opt.cam_file1, opt.cam_file2,
                           opt.out_prefix, opt.extra_arg1, opt.extra_arg2,
                           opt.extra_arg3, opt.extra_arg4);
-
-  // Finally read in the stereo settings
-  stereo_settings().read(opt.stereo_default_filename);
 
   // The last thing we do before we get started is to copy the
   // stereo.default settings over into the results directory so that
