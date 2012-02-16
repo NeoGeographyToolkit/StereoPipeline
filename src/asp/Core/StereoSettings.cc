@@ -77,81 +77,77 @@ inline void getword(std::istream& s, std::string& str) {
 //--------------------------------------------------
 StereoSettings::StereoSettings() {
 
-#define ASSOC_INT(X,Y,V,D)             m_desc.add_options()(X, po::value<int>(&(this->Y))->default_value(V), D)
-#define ASSOC_FLOAT(X,Y,V,D)           m_desc.add_options()(X, po::value<float>(&(this->Y))->default_value(V), D)
-#define ASSOC_DOUBLE(X,Y,V,D)          m_desc.add_options()(X, po::value<double>(&(this->Y))->default_value(V), D)
-#define ASSOC_STRING(X,Y,V,D)          m_desc.add_options()(X, po::value<std::string>(&(this->Y))->default_value(V), D)
+#define ASSOC(X, Y, V, D)   m_desc.add_options()(X, po::value(&(this->Y))->default_value(V), D)
+#define ASSOC_SIMPLE(X, Y)  m_desc.add_options()(X, po::value(&(this->Y)))
 
   // ---------------------
   // Preprocessing options
   // ---------------------
 
   // Alignment
-  ASSOC_INT("DO_INTERESTPOINT_ALIGNMENT", keypoint_alignment, 0, "Align images using the interest point alignment method");
-  ASSOC_INT("INTERESTPOINT_ALIGNMENT_SUBSAMPLING", keypoint_align_subsampling, 1, "Image sub-sampling factor for keypoint alignment.");
-  ASSOC_INT("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment, 0, "Align images using epipolar constraints");
+  ASSOC("DO_INTERESTPOINT_ALIGNMENT", keypoint_alignment, 0, "Align images using the interest point alignment method");
+  ASSOC("INTERESTPOINT_ALIGNMENT_SUBSAMPLING", keypoint_align_subsampling, 1, "Image sub-sampling factor for keypoint alignment.");
+  ASSOC("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment, 0, "Align images using epipolar constraints");
 
   // Image normalization
-  ASSOC_INT("FORCE_USE_ENTIRE_RANGE", force_max_min, 0, "Use images entire values, otherwise compress image range to -+2.5 sigmas around mean.");
-  ASSOC_INT("DO_INDIVIDUAL_NORMALIZATION", individually_normalize, 0, "Normalize each image individually before processsing.");
+  ASSOC("FORCE_USE_ENTIRE_RANGE", force_max_min, 0, "Use images entire values, otherwise compress image range to -+2.5 sigmas around mean.");
+  ASSOC("DO_INDIVIDUAL_NORMALIZATION", individually_normalize, 0, "Normalize each image individually before processsing.");
 
   // -------------------
   // Correlation Options
   // -------------------
 
   // Preproc filter
-  ASSOC_INT("PREPROCESSING_FILTER_MODE", pre_filter_mode, 3, "selects the preprocessing filter");
-  ASSOC_FLOAT("SLOG_KERNEL_WIDTH", slogW, 1.5, "SIGMA for the gaussian blure in LOG and SLOG");
+  ASSOC("PREPROCESSING_FILTER_MODE", pre_filter_mode, 3, "selects the preprocessing filter");
+  ASSOC("SLOG_KERNEL_WIDTH", slogW, 1.5, "SIGMA for the gaussian blure in LOG and SLOG");
 
   // Integer correlator
-  ASSOC_INT("COST_MODE", cost_mode, 2, "0 - absolute different, 1 - squared difference, 2 - normalized cross correlation");
-  ASSOC_FLOAT("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
-  ASSOC_FLOAT("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_threshold, 1.1, "");
-  ASSOC_INT("COST_BLUR", cost_blur, 0, "Reduces the number of missing pixels by blurring the fitness landscape computed by the cost function.");
-  ASSOC_INT("H_KERNEL", kernel[0], 25, "kernel width");
-  ASSOC_INT("V_KERNEL", kernel[1], 25, "kernel height");
+  ASSOC("COST_MODE", cost_mode, 2, "0 - absolute different, 1 - squared difference, 2 - normalized cross correlation");
+  ASSOC("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
+  ASSOC("CORRSCORE_REJECTION_THRESHOLD", corrscore_rejection_threshold, 1.1, "");
+  ASSOC("COST_BLUR", cost_blur, 0, "Reduces the number of missing pixels by blurring the fitness landscape computed by the cost function.");
+  ASSOC("H_KERNEL", kernel[0], 25, "kernel width");
+  ASSOC("V_KERNEL", kernel[1], 25, "kernel height");
 
-  ASSOC_INT("H_CORR_MAX", search_range.max()[0], 0, "correlation window size max x");
-  ASSOC_INT("H_CORR_MIN", search_range.min()[0], 0, "correlation window size min x");
-  ASSOC_INT("V_CORR_MAX", search_range.max()[1], 0, "correlation window size max y");
-  ASSOC_INT("V_CORR_MIN", search_range.min()[1], 0, "correlation window size min y");
+  ASSOC("H_CORR_MAX", search_range.max()[0], 0, "correlation window size max x");
+  ASSOC("H_CORR_MIN", search_range.min()[0], 0, "correlation window size min x");
+  ASSOC("V_CORR_MAX", search_range.max()[1], 0, "correlation window size max y");
+  ASSOC("V_CORR_MIN", search_range.min()[1], 0, "correlation window size min y");
 
-  ASSOC_INT("SUBPIXEL_MODE", subpixel_mode, 2, "0 - no subpixel, 1 - parabola, 2 - bayes EM");
-  ASSOC_INT("SUBPIXEL_H_KERNEL", subpixel_kernel[0], 35, "subpixel kernel width");
-  ASSOC_INT("SUBPIXEL_V_KERNEL", subpixel_kernel[1], 35, "subpixel kernel height");
-  ASSOC_INT("DO_H_SUBPIXEL", do_h_subpixel, 1, "Do vertical subpixel interpolation.");
-  ASSOC_INT("DO_V_SUBPIXEL", do_v_subpixel, 1, "Do horizontal subpixel interpolation.");
+  ASSOC("SUBPIXEL_MODE", subpixel_mode, 2, "0 - no subpixel, 1 - parabola, 2 - bayes EM");
+  ASSOC("SUBPIXEL_H_KERNEL", subpixel_kernel[0], 35, "subpixel kernel width");
+  ASSOC("SUBPIXEL_V_KERNEL", subpixel_kernel[1], 35, "subpixel kernel height");
+  ASSOC("DO_H_SUBPIXEL", do_h_subpixel, 1, "Do vertical subpixel interpolation.");
+  ASSOC("DO_V_SUBPIXEL", do_v_subpixel, 1, "Do horizontal subpixel interpolation.");
 
   // EMSubpixelCorrelator options
-  ASSOC_INT("SUBPIXEL_EM_ITER", subpixel_em_iter, 15, "Maximum number of EM iterations for EMSubpixelCorrelator");
-  ASSOC_INT("SUBPIXEL_AFFINE_ITER", subpixel_affine_iter, 5, "Maximum number of affine optimization iterations for EMSubpixelCorrelator");
-  ASSOC_INT("SUBPIXEL_PYRAMID_LEVELS", subpixel_pyramid_levels, 3, "Number of pyramid levels for EMSubpixelCorrelator");
+  ASSOC("SUBPIXEL_EM_ITER", subpixel_em_iter, 15, "Maximum number of EM iterations for EMSubpixelCorrelator");
+  ASSOC("SUBPIXEL_AFFINE_ITER", subpixel_affine_iter, 5, "Maximum number of affine optimization iterations for EMSubpixelCorrelator");
+  ASSOC("SUBPIXEL_PYRAMID_LEVELS", subpixel_pyramid_levels, 3, "Number of pyramid levels for EMSubpixelCorrelator");
 
   // Filtering Options
-  ASSOC_INT("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
-  ASSOC_INT("RM_V_HALF_KERN", rm_v_half_kern, 5, "");
-  ASSOC_INT("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");
-  ASSOC_INT("RM_THRESHOLD", rm_threshold, 3, "rm_threshold > disp[n]-disp[m] pixels are not matching");
-  ASSOC_INT("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
-  ASSOC_INT("ERODE_MAX_SIZE", erode_max_size, 1000, "max size of islands that should be removed");
-  ASSOC_INT("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
-  ASSOC_INT("FILL_HOLE_MAX_SIZE", fill_hole_max_size, 100000, "max size in pixels that should be filled");
-  ASSOC_INT("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
+  ASSOC("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
+  ASSOC("RM_V_HALF_KERN", rm_v_half_kern, 5, "");
+  ASSOC("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");
+  ASSOC("RM_THRESHOLD", rm_threshold, 3, "rm_threshold > disp[n]-disp[m] pixels are not matching");
+  ASSOC("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
+  ASSOC("ERODE_MAX_SIZE", erode_max_size, 1000, "max size of islands that should be removed");
+  ASSOC("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
+  ASSOC("FILL_HOLE_MAX_SIZE", fill_hole_max_size, 100000, "max size in pixels that should be filled");
+  ASSOC("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
 
   // Triangulation Options
-  ASSOC_STRING("UNIVERSE_CENTER", universe_center, "NONE", "center for radius measurements [CAMERA, ZERO, NONE]");
-  ASSOC_FLOAT("NEAR_UNIVERSE_RADIUS", near_universe_radius, 0.0, "radius of inner boundary of universe [m]");
-  ASSOC_FLOAT("FAR_UNIVERSE_RADIUS", far_universe_radius, 0.0, "radius of outer boundary of universe [m]");
-  ASSOC_INT("USE_LEAST_SQUARES", use_least_squares, 0, "use a more rigorous triangulation");
+  ASSOC("UNIVERSE_CENTER", universe_center, "NONE", "center for radius measurements [CAMERA, ZERO, NONE]");
+  ASSOC("NEAR_UNIVERSE_RADIUS", near_universe_radius, 0.0, "radius of inner boundary of universe [m]");
+  ASSOC("FAR_UNIVERSE_RADIUS", far_universe_radius, 0.0, "radius of outer boundary of universe [m]");
+  ASSOC("USE_LEAST_SQUARES", use_least_squares, 0, "use a more rigorous triangulation");
 
   // System Settings
-  ASSOC_STRING("CACHE_DIR", cache_dir, "/tmp", "Change if can't write large files to /tmp (i.e. Super Computer)");
-  ASSOC_STRING("TIF_COMPRESS", tif_compress, "", "Compression option for TIF");
+  ASSOC("CACHE_DIR", cache_dir, "/tmp", "Change if can't write large files to /tmp (i.e. Super Computer)");
+  ASSOC_SIMPLE("TIF_COMPRESS", tif_compress);
 
-#undef ASSOC_INT
-#undef ASSOC_FLOAT
-#undef ASSOC_DOUBLE
-#undef ASSOC_STRING
+#undef ASSOC
+#undef ASSOC_SIMPLE
 
   int argc = 1;
   char* argv[1];
