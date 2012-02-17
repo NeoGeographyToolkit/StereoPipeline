@@ -130,7 +130,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [moon , mars].  This will override manually set datum information.")
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [ earth, moon, mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
     ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
     ("x-offset", po::value(&opt.x_offset)->default_value(0), "Add a horizontal offset to the DEM")
@@ -209,20 +209,19 @@ int main( int argc, char *argv[] ) {
     cartography::Datum datum;
     if ( opt.reference_spheroid != "" ) {
       if (opt.reference_spheroid == "mars") {
-        const double MOLA_PEDR_EQUATORIAL_RADIUS = 3396190.0;
-        vw_out() << "\t--> Re-referencing altitude values using standard MOLA\n"
-                 << "\t    spherical radius: " << MOLA_PEDR_EQUATORIAL_RADIUS << "\n";
         datum.set_well_known_datum("D_MARS");
+        vw_out() << "\t--> Re-referencing altitude values using standard MOLA\n";
       } else if (opt.reference_spheroid == "moon") {
-        const double LUNAR_RADIUS = 1737400;
-        vw_out() << "\t--> Re-referencing altitude values using standard lunar\n"
-                 << "\t    spherical radius: " << LUNAR_RADIUS << "\n";
         datum.set_well_known_datum("D_MOON");
+        vw_out() << "\t--> Re-referencing altitude values using standard lunar\n";
+      } else if (opt.reference_spheroid == "earth") {
+        vw_out() << "\t--> Re-referencing altitude values using WGS84\n";
       } else {
         vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
                   << opt.reference_spheroid
-                  << ". Current options are [ moon, mars ]\nExiting." );
+                  << ". Current options are [ earth, moon, mars ]\nExiting." );
       }
+      vw_out() << "\t    Axes [" << datum.semi_major_axis() << " " << datum.semi_minor_axis() << "] meters\n";
     } else if (opt.semi_major != 0 && opt.semi_minor != 0) {
       vw_out() << "\t--> Re-referencing altitude values to user supplied datum.\n"
                << "\t    Semi-major: " << opt.semi_major << "  Semi-minor: " << opt.semi_minor << "\n";
