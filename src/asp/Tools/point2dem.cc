@@ -74,6 +74,28 @@ inline point_image_offset( ImageViewBase<ImageT> const& image, Vector3 const& of
   return UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
 }
 
+// Center Longitudes
+class CenterLongitudeFunc : public UnaryReturnSameType {
+  double center;
+public:
+  CenterLongitudeFunc(double c = 0) : center(c) {}
+
+  Vector3 operator()( Vector3 const& v ) const {
+    if ( v[0] < center - 180 )
+      return (*this)(v + Vector3(360,0,0));
+    else if ( v[0] > center + 180 )
+      return (*this)(v - Vector3(360,0,0));
+    return v;
+  }
+};
+
+template <class ImageT>
+UnaryPerPixelView<ImageT, CenterLongitudeFunc>
+inline recenter_longitude( ImageViewBase<ImageT> const& image, double center ) {
+  return UnaryPerPixelView<ImageT, CenterLongitudeFunc>(image.impl(),
+                                                        CenterLongitudeFunc(center));
+}
+
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
@@ -284,15 +306,14 @@ int main( int argc, char *argv[] ) {
       vw_out() << "\t--> Applying offset: " << opt.x_offset
                << " " << opt.y_offset << " " << opt.z_offset << "\n";
       point_image =
-        project_point_image(
-          point_image_offset(
-            xyz_to_lon_lat_radius(point_image, true, avg_location[0] >= 0 ),
-            Vector3(opt.x_offset,opt.y_offset,opt.z_offset)), georef);
+        geodetic_to_point(point_image_offset(recenter_longitude(cartesian_to_geodetic(point_image,georef),
+                                                                avg_location.x() >= 0 ? 0 : 180),
+                                             Vector3(opt.x_offset,
+                                                     opt.y_offset,
+                                                     opt.z_offset)),georef);
     } else {
       point_image =
-        project_point_image(
-          xyz_to_lon_lat_radius(point_image, true, avg_location[0] >= 0 ),
-          georef);
+        geodetic_to_point(recenter_longitude(cartesian_to_geodetic(point_image,georef), avg_location.x() >= 0 ? 0 : 180),georef);
     }
 
     // Rasterize the results to a temporary file on disk so as to speed

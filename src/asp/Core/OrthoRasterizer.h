@@ -42,9 +42,14 @@ namespace cartography {
     typedef std::pair<BBox3, BBox2i> BBoxPair;
     std::vector<BBoxPair > m_point_image_boundaries;
 
+    // This is growing a bbox of points in point projection and Z
+    // values which are altitude.
     struct GrowBBoxAccumulator {
       BBox3 bbox;
-      void operator()( Vector3 const& v ) { if (v != Vector3()) bbox.grow(v); }
+      void operator()( Vector3 const& v ) {
+        if ( !boost::math::isnan(v.z()) )
+          bbox.grow(v);
+      }
     };
 
     struct RemoveSoftInvalid : ReturnFixedType<PixelT> {
@@ -199,7 +204,7 @@ namespace cartography {
           for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
             PointAcc point_ul = row_acc;
             for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
-              if ( *point_ul != Vector3() ) {
+              if ( !boost::math::isnan((*point_ul).z()) ) {
 
                 PointAcc point_ur = point_ul; point_ur.next_col();
                 PointAcc point_ll = point_ul; point_ll.next_row();
@@ -208,7 +213,7 @@ namespace cartography {
                 // Verify the point UL and LR are in the rasterable
                 // area. Then just verify that at least one vertice is
                 // placed in the viewable area.
-                if ( *point_lr == Vector3() ||
+                if ( boost::math::isnan((*point_lr).z()) ||
                      !buf_local_3d_bbox.contains(*point_ul) ||
                      !buf_local_3d_bbox.contains(*point_lr) ||
                      !(local_3d_bbox.contains(*point_ul) ||
@@ -237,12 +242,12 @@ namespace cartography {
                 intensities[4] = texture_copy(col+1,row);
 
                 // triangle 1 is: LL, LR, UL
-                if ( *point_ll != Vector3() &&
+                if ( !boost::math::isnan((*point_ll).z()) &&
                      buf_local_3d_bbox.contains(*point_lr) )
                   renderer.DrawPolygon(0, 3);
 
                 // triangle 2 is: UL, LR, UR
-                if ( *point_ur != Vector3() &&
+                if ( !boost::math::isnan((*point_ur).z()) &&
                      buf_local_3d_bbox.contains(*point_ur) )
                   renderer.DrawPolygon(2, 3);
               }
