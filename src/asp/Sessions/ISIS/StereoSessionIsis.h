@@ -151,10 +151,8 @@ namespace asp {
                                     std::string & output_file);
 
     // Stage 4: Point cloud generation
-    //
-    // Pre file is a disparity map.  ( ImageView<PixelDisparity<float> > )
-    virtual void pre_pointcloud_hook(std::string const& input_file,
-                                     std::string & output_file);
+    virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >
+    pre_pointcloud_hook(std::string const& input_file);
 
     static StereoSession* construct() { return new StereoSessionIsis; }
   };

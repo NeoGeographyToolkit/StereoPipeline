@@ -248,13 +248,12 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
 }
 
 // Reverse any pre-alignment that might have been done to the disparity map
-void asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file,
-                                                    std::string & output_file ) {
+ImageViewRef<PixelMask<Vector2f> >
+asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file) {
 
   if ( stereo_settings().keypoint_alignment ) {
 
     DiskImageView<PixelMask<Vector2f> > disparity_map( input_file );
-    output_file = m_out_prefix + "-F-corrected.tif";
 
     vw::Matrix<double> align_matrix;
     try {
@@ -275,9 +274,8 @@ void asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_fil
                                     Vector2f( right_disk_image.cols(),
                                               right_disk_image.rows()) );
 
-    block_write_gdal_image( output_file, result, m_options,
-                            TerminalProgressCallback("asp", "\tRemoving H: ") );
-  } else {
-    output_file = input_file;
+    return result;
   }
+
+  return DiskImageView<PixelMask<Vector2f> >( input_file );
 }

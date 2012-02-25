@@ -262,10 +262,8 @@ asp::StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
 }
 
 // Reverse any pre-alignment that was done to the images.
-void
-asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
-                                            std::string & output_file) {
-
+ImageViewRef<PixelMask<Vector2f> >
+asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
   // ****************************************************
   // The following code is for Apollo Metric Camera ONLY!
   // (use at your own risk)
@@ -278,7 +276,6 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
   }
 
   DiskImageView<PixelMask<Vector2f> > disparity_map(dust_result);
-  output_file = m_out_prefix + "-F-corrected.tif";
 
   // We used a homography to line up the images, we may want
   // to generate pre-alignment disparities before passing this information
@@ -302,8 +299,7 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file,
                                  Vector2f( right_disk_image.cols(),
                                            right_disk_image.rows() ) );
 
-  block_write_gdal_image( output_file, result, m_options,
-                          TerminalProgressCallback("asp", "\t    Processing:") );
+  return result;
 }
 
 boost::shared_ptr<vw::camera::CameraModel>

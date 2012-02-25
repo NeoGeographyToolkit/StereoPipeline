@@ -24,12 +24,8 @@ void stereo_triangulation( Options const& opt ) {
            << " ] : Stage 4 --> TRIANGULATION \n";
 
   try {
-    std::string prehook_filename;
-    opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif",
-                                     prehook_filename);
-    vw_out(VerboseDebugMessage,"asp") << "Disparity Map for Triangulation: "
-                                      << prehook_filename << "\n";
-    DiskImageView<PixelMask<Vector2f> > disparity_map(prehook_filename);
+    ImageViewRef<PixelMask<Vector2f> > disparity_map =
+      opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif");
 
     boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
     opt.session->camera_models(camera_model1, camera_model2);

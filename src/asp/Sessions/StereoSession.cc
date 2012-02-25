@@ -16,11 +16,23 @@
 
 #include <map>
 
+using namespace vw;
+
 // This creates an anonymous namespace where the lookup table for
 // stereo sessions lives.
 namespace {
   typedef std::map<std::string,asp::StereoSession::construct_func> ConstructMapType;
   ConstructMapType *stereo_session_construct_map = 0;
+}
+
+// Allows FileIO to correctly read/write these pixel types
+namespace vw {
+  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+}
+
+// Allows FileIO to correctly read/write these pixel types
+namespace vw {
+  template<> struct PixelFormatID<PixelMask<Vector2f> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
 // Pass over all the string variables we use
@@ -123,9 +135,9 @@ void asp::StereoSession::post_filtering_hook(std::string const& input_file,
   output_file = input_file;
 }
 
-void asp::StereoSession::pre_pointcloud_hook(std::string const& input_file,
-                                             std::string & output_file) {
-  output_file = input_file;
+ImageViewRef<PixelMask<Vector2f> >
+asp::StereoSession::pre_pointcloud_hook(std::string const& input_file) {
+  return DiskImageView<PixelMask<Vector2f> >( input_file );
 }
 
 void asp::StereoSession::post_pointcloud_hook(std::string const& input_file,

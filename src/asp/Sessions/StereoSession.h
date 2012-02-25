@@ -12,6 +12,7 @@
 #define __STEREO_SESSION_H__
 
 #include <vw/Image/ImageViewBase.h>
+#include <vw/Image/ImageViewRef.h>
 #include <vw/Camera/CameraModel.h>
 
 #include <vw/Math/Functors.h>
@@ -257,8 +258,8 @@ namespace asp {
     //
     // Pre file is a disparity map.  ( ImageView<PixelDisparity<float> > )
     // Post file is point image.     ( ImageView<Vector3> )
-    virtual void pre_pointcloud_hook(std::string const& input_file,
-                                     std::string & output_file);
+    virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >
+    pre_pointcloud_hook(std::string const& input_file);
     virtual void post_pointcloud_hook(std::string const& input_file,
                                       std::string & output_file);
 
