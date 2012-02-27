@@ -70,6 +70,8 @@ void stereo_filtering( Options& opt ) {
 
   try {
 
+    ImageViewRef<PixelMask<Vector2f> > filtered_disparity;
+
     // Rasterize the results so far to a temporary file on disk.
     // This file is deleted once we complete the second half of the
     // disparity map filtering process.
@@ -91,11 +93,11 @@ void stereo_filtering( Options& opt ) {
       ImageViewRef<vw::uint8> Rmaskmore =
         apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024));
 
-      vw_out() << "\t--> Cleaning up disparity map prior to filtering processes (" << stereo_settings().rm_cleanup_passes << " pass).\n";
-      ImageViewRef<PixelMask<Vector2f> > disparity_map;
+      vw_out() << "\t--> Cleaning up disparity map prior to filtering processes ("
+	       << stereo_settings().rm_cleanup_passes << " pass).\n";
       typedef DiskImageView<PixelMask<Vector2f> > input_type;
       if ( stereo_settings().rm_cleanup_passes == 1 )
-        disparity_map =
+        filtered_disparity =
           stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
                                                                           disparity_disk_image,stereo_settings().rm_h_half_kern,
                                                                           stereo_settings().rm_v_half_kern,
@@ -103,7 +105,7 @@ void stereo_filtering( Options& opt ) {
                                                                           stereo_settings().rm_min_matches/100.0),
                                  Lmaskmore, Rmaskmore);
       else if ( stereo_settings().rm_cleanup_passes == 2 )
-        disparity_map =
+        filtered_disparity =
           stereo::disparity_mask(MultipleDisparityCleanUp<input_type,2>()(
                                                                           disparity_disk_image,stereo_settings().rm_h_half_kern,
                                                                           stereo_settings().rm_v_half_kern,
@@ -111,7 +113,7 @@ void stereo_filtering( Options& opt ) {
                                                                           stereo_settings().rm_min_matches/100.0),
                                  Lmaskmore, Rmaskmore);
       else if ( stereo_settings().rm_cleanup_passes == 3 )
-        disparity_map =
+        filtered_disparity =
           stereo::disparity_mask(MultipleDisparityCleanUp<input_type,3>()(
                                                                           disparity_disk_image,stereo_settings().rm_h_half_kern,
                                                                           stereo_settings().rm_v_half_kern,
@@ -119,7 +121,7 @@ void stereo_filtering( Options& opt ) {
                                                                           stereo_settings().rm_min_matches/100.0),
                                  Lmaskmore, Rmaskmore);
       else if ( stereo_settings().rm_cleanup_passes == 4 )
-        disparity_map =
+        filtered_disparity =
           stereo::disparity_mask(MultipleDisparityCleanUp<input_type,4>()(
                                                                           disparity_disk_image,stereo_settings().rm_h_half_kern,
                                                                           stereo_settings().rm_v_half_kern,
@@ -127,7 +129,7 @@ void stereo_filtering( Options& opt ) {
                                                                           stereo_settings().rm_min_matches/100.0),
                                  Lmaskmore, Rmaskmore);
       else if ( stereo_settings().rm_cleanup_passes >= 5 )
-        disparity_map =
+        filtered_disparity =
           stereo::disparity_mask(MultipleDisparityCleanUp<input_type,5>()(
                                                                           disparity_disk_image,stereo_settings().rm_h_half_kern,
                                                                           stereo_settings().rm_v_half_kern,
@@ -135,7 +137,7 @@ void stereo_filtering( Options& opt ) {
                                                                           stereo_settings().rm_min_matches/100.0),
                                  Lmaskmore, Rmaskmore);
       else
-        disparity_map =
+        filtered_disparity =
           stereo::disparity_mask(disparity_disk_image,
                                  Lmaskmore, Rmaskmore);
 
@@ -146,89 +148,43 @@ void stereo_filtering( Options& opt ) {
         //
         // The crash happens inside Boost Graph when dealing with
         // large number of blobs.
-        DiskCacheImageView<PixelMask<Vector2f> >
-          filtered_disp(disparity_map, "tif",
-                        TerminalProgressCallback("asp","\t  Intermediate:"),
-                        stereo_settings().cache_dir);
-
-        vw_out() << "\t--> Rasterizing filtered disparity map to disk. \n";
-        BlobIndexThreaded bindex( filtered_disp,
+        BlobIndexThreaded bindex( filtered_disparity,
                                   stereo_settings().erode_max_size );
         vw_out() << "\t    * Eroding " << bindex.num_blobs() << " islands\n";
-        ImageViewRef<PixelMask<Vector2f> > erode_disp_map;
-        erode_disp_map = ErodeView<DiskCacheImageView<PixelMask<Vector2f> > >(filtered_disp, bindex );
-        //erode_disp_map = filtered_disp;
-        asp::block_write_gdal_image( opt.out_prefix+"-FTemp.tif",
-                                     erode_disp_map, opt,
-                                     TerminalProgressCallback("asp", "\t--> Eroding: ") );
-      } else {
-        asp::block_write_gdal_image( opt.out_prefix+"-FTemp.tif",
-                                     disparity_map, opt,
-                                     TerminalProgressCallback("asp", "\t--> Filtering: ") );
+	filtered_disparity =
+	  ErodeView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex );
       }
     }
-
-    DiskImageView<PixelMask<Vector2f> > filtered_disparity_map( opt.out_prefix+"-FTemp.tif" );
 
     { // Write Good Pixel Map
       vw_out() << "\t--> Creating \"Good Pixel\" image: "
                << (opt.out_prefix + "-GoodPixelMap.tif") << "\n";
-      {
-        // Sub-sampling so that the user can actually view it.
-        float sub_scale = 2048.0 / float( std::min( filtered_disparity_map.cols(),
-                                                    filtered_disparity_map.rows() ) );
-        if ( sub_scale > 1 ) sub_scale = 1;
-        // Solving for the number of threads and the tile size to use for
-        // subsampling while only using 500 MiB of memory. (The cache code
-        // is a little slow on releasing so it will probably use 1.5GiB
-        // memory during subsampling) Also tile size must be a power of 2
-        // and greater than or equal to 64 px;
-        uint32 previous_num_threads = vw_settings().default_num_threads();
-        uint32 sub_threads = previous_num_threads + 1;
-        uint32 tile_power = 0;
-        while ( tile_power < 6 && sub_threads > 1) {
-          sub_threads--;
-          tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
-        }
-        uint32 sub_tile_size = 1 << tile_power;
-        if ( sub_tile_size > vw_settings().default_tile_size() )
-          sub_tile_size = vw_settings().default_tile_size();
 
-        ImageViewRef<PixelRGB<uint8> > good_pixel =
-          resample(stereo::missing_pixel_image(filtered_disparity_map),
-                   sub_scale);
-        vw_settings().set_default_num_threads(sub_threads);
-        DiskImageResourceGDAL good_pixel_rsrc( opt.out_prefix + "-GoodPixelMap.tif",
-                                               good_pixel.format(),
-                                               Vector2i(sub_tile_size,
-                                                        sub_tile_size ),
-                                               opt.gdal_options );
-        block_write_image( good_pixel_rsrc, good_pixel,
-                           TerminalProgressCallback("asp", "\t    Writing: "));
-        vw_settings().set_default_num_threads(previous_num_threads);
-      }
+      // Sub-sampling so that the user can actually view it.
+      float sub_scale = 2048.0 / float( std::min( filtered_disparity.cols(),
+						  filtered_disparity.rows() ) );
+      block_write_gdal_image( opt.out_prefix + "-GoodPixelMap.tif",
+			      resample(stereo::missing_pixel_image(filtered_disparity),
+				       sub_scale), opt,
+			      TerminalProgressCallback("asp","\t   Good Map: ") );
     }
 
     // Fill Holes
-    ImageViewRef<PixelMask<Vector2f> > hole_filled_disp_map;
     if(stereo_settings().fill_holes) {
       vw_out() << "\t--> Filling holes with Inpainting method.\n";
-      BlobIndexThreaded bindex( invert_mask( filtered_disparity_map ),
+      BlobIndexThreaded bindex( invert_mask( filtered_disparity ),
                                 stereo_settings().fill_hole_max_size );
       vw_out() << "\t    * Identified " << bindex.num_blobs() << " holes\n";
-      hole_filled_disp_map =
-        asp::InpaintView<DiskImageView<PixelMask<Vector2f> > >(filtered_disparity_map, bindex );
+      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
+				   asp::InpaintView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex ),
+				   opt, TerminalProgressCallback("asp","\t--> Filtering: ") );
+
     } else {
-      hole_filled_disp_map = filtered_disparity_map;
+      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
+				   filtered_disparity, opt,
+				   TerminalProgressCallback("asp", "\t--> Filtering: ") );
     }
 
-    asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-                                 hole_filled_disp_map, opt,
-                                 TerminalProgressCallback("asp", "\t--> Filtering: ") );
-
-    // Delete temporary file
-    std::string temp_file =  opt.out_prefix+"-FTemp.tif";
-    unlink( temp_file.c_str() );
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at filtering stage -- could not read input files.\n"
               << e.what() << "\nExiting.\n\n" );
