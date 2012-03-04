@@ -47,6 +47,8 @@
 /data/MOC/E0201461.map
 /data/MOC/M0100115.map
 /results
+/data/HiRISE/*.IMG
+/data/HiRISE/*.cub
 
 # Autotools Stuff
 Makefile
