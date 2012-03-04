@@ -21,10 +21,10 @@ CAM2MAP4STEREO = $(EXECDIR)cam2map4stereo.py
 all: nonmap/nonmap-DEM_CMAP.tif map/map-DEM_CMAP.tif
 
 P02_001981_1823_XI_02N356W.IMG:
-	wget -O P02_001981_1823_XI_02N356W.IMG 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+data/mro/mars_reconnaissance_orbiter/ctx/mrox_0031/data/P02_001981_1823_XI_02N356W.IMG+AND+RT+%3D+RAW'
+	wget -O $@ 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+data/mro/mars_reconnaissance_orbiter/ctx/mrox_0031/data/P02_001981_1823_XI_02N356W.IMG+AND+RT+%3D+RAW'
 
 P03_002258_1817_XI_01N356W.IMG:
-	wget -O P03_002258_1817_XI_01N356W.IMG 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+data/mro/mars_reconnaissance_orbiter/ctx/mrox_0042/data/P03_002258_1817_XI_01N356W.IMG+AND+RT+%3D+RAW'
+	wget -O $@ 'http://pds-imaging.jpl.nasa.gov/pds/prod?q=OFSN+%3D+data/mro/mars_reconnaissance_orbiter/ctx/mrox_0042/data/P03_002258_1817_XI_01N356W.IMG+AND+RT+%3D+RAW'
 
 %.cal.cub: %.IMG
 	mroctx2isis from= $< to= $<.temp.cub
