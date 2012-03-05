@@ -16,10 +16,8 @@
 #include <stddef.h>
 #include <math.h>
 
-//VisionWorkbench
-#include <vw/Math.h>
-#include <vw/Image.h>
-#include <vw/FileIO.h>
+//VisionWorkbench & ASP
+#include <asp/Tools/point2dem.h> // We share common functions with p2dem
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 using namespace vw;
@@ -49,28 +47,7 @@ namespace po = boost::program_options;
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
-// Erases a file suffix if one exists and returns the base string
-static std::string prefix_from_pointcloud_filename(std::string const& filename) {
-  std::string result = filename;
-
-  // First case: filenames that match <prefix>-PC.<suffix>
-  int index = result.rfind("-PC.");
-  if (index != -1) {
-    result.erase(index, result.size());
-    return result;
-  }
-
-  // Second case: filenames that match <prefix>.<suffix>
-  index = result.rfind(".");
-  if (index != -1) {
-    result.erase(index, result.size());
-    return result;
-  }
-
-  // No match
-  return result;
+  template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
 }
 
 struct Options : asp::BaseOptions {
@@ -425,40 +402,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
 
 }
 
-// ---------------------------------------------------------
-// POINT IMAGE TRANSFORM
-// ---------------------------------------------------------
-class PointTransFunc : public ReturnFixedType<Vector3> {
-  Matrix3x3 m_trans;
-public:
-  PointTransFunc(Matrix3x3 trans) : m_trans(trans) {}
-  Vector3 operator() (Vector3 const& pt) const { return m_trans*pt; }
-};
-
-// ---------------------------------------------------------
-// POINT IMAGE OFFSET
-// ---------------------------------------------------------
-
-// Apply an offset to the points in the PointImage
-class PointOffsetFunc : public UnaryReturnSameType {
-  Vector3 m_offset;
-
-public:
-  PointOffsetFunc(Vector3 const& offset) : m_offset(offset) {}
-
-  template <class T>
-  T operator()(T const& p) const {
-    if (p == T()) return p;
-    return p + m_offset;
-  }
-};
-
-template <class ImageT>
-UnaryPerPixelView<ImageT, PointOffsetFunc>
-inline point_image_offset( ImageViewBase<ImageT> const& image, Vector3 const& offset) {
-  return UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
-}
-
+// Helper function that extracts the point box of a point cloud.
 template <class ViewT>
 BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
   // Compute bounding box
@@ -475,6 +419,8 @@ BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
   }
   return result;
 }
+
+
 
 // MAIN
 // ---------------------------------------------------------
@@ -498,15 +444,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      po::bool_switch(&opt.enable_lighting)->default_value(false),
      "Enables shades and light on the mesh" )
     ("center", po::bool_switch(&opt.center)->default_value(false),
-     "Center the model around the origin. Use this option if you are experiencing numerical precision issues.")
-    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),
-       "Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
-    ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),
-     "Set a rotation angle phi")
-    ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),
-     "Set a rotation angle omega")
-    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),
-     "Set a rotation angle kappa");
+     "Center the model around the origin. Use this option if you are experiencing numerical precision issues.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -541,33 +479,18 @@ int main( int argc, char *argv[] ){
     handle_arguments( argc, argv, opt );
 
     // Loading point cloud!
-    DiskImageView<Vector3> point_disk_image(opt.pointcloud_filename);
-    ImageViewRef<Vector3> point_image = point_disk_image;
+    DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
+    ImageViewRef<Vector3> point_image = select_points(point_disk_image);
 
     // Centering Option (helpful if you are experiencing round-off error...)
     if (opt.center) {
-      BBox<float,3> bbox = point_image_bbox(point_disk_image);
+      BBox<float,3> bbox = point_image_bbox(select_points(point_disk_image));
       vw_out() << "\t--> Centering model around the origin.\n";
       vw_out() << "\t    Initial point image bounding box: " << bbox << "\n";
       Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;
       vw_out() << "\t    Midpoint: " << midpoint << "\n";
       point_image = point_image_offset(point_image, -midpoint);
-      BBox<float,3> bbox2 = point_image_bbox(point_image);
-      vw_out() << "\t    Re-centered point image bounding box: " << bbox2 << "\n";
     }
-
-    // Applying option rotations before hand
-    if ( opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0 ) {
-      vw_out() << "Applying rotation sequence: " << opt.rot_order
-               << "\tAngles: " << opt.phi_rot << "   " << opt.omega_rot
-               << "   " << opt.kappa_rot << std::endl;
-      Matrix3x3 rotation_trans =
-        math::euler_to_rotation_matrix( opt.phi_rot, opt.omega_rot,
-                                        opt.kappa_rot, opt.rot_order );
-      point_image =
-        vw::per_pixel_filter(point_image, PointTransFunc( rotation_trans ) );
-    }
-
 
     {
       vw_out() << "\nGenerating 3D mesh from point cloud:\n";
