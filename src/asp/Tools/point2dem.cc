@@ -4,26 +4,10 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-
 /// \file point2dem.cc
 ///
+#include <asp/Tools/point2dem.h>
 
-#ifdef _MSC_VER
-#pragma warning(disable:4244)
-#pragma warning(disable:4267)
-#pragma warning(disable:4996)
-#endif
-
-#ifdef NDEBUG
-#undef NDEBUG
-#endif
-
-#include <stdlib.h>
-
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Math.h>
-#include <vw/Cartography.h>
 using namespace vw;
 using namespace vw::cartography;
 
@@ -32,81 +16,11 @@ using namespace vw::cartography;
 #include <asp/Core/Common.h>
 namespace po = boost::program_options;
 
-// Erases a file suffix if one exists and returns the base string
-static std::string prefix_from_pointcloud_filename(std::string const& filename) {
-  std::string result = filename;
-
-  // First case: filenames that match <prefix>-PC.<suffix>
-  int index = result.rfind("-PC.");
-  if (index != -1) {
-    result.erase(index, result.size());
-    return result;
-  }
-
-  // Second case: filenames that match <prefix>.<suffix>
-  index = result.rfind(".");
-  if (index != -1) {
-    result.erase(index, result.size());
-    return result;
-  }
-
-  // No match
-  return result;
-}
-
-// Apply an offset to the points in the PointImage
-class PointOffsetFunc : public UnaryReturnSameType {
-  Vector3 m_offset;
-
-public:
-  PointOffsetFunc(Vector3 const& offset) : m_offset(offset) {}
-
-  template <class T>
-  T operator()(T const& p) const {
-    if (p == T()) return p;
-    return p + m_offset;
-  }
-};
-
-template <class ImageT>
-UnaryPerPixelView<ImageT, PointOffsetFunc>
-inline point_image_offset( ImageViewBase<ImageT> const& image, Vector3 const& offset) {
-  return UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset) );
-}
-
-// Center Longitudes
-class CenterLongitudeFunc : public UnaryReturnSameType {
-  double center;
-public:
-  CenterLongitudeFunc(double c = 0) : center(c) {}
-
-  Vector3 operator()( Vector3 const& v ) const {
-    if ( v[0] < center - 180 )
-      return (*this)(v + Vector3(360,0,0));
-    else if ( v[0] > center + 180 )
-      return (*this)(v - Vector3(360,0,0));
-    return v;
-  }
-};
-
-template <class ImageT>
-UnaryPerPixelView<ImageT, CenterLongitudeFunc>
-inline recenter_longitude( ImageViewBase<ImageT> const& image, double center ) {
-  return UnaryPerPixelView<ImageT, CenterLongitudeFunc>(image.impl(),
-                                                        CenterLongitudeFunc(center));
-}
-
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
 }
-
-class PointTransFunc : public ReturnFixedType<Vector3> {
-  Matrix3x3 m_trans;
-public:
-  PointTransFunc(Matrix3x3 trans) : m_trans(trans) {}
-  Vector3 operator() (Vector3 const& pt) const { return m_trans*pt; }
-};
 
 enum ProjectionType {
   SINUSOIDAL,
@@ -124,7 +38,7 @@ struct Options : asp::BaseOptions {
   std::string pointcloud_filename, texture_filename;
 
   // Settings
-  float dem_spacing, default_value;
+  float dem_spacing, nodata_value;
   double semi_major, semi_minor;
   std::string reference_spheroid;
   double phi_rot, omega_rot, kappa_rot;
@@ -133,31 +47,28 @@ struct Options : asp::BaseOptions {
   double x_offset, y_offset, z_offset;
   unsigned utm_zone;
   ProjectionType projection;
-  bool has_default_value, has_alpha, do_normalize;
+  bool has_nodata_value, has_alpha, do_normalize, do_error;
 
   // Output
   std::string  out_prefix, output_file_type;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
-  po::options_description general_options("");
-  general_options.add_options()
-    ("default-value", po::value(&opt.default_value), "Explicitly set the default (missing pixel) value.  By default, the min z value is used.")
-    ("nodata-value", po::value(&opt.default_value), "Nodata value to use on output. This is the same as default-value.")
-    ("use-alpha", po::bool_switch(&opt.has_alpha)->default_value(false),
-     "Create images that have an alpha channel")
-    ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)")
-    ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
-     "Also write a normalized version of the DEM (for debugging)")
-    ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
-    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
-    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
-    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [ earth, moon, mars].  This will override manually set datum information.")
-    ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
-    ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
+  po::options_description manipulation_options("Manipulation options");
+  manipulation_options.add_options()
     ("x-offset", po::value(&opt.x_offset)->default_value(0), "Add a horizontal offset to the DEM")
     ("y-offset", po::value(&opt.y_offset)->default_value(0), "Add a horizontal offset to the DEM")
     ("z-offset", po::value(&opt.z_offset)->default_value(0), "Add a vertical offset to the DEM")
+    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
+    ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),"Set a rotation angle phi")
+    ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega")
+    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa");
+
+  po::options_description projection_options("Projection options");
+  projection_options.add_options()
+    ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [ earth, moon, mars].  This will override manually set datum information.")
+    ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
+    ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
     ("sinusoidal", "Save using a sinusoidal projection")
     ("mercator", "Save using a Mercator projection")
     ("transverse-mercator", "Save using a transverse Mercator projection")
@@ -168,10 +79,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("proj-lat", po::value(&opt.proj_lat), "The center of projection latitude (if applicable)")
     ("proj-lon", po::value(&opt.proj_lon), "The center of projection longitude (if applicable)")
     ("proj-scale", po::value(&opt.proj_scale), "The projection scale (if applicable)")
-    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
-    ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),"Set a rotation angle phi")
-    ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega")
-    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa");
+    ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)");
+
+  po::options_description general_options("General Options");
+  general_options.add_options()
+    ("nodata-value", po::value(&opt.nodata_value), "Nodata value to use on output. This is the same as default-value.")
+    ("use-alpha", po::bool_switch(&opt.has_alpha)->default_value(false),
+     "Create images that have an alpha channel")
+    ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
+     "Also write a normalized version of the DEM (for debugging)")
+    ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
+    ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangule error image.")
+    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
+    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file");
+  general_options.add( manipulation_options );
+  general_options.add( projection_options );
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -202,7 +124,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   else if ( vm.count("lambert-azimuthal") ) opt.projection = LAMBERTAZIMUTHAL;
   else if ( vm.count("utm") )            opt.projection = UTM;
   else                                   opt.projection = PLATECARREE;
-  opt.has_default_value = vm.count("default-value") || vm.count("nodata-value");
+  opt.has_nodata_value = vm.count("nodata-value");
 }
 
 int main( int argc, char *argv[] ) {
@@ -211,19 +133,18 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    DiskImageView<Vector3> point_disk_image(opt.pointcloud_filename);
-    ImageViewRef<Vector3> point_image = point_disk_image;
+    DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
+    ImageViewRef<Vector3> point_image = select_points(point_disk_image);
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
                << "      Angles: " << opt.phi_rot << "   "
                << opt.omega_rot << "  " << opt.kappa_rot << "\n";
-      Matrix3x3 rotation_trans =
-        math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,
-                                       opt.kappa_rot, opt.rot_order);
       point_image =
-        per_pixel_filter(point_disk_image, PointTransFunc(rotation_trans));
+        point_transform( point_image,
+                         math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,
+                                                        opt.kappa_rot, opt.rot_order) );
     }
 
     // Select a cartographic datum. There are several hard coded datums
@@ -329,11 +250,11 @@ int main( int argc, char *argv[] ) {
     OrthoRasterizerView<PixelGray<float>, PointCacheT>
       rasterizer(point_image_cache, select_channel(point_image_cache,2),
                  opt.dem_spacing, TerminalProgressCallback("asp","QuadTree: ") );
-    if (!opt.has_default_value) {
+    if (!opt.has_nodata_value) {
       rasterizer.set_use_minz_as_default(true);
     } else {
       rasterizer.set_use_minz_as_default(false);
-      rasterizer.set_default_value(opt.default_value);
+      rasterizer.set_default_value(opt.nodata_value);
     }
 
     vw_out() << "\t--> DEM spacing: " << rasterizer.spacing() << " pt/px\n";
@@ -346,46 +267,60 @@ int main( int argc, char *argv[] ) {
     georef.set_transform(rasterizer.geo_transform());
     vw_out() << "\nOutput Georeference: \n\t" << georef << std::endl;
 
+    { // Write out the DEM.
+      if ( opt.output_file_type == "tif" && opt.has_nodata_value ) {
+        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", rasterizer, opt) );
+        rsrc->set_nodata_write( opt.nodata_value );
+        write_georeference( *rsrc, georef );
+        block_write_image( *rsrc, rasterizer,
+                           TerminalProgressCallback("asp","DEM: ") );
+      } else {
+        asp::block_write_gdal_image(
+          opt.out_prefix + "-DEM." + opt.output_file_type,
+          rasterizer, georef, opt,
+          TerminalProgressCallback("asp","DEM: ") );
+      }
+    }
+
+    // Write triangulation error image if requested
+    if ( opt.do_error ) {
+      rasterizer.set_texture( select_channel(point_disk_image,3) );
+      if ( opt.output_file_type == "tif" && opt.has_nodata_value ) {
+        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEMError.tif", rasterizer, opt) );
+        rsrc->set_nodata_write( opt.nodata_value );
+        write_georeference( *rsrc, georef );
+        block_write_image( *rsrc, rasterizer,
+                           TerminalProgressCallback("asp","DEMError: ") );
+      } else {
+        asp::write_gdal_georeferenced_image(opt.out_prefix + "-DEMError."+opt.output_file_type,
+                                            rasterizer, georef, opt, TerminalProgressCallback("asp","DEMError:") );
+      }
+    }
+
+    // Write DRG if the user requested and provided a texture file
     if (!opt.texture_filename.empty()) {
-      // Write out a georeferenced orthoimage of the DTM with alpha.
       rasterizer.set_use_minz_as_default(false);
       DiskImageView<PixelGray<float> > texture(opt.texture_filename);
       rasterizer.set_texture(texture);
       asp::write_gdal_georeferenced_image(opt.out_prefix + "-DRG.tif",
-             channel_cast_rescale<uint8>(rasterizer),
-             georef, opt, TerminalProgressCallback("asp","DRG:") );
-    } else {
-      { // Write out the DEM.
-        if ( opt.output_file_type == "tif" && opt.has_default_value ) {
-          boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", rasterizer, opt) );
-          rsrc->set_nodata_write( opt.default_value );
-          write_georeference( *rsrc, georef );
-          block_write_image( *rsrc, rasterizer,
-                             TerminalProgressCallback("asp","DEM: ") );
-        } else {
-          asp::block_write_gdal_image(
-               opt.out_prefix + "-DEM." + opt.output_file_type,
-               rasterizer, georef, opt,
-               TerminalProgressCallback("asp","DEM: ") );
-        }
-      }
+             rasterizer, georef, opt, TerminalProgressCallback("asp","DRG:") );
+    }
 
-      // Write out a normalized version of the DTM (for debugging)
-      if (opt.do_normalize) {
-        DiskImageView<PixelGray<float> >
-          dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
+    // Write out a normalized version of the DEM, if requested (for debugging)
+    if (opt.do_normalize) {
+      DiskImageView<PixelGray<float> >
+        dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
-        if ( opt.has_default_value ) {
-          asp::block_write_gdal_image(
-                   opt.out_prefix + "-DEM-normalized.tif",
-                   apply_mask(channel_cast_rescale<uint8>(normalize(create_mask(dem_image,opt.default_value)))),
-                   georef, opt, TerminalProgressCallback("asp","Normalized:") );
-        } else {
-          asp::block_write_gdal_image(
-                   opt.out_prefix + "-DEM-normalized.tif",
-                   channel_cast_rescale<uint8>(normalize(dem_image)),
-                   georef, opt, TerminalProgressCallback("asp","Normalized:") );
-        }
+      if ( opt.has_nodata_value ) {
+        asp::block_write_gdal_image(
+          opt.out_prefix + "-DEM-normalized.tif",
+          apply_mask(channel_cast_rescale<uint8>(normalize(create_mask(dem_image,opt.nodata_value)))),
+          georef, opt, TerminalProgressCallback("asp","Normalized:") );
+      } else {
+        asp::block_write_gdal_image(
+          opt.out_prefix + "-DEM-normalized.tif",
+          channel_cast_rescale<uint8>(normalize(dem_image)),
+          georef, opt, TerminalProgressCallback("asp","Normalized:") );
       }
     }
 
