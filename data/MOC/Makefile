@@ -24,25 +24,28 @@ POINT2MESH = $(EEXECDIR)point2mesh
 
 # Output variables
 RESULTSDIR = map
-MAPPED = E0201461.map.cub M0100115.map.cub
 PREFIX = $(RESULTSDIR)/$(RESULTSDIR)
 POINTCLOUD = $(PREFIX)-PC.tif
 
 RESULTSDIRU = nonmap
-NONMAPPED = E0201461.cub M0100115.cub
 PREFIXU = $(RESULTSDIRU)/$(RESULTSDIRU)
 POINTCLOUDU = $(PREFIXU)-PC.tif
+
+all: products_map products_nonmap
 
 # Pattern rule to create .cub files from .imq files
 %.cub: %.imq
 	mocproc from= $< to= $@ Mapping= NO
 
-all: products_map products_nonmap
+jigsaw: M0100115.cub E0201461.cub
+	echo M0100115.cub > cube.lis; \
+	echo E0201461.cub >> cube.lis; \
+	jigsaw fromlist=cube.lis radius=yes update=yes twist=no cnet=control.net onet=control_jigsaw.net
 
-M0100115.map.cub: M0100115.cub
+M0100115.map.cub: jigsaw
 	cam2map from=M0100115.cub to=M0100115.map.cub
 
-E0201461.map.cub: E0201461.cub M0100115.map.cub
+E0201461.map.cub: jigsaw M0100115.map.cub
 	cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
 
 M0100115.map/M0100115.kml: M0100115.map.cub
@@ -51,9 +54,9 @@ M0100115.map/M0100115.kml: M0100115.map.cub
 E0201461.map/E0201461.kml: E0201461.map.cub
 	$(IMAGE2QTREE) -m kml --normalize $<
 
-$(POINTCLOUD): $(MAPPED)
-	mkdir -p $(RESULTSDIR)
-	$(STEREO) $(MAPPED) $(PREFIX) -s stereo.map
+$(POINTCLOUD): M0100115.map.cub E0201461.map.cub
+	mkdir -p $(RESULTSDIR); \
+	$(STEREO) $^ $(PREFIX) -s stereo.map
 
 $(PREFIX)-F-H.tif: $(POINTCLOUD)
 	cd $(RESULTSDIR); $(DISPARITYDEBUG) $(RESULTSDIR)-F.tif
@@ -78,9 +81,9 @@ $(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
 
 products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
 
-$(POINTCLOUDU): $(NONMAPPED)
+$(POINTCLOUDU): jigsaw
 	mkdir -p $(RESULTSDIRU)
-	$(STEREO) $(NONMAPPED) $(PREFIXU) -s stereo.nonmap
+	$(STEREO) M0100115.cub E0201461.cub $(PREFIXU) -s stereo.nonmap
 
 $(PREFIXU).ive: $(POINTCLOUDU)
 	cd $(RESULTSDIRU); $(POINT2MESH) $(RESULTSDIRU)-PC.tif $(RESULTSDIRU)-L.tif
@@ -96,8 +99,7 @@ products_nonmap: $(PREFIXU).ive nonmap_point2dem
 
 clean:
 	rm -rf $(RESULTSDIR) $(RESULTSDIRU)
-	rm -rf M0100115.map E0201461.map
+	rm -rf M0100115.map E0201461.map cube.lis control_ba.net
 
 distclean: clean
-	rm -rf print.prt *.cub
-	rm -rf *.vwip *.match
+	rm -rf print.prt *.cub *.vwip *.match *~
