@@ -42,12 +42,13 @@ map/map-PC.tif: mapprojected
 
 map/map-DEM.tif: map/map-PC.tif
 	cd map; \
-	$(POINT2DEM) -r mars --nodata -32767 map-PC.tif
+	$(POINT2DEM) -r mars --nodata -32767 map-PC.tif --error --orthoimage map-L.tif
 
 map/map-DEM_CMAP.tif: map/map-DEM.tif
 	cd map; \
 	$(HILLSHADE) map-DEM.tif; \
-	$(COLORMAP) -s map-DEM_HILLSHADE.tif map-DEM.tif
+	$(COLORMAP) -s map-DEM_HILLSHADE.tif map-DEM.tif; \
+	$(COLORMAP) map-DEMError.tif
 
 nonmap/nonmap-PC.tif: nonmapprojected
 	$(STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap
@@ -59,10 +60,11 @@ nonmap/nonmap-DEM.tif: nonmap/nonmap-PC.tif
 nonmap/nonmap-DEM_CMAP.tif: nonmap/nonmap-DEM.tif
 	cd nonmap; \
 	$(HILLSHADE) nonmap-DEM.tif; \
-	$(COLORMAP) -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif
+	$(COLORMAP) -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif; \
+	$(COLORMAP) map-DEMError.tif
 
 clean:
 	rm -rf nonmap map *.vwip
 
-distclean:
-	rm -rf *.cub map *~ *.match
+distclean: clean
+	rm -rf *.cub *~ *.match

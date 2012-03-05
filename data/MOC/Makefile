@@ -61,11 +61,8 @@ $(PREFIX)-F-H.tif: $(POINTCLOUD)
 $(PREFIX).ive: $(POINTCLOUD)
 	cd $(RESULTSDIR); $(POINT2MESH) $(RESULTSDIR)-PC.tif $(RESULTSDIR)-L.tif
 
-$(PREFIX)-DRG.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(POINT2DEM) -r mars --orthoimage $(RESULTSDIR)-L.tif $(RESULTSDIR)-PC.tif;
-
 $(PREFIX)-DEM.tif: $(POINTCLOUD)
-	cd $(RESULTSDIR); $(POINT2DEM) -r mars -n --nodata -32767 $(RESULTSDIR)-PC.tif;
+	cd $(RESULTSDIR); $(POINT2DEM) -r mars --orthoimage $(RESULTSDIR)-L.tif -n --error --nodata -32767 $(RESULTSDIR)-PC.tif;
 
 $(PREFIX)-OrthoR.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); $(ORTHOPROJECT) $(RESULTSDIR)-DEM.tif ../M0100115.cub $(RESULTSDIR)-OrthoR.tif;
@@ -76,9 +73,10 @@ $(PREFIX)-OrthoL.tif: $(PREFIX)-DEM.tif
 $(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); \
 	$(HILLSHADE) $(RESULTSDIR)-DEM.tif; \
-	$(COLORMAP) -s $(RESULTSDIR)-DEM_HILLSHADE.tif $(RESULTSDIR)-DEM.tif
+	$(COLORMAP) -s $(RESULTSDIR)-DEM_HILLSHADE.tif $(RESULTSDIR)-DEM.tif; \
+	$(COLORMAP) $(RESULTSDIR)-DEMError.tif
 
-products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-DRG.tif $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
+products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
 
 $(POINTCLOUDU): $(NONMAPPED)
 	mkdir -p $(RESULTSDIRU)
@@ -87,20 +85,14 @@ $(POINTCLOUDU): $(NONMAPPED)
 $(PREFIXU).ive: $(POINTCLOUDU)
 	cd $(RESULTSDIRU); $(POINT2MESH) $(RESULTSDIRU)-PC.tif $(RESULTSDIRU)-L.tif
 
-$(PREFIXU)-DRG.tif: $(POINTCLOUDU)
+nonmap_point2dem: $(POINTCLOUDU)
 	cd $(RESULTSDIRU); \
-	$(POINT2DEM) -r mars --orthoimage $(RESULTSDIRU)-L.tif $(RESULTSDIRU)-PC.tif;
-
-$(PREFIXU)-DEM.tif: $(POINTCLOUDU)
-	cd $(RESULTSDIRU); \
-	$(POINT2DEM) -r mars -n --nodata -32767 $(RESULTSDIRU)-PC.tif;
-
-$(PREFIXU)-DEM_CMAP.tif: $(PREFIXU)-DEM.tif
-	cd $(RESULTSDIRU); \
+	$(POINT2DEM) -r mars --orthoimage $(RESULTSDIRU)-L.tif $(RESULTSDIRU)-PC.tif --error --nodata -32767 -n; \
 	$(HILLSHADE) $(RESULTSDIRU)-DEM.tif; \
-	$(COLORMAP) -s $(RESULTSDIRU)-DEM_HILLSHADE.tif $(RESULTSDIRU)-DEM.tif
+	$(COLORMAP) -s $(RESULTSDIRU)-DEM_HILLSHADE.tif $(RESULTSDIRU)-DEM.tif; \
+	$(COLORMAP) $(RESULTSDIRU)-DEMError.tif
 
-products_nonmap: $(PREFIXU).ive $(PREFIXU)-DRG.tif $(PREFIXU)-DEM_CMAP.tif
+products_nonmap: $(PREFIXU).ive nonmap_point2dem
 
 clean:
 	rm -rf $(RESULTSDIR) $(RESULTSDIRU)
