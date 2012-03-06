@@ -40,6 +40,7 @@ nonmap/nonmap-DEM_CMAP.tif: nonmap/nonmap-DEM.tif
 	cd nonmap; \
 	$(HILLSHADE) nonmap-DEM.tif; \
 	$(COLORMAP) -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif
+	$(COLORMAP) nonmap-DEMError.tif --lut ../../TriangulationError.lut
 
 clean:
 	rm -rf nonmap map *.vwip

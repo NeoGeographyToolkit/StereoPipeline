@@ -74,7 +74,7 @@ $(PREFIX)-DEM_CMAP.tif: $(PREFIX)-DEM.tif
 	cd $(RESULTSDIR); \
 	$(HILLSHADE) $(RESULTSDIR)-DEM.tif; \
 	$(COLORMAP) -s $(RESULTSDIR)-DEM_HILLSHADE.tif $(RESULTSDIR)-DEM.tif; \
-	$(COLORMAP) $(RESULTSDIR)-DEMError.tif
+	$(COLORMAP) $(RESULTSDIR)-DEMError.tif --lut ../../TriangulationError.lut
 
 products_map: $(PREFIX)-F-H.tif $(PREFIX).ive $(PREFIX)-OrthoL.tif $(PREFIX)-OrthoR.tif E0201461.map/E0201461.kml M0100115.map/M0100115.kml $(PREFIX)-DEM_CMAP.tif
 
@@ -90,7 +90,7 @@ nonmap_point2dem: $(POINTCLOUDU)
 	$(POINT2DEM) -r mars --orthoimage $(RESULTSDIRU)-L.tif $(RESULTSDIRU)-PC.tif --error --nodata -32767 -n; \
 	$(HILLSHADE) $(RESULTSDIRU)-DEM.tif; \
 	$(COLORMAP) -s $(RESULTSDIRU)-DEM_HILLSHADE.tif $(RESULTSDIRU)-DEM.tif; \
-	$(COLORMAP) $(RESULTSDIRU)-DEMError.tif
+	$(COLORMAP) $(RESULTSDIRU)-DEMError.tif --lut ../../TriangulationError.lut
 
 products_nonmap: $(PREFIXU).ive nonmap_point2dem
 

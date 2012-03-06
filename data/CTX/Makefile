@@ -48,7 +48,7 @@ map/map-DEM_CMAP.tif: map/map-DEM.tif
 	cd map; \
 	$(HILLSHADE) map-DEM.tif; \
 	$(COLORMAP) -s map-DEM_HILLSHADE.tif map-DEM.tif; \
-	$(COLORMAP) map-DEMError.tif
+	$(COLORMAP) map-DEMError.tif --lut ../../TriangulationError.lut
 
 nonmap/nonmap-PC.tif: nonmapprojected
 	$(STEREO) P02_001981_1823_XI_02N356W.cal.cub P03_002258_1817_XI_01N356W.cal.cub nonmap/nonmap -s stereo.nonmap
@@ -61,7 +61,7 @@ nonmap/nonmap-DEM_CMAP.tif: nonmap/nonmap-DEM.tif
 	cd nonmap; \
 	$(HILLSHADE) nonmap-DEM.tif; \
 	$(COLORMAP) -s nonmap-DEM_HILLSHADE.tif nonmap-DEM.tif; \
-	$(COLORMAP) map-DEMError.tif
+	$(COLORMAP) map-DEMError.tif --lut ../../TriangulationError.lut
 
 clean:
 	rm -rf nonmap map *.vwip
