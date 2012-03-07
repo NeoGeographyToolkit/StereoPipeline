@@ -91,7 +91,7 @@ asp::StereoSessionDG::camera_model( std::string const& /*image_file*/,
              MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
 
   // I also don't support optical distortion yet.
-  VW_ASSERT( geo.optical_polyorder == 0,
+  VW_ASSERT( geo.optical_polyorder <= 0,
              NoImplErr() << "Cameras with optical distortion are not supported currently." );
 
   // Convert ephemeris to be position of camera. Change attitude to be
