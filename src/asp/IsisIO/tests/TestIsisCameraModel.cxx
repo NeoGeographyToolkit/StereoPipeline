@@ -107,8 +107,8 @@ TEST(IsisCameraModel, groundmap_chk) {
 
   for ( size_t j = 0; j < files.size(); j++ ) {
 
-    std::cout << "File: " << files[j] << "\n";
-    std::cout << "------------------------------------\n";
+    vw_out() << "File: " << files[j] << "\n";
+    vw_out() << "------------------------------------\n";
 
     Isis::Filename cubefile( files[j].c_str() );
     Isis::Pvl label;
@@ -116,7 +116,7 @@ TEST(IsisCameraModel, groundmap_chk) {
     Isis::Camera* cam = Isis::CameraFactory::Create( label );
     Isis::AlphaCube alphacube( label );
 
-    std::cout << "CameraType: " << cam->GetCameraType() << "\n";
+    vw_out() << "CameraType: " << cam->GetCameraType() << "\n";
 
     double m_delta = 1e-8;
     if ( cam->HasProjection() )
@@ -205,8 +205,8 @@ TEST(IsisCameraModel, camera_model) {
   BOOST_FOREACH( std::string const& cube, files ) {
     IsisCameraModel cam(cube);
 
-    std::cout << "File: " << cube << "\n";
-    std::cout << "------------------------------------\n";
+    vw_out() << "File: " << cube << "\n";
+    vw_out() << "------------------------------------\n";
 
     Timer t(cube+"'s time: ");
 
@@ -232,8 +232,13 @@ TEST(IsisCameraModel, camera_model) {
       Vector2 rpixel = cam.point_to_pixel( point );
       EXPECT_VECTOR_NEAR( pixel, rpixel, 0.02 );
       EXPECT_TRUE( cam.ephemeris_time(Vector2()) );
-      EXPECT_TRUE( cam.sun_position() != Vector3() );
     }
+
+    EXPECT_TRUE( cam.sun_position() != Vector3() );
+    EXPECT_TRUE( cam.target_radii() != Vector3() );
+    EXPECT_GT( cam.target_radii()[0], 0 );
+    EXPECT_GT( cam.target_radii()[1], 0 );
+    EXPECT_GT( cam.target_radii()[2], 0 );
 
     Vector2 center_pixel( cam.lines(), cam.samples() );
     center_pixel /= 2;

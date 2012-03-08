@@ -75,8 +75,14 @@ namespace camera {
       return m_interface->ephemeris_time( pix );
     }
 
+    // Sun position in the target frame's inertial frame
     Vector3 sun_position( Vector2 const& pix = Vector2() ) const {
       return m_interface->sun_position( pix );
+    }
+
+    // The three main radii that make up the spheroid. Z is out the polar region.
+    Vector3 target_radii() const {
+      return m_interface->target_radii();
     }
 
   protected:

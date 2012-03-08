@@ -82,3 +82,11 @@ vw::Vector3 IsisInterface::sun_position( vw::Vector2 const& pix ) const {
   m_camera->SunPosition( &sun[0] );
   return sun * 1000;
 }
+
+vw::Vector3 IsisInterface::target_radii() const {
+  Isis::Distance radii[3];
+  m_camera->Radii(radii);
+  return Vector3( radii[0].GetMeters(),
+                  radii[1].GetMeters(),
+                  radii[2].GetMeters() );
+}
