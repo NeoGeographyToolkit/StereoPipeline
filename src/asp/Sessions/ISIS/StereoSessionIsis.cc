@@ -18,9 +18,10 @@
 #include <vw/Cartography.h>
 
 // Stereo Pipeline
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/InterestPointMatching.h>
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 #include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/Core/StereoSettings.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 #include <asp/Sessions/ISIS/PhotometricOutlier.h>
@@ -159,16 +160,30 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   Matrix<double> align_matrix(3,3);
   align_matrix.set_identity();
   if ( stereo_settings().keypoint_alignment) {
-    DiskImageView<PixelGray<float> > left_disk_image(input_file1);
-    DiskImageView<PixelGray<float> > right_disk_image(input_file2);
-    ImageViewRef<PixelGray<float> > left_view =
-      normalize(remove_isis_special_pixels(left_disk_image, lo),
-                lo, hi, 0, 1.0);
-    ImageViewRef<PixelGray<float> > right_view =
-      normalize(remove_isis_special_pixels(right_disk_image, lo),
-                lo, hi, 0, 1.0);
-    align_matrix = determine_image_align(input_file1, input_file2,
-                                         left_view, right_view );
+    std::string match_filename =
+      m_out_prefix + fs::basename(input_file1) + "__" +
+      fs::basename(input_file2) + ".match";
+
+    if (!fs::exists(match_filename)) {
+      boost::shared_ptr<camera::CameraModel> cam1, cam2;
+      camera_models( cam1, cam2 );
+
+      boost::shared_ptr<IsisCameraModel> isis_cam = boost::dynamic_pointer_cast<IsisCameraModel>(cam1);
+
+      Vector3 radii = isis_cam->target_radii();
+      cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
+
+      bool inlier =
+        ip_matching_w_alignment( cam1.get(), cam2.get(),
+                                 DiskImageView<PixelGray<float> >(input_file1),
+                                 DiskImageView<PixelGray<float> >(input_file2),
+                                 datum, match_filename );
+      VW_ASSERT( inlier, IOErr() << "Unable to match left and right images." );
+    }
+
+    std::vector<ip::InterestPoint> ip1, ip2;;
+    ip::read_binary_match_file( match_filename, ip1, ip2  );
+    align_matrix = homography_fit(ip2, ip1, bounding_box(DiskImageView<PixelGray<float> >(input_file1)) );
   }
   write_matrix( m_out_prefix + "-align.exr", align_matrix );
 

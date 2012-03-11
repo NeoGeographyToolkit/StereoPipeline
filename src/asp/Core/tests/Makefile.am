@@ -11,11 +11,13 @@
 
 if MAKE_MODULE_CORE
 
-TestErodeView_SOURCES         = TestErodeView.cxx
-TestBlobIndexThreaded_SOURCES = TestBlobIndexThreaded.cxx
-TestThreadedEdgeMask_SOURCES  = TestThreadedEdgeMask.cxx
+TestErodeView_SOURCES          = TestErodeView.cxx
+TestBlobIndexThreaded_SOURCES  = TestBlobIndexThreaded.cxx
+TestThreadedEdgeMask_SOURCES   = TestThreadedEdgeMask.cxx
+TestGaussianClustering_SOURCES = TestGaussianClustering.cxx
 
-TESTS = TestErodeView TestBlobIndexThreaded TestThreadedEdgeMask
+TESTS = TestErodeView TestBlobIndexThreaded TestThreadedEdgeMask \
+        TestGaussianClustering
 
 endif
 

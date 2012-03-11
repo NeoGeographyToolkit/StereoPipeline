@@ -21,10 +21,12 @@ endif
 include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
                   InpaintView.h MedianFilter.h OrthoRasterizer.h         \
                   SoftwareRenderer.h ErodeView.h $(ba_headers) Macros.h  \
-                  Common.h ThreadedEdgeMask.h
+                  Common.h ThreadedEdgeMask.h GaussianClustering.h       \
+                  IntegralAutoGainDetector.h InterestPointMatching.h
 
 libaspCore_la_SOURCES = BlobIndexThreaded.cc Common.cc MedianFilter.cc   \
-                  SoftwareRenderer.cc StereoSettings.cc $(ba_sources)
+                  SoftwareRenderer.cc StereoSettings.cc $(ba_sources)    \
+                  InterestPointMatching.cc
 
 libaspCore_la_LIBADD = @MODULE_CORE_LIBS@
 
