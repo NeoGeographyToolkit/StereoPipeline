@@ -144,13 +144,3 @@ void asp::StereoSession::post_pointcloud_hook(std::string const& input_file,
                                               std::string & output_file) {
   output_file = input_file;
 }
-
-void asp::StereoSession::pre_wiremesh_hook(std::string const& input_file,
-                                           std::string & output_file) {
-  output_file = input_file;
-}
-
-void asp::StereoSession::post_wiremesh_hook(std::string const& input_file,
-                                            std::string & output_file) {
-  output_file = input_file;
-}

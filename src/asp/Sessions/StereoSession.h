@@ -262,14 +262,6 @@ namespace asp {
     pre_pointcloud_hook(std::string const& input_file);
     virtual void post_pointcloud_hook(std::string const& input_file,
                                       std::string & output_file);
-
-    // Stage 4: Wire mesh/dtm generation
-    //
-    // Pre and post file is a point image.  ( ImageView<Vector3> )
-    virtual void pre_wiremesh_hook(std::string const& input_file,
-                                   std::string & output_file);
-    virtual void post_wiremesh_hook(std::string const& input_file,
-                                    std::string & output_file);
   };
 
 } // end namespace asp
