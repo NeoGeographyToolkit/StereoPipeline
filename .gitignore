@@ -24,31 +24,12 @@
 /.gcno.stamp
 /.gcda.stamp
 
-/data/apollo
-/data/mi-stereo
-/data/orbit33
-/data/p19
-/data/MER/*.img
-/data/MER/*.cahvor
-/data/MER/*.tif
-/data/MER/*.cahv
-/data/MER/*.cahvore
-/data/MER/mi01
-/data/MER/nav01
-/data/MER/pan01
-/data/MER/fh01lin
-/data/MER/fh01
-/data/MER/fh02
-/data/MER/rh01
-/data/MOC_BA/*.IMG
-/data/MOC/*.vwip
-/data/MOC/*.tif
-/data/K10/results
-/data/MOC/E0201461.map
-/data/MOC/M0100115.map
-/results
-/data/HiRISE/*.IMG
-/data/HiRISE/*.cub
+# Data Directories (you'll have to use force to actually add something in there)
+/data/MER/*
+/data/MOC/*
+/data/K10/*
+/data/CTX/*
+/data/HiRISE/*
 
 # Autotools Stuff
 Makefile
@@ -88,6 +69,7 @@ Makefile.in
 # Core
 src/asp/Core/tests/TestBlobIndexThreaded
 src/asp/Core/tests/TestErodeView
+src/asp/Core/tests/TestGaussianClustering
 src/asp/Core/tests/TestThreadedEdgeMask
 
 # IsisIO
@@ -100,14 +82,13 @@ src/asp/Sessions/tests/TestStereoSessionDG
 
 # Tools
 src/asp/MPI/isis_mpi_adjust
+src/asp/Tools/*.py
 src/asp/Tools/aligndem
 src/asp/Tools/bundle_adjust
 src/asp/Tools/bundlevis
-src/asp/Tools/cam2map4stereo.py
 src/asp/Tools/dem_profile
 src/asp/Tools/disparitydebug
 src/asp/Tools/geodiff
-src/asp/Tools/hiedr2mosaic.py
 src/asp/Tools/hsv_merge
 src/asp/Tools/isis_adjust
 src/asp/Tools/isis_adjust_camera_err
@@ -128,29 +109,8 @@ src/asp/Tools/stereo_fltr
 src/asp/Tools/stereo_pprc
 src/asp/Tools/stereo_rfne
 src/asp/Tools/stereo_tri
+src/asp/Tools/stereo_tri_rpc
 src/asp/Tools/time_trials
-
-# Photometry Toolkit
-src/asp/PhotometryTK/phodrg2plate
-src/asp/PhotometryTK/phoinitalbedo
-src/asp/PhotometryTK/phoinitfile
-src/asp/PhotometryTK/phoitalbedo
-src/asp/PhotometryTK/phoitdem
-src/asp/PhotometryTK/phoiterror
-src/asp/PhotometryTK/phoitreflect
-src/asp/PhotometryTK/phoittime
-src/asp/PhotometryTK/ptk_server
-src/asp/PhotometryTK/mipmap
-src/asp/PhotometryTK/phoinitet
-src/asp/PhotometryTK/shadow_mask
-src/asp/PhotometryTK/tests/TestProjectFileIO
-src/asp/PhotometryTK/tests/TestProjectService
-src/asp/PhotometryTK/tests/TestAlbedoAccumulators
-src/asp/PhotometryTK/tests/TestTimeAccumulators
-src/asp/PhotometryTK/tests/TestErrorAccumulators
-src/asp/PhotometryTK/tests/TestFullIteration
-src/asp/PhotometryTK/tests/shadow_mask
-src/asp/PhotometryTK/tests/*.ptk*
 
 # Control Network Toolkit
 src/asp/ControlNetTK/reduce_match
@@ -160,15 +120,6 @@ src/asp/ControlNetTK/cnet_merge
 src/asp/ControlNetTK/isis_position_extract
 src/asp/ControlNetTK/render_gcp
 src/asp/ControlNetTK/vw_position_extract
-
-# Data
-data/*/nonmap
-data/*/map
-data/MOC/*cub
-data/MOC/*prt
-data/MOC/results
-data/CTX/*.cub
-data/CTX/*.IMG
 
 # Doc
 docs/book/*aux
