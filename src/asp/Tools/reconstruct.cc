@@ -4,18 +4,38 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+// To do: Convert the input images to byte from uint16, since
+// they go from 0 to 255 anyway. As of now they appear transparent.
+// To do: Copy the images from supercomp.
 // To do:
+// To do: Fix the memory leaks where the weighs are read.
+// Fix the bug with orbit ends not showing up.
+// Fix the non-plastic bug.
+// Fix the 1 pixel artifacts at tile border bug.
+// Implement albedo update.
+// Read the data from cubes, and remove all logic having to do with
+// filters from reconstruct.sh.
+// To do: Unit tests
+// To do: Check in the tiling code
+// To do: Fix bug! Must compute the tiles which overlap with all images!
+// To do: Read the exposure only for the needed tiles, not for all!
+// To do: Reorg the code which computes the reflectance and its
+// derivative in ShapeFromShading.cc to only compute the
+// derivative. Move all that code to Reflectance.cc. Convert all to
+// double.
+// Rename dem_out.tif to dem_mean.tif, and modelParams.outputFile to modelParams.albedoFile,
+// inputFile to drgFile.
 // Urgent: The final albedo tiles must have no padding.
 // Save the simBox in resDir. Remove this logic from the shell script.
 // The file name of the blankTilesList is repeated in the shell script and the code.
-// Rename albedo_tiles to albedo, DEM_tiles to DEM. Rm blank_tiles.
+// Rm blank_tiles.
 // Remove a lot of duplicate code related to overlaps
 // There is only one image, rm the vector of images
 // No need to initialize the albedo tiles on disk, create
 //   them on the fly.
 // Merge the imageRecord and modelParams classes
 // See if to change the order of values in the corners vector
-// Reorg the code
+// Reorg the code.
 #ifdef _MSC_VER
 #pragma warning(disable:4244)
 #pragma warning(disable:4267)
@@ -52,6 +72,63 @@ using namespace std;
 
 namespace fs = boost::filesystem; // comment to reach 6 character requirement
 
+void resampleImage(std::string initFilename, std::string outputFilename, int factor){
+
+    DiskImageView<float>  initImg(initFilename);
+    GeoReference initGeo;
+    read_georeference(initGeo, initFilename);
+
+    InterpolationView<EdgeExtensionView<EdgeExtensionView<DiskImageView<float>, ConstantEdgeExtension>,
+                                        ConstantEdgeExtension>, BilinearInterpolation> interpInitImg
+    = interpolate(edge_extend(initImg.impl(),ConstantEdgeExtension()), BilinearInterpolation());
+
+    ImageView<float> outImg(initImg.rows()/factor, initImg.cols()/factor);
+    
+    //create the outputGeo - START
+    GeoReference outputGeo = initGeo;
+
+    Matrix<double> init_H;
+    init_H = initGeo.transform();
+    cout<<"init_H="<<init_H<<endl;
+    
+    Matrix<double> output_H;
+    output_H = initGeo.transform();
+    //lon = H(0,0)*i + 0*j + H(0,2)
+    //lat = 0*i + H(1,1)*j + H(1,2)
+   
+    output_H(0,2) = init_H(0,2);
+    output_H(1,2) = init_H(1,2);
+    output_H(0,0) = factor*init_H(0,0);
+    output_H(1,1) = factor*init_H(1,1);
+
+    outputGeo.set_transform(output_H);
+    //create the outputGeo - END
+
+    for (int j = 0; j < outImg.rows(); j++){
+      for (int i = 0; i < outImg.cols(); i++){
+
+         Vector2 outputPix;
+         outputPix(0) = i;
+         outputPix(1) = j;
+         Vector2 outLonLat = outputGeo.pixel_to_lonlat(outputPix);
+	 
+         Vector2 initPix;
+         initPix = initGeo.lonlat_to_pixel(outLonLat);
+       
+         outImg.impl()(i,j) = interpInitImg.impl()(initPix(0), initPix(1));
+      }
+    }
+       
+ 
+
+    //write the corrected file
+    write_georeferenced_image(outputFilename,
+                              outImg,
+                              outputGeo, TerminalProgressCallback("photometry","Processing:"));
+    
+
+}  
+
 bool boxesOverlap(const Vector4 & box1Corners, const Vector4 & box2Corners){
 
   int lonOverlap = 0;
@@ -84,11 +161,11 @@ bool boxesOverlap(const Vector4 & box1Corners, const Vector4 & box2Corners){
 }
       
 
-//this will be used to compute the makeOverlapList in a more general way.
-//it takes into consideration any set of overlapping images.
 Vector4 ComputeGeoBoundary(GeoReference Geo, int width, int height)
 {
- 
+
+  // Get the lonlat coordinates of the four pixels corners of the image.
+  
   Vector4 corners;
   Vector2 leftTopPixel(0,0);
   Vector2 leftTopLonLat = Geo.pixel_to_lonlat(leftTopPixel);
@@ -141,8 +218,27 @@ void listTifsInDir(const std::string & dirName,
         tifsInDir.push_back( fileName );
       }
     }
+
+  // Sort the files in lexicographic order
+  std::sort(tifsInDir.begin(), tifsInDir.end());
   
   return;
+}
+
+Vector4 getImageCorners(std::string imageFile){
+
+  // Get the four corners of an image, that is the lon-lat coordinates of
+  // the pixels in the image corners.
+
+  // Note: Below we assume that the image is uint8. In fact, for the
+  // purpose of calculation of corners the type of the image being
+  // read does not matter.
+  DiskImageView<PixelMask<PixelGray<uint8> > >  image(imageFile);
+  
+  GeoReference imageGeo;
+  read_georeference(imageGeo, imageFile);
+  Vector4 imageCorners = ComputeGeoBoundary(imageGeo, image.cols(), image.rows());
+  return imageCorners;
 }
 
 void listTifsInDirOverlappingWithBox(const std::string & dirName,
@@ -162,10 +258,7 @@ void listTifsInDirOverlappingWithBox(const std::string & dirName,
   fh.precision(20);
   for (int fileIter = 0; fileIter < (int)tifsInDir.size(); fileIter++){
     const std::string & currFile = tifsInDir[fileIter];
-    DiskImageView<PixelMask<PixelGray<uint8> > >  currImage(currFile);
-    GeoReference currGeo;
-    read_georeference(currGeo, currFile);
-    Vector4 currCorners = ComputeGeoBoundary(currGeo, currImage.cols(), currImage.rows());
+    Vector4 currCorners = getImageCorners(currFile);
     if (!boxesOverlap(currCorners, boxCorners)) continue;
     fh << 1 << " " << currFile << " " << currCorners(0) << " " << currCorners(1) << " " <<
       currCorners(2) << " " << currCorners(3) << std::endl;
@@ -186,94 +279,121 @@ void getDEMAlbedoTileFiles(// Inputs
   return;
 }
 
-void createAlbedoTilesOverlappingWithBox(double tileSize, int pixelPadding,
-                                         std::string imageFile, const Vector4 & boxCorners,
+void createAlbedoTilesOverlappingWithDRG(double tileSize, int pixelPadding,
+                                         std::string imageFile, Vector4 const& simBox,
+                                         std::vector<ImageRecord> const& drgRecords,
                                          std::string blankTilesList, std::string blankTilesDir,
                                          std::string DEMTilesList, std::string DEMTilesDir,
                                          std::string albedoTilesList, std::string albedoTilesDir
                                          ){
 
-  // Read the georeference of an image, having info about which planet
-  // we are, the pixel size, etc. (Any one of those images would work
-  // as well as any other). Use it to create the list of tiles
-  // overlapping with the current box. Write to disk both the tiles
-  // themselves and their list.
+  // Create all the tiles which overlap with all DRG images which in
+  // turn overlap with the simulation box.
 
-  GeoReference geo;
-  read_georeference(geo, imageFile);
+  // The georeference of tiles will be obtained from the georeference
+  // of an input image (any one of those images would work as well as
+  // any other).
 
-  ofstream fht(blankTilesList.c_str());
-  fht.precision(20);
+  //  Write to disk both the tiles themselves and their list.
 
-  ofstream fhd(DEMTilesList.c_str());
-  fhd.precision(20);
+  // Note that the tiles have a padding, so they are a few pixels larger than what
+  // they should be. We need that in order to be able to compute the normals
+  // for  DEM, and also for SfS. The padding will be removed when at the end
+  // of all computations we save the final albedo.
 
-  ofstream fha(albedoTilesList.c_str());
-  fha.precision(20);
-  
   if (tileSize <= 0.0 || pixelPadding < 0){
     std::cout << "ERROR: Must have positive tile size and non-negative pixel padding!" << std::endl;
     exit(1);
   }
   
-  for (double iBegE = tileSize*floor(boxCorners(0)/tileSize); iBegE < boxCorners(1); iBegE += tileSize){
-    for (double iBegN = tileSize*floor(boxCorners(2)/tileSize); iBegN < boxCorners(3); iBegN += tileSize){
-
-      // Upper left corner lon lat
-      Vector2 A = Vector2(iBegE, iBegN + tileSize);
-
-      // Right and down by pixelPadding
-      Vector2 B = geo.pixel_to_lonlat(geo.lonlat_to_pixel(A) + Vector2(pixelPadding, pixelPadding));
-
-      Vector2 D = B - A;
-
-      // Careful with the signs below
-      double begE = iBegE - D(0), endE = iBegE + tileSize + D(0);
-      double begN = iBegN + D(1), endN = iBegN + tileSize - D(1);
-      
-      // Set the upper-left corner in the albedo tile
-      Matrix3x3 T = geo.transform();
-      T(0,2) = begE;
-      T(1,2) = endN;
-      geo.set_transform(T);
-
-      // Determine the size of the albedo tile
-      Vector2 pixUL = geo.lonlat_to_pixel(Vector2(begE, endN));
-      Vector2 pixLR = geo.lonlat_to_pixel(Vector2(endE, begN));
-      int nrows = (int)round(pixLR(0) - pixUL(0));
-      int ncols = (int)round(pixLR(1) - pixUL(1));
-
-      double uE = iBegE, uN = iBegN + tileSize; // uppper-left corner
-      std::string sN = "N", sE = "E";
-      if (uE < 0){ uE = -uE; sE = "W";}
-      if (uN < 0){ uN = -uN; sN = "S";}
-      ostringstream os;
-      os << blankTilesDir << "/tile_" << uE << sE << uN << sN << ".tif";
-      std::string blankTileFile = os.str();
-
-      std::string DEMTileFile, albedoTileFile;
-      getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
-                            DEMTileFile, albedoTileFile                                // outputs
-                            );
-      
-      ImageView<PixelMask<PixelGray<float> > > blankTile(nrows, ncols);
-      
-      std::cout << "Writing " << blankTileFile << std::endl;
-      write_georeferenced_image(blankTileFile,
-                                channel_cast<uint8>(clamp(blankTile, 0.0,255.0)),
-                                geo, TerminalProgressCallback("{Core}","Processing:"));
-
-      fht << 1 << " " << blankTileFile << " "
-         << begE << " " << endE << " " << begN << " " << endN << std::endl;
-
-      fha << 1 << " " << albedoTileFile << " " << begE << " " << endE << " "
-          << begN << " " << endN << std::endl;
-
-      fhd << 1 << " " << DEMTileFile << " " << begE << " " << endE << " "
-          << begN << " " << endN << std::endl;
+  // Find all tiles overlapping with given DRGs. Use a set to avoid duplicates.
+  std::set< std::pair<double, double> > Tiles;
+  for (int j = 0; j < (int)drgRecords.size(); j++){
+    const ImageRecord& rec = drgRecords[j];
+    Vector4 currCorners = Vector4(rec.west, rec.east, rec.south, rec.north);
+    for (double iBegE = tileSize*floor(rec.west/tileSize); iBegE < rec.east; iBegE += tileSize){
+      for (double iBegN = tileSize*floor(rec.south/tileSize); iBegN < rec.north; iBegN += tileSize){
+        Tiles.insert(std::make_pair(iBegE, iBegN));
+      }
     }
-    
   }
+  
+  GeoReference geo; read_georeference(geo, imageFile);
+  ofstream fht(blankTilesList.c_str());  fht.precision(20);
+  ofstream fhd(DEMTilesList.c_str());    fhd.precision(20);
+  ofstream fha(albedoTilesList.c_str()); fha.precision(20);
+
+  for (std::set< std::pair<double, double> >::iterator it = Tiles.begin(); it != Tiles.end(); it++){
+    
+    std::pair<double, double> Tile = *it;
+    double iBegE = Tile.first;
+    double iBegN = Tile.second;
+
+    // Upper left corner lon lat
+    Vector2 A = Vector2(iBegE, iBegN + tileSize);
+    
+    // Right and down by pixelPadding
+    Vector2 B = geo.pixel_to_lonlat(geo.lonlat_to_pixel(A) + Vector2(pixelPadding, pixelPadding));
+
+    Vector2 D = B - A;
+
+    // The proposed corners of the tile. Note that we add the padding.
+    // Careful with the signs below.
+    double begE = iBegE - D(0), endE = iBegE + tileSize + D(0);
+    double begN = iBegN + D(1), endN = iBegN + tileSize - D(1);
+      
+    // Set the upper-left corner in the tile
+    Matrix3x3 T = geo.transform();
+    T(0,2) = begE;
+    T(1,2) = endN;
+    geo.set_transform(T);
+
+    // Determine the size of the tile
+    Vector2 pixUL = geo.lonlat_to_pixel(Vector2(begE, endN));
+    // Note: The value we get for  pixUL is (-0.5, -0.5).
+    // I was expecting (0, 0). (Oleg)
+    Vector2 pixLR = geo.lonlat_to_pixel(Vector2(endE, begN));
+    int nrows = (int)round(pixLR(0) - pixUL(0));
+    int ncols = (int)round(pixLR(1) - pixUL(1));
+
+    double uE = iBegE, uN = iBegN + tileSize; // uppper-left corner without padding
+    std::string sN = "N", sE = "E";
+    if (uE < 0){ uE = -uE; sE = "W";}
+    if (uN < 0){ uN = -uN; sN = "S";}
+    ostringstream os;
+    os << blankTilesDir << "/tile_" << uE << sE << uN << sN << ".tif";
+    std::string blankTileFile = os.str();
+
+    std::string DEMTileFile, albedoTileFile;
+    getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
+                          DEMTileFile, albedoTileFile                                // outputs
+                          );
+
+    // The blank tiles themselves have no information, they are just
+    // templates which we will later cycle through and create DRG
+    // and tiles at each pixel.
+    ImageView<PixelMask<PixelGray<float> > > blankTile(nrows, ncols);
+      
+    std::cout << "Writing " << blankTileFile << std::endl;
+    write_georeferenced_image(blankTileFile,
+                              channel_cast<uint8>(clamp(blankTile, 0.0,255.0)),
+                              geo, TerminalProgressCallback("{Core}","Processing:"));
+
+    // The actual corners of the tile may differ slightly than what we intended
+    // due to rounding. Compute the actual corners now that the tile was created.
+    Vector4 C = ComputeGeoBoundary(geo, blankTile.cols(), blankTile.rows());
+
+    fht << 1 << " " << blankTileFile << " "
+        << C(0) << " " << C(1) << " " << C(2) << " " << C(3) << std::endl;
+
+    fha << 1 << " " << albedoTileFile << " "
+        << C(0) << " " << C(1) << " " << C(2) << " " << C(3) << std::endl;
+
+    fhd << 1 << " " << DEMTileFile << " "
+        << C(0) << " " << C(1) << " " << C(2) << " " << C(3) << std::endl;
+
+  } // End iterating over tiles
+    
   fht.close();
   fhd.close();
   fha.close();
@@ -317,12 +437,8 @@ std::vector<int> ReadOverlapIndices(string filename, int i)
 std::vector<int> makeOverlapList(const std::vector<ModelParams>& drgFiles,
                                  const std::string& currFile) {
 
-  std::vector<int> overlapIndices;
-  
-  DiskImageView<PixelMask<PixelGray<uint8> > >  currImage(currFile);
-  GeoReference currGeo;
-  read_georeference(currGeo, currFile);
-  Vector4 currCorners = ComputeGeoBoundary(currGeo, currImage.cols(), currImage.rows());
+  std::vector<int> overlapIndices; overlapIndices.clear();
+  Vector4 currCorners = getImageCorners(currFile);
 
   //std::cout << "file " << currFile << " overlaps with ";
   for (unsigned int i = 0; i < drgFiles.size(); i++){
@@ -336,12 +452,7 @@ std::vector<int> makeOverlapList(const std::vector<ModelParams>& drgFiles,
                    << std::endl;
          cerr << "This should have been specified in the list of images." << endl;
          exit(1);
-         DiskImageView<PixelMask<PixelGray<uint8> > >  image(params.inputFilename);
-         GeoReference geo;
-         read_georeference(geo, params.inputFilename);
-         int width = image.cols();
-         int height = image.rows();
-         corners = ComputeGeoBoundary(geo, width, height);
+         corners = getImageCorners(params.inputFilename);
          //std::cout << "Reading from disk: " << corners << std::endl;
        } else {
          corners = params.corners;
@@ -364,11 +475,7 @@ std::vector<int> makeOverlapList(const std::vector<ImageRecord>& drgRecords,
   // To do: Merge this function with the one above it and together with other
   // overlap logic seen in this file.
   std::vector<int> overlapIndices;
-  
-  DiskImageView<PixelMask<PixelGray<uint8> > >  currImage(currFile);
-  GeoReference currGeo;
-  read_georeference(currGeo, currFile);
-  Vector4 corners = ComputeGeoBoundary(currGeo, currImage.cols(), currImage.rows());
+  Vector4 corners = getImageCorners(currFile);
 
   for (int j = 0; j < (int)drgRecords.size(); j++){
     const ImageRecord& rec = drgRecords[j];
@@ -580,7 +687,7 @@ Vector4 parseSimBox(std::string simBoxStr){
 
   // If parsing did not succeed, use a huge box containing the entire moon.
   if (count < 4){
-    double b = -180;
+    double b = 180;
     simBox = Vector4(-b, b, -b, b);
   }
 
@@ -592,34 +699,31 @@ Vector4 parseSimBox(std::string simBoxStr){
   return simBox;
 }
 
-void list_DRG_and_DEM_in_box(Vector4 simBox, 
-                             std::string DRGDir,  std::string inputDEMTilesDir, 
-                             std::string DRGList, std::string inputDEMList
-                             ){
+void list_DRG_in_box_and_all_DEM(bool useTiles,
+                                 std::string allDRGIndex, std::string allDEMIndex,
+                                 Vector4 simBox, 
+                                 std::string DRGDir,  std::string inputDEMTilesDir, 
+                                 std::string DRGInBoxList
+                                 ){
 
-  // Create the lists of all DRG and DEM files intersecting the
-  // current simBox. These lists are obtained from the cached lists of
-  // ALL available DRG and DEM files. If the cached lists do not
-  // exist, first create and cache them in the DRG and DEM
-  // directories. Ideally this process will happen only the very first
-  // time this executable is run for a freshly created set of DRG/DEM
-  // directories, as it is time-consuming.
-  std::vector<ImageRecord> imageRecords;
-
-  std::string DRGIndex = DRGDir + "/index.txt";
-  std::string DEMIndex = inputDEMTilesDir + "/index.txt";
+  // Create the lists of ALL DRG and DEM images in DRGDir and
+  // inputDEMTilesDir, if these lists don't exist already.
   
+  // Create the list of all DRG files intersecting the current simBox.
+
   Vector4 bigBox = Vector4(-1000, 1000, -1000, 1000);
 
   // Create the index of all DRG images if it does not exist already.
-  if (!readImagesFile(imageRecords, DRGIndex)){
-    listTifsInDirOverlappingWithBox(DRGDir, bigBox, DRGIndex);
-    readImagesFile(imageRecords, DRGIndex); // Second attempt at reading
+  std::vector<ImageRecord> imageRecords;
+  if (!readImagesFile(imageRecords, allDRGIndex)){
+    listTifsInDirOverlappingWithBox(DRGDir, bigBox, allDRGIndex);
+    if (!readImagesFile(imageRecords, allDRGIndex)) exit(1); // Second attempt at reading
   }
-    
-  ofstream fh(DRGList.c_str());
+
+  // Create the list of all DRG files intersecting the current box.
+  ofstream fh(DRGInBoxList.c_str());
   if (!fh){
-    std::cerr << "ERROR: list_DRG_and_DEM_in_box: can't open " << DRGList
+    std::cerr << "ERROR: list_DRG_in_box_and_all_DEM: can't open " << DRGInBoxList
               << " for writing" << std::endl;
     exit(EXIT_FAILURE);
   }
@@ -634,28 +738,15 @@ void list_DRG_and_DEM_in_box(Vector4 simBox,
   }
   fh.close();
 
-  // Create the index of DEM tiles if it does not exist already.
-  if (!readImagesFile(imageRecords, DEMIndex)){
-    listTifsInDirOverlappingWithBox(inputDEMTilesDir, bigBox, DEMIndex);
-    readImagesFile(imageRecords, DEMIndex); // Second attempt at reading
+  if (!useTiles){
+    return;
   }
-
-  ofstream fh2(inputDEMList.c_str());
-  if (!fh2) {
-    std::cerr << "ERROR: list_DRG_and_DEM_in_box: can't open " << inputDEMList
-              << " for writing" << std::endl;
-    exit(EXIT_FAILURE);
+  
+  // Create the index of all DEM tiles if it does not exist already.
+  std::vector<ImageRecord> DEMTilesRecords;
+  if (!readImagesFile(DEMTilesRecords, allDEMIndex)){
+    listTifsInDirOverlappingWithBox(inputDEMTilesDir, bigBox, allDEMIndex);
   }
-  fh2.precision(20);
-  for (int j = 0; j < (int)imageRecords.size(); j++){
-    const ImageRecord& rec = imageRecords[j];
-    Vector4 currCorners = Vector4(rec.west, rec.east, rec.south, rec.north);
-    if (! boxesOverlap(currCorners, simBox)) continue;
-    fh2 << rec.useImage << " " << rec.path << " "
-       << currCorners(0) << " " << currCorners(1) << " "
-       << currCorners(2) << " " << currCorners(3) << std::endl;
-  }
-  fh2.close();
 
   return;
 }
@@ -668,32 +759,32 @@ int main( int argc, char *argv[] ) {
   std::vector<std::string> inputDRGFiles;
   std::vector<std::string> DRGFiles;
   std::vector<std::string> imageFiles;
-  std::string cubDir = "../data/cub";
-  std::string simBoxStr = "";
-  std::string DRGDir = "../data/DRG";
-  std::string DEMDir = "../data/DEM";
-  std::string inputDEMTilesDir = "../data/DEMTiles";
-  std::string exposureDir = "../data/exposure";
-  std::string resDir = "../results";
-  std::string configFilename = "photometry_settings.txt";
-  std::string imagesList = "";
-  bool useFeb13 = false;
-  std::string useTilesStr     = "";
-  std::string tileSizeStr     = "";
-  std::string pixelPaddingStr = "";
+  std::string cubDir           = "data/cub";
+  std::string simBoxStr        = "";
+  std::string DRGDir           = "data/DRG";
+  std::string DEMDir           = "data/DEM";
+  std::string inputDEMTilesDir = "data/DEMTiles";
+  std::string exposureDir      = "data/exposure";
+  std::string resDir           = "results";
+  std::string configFilename   = "photometry_settings.txt";
+  std::string DRGInBoxList     = "";
+  bool useFeb13                = false;
+  std::string useTilesStr      = "0"; // Don't use tiles by default
+  std::string tileSizeStr      = "";
+  std::string pixelPaddingStr  = "0";
   
   po::options_description general_options("Options");
   general_options.add_options()
   
     ("simulation-box,b", po::value<std::string>(&simBoxStr)->default_value(""), "Simulation box.")
-    ("drg-directory", po::value<std::string>(&DRGDir)->default_value("../data/DRG"), "DRG directory.")
-    ("dem-tiles-directory", po::value<std::string>(&inputDEMTilesDir)->default_value("../data/inputDEMTiles"), "Input DEM tiles directory.")
-    ("dem-directory,d", po::value<std::string>(&DEMDir)->default_value("../data/DEM"), "DEM directory.")
+    ("drg-directory", po::value<std::string>(&DRGDir)->default_value("data/DRG"), "DRG directory.")
+    ("dem-tiles-directory", po::value<std::string>(&inputDEMTilesDir)->default_value("data/inputDEMTiles"), "Input DEM tiles directory.")
+    ("dem-directory,d", po::value<std::string>(&DEMDir)->default_value("data/DEM"), "DEM directory.")
     ("image-files,i", po::value<std::vector<std::string> >(&imageFiles), "image files.")
-    ("space info-directory,s", po::value<std::string>(&cubDir)->default_value("../data/cub"), "space info directory.")
-    ("exposure-directory,e", po::value<std::string>(&exposureDir)->default_value("../data/exposure"), "exposure time directory.")
-    ("res-directory,r", po::value<std::string>(&resDir)->default_value("../results"), "results directory.")
-    ("images-list,f", po::value<std::string>(&imagesList)->default_value(imagesList), "path to file listing images to use")
+    ("space info-directory,s", po::value<std::string>(&cubDir)->default_value("data/cub"), "space info directory.")
+    ("exposure-directory,e", po::value<std::string>(&exposureDir)->default_value("data/exposure"), "exposure time directory.")
+    ("res-directory,r", po::value<std::string>(&resDir)->default_value("results"), "results directory.")
+    ("images-list,f", po::value<std::string>(&DRGInBoxList)->default_value(DRGInBoxList), "path to file listing images to use")
     ("config-filename,c", po::value<std::string>(&configFilename)->default_value("photometry_settings.txt"), "configuration filename.")
     ("use-tiles,t", po::value<std::string>(&useTilesStr)->default_value("0"), "use tiles")
     ("tile-size", po::value<std::string>(&tileSizeStr)->default_value("0"), "tile size")
@@ -741,8 +832,8 @@ int main( int argc, char *argv[] ) {
   // Double check to make sure all folders exist  
   if ( !fs::exists(resDir) )
     fs::create_directory(resDir);
-  if ( !fs::exists(resDir+"/DEM") )
-    fs::create_directory(resDir+"/DEM");
+  if ( !fs::exists(cubDir) )
+    fs::create_directory(cubDir);
   if ( !fs::exists(resDir+"/info") )
     fs::create_directory(resDir+"/info");
   if ( !fs::exists(resDir+"/reflectance") )
@@ -751,40 +842,46 @@ int main( int argc, char *argv[] ) {
     fs::create_directory(resDir+"/shadow");
   if ( !fs::exists(resDir+"/error") )
     fs::create_directory(resDir+"/error");
-  if ( !fs::exists(resDir+"/albedo") )
-    fs::create_directory(resDir+"/albedo");
   if ( !fs::exists(resDir+"/exposure") )
     fs::create_directory(resDir+"/exposure");
   if ( !fs::exists(resDir+"/weight") )
     fs::create_directory(resDir+"/weight");
+  if ( !fs::exists(resDir+"/DEM_sfs") )
+    fs::create_directory(resDir+"/DEM_sfs");
+  std::string albedoTilesDir = resDir + "/albedo";
+  std::string DEMTilesDir    = resDir + "/DEM";
+  if ( !fs::exists(albedoTilesDir) ) fs::create_directory(albedoTilesDir);
+  if ( !fs::exists(DEMTilesDir)    ) fs::create_directory(DEMTilesDir);
 
   // blankTilesDir is used to create a tile with identical dimensions
   // as the subsequent DEM and albedo tiles.
   std::string blankTilesDir  = resDir + "/blank_tiles";
-  std::string albedoTilesDir = resDir + "/albedo_tiles";
-  std::string DEMTilesDir    = resDir + "/DEM_tiles";
   if (useTiles){
     if ( !fs::exists(blankTilesDir)  ) fs::create_directory(blankTilesDir);
-    if ( !fs::exists(albedoTilesDir) ) fs::create_directory(albedoTilesDir);
-    if ( !fs::exists(DEMTilesDir)    ) fs::create_directory(DEMTilesDir);
   }
   
   GlobalParams globalParams;
   ReadConfigFile((char*)configFilename.c_str(), &globalParams);
   PrintGlobalParams(&globalParams);
 
+  // The names of the files listing all DRGs and DEMs and the coordinates
+  // of their corners.
+  std::string allDRGIndex = DRGDir + "/index.txt";
+  std::string allDEMIndex = inputDEMTilesDir + "/index.txt";
+
   Vector4 simBox = parseSimBox(simBoxStr);
-  std::string inputDEMList    = resDir + "/inputDEMList.txt";
   std::string blankTilesList  = resDir + "/blankTilesList.txt";
   std::string DEMTilesList    = resDir + "/DEMTilesList.txt";
   std::string albedoTilesList = resDir + "/albedoTilesList.txt";
   
   if (globalParams.initAlbedoTiles == 1) {
 
-    // Create the imagesList used in subsequent iterations
-    
-    //list_DRG_and_DEM_in_box(simBox, "DIM_input_sub32", "DEM_input_sub32", imagesList, inputDEMList);
-    list_DRG_and_DEM_in_box(simBox, DRGDir, inputDEMTilesDir, imagesList, inputDEMList);
+    // Create the DRGInBoxList used in subsequent iterations.
+    // Create the list of all DEM if not there yet.
+    list_DRG_in_box_and_all_DEM(useTiles,
+                                allDRGIndex, allDEMIndex,
+                                simBox, DRGDir, inputDEMTilesDir, DRGInBoxList
+                                );
     
     if (useTiles){
       vw_out( VerboseDebugMessage, "photometry" ) << "Initializing the albedo tiles ... ";
@@ -792,10 +889,13 @@ int main( int argc, char *argv[] ) {
         std::cerr << "ERROR: Expecting an image file as input, the -i option" << std::endl;
         return 1;
       }
-      std::string imageFile = imageFiles[0];
-      createAlbedoTilesOverlappingWithBox(tileSize, pixelPadding, imageFile, simBox,
-                                          blankTilesList, blankTilesDir,
-                                          DEMTilesList, DEMTilesDir,
+      std::vector<ImageRecord> drgRecords;
+      if (!readImagesFile(drgRecords, DRGInBoxList)) exit(1);
+      std::string imageFile = imageFiles[0]; // an image whose georef we will use
+      createAlbedoTilesOverlappingWithDRG(tileSize, pixelPadding, imageFile, simBox,
+                                          drgRecords,
+                                          blankTilesList,  blankTilesDir,
+                                          DEMTilesList,    DEMTilesDir,
                                           albedoTilesList, albedoTilesDir
                                           );
     }
@@ -804,7 +904,7 @@ int main( int argc, char *argv[] ) {
   }
   
   std::vector<ImageRecord> drgRecords;
-  if( imagesList.size() == 0 ) {
+  if( DRGInBoxList.size() == 0 ) {
     if ( vm.count("inputDRGFiles") < 1 ) {
       std::cerr << "ERROR: Must specify either the -f option or at least one orthoprojected image file!" << std::endl << std::endl;
       std::cerr << usage.str();
@@ -815,7 +915,7 @@ int main( int argc, char *argv[] ) {
       drgRecords.push_back(ImageRecord(inputDRGFiles[i]));
     }
   } else {
-    readImagesFile(drgRecords, imagesList);
+    if (!readImagesFile(drgRecords, DRGInBoxList)) exit(1);
   }
 
   std::string sunPosFilename        = cubDir      + "/sunpos.txt";
@@ -914,36 +1014,41 @@ int main( int argc, char *argv[] ) {
     for (unsigned int i=0; i < relevantIndices.size(); i++) {
       int j = relevantIndices[i];
 
-      if (modelParamsArray[j].hCenterLine != NULL) continue;
-
-      // first try to read the weight files
-      ReadWeightsParamsFromFile(&modelParamsArray[j]);
-
-      if (globalParams.saveWeights != 1 && modelParamsArray[j].hCenterLine == NULL){
-        cerr << "ERROR: Weights not found on disk for image: " << modelParamsArray[j].inputFilename << endl;
-        exit(1);
+      // If we are not in weight saving mode, the weights should be on disk already
+      if (globalParams.saveWeights != 1){
+        if  (!useTiles){
+          ReadWeightsParamsFromFile(useTiles, &modelParamsArray[j]);
+          if (modelParamsArray[j].hCenterLine == NULL){
+            cerr << "ERROR: Weights not found on disk for image: " << modelParamsArray[j].inputFilename << endl;
+            exit(1);
+          }
+        }
+        continue;
       }
       
-      if (modelParamsArray[j].hCenterLine != NULL) continue;
-        
-      // weights not written yet, build them
-
+      // We have globalParams.saveWeights == 1. Build the weights.
+      
       //std::cout << "size of input indices: " << inputIndices.size() << std::endl;
       if (j == inputIndices[0]){
+        // Compute and save the weights only for  the current image, not for  all images
+        // overlapping with it.
         //std::cout << "Compute weights for  image with index: " << j << std::endl;
+
         modelParamsArray[j].hCenterLine = ComputeImageHCenterLine(modelParamsArray[j].inputFilename,
                                                                   &(modelParamsArray[j].hMaxDistArray));
-        modelParamsArray[j].hCenterLineDEM = ComputeDEMHCenterLine( modelParamsArray[j].DEMFilename,
-                                                                    globalParams.noDEMDataValue,
-                                                                    &(modelParamsArray[j].hMaxDistArrayDEM));
         modelParamsArray[j].vCenterLine = ComputeImageVCenterLine(modelParamsArray[j].inputFilename,
                                                                   &(modelParamsArray[j].vMaxDistArray));
-        modelParamsArray[j].vCenterLineDEM = ComputeDEMVCenterLine(modelParamsArray[j].DEMFilename,
-                                                                   globalParams.noDEMDataValue,
-                                                                   &(modelParamsArray[j].vMaxDistArrayDEM));
+        if (!useTiles){
+          modelParamsArray[j].hCenterLineDEM = ComputeDEMHCenterLine(modelParamsArray[j].DEMFilename,
+                                                                     globalParams.noDEMDataValue,
+                                                                     &(modelParamsArray[j].hMaxDistArrayDEM));
+          modelParamsArray[j].vCenterLineDEM = ComputeDEMVCenterLine(modelParamsArray[j].DEMFilename,
+                                                                     globalParams.noDEMDataValue,
+                                                                     &(modelParamsArray[j].vMaxDistArrayDEM));
+        }
         
         if (globalParams.saveWeights == 1){
-          SaveWeightsParamsToFile(modelParamsArray[j]);
+          SaveWeightsParamsToFile(useTiles, modelParamsArray[j]);
         }
       }
       
@@ -952,9 +1057,7 @@ int main( int argc, char *argv[] ) {
     vw_out( VerboseDebugMessage, "photometry" ) << "Done.\n";
   }
     
-  //TO DO: save the overlapIndicesArray list 
- 
- if (globalParams.shadowInitType == 1){
+  if (globalParams.shadowInitType == 1 && (!useTiles)){
     TerminalProgressCallback callback("photometry","Init Shadow:");
     callback.report_progress(0);
     for (unsigned int i = 0; i < imageFiles.size(); i++){ 
@@ -977,19 +1080,19 @@ int main( int argc, char *argv[] ) {
           overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
         }
         if ((globalParams.useWeights == 1) && (modelParamsArray[inputIndices[i]].hCenterLineDEM == NULL)){
-          ReadWeightsParamsFromFile(&modelParamsArray[inputIndices[i]]);
+          ReadWeightsParamsFromFile(useTiles, &modelParamsArray[inputIndices[i]]);
         }
         InitDEM(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
         
       }else{
-        std::string blankTileFile  = imageFiles[i];
+        std::string blankTileFile = imageFiles[i];
         std::string DEMTileFile, albedoTileFile;
         getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
                               DEMTileFile, albedoTileFile                                // outputs
                               );
 
         std::vector<ImageRecord> DEMImages;
-        readImagesFile(DEMImages, inputDEMList);
+        if (!readImagesFile(DEMImages, allDEMIndex)) exit(1);
         std::vector<int> overlap = makeOverlapList(DEMImages, blankTileFile);
 
         InitMeanDEMTile(blankTileFile, DEMTileFile, 
@@ -1008,22 +1111,27 @@ int main( int argc, char *argv[] ) {
     callback.report_progress(0);
     for (unsigned int i = 0; i < imageFiles.size(); ++i) {
       
-      std::string curDRG = imageFiles[i];
-      std::vector<ImageRecord> DEMTiles;
-      std::vector<int> overlap;
-      if (useTiles){
-        readImagesFile(DEMTiles, DEMTilesList);
-        overlap = makeOverlapList(DEMTiles, curDRG);
-      }
       callback.report_progress(float(i)/float(imageFiles.size()));
       vw_out(VerboseDebugMessage,"photometry") << modelParamsArray[inputIndices[i]].reliefFilename << "\n";
-      
+
       //TO DO: check to see that file exists
       //TO DO: if file does not exist compute.
-      //compute and save the refectance image.
-      avgReflectanceArray[i] = computeImageReflectance(useTiles, DEMTiles, overlap,
-                                                       modelParamsArray[inputIndices[i]],
+
+      if (useTiles){
+        // Compute the average reflectance image
+        std::string curDRG = imageFiles[i];
+        std::vector<ImageRecord> DEMTiles;
+        std::vector<int> overlap;
+        if (!readImagesFile(DEMTiles, DEMTilesList)) exit(1);
+        overlap = makeOverlapList(DEMTiles, curDRG);
+        avgReflectanceArray[i] = computeAvgReflectanceOverTiles(tileSize, DEMTiles,  
+                                                                overlap, modelParamsArray[inputIndices[i]],
+                                                                globalParams);
+      }else{
+        //compute and save the reflectance image.
+        avgReflectanceArray[i] = computeImageReflectance(modelParamsArray[inputIndices[i]],
                                                          globalParams);
+      }
     }
     callback.report_finished();
   }
@@ -1035,7 +1143,7 @@ int main( int argc, char *argv[] ) {
     callback.report_progress(0);
   
     for (unsigned int i = 0; i < imageFiles.size(); ++i) {
-      callback.report_progress(float(i)/float(DRGFiles.size()));
+      callback.report_progress(float(i)/float(imageFiles.size()));
  
       modelParamsArray[inputIndices[i]].exposureTime = globalParams.TRConst/avgReflectanceArray[i];
      
@@ -1075,12 +1183,19 @@ int main( int argc, char *argv[] ) {
             InitAlbedoMosaic(modelParamsArray[inputIndices[i]],
                              overlapParamsArray, globalParams);
           }else{
+
             std::string blankTileFile  = imageFiles[i];
+            Vector4 tileCorners = getImageCorners(blankTileFile);
+            if (! boxesOverlap(tileCorners, simBox)){
+              std::cout << "Skipping tile: "
+                        << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
+              continue;
+            }
             std::string DEMTileFile, albedoTileFile;
             getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
                                   DEMTileFile, albedoTileFile                                // outputs
                                   );
-            InitAlbedoTile(blankTileFile, albedoTileFile,
+            InitAlbedoTile(blankTileFile, DEMTileFile, albedoTileFile,
                            overlapParamsArray, globalParams);
             
           }
@@ -1103,24 +1218,24 @@ int main( int argc, char *argv[] ) {
 
     if (globalParams.updateExposure == 1){ //re-estimate the exposure time
 
-      for (unsigned int i = 0; i < DRGFiles.size(); ++i) {   
+      for (unsigned int i = 0; i < imageFiles.size(); ++i) {   
 
         if (globalParams.reflectanceType == NO_REFL){
           //no use of reflectance map
-          ComputeExposure(&modelParamsArray[i], globalParams);
+          ComputeExposure(&modelParamsArray[inputIndices[i]], globalParams);
         }else{
           //use reflectance map
-          ComputeExposureAlbedo(&modelParamsArray[i], globalParams);
+          ComputeExposureAlbedo(&modelParamsArray[inputIndices[i]], globalParams);
         }
 
         //create the exposureInfoFilename
-        SaveExposureInfoToFile(modelParamsArray[i]);
+        SaveExposureInfoToFile(modelParamsArray[inputIndices[i]]);
       }
     }
 
     if (globalParams.updateAlbedo == 1){
 
-      for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
+      for (unsigned int i = 0; i < imageFiles.size(); ++i) {
 
         std::vector<ModelParams> overlapParamsArray(overlapIndicesArray[i].size());
         for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
@@ -1129,26 +1244,23 @@ int main( int argc, char *argv[] ) {
         
         if (globalParams.reflectanceType == NO_REFL){
           //no use of the reflectance map
-          UpdateImageMosaic( modelParamsArray[i], overlapParamsArray, globalParams);
+          UpdateImageMosaic( modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
         }else{
           //use reflectance
-          UpdateAlbedoMosaic(modelParamsArray[i], overlapParamsArray, globalParams);
+          UpdateAlbedoMosaic(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
         }
       }
     }
         
     //re-estimate the height map  - shape from shading
-    
     if ((globalParams.reflectanceType != NO_REFL) && (globalParams.updateHeight == 1)){
 
-      for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
-   
+      for (unsigned int i = 0; i < imageFiles.size(); ++i) {
         std::vector<ModelParams> overlapParamsArray(overlapIndicesArray[i].size());
         for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
           overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
         }
-
-        UpdateHeightMap(modelParamsArray[i], overlapParamsArray, globalParams);
+        UpdateHeightMap(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
       }
     }
 
@@ -1158,7 +1270,7 @@ int main( int argc, char *argv[] ) {
       float overallAvgError = 0;
       int overallNumSamples = 0;
 
-      for (unsigned int i = 0; i < DRGFiles.size(); ++i) {
+      for (unsigned int i = 0; i < imageFiles.size(); ++i) {
 
         std::vector<ModelParams> overlapParamsArray(overlapIndicesArray[i].size());
         for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
@@ -1169,7 +1281,7 @@ int main( int argc, char *argv[] ) {
         float avgError;
         int numSamples;
 
-        ComputeReconstructionErrorMap(modelParamsArray[i],
+        ComputeReconstructionErrorMap(modelParamsArray[inputIndices[i]],
 				      overlapParamsArray,
 				      globalParams,
 				      &avgError, &numSamples);
