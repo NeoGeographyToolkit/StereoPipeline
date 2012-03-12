@@ -177,7 +177,10 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
                                  DiskImageView<PixelGray<float> >(input_file1),
                                  DiskImageView<PixelGray<float> >(input_file2),
                                  datum, match_filename );
-      VW_ASSERT( inlier, IOErr() << "Unable to match left and right images." );
+      if ( !inlier ) {
+        fs::remove( match_filename );
+        vw_throw( IOErr() << "Unable to match left and right images." );
+      }
     }
 
     std::vector<ip::InterestPoint> ip1, ip2;

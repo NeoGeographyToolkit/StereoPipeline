@@ -78,8 +78,9 @@ namespace asp {
     descriptor(image1, ip1 );
     descriptor(image2, ip2 );
 
-    vw_out() << "Found interest points left: " << ip1.size() << "\n";
-    vw_out() << "                     right: " << ip2.size() << "\n";
+    vw_out() << "\t    Found interest points:\n"
+             << "\t      left: " << ip1.size() << "\n";
+    vw_out() << "\t     right: " << ip2.size() << "\n";
 
     vw_out() << "\t--> Matching interest points\n";
     ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
@@ -93,7 +94,7 @@ namespace asp {
     matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2, false,
              TerminalProgressCallback( "asp", "\t   Matching: " ));
     ip::remove_duplicates( matched_ip1, matched_ip2 );
-    vw_out() << "Matched points: " << matched_ip1.size() << "\n";
+    vw_out() << "\t    Matched points: " << matched_ip1.size() << "\n";
 
     // Remove IP that don't triangulate well or triangulate well away from the datum.
     std::vector<Vector2> error_samples( matched_ip1.size() );
@@ -110,11 +111,13 @@ namespace asp {
 
     std::vector<std::pair<Vector<double>, Vector<double> > > clustering =
       asp::gaussian_clustering< std::vector<Vector2>, 2 >( error_samples.begin(), error_samples.end(), 2 );
-    if ( clustering[0].first[0] > clustering[1].first[0] )
+    if ( clustering[0].first[0] > clustering[1].first[0] /*Other cluster has lower tri error*/ &&
+         clustering[1].second[0] != 0 /*Other cluster has non-zero variance (ie non empty set)*/ )
       std::swap( clustering[0], clustering[1] );
 
-    vw_out() << "Inlier cluster: " << clustering.front().first << " "
-             << clustering.front().second << "\n";
+    vw_out() << "\t    Inlier cluster:\n"
+             << "\t      Mean: " << clustering.front().first << "\n"
+             << "\t      Var : " << clustering.front().second << "\n";
 
     // Record indices of points that match our clustering result
     std::list<size_t> good_indices;
@@ -134,7 +137,7 @@ namespace asp {
     }
 
     // Record new list that contains only the inliers.
-    vw_out() << "Reduced matches to " << good_indices.size() << "\n";
+    vw_out() << "\t    Reduced matches to " << good_indices.size() << "\n";
     ip1_copy.resize(0); ip2_copy.resize(0);
     BOOST_FOREACH( size_t index, good_indices ) {
       Vector2 l = left_tx.reverse( Vector2( matched_ip1[index].x, matched_ip1[index].y ) );
@@ -180,6 +183,7 @@ namespace asp {
     // poorly position cameras, the right image might be moved out of
     // frame.
     homography(0,2) = homography(1,2) = 0;
+    VW_OUT( DebugMessage, "asp" ) << "Aligning right to left for IP capture using rough homography: " << homography << std::endl;
     TransformRef tx( compose(HomographyTransform(homography), right_tx) );
     BBox2i raster_box = tx.forward_bbox( right_tx.reverse_bbox(box2) );
     tx = TransformRef(compose(HomographyTransform(homography), right_tx,
@@ -195,8 +199,10 @@ namespace asp {
     ip::read_binary_match_file( output_name, ip1_copy, ip2_copy );
     Matrix<double> post_fit =
       homography_fit( ip2_copy, ip1_copy, raster_box );
-    if ( sum(abs(submatrix(homography,0,0,2,2) - submatrix(post_fit,0,0,2,2))) > 5 )
+    if ( sum(abs(submatrix(homography,0,0,2,2) - submatrix(post_fit,0,0,2,2))) > 5 ) {
+      VW_OUT( DebugMessage, "asp" ) << "Post homography has largely different scale and skew from rough fit. Post solution is " << post_fit << "\n";
       return false;
+    }
 
     return inlier;
   }

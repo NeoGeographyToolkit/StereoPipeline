@@ -51,6 +51,8 @@ namespace asp {
       for ( size_t d = 0; d < DimensionsT; d++ ) {
         means[c][d] = cdf[d].quantile( probability );
       }
+      VW_OUT( DebugMessage, "asp" ) << "Cluster " << c << " mean seeded with:\n"
+                                    << means[c] << std::endl;
     }
 
     { // Prime the variance by sorting the samples
@@ -81,7 +83,8 @@ namespace asp {
           variances[c][d] = ba::variance( acc[ c * DimensionsT + d ] );
         }
         VW_OUT( DebugMessage, "asp" ) << "Cluster " << c << " seeded with:\n"
-                                      << means[c] << " " << variances[c] << std::endl;
+                                      << means[c] << " " << variances[c]
+                                      << " " << ba::count( acc[c*DimensionsT] ) << std::endl;
       }
     }
 
@@ -121,7 +124,8 @@ namespace asp {
           variances[c][d] = ba::variance( acc[ c * DimensionsT + d ] );
         }
         VW_OUT( DebugMessage, "asp" ) << "Cluster " << c << " updated:\n"
-                                      << means[c] << " " << variances[c] << std::endl;
+                                      << means[c] << " " << variances[c] << " "
+                                      << ba::count(acc[c * DimensionsT]) << std::endl;
       }
 
       // Update change indicators

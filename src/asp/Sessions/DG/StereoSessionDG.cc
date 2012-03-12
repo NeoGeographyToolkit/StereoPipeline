@@ -151,7 +151,10 @@ void asp::StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1
         ip_matching_w_alignment( cam1.get(), cam2.get(),
                                  left_disk_image, right_disk_image,
                                  cartography::Datum("WGS84"), match_filename );
-      VW_ASSERT( inlier, IOErr() << "Unable to match left and right images." );
+      if ( !inlier ) {
+        fs::remove( match_filename );
+        vw_throw( IOErr() << "Unable to match left and right images." );
+      }
     }
 
     std::vector<ip::InterestPoint> ip1, ip2;
