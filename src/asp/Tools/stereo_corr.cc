@@ -284,7 +284,6 @@ approximate_search_range( std::string const& left_image,
   Vector2f stddev( sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)) );
   BBox2i search_range( mean - 2.5*stddev,
                        mean + 2.5*stddev );
-  vw_out() << "\t--> Detected search range: " << search_range << "\n";
   return search_range;
 }
 
@@ -334,23 +333,50 @@ void stereo_correlation( Options& opt ) {
   if (stereo_settings().is_search_defined()) {
     vw_out() << "\t--> Using user defined search range.\n";
   } else {
-    std::string l_sub_file = opt.out_prefix+"-L_sub.tif";
-    std::string r_sub_file = opt.out_prefix+"-R_sub.tif";
-    float sub_scale = 0;
-    {
-      std::string l_org_file = opt.out_prefix+"-L.tif";
-      std::string r_org_file = opt.out_prefix+"-R.tif";
-      DiskImageView<uint8> l_sub(l_sub_file), r_sub(r_sub_file);
-      DiskImageView<uint8> l_org(l_org_file), r_org(r_org_file);
-      sub_scale += float(l_sub.cols())/float(l_org.cols());
-      sub_scale += float(r_sub.cols())/float(r_org.cols());
-      sub_scale += float(l_sub.rows())/float(l_org.rows());
-      sub_scale += float(r_sub.rows())/float(r_org.rows());
-      sub_scale /= 4;
-    }
+    std::string match_filename =
+      fs::basename(opt.in_file1) + "__" +
+      fs::basename(opt.in_file2) + ".match";
+    if (!fs::exists(match_filename)) {
+      // If there is not any match files for the input image. Let's
+      // gather some IP quickly from the low resolution images. This
+      // rountine should only run for:
+      //   Pinhole + Epipolar
+      //   Pinhole + None
+      // Everything else should gather IP's all the time.
+      std::string l_sub_file = opt.out_prefix+"-L_sub.tif";
+      std::string r_sub_file = opt.out_prefix+"-R_sub.tif";
+      float sub_scale = 0;
+      {
+        std::string l_org_file = opt.out_prefix+"-L.tif";
+        std::string r_org_file = opt.out_prefix+"-R.tif";
+        DiskImageView<uint8> l_sub(l_sub_file), r_sub(r_sub_file);
+        DiskImageView<uint8> l_org(l_org_file), r_org(r_org_file);
+        sub_scale += float(l_sub.cols())/float(l_org.cols());
+        sub_scale += float(r_sub.cols())/float(r_org.cols());
+        sub_scale += float(l_sub.rows())/float(l_org.rows());
+        sub_scale += float(r_sub.rows())/float(r_org.rows());
+        sub_scale /= 4;
+      }
 
-    stereo_settings().search_range =
-      approximate_search_range( l_sub_file, r_sub_file, sub_scale );
+      stereo_settings().search_range =
+        approximate_search_range( l_sub_file, r_sub_file, sub_scale );
+    } else {
+      // There exists a matchfile out there.
+      std::vector<ip::InterestPoint> ip1, ip2;
+      ip::read_binary_match_file( match_filename, ip1, ip2 );
+
+      Matrix<double> align_matrix;
+      read_matrix(align_matrix, opt.out_prefix + "-align.exr");
+
+      BBox2 search_range;
+      for ( size_t i = 0; i < ip1.size(); i++ ) {
+        Vector3 r = align_matrix * Vector3(ip2[i].x,ip2[i].y,1);
+        r /= r[2];
+        search_range.grow( subvector(r,0,2) - Vector2(ip1[i].x,ip1[i].y) );
+      }
+      stereo_settings().search_range = grow_bbox_to_int( search_range );
+    }
+    vw_out() << "\t--> Detected search range: " << stereo_settings().search_range << "\n";
   }
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),

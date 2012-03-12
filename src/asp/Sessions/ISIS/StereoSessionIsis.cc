@@ -149,10 +149,8 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   }
 
   float left_lo, left_hi, right_lo, right_hi;
-  find_ideal_isis_range( input_file1, "left",
-                         left_lo, left_hi );
-  find_ideal_isis_range( input_file2, "right",
-                         right_lo, right_hi );
+  find_ideal_isis_range( input_file1, "left", left_lo, left_hi );
+  find_ideal_isis_range( input_file2, "right", right_lo, right_hi );
 
   // Working out alignment
   float lo = std::min (left_lo, right_lo);  // Finding global
@@ -161,14 +159,15 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   align_matrix.set_identity();
   if ( stereo_settings().keypoint_alignment) {
     std::string match_filename =
-      m_out_prefix + fs::basename(input_file1) + "__" +
+      fs::basename(input_file1) + "__" +
       fs::basename(input_file2) + ".match";
 
     if (!fs::exists(match_filename)) {
       boost::shared_ptr<camera::CameraModel> cam1, cam2;
       camera_models( cam1, cam2 );
 
-      boost::shared_ptr<IsisCameraModel> isis_cam = boost::dynamic_pointer_cast<IsisCameraModel>(cam1);
+      boost::shared_ptr<IsisCameraModel> isis_cam =
+        boost::dynamic_pointer_cast<IsisCameraModel>(cam1);
 
       Vector3 radii = isis_cam->target_radii();
       cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
@@ -181,7 +180,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
       VW_ASSERT( inlier, IOErr() << "Unable to match left and right images." );
     }
 
-    std::vector<ip::InterestPoint> ip1, ip2;;
+    std::vector<ip::InterestPoint> ip1, ip2;
     ip::read_binary_match_file( match_filename, ip1, ip2  );
     align_matrix = homography_fit(ip2, ip1, bounding_box(DiskImageView<PixelGray<float> >(input_file1)) );
   }

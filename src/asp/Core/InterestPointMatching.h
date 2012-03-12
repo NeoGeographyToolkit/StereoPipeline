@@ -110,6 +110,8 @@ namespace asp {
 
     std::vector<std::pair<Vector<double>, Vector<double> > > clustering =
       asp::gaussian_clustering< std::vector<Vector2>, 2 >( error_samples.begin(), error_samples.end(), 2 );
+    if ( clustering[0].first[0] > clustering[1].first[0] )
+      std::swap( clustering[0], clustering[1] );
 
     vw_out() << "Inlier cluster: " << clustering.front().first << " "
              << clustering.front().second << "\n";
