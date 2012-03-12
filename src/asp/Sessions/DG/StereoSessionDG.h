@@ -27,6 +27,15 @@ namespace asp {
     camera_model( std::string const& image_file,
                   std::string const& camera_file = "" );
 
+    // Stage 1: Preprocessing
+    //
+    // Pre file is a pair of images.            ( ImageView<PixelT> )
+    // Post file is a grayscale images.         ( ImageView<PixelGray<flaot> > )
+    virtual void pre_preprocessing_hook(std::string const& input_file1,
+                                        std::string const& input_file2,
+                                        std::string &output_file1,
+                                        std::string &output_file2);
+
     static StereoSession* construct() { return new StereoSessionDG; }
   };
 

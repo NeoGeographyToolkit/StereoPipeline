@@ -16,6 +16,8 @@
 namespace asp {
 
   class StereoSessionPinhole : public StereoSession {
+
+  protected:
     // This should probably be factored into the greater StereoSession
     // as ISIS Session does something very similar to this.
     template <class ViewT>

@@ -9,6 +9,7 @@
 
 // Ames Stereo Pipeline
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/InterestPointMatching.h>
 #include <asp/Sessions/DG/LinescanDGModel.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
@@ -35,6 +36,7 @@
 using namespace vw;
 using namespace asp;
 namespace pt = boost::posix_time;
+namespace fs = boost::filesystem;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -119,6 +121,94 @@ asp::StereoSessionDG::camera_model( std::string const& /*image_file*/,
                                        img.image_size, subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
                                                                                                   geo.detector_origin[1], 0 ) ), 0, 2 ),
                                        geo.principal_distance ) );
+}
+
+void asp::StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1,
+                                                  std::string const& input_file2,
+                                                  std::string &output_file1,
+                                                  std::string &output_file2) {
+
+  // Load the images
+  DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
+  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+
+  Vector4f left_stats = gather_stats( left_disk_image, "left" ),
+    right_stats = gather_stats( right_disk_image, "right" );
+
+  ImageViewRef<PixelGray<float> > Limg, Rimg;
+  std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
+
+  if ( stereo_settings().keypoint_alignment ) {
+    std::string match_filename =
+      fs::basename(input_file1) + "__" +
+      fs::basename(input_file2) + ".match";
+
+    if (!fs::exists(match_filename)) {
+      boost::shared_ptr<camera::CameraModel> cam1, cam2;
+      camera_models( cam1, cam2 );
+
+      bool inlier =
+        ip_matching_w_alignment( cam1.get(), cam2.get(),
+                                 left_disk_image, right_disk_image,
+                                 cartography::Datum("WGS84"), match_filename );
+      VW_ASSERT( inlier, IOErr() << "Unable to match left and right images." );
+    }
+
+    std::vector<ip::InterestPoint> ip1, ip2;
+    ip::read_binary_match_file( match_filename, ip1, ip2  );
+    Matrix<double> align_matrix =
+      homography_fit(ip2, ip1, bounding_box(left_disk_image) );
+    write_matrix( m_out_prefix + "-align.exr", align_matrix );
+
+    // Applying alignment transform
+    Limg = left_disk_image;
+    Rimg = transform(right_disk_image,
+                     HomographyTransform(align_matrix),
+                     left_disk_image.cols(), left_disk_image.rows());
+  } else {
+    // Do nothing just provide the original files.
+    Limg = left_disk_image;
+    Rimg = right_disk_image;
+  }
+
+  // Apply our normalization options
+  if ( stereo_settings().force_max_min > 0 ) {
+    if ( stereo_settings().individually_normalize > 0 ) {
+      vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
+      Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
+      Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
+    } else {
+      float low = std::min(left_stats[0], right_stats[0]);
+      float hi  = std::max(left_stats[1], right_stats[1]);
+      vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+      Limg = normalize( Limg, low, hi, 0, 1.0 );
+      Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+    }
+  } else {
+    if ( stereo_settings().individually_normalize > 0 ) {
+      vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
+      Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
+                        left_stats[2] + 2*left_stats[3], 0, 1.0 );
+      Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
+                        right_stats[2] + 2*right_stats[3], 0, 1.0 );
+    } else {
+      float low = std::min(left_stats[2] - 2*left_stats[3],
+                           right_stats[2] - 2*right_stats[3]);
+      float hi  = std::max(left_stats[2] + 2*left_stats[3],
+                           right_stats[2] + 2*right_stats[3]);
+      vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+      Limg = normalize( Limg, low, hi, 0, 1.0 );
+      Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+    }
+  }
+
+  output_file1 = m_out_prefix + "-L.tif";
+  output_file2 = m_out_prefix + "-R.tif";
+  vw_out() << "\t--> Writing pre-aligned images.\n";
+  block_write_gdal_image( output_file1, Limg, m_options,
+                          TerminalProgressCallback("asp","\t  L:  ") );
+  block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), m_options,
+                          TerminalProgressCallback("asp","\t  R:  ") );
 }
 
 // Xerces-C terminate
