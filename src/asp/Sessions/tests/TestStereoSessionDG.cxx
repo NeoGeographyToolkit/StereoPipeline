@@ -104,4 +104,21 @@ TEST(StereoSessionDG, CreateCamera) {
   Vector3 pos = sm(m1,m2,error);
   EXPECT_LT( error, 5.0 ); // Triangulation should be better than 5 meters.
   EXPECT_LT( norm_2(pos), norm_2(cam1->camera_center(m1)) ); // Point should be below camera.
+
+  // Verify that projection back into the camera hits the right
+  // spot. It will slightly be wrong due to the above triangulation
+  // error.
+  EXPECT_VECTOR_NEAR( m1, cam1->point_to_pixel( pos ), 4 );
+  EXPECT_VECTOR_NEAR( m2, cam2->point_to_pixel( pos ), 4 );
+
+  // A more accurate test is just to project out and back into the
+  // same camera
+  for ( size_t i = 0; i < 36000; i += 500 ) {
+    for ( size_t j = 0; j < 24000; j += 500 ) {
+      EXPECT_VECTOR_NEAR( Vector2(i,j),
+                          cam1->point_to_pixel( cam1->camera_center(Vector2(i,j)) +
+                                                2e4 * cam1->pixel_to_vector( Vector2(i,j) ) ),
+                          1e-1 /*pixels*/);
+    }
+  }
 }

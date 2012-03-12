@@ -35,7 +35,7 @@ namespace asp {
 
   template <class PositionFuncT, class PoseFuncT, class TimeFuncT>
   class LinescanDGModel : public vw::camera::CameraModel {
-
+  protected:
     // Extrinsics
     PositionFuncT m_position_func; // Function of time
     PoseFuncT m_pose_func;
@@ -45,6 +45,37 @@ namespace asp {
     vw::Vector2i m_image_size;     // px
     vw::Vector2 m_detector_origin; // px
     double m_focal_length;         // px
+
+    // Levenberg Marquardt solver for linescan number
+    //
+    // We solve for the line number of the image that position the
+    // camera so that the projection into the camera model actually
+    // hits the detector. The detector is normally offset in the y
+    // direction on the optical plane.
+    class LinescanLMA : public vw::math::LeastSquaresModelBase<LinescanLMA> {
+      const LinescanDGModel* m_model;
+      vw::Vector3 m_point;
+    public:
+      typedef vw::Vector<double> result_type; // 1 D error on the optical plane.
+      typedef result_type domain_type;        // 1 D linescan number
+      typedef vw::Matrix<double> jacobian_type;
+
+      LinescanLMA( const LinescanDGModel* model, const vw::Vector3& pt ) :
+        m_model(model), m_point(pt) {}
+
+      inline result_type operator()( domain_type const& y ) const {
+        double t = m_model->m_time_func( y[0] );
+
+        // Rotate the point into our camera's frame
+        vw::Vector3 pt = inverse( m_model->m_pose_func(t) ).rotate( m_point - m_model->m_position_func(t) );
+        pt *= m_model->m_focal_length / pt.z(); // Rescale to pixel units
+        result_type result(1);
+        result[0] = pt.y() -
+          m_model->m_detector_origin[1]; // Error against the location
+                                         // of the detector
+        return result;
+      }
+    };
 
   public:
     //------------------------------------------------------------------
@@ -66,9 +97,31 @@ namespace asp {
     //------------------------------------------------------------------
     // Interface
     //------------------------------------------------------------------
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& /*point*/) const {
-      vw_throw( vw::NoImplErr() << "LinescanModel::point_to_pixel is not yet implemented." );
-      return vw::Vector2(); // never reached
+    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
+      using namespace vw;
+
+      // Solve for the correct line number to use
+      LinescanLMA model( this, point );
+      int status;
+      Vector<double> objective(1), start(1);
+      start[0] = m_image_size.y()/2;
+      Vector<double> solution =
+        math::levenberg_marquardt( model, start, objective, status,
+                                   1e-2, 1e-5, 1e3 );
+      // The ending numbers define:
+      //   Attempt to solve solution to 0.01 pixels.
+      //   Give up with a relative change of 0.00001 pixels.
+      //   Try with a max of a 1000 iterations.
+
+      VW_ASSERT( status > 0,
+                 camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
+
+      // Solve for sample location
+      double t = m_time_func( solution[0] );
+      Vector3 pt = inverse( m_pose_func(t) ).rotate( point - m_position_func(t) );
+      pt *= m_focal_length / pt.z();
+
+      return vw::Vector2(pt.x() - m_detector_origin[0], solution[0]);
     }
 
     // Gives a pointing vector in the world coordinates.
