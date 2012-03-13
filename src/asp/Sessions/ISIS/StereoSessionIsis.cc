@@ -187,7 +187,11 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     ip::read_binary_match_file( match_filename, ip1, ip2  );
     align_matrix = homography_fit(ip2, ip1, bounding_box(DiskImageView<PixelGray<float> >(input_file1)) );
   }
+
   write_matrix( m_out_prefix + "-align.exr", align_matrix );
+
+  vw_out() << "\t--> Aligning right image to left using homography:\n"
+           << "\t      " << align_matrix << "\n";
 
   // Getting left image size
   Vector2i left_size;

@@ -99,12 +99,27 @@ void stereo_preprocessing( Options& opt ) {
     opt.raster_tile_size = Vector2i(sub_tile_size,sub_tile_size);
     uint32 previous_num_threads = vw_settings().default_num_threads();
     vw_settings().set_default_num_threads(sub_threads);
-    asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
-                                 resample(left_image, sub_scale), opt,
-                                 TerminalProgressCallback("asp", "\t    Sub L: ") );
-    asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
-                                 resample(right_image, sub_scale), opt,
-                                 TerminalProgressCallback("asp", "\t    Sub R: ") );
+
+    if ( sub_scale > 0.5 ) {
+      // When we are near the pixel input to output ratio, standard
+      // interpolation is our best possible results.
+      asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
+                                   resample(left_image,sub_scale), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub L: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
+                                   resample(right_image,sub_scale), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub R: ") );
+    } else {
+      // When we heavily reduce the image size, super sampling seems
+      // like the best approach. The method below should be equivalent
+      // to 4xFSAA.
+      asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
+                                   resample(gaussian_filter(resample(left_image,sub_scale * 4.f),2.8f),.25f), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub L: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
+                                   resample(gaussian_filter(resample(right_image,sub_scale * 4.f),2.8f),.25f), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub R: ") );
+    }
     opt.raster_tile_size = previous_tile_size;
     vw_settings().set_default_num_threads(previous_num_threads);
   }

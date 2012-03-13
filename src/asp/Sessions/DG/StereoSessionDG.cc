@@ -163,6 +163,9 @@ void asp::StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1
       homography_fit(ip2, ip1, bounding_box(left_disk_image) );
     write_matrix( m_out_prefix + "-align.exr", align_matrix );
 
+    vw_out() << "\t--> Aligning right image to left using homography:\n"
+             << "\t      " << align_matrix << "\n";
+
     // Applying alignment transform
     Limg = left_disk_image;
     Rimg = transform(right_disk_image,
