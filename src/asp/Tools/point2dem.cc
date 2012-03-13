@@ -16,6 +16,12 @@ using namespace vw::cartography;
 #include <asp/Core/Common.h>
 namespace po = boost::program_options;
 
+#if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
+#include "ogr_spatialref.h"
+#endif
+
+#include <boost/math/special_functions/fpclassify.hpp>
+
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
@@ -45,9 +51,10 @@ struct Options : asp::BaseOptions {
   std::string rot_order;
   double proj_lat, proj_lon, proj_scale;
   double x_offset, y_offset, z_offset;
-  unsigned utm_zone;
+  size_t utm_zone;
   ProjectionType projection;
   bool has_nodata_value, has_alpha, do_normalize, do_error;
+  std::string target_srs_string;
 
   // Output
   std::string  out_prefix, output_file_type;
@@ -66,6 +73,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description projection_options("Projection options");
   projection_options.add_options()
+    ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the gdal option.")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [ earth, moon, mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
     ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
@@ -190,23 +198,75 @@ int main( int argc, char *argv[] ) {
     //
     // Otherwise, we honor the user's requested projection and convert
     // the points if necessary.
-    switch( opt.projection ) {
-    case SINUSOIDAL:
-      georef.set_sinusoidal(opt.proj_lon); break;
-    case MERCATOR:
-      georef.set_mercator(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
-    case TRANSVERSEMERCATOR:
-      georef.set_transverse_mercator(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
-    case ORTHOGRAPHIC:
-      georef.set_orthographic(opt.proj_lat,opt.proj_lon); break;
-    case STEREOGRAPHIC:
-      georef.set_stereographic(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
-    case LAMBERTAZIMUTHAL:
-      georef.set_lambert_azimuthal(opt.proj_lat,opt.proj_lon); break;
-    case UTM:
-      georef.set_UTM( opt.utm_zone ); break;
-    default: // Handles plate carree
-      break;
+    if (opt.target_srs_string.empty()) {
+      switch( opt.projection ) {
+      case SINUSOIDAL:
+        georef.set_sinusoidal(opt.proj_lon); break;
+      case MERCATOR:
+        georef.set_mercator(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
+      case TRANSVERSEMERCATOR:
+        georef.set_transverse_mercator(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
+      case ORTHOGRAPHIC:
+        georef.set_orthographic(opt.proj_lat,opt.proj_lon); break;
+      case STEREOGRAPHIC:
+        georef.set_stereographic(opt.proj_lat,opt.proj_lon,opt.proj_scale); break;
+      case LAMBERTAZIMUTHAL:
+        georef.set_lambert_azimuthal(opt.proj_lat,opt.proj_lon); break;
+      case UTM:
+        georef.set_UTM( opt.utm_zone ); break;
+      default: // Handles plate carree
+        break;
+      }
+    } else {
+      // Use the target_srs_string
+#if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
+      OGRSpatialReference gdal_spatial_ref;
+      if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
+        vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string << "\"." );
+      char *proj4 = NULL;
+      gdal_spatial_ref.exportToProj4( &proj4 );
+
+      // Filter out information dealing with the datum.
+      std::vector<std::string> commands;
+      std::string proj4_string(proj4);
+      delete[] proj4;
+      boost::split( commands, proj4_string, boost::is_any_of(" ") );
+      double axis_a, axis_b, axis_lon_0;
+      axis_a = axis_b = axis_lon_0 = std::numeric_limits<double>::quiet_NaN();
+      for ( size_t i = 0; i < commands.size(); i++ ) {
+        if ( boost::starts_with(commands[i],"+a=") ) {
+          axis_a = boost::lexical_cast<double>(commands[i].substr(3,commands[i].size()-3));
+          commands.erase( commands.begin() + i );
+          i--;
+        } else if ( boost::starts_with(commands[i],"+b=") ) {
+          axis_b = boost::lexical_cast<double>(commands[i].substr(3,commands[i].size()-3));
+          commands.erase( commands.begin() + i );
+          i--;
+        } else if ( boost::starts_with(commands[i],"+lon_0=") ) {
+          axis_lon_0 = boost::lexical_cast<double>(commands[i].substr(7,commands[i].size()-7));
+          commands.erase( commands.begin() + i );
+          i--;
+        }
+      }
+
+      // Decide if we have enough information for setting the datum
+      if ( !boost::math::isnan(axis_a) &&
+           !boost::math::isnan(axis_b) ) {
+        Datum datum("","","", axis_a, axis_b,
+                    boost::math::isnan(axis_lon_0) ? 0 : axis_lon_0 );
+        georef.set_datum( datum );
+      }
+
+      proj4_string.clear();
+      for ( size_t i = 0; i < commands.size(); i++ ) {
+        if ( i != 0 )
+          proj4_string += " ";
+        proj4_string += commands[i];
+      }
+      georef.set_proj4_projection_str( proj4_string );
+#else
+      vw_throw( NoImplErr() << "Target SRS option is not available without GDAL." );
+#endif
     }
 
     // Determine if we should using a longitude range between
