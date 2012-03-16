@@ -305,11 +305,12 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
   typedef stereo::LogStereoPreprocessingFilter PreFilterT;
 
   block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
-                          stereo::correlate( left_sub, right_sub, left_mask,
-                                             right_mask, PreFilterT(1.4),
-                                             search_range,
-                                             stereo_settings().kernel,
-                                             stereo::NORM_XCORR_CORRELATOR), opt,
+                          disparity_mask(stereo::correlate( left_sub, right_sub, left_mask,
+                                                            right_mask, PreFilterT(1.4),
+                                                            search_range,
+                                                            stereo_settings().kernel,
+                                                            stereo::NORM_XCORR_CORRELATOR),
+                                         left_mask, right_mask,search_range), opt,
                           TerminalProgressCallback("asp", "\t--> Low Resolution:") );
 
   ImageView<PixelMask<Vector2f> > lowres_disparity;
