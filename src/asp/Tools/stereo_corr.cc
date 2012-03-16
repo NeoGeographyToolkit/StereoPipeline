@@ -15,6 +15,7 @@
 #include <boost/accumulators/statistics.hpp>
 
 using namespace vw;
+using namespace asp;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -85,7 +86,7 @@ public:
                                    << local_search_range << " vs " << stereo_settings().search_range
                                    << "\n";
 
-    typedef stereo::CorrelatorView<typename Image1T::pixel_type,typename Mask1T::pixel_type, PProcT> CorrView;
+    typedef stereo::CorrelatorView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
     CorrView corr_view( m_left_image, m_right_image,
                         m_left_mask, m_right_mask,
                         m_preproc_func, true );
@@ -93,7 +94,6 @@ public:
     corr_view.set_search_range( local_search_range );
     corr_view.set_kernel_size( stereo_settings().kernel );
     corr_view.set_cross_corr_threshold( stereo_settings().xcorr_threshold );
-    corr_view.set_corr_score_threshold( stereo_settings().corrscore_rejection_threshold );
     corr_view.set_correlator_options(stereo_settings().cost_blur, m_cost_mode);
 
     return corr_view.prerasterize( bbox );
@@ -302,20 +302,18 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
   BBox2i search_range( floor(elem_prod(down_sample_scale,stereo_settings().search_range.min())),
                        ceil(elem_prod(down_sample_scale,stereo_settings().search_range.max())) );
 
-  stereo::PyramidCorrelator correlator( search_range,
-                                        stereo_settings().kernel,
-                                        stereo_settings().xcorr_threshold,
-                                        stereo_settings().corrscore_rejection_threshold,
-                                        stereo_settings().cost_blur,
-                                        stereo::NORM_XCORR_CORRELATOR );
+  typedef stereo::LogStereoPreprocessingFilter PreFilterT;
 
-  vw_out() << "\t--> Rendering low-resolution disparity ... " << std::flush;
-  ImageView<PixelMask<Vector2f> > lowres_disparity =
-    correlator(left_sub, right_sub, left_mask, right_mask,
-               stereo::LogStereoPreprocessingFilter(1.4));
-  asp::block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
-                               lowres_disparity, opt );
-  vw_out() << "finished" << std::endl;
+  block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
+                          stereo::correlate( left_sub, right_sub, left_mask,
+                                             right_mask, PreFilterT(1.4),
+                                             search_range,
+                                             stereo_settings().kernel,
+                                             stereo::NORM_XCORR_CORRELATOR), opt,
+                          TerminalProgressCallback("asp", "\t--> Low Resolution:") );
+
+  ImageView<PixelMask<Vector2f> > lowres_disparity;
+  read_image( lowres_disparity, opt.out_prefix + "-D_sub.tif" );
   search_range =
     stereo::get_disparity_range( lowres_disparity );
   search_range.min() = floor(elem_quot(search_range.min(),down_sample_scale));

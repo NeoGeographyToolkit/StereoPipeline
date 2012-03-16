@@ -58,7 +58,6 @@ public:
                                   2 = affine, bayes weighting
                                   3 = affine, bayes EM weighting */
   float xcorr_threshold;
-  float corrscore_rejection_threshold;
   int cost_blur;
   int cost_mode;
 
