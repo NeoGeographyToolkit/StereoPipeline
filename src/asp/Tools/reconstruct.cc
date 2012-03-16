@@ -4,12 +4,16 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+// To do: Make the logic of ignoring the padded region of the tile in
+// Reflectance.cc (average reflectance computation) more robust.
+// To do: Implement the logic where one checks if a pixel is in the shadow,
+// in one (inline) function, and call it wherever it is needed.
 // To do: Convert the input images to byte from uint16, since
 // they go from 0 to 255 anyway. As of now they appear transparent.
 // To do: Copy the images from supercomp.
 // To do:
 // To do: Fix the memory leaks where the weighs are read.
-// Fix the bug with orbit ends not showing up.
+// Fix the bug with orbit ends not showing up (beyond 180 degrees).
 // Fix the non-plastic bug.
 // Fix the 1 pixel artifacts at tile border bug.
 // Implement albedo update.
@@ -282,8 +286,8 @@ void getDEMAlbedoTileFiles(// Inputs
 void createAlbedoTilesOverlappingWithDRG(double tileSize, int pixelPadding,
                                          std::string imageFile, Vector4 const& simBox,
                                          std::vector<ImageRecord> const& drgRecords,
-                                         std::string blankTilesList, std::string blankTilesDir,
-                                         std::string DEMTilesList, std::string DEMTilesDir,
+                                         std::string blankTilesList,  std::string blankTilesDir,
+                                         std::string DEMTilesList,    std::string DEMTilesDir,
                                          std::string albedoTilesList, std::string albedoTilesDir
                                          ){
 
@@ -305,15 +309,17 @@ void createAlbedoTilesOverlappingWithDRG(double tileSize, int pixelPadding,
     std::cout << "ERROR: Must have positive tile size and non-negative pixel padding!" << std::endl;
     exit(1);
   }
-  
+
+  // To do: it is more intuitive if one iterates from north to south than from south to north.
+
   // Find all tiles overlapping with given DRGs. Use a set to avoid duplicates.
   std::set< std::pair<double, double> > Tiles;
   for (int j = 0; j < (int)drgRecords.size(); j++){
     const ImageRecord& rec = drgRecords[j];
     Vector4 currCorners = Vector4(rec.west, rec.east, rec.south, rec.north);
-    for (double iBegE = tileSize*floor(rec.west/tileSize); iBegE < rec.east; iBegE += tileSize){
-      for (double iBegN = tileSize*floor(rec.south/tileSize); iBegN < rec.north; iBegN += tileSize){
-        Tiles.insert(std::make_pair(iBegE, iBegN));
+    for (double min_x = tileSize*floor(rec.west/tileSize); min_x < rec.east; min_x += tileSize){
+      for (double min_y = tileSize*floor(rec.south/tileSize); min_y < rec.north; min_y += tileSize){
+        Tiles.insert(std::make_pair(min_x, min_y));
       }
     }
   }
@@ -326,37 +332,38 @@ void createAlbedoTilesOverlappingWithDRG(double tileSize, int pixelPadding,
   for (std::set< std::pair<double, double> >::iterator it = Tiles.begin(); it != Tiles.end(); it++){
     
     std::pair<double, double> Tile = *it;
-    double iBegE = Tile.first;
-    double iBegN = Tile.second;
 
-    // Upper left corner lon lat
-    Vector2 A = Vector2(iBegE, iBegN + tileSize);
+    // Tile corners coordinates without padding
+    double min_x = Tile.first;
+    double min_y = Tile.second;
+    double max_x = min_x + tileSize;
+    double max_y = min_y + tileSize;
     
-    // Right and down by pixelPadding
-    Vector2 B = geo.pixel_to_lonlat(geo.lonlat_to_pixel(A) + Vector2(pixelPadding, pixelPadding));
-
-    Vector2 D = B - A;
-
-    // The proposed corners of the tile. Note that we add the padding.
-    // Careful with the signs below.
-    double begE = iBegE - D(0), endE = iBegE + tileSize + D(0);
-    double begN = iBegN + D(1), endN = iBegN + tileSize - D(1);
-      
+    // Tile corners coordinates with padding
+    double min_x_padded, max_x_padded, min_y_padded, max_y_padded;
+    applyPaddingToTileCorners(// Inputs
+                               geo, pixelPadding, min_x, max_x,  min_y, max_y,  
+                               // Outputs
+                               min_x_padded, max_x_padded, min_y_padded, max_y_padded
+                               );
+  
     // Set the upper-left corner in the tile
     Matrix3x3 T = geo.transform();
-    T(0,2) = begE;
-    T(1,2) = endN;
+    T(0,2) = min_x_padded;
+    T(1,2) = max_y_padded;
     geo.set_transform(T);
 
     // Determine the size of the tile
-    Vector2 pixUL = geo.lonlat_to_pixel(Vector2(begE, endN));
+    Vector2 pixUL = geo.lonlat_to_pixel(Vector2(min_x_padded, max_y_padded));
     // Note: The value we get for  pixUL is (-0.5, -0.5).
     // I was expecting (0, 0). (Oleg)
-    Vector2 pixLR = geo.lonlat_to_pixel(Vector2(endE, begN));
+    Vector2 pixLR = geo.lonlat_to_pixel(Vector2(max_x_padded, min_y_padded));
+
+    // To do: Below nrows and ncols may need to be interchanged.
     int nrows = (int)round(pixLR(0) - pixUL(0));
     int ncols = (int)round(pixLR(1) - pixUL(1));
 
-    double uE = iBegE, uN = iBegN + tileSize; // uppper-left corner without padding
+    double uE = min_x, uN = max_y; // uppper-left corner without padding
     std::string sN = "N", sE = "E";
     if (uE < 0){ uE = -uE; sE = "W";}
     if (uN < 0){ uN = -uN; sN = "S";}
@@ -850,8 +857,10 @@ int main( int argc, char *argv[] ) {
     fs::create_directory(resDir+"/DEM_sfs");
   std::string albedoTilesDir = resDir + "/albedo";
   std::string DEMTilesDir    = resDir + "/DEM";
+  std::string costFunDir     = resDir + "/costFun";
   if ( !fs::exists(albedoTilesDir) ) fs::create_directory(albedoTilesDir);
   if ( !fs::exists(DEMTilesDir)    ) fs::create_directory(DEMTilesDir);
+  if ( !fs::exists(costFunDir)     ) fs::create_directory(costFunDir);
 
   // blankTilesDir is used to create a tile with identical dimensions
   // as the subsequent DEM and albedo tiles.
@@ -902,7 +911,16 @@ int main( int argc, char *argv[] ) {
     
     return 0;
   }
-  
+
+//   int factor = 4;
+//   std::string inFile = imageFiles[0];
+//   std::string str = "4";
+//   std::string outFile = "up/" + inFile;
+//   //std::string outFile = inFile; outFile.replace(outFile.find(str), str.length(), "1");
+//   std::cout << " --- Will upsample!" << std::endl;
+//   upsample_uint8_image(outFile, inFile, 4);
+//   exit(0);
+    
   std::vector<ImageRecord> drgRecords;
   if( DRGInBoxList.size() == 0 ) {
     if ( vm.count("inputDRGFiles") < 1 ) {
@@ -977,9 +995,6 @@ int main( int argc, char *argv[] ) {
     modelParamsArray[i].vCenterLineDEM   = NULL;
     modelParamsArray[i].vMaxDistArrayDEM = NULL;
 
-    // To do: Reading this only for overlap images should be enough. But it does not work!
-    ReadExposureInfoFromFile(&(modelParamsArray[i]));
-    
     vw_out( VerboseDebugMessage, "photometry" ) << modelParamsArray[i] << "\n";
 
     i++;
@@ -994,7 +1009,7 @@ int main( int argc, char *argv[] ) {
   printOverlapList(overlapIndicesArray);
 
   std::vector<int> inputIndices = GetInputIndices(imageFiles, DRGFiles);
-
+  
   // set up weights only for images that we want to process or that
   // overlap one of the files we want to process
   std::vector<int> relevantIndices;
@@ -1008,13 +1023,20 @@ int main( int argc, char *argv[] ) {
     }
   }
 
+  // Read the exposure information for the relevant indices
+  for (unsigned int i=0; i < relevantIndices.size(); i++) {
+    int j = relevantIndices[i];
+    ReadExposureInfoFromFile(&(modelParamsArray[j]));
+  }
+  
   if (globalParams.useWeights == 1) {
     vw_out( VerboseDebugMessage, "photometry" ) << "Computing weights ... ";
     
     for (unsigned int i=0; i < relevantIndices.size(); i++) {
       int j = relevantIndices[i];
 
-      // If we are not in weight saving mode, the weights should be on disk already
+      // If we are not in weight saving mode, the weights should be on
+      // disk already, so read them.
       if (globalParams.saveWeights != 1){
         if  (!useTiles){
           ReadWeightsParamsFromFile(useTiles, &modelParamsArray[j]);
@@ -1027,17 +1049,17 @@ int main( int argc, char *argv[] ) {
       }
       
       // We have globalParams.saveWeights == 1. Build the weights.
-      
-      //std::cout << "size of input indices: " << inputIndices.size() << std::endl;
-      if (j == inputIndices[0]){
-        // Compute and save the weights only for  the current image, not for  all images
-        // overlapping with it.
-        //std::cout << "Compute weights for  image with index: " << j << std::endl;
+      if (j == inputIndices[i]){
+        // Compute and save the weights only for the current image,
+        // not for all images overlapping with it.
 
-        modelParamsArray[j].hCenterLine = ComputeImageHCenterLine(modelParamsArray[j].inputFilename,
-                                                                  &(modelParamsArray[j].hMaxDistArray));
-        modelParamsArray[j].vCenterLine = ComputeImageVCenterLine(modelParamsArray[j].inputFilename,
-                                                                  &(modelParamsArray[j].vMaxDistArray));
+        ComputeImageCenterLines(modelParamsArray[j].inputFilename,  
+                                &modelParamsArray[j].hMaxDistArray,  
+                                &modelParamsArray[j].hCenterLine,  
+                                &modelParamsArray[j].vMaxDistArray,  
+                                &modelParamsArray[j].vCenterLine
+                                );
+
         if (!useTiles){
           modelParamsArray[j].hCenterLineDEM = ComputeDEMHCenterLine(modelParamsArray[j].DEMFilename,
                                                                      globalParams.noDEMDataValue,
@@ -1118,15 +1140,23 @@ int main( int argc, char *argv[] ) {
       //TO DO: if file does not exist compute.
 
       if (useTiles){
-        // Compute the average reflectance image
+        // Compute the average reflectance image.
+        // The same code is used below to update the exposure.
         std::string curDRG = imageFiles[i];
-        std::vector<ImageRecord> DEMTiles;
+        std::vector<ImageRecord> DEMTiles, albedoTiles;
         std::vector<int> overlap;
-        if (!readImagesFile(DEMTiles, DEMTilesList)) exit(1);
+        if (!readImagesFile(DEMTiles,    DEMTilesList))    exit(1);
+        if (!readImagesFile(albedoTiles, albedoTilesList)) exit(1);
         overlap = makeOverlapList(DEMTiles, curDRG);
-        avgReflectanceArray[i] = computeAvgReflectanceOverTiles(tileSize, DEMTiles,  
-                                                                overlap, modelParamsArray[inputIndices[i]],
-                                                                globalParams);
+        bool compAvgRefl = true;
+        avgReflectanceArray[i]
+          = computeAvgReflectanceOverTilesOrUpdateExposure(compAvgRefl,
+                                                           pixelPadding, tileSize,
+                                                           DEMTiles, albedoTiles, 
+                                                           overlap,
+                                                           modelParamsArray[inputIndices[i]],
+                                                           globalParams);
+        
       }else{
         //compute and save the reflectance image.
         avgReflectanceArray[i] = computeImageReflectance(modelParamsArray[inputIndices[i]],
@@ -1183,20 +1213,25 @@ int main( int argc, char *argv[] ) {
             InitAlbedoMosaic(modelParamsArray[inputIndices[i]],
                              overlapParamsArray, globalParams);
           }else{
-
+            // This code is repeated below where we update the albedo
             std::string blankTileFile  = imageFiles[i];
             Vector4 tileCorners = getImageCorners(blankTileFile);
-            if (! boxesOverlap(tileCorners, simBox)){
-              std::cout << "Skipping tile: "
-                        << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
-              continue;
-            }
+            //if (! boxesOverlap(tileCorners, simBox)){
+            //std::cout << "Skipping tile: "
+            //          << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
+            //continue;
+            //}
+
             std::string DEMTileFile, albedoTileFile;
             getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
                                   DEMTileFile, albedoTileFile                                // outputs
                                   );
-            InitAlbedoTile(blankTileFile, DEMTileFile, albedoTileFile,
-                           overlapParamsArray, globalParams);
+
+
+            bool initTile = true; // init, rather than update
+            InitOrUpdateAlbedoTile(initTile, pixelPadding, tileSize,
+                                   blankTileFile, DEMTileFile, albedoTileFile,
+                                   overlapParamsArray, globalParams);
             
           }
           
@@ -1212,7 +1247,7 @@ int main( int argc, char *argv[] ) {
 
   //re-estimate the parameters of the image formation model
   float overallError;
-  for (int iter = 1; iter < globalParams.maxNumIter; iter++){
+  for (int iter = 1; iter <= globalParams.maxNumIter; iter++){
 
     overallError = 0.0;
 
@@ -1223,14 +1258,33 @@ int main( int argc, char *argv[] ) {
         if (globalParams.reflectanceType == NO_REFL){
           //no use of reflectance map
           ComputeExposure(&modelParamsArray[inputIndices[i]], globalParams);
-        }else{
+        }else if (!useTiles){
           //use reflectance map
           ComputeExposureAlbedo(&modelParamsArray[inputIndices[i]], globalParams);
-        }
+        }else{
 
+          // Update the exposure based on tiles
+          std::string curDRG = imageFiles[i];
+          std::vector<ImageRecord> DEMTiles, albedoTiles;
+          std::vector<int> overlap;
+          if (!readImagesFile(DEMTiles,    DEMTilesList))    exit(1);
+          if (!readImagesFile(albedoTiles, albedoTilesList)) exit(1);
+          overlap = makeOverlapList(DEMTiles, curDRG);
+          bool compAvgRefl = false; // set this flag to false to update the exposure
+          double exposure = computeAvgReflectanceOverTilesOrUpdateExposure(compAvgRefl,
+                                                                           pixelPadding, tileSize,
+                                                                           DEMTiles, albedoTiles, 
+                                                                           overlap,
+                                                                           modelParamsArray[inputIndices[i]],
+                                                                           globalParams);
+          modelParamsArray[inputIndices[i]].exposureTime = exposure;
+          
+        }
+        
         //create the exposureInfoFilename
         SaveExposureInfoToFile(modelParamsArray[inputIndices[i]]);
       }
+      if (useTiles) break; // Do just one iteration. We control the iterations from the script.
     }
 
     if (globalParams.updateAlbedo == 1){
@@ -1246,10 +1300,35 @@ int main( int argc, char *argv[] ) {
           //no use of the reflectance map
           UpdateImageMosaic( modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
         }else{
-          //use reflectance
-          UpdateAlbedoMosaic(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
+          if (!useTiles){
+            //use reflectance
+            UpdateAlbedoMosaic(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
+          }else{
+            // We use the same logic as for initializing the albedo above. What is different now
+            // is that we work with the updated exposure.
+            std::string blankTileFile  = imageFiles[i];
+            Vector4 tileCorners = getImageCorners(blankTileFile);
+            //if (! boxesOverlap(tileCorners, simBox)){
+            //  std::cout << "Skipping tile: "
+            //            << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
+            //  continue;
+            //}
+            std::string DEMTileFile, albedoTileFile;
+            getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
+                                  DEMTileFile, albedoTileFile                                // outputs
+                                  );
+            bool initTile = false; // will update, not init
+            double costFunVal = InitOrUpdateAlbedoTile(initTile, pixelPadding, tileSize,
+                                                       blankTileFile, DEMTileFile, albedoTileFile,
+                                                       overlapParamsArray, globalParams);
+            std::string costFunFile = costFunDir
+              + prefix_from_filename(sufix_from_filename(albedoTileFile)) + ".txt";
+            std::cout << "cost fun file is " << costFunFile << std::endl;
+            AppendCostFunToFile(costFunVal, costFunFile);
+          }
         }
       }
+      if (useTiles) break; // Do just one iteration. We control the iterations from the script.      
     }
         
     //re-estimate the height map  - shape from shading
