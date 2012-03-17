@@ -151,8 +151,8 @@ void stereo_filtering( Options& opt ) {
         BlobIndexThreaded bindex( filtered_disparity,
                                   stereo_settings().erode_max_size );
         vw_out() << "\t    * Eroding " << bindex.num_blobs() << " islands\n";
-	filtered_disparity =
-	  ErodeView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex );
+        filtered_disparity =
+          ErodeView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex );
       }
     }
 
@@ -162,11 +162,36 @@ void stereo_filtering( Options& opt ) {
 
       // Sub-sampling so that the user can actually view it.
       float sub_scale = 2048.0 / float( std::min( filtered_disparity.cols(),
-						  filtered_disparity.rows() ) );
-      block_write_gdal_image( opt.out_prefix + "-GoodPixelMap.tif",
-			      resample(stereo::missing_pixel_image(filtered_disparity),
-				       sub_scale), opt,
-			      TerminalProgressCallback("asp","\t   Good Map: ") );
+                                                  filtered_disparity.rows() ) );
+      if ( sub_scale > 1 ) sub_scale = 1;
+      // Solving for the number of threads and the tile size to use for
+      // subsampling while only using 500 MiB of memory. (The cache code
+      // is a little slow on releasing so it will probably use 1.5GiB
+      // memory during subsampling) Also tile size must be a power of 2
+      // and greater than or equal to 64 px;
+      uint32 previous_num_threads = vw_settings().default_num_threads();
+      uint32 sub_threads = previous_num_threads + 1;
+      uint32 tile_power = 0;
+      while ( tile_power < 6 && sub_threads > 1) {
+        sub_threads--;
+        tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
+      }
+      uint32 sub_tile_size = 1 << tile_power;
+      if ( sub_tile_size > vw_settings().default_tile_size() )
+        sub_tile_size = vw_settings().default_tile_size();
+
+      ImageViewRef<PixelRGB<uint8> > good_pixel =
+        resample(stereo::missing_pixel_image(filtered_disparity),
+                 sub_scale);
+      vw_settings().set_default_num_threads(sub_threads);
+      DiskImageResourceGDAL good_pixel_rsrc( opt.out_prefix + "-GoodPixelMap.tif",
+                                             good_pixel.format(),
+                                             Vector2i(sub_tile_size,
+                                                      sub_tile_size ),
+                                             opt.gdal_options );
+      block_write_image( good_pixel_rsrc, good_pixel,
+                         TerminalProgressCallback("asp", "\t    Writing: "));
+      vw_settings().set_default_num_threads(previous_num_threads);
     }
 
     // Fill Holes
@@ -176,13 +201,13 @@ void stereo_filtering( Options& opt ) {
                                 stereo_settings().fill_hole_max_size );
       vw_out() << "\t    * Identified " << bindex.num_blobs() << " holes\n";
       asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-				   asp::InpaintView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex ),
-				   opt, TerminalProgressCallback("asp","\t--> Filtering: ") );
+                                   asp::InpaintView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex ),
+                                   opt, TerminalProgressCallback("asp","\t--> Filtering: ") );
 
     } else {
       asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-				   filtered_disparity, opt,
-				   TerminalProgressCallback("asp", "\t--> Filtering: ") );
+                                   filtered_disparity, opt,
+                                   TerminalProgressCallback("asp", "\t--> Filtering: ") );
     }
 
   } catch (IOErr const& e) {
