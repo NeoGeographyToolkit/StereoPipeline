@@ -311,7 +311,7 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
                                                             search_range,
                                                             stereo_settings().kernel,
                                                             stereo::NORM_XCORR_CORRELATOR),
-                                         left_mask, right_mask,search_range), opt,
+                                         left_mask, right_mask), opt,
                           TerminalProgressCallback("asp", "\t--> Low Resolution:") );
 
   ImageView<PixelMask<Vector2f> > lowres_disparity;
