@@ -80,6 +80,7 @@ public:
 
     BBox2f local_search_range =
       stereo::get_disparity_range( crop( m_source_disparity, seed_bbox ) );
+    local_search_range = grow_bbox_to_int(local_search_range);
     local_search_range.min() = floor(elem_prod(local_search_range.min(), m_upscale_factor));
     local_search_range.max() = ceil(elem_prod(local_search_range.max(), m_upscale_factor));
     vw_out(DebugMessage, "stereo") << "SeededCorrelatorView(" << bbox << ") search range "
