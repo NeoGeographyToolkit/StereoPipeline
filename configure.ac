@@ -307,7 +307,7 @@ AX_PKG_ONE_OF(GSL,
 
 AX_PKG(CURL,    [], [-lcurl])
 AX_PKG(GEOS,    [], [-lgeos])
-AX_PKG(XERCESC, [CURL], [-lxerces-c])
+AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
 AX_PKG(UFCONFIG, [], [-lufconfig])
 AX_PKG(AMD, [UFCONFIG], [-lamd])
 AX_PKG(COLAMD, [UFCONFIG], [-lcolamd])
