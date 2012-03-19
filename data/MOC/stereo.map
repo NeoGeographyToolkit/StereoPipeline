@@ -8,7 +8,6 @@ DO_INTERESTPOINT_ALIGNMENT 1
 INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
 DO_EPIPOLAR_ALIGNMENT 0
 
-
 # Normalization options
 
 FORCE_USE_ENTIRE_RANGE 1
@@ -57,10 +56,10 @@ H_KERNEL 25
 V_KERNEL 25
 
 # Initializaion step: correlation window size
-H_CORR_MIN -35
-H_CORR_MAX -15
-V_CORR_MIN -280
-V_CORR_MAX -265
+#H_CORR_MIN -35
+#H_CORR_MAX -15
+#V_CORR_MIN -280
+#V_CORR_MAX -265
 
 # Subpixel step: subpixel modes
 #
