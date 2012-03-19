@@ -374,7 +374,7 @@ AX_GROUP_PKG(VW_ALL,     [VW_CARTOGRAPHY VW_STEREO VW_CAMERA VW_INTEREST_POINT V
 AX_MODULE(CORE,     [src/asp/Core],     [libaspCore.la],     yes, [], [VW_ALL BOOST_MOST], [LAPACK])
 AX_MODULE(SPICEIO,  [src/asp/SpiceIO],  [libaspSpiceIO.la],  yes, [], [VW BOOST_MOST SPICE])
 AX_MODULE(ISISIO,   [src/asp/IsisIO],   [libaspIsisIO.la],   yes, [], [ISIS VW_CARTOGRAPHY BOOST])
-AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [], [ISISIO SPICEIO])
+AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCESC], [ISISIO SPICEIO ])
 AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
 
 # Tools
