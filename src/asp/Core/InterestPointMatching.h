@@ -13,6 +13,7 @@
 #include <vw/Core.h>
 #include <vw/Math.h>
 #include <vw/Image/ImageViewBase.h>
+#include <vw/Image/MaskViews.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/InterestPoint/Matcher.h>
@@ -20,6 +21,7 @@
 #include <vw/Stereo/StereoModel.h>
 
 #include <boost/foreach.hpp>
+#include <boost/math/special_functions/fpclassify.hpp>
 
 namespace asp {
 
@@ -42,6 +44,45 @@ namespace asp {
                   std::vector<vw::ip::InterestPoint> const& ip2,
                   vw::BBox2i const& image_size );
 
+  // Tool to remove points on or within 1 px of nodata
+  template <class ImageT>
+  void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image_base,
+                              double nodata,
+                              vw::ip::InterestPointList& ip_list ){
+    using namespace vw;
+    ImageT image = image_base.impl();
+    size_t prior_ip = ip_list.size();
+
+    typedef ImageView<typename ImageT::pixel_type> CropImageT;
+    CropImageT subsection(3,3);
+
+    BBox2i bound = bounding_box( image );
+    bound.contract(1);
+    for ( ip::InterestPointList::iterator ip = ip_list.begin();
+          ip != ip_list.end(); ++ip ) {
+      if ( !bound.contains( Vector2i(ip->ix,ip->iy) ) ) {
+        ip = ip_list.erase(ip);
+        ip--;
+        continue;
+      }
+
+      subsection =
+        crop( image, ip->ix-1, ip->iy-1, 3, 3 );
+      for ( typename CropImageT::iterator pixel = subsection.begin();
+            pixel != subsection.end(); pixel++ ) {
+        if (*pixel == nodata) {
+          ip = ip_list.erase(ip);
+          ip--;
+          break;
+        }
+      }
+    }
+    VW_OUT( DebugMessage, "asp" ) << "Removed " << prior_ip - ip_list.size()
+                                  << " interest points due to their proximity to nodata values."
+                                  << std::endl << "Nodata value used "
+                                  << nodata << std::endl;
+  }
+
   // Smart IP matching that using clustering on triangulation and
   // datum information to determine inliers.
   //
@@ -55,6 +96,8 @@ namespace asp {
                     vw::ImageViewBase<Image2T> const& image2_base,
                     vw::cartography::Datum const& datum,
                     std::string const& output_name,
+                    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
                     vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
                     vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0))) {
     using namespace vw;
@@ -65,18 +108,38 @@ namespace asp {
     // Detect Interest Points
     ip::InterestPointList ip1, ip2;
     float number_boxes = (box1.width() / 1024.f) * (box1.height() / 1024.f);
-    size_t points_per_tile = 2500.f / number_boxes;
-    if ( points_per_tile > 2500 ) points_per_tile = 2500;
+    size_t points_per_tile = 5000.f / number_boxes;
+    if ( points_per_tile > 5000 ) points_per_tile = 5000;
+    if ( points_per_tile < 50 ) points_per_tile = 50;
+    VW_OUT( DebugMessage, "asp" ) << "Setting IP code to search " << points_per_tile << " IP per tile (1024^2 px).\n";
     asp::IntegralAutoGainDetector detector( points_per_tile );
     vw_out() << "\t    Processing Left\n";
-    ip1 = detect_interest_points( image1, detector );
+    if ( boost::math::isnan(nodata1) )
+      ip1 = detect_interest_points( image1, detector );
+    else
+      ip1 = detect_interest_points( apply_mask(create_mask(image1,nodata1)), detector );
     vw_out() << "\t    Processing Right\n";
-    ip2 = detect_interest_points( image2, detector );
+    if ( boost::math::isnan(nodata2) )
+      ip2 = detect_interest_points( image2, detector );
+    else
+      ip2 = detect_interest_points( apply_mask(create_mask(image2,nodata2)), detector );
+
+    if ( !boost::math::isnan(nodata1) )
+      remove_ip_near_nodata( image1, nodata1, ip1 );
+
+    if ( !boost::math::isnan(nodata2) )
+      remove_ip_near_nodata( image2, nodata2, ip2 );
 
     vw_out() << "\t    Building Descriptors\n";
     ip::SGradDescriptorGenerator descriptor;
-    descriptor(image1, ip1 );
-    descriptor(image2, ip2 );
+    if ( boost::math::isnan(nodata1) )
+      descriptor(image1, ip1 );
+    else
+      descriptor( apply_mask(create_mask(image1,nodata1)), ip1 );
+    if ( boost::math::isnan(nodata2) )
+      descriptor(image2, ip2 );
+    else
+      descriptor( apply_mask(create_mask(image2,nodata2)), ip2 );
 
     vw_out() << "\t    Found interest points:\n"
              << "\t      left: " << ip1.size() << "\n";
@@ -167,6 +230,8 @@ namespace asp {
                                 vw::ImageViewBase<Image2T> const& image2_base,
                                 vw::cartography::Datum const& datum,
                                 std::string const& output_name,
+                                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                                double nodata2 = std::numeric_limits<double>::quiet_NaN(),
                                 vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
                                 vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) ) {
     using namespace vw;
@@ -190,16 +255,21 @@ namespace asp {
                               TranslateTransform(-raster_box.min())));
     raster_box -= raster_box.min();
 
+    // It is important that we use NearestPixelInterpolation in the
+    // next step. Using anything else will interpolate nodata values
+    // and stop them from being masked out.
     bool inlier =
       ip_matching( cam1, cam2, image1,
-                   crop(transform(image2, compose(inverse(right_tx), tx) ), raster_box),
-                   datum, output_name, left_tx, tx );
+                   crop(transform(image2, compose(inverse(right_tx), tx),
+                                  ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
+                                  NearestPixelInterpolation()), raster_box),
+                   datum, output_name, nodata1, nodata2, left_tx, tx );
 
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
     ip::read_binary_match_file( output_name, ip1_copy, ip2_copy );
     Matrix<double> post_fit =
       homography_fit( ip2_copy, ip1_copy, raster_box );
-    if ( sum(abs(submatrix(homography,0,0,2,2) - submatrix(post_fit,0,0,2,2))) > 5 ) {
+    if ( sum(abs(submatrix(homography,0,0,2,2) - submatrix(post_fit,0,0,2,2))) > 4 ) {
       VW_OUT( DebugMessage, "asp" ) << "Post homography has largely different scale and skew from rough fit. Post solution is " << post_fit << "\n";
       return false;
     }

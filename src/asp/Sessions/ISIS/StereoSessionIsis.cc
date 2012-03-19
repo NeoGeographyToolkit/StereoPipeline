@@ -172,11 +172,18 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
       Vector3 radii = isis_cam->target_radii();
       cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
 
+      boost::shared_ptr<DiskImageResource> rsrc1( DiskImageResource::open(input_file1) ),
+        rsrc2( DiskImageResource::open(input_file2) );
+
       bool inlier =
         ip_matching_w_alignment( cam1.get(), cam2.get(),
-                                 DiskImageView<PixelGray<float> >(input_file1),
-                                 DiskImageView<PixelGray<float> >(input_file2),
-                                 datum, match_filename );
+                                 DiskImageView<PixelGray<float> >(rsrc1),
+                                 DiskImageView<PixelGray<float> >(rsrc2),
+                                 datum, match_filename,
+                                 rsrc1->has_nodata_read() ? rsrc1->nodata_read() :
+                                 std::numeric_limits<double>::quiet_NaN(),
+                                 rsrc2->has_nodata_read() ? rsrc2->nodata_read() :
+                                 std::numeric_limits<double>::quiet_NaN() );
       if ( !inlier ) {
         fs::remove( match_filename );
         vw_throw( IOErr() << "Unable to match left and right images." );
