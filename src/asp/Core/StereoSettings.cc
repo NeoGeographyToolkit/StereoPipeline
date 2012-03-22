@@ -86,7 +86,6 @@ StereoSettings::StereoSettings() {
 
   // Alignment
   ASSOC("DO_INTERESTPOINT_ALIGNMENT", keypoint_alignment, 0, "Align images using the interest point alignment method");
-  ASSOC("INTERESTPOINT_ALIGNMENT_SUBSAMPLING", keypoint_align_subsampling, 1, "Image sub-sampling factor for keypoint alignment.");
   ASSOC("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment, 0, "Align images using epipolar constraints");
 
   // Image normalization
