@@ -4,8 +4,7 @@
 
 # Pre-alignment options
 
-DO_INTERESTPOINT_ALIGNMENT 0
-DO_EPIPOLAR_ALIGNMENT 1
+ALIGNMENT_METHOD EPIPOLAR
 
 # Normalization options
 
@@ -73,8 +72,6 @@ SUBPIXEL_MODE 2
 SUBPIXEL_H_KERNEL 25
 SUBPIXEL_V_KERNEL 25
 
-
-
 #########################################################################
 ############################    FILTERING    ############################
 #########################################################################
@@ -90,7 +87,6 @@ RM_V_HALF_KERN 5
 RM_MIN_MATCHES 60      # Units = percent
 RM_THRESHOLD 3
 RM_CLEANUP_PASSES 1
-
 
 #########################################################################
 #########################    POST_PROCESSING    #########################

@@ -4,8 +4,7 @@
 
 # Pre-alignment options
 
-DO_INTERESTPOINT_ALIGNMENT 1
-DO_EPIPOLAR_ALIGNMENT 0
+ALIGNMENT_METHOD Homography
 
 # Normalization options
 

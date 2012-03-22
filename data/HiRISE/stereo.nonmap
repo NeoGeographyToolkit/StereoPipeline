@@ -4,8 +4,7 @@
 
 # Pre-alignment options
 
-DO_INTERESTPOINT_ALIGNMENT 1
-DO_EPIPOLAR_ALIGNMENT 0
+ALIGNMENT_METHOD HOMOGRAPHY
 
 # Normalization options
 
@@ -69,8 +68,6 @@ SUBPIXEL_MODE 1
 
 SUBPIXEL_H_KERNEL 25
 SUBPIXEL_V_KERNEL 25
-
-
 
 #########################################################################
 ############################    FILTERING    ############################

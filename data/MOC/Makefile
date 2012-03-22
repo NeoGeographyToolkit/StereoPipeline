@@ -99,7 +99,7 @@ products_nonmap: $(PREFIXU).ive nonmap_point2dem
 
 clean:
 	rm -rf $(RESULTSDIR) $(RESULTSDIRU)
-	rm -rf M0100115.map E0201461.map cube.lis control_ba.net
+	rm -rf M0100115.map E0201461.map cube.lis control_ba.net *.match
 
 distclean: clean
 	rm -rf print.prt *.cub *.vwip *.match *~

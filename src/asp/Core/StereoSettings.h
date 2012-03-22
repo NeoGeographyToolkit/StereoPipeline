@@ -19,6 +19,8 @@ class StereoSettings {
   boost::program_options::options_description m_desc;
   boost::program_options::variables_map m_vm;
 
+  void validate();
+
 public:
   StereoSettings();
   void read(std::string const& filename);
@@ -30,10 +32,7 @@ public:
   // ----------------
 
   // Preprocessing options
-  int epipolar_alignment;         /* Align images using the
-                                     epipolar constraints */
-  int keypoint_alignment;         /* Align images using the
-                                     keypoint alignment method */
+  std::string alignment_method; // Valid options are: [Homography, Epipolar, None]
   int individually_normalize;     /* if > 1, normalize the images
                                      individually with their
                                      own hi's and low */

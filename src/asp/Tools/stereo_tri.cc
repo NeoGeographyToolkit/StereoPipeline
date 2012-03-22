@@ -157,12 +157,12 @@ void stereo_triangulation( Options const& opt ) {
     // We apply the universe radius here and then write the result
     // directly to a file on disk.
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
-    if ( stereo_settings().universe_center == "CAMERA" ) {
+    if ( stereo_settings().universe_center == "camera" ) {
       universe_radius_func =
         stereo::UniverseRadiusFunc(camera_model1->camera_center(Vector2()),
                                    stereo_settings().near_universe_radius,
                                    stereo_settings().far_universe_radius);
-    } else if ( stereo_settings().universe_center == "ZERO" ) {
+    } else if ( stereo_settings().universe_center == "zero" ) {
       universe_radius_func =
         stereo::UniverseRadiusFunc(Vector3(),
                                    stereo_settings().near_universe_radius,

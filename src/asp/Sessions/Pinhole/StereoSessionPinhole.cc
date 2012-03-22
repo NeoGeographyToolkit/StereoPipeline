@@ -40,8 +40,7 @@ namespace vw {
 boost::shared_ptr<vw::camera::CameraModel>
 asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
                                         std::string const& camera_file) {
-  // Epipolar Alignment
-  if ( stereo_settings().epipolar_alignment ) {
+  if ( stereo_settings().alignment_method == "epipolar" ) {
     // Load the image
     DiskImageView<PixelGray<float> > left_image(m_left_image_file);
     DiskImageView<PixelGray<float> > right_image(m_right_image_file);
@@ -137,7 +136,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
   ImageViewRef<PixelGray<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
-  if ( stereo_settings().epipolar_alignment ) {
+  if ( stereo_settings().alignment_method == "epipolar" ) {
 
     vw_out() << "\t--> Performing epipolar alignment\n";
 
@@ -181,7 +180,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
     }
 
-  } else if ( stereo_settings().keypoint_alignment ) {
+  } else if ( stereo_settings().alignment_method == "homography" ) {
 
     float low = std::min(left_stats[0], right_stats[0]);
     float hi  = std::max(left_stats[1], right_stats[1]);
@@ -251,7 +250,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
 ImageViewRef<PixelMask<Vector2f> >
 asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file) {
 
-  if ( stereo_settings().keypoint_alignment ) {
+  if ( stereo_settings().alignment_method == "homography" ) {
 
     DiskImageView<PixelMask<Vector2f> > disparity_map( input_file );
 

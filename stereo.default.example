@@ -4,8 +4,7 @@
 
 # Pre-alignment options
 
-DO_INTERESTPOINT_ALIGNMENT 0
-DO_EPIPOLAR_ALIGNMENT 0
+ALIGNMENT_METHOD NONE
 
 # Normalization options
 
@@ -19,7 +18,7 @@ DO_INDIVIDUAL_NORMALIZATION 0
 # 2 - Laplacian of Gaussian Blur (recommended)
 # 3 - Sign of the LoG Filter
 
-PREPROCESSING_FILTER_MODE 3
+PREPROCESSING_FILTER_MODE 2
 
 # Gaussian convolution kernel size (1-sigma) for pre-processing
 # modes 1, 2 and 3.
@@ -72,8 +71,6 @@ SUBPIXEL_MODE 1
 
 SUBPIXEL_H_KERNEL 25
 SUBPIXEL_V_KERNEL 25
-
-
 
 #########################################################################
 ############################    FILTERING    ############################

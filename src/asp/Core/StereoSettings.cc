@@ -13,6 +13,8 @@
 #include <vw/Core/Log.h>
 #include <fstream>
 
+#include <boost/algorithm/string.hpp>
+
 namespace po = boost::program_options;
 using namespace vw;
 
@@ -85,8 +87,7 @@ StereoSettings::StereoSettings() {
   // ---------------------
 
   // Alignment
-  ASSOC("DO_INTERESTPOINT_ALIGNMENT", keypoint_alignment, 0, "Align images using the interest point alignment method");
-  ASSOC("DO_EPIPOLAR_ALIGNMENT", epipolar_alignment, 0, "Align images using epipolar constraints");
+  ASSOC("ALIGNMENT_METHOD", alignment_method, "NONE", "Method used to pre align the images");
 
   // Image normalization
   ASSOC("FORCE_USE_ENTIRE_RANGE", force_max_min, 0, "Use images entire values, otherwise compress image range to -+2.5 sigmas around mean.");
@@ -142,7 +143,7 @@ StereoSettings::StereoSettings() {
 
   // System Settings
   ASSOC("CACHE_DIR", cache_dir, "/tmp", "Change if can't write large files to /tmp (i.e. Super Computer)");
-  ASSOC_SIMPLE("TIF_COMPRESS", tif_compress);
+  ASSOC("TIF_COMPRESS", tif_compress, "LZW", "GDAL compression method for GeoTIFF");
 
 #undef ASSOC
 #undef ASSOC_SIMPLE
@@ -153,6 +154,8 @@ StereoSettings::StereoSettings() {
   argv[0][0] = 'a';
   po::store(po::parse_command_line(argc, argv, m_desc), m_vm);
   po::notify(m_vm);
+
+  validate();
 }
 
 void StereoSettings::read(std::string const& filename) {
@@ -188,6 +191,7 @@ void StereoSettings::read(std::string const& filename) {
 
   po::notify(m_vm);
   fp.close();
+  validate();
 }
 
 void StereoSettings::copy_settings(std::string const& filename, std::string const& destination) {
@@ -196,9 +200,34 @@ void StereoSettings::copy_settings(std::string const& filename, std::string cons
   out<<in.rdbuf(); // copy file
   in.close();
   out.close();
+  validate();
 }
 
 bool StereoSettings::is_search_defined() const {
   return !( search_range.min() == Vector2i() &&
             search_range.max() == Vector2i() );
+}
+
+void StereoSettings::validate() {
+  using namespace boost::algorithm;
+  to_lower( alignment_method );
+  trim( alignment_method );
+  VW_ASSERT( alignment_method == "none" || alignment_method == "homography" ||
+             alignment_method == "epipolar",
+             ArgumentErr() << "\"" <<  alignment_method
+             << "\" is not a valid option for ALIGNMENT_METHOD." );
+
+  to_lower( universe_center );
+  trim( universe_center );
+  VW_ASSERT( universe_center == "camera" || universe_center == "zero" ||
+             universe_center == "none",
+             ArgumentErr() << "\"" << universe_center
+             << "\" is not a valid option for UNIVERSE_CENTER." );
+
+  to_lower( tif_compress );
+  trim( tif_compress );
+  VW_ASSERT( tif_compress == "none" || tif_compress == "lzw" ||
+             tif_compress == "deflate" || tif_compress == "packbits",
+             ArgumentErr() << "\"" << tif_compress
+             << "\" is not a valid options for TIF_COMPRESS." );
 }

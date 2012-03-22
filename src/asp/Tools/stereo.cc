@@ -122,18 +122,14 @@ void vw::handle_arguments( int argc, char *argv[], Options& opt ) {
   stereo_settings().read(opt.stereo_default_filename);
 
   // Pull out the TIFF compression option
-  if ( !stereo_settings().tif_compress.empty() ) {
-    boost::to_lower( stereo_settings().tif_compress );
-    if ( stereo_settings().tif_compress == "lzw" ) {
-      opt.gdal_options["COMPRESS"] = "LZW";
-    } else if ( stereo_settings().tif_compress == "packbits" ) {
-      opt.gdal_options["COMPRESS"] = "PACKBITS";
-    } else if ( stereo_settings().tif_compress == "deflate" ) {
-      opt.gdal_options["COMPRESS"] = "DEFLATE";
-    } else {
-      vw_out(WarningMessage) << "Unknown value for TIF_COMPRESSION options, \""
-                             << stereo_settings().tif_compress << "\"\n";
-    }
+  if ( stereo_settings().tif_compress == "lzw" ) {
+    opt.gdal_options["COMPRESS"] = "LZW";
+  } else if ( stereo_settings().tif_compress == "packbits" ) {
+    opt.gdal_options["COMPRESS"] = "PACKBITS";
+  } else if ( stereo_settings().tif_compress == "deflate" ) {
+    opt.gdal_options["COMPRESS"] = "DEFLATE";
+  } else {
+    opt.gdal_options["COMPRESS"] = "NONE";
   }
 
   opt.session.reset( asp::StereoSession::create(opt.stereo_session_string) );

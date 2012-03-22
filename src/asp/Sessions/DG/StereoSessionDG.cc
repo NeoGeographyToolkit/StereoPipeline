@@ -138,7 +138,7 @@ void asp::StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1
   ImageViewRef<PixelGray<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
-  if ( stereo_settings().keypoint_alignment ) {
+  if ( stereo_settings().alignment_method == "homography" ) {
     std::string match_filename =
       fs::basename(input_file1) + "__" +
       fs::basename(input_file2) + ".match";
@@ -171,6 +171,8 @@ void asp::StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1
     Rimg = transform(right_disk_image,
                      HomographyTransform(align_matrix),
                      left_disk_image.cols(), left_disk_image.rows());
+  } else if ( stereo_settings().alignment_method == "epipolar" ) {
+    vw_throw( NoImplErr() << "StereoSessionDG doesn't support epipolar rectification" );
   } else {
     // Do nothing just provide the original files.
     Limg = left_disk_image;

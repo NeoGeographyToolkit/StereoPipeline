@@ -157,7 +157,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   float hi = std::max (left_hi, right_hi);
   Matrix<double> align_matrix(3,3);
   align_matrix.set_identity();
-  if ( stereo_settings().keypoint_alignment) {
+  if ( stereo_settings().alignment_method == "homography" ) {
     std::string match_filename =
       fs::basename(input_file1) + "__" +
       fs::basename(input_file2) + ".match";
@@ -193,6 +193,8 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     std::vector<ip::InterestPoint> ip1, ip2;
     ip::read_binary_match_file( match_filename, ip1, ip2  );
     align_matrix = homography_fit(ip2, ip1, bounding_box(DiskImageView<PixelGray<float> >(input_file1)) );
+  } else if ( stereo_settings().alignment_method == "epipolar" ) {
+    vw_throw( NoImplErr() << "StereoSessionISIS doesn't support epipolar rectification" );
   }
 
   write_matrix( m_out_prefix + "-align.exr", align_matrix );

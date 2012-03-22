@@ -3,8 +3,7 @@
 #############################
 
 # Pre-alignment options
-DO_INTERESTPOINT_ALIGNMENT 0
-DO_EPIPOLAR_ALIGNMENT 1
+ALIGNMENT_METHOD EPIPOLAR
 
 # Normalization options
 FORCE_USE_ENTIRE_RANGE 1
@@ -59,8 +58,6 @@ SUBPIXEL_MODE 2
 # Subpixel step: correlation kernel size
 SUBPIXEL_H_KERNEL 25
 SUBPIXEL_V_KERNEL 25
-
-
 
 #########################################################################
 ############################    FILTERING    ############################
