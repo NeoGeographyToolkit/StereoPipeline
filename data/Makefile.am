@@ -6,10 +6,10 @@
 
 
 exampledir = $(docdir)/examples
-dist_example_DATA = surf_match.patch
+dist_example_DATA = surf_match.patch TriangulationError.lut
 
 examplemocdir = $(docdir)/examples/MOC
-dist_examplemoc_DATA = MOC/E0201461.imq MOC/M0100115.imq MOC/Makefile MOC/stereo.map MOC/stereo.nonmap
+dist_examplemoc_DATA = MOC/E0201461.imq MOC/M0100115.imq MOC/Makefile MOC/stereo.map MOC/stereo.nonmap MOC/control.net
 
 examplek10dir = $(docdir)/examples/K10
 dist_examplek10_DATA = K10/Makefile K10/black_left.tsai K10/black_right.tsai K10/left4.png K10/right4.png K10/stereo.default
@@ -19,3 +19,6 @@ dist_examplemer_DATA = MER/Makefile MER/stereo.default MER/stereo.default.navcam
 
 examplectxdir = $(docdir)/examples/CTX
 dist_examplectx_DATA = CTX/Makefile CTX/stereo.map CTX/stereo.nonmap
+
+examplehirisedir = $(docdir)/examples/HiRISE
+dist_examplehirise_DATA = HiRISE/Makefile HiRISE/downloader.sh HiRISE/stereo.nonmap
