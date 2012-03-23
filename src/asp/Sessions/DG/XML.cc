@@ -5,6 +5,7 @@
 // __END_LICENSE__
 
 #include <asp/Sessions/DG/XML.h>
+#include <asp/Sessions/RPC/RPCModel.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
@@ -277,6 +278,87 @@ void asp::AttitudeXML::parse( xercesc::DOMElement* node ) {
   check_argument(1);
 }
 
+void asp::RPCXML::parse_vector( xercesc::DOMElement* node,
+                                Vector<double,20>& vec ) {
+  std::string buffer;
+  cast_xmlch( node->getTextContent(), buffer );
+
+  std::istringstream istr( buffer );
+  istr >> vec[0] >> vec[1] >> vec[2] >> vec[3] >> vec[4] >> vec[5]
+       >> vec[6] >> vec[7] >> vec[8] >> vec[9] >> vec[10] >> vec[11]
+       >> vec[12] >> vec[13] >> vec[14] >> vec[15] >> vec[16] >> vec[17]
+       >> vec[18] >> vec[19];
+}
+
+asp::RPCXML::RPCXML() : XMLBase(2) {}
+
+void asp::RPCXML::read_from_file( std::string const& name ) {
+  boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
+  parser->setValidationScheme(XercesDOMParser::Val_Always);
+  parser->setDoNamespaces(true);
+  boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
+  parser->setErrorHandler(errHandler.get());
+
+  parser->parse( name.c_str() );
+  DOMDocument* xmlDoc = parser->getDocument();
+  DOMElement* elementRoot = xmlDoc->getDocumentElement();
+
+  parse( get_node<DOMElement>( elementRoot, "RPB" ) );
+}
+
+void asp::RPCXML::parse( xercesc::DOMElement* node ) {
+  DOMElement* image = get_node<DOMElement>( node, "IMAGE" );
+
+  // Pieces that will go into the RPC Model
+  Vector<double,20> line_num_coeff, line_den_coeff, samp_num_coeff, samp_den_coeff;
+  Vector2 xy_offset, xy_scale;
+  Vector3 geodetic_offset, geodetic_scale;
+
+  // Painfully extract from the XML
+  cast_xmlch( get_node<DOMElement>( image, "SAMPOFFSET" )->getTextContent(),
+              xy_offset.x() );
+  cast_xmlch( get_node<DOMElement>( image, "LINEOFFSET" )->getTextContent(),
+              xy_offset.y() );
+  cast_xmlch( get_node<DOMElement>( image, "SAMPSCALE" )->getTextContent(),
+              xy_scale.x() );
+  cast_xmlch( get_node<DOMElement>( image, "LINESCALE" )->getTextContent(),
+              xy_scale.y() );
+  cast_xmlch( get_node<DOMElement>( image, "LONGOFFSET" )->getTextContent(),
+              geodetic_offset.x() );
+  cast_xmlch( get_node<DOMElement>( image, "LATOFFSET" )->getTextContent(),
+              geodetic_offset.y() );
+  cast_xmlch( get_node<DOMElement>( image, "HEIGHTOFFSET" )->getTextContent(),
+              geodetic_offset.z() );
+  cast_xmlch( get_node<DOMElement>( image, "LONGSCALE" )->getTextContent(),
+              geodetic_scale.x() );
+  cast_xmlch( get_node<DOMElement>( image, "LATSCALE" )->getTextContent(),
+              geodetic_scale.y() );
+  cast_xmlch( get_node<DOMElement>( image, "HEIGHTSCALE" )->getTextContent(),
+              geodetic_scale.z() );
+  check_argument(0);
+  parse_vector( get_node<DOMElement>(get_node<DOMElement>( image, "LINENUMCOEFList" ), "LINENUMCOEF" ),
+                line_num_coeff );
+  parse_vector( get_node<DOMElement>(get_node<DOMElement>( image, "LINEDENCOEFList" ), "LINEDENCOEF" ),
+                line_den_coeff );
+  parse_vector( get_node<DOMElement>(get_node<DOMElement>( image, "SAMPNUMCOEFList" ), "SAMPNUMCOEF" ),
+                samp_num_coeff );
+  parse_vector( get_node<DOMElement>(get_node<DOMElement>( image, "SAMPDENCOEFList" ), "SAMPDENCOEF" ),
+                samp_den_coeff );
+  check_argument(1);
+
+  // Push into the RPC Model so that it is easier to work with
+  //
+  // The choice of using the WGS84 datum comes from Digital Globe's
+  // QuickBird Imagery Products : Products Guide. Section 11.1 makes a
+  // blanket statement that all heights are meters against the WGS 84
+  // ellipsoid.
+  m_rpc.reset( new RPCModel( cartography::Datum("WGS84"),
+                             line_num_coeff, line_den_coeff,
+                             samp_num_coeff, samp_den_coeff,
+                             xy_offset, xy_scale,
+                             geodetic_offset, geodetic_scale ) );
+}
+
 // Helper functions to allow us to fill the objects
 void asp::read_xml( std::string const& filename,
                     GeometricXML& geo,
@@ -313,4 +395,10 @@ void asp::read_xml( std::string const& filename,
         img.parse( curr_element );
     }
   }
+}
+
+asp::RPCModel* asp::RPCXML::rpc_ptr() const {
+  VW_ASSERT( m_rpc.get(),
+             LogicErr() << "read_from_file or parse needs to be called first before an RPCModel is ready" );
+  return m_rpc.get();
 }

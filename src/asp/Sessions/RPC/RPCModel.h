@@ -25,12 +25,20 @@ namespace asp {
     vw::Vector2 m_xy_scale;
     vw::Vector3 m_lonlatheight_offset;
     vw::Vector3 m_lonlatheight_scale;
-    vw::BBox2 m_lonlat_bbox;
 
     void initialize( vw::DiskImageResourceGDAL* resource );
   public:
     RPCModel( std::string const& filename );
     RPCModel( vw::DiskImageResourceGDAL* resource );
+    RPCModel( vw::cartography::Datum const& datum,
+              vw::Vector<double,20> const& line_num_coeff,
+              vw::Vector<double,20> const& line_den_coeff,
+              vw::Vector<double,20> const& samp_num_coeff,
+              vw::Vector<double,20> const& samp_den_coeff,
+              vw::Vector2 const& xy_offset,
+              vw::Vector2 const& xy_scale,
+              vw::Vector3 const& lonlatheight_offset,
+              vw::Vector3 const& lonlatheight_scale );
 
     virtual std::string type() const { return "RPC"; }
     virtual ~RPCModel() {}
@@ -46,6 +54,7 @@ namespace asp {
       vw::vw_throw( vw::NoImplErr() << "RPCModel: Camera center not implemented" );
       return vw::Vector3();
     }
+    vw::Vector2 geodetic_to_pixel( vw::Vector3 const& point ) const;
 
     // Access to constants
     typedef vw::Vector<double,20> CoeffVec;
@@ -58,7 +67,6 @@ namespace asp {
     vw::Vector2 const& xy_scale() const      { return m_xy_scale; }
     vw::Vector3 const& lonlatheight_offset() const { return m_lonlatheight_offset; }
     vw::Vector3 const& lonlatheight_scale() const  { return m_lonlatheight_scale; }
-    vw::BBox2 const& lonlat_bbox() const     { return m_lonlat_bbox; }
 
     static CoeffVec calculate_terms( vw::Vector3 const& v ) {
       CoeffVec result;
@@ -88,6 +96,18 @@ namespace asp {
 
   };
 
+  inline std::ostream& operator<<(std::ostream& os, const RPCModel& rpc) {
+    os << "RPC Model:" << std::endl
+       << "Line Numerator: " << rpc.line_num_coeff() << std::endl
+       << "Line Denominator: " << rpc.line_den_coeff() << std::endl
+       << "Samp Numerator: " << rpc.sample_num_coeff() << std::endl
+       << "Samp Denominator: " << rpc.sample_den_coeff() << std::endl
+       << "XY Offset: " << rpc.xy_offset() << std::endl
+       << "XY Scale: " << rpc.xy_scale() << std::endl
+       << "Geodetic Offset: " << rpc.lonlatheight_offset() << std::endl
+       << "Geodetic Scale: " << rpc.lonlatheight_scale();
+    return os;
+  }
 }
 
 #endif//__STEREO_SESSION_RPC_CAMERA_MODEL_H__

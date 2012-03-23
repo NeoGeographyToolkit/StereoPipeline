@@ -13,10 +13,13 @@
 #include <asp/Sessions/DG/LinescanDGModel.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
+#include <asp/Sessions/RPC/RPCModel.h>
 
 // Vision Workbench
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Math/EulerAngles.h>
+#include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/PointImageManipulation.h>
 
 // Std
 #include <iostream>
@@ -32,7 +35,6 @@
 // Boost
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-
 using namespace vw;
 using namespace asp;
 namespace pt = boost::posix_time;
@@ -41,6 +43,7 @@ namespace fs = boost::filesystem;
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID<Vector2f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
 }
 
 // Helper class for converting to floating point seconds based on a
@@ -55,171 +58,337 @@ public:
   }
 };
 
-// Xerces-C initialize
-asp::StereoSessionDG::StereoSessionDG() {
-  xercesc::XMLPlatformUtils::Initialize();
-}
+// Helper functor that converts projected pixel indices and height
+// value to unprojected pixel indices.
+class OriginalCameraIndex : public ReturnFixedType<Vector2f> {
+  RPCModel m_rpc;
+public:
+  OriginalCameraIndex( RPCModel const& rpc ) : m_rpc(rpc) {}
 
-// Provide our camera model
-boost::shared_ptr<camera::CameraModel>
-asp::StereoSessionDG::camera_model( std::string const& /*image_file*/,
-                                    std::string const& camera_file ) {
-  GeometricXML geo;
-  AttitudeXML att;
-  EphemerisXML eph;
-  ImageXML img;
-  read_xml( camera_file, geo, att, eph, img );
+  Vector2f operator()( Vector3 const& point ) const {
+    if ( point == Vector3() )
+      return Vector2f(-1,-1);
+    return m_rpc.point_to_pixel( point );
+  }
+};
 
-  // Convert measurements in millimeters to pixels.
-  geo.principal_distance /= geo.detector_pixel_pitch;
-  geo.detector_origin /= geo.detector_pixel_pitch;
+namespace asp {
 
-  // Convert all time measurements to something that boost::date_time can read.
-  boost::replace_all( eph.start_time, "T", " " );
-  boost::replace_all( img.tlc_start_time, "T", " " );
-  boost::replace_all( img.first_line_start_time, "T", " " );
-  boost::replace_all( att.start_time, "T", " " );
-
-  // Convert UTC time measurements to line measurements. Ephemeris
-  // start time will be our reference frame to calculate seconds
-  // against.
-  SecondsFrom convert( pt::time_from_string( eph.start_time ) );
-
-  // I'm going make the assumption that EPH and ATT are sampled at the
-  // same rate and time.
-  VW_ASSERT( eph.position_vec.size() == att.quat_vec.size(),
-             MathErr() << "Ephemeris and Attitude don't have the same number of samples." );
-  VW_ASSERT( eph.start_time == att.start_time && eph.time_interval == att.time_interval,
-             MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
-
-  // I also don't support optical distortion yet.
-  VW_ASSERT( geo.optical_polyorder <= 0,
-             NoImplErr() << "Cameras with optical distortion are not supported currently." );
-
-  // Convert ephemeris to be position of camera. Change attitude to be
-  // be the rotation from camera frame to world frame. We also add an
-  // additional rotation to the camera frame so X is the horizontal
-  // direction to the picture and +Y points down the image (in the
-  // direction of flight).
-  Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation * M_PI/180.0 - M_PI/2));
-  for ( size_t i = 0; i < eph.position_vec.size(); i++ ) {
-    eph.position_vec[i] += att.quat_vec[i].rotate( geo.perspective_center );
-    att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
+  // Xerces-C initialize
+  StereoSessionDG::StereoSessionDG() : m_rpc_map_projected(false) {
+    xercesc::XMLPlatformUtils::Initialize();
   }
 
-  typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
-  typedef boost::shared_ptr<camera::CameraModel> result_type;
+  // Initializer to determine what kinda of input do we have?
+  void StereoSessionDG::initialize(BaseOptions const& options,
+                                   std::string const& left_image_file,
+                                   std::string const& right_image_file,
+                                   std::string const& left_camera_file,
+                                   std::string const& right_camera_file,
+                                   std::string const& out_prefix,
+                                   std::string const& extra_argument1,
+                                   std::string const& extra_argument2,
+                                   std::string const& extra_argument3,
+                                   std::string const& extra_argument4 ) {
+    StereoSession::initialize( options, left_image_file,
+                               right_image_file, left_camera_file,
+                               right_camera_file, out_prefix,
+                               extra_argument1, extra_argument2,
+                               extra_argument3, extra_argument4 );
 
-  return result_type( new camera_type( camera::PiecewiseAPositionInterpolation( eph.position_vec, eph.velocity_vec,
-                                                                                convert( pt::time_from_string( eph.start_time ) ),
-                                                                                eph.time_interval ),
-                                       camera::SLERPPoseInterpolation( att.quat_vec,
-                                                                       convert( pt::time_from_string( att.start_time ) ),
-                                                                       att.time_interval ),
-                                       camera::TLCTimeInterpolation( img.tlc_vec,
-                                                                     convert( pt::time_from_string( img.tlc_start_time ) ) ),
-                                       img.image_size, subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
-                                                                                                  geo.detector_origin[1], 0 ) ), 0, 2 ),
-                                       geo.principal_distance ) );
-}
+    // Is there a possible DEM?
+    if ( !extra_argument1.empty() ) {
+      boost::scoped_ptr<RPCModel> model1, model2;
+      // Try and pull RPC Camera Models from left and right images.
+      try {
+        model1.reset( new RPCModel(left_image_file) );
+        model2.reset( new RPCModel(right_image_file) );
+      } catch ( NotFoundErr const& err ) {}
 
-void asp::StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1,
-                                                  std::string const& input_file2,
-                                                  std::string &output_file1,
-                                                  std::string &output_file2) {
+      // If the above failed to load the RPC Model. Let's try from the XML.
+      if ( !model1.get() || !model2.get() ) {
+        try {
+          RPCXML rpc_xml;
+          rpc_xml.read_from_file( left_camera_file );
+          model1.reset( new RPCModel( *rpc_xml.rpc_ptr() ) ); // Copy the ptr
+          rpc_xml.read_from_file( right_camera_file );
+          model2.reset( new RPCModel( *rpc_xml.rpc_ptr() ) );
+        } catch ( IOErr const& err ) {
+          // Just give up if it is not there.
+          vw_out(WarningMessage) << "Unknown extra argument \"" << extra_argument1 << "\". Ignoring.";
+          return;
+        }
+      }
 
-  // Load the images
-  DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
-  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+      // Double check that we can read the DEM and that it has
+      // cartographic information.
+      if ( !fs::exists( extra_argument1 ) )
+        vw_throw( ArgumentErr() << "StereoSessionDG: DEM \"" << extra_argument1
+                  << "\" doesn't exist." );
 
-  Vector4f left_stats = gather_stats( left_disk_image, "left" ),
-    right_stats = gather_stats( right_disk_image, "right" );
+      // Verify that center of our lonlat boundaries from the RPC models
+      // actually projects into the DEM. (?)
 
-  ImageViewRef<PixelGray<float> > Limg, Rimg;
-  std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
+      m_rpc_map_projected = true;
+      m_lut_image_left =  m_out_prefix + "-L_lut.tif";
+      m_lut_image_right = m_out_prefix + "-R_lut.tif";
+    }
+  }
 
-  if ( stereo_settings().alignment_method == "homography" ) {
-    std::string match_filename =
-      fs::basename(input_file1) + "__" +
-      fs::basename(input_file2) + ".match";
+  // Provide our camera model
+  boost::shared_ptr<camera::CameraModel>
+  StereoSessionDG::camera_model( std::string const& /*image_file*/,
+                                 std::string const& camera_file ) {
+    GeometricXML geo;
+    AttitudeXML att;
+    EphemerisXML eph;
+    ImageXML img;
+    read_xml( camera_file, geo, att, eph, img );
 
-    if (!fs::exists(match_filename)) {
-      boost::shared_ptr<camera::CameraModel> cam1, cam2;
-      camera_models( cam1, cam2 );
+    // Convert measurements in millimeters to pixels.
+    geo.principal_distance /= geo.detector_pixel_pitch;
+    geo.detector_origin /= geo.detector_pixel_pitch;
 
-      bool inlier =
-        ip_matching_w_alignment( cam1.get(), cam2.get(),
-                                 left_disk_image, right_disk_image,
-                                 cartography::Datum("WGS84"), match_filename );
-      if ( !inlier ) {
-        fs::remove( match_filename );
-        vw_throw( IOErr() << "Unable to match left and right images." );
+    // Convert all time measurements to something that boost::date_time can read.
+    boost::replace_all( eph.start_time, "T", " " );
+    boost::replace_all( img.tlc_start_time, "T", " " );
+    boost::replace_all( img.first_line_start_time, "T", " " );
+    boost::replace_all( att.start_time, "T", " " );
+
+    // Convert UTC time measurements to line measurements. Ephemeris
+    // start time will be our reference frame to calculate seconds
+    // against.
+    SecondsFrom convert( pt::time_from_string( eph.start_time ) );
+
+    // I'm going make the assumption that EPH and ATT are sampled at the
+    // same rate and time.
+    VW_ASSERT( eph.position_vec.size() == att.quat_vec.size(),
+               MathErr() << "Ephemeris and Attitude don't have the same number of samples." );
+    VW_ASSERT( eph.start_time == att.start_time && eph.time_interval == att.time_interval,
+               MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
+
+    // I also don't support optical distortion yet.
+    VW_ASSERT( geo.optical_polyorder <= 0,
+               NoImplErr() << "Cameras with optical distortion are not supported currently." );
+
+    // Convert ephemeris to be position of camera. Change attitude to be
+    // be the rotation from camera frame to world frame. We also add an
+    // additional rotation to the camera frame so X is the horizontal
+    // direction to the picture and +Y points down the image (in the
+    // direction of flight).
+    Quat sensor_coordinate = math::euler_xyz_to_quaternion(Vector3(0,0,geo.detector_rotation * M_PI/180.0 - M_PI/2));
+    for ( size_t i = 0; i < eph.position_vec.size(); i++ ) {
+      eph.position_vec[i] += att.quat_vec[i].rotate( geo.perspective_center );
+      att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
+    }
+
+    typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
+    typedef boost::shared_ptr<camera::CameraModel> result_type;
+
+    return result_type( new camera_type( camera::PiecewiseAPositionInterpolation( eph.position_vec, eph.velocity_vec,
+                                                                                  convert( pt::time_from_string( eph.start_time ) ),
+                                                                                  eph.time_interval ),
+                                         camera::SLERPPoseInterpolation( att.quat_vec,
+                                                                         convert( pt::time_from_string( att.start_time ) ),
+                                                                         att.time_interval ),
+                                         camera::TLCTimeInterpolation( img.tlc_vec,
+                                                                       convert( pt::time_from_string( img.tlc_start_time ) ) ),
+                                         img.image_size, subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
+                                                                                                             geo.detector_origin[1], 0 ) ), 0, 2 ),
+                                         geo.principal_distance ) );
+  }
+
+  // LUT image access
+  bool StereoSessionDG::has_lut_images() const {
+    return m_rpc_map_projected;
+  }
+
+  DiskImageView<Vector2f> StereoSessionDG::lut_image_left() const {
+    if ( !m_rpc_map_projected )
+      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table shouldn't be used here" );
+    if ( !fs::exists( m_lut_image_left ) )
+      vw_throw( NotFoundErr() << "StereoSessionDG: LUT tables don't exist. Has the pre-processing step been ran?" );
+    return DiskImageView<Vector2f>(m_lut_image_left);
+  }
+
+  DiskImageView<Vector2f> StereoSessionDG::lut_image_right() const {
+    if ( !m_rpc_map_projected )
+      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table shouldn't be used here" );
+    if ( !fs::exists( m_lut_image_right ) )
+      vw_throw( NotFoundErr() << "StereoSessionDG: LUT tables don't exist. Has the pre-processing step been ran?" );
+    return DiskImageView<Vector2f>(m_lut_image_right);
+  }
+
+  void StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1,
+                                               std::string const& input_file2,
+                                               std::string &output_file1,
+                                               std::string &output_file2) {
+
+    // Load the images
+    DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
+    DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+
+    Vector4f left_stats = gather_stats( left_disk_image, "left" ),
+      right_stats = gather_stats( right_disk_image, "right" );
+
+    ImageViewRef<PixelGray<float> > Limg, Rimg;
+    std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
+
+    if ( stereo_settings().alignment_method == "homography" ) {
+      std::string match_filename =
+        fs::basename(input_file1) + "__" +
+        fs::basename(input_file2) + ".match";
+
+      if (!fs::exists(match_filename)) {
+        boost::shared_ptr<camera::CameraModel> cam1, cam2;
+        camera_models( cam1, cam2 );
+
+        bool inlier =
+          ip_matching_w_alignment( cam1.get(), cam2.get(),
+                                   left_disk_image, right_disk_image,
+                                   cartography::Datum("WGS84"), match_filename );
+        if ( !inlier ) {
+          fs::remove( match_filename );
+          vw_throw( IOErr() << "Unable to match left and right images." );
+        }
+      }
+
+      std::vector<ip::InterestPoint> ip1, ip2;
+      ip::read_binary_match_file( match_filename, ip1, ip2  );
+      Matrix<double> align_matrix =
+        homography_fit(ip2, ip1, bounding_box(left_disk_image) );
+      write_matrix( m_out_prefix + "-align.exr", align_matrix );
+
+      vw_out() << "\t--> Aligning right image to left using homography:\n"
+               << "\t      " << align_matrix << "\n";
+
+      // Applying alignment transform
+      Limg = left_disk_image;
+      Rimg = transform(right_disk_image,
+                       HomographyTransform(align_matrix),
+                       left_disk_image.cols(), left_disk_image.rows());
+    } else if ( stereo_settings().alignment_method == "epipolar" ) {
+      vw_throw( NoImplErr() << "StereoSessionDG doesn't support epipolar rectification" );
+    } else {
+      // Do nothing just provide the original files.
+      Limg = left_disk_image;
+      Rimg = right_disk_image;
+    }
+
+    // Apply our normalization options
+    if ( stereo_settings().force_max_min > 0 ) {
+      if ( stereo_settings().individually_normalize > 0 ) {
+        vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
+        Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
+        Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
+      } else {
+        float low = std::min(left_stats[0], right_stats[0]);
+        float hi  = std::max(left_stats[1], right_stats[1]);
+        vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+        Limg = normalize( Limg, low, hi, 0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+      }
+    } else {
+      if ( stereo_settings().individually_normalize > 0 ) {
+        vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
+        Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
+                          left_stats[2] + 2*left_stats[3], 0, 1.0 );
+        Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
+                          right_stats[2] + 2*right_stats[3], 0, 1.0 );
+      } else {
+        float low = std::min(left_stats[2] - 2*left_stats[3],
+                             right_stats[2] - 2*right_stats[3]);
+        float hi  = std::max(left_stats[2] + 2*left_stats[3],
+                             right_stats[2] + 2*right_stats[3]);
+        vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+        Limg = normalize( Limg, low, hi, 0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0, 1.0 );
       }
     }
 
-    std::vector<ip::InterestPoint> ip1, ip2;
-    ip::read_binary_match_file( match_filename, ip1, ip2  );
-    Matrix<double> align_matrix =
-      homography_fit(ip2, ip1, bounding_box(left_disk_image) );
-    write_matrix( m_out_prefix + "-align.exr", align_matrix );
+    output_file1 = m_out_prefix + "-L.tif";
+    output_file2 = m_out_prefix + "-R.tif";
+    vw_out() << "\t--> Writing pre-aligned images.\n";
+    block_write_gdal_image( output_file1, Limg, m_options,
+                            TerminalProgressCallback("asp","\t  L:  ") );
+    block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), m_options,
+                            TerminalProgressCallback("asp","\t  R:  ") );
 
-    vw_out() << "\t--> Aligning right image to left using homography:\n"
-             << "\t      " << align_matrix << "\n";
+    if ( m_rpc_map_projected ) {
+      // If we have map projected images, let's create the LUT tables
+      // to figure out what the original camera location is.
+      boost::shared_ptr<DiskImageResource> dem_rsrc( DiskImageResource::open( m_extra_argument1 ) );
+      DiskImageView<float> dem( dem_rsrc );
+      cartography::GeoReference dem_georef, left_georef, right_georef;
+      read_georeference( dem_georef,   m_extra_argument1 );
+      read_georeference( left_georef,  m_left_image_file );
+      read_georeference( right_georef, m_right_image_file );
 
-    // Applying alignment transform
-    Limg = left_disk_image;
-    Rimg = transform(right_disk_image,
-                     HomographyTransform(align_matrix),
-                     left_disk_image.cols(), left_disk_image.rows());
-  } else if ( stereo_settings().alignment_method == "epipolar" ) {
-    vw_throw( NoImplErr() << "StereoSessionDG doesn't support epipolar rectification" );
-  } else {
-    // Do nothing just provide the original files.
-    Limg = left_disk_image;
-    Rimg = right_disk_image;
+      boost::scoped_ptr<RPCModel> model1, model2;
+      // Try and pull RPC Camera Models from left and right images.
+      try {
+        model1.reset( new RPCModel(m_left_image_file) );
+        model2.reset( new RPCModel(m_right_image_file) );
+      } catch ( NotFoundErr const& err ) {}
+
+      // If the above failed to load the RPC Model. Let's try from the XML.
+      if ( !model1.get() || !model2.get() ) {
+        RPCXML rpc_xml;
+        rpc_xml.read_from_file( m_left_camera_file );
+        model1.reset( new RPCModel( *rpc_xml.rpc_ptr() ) ); // Copy the ptr
+        rpc_xml.read_from_file( m_right_camera_file );
+        model2.reset( new RPCModel( *rpc_xml.rpc_ptr() ) );
+
+        // We don't catch an error here because the User will need to
+        // know of a failure at this point. We previously opened the
+        // XML safely before.
+      }
+
+      // Print out the RPCs that we are going to use. This is just for
+      // debug information.
+      std::cout << *model1 << "\n" << *model2 << std::endl;
+
+      // The madness that happens below with the conversion from DEM
+      // to cartesian and then geo_transforming ... is purely to
+      // handle the problem of different datums between the DEM and
+      // the project camera models. I hope GDAL noticed this.
+      if ( dem_rsrc->has_nodata_read() ) {
+        block_write_gdal_image( m_lut_image_left,
+                                per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic( create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
+                                                                              dem_georef, left_georef,
+                                                                              ValueEdgeExtension<Vector3>( Vector3() ) ),
+                                                  OriginalCameraIndex( *model1 ) ),
+                              m_options,
+                              TerminalProgressCallback("asp","\t  L LUT: ") );
+        block_write_gdal_image( m_lut_image_right,
+                                per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic( create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
+                                                                              dem_georef, right_georef,
+                                                                              ValueEdgeExtension<Vector3>( Vector3() ) ),
+                                                  OriginalCameraIndex( *model2 ) ),
+                              m_options,
+                              TerminalProgressCallback("asp","\t  L LUT: ") );
+      } else {
+        block_write_gdal_image( m_lut_image_left,
+                                per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
+                                                                              dem_georef, left_georef,
+                                                                              ValueEdgeExtension<Vector3>( Vector3() ) ),
+                                                  OriginalCameraIndex( *model1 ) ),
+                              m_options,
+                              TerminalProgressCallback("asp","\t  L LUT: ") );
+        block_write_gdal_image( m_lut_image_right,
+                                per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
+                                                                              dem_georef, right_georef,
+                                                                              ValueEdgeExtension<Vector3>( Vector3() ) ),
+                                                  OriginalCameraIndex( *model2 ) ),
+                              m_options,
+                              TerminalProgressCallback("asp","\t  L LUT: ") );
+      }
+    }
   }
 
-  // Apply our normalization options
-  if ( stereo_settings().force_max_min > 0 ) {
-    if ( stereo_settings().individually_normalize > 0 ) {
-      vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
-      Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
-      Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
-    } else {
-      float low = std::min(left_stats[0], right_stats[0]);
-      float hi  = std::max(left_stats[1], right_stats[1]);
-      vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-      Limg = normalize( Limg, low, hi, 0, 1.0 );
-      Rimg = normalize( Rimg, low, hi, 0, 1.0 );
-    }
-  } else {
-    if ( stereo_settings().individually_normalize > 0 ) {
-      vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
-      Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
-                        left_stats[2] + 2*left_stats[3], 0, 1.0 );
-      Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
-                        right_stats[2] + 2*right_stats[3], 0, 1.0 );
-    } else {
-      float low = std::min(left_stats[2] - 2*left_stats[3],
-                           right_stats[2] - 2*right_stats[3]);
-      float hi  = std::max(left_stats[2] + 2*left_stats[3],
-                           right_stats[2] + 2*right_stats[3]);
-      vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-      Limg = normalize( Limg, low, hi, 0, 1.0 );
-      Rimg = normalize( Rimg, low, hi, 0, 1.0 );
-    }
+  // Xerces-C terminate
+  StereoSessionDG::~StereoSessionDG() {
+    xercesc::XMLPlatformUtils::Terminate();
   }
 
-  output_file1 = m_out_prefix + "-L.tif";
-  output_file2 = m_out_prefix + "-R.tif";
-  vw_out() << "\t--> Writing pre-aligned images.\n";
-  block_write_gdal_image( output_file1, Limg, m_options,
-                          TerminalProgressCallback("asp","\t  L:  ") );
-  block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), m_options,
-                          TerminalProgressCallback("asp","\t  R:  ") );
-}
-
-// Xerces-C terminate
-asp::StereoSessionDG::~StereoSessionDG() {
-  xercesc::XMLPlatformUtils::Terminate();
 }

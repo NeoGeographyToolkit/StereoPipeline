@@ -194,16 +194,16 @@ namespace asp {
     }
 
   public:
-    void initialize (BaseOptions const& options,
-                     std::string const& left_image_file,
-                     std::string const& right_image_file,
-                     std::string const& left_camera_file,
-                     std::string const& right_camera_file,
-                     std::string const& out_prefix,
-                     std::string const& extra_argument1,
-                     std::string const& extra_argument2,
-                     std::string const& extra_argument3,
-                     std::string const& extra_argument4);
+    virtual void initialize (BaseOptions const& options,
+                             std::string const& left_image_file,
+                             std::string const& right_image_file,
+                             std::string const& left_camera_file,
+                             std::string const& right_camera_file,
+                             std::string const& out_prefix,
+                             std::string const& extra_argument1,
+                             std::string const& extra_argument2,
+                             std::string const& extra_argument3,
+                             std::string const& extra_argument4);
 
     virtual ~StereoSession() {}
 

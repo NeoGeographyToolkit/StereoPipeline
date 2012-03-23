@@ -17,15 +17,36 @@
 namespace asp {
 
   class StereoSessionDG : public StereoSessionPinhole {
+    bool m_rpc_map_projected;
+    std::string m_lut_image_left;
+    std::string m_lut_image_right;
 
   public:
     StereoSessionDG();
     virtual ~StereoSessionDG();
 
+    // Initializer that determines if our input images are map
+    // projected or if this is just a straight Digitial Globe session.
+    void initialize(BaseOptions const& options,
+                    std::string const& left_image_file,
+                    std::string const& right_image_file,
+                    std::string const& left_camera_file,
+                    std::string const& right_camera_file,
+                    std::string const& out_prefix,
+                    std::string const& extra_argument1,
+                    std::string const& extra_argument2,
+                    std::string const& extra_argument3,
+                    std::string const& extra_argument4);
+
     // Produces a camera model from the images
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model( std::string const& image_file,
                   std::string const& camera_file = "" );
+
+    // LUT access (enabled only when working with images map projected by RPC)
+    virtual bool has_lut_images() const;
+    virtual vw::DiskImageView<vw::Vector2f> lut_image_left() const;
+    virtual vw::DiskImageView<vw::Vector2f> lut_image_right() const;
 
     // Stage 1: Preprocessing
     //

@@ -18,6 +18,9 @@
 
 namespace asp {
 
+  // Forward declare so that we can cut down on the headers.
+  class RPCModel;
+
   // Objects that represent read data from XML. These also provide a
   // storage structure for modification later on.
   class ImageXML : public XMLBase {
@@ -90,6 +93,21 @@ namespace asp {
     double time_interval;
     std::vector<vw::Quat> quat_vec;
     std::vector<vw::Vector<double,10> > covariance_vec;
+  };
+
+  class RPCXML : public XMLBase {
+
+    boost::scoped_ptr<RPCModel> m_rpc;
+    void parse_vector( xercesc::DOMElement* node,
+                       vw::Vector<double,20> & vec );
+
+  public:
+    RPCXML();
+
+    void read_from_file( std::string const& name );
+    void parse( xercesc::DOMElement* node );
+
+    RPCModel* rpc_ptr() const;
   };
 
   // Helper functions to allow us to fill the objects. This doesn't
