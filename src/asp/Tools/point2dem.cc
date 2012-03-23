@@ -219,6 +219,11 @@ int main( int argc, char *argv[] ) {
       }
     } else {
       // Use the target_srs_string
+
+      // User convenience, convert 'IAU2000:' to 'DICT:IAU2000.wkt,'
+      boost::replace_first(opt.target_srs_string,
+                           "IAU2000:","DICT:IAU2000.wkt,");
+
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
       OGRSpatialReference gdal_spatial_ref;
       if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
