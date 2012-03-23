@@ -4,6 +4,19 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+// To do: Convert all sub32, sub64, sub16 images to uint8 from uint16.
+//        But check first if they are in uint16.
+// To do: Note that the image extracted from cubes is uint16, not uint8.
+// To do: Also note that those images are a bit darker than regular
+// images we already have, even after converting them to uint8.
+// To: The function ComputeGeoBoundary looks wrong. Use instead
+// georef.bounding_box(img), which I think is accurate. Compare
+// with gdalinfo.
+// To do: Check the effect of pixel padding on final albedo.
+// Make the extra margin everywhere to be uniformly equal to 2.
+// See in particular where we do the DEM.
+// To do: Implement last iteration: when we don't need to compute
+// the albedo on tiles which don't intersect with the sim box.
 // To do: Make the logic of ignoring the padded region of the tile in
 // Reflectance.cc (average reflectance computation) more robust.
 // To do: Implement the logic where one checks if a pixel is in the shadow,
@@ -317,9 +330,9 @@ void createAlbedoTilesOverlappingWithDRG(double tileSize, int pixelPadding,
   for (int j = 0; j < (int)drgRecords.size(); j++){
     const ImageRecord& rec = drgRecords[j];
     Vector4 currCorners = Vector4(rec.west, rec.east, rec.south, rec.north);
-    for (double min_x = tileSize*floor(rec.west/tileSize); min_x < rec.east; min_x += tileSize){
-      for (double min_y = tileSize*floor(rec.south/tileSize); min_y < rec.north; min_y += tileSize){
-        Tiles.insert(std::make_pair(min_x, min_y));
+    for (double min_y = tileSize*floor(rec.south/tileSize); min_y < rec.north; min_y += tileSize){
+      for (double min_x = tileSize*floor(rec.west/tileSize); min_x < rec.east; min_x += tileSize){
+        Tiles.insert(std::make_pair(min_y, min_x));
       }
     }
   }
@@ -334,10 +347,10 @@ void createAlbedoTilesOverlappingWithDRG(double tileSize, int pixelPadding,
     std::pair<double, double> Tile = *it;
 
     // Tile corners coordinates without padding
-    double min_x = Tile.first;
-    double min_y = Tile.second;
-    double max_x = min_x + tileSize;
+    double min_y = Tile.first;
+    double min_x = Tile.second;
     double max_y = min_y + tileSize;
+    double max_x = min_x + tileSize;
     
     // Tile corners coordinates with padding
     double min_x_padded, max_x_padded, min_y_padded, max_y_padded;
@@ -762,7 +775,7 @@ int main( int argc, char *argv[] ) {
 
   for (int s = 0; s < argc; s++) std::cout << argv[s] << " ";
   std::cout << std::endl;
-
+  
   std::vector<std::string> inputDRGFiles;
   std::vector<std::string> DRGFiles;
   std::vector<std::string> imageFiles;
@@ -779,6 +792,7 @@ int main( int argc, char *argv[] ) {
   std::string useTilesStr      = "0"; // Don't use tiles by default
   std::string tileSizeStr      = "";
   std::string pixelPaddingStr  = "0";
+  std::string isLastIterStr    = "0";
   
   po::options_description general_options("Options");
   general_options.add_options()
@@ -796,6 +810,7 @@ int main( int argc, char *argv[] ) {
     ("use-tiles,t", po::value<std::string>(&useTilesStr)->default_value("0"), "use tiles")
     ("tile-size", po::value<std::string>(&tileSizeStr)->default_value("0"), "tile size")
     ("pixel-padding", po::value<std::string>(&pixelPaddingStr)->default_value("0"), "pixel padding")
+    ("is-last-iter", po::value<std::string>(&isLastIterStr)->default_value("0"), "is last iteration")
     ("feb13", po::bool_switch(&useFeb13), "Use Feb 13 version of InitAlbedoMosaic")
     ("help,h", "Display this help message");
 
@@ -833,9 +848,10 @@ int main( int argc, char *argv[] ) {
   bool useTiles    = atoi(useTilesStr.c_str());
   double tileSize  = atof(tileSizeStr.c_str());     // tile size in degrees
   int pixelPadding = atoi(pixelPaddingStr.c_str()); // the pad for each tile in pixels
-  std::cout << "tile size is "     << tileSize << std::endl;
+  bool isLastIter  = atoi(isLastIterStr.c_str());
+  std::cout << "tile size is "     << tileSize     << std::endl;
   std::cout << "pixel padding is " << pixelPadding << std::endl;
-
+  std::cout << "is last iter is "  << isLastIter   << std::endl;
   // Double check to make sure all folders exist  
   if ( !fs::exists(resDir) )
     fs::create_directory(resDir);
@@ -912,14 +928,14 @@ int main( int argc, char *argv[] ) {
     return 0;
   }
 
-//   int factor = 4;
-//   std::string inFile = imageFiles[0];
-//   std::string str = "4";
-//   std::string outFile = "up/" + inFile;
-//   //std::string outFile = inFile; outFile.replace(outFile.find(str), str.length(), "1");
-//   std::cout << " --- Will upsample!" << std::endl;
-//   upsample_uint8_image(outFile, inFile, 4);
-//   exit(0);
+  // int factor = 4;
+  // std::string inFile = imageFiles[0];
+  // std::string str = "4";
+  // std::string outFile = "up/" + sufix_from_filename(inFile);
+  // //std::string outFile = inFile; outFile.replace(outFile.find(str), str.length(), "1");
+  // std::cout << " --- Will upsample!" << std::endl;
+  // upsample_uint8_image(outFile, inFile, 4);
+  // exit(0);
     
   std::vector<ImageRecord> drgRecords;
   if( DRGInBoxList.size() == 0 ) {
@@ -1216,11 +1232,14 @@ int main( int argc, char *argv[] ) {
             // This code is repeated below where we update the albedo
             std::string blankTileFile  = imageFiles[i];
             Vector4 tileCorners = getImageCorners(blankTileFile);
-            //if (! boxesOverlap(tileCorners, simBox)){
-            //std::cout << "Skipping tile: "
-            //          << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
-            //continue;
-            //}
+            if (isLastIter && !boxesOverlap(tileCorners, simBox)){
+              // If this is not the last iteration, we must init/update the exposure
+              // and albedo for all tiles. Otherwise it is enough to do it only
+              // for the tiles which overlap with the sim box.
+              std::cout << "Skipping tile: "
+                        << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
+              continue;
+            }
 
             std::string DEMTileFile, albedoTileFile;
             getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
@@ -1229,7 +1248,7 @@ int main( int argc, char *argv[] ) {
 
 
             bool initTile = true; // init, rather than update
-            InitOrUpdateAlbedoTile(initTile, pixelPadding, tileSize,
+            InitOrUpdateAlbedoTile(isLastIter, initTile, pixelPadding, tileSize,
                                    blankTileFile, DEMTileFile, albedoTileFile,
                                    overlapParamsArray, globalParams);
             
@@ -1308,17 +1327,20 @@ int main( int argc, char *argv[] ) {
             // is that we work with the updated exposure.
             std::string blankTileFile  = imageFiles[i];
             Vector4 tileCorners = getImageCorners(blankTileFile);
-            //if (! boxesOverlap(tileCorners, simBox)){
-            //  std::cout << "Skipping tile: "
-            //            << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
-            //  continue;
-            //}
+            if (isLastIter && !boxesOverlap(tileCorners, simBox)){
+              // If this is not the last iteration, we must init/update the exposure
+              // and albedo for all tiles. Otherwise it is enough to do it only
+              // for the tiles which overlap with the sim box.
+              std::cout << "Skipping tile: "
+                        << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
+              continue;
+            }
             std::string DEMTileFile, albedoTileFile;
             getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
                                   DEMTileFile, albedoTileFile                                // outputs
                                   );
             bool initTile = false; // will update, not init
-            double costFunVal = InitOrUpdateAlbedoTile(initTile, pixelPadding, tileSize,
+            double costFunVal = InitOrUpdateAlbedoTile(isLastIter, initTile, pixelPadding, tileSize,
                                                        blankTileFile, DEMTileFile, albedoTileFile,
                                                        overlapParamsArray, globalParams);
             std::string costFunFile = costFunDir
