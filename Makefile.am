@@ -17,7 +17,6 @@ EXTRA_DIST = \
 	INSTALLGUIDE \
 	config/rules.mak \
 	config/relicense \
-	thirdparty/cxxtest \
 	data \
 	docs \
 	stereo.default.example

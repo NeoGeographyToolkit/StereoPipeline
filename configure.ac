@@ -475,10 +475,10 @@ AC_CONFIG_FILES([                       \
   src/asp/IsisIO/tests/Makefile         \
   src/asp/Sessions/Makefile             \
   src/asp/Sessions/ISIS/Makefile        \
-  src/asp/Sessions/Keypoint/Makefile    \
   src/asp/Sessions/Pinhole/Makefile     \
   src/asp/Sessions/RMAX/Makefile        \
   src/asp/Sessions/DG/Makefile          \
+  src/asp/Sessions/RPC/Makefile         \
   src/asp/Sessions/tests/Makefile       \
   src/asp/MPI/Makefile                  \
   src/asp/Tools/Makefile                \
