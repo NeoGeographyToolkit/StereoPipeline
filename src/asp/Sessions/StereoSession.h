@@ -221,6 +221,15 @@ namespace asp {
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "") = 0;
 
+    // Does this project utilize look up tables to determine pixel
+    // location in camera model? (I.e a map projected image or
+    // epipolar resampled image would use this function.
+    virtual bool has_lut_images() const;
+
+    // Provide the LUT images for the session
+    virtual vw::DiskImageView<vw::Vector2f> lut_image_left() const;
+    virtual vw::DiskImageView<vw::Vector2f> lut_image_right() const;
+
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
