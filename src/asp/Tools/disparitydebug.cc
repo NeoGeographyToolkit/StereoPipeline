@@ -100,10 +100,10 @@ void do_disparity_visualization(Options& opt) {
   vw_out() << "\t--> Saving disparity debug images\n";
   block_write_gdal_image( opt.output_prefix+"-H."+opt.output_file_type,
                           channel_cast_rescale<uint8>(horizontal),
-                          opt, TerminalProgressCallback("asp","\t    Left  : "));
+                          opt, TerminalProgressCallback("asp","\t    H : "));
   block_write_gdal_image( opt.output_prefix + "-V." + opt.output_file_type,
                           channel_cast_rescale<uint8>(vertical),
-                          opt, TerminalProgressCallback("asp","\t    Right : "));
+                          opt, TerminalProgressCallback("asp","\t    V : "));
 }
 
 int main( int argc, char *argv[] ) {
