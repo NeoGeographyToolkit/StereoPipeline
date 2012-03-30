@@ -6,6 +6,7 @@
 
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
+#include <asp/Sessions/RPC/RPCModel.h>
 #include <boost/scoped_ptr.hpp>
 #include <test/Helpers.h>
 
@@ -121,4 +122,29 @@ TEST(StereoSessionDG, CreateCamera) {
                           1e-1 /*pixels*/);
     }
   }
+}
+
+TEST(StereoSessionDG, ReadRPC) {
+  XMLPlatformUtils::Initialize();
+
+  RPCXML xml;
+
+  EXPECT_FALSE( xml.is_good() );
+
+  xml.read_from_file( "dg_example1.xml" );
+
+  EXPECT_TRUE( xml.is_good() );
+
+  EXPECT_VECTOR_NEAR( Vector2(17564,11856), xml.rpc_ptr()->xy_offset(), 1e-6 );
+  EXPECT_VECTOR_NEAR( Vector2(17927,12384), xml.rpc_ptr()->xy_scale(), 1e-6 );
+  EXPECT_VECTOR_NEAR( Vector3(-105.2903,39.7454,2281), xml.rpc_ptr()->lonlatheight_offset(), 1e-6 );
+  EXPECT_VECTOR_NEAR( Vector3(.1345,.1003,637), xml.rpc_ptr()->lonlatheight_scale(), 1e-6 );
+  EXPECT_NEAR( 4.683662e-3, xml.rpc_ptr()->line_num_coeff()[0], 1e-6 );
+  EXPECT_NEAR( 4.395393e-6, xml.rpc_ptr()->line_num_coeff()[19], 1e-6 );
+  EXPECT_NEAR( 1, xml.rpc_ptr()->line_den_coeff()[0], 1e-6 );
+  EXPECT_NEAR( -3.71156e-8, xml.rpc_ptr()->line_den_coeff()[19], 1e-6 );
+  EXPECT_NEAR( -7.306375e-3, xml.rpc_ptr()->sample_num_coeff()[0], 1e-6 );
+  EXPECT_NEAR( -1.585929e-6, xml.rpc_ptr()->sample_num_coeff()[19], 1e-6 );
+  EXPECT_NEAR( 1, xml.rpc_ptr()->sample_den_coeff()[0], 1e-6 );
+  EXPECT_NEAR( -1.211995e-7, xml.rpc_ptr()->sample_den_coeff()[19], 1e-6 );
 }
