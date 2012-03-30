@@ -71,7 +71,7 @@ options="$options1 $options2 $options3"
 refImage=$(ls $drgDir/*.tif | head -n 1) # Need this to get the GeoReference
 if [ "$refImage" = "" ]; then echo "Error: No images."; exit; fi
 settings=photometry_init_0_settings.txt
-run="$recExe $options -c $settings -i $refImage"
+run="$recExe $options -c $settings --is-last-iter 0 -i $refImage"
 $run
 
 # Note that if we don't use tiles, we use the file filter.txt below
@@ -106,8 +106,10 @@ cat $cubDir/sunpos.txt        | ./filter.pl $imagesList > $outCubDir/sunpos.txt
 
 # See the documentation at
 # https://babelfish.arc.nasa.gov/trac/irg/wiki/MapMakers/albedo
-
+lastIter=4
 for ((i = 1; i <= 4; i++)); do
+
+    if [ $i -eq $lastIter ]; then isLastIter=1; else isLastIter=0; fi
 
     tilesIter=0
     ((rem = i%2)) # remainder modulo 2
@@ -122,7 +124,7 @@ for ((i = 1; i <= 4; i++)); do
 
     # Run all jobs for the current stage
     settings=photometry_init_"$i"_settings.txt
-    xargs="xargs -n 1 -P $numProc -I {} $recExe $options -c $settings -i {}"
+    xargs="xargs -n 1 -P $numProc -I {} $recExe $options -c $settings  --is-last-iter $isLastIter -i {}"
     echo $VALS | perl -pi -e "s#\s+#\n#g" | $xargs
     
 done # end all iterations
