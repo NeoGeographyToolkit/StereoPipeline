@@ -30,7 +30,7 @@ struct MultipleDisparityCleanUp {
   MultipleDisparityCleanUp<ViewT,N-1> inner_func;
 
   typedef typename MultipleDisparityCleanUp<ViewT,N-1>::result_type inner_type;
-  typedef UnaryPerPixelAccessorView< EdgeExtensionView< UnaryPerPixelAccessorView<EdgeExtensionView<inner_type,ZeroEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> >, ZeroEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> > result_type;
+  typedef UnaryPerPixelAccessorView< EdgeExtensionView< UnaryPerPixelAccessorView<EdgeExtensionView<inner_type,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> >,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> > result_type;
 
   inline result_type operator()( ImageViewBase<ViewT> const& input,
                                  int const& h_half_kern,
@@ -48,7 +48,7 @@ struct MultipleDisparityCleanUp {
 template <class ViewT>
 struct MultipleDisparityCleanUp<ViewT,1> {
 
-  typedef UnaryPerPixelAccessorView< EdgeExtensionView< UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ZeroEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> >, ZeroEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> > result_type;
+  typedef UnaryPerPixelAccessorView< EdgeExtensionView< UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> >,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> > result_type;
 
   inline result_type operator()( ImageViewBase<ViewT> const& input,
                                  int const& h_half_kern,
