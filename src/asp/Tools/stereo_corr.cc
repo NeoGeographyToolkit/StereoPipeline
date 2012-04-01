@@ -13,9 +13,12 @@
 #include <vw/InterestPoint.h>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
+#include <vw/Stereo/rewrite/PreFilter.h>
+#include <vw/Stereo/rewrite/CorrelationView.h>
 
 using namespace vw;
 using namespace asp;
+namespace sr = vw::stereo::rewrite;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -303,16 +306,18 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
   BBox2i search_range( floor(elem_prod(down_sample_scale,stereo_settings().search_range.min())),
                        ceil(elem_prod(down_sample_scale,stereo_settings().search_range.max())) );
 
-  typedef stereo::LogStereoPreprocessingFilter PreFilterT;
-
-  block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
-                          disparity_mask(stereo::correlate( left_sub, right_sub, left_mask,
-                                                            right_mask, PreFilterT(1.4),
-                                                            search_range,
-                                                            stereo_settings().kernel,
-                                                            stereo::NORM_XCORR_CORRELATOR),
-                                         left_mask, right_mask), opt,
-                          TerminalProgressCallback("asp", "\t--> Low Resolution:") );
+  {
+    // Expand the search range by 2% to allow for error.
+    search_range.expand(norm_2(search_range.size()) / 50 );
+    asp::block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
+                                 sr::pyramid_correlate( left_sub, right_sub,
+                                                        left_mask, right_mask,
+                                                        sr::LaplacianOfGaussian(1.3),
+                                                        search_range,
+                                                        stereo_settings().kernel,
+                                                        sr::CROSS_CORRELATION, 2 ), opt,
+                                 TerminalProgressCallback("asp", "\t--> Low Resolution:") );
+  }
 
   ImageView<PixelMask<Vector2f> > lowres_disparity;
   read_image( lowres_disparity, opt.out_prefix + "-D_sub.tif" );
