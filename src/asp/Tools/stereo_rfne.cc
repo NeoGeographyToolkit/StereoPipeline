@@ -35,8 +35,9 @@ void stereo_refinement( Options& opt ) {
     */
     typedef DiskImageView<PixelGray<float> > InnerView;
     InnerView left_disk_image(filename_L), right_disk_image(filename_R);
-    DiskImageView<PixelMask<Vector2f> > disparity_disk_image(opt.out_prefix + "-D.tif");
-    ImageViewRef<PixelMask<Vector2f> > disparity_map = disparity_disk_image;
+    DiskImageView<PixelMask<Vector2i> > disparity_disk_image(opt.out_prefix + "-D.tif");
+    ImageViewRef<PixelMask<Vector2f> > disparity_map =
+      pixel_cast<PixelMask<Vector2f> >(disparity_disk_image);
 
     if (stereo_settings().subpixel_mode == 0) {
       // Do nothing
@@ -122,7 +123,7 @@ void stereo_refinement( Options& opt ) {
       typedef stereo::EMSubpixelCorrelatorView<float32> EMCorrelator;
       EMCorrelator em_correlator(channels_to_planes(left_disk_image),
                                  channels_to_planes(right_disk_image),
-                                 disparity_disk_image, -1);
+                                 pixel_cast<PixelMask<Vector2f> >(disparity_disk_image), -1);
       em_correlator.set_em_iter_max(stereo_settings().subpixel_em_iter);
       em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter);
       em_correlator.set_kernel_size(stereo_settings().subpixel_kernel);
