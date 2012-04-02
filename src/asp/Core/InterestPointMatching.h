@@ -159,9 +159,15 @@ namespace asp {
     ip::remove_duplicates( matched_ip1, matched_ip2 );
     vw_out() << "\t    Matched points: " << matched_ip1.size() << "\n";
 
-    // Remove IP that don't triangulate well or triangulate well away from the datum.
+    // Remove IP that don't triangulate well or triangulate well away
+    // from the datum.
     std::vector<Vector2> error_samples( matched_ip1.size() );
+    std::vector<double> normalized_samples;
+    normalized_samples.reserve( matched_ip1.size() );
+    Vector2 error_scaling, error_offset;
 
+    // Create the 'error' samples. Which are triangulation error and
+    // distance to sphere.
     stereo::StereoModel model( cam1, cam2 );
     for (size_t i = 0; i < matched_ip1.size(); i++ ) {
       Vector3 geodetic =
@@ -172,29 +178,55 @@ namespace asp {
       error_samples[i].y() = fabs(geodetic[2]);
     }
 
+    // Find the mean and std deviation error and distance from sphere
+    // so that the sample can be combined a norm_2 together without
+    // one dimension getting unfair waiting.
+    {
+      namespace ba = boost::accumulators;
+      typedef ba::accumulator_set<double, ba::stats<ba::tag::variance> > acc_set;
+      acc_set tri_stat, height_stat;
+      BOOST_FOREACH( Vector2 const& sample, error_samples ) {
+        tri_stat( sample.x() );
+        height_stat( sample.y() );
+      }
+
+      // output =  scale * ( input  - offset )
+      error_offset = Vector2( ba::mean( tri_stat ), ba::mean( height_stat ) );
+      error_scaling = sqrt( Vector2( ba::variance( tri_stat ),
+                                     ba::variance( height_stat ) ) );
+      error_scaling = elem_quot(sqrt(2.), error_scaling);
+
+      // Apply this scaling to create the normalized samples
+      BOOST_FOREACH( Vector2 const& sample, error_samples ) {
+        normalized_samples.push_back( norm_2( elem_prod(error_scaling,
+                                                        (sample - error_offset ) ) ) );
+      }
+    }
+
     std::vector<std::pair<Vector<double>, Vector<double> > > clustering =
-      asp::gaussian_clustering< std::vector<Vector2>, 2 >( error_samples.begin(), error_samples.end(), 2 );
+      asp::gaussian_clustering< std::vector<double> >( normalized_samples.begin(), normalized_samples.end(), 2 );
     if ( clustering[0].first[0] > clustering[1].first[0] /*Other cluster has lower tri error*/ &&
          clustering[1].second[0] != 0 /*Other cluster has non-zero variance (ie non empty set)*/ )
       std::swap( clustering[0], clustering[1] );
 
     vw_out() << "\t    Inlier cluster:\n"
-             << "\t      Mean: " << clustering.front().first << "\n"
-             << "\t      Var : " << clustering.front().second << "\n";
+             << "\t      Triangulation Err: " << clustering.front().first[0] / error_scaling[0] + error_offset[0]
+             << " +- " << sqrt( clustering.front().second[0] / error_scaling[0] ) << " meters\n"
+             << "\t      Altitude         : " << clustering.front().first[0] / error_scaling[1] + error_offset[1]
+             << " +- " << sqrt( clustering.front().second[0] / error_scaling[1] ) << " meters\n";
 
     // Record indices of points that match our clustering result
     std::list<size_t> good_indices;
     for (size_t i = 0; i < matched_ip1.size(); i++ ) {
-      Vector2 scalar1 = elem_quot( 1.0, sqrt( 2.0 * M_PI * clustering.front().second ) );
-      Vector2 scalar2 = elem_quot( 1.0, sqrt( 2.0 * M_PI * clustering.back().second ) );
-      if ( (prod(elem_prod(scalar1, exp( elem_quot(-elem_prod(error_samples[i]-clustering.front().first,
-                                                              error_samples[i]-clustering.front().first),
-                                                   2 * clustering.front().second ) ) ) ) >
-            prod(elem_prod(scalar2, exp( elem_quot(-elem_prod(error_samples[i]-clustering.back().first,
-                                                              error_samples[i]-clustering.back().first),
-                                                   2 * clustering.back().second ) ) ) ) ) ||
-           (error_samples[i].x() < clustering.front().first[0] &&
-            error_samples[i].y() < clustering.front().first[1] ) ) {
+      double scalar1 = 1.0 / sqrt( 2.0 * M_PI * clustering.front().second[0] );
+      double scalar2 = 1.0 / sqrt( 2.0 * M_PI * clustering.back().second[0] );
+      if ( (scalar1 * exp( (-((normalized_samples[i]-clustering.front().first[0]) *
+                              (normalized_samples[i]-clustering.front().first[0]))) /
+                           (2 * clustering.front().second[0] ) ) )   >
+           (scalar2 * exp( (-((normalized_samples[i]-clustering.back().first[0]) *
+                              (normalized_samples[i]-clustering.back().first[0]))) /
+                           (2 * clustering.back().second[0] ) ) ) ||
+           normalized_samples[i] < clustering.front().first[0] ) {
         good_indices.push_back(i);
       }
     }
