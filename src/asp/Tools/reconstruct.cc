@@ -4,45 +4,39 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-// To do: Convert all sub32, sub64, sub16 images to uint8 from uint16.
-//        But check first if they are in uint16.
+// To do: Remove the file reconstruct_aux.cc which mostly duplicates orthoproject.cc.
+// Study the bug below.
+// ~/StereoPipeline/src/asp/Tools/reconstruct --drg-directory ./albedo_all/./DIM_input_sub64 --dem-tiles-directory ./DEM_tiles_sub64 -d ./DEM_input_sub64 --isis-adjust-directory ./isis_adjust_sol_20110919 --cube-to-drg-scale-factor 16.0000000000000000 -s ./albedo_all/cubes -e ./albedo_all/exposure -r ./albedo_all -b -300:300:-40:40 -t 1 --tile-size 4 --pixel-padding 5 -f ./albedo_all/imagesList.txt -c photometry_init_cubes_settings.txt --is-last-iter 0 -i ./apollo_metric/cubes/a17/sub4_cubes/AS17-M-0185.lev1.cub
+// Remove the file unique.pl.
+// To do: rename cubes to meta?
+// Note: We assume a certain convention about the isis cube file and corresponding
+// isis adjust file.
+// Note: The isis adjust file may not exist.
+// Urgent: To do: Make sure that the flow projecting to DEM also works when
+// we don't have tiles!
+// To do: Move readDEMTilesIntersectingBox to Image/ and remove the DEM-specific language.
 // To do: Note that the image extracted from cubes is uint16, not uint8.
 // To do: Also note that those images are a bit darker than regular
 // images we already have, even after converting them to uint8.
 // To: The function ComputeGeoBoundary looks wrong. Use instead
 // georef.bounding_box(img), which I think is accurate. Compare
 // with gdalinfo.
-// To do: Check the effect of pixel padding on final albedo.
-// Make the extra margin everywhere to be uniformly equal to 2.
-// See in particular where we do the DEM.
-// To do: Implement last iteration: when we don't need to compute
-// the albedo on tiles which don't intersect with the sim box.
-// To do: Make the logic of ignoring the padded region of the tile in
-// Reflectance.cc (average reflectance computation) more robust.
+// To do: Check the effect of pixel padding on final albedo. 
 // To do: Implement the logic where one checks if a pixel is in the shadow,
 // in one (inline) function, and call it wherever it is needed.
-// To do: Convert the input images to byte from uint16, since
-// they go from 0 to 255 anyway. As of now they appear transparent.
 // To do: Copy the images from supercomp.
-// To do:
 // To do: Fix the memory leaks where the weighs are read.
 // Fix the bug with orbit ends not showing up (beyond 180 degrees).
 // Fix the non-plastic bug.
-// Fix the 1 pixel artifacts at tile border bug.
-// Implement albedo update.
 // Read the data from cubes, and remove all logic having to do with
 // filters from reconstruct.sh.
 // To do: Unit tests
-// To do: Check in the tiling code
-// To do: Fix bug! Must compute the tiles which overlap with all images!
-// To do: Read the exposure only for the needed tiles, not for all!
 // To do: Reorg the code which computes the reflectance and its
 // derivative in ShapeFromShading.cc to only compute the
 // derivative. Move all that code to Reflectance.cc. Convert all to
 // double.
 // Rename dem_out.tif to dem_mean.tif, and modelParams.outputFile to modelParams.albedoFile,
 // inputFile to drgFile.
-// Urgent: The final albedo tiles must have no padding.
 // Save the simBox in resDir. Remove this logic from the shell script.
 // The file name of the blankTilesList is repeated in the shell script and the code.
 // Rm blank_tiles.
@@ -52,7 +46,6 @@
 //   them on the fly.
 // Merge the imageRecord and modelParams classes
 // See if to change the order of values in the corners vector
-// Reorg the code.
 #ifdef _MSC_VER
 #pragma warning(disable:4244)
 #pragma warning(disable:4267)
@@ -62,7 +55,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <fstream>
 #include <vector>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -213,33 +205,6 @@ Vector4 ComputeGeoBoundary(GeoReference Geo, int width, int height)
   corners(3) = maxLat;
 
   return corners;
-}
-
-void listTifsInDir(const std::string & dirName,
-                   std::vector<std::string> & tifsInDir
-                   ){
-  
-  tifsInDir.clear();
-  
-  fs::path dir(dirName);
-  if ( !fs::exists(dirName) || !fs::is_directory(dirName ) ) return;
-
-  fs::directory_iterator end_iter; // default construction yields past-the-end
-  for  ( fs::directory_iterator dir_iter(dirName); dir_iter != end_iter; ++dir_iter)
-    {
-      if (! fs::is_regular_file(dir_iter->status()) ) continue;
-      std::string fileName = (*dir_iter).string();
-      int len = fileName.size();
-      if (len >= 4 && fileName.substr(len - 4, 4) == ".tif"){
-        //std::cout << "Now adding " << fileName << std::endl;
-        tifsInDir.push_back( fileName );
-      }
-    }
-
-  // Sort the files in lexicographic order
-  std::sort(tifsInDir.begin(), tifsInDir.end());
-  
-  return;
 }
 
 Vector4 getImageCorners(std::string imageFile){
@@ -431,6 +396,7 @@ std::vector<int> GetInputIndices( std::vector<std::string> inputFiles, std::vect
       }
     }
   }
+
   return inputIndices;
 }
 
@@ -566,6 +532,7 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
         ret = sscanf(line, "%s %s\n", inName, inVal);
         if (2 != ret) continue;
         
+        CHECK_VAR("EXTRACT_DRG_FROM_CUBES", "%d", extractDrgFromCubes);
         CHECK_VAR("REFLECTANCE_TYPE", "%d", reflectanceType);
         CHECK_VAR("SAVE_REFLECTANCE", "%d", saveReflectance);
         CHECK_VAR("SHADOW_THRESH", "%f", shadowThresh);
@@ -597,6 +564,7 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
     settings->slopeType = 1;
     settings->shadowThresh = 40;
 
+    settings->extractDrgFromCubes = 0;
     settings->albedoInitType = 0;//1;
     settings->exposureInitType = 0;//1;
     settings->DEMInitType = 0;//1;
@@ -618,6 +586,7 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
 
 void PrintGlobalParams(struct GlobalParams *settings)
 {
+  printf("EXTRACT_DRG_FROM_CUBES %d\n", settings->extractDrgFromCubes);
   printf("REFLECTANCE_TYPE %d\n", settings->reflectanceType);
   printf("SAVE_REFLECTANCE %d\n", settings->saveReflectance);
   printf("SHADOW_THRESH %f\n", settings->shadowThresh);
@@ -736,6 +705,7 @@ void list_DRG_in_box_and_all_DEM(bool useTiles,
   // Create the index of all DRG images if it does not exist already.
   std::vector<ImageRecord> imageRecords;
   if (!readImagesFile(imageRecords, allDRGIndex)){
+    std::cout << "WILL create that missing file..." << std::endl;
     listTifsInDirOverlappingWithBox(DRGDir, bigBox, allDRGIndex);
     if (!readImagesFile(imageRecords, allDRGIndex)) exit(1); // Second attempt at reading
   }
@@ -771,6 +741,11 @@ void list_DRG_in_box_and_all_DEM(bool useTiles,
   return;
 }
 
+int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::string DEMTilesDir, std::string DEMFile,
+                      std::string cubeFile, std::string isis_adjust_file, std::string outputDrgFile,
+                      Vector3 & sunPosition, Vector3 & spacecraftPosition
+                      );
+
 int main( int argc, char *argv[] ) {
 
   for (int s = 0; s < argc; s++) std::cout << argv[s] << " ";
@@ -779,20 +754,22 @@ int main( int argc, char *argv[] ) {
   std::vector<std::string> inputDRGFiles;
   std::vector<std::string> DRGFiles;
   std::vector<std::string> imageFiles;
-  std::string cubDir           = "data/cub";
-  std::string simBoxStr        = "";
-  std::string DRGDir           = "data/DRG";
-  std::string DEMDir           = "data/DEM";
-  std::string inputDEMTilesDir = "data/DEMTiles";
-  std::string exposureDir      = "data/exposure";
-  std::string resDir           = "results";
-  std::string configFilename   = "photometry_settings.txt";
-  std::string DRGInBoxList     = "";
-  bool useFeb13                = false;
-  std::string useTilesStr      = "0"; // Don't use tiles by default
-  std::string tileSizeStr      = "";
-  std::string pixelPaddingStr  = "0";
-  std::string isLastIterStr    = "0";
+  std::string cubDir                  = "data/cub";
+  std::string simBoxStr               = "";
+  std::string DRGDir                  = "data/DRG";
+  std::string DEMDir                  = "data/DEM";
+  std::string inputDEMTilesDir        = "data/DEMTiles";
+  std::string isisAdjustDir           = "isis_adjust";
+  std::string cubeToDrgScaleFactorStr = "1.0";
+  std::string exposureDir             = "data/exposure";
+  std::string resDir                  = "results";
+  std::string configFilename          = "photometry_settings.txt";
+  std::string DRGInBoxList            = "";
+  bool useFeb13                       = false;
+  std::string useTilesStr             = "0"; // Don't use tiles by default
+  std::string tileSizeStr             = "";
+  std::string pixelPaddingStr         = "0";
+  std::string isLastIterStr           = "0";
   
   po::options_description general_options("Options");
   general_options.add_options()
@@ -800,6 +777,8 @@ int main( int argc, char *argv[] ) {
     ("simulation-box,b", po::value<std::string>(&simBoxStr)->default_value(""), "Simulation box.")
     ("drg-directory", po::value<std::string>(&DRGDir)->default_value("data/DRG"), "DRG directory.")
     ("dem-tiles-directory", po::value<std::string>(&inputDEMTilesDir)->default_value("data/inputDEMTiles"), "Input DEM tiles directory.")
+    ("isis-adjust-directory", po::value<std::string>(&isisAdjustDir)->default_value("isis_adjust"), "ISIS adjust directory.")
+    ("cube-to-drg-scale-factor", po::value<std::string>(&cubeToDrgScaleFactorStr)->default_value("1.0"), "Cube to DRG scale factor.")
     ("dem-directory,d", po::value<std::string>(&DEMDir)->default_value("data/DEM"), "DEM directory.")
     ("image-files,i", po::value<std::vector<std::string> >(&imageFiles), "image files.")
     ("space info-directory,s", po::value<std::string>(&cubDir)->default_value("data/cub"), "space info directory.")
@@ -845,13 +824,18 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  bool useTiles    = atoi(useTilesStr.c_str());
-  double tileSize  = atof(tileSizeStr.c_str());     // tile size in degrees
-  int pixelPadding = atoi(pixelPaddingStr.c_str()); // the pad for each tile in pixels
-  bool isLastIter  = atoi(isLastIterStr.c_str());
-  std::cout << "tile size is "     << tileSize     << std::endl;
-  std::cout << "pixel padding is " << pixelPadding << std::endl;
-  std::cout << "is last iter is "  << isLastIter   << std::endl;
+  bool   useTiles     = atoi(useTilesStr.c_str());
+  double tileSize     = atof(tileSizeStr.c_str());     // tile size in degrees
+  int    pixelPadding = atoi(pixelPaddingStr.c_str()); // the pad for each tile in pixels
+  bool   isLastIter   = atoi(isLastIterStr.c_str());
+  double cubeToDrgScaleFactor = atof(cubeToDrgScaleFactorStr.c_str()); // used when extracting DRG from ISIS cubes
+  std::cout << "ISIS adjust dir is      " << isisAdjustDir        << std::endl;
+  std::cout << "tile size is            " << tileSize             << std::endl;
+  std::cout << "pixel padding is        " << pixelPadding         << std::endl;
+  std::cout << "is last iter is         " << isLastIter           << std::endl;
+  std::cout << "cubeToDrgScaleFactor is " << cubeToDrgScaleFactor << std::endl;
+  std::cout << "cube dir is             " << cubDir               << std::endl;
+  
   // Double check to make sure all folders exist  
   if ( !fs::exists(resDir) )
     fs::create_directory(resDir);
@@ -889,16 +873,70 @@ int main( int argc, char *argv[] ) {
   ReadConfigFile((char*)configFilename.c_str(), &globalParams);
   PrintGlobalParams(&globalParams);
 
-  // The names of the files listing all DRGs and DEMs and the coordinates
-  // of their corners.
-  std::string allDRGIndex = DRGDir + "/index.txt";
-  std::string allDEMIndex = inputDEMTilesDir + "/index.txt";
+  if (globalParams.extractDrgFromCubes == 1){
 
-  Vector4 simBox = parseSimBox(simBoxStr);
-  std::string blankTilesList  = resDir + "/blankTilesList.txt";
-  std::string DEMTilesList    = resDir + "/DEMTilesList.txt";
-  std::string albedoTilesList = resDir + "/albedoTilesList.txt";
+    // Extract the DRG image from the current cube by projecting on the DEM
+    
+    if ( !fs::exists(DRGDir) ) fs::create_directory(DRGDir);
+
+    std::string cubeFile = imageFiles[0];
+    std::string prefix   = getFirstElevenCharsFromFileName(cubeFile);
+
+    sufix_from_filename(cubeFile).substr(0,12);
+    if (prefix.size() >= 1 && prefix[0] == '/') prefix = prefix.substr(1); // strip '/'
+
+    std::string DEMFile, DEMDirLoc; 
+    if (!useTiles){
+      // The DEM to project to will have the same prefix as the current cube
+      std::map<std::string, std::string> DEMFilesIndex;
+      indexFilesByKey(DEMDir, DEMFilesIndex);
+      std::map<std::string, std::string>::iterator it = DEMFilesIndex.find(prefix);
+      if (it == DEMFilesIndex.end()){
+        std::cerr << "Could not find a DEM for the cube file: " << cubeFile << std::endl;
+        exit(1);
+      }
+      DEMFile   = it->second;
+      DEMDirLoc = DEMDir;
+    }else{
+      // We will project instead on the set of DEM tiles intersecting the current cube
+      DEMFile    = "";
+      DEMDirLoc  = inputDEMTilesDir;
+    }
+    
+    std::string isisAdjustFile = isisAdjustDir + "/" + prefix + ".lev2.isis_adjust";
+    std::string outputDrgFile  = DRGDir        + "/" + prefix + ".tif";
+    Vector3 sunPosition, spacecraftPosition;
+    std::cout << "cubeFile is         " << cubeFile       << std::endl;
+    std::cout << "isis adjust file is " << isisAdjustFile << std::endl;
+    std::cout << "outputDrgFile is    " << outputDrgFile  << std::endl;
+    std::cout << "DEMFile is          " << DEMFile        << std::endl;
+    std::cout << "DEMDirLoc  is       " << DEMDirLoc      << std::endl;
+    extractDRGFromCube(useTiles, cubeToDrgScaleFactor, DEMDirLoc, DEMFile,
+                      cubeFile, isisAdjustFile, outputDrgFile,
+                      sunPosition, spacecraftPosition // outputs
+                      );
+
+    // Write the sun and spacecraft position to disk
+    std::string sunDir        = cubDir + "/sunpos";
+    std::string spacecraftDir = cubDir + "/spacecraftpos";
+    if ( !fs::exists(cubDir) )        fs::create_directory(cubDir);
+    if ( !fs::exists(sunDir) )        fs::create_directory(sunDir);
+    if ( !fs::exists(spacecraftDir) ) fs::create_directory(spacecraftDir);
+    std::string sunFile        = sunDir        + "/" + prefix + "_sun.txt";
+    std::string spacecraftFile = spacecraftDir + "/" + prefix + "_spacecraft.txt";
+    writeSunAndSpacecraftPosition(prefix, sunFile, spacecraftFile, sunPosition, spacecraftPosition);
+    
+    return 0;
+  }
   
+  // The names of the files listing all DRGs and DEMs and the coordinates
+  // of their corners. 
+  Vector4     simBox          = parseSimBox(simBoxStr);
+  std::string allDRGIndex     = DRGDir           + "/index.txt";
+  std::string allDEMIndex     = inputDEMTilesDir + "/index.txt";
+  std::string blankTilesList  = resDir           + "/blankTilesList.txt";
+  std::string DEMTilesList    = resDir           + "/DEMTilesList.txt";
+  std::string albedoTilesList = resDir           + "/albedoTilesList.txt";
   if (globalParams.initAlbedoTiles == 1) {
 
     // Create the DRGInBoxList used in subsequent iterations.
@@ -965,6 +1003,11 @@ int main( int argc, char *argv[] ) {
 
   std::vector<ModelParams> modelParamsArray;
 
+  // In order to find the corresponding DEM for a given DRG, we take advantage
+  // of the fact that the first 11 characters of these files are always the same.
+  std::map<std::string, std::string> DEMFilesIndex;
+  indexFilesByKey(DEMDir, DEMFilesIndex);
+  
   //this will contain all the DRG files
   int i = 0;
   for (unsigned int j = 0; j < drgRecords.size(); ++j) {
@@ -985,8 +1028,16 @@ int main( int argc, char *argv[] ) {
 
     modelParamsArray[i].inputFilename       = DRGFiles[i];//these filenames have full path
 
-    modelParamsArray[i].DEMFilename = DEMDir + prefix_less3_from_filename(temp) + "DEM.tif";
 
+    // Find the corresponding DEM for the given DRG. See the earlier note.
+    std::string prefix = getFirstElevenCharsFromFileName(DRGFiles[i]);
+    std::map<std::string, std::string>::iterator it = DEMFilesIndex.find(prefix);
+    if (it == DEMFilesIndex.end()){
+      std::cerr << "Could not find a DEM for the DRG file: " << DRGFiles[i] << std::endl;
+      exit(1);
+    }
+    modelParamsArray[i].DEMFilename = it->second;
+    
     modelParamsArray[i].infoFilename        = resDir + "/info/" + prefix_less3_from_filename(temp)+"info.txt";
     modelParamsArray[i].meanDEMFilename     = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";   
     modelParamsArray[i].var2DEMFilename     = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
@@ -1065,7 +1116,12 @@ int main( int argc, char *argv[] ) {
       }
       
       // We have globalParams.saveWeights == 1. Build the weights.
-      if (j == inputIndices[i]){
+      if ((int)inputIndices.size() == 0){
+        cerr << "Error: Could not find the image to process: " << imageFiles[0] << " in the list of input images." << endl;
+        exit(1);
+      }
+      
+      if (j == inputIndices[0]){
         // Compute and save the weights only for the current image,
         // not for all images overlapping with it.
 
@@ -1402,3 +1458,4 @@ int main( int argc, char *argv[] ) {
   }
 
 }
+

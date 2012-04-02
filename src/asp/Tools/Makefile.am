@@ -95,8 +95,8 @@ endif
 
 if MAKE_APP_RECONSTRUCT
   bin_PROGRAMS += reconstruct
-  reconstruct_SOURCES = reconstruct.cc
-  reconstruct_LDADD = $(APP_RECONSTRUCT_LIBS)
+  reconstruct_SOURCES = reconstruct.cc reconstruct_aux.cc
+  reconstruct_LDADD = $(APP_RECONSTRUCT_LIBS) $(APP_ORTHOPROJECT_LIBS)
 endif
 
 if MAKE_APP_ALIGNDEM
