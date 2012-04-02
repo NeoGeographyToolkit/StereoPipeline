@@ -227,7 +227,7 @@ if test x"$HAVE_PKG_ZEROMQ" = "xno" && test x"$HAVE_PKG_RABBITMQ_C" = "xno" && t
    AC_MSG_ERROR([VW_PLATE requires either ZEROMQ or RABBITMQ_C or BOTH.])
 fi
 AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
-AX_PKG(VW_STEREO,         [VW_CAMERA],          [-lvwStereo],       [vw/Stereo/OptimizedCorrelator.h])
+AX_PKG(VW_STEREO,         [VW_CAMERA],          [-lvwStereo],       [vw/Stereo/CostFunctions.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA],          [-lvwCartography],  [vw/Cartography/GeoReference.h], [], [], [], [PROTOBUF])
 AX_PKG(VW_MOSAIC,         [VW_CARTOGRAPHY],     [-lvwMosaic],       [vw/Mosaic/ImageComposite.h])
 AX_PKG(VW_INTEREST_POINT, [VW],                 [-lvwInterestPoint],[vw/InterestPoint/InterestData.h])
