@@ -10,6 +10,7 @@
 //#define USE_GRAPHICS
 
 #include <asp/Tools/stereo.h>
+#include <vw/Stereo/DisparityMap.h>
 
 #include <asp/Core/BlobIndexThreaded.h>
 #include <asp/Core/InpaintView.h>

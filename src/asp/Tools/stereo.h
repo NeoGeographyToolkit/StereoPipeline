@@ -17,7 +17,6 @@
 #include <vw/Image.h>
 #include <vw/Math.h>
 #include <vw/FileIO.h>
-#include <vw/Stereo.h>
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/MedianFilter.h>

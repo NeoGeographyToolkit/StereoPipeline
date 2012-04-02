@@ -12,6 +12,7 @@
 #include <asp/Tools/stereo.h>
 #include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/Stereo/StereoView.h>
 
 using namespace vw;
 
