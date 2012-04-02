@@ -10,6 +10,9 @@
 //#define USE_GRAPHICS
 
 #include <asp/Tools/stereo.h>
+#include <vw/Stereo/PreFilter.h>
+#include <vw/Stereo/CorrelationView.h>
+#include <vw/Stereo/CostFunctions.h>
 
 using namespace vw;
 
@@ -44,74 +47,45 @@ void stereo_refinement( Options& opt ) {
     } else if (stereo_settings().subpixel_mode == 1) {
       // Parabola
       vw_out() << "\t--> Using parabola subpixel mode.\n";
-      if (stereo_settings().pre_filter_mode == 3) {
-        vw_out() << "\t    SLOG preprocessing width: "
-                 << stereo_settings().slogW << "\n";
-        typedef stereo::SlogStereoPreprocessingFilter PreFilter;
+      if (stereo_settings().pre_filter_mode == 2) {
+        vw_out() << "\t--> Using LOG pre-processing filter with "
+                 << stereo_settings().slogW << " sigma blur.\n";
+        typedef stereo::LaplacianOfGaussian PreFilter;
         disparity_map =
-          stereo::subpixel_refine( disparity_disk_image,
-                                   left_disk_image, right_disk_image,
-                                   stereo_settings().subpixel_kernel[0],
-                                   stereo_settings().subpixel_kernel[1],
-                                   stereo_settings().do_h_subpixel,
-                                   stereo_settings().do_v_subpixel,
-                                   stereo_settings().subpixel_mode,
-                                   PreFilter(stereo_settings().slogW) );
-      } else if (stereo_settings().pre_filter_mode == 2) {
-        vw_out() << "\t    LOG preprocessing width: "
-                 << stereo_settings().slogW << "\n";
-        typedef stereo::LogStereoPreprocessingFilter PreFilter;
-        disparity_map =
-          stereo::subpixel_refine(disparity_disk_image,
-                                  left_disk_image, right_disk_image,
-                                  stereo_settings().subpixel_kernel[0],
-                                  stereo_settings().subpixel_kernel[1],
-                                  stereo_settings().do_h_subpixel,
-                                  stereo_settings().do_v_subpixel,
-                                  stereo_settings().subpixel_mode,
-                                  PreFilter(stereo_settings().slogW) );
+          parabola_subpixel( disparity_disk_image,
+                             left_disk_image, right_disk_image,
+                             PreFilter(stereo_settings().slogW),
+                             stereo_settings().subpixel_kernel );
       } else if (stereo_settings().pre_filter_mode == 1) {
-        vw_out() << "\t    BLUR preprocessing width: "
-                 << stereo_settings().slogW << "\n";
-        typedef stereo::BlurStereoPreprocessingFilter PreFilter;
+        vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
+                 << stereo_settings().slogW << " sigma blur.\n";
+        typedef stereo::SubtractedMean PreFilter;
         disparity_map =
-          stereo::subpixel_refine(disparity_disk_image,
-                                  left_disk_image, right_disk_image,
-                                  stereo_settings().subpixel_kernel[0],
-                                  stereo_settings().subpixel_kernel[1],
-                                  stereo_settings().do_h_subpixel,
-                                  stereo_settings().do_v_subpixel,
-                                  stereo_settings().subpixel_mode,
-                                  PreFilter(stereo_settings().slogW) );
+          parabola_subpixel( disparity_disk_image,
+                             left_disk_image, right_disk_image,
+                             PreFilter(stereo_settings().slogW),
+                             stereo_settings().subpixel_kernel );
       } else {
-        vw_out() << "\t    NO preprocessing" << std::endl;
-        typedef stereo::NullStereoPreprocessingFilter PreFilter;
+        vw_out() << "\t--> NO preprocessing" << std::endl;
+        typedef stereo::NullOperation PreFilter;
         disparity_map =
-          stereo::subpixel_refine(disparity_disk_image,
-                                  left_disk_image, right_disk_image,
-                                  stereo_settings().subpixel_kernel[0],
-                                  stereo_settings().subpixel_kernel[1],
-                                  stereo_settings().do_h_subpixel,
-                                  stereo_settings().do_v_subpixel,
-                                  stereo_settings().subpixel_mode,
-                                  PreFilter() );
+          parabola_subpixel( disparity_disk_image,
+                             left_disk_image, right_disk_image,
+                             PreFilter(),
+                             stereo_settings().subpixel_kernel );
       }
     } else if (stereo_settings().subpixel_mode == 2) {
       // Bayes EM
-      vw_out() << "\t--> Using affine adaptive subpixel mode "
-               << stereo_settings().subpixel_mode << "\n";
+      vw_out() << "\t--> Using affine adaptive subpixel mode\n";
       vw_out() << "\t--> Forcing use of LOG filter with "
                << stereo_settings().slogW << " sigma blur.\n";
-      typedef stereo::LogStereoPreprocessingFilter PreFilter;
+      typedef stereo::LaplacianOfGaussian PreFilter;
       disparity_map =
-        stereo::subpixel_refine(disparity_disk_image,
-                                left_disk_image, right_disk_image,
-                                stereo_settings().subpixel_kernel[0],
-                                stereo_settings().subpixel_kernel[1],
-                                stereo_settings().do_h_subpixel,
-                                stereo_settings().do_v_subpixel,
-                                stereo_settings().subpixel_mode,
-                                PreFilter(stereo_settings().slogW) );
+        bayes_em_subpixel( disparity_disk_image,
+                           left_disk_image, right_disk_image,
+                           PreFilter(stereo_settings().slogW),
+                           stereo_settings().subpixel_kernel );
+
     } else if (stereo_settings().subpixel_mode == 3) {
       // Affine and Bayes subpixel refinement always use the
       // LogPreprocessingFilter...
