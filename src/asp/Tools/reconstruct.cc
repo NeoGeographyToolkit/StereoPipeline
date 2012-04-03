@@ -4,6 +4,7 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
+// ~/projects/base_system/isis/bin/spiceinit from=AS17-M-0571.cub
 // To do: Remove the file reconstruct_aux.cc which mostly duplicates orthoproject.cc.
 // Study the bug below.
 // ~/StereoPipeline/src/asp/Tools/reconstruct --drg-directory ./albedo_all/./DIM_input_sub64 --dem-tiles-directory ./DEM_tiles_sub64 -d ./DEM_input_sub64 --isis-adjust-directory ./isis_adjust_sol_20110919 --cube-to-drg-scale-factor 16.0000000000000000 -s ./albedo_all/cubes -e ./albedo_all/exposure -r ./albedo_all -b -300:300:-40:40 -t 1 --tile-size 4 --pixel-padding 5 -f ./albedo_all/imagesList.txt -c photometry_init_cubes_settings.txt --is-last-iter 0 -i ./apollo_metric/cubes/a17/sub4_cubes/AS17-M-0185.lev1.cub
@@ -838,35 +839,35 @@ int main( int argc, char *argv[] ) {
   
   // Double check to make sure all folders exist  
   if ( !fs::exists(resDir) )
-    fs::create_directory(resDir);
+    fs::create_directories(resDir);
   if ( !fs::exists(cubDir) )
-    fs::create_directory(cubDir);
+    fs::create_directories(cubDir);
   if ( !fs::exists(resDir+"/info") )
-    fs::create_directory(resDir+"/info");
+    fs::create_directories(resDir+"/info");
   if ( !fs::exists(resDir+"/reflectance") )
-    fs::create_directory(resDir+"/reflectance");
+    fs::create_directories(resDir+"/reflectance");
   if ( !fs::exists(resDir+"/shadow") )
-    fs::create_directory(resDir+"/shadow");
+    fs::create_directories(resDir+"/shadow");
   if ( !fs::exists(resDir+"/error") )
-    fs::create_directory(resDir+"/error");
+    fs::create_directories(resDir+"/error");
   if ( !fs::exists(resDir+"/exposure") )
-    fs::create_directory(resDir+"/exposure");
+    fs::create_directories(resDir+"/exposure");
   if ( !fs::exists(resDir+"/weight") )
-    fs::create_directory(resDir+"/weight");
+    fs::create_directories(resDir+"/weight");
   if ( !fs::exists(resDir+"/DEM_sfs") )
-    fs::create_directory(resDir+"/DEM_sfs");
+    fs::create_directories(resDir+"/DEM_sfs");
   std::string albedoTilesDir = resDir + "/albedo";
   std::string DEMTilesDir    = resDir + "/DEM";
   std::string costFunDir     = resDir + "/costFun";
-  if ( !fs::exists(albedoTilesDir) ) fs::create_directory(albedoTilesDir);
-  if ( !fs::exists(DEMTilesDir)    ) fs::create_directory(DEMTilesDir);
-  if ( !fs::exists(costFunDir)     ) fs::create_directory(costFunDir);
+  if ( !fs::exists(albedoTilesDir) ) fs::create_directories(albedoTilesDir);
+  if ( !fs::exists(DEMTilesDir)    ) fs::create_directories(DEMTilesDir);
+  if ( !fs::exists(costFunDir)     ) fs::create_directories(costFunDir);
 
   // blankTilesDir is used to create a tile with identical dimensions
   // as the subsequent DEM and albedo tiles.
   std::string blankTilesDir  = resDir + "/blank_tiles";
   if (useTiles){
-    if ( !fs::exists(blankTilesDir)  ) fs::create_directory(blankTilesDir);
+    if ( !fs::exists(blankTilesDir)  ) fs::create_directories(blankTilesDir);
   }
   
   GlobalParams globalParams;
@@ -877,7 +878,7 @@ int main( int argc, char *argv[] ) {
 
     // Extract the DRG image from the current cube by projecting on the DEM
     
-    if ( !fs::exists(DRGDir) ) fs::create_directory(DRGDir);
+    if ( !fs::exists(DRGDir) ) fs::create_directories(DRGDir);
 
     std::string cubeFile = imageFiles[0];
     std::string prefix   = getFirstElevenCharsFromFileName(cubeFile);
@@ -919,9 +920,9 @@ int main( int argc, char *argv[] ) {
     // Write the sun and spacecraft position to disk
     std::string sunDir        = cubDir + "/sunpos";
     std::string spacecraftDir = cubDir + "/spacecraftpos";
-    if ( !fs::exists(cubDir) )        fs::create_directory(cubDir);
-    if ( !fs::exists(sunDir) )        fs::create_directory(sunDir);
-    if ( !fs::exists(spacecraftDir) ) fs::create_directory(spacecraftDir);
+    if ( !fs::exists(cubDir) )        fs::create_directories(cubDir);
+    if ( !fs::exists(sunDir) )        fs::create_directories(sunDir);
+    if ( !fs::exists(spacecraftDir) ) fs::create_directories(spacecraftDir);
     std::string sunFile        = sunDir        + "/" + prefix + "_sun.txt";
     std::string spacecraftFile = spacecraftDir + "/" + prefix + "_spacecraft.txt";
     writeSunAndSpacecraftPosition(prefix, sunFile, spacecraftFile, sunPosition, spacecraftPosition);
