@@ -99,7 +99,7 @@ namespace asp {
           h_row.next_row();
         }
 
-        VW_OUT(DebugMessage, "interest_point") << "\tPrior to thresholding there was: " << scale_points.size() << "\n" << "     " << interest_data.size() << "\n";
+        VW_OUT(DebugMessage, "interest_point") << "\tPrior to thresholding there was: " << scale_points.size() << "\n";
 
         // Thresholding
         threshold(scale_points, interest_data[1], scale-1);
