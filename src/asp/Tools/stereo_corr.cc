@@ -295,17 +295,15 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
   Vector2f down_sample_scale( float(left_sub.cols()) / float(cols),
                               float(left_sub.rows()) / float(rows) );
 
-  ImageViewRef<uint8> left_mask =
-    select_channel(edge_mask(pixel_cast_rescale<uint8>(left_sub)),1);
-  ImageViewRef<uint8> right_mask =
-    select_channel(edge_mask(pixel_cast_rescale<uint8>(right_sub)),1);
+  DiskImageView<uint8> left_mask( opt.out_prefix+"-lMask_sub.tif" ),
+    right_mask( opt.out_prefix+"-rMask_sub.tif" );
 
   BBox2i search_range( floor(elem_prod(down_sample_scale,stereo_settings().search_range.min())),
                        ceil(elem_prod(down_sample_scale,stereo_settings().search_range.max())) );
 
   {
-    // Expand the search range by 2% to allow for error.
-    search_range.expand(norm_2(search_range.size()) / 50 );
+    // Expand the search range by 4% to allow for error.
+    search_range.expand(norm_2(search_range.size()) / 25 );
     asp::block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
                                  stereo::pyramid_correlate( left_sub, right_sub,
                                                         left_mask, right_mask,
