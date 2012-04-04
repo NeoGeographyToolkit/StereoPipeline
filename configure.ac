@@ -26,7 +26,7 @@ m4_pattern_allow([^PKG_ARBITRARY_QT_NEEDED_HEADERS$])
 
 AC_PREREQ([2.59])
 dnl TODO BEFORE RELEASE: update package version
-AC_INIT([NASA Ames Stereo Pipeline], [1.0.5_post], [asp@nx.arc.nasa.gov], [StereoPipeline])
+AC_INIT([NASA Ames Stereo Pipeline], [2.0.0_pre], [asp@nx.arc.nasa.gov], [StereoPipeline])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
