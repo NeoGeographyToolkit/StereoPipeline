@@ -154,7 +154,7 @@ processing.
 \label{sec:AligningImages}
 
 The images also need to be rectified (or aligned).  There are many
-ways to do this (including using \texttt{DO\_INTERESTPOINT\_ALIGNMENT}
+ways to do this (see using \texttt{ALIGNMENT\_METHOD}
 in \texttt{stereo}'s \texttt{stereo.default} file).  The most
 straightforward process is to align the images by map projecting
 them in \ac{ISIS}. This example continues with the files from above,
@@ -173,17 +173,17 @@ The \ac{ISIS} \texttt{cam2map} program will map-project these images:
 \end{verbatim}
 
 Notice the order in which the images were run through
-\texttt{cam2map}.  The first projection with \texttt{M0100115.cub}
+\texttt{cam2map}. The first projection with \texttt{M0100115.cub}
 produced a map-projected image centered on the center of that image.
 The projection of \texttt{E0201461.cub} used the \texttt{map=}
 parameter to indicate that \texttt{cam2map} should use the same map
 projection parameters as those of \texttt{M0100115.map.cub} (including
 center of projection, map extents, map scale, etc.) in creating the
-projected image.  By map projecting the image with the worse
-resolution first, and then matching to that, we ensure two things: (1)
-that the second image is summed or scaled down instead of being
-magnified up, and (2) that we are minimizing the file sizes to make
-processing in the Stereo Pipeline more efficient.
+projected image. By map projecting the image with the worse resolution
+first, and then matching to that, we ensure two things: (1) that the
+second image is summed or scaled down instead of being magnified up,
+and (2) that we are minimizing the file sizes to make processing in
+the Stereo Pipeline more efficient.
 
 Technically, the same end result could be achieved by using the
 \texttt{mocproc} program alone, and using its \texttt{map=
@@ -256,8 +256,9 @@ parameter to mimic the map projection of the first.  These two
 images aren't radically different in areal coverage, so this isn't
 really necessary for these images, its just an example.
 
-Again, unless you are doing something complicated, using the \texttt{cam2map4stereo.py} 
-program (page \pageref{cam2map4stereo}) will take care of all these steps for you.
+Again, unless you are doing something complicated, using the
+\texttt{cam2map4stereo.py} program (page \pageref{cam2map4stereo})
+will take care of all these steps for you.
 
 \section{Running the Stereo Pipeline}
 
@@ -305,18 +306,19 @@ For this example use the \texttt{stereo.default} that is included with
 the example data set. It has these key properties:
 
 \begin{verbatim}
-        DO_INTERESTPOINT_ALIGNMENT 0
+        ALIGNMENT_METHOD NONE
         H_CORR_MIN -35
         H_CORR_MAX -15
         V_CORR_MIN -280
         V_CORR_MAX -265
 \end{verbatim}
 
-The first says, \emph{`Don't do interest point alignment!'} since we
-have map-projected the images. The other four lines define the range
-that should be searched by scanning a template from the left image
-over the right image. The values above are tuned to the range of
-offsets that are found in this particular set of map projected images.
+The first says, \emph{`Don't do try to automatically align my
+  images!'} since we have map-projected the images. The other four
+lines define the range that should be searched by scanning a template
+from the left image over the right image. The values above are tuned
+to the range of offsets that are found in this particular set of map
+projected images.
 
 Given that we map projected the images using the same settings, you
 may be wondering why there would still be an offset. The reason is
@@ -346,9 +348,7 @@ points that you can match visually. Subtract locations from the
 first image from the second image, will yield offsets that must be
 in the search range.  Build a bounding box around several of these
 sampled offsets and then expand the box by 50\%.  This will
-produce good results in most images. Future versions of the
-software will try to better assist the user in automatically
-determining the correlation window.
+produce good results in most images.
 
 \end{minipage}}
 \end{center}
@@ -390,7 +390,7 @@ directory provides some insight into the process.
 \begin{minipage}{2.9in}
 \caption[P19 stereo output images]{
     \label{p19-stereo-output}
-	These are the four viewable \texttt{.tif} files created by the
+        These are the four viewable \texttt{.tif} files created by the
         \texttt{stereo} program.  On the left are the two aligned,
         pre-processed images: (\texttt{E0201461-M0100115-L.tif} and
         \texttt{E0201461-M0100115-R.tif}).  The next two are mask images
@@ -471,7 +471,7 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 	Disparity images produced using the \texttt{disparitydebug}
         tool.  The two images on the left are the
         \texttt{E0201461-M0100115-D-H.tif} and
-        \texttt{E0201461-M0100115-D-V.tif} files, which are the raw
+        \texttt{E0201461-M0100115-D-V.tif} files, which are normalized
         horizontal and vertical disparity components produced by the
         disparity map initialization phase.  The two images on the
         right are \texttt{E0201461-M0100115-F-H.tif} and
@@ -565,6 +565,22 @@ to use for the projection:
 
 \begin{verbatim}
     ISIS 3> point2dem -r mars --orthoimage E0201461-M0100115-L.tif \
+        E0201461-M0100115-PC.tif
+\end{verbatim}
+
+\noindent
+The \texttt{point2dem} program also able to accept output projection
+options the same way as the popular tools in GDAL. Well known EPSG,
+IAU2000 projections and custom Proj4 strings can applied with the
+target spatial reference set flag, \texttt{-\/-t\_srs}. If the target
+spatial reference flag is applied with any of the reference spheroid
+options, the reference spheroid option will overwrite the datum
+defined in the target spatial reference set. The following examples
+produce the same output.
+
+\begin {verbatim}
+    ISIS 3> point2dem --t_srs IAU2000:49900 E0201461-M0100115-PC.tif
+    ISIS 3> point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
         E0201461-M0100115-PC.tif
 \end{verbatim}
 
@@ -665,7 +681,7 @@ will address is \texttt{image2qtree}.  This tool was designed to
 create tiled, multi-resolution overlays for Google Earth.  In addition
 to generating image tiles, it produces a metadata tree in KML format
 that can be loaded from your local hard drive or streamed from a
-remote server over the Internet.  
+remote server over the Internet.
 
 The \texttt{image2qtree} program can only be used on 8-bit image files
 with georeferencing information (e.g. grayscale or RGB geotiff

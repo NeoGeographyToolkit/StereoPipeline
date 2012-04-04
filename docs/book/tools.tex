@@ -15,7 +15,7 @@ The \texttt{stereo} program is the primary workhorse of the Ames
 Stereo Pipeline.  It takes a stereo pair of images that overlap and
 creates an output point cloud image that can be processed into a 3D
 model or DEM using the \texttt{point2mesh} or \texttt{point2dem}
-programs, respectively.  
+programs, respectively.
 
 \medskip
 
@@ -25,7 +25,7 @@ Usage:\\
 \medskip
 
 This release of the stereo pipeline has been specifically designed to
-process USGS ISIS \texttt{.cub} files.  However, the stereo pipeline
+process USGS ISIS \texttt{.cub} files. However, the stereo pipeline
 does have the capability to process other types of stereo image pairs
 (e.g. image files with a CAHVOR camera model from the NASA MER
 rovers).  If you would like to experiment with these features, please
@@ -52,14 +52,16 @@ in sub-directories, we recommend using an output prefix like
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display this help information\\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
-\texttt{-\/-session-type|-t pinhole|isis} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
+\texttt{-\/-session-type|-t pinhole|isis|dg} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
 \texttt{-\/-entry-point|-e 1|2|3|4} & Pipeline entry point \\ \hline
-\texttt{-draft-mode \textit{debug-image-prefix}} & Cause the pyramid correlator to save out debug imagery named with this prefix\\ \hline
-\texttt{-\/-optimized-correlator} & Cause scale space search to not be performed and will hurt quality. This option is for software debugging.\\ \hline
 \end{longtable}
 
-More information about the stereo.default configuration file can be found in Appendix \ref{ch:stereodefault} on page \pageref{ch:stereodefault}.  Similarly, \texttt{stereo} creates a lot of files, and they are all described in Appendix \ref{chapter:outputfiles} on page \pageref{chapter:outputfiles}.
+More information about the stereo.default configuration file can be
+found in Appendix \ref{ch:stereodefault} on page
+\pageref{ch:stereodefault}.  Similarly, \texttt{stereo} creates a lot
+of files, and they are all described in Appendix
+\ref{chapter:outputfiles} on page \pageref{chapter:outputfiles}.
 
 \subsection{Entry Points}
 \label{entrypoints}
@@ -156,11 +158,13 @@ Options & Description \\ \hline \hline
 \section{point2dem}
 \label{point2dem}
 
-The \texttt{point2dem} program produces a GeoTIFF terrain model or an orthographic image from a point cloud image produced by the {\tt stereo} command.
+The \texttt{point2dem} program produces a GeoTIFF terrain model or/and
+an orthographic image from a point cloud image produced by the {\tt
+  stereo} command.
 
 Example:\\
 \hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename -r moon $\backslash$} \\
-\hspace*{4em}\texttt{-\/-default-value -10000 -n}
+\hspace*{4em}\texttt{-\/-nodata-value -10000 -n}
 
 This produces a digital elevation model that has been referenced to
 the lunar spheroid of 1737.4~km.  Pixels with no data will be set to a
@@ -190,24 +194,26 @@ simple cylindrical map projection.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this table \\ \hline
-\texttt{-\/-default-value \textit{float(=min-z)}} & Explicitly set the default missing pixel value. By default, the minimum z value in the model is used. \\ \hline
+\texttt{-\/-nodata-value \textit{float(=min-z)}} & Explicitly set the default missing pixel value. By default, the minimum z value in the model is used. \\ \hline
 \texttt{-\/-use-alpha} & Create images that have an alpha channel \\ \hline
-\texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
 \texttt{-\/-normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging) \\ \hline
 \texttt{-\/-orthoimage \textit{texture-file}} & Write an orthoimage based on the texture file given as an argument to this command line option \\ \hline
-\texttt{-\/-grayscale} & Use grayscale image processing for creating the orthoimage \\ \hline
-\texttt{-\/-offset-files} & Also write a pair of ASCII offset files (for debugging) \\ \hline
-\texttt{-\/-input-file \textit{pointcloud-file}} & Explicitly specify the input file \\ \hline
-\texttt{-\/-texture-file \textit{texture-file}} & Explicitly specify the texture file \\ \hline
+\texttt{-\/-errorimage} & Write an additional image whose values represent the triangulation error in meters \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the output file type \\ \hline
-\texttt{-\/-reference-spheroid|-r moon|mars} & Set a reference surface to a hard coded value. This will override manually set datum information. \\ \hline
-\texttt{-\/-semi-major-axis \textit{float(=0)}} & Set the dimensions of the datum in meters\\ \hline
-\texttt{-\/-semi-minor-axis \textit{float(=0)}} & Set the dimensions of the datum in meters\\ \hline
+\hline
 \texttt{-\/-x-offset \textit{float(=0)}} & Add a horizontal offset to the \ac{DEM} \\ \hline
 \texttt{-\/-y-offset \textit{float(=0)}} & Add a horizontal offset to the \ac{DEM} \\ \hline
 \texttt{-\/-z-offset \textit{float(=0)}} & Add a vertical offset to the \ac{DEM} \\ \hline
+\texttt{-\/-rotation-order \textit{order(=xyz)}} & Set the order of an euler angle rotation applied to the 3D points prior to \ac{DEM} rasterization \\ \hline
+\texttt{-\/-phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline
+\texttt{-\/-omega-rotation \textit{float(=0)}} & Set a rotation angle omega \\ \hline
+\texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa \\ \hline
+\hline
+\texttt{-\/-t\_srs \textit{string}} & Target spatial reference set. This mimicks the GDAL option used on their tools. \\ \hline
+\texttt{-\/-reference-spheroid|-r moon|mars} & Set a reference surface to a hard coded value. This will override manually set datum information. \\ \hline
+\texttt{-\/-semi-major-axis \textit{float(=0)}} & Set the dimensions of the datum in meters\\ \hline
+\texttt{-\/-semi-minor-axis \textit{float(=0)}} & Set the dimensions of the datum in meters\\ \hline
 \texttt{-\/-sinusoidal} & Save using a sinusoidal projection \\ \hline
 \texttt{-\/-mercator} & Save using a Mercator projection \\ \hline
 \texttt{-\/-transverse-mercator} & Save using transverse Mercator projection \\ \hline
@@ -218,11 +224,9 @@ Options & Description \\ \hline \hline
 \texttt{-\/-proj-lat \textit{float}} & The center of projection latitude (if applicable) \\ \hline
 \texttt{-\/-proj-lon \textit{float}} & The center of projection longitude (if applicable) \\ \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable) \\ \hline
-\texttt{-\/-rotation-order \textit{order(=xyz)}} & Set the order of an euler angle rotation applied to the 3D points prior to \ac{DEM} rasterization \\ \hline
-\texttt{-\/-phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline
-\texttt{-\/-omega-rotation \textit{float(=0)}} & Set a rotation angle omega \\ \hline
-\texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa \\ \hline
-\texttt{-\/-cache-dir \textit{path(=/tmp)}} & Sets directory to use for temporary files. Specify another directory if system is restrictive to large files in /tmp. \\ \hline
+\texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
+\hline
+\texttt{-\/-help|-h} & Display this table \\ \hline
 \end{longtable}
 
 \section{point2mesh}

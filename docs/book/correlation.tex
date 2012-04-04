@@ -20,7 +20,6 @@ matters of accuracy and error, however we have several efforts underway
 to quantify the accuracy of Stereo Pipeline-derived \acp{DEM}, and will be
 publishing more information about that shortly.  Stay tuned.
 
-
 The entire stereo correlation process, from raw input images to a
 point cloud or DEM, can be viewed as a multistage pipeline as depicted
 in Figure~\ref{fig:asp}, and detailed in the following sections.
@@ -38,39 +37,46 @@ The first optional (but recommended) step in the process is least
 squares Bundle Adjustment, which is described in detail in
 Chapter~\ref{ch:bundle_adjustment}. 
 
-Next, the left and right images are roughly aligned using one of
-two methods: (1) a linear transform of the right image based on
-automated tie-point measurements, or (2) map projection of both the
-left and right images using the \ac{ISIS} \texttt{cam2map} command.  The
-former option is done automatically by the stereo pipeline when the
-\texttt{DO\_INTERESTPOINT\_ALIGNMENT} variable in the
-\texttt{stereo.default} file is turned on.
+Next, the left and right images are roughly aligned using one of three
+methods: (1) a homography transform of the right image based on
+automated tie-point measurements, (2) a 3D rotation that achieves
+epipolar rectification {\it(only implemented for Pinhole sessions for
+  missions like MER or K10)} or (3) map projection of both the left
+and right images using the \ac{ISIS} \texttt{cam2map} command or
+through \texttt{gdal\_translate} for Digital Globe and GeoEye images.
+The first two options can be applied automatically by the stereo
+pipeline when the \texttt{ALIGNMENT\_METHOD} variable in the
+\texttt{stereo.default} file is set to \texttt{HOMOGRAPHY} or
+\texttt{EPIPOLAR}.
 
-The latter option, running {\tt cam2map} (or \texttt{cam2map4stereo.py}),
-must be carried out by the user prior to invoking the {\tt stereo}
-command.  Map projecting the images using \ac{ISIS} eliminates any
-unusual distortion in the image due to the unusual camera acquisition
-modes (e.g. pitching ``ROTO'' maneuvers during image acquisition
-for \ac{MOC}, or highly elliptical orbits and changing line exposure
-times for the \acl{HRSC}, \acs{HRSC}).  It also eliminates some of
-the perspective differences in the image pair that are due to large
-terrain features by taking the existing low-res terrain model into
-account (e.g. the \acl{MOLA}, \acs{MOLA}, or \acl{ULCN}, \acs{ULCN},
-2005 models).
+The latter option, running {\tt cam2map}, {\tt cam2map4stereo.py}, or
+{\tt gdal\_translate} must be carried out by the user prior to
+invoking the {\tt stereo} command.  Map projecting the images using
+\ac{ISIS} eliminates any unusual distortion in the image due to the
+unusual camera acquisition modes (e.g. pitching ``ROTO'' maneuvers
+during image acquisition for \ac{MOC}, or highly elliptical orbits and
+changing line exposure times for the \acl{HRSC}, \acs{HRSC}).  It also
+eliminates some of the perspective differences in the image pair that
+are due to large terrain features by taking the existing low-res
+terrain model into account (e.g. the \acl{MOLA}, \acs{MOLA},
+\acl{LOLA}, \acs{LOLA}, \acl {NED}, \acs {NED}, or \acl{ULCN},
+\acs{ULCN}, 2005 models).
 
 In essence, map projecting the images results in a pair of very
 closely matched images that are as close to ideal as possible given
-existing information.  This leaves only small perspective differences
+existing information. This leaves only small perspective differences
 in the images, which are exactly the features that the stereo
-correlation process is designed to detect.  
+correlation process is designed to detect.
 
-For this reason, we highly recommend map projection for pre-alignment
-of most stereo pairs.  In either case, the pre-alignment step is
-essential for performance because it ensures that the disparity search
-space is bounded to a known area.  In both cases, the effects of
-pre-alignment are taken into account later in the process during
-Triangulation, so you do not need to worry that pre-alignment will
-compromise the geometric integrity of your \ac{DEM}.
+For this reason, we recommend map projection for pre-alignment of most
+stereo pairs. Its only cost is longer triangulation times as more math
+must be applied work back the transforms applied to the images. In
+either case, the pre-alignment step is essential for performance
+because it ensures that the disparity search space is bounded to a
+known area.  In both cases, the effects of pre-alignment are taken
+into account later in the process during Triangulation, so you do not
+need to worry that pre-alignment will compromise the geometric
+integrity of your \ac{DEM}.
 
 In some cases the pre-processing step may also normalize the pixel
 values in the left and right images to bring them into the same
@@ -82,20 +88,19 @@ most cases, the use of these normalization steps can vary from data
 set to data set, so we recommend you refer to the examples in Chapter
 \ref{ch:examples} to see if these are necessary in your use case.
 
-Finally, pre-processing can perform some filtering of the input
-images (as determined by \\
-\texttt{PREPROCESSING\_FILTER\_MODE}) to
-reduce noise and extract edges in the images.  When active, these
-filters apply a Gaussian blur with a sigma of \texttt{SLOG\_KERNEL\_WIDTH}
+Finally, pre-processing can perform some filtering of the input images
+(as determined by \\ \texttt{PREPROCESSING\_FILTER\_MODE}) to reduce
+noise and extract edges in the images.  When active, these filters
+apply a kernel with a sigma of \texttt{SLOG\_KERNEL\_WIDTH} pixels
 that can improve results for noisy
-images\footnote{\texttt{PREPROCESSING\_FILTER\_MODE} must be
-  chosen carefully in conjunction with \texttt{COST\_MODE}.  (See
+images\footnote{\texttt{PREPROCESSING\_FILTER\_MODE} must be chosen
+  carefully in conjunction with \texttt{COST\_MODE}.  (See
   Appendix~\ref{ch:stereodefault})}.  The pre-processing modes that
-extract image edges are useful for stereo pairs that do not have
-the same lighting conditions, contrast, and absolute
-brightness \citep{Nishihara84practical}.  We recommend that you use
-the defaults for these parameters to start with, and then experiment
-only if your results are suboptimal.
+extract image edges are useful for stereo pairs that do not have the
+same lighting conditions, contrast, and absolute brightness
+\citep{Nishihara84practical}.  We recommend that you use the defaults
+for these parameters to start with, and then experiment only if your
+results are suboptimal.
 
 \section{Disparity Map Initialization}
 
@@ -108,17 +113,17 @@ the pixel $(u,v)$ in the left image, and whose pixel values
 contain the horizontal and vertical offsets $(d_u, d_v)$ to the
 matching pixel in the right image, which is $(u+d_u, v+d_v)$.  
 
-The correlation process attempts to find a match for every pixel
-in the left image.  For large images (e.g. from \ac{HiRISE} or
-\acl{LROC}, \acs{LROC}), this is very, very expensive computationally,
-so the correlation process is split into two stages.  The disparity
-map initialization step computes approximate correspondences using
-a pyramid-based search that is highly optimized for speed, but
-trades this speed for accuracy.  The results of disparity map
-initialization are integer-valued disparity estimates.  The sub-pixel
-refinement step takes these integer estimates as initial conditions
-for an iterative optimization and refines them using the algorithm
-discussed in the next section.
+The correlation process attempts to find a match for every pixel in
+the left image.  For large images (e.g. from \ac{HiRISE}, \acl{LROC},
+\acs{LROC}, or WorldView-2), this is very, very expensive
+computationally, so the correlation process is split into two stages.
+The disparity map initialization step computes approximate
+correspondences using a pyramid-based search that is highly optimized
+for speed, but trades this speed for accuracy.  The results of
+disparity map initialization are integer-valued disparity estimates.
+The sub-pixel refinement step takes these integer estimates as initial
+conditions for an iterative optimization and refines them using the
+algorithm discussed in the next section.
 
 We employ several optimizations to accelerate disparity map
 initialization: (1) a box filter-like accumulator that reduces
@@ -146,10 +151,11 @@ Correlation itself is carried out by sliding a small, rectangular
 template window from the from left image over the specified search
 region of the right image, as in Figure~\ref{fig:correlation_window}.
 The ``best'' match is determined by applying a cost function that
-compares the two windows.  The \texttt{COST\_MODE} variable allows you to
-choose one of three cost functions, though we recommend normalized
+compares the two windows.  The \texttt{COST\_MODE} variable allows you
+to choose one of three cost functions, though we recommend normalized
 cross correlation \citep{Menard97:robust}, since it is most robust to
-slight lighting and contrast variation in between a pair of images.
+slight lighting and contrast variation in between a pair of
+images. Try the others if you need more speed at the cost of quality.
 
 \subsection{Debugging Disparity Map Initialization}
 
@@ -279,12 +285,20 @@ results to yield a high quality, high resolution result.
 
 \section{Triangulation}
 
-The Stereo Pipeline uses geometric camera models available in
-\ac{ISIS} \citep{anderson08:isis}.  These highly accurate models
-are customized for each instrument that \ac{ISIS} supports.  Each
-\ac{ISIS} ``cube'' file contains all of the information that is
-required by the Stereo Pipeline to find and use the appropriate
-camera model for that observation.
+When running an ISIS session, the Stereo Pipeline uses geometric
+camera models available in \ac{ISIS} \citep{anderson08:isis}.  These
+highly accurate models are customized for each instrument that
+\ac{ISIS} supports.  Each \ac{ISIS} ``cube'' file contains all of the
+information that is required by the Stereo Pipeline to find and use
+the appropriate camera model for that observation.
+
+Other sessions such as DG {\it Digital Globe} or Pinhole, require that
+their camera model be provided as additonal arguments to the
+\texttt{stereo} command. Those camera models come in the form of an
+XML document for DG and as \texttt{*.pinhole, *.tsai, *.cahv,
+  *.cahvor} for Pinhole sessions. Those files must be the third and
+forth arguments or immediately follow after the 2 input images for
+\texttt{stereo}.
 
 \begin{figure}[h]
 \centering
