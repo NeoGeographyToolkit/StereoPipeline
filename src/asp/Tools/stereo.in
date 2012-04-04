@@ -48,10 +48,6 @@ if __name__ == '__main__':
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Pipeline entry point (an integer from 0-4)', type='int')
-    p.add_option('--draft-mode',           dest='draft_mode',  default=False, action='store_true',
-                 help='Cause pyramid correlator to save out debug imagery.')
-    p.add_option('--optimized-correlator', dest='optimized',   default=False, action='store_true',
-                 help='Use the optimized correlator instead of the pyramid correlator.')
     p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
                  help='Tell GDAL to not create bigtiffs.')
     p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
@@ -74,10 +70,6 @@ if __name__ == '__main__':
         args.extend(['--session-type', opt.session])
     if opt.threads is not None:
         args.extend(['--threads', str(opt.threads)])
-    if opt.draft_mode:
-        args.append('--draft-mode')
-    if opt.optimized:
-        args.append('--optimized-correlator')
     if opt.no_bigtiff:
         args.append('--no-bigtiff')
     if opt.version:

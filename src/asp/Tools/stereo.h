@@ -60,10 +60,9 @@ struct Options : asp::BaseOptions {
   // Settings
   std::string stereo_session_string, stereo_default_filename;
   boost::shared_ptr<asp::StereoSession> session;   // Used to extract cameras
-  bool optimized_correlator, draft_mode;
 
   // Output
-  std::string out_prefix, corr_debug_prefix;
+  std::string out_prefix;
 };
 
 // Allows FileIO to correctly read/write these pixel types

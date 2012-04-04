@@ -28,10 +28,7 @@ void vw::handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
-    ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
-    ("draft-mode", po::value(&opt.corr_debug_prefix),"Cause the pyramid correlator to save out debug imagery named with this prefix.")
-    ("optimized-correlator", po::bool_switch(&opt.optimized_correlator)->default_value(false),
-     "Use the optimized correlator instead of the pyramid correlator.");
+    ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -61,8 +58,6 @@ void vw::handle_arguments( int argc, char *argv[], Options& opt ) {
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
                              positional, positional_desc, usage );
-
-  opt.draft_mode = vm.count("draft-mode");
 
   if (!vm.count("left-input-image") || !vm.count("right-input-image") ||
       !vm.count("left-camera-model") )
