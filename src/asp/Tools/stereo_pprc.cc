@@ -74,7 +74,7 @@ void stereo_preprocessing( Options& opt ) {
     sub_scale +=
       sqrt(1500.0 * 1500.0 / (float(right_image.cols()) * float(right_image.rows())));
     sub_scale /= 2;
-    if ( sub_scale > 1 ) sub_scale = 1;
+    if ( sub_scale > 0.6 ) sub_scale = 0.6;
 
     // Solving for the number of threads and the tile size to use for
     // subsampling while only using 500 MiB of memory. (The cache code
@@ -109,6 +109,16 @@ void stereo_preprocessing( Options& opt ) {
       asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
                                    resample(right_image,sub_scale), opt,
                                    TerminalProgressCallback("asp", "\t    Sub R: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-lMask_sub.tif",
+                                   resample(DiskImageView<uint8>(opt.out_prefix+"-lMask.tif"),sub_scale,
+                                            ZeroEdgeExtension(),
+                                            NearestPixelInterpolation()), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-rMask_sub.tif",
+                                   resample(DiskImageView<uint8>(opt.out_prefix+"-rMask.tif"),sub_scale,
+                                            ZeroEdgeExtension(),
+                                            NearestPixelInterpolation()), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
     } else {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent
@@ -119,6 +129,12 @@ void stereo_preprocessing( Options& opt ) {
       asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
                                    resample(gaussian_filter(resample(right_image,sub_scale * 4.f),2.8f),.25f), opt,
                                    TerminalProgressCallback("asp", "\t    Sub R: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-lMask_sub.tif",
+                                   threshold(resample(gaussian_filter(resample(DiskImageView<uint8>(opt.out_prefix+"-lMask.tif"), sub_scale * 4.f),2.8f),.25f),10,0,255), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-rMask_sub.tif",
+                                   threshold(resample(gaussian_filter(resample(DiskImageView<uint8>(opt.out_prefix+"-rMask.tif"), sub_scale * 4.f),2.8f),.25f),10,0,255), opt,
+                                   TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
     }
     opt.raster_tile_size = previous_tile_size;
     vw_settings().set_default_num_threads(previous_num_threads);
