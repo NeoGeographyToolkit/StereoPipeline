@@ -3,6 +3,11 @@
 #############################
 
 # Pre-alignment options
+#
+# Available choices are (however not all are supported by all sessions):
+#    NONE       (Recommended for anything map projected)
+#    EPIPOLAR   (Recommended for Pinhole Sessions)
+#    HOMOGRAPHY (Recommended for ISIS and DG Sessions)
 
 ALIGNMENT_METHOD HOMOGRAPHY
 
@@ -11,19 +16,20 @@ ALIGNMENT_METHOD HOMOGRAPHY
 FORCE_USE_ENTIRE_RANGE 1
 DO_INDIVIDUAL_NORMALIZATION 0
 
-# Preprocessing filter mode:
+# Select a preprocessing filter:
 #
 # 0 - None
-# 1 - Gaussian Blur
-# 2 - Laplacian of Gaussian Blur (recommended)
-# 3 - Sign of the LoG Filter
+# 1 - Subtracted Mean
+# 2 - Laplacian of Gaussian (recommended)
 
 PREPROCESSING_FILTER_MODE 2
 
-# Gaussian convolution kernel size (1-sigma) for pre-processing
-# modes 1, 2 and 3.
+# Kernel size (1-sigma) for pre-processing
+#
+# Recommend 1.4 px for Laplacian of Gaussian
+# Recommend 25 px for Subtracted Mean
 
-SLOG_KERNEL_WIDTH 1.5
+SLOG_KERNEL_WIDTH 1.4
 
 #########################################################################
 ###########################    CORRELATION    ###########################
@@ -36,17 +42,6 @@ SLOG_KERNEL_WIDTH 1.5
 # 2 - normalized cross correlation (recommended)
 
 COST_MODE 0
-
-# Turn this up to improve the results of the discrete correlation
-# step.  This will reduce the number of missing pixels, but reduce the
-# overall accuracy of the disparity estimates.
-#
-# WARNING: Cost blurring must be used in conjunction with affine
-# adaptive window subpixel below, which are capable of achieving
-# highly accurate results even when seeded by slightly inaccurate
-# results from the initialization step.
-
-COST_BLUR 0
 
 # Initialization step: correlation kernel size
 
