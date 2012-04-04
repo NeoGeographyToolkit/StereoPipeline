@@ -15,9 +15,9 @@ sub=64               # must be a power of 2, from 1 to 64.
 numProc=2            # number of processes to use
 pixelPadding=5       # by how much to pad each tile, in pixels
 
-# Simulation box, used when there are tiles, the convention is: W:E:S:N
-simBox="6:10:-10:-9" # two tiles, gold testcase
-#simBox="-180:180:-40:40" # all albedo 
+# Simulation box, the convention is: West:East:South:North
+#simBox="6:10:-10:-9" # two tiles, gold testcase
+simBox="-180:180:-40:40" # all albedo 
 tileSize=4 # tile size, in degrees
 
 # Executable
@@ -83,6 +83,15 @@ if [ $useTiles -eq 0 ]; then
     else
         cat $drgDir/index.txt > $imagesList
     fi
+fi
+
+if [ ! -e $cubDir/spacecraftpos.txt ]; then
+    echo "Error: File $cubDir/spacecraftpos.txt does not exist."
+    exit
+fi
+if [ ! -e $cubDir/sunpos.txt ]; then
+    echo "Error: File $cubDir/sunpos.txt does not exist."
+    exit
 fi
 
 # Filter out the images which don't have sun/spacecraft info
