@@ -4,11 +4,12 @@
 // All Rights Reserved.
 // __END_LICENSE__
 
-// ~/projects/base_system/isis/bin/spiceinit from=AS17-M-0571.cub
+
 // To do: Remove the file reconstruct_aux.cc which mostly duplicates orthoproject.cc.
-// Study the bug below.
-// ~/StereoPipeline/src/asp/Tools/reconstruct --drg-directory ./albedo_all/./DIM_input_sub64 --dem-tiles-directory ./DEM_tiles_sub64 -d ./DEM_input_sub64 --isis-adjust-directory ./isis_adjust_sol_20110919 --cube-to-drg-scale-factor 16.0000000000000000 -s ./albedo_all/cubes -e ./albedo_all/exposure -r ./albedo_all -b -300:300:-40:40 -t 1 --tile-size 4 --pixel-padding 5 -f ./albedo_all/imagesList.txt -c photometry_init_cubes_settings.txt --is-last-iter 0 -i ./apollo_metric/cubes/a17/sub4_cubes/AS17-M-0185.lev1.cub
-// Remove the file unique.pl.
+// To do: Test this big image: AS17-M-0305
+// To do: Test this as well. /DIM_input_sub64_isis/AS17-M-0281.tif, has a lot of black.
+// To do: Study the bug below.
+// ~/StereoPipeline/src/asp/Tools/reconstruct --drg-directory ./albedo_all/./DIM_input_sub64 --dem-tiles-directory ./DEM_tiles_sub64 -d ./DEM_input_sub64 --isis-adjust-directory ./isis_adjust_sol_20110919 --meters-per-pixel 16.0000000000000000 -s ./albedo_all/cubes -e ./albedo_all/exposure -r ./albedo_all -b -300:300:-40:40 -t 1 --tile-size 4 --pixel-padding 5 -f ./albedo_all/imagesList.txt -c photometry_init_cubes_settings.txt --is-last-iter 0 -i ./apollo_metric/cubes/a17/sub4_cubes/AS17-M-0185.lev1.cub
 // To do: rename cubes to meta?
 // Note: We assume a certain convention about the isis cube file and corresponding
 // isis adjust file.
@@ -675,10 +676,10 @@ Vector4 parseSimBox(std::string simBoxStr){
     if (count >= 4) break;
   }
 
-  // If parsing did not succeed, use a huge box containing the entire moon.
+  // If parsing did not succeed, then fail
   if (count < 4){
-    double b = 180;
-    simBox = Vector4(-b, b, -b, b);
+    cerr << "ERROR: Could not extract the simulation box from the string: " << simBoxStr << endl;
+    exit(1);
   }
 
   if (simBox(0) >= simBox(1) || simBox(2) >= simBox(3)){
@@ -742,7 +743,7 @@ void list_DRG_in_box_and_all_DEM(bool useTiles,
   return;
 }
 
-int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::string DEMTilesDir, std::string DEMFile,
+int extractDRGFromCube(bool useDEMTiles, double metersPerPixel, std::string DEMTilesDir, std::string DEMFile,
                       std::string cubeFile, std::string isis_adjust_file, std::string outputDrgFile,
                       Vector3 & sunPosition, Vector3 & spacecraftPosition
                       );
@@ -761,7 +762,7 @@ int main( int argc, char *argv[] ) {
   std::string DEMDir                  = "data/DEM";
   std::string inputDEMTilesDir        = "data/DEMTiles";
   std::string isisAdjustDir           = "isis_adjust";
-  std::string cubeToDrgScaleFactorStr = "1.0";
+  std::string metersPerPixelStr       = "100.0";
   std::string exposureDir             = "data/exposure";
   std::string resDir                  = "results";
   std::string configFilename          = "photometry_settings.txt";
@@ -779,7 +780,7 @@ int main( int argc, char *argv[] ) {
     ("drg-directory", po::value<std::string>(&DRGDir)->default_value("data/DRG"), "DRG directory.")
     ("dem-tiles-directory", po::value<std::string>(&inputDEMTilesDir)->default_value("data/inputDEMTiles"), "Input DEM tiles directory.")
     ("isis-adjust-directory", po::value<std::string>(&isisAdjustDir)->default_value("isis_adjust"), "ISIS adjust directory.")
-    ("cube-to-drg-scale-factor", po::value<std::string>(&cubeToDrgScaleFactorStr)->default_value("1.0"), "Cube to DRG scale factor.")
+    ("meters-per-pixel", po::value<std::string>(&metersPerPixelStr)->default_value("100.0"), "The resolution when extracting a DRG from a cube file.")
     ("dem-directory,d", po::value<std::string>(&DEMDir)->default_value("data/DEM"), "DEM directory.")
     ("image-files,i", po::value<std::vector<std::string> >(&imageFiles), "image files.")
     ("space info-directory,s", po::value<std::string>(&cubDir)->default_value("data/cub"), "space info directory.")
@@ -825,17 +826,17 @@ int main( int argc, char *argv[] ) {
     return 1;
   }
 
-  bool   useTiles     = atoi(useTilesStr.c_str());
-  double tileSize     = atof(tileSizeStr.c_str());     // tile size in degrees
-  int    pixelPadding = atoi(pixelPaddingStr.c_str()); // the pad for each tile in pixels
-  bool   isLastIter   = atoi(isLastIterStr.c_str());
-  double cubeToDrgScaleFactor = atof(cubeToDrgScaleFactorStr.c_str()); // used when extracting DRG from ISIS cubes
-  std::cout << "ISIS adjust dir is      " << isisAdjustDir        << std::endl;
-  std::cout << "tile size is            " << tileSize             << std::endl;
-  std::cout << "pixel padding is        " << pixelPadding         << std::endl;
-  std::cout << "is last iter is         " << isLastIter           << std::endl;
-  std::cout << "cubeToDrgScaleFactor is " << cubeToDrgScaleFactor << std::endl;
-  std::cout << "cube dir is             " << cubDir               << std::endl;
+  bool   useTiles       = atoi(useTilesStr.c_str());
+  double tileSize       = atof(tileSizeStr.c_str());     // tile size in degrees
+  int    pixelPadding   = atoi(pixelPaddingStr.c_str()); // the pad for each tile in pixels
+  bool   isLastIter     = atoi(isLastIterStr.c_str());
+  double metersPerPixel = atof(metersPerPixelStr.c_str()); // used when extracting DRG from ISIS cubes
+  std::cout << "ISIS adjust dir is " << isisAdjustDir  << std::endl;
+  std::cout << "tile size is       " << tileSize       << std::endl;
+  std::cout << "pixel padding is   " << pixelPadding   << std::endl;
+  std::cout << "is last iter is    " << isLastIter     << std::endl;
+  std::cout << "metersPerPixel is  " << metersPerPixel << std::endl;
+  std::cout << "cube dir is        " << cubDir         << std::endl;
   
   // Double check to make sure all folders exist  
   if ( !fs::exists(resDir) )
@@ -912,7 +913,7 @@ int main( int argc, char *argv[] ) {
     std::cout << "outputDrgFile is    " << outputDrgFile  << std::endl;
     std::cout << "DEMFile is          " << DEMFile        << std::endl;
     std::cout << "DEMDirLoc  is       " << DEMDirLoc      << std::endl;
-    extractDRGFromCube(useTiles, cubeToDrgScaleFactor, DEMDirLoc, DEMFile,
+    extractDRGFromCube(useTiles, metersPerPixel, DEMDirLoc, DEMFile,
                       cubeFile, isisAdjustFile, outputDrgFile,
                       sunPosition, spacecraftPosition // outputs
                       );
@@ -1221,9 +1222,10 @@ int main( int argc, char *argv[] ) {
         if (!readImagesFile(DEMTiles,    DEMTilesList))    exit(1);
         if (!readImagesFile(albedoTiles, albedoTilesList)) exit(1);
         overlap = makeOverlapList(DEMTiles, curDRG);
-        bool compAvgRefl = true;
+        bool compAvgRefl    = true;
+        bool useReflectance = true;
         avgReflectanceArray[i]
-          = computeAvgReflectanceOverTilesOrUpdateExposure(compAvgRefl,
+          = computeAvgReflectanceOverTilesOrUpdateExposure(compAvgRefl, useReflectance,
                                                            pixelPadding, tileSize,
                                                            DEMTiles, albedoTiles, 
                                                            overlap,
@@ -1264,7 +1266,7 @@ int main( int argc, char *argv[] ) {
     TerminalProgressCallback callback("photometry","Init Albedo:");
     callback.report_progress(0);
 
-    for (unsigned int i = 0; i < imageFiles.size(); ++i) {
+    for (unsigned int i = 0; i < imageFiles.size(); ++i){
 
       callback.report_progress(float(i)/float(imageFiles.size()));
            
@@ -1272,49 +1274,51 @@ int main( int argc, char *argv[] ) {
       for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
         overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
       }
-      
-      if (globalParams.reflectanceType == NO_REFL) {
-        InitImageMosaicByBlocks(modelParamsArray[inputIndices[i]],
-				overlapParamsArray, globalParams);
-      } else {
-        if (useFeb13) {
+
+      bool useReflectance = (globalParams.reflectanceType != NO_REFL); 
+
+      if (!useTiles){
+        
+        if (!useReflectance) {
+          InitImageMosaicByBlocks(modelParamsArray[inputIndices[i]],
+                                  overlapParamsArray, globalParams);
+        } else if (useFeb13) {
           InitAlbedoMosaicFeb13(modelParamsArray[inputIndices[i]],
                                 overlapParamsArray, globalParams);
         } else {
           
-          if (!useTiles){
-            InitAlbedoMosaic(modelParamsArray[inputIndices[i]],
-                             overlapParamsArray, globalParams);
-          }else{
-            // This code is repeated below where we update the albedo
-            std::string blankTileFile  = imageFiles[i];
-            Vector4 tileCorners = getImageCorners(blankTileFile);
-            if (isLastIter && !boxesOverlap(tileCorners, simBox)){
-              // If this is not the last iteration, we must init/update the exposure
-              // and albedo for all tiles. Otherwise it is enough to do it only
-              // for the tiles which overlap with the sim box.
-              std::cout << "Skipping tile: "
-                        << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
-              continue;
-            }
-
-            std::string DEMTileFile, albedoTileFile;
-            getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
-                                  DEMTileFile, albedoTileFile                                // outputs
-                                  );
-
-
-            bool initTile = true; // init, rather than update
-            InitOrUpdateAlbedoTile(isLastIter, initTile, pixelPadding, tileSize,
-                                   blankTileFile, DEMTileFile, albedoTileFile,
-                                   overlapParamsArray, globalParams);
-            
-          }
-          
+          InitAlbedoMosaic(modelParamsArray[inputIndices[i]],
+                           overlapParamsArray, globalParams);
         }
-      }      
+        
+      }else{
+        
+        // This code is repeated below where we update the albedo
+        std::string blankTileFile  = imageFiles[i];
+        Vector4 tileCorners = getImageCorners(blankTileFile);
+        if (isLastIter && !boxesOverlap(tileCorners, simBox)){
+          // If this is not the last iteration, we must init/update the exposure
+          // and albedo for all tiles. Otherwise it is enough to do it only
+          // for the tiles which overlap with the sim box.
+          std::cout << "Skipping tile: "
+                    << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
+          continue;
+        }
+        
+        std::string DEMTileFile, albedoTileFile;
+        getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
+                              DEMTileFile, albedoTileFile                                // outputs
+                              );
+        
+        
+        bool initTile = true; // init, rather than update
+        InitOrUpdateAlbedoTile(isLastIter, initTile, useReflectance, pixelPadding, tileSize,
+                               blankTileFile, DEMTileFile, albedoTileFile,
+                               overlapParamsArray, globalParams);
+        
+      }
+      callback.report_finished();
     }
-    callback.report_finished();
   }
 
 
@@ -1331,14 +1335,20 @@ int main( int argc, char *argv[] ) {
 
       for (unsigned int i = 0; i < imageFiles.size(); ++i) {   
 
-        if (globalParams.reflectanceType == NO_REFL){
-          //no use of reflectance map
-          ComputeExposure(&modelParamsArray[inputIndices[i]], globalParams);
-        }else if (!useTiles){
-          //use reflectance map
-          ComputeExposureAlbedo(&modelParamsArray[inputIndices[i]], globalParams);
-        }else{
-
+        bool useReflectance = (globalParams.reflectanceType != NO_REFL); 
+        
+        if (!useTiles){
+          
+          if (!useReflectance){
+            //no use of reflectance map
+            ComputeExposure(&modelParamsArray[inputIndices[i]], globalParams);
+          }else{
+            //use reflectance map
+            ComputeExposureAlbedo(&modelParamsArray[inputIndices[i]], globalParams);
+          }
+          
+        } else{
+          
           // Update the exposure based on tiles
           std::string curDRG = imageFiles[i];
           std::vector<ImageRecord> DEMTiles, albedoTiles;
@@ -1348,6 +1358,7 @@ int main( int argc, char *argv[] ) {
           overlap = makeOverlapList(DEMTiles, curDRG);
           bool compAvgRefl = false; // set this flag to false to update the exposure
           double exposure = computeAvgReflectanceOverTilesOrUpdateExposure(compAvgRefl,
+                                                                           useReflectance,
                                                                            pixelPadding, tileSize,
                                                                            DEMTiles, albedoTiles, 
                                                                            overlap,
@@ -1371,40 +1382,43 @@ int main( int argc, char *argv[] ) {
         for (unsigned int j = 0; j < overlapIndicesArray[i].size(); j++){
           overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
         }
+
+        bool useReflectance = (globalParams.reflectanceType != NO_REFL); 
         
-        if (globalParams.reflectanceType == NO_REFL){
-          //no use of the reflectance map
-          UpdateImageMosaic( modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
-        }else{
-          if (!useTiles){
+        if (!useTiles){
+          if (!useReflectance){
+            //no use of the reflectance map
+            UpdateImageMosaic( modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
+          }else{
             //use reflectance
             UpdateAlbedoMosaic(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
-          }else{
-            // We use the same logic as for initializing the albedo above. What is different now
-            // is that we work with the updated exposure.
-            std::string blankTileFile  = imageFiles[i];
-            Vector4 tileCorners = getImageCorners(blankTileFile);
-            if (isLastIter && !boxesOverlap(tileCorners, simBox)){
-              // If this is not the last iteration, we must init/update the exposure
-              // and albedo for all tiles. Otherwise it is enough to do it only
-              // for the tiles which overlap with the sim box.
-              std::cout << "Skipping tile: "
-                        << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
-              continue;
-            }
-            std::string DEMTileFile, albedoTileFile;
-            getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
-                                  DEMTileFile, albedoTileFile                                // outputs
-                                  );
-            bool initTile = false; // will update, not init
-            double costFunVal = InitOrUpdateAlbedoTile(isLastIter, initTile, pixelPadding, tileSize,
-                                                       blankTileFile, DEMTileFile, albedoTileFile,
-                                                       overlapParamsArray, globalParams);
-            std::string costFunFile = costFunDir
-              + prefix_from_filename(sufix_from_filename(albedoTileFile)) + ".txt";
-            std::cout << "cost fun file is " << costFunFile << std::endl;
-            AppendCostFunToFile(costFunVal, costFunFile);
           }
+        
+        }else{
+          // We use the same logic as for initializing the albedo above. What is different now
+          // is that we work with the updated exposure.
+          std::string blankTileFile  = imageFiles[i];
+          Vector4 tileCorners = getImageCorners(blankTileFile);
+          if (isLastIter && !boxesOverlap(tileCorners, simBox)){
+            // If this is not the last iteration, we must init/update the exposure
+            // and albedo for all tiles. Otherwise it is enough to do it only
+            // for the tiles which overlap with the sim box.
+            std::cout << "Skipping tile: "
+                      << blankTileFile << " as it does not overlap with the simulation box." << std::endl;
+            continue;
+          }
+          std::string DEMTileFile, albedoTileFile;
+          getDEMAlbedoTileFiles(blankTilesDir, DEMTilesDir, albedoTilesDir, blankTileFile, // inputs
+                                DEMTileFile, albedoTileFile                                // outputs
+                                );
+          bool initTile = false; // will update, not init
+          double costFunVal = InitOrUpdateAlbedoTile(isLastIter, initTile, useReflectance, pixelPadding, tileSize,
+                                                     blankTileFile, DEMTileFile, albedoTileFile,
+                                                     overlapParamsArray, globalParams);
+          std::string costFunFile = costFunDir
+            + prefix_from_filename(sufix_from_filename(albedoTileFile)) + ".txt";
+          //std::cout << "cost fun file is " << costFunFile << std::endl;
+          AppendCostFunToFile(costFunVal, costFunFile);
         }
       }
       if (useTiles) break; // Do just one iteration. We control the iterations from the script.      

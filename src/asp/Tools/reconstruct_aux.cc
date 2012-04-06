@@ -167,7 +167,7 @@ void do_projection( Options& opt,
                                       );
 }
 
-int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::string DEMTilesDir, std::string DEMFile,
+int extractDRGFromCube(bool useDEMTiles, double metersPerPixel, std::string DEMTilesDir, std::string DEMFile,
                       std::string cubeFile, std::string isis_adjust_file, std::string outputDrgFile,
                       Vector3 & sunPosition, Vector3 & spacecraftPosition
                       ){
@@ -191,6 +191,10 @@ int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::strin
     opt.image_file         = cubeFile;
     opt.camera_model_file  = isis_adjust_file;
     opt.output_file        = outputDrgFile;
+    opt.mpp                = metersPerPixel;
+
+    double moonRadius      = 1737400.0; 
+    opt.ppd                = 2*M_PI*moonRadius/(360.0*opt.mpp);
     
     // Create a fresh stereo session and query it for the camera models.
     asp::StereoSession::register_session_type( "rmax", &asp::StereoSessionRmax::construct);
@@ -248,7 +252,7 @@ int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::strin
     }
 
     spacecraftPosition = camera_model->camera_center(Vector2());
-    
+
     GeoReference dem_georef;
     ImageViewRef<PixelMask<float > > dem;
 
@@ -284,6 +288,8 @@ int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::strin
           cerr << "No DEM tiles are available" << endl;
           exit(1);
         }
+
+        // Find the bounding box of the cube using the georef of some DEM
         GeoReference someGeoRef;
         std::string someDEM = tifsInDir[0];
         cartography::read_georeference(someGeoRef, someDEM);
@@ -292,6 +298,8 @@ int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::strin
         float tmp_scale;
         BBox2 cubeBox = camera_bbox(someGeoRef, camera_model, texture_rsrc->cols(),
                      texture_rsrc->rows(), tmp_scale );
+        Vector2 boxNW = Vector2(cubeBox.min().x(), cubeBox.max().y());
+        Vector2 boxSE = Vector2(cubeBox.max().x(), cubeBox.min().y());
         delete texture_rsrc;
         
         // Attempting to extract automatic DEM nodata value.
@@ -301,9 +309,6 @@ int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::strin
             opt.nodata_value = rsrc->nodata_read();
           delete rsrc;
         }
-
-        Vector2 boxNW = Vector2(cubeBox.min().x(), cubeBox.max().y());
-        Vector2 boxSE = Vector2(cubeBox.max().x(), cubeBox.min().y());
 
         ImageView<PixelGray<float> > dem_disk_image;
         vw::photometry::readDEMTilesIntersectingBox(opt.nodata_value, boxNW, boxSE, tifsInDir, // inputs
@@ -399,9 +404,6 @@ int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::strin
 
       if ( scale == 0 ){
         scale = mpp_auto_scale;
-        // We got the scale from the cube, rather from the user. Then, the user may want to adjust
-        // the scale by given factor (factor > 1 will result in lower-res output image).
-        scale *= cubeToDrgScaleFactor; 
       }
     }
 
@@ -424,7 +426,7 @@ int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::strin
     GeoTransform trans(dem_georef, drg_georef);
     ImageViewRef<PixelMask<float> > output_dem =
       crop(transform(dem, trans,
-                     ZeroEdgeExtension(),
+                     ConstantEdgeExtension(),
                      BicubicInterpolation()),
            BBox2i(0,0,int32(output_width),int32(output_height)));
 
@@ -432,7 +434,7 @@ int extractDRGFromCube(bool useDEMTiles, double cubeToDrgScaleFactor, std::strin
       DiskImageResource::open(opt.image_file);
     ImageFormat fmt = texture_rsrc->format();
     delete texture_rsrc;
-
+    
     if ( opt.do_color ) {
       vw_out() << "\t--> Orthoprojecting solid color image.\n";
       ImageViewRef<PixelRGB<uint8> > final_result =
