@@ -83,23 +83,17 @@ namespace asp {
                                   << nodata << std::endl;
   }
 
-  // Smart IP matching that using clustering on triangulation and
-  // datum information to determine inliers.
+  // Detect interest points
   //
-  // Left and Right TX define transforms that have been performed on
-  // the images that that camera data doesn't know about. (ie
-  // scaling).
+  // This is not meant to be used directly. Please use ip_matching or
+  // the dumb homography ip matching.
   template <class Image1T, class Image2T>
-  bool ip_matching( vw::camera::CameraModel* cam1,
-                    vw::camera::CameraModel* cam2,
-                    vw::ImageViewBase<Image1T> const& image1_base,
-                    vw::ImageViewBase<Image2T> const& image2_base,
-                    vw::cartography::Datum const& datum,
-                    std::string const& output_name,
-                    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
-                    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-                    vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0))) {
+  void detect_interest_points( std::vector<vw::ip::InterestPoint>& matched_ip1,
+                               std::vector<vw::ip::InterestPoint>& matched_ip2,
+                               vw::ImageViewBase<Image1T> const& image1_base,
+                               vw::ImageViewBase<Image2T> const& image2_base,
+                               double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                               double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
     using namespace vw;
     Image1T image1 = image1_base.impl();
     Image2T image2 = image2_base.impl();
@@ -147,7 +141,7 @@ namespace asp {
 
     vw_out() << "\t--> Matching interest points\n";
     ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
-    std::vector<ip::InterestPoint> matched_ip1, matched_ip2, ip1_copy, ip2_copy;
+    std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
     ip1_copy.reserve( ip1.size() );
     ip2_copy.reserve( ip2.size() );
     BOOST_FOREACH( ip::InterestPoint const& ip, ip1 )
@@ -158,6 +152,77 @@ namespace asp {
              TerminalProgressCallback( "asp", "\t   Matching: " ));
     ip::remove_duplicates( matched_ip1, matched_ip2 );
     vw_out() << "\t    Matched points: " << matched_ip1.size() << "\n";
+  }
+
+  // Homography IP matching
+  //
+  // This applies only the homography constraint. Not the best...
+  template <class Image1T, class Image2T>
+  bool homography_ip_matching( vw::ImageViewBase<Image1T> const& image1_base,
+                               vw::ImageViewBase<Image2T> const& image2_base,
+                               std::string const& output_name,
+                               double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                               double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
+    using namespace vw;
+
+    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+    detect_interest_points( matched_ip1, matched_ip2,
+                            image1_base.impl(), image2_base.impl(),
+                            nodata1, nodata2 );
+    if ( matched_ip1.size() == 0 || matched_ip2.size() == 0 )
+      return false;
+    std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1),
+      ransac_ip2 = iplist_to_vectorlist(matched_ip2);
+    std::vector<size_t> indices;
+    try {
+      typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
+                                          math::InterestPointErrorMetric> RansacT;
+      RansacT ransac( math::HomographyFittingFunctor(),
+                      math::InterestPointErrorMetric(),
+                      norm_2(Vector2(bounding_box(image1_base.impl()).size()))/100.0 );
+      Matrix<double> H(ransac(ransac_ip1,ransac_ip2));
+      vw_out() << "\t--> Homography: " << H << "\n";
+      indices = ransac.inlier_indices(H,ransac_ip1,ransac_ip2);
+    } catch (const vw::math::RANSACErr& e ) {
+      vw_out() << "RANSAC Failed: " << e.what() << "\n";
+      return false;
+    }
+
+    std::vector<ip::InterestPoint> final_ip1, final_ip2;
+    BOOST_FOREACH( size_t& index, indices ) {
+      final_ip1.push_back(matched_ip1[index]);
+      final_ip2.push_back(matched_ip2[index]);
+    }
+
+    ip::write_binary_match_file(output_name, final_ip1, final_ip2);
+    return true;
+  }
+
+  // Smart IP matching that using clustering on triangulation and
+  // datum information to determine inliers.
+  //
+  // Left and Right TX define transforms that have been performed on
+  // the images that that camera data doesn't know about. (ie
+  // scaling).
+  template <class Image1T, class Image2T>
+  bool ip_matching( vw::camera::CameraModel* cam1,
+                    vw::camera::CameraModel* cam2,
+                    vw::ImageViewBase<Image1T> const& image1_base,
+                    vw::ImageViewBase<Image2T> const& image2_base,
+                    vw::cartography::Datum const& datum,
+                    std::string const& output_name,
+                    double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                    double nodata2 = std::numeric_limits<double>::quiet_NaN(),
+                    vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
+                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0))) {
+    using namespace vw;
+
+    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+    detect_interest_points( matched_ip1, matched_ip2,
+                            image1_base.impl(), image2_base.impl(),
+                            nodata1, nodata2 );
+    if ( matched_ip1.size() == 0 || matched_ip2.size() == 0 )
+      return false;
 
     // Remove IP that don't triangulate well or triangulate well away
     // from the datum.
@@ -233,7 +298,9 @@ namespace asp {
 
     // Record new list that contains only the inliers.
     vw_out() << "\t    Reduced matches to " << good_indices.size() << "\n";
-    ip1_copy.resize(0); ip2_copy.resize(0);
+    std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
+    ip1_copy.reserve( matched_ip1.size() );
+    ip2_copy.reserve( matched_ip1.size() );
     BOOST_FOREACH( size_t index, good_indices ) {
       Vector2 l = left_tx.reverse( Vector2( matched_ip1[index].x, matched_ip1[index].y ) );
       Vector2 r = right_tx.reverse( Vector2( matched_ip2[index].x, matched_ip2[index].y ) );

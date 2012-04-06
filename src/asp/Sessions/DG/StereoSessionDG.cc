@@ -240,13 +240,21 @@ namespace asp {
         fs::basename(input_file2) + ".match";
 
       if (!fs::exists(match_filename)) {
-        boost::shared_ptr<camera::CameraModel> cam1, cam2;
-        camera_models( cam1, cam2 );
+        bool inlier = false;
 
-        bool inlier =
-          ip_matching_w_alignment( cam1.get(), cam2.get(),
-                                   left_disk_image, right_disk_image,
-                                   cartography::Datum("WGS84"), match_filename );
+        if ( m_rpc_map_projected ) {
+          inlier =
+            homography_ip_matching( left_disk_image, right_disk_image,
+                                    match_filename );
+        } else {
+          boost::shared_ptr<camera::CameraModel> cam1, cam2;
+          camera_models( cam1, cam2 );
+          inlier =
+            ip_matching_w_alignment( cam1.get(), cam2.get(),
+                                     left_disk_image, right_disk_image,
+                                     cartography::Datum("WGS84"), match_filename );
+        }
+
         if ( !inlier ) {
           fs::remove( match_filename );
           vw_throw( IOErr() << "Unable to match left and right images." );
