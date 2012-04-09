@@ -148,3 +148,35 @@ TEST(StereoSessionDG, ReadRPC) {
   EXPECT_NEAR( 1, xml.rpc_ptr()->sample_den_coeff()[0], 1e-6 );
   EXPECT_NEAR( -1.211995e-7, xml.rpc_ptr()->sample_den_coeff()[19], 1e-6 );
 }
+
+TEST(StereoSessionDG, ProjectRPC) {
+  XMLPlatformUtils::Initialize();
+
+  // Read the RPC
+  RPCXML xml;
+  xml.read_from_file( "dg_example1.xml" );
+  boost::scoped_ptr<RPCModel> rpc_model( new RPCModel(*xml.rpc_ptr()) );
+
+  // Read the Digital Globe camera model
+  StereoSessionDG session;
+  boost::shared_ptr<camera::CameraModel> dg_model( session.camera_model("", "dg_example1.xml") );
+
+  // Verify the measurement between the two cameras
+  cartography::Datum datum("WGS84");
+  // This should be 0,0
+  Vector3 xyz = datum.geodetic_to_cartesian( Vector3(-105.42399,39.833107,2595.9) );
+  EXPECT_VECTOR_NEAR( rpc_model->point_to_pixel( xyz ),
+                      dg_model->point_to_pixel( xyz ), 25 );
+  // This should be 35170, 0
+  xyz = datum.geodetic_to_cartesian( Vector3(-105.35823,39.842179,2441.3) );
+  EXPECT_VECTOR_NEAR( rpc_model->point_to_pixel( xyz ),
+                      dg_model->point_to_pixel( xyz ), 25 );
+  // This should be 35170, 23708
+  xyz = datum.geodetic_to_cartesian( Vector3(-105.35795,39.803541,2612.6) );
+  EXPECT_VECTOR_NEAR( rpc_model->point_to_pixel( xyz ),
+                      dg_model->point_to_pixel( xyz ), 25 );
+  // This should be 0, 23708
+  xyz = datum.geodetic_to_cartesian( Vector3(-105.42418,39.793464,2801.8) );
+  EXPECT_VECTOR_NEAR( rpc_model->point_to_pixel( xyz ),
+                      dg_model->point_to_pixel( xyz ), 25 );
+}

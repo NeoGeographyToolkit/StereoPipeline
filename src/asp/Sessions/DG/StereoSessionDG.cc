@@ -62,13 +62,19 @@ public:
 // value to unprojected pixel indices.
 class OriginalCameraIndex : public ReturnFixedType<Vector2f> {
   RPCModel m_rpc;
+  BBox2i m_image_boundaries;
 public:
-  OriginalCameraIndex( RPCModel const& rpc ) : m_rpc(rpc) {}
+  OriginalCameraIndex( RPCModel const& rpc,
+                       BBox2i const& bbox ) : m_rpc(rpc),
+                                              m_image_boundaries(bbox) {}
 
   Vector2f operator()( Vector3 const& point ) const {
     if ( point == Vector3() )
       return Vector2f(-1,-1);
-    return m_rpc.point_to_pixel( point );
+    Vector2f result = m_rpc.point_to_pixel( point );
+    if ( m_image_boundaries.contains( result ) )
+      return result;
+    return Vector2f(-1,1);
   }
 };
 
@@ -352,44 +358,41 @@ namespace asp {
         // XML safely before.
       }
 
-      // Print out the RPCs that we are going to use. This is just for
-      // debug information.
-      std::cout << *model1 << "\n" << *model2 << std::endl;
-
       // The madness that happens below with the conversion from DEM
       // to cartesian and then geo_transforming ... is purely to
       // handle the problem of different datums between the DEM and
       // the project camera models. I hope GDAL noticed this.
       if ( dem_rsrc->has_nodata_read() ) {
+        std::cout << "Nodata read:\n";
         block_write_gdal_image( m_lut_image_left,
-                                per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic( create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
+                                crop(per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic( create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
                                                                               dem_georef, left_georef,
                                                                               ValueEdgeExtension<Vector3>( Vector3() ) ),
-                                                  OriginalCameraIndex( *model1 ) ),
+                                                       OriginalCameraIndex( *model1, bounding_box(Limg) ) ), bounding_box(Limg) ),
                               m_options,
                               TerminalProgressCallback("asp","\t  L LUT: ") );
         block_write_gdal_image( m_lut_image_right,
-                                per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic( create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
+                                crop(per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic( create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
                                                                               dem_georef, right_georef,
                                                                               ValueEdgeExtension<Vector3>( Vector3() ) ),
-                                                  OriginalCameraIndex( *model2 ) ),
+                                                       OriginalCameraIndex( *model2, bounding_box(Rimg) ) ), bounding_box(Rimg) ),
                               m_options,
-                              TerminalProgressCallback("asp","\t  L LUT: ") );
+                              TerminalProgressCallback("asp","\t  R LUT: ") );
       } else {
         block_write_gdal_image( m_lut_image_left,
                                 per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
                                                                               dem_georef, left_georef,
                                                                               ValueEdgeExtension<Vector3>( Vector3() ) ),
-                                                  OriginalCameraIndex( *model1 ) ),
+                                                  OriginalCameraIndex( *model1, bounding_box(Limg) ) ),
                               m_options,
                               TerminalProgressCallback("asp","\t  L LUT: ") );
         block_write_gdal_image( m_lut_image_right,
                                 per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
                                                                               dem_georef, right_georef,
                                                                               ValueEdgeExtension<Vector3>( Vector3() ) ),
-                                                  OriginalCameraIndex( *model2 ) ),
+                                                  OriginalCameraIndex( *model2, bounding_box(Rimg) ) ),
                               m_options,
-                              TerminalProgressCallback("asp","\t  L LUT: ") );
+                              TerminalProgressCallback("asp","\t  R LUT: ") );
       }
     }
   }

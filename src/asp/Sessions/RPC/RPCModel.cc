@@ -76,9 +76,7 @@ namespace asp {
   // make that part of the API available. However I believe this is a
   // safe reinterpretation that is safe to distribute.
   Vector2 RPCModel::point_to_pixel( Vector3 const& point ) const {
-
-    Vector3 geodetic = m_datum.cartesian_to_geodetic( point );
-    return geodetic_to_pixel( geodetic );
+    return geodetic_to_pixel( m_datum.cartesian_to_geodetic( point ) );
   }
 
   Vector2 RPCModel::geodetic_to_pixel( Vector3 const& geodetic ) const {
@@ -93,5 +91,4 @@ namespace asp {
 
     return elem_prod( normalized_proj, m_xy_scale ) + m_xy_offset;
   }
-
 }
