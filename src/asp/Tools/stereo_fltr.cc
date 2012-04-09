@@ -62,6 +62,85 @@ struct MultipleDisparityCleanUp<ViewT,1> {
   }
 };
 
+template <class ImageT>
+void write_resample_with_reduce_memory( ImageViewBase<ImageT> const& inputview,
+                                        double sub_scale,
+                                        std::string const& suffix,
+                                        Options const& opt ) {
+  ImageT const& input = inputview.impl();
+
+  if ( sub_scale > 1 ) sub_scale = 1;
+  // Solving for the number of threads and the tile size to use for
+  // subsampling while only using 500 MiB of memory. (The cache code
+  // is a little slow on releasing so it will probably use 1.5GiB
+  // memory during subsampling) Also tile size must be a power of 2
+  // and greater than or equal to 64 px;
+  uint32 previous_num_threads = vw_settings().default_num_threads();
+  uint32 sub_threads = previous_num_threads + 1;
+  uint32 tile_power = 0;
+  const uint32 pixel_bytes = PixelNumBytes<typename ImageT::pixel_type>::value;
+  const double scaling = ceil(1.0/sub_scale);
+  while ( tile_power < 6 && sub_threads > 1) {
+    sub_threads--;
+    tile_power =
+      boost::numeric_cast<uint32>( floor( ( log(512.0e6) -
+                                            log(double(sub_threads*pixel_bytes) *
+                                                scaling*scaling) ) / log(4) ) );
+  }
+  uint32 sub_tile_size = 1 << tile_power;
+
+  VW_OUT(DebugMessage, "asp") << "\t--> Creating previews. Subsampling by " << sub_scale
+                              << " by using " << sub_tile_size << " tile size and "
+                              << sub_threads << " threads.\n";
+
+  if ( sub_tile_size > vw_settings().default_tile_size() )
+    sub_tile_size = vw_settings().default_tile_size();
+
+  TransformView<InterpolationView<EdgeExtensionView<ImageT, ConstantEdgeExtension>, BilinearInterpolation>, ResampleTransform> reduced =
+    resample(input, sub_scale);
+  vw_settings().set_default_num_threads(sub_threads);
+  DiskImageResourceGDAL rsrc( opt.out_prefix + suffix + ".tif",
+                              reduced.format(),
+                              Vector2i(sub_tile_size,
+                                       sub_tile_size ),
+                              opt.gdal_options );
+  block_write_image( rsrc, reduced,
+                     TerminalProgressCallback("asp", "\t    Writing: "));
+  vw_settings().set_default_num_threads(previous_num_threads);
+}
+
+template <class ImageT>
+void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
+                                    Options const& opt ) {
+  { // Write Good Pixel Map
+    vw_out() << "\t--> Creating \"Good Pixel\" image: "
+             << (opt.out_prefix + "-GoodPixelMap.tif") << "\n";
+
+    // Sub-sampling so that the user can actually view it.
+    float sub_scale =
+      2048.0 / float( std::min( inputview.impl().cols(),
+                                inputview.impl().rows() ) );
+    write_resample_with_reduce_memory( stereo::missing_pixel_image(inputview.impl()),
+                                       sub_scale, "-GoodPixelMap", opt );
+  }
+
+  // Fill Holes
+  if(stereo_settings().fill_holes) {
+    vw_out() << "\t--> Filling holes with Inpainting method.\n";
+    BlobIndexThreaded bindex( invert_mask( inputview.impl() ),
+                              stereo_settings().fill_hole_max_size );
+    vw_out() << "\t    * Identified " << bindex.num_blobs() << " holes\n";
+    asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
+                                 asp::InpaintView<ImageT >(inputview.impl(), bindex ),
+                                 opt, TerminalProgressCallback("asp","\t--> Filtering: ") );
+
+  } else {
+    asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
+                                 inputview.impl(), opt,
+                                 TerminalProgressCallback("asp", "\t--> Filtering: ") );
+  }
+}
+
 void stereo_filtering( Options& opt ) {
   vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 3 --> FILTERING \n";
 
@@ -71,14 +150,13 @@ void stereo_filtering( Options& opt ) {
 
   try {
 
-    ImageViewRef<PixelMask<Vector2f> > filtered_disparity;
-
     // Rasterize the results so far to a temporary file on disk.
     // This file is deleted once we complete the second half of the
     // disparity map filtering process.
     {
       // Apply filtering for high frequencies
-      DiskImageView<PixelMask<Vector2f> > disparity_disk_image(post_correlation_fname);
+      typedef DiskImageView<PixelMask<Vector2f> > input_type;
+      input_type disparity_disk_image(post_correlation_fname);
 
       // Applying additional clipping from the edge. We make new
       // mask files to avoid a weird and tricky segfault due to
@@ -87,62 +165,52 @@ void stereo_filtering( Options& opt ) {
       DiskImageView<vw::uint8> right_mask( opt.out_prefix+"-rMask.tif" );
       int32 mask_buffer = max( stereo_settings().subpixel_kernel );
 
-      // This is light weight .. don't worry about caching. All cost
-      // is on construction of the edge_mask.
-      ImageViewRef<vw::uint8> Lmaskmore =
-        apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024));
-      ImageViewRef<vw::uint8> Rmaskmore =
-        apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024));
-
       vw_out() << "\t--> Cleaning up disparity map prior to filtering processes ("
-	       << stereo_settings().rm_cleanup_passes << " pass).\n";
-      typedef DiskImageView<PixelMask<Vector2f> > input_type;
-      if ( stereo_settings().rm_cleanup_passes == 1 )
-        filtered_disparity =
-          stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
-                                                                          disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                          stereo_settings().rm_v_half_kern,
-                                                                          stereo_settings().rm_threshold,
-                                                                          stereo_settings().rm_min_matches/100.0),
-                                 Lmaskmore, Rmaskmore);
-      else if ( stereo_settings().rm_cleanup_passes == 2 )
-        filtered_disparity =
-          stereo::disparity_mask(MultipleDisparityCleanUp<input_type,2>()(
-                                                                          disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                          stereo_settings().rm_v_half_kern,
-                                                                          stereo_settings().rm_threshold,
-                                                                          stereo_settings().rm_min_matches/100.0),
-                                 Lmaskmore, Rmaskmore);
-      else if ( stereo_settings().rm_cleanup_passes == 3 )
-        filtered_disparity =
-          stereo::disparity_mask(MultipleDisparityCleanUp<input_type,3>()(
-                                                                          disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                          stereo_settings().rm_v_half_kern,
-                                                                          stereo_settings().rm_threshold,
-                                                                          stereo_settings().rm_min_matches/100.0),
-                                 Lmaskmore, Rmaskmore);
-      else if ( stereo_settings().rm_cleanup_passes == 4 )
-        filtered_disparity =
-          stereo::disparity_mask(MultipleDisparityCleanUp<input_type,4>()(
-                                                                          disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                          stereo_settings().rm_v_half_kern,
-                                                                          stereo_settings().rm_threshold,
-                                                                          stereo_settings().rm_min_matches/100.0),
-                                 Lmaskmore, Rmaskmore);
-      else if ( stereo_settings().rm_cleanup_passes >= 5 )
-        filtered_disparity =
-          stereo::disparity_mask(MultipleDisparityCleanUp<input_type,5>()(
-                                                                          disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                          stereo_settings().rm_v_half_kern,
-                                                                          stereo_settings().rm_threshold,
-                                                                          stereo_settings().rm_min_matches/100.0),
-                                 Lmaskmore, Rmaskmore);
-      else
-        filtered_disparity =
-          stereo::disparity_mask(disparity_disk_image,
-                                 Lmaskmore, Rmaskmore);
-
+               << stereo_settings().rm_cleanup_passes << " pass).\n";
       if ( stereo_settings().mask_flatfield ) {
+        ImageViewRef<PixelMask<Vector2f> > filtered_disparity;
+        if ( stereo_settings().rm_cleanup_passes == 1 )
+          filtered_disparity =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
+                                                                            stereo_settings().rm_v_half_kern,
+                                                                            stereo_settings().rm_threshold,
+                                                                            stereo_settings().rm_min_matches/100.0),
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
+        else if ( stereo_settings().rm_cleanup_passes == 2 )
+          filtered_disparity =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,2>()(
+                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
+                                                                            stereo_settings().rm_v_half_kern,
+                                                                            stereo_settings().rm_threshold,
+                                                                            stereo_settings().rm_min_matches/100.0),
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
+        else if ( stereo_settings().rm_cleanup_passes == 3 )
+          filtered_disparity =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,3>()(
+                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
+                                                                            stereo_settings().rm_v_half_kern,
+                                                                            stereo_settings().rm_threshold,
+                                                                            stereo_settings().rm_min_matches/100.0),
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
+        else if ( stereo_settings().rm_cleanup_passes >= 4 )
+          filtered_disparity =
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,4>()(
+                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
+                                                                            stereo_settings().rm_v_half_kern,
+                                                                            stereo_settings().rm_threshold,
+                                                                            stereo_settings().rm_min_matches/100.0),
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
+        else
+          filtered_disparity =
+            stereo::disparity_mask(disparity_disk_image,
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
+
         // This is only turned on for apollo. Blob detection doesn't
         // work to great when tracking a whole lot of spots. HiRISE
         // seems to keep breaking this so I've keep it turned off.
@@ -152,65 +220,53 @@ void stereo_filtering( Options& opt ) {
         BlobIndexThreaded bindex( filtered_disparity,
                                   stereo_settings().erode_max_size );
         vw_out() << "\t    * Eroding " << bindex.num_blobs() << " islands\n";
-        filtered_disparity =
-          ErodeView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex );
+        write_good_pixel_and_filtered( ErodeView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex ),
+                                       opt );
+      } else {
+        // No Erosion step
+        if ( stereo_settings().rm_cleanup_passes == 1 )
+          write_good_pixel_and_filtered(
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
+                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
+                                                                            stereo_settings().rm_v_half_kern,
+                                                                            stereo_settings().rm_threshold,
+                                                                            stereo_settings().rm_min_matches/100.0),
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt);
+        else if ( stereo_settings().rm_cleanup_passes == 2 )
+          write_good_pixel_and_filtered(
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,2>()(
+                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
+                                                                            stereo_settings().rm_v_half_kern,
+                                                                            stereo_settings().rm_threshold,
+                                                                            stereo_settings().rm_min_matches/100.0),
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt);
+        else if ( stereo_settings().rm_cleanup_passes == 3 )
+          write_good_pixel_and_filtered(
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,3>()(
+                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
+                                                                            stereo_settings().rm_v_half_kern,
+                                                                            stereo_settings().rm_threshold,
+                                                                            stereo_settings().rm_min_matches/100.0),
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt);
+        else if ( stereo_settings().rm_cleanup_passes >= 4 )
+          write_good_pixel_and_filtered(
+            stereo::disparity_mask(MultipleDisparityCleanUp<input_type,4>()(
+                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
+                                                                            stereo_settings().rm_v_half_kern,
+                                                                            stereo_settings().rm_threshold,
+                                                                            stereo_settings().rm_min_matches/100.0),
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt);
+        else
+          write_good_pixel_and_filtered(
+            stereo::disparity_mask(disparity_disk_image,
+                                   apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
+                                   apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt );
       }
     }
-
-    { // Write Good Pixel Map
-      vw_out() << "\t--> Creating \"Good Pixel\" image: "
-               << (opt.out_prefix + "-GoodPixelMap.tif") << "\n";
-
-      // Sub-sampling so that the user can actually view it.
-      float sub_scale = 2048.0 / float( std::min( filtered_disparity.cols(),
-                                                  filtered_disparity.rows() ) );
-      if ( sub_scale > 1 ) sub_scale = 1;
-      // Solving for the number of threads and the tile size to use for
-      // subsampling while only using 500 MiB of memory. (The cache code
-      // is a little slow on releasing so it will probably use 1.5GiB
-      // memory during subsampling) Also tile size must be a power of 2
-      // and greater than or equal to 64 px;
-      uint32 previous_num_threads = vw_settings().default_num_threads();
-      uint32 sub_threads = previous_num_threads + 1;
-      uint32 tile_power = 0;
-      while ( tile_power < 6 && sub_threads > 1) {
-        sub_threads--;
-        tile_power = boost::numeric_cast<uint32>( log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
-      }
-      uint32 sub_tile_size = 1 << tile_power;
-      if ( sub_tile_size > vw_settings().default_tile_size() )
-        sub_tile_size = vw_settings().default_tile_size();
-
-      ImageViewRef<PixelRGB<uint8> > good_pixel =
-        resample(stereo::missing_pixel_image(filtered_disparity),
-                 sub_scale);
-      vw_settings().set_default_num_threads(sub_threads);
-      DiskImageResourceGDAL good_pixel_rsrc( opt.out_prefix + "-GoodPixelMap.tif",
-                                             good_pixel.format(),
-                                             Vector2i(sub_tile_size,
-                                                      sub_tile_size ),
-                                             opt.gdal_options );
-      block_write_image( good_pixel_rsrc, good_pixel,
-                         TerminalProgressCallback("asp", "\t    Writing: "));
-      vw_settings().set_default_num_threads(previous_num_threads);
-    }
-
-    // Fill Holes
-    if(stereo_settings().fill_holes) {
-      vw_out() << "\t--> Filling holes with Inpainting method.\n";
-      BlobIndexThreaded bindex( invert_mask( filtered_disparity ),
-                                stereo_settings().fill_hole_max_size );
-      vw_out() << "\t    * Identified " << bindex.num_blobs() << " holes\n";
-      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-                                   asp::InpaintView<ImageViewRef<PixelMask<Vector2f> > >(filtered_disparity, bindex ),
-                                   opt, TerminalProgressCallback("asp","\t--> Filtering: ") );
-
-    } else {
-      asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-                                   filtered_disparity, opt,
-                                   TerminalProgressCallback("asp", "\t--> Filtering: ") );
-    }
-
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at filtering stage -- could not read input files.\n"
               << e.what() << "\nExiting.\n\n" );
