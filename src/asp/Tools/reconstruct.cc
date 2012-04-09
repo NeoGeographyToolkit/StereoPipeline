@@ -558,9 +558,12 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
     //settings->saveWeights=1;
 
     return(1);
-  }
-  else{
+  }else{
+    std::cout << "ERROR: Config file " << config_filename << " not found."<< std::endl;
+    exit(1);
+    
     printf("configFile NOT FOUND\n");
+    
     settings->reflectanceType = LUNAR_LAMBERT;
     settings->saveReflectance = 1;
     settings->slopeType = 1;
@@ -1127,12 +1130,7 @@ int main( int argc, char *argv[] ) {
         // Compute and save the weights only for the current image,
         // not for all images overlapping with it.
 
-        ComputeImageCenterLines(modelParamsArray[j].inputFilename,  
-                                &modelParamsArray[j].hMaxDistArray,  
-                                &modelParamsArray[j].hCenterLine,  
-                                &modelParamsArray[j].vMaxDistArray,  
-                                &modelParamsArray[j].vCenterLine
-                                );
+        ComputeImageCenterLines(modelParamsArray[j]);
 
         if (!useTiles){
           modelParamsArray[j].hCenterLineDEM = ComputeDEMHCenterLine(modelParamsArray[j].DEMFilename,
