@@ -31,7 +31,7 @@ struct MultipleDisparityCleanUp {
   MultipleDisparityCleanUp<ViewT,N-1> inner_func;
 
   typedef typename MultipleDisparityCleanUp<ViewT,N-1>::result_type inner_type;
-  typedef UnaryPerPixelAccessorView< EdgeExtensionView< UnaryPerPixelAccessorView<EdgeExtensionView<inner_type,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> >,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> > result_type;
+  typedef UnaryPerPixelAccessorView< UnaryPerPixelAccessorView<EdgeExtensionView<inner_type,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> >, stereo::RemoveOutliersFunc<typename inner_type::pixel_type> > result_type;
 
   inline result_type operator()( ImageViewBase<ViewT> const& input,
                                  int const& h_half_kern,
@@ -49,7 +49,7 @@ struct MultipleDisparityCleanUp {
 template <class ViewT>
 struct MultipleDisparityCleanUp<ViewT,1> {
 
-  typedef UnaryPerPixelAccessorView< EdgeExtensionView< UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> >,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> > result_type;
+  typedef UnaryPerPixelAccessorView< UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ConstantEdgeExtension>, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> >, stereo::RemoveOutliersFunc<typename ViewT::pixel_type> > result_type;
 
   inline result_type operator()( ImageViewBase<ViewT> const& input,
                                  int const& h_half_kern,
@@ -66,7 +66,8 @@ template <class ImageT>
 void write_resample_with_reduce_memory( ImageViewBase<ImageT> const& inputview,
                                         double sub_scale,
                                         std::string const& suffix,
-                                        Options const& opt ) {
+                                        Options const& opt,
+                                        uint32 copies = 1 ) {
   ImageT const& input = inputview.impl();
 
   if ( sub_scale > 1 ) sub_scale = 1;
@@ -84,7 +85,7 @@ void write_resample_with_reduce_memory( ImageViewBase<ImageT> const& inputview,
     sub_threads--;
     tile_power =
       boost::numeric_cast<uint32>( floor( ( log(512.0e6) -
-                                            log(double(sub_threads*pixel_bytes) *
+                                            log(double(copies*sub_threads*pixel_bytes) *
                                                 scaling*scaling) ) / log(4) ) );
   }
   uint32 sub_tile_size = 1 << tile_power;
@@ -121,7 +122,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
       2048.0 / float( std::min( inputview.impl().cols(),
                                 inputview.impl().rows() ) );
     write_resample_with_reduce_memory( stereo::missing_pixel_image(inputview.impl()),
-                                       sub_scale, "-GoodPixelMap", opt );
+                                       sub_scale, "-GoodPixelMap", opt, 4 /* it thinks it's working with uint8, but the input is float */ );
   }
 
   // Fill Holes
