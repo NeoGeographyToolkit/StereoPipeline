@@ -54,7 +54,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max", po::value(&opt.hi), "Explicitly specify the range of the normalization (for ISIS images only)")
     ("session-type,t", po::value(&opt.stereo_session), "Select the stereo session type to use for processing. [default: pinhole]")
     ("use-solid-color", po::value(&color_text), "Use a solid color instead of camera image. Example: 255,0,128")
-    ("mark-no-processed-data", "If to set pixels which exist in the DEM but do not project onto the camera to black");
+    ("mark-no-processed-data", "If to set no-data pixels in the DEM which project onto the camera to black. [default: false]");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
