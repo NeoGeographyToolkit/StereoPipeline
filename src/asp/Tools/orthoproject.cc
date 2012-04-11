@@ -26,7 +26,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 struct Options : asp::BaseOptions {
-  Options() : lo(0), hi(0), do_color(false) {
+  Options() : lo(0), hi(0), do_color(false), mark_no_processed_data(false) {
     nodata_value = mpp = ppd = std::numeric_limits<double>::quiet_NaN();
   }
 
@@ -39,6 +39,7 @@ struct Options : asp::BaseOptions {
   float lo, hi;
   bool do_color;
   PixelRGB<uint8> color;
+  bool mark_no_processed_data;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -52,7 +53,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("min", po::value(&opt.lo), "Explicitly specify the range of the normalization (for ISIS images only)")
     ("max", po::value(&opt.hi), "Explicitly specify the range of the normalization (for ISIS images only)")
     ("session-type,t", po::value(&opt.stereo_session), "Select the stereo session type to use for processing. [default: pinhole]")
-    ("use-solid-color", po::value(&color_text), "Use a solid color instead of camera image. Example: 255,0,128");
+    ("use-solid-color", po::value(&color_text), "Use a solid color instead of camera image. Example: 255,0,128")
+    ("mark-no-processed-data", "If to set pixels which exist in the DEM but do not project onto the camera to black");
+
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -95,6 +98,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   } else {
     opt.do_color=false;
   }
+  if ( vm.count("mark-no-processed-data") ) opt.mark_no_processed_data = true;
 }
 
 template <class PixelT>
@@ -140,12 +144,23 @@ void do_projection( Options& opt,
 
 
   vw_out() << "\t--> Orthoprojecting texture.\n";
-  ImageViewRef<PixelT > final_result =
-    orthoproject(dem, drg_georef,
-                 texture_image, camera_model,
-                 BicubicInterpolation(), ZeroEdgeExtension());
+  if (!opt.mark_no_processed_data){
+    // Default
+    ImageViewRef<PixelT > final_result = orthoproject(dem, drg_georef,
+                                                      texture_image, camera_model,
+                                                      BicubicInterpolation(), ZeroEdgeExtension());
+    asp::write_gdal_georeferenced_image( opt.output_file, final_result, drg_georef, opt, TerminalProgressCallback("asp","") );
+  }else{
+    ImageViewRef<PixelT > final_result = orthoproject_markNoProcessedData(dem, drg_georef,
+                                                                          texture_image, camera_model,
+                                                                          BicubicInterpolation(), ZeroEdgeExtension());
+    // Save as uint8, need this for albedo
+    asp::write_gdal_georeferenced_image( opt.output_file,
+                                         pixel_cast_rescale< PixelGrayA<uint8> >(clamp(final_result, 0, 32767)),
+                                         drg_georef, opt, TerminalProgressCallback("asp","")
+                                         );
+  }
 
-  asp::write_gdal_georeferenced_image( opt.output_file, final_result, drg_georef, opt, TerminalProgressCallback("asp","") );
 }
 
 int main(int argc, char* argv[]) {
@@ -245,26 +260,24 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    // Parse the scale of the output image from the command line
-    // arguments.  This value can be set either in meters per pixel or
-    // pixels per degree.  At the moment, we haven't done the math to
-    // convert ppd to meters in a projected coordinate system and mpp to
-    // degrees in an unprojected coordinate system.  We throw an error
-    // in these cases for now.
+    // Do the math to convert pixel-per-degree to meter-per-pixel and vice-versa
+    double radius = dem_georef.datum().semi_major_axis();
+    if ( !std::isnan(opt.mpp) && !std::isnan(opt.ppd) ) {
+      vw_out() << "ERROR: Must specify at most one of the --mpp or --ppd options.\n";
+      return 1;
+    }else if ( !std::isnan(opt.mpp) ){
+      opt.ppd = 2*M_PI*radius/(360.0*opt.mpp);
+    }else if ( !std::isnan(opt.ppd) ){
+      opt.mpp = 2*M_PI*radius/(360.0*opt.ppd);
+    }
+
+    // Use the output resolution specified by the user if provided
     double scale = 0;
     if ( !std::isnan(opt.ppd) ) {
       if (dem_georef.is_projected()) {
-        vw_out() << "Input DEM is in a map projection.  Cannot specify resolution in pixels per degree.  Use meters per pixel (-mpp) instead.";
-        return 1;
-      } else {
-        scale = 1/opt.ppd;
-      }
-    } else if ( !std::isnan(opt.mpp) ) {
-      if (dem_georef.is_projected()) {
         scale = opt.mpp;
       } else {
-        vw_out() << "Input DEM is in a simple cylindrical map projection (Plate Carree).  Cannot specify resolution in meters per pixel.  Use pixels per degree (-ppd) instead.";
-        return 1;
+        scale = 1/opt.ppd;
       }
     }
 
@@ -325,7 +338,7 @@ int main(int argc, char* argv[]) {
     GeoTransform trans(dem_georef, drg_georef);
     ImageViewRef<PixelMask<float> > output_dem =
       crop(transform(dem, trans,
-                     ZeroEdgeExtension(),
+                     ConstantEdgeExtension(),
                      BicubicInterpolation()),
            BBox2i(0,0,int32(output_width),int32(output_height)));
 
@@ -333,14 +346,25 @@ int main(int argc, char* argv[]) {
       DiskImageResource::open(opt.image_file);
     ImageFormat fmt = texture_rsrc->format();
     delete texture_rsrc;
+
     if ( opt.do_color ) {
       vw_out() << "\t--> Orthoprojecting solid color image.\n";
-      ImageViewRef<PixelRGB<uint8> > final_result =
-        orthoproject(output_dem, drg_georef,
-                     constant_view(PixelRGB<uint8>(opt.color[0],opt.color[1],opt.color[2]),
-                                   fmt.cols,fmt.rows),
-                     camera_model,
-                     BicubicInterpolation(), ZeroEdgeExtension());
+      ImageViewRef<PixelRGB<uint8> > final_result;
+      if (!opt.mark_no_processed_data){
+        // Default
+        final_result = orthoproject(output_dem, drg_georef,
+                                    constant_view(PixelRGB<uint8>(opt.color[0],opt.color[1],opt.color[2]),
+                                                  fmt.cols,fmt.rows),
+                                    camera_model,
+                                    BicubicInterpolation(), ZeroEdgeExtension());
+      }else{
+        final_result = orthoproject_markNoProcessedData(output_dem, drg_georef,
+                                                        constant_view(PixelRGB<uint8>(opt.color[0],opt.color[1],opt.color[2]),
+                                                                      fmt.cols,fmt.rows),
+                                                        camera_model,
+                                                        BicubicInterpolation(), ZeroEdgeExtension());
+      }
+      
       DiskImageResourceGDAL rsrc(opt.output_file, final_result.format() );
       write_georeference(rsrc, drg_georef);
       write_image(rsrc, final_result, TerminalProgressCallback("asp",""));
