@@ -281,6 +281,13 @@ namespace asp {
     // frame.
     homography(0,2) = homography(1,2) = 0;
     VW_OUT( DebugMessage, "asp" ) << "Aligning right to left for IP capture using rough homography: " << homography << std::endl;
+
+    { // Check to see if this rough homography works
+      HomographyTransform func( homography );
+      VW_ASSERT( box1.intersects( func.forward_bbox( box2 ) ),
+                 LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed.\n" );
+    }
+
     TransformRef tx( compose(HomographyTransform(homography), right_tx) );
     BBox2i raster_box = tx.forward_bbox( right_tx.reverse_bbox(box2) );
     tx = TransformRef(compose(HomographyTransform(homography), right_tx,
