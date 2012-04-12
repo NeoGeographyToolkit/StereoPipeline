@@ -48,13 +48,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("mpp", po::value(&opt.mpp), "Specify the output resolution of the orthoimage in meters per pixel.")
     ("ppd", po::value(&opt.ppd), "Specify the output resolution of the orthoimage in pixels per degree.")
-    ("nodata-value", po::value(&opt.nodata_value), "Specify the nodata pixel value in input DEM. Will automatically find if available.")
+    ("nodata-value", po::value(&opt.nodata_value),
+     "Specify the nodata pixel value in input DEM. Will automatically find if available.")
     ("match-dem", "Match the georeferencing parameters and dimensions of the input DEM.")
     ("min", po::value(&opt.lo), "Explicitly specify the range of the normalization (for ISIS images only)")
     ("max", po::value(&opt.hi), "Explicitly specify the range of the normalization (for ISIS images only)")
-    ("session-type,t", po::value(&opt.stereo_session), "Select the stereo session type to use for processing. [default: pinhole]")
-    ("use-solid-color", po::value(&color_text), "Use a solid color instead of camera image. Example: 255,0,128")
-    ("mark-no-processed-data", "If to set no-data pixels in the DEM which project onto the camera to black. [default: false]");
+    ("session-type,t", po::value(&opt.stereo_session),
+     "Select the stereo session type to use for processing. [default: pinhole]")
+    ("use-solid-color", po::value(&color_text),
+     "Use a solid color instead of camera image. Example: 255,0,128")
+    ("mark-no-processed-data", po::bool_switch(&opt.mark_no_processed_data)->default_value(false),
+     "If to set no-data pixels in the DEM which project onto the camera to black.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -98,7 +102,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   } else {
     opt.do_color=false;
   }
-  if ( vm.count("mark-no-processed-data") ) opt.mark_no_processed_data = true;
 }
 
 template <class PixelT>
@@ -146,19 +149,23 @@ void do_projection( Options& opt,
   vw_out() << "\t--> Orthoprojecting texture.\n";
   if (!opt.mark_no_processed_data){
     // Default
-    ImageViewRef<PixelT > final_result = orthoproject(dem, drg_georef,
-                                                      texture_image, camera_model,
-                                                      BicubicInterpolation(), ZeroEdgeExtension());
-    asp::write_gdal_georeferenced_image( opt.output_file, final_result, drg_georef, opt, TerminalProgressCallback("asp","") );
+    asp::write_gdal_georeferenced_image(
+      opt.output_file,
+      orthoproject(dem, drg_georef,
+                   texture_image, camera_model,
+                   BicubicInterpolation(),
+                   ZeroEdgeExtension()),
+      drg_georef, opt,
+      TerminalProgressCallback("asp","") );
   }else{
-    ImageViewRef<PixelT > final_result = orthoproject_markNoProcessedData(dem, drg_georef,
-                                                                          texture_image, camera_model,
-                                                                          BicubicInterpolation(), ZeroEdgeExtension());
     // Save as uint8, need this for albedo
-    asp::write_gdal_georeferenced_image( opt.output_file,
-                                         pixel_cast_rescale< PixelGrayA<uint8> >(clamp(final_result, 0, 32767)),
-                                         drg_georef, opt, TerminalProgressCallback("asp","")
-                                         );
+    asp::write_gdal_georeferenced_image(
+      opt.output_file,
+      pixel_cast_rescale< PixelGrayA<uint8> >(clamp(
+        orthoproject_markNoProcessedData(dem, drg_georef,
+                                         texture_image, camera_model,
+                                         BicubicInterpolation(), ZeroEdgeExtension()), 0, 32767)),
+      drg_georef, opt, TerminalProgressCallback("asp","") );
   }
 
 }
@@ -263,12 +270,12 @@ int main(int argc, char* argv[]) {
     // Do the math to convert pixel-per-degree to meter-per-pixel and vice-versa
     double radius = dem_georef.datum().semi_major_axis();
     if ( !std::isnan(opt.mpp) && !std::isnan(opt.ppd) ) {
-      vw_out() << "ERROR: Must specify at most one of the --mpp or --ppd options.\n";
+      vw_throw( ArgumentErr() << "Must specify either --mpp or --ppd option, never both.\n" );
       return 1;
     }else if ( !std::isnan(opt.mpp) ){
-      opt.ppd = 2*M_PI*radius/(360.0*opt.mpp);
+      opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
     }else if ( !std::isnan(opt.ppd) ){
-      opt.mpp = 2*M_PI*radius/(360.0*opt.ppd);
+      opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
     }
 
     // Use the output resolution specified by the user if provided
@@ -281,29 +288,24 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    ImageFormat texture_fmt;
+    {
+      boost::scoped_ptr<SrcImageResource> texture_rsrc( DiskImageResource::open(opt.image_file) );
+      texture_fmt = texture_rsrc->format();
+    }
+
     GeoReference drg_georef = dem_georef;
     // If the user has supplied a scale, we use it.  Otherwise, we
     // compute the optimal scale of image based on the camera model.
     BBox2 projection_bbox, dem_bbox;
     {
       vw_out() << "\t--> Extracting camera bbox ... " << std::flush;
-      SrcImageResource *texture_rsrc =
-        DiskImageResource::open(opt.image_file);
       float mpp_auto_scale;
       projection_bbox =
-        camera_bbox( dem, dem_georef, camera_model, texture_rsrc->cols(),
-                     texture_rsrc->rows(), mpp_auto_scale );
-      delete texture_rsrc;
+        camera_bbox( dem, dem_georef, camera_model, texture_fmt.cols,
+                     texture_fmt.rows, mpp_auto_scale );
       dem_bbox = dem_georef.bounding_box(dem);
-      // if ( projection_bbox.min()[0] < 0 ) {
-      //   projection_bbox.min() += Vector2(360,0);
-      //   projection_bbox.max() += Vector2(360,0);
-      //   if ( projection_bbox.max()[0] > 360 ) {
-      //     projection_bbox.min()[0] = 0;
-      //     projection_bbox.max()[0] = 360;
-      //   }
-      // }
-      vw_out() << "done\n";
+      vw_out() << "done" << std::endl;
 
       // Use a bbox where both the image and the DEM have valid data.
       // Throw an error if there turns out to be no overlap.
@@ -321,6 +323,10 @@ int main(int argc, char* argv[]) {
 
     double output_width = projection_bbox.width() / scale;
     double output_height = projection_bbox.height() / scale;
+
+    vw_out( DebugMessage, "asp" ) << "Output size : "
+                                  << output_width << " " << output_height << " px\n"
+                                  << scale << " pt/px\n";
 
     Matrix3x3 drg_trans = drg_georef.transform();
     // This weird polarity checking is to make sure the output has been
@@ -340,40 +346,41 @@ int main(int argc, char* argv[]) {
       crop(transform(dem, trans,
                      ConstantEdgeExtension(),
                      BicubicInterpolation()),
-           BBox2i(0,0,int32(output_width),int32(output_height)));
+           0,0,int32(output_width),int32(output_height));
 
-    SrcImageResource *texture_rsrc =
-      DiskImageResource::open(opt.image_file);
-    ImageFormat fmt = texture_rsrc->format();
-    delete texture_rsrc;
+    vw_out( DebugMessage, "asp" ) << "Output GeoReference: "
+                                  << drg_georef << "\n";
 
     if ( opt.do_color ) {
       vw_out() << "\t--> Orthoprojecting solid color image.\n";
-      ImageViewRef<PixelRGB<uint8> > final_result;
       if (!opt.mark_no_processed_data){
         // Default
-        final_result = orthoproject(output_dem, drg_georef,
-                                    constant_view(PixelRGB<uint8>(opt.color[0],opt.color[1],opt.color[2]),
-                                                  fmt.cols,fmt.rows),
-                                    camera_model,
-                                    BicubicInterpolation(), ZeroEdgeExtension());
-      }else{
-        final_result = orthoproject_markNoProcessedData(output_dem, drg_georef,
-                                                        constant_view(PixelRGB<uint8>(opt.color[0],opt.color[1],opt.color[2]),
-                                                                      fmt.cols,fmt.rows),
-                                                        camera_model,
-                                                        BicubicInterpolation(), ZeroEdgeExtension());
+        asp::write_gdal_georeferenced_image(
+          opt.output_file,
+          orthoproject(output_dem, drg_georef,
+                       constant_view(opt.color, texture_fmt.cols,
+                                     texture_fmt.rows),
+                       camera_model,
+                       BicubicInterpolation(), ZeroEdgeExtension()),
+          drg_georef, opt,
+          TerminalProgressCallback("asp","") );
+      } else {
+        asp::write_gdal_georeferenced_image(
+          opt.output_file,
+          orthoproject_markNoProcessedData(output_dem, drg_georef,
+                                           constant_view(opt.color, texture_fmt.cols,
+                                                         texture_fmt.rows),
+                                           camera_model,
+                                           BicubicInterpolation(), ZeroEdgeExtension()),
+          drg_georef, opt,
+          TerminalProgressCallback("asp","") );
       }
-      
-      DiskImageResourceGDAL rsrc(opt.output_file, final_result.format() );
-      write_georeference(rsrc, drg_georef);
-      write_image(rsrc, final_result, TerminalProgressCallback("asp",""));
     } else {
-      switch(fmt.pixel_format) {
+      switch(texture_fmt.pixel_format) {
       case VW_PIXEL_GRAY:
       case VW_PIXEL_GRAYA:
       default:
-        switch(fmt.channel_type) {
+        switch(texture_fmt.channel_type) {
         case VW_CHANNEL_UINT8: do_projection<PixelGrayA<uint8> >( opt, output_dem,
                                                                   drg_georef,
                                                                   camera_model ); break;
@@ -390,7 +397,7 @@ int main(int argc, char* argv[]) {
         break;
       case VW_PIXEL_RGB:
       case VW_PIXEL_RGBA:
-        switch(fmt.channel_type) {
+        switch(texture_fmt.channel_type) {
         case VW_CHANNEL_UINT8: do_projection<PixelRGBA<uint8> >( opt, output_dem,
                                                                  drg_georef,
                                                                  camera_model ); break;
