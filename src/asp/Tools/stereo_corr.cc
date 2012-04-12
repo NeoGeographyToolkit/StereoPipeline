@@ -78,6 +78,7 @@ public:
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
     BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
                       elem_quot(bbox.max(), m_upscale_factor) );
+    seed_bbox.expand(1);
     seed_bbox.crop( m_seed_bbox );
     vw_out(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
 
@@ -86,6 +87,7 @@ public:
     local_search_range = grow_bbox_to_int(local_search_range);
     local_search_range.min() = floor(elem_prod(local_search_range.min(), m_upscale_factor));
     local_search_range.max() = ceil(elem_prod(local_search_range.max(), m_upscale_factor));
+    local_search_range.expand(2);
     vw_out(DebugMessage, "stereo") << "SeededCorrelatorView(" << bbox << ") search range "
                                    << local_search_range << " vs " << stereo_settings().search_range
                                    << "\n";
