@@ -20,8 +20,6 @@ pixelPadding=5       # by how much to pad each tile, in pixels
 simBox="-180:180:-40:40" # all albedo 
 tileSize=4 # tile size, in degrees
 
-# Executable
-recExe="$HOME/StereoPipeline/src/asp/Tools/reconstruct"
 # Input directories
 drgDir=../data/DIM_input_sub$sub
 demDir=../data/DEM_input_sub$sub
@@ -31,6 +29,11 @@ cubDir=../data/cubes
 resDir=../data/albedo_$labelStr
 outCubDir=$resDir/cubes # A subset of the data in the cub directory for the given run
 expDir=$resDir/exposure
+# Executables
+VISION_WORKBENCH_PATH=$HOME/visionworkbench/src/vw/tools
+STEREO_PIPELINE_PATH=$HOME/StereoPipeline/src/asp/Tools
+recExe="$STEREO_PIPELINE_PATH/reconstruct"
+image2qtree="$VISION_WORKBENCH_PATH/image2qtree"
 
 # Temporary fix: For robustness, rebuild the indices of images each time it is run
 # to avoid invalid indices.
@@ -59,7 +62,7 @@ echo useTiles is $useTiles
 imagesList="$resDir/imagesList.txt" # will create this below, and will use it in subseq. iterations
 blankTilesList="$resDir/blankTilesList.txt" # To do: this is duplicated in the code!
 
-# Path to the reconstruct.cc executable
+# Options to be passed to $recExe
 options1="--drg-directory $drgDir --dem-tiles-directory $demTilesDir -d $demDir"
 options2="-s $outCubDir -e $expDir -r $resDir -b $simBox"
 options3="-t $useTiles --tile-size $tileSize --pixel-padding $pixelPadding -f $imagesList"
@@ -74,17 +77,6 @@ settings=photometry_init_0_settings.txt
 run="$recExe $options -c $settings --is-last-iter 0 -i $refImage"
 $run
 
-# Note that if we don't use tiles, we use the file filter.txt below
-# in order to select which images to do. If this file does not 
-# exist, run all images.
-if [ $useTiles -eq 0 ]; then 
-    if [ -e filter.txt ]; then 
-        cat $drgDir/index.txt | ./filter.pl filter.txt > $imagesList
-    else
-        cat $drgDir/index.txt > $imagesList
-    fi
-fi
-
 if [ ! -e $cubDir/spacecraftpos.txt ]; then
     echo "Error: File $cubDir/spacecraftpos.txt does not exist."
     exit
@@ -94,16 +86,12 @@ if [ ! -e $cubDir/sunpos.txt ]; then
     exit
 fi
 
-# Filter out the images which don't have sun/spacecraft info
-cat $imagesList | ./filter.pl $cubDir/sunpos.txt > tmp.txt
-mv -f tmp.txt $imagesList
-
 # Create the list of drg images as expected by reconstruct.cc.
 # Also create the corresponding sun/spacecraft position files
 # for the current run.
-TIFFS=$(ls $drgDir/*tif       | ./filter.pl $imagesList | perl -pi -e "s#\n# #g")
-cat $cubDir/spacecraftpos.txt | ./filter.pl $imagesList > $outCubDir/spacecraftpos.txt 
-cat $cubDir/sunpos.txt        | ./filter.pl $imagesList > $outCubDir/sunpos.txt
+TIFFS=$(ls $drgDir/*tif)
+cat $cubDir/spacecraftpos.txt > $outCubDir/spacecraftpos.txt 
+cat $cubDir/sunpos.txt        > $outCubDir/sunpos.txt
 
 # Options to reconstruct.cc
 #-d denotes the DEM directory
@@ -147,5 +135,5 @@ for i in $resDir/albedo/*.tif; do
     echo "oFile = $o" 
     gdal_translate -outsize 25% 25% $i $o 
 done
-~/visionworkbench/src/vw/tools/image2qtree -m kml $shoDir/*.tif -o $shoDir
+$image2qtree -m kml $shoDir/*.tif -o $shoDir
 

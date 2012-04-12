@@ -5,6 +5,13 @@
 // __END_LICENSE__
 
 
+// To do: Fix the logic for extracting sun/spacecraft position from cubes
+// in both the .cc file and in the shell script.
+// To do: Enable Ara's "images on one CPU" mode.
+// To do: Support DEMs which are not tiles, and which are uint16.
+// To do: The above is not simple at all, when it comes to the part
+// when we read portions of DEM images and we concatenate them to save
+// on memory. 
 // To do: Remove the file reconstruct_aux.cc which mostly duplicates orthoproject.cc.
 // To do: Test this big image: AS17-M-0305
 // To do: Test this as well. /DIM_input_sub64_isis/AS17-M-0281.tif, has a lot of black.
@@ -1000,18 +1007,22 @@ int main( int argc, char *argv[] ) {
   std::string initExpTimeFile       = exposureDir + "/exposureTime.txt";
   std::string exposureInfoFilename  = resDir      + "/exposure/exposureInfo.txt";
 
-  std::vector<Vector3> sunPositions;
-  sunPositions = ReadSunPosition((char*)sunPosFilename.c_str(), drgRecords.size());
-
-  std::vector<Vector3> spacecraftPositions;
-  spacecraftPositions = ReadSpacecraftPosition((char*)spacecraftPosFilename.c_str(), drgRecords.size());
+  std::map<std::string, Vector3> sunPositions;
+  ReadSunOrSpacecraftPosition(sunPosFilename,  // Input
+                              sunPositions     // Output
+                              );
+  
+  std::map<std::string, Vector3> spacecraftPositions;
+  ReadSunOrSpacecraftPosition(spacecraftPosFilename,  // Input
+                              spacecraftPositions     // Output
+                              );
 
   std::vector<ModelParams> modelParamsArray;
 
   // In order to find the corresponding DEM for a given DRG, we take advantage
   // of the fact that the first 11 characters of these files are always the same.
   std::map<std::string, std::string> DEMFilesIndex;
-  indexFilesByKey(DEMDir, DEMFilesIndex);
+  if (!useTiles) indexFilesByKey(DEMDir, DEMFilesIndex);
   
   //this will contain all the DRG files
   int i = 0;
@@ -1023,29 +1034,39 @@ int main( int argc, char *argv[] ) {
 
     std::string temp = sufix_from_filename(DRGFiles[i]);
     modelParamsArray[i].exposureTime        = 1.0;
-    modelParamsArray[i].sunPosition         = 1000*sunPositions[j];
-    modelParamsArray[i].spacecraftPosition  = 1000*spacecraftPositions[j];
-  
+
     modelParamsArray[i].hCenterLineDEM      = NULL;
     modelParamsArray[i].hCenterLine         = NULL;
     modelParamsArray[i].hMaxDistArray       = NULL;
     modelParamsArray[i].hMaxDistArrayDEM    = NULL;
-
     modelParamsArray[i].inputFilename       = DRGFiles[i];//these filenames have full path
 
-
-    // Find the corresponding DEM for the given DRG. See the earlier note.
     std::string prefix = getFirstElevenCharsFromFileName(DRGFiles[i]);
-    std::map<std::string, std::string>::iterator it = DEMFilesIndex.find(prefix);
-    if (it == DEMFilesIndex.end()){
-      std::cerr << "Could not find a DEM for the DRG file: " << DRGFiles[i] << std::endl;
+
+    if ( sunPositions.find(prefix) == sunPositions.end()){
+      std::cerr << "Could not find the sun position for the DRG file: " << DRGFiles[i] << std::endl;
       exit(1);
     }
-    modelParamsArray[i].DEMFilename = it->second;
+    modelParamsArray[i].sunPosition = 1000*sunPositions[prefix];
+    
+    if (spacecraftPositions.find(prefix) == spacecraftPositions.end()){
+      std::cerr << "Could not find the spacecraft position for the DRG file: " << DRGFiles[i] << std::endl;
+      exit(1);
+    }
+    modelParamsArray[i].spacecraftPosition = 1000*spacecraftPositions[prefix];
+  
+    // Find the corresponding DEM for the given DRG. See the earlier note.
+    if (!useTiles){
+      if (DEMFilesIndex.find(prefix) == DEMFilesIndex.end()){
+        std::cerr << "Could not find a DEM for the DRG file: " << DRGFiles[i] << std::endl;
+        exit(1);
+      }
+      modelParamsArray[i].DEMFilename     = DEMFilesIndex[prefix];
+      modelParamsArray[i].meanDEMFilename = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";   
+      modelParamsArray[i].var2DEMFilename = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
+    }
     
     modelParamsArray[i].infoFilename        = resDir + "/info/" + prefix_less3_from_filename(temp)+"info.txt";
-    modelParamsArray[i].meanDEMFilename     = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_out.tif";   
-    modelParamsArray[i].var2DEMFilename     = resDir + "/DEM" + prefix_less3_from_filename(temp) + "DEM_var2.tif";
     modelParamsArray[i].reliefFilename      = resDir + "/reflectance" + prefix_from_filename(temp) + "_reflectance.tif";
     modelParamsArray[i].shadowFilename      = resDir + "/shadow/" + prefix_from_filename(temp) + "_shadow.tif";
     modelParamsArray[i].errorFilename       = resDir + "/error" + prefix_from_filename(temp) + "_err.tif";
