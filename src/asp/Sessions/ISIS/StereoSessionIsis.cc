@@ -153,8 +153,8 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   find_ideal_isis_range( input_file2, "right", right_lo, right_hi );
 
   // Working out alignment
-  float lo = std::min (left_lo, right_lo);  // Finding global
-  float hi = std::max (left_hi, right_hi);
+  float lo = std::min(left_lo, right_lo);  // Finding global
+  float hi = std::max(left_hi, right_hi);
   Matrix<double> align_matrix(3,3);
   align_matrix.set_identity();
   if ( stereo_settings().alignment_method == "homography" ) {
@@ -193,14 +193,13 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     std::vector<ip::InterestPoint> ip1, ip2;
     ip::read_binary_match_file( match_filename, ip1, ip2  );
     align_matrix = homography_fit(ip2, ip1, bounding_box(DiskImageView<PixelGray<float> >(input_file1)) );
+
+    write_matrix( m_out_prefix + "-align.exr", align_matrix );
+    vw_out() << "\t--> Aligning right image to left using homography:\n"
+             << "\t      " << align_matrix << "\n";
   } else if ( stereo_settings().alignment_method == "epipolar" ) {
     vw_throw( NoImplErr() << "StereoSessionISIS doesn't support epipolar rectification" );
   }
-
-  write_matrix( m_out_prefix + "-align.exr", align_matrix );
-
-  vw_out() << "\t--> Aligning right image to left using homography:\n"
-           << "\t      " << align_matrix << "\n";
 
   // Getting left image size
   Vector2i left_size;
@@ -307,27 +306,26 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
 
   DiskImageView<PixelMask<Vector2f> > disparity_map(dust_result);
 
-  // We used a homography to line up the images, we may want
-  // to generate pre-alignment disparities before passing this information
-  // onto the camera model in the next stage of the stereo pipeline.
-  Matrix<double> align_matrix;
-  try {
+  ImageViewRef<PixelMask<Vector2f> > result;
+  if ( stereo_settings().alignment_method == "homography" ) {
+    // We used a homography to line up the images, we may want
+    // to generate pre-alignment disparities before passing this information
+    // onto the camera model in the next stage of the stereo pipeline.
+    Matrix<double> align_matrix;
     read_matrix(align_matrix, m_out_prefix + "-align.exr");
     vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
-  } catch (vw::IOErr const& e) {
-    vw_out() << "\nCould not read in aligment matrix: " << m_out_prefix
-             << "-align.exr.  Exiting. \n\n";
-    exit(1);
-  }
 
-  // Remove pixels that are outside the bounds of the secondary image.
-  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
-  ImageViewRef<PixelMask<Vector2f> > result =
-    stereo::disparity_range_mask(stereo::transform_disparities(disparity_map,
-                                          HomographyTransform(align_matrix)),
-                                 Vector2f(0,0),
-                                 Vector2f( right_disk_image.cols(),
-                                           right_disk_image.rows() ) );
+    // Remove pixels that are outside the bounds of the secondary image.
+    DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+    result =
+      stereo::disparity_range_mask(stereo::transform_disparities(disparity_map,
+                                                                 HomographyTransform(align_matrix)),
+                                   Vector2f(0,0),
+                                   Vector2f( right_disk_image.cols(),
+                                             right_disk_image.rows() ) );
+  } else {
+    result = disparity_map;
+  }
 
   return result;
 }
