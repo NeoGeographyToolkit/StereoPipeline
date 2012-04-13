@@ -40,7 +40,7 @@ all: products_map products_nonmap
 jigsaw: M0100115.cub E0201461.cub
 	echo M0100115.cub > cube.lis; \
 	echo E0201461.cub >> cube.lis; \
-	jigsaw fromlist=cube.lis radius=yes update=yes twist=no cnet=control.net onet=control_jigsaw.net
+	jigsaw fromlist=cube.lis radius=yes update=yes twist=no cnet=control.net onet=control_jigsaw.net spsolve=position
 
 M0100115.map.cub: jigsaw
 	cam2map from=M0100115.cub to=M0100115.map.cub
@@ -99,7 +99,7 @@ products_nonmap: $(PREFIXU).ive nonmap_point2dem
 
 clean:
 	rm -rf $(RESULTSDIR) $(RESULTSDIRU)
-	rm -rf M0100115.map E0201461.map cube.lis control_ba.net *.match
+	rm -rf M0100115.map E0201461.map cube.lis control_ba.net *.match bundleout* residuals.csv control_jigsaw.net
 
 distclean: clean
 	rm -rf print.prt *.cub *.vwip *.match *~
