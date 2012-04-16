@@ -36,7 +36,7 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, 
   SeedDispT m_source_disparity;
   PProcT m_preproc_func;
 
-  // Setings
+  // Settings
   Vector2f m_upscale_factor;
   BBox2i m_seed_bbox;
   stereo::CostFunctionType m_cost_mode;
@@ -76,26 +76,41 @@ public:
 
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-    BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
-                      elem_quot(bbox.max(), m_upscale_factor) );
-    seed_bbox.expand(1);
-    seed_bbox.crop( m_seed_bbox );
-    vw_out(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
+    // User strategies
+    if ( stereo_settings().seed_option == 1 ) {
+      BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
+                        elem_quot(bbox.max(), m_upscale_factor) );
+      seed_bbox.expand(1);
+      seed_bbox.crop( m_seed_bbox );
+      VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
 
-    BBox2f local_search_range =
-      stereo::get_disparity_range( crop( m_source_disparity, seed_bbox ) );
-    local_search_range = grow_bbox_to_int(local_search_range);
-    local_search_range.min() = floor(elem_prod(local_search_range.min(), m_upscale_factor));
-    local_search_range.max() = ceil(elem_prod(local_search_range.max(), m_upscale_factor));
-    local_search_range.expand(2);
-    vw_out(DebugMessage, "stereo") << "SeededCorrelatorView(" << bbox << ") search range "
-                                   << local_search_range << " vs " << stereo_settings().search_range
-                                   << "\n";
+      BBox2f local_search_range =
+        stereo::get_disparity_range( crop( m_source_disparity, seed_bbox ) );
+      local_search_range = grow_bbox_to_int(local_search_range);
+      local_search_range.min() = floor(elem_prod(local_search_range.min(), m_upscale_factor));
+      local_search_range.max() = ceil(elem_prod(local_search_range.max(), m_upscale_factor));
+      local_search_range.expand(2);
+      VW_OUT(DebugMessage, "stereo") << "SeededCorrelatorView(" << bbox << ") search range "
+                                     << local_search_range << " vs " << stereo_settings().search_range
+                                     << "\n";
+
+      typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
+      CorrView corr_view( m_left_image, m_right_image,
+                          m_left_mask, m_right_mask,
+                          m_preproc_func, local_search_range,
+                          stereo_settings().kernel, m_cost_mode,
+                          stereo_settings().xcorr_threshold );
+
+      return corr_view.prerasterize( bbox );
+    } else if ( stereo_settings().seed_option > 1 ) {
+      vw_throw( NoImplErr() << "Option " << stereo_settings().seed_option
+                << " is not an implemented choice.\n" );
+    }
 
     typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
     CorrView corr_view( m_left_image, m_right_image,
                         m_left_mask, m_right_mask,
-                        m_preproc_func, local_search_range,
+                        m_preproc_func, stereo_settings().search_range,
                         stereo_settings().kernel, m_cost_mode,
                         stereo_settings().xcorr_threshold );
 

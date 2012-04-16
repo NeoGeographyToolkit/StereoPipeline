@@ -102,9 +102,9 @@ StereoSettings::StereoSettings() {
   ASSOC("SLOG_KERNEL_WIDTH", slogW, 1.5, "SIGMA for the gaussian blure in LOG and SLOG");
 
   // Integer correlator
+  ASSOC("CORR_SEED_OPTION", seed_option, 1, "");
   ASSOC("COST_MODE", cost_mode, 2, "0 - absolute different, 1 - squared difference, 2 - normalized cross correlation");
   ASSOC("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
-  ASSOC("COST_BLUR", cost_blur, 0, "Reduces the number of missing pixels by blurring the fitness landscape computed by the cost function.");
   ASSOC("H_KERNEL", kernel[0], 25, "kernel width");
   ASSOC("V_KERNEL", kernel[1], 25, "kernel height");
 
