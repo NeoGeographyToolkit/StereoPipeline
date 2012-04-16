@@ -136,8 +136,6 @@ namespace asp {
       // actually projects into the DEM. (?)
 
       m_rpc_map_projected = true;
-      m_lut_image_left =  m_out_prefix + "-L_lut.tif";
-      m_lut_image_right = m_out_prefix + "-R_lut.tif";
     }
   }
 
@@ -209,20 +207,69 @@ namespace asp {
     return m_rpc_map_projected;
   }
 
-  DiskImageView<Vector2f> StereoSessionDG::lut_image_left() const {
-    if ( !m_rpc_map_projected )
-      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table shouldn't be used here" );
-    if ( !fs::exists( m_lut_image_left ) )
-      vw_throw( NotFoundErr() << "StereoSessionDG: LUT tables don't exist. Has the pre-processing step been ran?" );
-    return DiskImageView<Vector2f>(m_lut_image_left);
+  // The madness that happens below with the conversion from DEM
+  // to cartesian and then geo_transforming ... is purely to
+  // handle the problem of different datums between the DEM and
+  // the project camera models. I hope GDAL noticed this.
+  ImageViewRef<Vector2f>
+  StereoSessionDG::generate_lut_image( std::string const& image_file,
+                                       std::string const& camera_file ) const {
+    boost::shared_ptr<DiskImageResource> dem_rsrc( DiskImageResource::open( m_extra_argument1 ) ),
+      image_rsrc( DiskImageResource::open( image_file ) );
+
+    BBox2i image_bbox( 0, 0, image_rsrc->cols(),
+                       image_rsrc->rows() );
+
+    cartography::GeoReference dem_georef, image_georef;
+    read_georeference( dem_georef, m_extra_argument1 );
+    read_georeference( image_georef, image_file );
+
+    boost::scoped_ptr<RPCModel> rpc_model;
+    try {
+      rpc_model.reset( new RPCModel(image_file) );
+    } catch ( NotFoundErr const& err ) {}
+
+    // If the above failed to load the RPC Model. Let's try from the XML.
+    if ( !rpc_model.get() ) {
+      RPCXML rpc_xml;
+      rpc_xml.read_from_file( camera_file );
+      rpc_model.reset( new RPCModel( *rpc_xml.rpc_ptr() ) ); // Copy the ptr
+
+      // We don't catch an error here because the User will need to
+      // know of a failure at this point. We previously opened the
+      // XML safely before.
+    }
+
+    DiskImageView<float> dem( dem_rsrc );
+    if ( dem_rsrc->has_nodata_read() ) {
+      return crop(per_pixel_filter(
+               cartography::geo_transform(
+                 geodetic_to_cartesian(
+                   dem_to_geodetic(
+                     create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
+                 dem_georef, image_georef,
+                 ValueEdgeExtension<Vector3>( Vector3() ) ),
+               OriginalCameraIndex( *rpc_model, image_bbox ) ), image_bbox );
+    }
+    return crop(per_pixel_filter(
+             cartography::geo_transform(
+               geodetic_to_cartesian(
+                 dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
+               dem_georef, image_georef,
+               ValueEdgeExtension<Vector3>( Vector3() ) ),
+             OriginalCameraIndex( *rpc_model, image_bbox ) ), image_bbox );
   }
 
-  DiskImageView<Vector2f> StereoSessionDG::lut_image_right() const {
+  ImageViewRef<Vector2f> StereoSessionDG::lut_image_left() const {
     if ( !m_rpc_map_projected )
       vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table shouldn't be used here" );
-    if ( !fs::exists( m_lut_image_right ) )
-      vw_throw( NotFoundErr() << "StereoSessionDG: LUT tables don't exist. Has the pre-processing step been ran?" );
-    return DiskImageView<Vector2f>(m_lut_image_right);
+    return generate_lut_image( m_left_image_file, m_left_camera_file );
+  }
+
+  ImageViewRef<Vector2f> StereoSessionDG::lut_image_right() const {
+    if ( !m_rpc_map_projected )
+      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table shouldn't be used here" );
+    return generate_lut_image( m_right_image_file, m_right_camera_file );
   }
 
   void StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1,
@@ -328,73 +375,10 @@ namespace asp {
     block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), m_options,
                             TerminalProgressCallback("asp","\t  R:  ") );
 
-    if ( m_rpc_map_projected ) {
-      // If we have map projected images, let's create the LUT tables
-      // to figure out what the original camera location is.
-      boost::shared_ptr<DiskImageResource> dem_rsrc( DiskImageResource::open( m_extra_argument1 ) );
-      DiskImageView<float> dem( dem_rsrc );
-      cartography::GeoReference dem_georef, left_georef, right_georef;
-      read_georeference( dem_georef,   m_extra_argument1 );
-      read_georeference( left_georef,  m_left_image_file );
-      read_georeference( right_georef, m_right_image_file );
-
-      boost::scoped_ptr<RPCModel> model1, model2;
-      // Try and pull RPC Camera Models from left and right images.
-      try {
-        model1.reset( new RPCModel(m_left_image_file) );
-        model2.reset( new RPCModel(m_right_image_file) );
-      } catch ( NotFoundErr const& err ) {}
-
-      // If the above failed to load the RPC Model. Let's try from the XML.
-      if ( !model1.get() || !model2.get() ) {
-        RPCXML rpc_xml;
-        rpc_xml.read_from_file( m_left_camera_file );
-        model1.reset( new RPCModel( *rpc_xml.rpc_ptr() ) ); // Copy the ptr
-        rpc_xml.read_from_file( m_right_camera_file );
-        model2.reset( new RPCModel( *rpc_xml.rpc_ptr() ) );
-
-        // We don't catch an error here because the User will need to
-        // know of a failure at this point. We previously opened the
-        // XML safely before.
-      }
-
-      // The madness that happens below with the conversion from DEM
-      // to cartesian and then geo_transforming ... is purely to
-      // handle the problem of different datums between the DEM and
-      // the project camera models. I hope GDAL noticed this.
-      if ( dem_rsrc->has_nodata_read() ) {
-        std::cout << "Nodata read:\n";
-        block_write_gdal_image( m_lut_image_left,
-                                crop(per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic( create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
-                                                                              dem_georef, left_georef,
-                                                                              ValueEdgeExtension<Vector3>( Vector3() ) ),
-                                                       OriginalCameraIndex( *model1, bounding_box(Limg) ) ), bounding_box(Limg) ),
-                              m_options,
-                              TerminalProgressCallback("asp","\t  L LUT: ") );
-        block_write_gdal_image( m_lut_image_right,
-                                crop(per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic( create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
-                                                                              dem_georef, right_georef,
-                                                                              ValueEdgeExtension<Vector3>( Vector3() ) ),
-                                                       OriginalCameraIndex( *model2, bounding_box(Rimg) ) ), bounding_box(Rimg) ),
-                              m_options,
-                              TerminalProgressCallback("asp","\t  R LUT: ") );
-      } else {
-        block_write_gdal_image( m_lut_image_left,
-                                per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
-                                                                              dem_georef, left_georef,
-                                                                              ValueEdgeExtension<Vector3>( Vector3() ) ),
-                                                  OriginalCameraIndex( *model1, bounding_box(Limg) ) ),
-                              m_options,
-                              TerminalProgressCallback("asp","\t  L LUT: ") );
-        block_write_gdal_image( m_lut_image_right,
-                                per_pixel_filter( cartography::geo_transform( geodetic_to_cartesian(dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
-                                                                              dem_georef, right_georef,
-                                                                              ValueEdgeExtension<Vector3>( Vector3() ) ),
-                                                  OriginalCameraIndex( *model2, bounding_box(Rimg) ) ),
-                              m_options,
-                              TerminalProgressCallback("asp","\t  R LUT: ") );
-      }
-    }
+    // We could write the LUT images at this point, but I'm going to
+    // let triangulation render them on the fly. This will save a lot
+    // of storage and possibly make the triangulation faster since we
+    // don't mutex on these massive files.
   }
 
   // Xerces-C terminate

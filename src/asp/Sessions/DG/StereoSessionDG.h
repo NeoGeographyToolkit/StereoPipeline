@@ -18,9 +18,8 @@ namespace asp {
 
   class StereoSessionDG : public StereoSessionPinhole {
     bool m_rpc_map_projected;
-    std::string m_lut_image_left;
-    std::string m_lut_image_right;
 
+    vw::ImageViewRef<vw::Vector2f> generate_lut_image( std::string const&, std::string const& ) const;
   public:
     StereoSessionDG();
     virtual ~StereoSessionDG();
@@ -45,8 +44,8 @@ namespace asp {
 
     // LUT access (enabled only when working with images map projected by RPC)
     virtual bool has_lut_images() const;
-    virtual vw::DiskImageView<vw::Vector2f> lut_image_left() const;
-    virtual vw::DiskImageView<vw::Vector2f> lut_image_right() const;
+    virtual vw::ImageViewRef<vw::Vector2f> lut_image_left() const;
+    virtual vw::ImageViewRef<vw::Vector2f> lut_image_right() const;
 
     // Stage 1: Preprocessing
     //

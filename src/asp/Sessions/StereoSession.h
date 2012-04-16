@@ -227,8 +227,8 @@ namespace asp {
     virtual bool has_lut_images() const;
 
     // Provide the LUT images for the session
-    virtual vw::DiskImageView<vw::Vector2f> lut_image_left() const;
-    virtual vw::DiskImageView<vw::Vector2f> lut_image_right() const;
+    virtual vw::ImageViewRef<vw::Vector2f> lut_image_left() const;
+    virtual vw::ImageViewRef<vw::Vector2f> lut_image_right() const;
 
     // Stage 1: Preprocessing
     //

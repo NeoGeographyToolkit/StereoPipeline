@@ -105,12 +105,12 @@ namespace asp {
   // LUT image access methods
   bool StereoSession::has_lut_images() const { return false; }
 
-  DiskImageView<Vector2f> StereoSession::lut_image_left() const {
+  ImageViewRef<Vector2f> StereoSession::lut_image_left() const {
     vw_throw(NoImplErr() << "This stereo session doesn't utilize LUT images.");
     return DiskImageView<Vector2f>("");
   }
 
-  DiskImageView<Vector2f> StereoSession::lut_image_right() const {
+  ImageViewRef<Vector2f> StereoSession::lut_image_right() const {
     vw_throw(NoImplErr() << "This stereo session doesn't utilize LUT images.");
     return DiskImageView<Vector2f>("");
   }
