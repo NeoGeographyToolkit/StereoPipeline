@@ -297,11 +297,11 @@ int main(int argc, char* argv[]) {
     GeoReference drg_georef = dem_georef;
     // If the user has supplied a scale, we use it.  Otherwise, we
     // compute the optimal scale of image based on the camera model.
-    BBox2 projection_bbox, dem_bbox;
+    BBox2 projection_bbox, cam_bbox, dem_bbox;
     {
       vw_out() << "\t--> Extracting camera bbox ... " << std::flush;
       float mpp_auto_scale;
-      projection_bbox =
+      cam_bbox =
         camera_bbox( dem, dem_georef, camera_model, texture_fmt.cols,
                      texture_fmt.rows, mpp_auto_scale );
       dem_bbox = dem_georef.bounding_box(dem);
@@ -309,14 +309,26 @@ int main(int argc, char* argv[]) {
 
       // Use a bbox where both the image and the DEM have valid data.
       // Throw an error if there turns out to be no overlap.
-      projection_bbox.crop(dem_bbox);
-
+      projection_bbox = cam_bbox; projection_bbox.crop(dem_bbox);
+      
       if ( projection_bbox.empty() ) {
-        vw_out() << "Image bounding box (" << projection_bbox << ") and DEM bounding box ("
-                 << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
-        return 1;
-      }
 
+        // If the boxes do not intersect, it may be that one box is shifted in respect to the other by 360 degrees.
+        // Attempt 1
+        projection_bbox = cam_bbox - Vector2(360.0, 0.0); projection_bbox.crop(dem_bbox);
+        if ( projection_bbox.empty() ) {
+          // Attempt 2
+          projection_bbox = cam_bbox + Vector2(360.0, 0.0); projection_bbox.crop(dem_bbox);
+
+          // If still no overlap, throw an error.
+          if ( projection_bbox.empty() ) {
+            vw_out() << "Image bounding box (" << cam_bbox << ") and DEM bounding box ("
+                     << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
+            return 1;
+          }
+        }
+      }
+      
       if ( scale == 0 )
         scale = mpp_auto_scale;
     }
