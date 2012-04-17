@@ -180,10 +180,35 @@ public:
   }
 
   /// \cond INTERNAL
-  typedef StereoLUTAndErrorView<typename DisparityImageT::prerasterize_type,
+  typedef StereoLUTAndErrorView<CropView<ImageView<typename DisparityImageT::pixel_type> >,
                                 typename LUTImage1T::prerasterize_type,
-                                LUTImage2T > prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const { return prerasterize_type( m_disparity_map.prerasterize(bbox), m_lut_image1.prerasterize(bbox), m_lut_image2_org, m_stereo_model ); }
+                                typename LUTImage2T::prerasterize_type > prerasterize_type;
+  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
+    typedef typename DisparityImageT::pixel_type DPixelT;
+    CropView<ImageView<DPixelT> > disparity_preraster =
+      crop( ImageView<DPixelT>( crop( m_disparity_map, bbox ) ),
+            -bbox.min().x(), -bbox.min().y(), cols(), rows() );
+
+    // Calculate the range of disparities in our BBox to determine the
+    // crop size needed for LUT 2.
+    typedef typename UnmaskedPixelType<DPixelT>::type accum_t;
+    PixelAccumulator<EWMinMaxAccumulator<accum_t> > accumulator;
+    for_each_pixel( disparity_preraster.child(), accumulator );
+    if ( !accumulator.is_valid() )
+      return prerasterize_type( disparity_preraster,
+                                m_lut_image1.prerasterize(bbox),
+                                m_lut_image2_org.prerasterize(BBox2i(0,0,0,0)),
+                                m_stereo_model );
+    accum_t input_min = accumulator.minimum();
+    accum_t input_max = accumulator.maximum();
+    BBox2i preraster(bbox.min() + floor(Vector2f(input_min[0],input_min[1])),
+                     bbox.max() + ceil(Vector2(input_max[0],input_max[1])) );
+
+    return prerasterize_type( disparity_preraster,
+                              m_lut_image1.prerasterize(bbox),
+                              m_lut_image2_org.prerasterize(preraster),
+                              m_stereo_model );
+  }
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
   /// \endcond
 };
