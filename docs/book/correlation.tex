@@ -100,7 +100,7 @@ extract image edges are useful for stereo pairs that do not have the
 same lighting conditions, contrast, and absolute brightness
 \citep{Nishihara84practical}.  We recommend that you use the defaults
 for these parameters to start with, and then experiment only if your
-results are suboptimal.
+results are sub-optimal.
 
 \section{Disparity Map Initialization}
 
@@ -114,16 +114,17 @@ contain the horizontal and vertical offsets $(d_u, d_v)$ to the
 matching pixel in the right image, which is $(u+d_u, v+d_v)$.  
 
 The correlation process attempts to find a match for every pixel in
-the left image.  For large images (e.g. from \ac{HiRISE}, \acl{LROC},
-\acs{LROC}, or WorldView-2), this is very, very expensive
-computationally, so the correlation process is split into two stages.
-The disparity map initialization step computes approximate
-correspondences using a pyramid-based search that is highly optimized
-for speed, but trades this speed for accuracy.  The results of
-disparity map initialization are integer-valued disparity estimates.
-The sub-pixel refinement step takes these integer estimates as initial
-conditions for an iterative optimization and refines them using the
-algorithm discussed in the next section.
+the left image. The only pixels skipped are those marked invalid in
+the mask images. For large images (e.g. from \ac{HiRISE}, \acl{LROC},
+\acs{LROC}, or WorldView), this is very expensive computationally, so
+the correlation process is split into two stages.  The disparity map
+initialization step computes approximate correspondences using a
+pyramid-based search that is highly optimized for speed, but trades
+resolution for speed. The results of disparity map initialization are
+integer-valued disparity estimates.  The sub-pixel refinement step
+takes these integer estimates as initial conditions for an iterative
+optimization and refines them using the algorithm discussed in the
+next section.
 
 We employ several optimizations to accelerate disparity map
 initialization: (1) a box filter-like accumulator that reduces
@@ -147,32 +148,70 @@ pyramid \citep{Sun02rectangular}.
   \label{fig:correlation_window}
 \end{figure}
 
-Correlation itself is carried out by sliding a small, rectangular
+Naive correlation itself is carried out by moving a small, rectangular
 template window from the from left image over the specified search
 region of the right image, as in Figure~\ref{fig:correlation_window}.
 The ``best'' match is determined by applying a cost function that
-compares the two windows.  The \texttt{COST\_MODE} variable allows you
+compares the two windows. The location at which the window evaluates
+to the lowest cost compared to all the other search locations is the
+reported as disparity value. The \texttt{COST\_MODE} variable allows you
 to choose one of three cost functions, though we recommend normalized
 cross correlation \citep{Menard97:robust}, since it is most robust to
 slight lighting and contrast variation in between a pair of
 images. Try the others if you need more speed at the cost of quality.
 
+Our implementation of pyramid correlation is a little unique in that
+it actually split into two levels of pyramid searching. There is a
+\texttt{\textit{output\_prefix}-D\_sub.tif} disparity image that is
+computed from the greatly reduced input images \texttt{*-L\_sub.tif}
+and \texttt{\textit{output\_prefix}-R\_sub.tif}. Those ``sub'' images
+have their size chosen so that their area is around 2.25 mega pixels,
+a size that is easily viewed on the screen unlike the raw source
+imagery. The low resolution disparity image then defines the per
+thread search range of the higher resolution disparity,
+\texttt{\textit{output\_prefix}-D.tif}.
+
+This solution is imperfect but comes from our model of multithreaded
+processing. ASP processing individual tiles of the output disparity in
+parallel. The smaller the tiles, the easier it is to deliver evenly
+among the CPU cores. The size of the tile unfortunately limits the max
+number of pyramid levels we can process. We've struck a balance where
+every 1024 by 1024 px tile is processed individually in a tile. This
+is practice allows only 5 levels of pyramid processing. With the
+addition of \texttt{\textit{output\_prefix}-D\_sub.tif}, we are
+allowed to process beyond that limitation.
+
+Finally, this might go with out saying, but any colossal failure in
+the low resolution disparity image will be detrimental to the
+performance of the higher resolution disparity. In the event that the
+low resolution disparity is completely unhelpful, it can be skipped by
+setting \texttt{CORR\_SEED\_OPTION 0} in the \texttt{stereo.default}
+file. This should only be considered in cases where the texture in an
+image is completely lost when subsampled. An example would be
+satellite imagery of fresh snow in the arctics.
+
 \subsection{Debugging Disparity Map Initialization}
 
-Not all pixels will be successfully matched during stereo matching.
-Matching may fail due to a variety of reasons:
+Never will all pixels be successfully matched during stereo
+matching. Though a good chunk of the image should be correctly
+processed. If you see large areas where matching failed, this could be
+due to a variety of reasons:
 
 \begin{itemize}
 \item In regions where the images do not overlap, there should be no
   valid matches in the disparity map.
 \item Match quality may be poor in regions of the images that have
-  different lighting conditions, contrast, or absolute brightness.  
+  different lighting conditions, contrast, or specular properties of
+  the surface.
 \item Areas that have image content with very little texture or
   extremely low contrast may have an insufficient signal to noise
   ratio, and will be rejected by the correlator.
 \item Areas that are highly distorted due to different image
   perspective, such as crater and canyon walls, may exhibit poor
-  matching performance.
+  matching performance. This could also be due to failure of the
+  preprocessing step in aligning the images. The correlator can not
+  match images that are rotated differently from each other or have
+  different scale/resolution.
 \end{itemize}
 
 Bad matches, often called ``blunders'' or ``artifacts'' are also
@@ -188,7 +227,7 @@ tool, which converts the \texttt{\textit{output\_prefix}-D.tif}
 file into a pair of normal images that contain the horizontal and
 vertical components of disparity.  You can open these in a standard
 image viewing application and see immediately which pixels were
-matched successfully, and which were not.  Stereo matching blunders
+matched successfully, and which were not. Stereo matching blunders
 are usually also obvious when inspecting these images.  With a good
 intuition for the effects of various {\tt stereo.default} parameters
 and a good intuition for reading the output of {\tt disparitydebug},
@@ -200,7 +239,8 @@ it is possible to quickly identify and address most problems.
 Once disparity map initialization is complete, every pixel in the
 disparity map will either have an estimated disparity value, or it
 will be marked as invalid.  All valid pixels are then adjusted in the
-sub-pixel refinement stage based on the \texttt{SUBPIXEL\_MODE} setting.
+sub-pixel refinement stage based on the \texttt{SUBPIXEL\_MODE}
+setting. Subpixel refinement is not additive step.
 
 The first mode is parabola-fitting sub-pixel refinement
 (\texttt{SUBPIXEL\_MODE 1}).  This technique fits a 2D parabola to
@@ -213,8 +253,8 @@ value.
 This method is easy to implement and extremely fast to compute, but it
 exhibits a problem known as pixel-locking: the sub-pixel disparities
 tend toward their integer estimates and can create noticeable ``stair
-steps'' on surfaces that should be
-smooth \citep{Stein06:attenuating,Szeliski03sampling}.  See
+steps'' on surfaces that should be smooth
+\citep{Stein06:attenuating,Szeliski03sampling}.  See
 e.g. Figure~\ref{fig:parabola_subpixel}. Furthermore, the parabola
 subpixel mode is not capable of refining a disparity estimate by more
 than one pixel, so although it produces smooth disparity maps, these
@@ -222,7 +262,8 @@ results are not much more accurate than the results that come out of
 the disparity map initialization in the first place.  However, the
 speed of this method makes it very useful as a ``draft'' mode for
 quickly generating a \ac{DEM} for visualization (i.e. non-scientific)
-purposes.
+purposes. It is also beneficial in the event that user will simply
+downsample their DEM after their generation in Stereo Pipeline.
 
 \begin{figure}[tb]
 \centering
@@ -293,7 +334,7 @@ information that is required by the Stereo Pipeline to find and use
 the appropriate camera model for that observation.
 
 Other sessions such as DG {\it Digital Globe} or Pinhole, require that
-their camera model be provided as additonal arguments to the
+their camera model be provided as additional arguments to the
 \texttt{stereo} command. Those camera models come in the form of an
 XML document for DG and as \texttt{*.pinhole, *.tsai, *.cahv,
   *.cahvor} for Pinhole sessions. Those files must be the third and
@@ -355,11 +396,27 @@ they meet must be the original location of $P$.
 In practice, the two rays rarely intersect perfectly because any
 slight error in the camera position or pointing information will
 effect the rays' positions as well.  Instead, we take the {\em closest
-  point of intersection} of the two rays as the location of point $P$.
+  point of intersection} of the two rays as the location of point
+$P$.
 
 Additionally, the actual distance between the rays at this point is an
 interesting and important error metric that measures how
 self-consistent our two camera models are for this point.  You will
 learn in the next chapter that this information, when computed and
-averaged over all reconstructed 3D points, can be a valuable statistic for
-determining whether to carry out bundle adjustment.
+averaged over all reconstructed 3D points, can be a valuable statistic
+for determining whether to carry out bundle adjustment. Distance
+between the two rays at their closest intersection is recorded in the
+fourth channel of the point cloud file,
+\texttt{\textit{output-prefix}-PC.tif}. This information can be
+brought to the same perspective as the output DEM by using the
+\textif{--error} argument on the \texttt{point2dem} command.
+
+This error in the triangulation, the distance between two rays,
+\emph{is not accuracy of the DEM. It is only another indirect measure
+  of quality.} A DEM with high triangulation error is always bad and
+should have its images bundle adjusted. A DEM with low triangulation
+error is at least self consistent but could still be bad. A map of the
+triangulation error should only be interpreted as a relative
+measurement. Where small areas are found with high triangulation error
+came from correlation mistakes and large areas of error came from
+camera model inadequacies.
