@@ -543,6 +543,75 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 
 The stereo.default example file works generally well with all MOC-NA pairs.
 
+\clearpage
+\section{Mars Exploration Rovers MER}
+
+The MER rovers have several cameras on board and they all seem to have
+a stereo pair. With ASP you are able to process the PANCAM, NAVCAM,
+and HAZCAM camera imagery. ISIS has no telemetry or camera instrinsic
+supports for these images. That however is not a problem as their raw
+imagery contains the cameras' information in JPL's CAHV, CAHVOR, and
+CHAVORE formats.
+
+These cameras are all variations of a simple pinhole camera model so
+they are processed with ASP in the \texttt{PINHOLE} session instead of
+the usual \texttt{ISIS}. ASP only supports creating of point
+clouds. \emph{The *-PC.tif is a raw point cloud with the first 3
+  channels being XYZ in the rover site's coordinate frame}. We don't
+support the creation of DEMs from these images and that is left as an
+excercise for the user.
+
+\subsection{PANCAM, NAVCAM, HAZCAM}
+
+All of these cameras are processed the same way. I'll be showing 3D
+processing of the front hazard cams. The only new things in the
+pipeline is the new executable \texttt{mer2camera} along with the use
+of \texttt{ALIGNMENT\_METHOD EPIPOLAR}. This example is also provided
+in the MER data example directory.
+
+\begin{figure}[h!]
+\centering
+  \subfigure[{\tt Rectified Input}]{\includegraphics[width=3in]{images/examples/mer/fh01-L_sub.png}}
+  \hfil
+  \subfigure[{\tt Output Point Cloud}]{\includegraphics[width=3in]{images/examples/mer/fh01_pointcloud.png}}
+\caption{Example output possible with the front hazard cameras.}
+\label{fig:metric_example}
+\end{figure}
+
+\subsubsection*{Commands}
+
+Download 2f194370083effap00p1214l0m1.img and
+2f194370083effap00p1214r0m1.img from the \ac{PDS}.
+
+\begin{verbatim}
+  ISIS 3> gdal_translate -scale -ot byte 2f194370083effap00p1214l0m1.img 2f194370083effap00p1214l0m1.tif
+  ISIS 3> gdal_translate -scale -ot byte 2f194370083effap00p1214r0m1.img 2f194370083effap00p1214r0m1.tif
+  ISIS 3> mer2camera 2f194370083effap00p1214l0m1.img
+  ISIS 3> mer2camera 2f194370083effap00p1214r0m1.img
+  ISIS 3> stereo 2f194370083effap00p1214l0m1.tif 2f194370083effap00p1214r0m1.tif \
+                 2f194370083effap00p1214l0m1.cahvore 2f194370083effap00p1214r0m1.cahvore \
+                 fh01/fh01
+\end{verbatim}
+
+\subsection*{stereo.default}
+
+The default stereo settings will work but change the following options:
+
+\begin{center}\begin{minipage}{5.5in}
+\begin{Verbatim}[frame=single,fontsize=\small,label=additional settings for MER]
+    ALIGNMENT_METHOD EPIPOLAR
+    FORCE_USE_ENTIRE_RANGE 1
+    DO_INDIVIDUAL_NORMALIZATION 0
+
+    # This deletes points that are two far away
+    # from the camera to truly triangulate.
+    UNIVERSE_CENTER CAMERA
+    NEAR_UNIVERSE_RADIUS 0.7
+    FAR_UNIVERSE_RADIUS 80.0
+\end{Verbatim}
+\end{minipage}\end{center}
+
+\clearpage
 \section{Lunar Reconaissance Orbiter LROC NAC}
 
 \subsection{Lee-Lincoln Scarp}
@@ -572,8 +641,8 @@ M104318871. Alternatively you can search by original IDs of 2DB8 and
 \begin{verbatim}
     ISIS 3> lronac2isis from=M104318871LE.img to=M104318871LE.cub
     ISIS 3> lronac2isis from=M104311715LE.img to=M104311715LE.cub
-    ISIS 3> spiceinit
-    ISIS 3> spiceinit
+    ISIS 3> spiceinit M104318871LE.cub
+    ISIS 3> spiceinit M104311715LE.cub
     ISIS 3> lronaccal from=M104318871LE.cub to=M104318871LE.cal.cub
     ISIS 3> lronaccal from=M104311715LE.cub to=M104311715LE.cal.cub
     ISIS 3> cam2map4stereo.py M104318871LE.cal.cub M104311715LE.cal.cub
@@ -582,7 +651,11 @@ M104318871. Alternatively you can search by original IDs of 2DB8 and
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file works generally well with LRO-NAC pairs. The recommended route for processing LRO-NAC imagery is by map projecting them. Map-projecting with higher resolution data such as LRO-WAC Global DTM also helps processing greatly. When map projecting, be sure to remember to set \texttt{ALIGNMENT\_METHOD NONE}.
+The stereo.default example file works generally well with LRO-NAC
+pairs. The recommended route for processing LRO-NAC imagery is by map
+projecting them. Map-projecting with higher resolution data such as
+LRO-WAC Global DTM also helps processing greatly. When map projecting,
+be sure to remember to set \texttt{ALIGNMENT\_METHOD NONE}.
 
 \section{Apollo 15 Metric Camera Images}
 
