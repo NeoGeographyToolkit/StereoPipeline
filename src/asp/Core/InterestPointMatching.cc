@@ -42,13 +42,13 @@ namespace asp {
 
     // Bounce several points off the datum and fit an affine.
     std::vector<Vector3> left_points, right_points;
-    left_points.reserve(10000);
-    right_points.reserve(10000);
+    left_points.reserve(20000);
+    right_points.reserve(20000);
     for ( size_t i = 0; i < 100; i++ ) {
       for ( size_t j = 0; j < 100; j++ ) {
         try {
           Vector2 l( double(box1.width() - 1) * i / 99.0,
-                     double(box1.height() - 1 ) * j / 99.0 );
+                     double(box1.height() - 1) * j / 99.0 );
 
           Vector3 intersection =
             datum_intersection( datum, cam1, l );
@@ -62,8 +62,27 @@ namespace asp {
             right_points.push_back( Vector3(r[0],r[1],1) );
           }
         } catch (camera::PixelToRayErr const& e ) {}
+        try {
+          Vector2 r( double(box2.width() - 1) * i / 99.0,
+                     double(box2.height() - 1) * j / 99.0 );
+
+          Vector3 intersection =
+            datum_intersection( datum, cam2, r );
+          if ( intersection == Vector3() )
+            continue;
+
+          Vector2 l = cam1->point_to_pixel( intersection );
+
+          if ( box1.contains( l ) ) {
+            left_points.push_back( Vector3(l[0],l[1],1) );
+            right_points.push_back( Vector3(r[0],r[1],1) );
+          }
+        } catch (camera::PixelToRayErr const& e ) {}
       }
     }
+
+    VW_OUT( DebugMessage, "asp" ) << "Projected " << left_points.size()
+                                  << " rays for rough homography.\n";
 
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric> ransac( hfit_func(), math::InterestPointErrorMetric(), norm_2(Vector2(box1.height(),box1.width())) / 10 );

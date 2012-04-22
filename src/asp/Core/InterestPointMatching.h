@@ -355,18 +355,18 @@ namespace asp {
                  LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed.\n" );
     }
 
-    TransformRef tx( compose(HomographyTransform(homography), right_tx) );
+    TransformRef tx( compose(right_tx, HomographyTransform(homography)) );
     BBox2i raster_box = tx.forward_bbox( right_tx.reverse_bbox(box2) );
-    tx = TransformRef(compose(HomographyTransform(homography), right_tx,
-                              TranslateTransform(-raster_box.min())));
-    raster_box -= raster_box.min();
+    tx = TransformRef(compose(TranslateTransform(-raster_box.min()),
+                              right_tx, HomographyTransform(homography)));
+    raster_box -= Vector2i(raster_box.min());
 
     // It is important that we use NearestPixelInterpolation in the
     // next step. Using anything else will interpolate nodata values
     // and stop them from being masked out.
     bool inlier =
       ip_matching( cam1, cam2, image1,
-                   crop(transform(image2, compose(inverse(right_tx), tx),
+                   crop(transform(image2, compose(tx, inverse(right_tx)),
                                   ValueEdgeExtension<typename Image2T::pixel_type>(boost::math::isnan(nodata2) ? 0 : nodata2),
                                   NearestPixelInterpolation()), raster_box),
                    datum, output_name, nodata1, nodata2, left_tx, tx );
