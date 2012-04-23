@@ -352,6 +352,7 @@ void stereo_correlation( Options& opt ) {
     vw_out() << "\t--> Using user defined search range.\n";
   } else {
     std::string match_filename =
+      opt.out_prefix +
       fs::basename(opt.in_file1) + "__" +
       fs::basename(opt.in_file2) + ".match";
     if (!fs::exists(match_filename)) {

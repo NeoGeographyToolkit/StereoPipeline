@@ -159,6 +159,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   align_matrix.set_identity();
   if ( stereo_settings().alignment_method == "homography" ) {
     std::string match_filename =
+      m_out_prefix +
       fs::basename(input_file1) + "__" +
       fs::basename(input_file2) + ".match";
 
