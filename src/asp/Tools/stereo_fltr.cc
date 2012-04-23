@@ -63,68 +63,22 @@ struct MultipleDisparityCleanUp<ViewT,1> {
 };
 
 template <class ImageT>
-void write_resample_with_reduce_memory( ImageViewBase<ImageT> const& inputview,
-                                        double sub_scale,
-                                        std::string const& suffix,
-                                        Options const& opt,
-                                        uint32 copies = 1 ) {
-  ImageT const& input = inputview.impl();
-
-  if ( sub_scale > 1 ) sub_scale = 1;
-  // Solving for the number of threads and the tile size to use for
-  // subsampling while only using 500 MiB of memory. (The cache code
-  // is a little slow on releasing so it will probably use 1.5GiB
-  // memory during subsampling) Also tile size must be a power of 2
-  // and greater than or equal to 64 px;
-  uint32 previous_num_threads = vw_settings().default_num_threads();
-  uint32 sub_threads = previous_num_threads + 1;
-  uint32 tile_power = 0;
-  const uint32 pixel_bytes = PixelNumBytes<typename ImageT::pixel_type>::value;
-  const double scaling = ceil(1.0/sub_scale);
-  while ( tile_power < 6 && sub_threads > 1) {
-    sub_threads--;
-    tile_power =
-      boost::numeric_cast<uint32>( floor( ( log(512.0e6) -
-                                            log(double(copies*sub_threads*pixel_bytes) *
-                                                scaling*scaling) ) / log(4) ) );
-  }
-  uint32 sub_tile_size = 1 << tile_power;
-
-  VW_OUT(DebugMessage, "asp") << "\t--> Creating previews. Subsampling by " << sub_scale
-                              << " by using " << sub_tile_size << " tile size and "
-                              << sub_threads << " threads.\n";
-
-  if ( sub_tile_size > vw_settings().default_tile_size() )
-    sub_tile_size = vw_settings().default_tile_size();
-
-  TransformView<InterpolationView<EdgeExtensionView<ImageT, ConstantEdgeExtension>, BilinearInterpolation>, ResampleTransform> reduced =
-    resample(input, sub_scale);
-  vw_settings().set_default_num_threads(sub_threads);
-  DiskImageResourceGDAL rsrc( opt.out_prefix + suffix + ".tif",
-                              reduced.format(),
-                              Vector2i(sub_tile_size,
-                                       sub_tile_size ),
-                              opt.gdal_options );
-  block_write_image( rsrc, reduced,
-                     TerminalProgressCallback("asp", "\t    Writing: "));
-  vw_settings().set_default_num_threads(previous_num_threads);
-}
-
-template <class ImageT>
 void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                     Options const& opt ) {
   { // Write Good Pixel Map
-    vw_out() << "\t--> Creating \"Good Pixel\" image: "
-             << (opt.out_prefix + "-GoodPixelMap.tif") << "\n";
-
     // Sub-sampling so that the user can actually view it.
     float sub_scale =
-      2048.0 / float( std::min( inputview.impl().cols(),
-                                inputview.impl().rows() ) );
-    write_resample_with_reduce_memory(
-      apply_mask(copy_mask(stereo::missing_pixel_image(inputview.impl()),
-                           create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"),0))),
-      sub_scale, "-GoodPixelMap", opt, 4 /* it thinks it's working with uint8, but the input is float */ );
+      float( std::min( inputview.impl().cols(),
+                       inputview.impl().rows() ) ) / 2048.0;
+
+    asp::block_write_gdal_image( opt.out_prefix + "-GoodPixelMap.tif",
+                                 subsample(
+                                   apply_mask(
+                                     copy_mask(stereo::missing_pixel_image(inputview.impl()),
+                                               create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"),
+                                                           0))),
+                                   sub_scale < 1 ? 1 : sub_scale ),
+                                 opt, TerminalProgressCallback("asp", "\t--> Good Pxl Map: ") );
   }
 
   // Fill Holes
