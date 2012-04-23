@@ -121,8 +121,10 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     float sub_scale =
       2048.0 / float( std::min( inputview.impl().cols(),
                                 inputview.impl().rows() ) );
-    write_resample_with_reduce_memory( stereo::missing_pixel_image(inputview.impl()),
-                                       sub_scale, "-GoodPixelMap", opt, 4 /* it thinks it's working with uint8, but the input is float */ );
+    write_resample_with_reduce_memory(
+      apply_mask(copy_mask(stereo::missing_pixel_image(inputview.impl()),
+                           create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"),0))),
+      sub_scale, "-GoodPixelMap", opt, 4 /* it thinks it's working with uint8, but the input is float */ );
   }
 
   // Fill Holes
