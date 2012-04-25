@@ -107,6 +107,7 @@ public:
                 << " is not an implemented choice.\n" );
     }
 
+    VW_OUT(DebugMessage,"stereo") << "Searching with " << stereo_settings().search_range << "\n";
     typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
     CorrView corr_view( m_left_image, m_right_image,
                         m_left_mask, m_right_mask,
@@ -402,11 +403,15 @@ void stereo_correlation( Options& opt ) {
     Rmask(opt.out_prefix + "-rMask.tif");
 
   // Performing disparity on sub images
-  produce_lowres_disparity( Lmask.cols(), Lmask.rows(), opt );
+  if ( stereo_settings().seed_option > 0 )
+    produce_lowres_disparity( Lmask.cols(), Lmask.rows(), opt );
 
   DiskImageView<PixelGray<float> > left_disk_image(opt.out_prefix+"-L.tif"),
     right_disk_image(opt.out_prefix+"-R.tif");
-  DiskImageView<PixelMask<Vector2i> > sub_disparity(opt.out_prefix+"-D_sub.tif");
+  ImageViewRef<PixelMask<Vector2i> > sub_disparity;
+  if ( stereo_settings().seed_option > 0 )
+    sub_disparity =
+      DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
   ImageViewRef<PixelMask<Vector2i> > disparity_map;
 
   stereo::CostFunctionType cost_mode = stereo::ABSOLUTE_DIFFERENCE;
