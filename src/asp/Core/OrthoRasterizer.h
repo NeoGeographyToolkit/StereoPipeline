@@ -31,8 +31,9 @@ namespace cartography {
   class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT, ImageT> > {
     ImageT m_point_image;
     ImageViewRef<float> m_texture;
-    BBox3 m_bbox;
-    double m_spacing;
+    BBox3 m_bbox;           // Bounding box of point cloud
+    double m_spacing;       // pointcloud units (usually m or deg) per pxel
+    double m_point_spacing; // pointcloud samples per pointcloud units
     double m_default_value;
     bool m_minz_as_default;
     bool m_use_alpha;
@@ -41,6 +42,10 @@ namespace cartography {
     // good enough improvement.
     typedef std::pair<BBox3, BBox2i> BBoxPair;
     std::vector<BBoxPair > m_point_image_boundaries;
+    // These boundaries describe a point cloud 3D boundaries and then
+    // their location in the the point cloud image. These boxes are
+    // overlapping in the pc image X/Y domain to insure that
+    // everything is triangulated.
 
     // This is growing a bbox of points in point projection and Z
     // values which are altitude.
@@ -75,25 +80,20 @@ namespace cartography {
       set_texture(texture.impl());
 
       // Compute the bounding box that encompasses tiles within the image
-      vw_out(DebugMessage) << "Computing raster bounding box...\n";
+      VW_OUT(DebugMessage,"asp") << "Computing raster bounding box...\n";
 
       static const int32 BBOX_SPACING = 256;
       int32 x_divisions = (m_point_image.cols() - 1)/BBOX_SPACING + 1;
       int32 y_divisions = (m_point_image.rows() - 1)/BBOX_SPACING + 1;
-      BBox2i image_bbox(0,0,m_point_image.cols(),m_point_image.rows());
+      BBox2i pc_image_bbox(0,0,m_point_image.cols(),m_point_image.rows());
 
       for ( int32 yi = 0; yi < y_divisions; ++yi ) {
         progress.report_fractional_progress(yi,y_divisions);
         for ( int32 xi = 0; xi < x_divisions; ++xi ) {
           BBox2i local_spot( xi * BBOX_SPACING, yi * BBOX_SPACING,
                              BBOX_SPACING, BBOX_SPACING );
-          local_spot.crop( image_bbox );
-
-          // The tiles need to overlap so we extend max by 1 px.
-          if ( local_spot.max()[0] != image_bbox.max()[0] )
-            ++local_spot.max()[0];
-          if ( local_spot.max()[1] != image_bbox.max()[1] )
-            ++local_spot.max()[1];
+          local_spot.expand(1);
+          local_spot.crop( pc_image_bbox );
 
           GrowBBoxAccumulator accum;
           for_each_pixel( crop(m_point_image,local_spot), accum );
@@ -111,8 +111,15 @@ namespace cartography {
       if ( m_bbox.empty() )
         vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
 
+      m_point_spacing =
+        double(std::min( m_point_image.rows(), m_point_image.cols() )) /
+        max( subvector(m_bbox.size(),0,2) );
+      VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
+      VW_OUT(DebugMessage,"asp") << "Point spacing is " << m_point_spacing << " samples/pnt\n";
+
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);
+      VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
     }
 
     /// You can change the texture after the class has been
@@ -151,7 +158,9 @@ namespace cartography {
       // from the camera perspective. Realize this data is still
       // gridded in the camera perspective.
       BBox2i buffered_bbox = bbox;
-      buffered_bbox.expand(std::max(bbox.width(),bbox.height())/16);
+      buffered_bbox = bbox;
+      buffered_bbox.expand(3.0* (1.0/m_spacing) * (1.0/m_point_spacing));
+      vw_out(DebugMessage,"asp") << "Expanding raster bbox by " << 3.0 * (1.0/m_spacing) * (1.0/m_point_spacing) << " pixels.\n";
 
       // This ensures that our bounding box is properly sized.
       BBox3 buf_local_3d_bbox = m_bbox;
@@ -204,18 +213,16 @@ namespace cartography {
           for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
             PointAcc point_ul = row_acc;
             for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
+              // This loop rasterizes a quad indexed by the upper left.
               if ( !boost::math::isnan((*point_ul).z()) ) {
 
                 PointAcc point_ur = point_ul; point_ur.next_col();
                 PointAcc point_ll = point_ul; point_ll.next_row();
                 PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-                // Verify the point UL and LR are in the rasterable
-                // area. Then just verify that at least one vertice is
+                // Verify that at least one vertice is
                 // placed in the viewable area.
                 if ( boost::math::isnan((*point_lr).z()) ||
-                     !buf_local_3d_bbox.contains(*point_ul) ||
-                     !buf_local_3d_bbox.contains(*point_lr) ||
                      !(local_3d_bbox.contains(*point_ul) ||
                        local_3d_bbox.contains(*point_ur) ||
                        local_3d_bbox.contains(*point_ll) ||
@@ -242,13 +249,11 @@ namespace cartography {
                 intensities[4] = texture_copy(col+1,row);
 
                 // triangle 1 is: LL, LR, UL
-                if ( !boost::math::isnan((*point_ll).z()) &&
-                     buf_local_3d_bbox.contains(*point_lr) )
+                if ( !boost::math::isnan((*point_ll).z()) )
                   renderer.DrawPolygon(0, 3);
 
                 // triangle 2 is: UL, LR, UR
-                if ( !boost::math::isnan((*point_ur).z()) &&
-                     buf_local_3d_bbox.contains(*point_ur) )
+                if ( !boost::math::isnan((*point_ur).z()) )
                   renderer.DrawPolygon(2, 3);
               }
               point_ul.next_col();

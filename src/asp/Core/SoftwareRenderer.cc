@@ -32,8 +32,8 @@
 // ===========================================================================
 
 #include <vw/Core/Exception.h>
+#include <vw/Core/FundamentalTypes.h>
 #include <iostream>                        // debugging
-
 #include <asp/Core/SoftwareRenderer.h>
 
 using namespace std;
@@ -51,16 +51,16 @@ enum { eShadeFlat = 0x0, eShadeSmooth = 0x1 };
 #ifdef _VW_USE_DOUBLE_
 
 #define __TWO_63 9223372036854775808.0
-#define __FRACTION(result, f) result = (int) ((f) * __TWO_63)
+#define __FRACTION(result, f) result = (vw::int64) ((f) * __TWO_63)
 #define SHIFT 63
-typedef double real;
+typedef double RealT;
 
 #else
 
 #define __TWO_31 2147483648.0F
-#define __FRACTION(result, f) result = (int) ((f) * __TWO_31)
+#define __FRACTION(result, f) result = (vw::int32) ((f) * __TWO_31)
 #define SHIFT 31
-typedef float real;
+typedef float RealT;
 
 #endif
 
@@ -78,7 +78,7 @@ struct Coords
   {
     x = coords[0]; y = coords[1]; z = 0.0; w = 1.0;
   }
-  real x, y, z, w;
+  RealT x, y, z, w;
 };
 
 // Color structure.  Colors are composed of red, green, blue and alpha.
@@ -101,17 +101,17 @@ struct Color
       return;
     }
   }
-  real r, g, b, a;
+  RealT r, g, b, a;
 };
 
 // Interpolator record for color interpolators.  Used for primary and
 // secondary colors;
 struct ColorIterator
 {
-  real rLittle, gLittle, bLittle, aLittle;
-  real rBig, gBig, bBig, aBig;
-  real drdx, dgdx, dbdx, dadx;
-  real drdy, dgdy, dbdy, dady;
+  RealT rLittle, gLittle, bLittle, aLittle;
+  RealT rBig, gBig, bBig, aBig;
+  RealT drdx, dgdx, dbdx, dadx;
+  RealT drdy, dgdy, dbdy, dady;
 };
 
 // A fragment is a collection of all the data needed after
@@ -142,8 +142,8 @@ struct RasterInfo
   int dxRightFrac;
   int ixRight, ixRightFrac;
 
-  real area;
-  real dxAC, dxBC, dyAC, dyBC;
+  RealT area;
+  RealT dxAC, dxBC, dyAC, dyBC;
 
   bool ccw;
 
@@ -196,10 +196,10 @@ struct Vertex
 // Functions
 // ===========================================================================
 
-inline real
-TriangleArea(real dxAC, real dxBC, real dyAC, real dyBC)
+inline RealT
+TriangleArea(RealT dxAC, RealT dxBC, RealT dyAC, RealT dyBC)
 {
-  real area = dxAC * dyBC - dxBC * dyAC;
+  RealT area = dxAC * dyBC - dxBC * dyAC;
   return area;
 }
 
@@ -257,11 +257,11 @@ SortVertices(Vertex * &a, Vertex * &b, Vertex * &c)
 }
 
 static void
-SetInitialParameters(GraphicsState *gc, const Vertex *a, real dx, real dy)
+SetInitialParameters(GraphicsState *gc, const Vertex *a, RealT dx, RealT dy)
 {
   RasterInfo *rasterInfo = &gc->rasterInfo;
-  real big = rasterInfo->dxLeftBig;
-  real little = rasterInfo->dxLeftLittle;
+  RealT big = rasterInfo->dxLeftBig;
+  RealT little = rasterInfo->dxLeftLittle;
   const Color *vertexColor;
   Color *fragColor;
   ColorIterator *iter;
@@ -300,20 +300,29 @@ static void
 DrawFlatGraySpan(GraphicsState *graphicsState)
 {
   std::fill_n(&(graphicsState->buffer[graphicsState->rasterInfo.frag.y * graphicsState->width +
-					graphicsState->rasterInfo.frag.x]),
-	      graphicsState->rasterInfo.length,
-	      float(graphicsState->rasterInfo.frag.color.r));
+                                        graphicsState->rasterInfo.frag.x]),
+              graphicsState->rasterInfo.length,
+              float(graphicsState->rasterInfo.frag.color.r));
 }
 
 static void
 DrawGraySpan(GraphicsState *graphicsState)
 {
+  if ( graphicsState->rasterInfo.frag.x < 0 ||
+       graphicsState->rasterInfo.frag.x >= graphicsState->width ||
+       graphicsState->rasterInfo.frag.y < 0 ||
+       graphicsState->rasterInfo.frag.y >= graphicsState->height ||
+       graphicsState->rasterInfo.frag.x + graphicsState->rasterInfo.length >= graphicsState->width ) {
+    std::cout << "drawing fragment at " << graphicsState->rasterInfo.frag.x << " " << graphicsState->rasterInfo.frag.y << " with length " << graphicsState->rasterInfo.length << "\n";
+    std::cout << "Window is " << graphicsState->width << " "
+              << graphicsState->height << std::endl;
+  }
   float *span =
     &(graphicsState->buffer[graphicsState->rasterInfo.frag.y * graphicsState->width +
-			    graphicsState->rasterInfo.frag.x]);
+                            graphicsState->rasterInfo.frag.x]);
 
-  real gray = graphicsState->rasterInfo.frag.color.r;
-  real drdx = graphicsState->rasterInfo.colorIter.drdx;
+  RealT gray = graphicsState->rasterInfo.frag.color.r;
+  RealT drdx = graphicsState->rasterInfo.colorIter.drdx;
 
   for (int i = graphicsState->rasterInfo.length; i > 0; --i) {
     *span++ = float(gray);
@@ -325,9 +334,9 @@ DrawGraySpan(GraphicsState *graphicsState)
 // arithmetic is used with the integer and fractional portions carried
 // in separate ints (e.g., ixLeft and ixLeftFrac)
 static void
-SnapXLeft(GraphicsState *gc, real xLeft, real dxdyLeft)
+SnapXLeft(GraphicsState *gc, RealT xLeft, RealT dxdyLeft)
 {
-  real little, dx;
+  RealT little, dx;
   int ixLeft, ixLeftFrac, frac, ilittle, ibig;
 
   ixLeft = (int) xLeft;
@@ -340,7 +349,7 @@ SnapXLeft(GraphicsState *gc, real xLeft, real dxdyLeft)
 
   // Compute big and little steps
   ilittle = (int) dxdyLeft;
-  little = (real) ilittle;
+  little = (RealT) ilittle;
   if (dxdyLeft < 0)
   {
     ibig = ilittle - 1;
@@ -364,9 +373,9 @@ SnapXLeft(GraphicsState *gc, real xLeft, real dxdyLeft)
 }
 
 static void
-SnapXRight(RasterInfo *rasterInfo, real xRight, real dxdyRight)
+SnapXRight(RasterInfo *rasterInfo, RealT xRight, RealT dxdyRight)
 {
-  real little, big, dx;
+  RealT little, big, dx;
   int ixRight, ixRightFrac, frac;
 
   ixRight = (int) xRight;
@@ -378,7 +387,7 @@ SnapXRight(RasterInfo *rasterInfo, real xRight, real dxdyRight)
   rasterInfo->ixRightFrac = ixRightFrac & ~0x80000000;
 
   // Compute big and little steps
-  little = (real) ((int) dxdyRight);
+  little = (RealT) ((int) dxdyRight);
 
   if (dxdyRight < 0)
   {
@@ -447,12 +456,12 @@ FillSubTriangle(GraphicsState *gc,  int iyBottom, int iyTop)
 
     // Advance right edge fixed point, adjusting for carry
     ixRightFrac += dxRightFrac;
-    if (ixRightFrac < 0)             // Carry/Borrow'd. Use large step
+    if (ixRightFrac < 0)            // Carry/Borrow'd. Use large step
     {
       ixRight += dxRightBig;
       ixRightFrac &= ~0x80000000;
     }
-    else                                   // Use small step
+    else                            // Use small step
     {
       ixRight += dxRightLittle;
     }
@@ -467,7 +476,7 @@ FillSubTriangle(GraphicsState *gc,  int iyBottom, int iyTop)
       if (modeFlags & eShadeSmooth)
         gc->rasterInfo.frag.color.r += gc->rasterInfo.colorIter.rBig;
     }
-    else                                   // Use small step
+    else                            // Use small step
     {
       ixLeft += dxLeftLittle;
       if (modeFlags & eShadeSmooth)
@@ -483,10 +492,10 @@ FillSubTriangle(GraphicsState *gc,  int iyBottom, int iyTop)
 static void
 FillTriangle(GraphicsState *gc, Vertex *a, Vertex *b, Vertex *c)
 {
-  real area, oneOverArea, t1, t2, t3, t4;
-  real dxAC, dxBC, dyAC, dyBC;
-  real dxAB, dyAB;
-  real dx, dy, dxdyLeft, dxdyRight;
+  RealT area, oneOverArea, t1, t2, t3, t4;
+  RealT dxAC, dxBC, dyAC, dyBC;
+  RealT dxAB, dyAB;
+  RealT dx, dy, dxdyLeft, dxdyRight;
   Color *aColor, *bColor;
   int aIY, bIY, cIY;
   unsigned int modeFlags;
@@ -522,7 +531,7 @@ FillTriangle(GraphicsState *gc, Vertex *a, Vertex *b, Vertex *c)
 
   if (modeFlags & eShadeSmooth)
   {
-    real drAC, drBC;
+    RealT drAC, drBC;
     Color *cColor = &c->color;             // & -LJE
 
     // If gray scale the intensity is carried in the red component
