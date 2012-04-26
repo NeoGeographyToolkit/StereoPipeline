@@ -73,13 +73,13 @@ def build_session_directory(job_desc, options):
         cmd = "cam2map4stereo.py %s %s" % (job_desc.left,job_desc.right)
         add_job(cmd, options.threads, job_desc.name)
 
-def stereo( job_desc, threads ):
-    cmd = "stereo %s.map.cub %s.map.cub stereo/%s" % (job_desc.left_prefix,job_desc.right_prefix,job_desc.name)
+def stereo( job_desc, threads, additional ):
+    cmd = "stereo %s.map.cub %s.map.cub stereo/%s %s" % (job_desc.left_prefix,job_desc.right_prefix,job_desc.name,additional)
     add_job(cmd, threads, job_desc.name)
     pass
 
-def point2dem( job_desc, threads ):
-    cmd = "point2dem -r moon --nodata -32767 %s/stereo/%s-PC.tif" % (job_desc.name,job_desc.name)
+def point2dem( job_desc, threads, additional ):
+    cmd = "point2dem -r moon %s/stereo/%s-PC.tif %s" % (job_desc.name,job_desc.name,additional)
     add_job(cmd, threads)
     pass
 
@@ -102,6 +102,8 @@ def main():
                               help="Perform stereo on each session.")
             parser.add_option("--point2dem", dest="point2dem", action="store_true",
                               help="Perform point2dem on each session.")
+            parser.add_option("--args", dest="args",
+                              help="Additional arguments to apply to your command", type="string")
 
 
             (options, args) = parser.parse_args()
@@ -125,12 +127,12 @@ def main():
 
         if options.stereo:
             for job in jobs:
-                stereo( job, options.threads )
+                stereo( job, options.threads, options.args )
             wait_on_all_jobs()
 
         if options.point2dem:
             for job in jobs:
-                point2dem( job, options.threads )
+                point2dem( job, options.threads, options.args )
             wait_on_all_jobs()
 
         print "Finished"
