@@ -55,9 +55,14 @@ struct Options : asp::BaseOptions {
   ProjectionType projection;
   bool has_nodata_value, has_alpha, do_normalize, do_error;
   std::string target_srs_string;
+  uint32 fsaa;
 
   // Output
   std::string  out_prefix, output_file_type;
+
+  // Defaults that the user doesn't need to see. (The Magic behind the
+  // curtain).
+  Options() : fsaa(1) {}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -98,6 +103,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Also write a normalized version of the DEM (for debugging)")
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangule error image.")
+    ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file");
   general_options.add( manipulation_options );
@@ -133,6 +139,34 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   else if ( vm.count("utm") )            opt.projection = UTM;
   else                                   opt.projection = PLATECARREE;
   opt.has_nodata_value = vm.count("nodata-value");
+}
+
+template <class ImageT>
+ImageViewRef<PixelGray<float> >
+generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
+                      Options const& opt ) {
+  // This probably needs a lanczos filter. Sinc filter is the ideal
+  // since it is the ideal brick filter.
+  // ... or ...
+  // possibly apply the blur on a linear scale (pow(0,2.2), blur, then exp).
+
+  ImageViewRef<PixelGray<float> > rasterizer_fsaa;
+  if ( opt.fsaa > 1 ) {
+    // subsample .. samples from the corner.
+    rasterizer_fsaa =
+      apply_mask(
+        subsample(
+          translate(
+            gaussian_filter(
+              create_mask(rasterizer.impl(),opt.nodata_value),
+              1.0f * float(opt.fsaa)/2.0f),
+            -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
+            ConstantEdgeExtension()), opt.fsaa),
+        opt.nodata_value);
+  } else {
+    rasterizer_fsaa = rasterizer.impl();
+  }
+  return rasterizer_fsaa;
 }
 
 int main( int argc, char *argv[] ) {
@@ -316,11 +350,10 @@ int main( int argc, char *argv[] ) {
       rasterizer(point_image_cache, select_channel(point_image_cache,2),
                  opt.dem_spacing, TerminalProgressCallback("asp","QuadTree: ") );
     if (!opt.has_nodata_value) {
-      rasterizer.set_use_minz_as_default(true);
-    } else {
-      rasterizer.set_use_minz_as_default(false);
-      rasterizer.set_default_value(opt.nodata_value);
+      opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
     }
+    rasterizer.set_use_minz_as_default(false);
+    rasterizer.set_default_value(opt.nodata_value);
 
     vw_out() << "\t--> DEM spacing: " << rasterizer.spacing() << " pt/px\n";
     vw_out() << "\t             or: " << 1.0/rasterizer.spacing() << " px/pt\n";
@@ -332,17 +365,24 @@ int main( int argc, char *argv[] ) {
     georef.set_transform(rasterizer.geo_transform());
     vw_out() << "\nOutput Georeference: \n\t" << georef << std::endl;
 
+    // If the user requested FSAA .. tell the rasterer to increase it's sampling rate
+    if ( opt.fsaa > 1 )
+      rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
+
+    ImageViewRef<PixelGray<float> > rasterizer_fsaa =
+      generate_fsaa_raster( rasterizer, opt );
+
     { // Write out the DEM.
-      if ( opt.output_file_type == "tif" && opt.has_nodata_value ) {
-        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", rasterizer, opt) );
+      if ( opt.output_file_type == "tif" ) {
+        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", rasterizer_fsaa, opt) );
         rsrc->set_nodata_write( opt.nodata_value );
         write_georeference( *rsrc, georef );
-        block_write_image( *rsrc, rasterizer,
+        block_write_image( *rsrc, rasterizer_fsaa,
                            TerminalProgressCallback("asp","DEM: ") );
       } else {
         asp::block_write_gdal_image(
           opt.out_prefix + "-DEM." + opt.output_file_type,
-          rasterizer, georef, opt,
+          rasterizer_fsaa, georef, opt,
           TerminalProgressCallback("asp","DEM: ") );
       }
     }
@@ -350,25 +390,28 @@ int main( int argc, char *argv[] ) {
     // Write triangulation error image if requested
     if ( opt.do_error ) {
       rasterizer.set_texture( select_channel(point_disk_image,3) );
-      if ( opt.output_file_type == "tif" && opt.has_nodata_value ) {
-        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEMError.tif", rasterizer, opt) );
+      rasterizer_fsaa =
+        generate_fsaa_raster( rasterizer, opt );
+      if ( opt.output_file_type == "tif" ) {
+        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEMError.tif", rasterizer_fsaa, opt) );
         rsrc->set_nodata_write( opt.nodata_value );
         write_georeference( *rsrc, georef );
-        block_write_image( *rsrc, rasterizer,
+        block_write_image( *rsrc, rasterizer_fsaa,
                            TerminalProgressCallback("asp","DEMError: ") );
       } else {
         asp::write_gdal_georeferenced_image(opt.out_prefix + "-DEMError."+opt.output_file_type,
-                                            rasterizer, georef, opt, TerminalProgressCallback("asp","DEMError:") );
+                                            rasterizer_fsaa, georef, opt, TerminalProgressCallback("asp","DEMError:") );
       }
     }
 
     // Write DRG if the user requested and provided a texture file
     if (!opt.texture_filename.empty()) {
-      rasterizer.set_use_minz_as_default(false);
       DiskImageView<PixelGray<float> > texture(opt.texture_filename);
       rasterizer.set_texture(texture);
+      rasterizer_fsaa =
+        generate_fsaa_raster( rasterizer, opt );
       asp::write_gdal_georeferenced_image(opt.out_prefix + "-DRG.tif",
-             rasterizer, georef, opt, TerminalProgressCallback("asp","DRG:") );
+             rasterizer_fsaa, georef, opt, TerminalProgressCallback("asp","DRG:") );
     }
 
     // Write out a normalized version of the DEM, if requested (for debugging)
@@ -376,22 +419,13 @@ int main( int argc, char *argv[] ) {
       DiskImageView<PixelGray<float> >
         dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
-      if ( opt.has_nodata_value ) {
-        asp::block_write_gdal_image(
-          opt.out_prefix + "-DEM-normalized.tif",
-          apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
-                                                   rasterizer.bounding_box().min().z(),
-                                                   rasterizer.bounding_box().max().z(),
-                                                   0, 255))),
-          georef, opt, TerminalProgressCallback("asp","Normalized:") );
-      } else {
-        asp::block_write_gdal_image(
-          opt.out_prefix + "-DEM-normalized.tif",
-          channel_cast<uint8>(normalize(dem_image,
-                                        rasterizer.bounding_box().min().z(),
-                                        rasterizer.bounding_box().max().z(), 0, 255)),
-          georef, opt, TerminalProgressCallback("asp","Normalized:") );
-      }
+      asp::block_write_gdal_image(
+        opt.out_prefix + "-DEM-normalized.tif",
+        apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
+                                                 rasterizer.bounding_box().min().z(),
+                                                 rasterizer.bounding_box().max().z(),
+                                                 0, 255))),
+        georef, opt, TerminalProgressCallback("asp","Normalized:") );
     }
 
   } ASP_STANDARD_CATCHES;
