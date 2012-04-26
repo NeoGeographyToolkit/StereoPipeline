@@ -308,15 +308,6 @@ DrawFlatGraySpan(GraphicsState *graphicsState)
 static void
 DrawGraySpan(GraphicsState *graphicsState)
 {
-  if ( graphicsState->rasterInfo.frag.x < 0 ||
-       graphicsState->rasterInfo.frag.x >= graphicsState->width ||
-       graphicsState->rasterInfo.frag.y < 0 ||
-       graphicsState->rasterInfo.frag.y >= graphicsState->height ||
-       graphicsState->rasterInfo.frag.x + graphicsState->rasterInfo.length >= graphicsState->width ) {
-    std::cout << "drawing fragment at " << graphicsState->rasterInfo.frag.x << " " << graphicsState->rasterInfo.frag.y << " with length " << graphicsState->rasterInfo.length << "\n";
-    std::cout << "Window is " << graphicsState->width << " "
-              << graphicsState->height << std::endl;
-  }
   float *span =
     &(graphicsState->buffer[graphicsState->rasterInfo.frag.y * graphicsState->width +
                             graphicsState->rasterInfo.frag.x]);

@@ -379,12 +379,17 @@ int main( int argc, char *argv[] ) {
       if ( opt.has_nodata_value ) {
         asp::block_write_gdal_image(
           opt.out_prefix + "-DEM-normalized.tif",
-          apply_mask(channel_cast_rescale<uint8>(normalize(create_mask(dem_image,opt.nodata_value)))),
+          apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
+                                                   rasterizer.bounding_box().min().z(),
+                                                   rasterizer.bounding_box().max().z(),
+                                                   0, 255))),
           georef, opt, TerminalProgressCallback("asp","Normalized:") );
       } else {
         asp::block_write_gdal_image(
           opt.out_prefix + "-DEM-normalized.tif",
-          channel_cast_rescale<uint8>(normalize(dem_image)),
+          channel_cast<uint8>(normalize(dem_image,
+                                        rasterizer.bounding_box().min().z(),
+                                        rasterizer.bounding_box().max().z(), 0, 255)),
           georef, opt, TerminalProgressCallback("asp","Normalized:") );
       }
     }

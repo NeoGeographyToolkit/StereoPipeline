@@ -66,6 +66,16 @@ namespace cartography {
       }
     };
 
+    // Function to convert pixel coordinates to the point domain
+    BBox3 pixel_to_point_bbox( BBox2 const& px ) const {
+      BBox3 output = m_bbox;
+      output.min().x() = m_bbox.min().x() + ((double(px.min().x()) - 0.5 ) * m_spacing);
+      output.max().x() = boost::math::float_next(m_bbox.min().x() + ((double(px.max().x()) - 1 + 0.5) * m_spacing));
+      output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() + 1) - 0.5) * m_spacing);
+      output.max().y() = boost::math::float_next(m_bbox.min().y() + ((double(rows() - px.min().y()) + 0.5) * m_spacing));
+      return output;
+    }
+
   public:
     typedef PixelT pixel_type;
     typedef const PixelT result_type;
@@ -93,6 +103,7 @@ namespace cartography {
           BBox2i local_spot( xi * BBOX_SPACING, yi * BBOX_SPACING,
                              BBOX_SPACING, BBOX_SPACING );
           local_spot.expand(1);
+          local_spot.max() += Vector2i(1,1);
           local_spot.crop( pc_image_bbox );
 
           GrowBBoxAccumulator accum;
@@ -162,17 +173,13 @@ namespace cartography {
       buffered_bbox.expand(3.0* (1.0/m_spacing) * (1.0/m_point_spacing));
       vw_out(DebugMessage,"asp") << "Expanding raster bbox by " << 3.0 * (1.0/m_spacing) * (1.0/m_point_spacing) << " pixels.\n";
 
-      // This ensures that our bounding box is properly sized.
-      BBox3 buf_local_3d_bbox = m_bbox;
-      buf_local_3d_bbox.min().x() = m_bbox.min().x() + (buffered_bbox.min().x() * m_spacing);
-      buf_local_3d_bbox.min().y() = m_bbox.max().y() - (buffered_bbox.max().y() * m_spacing);
-      buf_local_3d_bbox.max().x() = buf_local_3d_bbox.min().x() + (buffered_bbox.width() * m_spacing);
-      buf_local_3d_bbox.max().y() = buf_local_3d_bbox.min().y() + (buffered_bbox.height() * m_spacing);
-      BBox3 local_3d_bbox = m_bbox;
-      local_3d_bbox.min().x() = m_bbox.min().x() + (bbox.min().x() * m_spacing);
-      local_3d_bbox.min().y() = m_bbox.max().y() - (bbox.max().y() * m_spacing);
-      local_3d_bbox.max().x() = local_3d_bbox.min().x() + (bbox.width() * m_spacing);
-      local_3d_bbox.max().y() = local_3d_bbox.min().y() + (bbox.height() * m_spacing);
+      // Calculate the pixel bounding boxes' location in the point domain.
+      //
+      // Used to find which point cloud sets should be loaded up.
+      BBox3 buf_local_3d_bbox = pixel_to_point_bbox(buffered_bbox);
+      // Used to find which polygons are actually in the draw space.
+      BBox2i bbox_1 = bbox; bbox_1.expand(1);
+      BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox_1);
 
       ImageView<float> render_buffer(buffered_bbox.width(), buffered_bbox.height());
       float *render_buffer_ptr = &(render_buffer(0,0));
@@ -186,7 +193,7 @@ namespace cartography {
 
       // Set up the default color value
       if (m_use_alpha) {
-        renderer.Clear(-32000);  // use this dummy value to denote transparency
+        renderer.Clear(std::numeric_limits<float>::min());  // use this dummy value to denote transparency
       } else if (m_minz_as_default) {
         renderer.Clear(m_bbox.min().z());
       } else {
@@ -202,7 +209,7 @@ namespace cartography {
 
       BOOST_FOREACH( BBoxPair const& boundary,
                      m_point_image_boundaries ) {
-        if ( local_3d_bbox.intersects( boundary.first ) ) {
+        if ( buf_local_3d_bbox.intersects( boundary.first ) ) {
           // Pull a copy of the input image
           ImageView<Vector3> point_copy =
             crop(m_point_image, boundary.second );
@@ -215,7 +222,6 @@ namespace cartography {
             for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
               // This loop rasterizes a quad indexed by the upper left.
               if ( !boost::math::isnan((*point_ul).z()) ) {
-
                 PointAcc point_ur = point_ul; point_ur.next_col();
                 PointAcc point_ll = point_ul; point_ll.next_row();
                 PointAcc point_lr = point_ul; point_lr.advance(1,1);
@@ -249,12 +255,14 @@ namespace cartography {
                 intensities[4] = texture_copy(col+1,row);
 
                 // triangle 1 is: LL, LR, UL
-                if ( !boost::math::isnan((*point_ll).z()) )
+                if ( !boost::math::isnan((*point_ll).z()) ) {
                   renderer.DrawPolygon(0, 3);
+                }
 
                 // triangle 2 is: UL, LR, UR
-                if ( !boost::math::isnan((*point_ur).z()) )
+                if ( !boost::math::isnan((*point_ur).z()) ) {
                   renderer.DrawPolygon(2, 3);
+                }
               }
               point_ul.next_col();
             }
@@ -318,7 +326,7 @@ namespace cartography {
       vw::Matrix<double,3,3> geo_transform;
       geo_transform.set_identity();
       geo_transform(0,0) = m_spacing;
-      geo_transform(1,1) = -1 * m_spacing;
+      geo_transform(1,1) = -m_spacing;
       geo_transform(0,2) = m_bbox.min().x();
       geo_transform(1,2) = m_bbox.max().y();
       return geo_transform;
