@@ -16,6 +16,7 @@
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
+#include <vw/Stereo/SubpixelView.h>
 
 using namespace vw;
 using namespace asp;
@@ -322,15 +323,23 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
                        ceil(elem_prod(down_sample_scale,stereo_settings().search_range.max())) );
 
   {
-    // Expand the search range by 4% to allow for error.
-    search_range.expand(norm_2(search_range.size()) / 25 );
+    Vector2i expansion( search_range.width(),
+                        search_range.height() );
+    expansion *= stereo_settings().seed_percent_pad / 2.0f;
+    // Expand by the user selected amount. Default is 25%.
+    search_range.min() -= expansion;
+    search_range.max() += expansion;
+    VW_OUT(DebugMessage,"asp") << "D_sub search range: "
+                               << search_range << " px\n";
     asp::block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
-                                 stereo::pyramid_correlate( left_sub, right_sub,
-                                                        left_mask, right_mask,
-                                                        stereo::LaplacianOfGaussian(1.3),
-                                                        search_range,
-                                                        stereo_settings().kernel,
-                                                        stereo::CROSS_CORRELATION, 2 ), opt,
+                                 remove_outliers(
+                                   stereo::pyramid_correlate( left_sub, right_sub,
+                                                              left_mask, right_mask,
+                                                              stereo::LaplacianOfGaussian(1.4),
+                                                              search_range,
+                                                              stereo_settings().kernel,
+                                                              stereo::CROSS_CORRELATION, 2 ),
+                                   1, 1, 2.0, 0.5), opt,
                                  TerminalProgressCallback("asp", "\t--> Low Resolution:") );
   }
 
@@ -338,7 +347,8 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
   read_image( lowres_disparity, opt.out_prefix + "-D_sub.tif" );
   search_range =
     stereo::get_disparity_range( lowres_disparity );
-  std::cout << "Prior: " << search_range << "\n";
+  VW_OUT(DebugMessage,"asp") << "D_sub resolved search range: "
+                             << search_range << " px\n";
   search_range.min() = floor(elem_quot(search_range.min(),down_sample_scale));
   search_range.max() = ceil(elem_quot(search_range.max(),down_sample_scale));
   stereo_settings().search_range = search_range;

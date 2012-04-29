@@ -103,6 +103,7 @@ StereoSettings::StereoSettings() {
 
   // Integer correlator
   ASSOC("CORR_SEED_OPTION", seed_option, 1, "");
+  ASSOC("CORR_SUB_SEED_PERCENT_PAD", seed_percent_pad, 0.25, "");
   ASSOC("COST_MODE", cost_mode, 2, "0 - absolute different, 1 - squared difference, 2 - normalized cross correlation");
   ASSOC("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
   ASSOC("H_KERNEL", kernel[0], 25, "kernel width");

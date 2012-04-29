@@ -49,6 +49,9 @@ public:
                                       res disparity seed
                                   2 = Affine Transform and narrow search
                                       based on disparity seed */
+  float seed_percent_pad;      // % pad amound towards the IP found
+                               // search range, used to define the
+                               // search range of D_sub.
   vw::Vector2i kernel;         // Correlation kernel
   vw::Vector2i subpixel_kernel;// Subpixel correlation kernel
   vw::BBox2i search_range;     // Correlation search range
