@@ -70,6 +70,7 @@ Makefile.in
 src/asp/Core/tests/TestBlobIndexThreaded
 src/asp/Core/tests/TestErodeView
 src/asp/Core/tests/TestGaussianClustering
+src/asp/Core/tests/TestInterestPointMatching
 src/asp/Core/tests/TestThreadedEdgeMask
 
 # IsisIO

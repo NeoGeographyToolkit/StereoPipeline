@@ -15,9 +15,16 @@ namespace asp {
                               Vector2 const& pix ) {
     using namespace vw;
 
-    // Create XYZ point against moon
+    double z_scale = datum.semi_major_axis() / datum.semi_minor_axis();
+
+    // Create XYZ point against datum. The z_scale stuff is to allow
+    // our sphere intersection math apply to a spheroid. We warp our
+    // coordinate system till the spheroid looks like a sphere.
     Vector3 ccenter = model->camera_center( pix );
     Vector3 cpoint  = model->pixel_to_vector( pix );
+    ccenter.z() *= z_scale;
+    cpoint.z() *= z_scale;
+    cpoint = normalize(cpoint);
     double radius_2 = datum.semi_major_axis() *
       datum.semi_major_axis();
     double alpha = -dot_prod(ccenter, cpoint );
@@ -29,7 +36,7 @@ namespace asp {
 
     alpha -= sqrt( radius_2 -
                    norm_2_sqr(projection) );
-    return ccenter + alpha * cpoint;
+    return elem_prod(ccenter + alpha * cpoint, Vector3(1,1,1.0/z_scale));
   }
 
   // Find a rough homography that maps right to left using the camera
