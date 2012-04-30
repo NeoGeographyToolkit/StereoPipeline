@@ -169,6 +169,38 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
   return rasterizer_fsaa;
 }
 
+bool read_user_datum( Options const& opt,
+                      cartography::Datum& datum ) {
+  // Select a cartographic datum. There are several hard coded datums
+  // that can be used here, or the user can specify their own.
+  if ( opt.reference_spheroid != "" ) {
+    if (opt.reference_spheroid == "mars") {
+      datum.set_well_known_datum("D_MARS");
+      vw_out() << "\t--> Re-referencing altitude values using standard MOLA\n";
+    } else if (opt.reference_spheroid == "moon") {
+      datum.set_well_known_datum("D_MOON");
+      vw_out() << "\t--> Re-referencing altitude values using standard lunar\n";
+    } else if (opt.reference_spheroid == "earth") {
+      vw_out() << "\t--> Re-referencing altitude values using WGS84\n";
+    } else {
+      vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
+                << opt.reference_spheroid
+                << ". Current options are [ earth, moon, mars ]\nExiting." );
+    }
+    vw_out() << "\t    Axes [" << datum.semi_major_axis() << " " << datum.semi_minor_axis() << "] meters\n";
+  } else if (opt.semi_major != 0 && opt.semi_minor != 0) {
+    vw_out() << "\t--> Re-referencing altitude values to user supplied datum.\n"
+             << "\t    Semi-major: " << opt.semi_major << "  Semi-minor: " << opt.semi_minor << "\n";
+    datum = cartography::Datum("User Specified Datum",
+                               "User Specified Spheroid",
+                               "Reference Meridian",
+                               opt.semi_major, opt.semi_minor, 0.0);
+  } else {
+    return false;
+  }
+  return true;
+}
+
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -189,40 +221,13 @@ int main( int argc, char *argv[] ) {
                                                         opt.kappa_rot, opt.rot_order) );
     }
 
-    // Select a cartographic datum. There are several hard coded datums
-    // that can be used here, or the user can specify their own.
-    cartography::Datum datum;
-    if ( opt.reference_spheroid != "" ) {
-      if (opt.reference_spheroid == "mars") {
-        datum.set_well_known_datum("D_MARS");
-        vw_out() << "\t--> Re-referencing altitude values using standard MOLA\n";
-      } else if (opt.reference_spheroid == "moon") {
-        datum.set_well_known_datum("D_MOON");
-        vw_out() << "\t--> Re-referencing altitude values using standard lunar\n";
-      } else if (opt.reference_spheroid == "earth") {
-        vw_out() << "\t--> Re-referencing altitude values using WGS84\n";
-      } else {
-        vw_throw( ArgumentErr() << "\t--> Unknown reference spheriod: "
-                  << opt.reference_spheroid
-                  << ". Current options are [ earth, moon, mars ]\nExiting." );
-      }
-      vw_out() << "\t    Axes [" << datum.semi_major_axis() << " " << datum.semi_minor_axis() << "] meters\n";
-    } else if (opt.semi_major != 0 && opt.semi_minor != 0) {
-      vw_out() << "\t--> Re-referencing altitude values to user supplied datum.\n"
-               << "\t    Semi-major: " << opt.semi_major << "  Semi-minor: " << opt.semi_minor << "\n";
-      datum = cartography::Datum("User Specified Datum",
-                                 "User Specified Spheroid",
-                                 "Reference Meridian",
-                                 opt.semi_major, opt.semi_minor, 0.0);
-    }
-
     // Set up the georeferencing information.  We specify everything
     // here except for the affine transform, which is defined later once
     // we know the bounds of the orthorasterizer view.  However, we can
     // still reproject the points in the point image without the affine
     // transform because this projection never requires us to convert to
     // or from pixel space.
-    GeoReference georef(datum);
+    GeoReference georef;
 
     // If the data was left in cartesian coordinates, we need to give
     // the DEM a projection that uses some physical units (meters),
@@ -233,6 +238,11 @@ int main( int argc, char *argv[] ) {
     // Otherwise, we honor the user's requested projection and convert
     // the points if necessary.
     if (opt.target_srs_string.empty()) {
+
+      cartography::Datum datum;
+      if ( read_user_datum( opt, datum ) )
+        georef.set_datum( datum );
+
       switch( opt.projection ) {
       case SINUSOIDAL:
         georef.set_sinusoidal(opt.proj_lon); break;
@@ -253,58 +263,45 @@ int main( int argc, char *argv[] ) {
       }
     } else {
       // Use the target_srs_string
+#if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 
       // User convenience, convert 'IAU2000:' to 'DICT:IAU2000.wkt,'
       boost::replace_first(opt.target_srs_string,
                            "IAU2000:","DICT:IAU2000.wkt,");
 
-#if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
-      OGRSpatialReference gdal_spatial_ref;
-      if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
-        vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string << "\"." );
-      char *proj4 = NULL;
-      gdal_spatial_ref.exportToProj4( &proj4 );
-
-      // Filter out information dealing with the datum.
-      std::vector<std::string> commands;
-      std::string proj4_string(proj4);
-      delete[] proj4;
-      boost::split( commands, proj4_string, boost::is_any_of(" ") );
-      double axis_a, axis_b, axis_lon_0;
-      axis_a = axis_b = axis_lon_0 = std::numeric_limits<double>::quiet_NaN();
-      for ( size_t i = 0; i < commands.size(); i++ ) {
-        if ( boost::starts_with(commands[i],"+a=") ) {
-          axis_a = boost::lexical_cast<double>(commands[i].substr(3,commands[i].size()-3));
-          commands.erase( commands.begin() + i );
-          i--;
-        } else if ( boost::starts_with(commands[i],"+b=") ) {
-          axis_b = boost::lexical_cast<double>(commands[i].substr(3,commands[i].size()-3));
-          commands.erase( commands.begin() + i );
-          i--;
-        } else if ( boost::starts_with(commands[i],"+lon_0=") ) {
-          axis_lon_0 = boost::lexical_cast<double>(commands[i].substr(7,commands[i].size()-7));
-          commands.erase( commands.begin() + i );
-          i--;
+      // See if the user specified the datum outside of the target srs
+      // string. If they did ... read it and convert to a proj4 string
+      // so GDAL won't default to WGS84.
+      cartography::Datum user_datum;
+      bool have_user_datum = read_user_datum( opt, user_datum );
+      if ( have_user_datum ) {
+        if ( boost::starts_with(opt.target_srs_string,"+proj") ) {
+          opt.target_srs_string += " " + user_datum.proj4_str();
+        } else {
+          vw_throw(ArgumentErr() << "Can't specify a reference sphere when using target srs string that already specifies a datum." );
         }
       }
 
-      // Decide if we have enough information for setting the datum
-      if ( !boost::math::isnan(axis_a) &&
-           !boost::math::isnan(axis_b) ) {
-        Datum datum("","","", axis_a, axis_b,
-                    boost::math::isnan(axis_lon_0) ? 0 : axis_lon_0 );
-        georef.set_datum( datum );
-      }
+      VW_OUT(DebugMessage,"asp") << "Asking GDAL to decypher: \""
+                                 << opt.target_srs_string << "\"\n";
+      OGRSpatialReference gdal_spatial_ref;
+      if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
+        vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string << "\"." );
+      char *wkt = NULL;
+      gdal_spatial_ref.exportToWkt( &wkt );
+      std::string wkt_string(wkt);
+      delete[] wkt;
 
-      proj4_string.clear();
-      for ( size_t i = 0; i < commands.size(); i++ ) {
-        if ( i != 0 )
-          proj4_string += " ";
-        proj4_string += commands[i];
+      georef.set_wkt( wkt_string );
+
+      // Re-apply the user's datum. The important values were already
+      // there (major/minor axis), we're just re-applying to make sure
+      // the names of the datum are there.
+      if ( have_user_datum ) {
+        georef.set_datum( user_datum );
       }
-      georef.set_proj4_projection_str( proj4_string );
 #else
-      vw_throw( NoImplErr() << "Target SRS option is not available without GDAL." );
+      vw_throw( NoImplErr() << "Target SRS option is not available without GDAL support. Please rebuild VW and ASP with GDAL." );
 #endif
     }
 
