@@ -1438,20 +1438,21 @@ int main( int argc, char *argv[] ) {
         overlapParamsArray[j] = modelParamsArray[overlapIndicesArray[i][j]];
       }
 
-      if (!globalParams.useTiles){      
-        std::cerr << "Shape from shading works with tiles only" << std::endl;
-        exit(1);
+      if (globalParams.useTiles){      
+        std::string blankTileFile  = imageFiles[i];
+        std::string DEMTileFile    = meanDEMDir + sufix_from_filename(blankTileFile);
+        std::string albedoTileFile = albedoDir  + sufix_from_filename(blankTileFile);
+        std::string sfsTileFile    = sfsDir  + sufix_from_filename(blankTileFile);
+        UpdateHeightMapTiles(DEMTileFile, albedoTileFile, sfsTileFile,
+                             overlapParamsArray, globalParams);
+      }else{
+        UpdateHeightMap(modelParamsArray[inputIndices[i]], overlapParamsArray, globalParams);
       }
       
-      std::string blankTileFile  = imageFiles[i];
-      std::string DEMTileFile    = meanDEMDir + sufix_from_filename(blankTileFile);
-      std::string albedoTileFile = albedoDir  + sufix_from_filename(blankTileFile);
-      std::string sfsTileFile    = sfsDir  + sufix_from_filename(blankTileFile);
-      UpdateHeightMap(DEMTileFile, albedoTileFile, sfsTileFile,
-                      overlapParamsArray, globalParams);
     }
   }
-  
+    
+    
   return 0;
 }
 
