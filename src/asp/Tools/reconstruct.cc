@@ -5,6 +5,8 @@
 // __END_LICENSE__
 
 // To do:
+// Pass blankTilesList as input to reconstruct.cc, to avoid the duplication
+// in reconstruct.sh.
 // Copy a lot of the code from reconstruct.cc to photometry.
 // Wipe the network machines code. Create a copy of reconstruct.sh for use
 // on the supercomputer.
@@ -662,7 +664,6 @@ int ReadConfigFile(char *config_filename, struct GlobalParams *settings)
     
     // Potentially obsolete
     CHECK_VAR("NO_DEM_DATA_VAL",          "%d", noDEMDataValue);
-    CHECK_VAR("EXTRACT_DRG_FROM_CUBES",   "%d", extractDrgFromCubes);
     CHECK_VAR("SAVE_REFLECTANCE",         "%d", saveReflectance);
     CHECK_VAR("SLOPE_TYPE",               "%d", slopeType);
   }
@@ -735,7 +736,6 @@ void PrintGlobalParams(struct GlobalParams *settings)
 
   // Potentially obsolete
   printf("NO_DEM_DATA_VAL          %d\n", settings->noDEMDataValue);
-  printf("EXTRACT_DRG_FROM_CUBES   %d\n", settings->extractDrgFromCubes);
   printf("SAVE_REFLECTANCE         %d\n", settings->saveReflectance);
   printf("SLOPE_TYPE               %d\n", settings->slopeType);
 }
@@ -841,11 +841,6 @@ void list_DRG_in_box_and_all_DEM(bool useTiles,
   return;
 }
 
-int extractDRGFromCube(bool useDEMTiles, double metersPerPixel, std::string DEMTilesDir, std::string DEMFile,
-                      std::string cubeFile, std::string isis_adjust_file, std::string outputDrgFile,
-                      Vector3 & sunPosition, Vector3 & spacecraftPosition
-                      );
-
 int main( int argc, char *argv[] ) {
 
   for (int s = 0; s < argc; s++) std::cout << argv[s] << " ";
@@ -854,16 +849,12 @@ int main( int argc, char *argv[] ) {
   std::vector<std::string> inputDRGFiles;
   std::vector<std::string> DRGFiles;
   std::vector<std::string> imageFiles;
-  std::string isisAdjustDir       = "isis_adjust";
-  std::string metersPerPixelStr   = "100.0";
   std::string resDir              = "results";
   std::string configFilename      = "photometry_settings.txt";
   std::string DRGInBoxList        = "";
   
   po::options_description general_options("Options");
   general_options.add_options()
-    ("isis-adjust-directory", po::value<std::string>(&isisAdjustDir)->default_value("isis_adjust"), "ISIS adjust directory.")
-    ("meters-per-pixel", po::value<std::string>(&metersPerPixelStr)->default_value("100.0"), "The resolution when extracting a DRG from a cube file.")
     ("image-files,i", po::value<std::vector<std::string> >(&imageFiles), "Image files.")
     ("res-directory,r", po::value<std::string>(&resDir)->default_value("results"), "Results directory.")
     ("images-list,f", po::value<std::string>(&DRGInBoxList)->default_value(DRGInBoxList), "Path to file listing images to use.")
@@ -937,10 +928,6 @@ int main( int argc, char *argv[] ) {
     exit(1);
   }
   
-  double metersPerPixel   = atof(metersPerPixelStr.c_str()); // used when extracting DRG from ISIS cubes
-  std::cout << "ISIS adjust dir is " << isisAdjustDir  << std::endl;
-  std::cout << "metersPerPixel is  " << metersPerPixel << std::endl;
-  
   // Double check to make sure all folders exist  
   if ( !fs::exists(resDir) )
     fs::create_directories(resDir);
@@ -970,63 +957,6 @@ int main( int argc, char *argv[] ) {
   std::string blankTilesDir  = resDir + "/blank_tiles";
   if (globalParams.useTiles){
     if ( !fs::exists(blankTilesDir)  ) fs::create_directories(blankTilesDir);
-  }
-  
-  if (globalParams.extractDrgFromCubes == 1){
-
-    // Extract the DRG image from the current cube by projecting on the DEM
-    
-    if ( !fs::exists(globalParams.drgDir) ) fs::create_directories(globalParams.drgDir);
-
-    std::string cubeFile = imageFiles[0];
-    std::string prefix   = getFirstElevenCharsFromFileName(cubeFile);
-
-    sufix_from_filename(cubeFile).substr(0,12);
-    if (prefix.size() >= 1 && prefix[0] == '/') prefix = prefix.substr(1); // strip '/'
-
-    std::string DEMFile, DEMDirLoc; 
-    if (!globalParams.useTiles){
-      // The DEM to project to will have the same prefix as the current cube
-      std::map<std::string, std::string> DEMFilesIndex;
-      indexFilesByKey(globalParams.demDir, DEMFilesIndex);
-      std::map<std::string, std::string>::iterator it = DEMFilesIndex.find(prefix);
-      if (it == DEMFilesIndex.end()){
-        std::cerr << "Could not find a DEM for the cube file: " << cubeFile << std::endl;
-        exit(1);
-      }
-      DEMFile   = it->second;
-      DEMDirLoc = globalParams.demDir;
-    }else{
-      // We will project instead on the set of DEM tiles intersecting the current cube
-      DEMFile    = "";
-      DEMDirLoc  = globalParams.demDir;
-    }
-    
-    std::string isisAdjustFile = isisAdjustDir + "/" + prefix + ".lev2.isis_adjust";
-    std::string outputDrgFile  = std::string(globalParams.drgDir) + "/" + prefix + ".tif";
-    Vector3 sunPosition, spacecraftPosition;
-    std::cout << "cubeFile is         " << cubeFile       << std::endl;
-    std::cout << "isis adjust file is " << isisAdjustFile << std::endl;
-    std::cout << "outputDrgFile is    " << outputDrgFile  << std::endl;
-    std::cout << "DEMFile is          " << DEMFile        << std::endl;
-    std::cout << "DEMDirLoc  is       " << DEMDirLoc      << std::endl;
-    extractDRGFromCube(globalParams.useTiles, metersPerPixel, DEMDirLoc, DEMFile,
-                      cubeFile, isisAdjustFile, outputDrgFile,
-                      sunPosition, spacecraftPosition // outputs
-                      );
-
-    // Write the sun and spacecraft position to disk
-#if 0
-    std::string sunDir        = cubDir + "/sunpos";
-    std::string spacecraftDir = cubDir + "/spacecraftpos";
-    if ( !fs::exists(cubDir) )        fs::create_directories(cubDir);
-    if ( !fs::exists(sunDir) )        fs::create_directories(sunDir);
-    if ( !fs::exists(spacecraftDir) ) fs::create_directories(spacecraftDir);
-    std::string sunFile        = sunDir        + "/" + prefix + "_sun.txt";
-    std::string spacecraftFile = spacecraftDir + "/" + prefix + "_spacecraft.txt";
-    writeSunAndSpacecraftPosition(prefix, sunFile, spacecraftFile, sunPosition, spacecraftPosition);
-#endif
-    return 0;
   }
   
   // The names of the files listing all DRGs and DEMs and the coordinates

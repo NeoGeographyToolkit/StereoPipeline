@@ -1,16 +1,37 @@
-REFLECTANCE_TYPE 2
-SAVe_REFLECTANCE 1
-SHADOW_THRESH 40
-SLOPE_TYPE 1
-ALBEDO_INIT_TYPE 0
-EXPOSURE_INIT_TYPE 0
-DEM_INIT_TYPE 0
-SHADOW_INIT_TYPE 0
-UPDATE_EXPOSURE 0
-UPDATE_ALBEDO 0
-UPDATE_HEIGHT 1
-COMPUTE_ERRORS 0
-USE_WEIGHTS 1
-SAVE_WEIGHTS 1
-MAX_NUM_ITER 10
-NO_DEM_DATA_VAL -32767
+# Files/directories
+DRG_DIR                   DRG_input_sub64
+DEM_DIR                   DEM_tiles_sub64
+SUN_POSITION_FILE         meta/sunpos.txt 
+SPACECRAFT_POSITION_FILE  meta/spacecraftpos.txt
+
+# Constants
+USE_TILES                 1
+TILE_SIZE                 4.000000
+PIXEL_PADDING             5
+SIMULATION_BOX            6:10:-10:-9 # lon_min:lon_max:lat_min:lat_max
+#SIMULATION_BOX           -180:180:-180:180 # all albedo
+REFLECTANCE_TYPE          2
+SHADOW_THRESH             40
+MAX_NUM_ITER              0
+USE_WEIGHTS               1
+COMPUTE_ERRORS            0
+NO_DEM_DATA_VAL           -32767
+
+# Parameters controlling the flow. Normally
+# these are specified via command-line options,
+# but can be overrriden below.
+INITIAL_SETUP             0
+SAVE_WEIGHTS              0
+SHADOW_INIT_TYPE          0
+DEM_INIT_TYPE             0
+EXPOSURE_INIT_TYPE        0
+ALBEDO_INIT_TYPE          0
+UPDATE_EXPOSURE           0
+UPDATE_ALBEDO             0
+UPDATE_HEIGHT             0
+
+# Potentially obsolete parameters.
+EXTRACT_DRG_FROM_CUBES    0
+SLOPE_TYPE                1
+SAVE_REFLECTANCE          0
+
