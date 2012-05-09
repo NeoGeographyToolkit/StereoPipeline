@@ -233,7 +233,8 @@ namespace asp {
         means[c] = ba::mean( acc[ c ] );
         variances[c] = ba::variance( acc[ c ] );
         VW_OUT( DebugMessage, "asp" ) << "Cluster " << c << " updated:\n"
-                                      << means[c] << " " << variances[c] << std::endl;
+                                      << means[c] << " " << variances[c]
+                                      << " " << ba::count( acc[c] ) << std::endl;
       }
 
       // Update change indicators

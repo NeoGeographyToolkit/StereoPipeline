@@ -214,7 +214,8 @@ namespace asp {
                     double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                     double nodata2 = std::numeric_limits<double>::quiet_NaN(),
                     vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
-                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0))) {
+                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
+                    bool transform_to_original_coord = true ) {
     using namespace vw;
 
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
@@ -302,8 +303,12 @@ namespace asp {
     ip1_copy.reserve( matched_ip1.size() );
     ip2_copy.reserve( matched_ip1.size() );
     BOOST_FOREACH( size_t index, good_indices ) {
-      Vector2 l = left_tx.reverse( Vector2( matched_ip1[index].x, matched_ip1[index].y ) );
-      Vector2 r = right_tx.reverse( Vector2( matched_ip2[index].x, matched_ip2[index].y ) );
+      Vector2 l = Vector2( matched_ip1[index].x, matched_ip1[index].y ),
+        r = Vector2( matched_ip2[index].x, matched_ip2[index].y );
+      if ( transform_to_original_coord ) {
+        l = left_tx.reverse( l );
+        r = right_tx.reverse( r );
+      }
       matched_ip1[index].ix = matched_ip1[index].x = l.x();
       matched_ip1[index].iy = matched_ip1[index].y = l.y();
       matched_ip2[index].ix = matched_ip2[index].x = r.x();
@@ -338,6 +343,7 @@ namespace asp {
     Image2T image2 = image2_base.impl();
     BBox2i box1 = bounding_box(image1), box2 = bounding_box(image2);
 
+    // Homography is defined in the original camera coordinates
     Matrix<double> homography =
       rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
                             right_tx.reverse_bbox(box2), datum );

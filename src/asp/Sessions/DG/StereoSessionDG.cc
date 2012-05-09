@@ -58,6 +58,44 @@ public:
   }
 };
 
+// RPCMapTransform. Used to test the validity of IP matching on map
+// projected images. However, this could be used for performing an RPC
+// map projection.
+class RPCMapTransform : public TransformBase<RPCMapTransform> {
+  RPCModel m_rpc;
+  cartography::GeoReference m_image_georef, m_dem_georef;
+  DiskImageView<float> m_dem;
+  ImageViewRef<Vector3> m_point_cloud;
+public:
+  RPCMapTransform( RPCModel const& rpc,
+                   cartography::GeoReference const& image_georef,
+                   cartography::GeoReference const& dem_georef,
+                   boost::shared_ptr<DiskImageResource> dem_rsrc ) : m_rpc(rpc), m_image_georef(image_georef), m_dem_georef(dem_georef), m_dem(dem_rsrc) {
+    if ( dem_rsrc->has_nodata_read() )
+      m_point_cloud =
+        cartography::geo_transform(
+          geodetic_to_cartesian(
+            dem_to_geodetic( create_mask( m_dem, dem_rsrc->nodata_read()),
+                             m_dem_georef ), m_dem_georef.datum() ),
+          m_dem_georef, m_image_georef,
+          ValueEdgeExtension<Vector3>( Vector3() ) );
+    else
+      m_point_cloud =
+        cartography::geo_transform(
+          geodetic_to_cartesian(
+            dem_to_geodetic( m_dem, m_dem_georef ),
+            m_dem_georef.datum() ),
+          m_dem_georef, m_image_georef,
+          ValueEdgeExtension<Vector3>( Vector3() ) );
+  }
+
+  // Convert Map Projected Coordinate to camera coordinate
+  inline Vector2 reverse(const Vector2 &p) const {
+    Vector3 point = m_point_cloud(p.x(),p.y());
+    return m_rpc.point_to_pixel( point );
+  }
+};
+
 // Helper functor that converts projected pixel indices and height
 // value to unprojected pixel indices.
 class OriginalCameraIndex : public ReturnFixedType<Vector2f> {
@@ -77,6 +115,27 @@ public:
     return Vector2f(-1,1);
   }
 };
+
+// Helper function to read RPC.
+RPCModel*
+read_rpc_model( std::string const& image_file,
+                std::string const& camera_file ) {
+  RPCModel* rpc_model = NULL;
+  try {
+    rpc_model = new RPCModel( image_file );
+  } catch ( NotFoundErr const& err ) {}
+
+  if ( !rpc_model ) {
+    RPCXML rpc_xml;
+    rpc_xml.read_from_file( camera_file );
+    rpc_model = new RPCModel( *rpc_xml.rpc_ptr() ); // Copy the ptr
+
+    // We don't catch an error here because the User will need to
+    // know of a failure at this point. We previously opened the
+    // XML safely before.
+  }
+  return rpc_model;
+}
 
 namespace asp {
 
@@ -224,21 +283,8 @@ namespace asp {
     read_georeference( dem_georef, m_extra_argument1 );
     read_georeference( image_georef, image_file );
 
-    boost::scoped_ptr<RPCModel> rpc_model;
-    try {
-      rpc_model.reset( new RPCModel(image_file) );
-    } catch ( NotFoundErr const& err ) {}
-
-    // If the above failed to load the RPC Model. Let's try from the XML.
-    if ( !rpc_model.get() ) {
-      RPCXML rpc_xml;
-      rpc_xml.read_from_file( camera_file );
-      rpc_model.reset( new RPCModel( *rpc_xml.rpc_ptr() ) ); // Copy the ptr
-
-      // We don't catch an error here because the User will need to
-      // know of a failure at this point. We previously opened the
-      // XML safely before.
-    }
+    boost::scoped_ptr<RPCModel>
+      rpc_model( read_rpc_model( image_file, camera_file ) );
 
     DiskImageView<float> dem( dem_rsrc );
     if ( dem_rsrc->has_nodata_read() ) {
@@ -278,8 +324,12 @@ namespace asp {
                                                std::string &output_file2) {
 
     // Load the unmodified images
-    DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
-    DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+    boost::shared_ptr<DiskImageResource>
+      left_rsrc( DiskImageResource::open(m_left_image_file) ),
+      righ_rsrc( DiskImageResource::open(m_right_image_file) );
+    DiskImageView<PixelGray<float> >
+      left_disk_image( left_rsrc ),
+      righ_disk_image( righ_rsrc );
 
     // Normalized Images' filenames
     output_file1 = m_out_prefix + "-L.tif";
@@ -305,7 +355,7 @@ namespace asp {
     // They don't exist or are corrupted.
     if (rebuild) {
       Vector4f left_stats = gather_stats( left_disk_image, "left" ),
-        right_stats = gather_stats( right_disk_image, "right" );
+        right_stats = gather_stats( righ_disk_image, "right" );
 
       ImageViewRef<PixelGray<float> > Limg, Rimg;
       std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -319,17 +369,51 @@ namespace asp {
         if (!fs::exists(match_filename)) {
           bool inlier = false;
 
+          boost::shared_ptr<camera::CameraModel> cam1, cam2;
+          camera_models( cam1, cam2 );
           if ( m_rpc_map_projected ) {
+            // We'll make the assumption that the user has map
+            // projected the images to the same scale. If they
+            // haven't, below would be the ideal but lossy method.
+            //            inlier =
+            //  homography_ip_matching( left_disk_image, righ_disk_image,
+            //                          match_filename );
+            boost::scoped_ptr<RPCModel>
+              left_rpc( read_rpc_model( m_left_image_file, m_left_camera_file ) ),
+              righ_rpc( read_rpc_model( m_right_image_file, m_right_camera_file ) );
+            cartography::GeoReference left_georef, righ_georef, dem_georef;
+            read_georeference( left_georef, m_left_image_file );
+            read_georeference( righ_georef, m_right_image_file );
+            read_georeference( dem_georef, m_extra_argument1 );
+            boost::shared_ptr<DiskImageResource>
+              dem_rsrc( DiskImageResource::open( m_extra_argument1 ) );
+            TransformRef
+              left_tx( RPCMapTransform( *left_rpc, left_georef,
+                                        dem_georef, dem_rsrc ) ),
+              righ_tx( RPCMapTransform( *righ_rpc, righ_georef,
+                                        dem_georef, dem_rsrc ) );
             inlier =
-              homography_ip_matching( left_disk_image, right_disk_image,
-                                      match_filename );
+              ip_matching( cam1.get(), cam2.get(),
+                           left_disk_image, righ_disk_image,
+                           cartography::Datum("WGS84"), match_filename,
+                           left_rsrc->has_nodata_read() ?
+                           left_rsrc->nodata_read() :
+                           std::numeric_limits<double>::quiet_NaN(),
+                           righ_rsrc->has_nodata_read() ?
+                           righ_rsrc->nodata_read() :
+                           std::numeric_limits<double>::quiet_NaN(),
+                           left_tx, righ_tx, false );
           } else {
-            boost::shared_ptr<camera::CameraModel> cam1, cam2;
-            camera_models( cam1, cam2 );
             inlier =
               ip_matching_w_alignment( cam1.get(), cam2.get(),
-                                       left_disk_image, right_disk_image,
-                                       cartography::Datum("WGS84"), match_filename );
+                                       left_disk_image, righ_disk_image,
+                                       cartography::Datum("WGS84"), match_filename,
+                                       left_rsrc->has_nodata_read() ?
+                                       left_rsrc->nodata_read() :
+                                       std::numeric_limits<double>::quiet_NaN(),
+                                       righ_rsrc->has_nodata_read() ?
+                                       righ_rsrc->nodata_read() :
+                                       std::numeric_limits<double>::quiet_NaN() );
           }
 
           if ( !inlier ) {
@@ -349,7 +433,7 @@ namespace asp {
 
         // Applying alignment transform
         Limg = left_disk_image;
-        Rimg = transform(right_disk_image,
+        Rimg = transform(righ_disk_image,
                          HomographyTransform(align_matrix),
                          left_disk_image.cols(), left_disk_image.rows());
       } else if ( stereo_settings().alignment_method == "epipolar" ) {
@@ -357,7 +441,7 @@ namespace asp {
       } else {
         // Do nothing just provide the original files.
         Limg = left_disk_image;
-        Rimg = right_disk_image;
+        Rimg = righ_disk_image;
       }
 
       // Apply our normalization options
