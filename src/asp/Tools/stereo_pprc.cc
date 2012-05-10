@@ -18,6 +18,55 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
+// Weighted Summation filter for antialiasing. This insures that we
+// are not summing with masked pixels. Sadly Gaussian filters will
+// always do this, thus the need for a custom type.
+//
+// The correlators perform a different trick to avoid this
+// problem. They set invalid pixels to a mean pixel value when
+// performing the gaussian.
+class WeightedAAFilter : public UnaryReturnTemplateType<PixelTypeFromPixelAccessor> {
+  int32 m_reduce_amt;
+public:
+  WeightedAAFilter( int32 reduce_amt ) : m_reduce_amt( reduce_amt ) {}
+
+  BBox2i work_area() const { return BBox2i(0,0,m_reduce_amt,m_reduce_amt); }
+
+  template <class PixelAccessorT>
+  typename PixelAccessorT::pixel_type
+  operator()( PixelAccessorT acc ) const {
+    typedef typename SumType<typename PixelAccessorT::pixel_type,
+                             typename PixelAccessorT::pixel_type >::type sum_type;
+    sum_type sum;
+    validate( sum );
+    size_t count = 0;
+    for ( int32 r=m_reduce_amt; r; --r ) {
+      PixelAccessorT col_acc = acc;
+      for ( int32 c=m_reduce_amt; c; --c) {
+        if ( is_valid( *col_acc ) ) {
+          count++;
+          sum += (*col_acc);
+        }
+        col_acc.next_col();
+      }
+      acc.next_row();
+    }
+    if ( !count )
+      invalidate( sum );
+    return sum / count;
+  }
+};
+
+template <class ViewT>
+TransformView<InterpolationView<UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ZeroEdgeExtension>, WeightedAAFilter>, NearestPixelInterpolation>, ResampleTransform>
+resample_aa( ImageViewBase<ViewT> const& input, double factor ) {
+  typedef UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ZeroEdgeExtension>, WeightedAAFilter> inner_type;
+  typedef TransformView<InterpolationView<inner_type, NearestPixelInterpolation>, ResampleTransform> return_type;
+  return return_type( InterpolationView<inner_type, NearestPixelInterpolation>( per_pixel_accessor_filter( input.impl(), WeightedAAFilter( int32(1.0/factor) ) ) ), ResampleTransform( factor, factor ),
+                      int32(.5+(input.impl().cols()*factor)),
+                      int32(.5+(input.impl().rows()*factor)) );
+}
+
 void stereo_preprocessing( Options& opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string()
@@ -122,18 +171,19 @@ void stereo_preprocessing( Options& opt ) {
     } else {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent
-      // to 4xFSAA.
+      DiskImageView<uint8> lmask(opt.out_prefix+"-lMask.tif"),
+        rmask(opt.out_prefix+"-rMask.tif");
       asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
-                                   resample(gaussian_filter(resample(left_image,sub_scale * 4.f),2.8f),.25f), opt,
-                                   TerminalProgressCallback("asp", "\t    Sub L: ") );
+                                   apply_mask(resample_aa( copy_mask(left_image,create_mask(lmask) ), sub_scale )),
+                                   opt, TerminalProgressCallback("asp", "\t    Sub L: ") );
       asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
-                                   resample(gaussian_filter(resample(right_image,sub_scale * 4.f),2.8f),.25f), opt,
-                                   TerminalProgressCallback("asp", "\t    Sub R: ") );
+                                   apply_mask(resample_aa( copy_mask(right_image,create_mask(rmask) ), sub_scale )),
+                                   opt, TerminalProgressCallback("asp", "\t    Sub R: ") );
       asp::block_write_gdal_image( opt.out_prefix+"-lMask_sub.tif",
-                                   threshold(resample(gaussian_filter(resample(DiskImageView<uint8>(opt.out_prefix+"-lMask.tif"), sub_scale * 4.f),2.8f),.25f),10,0,255), opt,
+                                   resample(lmask,sub_scale,ZeroEdgeExtension(), NearestPixelInterpolation()), opt,
                                    TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
       asp::block_write_gdal_image( opt.out_prefix+"-rMask_sub.tif",
-                                   threshold(resample(gaussian_filter(resample(DiskImageView<uint8>(opt.out_prefix+"-rMask.tif"), sub_scale * 4.f),2.8f),.25f),10,0,255), opt,
+                                   resample(rmask,sub_scale,ZeroEdgeExtension(), NearestPixelInterpolation()), opt,
                                    TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
     }
     opt.raster_tile_size = previous_tile_size;
