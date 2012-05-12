@@ -8,7 +8,7 @@ version                 20120417
 revision                1
 
 categories              graphics science
-license                 NOSA
+license                 Apache 2
 platforms               darwin
 maintainers             nasa.gov:z.m.moratto
 

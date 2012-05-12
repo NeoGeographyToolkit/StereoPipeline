@@ -1,64 +1,101 @@
 #!/usr/bin/perl
+# __BEGIN_LICENSE__
+# Copyright (C) 2009-2012 United States Government as represented by
+# the Administrator of the National Aeronautics and Space Administration.
+# All Rights Reserved.
+# __END_LICENSE__
 
-$license_file = shift @ARGV;
 
-open LICENSE, "<$license_file" or die "Can't read license file $license_file";
+use strict;
+use warnings;
 
-@license = <LICENSE>;
+use File::Slurp;
+use File::Basename;
 
-if( $ARGV[0] eq "-" ) {
-  while( <STDIN> ) {
-    @line_files = split( /\s/, $_ );
-    push( @files, @line_files );
-  }
-}
-else {
-  @files = @ARGV;
-}
+my %comment = (
+    ".ac"   => "dnl",
+    ".am"   => "#",
+    ".c"    => "//",
+    ".cc"   => "//",
+    ".cpp"  => "//",
+    ".cxx"  => "//",
+    ".oldtest"  => "//",
+    ".hpp"  => "//",
+    ".cg"   => "//",
+    ".glsl" => "//",
+    ".h"    => "//",
+    ".hh"   => "//",
+    ".i"    => "//",
+    ".m4"   => "dnl",
+    ".mak"  => "#",
+    ".pl"   => "#",
+    ".proto" => "//",
+    ".py"   => "#",
+    ".sh"   => "#",
+    ".js"   => "//",
+    ".tcc"  => "//",
+    ".in"   => "#",
+    ".example" => "#",
+);
 
-while (@files) {
-  $file = shift @files;
-  open FILE, "<$file" or die "Can't open file $file for reading";
-  $tmp = "$file.relicense";
-  open TMP, ">$tmp" or die "Can't open file $tmp for writing";
-  while ( <FILE> ) { 
-    print TMP;
-    if( /^(.*)__BEGIN_LICENSE__/ ) {
-      $prefix = $1;
-      last;
+# Read the license text from __DATA__ by default
+my $f = \*DATA;
+$f = $ARGV[0] if @ARGV > 0;
+
+my @license = read_file($f);
+my $shebang = '';
+
+# process each line given on stdin
+foreach my $filename (<>) {
+    chomp $filename;
+
+    print "$filename\n";
+
+    # get the extension, and skip it if we don't know about it
+    my (undef, undef, $ext) = fileparse($filename, qr/\.[^.]*/);
+
+    unless (exists $comment{$ext}) {
+        warn "Skipped $filename\n";
+        next;
     }
-  }
-  if( eof FILE ) {
-    close FILE;
-    close TMP;
-    unlink $tmp;
-    next;
-  }
-  print TMP $prefix."\n";
-  foreach (@license) {
-    print TMP $prefix.$_;
-  }
-  print TMP $prefix."\n";
-  while( <FILE> ) {
-    if( /__END_LICENSE__/ ) {
-      print TMP;
-      last;
+
+    my $file = read_file($filename);
+
+    $shebang = '';
+    # Protect a shebang line
+    if ($file =~ s/^(#!.*\n)//) {
+        if (defined($1)) {
+            $shebang = $1;
+        }
     }
-  }
-  if( eof FILE ) {
-    print "Error: End of license not found while relicensing $file\n";
-    close FILE;
-    close TMP;
-    unlink $tmp;
-    next;
-  }
-  while( <FILE> ) {
-    print TMP;
-  }
-  close FILE;
-  close TMP;
-  print "Relicensing $file";
-  unlink $file;
-  rename $tmp, $file;
-  print "\n";
+
+    # Remove a license header if it exists
+    $file =~ s/^[^\n]*__BEGIN_LICENSE__.*?__END_LICENSE__[^\n]*$//ms;
+
+    # Remove all blank files from the top of the file
+    while ($file =~ s/^\s*\n//) {};
+
+    # prepend the license text, prepending the comment string to each line.
+    # Also, separate the license header from content by two blank lines
+    $file = $shebang . $comment{$ext} . join($comment{$ext}, @license) . "\n\n" . $file;
+
+    write_file($filename, $file);
 }
+
+__DATA__
+ __BEGIN_LICENSE__
+  Copyright (c) 2009-2012, United States Government as represented by the
+  Administrator of the National Aeronautics and Space Administration. All
+  rights reserved.
+
+  The NGT platform is licensed under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance with the
+  License. You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+ __END_LICENSE__
