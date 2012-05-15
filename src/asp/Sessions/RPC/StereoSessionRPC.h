@@ -33,8 +33,8 @@ namespace asp {
 
     // Produces a camera model from the images
     virtual boost::shared_ptr<vw::camera::CameraModel>
-    camera_model( std::string const& image_file,
-                  std::string const& camera_file = "" ) {
+    camera_model( std::string const& /*image_file*/,
+                  std::string const& /*camera_file*/ = "" ) {
       vw::vw_throw( vw::NoImplErr() << "StereoSessionRPC: Not implemented" );
     }
 
