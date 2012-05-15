@@ -58,11 +58,11 @@ namespace asp {
     // Standard Access Methods (Most of these will fail because they
     // don't apply well to RPC.)
     virtual vw::Vector2 point_to_pixel( vw::Vector3 const& point ) const;
-    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix ) const {
+    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& /*pix*/ ) const {
       vw::vw_throw( vw::NoImplErr() << "RPCModel: Pixel to Vector not implemented" );
       return vw::Vector3();
     }
-    virtual vw::Vector3 camera_center( vw::Vector2 const& pix ) const {
+    virtual vw::Vector3 camera_center( vw::Vector2 const& /*pix*/ ) const {
       vw::vw_throw( vw::NoImplErr() << "RPCModel: Camera center not implemented" );
       return vw::Vector3();
     }

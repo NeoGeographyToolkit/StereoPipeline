@@ -49,6 +49,7 @@
 
 using namespace vw;
 using namespace asp;
+using namespace xercesc;
 namespace pt = boost::posix_time;
 namespace fs = boost::filesystem;
 
@@ -153,7 +154,7 @@ namespace asp {
 
   // Xerces-C initialize
   StereoSessionDG::StereoSessionDG() : m_rpc_map_projected(false) {
-    xercesc::XMLPlatformUtils::Initialize();
+    XMLPlatformUtils::Initialize();
   }
 
   // Initializer to determine what kinda of input do we have?
@@ -288,15 +289,46 @@ namespace asp {
     boost::shared_ptr<DiskImageResource> dem_rsrc( DiskImageResource::open( m_extra_argument1 ) ),
       image_rsrc( DiskImageResource::open( image_file ) );
 
-    BBox2i image_bbox( 0, 0, image_rsrc->cols(),
-                       image_rsrc->rows() );
+    ImageXML image_xml;
+    RPCXML rpc_xml;
+
+    { // Parsing XML
+      boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
+      parser->setValidationScheme(XercesDOMParser::Val_Always);
+      parser->setDoNamespaces(true);
+      boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
+      parser->setErrorHandler(errHandler.get());
+
+      parser->parse( camera_file.c_str() );
+      DOMDocument* xmlDoc = parser->getDocument();
+      DOMElement* elementRoot = xmlDoc->getDocumentElement();
+
+      DOMNodeList* children = elementRoot->getChildNodes();
+      for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+        DOMNode* curr_node = children->item(i);
+        if ( curr_node->getNodeType() == DOMNode::ELEMENT_NODE ) {
+          DOMElement* curr_element =
+            dynamic_cast<DOMElement*>( curr_node );
+          std::string tag( XMLString::transcode(curr_element->getTagName()) );
+          if ( tag == "RPB" ) {
+            rpc_xml.parse( curr_element );
+          } else if ( tag == "IMD" ) {
+            image_xml.parse( curr_element );
+          }
+        }
+      }
+    }
+
+    BBox2i map_image_bbox( 0, 0, image_rsrc->cols(),
+                           image_rsrc->rows() ),
+      org_image_bbox( Vector2i(),
+                      image_xml.image_size );
 
     cartography::GeoReference dem_georef, image_georef;
     read_georeference( dem_georef, m_extra_argument1 );
     read_georeference( image_georef, image_file );
 
-    boost::scoped_ptr<RPCModel>
-      rpc_model( read_rpc_model( image_file, camera_file ) );
+    boost::scoped_ptr<RPCModel> rpc_model( new RPCModel( *rpc_xml.rpc_ptr() ) );
 
     DiskImageView<float> dem( dem_rsrc );
     if ( dem_rsrc->has_nodata_read() ) {
@@ -306,16 +338,20 @@ namespace asp {
                    dem_to_geodetic(
                      create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
                  dem_georef, image_georef,
+                 image_rsrc->cols(),
+                 image_rsrc->rows(),
                  ValueEdgeExtension<Vector3>( Vector3() ) ),
-               OriginalCameraIndex( *rpc_model, image_bbox ) ), image_bbox );
+               OriginalCameraIndex( *rpc_model, org_image_bbox ) ), map_image_bbox );
     }
     return crop(per_pixel_filter(
              cartography::geo_transform(
                geodetic_to_cartesian(
                  dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
                dem_georef, image_georef,
+               image_rsrc->cols(),
+               image_rsrc->rows(),
                ValueEdgeExtension<Vector3>( Vector3() ) ),
-             OriginalCameraIndex( *rpc_model, image_bbox ) ), image_bbox );
+             OriginalCameraIndex( *rpc_model, org_image_bbox ) ), map_image_bbox );
   }
 
   ImageViewRef<Vector2f> StereoSessionDG::lut_image_left() const {
@@ -505,7 +541,7 @@ namespace asp {
 
   // Xerces-C terminate
   StereoSessionDG::~StereoSessionDG() {
-    xercesc::XMLPlatformUtils::Terminate();
+    XMLPlatformUtils::Terminate();
   }
 
 }
