@@ -23,6 +23,7 @@
 #include <test/Helpers.h>
 
 #include <vw/Stereo/StereoModel.h>
+#include <vw/Cartography.h>
 
 using namespace vw;
 using namespace asp;
@@ -191,4 +192,46 @@ TEST(StereoSessionDG, ProjectRPC) {
   xyz = datum.geodetic_to_cartesian( Vector3(-105.42418,39.793464,2801.8) );
   EXPECT_VECTOR_NEAR( rpc_model->point_to_pixel( xyz ),
                       dg_model->point_to_pixel( xyz ), 25 );
+}
+
+TEST(StereoSessionDG, MapProjectionTest) {
+  std::string prefix("/Users/zmoratto/Data/Earth/DG_map_problem/");
+  StereoSessionDG session;
+  BaseOptions opt;
+  session.initialize( opt,
+                      prefix+"WV01_11JUN171531433-P1BS-102001001549B500_ortho.tif",
+                      prefix+"WV01_11JUN171532408-P1BS-1020010014597A00_ortho.tif",
+                      prefix+"WV01_11JUN171531433-P1BS-102001001549B500.xml",
+                      prefix+"WV01_11JUN171532408-P1BS-1020010014597A00.xml",
+                      "cookie",
+                      prefix+"gimpdem_90m.tif", "", "", "" );
+
+  EXPECT_TRUE( session.has_lut_images() );
+  ImageViewRef<Vector2f> left_index =
+    session.lut_image_left();
+
+  using namespace vw::cartography;
+
+  std::cout << "Testing numbers myself" << std::endl;
+  GeoReference dem_georef, image_georef;
+  read_georeference( dem_georef, prefix+"gimpdem_90m.tif" );
+  read_georeference( image_georef, prefix+"WV01_11JUN171531433-P1BS-102001001549B500_ortho.tif" );
+  RPCXML rpc_xml;
+  rpc_xml.read_from_file( prefix+"WV01_11JUN171531433-P1BS-102001001549B500.xml" );
+  boost::scoped_ptr<RPCModel> rpc_model( new RPCModel( *rpc_xml.rpc_ptr() ) );
+  DiskImageView<float> dem( prefix+"gimpdem_90m.tif" );
+  ImageViewRef<Vector3> dem_transformed =
+    geo_transform( geodetic_to_cartesian( dem_to_geodetic( dem, dem_georef ), dem_georef.datum() ), dem_georef, image_georef,
+                   20379, 19493, ValueEdgeExtension<Vector3>( Vector3() ) );
+
+  EXPECT_VECTOR_NEAR( left_index( 5507,8926 ),
+                      Vector2f(8975, 15503 ), 3 );
+  EXPECT_VECTOR_NEAR( left_index( 4308,16825 ),
+                      Vector2f(7942, 30003 ), 3 ); // Failed
+  EXPECT_VECTOR_NEAR( left_index( 16628, 15888 ),
+                      Vector2f(30684,25811), 3 ); // Failed
+  EXPECT_VECTOR_NEAR( left_index( 19596, 2213 ),
+                      Vector2f(34398, 457), 3 ); // Failed
+  EXPECT_VECTOR_NEAR( left_index( 7481, 1059 ),
+                      Vector2f(11506, 739), 3 ); // Failed
 }
