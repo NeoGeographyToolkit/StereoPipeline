@@ -118,3 +118,10 @@ bool asp::has_cam_extension( std::string const& input ) {
     return true;
   return false;
 }
+
+Vector2i asp::file_image_size( std::string const& input ) {
+  boost::scoped_ptr<SrcImageResource>
+    rsrc( DiskImageResource::open( input ) );
+  Vector2i size( rsrc->cols(), rsrc->rows() );
+  return size;
+}

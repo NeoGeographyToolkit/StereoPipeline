@@ -182,7 +182,6 @@ namespace cartography {
       BBox2i buffered_bbox = bbox;
       buffered_bbox = bbox;
       buffered_bbox.expand(3.0* (1.0/m_spacing) * (1.0/m_point_spacing));
-      vw_out(DebugMessage,"asp") << "Expanding raster bbox by " << 3.0 * (1.0/m_spacing) * (1.0/m_point_spacing) << " pixels.\n";
 
       // Calculate the pixel bounding boxes' location in the point domain.
       //

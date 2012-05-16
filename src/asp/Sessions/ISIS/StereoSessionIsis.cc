@@ -214,14 +214,8 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   }
 
   // Getting left image size
-  Vector2i left_size, right_size;
-  {
-    boost::scoped_ptr<DiskImageResource>
-      left_rsrc( DiskImageResource::open( input_file1 ) ),
-      right_rsrc( DiskImageResource::open( input_file2 ) );
-    left_size = Vector2i( left_rsrc->cols(), left_rsrc->rows() );
-    right_size = Vector2i( right_rsrc->cols(), right_rsrc->rows() );
-  }
+  Vector2i left_size = file_image_size( input_file1 ),
+    right_size = file_image_size( input_file2 );
 
   // Apply alignment and normalization
   if (stereo_settings().individually_normalize == 0 ) {

@@ -165,11 +165,10 @@ approximate_search_range( std::string const& left_image,
   float i_scale = 1.0/scale;
 
   // String names
-  std::string left_ip_file =
-    fs::path( left_image ).replace_extension("vwip").string();
-  std::string right_ip_file =
-    fs::path( right_image ).replace_extension("vwip").string();
-  std::string match_file =
+  std::string
+    left_ip_file = fs::path( left_image ).replace_extension("vwip").string(),
+    right_ip_file = fs::path( right_image ).replace_extension("vwip").string(),
+    match_file =
     fs::path( left_image ).replace_extension("").string() + "__" +
     fs::path( right_image ).stem() + ".match";
 
@@ -258,8 +257,9 @@ approximate_search_range( std::string const& left_image,
 
     vw_out() << "\t    * Rejecting outliers using RANSAC.\n";
     ip::remove_duplicates(matched_ip1, matched_ip2);
-    std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
-    std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
+    std::vector<Vector3>
+      ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1),
+      ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
     std::vector<size_t> indices;
 
     try {
@@ -267,20 +267,16 @@ approximate_search_range( std::string const& left_image,
       // the edge lengths. This is a bit of a magic number, but I'm
       // pulling from experience that an inlier threshold of 30
       // worked best for 1024^2 AMC imagery.
-      DiskImageView<PixelT> left_sub_image(left_image);
-      DiskImageView<PixelT> right_sub_image(right_image);
       float inlier_threshold =
-        0.0075 * left_sub_image.cols() +
-        0.0075 * left_sub_image.rows() +
-        0.0075 * right_sub_image.cols() +
-        0.0075 * right_sub_image.rows();
+        0.0075 * ( sum( file_image_size( left_image ) ) +
+                   sum( file_image_size( right_image ) ) );
 
       math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
         ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), inlier_threshold );
       Matrix<double> trans = ransac( ransac_ip1, ransac_ip2 );
-      vw_out(DebugMessage) << "\t    * Ransac Result: " << trans << std::endl;
-      vw_out(DebugMessage) << "\t      inlier thresh: "
-                           << inlier_threshold << " px" << std::endl;
+      vw_out(DebugMessage,"asp") << "\t    * Ransac Result: " << trans << std::endl;
+      vw_out(DebugMessage,"asp") << "\t      inlier thresh: "
+                                 << inlier_threshold << " px" << std::endl;
       indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
     } catch ( vw::math::RANSACErr const& e ) {
       vw_out() << "-------------------------------WARNING---------------------------------\n";
@@ -308,12 +304,11 @@ approximate_search_range( std::string const& left_image,
   namespace ba = boost::accumulators;
   ba::accumulator_set<float, ba::stats<ba::tag::variance> > acc_x, acc_y;
   for (size_t i = 0; i < matched_ip1.size(); i++) {
-    Vector2f translation( i_scale*(Vector2f(matched_ip2[i].x, matched_ip2[i].y) -
-                                   Vector2f(matched_ip1[i].x, matched_ip1[i].y)) );
-    acc_x(translation.x());
-    acc_y(translation.y());
+    acc_x(i_scale * ( matched_ip2[i].x - matched_ip1[i].x ));
+    acc_y(i_scale * ( matched_ip2[i].y - matched_ip1[i].y ));
   }
   Vector2f mean( ba::mean(acc_x), ba::mean(acc_y) );
+  vw_out(DebugMessage,"asp") << "Mean search is : " << mean << std::endl;
   Vector2f stddev( sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)) );
   BBox2i search_range( mean - 2.5*stddev,
                        mean + 2.5*stddev );
@@ -386,23 +381,17 @@ void stereo_correlation( Options& opt ) {
       //   Pinhole + Epipolar
       //   Pinhole + None
       // Everything else should gather IP's all the time.
-      std::string l_sub_file = opt.out_prefix+"-L_sub.tif";
-      std::string r_sub_file = opt.out_prefix+"-R_sub.tif";
-      float sub_scale = 0;
-      {
-        std::string l_org_file = opt.out_prefix+"-L.tif";
-        std::string r_org_file = opt.out_prefix+"-R.tif";
-        DiskImageView<uint8> l_sub(l_sub_file), r_sub(r_sub_file);
-        DiskImageView<uint8> l_org(l_org_file), r_org(r_org_file);
-        sub_scale += float(l_sub.cols())/float(l_org.cols());
-        sub_scale += float(r_sub.cols())/float(r_org.cols());
-        sub_scale += float(l_sub.rows())/float(l_org.rows());
-        sub_scale += float(r_sub.rows())/float(r_org.rows());
-        sub_scale /= 4;
-      }
+      float sub_scale =
+        sum(elem_quot( file_image_size( opt.out_prefix+"-L_sub.tif" ),
+                       file_image_size( opt.out_prefix+"-L.tif" ) ) ) +
+        sum(elem_quot( file_image_size( opt.out_prefix+"-R_sub.tif" ),
+                       file_image_size( opt.out_prefix+"-R.tif" ) ) );
+      sub_scale /= 4.0f;
 
       stereo_settings().search_range =
-        approximate_search_range( l_sub_file, r_sub_file, sub_scale );
+        approximate_search_range( opt.out_prefix+"-L_sub.tif",
+                                  opt.out_prefix+"-R_sub.tif",
+                                  sub_scale );
     } else {
       // There exists a matchfile out there.
       std::vector<ip::InterestPoint> ip1, ip2;

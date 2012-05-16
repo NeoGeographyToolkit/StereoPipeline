@@ -55,6 +55,8 @@ namespace asp {
 
   bool has_cam_extension( std::string const& input );
 
+  vw::Vector2i file_image_size( std::string const& input );
+
   template <class ImageT>
   vw::DiskImageResourceGDAL*
   build_gdal_rsrc( const std::string &filename,
