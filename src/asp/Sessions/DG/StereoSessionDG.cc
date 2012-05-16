@@ -527,8 +527,13 @@ namespace asp {
       vw_out() << "\t--> Writing pre-aligned images.\n";
       block_write_gdal_image( output_file1, Limg, m_options,
                               TerminalProgressCallback("asp","\t  L:  ") );
-      block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), m_options,
-                              TerminalProgressCallback("asp","\t  R:  ") );
+      if ( stereo_settings().alignment_method == "none" )
+        block_write_gdal_image( output_file2, Rimg, m_options,
+                                TerminalProgressCallback("asp","\t  R:  ") );
+      else
+        block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),
+                                                   bounding_box(Limg)), m_options,
+                                TerminalProgressCallback("asp","\t  R:  ") );
 
       // We could write the LUT images at this point, but I'm going to
       // let triangulation render them on the fly. This will save a lot

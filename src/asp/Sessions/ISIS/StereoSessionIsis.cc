@@ -214,10 +214,13 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   }
 
   // Getting left image size
-  Vector2i left_size;
+  Vector2i left_size, right_size;
   {
-    DiskImageView<PixelGray<float> > left_image(input_file1);
-    left_size = Vector2i(left_image.cols(), left_image.rows());
+    boost::scoped_ptr<DiskImageResource>
+      left_rsrc( DiskImageResource::open( input_file1 ) ),
+      right_rsrc( DiskImageResource::open( input_file2 ) );
+    left_size = Vector2i( left_rsrc->cols(), left_rsrc->rows() );
+    right_size = Vector2i( right_rsrc->cols(), right_rsrc->rows() );
   }
 
   // Apply alignment and normalization
@@ -226,17 +229,27 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     write_preprocessed_isis_image( m_options, input_file1, output_file1, "left",
                                    left_lo, left_hi, lo, hi,
                                    math::identity_matrix<3>(), left_size );
-    write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
-                                   right_lo, right_hi, lo, hi,
-                                   align_matrix, left_size );
+    if ( stereo_settings().alignment == "none" )
+      write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
+                                     right_lo, right_hi, lo, hi,
+                                     math::identity_matrix<3>(), right_size );
+    else
+      write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
+                                     right_lo, right_hi, lo, hi,
+                                     align_matrix, left_size );
   } else {
     vw_out() << "\t--> Individually normalizing.\n";
     write_preprocessed_isis_image( m_options, input_file1, output_file1, "left",
                                    left_lo, left_hi, left_lo, left_hi,
                                    math::identity_matrix<3>(), left_size );
-    write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
-                                   right_lo, right_hi, right_lo, right_hi,
-                                   align_matrix, left_size );
+    if ( stereo_settings().alignment == "none" )
+      write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
+                                     right_lo, right_hi, right_lo, right_hi,
+                                     math::identity_matrix<3>(), right_size );
+    else
+      write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
+                                     right_lo, right_hi, right_lo, right_hi,
+                                     align_matrix, left_size );
   }
 }
 
