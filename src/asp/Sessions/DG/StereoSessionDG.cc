@@ -26,6 +26,7 @@
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
 #include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Sessions/RPC/RPCMapTransform.h>
 
 // Vision Workbench
 #include <vw/Camera/Extrinsics.h>
@@ -68,44 +69,6 @@ public:
 
   double operator()( pt::ptime const& time ) const {
     return double( (time - m_reference).total_microseconds() ) / 1e6;
-  }
-};
-
-// RPCMapTransform. Used to test the validity of IP matching on map
-// projected images. However, this could be used for performing an RPC
-// map projection.
-class RPCMapTransform : public TransformBase<RPCMapTransform> {
-  RPCModel m_rpc;
-  cartography::GeoReference m_image_georef, m_dem_georef;
-  DiskImageView<float> m_dem;
-  ImageViewRef<Vector3> m_point_cloud;
-public:
-  RPCMapTransform( RPCModel const& rpc,
-                   cartography::GeoReference const& image_georef,
-                   cartography::GeoReference const& dem_georef,
-                   boost::shared_ptr<DiskImageResource> dem_rsrc ) : m_rpc(rpc), m_image_georef(image_georef), m_dem_georef(dem_georef), m_dem(dem_rsrc) {
-    if ( dem_rsrc->has_nodata_read() )
-      m_point_cloud =
-        cartography::geo_transform(
-          geodetic_to_cartesian(
-            dem_to_geodetic( create_mask( m_dem, dem_rsrc->nodata_read()),
-                             m_dem_georef ), m_dem_georef.datum() ),
-          m_dem_georef, m_image_georef,
-          ValueEdgeExtension<Vector3>( Vector3() ) );
-    else
-      m_point_cloud =
-        cartography::geo_transform(
-          geodetic_to_cartesian(
-            dem_to_geodetic( m_dem, m_dem_georef ),
-            m_dem_georef.datum() ),
-          m_dem_georef, m_image_georef,
-          ValueEdgeExtension<Vector3>( Vector3() ) );
-  }
-
-  // Convert Map Projected Coordinate to camera coordinate
-  inline Vector2 reverse(const Vector2 &p) const {
-    Vector3 point = m_point_cloud(p.x(),p.y());
-    return m_rpc.point_to_pixel( point );
   }
 };
 

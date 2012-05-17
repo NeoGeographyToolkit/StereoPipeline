@@ -20,7 +20,7 @@
 # sources
 #########################################################################
 
-include_HEADERS = StereoSessionRPC.h RPCModel.h
+include_HEADERS = StereoSessionRPC.h RPCModel.h RPCMapTransform.h
 
 #########################################################################
 # general
