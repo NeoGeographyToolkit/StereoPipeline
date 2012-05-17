@@ -380,12 +380,13 @@ void stereo_correlation( Options& opt ) {
       // rountine should only run for:
       //   Pinhole + Epipolar
       //   Pinhole + None
+      //   DG + None
       // Everything else should gather IP's all the time.
       float sub_scale =
-        sum(elem_quot( file_image_size( opt.out_prefix+"-L_sub.tif" ),
-                       file_image_size( opt.out_prefix+"-L.tif" ) ) ) +
-        sum(elem_quot( file_image_size( opt.out_prefix+"-R_sub.tif" ),
-                       file_image_size( opt.out_prefix+"-R.tif" ) ) );
+        sum(elem_quot( Vector2f(file_image_size( opt.out_prefix+"-L_sub.tif" )),
+                       Vector2f(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
+        sum(elem_quot( Vector2f(file_image_size( opt.out_prefix+"-R_sub.tif" )),
+                       Vector2f(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
       sub_scale /= 4.0f;
 
       stereo_settings().search_range =
