@@ -51,8 +51,19 @@ namespace asp {
 
   vw::Vector2
   RPCMapTransform::reverse(const vw::Vector2 &p) const {
-    Vector3 point = m_point_cloud(p.x(),p.y());
+    Vector3 point =
+      m_cache_size.contains( p ) ?
+      m_point_cloud_cache(p.x() - m_cache_size.min().x(),
+                          p.y() - m_cache_size.min().y()):
+      m_point_cloud(p.x(),p.y());
     return m_rpc.point_to_pixel( point );
+  }
+
+  vw::BBox2i
+  RPCMapTransform::reverse_bbox( vw::BBox2i const& bbox ) const {
+    m_point_cloud_cache = crop( m_point_cloud, bbox );
+    m_cache_size = bbox;
+    return vw::TransformBase<RPCMapTransform>::reverse_bbox( bbox );
   }
 
 }

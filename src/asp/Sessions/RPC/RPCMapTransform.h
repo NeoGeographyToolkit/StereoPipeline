@@ -34,6 +34,10 @@ namespace asp {
     vw::cartography::GeoReference m_image_georef, m_dem_georef;
     vw::DiskImageView<float> m_dem;
     vw::ImageViewRef<vw::Vector3> m_point_cloud;
+
+    // We will always be modifying these
+    mutable vw::ImageView<vw::Vector3> m_point_cloud_cache;
+    mutable vw::BBox2i m_cache_size;
   public:
     RPCMapTransform( asp::RPCModel const& rpc,
                      vw::cartography::GeoReference const& image_georef,
@@ -42,6 +46,8 @@ namespace asp {
 
     // Convert Map Projected Coordinate to camera coordinate
     vw::Vector2 reverse(const vw::Vector2 &p) const;
+
+    vw::BBox2i reverse_bbox( vw::BBox2i const& bbox ) const;
   };
 
 }
