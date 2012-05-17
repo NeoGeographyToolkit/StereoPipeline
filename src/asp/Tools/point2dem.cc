@@ -124,7 +124,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("input-file", po::value(&opt.pointcloud_filename), "Input Point Cloud");
+    ("input-file", po::value(&opt.pointcloud_filename)->required(), "Input Point Cloud");
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
@@ -134,9 +134,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     asp::check_command_line( argc, argv, opt, general_options,
                              positional, positional_desc, usage );
 
-  if ( opt.pointcloud_filename.empty() )
-    vw_throw( ArgumentErr() << "Missing point cloud.\n"
-              << usage << general_options );
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );

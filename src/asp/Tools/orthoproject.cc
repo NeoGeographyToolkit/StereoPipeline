@@ -75,9 +75,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("dem", po::value(&opt.dem_file))
-    ("camera-image", po::value(&opt.image_file))
-    ("camera-model", po::value(&opt.camera_model_file))
+    ("dem", po::value(&opt.dem_file)->required())
+    ("camera-image", po::value(&opt.image_file)->required())
+    ("camera-model", po::value(&opt.camera_model_file)->required())
     ("output-file", po::value(&opt.output_file));
 
   po::positional_options_description positional_desc;
@@ -91,10 +91,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     asp::check_command_line( argc, argv, opt, general_options,
                              positional, positional_desc, usage );
 
-  if ( opt.dem_file.empty() || opt.image_file.empty() ||
-       opt.camera_model_file.empty() )
-    vw_throw( ArgumentErr() << "Missing input files!\n"
-              << usage << general_options );
   if ( !color_text.empty() ) {
     opt.do_color=true;
     typedef boost::tokenizer<boost::char_separator<char> > tokenizer;

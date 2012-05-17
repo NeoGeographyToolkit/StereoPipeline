@@ -45,9 +45,9 @@ void vw::handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("left-input-image", po::value(&opt.in_file1), "Left Input Image")
-    ("right-input-image", po::value(&opt.in_file2), "Right Input Image")
-    ("left-camera-model", po::value(&opt.cam_file1), "Left Camera Model File")
+    ("left-input-image", po::value(&opt.in_file1)->required(), "Left Input Image")
+    ("right-input-image", po::value(&opt.in_file2)->required(), "Right Input Image")
+    ("left-camera-model", po::value(&opt.cam_file1)->required(), "Left Camera Model File")
     ("right-camera-model", po::value(&opt.cam_file2), "Right Camera Model File")
     ("output-prefix", po::value(&opt.out_prefix), "Prefix for output filenames")
     ("extra_argument1", po::value(&opt.extra_arg1), "Extra Argument 1")
@@ -70,11 +70,6 @@ void vw::handle_arguments( int argc, char *argv[], Options& opt ) {
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
                              positional, positional_desc, usage );
-
-  if (!vm.count("left-input-image") || !vm.count("right-input-image") ||
-      !vm.count("left-camera-model") )
-    vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
-              << usage << general_options );
 
   // If the user hasn't specified a stereo session type, we take a
   // guess here based on the file suffixes.
