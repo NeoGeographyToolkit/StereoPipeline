@@ -217,19 +217,27 @@ def spice( cub_files, threads):
     wait_on_all_jobs()
     return
 
-def noproj( CCD_object, delete=False ):
+def noproj( CCD_object, threads, delete=False ):
     noproj_CCDs = []
     for i in range( CCD_object.min(), CCD_object.max()+1 ):
         to_cub = CCD_object.prefix + str(i) + '.noproj.cub'
         if os.path.exists( to_cub ):
             print to_cub + ' exists, skipping noproj.'
         else:
-            cmd = 'noproj from= '+ CCD_object[i]    \
-                +' match= '+ CCD_object.matchcube() \
-                +' source= frommatch to= '+ to_cub
-            print cmd
-            os.system(cmd)
+            cmd = 'mkdir -p tmp_' + CCD_object[i] + '&& ' \
+                + 'cd tmp_' + CCD_object[i] + '&& ' \
+                + 'noproj from=../' + CCD_object[i] \
+                + ' match=../' + CCD_object.matchcube() \
+                + ' source= frommatch to=../'+ to_cub + '&& ' \
+                + 'cd .. && rm -rf tmp_' + CCD_object[i]
+            # cmd = 'noproj from= '+ CCD_object[i]    \
+            #     +' match= '+ CCD_object.matchcube() \
+            #     +' source= frommatch to= '+ to_cub
+            add_job(cmd, threads)
+            # print cmd
+            # os.system(cmd)
         noproj_CCDs.append( to_cub )
+    wait_on_all_jobs()
     if( delete ):
         for cub in CCD_object.values(): os.remove( cub )
     return CCDs( noproj_CCDs, CCD_object.match )
@@ -347,7 +355,7 @@ def main():
         CCD_files = CCDs( histitched, options.match )
 
         # noproj
-        noprojed_CCDs = noproj( CCD_files, options.delete )
+        noprojed_CCDs = noproj( CCD_files, options.threads, options.delete )
 
         # hijitreg
         averages = hijitreg( noprojed_CCDs, options.threads )
