@@ -18,228 +18,315 @@
 
 /// \file StereoSettings.h
 ///
-#include <asp/Core/StereoSettings.h>
+#include <fstream>
 
 #include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
-#include <fstream>
 
-#include <boost/algorithm/string.hpp>
+#include <asp/Core/Common.h>
+#include <asp/Core/StereoSettings.h>
 
 namespace po = boost::program_options;
 using namespace vw;
 
-// ---------------------------------------------------
 // Create a single instance of the StereoSettings
 // ---------------------------------------------------
 namespace {
   vw::RunOnce stereo_settings_once = VW_RUNONCE_INIT;
-  boost::shared_ptr<StereoSettings> stereo_settings_ptr;
+  boost::shared_ptr<asp::StereoSettings> stereo_settings_ptr;
   void init_stereo_settings() {
-    stereo_settings_ptr = boost::shared_ptr<StereoSettings>(new StereoSettings());
+    stereo_settings_ptr = boost::shared_ptr<asp::StereoSettings>(new asp::StereoSettings());
   }
 }
 
-StereoSettings& stereo_settings() {
-  stereo_settings_once.run( init_stereo_settings );
-  return *stereo_settings_ptr;
-}
-
-// ----------------------------------------------------------
-// Utilities for parsing lines out of the stereo.default file
-// ----------------------------------------------------------
-
-// Determine whether the given character is a space character.
-inline bool is_space_char(int c) {
-  return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
-}
-
-// Read from stream until (but not including) the next non-space character.
-inline void ignorespace(std::istream& s) {
-  int c;
-  if(s.eof())
-    return;
-  while((c = s.get()) != EOF && is_space_char(c)){}
-  if(c != EOF)
-    s.unget();
-}
-
-// Read from stream until (but not including) the beginning of the next line.
-inline void ignoreline(std::istream& s) {
-  int c;
-  if(s.eof())
-    return;
-  while((c = s.get()) != EOF && c != '\n'){}
-}
-
-// Read from stream until (but not including) the next space character. Ignores space characters at beginning.
-inline void getword(std::istream& s, std::string& str) {
-  int c;
-  str.clear();
-  ignorespace(s);
-  if(s.eof())
-    return;
-  while((c = s.get()) != EOF && !is_space_char(c))
-    str.push_back(c);
-  if(c != EOF)
-    s.unget();
-}
-
-//--------------------------------------------------
-// StereoSettings Methods
-//--------------------------------------------------
-StereoSettings::StereoSettings() {
-
-#define ASSOC(X, Y, V, D)   m_desc.add_options()(X, po::value(&(this->Y))->default_value(V), D)
-#define ASSOC_SIMPLE(X, Y)  m_desc.add_options()(X, po::value(&(this->Y)))
-
-  // ---------------------
-  // Preprocessing options
-  // ---------------------
-
-  // Alignment
-  ASSOC("ALIGNMENT_METHOD", alignment_method, "NONE", "Method used to pre align the images");
-
-  // Image normalization
-  ASSOC("FORCE_USE_ENTIRE_RANGE", force_max_min, 0, "Use images entire values, otherwise compress image range to -+2.5 sigmas around mean.");
-  ASSOC("DO_INDIVIDUAL_NORMALIZATION", individually_normalize, 0, "Normalize each image individually before processsing.");
-
-  // -------------------
-  // Correlation Options
-  // -------------------
-
-  // Preproc filter
-  ASSOC("PREPROCESSING_FILTER_MODE", pre_filter_mode, 3, "selects the preprocessing filter");
-  ASSOC("SLOG_KERNEL_WIDTH", slogW, 1.5, "SIGMA for the gaussian blure in LOG and SLOG");
-
-  // Integer correlator
-  ASSOC("CORR_SEED_OPTION", seed_option, 1, "");
-  ASSOC("CORR_SUB_SEED_PERCENT_PAD", seed_percent_pad, 0.25, "");
-  ASSOC("COST_MODE", cost_mode, 2, "0 - absolute different, 1 - squared difference, 2 - normalized cross correlation");
-  ASSOC("XCORR_THRESHOLD", xcorr_threshold, 2.0, "");
-  ASSOC("H_KERNEL", kernel[0], 25, "kernel width");
-  ASSOC("V_KERNEL", kernel[1], 25, "kernel height");
-
-  ASSOC("H_CORR_MAX", search_range.max()[0], 0, "correlation window size max x");
-  ASSOC("H_CORR_MIN", search_range.min()[0], 0, "correlation window size min x");
-  ASSOC("V_CORR_MAX", search_range.max()[1], 0, "correlation window size max y");
-  ASSOC("V_CORR_MIN", search_range.min()[1], 0, "correlation window size min y");
-
-  ASSOC("SUBPIXEL_MODE", subpixel_mode, 2, "0 - no subpixel, 1 - parabola, 2 - bayes EM");
-  ASSOC("SUBPIXEL_H_KERNEL", subpixel_kernel[0], 35, "subpixel kernel width");
-  ASSOC("SUBPIXEL_V_KERNEL", subpixel_kernel[1], 35, "subpixel kernel height");
-  ASSOC("DO_H_SUBPIXEL", do_h_subpixel, 1, "Do vertical subpixel interpolation.");
-  ASSOC("DO_V_SUBPIXEL", do_v_subpixel, 1, "Do horizontal subpixel interpolation.");
-
-  // EMSubpixelCorrelator options
-  ASSOC("SUBPIXEL_EM_ITER", subpixel_em_iter, 15, "Maximum number of EM iterations for EMSubpixelCorrelator");
-  ASSOC("SUBPIXEL_AFFINE_ITER", subpixel_affine_iter, 5, "Maximum number of affine optimization iterations for EMSubpixelCorrelator");
-  ASSOC("SUBPIXEL_PYRAMID_LEVELS", subpixel_pyramid_levels, 3, "Number of pyramid levels for EMSubpixelCorrelator");
-
-  // Filtering Options
-  ASSOC("RM_H_HALF_KERN", rm_h_half_kern, 5, "low conf pixel removal kernel half size");
-  ASSOC("RM_V_HALF_KERN", rm_v_half_kern, 5, "");
-  ASSOC("RM_MIN_MATCHES", rm_min_matches, 60, "min # of pxls to be matched to keep pxl");
-  ASSOC("RM_THRESHOLD", rm_threshold, 3, "rm_threshold > disp[n]-disp[m] pixels are not matching");
-  ASSOC("RM_CLEANUP_PASSES", rm_cleanup_passes, 1, "number of passes for cleanup during the post-processing phase");
-  ASSOC("ERODE_MAX_SIZE", erode_max_size, 1000, "max size of islands that should be removed");
-  ASSOC("FILL_HOLES", fill_holes, 1, "fill holes using an inpainting method");
-  ASSOC("FILL_HOLE_MAX_SIZE", fill_hole_max_size, 100000, "max size in pixels that should be filled");
-  ASSOC("MASK_FLATFIELD", mask_flatfield, 0, "mask pixels that are less than 0. (for use with apollo metric camera only!)");
-
-  // Triangulation Options
-  ASSOC("UNIVERSE_CENTER", universe_center, "NONE", "center for radius measurements [CAMERA, ZERO, NONE]");
-  ASSOC("NEAR_UNIVERSE_RADIUS", near_universe_radius, 0.0, "radius of inner boundary of universe [m]");
-  ASSOC("FAR_UNIVERSE_RADIUS", far_universe_radius, 0.0, "radius of outer boundary of universe [m]");
-  ASSOC("USE_LEAST_SQUARES", use_least_squares, 0, "use a more rigorous triangulation");
-
-  // System Settings
-  ASSOC("CACHE_DIR", cache_dir, "/tmp", "Change if can't write large files to /tmp (i.e. Super Computer)");
-  ASSOC("TIF_COMPRESS", tif_compress, "LZW", "GDAL compression method for GeoTIFF");
-
-#undef ASSOC
-#undef ASSOC_SIMPLE
-
-  int argc = 1;
-  char* argv[1];
-  argv[0] = (char*)malloc(2*sizeof(char));
-  argv[0][0] = 'a';
-  po::store(po::parse_command_line(argc, argv, m_desc), m_vm);
-  po::notify(m_vm);
-
-  validate();
-}
-
-void StereoSettings::read(std::string const& filename) {
-  std::ifstream fp(filename.c_str());
-  if(!fp) {
-    std::cerr << "Error: cannot open stereo default file: " << filename << "\n";
-    exit(EXIT_FAILURE);
+namespace asp {
+  StereoSettings& stereo_settings() {
+    stereo_settings_once.run( init_stereo_settings );
+    return *stereo_settings_ptr;
   }
 
-  std::string name, value, line;
-  int c;
+  // Define our options that are available
+  // ----------------------------------------------------------
+  PreProcessingDescription::PreProcessingDescription() : po::options_description("Preprocessing Options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("alignment-method", po::value(&global.alignment_method),
+       "Rough alignment for input images. [Homography, Epipolar, None]")
+      ("individually-normalize", po::bool_switch(&global.individually_normalize),
+       "Individually normalize the input images between 0.0-1.0 using +- 2.5 sigmas about their mean values.")
+      ("force-use-entire-range", po::bool_switch(&global.force_max_min),
+       "Normalize images based on the global min and max values from both images. Don't both using this option if you are using normalized cross correlation.");
+  }
 
-  while(!fp.eof()) {
-    ignorespace(fp);
-    if(!fp.eof() && (c = fp.peek()) != '#') {
-      std::istringstream ss; //NOTE: cannot move this up with other
-                             //variable declarations because then
-                             //calling store(parse_config_file())
-                             //multiple times does not work as
-                             //expected
-      getword(fp, name);
-      getword(fp, value);
-      line = name.append(" = ").append(value);
-      ss.str(line);
-      try {
-        po::store(po::parse_config_file(ss, m_desc), m_vm);
-      } catch (boost::program_options::unknown_option const& e) {
-        vw::vw_out() << "\tWARNING --> Unknown stereo settings option: " << line << "\n";
-      }
+  CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("prefilter-kernel-width", po::value(&global.slogW)->default_value(1.5),
+       "Sigma value for gaussian kernel used in prefilter for correlator.")
+      ("prefilter-mode", po::value(&global.pre_filter_mode)->default_value(2),
+       "Preprocessing filter mode. [0 None, 1 Gaussian, 2 LoG, 3 Sign of LoG]")
+      ("corr-seed-mode", po::value(&global.seed_option)->default_value(1),
+       "Correlation seed strategy. [0 None, 1 Use Low-Res Disparity]")
+      ("corr-sub-seed-percent", po::value(&global.seed_percent_pad)->default_value(.25),
+       "Percent fudge factor for disparity seed's search range")
+      ("cost-mode", po::value(&global.cost_mode)->default_value(2),
+       "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation]")
+      ("xcorr-threshold", po::value(&global.xcorr_threshold)->default_value(2),
+       "L-R vs R-L agreement threshold in pixels.")
+      ("corr-kernel", po::value(&global.kernel)->default_value(Vector2i(21,21),"21,21"),
+       "Kernel sized used for integer correlator.")
+      ("corr-search", po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),
+       "Disparity search range. Specify in format: hmin,vmin,hmax,vmax.");
+  }
+
+  SubpixelDescription::SubpixelDescription() : po::options_description("Subpixel Options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("subpixel-mode",  po::value(&global.subpixel_mode)->default_value(2),
+       "Subpixel algorithm. [0 None, 1 Parabola, 2 Bayes EM]")
+      ("subpixel-kernel", po::value(&global.subpixel_kernel)->default_value(Vector2i(35,35), "35,35"),
+       "Kernel size to use with subpixel method.")
+      ("disable-h-subpixel", po::bool_switch(&global.disable_h_subpixel),
+       "Disable calculation of subpixel in horizontal direction.")
+      ("disable-v-subpixel", po::bool_switch(&global.disable_v_subpixel),
+       "Disable calculation of subpixel in vertical direction.");
+
+    po::options_description experimental_subpixel_options("Experimental Subpixel Options");
+    experimental_subpixel_options.add_options()
+      ("subpixel-em-iter", po::value(&global.subpixel_em_iter)->default_value(15),
+       "Maximum number of EM iterations for EMSubpixelCorrelator")
+      ("subpixel-affine-iter", po::value(&global.subpixel_affine_iter)->default_value(5),
+       "Maximum number of affine optimization iterations for EMSubpixelCorrelator")
+      ("subpixel-pyramid-levels", po::value(&global.subpixel_pyramid_levels)->default_value(3),
+       "Number of pyramid levels for EMSubpixelCorrelator");
+    (*this).add( experimental_subpixel_options );
+  }
+
+  FilteringDescription::FilteringDescription() : po::options_description("Filtering Options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("rm-half-kernel", po::value(&global.rm_half_kernel)->default_value(Vector2i(5,5), "5,5"),
+       "Low confidence pixel removal kernel. (Half sized)")
+      ("rm-min-matches", po::value(&global.rm_min_matches)->default_value(60),
+       "Minimum percentage of pixels to be matched to keep sample")
+      ("rm-threshold", po::value(&global.rm_threshold)->default_value(3),
+       "Maximum distance between samples to be considered still matched")
+      ("rm-cleanup-passes", po::value(&global.rm_cleanup_passes)->default_value(1),
+       "Number of passes for cleanup during the post-processing phase")
+      ("erode-max-size", po::value(&global.erode_max_size)->default_value(1000),
+       "Max size of islands that should be removed")
+      ("disable-fill-holes", po::bool_switch(&global.disable_fill_holes),
+       "Disable filling of holes using an inpainting method")
+      ("fill-holes-max-size", po::value(&global.fill_hole_max_size)->default_value(100000),
+       "Max size in pixels of holes that can be filled in.")
+      ("mask-flatfield", po::bool_switch(&global.mask_flatfield),
+       "Mask dust found on the sensor or film. (For use with Apollo Metric Cameras only!)");
+  }
+
+  TriangulationDescription::TriangulationDescription() : po::options_description("Triangulation Options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("universe-center", po::value(&global.universe_center)->default_value("None"),
+       "Center for radius measurement thresholding. [Camera, Zero, None]")
+      ("near-universe-radius", po::value(&global.near_universe_radius)->default_value(0.0),
+       "Radius of inner boundary of universe in meters.")
+      ("far-universe-radius", po::value(&global.far_universe_radius)->default_value(0.0),
+       "Radius of outer boundary of universe in meters.")
+      ("use-least-squares", po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
+       "Use rigorous least squares triangulation process. This is ungodly slow for ISIS processes.");
+  }
+
+  po::options_description
+  generate_config_file_options( asp::BaseOptions& opt ) {
+    po::options_description cfg_options;
+    cfg_options.add( asp::BaseOptionsDescription( opt ) );
+    cfg_options.add( PreProcessingDescription() );
+    cfg_options.add( CorrelationDescription() );
+    cfg_options.add( SubpixelDescription() );
+    cfg_options.add( FilteringDescription() );
+    cfg_options.add( TriangulationDescription() );
+
+    return cfg_options;
+  }
+
+  void StereoSettings::validate() {
+    using namespace boost::algorithm;
+    to_lower( alignment_method );
+    trim( alignment_method );
+    VW_ASSERT( alignment_method == "none" || alignment_method == "homography" ||
+               alignment_method == "epipolar",
+               ArgumentErr() << "\"" <<  alignment_method
+               << "\" is not a valid option for ALIGNMENT_METHOD." );
+
+    to_lower( universe_center );
+    trim( universe_center );
+    VW_ASSERT( universe_center == "camera" || universe_center == "zero" ||
+               universe_center == "none",
+               ArgumentErr() << "\"" << universe_center
+               << "\" is not a valid option for UNIVERSE_CENTER." );
+  }
+
+  void StereoSettings::write_copy( int argc, char *argv[],
+                                   std::string const& input_file,
+                                   std::string const& output_file ) const {
+    using namespace std;
+    ifstream in( input_file.c_str() );
+    ofstream out( output_file.c_str() );
+
+    // Write some log information
+    out << "# ASP Stereo Configuration Copy:" << endl;
+    out << "# " << current_posix_time_string() << endl;
+    out << "# > ";
+    for ( int i = 0; i < argc; i++ ) {
+      if ( i )
+        out << " ";
+      out << string(argv[i]);
     }
-    ignoreline(fp);
+    out << endl << endl;
+
+    out << in.rdbuf();
+    in.close();
+    out.close();
   }
 
-  po::notify(m_vm);
-  fp.close();
-  validate();
-}
+  bool StereoSettings::is_search_defined() const {
+    return !( search_range.min() == Vector2i() &&
+              search_range.max() == Vector2i() );
+  }
 
-void StereoSettings::copy_settings(std::string const& filename, std::string const& destination) {
-  std::ifstream in(filename.c_str());
-  std::ofstream out(destination.c_str());
-  out<<in.rdbuf(); // copy file
-  in.close();
-  out.close();
-  validate();
-}
+  bool asp_config_file_iterator::getline( std::string& s ) {
+    std::string ws;
 
-bool StereoSettings::is_search_defined() const {
-  return !( search_range.min() == Vector2i() &&
-            search_range.max() == Vector2i() );
-}
+    if ( !std::getline( *is, ws, '\n') )
+      return false;
 
-void StereoSettings::validate() {
-  using namespace boost::algorithm;
-  to_lower( alignment_method );
-  trim( alignment_method );
-  VW_ASSERT( alignment_method == "none" || alignment_method == "homography" ||
-             alignment_method == "epipolar",
-             ArgumentErr() << "\"" <<  alignment_method
-             << "\" is not a valid option for ALIGNMENT_METHOD." );
+    // Remove any comments that might be one the line
+    size_t n = ws.find('#');
+    if ( n != std::string::npos ) {
+      ws = ws.substr(0,n);
+      boost::trim(ws);
+    }
 
-  to_lower( universe_center );
-  trim( universe_center );
-  VW_ASSERT( universe_center == "camera" || universe_center == "zero" ||
-             universe_center == "none",
-             ArgumentErr() << "\"" << universe_center
-             << "\" is not a valid option for UNIVERSE_CENTER." );
+    // Handle empty lines .. just pass them on through
+    if ( ws.empty() ) {
+      s = ws;
+      return true;
+    }
 
-  to_lower( tif_compress );
-  trim( tif_compress );
-  VW_ASSERT( tif_compress == "none" || tif_compress == "lzw" ||
-             tif_compress == "deflate" || tif_compress == "packbits",
-             ArgumentErr() << "\"" << tif_compress
-             << "\" is not a valid options for TIF_COMPRESS." );
-}
+    // If there is not an equal sign, the first space is turned to
+    // equal ... or it's just appended. Also, use lower case for the key.
+    n = ws.find('=');
+    if ( n  == std::string::npos ) {
+      n = ws.find(' ');
+
+      if ( n == std::string::npos ) {
+        ws += "=";
+        boost::to_lower(ws);
+      } else {
+        ws[n] = '=';
+        std::string lowered_key = boost::to_lower_copy( ws.substr(0,n) );
+        ws.replace( 0, n, lowered_key );
+      }
+    } else {
+      std::string lowered_key = boost::to_lower_copy( ws.substr(0,n) );
+      ws.replace( 0, n, lowered_key );
+    }
+    s = ws;
+    return true;
+  }
+
+  asp_config_file_iterator::asp_config_file_iterator( std::basic_istream<char>& is,
+                                                      const std::set<std::string>& allowed_options,
+                                                      bool allow_unregistered ) :
+    po::detail::common_config_file_iterator(allowed_options, allow_unregistered) {
+    this->is.reset(&is, po::detail::null_deleter());
+    get();
+  }
+
+  po::basic_parsed_options<char>
+  parse_asp_config_file( std::basic_istream<char>& is,
+                         const po::options_description& desc,
+                         bool allow_unregistered ) {
+    std::set<std::string> allowed_options;
+
+    const std::vector<boost::shared_ptr<po::option_description> >& options = desc.options();
+    for (size_t i = 0; i < options.size(); ++i) {
+      const po::option_description& d = *options[i];
+
+        if (d.long_name().empty())
+          boost::throw_exception(
+                                 po::error("long name required for config file"));
+
+        allowed_options.insert(d.long_name());
+      }
+
+    // Parser return char strings
+    po::parsed_options result(&desc);
+    std::copy(asp_config_file_iterator(is, allowed_options, allow_unregistered),
+              asp_config_file_iterator(),
+              std::back_inserter(result.options));
+    // Convert char strings into desired type.
+    return po::basic_parsed_options<char>(result);
+  }
+
+  po::basic_parsed_options<char>
+  parse_asp_config_file( std::string const& filename,
+                         const po::options_description& desc,
+                         bool allow_unregistered ) {
+    std::basic_ifstream<char> strm(filename.c_str());
+    if (!strm) {
+      boost::throw_exception(po::reading_file(filename.c_str()));
+    }
+    return parse_asp_config_file(strm, desc, allow_unregistered);
+  }
+} // end namespace asp
+
+namespace boost {
+namespace program_options {
+
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector2i*, long ) {
+    validators::check_first_occurrence(v);
+    if ( values.size() != 1)
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+
+    std::string key = boost::trim_copy(values[0]);
+    std::vector<std::string> cvalues;
+    boost::split( cvalues, key, is_any_of(", "),
+                  boost::token_compress_on );
+
+    try {
+      Vector2i output( boost::lexical_cast<int32>( cvalues[0] ),
+                       boost::lexical_cast<int32>( cvalues[1] ) );
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox2i*, long ) {
+    validators::check_first_occurrence(v);
+    if ( values.size() != 1 )
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+
+    std::string key = boost::trim_copy(values[0]);
+    std::vector<std::string> cvalues;
+    boost::split( cvalues, key, is_any_of(", "),
+                  boost::token_compress_on );
+
+    try {
+      BBox2i output(Vector2i( boost::lexical_cast<int32>( cvalues[0] ),
+                              boost::lexical_cast<int32>( cvalues[1] ) ),
+                    Vector2i( boost::lexical_cast<int32>( cvalues[2] ),
+                              boost::lexical_cast<int32>( cvalues[3] ) ) );
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
+
+}}

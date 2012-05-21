@@ -77,13 +77,12 @@ struct Options : asp::BaseOptions {
 };
 
 // Allows FileIO to correctly read/write these pixel types
-namespace vw {
-
-  // Print time function
-  std::string current_posix_time_string();
+namespace asp {
 
   // Parse input command line arguments
-  void handle_arguments( int argc, char *argv[], Options& opt );
+  void handle_arguments( int argc, char *argv[], Options& opt,
+                         boost::program_options::options_description const&
+                         additional_options);
 
   // Register Session types
   void stereo_register_sessions();

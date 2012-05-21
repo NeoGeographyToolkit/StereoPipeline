@@ -15,8 +15,12 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 
+#include <vw/Core/Thread.h>
+#include <vw/Core/Log.h>
 #include <asp/Core/Common.h>
+
 #include <vw/config.h>
 #include <asp/asp_config.h>
 #include <gdal_version.h>
@@ -24,6 +28,11 @@
 
 using namespace vw;
 namespace po = boost::program_options;
+
+// Print time function
+std::string asp::current_posix_time_string() {
+  return boost::posix_time::to_simple_string(boost::posix_time::second_clock::local_time());
+}
 
 asp::BaseOptions::BaseOptions() {
 #if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
@@ -43,6 +52,10 @@ asp::BaseOptionsDescription::BaseOptionsDescription( asp::BaseOptions& opt ) {
     ("threads", po::value(&opt.num_threads)->default_value(0),
      "Select the number of processors (threads) to use.")
     ("no-bigtiff", "Tell GDAL to not create bigtiffs.")
+    ("tif-compress", po::value(&opt.tif_compress)->default_value("LZW"),
+     "TIFF Compression method. [None, LZW, Deflate, Packbits]")
+    ("cache-dir", po::value(&opt.cache_dir)->default_value("/tmp"),
+     "Folder for temporary files. Change if directory is inaccessible to user such as on Pleiades.")
     ("version,v", "Display the version of software.")
     ("help,h", "Display this help message");
 }
@@ -66,7 +79,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   try {
     po::options_description all_options;
     all_options.add(public_options).add(hidden_options);
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional).run(), vm );
+    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional).allow_unregistered().run(), vm );
     po::notify( vm );
   } catch (po::error const& e) {
     vw::vw_throw( vw::ArgumentErr() << "Error parsing input:\n"
@@ -104,6 +117,13 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                  << opt.num_threads << std::endl;
     vw::vw_settings().set_default_num_threads(opt.num_threads);
   }
+  boost::algorithm::to_upper( opt.tif_compress );
+  boost::algorithm::trim( opt.tif_compress );
+  VW_ASSERT( opt.tif_compress == "NONE" || opt.tif_compress == "LZW" ||
+             opt.tif_compress == "DEFLATE" || opt.tif_compress == "PACKBITS",
+             ArgumentErr() << "\"" << opt.tif_compress
+             << "\" is not a valid options for TIF_COMPRESS." );
+  opt.gdal_options["COMPRESS"] = opt.tif_compress;
 
   return vm;
 }

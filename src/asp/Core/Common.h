@@ -32,11 +32,16 @@
 
 namespace asp {
 
+  // Print time function
+  std::string current_posix_time_string();
+
   // Standard Options
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;
     vw::Vector2i raster_tile_size;
     vw::uint32 num_threads;
+    std::string cache_dir;
+    std::string tif_compress;
 
     BaseOptions();
   };

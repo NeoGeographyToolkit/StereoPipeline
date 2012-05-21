@@ -1,6 +1,7 @@
-#############################
-##      PREPROCESSING      ##
-#############################
+# -*- mode: sh -*-
+
+# Pre-Processing / stereo_pprc
+################################################################
 
 # Pre-alignment options
 #
@@ -8,82 +9,70 @@
 #    NONE       (Recommended for anything map projected)
 #    EPIPOLAR   (Recommended for Pinhole Sessions)
 #    HOMOGRAPHY (Recommended for ISIS and DG Sessions)
+alignment-method epipolar
 
-ALIGNMENT_METHOD EPIPOLAR
-
-# Normalization options
-
-FORCE_USE_ENTIRE_RANGE 1
-DO_INDIVIDUAL_NORMALIZATION 0
+# Intensity Normalization
+force-use-entire-range       # Use entire input range
 
 # Select a preprocessing filter:
 #
 # 0 - None
 # 1 - Subtracted Mean
 # 2 - Laplacian of Gaussian (recommended)
-
-PREPROCESSING_FILTER_MODE 2
+prefilter-mode 2
 
 # Kernel size (1-sigma) for pre-processing
 #
 # Recommend 1.4 px for Laplacian of Gaussian
 # Recommend 25 px for Subtracted Mean
+prefilter-kernel-width 1.4
 
-SLOG_KERNEL_WIDTH 1.4
-
-#########################################################################
-###########################    CORRELATION    ###########################
-#########################################################################
+# Integer Correlation / stereo_corr
+################################################################
 
 # Select a cost function to use for initialization:
 #
 # 0 - absolute difference (fast)
 # 1 - squared difference  (faster .. but usually bad)
 # 2 - normalized cross correlation (recommended)
-
-COST_MODE 0
+cost-mode 0
 
 # Initialization step: correlation kernel size
+corr-kernel 23 23
 
-H_KERNEL 23
-V_KERNEL 23
+# Initializaion step: correlation window size
+#corr-search -100 -100 100 100
 
-# Not specifying the search range so that it runs automatic
+# Subpixel Refinement / stereo_rfne
+################################################################
 
 # Subpixel step: subpixel modes
 #
 # 0 - disable subpixel correlation (fastest)
 # 1 - parabola fitting (draft mode - not as accurate)
 # 2 - affine adaptive window, bayes EM weighting (slower, but much more accurate)
-SUBPIXEL_MODE 2
+subpixel-mode 2
 
 # Subpixel step: correlation kernel size
-SUBPIXEL_H_KERNEL 25
-SUBPIXEL_V_KERNEL 25
+subpixel-kernel 25 25
 
-#########################################################################
-############################    FILTERING    ############################
-#########################################################################
+# Post Filtering / stereo_fltr
+################################################################
 
 # Fill in holes up to 100,000 pixels in size with an inpainting method
-FILL_HOLES 0
+disable-fill-holes
 
 # Automatic "erode" low confidence pixels
+rm-half-kernel 5 5
+rm-min-matches 60
+rm-threshold 3
+rm-cleanup-passes 1
 
-RM_H_HALF_KERN 5       # Note: a 5*5 halfkernel = 11*11 kernel -> 121 pixels
-RM_V_HALF_KERN 5
-RM_MIN_MATCHES 60      # Units = percent
-RM_THRESHOLD 3
-RM_CLEANUP_PASSES 1
-
-
-#########################################################################
-#########################    POST_PROCESSING    #########################
-#########################################################################
+# Triangulation / stereo_tri
+################################################################
 
 # Size max of the universe in meters and altitude off the ground.
 # Setting both values to zero turns this post-processing step off.
-
-UNIVERSE_CENTER CAMERA
-NEAR_UNIVERSE_RADIUS 0.7
-FAR_UNIVERSE_RADIUS 80.0
+universe-center camera
+near-universe-radius 0.7
+far-universe-radius 80.0

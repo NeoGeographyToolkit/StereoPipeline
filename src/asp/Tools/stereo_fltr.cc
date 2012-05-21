@@ -29,6 +29,7 @@
 #include <asp/Core/ThreadedEdgeMask.h>
 
 using namespace vw;
+using namespace asp;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -93,7 +94,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   }
 
   // Fill Holes
-  if(stereo_settings().fill_holes) {
+  if(!stereo_settings().disable_fill_holes) {
     vw_out() << "\t--> Filling holes with Inpainting method.\n";
     BlobIndexThreaded bindex( invert_mask( inputview.impl() ),
                               stereo_settings().fill_hole_max_size );
@@ -140,37 +141,41 @@ void stereo_filtering( Options& opt ) {
         if ( stereo_settings().rm_cleanup_passes == 1 )
           filtered_disparity =
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
-                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                            stereo_settings().rm_v_half_kern,
-                                                                            stereo_settings().rm_threshold,
-                                                                            stereo_settings().rm_min_matches/100.0),
+                                               disparity_disk_image,
+                                               stereo_settings().rm_half_kernel.x(),
+                                               stereo_settings().rm_half_kernel.y(),
+                                               stereo_settings().rm_threshold,
+                                               stereo_settings().rm_min_matches/100.0),
                                    apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
                                    apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
         else if ( stereo_settings().rm_cleanup_passes == 2 )
           filtered_disparity =
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,2>()(
-                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                            stereo_settings().rm_v_half_kern,
-                                                                            stereo_settings().rm_threshold,
-                                                                            stereo_settings().rm_min_matches/100.0),
+                                               disparity_disk_image,
+                                               stereo_settings().rm_half_kernel.x(),
+                                               stereo_settings().rm_half_kernel.y(),
+                                               stereo_settings().rm_threshold,
+                                               stereo_settings().rm_min_matches/100.0),
                                    apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
                                    apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
         else if ( stereo_settings().rm_cleanup_passes == 3 )
           filtered_disparity =
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,3>()(
-                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                            stereo_settings().rm_v_half_kern,
-                                                                            stereo_settings().rm_threshold,
-                                                                            stereo_settings().rm_min_matches/100.0),
+                                               disparity_disk_image,
+                                               stereo_settings().rm_half_kernel.x(),
+                                               stereo_settings().rm_half_kernel.y(),
+                                               stereo_settings().rm_threshold,
+                                               stereo_settings().rm_min_matches/100.0),
                                    apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
                                    apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
         else if ( stereo_settings().rm_cleanup_passes >= 4 )
           filtered_disparity =
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,4>()(
-                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                            stereo_settings().rm_v_half_kern,
-                                                                            stereo_settings().rm_threshold,
-                                                                            stereo_settings().rm_min_matches/100.0),
+                                               disparity_disk_image,
+                                               stereo_settings().rm_half_kernel.x(),
+                                               stereo_settings().rm_half_kernel.y(),
+                                               stereo_settings().rm_threshold,
+                                               stereo_settings().rm_min_matches/100.0),
                                    apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
                                    apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024)));
         else
@@ -195,37 +200,41 @@ void stereo_filtering( Options& opt ) {
         if ( stereo_settings().rm_cleanup_passes == 1 )
           write_good_pixel_and_filtered(
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,1>()(
-                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                            stereo_settings().rm_v_half_kern,
-                                                                            stereo_settings().rm_threshold,
-                                                                            stereo_settings().rm_min_matches/100.0),
+                                               disparity_disk_image,
+                                               stereo_settings().rm_half_kernel.x(),
+                                               stereo_settings().rm_half_kernel.y(),
+                                               stereo_settings().rm_threshold,
+                                               stereo_settings().rm_min_matches/100.0),
                                    apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
                                    apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt);
         else if ( stereo_settings().rm_cleanup_passes == 2 )
           write_good_pixel_and_filtered(
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,2>()(
-                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                            stereo_settings().rm_v_half_kern,
-                                                                            stereo_settings().rm_threshold,
-                                                                            stereo_settings().rm_min_matches/100.0),
+                                               disparity_disk_image,
+                                               stereo_settings().rm_half_kernel.x(),
+                                               stereo_settings().rm_half_kernel.y(),
+                                               stereo_settings().rm_threshold,
+                                               stereo_settings().rm_min_matches/100.0),
                                    apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
                                    apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt);
         else if ( stereo_settings().rm_cleanup_passes == 3 )
           write_good_pixel_and_filtered(
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,3>()(
-                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                            stereo_settings().rm_v_half_kern,
-                                                                            stereo_settings().rm_threshold,
-                                                                            stereo_settings().rm_min_matches/100.0),
+                                               disparity_disk_image,
+                                               stereo_settings().rm_half_kernel.x(),
+                                               stereo_settings().rm_half_kernel.y(),
+                                               stereo_settings().rm_threshold,
+                                               stereo_settings().rm_min_matches/100.0),
                                    apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
                                    apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt);
         else if ( stereo_settings().rm_cleanup_passes >= 4 )
           write_good_pixel_and_filtered(
             stereo::disparity_mask(MultipleDisparityCleanUp<input_type,4>()(
-                                                                            disparity_disk_image,stereo_settings().rm_h_half_kern,
-                                                                            stereo_settings().rm_v_half_kern,
-                                                                            stereo_settings().rm_threshold,
-                                                                            stereo_settings().rm_min_matches/100.0),
+                                               disparity_disk_image,
+                                               stereo_settings().rm_half_kernel.x(),
+                                               stereo_settings().rm_half_kernel.y(),
+                                               stereo_settings().rm_threshold,
+                                               stereo_settings().rm_min_matches/100.0),
                                    apply_mask(asp::threaded_edge_mask(left_mask,0,mask_buffer,1024)),
                                    apply_mask(asp::threaded_edge_mask(right_mask,0,mask_buffer,1024))), opt);
         else
@@ -246,7 +255,8 @@ int main(int argc, char* argv[]) {
   stereo_register_sessions();
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments( argc, argv, opt,
+                      FilteringDescription() );
 
     // user safety check
     //---------------------------------------------------------

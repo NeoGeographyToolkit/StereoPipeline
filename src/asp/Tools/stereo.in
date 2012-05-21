@@ -22,6 +22,15 @@ import optparse
 import subprocess
 import os.path as P
 
+# Custom option parser that will ignore unknown
+class PassThroughOptionParser(optparse.OptionParser):
+    def _process_args( self, largs, rargs, values ):
+        while rargs:
+            try:
+                optparse.OptionParser._process_args(self,largs,rargs,values)
+            except (optparse.BadOptionError), e:
+                largs.append(e.opt_str)
+
 def run(bin, args, **kw):
     binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), bin)
     call = [binpath]
@@ -51,7 +60,7 @@ if __name__ == '__main__':
 
   [ASP [@]ASP_VERSION[@]]'''
 
-    p = optparse.OptionParser(usage=usage)
+    p = PassThroughOptionParser(usage=usage)
     p.add_option('--threads',              dest='threads',     type='int',
                  help='Select the number of processors (threads) to use.')
     p.add_option('-t', '--session-type',   dest='session',
@@ -70,13 +79,11 @@ if __name__ == '__main__':
                  help='Display the version of software.')
 
     global opt
-    (opt, files) = p.parse_args()
+    (opt, args) = p.parse_args()
 
-    if not files and not opt.version:
+    if not args and not opt.version:
         p.print_help()
         die('\nERROR: Missing input files', code=2)
-
-    args = []
 
     if opt.session is not None:
         args.extend(['--session-type', opt.session])
@@ -88,7 +95,6 @@ if __name__ == '__main__':
         args.append('-v')
 
     args.extend(['--stereo-file', opt.filename])
-    args.extend(files)
 
     try:
         if ( opt.entry_point <= 0 ):

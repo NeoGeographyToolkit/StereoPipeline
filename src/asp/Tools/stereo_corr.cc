@@ -464,7 +464,8 @@ int main(int argc, char* argv[]) {
   stereo_register_sessions();
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments( argc, argv, opt,
+                      CorrelationDescription() );
 
     // user safety check
     //---------------------------------------------------------

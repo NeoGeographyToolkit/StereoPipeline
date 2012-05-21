@@ -18,97 +18,157 @@
 
 /// \file StereoSettings.h
 ///
-
-#include <boost/version.hpp>
+#include <asp/Core/Common.h>
 #include <boost/program_options.hpp>
-#include <iostream>
+#include <boost/program_options/detail/config_file.hpp>
 
-#include <vw/Math/Vector.h>
-#include <vw/Math/BBox.h>
+namespace asp {
 
-class StereoSettings {
-  boost::program_options::options_description m_desc;
-  boost::program_options::variables_map m_vm;
+  // Program Options for each executable/step
+  struct PreProcessingDescription : public boost::program_options::options_description {
+    PreProcessingDescription();
+  };
+  struct CorrelationDescription : public boost::program_options::options_description {
+    CorrelationDescription();
+  };
+  struct SubpixelDescription : public boost::program_options::options_description {
+    SubpixelDescription();
+  };
+  struct FilteringDescription : public boost::program_options::options_description {
+    FilteringDescription();
+  };
+  struct TriangulationDescription : public boost::program_options::options_description {
+    TriangulationDescription();
+  };
 
-  void validate();
+  boost::program_options::options_description
+  generate_config_file_options( asp::BaseOptions& opt );
 
-public:
-  StereoSettings();
-  void read(std::string const& filename);
-  void copy_settings(std::string const& filename, std::string const& destination);
-  bool is_search_defined() const;
+  // Structure holding variables
+  class StereoSettings {
+  public:
+    void validate();
+    void write_copy( int argc, char *argv[],
+                     std::string const& input_file,
+                     std::string const& output_file ) const;
+    bool is_search_defined() const;
 
-  // ----------------
-  // Public variables
-  // ----------------
+    // ----------------
+    // Public variables
+    // ----------------
 
-  // Preprocessing options
-  std::string alignment_method; // Valid options are: [Homography, Epipolar, None]
-  vw::uint16 individually_normalize; /* if > 1, normalize the images
-                                        individually with their
-                                        own hi's and low */
-  vw::uint16 force_max_min;    // Use entire dynamic range of image..
-  vw::uint16 pre_filter_mode;   /* 0 = None
-                                   1 = Gaussian Blur
-                                   2 = Log Filter
-                                   3 = SLog Filter  */
-  float slogW;                 // Preprocessing filter width
+    // Preprocessing options
+    std::string alignment_method; // Valid options are: [Homography, Epipolar, None]
+    bool individually_normalize; /* if > 1, normalize the images
+                                          individually with their
+                                          own hi's and low */
+    bool force_max_min;    // Use entire dynamic range of image..
 
-  // Correlation Options
-  vw::uint16  seed_option;     /* 0 = User global search for each tile
-                                  1 = Narrow search for each tile to low
-                                      res disparity seed
-                                  2 = Affine Transform and narrow search
-                                      based on disparity seed */
-  float seed_percent_pad;      // % pad amound towards the IP found
-                               // search range, used to define the
-                               // search range of D_sub.
-  vw::Vector2i kernel;         // Correlation kernel
-  vw::Vector2i subpixel_kernel;// Subpixel correlation kernel
-  vw::BBox2i search_range;     // Correlation search range
-  vw::uint16 do_h_subpixel;
-  vw::uint16 do_v_subpixel;
-  vw::uint16 subpixel_mode;    /* 0 = parabola fitting
-                                  1 = affine, robust weighting
-                                  2 = affine, bayes weighting
-                                  3 = affine, bayes EM weighting */
-  float xcorr_threshold;
-  vw::uint16 cost_mode;        /* 0 = absolute difference
-                                  1 = squared difference
-                                  2 = normalized cross correlation */
+    // Correlation Options
+    float slogW;                 // Preprocessing filter width
+    vw::uint16 pre_filter_mode;   /* 0 = None
+                                     1 = Gaussian Blur
+                                     2 = Log Filter
+                                     3 = SLog Filter  */
+    vw::uint16  seed_option;     /* 0 = User global search for each tile
+                                    1 = Narrow search for each tile to low
+                                    res disparity seed
+                                    2 = Affine Transform and narrow search
+                                    based on disparity seed */
+    float seed_percent_pad;      // % pad amound towards the IP found
+    float xcorr_threshold;
+    vw::uint16 cost_mode;        /* 0 = absolute difference
+                                    1 = squared difference
+                                    2 = normalized cross correlation */
 
-  // EMSubpixelCorrelator Options (mode 3 only)
-  int subpixel_affine_iter;
-  int subpixel_em_iter;
-  int subpixel_pyramid_levels;
+    // search range, used to define the
+    // search range of D_sub.
+    vw::Vector2i kernel;         // Correlation kernel
+    vw::Vector2i subpixel_kernel;// Subpixel correlation kernel
+    vw::BBox2i search_range;     // Correlation search range
+    bool disable_h_subpixel, disable_v_subpixel;
+    vw::uint16 subpixel_mode;    /* 0 = parabola fitting
+                                    1 = affine, robust weighting
+                                    2 = affine, bayes weighting
+                                    3 = affine, bayes EM weighting */
 
-  // Filtering Options
-  int rm_h_half_kern;      /* low confidence pixel removal kernel size */
-  int rm_v_half_kern;
-  int rm_min_matches;      /* min # of pxl to be matched to keep pxl */
-  int rm_threshold;        /* rm_treshold < disp[n]-disp[m] reject pxl */
-  int rm_cleanup_passes;   /* number of times to perform cleanup
-                              in the post-processing phase */
-  int erode_max_size;      /* Max island size in pixels that it'll remove*/
-  int fill_holes;
-  int fill_hole_max_size;  /* Maximum hole size in pixels that we'll attempt
-                              to fill */
-  vw::uint16 mask_flatfield;/* Masks pixels in the input images that are less
-                              than 0. (For use with apollo metric camera...) */
+    // EMSubpixelCorrelator Options (mode 3 only)
+    int subpixel_affine_iter;
+    int subpixel_em_iter;
+    int subpixel_pyramid_levels;
 
-  // Triangulation Options
-  std::string universe_center; /* center for the radius clipping   */
-  float near_universe_radius;  /* radius of the universe in meters */
-  float far_universe_radius;   /* radius of the universe in meters */
-  vw::uint16 use_least_squares;/* use a more rigorous triangulation */
+    // Filtering Options
+    vw::Vector2i rm_half_kernel; /* low confidence pixel removal kernel size */
+    int rm_min_matches;      /* min # of pxl to be matched to keep pxl */
+    int rm_threshold;        /* rm_treshold < disp[n]-disp[m] reject pxl */
+    int rm_cleanup_passes;   /* number of times to perform cleanup
+                                in the post-processing phase */
+    int erode_max_size;      /* Max island size in pixels that it'll remove*/
+    bool disable_fill_holes;
+    int fill_hole_max_size;  /* Maximum hole size in pixels that we'll attempt
+                                to fill */
+    bool mask_flatfield;/* Masks pixels in the input images that are less
+                                 than 0. (For use with apollo metric camera...) */
 
-  // System Settings
-  std::string cache_dir;    /* DiskCacheViews will use this directory */
-  std::string tif_compress; // Options are [None, LZW, Deflate, Packbits]
-};
+    // Triangulation Options
+    std::string universe_center; /* center for the radius clipping   */
+    float near_universe_radius;  /* radius of the universe in meters */
+    float far_universe_radius;   /* radius of the universe in meters */
+    bool use_least_squares;/* use a more rigorous triangulation */
 
-/// Return the singleton instance of the stereo setting structure.
-/// The stereo settings struct is created the first time this method
-/// is invoked.  You should *always* access the stereo settings
-/// through this function.
-StereoSettings& stereo_settings();
+    // System Settings
+    //std::string cache_dir;    /* DiskCacheViews will use this directory */
+    //std::string tif_compress; // Options are [None, LZW, Deflate, Packbits]
+  };
+
+  /// Return the singleton instance of the stereo setting structure.
+  /// The stereo settings struct is created the first time this method
+  /// is invoked.  You should *always* access the stereo settings
+  /// through this function.
+  StereoSettings& stereo_settings();
+
+  // Custom readers for Boost Program Options
+  class asp_config_file_iterator : public boost::program_options::detail::common_config_file_iterator {
+    boost::shared_ptr<std::basic_istream<char> > is;
+  private:
+    bool getline(std::string& s); // Used to precondition string before reading
+  public:
+    asp_config_file_iterator() {
+      found_eof();
+    }
+
+    /** Creates a config file parser for the specified stream.
+     */
+    asp_config_file_iterator(std::basic_istream<char>& is,
+                             const std::set<std::string>& allowed_options,
+                             bool allow_unregistered = false);
+  };
+
+  // Custom Parsers for ASP's stereo.default files
+  boost::program_options::basic_parsed_options<char>
+  parse_asp_config_file( std::basic_istream<char>&,
+                         const boost::program_options::options_description&,
+                         bool allow_unregistered = false );
+
+  boost::program_options::basic_parsed_options<char>
+  parse_asp_config_file( std::string const&,
+                         const boost::program_options::options_description&,
+                         bool allow_unregistered = false );
+
+  // Help lexical cast convert BBox2i and Vector2i to strings
+}
+
+// Custom Boost Program Options validators for VW/ASP types
+namespace boost {
+namespace program_options {
+
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector2i*, long );
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox2i*, long );
+
+}}

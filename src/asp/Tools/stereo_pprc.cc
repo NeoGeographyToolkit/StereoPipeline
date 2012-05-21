@@ -24,6 +24,7 @@
 #include <asp/Core/ThreadedEdgeMask.h>
 
 using namespace vw;
+using namespace asp;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
@@ -207,7 +208,8 @@ int main(int argc, char* argv[]) {
   stereo_register_sessions();
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments( argc, argv, opt,
+                      PreProcessingDescription() );
 
     // user safety check
     //---------------------------------------------------------

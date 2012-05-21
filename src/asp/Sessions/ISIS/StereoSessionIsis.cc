@@ -223,7 +223,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     write_preprocessed_isis_image( m_options, input_file1, output_file1, "left",
                                    left_lo, left_hi, lo, hi,
                                    math::identity_matrix<3>(), left_size );
-    if ( stereo_settings().alignment == "none" )
+    if ( stereo_settings().alignment_method == "none" )
       write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
                                      right_lo, right_hi, lo, hi,
                                      math::identity_matrix<3>(), right_size );
@@ -236,7 +236,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     write_preprocessed_isis_image( m_options, input_file1, output_file1, "left",
                                    left_lo, left_hi, left_lo, left_hi,
                                    math::identity_matrix<3>(), left_size );
-    if ( stereo_settings().alignment == "none" )
+    if ( stereo_settings().alignment_method == "none" )
       write_preprocessed_isis_image( m_options, input_file2, output_file2, "right",
                                      right_lo, right_hi, right_lo, right_hi,
                                      math::identity_matrix<3>(), right_size );
@@ -319,7 +319,7 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
   std::string dust_result = input_file;
   if ( stereo_settings().mask_flatfield ) {
     vw_out() << "\t--> Masking pixels that appear to be dust.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
-    photometric_outlier_rejection( m_out_prefix, input_file,
+    photometric_outlier_rejection( m_options, m_out_prefix, input_file,
                                    dust_result, stereo_settings().kernel[0] );
   }
 
