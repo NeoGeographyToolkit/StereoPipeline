@@ -308,16 +308,16 @@ AX_PKG_ONE_OF(QT,
       AX_GROUP_PKG(GUESS_QT,  [QT_GUESS_BASE QT_GUESS_CORE QT_GUESS_GUI QT_GUESS_SQL QT_GUESS_NETWORK QT_GUESS_OPENGL])])
 
 AX_PKG_ONE_OF(QWT,
-    APPLE_QWT, [AX_PKG_APPLE(QWT, [QT], [-lqwt.5])],
-    PLAIN_QWT, [AX_PKG(PLAIN_QWT, [QT], [-lqwt])],
-    SUFFX_QWT, [AX_PKG(SUFFX_QWT, [QT], [-lqwt-qt4])])
+    APPLE_QWT, [AX_PKG_APPLE(QWT, [QT], [-framework qwt])],
+    PLAIN_QWT, [AX_PKG(PLAIN_QWT, [QT], [-lqwt], [qwt.h])],
+    SUFFX_QWT, [AX_PKG(SUFFX_QWT, [QT], [-lqwt-qt4], [qwt.h])])
 
 AX_PKG_ONE_OF(GSL,
     GSL_HASBLAS,  [AX_PKG(GSL_HASBLAS,  [LAPACK], [-lgsl])],
     GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
-AX_PKG(CURL,    [], [-lcurl])
-AX_PKG(GEOS,    [], [-lgeos])
+AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
+AX_PKG(GEOS,    [], [-lgeos], [geos.h])
 AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
 AX_PKG(UFCONFIG, [], [-lufconfig])
 AX_PKG(AMD, [UFCONFIG], [-lamd])
