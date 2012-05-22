@@ -27,14 +27,9 @@ values listed after the parameter name.
 \bigskip
 
 \begin{description}
-\item[CACHE\_DIR \textnormal (default = /tmp)] \hfill \\
-  Place for to store intermediate files for when Stereo Pipeline can't
-  store entire image in memory. User should change directory if
-  operating system has limit on filesize inside the \texttt{/tmp}
-  directory.
 
-\item[ALIGNMENT\_METHOD \textnormal (default = NONE)] \hfill \\
-  When \texttt{ALIGNMENT\_METHOD} is set to \texttt{HOMOGRAPHY},
+\item[alignment-method \textnormal (default = none)] \hfill \\
+  When \texttt{alignment-method} is set to \texttt{homography},
   \texttt{stereo} will attempt to pre-align the images by
   automatically detecting tie-points between images using a feature
   based image matching technique. Tiepoints are stored in a
@@ -43,7 +38,7 @@ values listed after the parameter name.
   left image.  Note: the user may exercise more control over this
   process by using the \texttt{ipfind} and \texttt{ipmatch} tools.
 
-  When \texttt{ALIGNMENT\_METHOD} is set to \texttt{EPIPOLAR},
+  When \texttt{alignment-method} is set to \texttt{epipolar},
   \texttt{stereo} will apply a 3D transform to both images so that
   their epipolar lines will be horizontal. This speeds of stereo
   correlation as it greatly reduces the area required for searching.
@@ -53,7 +48,7 @@ values listed after the parameter name.
   \texttt{stereo -t pinhole}){\em, and cannot be used when processing
     ISIS images at this time.}
 
-\item[FORCE\_USE\_ENTIRE\_RANGE \textnormal{\small{(= 0,1)}} (default = 0)] \hfill \\
+\item[force-use-entire-range \textnormal (default = false)] \hfill \\
   By default, the Stereo Pipeline will normalize ISIS images so that
   their maximum and minimum channel values are $\pm$2 standard
   deviations from a mean value of 1.0.  Use this option if you want to
@@ -65,7 +60,7 @@ values listed after the parameter name.
   as a (redundant) pre-processing step.
 
 
-\item[DO\_INDIVIDUAL\_NORMALIZATION \textnormal (default = 0)] \hfill \\
+\item[individual-normalize \textnormal (default = false)] \hfill \\
   By default, the maximum and minimum valid pixel value is determined
   by looking at both images.  Normalized with the same ``global'' min
   and max guarantees that the two images will retain their brightness
@@ -84,7 +79,15 @@ values listed after the parameter name.
   This provides the best possible input to the stereo pipeline and
   yields the best stereo matching results.
 
-\item[PREPROCESSING\_FILTER\_MODE \textnormal{\small{(= 0,1,2,3)}} (default = 3)] \hfill \\
+\end{description}
+
+\section{Correlation}
+\hrule
+\bigskip
+
+\begin{description}
+
+\item[prefilter-mode \textnormal{\small{(= 0,1,2,3)}} (default = 2)] \hfill \\
   This selects the pre-processing filter to be used to prepare imagery
   before it is fed to the initialization stage of the pipeline.
 
@@ -99,34 +102,59 @@ values listed after the parameter name.
       image, This provides some immunity to differences in lighting
       conditions between a pair of images by isolating and matching on
       blob features in the image.
+    \item[3 - Sign of LoG] - Not recommended for using. It was meant
+      for an experimental XOR cost metric for correlation. This will
+      still produce results. Though the results may not be as nice as
+      one would like.
   \end{description}
 
-  For modes 1 and 2 above, the size of the filter kernel is
-  determined by the SLOG\_KERNEL\_WIDTH variable below.
+  For all of the modes above, the size of the filter kernel is
+  determined by the \texttt{prefilter-kernel-width} parameter below.
 
   The choice of pre-processing filter must be made with thought to the
-  cost function being used (see COST\_MODE, below).  LoG filter
+  cost function being used (see \texttt{cost-mode}, below).  LoG filter
   preprocessing provides good immunity to variations in lighting
   conditions and is usually the recommended choice.
 
-\item[SLOG\_KERNEL\_WIDTH \textnormal{\small{(= \emph{float})}} (default = 1.4)] \hfill \\
+\item[prefilter-kernel-width \textnormal{\small{(= \emph{float})}} (default = 1.4)] \hfill \\
   This defines the diameter of the Gaussian convolution kernel used
   for the preprocessing modes 1 and 2 above. A value of 1.4 works
-  well for LoG and 25 works well for Subtracted Mean.
+  well for LoG and 25-30 works well for Subtracted Mean.
 
-\end{description}
+\item[corr-seed-mode \textnormal{\small{(=0,1)}}] (default = 1) \hfill \\
+  This parameter selects a strategy for how to solve for the integer
+  correlation. It takes an integer value to index which strategy to
+  take.
+  \begin{description}
+    \item[0 - None} - Meaning, don't calculate a low resolution
+      variant of the disparity image. This produces a strategy that is
+      the same as the old style ASP.
+    \item[1 - Low-Res Disparity] - Calculate a low resolution version
+      of the disparity from the L and R sub pictures. The results of
+      this disparity will be used to narrow down the search range of
+      individual tiles in the native resolution disparity image.
 
-% -------------------------------------------------------------------
-%                           CORRELATION
-% -------------------------------------------------------------------
+      This is a useful option despite the fact that our integer
+      correlation implementation does indeed use a pyramid
+      approach. Our implementation can't search infinitely into lower
+      resolutions due to its independent and tiled nature. This low
+      resolution disparity seed is a good hybrid approach.
+    \item[2 - Not implemented yet] - It would be nice to have local
+      affine fittings for each tile. Anyone interested in
+      implementing?
+  \end{description}
 
-\section{Correlation}
-\hrule
-\bigskip
+  For large images, bigger than MOC-NA, using the low resolution
+  disparity seed is a definitive plus. Smaller images such as Cassini
+  ISS or MER images should just shut this option off to save storage
+  space.
 
-\begin{description}
+\item[corr-sub-seed-percent \textnormal{\small{(= \emph{float})}} (default=.25)] \hfill \\
+  When using \texttt{corr-seed-mode 1}, the solved for or user
+  provided search range is padded by a percentage. The user can
+  customize this value themselves with this option.
 
-\item[COST\_MODE \textnormal{\small{(= 0,1,2)}}] (default = 2) \hfill \\
+\item[cost-mode \textnormal{\small{(= 0,1,2)}}] (default = 2) \hfill \\
 
   This defines the cost function used during integer
   correlation. Squared difference is the fastest cost
@@ -144,17 +172,13 @@ values listed after the parameter name.
     \item[2 - normalized cross correlation]
   \end{description}
 
-\item[H\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 25)]
-\item[V\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 25)] \hfill \\
-  These two items determine the size (in pixels) of the correlation
+\item[corr-kernel \textnormal{\small{(= \emph{integer,integer})}} (default = 25,25)] \hfill \\
+  These option determine the size (in pixels) of the correlation
   kernel used in the initialization step.  A different size can be set
-  in the horizontal \emph{(H)} and vertical \emph{(V)} directions, but
-  square correlation kernels are almost always used in practice.
+  in the horizontal and vertical directions, but square correlation
+  kernels are almost always used in practice.
 
-\item[H\_CORR\_MIN \textnormal{\small{(= \emph{integer})}}]
-\item[H\_CORR\_MAX \textnormal{\small{(= \emph{integer})}}]
-\item[V\_CORR\_MIN \textnormal{\small{(= \emph{integer})}}]
-\item[V\_CORR\_MAX \textnormal{\small{(= \emph{integer})}}] \hfill \\
+\item[corr-search \textnormal{\small{(= \emph{integer,integer,integer,integer})}}] \hfill \\
   These parameters determine the size of the initial correlation
   search range.  The ideal search range depends on a variety of
   factors ranging from how the images were pre-aligned to the
@@ -169,7 +193,32 @@ values listed after the parameter name.
   Commenting out these settings will cause \texttt{stereo} to make an
   attempt to guess its search range using interest points.
 
-\item[SUBPIXEL\_MODE \textnormal{\small{(= 0,1,2,3)}} (default = 2)] \hfill \\
+  The order of the four integers define the minimum horizontal and
+  vertical disparity and then the maximum horizontal and vertical
+  disparity.
+\end{description}
+
+\item[xcorr-threshold \textnormal{\small{(= \emph{integer})}} (default = 2)] \hfill \\
+
+  Integer correlation to a limited sense performs a correlation
+  forward and backwards to double check its result. This is one of the
+  first filtering steps to insure that we have indeed converged to a
+  global minimum for an individual pixel. The \texttt{xcorr-threshold}
+  parameter defines an agreement threshold in pixels between the
+  forward and backward result.
+
+  Optionally, this parameter can be set to a negative number. This
+  will signal the correlator to only use the forward correlation
+  result. This will drastically improve speed at the cost of
+  additional noise.
+
+\section{Subpixel Refinement}
+\hrule
+\bigskip
+
+\begin{description}
+
+\item[subpixel-mode \textnormal{\small{(= 0,1,2,3)}} (default = 2)] \hfill \\
   This parameter selects the subpixel correlation method. These
   algorithms are arranged in order of decreasing speed and increasing
   quality. Parabola subpixel is very fast but will produce results
@@ -190,10 +239,14 @@ values listed after the parameter name.
   For a visual comparison of the quality of these subpixel modes,
   refer back to Chapter:\ref{ch:correlation}.
 
-\item[SUBPIXEL\_H\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 35)]
-\item[SUBPIXEL\_V\_KERNEL \textnormal{\small{(= \emph{integer})}} (default = 35)] \hfill \\
-  Specify the size of the horizontal \emph{(H)} and vertical
-  \emph{(V)} size (in pixels) of the subpixel correlation kernel.
+\item[subpixel-kernel \textnormal{\small{(= \emph{integer,integer})}} (default = 35,35)]
+  Specify the size of the horizontal and vertical size (in pixels) of
+  the subpixel correlation kernel. It is advantageous to keep this
+  small for parabola fitting in order to resolve finer
+  details. However for the Bayes EM methods, keep the kernel slightly
+  larger. Those methods weight the kernel with a gaussian
+  distribution, thus the effective area is small than the kernel size
+  defined here.
 
 \end{description}
 
@@ -207,30 +260,29 @@ values listed after the parameter name.
 
 \begin{description}
 
-\item[RM\_H\_HALF\_KERN \textnormal{\small{(= \emph{integer})}} (default = 5)]
-\item[RM\_V\_HALF\_KERN \textnormal{\small{(= \emph{integer})}} (default = 5)] \hfill \\
-  Taken together, the RM\_* settings adjust the behavior of an outlier
-  rejection scheme that ``erodes'' isolated regions of pixels in the
-  disparity map that are in disagreement with their neighbors.
+\item[rm-half-kernel \textnormal{\small{(= \emph{integer,integer})}} (default = 5,5)] \hfill \\
+  This setting adjusts the behavior of an outlier rejection scheme
+  that ``erodes'' isolated regions of pixels in the disparity map that
+  are in disagreement with their neighbors.
 
-  The RM\_H\_HALF\_KERN and RM\_V\_HALF\_KERN parameters determine the
-  size of the half kernel that is used to perform the automatic
-  removal of low confidence pixels.  A $5 \times 5$ half kernel
-  would result in an $11 \times 11$ kernel with 121 pixels in it.
+  The two parameters determine the size of the half kernel that is
+  used to perform the automatic removal of low confidence pixels.  A
+  $5 \times 5$ half kernel would result in an $11 \times 11$ kernel
+  with 121 pixels in it.
 
-\item[RM\_MIN\_MATCHES \textnormal{\small{(= \emph{integer})}} (default = 60)] \hfill \\
+\item[rm-min-matches \textnormal{\small{(= \emph{integer})}} (default = 60)] \hfill \\
   This parameter sets the {\em percentage} of neighboring disparity
   values that must fall within the inlier threshold in order for a
   given disparity value to be retained.
 
-\item[RM\_THRESHOLD \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
+\item[rm-threshold \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
   This parameter sets the inlier threshold for the outlier rejection
   scheme.  This option works in conjunction with RM\_MIN\_MATCHES
   above.  A disparity value is rejected if it differs by more than
   RM\_THRESHOLD disparity values from RM\_MIN\_MATCHES percent of
   pixels in the region being considered.
 
-\item[RM\_CLEANUP\_PASSES \textnormal{\small{(= \emph{integer})}} (default = 1)] \hfill \\
+\item[rm-clean-passes \textnormal{\small{(= \emph{integer})}} (default = 1)] \hfill \\
   Select the number of outlier removal passes that are carried out.
   Each pass will erode pixels that do not match their neighbors.  One
   pass is usually sufficient.
@@ -243,20 +295,23 @@ values listed after the parameter name.
 %    remove everything.} This process can not be shut off but you can
 %  set the value to 1 where it then removes single isolated pixels.
 %
-\item[FILL\_HOLES \textnormal{\small{(= 0,1)}} (default = 1)] \hfill \\
-  When this option is on, the holes in the disparity map that result
-  from poor stereo matching will be filled by an inpainting
-  algorithm. Inpainting is a convolution method that takes the values
-  at the edges of holes and spreads those values inward. This method
-  performs best for small holes.
+\item[disable-fill-holes (default = false)] \hfill \\
+
+  Normally ASP will try to fill holes in the dispartiy map (caused by
+  poor matching) with an inpainting algorithm. Inpainting is a
+  convolution method that takes the values at the edges of holes and
+  spreads those values inward.
+
+  Use this flag inorder to disable the filling of holes to leave only
+  true calculated results in the output.
 
   Note: you can always use the good pixel mask image ({\tt
     *-GoodPixelMap.TIF}) to determine which pixels represent ``real''
   data matched by the stereo correlator, and which pixels represent
   interpolated data produced by inpainting.
 
-\item[FILL\_HOLE\_MAX\_SIZE \textnormal{\small{(= \emph{integer})}} (default = 100,000)] \hfill \\
-  This defines the maximum size of a hole that the inpainting
+\item[fill-holes=max-size \textnormal{\small{(= \emph{integer})}} (default = 100,000)] \hfill \\
+  This defines the maximum area of a hole that the inpainting
   technique should attempt. Default is 100,000 pixels.
 
 \end{description}
@@ -270,8 +325,8 @@ values listed after the parameter name.
 \bigskip
 
 \begin{description}
-\item[NEAR\_UNIVERSE\_RADIUS \textnormal{\small{(= \emph{float})}} (default = 0.0)]
-\item[FAR\_UNIVERSE\_RADIUS \textnormal{\small{(= \emph{float})}} (default = 0.0)] \hfill \\
+\item[near-universe-radius \textnormal{\small{(= \emph{float})}} (default = 0.0)]
+\item[far-universe-radius \textnormal{\small{(= \emph{float})}} (default = 0.0)] \hfill \\
   These parameters can be used to filter out triangulated points in
   the 3D point cloud by setting an near and far radius value from
   origin of the point cloud's coordinate system, [0,0,0].  For most
@@ -285,8 +340,17 @@ values listed after the parameter name.
   can be used to reject pixels that are too close or too far from the
   camera system.
 
-  Setting both values zero turns off this restriction and allows the
-  dot cloud to be as big as the data allows for.
+\item[universe-center \textnormal (default = none)] \hfill \\
+  Defines the origin to use when filtering the output point cloud
+  using the above near and far radius options. The available options
+  are:
+
+  \begin{description}
+    \item[None] - Disable filtering.
+    \item[Camera] - Filter in terms of radii from the left camera's
+      center.
+    \item[Zero] - Filter in terms of radii from the target's center.
+  \end{description}
 
 \end{description}
 

@@ -108,7 +108,7 @@ namespace asp {
       ("rm-half-kernel", po::value(&global.rm_half_kernel)->default_value(Vector2i(5,5), "5,5"),
        "Low confidence pixel removal kernel. (Half sized)")
       ("rm-min-matches", po::value(&global.rm_min_matches)->default_value(60),
-       "Minimum percentage of pixels to be matched to keep sample")
+       "Minimum number of pixels to be matched to keep sample")
       ("rm-threshold", po::value(&global.rm_threshold)->default_value(3),
        "Maximum distance between samples to be considered still matched")
       ("rm-cleanup-passes", po::value(&global.rm_cleanup_passes)->default_value(1),
