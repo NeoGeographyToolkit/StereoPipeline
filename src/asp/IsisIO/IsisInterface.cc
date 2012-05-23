@@ -27,7 +27,7 @@
 #include <vw/Core.h>
 
 // ISIS
-#include <Filename.h>
+#include <FileName.h>
 #include <CameraFactory.h>
 #include <SerialNumber.h>
 #include <iTime.h>
@@ -38,8 +38,8 @@ using namespace asp::isis;
 
 IsisInterface::IsisInterface( std::string const& file ) {
   // Opening labels and camera
-  Isis::Filename cubefile( file.c_str() );
-  m_label.Read( cubefile.Expanded() );
+  Isis::FileName cubefile( file.c_str() );
+  m_label.Read( cubefile.expanded() );
 
   // Opening Isis::Camera
   m_camera.reset(Isis::CameraFactory::Create( m_label ));
@@ -47,9 +47,9 @@ IsisInterface::IsisInterface( std::string const& file ) {
 
 IsisInterface* IsisInterface::open( std::string const& filename ) {
   // Opening Labels (This should be done somehow though labels)
-  Isis::Filename cubefile( filename.c_str() );
+  Isis::FileName cubefile( filename.c_str() );
   Isis::Pvl label;
-  label.Read( cubefile.Expanded() );
+  label.Read( cubefile.expanded() );
 
   Isis::Camera* camera = Isis::CameraFactory::Create( label );
 
@@ -97,7 +97,7 @@ vw::Vector3 IsisInterface::sun_position( vw::Vector2 const& pix ) const {
 vw::Vector3 IsisInterface::target_radii() const {
   Isis::Distance radii[3];
   m_camera->Radii(radii);
-  return Vector3( radii[0].GetMeters(),
-                  radii[1].GetMeters(),
-                  radii[2].GetMeters() );
+  return Vector3( radii[0].meters(),
+                  radii[1].meters(),
+                  radii[2].meters() );
 }

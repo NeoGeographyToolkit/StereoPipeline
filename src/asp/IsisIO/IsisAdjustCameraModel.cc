@@ -21,7 +21,7 @@
 #include <vw/Math/Quaternion.h>
 
 // Isis
-#include <Filename.h>
+#include <FileName.h>
 #include <CameraFactory.h>
 #include <SerialNumber.h>
 #include <iTime.h>
@@ -41,8 +41,8 @@ IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
   m_pose_f( pose_func ) {
 
   // Opening labels and camera
-  Isis::Filename cubefile( cube_filename.c_str() );
-  m_label.Read( cubefile.Expanded() );
+  Isis::FileName cubefile( cube_filename.c_str() );
+  m_label.Read( cubefile.expanded() );
   m_camera = boost::shared_ptr<Isis::Camera>(Isis::CameraFactory::Create( m_label ));
 
   // Gutting Camera

@@ -25,7 +25,7 @@
 #include <boost/foreach.hpp>
 
 // Additional Headers required for ISIS
-#include <Filename.h>
+#include <FileName.h>
 #include <CameraFactory.h>
 #include <ProjectionFactory.h>
 #include <Camera.h>
@@ -56,9 +56,9 @@ Vector2 generate_random( int const& xsize,
 
 TEST(IsisCameraModel, mapprojected) {
   std::string file("E0201461.tiny.cub");
-  Isis::Filename cubefile( file.c_str() );
+  Isis::FileName cubefile( file.c_str() );
   Isis::Pvl label;
-  label.Read( cubefile.Expanded() );
+  label.Read( cubefile.expanded() );
   Isis::Camera* cam = Isis::CameraFactory::Create( label );
   Isis::AlphaCube alphacube( label );
   Isis::Projection* proj = Isis::ProjectionFactory::CreateFromCube( label );
@@ -80,7 +80,7 @@ TEST(IsisCameraModel, mapprojected) {
     if ( cam->HasElevationModel() ) {
       lon_lat_radius[2] =
         cam->DemRadius( Isis::Latitude(lon_lat_radius[1], Isis::Latitude::Degrees),
-                        Isis::Longitude(lon_lat_radius[0], Isis::Longitude::Degrees) ).GetMeters();
+                        Isis::Longitude(lon_lat_radius[0], Isis::Longitude::Degrees) ).meters();
     } else {
       vw_throw( NoImplErr() << " don't support ellipsoids at the moment" );
     }
@@ -122,9 +122,9 @@ TEST(IsisCameraModel, groundmap_chk) {
     vw_out() << "File: " << files[j] << "\n";
     vw_out() << "------------------------------------\n";
 
-    Isis::Filename cubefile( files[j].c_str() );
+    Isis::FileName cubefile( files[j].c_str() );
     Isis::Pvl label;
-    label.Read( cubefile.Expanded() );
+    label.Read( cubefile.expanded() );
     Isis::Camera* cam = Isis::CameraFactory::Create( label );
     Isis::AlphaCube alphacube( label );
 
