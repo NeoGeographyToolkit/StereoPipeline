@@ -320,9 +320,11 @@ AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
 AX_PKG(GEOS,    [], [-lgeos], [geos.h])
 AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
 AX_PKG(UFCONFIG, [], [-lufconfig])
-AX_PKG(AMD, [UFCONFIG], [-lamd])
-AX_PKG(COLAMD, [UFCONFIG], [-lcolamd])
-AX_PKG(CHOLMOD, [AMD COLAMD], [-lcholmod])
+AX_PKG(AMD, [], [-lamd], [], [], [], [], [UFCONFIG])
+AX_PKG(COLAMD, [], [-lcolamd], [], [], [], [], [UFCONFIG])
+AX_PKG(CHOLMOD, [AMD COLAMD LAPACK], [-lcholmod])
+AX_PKG(Z, [], [-lz])
+AX_PKG(TIFF, [Z], [-ltiff])
 
 AX_PKG_ONE_OF(SUPERLU,
     SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
@@ -334,9 +336,9 @@ AX_PKG_ONE_OF(KAKADU,
     KAKADU_63_JOIN, [AX_PKG(KAKADU_63_JOIN, [], [-lkdu_a63R])])
 
 if test x"$host_vendor" = "xapple"; then
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC PROTOBUF],        [],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC PROTOBUF CHOLMOD TIFF],        [],[],[],[],[],[KAKADU])
 else
-    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU PROTOBUF CHOLMOD],[],[],[],[],[],[KAKADU])
+    AX_PKG(ISIS3RDPARTY, [LAPACK GSL QWT GEOS SPICE XERCESC SUPERLU PROTOBUF CHOLMOD TIFF],[],[],[],[],[],[KAKADU])
 fi
 
 AX_PKG(ISIS, [ISIS3RDPARTY QT], [-lisis3], [SpecialPixel.h])
