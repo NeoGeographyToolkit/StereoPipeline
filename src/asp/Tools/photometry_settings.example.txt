@@ -1,28 +1,32 @@
 # Files/directories
-DRG_DIR                   DRG_input_sub64
+DRG_DIR                   DIM_input_2560mpp
 DEM_DIR                   DEM_tiles_sub64
 SUN_POSITION_FILE         meta/sunpos.txt 
 SPACECRAFT_POSITION_FILE  meta/spacecraftpos.txt
 
 # Constants
-USE_TILES                 1
-TILE_SIZE                 4.000000
-PIXEL_PADDING             5
-SIMULATION_BOX            6:10:-10:-9 # lon_min:lon_max:lat_min:lat_max
-#SIMULATION_BOX           -180:180:-180:180 # all albedo
+TILE_SIZE                 4.0
+SIMULATION_BOX            -180:180:-180:180
 REFLECTANCE_TYPE          2
 SHADOW_THRESH             40
+SHADOW_REMOVAL_TYPE       1
+TR_CONST                  1.0
+PHASE_COEFF_A1            1.4
+PHASE_COEFF_A2            0.5
 MAX_NUM_ITER              0
-USE_WEIGHTS               1
-COMPUTE_ERRORS            0
 NO_DEM_DATA_VAL           -32767
+
+# Actions
+USE_WEIGHTS               1
+USE_NORMALIZED_WEIGHTS    0
+POST_SCALE_ALBEDO         0
+COMPUTE_ERRORS            0
 
 # Parameters controlling the flow. Normally
 # these are specified via command-line options,
 # but can be overrriden below.
 INITIAL_SETUP             0
 SAVE_WEIGHTS              0
-SHADOW_INIT_TYPE          0
 DEM_INIT_TYPE             0
 EXPOSURE_INIT_TYPE        0
 ALBEDO_INIT_TYPE          0
