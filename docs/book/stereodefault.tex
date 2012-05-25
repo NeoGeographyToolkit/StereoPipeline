@@ -126,7 +126,7 @@ values listed after the parameter name.
   correlation. It takes an integer value to index which strategy to
   take.
   \begin{description}
-    \item[0 - None} - Meaning, don't calculate a low resolution
+    \item[0 - None] - Meaning, don't calculate a low resolution
       variant of the disparity image. This produces a strategy that is
       the same as the old style ASP.
     \item[1 - Low-Res Disparity] - Calculate a low resolution version
@@ -196,7 +196,6 @@ values listed after the parameter name.
   The order of the four integers define the minimum horizontal and
   vertical disparity and then the maximum horizontal and vertical
   disparity.
-\end{description}
 
 \item[xcorr-threshold \textnormal{\small{(= \emph{integer})}} (default = 2)] \hfill \\
 
@@ -211,6 +210,8 @@ values listed after the parameter name.
   will signal the correlator to only use the forward correlation
   result. This will drastically improve speed at the cost of
   additional noise.
+
+\end{description}
 
 \section{Subpixel Refinement}
 \hrule
