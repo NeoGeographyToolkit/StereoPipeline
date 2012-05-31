@@ -104,12 +104,6 @@ if MAKE_APP_RESULTS
   results_LDADD = $(APP_RESULTS_LIBS)
 endif
 
-if MAKE_APP_RECONSTRUCT
-  bin_PROGRAMS += reconstruct
-  reconstruct_SOURCES = reconstruct.cc reconstruct_aux.cc
-  reconstruct_LDADD = $(APP_RECONSTRUCT_LIBS) $(APP_ORTHOPROJECT_LIBS)
-endif
-
 if MAKE_APP_ALIGNDEM
   bin_PROGRAMS += aligndem
   aligndem_SOURCES = aligndem.cc
