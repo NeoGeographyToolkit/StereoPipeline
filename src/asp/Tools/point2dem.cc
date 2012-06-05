@@ -67,6 +67,8 @@ struct Options : asp::BaseOptions {
   ProjectionType projection;
   bool has_nodata_value, has_alpha, do_normalize, do_error;
   std::string target_srs_string;
+  BBox2 target_ullr;
+  BBox2i target_ullr_pixels;
   uint32 fsaa;
 
   // Output
@@ -91,6 +93,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description projection_options("Projection options");
   projection_options.add_options()
     ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the gdal option.")
+    ("t_ullr", po::value(&opt.target_ullr), "Override the georeference bounds of the target output file. Using this will ignore what would have been derived from the source file.")
+    ("tr", po::value(&opt.dem_spacing)->default_value(0.0),
+     "Set output file resolution (in target georeferenced units per pixel). This is the same as the dem-spacing option.")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [ earth, moon, mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
     ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
@@ -165,10 +170,32 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
   // possibly apply the blur on a linear scale (pow(0,2.2), blur, then exp).
 
   ImageViewRef<PixelGray<float> > rasterizer_fsaa;
-  if ( opt.fsaa > 1 ) {
-    // subsample .. samples from the corner.
-    rasterizer_fsaa =
-      apply_mask(
+  if ( opt.target_ullr != BBox2() ) {
+    typedef ValueEdgeExtension<PixelGray<float> > ValExtend;
+    if ( opt.fsaa > 1 ) {
+      // subsample .. samples from the corner.
+      rasterizer_fsaa =
+        crop(edge_extend(
+          apply_mask(
+          subsample(
+            translate(
+              gaussian_filter(
+                create_mask(rasterizer.impl(),opt.nodata_value),
+                1.0f * float(opt.fsaa)/2.0f),
+              -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
+              ConstantEdgeExtension()), opt.fsaa),
+          opt.nodata_value),
+          ValExtend(opt.nodata_value)), opt.target_ullr_pixels );
+    } else {
+      rasterizer_fsaa =
+        crop(edge_extend(rasterizer.impl(),
+                         ValExtend(opt.nodata_value)), opt.target_ullr_pixels );
+    }
+  } else {
+    if ( opt.fsaa > 1 ) {
+      // subsample .. samples from the corner.
+      rasterizer_fsaa =
+        apply_mask(
         subsample(
           translate(
             gaussian_filter(
@@ -177,8 +204,9 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
             -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
             ConstantEdgeExtension()), opt.fsaa),
         opt.nodata_value);
-  } else {
-    rasterizer_fsaa = rasterizer.impl();
+    } else {
+      rasterizer_fsaa = rasterizer.impl();
+    }
   }
   return rasterizer_fsaa;
 }
@@ -374,11 +402,44 @@ int main( int argc, char *argv[] ) {
 
     // Now we are ready to specify the affine transform.
     georef.set_transform(rasterizer.geo_transform());
-    vw_out() << "\nOutput Georeference: \n\t" << georef << std::endl;
 
-    // If the user requested FSAA .. tell the rasterer to increase it's sampling rate
+    // If the user requested FSAA .. tell the rasterer to increase
+    // it's sampling rate
     if ( opt.fsaa > 1 )
       rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
+
+    // If the user specified the ULLR .. update the georeference
+    // transform here. The generate_fsaa_raster will be responsible
+    // for making sure we have the correct pixel crop.
+    if ( opt.target_ullr != BBox2() ) {
+      if ( opt.target_ullr.min().y() > opt.target_ullr.max().y() )
+        std::swap( opt.target_ullr.min().y(),
+                   opt.target_ullr.max().y() );
+
+      // This math seems a little silly, but we need to fuzz the
+      // values on target ullr so that it aligns with a pixel value.
+      opt.target_ullr_pixels =
+        georef.point_to_pixel_bbox( opt.target_ullr );
+      opt.target_ullr =
+        georef.pixel_to_point_bbox( opt.target_ullr_pixels );
+      Matrix3x3 transform = georef.transform();
+      transform(0,2) = opt.target_ullr.min().x();
+      transform(1,2) = opt.target_ullr.max().y();
+      georef.set_transform( transform );
+    }
+
+    // Fix have pixel offset required if pixel_interpretation is
+    // PixelAsArea. We could have done that earlier ... but it makes
+    // the above easier to not think about it.
+    if ( georef.pixel_interpretation() ==
+         cartography::GeoReference::PixelAsArea ) {
+      Matrix3x3 transform = georef.transform();
+      transform(0,2) -= 0.5 * transform(0,0);
+      transform(1,2) -= 0.5 * transform(1,1);
+      georef.set_transform( transform );
+    }
+
+    vw_out() << "\nOutput Georeference: \n\t" << georef << std::endl;
 
     ImageViewRef<PixelGray<float> > rasterizer_fsaa =
       generate_fsaa_raster( rasterizer, opt );
