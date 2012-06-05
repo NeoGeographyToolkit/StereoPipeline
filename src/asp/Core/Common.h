@@ -122,4 +122,24 @@ namespace asp {
 
 }
 
+// Custom Boost Program Options validators for VW/ASP types
+namespace boost {
+namespace program_options {
+
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector2i*, long );
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox2i*, long );
+
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox2*, long );
+}}
+
+
 #endif//__ASP_CORE_COMMON_H__
