@@ -145,3 +145,76 @@ Vector2i asp::file_image_size( std::string const& input ) {
   Vector2i size( rsrc->cols(), rsrc->rows() );
   return size;
 }
+
+namespace boost {
+namespace program_options {
+
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector2i*, long ) {
+    validators::check_first_occurrence(v);
+    if ( values.size() != 1)
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+
+    std::string key = boost::trim_copy(values[0]);
+    std::vector<std::string> cvalues;
+    boost::split( cvalues, key, is_any_of(", "),
+                  boost::token_compress_on );
+
+    try {
+      Vector2i output( boost::lexical_cast<int32>( cvalues[0] ),
+                       boost::lexical_cast<int32>( cvalues[1] ) );
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox2i*, long ) {
+    validators::check_first_occurrence(v);
+    if ( values.size() != 1 )
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+
+    std::string key = boost::trim_copy(values[0]);
+    std::vector<std::string> cvalues;
+    boost::split( cvalues, key, is_any_of(", "),
+                  boost::token_compress_on );
+
+    try {
+      BBox2i output(Vector2i( boost::lexical_cast<int32>( cvalues[0] ),
+                              boost::lexical_cast<int32>( cvalues[1] ) ),
+                    Vector2i( boost::lexical_cast<int32>( cvalues[2] ),
+                              boost::lexical_cast<int32>( cvalues[3] ) ) );
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox2*, long ) {
+    validators::check_first_occurrence(v);
+    if ( values.size() != 1 )
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+
+    std::string key = boost::trim_copy(values[0]);
+    std::vector<std::string> cvalues;
+    boost::split( cvalues, key, is_any_of(", "),
+                  boost::token_compress_on );
+
+    try {
+      BBox2 output(Vector2( boost::lexical_cast<double>( cvalues[0] ),
+                            boost::lexical_cast<double>( cvalues[1] ) ),
+                   Vector2( boost::lexical_cast<double>( cvalues[2] ),
+                            boost::lexical_cast<double>( cvalues[3] ) ) );
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
+
+}}
