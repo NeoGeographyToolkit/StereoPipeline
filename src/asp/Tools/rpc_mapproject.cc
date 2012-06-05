@@ -38,6 +38,7 @@ struct Options : asp::BaseOptions {
   // Settings
   std::string target_srs_string;
   float target_resolution;
+  BBox2 target_projwin;
   double nodata_value;
 };
 
@@ -46,7 +47,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("nodata-value", po::value(&opt.nodata_value), "Nodata value to use on output.")
     ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the  gdal option.")
-    ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)");
+    ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)")
+    ("t_projwin", po::value(&opt.target_projwin),
+     "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -70,7 +73,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( !vm.count("dem") || !vm.count("camera-image") ||
        !vm.count("camera-model") || !vm.count("t_srs") )
-    vw_throw( ArgumentErr() << "Requires <dem> <camera-image> <camera-model> and <t_srs> input in order to proceed." );
+    vw_throw( ArgumentErr() << "Requires <dem> <camera-image> <camera-model> and <t_srs> input in order to proceed.\n\n"
+              << usage << general_options );
 
   if ( opt.output_file.empty() )
     opt.output_file = fs::basename( opt.image_file ) + "_rpcmapped.tif";
@@ -117,6 +121,15 @@ int main( int argc, char* argv[] ) {
                    opt.target_resolution ) :
       camera_bbox( target_georef, camera_model,
                    image_size.x(), image_size.y() );
+    if ( opt.target_projwin != BBox2() ) {
+      point_bounds = opt.target_projwin;
+      if ( point_bounds.min().y() > point_bounds.max().y() )
+        std::swap( point_bounds.min().y(),
+                   point_bounds.max().y() );
+      vw_out() << "Cropping to " << point_bounds << " pt. " << std::endl;
+      point_bounds.max().x() -= opt.target_resolution;
+      point_bounds.min().y() += opt.target_resolution;
+    }
 
     {
       Matrix3x3 transform = math::identity_matrix<3>();
@@ -135,7 +148,7 @@ int main( int argc, char* argv[] ) {
 
     BBox2i target_image_size =
       target_georef.point_to_pixel_bbox( point_bounds );
-    vw_out() << "Creating output file that is " << target_image_size << ".\n";
+    vw_out() << "Creating output file that is " << target_image_size.size() << " px.\n";
 
     // Load RPC
     asp::RPCXML xml;
