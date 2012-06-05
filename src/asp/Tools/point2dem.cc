@@ -74,7 +74,7 @@ struct Options : asp::BaseOptions {
 
   // Defaults that the user doesn't need to see. (The Magic behind the
   // curtain).
-  Options() : fsaa(1) {}
+  Options() : semi_major(0), semi_minor(0), fsaa(1) {}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -101,14 +101,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("stereographic", "Save using a stereographic projection")
     ("lambert-azimuthal", "Save using a Lambert azimuthal projection")
     ("utm", po::value(&opt.utm_zone), "Save using a UTM projection with the given zone")
-    ("proj-lat", po::value(&opt.proj_lat), "The center of projection latitude (if applicable)")
-    ("proj-lon", po::value(&opt.proj_lon), "The center of projection longitude (if applicable)")
-    ("proj-scale", po::value(&opt.proj_scale), "The projection scale (if applicable)")
-    ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0), "Set the DEM post size (if this value is 0, the post spacing size is computed for you)");
+    ("proj-lat", po::value(&opt.proj_lat)->default_value(0),
+     "The center of projection latitude (if applicable)")
+    ("proj-lon", po::value(&opt.proj_lon)->default_value(0),
+     "The center of projection longitude (if applicable)")
+    ("proj-scale", po::value(&opt.proj_scale)->default_value(0),
+     "The projection scale (if applicable)")
+    ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0),
+     "Set the DEM post size (if this value is 0, the post spacing size is computed for you)");
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("nodata-value", po::value(&opt.nodata_value), "Nodata value to use on output. This is the same as default-value.")
+    ("nodata-value", po::value(&opt.nodata_value),
+     "Nodata value to use on output. This is the same as default-value.")
     ("use-alpha", po::bool_switch(&opt.has_alpha)->default_value(false),
      "Create images that have an alpha channel")
     ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
