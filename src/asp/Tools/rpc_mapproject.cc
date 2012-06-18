@@ -38,7 +38,6 @@ struct Options : asp::BaseOptions {
   // Settings
   std::string target_srs_string;
   float target_resolution;
-  BBox2 target_ullr;
   double nodata_value;
 };
 
@@ -47,8 +46,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("nodata-value", po::value(&opt.nodata_value), "Nodata value to use on output.")
     ("t_srs", po::value(&opt.target_srs_string)->required(), "Target spatial reference set. This mimicks the  gdal option.")
-    ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)")
-    ("t_ullr", po::value(&opt.target_ullr), "Override the georeference bounds of the target output file. Using this will ignore what would have been derived from the source file.");
+    ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -115,12 +113,6 @@ int main( int argc, char* argv[] ) {
                    opt.target_resolution ) :
       camera_bbox( target_georef, camera_model,
                    image_size.x(), image_size.y() );
-    if ( opt.target_ullr != BBox2() ) {
-      point_bounds = opt.target_ullr;
-      if ( point_bounds.min().y() > point_bounds.max().y() )
-        std::swap( point_bounds.min().y(),
-                   point_bounds.max().y() );
-    }
 
     {
       Matrix3x3 transform = math::identity_matrix<3>();
