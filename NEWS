@@ -1,3 +1,42 @@
+*** RELEASE 2.0.0, 20 JUNE 2012 ***
+
+GENERAL
+ - Modified ASP according to API changes in ISIS 3.4.0.
+ - Added new interest point matching code. Provides better initial
+   guess for search range.
+ - Complete changed stereo.default format. See stereo.default.example
+   for an example.
+ - Complete rewrote integer correlator for improved speed and less
+   memory use.
+ - Relicense code to be Apache 2 licensed instead of NOSA.
+
+SESSIONS
+ - Add normalization options to PINHOLE session.
+ - Added Digital Globe (DG) session. This supports the linearized
+   linescan camera model that is described in the supporting XML file.
+ - Deleted KEYPOINT session. PINHOLE essentially does all of that.
+
+EXAMPLES
+ - Added DEMError output example for MOC.
+ - Added jigsaw example for MOC.
+ - Added HiRISE example dataset.
+
+TOOLS
+ - Dropped release of isis_adjust and bundlevis.
+ - Fix int32 overflow in arithmetic for preprocessing's subsample.
+ - Remove Python 2.4 incompatible call in cam2map4stereo.py.
+ - Speed up point2dem texture access by remove unnecessary mutex.
+ - Add earth mode and fix non spherical support in point2dem.
+ - Added lronac4staged.py.
+ - Implemented D_sub or seeded integer correlation in stereo_corr.
+ - Fourth channel of output PC file is now triangulation error.
+ - Added --t_srs option to point2dem.
+ - Added rpc_mapproject tool. This provides an optional map_projection
+   step that can be used for DG session.
+ - Allow IAU2000:* projection options to be used by point2dem.
+ - No-Data is now colored black in GoodPixelMap.
+ - Make noproj step in hiedr2mosaic parallel.
+
 *** RELEASE 1.0.5, 27 OCT 2011 ***
 
 GENERAL
