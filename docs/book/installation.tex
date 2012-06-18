@@ -2,46 +2,56 @@
 
 \section{Binary Installation}
 
-This is the recommended method. Only two things are required:
+This is the recommended method. Only the Stereo Pipeline binaries are
+required. ISIS is required only for users who wish to process
+NASA non-terrestrial imagery.
 
 \begin{description}
 \item [{Stereo~Pipeline~Tarball.}] The main Stereo Pipeline page is \\
 \url{http://ti.arc.nasa.gov/tech/asr/intelligent-robotics/ngt/stereo/}.
-Download the \emph{Binary}
-option that matches the platform you wish to use. The required \ac{ISIS}
-version is listed next to the name; choose the newest version you
-have available.
+Download the \emph{Binary} option that matches the platform you wish
+to use. The recommend but optional \ac{ISIS} version is listed next to
+the name; choose the newest version you have available.
 
-\item [{USGS~ISIS~Binary~Distribution.}] The Stereo Pipeline depends
-on \ac{ISIS} version 3 from the \ac{USGS}\@. Their installation
-guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
-You must use their binaries as-is; if you need to recompile, you
-must follow the \emph{Source Installation} guide for the Stereo
-Pipeline in Section~\ref{sec:Source-Installation}.  Note also that
-the \ac{USGS} provides only the current version of \ac{ISIS} and
-the previous version (denoted with a `\texttt{\_OLD}' suffix) via
-their \texttt{rsync} service.  If the current version is newer than
-the version of ISIS that the Stereo Pipeline is compiled against,
-be assured that we're working on rolling out a new version.  In the
+\item [{USGS~ISIS~Binary~Distribution.}]
+
+The Stereo Pipeline optionally depends on \ac{ISIS} version 3 from the
+\ac{USGS}\@. It is required for anyone who is processing camera data
+from ISIS supported missions such as HiRISE, LRO-NAC, MGS, and most
+other NASA satellites. Their installation guide is at
+\url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}. You
+must use their binaries as-is; if you need to recompile, you must
+follow the \emph{Source Installation} guide for the Stereo Pipeline in
+Section~\ref{sec:Source-Installation}.  Note also that the \ac{USGS}
+provides only the current version of \ac{ISIS} and the previous
+version (denoted with a `\texttt{\_OLD}' suffix) via their
+\texttt{rsync} service.  If the current version is newer than the
+version of ISIS that the Stereo Pipeline is compiled against, be
+assured that we're working on rolling out a new version.  In the
 meantime, you should be able to sync the previous version of ISIS
-which should work with Stereo Pipeline.  To do so, view the listing
-of modules that is provided via the `\texttt{rsync isisdist.wr.usgs.gov::}'
-command.  You should see several modules listed with the `\texttt{\_OLD}'
-suffix.  Select the one that is appropriate for your system, and
-\texttt{rsync} according to the instructions.
+which should work with Stereo Pipeline.  To do so, view the listing of
+modules that is provided via the `\texttt{rsync
+  isisdist.wr.usgs.gov::}' command.  You should see several modules
+listed with the `\texttt{\_OLD}' suffix.  Select the one that is
+appropriate for your system, and \texttt{rsync} according to the
+instructions.
 
-If you have a need to keep current with ISIS, but don't want to
-loose the ability to use Stereo Pipeline while we update our binaries
-to the new current version of ISIS, you may wish to retain the
-version of ISIS that matches your version of Stereo Pipeline.
+The Stereo Pipeline will be able to work with newer versions of ISIS
+than it was built against as long as the ISIS cube format hasn't
+changed. We ship a copy of the ISIS libraries that we built
+against. Running our executables only requires that you have
+downloaded the ISIS secondary data and have appropriately set the
+\texttt{ISIS3DATA} enviromental variable. This is normally performed
+for the user by ISIS's startup script,
+\texttt{\$ISISROOT/scripts/isis3Startup.sh}.
 
 \end{description}
 
-\subsection{Quick Start}
+\subsection{Quick Start for ISIS users}
 \begin{description}
 
 \item[{Fetch~Stereo~Pipeline}] ~\\
-Download the Stereo Pipeline from \url{http://ti.arc.nasa.gov/stereopipeline}.
+Download the Stereo Pipeline from \url{http://irg.arc.nasa.gov/ngt/stereo}.
 
 \item [{Fetch~ISIS~Binaries}] ~\\
 \texttt{rsync -azv -\/-delete isisdist.wr.usgs.gov::isis3\_\textit{ARCH\_OS\_VERSION}/isis .}
@@ -71,6 +81,32 @@ csh: \\
 See the next chapter (Chapter~\ref{ch:tutorial}) for an example!
 \end{description}
 
+\subsection{Quick Start for Digital Globe users}
+\begin{description}
+
+\item[{Fetch~Stereo~Pipeline}] ~\\
+Download the Stereo Pipeline from \url{http://irg.arc.nasa.gov/ngt/stereo}.
+
+\item[{Untar~Stereo~Pipeline}] ~\\
+\texttt{tar xvfz StereoPipeline-\textit{VERSION-ARCH-OS}.tar.gz}
+
+\item [{Try~It~Out!}] ~\\
+
+Documentation hasn't been finished at this point in time yet. However
+your imagery needs to be converted to the GeoTIFF format before ASP
+can read it. ASP doesn't have native support for NITF that uses an
+underlining JPEG2000 compression.
+
+Once converted the, the command line arguments to \texttt{stereo} look
+like the following: ~\\
+\texttt{stereo \textit{LEFT IMAGE} \textit{RIGHT IMAGE} \textit{LEFT XML} \textit{RIGHT XML} \textit{OUTPUT PREFIX}}
+
+The settings discussed the next chapter (Chapter~\ref{ch:tutorial})
+apply to Digital Globe sessions as well. However the example requires
+ISIS to be installed inorder to run. This may or may not be worth your
+time to install.
+\end{description}
+
 \subsection{Common Traps}
 
 Here are some errors you might see, and what it could mean. Treat
@@ -78,19 +114,11 @@ these as templates for problems--in practice, the error messages might
 be slightly different.
 
 \begin{verbatim}
-stereo: error while loading shared libraries: libisis3.so:
-    cannot open shared object file: No such file or directory
+**I/O ERROR** Unable to open [$ISIS3DATA/Some/Path/Here].
+Stereo step 0: Preprocessing failed
 \end{verbatim}
 
-You just need to set up your ISIS environment.
-
-\begin{verbatim}
-dyld: Library not loaded: $ISISROOT/lib/libisis3.dylib
-Referenced from: /some/path/goes/here/bin/program
-Reason: image not found Trace/BPT trap
-\end{verbatim}
-
-You just need to set up your ISIS environment.
+You need to set up your ISIS environment or manually set the correct location for \texttt{ISIS3DATA}.
 
 \begin{verbatim}
 point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
@@ -167,6 +195,13 @@ building OpenGL graphics through the method of scene graphs. It also
 provides a file format and utilities for display these scene
 graphs. The output file of \texttt{point2mesh} is an OpenSceneGraph
 binary scene graph format.
+
+\item [{GDAL}] (Optional) \url{http://www.gdal.org}\\
+
+GDAL handles most of the File IO for Ames Stereo Pipeline. It also
+provides the support the ingestion of proj4 strings from the
+user. This is required if you wish to support the BigTIFF format and
+write files larger that 4GB.
 
 \item [{Vision~Workbench}] (Required) \url{http://ti.arc.nasa.gov/visionworkbench/}\\
 
