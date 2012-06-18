@@ -10,7 +10,7 @@ convert a stereo pair in ISIS {\em cube} format into a 3D ``point
 cloud'' image: \texttt{\textit{stereo-output}-PC.tif}.  This is an
 intermediate format that can be passed along to one of several
 programs that convert a point cloud into a mesh for 3D viewing or a
-gridded digital elevation model for GIS purposes.  
+gridded digital elevation model for GIS purposes.
 
 There are a number of ways to fine-tune parameters and analyze the
 results, but ultimately this software suite takes images and builds
@@ -306,19 +306,18 @@ For this example use the \texttt{stereo.default} that is included with
 the example data set. It has these key properties:
 
 \begin{verbatim}
-        ALIGNMENT_METHOD NONE
-        H_CORR_MIN -35
-        H_CORR_MAX -15
-        V_CORR_MIN -280
-        V_CORR_MAX -265
+        alignment-method none
+        corr-search -35 -280 -15 -265
 \end{verbatim}
 
 The first says, \emph{`Don't do try to automatically align my
-  images!'} since we have map-projected the images. The other four
-lines define the range that should be searched by scanning a template
-from the left image over the right image. The values above are tuned
-to the range of offsets that are found in this particular set of map
-projected images.
+  images!'} since we have map-projected the images. The other line
+defines the range that should be searched by scanning a template from
+the left image over the right image. The values above are tuned to the
+range of offsets that are found in this particular set of map
+projected images. The order of the arguments are horizontal minimum
+index, vertical minimum index, horizontal maximum index, and finally
+vertical maximum index.
 
 Given that we map projected the images using the same settings, you
 may be wondering why there would still be an offset. The reason is

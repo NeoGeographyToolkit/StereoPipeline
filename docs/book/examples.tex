@@ -47,17 +47,17 @@ by running ISIS's \texttt{spiceinit} program run on them first.
 The factor that predominantly determines running time in the Stereo
 Pipeline is the size of the search space considered by the correlation
 algorithm.  These are set in the \texttt{stereo.default} file using
-the H\_CORR\_MIN, H\_CORR\_MAX, V\_CORR\_MIN, and V\_CORR\_MAX
-parameters.  If you comment these parameters out (either by putting
-a `\texttt{\#}' at the beginning of their line or deleting them from
-your \texttt{stereo.default} file), the Stereo Pipeline will try to
-automatically determine the search range for you, but this does not
-always work perfectly.  A spurious bad match can lead the pipeline
-to select a search range that is far too large, and performance
-will suffer as a result.  If you know (or can estimate) the range
-of horizontal and vertical offsets you expect to see between the
-two images, then you may want to try setting the search range
-yourself in your stereo.default using the aforementioned parameters.
+the \texttt{corr-search} parameter.  If you comment that parameter out
+(either by putting a `\texttt{\#}' at the beginning of their line or
+deleting them from your \texttt{stereo.default} file), the Stereo
+Pipeline will try to automatically determine the search range for you,
+but this does not always work perfectly.  A spurious bad match can
+lead the pipeline to select a search range that is far too large, and
+performance will suffer as a result.  If you know (or can estimate)
+the range of horizontal and vertical offsets you expect to see between
+the two images, then you may want to try setting the search range
+yourself in your \texttt{stereo.default} using the aforementioned
+parameters.
 
 More generally, here are three strategies that tend to keep the
 search range small and run-times low:
@@ -113,40 +113,39 @@ you fine-tune the parameters in the \texttt{stereo.default} file,
 and once you get satisfactory results to apply those parameters to
 the full images.
 
+%% \subsection{Comparing Examples to your System}
 
-\subsection{Comparing Examples to your System}
+%% Since our first release we re-performed some of these examples and
+%% recorded their processing time so you the user can judge how long it
+%% will take you. Our examples were processed on our server called
+%% `Lunokhod 2'. This server is a Dell PowerEdge Rack 900 purchased in
+%% late 2009. Below are its specifications:
 
-Since our first release we re-performed some of these examples and
-recorded their processing time so you the user can judge how long it
-will take you. Our examples were processed on our server called
-`Lunokhod 2'. This server is a Dell PowerEdge Rack 900 purchased in
-late 2009. Below are its specifications:
+%% \begin{center}
+%% \begin{tabular}{ l | l }
+%% CPU & Dual E7420 Xeon at 2.13 GHz \emph{(16 logical cores)} \\ \hline
+%% FSB & 1066 MHz \\ \hline
+%% L2 Cache & 8 MB \\ \hline
+%% Memory & 64 GB @ 667 MHz (mis-matched?) \\ \hline
+%% Storage & Local RAID5 \\ \hline
+%% OS & Red Hat Enterprise Linux 5.5 \\ \hline
+%% BogoMIPS & 4256 \\ \hline
+%% Color & Dell Graphite \\
+%% \end{tabular}
+%% \end{center}
 
-\begin{center}
-\begin{tabular}{ l | l }
-CPU & Dual E7420 Xeon at 2.13 GHz \emph{(16 logical cores)} \\ \hline
-FSB & 1066 MHz \\ \hline
-L2 Cache & 8 MB \\ \hline
-Memory & 64 GB @ 667 MHz (mis-matched?) \\ \hline
-Storage & Local RAID5 \\ \hline
-OS & Red Hat Enterprise Linux 5.5 \\ \hline
-BogoMIPS & 4256 \\ \hline
-Color & Dell Graphite \\
-\end{tabular}
-\end{center}
-
-The times recorded are listed in wall hours and CPU hours. Wall-hours
-are how long it took the job to complete from the user's
-perspective. CPU-hours are how much processing time it took to
-complete. If the job took 30 wall-minutes on a 2 core system, it spent
-30 minutes in CPU 1 and CPU 2. Thus, the total CPU-hours would be
-1. This example, though correct, is not what always happens in the
-real world. Inefficiency with managing multiple threads or the
-complete lack of multithreaded code will bring wall hours up to CPU
-hours. Your required CPU hours will vary based on CPU
-architecture. Estimating your required CPU hours for your system can
-be done by scaling with the BogoMIPS measurements. This can be read
-from Linux systems with the command: \texttt{cat /proc/cpuinfo}
+%% The times recorded are listed in wall hours and CPU hours. Wall-hours
+%% are how long it took the job to complete from the user's
+%% perspective. CPU-hours are how much processing time it took to
+%% complete. If the job took 30 wall-minutes on a 2 core system, it spent
+%% 30 minutes in CPU 1 and CPU 2. Thus, the total CPU-hours would be
+%% 1. This example, though correct, is not what always happens in the
+%% real world. Inefficiency with managing multiple threads or the
+%% complete lack of multithreaded code will bring wall hours up to CPU
+%% hours. Your required CPU hours will vary based on CPU
+%% architecture. Estimating your required CPU hours for your system can
+%% be done by scaling with the BogoMIPS measurements. This can be read
+%% from Linux systems with the command: \texttt{cat /proc/cpuinfo}
 
 \section{Mars Reconnaissance Orbiter HiRISE}
 
@@ -237,10 +236,10 @@ as you will be able to just run \texttt{cam2map4stereo.py} on their provided ima
 
 \subsection{Columbia Hills}
 
-\begin{tabular}{ l r c r c}
-\textit{Prepping Files:}       & Wall Time & \texttt{+36:00:00.0} & CPU Time & \texttt{+36:00:00.0} \\
-\textit{Processing in Stereo:} & Wall Time & \texttt{297:28:06.0} & CPU Time & \texttt{881:39:45.54} \\
-\end{tabular}
+%% \begin{tabular}{ l r c r c}
+%% \textit{Prepping Files:}       & Wall Time & \texttt{+36:00:00.0} & CPU Time & \texttt{+36:00:00.0} \\
+%% \textit{Processing in Stereo:} & Wall Time & \texttt{297:28:06.0} & CPU Time & \texttt{881:39:45.54} \\
+%% \end{tabular}
 
 \ac{HiRISE} observations
 \href{http://hirise.lpl.arizona.edu/PSP_001513_1655}{PSP\_001513\_1655} and
@@ -286,10 +285,10 @@ contrast.
 \clearpage
 \subsection{East Mareotis Tholus}
 
-\begin{tabular}{l r c r c}
-\textit{Prepping Files:}       & Wall Time & \texttt{04:02:11.00} & CPU Time & \texttt{04:05:26.81} \\
-\textit{Processing in Stereo:} & Wall Time & \texttt{59:51:01.00} & CPU Time & \texttt{164:55:02.36} \\
-\end{tabular}
+%% \begin{tabular}{l r c r c}
+%% \textit{Prepping Files:}       & Wall Time & \texttt{04:02:11.00} & CPU Time & \texttt{04:05:26.81} \\
+%% \textit{Processing in Stereo:} & Wall Time & \texttt{59:51:01.00} & CPU Time & \texttt{164:55:02.36} \\
+%% \end{tabular}
 
 \ac{HiRISE} observations
 \href{http://hirise.lpl.arizona.edu/PSP_001760_2160}{PSP\_001760\_2160} and
@@ -400,9 +399,9 @@ small, allowing efficient computation and a reasonable processing time.
 
 \subsection{North Terra Meridiani}
 
-\begin{tabular}{l r c r c}
-\textit{Processing in Stereo:} & Wall Time & \texttt{13:28:04.00} & CPU Time & \texttt{45:54:50.10} \\
-\end{tabular}
+%% \begin{tabular}{l r c r c}
+%% \textit{Processing in Stereo:} & Wall Time & \texttt{13:28:04.00} & CPU Time & \texttt{45:54:50.10} \\
+%% \end{tabular}
 
 In this example, we use map projected images. Map projecting the
 images is the most reliable way to align the images for
@@ -472,10 +471,10 @@ reconstruction software.
 
 \subsection{Ceraunius Tholus}
 
-\begin{tabular}{l r c r c}
-\textit{Prepping Files:}       & Wall Time & \texttt{00:02:42.30} & CPU Time & \texttt{00:02:42.06} \\
-\textit{Processing in Stereo:} & Wall Time & \texttt{00:23:00.30} & CPU Time & \texttt{00:34:11.00} \\
-\end{tabular}
+%% \begin{tabular}{l r c r c}
+%% \textit{Prepping Files:}       & Wall Time & \texttt{00:02:42.30} & CPU Time & \texttt{00:02:42.06} \\
+%% \textit{Processing in Stereo:} & Wall Time & \texttt{00:23:00.30} & CPU Time & \texttt{00:34:11.00} \\
+%% \end{tabular}
 
 Ceraunius Tholus is a volcano in northern Tharsis on Mars. It can
 be found at 23.96 N and 262.60 E. This \ac{DEM} crosses the volcano's
@@ -511,10 +510,10 @@ The stereo.default example file works generally well with all MOC-NA pairs.
 \pagebreak
 \subsection{North Tharsis}
 
-\begin{tabular}{l r c r c}
-\textit{Prepping Files:}       & Wall Time & \texttt{00:01:57.52} & CPU Time & \texttt{00:01:56.79} \\
-\textit{Processing in Stereo:} & Wall Time & \texttt{00:24:50.70} & CPU Time & \texttt{01:34:37.40} \\
-\end{tabular}
+%% \begin{tabular}{l r c r c}
+%% \textit{Prepping Files:}       & Wall Time & \texttt{00:01:57.52} & CPU Time & \texttt{00:01:56.79} \\
+%% \textit{Processing in Stereo:} & Wall Time & \texttt{00:24:50.70} & CPU Time & \texttt{01:34:37.40} \\
+%% \end{tabular}
 
 These images cover troughs and terraces in northern Tharsis.
 This \ac{DEM} is located at 20.20 N and 118.18 W on Mars.
@@ -600,14 +599,13 @@ The default stereo settings will work but change the following options:
 \begin{center}\begin{minipage}{5.5in}
 \begin{Verbatim}[frame=single,fontsize=\small,label=additional settings for MER]
     alignment-method EPIPOLAR
-    FORCE_USE_ENTIRE_RANGE 1
-    DO_INDIVIDUAL_NORMALIZATION 0
+    force-use-entire-range
 
     # This deletes points that are two far away
     # from the camera to truly triangulate.
-    UNIVERSE_CENTER CAMERA
-    NEAR_UNIVERSE_RADIUS 0.7
-    FAR_UNIVERSE_RADIUS 80.0
+    universe-center Camera
+    near-universe-radius 0.7
+    far-universe-radius 80.0
 \end{Verbatim}
 \end{minipage}\end{center}
 
@@ -679,12 +677,12 @@ general public usage.
 
 \subsection{Ansgarius C}
 
-\begin{tabular}{ r c r c}
-\multicolumn{3}{l}{ \emph{Prepping Files} } \\
-Wall Time & \texttt{00:00:02.11} & CPU Time & \texttt{00:00:01.29} \\
-\multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
-Wall Time & \texttt{01:52:23.00} & CPU Time & \texttt{21:36:07.61} \\
-\end{tabular}
+%% \begin{tabular}{ r c r c}
+%% \multicolumn{3}{l}{ \emph{Prepping Files} } \\
+%% Wall Time & \texttt{00:00:02.11} & CPU Time & \texttt{00:00:01.29} \\
+%% \multicolumn{3}{l}{ \emph{Processing in Stereo} } \\
+%% Wall Time & \texttt{01:52:23.00} & CPU Time & \texttt{21:36:07.61} \\
+%% \end{tabular}
 
 Ansgarius C is a small crater on the west edge of the farside of the
 Moon near the equator. It is east of Kapteyn A and B.
@@ -714,104 +712,104 @@ Process Apollo TIFF files into \ac{ISIS}.
 
 The stereo.default example file works generally well with all Apollo pairs.
 
-\pagebreak
+%% \pagebreak
 
-\section{MESSENGER MDIS}
+%% \section{MESSENGER MDIS}
 
-These results are a proof of concept showing off the strength of
-building the Stereo Pipeline on top of \ac{ISIS}. Support for processing
-MDIS stereo pairs was not a goal during our design of the software,
-but the fact that an MDIS camera model exists in ISIS means that
-it too can be processed by the Stereo Pipeline.
+%% These results are a proof of concept showing off the strength of
+%% building the Stereo Pipeline on top of \ac{ISIS}. Support for processing
+%% MDIS stereo pairs was not a goal during our design of the software,
+%% but the fact that an MDIS camera model exists in ISIS means that
+%% it too can be processed by the Stereo Pipeline.
 
-For future mappers, we suggest checking out Mercury Flyby 3 data which
-was not available at the time of this writing. Flyby 3 and Flyby 2
-seem to have covered some of the same terrain with the narrow angle
-camera.
+%% For future mappers, we suggest checking out Mercury Flyby 3 data which
+%% was not available at the time of this writing. Flyby 3 and Flyby 2
+%% seem to have covered some of the same terrain with the narrow angle
+%% camera.
 
-\subsection{Wide Angle on flyby 2}
+%% \subsection{Wide Angle on flyby 2}
 
-In most flyby imagery it is very hard to find good stereo pairs.
-This pair was taken from a single flyby just seconds apart. Note
-also that this pair is taken from different wavelengths (the letter
-at the end of the filename designates the current filter being used
-on the wide angle camera). Unfortunately there is not enough of a
-perspective change here to make anything other than the spherical
-surface, but that alone is still an interesting result nonetheless.
+%% In most flyby imagery it is very hard to find good stereo pairs.
+%% This pair was taken from a single flyby just seconds apart. Note
+%% also that this pair is taken from different wavelengths (the letter
+%% at the end of the filename designates the current filter being used
+%% on the wide angle camera). Unfortunately there is not enough of a
+%% perspective change here to make anything other than the spherical
+%% surface, but that alone is still an interesting result nonetheless.
 
-\begin{figure}[h!]
-\begin{minipage}{4in}
-\includegraphics[width=4in]{images/examples/mdis/mdis_wide_example.png}
-\end{minipage}
-\hfill
-\begin{minipage}{2in}
-  \caption{ A rough attempt at stereo reconstruction from MDIS imagery. }
-  \label{fig:mdis_attempt}
-\end{minipage}
-\end{figure}
+%% \begin{figure}[h!]
+%% \begin{minipage}{4in}
+%% \includegraphics[width=4in]{images/examples/mdis/mdis_wide_example.png}
+%% \end{minipage}
+%% \hfill
+%% \begin{minipage}{2in}
+%%   \caption{ A rough attempt at stereo reconstruction from MDIS imagery. }
+%%   \label{fig:mdis_attempt}
+%% \end{minipage}
+%% \end{figure}
 
-\subsubsection*{Commands}
+%% \subsubsection*{Commands}
 
-\begin{verbatim}
-  ISIS 3> mdis2isis from=EW0108825359A.IMG to=EW0108825359A.cub
-  ISIS 3> mdis2isis from=EW0108825379C.IMG to=EW0108825379C.cub
-  ISIS 3> spiceinit from=EW0108825359A.cub
-  ISIS 3> spiceinit from=EW0108825359C.cub
-  ISIS 3> mkdir result
-  ISIS 3> stereo EW0108825359A.cub EW0108825379C.cub stereo/output
-\end{verbatim}
+%% \begin{verbatim}
+%%   ISIS 3> mdis2isis from=EW0108825359A.IMG to=EW0108825359A.cub
+%%   ISIS 3> mdis2isis from=EW0108825379C.IMG to=EW0108825379C.cub
+%%   ISIS 3> spiceinit from=EW0108825359A.cub
+%%   ISIS 3> spiceinit from=EW0108825359C.cub
+%%   ISIS 3> mkdir result
+%%   ISIS 3> stereo EW0108825359A.cub EW0108825379C.cub stereo/output
+%% \end{verbatim}
 
-\subsubsection*{stereo.default}
+%% \subsubsection*{stereo.default}
 
-\begin{center}\begin{minipage}{5.5in}
-\begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for MDIS]
-    ### PREPROCESSING
+%% \begin{center}\begin{minipage}{5.5in}
+%% \begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for MDIS]
+%%     ### PREPROCESSING
 
-    DO_INTERESTPOINT_ALIGNMENT 1
-    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
-    DO_EPIPOLAR_ALIGNMENT 0
+%%     DO_INTERESTPOINT_ALIGNMENT 1
+%%     INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
+%%     DO_EPIPOLAR_ALIGNMENT 0
 
-    FORCE_USE_ENTIRE_RANGE 0
-    DO_INDIVIDUAL_NORMALIZATION 1
+%%     FORCE_USE_ENTIRE_RANGE 0
+%%     DO_INDIVIDUAL_NORMALIZATION 1
 
-    PREPROCESSING_FILTER_MODE 2
+%%     PREPROCESSING_FILTER_MODE 2
 
-    SLOG_KERNEL_WIDTH 1.5
+%%     SLOG_KERNEL_WIDTH 1.5
 
-    ### CORRELATION
+%%     ### CORRELATION
 
-    COST_BLUR 5
-    COST_MODE 0
+%%     COST_BLUR 5
+%%     COST_MODE 0
 
-    H_KERNEL 25
-    V_KERNEL 25
+%%     H_KERNEL 25
+%%     V_KERNEL 25
 
-    H_CORR_MIN -10
-    H_CORR_MAX 10
-    V_CORR_MIN -2
-    V_CORR_MAX 2
+%%     H_CORR_MIN -10
+%%     H_CORR_MAX 10
+%%     V_CORR_MIN -2
+%%     V_CORR_MAX 2
 
-    SUBPIXEL_MODE 2
+%%     SUBPIXEL_MODE 2
 
-    SUBPIXEL_H_KERNEL 19
-    SUBPIXEL_V_KERNEL 19
+%%     SUBPIXEL_H_KERNEL 19
+%%     SUBPIXEL_V_KERNEL 19
 
-    ### FILTERING
+%%     ### FILTERING
 
-    RM_H_HALF_KERN 5
-    RM_V_HALF_KERN 5
-    RM_MIN_MATCHES 60 # Units = percent
-    RM_THRESHOLD 3
-    RM_CLEANUP_PASSES 1
+%%     RM_H_HALF_KERN 5
+%%     RM_V_HALF_KERN 5
+%%     RM_MIN_MATCHES 60 # Units = percent
+%%     RM_THRESHOLD 3
+%%     RM_CLEANUP_PASSES 1
 
-    FILL_HOLES 1
+%%     FILL_HOLES 1
 
-    ### DOTCLOUD
+%%     ### DOTCLOUD
 
-    NEAR_UNIVERSE_RADIUS 0.0
-    FAR_UNIVERSE_RADIUS 0.0
-\end{Verbatim}
-\end{minipage}\end{center}
+%%     NEAR_UNIVERSE_RADIUS 0.0
+%%     FAR_UNIVERSE_RADIUS 0.0
+%% \end{Verbatim}
+%% \end{minipage}\end{center}
 
 \clearpage
 
@@ -882,49 +880,27 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 \begin{center}\begin{minipage}{5.5in}
 \begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for Cassini ISS]
     ### PREPROCESSING
-
-    DO_INTERESTPOINT_ALIGNMENT 0
-    INTERESTPOINT_ALIGNMENT_SUBSAMPLING 0
-    DO_EPIPOLAR_ALIGNMENT 0
-
-    FORCE_USE_ENTIRE_RANGE 1
-    DO_INDIVIDUAL_NORMALIZATION 1
-
-    PREPROCESSING_FILTER_MODE 2
-
-    SLOG_KERNEL_WIDTH 1.5
+    alignment-method None
+    force-use-entire-range
+    individually-normalize
 
     ### CORRELATION
+    prefilter-mode 2
+    prefilter-kernel-width 1.5
 
-    COST_MODE 2
-    COST_BLUR 11
+    cost-mode 2
 
-    H_KERNEL 25
-    V_KERNEL 25
+    corr-kernel 25 25
+    corr-search -55 -2 -5 10
 
-    H_CORR_MIN -55
-    H_CORR_MAX -5
-    V_CORR_MIN -2
-    V_CORR_MAX 10
-
-    SUBPIXEL_MODE 3 # Experimental Subpixel Mode
-
-    SUBPIXEL_H_KERNEL 21
-    SUBPIXEL_V_KERNEL 21
+    subpixel-mode 3
+    subpixel-kernel 21 21
 
     ### FILTERING
+    rm-half-kernel 5 5
+    rm-min-matches 60 # Units = percent
+    rm-threshold 3
+    rm-cleanup-passes 1
 
-    RM_H_HALF_KERN 5
-    RM_V_HALF_KERN 5
-    RM_MIN_MATCHES 60 # Units = percent
-    RM_THRESHOLD 3
-    RM_CLEANUP_PASSES 1
-
-    FILL_HOLES 1
-
-    ### DOTCLOUD
-
-    NEAR_UNIVERSE_RADIUS 0.0
-    FAR_UNIVERSE_RADIUS 0.0
 \end{Verbatim}
 \end{minipage}\end{center}

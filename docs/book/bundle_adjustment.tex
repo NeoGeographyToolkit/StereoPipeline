@@ -1,23 +1,33 @@
 \chapter{Bundle Adjustment}
 \label{ch:bundle_adjustment}
 
+\newenvironment{myindentpar}[1]
+               {\begin{list}{}
+                   {\setlength{\leftmargin}{#1}}
+                 \item[]
+               }
+               {\end{list}}
+
 \definecolor{lgray}{gray}{0.95}
 
 Satellite position and orientation errors have a direct effect on the
 accuracy of digital elevation models produced by the Stereo Pipeline.
 If they're not corrected, these uncertainties will result in
-systematic errors in the overall position and slope of the \ac{DEM}.  Severe
-distortions can occur as well, resulting in twisted or ``taco shaped''
-\acp{DEM}, though in most cases these effects are quite subtle and hard to
-detect.
+systematic errors in the overall position and slope of the \ac{DEM}.
+Severe distortions can occur as well, resulting in twisted or ``taco
+shaped'' \acp{DEM}, though in most cases these effects are quite
+subtle and hard to detect. In the worse case, such as with old mission
+data like Voyager or Apollo, these gross camera misalignments can
+prohibit Stereo Pipeline's internal interest point matcher and block
+auto search range detection.
 
-The Stereo Pipeline includes a powerful suite of tools for correcting
-camera position and orientation errors using a process called
-\emph{bundle adjustment}. Bundle adjustment is the process of
+USGS's \ac{ISIS} software contains a suite of tools for correcting camera
+position and orientation errors for their cameras using a process
+called \emph{bundle adjustment}. Bundle adjustment is the process of
 simultaneously adjusting the properties of many cameras and the 3D
 locations of the objects they see in order to minimize the error
-between the estimated, back-projected pixel location of the 3D
-objects and their actual measured location in the captured images.
+between the estimated, back-projected pixel location of the 3D objects
+and their actual measured location in the captured images.
 
 That complex process can be boiled down to this simple idea: bundle
 adjustment ensures that observations in multiple different images of a
@@ -27,7 +37,9 @@ position of the feature must be adjusted until they are.  This
 optimization is carried out along with thousands (or more) of similar
 constraints involving many different features observed in other
 images.  Bundle adjustment is very powerful and versatile: it can
-operate on just two overlapping images, or on thousands.
+operate on just two overlapping images, or on thousands. It is also a
+dangerous tool as careful consideration is required to insure and
+verify that the solution does represent reality.
 
 \begin{figure}[bt]
   \centering
@@ -42,7 +54,7 @@ operate on just two overlapping images, or on thousands.
 \end{figure}
 
 Bundle adjustment can also take advantage of \acp{GCP}, which are
-3D locations of features that are known a priori (often by measuring
+3D locations of features that are known apriori (often by measuring
 them by hand in another existing \ac{DEM}). \acp{GCP} can improve the internal
 consistency of your \ac{DEM} or align your \ac{DEM} to an existing data
 product. Finally, even though bundle adjustment calculates the
@@ -79,17 +91,20 @@ together. Their physical manifestation would be a rock or small crater
 than can be observed across multiple images.
 
 Tie-points can be automatically extracted using Vision Workbench's
-Interest Point module or through a number of outside methods such as
-the famous SURF\citep{surf08}. Creating a tie point is a three step
-process. First, all images are processed for their natural {\it
-  'interesting'} points. In most algorithms, an interest point is
-defined as a place where image gradients accumulate together into a
-peak. These interesting points are then described by the texture that
-surrounds them. Finally the described interesting points are matched
-across the multiple images. A single matched pair of interest points
-is now a tie point to use in bundle adjustment. In application, there
-is also a little filtering of the tie points with RANSAC
-\citep{fischler81}.
+Interest Point module, \ac{ISIS}'s \texttt{autoseed} and \texttt{pointreg},
+or through a number of outside methods such as the famous
+SURF\citep{surf08}. We'll be discussing the method of gathering these
+measurements using \ac{ISIS}'s toolchain. Creating a collection of tie
+points, {\it called a control network}, is a 3 step process. First, a
+general geographic layout of the points must be decided upon. This is
+traditionally just a grid layout that has some spacing that allows for
+about a 20-30 measurements to be made per image. This decided upon grid
+shows up in slightly different projected locations each image due to
+their slight misalignments. The second step is have an automatic
+registration algorithm try to find the same feature in all images using
+the prior grid as a starting location. The third step is to manually
+verify all measurements visually, checking to insure that each
+measurement is looking at the same feature.
 
 \begin{figure}[b!]
   \begin{center}
@@ -99,7 +114,8 @@ is also a little filtering of the tie points with RANSAC
   \label{fig:ba_feature}
 \end{figure}
 
-Our bundle adjustment approach follows the method described
+Bundle Adjustment in \ac{ISIS} is performed with the \texttt{jigsaw}
+executable. It generally follows the method described
 in~\cite{triggs00} and determines the best camera parameters that
 minimize the projection error given by ${\bf \epsilon} =
 \sum_k\sum_j(I_k-I(C_j, X_k))^2$ where $I_k$ are the tie points on the
@@ -108,9 +124,10 @@ positions associated with features $I_k$. $I(C_j, X_k)$ is an image
 formation model (i.e. forward projection) for a given camera and 3D
 point. To recap, it projects the 3D point, $X_k$, into the camera with
 parameters $C_j$. This produces a predicted image location for the 3D
-point that is compared against the observed location, $I_k$. We reduce
-this error with the Levenberg-Marquardt algorithm (LMA). Speed is
-improved by using sparse methods as described in \citet{hartley04}.
+point that is compared against the observed location, $I_k$. It then
+reduces this error with the Levenberg-Marquardt algorithm (LMA). Speed
+is improved by using sparse methods as described in \citet{hartley04},
+\citet{konolige:sparsesparse}, and \citet{cholmod}.
 
 Even though the arithmetic for bundle adjustment sounds clever. There
 are faults with the base implementation. Imagine a case where all
@@ -124,20 +141,20 @@ control scale and translation of the solution. It will correct
 geometric shape of the problem. Yet it can not guarantee that solution
 will have correct scale and translation.
 
-We attempt to fix this problem by adding two additional cost functions
-to bundle adjustment. First of which is ${\bf \epsilon} =
+\ac{ISIS} attempts to fix this problem by adding two additional cost
+functions to bundle adjustment. First of which is ${\bf \epsilon} =
 \sum_j(C_j^{initial}-C_j)^2$. This constrains camera parameters to
 stay relatively close to their initial values. Second, a small handful
 of 3D ground control points can be chosen by hand and added to the
 error metric as ${\bf \epsilon} = \sum_k(X_k^{gcp}-X_k)^2$ to
 constrain these points to known locations in the planetary coordinate
 frame. A physical example of a ground control point could be the
-location of a lander that has a well known location. In the cost
-functions discussed above, errors are weighted by the inverse
-covariance of the measurement that gave rise to the constraint.
+location of a lander that has a well known location. GCP could also be
+hand picked points against a highly regarded and prior existing map
+such as the THEMIS Global Mosaic or the LRO-WAC Global Mosaic.
 
 Like other iterative optimization methods, there are several
-conditions that will cause bundle adjustment to terminate.  When
+conditions that will cause bundle adjustment to terminate. When
 updates to parameters become insignificantly small or when the error,
 ${\bf \epsilon}$, becomes insignificantly small, then the algorithm
 has converged and the result is most likely as good as it will get.
@@ -145,645 +162,275 @@ However, the algorithm will also terminate when the number of
 iterations becomes too large, in which case bundle adjustment may or
 may not have finished refining the parameters of the cameras.
 
-\section{Performing bundle adjustment with isis\_adjust}
-
-First off, let it be known that USGS's \ac{ISIS} has its own bundle
-adjustment software called \texttt{jigsaw}. It has a long history and
-is supported by a team of skilled developers. Despite this, Ames
-Stereo Pipeline provides an alternative called \texttt{isis\_adjust}
-that has its own benefits.
-
-Like \texttt{jigsaw}, the \texttt{isis\_adjust} program is designed to
-perform bundle adjustment on images supported by \ac{ISIS} 3
-software package.  The \texttt{isis\_adjust} program does not
-discriminate based on camera type.  It can perform bundle adjustment
-on images from line-scan imagers like \ac{MOC}, \ac{LROC} NAC,
-\ac{HiRISE}, and the \ac{CTX}. The \texttt{isis\_adjust} program can
-also perform bundle adjustment on traditional frame cameras
-(e.g. Apollo Metric Camera). Theoretically it should also work with
-push-frame imagers like the \ac{THEMIS} VIS, and \ac{LROC} WAC, though
-this is untested.
-
-The \texttt{isis\_adjust} program works by first converting all
-pixel measurements in an image to measurements defined on the ideal
-focal plane using millimeters and the \ac{ET}. The \ac{ET} is the
-absolute second at which that pixel measurement was recorded on the
-camera.  For a frame camera, all of the pixels are captured at the
-same time so the \ac{ET} will be identical for all measurements on
-the image.  For pushbroom, pushframe, or other cameras which build
-up their `image' over time, different parts of the image will have
-different ET values.  For example, on a MOC image between the first
-and last line about 5 seconds of \ac{ET} will have elapsed.
-
-When \texttt{isis\_adjust} calculates the partial derivatives of the
-forward projection of a point, it uses an ideal pinhole camera model.
-The properties of this model are defined as properties of the subject
-camera at the specified \ac{ET} for the current measure plus the
-correction function, $f(t)$, that \texttt{isis\_adjust} is solving
-for.  Many forms of $f(t)$ could be used; the only limit is the
-number of parameters in the equations. Some initial work hints that
-anything greater than a second order polynomial becomes an ill-posed
-problem, but we hope to investigate this further in the future.
-
-Our \texttt{isis\_adjust} implements multiple bundle adjustment
-algorithms which can be selected from the command line. It implements
-the standard sparse algorithm that can be found in literature. It also
-implements our research work into robust cost functions. This allows
-the algorithm to ignore measurements that it thinks to be outliers.
-
-Finally, \texttt{isis\_adjust} stores its solution for a camera as a
-delta that can be added to the camera's original SPICE in a separate
-file. Those files have the extension \texttt{*.isis\_adjust}. This is
-less than ideal and one feature that we value in \ac{ISIS}'s
-\texttt{jigsaw}. Their software overwrites the SPICE information in
-the cube file. This means that \texttt{jigsaw} results can be used in
-other \ac{ISIS} programs like \texttt{cam2map}. This is not the case
-with \texttt{isis\_adjust}'s results.
-
-\subsection{Options}
-
-The following is a listing and explanation of the options that can be
-given to \texttt{isis\_adjust} on the command line. These options are
-not required.
-
-\begin{description}
-
-\item[\texttt{-\/-cnet|-c \textit{control-network-file}}] \hfill \\
-  \emph{Optional.} This option will force {\tt isis\_adjust} to
-  use a pre-built built control network. This control network can
-  either be in the \ac{USGS} \ac{ISIS} ``cnet'' format or in the binary Vision
-  Workbench format.
-
-  If no control network is supplied using this option, {\tt
-    isis\_adjust} will look for match files in the current working
-  directory with base filenames that match the input images.  The
-  \texttt{isis\_adjust} program will then create its own control
-  network file and save it as \texttt{isis\_adjust.cnet}.
-
-\item[\texttt{-\/-cost-function L1|L2|Cauchy|Huber|PseudoHuber(=L2)} ] \hfill \\
-  Sets the cost function used for bundle adjustment. Default is \texttt{L2}
-  which is the normal squared error. The full list of available options
-  are:
-
-  \begin{description}
-    \item[L1] Proportional Error
-    \item[L2] Squared Error and Default Option.
-    \item[Cauchy]
-    \item[Huber]
-    \item[PseudoHuber]
-  \end{description}
-
-  The options towards the end of the list are robust cost functions
-  that deal better with non-ideal data that has outliers. These robust
-  cost functions are performed by post-weighting the original errors yet
-  still using equations derived for squared error.
-
-\item[\texttt{-\/-bundle-adjuster Ref|Sparse|RobustRef|RobustSparse|RobustSparseKGCP(=Sparse)}] \hfill \\
-  Sets the bundle adjustment code to be used. The standard to use is
-  \texttt{Sparse}, which is a traditional squared error derived method that
-  utilizes sparse matrices to obtain speed. Here are the complete list
-  of options:
-
-  \begin{description}
-    \item[Ref] Reference implementation that doesn't use sparse methods.
-    \item[Sparse] Default implementation.
-    \item[RobustRef]
-    \item[RobustSparse]
-    \item[RobustSparseKGCP]
-  \end{description}
-
-  The ending methods are experimental student-t derived bundle
-  adjustment algorithms. Using the experimental robust algorithm
-  overrides the {\tt cost-function} option. The last two bundle
-  adjustment algorithms are still experimental and are a work in
-  progress.
-
-\item[\texttt{-\/-disable-camera-const}] \hfill \\
-  \emph{Optional.} This disables the camera constraint error. Useful
-  for debugging and just exploring what are the effects of this cost
-  function.
-
-\item[\texttt{-\/-disable-gcp-const}] \hfill \\
-  \emph{Optional.} This disables the \ac{GCP} constraint error even
-  if \acp{GCP} are provided. Useful for debugging and just exploring
-  what the effects are of \acp{GCP}.
-
-\item[\texttt{-\/-gcp-scalar \textit{multiplier(=1)}}] \hfill \\
-  \emph{Optional.} Sets the multiplier that is used to adjust the
-  sigma (or uncertainty) of the \aclp{GCP}. The sigmas of
-  \aclp{GCP} are defined in the \ac{GCP} data file, so this
-  option is useful when debugging for universally scaling \ac{GCP} sigmas
-  up or down.
-
-\item[\texttt{-\/-lambda|-l \textit{float}}] \hfill \\
-  \emph{Optional.} This sets the starting value for $\lambda$: the
-  parameter in the Levenberg Marquardt (LMA) optimization algorithm
-  that selects between Gauss-Newton optimization and gradient
-  descent. This parameter evolves over time on its own, but this
-  argument can be used to override its initial value. \emph{This is an
-  advanced setting, not recommended for normal use.}
-
-\item[\texttt{-\/-min-matches \textit{integer(=5)}}] \hfill \\
-  Set the minimum number of tie-points that are required between a
-  pair of images for them to be included in the control network. This
-  option is useful for eliminating tie-points from image pairs that
-  have only a handful of poor or erroneous matches.
-
-\item[\texttt{-\/-max-iterations \textit{integer(=25)}}] \hfill \\
-  Sets the maximum number of iterations for bundle adjustment. The
-  number of required iterations will vary by problem size, so this
-  parameter allows the user to decide how much time they're willing
-  to dedicate to the correction of the data.  We have found that 20
-  iterations suffices for small problems with 10 or fewer images, and
-  tens or hundreds of iterations may be required for problems with
-  hundreds or thousands of images.
-
-\item[\texttt{-\/-poly-order \textit{integer(=0)}}] \hfill \\
-  \emph{Optional.} Sets the order of the polynomial that is used for
-  adjustment. Using zero means only apply offset to the camera
-  parameters that are not time dependent. That setting is recommend
-  for frame cameras. Linescan imagers should using either a first
-  order polynomial or a second order. Increasing this number too high can
-  lead to a problem that is ill-defined and would prevent the algorithm
-  from converging on a solution. \emph{Initial work suggest that anything
-    beyond a 2nd order polynomial would be ill-defined. 3rd order may
-    work with a good dose of ground control points.}
-
-\item[\texttt{-\/-position-sigma \textit{float(=100)}}] \hfill \\
-  Sets the sigma (or uncertainty) of the spacecraft position in
-  units of meters.
-
-\item[\texttt{-\/-pose-sigma \textit{float(=0.1)}}] \hfill \\
-  Sets the sigma (or uncertainty) of the spacecraft pose in units
-  of radians.
-
-\item[\texttt{-\/-report-level|-r \textit{integer(=10)}}] \hfill \\
-  \emph{Optional.} Sets the report level for the final bundle
-  adjustment report.  This report is saved as
-  \texttt{isis\_adjust.report}. Report levels available are:
-
-  \begin{description}
-    \item[0   - CommandLine Error and Final report]
-    \item[10  - CommandLine Iteration Error (default)]
-    \item[20  - Write Report file]
-    \item[25  - \textnormal{\emph{In development}}]
-    \item[30  - Write Stereo Triangulation Error]
-    \item[35  - \textnormal{\emph{In development}}]
-    \item[100 - Debug, Write Error Vectors (big human readable)]
-    \item[110 - Debug, Write Jacobian Matrix (massive human readable)]
-  \end{description}
-
-\item[\texttt{-\/-robust-threshold \textit{float(=10)}}] \hfill \\
-  Sets the robust threshold; an additional parameter specifically for
-  the \texttt{PseudoHuber}, \texttt{Huber}, and \texttt{Cauchy} arguments to the   \texttt{-\/-cost-function} option.
-
-\item[\texttt{-\/-save-iteration-data|-s}] \hfill \\
-  \emph{Optional.} Use to write {\tt bundlevis} visualization files.
-
-\item[\texttt{-\/-seed-with-previous}] \hfill \\
-  \emph{Optional.} Loads up the previous {\tt isis\_adjust} session's
-  adjustment file and uses them as a starting point for this session.
-
-\item[\texttt{-\/-write-isis-cnet-also}] \hfill \\
-  \emph{Optional.} Write an \ac{ISIS} \ac{PVL} style control network file to
-  \texttt{isis\_adjust.net}. The output file is very large compared to
-  the binary output, \texttt{isis\_adjust.cnet}, but is human readable
-  and compatible with the \ac{ISIS} 3 \texttt{qnet} tool.
-
-\item[\texttt{-\/-write-kml [0|1(=0)]}] \hfill \\
-  \emph{Optional.} Providing this option with a zero will have the
-  program write a \ac{KML} file showing the location of all the \acp{GCP}
-  and be colored according to their final error. Providing this
-  option with a one will have this perform as before, but also have it
-  write all of the 3D point estimates. This is useful for debugging and
-  for having a quick visualization of where stress points might exist in
-  a bundle adjustment problem when there are many cameras.
-
-\item[\texttt{-\/-help|-h}] \hfill \\
-  Provides a shortened list of the above.
-
-\end{description}
-
-\section{Visualizing bundle adjustment with bundlevis}
-
-The \texttt{bundlevis} program is used to visualize the process of
-bundle adjustment. It will show an animated, fully interactive 3D
-scene containing all the 3D points and cameras across all iterations
-of bundle adjustment.  This tool is used to quickly determine if
-bundle adjustment was successful.  If something does go wrong,
-\texttt{bundlevis} can be a powerful debugging tool for identifying
-the problem.
-
-\begin{figure}[b!]
-  \begin{center}
-  \includegraphics[width=5in]{images/bundlevis_apollo.png}
-  \end{center}
-  \caption{ A screenshot of \texttt{bundlevis} visualizing the bundle
-    adjustment of imagery from the Apollo 15 Metric Camera (orbit
-    33). }
-  \label{fig:bundlevis}
-\end{figure}
-
-Once \texttt{bundlevis} has loaded the data from a bundle adjustment run,
-the user can click on and inspect the position of 3D points that are
-in purple and play back the iterations using the keyboard. Double
-clicking on a camera will cause lines to be drawn to each point viewed
-by the camera. Clicking on a 3D point causes lines to be drawn to all
-cameras that view the point.
-
-Bundle adjustment can fail in a variety of different ways, but users
-should be aware of two common failure modes.  The first is segmentation;
-where tie points will split into two or more distinct groups,
-producing cliffs between or clumps among points. This is usually
-caused by insufficient matches between a pair of images in your
-control network.  You may need to choose some tie-points between
-these images by hand or add additional images that overlap with the
-problem area.
-
-The second common sign of a failure is a point cloud explosion (the
-resulting terrain looks unrecognizably noisy). This most often results
-from a high number of outlying, bad tie-point measurements that the
-bundle adjustment algorithm can't recover from. These bad constraints
-can be removed by hand or mitigated using one of the robust cost modes
-(e.g. by using the \texttt{-\/-cost-function} argument for
-\texttt{isis\_adjust}).
-
-\subsection{Options}
-
-The following is a listing and explanation of the options
-that can be given to \texttt{bundlevis} from the command line.
-
-\begin{description}
-
-\item[\texttt{-\/-camera-iteration-file|-c \textit{bundlevis-camera-iteration-file}}] \hfill \\
-  \emph{Optional.} Supply a camera iteration file that was produced by
-       \texttt{isis\_adjust}.  \texttt{bundlevis} will only draw cameras
-       if you supply a camera iteration file.
-
-\item[\texttt{-\/-points-iteration-file|-p \textit{bundlevis-point-iteration-file}}] \hfill \\
-  \emph{Optional.} Supply a point iteration file that was produced by
-       \texttt{isis\_adjust}.  \texttt{bundlevis} will only draw 3D points
-       if you supply a point iteration file.
-
-\item[\texttt{-\/-control-network-file|-n \textit{Vision-Workbench-binary-control-network-file}}] \hfill \\
-  \emph{Optional.} Supply a control network file that was produced by
-       {\tt isis\_adjust}.  This allows {\tt bundlevis} to show the
-       relationship between points and cameras when used in
-       conjunction with \texttt{-\/-camera-iteration-file} and
-       \texttt{-\/-points-iteration-file}.
-
-\item[\texttt{-\/-additional-pnt-files \textit{bundlevis-point-iteration-files}}] \hfill \\
-  \emph{Optional.} Supply additional points to be animated alongside
-  the camera and 3D points.  The files given must be in the same
-  format as a \texttt{bundlevis} point iteration file and have the same number
-  of iterations.
-
-\item[\texttt{-\/-fullscreen}] \hfill \\
-  \emph{Optional.} Displays \texttt{bundlevis} using the entire screen;
-  otherwise the program loads in a window. \emph{The fullscreen option
-    does not work correctly with dual screen systems.}
-
-\item[\texttt{-\/-stereo}] \hfill \\
-  \emph{Optional.} Render the 3D scene in red/blue anaglyph mode.
-
-\item[\texttt{-\/-show-moon}] \hfill \\
-  \emph{Optional.} Draws a wireframe sphere with a radius of 1737.3~km
-  that represents the Moon.
-
-\item[\texttt{-\/-show-mars}] \hfill \\
-  \emph{Optional.} Draws a wireframe sphere with a radius of 3397~km
-  that represents Mars.
-
-\item[\texttt{-\/-show-earth}] \hfill \\
-  \emph{Optional.} Draws a wireframe sphere that represents the Earth.
-
-\end{description}
-
-\subsection{Controls}
-
-Once \texttt{bundlevis} is running, there are several controls that
-can be used to interface with the program. There are the playback
-controls, jump-to-frame controls, and the mouse.
-
-\paragraph{Playback Controls}
-
-Playback controls are similar to those in the popular Winamp program;
-arranged on the keyboard like the controls on a tape deck.
-
-\newenvironment{myindentpar}[1]
-               {\begin{list}{}
-                   {\setlength{\leftmargin}{#1}}
-                 \item[]
-               }
-               {\end{list}}
-
-\begin{myindentpar}{3cm}
-\begin{description}
-  \item[Z] Step back one iteration
-  \item[X] Play
-  \item[C] Pause
-  \item[V] Stop \emph{(which is the same as Pause except that
-    bundlevis goes back to iteration 0)}
-  \item[B] Step forward one iteration
-\end{description}
-\end{myindentpar}
-
-\paragraph{Jump-to-Frame Controls}
-Jump-to-Frame controls are the numbers \textbf{1-9} along the top of
-the keyboard. Pressing \textbf{1} will display the very first
-iteration. Pressing \textbf{9} will display the very last
-iteration. Pressing \textbf{2} through \textbf{8} will display
-iterations that are somewhere in between based on the value of the
-number. Finally, pressing \textbf{0} will cause \texttt{bundlevis} to
-display the points at their very last iteration with an additional
-tail pointing back to the starting position of the points in the first
-iteration.
-
-\paragraph{Mouse}
-The mouse is used to move around the model, and has the same controls
-found in many 3D environments (e.g. \texttt{osgviewer}). Moving the
-mouse with the \textbf{left mouse button} held down will cause the
-model to rotate.  Moving with the \textbf{right mouse button} pressed
-will zoom, and moving with the \textbf{middle mouse button} will
-translate. Alternatively for systems where the mouse is
-button-challenged, \textbf{option + mouse} is translation and
-\textbf{command + mouse} is zoom.
-
-Double clicking with the mouse on a point or camera will allow the
-user to query entities in the model.  A double click will cause the
-point number and camera number to be printed to the terminal. The
-number identifier for a given camera or point will also appear when
-the viewer is zoomed in on that entity.
-
-\section{Examples of Use}
-\label{sec:ba_example}
+\section{Performing bundle adjustment with USGS's ISIS}
+
+Ames Stereo Pipeline at one point provided its own bundle adjustment
+utilities but at this point it is of our opinion that they not be used
+for general use. USGS's \ac{ISIS} bundle adjustment software has
+improved and gets more regular service than we could hope to provide.
+
+This tutorial for ISIS's bundle adjustment tools is taken from
+\citet{lunokhod:controlnetwork} and \citet{lunokhod:gcp}. These tools
+are not a product of NASA nor the authors of Stereo Pipeline. They
+were created by USGS and their documentation is available at
+\cite{isis:documentation}.
 
 \subsection{Processing Mars Orbital Camera}
+\label{sec:ba_example}
 
 What follows is an example of bundle adjustment using two \ac{MOC}
-images of the south Cydonia region. We use images M10/00254 and
-R09/01059. These images are available from NASA's \ac{PDS} (the
-\ac{ISIS} \texttt{mocproc} program will operate on either the IMQ
-or IMG format files, we use the \texttt{.imq} below in the example).
-For reference, the following \ac{ISIS} commands are how to convert
-the \ac{MOC} images to \ac{ISIS} cubes.
+images of Hrad Vallis. We use images E02/01461 and M01/00115, the same
+as used in Chapter~\ref{ch:tutorial}. These images are available from
+NASA's \ac{PDS} (the \ac{ISIS} \texttt{mocproc} program will operate
+on either the IMQ or IMG format files, we use the \texttt{.imq} below
+in the example).  For reference, the following \ac{ISIS} commands are
+how to convert the \ac{MOC} images to \ac{ISIS} cubes.
 
 \begin{verbatim}
-  ISIS 3> mocproc from= m1000254.imq to= m1000254.cub mapping=no
-  ISIS 3> mocproc from= r0901059.imq to= r0901059.cub mapping=no
+  ISIS 3> mocproc from= e0201461.imq to= e0201461.cub mapping=no
+  ISIS 3> mocproc from= m0100115.imq to= m0100115.cub mapping=no
 \end{verbatim}
 
-You will note that the resulting images are not map projected. Bundle
+Note that the resulting images are not map projected. Bundle
 adjustment requires the ability to project arbitrary 3D points into
 the camera frame. The process of map projecting an image dissociates
 the camera model from the image. Map projecting can be perceived as
 the generation of a new infinitely large camera sensor that is
 perfectly parallel to the surface of its subject ( and thus spherical
-). That makes it extremely hard to project a random point into
-the camera's original model. The math would follow the transformation from
+). That makes it extremely hard to project a random point into the
+camera's original model. The math would follow the transformation from
 projection into the camera frame, then projected back down to surface
-that ISIS uses, then finally up into the infinitely large sensor. The
-\texttt{isis\_adjust} program does not support this.
+that ISIS uses, then finally up into the infinitely large
+sensor. \texttt{Jigsaw} does not support map projected imagery.
 
-At this point, we need to automatically generate tie-points between
-these two images. This can be done using the \texttt{ipfind} and
-\texttt{ipmatch} utilities. These tools do not reliably (currently)
-work with photometrically calibrated images, so we must first convert
-these images to a standard format using the \ac{ISIS} program
-\texttt{isis2std} or \texttt{gdal\_translate}. The utility
-\texttt{gdal\_translate} is the preferred option as it is able to
-produce lossless compressed images.
+Before we can dive into creating our tie-point measurements we must
+finish prepping this images. The following commands will add a vector
+layer to the cube file that describes its outline on the globe. It
+will also create a data file that describes the overlapping sections
+between files.
 
 \begin{verbatim}
-  ISIS 3> isis2std from= m1000254.cub to= m1000254.tif format=TIFF
-  ISIS 3> isis2std from= r0901059.cub to= r0901059.tif format=TIFF
+  ISIS 3> footprintinit from= e0201461.cub
+  ISIS 3> footprintinit from= m0100115.cub
+  ISIS 3> echo *cub |  xargs -n1 echo > cube.lis
+  ISIS 3> findimageoverlaps from=cube.lis overlaplist=overlap.lis
 \end{verbatim}
 
-or ...
+At this point, we are ready to start generating our measurements. This
+is a three step process that requires defining a geographic pattern
+for the layout of the points on the groups, an automatic registration
+pass, and finally a manual clean up of all measurements. Creating the
+ground pattern of measurements is performed with \texttt{autoseed}. It
+requires a settings file that defines the spacing in meters between
+measurements. For this example, write the following text-box into a
+\textit{autoseed.def} file.
 
 \begin{verbatim}
-  ISIS 3> gdal_translate -of GTiff -scale -ot Byte
-              -co COMPRESS=LZW -co TILED=yes m1000254.cub m1000254.tif
-  ISIS 3> gdal_translate -of GTiff -scale -ot Byte
-              -co COMPRESS=LZW -co TILED=yes r0901059.cub r0901059.tif
+  Group = PolygonSeederAlgorithm
+        Name = Grid
+        MinimumThickness = 0.01
+        MinimumArea = 1
+        XSpacing = 1000
+        YSpacing = 2000
+  End_Group
 \end{verbatim}
 
-Here is how to process those newly created TIFF files for tie-points
-using the Interest Point Module tools from Vision Workbench.
+The minimum thickness defines the minimum ratio between the sides of
+the region that can have points applied to it. A choice of 1 would
+define a square and anything less defines thinner and thinner
+rectangles. The minimum area argument defines the minimum square
+meters that must be in an overlap region. The last two are the spacing
+in meters between control points. Those values were specifically
+chosen for this pair so that about 30 measurements would be produced
+from \texttt{autoseed}. Having more control points just makes for more
+work later on in this process. Run \texttt{autoseed} with the
+following instruction.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=5in]{images/qnet/Qnet_AfterAutoseed.png}
+  \caption{A visualization of the features layed out by
+    \texttt{autoseed} in \texttt{qnet}. Note that the marks do not
+    cover the same features between images. This is due to the poor
+    initial spice data for MOC imagery.}
+  \label{fig:after_autoseed}
+\end{figure}
 
 \begin{verbatim}
-  > ipfind  m1000254.tif r0901059.tif -g 1.2
-  > ipmatch m1000254.tif r0901059.tif -d -r homography -i 30
+  ISIS 3> autoseed fromlist=cube.lis overlaplist=overlap.lis    \
+            onet=control.net deffile=autoseed.def networkid=moc \
+            pointid=???? description=hrad_vallis
 \end{verbatim}
 
-\begin{center}
-\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
-
-    Be aware that the tie-point tools available in Vision Workbench do
-    not always produce enough matches for bundle adjustment. An
-    alternative would be to use outside code such as SURF. We have
-    included a patch at the end of the book that converts SURF output
-    to a Vision Workbench style match file. In extreme cases, users
-    can be forced to make measurements themselves. This can be
-    performed with \ac{ISIS}'s \texttt{qnet} progam.  \\ \\ For this
-    example we found that \texttt{ipfind} and \texttt{ipmatch} work
-    great. Expect to find approximately 100 matched points. Your
-    results will be slightly different due to the random nature of
-    RANSAC.
-
-\end{minipage}}
-\end{center}
-
-Finally it is time to start bundle adjustment. There are many options
-that can be used at this stage.  We have chosen those required to
-create visualization data for \texttt{bundlevis}.  We have also set
-the maximum iterations to 100 and chose the option to create a
-detailed report file of \texttt{isis\_adjust}'s results.
+The next step is to perform auto registration of these features
+between the two images using \texttt{pointreg}. This program also
+requires a settings file that describes how to do the automatic
+search. Copy the text box below into a \textit{autoRegTemplate.def}
+file.
 
 \begin{verbatim}
-  ISIS 3> isis_adjust *.cub -s --max 30 -r 50
+   Object = AutoRegistration
+    Group = Algorithm
+      Name         = MaximumCorrelation
+      Tolerance    = 0.7
+    EndGroup
+
+    Group = PatternChip
+      Samples = 21
+      Lines   = 21
+      MinimumZScore = 1.5
+      ValidPercent = 80
+    EndGroup
+
+    Group = SearchChip
+      Samples = 75
+      Lines   = 1000
+    EndGroup
+  EndObject
 \end{verbatim}
 
-Before you hit enter, notice that we are not feeding the interest
-point match files to \texttt{isis\_adjust}. Instead, we only provide
-the camera files. During run time, the program will see that it
-doesn't have any image measurements in the form of a control
-network. In that case it will attempt to build its own by searching
-the current working directory for \texttt{*.match} files.
-
-Now you have permission to run \texttt{isis\_adjust}. You'll see the
-command will produce considerable debugging output and will place many
-output files in the current working directory. If you look through the
-output in the terminal or alternatively in the output report file,
-\texttt{isis\_adjust.report}, you'll see that the problem did not
-converge but reduced most of the error in the first 40 iterations
-(again, your results may vary slightly). The lack of convergence is
-worrisome and a few (like 3) ground control points would probably help
-considerably.  Notice that the error improved only slightly after
-those first 40 iterations, but the shape of the pointcloud and the
-camera paths changed considerably. This untwisting of the cameras can
-be seen next in \texttt{bundlevis}.
-
-Visualizing all of the data that was exported for \texttt{bundlevis}
-can be carried out as follows:
+The search chip defines the search range for which \texttt{pointreg}
+will look for matching imagery. The pattern chip is simply the kernel
+size of the matching template. The search range is specific for this
+image pair. The control network result after \texttt{autoseed} had a
+large vertical offset in the ball park of 500 px. The large
+misalignment dictated the need for the large search in the lines
+direction. Use \texttt{qnet} to get an idea for what the pixel shifts
+look like in your stereo pair to help you decide on a search range. In
+this example, only one measurement failed to match automatically. Here
+are the arguments for \texttt{pointreg}.
 
 \begin{verbatim}
-  > bundlevis -p iterPointsParam.txt -c iterCameraParam.txt \
-              -n isis_adjust.cnet
+  ISIS 3> pointreg fromlist=cube.lis cnet=control.net             \
+             onet=control_pointreg.net deffile=autoRegTemplate.def
 \end{verbatim}
 
-Press escape to exit out of \texttt{bundlevis} when finished.  You may
-also want to try viewing the data with a wire-frame of Mars to give
-some perspective. Note, you will have to zoom in very far since the
-size of a MOC frame is quite small relative to the size of Mars!
+The third step is to manually edit the control and verify the
+measurements in \texttt{qnet}. Type \texttt{qnet} in the terminal and
+then open \textit{cube.lis} and then
+\textit{control\_pointreg.net}. From the Control Network Navigator
+window, click on the first point listed as \textit{0001}. That opens a
+third window called the Qnet Tool. That window will allow you to play
+an flip animation that shows alignment of the feature between the two
+images. Correcting a measurement is performed by left clicking in the
+right image, then clicking \textit{Save Measure}, and finally
+finishing by clicking \textit{Save Point}.
+
+In this tutorial, measurement \textit{0025} ended up being
+incorrect. You're number may vary if you used different settings than
+the above or if MOC spice data has improved since this writing. When
+finished, go back to the main Qnet window. Save the final control as
+\textit{control\_qnet.net} by clicking on \textit{File}, and then
+\textit{Save As}.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=5in]{images/qnet/Qnet_AfterQnetManual.png}
+  \caption{A visualization of the features after manual editing in
+    \texttt{qnet}. Note that the marks now appear in the same location
+    between images.}
+  \label{fig:after_autoseed}
+\end{figure}
+
+Once the control network is finished, it is finally time to start
+bundle adjustment. Here's what the call to \texttt{jigsaw} looks like:
 
 \begin{verbatim}
-  > bundlevis -p iterPointsParam.txt -c iterCameraParam.txt \
-              -n isis_adjust.cnet --show-mars
+  ISIS 3> jigsaw fromlist=cube.lis update=yes twist=no radius=yes \
+             cnet=control_qnet.net onet=control_ba.net
 \end{verbatim}
 
-Producing a DEM using the newly created corrections is the same as
-covered in the Tutorial on page \pageref{ch:tutorial}, with one small
-difference: \texttt{stereo} needs to know of the existence of the
-correction files, \texttt{m1000254.isis\_adjust} and
-\texttt{r0901059.isis\_adjust}.
+The update option defines that we would like to update the camera
+pointing if our bundle adjustment converges. The \textit{twist=no}
+says to not solve for the camera rotation about the camera bore. That
+property is usually very well known as it is critical for integrating
+an image with a line-scan camera. The \textit{radius=yes} means that
+the radius of the 3D features can be solved for. Using no will force
+the points to use height values from another source, usually LOLA or
+MOLA.
+
+The above command will spew out a bunch of diagnostic information from
+every iteration of the optimization algorithm. The most important
+feature to look at is the \textit{sigma0} value. It represents the mean of
+pixel errors in the control network. In our run, the initial error was
+1065 px and the final solution had an error of 1.1 px.
+
+Producing a DEM using the newly created camera corrections is the same
+as covered in the Tutorial on page \pageref{ch:tutorial}. When using
+\texttt{jigsaw}, it modifies a copy of the spice data that is stored
+internally to the cube file. Thus when we want to create a DEM using
+the correct camera geometry, no extra information needs to be given to
+\texttt{stereo} since it is already contained in the file. In the
+event a mistake has been made, \texttt{spiceinit} will overwrite the
+spice data inside a cube file and provide the original uncorrected
+camera pointings.
 
 \begin{verbatim}
-  ISIS 3> stereo m1000254.cub r0901059.cub m1000254.isis_adjust \
-                 r0901059.isis_adjust MOC_RESULTS/M1000254_R0901059
+  ISIS 3> stereo E0201461.cub M0100115.cub bundled/bundled
 \end{verbatim}
 
-The two new arguments (\texttt{*.isis\_adjust}) provide
-\texttt{stereo} with the necessary corrections. When providing outside
-camera models for images, they are always the 3rd and 4th argument for
-\texttt{stereo}. This is also how \texttt{stereo} can be made to
-operate on images from standard consumer cameras.
+%% \subsection{Processing with Ground Control Points}
 
-\subsection{Processing with Ground Control Points}
+%% Ground control point files describe a single point in the world
+%% that is seen by 1 or more cameras. How they are measured in the
+%% first place is up to the user. We use a manual process of comparing
+%% each image to a respected map projected image and then recording
+%% the latitude, longitude, and altitude of the point(s). The maps to
+%% register against can be anything, but it is recommended to register
+%% against a product with a high amount of cartographic stability and
+%% accuracy.  For terrestrial work, we would use a \ac{USGS} product
+%% that can provide imagery that is registered to LIDAR height
+%% measurements.
 
-Ground control point files describe a single point in the world
-that is seen by 1 or more cameras. How they are measured in the
-first place is up to the user. We use a manual process of comparing
-each image to a respected map projected image and then recording
-the latitude, longitude, and altitude of the point(s). The maps to
-register against can be anything, but it is recommended to register
-against a product with a high amount of cartographic stability and
-accuracy.  For terrestrial work, we would use a \ac{USGS} product
-that can provide imagery that is registered to LIDAR height
-measurements.
+%% Unlike match files, ground control points must specifically be given
+%% to \texttt{isis\_adjust} from the command line, but in no particular
+%% order. Ground control point files are written with the extension
+%% \texttt{.gcp}. Below is an example of a ground control point file that
+%% was created to control a series of Apollo Metric Camera images from
+%% several Apollo 15 orbits.
 
-Unlike match files, ground control points must specifically be given
-to \texttt{isis\_adjust} from the command line, but in no particular
-order. Ground control point files are written with the extension
-\texttt{.gcp}. Below is an example of a ground control point file that
-was created to control a series of Apollo Metric Camera images from
-several Apollo 15 orbits.
+%% \begin{verbatim}
+%%     -52.8452 27.2561 1735999 300 300 500
+%%     sub4-AS15-M-2086.cub     210.9   3565.0
+%%     sub4-AS15-M-2087.cub     1476.9  3579.0
+%%     sub4-AS15-M-2088.cub     2798.9  3586.8
+%%     sub4-AS15-M-2089.cub     4133.5  3588.6
+%%     sub4-AS15-M-2344.cub     906.9   3874.8
+%%     sub4-AS15-M-2345.cub     2204.2  3913.9
+%%     sub4-AS15-M-2482.cub     939.8   4348.0
+%%     sub4-AS15-M-2483.cub     2282.0  4340.7
+%%     sub4-AS15-M-2484.cub     3642.1  4330.9
+%% \end{verbatim}
 
-\begin{verbatim}
-    -52.8452 27.2561 1735999 300 300 500
-    sub4-AS15-M-2086.cub     210.9   3565.0
-    sub4-AS15-M-2087.cub     1476.9  3579.0
-    sub4-AS15-M-2088.cub     2798.9  3586.8
-    sub4-AS15-M-2089.cub     4133.5  3588.6
-    sub4-AS15-M-2344.cub     906.9   3874.8
-    sub4-AS15-M-2345.cub     2204.2  3913.9
-    sub4-AS15-M-2482.cub     939.8   4348.0
-    sub4-AS15-M-2483.cub     2282.0  4340.7
-    sub4-AS15-M-2484.cub     3642.1  4330.9
-\end{verbatim}
+%% The first line of a \texttt{.gcp} file is like a header line and
+%% is different from the remaining lines.  The first line defines the
+%% world location of the ground control point, and the rest of the
+%% lines define the image locations of the ground control points. Here
+%% are what the columns mean for the first line.
 
-The first line of a \texttt{.gcp} file is like a header line and
-is different from the remaining lines.  The first line defines the
-world location of the ground control point, and the rest of the
-lines define the image locations of the ground control points. Here
-are what the columns mean for the first line.
+%% \begin{myindentpar}{2cm}
+%% \begin{description}
+%%   \item[Column 1:] Longitude in degrees
+%%   \item[Column 2:] Latitude in degrees
+%%   \item[Column 3:] Radius in meters
+%%   \item[Column 4:] Sigma (or uncertainty) in meters for Local X axis
+%%   \item[Column 5:] Sigma (or uncertainty) in meters for Local Y axis
+%%   \item[Column 6:] Sigma (or uncertainty) in meters for Local Z axis
+%% \end{description}
+%% \end{myindentpar}
 
-\begin{myindentpar}{2cm}
-\begin{description}
-  \item[Column 1:] Longitude in degrees
-  \item[Column 2:] Latitude in degrees
-  \item[Column 3:] Radius in meters
-  \item[Column 4:] Sigma (or uncertainty) in meters for Local X axis
-  \item[Column 5:] Sigma (or uncertainty) in meters for Local Y axis
-  \item[Column 6:] Sigma (or uncertainty) in meters for Local Z axis
-\end{description}
-\end{myindentpar}
+%% The other lines describe where this \ac{GCP} is found in each image:
 
-The other lines describe where this \ac{GCP} is found in each image:
+%% \begin{myindentpar}{2cm}
+%% \begin{description}
+%%   \item[Column 1:] Image name
+%%   \item[Column 2:] Sample (X) image measurement
+%%   \item[Column 3:] Line (Y) image measurement
+%% \end{description}
+%% \end{myindentpar}
 
-\begin{myindentpar}{2cm}
-\begin{description}
-  \item[Column 1:] Image name
-  \item[Column 2:] Sample (X) image measurement
-  \item[Column 3:] Line (Y) image measurement
-\end{description}
-\end{myindentpar}
-
-Make a {\tt .gcp} file for every ground control point, then be sure
-to feed them as an input to {\tt isis\_adjust}. Remember that you
-can scale the sigma of all ground control points by using the {\tt
--\/-gcp-scalar} flag. This can save time by allowing you to make
-adjustments without needing to edit all of the files individually.
-
-\subsection{Sharing Data with ISIS 3's qnet program}
-
-\ac{ISIS} contains a program called \texttt{qnet} whose purpose is
-to create and edit \ac{ISIS} style control network files. To share
-a control network with \texttt{qnet}, you will need to save our
-control network in the \ac{ISIS} format. If bundle adjustment has
-already been performed once and if we want to simply convert the
-control network for use in \texttt{qnet}, you can use this command
-to save an \ac{ISIS} style control network:
-
-\begin{verbatim}
-  ISIS 3> isis_adjust -c isis_adjust.cnet --write-isis-cnet-also *.cub
-\end{verbatim}
-
-Otherwise if this is the first time performing bundle adjustment and a
-control network does not already exist, use:
-
-\begin{verbatim}
-  ISIS 3> isis_adjust --write-isis-cnet-also *.cub
-\end{verbatim}
-
-There should now be an \texttt{isis\_adjust.net} file in the project's
-directory. It will be quite a bit larger than the other control
-network file since it is stored as ASCII text, but it can be read
-and edited with a text editor. Before starting \texttt{qnet}, there
-is one additional preparation that must be performed. \ac{ISIS}'s
-\texttt{qnet} requires a text file listing of all the cubes used
-by the control network. Here's how to create one:
-
-\begin{verbatim}
-  > ls *.cub > list_of_cubes.lis
-\end{verbatim}
-
-Now, start up \texttt{qnet} without any command line arguments. Click
-File$\rightarrow$Open. It will first ask for the list of cubes. Refer
-it to the newly created \texttt{list\_of\_cubes.lis}. Next it will ask for
-the control network. Give it \texttt{isis\_adjust.net}.
-
-\begin{center}
-\fcolorbox{black}{lgray}{ \begin{minipage}{5.5in}
-
-    At this time \texttt{qnet} does not work with the Apollo Metric
-    Camera's cube files. When loading the text file listing of cubes
-    it will issue an error about invalid serial numbers for the listed
-    cube files.  % (03/11/09)
-
-\end{minipage}}
-\end{center}
-
-When finished, save the new control network file. Here's how to use
-the new control network in \texttt{isis\_adjust}:
-
-\begin{verbatim}
-  ISIS 3> isis_adjust -c the_new_control_network.net *.cub
-\end{verbatim}
-
-Take note that to distinguish \ac{ISIS} style control network files
-from Stereo Pipeline style control network files is by the file
-extension. \ac{ISIS} control networks have the extension of
-\texttt{.net} and can be read with a text editor. Stereo Pipeline's
-control networks have the extension \texttt{.cnet} and are binary
-format files.
+%% Make a {\tt .gcp} file for every ground control point, then be sure
+%% to feed them as an input to {\tt isis\_adjust}. Remember that you
+%% can scale the sigma of all ground control points by using the {\tt
+%% -\/-gcp-scalar} flag. This can save time by allowing you to make
+%% adjustments without needing to edit all of the files individually.
