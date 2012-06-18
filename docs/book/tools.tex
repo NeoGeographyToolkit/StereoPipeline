@@ -185,6 +185,82 @@ it onto the 3D terrain produced by the Stereo Pipeline.  The resulting
 {\tt *-DRG.tif} file will be saved as an 8-bit GeoTIFF image in a
 simple cylindrical map projection.
 
+\subsection{Comparing with MOLA data}
+
+When comparing the output of \texttt{point2dem} to laser altimeter
+data, like MOLA, it is important to understand the different kinds
+of data that are being discussed.  By default, \texttt{point2dem}
+returns planetary radius values in meters.  These are often large
+numbers that are difficult to deal with.  If you use the \texttt{-r
+mars} option, the output terrain model will be in meters of elevation
+with reference to the IAU reference spheroid for Mars: 3,396,190~m.
+So if a post would have a radius value of 3,396,195 m, in the model
+returned with the \texttt{-r mars} option, that pixel would just be 5 m.
+
+You may want to compare the output to MOLA data.  MOLA data is
+released in three `flavors,' namely: Topography, Radius, and Areoid.
+The MOLA Topography data product that most people use is just the MOLA Radius
+product with the MOLA Areoid product subtracted.  Additionally, it is
+important to note that all of these data products have a reference
+value subtracted from them.  The MOLA reference value is NOT the
+IAU reference value, but 3,396,000 m.
+
+So you cannot just compare the output of \texttt{point2dem}
+to the MOLA Topography data, since \texttt{point2dem} doesn't know about the Areoid.
+
+In order to compare with the MOLA data, you can do one of two
+different things.  You could operate purely in radius space, and
+have \texttt{point2dem} create radius values that are directly
+comparable to the MOLA Radius data.  You can do this by having
+\texttt{point2dem} subtract the MOLA reference value by setting
+\texttt{-\/-semi-major-axis 3396000} and \texttt{-\/-semi-minor-axis
+3396000}.
+
+To get values that are directly comparable to MOLA Topography data,
+you'll need to run \texttt{point2dem} with the \texttt{-\/-semi-major-axis}
+and \texttt{-\/-semi-minor-axis} switches with the MOLA reference, to get
+something that is comparable with the MOLA Radius values.  Then you'll need
+to obtain the MOLA Areoid data and scale it up to the DEM ground scale, and then
+subtract that areoid data from the model produced by \texttt{point2dem}.  That
+resultant model can then be directly compared to the MOLA Topography data.
+
+\subsection{Post Spacing}
+
+Recall that \texttt{stereo} creates a pointcloud file as its output
+that you need to use \texttt{point2dem} on to create a GeoTIFF that
+you can use in other tools.  The pointcloud file is the result of
+taking the image-to-image matches (which were created from the
+kernel sizes you specified, and the subpixel versions of the same,
+if used) and projecting them out into space from the cameras, and
+arriving at a point in real world coordinates.  Since stereo does
+this for every pixel in the input images, the \textit{default} value that
+\texttt{point2dem} uses (if you don't specify anything explicitly) is: the
+input image scale, because there's an `answer' in the pointcloud
+file for each of them.
+
+However, as you may suspect, this is probably not the best value to
+use, because there really isn't that much `information' in the data.
+The true `resolution' of the output model is dependent on a whole
+bunch of things (like the kernel sizes you choose to use) but also can
+vary from place to place in the image depending on the texture.
+
+The general `rule of thumb' is to produce a terrain model that has a
+post spacing of about 3x the input image ground scale.  This is based
+on the fact that it is nearly impossible to uniquely identify a single
+pixel correspondence between two images, but a 3x3 patch of pixels
+provides improved matching reliability.  As you go to numerically
+larger post-spacings on output, you're averaging more point data (that
+is probably spatially correlated anyway) together.
+
+So you can either use the \texttt{--dem-spacing} argument to
+\texttt{point2dem} to do that directly, or feel free to use your
+favorite averaging algorithm to reduce the \texttt{point2dem}-created
+model down to the scale you want.
+
+If you attempt to derive science results from an ASP-produced terrain model 
+with the default DEM spacing, expect serious questions from reviewers.
+
+
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for point2dem}
 \label{tbl:point2dem}
@@ -199,6 +275,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging) \\ \hline
 \texttt{-\/-orthoimage \textit{texture-file}} & Write an orthoimage based on the texture file given as an argument to this command line option \\ \hline
 \texttt{-\/-errorimage} & Write an additional image whose values represent the triangulation error in meters \\ \hline
+\texttt{-\/-fsaa  \textit{float(=3)}} & Oversampling amount to perform antialiasing. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the output file type \\ \hline
 \hline
@@ -225,6 +302,10 @@ Options & Description \\ \hline \hline
 \texttt{-\/-proj-lon \textit{float}} & The center of projection longitude (if applicable) \\ \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable) \\ \hline
 \texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
+\texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
+\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF Compression method.\\ \hline
+\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally don't need to change.\\ \hline
 \hline
 \texttt{-\/-help|-h} & Display this table \\ \hline
 \end{longtable}
