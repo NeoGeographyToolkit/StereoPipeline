@@ -18,10 +18,6 @@
 
 /// \file StereoSettings.h
 ///
-
-#ifndef __ASP_CORE_STEREO_SETTINGS_H__
-#define __ASP_CORE_STEREO_SETTINGS_H__
-
 #include <asp/Core/Common.h>
 #include <boost/program_options.hpp>
 #include <boost/program_options/detail/config_file.hpp>
@@ -119,6 +115,10 @@ namespace asp {
     float near_universe_radius;  /* radius of the universe in meters */
     float far_universe_radius;   /* radius of the universe in meters */
     bool use_least_squares;/* use a more rigorous triangulation */
+
+    // System Settings
+    //std::string cache_dir;    /* DiskCacheViews will use this directory */
+    //std::string tif_compress; // Options are [None, LZW, Deflate, Packbits]
   };
 
   /// Return the singleton instance of the stereo setting structure.
@@ -155,6 +155,20 @@ namespace asp {
                          const boost::program_options::options_description&,
                          bool allow_unregistered = false );
 
+  // Help lexical cast convert BBox2i and Vector2i to strings
 }
 
-#endif//__ASP_CORE_STEREO_SETTINGS_H__
+// Custom Boost Program Options validators for VW/ASP types
+namespace boost {
+namespace program_options {
+
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector2i*, long );
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox2i*, long );
+
+}}
