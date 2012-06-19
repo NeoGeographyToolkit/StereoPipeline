@@ -7,13 +7,15 @@ required. ISIS is required only for users who wish to process
 NASA non-terrestrial imagery.
 
 \begin{description}
-\item [{Stereo~Pipeline~Tarball.}] The main Stereo Pipeline page is \\
-\url{http://ti.arc.nasa.gov/tech/asr/intelligent-robotics/ngt/stereo/}.
-Download the \emph{Binary} option that matches the platform you wish
-to use. The recommend but optional \ac{ISIS} version is listed next to
-the name; choose the newest version you have available.
+\item [{Stereo~Pipeline~Tarball.}] \hspace*{\fill} \\
 
-\item [{USGS~ISIS~Binary~Distribution.}]
+The main Stereo Pipeline page is
+\url{http://irg.arc.nasa.gov/ngt/stereo}.  Download the \emph{Binary}
+option that matches the platform you wish to use. The recommend but
+optional \ac{ISIS} version is listed next to the name; choose the
+newest version you have available.
+
+\item [{USGS~ISIS~Binary~Distribution.}] \hspace*{\fill} \\
 
 The Stereo Pipeline optionally depends on \ac{ISIS} version 3 from the
 \ac{USGS}\@. It is required for anyone who is processing camera data
@@ -91,7 +93,6 @@ Download the Stereo Pipeline from \url{http://irg.arc.nasa.gov/ngt/stereo}.
 \texttt{tar xvfz StereoPipeline-\textit{VERSION-ARCH-OS}.tar.gz}
 
 \item [{Try~It~Out!}] ~\\
-
 Documentation hasn't been finished at this point in time yet. However
 your imagery needs to be converted to the GeoTIFF format before ASP
 can read it. ASP doesn't have native support for NITF that uses an
@@ -99,7 +100,7 @@ underlining JPEG2000 compression.
 
 Once converted the, the command line arguments to \texttt{stereo} look
 like the following: ~\\
-\texttt{stereo \textit{LEFT IMAGE} \textit{RIGHT IMAGE} \textit{LEFT XML} \textit{RIGHT XML} \textit{OUTPUT PREFIX}}
+\texttt{stereo \textit{left-image} \textit{right-image} \textit{left-xml} \textit{right-xml} \textit{output-prefix}}
 
 The settings discussed the next chapter (Chapter~\ref{ch:tutorial})
 apply to Digital Globe sessions as well. However the example requires
@@ -141,12 +142,16 @@ to them from your library path.
 \pagebreak
 \section{\label{sec:Source-Installation}Source Installation}
 
-This method is for advanced users with moderate build system experience. Some dependencies such as ISIS and its dependencies \emph{(like SuperLU, Qwt, CSpice)} use custom build systems. Because of this and time, we won't help with questions on how to build dependencies.
+This method is for advanced users with moderate build system
+experience. Some dependencies such as ISIS and its dependencies
+\emph{(like SuperLU, Qwt, CSpice)} use custom build systems. Because
+of this and time, we won't help with questions on how to build
+dependencies.
 
 \subsection{Dependency List}
 
-This is a list of the direct dependencies of Stereo Pipeline. Some libraries
-(like \ac{ISIS}) have dependencies of their own which are not covered here.
+This is a list of the prime dependencies of Stereo Pipeline. Some libraries
+(like \ac{ISIS} and \ac{VW}) have dependencies of their own which are not covered here.
 
 \begin{figure}[h]
   \centering
@@ -160,14 +165,12 @@ Version 1.35 or greater is required. Along with the base library
 set, the Stereo Pipeline specifically requires: Program Options, Filesystem,
 Thread, and Graph.
 
-\item [{LAPACK}] (Required)\\
-There are many sources for LAPACK\@. For OSX, you can use the
-vecLib framework. For Linux, you can use the netlib LAPACK/CLAPACK
-distributions, or Intel's MKL, or any of a number of others. The math
-is unfortunately not a hotspot in the code, though, so using a faster
-LAPACK implementation will not change much. Therefore, you should
-probably just use the LAPACK your package manager (RPM for Red Hat
-Linux, Yast for SuSE, etc.) has available.
+\item [{GDAL}] (Recommended) \url{http://www.gdal.org}\\
+
+GDAL handles most of the File IO for Ames Stereo Pipeline. It also
+provides the support the ingestion of proj4 strings from the
+user. This is required if you wish to support the BigTIFF format and
+write files larger that 4GB.
 
 \item [{ISIS}] (Recommended) \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}\\
 
@@ -187,6 +190,15 @@ recommended that users try to build ISIS themselves. This leaves users
 the only option of using ISIS and ASP binaries that are available
 online.
 
+\item [{LAPACK}] (Required)\\
+There are many sources for LAPACK\@. For OSX, you can use the
+vecLib framework. For Linux, you can use the netlib LAPACK/CLAPACK
+distributions, or Intel's MKL, or any of a number of others. The math
+is unfortunately not a hotspot in the code, though, so using a faster
+LAPACK implementation will not change much. Therefore, you should
+probably just use the LAPACK your package manager (RPM for Red Hat
+Linux, Yast for SuSE, etc.) has available.
+
 \item [{OpenSceneGraph}] (Optional) \url{http://www.openscenegraph.org/}\\
 
 OpenSceneGraph is required to run the \texttt{point2mesh} tool (See
@@ -196,12 +208,11 @@ provides a file format and utilities for display these scene
 graphs. The output file of \texttt{point2mesh} is an OpenSceneGraph
 binary scene graph format.
 
-\item [{GDAL}] (Optional) \url{http://www.gdal.org}\\
+\item [{Python 2.4+}] (Required) \url{http://www.python.org}\\
 
-GDAL handles most of the File IO for Ames Stereo Pipeline. It also
-provides the support the ingestion of proj4 strings from the
-user. This is required if you wish to support the BigTIFF format and
-write files larger that 4GB.
+Some applications of Stereo Pipeline are python scripts. Python
+provides a friendly enviroment that hopefully encourages users to
+attempt modifications of their own.
 
 \item [{Vision~Workbench}] (Required) \url{http://ti.arc.nasa.gov/visionworkbench/}\\
 
@@ -211,10 +222,6 @@ algorithms, such as image filters, image arithmetic, stereo
 correlation, and triangulation. This means that Stereo Pipeline is
 just a collection of applications that implement Vision Workbench in
 the context of ISIS.
-
-\item [{Python 2.4+}] (Required) \url{http://www.python.org}\\
-
-Some applications of Stereo Pipeline are actually python scripts.
 
 \end{description}
 
@@ -348,7 +355,8 @@ known as the 'system cache' and its max size is dictated by
 Setting this value too high can cause your application to crash. It is
 usually recommend to keep this value around 1/4 of the maximum
 available memory on the system. For 32 bit systems, this means don't
-set this value any greater than 1 GB. The units of this property is in bytes.
+set this value any greater than 1 GB. The units of this property is in
+bytes.
 
 \item[0 = *.progress] \hfill \\
 
@@ -356,7 +364,8 @@ This line is not assigning a value to progress, it is however setting
 the logging level of progress bars. In the above example, this
 statement is made under the \texttt{[logfile console]} state. This
 means that only progress bars of type \texttt{ErrorMessage} will ever
-be printed to the console. If you wanted progress bars up to type \texttt{InfoMessage}, then the line in log file should be changed to:
+be printed to the console. If you wanted progress bars up to type
+\texttt{InfoMessage}, then the line in log file should be changed to:
 
 \begin{verbatim}
     [logfile console]

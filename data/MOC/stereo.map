@@ -41,7 +41,7 @@ cost-mode 0
 corr-kernel 25 25
 
 # Initializaion step: correlation window size
-#corr-search -35 -280 -15 -265
+corr-search -35 -280 -15 -265
 
 # Subpixel Refinement / stereo_rfne
 ################################################################

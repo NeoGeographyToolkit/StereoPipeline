@@ -285,22 +285,25 @@ You may find it useful to save multiple versions of the
 this, be sure to specify a configuration file by invoking
 \texttt{stereo} with the \texttt{-s} option.  If this option is not
 given, the \texttt{stereo} program will search for a file named
-\texttt{stereo.default} in the current working directory.
+\texttt{stereo.default} in the current working directory. The
+extension of this file is unimportant. Feel free to use any name that
+best suits your project.
 
-There is a \texttt{stereo.default} file included with the example data
-set that is different from the example \texttt{stereo.default.example}
-file distributed with the Stereo Pipeline.  The
-\texttt{stereo.default} included with the example data has a smaller
-correlation window (smaller values for the \texttt{H\_CORR\_*} and
-\texttt{V\_CORR\_*} variables) that is more suited to the MOC data.
+There is a \texttt{stereo.map} file included with the example data set
+for \ac{MOC} that is different from the example
+\texttt{stereo.default.example} file distributed with the Stereo
+Pipeline.  The \texttt{stereo.map} included with the example data has
+a smaller correlation window (smaller values for the
+\texttt{corr-search} variables) that is more suited to that particular
+MOC stereo image pair..
 
-Alternatively, it is possible to not have to define the
-\texttt{H\_CORR\_*} and \texttt{V\_CORR\_*} in
-\texttt{stereo.default}. If no such options are specified,
-\texttt{stereo} will attempt to guess the correct search range. The
-guess is printed along with the rest of the program output.  If this
-technique does not produce satisfactory results, then it can at least
-be used as a starting point for picking a better search range by hand.
+Alternatively, it is possible to not have to define
+\texttt{corr-search} in the stereo settings file. If no such options
+are specified, \texttt{stereo} will attempt to guess the correct
+search range. The guess is printed along with the rest of the program
+output.  If this technique does not produce satisfactory results, then
+it can at least be used as a starting point for picking a better
+search range by hand.
 
 For this example use the \texttt{stereo.default} that is included with
 the example data set. It has these key properties:
@@ -342,7 +345,7 @@ search range may need to be expanded by hand.
 \medskip
 
 The worst case scenario is to determine search range by hand by
-opening both images in qview and comparing the coordinates of
+opening both images in \texttt{qview} and comparing the coordinates of
 points that you can match visually. Subtract locations from the
 first image from the second image, will yield offsets that must be
 in the search range.  Build a bounding box around several of these
@@ -357,7 +360,9 @@ produce good results in most images.
 Here is how the \texttt{stereo} program is invoked:
 
 \begin{verbatim}
-    ISIS 3> stereo E0201461.map.cub M0100115.map.cub results/E0201461-M0100115
+    ISIS 3> stereo E0201461.map.cub M0100115.map.cub \
+              -s stereo.map                          \
+              results/E0201461-M0100115
 \end{verbatim}
 
 \noindent
@@ -369,6 +374,23 @@ with \texttt{E0201461-M0100115}. If instead that last text was
 \texttt{E0201461-M0100115} it would have created a collection of files
 that start with \texttt{E0201461-M0100115} in the {\em same} directory as
 the input files.
+
+All the settings given via the \texttt{stereo.default} file can be
+over-ridden from the command line. Just add a double hyphen
+(\texttt{-\/-}) in front the option's name and then fill out the option
+just as you would in the configuration file. Due to technical
+problems, we can however parse options that take multiple values that
+are space delimited such as \texttt{corr-kernel} or
+\texttt{corr-search}. For those options, please use a comma between
+values. Below is an example of overriding the search range and
+subpixel mode from the command line.
+
+\begin{verbatim}
+    ISIS 3> stereo E0201461.map.cub M0100115.map.cub  \
+              -s stereo.map --corr-search -70,-4,40,4 \
+              --subpixel-mode 0                       \
+              results/E0201461-M0100115
+\end{verbatim}
 
 \subsection{Diagnosing Problems}
 
@@ -430,11 +452,19 @@ results is the good pixel image,
 mostly good, gray pixels in the overlap area (the area that is white
 in both the \texttt{E0201461-M0100115-lMask.tif} and
 \texttt{E0201461-M0100115-rMask.tif} files), then your results are
-just fine.  If the good pixel image shows missing data, signified by
-red pixels in the overlap area, then you need to go back and tune your
-\texttt{stereo.default} file until your results improve.  This might
-be a good time to make a copy of \texttt{stereo.default} as you tune
-the parameters to improve the results.
+just fine.  If the good pixel image shows lots of failed data,
+signified by red pixels in the overlap area, then you need to go back
+and tune your \texttt{stereo.default} file until your results improve.
+This might be a good time to make a copy of \texttt{stereo.default} as
+you tune the parameters to improve the results.
+
+You should also know that when ever the \texttt{stereo} executable is
+ran, it makes a copy of the configuration file used in
+\textit{output-prefix}-stereo.default. Opening that output file will
+show when the command was ran, what the flags were from the command
+line, and then a copy of the \texttt{stereo.default}. This will
+hopefully help debug and log what was performed so that others in the
+future can recreate your work.
 
 Another handy debugging tool is the \texttt{disparitydebug} program,
 which allows you to generate viewable versions of the intermediate
@@ -568,7 +598,7 @@ to use for the projection:
 \end{verbatim}
 
 \noindent
-The \texttt{point2dem} program also able to accept output projection
+The \texttt{point2dem} program is also able to accept output projection
 options the same way as the popular tools in GDAL. Well known EPSG,
 IAU2000 projections and custom Proj4 strings can applied with the
 target spatial reference set flag, \texttt{-\/-t\_srs}. If the target
@@ -585,7 +615,7 @@ produce the same output.
 
 \noindent
 The \texttt{point2dem} program can be used in many different ways.  Be
-sure to explore all of the options.
+sure to take your time to explore all of the options.
 
 \begin{figure}
 \hfill

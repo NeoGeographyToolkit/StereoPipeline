@@ -10,14 +10,14 @@ spacecraft and produce cartographic products including \acp{DEM},
 ortho-projected imagery, and 3D models.  These data products are
 suitable for science analysis, mission planning, and public outreach.
 
-\begin{figure}[tb] 
+\begin{figure}[tb]
    \centering
-   \includegraphics[width=6.5in]{images/introduction/p19view2.png} 
+   \includegraphics[width=6.5in]{images/introduction/p19view2.png}
    \caption{This 3D model was generated from a \acf{MOC} image
      pair M01/00115 and E02/01461 (34.66N, 141.29E).  The complete
      stereo reconstruction process takes approximately thirty minutes on
      a 3.0~GHz workstation for input images of this size ($1024 \times 8064$
-     pixels).  This model, shown here without vertical 
+     pixels).  This model, shown here without vertical
      exaggeration, is roughly 2~km wide in the cross-track
      dimension. }
    \label{fig:p19}
@@ -100,7 +100,7 @@ When it comes to using \acp{DEM} for scientific analysis, both techniques
 have their merits.  Human-guided stereo reconstruction produces \acp{DEM}
 of unparalleled quality that benefit from the intuition and experience
 of an expert.  The process of building and validating these \acp{DEM} is
-well established and accepted in the scientific community. 
+well established and accepted in the scientific community.
 
 However, only a limited number of \acp{DEM} can be processed to this level
 of quality.  For the rest, automated stereo processing can be used to
@@ -109,7 +109,7 @@ necessarily less accurate than those produced by the human operator,
 but they will not benefit from the same level of scrutiny and quality
 control.  As such, users of these \acp{DEM} must be able to identify
 potential issues, and be on the lookout for errors that may result
-from the improper use of these tools.  
+from the improper use of these tools.
 
 We recommend that all users of the Stereo Pipeline take the time to
 thoroughly read this documentation and build an understanding of how
@@ -127,21 +127,21 @@ library also developed by the \ac{IRG}.  Some of the tools discussed
 in this document are actually Vision Workbench programs, but any
 distribution of the Stereo Pipeline requires the Vision Workbench.
 Unless you're compiling the Vision Workbench and Stereo Pipeline from
-source, the distinctions probably won't matter to you.  
+source, the distinctions probably won't matter to you.
 
 
 \subsection{The USGS Integrated Software for Imagers and Spectrometers}
 
-This version of the Stereo Pipeline must be installed alongside a
-compatible version of the \ac{USGS} \ac{ISIS}. \ac{ISIS} is widely
-used in the planetary science community for processing raw spacecraft
-imagery into high level data products of scientific interest such as
-map projected and mosaicked imagery \cite{2004LPI....35.2039A,
-  1997LPI....28..387G, ISIS_website}.  We chose \ac{ISIS} because (1)
-it is widely adopted by the planetary science community, (2) it
-contains the authoritative collection of geometric camera models for
-planetary remote sensing instruments, and (3) it is open source
-software that is easy to leverage.
+This version of the Stereo Pipeline must be installed alongside a copy
+of \ac{USGS} \ac{ISIS} if you wish to process NASA satellite
+imagery. \ac{ISIS} is widely used in the planetary science community
+for processing raw spacecraft imagery into high level data products of
+scientific interest such as map projected and mosaicked imagery
+\cite{2004LPI....35.2039A, 1997LPI....28..387G, ISIS_website}.  We
+chose \ac{ISIS} because (1) it is widely adopted by the planetary
+science community, (2) it contains the authoritative collection of
+geometric camera models for planetary remote sensing instruments, and
+(3) it is open source software that is easy to leverage.
 
 By installing the Stereo Pipeline, you will be adding an advanced
 stereo image processing capability that can be used in your existing
@@ -156,7 +156,7 @@ stereo pairs captured by just about any \ac{NASA} mission.
 
 As an additional note, the Stereo Pipeline can also process arbitrary,
 non-ISIS images with accompanying camera information, but doing so
-requires a significant amount of extra work and setup.  This advanced
+requires a significant amount of extra work and setup. This advanced
 use of the software is not covered in this user's manual, however feel
 free to contact us if you are interested in learning more about
 adapting the pipeline to other stereo data sets.
