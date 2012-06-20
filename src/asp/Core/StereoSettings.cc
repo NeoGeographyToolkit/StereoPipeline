@@ -77,6 +77,16 @@ namespace asp {
        "Kernel sized used for integer correlator.")
       ("corr-search", po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),
        "Disparity search range. Specify in format: hmin,vmin,hmax,vmax.");
+
+    po::options_description backwards_compat_options("Aliased backwards compatibility options");
+    backwards_compat_options.add_options()
+      ("h-kernel", po::value(&global.kernel[0]), "Correlation kernel width")
+      ("v-kernel", po::value(&global.kernel[1]), "Correlation kernel height")
+      ("h-corr-min", po::value(&global.search_range.min()[0]), "Correlation window size min x")
+      ("h-corr-max", po::value(&global.search_range.max()[0]), "Correlation window size max x")
+      ("v-corr-min", po::value(&global.search_range.min()[1]), "Correlation window size min y")
+      ("v-corr-max", po::value(&global.search_range.max()[1]), "Correlation window size max y");
+    (*this).add( backwards_compat_options );
   }
 
   SubpixelDescription::SubpixelDescription() : po::options_description("Subpixel Options") {
@@ -100,6 +110,12 @@ namespace asp {
       ("subpixel-pyramid-levels", po::value(&global.subpixel_pyramid_levels)->default_value(3),
        "Number of pyramid levels for EMSubpixelCorrelator");
     (*this).add( experimental_subpixel_options );
+
+    po::options_description backwards_compat_options("Aliased backwards compatibility options");
+    backwards_compat_options.add_options()
+      ("subpixel-h-kernel", po::value(&global.subpixel_kernel[0]), "Subpixel kernel width")
+      ("subpixel-v-kernel", po::value(&global.subpixel_kernel[1]), "Subpixel kernel height");
+    (*this).add( backwards_compat_options );
   }
 
   FilteringDescription::FilteringDescription() : po::options_description("Filtering Options") {
@@ -121,6 +137,12 @@ namespace asp {
        "Max size in pixels of holes that can be filled in.")
       ("mask-flatfield", po::bool_switch(&global.mask_flatfield),
        "Mask dust found on the sensor or film. (For use with Apollo Metric Cameras only!)");
+
+    po::options_description backwards_compat_options("Aliased backwards compatibility options");
+    backwards_compat_options.add_options()
+      ("rm-h-half-kern", po::value(&global.rm_half_kernel[0]), "Filter kernel half width")
+      ("rm-v-half-kern", po::value(&global.rm_half_kernel[1]), "Filter kernel half height");
+    (*this).add( backwards_compat_options );
   }
 
   TriangulationDescription::TriangulationDescription() : po::options_description("Triangulation Options") {

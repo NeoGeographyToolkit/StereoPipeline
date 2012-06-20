@@ -358,7 +358,6 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
   search_range.min() = floor(elem_quot(search_range.min(),down_sample_scale));
   search_range.max() = ceil(elem_quot(search_range.max(),down_sample_scale));
   stereo_settings().search_range = search_range;
-  vw_out() << "\t--> Refined search range: " << search_range << "\n";
 }
 
 void stereo_correlation( Options& opt ) {
@@ -419,6 +418,23 @@ void stereo_correlation( Options& opt ) {
   if ( stereo_settings().seed_option > 0 )
     produce_lowres_disparity( Lmask.cols(), Lmask.rows(), opt );
 
+  // Provide the user with some feedback of what we are actually going
+  // to use.
+  vw_out() << "\t--------------------------------------------------\n";
+  vw_out() << "\t   Kernel Size : " << stereo_settings().kernel << std::endl;
+  if ( stereo_settings().seed_option > 0 )
+    vw_out() << "\t   Rfned Search: "
+             << stereo_settings().search_range << std::endl;
+  else
+    vw_out() << "\t   Search Range: "
+             << stereo_settings().search_range << std::endl;
+  vw_out() << "\t   Cost Mode   : " << stereo_settings().cost_mode << std::endl;
+  vw_out(DebugMessage) << "\t   XCorr Thres : " << stereo_settings().xcorr_threshold << std::endl;
+  vw_out(DebugMessage) << "\t   Prefilter   : " << stereo_settings().pre_filter_mode << std::endl;
+  vw_out(DebugMessage) << "\t   Prefilter Sz: " << stereo_settings().slogW << std::endl;
+  vw_out() << "\t--------------------------------------------------\n";
+
+  // Load up for the actual native resolution processing
   DiskImageView<PixelGray<float> > left_disk_image(opt.out_prefix+"-L.tif"),
     right_disk_image(opt.out_prefix+"-R.tif");
   ImageViewRef<PixelMask<Vector2i> > sub_disparity;
