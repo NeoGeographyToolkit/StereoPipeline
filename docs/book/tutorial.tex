@@ -101,8 +101,7 @@ The data set that is used in the tutorial and examples below is a
 pair of \ac{MOC} \citep{1992JGR....97.7699M,2001JGR...10623429M}
 images whose \ac{PDS} Product IDs are M01/00115 and E02/01461.
 This data can be downloaded from the PDS directly, or they can be
-found in the \texttt{data/MOC/} or the \texttt{examples/MOC/}
-directory of your Stereo Pipeline distribution.
+found in the \texttt{data/MOC/} directory of your Stereo Pipeline distribution.
 
 \subsection{Loading and Calibrating Images using ISIS}
 
@@ -154,11 +153,12 @@ processing.
 \label{sec:AligningImages}
 
 The images also need to be rectified (or aligned).  There are many
-ways to do this (see using \texttt{ALIGNMENT\_METHOD}
-in \texttt{stereo}'s \texttt{stereo.default} file).  The most
-straightforward process is to align the images by map projecting
-them in \ac{ISIS}. This example continues with the files from above,
-\texttt{E0201461.cub} and \texttt{M010015.cub}.
+ways to do this (see using \texttt{alignment-method} in \texttt{stereo}'s
+\texttt{stereo.default} file in section
+\ref{settingoptionsinstereodefault}).  The most straightforward
+process is to align the images by map projecting them in \ac{ISIS}.
+This example continues with the files from above, \texttt{E0201461.cub}
+and \texttt{M010015.cub}.
 
 This section describes the theory behind doing each of these steps,
 but we also provide the \texttt{cam2map4stereo.py} program (page
@@ -227,7 +227,9 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
     MaximumLongitude   = 141.62534719278
   End_Group
           \textnormal{[ ... more output of} camrange \textnormal{ omitted ... ]}
+\end{Verbatim}
 
+\begin{Verbatim}[commandchars=\\\{\}]
   ISIS 3> camrange fr= E0201461.cub
           \textnormal{[ ... lots of} camrange \textnormal{ output omitted ... ]}
   Group = UniversalGroundRange
@@ -241,6 +243,8 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
   End_Group
           \textnormal{[ ... more output of} camrange \textnormal{ omitted ... ]}
 \end{Verbatim}
+
+\pagebreak
 
 Now compare the boundaries of the two above and determine the intersection to use as the boundaries for \texttt{cam2map}:
 
@@ -275,9 +279,10 @@ processing, as illustrated below.
 \end{verbatim}
 
 \subsection{Setting Options in the \texttt{stereo.default} File}
+\label{settingoptionsinstereodefault}
 
 The \texttt{stereo} program requires a \texttt{stereo.default} file
-that contains settings that effect the stereo reconstruction process.
+that contains settings that affect the stereo reconstruction process.
 Its contents can be altered for your needs; details are found in
 appendix \ref{ch:stereodefault} on page \pageref{ch:stereodefault}.
 You may find it useful to save multiple versions of the
@@ -295,9 +300,9 @@ for \ac{MOC} that is different from the example
 Pipeline.  The \texttt{stereo.map} included with the example data has
 a smaller correlation window (smaller values for the
 \texttt{corr-search} variables) that is more suited to that particular
-MOC stereo image pair..
+MOC stereo image pair.
 
-Alternatively, it is possible to not have to define
+Alternatively, it is possible to not 
 \texttt{corr-search} in the stereo settings file. If no such options
 are specified, \texttt{stereo} will attempt to guess the correct
 search range. The guess is printed along with the rest of the program
@@ -307,7 +312,6 @@ search range by hand.
 
 For this example use the \texttt{stereo.default} that is included with
 the example data set. It has these key properties:
-
 \begin{verbatim}
         alignment-method none
         corr-search -35 -280 -15 -265
@@ -344,13 +348,15 @@ search range may need to be expanded by hand.
 
 \medskip
 
-The worst case scenario is to determine search range by hand by
-opening both images in \texttt{qview} and comparing the coordinates of
-points that you can match visually. Subtract locations from the
-first image from the second image, will yield offsets that must be
-in the search range.  Build a bounding box around several of these
-sampled offsets and then expand the box by 50\%.  This will
-produce good results in most images.
+The worst case scenario is to determine search range manually by
+opening both images in \texttt{qview} and comparing the coordinates
+of points that you can match visually. Subtract line,sample locations
+in the first image from the coordinates of the same feature in the
+second image, this will yield offsets that must be in the search
+range.  Make several of these offset measurements and use them to
+define a line,sample bounding box, then expand this by 50\% and use
+it for \texttt{corr-search}.  This will produce good results in
+most images.
 
 \end{minipage}}
 \end{center}
@@ -369,7 +375,7 @@ Here is how the \texttt{stereo} program is invoked:
 That last option (\texttt{results/E0201461-M0100115}) is a prefix that
 is used when generating names for \texttt{stereo} output files.  In
 this case the first part is \texttt{results/}, which causes the
-program to generate results in that directory with filename that start
+program to generate results in that directory with filenames that start
 with \texttt{E0201461-M0100115}. If instead that last text was
 \texttt{E0201461-M0100115} it would have created a collection of files
 that start with \texttt{E0201461-M0100115} in the {\em same} directory as
@@ -377,13 +383,13 @@ the input files.
 
 All the settings given via the \texttt{stereo.default} file can be
 over-ridden from the command line. Just add a double hyphen
-(\texttt{-\/-}) in front the option's name and then fill out the option
-just as you would in the configuration file. Due to technical
-problems, we can however parse options that take multiple values that
-are space delimited such as \texttt{corr-kernel} or
-\texttt{corr-search}. For those options, please use a comma between
-values. Below is an example of overriding the search range and
-subpixel mode from the command line.
+(\texttt{-\/-}) in front the option's name and then fill out the
+option just as you would in the configuration file. For options in
+the \texttt{stereo.default} file that take take multiple numbers
+separated by spaces (like `\texttt{corr-kernel~25~25}'), they must
+be separated by commas on the command line (like
+`\texttt{-\/-corr-kernel~25,25}').  Below is an example of overriding
+the search range and subpixel mode from the command line.
 
 \begin{verbatim}
     ISIS 3> stereo E0201461.map.cub M0100115.map.cub  \
@@ -458,10 +464,10 @@ and tune your \texttt{stereo.default} file until your results improve.
 This might be a good time to make a copy of \texttt{stereo.default} as
 you tune the parameters to improve the results.
 
-You should also know that when ever the \texttt{stereo} executable is
-ran, it makes a copy of the configuration file used in
+You should also know that whenever the \texttt{stereo} executable is
+run, it makes a copy of the configuration file used in
 \textit{output-prefix}-stereo.default. Opening that output file will
-show when the command was ran, what the flags were from the command
+show when the command was run, what the flags were from the command
 line, and then a copy of the \texttt{stereo.default}. This will
 hopefully help debug and log what was performed so that others in the
 future can recreate your work.
@@ -484,7 +490,7 @@ at the different stages of processing.
 \end{verbatim}
 
 If the output H and V files from \texttt{disparitydebug} look okay,
-then the point cloud image are most likely ready for post-processing.
+then the point cloud image is most likely ready for post-processing.
 You can proceed to make a mesh or a \ac{DEM} by processing
 \texttt{E0201461-M0100115-PC.tif} using the \texttt{point2mesh} or
 \texttt{point2dem} tools, respectively.
@@ -505,7 +511,7 @@ You can proceed to make a mesh or a \ac{DEM} by processing
         disparity map initialization phase.  The two images on the
         right are \texttt{E0201461-M0100115-F-H.tif} and
         \texttt{E0201461-M0100115-F-V.tif}, which are the final
-        filtered, sub-pixel-refined disparity maps that a fed into the
+        filtered, sub-pixel-refined disparity maps that are fed into the
         Triangulation phase to build the point cloud image.  Since
         these MOC images were acquired by rolling the spacecraft
         across-track, most of the disparity that represents topography
@@ -600,7 +606,7 @@ to use for the projection:
 \noindent
 The \texttt{point2dem} program is also able to accept output projection
 options the same way as the popular tools in GDAL. Well known EPSG,
-IAU2000 projections and custom Proj4 strings can applied with the
+IAU2000 projections, and custom Proj4 strings can applied with the
 target spatial reference set flag, \texttt{-\/-t\_srs}. If the target
 spatial reference flag is applied with any of the reference spheroid
 options, the reference spheroid option will overwrite the datum
