@@ -7,7 +7,7 @@ This chapter showcases a variety of results that are possible when
 processing different data sets with the Stereo Pipeline. It is also a
 shortened guide that shows the commands and recommended settings to
 process specific mission data. We hope that this serves as cookbook
-for stragies that will get you started in processing your own data.
+for strategies that will get you started in processing your own data.
 
 \section{Guidelines for Selecting Stereo Pairs}
 
@@ -64,13 +64,14 @@ search range small and run-times low:
 
 \begin{enumerate}
 \item You can crop your stereo pair (using the ISIS \texttt{crop}
-command) to a small region of interest within a
-large stereo pair.  ISIS and the Stereo Pipeline will keep track
-of these crop parameters automatically and take them into account
-when applying the camera model during triangulation.  You may want
-to work with a cropped pair when you first start working with a new
-data set.  Run times will be much lower (minutes instead of days),
-and you can quickly tune things up before scaling things up.
+command) to a small region of interest within a large stereo pair.
+ISIS and the Stereo Pipeline will keep track of these crop parameters
+automatically and take them into account when applying the camera
+model during triangulation.  You may want to work with a cropped
+pair when you first start working with a new data set.  Run times
+will be much lower (minutes instead of days), and you can quickly
+tune parameters in the \texttt{stereo.default} file before scaling
+up to the full image.
 
 \item The ISIS \texttt{reduce} command can be used to subsample the
 image pair.  In this case, you are trading resolution for speed,
@@ -80,9 +81,9 @@ to noise ratio, so it may also be helpful for pulling 3D terrain
 out of noisy, low quality images.
 
 These options of croping or reducing the resolution of the source
-imagery is only easily achieved with ISIS sessions. Pinhole and
+imagery are only easily achieved with ISIS sessions. Pinhole and
 Digital Globe sessions will be required to manually edit their camera
-models in the event that you have editted the source imagery. This is
+models in the event that you have edited the source imagery. This is
 a unique problem for each camera model and thus will not be discussed
 here.
 
@@ -100,11 +101,12 @@ so the search range can be kept very small and run times can be
 improved.  Again, ISIS and the Stereo Pipeline will keep track of
 how these map projections affect the camera model, and take them
 into account when building up the 3D mesh via triangulation.  If
-you use \texttt{cam2map}, be sure that ALIGNMENT\_METHOD is set to
-NONE in your \texttt{stereo.default}.  Note also that the \texttt{-\/-lat}
-and \texttt{-\/-lon} arguments to \texttt{cam2map4stereo.py} can be
-used to crop your stereo images, and the \texttt{-\/-resolution}
-argument can be used to subsample them.
+you use \texttt{cam2map}, be sure that your \texttt{stereo.default}'s
+\texttt{alignment-method} is set to NONE.  Note also that the
+\texttt{-\/-lat} and \texttt{-\/-lon} arguments to
+\texttt{cam2map4stereo.py} can be used to crop your stereo images,
+and the \texttt{-\/-resolution} argument can be used to subsample
+them.
 \end{enumerate}
 
 If you are working with very large images, we highly recommend
@@ -278,7 +280,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \subsubsection*{stereo.default}
 
 The stereo.default example file should apply well to HiRISE. The
-H\_KERNEL and V\_KERNEL can usually be safely reduced to 21 pixels to
+\texttt{corr-kernel} value can usually be safely reduced to 21 pixels to
 resolve finer detail and faster processing for images with good
 contrast.
 
@@ -329,9 +331,9 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \subsubsection*{stereo.default}
 
 The stereo.default example file should apply well to HiRISE. The
-H\_KERNEL and V\_KERNEL can usually be safely reduced to 21 pixels to
-resolve finer detail and faster processing for images with good
-contrast.
+\texttt{corr-kernel} parameter can usually be safely reduced to 21
+pixels to resolve finer detail and faster processing for images
+with good contrast.
 
 \clearpage
 \subsection{North Terra Meridiani Crop}
@@ -384,7 +386,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 \subsubsection*{stereo.default}
 
 The stereo.default example file should apply well to HiRISE. The
-H\_KERNEL and V\_KERNEL can usually be safely reduced to 21 pixels to
+\texttt{corr-kernel} value can usually be safely reduced to 21 pixels to
 resolve finer detail and faster processing for images with good
 contrast.
 
@@ -406,7 +408,7 @@ small, allowing efficient computation and a reasonable processing time.
 In this example, we use map projected images. Map projecting the
 images is the most reliable way to align the images for
 correlation. However when possible, use non-map-projected images with
-the \texttt{ALIGNMENT\_METHOD HOMOGRAPHY} option. This greatly reduces
+the \texttt{alignment-method homography} option. This greatly reduces
 the time spent in triangulation. For all cases using linescan cameras,
 triangulation of map-projected images is 10x slower than
 non-map-projected images.
@@ -452,8 +454,8 @@ covered a portion of Hrad Vallis. In this section we will show you
 more examples, some of which exhibit a problem common to stereo
 pairs from linescan imagers: ``spacecraft jitter'' is caused by
 oscillations of the spacecraft due to the movement of other spacecraft
-hardware.  All spacecraft wobble around to some degree but some,
-especially Mars Global Surveyor, are particularly susceptible.
+hardware.  All spacecraft wobble around to some degree but some are 
+particularly susceptible.
 
 Jitter causes wave-like distortions along the track of the satellite
 orbit in \acp{DEM} produced from linescan camera images.  This effect can
@@ -507,7 +509,7 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 
 The stereo.default example file works generally well with all MOC-NA pairs.
 
-\pagebreak
+\newpage
 \subsection{North Tharsis}
 
 %% \begin{tabular}{l r c r c}
@@ -542,7 +544,7 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 
 The stereo.default example file works generally well with all MOC-NA pairs.
 
-\clearpage
+\newpage
 \section{Mars Exploration Rovers MER}
 
 The MER rovers have several cameras on board and they all seem to have
@@ -565,7 +567,7 @@ excercise for the user.
 All of these cameras are processed the same way. I'll be showing 3D
 processing of the front hazard cams. The only new things in the
 pipeline is the new executable \texttt{mer2camera} along with the use
-of \texttt{ALIGNMENT\_METHOD EPIPOLAR}. This example is also provided
+of \texttt{alignment-method epipolar}. This example is also provided
 in the MER data example directory.
 
 \begin{figure}[h!]
@@ -577,14 +579,18 @@ in the MER data example directory.
 \label{fig:metric_example}
 \end{figure}
 
+\pagebreak
+
 \subsubsection*{Commands}
 
 Download 2f194370083effap00p1214l0m1.img and
 2f194370083effap00p1214r0m1.img from the \ac{PDS}.
 
 \begin{verbatim}
-  ISIS 3> gdal_translate -scale -ot byte 2f194370083effap00p1214l0m1.img 2f194370083effap00p1214l0m1.tif
-  ISIS 3> gdal_translate -scale -ot byte 2f194370083effap00p1214r0m1.img 2f194370083effap00p1214r0m1.tif
+  ISIS 3> gdal_translate -scale -ot byte 2f194370083effap00p1214l0m1.img \
+                                         2f194370083effap00p1214l0m1.tif
+  ISIS 3> gdal_translate -scale -ot byte 2f194370083effap00p1214r0m1.img \
+                                         2f194370083effap00p1214r0m1.tif
   ISIS 3> mer2camera 2f194370083effap00p1214l0m1.img
   ISIS 3> mer2camera 2f194370083effap00p1214r0m1.img
   ISIS 3> stereo 2f194370083effap00p1214l0m1.tif 2f194370083effap00p1214r0m1.tif \
@@ -601,7 +607,7 @@ The default stereo settings will work but change the following options:
     alignment-method EPIPOLAR
     force-use-entire-range
 
-    # This deletes points that are two far away
+    # This deletes points that are too far away
     # from the camera to truly triangulate.
     universe-center Camera
     near-universe-radius 0.7
@@ -626,7 +632,7 @@ fault.
   \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-example.png}}
   \hfil
   \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-ge_example.png}}
-\caption{Example output possible with a LROC NA stereo pair, using only a single CCDs from observations.}
+\caption{Example output possible with a LROC NA stereo pair, using only a single CCD from each observation.}
 \label{fig:lroc-na-example}
 \end{figure}
 
@@ -653,7 +659,7 @@ The stereo.default example file works generally well with LRO-NAC
 pairs. The recommended route for processing LRO-NAC imagery is by map
 projecting them. Map-projecting with higher resolution data such as
 LRO-WAC Global DTM also helps processing greatly. When map projecting,
-be sure to remember to set \texttt{ALIGNMENT\_METHOD NONE}.
+be sure to remember to set \texttt{alignment-method NONE}.
 
 \section{Apollo 15 Metric Camera Images}
 
@@ -668,7 +674,7 @@ produce consistent, excellent results.
 
 The scans performed by ASU are sufficiently detailed to exhibit film
 grain at the highest resolution.  The amount of noise at the full
-resolution is not helpful for the correlator, so we recommended
+resolution is not helpful for the correlator, so we recommend
 subsampling the images by a factor of 4.
 
 Currently the tools to ingest Apollo TIFFs into ISIS are not
@@ -695,6 +701,8 @@ Moon near the equator. It is east of Kapteyn A and B.
 \caption{Example output possible with Apollo Metric frames AS15-M-2380 and AS15-M-2381.}
 \label{fig:metric_example}
 \end{figure}
+
+\pagebreak
 
 \subsubsection*{Commands}
 
@@ -832,7 +840,7 @@ as a potential starting point.
 
 Rhea is the second largest moon of Saturn and is roughly a third the
 size of our own Moon. This example shows, at the top right of both
-images,a giant impact basin named Tirawa that is 220~miles across. The
+images, a giant impact basin named Tirawa that is 220~miles across. The
 bright white area south of Tirawa is ejecta from a new crater.  The
 lack of texture in this area poses a challenge for our correlator. The
 results are just barely useful: the Tirawa impact can barely be made
