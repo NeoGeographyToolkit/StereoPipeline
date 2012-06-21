@@ -28,7 +28,7 @@ namespace asp {
                          additional_options ) {
     po::options_description general_options("");
     general_options.add_options()
-      ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis]")
+      ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg]")
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
     general_options.add( additional_options );
     general_options.add( asp::BaseOptionsDescription(opt) );
