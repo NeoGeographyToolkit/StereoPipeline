@@ -46,7 +46,7 @@ verify that the solution does represent reality.
   \includegraphics[width=8cm]{images/ba_orig}
   \includegraphics[width=8cm]{images/ba_adjusted}
   \caption{Bundle adjustment is illustrated here using a color-mapped,
-    hill-shaded DEM mosaic from Apollo 15 Orbit 33 imagery. (a)
+    hill-shaded DEM mosaic from Apollo 15, Orbit 33, imagery. (a)
     Prior to bundle adjustment, large discontinuities can exist between
     overlapping DEMs made from different images. (b) After bundle
     adjustment, DEM alignment errors are minimized, and no longer visible.}
@@ -78,7 +78,7 @@ geodetic control networks.
 
 At the moment however, Bundle Adjustment does not automatically work
 against outside DEMs from sources such as laser altimeters. Hand
-picked \acp{GCP} are the only way for \acp{ASP} to register to those
+picked \acp{GCP} are the only way for \ac{ASP} to register to those
 types of sources.
 
 \subsection{A deeper understanding}
@@ -95,7 +95,7 @@ Interest Point module, \ac{ISIS}'s \texttt{autoseed} and \texttt{pointreg},
 or through a number of outside methods such as the famous
 SURF\citep{surf08}. We'll be discussing the method of gathering these
 measurements using \ac{ISIS}'s toolchain. Creating a collection of tie
-points, {\it called a control network}, is a 3 step process. First, a
+points, {\it called a control network}, is a three step process. First, a
 general geographic layout of the points must be decided upon. This is
 traditionally just a grid layout that has some spacing that allows for
 about a 20-30 measurements to be made per image. This decided upon grid
@@ -205,7 +205,7 @@ sensor. \texttt{Jigsaw} does not support this and thus does not
 operate on map projected imagery.
 
 Before we can dive into creating our tie-point measurements we must
-finish prepping this images. The following commands will add a vector
+finish prepping these images. The following commands will add a vector
 layer to the cube file that describes its outline on the globe. It
 will also create a data file that describes the overlapping sections
 between files.
@@ -312,13 +312,13 @@ then open \textit{cube.lis} and lastly
 \textit{control\_pointreg.net}. From the Control Network Navigator
 window, click on the first point listed as \textit{0001}. That opens a
 third window called the Qnet Tool. That window will allow you to play
-an flip animation that shows alignment of the feature between the two
+a flip animation that shows alignment of the feature between the two
 images. Correcting a measurement is performed by left clicking in the
 right image, then clicking \textit{Save Measure}, and finally
 finishing by clicking \textit{Save Point}.
 
 In this tutorial, measurement \textit{0025} ended up being
-incorrect. You're number may vary if you used different settings than
+incorrect. Your number may vary if you used different settings than
 the above or if MOC spice data has improved since this writing. When
 finished, go back to the main Qnet window. Save the final control
 network as \textit{control\_qnet.net} by clicking on \textit{File},
@@ -342,7 +342,7 @@ bundle adjustment. Here's what the call to \texttt{jigsaw} looks like:
 \end{verbatim}
 
 The update option defines that we would like to update the camera
-pointing if our bundle adjustment converges. The \textit{twist=no}
+pointing, if our bundle adjustment converges. The \textit{twist=no}
 says to not solve for the camera rotation about the camera bore. That
 property is usually very well known as it is critical for integrating
 an image with a line-scan camera. The \textit{radius=yes} means that
