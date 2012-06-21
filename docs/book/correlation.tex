@@ -58,8 +58,8 @@ during image acquisition for \ac{MOC}, or highly elliptical orbits and
 changing line exposure times for the \acl{HRSC}, \acs{HRSC}).  It also
 eliminates some of the perspective differences in the image pair that
 are due to large terrain features by taking the existing low-res
-terrain model into account (e.g. the \acl{MOLA}, \acs{MOLA},
-\acl{LOLA}, \acs{LOLA}, \acl {NED}, \acs {NED}, or \acl{ULCN},
+terrain model into account (e.g. the \acl{MOLA}, \acs{MOLA};
+\acl{LOLA}, \acs{LOLA}; \acl {NED}, \acs {NED}; or \acl{ULCN},
 \acs{ULCN}, 2005 models).
 
 In essence, map projecting the images results in a pair of very
@@ -70,7 +70,7 @@ correlation process is designed to detect.
 
 For this reason, we recommend map projection for pre-alignment of most
 stereo pairs. Its only cost is longer triangulation times as more math
-must be applied work back the transforms applied to the images. In
+must be applied to work back through the transforms applied to the images. In
 either case, the pre-alignment step is essential for performance
 because it ensures that the disparity search space is bounded to a
 known area.  In both cases, the effects of pre-alignment are taken
@@ -81,26 +81,25 @@ integrity of your \ac{DEM}.
 In some cases the pre-processing step may also normalize the pixel
 values in the left and right images to bring them into the same
 dynamic range.  Various options in the {\tt stereo.default} file
-effect whether or how normalization is carried out, including
-\texttt{DO\_INDIVIDUAL\_NORMALIZATION} and
-\texttt{FORCE\_USE\_ENTIRE\_RANGE}.  Although the defaults work in
+affect whether or how normalization is carried out, including
+\texttt{individual-normalize} and
+\texttt{force-use-entire-range}.  Although the defaults work in
 most cases, the use of these normalization steps can vary from data
 set to data set, so we recommend you refer to the examples in Chapter
 \ref{ch:examples} to see if these are necessary in your use case.
 
-Finally, pre-processing can perform some filtering of the input images
-(as determined by \\ \texttt{PREPROCESSING\_FILTER\_MODE}) to reduce
-noise and extract edges in the images.  When active, these filters
-apply a kernel with a sigma of \texttt{SLOG\_KERNEL\_WIDTH} pixels
-that can improve results for noisy
-images\footnote{\texttt{PREPROCESSING\_FILTER\_MODE} must be chosen
-  carefully in conjunction with \texttt{COST\_MODE}.  (See
-  Appendix~\ref{ch:stereodefault})}.  The pre-processing modes that
-extract image edges are useful for stereo pairs that do not have the
-same lighting conditions, contrast, and absolute brightness
+Finally, pre-processing can perform some filtering of the input
+images (as determined by \\ \texttt{prefilter-mode}) to reduce noise
+and extract edges in the images.  When active, these filters apply
+a kernel with a sigma of \texttt{prefilter-kernel-width} pixels
+that can improve results for noisy images (\texttt{prefilter-mode}
+must be chosen carefully in conjunction with \texttt{cost-mode},
+see Appendix~\ref{ch:stereodefault}).  The pre-processing modes
+that extract image edges are useful for stereo pairs that do not
+have the same lighting conditions, contrast, and absolute brightness
 \citep{Nishihara84practical}.  We recommend that you use the defaults
-for these parameters to start with, and then experiment only if your
-results are sub-optimal.
+for these parameters to start with, and then experiment only if
+your results are sub-optimal.
 
 \section{Disparity Map Initialization}
 
@@ -153,15 +152,15 @@ template window from the from left image over the specified search
 region of the right image, as in Figure~\ref{fig:correlation_window}.
 The ``best'' match is determined by applying a cost function that
 compares the two windows. The location at which the window evaluates
-to the lowest cost compared to all the other search locations is the
-reported as disparity value. The \texttt{COST\_MODE} variable allows you
+to the lowest cost compared to all the other search locations is 
+reported as the disparity value. The \texttt{cost-mode} variable allows you
 to choose one of three cost functions, though we recommend normalized
 cross correlation \citep{Menard97:robust}, since it is most robust to
-slight lighting and contrast variation in between a pair of
+slight lighting and contrast variations between a pair of
 images. Try the others if you need more speed at the cost of quality.
 
 Our implementation of pyramid correlation is a little unique in that
-it actually split into two levels of pyramid searching. There is a
+it is actually split into two levels of pyramid searching. There is a
 \texttt{\textit{output\_prefix}-D\_sub.tif} disparity image that is
 computed from the greatly reduced input images \texttt{*-L\_sub.tif}
 and \texttt{\textit{output\_prefix}-R\_sub.tif}. Those ``sub'' images
@@ -172,23 +171,24 @@ thread search range of the higher resolution disparity,
 \texttt{\textit{output\_prefix}-D.tif}.
 
 This solution is imperfect but comes from our model of multithreaded
-processing. ASP processing individual tiles of the output disparity in
-parallel. The smaller the tiles, the easier it is to deliver evenly
-among the CPU cores. The size of the tile unfortunately limits the max
-number of pyramid levels we can process. We've struck a balance where
-every 1024 by 1024 px tile is processed individually in a tile. This
-is practice allows only 5 levels of pyramid processing. With the
-addition of \texttt{\textit{output\_prefix}-D\_sub.tif}, we are
-allowed to process beyond that limitation.
+processing. ASP processes individual tiles of the output disparity
+in parallel. The smaller the tiles, the easier it is to distribute
+evenly among the CPU cores. The size of the tile unfortunately
+limits the max number of pyramid levels we can process. We've struck
+a balance where every 1024 by 1024 pixel area is processed individually
+in a tile. This practice allows only 5 levels of pyramid processing.
+With the addition of the second tier of pyramid searching with
+\texttt{\textit{output\_prefix}-D\_sub.tif}, we are allowed to
+process beyond that limitation.
 
 Finally, this might go with out saying, but any colossal failure in
 the low resolution disparity image will be detrimental to the
 performance of the higher resolution disparity. In the event that the
 low resolution disparity is completely unhelpful, it can be skipped by
-setting \texttt{CORR\_SEED\_OPTION 0} in the \texttt{stereo.default}
+adding \texttt{corr-seed-mode 0} in the \texttt{stereo.default}
 file. This should only be considered in cases where the texture in an
 image is completely lost when subsampled. An example would be
-satellite imagery of fresh snow in the arctics.
+satellite imagery of fresh snow in the arctic.
 
 \subsection{Debugging Disparity Map Initialization}
 
@@ -239,11 +239,11 @@ it is possible to quickly identify and address most problems.
 Once disparity map initialization is complete, every pixel in the
 disparity map will either have an estimated disparity value, or it
 will be marked as invalid.  All valid pixels are then adjusted in the
-sub-pixel refinement stage based on the \texttt{SUBPIXEL\_MODE}
-setting. Subpixel refinement is not additive step.
+sub-pixel refinement stage based on the \texttt{subpixel-mode}
+setting. % Subpixel refinement is not additive step.
 
 The first mode is parabola-fitting sub-pixel refinement
-(\texttt{SUBPIXEL\_MODE 1}).  This technique fits a 2D parabola to
+(\texttt{subpixel-mode 1}).  This technique fits a 2D parabola to
 points on the correlation cost surface in an 8-connected neighborhood
 around the cost value that was the ``best'' as measured during
 disparity map initialization. The parabola's minimum can then be
@@ -262,8 +262,8 @@ results are not much more accurate than the results that come out of
 the disparity map initialization in the first place.  However, the
 speed of this method makes it very useful as a ``draft'' mode for
 quickly generating a \ac{DEM} for visualization (i.e. non-scientific)
-purposes. It is also beneficial in the event that user will simply
-downsample their DEM after their generation in Stereo Pipeline.
+purposes. It is also beneficial in the event that a user will simply
+downsample their DEM after generation in Stereo Pipeline.
 
 \begin{figure}[tb]
 \centering
@@ -276,12 +276,12 @@ downsample their DEM after their generation in Stereo Pipeline.
   \subfigure[{\tt Bayes EM Hillshade}]{\includegraphics[width=2in]{images/correlation/hillshade_mode3.png}}
 
 \caption{Left: Input images.  Center: results using the parabola draft
-  subpixel mode (\texttt{SUBPIXEL\_MODE = 1}). Right: results using the Bayes
-  EM high quality subpixel mode (\texttt{SUBPIXEL\_MODE = 2}).}
+  subpixel mode (\texttt{subpixel-mode = 1}). Right: results using the Bayes
+  EM high quality subpixel mode (\texttt{subpixel-mode = 2}).}
 \label{fig:parabola_results}
 \end{figure}
 
-For high quality results, we recommend \texttt{SUBPIXEL\_MODE 2}:
+For high quality results, we recommend \texttt{subpixel-mode 2}:
 the Bayes EM weighted affine adaptive window correlator.  This
 advanced method produces extremely high quality stereo matches that
 exhibit a high degree of immunity to image noise.  For example
@@ -333,7 +333,7 @@ highly accurate models are customized for each instrument that
 information that is required by the Stereo Pipeline to find and use
 the appropriate camera model for that observation.
 
-Other sessions such as DG {\it Digital Globe} or Pinhole, require that
+Other sessions such as DG (\textit{Digital Globe}) or Pinhole, require that
 their camera model be provided as additional arguments to the
 \texttt{stereo} command. Those camera models come in the form of an
 XML document for DG and as \texttt{*.pinhole, *.tsai, *.cahv,
@@ -412,11 +412,11 @@ brought to the same perspective as the output DEM by using the
 \textit{-\/-error} argument on the \texttt{point2dem} command.
 
 This error in the triangulation, the distance between two rays,
-\emph{is not accuracy of the DEM. It is only another indirect measure
-  of quality.} A DEM with high triangulation error is always bad and
-should have its images bundle adjusted. A DEM with low triangulation
-error is at least self consistent but could still be bad. A map of the
-triangulation error should only be interpreted as a relative
-measurement. Where small areas are found with high triangulation error
-came from correlation mistakes and large areas of error came from
-camera model inadequacies.
+\emph{is not the true accuracy of the DEM}. It is only another
+indirect measure of quality. A DEM with high triangulation error
+is always bad and should have its images bundle adjusted. A DEM
+with low triangulation error is at least self consistent but could
+still be bad. A map of the triangulation error should only be
+interpreted as a relative measurement. Where small areas are found
+with high triangulation error came from correlation mistakes and
+large areas of error came from camera model inadequacies.

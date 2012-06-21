@@ -90,7 +90,7 @@ map.
 
 \subsection{Decomposition of Stereo}
 
-Users watching their system closely will notice that the stereo
+Users watching their system closely will notice that the \texttt{stereo}
 executable is actually a python script that makes calls to seperate
 C++ executables for each entry point.
 
@@ -232,11 +232,11 @@ you can use in other tools.  The pointcloud file is the result of
 taking the image-to-image matches (which were created from the
 kernel sizes you specified, and the subpixel versions of the same,
 if used) and projecting them out into space from the cameras, and
-arriving at a point in real world coordinates.  Since stereo does
-this for every pixel in the input images, the \textit{default} value that
+arriving at a point in real world coordinates.  Since \texttt{stereo} does
+this for every pixel in the input images, the \emph{default} value that
 \texttt{point2dem} uses (if you don't specify anything explicitly) is: the
 input image scale, because there's an `answer' in the pointcloud
-file for each of them.
+file for each pixel in the original image.
 
 However, as you may suspect, this is probably not the best value to
 use, because there really isn't that much `information' in the data.
@@ -252,7 +252,7 @@ provides improved matching reliability.  As you go to numerically
 larger post-spacings on output, you're averaging more point data (that
 is probably spatially correlated anyway) together.
 
-So you can either use the \texttt{--dem-spacing} argument to
+So you can either use the \texttt{-\/-dem-spacing} argument to
 \texttt{point2dem} to do that directly, or feel free to use your
 favorite averaging algorithm to reduce the \texttt{point2dem}-created
 model down to the scale you want.
