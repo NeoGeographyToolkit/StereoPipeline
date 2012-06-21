@@ -38,7 +38,7 @@ optimization is carried out along with thousands (or more) of similar
 constraints involving many different features observed in other
 images.  Bundle adjustment is very powerful and versatile: it can
 operate on just two overlapping images, or on thousands. It is also a
-dangerous tool as careful consideration is required to insure and
+dangerous tool. Careful consideration is required to insure and
 verify that the solution does represent reality.
 
 \begin{figure}[bt]
@@ -170,7 +170,7 @@ for general use. USGS's \ac{ISIS} bundle adjustment software has
 improved and gets more regular service than we could hope to provide.
 
 This tutorial for ISIS's bundle adjustment tools is taken from
-\citet{lunokhod:controlnetwork} and \citet{lunokhod:gcp}. These tools
+\cite{lunokhod:controlnetwork} and \cite{lunokhod:gcp}. These tools
 are not a product of NASA nor the authors of Stereo Pipeline. They
 were created by USGS and their documentation is available at
 \cite{isis:documentation}.
@@ -195,13 +195,14 @@ Note that the resulting images are not map projected. Bundle
 adjustment requires the ability to project arbitrary 3D points into
 the camera frame. The process of map projecting an image dissociates
 the camera model from the image. Map projecting can be perceived as
-the generation of a new infinitely large camera sensor that is
-perfectly parallel to the surface of its subject ( and thus spherical
-). That makes it extremely hard to project a random point into the
-camera's original model. The math would follow the transformation from
-projection into the camera frame, then projected back down to surface
-that ISIS uses, then finally up into the infinitely large
-sensor. \texttt{Jigsaw} does not support map projected imagery.
+the generation of a new infinitely large camera sensor that may be
+parallel to the surface, a conic shape, or something more
+complex. That makes it extremely hard to project a random point into
+the camera's original model. The math would follow the transformation
+from projection into the camera frame, then projected back down to
+surface that ISIS uses, then finally up into the infinitely large
+sensor. \texttt{Jigsaw} does not support this and thus does not
+operate on map projected imagery.
 
 Before we can dive into creating our tie-point measurements we must
 finish prepping this images. The following commands will add a vector
@@ -222,7 +223,7 @@ for the layout of the points on the groups, an automatic registration
 pass, and finally a manual clean up of all measurements. Creating the
 ground pattern of measurements is performed with \texttt{autoseed}. It
 requires a settings file that defines the spacing in meters between
-measurements. For this example, write the following text-box into a
+measurements. For this example, write the following text into a
 \textit{autoseed.def} file.
 
 \begin{verbatim}
@@ -298,7 +299,7 @@ misalignment dictated the need for the large search in the lines
 direction. Use \texttt{qnet} to get an idea for what the pixel shifts
 look like in your stereo pair to help you decide on a search range. In
 this example, only one measurement failed to match automatically. Here
-are the arguments for \texttt{pointreg}.
+are the arguments to use in this example of \texttt{pointreg}.
 
 \begin{verbatim}
   ISIS 3> pointreg fromlist=cube.lis cnet=control.net             \
@@ -307,7 +308,7 @@ are the arguments for \texttt{pointreg}.
 
 The third step is to manually edit the control and verify the
 measurements in \texttt{qnet}. Type \texttt{qnet} in the terminal and
-then open \textit{cube.lis} and then
+then open \textit{cube.lis} and lastly
 \textit{control\_pointreg.net}. From the Control Network Navigator
 window, click on the first point listed as \textit{0001}. That opens a
 third window called the Qnet Tool. That window will allow you to play
@@ -319,9 +320,9 @@ finishing by clicking \textit{Save Point}.
 In this tutorial, measurement \textit{0025} ended up being
 incorrect. You're number may vary if you used different settings than
 the above or if MOC spice data has improved since this writing. When
-finished, go back to the main Qnet window. Save the final control as
-\textit{control\_qnet.net} by clicking on \textit{File}, and then
-\textit{Save As}.
+finished, go back to the main Qnet window. Save the final control
+network as \textit{control\_qnet.net} by clicking on \textit{File},
+and then \textit{Save As}.
 
 \begin{figure}[ht]
   \centering
