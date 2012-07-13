@@ -59,7 +59,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage );
 
   if ( opt.output_prefix.empty() )
-    opt.output_prefix = fs::path(opt.img_file).stem();
+    opt.output_prefix = fs::path(opt.img_file).stem().string();
 }
 
 int main( int argc, char** argv ) {

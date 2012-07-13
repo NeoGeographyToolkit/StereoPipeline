@@ -152,7 +152,7 @@ AX_PKG_BOOST([BOOST_PROGRAM_OPTIONS BOOST_SYSTEM BOOST_FILESYSTEM BOOST_THREAD B
   BOOST_REGEX,
     [AX_PKG_BOOST_LIB(REGEX,           [-lboost_regex],           [boost/regex.hpp], [boost::regex(".*");])],
   BOOST_DATETIME,
-    [AX_PKG_BOOST_LIB(DATETIME,        [-lboost_date_time],       [boost/date_time/gregorian/gregorian_types.hpp])],
+    [AX_PKG_BOOST_LIB(DATETIME,        [-lboost_date_time],       [boost/date_time/gregorian/gregorian_types.hpp], [], [$PKG_BOOST_SYSTEM_LIBS])],
   BOOST_THREAD,
     [AX_PKG_BOOST_LIB(THREAD,          [-lboost_thread],          [boost/thread/thread.hpp], [boost::mutex();], [$PKG_BOOST_DATETIME_LIBS], [boost/thread/condition.hpp])],
   BOOST_IOSTREAMS,
@@ -451,7 +451,7 @@ AM_CONDITIONAL(MAKE_APP_STEREOGUI, [test "$MAKE_APP_STEREOGUI" = "yes"])
 # final processing
 ##################################################
 
-ASP_CPPFLAGS="-I\${top_srcdir}/src $OTHER_CPPFLAGS -DBOOST_FILESYSTEM_VERSION=2"
+ASP_CPPFLAGS="-I\${top_srcdir}/src $OTHER_CPPFLAGS"
 ASP_LDFLAGS="$OTHER_LDFLAGS"
 
 # Do this last, to make sure it's not overridden

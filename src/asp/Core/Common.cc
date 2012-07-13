@@ -130,7 +130,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
 
 bool asp::has_cam_extension( std::string const& input ) {
   boost::filesystem::path ipath( input );
-  std::string ext = ipath.extension();
+  std::string ext = ipath.extension().string();
   if ( ext == ".cahvor" || ext == ".cahv" ||
        ext == ".pin" || ext == ".pinhole" ||
        ext == ".tsai" || ext == ".cmod" ||

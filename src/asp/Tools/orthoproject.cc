@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
     // If the user hasn't specified a stereo session type, we take a
     // guess here based on the file suffixes.
     if ( opt.stereo_session.empty() ) {
-      std::string ext = fs::path(opt.camera_model_file).extension();
+      std::string ext = fs::path(opt.camera_model_file).extension().string();
       if ( ext == ".cahvor" || ext == ".cmod" ||
            ext == ".cahv" || ext ==  ".pin" || ext == ".tsai" ) {
         vw_out() << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";

@@ -67,7 +67,7 @@ namespace asp {
       std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
       std::string match_filename =
         fs::path( input_file1 ).replace_extension("").string() + "__" +
-        fs::path( input_file2 ).stem() + ".match";
+        fs::path( input_file2 ).stem().string() + ".match";
 
       if ( fs::exists( match_filename ) ) {
         // Is there a match file linking these 2 image?

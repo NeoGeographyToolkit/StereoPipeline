@@ -71,7 +71,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage );
 
   if ( opt.output_prefix.empty() )
-    opt.output_prefix = fs::path(opt.input_file_name).stem();
+    opt.output_prefix = fs::path(opt.input_file_name).stem().string();
 }
 
 template <class PixelT>

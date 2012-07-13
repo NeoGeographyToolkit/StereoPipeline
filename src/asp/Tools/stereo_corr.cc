@@ -170,7 +170,7 @@ approximate_search_range( std::string const& left_image,
     right_ip_file = fs::path( right_image ).replace_extension("vwip").string(),
     match_file =
     fs::path( left_image ).replace_extension("").string() + "__" +
-    fs::path( right_image ).stem() + ".match";
+    fs::path( right_image ).stem().string() + ".match";
 
   // Building / Loading Interest point data
   if ( fs::exists(match_file) ) {
