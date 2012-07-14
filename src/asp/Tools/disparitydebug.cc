@@ -60,7 +60,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("input-file", po::value(&opt.input_file_name)->required(), "Input disparity map");
+    ("input-file", po::value(&opt.input_file_name), "Input disparity map");
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
@@ -70,6 +70,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     asp::check_command_line( argc, argv, opt, general_options,
                              positional, positional_desc, usage );
 
+  if ( opt.input_file_name.empty() )
+    vw_throw( ArgumentErr() << "Missing input file!\n"
+              << usage << general_options );
   if ( opt.output_prefix.empty() )
     opt.output_prefix = fs::path(opt.input_file_name).stem().string();
 }

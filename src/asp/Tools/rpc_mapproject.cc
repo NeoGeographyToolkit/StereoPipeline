@@ -45,16 +45,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
     ("nodata-value", po::value(&opt.nodata_value), "Nodata value to use on output.")
-    ("t_srs", po::value(&opt.target_srs_string)->required(), "Target spatial reference set. This mimicks the  gdal option.")
+    ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the  gdal option.")
     ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
-    ("dem", po::value(&opt.dem_file)->required())
-    ("camera-image", po::value(&opt.image_file)->required())
-    ("camera-model", po::value(&opt.camera_model_file)->required())
+    ("dem", po::value(&opt.dem_file))
+    ("camera-image", po::value(&opt.image_file))
+    ("camera-model", po::value(&opt.camera_model_file))
     ("output-file", po::value(&opt.output_file));
 
   po::positional_options_description positional_desc;
@@ -67,6 +67,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options,
                              positional, positional_desc, usage );
+
+  if ( !vm.count("dem") || !vm.count("camera-image") ||
+       !vm.count("camera-model") || !vm.count("t_srs") )
+    vw_throw( ArgumentErr() << "Requires <dem> <camera-image> <camera-model> and <t_srs> input in order to proceed." );
 
   if ( opt.output_file.empty() )
     opt.output_file = fs::basename( opt.image_file ) + "_rpcmapped.tif";
