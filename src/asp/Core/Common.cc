@@ -68,7 +68,8 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::options_description const& public_options,
                          po::options_description const& hidden_options,
                          po::positional_options_description const& positional,
-                         std::string & usage_comment ) {
+                         std::string & usage_comment,
+                         bool allow_unregistered ) {
   // Finish filling in the usage_comment;
   std::ostringstream ostr;
   ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";
@@ -80,7 +81,11 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
     po::options_description all_options;
     all_options.add(public_options).add(hidden_options);
 
-    po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional).allow_unregistered().style( po::command_line_style::unix_style ).run(), vm );
+    if ( allow_unregistered ) {
+      po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional).allow_unregistered().style( po::command_line_style::unix_style ).run(), vm );
+    } else {
+      po::store( po::command_line_parser( argc, argv ).options(all_options).positional(positional).style( po::command_line_style::unix_style ).run(), vm );
+    }
 
     po::notify( vm );
   } catch (po::error const& e) {

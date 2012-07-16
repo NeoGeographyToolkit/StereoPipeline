@@ -59,7 +59,7 @@ namespace asp {
     std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g. isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options,
-                               positional, positional_desc, usage );
+                               positional, positional_desc, usage, true );
 
     // Read the config file
     try {
