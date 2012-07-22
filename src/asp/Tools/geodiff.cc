@@ -35,7 +35,7 @@ namespace fs = boost::filesystem;
 class MGeodeticToMAltitude : public ReturnFixedType<PixelMask<double> > {
 public:
   PixelMask<double> operator()( PixelMask<Vector3> const& v ) const {
-    if ( is_transparent( v ) ) {
+    if ( !is_valid( v ) ) {
       return PixelMask<double>();
     }
     return PixelMask<double>( v.child()[2] );
@@ -112,7 +112,7 @@ int main( int argc, char *argv[] ) {
     }
 
     ImageViewRef<PixelMask<double> > dem2_trans =
-      crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask( dem2_dmg, dem2_nodata ), dem2_georef),
+      crop(geo_transform( per_pixel_filter(dem_to_geodetic( dem2_dmg, dem2_georef),
                                            MGeodeticToMAltitude()),
                           dem2_georef, dem1_georef,
                           ValueEdgeExtension<PixelMask<double> >(PixelMask<double>()) ),
@@ -121,11 +121,11 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<double> difference;
     if ( opt.use_absolute ) {
       difference =
-        apply_mask(create_mask(dem1_dmg, dem1_nodata) - dem2_trans,
+        apply_mask(abs(create_mask(dem1_dmg, dem1_nodata) - dem2_trans),
                    opt.nodata_value );
     } else {
       difference =
-        apply_mask(abs(create_mask(dem1_dmg, dem1_nodata) - dem2_trans),
+        apply_mask(create_mask(dem1_dmg, dem1_nodata) - dem2_trans,
                    opt.nodata_value );
     }
 
