@@ -129,16 +129,16 @@ reduces this error with the Levenberg-Marquardt algorithm (LMA). Speed
 is improved by using sparse methods as described in \citet{hartley04},
 \citet{konolige:sparsesparse}, and \citet{cholmod}.
 
-Even though the arithmetic for bundle adjustment sounds clever. There
+Even though the arithmetic for bundle adjustment sounds clever, there
 are faults with the base implementation. Imagine a case where all
 cameras and 3D points were collapsed into a single point. If you
 evaluate the above cost function, you'll find that the error is indeed
-zero. Sadly, this is not the correct solution if the images were taken
+zero. This is not the correct solution if the images were taken
 from orbit. Another example is if a translation was applied equally to
 all 3D points and camera locations. This again would not effect the
 cost function. This fault comes from bundle adjustment's inability to
 control scale and translation of the solution. It will correct
-geometric shape of the problem. Yet it can not guarantee that solution
+geometric shape of the problem. Yet it cannot guarantee that the solution
 will have correct scale and translation.
 
 \ac{ISIS} attempts to fix this problem by adding two additional cost
