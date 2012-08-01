@@ -16,6 +16,9 @@
 // __END_LICENSE__
 
 
+/// \file stereo.cc
+///
+
 #include <asp/Tools/stereo.h>
 
 using namespace vw;
@@ -56,7 +59,7 @@ namespace asp {
     positional_desc.add("extra_argument3", 1);
     positional_desc.add("extra_argument4", 1);
 
-    std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix>\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g. isis).\n  Stereo parameters should be set in the stereo.default file.");
+    std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g. isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options,
                                positional, positional_desc, usage, true );
@@ -139,6 +142,13 @@ namespace asp {
       }
     }
 
+    cartography::GeoReference georef;
+    bool has_georef1 = read_georeference( georef, opt.in_file1 );
+    bool has_georef2 = read_georeference( georef, opt.in_file2 );
+    if (opt.stereo_session_string == "dg" && has_georef1 && has_georef2 && opt.extra_arg1 == "") {
+      vw_out(WarningMessage) << "It appears that the input images are map-projected. In that case a DEM needs to be provided for stereo to give correct results.\n";
+    }
+    
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string) );
     opt.session->initialize(opt, opt.in_file1, opt.in_file2,
                             opt.cam_file1, opt.cam_file2,

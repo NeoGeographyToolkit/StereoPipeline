@@ -52,7 +52,7 @@ def die(msg, code=-1):
 
 if __name__ == '__main__':
     usage = '''stereo [options] <Left_input_image> <Right_input_image>
-              [Left_camera_file] [Right_camera_file] <output_file_prefix>
+              [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]
         Extensions are automaticaly added to the output files.
         Camera model arguments may be optional for some stereo
         session types (e.g. isis). Stereo parameters should be
