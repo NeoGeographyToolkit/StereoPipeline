@@ -65,7 +65,7 @@ struct Options : asp::BaseOptions {
   double x_offset, y_offset, z_offset;
   size_t utm_zone;
   ProjectionType projection;
-  bool has_nodata_value, has_alpha, do_normalize, do_error;
+  bool has_nodata_value, has_alpha, do_normalize, do_error, no_dem;
   std::string target_srs_string;
   BBox2 target_projwin;
   BBox2i target_projwin_pixels;
@@ -127,7 +127,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangule error image.")
     ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
-    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file");
+    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
+    ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
   general_options.add( manipulation_options );
   general_options.add( projection_options );
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -450,7 +451,7 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<PixelGray<float> > rasterizer_fsaa =
       generate_fsaa_raster( rasterizer, opt );
 
-    { // Write out the DEM.
+    if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
       if ( opt.output_file_type == "tif" ) {
         boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", rasterizer_fsaa, opt) );
         rsrc->set_nodata_write( opt.nodata_value );
@@ -488,8 +489,11 @@ int main( int argc, char *argv[] ) {
       rasterizer.set_texture(texture);
       rasterizer_fsaa =
         generate_fsaa_raster( rasterizer, opt );
-      asp::write_gdal_georeferenced_image(opt.out_prefix + "-DRG.tif",
-             rasterizer_fsaa, georef, opt, TerminalProgressCallback("asp","DRG:") );
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DRG.tif", rasterizer_fsaa, opt ) );
+      rsrc->set_nodata_write( opt.nodata_value );
+      write_georeference( *rsrc, georef );
+      block_write_image( *rsrc, rasterizer_fsaa,
+                         TerminalProgressCallback("asp","DRG:") );
     }
 
     // Write out a normalized version of the DEM, if requested (for debugging)
