@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file stereo.cc
+/// \file stereo_corr.cc
 ///
 //#define USE_GRAPHICS
 
@@ -222,11 +222,11 @@ approximate_search_range( std::string const& left_image,
         ip2.sort(); ip2.resize(3000);
       }
 
-      // Stripping out orientation .. this allows for a better
+      // Stripping out orientation. This allows for a better
       // possibility of interest point matches.
       //
       // This is no loss as images at this point are already aligned
-      // since the dense correlator is not rotation invariant.
+      // since the dense correlator is not rotation-invariant.
       BOOST_FOREACH( ip::InterestPoint& ip, ip1 ) ip.orientation = 0;
       BOOST_FOREACH( ip::InterestPoint& ip, ip2 ) ip.orientation = 0;
 

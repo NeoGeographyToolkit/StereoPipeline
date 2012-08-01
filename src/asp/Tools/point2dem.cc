@@ -407,7 +407,7 @@ int main( int argc, char *argv[] ) {
     georef.set_transform(rasterizer.geo_transform());
 
     // If the user requested FSAA .. tell the rasterer to increase
-    // it's sampling rate
+    // its sampling rate
     if ( opt.fsaa > 1 )
       rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
 

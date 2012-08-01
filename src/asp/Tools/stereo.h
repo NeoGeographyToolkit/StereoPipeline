@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file stereo.cc
+/// \file stereo.h
 ///
 
 #ifndef __ASP_STEREO_H__

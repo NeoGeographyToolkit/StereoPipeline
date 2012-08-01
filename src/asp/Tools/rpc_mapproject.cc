@@ -49,7 +49,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the  gdal option.")
     ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)")
     ("t_projwin", po::value(&opt.target_projwin),
-     "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.");
+     "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -97,7 +97,7 @@ int main( int argc, char* argv[] ) {
     cartography::GeoReference target_georef;
     boost::replace_first(opt.target_srs_string,
                          "IAU2000:","DICT:IAU2000.wkt,");
-    VW_OUT(DebugMessage,"asp") << "Asking GDAL to decypher: \""
+    VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
                                << opt.target_srs_string << "\"\n";
     OGRSpatialReference gdal_spatial_ref;
     if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
