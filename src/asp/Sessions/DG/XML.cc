@@ -26,6 +26,8 @@
 using namespace vw;
 using namespace xercesc;
 
+namespace fs=boost::filesystem;
+
 void asp::ImageXML::parse_meta( xercesc::DOMElement* node ) {
   cast_xmlch( get_node<DOMElement>( node, "TLCTIME" )->getTextContent(),
               tlc_start_time );
@@ -377,6 +379,10 @@ void asp::read_xml( std::string const& filename,
                     AttitudeXML& att,
                     EphemerisXML& eph,
                     ImageXML& img ) {
+
+  // Check if the file actually exists and throw a user helpful file.
+  if ( !fs::exists( filename ) )
+    vw_throw( ArgumentErr() << "XML: File \"" << filename << "\" does not exist." );
 
   boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
   parser->setValidationScheme(XercesDOMParser::Val_Always);
