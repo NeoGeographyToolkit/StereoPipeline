@@ -38,7 +38,8 @@ namespace asp {
             dem_to_geodetic( create_mask( m_dem, dem_rsrc->nodata_read()),
                              m_dem_georef ), m_dem_georef.datum() ),
           m_dem_georef, m_image_georef,
-          ValueEdgeExtension<Vector3>( Vector3() ) );
+          ValueEdgeExtension<Vector3>( Vector3() ),
+          BicubicInterpolation());
     else
       m_point_cloud =
         geo_transform(
@@ -46,7 +47,8 @@ namespace asp {
             dem_to_geodetic( m_dem, m_dem_georef ),
             m_dem_georef.datum() ),
           m_dem_georef, m_image_georef,
-          ValueEdgeExtension<Vector3>( Vector3() ) );
+          ValueEdgeExtension<Vector3>( Vector3() ),
+          BicubicInterpolation());
   }
 
   vw::Vector2

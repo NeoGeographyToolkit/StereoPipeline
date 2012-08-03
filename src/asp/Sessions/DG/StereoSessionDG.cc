@@ -303,7 +303,8 @@ namespace asp {
                  dem_georef, image_georef,
                  image_rsrc->cols(),
                  image_rsrc->rows(),
-                 ValueEdgeExtension<Vector3>( Vector3() ) ),
+                 ValueEdgeExtension<Vector3>( Vector3() ),
+                 BicubicInterpolation()),
                OriginalCameraIndex( *rpc_model, org_image_bbox ) ), map_image_bbox );
     }
     return crop(per_pixel_filter(
@@ -313,7 +314,8 @@ namespace asp {
                dem_georef, image_georef,
                image_rsrc->cols(),
                image_rsrc->rows(),
-               ValueEdgeExtension<Vector3>( Vector3() ) ),
+               ValueEdgeExtension<Vector3>( Vector3() ),
+               BicubicInterpolation()),
              OriginalCameraIndex( *rpc_model, org_image_bbox ) ), map_image_bbox );
   }
 
