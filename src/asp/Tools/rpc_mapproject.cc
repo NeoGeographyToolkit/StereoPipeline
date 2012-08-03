@@ -86,6 +86,14 @@ int main( int argc, char* argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
+    // Safety check that the users are not trying to map project map
+    // projected images.
+    {
+      cartography::GeoReference dummy_georef;
+      VW_ASSERT( !read_georeference( dummy_georef, opt.image_file ),
+                 ArgumentErr() << "Your input camera image is already map projected. The expected input is required to be unprojected or raw camera imagery." );
+    }
+
     // Load DEM
     boost::shared_ptr<DiskImageResource>
       dem_rsrc( DiskImageResource::open( opt.dem_file ) );
