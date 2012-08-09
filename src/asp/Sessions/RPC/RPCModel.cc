@@ -103,4 +103,30 @@ namespace asp {
 
     return elem_prod( normalized_proj, m_xy_scale ) + m_xy_offset;
   }
+
+  vw::Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_Jacobian( vw::Vector3 const& geodetic ) const {
+
+    vw::Vector3 normalized_geodetic = elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
+      
+    CoeffVec term = calculate_terms( normalized_geodetic );
+
+    vw::Matrix<double, 1, 20> Qs = quotient_Jacobian(sample_num_coeff(), sample_den_coeff(), term);
+    vw::Matrix<double, 1, 20> Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term);
+
+    vw::Matrix<double, 20, 3> M = terms_Jacobian(normalized_geodetic);
+    vw::Matrix<double, 3,  3> N = normalization_Jacobian(m_lonlatheight_scale);
+    vw::Matrix<double, 20, 3> MN = M*N;
+    
+    vw::Matrix<double, 1, 3> sampleJacobian = m_xy_scale[0]*Qs*MN;
+    vw::Matrix<double, 1, 3> lineJacobian   = m_xy_scale[1]*Ql*MN;
+
+    // The jacobian of (sample, line) is the concatenation of the rows
+    // of sampleJacobian and lineJacobian.
+    vw::Matrix<double, 2, 3> Jacobian;
+    submatrix(Jacobian, 0, 0, 1, 3) = sampleJacobian;
+    submatrix(Jacobian, 1, 0, 1, 3) = lineJacobian;
+
+    return Jacobian;
+  }
+
 }
