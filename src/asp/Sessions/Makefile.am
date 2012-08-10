@@ -24,10 +24,11 @@ if MAKE_MODULE_SESSIONS
 
 include_HEADERS = StereoSession.h
 
-libaspSessions_la_SOURCES = StereoSession.cc \
-                  Pinhole/StereoSessionPinhole.cc RMAX/RMAX.cc          \
-                  RMAX/StereoSessionRmax.cc DG/StereoSessionDG.cc       \
-                  DG/XMLBase.cc DG/XML.cc RPC/RPCModel.cc               \
+libaspSessions_la_SOURCES = StereoSession.cc                       \
+                  Pinhole/StereoSessionPinhole.cc RMAX/RMAX.cc     \
+                  RMAX/StereoSessionRmax.cc DG/StereoSessionDG.cc  \
+                  DG/XMLBase.cc DG/XML.cc RPC/StereoSessionRPC.cc  \
+                  RPC/RPCStereoModel.cc RPC/RPCModel.cc            \
                   RPC/RPCMapTransform.cc
 
 libaspSessions_la_LIBADD = @MODULE_SESSIONS_LIBS@

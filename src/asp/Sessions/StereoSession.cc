@@ -105,7 +105,7 @@ namespace asp {
   }
 
   // Base class implementation of processing steps. All of these don't
-  // perform any thing, they're just place holders.
+  // perform anything, they're just place holders.
   void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                                     boost::shared_ptr<vw::camera::CameraModel> &cam2) {
     cam1 = camera_model(m_left_image_file, m_left_camera_file);

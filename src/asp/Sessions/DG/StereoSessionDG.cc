@@ -92,27 +92,6 @@ public:
   }
 };
 
-// Helper function to read RPC.
-RPCModel*
-read_rpc_model( std::string const& image_file,
-                std::string const& camera_file ) {
-  RPCModel* rpc_model = NULL;
-  try {
-    rpc_model = new RPCModel( image_file );
-  } catch ( NotFoundErr const& err ) {}
-
-  if ( !rpc_model ) {
-    RPCXML rpc_xml;
-    rpc_xml.read_from_file( camera_file );
-    rpc_model = new RPCModel( *rpc_xml.rpc_ptr() ); // Copy the ptr
-
-    // We don't catch an error here because the User will need to
-    // know of a failure at this point. We previously opened the
-    // XML safely before.
-  }
-  return rpc_model;
-}
-
 namespace asp {
 
   // Xerces-C initialize
@@ -120,7 +99,7 @@ namespace asp {
     XMLPlatformUtils::Initialize();
   }
 
-  // Initializer to determine what kinda of input do we have?
+  // Initializer to determine what kind of input we have.
   void StereoSessionDG::initialize(BaseOptions const& options,
                                    std::string const& left_image_file,
                                    std::string const& right_image_file,
@@ -521,6 +500,26 @@ namespace asp {
     }
   }
 
+  // Helper function to read RPC models.
+  RPCModel* StereoSessionDG::read_rpc_model( std::string const& image_file,
+                                             std::string const& camera_file ) {
+    RPCModel* rpc_model = NULL;
+    try {
+      rpc_model = new RPCModel( image_file );
+    } catch ( NotFoundErr const& err ) {}
+    
+    if ( !rpc_model ) {
+      RPCXML rpc_xml;
+      rpc_xml.read_from_file( camera_file );
+      rpc_model = new RPCModel( *rpc_xml.rpc_ptr() ); // Copy the value
+      
+      // We don't catch an error here because the User will need to
+      // know of a failure at this point. We previously opened the
+      // XML safely before.
+    }
+    return rpc_model;
+  }
+  
   // Xerces-C terminate
   StereoSessionDG::~StereoSessionDG() {
     XMLPlatformUtils::Terminate();

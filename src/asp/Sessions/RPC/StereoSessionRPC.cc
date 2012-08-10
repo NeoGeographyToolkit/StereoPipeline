@@ -16,30 +16,29 @@
 // __END_LICENSE__
 
 
-/// \file StereoSessionRPC.h
+/// \file StereoSessionRPC.cc
 ///
 
-#ifndef __STEREO_SESSION_RPC_H__
-#define __STEREO_SESSION_RPC_H__
+// Ames Stereo Pipeline
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/InterestPointMatching.h>
+#include <asp/Sessions/RPC/StereoSessionRPC.h>
+#include <asp/Sessions/DG/XML.h>
+#include <asp/Sessions/RPC/RPCModel.h>
 
-#include <asp/Sessions/DG/StereoSessionDG.h>
+// Vision Workbench
+#include <vw/Camera/CameraModel.h>
+
+using namespace vw;
+using namespace asp;
 
 namespace asp {
 
-  class StereoSessionRPC : public StereoSessionDG {
-
-  public:
-
-    StereoSessionRPC(): StereoSessionDG(){}
-
-    // Produces a camera model from the images
-    virtual boost::shared_ptr<vw::camera::CameraModel>
-    camera_model( std::string const& image_file,
-                  std::string const& camera_file);
-
-    static StereoSession* construct() { return new StereoSessionRPC; }
-  };
-
+  // Provide our camera model
+  boost::shared_ptr<camera::CameraModel>
+  StereoSessionRPC::camera_model(std::string const& image_file,
+                                 std::string const& camera_file ) {
+    return boost::shared_ptr<camera::CameraModel>(StereoSessionDG::read_rpc_model(image_file, camera_file));
+  }
+  
 } // namespace asp
-
-#endif // __STEREO_SESSION_RPC_H__

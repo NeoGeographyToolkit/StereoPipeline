@@ -233,8 +233,8 @@ namespace asp {
                  std::string const& camera_file = "") = 0;
 
     // Does this project utilize look up tables to determine pixel
-    // location in camera model? (I.e a map projected image or
-    // epipolar resampled image would use this function.
+    // location in camera model? (A map projected image or
+    // epipolar resampled image would use this function.)
     virtual bool has_lut_images() const;
 
     // Provide the LUT images for the session

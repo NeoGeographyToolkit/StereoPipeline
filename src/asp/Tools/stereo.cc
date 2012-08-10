@@ -31,7 +31,7 @@ namespace asp {
                          additional_options ) {
     po::options_description general_options("");
     general_options.add_options()
-      ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg]")
+      ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
     general_options.add( additional_options );
     general_options.add( asp::BaseOptionsDescription(opt) );
@@ -107,7 +107,7 @@ namespace asp {
       } else {
         vw_throw( ArgumentErr() << "Could not determine stereo session type. "
                   << "Please set it explicitly.\n"
-                  << "using the -t switch. Options include: [pinhole isis dg].\n" );
+                  << "using the -t switch. Options include: [pinhole isis dg rpc].\n" );
       }
     }
 
