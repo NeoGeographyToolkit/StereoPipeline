@@ -93,6 +93,12 @@ namespace asp {
 
     vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian( vw::Vector3 const& geodetic ) const;
 
+    
+#if 1
+    void ctr_and_dir(vw::Vector2 const& pix, vw::Vector3 & ctr, vw::Vector3 & dir ) const;
+    vw::Vector2 image_to_ground( vw::Vector2 const& observedPixel, double height ) const;
+#endif
+    
   };
 
   inline std::ostream& operator<<(std::ostream& os, const RPCModel& rpc) {

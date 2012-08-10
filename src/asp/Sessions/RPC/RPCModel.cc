@@ -210,4 +210,138 @@ namespace asp {
     return Jacobian;
   }
 
+#if 1
+  
+#if 0
+  void RPCModel::futureUnitTest(Vector3 const& geodetic ) const {
+    std::cout.precision(20);
+
+    Vector2 O = RPCModel::geodetic_to_pixel(geodetic);
+      
+    std::cout << "now in geodetic_to_pixel." << std::endl;
+    std::cout << "input is " << geodetic << std::endl;
+    std::cout << "output is: " << O << std::endl;
+      
+    vw::Matrix<double, 2, 3> M = geodetic_to_pixel_Jacobian(geodetic);
+      
+    std::cout << "jacobian is: " << std::endl;
+    std::cout << M[0][0] << ' ' << M[0][1] << ' ' << M[0][2] << std::endl;
+    std::cout << M[1][0] << ' ' << M[1][1] << ' ' << M[1][2] << std::endl;
+
+      
+    double eps = 1e-3;
+    Vector2 O1 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(eps, 0,   0  )) - O)/eps;
+    Vector2 O2 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(0,   eps, 0  )) - O)/eps;
+    Vector2 O3 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(0,   0,   eps)) - O)/eps;
+      
+    std::cout << "numerical jacobian is " << std::endl;
+    std::cout << O1[0] << ' ' << O2[0] << ' ' << O3[0] << std::endl;
+    std::cout << O1[1] << ' ' << O2[1] << ' ' << O3[1] << std::endl;
+      
+  }
+#endif
+  
+#if 0
+  Vector3 RPCModel::pixel_to_vector(Vector2 const& pix ) const {
+
+    double  height_up = m_lonlatheight_offset[2];
+    double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2];
+
+    Vector2 lonlat_up = image_to_ground(pix, height_up);
+    Vector2 lonlat_dn = image_to_ground(pix, height_dn);
+
+    Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
+    Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
+
+    Vector2 pix_up = geodetic_to_pixel(geo_up);
+    Vector2 pix_dn = geodetic_to_pixel(geo_dn);
+
+    //std::cout << "geo and error is " << geo_up << ' ' << geo_dn << ' ' << norm_2(pix - pix_up) << ' ' << norm_2(pix - pix_dn) << std::endl;
+    
+    Vector3 P_up = m_datum.geodetic_to_cartesian( geo_up );
+    Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
+
+    return normalize(P_dn - P_up);
+  }
+#endif
+  
+  void RPCModel::ctr_and_dir(Vector2 const& pix, Vector3 & ctr, Vector3 & dir ) const {
+
+    double  height_up = m_lonlatheight_offset[2] + m_lonlatheight_scale[2]*0.5;
+    double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2]*0.5;
+
+    Vector2 lonlat_up = image_to_ground(pix, height_up);
+    Vector2 lonlat_dn = image_to_ground(pix, height_dn);
+
+    Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
+    Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
+
+    Vector2 pix_up = geodetic_to_pixel(geo_up);
+    Vector2 pix_dn = geodetic_to_pixel(geo_dn);
+
+    //std::cout << "geo and error is " << geo_up << ' ' << geo_dn << ' ' << norm_2(pix - pix_up) << ' ' << norm_2(pix - pix_dn) << std::endl;
+    
+    Vector3 P_up = m_datum.geodetic_to_cartesian( geo_up );
+    Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
+
+    ctr = P_up;
+    dir = normalize(P_dn - P_up);
+  }
+
+  Vector2 RPCModel::image_to_ground( Vector2 const& observedPixel, double height ) const {
+
+    // To do: Make this into a full blown solver!!!
+    // To do: Use the existing formula for matrix inversion!!!
+    
+    // Given a pixel (the projection of a point onto the camera image)
+    // and the value of the height of the point, find the longitude
+    // and latitude of the point. We use Newton's method.
+
+    // Initial guess for the lon and lat.
+    Vector2 lonlat = subvector(m_lonlatheight_offset, 0, 2);
+
+    //     std::cout << "observedPixel is " << observedPixel << std::endl;
+    //     std::cout << "lonlat is " << lonlat << std::endl;
+    
+    for (int s = 0; s < 10; s++){
+
+      Vector3 geodetic;
+      geodetic[0] = lonlat[0];
+      geodetic[1] = lonlat[1];
+      geodetic[2] = height;
+       
+      Vector2              p    = geodetic_to_pixel(geodetic);
+      Matrix<double, 2, 3> Jall = geodetic_to_pixel_Jacobian(geodetic);
+
+      //       std::cout << "geodetic is " << geodetic << std::endl;
+      //       std::cout << "pixel is " << p << std::endl;
+      //       std::cout << "observed pixel is " << observedPixel << std::endl;
+      
+      // The Jacobian only in respect to lon and lat.
+      Matrix<double, 2, 2> J = submatrix(Jall, 0, 0, 2, 2);
+
+      double det = J[0][0]*J[1][1] - J[0][1]*J[1][0];
+      Matrix<double, 2, 2> invJ;
+      invJ[0][0] =  J[1][1];
+      invJ[0][1] = -J[0][1];
+      invJ[1][0] = -J[1][0];
+      invJ[1][1] =  J[0][0];
+      invJ /= det;
+
+      //std::cout << "vals are " << J << ' ' << invJ << ' ' << J*invJ << std::endl;
+      
+      // Newton's method
+      // lonlat = lonlat - J^{-1}( F(lonlat) - observedPixel )
+      Vector2 diff = p - observedPixel;
+      Matrix<double, 2, 1> diffM; diffM[0][0] = diff[0]; diffM[1][0] = diff[1];
+      Matrix<double, 2, 1> dv = -invJ * diffM;
+      lonlat += Vector2(dv[0][0], dv[1][0]);
+
+      //std::cout << "lonlat and diff are: " << lonlat  << ' ' << diff << std::endl;
+    }
+
+    return lonlat;
+    
+  }
+#endif
 }
