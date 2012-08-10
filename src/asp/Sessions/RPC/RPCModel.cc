@@ -203,107 +203,47 @@ namespace asp {
       terms_Jacobian( normalized_geodetic ) *
       normalization_Jacobian( m_lonlatheight_scale );
 
-    Matrix<double, 2, 3> Jacobian;
-    select_row( Jacobian, 0 ) = m_xy_scale[0] * transpose( Qs ) * MN;
-    select_row( Jacobian, 1 ) = m_xy_scale[1] * transpose( Ql ) * MN;
+    Matrix<double, 2, 3> J;
+    select_row( J, 0 ) = m_xy_scale[0] * transpose( Qs ) * MN;
+    select_row( J, 1 ) = m_xy_scale[1] * transpose( Ql ) * MN;
 
-    return Jacobian;
+    return J;
   }
 
-#if 1
-  
-#if 0
-  void RPCModel::futureUnitTest(Vector3 const& geodetic ) const {
-    std::cout.precision(20);
+  Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_numerical_Jacobian( Vector3 const& geodetic, double tol ) const {
 
-    Vector2 O = RPCModel::geodetic_to_pixel(geodetic);
-      
-    std::cout << "now in geodetic_to_pixel." << std::endl;
-    std::cout << "input is " << geodetic << std::endl;
-    std::cout << "output is: " << O << std::endl;
-      
-    vw::Matrix<double, 2, 3> M = geodetic_to_pixel_Jacobian(geodetic);
-      
-    std::cout << "jacobian is: " << std::endl;
-    std::cout << M[0][0] << ' ' << M[0][1] << ' ' << M[0][2] << std::endl;
-    std::cout << M[1][0] << ' ' << M[1][1] << ' ' << M[1][2] << std::endl;
+    // Find the Jacobian of geodetic_to_pixel using numerical
+    // differentiation. This is used for testing purposes.
 
-      
-    double eps = 1e-3;
-    Vector2 O1 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(eps, 0,   0  )) - O)/eps;
-    Vector2 O2 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(0,   eps, 0  )) - O)/eps;
-    Vector2 O3 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(0,   0,   eps)) - O)/eps;
-      
-    std::cout << "numerical jacobian is " << std::endl;
-    std::cout << O1[0] << ' ' << O2[0] << ' ' << O3[0] << std::endl;
-    std::cout << O1[1] << ' ' << O2[1] << ' ' << O3[1] << std::endl;
-      
-  }
-#endif
-  
-#if 0
-  Vector3 RPCModel::pixel_to_vector(Vector2 const& pix ) const {
+    Matrix<double, 2, 3> J;
 
-    double  height_up = m_lonlatheight_offset[2];
-    double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2];
-
-    Vector2 lonlat_up = image_to_ground(pix, height_up);
-    Vector2 lonlat_dn = image_to_ground(pix, height_dn);
-
-    Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
-    Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
-
-    Vector2 pix_up = geodetic_to_pixel(geo_up);
-    Vector2 pix_dn = geodetic_to_pixel(geo_dn);
-
-    //std::cout << "geo and error is " << geo_up << ' ' << geo_dn << ' ' << norm_2(pix - pix_up) << ' ' << norm_2(pix - pix_dn) << std::endl;
+    Vector2 B  = RPCModel::geodetic_to_pixel(geodetic);
     
-    Vector3 P_up = m_datum.geodetic_to_cartesian( geo_up );
-    Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
+    Vector2 B0 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(tol, 0,   0  )) - B)/tol;
+    Vector2 B1 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(0,   tol, 0  )) - B)/tol;
+    Vector2 B2 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(0,   0,   tol)) - B)/tol;
 
-    return normalize(P_dn - P_up);
+    select_col(J, 0) = B0;
+    select_col(J, 1) = B1;
+    select_col(J, 2) = B2;
+    
+    return J;
   }
-#endif
   
-  void RPCModel::ctr_and_dir(Vector2 const& pix, Vector3 & ctr, Vector3 & dir ) const {
+  Vector2 RPCModel::image_to_ground( Vector2 const& observation, double height ) const {
 
-    double  height_up = m_lonlatheight_offset[2] + m_lonlatheight_scale[2]*0.5;
-    double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2]*0.5;
-
-    Vector2 lonlat_up = image_to_ground(pix, height_up);
-    Vector2 lonlat_dn = image_to_ground(pix, height_dn);
-
-    Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
-    Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
-
-    Vector2 pix_up = geodetic_to_pixel(geo_up);
-    Vector2 pix_dn = geodetic_to_pixel(geo_dn);
-
-    //std::cout << "geo and error is " << geo_up << ' ' << geo_dn << ' ' << norm_2(pix - pix_up) << ' ' << norm_2(pix - pix_dn) << std::endl;
-    
-    Vector3 P_up = m_datum.geodetic_to_cartesian( geo_up );
-    Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
-
-    ctr = P_up;
-    dir = normalize(P_dn - P_up);
-  }
-
-  Vector2 RPCModel::image_to_ground( Vector2 const& observedPixel, double height ) const {
-
-    // To do: Make this into a full blown solver!!!
-    // To do: Use the existing formula for matrix inversion!!!
-    
     // Given a pixel (the projection of a point onto the camera image)
     // and the value of the height of the point, find the longitude
-    // and latitude of the point. We use Newton's method.
+    // and latitude of the point using Newton's method.
 
-    // Initial guess for the lon and lat.
+    // The absolute tolerance is experimental, needs more investigation
+    double abs_tolerance = 1e-6; 
+
+    // Initial guess for the lon and lat
     Vector2 lonlat = subvector(m_lonlatheight_offset, 0, 2);
 
-    //     std::cout << "observedPixel is " << observedPixel << std::endl;
-    //     std::cout << "lonlat is " << lonlat << std::endl;
-    
-    for (int s = 0; s < 10; s++){
+    // 10 iterations should be enough for Newton's method to converge
+    for (int iter = 0; iter < 10; iter++){
 
       Vector3 geodetic;
       geodetic[0] = lonlat[0];
@@ -313,13 +253,10 @@ namespace asp {
       Vector2              p    = geodetic_to_pixel(geodetic);
       Matrix<double, 2, 3> Jall = geodetic_to_pixel_Jacobian(geodetic);
 
-      //       std::cout << "geodetic is " << geodetic << std::endl;
-      //       std::cout << "pixel is " << p << std::endl;
-      //       std::cout << "observed pixel is " << observedPixel << std::endl;
-      
       // The Jacobian only in respect to lon and lat.
       Matrix<double, 2, 2> J = submatrix(Jall, 0, 0, 2, 2);
 
+      // The inverse matrix computed analytically
       double det = J[0][0]*J[1][1] - J[0][1]*J[1][0];
       Matrix<double, 2, 2> invJ;
       invJ[0][0] =  J[1][1];
@@ -328,20 +265,42 @@ namespace asp {
       invJ[1][1] =  J[0][0];
       invJ /= det;
 
-      //std::cout << "vals are " << J << ' ' << invJ << ' ' << J*invJ << std::endl;
+      // Newton's method for F(x) = y is
+      // x = x - J^{-1}( F(x) - y )
+      Vector2 error_try = p - observation;
+      lonlat -= invJ*error_try;
+
+      // Absolute error convergence criterion
+      double  norm_try = norm_2(error_try);
+      if (norm_try < abs_tolerance) {
+        break;
+      }
       
-      // Newton's method
-      // lonlat = lonlat - J^{-1}( F(lonlat) - observedPixel )
-      Vector2 diff = p - observedPixel;
-      Matrix<double, 2, 1> diffM; diffM[0][0] = diff[0]; diffM[1][0] = diff[1];
-      Matrix<double, 2, 1> dv = -invJ * diffM;
-      lonlat += Vector2(dv[0][0], dv[1][0]);
-
-      //std::cout << "lonlat and diff are: " << lonlat  << ' ' << diff << std::endl;
     }
-
-    return lonlat;
     
+    return lonlat;
   }
-#endif
+
+  Vector3 RPCModel::pixel_to_vector(Vector2 const& pix ) const {
+
+    // pixel_to_vector is the normalized vector between two points in space
+    // which project onto the same pixel in the camera.
+
+    // This function was carefully tested but is a bit experimental.
+    
+    double  height_up = m_lonlatheight_offset[2];
+    double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2];
+
+    Vector2 lonlat_up = image_to_ground(pix, height_up);
+    Vector2 lonlat_dn = image_to_ground(pix, height_dn);
+
+    Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
+    Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
+
+    Vector3 P_up = m_datum.geodetic_to_cartesian( geo_up );
+    Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
+
+    return normalize(P_dn - P_up);
+  }
+
 }

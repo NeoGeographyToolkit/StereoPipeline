@@ -62,10 +62,7 @@ namespace asp {
     // Standard Access Methods (Most of these will fail because they
     // don't apply well to RPC.)
     virtual vw::Vector2 point_to_pixel( vw::Vector3 const& point ) const;
-    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& /*pix*/ ) const {
-      vw::vw_throw( vw::NoImplErr() << "RPCModel: Pixel to Vector not implemented" );
-      return vw::Vector3();
-    }
+    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& /*pix*/ ) const;
     virtual vw::Vector3 camera_center( vw::Vector2 const& /*pix*/ ) const {
       vw::vw_throw( vw::NoImplErr() << "RPCModel: Camera center not implemented" );
       return vw::Vector3();
@@ -91,13 +88,9 @@ namespace asp {
                                        CoeffVec const& u );
     static vw::Matrix3x3 normalization_Jacobian(vw::Vector3 const& q);
 
-    vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian( vw::Vector3 const& geodetic ) const;
-
-    
-#if 1
-    void ctr_and_dir(vw::Vector2 const& pix, vw::Vector3 & ctr, vw::Vector3 & dir ) const;
-    vw::Vector2 image_to_ground( vw::Vector2 const& observedPixel, double height ) const;
-#endif
+    vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian          (vw::Vector3 const& geodetic ) const;
+    vw::Matrix<double, 2, 3> geodetic_to_pixel_numerical_Jacobian(vw::Vector3 const& geodetic, double tol) const;
+    vw::Vector2 image_to_ground(vw::Vector2 const& observation, double height) const;
     
   };
 
