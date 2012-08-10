@@ -314,18 +314,21 @@ void stereo_triangulation( Options const& opt ) {
     // We apply the universe radius here and then write the result
     // directly to a file on disk.
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
-
+#if 1
     if ( stereo_settings().universe_center == "camera" ) {
       universe_radius_func =
         stereo::UniverseRadiusFunc(camera_model1->camera_center(Vector2()),
                                    stereo_settings().near_universe_radius,
                                    stereo_settings().far_universe_radius);
     } else if ( stereo_settings().universe_center == "zero" ) {
+#endif
       universe_radius_func =
         stereo::UniverseRadiusFunc(Vector3(),
                                    stereo_settings().near_universe_radius,
                                    stereo_settings().far_universe_radius);
+#if 1
     }
+#endif
     
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
@@ -387,12 +390,18 @@ void stereo_triangulation( Options const& opt ) {
 
 int main( int argc, char* argv[] ) {
 
+  std::cout << "will run command: " << std::endl;
+  for (int s = 0; s < argc; s++) std::cout << argv[s] << ' ';
+  std::cout << std::endl;
+    
   stereo_register_sessions();
   Options opt;
   try {
     handle_arguments( argc, argv, opt,
                       TriangulationDescription() );
 
+#if 1
+    
     // user safety check
     //---------------------------------------------------------
     try {
@@ -438,9 +447,18 @@ int main( int argc, char* argv[] ) {
       // projected image.
     }
 
+#endif
+    
     // Internal Processes
     //---------------------------------------------------------
-    stereo_triangulation<stereo::StereoModel>( opt );
+    
+    if (opt.stereo_session_string != "rpc"){
+      stereo_triangulation<stereo::StereoModel>( opt );
+    }else{
+      // The RPC camera model does not fit in the existing framework
+      // as its method of triangulation is quite different.
+      stereo_triangulation<asp::RPCStereoModel>( opt );
+    }
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : TRIANGULATION FINISHED \n";
