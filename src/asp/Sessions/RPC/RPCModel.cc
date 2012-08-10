@@ -91,6 +91,91 @@ namespace asp {
     return geodetic_to_pixel( m_datum.cartesian_to_geodetic( point ) );
   }
 
+  vw::Vector<double,20> RPCModel::calculate_terms( vw::Vector3 const& v ) {
+    double x = v.x(), y = v.y(), z = v.z();
+    CoeffVec result;
+    result[ 0] = 1.0;
+    result[ 1] = x;
+    result[ 2] = y;
+    result[ 3] = z;
+    result[ 4] = x*y;
+    result[ 5] = x*z;
+    result[ 6] = y*z;
+    result[ 7] = x*x;
+    result[ 8] = y*y;
+    result[ 9] = z*z;
+    result[10] = x*y*z;
+    result[11] = x*x*x;
+    result[12] = x*y*y;
+    result[13] = x*z*z;
+    result[14] = x*x*y;
+    result[15] = y*y*y;
+    result[16] = y*z*z;
+    result[17] = x*x*z;
+    result[18] = y*y*z;
+    result[19] = z*z*z;
+    return result;
+  }
+
+  vw::Matrix<double, 20, 3> RPCModel::terms_Jacobian( vw::Vector3 const& v ) {
+    // Partial derivatives of the terms returned by the
+    // calculate_terms() function.
+
+    vw::Matrix<double, 20, 3> M;
+    double x = v.x(), y = v.y(), z = v.z();
+
+    // df/dx            df/dy               df/dz               // f
+    M[ 0][0] = 0.0;     M[ 0][1] = 0.0;     M[ 0][2] = 0.0;     // 1
+    M[ 1][0] = 1.0;     M[ 1][1] = 0.0;     M[ 1][2] = 0.0;     // x
+    M[ 2][0] = 0.0;     M[ 2][1] = 1.0;     M[ 2][2] = 0.0;     // y
+    M[ 3][0] = 0.0;     M[ 3][1] = 0.0;     M[ 3][2] = 1.0;     // z
+    M[ 4][0] = y;       M[ 4][1] = x;       M[ 4][2] = 0.0;     // xy
+    M[ 5][0] = z;       M[ 5][1] = 0.0;     M[ 5][2] = x;       // xz
+    M[ 6][0] = 0.0;     M[ 6][1] = z;       M[ 6][2] = y;       // yz
+    M[ 7][0] = 2.0*x;   M[ 7][1] = 0.0;     M[ 7][2] = 0.0;     // xx;
+    M[ 8][0] = 0.0;     M[ 8][1] = 2.0*y;   M[ 8][2] = 0.0;     // yy;
+    M[ 9][0] = 0.0;     M[ 9][1] = 0.0;     M[ 9][2] = 2.0*z;   // zz;
+    M[10][0] = y*z;     M[10][1] = x*z;     M[10][2] = x*y;     // xyz;
+    M[11][0] = 3.0*x*x; M[11][1] = 0.0;     M[11][2] = 0.0;     // xxx;
+    M[12][0] = y*y;     M[12][1] = 2.0*x*y; M[12][2] = 0.0;     // xyy;
+    M[13][0] = z*z;     M[13][1] = 0.0;     M[13][2] = 2.0*x*z; // xzz;
+    M[14][0] = 2.0*x*y; M[14][1] = x*x;     M[14][2] = 0.0;     // xxy;
+    M[15][0] = 0.0;     M[15][1] = 3.0*y*y; M[15][2] = 0.0;     // yyy;
+    M[16][0] = 0.0;     M[16][1] = z*z;     M[16][2] = 2.0*y*z; // yzz;
+    M[17][0] = 2.0*x*z; M[17][1] = 0.0;     M[17][2] = x*x;     // xxz;
+    M[18][0] = 0.0;     M[18][1] = 2.0*y*z; M[18][2] = y*y;     // yyz;
+    M[19][0] = 0.0;     M[19][1] = 0.0;     M[19][2] = 3.0*z*z; // zzz;
+
+    return M;
+  }
+
+  RPCModel::CoeffVec
+  RPCModel::quotient_Jacobian( RPCModel::CoeffVec const& c,
+                               RPCModel::CoeffVec const& d,
+                               RPCModel::CoeffVec const& u ) {
+
+    // Return the Jacobian of dot_prod(c, u) / dot_prod(d, u)
+    // as a matrix with 1 row and 20 columns.
+
+    double cu  = dot_prod(c, u);
+    double du  = dot_prod(d, u);
+    double den = du*du;
+
+    return elem_quot(du * c - cu * d, den);
+  }
+
+  vw::Matrix3x3 RPCModel::normalization_Jacobian( Vector3 const& q ) {
+
+    // Return the Jacobian of the function
+    // f(x1, x2, x3) = ( (x1 - c1)/q1, (x2 - c2)/q2, (x3 - c3)/q3 )
+
+    vw::Matrix3x3 M;
+    M[0][0] = 1.0/q[0]; M[0][1] = 0.0;      M[0][2] = 0.0;
+    M[1][0] = 0.0;      M[1][1] = 1.0/q[1]; M[1][2] = 0.0;
+    M[2][0] = 0.0;      M[2][1] = 0.0;      M[2][2] = 1.0/q[2];
+    return M;
+  }
+
   Vector2 RPCModel::geodetic_to_pixel( Vector3 const& geodetic ) const {
     CoeffVec term =
       calculate_terms( elem_quot(geodetic - m_lonlatheight_offset,
@@ -104,27 +189,23 @@ namespace asp {
     return elem_prod( normalized_proj, m_xy_scale ) + m_xy_offset;
   }
 
-  vw::Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_Jacobian( vw::Vector3 const& geodetic ) const {
+  Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_Jacobian( Vector3 const& geodetic ) const {
 
-    vw::Vector3 normalized_geodetic = elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
-      
+    Vector3 normalized_geodetic = elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
+
     CoeffVec term = calculate_terms( normalized_geodetic );
 
-    vw::Matrix<double, 1, 20> Qs = quotient_Jacobian(sample_num_coeff(), sample_den_coeff(), term);
-    vw::Matrix<double, 1, 20> Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term);
+    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(),
+                                    sample_den_coeff(), term );
+    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),
+                                    line_den_coeff(), term );
+    Matrix<double, 20, 3> MN =
+      terms_Jacobian( normalized_geodetic ) *
+      normalization_Jacobian( m_lonlatheight_scale );
 
-    vw::Matrix<double, 20, 3> M = terms_Jacobian(normalized_geodetic);
-    vw::Matrix<double, 3,  3> N = normalization_Jacobian(m_lonlatheight_scale);
-    vw::Matrix<double, 20, 3> MN = M*N;
-    
-    vw::Matrix<double, 1, 3> sampleJacobian = m_xy_scale[0]*Qs*MN;
-    vw::Matrix<double, 1, 3> lineJacobian   = m_xy_scale[1]*Ql*MN;
-
-    // The jacobian of (sample, line) is the concatenation of the rows
-    // of sampleJacobian and lineJacobian.
-    vw::Matrix<double, 2, 3> Jacobian;
-    submatrix(Jacobian, 0, 0, 1, 3) = sampleJacobian;
-    submatrix(Jacobian, 1, 0, 1, 3) = lineJacobian;
+    Matrix<double, 2, 3> Jacobian;
+    select_row( Jacobian, 0 ) = m_xy_scale[0] * transpose( Qs ) * MN;
+    select_row( Jacobian, 1 ) = m_xy_scale[1] * transpose( Ql ) * MN;
 
     return Jacobian;
   }
