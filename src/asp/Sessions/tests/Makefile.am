@@ -22,9 +22,10 @@
 
 if MAKE_MODULE_SESSIONS
 
-TestStereoSessionDG_SOURCES = TestStereoSessionDG.cxx
+TestStereoSessionDG_SOURCES  = TestStereoSessionDG.cxx
+TestStereoSessionRPC_SOURCES = TestStereoSessionRPC.cxx
 
-TESTS = TestStereoSessionDG
+TESTS = TestStereoSessionDG TestStereoSessionRPC
 
 endif
 
