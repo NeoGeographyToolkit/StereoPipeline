@@ -314,21 +314,23 @@ void stereo_triangulation( Options const& opt ) {
     // We apply the universe radius here and then write the result
     // directly to a file on disk.
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
-#if 1
     if ( stereo_settings().universe_center == "camera" ) {
+
+      if (opt.stereo_session_string == "rpc")
+        vw_throw(InputErr() << "Stereo with RPC cameras cannot have the camera as the universe center.\n");
+      
       universe_radius_func =
         stereo::UniverseRadiusFunc(camera_model1->camera_center(Vector2()),
                                    stereo_settings().near_universe_radius,
                                    stereo_settings().far_universe_radius);
+      
     } else if ( stereo_settings().universe_center == "zero" ) {
-#endif
       universe_radius_func =
         stereo::UniverseRadiusFunc(Vector3(),
                                    stereo_settings().near_universe_radius,
                                    stereo_settings().far_universe_radius);
-#if 1
     }
-#endif
+
     
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
@@ -388,66 +390,68 @@ void stereo_triangulation( Options const& opt ) {
   }
 }
 
+void user_safety_check(Options const& opt){
+
+  // user safety check
+  //---------------------------------------------------------
+  try {
+    boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+    opt.session->camera_models(camera_model1,camera_model2);
+
+    // Do the cameras appear to be in the same location?
+    if ( norm_2(camera_model1->camera_center(Vector2()) -
+                camera_model2->camera_center(Vector2())) < 1e-3 )
+      vw_out(WarningMessage,"console")
+        << "Your cameras appear to be in the same location!\n"
+        << "\tYou should double check your given camera\n"
+        << "\tmodels as most likely stereo won't be able\n"
+        << "\tto triangulate or perform epipolar rectification.\n";
+
+    // Developer friendly help
+    VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << camera_model1->camera_center(Vector2()) << "\n"
+                               << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(camera_model1->camera_center(Vector2())) << "\n";
+    VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << camera_model2->camera_center(Vector2()) << "\n"
+                               << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(camera_model2->camera_center(Vector2())) << "\n";
+    VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << camera_model1->pixel_to_vector(Vector2()) << "\n"
+                               << "      dot against pos: " << dot_prod(camera_model1->pixel_to_vector(Vector2()),
+                                                                        camera_model1->camera_center(Vector2())) << "\n";
+    VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << camera_model2->pixel_to_vector(Vector2()) << "\n"
+                               << "      dot against pos: " << dot_prod(camera_model2->pixel_to_vector(Vector2()),
+                                                                        camera_model2->camera_center(Vector2())) << "\n";
+
+    // Can cameras triangulate to point at something in front of them?
+    stereo::StereoModel model( camera_model1.get(), camera_model2.get() );
+    double error;
+    Vector3 point = model( Vector2(), Vector2(), error );
+    if ( dot_prod( camera_model1->pixel_to_vector(Vector2()),
+                   point - camera_model1->camera_center(Vector2()) ) < 0 )
+      vw_out(WarningMessage,"console")
+        << "Your cameras appear not to be pointing at the same location!\n"
+        << "\tA test vector triangulated backwards through\n"
+        << "\tthe camera models. You should double check\n"
+        << "\tyour input models as most likely stereo won't\n"
+        << "\tbe able to triangulate.\n";
+  } catch ( camera::PixelToRayErr const& e ) {
+  } catch ( camera::PointToPixelErr const& e ) {
+    // Silent. Top Left pixel might not be valid on a map
+    // projected image.
+  }
+
+}
+
 int main( int argc, char* argv[] ) {
 
-  std::cout << "will run command: " << std::endl;
-  for (int s = 0; s < argc; s++) std::cout << argv[s] << ' ';
-  std::cout << std::endl;
-    
   stereo_register_sessions();
   Options opt;
   try {
     handle_arguments( argc, argv, opt,
                       TriangulationDescription() );
 
-#if 1
-    
-    // user safety check
-    //---------------------------------------------------------
-    try {
-      boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-      opt.session->camera_models(camera_model1,camera_model2);
-
-      // Do the cameras appear to be in the same location?
-      if ( norm_2(camera_model1->camera_center(Vector2()) -
-                  camera_model2->camera_center(Vector2())) < 1e-3 )
-        vw_out(WarningMessage,"console")
-          << "Your cameras appear to be in the same location!\n"
-          << "\tYou should double check your given camera\n"
-          << "\tmodels as most likely stereo won't be able\n"
-          << "\tto triangulate or perform epipolar rectification.\n";
-
-      // Developer friendly help
-      VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << camera_model1->camera_center(Vector2()) << "\n"
-                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(camera_model1->camera_center(Vector2())) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << camera_model2->camera_center(Vector2()) << "\n"
-                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(camera_model2->camera_center(Vector2())) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << camera_model1->pixel_to_vector(Vector2()) << "\n"
-                                 << "      dot against pos: " << dot_prod(camera_model1->pixel_to_vector(Vector2()),
-                                                                          camera_model1->camera_center(Vector2())) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << camera_model2->pixel_to_vector(Vector2()) << "\n"
-                                 << "      dot against pos: " << dot_prod(camera_model2->pixel_to_vector(Vector2()),
-                                                                          camera_model2->camera_center(Vector2())) << "\n";
-
-      // Can cameras triangulate to point at something in front of them?
-      stereo::StereoModel model( camera_model1.get(), camera_model2.get() );
-      double error;
-      Vector3 point = model( Vector2(), Vector2(), error );
-      if ( dot_prod( camera_model1->pixel_to_vector(Vector2()),
-                     point - camera_model1->camera_center(Vector2()) ) < 0 )
-        vw_out(WarningMessage,"console")
-          << "Your cameras appear not to be pointing at the same location!\n"
-          << "\tA test vector triangulated backwards through\n"
-          << "\tthe camera models. You should double check\n"
-          << "\tyour input models as most likely stereo won't\n"
-          << "\tbe able to triangulate.\n";
-    } catch ( camera::PixelToRayErr const& e ) {
-    } catch ( camera::PointToPixelErr const& e ) {
-      // Silent. Top Left pixel might not be valid on a map
-      // projected image.
+    if (opt.stereo_session_string != "rpc"){
+      // The user safety check does not make sense for RPC cameras as
+      // they don't specify a camera center.
+      user_safety_check(opt);
     }
-
-#endif
     
     // Internal Processes
     //---------------------------------------------------------
