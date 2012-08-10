@@ -40,14 +40,29 @@ TEST( StereoSessionRPC, InstantiateTest ) {
   EXPECT_VECTOR_NEAR( Vector2(17564,11856), model.xy_offset(), 1e-3 );
   EXPECT_VECTOR_NEAR( Vector2(17927,12384), model.xy_scale(), 1e-3 );
 
-  // Verify that nothing segfaults or has a run time error.
+  // Verify the Jacobian numerically
   Vector3 location(-105.29,39.745,2281);
+  double tol = 1e-4;
+  Matrix<double, 2, 3> Je = model.geodetic_to_pixel_Jacobian(location);
+  Matrix<double, 2, 3> Jn = model.geodetic_to_pixel_numerical_Jacobian(location, tol);
+  double relErr = max(abs(Je-Jn))/max(abs(Je));
+  EXPECT_LT(relErr, 1e-5);
+
+  // Verify that if we go from pixel to lonlat and back, then we
+  // arrive at the starting point.
+  Vector2 pix = 0.0;
+  double h = 10.0; 
+  Vector2 lonlat  = model.image_to_ground(pix, h);
+  Vector2 pix_out = model.geodetic_to_pixel(Vector3(lonlat[0], lonlat[1], h));
+  EXPECT_LT( norm_2(pix - pix_out), 1e-9 );
+  
+  // Verify that nothing segfaults or has a run time error.
   EXPECT_NO_THROW( model.calculate_terms( location ) );
   EXPECT_NO_THROW( model.terms_Jacobian( location ) );
   EXPECT_NO_THROW( model.normalization_Jacobian( location ) );
   EXPECT_NO_THROW( model.geodetic_to_pixel_Jacobian( location ) );
   EXPECT_NO_THROW( model.geodetic_to_pixel( location ) );
-  EXPECT_THROW( model.pixel_to_vector( Vector2() ), vw::NoImplErr );
+  EXPECT_NO_THROW( model.pixel_to_vector( Vector2() ) );
   EXPECT_THROW( model.camera_center( Vector2() ), vw::NoImplErr );
 
   XMLPlatformUtils::Terminate();
