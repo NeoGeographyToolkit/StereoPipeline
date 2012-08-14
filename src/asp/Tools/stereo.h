@@ -87,6 +87,8 @@ namespace asp {
   // Register Session types
   void stereo_register_sessions();
 
+  void user_safety_check(Options const& opt);
+  
 } // end namespace vw
 
 #endif//__ASP_STEREO_H__
