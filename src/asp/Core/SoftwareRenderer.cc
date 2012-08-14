@@ -308,25 +308,48 @@ SetInitialParameters(GraphicsState *gc, const Vertex *a, RealT dx, RealT dy)
 
 
 static void
-DrawFlatGraySpan(GraphicsState *graphicsState)
+DrawFlatGraySpan(GraphicsState *gc)
 {
-  std::fill_n(&(graphicsState->buffer[graphicsState->rasterInfo.frag.y * graphicsState->width +
-                                        graphicsState->rasterInfo.frag.x]),
-              graphicsState->rasterInfo.length,
-              float(graphicsState->rasterInfo.frag.color.r));
+  // Evaluate the clipping in the X direction
+  int length = gc->rasterInfo.length;
+  int x = gc->rasterInfo.frag.x;
+  if ( x < gc->clipX0 ) { // Check to see if the line goes off the left
+    length += x - gc->clipX0;
+    x = gc->clipX0;
+  }
+  if ( x + length > gc->clipX1 ) { // Check to see the line goes off
+                                   // the right
+    length -= x + length - gc->clipX1;
+  }
+
+  std::fill_n(&(gc->buffer[gc->rasterInfo.frag.y * gc->width + x]),
+              length, float(gc->rasterInfo.frag.color.r));
 }
 
 static void
-DrawGraySpan(GraphicsState *graphicsState)
+DrawGraySpan(GraphicsState *gc)
 {
+  RealT gray = gc->rasterInfo.frag.color.r;
+  RealT drdx = gc->rasterInfo.colorIter.drdx;
+
+  // Evaluate the clipping in the X direction
+  int length = gc->rasterInfo.length;
+  int x = gc->rasterInfo.frag.x;
+  if ( x < gc->clipX0 ) { // Check to see if the line goes off the left
+    int difference = gc->clipX0 - x;
+    length -= difference;
+    x = gc->clipX0;
+    gray += RealT(difference) * drdx;
+  }
+  if ( x + length > gc->clipX1 ) { // Check to see the line goes off
+                                   // the right
+    length -= x + length - gc->clipX1;
+  }
+
   float *span =
-    &(graphicsState->buffer[graphicsState->rasterInfo.frag.y * graphicsState->width +
-                            graphicsState->rasterInfo.frag.x]);
+    &(gc->buffer[gc->rasterInfo.frag.y * gc->width + x ] );
 
-  RealT gray = graphicsState->rasterInfo.frag.color.r;
-  RealT drdx = graphicsState->rasterInfo.colorIter.drdx;
-
-  for (int i = graphicsState->rasterInfo.length; i > 0; --i) {
+  for (int i = length; i; --i) {
     *span++ = float(gray);
     gray += drdx;
   }
@@ -352,8 +375,7 @@ SnapXLeft(GraphicsState *gc, RealT xLeft, RealT dxdyLeft)
   // Compute big and little steps
   ilittle = (int) dxdyLeft;
   little = (RealT) ilittle;
-  if (dxdyLeft < 0)
-  {
+  if (dxdyLeft < 0) {
     ibig = ilittle - 1;
     dx = little - dxdyLeft;
     // Here we know ilittle and ibig are not going to be zero, and
@@ -361,9 +383,7 @@ SnapXLeft(GraphicsState *gc, RealT xLeft, RealT dxdyLeft)
     // things in our standard form --LJE
     __FRACTION(frac, dx);
     gc->rasterInfo.dxLeftFrac = -frac;
-  }
-  else
-  {
+  } else {
     ibig = ilittle + 1;
     dx = dxdyLeft - little;
     __FRACTION(frac, dx);
@@ -420,15 +440,14 @@ FillSubTriangle(GraphicsState *gc,  int iyBottom, int iyTop)
   int dxLeftBig, dxRightBig;
   int spanWidth, clipY0, clipY1;
   unsigned int modeFlags;
-  void (*processSpan)(GraphicsState *graphicsState);
-
+  void (*processSpan)(GraphicsState *);
 
   ixLeft = gc->rasterInfo.ixLeft;
   ixLeftFrac = gc->rasterInfo.ixLeftFrac;
   ixRight = gc->rasterInfo.ixRight;
   ixRightFrac = gc->rasterInfo.ixRightFrac;
   clipY0 = gc->clipY0;
-  clipY1 = gc->clipY1;
+  clipY1 = std::min( gc->clipY1, iyTop );
   dxLeftFrac = gc->rasterInfo.dxLeftFrac;
   dxLeftBig = gc->rasterInfo.dxLeftBig;
   dxLeftLittle = gc->rasterInfo.dxLeftLittle;
@@ -443,13 +462,12 @@ FillSubTriangle(GraphicsState *gc,  int iyBottom, int iyTop)
   else
     processSpan = DrawFlatGraySpan;
 
-  while (iyBottom < iyTop)
+  while (iyBottom < clipY1)
   {
     spanWidth = ixRight - ixLeft;
     // Only render spans that have non-zero width and which are not
     // scissored out vertically.
-    if ((spanWidth > 0) && (iyBottom >= clipY0) && (iyBottom < clipY1))
-    {
+    if ((spanWidth > 0) && (iyBottom >= clipY0) ) {
       gc->rasterInfo.frag.x = ixLeft;
       gc->rasterInfo.frag.y = iyBottom;
       gc->rasterInfo.length = spanWidth;
@@ -762,6 +780,7 @@ SoftwareRenderer::DrawPolygon(const int startIndex, const int numVertices)
   MapToWindow(vertex0.window, m_transformNDC,
               0.0, 0.0, double(m_bufferWidth), double(m_bufferHeight),
               vertex0.window);
+
   for (int i = 0; i < numTriangles; i++)
   {
     ::Color color1(&colors[colorIndex1], m_numColorComponents);

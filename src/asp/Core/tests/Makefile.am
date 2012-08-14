@@ -27,10 +27,11 @@ TestErodeView_SOURCES          = TestErodeView.cxx
 TestGaussianClustering_SOURCES = TestGaussianClustering.cxx
 TestInterestPointMatching_SOURCES = TestInterestPointMatching.cxx
 TestThreadedEdgeMask_SOURCES   = TestThreadedEdgeMask.cxx
-
+TestSoftwareRenderer_SOURCES   = TestSoftwareRenderer.cxx
 
 TESTS = TestErodeView TestBlobIndexThreaded TestThreadedEdgeMask \
-        TestGaussianClustering TestInterestPointMatching
+        TestGaussianClustering TestInterestPointMatching         \
+        TestSoftwareRenderer
 
 endif
 

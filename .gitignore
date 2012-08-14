@@ -71,6 +71,7 @@ src/asp/Core/tests/TestBlobIndexThreaded
 src/asp/Core/tests/TestErodeView
 src/asp/Core/tests/TestGaussianClustering
 src/asp/Core/tests/TestInterestPointMatching
+src/asp/Core/tests/TestSoftwareRenderer
 src/asp/Core/tests/TestThreadedEdgeMask
 
 # IsisIO
@@ -80,6 +81,7 @@ src/asp/IsisIO/tests/TestIsisCameraModel
 
 # Sessions
 src/asp/Sessions/tests/TestStereoSessionDG
+src/asp/Sessions/tests/TestStereoSessionRPC
 
 # Tools
 src/asp/MPI/isis_mpi_adjust
