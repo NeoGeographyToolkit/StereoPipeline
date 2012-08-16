@@ -27,20 +27,22 @@ namespace asp {
                               Vector2 const& pix ) {
     using namespace vw;
 
+    // Intersect the ray back-projected from the camera with the
+    // datum, which is a spheroid. To simplify the calculations, scale
+    // everything in such a way that the spheroid becomes a
+    // sphere. Scale back at the end of computation.
+
     double z_scale = datum.semi_major_axis() / datum.semi_minor_axis();
 
-    // Create XYZ point against datum. The z_scale stuff is to allow
-    // our sphere intersection math apply to a spheroid. We warp our
-    // coordinate system till the spheroid looks like a sphere.
     Vector3 ccenter = model->camera_center( pix );
-    Vector3 cpoint  = model->pixel_to_vector( pix );
+    Vector3 cvec  = model->pixel_to_vector( pix );
     ccenter.z() *= z_scale;
-    cpoint.z() *= z_scale;
-    cpoint = normalize(cpoint);
+    cvec.z() *= z_scale;
+    cvec = normalize(cvec);
     double radius_2 = datum.semi_major_axis() *
       datum.semi_major_axis();
-    double alpha = -dot_prod(ccenter, cpoint );
-    Vector3 projection = ccenter + alpha*cpoint;
+    double alpha = -dot_prod(ccenter, cvec );
+    Vector3 projection = ccenter + alpha*cvec;
     if ( norm_2_sqr(projection) > radius_2 ) {
       // did not intersect
       return Vector3();
@@ -48,7 +50,7 @@ namespace asp {
 
     alpha -= sqrt( radius_2 -
                    norm_2_sqr(projection) );
-    return elem_prod(ccenter + alpha * cpoint, Vector3(1,1,1.0/z_scale));
+    return elem_prod(ccenter + alpha * cvec, Vector3(1,1,1.0/z_scale));
   }
 
   // Find a rough homography that maps right to left using the camera
