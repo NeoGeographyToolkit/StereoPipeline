@@ -62,24 +62,45 @@ namespace asp {
       error = 0.0;
       return Vector3();
     }
-    
+
     try {
-    
-      detail::RPCTriangulateLMA model(rpc_model1, rpc_model2);
-      Vector4 objective( pix1[0], pix1[1], pix2[0], pix2[1] );
-      int status = 0;
-    
-      Vector3 initialGeodetic = ( rpc_model1->lonlatheight_offset() +
-                                  rpc_model2->lonlatheight_offset() )/2.0;
 
-      // To do: Find good values for the pixels below
-      Vector3 finalGeodetic = levenberg_marquardt( model, initialGeodetic,
-                                                   objective, status, 1e-6, 1e-8, 10 );
+      Vector3 result;
 
-      // Notice that the error is in pixels rather than in meters
-      error = norm_2(objective - model(finalGeodetic));
-      
-      return rpc_model1->datum().geodetic_to_cartesian(finalGeodetic);
+      Vector3 origin1, vec1;
+      rpc_model1->point_and_dir(pix1, origin1, vec1);
+
+      Vector3 origin2, vec2;
+      rpc_model2->point_and_dir(pix2, origin2, vec2);
+        
+      if (are_nearly_parallel(vec1, vec2)){
+        error = 0.0;
+        return Vector3();
+      }
+        
+      result = triangulate_point(origin1, vec1,
+                                 origin2, vec2,
+                                 error);
+
+      if ( m_least_squares ){
+
+        // Refine triangulation
+        
+        detail::RPCTriangulateLMA model(rpc_model1, rpc_model2);
+        Vector4 objective( pix1[0], pix1[1], pix2[0], pix2[1] );
+        int status = 0;
+
+        Vector3 initialGeodetic = rpc_model1->datum().cartesian_to_geodetic(result);
+        
+        // To do: Find good values for the numbers controlling the convergence
+        Vector3 finalGeodetic = levenberg_marquardt( model, initialGeodetic,
+                                                     objective, status, 1e-3, 1e-6, 10 );
+
+        if ( status > 0 )
+          result = rpc_model1->datum().geodetic_to_cartesian(finalGeodetic);
+      }
+
+      return result;
 
     } catch (...) {}
     

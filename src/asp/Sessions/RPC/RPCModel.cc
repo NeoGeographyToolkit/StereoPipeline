@@ -91,8 +91,10 @@ namespace asp {
     return geodetic_to_pixel( m_datum.cartesian_to_geodetic( point ) );
   }
 
-  vw::Vector<double,20> RPCModel::calculate_terms( vw::Vector3 const& v ) {
-    double x = v.x(), y = v.y(), z = v.z();
+  vw::Vector<double,20> RPCModel::calculate_terms( vw::Vector3 const& normalized_geodetic ) {
+    double x = normalized_geodetic.x();
+    double y = normalized_geodetic.y();
+    double z = normalized_geodetic.z();
     CoeffVec result;
     result[ 0] = 1.0;
     result[ 1] = x;
@@ -117,12 +119,50 @@ namespace asp {
     return result;
   }
 
-  vw::Matrix<double, 20, 3> RPCModel::terms_Jacobian( vw::Vector3 const& v ) {
+  vw::Matrix<double, 20, 2> RPCModel::terms_Jacobian2( vw::Vector3 const& normalized_geodetic ) {
     // Partial derivatives of the terms returned by the
-    // calculate_terms() function.
+    // calculate_terms() function in respect to the first two
+    // variables only (unlike the terms_Jacobian3() function).
+
+    vw::Matrix<double, 20, 2> M;
+    double x = normalized_geodetic.x(); // normalized lon
+    double y = normalized_geodetic.y(); // normalized lat
+    double z = normalized_geodetic.z(); // normalized height
+
+    // df/dx            df/dy               // f
+    M[ 0][0] = 0.0;     M[ 0][1] = 0.0;     // 1
+    M[ 1][0] = 1.0;     M[ 1][1] = 0.0;     // x
+    M[ 2][0] = 0.0;     M[ 2][1] = 1.0;     // y
+    M[ 3][0] = 0.0;     M[ 3][1] = 0.0;     // z
+    M[ 4][0] = y;       M[ 4][1] = x;       // xy
+    M[ 5][0] = z;       M[ 5][1] = 0.0;     // xz
+    M[ 6][0] = 0.0;     M[ 6][1] = z;       // yz
+    M[ 7][0] = 2.0*x;   M[ 7][1] = 0.0;     // xx;
+    M[ 8][0] = 0.0;     M[ 8][1] = 2.0*y;   // yy;
+    M[ 9][0] = 0.0;     M[ 9][1] = 0.0;     // zz;
+    M[10][0] = y*z;     M[10][1] = x*z;     // xyz;
+    M[11][0] = 3.0*x*x; M[11][1] = 0.0;     // xxx;
+    M[12][0] = y*y;     M[12][1] = 2.0*x*y; // xyy;
+    M[13][0] = z*z;     M[13][1] = 0.0;     // xzz;
+    M[14][0] = 2.0*x*y; M[14][1] = x*x;     // xxy;
+    M[15][0] = 0.0;     M[15][1] = 3.0*y*y; // yyy;
+    M[16][0] = 0.0;     M[16][1] = z*z;     // yzz;
+    M[17][0] = 2.0*x*z; M[17][1] = 0.0;     // xxz;
+    M[18][0] = 0.0;     M[18][1] = 2.0*y*z; // yyz;
+    M[19][0] = 0.0;     M[19][1] = 0.0;     // zzz;
+
+    return M;
+  }
+
+  vw::Matrix<double, 20, 3> RPCModel::terms_Jacobian3( vw::Vector3 const& normalized_geodetic ) {
+    // Partial derivatives of the terms returned by the
+    // calculate_terms() function in respect to all three 
+    // variables only (unlike the terms_Jacobian2() function).
 
     vw::Matrix<double, 20, 3> M;
-    double x = v.x(), y = v.y(), z = v.z();
+    double x = normalized_geodetic.x(); // normalized lon
+    double y = normalized_geodetic.y(); // normalized lat
+    double z = normalized_geodetic.z(); // normalized height
 
     // df/dx            df/dy               df/dz               // f
     M[ 0][0] = 0.0;     M[ 0][1] = 0.0;     M[ 0][2] = 0.0;     // 1
@@ -176,17 +216,26 @@ namespace asp {
     return M;
   }
 
+  Vector2 RPCModel::normalized_geodetic_to_normalized_pixel( Vector3 const& normalized_geodetic ) const {
+
+    CoeffVec term = calculate_terms( normalized_geodetic );
+    
+    Vector2 normalized_pixel( dot_prod(term,m_sample_num_coeff) /
+                              dot_prod(term,m_sample_den_coeff),
+                              dot_prod(term,m_line_num_coeff) /
+                              dot_prod(term,m_line_den_coeff) );
+    
+    return normalized_pixel;
+  }
+
   Vector2 RPCModel::geodetic_to_pixel( Vector3 const& geodetic ) const {
-    CoeffVec term =
-      calculate_terms( elem_quot(geodetic - m_lonlatheight_offset,
-                                 m_lonlatheight_scale) );
 
-    Vector2 normalized_proj( dot_prod(term,m_sample_num_coeff) /
-                             dot_prod(term,m_sample_den_coeff),
-                             dot_prod(term,m_line_num_coeff) /
-                             dot_prod(term,m_line_den_coeff) );
+    Vector3 normalized_geodetic =
+      elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
 
-    return elem_prod( normalized_proj, m_xy_scale ) + m_xy_offset;
+    Vector2 normalized_pixel = normalized_geodetic_to_normalized_pixel( normalized_geodetic );
+
+    return elem_prod( normalized_pixel, m_xy_scale ) + m_xy_offset;
   }
 
   Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_Jacobian( Vector3 const& geodetic ) const {
@@ -200,12 +249,41 @@ namespace asp {
     CoeffVec Ql = quotient_Jacobian(line_num_coeff(),
                                     line_den_coeff(), term );
     Matrix<double, 20, 3> MN =
-      terms_Jacobian( normalized_geodetic ) *
+      terms_Jacobian3( normalized_geodetic ) *
       normalization_Jacobian( m_lonlatheight_scale );
 
     Matrix<double, 2, 3> J;
     select_row( J, 0 ) = m_xy_scale[0] * transpose( Qs ) * MN;
     select_row( J, 1 ) = m_xy_scale[1] * transpose( Ql ) * MN;
+
+    return J;
+  }
+
+  Matrix<double, 2, 2> RPCModel::normalized_geodetic_to_pixel_Jacobian( Vector3 const& normalized_geodetic ) const {
+
+    // This function is different from geodetic_to_pixel_Jacobian() in
+    // several respects:
+    
+    // 1. The input is the normalized geodetic, and the derivatives
+    // are in respect to the normalized geodetic as well.
+    
+    // 2. The derivatives are taken only in respect to the first two
+    // variables (normalized lon and lat, no height).
+    
+    // 3. The output is in normalized pixels (see m_xy_scale and m_xy_offset).
+
+    CoeffVec term = calculate_terms( normalized_geodetic );
+
+    CoeffVec Qs = quotient_Jacobian(sample_num_coeff(),
+                                    sample_den_coeff(), term );
+    CoeffVec Ql = quotient_Jacobian(line_num_coeff(),
+                                    line_den_coeff(), term );
+
+    Matrix<double, 20, 2> Jt = terms_Jacobian2( normalized_geodetic );
+
+    Matrix<double, 2, 2> J;
+    select_row( J, 0 ) = transpose( Qs ) * Jt;
+    select_row( J, 1 ) = transpose( Ql ) * Jt;
 
     return J;
   }
@@ -230,31 +308,41 @@ namespace asp {
     return J;
   }
   
-  Vector2 RPCModel::image_to_ground( Vector2 const& observation, double height ) const {
+  Vector2 RPCModel::image_to_ground( Vector2 const& pixel, double height, Vector2 lonlat_guess ) const {
 
     // Given a pixel (the projection of a point onto the camera image)
-    // and the value of the height of the point, find the longitude
-    // and latitude of the point using Newton's method.
+    // and the value of the height of the point, find the lonlat of
+    // the point using Newton's method. The user may provide a guess
+    // for the lonlat.
 
     // The absolute tolerance is experimental, needs more investigation
     double abs_tolerance = 1e-6; 
 
-    // Initial guess for the lon and lat
-    Vector2 lonlat = subvector(m_lonlatheight_offset, 0, 2);
-
+    Vector2 normalized_pixel = elem_quot(pixel - m_xy_offset, m_xy_scale);
+    
+    // Initial guess for the normalized lon and lat
+    if (lonlat_guess == Vector2(0.0, 0.0)){
+      lonlat_guess = subvector(m_lonlatheight_offset, 0, 2);
+    }
+    Vector2 normalized_lonlat = elem_quot(lonlat_guess - subvector(m_lonlatheight_offset, 0, 2),
+                                          subvector(m_lonlatheight_scale, 0, 2)
+                                          );
+    double len = norm_2(normalized_lonlat);
+    if (len != len || len > 1.5){
+      // If the input guess is NaN or unreasonable, use 0 as initial guess.
+      normalized_lonlat = Vector2(0.0, 0.0);
+    }
+    
     // 10 iterations should be enough for Newton's method to converge
     for (int iter = 0; iter < 10; iter++){
 
-      Vector3 geodetic;
-      geodetic[0] = lonlat[0];
-      geodetic[1] = lonlat[1];
-      geodetic[2] = height;
+      Vector3 normalized_geodetic;
+      normalized_geodetic[0] = normalized_lonlat[0];
+      normalized_geodetic[1] = normalized_lonlat[1];
+      normalized_geodetic[2] = (height - m_lonlatheight_offset[2])/m_lonlatheight_scale[2];
        
-      Vector2              p    = geodetic_to_pixel(geodetic);
-      Matrix<double, 2, 3> Jall = geodetic_to_pixel_Jacobian(geodetic);
-
-      // The Jacobian only in respect to lon and lat.
-      Matrix<double, 2, 2> J = submatrix(Jall, 0, 0, 2, 2);
+      Vector2              p = normalized_geodetic_to_normalized_pixel(normalized_geodetic);
+      Matrix<double, 2, 2> J = normalized_geodetic_to_pixel_Jacobian(normalized_geodetic);
 
       // The inverse matrix computed analytically
       double det = J[0][0]*J[1][1] - J[0][1]*J[1][0];
@@ -267,8 +355,8 @@ namespace asp {
 
       // Newton's method for F(x) = y is
       // x = x - J^{-1}( F(x) - y )
-      Vector2 error_try = p - observation;
-      lonlat -= invJ*error_try;
+      Vector2 error_try = p - normalized_pixel;
+      normalized_lonlat -= invJ*error_try;
 
       // Absolute error convergence criterion
       double  norm_try = norm_2(error_try);
@@ -277,30 +365,49 @@ namespace asp {
       }
       
     }
+
+    Vector2 lonlat
+      = elem_prod( normalized_lonlat,
+                   subvector(m_lonlatheight_scale, 0, 2) )
+      + subvector(m_lonlatheight_offset, 0, 2);
     
     return lonlat;
+    
   }
 
-  Vector3 RPCModel::pixel_to_vector(Vector2 const& pix ) const {
+  void RPCModel::point_and_dir(Vector2 const& pix, Vector3 & P, Vector3 & dir ) const {
 
-    // pixel_to_vector is the normalized vector between two points in space
-    // which project onto the same pixel in the camera.
-
-    // This function was carefully tested but is a bit experimental.
+    // Find a point which gets projected onto the current pixel,
+    // and the direction of the ray going through that point.
     
     double  height_up = m_lonlatheight_offset[2];
     double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2];
 
-    Vector2 lonlat_up = image_to_ground(pix, height_up);
-    Vector2 lonlat_dn = image_to_ground(pix, height_dn);
+    Vector2 lonlat_up = image_to_ground(pix, height_up, m_lonlat_guess_up);
+    Vector2 lonlat_dn = image_to_ground(pix, height_dn, m_lonlat_guess_dn);
 
+    // Cache these for the future
+    m_lonlat_guess_up = lonlat_up;
+    m_lonlat_guess_dn = lonlat_dn;
+    
     Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
     Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);
 
-    Vector3 P_up = m_datum.geodetic_to_cartesian( geo_up );
+    P            = m_datum.geodetic_to_cartesian( geo_up );
     Vector3 P_dn = m_datum.geodetic_to_cartesian( geo_dn );
 
-    return normalize(P_dn - P_up);
+    dir = normalize(P_dn - P);
+  }
+
+  Vector3 RPCModel::pixel_to_vector(Vector2 const& pix ) const {
+
+    // Find the normalized vector between two points in space which
+    // project onto the same pixel in the camera.
+
+    Vector3 P;
+    Vector3 dir;
+    point_and_dir(pix, P, dir);
+    return dir;
   }
 
 }

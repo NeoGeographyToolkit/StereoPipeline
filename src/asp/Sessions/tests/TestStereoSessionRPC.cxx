@@ -58,7 +58,7 @@ TEST( StereoSessionRPC, InstantiateTest ) {
   
   // Verify that nothing segfaults or has a run time error.
   EXPECT_NO_THROW( model.calculate_terms( location ) );
-  EXPECT_NO_THROW( model.terms_Jacobian( location ) );
+  EXPECT_NO_THROW( model.terms_Jacobian3( location ) );
   EXPECT_NO_THROW( model.normalization_Jacobian( location ) );
   EXPECT_NO_THROW( model.geodetic_to_pixel_Jacobian( location ) );
   EXPECT_NO_THROW( model.geodetic_to_pixel( location ) );

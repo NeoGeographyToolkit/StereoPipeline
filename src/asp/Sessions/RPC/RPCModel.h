@@ -41,7 +41,8 @@ namespace asp {
     vw::Vector2 m_xy_scale;
     vw::Vector3 m_lonlatheight_offset;
     vw::Vector3 m_lonlatheight_scale;
-
+    mutable vw::Vector2 m_lonlat_guess_up, m_lonlat_guess_dn;
+    
     void initialize( vw::DiskImageResourceGDAL* resource );
   public:
     RPCModel( std::string const& filename );
@@ -67,7 +68,9 @@ namespace asp {
       vw::vw_throw( vw::NoImplErr() << "RPCModel: Camera center not implemented" );
       return vw::Vector3();
     }
-    vw::Vector2 geodetic_to_pixel( vw::Vector3 const& point ) const;
+
+    vw::Vector2 normalized_geodetic_to_normalized_pixel( vw::Vector3 const& normalized_geodetic ) const;
+    vw::Vector2 geodetic_to_pixel( vw::Vector3 const& geodetic ) const;
 
     // Access to constants
     typedef vw::Vector<double,20> CoeffVec;
@@ -82,15 +85,20 @@ namespace asp {
     vw::Vector3 const& lonlatheight_scale() const  { return m_lonlatheight_scale; }
 
     // Helper methods used for triangulation and projection
-    static CoeffVec calculate_terms( vw::Vector3 const& v );
-    static vw::Matrix<double, 20, 3> terms_Jacobian( vw::Vector3 const& v );
+    static CoeffVec calculate_terms( vw::Vector3 const& normalized_geodetic );
+    static vw::Matrix<double, 20, 2> terms_Jacobian2( vw::Vector3 const& normalized_geodetic );
+    static vw::Matrix<double, 20, 3> terms_Jacobian3( vw::Vector3 const& normalized_geodetic );
     static CoeffVec quotient_Jacobian( CoeffVec const& c, CoeffVec const& d,
                                        CoeffVec const& u );
     static vw::Matrix3x3 normalization_Jacobian(vw::Vector3 const& q);
 
-    vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian          (vw::Vector3 const& geodetic ) const;
+    vw::Matrix<double, 2, 3> geodetic_to_pixel_Jacobian (vw::Vector3 const& geodetic ) const;
     vw::Matrix<double, 2, 3> geodetic_to_pixel_numerical_Jacobian(vw::Vector3 const& geodetic, double tol) const;
-    vw::Vector2 image_to_ground(vw::Vector2 const& observation, double height) const;
+    vw::Matrix<double, 2, 2> normalized_geodetic_to_pixel_Jacobian(vw::Vector3 const& normalized_geodetic ) const;
+    vw::Vector2 image_to_ground(vw::Vector2 const& pixel, double height,
+                                vw::Vector2 lonlat_guess = vw::Vector2(0.0, 0.0)) const;
+    
+    void point_and_dir(vw::Vector2 const& pix, vw::Vector3 & P, vw::Vector3 & dir ) const;
     
   };
 
