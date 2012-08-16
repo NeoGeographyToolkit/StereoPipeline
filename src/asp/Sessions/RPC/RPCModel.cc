@@ -329,7 +329,7 @@ namespace asp {
                                           );
     double len = norm_2(normalized_lonlat);
     if (len != len || len > 1.5){
-      // If the input guess is NaN or unreasonable, use 0 as initial guess.
+      // If the input guess is NaN or unreasonable, use 0 as initial guess
       normalized_lonlat = Vector2(0.0, 0.0);
     }
     
