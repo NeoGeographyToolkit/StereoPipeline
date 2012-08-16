@@ -60,14 +60,12 @@ namespace asp {
     virtual std::string type() const { return "RPC"; }
     virtual ~RPCModel() {}
 
-    // Standard Access Methods (Most of these will fail because they
-    // don't apply well to RPC.)
+    // Standard Access Methods. The concept of camera_center does not
+    // apply well to RPC, we just return an arbitrary point on the
+    // ray.
     virtual vw::Vector2 point_to_pixel( vw::Vector3 const& point ) const;
-    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& /*pix*/ ) const;
-    virtual vw::Vector3 camera_center( vw::Vector2 const& /*pix*/ ) const {
-      vw::vw_throw( vw::NoImplErr() << "RPCModel: Camera center not implemented" );
-      return vw::Vector3();
-    }
+    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix ) const;
+    virtual vw::Vector3 camera_center( vw::Vector2 const& pix ) const;
 
     vw::Vector2 normalized_geodetic_to_normalized_pixel( vw::Vector3 const& normalized_geodetic ) const;
     vw::Vector2 geodetic_to_pixel( vw::Vector3 const& geodetic ) const;

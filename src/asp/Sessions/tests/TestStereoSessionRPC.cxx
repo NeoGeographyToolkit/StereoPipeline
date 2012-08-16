@@ -54,7 +54,7 @@ TEST( StereoSessionRPC, InstantiateTest ) {
   double h = 10.0; 
   Vector2 lonlat  = model.image_to_ground(pix, h);
   Vector2 pix_out = model.geodetic_to_pixel(Vector3(lonlat[0], lonlat[1], h));
-  EXPECT_LT( norm_2(pix - pix_out), 1e-9 );
+  EXPECT_LT( norm_2(pix - pix_out), 1.0e-9 );
   
   // Verify that nothing segfaults or has a run time error.
   EXPECT_NO_THROW( model.calculate_terms( location ) );
@@ -63,7 +63,7 @@ TEST( StereoSessionRPC, InstantiateTest ) {
   EXPECT_NO_THROW( model.geodetic_to_pixel_Jacobian( location ) );
   EXPECT_NO_THROW( model.geodetic_to_pixel( location ) );
   EXPECT_NO_THROW( model.pixel_to_vector( Vector2() ) );
-  EXPECT_THROW( model.camera_center( Vector2() ), vw::NoImplErr );
+  EXPECT_NO_THROW( model.camera_center( Vector2() ) );
 
   XMLPlatformUtils::Terminate();
 }

@@ -399,11 +399,18 @@ namespace asp {
     dir = normalize(P_dn - P);
   }
 
+  Vector3 RPCModel::camera_center(Vector2 const& pix ) const{
+    // Return an arbitrarily chosen point on the ray back-projected
+    // through the camera from the current pixel.
+    Vector3 P;
+    Vector3 dir;
+    point_and_dir(pix, P, dir);
+    return P;
+  }
+  
   Vector3 RPCModel::pixel_to_vector(Vector2 const& pix ) const {
-
-    // Find the normalized vector between two points in space which
-    // project onto the same pixel in the camera.
-
+    // Find the normalized direction of the ray back-projected through
+    // the camera from the current pixel.
     Vector3 P;
     Vector3 dir;
     point_and_dir(pix, P, dir);
