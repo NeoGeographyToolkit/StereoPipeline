@@ -221,6 +221,18 @@ namespace asp {
       att.quat_vec[i] = att.quat_vec[i] * geo.camera_attitude * sensor_coordinate;
     }
 
+    // Load up the time interpolation class. If the TLCList only has
+    // one entry ... then we have to manually drop in the slope and
+    // offset.
+    if ( img.tlc_vec.size() == 1 ) {
+      double direction = 1;
+      if ( boost::to_lower_copy( img.scan_direction ) !=
+           "forward" ) {
+        direction = -1;
+      }
+      img.tlc_vec.push_back( std::make_pair(img.avg_line_rate, direction) );
+    }
+
     typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
     typedef boost::shared_ptr<camera::CameraModel> result_type;
 

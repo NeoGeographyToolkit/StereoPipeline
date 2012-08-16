@@ -29,10 +29,14 @@ using namespace xercesc;
 namespace fs=boost::filesystem;
 
 void asp::ImageXML::parse_meta( xercesc::DOMElement* node ) {
+  cast_xmlch( get_node<DOMElement>( node, "SCANDIRECTION" )->getTextContent(),
+              scan_direction );
   cast_xmlch( get_node<DOMElement>( node, "TLCTIME" )->getTextContent(),
               tlc_start_time );
   cast_xmlch( get_node<DOMElement>( node, "FIRSTLINETIME" )->getTextContent(),
               first_line_start_time );
+  cast_xmlch( get_node<DOMElement>( node, "AVGLINERATE" )->getTextContent(),
+              avg_line_rate );
   size_t num_tlc;
   cast_xmlch( get_node<DOMElement>( node, "NUMTLC" )->getTextContent(),
               num_tlc );

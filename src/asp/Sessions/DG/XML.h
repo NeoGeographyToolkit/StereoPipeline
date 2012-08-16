@@ -49,6 +49,8 @@ namespace asp {
     std::string tlc_start_time;
     std::string first_line_start_time;
     std::vector<std::pair<double,double> > tlc_vec; // Line -> time offset pairings
+    std::string scan_direction;
+    double avg_line_rate;
     vw::Vector2i image_size;
   };
 
