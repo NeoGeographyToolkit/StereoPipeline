@@ -209,16 +209,14 @@ public:
     typedef typename UnmaskedPixelType<DPixelT>::type accum_t;
     PixelAccumulator<EWMinMaxAccumulator<accum_t> > accumulator;
     for_each_pixel( disparity_preraster.child(), accumulator );
-    if ( !accumulator.is_valid() )
-      return prerasterize_type( disparity_preraster,
-                                m_lut_image1.prerasterize(bbox),
-                                m_lut_image2_org.prerasterize(BBox2i(0,0,0,0)),
-                                m_stereo_model );
-    accum_t input_min = accumulator.minimum();
-    accum_t input_max = accumulator.maximum();
-    BBox2i preraster(bbox.min() + floor(Vector2f(input_min[0],input_min[1])),
-                     bbox.max() + ceil(Vector2(input_max[0],input_max[1])) );
-
+    BBox2i preraster(0,0,0,0);
+    if ( accumulator.is_valid() ){
+      accum_t input_min = accumulator.minimum();
+      accum_t input_max = accumulator.maximum();
+      preraster = BBox2i(bbox.min() + floor(Vector2f(input_min[0],input_min[1])),
+                         bbox.max() + ceil(Vector2(input_max[0],input_max[1])) );
+    }
+    
     return prerasterize_type( disparity_preraster,
                               m_lut_image1.prerasterize(bbox),
                               m_lut_image2_org.prerasterize(preraster),
