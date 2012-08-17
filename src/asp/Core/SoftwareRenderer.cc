@@ -322,6 +322,9 @@ DrawFlatGraySpan(GraphicsState *gc)
     length -= x + length - gc->clipX1;
   }
 
+  // Check to see if we just removed this line
+  if ( length < 1 ) return;
+
   std::fill_n(&(gc->buffer[gc->rasterInfo.frag.y * gc->width + x]),
               length, float(gc->rasterInfo.frag.color.r));
 }
@@ -345,6 +348,9 @@ DrawGraySpan(GraphicsState *gc)
                                    // the right
     length -= x + length - gc->clipX1;
   }
+
+  // Check to see if we just removed this line
+  if ( length < 1 ) return;
 
   float *span =
     &(gc->buffer[gc->rasterInfo.frag.y * gc->width + x ] );
