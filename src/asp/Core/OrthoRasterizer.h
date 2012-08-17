@@ -171,35 +171,19 @@ namespace cartography {
     typedef CropView<ImageView<pixel_type> > prerasterize_type;
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
 
-      // Buffer the bounding box slightly so that we render a few
-      // extra triangles that would have fallen off the border
-      // otherwise.
-      //
-      // This is a quality option, if this buffer is not large enough
-      // we might not rasterize faces which are large, due to slope
-      // from the camera perspective. Realize this data is still
-      // gridded in the camera perspective.
-      BBox2i buffered_bbox = bbox;
-      buffered_bbox = bbox;
-      buffered_bbox.expand(3.0* (1.0/m_spacing) * (1.0/m_point_spacing));
-
-      // Calculate the pixel bounding boxes' location in the point domain.
-      //
-      // Used to find which point cloud sets should be loaded up.
-      BBox3 buf_local_3d_bbox = pixel_to_point_bbox(buffered_bbox);
       // Used to find which polygons are actually in the draw space.
-      BBox2i bbox_1 = bbox; bbox_1.expand(1);
+      BBox2i bbox_1 = bbox;
+      bbox_1.expand(1);
       BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox_1);
 
-      ImageView<float> render_buffer(buffered_bbox.width(), buffered_bbox.height());
-      float *render_buffer_ptr = &(render_buffer(0,0));
+      ImageView<float> render_buffer(bbox_1.width(), bbox_1.height());
 
       // Setup a software renderer and the orthographic view matrix
-      vw::stereo::SoftwareRenderer renderer(buffered_bbox.width(),
-                                            buffered_bbox.height(),
-                                            render_buffer_ptr);
-      renderer.Ortho2D(buf_local_3d_bbox.min().x(), buf_local_3d_bbox.max().x(),
-                       buf_local_3d_bbox.min().y(), buf_local_3d_bbox.max().y());
+      vw::stereo::SoftwareRenderer renderer(bbox_1.width(),
+                                            bbox_1.height(),
+                                            &render_buffer(0,0) );
+      renderer.Ortho2D(local_3d_bbox.min().x(), local_3d_bbox.max().x(),
+                       local_3d_bbox.min().y(), local_3d_bbox.max().y());
 
       // Set up the default color value
       if (m_use_alpha) {
@@ -219,7 +203,7 @@ namespace cartography {
 
       BOOST_FOREACH( BBoxPair const& boundary,
                      m_point_image_boundaries ) {
-        if ( buf_local_3d_bbox.intersects( boundary.first ) ) {
+        if ( local_3d_bbox.intersects( boundary.first ) ) {
           // Pull a copy of the input image
           ImageView<Vector3> point_copy =
             crop(m_point_image, boundary.second );
@@ -292,9 +276,9 @@ namespace cartography {
       // good pixel data is placed into the coordinates specified by
       // the bbox.  This allows rasterize to touch those pixels
       // using the coordinates inside the bbox.  The pixels outside
-      // those coordinates are invalid, but they never get accessed.
-      return CropView<ImageView<pixel_type> > (result, BBox2i(-buffered_bbox.min().x(),
-                                                              -buffered_bbox.min().y(),
+      // those coordinates are invalid, but they never get accessed
+      return CropView<ImageView<pixel_type> > (result, BBox2i(-bbox_1.min().x(),
+                                                              -bbox_1.min().y(),
                                                               cols(), rows()));
     }
     template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {

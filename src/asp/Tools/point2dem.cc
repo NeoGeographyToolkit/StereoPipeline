@@ -450,6 +450,7 @@ int main( int argc, char *argv[] ) {
 
     ImageViewRef<PixelGray<float> > rasterizer_fsaa =
       generate_fsaa_raster( rasterizer, opt );
+    vw_out()<< "Creating output file that is " << bounding_box(rasterizer_fsaa).size() << " px.\n";
 
     if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
       if ( opt.output_file_type == "tif" ) {
