@@ -129,6 +129,32 @@ int main( int argc, char* argv[] ) {
                    opt.target_resolution ) :
       camera_bbox( target_georef, camera_model,
                    image_size.x(), image_size.y() );
+
+    // Load up RPC - and then add its bounds to the point_bounds. We
+    // don't just use the RPC boundary, in the event of pole
+    // crossing. (camera bbox does this nice 'X' shaped test that is
+    // good for working on how much latitude we can draw in the even
+    // they're using a equirectangular projection.).
+    asp::RPCXML xml;
+    xml.read_from_file( opt.camera_model_file );
+    {
+      asp::RPCModel* ptr = xml.rpc_ptr();
+      point_bounds.grow(
+        target_georef.lonlat_to_point( subvector(ptr->lonlatheight_offset() +
+                                                 ptr->lonlatheight_scale(), 0, 2) ) );
+      point_bounds.grow(
+        target_georef.lonlat_to_point( subvector(ptr->lonlatheight_offset() -
+                                                 ptr->lonlatheight_scale(), 0, 2) ) );
+      point_bounds.grow(
+        target_georef.lonlat_to_point( subvector(ptr->lonlatheight_offset() +
+                                                 elem_prod( Vector3(1,-1,1),
+                                                            ptr->lonlatheight_scale() ), 0, 2) ) );
+      point_bounds.grow(
+        target_georef.lonlat_to_point( subvector(ptr->lonlatheight_offset() +
+                                                 elem_prod( Vector3(-1,1,1),
+                                                            ptr->lonlatheight_scale() ), 0, 2) ) );
+    }
+
     if ( opt.target_projwin != BBox2() ) {
       point_bounds = opt.target_projwin;
       if ( point_bounds.min().y() > point_bounds.max().y() )
@@ -157,10 +183,6 @@ int main( int argc, char* argv[] ) {
     BBox2i target_image_size =
       target_georef.point_to_pixel_bbox( point_bounds );
     vw_out() << "Creating output file that is " << target_image_size.size() << " px.\n";
-
-    // Load RPC
-    asp::RPCXML xml;
-    xml.read_from_file( opt.camera_model_file );
 
     boost::shared_ptr<DiskImageResource>
       src_rsrc( DiskImageResource::open( opt.image_file ) );
