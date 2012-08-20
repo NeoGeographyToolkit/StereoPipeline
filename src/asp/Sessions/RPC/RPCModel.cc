@@ -91,10 +91,32 @@ namespace asp {
     return geodetic_to_pixel( m_datum.cartesian_to_geodetic( point ) );
   }
 
+  Vector2 RPCModel::geodetic_to_pixel( Vector3 const& geodetic ) const {
+
+    Vector3 normalized_geodetic =
+      elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
+
+    Vector2 normalized_pixel = normalized_geodetic_to_normalized_pixel( normalized_geodetic );
+    
+    return elem_prod( normalized_pixel, m_xy_scale ) + m_xy_offset;
+  }
+
+  Vector2 RPCModel::normalized_geodetic_to_normalized_pixel( Vector3 const& normalized_geodetic ) const {
+
+    CoeffVec term = calculate_terms( normalized_geodetic );
+    
+    Vector2 normalized_pixel( dot_prod(term,m_sample_num_coeff) /
+                              dot_prod(term,m_sample_den_coeff),
+                              dot_prod(term,m_line_num_coeff) /
+                              dot_prod(term,m_line_den_coeff) );
+    
+    return normalized_pixel;
+  }
+
   vw::Vector<double,20> RPCModel::calculate_terms( vw::Vector3 const& normalized_geodetic ) {
-    double x = normalized_geodetic.x();
-    double y = normalized_geodetic.y();
-    double z = normalized_geodetic.z();
+    double x = normalized_geodetic.x(); // normalized lon
+    double y = normalized_geodetic.y(); // normalized lat
+    double z = normalized_geodetic.z(); // normalized height
     CoeffVec result;
     result[ 0] = 1.0;
     result[ 1] = x;
@@ -137,19 +159,19 @@ namespace asp {
     M[ 4][0] = y;       M[ 4][1] = x;       // xy
     M[ 5][0] = z;       M[ 5][1] = 0.0;     // xz
     M[ 6][0] = 0.0;     M[ 6][1] = z;       // yz
-    M[ 7][0] = 2.0*x;   M[ 7][1] = 0.0;     // xx;
-    M[ 8][0] = 0.0;     M[ 8][1] = 2.0*y;   // yy;
-    M[ 9][0] = 0.0;     M[ 9][1] = 0.0;     // zz;
-    M[10][0] = y*z;     M[10][1] = x*z;     // xyz;
-    M[11][0] = 3.0*x*x; M[11][1] = 0.0;     // xxx;
-    M[12][0] = y*y;     M[12][1] = 2.0*x*y; // xyy;
-    M[13][0] = z*z;     M[13][1] = 0.0;     // xzz;
-    M[14][0] = 2.0*x*y; M[14][1] = x*x;     // xxy;
-    M[15][0] = 0.0;     M[15][1] = 3.0*y*y; // yyy;
-    M[16][0] = 0.0;     M[16][1] = z*z;     // yzz;
-    M[17][0] = 2.0*x*z; M[17][1] = 0.0;     // xxz;
-    M[18][0] = 0.0;     M[18][1] = 2.0*y*z; // yyz;
-    M[19][0] = 0.0;     M[19][1] = 0.0;     // zzz;
+    M[ 7][0] = 2.0*x;   M[ 7][1] = 0.0;     // xx
+    M[ 8][0] = 0.0;     M[ 8][1] = 2.0*y;   // yy
+    M[ 9][0] = 0.0;     M[ 9][1] = 0.0;     // zz
+    M[10][0] = y*z;     M[10][1] = x*z;     // xyz
+    M[11][0] = 3.0*x*x; M[11][1] = 0.0;     // xxx
+    M[12][0] = y*y;     M[12][1] = 2.0*x*y; // xyy
+    M[13][0] = z*z;     M[13][1] = 0.0;     // xzz
+    M[14][0] = 2.0*x*y; M[14][1] = x*x;     // xxy
+    M[15][0] = 0.0;     M[15][1] = 3.0*y*y; // yyy
+    M[16][0] = 0.0;     M[16][1] = z*z;     // yzz
+    M[17][0] = 2.0*x*z; M[17][1] = 0.0;     // xxz
+    M[18][0] = 0.0;     M[18][1] = 2.0*y*z; // yyz
+    M[19][0] = 0.0;     M[19][1] = 0.0;     // zzz
 
     return M;
   }
@@ -172,19 +194,19 @@ namespace asp {
     M[ 4][0] = y;       M[ 4][1] = x;       M[ 4][2] = 0.0;     // xy
     M[ 5][0] = z;       M[ 5][1] = 0.0;     M[ 5][2] = x;       // xz
     M[ 6][0] = 0.0;     M[ 6][1] = z;       M[ 6][2] = y;       // yz
-    M[ 7][0] = 2.0*x;   M[ 7][1] = 0.0;     M[ 7][2] = 0.0;     // xx;
-    M[ 8][0] = 0.0;     M[ 8][1] = 2.0*y;   M[ 8][2] = 0.0;     // yy;
-    M[ 9][0] = 0.0;     M[ 9][1] = 0.0;     M[ 9][2] = 2.0*z;   // zz;
-    M[10][0] = y*z;     M[10][1] = x*z;     M[10][2] = x*y;     // xyz;
-    M[11][0] = 3.0*x*x; M[11][1] = 0.0;     M[11][2] = 0.0;     // xxx;
-    M[12][0] = y*y;     M[12][1] = 2.0*x*y; M[12][2] = 0.0;     // xyy;
-    M[13][0] = z*z;     M[13][1] = 0.0;     M[13][2] = 2.0*x*z; // xzz;
-    M[14][0] = 2.0*x*y; M[14][1] = x*x;     M[14][2] = 0.0;     // xxy;
-    M[15][0] = 0.0;     M[15][1] = 3.0*y*y; M[15][2] = 0.0;     // yyy;
-    M[16][0] = 0.0;     M[16][1] = z*z;     M[16][2] = 2.0*y*z; // yzz;
-    M[17][0] = 2.0*x*z; M[17][1] = 0.0;     M[17][2] = x*x;     // xxz;
-    M[18][0] = 0.0;     M[18][1] = 2.0*y*z; M[18][2] = y*y;     // yyz;
-    M[19][0] = 0.0;     M[19][1] = 0.0;     M[19][2] = 3.0*z*z; // zzz;
+    M[ 7][0] = 2.0*x;   M[ 7][1] = 0.0;     M[ 7][2] = 0.0;     // xx
+    M[ 8][0] = 0.0;     M[ 8][1] = 2.0*y;   M[ 8][2] = 0.0;     // yy
+    M[ 9][0] = 0.0;     M[ 9][1] = 0.0;     M[ 9][2] = 2.0*z;   // zz
+    M[10][0] = y*z;     M[10][1] = x*z;     M[10][2] = x*y;     // xyz
+    M[11][0] = 3.0*x*x; M[11][1] = 0.0;     M[11][2] = 0.0;     // xxx
+    M[12][0] = y*y;     M[12][1] = 2.0*x*y; M[12][2] = 0.0;     // xyy
+    M[13][0] = z*z;     M[13][1] = 0.0;     M[13][2] = 2.0*x*z; // xzz
+    M[14][0] = 2.0*x*y; M[14][1] = x*x;     M[14][2] = 0.0;     // xxy
+    M[15][0] = 0.0;     M[15][1] = 3.0*y*y; M[15][2] = 0.0;     // yyy
+    M[16][0] = 0.0;     M[16][1] = z*z;     M[16][2] = 2.0*y*z; // yzz
+    M[17][0] = 2.0*x*z; M[17][1] = 0.0;     M[17][2] = x*x;     // xxz
+    M[18][0] = 0.0;     M[18][1] = 2.0*y*z; M[18][2] = y*y;     // yyz
+    M[19][0] = 0.0;     M[19][1] = 0.0;     M[19][2] = 3.0*z*z; // zzz
 
     return M;
   }
@@ -195,7 +217,7 @@ namespace asp {
                                RPCModel::CoeffVec const& u ) {
 
     // Return the Jacobian of dot_prod(c, u) / dot_prod(d, u)
-    // as a matrix with 1 row and 20 columns.
+    // as a vector with 20 elements.
 
     double cu  = dot_prod(c, u);
     double du  = dot_prod(d, u);
@@ -214,28 +236,6 @@ namespace asp {
     M[1][0] = 0.0;      M[1][1] = 1.0/q[1]; M[1][2] = 0.0;
     M[2][0] = 0.0;      M[2][1] = 0.0;      M[2][2] = 1.0/q[2];
     return M;
-  }
-
-  Vector2 RPCModel::normalized_geodetic_to_normalized_pixel( Vector3 const& normalized_geodetic ) const {
-
-    CoeffVec term = calculate_terms( normalized_geodetic );
-    
-    Vector2 normalized_pixel( dot_prod(term,m_sample_num_coeff) /
-                              dot_prod(term,m_sample_den_coeff),
-                              dot_prod(term,m_line_num_coeff) /
-                              dot_prod(term,m_line_den_coeff) );
-    
-    return normalized_pixel;
-  }
-
-  Vector2 RPCModel::geodetic_to_pixel( Vector3 const& geodetic ) const {
-
-    Vector3 normalized_geodetic =
-      elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
-
-    Vector2 normalized_pixel = normalized_geodetic_to_normalized_pixel( normalized_geodetic );
-
-    return elem_prod( normalized_pixel, m_xy_scale ) + m_xy_offset;
   }
 
   Matrix<double, 2, 3> RPCModel::geodetic_to_pixel_Jacobian( Vector3 const& geodetic ) const {
@@ -295,11 +295,11 @@ namespace asp {
 
     Matrix<double, 2, 3> J;
 
-    Vector2 B  = RPCModel::geodetic_to_pixel(geodetic);
+    Vector2 B  = geodetic_to_pixel(geodetic);
     
-    Vector2 B0 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(tol, 0,   0  )) - B)/tol;
-    Vector2 B1 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(0,   tol, 0  )) - B)/tol;
-    Vector2 B2 = (RPCModel::geodetic_to_pixel(geodetic + Vector3(0,   0,   tol)) - B)/tol;
+    Vector2 B0 = (geodetic_to_pixel(geodetic + Vector3(tol, 0,   0  )) - B)/tol;
+    Vector2 B1 = (geodetic_to_pixel(geodetic + Vector3(0,   tol, 0  )) - B)/tol;
+    Vector2 B2 = (geodetic_to_pixel(geodetic + Vector3(0,   0,   tol)) - B)/tol;
 
     select_col(J, 0) = B0;
     select_col(J, 1) = B1;
