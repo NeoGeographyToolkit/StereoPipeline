@@ -86,8 +86,11 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
     asp::block_write_gdal_image( opt.out_prefix + "-GoodPixelMap.tif",
                                  subsample(
                                    apply_mask(
-                                     copy_mask(stereo::missing_pixel_image(inputview.impl()),
-                                               create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"),
+                                     copy_mask(
+                                       copy_mask(stereo::missing_pixel_image(inputview.impl()),
+                                                 create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"),
+                                                             0)),
+                                               create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-rMask.tif"),
                                                            0))),
                                    sub_scale < 1 ? 1 : sub_scale ),
                                  opt, TerminalProgressCallback("asp", "\t--> Good Pxl Map: ") );
