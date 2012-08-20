@@ -323,7 +323,9 @@ AX_PKG(AMD, [], [-lamd], [], [], [], [], [UFCONFIG])
 AX_PKG(COLAMD, [], [-lcolamd], [], [], [], [], [UFCONFIG])
 AX_PKG(CHOLMOD, [AMD COLAMD LAPACK], [-lcholmod])
 AX_PKG(Z, [], [-lz])
-AX_PKG(TIFF, [Z], [-ltiff])
+AX_PKG_ONE_OF(TIFF,
+    STANDALONE_TIFF, [AX_PKG(STANDALONE_TIFF, [Z], [-ltiff])],
+    TIFF_NEEDS_JPEG, [AX_PKG(TIFF_NEEDS_JPEG, [Z], [-ljpeg -ltiff])])
 
 AX_PKG_ONE_OF(SUPERLU,
     SUPERLU_STATIC, [AX_PKG(SUPERLU_STATIC, [LAPACK], [-lyou_should_override_me])],
