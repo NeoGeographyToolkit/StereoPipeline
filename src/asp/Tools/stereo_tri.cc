@@ -26,6 +26,7 @@
 #include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
+#include <time.h>
 
 using namespace vw;
 using namespace asp;
@@ -146,9 +147,19 @@ class StereoLUTAndErrorView : public ImageViewBase<StereoLUTAndErrorView<Dispari
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
   StereoModelHelper( size_t i, size_t j, T const& disparity, double& error ) const {
-    return m_stereo_model( m_lut_image1(i,j),
-                           m_lut_image2( float(i) + disparity[0],
-                                         float(j) + disparity[1] ), error );
+    
+    float i2 = float(i) + disparity[0];
+    float j2 = float(j) + disparity[1];
+    if ( i2 < 0 || i2 > m_lut_image2.rows()-1 ||
+         j2 < 0 || j2 > m_lut_image2.cols()-1 ){
+      return Vector3(); // out of bounds
+    }
+    
+    // Avoid returning NaN
+    Vector2 lut_image2_pix = m_lut_image2(i2, j2);
+    if (lut_image2_pix != lut_image2_pix) return Vector3();
+    
+    return m_stereo_model( m_lut_image1(i,j), lut_image2_pix, error );
   }
 
 public:
