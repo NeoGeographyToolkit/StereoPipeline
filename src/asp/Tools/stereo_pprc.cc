@@ -22,6 +22,7 @@
 
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
+#include <vw/Cartography/GeoTransform.h>
 
 using namespace vw;
 using namespace asp;
@@ -84,13 +85,13 @@ void stereo_preprocessing( Options& opt ) {
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : Stage 0 --> PREPROCESSING \n";
 
-  std::string pre_preprocess_file1, pre_preprocess_file2;
+  std::string pre_preproc_file_left, pre_preproc_file_right;
   opt.session->pre_preprocessing_hook(opt.in_file1, opt.in_file2,
-                                      pre_preprocess_file1,
-                                      pre_preprocess_file2);
+                                      pre_preproc_file_left,
+                                      pre_preproc_file_right);
 
-  DiskImageView<PixelGray<float> > left_image(pre_preprocess_file1),
-    right_image(pre_preprocess_file2);
+  DiskImageView<PixelGray<float> > left_image(pre_preproc_file_left),
+    right_image(pre_preproc_file_right);
 
   bool rebuild = false;
   try {
@@ -109,18 +110,60 @@ void stereo_preprocessing( Options& opt ) {
   if (rebuild) {
     vw_out() << "\t--> Generating image masks... \n";
 
-    asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
-                                 apply_mask(copy_mask(constant_view(uint8(255),left_image.cols(),
-                                                                    left_image.rows() ),
-                                                      asp::threaded_edge_mask(left_image,0,0,1024))),
-                                 opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
-    asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
-                                 apply_mask(copy_mask(constant_view(uint8(255),right_image.cols(),
-                                                                    right_image.rows() ),
-                                                      asp::threaded_edge_mask(right_image,0,0,1024))),
-                                 opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
-  }
+    cartography::GeoReference left_georef, right_georef;
+    ImageViewRef< PixelMask<uint8> > left_mask = copy_mask(constant_view(uint8(255),
+                                                                         left_image.cols(), left_image.rows()),
+                                                           asp::threaded_edge_mask(left_image,0,0,1024)
+                                                           );
+    ImageViewRef< PixelMask<uint8> > right_mask = copy_mask(constant_view(uint8(255),
+                                                                          right_image.cols(), right_image.rows() ),
+                                                            asp::threaded_edge_mask(right_image,0,0,1024));
+    
+      
+    bool has_left_georef  = read_georeference(left_georef,  opt.in_file1);
+    bool has_right_georef = read_georeference(right_georef, opt.in_file2);
+    if (has_left_georef && has_right_georef){
 
+      // Intersect the left mask with the warped version of the right mask, and vice-versa
+      // to reduce noise.
+      
+      ImageViewRef< PixelMask<uint8> > warped_left_mask = crop(vw::cartography::geo_transform
+                                                               (left_mask,
+                                                                left_georef,
+                                                                right_georef,
+                                                                ConstantEdgeExtension(),
+                                                                NearestPixelInterpolation()),
+                                                               bounding_box(right_mask)
+                                                               );
+      ImageViewRef< PixelMask<uint8> > warped_right_mask = crop(vw::cartography::geo_transform
+                                                                (right_mask,
+                                                                 right_georef,
+                                                                 left_georef,
+                                                                 ConstantEdgeExtension(),
+                                                                 NearestPixelInterpolation()),
+                                                                bounding_box(left_mask)
+                                                                );
+
+      asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
+                                   apply_mask(intersect_mask(left_mask, warped_right_mask)),
+                                   opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
+                                   apply_mask(intersect_mask(right_mask, warped_left_mask)),
+                                   opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
+      
+    }else{
+
+      asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
+                                   apply_mask(left_mask),
+                                   opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
+      asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
+                                   apply_mask(right_mask),
+                                   opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
+      
+    }
+    
+  }
+  
   try {
     // This confusing try catch is to see if the subsampled images
     // actually have content.
