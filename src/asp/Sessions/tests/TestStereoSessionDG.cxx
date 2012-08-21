@@ -134,6 +134,11 @@ TEST(StereoSessionDG, CreateCamera) {
                           1e-1 /*pixels*/);
     }
   }
+
+  // Create a camera that only has a single TLC entry. It will throw
+  // an error in the event that first line time and TLC entry lookup
+  // don't agree. That should be good enough for a test.
+  EXPECT_NO_THROW( boost::shared_ptr<camera::CameraModel> cam3( session.camera_model("", "dg_example3.xml") ) );
 }
 
 TEST(StereoSessionDG, ReadRPC) {

@@ -209,8 +209,16 @@ namespace asp {
            "forward" ) {
         direction = -1;
       }
-      img.tlc_vec.push_back( std::make_pair(img.avg_line_rate, direction) );
+      img.tlc_vec.push_back( std::make_pair(img.tlc_vec.front().first +
+                                            img.avg_line_rate, direction) );
     }
+
+    // Build the TLCTimeInterpolation object and do a quick sanity check.
+    camera::TLCTimeInterpolation tlc_time_interpolation( img.tlc_vec,
+                                                         convert( pt::time_from_string( img.tlc_start_time ) ) );
+    VW_ASSERT( fabs( convert( pt::time_from_string( img.first_line_start_time ) ) -
+                     tlc_time_interpolation( 0 ) ) < 1e-6,
+               MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
     typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
     typedef boost::shared_ptr<camera::CameraModel> result_type;
@@ -221,10 +229,9 @@ namespace asp {
                                          camera::SLERPPoseInterpolation( att.quat_vec,
                                                                          convert( pt::time_from_string( att.start_time ) ),
                                                                          att.time_interval ),
-                                         camera::TLCTimeInterpolation( img.tlc_vec,
-                                                                       convert( pt::time_from_string( img.tlc_start_time ) ) ),
-                                         img.image_size, subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
-                                                                                                             geo.detector_origin[1], 0 ) ), 0, 2 ),
+                                         tlc_time_interpolation, img.image_size,
+                                         subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
+                                                                                             geo.detector_origin[1], 0 ) ), 0, 2 ),
                                          geo.principal_distance ) );
   }
 
