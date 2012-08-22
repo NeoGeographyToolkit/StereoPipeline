@@ -199,7 +199,11 @@ def histitch( cub_files, threads, delete=False ):
             found = ''
             if( channel_files[i][0] ):  found = channel_files[i][0]
             else:                       found = channel_files[i][1]
-            print 'Found '+ found  +' but not the matching channel file. Skipping histitch.'
+            print 'Found '+ found  +' but not the matching channel file.'
+            cmd = 'histitch from1= '+ found +' to= '+ to_cub
+            add_job(cmd, threads)
+            to_del_cubs.append( found )
+            histitch_cubs.append( to_cub )
 
     wait_on_all_jobs()
     if( delete ):
@@ -219,7 +223,7 @@ def spice( cub_files, threads):
 
 def noproj( CCD_object, threads, delete=False ):
     noproj_CCDs = []
-    for i in range( CCD_object.min(), CCD_object.max()+1 ):
+    for i in CCD_object.keys():
         to_cub = CCD_object.prefix + str(i) + '.noproj.cub'
         if os.path.exists( to_cub ):
             print to_cub + ' exists, skipping noproj.'
@@ -244,8 +248,9 @@ def noproj( CCD_object, threads, delete=False ):
 
 # Check for failure for hijitreg.  Sometimes bombs?  Default to zeros.
 def hijitreg( noproj_CCDs, threads ):
-    for i in range( noproj_CCDs.min(), noproj_CCDs.max() ):
+    for i in noproj_CCDs.keys():
         j = i + 1;
+        if( j not in noproj_CCDs ): continue
         cmd = 'hijitreg from= '+ noproj_CCDs[i]         \
             +' match= '+ noproj_CCDs[j]                 \
             + ' flatfile= flat_'+str(i)+'_'+str(j)+'.txt'
@@ -254,8 +259,10 @@ def hijitreg( noproj_CCDs, threads ):
 
     averages = dict()
 
-    for i in range( noproj_CCDs.min(), noproj_CCDs.max() ):
-        flat_file = 'flat_'+str(i)+'_'+str(i+1)+'.txt'
+    for i in noproj_CCDs.keys():
+        j = i + 1;
+        if( j not in noproj_CCDs ): continue
+        flat_file = 'flat_'+str(i)+'_'+str(j)+'.txt'
         averages[i] = read_flatfile( flat_file )
         os.remove( flat_file )
 
@@ -267,6 +274,7 @@ def mosaic( noprojed_CCDs, averages ):
     sample_sum = 1;
     line_sum = 1;
     for i in range( noprojed_CCDs.match-1, noprojed_CCDs.min()-1, -1):
+        if( i not in noprojed_CCDs); continue
         sample_sum  += averages[i][0]
         line_sum    += averages[i][1]
         handmos( noprojed_CCDs[i], mosaic,
@@ -276,6 +284,7 @@ def mosaic( noprojed_CCDs, averages ):
     sample_sum = 1;
     line_sum = 1;
     for i in range( noprojed_CCDs.match+1, noprojed_CCDs.max()+1, 1):
+        if( i not in noprojed_CCDs); continue
         sample_sum  -= averages[i-1][0]
         line_sum    -= averages[i-1][1]
         handmos( noprojed_CCDs[i], mosaic,
