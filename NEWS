@@ -184,7 +184,7 @@ TOOLS
  - Made orthoproject more robust against odd input georeferences.
  - orthoproject's auto scale and crop works again.
  - Point2mesh's texture is written to a different file.
- - Added aligndem and geodiff; which are experimental DEM alignment utilities.
+ - Added aligndem and geodiff, experimental DEM alignment utilities.
  - Added a quick experimental DEM profile utility called dem_profile.
  - stereo now detects correlation settings automatically using OBALoG and
    SGrad1 interest point functions.
@@ -197,6 +197,7 @@ TOOLS
  - Point2dem now uses MOLA datum instead of its previous truncated value.
  - Added safety check to stereo to make sure user is not supplying the
    same camera.
+ - Added point2las, a utility for converting a point cloud to the LAS format.
 
 TESTS
  - Switched from CXXTests to GTest framework.
