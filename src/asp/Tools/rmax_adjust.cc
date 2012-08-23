@@ -60,14 +60,6 @@ sort_out_gcps( std::vector<std::string>& image_files ) {
   return gcp_files;
 }
 
-static std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
 class HelicopterBundleAdjustmentModel : public ba::ModelBase<HelicopterBundleAdjustmentModel, 6, 3> {
 
   typedef Vector<double,6> camera_vector_t;
@@ -360,7 +352,7 @@ void do_ba( Options& opt ) {
   reporter.end_tie_in();
 
   for (size_t i=0; i < ba_model.num_cameras(); ++i)
-    ba_model.write_adjustment(i, prefix_from_filename(opt.image_files[i])+".rmax_adjust");
+    ba_model.write_adjustment(i, asp::prefix_from_filename(opt.image_files[i])+".rmax_adjust");
 }
 
 int main(int argc, char* argv[]) {

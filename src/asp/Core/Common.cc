@@ -29,6 +29,15 @@
 using namespace vw;
 namespace po = boost::program_options;
 
+// Remove file name extension
+std::string asp::prefix_from_filename(std::string const& filename) {
+  std::string result = filename;
+  int index = result.rfind(".");
+  if (index != -1)
+    result.erase(index, result.size());
+  return result;
+}
+
 // Print time function
 std::string asp::current_posix_time_string() {
   return boost::posix_time::to_simple_string(boost::posix_time::second_clock::local_time());

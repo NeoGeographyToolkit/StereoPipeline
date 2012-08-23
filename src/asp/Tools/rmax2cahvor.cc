@@ -41,14 +41,6 @@ using namespace vw::camera;
 
 #include <asp/Sessions/RMAX/RMAX.h>
 
-static std::string prefix_from_filename(std::string const& filename) {
-  std::string result = filename;
-  int index = result.rfind(".");
-  if (index != -1)
-    result.erase(index, result.size());
-  return result;
-}
-
 int main(int argc, char* argv[]) {
   std::string image_file;
   std::string adjustment_filename;
@@ -99,7 +91,7 @@ int main(int argc, char* argv[]) {
     f >> pose_adjustment[0] >> pose_adjustment[1] >> pose_adjustment[2];
     std::cout << position_adjustment << "   " << pose_adjustment<< "\n";
     CAHVORModel cahvor = rmax_image_camera_model(info, position_adjustment, pose_adjustment);
-    output = prefix_from_filename(image_file) + ".rmax_adjust.cahvor";
+    output = asp::prefix_from_filename(image_file) + ".rmax_adjust.cahvor";
     cahvor.write(output);
   } else {
     CAHVORModel cahvor = rmax_image_camera_model(argv[1]);

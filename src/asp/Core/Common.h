@@ -32,6 +32,9 @@
 
 namespace asp {
 
+  // Remove file name extension
+  std::string prefix_from_filename(std::string const& filename);
+
   // Print time function
   std::string current_posix_time_string();
 
