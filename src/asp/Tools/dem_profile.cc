@@ -52,7 +52,7 @@ int main ( int argc, char *argv[] ) {
     //("ll-end", po::value<std::string>(&end_ll), "End a profile at this Lon Lat location")
     ("px-start", po::value<std::string>(&start_px)->composing(), "Start a profile at this pixel location")
     ("px-end", po::value<std::string>(&end_px), "End a profile at this pixel location")
-    ("help,h", "Display this help message");
+    ("help,h", "Display this help message.");
 
   po::options_description hidden_options("");
   hidden_options.add_options()

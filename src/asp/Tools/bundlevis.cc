@@ -795,17 +795,17 @@ int main(int argc, char* argv[]){
   //Boost program options code
   po::options_description general_options("Your most awesome Options");
   general_options.add_options()
-    ("camera-iteration-file,c",po::value<std::string>(&camera_iter_file),"Load the camera parameters for each iteration from a file")
-    ("points-iteration-file,p",po::value<std::string>(&points_iter_file),"Load the 3d points parameters for each iteration from a file")
-    ("pixel-iteration-file,x",po::value<std::string>(&pixel_iter_file),"Loads the pixel information data. Allowing for an illustration of the pixel data over time")
-    ("control-network-file,n",po::value<std::string>(&control_net_file),"Loads the control network for point and camera relationship status. Camera and Point Iteration data is need before a control network file can be used.")
+    ("camera-iteration-file,c",po::value<std::string>(&camera_iter_file),"Load the camera parameters for each iteration from a file.")
+    ("points-iteration-file,p",po::value<std::string>(&points_iter_file),"Load the 3d points parameters for each iteration from a file.")
+    ("pixel-iteration-file,x",po::value<std::string>(&pixel_iter_file),"Load the pixel information data. Allowing for an illustration of the pixel data over time.")
+    ("control-network-file,n",po::value<std::string>(&control_net_file),"Load the control network for point and camera relationship status. Camera and Point Iteration data is needed before a control network file can be used.")
     ("additional-pnt-files",po::value< std::vector<std::string> >(&additional_pnt_files),"For additional iterPoint files that can be plotted simultaneously.")
-    ("fullscreen","Sets the Bundlevis to render with the entire screen, doesn't work so hot with dual screens.")
-    ("stereo","This sets bundlevis to display in anagylph mode")
-    ("show-moon","This will add a transparent Moon to the display")
-    ("show-mars","This will add a transparent Mars to the display")
-    ("show-earth","This will add a transparent Earth to the display")
-    ("help,h","Display this help message");
+    ("fullscreen","Set bundlevis to render with the entire screen, does not work so well with dual screens.")
+    ("stereo","Set bundlevis to display in anagylph mode.")
+    ("show-moon","Add a transparent Moon to the display.")
+    ("show-mars","Add a transparent Mars to the display.")
+    ("show-earth","Add a transparent Earth to the display.")
+    ("help,h","Display this help message.");
 
   std::ostringstream usage;
   usage << "Usage: " << argv[0] << "[options] <filename> ... " << std::endl << std::endl;

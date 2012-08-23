@@ -59,7 +59,7 @@ int main ( int argc, char* argv[] ) {
   // Main starts here
   po::options_description general_options("Options");
   general_options.add_options()
-    ("help,h", "Display this help message");
+    ("help,h", "Display this help message.");
 
   po::options_description hidden_options("");
   hidden_options.add_options()

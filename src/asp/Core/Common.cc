@@ -66,7 +66,7 @@ asp::BaseOptionsDescription::BaseOptionsDescription( asp::BaseOptions& opt ) {
     ("cache-dir", po::value(&opt.cache_dir)->default_value("/tmp"),
      "Folder for temporary files. Change if directory is inaccessible to user such as on Pleiades.")
     ("version,v", "Display the version of software.")
-    ("help,h", "Display this help message");
+    ("help,h", "Display this help message.");
 }
 
 // User should only put the arguments to their application in the
