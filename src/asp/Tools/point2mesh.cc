@@ -447,7 +447,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("step,s", po::value(&opt.step_size)->default_value(10),
      "Step size for mesher, sets the polygons size per point")
     ("output-prefix,o", po::value(&opt.output_prefix),
-     "Specify the output prefix")
+     "Specify the output prefix.")
     ("output-filetype,t",
      po::value(&opt.output_file_type)->default_value("ive"),
      "Specify the output file")

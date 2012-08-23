@@ -126,7 +126,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangule error image.")
     ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
-    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix")
+    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
   general_options.add( manipulation_options );

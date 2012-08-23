@@ -54,7 +54,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix");
+    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.");
   //("output-filetype,t", po::value(&opt.output_file_type)->default_value("las"),
   // "Specify the output file [las laz]");
   

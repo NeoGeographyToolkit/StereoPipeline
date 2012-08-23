@@ -159,7 +159,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("max-match-points", po::value(&opt.max_points)->default_value(800), "The max number of points that will be enforced after matching.")
     ("default-value", po::value(&opt.dem1_nodata), "The value of missing pixels in the first dem")
-    ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix");
+    ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
