@@ -316,7 +316,7 @@ AX_PKG_ONE_OF(GSL,
     GSL_NEEDBLAS, [AX_PKG(GSL_NEEDBLAS, [LAPACK], [-lgsl -lgslcblas])])
 
 AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
-AX_PKG(LASZIP,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS], [-llaszip], [laszip.hpp])
+AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
 AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP], [-llas], [liblas/liblas.hpp])
 AX_PKG(GEOS,    [], [-lgeos], [geos.h])
 AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
