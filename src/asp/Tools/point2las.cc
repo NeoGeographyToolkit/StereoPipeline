@@ -101,7 +101,7 @@ int main( int argc, char *argv[] ) {
     for (int row = 0; row < point_disk_image.rows(); row++){
       for (int col = 0; col < point_disk_image.cols(); col++){
         
-        Vector3 const& point = subvector(point_disk_image(row, col), 0, 3);
+        Vector3 point = subvector(point_disk_image(row, col), 0, 3);
 
         // Ignore no-data points
         if ( point == Vector3() ) continue;
@@ -144,7 +144,7 @@ int main( int argc, char *argv[] ) {
     for (int row = 0; row < point_disk_image.rows(); row++){
       for (int col = 0; col < point_disk_image.cols(); col++){
 
-        Vector3 const& point = subvector(point_disk_image(row, col), 0, 3);
+        Vector3 point = subvector(point_disk_image(row, col), 0, 3);
         if ( point == Vector3() ){
           // Ignore no-data points
           continue;
