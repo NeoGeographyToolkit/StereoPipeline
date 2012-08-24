@@ -62,6 +62,18 @@ if MAKE_APP_POINT2DEM
   point2dem_LDADD = $(APP_POINT2DEM_LIBS)
 endif
 
+if MAKE_APP_POINT2MESH
+  bin_PROGRAMS += point2mesh
+  point2mesh_SOURCES = point2mesh.cc
+  point2mesh_LDADD = $(APP_POINT2MESH_LIBS)
+endif
+
+if MAKE_APP_POINT2LAS
+  bin_PROGRAMS += point2las
+  point2las_SOURCES = point2las.cc
+  point2las_LDADD = $(APP_POINT2LAS_LIBS)
+endif
+
 if MAKE_APP_RMAX2CAHVOR
   bin_PROGRAMS += rmax2cahvor
   rmax2cahvor_SOURCES = rmax2cahvor.cc
@@ -84,12 +96,6 @@ if MAKE_APP_BUNDLEVIS
   bin_PROGRAMS += bundlevis
   bundlevis_SOURCES = bundlevis.cc bundlevis.h
   bundlevis_LDADD = $(APP_BUNDLEVIS_LIBS)
-endif
-
-if MAKE_APP_POINT2MESH
-  bin_PROGRAMS += point2mesh
-  point2mesh_SOURCES = point2mesh.cc
-  point2mesh_LDADD = $(APP_POINT2MESH_LIBS)
 endif
 
 if MAKE_APP_ORTHOPROJECT
