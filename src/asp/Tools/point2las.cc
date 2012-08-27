@@ -42,7 +42,6 @@ namespace vw {
 }
 
 struct Options : asp::BaseOptions {
-
   // Input
   std::string pointcloud_filename;
   bool compress;
@@ -54,7 +53,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
-    ("compress,c", "Compress using laszip.")
+    ("compressed,c", "Compress using laszip.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.");
   
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -79,15 +78,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.out_prefix =
       asp::prefix_from_filename( opt.pointcloud_filename );
 
-  opt.compress = vm.count("compress");
+  opt.compress = vm.count("compressed");
 
 }
 
 int main( int argc, char *argv[] ) {
-
-  // To do: Test the performance when switching from rows to cols.
-  // To do: Deal with the issue of scale and shift when converting
-  //        to las to not lose precision.
+    
+  // To do: need to understand what is the optimal strategy for
+  // traversing the input point cloud file to minimize the reading
+  // time.
   
   Options opt;
   try {
@@ -102,11 +101,9 @@ int main( int argc, char *argv[] ) {
       for (int col = 0; col < point_disk_image.cols(); col++){
         
         Vector3 point = subvector(point_disk_image(row, col), 0, 3);
+        if ( point == Vector3() ) continue; // skip no-data points
 
-        // Ignore no-data points
-        if ( point == Vector3() ) continue;
-
-        for (int k = 0; k < 3; k++){
+        for (unsigned int k = 0; k < point.size(); k++){
           if (point[k] < point_min[k]) point_min[k] = point[k];
           if (point[k] > point_max[k]) point_max[k] = point[k];
         }
@@ -114,11 +111,12 @@ int main( int argc, char *argv[] ) {
       }
     }
 
-    // The las format stores the values as 32 bit integers. It takes a
-    // double value x and stores round((x-offset)/scale). Here we
-    // decide the values for offset and scale to lose minimum amount
-    // of precision. We make the scale almost as large as it can be
-    // without causing integer overflow.
+    // The las format stores the values as 32 bit integers. So, if we
+    // want to store a point x, we store round((x-offset)/scale), as
+    // well as the offset and scale values. Here we decide the values
+    // for offset and scale to lose minimum amount of precision. We
+    // make the scale almost as large as it can be without causing
+    // integer overflow.
     Vector3 offset = (point_min + point_max)/2.0;
     double maxInt = std::numeric_limits<int32>::max();
     maxInt *= 0.95; // Just in case stay a bit away 
@@ -137,27 +135,29 @@ int main( int argc, char *argv[] ) {
       lasFile = opt.out_prefix + ".las";
     }
 
+    vw_out() << "Writing LAS File: " << lasFile + "\n";
+    
     std::ofstream ofs;
     ofs.open(lasFile.c_str(), std::ios::out | std::ios::binary);
     liblas::Writer writer(ofs, header);
-    
+
     for (int row = 0; row < point_disk_image.rows(); row++){
       for (int col = 0; col < point_disk_image.cols(); col++){
 
         Vector3 point = subvector(point_disk_image(row, col), 0, 3);
-        if ( point == Vector3() ){
-          // Ignore no-data points
-          continue;
-        }
+        if ( point == Vector3() ) continue; // skip no-data points
+
+        for (unsigned int k = 0; k < point.size(); k++)
+          point[k] = round( (point[k] - offset[k])/scale[k] );
         
         liblas::Point las_point;
         las_point.SetCoordinates(point[0], point[1], point[2]);
         writer.WritePoint(las_point);
+
       }
     }
     
-    
   } ASP_STANDARD_CATCHES;
-
+  
   return 0;
 }
