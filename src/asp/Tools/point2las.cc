@@ -44,7 +44,7 @@ namespace vw {
 struct Options : asp::BaseOptions {
   // Input
   std::string pointcloud_filename;
-  bool compress;
+  bool compressed;
   // Output
   std::string out_prefix;
 };
@@ -78,7 +78,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.out_prefix =
       asp::prefix_from_filename( opt.pointcloud_filename );
 
-  opt.compress = vm.count("compressed");
+  opt.compressed = vm.count("compressed");
 
 }
 
@@ -128,8 +128,8 @@ int main( int argc, char *argv[] ) {
     header.SetOffset(offset[0], offset[1], offset[2]);
 
     std::string lasFile;
-    header.SetCompressed(opt.compress);
-    if (opt.compress){
+    header.SetCompressed(opt.compressed);
+    if (opt.compressed){
       lasFile = opt.out_prefix + ".laz";
     }else{
       lasFile = opt.out_prefix + ".las";
