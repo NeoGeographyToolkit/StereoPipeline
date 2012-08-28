@@ -217,7 +217,7 @@ namespace asp {
     camera::TLCTimeInterpolation tlc_time_interpolation( img.tlc_vec,
                                                          convert( pt::time_from_string( img.tlc_start_time ) ) );
     VW_ASSERT( fabs( convert( pt::time_from_string( img.first_line_start_time ) ) -
-                     tlc_time_interpolation( 0 ) ) < 1e-6,
+                     tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
                MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
     typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
