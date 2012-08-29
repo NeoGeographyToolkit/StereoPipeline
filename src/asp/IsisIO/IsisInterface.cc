@@ -84,19 +84,19 @@ std::string IsisInterface::serial_number() const {
 
 double IsisInterface::ephemeris_time( vw::Vector2 const& pix ) const {
   m_camera->SetImage( pix[0]+1, pix[1]+1 );
-  return m_camera->Time().Et();
+  return m_camera->time().Et();
 }
 
 vw::Vector3 IsisInterface::sun_position( vw::Vector2 const& pix ) const {
   m_camera->SetImage( pix[0]+1, pix[1]+1 );
   Vector3 sun;
-  m_camera->SunPosition( &sun[0] );
+  m_camera->sunPosition( &sun[0] );
   return sun * 1000;
 }
 
 vw::Vector3 IsisInterface::target_radii() const {
   Isis::Distance radii[3];
-  m_camera->Radii(radii);
+  m_camera->radii(radii);
   return Vector3( radii[0].meters(),
                   radii[1].meters(),
                   radii[2].meters() );

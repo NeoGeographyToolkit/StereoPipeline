@@ -90,7 +90,7 @@ TEST(IsisCameraModel, mapprojected) {
                              lon_lat_radius[2] );
     EXPECT_VECTOR_NEAR( Vector2(cam->Sample(),cam->Line()), pixel, 1e-3 );
     double ip[3];
-    cam->InstrumentPosition( ip );
+    cam->instrumentPosition( ip );
     VectorProxy<double,3> instru( ip );
     double bc[3];
     cam->Coordinate( bc );
@@ -169,8 +169,8 @@ TEST(IsisCameraModel, groundmap_chk) {
       nog_solution /= norm_2(nog_solution);
       std::vector<double> lookC(3); // Should make fancy func for std vec and vec
       std::copy( nog_solution.begin(), nog_solution.end(), lookC.begin() );
-      std::vector<double> lookJ = cam->InstrumentRotation()->J2000Vector(lookC);
-      lookC = cam->BodyRotation()->ReferenceVector(lookJ);
+      std::vector<double> lookJ = cam->instrumentRotation()->J2000Vector(lookC);
+      lookC = cam->bodyRotation()->ReferenceVector(lookJ);
       std::copy( lookC.begin(), lookC.end(), nog_solution.begin() );
 
       nog_solution_sets.push_back(nog_solution);
@@ -187,7 +187,7 @@ TEST(IsisCameraModel, groundmap_chk) {
       // Ground Map Solution
       cam->SetImage(pixel[0],pixel[1]);
       double p[3];
-      cam->InstrumentPosition(p);
+      cam->instrumentPosition(p);
       Vector3 instrument( p[0], p[1], p[2] );
 
       cam->Coordinate(p);

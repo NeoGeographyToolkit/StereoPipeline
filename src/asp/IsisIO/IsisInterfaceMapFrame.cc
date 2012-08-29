@@ -41,15 +41,15 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
   // Gutting Isis::Camera
   m_groundmap = m_camera->GroundMap();
   m_distortmap = m_camera->DistortionMap();
-  m_camera->Radii( m_radii );
+  m_camera->radii( m_radii );
 
   // Calculating Center (just once)
-  m_camera->InstrumentPosition(&m_center[0]);
+  m_camera->instrumentPosition(&m_center[0]);
   m_center *= 1000;
 
   // Calculating Pose (just once)
-  std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
-  std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
+  std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
+  std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   m_pose = Quat(R_body*transpose(R_inst));

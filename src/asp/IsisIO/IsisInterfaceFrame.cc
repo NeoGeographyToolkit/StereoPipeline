@@ -33,12 +33,12 @@ IsisInterfaceFrame::IsisInterfaceFrame( std::string const& filename ) :
   m_detectmap  = m_camera->DetectorMap();
 
   // Calculating Center (just once)
-  m_camera->InstrumentPosition(&m_center[0]);
+  m_camera->instrumentPosition(&m_center[0]);
   m_center *= 1000;
 
   // Calculating Pose (just once)
-  std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
-  std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
+  std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
+  std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
 
@@ -53,8 +53,8 @@ IsisInterfaceFrame::point_to_pixel( Vector3 const& point ) const {
   Vector3 look = normalize( point - m_center );
   std::vector<double> lookB_copy(3);
   std::copy( look.begin(), look.end(), lookB_copy.begin() );
-  lookB_copy = m_camera->BodyRotation()->J2000Vector(lookB_copy);
-  lookB_copy = m_camera->InstrumentRotation()->ReferenceVector(lookB_copy);
+  lookB_copy = m_camera->bodyRotation()->J2000Vector(lookB_copy);
+  lookB_copy = m_camera->instrumentRotation()->ReferenceVector(lookB_copy);
   std::copy( lookB_copy.begin(), lookB_copy.end(), look.begin() );
   look = m_camera->FocalLength() * ( look / look[2] );
 
@@ -82,8 +82,8 @@ IsisInterfaceFrame::pixel_to_vector( Vector2 const& px ) const {
   look[2] = m_distortmap->UndistortedFocalPlaneZ();
   VectorProxy<double,3> result( &look[0] );
   result = normalize( result );
-  look = m_camera->InstrumentRotation()->J2000Vector(look);
-  look = m_camera->BodyRotation()->ReferenceVector(look);
+  look = m_camera->instrumentRotation()->J2000Vector(look);
+  look = m_camera->bodyRotation()->ReferenceVector(look);
   return result;
 }
 

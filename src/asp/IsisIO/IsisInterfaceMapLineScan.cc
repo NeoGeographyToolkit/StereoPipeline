@@ -68,17 +68,17 @@ EphemerisLMA::result_type
 EphemerisLMA::operator()( EphemerisLMA::domain_type const& x ) const {
 
   // Setting Ephemeris Time
-  m_camera->SetTime( Isis::iTime( x[0] ));
+  m_camera->setTime( Isis::iTime( x[0] ));
 
   // Calculating the look direction in camera frame
   Vector3 instru;
-  m_camera->InstrumentPosition(&instru[0]);
+  m_camera->instrumentPosition(&instru[0]);
   instru *= 1000;  // Spice gives in km
   Vector3 lookB = normalize( m_point - instru );
   std::vector<double> lookB_copy(3);
   std::copy(lookB.begin(),lookB.end(),lookB_copy.begin());
-  std::vector<double> lookJ = m_camera->BodyRotation()->J2000Vector(lookB_copy);
-  std::vector<double> lookC = m_camera->InstrumentRotation()->ReferenceVector(lookJ);
+  std::vector<double> lookJ = m_camera->bodyRotation()->J2000Vector(lookB_copy);
+  std::vector<double> lookC = m_camera->instrumentRotation()->ReferenceVector(lookJ);
   Vector3 look;
   std::copy(lookC.begin(),lookC.end(),look.begin());
 
@@ -99,7 +99,7 @@ IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
 
   // First seed LMA with an ephemeris time in the middle of the image
   double middle_et =
-    m_camera->CacheStartTime().Et() + (m_camera->CacheEndTime().Et()-m_camera->CacheStartTime().Et())/2.0;
+    m_camera->cacheStartTime().Et() + (m_camera->cacheEndTime().Et()-m_camera->cacheStartTime().Et())/2.0;
 
   // Build LMA
   EphemerisLMA model( point, m_camera.get(), m_distortmap, m_focalmap );
@@ -116,16 +116,16 @@ IsisInterfaceMapLineScan::point_to_pixel( Vector3 const& point ) const {
              camera::PointToPixelErr() << " Unable to project point into linescan camera " );
 
   // Setting to camera time to solution
-  m_camera->SetTime( Isis::iTime( solution_e[0] ) );
+  m_camera->setTime( Isis::iTime( solution_e[0] ) );
 
   // Working out pointing
   Vector3 center;
-  m_camera->InstrumentPosition(&center[0]);
+  m_camera->instrumentPosition(&center[0]);
   Vector3 look = normalize(point-1000*center);
 
   // Calculating Rotation to camera frame
-  std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
-  std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
+  std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
+  std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   look = transpose(R_body*transpose(R_inst))*look;
@@ -155,7 +155,7 @@ IsisInterfaceMapLineScan::camera_center( Vector2 const& px ) const {
       vw_throw( camera::PixelToRayErr() << "Failed to SetGround." );
   }
   Vector3 position;
-  m_camera->InstrumentPosition( &position[0] );
+  m_camera->instrumentPosition( &position[0] );
   return position * 1e3;
 }
 
@@ -170,8 +170,8 @@ IsisInterfaceMapLineScan::pixel_to_vector( Vector2 const& px ) const {
 Quat
 IsisInterfaceMapLineScan::camera_pose( Vector2 const& px ) const {
   camera_center( px );
-  std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
-  std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
+  std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
+  std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   return Quat(R_body*transpose(R_inst));

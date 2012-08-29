@@ -56,7 +56,7 @@ IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
     vw_throw( NoImplErr() << "Don't support map projected images" );
 
   // Adjusting time offset so equations are reference from middle of cache
-  double middle_et = m_camera->CacheStartTime().Et() + (m_camera->CacheEndTime().Et()-m_camera->CacheStartTime().Et())/2.0;
+  double middle_et = m_camera->cacheStartTime().Et() + (m_camera->cacheEndTime().Et()-m_camera->cacheStartTime().Et())/2.0;
   m_position_f->set_time_offset( middle_et );
   m_pose_f->set_time_offset( middle_et );
 }
@@ -74,11 +74,11 @@ void IsisAdjustCameraModel::SetTime( Vector2 const& px,
 
     if ( calc ) {
       // Calculating Spacecraft position and pose
-      m_camera->InstrumentPosition(&m_center[0]);
+      m_camera->instrumentPosition(&m_center[0]);
       m_center *= 1000;
 
-      std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
-      std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
+      std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
+      std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
       MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
       MatrixProxy<double,3,3> R_body(&(rot_body[0]));
       m_pose = Quat( R_inst*transpose(R_body) );
@@ -96,7 +96,7 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
   if ( m_camera->GetCameraType() == 2 ) {
     // Use own LMA to find correct ephemeris time. This also gives the
     // ability to use own functions for ET.
-    double start_e = m_camera->CacheStartTime().Et() + (m_camera->CacheEndTime().Et()-m_camera->CacheStartTime().Et())/2.0;
+    double start_e = m_camera->cacheStartTime().Et() + (m_camera->cacheEndTime().Et()-m_camera->cacheStartTime().Et())/2.0;
 
     // Build LMA
     EphemerisLMA model( point, m_camera, m_distortmap,
@@ -114,26 +114,26 @@ Vector2 IsisAdjustCameraModel::point_to_pixel( Vector3 const& point ) const {
                MathErr() << " Unable to project point into linescan camera " );
 
     // Converting now to pixel
-    m_camera->SetTime( Isis::iTime( solution_e[0] ) );
+    m_camera->setTime( Isis::iTime( solution_e[0] ) );
   } else if ( m_camera->GetCameraType() != 0 ) {
     vw_throw( NoImplErr() << "IsisAdjustCameraModel::point_to_pixel does not support any cmaeras other than LineScane and Frame" );
   }
 
   // Pulling out camera position for current time
-  m_camera->InstrumentPosition(&m_center[0]);
+  m_camera->instrumentPosition(&m_center[0]);
   m_center *= 1000;
 
   // Pulling out camera pose
-  std::vector<double> rot_inst = m_camera->InstrumentRotation()->Matrix();
-  std::vector<double> rot_body = m_camera->BodyRotation()->Matrix();
+  std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
+  std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
   MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   m_pose = Quat(R_inst*transpose(R_body));
-  Vector3 angles = m_pose_f->evaluate( m_camera->Time().Et() );
+  Vector3 angles = m_pose_f->evaluate( m_camera->time().Et() );
   Quat pose_adj( m_pose*math::axis_angle_to_quaternion( angles ) );
 
   // Actually projecting point now
-  Vector3 look = normalize( point - (m_center+m_position_f->evaluate(m_camera->Time().Et())) );
+  Vector3 look = normalize( point - (m_center+m_position_f->evaluate(m_camera->time().Et())) );
   look = pose_adj.rotate( look );
   look = m_camera->FocalLength() * ( look / look[2] );
   m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
@@ -165,7 +165,7 @@ Vector3 IsisAdjustCameraModel::pixel_to_vector( Vector2 const& pix ) const {
   result = normalize( result );
 
   // Apply rotation of image camera
-  Vector3 angles = m_pose_f->evaluate( m_camera->Time().Et() );
+  Vector3 angles = m_pose_f->evaluate( m_camera->time().Et() );
   result = inverse( m_pose*math::axis_angle_to_quaternion(angles) ).rotate( result );
   return result;
 }
@@ -175,7 +175,7 @@ IsisAdjustCameraModel::camera_center( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
-  return m_center+m_position_f->evaluate( m_camera->Time().Et() );
+  return m_center+m_position_f->evaluate( m_camera->time().Et() );
 }
 
 Quat
@@ -183,7 +183,7 @@ IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
   // Converting to ISIS index
   Vector2 px = pix + Vector2(1,1);
   SetTime( px, true );
-  Vector3 angles = m_pose_f->evaluate( m_camera->Time().Et() );
+  Vector3 angles = m_pose_f->evaluate( m_camera->time().Et() );
   return inverse(m_pose*math::axis_angle_to_quaternion( angles ) );
 }
 
@@ -194,13 +194,13 @@ std::string IsisAdjustCameraModel::serial_number() const {
 
 double IsisAdjustCameraModel::ephemeris_time( Vector2 const& pix ) const {
   SetTime( pix+Vector2(1,1), false );
-  return m_camera->Time().Et();
+  return m_camera->time().Et();
 }
 
 Vector3 IsisAdjustCameraModel::sun_position( Vector2 const& pix ) const {
   SetTime( pix+Vector2(1,1), false );
   Vector3 sun;
-  m_camera->SunPosition( &sun[0] );
+  m_camera->sunPosition( &sun[0] );
   sun *= 1000;
   return sun;
 }
@@ -216,10 +216,10 @@ IsisAdjustCameraModel::EphemerisLMA::result_type
 IsisAdjustCameraModel::EphemerisLMA::operator()( IsisAdjustCameraModel::EphemerisLMA::domain_type const& x ) const {
 
   // Setting Ephemeris Time
-  m_camera->SetTime( Isis::iTime( x[0] ) );
+  m_camera->setTime( Isis::iTime( x[0] ) );
 
   Vector3 instru;
-  m_camera->InstrumentPosition(&instru[0]);
+  m_camera->instrumentPosition(&instru[0]);
   instru *= 1000;
   instru += m_position_f->evaluate( x[0] );
 
@@ -231,8 +231,8 @@ IsisAdjustCameraModel::EphemerisLMA::operator()( IsisAdjustCameraModel::Ephemeri
   lookB_copy[0] = lookB[0];
   lookB_copy[1] = lookB[1];
   lookB_copy[2] = lookB[2];
-  std::vector<double> lookJ = m_camera->BodyRotation()->J2000Vector(lookB_copy);
-  std::vector<double> lookC = m_camera->InstrumentRotation()->ReferenceVector(lookJ);
+  std::vector<double> lookJ = m_camera->bodyRotation()->J2000Vector(lookB_copy);
+  std::vector<double> lookC = m_camera->instrumentRotation()->ReferenceVector(lookJ);
   Vector3 look;
   look[0] = lookC[0];
   look[1] = lookC[1];
