@@ -113,7 +113,8 @@ public:
                           m_left_mask, m_right_mask,
                           m_preproc_func, local_search_range,
                           stereo_settings().kernel, m_cost_mode,
-                          stereo_settings().xcorr_threshold );
+                          stereo_settings().xcorr_threshold,
+                          stereo_settings().corr_max_levels );
 
       return corr_view.prerasterize( bbox );
     } else if ( stereo_settings().seed_option > 1 ) {
@@ -127,7 +128,8 @@ public:
                         m_left_mask, m_right_mask,
                         m_preproc_func, stereo_settings().search_range,
                         stereo_settings().kernel, m_cost_mode,
-                        stereo_settings().xcorr_threshold );
+                        stereo_settings().xcorr_threshold,
+                        stereo_settings().corr_max_levels );
 
     return corr_view.prerasterize( bbox );
   }

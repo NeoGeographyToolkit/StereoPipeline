@@ -76,7 +76,9 @@ namespace asp {
       ("corr-kernel", po::value(&global.kernel)->default_value(Vector2i(21,21),"21,21"),
        "Kernel sized used for integer correlator.")
       ("corr-search", po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),
-       "Disparity search range. Specify in format: hmin,vmin,hmax,vmax.");
+       "Disparity search range. Specify in format: hmin,vmin,hmax,vmax.")
+      ("corr-max-levels", po::value(&global.corr_max_levels)->default_value(5),
+       "Max pyramid levels to process when using the integer correlator. (0 is just a single level).");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     backwards_compat_options.add_options()
@@ -99,7 +101,9 @@ namespace asp {
       ("disable-h-subpixel", po::bool_switch(&global.disable_h_subpixel),
        "Disable calculation of subpixel in horizontal direction.")
       ("disable-v-subpixel", po::bool_switch(&global.disable_v_subpixel),
-       "Disable calculation of subpixel in vertical direction.");
+       "Disable calculation of subpixel in vertical direction.")
+      ("subpixel-max-levels", po::value(&global.subpixel_max_levels)->default_value(2),
+       "Max pyramid levels to process when using the BayesEM refinement. (0 is just a single level).");
 
     po::options_description experimental_subpixel_options("Experimental Subpixel Options");
     experimental_subpixel_options.add_options()

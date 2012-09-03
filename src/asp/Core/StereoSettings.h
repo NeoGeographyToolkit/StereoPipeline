@@ -84,6 +84,7 @@ namespace asp {
     vw::uint16 cost_mode;        /* 0 = absolute difference
                                     1 = squared difference
                                     2 = normalized cross correlation */
+    vw::uint16 corr_max_levels;  // Max pyramid levels to process. 0 hits only once.
 
     // search range, used to define the
     // search range of D_sub.
@@ -95,6 +96,7 @@ namespace asp {
                                     1 = affine, robust weighting
                                     2 = affine, bayes weighting
                                     3 = affine, bayes EM weighting */
+    vw::uint16 subpixel_max_levels; // Max pyramid levels to process. 0 hits only once.
 
     // EMSubpixelCorrelator Options (mode 3 only)
     int subpixel_affine_iter;

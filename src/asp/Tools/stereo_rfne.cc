@@ -97,7 +97,8 @@ void stereo_refinement( Options& opt ) {
         bayes_em_subpixel( disparity_disk_image,
                            left_disk_image, right_disk_image,
                            PreFilter(stereo_settings().slogW),
-                           stereo_settings().subpixel_kernel );
+                           stereo_settings().subpixel_kernel,
+                           stereo_settings().subpixel_max_levels );
 
     } else if (stereo_settings().subpixel_mode == 3) {
       // Affine and Bayes subpixel refinement always use the
