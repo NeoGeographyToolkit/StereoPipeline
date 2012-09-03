@@ -87,6 +87,37 @@ namespace cartography {
       return output;
     }
 
+    // Task to parallelize the generation of bounding boxes
+    template <class ViewT>
+    class SubBlockBoundaryTask : public Task, private boost::noncopyable {
+      ViewT m_view;
+      BBox2i m_image_bbox;
+      BBox3& m_global_bbox;
+      std::vector<BBoxPair>& m_point_image_boundaries;
+      Mutex& m_mutex;
+    public:
+      SubBlockBoundaryTask( ImageViewBase<ViewT> const& view, BBox2i const& image_bbox,
+                            BBox3& global_bbox, std::vector<BBoxPair>& boundaries,
+                            Mutex& mutex ) : m_view(view.impl()), m_image_bbox(image_bbox),
+                                             m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
+                                             m_mutex( mutex ) {}
+      void operator()() {
+        GrowBBoxAccumulator accum;
+        ImageView< typename ViewT::pixel_type > local_copy =
+          crop( m_view, m_image_bbox );
+        for_each_pixel( local_copy, accum );
+        if ( !accum.bbox.empty() ) {
+          accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
+          accum.bbox.max()[1] = boost::math::float_next(accum.bbox.max()[1]);
+          {
+            Mutex::Lock lock( m_mutex );
+            m_point_image_boundaries.push_back( std::make_pair( accum.bbox, m_image_bbox ) );
+            m_global_bbox.grow( accum.bbox );
+          }
+        }
+      }
+    };
+
   public:
     typedef PixelT pixel_type;
     typedef const PixelT result_type;
@@ -108,6 +139,9 @@ namespace cartography {
       int32 y_divisions = (m_point_image.rows() - 1)/BBOX_SPACING + 1;
       BBox2i pc_image_bbox(0,0,m_point_image.cols(),m_point_image.rows());
 
+      FifoWorkQueue queue( vw_settings().default_num_threads() );
+      Mutex mutex;
+      typedef SubBlockBoundaryTask<ImageT> task_type;
       for ( int32 yi = 0; yi < y_divisions; ++yi ) {
         progress.report_fractional_progress(yi,y_divisions);
         for ( int32 xi = 0; xi < x_divisions; ++xi ) {
@@ -117,16 +151,11 @@ namespace cartography {
           local_spot.max() += Vector2i(1,1);
           local_spot.crop( pc_image_bbox );
 
-          GrowBBoxAccumulator accum;
-          for_each_pixel( crop(m_point_image,local_spot), accum );
-          if ( !accum.bbox.empty() ) {
-            // HACK UNTIL BBOX is fixed!
-            accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
-            accum.bbox.max()[1] = boost::math::float_next(accum.bbox.max()[1]);
-            m_point_image_boundaries.push_back( std::make_pair( accum.bbox, local_spot ) );
-            m_bbox.grow( accum.bbox );
-          }
+          boost::shared_ptr<task_type> task( new task_type( m_point_image, local_spot,
+                                                            m_bbox, m_point_image_boundaries, mutex ) );
+          queue.add_task( task );
         }
+        queue.join_all(); // We do this a little early just so there's a progress bar.
       }
       progress.report_finished();
 
