@@ -55,13 +55,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("compressed,c", "Compress using laszip.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.");
-  
+
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
     ("input-file", po::value(&opt.pointcloud_filename), "Input Point Cloud");
-  
+
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
 
@@ -73,7 +73,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.pointcloud_filename.empty() )
     vw_throw( ArgumentErr() << "Missing point cloud.\n"
               << usage << general_options );
-  
+
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
       asp::prefix_from_filename( opt.pointcloud_filename );
@@ -83,33 +83,30 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 }
 
 int main( int argc, char *argv[] ) {
-    
+
   // To do: need to understand what is the optimal strategy for
   // traversing the input point cloud file to minimize the reading
   // time.
-  
+
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
-    
+
     DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
 
     // Find the bounding box of the points
-    double big = std::numeric_limits<double>::max(); 
-    Vector3 point_min = Vector3(big, big, big), point_max = -point_min;
-    for (int row = 0; row < point_disk_image.rows(); row++){
-      for (int col = 0; col < point_disk_image.cols(); col++){
-        
-        Vector3 point = subvector(point_disk_image(row, col), 0, 3);
+    BBox3 point_boundaries;
+    TerminalProgressCallback progress_bar("asp","Statistics: ");
+    for ( int y = 0; y < point_disk_image.rows(); y++ ) {
+      progress_bar.report_fractional_progress(y,point_disk_image.rows());
+      for ( int x = 0; x < point_disk_image.cols(); x++ ) {
+        Vector3 point = subvector(point_disk_image(x, y), 0, 3);
         if ( point == Vector3() ) continue; // skip no-data points
 
-        for (unsigned int k = 0; k < point.size(); k++){
-          if (point[k] < point_min[k]) point_min[k] = point[k];
-          if (point[k] > point_max[k]) point_max[k] = point[k];
-        }
-
+        point_boundaries.grow( point );
       }
     }
+    progress_bar.report_finished();
 
     // The las format stores the values as 32 bit integers. So, if we
     // want to store a point x, we store round((x-offset)/scale), as
@@ -117,10 +114,10 @@ int main( int argc, char *argv[] ) {
     // for offset and scale to lose minimum amount of precision. We
     // make the scale almost as large as it can be without causing
     // integer overflow.
-    Vector3 offset = (point_min + point_max)/2.0;
+    Vector3 offset = (point_boundaries.min() + point_boundaries.max())/2.0;
     double maxInt = std::numeric_limits<int32>::max();
-    maxInt *= 0.95; // Just in case stay a bit away 
-    Vector3 scale = (point_max - point_min)/(2.0*maxInt);
+    maxInt *= 0.95; // Just in case stay a bit away
+    Vector3 scale = point_boundaries.size()/(2.0*maxInt);
 
     liblas::Header header;
     header.SetDataFormatId(liblas::ePointFormat1);
@@ -136,28 +133,30 @@ int main( int argc, char *argv[] ) {
     }
 
     vw_out() << "Writing LAS File: " << lasFile + "\n";
-    
+
     std::ofstream ofs;
     ofs.open(lasFile.c_str(), std::ios::out | std::ios::binary);
     liblas::Writer writer(ofs, header);
 
+    progress_bar.set_progress_text("Integerizing:");
     for (int row = 0; row < point_disk_image.rows(); row++){
+      progress_bar.report_fractional_progress(row, point_disk_image.rows());
       for (int col = 0; col < point_disk_image.cols(); col++){
 
-        Vector3 point = subvector(point_disk_image(row, col), 0, 3);
+        Vector3 point = subvector(point_disk_image(col, row), 0, 3);
         if ( point == Vector3() ) continue; // skip no-data points
 
-        for (unsigned int k = 0; k < point.size(); k++)
-          point[k] = round( (point[k] - offset[k])/scale[k] );
-        
+        point = elem_quot((point - offset),scale);
+
         liblas::Point las_point;
-        las_point.SetCoordinates(point[0], point[1], point[2]);
+        las_point.SetCoordinates(point[0], point[1], point[2]); // Takes doubles. Unclear if it scales the data.
         writer.WritePoint(las_point);
 
       }
     }
-    
+    progress_bar.report_finished();
+
   } ASP_STANDARD_CATCHES;
-  
+
   return 0;
 }
