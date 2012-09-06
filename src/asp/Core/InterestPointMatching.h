@@ -109,7 +109,7 @@ namespace asp {
     using namespace vw;
     Image1T image1 = image1_base.impl();
     Image2T image2 = image2_base.impl();
-    BBox2i box1 = bounding_box(image1), box2 = bounding_box(image2);
+    BBox2i box1 = bounding_box(image1);
 
     // Detect Interest Points
     ip::InterestPointList ip1, ip2;
