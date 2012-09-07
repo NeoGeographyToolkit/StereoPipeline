@@ -40,5 +40,5 @@ namespace asp {
                                  std::string const& camera_file ) {
     return boost::shared_ptr<camera::CameraModel>(StereoSessionDG::read_rpc_model(image_file, camera_file));
   }
-  
+
 } // namespace asp

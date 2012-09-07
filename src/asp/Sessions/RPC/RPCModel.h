@@ -21,7 +21,7 @@
 // 3D Feature Extraction from Multiple Satellite Images Described by
 // RPCs." Proceedings of ASPRS 2004 Conference, Denver, Colorado, May,
 // 2004.
-  
+
 #ifndef __STEREO_SESSION_RPC_MODEL_H__
 #define __STEREO_SESSION_RPC_MODEL_H__
 
@@ -42,7 +42,7 @@ namespace asp {
     vw::Vector3 m_lonlatheight_offset;
     vw::Vector3 m_lonlatheight_scale;
     mutable vw::Vector2 m_lonlat_guess_up, m_lonlat_guess_dn;
-    
+
     void initialize( vw::DiskImageResourceGDAL* resource );
   public:
     RPCModel( std::string const& filename );
@@ -95,9 +95,9 @@ namespace asp {
     vw::Matrix<double, 2, 2> normalized_geodetic_to_pixel_Jacobian(vw::Vector3 const& normalized_geodetic ) const;
     vw::Vector2 image_to_ground(vw::Vector2 const& pixel, double height,
                                 vw::Vector2 lonlat_guess = vw::Vector2(0.0, 0.0)) const;
-    
+
     void point_and_dir(vw::Vector2 const& pix, vw::Vector3 & P, vw::Vector3 & dir ) const;
-    
+
   };
 
   inline std::ostream& operator<<(std::ostream& os, const RPCModel& rpc) {

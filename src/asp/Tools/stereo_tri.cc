@@ -59,15 +59,15 @@ class StereoAndErrorView : public ImageViewBase<StereoAndErrorView<DisparityImag
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
-  StereoModelHelper( StereoModelT const& model, Vector2 const& index,
-                     T const& disparity, double& error ) const {
+    StereoModelHelper( StereoModelT const& model, Vector2 const& index,
+                       T const& disparity, double& error ) const {
     return model( index, Vector2( index[0] + disparity, index[1] ), error );
   }
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
-  StereoModelHelper( StereoModelT const& model, Vector2 const& index,
-                     T const& disparity, double& error ) const {
+    StereoModelHelper( StereoModelT const& model, Vector2 const& index,
+                       T const& disparity, double& error ) const {
     return model( index, Vector2( index[0] + disparity[0],
                                   index[1] + disparity[1] ), error );
   }
@@ -139,14 +139,14 @@ class StereoLUTAndErrorView : public ImageViewBase<StereoLUTAndErrorView<Dispari
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, double& error ) const {
+    StereoModelHelper( size_t i, size_t j, T const& disparity, double& error ) const {
     return m_stereo_model( m_lut_image1(i,j),
                            m_lut_image2( float(i) + disparity, j ),  error );
   }
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, double& error ) const {
+    StereoModelHelper( size_t i, size_t j, T const& disparity, double& error ) const {
 
     float i2 = float(i) + disparity[0];
     float j2 = float(j) + disparity[1];
@@ -224,7 +224,7 @@ public:
       preraster = BBox2i(bbox.min() + floor(Vector2f(input_min[0],input_min[1])),
                          bbox.max() + ceil(Vector2(input_max[0],input_max[1])) );
     }
-    
+
     return prerasterize_type( disparity_preraster,
                               m_lut_image1.prerasterize(bbox),
                               m_lut_image2_org.prerasterize(preraster),
@@ -287,7 +287,7 @@ void stereo_triangulation( Options const& opt ) {
 
     boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
     opt.session->camera_models(camera_model1, camera_model2);
-    
+
 #if HAVE_PKG_VW_BUNDLEADJUSTMENT
     // If the user has generated a set of position and pose
     // corrections using the bundle_adjust program, we read them in
@@ -324,12 +324,11 @@ void stereo_triangulation( Options const& opt ) {
 
       if (opt.stereo_session_string == "rpc")
         vw_throw(InputErr() << "Stereo with RPC cameras cannot have the camera as the universe center.\n");
-      
+
       universe_radius_func =
         stereo::UniverseRadiusFunc(camera_model1->camera_center(Vector2()),
                                    stereo_settings().near_universe_radius,
                                    stereo_settings().far_universe_radius);
-      
     } else if ( stereo_settings().universe_center == "zero" ) {
       universe_radius_func =
         stereo::UniverseRadiusFunc(Vector3(),
@@ -337,7 +336,6 @@ void stereo_triangulation( Options const& opt ) {
                                    stereo_settings().far_universe_radius);
     }
 
-    
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
     ImageViewRef<Vector4> point_cloud;
@@ -399,7 +397,7 @@ void stereo_triangulation( Options const& opt ) {
 int main( int argc, char* argv[] ) {
 
   stereo_register_sessions();
-  
+
   Options opt;
   try {
     handle_arguments( argc, argv, opt,
@@ -407,7 +405,7 @@ int main( int argc, char* argv[] ) {
 
     // Internal Processes
     //---------------------------------------------------------
-    
+
     if (opt.stereo_session_string != "rpc"){
       stereo_triangulation<stereo::StereoModel>( opt );
     }else{

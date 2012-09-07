@@ -32,7 +32,7 @@ namespace vw {
 namespace asp {
 
   class RPCStereoModel: public vw::stereo::StereoModel {
-    
+
   public:
 
     //------------------------------------------------------------------
@@ -42,7 +42,7 @@ namespace asp {
                    vw::camera::CameraModel const* camera_model2,
                    bool least_squares_refine = false):
       vw::stereo::StereoModel(camera_model1, camera_model2, least_squares_refine){}
-    
+
     //------------------------------------------------------------------
     // Public Methods
     //------------------------------------------------------------------
@@ -59,4 +59,3 @@ namespace asp {
 } // namespace asp
 
 #endif  // __ASP_RPC_RPCSTEREOMODEL_H__
-
