@@ -101,6 +101,7 @@ src/asp/Tools/orbitviz
 src/asp/Tools/orthoproject
 src/asp/Tools/plateorthoproject
 src/asp/Tools/point2dem
+src/asp/Tools/point2las
 src/asp/Tools/point2mesh
 src/asp/Tools/reconstruct
 src/asp/Tools/results

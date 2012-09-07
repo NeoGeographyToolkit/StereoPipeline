@@ -22,6 +22,7 @@
 #include <vw/Cartography.h>
 #include <vw/Stereo/StereoView.h>
 #include <asp/Tools/stereo.h>
+#include <asp/Sessions/RPC/RPCModel.h>
 
 using namespace vw;
 
@@ -90,28 +91,8 @@ namespace asp {
 
     // If the user hasn't specified a stereo session type, we take a
     // guess here based on the file suffixes.
-    if (opt.stereo_session_string.empty()) {
-      if ( asp::has_cam_extension( opt.cam_file1 ) &&
-           asp::has_cam_extension( opt.cam_file2 ) ) {
-        vw_out() << "\t--> Detected pinhole camera files. "
-                 << "Executing pinhole stereo pipeline.\n";
-        opt.stereo_session_string = "pinhole";
-      } else if (boost::iends_with(boost::to_lower_copy(opt.in_file1), ".cub") &&
-                 boost::iends_with(boost::to_lower_copy(opt.in_file2), ".cub")) {
-        vw_out() << "\t--> Detected ISIS cube files. "
-                 << "Executing ISIS stereo pipeline.\n";
-        opt.stereo_session_string = "isis";
-      } else if (boost::iends_with(boost::to_lower_copy(opt.cam_file1), ".xml") &&
-                 boost::iends_with(boost::to_lower_copy(opt.cam_file2), ".xml")) {
-        vw_out() << "\t--> Detected likely Digital Globe XML files. "
-                 << "Executing DG stereo pipeline.\n";
-        opt.stereo_session_string = "dg";
-      } else {
-        vw_throw( ArgumentErr() << "Could not determine stereo session type. "
-                  << "Please set it explicitly.\n"
-                  << "using the -t switch. Options include: [pinhole isis dg rpc].\n" );
-      }
-    }
+    if (opt.stereo_session_string.empty())
+      guess_session_type(opt);
 
     // Some specialization here so that the user doesn't need to list
     // camera models on the command line for certain stereo session
@@ -144,13 +125,6 @@ namespace asp {
       }
     }
 
-    cartography::GeoReference georef;
-    bool has_georef1 = read_georeference( georef, opt.in_file1 );
-    bool has_georef2 = read_georeference( georef, opt.in_file2 );
-    if (opt.stereo_session_string == "dg" && has_georef1 && has_georef2 && opt.extra_arg1 == "") {
-      vw_out(WarningMessage) << "It appears that the input images are map-projected. In that case a DEM needs to be provided for stereo to give correct results.\n";
-    }
-    
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string) );
     opt.session->initialize(opt, opt.in_file1, opt.in_file2,
                             opt.cam_file1, opt.cam_file2,
@@ -158,7 +132,7 @@ namespace asp {
                             opt.extra_arg3, opt.extra_arg4);
 
     user_safety_check(opt);
-    
+
     // The last thing we do before we get started is to copy the
     // stereo.default settings over into the results directory so that
     // we have a record of the most recent stereo.default that was used
@@ -166,6 +140,44 @@ namespace asp {
     asp::stereo_settings().write_copy( argc, argv,
                                        opt.stereo_default_filename,
                                        opt.out_prefix + "-stereo.default" );
+  }
+
+  void guess_session_type(Options& opt) {
+    if ( asp::has_cam_extension( opt.cam_file1 ) &&
+         asp::has_cam_extension( opt.cam_file2 ) ) {
+      vw_out() << "\t--> Detected pinhole camera files. "
+               << "Executing pinhole stereo pipeline.\n";
+      opt.stereo_session_string = "pinhole";
+      return;
+    }
+    if (boost::iends_with(boost::to_lower_copy(opt.in_file1), ".cub") &&
+        boost::iends_with(boost::to_lower_copy(opt.in_file2), ".cub")) {
+      vw_out() << "\t--> Detected ISIS cube files. "
+               << "Executing ISIS stereo pipeline.\n";
+      opt.stereo_session_string = "isis";
+      return;
+    }
+    if (boost::iends_with(boost::to_lower_copy(opt.cam_file1), ".xml") &&
+        boost::iends_with(boost::to_lower_copy(opt.cam_file2), ".xml")) {
+      vw_out() << "\t--> Detected likely Digital Globe XML files. "
+               << "Executing DG stereo pipeline.\n";
+      opt.stereo_session_string = "dg";
+      return;
+    }
+    try {
+      asp::RPCModel left(opt.in_file1), right(opt.in_file2);
+      vw_out() << "\t--> Detected RPC Model inside image files. "
+               << "Executing RPC stereo pipeline.\n";
+      opt.stereo_session_string = "rpc";
+      return;
+    } catch ( vw::NotFoundErr const& e ) {
+      vw_out() << "Error thrown: " << e.what() << std::endl;
+    } // If it throws, it wasn't RPC
+
+    // If we get to this point. We couldn't guess the session type
+    vw_throw( ArgumentErr() << "Could not determine stereo session type. "
+              << "Please set it explicitly.\n"
+              << "using the -t switch. Options include: [pinhole isis dg rpc].\n" );
   }
 
   // Register Session types
@@ -195,7 +207,7 @@ namespace asp {
       // To do: May need to devise a check specific for RPC cameras.
       return;
     }
-  
+
     //---------------------------------------------------------
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
@@ -240,7 +252,12 @@ namespace asp {
       // projected image.
     }
 
-    return;
+    cartography::GeoReference georef;
+    bool has_georef1 = read_georeference( georef, opt.in_file1 );
+    bool has_georef2 = read_georeference( georef, opt.in_file2 );
+    if (opt.stereo_session_string == "dg" && has_georef1 && has_georef2 && opt.extra_arg1 == "") {
+      vw_out(WarningMessage) << "It appears that the input images are map-projected. In that case a DEM needs to be provided for stereo to give correct results.\n";
+    }
+
   }
-  
 }

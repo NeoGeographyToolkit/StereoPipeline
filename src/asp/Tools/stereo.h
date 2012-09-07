@@ -84,11 +84,15 @@ namespace asp {
                          boost::program_options::options_description const&
                          additional_options);
 
+  // Based on arguments from the user, guesses the session type
+  void guess_session_type(Options& opt);
+
   // Register Session types
   void stereo_register_sessions();
 
+  // Checks for obvious user mistakes
   void user_safety_check(Options const& opt);
-  
+
 } // end namespace vw
 
 #endif//__ASP_STEREO_H__
