@@ -26,6 +26,7 @@
 
 #include <vw/Math/Quaternion.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/Camera/PinholeModel.h>
 
 namespace asp {
 
