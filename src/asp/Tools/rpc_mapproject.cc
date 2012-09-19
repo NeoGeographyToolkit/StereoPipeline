@@ -49,7 +49,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the  gdal option.")
     ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)")
     ("t_projwin", po::value(&opt.target_projwin),
-     "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.");
+     "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
