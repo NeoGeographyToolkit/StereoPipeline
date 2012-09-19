@@ -152,6 +152,19 @@ namespace asp {
     virtual vw::Quat camera_pose(vw::Vector2 const& pix) const {
       return m_pose_func( m_time_func( pix.y() ) );
     }
+
+    vw::camera::PinholeModel linescan_to_pinhole(double y) const{
+ 
+      // Create a fake pinhole model. It will return the same results
+      // as the linescan camera at current line y, but we will use it
+      // by extension at neighboring lines as well.
+      double t = m_time_func( y );
+      return vw::camera::PinholeModel(m_position_func(t),  m_pose_func(t).rotation_matrix(),
+                                      m_focal_length, -m_focal_length,
+                                      -m_detector_origin[0], y - m_detector_origin[1]
+                                      );
+    }
+
   };
 
 }      // namespace asp
