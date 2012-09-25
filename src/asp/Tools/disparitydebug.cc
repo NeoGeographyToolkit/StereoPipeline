@@ -46,6 +46,7 @@ namespace fs = boost::filesystem;
 struct Options : asp::BaseOptions {
   // Input
   std::string input_file_name;
+  BBox2 normalization_range;
 
   // Output
   std::string output_prefix, output_file_type;
@@ -54,6 +55,8 @@ struct Options : asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
+    ("normalization", po::value(&opt.normalization_range)->default_value(BBox2(0,0,0,0), "auto"),
+     "Normalization range. Specify in format: hmin,vmin,hmax,vmax.")
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file");
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -88,23 +91,27 @@ void do_disparity_visualization(Options& opt) {
   // samples.
   float subsample_amt =
     float(disk_disparity_map.cols())*float(disk_disparity_map.rows()) / ( 1000.f * 1000.f );
-  BBox2 disp_range =
-    get_disparity_range(subsample(disk_disparity_map,
-                                  subsample_amt > 1 ? subsample_amt : 1));
+  if ( opt.normalization_range == BBox2(0,0,0,0) )
+    opt.normalization_range =
+      get_disparity_range(subsample(disk_disparity_map,
+                                    subsample_amt > 1 ? subsample_amt : 1));
 
-  vw_out() << "\t    Horizontal - [" << disp_range.min().x()
-           << " " << disp_range.max().x() << "]    Vertical: ["
-           << disp_range.min().y() << " " << disp_range.max().y() << "]\n";
+  vw_out() << "\t    Horizontal - [" << opt.normalization_range.min().x()
+           << " " << opt.normalization_range.max().x() << "]    Vertical: ["
+           << opt.normalization_range.min().y() << " "
+           << opt.normalization_range.max().y() << "]\n";
 
   typedef typename PixelChannelType<PixelT>::type ChannelT;
   ImageViewRef<ChannelT> horizontal =
     apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,0),
-                                         disp_range.min().x(), disp_range.max().x(),
+                                         opt.normalization_range.min().x(),
+                                         opt.normalization_range.max().x(),
                                          ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max())),
                          disk_disparity_map));
   ImageViewRef<ChannelT> vertical =
     apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,1),
-                                         disp_range.min().y(), disp_range.max().y(),
+                                         opt.normalization_range.min().y(),
+                                         opt.normalization_range.max().y(),
                                          ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max())),
                          disk_disparity_map));
 
