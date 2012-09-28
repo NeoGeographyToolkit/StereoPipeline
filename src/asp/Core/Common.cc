@@ -71,7 +71,7 @@ asp::BaseOptionsDescription::BaseOptionsDescription( asp::BaseOptions& opt ) {
 
 // User should only put the arguments to their application in the
 // usage_comment argument. We'll finish filling in the repeated
-// information;
+// information.
 po::variables_map
 asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::options_description const& public_options,
@@ -79,7 +79,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::positional_options_description const& positional,
                          std::string & usage_comment,
                          bool allow_unregistered ) {
-  // Finish filling in the usage_comment;
+  // Finish filling in the usage_comment.
   std::ostringstream ostr;
   ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";
   ostr << "  [ASP " << ASP_VERSION << "]\n\n";
