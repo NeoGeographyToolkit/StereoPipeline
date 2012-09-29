@@ -39,8 +39,8 @@ namespace asp {
     general_options.add( additional_options );
     general_options.add( asp::BaseOptionsDescription(opt) );
 
-    po::options_description positional("");
-    positional.add_options()
+    po::options_description positional_options("");
+    positional_options.add_options()
       ("left-input-image", po::value(&opt.in_file1), "Left Input Image")
       ("right-input-image", po::value(&opt.in_file2), "Right Input Image")
       ("left-camera-model", po::value(&opt.cam_file1), "Left Camera Model File")
@@ -65,16 +65,19 @@ namespace asp {
     std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g. isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options,
-                               positional, positional_desc, usage, true );
+                               positional_options, positional_desc, usage, true );
 
     // Read the config file
     try {
       po::options_description cfg_options;
-      cfg_options.add( positional ); // The user can specify the
-                                     // positional input from the
-                                     // stereo.default if they want
-                                     // to.
+      cfg_options.add( positional_options ); // The user can specify the
+                                             // positional input from the
+                                             // stereo.default if they want
+                                             // to.
       cfg_options.add( generate_config_file_options( opt ) );
+
+      // Append the options from the config file. Do not overwrite the
+      // options already set on the command line.
       po::store(parse_asp_config_file(opt.stereo_default_filename,
                                       cfg_options), vm);
       po::notify( vm );
