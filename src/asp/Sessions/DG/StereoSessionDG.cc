@@ -72,6 +72,7 @@ public:
   }
 };
 
+
 // Helper functor that converts projected pixel indices and height
 // value to unprojected pixel indices.
 class OriginalCameraIndex : public ReturnFixedType<Vector2f> {
@@ -83,13 +84,19 @@ public:
                                               m_image_boundaries(bbox) {}
 
   Vector2f operator()( Vector3 const& point ) const {
+
+    const double nan_val = std::numeric_limits<double>::quiet_NaN();
+
     if ( point == Vector3() )
-      return Vector2f(-1,-1);
+      return Vector2f(nan_val, nan_val);
+
     Vector2f result = m_rpc.point_to_pixel( point );
     if ( m_image_boundaries.contains( result ) )
       return result;
-    return Vector2f(-1,1);
+
+    return Vector2f(nan_val, nan_val);
   }
+  
 };
 
 namespace asp {

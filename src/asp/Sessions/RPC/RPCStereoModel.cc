@@ -54,6 +54,9 @@ namespace asp {
 
   Vector3 RPCStereoModel::operator()(Vector2 const& pix1, Vector2 const& pix2, double& error) const {
 
+    // Check for NaN values
+    if (pix1 != pix1 || pix2 != pix2) return Vector3();
+    
     const RPCModel *rpc_model1 = dynamic_cast<const RPCModel*>(m_camera1);
     const RPCModel *rpc_model2 = dynamic_cast<const RPCModel*>(m_camera2);
 
