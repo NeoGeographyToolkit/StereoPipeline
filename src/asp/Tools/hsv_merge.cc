@@ -82,28 +82,28 @@ int main( int argc, char *argv[] ) {
   Options opt;
 
   try {
-    po::options_description desc("Description: Mimicks hsv_merge.py by Frank Warmerdam and Trent Hare. Use it to combine results from gdaldem.");
-    desc.add_options()
+    po::options_description general_options("Description: Mimicks hsv_merge.py by Frank Warmerdam and Trent Hare. Use it to combine results from gdaldem.");
+    general_options.add_options()
       ("output-file,o", po::value(&opt.output_file), "Specify the output file.");
-    desc.add( asp::BaseOptionsDescription(opt) );
+    general_options.add( asp::BaseOptionsDescription(opt) );
 
-    po::options_description hidden("");
-    hidden.add_options()
+    po::options_description positional_options("");
+    positional_options.add_options()
       ("input-rgb", po::value(&opt.input_rgb), "Explicitly specify the input rgb image.")
       ("input-gray", po::value(&opt.input_gray), "Explicitly specify the input gray image.");
 
-    po::positional_options_description p;
-    p.add("input-rgb", 1 );
-    p.add("input-gray", 1 );
+    po::positional_options_description positional_desc;
+    positional_desc.add("input-rgb", 1 );
+    positional_desc.add("input-gray", 1 );
 
     std::string usage("[options] <input rgb> <input gray>");
     po::variables_map vm =
-      asp::check_command_line( argc, argv, opt, desc,
-                               hidden, p, usage );
+      asp::check_command_line( argc, argv, opt, general_options, general_options,
+                               positional_options, positional_desc, usage );
 
     if ( opt.input_rgb.empty() || opt.input_gray.empty() )
       vw_throw( ArgumentErr() << "Missing required input files.\n"
-                << usage << desc );
+                << usage << general_options );
 
     // Get the input RGB's type
     DiskImageResource *rsrc = DiskImageResource::open(opt.input_rgb);

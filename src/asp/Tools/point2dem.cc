@@ -142,7 +142,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   std::string usage("<point-cloud> ...");
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options,
+    asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
 
   if ( opt.pointcloud_filename.empty() )

@@ -87,7 +87,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   std::string usage("[options] <input image> <input camera model> <...and repeat...>\nNote: All cameras and their images must be of the same session type. Camera models only can be used as input for stereo sessions pinhole and isis.");
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options,
+    asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
 
   // Determining if feed only camera model

@@ -236,7 +236,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   std::string usage("[options] <rmax image filenames> ...");
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options,
+    asp::check_command_line( argc, argv, opt, general_options, general_options,
                              hidden_options, p, usage );
 
   if ( opt.image_files.size() < 2)

@@ -57,6 +57,7 @@ namespace asp {
   boost::program_options::variables_map
   check_command_line( int argc, char *argv[], BaseOptions& opt,
                       boost::program_options::options_description const& public_options,
+                      boost::program_options::options_description const& all_public_options,
                       boost::program_options::options_description const& positional_options,
                       boost::program_options::positional_options_description const& positional_desc,
                       std::string & usage_comment,

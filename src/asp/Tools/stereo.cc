@@ -32,13 +32,27 @@ namespace asp {
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
                          additional_options ) {
-    po::options_description general_options("");
-    general_options.add_options()
+    
+    po::options_description general_options_sub("");
+    general_options_sub.add_options()
       ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
+
+    // We distinguish between all_general_options, which is all the
+    // options we must parse, even if we don't need some of them, and
+    // general_options, which are the options specifically used by the
+    // current tool, and for which we also print the help message.
+    
+    po::options_description general_options("");
+    general_options.add ( general_options_sub );
     general_options.add( additional_options );
     general_options.add( asp::BaseOptionsDescription(opt) );
 
+    po::options_description all_general_options("");
+    all_general_options.add ( general_options_sub );
+    all_general_options.add( generate_config_file_options( opt ) );
+    all_general_options.add( asp::BaseOptionsDescription(opt) );
+    
     po::options_description positional_options("");
     positional_options.add_options()
       ("left-input-image", po::value(&opt.in_file1), "Left Input Image")
@@ -64,8 +78,8 @@ namespace asp {
 
     std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g. isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
-      asp::check_command_line( argc, argv, opt, general_options,
-                               positional_options, positional_desc, usage, true );
+      asp::check_command_line( argc, argv, opt, general_options, all_general_options,
+                               positional_options, positional_desc, usage, false );
 
     // Read the config file
     try {

@@ -64,7 +64,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   std::string usage("[options] <cnet_file> <list_of_cameras>");
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options,
+    asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
 
   opt.convert_isis = vm.count("convert-isis");

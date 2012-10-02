@@ -87,7 +87,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   std::string usage("<input-plate> <camera-image> <camera-model> <output-plate> [options]");
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options,
+    asp::check_command_line( argc, argv, opt, general_options, general_options,
                              hidden_options, p, usage );
 
   if ( opt.input_url.empty() ||
