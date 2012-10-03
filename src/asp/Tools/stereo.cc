@@ -51,7 +51,6 @@ namespace asp {
     po::options_description all_general_options("");
     all_general_options.add ( general_options_sub );
     all_general_options.add( generate_config_file_options( opt ) );
-    all_general_options.add( asp::BaseOptionsDescription(opt) );
     
     po::options_description positional_options("");
     positional_options.add_options()
