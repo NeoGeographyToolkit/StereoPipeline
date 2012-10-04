@@ -254,14 +254,17 @@ namespace asp {
       stereo::StereoModel model( camera_model1.get(), camera_model2.get() );
       double error;
       Vector3 point = model( Vector2(), Vector2(), error );
-      if ( dot_prod( camera_model1->pixel_to_vector(Vector2()),
-                     point - camera_model1->camera_center(Vector2()) ) < 0 )
+      if ( point != Vector3() // triangulation succeeded
+           && 
+           dot_prod( camera_model1->pixel_to_vector(Vector2()),
+                     point - camera_model1->camera_center(Vector2()) ) < 0 ){
         vw_out(WarningMessage,"console")
           << "Your cameras appear not to be pointing at the same location!\n"
           << "\tA test vector triangulated backwards through\n"
           << "\tthe camera models. You should double check\n"
           << "\tyour input models as most likely stereo won't\n"
           << "\tbe able to triangulate.\n";
+      }
     } catch ( camera::PixelToRayErr const& e ) {
     } catch ( camera::PointToPixelErr const& e ) {
       // Silent. Top Left pixel might not be valid on a map
