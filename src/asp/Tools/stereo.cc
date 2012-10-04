@@ -255,9 +255,14 @@ namespace asp {
       double error;
       Vector3 point = model( Vector2(), Vector2(), error );
       if ( point != Vector3() // triangulation succeeded
-           && 
-           dot_prod( camera_model1->pixel_to_vector(Vector2()),
-                     point - camera_model1->camera_center(Vector2()) ) < 0 ){
+           && (
+               dot_prod( camera_model1->pixel_to_vector(Vector2()),
+                         point - camera_model1->camera_center(Vector2()) ) < 0
+               ||
+               dot_prod( camera_model2->pixel_to_vector(Vector2()),
+                         point - camera_model2->camera_center(Vector2()) ) < 0
+               )
+           ){
         vw_out(WarningMessage,"console")
           << "Your cameras appear not to be pointing at the same location!\n"
           << "\tA test vector triangulated backwards through\n"
