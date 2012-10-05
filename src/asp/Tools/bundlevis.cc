@@ -155,7 +155,6 @@ std::vector<CameraIter*> loadCameraData( std::string camFile,
   int32 numLines = 0, numCameras = 0, numTimeIter = 0, numCameraParam = 1;
   int32 last_camera = -1, buffer;
   while (file.good()){
-    int32 read_cam_idx;
     file >> buffer;
     if (file.eof())
       break;
@@ -313,7 +312,7 @@ std::vector<ConnLineIter*> loadControlNet( std::string cnetFile,
       // For every measure
       for ( unsigned m = 0; m < (*cnet)[p].size(); ++m ){
         // Is this a valid camera ?
-        if ( (*cnet)[p][m].image_id() < (signed)cameras.size() ) {
+        if ( (*cnet)[p][m].image_id() < cameras.size() ) {
           // Now popping on a new connection
           connLineData.push_back( new ConnLineIter( points[p],
                                                     cameras[(*cnet)[p][m].image_id()],

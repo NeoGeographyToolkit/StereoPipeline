@@ -344,10 +344,10 @@ namespace asp {
     // Load the unmodified images
     boost::shared_ptr<DiskImageResource>
       left_rsrc( DiskImageResource::open(m_left_image_file) ),
-      righ_rsrc( DiskImageResource::open(m_right_image_file) );
+      right_rsrc( DiskImageResource::open(m_right_image_file) );
     DiskImageView<PixelGray<float> >
       left_disk_image( left_rsrc ),
-      righ_disk_image( righ_rsrc );
+      right_disk_image( right_rsrc );
 
     // Normalized Images' filenames
     output_file1 = m_out_prefix + "-L.tif";
@@ -373,7 +373,7 @@ namespace asp {
     // They don't exist or are corrupted.
     if (rebuild) {
       Vector4f left_stats = gather_stats( left_disk_image, "left" ),
-        right_stats = gather_stats( righ_disk_image, "right" );
+        right_stats = gather_stats( right_disk_image, "right" );
 
       ImageViewRef<PixelGray<float> > Limg, Rimg;
       std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -394,43 +394,43 @@ namespace asp {
             // projected the images to the same scale. If they
             // haven't, below would be the ideal but lossy method.
             //            inlier =
-            //  homography_ip_matching( left_disk_image, righ_disk_image,
+            //  homography_ip_matching( left_disk_image, right_disk_image,
             //                          match_filename );
             boost::scoped_ptr<RPCModel>
               left_rpc( read_rpc_model( m_left_image_file, m_left_camera_file ) ),
-              righ_rpc( read_rpc_model( m_right_image_file, m_right_camera_file ) );
-            cartography::GeoReference left_georef, righ_georef, dem_georef;
+              right_rpc( read_rpc_model( m_right_image_file, m_right_camera_file ) );
+            cartography::GeoReference left_georef, right_georef, dem_georef;
             read_georeference( left_georef, m_left_image_file );
-            read_georeference( righ_georef, m_right_image_file );
+            read_georeference( right_georef, m_right_image_file );
             read_georeference( dem_georef, m_extra_argument1 );
             boost::shared_ptr<DiskImageResource>
               dem_rsrc( DiskImageResource::open( m_extra_argument1 ) );
             TransformRef
               left_tx( RPCMapTransform( *left_rpc, left_georef,
                                         dem_georef, dem_rsrc ) ),
-              righ_tx( RPCMapTransform( *righ_rpc, righ_georef,
+              right_tx( RPCMapTransform( *right_rpc, right_georef,
                                         dem_georef, dem_rsrc ) );
             inlier =
               ip_matching( cam1.get(), cam2.get(),
-                           left_disk_image, righ_disk_image,
+                           left_disk_image, right_disk_image,
                            cartography::Datum("WGS84"), match_filename,
                            left_rsrc->has_nodata_read() ?
                            left_rsrc->nodata_read() :
                            std::numeric_limits<double>::quiet_NaN(),
-                           righ_rsrc->has_nodata_read() ?
-                           righ_rsrc->nodata_read() :
+                           right_rsrc->has_nodata_read() ?
+                           right_rsrc->nodata_read() :
                            std::numeric_limits<double>::quiet_NaN(),
-                           left_tx, righ_tx, false );
+                           left_tx, right_tx, false );
           } else {
             inlier =
               ip_matching_w_alignment( cam1.get(), cam2.get(),
-                                       left_disk_image, righ_disk_image,
+                                       left_disk_image, right_disk_image,
                                        cartography::Datum("WGS84"), match_filename,
                                        left_rsrc->has_nodata_read() ?
                                        left_rsrc->nodata_read() :
                                        std::numeric_limits<double>::quiet_NaN(),
-                                       righ_rsrc->has_nodata_read() ?
-                                       righ_rsrc->nodata_read() :
+                                       right_rsrc->has_nodata_read() ?
+                                       right_rsrc->nodata_read() :
                                        std::numeric_limits<double>::quiet_NaN() );
           }
 
@@ -451,7 +451,7 @@ namespace asp {
 
         // Applying alignment transform
         Limg = left_disk_image;
-        Rimg = transform(righ_disk_image,
+        Rimg = transform(right_disk_image,
                          HomographyTransform(align_matrix),
                          left_disk_image.cols(), left_disk_image.rows());
       } else if ( stereo_settings().alignment_method == "epipolar" ) {
@@ -459,7 +459,7 @@ namespace asp {
       } else {
         // Do nothing just provide the original files.
         Limg = left_disk_image;
-        Rimg = righ_disk_image;
+        Rimg = right_disk_image;
       }
 
       // Apply our normalization options

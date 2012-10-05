@@ -26,7 +26,7 @@
 #include <vw/Cartography.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
-#include <time.h>
+#include <ctime>
 
 using namespace vw;
 using namespace asp;
