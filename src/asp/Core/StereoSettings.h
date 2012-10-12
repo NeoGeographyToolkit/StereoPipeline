@@ -44,6 +44,9 @@ namespace asp {
   struct TriangulationDescription : public boost::program_options::options_description {
     TriangulationDescription();
   };
+  struct DGDescription : public boost::program_options::options_description {
+    DGDescription();
+  };
 
   boost::program_options::options_description
   generate_config_file_options( asp::BaseOptions& opt );
@@ -62,41 +65,41 @@ namespace asp {
     // ----------------
 
     // Preprocessing options
-    std::string alignment_method; // Valid options are: [Homography, Epipolar, None]
-    bool individually_normalize; /* if > 1, normalize the images
-                                          individually with their
-                                          own hi's and low */
-    bool force_max_min;    // Use entire dynamic range of image..
+    std::string alignment_method;     // Valid options are: [Homography, Epipolar, None]
+    bool individually_normalize;      // if > 1, normalize the images
+                                      //         individually with their
+                                      //         own hi's and lo's
+    bool force_max_min;               // Use entire dynamic range of image.
 
     // Correlation Options
-    float slogW;                 // Preprocessing filter width
-    vw::uint16 pre_filter_mode;   /* 0 = None
-                                     1 = Gaussian Blur
-                                     2 = Log Filter
-                                     3 = SLog Filter  */
-    vw::uint16  seed_option;     /* 0 = User global search for each tile
-                                    1 = Narrow search for each tile to low
-                                    res disparity seed
-                                    2 = Affine Transform and narrow search
-                                    based on disparity seed */
-    float seed_percent_pad;      // % pad amound towards the IP found
+    float slogW;                      // Preprocessing filter width
+    vw::uint16 pre_filter_mode;       // 0 = None
+                                      // 1 = Gaussian Blur
+                                      // 2 = Log Filter
+                                      // 3 = SLog Filter  
+    vw::uint16  seed_option;          // 0 = User global search for each tile
+                                      // 1 = Narrow search for each tile to low
+                                      //     res disparity seed
+                                      // 2 = Affine Transform and narrow search
+                                      //     based on disparity seed 
+    float seed_percent_pad;           // Pad amound towards the IP found
     float xcorr_threshold;
-    vw::uint16 cost_mode;        /* 0 = absolute difference
-                                    1 = squared difference
-                                    2 = normalized cross correlation */
-    vw::uint16 corr_max_levels;  // Max pyramid levels to process. 0 hits only once.
+    vw::uint16 cost_mode;             // 0 = absolute difference
+                                      // 1 = squared difference
+                                      // 2 = normalized cross correlation 
+    vw::uint16 corr_max_levels;       // Max pyramid levels to process. 0 hits only once.
 
-    // search range, used to define the
-    // search range of D_sub.
-    vw::Vector2i kernel;         // Correlation kernel
-    vw::Vector2i subpixel_kernel;// Subpixel correlation kernel
-    vw::BBox2i search_range;     // Correlation search range
+                                      // search range, used to define the
+                                      // search range of D_sub.
+    vw::Vector2i kernel;              // Correlation kernel
+    vw::Vector2i subpixel_kernel;     // Subpixel correlation kernel
+    vw::BBox2i search_range;          // Correlation search range
     bool disable_h_subpixel, disable_v_subpixel;
-    vw::uint16 subpixel_mode;    /* 0 = parabola fitting
-                                    1 = affine, robust weighting
-                                    2 = affine, bayes weighting
-                                    3 = affine, bayes EM weighting */
-    vw::uint16 subpixel_max_levels; // Max pyramid levels to process. 0 hits only once.
+    vw::uint16 subpixel_mode;         // 0 = parabola fitting
+                                      // 1 = affine, robust weighting
+                                      // 2 = affine, bayes weighting
+                                      // 3 = affine, bayes EM weighting 
+    vw::uint16 subpixel_max_levels;   // Max pyramid levels to process. 0 hits only once.
 
     // EMSubpixelCorrelator Options (mode 3 only)
     int subpixel_affine_iter;
@@ -104,23 +107,26 @@ namespace asp {
     int subpixel_pyramid_levels;
 
     // Filtering Options
-    vw::Vector2i rm_half_kernel; /* low confidence pixel removal kernel size */
-    int rm_min_matches;      /* min # of pxl to be matched to keep pxl */
-    int rm_threshold;        /* rm_treshold < disp[n]-disp[m] reject pxl */
-    int rm_cleanup_passes;   /* number of times to perform cleanup
-                                in the post-processing phase */
-    int erode_max_size;      /* Max island size in pixels that it'll remove*/
+    vw::Vector2i rm_half_kernel;      // low confidence pixel removal kernel size 
+    int rm_min_matches;               // min # of pxl to be matched to keep pxl 
+    int rm_threshold;                 // rm_treshold < disp[n]-disp[m] reject pxl 
+    int rm_cleanup_passes;            // number of times to perform cleanup
+                                      // in the post-processing phase 
+    int erode_max_size;               // Max island size in pixels that it'll remove
     bool disable_fill_holes;
-    int fill_hole_max_size;  /* Maximum hole size in pixels that we'll attempt
-                                to fill */
-    bool mask_flatfield;/* Masks pixels in the input images that are less
-                                 than 0. (For use with apollo metric camera...) */
+    int fill_hole_max_size;           // Maximum hole size in pixels that we'll attempt
+                                      // to fill 
+    bool mask_flatfield;              // Masks pixels in the input images that are less
+                                      // than 0. (For use with apollo metric camera...)
 
     // Triangulation Options
-    std::string universe_center; /* center for the radius clipping   */
-    float near_universe_radius;  /* radius of the universe in meters */
-    float far_universe_radius;   /* radius of the universe in meters */
-    bool use_least_squares;/* use a more rigorous triangulation */
+    std::string universe_center;      // center for the radius clipping   
+    float near_universe_radius;       // radius of the universe in meters 
+    float far_universe_radius;        // radius of the universe in meters 
+    bool use_least_squares;           // use a more rigorous triangulation
+
+    // DG Options
+    bool correct_velocity_aberration; // Apply the DG velocity aberration correction
   };
 
   /// Return the singleton instance of the stereo setting structure.
@@ -139,8 +145,7 @@ namespace asp {
       found_eof();
     }
 
-    /** Creates a config file parser for the specified stream.
-     */
+    // Creates a config file parser for the specified stream.
     asp_config_file_iterator(std::basic_istream<char>& is,
                              const std::set<std::string>& allowed_options,
                              bool allow_unregistered = false);
