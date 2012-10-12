@@ -45,19 +45,22 @@ namespace asp {
   // the image); it is also the flight direction. This is different
   // from Digital Globe model, but you can rotate pose beforehand.
 
-  template <class PositionFuncT, class PoseFuncT, class TimeFuncT>
+  template <class PositionFuncT, class VelocityFuncT, class PoseFuncT, class TimeFuncT>
   class LinescanDGModel : public vw::camera::CameraModel {
   protected:
     // Extrinsics
     PositionFuncT m_position_func; // Function of time
+    VelocityFuncT m_velocity_func; // Function of time
     PoseFuncT m_pose_func;
     TimeFuncT m_time_func;         // Function of line number
-
+    
     // Intrinsics
     vw::Vector2i m_image_size;     // px
     vw::Vector2 m_detector_origin; // px
     double m_focal_length;         // px
 
+    bool m_correct_velocity_aberration;
+    
     // Levenberg Marquardt solver for linescan number
     //
     // We solve for the line number of the image that position the
@@ -68,8 +71,8 @@ namespace asp {
       const LinescanDGModel* m_model;
       vw::Vector3 m_point;
     public:
-      typedef vw::Vector<double> result_type; // 1 D error on the optical plane.
-      typedef result_type domain_type;        // 1 D linescan number
+      typedef vw::Vector<double> result_type; // 1D error on the optical plane.
+      typedef result_type domain_type;        // 1D linescan number
       typedef vw::Matrix<double> jacobian_type;
 
       LinescanLMA( const LinescanDGModel* model, const vw::Vector3& pt ) :
@@ -87,21 +90,52 @@ namespace asp {
                                          // of the detector
         return result;
       }
+      
+    };
+    
+    // Levenberg Marquardt solver for linescan number (y) and pixel
+    // number (x) for the given point in space. The obtained solution
+    // pixel (x, y) must be such that the vector from this camera
+    // pixel goes through the given point. The extra complication as
+    // compared to LinescanLMA is the non-linear velocity aberration
+    // correction in pixel_to_vector. This makes it for a more complex
+    // equation and we need to solve for both x and y, rather than
+    // just for y and getting x for free.
+    class LinescanCorrLMA : public vw::math::LeastSquaresModelBase<LinescanCorrLMA> {
+      const LinescanDGModel* m_model;
+      vw::Vector3 m_point;
+    public:
+      typedef vw::Vector2 domain_type;     // 2D pixel, input to cost function vector
+      typedef vw::Vector3 result_type;     // 3D error, output of cost function vector
+      typedef vw::Matrix<double, 3, 2> jacobian_type;
+
+      LinescanCorrLMA( const LinescanDGModel* model, const vw::Vector3& pt ) :
+        m_model(model), m_point(pt) {}
+
+      inline result_type operator()( domain_type const& pix ) const {
+        return m_model->pixel_to_vector(pix) - normalize(m_point - m_model->camera_center(pix));
+      }
+      
     };
 
   public:
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    LinescanDGModel( PositionFuncT const& position,
-                     PoseFuncT const& pose,
-                     TimeFuncT const& time,
-                     vw::Vector2i const& image_size,
-                     vw::Vector2 const& detector_origin,
-                     double focal_length ) :
-      m_position_func(position), m_pose_func(pose), m_time_func(time),
+    LinescanDGModel(PositionFuncT const& position,
+                    VelocityFuncT const& velocity,
+                    PoseFuncT const& pose,
+                    TimeFuncT const& time,
+                    vw::Vector2i const& image_size,
+                    vw::Vector2 const& detector_origin,
+                    double focal_length,
+                    bool correct_velocity_aberration
+                    ) :
+      m_position_func(position), m_velocity_func(velocity),
+      m_pose_func(pose), m_time_func(time),
       m_image_size(image_size), m_detector_origin(detector_origin),
-      m_focal_length(focal_length) {}
+      m_focal_length(focal_length),
+      m_correct_velocity_aberration(correct_velocity_aberration){}
 
     virtual ~LinescanDGModel() {}
     virtual std::string type() const { return "LinescanDG"; }
@@ -110,6 +144,13 @@ namespace asp {
     // Interface
     //------------------------------------------------------------------
     virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
+
+      if (!m_correct_velocity_aberration) return point_to_pixel_uncorrected(point);
+      return point_to_pixel_corrected(point);
+    }
+    
+    vw::Vector2 point_to_pixel_uncorrected(vw::Vector3 const& point) const {
+
       using namespace vw;
 
       // Solve for the correct line number to use
@@ -136,19 +177,82 @@ namespace asp {
       return vw::Vector2(pt.x() - m_detector_origin[0], solution[0]);
     }
 
-    // Gives a pointing vector in the world coordinates.
-    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const {
-      double t = m_time_func( pix.y() );
-      return normalize(m_pose_func( t ).rotate( vw::Vector3(pix[0]+m_detector_origin[0],
-                                                            m_detector_origin[1],
-                                                            m_focal_length) ) );
+    vw::Vector2 point_to_pixel_corrected(vw::Vector3 const& point) const {
+
+      using namespace vw;
+
+      LinescanCorrLMA model( this, point );
+      int status;
+      Vector2 start;
+      start[0] = m_image_size.x()/2;
+      start[1] = m_image_size.y()/2;
+      Vector3 objective(0, 0, 0);
+      Vector2 solution =
+        math::levenberg_marquardt( model, start, objective, status,
+                                   1e-14, 1e-14, 1e3 );
+      // The ending numbers define:
+      //   Attempt to solve solution to 1e-14 pixels.
+      //   Give up with a relative cost function change of 1e-14.
+      //   Try with a max of a 1000 iterations.
+      // Need such tight tolerances as otherwise the solution is
+      // inaccurate.
+      VW_ASSERT( status > 0,
+                 camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
+
+      return solution;
     }
 
-    // Gives a position in world coordinates.
+    // Gives a pointing vector in the world coordinates.
+    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const {
+
+      using namespace vw;
+
+      double t = m_time_func( pix.y() );
+      Vector3 pix_to_vec
+        = normalize(m_pose_func( t ).rotate( vw::Vector3(pix[0]+m_detector_origin[0],
+                                                         m_detector_origin[1],
+                                                         m_focal_length) ) );
+
+      if (!m_correct_velocity_aberration) return pix_to_vec;
+
+      // Correct for velocity aberration
+
+      // 1. Find the distance from the camera to the first
+      // intersection of the current ray with the Earth surface.
+      Vector3 cam_ctr          = camera_center(pix);
+      double  earth_ctr_to_cam = norm_2(cam_ctr);
+      double  cam_angle_cos    = dot_prod(pix_to_vec, -normalize(cam_ctr));
+      double  len_cos          = earth_ctr_to_cam*cam_angle_cos;
+      double  earth_rad        = 6371000.0;
+      double  cam_to_surface   = len_cos -
+        sqrt(earth_rad*earth_rad + len_cos*len_cos - earth_ctr_to_cam*earth_ctr_to_cam);
+      
+      // 2. Correct the camera velocity due to the fact that the Earth
+      // rotates around its axis.
+      double seconds_in_day = 86164.0905;
+      Vector3 earth_rotation_vec(0.0, 0.0, 2*M_PI/seconds_in_day);
+      Vector3 cam_vel = camera_velocity(pix);
+      Vector3 cam_vel_corr1 = cam_vel - cam_to_surface * cross_prod(earth_rotation_vec, pix_to_vec);
+
+      // 3. Find the component of the camera velocity orthogonal to the
+      // direction the camera is pointing to.
+      Vector3 cam_vel_corr2 = cam_vel_corr1 - dot_prod(cam_vel_corr1, pix_to_vec) * pix_to_vec;
+
+      // 4. Correct direction for velocity aberration due to the speed of light.
+      double light_speed = 299792458.0;             
+      Vector3 corr_pix_to_vec = pix_to_vec - cam_vel_corr2/light_speed;
+      return normalize(corr_pix_to_vec);
+    }
+
+    // Gives the camera position in world coordinates.
     virtual vw::Vector3 camera_center(vw::Vector2 const& pix ) const {
       return m_position_func( m_time_func( pix.y() ) );
     }
 
+    // Gives the camera velocity in world coordinates.
+    vw::Vector3 camera_velocity(vw::Vector2 const& pix ) const {
+      return m_velocity_func( m_time_func( pix.y() ) );
+    }
     // Gives a pose vector which represents the rotation from camera to world units
     virtual vw::Quat camera_pose(vw::Vector2 const& pix) const {
       return m_pose_func( m_time_func( pix.y() ) );

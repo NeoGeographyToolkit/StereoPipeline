@@ -174,6 +174,8 @@ namespace asp {
     geo.principal_distance /= geo.detector_pixel_pitch;
     geo.detector_origin /= geo.detector_pixel_pitch;
 
+    bool correct_velocity_aberration = stereo_settings().correct_velocity_aberration;
+    
     // Convert all time measurements to something that boost::date_time can read.
     boost::replace_all( eph.start_time, "T", " " );
     boost::replace_all( img.tlc_start_time, "T", " " );
@@ -227,19 +229,22 @@ namespace asp {
                      tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
                MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
-    typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
+    typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::LinearPiecewisePositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
     typedef boost::shared_ptr<camera::CameraModel> result_type;
-
-    return result_type( new camera_type( camera::PiecewiseAPositionInterpolation( eph.position_vec, eph.velocity_vec,
-                                                                                  convert( pt::time_from_string( eph.start_time ) ),
-                                                                                  eph.time_interval ),
-                                         camera::SLERPPoseInterpolation( att.quat_vec,
-                                                                         convert( pt::time_from_string( att.start_time ) ),
-                                                                         att.time_interval ),
-                                         tlc_time_interpolation, img.image_size,
-                                         subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
-                                                                                             geo.detector_origin[1], 0 ) ), 0, 2 ),
-                                         geo.principal_distance ) );
+    double et0 = convert( pt::time_from_string( eph.start_time ) );
+    double at0 = convert( pt::time_from_string( att.start_time ) );
+    double edt = eph.time_interval;
+    double adt = att.time_interval;
+    return result_type(new camera_type(camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec,
+                                                                               et0, edt ),
+                                       camera::LinearPiecewisePositionInterpolation(eph.velocity_vec, et0, edt),
+                                       camera::SLERPPoseInterpolation(att.quat_vec, at0, adt),
+                                       tlc_time_interpolation, img.image_size,
+                                       subvector(inverse(sensor_coordinate).rotate(Vector3(geo.detector_origin[0],
+                                                                                           geo.detector_origin[1],
+                                                                                           0)), 0, 2),
+                                       geo.principal_distance, correct_velocity_aberration)
+                       );
   }
 
   // LUT image access
