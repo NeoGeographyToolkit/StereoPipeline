@@ -174,8 +174,8 @@ namespace asp {
     geo.principal_distance /= geo.detector_pixel_pitch;
     geo.detector_origin /= geo.detector_pixel_pitch;
 
-    bool correct_velocity_aberration = stereo_settings().correct_velocity_aberration;
-    
+    bool correct_velocity_aberration = !stereo_settings().disable_correct_velocity_aberration;
+
     // Convert all time measurements to something that boost::date_time can read.
     boost::replace_all( eph.start_time, "T", " " );
     boost::replace_all( img.tlc_start_time, "T", " " );

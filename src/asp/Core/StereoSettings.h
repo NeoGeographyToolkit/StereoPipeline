@@ -126,7 +126,7 @@ namespace asp {
     bool use_least_squares;           // use a more rigorous triangulation
 
     // DG Options
-    bool correct_velocity_aberration; // Apply the DG velocity aberration correction
+    bool disable_correct_velocity_aberration;
   };
 
   /// Return the singleton instance of the stereo setting structure.

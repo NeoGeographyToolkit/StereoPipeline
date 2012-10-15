@@ -165,7 +165,7 @@ namespace asp {
   DGDescription::DGDescription() : po::options_description("DG Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
-      ("correct-velocity-aberration", po::bool_switch(&global.correct_velocity_aberration)->default_value(false)->implicit_value(true),
+      ("disable-correct-velocity-aberration", po::bool_switch(&global.disable_correct_velocity_aberration)->default_value(false)->implicit_value(true),
        "Apply the velocity aberration correction for Digital Globe cameras.");
   }
 
