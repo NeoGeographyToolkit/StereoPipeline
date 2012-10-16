@@ -363,20 +363,21 @@ int main( int argc, char *argv[] ) {
                     mean_accum,
                     TerminalProgressCallback("asp","Statistics: ") );
     Vector3 avg_location = mean_accum.value();
-
+    double avg_lon = avg_location.x() >= 0 ? 0 : 180;
+    
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.x_offset
                << " " << opt.y_offset << " " << opt.z_offset << "\n";
       point_image =
         geodetic_to_point(point_image_offset(recenter_longitude(cartesian_to_geodetic(point_image,georef),
-                                                                avg_location.x() >= 0 ? 0 : 180),
+                                                                avg_lon),
                                              Vector3(opt.x_offset,
                                                      opt.y_offset,
                                                      opt.z_offset)),georef);
     } else {
       point_image =
-        geodetic_to_point(recenter_longitude(cartesian_to_geodetic(point_image,georef), avg_location.x() >= 0 ? 0 : 180),georef);
+        geodetic_to_point(recenter_longitude(cartesian_to_geodetic(point_image,georef), avg_lon),georef);
     }
 
     // Rasterize the results to a temporary file on disk so as to speed
