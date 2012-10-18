@@ -74,6 +74,12 @@ if MAKE_APP_POINT2LAS
   point2las_LDADD = $(APP_POINT2LAS_LIBS)
 endif
 
+if MAKE_APP_DEM_ADJUST
+  bin_PROGRAMS += dem_adjust
+  dem_adjust_SOURCES = dem_adjust.cc
+  dem_adjust_LDADD = $(APP_DEM_ADJUST_LIBS)
+endif
+
 if MAKE_APP_RMAX2CAHVOR
   bin_PROGRAMS += rmax2cahvor
   rmax2cahvor_SOURCES = rmax2cahvor.cc
