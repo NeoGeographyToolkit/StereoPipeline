@@ -249,7 +249,7 @@ namespace cartography {
                 PointAcc point_ll = point_ul; point_ll.next_row();
                 PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-                // Verify that at least one vertice is
+                // Verify that at least one vertex is
                 // placed in the viewable area.
                 if ( boost::math::isnan((*point_lr).z()) ||
                      !(local_3d_bbox.contains(*point_ul) ||
