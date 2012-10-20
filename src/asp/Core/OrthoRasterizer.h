@@ -124,9 +124,9 @@ namespace cartography {
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
 
     template <class TextureViewT>
-    OrthoRasterizerView(ImageT point_cloud, TextureViewT texture, double spacing = 0.0,
+    OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing = 0.0,
                         const ProgressCallback& progress = ProgressCallback::dummy_instance()) :
-      m_point_image(point_cloud), m_texture(ImageView<float>(1,1)), // dummy value
+      m_point_image(point_image), m_texture(ImageView<float>(1,1)), // dummy value
       m_default_value(0), m_minz_as_default(true), m_use_alpha(false) {
 
       set_texture(texture.impl());
@@ -359,10 +359,10 @@ namespace cartography {
 
   template <class PixelT, class ImageT, class TextureT>
   OrthoRasterizerView<PixelT, ImageT>
-  ortho_rasterizer( ImageViewBase<ImageT> const& point_cloud,
+  ortho_rasterizer( ImageViewBase<ImageT> const& point_image,
                     ImageViewBase<TextureT> const& texture, double spacing = 0.0,
                     const ProgressCallback& progress = ProgressCallback::dummy_instance()) {
-    return OrthoRasterizerView<PixelT,ImageT>(point_cloud.impl(),texture.impl(),
+    return OrthoRasterizerView<PixelT,ImageT>(point_image.impl(),texture.impl(),
                                               spacing, progress );
   }
 
