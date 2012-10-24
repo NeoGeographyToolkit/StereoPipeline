@@ -319,7 +319,12 @@ AX_PKG_ONE_OF(GSL,
 AX_PKG(CURL,    [], [-lcurl], [curl/curl.h])
 AX_PKG(LASZIP,  [], [-llaszip], [laszip/laszip.hpp])
 AX_PKG(LIBLAS,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LASZIP], [-llas], [liblas/liblas.hpp])
-AX_PKG(GEOGRAPHICLIB, [], [-lGeographic], [GeographicLib/Geoid.hpp])
+
+# The GEOID dependency is data, not software. Must have it here to be
+# able to pass a flag with the data location to the programs using
+# this data.
+AX_PKG(GEOID, [], [], [])
+
 AX_PKG(GEOS,    [], [-lgeos], [geos.h])
 AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
 AX_PKG(UFCONFIG, [], [-lufconfig])
@@ -413,7 +418,7 @@ AX_APP(PLATEORTHOPROJECT,[src/asp/Tools], no,  [VW_PLATE CORE SESSIONS ISISIO])
 AX_APP(POINT2DEM,        [src/asp/Tools], yes, [CORE GDAL])
 AX_APP(POINT2MESH,       [src/asp/Tools], yes, [OPENSCENEGRAPH CORE])
 AX_APP(POINT2LAS,        [src/asp/Tools], no,  [BOOST LASZIP LIBLAS CORE])
-AX_APP(DEM_ADJUST,       [src/asp/Tools], no,  [GEOGRAPHICLIB CORE])
+AX_APP(DEM_ADJUST,       [src/asp/Tools], no,  [GEOID CORE])
 AX_APP(RESULTS,          [src/asp/Tools], no,  [CORE ISISIO])
 AX_APP(RMAX2CAHVOR,      [src/asp/Tools], no,  [SESSIONS])
 AX_APP(RMAXADJUST,       [src/asp/Tools], no,  [VW_BUNDLEADJUSTMENT SESSIONS])
