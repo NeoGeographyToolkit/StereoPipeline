@@ -202,7 +202,7 @@ int main(int argc, char* argv[]) {
         vw_out() << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
         opt.stereo_session = "pinhole";
       } else if ( fs::path(opt.image_file).extension() == ".cub" ) {
-        vw_out() << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
+        vw_out() << "\t--> Detected ISIS cube files.  Executing ISIS Stereo Pipeline.\n";
         opt.stereo_session = "isis";
       } else {
         vw_out() << "\n\n******************************************************************\n";

@@ -107,7 +107,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     }
 
     else if ( boost::iends_with(opt.camera_image, ".cub") ) {
-      vw_out() << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
+      vw_out() << "\t--> Detected ISIS cube files.  Executing ISIS Stereo Pipeline.\n";
       opt.session = "isis";
     }
 
