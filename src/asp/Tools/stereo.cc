@@ -169,7 +169,7 @@ namespace asp {
     if (boost::iends_with(boost::to_lower_copy(opt.in_file1), ".cub") &&
         boost::iends_with(boost::to_lower_copy(opt.in_file2), ".cub")) {
       vw_out() << "\t--> Detected ISIS cube files. "
-               << "Executing ISIS Stereo Pipeline.\n";
+               << "Executing ISIS stereo pipeline.\n";
       opt.stereo_session_string = "isis";
       return;
     }
