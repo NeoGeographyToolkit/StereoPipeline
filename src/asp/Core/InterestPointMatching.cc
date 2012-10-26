@@ -110,6 +110,8 @@ namespace asp {
     Matrix<double> H = ransac( right_points, left_points );
     std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
 
+    // Sanity checks. If these fail, most likely the two images are too different
+    // for stereo to succeed.
     if ( indices.size() < std::min( right_points.size(), left_points.size() )/3 ){
       vw_throw( ArgumentErr() << "InterestPointMatching: The number of inliers is less than 1/3 of the number of points. The homography fit is inaccurate.\n" );
     }
