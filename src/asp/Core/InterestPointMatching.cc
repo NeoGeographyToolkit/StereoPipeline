@@ -113,12 +113,12 @@ namespace asp {
     // Sanity checks. If these fail, most likely the two images are too different
     // for stereo to succeed.
     if ( indices.size() < std::min( right_points.size(), left_points.size() )/3 ){
-      vw_throw( ArgumentErr() << "InterestPointMatching: The number of inliers is less than 1/3 of the number of points. The homography fit is inaccurate.\n" );
+      vw_throw( ArgumentErr() << "InterestPointMatching: The number of inliers is less than 1/3 of the number of points. Invalid stereo pair.\n" );
     }
     
     double det = H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0);
     if (det <= 0.0 || det > 2.0){
-      vw_throw( ArgumentErr() << "InterestPointMatching: The determinant of homography matrix is negative or too large. The homography fit is inaccurate.\n" );
+      vw_throw( ArgumentErr() << "InterestPointMatching: The determinant of homography matrix is negative or too large. Invalid stereo pair.\n" );
     }
     
     return H;
