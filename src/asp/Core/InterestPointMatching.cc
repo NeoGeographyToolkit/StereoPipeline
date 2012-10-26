@@ -107,7 +107,19 @@ namespace asp {
 
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric> ransac( hfit_func(), math::InterestPointErrorMetric(), norm_2(Vector2(box1.height(),box1.width())) / 10 );
-    return ransac( right_points, left_points );
+    Matrix<double> H = ransac( right_points, left_points );
+    std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
+
+    if ( indices.size() < std::min( right_points.size(), left_points.size() )/3 ){
+      vw_throw( ArgumentErr() << "InterestPointMatching: The number of inliers is less than 1/3 of the number of points. The homography fit is inaccurate.\n" );
+    }
+    
+    double det = H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0);
+    if (det <= 0.0 || det > 2.0){
+      vw_throw( ArgumentErr() << "InterestPointMatching: The determinant of homography matrix is negative or too large. The homography fit is inaccurate.\n" );
+    }
+    
+    return H;
   }
 
   vw::Matrix<double>
