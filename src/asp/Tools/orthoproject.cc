@@ -311,8 +311,9 @@ int main(int argc, char* argv[]) {
     GeoReference drg_georef = dem_georef;
     // If the user has supplied a scale, we use it.  Otherwise, we
     // compute the optimal scale of image based on the camera model.
-    BBox2 projection_bbox, cam_bbox, dem_bbox;
+    BBox2 projection_bbox;
     {
+      BBox2 cam_bbox, dem_bbox;
       vw_out() << "\t--> Extracting camera bbox ... " << std::flush;
       float mpp_auto_scale;
       cam_bbox =
@@ -347,9 +348,12 @@ int main(int argc, char* argv[]) {
         scale = mpp_auto_scale;
     }
 
-    double output_width = projection_bbox.width() / scale;
-    double output_height = projection_bbox.height() / scale;
+    int output_width = (int)round(projection_bbox.width() / scale);
+    int output_height = (int)round(projection_bbox.height() / scale);
 
+    // We must adjust the projection box given that we performed snapping to integer above.
+    projection_bbox = BBox2(projection_bbox.min().x(), projection_bbox.min().y(), scale*output_width, scale*output_height);
+    
     vw_out( DebugMessage, "asp" ) << "Output size : "
                                   << output_width << " " << output_height << " px\n"
                                   << scale << " pt/px\n";
@@ -372,8 +376,8 @@ int main(int argc, char* argv[]) {
       crop(transform(dem, trans,
                      ConstantEdgeExtension(),
                      BicubicInterpolation()),
-           0,0,int32(output_width),int32(output_height));
-
+           0,0,output_width,output_height);
+    
     vw_out( DebugMessage, "asp" ) << "Output GeoReference: "
                                   << drg_georef << "\n";
 
