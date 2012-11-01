@@ -241,7 +241,8 @@ namespace spice {
     // Alter the spice error handling behavior to allow us to handle
     // errors ourselves.
     int lenout = 0;
-    erract_c (  "SET", lenout, "RETURN"  );
+    char set[] = "SET", ret[] = "RETURN";
+    erract_c (  set, lenout, ret  );
 
     // Load the kernels
     list<string>::iterator iter;
