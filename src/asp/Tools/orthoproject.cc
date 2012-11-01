@@ -183,6 +183,9 @@ void do_projection( Options& opt,
 
 int main(int argc, char* argv[]) {
 
+  // Orthorpoject a camera image not a DEM.
+  // Note: This process is not multi-threaded because it uses ISIS which is not thread safe.
+  
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
