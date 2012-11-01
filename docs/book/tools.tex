@@ -393,7 +393,7 @@ Options & Description \\ \hline \hline
 %% \label{orthoproject}
 
 %% Map projects imagery on to point clouds.
-
+%% Note: This process is not multi-threaded because it uses ISIS which is not thread safe.
 %% Example:
 %% \begin{verbatim}
 %% orthoproject -t isis filename-DEM.tif filename.cub filename.isis_adjust \\
