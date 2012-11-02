@@ -128,17 +128,21 @@ int main( int argc, char *argv[] ) {
         apply_mask(create_mask(dem1_dmg, dem1_nodata) - dem2_trans,
                    opt.nodata_value );
     }
+    
+
+    std::string output_file = opt.output_prefix + "-diff.tif";
+    vw_out() << "Writing difference: " << output_file << "\n";
 
     if ( opt.use_float ) {
       ImageViewRef<float> difference_float = channel_cast<float>( difference );
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.output_prefix + "-diff.tif",
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file,
                                                                            difference_float, opt ) );
       rsrc->set_nodata_write( opt.nodata_value );
       write_georeference( *rsrc, dem1_georef );
       block_write_image( *rsrc, difference_float,
                          TerminalProgressCallback("asp", "\t--> Differencing: ") );
     } else {
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.output_prefix + "-diff.tif",
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file,
                                                                            difference, opt ) );
       rsrc->set_nodata_write( opt.nodata_value );
       write_georeference( *rsrc, dem1_georef );
