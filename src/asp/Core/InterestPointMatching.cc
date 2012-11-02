@@ -102,13 +102,14 @@ namespace asp {
       }
     }
 
-    VW_OUT( DebugMessage, "asp" ) << "Projected " << left_points.size()
-                                  << " rays for rough homography.\n";
-
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric> ransac( hfit_func(), math::InterestPointErrorMetric(), norm_2(Vector2(box1.height(),box1.width())) / 10 );
     Matrix<double> H = ransac( right_points, left_points );
     std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
+
+    VW_OUT( DebugMessage, "asp" ) << "Projected " << left_points.size()
+                                  << " rays for rough homography.\n";
+    VW_OUT( DebugMessage, "asp" ) << "Number of inliers: " << indices.size() << ".\n";
 
     // Sanity checks. If these fail, most likely the two images are too different
     // for stereo to succeed.
@@ -117,8 +118,8 @@ namespace asp {
     }
     
     double det = H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0);
-    if (det <= 0.0 || det > 2.0){
-      vw_throw( ArgumentErr() << "InterestPointMatching: The determinant of homography matrix is negative or too large. Invalid stereo pair.\n" );
+    if (det <= 0.1 || det > 2.0){
+      vw_throw( ArgumentErr() << "InterestPointMatching: The determinant of the 2x2 submatrix of the homography matrix " << H << " is too small or too large. Invalid stereo pair.\n" );
     }
     
     return H;
