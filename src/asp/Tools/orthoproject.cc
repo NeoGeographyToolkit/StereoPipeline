@@ -348,11 +348,13 @@ int main(int argc, char* argv[]) {
         scale = mpp_auto_scale;
     }
 
-    int output_width = (int)round(projection_bbox.width() / scale);
-    int output_height = (int)round(projection_bbox.height() / scale);
+    int min_x         = (int)round(projection_bbox.min().x() / scale);
+    int min_y         = (int)round(projection_bbox.min().y() / scale);
+    int output_width  = (int)round(projection_bbox.width()   / scale);
+    int output_height = (int)round(projection_bbox.height()  / scale);
 
     // We must adjust the projection box given that we performed snapping to integer above.
-    projection_bbox = BBox2(projection_bbox.min().x(), projection_bbox.min().y(), scale*output_width, scale*output_height);
+    projection_bbox = scale*BBox2(min_x, min_y, output_width, output_height);
     
     vw_out( DebugMessage, "asp" ) << "Output size : "
                                   << output_width << " " << output_height << " px\n"
