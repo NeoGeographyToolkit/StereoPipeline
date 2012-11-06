@@ -455,14 +455,18 @@ int main( int argc, char *argv[] ) {
 
     if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
       if ( opt.output_file_type == "tif" ) {
-        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEM.tif", rasterizer_fsaa, opt) );
+        std::string output_file = opt.out_prefix + "-DEM.tif";
+        vw_out(VerboseDebugMessage,"asp") << "Writing DEM: " << output_file << "\n";
+        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc(output_file, rasterizer_fsaa, opt) );
         rsrc->set_nodata_write( opt.nodata_value );
         write_georeference( *rsrc, georef );
         block_write_image( *rsrc, rasterizer_fsaa,
                            TerminalProgressCallback("asp","DEM: ") );
       } else {
+        std::string output_file = opt.out_prefix + "-DEM." + opt.output_file_type;
+        vw_out(VerboseDebugMessage,"asp") << "Writing DEM: " << output_file << "\n";
         asp::block_write_gdal_image(
-          opt.out_prefix + "-DEM." + opt.output_file_type,
+          output_file,
           rasterizer_fsaa, georef, opt,
           TerminalProgressCallback("asp","DEM: ") );
       }
@@ -474,13 +478,17 @@ int main( int argc, char *argv[] ) {
       rasterizer_fsaa =
         generate_fsaa_raster( rasterizer, opt );
       if ( opt.output_file_type == "tif" ) {
-        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DEMError.tif", rasterizer_fsaa, opt) );
+        std::string output_file = opt.out_prefix + "-DEMError.tif";
+        vw_out(VerboseDebugMessage,"asp") << "Writing DEM error: " << output_file << "\n";
+        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, rasterizer_fsaa, opt) );
         rsrc->set_nodata_write( opt.nodata_value );
         write_georeference( *rsrc, georef );
         block_write_image( *rsrc, rasterizer_fsaa,
                            TerminalProgressCallback("asp","DEMError: ") );
       } else {
-        asp::write_gdal_georeferenced_image(opt.out_prefix + "-DEMError."+opt.output_file_type,
+        std::string output_file = opt.out_prefix + "-DEMError."+opt.output_file_type;
+        vw_out(VerboseDebugMessage,"asp") << "Writing DEM error: " << output_file << "\n";
+        asp::write_gdal_georeferenced_image(output_file,
                                             rasterizer_fsaa, georef, opt, TerminalProgressCallback("asp","DEMError:") );
       }
     }
@@ -491,7 +499,9 @@ int main( int argc, char *argv[] ) {
       rasterizer.set_texture(texture);
       rasterizer_fsaa =
         generate_fsaa_raster( rasterizer, opt );
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( opt.out_prefix + "-DRG.tif", rasterizer_fsaa, opt ) );
+      std::string output_file = opt.out_prefix + "-DRG.tif";
+      vw_out(VerboseDebugMessage,"asp") << "Writing DRG: " << output_file << "\n";
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, rasterizer_fsaa, opt ) );
       rsrc->set_nodata_write( opt.nodata_value );
       write_georeference( *rsrc, georef );
       block_write_image( *rsrc, rasterizer_fsaa,
@@ -503,8 +513,10 @@ int main( int argc, char *argv[] ) {
       DiskImageView<PixelGray<float> >
         dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
+      std::string output_file = opt.out_prefix + "-DEM-normalized.tif";
+      vw_out(VerboseDebugMessage,"asp") << "Writing normalized DEM: " << output_file << "\n";
       asp::block_write_gdal_image(
-        opt.out_prefix + "-DEM-normalized.tif",
+        output_file,
         apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
                                                  rasterizer.bounding_box().min().z(),
                                                  rasterizer.bounding_box().max().z(),
