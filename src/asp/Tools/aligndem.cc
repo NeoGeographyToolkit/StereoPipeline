@@ -21,6 +21,7 @@
 #include <vw/Cartography.h>
 #include <vw/InterestPoint.h>
 #include <vw/Math.h>
+#include <vw/RANSAC.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <asp/ControlNetTK/Equalization.h>
 #include <asp/Core/Common.h>
@@ -266,7 +267,7 @@ int main( int argc, char *argv[] ) {
     std::vector<size_t> indices;
     Matrix<double> trans;
     math::RandomSampleConsensus<math::AffineFittingFunctorN<3>,math::L2NormErrorMetric>
-      ransac( math::AffineFittingFunctorN<3>(), math::L2NormErrorMetric(), 10);
+      ransac( math::AffineFittingFunctorN<3>(), math::L2NormErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
     trans = ransac(ransac_ip1, ransac_ip2);
     indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2);
 

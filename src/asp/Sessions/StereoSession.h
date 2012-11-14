@@ -176,7 +176,7 @@ namespace asp {
       std::vector<size_t> indices;
       try {
 
-        vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 10 );
+        vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
         T = ransac( ransac_ip2, ransac_ip1 );
         indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
         vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;

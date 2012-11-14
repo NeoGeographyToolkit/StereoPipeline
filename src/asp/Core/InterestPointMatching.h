@@ -190,8 +190,10 @@ namespace asp {
       typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
                                           math::InterestPointErrorMetric> RansacT;
       RansacT ransac( math::HomographyFittingFunctor(),
-                      math::InterestPointErrorMetric(),
-                      norm_2(Vector2(bounding_box(image1_base.impl()).size()))/100.0 );
+                      math::InterestPointErrorMetric(), 100,
+                      norm_2(Vector2(bounding_box(image1_base.impl()).size()))/100.0,
+                      ransac_ip1.size()/2, true
+                      );
       Matrix<double> H(ransac(ransac_ip1,ransac_ip2));
       vw_out() << "\t--> Homography: " << H << "\n";
       indices = ransac.inlier_indices(H,ransac_ip1,ransac_ip2);

@@ -274,7 +274,7 @@ approximate_search_range( std::string const& left_image,
                    sum( file_image_size( right_image ) ) );
 
       math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
-        ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), inlier_threshold );
+        ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 100, inlier_threshold, ransac_ip1.size()/2, true );
       Matrix<double> trans = ransac( ransac_ip1, ransac_ip2 );
       vw_out(DebugMessage,"asp") << "\t    * Ransac Result: " << trans << std::endl;
       vw_out(DebugMessage,"asp") << "\t      inlier thresh: "

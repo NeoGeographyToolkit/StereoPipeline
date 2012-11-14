@@ -23,7 +23,6 @@
 #include <vw/FileIO.h>
 #include <vw/Math/Functors.h>
 #include <vw/Math/Geometry.h>
-#include <vw/Math/RANSAC.h>
 #include <vw/InterestPoint.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Cartography.h>
