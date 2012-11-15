@@ -80,6 +80,9 @@ struct Options : asp::BaseOptions {
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
+
+  float dem_spacing1, dem_spacing2;
+  
   po::options_description manipulation_options("Manipulation options");
   manipulation_options.add_options()
     ("x-offset", po::value(&opt.x_offset)->default_value(0), "Add a horizontal offset to the DEM")
@@ -94,7 +97,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   projection_options.add_options()
     ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the gdal option.")
     ("t_projwin", po::value(&opt.target_projwin), "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
-    ("tr", po::value(&opt.dem_spacing)->default_value(0.0),
+    ("tr", po::value(&dem_spacing1)->default_value(0.0),
      "Set output file resolution (in target georeferenced units per pixel). This is the same as the dem-spacing option.")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [ earth, moon, mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
@@ -112,7 +115,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The center of projection longitude (if applicable)")
     ("proj-scale", po::value(&opt.proj_scale)->default_value(0),
      "The projection scale (if applicable)")
-    ("dem-spacing,s", po::value(&opt.dem_spacing)->default_value(0.0),
+    ("dem-spacing,s", po::value(&dem_spacing2)->default_value(0.0),
      "Set the DEM post size (if this value is 0, the post spacing size is computed for you)");
 
   po::options_description general_options("General Options");
@@ -144,6 +147,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
+
+  // A fix to the unfortunate fact that the user can specify the DEM
+  // spacing in two ways on the command line.s
+  if (dem_spacing1 != 0 && dem_spacing2 != 0){
+    vw_throw( ArgumentErr() << "The DEM spacing was specified twice.\n"
+              << usage << general_options );
+  }
+  opt.dem_spacing = std::max(dem_spacing1, dem_spacing2);
 
   if ( opt.pointcloud_filename.empty() )
     vw_throw( ArgumentErr() << "Missing point cloud.\n"
@@ -456,7 +467,7 @@ int main( int argc, char *argv[] ) {
     if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
       if ( opt.output_file_type == "tif" ) {
         std::string output_file = opt.out_prefix + "-DEM.tif";
-        vw_out(VerboseDebugMessage,"asp") << "Writing DEM: " << output_file << "\n";
+        vw_out() << "Writing DEM: " << output_file << "\n";
         boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc(output_file, rasterizer_fsaa, opt) );
         rsrc->set_nodata_write( opt.nodata_value );
         write_georeference( *rsrc, georef );
@@ -464,7 +475,7 @@ int main( int argc, char *argv[] ) {
                            TerminalProgressCallback("asp","DEM: ") );
       } else {
         std::string output_file = opt.out_prefix + "-DEM." + opt.output_file_type;
-        vw_out(VerboseDebugMessage,"asp") << "Writing DEM: " << output_file << "\n";
+        vw_out() << "Writing DEM: " << output_file << "\n";
         asp::block_write_gdal_image(
           output_file,
           rasterizer_fsaa, georef, opt,
@@ -479,7 +490,7 @@ int main( int argc, char *argv[] ) {
         generate_fsaa_raster( rasterizer, opt );
       if ( opt.output_file_type == "tif" ) {
         std::string output_file = opt.out_prefix + "-DEMError.tif";
-        vw_out(VerboseDebugMessage,"asp") << "Writing DEM error: " << output_file << "\n";
+        vw_out() << "Writing DEM error: " << output_file << "\n";
         boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, rasterizer_fsaa, opt) );
         rsrc->set_nodata_write( opt.nodata_value );
         write_georeference( *rsrc, georef );
@@ -487,7 +498,7 @@ int main( int argc, char *argv[] ) {
                            TerminalProgressCallback("asp","DEMError: ") );
       } else {
         std::string output_file = opt.out_prefix + "-DEMError."+opt.output_file_type;
-        vw_out(VerboseDebugMessage,"asp") << "Writing DEM error: " << output_file << "\n";
+        vw_out() << "Writing DEM error: " << output_file << "\n";
         asp::write_gdal_georeferenced_image(output_file,
                                             rasterizer_fsaa, georef, opt, TerminalProgressCallback("asp","DEMError:") );
       }
@@ -500,7 +511,7 @@ int main( int argc, char *argv[] ) {
       rasterizer_fsaa =
         generate_fsaa_raster( rasterizer, opt );
       std::string output_file = opt.out_prefix + "-DRG.tif";
-      vw_out(VerboseDebugMessage,"asp") << "Writing DRG: " << output_file << "\n";
+      vw_out() << "Writing DRG: " << output_file << "\n";
       boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, rasterizer_fsaa, opt ) );
       rsrc->set_nodata_write( opt.nodata_value );
       write_georeference( *rsrc, georef );
@@ -514,7 +525,7 @@ int main( int argc, char *argv[] ) {
         dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
       std::string output_file = opt.out_prefix + "-DEM-normalized.tif";
-      vw_out(VerboseDebugMessage,"asp") << "Writing normalized DEM: " << output_file << "\n";
+      vw_out() << "Writing normalized DEM: " << output_file << "\n";
       asp::block_write_gdal_image(
         output_file,
         apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
