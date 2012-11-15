@@ -17,6 +17,7 @@
 
 
 #include <asp/Core/InterestPointMatching.h>
+#include <vw/Math/RANSAC.h>
 
 using namespace vw;
 
@@ -53,8 +54,31 @@ namespace asp {
     return elem_prod(ccenter + alpha * cvec, Vector3(1,1,1.0/z_scale));
   }
 
+  void check_homography_matrix(Matrix<double>       const& H,
+                               std::vector<Vector3> const& left_points,
+                               std::vector<Vector3> const& right_points,
+                               std::vector<size_t>  const& indices
+                               ){
+    
+    // Sanity checks. If these fail, most likely the two images are too different
+    // for stereo to succeed.
+    if ( indices.size() < std::min( right_points.size(), left_points.size() )/2 ){
+      vw_throw( ArgumentErr() << "InterestPointMatching: The number of inliers is less than 1/2 of the number of points. Invalid stereo pair.\n" );
+    }
+    
+    double det = H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0);
+    if (det <= 0.1 || det >= 10.0){
+      vw_throw( ArgumentErr() << "InterestPointMatching: The determinant of the 2x2 submatrix of the homography matrix " << H << " is too small or too large. Invalid stereo pair.\n" );
+    }
+    
+  }
+  
   // Find a rough homography that maps right to left using the camera
-  // and datum information.
+  // and datum information.  More precisely, take a set of pixels in
+  // the left camera image, project them onto the ground and back
+  // project them into the right camera image. Then to the
+  // reverse. This will help find a rough correspondence between
+  // the pixels in the two camera images.
   Matrix<double>
   rough_homography_fit( camera::CameraModel* cam1,
                         camera::CameraModel* cam2,
@@ -77,8 +101,8 @@ namespace asp {
             continue;
 
           Vector2 r = cam2->point_to_pixel( intersection );
-
-          if ( box2.contains( r ) ) {
+          
+          if ( box2.contains( r ) ){
             left_points.push_back( Vector3(l[0],l[1],1) );
             right_points.push_back( Vector3(r[0],r[1],1) );
           }
@@ -103,25 +127,22 @@ namespace asp {
     }
 
     typedef math::HomographyFittingFunctor hfit_func;
-    math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric> ransac( hfit_func(), math::InterestPointErrorMetric(), norm_2(Vector2(box1.height(),box1.width())) / 10 );
+    math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
+      ransac( hfit_func(), math::InterestPointErrorMetric(),
+              100, // num iterations
+              norm_2(Vector2(box1.height(),box1.width())) / 10, // inlier threshold
+              left_points.size()/2 // min output inliers
+              );
+
     Matrix<double> H = ransac( right_points, left_points );
     std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
-
+    
     VW_OUT( DebugMessage, "asp" ) << "Projected " << left_points.size()
                                   << " rays for rough homography.\n";
     VW_OUT( DebugMessage, "asp" ) << "Number of inliers: " << indices.size() << ".\n";
 
-    // Sanity checks. If these fail, most likely the two images are too different
-    // for stereo to succeed.
-    if ( indices.size() < std::min( right_points.size(), left_points.size() )/3 ){
-      vw_throw( ArgumentErr() << "InterestPointMatching: The number of inliers is less than 1/3 of the number of points. Invalid stereo pair.\n" );
-    }
-    
-    double det = H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0);
-    if (det <= 0.1 || det >= 10.0){
-      vw_throw( ArgumentErr() << "InterestPointMatching: The determinant of the 2x2 submatrix of the homography matrix " << H << " is too small or too large. Invalid stereo pair.\n" );
-    }
-    
+    check_homography_matrix(H, left_points, right_points, indices);
+
     return H;
   }
 
@@ -131,8 +152,6 @@ namespace asp {
                   vw::BBox2i const& image_size ) {
     using namespace vw;
 
-    typedef math::HomographyFittingFunctor hfit_func;
-    math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric> ransac( hfit_func(), math::InterestPointErrorMetric(), norm_2(Vector2(image_size.width(),image_size.height())) / 10 );
     std::vector<Vector3>  copy1, copy2;
     copy1.reserve( ip1.size() );
     copy2.reserve( ip1.size() );
@@ -140,8 +159,20 @@ namespace asp {
       copy1.push_back( Vector3(ip1[i].x, ip1[i].y, 1) );
       copy2.push_back( Vector3(ip2[i].x, ip2[i].y, 1) );
     }
-    Matrix<double> ransac_result = ransac(copy1,copy2);
-    return hfit_func()(copy1,copy2,ransac_result);
+
+    typedef math::HomographyFittingFunctor hfit_func;
+    math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
+      ransac( hfit_func(), math::InterestPointErrorMetric(),
+              100, // num iter
+              norm_2(Vector2(image_size.width(),image_size.height())) / 10, // inlier threshold
+              copy1.size()/2 // min output inliers
+              );
+
+    Matrix<double> H = ransac(copy1, copy2);
+    std::vector<size_t> indices = ransac.inlier_indices(H, copy1, copy2);
+    check_homography_matrix(H, copy1, copy2, indices);
+    
+    return hfit_func()(copy1, copy2, H);
   }
 
 }
