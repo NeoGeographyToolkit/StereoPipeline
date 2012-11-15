@@ -44,7 +44,6 @@ namespace cartography {
     ImageViewRef<float> m_texture;
     BBox3 m_bbox;           // Bounding box of point cloud
     double m_spacing;       // pointcloud units (usually m or deg) per pxel
-    double m_point_spacing; // pointcloud samples per pointcloud units
     double m_default_value;
     bool m_minz_as_default;
     bool m_use_alpha;
@@ -162,11 +161,7 @@ namespace cartography {
       if ( m_bbox.empty() )
         vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
 
-      m_point_spacing =
-        double(std::min( m_point_image.rows(), m_point_image.cols() )) /
-        max( subvector(m_bbox.size(),0,2) );
       VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
-      VW_OUT(DebugMessage,"asp") << "Point spacing is " << m_point_spacing << " samples/pnt\n";
 
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);
