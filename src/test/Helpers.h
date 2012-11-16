@@ -84,6 +84,36 @@ template <typename T>
   return PrintToString(_numeric(x));
 }
 
+// Value diffs
+template <typename ElemT, typename Elem2T>
+double value_diff(const vw::PixelMathBase<ElemT>& a, const vw::PixelMathBase<Elem2T>& b) {
+  BOOST_STATIC_ASSERT((boost::is_same<ElemT, Elem2T>::value));
+  typedef typename CompoundChannelType<ElemT>::type channel_type;
+  double acc = 0.0;
+  for( size_t c=0; c < PixelNumChannels<ElemT>::value; ++c ) {
+    channel_type const& a_x = compound_select_channel<channel_type const&>(a.impl(),c);
+    channel_type const& b_x = compound_select_channel<channel_type const&>(b.impl(),c);
+    double diff = double(a_x) - double(b_x);
+    acc += diff*diff;
+  }
+  return ::sqrt(acc);
+}
+
+template <typename T1, typename T2>
+double value_diff(const std::complex<T1>& a, const std::complex<T2>& b) {
+  return std::abs(std::complex<double>(a) - std::complex<double>(b));
+}
+
+template <typename T1, typename T2>
+struct both_are_arithmetic : boost::mpl::and_<boost::is_arithmetic<T1>, boost::is_arithmetic<T2> > {};
+
+template <typename T1, typename T2>
+typename boost::enable_if<both_are_arithmetic<T1,T2>, double>::type
+value_diff(const T1& a, const T2& b) {
+  BOOST_STATIC_ASSERT(boost::is_arithmetic<T1>::value);
+  BOOST_STATIC_ASSERT(boost::is_arithmetic<T2>::value);
+  return ::fabs(double(a) - double(b));
+}
 
 // A version of std::mismatch that returns the set of differences rather than
 // just the first
@@ -426,36 +456,6 @@ _CheckNDRange<CmpT> check_nd_range(const CmpT& cmp) {
 #define ASSERT_MATRIX_EQ(e, a)                ASSERT_SEQ_EQ(e,a)
 #define EXPECT_MATRIX_NEAR(e, a, delta)       EXPECT_SEQ_NEAR(e,a,delta)
 #define ASSERT_MATRIX_NEAR(e, a, delta)       ASSERT_SEQ_NEAR(e,a,delta)
-
-template <typename ElemT, typename Elem2T>
-double value_diff(const vw::PixelMathBase<ElemT>& a, const vw::PixelMathBase<Elem2T>& b) {
-  BOOST_STATIC_ASSERT((boost::is_same<ElemT, Elem2T>::value));
-  typedef typename CompoundChannelType<ElemT>::type channel_type;
-  double acc = 0.0;
-  for( size_t c=0; c < PixelNumChannels<ElemT>::value; ++c ) {
-    channel_type const& a_x = compound_select_channel<channel_type const&>(a.impl(),c);
-    channel_type const& b_x = compound_select_channel<channel_type const&>(b.impl(),c);
-    double diff = double(a_x) - double(b_x);
-    acc += diff*diff;
-  }
-  return ::sqrt(acc);
-}
-
-template <typename T1, typename T2>
-double value_diff(const std::complex<T1>& a, const std::complex<T2>& b) {
-  return std::abs(std::complex<double>(a) - std::complex<double>(b));
-}
-
-template <typename T1, typename T2>
-struct both_are_arithmetic : boost::mpl::and_<boost::is_arithmetic<T1>, boost::is_arithmetic<T2> > {};
-
-template <typename T1, typename T2>
-typename boost::enable_if<both_are_arithmetic<T1,T2>, double>::type
-value_diff(const T1& a, const T2& b) {
-  BOOST_STATIC_ASSERT(boost::is_arithmetic<T1>::value);
-  BOOST_STATIC_ASSERT(boost::is_arithmetic<T2>::value);
-  return ::fabs(double(a) - double(b));
-}
 
 }} // namespace t
 
