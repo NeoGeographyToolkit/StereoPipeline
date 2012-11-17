@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-
+phase_prefix=${1:0:3}
 orbit_prefix=${1:4:4}
 obsv_prefix=${1:0:15}
-wget -O $1 http://hirise-pds.lpl.arizona.edu/PDS/EDR/PSP/ORB_${orbit_prefix}00_${orbit_prefix}99/$obsv_prefix/$1
+wget -O $1 http://hirise-pds.lpl.arizona.edu/PDS/EDR/${phase_prefix}/ORB_${orbit_prefix}00_${orbit_prefix}99/$obsv_prefix/$1
