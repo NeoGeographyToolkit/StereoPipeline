@@ -32,6 +32,9 @@ namespace asp {
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&
                          additional_options ) {
+
+    // Print the command being executed
+    for (int s = 0; s < argc; s++) vw_out() << argv[s]  << ' '; vw_out() << "\n\n";
     
     po::options_description general_options_sub("");
     general_options_sub.add_options()
