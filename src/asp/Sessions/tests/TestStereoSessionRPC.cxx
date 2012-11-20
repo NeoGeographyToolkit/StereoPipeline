@@ -17,6 +17,7 @@
 
 #include <asp/Sessions/RPC/StereoSessionRPC.h>
 #include <asp/Sessions/RPC/RPCModel.h>
+#include <asp/Sessions/RPC/RPCStereoModel.h>
 #include <asp/Sessions/DG/XML.h>
 #include <test/Helpers.h>
 
@@ -66,4 +67,24 @@ TEST( StereoSessionRPC, InstantiateTest ) {
   EXPECT_NO_THROW( model.camera_center( Vector2() ) );
 
   XMLPlatformUtils::Terminate();
+}
+
+TEST( StereoSessionRPC, CheckStereo ) {
+
+  XMLPlatformUtils::Initialize();
+
+  RPCXML xml1;
+  xml1.read_from_file( "dg_example1.xml" );
+  RPCModel model1( *xml1.rpc_ptr() );
+
+  RPCXML xml2;
+  xml2.read_from_file( "dg_example4.xml" );
+  RPCModel model2( *xml2.rpc_ptr() );
+  std::cout << std::endl;
+  
+  RPCStereoModel RPC_stereo(&model1, &model2);
+  double error;
+  Vector3 p = RPC_stereo(Vector2(), Vector2(), error);
+  
+  EXPECT_NEAR( error, 54682.96251543280232, 1e-3 );
 }
