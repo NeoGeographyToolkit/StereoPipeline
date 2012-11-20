@@ -52,7 +52,12 @@ namespace asp {
     };
   }
 
-  Vector3 RPCStereoModel::operator()(Vector2 const& pix1, Vector2 const& pix2, double& error) const {
+  Vector3 RPCStereoModel::operator()(Vector2 const& pix1, Vector2 const& pix2,
+                                     Vector3& errorVec) const {
+
+    // Note: This is a re-implementation of StereoModel::operator().
+
+    errorVec = Vector3();
 
     // Check for NaN values
     if (pix1 != pix1 || pix2 != pix2) return Vector3();
@@ -62,28 +67,22 @@ namespace asp {
 
     if (rpc_model1 == NULL || rpc_model2 == NULL){
       VW_OUT(ErrorMessage) << "RPC camera models expected.\n";
-      error = 0.0;
       return Vector3();
     }
 
     try {
-
-      Vector3 result;
-
-      Vector3 origin1, vec1;
+      
+      Vector3 origin1, vec1, origin2, vec2;
       rpc_model1->point_and_dir(pix1, origin1, vec1);
-
-      Vector3 origin2, vec2;
       rpc_model2->point_and_dir(pix2, origin2, vec2);
 
       if (are_nearly_parallel(vec1, vec2)){
-        error = 0.0;
         return Vector3();
       }
 
-      result = triangulate_point(origin1, vec1,
-                                 origin2, vec2,
-                                 error);
+      Vector3 result = triangulate_point(origin1, vec1,
+                                         origin2, vec2,
+                                         errorVec);
 
       if ( m_least_squares ){
 
@@ -106,9 +105,15 @@ namespace asp {
       return result;
 
     } catch (...) {}
-
-    error = 0.0;
     return Vector3();
   }
 
+  Vector3 RPCStereoModel::operator()(Vector2 const& pix1, Vector2 const& pix2,
+                                     double& error ) const {
+    Vector3 errorVec;
+    Vector3 result = RPCStereoModel::operator()(pix1, pix2, errorVec);
+    error = norm_2(errorVec);
+    return result;
+  }
+  
 } // namespace asp

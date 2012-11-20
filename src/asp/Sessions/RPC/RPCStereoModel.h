@@ -52,7 +52,10 @@ namespace asp {
     /// parallel or divergent, otherwise it returns the 2-norm of the
     /// distance between the rays at their nearest point of
     /// intersection.
-    virtual vw::Vector3 operator()(vw::Vector2 const& pix1, vw::Vector2 const& pix2, double& error) const;
+    virtual vw::Vector3 operator()(vw::Vector2 const& pix1, vw::Vector2 const& pix2,
+                                   vw::Vector3& errorVec) const;
+    virtual vw::Vector3 operator()(vw::Vector2 const& pix1, vw::Vector2 const& pix2,
+                                   double& error) const;
 
   };
 
