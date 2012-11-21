@@ -36,8 +36,10 @@ namespace po = boost::program_options;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
+  typedef Vector<float64,6> Vector6;
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
   template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+  template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
 enum ProjectionType {
@@ -264,9 +266,25 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
-    ImageViewRef<Vector3> point_image = select_points(point_disk_image);
+    int pix_size;
+    {
+      boost::scoped_ptr<vw::SrcImageResource> src(vw::DiskImageResource::open(opt.pointcloud_filename));
+      int num_channels = src->channels();
+      int num_planes   = src->planes();
+      pix_size = num_channels*num_planes;
+      VW_ASSERT( (pix_size == 4 || pix_size == 6),
+                 ArgumentErr() << "Expecting the input point cloud to have points of size 4 or 6.");
+    }
 
+    ImageViewRef<Vector3> point_image;
+    if (pix_size == 4){
+      DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
+      point_image = select_points(point_disk_image);
+    }else{
+      DiskImageView<Vector6> point_disk_image(opt.pointcloud_filename);
+      point_image = select_points(point_disk_image);
+    }
+    
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
@@ -485,7 +503,16 @@ int main( int argc, char *argv[] ) {
 
     // Write triangulation error image if requested
     if ( opt.do_error ) {
-      rasterizer.set_texture( select_channel(point_disk_image,3) );
+
+      ImageViewRef<double> error_channel;
+      if (pix_size == 4){
+        DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
+        error_channel = select_channel(point_disk_image,3);
+      }else{
+        vw_throw( ArgumentErr() << "The error can be computed only for point clouds with 4 channels.\n" );
+      }
+      
+      rasterizer.set_texture( error_channel );
       rasterizer_fsaa =
         generate_fsaa_raster( rasterizer, opt );
       if ( opt.output_file_type == "tif" ) {

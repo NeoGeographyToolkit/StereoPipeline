@@ -159,7 +159,10 @@ namespace asp {
       ("far-universe-radius", po::value(&global.far_universe_radius)->default_value(0.0),
        "Radius of outer boundary of universe in meters.")
       ("use-least-squares", po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
-       "Use rigorous least squares triangulation process. This is ungodly slow for ISIS processes.");
+       "Use rigorous least squares triangulation process. This is slow for ISIS processes.")
+      ("compute-error-vector", po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
+       "Compute the triangulation error vector, not just its length.")
+      ;
   }
 
   DGDescription::DGDescription() : po::options_description("DG Options") {

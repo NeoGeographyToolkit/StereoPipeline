@@ -112,15 +112,17 @@ namespace vw {
   }
 
   // Imageview operator that extracts only the first 3 channels of the
-  // point cloud. The forth channel is the point cloud error.
+  // point cloud. The remaining channels are the point cloud error
+  // (scalar or vector).
+  template <class VectorT>
   struct SelectPoints : public ReturnFixedType<Vector3> {
-    Vector3 operator() (Vector4 const& pt) const { return subvector(pt,0,3); }
+    Vector3 operator() (VectorT const& pt) const { return subvector(pt,0,3); }
   };
-
-  template <class ImageT>
-  UnaryPerPixelView<ImageT, SelectPoints>
-  inline select_points( ImageViewBase<ImageT> const& image ) {
-    return UnaryPerPixelView<ImageT, SelectPoints>( image.impl(),
-                                                    SelectPoints() );
+  
+  template <class VectorT>
+  UnaryPerPixelView<DiskImageView<VectorT>, SelectPoints<VectorT> >
+  inline select_points( ImageViewBase<DiskImageView<VectorT> > const& image ) {
+    return UnaryPerPixelView<DiskImageView<VectorT>, SelectPoints<VectorT> >( image.impl(),
+                                                              SelectPoints<VectorT>() );
   }
 }

@@ -107,23 +107,24 @@ namespace asp {
     int subpixel_pyramid_levels;
 
     // Filtering Options
-    vw::Vector2i rm_half_kernel;      // low confidence pixel removal kernel size 
-    int rm_min_matches;               // min # of pxl to be matched to keep pxl 
+    vw::Vector2i rm_half_kernel;      // Low confidence pixel removal kernel size 
+    int rm_min_matches;               // Min # of pxl to be matched to keep pxl 
     int rm_threshold;                 // rm_treshold < disp[n]-disp[m] reject pxl 
-    int rm_cleanup_passes;            // number of times to perform cleanup
+    int rm_cleanup_passes;            // Number of times to perform cleanup
                                       // in the post-processing phase 
     int erode_max_size;               // Max island size in pixels that it'll remove
     bool disable_fill_holes;
     int fill_hole_max_size;           // Maximum hole size in pixels that we'll attempt
                                       // to fill 
     bool mask_flatfield;              // Masks pixels in the input images that are less
-                                      // than 0. (For use with apollo metric camera...)
+                                      // than 0 (for use with Apollo Metric Camera)
 
     // Triangulation Options
-    std::string universe_center;      // center for the radius clipping   
-    float near_universe_radius;       // radius of the universe in meters 
-    float far_universe_radius;        // radius of the universe in meters 
-    bool use_least_squares;           // use a more rigorous triangulation
+    std::string universe_center;      // Center for the radius clipping   
+    float near_universe_radius;       // Radius of the universe in meters 
+    float far_universe_radius;        // Radius of the universe in meters 
+    bool use_least_squares;           // Use a more rigorous triangulation
+    bool compute_error_vector;        // Compute the triangulation error vector, not just its length
 
     // DG Options
     bool disable_correct_velocity_aberration;

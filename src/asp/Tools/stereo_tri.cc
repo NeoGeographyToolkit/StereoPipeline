@@ -32,9 +32,53 @@ using namespace vw;
 using namespace asp;
 
 namespace vw {
+  typedef Vector<double, 6> Vector6;
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
+  template<> struct PixelFormatID<Vector<double, 6> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
   template<> struct PixelFormatID<Vector<double, 4> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
   template<> struct PixelFormatID<Vector<float, 2> > { static const PixelFormatEnum value = VW_PIXEL_GENERIC_2_CHANNEL; };
+}
+
+namespace asp{
+
+  // ImageView operator that takes the last three elements of a vector
+  // (the error part) and replaces them with the norm of that 3-vector.
+  struct PointAndErrorNorm : public ReturnFixedType<Vector4> {
+    Vector4 operator() (Vector6 const& pt) const {
+      Vector4 result;
+      subvector(result,0,3) = subvector(pt,0,3);
+      result[3] = norm_2(subvector(pt,3,3));
+      return result;
+    }
+  };
+  template <class ImageT>
+  UnaryPerPixelView<ImageT, PointAndErrorNorm>
+  inline point_and_error_norm( ImageViewBase<ImageT> const& image ) {
+    return UnaryPerPixelView<ImageT, PointAndErrorNorm>( image.impl(),
+                                                         PointAndErrorNorm() );
+  }
+
+  template <class ImageT>
+  void save_point_cloud(ImageT const& point_cloud, Options const& opt){
+    
+    std::string point_cloud_file = opt.out_prefix + "-PC.tif";
+    vw_out() << "Writing Point Cloud: " << point_cloud_file << "\n";
+    
+    DiskImageResource* rsrc =
+      asp::build_gdal_rsrc( point_cloud_file,
+                            point_cloud, opt );
+    if ( opt.stereo_session_string == "isis" ){
+      // ISIS does not support multi-threading
+      write_image(*rsrc, point_cloud,
+                  TerminalProgressCallback("asp", "\t--> Triangulating: "));
+    }else{
+      block_write_image(*rsrc, point_cloud,
+                        TerminalProgressCallback("asp", "\t--> Triangulating: "));
+    }
+    delete rsrc;
+  
+  }
+  
 }
 
 // Class definition
@@ -53,29 +97,29 @@ class StereoAndErrorView : public ImageViewBase<StereoAndErrorView<DisparityImag
   template <class T>
   inline typename boost::enable_if<IsScalar<T>,Vector3>::type
   StereoModelHelper( StereoModelT const& model, Vector2 const& index,
-                     T const& disparity, double& error ) const {
+                     T const& disparity, Vector3& error ) const {
     return model( index, Vector2( index[0] + disparity, index[1] ), error );
   }
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
     StereoModelHelper( StereoModelT const& model, Vector2 const& index,
-                       T const& disparity, double& error ) const {
+                       T const& disparity, Vector3& error ) const {
     return model( index, Vector2( index[0] + disparity, index[1] ), error );
   }
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
     StereoModelHelper( StereoModelT const& model, Vector2 const& index,
-                       T const& disparity, double& error ) const {
+                       T const& disparity, Vector3& error ) const {
     return model( index, Vector2( index[0] + disparity[0],
                                   index[1] + disparity[1] ), error );
   }
 
 public:
 
-  typedef Vector4 pixel_type;
-  typedef const Vector4 result_type;
+  typedef Vector6 pixel_type;
+  typedef const Vector6 result_type;
   typedef ProceduralPixelAccessor<StereoAndErrorView> pixel_accessor;
 
   StereoAndErrorView( DisparityImageT const& disparity_map,
@@ -98,9 +142,11 @@ public:
 
   inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
     if ( is_valid(m_disparity_map(i,j,p)) ) {
+      Vector3 error;
       pixel_type result;
       subvector(result,0,3) = StereoModelHelper( m_stereo_model, Vector2(i,j),
-                                                 m_disparity_map(i,j,p), result[3] );
+                                                 m_disparity_map(i,j,p), error );
+      subvector(result,3,3) = error;
       return result;
     }
     // For missing pixels in the disparity map, we return a null 3D position.
@@ -132,21 +178,21 @@ class StereoLUTAndErrorView : public ImageViewBase<StereoLUTAndErrorView<Dispari
 
   template <class T>
   inline typename boost::enable_if<IsScalar<T>,Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, double& error ) const {
+  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
     return m_stereo_model( m_lut_image1(i,j),
                            m_lut_image2( T(i) + disparity, j ), error );
   }
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
-    StereoModelHelper( size_t i, size_t j, T const& disparity, double& error ) const {
+    StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
     return m_stereo_model( m_lut_image1(i,j),
                            m_lut_image2( float(i) + disparity, j ),  error );
   }
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
-    StereoModelHelper( size_t i, size_t j, T const& disparity, double& error ) const {
+    StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
 
     float i2 = float(i) + disparity[0];
     float j2 = float(j) + disparity[1];
@@ -161,8 +207,8 @@ class StereoLUTAndErrorView : public ImageViewBase<StereoLUTAndErrorView<Dispari
 
 public:
 
-  typedef Vector4 pixel_type;
-  typedef const Vector4 result_type;
+  typedef Vector6 pixel_type;
+  typedef const Vector6 result_type;
   typedef ProceduralPixelAccessor<StereoLUTAndErrorView> pixel_accessor;
 
   StereoLUTAndErrorView( ImageViewBase<DisparityImageT> const& disparity_map,
@@ -193,8 +239,10 @@ public:
 
   inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
     if ( is_valid(m_disparity_map(i,j,p)) ) {
+      Vector3 error;
       pixel_type result;
-      subvector(result,0,3) = StereoModelHelper( i, j, m_disparity_map(i,j,p), result[3] );
+      subvector(result,0,3) = StereoModelHelper( i, j, m_disparity_map(i,j,p), error );
+      subvector(result,3,3) = error;
       return result;
     }
     // For missing pixels in the disparity map, we return a null 3D position.
@@ -338,10 +386,11 @@ void stereo_triangulation( Options const& opt ) {
                                    stereo_settings().near_universe_radius,
                                    stereo_settings().far_universe_radius);
     }
+    vw_out() << "\t--> " << universe_radius_func;
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
-    ImageViewRef<Vector4> point_cloud;
+    ImageViewRef<Vector6> point_cloud;
     if ( opt.session->has_lut_images() ) {
       if ( stereo_settings().use_least_squares )
         point_cloud =
@@ -376,20 +425,11 @@ void stereo_triangulation( Options const& opt ) {
                            universe_radius_func);
     }
 
-    vw_out(VerboseDebugMessage,"asp") << "Writing Point Cloud: "
-                                      << opt.out_prefix + "-PC.tif\n";
-
-    DiskImageResource* rsrc =
-      asp::build_gdal_rsrc( opt.out_prefix + "-PC.tif",
-                            point_cloud, opt );
-    if ( opt.stereo_session_string == "isis" )
-      write_image(*rsrc, point_cloud,
-                  TerminalProgressCallback("asp", "\t--> Triangulating: "));
+    if (stereo_settings().compute_error_vector)
+      save_point_cloud(point_cloud, opt);
     else
-      block_write_image(*rsrc, point_cloud,
-                        TerminalProgressCallback("asp", "\t--> Triangulating: "));
-    delete rsrc;
-    vw_out() << "\t--> " << universe_radius_func;
+      save_point_cloud(point_and_error_norm(point_cloud), opt);
+
 
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at point cloud stage -- could not read input files.\n"
