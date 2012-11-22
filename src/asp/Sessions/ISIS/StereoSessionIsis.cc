@@ -169,9 +169,8 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   align_matrix.set_identity();
   if ( stereo_settings().alignment_method == "homography" ) {
     std::string match_filename =
-      m_out_prefix +
-      fs::basename(input_file1) + "__" +
-      fs::basename(input_file2) + ".match";
+      m_out_prefix + fs::path(input_file1).stem().string() +
+      "__" + fs::path(input_file2).replace_extension("match").string();
 
     if (!fs::exists(match_filename)) {
       boost::shared_ptr<camera::CameraModel> cam1, cam2;

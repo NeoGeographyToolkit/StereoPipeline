@@ -131,7 +131,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
-  
+
   // The geoid DEM containing the adjustments
 #define STR_EXPAND(tok) #tok
 #define STR_QUOTE(tok) STR_EXPAND(tok)
@@ -143,12 +143,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   }else{
     vw_throw( ArgumentErr() << "Unknown geoid: " << opt.geoid << ".\n\n" << usage << general_options );
   }
-  
+
   if ( opt.dem_name.empty() )
     vw_throw( ArgumentErr() << "Requires <dem> in order to proceed.\n\n" << usage << general_options );
-  
+
   if ( opt.output_prefix.empty() ) {
-    opt.output_prefix = fs::basename(opt.dem_name);
+    opt.output_prefix = fs::path(opt.dem_name).stem().string();
   }
 }
 
@@ -156,7 +156,6 @@ int main( int argc, char *argv[] ) {
 
   // Adjust the DEM values so that they are relative to the geoid
   // rather than to the ellipsoid.
-  
   Options opt;
   try {
     handle_arguments( argc, argv, opt );

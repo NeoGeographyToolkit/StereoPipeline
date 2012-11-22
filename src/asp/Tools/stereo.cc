@@ -133,11 +133,11 @@ namespace asp {
       vw_throw( ArgumentErr() << "\nMissing output-prefix or right camera model.\n" );
 
     fs::path out_prefix_path(opt.out_prefix);
-    if (out_prefix_path.has_branch_path()) {
-      if (!fs::is_directory(out_prefix_path.branch_path())) {
+    if (out_prefix_path.has_parent_path()) {
+      if (!fs::is_directory(out_prefix_path.parent_path())) {
         vw_out() << "\nCreating output directory: "
-                 << out_prefix_path.branch_path() << std::endl;
-        fs::create_directory(out_prefix_path.branch_path());
+                 << out_prefix_path.parent_path() << std::endl;
+        fs::create_directory(out_prefix_path.parent_path());
       }
     }
 

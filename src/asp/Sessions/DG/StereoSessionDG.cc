@@ -385,9 +385,8 @@ namespace asp {
 
       if ( stereo_settings().alignment_method == "homography" ) {
         std::string match_filename =
-          m_out_prefix +
-          fs::basename(input_file1) + "__" +
-          fs::basename(input_file2) + ".match";
+          m_out_prefix + fs::path(input_file1).stem().string() +
+          "__" + fs::path(input_file2).replace_extension("match").string();
 
         if (!fs::exists(match_filename)) {
           bool inlier = false;

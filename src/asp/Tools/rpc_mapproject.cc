@@ -77,7 +77,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
 
   if ( opt.output_file.empty() )
-    opt.output_file = fs::basename( opt.image_file ) + "_rpcmapped.tif";
+    opt.output_file = fs::path( opt.image_file ).replace_extension( "_rpcmapped.tif" ).string();
 }
 
 int main( int argc, char* argv[] ) {

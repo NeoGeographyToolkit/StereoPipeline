@@ -372,9 +372,8 @@ void stereo_correlation( Options& opt ) {
     vw_out() << "\t--> Using user defined search range.\n";
   } else {
     std::string match_filename =
-      opt.out_prefix +
-      fs::basename(opt.in_file1) + "__" +
-      fs::basename(opt.in_file2) + ".match";
+      opt.out_prefix + fs::path(opt.in_file1).stem().string() +
+      "__" + fs::path(opt.in_file2).replace_extension("match").string();
     if (!fs::exists(match_filename)) {
       // If there is not any match files for the input image. Let's
       // gather some IP quickly from the low resolution images. This
