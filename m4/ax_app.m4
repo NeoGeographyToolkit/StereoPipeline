@@ -32,13 +32,18 @@ AC_DEFUN([AX_APP],
     }
 
     var_uniq() {
-        echo -n "[$]*" | sed 's/ \+/\n/g' | sed -n 'G; s/\n/&&/; /^\(@<:@^\n@:>@*\n\).*\n\1/d; s/\n//; h; P' | tr '\n' ' '
+        ASP_ECHO_N(["[$]*"]) | sed 's/ \+/\n/g' | sed -n 'G; s/\n/&&/; /^\(@<:@^\n@:>@*\n\).*\n\1/d; s/\n//; h; P' | tr '\n' ' '
     }
 
     get_rpath() {
         for i in "[$]@"; do
             case [$i] in
-                -L*) v="`abspath ${i#-L}`"; if test -n "$v"; then echo -n " -R$v"; fi;;
+                -L*)
+                v="`abspath ${i#-L}`";
+                if test -n "$v"; then
+                   ASP_ECHO_N([" -R$v"])
+                fi
+                ;;
             esac
         done
         echo
@@ -64,7 +69,7 @@ AC_DEFUN([AX_APP],
       AC_ARG_ENABLE([app-]my_tolower([$1]),
         AS_HELP_STRING([--enable-app-]my_tolower([$1]), [enable the $1 app @<:@$3@:>@]),
         [ ENABLE_APP_$1=$enableval; WANT_APP_$1=$enableval; ],
-        [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`/bin/echo -n $3 | tr [A-Z] [a-z]` ; fi ]
+        [ if test "x$ENABLE_APP_$1" = x; then ENABLE_APP_$1=`ASP_ECHO_N([$3]) | tr [A-Z] [a-z]` ; fi ]
       )])
 
     AC_MSG_CHECKING([whether to build app $1])
