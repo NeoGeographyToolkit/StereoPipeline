@@ -129,7 +129,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
      "Also write a normalized version of the DEM (for debugging)")
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
-    ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangule error image.")
+    ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation error image.")
     ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
@@ -260,6 +260,126 @@ bool read_user_datum( Options const& opt,
   return true;
 }
 
+namespace asp{
+
+  // Take a given point xyz and the error at that point. Convert the
+  // error to the NED (North-East-Down) coordinate system.
+  struct ErrorToNED : public ReturnFixedType<Vector3> {
+    GeoReference m_georef;
+    ErrorToNED(GeoReference const& georef):m_georef(georef){}
+
+    Vector3 operator() (Vector6 const& pt) const {
+
+      Vector3 xyz = subvector(pt, 0, 3);
+      if (xyz == Vector3()) return Vector3();
+      
+      Vector3 err = subvector(pt, 3, 3);
+      Vector3 geo = m_georef.datum().cartesian_to_geodetic(xyz);
+      Matrix3x3 M = m_georef.datum().lonlat_to_ned_matrix(subvector(geo, 0, 2));
+      Vector3 ned_err = M*err;
+      return ned_err;
+    }
+  };
+  template <class ImageT>
+  UnaryPerPixelView<ImageT, ErrorToNED>
+  inline error_to_NED( ImageViewBase<ImageT> const& image, GeoReference const& georef ) {
+    return UnaryPerPixelView<ImageT, ErrorToNED>( image.impl(),
+                                                  ErrorToNED(georef) );
+  }
+
+  template<class ImageT>
+  void save_dem_error(Options const& opt, ImageT error_img, GeoReference const& georef){
+    
+    if ( opt.output_file_type == "tif" ) {
+      std::string output_file = opt.out_prefix + "-DEMError.tif";
+      vw_out() << "Writing DEM error: " << output_file << "\n";
+      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, error_img, opt) );
+      rsrc->set_nodata_write( opt.nodata_value );
+      write_georeference( *rsrc, georef );
+      block_write_image( *rsrc, error_img,
+                         TerminalProgressCallback("asp","DEMError: ") );
+    } else {
+      std::string output_file = opt.out_prefix + "-DEMError."+opt.output_file_type;
+      vw_out() << "Writing DEM error: " << output_file << "\n";
+      asp::write_gdal_georeferenced_image(output_file,
+                                          error_img,
+                                          georef, opt, TerminalProgressCallback("asp","DEMError:") );
+    }
+  }
+
+  // A class for combining the three channels of errors and finding
+  // their absolute values.
+  template <class ImageT>
+  class CombinedView : public ImageViewBase<CombinedView<ImageT> >
+  {
+    double m_nodata_value;
+    ImageT m_image1;
+    ImageT m_image2;
+    ImageT m_image3;
+    typedef typename ImageT::pixel_type dpixel_type;
+
+  public:
+
+    typedef Vector3 pixel_type;
+    typedef const Vector3 result_type;
+    typedef ProceduralPixelAccessor<CombinedView> pixel_accessor;
+
+    CombinedView(double nodata_value,
+                 ImageViewBase<ImageT> const& image1,
+                 ImageViewBase<ImageT> const& image2,
+                 ImageViewBase<ImageT> const& image3):
+      m_nodata_value(nodata_value),
+      m_image1( image1.impl() ),
+      m_image2( image2.impl() ),
+      m_image3( image3.impl() ){}
+
+    inline int32 cols() const { return m_image1.cols(); }
+    inline int32 rows() const { return m_image1.rows(); }
+    inline int32 planes() const { return 1; }
+
+    inline pixel_accessor origin() const { return pixel_accessor(*this); }
+
+    inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
+
+      Vector3 error(m_image1(i, j), m_image2(i, j), m_image3(i, j));
+
+      if (error[0] == m_nodata_value || error[1] == m_nodata_value || error[2] == m_nodata_value){
+        return Vector3(m_nodata_value, m_nodata_value, m_nodata_value);
+      }
+    
+      return Vector3(std::abs(error[0]), std::abs(error[1]), std::abs(error[2]));
+    }
+
+    /// \cond INTERNAL
+    typedef CombinedView<typename ImageT::prerasterize_type> prerasterize_type;
+  
+    inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
+      return prerasterize_type(m_nodata_value,
+                               m_image1.prerasterize(bbox),
+                               m_image2.prerasterize(bbox),
+                               m_image3.prerasterize(bbox)
+                               );
+    }
+    template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
+      vw::rasterize( prerasterize(bbox), dest, bbox );
+    }
+    /// \endcond
+  };
+  template <class ImageT>
+  CombinedView<ImageT> combine_channels(double nodata_value,
+                                        ImageViewBase<ImageT> const& image1,
+                                        ImageViewBase<ImageT> const& image2,
+                                        ImageViewBase<ImageT> const& image3){
+    VW_ASSERT(image1.impl().cols() == image2.impl().cols() &&
+              image2.impl().cols() == image3.impl().cols() &&
+              image1.impl().rows() == image2.impl().rows() &&
+              image2.impl().rows() == image3.impl().rows(),
+              ArgumentErr() << "Expecting the error channels to have the same size.");
+  
+    return CombinedView<ImageT>(nodata_value, image1.impl(), image2.impl(), image3.impl());
+  }
+}
+
 int main( int argc, char *argv[] ) {
 
   Options opt;
@@ -357,7 +477,7 @@ int main( int argc, char *argv[] ) {
         }
       }
 
-      VW_OUT(DebugMessage,"asp") << "Asking GDAL to decypher: \""
+      VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
                                  << opt.target_srs_string << "\"\n";
       OGRSpatialReference gdal_spatial_ref;
       if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
@@ -413,7 +533,7 @@ int main( int argc, char *argv[] ) {
     // up processing in the orthorasterizer, which accesses each pixel
     // multiple times.
     typedef BlockRasterizeView<ImageViewRef<Vector3> > PointCacheT;
-    BlockRasterizeView<ImageViewRef<Vector3> > point_image_cache =
+    PointCacheT point_image_cache =
       block_cache(point_image,Vector2i(vw_settings().default_tile_size(),
                                        vw_settings().default_tile_size()),0);
 
@@ -494,41 +614,45 @@ int main( int argc, char *argv[] ) {
       } else {
         std::string output_file = opt.out_prefix + "-DEM." + opt.output_file_type;
         vw_out() << "Writing DEM: " << output_file << "\n";
-        asp::block_write_gdal_image(
-          output_file,
-          rasterizer_fsaa, georef, opt,
-          TerminalProgressCallback("asp","DEM: ") );
+        asp::block_write_gdal_image(output_file,
+                                    rasterizer_fsaa, georef, opt,
+                                    TerminalProgressCallback("asp","DEM: ") );
       }
     }
 
     // Write triangulation error image if requested
     if ( opt.do_error ) {
-
-      ImageViewRef<double> error_channel;
+      
       if (pix_size == 4){
+        // The error is a scalar.
         DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
-        error_channel = select_channel(point_disk_image,3);
+        ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
+        rasterizer.set_texture( error_channel );
+        rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
+        save_dem_error(opt, rasterizer_fsaa, georef);
       }else{
-        vw_throw( ArgumentErr() << "The error can be computed only for point clouds with 4 channels.\n" );
+        // The error is a 3D vector. Convert it to NED coordinate system,
+        // and rasterize it.
+        DiskImageView<Vector6> point_disk_image(opt.pointcloud_filename);
+        ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
+        std::vector< ImageViewRef<PixelGray<float> > >  rasterized(3);
+        for (int ch_index = 0; ch_index < 3; ch_index++){
+          // Cache the channel to disk, to force the rasterization
+          // to happen right away, before we switch to the next one.
+          ImageViewRef<double> ch = select_channel(ned_err, ch_index);
+          rasterizer.set_texture(ch);
+          rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
+          rasterized[ch_index] =
+            block_cache(rasterizer_fsaa,Vector2i(vw_settings().default_tile_size(),
+                                                 vw_settings().default_tile_size()),0);
+        }
+        
+        ImageViewRef<Vector3> combined_image = asp::combine_channels(opt.nodata_value,
+                                                                     rasterized[0], rasterized[1], rasterized[2]
+                                                                     );
+        save_dem_error(opt, combined_image, georef);
       }
       
-      rasterizer.set_texture( error_channel );
-      rasterizer_fsaa =
-        generate_fsaa_raster( rasterizer, opt );
-      if ( opt.output_file_type == "tif" ) {
-        std::string output_file = opt.out_prefix + "-DEMError.tif";
-        vw_out() << "Writing DEM error: " << output_file << "\n";
-        boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, rasterizer_fsaa, opt) );
-        rsrc->set_nodata_write( opt.nodata_value );
-        write_georeference( *rsrc, georef );
-        block_write_image( *rsrc, rasterizer_fsaa,
-                           TerminalProgressCallback("asp","DEMError: ") );
-      } else {
-        std::string output_file = opt.out_prefix + "-DEMError."+opt.output_file_type;
-        vw_out() << "Writing DEM error: " << output_file << "\n";
-        asp::write_gdal_georeferenced_image(output_file,
-                                            rasterizer_fsaa, georef, opt, TerminalProgressCallback("asp","DEMError:") );
-      }
     }
 
     // Write DRG if the user requested and provided a texture file
