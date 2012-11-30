@@ -36,8 +36,9 @@ namespace asp {
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
-      ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]");
-
+      ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
+      ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0),""), "Do stereo in this region [xoff yoff xsize ysize] of the left image [default: use the entire image].");
+      
     // We distinguish between all_general_options, which is all the
     // options we must parse, even if we don't need some of them, and
     // general_options, which are the options specifically used by the
@@ -132,6 +133,24 @@ namespace asp {
          ( opt.out_prefix.empty() || opt.cam_file2.empty() ) )
       vw_throw( ArgumentErr() << "\nMissing output-prefix or right camera model.\n" );
 
+    // Interpret the the last two coordinates of left_image_crop_win as
+    // width and height rather than max_x and max_y
+    BBox2i b = opt.left_image_crop_win;
+    opt.left_image_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
+    // By default, we do stereo in the entire image
+    DiskImageView<PixelGray<float> > left_image(opt.in_file1);
+    BBox2i full_box = BBox2i(0, 0, left_image.cols(), left_image.rows());
+    if (opt.left_image_crop_win == BBox2i(0, 0, 0, 0)){
+      opt.left_image_crop_win = full_box;
+    }
+    // Ensure that the region is inside the maximum theoretical region
+    opt.left_image_crop_win.crop(full_box);
+    // Sanity check
+    if (opt.left_image_crop_win.width() <= 0 || opt.left_image_crop_win.height() <= 0 ){
+      vw_throw( ArgumentErr() << "Invalid region for doing stereo.\n\n"
+                << usage << general_options );
+    }
+    
     fs::path out_prefix_path(opt.out_prefix);
     if (out_prefix_path.has_parent_path()) {
       if (!fs::is_directory(out_prefix_path.parent_path())) {

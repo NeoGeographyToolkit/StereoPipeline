@@ -70,7 +70,8 @@ struct Options : asp::BaseOptions {
 
   // Settings
   std::string stereo_session_string, stereo_default_filename;
-  boost::shared_ptr<asp::StereoSession> session;   // Used to extract cameras
+  boost::shared_ptr<asp::StereoSession> session; // Used to extract cameras
+  vw::BBox2i left_image_crop_win;                     // Used to do stereo in a region
 
   // Output
   std::string out_prefix;

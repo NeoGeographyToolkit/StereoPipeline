@@ -74,7 +74,7 @@ namespace asp {
       ("xcorr-threshold", po::value(&global.xcorr_threshold)->default_value(2),
        "L-R vs R-L agreement threshold in pixels.")
       ("corr-kernel", po::value(&global.kernel)->default_value(Vector2i(21,21),"21,21"),
-       "Kernel sized used for integer correlator.")
+       "Kernel size used for integer correlator.")
       ("corr-search", po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),
        "Disparity search range. Specify in format: hmin,vmin,hmax,vmax.")
       ("corr-max-levels", po::value(&global.corr_max_levels)->default_value(5),

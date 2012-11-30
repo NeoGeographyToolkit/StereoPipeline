@@ -426,10 +426,9 @@ void stereo_triangulation( Options const& opt ) {
     }
 
     if (stereo_settings().compute_error_vector)
-      save_point_cloud(point_cloud, opt);
+      save_point_cloud(crop(point_cloud, opt.left_image_crop_win), opt);
     else
-      save_point_cloud(point_and_error_norm(point_cloud), opt);
-
+      save_point_cloud(point_and_error_norm(crop(point_cloud, opt.left_image_crop_win)), opt);
 
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at point cloud stage -- could not read input files.\n"
