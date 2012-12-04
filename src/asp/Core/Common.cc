@@ -194,26 +194,21 @@ namespace program_options {
     return r;
   }
 
-  // Custom validators which describe how text is turned into a value
+  // Custom validators which describe how text is turned into values
+
+  // Validator for Vector2i
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::Vector2i*, long ) {
     validators::check_first_occurrence(v);
 
-    // Split appart individual strings and concatenate the whole
-    // shebang. Thus the user can mix comma and space delimited
-    // values.
+    // Concatenate and then split again, so that the user can mix
+    // comma and space delimited values.
+    std::string joined = boost::algorithm::join(values, " ");
     std::vector<std::string> cvalues;
-    for ( size_t i = 0; i < values.size(); i++ ) {
-      std::vector<std::string> sub_cvalues;
-      std::string key = boost::trim_copy(values[i]);
-      boost::split( sub_cvalues, key, is_any_of(", "),
-                    boost::token_compress_on );
-      cvalues.insert( cvalues.end(),
-                      sub_cvalues.begin(), sub_cvalues.end() );
-    }
-
+    boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
+    
     if ( cvalues.size() != 2 )
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
@@ -225,25 +220,21 @@ namespace program_options {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
+
+
+  // Validator for BBox2i
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::BBox2i*, long ) {
     validators::check_first_occurrence(v);
 
-    // Split appart individual strings and concatenate the whole
-    // shebang. Thus the user can mix comma and space delimited
-    // values.
+    // Concatenate and then split again, so that the user can mix
+    // comma and space delimited values.
+    std::string joined = boost::algorithm::join(values, " ");
     std::vector<std::string> cvalues;
-    for ( size_t i = 0; i < values.size(); i++ ) {
-      std::vector<std::string> sub_cvalues;
-      std::string key = boost::trim_copy(values[i]);
-      boost::split( sub_cvalues, key, is_any_of(", "),
-                    boost::token_compress_on );
-      cvalues.insert( cvalues.end(),
-                      sub_cvalues.begin(), sub_cvalues.end() );
-    }
-
+    boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
+    
     if ( cvalues.size() != 4 )
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
@@ -257,25 +248,20 @@ namespace program_options {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));
     }
   }
+
+  // Validator for BBox2
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::BBox2*, long ) {
     validators::check_first_occurrence(v);
 
-    // Split appart individual strings and concatenate the whole
-    // shebang. Thus the user can mix comma and space delimited
-    // values.
+    // Concatenate and then split again, so that the user can mix
+    // comma and space delimited values.
+    std::string joined = boost::algorithm::join(values, " ");
     std::vector<std::string> cvalues;
-    for ( size_t i = 0; i < values.size(); i++ ) {
-      std::vector<std::string> sub_cvalues;
-      std::string key = boost::trim_copy(values[i]);
-      boost::split( sub_cvalues, key, is_any_of(", "),
-                    boost::token_compress_on );
-      cvalues.insert( cvalues.end(),
-                      sub_cvalues.begin(), sub_cvalues.end() );
-    }
-
+    boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
+    
     if ( cvalues.size() != 4 )
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
