@@ -33,6 +33,11 @@ namespace asp {
                          boost::program_options::options_description const&
                          additional_options ) {
 
+    // Print the command being run in debug mode.
+    std::string run_cmd = "";
+    for (int s = 0; s < argc; s++) run_cmd += std::string(argv[s]) + " ";
+    VW_OUT(DebugMessage, "stereo") << "\n\n" << run_cmd << "\n";
+    
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")

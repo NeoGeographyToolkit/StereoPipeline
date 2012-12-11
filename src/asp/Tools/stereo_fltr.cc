@@ -93,14 +93,17 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                  opt, TerminalProgressCallback("asp", "\t--> Good Pxl Map: ") );
   }
 
-  // Fill Holes
+  // Fill holes
   if(!stereo_settings().disable_fill_holes) {
     vw_out() << "\t--> Filling holes with Inpainting method.\n";
     BlobIndexThreaded bindex( invert_mask( inputview.impl() ),
                               stereo_settings().fill_hole_max_size );
     vw_out() << "\t    * Identified " << bindex.num_blobs() << " holes\n";
+    bool use_grassfire = true;
+    typename ImageT::pixel_type default_inpaint_val;
     asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-                                 asp::InpaintView<ImageT >(inputview.impl(), bindex ),
+                                 inpaint(inputview.impl(), bindex,
+                                         use_grassfire, default_inpaint_val),
                                  opt, TerminalProgressCallback("asp","\t--> Filtering: ") );
 
   } else {

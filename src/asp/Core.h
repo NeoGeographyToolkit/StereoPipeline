@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file stereo.cc
+/// \file Core.h
 ///
 #include <asp/asp_config.h>
 

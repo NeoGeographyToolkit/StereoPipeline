@@ -93,4 +93,4 @@ class ErodeView : public vw::ImageViewBase<ErodeView<ViewT> > {
 
 };
 
-#endif//__INPAINT_H__
+#endif//__ERODEVIEW_H__

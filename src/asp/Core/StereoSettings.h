@@ -70,7 +70,11 @@ namespace asp {
                                       //         individually with their
                                       //         own hi's and lo's
     bool force_max_min;               // Use entire dynamic range of image.
-
+    double nodata_threshold;          // Pixels with value less than this are treated as no-data
+    double nodata_percentage;         // the percentage of low-value pixels treated as no-data
+    double nodata_optimal_threshold_factor; // Pixels with values less than this factor times the optimal Otsu threshold
+                                      // are treated as no-data
+    
     // Correlation Options
     float slogW;                      // Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None

@@ -22,7 +22,9 @@
 
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
+#include <asp/Core/InpaintView.h>
 #include <vw/Cartography/GeoTransform.h>
+#include <vw/Math/Functors.h>
 
 using namespace vw;
 using namespace asp;
@@ -80,6 +82,36 @@ resample_aa( ImageViewBase<ViewT> const& input, double factor ) {
                       int32(.5+(input.impl().rows()*factor)) );
 }
 
+struct MaskAboveThreshold: public ReturnFixedType< PixelMask<uint8> > {
+  double m_threshold;
+
+  MaskAboveThreshold(double threshold): m_threshold(threshold){}
+
+  PixelMask<uint8> operator() (PixelGray<float> const& pix) const {
+    if (pix >= m_threshold)
+      return PixelMask<uint8>(255);
+    else
+      return PixelMask<uint8>();
+  }
+};
+template <class ImageT>
+UnaryPerPixelView<ImageT, MaskAboveThreshold>
+inline mask_above_threshold( ImageViewBase<ImageT> const& image, double threshold ) {
+  return UnaryPerPixelView<ImageT, MaskAboveThreshold>( image.impl(),
+                                                MaskAboveThreshold(threshold) );
+}
+
+ImageViewRef< PixelMask<uint8> > mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
+                                                      double threshold ){
+  // Create the mask of pixels above threshold. Fix any holes in it.
+  ImageViewRef< PixelMask<uint8> > thresh_mask = mask_above_threshold(img, threshold);
+  int max_area = 0; // fill arbitrarily big holes
+  bool use_grassfire = false; // fill with default value
+  PixelMask<uint8> default_inpaint_val = uint8(255);
+  BlobIndexThreaded bindex( invert_mask( thresh_mask.impl() ), max_area );
+  return inpaint(thresh_mask.impl(), bindex, use_grassfire, default_inpaint_val);
+}
+
 void stereo_preprocessing( Options& opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string()
@@ -118,8 +150,47 @@ void stereo_preprocessing( Options& opt ) {
     ImageViewRef< PixelMask<uint8> > right_mask = copy_mask(constant_view(uint8(255),
                                                                           right_image.cols(), right_image.rows() ),
                                                             asp::threaded_edge_mask(right_image,0,0,1024));
+
+    double left_threshold  = stereo_settings().nodata_threshold;
+    double right_threshold = stereo_settings().nodata_threshold;
+    double nodata_fraction = stereo_settings().nodata_percentage/100.0;
+    double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
+    if (int(!std::isnan(left_threshold))  +
+        int(!std::isnan(nodata_fraction)) +
+        int(!std::isnan(nodata_factor)) >= 2 
+        ){
+      vw_throw( ArgumentErr()
+                << "\nAt most one of the no-data settings "
+                << "(threshold, percentage, or optimal threshold factor) must be set.\n");
+    }
+
+    if ( !std::isnan(nodata_factor) ){
+      // Find the black pixels threshold using Otsu's optimal threshold method.
+      left_threshold  = nodata_factor*optimal_threshold(left_image);
+      right_threshold = nodata_factor*optimal_threshold(right_image);
+    }
     
+    if ( !std::isnan(nodata_fraction) ){
+      // Declare a fixed proportion of pixels to be black.
       
+      math::CDFAccumulator< PixelGray<float> > left_cdf(1024, 1024), right_cdf(1024, 1024);
+      for_each_pixel( left_image, left_cdf );
+      for_each_pixel( right_image, right_cdf );
+
+      left_threshold  = left_cdf.quantile(nodata_fraction);
+      right_threshold = right_cdf.quantile(nodata_fraction);
+    }
+    
+    if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
+      // Mask pixels below threshold.
+      
+      ImageViewRef< PixelMask<uint8> > left_thresh_mask = mask_and_fill_holes(left_image, left_threshold);
+      left_mask = intersect_mask(left_mask, left_thresh_mask);
+
+      ImageViewRef< PixelMask<uint8> > right_thresh_mask = mask_and_fill_holes(right_image, right_threshold);
+      right_mask = intersect_mask(right_mask, right_thresh_mask);
+    }
+    
     bool has_left_georef  = read_georeference(left_georef,  opt.in_file1);
     bool has_right_georef = read_georeference(right_georef, opt.in_file2);
     if (has_left_georef && has_right_georef){
