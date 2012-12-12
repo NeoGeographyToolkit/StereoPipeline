@@ -21,7 +21,7 @@
 #include <vw/Cartography.h>
 #include <vw/InterestPoint.h>
 #include <vw/Math.h>
-#include <vw/RANSAC.h>
+#include <vw/Math/RANSAC.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <asp/ControlNetTK/Equalization.h>
 #include <asp/Core/Common.h>
