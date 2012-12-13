@@ -172,13 +172,13 @@ values listed after the parameter name.
     \item[2 - normalized cross correlation]
   \end{description}
 
-\item[corr-kernel \textnormal{\small{(= \emph{integer,integer})}} (default = 25,25)] \hfill \\
+\item[corr-kernel \textnormal{\small{(= \emph{integer integer})}} (default = 25 25)] \hfill \\
   These option determine the size (in pixels) of the correlation
   kernel used in the initialization step.  A different size can be set
   in the horizontal and vertical directions, but square correlation
   kernels are almost always used in practice.
 
-\item[corr-search \textnormal{\small{(= \emph{integer,integer,integer,integer})}}] \hfill \\
+\item[corr-search \textnormal{\small{(= \emph{integer integer integer integer})}}] \hfill \\
   These parameters determine the size of the initial correlation
   search range.  The ideal search range depends on a variety of
   factors ranging from how the images were pre-aligned to the
@@ -240,7 +240,7 @@ values listed after the parameter name.
   For a visual comparison of the quality of these subpixel modes,
   refer back to Chapter:\ref{ch:correlation}.
 
-\item[subpixel-kernel \textnormal{\small{(= \emph{integer,integer})}} (default = 35,35)]
+\item[subpixel-kernel \textnormal{\small{(= \emph{integer integer})}} (default = 35 35)]
   Specify the size of the horizontal and vertical size (in pixels) of
   the subpixel correlation kernel. It is advantageous to keep this
   small for parabola fitting in order to resolve finer
@@ -261,7 +261,7 @@ values listed after the parameter name.
 
 \begin{description}
 
-\item[rm-half-kernel \textnormal{\small{(= \emph{integer,integer})}} (default = 5,5)] \hfill \\
+\item[rm-half-kernel \textnormal{\small{(= \emph{integer integer})}} (default = 5 5)] \hfill \\
   This setting adjusts the behavior of an outlier rejection scheme
   that ``erodes'' isolated regions of pixels in the disparity map that
   are in disagreement with their neighbors.

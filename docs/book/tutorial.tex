@@ -383,17 +383,16 @@ the input files.
 
 All the settings given via the \texttt{stereo.default} file can be
 over-ridden from the command line. Just add a double hyphen
-(\texttt{-\/-}) in front the option's name and then fill out the
-option just as you would in the configuration file. For options in
-the \texttt{stereo.default} file that take take multiple numbers
-separated by spaces (like `\texttt{corr-kernel~25~25}'), they must
-be separated by commas on the command line (like
-`\texttt{-\/-corr-kernel~25,25}').  Below is an example of overriding
-the search range and subpixel mode from the command line.
+(\texttt{-\/-}) in front the option's name and then fill out the option
+just as you would in the configuration file. For options in the
+\texttt{stereo.default} file that take multiple numbers, they must be
+separated by spaces (like `\texttt{corr-kernel~25~25}') on the command
+line. Below is an example of overriding the search range and subpixel
+mode from the command line.
 
 \begin{verbatim}
     ISIS 3> stereo E0201461.map.cub M0100115.map.cub  \
-              -s stereo.map --corr-search -70,-4,40,4 \
+              -s stereo.map --corr-search -70 -4 40 4 \
               --subpixel-mode 0                       \
               results/E0201461-M0100115
 \end{verbatim}

@@ -86,10 +86,10 @@ namespace asp {
        "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation]")
       ("xcorr-threshold", po::value(&global.xcorr_threshold)->default_value(2),
        "L-R vs R-L agreement threshold in pixels.")
-      ("corr-kernel", po::value(&global.kernel)->default_value(Vector2i(21,21),"21,21"),
+      ("corr-kernel", po::value(&global.kernel)->default_value(Vector2i(21,21),"21 21"),
        "Kernel size used for integer correlator.")
       ("corr-search", po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),
-       "Disparity search range. Specify in format: hmin,vmin,hmax,vmax.")
+       "Disparity search range. Specify in format: hmin vmin hmax vmax.")
       ("corr-max-levels", po::value(&global.corr_max_levels)->default_value(5),
        "Max pyramid levels to process when using the integer correlator. (0 is just a single level).");
 
@@ -109,8 +109,8 @@ namespace asp {
     (*this).add_options()
       ("subpixel-mode",  po::value(&global.subpixel_mode)->default_value(2),
        "Subpixel algorithm. [0 None, 1 Parabola, 2 Bayes EM]")
-      ("subpixel-kernel", po::value(&global.subpixel_kernel)->default_value(Vector2i(35,35), "35,35"),
-       "Kernel size to use with subpixel method.")
+      ("subpixel-kernel", po::value(&global.subpixel_kernel)->default_value(Vector2i(35,35), "35 35"),
+       "Kernel size used for subpixel method.")
       ("disable-h-subpixel", po::bool_switch(&global.disable_h_subpixel),
        "Disable calculation of subpixel in horizontal direction.")
       ("disable-v-subpixel", po::bool_switch(&global.disable_v_subpixel),
@@ -138,8 +138,8 @@ namespace asp {
   FilteringDescription::FilteringDescription() : po::options_description("Filtering Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
-      ("rm-half-kernel", po::value(&global.rm_half_kernel)->default_value(Vector2i(5,5), "5,5"),
-       "Low confidence pixel removal kernel. (Half sized)")
+      ("rm-half-kernel", po::value(&global.rm_half_kernel)->default_value(Vector2i(5,5), "5 5"),
+       "Low confidence pixel removal kernel (half sized)")
       ("rm-min-matches", po::value(&global.rm_min_matches)->default_value(60),
        "Minimum number of pixels to be matched to keep sample")
       ("rm-threshold", po::value(&global.rm_threshold)->default_value(3),
