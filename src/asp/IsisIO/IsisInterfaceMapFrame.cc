@@ -83,24 +83,14 @@ IsisInterfaceMapFrame::point_to_pixel( Vector3 const& point ) const {
 Vector3
 IsisInterfaceMapFrame::pixel_to_vector( Vector2 const& px ) const {
   m_projection->SetWorld(px[0] + 1, px[1] + 1);
-  Vector3 lon_lat_radius( m_projection->UniversalLongitude(),
-                          m_projection->UniversalLatitude(), 0 );
 
-  // Solving for radius
-  if ( m_camera->HasElevationModel() ) {
-    lon_lat_radius[2] =
-      m_camera->DemRadius( Isis::Latitude(lon_lat_radius[1], Isis::Angle::Degrees),
-                           Isis::Longitude(lon_lat_radius[0], Isis::Angle::Degrees) ).meters();
-  } else {
-    Vector2 lon_lat = subvector(lon_lat_radius,0,2);
-    lon_lat = lon_lat * M_PI/180;
-    double bclon = m_radii[1].meters()*cos(lon_lat[0]);
-    double aslon = m_radii[0].meters()*sin(lon_lat[0]);
-    double cclat = m_radii[2].meters()*cos(lon_lat[1]);
-    double xyradius = m_radii[0].meters() * m_radii[1].meters() / sqrt(bclon*bclon + aslon*aslon);
-    double xyslat = xyradius*sin(lon_lat[1]);
-    lon_lat_radius[2] = xyradius * m_radii[2].meters() / sqrt(cclat*cclat + xyslat*xyslat );
-  }
+  // Longitude and Latitude are planetocentric. This is why
+  // lon_lat_radius_to_xyz is the apprioprate choice.
+  Vector3 lon_lat_radius( m_projection->UniversalLongitude(),
+                          m_projection->UniversalLatitude(),
+                          m_camera->LocalRadius( m_projection->UniversalLatitude(),
+                                                 m_projection->UniversalLongitude() ).meters() );
+
   Vector3 point = cartography::lon_lat_radius_to_xyz(lon_lat_radius);
   return normalize(point-m_center);
 }

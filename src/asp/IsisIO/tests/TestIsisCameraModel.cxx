@@ -76,14 +76,8 @@ TEST(IsisCameraModel, mapprojected) {
     proj->SetWorld( pixel[0], pixel[1] );
     Vector3 lon_lat_radius( proj->UniversalLongitude(),
                             proj->UniversalLatitude(),
-                            0 );
-    if ( cam->HasElevationModel() ) {
-      lon_lat_radius[2] =
-        cam->DemRadius( Isis::Latitude(lon_lat_radius[1], Isis::Latitude::Degrees),
-                        Isis::Longitude(lon_lat_radius[0], Isis::Longitude::Degrees) ).meters();
-    } else {
-      vw_throw( NoImplErr() << " don't support ellipsoids at the moment" );
-    }
+                            cam->LocalRadius( proj->UniversalLatitude(),
+                                              proj->UniversalLongitude() ).meters() );
     cam->SetImage( noise[0], noise[1] );
     cam->SetUniversalGround( lon_lat_radius[1],
                              lon_lat_radius[0],
