@@ -86,6 +86,11 @@ namespace asp {
       asp::check_command_line( argc, argv, opt, general_options, all_general_options,
                                positional_options, positional_desc, usage, false );
 
+    if (!vm.count("left-input-image") || !vm.count("right-input-image") ||
+        !vm.count("left-camera-model") )
+      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
+                << usage << general_options );
+
     // Read the config file
     try {
       po::options_description cfg_options;
@@ -105,11 +110,6 @@ namespace asp {
                     << e.what() << "\n" );
     }
     asp::stereo_settings().validate();
-
-    if (!vm.count("left-input-image") || !vm.count("right-input-image") ||
-        !vm.count("left-camera-model") )
-      vw_throw( ArgumentErr() << "Missing all of the correct input files.\n\n"
-                << usage << general_options );
 
     // If the user hasn't specified a stereo session type, we take a
     // guess here based on the file suffixes.
