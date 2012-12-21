@@ -326,9 +326,10 @@ int main(int argc, char* argv[]) {
       // Throw an error if there turns out to be no overlap.
       projection_bbox = cam_bbox; projection_bbox.crop(dem_bbox);
       
-      if ( projection_bbox.empty() ) {
+      if ( projection_bbox.empty() && !dem_georef.is_projected()) {
 
-        // If the boxes do not intersect, it may be that one box is shifted in respect to the other by 360 degrees.
+        // If the boxes do not intersect, it may be that one box is
+        // shifted in respect to the other by 360 degrees.
         // Attempt 1
         projection_bbox = cam_bbox - Vector2(360.0, 0.0); projection_bbox.crop(dem_bbox);
         if ( projection_bbox.empty() ) {
