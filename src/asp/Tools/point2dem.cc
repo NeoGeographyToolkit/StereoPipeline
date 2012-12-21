@@ -38,6 +38,7 @@ namespace po = boost::program_options;
 namespace vw {
   typedef Vector<float64,6> Vector6;
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID<Vector3f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
   template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
   template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
@@ -318,8 +319,8 @@ namespace asp{
 
   public:
 
-    typedef Vector3 pixel_type;
-    typedef const Vector3 result_type;
+    typedef Vector3f pixel_type;
+    typedef const Vector3f result_type;
     typedef ProceduralPixelAccessor<CombinedView> pixel_accessor;
 
     CombinedView(double nodata_value,
@@ -339,13 +340,13 @@ namespace asp{
 
     inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
 
-      Vector3 error(m_image1(i, j), m_image2(i, j), m_image3(i, j));
+      Vector3f error(m_image1(i, j), m_image2(i, j), m_image3(i, j));
 
       if (error[0] == m_nodata_value || error[1] == m_nodata_value || error[2] == m_nodata_value){
-        return Vector3(m_nodata_value, m_nodata_value, m_nodata_value);
+        return Vector3f(m_nodata_value, m_nodata_value, m_nodata_value);
       }
     
-      return Vector3(std::abs(error[0]), std::abs(error[1]), std::abs(error[2]));
+      return Vector3f(std::abs(error[0]), std::abs(error[1]), std::abs(error[2]));
     }
 
     /// \cond INTERNAL
@@ -630,10 +631,10 @@ int main( int argc, char *argv[] ) {
                                                  vw_settings().default_tile_size()),0);
         }
         
-        ImageViewRef<Vector3> combined_image = asp::combine_channels(opt.nodata_value,
-                                                                     rasterized[0], rasterized[1], rasterized[2]
-                                                                     );
-        save_image(opt, combined_image, georef, "DEMError");
+        save_image(opt,
+                   asp::combine_channels(opt.nodata_value,
+                                         rasterized[0], rasterized[1], rasterized[2]),
+                   georef, "DEMError");
       }
       
     }
