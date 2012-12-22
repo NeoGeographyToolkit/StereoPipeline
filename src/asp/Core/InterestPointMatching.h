@@ -119,12 +119,12 @@ namespace asp {
     if ( points_per_tile < 50 ) points_per_tile = 50;
     VW_OUT( DebugMessage, "asp" ) << "Setting IP code to search " << points_per_tile << " IP per tile (1024^2 px).\n";
     asp::IntegralAutoGainDetector detector( points_per_tile );
-    vw_out() << "\t    Processing Left\n";
+    vw_out() << "\t    Processing Left" << std::endl;
     if ( boost::math::isnan(nodata1) )
       ip1 = detect_interest_points( image1, detector );
     else
       ip1 = detect_interest_points( apply_mask(create_mask(image1,nodata1)), detector );
-    vw_out() << "\t    Processing Right\n";
+    vw_out() << "\t    Processing Right" << std::endl;
     if ( boost::math::isnan(nodata2) )
       ip2 = detect_interest_points( image2, detector );
     else
@@ -136,7 +136,7 @@ namespace asp {
     if ( !boost::math::isnan(nodata2) )
       remove_ip_near_nodata( image2, nodata2, ip2 );
 
-    vw_out() << "\t    Building Descriptors\n";
+    vw_out() << "\t    Building Descriptors" << std::endl;
     ip::SGradDescriptorGenerator descriptor;
     if ( boost::math::isnan(nodata1) )
       descriptor(image1, ip1 );
@@ -149,7 +149,7 @@ namespace asp {
 
     vw_out() << "\t    Found interest points:\n"
              << "\t      left: " << ip1.size() << "\n";
-    vw_out() << "\t     right: " << ip2.size() << "\n";
+    vw_out() << "\t     right: " << ip2.size() << std::endl;
 
     vw_out() << "\t--> Matching interest points\n";
     ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
@@ -163,7 +163,7 @@ namespace asp {
     matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2, false,
              TerminalProgressCallback( "asp", "\t   Matching: " ));
     ip::remove_duplicates( matched_ip1, matched_ip2 );
-    vw_out() << "\t    Matched points: " << matched_ip1.size() << "\n";
+    vw_out() << "\t    Matched points: " << matched_ip1.size() << std::endl;
   }
 
   // Homography IP matching
