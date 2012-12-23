@@ -32,7 +32,7 @@ class PassThroughOptionParser(optparse.OptionParser):
                 largs.append(e.opt_str)
 
 def run(bin, args, **kw):
-    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), bin)
+    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
     call = [binpath]
     call.extend(args)
 
