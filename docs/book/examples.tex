@@ -5,9 +5,12 @@
 
 This chapter showcases a variety of results that are possible when
 processing different data sets with the Stereo Pipeline. It is also a
-shortened guide that shows the commands and recommended settings to
-process specific mission data. We hope that this serves as cookbook
-for strategies that will get you started in processing your own data.
+shortened guide that shows the commands used to process specific
+mission data. There is no definitive method yet for making elevation
+models as each stereo pair is unique. We hope that the following
+sections serve as a cookbook for strategies that will get you started
+in processing your own data. We recommend that you second check your
+results against another source.
 
 \section{Guidelines for Selecting Stereo Pairs}
 
@@ -279,9 +282,10 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file should apply well to HiRISE. The
-\texttt{corr-kernel} value can usually be safely reduced to 21 pixels to
-resolve finer detail and faster processing for images with good
+The stereo.default example file should apply well to HiRISE. Just set
+\texttt{alignment-method} to \texttt{homography}. The
+\texttt{corr-kernel} value can usually be safely reduced to 21 pixels
+to resolve finer detail and faster processing for images with good
 contrast.
 
 \clearpage
@@ -330,10 +334,11 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file should apply well to HiRISE. The
+The stereo.default example file should apply well to HiRISE. Just set
+\texttt{alignment-method} to \texttt{homography}. The
 \texttt{corr-kernel} parameter can usually be safely reduced to 21
-pixels to resolve finer detail and faster processing for images
-with good contrast.
+pixels to resolve finer detail and faster processing for images with
+good contrast.
 
 \clearpage
 \subsection{North Terra Meridiani Crop}
@@ -385,9 +390,10 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file should apply well to HiRISE. The
-\texttt{corr-kernel} value can usually be safely reduced to 21 pixels to
-resolve finer detail and faster processing for images with good
+The stereo.default example file should apply well to HiRISE. Just set
+\texttt{alignment-method} to \texttt{homography}. The
+\texttt{corr-kernel} value can usually be safely reduced to 21 pixels
+to resolve finer detail and faster processing for images with good
 contrast.
 
 \vfill
@@ -443,7 +449,8 @@ P03\_002258\_1817\_XI\_01N356W.IMG from the \ac{PDS}.
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file works generally well with all CTX pairs.
+The stereo.default example file works generally well with all CTX
+pairs. Just set \texttt{alignment-method} to \texttt{homography}.
 
 \clearpage
 \section{Mars Global Surveyor MOC-NA}
@@ -507,7 +514,8 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file works generally well with all MOC-NA pairs.
+The stereo.default example file works generally well with all MOC-NA
+pairs. Just set \texttt{alignment-method} to \texttt{homography}.
 
 \newpage
 \subsection{North Tharsis}
@@ -542,7 +550,8 @@ Download the M08/03097.img and S07/01420 images from the \ac{PDS}.
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file works generally well with all MOC-NA pairs.
+The stereo.default example file works generally well with all MOC-NA
+pairs. Just set \texttt{alignment-method} to \texttt{homography}.
 
 \newpage
 \section{Mars Exploration Rovers MER}
@@ -668,9 +677,9 @@ be sure to remember to set \texttt{alignment-method NONE}.
 \end{tabular}
 
 Apollo Metric images were all taken at regular intervals, which means
-that the same \texttt{stereo.default} can be used for all sequential pairs of
-images. Apollo Metric images are ideal for stereo processing.  They
-produce consistent, excellent results.
+that the same \texttt{stereo.default} can be used for all sequential
+pairs of images. Apollo Metric images are ideal for stereo processing.
+They produce consistent, excellent results.
 
 The scans performed by ASU are sufficiently detailed to exhibit film
 grain at the highest resolution.  The amount of noise at the full
@@ -718,7 +727,8 @@ Process Apollo TIFF files into \ac{ISIS}.
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file works generally well with all Apollo pairs.
+The stereo.default example file works generally well with all Apollo
+pairs. Just set \texttt{alignment-method} to \texttt{homography}.
 
 %% \pagebreak
 
@@ -912,3 +922,283 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 
 \end{Verbatim}
 \end{minipage}\end{center}
+
+\newpage
+\section{Digital Globe Imagery}
+
+Digital Globe provides imagery from the Quick Bird and the three World
+View satellites. These are the hardest images to process with Ames
+Stereo Pipeline because they are exceedingly large, much larger than
+HiRISE imagery. There is also a wide range of terrain challenges and
+atmospheric effects that can confuse ASP. Trees are particularly
+difficult for us since their texture is nearly nadir and perpendicular
+to our line of sight. It is important to know that the driving force
+behind our support for Digital Globe imagery is to create models of
+ice and bare rock. That is the type of imagery that we have tested
+with and have focused on. If we can make models of wooded or urban
+areas, that is a bonus, but we can't provide any advice for how to
+perform or improve the results if you choose to use ASP in that way.
+
+ASP can only process Level 1B imagery and can not process Digital
+Globe's aerial imagery. We can pull a camera model from the RPC
+coefficients or from their linear camera model described in the
+provided XML files. We won't be discussing the RPC method in this
+section, however you can learn more about it in the later example
+where we discuss processing GeoEye imagery which comes only with RPC
+coefficients. Our implementation of the linear camera model only
+models the geometry of the imaging hardware itself and velocity
+aberration. We do not currently model refraction due to light bending
+in Earth's atmosphere. It is our understanding that this could
+represent misplacement of points up to a meter for some
+imagery. However this is still smaller error than the error from
+measurement of the spacecraft's position and orientation. We do not
+provide facilities for correcting spacecraft attitude either. So you
+will have to perform some manual shifting of the data to get it into
+the correct location. These errors are fortunately much less than
+found with extra-terrestrial missions largely due to the availability
+of GPS and high bandwidth comms with the satellite.
+
+In the next 2 sections we will show how to process unmodified and map
+projected variants of World View 1 imagery. This steps will be the
+same for Digital Globe's other satellites. The imagery we are using
+are from the free stereo pair example of Lucknow, India available from
+Digital Globe's website \cite{digital-globe:samples}. These images represent
+a non-ideal problem for us since this is an urban location, but at
+least you should be able to download this imagery yourself and follow
+along.
+
+\subsection{Processing Raw}
+
+After you have downloaded the example stereo imagery of India, you
+will find a directory titled \texttt{052783824050\_01\_P001\_PAN}. It contains a
+lot of files and many of them contain redundant information just
+displayed in different forms. We are interested only in the TIF or NTF
+imagery and the similarly named XML file. In this example product from
+Digital Globe, we received our ideal format of a TIFF file. NTF files
+can sometimes use JPEG2000 for the underlining encoding. We supply a
+decoder from OpenJPEG in ASP, unfortunately it is quite slow and might
+mean extremely long preprocessing times.
+
+Further investigation of the files downloaded will show that there are
+in fact 4 files. This is because Digital Globe breaks down a single
+observation into multiple files for what we assume are size
+reasons. These files have a pattern string of ``\_R[N]C1-'', where N
+increments for every subframe of the full observation. ASP currently
+doesn't know how to ingest an entire frame, so instead we can only
+process pairs of subframes.
+
+Since we are ingesting these images raw, it is strongly recommend that
+you use a homography alignment to reduce the search range. Processing
+with the \texttt{stereo} command is as simple as feeding the imagery
+as the second and third argument. The XML data is fed as the camera
+model argument and thus are used as the fourth and fifth argument. The
+completed command and a rendering in QGIS are shown below.
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeContext.png}
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUp.png}
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUpDRG.png}
+\caption{Example colorized height map and ortho image output.}
+\label{fig:dg-nomap-example}
+\end{figure}
+
+\subsubsection*{Commands}
+
+\begin{verbatim}
+    > stereo 12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
+             12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+             12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML dg/dg
+\end{verbatim}
+
+\subsubsection*{stereo.default}
+
+The stereo.default example file works generally well with all Digital
+Globe pairs. As well as they can anyways. Just set
+\texttt{alignment-method} to \texttt{homography}.
+
+\subsection{Processing Map Projected Imagery}
+
+Eventually you will run into Digital Globe imagery that has too much
+parallax to be processed in a reasonable time. (That wasn't the case
+for Lucknow, India because it is so flat.) We can speed up the result
+by processing map projected versions of the imagery. The catch is, you
+are not allowed to use any map projection software you like (such as
+GDAL). We need to have complete control of the process since ASP will
+have to work backwards through this math and interpolations in order
+to make the final elevation model. So we have provided a new utility
+called \texttt{rpc\_mapproject} whose commands closely resemble
+\texttt{point2dem}. The purpose of this tool is to use the simplified
+RPC model to map project the imagery unto a low resolution and
+hole-less digital elevation model. Later, ASP will then work backwards
+through the RPC model and then forward through the linear camera model
+to calculate the final result.
+
+The hardest part of this whole process is getting your input low
+resolution 3D model. In this example we will use a void filled variant
+of NASA SRTM data. Other choices might be GMTED2010 or USGS's NED
+data. However, you must be careful that the DEM data you are
+downloading does not use a vertical datum. ASP only understand
+ellipsoidal references such as WGS84. Vertical datums such as NAVD88
+used by USGS's NED data products or EGM96 should be added to your
+DEM's elevations prior to use by ASP. Not doing this might not
+properly negate the parallax seen between the two images, though it
+will not corrupt the triangulation results. In other-words, we are
+saying you can sometimes get lucky ignoring the vertical datums on the
+input but do not recommend doing that. Also, you should note, that the
+geoheader attached to those types of files usually do not describe the
+vertical datum they used. That can only be understood by careful
+reading of your provider's documents.
+
+The NASA SRTM square for our example spot in India is N26E080. Below
+are the commands for us map projecting the input and then running
+through stereo. You can use any projection you like as long is it
+preserves detail in the imagery. Note also that we have added a
+seventh parameter to the stereo call where we provide the input low
+resolution DEM.
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=2.0in]{images/examples/dg/MappedContext.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUp.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUpDRG.png}
+\caption{Example colorized height map and ortho image output.}
+\label{fig:dg-map-example}
+\end{figure}
+
+\subsubsection*{Commands}
+
+The first step is downloading a void-filled SRTM tile to map project
+on to. In this example I used, \texttt{srtm\_53\_07.tif}, a 90 meter
+resolution tile from the CGIAR-CSI modification of the original NASA
+product \cite{cgiar:srtm90m}.
+
+\begin{verbatim}
+    > rpc_mapproject --t_srs "+proj=eqc +units=m +datum=WGS84" \
+        --tr 0.5 srtm_53_07.tif \
+        12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
+        12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+        left_mapped.tif
+    > rpc_mapproject --t_srs "+proj=eqc +units=m +datum=WGS84" \
+        --tr 0.5 srtm_53_07.tif \
+        12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
+        12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
+        right_mapped.tif
+    > stereo left_mapped.tif right_mapped.tif \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+             12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
+             dg/dg srtm_53_07.tif
+\end{verbatim}
+
+\subsubsection*{stereo.default}
+
+The stereo.default example file works generally well with all Digital
+Globe pairs. As well as they can anyways. Just set
+\texttt{alignment-method} to \texttt{homography}.
+
+\newpage
+\section{GeoEye Imagery / RPC Imagery}
+
+GeoEye provides imagery from Ikonos and the two GeoEye
+satellites. They provide only Rational Polynomial Camera (RPC)
+models. For the uninitiated, RPC represents four 20-element
+polynomials that map geodetic coordinates to image coordinates. Since
+they are easy to implement, RPC represents a universal camera model
+and can be had from many imaging providers such as RapidEye and
+Digital Globe. The only downside is that it has less precision in our
+opinion compared to the linear camera model provided by Digital
+Globe. For GeoEye, the only option is using RPC.
+
+Our RPC read driver is GDAL. If the command \texttt{gdalinfo} can identify
+the RPC information inside the headers of your files, we will likely
+be able to see it as well. This means that sometimes we can get away
+with only providing a left and right image. This is specifically the
+case for GeoEye.
+
+You can download an example stereo pair from GeoEye's website at
+\cite{geoeye:samples}. When we accessed the site, we downloaded a
+GeoEye-1 image of Hobart, Australia. As previously stated in the
+Digital Globe section, these types of images are not ideal for Ames
+Stereo Pipeline. This is both a forest and a urban area which makes
+correlation difficult. ASP was designed more for modeling bare rock
+and ice. Any results we produce in other environments is a bonus but
+is not our objective.
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=2.0in]{images/examples/geoeye/GeoEye_ContextRender.png}
+  \includegraphics[width=2.0in]{images/examples/geoeye/GeoEye_CloseUp.png}
+  \includegraphics[width=2.0in]{images/examples/geoeye/GeoEye_CloseUpDRG.png}
+\caption{Example colorized height map and ortho image output.}
+\label{fig:geoeye-nomap-example}
+\end{figure}
+
+\subsubsection*{Commands}
+
+\begin{verbatim}
+    > stereo po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
+\end{verbatim}
+
+\subsubsection*{stereo.default}
+
+The stereo.default example file works generally well with all GeoEye
+pairs. Just set \texttt{alignment-method} to \texttt{homography}.
+
+\newpage
+\section{Dawn (FC) Framing Camera}
+
+This is a NASA mission to visit two of the largest objects in the
+asteroid belt, Vesta and Ceres. After having orbited Vesta for a year
+and a half, they finally started releasing their imagery. Thankfully,
+USGS's Astrogeology department has been supporting the mission this
+entire time. They've had a Dawn camera model publicly available for at
+least the last 2 releases. Since ASP builds against USGS's ISIS
+software, we are able to leverage that model.
+
+The framing camera on board Dawn is quite small and packs only a
+resolution of 1024x1024 pixels. This means processing time is
+extremely short. To it's benefit, it seems that the mission planners
+leave the framing camera on taking shots quite rapidly. On a single
+pass, they seem to usually take a chain of FC images that have a high
+overlap percentage. This opens the idea of using ASP to process not
+only the sequential pairs, but also the wider baseline shots. Then
+someone could potentially average all the DEMs together to create a
+more robust data product.
+
+For this example, we downloaded the images
+\texttt{FC21A0010191\_11286212239F1T.IMG} and
+\texttt{FC21A0010192\_11286212639F1T.IMG} which show the Cornelia
+crater. We must be honest, we found these images by looking at
+the popular anaglyph shown on the Planetary Science
+Blog \cite{planetaryblog:vesta}.
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=3.0in]{images/examples/dawn/VestaDEMRender.png}
+  \includegraphics[width=3.0in]{images/examples/dawn/VestaDRGRender.png}
+\caption{Example colorized height map and ortho image output.}
+\label{fig:dawn-nomap-example}
+\end{figure}
+
+\subsubsection*{Commands}
+
+First you must download the Dawn FC images from PDS.
+
+\begin{verbatim}
+    ISIS3 > dawnfc2isis from=FC21A0010191_11286212239F1T.IMG \
+                        to=FC21A0010191_11286212239F1T.cub
+    ISIS3 > dawnfc2isis from=FC21A0010192_11286212639F1T.IMG \
+                        to=FC21A0010192_11286212639F1T.cub
+    ISIS3 > spiceinit from=FC21A0010191_11286212239F1T.cub
+    ISIS3 > spiceinit from=FC21A0010192_11286212639F1T.cub
+    ISIS3 > stereo FC21A0010191_11286212239F1T.cub \
+                   FC21A0010192_11286212639F1T.cub stereo/stereo
+    ISIS3 > point2dem stereo-PC.tif --orthoimage stereo-L.tif \
+   --t_srs "+proj=eqc +lat_ts=-11.5 +a=280000 +b=229000 +units=m"
+\end{verbatim}
+
+\subsubsection*{stereo.default}
+
+The stereo.default example file worked for this stereo pair. Just set
+\texttt{alignment-method} to \texttt{homography}.
