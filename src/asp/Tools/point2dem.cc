@@ -130,7 +130,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
      "Also write a normalized version of the DEM (for debugging)")
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
-    ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation error image.")
+    ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
     ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
@@ -606,14 +606,13 @@ int main( int argc, char *argv[] ) {
 
     // Write triangulation error image if requested
     if ( opt.do_error ) {
-      
       if (pix_size == 4){
         // The error is a scalar.
         DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
         ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
         rasterizer.set_texture( error_channel );
         rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
-        save_image(opt, rasterizer_fsaa, georef, "DEMError");
+        save_image(opt, rasterizer_fsaa, georef, "IntersectionErr");
       }else{
         // The error is a 3D vector. Convert it to NED coordinate system,
         // and rasterize it.
@@ -630,13 +629,11 @@ int main( int argc, char *argv[] ) {
             block_cache(rasterizer_fsaa,Vector2i(vw_settings().default_tile_size(),
                                                  vw_settings().default_tile_size()),0);
         }
-        
         save_image(opt,
                    asp::combine_channels(opt.nodata_value,
                                          rasterized[0], rasterized[1], rasterized[2]),
-                   georef, "DEMError");
+                   georef, "IntersectionErr");
       }
-      
     }
 
     // Write DRG if the user requested and provided a texture file
