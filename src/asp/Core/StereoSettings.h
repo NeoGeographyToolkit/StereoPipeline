@@ -81,7 +81,7 @@ namespace asp {
                                       // 1 = Gaussian Blur
                                       // 2 = Log Filter
                                       // 3 = SLog Filter  
-    vw::uint16  seed_option;          // 0 = User global search for each tile
+    vw::uint16  seed_mode;            // 0 = User global search for each tile
                                       // 1 = Narrow search for each tile to low
                                       //     res disparity seed
                                       // 2 = Affine Transform and narrow search

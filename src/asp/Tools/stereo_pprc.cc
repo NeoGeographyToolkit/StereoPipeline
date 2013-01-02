@@ -82,11 +82,10 @@ resample_aa( ImageViewBase<ViewT> const& input, double factor ) {
                       int32(.5+(input.impl().rows()*factor)) );
 }
 
+// Create the mask of pixels above threshold
 struct MaskAboveThreshold: public ReturnFixedType< PixelMask<uint8> > {
   double m_threshold;
-
   MaskAboveThreshold(double threshold): m_threshold(threshold){}
-
   PixelMask<uint8> operator() (PixelGray<float> const& pix) const {
     if (pix >= m_threshold)
       return PixelMask<uint8>(255);

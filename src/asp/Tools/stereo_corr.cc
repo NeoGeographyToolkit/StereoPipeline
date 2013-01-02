@@ -118,7 +118,7 @@ public:
   inline prerasterize_type prerasterize_helper(BBox2i const& bbox) const {
 
     // User strategies
-    if ( stereo_settings().seed_option == 1 ) {
+    if ( stereo_settings().seed_mode == 1 ) {
       BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
                         elem_quot(bbox.max(), m_upscale_factor) );
       seed_bbox.expand(1);
@@ -146,8 +146,8 @@ public:
                           stereo_settings().corr_max_levels );
 
       return corr_view.prerasterize( bbox );
-    } else if ( stereo_settings().seed_option > 1 ) {
-      vw_throw( NoImplErr() << "Option " << stereo_settings().seed_option
+    } else if ( stereo_settings().seed_mode > 1 ) {
+      vw_throw( NoImplErr() << "Option " << stereo_settings().seed_mode
                 << " is not an implemented choice.\n" );
     }
 
@@ -407,7 +407,7 @@ void stereo_correlation( Options& opt ) {
     if (!fs::exists(match_filename)) {
       // If there is not any match files for the input image. Let's
       // gather some IP quickly from the low resolution images. This
-      // rountine should only run for:
+      // routine should only run for:
       //   Pinhole + Epipolar
       //   Pinhole + None
       //   DG + None
@@ -446,14 +446,14 @@ void stereo_correlation( Options& opt ) {
     Rmask(opt.out_prefix + "-rMask.tif");
 
   // Performing disparity on sub images
-  if ( stereo_settings().seed_option > 0 )
+  if ( stereo_settings().seed_mode > 0 )
     produce_lowres_disparity( Lmask.cols(), Lmask.rows(), opt );
 
   // Provide the user with some feedback of what we are actually going
   // to use.
   vw_out() << "\t--------------------------------------------------\n";
   vw_out() << "\t   Kernel Size : " << stereo_settings().kernel << std::endl;
-  if ( stereo_settings().seed_option > 0 )
+  if ( stereo_settings().seed_mode > 0 )
     vw_out() << "\t   Rfned Search: "
              << stereo_settings().search_range << std::endl;
   else
@@ -469,7 +469,7 @@ void stereo_correlation( Options& opt ) {
   DiskImageView<PixelGray<float> > left_disk_image(opt.out_prefix+"-L.tif"),
     right_disk_image(opt.out_prefix+"-R.tif");
   ImageViewRef<PixelMask<Vector2i> > sub_disparity;
-  if ( stereo_settings().seed_option > 0 )
+  if ( stereo_settings().seed_mode > 0 )
     sub_disparity =
       DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
   ImageViewRef<PixelMask<Vector2i> > disparity_map;

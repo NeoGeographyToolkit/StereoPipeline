@@ -78,7 +78,7 @@ namespace asp {
        "Sigma value for gaussian kernel used in prefilter for correlator.")
       ("prefilter-mode", po::value(&global.pre_filter_mode)->default_value(2),
        "Preprocessing filter mode. [0 None, 1 Gaussian, 2 LoG, 3 Sign of LoG]")
-      ("corr-seed-mode", po::value(&global.seed_option)->default_value(1),
+      ("corr-seed-mode", po::value(&global.seed_mode)->default_value(1),
        "Correlation seed strategy. [0 None, 1 Use Low-Res Disparity]")
       ("corr-sub-seed-percent", po::value(&global.seed_percent_pad)->default_value(.25),
        "Percent fudge factor for disparity seed's search range")
