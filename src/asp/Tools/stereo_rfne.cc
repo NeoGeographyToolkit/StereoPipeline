@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file stereo.cc
+/// \file stereo_rfne.cc
 ///
 //#define USE_GRAPHICS
 
@@ -49,11 +49,50 @@ void stereo_refinement( Options& opt ) {
       filename_R = out_prefix+"-R.tif";
       }
     */
-    typedef DiskImageView<PixelGray<float> > InnerView;
-    InnerView left_disk_image(filename_L), right_disk_image(filename_R);
-    DiskImageView<PixelMask<Vector2i> > disparity_disk_image(opt.out_prefix + "-D.tif");
-    ImageViewRef<PixelMask<Vector2f> > disparity_map =
-      pixel_cast<PixelMask<Vector2f> >(disparity_disk_image);
+    //    typedef DiskImageView<PixelGray<float> > InnerView;
+//     ImageView<PixelGray<float> > left_disk_image = copy(InnerView(filename_L));
+//     ImageView<PixelGray<float> > right_disk_image = copy(InnerView(filename_R));
+//     DiskImageView<PixelMask<Vector2i> > disparity_disk_image2(opt.out_prefix + "-D.tif");
+
+//     std::cout << "before copy" << std::endl;
+//     ImageView<PixelMask<Vector2i> > disparity_disk_image = copy(disparity_disk_image2);
+//     //ImageViewRef<PixelMask<Vector2f> > disparity_disk_image =
+//     //  pixel_cast<PixelMask<Vector2f> >(disparity_disk_image);
+//     std::cout << "after copy" << std::endl;
+    int cols = 256;
+    int rows = 256;
+
+    ImageView<PixelGray<float> > left_disk_image(cols, rows);
+    ImageView<PixelGray<float> > right_disk_image(cols, rows);
+    ImageView<PixelMask<Vector2i> > disparity_disk_image(cols, rows);
+    
+    for (int col = 0; col < cols; col++){
+      for (int row = 0; row < rows; row++){
+        disparity_disk_image(col, row) = Vector2(0, 0);
+        disparity_disk_image(col, row).validate();
+      }
+    }
+
+    std::cout << "--x size is " << cols << ' ' << rows << std::endl;
+    std::ifstream fs("left.txt");
+    for (int col = 0; col < cols; col++){
+      for (int row = 0; row < rows; row++){
+        double a;
+        fs >> a;
+        left_disk_image(col, row) = a;
+      }
+    }
+    
+    std::ifstream fs2("right.txt");
+    for (int col = 0; col < cols; col++){
+      for (int row = 0; row < rows; row++){
+        double a;
+        fs2 >> a;
+        right_disk_image(col, row) = a;
+      }
+    }
+    
+    ImageView<PixelMask<Vector2f> > disparity_map(cols, rows);
 
     if (stereo_settings().subpixel_mode == 0) {
       // Do nothing
@@ -148,9 +187,27 @@ void stereo_refinement( Options& opt ) {
                                  disparity_map, opt,
                                  TerminalProgressCallback("asp", "\t--> Refinement :") );
 
+    std::cout << "writing: disparity_x.txt disparity_y.txt" << std::endl;
+    std::ofstream dx("disparity_x.txt");
+    for (int col = 0; col < cols; col++){
+      for (int row = 0; row < rows; row++){
+        dx << disparity_map(col, row).child().x() << ' ';
+      }
+      dx << std::endl;
+    }
+  
+    std::ofstream dy("disparity_y.txt");
+    for (int col = 0; col < cols; col++){
+      for (int row = 0; row < rows; row++){
+        dy << disparity_map(col, row).child().y() << ' ';
+      }
+      dy << std::endl;
+    }
+    
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n" );
   }
+
 }
 
 int main(int argc, char* argv[]) {

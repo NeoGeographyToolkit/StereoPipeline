@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file stereo.cc
+/// \file stereo_fltr.cc
 ///
 //#define USE_GRAPHICS
 

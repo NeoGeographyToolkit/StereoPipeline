@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file stereo.cc
+/// \file stereo_pprc.cc
 ///
 //#define USE_GRAPHICS
 
@@ -114,14 +114,24 @@ ImageViewRef< PixelMask<uint8> > mask_and_fill_holes( ImageViewRef< PixelGray<fl
 
 void stereo_preprocessing( Options& opt ) {
 
+  std::cout << "corr kernel is: " << stereo_settings().kernel << std::endl;
+  std::cout << "subpixel kernel is: " << stereo_settings().subpixel_kernel  << std::endl;
+  
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : Stage 0 --> PREPROCESSING \n";
 
   std::string pre_preproc_file_left, pre_preproc_file_right;
+//   char * proj = getenv("PROJ");
+// //   if (proj && atoi(proj)){
+//     opt.session->pre_preprocessing_hook("L1.tif", "R1.tif",
+//                                         pre_preproc_file_left,
+//                                         pre_preproc_file_right);
+//   }else{
   opt.session->pre_preprocessing_hook(opt.in_file1, opt.in_file2,
                                       pre_preproc_file_left,
                                       pre_preproc_file_right);
-
+  //   }
+  
   DiskImageView<PixelGray<float> > left_image(pre_preproc_file_left),
     right_image(pre_preproc_file_right);
 
