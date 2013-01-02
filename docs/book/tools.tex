@@ -54,6 +54,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|dg} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
+\texttt{-\/-left-image-crop-win \textit{arg}}                    &  Do stereo in this region [xoff yoff xsize ysize] of the left image [default: use the entire image].\\ \hline
 \texttt{-\/-entry-point|-e 1|2|3|4} & Pipeline entry point \\ \hline
 \end{longtable}
 
@@ -68,7 +69,7 @@ of files, and they are all described in Appendix
 
 The \texttt{stereo -e \textit{number}} option can be used to restart
 a {\tt stereo} job partway through the stereo correlation process.
-Restarting can be handy when debugging while iterating on {\tt
+Restarting can be useful when debugging while iterating on {\tt
 stereo.default} settings.
 
 Stage 0 (Preprocessing) normalizes the two images and aligns them
@@ -90,7 +91,7 @@ map.
 
 \subsection{Decomposition of Stereo}
 
-Users watching their system closely will notice that the \texttt{stereo}
+The \texttt{stereo}
 executable is actually a python script that makes calls to seperate
 C++ executables for each entry point.
 
