@@ -42,7 +42,7 @@ namespace asp {
     general_options_sub.add_options()
       ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
-      ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0),""), "Do stereo in this region [xoff yoff xsize ysize] of the left image [default: use the entire image].");
+      ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Do stereo in a subregion of the left image [default: use the entire image].");
       
     // We distinguish between all_general_options, which is all the
     // options we must parse, even if we don't need some of them, and

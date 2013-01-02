@@ -54,7 +54,7 @@ Option & Description \\ \hline \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|dg} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
-\texttt{-\/-left-image-crop-win \textit{arg}}                    &  Do stereo in this region [xoff yoff xsize ysize] of the left image [default: use the entire image].\\ \hline
+\texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a subregion of the left image [default: use the entire image].\\ \hline
 \texttt{-\/-entry-point|-e 1|2|3|4} & Pipeline entry point \\ \hline
 \end{longtable}
 
@@ -92,7 +92,7 @@ map.
 \subsection{Decomposition of Stereo}
 
 The \texttt{stereo}
-executable is actually a python script that makes calls to seperate
+executable is a python script that makes calls to seperate
 C++ executables for each entry point.
 
 Stage 0 (Preprocessing) calls \texttt{stereo\_pprc}. Multithreaded.
