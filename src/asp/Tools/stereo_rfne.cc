@@ -98,7 +98,8 @@ void stereo_refinement( Options& opt ) {
                            left_disk_image, right_disk_image,
                            PreFilter(stereo_settings().slogW),
                            stereo_settings().subpixel_kernel,
-                           stereo_settings().subpixel_max_levels );
+                           stereo_settings().subpixel_max_levels,
+                           opt.left_image_crop_win);
 
     } else if (stereo_settings().subpixel_mode == 3) {
       // Affine and Bayes subpixel refinement always use the
