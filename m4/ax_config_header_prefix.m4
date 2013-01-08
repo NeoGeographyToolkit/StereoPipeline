@@ -1,4 +1,4 @@
-dnl __BEGIN_LICENSE__
+B0;95;cdnl __BEGIN_LICENSE__
 dnl  Copyright (c) 2009-2012, United States Government as represented by the
 dnl  Administrator of the National Aeronautics and Space Administration. All
 dnl  rights reserved.
@@ -24,7 +24,7 @@ dnl the prefix to all symbolx, and copy it into the final location if it
 dnl has changed.
 AC_DEFUN([AX_CONFIG_HEADER_PREFIX],
 [
-  AM_CONFIG_HEADER([$1.pre],
+  AC_CONFIG_HEADER([$1.pre],
   [
     echo "/* $1.  Generated from $1.pre by config.status.  */" > "$1.new"
     echo "#ifndef __$2_CONFIG_H__" >> "$1.new"

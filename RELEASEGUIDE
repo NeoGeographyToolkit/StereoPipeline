@@ -11,6 +11,7 @@ Inside configure.ac, remove "_post" and increment version number from AC_INIT li
 3.) Update NEWS
 
 Just summarize all commits that have happened since last release
+git log v2.0.0..HEAD --reverse > commits_that_happened
 
 4.) Update version number in DOCS
 

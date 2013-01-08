@@ -1,3 +1,31 @@
+*** RELEASE 2.1.0, 8 JANUARY 2012 ***
+
+GENERAL
+ - Added documentation for processing GeoEye, Digital Globe, and Dawn FC data.
+ - Fixed implementation of internal RANSAC function.
+ - DEMError has been renamed IntersectionErr. 3D IntersectionErr is
+   now recordable in local North East Down format.
+
+SESSIONS
+ - Added RPC processing session.
+ - DG sessions now use bicubic interpolation for map projection arithmetic.
+ - Fixed bug in case where DG XML file had single TLC entry.
+ - DG sessions now applies velocity abberation corrections.
+
+TOOLS
+ - Have point2dem use correct nodata value when writting DRGs.
+ - Fix segfault issue in point2dem due to triangle clipping.
+ - Hiedr2mosaic python script now supports missing CCD files and
+   start/stop resume on noproj step for bundle adjustment.
+ - Max pyramid level used for stereo correlation is configurable with
+   corr-max-levels option.
+ - Stereo accepts left-image-crop-win option for processing of
+   specific image coordinates.
+ - Stereo_pprc accepts nodata-threshold and nodata-percentage options
+   for masking (possibly shadows).
+ - Stereo command should now correctly call secondary excutables so
+   that their dependencies are loaded.
+
 *** RELEASE 2.0.0, 20 JUNE 2012 ***
 
 GENERAL
