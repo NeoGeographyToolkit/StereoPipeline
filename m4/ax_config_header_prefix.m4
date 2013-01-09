@@ -24,7 +24,7 @@ dnl the prefix to all symbolx, and copy it into the final location if it
 dnl has changed.
 AC_DEFUN([AX_CONFIG_HEADER_PREFIX],
 [
-  AC_CONFIG_HEADER([$1.pre],
+  AC_CONFIG_HEADERS([$1.pre],
   [
     echo "/* $1.  Generated from $1.pre by config.status.  */" > "$1.new"
     echo "#ifndef __$2_CONFIG_H__" >> "$1.new"
