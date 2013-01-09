@@ -20,11 +20,32 @@
 import sys
 import optparse
 import subprocess
+import re
 import os.path as P
 
-# Custom option parser that will ignore unknown
+# Utilities to ensure that the parser does not garble negative integers
+# such as '-365' into '-3'.
+escapeStr='esc_rand_str'
+def escape_vals(vals):
+    for index, val in enumerate(vals):
+        p = re.match("^-\d+$", val)
+        if p:
+            vals[index] = escapeStr + val
+    return vals
+def unescape_vals(vals):
+    for index, val in enumerate(vals):
+        p = re.match("^" + escapeStr + "(-\d+)$", val)
+        if p:
+            vals[index] = p.group(1)
+    return vals
+
+# Custom option parser that will ignore unknown options
 class PassThroughOptionParser(optparse.OptionParser):
     def _process_args( self, largs, rargs, values ):
+        
+        rargs=escape_vals(rargs)
+        largs=escape_vals(largs)
+
         while rargs:
             try:
                 optparse.OptionParser._process_args(self,largs,rargs,values)
@@ -95,6 +116,8 @@ if __name__ == '__main__':
         args.append('-v')
 
     args.extend(['--stereo-file', opt.filename])
+    
+    args=unescape_vals(args)
 
     try:
         if ( opt.entry_point <= 0 ):
