@@ -369,11 +369,14 @@ void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
     search_range.max() += expansion;
     VW_OUT(DebugMessage,"asp") << "D_sub search range: "
                                << search_range << " px\n";
+    // Below we use on purpose stereo::CROSS_CORRELATION instead of
+    // user's choice of correlation method, since this is the most
+    // accurate, as well as reasonably fast for subsapled images.
     asp::block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
                                  remove_outliers(
                                    stereo::pyramid_correlate( left_sub, right_sub,
                                                               left_mask_sub, right_mask_sub,
-                                                              stereo::LaplacianOfGaussian(1.4),
+                                                              stereo::LaplacianOfGaussian(stereo_settings().slogW),
                                                               search_range,
                                                               stereo_settings().kernel,
                                                               stereo::CROSS_CORRELATION, 2 ),
