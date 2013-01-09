@@ -13,6 +13,8 @@
 *.pb.h
 *.pyc
 *.match
+*.log
+*.trs
 *#
 /.vimrc.local
 /.project.root
