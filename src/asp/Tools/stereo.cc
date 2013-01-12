@@ -303,6 +303,12 @@ namespace asp {
     cartography::GeoReference georef;
     bool has_georef1 = read_georeference( georef, opt.in_file1 );
     bool has_georef2 = read_georeference( georef, opt.in_file2 );
+
+    if ( opt.session->has_lut_images() && (!has_georef1 || !has_georef2)){
+      vw_throw( ArgumentErr() << "The images are not map-projected, cannot use the provided DEM: "
+                << opt.extra_arg1 << ".\n\n");
+    }
+
     if (opt.stereo_session_string == "dg" && has_georef1 && has_georef2 && opt.extra_arg1 == "") {
       vw_out(WarningMessage) << "It appears that the input images are map-projected. In that case a DEM needs to be provided for stereo to give correct results.\n";
     }

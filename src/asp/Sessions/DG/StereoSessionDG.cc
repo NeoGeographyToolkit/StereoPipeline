@@ -298,9 +298,13 @@ namespace asp {
                       image_xml.image_size );
 
     cartography::GeoReference dem_georef, image_georef;
-    read_georeference( dem_georef, m_extra_argument1 );
-    read_georeference( image_georef, image_file );
-
+    bool has_georef1 = read_georeference( dem_georef, m_extra_argument1 );
+    bool has_georef2 = read_georeference( image_georef, image_file );
+    if (!has_georef1 || !has_georef2){
+      vw_throw( ArgumentErr() << "Either the image "
+                << image_file << " or the DEM " << m_extra_argument1 << " lacks a georeference.\n\n");
+    }
+    
     boost::scoped_ptr<RPCModel> rpc_model( new RPCModel( *rpc_xml.rpc_ptr() ) );
 
     DiskImageView<float> dem( dem_rsrc );
