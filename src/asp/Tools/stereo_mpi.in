@@ -1,0 +1,312 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2012, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+
+import sys, optparse, subprocess, re, os
+import os.path as P
+import math
+
+job_pool = []
+
+# Utilities to ensure that the parser does not garble negative integers
+# such as '-365' into '-3'.
+escapeStr='esc_rand_str'
+def escape_vals(vals):
+    for index, val in enumerate(vals):
+        p = re.match("^-\d+$", val)
+        if p:
+            vals[index] = escapeStr + val
+    return vals
+def unescape_vals(vals):
+    for index, val in enumerate(vals):
+        p = re.match("^" + escapeStr + "(-\d+)$", val)
+        if p:
+            vals[index] = p.group(1)
+    return vals
+
+# Custom option parser that will ignore unknown options
+class PassThroughOptionParser(optparse.OptionParser):
+    def _process_args( self, largs, rargs, values ):
+
+        rargs=escape_vals(rargs)
+        largs=escape_vals(largs)
+
+        while rargs:
+            try:
+                optparse.OptionParser._process_args(self,largs,rargs,values)
+            except (optparse.BadOptionError), e:
+                largs.append(e.opt_str)
+
+class BBox:
+    def __init__(self, x, y, width, height):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+
+    def name_str(self):
+        return "%i_%i_%i_%i" % ( self.x, self.y, self.width, self.height )
+
+    def crop_str(self):
+        return ["--left-image-crop-win",str(self.x),
+                str(self.y),str(self.width),str(self.height)]
+
+    def expand( self, px, settings ):
+        self.x = self.x - px
+        self.y = self.y - px
+        self.width = self.width + 2 * px
+        self.height = self.height + 2 * px
+        if self.x < 0:
+            self.x = 0
+        if self.y < 0:
+            self.y = 0
+        if self.x + self.width > settings["left_image"][0]:
+            self.width =  settings["left_image"] - self.x
+        if self.y + self.height > settings["left_image"][1]:
+            self.height = settings["left_image"] - self.y
+
+def produce_tiles( settings, tile_w, tile_h ):
+    image_size = settings["left_image"]
+    tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
+    tiles_ny = int(math.ceil( float(image_size[1]) / tile_h ))
+
+    tiles = []
+    for j in range( tiles_ny ):
+        for i in range( tiles_nx ):
+            c_tile_w = tile_w
+            c_tile_h = tile_h
+            if i == tiles_nx - 1:
+                c_tile_w = int(image_size[0]) - i * tile_w
+            if j == tiles_ny - 1:
+                c_tile_h = int(image_size[1]) - j * tile_h
+            tiles.append(BBox(i*tile_w,j*tile_h,c_tile_w,c_tile_h))
+
+    return tiles;
+
+def add_job( cmd, num_processes=16 ):
+    if ( len(job_pool) >= num_processes):
+        job_pool[0].wait();
+        job_pool.pop(0);
+    job_pool.append( subprocess.Popen(cmd) );
+
+def wait_on_all_jobs():
+    print "Waiting for jobs to finish";
+    while len(job_pool) > 0:
+        job_pool[0].wait();
+        job_pool.pop(0);
+
+def run(bin, args, **kw):
+    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
+    call = [binpath]
+    call.extend(args)
+
+    if opt.threads_single is not None:
+        call.extend(['--threads', str(opt.threads_single)])
+
+    if opt.dryrun:
+        print '%s' % ' '.join(call)
+        return
+    try:
+        code = subprocess.call(call)
+    except OSError, e:
+        raise Exception('%s: %s' % (binpath, e))
+    if code != 0:
+        raise Exception('Stereo step ' + kw['msg'] + ' failed')
+
+def taste_settings( args, **kw ):
+    libexecpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'libexec', 'stereo_parse')
+    call = [libexecpath]
+    call.extend(args)
+
+    try:
+        p = subprocess.Popen(call, stdout=subprocess.PIPE)
+    except OSError, e:
+        raise Exception('%s: %s' % (libexecpath, e))
+    (stdout, stderr) = p.communicate()
+    p.wait()
+    if p.returncode != 0:
+        raise Exception('Tasting of stereo settings failed')
+    data = {}
+    for line in stdout.split('\n'):
+        if "," in line:
+            keywords = line.split(',')
+            data[keywords[0]] = keywords[1:]
+
+    return data
+
+def create_subproject_dirs( settings, **kw ):
+    for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
+        directory = settings['out_prefix'][0] + tile.name_str()
+        prefix    = directory + "/" + tile.name_str()
+        relation = os.path.relpath(settings['out_prefix'][0],directory)
+        if opt.dryrun:
+            print "mkdir -p %s" % directory
+            print "soft linking via %s %s" % (prefix, relation)
+        else:
+            try:
+                os.mkdir( directory )
+            except OSError, e:
+                pass
+            for postfix in ["-L.tif","-R.tif","-L_sub.tif","-R_sub.tif",
+                            "-lMask.tif","-rMask.tif","-lMask_sub.tif",
+                            "-rMask_sub.tif","-align.exr","-F.tif",
+                            os.path.basename(settings['in_file1'][0])[:-4]+"__"+
+                            os.path.basename(settings['in_file2'][0])[:-4]+".match"]:
+                if os.path.lexists( prefix + postfix ):
+                    os.remove( prefix + postfix )
+                os.symlink( relation + postfix,
+                            prefix + postfix )
+
+def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
+
+    with open(settings['out_prefix'][0]+postfix,'w') as f:
+        f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(settings['left_image'][0]),int(settings['left_image'][1])) )
+        for b in range( 1, num_bands + 1 ):
+            f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" % (data_type,b) )
+            for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
+                directory = settings['out_prefix'][0] + tile.name_str()
+                filename   = directory + "/" + tile.name_str() + postfix
+                relative  = os.path.relpath(filename, os.path.dirname( settings['out_prefix'][0] ) )
+                f.write("    <SimpleSource>\n")
+                f.write("       <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % relative)
+                f.write("       <SourceBand>%i</SourceBand>\n" % b)
+                if 'tiles_cropped' in kw and kw['tiles_cropped']:
+                    f.write("       <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" %
+                            (tile.width, tile.height) )
+                else:
+                    f.write("       <SrcRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
+                            (tile.x, tile.y, tile.width, tile.height) )
+                f.write("       <DstRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
+                        (tile.x, tile.y, tile.width, tile.height) )
+                f.write("    </SimpleSource>\n")
+            f.write("  </VRTRasterBand>\n")
+        f.write("</VRTDataset>\n")
+
+
+def parallel_run(bin, args, settings, **kw):
+    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
+    call = [binpath]
+    call.extend(args)
+
+    if opt.threads_multi is not None:
+        call.extend(['--threads', str(opt.threads_multi)])
+
+    try:
+        for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h):
+            cmd = call+tile.crop_str()
+            cmd[cmd.index( settings['out_prefix'][0] )] = settings['out_prefix'][0] + tile.name_str() + "/" + tile.name_str()
+            if opt.dryrun:
+                print " ".join(cmd)
+            else:
+                add_job( cmd )
+        if opt.dryrun:
+            return
+        wait_on_all_jobs()
+    except OSError, e:
+        raise Exception('%s: %s' % (binpath, e))
+
+def die(msg, code=-1):
+    print >>sys.stderr, msg
+    sys.exit(code)
+
+if __name__ == '__main__':
+    usage = '''stereo [options] <Left_input_image> <Right_input_image>
+              [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]
+        Extensions are automaticaly added to the output files.
+        Camera model arguments may be optional for some stereo
+        session types (e.g. isis). Stereo parameters should be
+        set in the stereo.default file.
+
+  [ASP [@]ASP_VERSION[@]]'''
+
+    p = PassThroughOptionParser(usage=usage)
+    p.add_option('--threads-multiprocess', dest='threads_multi', default=2,     type='int',
+                 help='Select the number of threads to use per subprocess.')
+    p.add_option('--threads-singleprocess', dest='threads_single', type='int',
+                 help='Select the number of threads to use when running a single process (PPRC and FLTR).')
+    p.add_option('-t', '--session-type',   dest='session',
+                 help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc]')
+    p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
+                 help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
+    p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
+                 help='Pipeline entry point (an integer from 0-4)', type='int')
+    p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
+                 help='Tell GDAL to not create bigtiffs.')
+    p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
+                 help='Pixel width size for a single subprocess', type='int')
+    p.add_option('--job-size-h',           dest='job_size_h',  default=2048,
+                 help='Pixel height size for a single subprocess', type='int')
+    p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
+                 help=optparse.SUPPRESS_HELP)
+    p.add_option('--debug',                dest='debug',       default=False, action='store_true',
+                 help=optparse.SUPPRESS_HELP)
+    p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
+                 help='Display the version of software.')
+
+    global opt
+    (opt, args) = p.parse_args()
+
+    if not args and not opt.version:
+        p.print_help()
+        die('\nERROR: Missing input files', code=2)
+
+    if opt.session is not None:
+        args.extend(['--session-type', opt.session])
+    if opt.no_bigtiff:
+        args.append('--no-bigtiff')
+    if opt.version:
+        args.append('-v')
+
+    args.extend(['--stereo-file', opt.filename])
+
+    args=unescape_vals(args)
+
+    settings=taste_settings( args )
+
+    # What makes this program different from stereo.in is that it
+    # tries to treat ASP as a multi-process system instead of a
+    # multi-threaded executable. This has benefits on the super
+    # computer by allowing a single stereo pair use multiple
+    # computers. It also allows us to get past the single-threaded
+    # constraints of ISIS.
+    try:
+        if ( opt.entry_point <= 0 ):
+            # Run stereo pprc in single threaded mode
+            run('stereo_pprc', args, msg='0: Preprocessing')
+            pass
+
+        # Create subdirectories for sub projects
+        create_subproject_dirs( settings )
+
+        if ( opt.entry_point <= 1 ):
+            parallel_run('stereo_corr', args, settings, msg='1: Correlation')
+        if ( opt.entry_point <= 2 ):
+            parallel_run('stereo_rfne', args, settings, msg='2: Refinement')
+        if ( opt.entry_point <= 3 ):
+            build_vrt( settings, "-RD.tif", 3, "Float32" );
+            run('stereo_fltr', args, msg='3: Filtering')
+        if ( opt.entry_point <= 4 ):
+            parallel_run('stereo_tri', args, settings,  msg='4: Triangulation')
+        if ( opt.entry_point <= 5 ):
+            build_vrt( settings, "-PC.tif", 4, "Float64", tiles_cropped=True )
+        pass
+    except Exception, e:
+        if not opt.debug:
+            die(e)
+        raise
+
