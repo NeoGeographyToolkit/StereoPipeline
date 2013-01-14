@@ -65,10 +65,10 @@ namespace asp {
       ("left-camera-model", po::value(&opt.cam_file1), "Left Camera Model File")
       ("right-camera-model", po::value(&opt.cam_file2), "Right Camera Model File")
       ("output-prefix", po::value(&opt.out_prefix), "Prefix for output filenames")
-      ("extra_argument1", po::value(&opt.extra_arg1), "Extra Argument 1")
-      ("extra_argument2", po::value(&opt.extra_arg2), "Extra Argument 2")
-      ("extra_argument3", po::value(&opt.extra_arg3), "Extra Argument 3")
-      ("extra_argument4", po::value(&opt.extra_arg4), "Extra Argument 4");
+      ("input_dem", po::value(&opt.input_dem), "Input DEM")
+      ("extra_argument1", po::value(&opt.extra_argument1), "Extra Argument 1")
+      ("extra_argument2", po::value(&opt.extra_argument2), "Extra Argument 2")
+      ("extra_argument3", po::value(&opt.extra_argument3), "Extra Argument 3");
 
     po::positional_options_description positional_desc;
     positional_desc.add("left-input-image", 1);
@@ -76,12 +76,12 @@ namespace asp {
     positional_desc.add("left-camera-model", 1);
     positional_desc.add("right-camera-model", 1);
     positional_desc.add("output-prefix", 1);
+    positional_desc.add("input_dem", 1);
     positional_desc.add("extra_argument1", 1);
     positional_desc.add("extra_argument2", 1);
     positional_desc.add("extra_argument3", 1);
-    positional_desc.add("extra_argument4", 1);
 
-    std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g. isis).\n  Stereo parameters should be set in the stereo.default file.");
+    std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
       asp::check_command_line( argc, argv, opt, general_options, all_general_options,
                                positional_options, positional_desc, usage, false );
@@ -168,8 +168,8 @@ namespace asp {
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string) );
     opt.session->initialize(opt, opt.in_file1, opt.in_file2,
                             opt.cam_file1, opt.cam_file2,
-                            opt.out_prefix, opt.extra_arg1, opt.extra_arg2,
-                            opt.extra_arg3, opt.extra_arg4);
+                            opt.out_prefix, opt.input_dem, opt.extra_argument1,
+                            opt.extra_argument2, opt.extra_argument3);
 
     user_safety_check(opt);
 
@@ -310,10 +310,10 @@ namespace asp {
 
     if ( opt.session->has_lut_images() && (!has_georef1 || !has_georef2)){
       vw_throw( ArgumentErr() << "The images are not map-projected, cannot use the provided DEM: "
-                << opt.extra_arg1 << ".\n\n");
+                << opt.input_dem << ".\n\n");
     }
 
-    if (opt.stereo_session_string == "dg" && has_georef1 && has_georef2 && opt.extra_arg1 == "") {
+    if (opt.stereo_session_string == "dg" && has_georef1 && has_georef2 && opt.input_dem == "") {
       vw_out(WarningMessage) << "It appears that the input images are map-projected. In that case a DEM needs to be provided for stereo to give correct results.\n";
     }
 

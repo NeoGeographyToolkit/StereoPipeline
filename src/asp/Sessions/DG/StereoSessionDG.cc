@@ -113,18 +113,18 @@ namespace asp {
                                    std::string const& left_camera_file,
                                    std::string const& right_camera_file,
                                    std::string const& out_prefix,
+                                   std::string const& input_dem,
                                    std::string const& extra_argument1,
                                    std::string const& extra_argument2,
-                                   std::string const& extra_argument3,
-                                   std::string const& extra_argument4 ) {
+                                   std::string const& extra_argument3 ) {
     StereoSession::initialize( options, left_image_file,
                                right_image_file, left_camera_file,
                                right_camera_file, out_prefix,
-                               extra_argument1, extra_argument2,
-                               extra_argument3, extra_argument4 );
+                               input_dem, extra_argument1,
+                               extra_argument2, extra_argument3 );
 
     // Is there a possible DEM?
-    if ( !extra_argument1.empty() ) {
+    if ( !input_dem.empty() ) {
       boost::scoped_ptr<RPCModel> model1, model2;
       // Try and pull RPC Camera Models from left and right images.
       try {
@@ -132,7 +132,7 @@ namespace asp {
         model2.reset( new RPCModel(right_image_file) );
       } catch ( NotFoundErr const& err ) {}
 
-      // If the above failed to load the RPC Model. Let's try from the XML.
+      // If the above failed to load the RPC Model, try from the XML.
       if ( !model1.get() || !model2.get() ) {
         try {
           RPCXML rpc_xml;
@@ -142,15 +142,15 @@ namespace asp {
           model2.reset( new RPCModel( *rpc_xml.rpc_ptr() ) );
         } catch ( IOErr const& err ) {
           // Just give up if it is not there.
-          vw_out(WarningMessage) << "Unknown extra argument \"" << extra_argument1 << "\". Ignoring.";
+          vw_out(WarningMessage) << "Could not read the RPC models. Ignoring the input DEM \"" << input_dem << "\".";
           return;
         }
       }
 
       // Double check that we can read the DEM and that it has
       // cartographic information.
-      if ( !fs::exists( extra_argument1 ) )
-        vw_throw( ArgumentErr() << "StereoSessionDG: DEM \"" << extra_argument1
+      if ( !fs::exists( input_dem ) )
+        vw_throw( ArgumentErr() << "StereoSessionDG: DEM \"" << input_dem
                   << "\" doesn't exist." );
 
       // Verify that center of our lonlat boundaries from the RPC models
@@ -259,7 +259,7 @@ namespace asp {
   ImageViewRef<Vector2f>
   StereoSessionDG::generate_lut_image( std::string const& image_file,
                                        std::string const& camera_file ) const {
-    boost::shared_ptr<DiskImageResource> dem_rsrc( DiskImageResource::open( m_extra_argument1 ) ),
+    boost::shared_ptr<DiskImageResource> dem_rsrc( DiskImageResource::open( m_input_dem ) ),
       image_rsrc( DiskImageResource::open( image_file ) );
 
     ImageXML image_xml;
@@ -298,11 +298,11 @@ namespace asp {
                       image_xml.image_size );
 
     cartography::GeoReference dem_georef, image_georef;
-    bool has_georef1 = read_georeference( dem_georef, m_extra_argument1 );
+    bool has_georef1 = read_georeference( dem_georef, m_input_dem );
     bool has_georef2 = read_georeference( image_georef, image_file );
     if (!has_georef1 || !has_georef2){
       vw_throw( ArgumentErr() << "Either the image "
-                << image_file << " or the DEM " << m_extra_argument1 << " lacks a georeference.\n\n");
+                << image_file << " or the DEM " << m_input_dem << " lacks a georeference.\n\n");
     }
     
     boost::scoped_ptr<RPCModel> rpc_model( new RPCModel( *rpc_xml.rpc_ptr() ) );
@@ -410,9 +410,9 @@ namespace asp {
             cartography::GeoReference left_georef, right_georef, dem_georef;
             read_georeference( left_georef, m_left_image_file );
             read_georeference( right_georef, m_right_image_file );
-            read_georeference( dem_georef, m_extra_argument1 );
+            read_georeference( dem_georef, m_input_dem );
             boost::shared_ptr<DiskImageResource>
-              dem_rsrc( DiskImageResource::open( m_extra_argument1 ) );
+              dem_rsrc( DiskImageResource::open( m_input_dem ) );
             TransformRef
               left_tx( RPCMapTransform( *left_rpc, left_georef,
                                         dem_georef, dem_rsrc ) ),

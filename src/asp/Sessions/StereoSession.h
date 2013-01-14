@@ -43,8 +43,8 @@ namespace asp {
     asp::BaseOptions m_options;
     std::string m_left_image_file, m_right_image_file,
       m_left_camera_file, m_right_camera_file, m_out_prefix;
-    std::string m_extra_argument1, m_extra_argument2,
-      m_extra_argument3, m_extra_argument4;
+    std::string m_input_dem, m_extra_argument1,
+      m_extra_argument2, m_extra_argument3;
 
     // Helper function for determing image alignment.
     //
@@ -211,10 +211,10 @@ namespace asp {
                              std::string const& left_camera_file,
                              std::string const& right_camera_file,
                              std::string const& out_prefix,
+                             std::string const& input_dem,
                              std::string const& extra_argument1,
                              std::string const& extra_argument2,
-                             std::string const& extra_argument3,
-                             std::string const& extra_argument4);
+                             std::string const& extra_argument3);
 
     virtual ~StereoSession() {}
 

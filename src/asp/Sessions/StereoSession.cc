@@ -56,20 +56,20 @@ namespace asp {
                                   std::string const& left_camera_file,
                                   std::string const& right_camera_file,
                                   std::string const& out_prefix,
+                                  std::string const& input_dem,
                                   std::string const& extra_argument1,
                                   std::string const& extra_argument2,
-                                  std::string const& extra_argument3,
-                                  std::string const& extra_argument4) {
+                                  std::string const& extra_argument3) {
     m_options = options;
     m_left_image_file = left_image_file;
     m_right_image_file = right_image_file;
     m_left_camera_file = left_camera_file;
     m_right_camera_file = right_camera_file;
     m_out_prefix = out_prefix;
+    m_input_dem = input_dem;
     m_extra_argument1 = extra_argument1;
     m_extra_argument2 = extra_argument2;
     m_extra_argument3 = extra_argument3;
-    m_extra_argument4 = extra_argument4;
   }
 
   static void register_default_session_types() {

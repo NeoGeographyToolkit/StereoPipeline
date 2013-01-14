@@ -66,7 +66,7 @@ enum { PREPROCESSING = 0,
 struct Options : asp::BaseOptions {
   // Input
   std::string in_file1, in_file2, cam_file1, cam_file2,
-    extra_arg1, extra_arg2, extra_arg3, extra_arg4;
+    input_dem, extra_argument1, extra_argument2, extra_argument3;
 
   // Settings
   std::string stereo_session_string, stereo_default_filename;

@@ -39,8 +39,8 @@ boost::shared_ptr<vw::camera::CameraModel> StereoSessionHRSC::camera_model(std::
 
     // Reading EXTORI files disabled for now... re-enable here if you
     // need to use HRSC bundle adjustment files.
-    //     if (m_extra_argument1.size() != 0)
-    //       hrsc_metadata1.read_extori_file(m_extra_argument1,m_extra_argument3);
+    //     if (m_input_dem.size() != 0)
+    //       hrsc_metadata1.read_extori_file(m_input_dem,m_extra_argument2);
   } catch (IOErr &e) {
     std::cout << "An error occurred when loading HRSC metadata:\n\t" << e.what();
     std::cout << "\nExiting.\n\n";
