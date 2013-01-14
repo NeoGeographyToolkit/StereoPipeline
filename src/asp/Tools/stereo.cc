@@ -197,6 +197,19 @@ namespace asp {
       opt.stereo_session_string = "isis";
       return;
     }
+    // RPC can be in the main file or it can be in the camera file
+    try {
+      StereoSessionRPC session;
+      boost::shared_ptr<camera::CameraModel>
+        left_model = session.camera_model( opt.in_file1, opt.cam_file1 ),
+        right_model = session.camera_model( opt.in_file2, opt.cam_file2 );
+      vw_out() << "\t--> Detected RPC Model inside image files. "
+               << "Executing RPC stereo pipeline.\n";
+      opt.stereo_session_string = "rpc";
+      return;
+    } catch ( vw::NotFoundErr const& e ) {
+      // If it throws, it wasn't RPC
+    }
     if (boost::iends_with(boost::to_lower_copy(opt.cam_file1), ".xml") &&
         boost::iends_with(boost::to_lower_copy(opt.cam_file2), ".xml")) {
       vw_out() << "\t--> Detected likely Digital Globe XML files. "
@@ -204,15 +217,6 @@ namespace asp {
       opt.stereo_session_string = "dg";
       return;
     }
-    try {
-      asp::RPCModel left(opt.in_file1), right(opt.in_file2);
-      vw_out() << "\t--> Detected RPC Model inside image files. "
-               << "Executing RPC stereo pipeline.\n";
-      opt.stereo_session_string = "rpc";
-      return;
-    } catch ( vw::NotFoundErr const& e ) {
-      vw_out() << "Error thrown: " << e.what() << std::endl;
-    } // If it throws, it wasn't RPC
 
     // If we get to this point. We couldn't guess the session type
     vw_throw( ArgumentErr() << "Could not determine stereo session type. "

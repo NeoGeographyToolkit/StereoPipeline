@@ -109,17 +109,20 @@ namespace asp {
     std::vector<vw::Vector<double,10> > covariance_vec;
   };
 
+  // Reads from Digital Globe XML format
   class RPCXML : public XMLBase {
-
     boost::scoped_ptr<RPCModel> m_rpc;
     void parse_vector( xercesc::DOMElement* node,
                        vw::Vector<double,20> & vec );
+
+    void parse_rpb( xercesc::DOMElement* node ); // Digital Globe XML
+    void parse_rational_function_model( xercesc::DOMElement* node ); // Pleiades / Astrium
 
   public:
     RPCXML();
 
     void read_from_file( std::string const& name );
-    void parse( xercesc::DOMElement* node );
+    void parse( xercesc::DOMElement* node ) { parse_rpb( node ); }
 
     RPCModel* rpc_ptr() const;
   };

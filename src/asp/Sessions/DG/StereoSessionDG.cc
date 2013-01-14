@@ -529,19 +529,19 @@ namespace asp {
     try {
       rpc_model = new RPCModel( image_file );
     } catch ( NotFoundErr const& err ) {}
-    
+
     if ( !rpc_model ) {
       RPCXML rpc_xml;
       rpc_xml.read_from_file( camera_file );
       rpc_model = new RPCModel( *rpc_xml.rpc_ptr() ); // Copy the value
-      
+
       // We don't catch an error here because the User will need to
       // know of a failure at this point. We previously opened the
       // XML safely before.
     }
     return rpc_model;
   }
-  
+
   // Xerces-C terminate
   StereoSessionDG::~StereoSessionDG() {
     XMLPlatformUtils::Terminate();

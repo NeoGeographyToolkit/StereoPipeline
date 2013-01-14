@@ -42,7 +42,7 @@ def unescape_vals(vals):
 # Custom option parser that will ignore unknown options
 class PassThroughOptionParser(optparse.OptionParser):
     def _process_args( self, largs, rargs, values ):
-        
+
         rargs=escape_vals(rargs)
         largs=escape_vals(largs)
 
@@ -116,7 +116,7 @@ if __name__ == '__main__':
         args.append('-v')
 
     args.extend(['--stereo-file', opt.filename])
-    
+
     args=unescape_vals(args)
 
     try:

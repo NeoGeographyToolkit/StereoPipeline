@@ -321,10 +321,22 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
   DOMDocument* xmlDoc = parser->getDocument();
   DOMElement* elementRoot = xmlDoc->getDocumentElement();
 
-  parse( get_node<DOMElement>( elementRoot, "RPB" ) );
+  try {
+    parse_rpb( get_node<DOMElement>( elementRoot, "RPB" ) );
+    return;
+  } catch ( vw::IOErr const& e ) {
+    // Possibly RPB doesn't exist
+  }
+  try {
+    parse_rational_function_model( get_node<DOMElement>( elementRoot, "Rational_Function_Model" ) );
+    return;
+  } catch ( vw::IOErr const& e ) {
+    // Possibly Rational_Function_Model doesn't work
+  }
+  vw_throw( IOErr() << "Couldn't find RPB or Rational_Function_Model tag inside XML file." );
 }
 
-void asp::RPCXML::parse( xercesc::DOMElement* node ) {
+void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {
   DOMElement* image = get_node<DOMElement>( node, "IMAGE" );
 
   // Pieces that will go into the RPC Model
@@ -375,6 +387,121 @@ void asp::RPCXML::parse( xercesc::DOMElement* node ) {
                              samp_num_coeff, samp_den_coeff,
                              xy_offset, xy_scale,
                              geodetic_offset, geodetic_scale ) );
+}
+
+void asp::RPCXML::parse_rational_function_model( xercesc::DOMElement* node ) {
+  DOMElement* direct_model = get_node<DOMElement>( node, "Direct_Model" );
+  DOMElement* rfmvalidity  = get_node<DOMElement>( node, "RFM_Validity" );
+
+  // Pieces that will go into the RPC Model
+  Vector<double,20> line_num_coeff, line_den_coeff, samp_num_coeff, samp_den_coeff;
+  Vector2 xy_offset, xy_scale;
+  Vector3 geodetic_offset, geodetic_scale;
+
+  // Painfully extract the single values from the XML data
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_1")->getTextContent(), samp_num_coeff[0] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_2")->getTextContent(), samp_num_coeff[1] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_3")->getTextContent(), samp_num_coeff[2] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_4")->getTextContent(), samp_num_coeff[3] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_5")->getTextContent(), samp_num_coeff[4] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_6")->getTextContent(), samp_num_coeff[5] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_7")->getTextContent(), samp_num_coeff[6] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_8")->getTextContent(), samp_num_coeff[7] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_9")->getTextContent(), samp_num_coeff[8] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_10")->getTextContent(), samp_num_coeff[9] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_11")->getTextContent(), samp_num_coeff[10] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_12")->getTextContent(), samp_num_coeff[11] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_13")->getTextContent(), samp_num_coeff[12] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_14")->getTextContent(), samp_num_coeff[13] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_15")->getTextContent(), samp_num_coeff[14] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_16")->getTextContent(), samp_num_coeff[15] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_17")->getTextContent(), samp_num_coeff[16] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_18")->getTextContent(), samp_num_coeff[17] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_19")->getTextContent(), samp_num_coeff[18] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_NUM_COEFF_20")->getTextContent(), samp_num_coeff[19] );
+
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_1")->getTextContent(), samp_den_coeff[0] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_2")->getTextContent(), samp_den_coeff[1] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_3")->getTextContent(), samp_den_coeff[2] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_4")->getTextContent(), samp_den_coeff[3] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_5")->getTextContent(), samp_den_coeff[4] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_6")->getTextContent(), samp_den_coeff[5] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_7")->getTextContent(), samp_den_coeff[6] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_8")->getTextContent(), samp_den_coeff[7] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_9")->getTextContent(), samp_den_coeff[8] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_10")->getTextContent(), samp_den_coeff[9] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_11")->getTextContent(), samp_den_coeff[10] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_12")->getTextContent(), samp_den_coeff[11] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_13")->getTextContent(), samp_den_coeff[12] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_14")->getTextContent(), samp_den_coeff[13] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_15")->getTextContent(), samp_den_coeff[14] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_16")->getTextContent(), samp_den_coeff[15] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_17")->getTextContent(), samp_den_coeff[16] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_18")->getTextContent(), samp_den_coeff[17] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_19")->getTextContent(), samp_den_coeff[18] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "SAMP_DEN_COEFF_20")->getTextContent(), samp_den_coeff[19] );
+
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_1")->getTextContent(), line_num_coeff[0] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_2")->getTextContent(), line_num_coeff[1] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_3")->getTextContent(), line_num_coeff[2] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_4")->getTextContent(), line_num_coeff[3] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_5")->getTextContent(), line_num_coeff[4] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_6")->getTextContent(), line_num_coeff[5] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_7")->getTextContent(), line_num_coeff[6] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_8")->getTextContent(), line_num_coeff[7] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_9")->getTextContent(), line_num_coeff[8] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_10")->getTextContent(), line_num_coeff[9] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_11")->getTextContent(), line_num_coeff[10] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_12")->getTextContent(), line_num_coeff[11] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_13")->getTextContent(), line_num_coeff[12] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_14")->getTextContent(), line_num_coeff[13] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_15")->getTextContent(), line_num_coeff[14] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_16")->getTextContent(), line_num_coeff[15] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_17")->getTextContent(), line_num_coeff[16] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_18")->getTextContent(), line_num_coeff[17] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_19")->getTextContent(), line_num_coeff[18] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_NUM_COEFF_20")->getTextContent(), line_num_coeff[19] );
+
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_1")->getTextContent(), line_den_coeff[0] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_2")->getTextContent(), line_den_coeff[1] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_3")->getTextContent(), line_den_coeff[2] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_4")->getTextContent(), line_den_coeff[3] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_5")->getTextContent(), line_den_coeff[4] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_6")->getTextContent(), line_den_coeff[5] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_7")->getTextContent(), line_den_coeff[6] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_8")->getTextContent(), line_den_coeff[7] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_9")->getTextContent(), line_den_coeff[8] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_10")->getTextContent(), line_den_coeff[9] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_11")->getTextContent(), line_den_coeff[10] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_12")->getTextContent(), line_den_coeff[11] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_13")->getTextContent(), line_den_coeff[12] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_14")->getTextContent(), line_den_coeff[13] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_15")->getTextContent(), line_den_coeff[14] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_16")->getTextContent(), line_den_coeff[15] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_17")->getTextContent(), line_den_coeff[16] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_18")->getTextContent(), line_den_coeff[17] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_19")->getTextContent(), line_den_coeff[18] );
+  cast_xmlch( get_node<DOMElement>( direct_model, "LINE_DEN_COEFF_20")->getTextContent(), line_den_coeff[19] );
+
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LONG_SCALE")->getTextContent(), geodetic_scale.x() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LAT_SCALE")->getTextContent(), geodetic_scale.y() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "HEIGHT_SCALE")->getTextContent(), geodetic_scale.z() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LONG_OFF")->getTextContent(), geodetic_offset.x() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LAT_OFF")->getTextContent(), geodetic_offset.y() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "HEIGHT_OFF")->getTextContent(), geodetic_offset.z() );
+
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "SAMP_SCALE")->getTextContent(), xy_scale.x() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LINE_SCALE")->getTextContent(), xy_scale.y() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "SAMP_OFF")->getTextContent(), xy_offset.x() );
+  cast_xmlch( get_node<DOMElement>( rfmvalidity, "LINE_OFF")->getTextContent(), xy_offset.y() );
+
+  // Push into the RPC Model so that it is easier to work with
+  m_rpc.reset( new RPCModel( cartography::Datum("WGS84"),
+                             line_num_coeff, line_den_coeff,
+                             samp_num_coeff, samp_den_coeff,
+                             xy_offset, xy_scale,
+                             geodetic_offset, geodetic_scale ) );
+
 }
 
 // Helper functions to allow us to fill the objects
