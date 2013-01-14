@@ -115,11 +115,14 @@ void do_disparity_visualization(Options& opt) {
                                          ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max())),
                          disk_disparity_map));
 
-  vw_out() << "\t--> Saving disparity debug images\n";
-  block_write_gdal_image( opt.output_prefix+"-H."+opt.output_file_type,
+  std::string h_file = opt.output_prefix+"-H."+opt.output_file_type;
+  vw_out() << "\t--> Writing horizontal disparity debug image: " << h_file << "\n";
+  block_write_gdal_image( h_file,
                           channel_cast_rescale<uint8>(horizontal),
                           opt, TerminalProgressCallback("asp","\t    H : "));
-  block_write_gdal_image( opt.output_prefix + "-V." + opt.output_file_type,
+  std::string v_file = opt.output_prefix+"-V."+opt.output_file_type;
+  vw_out() << "\t--> Writing vertical disparity debug image: " << v_file << "\n";
+  block_write_gdal_image( v_file,
                           channel_cast_rescale<uint8>(vertical),
                           opt, TerminalProgressCallback("asp","\t    V : "));
 }
