@@ -189,6 +189,7 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
 BBox2i
 approximate_search_range( std::string const& left_image,
                           std::string const& right_image,
+                          std::string const& match_filename,
                           float scale ) {
 
   typedef PixelGray<float32> PixelT;
@@ -198,17 +199,14 @@ approximate_search_range( std::string const& left_image,
 
   // String names
   std::string
-    left_ip_file = fs::path( left_image ).replace_extension("vwip").string(),
-    right_ip_file = fs::path( right_image ).replace_extension("vwip").string(),
-    match_file =
-    fs::path( left_image ).replace_extension("").string() + "__" +
-    fs::path( right_image ).stem().string() + ".match";
-
+    left_ip_file  = fs::path( left_image ).replace_extension("vwip").string(),
+    right_ip_file = fs::path( right_image ).replace_extension("vwip").string();
+  
   // Building / Loading Interest point data
-  if ( fs::exists(match_file) ) {
-
+    if ( fs::exists(match_filename) ) {
+      
     vw_out() << "\t    * Using cached match file.\n";
-    ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
+    ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
 
   } else {
 
@@ -328,8 +326,8 @@ approximate_search_range( std::string const& left_image,
       matched_ip2 = inlier_ip2;
     }
 
-    vw_out() << "\t    * Caching matches: " << match_file << "\n";
-    write_binary_match_file( match_file, matched_ip1, matched_ip2);
+    vw_out() << "\t    * Caching matches: " << match_filename << "\n";
+    write_binary_match_file( match_filename, matched_ip1, matched_ip2);
   }
 
   // Find search window based on interest point matches
@@ -404,9 +402,10 @@ void stereo_correlation( Options& opt ) {
   if (stereo_settings().is_search_defined()) {
     vw_out() << "\t--> Using user defined search range.\n";
   } else {
-    std::string match_filename =
-      opt.out_prefix + fs::path(opt.in_file1).stem().string() +
-      "__" + fs::path(opt.in_file2).replace_extension("match").string();
+
+    std::string match_filename
+      = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
+    
     if (!fs::exists(match_filename)) {
       // If there is not any match files for the input image. Let's
       // gather some IP quickly from the low resolution images. This
@@ -425,6 +424,7 @@ void stereo_correlation( Options& opt ) {
       stereo_settings().search_range =
         approximate_search_range( opt.out_prefix+"-L_sub.tif",
                                   opt.out_prefix+"-R_sub.tif",
+                                  match_filename,
                                   sub_scale );
     } else {
       // There exists a matchfile out there.

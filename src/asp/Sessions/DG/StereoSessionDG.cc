@@ -388,9 +388,8 @@ namespace asp {
       std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
       if ( stereo_settings().alignment_method == "homography" ) {
-        std::string match_filename =
-          m_out_prefix + fs::path(input_file1).stem().string() +
-          "__" + fs::path(input_file2).stem().string() + ".match";
+        std::string match_filename
+          = ip::match_filename(m_out_prefix, input_file1, input_file2);
 
         if (!fs::exists(match_filename)) {
           bool inlier = false;
