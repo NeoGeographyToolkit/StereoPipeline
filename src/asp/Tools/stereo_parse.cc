@@ -43,10 +43,10 @@ int main( int argc, char* argv[] ) {
     vw_out() << "in_file2," << opt.in_file2 << std::endl;
     vw_out() << "cam_file1," << opt.cam_file1 << std::endl;
     vw_out() << "cam_file2," << opt.cam_file2 << std::endl;
-    vw_out() << "extra_arg1," << opt.extra_arg1 << std::endl;
-    vw_out() << "extra_arg2," << opt.extra_arg2 << std::endl;
-    vw_out() << "extra_arg3," << opt.extra_arg3 << std::endl;
-    vw_out() << "extra_arg4," << opt.extra_arg4 << std::endl;
+    vw_out() << "input_dem," << opt.input_dem << std::endl;
+    vw_out() << "extra_argument1," << opt.extra_argument1 << std::endl;
+    vw_out() << "extra_argument2," << opt.extra_argument2 << std::endl;
+    vw_out() << "extra_argument3," << opt.extra_argument3 << std::endl;
 
     vw_out() << "stereo_session_string," << opt.stereo_session_string << std::endl;
     vw_out() << "stereo_default_filename," << opt.stereo_default_filename << std::endl;
