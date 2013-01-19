@@ -18,7 +18,6 @@
 
 /// \file stereo_corr.cc
 ///
-//#define USE_GRAPHICS
 
 #include <asp/Tools/stereo.h>
 #include <vw/InterestPoint.h>
@@ -27,7 +26,6 @@
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
-#include <vw/Stereo/SubpixelView.h>
 
 using namespace vw;
 using namespace asp;
@@ -111,10 +109,10 @@ public:
         }
       }
     }
-    
+
     return disparity;
   }
-  
+
   inline prerasterize_type prerasterize_helper(BBox2i const& bbox) const {
 
     // User strategies
@@ -184,215 +182,6 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
                       sdisp.impl(), filter.impl(), left_image_crop_win, cost_type );
 }
 
-// approximate search range
-//  Find interest points and grow them into a search range
-BBox2i
-approximate_search_range( std::string const& left_image,
-                          std::string const& right_image,
-                          std::string const& match_filename,
-                          float scale ) {
-
-  typedef PixelGray<float32> PixelT;
-  vw_out() << "\t--> Using interest points to determine search window.\n";
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  float i_scale = 1.0/scale;
-
-  // String names
-  std::string
-    left_ip_file  = fs::path( left_image ).replace_extension("vwip").string(),
-    right_ip_file = fs::path( right_image ).replace_extension("vwip").string();
-  
-  // Building / Loading Interest point data
-    if ( fs::exists(match_filename) ) {
-      
-    vw_out() << "\t    * Using cached match file.\n";
-    ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
-
-  } else {
-
-    std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-
-    if ( !fs::exists(left_ip_file) ||
-         !fs::exists(right_ip_file) ) {
-
-      // Worst case, no interest point operations have been performed before
-      vw_out() << "\t    * Locating Interest Points\n";
-      DiskImageView<PixelT> left_sub_image(left_image);
-      DiskImageView<PixelT> right_sub_image(right_image);
-
-      // Interest Point module detector code.
-      float ipgain = 0.07;
-      std::list<ip::InterestPoint> ip1, ip2;
-      vw_out() << "\t    * Processing for Interest Points.\n";
-      while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
-        ip1.clear(); ip2.clear();
-
-        ip::OBALoGInterestOperator interest_operator( ipgain );
-        ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
-
-        ip1 = detect_interest_points( left_sub_image, detector );
-        ip2 = detect_interest_points( right_sub_image, detector );
-
-        ipgain *= 0.75;
-        if ( ipgain < 1e-2 ) {
-          vw_out() << "\t    * Unable to find desirable amount of Interest Points.\n";
-          break;
-        }
-      }
-
-      if ( ip1.size() < 8 || ip2.size() < 8 )
-        vw_throw( InputErr() << "Unable to extract interest points from input images ["
-                  << left_image << "," << right_image << "]! Unable to continue." );
-
-      // Making sure we don't exceed 3000 points
-      if ( ip1.size() > 3000 ) {
-        ip1.sort(); ip1.resize(3000);
-      }
-      if ( ip2.size() > 3000 ) {
-        ip2.sort(); ip2.resize(3000);
-      }
-
-      // Stripping out orientation. This allows for a better
-      // possibility of interest point matches.
-      //
-      // This is no loss as images at this point are already aligned
-      // since the dense correlator is not rotation-invariant.
-      BOOST_FOREACH( ip::InterestPoint& ip, ip1 ) ip.orientation = 0;
-      BOOST_FOREACH( ip::InterestPoint& ip, ip2 ) ip.orientation = 0;
-
-      vw_out() << "\t    * Generating descriptors..." << std::flush;
-      ip::SGradDescriptorGenerator descriptor;
-      descriptor( left_sub_image, ip1 );
-      descriptor( right_sub_image, ip2 );
-      vw_out() << "done.\n";
-
-      // Writing out the results
-      vw_out() << "\t    * Caching interest points: "
-               << left_ip_file << " & " << right_ip_file << std::endl;
-      ip::write_binary_ip_file( left_ip_file, ip1 );
-      ip::write_binary_ip_file( right_ip_file, ip2 );
-
-    }
-
-    vw_out() << "\t    * Using cached IPs.\n";
-    ip1_copy = ip::read_binary_ip_file(left_ip_file);
-    ip2_copy = ip::read_binary_ip_file(right_ip_file);
-
-    vw_out() << "\t    * Matching interest points\n";
-    ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.6);
-
-    matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-            false, TerminalProgressCallback( "asp", "\t    Matching: "));
-    vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
-
-    vw_out() << "\t    * Rejecting outliers using RANSAC.\n";
-    ip::remove_duplicates(matched_ip1, matched_ip2);
-    std::vector<Vector3>
-      ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1),
-      ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
-    std::vector<size_t> indices;
-
-    try {
-      // Figure out the inlier threshold .. it should be about 3% of
-      // the edge lengths. This is a bit of a magic number, but I'm
-      // pulling from experience that an inlier threshold of 30
-      // worked best for 1024^2 AMC imagery.
-      float inlier_threshold =
-        0.0075 * ( sum( file_image_size( left_image ) ) +
-                   sum( file_image_size( right_image ) ) );
-
-      math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
-        ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 100, inlier_threshold, ransac_ip1.size()/2, true );
-      Matrix<double> trans = ransac( ransac_ip1, ransac_ip2 );
-      vw_out(DebugMessage,"asp") << "\t    * Ransac Result: " << trans << std::endl;
-      vw_out(DebugMessage,"asp") << "\t      inlier thresh: "
-                                 << inlier_threshold << " px" << std::endl;
-      indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2 );
-    } catch ( vw::math::RANSACErr const& e ) {
-      vw_out() << "-------------------------------WARNING---------------------------------\n";
-      vw_out() << "\t    RANSAC failed! Unable to auto detect search range.\n\n";
-      vw_out() << "\t    Please proceed cautiously!\n";
-      vw_out() << "-------------------------------WARNING---------------------------------\n";
-      return BBox2i(-10,-10,20,20);
-    }
-
-    { // Keeping only inliers
-      std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
-      for ( size_t i = 0; i < indices.size(); i++ ) {
-        inlier_ip1.push_back( matched_ip1[indices[i]] );
-        inlier_ip2.push_back( matched_ip2[indices[i]] );
-      }
-      matched_ip1 = inlier_ip1;
-      matched_ip2 = inlier_ip2;
-    }
-
-    vw_out() << "\t    * Caching matches: " << match_filename << "\n";
-    write_binary_match_file( match_filename, matched_ip1, matched_ip2);
-  }
-
-  // Find search window based on interest point matches
-  namespace ba = boost::accumulators;
-  ba::accumulator_set<float, ba::stats<ba::tag::variance> > acc_x, acc_y;
-  for (size_t i = 0; i < matched_ip1.size(); i++) {
-    acc_x(i_scale * ( matched_ip2[i].x - matched_ip1[i].x ));
-    acc_y(i_scale * ( matched_ip2[i].y - matched_ip1[i].y ));
-  }
-  Vector2f mean( ba::mean(acc_x), ba::mean(acc_y) );
-  vw_out(DebugMessage,"asp") << "Mean search is : " << mean << std::endl;
-  Vector2f stddev( sqrt(ba::variance(acc_x)), sqrt(ba::variance(acc_y)) );
-  BBox2i search_range( mean - 2.5*stddev,
-                       mean + 2.5*stddev );
-  return search_range;
-}
-
-void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
-  DiskImageView<PixelGray<float> > left_sub( opt.out_prefix+"-L_sub.tif" ),
-    right_sub( opt.out_prefix+"-R_sub.tif" );
-
-  Vector2f down_sample_scale( float(left_sub.cols()) / float(cols),
-                              float(left_sub.rows()) / float(rows) );
-
-  DiskImageView<uint8> left_mask_sub( opt.out_prefix+"-lMask_sub.tif" ),
-    right_mask_sub( opt.out_prefix+"-rMask_sub.tif" );
-
-  BBox2i search_range( floor(elem_prod(down_sample_scale,stereo_settings().search_range.min())),
-                       ceil(elem_prod(down_sample_scale,stereo_settings().search_range.max())) );
-
-  {
-    Vector2i expansion( search_range.width(),
-                        search_range.height() );
-    expansion *= stereo_settings().seed_percent_pad / 2.0f;
-    // Expand by the user selected amount. Default is 25%.
-    search_range.min() -= expansion;
-    search_range.max() += expansion;
-    VW_OUT(DebugMessage,"asp") << "D_sub search range: "
-                               << search_range << " px\n";
-    // Below we use on purpose stereo::CROSS_CORRELATION instead of
-    // user's choice of correlation method, since this is the most
-    // accurate, as well as reasonably fast for subsapled images.
-    asp::block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
-                                 remove_outliers(
-                                   stereo::pyramid_correlate( left_sub, right_sub,
-                                                              left_mask_sub, right_mask_sub,
-                                                              stereo::LaplacianOfGaussian(stereo_settings().slogW),
-                                                              search_range,
-                                                              stereo_settings().kernel,
-                                                              stereo::CROSS_CORRELATION, 2 ),
-                                   1, 1, 2.0, 0.5), opt,
-                                 TerminalProgressCallback("asp", "\t--> Low Resolution:") );
-  }
-
-  ImageView<PixelMask<Vector2i> > lowres_disparity;
-  read_image( lowres_disparity, opt.out_prefix + "-D_sub.tif" );
-  search_range =
-    stereo::get_disparity_range( lowres_disparity );
-  VW_OUT(DebugMessage,"asp") << "D_sub resolved search range: "
-                             << search_range << " px\n";
-  search_range.min() = floor(elem_quot(search_range.min(),down_sample_scale));
-  search_range.max() = ceil(elem_quot(search_range.max(),down_sample_scale));
-  stereo_settings().search_range = search_range;
-}
-
 void stereo_correlation( Options& opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string()
@@ -403,9 +192,12 @@ void stereo_correlation( Options& opt ) {
     vw_out() << "\t--> Using user defined search range.\n";
   } else {
 
+    // Match file between the input files
     std::string match_filename
       = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
-    
+
+    std::cout << "Match file: " << match_filename << std::endl;
+
     if (!fs::exists(match_filename)) {
       // If there is not any match files for the input image. Let's
       // gather some IP quickly from the low resolution images. This
@@ -424,15 +216,18 @@ void stereo_correlation( Options& opt ) {
       stereo_settings().search_range =
         approximate_search_range( opt.out_prefix+"-L_sub.tif",
                                   opt.out_prefix+"-R_sub.tif",
-                                  match_filename,
+                                  ip::match_filename( opt.out_prefix,
+                                                      opt.out_prefix+"-L_sub.tif",
+                                                      opt.out_prefix+"-R_sub.tif"),
                                   sub_scale );
     } else {
       // There exists a matchfile out there.
       std::vector<ip::InterestPoint> ip1, ip2;
       ip::read_binary_match_file( match_filename, ip1, ip2 );
 
-      Matrix<double> align_matrix;
-      read_matrix(align_matrix, opt.out_prefix + "-align.exr");
+      Matrix<double> align_matrix = math::identity_matrix<3>();
+      if ( fs::exists(opt.out_prefix+"-align.exr") )
+        read_matrix(align_matrix, opt.out_prefix + "-align.exr");
 
       BBox2 search_range;
       for ( size_t i = 0; i < ip1.size(); i++ ) {
@@ -449,8 +244,26 @@ void stereo_correlation( Options& opt ) {
     Rmask(opt.out_prefix + "-rMask.tif");
 
   // Performing disparity on sub images
-  if ( stereo_settings().seed_mode > 0 )
-    produce_lowres_disparity( Lmask.cols(), Lmask.rows(), opt );
+  if ( stereo_settings().seed_mode > 0 ) {
+    // Re use prior existing D_sub if it exists
+    bool rebuild = false;
+
+    try {
+      vw_log().console_log().rule_set().add_rule(-1,"fileio");
+      DiskImageView<PixelMask<Vector2i> > test(opt.out_prefix+"-D_sub.tif");
+      vw_settings().reload_config();
+    } catch (vw::IOErr const& e) {
+      vw_settings().reload_config();
+      rebuild = true;
+    } catch (vw::ArgumentErr const& e ) {
+      // Throws on a corrupted file.
+      vw_settings().reload_config();
+      rebuild = true;
+    }
+
+    if ( rebuild )
+      produce_lowres_disparity( Lmask.cols(), Lmask.rows(), opt );
+  }
 
   // Provide the user with some feedback of what we are actually going
   // to use.
@@ -487,7 +300,7 @@ void stereo_correlation( Options& opt ) {
     vw_out() << "\t--> Using LOG pre-processing filter with "
              << stereo_settings().slogW << " sigma blur.\n";
     disparity_map =
-      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity, 
+      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity,
                           stereo::LaplacianOfGaussian(stereo_settings().slogW), opt.left_image_crop_win,
                           cost_mode );
   } else if ( stereo_settings().pre_filter_mode == 1 ) {
@@ -500,7 +313,7 @@ void stereo_correlation( Options& opt ) {
   } else {
     vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
     disparity_map =
-      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity, 
+      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity,
                           stereo::NullOperation(), opt.left_image_crop_win,
                           cost_mode );
   }

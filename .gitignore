@@ -113,6 +113,7 @@ src/asp/Tools/rmax_adjust
 src/asp/Tools/rpc_mapproject
 src/asp/Tools/stereo
 src/asp/Tools/stereo_corr
+src/asp/Tools/stereo_corr_sub
 src/asp/Tools/stereo_fltr
 src/asp/Tools/stereo_mpi
 src/asp/Tools/stereo_parse

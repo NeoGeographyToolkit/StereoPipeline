@@ -166,8 +166,8 @@ def create_subproject_dirs( settings, **kw ):
                 pass
             for postfix in ["-L.tif","-R.tif","-L_sub.tif","-R_sub.tif",
                             "-lMask.tif","-rMask.tif","-lMask_sub.tif",
-                            "-rMask_sub.tif","-align.exr","-F.tif",
-                            os.path.basename(settings['in_file1'][0])[:-4]+"__"+
+                            "-rMask_sub.tif","-align.exr","-F.tif","-D_sub.tif",
+                            "-"+os.path.basename(settings['in_file1'][0])[:-4]+"__"+
                             os.path.basename(settings['in_file2'][0])[:-4]+".match"]:
                 if os.path.lexists( prefix + postfix ):
                     os.remove( prefix + postfix )
@@ -325,6 +325,7 @@ if __name__ == '__main__':
             # Correlation
             if ( opt.stop_point <= 1 ):
                 sys.exit()
+            run('stereo_corr_sub', args, msg='1: Pre Correlation')
             cmd = mpi_cmd + sys.argv + ['-e','1','--stop-point','2']
             code = subprocess.call(cmd)
             if code != 0:
@@ -379,6 +380,7 @@ if __name__ == '__main__':
             if ( opt.entry_point <= 1 ):
                 if ( opt.stop_point <= 1 ):
                     sys.exit()
+                run('stereo_corr_sub', args, msg='1: Pre Correlation')
                 parallel_run('stereo_corr', args, settings, tiles, msg='1: Correlation')
             if ( opt.entry_point <= 2 ):
                 if ( opt.stop_point <= 2 ):
