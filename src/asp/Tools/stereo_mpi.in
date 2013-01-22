@@ -17,9 +17,8 @@
 # __END_LICENSE__
 
 
-import sys, optparse, subprocess, re, os
+import sys, optparse, subprocess, re, os, math, time
 import os.path as P
-import math
 
 job_pool = []
 
@@ -101,10 +100,16 @@ def produce_tiles( settings, tile_w, tile_h ):
 def add_job( cmd  ):
     # This code could be smarter. It is possible that the processes
     # might finish out of order.
-    if ( len(job_pool) >= opt.processes):
-        job_pool[0].wait();
-        job_pool.pop(0);
-    job_pool.append( subprocess.Popen(cmd) );
+    sleep_time = 0.001
+    while ( len(job_pool) >= opt.processes):
+        for i in range(len(job_pool)):
+            if ( job_pool[i].poll() is not None ):
+                job_pool.pop(i);
+                job_pool.append( subprocess.Popen(cmd) )
+                return
+        time.sleep( sleep_time )
+        sleep_time =  (sleep_time * 5) % 60
+    job_pool.append( subprocess.Popen(cmd) )
 
 def wait_on_all_jobs():
     print "Waiting for jobs to finish";
