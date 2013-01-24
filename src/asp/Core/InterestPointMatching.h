@@ -160,7 +160,7 @@ namespace asp {
       ip1_copy.push_back(ip);
     BOOST_FOREACH( ip::InterestPoint const& ip, ip2 )
       ip2_copy.push_back(ip);
-    matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2, false,
+    matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2,
              TerminalProgressCallback( "asp", "\t   Matching: " ));
     ip::remove_duplicates( matched_ip1, matched_ip2 );
     vw_out() << "\t    Matched points: " << matched_ip1.size() << std::endl;

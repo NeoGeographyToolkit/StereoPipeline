@@ -470,7 +470,7 @@ namespace asp {
       ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.6);
 
       matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-              false, TerminalProgressCallback( "asp", "\t    Matching: "));
+              TerminalProgressCallback( "asp", "\t    Matching: "));
       vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
 
       vw_out() << "\t    * Rejecting outliers using RANSAC.\n";

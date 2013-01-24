@@ -156,7 +156,6 @@ namespace asp {
 
         matcher(ip1_copy, ip2_copy,
                 matched_ip1, matched_ip2,
-                false,
                 TerminalProgressCallback( "asp", "\t    Matching: "));
 
       } // End matching
