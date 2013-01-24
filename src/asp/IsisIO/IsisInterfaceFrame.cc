@@ -25,7 +25,7 @@ using namespace asp::isis;
 
 // Constructor
 IsisInterfaceFrame::IsisInterfaceFrame( std::string const& filename ) :
-  IsisInterface(filename), m_alphacube( m_label ) {
+  IsisInterface(filename), m_alphacube( *m_label ) {
 
   // Gutting Isis::Camera
   m_distortmap = m_camera->DistortionMap();

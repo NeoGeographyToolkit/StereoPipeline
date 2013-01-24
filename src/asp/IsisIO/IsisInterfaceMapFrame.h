@@ -27,8 +27,11 @@
 #include <asp/IsisIO/IsisInterface.h>
 
 // Isis forward declaration
-class Isis::CameraGroundMap;
-class Isis::CameraDistortionMap;
+namespace Isis {
+  class CameraGroundMap;
+  class CameraDistortionMap;
+  class Projection;
+}
 #include <Distance.h>
 
 namespace asp {

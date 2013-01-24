@@ -27,6 +27,8 @@
 #include <vw/Core.h>
 
 // ISIS
+#include <Pvl.h>
+#include <Camera.h>
 #include <FileName.h>
 #include <CameraFactory.h>
 #include <SerialNumber.h>
@@ -39,11 +41,14 @@ using namespace asp::isis;
 IsisInterface::IsisInterface( std::string const& file ) {
   // Opening labels and camera
   Isis::FileName cubefile( file.c_str() );
-  m_label.Read( cubefile.expanded() );
+  m_label.reset( new Isis::Pvl() );
+  m_label->Read( cubefile.expanded() );
 
   // Opening Isis::Camera
-  m_camera.reset(Isis::CameraFactory::Create( m_label ));
+  m_camera.reset(Isis::CameraFactory::Create( *m_label ));
 }
+
+IsisInterface::~IsisInterface() {}
 
 IsisInterface* IsisInterface::open( std::string const& filename ) {
   // Opening Labels (This should be done somehow though labels)
@@ -77,8 +82,16 @@ IsisInterface* IsisInterface::open( std::string const& filename ) {
   return result;
 }
 
+int IsisInterface::lines() const {
+  return m_camera->Lines();
+}
+
+int IsisInterface::samples() const {
+  return m_camera->Samples();
+}
+
 std::string IsisInterface::serial_number() const {
-  Isis::Pvl copy( m_label );
+  Isis::Pvl copy( *m_label );
   return Isis::SerialNumber::Compose( copy, true );
 }
 
@@ -100,4 +113,15 @@ vw::Vector3 IsisInterface::target_radii() const {
   return Vector3( radii[0].meters(),
                   radii[1].meters(),
                   radii[2].meters() );
+}
+
+std::ostream& asp::isis::operator<<( std::ostream& os, IsisInterface* i ) {
+  os << "IsisInterface" << i->type()
+       << "( Serial=" << i->serial_number()
+       << std::setprecision(9)
+       << ", f=" << i->m_camera->FocalLength()
+       << " mm, pitch=" << i->m_camera->PixelPitch()
+       << " mm/px," << std::setprecision(6)
+       << "Center=" << i->camera_center() << " )";
+    return os;
 }

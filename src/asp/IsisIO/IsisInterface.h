@@ -28,9 +28,10 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 
-// Isis
-#include <Pvl.h>
-#include <Camera.h>
+namespace Isis {
+  class Pvl;
+  class Camera;
+}
 
 namespace asp {
 namespace isis {
@@ -41,7 +42,8 @@ namespace isis {
   class IsisInterface {
   public:
     IsisInterface( std::string const& file );
-    virtual ~IsisInterface(){}
+    virtual ~IsisInterface(); // Can't be declared here since we have
+                              // incomplete types from Isis.
 
     virtual std::string type() = 0;
     static IsisInterface* open( std::string const& filename );
@@ -64,8 +66,8 @@ namespace isis {
 
     // General information
     //------------------------------------------------------
-    int lines() const { return m_camera->Lines(); }
-    int samples() const { return m_camera->Samples(); }
+    int lines() const;
+    int samples() const;
     std::string serial_number() const;
     double ephemeris_time( vw::Vector2 const& pix ) const;
     vw::Vector3 sun_position( vw::Vector2 const& pix = vw::Vector2() ) const;
@@ -74,7 +76,7 @@ namespace isis {
   protected:
     // Standard Variables
     //------------------------------------------------------
-    Isis::Pvl m_label;
+    boost::scoped_ptr<Isis::Pvl> m_label;
     boost::scoped_ptr<Isis::Camera> m_camera;
 
     friend std::ostream& operator<<( std::ostream&, IsisInterface* );
@@ -82,16 +84,7 @@ namespace isis {
 
   // IOstream interface
   // -------------------------------------------------------
-  inline std::ostream& operator<<( std::ostream& os, IsisInterface* i ) {
-    os << "IsisInterface" << i->type()
-       << "( Serial=" << i->serial_number()
-       << std::setprecision(9)
-       << ", f=" << i->m_camera->FocalLength()
-       << " mm, pitch=" << i->m_camera->PixelPitch()
-       << " mm/px," << std::setprecision(6)
-       << "Center=" << i->camera_center() << " )";
-    return os;
-  }
+  std::ostream& operator<<( std::ostream& os, IsisInterface* i );
 
 }}
 

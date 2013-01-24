@@ -36,7 +36,7 @@ using namespace asp::isis;
 
 // Constructor
 IsisInterfaceMapFrame::IsisInterfaceMapFrame( std::string const& filename ) :
-  IsisInterface(filename), m_projection( Isis::ProjectionFactory::CreateFromCube( m_label ) ) {
+  IsisInterface(filename), m_projection( Isis::ProjectionFactory::CreateFromCube( *m_label ) ) {
 
   // Gutting Isis::Camera
   m_groundmap = m_camera->GroundMap();
