@@ -19,7 +19,6 @@
 #ifndef __ASP_CORE_INTEREST_POINT_MATCHING_H__
 #define __ASP_CORE_INTEREST_POINT_MATCHING_H__
 
-#include <asp/Core/GaussianClustering.h>
 #include <asp/Core/IntegralAutoGainDetector.h>
 
 #include <vw/Core.h>
@@ -27,13 +26,19 @@
 #include <vw/Image/ImageViewBase.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Cartography/Datum.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/InterestPoint/InterestData.h>
-#include <vw/Stereo/StereoModel.h>
 
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
+
+// Forward declare the datum object so we don't have to bring in the
+// header
+namespace vw {
+  namespace cartography {
+    class Datum;
+  }
+}
 
 namespace asp {
 
@@ -212,7 +217,23 @@ namespace asp {
     return true;
   }
 
-  // Smart IP matching that using clustering on triangulation and
+  // Smart IP matching that uses clustering on triangulation error and
+  // altitude to determine inliers. Good filter that agressively
+  // filters. It will filter out inliers if you give this method
+  // nothing but inliers.
+  //
+  // Returns if likely detected inliers. Output is the index list.
+  bool
+  tri_and_alt_ip_filtering( std::vector<vw::ip::InterestPoint> const& matched_ip1,
+                            std::vector<vw::ip::InterestPoint> const& matched_ip2,
+                            vw::camera::CameraModel* cam1,
+                            vw::camera::CameraModel* cam2,
+                            vw::cartography::Datum const& datum,
+                            std::list<size_t>& output,
+                            vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
+                            vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+
+  // Smart IP matching that uses clustering on triangulation and
   // datum information to determine inliers.
   //
   // Left and Right TX define transforms that have been performed on
@@ -239,77 +260,10 @@ namespace asp {
     if ( matched_ip1.size() == 0 || matched_ip2.size() == 0 )
       return false;
 
-    // Remove IP that don't triangulate well or triangulate well away
-    // from the datum.
-    std::vector<Vector2> error_samples( matched_ip1.size() );
-    std::vector<double> normalized_samples;
-    normalized_samples.reserve( matched_ip1.size() );
-    Vector2 error_scaling, error_offset;
-
-    // Create the 'error' samples. Which are triangulation error and
-    // distance to sphere.
-    stereo::StereoModel model( cam1, cam2 );
-    for (size_t i = 0; i < matched_ip1.size(); i++ ) {
-      Vector3 geodetic =
-        datum.cartesian_to_geodetic( model( left_tx.reverse(Vector2( matched_ip1[i].x, matched_ip1[i].y )),
-                                            right_tx.reverse(Vector2(matched_ip2[i].x,
-                                                               matched_ip2[i].y)),
-                                            error_samples[i].x() ) );
-      error_samples[i].y() = fabs(geodetic[2]);
-    }
-
-    // Find the mean and std deviation error and distance from sphere
-    // so that the sample can be combined a norm_2 together without
-    // one dimension getting unfair waiting.
-    {
-      namespace ba = boost::accumulators;
-      typedef ba::accumulator_set<double, ba::stats<ba::tag::variance> > acc_set;
-      acc_set tri_stat, height_stat;
-      BOOST_FOREACH( Vector2 const& sample, error_samples ) {
-        tri_stat( sample.x() );
-        height_stat( sample.y() );
-      }
-
-      // output =  scale * ( input  - offset )
-      error_offset = Vector2( ba::mean( tri_stat ), ba::mean( height_stat ) );
-      error_scaling = sqrt( Vector2( ba::variance( tri_stat ),
-                                     ba::variance( height_stat ) ) );
-      error_scaling = elem_quot(sqrt(2.), error_scaling);
-
-      // Apply this scaling to create the normalized samples
-      BOOST_FOREACH( Vector2 const& sample, error_samples ) {
-        normalized_samples.push_back( norm_2( elem_prod(error_scaling,
-                                                        (sample - error_offset ) ) ) );
-      }
-    }
-
-    std::vector<std::pair<Vector<double>, Vector<double> > > clustering =
-      asp::gaussian_clustering< std::vector<double> >( normalized_samples.begin(), normalized_samples.end(), 2 );
-    if ( clustering[0].first[0] > clustering[1].first[0] /*Other cluster has lower tri error*/ &&
-         clustering[1].second[0] != 0 /*Other cluster has non-zero variance (ie non empty set)*/ )
-      std::swap( clustering[0], clustering[1] );
-
-    vw_out() << "\t    Inlier cluster:\n"
-             << "\t      Triangulation Err: " << clustering.front().first[0] / error_scaling[0] + error_offset[0]
-             << " +- " << sqrt( clustering.front().second[0] / error_scaling[0] ) << " meters\n"
-             << "\t      Altitude         : " << clustering.front().first[0] / error_scaling[1] + error_offset[1]
-             << " +- " << sqrt( clustering.front().second[0] / error_scaling[1] ) << " meters\n";
-
-    // Record indices of points that match our clustering result
     std::list<size_t> good_indices;
-    for (size_t i = 0; i < matched_ip1.size(); i++ ) {
-      double scalar1 = 1.0 / sqrt( 2.0 * M_PI * clustering.front().second[0] );
-      double scalar2 = 1.0 / sqrt( 2.0 * M_PI * clustering.back().second[0] );
-      if ( (scalar1 * exp( (-((normalized_samples[i]-clustering.front().first[0]) *
-                              (normalized_samples[i]-clustering.front().first[0]))) /
-                           (2 * clustering.front().second[0] ) ) )   >
-           (scalar2 * exp( (-((normalized_samples[i]-clustering.back().first[0]) *
-                              (normalized_samples[i]-clustering.back().first[0]))) /
-                           (2 * clustering.back().second[0] ) ) ) ||
-           normalized_samples[i] < clustering.front().first[0] ) {
-        good_indices.push_back(i);
-      }
-    }
+    if (!tri_and_alt_ip_filtering( matched_ip1, matched_ip2,
+                                   cam1, cam2, datum, good_indices, left_tx, right_tx ) )
+      return false;
 
     // Record new list that contains only the inliers.
     vw_out() << "\t    Reduced matches to " << good_indices.size() << "\n";
@@ -332,11 +286,6 @@ namespace asp {
     }
 
     ip::write_binary_match_file( output_name, ip1_copy, ip2_copy );
-
-    // Determine if we just wrote nothing but outliers
-    // If the variance on triangulation is ungodly highy
-    if ( clustering.front().second[0] > 1e6 )
-      return false;
 
     return true;
   }

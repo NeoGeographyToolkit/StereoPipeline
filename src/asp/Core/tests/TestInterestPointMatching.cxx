@@ -19,6 +19,7 @@
 #include <test/Helpers.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Cartography/Datum.h>
 
 using namespace vw;
 using namespace asp;
