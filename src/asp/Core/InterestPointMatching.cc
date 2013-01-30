@@ -57,6 +57,103 @@ namespace asp {
     return elem_prod(ccenter + alpha * cvec, Vector3(1,1,1.0/z_scale));
   }
 
+  Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
+                                                   cartography::Datum const& datum,
+                                                   camera::CameraModel* cam_ip,
+                                                   camera::CameraModel* cam_obj ) {
+    Vector3 p0 = asp::datum_intersection( datum, cam_ip, feature );
+    Vector3 p1 = p0 + 10*cam_ip->pixel_to_vector( feature );
+    Vector2 ep0 = cam_obj->point_to_pixel( p0 );
+    Vector2 ep1 = cam_obj->point_to_pixel( p1 );
+    Matrix<double> matrix( 2, 3 );
+    select_col( matrix, 2 ) = Vector2(1,1);
+    matrix(0,0) = ep0.x();
+    matrix(0,1) = ep0.y();
+    matrix(1,0) = ep1.x();
+    matrix(1,1) = ep1.y();
+    return select_col(nullspace( matrix ),0);
+  }
+
+  double EpipolarLinePointMatcher::distance_point_line( Vector3 const& line,
+                                                        Vector2 const& point ) {
+    return fabs( line.x() * point.x() +
+                 line.y() * point.y() +
+                 line.z() ) /
+      norm_2( subvector( line, 0, 2 ) );
+  }
+
+  void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
+                                             ip::InterestPointList const& ip2,
+                                             camera::CameraModel* cam1,
+                                             camera::CameraModel* cam2,
+                                             TransformRef const& tx1,
+                                             TransformRef const& tx2,
+                                             std::vector<size_t>& output_indices,
+                                             const ProgressCallback &progress_callback ) const {
+    typedef ip::InterestPointList::const_iterator IPListIter;
+
+    Timer total_time("Total elapsed time", DebugMessage, "interest_point");
+    size_t ip1_size = ip1.size(), ip2_size = ip2.size();
+
+    output_indices.clear();
+    if (!ip1_size || !ip2_size) {
+      vw_out(InfoMessage,"interest_point") << "KD-Tree: no points to match, exiting\n";
+      progress_callback.report_finished();
+      return;
+    }
+
+    float inc_amt = 1.0f/float(ip1_size);
+
+    Matrix<float> ip2_matrix( ip2_size, ip2.begin()->size() );
+    Matrix<float>::iterator ip2_matrix_it = ip2_matrix.begin();
+    BOOST_FOREACH( ip::InterestPoint const& ip, ip2 )
+      ip2_matrix_it = std::copy( ip.begin(), ip.end(), ip2_matrix_it );
+
+    math::FLANNTree<float > kd( ip2_matrix );
+    vw_out(InfoMessage,"interest_point") << "FLANN-Tree created. Searching...\n";
+
+    Vector<int> indices(10);
+    Vector<float> distances(10);
+    progress_callback.report_progress(0);
+
+    BOOST_FOREACH( ip::InterestPoint ip, ip1 ) {
+      if (progress_callback.abort_requested())
+        vw_throw( Aborted() << "Aborted by ProgressCallback" );
+      progress_callback.report_incremental_progress(inc_amt);
+
+      // Get original coordinates for ip in image1
+      Vector2 ip_org_coord = tx1.reverse( Vector2( ip.x, ip.y ) );
+
+      // Give me the the 10 best interest points and then lets filter
+      // out the ones that have an epipolar error greater than 100
+      Vector3 line_eq = epipolar_line( ip_org_coord, m_datum, cam1, cam2 );
+
+      std::vector<std::pair<float,int> > kept_indices;
+      kept_indices.reserve(10);
+      kd.knn_search( ip.descriptor, indices, distances, 10 );
+
+      for ( size_t i = 0; i < 10; i++ ) {
+        IPListIter ip2_it = ip2.begin();
+        std::advance( ip2_it, indices[i] );
+        Vector2 ip2_org_coord = tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
+        double distance = distance_point_line( line_eq, ip2_org_coord );
+        if ( distance < m_epipolar_threshold ) {
+          kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+        }
+      }
+
+      if ( kept_indices.size() > 2 &&
+           kept_indices[0].first < m_threshold * kept_indices[1].first ) {
+        output_indices.push_back( kept_indices[0].second );
+      } else if ( kept_indices.size() == 1 ) {
+        output_indices.push_back( kept_indices[0].second );
+      } else {
+        output_indices.push_back( (size_t)(-1) ); // Last value of size_t
+      }
+    }
+    progress_callback.report_finished();
+  }
+
   void check_homography_matrix(Matrix<double>       const& H,
                                std::vector<Vector3> const& left_points,
                                std::vector<Vector3> const& right_points,
@@ -187,12 +284,8 @@ namespace asp {
                             std::list<size_t>& output,
                             vw::TransformRef const& left_tx,
                             vw::TransformRef const& right_tx ) {
-    // Remove IP that don't triangulate well or triangulate well away
-    // from the datum.
-    std::vector<Vector2> error_samples( matched_ip1.size() );
-    std::vector<double> normalized_samples;
-    normalized_samples.reserve( matched_ip1.size() );
-    Vector2 error_scaling, error_offset;
+    typedef std::vector<double> ArrayT;
+    ArrayT error_samples( matched_ip1.size() ), alt_samples( matched_ip1.size() );
 
     // Create the 'error' samples. Which are triangulation error and
     // distance to sphere.
@@ -202,64 +295,80 @@ namespace asp {
         datum.cartesian_to_geodetic( model( left_tx.reverse(Vector2( matched_ip1[i].x, matched_ip1[i].y )),
                                             right_tx.reverse(Vector2(matched_ip2[i].x,
                                                                      matched_ip2[i].y)),
-                                            error_samples[i].x() ) );
-      error_samples[i].y() = fabs(geodetic[2]);
+                                            error_samples[i] ) );
+      alt_samples[i] = geodetic.z();
     }
 
-    // Find the mean and std deviation error and distance from sphere
-    // so that the sample can be combined a norm_2 together without
-    // one dimension getting unfair waiting.
-    {
-      namespace ba = boost::accumulators;
-      typedef ba::accumulator_set<double, ba::stats<ba::tag::variance> > acc_set;
-      acc_set tri_stat, height_stat;
-      BOOST_FOREACH( Vector2 const& sample, error_samples ) {
-        tri_stat( sample.x() );
-        height_stat( sample.y() );
-      }
+    typedef std::vector<std::pair<Vector<double>, Vector<double> > > ClusterT;
+    ClusterT error_clusters =
+      asp::gaussian_clustering<ArrayT>( error_samples.begin(),
+                                        error_samples.end(), 2 );
+    ClusterT alt_clusters =
+      asp::gaussian_clustering<ArrayT>( alt_samples.begin(),
+                                        alt_samples.end(), 2 );
 
-      // output =  scale * ( input  - offset )
-      error_offset = Vector2( ba::mean( tri_stat ), ba::mean( height_stat ) );
-      error_scaling = sqrt( Vector2( ba::variance( tri_stat ),
-                                     ba::variance( height_stat ) ) );
-      error_scaling = elem_quot(sqrt(2.), error_scaling);
-
-      // Apply this scaling to create the normalized samples
-      BOOST_FOREACH( Vector2 const& sample, error_samples ) {
-        normalized_samples.push_back( norm_2( elem_prod(error_scaling,
-                                                        (sample - error_offset ) ) ) );
-      }
-    }
-
-    std::vector<std::pair<Vector<double>, Vector<double> > > clustering =
-      asp::gaussian_clustering< std::vector<double> >( normalized_samples.begin(), normalized_samples.end(), 2 );
-    if ( clustering[0].first[0] > clustering[1].first[0] /*Other cluster has lower tri error*/ &&
-         clustering[1].second[0] != 0 /*Other cluster has non-zero variance (ie non empty set)*/ )
-      std::swap( clustering[0], clustering[1] );
+    // The best triangulation error and altitude clusters are ones
+    // that have small standard deviations. They are focused on the
+    // tight pack of inliers. Bring the smaller std-dev cluster to the
+    // front as it is what we are interested in.
+    if ( error_clusters.front().second[0] > error_clusters.back().second[0] &&
+         error_clusters.back().second[0] != 0 )
+      std::swap( error_clusters[0], error_clusters[1] );
+    if ( alt_clusters.front().second[0] > alt_clusters.back().second[0] &&
+         alt_clusters.back().second[0] != 0 )
+      std::swap( alt_clusters[0], alt_clusters[1] );
 
     // Determine if we just wrote nothing but outliers
     // If the variance on triangulation is ungodly highy
-    if ( clustering.front().second[0] > 1e6 )
+    if ( error_clusters.front().second[0] > 1e6 )
       return false;
 
     vw_out() << "\t    Inlier cluster:\n"
-             << "\t      Triangulation Err: " << clustering.front().first[0] / error_scaling[0] + error_offset[0]
-             << " +- " << sqrt( clustering.front().second[0] / error_scaling[0] ) << " meters\n"
-             << "\t      Altitude         : " << clustering.front().first[0] / error_scaling[1] + error_offset[1]
-             << " +- " << sqrt( clustering.front().second[0] / error_scaling[1] ) << " meters\n";
+             << "\t      Triangulation Err: " << error_clusters.front().first[0]
+             << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
+
+    // Determine if we should disable the altitude constraint if the
+    // standard deviations are not wild different. If everything is an
+    // inlier .. the mixture model will just seperate different planar
+    // regions of the image.
+    bool disable_alt_check = false;
+    if ( fabs( log10( alt_clusters.front().second[0] ) - log10( alt_clusters.back().second[0] ) ) < 1 ) {
+      disable_alt_check = true;
+    } else {
+      vw_out() << "\t      Altitude         : " << alt_clusters.front().first[0]
+               << " +- " << sqrt( alt_clusters.front().second[0] ) << " meters\n";
+    }
 
     // Record indices of points that match our clustering result
     output.clear();
+    const double escalar1 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.front().second[0] ); // outside exp of normal eq
+    const double escalar2 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.back().second[0] );
+    const double escalar3 = 1.0 / (2 * error_clusters.front().second[0] ); // inside exp of normal eq
+    const double escalar4 = 1.0 / (2 * error_clusters.back().second[0] );
+    const double ascalar1 = 1.0 / sqrt( 2.0 * M_PI * alt_clusters.front().second[0] );
+    const double ascalar2 = 1.0 / sqrt( 2.0 * M_PI * alt_clusters.back().second[0] );
+    const double ascalar3 = 1.0 / (2 * alt_clusters.front().second[0] );
+    const double ascalar4 = 1.0 / (2 * alt_clusters.back().second[0] );
     for (size_t i = 0; i < matched_ip1.size(); i++ ) {
-      double scalar1 = 1.0 / sqrt( 2.0 * M_PI * clustering.front().second[0] );
-      double scalar2 = 1.0 / sqrt( 2.0 * M_PI * clustering.back().second[0] );
-      if ( (scalar1 * exp( (-((normalized_samples[i]-clustering.front().first[0]) *
-                              (normalized_samples[i]-clustering.front().first[0]))) /
-                           (2 * clustering.front().second[0] ) ) )   >
-           (scalar2 * exp( (-((normalized_samples[i]-clustering.back().first[0]) *
-                              (normalized_samples[i]-clustering.back().first[0]))) /
-                           (2 * clustering.back().second[0] ) ) ) ||
-           normalized_samples[i] < clustering.front().first[0] ) {
+      double err_diff_front = error_samples[i]-error_clusters.front().first[0];
+      double err_diff_back = error_samples[i]-error_clusters.back().first[0];
+      double alt_diff_front = alt_samples[i]-alt_clusters.front().first[0];
+      double alt_diff_back = alt_samples[i]-alt_clusters.back().first[0];
+      // Is this point an inlier in terms of triangulation error?
+      bool error_inlier =
+        (escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
+        (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
+        error_samples[i] < error_clusters.front().first[0];
+
+      // Is this point an inlier in terms of altitude against world datum?
+      bool alt_inlier =
+        !disable_alt_check ||
+        (
+         (ascalar1 * exp( (-alt_diff_front * alt_diff_front) * ascalar3 ) ) >
+         (ascalar2 * exp( (-alt_diff_back * alt_diff_back ) * ascalar4 ) ) &&
+         fabs(alt_diff_front) < 3 * sqrt(alt_clusters.front().second[0]) );
+
+      if ( error_inlier && alt_inlier ) {
         output.push_back(i);
       }
     }
