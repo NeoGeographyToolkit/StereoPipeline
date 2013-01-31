@@ -83,31 +83,30 @@ namespace asp {
                                       // 3 = SLog Filter  
     vw::uint16  seed_mode;            // 0 = User global search for each tile
                                       // 1 = Narrow search for each tile to low
-                                      //     res disparity seed
-                                      // 2 = Affine Transform and narrow search
+                                      //     resolution disparity seed (D_sub)
+                                      // 2 = Affine transform and narrow search
                                       //     based on disparity seed 
     float seed_percent_pad;           // Pad amound towards the IP found
-    float xcorr_threshold;
     vw::uint16 cost_mode;             // 0 = absolute difference
                                       // 1 = squared difference
                                       // 2 = normalized cross correlation 
+    float xcorr_threshold;            // L-R vs R-L agreement threshold in pixels
+    vw::Vector2i corr_kernel;         // Correlation kernel
+    vw::BBox2i search_range;          // Correlation search range
     vw::uint16 corr_max_levels;       // Max pyramid levels to process. 0 hits only once.
 
-                                      // search range, used to define the
-                                      // search range of D_sub.
-    vw::Vector2i kernel;              // Correlation kernel
-    vw::Vector2i subpixel_kernel;     // Subpixel correlation kernel
-    vw::BBox2i search_range;          // Correlation search range
-    bool disable_h_subpixel, disable_v_subpixel;
+    // Subpixel Options
     vw::uint16 subpixel_mode;         // 0 = parabola fitting
                                       // 1 = affine, robust weighting
                                       // 2 = affine, bayes weighting
                                       // 3 = affine, bayes EM weighting 
+    vw::Vector2i subpixel_kernel;     // Subpixel correlation kernel
+    bool disable_h_subpixel, disable_v_subpixel;
     vw::uint16 subpixel_max_levels;   // Max pyramid levels to process. 0 hits only once.
 
-    // EMSubpixelCorrelator Options (mode 3 only)
-    int subpixel_affine_iter;
+    // Experimental Subpixel Options (mode 3 only)
     int subpixel_em_iter;
+    int subpixel_affine_iter;
     int subpixel_pyramid_levels;
 
     // Filtering Options

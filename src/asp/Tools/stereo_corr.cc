@@ -139,7 +139,7 @@ public:
       CorrView corr_view( m_left_image, m_right_image,
                           m_left_mask, m_right_mask,
                           m_preproc_func, local_search_range,
-                          stereo_settings().kernel, m_cost_mode,
+                          stereo_settings().corr_kernel, m_cost_mode,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels );
 
@@ -154,7 +154,7 @@ public:
     CorrView corr_view( m_left_image, m_right_image,
                         m_left_mask, m_right_mask,
                         m_preproc_func, stereo_settings().search_range,
-                        stereo_settings().kernel, m_cost_mode,
+                        stereo_settings().corr_kernel, m_cost_mode,
                         stereo_settings().xcorr_threshold,
                         stereo_settings().corr_max_levels );
 
@@ -267,17 +267,17 @@ void stereo_correlation( Options& opt ) {
 
   // Provide the user with some feedback of what we are actually going
   // to use.
-  vw_out() << "\t--------------------------------------------------\n";
-  vw_out() << "\t   Kernel Size : " << stereo_settings().kernel << std::endl;
+  vw_out()   << "\t--------------------------------------------------\n";
+  vw_out()   << "\t   Kernel Size:    " << stereo_settings().corr_kernel << std::endl;
   if ( stereo_settings().seed_mode > 0 )
-    vw_out() << "\t   Rfned Search: "
+    vw_out() << "\t   Refined Search: "
              << stereo_settings().search_range << std::endl;
   else
-    vw_out() << "\t   Search Range: "
+    vw_out() << "\t   Search Range:   "
              << stereo_settings().search_range << std::endl;
-  vw_out() << "\t   Cost Mode   : " << stereo_settings().cost_mode << std::endl;
-  vw_out(DebugMessage) << "\t   XCorr Thres : " << stereo_settings().xcorr_threshold << std::endl;
-  vw_out(DebugMessage) << "\t   Prefilter   : " << stereo_settings().pre_filter_mode << std::endl;
+  vw_out()   << "\t   Cost Mode:      " << stereo_settings().cost_mode << std::endl;
+  vw_out(DebugMessage) << "\t   XCorr Thresh: " << stereo_settings().xcorr_threshold << std::endl;
+  vw_out(DebugMessage) << "\t   Prefilter:    " << stereo_settings().pre_filter_mode << std::endl;
   vw_out(DebugMessage) << "\t   Prefilter Sz: " << stereo_settings().slogW << std::endl;
   vw_out() << "\t--------------------------------------------------\n";
 

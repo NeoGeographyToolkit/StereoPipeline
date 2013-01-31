@@ -355,7 +355,7 @@ namespace asp {
                                                                               left_mask_sub, right_mask_sub,
                                                                               stereo::LaplacianOfGaussian(stereo_settings().slogW),
                                                                               search_range,
-                                                                              stereo_settings().kernel,
+                                                                              stereo_settings().corr_kernel,
                                                                               stereo::CROSS_CORRELATION, 2 ),
                                                    1, 1, 2.0, 0.5), opt,
                                    TerminalProgressCallback("asp", "\t--> Low Resolution:") );
