@@ -184,87 +184,11 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
 
 void stereo_correlation( Options& opt ) {
 
+  pre_correlation(opt);
+  
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : Stage 1 --> CORRELATION \n";
-
-  // Working out search range if need be
-  if (stereo_settings().is_search_defined()) {
-    vw_out() << "\t--> Using user defined search range.\n";
-  } else {
-
-    // Match file between the input files
-    std::string match_filename
-      = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
-
-    std::cout << "Match file: " << match_filename << std::endl;
-
-    if (!fs::exists(match_filename)) {
-      // If there is not any match files for the input image. Let's
-      // gather some IP quickly from the low resolution images. This
-      // routine should only run for:
-      //   Pinhole + Epipolar
-      //   Pinhole + None
-      //   DG + None
-      // Everything else should gather IP's all the time.
-      float sub_scale =
-        sum(elem_quot( Vector2f(file_image_size( opt.out_prefix+"-L_sub.tif" )),
-                       Vector2f(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
-        sum(elem_quot( Vector2f(file_image_size( opt.out_prefix+"-R_sub.tif" )),
-                       Vector2f(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
-      sub_scale /= 4.0f;
-
-      stereo_settings().search_range =
-        approximate_search_range( opt.out_prefix+"-L_sub.tif",
-                                  opt.out_prefix+"-R_sub.tif",
-                                  ip::match_filename( opt.out_prefix,
-                                                      opt.out_prefix+"-L_sub.tif",
-                                                      opt.out_prefix+"-R_sub.tif"),
-                                  sub_scale );
-    } else {
-      // There exists a matchfile out there.
-      std::vector<ip::InterestPoint> ip1, ip2;
-      ip::read_binary_match_file( match_filename, ip1, ip2 );
-
-      Matrix<double> align_matrix = math::identity_matrix<3>();
-      if ( fs::exists(opt.out_prefix+"-align.exr") )
-        read_matrix(align_matrix, opt.out_prefix + "-align.exr");
-
-      BBox2 search_range;
-      for ( size_t i = 0; i < ip1.size(); i++ ) {
-        Vector3 r = align_matrix * Vector3(ip2[i].x,ip2[i].y,1);
-        r /= r[2];
-        search_range.grow( subvector(r,0,2) - Vector2(ip1[i].x,ip1[i].y) );
-      }
-      stereo_settings().search_range = grow_bbox_to_int( search_range );
-    }
-    vw_out() << "\t--> Detected search range: " << stereo_settings().search_range << "\n";
-  }
-
-  DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-    Rmask(opt.out_prefix + "-rMask.tif");
-
-  // Performing disparity on sub images
-  if ( stereo_settings().seed_mode > 0 ) {
-    // Re use prior existing D_sub if it exists
-    bool rebuild = false;
-
-    try {
-      vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelMask<Vector2i> > test(opt.out_prefix+"-D_sub.tif");
-      vw_settings().reload_config();
-    } catch (vw::IOErr const& e) {
-      vw_settings().reload_config();
-      rebuild = true;
-    } catch (vw::ArgumentErr const& e ) {
-      // Throws on a corrupted file.
-      vw_settings().reload_config();
-      rebuild = true;
-    }
-
-    if ( rebuild )
-      produce_lowres_disparity( Lmask.cols(), Lmask.rows(), opt );
-  }
-
+  
   // Provide the user with some feedback of what we are actually going
   // to use.
   vw_out()   << "\t--------------------------------------------------\n";
@@ -289,6 +213,9 @@ void stereo_correlation( Options& opt ) {
     sub_disparity =
       DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
   ImageViewRef<PixelMask<Vector2i> > disparity_map;
+
+  DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
+    Rmask(opt.out_prefix + "-rMask.tif");
 
   stereo::CostFunctionType cost_mode = stereo::ABSOLUTE_DIFFERENCE;
   if (stereo_settings().cost_mode == 1)
@@ -321,6 +248,10 @@ void stereo_correlation( Options& opt ) {
   asp::block_write_gdal_image( opt.out_prefix + "-D.tif",
                                disparity_map, opt,
                                TerminalProgressCallback("asp", "\t--> Correlation :") );
+
+  vw_out() << "\n[ " << current_posix_time_string()
+           << " ] : CORRELATION FINISHED \n";
+  
 }
 
 int main(int argc, char* argv[]) {
@@ -338,9 +269,6 @@ int main(int argc, char* argv[]) {
     // Internal Processes
     //---------------------------------------------------------
     stereo_correlation( opt );
-
-    vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : CORRELATION FINISHED \n";
 
   } ASP_STANDARD_CATCHES;
 

@@ -324,12 +324,103 @@ namespace asp {
     }
   }
 
-  void produce_lowres_disparity( int32 cols, int32 rows, Options const& opt ) {
+  void pre_correlation( Options const& opt ) {
+
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : Stage 1 --> PRE-CORRELATION \n";
+
+    // Working out search range if need be
+    if (stereo_settings().is_search_defined()) {
+      vw_out() << "\t--> Using user defined search range.\n";
+    } else {
+
+      // Match file between the input files
+      std::string match_filename
+        = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
+
+      std::cout << "Match file: " << match_filename << std::endl;
+
+      if (!fs::exists(match_filename)) {
+        // If there is not any match files for the input image. Let's
+        // gather some IP quickly from the low resolution images. This
+        // routine should only run for:
+        //   Pinhole + Epipolar
+        //   Pinhole + None
+        //   DG + None
+        // Everything else should gather IP's all the time.
+        float sub_scale =
+          sum(elem_quot( Vector2f(file_image_size( opt.out_prefix+"-L_sub.tif" )),
+                         Vector2f(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
+          sum(elem_quot( Vector2f(file_image_size( opt.out_prefix+"-R_sub.tif" )),
+                         Vector2f(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
+        sub_scale /= 4.0f;
+
+        stereo_settings().search_range =
+          approximate_search_range( opt.out_prefix+"-L_sub.tif",
+                                    opt.out_prefix+"-R_sub.tif",
+                                    ip::match_filename( opt.out_prefix,
+                                                        opt.out_prefix+"-L_sub.tif",
+                                                        opt.out_prefix+"-R_sub.tif"),
+                                    sub_scale );
+      } else {
+        // There exists a matchfile out there.
+        std::vector<ip::InterestPoint> ip1, ip2;
+        ip::read_binary_match_file( match_filename, ip1, ip2 );
+
+        Matrix<double> align_matrix = math::identity_matrix<3>();
+        if ( fs::exists(opt.out_prefix+"-align.exr") )
+          read_matrix(align_matrix, opt.out_prefix + "-align.exr");
+
+        BBox2 search_range;
+        for ( size_t i = 0; i < ip1.size(); i++ ) {
+          Vector3 r = align_matrix * Vector3(ip2[i].x,ip2[i].y,1);
+          r /= r[2];
+          search_range.grow( subvector(r,0,2) - Vector2(ip1[i].x,ip1[i].y) );
+        }
+        stereo_settings().search_range = grow_bbox_to_int( search_range );
+      }
+      vw_out() << "\t--> Detected search range: " << stereo_settings().search_range << "\n";
+    }
+
+    DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
+      Rmask(opt.out_prefix + "-rMask.tif");
+
+    // Performing disparity on sub images
+    if ( stereo_settings().seed_mode > 0 ) {
+      // Re use prior existing D_sub if it exists
+      bool rebuild = false;
+
+      try {
+        vw_log().console_log().rule_set().add_rule(-1,"fileio");
+        DiskImageView<PixelMask<Vector2i> > test(opt.out_prefix+"-D_sub.tif");
+        vw_settings().reload_config();
+      } catch (vw::IOErr const& e) {
+        vw_settings().reload_config();
+        rebuild = true;
+      } catch (vw::ArgumentErr const& e ) {
+        // Throws on a corrupted file.
+        vw_settings().reload_config();
+        rebuild = true;
+      }
+
+      if ( rebuild )
+        produce_lowres_disparity( opt );
+    }
+
+    vw_out() << "\n[ " << current_posix_time_string()
+             << " ] : PRE-CORRELATION FINISHED \n";
+  }
+
+  void produce_lowres_disparity( Options const& opt ) {
+
+    DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
+      Rmask(opt.out_prefix + "-rMask.tif");
+
     DiskImageView<PixelGray<float> > left_sub( opt.out_prefix+"-L_sub.tif" ),
       right_sub( opt.out_prefix+"-R_sub.tif" );
 
-    Vector2f down_sample_scale( float(left_sub.cols()) / float(cols),
-                                float(left_sub.rows()) / float(rows) );
+    Vector2f down_sample_scale( float(left_sub.cols()) / float(Lmask.cols()),
+                                float(left_sub.rows()) / float(Lmask.rows()) );
 
     DiskImageView<uint8> left_mask_sub( opt.out_prefix+"-lMask_sub.tif" ),
       right_mask_sub( opt.out_prefix+"-rMask_sub.tif" );

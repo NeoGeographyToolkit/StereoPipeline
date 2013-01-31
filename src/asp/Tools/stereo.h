@@ -94,9 +94,11 @@ namespace asp {
   // Checks for obvious user mistakes
   void user_safety_check(Options const& opt);
 
-  // Produces D_sub, used in both stereo_corr and stereo_corr_sub
-  void produce_lowres_disparity( vw::int32 cols, vw::int32 rows,
-                                 Options const& opt );
+  // Pre-correlation, used in both stereo_corr and stereo_corr_sub
+  void pre_correlation( Options const& opt );
+
+  // Produces D_sub
+  void produce_lowres_disparity( Options const& opt );
 
   // Approximate search range by looking at interest point match file,
   // used in both stereo_corr and stereo_corr_sub.
