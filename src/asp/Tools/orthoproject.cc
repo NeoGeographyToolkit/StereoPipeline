@@ -262,17 +262,18 @@ int main(int argc, char* argv[]) {
       vw_out() << "\t--> Using flat datum \"" << opt.dem_file << "\" as elevation model.\n";
     } else {
       // Open the DEM
-      cartography::read_georeference(dem_georef, opt.dem_file);
-
+      bool has_georef = cartography::read_georeference(dem_georef, opt.dem_file);
+      if (!has_georef)
+        vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
+      
       DiskImageView<float> dem_disk_image(opt.dem_file);
       dem = pixel_cast<PixelMask<float> >(dem_disk_image);
 
       // Attempting to extract automatic DEM nodata value.
       if ( std::isnan(opt.nodata_value) ) {
-        SrcImageResource *rsrc = DiskImageResource::open(opt.dem_file);
+        boost::scoped_ptr<SrcImageResource> rsrc( DiskImageResource::open(opt.dem_file) );
         if ( rsrc->has_nodata_read() )
           opt.nodata_value = rsrc->nodata_read();
-        delete rsrc;
       }
       // If we have a nodata value, create a mask.
       if ( !std::isnan(opt.nodata_value) ) {
