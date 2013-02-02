@@ -41,32 +41,26 @@ namespace asp {
 
     // Semi-private tasks that I wouldn't like the user to know about
     template <class SourceT, class SparseT>
-    class InpaintTask : public vw::Task {
-      // Disable copy
-      InpaintTask(InpaintTask& copy){}
-      void operator=(InpaintTask& copy){}
-
-      vw::ImageViewBase<SourceT> const& m_view;
+    class InpaintTask : public vw::Task, boost::noncopyable {
+      SourceT const& m_view;
       blob::BlobCompressed m_c_blob;
       bool m_use_grassfire;
       typename SourceT::pixel_type m_default_inpaint_val;
       SparseView<SparseT> & m_patches;
       int m_id;
-      boost::shared_ptr<vw::Mutex> m_crop;
       boost::shared_ptr<vw::Mutex> m_insert;
 
     public:
       InpaintTask( vw::ImageViewBase<SourceT> const& view,
                    blob::BlobCompressed const& c_blob,
                    bool use_grassfire,
-                   typename SourceT::pixel_type default_inpaint_val,                  
+                   typename SourceT::pixel_type default_inpaint_val,
                    SparseView<SparseT> & sparse,
                    int const& id,
-                   boost::shared_ptr<vw::Mutex> crop,
                    boost::shared_ptr<vw::Mutex> insert ) :
-        m_view(view), m_c_blob(c_blob),
+        m_view(view.impl()), m_c_blob(c_blob),
         m_use_grassfire(use_grassfire), m_default_inpaint_val(default_inpaint_val),
-        m_patches(sparse), m_id(id), m_crop(crop), m_insert(insert) {}
+        m_patches(sparse), m_id(id), m_insert(insert) {}
 
       void operator()() {
         vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": started\n";
@@ -79,7 +73,7 @@ namespace asp {
         }else{
           bbox.expand(1);
         }
-        
+
         // How do we want to handle spots on the edges?
         if ( bbox.min().x() < 0 || bbox.min().y() < 0 ||
              bbox.max().x() >= m_view.impl().cols() || bbox.max().y() >= m_view.impl().rows() ) {
@@ -94,11 +88,8 @@ namespace asp {
           *iter -= bbox.min();
 
         // Building a cropped copy for my patch
-        vw::ImageView<typename SourceT::pixel_type> cropped_copy;
-        { // It is possible that patches' bboxs will overlap
-          vw::Mutex::Lock lock( *m_crop );
-          cropped_copy = crop( m_view, bbox );
-        }
+        vw::ImageView<typename SourceT::pixel_type> cropped_copy =
+          crop( m_view, bbox );
 
         // Creating binary image to highlight hole
         vw::ImageView<vw::uint8> mask( bbox.width(), bbox.height() );
@@ -106,12 +97,11 @@ namespace asp {
         for ( std::list<vw::Vector2i>::const_iterator iter = blob.begin();
               iter != blob.end(); iter++ )
           mask( iter->x(), iter->y() ) = 255;
-        
+
         if (m_use_grassfire){
-          
           vw::ImageView<vw::int32> distance = grassfire(mask);
           int max_distance = max_pixel_value( distance );
-          
+
           // Working out order of convolution
           std::list<vw::Vector2i> processing_order;
           for ( int d = 1; d < max_distance+1; d++ )
@@ -120,30 +110,41 @@ namespace asp {
                 if ( distance(i,j) == d ) {
                   processing_order.push_back( vw::Vector2i(i,j) );
                 }
-          
+
           // Iterate and apply convolution seperately to each channel
-          for ( vw::uint32 c = 0; c < vw::PixelNumChannels<typename SourceT::pixel_type>::value;
-                c++ )
-            for ( int d = 0; d < 10*max_distance*max_distance; d++ )
-              for ( std::list<vw::Vector2i>::const_iterator iter = processing_order.begin();
-                    iter != processing_order.end(); iter++ ) {
-                float sum = 0;
-                sum += .176765*cropped_copy(iter->x()-1,iter->y()-1)[c];
-                sum += .176765*cropped_copy(iter->x()-1,iter->y()+1)[c];
-                sum += .176765*cropped_copy(iter->x()+1,iter->y()-1)[c];
-                sum += .176765*cropped_copy(iter->x()+1,iter->y()+1)[c];
-                sum += .073235*cropped_copy(iter->x()+1,iter->y())[c];
-                sum += .073235*cropped_copy(iter->x()-1,iter->y())[c];
-                sum += .073235*cropped_copy(iter->x(),iter->y()+1)[c];
-                sum += .073235*cropped_copy(iter->x(),iter->y()-1)[c];
-                cropped_copy(iter->x(),iter->y())[c] = sum;
-              }
+          typedef typename vw::CompoundChannelCast<typename SourceT::pixel_type,float>::type AccumulatorType;
+          for ( int d = 0; d < 10*max_distance*max_distance; d++ )
+            BOOST_FOREACH( vw::Vector2i const& l, processing_order ) {
+              typename vw::ImageView<typename SourceT::pixel_type>::pixel_accessor pit =
+                cropped_copy.origin();
+              pit.advance( l.x() - 1, l.y() - 1 );
+
+              AccumulatorType sum(0);
+              sum += .176765 * (*pit);
+              pit.next_col();
+              sum += .073235 * (*pit);
+              pit.next_col();
+              sum += .176765 * (*pit);
+              pit.advance( -2, 1 );
+              sum += .073235 * (*pit);
+              pit.advance( 2, 0 );
+              sum += .073235 * (*pit);
+              pit.advance( -2, 1 );
+              sum += .176765 * (*pit);
+              pit.next_col();
+              sum += .073235 * (*pit);
+              pit.next_col();
+              sum += .176765 * (*pit);
+
+              sum.validate();
+              cropped_copy(l.x(),l.y()) = sum;
+            }
         }else{
           for ( std::list<vw::Vector2i>::const_iterator iter = blob.begin();
                 iter != blob.end(); iter++ )
             cropped_copy( iter->x(), iter->y() ) = m_default_inpaint_val;
         }
-        
+
         { // Insert results into sparse view
           vw::Mutex::Lock lock( *m_insert );
           m_patches.absorb(bbox.min(),copy_mask(cropped_copy,create_mask( mask, 0 )));
@@ -169,7 +170,7 @@ namespace asp {
     SparseView<typename vw::UnmaskedPixelType<typename ViewT::pixel_type>::type> m_patches;
     bool m_use_grassfire;
     typename ViewT::pixel_type m_default_inpaint_val;
-    
+
     // A special copy constructor for prerasterization
     template <class OViewT>
     InpaintView( vw::ImageViewBase<ViewT> const& image,
@@ -195,27 +196,26 @@ namespace asp {
         vw::Stopwatch sw;
         sw.start();
 
-        boost::shared_ptr<vw::Mutex> crop_mutex( new vw::Mutex );
         boost::shared_ptr<vw::Mutex> insert_mutex( new vw::Mutex );
 
         vw::FifoWorkQueue queue(vw::vw_settings().default_num_threads());
         typedef inpaint_p::InpaintTask<ViewT, sparse_type> task_type;
 
-        for ( unsigned i = 0; i < bindex.num_blobs(); i++ ) {
+        for ( size_t i = 0; i < bindex.num_blobs(); i++ ) {
           boost::shared_ptr<task_type> task(new task_type(image, bindex.compressed_blob(i),
-                                                          m_use_grassfire, m_default_inpaint_val, 
-                                                          m_patches, i, crop_mutex, insert_mutex ));
+                                                          m_use_grassfire, m_default_inpaint_val,
+                                                          m_patches, i, insert_mutex ));
           queue.add_task( task );
         }
         queue.join_all();
         sw.stop();
-        vw_out(vw::VerboseDebugMessage,"inpaint") << "Time used in inpaint threads: " << sw.elapsed_seconds() << "s\n";
+        VW_OUT(vw::VerboseDebugMessage,"inpaint") << "Time used in inpaint threads: " << sw.elapsed_seconds() << "s\n";
       }
     }
 
     inline vw::int32 cols() const { return m_child.cols(); }
     inline vw::int32 rows() const { return m_child.rows(); }
-    inline vw::int32 planes() const { return 1; } // Not allowed .
+    inline vw::int32 planes() const { return 1; } // Not allowed.
 
     inline pixel_accessor origin() const { return pixel_accessor(*this,0,0); }
 
