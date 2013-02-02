@@ -19,49 +19,18 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/GaussianClustering.h>
 #include <vw/Math/RANSAC.h>
-#include <vw/Cartography/Datum.h>
+#include <vw/Cartography/CameraBBox.h>
 #include <vw/Stereo/StereoModel.h>
 
 using namespace vw;
 
 namespace asp {
 
-  Vector3 datum_intersection( cartography::Datum const& datum,
-                              camera::CameraModel* model,
-                              Vector2 const& pix ) {
-    using namespace vw;
-
-    // Intersect the ray back-projected from the camera with the
-    // datum, which is a spheroid. To simplify the calculations, scale
-    // everything in such a way that the spheroid becomes a
-    // sphere. Scale back at the end of computation.
-
-    double z_scale = datum.semi_major_axis() / datum.semi_minor_axis();
-
-    Vector3 ccenter = model->camera_center( pix );
-    Vector3 cvec  = model->pixel_to_vector( pix );
-    ccenter.z() *= z_scale;
-    cvec.z() *= z_scale;
-    cvec = normalize(cvec);
-    double radius_2 = datum.semi_major_axis() *
-      datum.semi_major_axis();
-    double alpha = -dot_prod(ccenter, cvec );
-    Vector3 projection = ccenter + alpha*cvec;
-    if ( norm_2_sqr(projection) > radius_2 ) {
-      // did not intersect
-      return Vector3();
-    }
-
-    alpha -= sqrt( radius_2 -
-                   norm_2_sqr(projection) );
-    return elem_prod(ccenter + alpha * cvec, Vector3(1,1,1.0/z_scale));
-  }
-
   Vector3 EpipolarLinePointMatcher::epipolar_line( Vector2 const& feature,
                                                    cartography::Datum const& datum,
                                                    camera::CameraModel* cam_ip,
                                                    camera::CameraModel* cam_obj ) {
-    Vector3 p0 = asp::datum_intersection( datum, cam_ip, feature );
+    Vector3 p0 = cartography::datum_intersection( datum, cam_ip, feature );
     Vector3 p1 = p0 + 10*cam_ip->pixel_to_vector( feature );
     Vector2 ep0 = cam_obj->point_to_pixel( p0 );
     Vector2 ep1 = cam_obj->point_to_pixel( p1 );
@@ -196,7 +165,7 @@ namespace asp {
                      double(box1.height() - 1) * j / 99.0 );
 
           Vector3 intersection =
-            datum_intersection( datum, cam1, l );
+            cartography::datum_intersection( datum, cam1, l );
           if ( intersection == Vector3() )
             continue;
 
@@ -212,7 +181,7 @@ namespace asp {
                      double(box2.height() - 1) * j / 99.0 );
 
           Vector3 intersection =
-            datum_intersection( datum, cam2, r );
+            cartography::datum_intersection( datum, cam2, r );
           if ( intersection == Vector3() )
             continue;
 

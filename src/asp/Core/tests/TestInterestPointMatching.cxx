@@ -19,7 +19,7 @@
 #include <test/Helpers.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <vw/Camera/PinholeModel.h>
-#include <vw/Cartography/Datum.h>
+#include <vw/Cartography/CameraBBox.h>
 
 using namespace vw;
 using namespace asp;
@@ -39,7 +39,7 @@ TEST( InterestPointMatching, DatumIntersection ) {
     for ( size_t j = 0; j < 35000; j+= 2000 ) {
       Vector2 meas( i, j );
 
-      Vector3 pos = datum_intersection( datum, &model, meas );
+      Vector3 pos = cartography::datum_intersection( datum, &model, meas );
       Vector3 geo = datum.cartesian_to_geodetic( pos );
 
       // Verify that the geodetic height is zero (we are on the sphere).
@@ -56,7 +56,7 @@ TEST( InterestPointMatching, DatumIntersection ) {
     for ( size_t j = 0; j < 35000; j+= 2000 ) {
       Vector2 meas( i, j );
 
-      Vector3 pos = datum_intersection( datum, &model, meas );
+      Vector3 pos = cartography::datum_intersection( datum, &model, meas );
       Vector3 geo = datum.cartesian_to_geodetic( pos );
 
       // Verify that the geodetic height is zero (we are on the sphere).

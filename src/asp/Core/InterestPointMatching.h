@@ -35,11 +35,6 @@
 
 namespace asp {
 
-  // Intersect a pixel against the datum
-  vw::Vector3 datum_intersection( vw::cartography::Datum const& datum,
-                                  vw::camera::CameraModel* model,
-                                  vw::Vector2 const& pix );
-
   // Takes interest points and then finds the nearest 10 matches. It
   // filters them by whom are closest to the epipolar line via a
   // threshold. The remaining 2 or then selected to be a match if
