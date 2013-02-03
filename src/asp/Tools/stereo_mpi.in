@@ -300,7 +300,7 @@ if __name__ == '__main__':
 
     mpiexec_rank = os.getenv("MPIEXEC_RANK")
 
-    if opt.mpi_nodes is None:
+    if opt.mpi_nodes is None or opt.mpi_nodes == 1:
         create_subproject_dirs( settings )
 
     if opt.mpi_nodes is not None and opt.mpi_nodes > 1 and mpiexec_rank is None:
