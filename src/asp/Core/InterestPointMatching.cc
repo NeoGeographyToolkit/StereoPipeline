@@ -331,7 +331,7 @@ namespace asp {
 
       // Is this point an inlier in terms of altitude against world datum?
       bool alt_inlier =
-        !disable_alt_check ||
+        disable_alt_check ||
         (
          (ascalar1 * exp( (-alt_diff_front * alt_diff_front) * ascalar3 ) ) >
          (ascalar2 * exp( (-alt_diff_back * alt_diff_back ) * ascalar4 ) ) &&
