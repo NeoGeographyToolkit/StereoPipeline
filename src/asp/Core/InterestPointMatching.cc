@@ -51,15 +51,15 @@ namespace asp {
       norm_2( subvector( line, 0, 2 ) );
   }
 
-  void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
-                                             ip::InterestPointList const& ip2,
+  void EpipolarLinePointMatcher::operator()( std::vector<ip::InterestPoint> const& ip1,
+                                             std::vector<ip::InterestPoint> const& ip2,
                                              camera::CameraModel* cam1,
                                              camera::CameraModel* cam2,
                                              TransformRef const& tx1,
                                              TransformRef const& tx2,
                                              std::vector<size_t>& output_indices,
                                              const ProgressCallback &progress_callback ) const {
-    typedef ip::InterestPointList::const_iterator IPListIter;
+    typedef std::vector<ip::InterestPoint>::const_iterator IPListIter;
 
     Timer total_time("Total elapsed time", DebugMessage, "interest_point");
     size_t ip1_size = ip1.size(), ip2_size = ip2.size();

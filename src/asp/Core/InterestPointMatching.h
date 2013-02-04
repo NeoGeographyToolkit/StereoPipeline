@@ -49,8 +49,8 @@ namespace asp {
       m_threshold(threshold), m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
 
     // This only returns the indicies
-    void operator()( vw::ip::InterestPointList const& ip1,
-                     vw::ip::InterestPointList const& ip2,
+    void operator()( std::vector<vw::ip::InterestPoint> const& ip1,
+                     std::vector<vw::ip::InterestPoint> const& ip2,
                      vw::camera::CameraModel* cam1,
                      vw::camera::CameraModel* cam2,
                      vw::TransformRef const& tx1,
@@ -202,11 +202,12 @@ namespace asp {
     // Match the interset points using the default matcher
     vw_out() << "\t--> Matching interest points\n";
     ip::InterestPointMatcher<ip::L2NormMetric,ip::NullConstraint> matcher(0.5);
+
+    // Copy to vector for random access iterators and for sorting so
+    // we get the same results.
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-    ip1_copy.reserve( ip1.size() );
-    ip2_copy.reserve( ip2.size() );
-    std::copy( ip1.begin(), ip1.end(), std::back_inserter( ip1_copy ) );
-    std::copy( ip2.begin(), ip2.end(), std::back_inserter( ip2_copy ) );
+    ip::sort_interest_points( ip1, ip2, ip1_copy, ip2_copy );
+
     matcher( ip1_copy, ip2_copy, matched_ip1, matched_ip2,
              TerminalProgressCallback( "asp", "\t   Matching: " ));
     ip::remove_duplicates( matched_ip1, matched_ip2 );
@@ -303,13 +304,18 @@ namespace asp {
     if ( ip1.size() == 0 || ip2.size() == 0 )
       return false;
 
+    // Convert over to vector for random access iterators
+    std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
+    ip::sort_interest_points( ip1, ip2, ip1_copy, ip2_copy );
+    ip1.clear(); ip2.clear();
+
     // Match interest points forward/backward .. constraining on epipolar line
     std::vector<size_t> forward_match, backward_match;
     vw_out() << "\t--> Matching interest points" << std::endl;
     EpipolarLinePointMatcher matcher( 0.5, norm_2(Vector2(image1.cols(),image1.rows()))/20, datum );
-    matcher( ip1, ip2, cam1, cam2, left_tx, right_tx, forward_match,
+    matcher( ip1_copy, ip2_copy, cam1, cam2, left_tx, right_tx, forward_match,
              TerminalProgressCallback("asp","\t    Forward:") );
-    matcher( ip2, ip1, cam2, cam1, right_tx, left_tx, backward_match,
+    matcher( ip2_copy, ip1_copy, cam2, cam1, right_tx, left_tx, backward_match,
              TerminalProgressCallback("asp","\t    Backward:") );
 
     // Perform circle consistency check
@@ -327,60 +333,67 @@ namespace asp {
     vw_out() << "\t    Matched " << valid_count << " points." << std::endl;
 
     // Pull out correct subset
-    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-    matched_ip1.reserve( valid_count ); // Get our allocations out of the way.
-    matched_ip2.reserve( valid_count );
-    {
-      ip::InterestPointList::const_iterator ip1_it = ip1.begin(), ip2_it = ip2.begin();
+    std::vector<ip::InterestPoint> buffer( valid_count );
+    { // Down select ip1
+      size_t oi = 0;
       for ( size_t i = 0; i < forward_match.size(); i++ ) {
         if ( forward_match[i] != NULL_INDEX ) {
-          matched_ip1.push_back( *ip1_it );
-          ip2_it = ip2.begin();
-          std::advance( ip2_it, forward_match[i] );
-          matched_ip2.push_back( *ip2_it );
+          buffer[oi] = ip1_copy[i];
+          oi++;
         }
-        ip1_it++;
       }
+      ip1_copy = buffer;
+    }
+    { // Down select ip2
+      size_t oi = 0;
+      for ( size_t i = 0; i < forward_match.size(); i++ ) {
+        if ( forward_match[i] != NULL_INDEX ) {
+          buffer[oi] = ip2_copy[forward_match[i]];
+          oi++;
+        }
+      }
+      ip2_copy = buffer;
     }
 
     // Apply filtering of triangulation error and altitude
     std::list<size_t> good_indices;
-    if (!tri_and_alt_ip_filtering( matched_ip1, matched_ip2,
+    if (!tri_and_alt_ip_filtering( ip1_copy, ip2_copy,
                                    cam1, cam2, datum, good_indices, left_tx, right_tx ) )
       return false;
 
     // Record new list that contains only the inliers.
     vw_out() << "\t    Reduced matches to " << good_indices.size() << "\n";
-    std::vector<ip::InterestPoint> buffer( good_indices.size() );
+    buffer.clear();
+    buffer.resize( good_indices.size() );
 
     // Subselect, Transform, Copy, Matched Ip1
     size_t w_index = 0;
     BOOST_FOREACH( size_t index, good_indices ) {
-      Vector2 l( matched_ip1[index].x, matched_ip1[index].y );
+      Vector2 l( ip1_copy[index].x, ip1_copy[index].y );
       if ( transform_to_original_coord )
         l = left_tx.reverse( l );
-      matched_ip1[index].ix = matched_ip1[index].x = l.x();
-      matched_ip1[index].iy = matched_ip1[index].y = l.y();
-      buffer[w_index] = matched_ip1[index];
+      ip1_copy[index].ix = ip1_copy[index].x = l.x();
+      ip1_copy[index].iy = ip1_copy[index].y = l.y();
+      buffer[w_index] = ip1_copy[index];
       w_index++;
     }
-    matched_ip1 = buffer;
+    ip1_copy = buffer;
 
 
     // Subselect, Transform, Copy, Matched ip2
     w_index = 0;
     BOOST_FOREACH( size_t index, good_indices ) {
-      Vector2 r( matched_ip2[index].x, matched_ip2[index].y );
+      Vector2 r( ip2_copy[index].x, ip2_copy[index].y );
       if ( transform_to_original_coord )
         r = right_tx.reverse( r );
-      matched_ip2[index].ix = matched_ip2[index].x = r.x();
-      matched_ip2[index].iy = matched_ip2[index].y = r.y();
-      buffer[w_index] = matched_ip2[index];
+      ip2_copy[index].ix = ip2_copy[index].x = r.x();
+      ip2_copy[index].iy = ip2_copy[index].y = r.y();
+      buffer[w_index] = ip2_copy[index];
       w_index++;
     }
-    matched_ip2 = buffer;
+    ip2_copy = buffer;
 
-    ip::write_binary_match_file( output_name, matched_ip1, matched_ip2 );
+    ip::write_binary_match_file( output_name, ip1_copy, ip2_copy );
 
     return true;
   }
