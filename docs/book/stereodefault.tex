@@ -121,38 +121,38 @@ values listed after the parameter name.
   for the preprocessing modes 1 and 2 above. A value of 1.4 works
   well for LoG and 25-30 works well for Subtracted Mean.
 
-\item[corr-seed-mode \textnormal{\small{(=0,1)}}] (default = 1) \hfill \\
-  This parameter selects a strategy for how to solve for the integer
-  correlation. It takes an integer value to index which strategy to
-  take.
+\item[corr-seed-mode \textnormal{\small{(=0,1,2)}}] (default = 1) \hfill \\
+  This integer parameter selects a strategy for how to solve for the integer
+  correlation disparity.
   \begin{description}
-    \item[0 - None] - Meaning, don't calculate a low resolution
-      variant of the disparity image. This produces a strategy that is
-      the same as the old style ASP.
-    \item[1 - Low-Res Disparity] - Calculate a low resolution version
-      of the disparity from the L and R sub pictures. The results of
-      this disparity will be used to narrow down the search range of
-      individual tiles in the native resolution disparity image.
+    \item[0 - None] - Don't calculate a low-resolution
+      variant of the disparity image.
+      The search range provided by \texttt{corr-search} is used directly in computing the
+      full-resolution disparity.
+    \item[1 - Low-resolution disparity from stereo] - Calculate a low-resolution version
+      of the disparity from the integer correlation of subsampled left and right images.
+      The low-resolution disparity will be used to narrow down the search range
+      for the full-resolution disparity.
 
       This is a useful option despite the fact that our integer
       correlation implementation does indeed use a pyramid
-      approach. Our implementation can't search infinitely into lower
-      resolutions due to its independent and tiled nature. This low
-      resolution disparity seed is a good hybrid approach.
-    \item[2 - Not implemented yet] - It would be nice to have local
-      affine fittings for each tile. Anyone interested in
-      implementing?
+      approach. Our implementation cannot search infinitely into lower
+      resolutions due to its independent and tiled nature. This
+      low-resolution disparity seed is a good hybrid approach.
+    \item[2 - Low-resolution disparity from an input DEM] - Use a DEM together with an estimated
+      value for its accuracy to compute a low-resolution disparity, which will then be used
+      to find the full-resolution disparity as above.
   \end{description}
 
-  For large images, bigger than MOC-NA, using the low resolution
+  For large images, bigger than MOC-NA, using the low-resolution
   disparity seed is a definitive plus. Smaller images such as Cassini
   ISS or MER images should just shut this option off to save storage
   space.
 
-\item[corr-sub-seed-percent \textnormal{\small{(= \emph{float})}} (default=.25)] \hfill \\
-  When using \texttt{corr-seed-mode 1}, the solved for or user
-  provided search range is padded by a percentage. The user can
-  customize this value themselves with this option.
+\item[corr-sub-seed-percent \textnormal{\small{(= \emph{float})}} (default=0.25)] \hfill \\
+  When using \texttt{corr-seed-mode 1}, the solved-for or user-provided
+  search range is grown by this factor for the purpose of computing the
+  low-resolution disparity.
 
 \item[cost-mode \textnormal{\small{(= 0,1,2)}}] (default = 2) \hfill \\
 
@@ -354,5 +354,3 @@ values listed after the parameter name.
   \end{description}
 
 \end{description}
-
-
