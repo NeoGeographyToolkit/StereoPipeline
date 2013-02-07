@@ -116,7 +116,7 @@ public:
   inline prerasterize_type prerasterize_helper(BBox2i const& bbox) const {
 
     // User strategies
-    if ( stereo_settings().seed_mode == 1 ) {
+    if ( stereo_settings().seed_mode == 1 || stereo_settings().seed_mode == 2 ) {
       BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
                         elem_quot(bbox.max(), m_upscale_factor) );
       seed_bbox.expand(1);
@@ -127,6 +127,9 @@ public:
         stereo::get_disparity_range( crop( m_source_disparity, seed_bbox ) );
 
       local_search_range = grow_bbox_to_int(local_search_range);
+      // Expand local_search_range by 1. This is necessary since
+      // m_source_disparity is integer-valued, and perhaps the search
+      // range was supposed to be a fraction of integer bigger.
       local_search_range.expand(1);
       local_search_range.min() = floor(elem_prod(local_search_range.min(), m_upscale_factor));
       local_search_range.max() = ceil(elem_prod(local_search_range.max(), m_upscale_factor));
@@ -144,9 +147,8 @@ public:
                           stereo_settings().corr_max_levels );
 
       return corr_view.prerasterize( bbox );
-    } else if ( stereo_settings().seed_mode > 1 ) {
-      vw_throw( NoImplErr() << "Option " << stereo_settings().seed_mode
-                << " is not an implemented choice.\n" );
+    } else if ( stereo_settings().seed_mode != 0 ) {
+      vw_throw( ArgumentErr() << "stereo_corr: Invalid value for seed-mode: " << stereo_settings().seed_mode << ".\n" );
     }
 
     VW_OUT(DebugMessage,"stereo") << "Searching with " << stereo_settings().search_range << "\n";
@@ -185,10 +187,10 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
 void stereo_correlation( Options& opt ) {
 
   pre_correlation(opt);
-  
+
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : Stage 1 --> CORRELATION \n";
-  
+
   // Provide the user with some feedback of what we are actually going
   // to use.
   vw_out()   << "\t--------------------------------------------------\n";
@@ -217,11 +219,12 @@ void stereo_correlation( Options& opt ) {
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
 
-  stereo::CostFunctionType cost_mode = stereo::ABSOLUTE_DIFFERENCE;
-  if (stereo_settings().cost_mode == 1)
-    cost_mode = stereo::SQUARED_DIFFERENCE;
-  else if (stereo_settings().cost_mode == 2)
-    cost_mode = stereo::CROSS_CORRELATION;
+  stereo::CostFunctionType cost_mode;
+  if      (stereo_settings().cost_mode == 0) cost_mode = stereo::ABSOLUTE_DIFFERENCE;
+  else if (stereo_settings().cost_mode == 1) cost_mode = stereo::SQUARED_DIFFERENCE;
+  else if (stereo_settings().cost_mode == 2) cost_mode = stereo::CROSS_CORRELATION;
+  else
+    vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode << " for cost-mode.\n" );
 
   if ( stereo_settings().pre_filter_mode == 2 ) {
     vw_out() << "\t--> Using LOG pre-processing filter with "
@@ -251,7 +254,7 @@ void stereo_correlation( Options& opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : CORRELATION FINISHED \n";
-  
+
 }
 
 int main(int argc, char* argv[]) {

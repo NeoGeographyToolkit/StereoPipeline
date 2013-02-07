@@ -73,14 +73,15 @@ namespace asp {
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {
     StereoSettings& global = stereo_settings();
+    global.disparity_estimation_dem_accuracy = 0.0;
     (*this).add_options()
       ("prefilter-kernel-width", po::value(&global.slogW)->default_value(1.5),
-       "Sigma value for gaussian kernel used in prefilter for correlator.")
+       "Sigma value for Gaussian kernel used in prefilter for correlator.")
       ("prefilter-mode", po::value(&global.pre_filter_mode)->default_value(2),
        "Preprocessing filter mode. [0 None, 1 Gaussian, 2 LoG, 3 Sign of LoG]")
       ("corr-seed-mode", po::value(&global.seed_mode)->default_value(1),
-       "Correlation seed strategy. [0 None, 1 Use Low-Res Disparity]")
-      ("corr-sub-seed-percent", po::value(&global.seed_percent_pad)->default_value(.25),
+       "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem)]")
+      ("corr-sub-seed-percent", po::value(&global.seed_percent_pad)->default_value(0.25),
        "Percent fudge factor for disparity seed's search range")
       ("cost-mode", po::value(&global.cost_mode)->default_value(2),
        "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation]")
@@ -91,7 +92,11 @@ namespace asp {
       ("corr-search", po::value(&global.search_range)->default_value(BBox2i(0,0,0,0), "auto"),
        "Disparity search range. Specify in format: hmin vmin hmax vmax.")
       ("corr-max-levels", po::value(&global.corr_max_levels)->default_value(5),
-       "Max pyramid levels to process when using the integer correlator. (0 is just a single level).");
+       "Max pyramid levels to process when using the integer correlator. (0 is just a single level).")
+      ("disparity-estimation-dem", po::value(&global.disparity_estimation_dem)->default_value(""),
+       "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
+      ("disparity-estimation-dem-accuracy", po::value(&global.disparity_estimation_dem_accuracy),
+       "Accuracy (in meters) of the disparity estimation DEM.");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     backwards_compat_options.add_options()

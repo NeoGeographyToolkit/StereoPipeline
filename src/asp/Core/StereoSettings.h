@@ -74,32 +74,34 @@ namespace asp {
     double nodata_percentage;         // the percentage of low-value pixels treated as no-data
     double nodata_optimal_threshold_factor; // Pixels with values less than this factor times the optimal Otsu threshold
                                       // are treated as no-data
-    
+
     // Correlation Options
     float slogW;                      // Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None
                                       // 1 = Gaussian Blur
                                       // 2 = Log Filter
-                                      // 3 = SLog Filter  
+                                      // 3 = SLog Filter
     vw::uint16  seed_mode;            // 0 = User global search for each tile
                                       // 1 = Narrow search for each tile to low
                                       //     resolution disparity seed (D_sub)
                                       // 2 = Affine transform and narrow search
-                                      //     based on disparity seed 
+                                      //     based on disparity seed
     float seed_percent_pad;           // Pad amound towards the IP found
     vw::uint16 cost_mode;             // 0 = absolute difference
                                       // 1 = squared difference
-                                      // 2 = normalized cross correlation 
+                                      // 2 = normalized cross correlation
     float xcorr_threshold;            // L-R vs R-L agreement threshold in pixels
     vw::Vector2i corr_kernel;         // Correlation kernel
     vw::BBox2i search_range;          // Correlation search range
     vw::uint16 corr_max_levels;       // Max pyramid levels to process. 0 hits only once.
+    std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
+    double disparity_estimation_dem_accuracy; // Accuracy (in meters) of the disparity estimation DEM
 
     // Subpixel Options
     vw::uint16 subpixel_mode;         // 0 = parabola fitting
                                       // 1 = affine, robust weighting
                                       // 2 = affine, bayes weighting
-                                      // 3 = affine, bayes EM weighting 
+                                      // 3 = affine, bayes EM weighting
     vw::Vector2i subpixel_kernel;     // Subpixel correlation kernel
     bool disable_h_subpixel, disable_v_subpixel;
     vw::uint16 subpixel_max_levels;   // Max pyramid levels to process. 0 hits only once.
@@ -110,22 +112,22 @@ namespace asp {
     int subpixel_pyramid_levels;
 
     // Filtering Options
-    vw::Vector2i rm_half_kernel;      // Low confidence pixel removal kernel size 
-    int rm_min_matches;               // Min # of pxl to be matched to keep pxl 
-    int rm_threshold;                 // rm_treshold < disp[n]-disp[m] reject pxl 
+    vw::Vector2i rm_half_kernel;      // Low confidence pixel removal kernel size
+    int rm_min_matches;               // Min # of pxl to be matched to keep pxl
+    int rm_threshold;                 // rm_treshold < disp[n]-disp[m] reject pxl
     int rm_cleanup_passes;            // Number of times to perform cleanup
-                                      // in the post-processing phase 
+                                      // in the post-processing phase
     int erode_max_size;               // Max island size in pixels that it'll remove
     bool disable_fill_holes;
     int fill_hole_max_size;           // Maximum hole size in pixels that we'll attempt
-                                      // to fill 
+                                      // to fill
     bool mask_flatfield;              // Masks pixels in the input images that are less
                                       // than 0 (for use with Apollo Metric Camera)
 
     // Triangulation Options
-    std::string universe_center;      // Center for the radius clipping   
-    float near_universe_radius;       // Radius of the universe in meters 
-    float far_universe_radius;        // Radius of the universe in meters 
+    std::string universe_center;      // Center for the radius clipping
+    float near_universe_radius;       // Radius of the universe in meters
+    float far_universe_radius;        // Radius of the universe in meters
     bool use_least_squares;           // Use a more rigorous triangulation
     bool compute_error_vector;        // Compute the triangulation error vector, not just its length
 

@@ -24,6 +24,7 @@
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
+#include <vw/Stereo/DisparityMap.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Sessions/RPC/RPCModel.h>
 
@@ -31,6 +32,7 @@
 #include <boost/accumulators/statistics.hpp>
 
 using namespace vw;
+using namespace vw::cartography;
 
 namespace asp {
 
@@ -310,7 +312,7 @@ namespace asp {
       // projected image.
     }
 
-    cartography::GeoReference georef;
+    GeoReference georef;
     bool has_georef1 = read_georeference( georef, opt.in_file1 );
     bool has_georef2 = read_georeference( georef, opt.in_file2 );
 
@@ -324,6 +326,72 @@ namespace asp {
     }
   }
 
+
+  // A class for combining the three channels of errors and finding
+  // their absolute values.
+  template <class ImageT>
+  class DemDisparity : public ImageViewBase<DemDisparity<ImageT> >
+  {
+    double m_nodata_value;
+    ImageT m_image1;
+    ImageT m_image2;
+    ImageT m_image3;
+    typedef typename ImageT::pixel_type dpixel_type;
+
+  public:
+
+    typedef Vector3f pixel_type;
+    typedef const Vector3f result_type;
+    typedef ProceduralPixelAccessor<DemDisparity> pixel_accessor;
+
+    DemDisparity(double nodata_value,
+                 ImageViewBase<ImageT> const& image1,
+                 ImageViewBase<ImageT> const& image2,
+                 ImageViewBase<ImageT> const& image3):
+      m_nodata_value(nodata_value),
+      m_image1( image1.impl() ),
+      m_image2( image2.impl() ),
+      m_image3( image3.impl() ){}
+
+    inline int32 cols() const { return m_image1.cols(); }
+    inline int32 rows() const { return m_image1.rows(); }
+    inline int32 planes() const { return 1; }
+
+    inline pixel_accessor origin() const { return pixel_accessor(*this); }
+
+    inline result_type operator()( size_t col, size_t row, size_t p=0 ) const {
+      return Vector3f();
+    }
+
+    /// \cond INTERNAL
+    typedef DemDisparity<typename ImageT::prerasterize_type> prerasterize_type;
+
+    inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
+      return prerasterize_type(m_nodata_value,
+                               m_image1.prerasterize(bbox),
+                               m_image2.prerasterize(bbox),
+                               m_image3.prerasterize(bbox)
+                               );
+    }
+    template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
+      vw::rasterize( prerasterize(bbox), dest, bbox );
+    }
+    /// \endcond
+  };
+  template <class ImageT>
+  DemDisparity<ImageT> dem_disparity(double nodata_value,
+                                        ImageViewBase<ImageT> const& image1,
+                                        ImageViewBase<ImageT> const& image2,
+                                        ImageViewBase<ImageT> const& image3){
+    VW_ASSERT(image1.impl().cols() == image2.impl().cols() &&
+              image2.impl().cols() == image3.impl().cols() &&
+              image1.impl().rows() == image2.impl().rows() &&
+              image2.impl().rows() == image3.impl().rows(),
+              ArgumentErr() << "Expecting the error channels to have the same size.");
+
+    return DemDisparity<ImageT>(nodata_value, image1.impl(), image2.impl(), image3.impl());
+  }
+
   void pre_correlation( Options const& opt ) {
 
     vw_out() << "\n[ " << current_posix_time_string()
@@ -331,7 +399,7 @@ namespace asp {
 
     // Working out search range if need be
     if (stereo_settings().is_search_defined()) {
-      vw_out() << "\t--> Using user defined search range.\n";
+      vw_out() << "\t--> Using user-defined search range.\n";
     } else {
 
       // Match file between the input files
@@ -419,16 +487,18 @@ namespace asp {
     DiskImageView<PixelGray<float> > left_sub( opt.out_prefix+"-L_sub.tif" ),
       right_sub( opt.out_prefix+"-R_sub.tif" );
 
-    Vector2f down_sample_scale( float(left_sub.cols()) / float(Lmask.cols()),
-                                float(left_sub.rows()) / float(Lmask.rows()) );
+    Vector2f downsample_scale( float(left_sub.cols()) / float(Lmask.cols()),
+                               float(left_sub.rows()) / float(Lmask.rows()) );
 
     DiskImageView<uint8> left_mask_sub( opt.out_prefix+"-lMask_sub.tif" ),
       right_mask_sub( opt.out_prefix+"-rMask_sub.tif" );
 
-    BBox2i search_range( floor(elem_prod(down_sample_scale,stereo_settings().search_range.min())),
-                         ceil(elem_prod(down_sample_scale,stereo_settings().search_range.max())) );
+    BBox2i search_range( floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
+                         ceil(elem_prod(downsample_scale,stereo_settings().search_range.max())) );
 
-    {
+    if ( stereo_settings().seed_mode == 1 ) {
+
+      // Use low-res correlation to get the low-res disparity
       Vector2i expansion( search_range.width(),
                           search_range.height() );
       expansion *= stereo_settings().seed_percent_pad / 2.0f;
@@ -450,6 +520,161 @@ namespace asp {
                                                                               stereo::CROSS_CORRELATION, 2 ),
                                                    1, 1, 2.0, 0.5), opt,
                                    TerminalProgressCallback("asp", "\t--> Low Resolution:") );
+
+    }else if ( stereo_settings().seed_mode == 2 ) {
+
+      // To do: We don't need again the images below here
+      DiskImageView<PixelGray<float> > left_image(opt.out_prefix+"-L.tif");
+      DiskImageView<PixelGray<float> > left_image_sub(opt.out_prefix+"-L_sub.tif");
+
+      std::string dem_file = stereo_settings().disparity_estimation_dem;
+      if (dem_file == ""){
+        vw_throw( ArgumentErr() << "stereo_corr: No value was provided for: disparity-estimation-dem.\n" );
+      }
+      double accuracy = stereo_settings().disparity_estimation_dem_accuracy;
+      if (accuracy <= 0.0){
+        vw_throw( ArgumentErr() << "stereo_corr: Invalid value for disparity-estimation-dem-accuracy: " << accuracy << ".\n" );
+      }
+
+      GeoReference dem_georef;
+      bool has_georef = cartography::read_georeference(dem_georef, dem_file);
+      if (!has_georef)
+        vw_throw( ArgumentErr() << "There is no georeference information in: " << dem_file << ".\n" );
+
+      DiskImageView<float> dem_disk_image(dem_file);
+      ImageViewRef<PixelMask<float > > dem = pixel_cast<PixelMask<float> >(dem_disk_image);
+      boost::scoped_ptr<SrcImageResource> rsrc( DiskImageResource::open(dem_file) );
+      if ( rsrc->has_nodata_read() ){
+        double nodata_value = rsrc->nodata_read();
+        if ( !std::isnan(nodata_value) )
+          dem = create_mask(dem_disk_image, nodata_value);
+      }
+
+      // To do: This scale is duplicated
+      Vector2f downsample_scale( float(left_image_sub.cols()) / float(left_image.cols()),
+                                 float(left_image_sub.rows()) / float(left_image.rows()) );
+
+      boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+      opt.session->camera_models(left_camera_model, right_camera_model);
+
+      Matrix<double> align_matrix = identity_matrix<3>();
+      if ( stereo_settings().alignment_method == "homography" ) {
+        // We used a homography to line up the images, we may want
+        // to generate pre-alignment disparities before passing this information
+        // onto the camera model in the next stage of the stereo pipeline.
+        read_matrix(align_matrix, opt.out_prefix + "-align.exr");
+        vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";
+      }
+
+      // To do: Must transform the disparities properly in all cases, for all session types and
+      // map and non-map projected images.
+
+      // To do: Must also treat the MOC case with map-projection!
+
+      // To do:  The MOC testcase does not work!
+
+      // To do: Warn the user that the corr-search-range is ignored!
+
+      time_t Start_t, End_t;
+      int time_task1;
+      Start_t = time(NULL);
+
+      // Use a DEM to get the low-res disparity
+      double m_accuracy = accuracy;
+      GeoReference m_dem_georef = dem_georef;
+      ImageViewRef<PixelMask<float > > m_dem = dem;
+      Vector2f m_downsample_scale = downsample_scale;
+      boost::shared_ptr<camera::CameraModel> m_left_camera_model = left_camera_model;
+      boost::shared_ptr<camera::CameraModel> m_right_camera_model = right_camera_model;
+      Matrix<double> m_align_matrix = align_matrix;
+
+      std::cout << "value is " << m_accuracy << std::endl;
+
+      // Read everything below very carefully!!!
+
+      //DiskImageView<PixelMask<Vector2f> > transformed_disp("nomap_seed2_subpix2/res-F.tif");
+      //typedef ImageViewRef<PixelMask<Vector2f> > PVImageT;
+      //PVImageT untransformed_disp = opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif");
+
+      int sample = 5;
+      //char * pt = getenv("SAMPLE");
+      //if (pt && atoi(pt) > 0) sample = atoi(pt);
+      //std::cout << "using sample: " << sample << std::endl;
+
+      ImageView<PixelMask<Vector2i> > lowres_disparity(left_image_sub.cols(), left_image_sub.rows());
+      for (int col = 0; col < lowres_disparity.cols(); col++){
+        for (int row = 0; row < lowres_disparity.rows(); row++){
+          lowres_disparity(col, row).invalidate();
+        }
+      }
+
+
+      Vector3 prev_xyz = Vector3();
+
+      for (int row_s = 0; row_s < left_image_sub.rows()/sample; row_s++){
+
+        // Must wipe the previous guess since we are now too far from it
+        prev_xyz = Vector3();
+
+        for (int col_s = 0; col_s < left_image_sub.cols()/sample; col_s++){
+        //time_t Start_t2 = time(NULL);
+        //std::cout << "col is " << col_s*sample << ' ' << left_image_sub.cols() << ' ' << left_image_sub.rows() << std::endl;
+
+          int col = sample*col_s;
+          int row = sample*row_s;
+
+          Vector2 left_lowres_pix = Vector2(col, row);
+          Vector2 left_fullres_pix = elem_quot(left_lowres_pix, m_downsample_scale);
+
+          // To do: Tinker with the numbers below
+          double max_abs_tol = 1e-10;
+          double max_rel_tol = 1e-16;
+          int num_max_iter   = 50;
+
+          bool has_intersection;
+          Vector3 xyz = camera_pixel_to_dem_xyz(left_fullres_pix, m_dem, m_dem_georef,
+                                                m_left_camera_model, has_intersection,
+                                                max_abs_tol, max_rel_tol, num_max_iter,
+                                                prev_xyz
+                                                );
+
+          // To do: Study more the advantage of having an initial guess!
+          if ( has_intersection && xyz != Vector3() ) prev_xyz = xyz;
+
+          double left_error = norm_2( m_left_camera_model->point_to_pixel(xyz) - left_fullres_pix );
+
+          // Don't deviate too much from the pixel we are supposed to be at
+          if (left_error > 2){
+            has_intersection = false;
+          }
+
+          if (!has_intersection){
+            lowres_disparity(col, row).invalidate();
+            continue;
+          }
+
+          Vector2 right_fullres_pix = m_right_camera_model->point_to_pixel(xyz);
+          Vector2 transformed_right_pix = HomographyTransform(align_matrix).forward(right_fullres_pix);
+
+          Vector2 right_lowres_pix = elem_prod(transformed_right_pix, m_downsample_scale);
+          Vector2 disp = right_lowres_pix - left_lowres_pix;
+          lowres_disparity(col, row).validate();
+          lowres_disparity(col, row)[0] = (int)round(disp[0]);
+          lowres_disparity(col, row)[1] = (int)round(disp[1]);
+
+        }
+      }
+
+      End_t = time(NULL);    //record time that task 1 ends
+      time_task1 = difftime(End_t, Start_t);    //compute elapsed time of task 1
+      std::cout << "elapsed time: " << time_task1 << std::endl;
+
+      std::cout << "search range is " <<  stereo::get_disparity_range( lowres_disparity ) << std::endl;
+
+      asp::block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
+                                   lowres_disparity, opt,
+                                   TerminalProgressCallback("asp", "\t--> Low Resolution:") );
+
     }
 
     ImageView<PixelMask<Vector2i> > lowres_disparity;
@@ -458,8 +683,8 @@ namespace asp {
       stereo::get_disparity_range( lowres_disparity );
     VW_OUT(DebugMessage,"asp") << "D_sub resolved search range: "
                                << search_range << " px\n";
-    search_range.min() = floor(elem_quot(search_range.min(),down_sample_scale));
-    search_range.max() = ceil(elem_quot(search_range.max(),down_sample_scale));
+    search_range.min() = floor(elem_quot(search_range.min(),downsample_scale));
+    search_range.max() = ceil(elem_quot(search_range.max(),downsample_scale));
     stereo_settings().search_range = search_range;
   }
 
