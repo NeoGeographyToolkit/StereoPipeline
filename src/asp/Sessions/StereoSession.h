@@ -167,7 +167,7 @@ namespace asp {
       remove_duplicates(matched_ip1, matched_ip2);
       std::vector<Vector3> ransac_ip1 = iplist_to_vectorlist(matched_ip1);
       std::vector<Vector3> ransac_ip2 = iplist_to_vectorlist(matched_ip2);
-      vw_out(DebugMessage) << "\t--> Removed "
+      vw_out(DebugMessage,"asp") << "\t--> Removed "
                            << matched_ip1.size() - ransac_ip1.size()
                            << " duplicate matches.\n";
 
@@ -178,7 +178,7 @@ namespace asp {
         vw::math::RandomSampleConsensus<vw::math::HomographyFittingFunctor, vw::math::InterestPointErrorMetric> ransac( vw::math::HomographyFittingFunctor(), vw::math::InterestPointErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
         T = ransac( ransac_ip2, ransac_ip1 );
         indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1 );
-        vw_out(DebugMessage) << "\t--> AlignMatrix: " << T << std::endl;
+        vw_out(DebugMessage,"asp") << "\t--> AlignMatrix: " << T << std::endl;
 
       } catch (...) {
         vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";

@@ -31,7 +31,7 @@ using namespace vw;
 using namespace vw::camera;
 
 void read_image_info( std::string const& filename, ImageInfo& info ) {
-  vw_out(DebugMessage) << "Reading image info from " << filename << std::endl;;
+  vw_out(DebugMessage,"asp") << "Reading image info from " << filename << std::endl;;
   DiskImageResourcePNG png( filename );
   info.filename = filename;
   for( unsigned i=0; i<png.num_comments(); ++i ) {
