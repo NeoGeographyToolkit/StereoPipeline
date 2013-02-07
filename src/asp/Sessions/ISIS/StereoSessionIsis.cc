@@ -170,7 +170,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
   if ( stereo_settings().alignment_method == "homography" ) {
     std::string match_filename
       = ip::match_filename(m_out_prefix, input_file1, input_file2);
-    
+
     if (!fs::exists(match_filename)) {
       boost::shared_ptr<camera::CameraModel> cam1, cam2;
       camera_models( cam1, cam2 );
@@ -272,11 +272,11 @@ asp::StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
                                            std::string & output_file) {
   output_file = input_file;
 
-  // ****************************************************
-  // The following code is for Apollo Metric Camera ONLY!
-  // (use at your own risk)
-  // ****************************************************
   if (stereo_settings().mask_flatfield) {
+    // ****************************************************
+    // The following code is for Apollo Metric Camera ONLY!
+    // (use at your own risk)
+    // ****************************************************
     vw_out() << "\t--> Masking pixels that are less than 0.0.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
     output_file = m_out_prefix + "-R-masked.exr";
 
@@ -306,15 +306,16 @@ asp::StereoSessionIsis::pre_filtering_hook(std::string const& input_file,
   }
 }
 
-// Reverse any pre-alignment that was done to the images.
+// Reverse any pre-alignment that was done to the disparity.
 ImageViewRef<PixelMask<Vector2f> >
 asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
-  // ****************************************************
-  // The following code is for Apollo Metric Camera ONLY!
-  // (use at your own risk)
-  // ****************************************************
+
   std::string dust_result = input_file;
   if ( stereo_settings().mask_flatfield ) {
+    // ****************************************************
+    // The following code is for Apollo Metric Camera ONLY!
+    // (use at your own risk)
+    // ****************************************************
     vw_out() << "\t--> Masking pixels that appear to be dust.  (NOTE: Use this option with Apollo Metric Camera frames only!)\n";
     photometric_outlier_rejection( m_options, m_out_prefix, input_file,
                                    dust_result, stereo_settings().corr_kernel[0] );
@@ -329,7 +330,7 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
     // onto the camera model in the next stage of the stereo pipeline.
     Matrix<double> align_matrix;
     read_matrix(align_matrix, m_out_prefix + "-align.exr");
-    vw_out(DebugMessage) << "Alignment Matrix: " << align_matrix << "\n";
+    vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";
 
     // Remove pixels that are outside the bounds of the secondary image.
     DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
@@ -365,5 +366,3 @@ asp::StereoSessionIsis::camera_model(std::string const& image_file,
   }
 
 }
-
-
