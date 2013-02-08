@@ -518,8 +518,6 @@ void asp::read_xml( std::string const& filename,
                     RPCXML& rpc
                     ) {
 
-  // To do: Remove code duplication.
-
   // Check if the file actually exists and throw a user helpful file.
   if ( !fs::exists( filename ) )
     vw_throw( ArgumentErr() << "XML: File \"" << filename << "\" does not exist." );
