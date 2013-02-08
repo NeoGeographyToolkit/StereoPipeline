@@ -134,7 +134,8 @@ namespace asp {
                  GeometricXML& geo,
                  AttitudeXML& att,
                  EphemerisXML& eph,
-                 ImageXML& img );
+                 ImageXML& img,
+                 RPCXML& rpc );
 
 } //end namespace asp
 

@@ -514,7 +514,11 @@ void asp::read_xml( std::string const& filename,
                     GeometricXML& geo,
                     AttitudeXML& att,
                     EphemerisXML& eph,
-                    ImageXML& img ) {
+                    ImageXML& img,
+                    RPCXML& rpc
+                    ) {
+
+  // To do: Remove code duplication.
 
   // Check if the file actually exists and throw a user helpful file.
   if ( !fs::exists( filename ) )
@@ -547,6 +551,8 @@ void asp::read_xml( std::string const& filename,
         att.parse( curr_element );
       else if ( tag == "IMD" )
         img.parse( curr_element );
+      else if ( tag == "RPB" )
+        rpc.parse( curr_element );
     }
   }
 }

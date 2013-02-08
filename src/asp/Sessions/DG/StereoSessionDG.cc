@@ -96,7 +96,7 @@ public:
 
     return Vector2f(nan_val, nan_val);
   }
-  
+
 };
 
 namespace asp {
@@ -151,7 +151,7 @@ namespace asp {
       // cartographic information.
       if ( !fs::exists( input_dem ) )
         vw_throw( ArgumentErr() << "StereoSessionDG: DEM \"" << input_dem
-                  << "\" doesn't exist." );
+                  << "\" does not exist." );
 
       // Verify that center of our lonlat boundaries from the RPC models
       // actually projects into the DEM. (?)
@@ -164,11 +164,13 @@ namespace asp {
   boost::shared_ptr<camera::CameraModel>
   StereoSessionDG::camera_model( std::string const& /*image_file*/,
                                  std::string const& camera_file ) {
+
     GeometricXML geo;
     AttitudeXML att;
     EphemerisXML eph;
     ImageXML img;
-    read_xml( camera_file, geo, att, eph, img );
+    RPCXML rpc;
+    read_xml( camera_file, geo, att, eph, img, rpc );
 
     // Convert measurements in millimeters to pixels.
     geo.principal_distance /= geo.detector_pixel_pitch;
@@ -262,49 +264,26 @@ namespace asp {
     boost::shared_ptr<DiskImageResource> dem_rsrc( DiskImageResource::open( m_input_dem ) ),
       image_rsrc( DiskImageResource::open( image_file ) );
 
-    ImageXML image_xml;
+    GeometricXML geo_xml;
+    AttitudeXML att_xml;
+    EphemerisXML eph_xml;
+    ImageXML img_xml;
     RPCXML rpc_xml;
-
-    { // Parsing XML
-      boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
-      parser->setValidationScheme(XercesDOMParser::Val_Always);
-      parser->setDoNamespaces(true);
-      boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
-      parser->setErrorHandler(errHandler.get());
-
-      parser->parse( camera_file.c_str() );
-      DOMDocument* xmlDoc = parser->getDocument();
-      DOMElement* elementRoot = xmlDoc->getDocumentElement();
-
-      DOMNodeList* children = elementRoot->getChildNodes();
-      for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
-        DOMNode* curr_node = children->item(i);
-        if ( curr_node->getNodeType() == DOMNode::ELEMENT_NODE ) {
-          DOMElement* curr_element =
-            dynamic_cast<DOMElement*>( curr_node );
-          std::string tag( XMLString::transcode(curr_element->getTagName()) );
-          if ( tag == "RPB" ) {
-            rpc_xml.parse( curr_element );
-          } else if ( tag == "IMD" ) {
-            image_xml.parse( curr_element );
-          }
-        }
-      }
-    }
+    read_xml( camera_file, geo_xml, att_xml, eph_xml, img_xml, rpc_xml );
 
     BBox2i map_image_bbox( 0, 0, image_rsrc->cols(),
                            image_rsrc->rows() ),
       org_image_bbox( Vector2i(),
-                      image_xml.image_size );
+                      img_xml.image_size );
 
     cartography::GeoReference dem_georef, image_georef;
-    bool has_georef1 = read_georeference( dem_georef, m_input_dem );
+    bool has_georef1 = read_georeference( dem_georef,   m_input_dem );
     bool has_georef2 = read_georeference( image_georef, image_file );
-    if (!has_georef1 || !has_georef2){
-      vw_throw( ArgumentErr() << "Either the image "
-                << image_file << " or the DEM " << m_input_dem << " lacks a georeference.\n\n");
-    }
-    
+    if (!has_georef1)
+      vw_throw( ArgumentErr() << "The image " << image_file << " lacks a georeference.\n\n");
+    if (!has_georef2)
+      vw_throw( ArgumentErr() << "The DEM " << m_input_dem << " lacks a georeference.\n\n");
+
     boost::scoped_ptr<RPCModel> rpc_model( new RPCModel( *rpc_xml.rpc_ptr() ) );
 
     DiskImageView<float> dem( dem_rsrc );

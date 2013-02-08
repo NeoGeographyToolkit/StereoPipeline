@@ -35,19 +35,21 @@ TEST(StereoSessionDG, XMLReading) {
   AttitudeXML att;
   EphemerisXML eph;
   ImageXML img;
+  RPCXML rpc;
 
   EXPECT_FALSE( geo.is_good() );
   EXPECT_FALSE( att.is_good() );
   EXPECT_FALSE( eph.is_good() );
   EXPECT_FALSE( img.is_good() );
+  EXPECT_FALSE( rpc.is_good() );
 
-  read_xml( "dg_example1.xml",
-            geo, att, eph, img );
+  read_xml( "dg_example1.xml", geo, att, eph, img, rpc );
 
   EXPECT_TRUE( geo.is_good() );
   EXPECT_TRUE( att.is_good() );
   EXPECT_TRUE( eph.is_good() );
   EXPECT_TRUE( img.is_good() );
+  EXPECT_TRUE( rpc.is_good() );
 
   // Checking GEO
   EXPECT_NEAR( 7949.165, geo.principal_distance, 1e-6 );
