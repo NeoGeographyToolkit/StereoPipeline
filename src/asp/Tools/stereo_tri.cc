@@ -60,13 +60,12 @@ namespace asp{
 
   template <class ImageT>
   void save_point_cloud(ImageT const& point_cloud, Options const& opt){
-    
+
     std::string point_cloud_file = opt.out_prefix + "-PC.tif";
     vw_out() << "Writing Point Cloud: " << point_cloud_file << "\n";
-    
-    DiskImageResource* rsrc =
-      asp::build_gdal_rsrc( point_cloud_file,
-                            point_cloud, opt );
+
+    boost::scoped_ptr<DiskImageResource> rsrc (asp::build_gdal_rsrc( point_cloud_file,
+                                                                     point_cloud, opt ));
     if ( opt.stereo_session_string == "isis" ){
       // ISIS does not support multi-threading
       write_image(*rsrc, point_cloud,
@@ -75,10 +74,9 @@ namespace asp{
       block_write_image(*rsrc, point_cloud,
                         TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }
-    delete rsrc;
-  
+
   }
-  
+
 }
 
 // Class definition
@@ -275,7 +273,7 @@ public:
       preraster = BBox2i(bbox.min() + floor(Vector2f(input_min[0]-1,input_min[1]-1)),
                          bbox.max() + ceil(Vector2(input_max[0]+1,input_max[1]+1)) );
     }
-    
+
     return prerasterize_type( disparity_preraster,
                               m_lut_image1.prerasterize(bbox),
                               m_lut_image2_org.prerasterize(preraster),
