@@ -135,8 +135,8 @@ namespace asp {
 
           vw_out() << "\t    Generating descriptors...\n";
           ip::SGradDescriptorGenerator descriptor;
-          descriptor( image1, ip1 );
-          descriptor( image2, ip2 );
+          describe_interest_points( image1, descriptor, ip1 );
+          describe_interest_points( image2, descriptor, ip2 );
           vw_out() << "\t    done.\n";
 
           // Writing out the results

@@ -168,13 +168,13 @@ namespace asp {
     vw_out() << "\t    Building Descriptors" << std::endl;
     ip::SGradDescriptorGenerator descriptor;
     if ( boost::math::isnan(nodata1) )
-      descriptor(image1, ip1 );
+      describe_interest_points( image1, descriptor, ip1 );
     else
-      descriptor( apply_mask(create_mask(image1,nodata1)), ip1 );
+      describe_interest_points( apply_mask(create_mask(image1,nodata1)), descriptor, ip1 );
     if ( boost::math::isnan(nodata2) )
-      descriptor(image2, ip2 );
+      describe_interest_points( image2, descriptor, ip2 );
     else
-      descriptor( apply_mask(create_mask(image2,nodata2)), ip2 );
+      describe_interest_points( apply_mask(create_mask(image2,nodata2)), descriptor, ip2 );
 
     vw_out() << "\t    Found interest points:\n"
              << "\t      left: " << ip1.size() << "\n";
