@@ -33,6 +33,51 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
+// Cache Tile Aware Raster View.
+// Mostly just a fancy pass through
+template <class ImageT>
+class CacheTileAwareView : public ImageViewBase< CacheTileAwareView<ImageT> > {
+  ImageT m_child;
+  Vector2i m_tile_size;
+
+public:
+  typedef typename ImageT::pixel_type pixel_type;
+  typedef typename ImageT::result_type result_type;
+  typedef typename ImageT::pixel_accessor pixel_accessor;
+
+  CacheTileAwareView( ImageT const& image, Vector2i tile_size ) : m_child( image ), m_tile_size( tile_size ) {}
+
+  inline int32 cols() const { return m_child.cols(); }
+  inline int32 rows() const { return m_child.rows(); }
+  inline int32 planes() const { return m_child.planes(); }
+
+  inline pixel_accessor origin() const { return m_child.origin(); }
+
+  inline result_type operator()( int32 i, int32 j, int32 p=0 ) const {
+    return m_child(i,j,p);
+  }
+
+  typedef CropView<ImageView<pixel_type> > prerasterize_type;
+  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
+    // Fancy rasterize in section of m_tile_size
+    std::vector<BBox2i> subregions =
+      image_blocks( bbox, m_tile_size.x(), m_tile_size.y() );
+    ImageView<pixel_type> output( bbox.width(), bbox.height() );
+    BOOST_FOREACH( BBox2i const& sub, subregions ) {
+      crop( output, sub - bbox.min() ) = crop( m_child, sub );
+    }
+    return crop( output, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
+  }
+  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
+    vw::rasterize( prerasterize(bbox), dest, bbox );
+  }
+};
+
+template <class ImageT>
+inline CacheTileAwareView<ImageT> cache_tile_aware_render( ImageT const& v, Vector2i const& tile_size ) {
+  return CacheTileAwareView<ImageT>( v, tile_size );
+}
+
 // Weighted Summation filter for antialiasing. This insures that we
 // are not summing with masked pixels. Sadly Gaussian filters will
 // always do this, thus the need for a custom type.
@@ -97,7 +142,7 @@ template <class ImageT>
 UnaryPerPixelView<ImageT, MaskAboveThreshold>
 inline mask_above_threshold( ImageViewBase<ImageT> const& image, double threshold ) {
   return UnaryPerPixelView<ImageT, MaskAboveThreshold>( image.impl(),
-                                                MaskAboveThreshold(threshold) );
+                                                        MaskAboveThreshold(threshold) );
 }
 
 ImageViewRef< PixelMask<uint8> > mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
@@ -156,7 +201,7 @@ void stereo_preprocessing( Options& opt ) {
     double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
     if (int(!std::isnan(left_threshold))  +
         int(!std::isnan(nodata_fraction)) +
-        int(!std::isnan(nodata_factor)) >= 2 
+        int(!std::isnan(nodata_factor)) >= 2
         ){
       vw_throw( ArgumentErr()
                 << "\nAt most one of the no-data settings "
@@ -168,10 +213,10 @@ void stereo_preprocessing( Options& opt ) {
       left_threshold  = nodata_factor*optimal_threshold(left_image);
       right_threshold = nodata_factor*optimal_threshold(right_image);
     }
-    
+
     if ( !std::isnan(nodata_fraction) ){
       // Declare a fixed proportion of pixels to be black.
-      
+
       math::CDFAccumulator< PixelGray<float> > left_cdf(1024, 1024), right_cdf(1024, 1024);
       for_each_pixel( left_image, left_cdf );
       for_each_pixel( right_image, right_cdf );
@@ -179,24 +224,24 @@ void stereo_preprocessing( Options& opt ) {
       left_threshold  = left_cdf.quantile(nodata_fraction);
       right_threshold = right_cdf.quantile(nodata_fraction);
     }
-    
+
     if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
       // Mask pixels below threshold.
-      
+
       ImageViewRef< PixelMask<uint8> > left_thresh_mask = mask_and_fill_holes(left_image, left_threshold);
       left_mask = intersect_mask(left_mask, left_thresh_mask);
 
       ImageViewRef< PixelMask<uint8> > right_thresh_mask = mask_and_fill_holes(right_image, right_threshold);
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
-    
+
     bool has_left_georef  = read_georeference(left_georef,  opt.in_file1);
     bool has_right_georef = read_georeference(right_georef, opt.in_file2);
     if (has_left_georef && has_right_georef){
 
       // Intersect the left mask with the warped version of the right mask, and vice-versa
       // to reduce noise.
-      
+
       ImageViewRef< PixelMask<uint8> > warped_left_mask = crop(vw::cartography::geo_transform
                                                                (left_mask,
                                                                 left_georef,
@@ -220,7 +265,7 @@ void stereo_preprocessing( Options& opt ) {
       asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
                                    apply_mask(intersect_mask(right_mask, warped_left_mask)),
                                    opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
-      
+
     }else{
 
       asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
@@ -229,11 +274,11 @@ void stereo_preprocessing( Options& opt ) {
       asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
                                    apply_mask(right_mask),
                                    opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
-      
+
     }
-    
+
   }
-  
+
   try {
     // This confusing try catch is to see if the subsampled images
     // actually have content.
@@ -299,10 +344,10 @@ void stereo_preprocessing( Options& opt ) {
       DiskImageView<uint8> lmask(opt.out_prefix+"-lMask.tif"),
         rmask(opt.out_prefix+"-rMask.tif");
       asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
-                                   apply_mask(resample_aa( copy_mask(left_image,create_mask(lmask) ), sub_scale )),
+                                   cache_tile_aware_render(apply_mask(resample_aa( copy_mask(left_image,create_mask(lmask) ), sub_scale )), Vector2i(256,256) * sub_scale),
                                    opt, TerminalProgressCallback("asp", "\t    Sub L: ") );
       asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
-                                   apply_mask(resample_aa( copy_mask(right_image,create_mask(rmask) ), sub_scale )),
+                                   cache_tile_aware_render(apply_mask(resample_aa( copy_mask(right_image,create_mask(rmask) ), sub_scale )), Vector2i(256,256) * sub_scale),
                                    opt, TerminalProgressCallback("asp", "\t    Sub R: ") );
       asp::block_write_gdal_image( opt.out_prefix+"-lMask_sub.tif",
                                    resample(lmask,sub_scale,ZeroEdgeExtension(), NearestPixelInterpolation()), opt,
