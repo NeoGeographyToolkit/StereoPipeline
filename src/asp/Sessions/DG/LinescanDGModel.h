@@ -53,14 +53,14 @@ namespace asp {
     VelocityFuncT m_velocity_func; // Function of time
     PoseFuncT m_pose_func;
     TimeFuncT m_time_func;         // Function of line number
-    
+
     // Intrinsics
     vw::Vector2i m_image_size;     // px
     vw::Vector2 m_detector_origin; // px
     double m_focal_length;         // px
 
     bool m_correct_velocity_aberration;
-    
+
     // Levenberg Marquardt solver for linescan number
     //
     // We solve for the line number of the image that position the
@@ -90,9 +90,9 @@ namespace asp {
                                          // of the detector
         return result;
       }
-      
+
     };
-    
+
     // Levenberg Marquardt solver for linescan number (y) and pixel
     // number (x) for the given point in space. The obtained solution
     // pixel (x, y) must be such that the vector from this camera
@@ -115,7 +115,7 @@ namespace asp {
       inline result_type operator()( domain_type const& pix ) const {
         return m_model->pixel_to_vector(pix) - normalize(m_point - m_model->camera_center(pix));
       }
-      
+
     };
 
   public:
@@ -148,7 +148,7 @@ namespace asp {
       if (!m_correct_velocity_aberration) return point_to_pixel_uncorrected(point);
       return point_to_pixel_corrected(point);
     }
-    
+
     vw::Vector2 point_to_pixel_uncorrected(vw::Vector3 const& point) const {
 
       using namespace vw;
@@ -187,15 +187,11 @@ namespace asp {
       start[0] = m_image_size.x()/2;
       start[1] = m_image_size.y()/2;
       Vector3 objective(0, 0, 0);
+      // Need such tight tolerances below otherwise the solution is
+      // inaccurate.
       Vector2 solution =
         math::levenberg_marquardt( model, start, objective, status,
-                                   1e-14, 1e-14, 1e3 );
-      // The ending numbers define:
-      //   Attempt to solve solution to 1e-14 pixels.
-      //   Give up with a relative cost function change of 1e-14.
-      //   Try with a max of a 1000 iterations.
-      // Need such tight tolerances as otherwise the solution is
-      // inaccurate.
+                                   1e-10, 1e-10, 50 );
       VW_ASSERT( status > 0,
                  camera::PointToPixelErr() << "Unable to project point into LinescanDG model" );
 
@@ -226,7 +222,7 @@ namespace asp {
       double  earth_rad        = 6371000.0;
       double  cam_to_surface   = len_cos -
         sqrt(earth_rad*earth_rad + len_cos*len_cos - earth_ctr_to_cam*earth_ctr_to_cam);
-      
+
       // 2. Correct the camera velocity due to the fact that the Earth
       // rotates around its axis.
       double seconds_in_day = 86164.0905;
@@ -239,7 +235,7 @@ namespace asp {
       Vector3 cam_vel_corr2 = cam_vel_corr1 - dot_prod(cam_vel_corr1, pix_to_vec) * pix_to_vec;
 
       // 4. Correct direction for velocity aberration due to the speed of light.
-      double light_speed = 299792458.0;             
+      double light_speed = 299792458.0;
       Vector3 corr_pix_to_vec = pix_to_vec - cam_vel_corr2/light_speed;
       return normalize(corr_pix_to_vec);
     }
@@ -259,7 +255,7 @@ namespace asp {
     }
 
     vw::camera::PinholeModel linescan_to_pinhole(double y) const{
- 
+
       // Create a fake pinhole model. It will return the same results
       // as the linescan camera at current line y, but we will use it
       // by extension at neighboring lines as well.

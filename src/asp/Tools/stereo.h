@@ -95,10 +95,10 @@ namespace asp {
   void user_safety_check(Options const& opt);
 
   // Pre-correlation, used in both stereo_corr and stereo_corr_sub
-  void pre_correlation( Options const& opt );
+  void pre_correlation( Options & opt );
 
   // Produces D_sub
-  void produce_lowres_disparity( Options const& opt );
+  void produce_lowres_disparity( Options & opt );
 
   // Approximate search range by looking at interest point match file,
   // used in both stereo_corr and stereo_corr_sub.
