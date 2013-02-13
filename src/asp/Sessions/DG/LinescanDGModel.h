@@ -183,9 +183,8 @@ namespace asp {
 
       LinescanCorrLMA model( this, point );
       int status;
-      Vector2 start;
-      start[0] = m_image_size.x()/2;
-      start[1] = m_image_size.y()/2;
+      Vector2 start = point_to_pixel_uncorrected(point);
+
       Vector3 objective(0, 0, 0);
       // Need such tight tolerances below otherwise the solution is
       // inaccurate.
