@@ -128,7 +128,7 @@ TEST(StereoSessionDG, CreateCamera) {
 
   // A more accurate test is just to project out and back into the
   // same camera
-  for ( size_t i = 0; i < 36000; i += 500 ) {
+  for ( size_t i = 0; i < 30000; i += 500 ) {
     for ( size_t j = 0; j < 24000; j += 500 ) {
       EXPECT_VECTOR_NEAR( Vector2(i,j),
                           cam1->point_to_pixel( cam1->camera_center(Vector2(i,j)) +
