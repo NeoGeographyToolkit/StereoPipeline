@@ -34,167 +34,7 @@
 using namespace vw;
 using namespace vw::cartography;
 
-// temporary!!!
-Options * g_opt;
-
-namespace vw { namespace cartography {
-
-  // To do: More comments!
-  // To do: Accept initial guess!
-
-  // Define an LMA model to solve for a DEM intersecting a ray.
-  template <class DEMImageT>
-  class DEMIntersectionLMA2 : public math::LeastSquaresModelBase< DEMIntersectionLMA2< DEMImageT > > {
-    InterpolationView<EdgeExtensionView<DEMImageT, ConstantEdgeExtension>, BilinearInterpolation> m_dem;
-    GeoReference m_georef;
-    Vector3 m_camera_ctr;
-    Vector3 m_camera_vec;
-    bool m_cambbox_mode;
-
-    // Provide safe interaction with DEMs that are scalar or compound
-    template <class PixelT>
-    typename boost::enable_if< IsScalar<PixelT>, double >::type
-    inline Helper( double x, double y ) const {
-      // If we are using this function for computing camera bbox, it
-      // is convenient that we return 0 where the DEM is not valid.
-      if ( m_cambbox_mode ||
-           ( 0 <= x && x <= m_dem.cols() - 1 && // for interpolation
-             0 <= y && y <= m_dem.rows() - 1 ) ){
-        PixelT val = m_dem(x, y);
-        if (is_valid(val)) return val;
-      }
-
-      return big_val();
-    }
-
-    template <class PixelT>
-    typename boost::enable_if< IsCompound<PixelT>, double>::type
-    inline Helper( double x, double y ) const {
-      // If we are using this function for computing camera bbox, it
-      // is convenient that we return 0 where the DEM is not valid.
-      if ( m_cambbox_mode ||
-           ( 0 <= x && x <= m_dem.cols() - 1 && // for interpolation
-             0 <= y && y <= m_dem.rows() - 1 ) ){
-        PixelT val = m_dem(x, y);
-        if (is_valid(val)) return val[0];
-      }
-
-      return big_val();
-    }
-
-  public:
-    typedef Vector<double, 1> result_type;
-    typedef Vector<double, 1> domain_type;
-    // Jacobian form. Auto.
-    typedef Matrix<double> jacobian_type;
-
-    inline double big_val() const { return 1.0e+100; }
-
-    // Constructor
-    DEMIntersectionLMA2(ImageViewBase<DEMImageT> const& dem_image,
-                        GeoReference const& georef,
-                        Vector3 const& camera_ctr,
-                        Vector3 const& camera_vec,
-                        bool cambbox_mode): m_dem(interpolate(dem_image)), m_georef(georef),
-                                            m_camera_ctr(camera_ctr), m_camera_vec(camera_vec),
-                                            m_cambbox_mode(cambbox_mode){}
-
-
-    // Evaluator. Return the height at the current xyz
-    // minus DEM height at lonlat of xyz.
-    inline result_type operator()( domain_type const& len ) const {
-      Vector3 xyz = m_camera_ctr + len[0]*m_camera_vec;
-      Vector3 llh = m_georef.datum().cartesian_to_geodetic( xyz );
-      Vector2 pix = m_georef.lonlat_to_pixel( Vector2( llh.x(), llh.y() ) );
-      result_type result;
-      result[0] = Helper<typename DEMImageT::pixel_type >(pix.x(),pix.y()) - llh[2];
-      return result;
-    }
-  };
-
-  // Intersect the ray going from the given camera pixel with the DEM
-  // The return value is a Cartesian point.
-  template <class DEMImageT>
-  Vector3 camera_pixel_to_dem_xyz2(Vector2 const& camera_pixel,
-                                   ImageViewBase<DEMImageT> const& dem_image,
-                                   GeoReference const& georef,
-                                   boost::shared_ptr<camera::CameraModel> camera_model,
-                                   bool & has_intersection,
-                                   double height_error_tol = 1e-1, // error in DEM height
-                                   double max_abs_tol = 1e-16,     // abs cost function change b/w iters
-                                   double max_rel_tol = 1e-16,
-                                   int num_max_iter   = 100,
-                                   Vector3 xyz_guess = Vector3()
-                                   ){
-
-    has_intersection = false;
-    Vector3 camera_ctr = camera_model->camera_center(camera_pixel);
-    Vector3 camera_vec = camera_model->pixel_to_vector(camera_pixel);
-    bool cambbox_mode = false;
-    DEMIntersectionLMA2<DEMImageT> model(dem_image, georef, camera_ctr, camera_vec, cambbox_mode);
-
-    Vector3 xyz;
-    if ( xyz_guess == Vector3() ){
-      // Intersect the ray with the datum, this is a good initial
-      // guess.
-      xyz = datum_intersection(georef.datum(), camera_ctr, camera_vec);
-      if ( xyz == Vector3() ) {
-        has_intersection = false;
-        return Vector3();
-      }
-    }else{
-      xyz = xyz_guess;
-    }
-
-    // Length along the ray from camera center to intersection point
-    Vector<double, 1> len0, len;
-    len0[0] = norm_2(xyz - camera_ctr);
-
-    // If the ray intersects the datum at a point which does not
-    // correspond to a valid location in the DEM, wiggle that point
-    // along the ray until hopefully it does.
-    double radius = norm_2(xyz);
-    int n = 10;
-    double small = radius*0.02/( 1 << (n-1) ); // wiggle up to 0.02*radius
-    for (int i = 0; i <= n; i++){
-      double delta = 0;
-      if (i > 0) delta = small*( 1 << (i-1) );
-      for (int k = -1; k <= 1; k += 2){
-        len[0] = len0[0] + k*delta;
-        Vector<double, 1> dem_height = model(len);
-        if ( std::abs(dem_height[0]) < model.big_val()/10.0 ){
-          has_intersection = true;
-          break;
-        }
-      }
-      if (has_intersection) break;
-    }
-
-    if ( !has_intersection ) {
-      return Vector3();
-    }
-
-    // Refining the intersection using Levenberg-Marquardt
-    int status = 0;
-    Vector<double, 1> observation; observation[0] = 0;
-    len = math::levenberg_marquardt(model, len, observation, status,
-                                    max_abs_tol, max_rel_tol,
-                                    num_max_iter
-                                    );
-
-    Vector<double, 1> dem_height = model(len);
-
-    if ( status < 0 || std::abs(dem_height[0]) > height_error_tol ){
-      has_intersection = false;
-      return Vector3();
-    }
-
-    has_intersection = true;
-    xyz = camera_ctr + len[0]*camera_vec;
-    return xyz;
-  }
-
-}}
+int g_sample = 5;
 
 namespace asp {
 
@@ -558,68 +398,40 @@ namespace asp {
       // Debug code
       //DiskImageView<PixelMask<Vector2f> > disk_disp("run3/res-F.tif");
 
-      int sample = 5;
-      //char * pt = getenv("SAMPLE");
-      //if (pt && atoi(pt) > 0) sample = atoi(pt);
-      //std::cout << "using sample: " << sample << std::endl;
+      boost::shared_ptr<camera::CameraModel> left_camera_model = m_left_camera_model;
+      boost::shared_ptr<camera::CameraModel> right_camera_model = m_right_camera_model;
 
-      bool use_new = true;
-      //char * ptn = getenv("USE_NEW");
-      //if (ptn && atoi(ptn) > 0) use_new = true;
-      //std::cout << "use new is " << use_new << std::endl;
-
-      // Remove the camera model!
-      //boost::shared_ptr<camera::CameraModel> left_camera_model = m_left_camera_model;
-      //boost::shared_ptr<camera::CameraModel> right_camera_model = m_right_camera_model;
-      boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
-      g_opt->session->camera_models(left_camera_model, right_camera_model);
-
-      std::cout << "pointers are " << left_camera_model.get() << ' ' << right_camera_model.get() << std::endl;
-
-#if 1
-      time_t Start_t, End_t;
-      int time_task;
-      Start_t = time(NULL);
+//       time_t Start_t, End_t;
+//       int time_task;
+//       Start_t = time(NULL);
 
       Vector3 prev_xyz = Vector3();
       for (int row = bbox.min().y(); row < bbox.max().y(); row++){
-        if (row%sample != 0) continue;
+        if (row%g_sample != 0) continue;
 
         // Must wipe the previous guess since we are now too far from it
         prev_xyz = Vector3();
 
         for (int col = bbox.min().x(); col < bbox.max().x(); col++){
-          if (col%sample != 0) continue;
+          if (col%g_sample != 0) continue;
 
           Vector2 left_lowres_pix = Vector2(col, row);
           Vector2 left_fullres_pix = elem_quot(left_lowres_pix, m_downsample_scale);
 
           // To do: Tinker with the numbers below
           bool has_intersection;
-          Vector3 xyz;
-          if (!use_new){
-            double pixel_error_tol = 2.0; // height error in meters
-            double max_abs_tol = 1e-10;    // abs cost function change b/w iterations
-            double max_rel_tol = 1e-16;   // rel cost function change b/w iterations
-            int num_max_iter   = 50;
-            xyz = camera_pixel_to_dem_xyz(left_fullres_pix, m_dem, m_dem_georef,
-                                          left_camera_model, has_intersection,
-                                          pixel_error_tol, max_abs_tol,
-                                          max_rel_tol, num_max_iter,
-                                          prev_xyz
-                                          );
-          }else{
-            double pixel_error_tol = 1.0; // height error in meters
-            double max_abs_tol = 1e-2;    // abs cost function change b/w iterations
-            double max_rel_tol = 1e-16;   // rel cost function change b/w iterations
-            int num_max_iter   = 50;
-            xyz = camera_pixel_to_dem_xyz2(left_fullres_pix, m_dem, m_dem_georef,
-                                           left_camera_model, has_intersection,
-                                           pixel_error_tol, max_abs_tol,
-                                           max_rel_tol, num_max_iter,
-                                           prev_xyz
-                                           );
-          }
+          double height_error_tol = std::max(m_accuracy/4, 1.0); // height error in meters
+          double max_abs_tol = height_error_tol/4; // abs cost function change b/w iterations
+          double max_rel_tol = 1e-14;              // rel cost function change b/w iterations
+          int num_max_iter   = 50;
+          Vector3 xyz = camera_pixel_to_dem_xyz(left_camera_model->camera_center(left_fullres_pix),
+                                                left_camera_model->pixel_to_vector(left_fullres_pix),
+                                                m_dem, m_dem_georef,
+                                                has_intersection,
+                                                height_error_tol, max_abs_tol,
+                                                max_rel_tol, num_max_iter,
+                                                prev_xyz
+                                                );
 
           // To do: Study more the advantage of having an initial guess!
           if ( has_intersection && xyz != Vector3() ) prev_xyz = xyz;
@@ -631,7 +443,7 @@ namespace asp {
 
           Vector2 right_fullres_pix = right_camera_model->point_to_pixel(xyz);
 
-          std::cout.precision(20); std::cout << "\n\ncol row is " << col << ' ' << row << ' ' << cols() << " " << right_fullres_pix << ' ' << rows() << std::endl << std::endl << std::endl;
+          //std::cout.precision(20); std::cout << "\n\ncol row is " << col << ' ' << row << ' ' << cols() << " " << right_fullres_pix << ' ' << rows() << std::endl << std::endl << std::endl;
 
           if (m_homography_align){
             right_fullres_pix = HomographyTransform(m_align_matrix).forward(right_fullres_pix);
@@ -652,11 +464,10 @@ namespace asp {
         }
 
       }
-#endif
 
-      End_t = time(NULL);    //record time that task 1 ends
-      time_task = difftime(End_t, Start_t);    //compute elapsed time of task 1
-      std::cout << "finish box " << bbox << " " << time_task << std::endl;
+//       End_t = time(NULL);    //record time that task 1 ends
+//       time_task = difftime(End_t, Start_t);    //compute elapsed time of task 1
+//       std::cout << "finish box " << bbox << " " << time_task << std::endl;
 
       return lowres_disparity;
     }
@@ -817,7 +628,11 @@ namespace asp {
 
     }else if ( stereo_settings().seed_mode == 2 ) {
 
-      g_opt = &opt;
+      char * pt = getenv("SAMPLE");
+      if (pt && atoi(pt) > 0) g_sample = atoi(pt);
+      std::cout << "using sample: " << g_sample << std::endl;
+
+      // Use a DEM to get the low-res disparity
 
       // To do: Use locking for isis.
 
@@ -879,29 +694,19 @@ namespace asp {
       int time_task;
       Start_t = time(NULL);
 
-      // Use a DEM to get the low-res disparity
-      double m_accuracy = accuracy;
-      GeoReference m_dem_georef = dem_georef;
-      ImageViewRef<PixelMask<float > > m_dem = dem;
-      Vector2f m_downsample_scale = downsample_scale;
-      boost::shared_ptr<camera::CameraModel> m_left_camera_model = left_camera_model;
-      boost::shared_ptr<camera::CameraModel> m_right_camera_model = right_camera_model;
-      bool m_homography_align = homography_align;
-      Matrix<double> m_align_matrix = align_matrix;
-
       // Smaller tiles is better
       //---------------------------------------------------------
       Vector2 orig_tile_size = opt.raster_tile_size;
-      opt.raster_tile_size = Vector2i(128, 128);
+      opt.raster_tile_size = Vector2i(64, 64);
       std::cout << "Switching tile size from: " << orig_tile_size  << " to " << opt.raster_tile_size << std::endl;
 
       ImageViewRef<PixelMask<Vector2i> > lowres_disparity
         = dem_disparity(left_image_sub,
-                        m_accuracy, m_dem_georef,
-                        m_dem, m_downsample_scale,
-                        m_left_camera_model,
-                        m_right_camera_model,
-                        m_homography_align, m_align_matrix
+                        accuracy, dem_georef,
+                        dem, downsample_scale,
+                        left_camera_model,
+                        right_camera_model,
+                        homography_align, align_matrix
                         );
       std::string disparity_file = opt.out_prefix + "-D_sub.tif";
       vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
@@ -927,6 +732,20 @@ namespace asp {
 
       std::cout << "Switching tile size from: " << opt.raster_tile_size << " " << orig_tile_size << std::endl;
       opt.raster_tile_size = orig_tile_size;
+
+      ImageView<PixelMask<Vector2i> > lowres_disparity_disk;
+      read_image( lowres_disparity_disk, opt.out_prefix + "-D_sub.tif" );
+      ImageView<PixelMask<Vector2i> > lowres_disparity2(lowres_disparity_disk.cols()/g_sample, lowres_disparity_disk.rows()/g_sample);
+      for (int col = 0; col < lowres_disparity2.cols(); col++){
+        for (int row = 0; row < lowres_disparity2.rows(); row++){
+          lowres_disparity2(col, row) = lowres_disparity_disk(g_sample*col, g_sample*row);
+        }
+      }
+      asp::block_write_gdal_image( opt.out_prefix + "-D_sub2.tif",
+                                   lowres_disparity2,
+                                   opt,
+                                   TerminalProgressCallback("asp", "\t--> Low-resolution disparity:") );
+
 
     }
 
