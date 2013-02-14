@@ -93,6 +93,8 @@ namespace asp {
 
   Vector2 RPCModel::geodetic_to_pixel( Vector3 const& geodetic ) const {
 
+    // Should we verify that the  input geodetic is in the box?
+
     Vector3 normalized_geodetic =
       elem_quot(geodetic - m_lonlatheight_offset, m_lonlatheight_scale);
 
@@ -310,7 +312,7 @@ namespace asp {
 
   Vector2 RPCModel::image_to_ground( Vector2 const& pixel, double height, Vector2 lonlat_guess ) const {
 
-    // Given a pixel (the projection of a point onto the camera image)
+    // Given a pixel (the projection of a point in 3D space onto the camera image)
     // and the value of the height of the point, find the lonlat of
     // the point using Newton's method. The user may provide a guess
     // for the lonlat.
@@ -383,12 +385,10 @@ namespace asp {
     double  height_up = m_lonlatheight_offset[2];
     double  height_dn = m_lonlatheight_offset[2] - m_lonlatheight_scale[2];
 
-    Vector2 lonlat_up = image_to_ground(pix, height_up, m_lonlat_guess_up);
-    Vector2 lonlat_dn = image_to_ground(pix, height_dn, m_lonlat_guess_dn);
-
-    // Cache these for the future
-    m_lonlat_guess_up = lonlat_up;
-    m_lonlat_guess_dn = lonlat_dn;
+    // Use m_lonlatheight_offset as initial guess for lonlat_up,
+    // and then use lonlat_up as initial guess for lonlat_dn.
+    Vector2 lonlat_up = image_to_ground(pix, height_up, subvector(m_lonlatheight_offset, 0, 2));
+    Vector2 lonlat_dn = image_to_ground(pix, height_dn, lonlat_up);
 
     Vector3 geo_up = Vector3(lonlat_up[0], lonlat_up[1], height_up);
     Vector3 geo_dn = Vector3(lonlat_dn[0], lonlat_dn[1], height_dn);

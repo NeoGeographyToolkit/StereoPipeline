@@ -41,7 +41,6 @@ namespace asp {
     vw::Vector2 m_xy_scale;
     vw::Vector3 m_lonlatheight_offset;
     vw::Vector3 m_lonlatheight_scale;
-    mutable vw::Vector2 m_lonlat_guess_up, m_lonlat_guess_dn;
 
     void initialize( vw::DiskImageResourceGDAL* resource );
   public:
