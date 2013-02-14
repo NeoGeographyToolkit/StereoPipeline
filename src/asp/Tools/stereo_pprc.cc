@@ -23,6 +23,7 @@
 #include <asp/Tools/stereo.h>
 #include <asp/Core/ThreadedEdgeMask.h>
 #include <asp/Core/InpaintView.h>
+#include <asp/Core/AntiAliasing.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Math/Functors.h>
 
@@ -31,100 +32,6 @@ using namespace asp;
 
 namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
-}
-
-// Cache Tile Aware Raster View.
-// Mostly just a fancy pass through
-template <class ImageT>
-class CacheTileAwareView : public ImageViewBase< CacheTileAwareView<ImageT> > {
-  ImageT m_child;
-  Vector2i m_tile_size;
-
-public:
-  typedef typename ImageT::pixel_type pixel_type;
-  typedef typename ImageT::result_type result_type;
-  typedef typename ImageT::pixel_accessor pixel_accessor;
-
-  CacheTileAwareView( ImageT const& image, Vector2i tile_size ) : m_child( image ), m_tile_size( tile_size ) {}
-
-  inline int32 cols() const { return m_child.cols(); }
-  inline int32 rows() const { return m_child.rows(); }
-  inline int32 planes() const { return m_child.planes(); }
-
-  inline pixel_accessor origin() const { return m_child.origin(); }
-
-  inline result_type operator()( int32 i, int32 j, int32 p=0 ) const {
-    return m_child(i,j,p);
-  }
-
-  typedef CropView<ImageView<pixel_type> > prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
-    // Fancy rasterize in section of m_tile_size
-    std::vector<BBox2i> subregions =
-      image_blocks( bbox, m_tile_size.x(), m_tile_size.y() );
-    ImageView<pixel_type> output( bbox.width(), bbox.height() );
-    BOOST_FOREACH( BBox2i const& sub, subregions ) {
-      crop( output, sub - bbox.min() ) = crop( m_child, sub );
-    }
-    return crop( output, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
-  }
-  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
-    vw::rasterize( prerasterize(bbox), dest, bbox );
-  }
-};
-
-template <class ImageT>
-inline CacheTileAwareView<ImageT> cache_tile_aware_render( ImageT const& v, Vector2i const& tile_size ) {
-  return CacheTileAwareView<ImageT>( v, tile_size );
-}
-
-// Weighted Summation filter for antialiasing. This insures that we
-// are not summing with masked pixels. Sadly Gaussian filters will
-// always do this, thus the need for a custom type.
-//
-// The correlators perform a different trick to avoid this
-// problem. They set invalid pixels to a mean pixel value when
-// performing the gaussian.
-class WeightedAAFilter : public UnaryReturnTemplateType<PixelTypeFromPixelAccessor> {
-  int32 m_reduce_amt;
-public:
-  WeightedAAFilter( int32 reduce_amt ) : m_reduce_amt( reduce_amt ) {}
-
-  BBox2i work_area() const { return BBox2i(0,0,m_reduce_amt,m_reduce_amt); }
-
-  template <class PixelAccessorT>
-  typename PixelAccessorT::pixel_type
-  operator()( PixelAccessorT acc ) const {
-    typedef typename SumType<typename PixelAccessorT::pixel_type,
-                             typename PixelAccessorT::pixel_type >::type sum_type;
-    sum_type sum;
-    validate( sum );
-    size_t count = 0;
-    for ( int32 r=m_reduce_amt; r; --r ) {
-      PixelAccessorT col_acc = acc;
-      for ( int32 c=m_reduce_amt; c; --c) {
-        if ( is_valid( *col_acc ) ) {
-          count++;
-          sum += (*col_acc);
-        }
-        col_acc.next_col();
-      }
-      acc.next_row();
-    }
-    if ( !count )
-      invalidate( sum );
-    return sum / count;
-  }
-};
-
-template <class ViewT>
-TransformView<InterpolationView<UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ZeroEdgeExtension>, WeightedAAFilter>, NearestPixelInterpolation>, ResampleTransform>
-resample_aa( ImageViewBase<ViewT> const& input, double factor ) {
-  typedef UnaryPerPixelAccessorView<EdgeExtensionView<ViewT,ZeroEdgeExtension>, WeightedAAFilter> inner_type;
-  typedef TransformView<InterpolationView<inner_type, NearestPixelInterpolation>, ResampleTransform> return_type;
-  return return_type( InterpolationView<inner_type, NearestPixelInterpolation>( per_pixel_accessor_filter( input.impl(), WeightedAAFilter( int32(1.0/factor) ) ) ), ResampleTransform( factor, factor ),
-                      int32(.5+(input.impl().cols()*factor)),
-                      int32(.5+(input.impl().rows()*factor)) );
 }
 
 // Create the mask of pixels above threshold
