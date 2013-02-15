@@ -203,6 +203,8 @@ void stereo_correlation( Options& opt ) {
 
   pre_correlation(opt);
 
+  if (stereo_settings().compute_low_res_disparity_only) return;
+
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : Stage 1 --> CORRELATION \n";
 

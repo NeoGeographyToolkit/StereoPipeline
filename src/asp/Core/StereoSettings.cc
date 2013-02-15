@@ -93,6 +93,8 @@ namespace asp {
        "Disparity search range. Specify in format: hmin vmin hmax vmax.")
       ("corr-max-levels", po::value(&global.corr_max_levels)->default_value(5),
        "Max pyramid levels to process when using the integer correlator. (0 is just a single level).")
+      ("compute-low-res-disparity-only", po::bool_switch(&global.compute_low_res_disparity_only)->default_value(false)->implicit_value(true),
+       "Compute only the low-resolution disparity, skip the full-resolution disparity computation.")
       ("disparity-estimation-dem", po::value(&global.disparity_estimation_dem)->default_value(""),
        "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
       ("disparity-estimation-dem-accuracy", po::value(&global.disparity_estimation_dem_accuracy),

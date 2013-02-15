@@ -94,6 +94,7 @@ namespace asp {
     vw::Vector2i corr_kernel;         // Correlation kernel
     vw::BBox2i search_range;          // Correlation search range
     vw::uint16 corr_max_levels;       // Max pyramid levels to process. 0 hits only once.
+    bool compute_low_res_disparity_only;      // Skip the full-resolution disparity computation
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
     double disparity_estimation_dem_accuracy; // Accuracy (in meters) of the disparity estimation DEM
 
