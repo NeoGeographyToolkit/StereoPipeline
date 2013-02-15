@@ -34,8 +34,6 @@
 using namespace vw;
 using namespace vw::cartography;
 
-int g_sample = 5;
-
 namespace asp {
 
   // Parse input command line arguments
@@ -267,9 +265,12 @@ namespace asp {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1,camera_model2);
 
+      Vector3 cam1_ctr = camera_model1->camera_center(Vector2());
+      Vector3 cam2_ctr = camera_model2->camera_center(Vector2());
+      Vector3 cam1_vec = camera_model1->pixel_to_vector(Vector2());
+      Vector3 cam2_vec = camera_model2->pixel_to_vector(Vector2());
       // Do the cameras appear to be in the same location?
-      if ( norm_2(camera_model1->camera_center(Vector2()) -
-                  camera_model2->camera_center(Vector2())) < 1e-3 )
+      if ( norm_2(cam1_ctr - cam2_ctr) < 1e-3 )
         vw_out(WarningMessage,"console")
           << "Your cameras appear to be in the same location!\n"
           << "\tYou should double check your given camera\n"
@@ -277,16 +278,14 @@ namespace asp {
           << "\tto triangulate or perform epipolar rectification.\n";
 
       // Developer friendly help
-      VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << camera_model1->camera_center(Vector2()) << "\n"
-                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(camera_model1->camera_center(Vector2())) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << camera_model2->camera_center(Vector2()) << "\n"
-                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(camera_model2->camera_center(Vector2())) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << camera_model1->pixel_to_vector(Vector2()) << "\n"
-                                 << "      dot against pos: " << dot_prod(camera_model1->pixel_to_vector(Vector2()),
-                                                                          camera_model1->camera_center(Vector2())) << "\n";
-      VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << camera_model2->pixel_to_vector(Vector2()) << "\n"
-                                 << "      dot against pos: " << dot_prod(camera_model2->pixel_to_vector(Vector2()),
-                                                                          camera_model2->camera_center(Vector2())) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << cam1_ctr << "\n"
+                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(cam1_ctr) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << cam2_ctr << "\n"
+                                 << "   in Lon Lat Rad: " << cartography::xyz_to_lon_lat_radius(cam2_ctr) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 1 Pointing Dir: " << cam1_vec << "\n"
+                                 << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr) << "\n";
+      VW_OUT(DebugMessage,"asp") << "Camera 2 Pointing Dir: " << cam2_vec << "\n"
+                                 << "      dot against pos: " << dot_prod(cam2_vec, cam2_ctr) << "\n";
 
       // Can cameras triangulate to point at something in front of them?
       stereo::StereoModel model( camera_model1.get(), camera_model2.get() );
@@ -294,11 +293,9 @@ namespace asp {
       Vector3 point = model( Vector2(), Vector2(), error );
       if ( point != Vector3() // triangulation succeeded
            && (
-               dot_prod( camera_model1->pixel_to_vector(Vector2()),
-                         point - camera_model1->camera_center(Vector2()) ) < 0
+               dot_prod( cam1_vec, point - cam1_ctr ) < 0
                ||
-               dot_prod( camera_model2->pixel_to_vector(Vector2()),
-                         point - camera_model2->camera_center(Vector2()) ) < 0
+               dot_prod( cam2_vec, point - cam2_ctr ) < 0
                )
            ){
         vw_out(WarningMessage,"console")
@@ -336,7 +333,7 @@ namespace asp {
   template <class ImageT>
   class DemDisparity : public ImageViewBase<DemDisparity<ImageT> > {
     ImageT m_left_image;
-    double m_accuracy;
+    double m_dem_accuracy;
     GeoReference m_dem_georef;
     ImageViewRef<PixelMask<float > > m_dem;
     Vector2f m_downsample_scale;
@@ -344,24 +341,29 @@ namespace asp {
     boost::shared_ptr<camera::CameraModel> m_right_camera_model;
     bool m_homography_align;
     Matrix<double>  m_align_matrix;
+    int m_pixel_sample;
+    ImageView<PixelMask<Vector2i> > & m_disparity_spread;
 
   public:
     DemDisparity( ImageViewBase<ImageT> const& left_image,
-                  double accuracy, GeoReference dem_georef,
+                  double dem_accuracy, GeoReference dem_georef,
                   ImageViewRef<PixelMask<float > > const& dem,
                   Vector2f const& downsample_scale,
                   boost::shared_ptr<camera::CameraModel> left_camera_model,
                   boost::shared_ptr<camera::CameraModel> right_camera_model,
-                  bool homography_align, Matrix<double> const& align_matrix)
+                  bool homography_align, Matrix<double> const& align_matrix,
+                  int pixel_sample, ImageView<PixelMask<Vector2i> > & disparity_spread)
       :m_left_image(left_image.impl()),
-       m_accuracy(accuracy),
+       m_dem_accuracy(dem_accuracy),
        m_dem_georef(dem_georef),
        m_dem(dem),
        m_downsample_scale(downsample_scale),
        m_left_camera_model(left_camera_model),
        m_right_camera_model(right_camera_model),
        m_homography_align(homography_align),
-       m_align_matrix(align_matrix){}
+       m_align_matrix(align_matrix),
+       m_pixel_sample(pixel_sample),
+       m_disparity_spread(disparity_spread){}
 
     // Image View interface
     typedef PixelMask<Vector2i> pixel_type;
@@ -392,40 +394,46 @@ namespace asp {
       for (int row = bbox.min().y(); row < bbox.max().y(); row++){
         for (int col = bbox.min().x(); col < bbox.max().x(); col++){
           lowres_disparity(col, row).invalidate();
+          m_disparity_spread(col, row).invalidate();
         }
       }
 
       // Debug code
       //DiskImageView<PixelMask<Vector2f> > disk_disp("run3/res-F.tif");
 
-      boost::shared_ptr<camera::CameraModel> left_camera_model = m_left_camera_model;
+      boost::shared_ptr<camera::CameraModel> left_camera_model  = m_left_camera_model;
       boost::shared_ptr<camera::CameraModel> right_camera_model = m_right_camera_model;
 
-//       time_t Start_t, End_t;
-//       int time_task;
-//       Start_t = time(NULL);
 
       Vector3 prev_xyz = Vector3();
       for (int row = bbox.min().y(); row < bbox.max().y(); row++){
-        if (row%g_sample != 0) continue;
+        if (row%m_pixel_sample != 0) continue;
 
         // Must wipe the previous guess since we are now too far from it
         prev_xyz = Vector3();
 
         for (int col = bbox.min().x(); col < bbox.max().x(); col++){
-          if (col%g_sample != 0) continue;
+          if (col%m_pixel_sample != 0) continue;
 
           Vector2 left_lowres_pix = Vector2(col, row);
           Vector2 left_fullres_pix = elem_quot(left_lowres_pix, m_downsample_scale);
 
           // To do: Tinker with the numbers below
           bool has_intersection;
-          double height_error_tol = std::max(m_accuracy/4, 1.0); // height error in meters
-          double max_abs_tol = height_error_tol/4; // abs cost function change b/w iterations
-          double max_rel_tol = 1e-14;              // rel cost function change b/w iterations
+          double height_error_tol = std::max(m_dem_accuracy/4.0, 1.0); // height error in meters
+          double max_abs_tol = height_error_tol/4.0; // abs cost function change b/w iterations
+          double max_rel_tol = 1e-14;                // rel cost function change b/w iterations
           int num_max_iter   = 50;
-          Vector3 xyz = camera_pixel_to_dem_xyz(left_camera_model->camera_center(left_fullres_pix),
-                                                left_camera_model->pixel_to_vector(left_fullres_pix),
+
+          Vector3 left_camera_ctr, left_camera_vec;
+          try {
+            left_camera_ctr = left_camera_model->camera_center(left_fullres_pix);
+            left_camera_vec = left_camera_model->pixel_to_vector(left_fullres_pix);
+          } catch (const camera::PixelToRayErr& /*e*/) {
+            continue;
+          }
+
+          Vector3 xyz = camera_pixel_to_dem_xyz(left_camera_ctr, left_camera_vec,
                                                 m_dem, m_dem_georef,
                                                 has_intersection,
                                                 height_error_tol, max_abs_tol,
@@ -441,28 +449,60 @@ namespace asp {
           //Vector2 left_fullres_pix2 = left_camera_model->point_to_pixel(xyz);
           //std::cout << "norm error is " << left_fullres_pix << " " << norm_2(left_fullres_pix - left_fullres_pix2) << std::endl;
 
-          Vector2 right_fullres_pix = right_camera_model->point_to_pixel(xyz);
+          // Since our DEM is only known approximately, the true
+          // intersection point of the ray coming from the left camera
+          // with the DEM could be anywhere within m_dem_accuracy from
+          // xyz. Use that to get an estimate of the disparity
+          // accuracy.
 
-          //std::cout.precision(20); std::cout << "\n\ncol row is " << col << ' ' << row << ' ' << cols() << " " << right_fullres_pix << ' ' << rows() << std::endl << std::endl << std::endl;
+          ImageView< PixelMask<Vector2> > curr_pixel_disp_range(3, 1);
+          double bias[] = {-1.0, 1.0, 0.0};
+          int success[] = {0, 0, 0};
 
-          if (m_homography_align){
-            right_fullres_pix = HomographyTransform(m_align_matrix).forward(right_fullres_pix);
+          for (int k = 0; k < curr_pixel_disp_range.cols(); k++){
+
+            Vector2 right_fullres_pix;
+            try {
+              right_fullres_pix = right_camera_model->point_to_pixel(xyz + bias[k]*m_dem_accuracy*left_camera_vec);
+            } catch ( camera::PointToPixelErr const& e ) {
+              curr_pixel_disp_range(k, 0).invalidate();
+              continue;
+            }
+            if (m_homography_align){
+              right_fullres_pix = HomographyTransform(m_align_matrix).forward(right_fullres_pix);
+            }
+
+            // Debug code
+            //std::cout.precision(20); std::cout << "\n\ncol row is " << col << ' ' << row << ' ' << cols() << " " << right_fullres_pix << ' ' << rows() << std::endl << std::endl << std::endl;
+            //int k0 = int(left_fullres_pix[0]);
+            //int k1 = int(left_fullres_pix[1]);
+            //Vector2 fdisp = right_fullres_pix - left_fullres_pix;
+            //PixelMask<Vector2i> ddisp = disk_disp(k0, k1);
+            //std::cout << "pixel curr_pixel_disp_range: " << k0 << ' ' << k1 << ' ' << fdisp << ' ' << ddisp << " " << norm_2(ddisp.child() - fdisp) << std::endl;
+
+            Vector2 right_lowres_pix = elem_prod(right_fullres_pix, m_downsample_scale);
+            curr_pixel_disp_range(k, 0) = right_lowres_pix - left_lowres_pix;
+            success[k] = 1;
+
+            //std::cout << "value: " << col << ' ' << row << ' ' << k << ' ' << curr_pixel_disp_range(k, 0) << std::endl;
+
+            // If the disparities at the endpoints of the range were successful,
+            // don't bother with the middle estimate.
+            if (k == 1 && success[0] && success[1]) break;
           }
 
-          // Debug code
-          //int k0 = int(left_fullres_pix[0]);
-          //int k1 = int(left_fullres_pix[1]);
-          //Vector2 fdisp = right_fullres_pix - left_fullres_pix;
-          //PixelMask<Vector2i> ddisp = disk_disp(k0, k1);
-          //std::cout << "pixel disparities: " << k0 << ' ' << k1 << ' ' << fdisp << ' ' << ddisp << " " << norm_2(ddisp.child() - fdisp) << std::endl;
+          BBox2f search_range = stereo::get_disparity_range(curr_pixel_disp_range);
+          if (search_range ==  BBox2f(0,0,0,0)) continue;
 
-          Vector2 right_lowres_pix = elem_prod(right_fullres_pix, m_downsample_scale);
-          Vector2 disp = right_lowres_pix - left_lowres_pix;
-          lowres_disparity(col, row).validate();
-          lowres_disparity(col, row).child() = Vector2((int)round(disp[0]), (int)round(disp[1]));
+          lowres_disparity(col, row) = round( (search_range.min() + search_range.max())/2.0 );
+          m_disparity_spread(col, row) = ceil( (search_range.max() - search_range.min())/2.0 );
+
+          //std::cout << "range is " << search_range << std::endl;
+          //std::cout << "disp is " << lowres_disparity(col, row) << std::endl;
+          //std::cout << "accuracy is " << m_disparity_spread(col, row) << std::endl;
+          //std::cout << std::endl;
 
         }
-
       }
 
 //       End_t = time(NULL);    //record time that task 1 ends
@@ -481,19 +521,22 @@ namespace asp {
   template <class ImageT>
   DemDisparity<ImageT>
   dem_disparity( ImageViewBase<ImageT> const& left,
-                 double accuracy, GeoReference dem_georef,
+                 double dem_accuracy, GeoReference dem_georef,
                  ImageViewRef<PixelMask<float > > const& dem,
                  Vector2f const& downsample_scale,
                  boost::shared_ptr<camera::CameraModel> left_camera_model,
                  boost::shared_ptr<camera::CameraModel> right_camera_model,
-                 bool homography_align, Matrix<double> const& align_matrix) {
+                 bool homography_align, Matrix<double> const& align_matrix,
+                 int pixel_sample,
+                 ImageView<PixelMask<Vector2i> > & disparity_spread
+                 ) {
     typedef DemDisparity<ImageT> return_type;
     return return_type( left.impl(),
-                        accuracy, dem_georef,
+                        dem_accuracy, dem_georef,
                         dem, downsample_scale,
-                        left_camera_model,
-                        right_camera_model,
-                        homography_align, align_matrix
+                        left_camera_model, right_camera_model,
+                        homography_align, align_matrix,
+                        pixel_sample, disparity_spread
                         );
   }
 
@@ -628,11 +671,17 @@ namespace asp {
 
     }else if ( stereo_settings().seed_mode == 2 ) {
 
-      char * pt = getenv("SAMPLE");
-      if (pt && atoi(pt) > 0) g_sample = atoi(pt);
-      std::cout << "using sample: " << g_sample << std::endl;
-
       // Use a DEM to get the low-res disparity
+
+      if (stereo_settings().is_search_defined()){
+        vw_out(WarningMessage) << "Computing low-res disparity from DEM. Will ignore corr-search value: " << stereo_settings().search_range << ".\n";
+      }
+
+      // Skip pixels for speed
+      int pixel_sample = 5;
+      char * pt = getenv("SAMPLE");
+      if (pt && atoi(pt) > 0) pixel_sample = atoi(pt);
+      std::cout << "using sample: " << pixel_sample << std::endl;
 
       // To do: Use locking for isis.
 
@@ -644,9 +693,9 @@ namespace asp {
       if (dem_file == ""){
         vw_throw( ArgumentErr() << "stereo_corr: No value was provided for: disparity-estimation-dem.\n" );
       }
-      double accuracy = stereo_settings().disparity_estimation_dem_accuracy;
-      if (accuracy <= 0.0){
-        vw_throw( ArgumentErr() << "stereo_corr: Invalid value for disparity-estimation-dem-accuracy: " << accuracy << ".\n" );
+      double dem_accuracy = stereo_settings().disparity_estimation_dem_accuracy;
+      if (dem_accuracy <= 0.0){
+        vw_throw( ArgumentErr() << "stereo_corr: Invalid value for disparity-estimation-dem-accuracy: " << dem_accuracy << ".\n" );
       }
 
       GeoReference dem_georef;
@@ -672,7 +721,6 @@ namespace asp {
 
       Matrix<double> align_matrix = identity_matrix<3>();
       bool homography_align = (stereo_settings().alignment_method == "homography");
-
       if ( homography_align ) {
         // We used a homography to line up the images, we may want
         // to generate pre-alignment disparities before passing this information
@@ -684,9 +732,6 @@ namespace asp {
 
       // To do: Must transform the disparities properly in all cases, for all session types and
       // map and non-map projected images.
-
-      // To do: Must also treat the MOC case with map-projection! Error is: Failed to SetGround.
-      //stereo_corr --threads 16 --corr-seed-mode 2 --corr-search -290 -490 10 -190 --corr-max-levels 5 M0100115.map.cub E0201461.map.cub map/res -s stereo.map
 
       // To do: Warn the user that the corr-search-range is ignored!
 
@@ -700,17 +745,19 @@ namespace asp {
       opt.raster_tile_size = Vector2i(64, 64);
       std::cout << "Switching tile size from: " << orig_tile_size  << " to " << opt.raster_tile_size << std::endl;
 
+      // This image is small enough that we can keep it in memory
+      ImageView<PixelMask<Vector2i> > disparity_spread(left_image_sub.cols(), left_image_sub.rows());
+
       ImageViewRef<PixelMask<Vector2i> > lowres_disparity
         = dem_disparity(left_image_sub,
-                        accuracy, dem_georef,
+                        dem_accuracy, dem_georef,
                         dem, downsample_scale,
-                        left_camera_model,
-                        right_camera_model,
-                        homography_align, align_matrix
+                        left_camera_model, right_camera_model,
+                        homography_align, align_matrix, pixel_sample,
+                        disparity_spread
                         );
       std::string disparity_file = opt.out_prefix + "-D_sub.tif";
       vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
-
       if ( opt.stereo_session_string == "isis" ){
         // ISIS does not support multi-threading
         // To do: Make consistent with what is below
@@ -726,6 +773,13 @@ namespace asp {
                                      TerminalProgressCallback("asp", "\t--> Low-resolution disparity:") );
       }
 
+      std::string disp_spread_file = opt.out_prefix + "-D_sub_spread.tif";
+      vw_out() << "Writing low-resolution disparity spread: " << disp_spread_file << "\n";
+      asp::block_write_gdal_image( disp_spread_file,
+                                     disparity_spread,
+                                     opt,
+                                     TerminalProgressCallback("asp", "\t--> Low-resolution disparity spread:") );
+
       End_t = time(NULL);    //record time that task 1 ends
       time_task = difftime(End_t, Start_t);    //compute elapsed time of task 1
       std::cout << "elapsed time: " << time_task << std::endl;
@@ -733,18 +787,20 @@ namespace asp {
       std::cout << "Switching tile size from: " << opt.raster_tile_size << " " << orig_tile_size << std::endl;
       opt.raster_tile_size = orig_tile_size;
 
+#if 1 // Debug code
       ImageView<PixelMask<Vector2i> > lowres_disparity_disk;
       read_image( lowres_disparity_disk, opt.out_prefix + "-D_sub.tif" );
-      ImageView<PixelMask<Vector2i> > lowres_disparity2(lowres_disparity_disk.cols()/g_sample, lowres_disparity_disk.rows()/g_sample);
+      ImageView<PixelMask<Vector2i> > lowres_disparity2(lowres_disparity_disk.cols()/pixel_sample, lowres_disparity_disk.rows()/pixel_sample);
       for (int col = 0; col < lowres_disparity2.cols(); col++){
         for (int row = 0; row < lowres_disparity2.rows(); row++){
-          lowres_disparity2(col, row) = lowres_disparity_disk(g_sample*col, g_sample*row);
+          lowres_disparity2(col, row) = lowres_disparity_disk(pixel_sample*col, pixel_sample*row);
         }
       }
       asp::block_write_gdal_image( opt.out_prefix + "-D_sub2.tif",
                                    lowres_disparity2,
                                    opt,
                                    TerminalProgressCallback("asp", "\t--> Low-resolution disparity:") );
+#endif
 
 
     }

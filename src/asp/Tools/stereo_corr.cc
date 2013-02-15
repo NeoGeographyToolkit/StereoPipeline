@@ -43,7 +43,8 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, 
   Image2T m_right_image;
   Mask1T m_left_mask;
   Mask2T m_right_mask;
-  SeedDispT m_source_disparity;
+  SeedDispT m_sub_disparity;
+  SeedDispT m_sub_disparity_spread;
   PProcT m_preproc_func;
 
   // Settings
@@ -57,17 +58,19 @@ public:
                         ImageViewBase<Image2T> const& right_image,
                         ImageViewBase<Mask1T> const& left_mask,
                         ImageViewBase<Mask2T> const& right_mask,
-                        ImageViewBase<SeedDispT> const& source_disp,
+                        ImageViewBase<SeedDispT> const& sub_disparity,
+                        ImageViewBase<SeedDispT> const& sub_disparity_spread,
                         stereo::PreFilterBase<PProcT> const& filter,
                         BBox2i left_image_crop_win,
                         stereo::CostFunctionType cost_mode ) :
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask(left_mask.impl()), m_right_mask(right_mask.impl()),
-    m_source_disparity( source_disp.impl() ),
+    m_sub_disparity( sub_disparity.impl() ),
+    m_sub_disparity_spread( sub_disparity_spread.impl() ),
     m_preproc_func( filter.impl() ), m_left_image_crop_win(left_image_crop_win), m_cost_mode(cost_mode) {
-    m_upscale_factor[0] = float(m_left_image.cols()) / float(m_source_disparity.cols());
-    m_upscale_factor[1] = float(m_left_image.rows()) / float(m_source_disparity.rows());
-    m_seed_bbox = bounding_box( m_source_disparity );
+    m_upscale_factor[0] = float(m_left_image.cols()) / float(m_sub_disparity.cols());
+    m_upscale_factor[1] = float(m_left_image.rows()) / float(m_sub_disparity.rows());
+    m_seed_bbox = bounding_box( m_sub_disparity );
   }
 
   // Image View interface
@@ -124,13 +127,24 @@ public:
       VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
 
       BBox2f local_search_range =
-        stereo::get_disparity_range( crop( m_source_disparity, seed_bbox ) );
+        stereo::get_disparity_range( crop( m_sub_disparity, seed_bbox ) );
+
+
+      if (stereo_settings().seed_mode == 2){
+        // Expand the disparity range by the disparity spread computed
+        // from input DEM.
+        BBox2f spread =
+          stereo::get_disparity_range( crop( m_sub_disparity_spread, seed_bbox ) );
+        local_search_range.min() -= spread.max();
+        local_search_range.max() += spread.max();
+      }
 
       local_search_range = grow_bbox_to_int(local_search_range);
       // Expand local_search_range by 1. This is necessary since
-      // m_source_disparity is integer-valued, and perhaps the search
+      // m_sub_disparity is integer-valued, and perhaps the search
       // range was supposed to be a fraction of integer bigger.
       local_search_range.expand(1);
+      // Scale the search range to full-resolution
       local_search_range.min() = floor(elem_prod(local_search_range.min(), m_upscale_factor));
       local_search_range.max() = ceil(elem_prod(local_search_range.max(), m_upscale_factor));
 
@@ -175,13 +189,14 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
                     ImageViewBase<Image2T> const& right,
                     ImageViewBase<Mask1T> const& lmask,
                     ImageViewBase<Mask2T> const& rmask,
-                    ImageViewBase<SeedDispT> const& sdisp,
+                    ImageViewBase<SeedDispT> const& sub_disparity,
+                    ImageViewBase<SeedDispT> const& sub_disparity_spread,
                     stereo::PreFilterBase<PProcT> const& filter,
                     BBox2i left_image_crop_win,
                     stereo::CostFunctionType cost_type ) {
   typedef SeededCorrelatorView<Image1T, Image2T, Mask1T, Mask2T, SeedDispT, PProcT> return_type;
   return return_type( left.impl(), right.impl(), lmask.impl(), rmask.impl(),
-                      sdisp.impl(), filter.impl(), left_image_crop_win, cost_type );
+                      sub_disparity.impl(), sub_disparity_spread.impl(), filter.impl(), left_image_crop_win, cost_type );
 }
 
 void stereo_correlation( Options& opt ) {
@@ -214,7 +229,11 @@ void stereo_correlation( Options& opt ) {
   if ( stereo_settings().seed_mode > 0 )
     sub_disparity =
       DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
-  ImageViewRef<PixelMask<Vector2i> > disparity_map;
+  ImageViewRef<PixelMask<Vector2i> > sub_disparity_spread;
+  if ( stereo_settings().seed_mode == 2 )
+    sub_disparity_spread =
+      DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub_spread.tif");
+  ImageViewRef<PixelMask<Vector2i> > fullres_disparity;
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
@@ -229,27 +248,27 @@ void stereo_correlation( Options& opt ) {
   if ( stereo_settings().pre_filter_mode == 2 ) {
     vw_out() << "\t--> Using LOG pre-processing filter with "
              << stereo_settings().slogW << " sigma blur.\n";
-    disparity_map =
-      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity,
+    fullres_disparity =
+      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity, sub_disparity_spread,
                           stereo::LaplacianOfGaussian(stereo_settings().slogW), opt.left_image_crop_win,
                           cost_mode );
   } else if ( stereo_settings().pre_filter_mode == 1 ) {
     vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
              << stereo_settings().slogW << " sigma blur.\n";
-    disparity_map =
-      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity,
+    fullres_disparity =
+      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity, sub_disparity_spread,
                           stereo::SubtractedMean(stereo_settings().slogW), opt.left_image_crop_win,
                           cost_mode );
   } else {
     vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
-    disparity_map =
-      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity,
+    fullres_disparity =
+      seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask, sub_disparity, sub_disparity_spread,
                           stereo::NullOperation(), opt.left_image_crop_win,
                           cost_mode );
   }
 
   asp::block_write_gdal_image( opt.out_prefix + "-D.tif",
-                               disparity_map, opt,
+                               fullres_disparity, opt,
                                TerminalProgressCallback("asp", "\t--> Correlation :") );
 
   vw_out() << "\n[ " << current_posix_time_string()
