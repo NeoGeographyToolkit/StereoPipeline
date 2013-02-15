@@ -253,17 +253,10 @@ namespace asp {
 
   void user_safety_check(Options const& opt){
 
-    if (opt.stereo_session_string == "rpc"){
-      // The user safety check does not make sense for RPC cameras as
-      // they don't specify a camera center.
-      // To do: May need to devise a check specific for RPC cameras.
-      return;
-    }
-
     //---------------------------------------------------------
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-      opt.session->camera_models(camera_model1,camera_model2);
+      opt.session->camera_models(camera_model1, camera_model2);
 
       Vector3 cam1_ctr = camera_model1->camera_center(Vector2());
       Vector3 cam2_ctr = camera_model2->camera_center(Vector2());
@@ -543,7 +536,7 @@ namespace asp {
   void pre_correlation( Options & opt ) {
 
     vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : Stage 1 --> PRE-CORRELATION \n";
+             << " ] : Stage 1 --> LOW-RESOLUTION CORRELATION \n";
 
     // Working out search range if need be
     if (stereo_settings().is_search_defined()) {
@@ -624,7 +617,7 @@ namespace asp {
     }
 
     vw_out() << "\n[ " << current_posix_time_string()
-             << " ] : PRE-CORRELATION FINISHED \n";
+             << " ] : LOW-RESOLUTION CORRELATION FINISHED \n";
   }
 
   void produce_lowres_disparity( Options & opt ) {
@@ -658,24 +651,30 @@ namespace asp {
       // Below we use on purpose stereo::CROSS_CORRELATION instead of
       // user's choice of correlation method, since this is the most
       // accurate, as well as reasonably fast for subsapled images.
-      asp::block_write_gdal_image( opt.out_prefix + "-D_sub.tif",
-                                   remove_outliers(
-                                                   stereo::pyramid_correlate( left_sub, right_sub,
-                                                                              left_mask_sub, right_mask_sub,
-                                                                              stereo::LaplacianOfGaussian(stereo_settings().slogW),
-                                                                              search_range,
-                                                                              stereo_settings().corr_kernel,
-                                                                              stereo::CROSS_CORRELATION, 2 ),
-                                                   1, 1, 2.0, 0.5), opt,
-                                   TerminalProgressCallback("asp", "\t--> Low-resolution disparity:") );
+      asp::block_write_gdal_image
+        (opt.out_prefix + "-D_sub.tif",
+         remove_outliers(stereo::pyramid_correlate
+                         (left_sub, right_sub,
+                          left_mask_sub, right_mask_sub,
+                          stereo::LaplacianOfGaussian(stereo_settings().slogW),
+                          search_range,
+                          stereo_settings().corr_kernel,
+                          stereo::CROSS_CORRELATION, 2
+                          ),
+                         1, 1, 2.0, 0.5
+                         ), opt,
+         TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
+         );
 
     }else if ( stereo_settings().seed_mode == 2 ) {
 
       // Use a DEM to get the low-res disparity
 
-      if (stereo_settings().is_search_defined()){
-        vw_out(WarningMessage) << "Computing low-res disparity from DEM. Will ignore corr-search value: " << stereo_settings().search_range << ".\n";
-      }
+      if (stereo_settings().is_search_defined())
+        vw_out(WarningMessage) << "Computing low-resolution disparity from DEM. "
+                               << "Will ignore corr-search value: "
+                               << stereo_settings().search_range << ".\n";
+
 
       // Skip pixels for speed
       int pixel_sample = 5;
@@ -743,7 +742,6 @@ namespace asp {
       //---------------------------------------------------------
       Vector2 orig_tile_size = opt.raster_tile_size;
       opt.raster_tile_size = Vector2i(64, 64);
-      std::cout << "Switching tile size from: " << orig_tile_size  << " to " << opt.raster_tile_size << std::endl;
 
       // This image is small enough that we can keep it in memory
       ImageView<PixelMask<Vector2i> > disparity_spread(left_image_sub.cols(), left_image_sub.rows());
@@ -784,7 +782,7 @@ namespace asp {
       time_task = difftime(End_t, Start_t);    //compute elapsed time of task 1
       std::cout << "elapsed time: " << time_task << std::endl;
 
-      std::cout << "Switching tile size from: " << opt.raster_tile_size << " " << orig_tile_size << std::endl;
+      // Go back to the original tile size
       opt.raster_tile_size = orig_tile_size;
 
 #if 1 // Debug code
