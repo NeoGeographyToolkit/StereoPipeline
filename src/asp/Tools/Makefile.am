@@ -179,7 +179,8 @@ endif
 # Scripts
 ##############################################################################
 
-python_tool_scripts += time_trials cam2map4stereo.py hiedr2mosaic.py lronac4staged.py
+python_tool_scripts += time_trials cam2map4stereo.py \
+	hiedr2mosaic.py lronac4staged.py dg_mosaic.py
 bin_SCRIPTS = $(python_tool_scripts)
 CLEANFILES = $(python_tool_scripts)
 

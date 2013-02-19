@@ -1,0 +1,239 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2012, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+import os, sys, string, subprocess, math, re, optparse
+from datetime import datetime, timedelta
+import xml.etree.ElementTree as ET
+
+class Usage(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+# Give me you image files that make up the composite. I will assume
+# the XML files are in the same directory and end with extension
+# ".xml"
+class BBox:
+    def __init__(self):
+        self.minx = 0
+        self.miny = 0
+        self.maxx = 0
+        self.maxy = 0
+
+    def grow(self, placement):
+        if placement[0] < self.miny:
+            self.miny = placement[0]
+        if placement[1] > self.maxx:
+            self.maxx = placement[1]
+        if placement[2] + placement[0] > self.maxy:
+            self.maxy = placement[2] + placement[0]
+
+    def width(self):
+        return self.maxx - self.minx
+
+    def height(self):
+        return self.maxy - self.miny
+
+    def __repr__(self):
+        return "BBox %i %i -> %i %i" % (self.minx,self.miny,self.maxx,self.maxy)
+
+# Returns [tlctime, tlclist, firstlinetime, image_size]
+def read_tlc( filename ):
+    tree = ET.parse( filename )
+    root = tree.getroot()
+    IMD = root.find("IMD")
+    IMAGE = IMD.find("IMAGE")
+    tlctime = datetime.strptime(IMAGE.find("TLCTIME").text.strip(),
+                                    "%Y-%m-%dT%H:%M:%S.%fZ")
+    tlclist = []
+    for tlc_item in IMAGE.find("TLCLISTList").findall("TLCLIST"):
+        tokens = tlc_item.text.strip().split(' ')
+        tlclist.append([float(tokens[0]), float(tokens[1])])
+    firstlinetime = datetime.strptime(IMAGE.find("FIRSTLINETIME").text,
+                                          "%Y-%m-%dT%H:%M:%S.%fZ")
+    image_size = []
+    image_size.append( int(IMD.find("NUMCOLUMNS").text) )
+    image_size.append( int(IMD.find("NUMROWS").text) )
+    return [tlctime, tlclist, firstlinetime, image_size]
+
+def tlc_time_lookup( tlctime, tlclist, pixel_y ):
+    fraction = (pixel_y - tlclist[0][0]) / (tlclist[1][0] - tlclist[0][0])
+    seconds_off = fraction * ( tlclist[1][1] - tlclist[0][1]) + tlclist[0][1]
+    return tlctime + timedelta(seconds=seconds_off)
+
+def tlc_pixel_lookup( tlctime, tlclist, time ):
+    difference = time - tlctime
+    seconds_since_ref = difference.microseconds /  10.0**6 + difference.seconds + difference.days*24.0*3600.0
+    fraction = ( seconds_since_ref - tlclist[0][1] ) / (tlclist[1][1] - tlclist[0][1]);
+    return fraction * ( tlclist[1][0] - tlclist[0][0] ) + tlclist[0][0]
+
+def xml_name( filename ):
+    return filename.split(".")[0]+".xml"
+
+def run_cmd( cmd, options ):
+    if options.dryrun:
+        print cmd
+    else:
+        code = subprocess.call(cmd, shell=True)
+        if code:
+            raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
+
+def main():
+    try:
+        try:
+            usage = "usage dg_mosaic.py [--help][--gdal-dir dir] <all ntf or tif files that make up observation>\n  [ASP [@]ASP_VERSION[@]]"
+            parser = optparse.OptionParser(usage=usage)
+            parser.set_defaults(dryrun=False)
+            parser.set_defaults(preview=False)
+            parser.set_defaults(gdaldir="")
+            parser.set_defaults(reduce_percent=100)
+            parser.add_option("--gdal-dir", dest="gdaldir",
+                              help="Directory where GDAL tools are. Alternatively we try and pull the tools from the enviroment")
+            parser.add_option("--reduce-percent", dest="reduce_percent", type="int",
+                              help="Render a reduced output image and xml based on this percentage")
+            parser.add_option("--preview", dest="preview",
+                              action="store_true",
+                              help="Render a small 8 bit png of the input for preview.")
+            parser.add_option("-n", "--dry-run", dest="dryrun",
+                              action="store_true",
+                              help="Make caclulations, but just print out the commands.")
+
+            (options, args) = parser.parse_args()
+            if not args: parser.error("need .ntf or .tif files")
+            if len(options.gdaldir): options.gdaldir += "/"
+
+        except optparse.OptionError, msg:
+            raise Usage(msg)
+
+        # We reference everything from the perspective of the first
+        # image. So lets load it up first into our special variables.
+        [ref_tlctime, ref_tlclist, ref_firstlinetime, ref_image_size] = read_tlc( xml_name(args[0]) )
+
+        placements = []
+        val = [int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist, ref_firstlinetime)))]
+        val.extend( ref_image_size )
+        placements.append( val )
+
+        for filename in args[1:]:
+            [tlctime, tlclist, firstlinetime, image_size] = read_tlc( xml_name(filename))
+            val = [int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist, firstlinetime)))]
+            val.extend( image_size )
+            placements.append( val )
+
+        boundary = BBox()
+        for placement in placements:
+            boundary.grow(placement)
+
+        print "Output image size: %ix%i px" % (boundary.width(),boundary.height())
+        for i in range(len(args)):
+            placements[i][0] -= boundary.miny
+            print "  Placing %s" % args[i]
+            print "    Size %ix%i at line %i" % (placements[i][1],placements[i][2],placements[i][0])
+
+        # We do a 2 pass with VRT wrapping because the following
+        # operations are performed in this order:
+        #
+        # Nodata masking
+        # Color table expansion
+        # Applying the scale ratio
+        # Applying the scale offset
+        # Table lookup
+        #
+        # We need to perform a LUT and then a nodata mask
+        output_prefix = args[0].split('-')[-1].split('.')[0]
+
+        # Write the VRT that composites these JP2 images together
+        with open(output_prefix+".vrt",'w') as f:
+            f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (boundary.width(),boundary.height()))
+            f.write("  <VRTRasterBand dataType=\"UInt16\" band=\"1\">\n")
+            f.write("    <ColorInterp>Gray</ColorInterp>\n")
+            f.write("    <NoDataValue>0</NoDataValue>\n")
+            for i in range(len(args)):
+                f.write("    <ComplexSource>\n")
+                f.write("      <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % args[i])
+                f.write("      <SourceBand>1</SourceBand>\n")
+                f.write("      <LUT>0:0,4:0,5:5,4096:4096</LUT>\n")
+                f.write("      <NODATA>0</NODATA>\n")
+                f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i][1],placements[i][2]))
+                f.write("      <DstRect xOff=\"0\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i][0],placements[i][1],placements[i][2]))
+                f.write("    </ComplexSource>\n")
+            f.write("  </VRTRasterBand>\n")
+            f.write("</VRTDataset>\n")
+
+        # Write a composite XML file
+        tree = ET.parse(xml_name(args[0]))
+        root = tree.getroot()
+        imd = root.find("IMD")
+        imd.find("NUMROWS").text = str(boundary.height())
+        imd.find("NUMCOLUMNS").text = str(boundary.width())
+        for tlc_item in imd.find("IMAGE").find("TLCLISTList").findall("TLCLIST"):
+            tokens = tlc_item.text.strip().split(' ')
+            tokens[0] = str(int(round((float(tokens[0])))) - boundary.miny)
+            tlc_item.text = " ".join(tokens)
+        first_line_item = root.find("IMD").find("IMAGE").find("FIRSTLINETIME")
+        first_line_item.text = tlc_time_lookup( ref_tlctime, ref_tlclist, boundary.miny ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        imd.remove( imd.find("BAND_P") )
+        root.remove( root.find("TIL") ) # TIL no longer applies
+        root.remove( root.find("RPB") ) # The RPC model no longer applies
+        tree.write(output_prefix+".xml")
+
+        # Raster into a TIFF at full resolution. If we lower the
+        # resolution now .. we'll develop raster errors on the nodata
+        # portions of the input. I'm not sure why this happens.
+        cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -co TILED=yes -co COMPRESS=lzw %s.vrt %s.tif" % (options.gdaldir,output_prefix,output_prefix)
+        run_cmd( cmd, options )
+
+        # Render reduced image and reduced xml
+        if options.reduce_percent != 100:
+            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -outsize %i%% %i%% -co TILED=yes -co COMPRESS=lzw %s.tif %s.r%i.tif" % (options.gdaldir,options.reduce_percent,options.reduce_percent,output_prefix,output_prefix,options.reduce_percent)
+            run_cmd( cmd, options )
+
+            scale = options.reduce_percent / 100.0
+
+            tree = ET.parse(output_prefix+".xml")
+            root = tree.getroot()
+            # Update NumRows and NumColumns
+            imd = root.find("IMD")
+            imd.find("NUMROWS").text = str( int(boundary.height() * scale) )
+            imd.find("NUMCOLUMNS").text = str( int(boundary.width() * scale) )
+            # Update TLCList, AVGLineRate, ExposureDur
+            image = imd.find("IMAGE")
+            for tlc_item in image.find("TLCLISTList").findall("TLCLIST"):
+                tokens = tlc_item.text.strip().split(' ')
+                tokens[0] = str(float(tokens[0]) * scale)
+                tlc_item.text = " ".join(tokens)
+            linerate = image.find("AVGLINERATE")
+            linerate.text = str(float(linerate.text) * scale)
+            duration = image.find("EXPOSUREDURATION")
+            duration.text = str(float(duration.text) / scale)
+            # Update Detector Pitch
+            pitch = root.find("GEO").find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY").find("DETPITCH")
+            pitch.text = str(float(pitch.text) / scale)
+            tree.write(output_prefix+".r%i.xml" % options.reduce_percent )
+
+        # Make a preview image
+        if options.preview:
+            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize 5%% 5%% %s.tif %s.small.png" % (options.gdaldir,output_prefix,output_prefix)
+            run_cmd( cmd, options )
+
+    except Usage, err:
+        print >>sys.stderr, err.msg
+        # print >>sys.stderr, "for help use --help"
+        return 2
+
+if __name__ == "__main__":
+    sys.exit(main())
