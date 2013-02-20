@@ -339,8 +339,6 @@ namespace asp {
       std::string match_filename
         = ip::match_filename(opt.out_prefix, opt.in_file1, opt.in_file2);
 
-      std::cout << "Match file: " << match_filename << std::endl;
-
       if (!fs::exists(match_filename)) {
         // If there is not any match files for the input image. Let's
         // gather some IP quickly from the low resolution images. This
@@ -489,7 +487,6 @@ namespace asp {
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     float i_scale = 1.0/scale;
 
-    // String names
     std::string
       left_ip_file  = fs::path( left_image ).replace_extension("vwip").string(),
       right_ip_file = fs::path( right_image ).replace_extension("vwip").string();

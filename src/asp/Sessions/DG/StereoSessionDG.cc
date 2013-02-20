@@ -444,7 +444,7 @@ namespace asp {
                        HomographyTransform(align_matrix),
                        left_disk_image.cols(), left_disk_image.rows());
     } else if ( stereo_settings().alignment_method == "epipolar" ) {
-      vw_throw( NoImplErr() << "StereoSessionDG doesn't support epipolar rectification" );
+      vw_throw( NoImplErr() << "StereoSessionDG does not support epipolar rectification" );
     } else {
       // Do nothing just provide the original files.
       Limg = left_disk_image;
@@ -454,7 +454,7 @@ namespace asp {
     // Apply our normalization options
     if ( stereo_settings().force_max_min > 0 ) {
       if ( stereo_settings().individually_normalize > 0 ) {
-        vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
+        vw_out() << "\t--> Individually normalize images to their respective min max\n";
         Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
         Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
       } else {

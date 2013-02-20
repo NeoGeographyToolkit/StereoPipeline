@@ -178,7 +178,7 @@ int main( int argc, char* argv[] ) {
       }
       target_georef.set_transform( transform );
     }
-    vw_out() << "Output Georeference:\n" << target_georef << std::endl;
+    vw_out() << "Output georeference:\n" << target_georef << std::endl;
 
     BBox2i target_image_size =
       target_georef.point_to_pixel_bbox( point_bounds );

@@ -177,7 +177,8 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
 
       boost::shared_ptr<IsisCameraModel> isis_cam =
         boost::dynamic_pointer_cast<IsisCameraModel>(cam1);
-
+      VW_ASSERT( isis_cam.get() != NULL,
+               ArgumentErr() << "StereoSessionISIS: Invalid left camera.\n" );
       Vector3 radii = isis_cam->target_radii();
       cartography::Datum datum("","","", (radii[0] + radii[1]) / 2, radii[2], 0);
 
@@ -207,7 +208,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& input_file1,
     vw_out() << "\t--> Aligning right image to left using homography:\n"
              << "\t      " << align_matrix << "\n";
   } else if ( stereo_settings().alignment_method == "epipolar" ) {
-    vw_throw( NoImplErr() << "StereoSessionISIS doesn't support epipolar rectification" );
+    vw_throw( NoImplErr() << "StereoSessionISIS does not support epipolar rectification" );
   }
 
   // Getting left image size
