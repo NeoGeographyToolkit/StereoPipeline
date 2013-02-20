@@ -337,12 +337,11 @@ namespace asp {
       left_disk_image( left_rsrc ),
       right_disk_image( right_rsrc );
 
-    // Normalized Images' filenames
+    // Filenames of normalized images
     output_file1 = m_out_prefix + "-L.tif";
     output_file2 = m_out_prefix + "-R.tif";
 
-    // See if these files already exist, if they do don't bother
-    // writting them again.
+    // If these files already exist, don't bother writting them again.
     bool rebuild = false;
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
@@ -358,146 +357,147 @@ namespace asp {
       rebuild = true;
     }
 
-    // They don't exist or are corrupted.
-    if (rebuild) {
-      Vector4f left_stats = gather_stats( left_disk_image, "left" ),
-        right_stats = gather_stats( right_disk_image, "right" );
-
-      ImageViewRef<PixelGray<float> > Limg, Rimg;
-      std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
-
-      if ( stereo_settings().alignment_method == "homography" ) {
-        std::string match_filename
-          = ip::match_filename(m_out_prefix, input_file1, input_file2);
-
-        if (!fs::exists(match_filename)) {
-          bool inlier = false;
-
-          boost::shared_ptr<camera::CameraModel> cam1, cam2;
-          camera_models( cam1, cam2 );
-          if ( m_rpc_map_projected ) {
-            // We'll make the assumption that the user has map
-            // projected the images to the same scale. If they
-            // haven't, below would be the ideal but lossy method.
-            //            inlier =
-            //  homography_ip_matching( left_disk_image, right_disk_image,
-            //                          match_filename );
-            boost::scoped_ptr<RPCModel>
-              left_rpc( read_rpc_model( m_left_image_file, m_left_camera_file ) ),
-              right_rpc( read_rpc_model( m_right_image_file, m_right_camera_file ) );
-            cartography::GeoReference left_georef, right_georef, dem_georef;
-            read_georeference( left_georef, m_left_image_file );
-            read_georeference( right_georef, m_right_image_file );
-            read_georeference( dem_georef, m_input_dem );
-            boost::shared_ptr<DiskImageResource>
-              dem_rsrc( DiskImageResource::open( m_input_dem ) );
-            TransformRef
-              left_tx( RPCMapTransform( *left_rpc, left_georef,
-                                        dem_georef, dem_rsrc ) ),
-              right_tx( RPCMapTransform( *right_rpc, right_georef,
-                                        dem_georef, dem_rsrc ) );
-            inlier =
-              ip_matching( cam1.get(), cam2.get(),
-                           left_disk_image, right_disk_image,
-                           cartography::Datum("WGS84"), match_filename,
-                           left_rsrc->has_nodata_read() ?
-                           left_rsrc->nodata_read() :
-                           std::numeric_limits<double>::quiet_NaN(),
-                           right_rsrc->has_nodata_read() ?
-                           right_rsrc->nodata_read() :
-                           std::numeric_limits<double>::quiet_NaN(),
-                           left_tx, right_tx, false );
-          } else {
-            inlier =
-              ip_matching_w_alignment( cam1.get(), cam2.get(),
-                                       left_disk_image, right_disk_image,
-                                       cartography::Datum("WGS84"), match_filename,
-                                       left_rsrc->has_nodata_read() ?
-                                       left_rsrc->nodata_read() :
-                                       std::numeric_limits<double>::quiet_NaN(),
-                                       right_rsrc->has_nodata_read() ?
-                                       right_rsrc->nodata_read() :
-                                       std::numeric_limits<double>::quiet_NaN() );
-          }
-
-          if ( !inlier ) {
-            fs::remove( match_filename );
-            vw_throw( IOErr() << "Unable to match left and right images." );
-          }
-        }
-
-        std::vector<ip::InterestPoint> ip1, ip2;
-        ip::read_binary_match_file( match_filename, ip1, ip2  );
-        Matrix<double> align_matrix =
-          homography_fit(ip2, ip1, bounding_box(left_disk_image) );
-        write_matrix( m_out_prefix + "-align.exr", align_matrix );
-
-        vw_out() << "\t--> Aligning right image to left using homography:\n"
-                 << "\t      " << align_matrix << "\n";
-
-        // Applying alignment transform
-        Limg = left_disk_image;
-        Rimg = transform(right_disk_image,
-                         HomographyTransform(align_matrix),
-                         left_disk_image.cols(), left_disk_image.rows());
-      } else if ( stereo_settings().alignment_method == "epipolar" ) {
-        vw_throw( NoImplErr() << "StereoSessionDG doesn't support epipolar rectification" );
-      } else {
-        // Do nothing just provide the original files.
-        Limg = left_disk_image;
-        Rimg = right_disk_image;
-      }
-
-      // Apply our normalization options
-      if ( stereo_settings().force_max_min > 0 ) {
-        if ( stereo_settings().individually_normalize > 0 ) {
-          vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
-          Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
-          Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
-        } else {
-          float low = std::min(left_stats[0], right_stats[0]);
-          float hi  = std::max(left_stats[1], right_stats[1]);
-          vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-          Limg = normalize( Limg, low, hi, 0, 1.0 );
-          Rimg = normalize( Rimg, low, hi, 0, 1.0 );
-        }
-      } else {
-        if ( stereo_settings().individually_normalize > 0 ) {
-          vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
-          Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
-                            left_stats[2] + 2*left_stats[3], 0, 1.0 );
-          Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
-                            right_stats[2] + 2*right_stats[3], 0, 1.0 );
-        } else {
-          float low = std::min(left_stats[2] - 2*left_stats[3],
-                               right_stats[2] - 2*right_stats[3]);
-          float hi  = std::max(left_stats[2] + 2*left_stats[3],
-                               right_stats[2] + 2*right_stats[3]);
-          vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-          Limg = normalize( Limg, low, hi, 0, 1.0 );
-          Rimg = normalize( Rimg, low, hi, 0, 1.0 );
-        }
-      }
-
-
-      vw_out() << "\t--> Writing pre-aligned images.\n";
-      block_write_gdal_image( output_file1, Limg, m_options,
-                              TerminalProgressCallback("asp","\t  L:  ") );
-      if ( stereo_settings().alignment_method == "none" )
-        block_write_gdal_image( output_file2, Rimg, m_options,
-                                TerminalProgressCallback("asp","\t  R:  ") );
-      else
-        block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),
-                                                   bounding_box(Limg)), m_options,
-                                TerminalProgressCallback("asp","\t  R:  ") );
-
-      // We could write the LUT images at this point, but I'm going to
-      // let triangulation render them on the fly. This will save a lot
-      // of storage and possibly make the triangulation faster since we
-      // don't mutex on these massive files
-    } else {
+    if (!rebuild) {
       vw_out() << "\t--> Using cached L and R files.\n";
+      return;
     }
+
+    // The pre-processed images don't exist or are corrupted.
+    Vector4f left_stats = gather_stats( left_disk_image, "left" ),
+      right_stats = gather_stats( right_disk_image, "right" );
+
+    ImageViewRef<PixelGray<float> > Limg, Rimg;
+    std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
+
+    if ( stereo_settings().alignment_method == "homography" ) {
+      std::string match_filename
+        = ip::match_filename(m_out_prefix, input_file1, input_file2);
+
+      if (!fs::exists(match_filename)) {
+        bool inlier = false;
+
+        boost::shared_ptr<camera::CameraModel> cam1, cam2;
+        camera_models( cam1, cam2 );
+        if ( m_rpc_map_projected ) {
+          // We'll make the assumption that the user has map
+          // projected the images to the same scale. If they
+          // haven't, below would be the ideal but lossy method.
+          //            inlier =
+          //  homography_ip_matching( left_disk_image, right_disk_image,
+          //                          match_filename );
+          boost::scoped_ptr<RPCModel>
+            left_rpc( read_rpc_model( m_left_image_file, m_left_camera_file ) ),
+            right_rpc( read_rpc_model( m_right_image_file, m_right_camera_file ) );
+          cartography::GeoReference left_georef, right_georef, dem_georef;
+          read_georeference( left_georef, m_left_image_file );
+          read_georeference( right_georef, m_right_image_file );
+          read_georeference( dem_georef, m_input_dem );
+          boost::shared_ptr<DiskImageResource>
+            dem_rsrc( DiskImageResource::open( m_input_dem ) );
+          TransformRef
+            left_tx( RPCMapTransform( *left_rpc, left_georef,
+                                      dem_georef, dem_rsrc ) ),
+            right_tx( RPCMapTransform( *right_rpc, right_georef,
+                                       dem_georef, dem_rsrc ) );
+          inlier =
+            ip_matching( cam1.get(), cam2.get(),
+                         left_disk_image, right_disk_image,
+                         cartography::Datum("WGS84"), match_filename,
+                         left_rsrc->has_nodata_read() ?
+                         left_rsrc->nodata_read() :
+                         std::numeric_limits<double>::quiet_NaN(),
+                         right_rsrc->has_nodata_read() ?
+                         right_rsrc->nodata_read() :
+                         std::numeric_limits<double>::quiet_NaN(),
+                         left_tx, right_tx, false );
+        } else {
+          inlier =
+            ip_matching_w_alignment( cam1.get(), cam2.get(),
+                                     left_disk_image, right_disk_image,
+                                     cartography::Datum("WGS84"), match_filename,
+                                     left_rsrc->has_nodata_read() ?
+                                     left_rsrc->nodata_read() :
+                                     std::numeric_limits<double>::quiet_NaN(),
+                                     right_rsrc->has_nodata_read() ?
+                                     right_rsrc->nodata_read() :
+                                     std::numeric_limits<double>::quiet_NaN() );
+        }
+
+        if ( !inlier ) {
+          fs::remove( match_filename );
+          vw_throw( IOErr() << "Unable to match left and right images." );
+        }
+      }
+
+      std::vector<ip::InterestPoint> ip1, ip2;
+      ip::read_binary_match_file( match_filename, ip1, ip2  );
+      Matrix<double> align_matrix =
+        homography_fit(ip2, ip1, bounding_box(left_disk_image) );
+      write_matrix( m_out_prefix + "-align.exr", align_matrix );
+
+      vw_out() << "\t--> Aligning right image to left using homography:\n"
+               << "\t      " << align_matrix << "\n";
+
+      // Applying alignment transform
+      Limg = left_disk_image;
+      Rimg = transform(right_disk_image,
+                       HomographyTransform(align_matrix),
+                       left_disk_image.cols(), left_disk_image.rows());
+    } else if ( stereo_settings().alignment_method == "epipolar" ) {
+      vw_throw( NoImplErr() << "StereoSessionDG doesn't support epipolar rectification" );
+    } else {
+      // Do nothing just provide the original files.
+      Limg = left_disk_image;
+      Rimg = right_disk_image;
+    }
+
+    // Apply our normalization options
+    if ( stereo_settings().force_max_min > 0 ) {
+      if ( stereo_settings().individually_normalize > 0 ) {
+        vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
+        Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
+        Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
+      } else {
+        float low = std::min(left_stats[0], right_stats[0]);
+        float hi  = std::max(left_stats[1], right_stats[1]);
+        vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+        Limg = normalize( Limg, low, hi, 0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+      }
+    } else {
+      if ( stereo_settings().individually_normalize > 0 ) {
+        vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
+        Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
+                          left_stats[2] + 2*left_stats[3], 0, 1.0 );
+        Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
+                          right_stats[2] + 2*right_stats[3], 0, 1.0 );
+      } else {
+        float low = std::min(left_stats[2] - 2*left_stats[3],
+                             right_stats[2] - 2*right_stats[3]);
+        float hi  = std::max(left_stats[2] + 2*left_stats[3],
+                             right_stats[2] + 2*right_stats[3]);
+        vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
+        Limg = normalize( Limg, low, hi, 0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+      }
+    }
+
+
+    vw_out() << "\t--> Writing pre-aligned images.\n";
+    block_write_gdal_image( output_file1, Limg, m_options,
+                            TerminalProgressCallback("asp","\t  L:  ") );
+    if ( stereo_settings().alignment_method == "none" )
+      block_write_gdal_image( output_file2, Rimg, m_options,
+                              TerminalProgressCallback("asp","\t  R:  ") );
+    else
+      block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),
+                                                 bounding_box(Limg)), m_options,
+                              TerminalProgressCallback("asp","\t  R:  ") );
+
+    // We could write the LUT images at this point, but I'm going to
+    // let triangulation render them on the fly. This will save a lot
+    // of storage and possibly make the triangulation faster since we
+    // don't mutex on these massive files
   }
 
   // Helper function to read RPC models.
