@@ -33,6 +33,61 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
+template <class ImageT>
+class SelectiveRasterView : public ImageViewBase< SelectiveRasterView<ImageT> > {
+  ImageT m_image;
+  BBox2i m_left_image_crop_win;
+
+public:
+  SelectiveRasterView( ImageViewBase<ImageT> const& image,
+                       BBox2i left_image_crop_win ) :
+    m_image( image.impl() ), m_left_image_crop_win( left_image_crop_win ) {}
+
+  typedef typename ImageT::pixel_type pixel_type;
+  typedef typename ImageT::result_type result_type;
+  typedef typename ImageT::pixel_accessor pixel_accessor;
+
+  inline int32 cols() const { return m_image.cols(); }
+  inline int32 rows() const { return m_image.rows(); }
+  inline int32 planes() const { return m_image.planes(); }
+
+  inline pixel_accessor origin() const { return m_image.origin(); }
+
+  inline result_type operator()( int32 i, int32 j, int32 p = 0 ) const {
+    return m_image( i, j, p );
+  }
+
+  typedef CropView<ImageView<pixel_type> > prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+    // We do stereo only in m_left_image_crop_win. Skip the current tile if
+    // it does not intersect this region.
+    BBox2i intersection = bbox; intersection.crop(m_left_image_crop_win);
+    if (intersection.empty()){
+      return prerasterize_type(ImageView<pixel_type>(bbox.width(),
+                                                     bbox.height()),
+                               -bbox.min().x(), -bbox.min().y(),
+                               cols(), rows() );
+    }
+
+    ImageView<pixel_type> output =
+      crop( m_image.prerasterize( bbox ), bbox );
+    return prerasterize_type( output, -bbox.min().x(), -bbox.min().y(),
+                              cols(), rows() );
+  }
+
+  template <class DestT>
+  inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+
+template <class ImageT>
+SelectiveRasterView<ImageT>
+selective_rasterize( ImageViewBase<ImageT> const& image,
+                     BBox2i const& left_crop ) {
+  return SelectiveRasterView<ImageT>( image.impl(), left_crop );
+}
+
 void stereo_refinement( Options& opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
@@ -98,8 +153,7 @@ void stereo_refinement( Options& opt ) {
                            left_disk_image, right_disk_image,
                            PreFilter(stereo_settings().slogW),
                            stereo_settings().subpixel_kernel,
-                           stereo_settings().subpixel_max_levels,
-                           opt.left_image_crop_win);
+                           stereo_settings().subpixel_max_levels );
 
     } else if (stereo_settings().subpixel_mode == 3) {
       // Affine and Bayes subpixel refinement always use the
@@ -145,7 +199,8 @@ void stereo_refinement( Options& opt ) {
     }
 
     asp::block_write_gdal_image( opt.out_prefix + "-RD.tif",
-                                 disparity_map, opt,
+                                 selective_rasterize(disparity_map,
+                                                     opt.left_image_crop_win), opt,
                                  TerminalProgressCallback("asp", "\t--> Refinement :") );
 
   } catch (IOErr const& e) {
