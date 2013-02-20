@@ -49,89 +49,52 @@ namespace asp {
   // For the time being we do not support overwriting previous data. It
   // seems non trivial at this hour.
 
-  template <class PixelT>
-  class SparseView : public vw::ImageViewBase< SparseView<PixelT> > {
-
-  private:
+  template <class ImageT>
+  class SparseCompositeView : public vw::ImageViewBase< SparseCompositeView<ImageT> > {
     // The key in our map is the index marking the end of the
     // vector. This somewhat confusing method is to allow us better use of
     // the container's search method.
-    typedef std::map<vw::int32,std::vector<typename vw::UnmaskedPixelType<PixelT>::type > > map_type;
-    boost::shared_ptr<std::vector<map_type> > m_data;
+    typedef std::map<vw::int32,std::vector<typename ImageT::pixel_type > > map_type;
+    std::vector<map_type> m_data;
     bool m_allow_overlap;
-
-    // Group leaves together if possible
-    void refactor() {}
+    ImageT m_under_image;
 
   public:
-    typedef typename vw::UnmaskedPixelType<PixelT>::type pixel_type;
-    typedef typename vw::UnmaskedPixelType<PixelT>::type result_type;
-    typedef vw::ProceduralPixelAccessor<SparseView<PixelT> > pixel_accessor;
-
-    // Number of filled points in SparseView
-    vw::uint32 size() const {
-      return 0; // FIX THIS!
-    }
+    typedef typename ImageT::pixel_type pixel_type;
+    typedef pixel_type result_type;
+    typedef vw::ProceduralPixelAccessor<SparseCompositeView<ImageT> > pixel_accessor;
 
     // Standard stuff
-    SparseView( bool allow_overlap = false ) :
-      m_data(new std::vector<map_type>() ), m_allow_overlap(allow_overlap) {}
+    SparseCompositeView( vw::ImageViewBase<ImageT> const& under_image,
+                         bool allow_overlap = false ) :
+      m_data(under_image.impl().rows()), m_allow_overlap(allow_overlap),
+      m_under_image(under_image.impl()) {}
 
-    inline vw::int32 cols() const {
-      vw::int32 max_col = 0;
-      typename map_type::const_reverse_iterator rit;
-      for ( vw::uint32 i = 0; i < m_data->size(); ++i )
-        if ( !(*m_data)[i].empty() ) {
-          rit = (*m_data)[i].rbegin();
-          if ( rit->first > max_col )
-            max_col = rit->first;
-        }
-      return max_col;
-    }
-    inline vw::int32 rows() const { return m_data->size(); }
+    inline vw::int32 cols() const { return m_under_image.cols(); }
+    inline vw::int32 rows() const { return m_under_image.rows(); }
     inline vw::int32 planes() const { return 1; }
 
     inline pixel_accessor origin() const { return pixel_accessor(*this,0,0); }
 
     inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 p=0 ) const {
+
       typename map_type::const_iterator it;
-      it = (*m_data)[j].upper_bound(i);
-      if ( it != (*m_data)[j].end() ) {
+      it = m_data[j].upper_bound(i);
+      if ( it != m_data[j].end() ) {
         vw::int32 s_idx = it->first - it->second.size();
         if ( i < s_idx )
-          return result_type(1);
+          return m_under_image( i, j, p );
         else
           return it->second[i-s_idx];
-      } else
-        return result_type(1);
+      }
+      return m_under_image( i, j, p );
     }
 
-    typedef SparseView<PixelT> prerasterize_type;
+    typedef SparseCompositeView<ImageT> prerasterize_type;
     inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const { return *this; }
     template <class DestT>
     inline void rasterize( DestT const& dest, vw::BBox2i const& bbox ) const {
       vw::rasterize( prerasterize(bbox), dest, bbox );
-    }
-
-    // Non standard stuff
-    bool contains( vw::int32 i, vw::int32 j, PixelT & pixel_ref ) const {
-      typename map_type::const_iterator it;
-      if ( j >= vw::int32(m_data->size()) )
-        return false;
-      if ( (*m_data)[j].empty() )
-        return false;
-      it = (*m_data)[j].upper_bound(i);
-      if ( it == (*m_data)[j].end() )
-        return false;
-      else {
-        vw::int32 s_idx = it->first - it->second.size();
-        if ( i < s_idx )
-          return false;
-        else {
-          pixel_ref = it->second[i-s_idx];
-          return true;
-        }
-      }
     }
 
     // Difficult insertation
@@ -141,7 +104,7 @@ namespace asp {
       using namespace vw;
       InputT image = image_base.impl();
       VW_DEBUG_ASSERT( starting_index[0] >= 0 && starting_index[1] >= 0,
-                       NoImplErr() << "SparseView doesn't support insertation behind image origin.\n" );
+                       NoImplErr() << "SparseCompositeView doesn't support insertation behind image origin.\n" );
 
       // Building temporary data structure
       std::vector<std::list<int32> > t_row_end(image.rows());
@@ -154,9 +117,9 @@ namespace asp {
           if ( is_valid( image(c,r) ) )
             if ( !building_segment ) {
               building_segment = true;
-              temp.push_back( image(c,r).child() );
+              temp.push_back( image(c,r) );
             } else
-              temp.push_back( image(c,r).child() );
+              temp.push_back( image(c,r) );
           else if ( building_segment ) {
             t_row_end[r].push_back(c);
             building_segment = false;
@@ -178,8 +141,8 @@ namespace asp {
           *iter += starting_index[0];
 
       // Inserting into global data set
-      if ( int32(m_data->size()) < starting_index[1]+image.rows() )
-        m_data->resize( starting_index[1]+image.rows() );
+      if ( int32(m_data.size()) < starting_index[1]+image.rows() )
+        m_data.resize( starting_index[1]+image.rows() );
       for ( int32 t_i=0, m_i=starting_index[1];
             t_i < image.rows(); ++t_i, ++m_i ) {
 
@@ -187,20 +150,20 @@ namespace asp {
         std::list<int32>::const_iterator t_e_iter = t_row_end[t_i].begin();
         typename std::list<std::vector<pixel_type> >::const_iterator t_d_iter = t_row_data[t_i].begin();
         while ( t_e_iter != t_row_end[t_i].end() ) {
-          typename map_type::iterator it = (*m_data)[m_i].lower_bound( *t_e_iter );
-          if ( it == (*m_data)[m_i].end() ) { // Doesn't appear anything is this far right
-            (*m_data)[m_i][*t_e_iter] = *t_d_iter;
-          } else if ( it == (*m_data)[m_i].begin() ) {
+          typename map_type::iterator it = m_data[m_i].lower_bound( *t_e_iter );
+          if ( it == m_data[m_i].end() ) { // Doesn't appear anything is this far right
+            m_data[m_i][*t_e_iter] = *t_d_iter;
+          } else if ( it == m_data[m_i].begin() ) {
             // Nothing in front of this point.
             int32 m_start_idx = it->first - it->second.size();
             if ( *t_e_iter > m_start_idx )
-              vw_throw( NoImplErr() << "SparseView at this time doesn't allow insert over existing data.\n");
+              vw_throw( NoImplErr() << "SparseCompositeView at this time doesn't allow insert over existing data.\n");
             else if ( *t_e_iter == m_start_idx ) // Append to front
               it->second.insert( it->second.begin(),
                                  t_d_iter->begin(),
                                  t_d_iter->end() );
             else // Whole new key
-              (*m_data)[m_i][*t_e_iter] = *t_d_iter;
+              m_data[m_i][*t_e_iter] = *t_d_iter;
           } else {
             // Somewhere in the middle
             typename map_type::const_iterator prev_it = it;
@@ -209,13 +172,13 @@ namespace asp {
             int32 m_start_idx = it->first - it->second.size();
             if ( (t_start_idx < prev_it->first) ||
                  (*t_e_iter > m_start_idx) )
-              vw_throw( NoImplErr() << "SparseView at this time doesn't allow insert over existing data.\n");
+              vw_throw( NoImplErr() << "SparseCompositeView at this time doesn't allow insert over existing data.\n");
             else if ( *t_e_iter == m_start_idx ) // Append to front
               it->second.insert( it->second.begin(),
                                  t_d_iter->begin(),
                                  t_d_iter->end() );
             else // Whole new key
-              (*m_data)[m_i][*t_e_iter] = *t_d_iter;
+              m_data[m_i][*t_e_iter] = *t_d_iter;
           }
 
           ++t_e_iter;
@@ -227,7 +190,7 @@ namespace asp {
     // Debug structure
     void print_structure() const {
       using namespace vw;
-      vw_out() << "SparseView Structure:\n";
+      vw_out() << "SparseCompositeView Structure:\n";
       for ( uint32 i = 0; i < m_data->size(); ++i ) {
         vw_out() << i << " | ";
         for ( typename map_type::const_iterator it = (*m_data)[i].begin();

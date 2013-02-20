@@ -296,23 +296,24 @@ namespace blob {
     vw::ImageViewBase<SourceT> const& m_view;
     vw::BBox2i const& m_bbox;
     vw::Mutex& m_append_mutex;
-    std::vector<BlobCompressed> &m_c_blob; // reference to global
-    std::vector<vw::BBox2i> &m_blob_bbox;
+    std::deque<BlobCompressed> &m_c_blob; // reference to global
+    std::deque<vw::BBox2i> &m_blob_bbox;
     int m_id;
     int m_max_area;
   public:
     BlobIndexTask( vw::ImageViewBase<SourceT> const& view,
                    vw::BBox2i const& bbox, vw::Mutex &mutex,
-                   std::vector<BlobCompressed> & blobs,
-                   std::vector<vw::BBox2i> & blob_boxes,
+                   std::deque<BlobCompressed> & blobs,
+                   std::deque<vw::BBox2i> & blob_boxes,
                    int const& id, int const& max_area ) :
     m_view(view), m_bbox(bbox), m_append_mutex(mutex),
       m_c_blob(blobs), m_blob_bbox(blob_boxes), m_id(id), m_max_area(max_area) {}
 
     void operator()() {
+      vw::Stopwatch sw;
+      sw.start();
       vw::ImageView<vw::uint32> index_image(m_bbox.width(),
-                                    m_bbox.height() );
-      vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": started\n";
+                                            m_bbox.height() );
 
       // Render so threads don't wait on each other
       vw::ImageView<typename SourceT::pixel_type> cropped_copy = crop(m_view,m_bbox);
@@ -321,29 +322,22 @@ namespace blob {
       BlobIndexCustom bindex( cropped_copy, index_image);
 
       // Build local bboxes
-      std::vector<vw::BBox2i> local_bboxes;
-      std::vector<vw::uint32> local_index;
+      std::vector<vw::BBox2i> local_bboxes( bindex.num_blobs() );
       for ( vw::uint32 i = 0; i < bindex.num_blobs(); i++ ) {
-        local_bboxes.push_back( bindex.blob(i).bounding_box() );
-        local_index.push_back(i);
-      }
-
-      // Apply offset to bboxes
-      for ( vw::uint32 i = 0; i < local_bboxes.size(); i++ ) {
-        local_bboxes[i].max() += m_bbox.min();
-        local_bboxes[i].min() += m_bbox.min();
+        local_bboxes[i] = bindex.blob(i).bounding_box() + m_bbox.min();
       }
 
       { // Append results (single thread)
         vw::Mutex::Lock lock(m_append_mutex);
-        for ( uint i = 0; i < local_index.size(); i++ ) {
-          m_c_blob.push_back( bindex.blob(local_index[i]) );
+        for ( uint i = 0; i < local_bboxes.size(); i++ ) {
+          m_c_blob.push_back( bindex.blob(i) );
           m_c_blob.back().min() += m_bbox.min(); // Fix offset
           m_blob_bbox.push_back( local_bboxes[i] );
         }
       }
 
-      vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": finished\n";
+      sw.stop();
+      vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": finished, " << sw.elapsed_seconds() << "s\n";
     }
   };
 } // end namespace blob
@@ -353,8 +347,8 @@ namespace blob {
 // Performs Blob Index using all threads and a minimal
 // amount of memory
 class BlobIndexThreaded {
-  std::vector<vw::BBox2i> m_blob_bbox;
-  std::vector<blob::BlobCompressed> m_c_blob;
+  std::deque<vw::BBox2i> m_blob_bbox;
+  std::deque<blob::BlobCompressed> m_c_blob;
   vw::Mutex m_insert_mutex;
   int m_max_area;
   int m_tile_size;
@@ -391,19 +385,15 @@ class BlobIndexThreaded {
       queue.join_all();
 
       sw.stop();
+      vw_out(vw::DebugMessage,"inpaint") << "Blob detection took " << sw.elapsed_seconds() << "s\n";
     }
 
-    {
-      vw::Stopwatch sw;
-      sw.start();
-      consolidate( vw::Vector2i( src.impl().cols(), src.impl().rows() ),
-                   vw::Vector2i( m_tile_size, m_tile_size ) );
-      sw.stop();
-    }
+    consolidate( vw::Vector2i( src.impl().cols(), src.impl().rows() ),
+                 vw::Vector2i( m_tile_size, m_tile_size ) );
 
     // Cull blobs that are too big.
     if ( m_max_area > 0 )
-      for ( std::vector<blob::BlobCompressed>::iterator iter = m_c_blob.begin();
+      for ( std::deque<blob::BlobCompressed>::iterator iter = m_c_blob.begin();
             iter != m_c_blob.end(); iter++ )
         if ( iter->size() > m_max_area ) {
           iter = m_c_blob.erase( iter );
@@ -419,8 +409,8 @@ class BlobIndexThreaded {
   }
   blob::BlobCompressed const& compressed_blob( vw::uint32 const& index ) const {
     return m_c_blob[index]; }
-  typedef std::vector<blob::BlobCompressed>::iterator blob_iterator;
-  typedef std::vector<blob::BlobCompressed>::const_iterator const_blob_iterator;
+  typedef std::deque<blob::BlobCompressed>::iterator blob_iterator;
+  typedef std::deque<blob::BlobCompressed>::const_iterator const_blob_iterator;
   blob_iterator begin() { return m_c_blob.begin(); }
   const_blob_iterator begin() const { return m_c_blob.begin(); }
   blob_iterator end() { return m_c_blob.end(); }
@@ -428,8 +418,8 @@ class BlobIndexThreaded {
 
   vw::BBox2i const& blob_bbox( vw::uint32 const& index ) const {
     return m_blob_bbox[index]; }
-  typedef std::vector<vw::BBox2i>::iterator bbox_iterator;
-  typedef std::vector<vw::BBox2i>::const_iterator const_bbox_iterator;
+  typedef std::deque<vw::BBox2i>::iterator bbox_iterator;
+  typedef std::deque<vw::BBox2i>::const_iterator const_bbox_iterator;
   bbox_iterator bbox_begin() { return m_blob_bbox.begin(); }
   const_bbox_iterator bbox_begin() const { return m_blob_bbox.begin(); }
   bbox_iterator bbox_end() { return m_blob_bbox.end(); }

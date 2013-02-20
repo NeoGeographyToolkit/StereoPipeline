@@ -40,44 +40,39 @@ namespace asp {
   namespace inpaint_p {
 
     // Semi-private tasks that I wouldn't like the user to know about
-    template <class SourceT, class SparseT>
+    //
+    // This is used for threaded rendering
+    template <class ViewT, class SViewT>
     class InpaintTask : public vw::Task, boost::noncopyable {
-      SourceT const& m_view;
+      ViewT const& m_view;
       blob::BlobCompressed m_c_blob;
       bool m_use_grassfire;
-      typename SourceT::pixel_type m_default_inpaint_val;
-      SparseView<SparseT> & m_patches;
-      int m_id;
-      boost::shared_ptr<vw::Mutex> m_insert;
+      typename ViewT::pixel_type m_default_inpaint_val;
+      SparseCompositeView<SViewT> & m_patches; // Store our output
 
     public:
-      InpaintTask( vw::ImageViewBase<SourceT> const& view,
+      InpaintTask( vw::ImageViewBase<ViewT> const& view,
                    blob::BlobCompressed const& c_blob,
                    bool use_grassfire,
-                   typename SourceT::pixel_type default_inpaint_val,
-                   SparseView<SparseT> & sparse,
-                   int const& id,
-                   boost::shared_ptr<vw::Mutex> insert ) :
+                   typename ViewT::pixel_type default_inpaint_val,
+                   SparseCompositeView<SViewT> & sparse ) :
         m_view(view.impl()), m_c_blob(c_blob),
         m_use_grassfire(use_grassfire), m_default_inpaint_val(default_inpaint_val),
-        m_patches(sparse), m_id(id), m_insert(insert) {}
+        m_patches(sparse) {}
 
       void operator()() {
-        vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": started\n";
+        using namespace vw;
+
+        typedef typename ViewT::pixel_type pixel_type;
 
         // Gathering information about blob
-        vw::BBox2i bbox = m_c_blob.bounding_box();
-        if (m_use_grassfire){
-          // I don't understand why this is necessary
-          bbox.expand(10);
-        }else{
-          bbox.expand(1);
-        }
+        BBox2i bbox = m_c_blob.bounding_box();
+        bbox.expand(1);
 
         // How do we want to handle spots on the edges?
         if ( bbox.min().x() < 0 || bbox.min().y() < 0 ||
-             bbox.max().x() >= m_view.impl().cols() || bbox.max().y() >= m_view.impl().rows() ) {
-          vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": early exiting\n";
+             bbox.max().x() >= m_view.impl().cols() ||
+             bbox.max().y() >= m_view.impl().rows() ) {
           return;
         }
 
@@ -88,34 +83,34 @@ namespace asp {
           *iter -= bbox.min();
 
         // Building a cropped copy for my patch
-        vw::ImageView<typename SourceT::pixel_type> cropped_copy =
+        ImageView<pixel_type> cropped_copy =
           crop( m_view, bbox );
 
         // Creating binary image to highlight hole
-        vw::ImageView<vw::uint8> mask( bbox.width(), bbox.height() );
+        ImageView<uint8> mask( bbox.width(), bbox.height() );
         fill( mask, 0 );
         for ( std::list<vw::Vector2i>::const_iterator iter = blob.begin();
               iter != blob.end(); iter++ )
           mask( iter->x(), iter->y() ) = 255;
 
         if (m_use_grassfire){
-          vw::ImageView<vw::int32> distance = grassfire(mask);
+          ImageView<int32> distance = grassfire(mask);
           int max_distance = max_pixel_value( distance );
 
           // Working out order of convolution
-          std::list<vw::Vector2i> processing_order;
+          std::list<Vector2i> processing_order;
           for ( int d = 1; d < max_distance+1; d++ )
             for ( int i = 0; i < bbox.width(); i++ )
               for ( int j = 0; j < bbox.height(); j++ )
                 if ( distance(i,j) == d ) {
-                  processing_order.push_back( vw::Vector2i(i,j) );
+                  processing_order.push_back( Vector2i(i,j) );
                 }
 
           // Iterate and apply convolution seperately to each channel
-          typedef typename vw::CompoundChannelCast<typename SourceT::pixel_type,float>::type AccumulatorType;
+          typedef typename CompoundChannelCast<pixel_type,float>::type AccumulatorType;
           for ( int d = 0; d < 10*max_distance*max_distance; d++ )
-            BOOST_FOREACH( vw::Vector2i const& l, processing_order ) {
-              typename vw::ImageView<typename SourceT::pixel_type>::pixel_accessor pit =
+            BOOST_FOREACH( Vector2i const& l, processing_order ) {
+              typename ImageView<pixel_type>::pixel_accessor pit =
                 cropped_copy.origin();
               pit.advance( l.x() - 1, l.y() - 1 );
 
@@ -145,12 +140,8 @@ namespace asp {
             cropped_copy( iter->x(), iter->y() ) = m_default_inpaint_val;
         }
 
-        { // Insert results into sparse view
-          vw::Mutex::Lock lock( *m_insert );
-          m_patches.absorb(bbox.min(),copy_mask(cropped_copy,create_mask( mask, 0 )));
-        }
-
-        vw_out(vw::VerboseDebugMessage,"inpaint") << "Task " << m_id << ": finished\n";
+        // Insert results into sparse view
+        m_patches.absorb(bbox.min(),copy_mask(cropped_copy,create_mask( mask, 0 )));
       }
 
     };
@@ -158,27 +149,14 @@ namespace asp {
   } // end namespace inpaint_p
 
   /// InpaintView (feed all blobs before hand)
-  /// Prerasterize -> do nothing
-  /// Constructor  -> Perform all processing spawn own threads
-  /// Rasterize    -> See if in blob area, then return pix in location,
-  ///              -> otherwise return original image
-  /// Need a std::vector<Views> && std::vector<Mutex> to stop threads from entering each other
+  //////////////////////////////////////////////
   template <class ViewT>
   class InpaintView : public vw::ImageViewBase<InpaintView<ViewT> > {
 
     ViewT m_child;
-    SparseView<typename vw::UnmaskedPixelType<typename ViewT::pixel_type>::type> m_patches;
+    BlobIndexThreaded const& m_bindex;
     bool m_use_grassfire;
     typename ViewT::pixel_type m_default_inpaint_val;
-
-    // A special copy constructor for prerasterization
-    template <class OViewT>
-    InpaintView( vw::ImageViewBase<ViewT> const& image,
-                 InpaintView<OViewT> const& other,
-                 bool use_grassfire,
-                 typename ViewT::pixel_type default_inpaint_val) :
-      m_child(image.impl()), m_patches(other.m_patches),
-      m_use_grassfire(use_grassfire), m_default_inpaint_val(default_inpaint_val) {}
 
   public:
     typedef typename vw::UnmaskedPixelType<typename ViewT::pixel_type>::type sparse_type;
@@ -189,29 +167,9 @@ namespace asp {
     InpaintView( vw::ImageViewBase<ViewT> const& image,
                  BlobIndexThreaded const& bindex,
                  bool use_grassfire,
-                 typename ViewT::pixel_type default_inpaint_val): m_child(image.impl()),
-                                                                  m_use_grassfire(use_grassfire),
-                                                                  m_default_inpaint_val(default_inpaint_val){
-      {
-        vw::Stopwatch sw;
-        sw.start();
-
-        boost::shared_ptr<vw::Mutex> insert_mutex( new vw::Mutex );
-
-        vw::FifoWorkQueue queue(vw::vw_settings().default_num_threads());
-        typedef inpaint_p::InpaintTask<ViewT, sparse_type> task_type;
-
-        for ( size_t i = 0; i < bindex.num_blobs(); i++ ) {
-          boost::shared_ptr<task_type> task(new task_type(image, bindex.compressed_blob(i),
-                                                          m_use_grassfire, m_default_inpaint_val,
-                                                          m_patches, i, insert_mutex ));
-          queue.add_task( task );
-        }
-        queue.join_all();
-        sw.stop();
-        VW_OUT(vw::VerboseDebugMessage,"inpaint") << "Time used in inpaint threads: " << sw.elapsed_seconds() << "s\n";
-      }
-    }
+                 typename ViewT::pixel_type default_inpaint_val):
+      m_child(image.impl()), m_bindex(bindex),
+      m_use_grassfire(use_grassfire), m_default_inpaint_val(default_inpaint_val) {}
 
     inline vw::int32 cols() const { return m_child.cols(); }
     inline vw::int32 rows() const { return m_child.rows(); }
@@ -220,25 +178,50 @@ namespace asp {
     inline pixel_accessor origin() const { return pixel_accessor(*this,0,0); }
 
     inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 /*p*/=0 ) const {
-      sparse_type pixel_ref;
-      if ( m_patches.contains(i,j, pixel_ref) )
-        return pixel_ref;
-      return m_child(i,j);
+      vw_throw( vw::NoImplErr() << "Per pixel access is not provided for InpaintView" );
     }
 
-    typedef InpaintView<typename ViewT::prerasterize_type> prerasterize_type;
+    typedef typename vw::CropView<vw::ImageView<typename ViewT::pixel_type> > inner_pre_type;
+    typedef SparseCompositeView<inner_pre_type> prerasterize_type;
     inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const {
-      typename ViewT::prerasterize_type preraster = m_child.prerasterize(bbox);
-      return prerasterize_type( preraster, *this, m_use_grassfire, m_default_inpaint_val );
+      using namespace vw;
+
+      // Expand the preraster size to include all the area that our patches use
+      std::vector<size_t> intersections;
+      intersections.reserve(20);
+      BBox2i bbox_expanded = bbox;
+      for ( BlobIndexThreaded::const_bbox_iterator bbox_it = m_bindex.bbox_begin();
+            bbox_it != m_bindex.bbox_end(); bbox_it++ ) {
+        if ( bbox_it->intersects( bbox ) ) {
+          bbox_expanded.grow( *bbox_it );
+          intersections.push_back( bbox_it - m_bindex.bbox_begin() );
+        }
+      }
+      bbox_expanded.expand(1);
+      bbox_expanded.crop( BBox2i(0,0,cols(),rows()) );
+
+      // Generate sparse view that will hold background data and all
+      // the patches.
+      inner_pre_type preraster =
+        crop(ImageView<typename ViewT::pixel_type>(crop(m_child,bbox_expanded)),
+             -bbox_expanded.min().x(), -bbox_expanded.min().y(), cols(), rows());
+      SparseCompositeView<inner_pre_type> patched_view( preraster );
+
+      // Build up the patches that intersect our tile
+      typedef inpaint_p::InpaintTask<inner_pre_type, inner_pre_type> task_type;
+      for ( std::vector<size_t>::const_iterator it = intersections.begin();
+            it != intersections.end(); it++ ) {
+        task_type task( preraster, m_bindex.compressed_blob(*it), m_use_grassfire,
+                        m_default_inpaint_val, patched_view );
+        task();
+      }
+
+      return patched_view;
     }
     template <class DestT>
     inline void rasterize( DestT const& dest, vw::BBox2i const& bbox ) const {
       vw::rasterize( prerasterize(bbox), dest, bbox );
     }
-
-    // Friend other Inpaint Views (required for prerasterization)
-    template <class OViewT>
-    friend class InpaintView;
   };
 
   template <class SourceT>

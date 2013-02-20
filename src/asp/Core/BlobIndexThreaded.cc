@@ -148,7 +148,7 @@ void BlobCompressed::add_row( Vector2i const& start,
        m_row_start.resize(m_row_start.size()+1);
        m_row_end.resize(m_row_start.size());
     } else if ( (start.x() < m_row_start.back().back()+m_min.x()) &&
-		!m_row_start.back().empty() ) {
+                !m_row_start.back().empty() ) {
       // If we are not appending, check to see if were adding to this row in order
       vw_out(ErrorMessage) << "start: " << start << " w: " << width << std::endl;
       vw_out(ErrorMessage) << "front() = " <<  m_row_start.back().back() << std::endl;
@@ -397,6 +397,8 @@ void BlobIndexThreaded::consolidate( Vector2i const& image_size,
   for ( uint32 i = 0; i < y_div.size(); i++ ) {
     std::vector<uint32> up_side;
     std::vector<uint32> down_side;
+    up_side.reserve( m_blob_bbox.size() );
+    down_side.reserve( m_blob_bbox.size() );
     for ( uint32 b_i = 0; b_i < m_blob_bbox.size(); b_i++ )
       if ( m_blob_bbox[b_i].max().y() == int32(y_div[i]) )
         up_side.push_back( b_i );
@@ -419,7 +421,7 @@ void BlobIndexThreaded::consolidate( Vector2i const& image_size,
     std::vector<uint32> component(boost::num_vertices(connections));
     int final_num = boost::connected_components(connections,&component[0]);
 
-    std::vector<BlobCompressed> blob_temp(final_num);
+    std::deque<BlobCompressed> blob_temp(final_num);
     for ( uint32 i = 0; i < component.size(); i++ ) {
       uint32 dest = component[i];
       blob_temp[dest].absorb( m_c_blob[i] );
@@ -427,14 +429,22 @@ void BlobIndexThreaded::consolidate( Vector2i const& image_size,
     m_c_blob = blob_temp;
   }
   if ( m_max_area > 0 ) {
-    std::vector<BlobCompressed> blob_temp;
-    for ( uint32 i = 0; i < m_c_blob.size(); i++ )
-      if ( m_c_blob[i].size() < m_max_area )
-        blob_temp.push_back( m_c_blob[i] );
-    m_c_blob = blob_temp;
+    for ( std::deque<BlobCompressed>::iterator blob_it = m_c_blob.begin();
+          blob_it != m_c_blob.end(); blob_it++ ) {
+      if ( blob_it->size() >= m_max_area ) {
+        blob_it = m_c_blob.erase( blob_it );
+        blob_it--;
+      }
+    }
   }
+
   // Rebuild bounding boxes
-  m_blob_bbox.clear();
-  for ( uint32 i = 0; i < m_c_blob.size(); i++ )
-    m_blob_bbox.push_back( m_c_blob[i].bounding_box() );
+  m_blob_bbox.resize( m_c_blob.size() );
+  std::deque<BlobCompressed>::const_iterator blob_it = m_c_blob.begin();
+  std::deque<vw::BBox2i>::iterator bbox_it = m_blob_bbox.begin();
+  while ( bbox_it != m_blob_bbox.end() ) {
+    *bbox_it = blob_it->bounding_box();
+    blob_it++;
+    bbox_it++;
+  }
 }
