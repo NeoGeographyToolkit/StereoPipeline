@@ -93,7 +93,6 @@ void stereo_preprocessing( Options& opt ) {
   if (rebuild) {
     vw_out() << "\t--> Generating image masks... \n";
 
-    cartography::GeoReference left_georef, right_georef;
     ImageViewRef< PixelMask<uint8> > left_mask = copy_mask(constant_view(uint8(255),
                                                                          left_image.cols(), left_image.rows()),
                                                            asp::threaded_edge_mask(left_image,0,0,1024)
@@ -142,6 +141,7 @@ void stereo_preprocessing( Options& opt ) {
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
 
+    cartography::GeoReference left_georef, right_georef;
     bool has_left_georef  = read_georeference(left_georef,  opt.in_file1);
     bool has_right_georef = read_georeference(right_georef, opt.in_file2);
     if (has_left_georef && has_right_georef){
