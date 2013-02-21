@@ -63,6 +63,12 @@ def read_tlc( filename ):
     for tlc_item in IMAGE.find("TLCLISTList").findall("TLCLIST"):
         tokens = tlc_item.text.strip().split(' ')
         tlclist.append([float(tokens[0]), float(tokens[1])])
+    if len(tlclist) == 1:
+        direction = 1.0
+        if IMAGE.find("SCANDIRECTION").text.lower() != "forward":
+            direction = -1.0
+        linerate = float(IMAGE.find("AVGLINERATE").text)
+        tlclist.append([(linerate+tlclist[0][0]), (tlclist[0][1]+direction)])
     firstlinetime = datetime.strptime(IMAGE.find("FIRSTLINETIME").text,
                                           "%Y-%m-%dT%H:%M:%S.%fZ")
     image_size = []
