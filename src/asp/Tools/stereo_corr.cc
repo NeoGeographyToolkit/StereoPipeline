@@ -201,7 +201,7 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
 
 void stereo_correlation( Options& opt ) {
 
-  pre_correlation(opt);
+  lowres_correlation(opt);
 
   if (stereo_settings().compute_low_res_disparity_only) return;
 

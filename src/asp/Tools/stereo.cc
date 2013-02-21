@@ -325,7 +325,7 @@ namespace asp {
 
   }
 
-  void pre_correlation( Options & opt ) {
+  void lowres_correlation( Options & opt ) {
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : Stage 1 --> LOW-RESOLUTION CORRELATION \n";

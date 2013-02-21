@@ -80,7 +80,7 @@ namespace asp {
   void user_safety_check(Options const& opt);
 
   // Low-res correlation
-  void pre_correlation( Options & opt );
+  void lowres_correlation( Options & opt );
 
   // Produces D_sub
   void produce_lowres_disparity( Options & opt );
