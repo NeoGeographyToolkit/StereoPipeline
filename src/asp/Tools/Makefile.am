@@ -26,12 +26,10 @@ libexec_PROGRAMS =
 
 if MAKE_APP_STEREO
   python_tool_scripts += stereo stereo_mpi
-  bin_PROGRAMS += stereo_corr stereo_corr_sub stereo_fltr stereo_pprc stereo_rfne stereo_tri
+  bin_PROGRAMS += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
   libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
   stereo_corr_SOURCES     = stereo_corr.cc stereo.cc
-  stereo_corr_sub_LDADD   = $(APP_STEREO_LIBS)
-  stereo_corr_sub_SOURCES = stereo_corr_sub.cc stereo.cc
   stereo_fltr_LDADD       = $(APP_STEREO_LIBS)
   stereo_fltr_SOURCES     = stereo_fltr.cc stereo.cc
   stereo_parse_LDADD      = $(APP_STEREO_LIBS)

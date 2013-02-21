@@ -296,6 +296,9 @@ if __name__ == '__main__':
 
     args=unescape_vals(args)
 
+    args_sub = args
+    args_sub.extend(['--compute-low-res-disparity-only'])
+
     settings=taste_settings( args )
 
     mpiexec_rank = os.getenv("MPIEXEC_RANK")
@@ -330,7 +333,7 @@ if __name__ == '__main__':
             # Correlation
             if ( opt.stop_point <= 1 ):
                 sys.exit()
-            run('stereo_corr_sub', args, msg='1: Pre Correlation')
+            run('stereo_corr', args_sub, msg='1: Low-res correlation')
             cmd = mpi_cmd + sys.argv + ['-e','1','--stop-point','2']
             code = subprocess.call(cmd)
             if code != 0:
@@ -385,7 +388,7 @@ if __name__ == '__main__':
             if ( opt.entry_point <= 1 ):
                 if ( opt.stop_point <= 1 ):
                     sys.exit()
-                run('stereo_corr_sub', args, msg='1: Pre Correlation')
+                run('stereo_corr', args_sub, msg='1: Low-res correlation')
                 parallel_run('stereo_corr', args, settings, tiles, msg='1: Correlation')
             if ( opt.entry_point <= 2 ):
                 if ( opt.stop_point <= 2 ):
@@ -408,4 +411,3 @@ if __name__ == '__main__':
             if not opt.debug:
                 die(e)
             raise
-

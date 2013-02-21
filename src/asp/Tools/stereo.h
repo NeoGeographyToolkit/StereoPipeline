@@ -79,14 +79,13 @@ namespace asp {
   // Checks for obvious user mistakes
   void user_safety_check(Options const& opt);
 
-  // Pre-correlation, used in both stereo_corr and stereo_corr_sub
+  // Low-res correlation
   void pre_correlation( Options & opt );
 
   // Produces D_sub
   void produce_lowres_disparity( Options & opt );
 
-  // Approximate search range by looking at interest point match file,
-  // used in both stereo_corr and stereo_corr_sub.
+  // Approximate search range by looking at interest point match file
   vw::BBox2i approximate_search_range( std::string const& left_image,
                                        std::string const& right_image,
                                        std::string const& match_filename,
