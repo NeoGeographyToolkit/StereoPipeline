@@ -391,10 +391,10 @@ if __name__ == '__main__':
                 if ( opt.stop_point <= 2 ):
                     sys.exit()
                 parallel_run('stereo_rfne', args, settings, tiles, msg='2: Refinement')
+                build_vrt( settings, "-RD.tif", 3, "Float32" );
             if ( opt.entry_point <= 3 ):
                 if ( opt.stop_point <= 3 ):
                     sys.exit()
-                build_vrt( settings, "-RD.tif", 3, "Float32" );
                 run('stereo_fltr', args, msg='3: Filtering')
             if ( opt.entry_point <= 4 ):
                 if ( opt.stop_point <= 4 ):
