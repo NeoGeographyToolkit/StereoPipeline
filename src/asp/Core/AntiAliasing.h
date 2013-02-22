@@ -139,7 +139,7 @@ namespace asp {
         IPA irow = src_buf.origin();
         WPA wrow = work.origin();
         CPA crow = count.origin();
-        for ( size_t y = 0; y < work.rows(); y++ ) {
+        for ( int32 y = 0; y < work.rows(); y++ ) {
           // Start sum with first kernel
           IPA icol = irow;
           IPA icol_lookahead = icol;
@@ -161,7 +161,7 @@ namespace asp {
           ccol.next_col();
 
           // Fast sum the rest of the pixels using prior results
-          for ( size_t x = 1; x < work.cols(); x++ ) {
+          for ( int32 x = 1; x < work.cols(); x++ ) {
             if ( is_valid( *icol ) ) {
               count--;
               sum -= ( *icol ).child();
@@ -190,7 +190,7 @@ namespace asp {
         WPA wcol = work.origin();
         CPA ccol = count.origin();
         IPA ocol = output.origin();
-        for ( size_t x = 0; x < bbox.width(); x++ ) {
+        for ( int32 x = 0; x < bbox.width(); x++ ) {
           // Start sequence by hand summing the first kernel
           WPA wrow = wcol;
           WPA wrow_lookahead = wcol;
@@ -213,7 +213,7 @@ namespace asp {
           orow.next_row();
 
           // Fast sum the rest of the pixels in the column
-          for ( size_t y = 1; y < bbox.height(); y++ ) {
+          for ( int32 y = 1; y < bbox.height(); y++ ) {
             sum += *wrow_lookahead;
             sum -= *wrow;
             count += *crow_lookahead;
@@ -267,7 +267,7 @@ namespace asp {
                                typename PixelAccessorT::pixel_type >::type sum_type;
       sum_type sum;
       validate( sum );
-      size_t count = 0;
+      int32 count = 0;
       for ( int32 r=m_reduce_amt; r; --r ) {
         PixelAccessorT col_acc = acc;
         for ( int32 c=m_reduce_amt; c; --c) {
