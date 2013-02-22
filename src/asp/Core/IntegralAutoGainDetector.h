@@ -42,9 +42,13 @@ namespace asp {
       typedef ip::ImageInterestData<ImageT,ip::OBALoGInterestOperator> DataT;
       Timer total("\t\tTotal elapsed time", DebugMessage, "interest_point");
 
-      // Rendering own standard copy of the image as the passed in
-      // view is just a cropview
-      ImageT original_image = image.impl();
+      ViewT original_image = image.impl();
+
+      // The ImageInterestData structure doesn't really apply to
+      // OBALoG. We don't need access to the original image after
+      // we've made the integral image. To avoid excessive copying,
+      // we're making an empty image to feed that structure.
+      ImageT empty_image;
 
       // Producing Integral Image
       ImageT integral_image;
@@ -56,8 +60,8 @@ namespace asp {
 
       // Creating Scales
       std::deque<DataT> interest_data;
-      interest_data.push_back( DataT(original_image, integral_image) );
-      interest_data.push_back( DataT(original_image, integral_image) );
+      interest_data.push_back( DataT(empty_image, integral_image) );
+      interest_data.push_back( DataT(empty_image, integral_image) );
 
       // Priming scales
       vw::ip::InterestPointList new_points;
@@ -74,7 +78,7 @@ namespace asp {
       // Finally processing scales
       for ( int scale = 2; scale < m_scales; scale++ ) {
 
-        interest_data.push_back( DataT(original_image, integral_image) );
+        interest_data.push_back( DataT(empty_image, integral_image) );
         {
           vw_out(DebugMessage, "interest_point") << "\tScale " << scale << " ... ";
           Timer t("done, elapsed time", DebugMessage, "interest_point");
