@@ -209,19 +209,13 @@ namespace cartography {
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
 
       // Used to find which polygons are actually in the draw space.
-      BBox2i bbox_1 = bbox;
-      bbox_1.expand(2);              // This is unfortunately a fudge factor
-      bbox_1.max() += Vector2i(2,2); // Some triangles can be skew.. but we dont
-                                     // don't draw them unless they are entirely
-                                     // in the buffer. Maybe this check is no
-                                     // longer required?
-      BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox_1);
+      BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox);
 
-      ImageView<float> render_buffer(bbox_1.width(), bbox_1.height());
+      ImageView<float> render_buffer(bbox.width(), bbox.height());
 
       // Setup a software renderer and the orthographic view matrix
-      vw::stereo::SoftwareRenderer renderer(bbox_1.width(),
-                                            bbox_1.height(),
+      vw::stereo::SoftwareRenderer renderer(bbox.width(),
+                                            bbox.height(),
                                             &render_buffer(0,0) );
       renderer.Ortho2D(local_3d_bbox.min().x(), local_3d_bbox.max().x(),
                        local_3d_bbox.min().y(), local_3d_bbox.max().y());
@@ -252,8 +246,8 @@ namespace cartography {
 
       if ( point_image_boundary == BBox2i() )
         return CropView<ImageView<pixel_type> >( render_buffer,
-                                                 BBox2i(-bbox_1.min().x(),
-                                                        -bbox_1.min().y(),
+                                                 BBox2i(-bbox.min().x(),
+                                                        -bbox.min().y(),
                                                         cols(), rows()) );
 
           // Pull a copy of the input image
@@ -273,17 +267,7 @@ namespace cartography {
 
               // This loop rasterizes a quad indexed by the upper left.
               if ( !boost::math::isnan((*point_ul).z()) &&
-                   !boost::math::isnan((*point_lr).z()) &&
-                   local_3d_bbox.contains( *point_ul ) &&
-                   local_3d_bbox.contains( *point_ll ) ) {
-
-                // See if there is potential to skip two spaces
-                if ( !local_3d_bbox.contains( *point_ur ) ||
-                     !local_3d_bbox.contains( *point_lr ) ) {
-                  col++; // For loop will make the next increment.
-                  point_ul.advance(2,0);
-                  continue;
-                }
+                   !boost::math::isnan((*point_lr).z()) ) {
 
                 vertices[0] = (*point_ul).x(); // UL
                 vertices[1] = (*point_ul).y();
@@ -302,28 +286,14 @@ namespace cartography {
                 intensities[3] = texture_copy(col+1,row);
                 intensities[4] = texture_copy(col,row);
 
-                  if ( !boost::math::isnan((*point_ll).z()) ) {
-                    // triangle 1 is: UL LL LR
-                    renderer.DrawPolygon(0, 3);
-                  }
-                  if ( !boost::math::isnan((*point_ur).z()) ) {
-                    // triangle 2 is: LR, UR, UL
-                    renderer.DrawPolygon(2, 3);
-                  }
-
-                // if ( !boost::math::isnan((*point_ll).z()) &&
-                //      !boost::math::isnan((*point_ur).z()) ) {
-                //   // Draw a fan of two triangles
-                //   renderer.DrawPolygon(0,4);
-                // } else {
-                //   if ( !boost::math::isnan((*point_ll).z()) ) {
-                //     // triangle 1 is: UL LL LR
-                //     renderer.DrawPolygon(0, 3);
-                //   } else {
-                //     // triangle 2 is: LR, UR, UL
-                //     renderer.DrawPolygon(2, 3);
-                //   }
-                // }
+                if ( !boost::math::isnan((*point_ll).z()) ) {
+                  // triangle 1 is: UL LL LR
+                  renderer.DrawPolygon(0, 3);
+                }
+                if ( !boost::math::isnan((*point_ur).z()) ) {
+                  // triangle 2 is: LR, UR, UL
+                  renderer.DrawPolygon(2, 3);
+                }
               }
               point_ul.next_col();
             }
@@ -342,8 +312,8 @@ namespace cartography {
       // the bbox.  This allows rasterize to touch those pixels
       // using the coordinates inside the bbox.  The pixels outside
       // those coordinates are invalid, but they never get accessed
-      return CropView<ImageView<pixel_type> > (result, BBox2i(-bbox_1.min().x(),
-                                                              -bbox_1.min().y(),
+      return CropView<ImageView<pixel_type> > (result, BBox2i(-bbox.min().x(),
+                                                              -bbox.min().y(),
                                                               cols(), rows()));
     }
     template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
