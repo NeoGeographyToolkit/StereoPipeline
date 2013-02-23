@@ -19,6 +19,10 @@
 
 import os, sys, optparse, string, subprocess, math
 
+def convert_to_seconds( time ):
+    time = time.strip()
+    return float(time[:time.find("m")]) * 60.0 + float(time[time.find("m")+1:-1])
+
 def main():
     try:
         usage = "usage: time_trials [options] command\n  [ASP [@]ASP_VERSION[@]]"
@@ -37,28 +41,42 @@ def main():
 
     print "Running command: [%s]" % args[0]
 
-    mean = 0.0
-    stddev = 0.0
+    real_mean = 0.0
+    real_stddev = 0.0
+    user_mean = 0.0
+    user_stddev = 0.0
+    sys_mean = 0.0
+    sys_stddev = 0.0
 
     for i in range(0,options.trials):
         print " -> trial %i / %i " % (i+1,options.trials),
-        p = subprocess.Popen("( time %s ) 2>&1 | tail -n2 | head -n1"%args[0] , shell=True, stdout=subprocess.PIPE)
-        output = p.stdout.read().strip().split()[1]
-        minutes = float(output[:output.find("m")])
-        seconds = float(output[output.find("m")+1:-1])
-        time = minutes*60+seconds
-        print time
+        p = subprocess.Popen("( time %s ) 2>&1 | tail -n3 "%args[0] , shell=True, stdout=subprocess.PIPE)
+        output = p.stdout.read().strip().split()
+        real_time = convert_to_seconds( output[1] )
+        user_time = convert_to_seconds( output[3] )
+        sys_time =  convert_to_seconds( output[5] )
+        print "r%.1f, u%.1f, s%.1f" % (real_time, user_time, sys_time)
 
         # Accumulate values
-        mean += time / float(options.trials)
-        stddev += time * time  / float(options.trials)
+        real_mean += real_time / float(options.trials)
+        real_stddev += real_time * real_time  / float(options.trials)
+        user_mean += user_time / float(options.trials)
+        user_stddev += user_time * user_time  / float(options.trials)
+        sys_mean += sys_time / float(options.trials)
+        sys_stddev += sys_time * sys_time  / float(options.trials)
 
-    stddev = stddev - mean*mean
-    stddev = math.sqrt(stddev)
+
+    real_stddev = real_stddev - real_mean*real_mean
+    real_stddev = math.sqrt(real_stddev)
+    user_stddev = user_stddev - user_mean*user_mean
+    user_stddev = math.sqrt(user_stddev)
+    sys_stddev = sys_stddev - sys_mean*sys_mean
+    sys_stddev = math.sqrt(sys_stddev)
 
     print
-    print "Mean:   %.3f" % mean
-    print "StdDev: %.3f" % stddev
+    print "Real:   %.3f +- %.3f" % (real_mean,real_stddev)
+    print "User:   %.3f +- %.3f" % (user_mean,user_stddev)
+    print "Sys:    %.3f +- %.3f" % (sys_mean,sys_stddev)
 
 if __name__ == "__main__":
     sys.exit(main())
