@@ -528,6 +528,9 @@ int main( int argc, char *argv[] ) {
         geodetic_to_point(recenter_longitude(cartesian_to_geodetic(point_image,georef), avg_lon),georef);
     }
 
+    Stopwatch sw1;
+    sw1.start();
+
     // Rasterize the results to a temporary file on disk so as to speed
     // up processing in the orthorasterizer, which accesses each pixel
     // multiple times.
@@ -541,6 +544,11 @@ int main( int argc, char *argv[] ) {
     OrthoRasterizerView<PixelGray<float>, PointCacheT>
       rasterizer(point_image_cache, select_channel(point_image_cache,2),
                  opt.dem_spacing, TerminalProgressCallback("asp","QuadTree: ") );
+
+
+    sw1.stop();
+    std::cout << "Quad time: " << sw1.elapsed_seconds() << std::endl;
+
     if (!opt.has_nodata_value) {
       opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
     }
@@ -601,8 +609,13 @@ int main( int argc, char *argv[] ) {
       generate_fsaa_raster( rasterizer, opt );
     vw_out()<< "Creating output file that is " << bounding_box(rasterizer_fsaa).size() << " px.\n";
 
-    if ( !opt.no_dem ) // Write out the DEM. (Normally users want this.)
+    if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
+      Stopwatch sw2;
+      sw2.start();
       save_image(opt, rasterizer_fsaa, georef, "DEM");
+      sw2.stop();
+      std::cout << "Render time: " << sw2.elapsed_seconds() << std::endl;
+    }
 
     // Write triangulation error image if requested
     if ( opt.do_error ) {

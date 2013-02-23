@@ -101,18 +101,34 @@ namespace cartography {
                                              m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
                                              m_mutex( mutex ) {}
       void operator()() {
-        GrowBBoxAccumulator accum;
         ImageView< typename ViewT::pixel_type > local_copy =
           crop( m_view, m_image_bbox );
-        for_each_pixel( local_copy, accum );
-        if ( !accum.bbox.empty() ) {
-          accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
-          accum.bbox.max()[1] = boost::math::float_next(accum.bbox.max()[1]);
-          {
-            Mutex::Lock lock( m_mutex );
-            m_point_image_boundaries.push_back( std::make_pair( accum.bbox, m_image_bbox ) );
-            m_global_bbox.grow( accum.bbox );
+
+        // Further subdivide into boundaries so
+        // that prerasterize will only query what it needs.
+        const int32 SUBBLOCKSIZE = 16;
+        std::vector<BBox2i> blocks =
+          image_blocks( m_image_bbox, SUBBLOCKSIZE, SUBBLOCKSIZE );
+        BBox3 local_union;
+        std::list<BBoxPair> solutions;
+        for ( size_t i = 0; i < blocks.size(); i++ ) {
+          GrowBBoxAccumulator accum;
+          for_each_pixel( crop( local_copy, blocks[i] - m_image_bbox.min() ), accum );
+          if ( !accum.bbox.empty() ) {
+            accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
+            accum.bbox.max()[1] = boost::math::float_next(accum.bbox.max()[1]);
+            local_union.grow( accum.bbox );
+            solutions.push_back( std::make_pair( accum.bbox, blocks[i] ) );
           }
+        }
+
+        if ( local_union != BBox3() ) {
+          Mutex::Lock lock( m_mutex );
+          for ( std::list<BBoxPair>::const_iterator it = solutions.begin();
+                it != solutions.end(); it++ ) {
+            m_point_image_boundaries.push_back( *it );
+          }
+          m_global_bbox.grow( local_union );
         }
       }
     };
@@ -131,31 +147,28 @@ namespace cartography {
       set_texture(texture.impl());
 
       // Compute the bounding box that encompasses tiles within the image
+      //
+      // They're used for querying what part of the image we need
       VW_OUT(DebugMessage,"asp") << "Computing raster bounding box...\n";
 
-      static const int32 BBOX_SPACING = 256;
-      int32 x_divisions = (m_point_image.cols() - 1)/BBOX_SPACING + 1;
-      int32 y_divisions = (m_point_image.rows() - 1)/BBOX_SPACING + 1;
-      BBox2i pc_image_bbox(0,0,m_point_image.cols(),m_point_image.rows());
+      static const int32 BBOX_SPACING = 256; // Ideally this would be
+                                             // the same as the input
+                                             // tile size so we hit
+                                             // cache appropriately.
+      std::vector<BBox2i> blocks =
+        image_blocks( m_point_image, BBOX_SPACING, BBOX_SPACING );
 
       FifoWorkQueue queue( vw_settings().default_num_threads() );
-      Mutex mutex;
       typedef SubBlockBoundaryTask<ImageT> task_type;
-      for ( int32 yi = 0; yi < y_divisions; ++yi ) {
-        progress.report_fractional_progress(yi,y_divisions);
-        for ( int32 xi = 0; xi < x_divisions; ++xi ) {
-          BBox2i local_spot( xi * BBOX_SPACING, yi * BBOX_SPACING,
-                             BBOX_SPACING, BBOX_SPACING );
-          local_spot.expand(1);
-          local_spot.max() += Vector2i(1,1);
-          local_spot.crop( pc_image_bbox );
-
-          boost::shared_ptr<task_type> task( new task_type( m_point_image, local_spot,
-                                                            m_bbox, m_point_image_boundaries, mutex ) );
-          queue.add_task( task );
-        }
-        queue.join_all(); // We do this a little early just so there's a progress bar.
+      Mutex mutex;
+      for ( size_t i = 0; i < blocks.size(); i++ ) {
+        progress.report_fractional_progress(i,blocks.size());
+        boost::shared_ptr<task_type>
+          task( new task_type( m_point_image, blocks[i],
+                               m_bbox, m_point_image_boundaries, mutex ) );
+        queue.add_task( task );
       }
+      queue.join_all();
       progress.report_finished();
 
       if ( m_bbox.empty() )
@@ -197,7 +210,11 @@ namespace cartography {
 
       // Used to find which polygons are actually in the draw space.
       BBox2i bbox_1 = bbox;
-      bbox_1.expand(1);
+      bbox_1.expand(2);              // This is unfortunately a fudge factor
+      bbox_1.max() += Vector2i(2,2); // Some triangles can be skew.. but we dont
+                                     // don't draw them unless they are entirely
+                                     // in the buffer. Maybe this check is no
+                                     // longer required?
       BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox_1);
 
       ImageView<float> render_buffer(bbox_1.width(), bbox_1.height());
@@ -221,73 +238,97 @@ namespace cartography {
       static const int NUM_COLOR_COMPONENTS = 1;  // We only need gray scale
       static const int NUM_VERTEX_COMPONENTS = 2; // DEMs are 2D
 
-      float vertices[10], intensities[5];
-      renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, vertices);
-      renderer.SetColorPointer(NUM_COLOR_COMPONENTS, intensities);
+      std::valarray<float> vertices(10), intensities(5);
+      renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, &vertices[0]);
+      renderer.SetColorPointer(NUM_COLOR_COMPONENTS, &intensities[0]);
 
+      BBox2i point_image_boundary;
       BOOST_FOREACH( BBoxPair const& boundary,
                      m_point_image_boundaries ) {
-        if ( local_3d_bbox.intersects( boundary.first ) ) {
+        if ( local_3d_bbox.intersects(boundary.first) ) {
+          point_image_boundary.grow( boundary.second );
+        }
+      }
+
+      if ( point_image_boundary == BBox2i() )
+        return CropView<ImageView<pixel_type> >( render_buffer,
+                                                 BBox2i(-bbox_1.min().x(),
+                                                        -bbox_1.min().y(),
+                                                        cols(), rows()) );
+
           // Pull a copy of the input image
-          ImageView<Vector3> point_copy =
-            crop(m_point_image, boundary.second );
+          ImageView<typename ImageT::pixel_type> point_copy =
+            crop(m_point_image, point_image_boundary );
           ImageView<float> texture_copy =
-            crop(m_texture, boundary.second );
+            crop(m_texture, point_image_boundary );
           typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
           PointAcc row_acc = point_copy.origin();
           for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
             PointAcc point_ul = row_acc;
-            for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
-              // This loop rasterizes a quad indexed by the upper left.
-              if ( !boost::math::isnan((*point_ul).z()) ) {
-                PointAcc point_ur = point_ul; point_ur.next_col();
-                PointAcc point_ll = point_ul; point_ll.next_row();
-                PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-                // Verify that at least one vertex is
-                // placed in the viewable area.
-                if ( boost::math::isnan((*point_lr).z()) ||
-                     !(local_3d_bbox.contains(*point_ul) ||
-                       local_3d_bbox.contains(*point_ur) ||
-                       local_3d_bbox.contains(*point_ll) ||
-                       local_3d_bbox.contains(*point_lr) ) ) {
-                  point_ul.next_col();
+            for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
+              PointAcc point_ur = point_ul; point_ur.next_col();
+              PointAcc point_ll = point_ul; point_ll.next_row();
+              PointAcc point_lr = point_ul; point_lr.advance(1,1);
+
+              // This loop rasterizes a quad indexed by the upper left.
+              if ( !boost::math::isnan((*point_ul).z()) &&
+                   !boost::math::isnan((*point_lr).z()) &&
+                   local_3d_bbox.contains( *point_ul ) &&
+                   local_3d_bbox.contains( *point_ll ) ) {
+
+                // See if there is potential to skip two spaces
+                if ( !local_3d_bbox.contains( *point_ur ) ||
+                     !local_3d_bbox.contains( *point_lr ) ) {
+                  col++; // For loop will make the next increment.
+                  point_ul.advance(2,0);
                   continue;
                 }
 
-                vertices[0] = (*point_ll).x(); // LL
-                vertices[1] = (*point_ll).y();
-                vertices[2] = (*point_lr).x(); // LR
-                vertices[3] = (*point_lr).y();
-                vertices[4] = (*point_ul).x(); // UL
-                vertices[5] = (*point_ul).y();
-                vertices[6] = (*point_lr).x(); // LR
-                vertices[7] = (*point_lr).y();
-                vertices[8] = (*point_ur).x(); // UR
-                vertices[9] = (*point_ur).y();
+                vertices[0] = (*point_ul).x(); // UL
+                vertices[1] = (*point_ul).y();
+                vertices[2] = (*point_ll).x(); // LL
+                vertices[3] = (*point_ll).y();
+                vertices[4] = (*point_lr).x(); // LR
+                vertices[5] = (*point_lr).y();
+                vertices[6] = (*point_ur).x(); // UR
+                vertices[7] = (*point_ur).y();
+                vertices[8] = (*point_ul).x(); // UL
+                vertices[9] = (*point_ul).y();
 
-                intensities[0] = texture_copy(col,  row+1);
-                intensities[1] = texture_copy(col+1,row+1);
-                intensities[2] = texture_copy(col,  row);
-                intensities[3] = texture_copy(col+1,row+1);
-                intensities[4] = texture_copy(col+1,row);
+                intensities[0] = texture_copy(col,  row);
+                intensities[1] = texture_copy(col,row+1);
+                intensities[2] = texture_copy(col+1,  row+1);
+                intensities[3] = texture_copy(col+1,row);
+                intensities[4] = texture_copy(col,row);
 
-                // triangle 1 is: LL, LR, UL
-                if ( !boost::math::isnan((*point_ll).z()) ) {
-                  renderer.DrawPolygon(0, 3);
-                }
+                  if ( !boost::math::isnan((*point_ll).z()) ) {
+                    // triangle 1 is: UL LL LR
+                    renderer.DrawPolygon(0, 3);
+                  }
+                  if ( !boost::math::isnan((*point_ur).z()) ) {
+                    // triangle 2 is: LR, UR, UL
+                    renderer.DrawPolygon(2, 3);
+                  }
 
-                // triangle 2 is: UL, LR, UR
-                if ( !boost::math::isnan((*point_ur).z()) ) {
-                  renderer.DrawPolygon(2, 3);
-                }
+                // if ( !boost::math::isnan((*point_ll).z()) &&
+                //      !boost::math::isnan((*point_ur).z()) ) {
+                //   // Draw a fan of two triangles
+                //   renderer.DrawPolygon(0,4);
+                // } else {
+                //   if ( !boost::math::isnan((*point_ll).z()) ) {
+                //     // triangle 1 is: UL LL LR
+                //     renderer.DrawPolygon(0, 3);
+                //   } else {
+                //     // triangle 2 is: LR, UR, UL
+                //     renderer.DrawPolygon(2, 3);
+                //   }
+                // }
               }
               point_ul.next_col();
             }
             row_acc.next_row();
           }
-        } // end cond
-      }   // end foreach
 
       // The software renderer returns an image which will render
       // upside down in most image formats, so we correct that here.
