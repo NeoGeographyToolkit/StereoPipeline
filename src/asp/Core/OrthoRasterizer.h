@@ -57,16 +57,6 @@ namespace cartography {
     // overlapping in the pc image X/Y domain to insure that
     // everything is triangulated.
 
-    // This is growing a bbox of points in point projection and Z
-    // values which are altitude.
-    struct GrowBBoxAccumulator {
-      BBox3 bbox;
-      void operator()( Vector3 const& v ) {
-        if ( !boost::math::isnan(v.z()) )
-          bbox.grow(v);
-      }
-    };
-
     struct RemoveSoftInvalid : ReturnFixedType<PixelT> {
       template <class T>
       PixelT operator()( T const& v ) const {
@@ -94,12 +84,26 @@ namespace cartography {
       BBox3& m_global_bbox;
       std::vector<BBoxPair>& m_point_image_boundaries;
       Mutex& m_mutex;
+      const ProgressCallback& m_progress;
+      float m_inc_amt;
+
+      // This is growing a bbox of points in point projection and Z
+      // values which are altitude.
+      struct GrowBBoxAccumulator {
+        BBox3 bbox;
+        void operator()( Vector3 const& v ) {
+          if ( !boost::math::isnan(v.z()) )
+            bbox.grow(v);
+        }
+      };
+
     public:
       SubBlockBoundaryTask( ImageViewBase<ViewT> const& view, BBox2i const& image_bbox,
                             BBox3& global_bbox, std::vector<BBoxPair>& boundaries,
-                            Mutex& mutex ) : m_view(view.impl()), m_image_bbox(image_bbox),
-                                             m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
-                                             m_mutex( mutex ) {}
+                            Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
+        m_view(view.impl()), m_image_bbox(image_bbox),
+        m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
+        m_mutex( mutex ), m_progress( progress ), m_inc_amt( inc_amt ) {}
       void operator()() {
         ImageView< typename ViewT::pixel_type > local_copy =
           crop( m_view, m_image_bbox );
@@ -129,6 +133,7 @@ namespace cartography {
             m_point_image_boundaries.push_back( *it );
           }
           m_global_bbox.grow( local_union );
+          m_progress.report_incremental_progress( m_inc_amt );
         }
       }
     };
@@ -161,11 +166,12 @@ namespace cartography {
       FifoWorkQueue queue( vw_settings().default_num_threads() );
       typedef SubBlockBoundaryTask<ImageT> task_type;
       Mutex mutex;
+      float inc_amt = 1.0 / float(blocks.size());
       for ( size_t i = 0; i < blocks.size(); i++ ) {
-        progress.report_fractional_progress(i,blocks.size());
         boost::shared_ptr<task_type>
           task( new task_type( m_point_image, blocks[i],
-                               m_bbox, m_point_image_boundaries, mutex ) );
+                               m_bbox, m_point_image_boundaries, mutex,
+                               progress, inc_amt ) );
         queue.add_task( task );
       }
       queue.join_all();
