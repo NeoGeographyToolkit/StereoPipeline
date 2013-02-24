@@ -504,7 +504,7 @@ int main( int argc, char *argv[] ) {
     // average location of the points. If the average location has a
     // negative x value (think in ECEF coordinates) then we should
     // be using [0,360].
-    int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),point_image.rows()))/1024.0);
+    int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),point_image.rows()))/32.0);
     if (subsample_amt < 1 ) subsample_amt = 1;
     PixelAccumulator<MeanAccumulator<Vector3> > mean_accum;
     for_each_pixel( subsample(point_image, subsample_amt),

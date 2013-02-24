@@ -214,14 +214,17 @@ namespace cartography {
     typedef CropView<ImageView<pixel_type> > prerasterize_type;
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
 
-      // Used to find which polygons are actually in the draw space.
-      BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox);
+      BBox2i bbox_1 = bbox;
+      bbox_1.expand(1);
 
-      ImageView<float> render_buffer(bbox.width(), bbox.height());
+      // Used to find which polygons are actually in the draw space.
+      BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox_1);
+
+      ImageView<float> render_buffer(bbox_1.width(), bbox_1.height());
 
       // Setup a software renderer and the orthographic view matrix
-      vw::stereo::SoftwareRenderer renderer(bbox.width(),
-                                            bbox.height(),
+      vw::stereo::SoftwareRenderer renderer(bbox_1.width(),
+                                            bbox_1.height(),
                                             &render_buffer(0,0) );
       renderer.Ortho2D(local_3d_bbox.min().x(), local_3d_bbox.max().x(),
                        local_3d_bbox.min().y(), local_3d_bbox.max().y());
@@ -252,59 +255,59 @@ namespace cartography {
 
       if ( point_image_boundary == BBox2i() )
         return CropView<ImageView<pixel_type> >( render_buffer,
-                                                 BBox2i(-bbox.min().x(),
-                                                        -bbox.min().y(),
+                                                 BBox2i(-bbox_1.min().x(),
+                                                        -bbox_1.min().y(),
                                                         cols(), rows()) );
 
-          // Pull a copy of the input image
-          ImageView<typename ImageT::pixel_type> point_copy =
-            crop(m_point_image, point_image_boundary );
-          ImageView<float> texture_copy =
-            crop(m_texture, point_image_boundary );
-          typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
-          PointAcc row_acc = point_copy.origin();
-          for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
-            PointAcc point_ul = row_acc;
+      // Pull a copy of the input image
+      ImageView<typename ImageT::pixel_type> point_copy =
+        crop(m_point_image, point_image_boundary );
+      ImageView<float> texture_copy =
+        crop(m_texture, point_image_boundary );
+      typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
+      PointAcc row_acc = point_copy.origin();
+      for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
+        PointAcc point_ul = row_acc;
 
-            for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
-              PointAcc point_ur = point_ul; point_ur.next_col();
-              PointAcc point_ll = point_ul; point_ll.next_row();
-              PointAcc point_lr = point_ul; point_lr.advance(1,1);
+        for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
+          PointAcc point_ur = point_ul; point_ur.next_col();
+          PointAcc point_ll = point_ul; point_ll.next_row();
+          PointAcc point_lr = point_ul; point_lr.advance(1,1);
 
-              // This loop rasterizes a quad indexed by the upper left.
-              if ( !boost::math::isnan((*point_ul).z()) &&
-                   !boost::math::isnan((*point_lr).z()) ) {
+          // This loop rasterizes a quad indexed by the upper left.
+          if ( !boost::math::isnan((*point_ul).z()) &&
+               !boost::math::isnan((*point_lr).z()) ) {
 
-                vertices[0] = (*point_ul).x(); // UL
-                vertices[1] = (*point_ul).y();
-                vertices[2] = (*point_ll).x(); // LL
-                vertices[3] = (*point_ll).y();
-                vertices[4] = (*point_lr).x(); // LR
-                vertices[5] = (*point_lr).y();
-                vertices[6] = (*point_ur).x(); // UR
-                vertices[7] = (*point_ur).y();
-                vertices[8] = (*point_ul).x(); // UL
-                vertices[9] = (*point_ul).y();
+            vertices[0] = (*point_ul).x(); // UL
+            vertices[1] = (*point_ul).y();
+            vertices[2] = (*point_ll).x(); // LL
+            vertices[3] = (*point_ll).y();
+            vertices[4] = (*point_lr).x(); // LR
+            vertices[5] = (*point_lr).y();
+            vertices[6] = (*point_ur).x(); // UR
+            vertices[7] = (*point_ur).y();
+            vertices[8] = (*point_ul).x(); // UL
+            vertices[9] = (*point_ul).y();
 
-                intensities[0] = texture_copy(col,  row);
-                intensities[1] = texture_copy(col,row+1);
-                intensities[2] = texture_copy(col+1,  row+1);
-                intensities[3] = texture_copy(col+1,row);
-                intensities[4] = texture_copy(col,row);
+            intensities[0] = texture_copy(col,  row);
+            intensities[1] = texture_copy(col,row+1);
+            intensities[2] = texture_copy(col+1,  row+1);
+            intensities[3] = texture_copy(col+1,row);
+            intensities[4] = texture_copy(col,row);
 
-                if ( !boost::math::isnan((*point_ll).z()) ) {
-                  // triangle 1 is: UL LL LR
-                  renderer.DrawPolygon(0, 3);
-                }
-                if ( !boost::math::isnan((*point_ur).z()) ) {
-                  // triangle 2 is: LR, UR, UL
-                  renderer.DrawPolygon(2, 3);
-                }
-              }
-              point_ul.next_col();
+            if ( !boost::math::isnan((*point_ll).z()) ) {
+              // triangle 1 is: UL LL LR
+              renderer.DrawPolygon(0, 3);
             }
-            row_acc.next_row();
+            if ( !boost::math::isnan((*point_ur).z()) ) {
+              // triangle 2 is: LR, UR, UL
+              renderer.DrawPolygon(2, 3);
+            }
           }
+          point_ul.next_col();
+        }
+        row_acc.next_row();
+      }
 
       // The software renderer returns an image which will render
       // upside down in most image formats, so we correct that here.
@@ -318,8 +321,8 @@ namespace cartography {
       // the bbox.  This allows rasterize to touch those pixels
       // using the coordinates inside the bbox.  The pixels outside
       // those coordinates are invalid, but they never get accessed
-      return CropView<ImageView<pixel_type> > (result, BBox2i(-bbox.min().x(),
-                                                              -bbox.min().y(),
+      return CropView<ImageView<pixel_type> > (result, BBox2i(-bbox_1.min().x(),
+                                                              -bbox_1.min().y(),
                                                               cols(), rows()));
     }
     template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
