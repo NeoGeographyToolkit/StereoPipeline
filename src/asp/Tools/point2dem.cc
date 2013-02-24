@@ -73,6 +73,7 @@ struct Options : asp::BaseOptions {
   BBox2 target_projwin;
   BBox2i target_projwin_pixels;
   uint32 fsaa;
+  uint32 pix_size;    // How many channels there are in PC
 
   // Output
   std::string  out_prefix, output_file_type;
@@ -85,7 +86,7 @@ struct Options : asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   float dem_spacing1, dem_spacing2;
-  
+
   po::options_description manipulation_options("Manipulation options");
   manipulation_options.add_options()
     ("x-offset", po::value(&opt.x_offset)->default_value(0), "Add a horizontal offset to the DEM")
@@ -194,16 +195,16 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
       // subsample .. samples from the corner.
       rasterizer_fsaa =
         crop(edge_extend(
-          apply_mask(
-          subsample(
-            translate(
-              gaussian_filter(
-                create_mask(rasterizer.impl(),opt.nodata_value),
-                1.0f * float(opt.fsaa)/2.0f),
-              -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-              ConstantEdgeExtension()), opt.fsaa),
-          opt.nodata_value),
-          ValExtend(opt.nodata_value)), opt.target_projwin_pixels );
+                         apply_mask(
+                                    subsample(
+                                              translate(
+                                                        gaussian_filter(
+                                                                        create_mask(rasterizer.impl(),opt.nodata_value),
+                                                                        1.0f * float(opt.fsaa)/2.0f),
+                                                        -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
+                                                        ConstantEdgeExtension()), opt.fsaa),
+                                    opt.nodata_value),
+                         ValExtend(opt.nodata_value)), opt.target_projwin_pixels );
     } else {
       rasterizer_fsaa =
         crop(edge_extend(rasterizer.impl(),
@@ -214,14 +215,14 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
       // subsample .. samples from the corner.
       rasterizer_fsaa =
         apply_mask(
-        subsample(
-          translate(
-            gaussian_filter(
-              create_mask(rasterizer.impl(),opt.nodata_value),
-              1.0f * float(opt.fsaa)/2.0f),
-            -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-            ConstantEdgeExtension()), opt.fsaa),
-        opt.nodata_value);
+                   subsample(
+                             translate(
+                                       gaussian_filter(
+                                                       create_mask(rasterizer.impl(),opt.nodata_value),
+                                                       1.0f * float(opt.fsaa)/2.0f),
+                                       -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
+                                       ConstantEdgeExtension()), opt.fsaa),
+                   opt.nodata_value);
     } else {
       rasterizer_fsaa = rasterizer.impl();
     }
@@ -273,7 +274,7 @@ namespace asp{
 
       Vector3 xyz = subvector(pt, 0, 3);
       if (xyz == Vector3()) return Vector3();
-      
+
       Vector3 err = subvector(pt, 3, 3);
       Vector3 geo = m_georef.datum().cartesian_to_geodetic(xyz);
       Matrix3x3 M = m_georef.datum().lonlat_to_ned_matrix(subvector(geo, 0, 2));
@@ -291,7 +292,7 @@ namespace asp{
   template<class ImageT>
   void save_image(Options const& opt, ImageT img, GeoReference const& georef,
                   std::string const& imgName){
-    
+
     std::string output_file = opt.out_prefix + "-" + imgName + "." + opt.output_file_type;
     vw_out() << "Writing: " << output_file << "\n";
     if ( opt.output_file_type == "tif" ) {
@@ -345,13 +346,13 @@ namespace asp{
       if (error[0] == m_nodata_value || error[1] == m_nodata_value || error[2] == m_nodata_value){
         return Vector3f(m_nodata_value, m_nodata_value, m_nodata_value);
       }
-    
+
       return Vector3f(std::abs(error[0]), std::abs(error[1]), std::abs(error[2]));
     }
 
     /// \cond INTERNAL
     typedef CombinedView<typename ImageT::prerasterize_type> prerasterize_type;
-  
+
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
       return prerasterize_type(m_nodata_value,
                                m_image1.prerasterize(bbox),
@@ -374,8 +375,152 @@ namespace asp{
               image1.impl().rows() == image2.impl().rows() &&
               image2.impl().rows() == image3.impl().rows(),
               ArgumentErr() << "Expecting the error channels to have the same size.");
-  
+
     return CombinedView<ImageT>(nodata_value, image1.impl(), image2.impl(), image3.impl());
+  }
+}
+
+template <class ViewT>
+void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
+                                Options& opt,
+                                cartography::GeoReference& georef ) {
+  Stopwatch sw1;
+  sw1.start();
+
+  OrthoRasterizerView<PixelGray<float>, ViewT >
+    rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
+               opt.dem_spacing, TerminalProgressCallback("asp","QuadTree: ") );
+
+  sw1.stop();
+  vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
+
+  if (!opt.has_nodata_value) {
+    opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
+  }
+  rasterizer.set_use_minz_as_default(false);
+  rasterizer.set_default_value(opt.nodata_value);
+
+  vw_out() << "\t--> DEM spacing: " << rasterizer.spacing() << " pt/px\n";
+  vw_out() << "\t             or: " << 1.0/rasterizer.spacing() << " px/pt\n";
+
+  if (opt.has_alpha)
+    rasterizer.set_use_alpha(true);
+
+  // Now we are ready to specify the affine transform.
+  georef.set_transform(rasterizer.geo_transform());
+
+  // If the user requested FSAA .. tell the rasterer to increase
+  // its sampling rate
+  if ( opt.fsaa > 1 )
+    rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
+
+  // If the user specified the ULLR .. update the georeference
+  // transform here. The generate_fsaa_raster will be responsible
+  // for making sure we have the correct pixel crop.
+  if ( opt.target_projwin != BBox2() ) {
+    if ( opt.target_projwin.min().y() > opt.target_projwin.max().y() )
+      std::swap( opt.target_projwin.min().y(),
+                 opt.target_projwin.max().y() );
+    vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
+    Matrix3x3 transform = georef.transform();
+    opt.target_projwin.max().x() -= fabs(transform(0,0));
+    opt.target_projwin.min().y() += fabs(transform(1,1));
+
+    // This math seems a little silly, but we need to fuzz the
+    // values on target projwin so that it aligns with a pixel value.
+    opt.target_projwin_pixels =
+      georef.point_to_pixel_bbox( opt.target_projwin );
+    opt.target_projwin =
+      georef.pixel_to_point_bbox( opt.target_projwin_pixels );
+    transform(0,2) = opt.target_projwin.min().x();
+    transform(1,2) = opt.target_projwin.max().y();
+    georef.set_transform( transform );
+  }
+
+  // Fix have pixel offset required if pixel_interpretation is
+  // PixelAsArea. We could have done that earlier ... but it makes
+  // the above easier to not think about it.
+  if ( georef.pixel_interpretation() ==
+       cartography::GeoReference::PixelAsArea ) {
+    Matrix3x3 transform = georef.transform();
+    transform(0,2) -= 0.5 * transform(0,0);
+    transform(1,2) -= 0.5 * transform(1,1);
+    georef.set_transform( transform );
+  }
+
+  vw_out() << "\nOutput Georeference: \n\t" << georef << std::endl;
+
+  ImageViewRef<PixelGray<float> > rasterizer_fsaa =
+    generate_fsaa_raster( rasterizer, opt );
+  vw_out()<< "Creating output file that is " << bounding_box(rasterizer_fsaa).size() << " px.\n";
+
+  if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
+    Stopwatch sw2;
+    sw2.start();
+    save_image(opt, rasterizer_fsaa, georef, "DEM");
+    sw2.stop();
+    vw_out(DebugMessage,"asp") << "Render time: "
+                               << sw2.elapsed_seconds() << std::endl;
+  }
+
+  // Write triangulation error image if requested
+  if ( opt.do_error ) {
+    if (opt.pix_size == 4){
+      // The error is a scalar.
+      DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
+      ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
+      rasterizer.set_texture( error_channel );
+      rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
+      save_image(opt, rasterizer_fsaa, georef, "IntersectionErr");
+    }else{
+      // The error is a 3D vector. Convert it to NED coordinate system,
+      // and rasterize it.
+      DiskImageView<Vector6> point_disk_image(opt.pointcloud_filename);
+      ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
+      std::vector< ImageViewRef<PixelGray<float> > >  rasterized(3);
+      for (int ch_index = 0; ch_index < 3; ch_index++){
+        // Cache the channel to disk, to force the rasterization
+        // to happen right away, before we switch to the next one.
+        ImageViewRef<double> ch = select_channel(ned_err, ch_index);
+        rasterizer.set_texture(ch);
+        rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
+        rasterized[ch_index] =
+          block_cache(rasterizer_fsaa,Vector2i(vw_settings().default_tile_size(),
+                                               vw_settings().default_tile_size()),0);
+      }
+      save_image(opt,
+                 asp::combine_channels(opt.nodata_value,
+                                       rasterized[0], rasterized[1], rasterized[2]),
+                 georef, "IntersectionErr");
+    }
+  }
+
+  // Write DRG if the user requested and provided a texture file
+  if (!opt.texture_filename.empty()) {
+    DiskImageView<PixelGray<float> > texture(opt.texture_filename);
+    rasterizer.set_texture(texture);
+    rasterizer_fsaa =
+      generate_fsaa_raster( rasterizer, opt );
+    std::string output_file = opt.out_prefix + "-DRG.tif";
+    vw_out() << "Writing DRG: " << output_file << "\n";
+    boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, rasterizer_fsaa, opt ) );
+    rsrc->set_nodata_write( opt.nodata_value );
+    write_georeference( *rsrc, georef );
+    block_write_image( *rsrc, rasterizer_fsaa,
+                       TerminalProgressCallback("asp","DRG:") );
+  }
+
+  // Write out a normalized version of the DEM, if requested (for debugging)
+  if (opt.do_normalize) {
+    DiskImageView<PixelGray<float> >
+      dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
+
+    save_image(opt,
+               apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
+                                                        rasterizer.bounding_box().min().z(),
+                                                        rasterizer.bounding_box().max().z(),
+                                                        0, 255))),
+               georef, "DEM-normalized");
   }
 }
 
@@ -385,25 +530,24 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    int pix_size;
     {
-      boost::scoped_ptr<vw::SrcImageResource> src(vw::DiskImageResource::open(opt.pointcloud_filename));
+      boost::scoped_ptr<SrcImageResource> src(DiskImageResource::open(opt.pointcloud_filename));
       int num_channels = src->channels();
       int num_planes   = src->planes();
-      pix_size = num_channels*num_planes;
-      VW_ASSERT( (pix_size == 4 || pix_size == 6),
+      opt.pix_size = num_channels*num_planes;
+      VW_ASSERT( (opt.pix_size == 4 || opt.pix_size == 6),
                  ArgumentErr() << "Expecting the input point cloud to have points of size 4 or 6.");
     }
 
     ImageViewRef<Vector3> point_image;
-    if (pix_size == 4){
+    if (opt.pix_size == 4){
       DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
       point_image = select_points(point_disk_image);
     }else{
       DiskImageView<Vector6> point_disk_image(opt.pointcloud_filename);
       point_image = select_points(point_disk_image);
     }
-    
+
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
       vw_out() << "\t--> Applying rotation sequence: " << opt.rot_order
@@ -512,169 +656,22 @@ int main( int argc, char *argv[] ) {
                     TerminalProgressCallback("asp","Statistics: ") );
     Vector3 avg_location = mean_accum.value();
     double avg_lon = avg_location.x() >= 0 ? 0 : 180;
-    
+
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.x_offset
                << " " << opt.y_offset << " " << opt.z_offset << "\n";
-      point_image =
+      do_software_rasterization(
         geodetic_to_point(point_image_offset(recenter_longitude(cartesian_to_geodetic(point_image,georef),
                                                                 avg_lon),
                                              Vector3(opt.x_offset,
                                                      opt.y_offset,
-                                                     opt.z_offset)),georef);
+                                                     opt.z_offset)),georef),
+        opt, georef );
     } else {
-      point_image =
-        geodetic_to_point(recenter_longitude(cartesian_to_geodetic(point_image,georef), avg_lon),georef);
-    }
-
-    Stopwatch sw1;
-    sw1.start();
-
-    // Rasterize the results to a temporary file on disk so as to speed
-    // up processing in the orthorasterizer, which accesses each pixel
-    // multiple times.
-    typedef BlockRasterizeView<ImageViewRef<Vector3> > PointCacheT;
-    PointCacheT point_image_cache =
-      block_cache(point_image,Vector2i(vw_settings().default_tile_size(),
-                                       vw_settings().default_tile_size()),0);
-
-    // write out the DEM, texture, and extrapolation mask as
-    // georeferenced files.
-    OrthoRasterizerView<PixelGray<float>, PointCacheT>
-      rasterizer(point_image_cache, select_channel(point_image_cache,2),
-                 opt.dem_spacing, TerminalProgressCallback("asp","QuadTree: ") );
-
-
-    sw1.stop();
-    std::cout << "Quad time: " << sw1.elapsed_seconds() << std::endl;
-
-    if (!opt.has_nodata_value) {
-      opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);
-    }
-    rasterizer.set_use_minz_as_default(false);
-    rasterizer.set_default_value(opt.nodata_value);
-
-    vw_out() << "\t--> DEM spacing: " << rasterizer.spacing() << " pt/px\n";
-    vw_out() << "\t             or: " << 1.0/rasterizer.spacing() << " px/pt\n";
-
-    if (opt.has_alpha)
-      rasterizer.set_use_alpha(true);
-
-    // Now we are ready to specify the affine transform.
-    georef.set_transform(rasterizer.geo_transform());
-
-    // If the user requested FSAA .. tell the rasterer to increase
-    // its sampling rate
-    if ( opt.fsaa > 1 )
-      rasterizer.set_spacing( rasterizer.spacing() / double(opt.fsaa) );
-
-    // If the user specified the ULLR .. update the georeference
-    // transform here. The generate_fsaa_raster will be responsible
-    // for making sure we have the correct pixel crop.
-    if ( opt.target_projwin != BBox2() ) {
-      if ( opt.target_projwin.min().y() > opt.target_projwin.max().y() )
-        std::swap( opt.target_projwin.min().y(),
-                   opt.target_projwin.max().y() );
-      vw_out() << "Cropping to " << opt.target_projwin << " pt. " << std::endl;
-      Matrix3x3 transform = georef.transform();
-      opt.target_projwin.max().x() -= fabs(transform(0,0));
-      opt.target_projwin.min().y() += fabs(transform(1,1));
-
-      // This math seems a little silly, but we need to fuzz the
-      // values on target projwin so that it aligns with a pixel value.
-      opt.target_projwin_pixels =
-        georef.point_to_pixel_bbox( opt.target_projwin );
-      opt.target_projwin =
-        georef.pixel_to_point_bbox( opt.target_projwin_pixels );
-      transform(0,2) = opt.target_projwin.min().x();
-      transform(1,2) = opt.target_projwin.max().y();
-      georef.set_transform( transform );
-    }
-
-    // Fix have pixel offset required if pixel_interpretation is
-    // PixelAsArea. We could have done that earlier ... but it makes
-    // the above easier to not think about it.
-    if ( georef.pixel_interpretation() ==
-         cartography::GeoReference::PixelAsArea ) {
-      Matrix3x3 transform = georef.transform();
-      transform(0,2) -= 0.5 * transform(0,0);
-      transform(1,2) -= 0.5 * transform(1,1);
-      georef.set_transform( transform );
-    }
-
-    vw_out() << "\nOutput Georeference: \n\t" << georef << std::endl;
-
-    ImageViewRef<PixelGray<float> > rasterizer_fsaa =
-      generate_fsaa_raster( rasterizer, opt );
-    vw_out()<< "Creating output file that is " << bounding_box(rasterizer_fsaa).size() << " px.\n";
-
-    if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
-      Stopwatch sw2;
-      sw2.start();
-      save_image(opt, rasterizer_fsaa, georef, "DEM");
-      sw2.stop();
-      std::cout << "Render time: " << sw2.elapsed_seconds() << std::endl;
-    }
-
-    // Write triangulation error image if requested
-    if ( opt.do_error ) {
-      if (pix_size == 4){
-        // The error is a scalar.
-        DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
-        ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
-        rasterizer.set_texture( error_channel );
-        rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
-        save_image(opt, rasterizer_fsaa, georef, "IntersectionErr");
-      }else{
-        // The error is a 3D vector. Convert it to NED coordinate system,
-        // and rasterize it.
-        DiskImageView<Vector6> point_disk_image(opt.pointcloud_filename);
-        ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
-        std::vector< ImageViewRef<PixelGray<float> > >  rasterized(3);
-        for (int ch_index = 0; ch_index < 3; ch_index++){
-          // Cache the channel to disk, to force the rasterization
-          // to happen right away, before we switch to the next one.
-          ImageViewRef<double> ch = select_channel(ned_err, ch_index);
-          rasterizer.set_texture(ch);
-          rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
-          rasterized[ch_index] =
-            block_cache(rasterizer_fsaa,Vector2i(vw_settings().default_tile_size(),
-                                                 vw_settings().default_tile_size()),0);
-        }
-        save_image(opt,
-                   asp::combine_channels(opt.nodata_value,
-                                         rasterized[0], rasterized[1], rasterized[2]),
-                   georef, "IntersectionErr");
-      }
-    }
-
-    // Write DRG if the user requested and provided a texture file
-    if (!opt.texture_filename.empty()) {
-      DiskImageView<PixelGray<float> > texture(opt.texture_filename);
-      rasterizer.set_texture(texture);
-      rasterizer_fsaa =
-        generate_fsaa_raster( rasterizer, opt );
-      std::string output_file = opt.out_prefix + "-DRG.tif";
-      vw_out() << "Writing DRG: " << output_file << "\n";
-      boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, rasterizer_fsaa, opt ) );
-      rsrc->set_nodata_write( opt.nodata_value );
-      write_georeference( *rsrc, georef );
-      block_write_image( *rsrc, rasterizer_fsaa,
-                         TerminalProgressCallback("asp","DRG:") );
-    }
-
-    // Write out a normalized version of the DEM, if requested (for debugging)
-    if (opt.do_normalize) {
-      DiskImageView<PixelGray<float> >
-        dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
-
-      save_image(opt,
-                 apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
-                                                          rasterizer.bounding_box().min().z(),
-                                                          rasterizer.bounding_box().max().z(),
-                                                          0, 255))),
-                 georef, "DEM-normalized");
+      do_software_rasterization(
+        geodetic_to_point(recenter_longitude(cartesian_to_geodetic(point_image,georef), avg_lon),georef),
+        opt, georef );
     }
 
   } ASP_STANDARD_CATCHES;
