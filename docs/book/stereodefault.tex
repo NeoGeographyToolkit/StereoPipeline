@@ -60,7 +60,7 @@ values listed after the parameter name.
   as a (redundant) pre-processing step.
 
 
-\item[individual-normalize \textnormal (default = false)] \hfill \\
+\item[individually-normalize \textnormal (default = false)] \hfill \\
   By default, the maximum and minimum valid pixel value is determined
   by looking at both images.  Normalized with the same ``global'' min
   and max guarantees that the two images will retain their brightness
@@ -78,6 +78,10 @@ values listed after the parameter name.
   can and should be carried out beforehand using ISIS's own utilities.
   This provides the best possible input to the stereo pipeline and
   yields the best stereo matching results.
+
+\item[nodata-value \textnormal (default = none)] \hfill \\
+  Pixels with values less than or equal to this number are treated as
+  no-data. This overrides the nodata values from input images.
 
 \end{description}
 
