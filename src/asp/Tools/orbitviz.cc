@@ -28,7 +28,6 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/filesystem/fstream.hpp>
-using namespace boost;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
