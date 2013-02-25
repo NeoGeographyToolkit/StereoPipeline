@@ -42,7 +42,9 @@ namespace asp {
       typedef ip::ImageInterestData<ImageT,ip::OBALoGInterestOperator> DataT;
       Timer total("\t\tTotal elapsed time", DebugMessage, "interest_point");
 
-      ViewT original_image = image.impl();
+      // The input image is a lazy view. We'll rasterize so we're not
+      // hitting the cache all of the image.
+      ImageT original_image = image.impl();
 
       // The ImageInterestData structure doesn't really apply to
       // OBALoG. We don't need access to the original image after
