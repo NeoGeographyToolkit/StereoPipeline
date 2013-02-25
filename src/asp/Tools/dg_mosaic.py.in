@@ -150,6 +150,16 @@ def main():
             print "  Placing %s" % args[i]
             print "    Size %ix%i at line %i" % (placements[i][1],placements[i][2],placements[i][0])
 
+        # Dummy Check! Look for duplicate files that will insert at
+        # same location. Files that do this would be the R?C1 variants
+        # that have the same XML file due to download errors or
+        # simplying mixing of R?C1 and the other format.
+        seen = set()
+        for i in range(len(args)):
+            if placements[i][0] in seen:
+                raise Exception('InputError', 'Input images have same input location which could be caused by repeated XML file or invalid TLC information')
+            seen.add(placements[i][0])
+
         # We do a 2 pass with VRT wrapping because the following
         # operations are performed in this order:
         #
