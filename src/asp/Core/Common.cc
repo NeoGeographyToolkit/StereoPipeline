@@ -80,7 +80,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
                          po::positional_options_description const& positional_desc,
                          std::string & usage_comment,
                          bool allow_unregistered ) {
-  
+
   // Finish filling in the usage_comment.
   std::ostringstream ostr;
   ostr << "Usage: " << argv[0] << " " << usage_comment << "\n\n";
@@ -91,7 +91,7 @@ asp::check_command_line( int argc, char *argv[], BaseOptions& opt,
   // options we must parse, even if we don't need some of them, and
   // public_options, which are the options specifically used by the
   // current tool, and for which we also print the help message.
-  
+
   po::variables_map vm;
   try {
     po::options_description all_options;
@@ -208,7 +208,7 @@ namespace program_options {
     std::string joined = boost::algorithm::join(values, " ");
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
-    
+
     if ( cvalues.size() != 2 )
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
@@ -234,7 +234,7 @@ namespace program_options {
     std::string joined = boost::algorithm::join(values, " ");
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
-    
+
     if ( cvalues.size() != 4 )
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
@@ -261,7 +261,7 @@ namespace program_options {
     std::string joined = boost::algorithm::join(values, " ");
     std::vector<std::string> cvalues;
     boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
-    
+
     if ( cvalues.size() != 4 )
       boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
 
