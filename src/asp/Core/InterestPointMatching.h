@@ -70,11 +70,13 @@ namespace asp {
                                 vw::Vector2 const& point );
   };
 
-  // Tool to remove points on or within 1 px of nodata
+  // Tool to remove points on or within 1 px of nodata pixels.
+  // Note: A nodata pixel is one for which pixel <= nodata.
   template <class ImageT>
   void remove_ip_near_nodata( vw::ImageViewBase<ImageT> const& image_base,
                               double nodata,
                               vw::ip::InterestPointList& ip_list ){
+
     using namespace vw;
     ImageT image = image_base.impl();
     size_t prior_ip = ip_list.size();
@@ -96,7 +98,7 @@ namespace asp {
         crop( image, ip->ix-1, ip->iy-1, 3, 3 );
       for ( typename CropImageT::iterator pixel = subsection.begin();
             pixel != subsection.end(); pixel++ ) {
-        if (*pixel == nodata) {
+        if (*pixel <= nodata) {
           ip = ip_list.erase(ip);
           ip--;
           break;
@@ -152,12 +154,12 @@ namespace asp {
     if ( boost::math::isnan(nodata1) )
       ip1 = detect_interest_points( image1, detector );
     else
-      ip1 = detect_interest_points( apply_mask(create_mask(image1,nodata1)), detector );
+      ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(image1,nodata1)), detector );
     vw_out() << "\t    Processing Right" << std::endl;
     if ( boost::math::isnan(nodata2) )
       ip2 = detect_interest_points( image2, detector );
     else
-      ip2 = detect_interest_points( apply_mask(create_mask(image2,nodata2)), detector );
+      ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2,nodata2)), detector );
 
     if ( !boost::math::isnan(nodata1) )
       remove_ip_near_nodata( image1, nodata1, ip1 );
@@ -170,11 +172,11 @@ namespace asp {
     if ( boost::math::isnan(nodata1) )
       describe_interest_points( image1, descriptor, ip1 );
     else
-      describe_interest_points( apply_mask(create_mask(image1,nodata1)), descriptor, ip1 );
+      describe_interest_points( apply_mask(create_mask_less_or_equal(image1,nodata1)), descriptor, ip1 );
     if ( boost::math::isnan(nodata2) )
       describe_interest_points( image2, descriptor, ip2 );
     else
-      describe_interest_points( apply_mask(create_mask(image2,nodata2)), descriptor, ip2 );
+      describe_interest_points( apply_mask(create_mask_less_or_equal(image2,nodata2)), descriptor, ip2 );
 
     vw_out() << "\t    Found interest points:\n"
              << "\t      left: " << ip1.size() << "\n";
@@ -222,6 +224,7 @@ namespace asp {
                                std::string const& output_name,
                                double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                                double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
+
     using namespace vw;
 
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
@@ -234,8 +237,7 @@ namespace asp {
       ransac_ip2 = iplist_to_vectorlist(matched_ip2);
     std::vector<size_t> indices;
     try {
-      typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
-                                          math::InterestPointErrorMetric> RansacT;
+      typedef math::RandomSampleConsensus<math::HomographyFittingFunctor, math::InterestPointErrorMetric> RansacT;
       RansacT ransac( math::HomographyFittingFunctor(),
                       math::InterestPointErrorMetric(), 100,
                       norm_2(Vector2(bounding_box(image1_base.impl()).size()))/100.0,
@@ -244,7 +246,7 @@ namespace asp {
       Matrix<double> H(ransac(ransac_ip1,ransac_ip2));
       vw_out() << "\t--> Homography: " << H << "\n";
       indices = ransac.inlier_indices(H,ransac_ip1,ransac_ip2);
-    } catch (const vw::math::RANSACErr& e ) {
+    } catch (const math::RANSACErr& e ) {
       vw_out() << "RANSAC Failed: " << e.what() << "\n";
       return false;
     }
