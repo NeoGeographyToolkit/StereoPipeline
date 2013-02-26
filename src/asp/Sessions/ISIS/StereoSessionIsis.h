@@ -149,10 +149,10 @@ namespace asp {
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
-    virtual void pre_preprocessing_hook(std::string const& input_file1,
-                                        std::string const& input_file2,
-                                        std::string & output_file1,
-                                        std::string & output_file2);
+    virtual void pre_preprocessing_hook(std::string const& left_input_file,
+                                        std::string const& right_input_file,
+                                        std::string &left_output_file,
+                                        std::string &right_output_file);
 
     // Stage 2: Correlation
     //

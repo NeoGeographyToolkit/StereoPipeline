@@ -31,6 +31,7 @@
 #include <vw/Camera/CAHVOREModel.h>
 #include <vw/Camera/CameraTransform.h>
 #include <vw/Image/ImageViewRef.h>
+#include <vw/Image/MaskViews.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Math.h>
 
@@ -132,19 +133,31 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
 
-void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_file1,
-                                                       std::string const& input_file2,
-                                                       std::string &output_file1,
-                                                       std::string &output_file2) {
+void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_input_file,
+                                                       std::string const& right_input_file,
+                                                       std::string &left_output_file,
+                                                       std::string &right_output_file) {
 
-  // Load the images
-  DiskImageView<PixelGray<float> > left_disk_image(m_left_image_file);
-  DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
 
-  Vector4f left_stats = gather_stats( left_disk_image, "left" ),
-    right_stats = gather_stats( right_disk_image, "right" );
+  boost::shared_ptr<DiskImageResource>
+    left_rsrc( DiskImageResource::open(m_left_image_file) ),
+    right_rsrc( DiskImageResource::open(m_right_image_file) );
 
-  ImageViewRef<PixelGray<float> > Limg, Rimg;
+  float left_nodata_value, right_nodata_value;
+  get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
+
+  // Load the unmodified images
+  DiskImageView<PixelGray<float> > left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
+
+  ImageViewRef< PixelMask < PixelGray<float> > > left_masked_image
+    = create_mask_less_or_equal(left_disk_image, left_nodata_value);
+  ImageViewRef< PixelMask < PixelGray<float> > > right_masked_image
+    = create_mask_less_or_equal(right_disk_image, right_nodata_value);
+
+  Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
+  Vector4f right_stats = gather_stats( right_masked_image, "right" );
+
+  ImageViewRef< PixelMask< PixelGray<float> > > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
   if ( stereo_settings().alignment_method == "epipolar" ) {
@@ -153,9 +166,9 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
 
     // Load the two images and fetch the two camera models
     boost::shared_ptr<camera::CameraModel> left_camera =
-      this->camera_model(input_file1, m_left_camera_file);
+      this->camera_model(left_input_file, m_left_camera_file);
     boost::shared_ptr<camera::CameraModel> right_camera =
-      this->camera_model(input_file2, m_right_camera_file);
+      this->camera_model(right_input_file, m_right_camera_file);
     CAHVModel* left_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*left_camera));
     CAHVModel* right_epipolar_cahv = dynamic_cast<CAHVModel*>(&(*right_camera));
 
@@ -163,29 +176,29 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
     if (boost::ends_with(lcase_file, ".cahvore")) {
       CAHVOREModel left_cahvore(m_left_camera_file);
       CAHVOREModel right_cahvore(m_right_camera_file);
-      Limg = transform(left_disk_image, CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore, *left_epipolar_cahv));
+      Limg = transform(left_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(left_cahvore, *left_epipolar_cahv));
 
-      Rimg = transform(right_disk_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));
+      Rimg = transform(right_masked_image, CameraTransform<CAHVOREModel, CAHVModel>(right_cahvore, *right_epipolar_cahv));
     } else if (boost::ends_with(lcase_file, ".cahvor") ||
                boost::ends_with(lcase_file, ".cmod") ) {
       CAHVORModel left_cahvor(m_left_camera_file);
       CAHVORModel right_cahvor(m_right_camera_file);
-      Limg = transform(left_disk_image, CameraTransform<CAHVORModel, CAHVModel>(left_cahvor, *left_epipolar_cahv));
-      Rimg = transform(right_disk_image, CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, *right_epipolar_cahv));
+      Limg = transform(left_masked_image, CameraTransform<CAHVORModel, CAHVModel>(left_cahvor, *left_epipolar_cahv));
+      Rimg = transform(right_masked_image, CameraTransform<CAHVORModel, CAHVModel>(right_cahvor, *right_epipolar_cahv));
 
     } else if ( boost::ends_with(lcase_file, ".cahv") ||
                 boost::ends_with(lcase_file, ".pin" )) {
       CAHVModel left_cahv(m_left_camera_file);
       CAHVModel right_cahv(m_right_camera_file);
-      Limg = transform(left_disk_image, CameraTransform<CAHVModel, CAHVModel>(left_cahv, *left_epipolar_cahv));
-      Rimg = transform(right_disk_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
+      Limg = transform(left_masked_image, CameraTransform<CAHVModel, CAHVModel>(left_cahv, *left_epipolar_cahv));
+      Rimg = transform(right_masked_image, CameraTransform<CAHVModel, CAHVModel>(right_cahv, *right_epipolar_cahv));
 
     } else if ( boost::ends_with(lcase_file, ".pinhole") ||
                 boost::ends_with(lcase_file, ".tsai") ) {
       PinholeModel left_pin(m_left_camera_file);
       PinholeModel right_pin(m_right_camera_file);
-      Limg = transform(left_disk_image, CameraTransform<PinholeModel, CAHVModel>(left_pin, *left_epipolar_cahv));
-      Rimg = transform(right_disk_image, CameraTransform<PinholeModel, CAHVModel>(right_pin, *right_epipolar_cahv));
+      Limg = transform(left_masked_image, CameraTransform<PinholeModel, CAHVModel>(left_pin, *left_epipolar_cahv));
+      Rimg = transform(right_masked_image, CameraTransform<PinholeModel, CAHVModel>(right_pin, *right_epipolar_cahv));
 
     } else {
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
@@ -199,61 +212,69 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& input_
     if ( gain_guess < 1.0f )
       gain_guess = 1.0f;
 
+    // Note: Here we use the original images, without mask
     Matrix<double> align_matrix =
-      determine_image_align( input_file1, input_file2,
+      determine_image_align( m_out_prefix,
+                             left_input_file, right_input_file,
                              left_disk_image, right_disk_image,
+                             left_nodata_value, right_nodata_value,
                              gain_guess );
     write_matrix( m_out_prefix + "-align.exr", align_matrix );
 
     // Applying alignment transform
-    Limg = left_disk_image;
-    Rimg = transform(right_disk_image,
+    Limg = left_masked_image;
+    Rimg = transform(right_masked_image,
                      HomographyTransform(align_matrix),
-                     left_disk_image.cols(), left_disk_image.rows());
+                     left_masked_image.cols(), left_masked_image.rows());
 
   } else {
     // Do nothing just provide the original files.
-    Limg = left_disk_image;
-    Rimg = right_disk_image;
+    Limg = left_masked_image;
+    Rimg = right_masked_image;
   }
 
   // Apply our normalization options
-  if ( stereo_settings().force_max_min > 0 ) {
+  if ( stereo_settings().force_use_entire_range > 0 ) {
     if ( stereo_settings().individually_normalize > 0 ) {
       vw_out() << "\t--> Individually normalize images to their respective Min Max\n";
-      Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
-      Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
+      Limg = normalize( Limg, left_stats[0], left_stats[1], 0.0, 1.0 );
+      Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
     } else {
       float low = std::min(left_stats[0], right_stats[0]);
       float hi  = std::max(left_stats[1], right_stats[1]);
       vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-      Limg = normalize( Limg, low, hi, 0, 1.0 );
-      Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+      Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+      Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
     }
   } else {
     if ( stereo_settings().individually_normalize > 0 ) {
       vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
       Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
-                        left_stats[2] + 2*left_stats[3], 0, 1.0 );
+                        left_stats[2] + 2*left_stats[3], 0.0, 1.0 );
       Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
-                        right_stats[2] + 2*right_stats[3], 0, 1.0 );
+                        right_stats[2] + 2*right_stats[3], 0.0, 1.0 );
     } else {
       float low = std::min(left_stats[2] - 2*left_stats[3],
                            right_stats[2] - 2*right_stats[3]);
       float hi  = std::max(left_stats[2] + 2*left_stats[3],
                            right_stats[2] + 2*right_stats[3]);
       vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-      Limg = normalize( Limg, low, hi, 0, 1.0 );
-      Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+      Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+      Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
     }
   }
 
-  output_file1 = m_out_prefix + "-L.tif";
-  output_file2 = m_out_prefix + "-R.tif";
+  // The output no-data value must be < 0 as we scale the images to [0, 1].
+  float output_nodata = -32767.0;
+
+  left_output_file = m_out_prefix + "-L.tif";
+  right_output_file = m_out_prefix + "-R.tif";
   vw_out() << "\t--> Writing pre-aligned images.\n";
-  block_write_gdal_image( output_file1, Limg, m_options,
+  block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
+                          output_nodata, m_options,
                           TerminalProgressCallback("asp","\t  L:  ") );
-  block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), m_options,
+  block_write_gdal_image( right_output_file, apply_mask(crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), output_nodata),
+                          output_nodata, m_options,
                           TerminalProgressCallback("asp","\t  R:  ") );
 }
 

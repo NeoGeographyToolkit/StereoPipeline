@@ -355,12 +355,10 @@ namespace asp {
         sub_scale /= 4.0f;
 
         stereo_settings().search_range =
-          approximate_search_range( opt.out_prefix+"-L_sub.tif",
-                                    opt.out_prefix+"-R_sub.tif",
-                                    ip::match_filename( opt.out_prefix,
-                                                        opt.out_prefix+"-L_sub.tif",
-                                                        opt.out_prefix+"-R_sub.tif"),
-                                    sub_scale );
+          approximate_search_range(opt.out_prefix,
+                                   opt.out_prefix+"-L_sub.tif",
+                                   opt.out_prefix+"-R_sub.tif",
+                                   sub_scale );
       } else {
         // There exists a matchfile out there.
         std::vector<ip::InterestPoint> ip1, ip2;
@@ -477,19 +475,22 @@ namespace asp {
   // approximate search range
   //  Find interest points and grow them into a search range
   BBox2i
-  approximate_search_range( std::string const& left_image,
-                            std::string const& right_image,
-                            std::string const& match_filename,
-                            float scale ) {
+  approximate_search_range(std::string const& out_prefix,
+                           std::string const& left_sub_file,
+                           std::string const& right_sub_file,
+                           float scale ) {
 
     typedef PixelGray<float32> PixelT;
     vw_out() << "\t--> Using interest points to determine search window.\n";
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     float i_scale = 1.0/scale;
 
-    std::string
-      left_ip_file  = fs::path( left_image ).replace_extension("vwip").string(),
-      right_ip_file = fs::path( right_image ).replace_extension("vwip").string();
+    std::string left_ip_file, right_ip_file;
+    ip::ip_filenames(out_prefix, left_sub_file, right_sub_file,
+                     left_ip_file, right_ip_file);
+
+    std::string match_filename
+      = ip::match_filename(out_prefix, left_sub_file, right_sub_file);
 
     // Building / Loading Interest point data
     if ( fs::exists(match_filename) ) {
@@ -506,9 +507,20 @@ namespace asp {
 
         // Worst case, no interest point operations have been performed before
         vw_out() << "\t    * Locating Interest Points\n";
-        DiskImageView<PixelT> left_sub_image(left_image);
-        DiskImageView<PixelT> right_sub_image(right_image);
 
+        boost::shared_ptr<DiskImageResource>
+          left_rsrc( DiskImageResource::open(left_sub_file) ),
+          right_rsrc( DiskImageResource::open(right_sub_file) );
+
+        // Read the no-data values written to disk previously when
+        // the normalized left and right sub-images were created.
+        float left_nodata_value = std::numeric_limits<float>::quiet_NaN();
+        float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
+        if ( left_rsrc->has_nodata_read()  ) left_nodata_value  = left_rsrc->nodata_read();
+        if ( right_rsrc->has_nodata_read() ) right_nodata_value = right_rsrc->nodata_read();
+
+        DiskImageView<PixelT> left_sub_image ( left_rsrc );
+        DiskImageView<PixelT> right_sub_image( right_rsrc );
         // Interest Point module detector code.
         float ipgain = 0.07;
         std::list<ip::InterestPoint> ip1, ip2;
@@ -519,8 +531,21 @@ namespace asp {
           ip::OBALoGInterestOperator interest_operator( ipgain );
           ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
 
-          ip1 = detect_interest_points( left_sub_image, detector );
-          ip2 = detect_interest_points( right_sub_image, detector );
+          if ( boost::math::isnan(left_nodata_value) )
+            ip1 = detect_interest_points( left_sub_image, detector );
+          else
+            ip1 = detect_interest_points( apply_mask(create_mask_less_or_equal(left_sub_image,left_nodata_value)), detector );
+
+          if ( boost::math::isnan(right_nodata_value) )
+            ip2 = detect_interest_points( right_sub_image, detector );
+          else
+            ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(right_sub_image,right_nodata_value)), detector );
+
+          if ( !boost::math::isnan(left_nodata_value) )
+            remove_ip_near_nodata( left_sub_image, left_nodata_value, ip1 );
+
+          if ( !boost::math::isnan(right_nodata_value) )
+            remove_ip_near_nodata( right_sub_image, right_nodata_value, ip2 );
 
           ipgain *= 0.75;
           if ( ipgain < 1e-2 ) {
@@ -531,7 +556,7 @@ namespace asp {
 
         if ( ip1.size() < 8 || ip2.size() < 8 )
           vw_throw( InputErr() << "Unable to extract interest points from input images ["
-                    << left_image << "," << right_image << "]! Unable to continue." );
+                    << left_sub_file << "," << right_sub_file << "]! Unable to continue." );
 
         // Making sure we don't exceed 3000 points
         if ( ip1.size() > 3000 ) {
@@ -549,10 +574,17 @@ namespace asp {
         BOOST_FOREACH( ip::InterestPoint& ip, ip1 ) ip.orientation = 0;
         BOOST_FOREACH( ip::InterestPoint& ip, ip2 ) ip.orientation = 0;
 
-        vw_out() << "\t    * Generating descriptors..." << std::flush;
+        vw_out() << "\t    * Building descriptors..." << std::flush;
         ip::SGradDescriptorGenerator descriptor;
-        describe_interest_points( left_sub_image, descriptor, ip1 );
-        describe_interest_points( right_sub_image, descriptor, ip2 );
+        if ( boost::math::isnan(left_nodata_value) )
+          describe_interest_points( left_sub_image, descriptor, ip1 );
+        else
+          describe_interest_points( apply_mask(create_mask_less_or_equal(left_sub_image,left_nodata_value)), descriptor, ip1 );
+        if ( boost::math::isnan(right_nodata_value) )
+          describe_interest_points( right_sub_image, descriptor, ip2 );
+        else
+          describe_interest_points( apply_mask(create_mask_less_or_equal(right_sub_image,right_nodata_value)), descriptor, ip2 );
+
         vw_out() << "done.\n";
 
         // Writing out the results
@@ -587,8 +619,8 @@ namespace asp {
         // pulling from experience that an inlier threshold of 30
         // worked best for 1024^2 AMC imagery.
         float inlier_threshold =
-          0.0075 * ( sum( file_image_size( left_image ) ) +
-                     sum( file_image_size( right_image ) ) );
+          0.0075 * ( sum( file_image_size( left_sub_file ) ) +
+                     sum( file_image_size( right_sub_file ) ) );
 
         math::RandomSampleConsensus<math::HomographyFittingFunctor,math::InterestPointErrorMetric>
           ransac( math::HomographyFittingFunctor(), math::InterestPointErrorMetric(), 100, inlier_threshold, ransac_ip1.size()/2, true );

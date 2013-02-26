@@ -63,11 +63,11 @@ namespace asp {
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
-    // Post file is a grayscale images.         ( ImageView<PixelGray<flaot> > )
-    virtual void pre_preprocessing_hook(std::string const& input_file1,
-                                        std::string const& input_file2,
-                                        std::string &output_file1,
-                                        std::string &output_file2);
+    // Post file is a grayscale images.         ( ImageView<PixelGray<float> > )
+    virtual void pre_preprocessing_hook(std::string const& left_input_file,
+                                        std::string const& right_input_file,
+                                        std::string &left_output_file,
+                                        std::string &right_output_file);
 
     // Stage 4: Point cloud generation
     virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >

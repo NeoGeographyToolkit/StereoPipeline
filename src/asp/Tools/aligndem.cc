@@ -67,19 +67,21 @@ public:
   }
 };
 
-void match_orthoimages( string const& left_image_name,
-                        string const& right_image_name,
-                        std::vector<InterestPoint> & matched_ip1,
-                        std::vector<InterestPoint> & matched_ip2,
-                        size_t const& max_points )
+void match_orthoimages(string const& out_prefix,
+                       string const& left_image_name,
+                       string const& right_image_name,
+                       std::vector<InterestPoint> & matched_ip1,
+                       std::vector<InterestPoint> & matched_ip2,
+                       size_t const& max_points )
 {
 
   vw_out() << "\t--> Finding Interest Points for the orthoimages\n";
 
   fs::path left_image_path(left_image_name), right_image_path(right_image_name);
-  string left_ip_file = change_extension(left_image_path, ".vwip").string();
-  string right_ip_file = change_extension(right_image_path, ".vwip").string();
-  string match_file = (left_image_path.branch_path() / (fs::basename(left_image_path) + "__" + fs::basename(right_image_path) + ".match")).string();
+  string left_ip_file, right_ip_file;
+  ip::ip_filenames(out_prefix, input_file1, input_file2,
+                   left_ip_file, right_ip_file);
+  string match_file = ip::match_filename(out_prefix, left_image_file, right_image_file);
 
   // Building / Loading Interest point data
   if ( fs::exists(match_file) ) {
@@ -236,7 +238,8 @@ int main( int argc, char *argv[] ) {
 
     std::vector<InterestPoint> matched_ip1, matched_ip2;
 
-    match_orthoimages(opt.ortho1_name, opt.ortho2_name,
+    match_orthoimages(opt.output_prefix,
+                      opt.ortho1_name, opt.ortho2_name,
                       matched_ip1, matched_ip2, opt.max_points);
 
     vw_out() << "\t--> Rejecting outliers using RANSAC.\n";

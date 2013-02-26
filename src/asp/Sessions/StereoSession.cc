@@ -19,6 +19,7 @@
 /// \file StereoSession.cc
 ///
 
+#include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
@@ -174,6 +175,32 @@ namespace asp {
   void StereoSession::post_pointcloud_hook(std::string const& input_file,
                                            std::string & output_file) {
     output_file = input_file;
+  }
+
+  void StereoSession::get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
+                                        boost::shared_ptr<vw::DiskImageResource> right_rsrc,
+                                        float & left_nodata_value,
+                                        float & right_nodata_value){
+
+    // The no-data value read from options overrides the value present
+    // in the image files.
+    left_nodata_value = std::numeric_limits<float>::quiet_NaN();
+    right_nodata_value = std::numeric_limits<float>::quiet_NaN();
+    if ( left_rsrc->has_nodata_read()  ) left_nodata_value  = left_rsrc->nodata_read();
+    if ( right_rsrc->has_nodata_read() ) right_nodata_value = right_rsrc->nodata_read();
+    float opt_nodata = stereo_settings().nodata_value;
+    if (!std::isnan(opt_nodata)){
+
+      if ( opt_nodata < left_nodata_value )
+        vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than the no-data value of left image. This may not be what was intended.\n";
+      if ( opt_nodata < right_nodata_value )
+        vw_out(WarningMessage) << "It appears that the user-supplied no-data value is less than the no-data value of right image. This may not be what was intended.\n";
+
+      left_nodata_value  = opt_nodata;
+      right_nodata_value = opt_nodata;
+    }
+
+    return;
   }
 
 }

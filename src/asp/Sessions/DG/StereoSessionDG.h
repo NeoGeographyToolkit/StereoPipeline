@@ -30,7 +30,7 @@ namespace asp {
 
   // Forward declaration
   class RPCModel;
-  
+
   class StereoSessionDG : public StereoSessionPinhole {
 
   public:
@@ -49,7 +49,7 @@ namespace asp {
                             std::string const& extra_argument1,
                             std::string const& extra_argument2,
                             std::string const& extra_argument3);
-    
+
     // Produces a camera model from the images
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model( std::string const& image_file,
@@ -63,11 +63,11 @@ namespace asp {
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
-    // Post file is a pair of grayscale images. ( ImageView<PixelGray<flaot> > )
-    virtual void pre_preprocessing_hook(std::string const& input_file1,
-                                        std::string const& input_file2,
-                                        std::string &output_file1,
-                                        std::string &output_file2);
+    // Post file is a pair of grayscale images. ( ImageView<PixelGray<float> > )
+    virtual void pre_preprocessing_hook(std::string const& left_input_file,
+                                        std::string const& right_input_file,
+                                        std::string &left_output_file,
+                                        std::string &right_output_file);
 
     static StereoSession* construct() { return new StereoSessionDG; }
 
@@ -77,7 +77,7 @@ namespace asp {
 
     vw::ImageViewRef<vw::Vector2f> generate_lut_image( std::string const&, std::string const& ) const;
     static RPCModel* read_rpc_model( std::string const& image_file, std::string const& camera_file );
-    
+
   };
 
 }

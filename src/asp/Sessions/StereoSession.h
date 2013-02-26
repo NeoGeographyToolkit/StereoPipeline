@@ -35,6 +35,7 @@
 #include <boost/filesystem/operations.hpp>
 
 #include <asp/Core/Common.h>
+#include <asp/Core/InterestPointMatching.h>
 
 namespace asp {
 
@@ -48,16 +49,19 @@ namespace asp {
 
     // Helper function for determing image alignment.
     //
-    // This expect image intensities to be between 0 and 1.0. If you
+    // This expects image intensities to be between 0 and 1.0. If you
     // know the range before hand will be 0.25 to 0.75, you can give a
     // helping hand by setting the gain_guess parameter to 2.0 in that
     // case.
     template <class ImageT1, class ImageT2>
     vw::Matrix3x3
-    determine_image_align( std::string const& input_file1,
+    determine_image_align( std::string const& out_prefix,
+                           std::string const& input_file1,
                            std::string const& input_file2,
                            vw::ImageViewBase<ImageT1> const& input1,
                            vw::ImageViewBase<ImageT2> const& input2,
+                           double nodata1 = std::numeric_limits<double>::quiet_NaN(),
+                           double nodata2 = std::numeric_limits<double>::quiet_NaN(),
                            float gain_guess = 1.0 ) {
       namespace fs = boost::filesystem;
       using namespace vw;
@@ -65,9 +69,8 @@ namespace asp {
       ImageT1 const& image1 = input1.impl();
       ImageT2 const& image2 = input2.impl();
       std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-      std::string match_filename =
-        fs::path( input_file1 ).replace_extension("").string() + "__" +
-        fs::path( input_file2 ).stem().string() + ".match";
+      std::string match_filename
+        = ip::match_filename(out_prefix, input_file1, input_file2);
 
       if ( fs::exists( match_filename ) ) {
         // Is there a match file linking these 2 image?
@@ -92,10 +95,9 @@ namespace asp {
 
         // Next best thing.. VWIPs?
         std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
-        std::string ip1_filename =
-          fs::path( input_file1 ).replace_extension("vwip").string();
-        std::string ip2_filename =
-          fs::path( input_file2 ).replace_extension("vwip").string();
+        std::string ip1_filename, ip2_filename;
+        ip::ip_filenames(out_prefix, input_file1, input_file2,
+                         ip1_filename, ip2_filename);
         if ( fs::exists( ip1_filename ) &&
              fs::exists( ip2_filename ) ) {
           // Found VWIPs already done before
@@ -110,34 +112,16 @@ namespace asp {
           // Worst case, no interest point operations have been performed before
           vw_out() << "\t--> Locating Interest Points\n";
           ip::InterestPointList ip1, ip2;
+          detect_ip( ip1, ip2, image1.impl(),
+                     image2.impl(),
+                     nodata1, nodata2 );
 
-          // Interest Point module detector code.
-          float ipgain = 0.08 / gain_guess;
-          while ( ip1.size() < 1500 || ip2.size() < 1500 ) {
-            ip1.clear(); ip2.clear();
-            ip::OBALoGInterestOperator interest_operator( ipgain );
-            ip::IntegralInterestPointDetector<ip::OBALoGInterestOperator> detector( interest_operator, 0 );
-            vw_out() << "\t    Processing " << input_file1 << "\n";
-            ip1 = detect_interest_points( image1, detector );
-            vw_out() << "\t    Processing " << input_file2 << "\n";
-            ip2 = detect_interest_points( image2, detector );
-
-            ipgain *= 0.75;
-          }
           if ( ip1.size() > 10000 ) {
             ip1.sort(); ip1.resize(10000);
           }
           if ( ip2.size() > 10000 ) {
             ip2.sort(); ip2.resize(10000);
           }
-          vw_out() << "\t    Located " << ip1.size() << " points.\n";
-          vw_out() << "\t    Located " << ip2.size() << " points.\n";
-
-          vw_out() << "\t    Generating descriptors...\n";
-          ip::SGradDescriptorGenerator descriptor;
-          describe_interest_points( image1, descriptor, ip1 );
-          describe_interest_points( image2, descriptor, ip2 );
-          vw_out() << "\t    done.\n";
 
           // Writing out the results
           vw_out() << "\t    Caching interest points: "
@@ -243,7 +227,7 @@ namespace asp {
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
-    // Post file is a grayscale images.         ( ImageView<PixelGray<flaot> > )
+    // Post file is a grayscale images.         ( ImageView<PixelGray<float> > )
     virtual void pre_preprocessing_hook(std::string const& input_file1,
                                         std::string const& input_file2,
                                         std::string &output_file1,
@@ -281,6 +265,11 @@ namespace asp {
     pre_pointcloud_hook(std::string const& input_file);
     virtual void post_pointcloud_hook(std::string const& input_file,
                                       std::string & output_file);
+
+    void get_nodata_values(boost::shared_ptr<vw::DiskImageResource> left_rsrc,
+                           boost::shared_ptr<vw::DiskImageResource> right_rsrc,
+                           float & left_nodata_value,
+                           float & right_nodata_value);
   };
 
 } // end namespace asp

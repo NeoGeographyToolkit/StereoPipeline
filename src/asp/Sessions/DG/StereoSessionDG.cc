@@ -85,16 +85,16 @@ public:
 
   Vector2f operator()( Vector3 const& point ) const {
 
-    const double nan_val = std::numeric_limits<double>::quiet_NaN();
+    const double nan = std::numeric_limits<double>::quiet_NaN();
 
     if ( point == Vector3() )
-      return Vector2f(nan_val, nan_val);
+      return Vector2f(nan, nan);
 
     Vector2f result = m_rpc.point_to_pixel( point );
     if ( m_image_boundaries.contains( result ) )
       return result;
 
-    return Vector2f(nan_val, nan_val);
+    return Vector2f(nan, nan);
   }
 
 };
@@ -314,39 +314,41 @@ namespace asp {
 
   ImageViewRef<Vector2f> StereoSessionDG::lut_image_left() const {
     if ( !m_rpc_map_projected )
-      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table shouldn't be used here" );
+      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table should not be used here" );
     return generate_lut_image( m_left_image_file, m_left_camera_file );
   }
 
   ImageViewRef<Vector2f> StereoSessionDG::lut_image_right() const {
     if ( !m_rpc_map_projected )
-      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table shouldn't be used here" );
+      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table should not be used here" );
     return generate_lut_image( m_right_image_file, m_right_camera_file );
   }
 
-  void StereoSessionDG::pre_preprocessing_hook(std::string const& input_file1,
-                                               std::string const& input_file2,
-                                               std::string &output_file1,
-                                               std::string &output_file2) {
+  void StereoSessionDG::pre_preprocessing_hook(std::string const& left_input_file,
+                                               std::string const& right_input_file,
+                                               std::string &left_output_file,
+                                               std::string &right_output_file) {
 
-    // Load the unmodified images
     boost::shared_ptr<DiskImageResource>
       left_rsrc( DiskImageResource::open(m_left_image_file) ),
       right_rsrc( DiskImageResource::open(m_right_image_file) );
-    DiskImageView<PixelGray<float> >
-      left_disk_image( left_rsrc ),
-      right_disk_image( right_rsrc );
+
+    float left_nodata_value, right_nodata_value;
+    get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
+
+    // Load the unmodified images
+    DiskImageView<PixelGray<float> > left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
 
     // Filenames of normalized images
-    output_file1 = m_out_prefix + "-L.tif";
-    output_file2 = m_out_prefix + "-R.tif";
+    left_output_file = m_out_prefix + "-L.tif";
+    right_output_file = m_out_prefix + "-R.tif";
 
     // If these files already exist, don't bother writting them again.
     bool rebuild = false;
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelGray<float> > testa(output_file1);
-      DiskImageView<PixelGray<float> > testb(output_file2);
+      DiskImageView<PixelGray<float> > test_left(left_output_file);
+      DiskImageView<PixelGray<float> > test_right(right_output_file);
       vw_settings().reload_config();
     } catch (vw::IOErr const& e) {
       vw_settings().reload_config();
@@ -362,22 +364,26 @@ namespace asp {
       return;
     }
 
-    // The pre-processed images don't exist or are corrupted.
-    Vector4f left_stats = gather_stats( left_disk_image, "left" ),
-      right_stats = gather_stats( right_disk_image, "right" );
+    ImageViewRef< PixelMask < PixelGray<float> > > left_masked_image
+      = create_mask_less_or_equal(left_disk_image, left_nodata_value);
+    ImageViewRef< PixelMask < PixelGray<float> > > right_masked_image
+      = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
-    ImageViewRef<PixelGray<float> > Limg, Rimg;
+    Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
+    Vector4f right_stats = gather_stats( right_masked_image, "right" );
+
+    ImageViewRef< PixelMask< PixelGray<float> > > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
     if ( stereo_settings().alignment_method == "homography" ) {
       std::string match_filename
-        = ip::match_filename(m_out_prefix, input_file1, input_file2);
+        = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
       if (!fs::exists(match_filename)) {
         bool inlier = false;
 
-        boost::shared_ptr<camera::CameraModel> cam1, cam2;
-        camera_models( cam1, cam2 );
+        boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+        camera_models( left_cam, right_cam );
         if ( m_rpc_map_projected ) {
           // We'll make the assumption that the user has map
           // projected the images to the same scale. If they
@@ -400,27 +406,19 @@ namespace asp {
             right_tx( RPCMapTransform( *right_rpc, right_georef,
                                        dem_georef, dem_rsrc ) );
           inlier =
-            ip_matching( cam1.get(), cam2.get(),
+            ip_matching( left_cam.get(), right_cam.get(),
                          left_disk_image, right_disk_image,
                          cartography::Datum("WGS84"), match_filename,
-                         left_rsrc->has_nodata_read() ?
-                         left_rsrc->nodata_read() :
-                         std::numeric_limits<double>::quiet_NaN(),
-                         right_rsrc->has_nodata_read() ?
-                         right_rsrc->nodata_read() :
-                         std::numeric_limits<double>::quiet_NaN(),
+                         left_nodata_value,
+                         right_nodata_value,
                          left_tx, right_tx, false );
         } else {
           inlier =
-            ip_matching_w_alignment( cam1.get(), cam2.get(),
+            ip_matching_w_alignment( left_cam.get(), right_cam.get(),
                                      left_disk_image, right_disk_image,
                                      cartography::Datum("WGS84"), match_filename,
-                                     left_rsrc->has_nodata_read() ?
-                                     left_rsrc->nodata_read() :
-                                     std::numeric_limits<double>::quiet_NaN(),
-                                     right_rsrc->has_nodata_read() ?
-                                     right_rsrc->nodata_read() :
-                                     std::numeric_limits<double>::quiet_NaN() );
+                                     left_nodata_value,
+                                     right_nodata_value);
         }
 
         if ( !inlier ) {
@@ -439,59 +437,64 @@ namespace asp {
                << "\t      " << align_matrix << "\n";
 
       // Applying alignment transform
-      Limg = left_disk_image;
-      Rimg = transform(right_disk_image,
+      Limg = left_masked_image;
+      Rimg = transform(right_masked_image,
                        HomographyTransform(align_matrix),
-                       left_disk_image.cols(), left_disk_image.rows());
+                       left_masked_image.cols(), left_masked_image.rows());
     } else if ( stereo_settings().alignment_method == "epipolar" ) {
       vw_throw( NoImplErr() << "StereoSessionDG does not support epipolar rectification" );
     } else {
       // Do nothing just provide the original files.
-      Limg = left_disk_image;
-      Rimg = right_disk_image;
+      Limg = left_masked_image;
+      Rimg = right_masked_image;
     }
 
-    // Apply our normalization options
-    if ( stereo_settings().force_max_min > 0 ) {
+    // Apply our normalization options.
+    if ( stereo_settings().force_use_entire_range > 0 ) {
       if ( stereo_settings().individually_normalize > 0 ) {
         vw_out() << "\t--> Individually normalize images to their respective min max\n";
-        Limg = normalize( Limg, left_stats[0], left_stats[1], 0, 1.0 );
-        Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0, 1.0 );
+        Limg = normalize( Limg, left_stats[0], left_stats[1], 0.0, 1.0 );
+        Rimg = normalize( Rimg, right_stats[0], right_stats[1], 0.0, 1.0 );
       } else {
         float low = std::min(left_stats[0], right_stats[0]);
         float hi  = std::max(left_stats[1], right_stats[1]);
         vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-        Limg = normalize( Limg, low, hi, 0, 1.0 );
-        Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
       }
     } else {
       if ( stereo_settings().individually_normalize > 0 ) {
         vw_out() << "\t--> Individually normalize images to their respective 4 std dev window\n";
         Limg = normalize( Limg, left_stats[2] - 2*left_stats[3],
-                          left_stats[2] + 2*left_stats[3], 0, 1.0 );
+                          left_stats[2] + 2*left_stats[3], 0.0, 1.0 );
         Rimg = normalize( Rimg, right_stats[2] - 2*right_stats[3],
-                          right_stats[2] + 2*right_stats[3], 0, 1.0 );
+                          right_stats[2] + 2*right_stats[3], 0.0, 1.0 );
       } else {
         float low = std::min(left_stats[2] - 2*left_stats[3],
                              right_stats[2] - 2*right_stats[3]);
         float hi  = std::max(left_stats[2] + 2*left_stats[3],
                              right_stats[2] + 2*right_stats[3]);
         vw_out() << "\t--> Normalizing globally to: [" << low << " " << hi << "]\n";
-        Limg = normalize( Limg, low, hi, 0, 1.0 );
-        Rimg = normalize( Rimg, low, hi, 0, 1.0 );
+        Limg = normalize( Limg, low, hi, 0.0, 1.0 );
+        Rimg = normalize( Rimg, low, hi, 0.0, 1.0 );
       }
     }
 
 
+    // The output no-data value must be < 0 as we scale the images to [0, 1].
+    float output_nodata = -32767.0;
+
     vw_out() << "\t--> Writing pre-aligned images.\n";
-    block_write_gdal_image( output_file1, Limg, m_options,
+    block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata), output_nodata, m_options,
                             TerminalProgressCallback("asp","\t  L:  ") );
+
     if ( stereo_settings().alignment_method == "none" )
-      block_write_gdal_image( output_file2, Rimg, m_options,
+      block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata), output_nodata, m_options,
                               TerminalProgressCallback("asp","\t  R:  ") );
     else
-      block_write_gdal_image( output_file2, crop(edge_extend(Rimg,ConstantEdgeExtension()),
-                                                 bounding_box(Limg)), m_options,
+      block_write_gdal_image( right_output_file,
+                              apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()), bounding_box(Limg)), output_nodata),
+                              output_nodata, m_options,
                               TerminalProgressCallback("asp","\t  R:  ") );
 
     // We could write the LUT images at this point, but I'm going to

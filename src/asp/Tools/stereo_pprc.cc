@@ -34,7 +34,7 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-// Create the mask of pixels above threshold
+// Invalidate pixels < threshold
 struct MaskAboveThreshold: public ReturnFixedType< PixelMask<uint8> > {
   double m_threshold;
   MaskAboveThreshold(double threshold): m_threshold(threshold){}
@@ -73,8 +73,12 @@ void stereo_preprocessing( Options& opt ) {
                                       pre_preproc_file_left,
                                       pre_preproc_file_right);
 
-  DiskImageView<PixelGray<float> > left_image(pre_preproc_file_left),
-    right_image(pre_preproc_file_right);
+  boost::shared_ptr<DiskImageResource>
+    left_rsrc( DiskImageResource::open(pre_preproc_file_left) ),
+    right_rsrc( DiskImageResource::open(pre_preproc_file_right) );
+
+  // Load the unmodified images
+  DiskImageView<PixelGray<float> > left_image( left_rsrc ), right_image( right_rsrc );
 
   bool rebuild = false;
   try {
@@ -93,6 +97,7 @@ void stereo_preprocessing( Options& opt ) {
   if (rebuild) {
     vw_out() << "\t--> Generating image masks... \n";
 
+
     ImageViewRef< PixelMask<uint8> > left_mask = copy_mask(constant_view(uint8(255),
                                                                          left_image.cols(), left_image.rows()),
                                                            asp::threaded_edge_mask(left_image,0,0,1024)
@@ -101,54 +106,52 @@ void stereo_preprocessing( Options& opt ) {
                                                                           right_image.cols(), right_image.rows() ),
                                                             asp::threaded_edge_mask(right_image,0,0,1024));
 
-    double left_threshold  = stereo_settings().nodata_threshold;
-    double right_threshold = stereo_settings().nodata_threshold;
-    double nodata_fraction = stereo_settings().nodata_percentage/100.0;
-    double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
-    if (int(!std::isnan(left_threshold))  +
-        int(!std::isnan(nodata_fraction)) +
-        int(!std::isnan(nodata_factor)) >= 2
-        ){
-      vw_throw( ArgumentErr()
-                << "\nAt most one of the no-data settings "
-                << "(threshold, percentage, or optimal threshold factor) must be set.\n");
-    }
+    // Mask no-data pixels. Read the no-data values written to disk
+    // previously when the normalized left and right images were
+    // created.
+    float left_nodata_value = std::numeric_limits<float>::quiet_NaN();
+    float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
+    if ( left_rsrc->has_nodata_read()  ) left_nodata_value  = left_rsrc->nodata_read();
+    if ( right_rsrc->has_nodata_read() ) right_nodata_value = right_rsrc->nodata_read();
+    left_mask  = intersect_mask(left_mask,  create_mask_less_or_equal(left_image,  left_nodata_value));
+    right_mask = intersect_mask(right_mask, create_mask_less_or_equal(right_image, right_nodata_value));
 
+    // Invalidate pixels below threshold.
+
+    double left_threshold  = std::numeric_limits<double>::quiet_NaN();
+    double right_threshold = std::numeric_limits<double>::quiet_NaN();
+    double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
+    double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
+    if ( (!std::isnan(nodata_fraction)) && (!std::isnan(nodata_factor)) ){
+      vw_throw( ArgumentErr()
+                << "\nCannot set both nodata-pixel-percentage and nodata-optimal-threshold-factor at the same time.\n");
+    }
     if ( !std::isnan(nodata_factor) ){
       // Find the black pixels threshold using Otsu's optimal threshold method.
       left_threshold  = nodata_factor*optimal_threshold(left_image);
       right_threshold = nodata_factor*optimal_threshold(right_image);
     }
-
     if ( !std::isnan(nodata_fraction) ){
-      // Declare a fixed proportion of pixels to be black.
-
+      // Declare a fixed proportion of low-value pixels to be no-data.
       math::CDFAccumulator< PixelGray<float> > left_cdf(1024, 1024), right_cdf(1024, 1024);
       for_each_pixel( left_image, left_cdf );
       for_each_pixel( right_image, right_cdf );
-
       left_threshold  = left_cdf.quantile(nodata_fraction);
       right_threshold = right_cdf.quantile(nodata_fraction);
     }
-
     if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
-      // Mask pixels below threshold.
-
       ImageViewRef< PixelMask<uint8> > left_thresh_mask = mask_and_fill_holes(left_image, left_threshold);
       left_mask = intersect_mask(left_mask, left_thresh_mask);
-
       ImageViewRef< PixelMask<uint8> > right_thresh_mask = mask_and_fill_holes(right_image, right_threshold);
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
 
+    // Intersect the left mask with the warped version of the right mask, and vice-versa
+    // to reduce noise.
     cartography::GeoReference left_georef, right_georef;
     bool has_left_georef  = read_georeference(left_georef,  opt.in_file1);
     bool has_right_georef = read_georeference(right_georef, opt.in_file2);
     if (has_left_georef && has_right_georef){
-
-      // Intersect the left mask with the warped version of the right mask, and vice-versa
-      // to reduce noise.
-
       ImageViewRef< PixelMask<uint8> > warped_left_mask = crop(vw::cartography::geo_transform
                                                                (left_mask,
                                                                 left_georef,
@@ -165,26 +168,22 @@ void stereo_preprocessing( Options& opt ) {
                                                                  NearestPixelInterpolation()),
                                                                 bounding_box(left_mask)
                                                                 );
-
       asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
                                    apply_mask(intersect_mask(left_mask, warped_right_mask)),
                                    opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
       asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
                                    apply_mask(intersect_mask(right_mask, warped_left_mask)),
                                    opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
-
     }else{
-
       asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
                                    apply_mask(left_mask),
                                    opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
       asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
                                    apply_mask(right_mask),
                                    opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
-
     }
 
-  }
+  } // End creating masks
 
   try {
     // This confusing try catch is to see if the subsampled images
@@ -226,43 +225,44 @@ void stereo_preprocessing( Options& opt ) {
     uint32 previous_num_threads = vw_settings().default_num_threads();
     vw_settings().set_default_num_threads(sub_threads);
 
+    // Resample the images and the masks. We must use the masks when
+    // resampling the images to interpolate correctly around invalid
+    // pixels.
+
+    // The output no-data value must be < 0 as the images are scaled
+    // to around [0, 1].
+    float output_nodata = -32767.0;
+
+    DiskImageView<uint8> left_mask(opt.out_prefix+"-lMask.tif"),
+      right_mask(opt.out_prefix+"-rMask.tif");
+    ImageView< PixelMask < PixelGray<float> > > left_sub_image, right_sub_image;
     if ( sub_scale > 0.5 ) {
       // When we are near the pixel input to output ratio, standard
-      // interpolation is our best possible results.
-      asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
-                                   resample(left_image,sub_scale), opt,
-                                   TerminalProgressCallback("asp", "\t    Sub L: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
-                                   resample(right_image,sub_scale), opt,
-                                   TerminalProgressCallback("asp", "\t    Sub R: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-lMask_sub.tif",
-                                   resample(DiskImageView<uint8>(opt.out_prefix+"-lMask.tif"),sub_scale,
-                                            ZeroEdgeExtension(),
-                                            NearestPixelInterpolation()), opt,
-                                   TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-rMask_sub.tif",
-                                   resample(DiskImageView<uint8>(opt.out_prefix+"-rMask.tif"),sub_scale,
-                                            ZeroEdgeExtension(),
-                                            NearestPixelInterpolation()), opt,
-                                   TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+      // interpolation gives the best possible results.
+      left_sub_image  = resample(copy_mask(left_image,  create_mask(left_mask)),  sub_scale);
+      right_sub_image = resample(copy_mask(right_image, create_mask(right_mask)), sub_scale);
     } else {
       // When we heavily reduce the image size, super sampling seems
-      // like the best approach. The method below should be equivalent
-      DiskImageView<uint8> lmask(opt.out_prefix+"-lMask.tif"),
-        rmask(opt.out_prefix+"-rMask.tif");
-      asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
-                                   cache_tile_aware_render(apply_mask(resample_aa( copy_mask(left_image,create_mask(lmask) ), sub_scale )), Vector2i(256,256) * sub_scale),
-                                   opt, TerminalProgressCallback("asp", "\t    Sub L: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
-                                   cache_tile_aware_render(apply_mask(resample_aa( copy_mask(right_image,create_mask(rmask) ), sub_scale )), Vector2i(256,256) * sub_scale),
-                                   opt, TerminalProgressCallback("asp", "\t    Sub R: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-lMask_sub.tif",
-                                   resample(lmask,sub_scale,ZeroEdgeExtension(), NearestPixelInterpolation()), opt,
-                                   TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-rMask_sub.tif",
-                                   resample(rmask,sub_scale,ZeroEdgeExtension(), NearestPixelInterpolation()), opt,
-                                   TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+      // like the best approach. The method below should be equivalent.
+      left_sub_image
+        = cache_tile_aware_render(resample_aa( copy_mask(left_image,create_mask(left_mask)), sub_scale), Vector2i(256,256) * sub_scale);
+      right_sub_image
+        = cache_tile_aware_render(resample_aa( copy_mask(right_image,create_mask(right_mask)), sub_scale), Vector2i(256,256) * sub_scale);
     }
+
+    asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
+                                 apply_mask(left_sub_image, output_nodata), output_nodata, opt,
+                                 TerminalProgressCallback("asp", "\t    Sub L: ") );
+    asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
+                                 apply_mask(right_sub_image, output_nodata), output_nodata, opt,
+                                 TerminalProgressCallback("asp", "\t    Sub R: ") );
+    asp::block_write_gdal_image( opt.out_prefix+"-lMask_sub.tif",
+                                 channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)), opt,
+                                 TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
+    asp::block_write_gdal_image( opt.out_prefix+"-rMask_sub.tif",
+                                 channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)), opt,
+                                 TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+
     opt.raster_tile_size = previous_tile_size;
     vw_settings().set_default_num_threads(previous_num_threads);
   }

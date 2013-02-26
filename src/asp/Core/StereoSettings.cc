@@ -52,21 +52,21 @@ namespace asp {
     StereoSettings& global = stereo_settings();
 
     double nan = std::numeric_limits<double>::quiet_NaN();
-    global.nodata_threshold = nan;
-    global.nodata_percentage = nan;
+    global.nodata_value = nan;
+    global.nodata_pixel_percentage = nan;
     global.nodata_optimal_threshold_factor = nan;
 
     (*this).add_options()
       ("alignment-method", po::value(&global.alignment_method),
        "Rough alignment for input images. [Homography, Epipolar, None]")
+      ("force-use-entire-range", po::bool_switch(&global.force_use_entire_range),
+       "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
       ("individually-normalize", po::bool_switch(&global.individually_normalize),
        "Individually normalize the input images between 0.0-1.0 using +- 2.5 sigmas about their mean values.")
-      ("force-use-entire-range", po::bool_switch(&global.force_max_min),
-       "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
-      ("nodata-threshold", po::value(&global.nodata_threshold),
-       "Pixels with values less than this number times the maximum image value are treated as no-data.")
-      ("nodata-percentage", po::value(&global.nodata_percentage),
-       "The percentage of (low-value) pixels treated as no-data.")
+      ("nodata-value", po::value(&global.nodata_value),
+       "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
+      ("nodata-pixel-percentage", po::value(&global.nodata_pixel_percentage),
+       "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
       ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor),
        "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.");
   }

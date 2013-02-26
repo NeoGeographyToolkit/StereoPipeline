@@ -86,10 +86,10 @@ namespace asp {
   void produce_lowres_disparity( Options & opt );
 
   // Approximate search range by looking at interest point match file
-  vw::BBox2i approximate_search_range( std::string const& left_image,
-                                       std::string const& right_image,
-                                       std::string const& match_filename,
-                                       float scale );
+  vw::BBox2i approximate_search_range(std::string const& out_prefix,
+                                      std::string const& left_sub_file,
+                                      std::string const& right_sub_file,
+                                      float scale);
 
 } // end namespace vw
 

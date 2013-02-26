@@ -82,15 +82,16 @@ namespace asp {
     // ----------------
 
     // Preprocessing options
-    std::string alignment_method;     // Valid options are: [Homography, Epipolar, None]
-    bool individually_normalize;      // if > 1, normalize the images
-                                      //         individually with their
-                                      //         own hi's and lo's
-    bool force_max_min;               // Use entire dynamic range of image.
-    double nodata_threshold;          // Pixels with value less than this are treated as no-data
-    double nodata_percentage;         // the percentage of low-value pixels treated as no-data
+    std::string alignment_method;           // Valid options are: [Homography, Epipolar, None]
+    bool force_use_entire_range;            // Use entire dynamic range of image
+    bool individually_normalize;            // If > 1, normalize the images
+                                            //         individually with their
+                                            //         own hi's and lo's
+    double nodata_value;                    // Pixels with values less than or equal to this number are treated as no-data.
+                                            // This overrides the nodata values from input images.
+    double nodata_pixel_percentage;         // Percentage of low-value pixels treated as no-data
     double nodata_optimal_threshold_factor; // Pixels with values less than this factor times the optimal Otsu threshold
-                                      // are treated as no-data
+                                            // are treated as no-data
 
     // Correlation Options
     float slogW;                      // Preprocessing filter width
