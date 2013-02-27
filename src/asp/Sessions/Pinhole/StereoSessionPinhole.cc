@@ -149,6 +149,9 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_i
   // Load the unmodified images
   DiskImageView<PixelGray<float> > left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
 
+  //ImageViewRef<PixelGray<float> > left_disk_image = pixel_cast< PixelGray<float> > (DiskImageView<float>( left_rsrc ));
+  //ImageViewRef<PixelGray<float> > right_disk_image = pixel_cast< PixelGray<float> > (DiskImageView<float>( right_rsrc ));
+
   ImageViewRef< PixelMask < PixelGray<float> > > left_masked_image
     = create_mask_less_or_equal(left_disk_image, left_nodata_value);
   ImageViewRef< PixelMask < PixelGray<float> > > right_masked_image
@@ -156,6 +159,8 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_i
 
   Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
   Vector4f right_stats = gather_stats( right_masked_image, "right" );
+
+  std::cout << "--- stats is " << left_stats << ' ' << right_stats << std::endl;
 
   ImageViewRef< PixelMask< PixelGray<float> > > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
