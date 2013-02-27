@@ -287,8 +287,8 @@ namespace asp {
          alt_clusters.back().second[0] != 0 )
       std::swap( alt_clusters[0], alt_clusters[1] );
 
-    // Determine if we just wrote nothing but outliers
-    // If the variance on triangulation is ungodly highy
+    // Determine if we just wrote nothing but outliers (the variance
+    // on triangulation is too high).
     if ( error_clusters.front().second[0] > 1e6 )
       return false;
 

@@ -302,8 +302,10 @@ namespace asp {
     ip::InterestPointList ip1, ip2;
     detect_ip( ip1, ip2, image1, image2,
                nodata1, nodata2 );
-    if ( ip1.size() == 0 || ip2.size() == 0 )
+    if ( ip1.size() == 0 || ip2.size() == 0 ){
+      vw_throw( ArgumentErr() << "Unable to detect interest points." );
       return false;
+    }
 
     // Match interest points forward/backward .. constraining on epipolar line
     std::vector<size_t> forward_match, backward_match;
@@ -348,8 +350,10 @@ namespace asp {
     // Apply filtering of triangulation error and altitude
     std::list<size_t> good_indices;
     if (!tri_and_alt_ip_filtering( matched_ip1, matched_ip2,
-                                   cam1, cam2, datum, good_indices, left_tx, right_tx ) )
+                                   cam1, cam2, datum, good_indices, left_tx, right_tx ) ){
+      vw_throw( ArgumentErr() << "No interest points left after filtering." );
       return false;
+    }
 
     // Record new list that contains only the inliers.
     vw_out() << "\t    Reduced matches to " << good_indices.size() << "\n";
@@ -367,7 +371,6 @@ namespace asp {
       w_index++;
     }
     matched_ip1 = buffer;
-
 
     // Subselect, Transform, Copy, Matched ip2
     w_index = 0;
@@ -401,6 +404,7 @@ namespace asp {
                                 double nodata2 = std::numeric_limits<double>::quiet_NaN(),
                                 vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
                                 vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) ) {
+
     using namespace vw;
     Image1T image1 = image1_base.impl();
     Image2T image2 = image2_base.impl();
