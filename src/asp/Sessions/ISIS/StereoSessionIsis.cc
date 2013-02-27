@@ -118,14 +118,21 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
                                     Matrix<double> const& matrix,
                                     Vector2i const& crop_size ) {
 
-  // Since remove_isis_special_pixels takes as input an image without mask,
-  // remove the mask, apply this function, then put the mask back.
+  // The output no-data value must be < 0 as we scale the images to [0, 1].
+  float output_nodata = -32767.0;
 
-  ImageViewRef<uint8> mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
   ImageViewRef< PixelGray<float> > image_sans_mask = apply_mask(masked_image, isis_lo);
 
   ImageViewRef< PixelGray<float> > processed_image
     = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
+
+#if 0
+
+  // Track properly invalid pixels. This is the right way, but causes
+  // non-trivial erosion at image boundaries where invalid pixels show
+  // up if homography is used.
+
+  ImageViewRef<uint8> mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
 
   ImageViewRef< PixelMask< PixelGray<float> > > normalized_image =
     normalize(copy_mask(processed_image, create_mask(mask)), out_lo, out_hi, 0.0, 1.0);
@@ -139,13 +146,32 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
                               crop_size[0], crop_size[1]);
   }
 
-  // The output no-data value must be < 0 as we scale the images to [0, 1].
-  float output_nodata = -32767.0;
-
-  // Write the results to disk.
   vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
   block_write_gdal_image( out_file, apply_mask(applied_image, output_nodata), output_nodata, opt,
                           TerminalProgressCallback("asp", "\t  "+tag+":  "));
+
+#else
+
+  // Set invalid pixels to the minimum pixel value. Works better in practice.
+
+  ImageViewRef<PixelGray<float> > normalized_image =
+    normalize(processed_image, out_lo, out_hi, 0.0, 1.0);
+
+  ImageViewRef< PixelGray<float> > applied_image;
+  if ( matrix == math::identity_matrix<3>() ) {
+    applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
+                         0, 0, crop_size[0], crop_size[1]);
+  } else {
+    applied_image = transform(normalized_image, HomographyTransform(matrix),
+                              crop_size[0], crop_size[1]);
+  }
+
+  vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
+  block_write_gdal_image( out_file, applied_image, output_nodata, opt,
+                          TerminalProgressCallback("asp", "\t  "+tag+":  "));
+
+
+#endif
 
 }
 
