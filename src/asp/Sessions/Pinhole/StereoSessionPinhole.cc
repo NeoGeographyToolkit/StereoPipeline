@@ -54,8 +54,8 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
                                         std::string const& camera_file) {
   if ( stereo_settings().alignment_method == "epipolar" ) {
     // Load the image
-    DiskImageView<PixelGray<float> > left_image(m_left_image_file);
-    DiskImageView<PixelGray<float> > right_image(m_right_image_file);
+    DiskImageView<float> left_image(m_left_image_file);
+    DiskImageView<float> right_image(m_right_image_file);
 
     Vector2i left_image_size( left_image.cols(), left_image.rows() ),
       right_image_size( right_image.cols(), right_image.rows() );
@@ -147,22 +147,17 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_i
   get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
 
   // Load the unmodified images
-  DiskImageView<PixelGray<float> > left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
+  DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
 
-  //ImageViewRef<PixelGray<float> > left_disk_image = pixel_cast< PixelGray<float> > (DiskImageView<float>( left_rsrc ));
-  //ImageViewRef<PixelGray<float> > right_disk_image = pixel_cast< PixelGray<float> > (DiskImageView<float>( right_rsrc ));
-
-  ImageViewRef< PixelMask < PixelGray<float> > > left_masked_image
+  ImageViewRef< PixelMask<float> > left_masked_image
     = create_mask_less_or_equal(left_disk_image, left_nodata_value);
-  ImageViewRef< PixelMask < PixelGray<float> > > right_masked_image
+  ImageViewRef< PixelMask<float> > right_masked_image
     = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
   Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
   Vector4f right_stats = gather_stats( right_masked_image, "right" );
 
-  std::cout << "--- stats is " << left_stats << ' ' << right_stats << std::endl;
-
-  ImageViewRef< PixelMask< PixelGray<float> > > Limg, Rimg;
+  ImageViewRef< PixelMask<float> > Limg, Rimg;
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
   if ( stereo_settings().alignment_method == "epipolar" ) {
@@ -302,7 +297,7 @@ asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file) {
     }
 
     // Remove pixels that are outside the bounds of the second image
-    DiskImageView<PixelGray<float> > right_disk_image( m_right_image_file );
+    DiskImageView<float> right_disk_image( m_right_image_file );
     ImageViewRef<PixelMask<Vector2f> > result =
       stereo::disparity_range_mask( stereo::transform_disparities( disparity_map,
                                              HomographyTransform(align_matrix)),

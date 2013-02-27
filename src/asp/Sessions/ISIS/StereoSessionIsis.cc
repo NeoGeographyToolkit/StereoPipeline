@@ -57,8 +57,8 @@ namespace vw {
 // need to do this, is that ASP is to get image intensity values in
 // the range of 0-1. To some extent we are compressing the dynamic
 // range, but we try to minimize that.
-ImageViewRef< PixelMask< PixelGray<float> > >
-find_ideal_isis_range(DiskImageView<PixelGray<float> > const& image,
+ImageViewRef< PixelMask<float> >
+find_ideal_isis_range(DiskImageView<float> const& image,
                       boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
                       float nodata_value,
                       std::string const& tag,
@@ -71,7 +71,7 @@ find_ideal_isis_range(DiskImageView<PixelGray<float> > const& image,
     if (isis_hi < isis_lo) isis_hi = isis_lo;
   }
 
-  ImageViewRef< PixelMask< PixelGray<float> > > masked_image = create_mask(image, isis_lo, isis_hi);
+  ImageViewRef< PixelMask<float> > masked_image = create_mask(image, isis_lo, isis_hi);
 
   // Calculating statistics. We subsample the images so statistics
   // only does about a million samples.
@@ -110,7 +110,7 @@ find_ideal_isis_range(DiskImageView<PixelGray<float> > const& image,
 
 // This actually modifies and writes the pre-processed image.
 void write_preprocessed_isis_image( BaseOptions const& opt,
-                                    ImageViewRef< PixelMask < PixelGray<float> > > masked_image,
+                                    ImageViewRef< PixelMask <float> > masked_image,
                                     std::string const& out_file,
                                     std::string const& tag,
                                     float isis_lo, float isis_hi,
@@ -121,9 +121,9 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   float output_nodata = -32767.0;
 
-  ImageViewRef< PixelGray<float> > image_sans_mask = apply_mask(masked_image, isis_lo);
+  ImageViewRef<float> image_sans_mask = apply_mask(masked_image, isis_lo);
 
-  ImageViewRef< PixelGray<float> > processed_image
+  ImageViewRef<float> processed_image
     = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
 
 #if 0
@@ -134,10 +134,10 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
 
   ImageViewRef<uint8> mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
 
-  ImageViewRef< PixelMask< PixelGray<float> > > normalized_image =
+  ImageViewRef< PixelMask<float> > normalized_image =
     normalize(copy_mask(processed_image, create_mask(mask)), out_lo, out_hi, 0.0, 1.0);
 
-  ImageViewRef< PixelMask< PixelGray<float> > > applied_image;
+  ImageViewRef< PixelMask<float> > applied_image;
   if ( matrix == math::identity_matrix<3>() ) {
     applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
                          0, 0, crop_size[0], crop_size[1]);
@@ -154,10 +154,10 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
 
   // Set invalid pixels to the minimum pixel value. Works better in practice.
 
-  ImageViewRef<PixelGray<float> > normalized_image =
+  ImageViewRef<float> normalized_image =
     normalize(processed_image, out_lo, out_hi, 0.0, 1.0);
 
-  ImageViewRef< PixelGray<float> > applied_image;
+  ImageViewRef<float> applied_image;
   if ( matrix == math::identity_matrix<3>() ) {
     applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
                          0, 0, crop_size[0], crop_size[1]);
@@ -206,7 +206,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
   get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
 
   // Load the unmodified images
-  DiskImageView<PixelGray<float> > left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
+  DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
 
   // Mask the pixels outside of the isis range and <= nodata.
   float left_lo, left_hi, right_lo, right_hi;
@@ -215,10 +215,10 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
     left_isis_rsrc(new DiskImageResourceIsis(left_input_file)),
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
 
-  ImageViewRef< PixelMask < PixelGray<float> > > left_masked_image
+  ImageViewRef< PixelMask <float> > left_masked_image
     = find_ideal_isis_range(left_disk_image, left_isis_rsrc, left_nodata_value, "left",
                             left_lo, left_hi);
-  ImageViewRef< PixelMask < PixelGray<float> > > right_masked_image
+  ImageViewRef< PixelMask <float> > right_masked_image
     = find_ideal_isis_range(right_disk_image, right_isis_rsrc, right_nodata_value, "right",
                             right_lo, right_hi);
 
@@ -255,7 +255,7 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
 
     std::vector<ip::InterestPoint> ip1, ip2;
     ip::read_binary_match_file( match_filename, ip1, ip2  );
-    align_matrix = homography_fit(ip2, ip1, bounding_box(DiskImageView<PixelGray<float> >(left_input_file)) );
+    align_matrix = homography_fit(ip2, ip1, bounding_box(DiskImageView<float>(left_input_file)) );
 
     write_matrix( m_out_prefix + "-align.exr", align_matrix );
     vw_out() << "\t--> Aligning right image to left using homography:\n"
@@ -387,7 +387,7 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
     vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";
 
     // Remove pixels that are outside the bounds of the secondary image.
-    DiskImageView<PixelGray<float> > right_disk_image(m_right_image_file);
+    DiskImageView<float> right_disk_image(m_right_image_file);
     result =
       stereo::disparity_range_mask(stereo::transform_disparities(disparity_map,
                                                                  HomographyTransform(align_matrix)),

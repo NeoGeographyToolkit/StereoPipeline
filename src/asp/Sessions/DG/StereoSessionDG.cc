@@ -337,7 +337,7 @@ namespace asp {
     get_nodata_values(left_rsrc, right_rsrc, left_nodata_value, right_nodata_value);
 
     // Load the unmodified images
-    DiskImageView<PixelGray<float> > left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
+    DiskImageView<float> left_disk_image( left_rsrc ), right_disk_image( right_rsrc );
 
     // Filenames of normalized images
     left_output_file = m_out_prefix + "-L.tif";
@@ -347,8 +347,8 @@ namespace asp {
     bool rebuild = false;
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelGray<float> > test_left(left_output_file);
-      DiskImageView<PixelGray<float> > test_right(right_output_file);
+      DiskImageView<float> test_left(left_output_file);
+      DiskImageView<float> test_right(right_output_file);
       vw_settings().reload_config();
     } catch (vw::IOErr const& e) {
       vw_settings().reload_config();
@@ -364,15 +364,15 @@ namespace asp {
       return;
     }
 
-    ImageViewRef< PixelMask < PixelGray<float> > > left_masked_image
+    ImageViewRef< PixelMask<float> > left_masked_image
       = create_mask_less_or_equal(left_disk_image, left_nodata_value);
-    ImageViewRef< PixelMask < PixelGray<float> > > right_masked_image
+    ImageViewRef< PixelMask<float> > right_masked_image
       = create_mask_less_or_equal(right_disk_image, right_nodata_value);
 
     Vector4f left_stats  = gather_stats( left_masked_image,  "left" );
     Vector4f right_stats = gather_stats( right_masked_image, "right" );
 
-    ImageViewRef< PixelMask< PixelGray<float> > > Limg, Rimg;
+    ImageViewRef< PixelMask<float> > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
     if ( stereo_settings().alignment_method == "homography" ) {
