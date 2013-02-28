@@ -62,12 +62,17 @@ find_ideal_isis_range(DiskImageView<float> const& image,
                       boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
                       float nodata_value,
                       std::string const& tag,
+                      bool & will_apply_user_nodata,
                       float & isis_lo, float & isis_hi ) {
 
+  will_apply_user_nodata = false;
   isis_lo = isis_rsrc->valid_minimum();
   isis_hi = isis_rsrc->valid_maximum();
-  if (!boost::math::isnan(nodata_value)){
-    isis_lo = std::max(isis_lo, boost::math::float_next(nodata_value));
+
+  if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo){
+    // The new lower bound is the next floating point number > nodata_value.
+    will_apply_user_nodata = true;
+    isis_lo = boost::math::float_next(nodata_value);
     if (isis_hi < isis_lo) isis_hi = isis_lo;
   }
 
@@ -110,6 +115,7 @@ find_ideal_isis_range(DiskImageView<float> const& image,
 
 // This actually modifies and writes the pre-processed image.
 void write_preprocessed_isis_image( BaseOptions const& opt,
+                                    bool will_apply_user_nodata,
                                     ImageViewRef< PixelMask <float> > masked_image,
                                     std::string const& out_file,
                                     std::string const& tag,
@@ -126,52 +132,53 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
   ImageViewRef<float> processed_image
     = remove_isis_special_pixels(image_sans_mask, isis_lo, isis_hi, out_lo);
 
-#if 0
+  if (will_apply_user_nodata){
 
-  // Track properly invalid pixels. This is the right way, but causes
-  // non-trivial erosion at image boundaries where invalid pixels show
-  // up if homography is used.
+    // If the user specifies a no-data value, mask all pixels <= that
+    // value. Note: this causes non-trivial erosion at image
+    // boundaries where invalid pixels show up if homography is used.
 
-  ImageViewRef<uint8> mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
+    ImageViewRef<uint8> mask = channel_cast_rescale<uint8>(select_channel(masked_image, 1));
 
-  ImageViewRef< PixelMask<float> > normalized_image =
-    normalize(copy_mask(processed_image, create_mask(mask)), out_lo, out_hi, 0.0, 1.0);
+    ImageViewRef< PixelMask<float> > normalized_image =
+      normalize(copy_mask(processed_image, create_mask(mask)), out_lo, out_hi, 0.0, 1.0);
 
-  ImageViewRef< PixelMask<float> > applied_image;
-  if ( matrix == math::identity_matrix<3>() ) {
-    applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
-                         0, 0, crop_size[0], crop_size[1]);
-  } else {
-    applied_image = transform(normalized_image, HomographyTransform(matrix),
-                              crop_size[0], crop_size[1]);
+    ImageViewRef< PixelMask<float> > applied_image;
+    if ( matrix == math::identity_matrix<3>() ) {
+      applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
+                           0, 0, crop_size[0], crop_size[1]);
+    } else {
+      applied_image = transform(normalized_image, HomographyTransform(matrix),
+                                crop_size[0], crop_size[1]);
+    }
+
+    vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
+    block_write_gdal_image( out_file, apply_mask(applied_image, output_nodata), output_nodata, opt,
+                            TerminalProgressCallback("asp", "\t  "+tag+":  "));
+
+  }else{
+
+    // Set invalid pixels to the minimum pixel value. Causes less
+    // erosion and the results are good.
+
+    ImageViewRef<float> normalized_image =
+      normalize(processed_image, out_lo, out_hi, 0.0, 1.0);
+
+    ImageViewRef<float> applied_image;
+    if ( matrix == math::identity_matrix<3>() ) {
+      applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
+                           0, 0, crop_size[0], crop_size[1]);
+    } else {
+      applied_image = transform(normalized_image, HomographyTransform(matrix),
+                                crop_size[0], crop_size[1]);
+    }
+
+    vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
+    block_write_gdal_image( out_file, applied_image, output_nodata, opt,
+                            TerminalProgressCallback("asp", "\t  "+tag+":  "));
+
+
   }
-
-  vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-  block_write_gdal_image( out_file, apply_mask(applied_image, output_nodata), output_nodata, opt,
-                          TerminalProgressCallback("asp", "\t  "+tag+":  "));
-
-#else
-
-  // Set invalid pixels to the minimum pixel value. Works better in practice.
-
-  ImageViewRef<float> normalized_image =
-    normalize(processed_image, out_lo, out_hi, 0.0, 1.0);
-
-  ImageViewRef<float> applied_image;
-  if ( matrix == math::identity_matrix<3>() ) {
-    applied_image = crop(edge_extend(normalized_image, ZeroEdgeExtension()),
-                         0, 0, crop_size[0], crop_size[1]);
-  } else {
-    applied_image = transform(normalized_image, HomographyTransform(matrix),
-                              crop_size[0], crop_size[1]);
-  }
-
-  vw_out() << "\t--> Writing normalized image: " << out_file << "\n";
-  block_write_gdal_image( out_file, applied_image, output_nodata, opt,
-                          TerminalProgressCallback("asp", "\t  "+tag+":  "));
-
-
-#endif
 
 }
 
@@ -215,12 +222,17 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
     left_isis_rsrc(new DiskImageResourceIsis(left_input_file)),
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
 
+
+  // These variables will be true if we reduce the valid range for ISIS images
+  // using the nodata value provided by the user.
+  bool will_apply_user_nodata_left = false, will_apply_user_nodata_right = false;
+
   ImageViewRef< PixelMask <float> > left_masked_image
     = find_ideal_isis_range(left_disk_image, left_isis_rsrc, left_nodata_value, "left",
-                            left_lo, left_hi);
+                            will_apply_user_nodata_left, left_lo, left_hi);
   ImageViewRef< PixelMask <float> > right_masked_image
     = find_ideal_isis_range(right_disk_image, right_isis_rsrc, right_nodata_value, "right",
-                            right_lo, right_hi);
+                            will_apply_user_nodata_right, right_lo, right_hi);
 
   // Working out alignment
   float lo = std::min(left_lo, right_lo);  // Finding global
@@ -269,30 +281,38 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
     right_size = file_image_size( right_input_file );
 
   // Apply alignment and normalization
+  bool will_apply_user_nodata = ( will_apply_user_nodata_left || will_apply_user_nodata_right);
+
   if (stereo_settings().individually_normalize == 0 ) {
     vw_out() << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-    write_preprocessed_isis_image( m_options, left_masked_image, left_output_file, "left",
+    write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+                                   left_masked_image, left_output_file, "left",
                                    left_lo, left_hi, lo, hi,
                                    math::identity_matrix<3>(), left_size );
     if ( stereo_settings().alignment_method == "none" )
-      write_preprocessed_isis_image( m_options, right_masked_image, right_output_file, "right",
+      write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+                                     right_masked_image, right_output_file, "right",
                                      right_lo, right_hi, lo, hi,
                                      math::identity_matrix<3>(), right_size );
     else
-      write_preprocessed_isis_image( m_options, right_masked_image, right_output_file, "right",
+      write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+                                     right_masked_image, right_output_file, "right",
                                      right_lo, right_hi, lo, hi,
                                      align_matrix, left_size );
   } else {
     vw_out() << "\t--> Individually normalizing.\n";
-    write_preprocessed_isis_image( m_options, left_masked_image, left_output_file, "left",
+    write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+                                   left_masked_image, left_output_file, "left",
                                    left_lo, left_hi, left_lo, left_hi,
                                    math::identity_matrix<3>(), left_size );
     if ( stereo_settings().alignment_method == "none" )
-      write_preprocessed_isis_image( m_options, right_masked_image, right_output_file, "right",
+      write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+                                     right_masked_image, right_output_file, "right",
                                      right_lo, right_hi, right_lo, right_hi,
                                      math::identity_matrix<3>(), right_size );
     else
-      write_preprocessed_isis_image( m_options, right_masked_image, right_output_file, "right",
+      write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+                                     right_masked_image, right_output_file, "right",
                                      right_lo, right_hi, right_lo, right_hi,
                                      align_matrix, left_size );
   }
