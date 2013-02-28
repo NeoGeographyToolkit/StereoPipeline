@@ -384,7 +384,7 @@ namespace asp {
 
     // Performing disparity on sub images
     if ( stereo_settings().seed_mode > 0 ) {
-      // Re use prior existing D_sub if it exists
+      // Reuse prior existing D_sub if it exists
       bool rebuild = false;
 
       try {
