@@ -303,7 +303,7 @@ namespace asp {
     detect_ip( ip1, ip2, image1, image2,
                nodata1, nodata2 );
     if ( ip1.size() == 0 || ip2.size() == 0 ){
-      vw_throw( ArgumentErr() << "Unable to detect interest points." );
+      vw_out() << "Unable to detect interest points." << std::endl;
       return false;
     }
 
@@ -351,7 +351,7 @@ namespace asp {
     std::list<size_t> good_indices;
     if (!tri_and_alt_ip_filtering( matched_ip1, matched_ip2,
                                    cam1, cam2, datum, good_indices, left_tx, right_tx ) ){
-      vw_throw( ArgumentErr() << "No interest points left after filtering." );
+      vw_out() << "No interest points left after filtering." << std::endl;
       return false;
     }
 
@@ -411,7 +411,7 @@ namespace asp {
     BBox2i box1 = bounding_box(image1), box2 = bounding_box(image2);
 
     // Homography is defined in the original camera coordinates
-    Matrix<double> homography =
+    Matrix<double> rough_homography =
       rough_homography_fit( cam1, cam2, left_tx.reverse_bbox(box1),
                             right_tx.reverse_bbox(box2), datum );
 
@@ -419,19 +419,19 @@ namespace asp {
     // image. If we used the translation from the solved homography with
     // poorly position cameras, the right image might be moved out of
     // frame.
-    homography(0,2) = homography(1,2) = 0;
-    VW_OUT( DebugMessage, "asp" ) << "Aligning right to left for IP capture using rough homography: " << homography << std::endl;
+    rough_homography(0,2) = rough_homography(1,2) = 0;
+    VW_OUT( DebugMessage, "asp" ) << "Aligning right to left for IP capture using rough homography: " << rough_homography << std::endl;
 
     { // Check to see if this rough homography works
-      HomographyTransform func( homography );
+      HomographyTransform func( rough_homography );
       VW_ASSERT( box1.intersects( func.forward_bbox( box2 ) ),
                  LogicErr() << "The rough homography alignment based on datum and camera geometry shows that input images do not overlap at all. Unable to proceed.\n" );
     }
 
-    TransformRef tx( compose(right_tx, HomographyTransform(homography)) );
+    TransformRef tx( compose(right_tx, HomographyTransform(rough_homography)) );
     BBox2i raster_box = tx.forward_bbox( right_tx.reverse_bbox(box2) );
     tx = TransformRef(compose(TranslateTransform(-raster_box.min()),
-                              right_tx, HomographyTransform(homography)));
+                              right_tx, HomographyTransform(rough_homography)));
     raster_box -= Vector2i(raster_box.min());
 
     // It is important that we use NearestPixelInterpolation in the
@@ -448,7 +448,7 @@ namespace asp {
     ip::read_binary_match_file( output_name, ip1_copy, ip2_copy );
     Matrix<double> post_fit =
       homography_fit( ip2_copy, ip1_copy, raster_box );
-    if ( sum(abs(submatrix(homography,0,0,2,2) - submatrix(post_fit,0,0,2,2))) > 4 ) {
+    if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(post_fit,0,0,2,2))) > 4 ) {
       VW_OUT( DebugMessage, "asp" ) << "Post homography has largely different scale and skew from rough fit. Post solution is " << post_fit << "\n";
       return false;
     }
