@@ -263,6 +263,8 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
         fs::remove( match_filename );
         vw_throw( IOErr() << "Unable to match left and right images." );
       }
+    }else{
+      vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     }
 
     std::vector<ip::InterestPoint> ip1, ip2;

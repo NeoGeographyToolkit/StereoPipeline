@@ -80,11 +80,13 @@ void stereo_preprocessing( Options& opt ) {
   // Load the unmodified images
   DiskImageView<PixelGray<float> > left_image( left_rsrc ), right_image( right_rsrc );
 
+  std::string left_mask_file  = opt.out_prefix+"-lMask.tif";
+  std::string right_mask_file = opt.out_prefix+"-rMask.tif";
   bool rebuild = false;
   try {
     vw_log().console_log().rule_set().add_rule(-1,"fileio");
-    DiskImageView<PixelGray<uint8> > testa(opt.out_prefix+"-lMask.tif");
-    DiskImageView<PixelGray<uint8> > testb(opt.out_prefix+"-rMask.tif");
+    DiskImageView<PixelGray<uint8> > testa(left_mask_file);
+    DiskImageView<PixelGray<uint8> > testb(right_mask_file);
     vw_settings().reload_config();
   } catch (vw::IOErr const& e) {
     vw_settings().reload_config();
@@ -94,9 +96,11 @@ void stereo_preprocessing( Options& opt ) {
     vw_settings().reload_config();
     rebuild = true;
   }
-  if (rebuild) {
-    vw_out() << "\t--> Generating image masks... \n";
+  if (!rebuild) {
+    vw_out() << "\t--> Using cached masks.\n";
+  }else{
 
+    vw_out() << "\t--> Generating image masks... \n";
 
     ImageViewRef< PixelMask<uint8> > left_mask = copy_mask(constant_view(uint8(255),
                                                                          left_image.cols(), left_image.rows()),
@@ -151,6 +155,8 @@ void stereo_preprocessing( Options& opt ) {
     cartography::GeoReference left_georef, right_georef;
     bool has_left_georef  = read_georeference(left_georef,  opt.in_file1);
     bool has_right_georef = read_georeference(right_georef, opt.in_file2);
+
+    vw_out() << "Writing masks: " << left_mask_file << ' ' << right_mask_file << ".\n";
     if (has_left_georef && has_right_georef){
       ImageViewRef< PixelMask<uint8> > warped_left_mask = crop(vw::cartography::geo_transform
                                                                (left_mask,
@@ -168,17 +174,17 @@ void stereo_preprocessing( Options& opt ) {
                                                                  NearestPixelInterpolation()),
                                                                 bounding_box(left_mask)
                                                                 );
-      asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
+      asp::block_write_gdal_image( left_mask_file,
                                    apply_mask(intersect_mask(left_mask, warped_right_mask)),
                                    opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
+      asp::block_write_gdal_image( right_mask_file,
                                    apply_mask(intersect_mask(right_mask, warped_left_mask)),
                                    opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
     }else{
-      asp::block_write_gdal_image( opt.out_prefix+"-lMask.tif",
+      asp::block_write_gdal_image( left_mask_file,
                                    apply_mask(left_mask),
                                    opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
-      asp::block_write_gdal_image( opt.out_prefix+"-rMask.tif",
+      asp::block_write_gdal_image( right_mask_file,
                                    apply_mask(right_mask),
                                    opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
     }
@@ -190,7 +196,7 @@ void stereo_preprocessing( Options& opt ) {
     // actually have content.
     DiskImageView<PixelGray<float> > testa(opt.out_prefix+"-L_sub.tif");
     DiskImageView<PixelGray<float> > testb(opt.out_prefix+"-R_sub.tif");
-    vw_out() << "\t--> Using cached subsampled image.\n";
+    vw_out() << "\t--> Using cached subsampled images.\n";
   } catch (vw::Exception const& e) {
     // Produce subsampled images, these will be used later for Auto
     // search range. They're also a handy debug tool.
@@ -233,8 +239,7 @@ void stereo_preprocessing( Options& opt ) {
     // to around [0, 1].
     float output_nodata = -32767.0;
 
-    DiskImageView<uint8> left_mask(opt.out_prefix+"-lMask.tif"),
-      right_mask(opt.out_prefix+"-rMask.tif");
+    DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
     ImageView< PixelMask < PixelGray<float> > > left_sub_image, right_sub_image;
     if ( sub_scale > 0.5 ) {
       // When we are near the pixel input to output ratio, standard

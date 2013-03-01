@@ -495,7 +495,7 @@ namespace asp {
     // Building / Loading Interest point data
     if ( fs::exists(match_filename) ) {
 
-      vw_out() << "\t    * Using cached match file.\n";
+      vw_out() << "\t    * Using cached match file: " << match_filename << "\n";
       ip::read_binary_match_file(match_filename, matched_ip1, matched_ip2);
 
     } else {
