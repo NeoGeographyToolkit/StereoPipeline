@@ -310,9 +310,9 @@ namespace asp {
     Matrix<double> align_matrix = identity_matrix<3>();
     bool homography_align = (stereo_settings().alignment_method == "homography");
     if ( homography_align ) {
-      // We used a homography transform align the images, so we have
-      // to make sure to apply that transform to the disparity we are
-      // about to compute as well.
+      // We used a homography transform to align the images, so we
+      // have to make sure to apply that transform to the disparity we
+      // are about to compute as well.
       read_matrix(align_matrix, opt.out_prefix + "-align.exr");
       vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";
     }
