@@ -28,7 +28,7 @@
 #include <math.h>
 
 //VisionWorkbench & ASP
-#include <asp/Tools/point2dem.h> // We share common functions with p2dem
+#include <asp/Tools/point2dem.h> // We share common functions with point2dem
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 using namespace vw;
@@ -57,8 +57,10 @@ namespace po = boost::program_options;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
+  typedef Vector<float64,6> Vector6;
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
   template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+  template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
 struct Options : asp::BaseOptions {
@@ -413,26 +415,6 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
 
 }
 
-// Helper function that extracts the point box of a point cloud.
-template <class ViewT>
-BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
-  // Compute bounding box
-  BBox<float,3> result;
-  typename ViewT::pixel_accessor row_acc = point_image.impl().origin();
-  for( int32 row=0; row < point_image.impl().rows(); ++row ) {
-    typename ViewT::pixel_accessor col_acc = row_acc;
-    for( int32 col=0; col < point_image.impl().cols(); ++col ) {
-      if (*col_acc != Vector3())
-        result.grow(*col_acc);
-      col_acc.next_col();
-    }
-    row_acc.next_row();
-  }
-  return result;
-}
-
-
-
 // MAIN
 // ---------------------------------------------------------
 
@@ -489,13 +471,12 @@ int main( int argc, char *argv[] ){
   try {
     handle_arguments( argc, argv, opt );
 
-    // Loading point cloud!
-    DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
-    ImageViewRef<Vector3> point_image = select_points(point_disk_image);
+    // Loading point cloud
+    ImageViewRef<Vector3> point_image = read_n_channels<3>(opt.pointcloud_filename);
 
     // Centering Option (helpful if you are experiencing round-off error...)
     if (opt.center) {
-      BBox<float,3> bbox = point_image_bbox(select_points(point_disk_image));
+      BBox3 bbox = pointcloud_bbox(point_image);
       vw_out() << "\t--> Centering model around the origin.\n";
       vw_out() << "\t    Initial point image bounding box: " << bbox << "\n";
       Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;

@@ -73,7 +73,6 @@ struct Options : asp::BaseOptions {
   BBox2 target_projwin;
   BBox2i target_projwin_pixels;
   uint32 fsaa;
-  uint32 pix_size;    // How many channels there are in PC
 
   // Output
   std::string  out_prefix, output_file_type;
@@ -465,14 +464,16 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   // Write triangulation error image if requested
   if ( opt.do_error ) {
-    if (opt.pix_size == 4){
+    int num_channels = get_num_channles(opt.pointcloud_filename);
+
+    if (num_channels == 4){
       // The error is a scalar.
       DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
       rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
       save_image(opt, rasterizer_fsaa, georef, "IntersectionErr");
-    }else{
+    }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system,
       // and rasterize it.
       DiskImageView<Vector6> point_disk_image(opt.pointcloud_filename);
@@ -492,6 +493,8 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
                  asp::combine_channels(opt.nodata_value,
                                        rasterized[0], rasterized[1], rasterized[2]),
                  georef, "IntersectionErr");
+    }else{
+      vw_throw( ArgumentErr() << "Expecting the input point cloud to have points of size 4 or 6.");
     }
   }
 
@@ -530,23 +533,7 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    {
-      boost::scoped_ptr<SrcImageResource> src(DiskImageResource::open(opt.pointcloud_filename));
-      int num_channels = src->channels();
-      int num_planes   = src->planes();
-      opt.pix_size = num_channels*num_planes;
-      VW_ASSERT( (opt.pix_size == 4 || opt.pix_size == 6),
-                 ArgumentErr() << "Expecting the input point cloud to have points of size 4 or 6.");
-    }
-
-    ImageViewRef<Vector3> point_image;
-    if (opt.pix_size == 4){
-      DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
-      point_image = select_points(point_disk_image);
-    }else{
-      DiskImageView<Vector6> point_disk_image(opt.pointcloud_filename);
-      point_image = select_points(point_disk_image);
-    }
+    ImageViewRef<Vector3> point_image = read_n_channels<3>(opt.pointcloud_filename);
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {

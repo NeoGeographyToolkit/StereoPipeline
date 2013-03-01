@@ -77,9 +77,9 @@ namespace vw {
 
 
 template <class ViewT>
-BBox<float,3> point_image_bbox(ImageViewBase<ViewT> const& point_image) {
+BBox<3> pointcloud_bbox(ImageViewBase<ViewT> const& point_image) {
   // Compute bounding box
-  BBox<float,3> result;
+  BBox<3> result;
   typename ViewT::pixel_accessor row_acc = point_image.impl().origin();
   for( int32 row=0; row < point_image.impl().rows(); ++row ) {
     typename ViewT::pixel_accessor col_acc = row_acc;
@@ -193,13 +193,13 @@ int main( int argc, char *argv[] ) {
   ImageViewRef<Vector3> point_image = point_disk_image;
 
   if (vm.count("center")) {
-    BBox<float,3> bbox = point_image_bbox(point_disk_image);
+    BBox<float,3> bbox = pointcloud_bbox(point_disk_image);
     std::cout << "\t--> Centering model around the origin.\n";
     std::cout << "\t    Initial point image bounding box: " << bbox << "\n";
     Vector3 midpoint = (bbox.max() + bbox.min()) / 2.0;
     std::cout << "\t    Midpoint: " << midpoint << "\n";
     point_image = point_image_offset(point_image, -midpoint);
-    BBox<float,3> bbox2 = point_image_bbox(point_image);
+    BBox<float,3> bbox2 = pointcloud_bbox(point_image);
     std::cout << "\t    Re-centered point image bounding box: " << bbox2 << "\n";
   }
 

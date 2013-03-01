@@ -21,6 +21,9 @@
 /// This header represents the overflow of small objects and image
 /// transforms that point2dem specifically applies.
 
+// To do: Many of these utilities may need to go to a lower-level header file
+// dealing with point cloud manipulations.
+
 #include <stdlib.h>
 
 #include <vw/FileIO.h>
@@ -31,7 +34,7 @@
 namespace vw {
 
   // Erases a file suffix if one exists and returns the base string
-  static std::string prefix_from_pointcloud_filename(std::string const& filename) {
+  std::string prefix_from_pointcloud_filename(std::string const& filename) {
     std::string result = filename;
 
     // First case: filenames that match <prefix>-PC.<suffix>
@@ -111,18 +114,76 @@ namespace vw {
                                                      PointTransFunc(t));
   }
 
-  // Imageview operator that extracts only the first 3 channels of the
-  // point cloud. The remaining channels are the point cloud error
-  // (scalar or vector).
-  template <class VectorT>
-  struct SelectPoints : public ReturnFixedType<Vector3> {
-    Vector3 operator() (VectorT const& pt) const { return subvector(pt,0,3); }
+  // Imageview operator that extracts only the first n channels of an
+  // image with m channels.
+  template <int n, int m>
+  struct SelectPoints : public ReturnFixedType< Vector<double, n> > {
+    Vector<double, n> operator() (Vector<double, m> const& pt) const { return subvector(pt,0,n); }
   };
-  
-  template <class VectorT>
-  UnaryPerPixelView<DiskImageView<VectorT>, SelectPoints<VectorT> >
-  inline select_points( ImageViewBase<DiskImageView<VectorT> > const& image ) {
-    return UnaryPerPixelView<DiskImageView<VectorT>, SelectPoints<VectorT> >( image.impl(),
-                                                              SelectPoints<VectorT>() );
+
+  template <int n, int m>
+  UnaryPerPixelView<DiskImageView< Vector<double, m> >, SelectPoints<n, m> >
+  inline select_points( ImageViewBase<DiskImageView< Vector<double, m> > > const& image ) {
+    return UnaryPerPixelView<DiskImageView< Vector<double, m> >, SelectPoints<n, m> >( image.impl(),
+                                                                                        SelectPoints<n, m>() );
   }
+
+  int get_num_channles(std::string filename){
+    boost::scoped_ptr<SrcImageResource> src(DiskImageResource::open(filename));
+    int num_channels = src->channels();
+    int num_planes   = src->planes();
+    return num_channels*num_planes;
+  }
+
+  // Given an image with each pixel a vector of size m, return the
+  // first n channels of that image. We must have 1 <= n <= m <= 6.
+  template<int n>
+  ImageViewRef< Vector<double, n> > read_n_channels(std::string filename){
+
+    int max_m = 6;
+    int m = get_num_channles(filename);
+
+    VW_ASSERT( 1 <= n,
+               ArgumentErr() << "Attempting to read " << n << " channels from an image.");
+    VW_ASSERT( n <= m,
+               ArgumentErr() << "Attempting to read " << n << " channels from an image with "
+               << m << " channels.");
+    VW_ASSERT( m <= max_m,
+               NoImplErr() << "Reading from images with more than "
+               << max_m << " channels is not implemented.");
+
+    ImageViewRef< Vector<double, n> > out_image;
+    if      (m == 1) out_image = select_points<n, 1>(DiskImageView< Vector<double, 1> >(filename));
+    else if (m == 2) out_image = select_points<n, 2>(DiskImageView< Vector<double, 2> >(filename));
+    else if (m == 3) out_image = select_points<n, 3>(DiskImageView< Vector<double, 3> >(filename));
+    else if (m == 4) out_image = select_points<n, 4>(DiskImageView< Vector<double, 4> >(filename));
+    else if (m == 5) out_image = select_points<n, 5>(DiskImageView< Vector<double, 5> >(filename));
+    else if (m == 6) out_image = select_points<n, 6>(DiskImageView< Vector<double, 6> >(filename));
+
+    return out_image;
+  }
+
+  // Helper function that extracts the bounding box of a point cloud. It
+  // skips the point Vector3(), which, being at the center of the
+  // planet, is an invalid point.
+
+  template <class ViewT>
+  BBox3 pointcloud_bbox(ImageViewBase<ViewT> const& point_image) {
+    // Compute bounding box
+    BBox3 result;
+    typename ViewT::pixel_accessor row_acc = point_image.impl().origin();
+    for( int32 row=0; row < point_image.impl().rows(); ++row ) {
+      typename ViewT::pixel_accessor col_acc = row_acc;
+      for( int32 col=0; col < point_image.impl().cols(); ++col ) {
+        if (*col_acc != Vector3())
+          result.grow(*col_acc);
+        col_acc.next_col();
+      }
+      row_acc.next_row();
+    }
+    return result;
+  }
+
+
+
 }

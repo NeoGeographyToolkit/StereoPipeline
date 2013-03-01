@@ -27,6 +27,7 @@
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Tools/point2dem.h> // We share common functions with point2dem
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
@@ -37,8 +38,10 @@ namespace po = boost::program_options;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
+  typedef Vector<float64,6> Vector6;
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
   template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+  template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
 struct Options : asp::BaseOptions {
@@ -92,32 +95,19 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
+    ImageViewRef<Vector3> point_image = read_n_channels<3>(opt.pointcloud_filename);
+    BBox3 cloud_bbox = pointcloud_bbox(point_image);
 
-    // Find the bounding box of the points
-    BBox3 point_boundaries;
-    TerminalProgressCallback progress_bar("asp","Statistics: ");
-    for ( int y = 0; y < point_disk_image.rows(); y++ ) {
-      progress_bar.report_fractional_progress(y,point_disk_image.rows());
-      for ( int x = 0; x < point_disk_image.cols(); x++ ) {
-        Vector3 point = subvector(point_disk_image(x, y), 0, 3);
-        if ( point == Vector3() ) continue; // skip no-data points
-
-        point_boundaries.grow( point );
-      }
-    }
-    progress_bar.report_finished();
-
-    // The las format stores the values as 32 bit integers. So, if we
-    // want to store a point x, we store round((x-offset)/scale), as
-    // well as the offset and scale values. Here we decide the values
-    // for offset and scale to lose minimum amount of precision. We
-    // make the scale almost as large as it can be without causing
-    // integer overflow.
-    Vector3 offset = (point_boundaries.min() + point_boundaries.max())/2.0;
+    // The las format stores the values as 32 bit integers. So, for a
+    // given point, we store round((point-offset)/scale), as well as
+    // the offset and scale values. Here we decide the values for
+    // offset and scale to lose minimum amount of precision. We make
+    // the scale almost as large as it can be without causing integer
+    // overflow.
+    Vector3 offset = (cloud_bbox.min() + cloud_bbox.max())/2.0;
     double maxInt = std::numeric_limits<int32>::max();
     maxInt *= 0.95; // Just in case stay a bit away
-    Vector3 scale = point_boundaries.size()/(2.0*maxInt);
+    Vector3 scale = cloud_bbox.size()/(2.0*maxInt);
 
     liblas::Header header;
     header.SetDataFormatId(liblas::ePointFormat1);
@@ -132,24 +122,24 @@ int main( int argc, char *argv[] ) {
       lasFile = opt.out_prefix + ".las";
     }
 
-    vw_out() << "Writing LAS File: " << lasFile + "\n";
+    vw_out() << "Writing LAS file: " << lasFile + "\n";
 
     std::ofstream ofs;
     ofs.open(lasFile.c_str(), std::ios::out | std::ios::binary);
     liblas::Writer writer(ofs, header);
 
-    progress_bar.set_progress_text("Integerizing:");
-    for (int row = 0; row < point_disk_image.rows(); row++){
-      progress_bar.report_fractional_progress(row, point_disk_image.rows());
-      for (int col = 0; col < point_disk_image.cols(); col++){
+    TerminalProgressCallback progress_bar("asp","LAS: ");
+    for (int row = 0; row < point_image.rows(); row++){
+      progress_bar.report_fractional_progress(row, point_image.rows());
+      for (int col = 0; col < point_image.cols(); col++){
 
-        Vector3 point = subvector(point_disk_image(col, row), 0, 3);
+        Vector3 point = point_image(col, row);
         if ( point == Vector3() ) continue; // skip no-data points
 
-        point = elem_quot((point - offset),scale);
+        point = round( elem_quot((point - offset), scale) );
 
         liblas::Point las_point;
-        las_point.SetCoordinates(point[0], point[1], point[2]); // Takes doubles. Unclear if it scales the data.
+        las_point.SetCoordinates(point[0], point[1], point[2]);
         writer.WritePoint(las_point);
 
       }
