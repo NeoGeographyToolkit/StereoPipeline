@@ -40,6 +40,7 @@ class DemAdjustView : public ImageViewBase<DemAdjustView<ImageT> >
   GeoReference const& m_georef;
   ImageViewRef<PixelMask<double> > const& m_delta;
   GeoReference const& m_delta_georef;
+  bool m_reverse_adjustment;
   double m_nodata_val;
 
 public:
@@ -50,9 +51,10 @@ public:
 
   DemAdjustView(ImageT const& img, GeoReference const& georef,
                 ImageViewRef<PixelMask<double> > const& delta,
-                GeoReference const& delta_georef, double nodata_val):
+                GeoReference const& delta_georef, bool reverse_adjustment, double nodata_val):
     m_img(img), m_georef(georef),
     m_delta(delta), m_delta_georef(delta_georef),
+    m_reverse_adjustment(reverse_adjustment),
     m_nodata_val(nodata_val){}
 
   inline int32 cols() const { return m_img.cols(); }
@@ -80,8 +82,9 @@ public:
     PixelMask<double> interp_val             = m_delta(pix[0], pix[1]);
     if (is_valid(interp_val)) delta_height   = interp_val;
     result_type       height_above_ellipsoid = m_img(col, row, p);
+    double            direction              = m_reverse_adjustment?-1:1;
     // See the note in the main program about the formula below
-    result_type height_above_geoid           = height_above_ellipsoid - delta_height;
+    result_type height_above_geoid           = height_above_ellipsoid - direction*delta_height;
 
     return height_above_geoid;
   }
@@ -90,7 +93,7 @@ public:
   typedef DemAdjustView<typename ImageT::prerasterize_type> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     return prerasterize_type( m_img.prerasterize(bbox), m_georef,
-                              m_delta, m_delta_georef, m_nodata_val );
+                              m_delta, m_delta_georef, m_reverse_adjustment, m_nodata_val );
   }
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
   /// \endcond
@@ -100,14 +103,15 @@ template <class ImageT>
 DemAdjustView<ImageT>
 dem_adjust( ImageViewBase<ImageT> const& img, GeoReference const& georef,
             ImageViewRef<PixelMask<double> > const& delta,
-            GeoReference const& delta_georef, double nodata_val) {
-  return DemAdjustView<ImageT>( img.impl(), georef, delta, delta_georef, nodata_val );
+            GeoReference const& delta_georef, bool reverse_adjustment, double nodata_val) {
+  return DemAdjustView<ImageT>( img.impl(), georef, delta, delta_georef, reverse_adjustment, nodata_val );
 }
 
 struct Options : asp::BaseOptions {
   string geoid, delta_file, dem_name, output_prefix;
   double nodata_value;
   bool use_double;
+  bool reverse_adjustment;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ){
@@ -118,7 +122,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
      "The value of no-data pixels, unless specified in the DEM.")
     ("geoid", po::value(&opt.geoid)->default_value("EGM96"), "Choose a geoid [EGM96, NAVD88].")
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
-    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true), "Output using double (64 bit) instead of float (32 bit).");
+    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true), "Output using double (64 bit) instead of float (32 bit).")
+    ("reverse-adjustment", po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true), "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -183,12 +188,14 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
+    bool reverse_adjustment = opt.reverse_adjustment;
+
     // Read the DEM to adjust
     DiskImageResourceGDAL dem_rsrc(opt.dem_name);
-    double nodata_val = opt.nodata_value;
+    double dem_nodata_val = opt.nodata_value;
     if ( dem_rsrc.has_nodata_read() ) {
-      nodata_val = dem_rsrc.nodata_read();
-      vw_out() << "\tFound input nodata value for " << opt.dem_name << ": " << nodata_val << endl;
+      dem_nodata_val = dem_rsrc.nodata_read();
+      vw_out() << "\tFound input nodata value for " << opt.dem_name << ": " << dem_nodata_val << endl;
     }
     DiskImageView<double> dem_img(dem_rsrc);
     GeoReference dem_georef;
@@ -210,7 +217,7 @@ int main( int argc, char *argv[] ) {
                     BicubicInterpolation(), ZeroEdgeExtension());
 
     ImageViewRef<double> adj_dem = dem_adjust(dem_img, dem_georef,
-                                              delta, delta_georef, nodata_val);
+                                              delta, delta_georef, reverse_adjustment, dem_nodata_val);
 
     std::string adj_dem_file = opt.output_prefix + "-adj.tif";
     vw_out() << "Writing adjusted DEM: " << adj_dem_file << std::endl;
@@ -219,7 +226,7 @@ int main( int argc, char *argv[] ) {
       // Output as double
       boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc(adj_dem_file,
                                                                           adj_dem, opt ) );
-      rsrc->set_nodata_write( nodata_val );
+      rsrc->set_nodata_write( dem_nodata_val );
       write_georeference( *rsrc, dem_georef );
       block_write_image( *rsrc, adj_dem,
                          TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: ") );
@@ -228,7 +235,7 @@ int main( int argc, char *argv[] ) {
       ImageViewRef<float> adj_dem_float = channel_cast<float>( adj_dem );
       boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc(adj_dem_file,
                                                                           adj_dem_float, opt ) );
-      rsrc->set_nodata_write( nodata_val );
+      rsrc->set_nodata_write( dem_nodata_val );
       write_georeference( *rsrc, dem_georef );
       block_write_image( *rsrc, adj_dem_float,
                          TerminalProgressCallback("asp", "\t--> Applying DEM adjustment: ") );
