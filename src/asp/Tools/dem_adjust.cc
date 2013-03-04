@@ -120,9 +120,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   general_options.add_options()
     ("nodata_value", po::value(&opt.nodata_value)->default_value(-32767),
      "The value of no-data pixels, unless specified in the DEM.")
-    ("geoid", po::value(&opt.geoid)->default_value("EGM96"), "Choose a geoid [EGM96, NAVD88].")
+    ("geoid", po::value(&opt.geoid)->default_value("EGM96"), "The geoid to use [EGM96, NAVD88].")
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
-    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true), "Output using double (64 bit) instead of float (32 bit).")
+    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true), "Output using double precision (64 bit) instead of float (32 bit).")
     ("reverse-adjustment", po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true), "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -199,7 +199,11 @@ int main( int argc, char *argv[] ) {
     }
     DiskImageView<double> dem_img(dem_rsrc);
     GeoReference dem_georef;
-    read_georeference(dem_georef, dem_rsrc);
+    bool has_georef = read_georeference(dem_georef, dem_rsrc);
+    if (!has_georef)
+      vw_throw( ArgumentErr() << "Missing georeference for DEM: " << opt.dem_name << "\n" );
+    if ( dem_georef.datum().name() != "WGS_1984" )
+      vw_throw( ArgumentErr() << "The datum is not WGS_1984 for DEM: " << opt.dem_name << "\n" );
 
     // Read the geoid containing the adjustments. Read it in memory
     // entirely to dramatically speed up the computations.
