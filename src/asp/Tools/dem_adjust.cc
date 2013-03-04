@@ -69,18 +69,31 @@ public:
 
     Vector2 lonlat = m_georef.pixel_to_lonlat(Vector2(col, row));
 
-    // Wrap the lonlat until it is in the [0, 360) x [-90, 90) box for
-    // interpolation.
-    // lonlat[0] = -121; lonlat[1] = 37; // For testing (see example below)
+    // For testing (see the link to the reference web form belows).
+    // lonlat[0] = -121; lonlat[1] = 37; // mainland US
+    // lonlat[0] = -152; lonlat[1] = 66; // Alaska
+
+    // Need to carefully wrap lonlat to the [0, 360) x [-90, 90) box.
+    // Note that lon = 25, lat = 91 is the same as lon = 180 + 25, lat = 89
+    // as we go through the North pole and show up on the other side.
+    while ( std::abs(lonlat[1]) > 90.0 ){
+      if ( lonlat[1] > 90.0 ){
+        lonlat[1] = 180.0 - lonlat[1];
+        lonlat[0] += 180.0;
+      }
+      if ( lonlat[1] < -90.0 ){
+        lonlat[1] = -180.0 - lonlat[1];
+        lonlat[0] += 180.0;
+      }
+    }
     while( lonlat[0] <   0.0  ) lonlat[0] += 360.0;
     while( lonlat[0] >= 360.0 ) lonlat[0] -= 360.0;
-    while( lonlat[1] <  -90.0 ) lonlat[1] += 180.0;
-    while( lonlat[1] >=  90.0 ) lonlat[1] -= 180.0;
 
     result_type       delta_height           = 0.0;
     Vector2           pix                    = m_delta_georef.lonlat_to_pixel(lonlat);
     PixelMask<double> interp_val             = m_delta(pix[0], pix[1]);
-    if (is_valid(interp_val)) delta_height   = interp_val;
+    if (!is_valid(interp_val)) return m_nodata_val;
+    delta_height                             = interp_val.child();
     result_type       height_above_ellipsoid = m_img(col, row, p);
     double            direction              = m_reverse_adjustment?-1:1;
     // See the note in the main program about the formula below
