@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file dem_adjust.cc
+/// \file dem_geoid.cc
 ///
 
 #include <vw/FileIO.h>
@@ -34,12 +34,12 @@ using namespace vw;
 using namespace vw::cartography;
 
 template <class ImageT>
-class DemAdjustView : public ImageViewBase<DemAdjustView<ImageT> >
+class DemGeoidView : public ImageViewBase<DemGeoidView<ImageT> >
 {
   ImageT m_img;
   GeoReference const& m_georef;
-  ImageViewRef<PixelMask<double> > const& m_delta;
-  GeoReference const& m_delta_georef;
+  ImageViewRef<PixelMask<double> > const& m_geoid;
+  GeoReference const& m_geoid_georef;
   bool m_reverse_adjustment;
   double m_nodata_val;
 
@@ -47,13 +47,13 @@ public:
 
   typedef double pixel_type;
   typedef double result_type;
-  typedef ProceduralPixelAccessor<DemAdjustView> pixel_accessor;
+  typedef ProceduralPixelAccessor<DemGeoidView> pixel_accessor;
 
-  DemAdjustView(ImageT const& img, GeoReference const& georef,
-                ImageViewRef<PixelMask<double> > const& delta,
-                GeoReference const& delta_georef, bool reverse_adjustment, double nodata_val):
+  DemGeoidView(ImageT const& img, GeoReference const& georef,
+               ImageViewRef<PixelMask<double> > const& geoid,
+               GeoReference const& geoid_georef, bool reverse_adjustment, double nodata_val):
     m_img(img), m_georef(georef),
-    m_delta(delta), m_delta_georef(delta_georef),
+    m_geoid(geoid), m_geoid_georef(geoid_georef),
     m_reverse_adjustment(reverse_adjustment),
     m_nodata_val(nodata_val){}
 
@@ -89,39 +89,39 @@ public:
     while( lonlat[0] <   0.0  ) lonlat[0] += 360.0;
     while( lonlat[0] >= 360.0 ) lonlat[0] -= 360.0;
 
-    result_type       delta_height           = 0.0;
-    Vector2           pix                    = m_delta_georef.lonlat_to_pixel(lonlat);
-    PixelMask<double> interp_val             = m_delta(pix[0], pix[1]);
+    result_type       geoid_height           = 0.0;
+    Vector2           pix                    = m_geoid_georef.lonlat_to_pixel(lonlat);
+    PixelMask<double> interp_val             = m_geoid(pix[0], pix[1]);
     if (!is_valid(interp_val)) return m_nodata_val;
-    delta_height                             = interp_val.child();
+    geoid_height                             = interp_val.child();
     result_type       height_above_ellipsoid = m_img(col, row, p);
     double            direction              = m_reverse_adjustment?-1:1;
     // See the note in the main program about the formula below
-    result_type height_above_geoid           = height_above_ellipsoid - direction*delta_height;
+    result_type height_above_geoid           = height_above_ellipsoid - direction*geoid_height;
 
     return height_above_geoid;
   }
 
   /// \cond INTERNAL
-  typedef DemAdjustView<typename ImageT::prerasterize_type> prerasterize_type;
+  typedef DemGeoidView<typename ImageT::prerasterize_type> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     return prerasterize_type( m_img.prerasterize(bbox), m_georef,
-                              m_delta, m_delta_georef, m_reverse_adjustment, m_nodata_val );
+                              m_geoid, m_geoid_georef, m_reverse_adjustment, m_nodata_val );
   }
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
   /// \endcond
 };
 
 template <class ImageT>
-DemAdjustView<ImageT>
-dem_adjust( ImageViewBase<ImageT> const& img, GeoReference const& georef,
-            ImageViewRef<PixelMask<double> > const& delta,
-            GeoReference const& delta_georef, bool reverse_adjustment, double nodata_val) {
-  return DemAdjustView<ImageT>( img.impl(), georef, delta, delta_georef, reverse_adjustment, nodata_val );
+DemGeoidView<ImageT>
+dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
+           ImageViewRef<PixelMask<double> > const& geoid,
+           GeoReference const& geoid_georef, bool reverse_adjustment, double nodata_val) {
+  return DemGeoidView<ImageT>( img.impl(), georef, geoid, geoid_georef, reverse_adjustment, nodata_val );
 }
 
 struct Options : asp::BaseOptions {
-  string geoid, delta_file, dem_name, output_prefix;
+  string geoid, geoid_file, dem_name, output_prefix;
   double nodata_value;
   bool use_double;
   bool reverse_adjustment;
@@ -152,14 +152,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
 
-  // The geoid DEM containing the adjustments
+  // The geoid containing the adjustments
 #define STR_EXPAND(tok) #tok
 #define STR_QUOTE(tok) STR_EXPAND(tok)
-  std::string geoid_path = STR_QUOTE(DEM_ADJUST_GEOID_PATH);
+  std::string geoid_path = STR_QUOTE(GEOID_PATH);
   if (opt.geoid == "EGM96"){
-    opt.delta_file = geoid_path + "/" + "egm96-5.tif";
+    opt.geoid_file = geoid_path + "/" + "egm96-5.tif";
   }else if(opt.geoid == "NAVD88"){
-    opt.delta_file = geoid_path + "/" + "NAVD88.tif";
+    opt.geoid_file = geoid_path + "/" + "NAVD88.tif";
   }else{
     vw_throw( ArgumentErr() << "Unknown geoid: " << opt.geoid << ".\n\n" << usage << general_options );
   }
@@ -220,21 +220,21 @@ int main( int argc, char *argv[] ) {
 
     // Read the geoid containing the adjustments. Read it in memory
     // entirely to dramatically speed up the computations.
-    double delta_nodata_val = std::numeric_limits<float>::quiet_NaN();
-    DiskImageResourceGDAL delta_rsrc(opt.delta_file);
-    if ( delta_rsrc.has_nodata_read() ) {
-      delta_nodata_val = delta_rsrc.nodata_read();
+    double geoid_nodata_val = std::numeric_limits<float>::quiet_NaN();
+    DiskImageResourceGDAL geoid_rsrc(opt.geoid_file);
+    if ( geoid_rsrc.has_nodata_read() ) {
+      geoid_nodata_val = geoid_rsrc.nodata_read();
     }
-    vw_out() << "\tAdjusting the DEM using the geoid: " << opt.delta_file << endl;
-    ImageView<float> delta_img = DiskImageView<float>(delta_rsrc);
-    GeoReference delta_georef;
-    read_georeference(delta_georef, delta_rsrc);
-    ImageViewRef<PixelMask<double> > delta
-      = interpolate(create_mask( pixel_cast<double>(delta_img), delta_nodata_val ),
+    vw_out() << "\tAdjusting the DEM using the geoid: " << opt.geoid_file << endl;
+    ImageView<float> geoid_img = DiskImageView<float>(geoid_rsrc);
+    GeoReference geoid_georef;
+    read_georeference(geoid_georef, geoid_rsrc);
+    ImageViewRef<PixelMask<double> > geoid
+      = interpolate(create_mask( pixel_cast<double>(geoid_img), geoid_nodata_val ),
                     BicubicInterpolation(), ZeroEdgeExtension());
 
-    ImageViewRef<double> adj_dem = dem_adjust(dem_img, dem_georef,
-                                              delta, delta_georef, reverse_adjustment, dem_nodata_val);
+    ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef,
+                                             geoid, geoid_georef, reverse_adjustment, dem_nodata_val);
 
     std::string adj_dem_file = opt.output_prefix + "-adj.tif";
     vw_out() << "Writing adjusted DEM: " << adj_dem_file << std::endl;

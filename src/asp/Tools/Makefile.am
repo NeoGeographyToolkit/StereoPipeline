@@ -78,10 +78,10 @@ if MAKE_APP_POINT2LAS
   point2las_LDADD = $(APP_POINT2LAS_LIBS)
 endif
 
-if MAKE_APP_DEM_ADJUST
-  bin_PROGRAMS += dem_adjust
-  dem_adjust_SOURCES = dem_adjust.cc
-  dem_adjust_LDADD = $(APP_DEM_ADJUST_LIBS)
+if MAKE_APP_DEM_GEOID
+  bin_PROGRAMS += dem_geoid
+  dem_geoid_SOURCES = dem_geoid.cc
+  dem_geoid_LDADD = $(APP_DEM_GEOID_LIBS)
 endif
 
 if MAKE_APP_RMAX2CAHVOR
