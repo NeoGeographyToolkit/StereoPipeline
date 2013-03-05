@@ -108,7 +108,9 @@ public:
     return prerasterize_type( m_img.prerasterize(bbox), m_georef,
                               m_geoid, m_geoid_georef, m_reverse_adjustment, m_nodata_val );
   }
-  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
+  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
+    vw::rasterize( prerasterize(bbox), dest, bbox );
+  }
   /// \endcond
 };
 
@@ -117,7 +119,8 @@ DemGeoidView<ImageT>
 dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
            ImageViewRef<PixelMask<double> > const& geoid,
            GeoReference const& geoid_georef, bool reverse_adjustment, double nodata_val) {
-  return DemGeoidView<ImageT>( img.impl(), georef, geoid, geoid_georef, reverse_adjustment, nodata_val );
+  return DemGeoidView<ImageT>( img.impl(), georef, geoid, geoid_georef,
+                               reverse_adjustment, nodata_val );
 }
 
 struct Options : asp::BaseOptions {
@@ -135,8 +138,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
      "The value of no-data pixels, unless specified in the DEM.")
     ("geoid", po::value(&opt.geoid)->default_value("EGM96"), "The geoid to use [EGM96, NAVD88].")
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
-    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true), "Output using double precision (64 bit) instead of float (32 bit).")
-    ("reverse-adjustment", po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true), "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
+    ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
+     "Output using double precision (64 bit) instead of float (32 bit).")
+    ("reverse-adjustment",
+     po::bool_switch(&opt.reverse_adjustment)->default_value(false)->implicit_value(true),
+     "Go from DEM relative to the geoid to DEM relative to the ellipsoid.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -161,11 +167,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   }else if(opt.geoid == "NAVD88"){
     opt.geoid_file = geoid_path + "/" + "NAVD88.tif";
   }else{
-    vw_throw( ArgumentErr() << "Unknown geoid: " << opt.geoid << ".\n\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "Unknown geoid: " << opt.geoid << ".\n\n"
+              << usage << general_options );
   }
 
   if ( opt.dem_name.empty() )
-    vw_throw( ArgumentErr() << "Requires <dem> in order to proceed.\n\n" << usage << general_options );
+    vw_throw( ArgumentErr() << "Requires <dem> in order to proceed.\n\n"
+              << usage << general_options );
 
   if ( opt.output_prefix.empty() ) {
     opt.output_prefix = fs::path(opt.dem_name).stem().string();
@@ -195,7 +203,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 // EGM96  geoid height = -32.69
 // NAVD88 geoid height = -32.931
 
+// To do: Do another test with the web form for Alaska for NAVD88!
+// To do: Add Hawaii, etc.
+
 int main( int argc, char *argv[] ) {
+
+  std::cout << "see to do above!" << std::endl;
 
   Options opt;
   try {
@@ -208,15 +221,14 @@ int main( int argc, char *argv[] ) {
     double dem_nodata_val = opt.nodata_value;
     if ( dem_rsrc.has_nodata_read() ) {
       dem_nodata_val = dem_rsrc.nodata_read();
-      vw_out() << "\tFound input nodata value for " << opt.dem_name << ": " << dem_nodata_val << endl;
+      vw_out() << "\tFound input nodata value for " << opt.dem_name << ": "
+               << dem_nodata_val << endl;
     }
     DiskImageView<double> dem_img(dem_rsrc);
     GeoReference dem_georef;
     bool has_georef = read_georeference(dem_georef, dem_rsrc);
     if (!has_georef)
       vw_throw( ArgumentErr() << "Missing georeference for DEM: " << opt.dem_name << "\n" );
-    if ( dem_georef.datum().name() != "WGS_1984" )
-      vw_throw( ArgumentErr() << "The datum is not WGS_1984 for DEM: " << opt.dem_name << "\n" );
 
     // Read the geoid containing the adjustments. Read it in memory
     // entirely to dramatically speed up the computations.
@@ -229,12 +241,22 @@ int main( int argc, char *argv[] ) {
     ImageView<float> geoid_img = DiskImageView<float>(geoid_rsrc);
     GeoReference geoid_georef;
     read_georeference(geoid_georef, geoid_rsrc);
+
+    if ( dem_georef.datum().name() != geoid_georef.datum().name() ){
+      vw_throw( ArgumentErr() << "Datum mismatch."
+                << "\nDEM   datum: " << dem_georef.datum().name()
+                << "\nGeoid datum: " << geoid_georef.datum().name()
+                << "\n"
+                );
+    }
+
     ImageViewRef<PixelMask<double> > geoid
       = interpolate(create_mask( pixel_cast<double>(geoid_img), geoid_nodata_val ),
                     BicubicInterpolation(), ZeroEdgeExtension());
 
     ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef,
-                                             geoid, geoid_georef, reverse_adjustment, dem_nodata_val);
+                                             geoid, geoid_georef,
+                                             reverse_adjustment, dem_nodata_val);
 
     std::string adj_dem_file = opt.output_prefix + "-adj.tif";
     vw_out() << "Writing adjusted DEM: " << adj_dem_file << std::endl;
