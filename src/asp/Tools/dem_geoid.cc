@@ -72,9 +72,9 @@ public:
     Vector2 lonlat = m_georef.pixel_to_lonlat(Vector2(col, row));
 
     // For testing (see the link to the reference web form belows).
-    //lonlat[0] = -121; lonlat[1] = 37; // mainland US
-    //lonlat[0] = -152; lonlat[1] = 66; // Alaska
-
+    //lonlat[0] = -121;   lonlat[1] = 37;   // mainland US
+    //lonlat[0] = -152;   lonlat[1] = 66;   // Alaska
+    //lonlat[0] = -155.5; lonlat[1] = 19.5; // Hawaii
     // Need to carefully wrap lonlat to the [0, 360) x [-90, 90) box.
     // Note that lon = 25, lat = 91 is the same as lon = 180 + 25, lat = 89
     // as we go through the North pole and show up on the other side.
@@ -194,18 +194,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 // EGM96:  http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/intpt.html
 // NAVD88: http://www.ngs.noaa.gov/cgi-bin/GEOID_STUFF/geoid09_prompt1.prl
 
+// MOLA MEGDR: http://geo.pds.nasa.gov/missions/mgs/megdr.html
+
 // Examples: At lat = 37 and lon = -121 (Basalt Hills, CA), we have
 // EGM96  geoid height = -32.69 m
 // NAVD88 geoid height = -32.931 m
 // At lat = 66 and lon = -152 (Alaska):
 // EGM96 geoid height  = 9.51 m
 // NAVD88 geoid height = 8.255 m
-
-// MOLA MEGDR: http://geo.pds.nasa.gov/missions/mgs/megdr.html
+// At lat = 19.5 and lon = -155.5 (Hawaii)
+// NAVD88 geoid height: 27.353
+// EGM96 geoid height:  26.58
 
 int main( int argc, char *argv[] ) {
-
-  std::cout << "see to do above!" << std::endl;
 
   Options opt;
   try {
