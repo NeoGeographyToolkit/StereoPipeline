@@ -333,7 +333,7 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
   } catch ( vw::IOErr const& e ) {
     // Possibly Rational_Function_Model doesn't work
   }
-  vw_throw( IOErr() << "Couldn't find RPB or Rational_Function_Model tag inside XML file." );
+  vw_throw( vw::NotFoundErr() << "Couldn't find RPB or Rational_Function_Model tag inside XML file." );
 }
 
 void asp::RPCXML::parse_rpb( xercesc::DOMElement* node ) {
