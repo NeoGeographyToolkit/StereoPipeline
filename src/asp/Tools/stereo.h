@@ -79,12 +79,6 @@ namespace asp {
   // Checks for obvious user mistakes
   void user_safety_check(Options const& opt);
 
-  // Low-res correlation
-  void lowres_correlation( Options & opt );
-
-  // Produces D_sub
-  void produce_lowres_disparity( Options & opt );
-
   // Approximate search range by looking at interest point match file
   vw::BBox2i approximate_search_range(std::string const& out_prefix,
                                       std::string const& left_sub_file,
