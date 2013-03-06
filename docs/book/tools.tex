@@ -501,17 +501,15 @@ Options & Description \\ \hline \hline
 \section{dem\_geoid}
 \label{demgeoid}
 
-Takes as input a DEM of Earth whose height values are relative to the
-WGS84 ellipsoid, and adjusts those values to be relative to the
-geoid. The program can also apply the reverse of this adjustment.
+Takes as input a DEM whose height values are relative to the datum
+ellipsoid, and adjusts those values to be relative to the equipotential
+surface of the planet (geoid on Earth, and areoid on Mars). The program
+can also apply the reverse of this adjustment.
 
-Two geoids are supported: EGM96
+Two geoids and one areoid are supported. Earth geoids: EGM96
 (\url{http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html})
 and NAVD88 (\url{http://www.ngs.noaa.gov/GEOID/GEOID09/}).
-
-It is important to note that the NAVD88 geoid is strictly speaking in
-reference to the NAD83 ellipsoid rather than to WGS84 as we assume
-here. These two ellipsoids have minor differences in parameters.
+Mars areoid: MOLA MEGDR (\url{http://geo.pds.nasa.gov/missions/mgs/megdr.html}).
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_geoid}
@@ -524,10 +522,9 @@ here. These two ellipsoids have minor differences in parameters.
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display this help \\ \hline
 \texttt{-\/-nodata-value \textit{=-32767}} & The value of no-data pixels, unless specified in the DEM \\ \hline
-\texttt{-\/-geoid \textit{=EGM96}} & The geoid to use [EGM96, NAVD88] \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
 \texttt{-\/-double} & Output using double precision (64 bit) instead of float (32 bit)\\ \hline
-\texttt{-\/-reverse-adjustment} & Go from DEM relative to the geoid to DEM relative to the ellipsoid\\ \hline
+\texttt{-\/-reverse-adjustment} & Go from DEM relative to the geoid/areoid to DEM relative to the datum ellipsoid\\ \hline
 \end{longtable}
 
 
