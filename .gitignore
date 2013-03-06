@@ -69,6 +69,7 @@ Makefile.in
 /libtool
 
 # Core
+src/asp/Core/tests/TestAntiAliasing
 src/asp/Core/tests/TestBlobIndexThreaded
 src/asp/Core/tests/TestErodeView
 src/asp/Core/tests/TestGaussianClustering
@@ -113,14 +114,12 @@ src/asp/Tools/rmax_adjust
 src/asp/Tools/rpc_mapproject
 src/asp/Tools/stereo
 src/asp/Tools/stereo_corr
-src/asp/Tools/stereo_corr_sub
 src/asp/Tools/stereo_fltr
 src/asp/Tools/stereo_mpi
 src/asp/Tools/stereo_parse
 src/asp/Tools/stereo_pprc
 src/asp/Tools/stereo_rfne
 src/asp/Tools/stereo_tri
-src/asp/Tools/stereo_tri_rpc
 src/asp/Tools/time_trials
 
 # Control Network Toolkit
@@ -134,13 +133,14 @@ src/asp/ControlNetTK/vw_position_extract
 
 # Doc
 docs/book/*aux
+docs/book/*bbl
+docs/book/*blg
 docs/book/*log
+docs/book/*old
 docs/book/*out
 docs/book/*pdf
 docs/book/*toc
-docs/book/*bbl
-docs/book/*blg
-docs/book/*old
+docs/book/asp_book.tex
 docs/book/graph/*pdf
 docs/photometry/*aux
 docs/photometry/*log
