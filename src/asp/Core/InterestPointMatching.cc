@@ -175,7 +175,10 @@ namespace asp {
             left_points.push_back( Vector3(l[0],l[1],1) );
             right_points.push_back( Vector3(r[0],r[1],1) );
           }
-        } catch (camera::PixelToRayErr const& e ) {}
+        }
+        catch (camera::PixelToRayErr   const& e ) {}
+        catch (camera::PointToPixelErr const& e ) {}
+
         try {
           Vector2 r( double(box2.width() - 1) * i / 99.0,
                      double(box2.height() - 1) * j / 99.0 );
@@ -191,7 +194,9 @@ namespace asp {
             left_points.push_back( Vector3(l[0],l[1],1) );
             right_points.push_back( Vector3(r[0],r[1],1) );
           }
-        } catch (camera::PixelToRayErr const& e ) {}
+        }
+        catch (camera::PixelToRayErr   const& e ) {}
+        catch (camera::PointToPixelErr const& e ) {}
       }
     }
 
