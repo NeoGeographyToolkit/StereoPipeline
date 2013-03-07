@@ -93,8 +93,41 @@ void asp::GeometricXML::parse_principal_distance( xercesc::DOMElement* node ) {
 void asp::GeometricXML::parse_optical_distortion( xercesc::DOMElement* node ) {
   cast_xmlch( get_node<DOMElement>( node, "POLYORDER" )->getTextContent(),
               optical_polyorder );
-  if ( optical_polyorder > 0 )
-    vw_throw( NoImplErr() << "We don't support optical distortion.\n" );
+
+  // If the optical polyorder is >= 1 and some of the polynomial
+  // coefficients are non-zero, then throw an error as we did not
+  // implement optical distortion.
+
+  if ( optical_polyorder == 0 ) return;
+
+  std::string list_list_types[] = {"ALISTList", "BLISTList"};
+  for (unsigned ls = 0; ls < sizeof(list_list_types)/sizeof(std::string); ls++){
+    std::string list_list_type = list_list_types[ls];
+
+    DOMElement* list_list = get_node<DOMElement>( node, list_list_type );
+    if (list_list == NULL) return;
+
+    DOMNodeList* children = list_list->getChildNodes();
+    if (children == NULL) return;
+
+    for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+
+      DOMNode* current = children->item(i);
+      if ( current->getNodeType() != DOMNode::ELEMENT_NODE ) continue;
+
+      DOMElement* element = dynamic_cast< xercesc::DOMElement* >( current );
+      std::string buffer;
+      cast_xmlch( element->getTextContent(), buffer );
+
+      std::istringstream istr( buffer );
+      double val;
+      while (istr >> val){
+        if (val != 0)
+          vw_throw( NoImplErr() << "Optical distortion is not implemented.\n" );
+      }
+    }
+  }
+
 }
 
 void asp::GeometricXML::parse_perspective_center( xercesc::DOMElement* node ) {

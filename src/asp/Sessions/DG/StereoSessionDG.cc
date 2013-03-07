@@ -196,10 +196,6 @@ namespace asp {
     VW_ASSERT( eph.start_time == att.start_time && eph.time_interval == att.time_interval,
                MathErr() << "Ephemeris and Attitude don't seem to sample with the same t0 or dt." );
 
-    // I also don't support optical distortion yet.
-    VW_ASSERT( geo.optical_polyorder <= 0,
-               NoImplErr() << "Cameras with optical distortion are not supported currently." );
-
     // Convert ephemeris to be position of camera. Change attitude to be
     // be the rotation from camera frame to world frame. We also add an
     // additional rotation to the camera frame so X is the horizontal
