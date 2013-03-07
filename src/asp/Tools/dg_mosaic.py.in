@@ -24,9 +24,8 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-# Give me you image files that make up the composite. I will assume
-# the XML files are in the same directory and end with extension
-# ".xml"
+# Provide the image files that make up the composite. We assume the XML
+# files are in the same directory and end with extension ".xml" or ".XML".
 class BBox:
     def __init__(self):
         self.minx = 0
@@ -88,7 +87,20 @@ def tlc_pixel_lookup( tlctime, tlclist, time ):
     return fraction * ( tlclist[1][0] - tlclist[0][0] ) + tlclist[0][0]
 
 def xml_name( filename ):
-    return filename.split(".")[0]+".xml"
+
+    path, ext = os.path.splitext(filename)
+    xml_file_l = path + ".xml"
+    xml_file_u = path + ".XML"
+
+    if os.path.isfile(xml_file_l):
+        xml_file = xml_file_l
+    elif os.path.isfile(xml_file_u):
+        xml_file = xml_file_u
+    else:
+        raise Exception('InputError', 'Cannot find any of: '
+                        + xml_file_l + ' ' + xml_file_u)
+
+    return xml_file
 
 def run_cmd( cmd, options ):
     if options.dryrun:
@@ -108,9 +120,9 @@ def main():
             parser.set_defaults(gdaldir="")
             parser.set_defaults(reduce_percent=100)
             parser.add_option("--gdal-dir", dest="gdaldir",
-                              help="Directory where GDAL tools are. Alternatively we try and pull the tools from the enviroment")
+                              help="Directory where GDAL tools are. Alternatively we try and pull the tools from the enviroment.")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="int",
-                              help="Render a reduced output image and xml based on this percentage")
+                              help="Render a reduced output image and xml based on this percentage.")
             parser.add_option("--preview", dest="preview",
                               action="store_true",
                               help="Render a small 8 bit png of the input for preview.")
@@ -119,7 +131,7 @@ def main():
                               help="Make caclulations, but just print out the commands.")
 
             (options, args) = parser.parse_args()
-            if not args: parser.error("need .ntf or .tif files")
+            if not args: parser.error("Need .ntf or .tif files.")
             if len(options.gdaldir): options.gdaldir += "/"
 
         except optparse.OptionError, msg:
@@ -150,7 +162,7 @@ def main():
             print "  Placing %s" % args[i]
             print "    Size %ix%i at line %i" % (placements[i][1],placements[i][2],placements[i][0])
 
-        # Dummy Check! Look for duplicate files that will insert at
+        # Dummy check: Look for duplicate files that will insert at
         # same location. Files that do this would be the R?C1 variants
         # that have the same XML file due to download errors or
         # simplying mixing of R?C1 and the other format.
@@ -160,7 +172,7 @@ def main():
                 raise Exception('InputError', 'Input images have same input location which could be caused by repeated XML file or invalid TLC information')
             seen.add(placements[i][0])
 
-        # We do a 2 pass with VRT wrapping because the following
+        # We do two passes with VRT wrapping because the following
         # operations are performed in this order:
         #
         # Nodata masking
