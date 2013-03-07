@@ -135,7 +135,7 @@ def run(bin, args, **kw):
     if code != 0:
         raise Exception('Stereo step ' + kw['msg'] + ' failed')
 
-def taste_settings( args, **kw ):
+def get_settings( args, **kw ):
     libexecpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'libexec', 'stereo_parse')
     call = [libexecpath]
     call.extend(args)
@@ -147,7 +147,7 @@ def taste_settings( args, **kw ):
     (stdout, stderr) = p.communicate()
     p.wait()
     if p.returncode != 0:
-        raise Exception('Tasting of stereo settings failed')
+        raise Exception('Failed getting stereo settings')
     data = {}
     for line in stdout.split('\n'):
         if "," in line:
@@ -296,10 +296,10 @@ if __name__ == '__main__':
 
     args=unescape_vals(args)
 
-    args_sub = args
+    args_sub = args[:] # deep copy
     args_sub.extend(['--compute-low-res-disparity-only'])
 
-    settings=taste_settings( args )
+    settings=get_settings( args )
 
     mpiexec_rank = os.getenv("MPIEXEC_RANK")
 
@@ -307,7 +307,7 @@ if __name__ == '__main__':
         create_subproject_dirs( settings )
 
     if opt.mpi_nodes is not None and opt.mpi_nodes > 1 and mpiexec_rank is None:
-        # Multisystem execution. This means that the current running
+        # Multi-machine execution. This means that the current running
         # process has become the management process that spawns other
         # copies of itself on other systems. This thread will only do
         # work when we hit a non-multiprocess step like PPRC or FLTR.
@@ -365,7 +365,11 @@ if __name__ == '__main__':
             if ( opt.stop_point <= 5 ):
                 sys.exit()
             build_vrt( settings, "-PC.tif", 4, "Float64", tiles_cropped=True )
+
     else:
+
+        # Single machine execution
+
         try:
             if ( opt.entry_point <= 0 ):
                 # Run stereo pprc in single threaded mode
@@ -383,7 +387,6 @@ if __name__ == '__main__':
                 min_index = int((float(mpiexec_rank)/float(opt.mpi_nodes)) * num_tiles)
                 max_index = int(((float(mpiexec_rank)+1)/float(opt.mpi_nodes)) * num_tiles)
                 tiles = tiles[min_index:max_index]
-                pass
 
             if ( opt.entry_point <= 1 ):
                 if ( opt.stop_point <= 1 ):
