@@ -134,7 +134,7 @@ int main( int argc, char *argv[] ) {
     handle_arguments( argc, argv, opt );
 
     vw_out() << "Opening " << opt.input_file_name << "\n";
-    ImageFormat fmt = tools::taste_image(opt.input_file_name);
+    ImageFormat fmt = tools::image_format(opt.input_file_name);
 
     switch(fmt.pixel_format) {
     case VW_PIXEL_GENERIC_2_CHANNEL:
