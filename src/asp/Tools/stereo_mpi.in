@@ -303,17 +303,11 @@ if __name__ == '__main__':
 
     mpiexec_rank = os.getenv("MPIEXEC_RANK")
 
-    if opt.mpi_nodes is None or opt.mpi_nodes == 1:
-        create_subproject_dirs( settings )
-
     if opt.mpi_nodes is not None and opt.mpi_nodes > 1 and mpiexec_rank is None:
         # Multi-machine execution. This means that the current running
         # process has become the management process that spawns other
         # copies of itself on other systems. This thread will only do
         # work when we hit a non-multiprocess step like PPRC or FLTR.
-
-        # Create subdirectories for sub projects
-        create_subproject_dirs( settings )
 
         mpi_cmd = ['mpiexec','-comm','none','-np',str(opt.mpi_nodes)]
         call_self = sys.argv
@@ -329,6 +323,7 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 0 ):
             # Preprocessing
             run('stereo_pprc', args, msg='0: Preprocessing')
+            create_subproject_dirs( settings )
         if ( opt.entry_point <= 1 ):
             # Correlation
             if ( opt.stop_point <= 1 ):
@@ -374,7 +369,7 @@ if __name__ == '__main__':
             if ( opt.entry_point <= 0 ):
                 # Run stereo pprc in single threaded mode
                 run('stereo_pprc', args, msg='0: Preprocessing')
-                pass
+                create_subproject_dirs( settings )
 
             # Define the tiles that we'll be processing on
             tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h );
