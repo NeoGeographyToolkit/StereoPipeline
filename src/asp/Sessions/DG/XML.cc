@@ -98,7 +98,7 @@ void asp::GeometricXML::parse_optical_distortion( xercesc::DOMElement* node ) {
   // coefficients are non-zero, then throw an error as we did not
   // implement optical distortion.
 
-  if ( optical_polyorder == 0 ) return;
+  if ( optical_polyorder <= 0 ) return; // it actually can be negative
 
   std::string list_list_types[] = {"ALISTList", "BLISTList"};
   for (unsigned ls = 0; ls < sizeof(list_list_types)/sizeof(std::string); ls++){
