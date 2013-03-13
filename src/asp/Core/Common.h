@@ -75,6 +75,7 @@ namespace asp {
     return new vw::DiskImageResourceGDAL(filename, image.impl().format(), opt.raster_tile_size, opt.gdal_options);
   }
 
+  // Block write image.
   template <class ImageT>
   void block_write_gdal_image( const std::string &filename,
                                vw::ImageViewBase<ImageT> const& image,
@@ -84,6 +85,7 @@ namespace asp {
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
 
+  // Block write image with georef.
   template <class ImageT>
   void block_write_gdal_image( const std::string &filename,
                                vw::ImageViewBase<ImageT> const& image,
@@ -95,6 +97,7 @@ namespace asp {
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
 
+  // Block write image with nodata.
   template <class ImageT, class NoDataT>
   void block_write_gdal_image( const std::string &filename,
                                vw::ImageViewBase<ImageT> const& image,
@@ -103,6 +106,20 @@ namespace asp {
                                vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
     boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
     rsrc->set_nodata_write(nodata);
+    vw::block_write_image( *rsrc, image.impl(), progress_callback );
+  }
+
+  // Block write image with nodata and georef.
+  template <class ImageT, class NoDataT>
+  void block_write_gdal_image( const std::string &filename,
+                               vw::ImageViewBase<ImageT> const& image,
+                               vw::cartography::GeoReference const& georef,
+                               NoDataT nodata,
+                               BaseOptions const& opt,
+                               vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
+    boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
+    rsrc->set_nodata_write(nodata);
+    vw::cartography::write_georeference(*rsrc, georef);
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
 
