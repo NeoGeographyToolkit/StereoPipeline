@@ -19,6 +19,10 @@
 import os, sys, string, subprocess, math, re, optparse
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
+import collections
+
+# Compare for equality two strings, arrays, etc.
+compare = lambda x, y: collections.Counter(x) == collections.Counter(y)
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -50,11 +54,15 @@ class BBox:
     def __repr__(self):
         return "BBox %i %i -> %i %i" % (self.minx,self.miny,self.maxx,self.maxy)
 
-# Returns [tlctime, tlclist, firstlinetime, image_size]
-def read_tlc( filename ):
+def read_xml( filename ):
+
     tree = ET.parse( filename )
     root = tree.getroot()
-    IMD = root.find("IMD")
+    IMD  = root.find("IMD")
+    GEO  = root.find("GEO")
+    EPH  = root.find("EPH")
+    ATT  = root.find("ATT")
+
     IMAGE = IMD.find("IMAGE")
     tlctime = datetime.strptime(IMAGE.find("TLCTIME").text.strip(),
                                     "%Y-%m-%dT%H:%M:%S.%fZ")
@@ -73,7 +81,28 @@ def read_tlc( filename ):
     image_size = []
     image_size.append( int(IMD.find("NUMCOLUMNS").text) )
     image_size.append( int(IMD.find("NUMROWS").text) )
-    return [tlctime, tlclist, firstlinetime, image_size]
+
+    DET_ARRAY = GEO.find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY")
+    pitch     = float(DET_ARRAY.find("DETPITCH").text)
+    originx   = DET_ARRAY.find("DETORIGINX").text
+    pd        = GEO.find("PRINCIPAL_DISTANCE").find("PD").text
+
+    # Note: We concatenate all eph values into one single array,
+    # the proper structure would be an array of arrays.
+    eph_list = []
+    for eph_item in EPH.find("EPHEMLISTList").findall("EPHEMLIST"):
+        tokens = eph_item.text.strip().split(' ')
+        eph_list.extend(tokens)
+
+    # Note: We concatenate all att values into one single array,
+    # the proper structure would be an array of arrays.
+    att_list = []
+    for att_item in ATT.find("ATTLISTList").findall("ATTLIST"):
+        tokens = att_item.text.strip().split(' ')
+        att_list.extend(tokens)
+
+    return [tlctime, tlclist, firstlinetime, image_size, pitch,
+            originx, pd, eph_list, att_list]
 
 def tlc_time_lookup( tlctime, tlclist, pixel_y ):
     fraction = (pixel_y - tlclist[0][0]) / (tlclist[1][0] - tlclist[0][0])
@@ -119,10 +148,13 @@ def main():
             parser.set_defaults(preview=False)
             parser.set_defaults(gdaldir="")
             parser.set_defaults(reduce_percent=100)
+            parser.set_defaults(output_prefix="")
             parser.add_option("--gdal-dir", dest="gdaldir",
                               help="Directory where GDAL tools are. Alternatively we try and pull the tools from the enviroment.")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="int",
                               help="Render a reduced output image and xml based on this percentage.")
+            parser.add_option("--output-prefix", dest="output_prefix", type="str",
+                              help="The prefix for the output .tif and .xml files.")
             parser.add_option("--preview", dest="preview",
                               action="store_true",
                               help="Render a small 8 bit png of the input for preview.")
@@ -139,17 +171,46 @@ def main():
 
         # We reference everything from the perspective of the first
         # image. So lets load it up first into our special variables.
-        [ref_tlctime, ref_tlclist, ref_firstlinetime, ref_image_size] = read_tlc( xml_name(args[0]) )
+        [ref_tlctime, ref_tlclist, ref_firstlinetime,
+         ref_image_size, ref_pitch, ref_originx, ref_pd,
+         ref_eph_list, ref_att_list] = read_xml( xml_name(args[0]) )
 
+        # orig_sizes[i] holds the original size of i-th image. After
+        # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
+        # store the new image size (and other stuff) in placements[i].
+        orig_sizes = []
         placements = []
+        orig_sizes.append(ref_image_size)
         val = [int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist, ref_firstlinetime)))]
         val.extend( ref_image_size )
         placements.append( val )
 
         for filename in args[1:]:
-            [tlctime, tlclist, firstlinetime, image_size] = read_tlc( xml_name(filename))
+            [tlctime, tlclist, firstlinetime,
+             image_size, pitch, originx, pd,
+             eph_list, att_list] = read_xml( xml_name(filename) )
+
+            # Sanity checks
+            if not compare(ref_originx, originx):
+                raise Exception('InputError', 'Must have the same originx in: '
+                                + xml_name(args[0]) + ' ' + xml_name(filename) )
+            if not compare(ref_pd, pd):
+                raise Exception('InputError', 'Must have the same pd in: '
+                                + xml_name(args[0]) + ' ' + xml_name(filename) )
+            if not compare(ref_eph_list, eph_list):
+                raise Exception('InputError', 'Must have the same ephem in: '
+                                + xml_name(args[0]) + ' ' + xml_name(filename) )
+            if not compare(ref_att_list, att_list):
+                raise Exception('InputError', 'Must have the same att in: '
+                                + xml_name(args[0]) + ' ' + xml_name(filename) )
+
+            orig_sizes.append(image_size)
+
+            pitch_ratio = pitch/ref_pitch
+            scaled_image_size = [int(round(image_size[0]*pitch_ratio)), int(round(image_size[1]*pitch_ratio))]
+
             val = [int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist, firstlinetime)))]
-            val.extend( image_size )
+            val.extend( scaled_image_size )
             placements.append( val )
 
         boundary = BBox()
@@ -182,10 +243,11 @@ def main():
         # Table lookup
         #
         # We need to perform a LUT and then a nodata mask
-        output_prefix = args[0].split('-')[-1].split('.')[0]
+        if options.output_prefix == "":
+            options.output_prefix = args[0].split('-')[-1].split('.')[0]
 
         # Write the VRT that composites these JP2 images together
-        with open(output_prefix+".vrt",'w') as f:
+        with open(options.output_prefix+".vrt",'w') as f:
             f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (boundary.width(),boundary.height()))
             f.write("  <VRTRasterBand dataType=\"UInt16\" band=\"1\">\n")
             f.write("    <ColorInterp>Gray</ColorInterp>\n")
@@ -196,8 +258,9 @@ def main():
                 f.write("      <SourceBand>1</SourceBand>\n")
                 f.write("      <LUT>0:0,4:0,5:5,4096:4096</LUT>\n")
                 f.write("      <NODATA>0</NODATA>\n")
-                f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i][1],placements[i][2]))
-                f.write("      <DstRect xOff=\"0\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i][0],placements[i][1],placements[i][2]))
+                f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (orig_sizes[i][0],orig_sizes[i][1]))
+                f.write("      <DstRect xOff=\"0\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i][0], placements[i][1], placements[i][2]))
+
                 f.write("    </ComplexSource>\n")
             f.write("  </VRTRasterBand>\n")
             f.write("</VRTDataset>\n")
@@ -214,25 +277,26 @@ def main():
             tlc_item.text = " ".join(tokens)
         first_line_item = root.find("IMD").find("IMAGE").find("FIRSTLINETIME")
         first_line_item.text = tlc_time_lookup( ref_tlctime, ref_tlclist, boundary.miny ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        imd.remove( imd.find("BAND_P") )
-        root.remove( root.find("TIL") ) # TIL no longer applies
-        root.remove( root.find("RPB") ) # The RPC model no longer applies
-        tree.write(output_prefix+".xml")
+
+        if imd.find("BAND_P") != None: imd.remove( imd.find ("BAND_P") )
+        if root.find("TIL")   != None: root.remove( root.find("TIL") ) # TIL no longer applies
+        if root.find("RPB")   != None: root.remove( root.find("RPB") ) # The RPC model no longer applies
+        tree.write(options.output_prefix+".xml")
 
         # Raster into a TIFF at full resolution. If we lower the
-        # resolution now .. we'll develop raster errors on the nodata
+        # resolution now, we'll develop raster errors on the nodata
         # portions of the input. I'm not sure why this happens.
-        cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -co TILED=yes -co COMPRESS=lzw %s.vrt %s.tif" % (options.gdaldir,output_prefix,output_prefix)
+        cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -co TILED=yes -co COMPRESS=lzw %s.vrt %s.tif" % (options.gdaldir,options.output_prefix,options.output_prefix)
         run_cmd( cmd, options )
 
         # Render reduced image and reduced xml
         if options.reduce_percent != 100:
-            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -outsize %i%% %i%% -co TILED=yes -co COMPRESS=lzw %s.tif %s.r%i.tif" % (options.gdaldir,options.reduce_percent,options.reduce_percent,output_prefix,output_prefix,options.reduce_percent)
+            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -outsize %i%% %i%% -co TILED=yes -co COMPRESS=lzw %s.tif %s.r%i.tif" % (options.gdaldir,options.reduce_percent,options.reduce_percent,options.output_prefix,options.output_prefix,options.reduce_percent)
             run_cmd( cmd, options )
 
             scale = options.reduce_percent / 100.0
 
-            tree = ET.parse(output_prefix+".xml")
+            tree = ET.parse(options.output_prefix+".xml")
             root = tree.getroot()
             # Update NumRows and NumColumns
             imd = root.find("IMD")
@@ -251,11 +315,11 @@ def main():
             # Update Detector Pitch
             pitch = root.find("GEO").find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY").find("DETPITCH")
             pitch.text = str(float(pitch.text) / scale)
-            tree.write(output_prefix+".r%i.xml" % options.reduce_percent )
+            tree.write(options.output_prefix+".r%i.xml" % options.reduce_percent )
 
         # Make a preview image
         if options.preview:
-            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize 5%% 5%% %s.tif %s.small.png" % (options.gdaldir,output_prefix,output_prefix)
+            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize 5%% 5%% %s.tif %s.small.png" % (options.gdaldir,options.output_prefix,options.output_prefix)
             run_cmd( cmd, options )
 
     except Usage, err:
