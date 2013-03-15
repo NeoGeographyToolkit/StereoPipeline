@@ -108,6 +108,8 @@ void lowres_correlation( Options & opt ) {
   // Working out search range if need be
   if (stereo_settings().is_search_defined()) {
     vw_out() << "\t--> Using user-defined search range.\n";
+  }else if (stereo_settings().seed_mode == 2){
+    // Do nothing as we will compute the search range based on D_sub
   } else {
 
     // Match file between the input files
