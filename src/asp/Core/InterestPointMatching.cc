@@ -211,11 +211,11 @@ namespace asp {
     Matrix<double> H = ransac( right_points, left_points );
     std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
 
+    check_homography_matrix(H, left_points, right_points, indices);
+
     VW_OUT( DebugMessage, "asp" ) << "Projected " << left_points.size()
                                   << " rays for rough homography.\n";
     VW_OUT( DebugMessage, "asp" ) << "Number of inliers: " << indices.size() << ".\n";
-
-    check_homography_matrix(H, left_points, right_points, indices);
 
     return H;
   }
