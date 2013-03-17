@@ -270,6 +270,7 @@ public:
   inline prerasterize_type prerasterize_helper(BBox2i const& bbox) const {
 
     // User strategies
+    BBox2f local_search_range;
     if ( stereo_settings().seed_mode == 1 || stereo_settings().seed_mode == 2 ) {
       BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
                         elem_quot(bbox.max(), m_upscale_factor) );
@@ -277,7 +278,7 @@ public:
       seed_bbox.crop( m_seed_bbox );
       VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
 
-      BBox2f local_search_range =
+      local_search_range =
         stereo::get_disparity_range( crop( m_sub_disparity, seed_bbox ) );
 
 
@@ -300,27 +301,22 @@ public:
       local_search_range.max() = ceil(elem_prod(local_search_range.max(), m_upscale_factor));
 
       VW_OUT(DebugMessage, "stereo") << "SeededCorrelatorView(" << bbox << ") search range "
-                                     << local_search_range << " vs " << stereo_settings().search_range
-                                     << "\n";
+                                     << local_search_range << " vs "
+                                     << stereo_settings().search_range << "\n";
 
-      typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
-      CorrView corr_view( m_left_image, m_right_image,
-                          m_left_mask, m_right_mask,
-                          m_preproc_func, local_search_range,
-                          stereo_settings().corr_kernel, m_cost_mode,
-                          stereo_settings().xcorr_threshold,
-                          stereo_settings().corr_max_levels );
-
-      return corr_view.prerasterize( bbox );
-    } else if ( stereo_settings().seed_mode != 0 ) {
-      vw_throw( ArgumentErr() << "stereo_corr: Invalid value for seed-mode: " << stereo_settings().seed_mode << ".\n" );
+    } else if ( stereo_settings().seed_mode == 0 ) {
+      local_search_range = stereo_settings().search_range;
+      VW_OUT(DebugMessage,"stereo") << "Searching with " << stereo_settings().search_range << "\n";
+    }else{
+      vw_throw( ArgumentErr() << "stereo_corr: Invalid value for seed-mode: "
+                << stereo_settings().seed_mode << ".\n" );
     }
 
-    VW_OUT(DebugMessage,"stereo") << "Searching with " << stereo_settings().search_range << "\n";
+
     typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
     CorrView corr_view( m_left_image, m_right_image,
                         m_left_mask, m_right_mask,
-                        m_preproc_func, stereo_settings().search_range,
+                        m_preproc_func, local_search_range,
                         stereo_settings().corr_kernel, m_cost_mode,
                         stereo_settings().xcorr_threshold,
                         stereo_settings().corr_max_levels );
@@ -370,9 +366,9 @@ void stereo_correlation( Options& opt ) {
     vw_out() << "\t   Search Range:   "
              << stereo_settings().search_range << std::endl;
   vw_out()   << "\t   Cost Mode:      " << stereo_settings().cost_mode << std::endl;
-  vw_out(DebugMessage) << "\t   XCorr Thresh: " << stereo_settings().xcorr_threshold << std::endl;
-  vw_out(DebugMessage) << "\t   Prefilter:    " << stereo_settings().pre_filter_mode << std::endl;
-  vw_out(DebugMessage) << "\t   Prefilter Sz: " << stereo_settings().slogW << std::endl;
+  vw_out(DebugMessage) << "\t   XCorr Threshold: " << stereo_settings().xcorr_threshold << std::endl;
+  vw_out(DebugMessage) << "\t   Prefilter:       " << stereo_settings().pre_filter_mode << std::endl;
+  vw_out(DebugMessage) << "\t   Prefilter Size:  " << stereo_settings().slogW << std::endl;
   vw_out() << "\t--------------------------------------------------\n";
 
   // Load up for the actual native resolution processing
