@@ -267,9 +267,9 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
       vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     }
 
-    std::vector<ip::InterestPoint> ip1, ip2;
-    ip::read_binary_match_file( match_filename, ip1, ip2  );
-    align_matrix = homography_fit(ip2, ip1, bounding_box(DiskImageView<float>(left_input_file)) );
+    std::vector<ip::InterestPoint> left_ip, right_ip;
+    ip::read_binary_match_file( match_filename, left_ip, right_ip  );
+    align_matrix = homography_fit(right_ip, left_ip, bounding_box(DiskImageView<float>(left_input_file)) );
 
     write_matrix( m_out_prefix + "-align.exr", align_matrix );
     vw_out() << "\t--> Aligning right image to left using homography:\n"
@@ -401,9 +401,9 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
 
   ImageViewRef<PixelMask<Vector2f> > result;
   if ( stereo_settings().alignment_method == "homography" ) {
-    // We used a homography to line up the images, we may want
-    // to generate pre-alignment disparities before passing this information
-    // onto the camera model in the next stage of the stereo pipeline.
+    // We used a homography to line up the images, so we must undo the
+    // homography transform in the disparity_map before triangulation
+    // happens.
     Matrix<double> align_matrix;
     read_matrix(align_matrix, m_out_prefix + "-align.exr");
     vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";

@@ -204,13 +204,11 @@ namespace asp {
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
       ransac( hfit_func(), math::InterestPointErrorMetric(),
               100, // num iterations
-              norm_2(Vector2(box1.height(),box1.width())) / 10, // inlier threshold
+              norm_2(Vector2(box1.width(),box1.height())) / 10, // inlier threshold
               left_points.size()/2 // min output inliers
               );
-
     Matrix<double> H = ransac( right_points, left_points );
     std::vector<size_t> indices = ransac.inlier_indices(H, right_points, left_points);
-
     check_homography_matrix(H, left_points, right_points, indices);
 
     VW_OUT( DebugMessage, "asp" ) << "Projected " << left_points.size()
@@ -221,32 +219,31 @@ namespace asp {
   }
 
   vw::Matrix<double>
-  homography_fit( std::vector<vw::ip::InterestPoint> const& ip1,
-                  std::vector<vw::ip::InterestPoint> const& ip2,
-                  vw::BBox2i const& image_size ) {
+  homography_fit( std::vector<vw::ip::InterestPoint> const& right_ip,
+                  std::vector<vw::ip::InterestPoint> const& left_ip,
+                  vw::BBox2i const& left_image_size ) {
     using namespace vw;
 
-    std::vector<Vector3>  copy1, copy2;
-    copy1.reserve( ip1.size() );
-    copy2.reserve( ip1.size() );
-    for ( size_t i = 0; i < ip1.size(); i++ ) {
-      copy1.push_back( Vector3(ip1[i].x, ip1[i].y, 1) );
-      copy2.push_back( Vector3(ip2[i].x, ip2[i].y, 1) );
+    std::vector<Vector3>  right_copy, left_copy;
+    right_copy.reserve( right_ip.size() );
+    left_copy.reserve( right_ip.size() );
+    for ( size_t i = 0; i < right_ip.size(); i++ ) {
+      right_copy.push_back( Vector3(right_ip[i].x, right_ip[i].y, 1) );
+      left_copy.push_back( Vector3(left_ip[i].x, left_ip[i].y, 1) );
     }
 
     typedef math::HomographyFittingFunctor hfit_func;
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
       ransac( hfit_func(), math::InterestPointErrorMetric(),
               100, // num iter
-              norm_2(Vector2(image_size.width(),image_size.height())) / 10, // inlier threshold
-              copy1.size()/2 // min output inliers
+              norm_2(Vector2(left_image_size.width(),left_image_size.height())) / 10, // inlier threshold
+              left_copy.size()/2 // min output inliers
               );
+    Matrix<double> H = ransac(right_copy, left_copy);
+    std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
+    check_homography_matrix(H, left_copy, right_copy, indices);
 
-    Matrix<double> H = ransac(copy1, copy2);
-    std::vector<size_t> indices = ransac.inlier_indices(H, copy1, copy2);
-    check_homography_matrix(H, copy1, copy2, indices);
-
-    return hfit_func()(copy1, copy2, H);
+    return hfit_func()(right_copy, left_copy, H);
   }
 
   bool

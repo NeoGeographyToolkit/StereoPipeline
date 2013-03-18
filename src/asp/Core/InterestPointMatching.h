@@ -121,9 +121,9 @@ namespace asp {
 
   // Homography fit to interest points
   vw::Matrix<double>
-  homography_fit( std::vector<vw::ip::InterestPoint> const& ip1,
-                  std::vector<vw::ip::InterestPoint> const& ip2,
-                  vw::BBox2i const& image_size );
+  homography_fit( std::vector<vw::ip::InterestPoint> const& right_ip,
+                  std::vector<vw::ip::InterestPoint> const& left_ip,
+                  vw::BBox2i const& left_image_size );
 
 
   // Detect InterestPoints

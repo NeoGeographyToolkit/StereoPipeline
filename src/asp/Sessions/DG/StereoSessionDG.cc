@@ -425,10 +425,10 @@ namespace asp {
         vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       }
 
-      std::vector<ip::InterestPoint> ip1, ip2;
-      ip::read_binary_match_file( match_filename, ip1, ip2  );
+      std::vector<ip::InterestPoint> left_ip, right_ip;
+      ip::read_binary_match_file( match_filename, left_ip, right_ip  );
       Matrix<double> align_matrix =
-        homography_fit(ip2, ip1, bounding_box(left_disk_image) );
+        homography_fit(right_ip, left_ip, bounding_box(left_disk_image) );
       write_matrix( m_out_prefix + "-align.exr", align_matrix );
 
       vw_out() << "\t--> Aligning right image to left using homography:\n"
