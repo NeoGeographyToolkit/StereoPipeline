@@ -9,6 +9,7 @@
 
 set brew_root = /usr/local
 set src_root = /Users/dshean
+set np = 8
 
 echo
 echo "Building VW"
@@ -28,6 +29,8 @@ cd $vwsrcdir
 #git pull
 git fetch --all
 git rebase upstream/master
+
+#Check status
 
 set commit_id = `git log upstream/master -n 1 --pretty=format:%H | cut -c 1-7`
 set vwdstdir = "${vwdstdir_root}/vw_${commit_id}"
@@ -52,7 +55,7 @@ if ($status) goto failed
 echo
 make clean
 echo
-make -j 8
+make -j $np 
 
 if ($status) goto failed
 
@@ -84,7 +87,11 @@ cd $aspsrcdir
 
 #git reset --hard HEAD
 #git clean -f
-git pull
+
+git fetch --all
+git rebase upstream/master
+
+#Check status
 
 set commit_id = `git log upstream/master -n 1 --pretty=format:%H | cut -c 1-7`
 set aspdstdir = "${aspdstdir_root}/asp_${commit_id}"
@@ -104,7 +111,7 @@ if ($status) goto failed
 echo
 make clean
 echo
-make -j 2
+make -j $np 
 
 if ($status) goto failed
 
