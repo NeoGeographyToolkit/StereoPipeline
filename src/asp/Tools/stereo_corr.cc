@@ -26,10 +26,12 @@
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
+#include <vw/Stereo/DisparityMap.h>
 
 #include <asp/Core/DemDisparity.h>
 
 using namespace vw;
+using namespace vw::stereo;
 using namespace asp;
 
 namespace vw {
@@ -185,6 +187,101 @@ void lowres_correlation( Options & opt ) {
            << " ] : LOW-RESOLUTION CORRELATION FINISHED \n";
 }
 
+void split_n_into_k(int n, int k, std::vector<int> & partition){
+
+  // We would like to split the numbers 0, ..., n - 1
+  // into k buckets of approximately equal size.
+  // For example, for n = 8 and k = 3, we will
+  // have the split
+  // {0, 1, 2}, {3, 4, 5}, {6, 7}.
+
+  VW_ASSERT(n >= k && k > 0, ArgumentErr() << "split_n_into_k: Must have n >= k && k > 0.\n");
+  int rem = n % k;
+  int dx0 = n / k;
+
+  partition.clear();
+  int start = 0;
+  for (int i = 0; i < k; i++){
+    int dx = dx0;
+    if (rem > 0){
+      dx++;
+      rem--;
+    }
+    partition.push_back(start);
+    start += dx;
+  }
+  partition.push_back(start);
+
+}
+
+// Given a disparity map restricted to a subregion, find the homography
+// transform which aligns best the two images based on this disparity.
+template<class SeedDispT>
+Matrix<double> homography_for_disparity(BBox2i subregion,
+                                        SeedDispT const& disparity){
+
+  VW_ASSERT(subregion.width() == disparity.cols() &&
+            subregion.height() == disparity.rows(),
+            ArgumentErr() << "homography_for_disparity: "
+            << "The sizes of subregion and disparity don't match.\n");
+
+  // To do: Find the bounding box of the region with valid disparities first!
+  // Even that one may not be enough!
+
+  // We will split the subregion into N x N boxes, and average the
+  // disparity in each box, to reduce the run-time.
+  int N = 10;
+
+  std::vector<int> partitionx, partitiony;
+  split_n_into_k(disparity.cols(), std::min(disparity.cols(), N), partitionx);
+  split_n_into_k(disparity.rows(), std::min(disparity.rows(), N), partitiony);
+
+  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+  for (int ix = 0; ix < (int)partitionx.size()-1; ix++){
+    for (int iy = 0; iy < (int)partitiony.size()-1; iy++){
+
+      // First sum up the disparities in each subbox.
+      double lx = 0, ly = 0, rx = 0, ry = 0, count = 0; // int may cause overflow
+      for (int x = partitionx[ix]; x < partitionx[ix+1]; x++){
+        for (int y = partitiony[iy]; y < partitiony[iy+1]; y++){
+
+          typename SeedDispT::pixel_type disp = disparity(x, y);
+          if (!is_valid(disp)) continue;
+          lx += x; rx += (x + disp.child().x());
+          ly += y; ry += (y + disp.child().y());
+          count++;
+        }
+      }
+      if (count == 0) continue; // no valid points
+
+      // Do the averaging. We must add the box corner to the left and
+      // right interest points.
+      vw::ip::InterestPoint l, r;
+      l.x = subregion.min().x() + lx/count; r.x = subregion.min().x() + rx/count;
+      l.y = subregion.min().y() + ly/count; r.y = subregion.min().y() + ry/count;
+      left_ip.push_back(l);
+      right_ip.push_back(r);
+    }
+  }
+
+  if (left_ip.empty()) return math::identity_matrix<3>();
+  try {
+    //std::cout << "good box: " << subregion.width() << ' ' << subregion.height() << ' ' << subregion << std::endl;
+    for (int k = 0; k < (int)left_ip.size(); k++){
+      //std::cout << k << " " << left_ip[k].x << ' ' << left_ip[k].y << ' ' << right_ip[k].x << ' ' << right_ip[k].y << std::endl;
+    }
+    return homography_fit(right_ip, left_ip, bounding_box(disparity));
+  }catch ( const ArgumentErr& e ){
+    std::cout << "error here: " << e.what() << std::endl;
+    std::cout << "bad box: " << subregion.width() << ' ' << subregion.height() << ' ' << subregion << std::endl;
+    for (int k = 0; k < (int)left_ip.size(); k++){
+      //std::cout << k << "----bad " << left_ip[k].x << ' ' << left_ip[k].y << ' ' << right_ip[k].x << ' ' << right_ip[k].y << std::endl;
+    }
+  }
+  return math::identity_matrix<3>();
+
+}
+
 // This correlator takes a low resolution disparity image as an input
 // so that it may narrow its search range for each tile that is
 // processed.
@@ -269,26 +366,103 @@ public:
 
   inline prerasterize_type prerasterize_helper(BBox2i const& bbox) const {
 
+    char * ptr = getenv("LOCAL");
+    bool use_local_homography = ptr && atoi(ptr);
+    std::cout << "use_local_homography is " << use_local_homography << std::endl;
+
+    Matrix<double> lowres_hom  = math::identity_matrix<3>();
+    Matrix<double> fullres_hom = math::identity_matrix<3>();
+    ImageViewRef<typename Image2T::pixel_type> right_trans_img;
+    ImageViewRef<typename Mask2T::pixel_type> right_trans_mask;
+
     // User strategies
     BBox2f local_search_range;
     if ( stereo_settings().seed_mode == 1 || stereo_settings().seed_mode == 2 ) {
+
+      // The low-res version of bbox
       BBox2i seed_bbox( elem_quot(bbox.min(), m_upscale_factor),
                         elem_quot(bbox.max(), m_upscale_factor) );
+      if (use_local_homography){
+        // Expand the box until square to make sure the local homography
+        // calculation does not fail.
+        int len = std::max(seed_bbox.width(), seed_bbox.height());
+        seed_bbox = BBox2i(seed_bbox.max() - Vector2(len, len), seed_bbox.max());
+      }
+
       seed_bbox.expand(1);
       seed_bbox.crop( m_seed_bbox );
-      VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : " << seed_bbox << "\n";
+      VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : "
+                                     << seed_bbox << "\n";
 
-      local_search_range =
-        stereo::get_disparity_range( crop( m_sub_disparity, seed_bbox ) );
+      SeedDispT disparity_in_box = crop( m_sub_disparity, seed_bbox );
 
+      if (!use_local_homography){
+        local_search_range = stereo::get_disparity_range( disparity_in_box );
+      }else{
+        lowres_hom = homography_for_disparity(seed_bbox, disparity_in_box);
+        local_search_range = stereo::get_disparity_range
+          (transform_disparities(seed_bbox, lowres_hom, disparity_in_box));
+      }
 
       if (stereo_settings().seed_mode == 2){
         // Expand the disparity range by the disparity spread computed
         // from input DEM.
-        BBox2f spread =
-          stereo::get_disparity_range( crop( m_sub_disparity_spread, seed_bbox ) );
-        local_search_range.min() -= spread.max();
-        local_search_range.max() += spread.max();
+
+        SeedDispT spread_in_box = crop( m_sub_disparity_spread, seed_bbox );
+
+        if (!use_local_homography){
+          BBox2f spread = stereo::get_disparity_range( spread_in_box );
+          local_search_range.min() -= spread.max();
+          local_search_range.max() += spread.max();
+        }else{
+          SeedDispT upper_disp
+            = transform_disparities(seed_bbox, lowres_hom,
+                                    disparity_in_box + spread_in_box);
+          SeedDispT lower_disp
+            = transform_disparities(seed_bbox, lowres_hom,
+                                    disparity_in_box - spread_in_box);
+          BBox2f upper_range = stereo::get_disparity_range(upper_disp);
+          BBox2f lower_range = stereo::get_disparity_range(lower_disp);
+
+          local_search_range = upper_range;
+          local_search_range.grow(lower_range);
+        }
+      }
+
+      //std::cout << "local search range is " << local_search_range << std::endl;
+
+      // Must adjust local_search_range if we use local disparity!
+      if (use_local_homography){
+        Vector3 upscale( m_upscale_factor[0], m_upscale_factor[1], 1 );
+        Vector3 dnscale( 1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1 );
+        fullres_hom = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
+
+        //std::cout << "-- fullres hom is " << fullres_hom << std::endl;
+        ImageViewRef< PixelMask<typename Image2T::pixel_type> >
+          right_trans_masked_img = transform (copy_mask( m_right_image.impl(),
+                                                         create_mask(m_right_mask.impl()) ),
+                                              HomographyTransform(fullres_hom),
+                                              m_left_image.impl().cols(),
+                                              m_left_image.impl().rows());
+        right_trans_img  = apply_mask(right_trans_masked_img);
+        right_trans_mask = channel_cast_rescale<uint8>(select_channel(right_trans_masked_img, 1));
+
+#if 0
+      return prerasterize_type(ImageView<pixel_type>(bbox.width(),
+                                                     bbox.height()),
+                               -bbox.min().x(), -bbox.min().y(),
+                               cols(), rows() );
+#endif
+
+#if 0
+        std::ostringstream is;
+        is << (bbox.min().x()) << "_" << bbox.min().y()
+           << "_" << bbox.width() << "_" << bbox.height();
+        std::string pr = is.str();
+        write_image(pr + "left.tif", crop(m_left_image.impl(), bbox));
+        write_image(pr + "right.tif", crop(m_right_image.impl(), bbox));
+        write_image(pr + "trans_right.tif", crop(right_trans_img, bbox));
+#endif
       }
 
       local_search_range = grow_bbox_to_int(local_search_range);
@@ -297,10 +471,13 @@ public:
       // range was supposed to be a fraction of integer bigger.
       local_search_range.expand(1);
       // Scale the search range to full-resolution
-      local_search_range.min() = floor(elem_prod(local_search_range.min(), m_upscale_factor));
-      local_search_range.max() = ceil(elem_prod(local_search_range.max(), m_upscale_factor));
+      local_search_range.min() = floor(elem_prod(local_search_range.min(),
+                                                 m_upscale_factor));
+      local_search_range.max() = ceil(elem_prod(local_search_range.max(),
+                                                m_upscale_factor));
 
-      VW_OUT(DebugMessage, "stereo") << "SeededCorrelatorView(" << bbox << ") search range "
+      VW_OUT(DebugMessage, "stereo") << "SeededCorrelatorView("
+                                     << bbox << ") search range "
                                      << local_search_range << " vs "
                                      << stereo_settings().search_range << "\n";
 
@@ -312,16 +489,29 @@ public:
                 << stereo_settings().seed_mode << ".\n" );
     }
 
-
-    typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
-    CorrView corr_view( m_left_image, m_right_image,
-                        m_left_mask, m_right_mask,
-                        m_preproc_func, local_search_range,
-                        stereo_settings().corr_kernel, m_cost_mode,
-                        stereo_settings().xcorr_threshold,
-                        stereo_settings().corr_max_levels );
-
-    return corr_view.prerasterize( bbox );
+    if (use_local_homography){
+      typedef stereo::PyramidCorrelationView<Image1T, ImageViewRef<typename Image2T::pixel_type>, Mask1T,ImageViewRef<typename Mask2T::pixel_type>, PProcT> CorrView;
+      CorrView corr_view( m_left_image, right_trans_img,
+                          m_left_mask, right_trans_mask,
+                          m_preproc_func, local_search_range,
+                          stereo_settings().corr_kernel, m_cost_mode,
+                          stereo_settings().xcorr_threshold,
+                          stereo_settings().corr_max_levels );
+      return prerasterize_type
+        (transform_disparities(bbox, inverse(fullres_hom),
+                               crop(corr_view.prerasterize(bbox), bbox)),
+         -bbox.min().x(), -bbox.min().y(),
+         cols(), rows() );
+    }else{
+      typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
+      CorrView corr_view( m_left_image, m_right_image,
+                          m_left_mask, m_right_mask,
+                          m_preproc_func, local_search_range,
+                          stereo_settings().corr_kernel, m_cost_mode,
+                          stereo_settings().xcorr_threshold,
+                          stereo_settings().corr_max_levels );
+      return corr_view.prerasterize(bbox);
+    }
   }
 
   template <class DestT>
