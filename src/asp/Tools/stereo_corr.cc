@@ -264,19 +264,10 @@ Matrix<double> homography_for_disparity(BBox2i subregion,
     }
   }
 
-  if (left_ip.empty()) return math::identity_matrix<3>();
   try {
-    //std::cout << "good box: " << subregion.width() << ' ' << subregion.height() << ' ' << subregion << std::endl;
-    for (int k = 0; k < (int)left_ip.size(); k++){
-      //std::cout << k << " " << left_ip[k].x << ' ' << left_ip[k].y << ' ' << right_ip[k].x << ' ' << right_ip[k].y << std::endl;
-    }
     return homography_fit(right_ip, left_ip, bounding_box(disparity));
   }catch ( const ArgumentErr& e ){
-    std::cout << "error here: " << e.what() << std::endl;
-    std::cout << "bad box: " << subregion.width() << ' ' << subregion.height() << ' ' << subregion << std::endl;
-    for (int k = 0; k < (int)left_ip.size(); k++){
-      //std::cout << k << "----bad " << left_ip[k].x << ' ' << left_ip[k].y << ' ' << right_ip[k].x << ' ' << right_ip[k].y << std::endl;
-    }
+    // Will return the identity matrix.
   }
   return math::identity_matrix<3>();
 
@@ -429,15 +420,11 @@ public:
         }
       }
 
-      //std::cout << "local search range is " << local_search_range << std::endl;
-
-      // Must adjust local_search_range if we use local disparity!
       if (use_local_homography){
         Vector3 upscale( m_upscale_factor[0], m_upscale_factor[1], 1 );
         Vector3 dnscale( 1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1 );
         fullres_hom = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
 
-        //std::cout << "-- fullres hom is " << fullres_hom << std::endl;
         ImageViewRef< PixelMask<typename Image2T::pixel_type> >
           right_trans_masked_img = transform (copy_mask( m_right_image.impl(),
                                                          create_mask(m_right_mask.impl()) ),
@@ -446,23 +433,6 @@ public:
                                               m_left_image.impl().rows());
         right_trans_img  = apply_mask(right_trans_masked_img);
         right_trans_mask = channel_cast_rescale<uint8>(select_channel(right_trans_masked_img, 1));
-
-#if 0
-      return prerasterize_type(ImageView<pixel_type>(bbox.width(),
-                                                     bbox.height()),
-                               -bbox.min().x(), -bbox.min().y(),
-                               cols(), rows() );
-#endif
-
-#if 0
-        std::ostringstream is;
-        is << (bbox.min().x()) << "_" << bbox.min().y()
-           << "_" << bbox.width() << "_" << bbox.height();
-        std::string pr = is.str();
-        write_image(pr + "left.tif", crop(m_left_image.impl(), bbox));
-        write_image(pr + "right.tif", crop(m_right_image.impl(), bbox));
-        write_image(pr + "trans_right.tif", crop(right_trans_img, bbox));
-#endif
       }
 
       local_search_range = grow_bbox_to_int(local_search_range);
