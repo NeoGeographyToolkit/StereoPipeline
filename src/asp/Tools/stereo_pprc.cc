@@ -222,14 +222,9 @@ void stereo_preprocessing( Options& opt ) {
     if ( sub_tile_size > vw_settings().default_tile_size() )
       sub_tile_size = vw_settings().default_tile_size();
 
-    // Change writing parameters to ideal threads and tiles
     vw_out() << "\t--> Creating previews. Subsampling by " << sub_scale
              << " by using " << sub_tile_size << " tile size and "
              << sub_threads << " threads.\n";
-    Vector2i previous_tile_size = opt.raster_tile_size;
-    opt.raster_tile_size = Vector2i(sub_tile_size,sub_tile_size);
-    uint32 previous_num_threads = vw_settings().default_num_threads();
-    vw_settings().set_default_num_threads(sub_threads);
 
     // Resample the images and the masks. We must use the masks when
     // resampling the images to interpolate correctly around invalid
@@ -244,15 +239,15 @@ void stereo_preprocessing( Options& opt ) {
     if ( sub_scale > 0.5 ) {
       // When we are near the pixel input to output ratio, standard
       // interpolation gives the best possible results.
-      left_sub_image  = resample(copy_mask(left_image,  create_mask(left_mask)),  sub_scale);
-      right_sub_image = resample(copy_mask(right_image, create_mask(right_mask)), sub_scale);
+      left_sub_image  = block_rasterize(resample(copy_mask(left_image,  create_mask(left_mask)),  sub_scale), sub_tile_size, sub_threads);
+      right_sub_image = block_rasterize(resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), sub_tile_size, sub_threads);
     } else {
       // When we heavily reduce the image size, super sampling seems
       // like the best approach. The method below should be equivalent.
       left_sub_image
-        = cache_tile_aware_render(resample_aa( copy_mask(left_image,create_mask(left_mask)), sub_scale), Vector2i(256,256) * sub_scale);
+        = block_rasterize(cache_tile_aware_render(resample_aa( copy_mask(left_image,create_mask(left_mask)), sub_scale), Vector2i(256,256) * sub_scale), sub_tile_size, sub_threads);
       right_sub_image
-        = cache_tile_aware_render(resample_aa( copy_mask(right_image,create_mask(right_mask)), sub_scale), Vector2i(256,256) * sub_scale);
+        = block_rasterize(cache_tile_aware_render(resample_aa( copy_mask(right_image,create_mask(right_mask)), sub_scale), Vector2i(256,256) * sub_scale), sub_tile_size, sub_threads);
     }
 
     asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
@@ -267,9 +262,6 @@ void stereo_preprocessing( Options& opt ) {
     asp::block_write_gdal_image( opt.out_prefix+"-rMask_sub.tif",
                                  channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)), opt,
                                  TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
-
-    opt.raster_tile_size = previous_tile_size;
-    vw_settings().set_default_num_threads(previous_num_threads);
   }
 }
 
