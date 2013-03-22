@@ -189,7 +189,7 @@ IsisAdjustCameraModel::camera_pose( Vector2 const& pix ) const {
 
 std::string IsisAdjustCameraModel::serial_number() const {
   Isis::Pvl copy( m_label );
-  return Isis::SerialNumber::Compose( copy, true );
+  return Isis::SerialNumber::Compose( copy, true ).toStdString();
 }
 
 double IsisAdjustCameraModel::ephemeris_time( Vector2 const& pix ) const {

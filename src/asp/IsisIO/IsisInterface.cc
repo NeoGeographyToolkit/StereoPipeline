@@ -40,9 +40,9 @@ using namespace asp::isis;
 
 IsisInterface::IsisInterface( std::string const& file ) {
   // Opening labels and camera
-  Isis::FileName cubefile( file.c_str() );
+  Isis::FileName ifilename( QString::fromStdString(file) );
   m_label.reset( new Isis::Pvl() );
-  m_label->Read( cubefile.expanded() );
+  m_label->Read( ifilename.expanded() );
 
   // Opening Isis::Camera
   m_camera.reset(Isis::CameraFactory::Create( *m_label ));
@@ -52,9 +52,9 @@ IsisInterface::~IsisInterface() {}
 
 IsisInterface* IsisInterface::open( std::string const& filename ) {
   // Opening Labels (This should be done somehow though labels)
-  Isis::FileName cubefile( filename.c_str() );
+  Isis::FileName ifilename( QString::fromStdString(filename) );
   Isis::Pvl label;
-  label.Read( cubefile.expanded() );
+  label.Read( ifilename.expanded() );
 
   Isis::Camera* camera = Isis::CameraFactory::Create( label );
 
@@ -92,7 +92,7 @@ int IsisInterface::samples() const {
 
 std::string IsisInterface::serial_number() const {
   Isis::Pvl copy( *m_label );
-  return Isis::SerialNumber::Compose( copy, true );
+  return Isis::SerialNumber::Compose( copy, true ).toStdString();
 }
 
 double IsisInterface::ephemeris_time( vw::Vector2 const& pix ) const {
