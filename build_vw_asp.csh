@@ -11,12 +11,16 @@ set brew_root = /usr/local
 set src_root = /Users/dshean
 set np = 8
 
-echo
-echo "Building VW"
-echo
+setenv CC /usr/local/bin/gcc-4.7
+setenv CPP /usr/local/bin/cpp-4.7
+setenv CC /usr/local/bin/g++-4.7
 
 #setenv CPPFLAGS "-I${brew_root}/include"
 #setenv LDFLAGS "-L${brew_root}/lib"
+
+echo
+echo "Building VW"
+echo
 
 #Vision Workbench
 set vwsrcdir = $src_root/src/visionworkbench
