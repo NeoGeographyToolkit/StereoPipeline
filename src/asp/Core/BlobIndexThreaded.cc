@@ -20,15 +20,11 @@
 ///
 
 #include <asp/Core/BlobIndexThreaded.h>
+#include <boost/foreach.hpp>
 
 using namespace vw;
 using namespace blob;
 
-// BLOB COMPRESSED
-///////////////////////////////////////////
-
-// shift_x(..)
-//----------------------------
 void BlobCompressed::shift_x( int32 const& value ) {
   for ( uint32 i = 0; i < m_row_end.size(); i++ )
     for ( std::list<int32>::iterator iter_start = m_row_start[i].begin(),
@@ -40,8 +36,6 @@ void BlobCompressed::shift_x( int32 const& value ) {
   m_min[0] += value;
 }
 
-// refactor()
-//----------------------------
 void BlobCompressed::refactor() {
   for ( uint32 i = 0; i < m_row_end.size(); i++ ) {
     std::list<int32>::iterator iter_n_start = m_row_start[i].begin(),
@@ -59,8 +53,6 @@ void BlobCompressed::refactor() {
   }
 }
 
-// size()
-//----------------------------
 int32 BlobCompressed::size() const {
   int32 sum = 0;
   for ( uint32 r = 0; r < m_row_end.size(); r++ )
@@ -71,8 +63,6 @@ int32 BlobCompressed::size() const {
   return sum;
 }
 
-// bounding_box()
-//----------------------------
 BBox2i BlobCompressed::bounding_box() const {
   BBox2i bbox;
   bbox.min() = m_min;
@@ -86,8 +76,6 @@ BBox2i BlobCompressed::bounding_box() const {
   return bbox;
 }
 
-// is_on_right(..) (8 connected)
-//---------------------------
 bool BlobCompressed::is_on_right( BlobCompressed const& right ) const {
   int32 y_offset = m_min.y()-right.min().y()-1;
   // Starting r_i on the index above
@@ -110,8 +98,6 @@ bool BlobCompressed::is_on_right( BlobCompressed const& right ) const {
   return false;
 }
 
-// is_on_bottom(..) (8 connected)
-//---------------------------
 bool BlobCompressed::is_on_bottom( BlobCompressed const& bottom ) const {
   if ( bottom.min().y() != m_min.y()+int32(m_row_start.size()) )
     return false;
@@ -129,8 +115,6 @@ bool BlobCompressed::is_on_bottom( BlobCompressed const& bottom ) const {
   return false;
 }
 
-// add_row(..)
-//----------------------------
 void BlobCompressed::add_row( Vector2i const& start,
                               int const& width ) {
   if ( m_min[0] == -1 ) {
@@ -166,8 +150,6 @@ void BlobCompressed::add_row( Vector2i const& start,
   }
 }
 
-// absorb(..)
-//-----------------------------
 void BlobCompressed::absorb( BlobCompressed const& victim ) {
 
   // First check to see if I'm empty
@@ -330,8 +312,6 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
   this->refactor();
 }
 
-// decompress(..)
-//-------------------------
 void BlobCompressed::decompress( std::list<Vector2i>& output ) const {
   output.clear();
   for (int32 r = 0; r < int32(m_row_end.size()); r++ )
@@ -342,19 +322,71 @@ void BlobCompressed::decompress( std::list<Vector2i>& output ) const {
         output.push_back( Vector2i(c,r)+m_min );
 }
 
-// BLOB INDEX CUSTOM
-////////////////////////////////////////////
-// ( unfortunately they're templated )
 
-// BLOB INDEX TASK
-////////////////////////////////////////////
-// ( unfortunately they're templated )
+class ConsolidateAbsorbTask : public Task, private boost::noncopyable {
+  std::deque<BlobCompressed> &m_src_c_blob, &m_dest_c_blob;
+  std::deque<vw::BBox2i>& m_dest_blob_bbox;
+  std::vector<uint32>& m_lut;
+  int m_max_area;
+  uint32 m_start_index, m_end_index;
+  Mutex& m_append_mutex;
+public:
+  ConsolidateAbsorbTask( std::deque<BlobCompressed>& src_c_blob,
+                         std::deque<BlobCompressed>& dest_c_blob,
+                         std::deque<vw::BBox2i>& dest_blob_bbox,
+                         std::vector<uint32>& lut, int max_area,
+                         uint32 start, uint32 end, Mutex& mutex ) :
+    m_src_c_blob(src_c_blob), m_dest_c_blob(dest_c_blob),
+    m_dest_blob_bbox(dest_blob_bbox), m_lut(lut),
+    m_max_area(max_area), m_start_index(start),
+    m_end_index(end), m_append_mutex(mutex) {}
 
-// BLOB INDEX THREADED
-////////////////////////////////////////////
+  void operator()() {
+    std::deque<BlobCompressed> result_blobs;
+    std::deque<BBox2i> result_bbox;
 
-// consolidate( .. )
-//----------------------------
+    std::vector<std::list<uint32> > absorbtion_list( m_end_index - m_start_index );
+
+    // Build the absorbtion list so that we don't have to keep doing
+    // an exhaustive search over m_lut.x
+    for ( size_t i = 0; i < m_lut.size(); i++ ) {
+      if ( m_lut[i] >= m_start_index && m_lut[i] < m_end_index )
+        absorbtion_list[m_lut[i] - m_start_index].push_back(i);
+    }
+
+    // Build the new consolidated blobs
+    for ( size_t i = 0; i < absorbtion_list.size(); i++ ) {
+      // 1: Check to see that the size is going to be less that the
+      // maximium allowed area. Early exit condition.
+      if ( m_max_area > 0 ) {
+        int32 total_size = 0;
+        BOOST_FOREACH( uint32 src_idx, absorbtion_list[i] ) {
+          total_size += m_src_c_blob[src_idx].size();
+          if ( total_size > m_max_area )
+            break;
+        }
+        if ( total_size > m_max_area )
+          continue;
+      }
+
+      // 2: Start absorbing!
+      BlobCompressed current_blob;
+      BOOST_FOREACH( uint32 src_idx, absorbtion_list[i] ) {
+        current_blob.absorb( m_src_c_blob[src_idx] );
+      }
+
+      // 3: Generate the new bounding bbox & Append the results
+      result_blobs.push_back( current_blob );
+      result_bbox.push_back( current_blob.bounding_box() );
+    }
+
+    // Finally append the complete results back to the master lists.
+    Mutex::Lock lock( m_append_mutex );
+    m_dest_c_blob.insert( m_dest_c_blob.end(), result_blobs.begin(), result_blobs.end() );
+    m_dest_blob_bbox.insert( m_dest_blob_bbox.end(), result_bbox.begin(), result_bbox.end() );
+  }
+};
+
 void BlobIndexThreaded::consolidate( Vector2i const& image_size,
                                      Vector2i const& proc_block_size ) {
   // Working out divisors
@@ -417,34 +449,26 @@ void BlobIndexThreaded::consolidate( Vector2i const& image_size,
       }
   }
 
-  { // Reorder on graph connections
-    std::vector<uint32> component(boost::num_vertices(connections));
-    int final_num = boost::connected_components(connections,&component[0]);
+  std::vector<uint32> component(boost::num_vertices(connections));
+  int final_num = boost::connected_components(connections,&component[0]);
 
-    std::deque<BlobCompressed> blob_temp(final_num);
-    for ( uint32 i = 0; i < component.size(); i++ ) {
-      uint32 dest = component[i];
-      blob_temp[dest].absorb( m_c_blob[i] );
-    }
-    m_c_blob = blob_temp;
+  // Spawn threads to coagulate blobs. Creating 2x max number threads
+  // jobs incase the individual jobs are not evenally distributed with
+  // short-circuit conditions like max_area.
+  FifoWorkQueue absorb_queue;
+  m_blob_bbox.clear();
+  std::deque<BlobCompressed> new_c_blob;
+  int number_of_jobs = vw_settings().default_num_threads() * 2;
+  Mutex append_mutex;
+  for ( int j = 0; j < number_of_jobs; j++ ) {
+    int min = ( final_num * j ) / number_of_jobs;
+    int max = ( final_num * (j+1) ) / number_of_jobs;
+    boost::shared_ptr<Task> absorb_task(
+      new ConsolidateAbsorbTask( m_c_blob, new_c_blob,
+                                 m_blob_bbox, component, m_max_area,
+                                 min, max, append_mutex ) );
+    absorb_queue.add_task( absorb_task );
   }
-  if ( m_max_area > 0 ) {
-    for ( std::deque<BlobCompressed>::iterator blob_it = m_c_blob.begin();
-          blob_it != m_c_blob.end(); blob_it++ ) {
-      if ( blob_it->size() >= m_max_area ) {
-        blob_it = m_c_blob.erase( blob_it );
-        blob_it--;
-      }
-    }
-  }
-
-  // Rebuild bounding boxes
-  m_blob_bbox.resize( m_c_blob.size() );
-  std::deque<BlobCompressed>::const_iterator blob_it = m_c_blob.begin();
-  std::deque<vw::BBox2i>::iterator bbox_it = m_blob_bbox.begin();
-  while ( bbox_it != m_blob_bbox.end() ) {
-    *bbox_it = blob_it->bounding_box();
-    blob_it++;
-    bbox_it++;
-  }
+  absorb_queue.join_all();
+  m_c_blob = new_c_blob;
 }
