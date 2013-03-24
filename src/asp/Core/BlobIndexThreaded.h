@@ -61,7 +61,14 @@ namespace blob {
     BlobCompressed( vw::Vector2i const& top_left,
                     std::vector<std::list<vw::int32> > const& row_start,
                     std::vector<std::list<vw::int32> > const& row_end ) :
-    m_min(top_left), m_row_start(row_start), m_row_end(row_end) {}
+    m_min(top_left), m_row_start(row_start), m_row_end(row_end) {
+      VW_DEBUG_ASSERT( row_start.size() == row_end.size(),
+                 vw::InputErr() << "Input vectors do not have the same length." );
+      for ( size_t i = 0; i < row_start.size(); i++ ) {
+        VW_DEBUG_ASSERT( row_start[i].size() == row_end[i].size(),
+                   vw::InputErr() << "List at row " << i << " doesn't have matched starts and ends." );
+      }
+    }
     BlobCompressed() { m_min = vw::Vector2i(-1,-1); }
 
     // Standard Access point

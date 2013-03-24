@@ -303,8 +303,14 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
                       temp_end.end() );
   }
   // Recalculate min.x()
-  int32 lowest_value = 0;
-  for ( uint32 i = 0; i < m_row_start.size(); i++ ) {
+  int32 valid_first = 0;
+  while ( valid_first < m_row_start.size() ) {
+    if ( m_row_start[valid_first].size() )
+      break;
+    valid_first++;
+  }
+  int32 lowest_value = m_row_start[valid_first].front();
+  for ( uint32 i = ++valid_first; i < m_row_start.size(); i++ ) {
     if ( m_row_start[i].front() < lowest_value )
       lowest_value = m_row_start[i].front();
   }
