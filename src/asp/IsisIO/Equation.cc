@@ -61,11 +61,11 @@ boost::shared_ptr<BaseEquation> asp::read_equation( std::ifstream& f) {
   std::getline( f, buffer );
   if ( buffer == "PolyEquation" ) {
     boost::shared_ptr<PolyEquation> eqn_new( new PolyEquation() );
-    eq = boost::shared_dynamic_cast<BaseEquation>( eqn_new );
+    eq = boost::dynamic_pointer_cast<BaseEquation>( eqn_new );
     eq->read( f );
   } else if ( buffer == "RPNEquation" ) {
     boost::shared_ptr<RPNEquation> eqn_new( new RPNEquation() );
-    eq = boost::shared_dynamic_cast<BaseEquation>( eqn_new );
+    eq = boost::dynamic_pointer_cast<BaseEquation>( eqn_new );
     eq->read( f );
   } else {
     vw_throw( IOErr() << "Unknown equation type: " << buffer << "\n" );

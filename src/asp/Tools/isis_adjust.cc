@@ -304,7 +304,7 @@ int main(int argc, char* argv[]) {
     // model, kinda ugly.
     opt.camera_models.resize( camera_models.size() );
     for ( unsigned j = 0; j < camera_models.size(); ++j )
-      opt.camera_models[j] = boost::shared_dynamic_cast< IsisAdjustCameraModel >( camera_models[j]);
+      opt.camera_models[j] = boost::dynamic_pointer_cast< IsisAdjustCameraModel >( camera_models[j]);
 
     // Extract serials
     opt.camera_serials.clear();

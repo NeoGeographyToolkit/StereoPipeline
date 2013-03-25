@@ -34,8 +34,8 @@ int main( int argc, char* argv[] ) {
     // ISIS Camera
     std::string input_cube( argv[1] );
     camera_model = boost::shared_ptr<camera::CameraModel>(new camera::IsisCameraModel( input_cube ));
-    image_size[0] = boost::shared_dynamic_cast<camera::IsisCameraModel>(camera_model)->samples();
-    image_size[1] = boost::shared_dynamic_cast<camera::IsisCameraModel>(camera_model)->lines();
+    image_size[0] = boost::dynamic_pointer_cast<camera::IsisCameraModel>(camera_model)->samples();
+    image_size[1] = boost::dynamic_pointer_cast<camera::IsisCameraModel>(camera_model)->lines();
   } else if ( argc == 3 ) {
     // Adjusted ISIS Camera
     std::string input_cube( argv[1] );
@@ -52,8 +52,8 @@ int main( int argc, char* argv[] ) {
     adjust.close();
 
     camera_model = boost::shared_ptr<camera::CameraModel>(new camera::IsisAdjustCameraModel( input_cube, positionF, poseF ));
-    image_size[0] = boost::shared_dynamic_cast<camera::IsisAdjustCameraModel>(camera_model)->samples();
-    image_size[1] = boost::shared_dynamic_cast<camera::IsisAdjustCameraModel>(camera_model)->lines();
+    image_size[0] = boost::dynamic_pointer_cast<camera::IsisAdjustCameraModel>(camera_model)->samples();
+    image_size[1] = boost::dynamic_pointer_cast<camera::IsisAdjustCameraModel>(camera_model)->lines();
   } else
     return 1;
 

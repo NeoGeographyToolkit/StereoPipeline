@@ -202,7 +202,7 @@ int main(int argc, char* argv[]) {
 
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
         boost::shared_ptr<IsisCameraModel> isis_cam =
-          boost::shared_dynamic_cast<IsisCameraModel>(current_camera);
+          boost::dynamic_pointer_cast<IsisCameraModel>(current_camera);
         if ( isis_cam != NULL ) {
           csv_file << isis_cam->serial_number() << ", ";
         }

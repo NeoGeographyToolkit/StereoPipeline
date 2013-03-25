@@ -147,10 +147,10 @@ int main( int argc, char* argv[] ) {
         input.close();
 
         camera_models.push_back( boost::shared_ptr<CameraModel>( new IsisAdjustCameraModel( name, position_eq, pose_eq ) ) );
-        opt.serial_names.push_back( boost::shared_dynamic_cast<IsisAdjustCameraModel>(camera_models.back())->serial_number() );
+        opt.serial_names.push_back( boost::dynamic_pointer_cast<IsisAdjustCameraModel>(camera_models.back())->serial_number() );
       } else {
         camera_models.push_back( boost::shared_ptr<CameraModel>( new IsisCameraModel(name) ));
-        opt.serial_names.push_back( boost::shared_dynamic_cast<IsisCameraModel>(camera_models.back())->serial_number() );
+        opt.serial_names.push_back( boost::dynamic_pointer_cast<IsisCameraModel>(camera_models.back())->serial_number() );
       }
 
       tpc.report_incremental_progress(inc_amt);
