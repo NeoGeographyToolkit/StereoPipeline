@@ -190,11 +190,11 @@ namespace asp {
       std::vector<size_t> intersections;
       intersections.reserve(20);
       BBox2i bbox_expanded = bbox;
-      for ( BlobIndexThreaded::const_bbox_iterator bbox_it = m_bindex.bbox_begin();
-            bbox_it != m_bindex.bbox_end(); bbox_it++ ) {
-        if ( bbox_it->intersects( bbox ) ) {
-          bbox_expanded.grow( *bbox_it );
-          intersections.push_back( bbox_it - m_bindex.bbox_begin() );
+      for ( size_t i = 0; i < m_bindex.num_blobs(); i++ ) {
+        if ( m_bindex.blob_bbox(i).intersects( bbox ) && // Early exit option
+             m_bindex.compressed_blob(i).intersects( bbox ) ) {
+          bbox_expanded.grow( m_bindex.blob_bbox(i) );
+          intersections.push_back(i);
         }
       }
       bbox_expanded.expand(1);

@@ -60,16 +60,8 @@ namespace blob {
   public:
     BlobCompressed( vw::Vector2i const& top_left,
                     std::vector<std::list<vw::int32> > const& row_start,
-                    std::vector<std::list<vw::int32> > const& row_end ) :
-    m_min(top_left), m_row_start(row_start), m_row_end(row_end) {
-      VW_DEBUG_ASSERT( row_start.size() == row_end.size(),
-                 vw::InputErr() << "Input vectors do not have the same length." );
-      for ( size_t i = 0; i < row_start.size(); i++ ) {
-        VW_DEBUG_ASSERT( row_start[i].size() == row_end[i].size(),
-                   vw::InputErr() << "List at row " << i << " doesn't have matched starts and ends." );
-      }
-    }
-    BlobCompressed() { m_min = vw::Vector2i(-1,-1); }
+                    std::vector<std::list<vw::int32> > const& row_end );
+    BlobCompressed();
 
     // Standard Access point
     vw::Vector2i const& min() const { return m_min; }
@@ -79,8 +71,9 @@ namespace blob {
     std::list<vw::int32> const& end( vw::uint32 const& index ) const { return m_row_end[index]; }
     vw::int32 size() const; // Please use sparingly
     vw::BBox2i bounding_box() const;
+    bool intersects( vw::BBox2i const& input ) const;
 
-    // Rather specific conditionals used by BlobIndexThreaded
+    // Specific conditionals used by BlobIndexThreaded
     bool is_on_right( BlobCompressed const& right ) const;
     bool is_on_bottom( BlobCompressed const& bottom ) const;
 
@@ -88,20 +81,10 @@ namespace blob {
     void add_row( vw::Vector2i const& start, int const& width );
     // Use to expand this blob into a non overlapped area
     void absorb( BlobCompressed const& victim );
-    // Dump into stupid format
+    // Dump listing of every pixel used
     void decompress( std::list<vw::Vector2i>& output ) const;
-
-    void print() const {
-      vw::vw_out() << "BlobCompressed | min: " << m_min << "\n";
-      for ( vw::uint32 i = 0; i < m_row_start.size(); i++ ) {
-        vw::vw_out() << " " << i << "|";
-        for ( std::list<vw::int32>::const_iterator s_iter = m_row_start[i].begin(),
-                e_iter = m_row_end[i].begin(); s_iter != m_row_start[i].end();
-              s_iter++, e_iter++ )
-          vw::vw_out() << "(" << *s_iter << "<>" << *e_iter << ")";
-        vw::vw_out() <<"\n";
-      }
-    }
+    // Print internal data
+    void print() const;
   };
 
   // Blob Index Custom
@@ -295,11 +278,7 @@ namespace blob {
   /////////////////////////////////////
   // A task wrapper to allow threading
   template <class SourceT>
-  class BlobIndexTask : public vw::Task {
-    // Disable copy !!
-    BlobIndexTask(BlobIndexTask& copy){}
-    void operator=(BlobIndexTask& copy) {}
-
+  class BlobIndexTask : public vw::Task, private boost::noncopyable {
     vw::ImageViewBase<SourceT> const& m_view;
     vw::BBox2i const& m_bbox;
     vw::Mutex& m_append_mutex;
@@ -380,9 +359,8 @@ class BlobIndexThreaded {
       vw::FifoWorkQueue queue(vw::vw_settings().default_num_threads());
       typedef blob::BlobIndexTask<SourceT> task_type;
 
-      std::vector<vw::BBox2i> bboxes = image_blocks( src.impl(),
-                                                     m_tile_size,
-                                                     m_tile_size );
+      std::vector<vw::BBox2i> bboxes =
+        image_blocks( src.impl(), m_tile_size, m_tile_size );
       for ( size_t i = 0; i < bboxes.size(); ++i ) {
         boost::shared_ptr<task_type> task(new task_type(src, bboxes[i], m_insert_mutex,
                                                         m_c_blob, m_blob_bbox,
@@ -399,13 +377,15 @@ class BlobIndexThreaded {
                  vw::Vector2i( m_tile_size, m_tile_size ) );
 
     // Cull blobs that are too big.
-    if ( m_max_area > 0 )
+    if ( m_max_area > 0 ) {
       for ( std::deque<blob::BlobCompressed>::iterator iter = m_c_blob.begin();
-            iter != m_c_blob.end(); iter++ )
+            iter != m_c_blob.end(); iter++ ) {
         if ( iter->size() > m_max_area ) {
           iter = m_c_blob.erase( iter );
           iter--;
         }
+      }
+    }
   }
 
   // Access for the users

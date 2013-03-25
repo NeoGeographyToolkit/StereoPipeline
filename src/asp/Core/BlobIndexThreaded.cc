@@ -53,6 +53,20 @@ void BlobCompressed::refactor() {
   }
 }
 
+BlobCompressed::BlobCompressed( vw::Vector2i const& top_left,
+                                std::vector<std::list<vw::int32> > const& row_start,
+                                std::vector<std::list<vw::int32> > const& row_end ) :
+  m_min(top_left), m_row_start(row_start), m_row_end(row_end) {
+  VW_DEBUG_ASSERT( row_start.size() == row_end.size(),
+                   vw::InputErr() << "Input vectors do not have the same length." );
+  for ( size_t i = 0; i < row_start.size(); i++ ) {
+    VW_DEBUG_ASSERT( row_start[i].size() == row_end[i].size(),
+                     vw::InputErr() << "List at row " << i << " doesn't have matched starts and ends." );
+  }
+}
+
+BlobCompressed::BlobCompressed() : m_min(-1,-1) {}
+
 int32 BlobCompressed::size() const {
   int32 sum = 0;
   for ( uint32 r = 0; r < m_row_end.size(); r++ )
@@ -76,6 +90,26 @@ BBox2i BlobCompressed::bounding_box() const {
   return bbox;
 }
 
+bool BlobCompressed::intersects( vw::BBox2i const& input ) const {
+  // Check if Y's overlap.
+  if ( input.max().y() <= m_min.y() ||
+       input.min().y() >= m_min.y() + int32(m_row_start.size()) )
+    return false;
+
+  // Check X for each row.
+  for ( size_t i = 0; i < m_row_start.size(); i++ ) {
+    if ( !m_row_start[i].size() ||
+         m_min.y() + int32(i) < input.min().y() ||
+         m_min.y() + int32(i) >= input.max().y() )
+      continue;
+    if ( m_row_end[i].back() + m_min.x() > input.min().x() &&
+         m_row_start[i].front() + m_min.x() < input.max().x() ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool BlobCompressed::is_on_right( BlobCompressed const& right ) const {
   int32 y_offset = m_min.y()-right.min().y()-1;
   // Starting r_i on the index above
@@ -84,15 +118,15 @@ bool BlobCompressed::is_on_right( BlobCompressed const& right ) const {
        i++, r_i++ ) {
     if ( r_i >= 0 && r_i < int32(right.num_rows()) )
       if ( m_row_end[i].back() + m_min.x() ==
-           right.start(r_i).front()+right.min().x() )
+           right.m_row_start[r_i].front()+right.min().x() )
         return true;
     if ( r_i+1 >= 0 && r_i+1 < int32(right.num_rows()) )
       if ( m_row_end[i].back() + m_min.x() ==
-           right.start(r_i+1).front()+right.min().x() )
+           right.m_row_start[r_i+1].front()+right.min().x() )
         return true;
     if ( r_i+2 >= 0 && r_i+2 < int32(right.num_rows()) )
       if ( m_row_end[i].back() + m_min.x() ==
-           right.start(r_i+2).front()+right.min().x() )
+           right.m_row_start[r_i+2].front()+right.min().x() )
         return true;
   }
   return false;
@@ -105,8 +139,8 @@ bool BlobCompressed::is_on_bottom( BlobCompressed const& bottom ) const {
   for ( std::list<int32>::const_iterator top_start = m_row_start.back().begin(),
           top_end = m_row_end.back().begin(); top_start != m_row_start.back().end();
         top_start++, top_end++ )
-    for ( std::list<int32>::const_iterator bot_start = bottom.start(0).begin(),
-            bot_end = bottom.end(0).begin(); bot_start != bottom.start(0).end();
+    for ( std::list<int32>::const_iterator bot_start = bottom.m_row_start[0].begin(),
+            bot_end = bottom.m_row_end[0].begin(); bot_start != bottom.m_row_start[0].end();
           bot_start++, bot_end++ ) {
       if ( (*top_end+m_min.x() >= *bot_start + bottom.min().x()) &&
            (*top_start+m_min.x() <= *bot_end+bottom.min().x()) )
@@ -156,8 +190,8 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
   if ( m_row_start.empty() ) {
     m_min = victim.min();
     for ( int i = 0; i < victim.num_rows(); i++ ) {
-      m_row_start.push_back( victim.start(i) );
-      m_row_end.push_back( victim.end(i) );
+      m_row_start.push_back( victim.m_row_start[i] );
+      m_row_end.push_back( victim.m_row_end[i] );
     }
     return;
   }
@@ -174,8 +208,8 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
 
       // Inserting victim's connected rows in singletons at a time
       // become sometimes they connect like zippers.
-      for ( std::list<int32>::const_iterator v_singleton_start = victim.start(i).begin(),
-              v_singleton_end = victim.end(i).begin(); v_singleton_start != victim.start(i).end();
+      for ( std::list<int32>::const_iterator v_singleton_start = victim.m_row_start[i].begin(),
+              v_singleton_end = victim.m_row_end[i].begin(); v_singleton_start != victim.m_row_start[i].end();
             v_singleton_start++, v_singleton_end++ ) {
 
         std::list<int32>::iterator start_insertion_point = m_row_start[m_index].begin(),
@@ -249,8 +283,8 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
     std::vector<std::list<int32> > temp_end;
     for ( int v_i = 0; v_i < m_min.y()-victim.min().y(); v_i++ ) {
       if ( v_i < victim.num_rows() ) {
-        temp_start.push_back(victim.start(v_i));
-        temp_end.push_back(victim.end(v_i));
+        temp_start.push_back(victim.m_row_start[v_i]);
+        temp_end.push_back(victim.m_row_end[v_i]);
         for ( std::list<int32>::iterator i_start = temp_start.back().begin(),
                 i_stop = temp_end.back().begin();
               i_start != temp_start.back().end(); i_start++, i_stop++ ) {
@@ -285,8 +319,8 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
         temp_start.push_back(std::list<int32>());
         temp_end.push_back(std::list<int32>());
       } else {
-        temp_start.push_back( victim.start(v_i) );
-        temp_end.push_back( victim.end(v_i) );
+        temp_start.push_back( victim.m_row_start[v_i] );
+        temp_end.push_back( victim.m_row_end[v_i] );
         for ( std::list<int32>::iterator i_start = temp_start.back().begin(),
                 i_stop = temp_end.back().begin();
               i_start != temp_start.back().end(); i_start++, i_stop++ ) {
@@ -303,14 +337,14 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
                       temp_end.end() );
   }
   // Recalculate min.x()
-  int32 valid_first = 0;
+  size_t valid_first = 0;
   while ( valid_first < m_row_start.size() ) {
     if ( m_row_start[valid_first].size() )
       break;
     valid_first++;
   }
   int32 lowest_value = m_row_start[valid_first].front();
-  for ( uint32 i = ++valid_first; i < m_row_start.size(); i++ ) {
+  for (size_t i = ++valid_first; i < m_row_start.size(); i++ ) {
     if ( m_row_start[i].front() < lowest_value )
       lowest_value = m_row_start[i].front();
   }
@@ -328,6 +362,17 @@ void BlobCompressed::decompress( std::list<Vector2i>& output ) const {
         output.push_back( Vector2i(c,r)+m_min );
 }
 
+void BlobCompressed::print() const {
+  vw::vw_out() << "BlobCompressed | min: " << m_min << "\n";
+  for ( vw::uint32 i = 0; i < m_row_start.size(); i++ ) {
+    vw::vw_out() << " " << i << "|";
+    for ( std::list<vw::int32>::const_iterator s_iter = m_row_start[i].begin(),
+            e_iter = m_row_end[i].begin(); s_iter != m_row_start[i].end();
+          s_iter++, e_iter++ )
+      vw::vw_out() << "(" << *s_iter << "<>" << *e_iter << ")";
+    vw::vw_out() <<"\n";
+  }
+}
 
 class ConsolidateAbsorbTask : public Task, private boost::noncopyable {
   std::deque<BlobCompressed> &m_src_c_blob, &m_dest_c_blob;

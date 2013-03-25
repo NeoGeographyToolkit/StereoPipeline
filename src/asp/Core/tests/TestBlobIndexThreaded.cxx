@@ -21,8 +21,11 @@
 #include <vw/FileIO.h>
 #include <vw/Image.h>
 #include <asp/Core/BlobIndexThreaded.h>
+#include <boost/assign/std/vector.hpp>
+#include <boost/assign/list_of.hpp>
 
 using namespace vw;
+using namespace boost::assign;
 
 TEST(BlobIndexThreaded, TestImage1) {
   DiskImageView<PixelGray<uint8> > input("ThreadTest1.tif");
@@ -43,4 +46,21 @@ TEST(BlobIndexThreaded, TestImage3) {
   EXPECT_EQ( 10, input.cols() );
   BlobIndexThreaded bindex( create_mask(input,255), 1000, 5 );
   EXPECT_EQ( 2u, bindex.num_blobs() );
+}
+
+TEST(BlobIndexThreaded, BlobCompressedIntersect) {
+  std::vector<std::list<int32> > starts, ends;
+  starts += list_of(0), list_of(0), list_of(0), list_of(0), list_of(0);
+  ends += list_of(5), list_of(1), list_of(1), list_of(1), list_of(1);
+  blob::BlobCompressed test_blob( Vector2i(5,5), starts, ends );
+
+  test_blob.print();
+
+  EXPECT_FALSE( test_blob.intersects( BBox2i(6,6,2,2) ) );
+  EXPECT_FALSE( test_blob.intersects( BBox2i(4,4,1,1) ) );
+  EXPECT_FALSE( test_blob.intersects( BBox2i(6,4,3,1) ) );
+  EXPECT_FALSE( test_blob.intersects( BBox2i(3,5,2,8) ) );
+  EXPECT_TRUE( test_blob.intersects( BBox2i(6,2,4,10) ) );
+  EXPECT_TRUE( test_blob.intersects( BBox2i(3,4,6,2) ) );
+  EXPECT_TRUE( test_blob.intersects( BBox2i(4,7,2,2) ) );
 }
