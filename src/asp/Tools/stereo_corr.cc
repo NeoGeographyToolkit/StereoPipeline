@@ -359,7 +359,7 @@ public:
 
     char * ptr = getenv("LOCAL");
     bool use_local_homography = ptr && atoi(ptr);
-    std::cout << "use_local_homography is " << use_local_homography << std::endl;
+    if (use_local_homography) vw_out() << "\t   Using local homography." << std::endl;
 
     Matrix<double> lowres_hom  = math::identity_matrix<3>();
     Matrix<double> fullres_hom = math::identity_matrix<3>();
