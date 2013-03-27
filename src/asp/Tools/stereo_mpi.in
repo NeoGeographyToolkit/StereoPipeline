@@ -320,10 +320,14 @@ if __name__ == '__main__':
             call_self.pop(i+1)
             call_self.pop(i)
 
+
+        # Must attempt to create subproject dirs at each step, as perhaphs
+        # at some earlier steps we did stereo by bypassing stereo_mpi.
+        create_subproject_dirs( settings )
+
         if ( opt.entry_point <= 0 ):
             # Preprocessing
             run('stereo_pprc', args, msg='0: Preprocessing')
-            create_subproject_dirs( settings )
         if ( opt.entry_point <= 1 ):
             # Correlation
             if ( opt.stop_point <= 1 ):
@@ -365,11 +369,14 @@ if __name__ == '__main__':
 
         # Single machine execution
 
+        # Must attempt to create subproject dirs at each step, as perhaphs
+        # at some earlier steps we did stereo by bypassing stereo_mpi.
+        create_subproject_dirs( settings )
+
         try:
             if ( opt.entry_point <= 0 ):
                 # Run stereo pprc in single threaded mode
                 run('stereo_pprc', args, msg='0: Preprocessing')
-                create_subproject_dirs( settings )
 
             # Define the tiles that we'll be processing on
             tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h );
