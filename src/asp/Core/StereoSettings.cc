@@ -98,7 +98,9 @@ namespace asp {
       ("disparity-estimation-dem", po::value(&global.disparity_estimation_dem)->default_value(""),
        "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
       ("disparity-estimation-dem-accuracy", po::value(&global.disparity_estimation_dem_accuracy),
-       "Accuracy (in meters) of the disparity estimation DEM.");
+       "Accuracy (in meters) of the disparity estimation DEM.")
+      ("use-local-homography", po::bool_switch(&global.use_local_homography)->default_value(false)->implicit_value(true),
+       "Apply a local homography in each tile.");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
     backwards_compat_options.add_options()

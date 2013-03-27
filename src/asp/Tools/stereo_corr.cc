@@ -357,9 +357,7 @@ public:
 
   inline prerasterize_type prerasterize_helper(BBox2i const& bbox) const {
 
-    char * ptr = getenv("LOCAL");
-    bool use_local_homography = ptr && atoi(ptr);
-    if (use_local_homography) vw_out() << "\t   Using local homography." << std::endl;
+    bool use_local_homography = stereo_settings().use_local_homography;
 
     Matrix<double> lowres_hom  = math::identity_matrix<3>();
     Matrix<double> fullres_hom = math::identity_matrix<3>();
