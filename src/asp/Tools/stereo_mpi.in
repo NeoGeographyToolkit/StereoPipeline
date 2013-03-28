@@ -16,7 +16,6 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-
 import sys, optparse, subprocess, re, os, math, time
 import os.path as P
 
@@ -117,12 +116,22 @@ def wait_on_all_jobs():
         job_pool[0].wait();
         job_pool.pop(0);
 
+def wipe_existing_threads_arg(call):
+    # Before inserting a '--threads val' option
+    # wipe the existing one if present.
+    p = '--threads';
+    while p in call:
+        r = call.index(p)
+        if r < len(call): del call[r] # rm '--threads'
+        if r < len(call): del call[r] # rm value of '--threads'
+
 def run(bin, args, **kw):
     binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
     call = [binpath]
     call.extend(args)
 
     if opt.threads_single is not None:
+        wipe_existing_threads_arg(call)
         call.extend(['--threads', str(opt.threads_single)])
 
     if opt.dryrun:
@@ -169,9 +178,12 @@ def create_subproject_dirs( settings, **kw ):
                 os.mkdir( directory )
             except OSError, e:
                 pass
+            # To do: A better approach below would be to soft-link
+            # all existing files rather than having a list.
             for postfix in ["-L.tif","-R.tif","-L_sub.tif","-R_sub.tif",
                             "-lMask.tif","-rMask.tif","-lMask_sub.tif",
-                            "-rMask_sub.tif","-align.exr","-F.tif","-D_sub.tif",
+                            "-rMask_sub.tif","-align.exr","-F.tif",
+                            "-D_sub.tif", "-D_sub_spread.tif",
                             "-"+os.path.basename(settings['in_file1'][0])[:-4]+"__"+
                             os.path.basename(settings['in_file2'][0])[:-4]+".match"]:
                 if os.path.lexists( prefix + postfix ):
@@ -211,6 +223,7 @@ def parallel_run(bin, args, settings, tiles, **kw):
     call.extend(args)
 
     if opt.threads_multi is not None:
+        wipe_existing_threads_arg(call)
         call.extend(['--threads', str(opt.threads_multi)])
 
     try:
@@ -303,11 +316,16 @@ if __name__ == '__main__':
 
     mpiexec_rank = os.getenv("MPIEXEC_RANK")
 
+    if opt.mpi_nodes is None or opt.mpi_nodes == 1:
+        create_subproject_dirs( settings )
+
     if opt.mpi_nodes is not None and opt.mpi_nodes > 1 and mpiexec_rank is None:
         # Multi-machine execution. This means that the current running
         # process has become the management process that spawns other
         # copies of itself on other systems. This thread will only do
         # work when we hit a non-multiprocess step like PPRC or FLTR.
+
+        create_subproject_dirs( settings )
 
         mpi_cmd = ['mpiexec','-comm','none','-np',str(opt.mpi_nodes)]
         call_self = sys.argv
@@ -319,11 +337,6 @@ if __name__ == '__main__':
             i = call_self.index('--entry-point')
             call_self.pop(i+1)
             call_self.pop(i)
-
-
-        # Must attempt to create subproject dirs at each step, as perhaphs
-        # at some earlier steps we did stereo by bypassing stereo_mpi.
-        create_subproject_dirs( settings )
 
         if ( opt.entry_point <= 0 ):
             # Preprocessing
@@ -368,10 +381,6 @@ if __name__ == '__main__':
     else:
 
         # Single machine execution
-
-        # Must attempt to create subproject dirs at each step, as perhaphs
-        # at some earlier steps we did stereo by bypassing stereo_mpi.
-        create_subproject_dirs( settings )
 
         try:
             if ( opt.entry_point <= 0 ):
