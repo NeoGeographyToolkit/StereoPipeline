@@ -21,7 +21,7 @@ import os.path as P
 
 job_pool = []
 
-# Utilities to ensure that the parser does not garble negative integers
+# Utilities to ensure that the Python parser does not garble negative integers
 # such as '-365' into '-3'.
 escapeStr='esc_rand_str'
 def escape_vals(vals):
@@ -275,9 +275,9 @@ if __name__ == '__main__':
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
-                 help='Pipeline entry point (an integer from 0-5)', type='int')
+                 help='Stereo Pipeline entry point (an integer from 0-5)', type='int')
     p.add_option('--stop-point',           dest='stop_point',  default=6,
-                 help='Pipeline stop point (an integer from 1-6)', type='int')
+                 help='Stereo Pipeline stop point (an integer from 1-6)', type='int')
     p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
                  help='Tell GDAL to not create bigtiffs.')
     p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
@@ -328,6 +328,10 @@ if __name__ == '__main__':
         create_subproject_dirs( settings )
 
         mpi_cmd = ['mpiexec','-comm','none','-np',str(opt.mpi_nodes)]
+
+        # Remove the '-e' and '--entry-point' options from sys.argv
+        # as we will overwite those below. Should we do the same
+        # for '--stop-point'?
         call_self = sys.argv
         if '-e' in call_self:
             i = call_self.index('-e')
@@ -349,7 +353,7 @@ if __name__ == '__main__':
             cmd = mpi_cmd + sys.argv + ['-e','1','--stop-point','2']
             code = subprocess.call(cmd)
             if code != 0:
-                raise Exception('MPI Exec call for Stereo step 1 failed')
+                raise Exception('MPI Exec call for stereo step 1 failed')
         if ( opt.entry_point <= 2 ):
             # Refine
             if ( opt.stop_point <= 2 ):
@@ -357,7 +361,7 @@ if __name__ == '__main__':
             cmd = mpi_cmd + sys.argv + ['-e','2','--stop-point','3']
             code = subprocess.call(cmd)
             if code != 0:
-                raise Exception('MPI Exec call for Stereo step 2 failed')
+                raise Exception('MPI Exec call for stereo step 2 failed')
         if ( opt.entry_point <= 3 ):
             # Filtering
             if ( opt.stop_point <= 3 ):
@@ -371,7 +375,7 @@ if __name__ == '__main__':
             cmd = mpi_cmd + sys.argv + ['-e','4','--stop-point','5']
             code = subprocess.call(cmd )
             if code != 0:
-                raise Exception('MPI Exec call for Stereo step 4 failed')
+                raise Exception('MPI Exec call for stereo step 4 failed')
         if ( opt.entry_point <= 5 ):
             # PC Mosaic
             if ( opt.stop_point <= 5 ):
