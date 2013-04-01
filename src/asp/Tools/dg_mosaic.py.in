@@ -19,10 +19,6 @@
 import os, sys, string, subprocess, math, re, optparse
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
-import collections
-
-# Compare for equality two strings, arrays, etc.
-compare = lambda x, y: collections.Counter(x) == collections.Counter(y)
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -191,16 +187,17 @@ def main():
              eph_list, att_list] = read_xml( xml_name(filename) )
 
             # Sanity checks
-            if not compare(ref_originx, originx):
+            if ref_originx != originx:
+                print(ref_originx, originx)
                 raise Exception('InputError', 'Must have the same originx in: '
                                 + xml_name(args[0]) + ' ' + xml_name(filename) )
-            if not compare(ref_pd, pd):
+            if ref_pd != pd:
                 raise Exception('InputError', 'Must have the same pd in: '
                                 + xml_name(args[0]) + ' ' + xml_name(filename) )
-            if not compare(ref_eph_list, eph_list):
+            if ref_eph_list != eph_list:
                 raise Exception('InputError', 'Must have the same ephem in: '
                                 + xml_name(args[0]) + ' ' + xml_name(filename) )
-            if not compare(ref_att_list, att_list):
+            if ref_att_list != att_list:
                 raise Exception('InputError', 'Must have the same att in: '
                                 + xml_name(args[0]) + ' ' + xml_name(filename) )
 
