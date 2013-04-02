@@ -16,9 +16,42 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import os, sys, string, subprocess, math, re, optparse
+import os, sys, string, subprocess, math, re, optparse, time
 from datetime import datetime, timedelta
-import xml.etree.ElementTree as ET
+
+try:
+    import xml.etree.ElementTree as ET
+except ImportError:
+    # python 2.4
+    import elementtree.ElementTree as ET
+
+if hasattr(datetime, 'strptime'):
+    def parse_time(date_string, fmt):
+        return datetime.strptime(date_string, fmt)
+else:
+    # python 2.4
+    def parse_time(date_str, fmt):
+        m = re.match('^(.*?)T(.*?)\.(.*?)Z', date_str)
+        if m:
+            date_str  = m.group(1) + " " + m.group(2)
+            microsec  = m.group(3)
+            microsec  = microsec[:6]  # truncate beyond 6 chars
+            microsec += (6 - len(microsec)) * '0'  # leading 0s
+        else:
+            print('Could not match string: ' + date_str)
+            sys.exit(1)
+
+        m = re.match('^(.*?)T(.*?)\.(.*?)Z', fmt)
+        if m:
+            fmt = m.group(1) + " " + m.group(2)
+        else:
+            print('Could not match string: ' + fmt)
+            sys.exit(1)
+
+        parsed = datetime(*(time.strptime(date_str, fmt)[0:6]))
+        parsed = parsed.replace(microsecond=int(microsec))
+
+        return parsed
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -60,8 +93,8 @@ def read_xml( filename ):
     ATT  = root.find("ATT")
 
     IMAGE = IMD.find("IMAGE")
-    tlctime = datetime.strptime(IMAGE.find("TLCTIME").text.strip(),
-                                    "%Y-%m-%dT%H:%M:%S.%fZ")
+    tlctime = parse_time(IMAGE.find("TLCTIME").text.strip(),
+                         "%Y-%m-%dT%H:%M:%S.%fZ")
     tlclist = []
     for tlc_item in IMAGE.find("TLCLISTList").findall("TLCLIST"):
         tokens = tlc_item.text.strip().split(' ')
@@ -72,8 +105,9 @@ def read_xml( filename ):
             direction = -1.0
         linerate = float(IMAGE.find("AVGLINERATE").text)
         tlclist.append([(linerate+tlclist[0][0]), (tlclist[0][1]+direction)])
-    firstlinetime = datetime.strptime(IMAGE.find("FIRSTLINETIME").text,
-                                          "%Y-%m-%dT%H:%M:%S.%fZ")
+    firstlinetime = parse_time(IMAGE.find("FIRSTLINETIME").text,
+                               "%Y-%m-%dT%H:%M:%S.%fZ")
+
     image_size = []
     image_size.append( int(IMD.find("NUMCOLUMNS").text) )
     image_size.append( int(IMD.find("NUMROWS").text) )
@@ -275,7 +309,9 @@ def main():
             tokens[0] = str(int(round((float(tokens[0])))) - boundary.miny)
             tlc_item.text = " ".join(tokens)
         first_line_item = root.find("IMD").find("IMAGE").find("FIRSTLINETIME")
-        first_line_item.text = tlc_time_lookup( ref_tlctime, ref_tlclist, boundary.miny ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        tlc_lookup = tlc_time_lookup( ref_tlctime, ref_tlclist, boundary.miny )
+        # The verbose operation below is needed for python 2.4
+        first_line_item.text = tlc_lookup.strftime("%Y-%m-%dT%H:%M:%S") + '.' + str(tlc_lookup.microsecond) + "Z"
 
         if imd.find("BAND_P") != None: imd.remove( imd.find ("BAND_P") )
         if root.find("TIL")   != None: root.remove( root.find("TIL") ) # TIL no longer applies
