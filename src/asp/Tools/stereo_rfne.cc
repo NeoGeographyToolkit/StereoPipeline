@@ -33,35 +33,149 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-template <class ImageT>
-class SelectiveRasterView : public ImageViewBase< SelectiveRasterView<ImageT> > {
-  ImageT m_image;
-  BBox2i m_left_image_crop_win;
+template <class Image1T, class Image2T>
+ImageViewRef<PixelMask<Vector2f> >
+refine_disparity(Image1T const& left_image,
+                 Image2T const& right_image,
+                 ImageViewRef< PixelMask<Vector2i> > const& integer_disp,
+                 Options const& opt){
+
+  ImageViewRef<PixelMask<Vector2f> > refined_disp =
+    pixel_cast<PixelMask<Vector2f> >(integer_disp);
+
+  if (stereo_settings().subpixel_mode == 0) {
+    // Do nothing
+  } else if (stereo_settings().subpixel_mode == 1) {
+    // Parabola
+    vw_out() << "\t--> Using parabola subpixel mode.\n";
+    if (stereo_settings().pre_filter_mode == 2) {
+      vw_out() << "\t--> Using LOG pre-processing filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+      typedef stereo::LaplacianOfGaussian PreFilter;
+      refined_disp =
+        parabola_subpixel( integer_disp,
+                           left_image, right_image,
+                           PreFilter(stereo_settings().slogW),
+                           stereo_settings().subpixel_kernel );
+    } else if (stereo_settings().pre_filter_mode == 1) {
+      vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+      typedef stereo::SubtractedMean PreFilter;
+      refined_disp =
+        parabola_subpixel( integer_disp,
+                           left_image, right_image,
+                           PreFilter(stereo_settings().slogW),
+                           stereo_settings().subpixel_kernel );
+    } else {
+      vw_out() << "\t--> NO preprocessing" << std::endl;
+      typedef stereo::NullOperation PreFilter;
+      refined_disp =
+        parabola_subpixel( integer_disp,
+                           left_image, right_image,
+                           PreFilter(),
+                           stereo_settings().subpixel_kernel );
+    }
+  } else if (stereo_settings().subpixel_mode == 2) {
+    // Bayes EM
+    vw_out() << "\t--> Using affine adaptive subpixel mode\n";
+    vw_out() << "\t--> Forcing use of LOG filter with "
+             << stereo_settings().slogW << " sigma blur.\n";
+    typedef stereo::LaplacianOfGaussian PreFilter;
+    refined_disp =
+      bayes_em_subpixel( integer_disp,
+                         left_image, right_image,
+                         PreFilter(stereo_settings().slogW),
+                         stereo_settings().subpixel_kernel,
+                         stereo_settings().subpixel_max_levels );
+
+  } else if (stereo_settings().subpixel_mode == 3) {
+    // Affine and Bayes subpixel refinement always use the
+    // LogPreprocessingFilter...
+    vw_out() << "\t--> Using EM Subpixel mode "
+             << stereo_settings().subpixel_mode << std::endl;
+    vw_out() << "\t--> Mode 3 does internal preprocessing;"
+             << " settings will be ignored. " << std::endl;
+
+    typedef stereo::EMSubpixelCorrelatorView<float32> EMCorrelator;
+    EMCorrelator em_correlator(channels_to_planes(left_image),
+                               channels_to_planes(right_image),
+                               pixel_cast<PixelMask<Vector2f> >(integer_disp), -1);
+    em_correlator.set_em_iter_max(stereo_settings().subpixel_em_iter);
+    em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter);
+    em_correlator.set_kernel_size(stereo_settings().subpixel_kernel);
+    em_correlator.set_pyramid_levels(stereo_settings().subpixel_pyramid_levels);
+
+    DiskImageResourceOpenEXR em_disparity_map_rsrc(opt.out_prefix + "-F6.exr", em_correlator.format());
+
+    block_write_image(em_disparity_map_rsrc, em_correlator,
+                      TerminalProgressCallback("asp", "\t--> EM Refinement :"));
+
+    DiskImageResource *em_disparity_map_rsrc_2 =
+      DiskImageResourceOpenEXR::construct_open(opt.out_prefix + "-F6.exr");
+    DiskImageView<PixelMask<Vector<float, 5> > > em_disparity_disk_image(em_disparity_map_rsrc_2);
+
+    ImageViewRef<Vector<float, 3> > disparity_uncertainty =
+      per_pixel_filter(em_disparity_disk_image,
+                       EMCorrelator::ExtractUncertaintyFunctor());
+    ImageViewRef<float> spectral_uncertainty =
+      per_pixel_filter(disparity_uncertainty,
+                       EMCorrelator::SpectralRadiusUncertaintyFunctor());
+    write_image(opt.out_prefix+"-US.tif", spectral_uncertainty);
+    write_image(opt.out_prefix+"-U.tif", disparity_uncertainty);
+
+    refined_disp =
+      per_pixel_filter(em_disparity_disk_image,
+                       EMCorrelator::ExtractDisparityFunctor());
+  } else {
+    vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << std::endl;
+    vw_out() << "\t--> Doing nothing\n";
+  }
+
+  return refined_disp;
+}
+
+// Perform refinement in each tile. If using local homography,
+// apply the local homography transform for the given tile
+// to the right image before doing refinement in that tile.
+template <class Image1T, class Image2T, class SeedDispT>
+class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT> >{
+  Image1T   m_left_image;
+  Image2T   m_right_image;
+  SeedDispT m_integer_disp;
+  Options & m_opt;
 
 public:
-  SelectiveRasterView( ImageViewBase<ImageT> const& image,
-                       BBox2i left_image_crop_win ) :
-    m_image( image.impl() ), m_left_image_crop_win( left_image_crop_win ) {}
+  PerTileRfne( ImageViewBase<Image1T> const& left_image,
+               ImageViewBase<Image2T> const& right_image,
+               ImageViewBase<SeedDispT> const& integer_disp,
+               Options & opt):
+    m_left_image(left_image.impl()), m_right_image(right_image.impl()),
+    m_integer_disp( integer_disp.impl() ),
+    m_opt(opt){}
 
-  typedef typename ImageT::pixel_type pixel_type;
-  typedef typename ImageT::result_type result_type;
-  typedef typename ImageT::pixel_accessor pixel_accessor;
+  // Image View interface
+  typedef PixelMask<Vector2f> pixel_type;
+  typedef pixel_type result_type;
+  typedef ProceduralPixelAccessor<PerTileRfne> pixel_accessor;
 
-  inline int32 cols() const { return m_image.cols(); }
-  inline int32 rows() const { return m_image.rows(); }
-  inline int32 planes() const { return m_image.planes(); }
+  inline int32 cols() const { return m_left_image.cols(); }
+  inline int32 rows() const { return m_left_image.rows(); }
+  inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return m_image.origin(); }
+  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
-  inline result_type operator()( int32 i, int32 j, int32 p = 0 ) const {
-    return m_image( i, j, p );
+  inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "PerTileRfne::operator()(...) is not implemented");
+    return pixel_type();
   }
 
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
-    // We do stereo only in m_left_image_crop_win. Skip the current tile if
+
+    // We do stereo only in left_image_crop_win. Skip the current tile if
     // it does not intersect this region.
-    BBox2i intersection = bbox; intersection.crop(m_left_image_crop_win);
+    BBox2i left_image_crop_win = m_opt.left_image_crop_win;
+    BBox2i intersection = bbox; intersection.crop(left_image_crop_win);
     if (intersection.empty()){
       return prerasterize_type(ImageView<pixel_type>(bbox.width(),
                                                      bbox.height()),
@@ -69,143 +183,61 @@ public:
                                cols(), rows() );
     }
 
-    ImageView<pixel_type> output =
-      crop( m_image.prerasterize( bbox ), bbox );
-    return prerasterize_type( output, -bbox.min().x(), -bbox.min().y(),
-                              cols(), rows() );
+    CropView<ImageView<pixel_type> > disparity
+      = prerasterize_type(crop(refine_disparity(m_left_image, m_right_image,
+                                                m_integer_disp, m_opt),
+                               bbox),
+                          -bbox.min().x(), -bbox.min().y(),
+                          cols(), rows() );
+
+    // Set to invalid the disparity outside left_image_crop_win.
+    for (int col = bbox.min().x(); col < bbox.max().x(); col++){
+      for (int row = bbox.min().y(); row < bbox.max().y(); row++){
+        if (!left_image_crop_win.contains(Vector2(col, row))){
+          disparity(col, row) = pixel_type();
+        }
+      }
+    }
+
+    return disparity;
   }
 
   template <class DestT>
-  inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 };
 
-template <class ImageT>
-SelectiveRasterView<ImageT>
-selective_rasterize( ImageViewBase<ImageT> const& image,
-                     BBox2i const& left_crop ) {
-  return SelectiveRasterView<ImageT>( image.impl(), left_crop );
+template <class Image1T, class Image2T, class SeedDispT>
+PerTileRfne<Image1T, Image2T, SeedDispT>
+per_tile_rfne( ImageViewBase<Image1T> const& left,
+               ImageViewBase<Image2T> const& right,
+               ImageViewBase<SeedDispT> const& integer_disp,
+               Options opt) {
+  typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
+  return return_type( left.impl(), right.impl(), integer_disp.impl(), opt );
 }
 
 void stereo_refinement( Options& opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
 
+  ImageViewRef<PixelGray<float> > left_disk_image, right_disk_image;
+  ImageViewRef<PixelMask<Vector2i> > integer_disp;
   try {
-    std::string filename_L = opt.out_prefix+"-L.tif",
-      filename_R  = opt.out_prefix+"-R.tif";
-    /*
-      if (MEDIAN_FILTER == 1){
-      filename_L = out_prefix+"-median-L.tif";
-      filename_R = out_prefix+"-median-R.tif";
-      } else {
-      filename_L = out_prefix+"-L.tif";
-      filename_R = out_prefix+"-R.tif";
-      }
-    */
-    typedef DiskImageView<PixelGray<float> > InnerView;
-    InnerView left_disk_image(filename_L), right_disk_image(filename_R);
-    DiskImageView<PixelMask<Vector2i> > disparity_disk_image(opt.out_prefix + "-D.tif");
-    ImageViewRef<PixelMask<Vector2f> > disparity_map =
-      pixel_cast<PixelMask<Vector2f> >(disparity_disk_image);
-
-    if (stereo_settings().subpixel_mode == 0) {
-      // Do nothing
-    } else if (stereo_settings().subpixel_mode == 1) {
-      // Parabola
-      vw_out() << "\t--> Using parabola subpixel mode.\n";
-      if (stereo_settings().pre_filter_mode == 2) {
-        vw_out() << "\t--> Using LOG pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n";
-        typedef stereo::LaplacianOfGaussian PreFilter;
-        disparity_map =
-          parabola_subpixel( disparity_disk_image,
-                             left_disk_image, right_disk_image,
-                             PreFilter(stereo_settings().slogW),
-                             stereo_settings().subpixel_kernel );
-      } else if (stereo_settings().pre_filter_mode == 1) {
-        vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n";
-        typedef stereo::SubtractedMean PreFilter;
-        disparity_map =
-          parabola_subpixel( disparity_disk_image,
-                             left_disk_image, right_disk_image,
-                             PreFilter(stereo_settings().slogW),
-                             stereo_settings().subpixel_kernel );
-      } else {
-        vw_out() << "\t--> NO preprocessing" << std::endl;
-        typedef stereo::NullOperation PreFilter;
-        disparity_map =
-          parabola_subpixel( disparity_disk_image,
-                             left_disk_image, right_disk_image,
-                             PreFilter(),
-                             stereo_settings().subpixel_kernel );
-      }
-    } else if (stereo_settings().subpixel_mode == 2) {
-      // Bayes EM
-      vw_out() << "\t--> Using affine adaptive subpixel mode\n";
-      vw_out() << "\t--> Forcing use of LOG filter with "
-               << stereo_settings().slogW << " sigma blur.\n";
-      typedef stereo::LaplacianOfGaussian PreFilter;
-      disparity_map =
-        bayes_em_subpixel( disparity_disk_image,
-                           left_disk_image, right_disk_image,
-                           PreFilter(stereo_settings().slogW),
-                           stereo_settings().subpixel_kernel,
-                           stereo_settings().subpixel_max_levels );
-
-    } else if (stereo_settings().subpixel_mode == 3) {
-      // Affine and Bayes subpixel refinement always use the
-      // LogPreprocessingFilter...
-      vw_out() << "\t--> Using EM Subpixel mode "
-               << stereo_settings().subpixel_mode << std::endl;
-      vw_out() << "\t--> Mode 3 does internal preprocessing;"
-               << " settings will be ignored. " << std::endl;
-
-      typedef stereo::EMSubpixelCorrelatorView<float32> EMCorrelator;
-      EMCorrelator em_correlator(channels_to_planes(left_disk_image),
-                                 channels_to_planes(right_disk_image),
-                                 pixel_cast<PixelMask<Vector2f> >(disparity_disk_image), -1);
-      em_correlator.set_em_iter_max(stereo_settings().subpixel_em_iter);
-      em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter);
-      em_correlator.set_kernel_size(stereo_settings().subpixel_kernel);
-      em_correlator.set_pyramid_levels(stereo_settings().subpixel_pyramid_levels);
-
-      DiskImageResourceOpenEXR em_disparity_map_rsrc(opt.out_prefix + "-F6.exr", em_correlator.format());
-
-      block_write_image(em_disparity_map_rsrc, em_correlator,
-                        TerminalProgressCallback("asp", "\t--> EM Refinement :"));
-
-      DiskImageResource *em_disparity_map_rsrc_2 =
-        DiskImageResourceOpenEXR::construct_open(opt.out_prefix + "-F6.exr");
-      DiskImageView<PixelMask<Vector<float, 5> > > em_disparity_disk_image(em_disparity_map_rsrc_2);
-
-      ImageViewRef<Vector<float, 3> > disparity_uncertainty =
-        per_pixel_filter(em_disparity_disk_image,
-                         EMCorrelator::ExtractUncertaintyFunctor());
-      ImageViewRef<float> spectral_uncertainty =
-        per_pixel_filter(disparity_uncertainty,
-                         EMCorrelator::SpectralRadiusUncertaintyFunctor());
-      write_image(opt.out_prefix+"-US.tif", spectral_uncertainty);
-      write_image(opt.out_prefix+"-U.tif", disparity_uncertainty);
-
-      disparity_map =
-        per_pixel_filter(em_disparity_disk_image,
-                         EMCorrelator::ExtractDisparityFunctor());
-    } else {
-      vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << std::endl;
-      vw_out() << "\t--> Doing nothing\n";
-    }
-
-    asp::block_write_gdal_image( opt.out_prefix + "-RD.tif",
-                                 selective_rasterize(disparity_map,
-                                                     opt.left_image_crop_win), opt,
-                                 TerminalProgressCallback("asp", "\t--> Refinement :") );
-
+    left_disk_image   = DiskImageView< PixelGray<float> >(opt.out_prefix+"-L.tif");
+    right_disk_image  = DiskImageView< PixelGray<float> >(opt.out_prefix+"-R.tif");
+    integer_disp      = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n" );
   }
+
+  ImageViewRef< PixelMask<Vector2f> > refined_disp
+    = per_tile_rfne(left_disk_image, right_disk_image, integer_disp, opt);
+
+  asp::block_write_gdal_image( opt.out_prefix + "-RD.tif",
+                               refined_disp, opt,
+                               TerminalProgressCallback("asp", "\t--> Refinement :") );
 }
 
 int main(int argc, char* argv[]) {
