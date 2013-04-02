@@ -244,23 +244,25 @@ def main():
             options.output_prefix = args[0].split('-')[-1].split('.')[0]
 
         # Write the VRT that composites these JP2 images together
-        with open(options.output_prefix+".vrt",'w') as f:
-            f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (boundary.width(),boundary.height()))
-            f.write("  <VRTRasterBand dataType=\"UInt16\" band=\"1\">\n")
-            f.write("    <ColorInterp>Gray</ColorInterp>\n")
-            f.write("    <NoDataValue>0</NoDataValue>\n")
-            for i in range(len(args)):
-                f.write("    <ComplexSource>\n")
-                f.write("      <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % args[i])
-                f.write("      <SourceBand>1</SourceBand>\n")
-                f.write("      <LUT>0:0,4:0,5:5,4096:4096</LUT>\n")
-                f.write("      <NODATA>0</NODATA>\n")
-                f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (orig_sizes[i][0],orig_sizes[i][1]))
-                f.write("      <DstRect xOff=\"0\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i][0], placements[i][1], placements[i][2]))
+        #with open(options.output_prefix+".vrt",'w') as f:
+        f = open(options.output_prefix+".vrt",'w')
+        f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (boundary.width(),boundary.height()))
+        f.write("  <VRTRasterBand dataType=\"UInt16\" band=\"1\">\n")
+        f.write("    <ColorInterp>Gray</ColorInterp>\n")
+        f.write("    <NoDataValue>0</NoDataValue>\n")
+        for i in range(len(args)):
+            f.write("    <ComplexSource>\n")
+            f.write("      <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % args[i])
+            f.write("      <SourceBand>1</SourceBand>\n")
+            f.write("      <LUT>0:0,4:0,5:5,4096:4096</LUT>\n")
+            f.write("      <NODATA>0</NODATA>\n")
+            f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (orig_sizes[i][0],orig_sizes[i][1]))
+            f.write("      <DstRect xOff=\"0\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i][0], placements[i][1], placements[i][2]))
 
-                f.write("    </ComplexSource>\n")
-            f.write("  </VRTRasterBand>\n")
-            f.write("</VRTDataset>\n")
+            f.write("    </ComplexSource>\n")
+        f.write("  </VRTRasterBand>\n")
+        f.write("</VRTDataset>\n")
+        f.close()
 
         # Write a composite XML file
         tree = ET.parse(xml_name(args[0]))
