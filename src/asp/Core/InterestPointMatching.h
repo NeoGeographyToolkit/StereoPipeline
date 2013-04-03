@@ -55,19 +55,20 @@ namespace asp {
                      vw::camera::CameraModel* cam2,
                      vw::TransformRef const& tx1,
                      vw::TransformRef const& tx2,
-                     std::vector<size_t>& output_indices,
-                     const vw::ProgressCallback &progress_callback = vw::ProgressCallback::dummy_instance() ) const;
+                     std::vector<size_t>& output_indices ) const;
 
     // Work out an epipolar line from interest point. Returns the
     // coefficients for the following line equation: ax + by + c = 0
     static vw::Vector3 epipolar_line( vw::Vector2 const& feature,
-                               vw::cartography::Datum const& datum,
-                               vw::camera::CameraModel* cam_ip,
+                                      vw::cartography::Datum const& datum,
+                                      vw::camera::CameraModel* cam_ip,
                                       vw::camera::CameraModel* cam_obj );
 
     // Calculate distance between a line of equation ax + by + c = 0
     static double distance_point_line( vw::Vector3 const& line,
-                                vw::Vector2 const& point );
+                                       vw::Vector2 const& point );
+
+    friend class EpipolarLineMatchTask;
   };
 
   // Tool to remove points on or within 1 px of nodata pixels.
@@ -158,6 +159,7 @@ namespace asp {
     else
       ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
 
+    vw_out() << "\t    Removing IP near nodata" << std::endl;
     if ( !boost::math::isnan(nodata1) )
       remove_ip_near_nodata( image1.impl(), nodata1, ip1 );
 
@@ -303,10 +305,10 @@ namespace asp {
     std::vector<size_t> forward_match, backward_match;
     vw_out() << "\t--> Matching interest points" << std::endl;
     EpipolarLinePointMatcher matcher( 0.5, norm_2(Vector2(image1.impl().cols(),image1.impl().rows()))/20, datum );
-    matcher( ip1, ip2, cam1, cam2, left_tx, right_tx, forward_match,
-             TerminalProgressCallback("asp","\t    Forward:") );
-    matcher( ip2, ip1, cam2, cam1, right_tx, left_tx, backward_match,
-             TerminalProgressCallback("asp","\t    Backward:") );
+    vw_out() << "\t    Matching Forward" << std::endl;
+    matcher( ip1, ip2, cam1, cam2, left_tx, right_tx, forward_match );
+    vw_out() << "\t    Matching Backward" << std::endl;
+    matcher( ip2, ip1, cam2, cam1, right_tx, left_tx, backward_match );
 
     // Perform circle consistency check
     size_t valid_count = 0;

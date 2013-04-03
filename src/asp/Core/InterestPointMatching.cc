@@ -51,14 +51,78 @@ namespace asp {
       norm_2( subvector( line, 0, 2 ) );
   }
 
+  class EpipolarLineMatchTask : public Task, private boost::noncopyable {
+    typedef ip::InterestPointList::const_iterator IPListIter;
+    math::FLANNTree<float>& m_tree;
+    IPListIter m_start, m_end;
+    ip::InterestPointList const& m_ip_other;
+    camera::CameraModel *m_cam1, *m_cam2;
+    TransformRef m_tx1, m_tx2;
+    EpipolarLinePointMatcher const& m_matcher;
+    Mutex& m_camera_mutex;
+    std::vector<size_t>::iterator m_output;
+  public:
+    EpipolarLineMatchTask( math::FLANNTree<float>& tree,
+                           ip::InterestPointList::const_iterator start,
+                           ip::InterestPointList::const_iterator end,
+                           ip::InterestPointList const& ip2,
+                           camera::CameraModel* cam1,
+                           camera::CameraModel* cam2,
+                           TransformRef const& tx1,
+                           TransformRef const& tx2,
+                           EpipolarLinePointMatcher const& matcher,
+                           Mutex& camera_mutex,
+                           std::vector<size_t>::iterator output ) :
+    m_tree(tree), m_start(start), m_end(end), m_ip_other(ip2),
+      m_cam1(cam1), m_cam2(cam2), m_tx1(tx1), m_tx2(tx2),
+      m_matcher( matcher ), m_camera_mutex(camera_mutex), m_output(output) {}
+
+    void operator()() {
+      Vector<int> indices(10);
+      Vector<float> distances(10);
+
+      for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
+        Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
+        Vector3 line_eq;
+
+        // Can't assume the camera is safe (ISIS)
+        {
+          Mutex::Lock lock( m_camera_mutex );
+          line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2 );
+        }
+
+        std::vector<std::pair<float,int> > kept_indices;
+        kept_indices.reserve(10);
+        m_tree.knn_search( ip->descriptor, indices, distances, 10 );
+
+        for ( size_t i = 0; i < 10; i++ ) {
+          IPListIter ip2_it = m_ip_other.begin();
+          std::advance( ip2_it, indices[i] );
+          Vector2 ip2_org_coord = m_tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
+          double distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
+          if ( distance < m_matcher.m_epipolar_threshold ) {
+            kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
+          }
+        }
+
+        if ( ( kept_indices.size() > 2 &&
+               kept_indices[0].first < m_matcher.m_threshold * kept_indices[1].first ) ||
+             kept_indices.size() == 1 ){
+          *m_output++ = kept_indices[0].second;
+        } else {
+          *m_output++ = (size_t)(-1);
+        }
+      }
+    }
+  };
+
   void EpipolarLinePointMatcher::operator()( ip::InterestPointList const& ip1,
                                              ip::InterestPointList const& ip2,
                                              camera::CameraModel* cam1,
                                              camera::CameraModel* cam2,
                                              TransformRef const& tx1,
                                              TransformRef const& tx2,
-                                             std::vector<size_t>& output_indices,
-                                             const ProgressCallback &progress_callback ) const {
+                                             std::vector<size_t>& output_indices ) const {
     typedef ip::InterestPointList::const_iterator IPListIter;
 
     Timer total_time("Total elapsed time", DebugMessage, "interest_point");
@@ -67,12 +131,15 @@ namespace asp {
     output_indices.clear();
     if (!ip1_size || !ip2_size) {
       vw_out(InfoMessage,"interest_point") << "KD-Tree: no points to match, exiting\n";
-      progress_callback.report_finished();
       return;
     }
 
-    float inc_amt = 1.0f/float(ip1_size);
+    // Build the output indices
+    output_indices.resize( ip1_size );
 
+    // Make the storage structure required by FLANN. FLANN really only
+    // holds a bunch of pointers to this structure. It should be
+    // possible to modify FLANN so that it doesn't need a copy.
     Matrix<float> ip2_matrix( ip2_size, ip2.begin()->size() );
     Matrix<float>::iterator ip2_matrix_it = ip2_matrix.begin();
     BOOST_FOREACH( ip::InterestPoint const& ip, ip2 )
@@ -81,46 +148,31 @@ namespace asp {
     math::FLANNTree<float > kd( ip2_matrix );
     vw_out(InfoMessage,"interest_point") << "FLANN-Tree created. Searching...\n";
 
-    Vector<int> indices(10);
-    Vector<float> distances(10);
-    progress_callback.report_progress(0);
+    FifoWorkQueue matching_queue;
+    Mutex camera_mutex;
 
-    BOOST_FOREACH( ip::InterestPoint ip, ip1 ) {
-      if (progress_callback.abort_requested())
-        vw_throw( Aborted() << "Aborted by ProgressCallback" );
-      progress_callback.report_incremental_progress(inc_amt);
+    // Jobs set to 2x the number of cores. This is just incase all jobs are not equal.
+    size_t number_of_jobs = vw_settings().default_num_threads() * 2;
+    IPListIter start_it = ip1.begin();
+    std::vector<size_t>::iterator output_it = output_indices.begin();
 
-      // Get original coordinates for ip in image1
-      Vector2 ip_org_coord = tx1.reverse( Vector2( ip.x, ip.y ) );
-
-      // Give me the the 10 best interest points and then lets filter
-      // out the ones that have an epipolar error greater than 100
-      Vector3 line_eq = epipolar_line( ip_org_coord, m_datum, cam1, cam2 );
-
-      std::vector<std::pair<float,int> > kept_indices;
-      kept_indices.reserve(10);
-      kd.knn_search( ip.descriptor, indices, distances, 10 );
-
-      for ( size_t i = 0; i < 10; i++ ) {
-        IPListIter ip2_it = ip2.begin();
-        std::advance( ip2_it, indices[i] );
-        Vector2 ip2_org_coord = tx2.reverse( Vector2( ip2_it->x, ip2_it->y ) );
-        double distance = distance_point_line( line_eq, ip2_org_coord );
-        if ( distance < m_epipolar_threshold ) {
-          kept_indices.push_back( std::pair<float,int>( distances[i], indices[i] ) );
-        }
-      }
-
-      if ( kept_indices.size() > 2 &&
-           kept_indices[0].first < m_threshold * kept_indices[1].first ) {
-        output_indices.push_back( kept_indices[0].second );
-      } else if ( kept_indices.size() == 1 ) {
-        output_indices.push_back( kept_indices[0].second );
-      } else {
-        output_indices.push_back( (size_t)(-1) ); // Last value of size_t
-      }
+    for ( size_t i = 0; i < number_of_jobs - 1; i++ ) {
+      IPListIter end_it = start_it;
+      std::advance( end_it, ip1_size / number_of_jobs );
+      boost::shared_ptr<Task>
+        match_task( new EpipolarLineMatchTask( kd, start_it, end_it,
+                                               ip2, cam1, cam2, tx1, tx2, *this,
+                                               camera_mutex, output_it ) );
+      matching_queue.add_task( match_task );
+      start_it = end_it;
+      std::advance( output_it, ip1_size / number_of_jobs );
     }
-    progress_callback.report_finished();
+    boost::shared_ptr<Task>
+      match_task( new EpipolarLineMatchTask( kd, start_it, ip1.end(),
+                                             ip2, cam1, cam2, tx1, tx2, *this,
+                                             camera_mutex, output_it ) );
+    matching_queue.add_task( match_task );
+    matching_queue.join_all();
   }
 
   void check_homography_matrix(Matrix<double>       const& H,
