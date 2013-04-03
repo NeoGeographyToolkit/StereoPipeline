@@ -179,7 +179,7 @@ namespace asp {
                             opt.out_prefix, opt.input_dem, opt.extra_argument1,
                             opt.extra_argument2, opt.extra_argument3);
 
-    user_safety_check(opt);
+    user_safety_checks(opt);
 
     // The last thing we do before we get started is to copy the
     // stereo.default settings over into the results directory so that
@@ -251,7 +251,7 @@ namespace asp {
 
   }
 
-  void user_safety_check(Options const& opt){
+  void user_safety_checks(Options const& opt){
 
     //---------------------------------------------------------
     try {
@@ -307,18 +307,28 @@ namespace asp {
     // Checks for map-projected images below
 
     if ( opt.session->has_lut_images() && stereo_settings().seed_mode == 2 )
-      vw_throw( NoImplErr() << "Computation of low-resolution disparity from DEM is not implemented for map-projected images.\n");
+      vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
+                << "DEM is not implemented for map-projected images.\n");
 
     GeoReference georef;
     bool has_georef1 = read_georeference( georef, opt.in_file1 );
     bool has_georef2 = read_georeference( georef, opt.in_file2 );
     if ( opt.session->has_lut_images() && (!has_georef1 || !has_georef2)){
-      vw_throw( ArgumentErr() << "The images are not map-projected, cannot use the provided DEM: "
-                << opt.input_dem << ".\n\n");
+      vw_throw( ArgumentErr() << "The images are not map-projected, "
+                << "cannot use the provided DEM: " << opt.input_dem << ".n");
     }
 
-    if (opt.stereo_session_string == "dg" && has_georef1 && has_georef2 && opt.input_dem == "") {
-      vw_out(WarningMessage) << "It appears that the input images are map-projected. In that case a DEM needs to be provided for stereo to give correct results.\n";
+    if (opt.stereo_session_string == "dg" &&
+        has_georef1 && has_georef2 && opt.input_dem == "") {
+      vw_out(WarningMessage) << "It appears that the input images are "
+                             << "map-projected. In that case a DEM needs to be "
+                             << "provided for stereo to give correct results.\n";
+    }
+
+    if ( stereo_settings().seed_mode == 0 &&
+         stereo_settings().use_local_homography ){
+      vw_throw( ArgumentErr() << "Cannot use local homography without "
+                << "computing low-resolution disparity.\n");
     }
 
   }

@@ -77,7 +77,7 @@ namespace asp {
   void stereo_register_sessions();
 
   // Checks for obvious user mistakes
-  void user_safety_check(Options const& opt);
+  void user_safety_checks(Options const& opt);
 
   // Approximate search range by looking at interest point match file
   vw::BBox2i approximate_search_range(std::string const& out_prefix,
