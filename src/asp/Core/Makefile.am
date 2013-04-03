@@ -34,11 +34,11 @@ include_HEADERS = BlobIndexThreaded.h StereoSettings.h SparseView.h      \
                   SoftwareRenderer.h ErodeView.h $(ba_headers) Macros.h  \
                   Common.h ThreadedEdgeMask.h GaussianClustering.h       \
                   IntegralAutoGainDetector.h InterestPointMatching.h     \
-                  DemDisparity.h
+                  DemDisparity.h LocalDisparity.h
 
 libaspCore_la_SOURCES = BlobIndexThreaded.cc Common.cc MedianFilter.cc   \
                   SoftwareRenderer.cc StereoSettings.cc $(ba_sources)    \
-                  InterestPointMatching.cc DemDisparity.cc
+                  InterestPointMatching.cc DemDisparity.cc LocalDisparity.cc
 
 libaspCore_la_LIBADD = @MODULE_CORE_LIBS@
 

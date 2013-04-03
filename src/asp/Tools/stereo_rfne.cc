@@ -25,8 +25,11 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/SubpixelView.h>
 #include <vw/Stereo/EMSubpixelCorrelatorView.h>
+#include <asp/Core/LocalDisparity.h>
+#include <vw/Stereo/DisparityMap.h>
 
 using namespace vw;
+using namespace vw::stereo;
 using namespace asp;
 
 namespace vw {
@@ -139,19 +142,31 @@ refine_disparity(Image1T const& left_image,
 // to the right image before doing refinement in that tile.
 template <class Image1T, class Image2T, class SeedDispT>
 class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT> >{
-  Image1T   m_left_image;
-  Image2T   m_right_image;
+  Image1T m_left_image;
+  Image2T m_right_image;
+  ImageViewRef<PixelGray<float> > m_left_sub;
+  ImageViewRef<uint8> m_right_mask;
   SeedDispT m_integer_disp;
-  Options & m_opt;
+  ImageView<Matrix3x3> m_local_hom;
+  Options const& m_opt;
+  Vector2 m_upscale_factor;
 
 public:
   PerTileRfne( ImageViewBase<Image1T> const& left_image,
                ImageViewBase<Image2T> const& right_image,
+               ImageViewRef<PixelGray<float> > const& left_sub,
+               ImageViewRef<uint8> const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
-               Options & opt):
+               ImageView<Matrix3x3> const& local_hom,
+               Options const& opt):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
-    m_integer_disp( integer_disp.impl() ),
-    m_opt(opt){}
+    m_left_sub(left_sub), m_right_mask(right_mask),
+    m_integer_disp( integer_disp.impl() ), m_local_hom(local_hom), m_opt(opt){
+
+    m_upscale_factor
+      = Vector2(double(m_left_image.impl().cols()) / m_left_sub.cols(),
+                double(m_left_image.impl().rows()) / m_left_sub.rows());
+  }
 
   // Image View interface
   typedef PixelMask<Vector2f> pixel_type;
@@ -183,10 +198,42 @@ public:
                                cols(), rows() );
     }
 
-    CropView<ImageView<pixel_type> > disparity
-      = prerasterize_type(crop(refine_disparity(m_left_image, m_right_image,
-                                                m_integer_disp, m_opt),
-                               bbox),
+    ImageView<pixel_type> tile_disparity;
+    if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
+
+      int ts = Options::corr_tile_size();
+      Matrix<double>  lowres_hom
+        = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
+      Vector3 upscale( m_upscale_factor[0], m_upscale_factor[1], 1 );
+      Vector3 dnscale( 1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1 );
+      Matrix<double>  fullres_hom
+        = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
+
+      // Must transform the right image by the local disparity
+      // to be in the same conditions as for stereo correlation.
+      typedef typename Image2T::pixel_type right_pix_type;
+      ImageViewRef< PixelMask<right_pix_type> > right_trans_masked_img
+        = transform (copy_mask( m_right_image.impl(), create_mask(m_right_mask) ),
+                     HomographyTransform(fullres_hom),
+                     m_left_image.impl().cols(), m_left_image.impl().rows());
+      ImageViewRef<right_pix_type> right_trans_img
+        = apply_mask(right_trans_masked_img);
+
+      tile_disparity = crop(refine_disparity(m_left_image, right_trans_img,
+                                             m_integer_disp, m_opt), bbox);
+
+      // Must undo the local homography transform
+      bool do_round = false; // don't round floating point disparities
+      tile_disparity = transform_disparities(do_round, bbox, inverse(fullres_hom),
+                                             tile_disparity);
+
+    }else{
+      tile_disparity = crop(refine_disparity(m_left_image, m_right_image,
+                                             m_integer_disp, m_opt), bbox);
+    }
+
+    prerasterize_type disparity
+      = prerasterize_type(tile_disparity,
                           -bbox.min().x(), -bbox.min().y(),
                           cols(), rows() );
 
@@ -212,28 +259,46 @@ template <class Image1T, class Image2T, class SeedDispT>
 PerTileRfne<Image1T, Image2T, SeedDispT>
 per_tile_rfne( ImageViewBase<Image1T> const& left,
                ImageViewBase<Image2T> const& right,
+               ImageViewRef<PixelGray<float> > const& left_sub,
+               ImageViewRef<uint8> const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
-               Options opt) {
+               ImageView<Matrix3x3> const& local_hom,
+               Options const& opt) {
   typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
-  return return_type( left.impl(), right.impl(), integer_disp.impl(), opt );
+  return return_type( left.impl(), right.impl(), left_sub,
+                      right_mask, integer_disp.impl(), local_hom, opt );
 }
 
-void stereo_refinement( Options& opt ) {
+void stereo_refinement( Options const& opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
 
   ImageViewRef<PixelGray<float> > left_disk_image, right_disk_image;
+  ImageViewRef<PixelGray<float> > left_sub;
+  ImageViewRef<uint8> right_mask;
   ImageViewRef<PixelMask<Vector2i> > integer_disp;
+  ImageView<Matrix3x3> local_hom;
   try {
     left_disk_image   = DiskImageView< PixelGray<float> >(opt.out_prefix+"-L.tif");
     right_disk_image  = DiskImageView< PixelGray<float> >(opt.out_prefix+"-R.tif");
+    left_sub          = DiskImageView<PixelGray<float> > (opt.out_prefix+"-L_sub.tif" ),
+
+    right_mask        = DiskImageView<uint8>(opt.out_prefix + "-rMask.tif");
+
     integer_disp      = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
+    if ( stereo_settings().seed_mode > 0 &&
+         stereo_settings().use_local_homography ){
+      std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
+      read_local_homographies(local_hom_file, local_hom);
+    }
+
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n" );
   }
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
-    = per_tile_rfne(left_disk_image, right_disk_image, integer_disp, opt);
+    = per_tile_rfne(left_disk_image, right_disk_image, left_sub,
+                    right_mask, integer_disp, local_hom, opt);
 
   asp::block_write_gdal_image( opt.out_prefix + "-RD.tif",
                                refined_disp, opt,

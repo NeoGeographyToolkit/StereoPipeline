@@ -46,8 +46,8 @@ void produce_lowres_disparity( Options & opt ) {
   DiskImageView<PixelGray<float> > left_sub( opt.out_prefix+"-L_sub.tif" ),
     right_sub( opt.out_prefix+"-R_sub.tif" );
 
-  Vector2f downsample_scale( float(left_sub.cols()) / float(Lmask.cols()),
-                             float(left_sub.rows()) / float(Lmask.rows()) );
+  Vector2 downsample_scale( double(left_sub.cols()) / double(Lmask.cols()),
+                             double(left_sub.rows()) / double(Lmask.rows()) );
 
   DiskImageView<uint8> left_mask_sub( opt.out_prefix+"-lMask_sub.tif" ),
     right_mask_sub( opt.out_prefix+"-rMask_sub.tif" );
@@ -125,11 +125,11 @@ void lowres_correlation( Options & opt ) {
       //   Pinhole + None
       //   DG + None
       // Everything else should gather IP's all the time.
-      float sub_scale =
-        sum(elem_quot( Vector2f(file_image_size( opt.out_prefix+"-L_sub.tif" )),
-                       Vector2f(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
-        sum(elem_quot( Vector2f(file_image_size( opt.out_prefix+"-R_sub.tif" )),
-                       Vector2f(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
+      double sub_scale =
+        sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-L_sub.tif" )),
+                       Vector2(file_image_size( opt.out_prefix+"-L.tif" ) ) )) +
+        sum(elem_quot( Vector2(file_image_size( opt.out_prefix+"-R_sub.tif" )),
+                       Vector2(file_image_size( opt.out_prefix+"-R.tif" ) ) ));
       sub_scale /= 4.0f;
 
       stereo_settings().search_range =
@@ -183,7 +183,7 @@ void lowres_correlation( Options & opt ) {
   }
 
   // Create the local homographies based on D_sub
-  if (stereo_settings().use_local_homography){
+  if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
     std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
     try {
       ImageView<Matrix3x3> local_hom;
@@ -212,7 +212,7 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, 
   PProcT m_preproc_func;
 
   // Settings
-  Vector2f m_upscale_factor;
+  Vector2 m_upscale_factor;
   BBox2i m_seed_bbox;
   BBox2i m_left_image_crop_win;
   stereo::CostFunctionType m_cost_mode;
@@ -234,8 +234,8 @@ public:
     m_sub_disparity_spread( sub_disparity_spread.impl() ),
     m_local_hom(local_hom), m_preproc_func( filter.impl() ),
     m_left_image_crop_win(left_image_crop_win), m_cost_mode(cost_mode) {
-    m_upscale_factor[0] = float(m_left_image.cols()) / float(m_sub_disparity.cols());
-    m_upscale_factor[1] = float(m_left_image.rows()) / float(m_sub_disparity.rows());
+    m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disparity.cols();
+    m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disparity.rows();
     m_seed_bbox = bounding_box( m_sub_disparity );
   }
 
@@ -351,8 +351,7 @@ public:
           = transform (copy_mask( m_right_image.impl(),
                                   create_mask(m_right_mask.impl()) ),
                        HomographyTransform(fullres_hom),
-                       m_left_image.impl().cols(),
-                       m_left_image.impl().rows());
+                       m_left_image.impl().cols(), m_left_image.impl().rows());
         right_trans_img = apply_mask(right_trans_masked_img);
         right_trans_mask
           = channel_cast_rescale<uint8>(select_channel(right_trans_masked_img, 1));
@@ -391,11 +390,7 @@ public:
                           stereo_settings().corr_kernel, m_cost_mode,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels );
-      return prerasterize_type
-        (transform_disparities(do_round, bbox, inverse(fullres_hom),
-                               crop(corr_view.prerasterize(bbox), bbox)),
-         -bbox.min().x(), -bbox.min().y(),
-         cols(), rows() );
+      return corr_view.prerasterize(bbox);
     }else{
       typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
       CorrView corr_view( m_left_image, m_right_image,
@@ -460,6 +455,8 @@ void stereo_correlation( Options& opt ) {
   // Load up for the actual native resolution processing
   DiskImageView<PixelGray<float> > left_disk_image(opt.out_prefix+"-L.tif"),
     right_disk_image(opt.out_prefix+"-R.tif");
+  DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
+    Rmask(opt.out_prefix + "-rMask.tif");
   ImageViewRef<PixelMask<Vector2i> > sub_disparity;
   if ( stereo_settings().seed_mode > 0 )
     sub_disparity =
@@ -468,39 +465,37 @@ void stereo_correlation( Options& opt ) {
   if ( stereo_settings().seed_mode == 2 )
     sub_disparity_spread =
       DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub_spread.tif");
-  ImageViewRef<PixelMask<Vector2i> > fullres_disparity;
   ImageView<Matrix3x3> local_hom;
-  if ( stereo_settings().use_local_homography ){
+  if ( stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography ){
     std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
     read_local_homographies(local_hom_file, local_hom);
   }
-
-  DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-    Rmask(opt.out_prefix + "-rMask.tif");
 
   stereo::CostFunctionType cost_mode;
   if      (stereo_settings().cost_mode == 0) cost_mode = stereo::ABSOLUTE_DIFFERENCE;
   else if (stereo_settings().cost_mode == 1) cost_mode = stereo::SQUARED_DIFFERENCE;
   else if (stereo_settings().cost_mode == 2) cost_mode = stereo::CROSS_CORRELATION;
   else
-    vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode << " for cost-mode.\n" );
+    vw_throw( ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
+              << " for cost-mode.\n" );
 
+  ImageViewRef<PixelMask<Vector2i> > fullres_disparity;
   if ( stereo_settings().pre_filter_mode == 2 ) {
     vw_out() << "\t--> Using LOG pre-processing filter with "
              << stereo_settings().slogW << " sigma blur.\n";
     fullres_disparity =
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disparity, sub_disparity_spread, local_hom,
-                          stereo::LaplacianOfGaussian(stereo_settings().slogW), opt.left_image_crop_win,
-                          cost_mode );
+                          stereo::LaplacianOfGaussian(stereo_settings().slogW),
+                          opt.left_image_crop_win, cost_mode );
   } else if ( stereo_settings().pre_filter_mode == 1 ) {
     vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
              << stereo_settings().slogW << " sigma blur.\n";
     fullres_disparity =
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disparity, sub_disparity_spread, local_hom,
-                          stereo::SubtractedMean(stereo_settings().slogW), opt.left_image_crop_win,
-                          cost_mode );
+                          stereo::SubtractedMean(stereo_settings().slogW),
+                          opt.left_image_crop_win, cost_mode );
   } else {
     vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
     fullres_disparity =
