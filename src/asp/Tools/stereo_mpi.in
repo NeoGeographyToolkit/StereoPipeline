@@ -209,12 +209,12 @@ def create_subproject_dirs( settings, **kw ):
                 os.mkdir( directory )
             except OSError, e:
                 pass
-            # To do: A better approach below would be to soft-link
+            # To do: A more robust approach below would be to soft-link
             # all existing files rather than having a list.
             for postfix in ["-L.tif","-R.tif","-L_sub.tif","-R_sub.tif",
                             "-lMask.tif","-rMask.tif","-lMask_sub.tif",
                             "-rMask_sub.tif","-align.exr","-F.tif",
-                            "-D_sub.tif", "-D_sub_spread.tif",
+                            "-D_sub.tif", "-D_sub_spread.tif", "-local_hom.txt",
                             "-"+os.path.basename(settings['in_file1'][0])[:-4]+"__"+
                             os.path.basename(settings['in_file2'][0])[:-4]+".match"]:
                 if os.path.lexists( prefix + postfix ):
