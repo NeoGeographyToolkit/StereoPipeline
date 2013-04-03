@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file LocalDisparity.h
+/// \file LocalHomography.h
 ///
 
 #ifndef __LOCAL_DISPARITY_H__

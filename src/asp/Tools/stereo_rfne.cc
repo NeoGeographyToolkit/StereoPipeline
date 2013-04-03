@@ -25,7 +25,7 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/SubpixelView.h>
 #include <vw/Stereo/EMSubpixelCorrelatorView.h>
-#include <asp/Core/LocalDisparity.h>
+#include <asp/Core/LocalHomography.h>
 #include <vw/Stereo/DisparityMap.h>
 
 using namespace vw;

@@ -28,7 +28,7 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Core/DemDisparity.h>
-#include <asp/Core/LocalDisparity.h>
+#include <asp/Core/LocalHomography.h>
 
 using namespace vw;
 using namespace vw::stereo;

@@ -16,14 +16,14 @@
 // __END_LICENSE__
 
 
-/// \file LocalDisparity.cc
+/// \file LocalHomography.cc
 ///
 
 #include <vw/Image/ImageView.h>
 #include <vw/Image/Transform.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <asp/Core/LocalDisparity.h>
+#include <asp/Core/LocalHomography.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
 
