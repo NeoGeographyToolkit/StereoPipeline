@@ -78,7 +78,8 @@ void stereo_preprocessing( Options& opt ) {
     right_rsrc( DiskImageResource::open(pre_preproc_file_right) );
 
   // Load the unmodified images
-  DiskImageView<PixelGray<float> > left_image( left_rsrc ), right_image( right_rsrc );
+  DiskImageView<PixelGray<float> > left_image( left_rsrc ),
+    right_image( right_rsrc );
 
   std::string left_mask_file  = opt.out_prefix+"-lMask.tif";
   std::string right_mask_file = opt.out_prefix+"-rMask.tif";
@@ -102,23 +103,34 @@ void stereo_preprocessing( Options& opt ) {
 
     vw_out() << "\t--> Generating image masks... \n";
 
-    ImageViewRef< PixelMask<uint8> > left_mask = copy_mask(constant_view(uint8(255),
-                                                                         left_image.cols(), left_image.rows()),
-                                                           asp::threaded_edge_mask(left_image,0,0,1024)
-                                                           );
-    ImageViewRef< PixelMask<uint8> > right_mask = copy_mask(constant_view(uint8(255),
-                                                                          right_image.cols(), right_image.rows() ),
-                                                            asp::threaded_edge_mask(right_image,0,0,1024));
+    Stopwatch sw;
+    sw.start();
+
+    ImageViewRef< PixelMask<uint8> > left_mask
+      = copy_mask(constant_view(uint8(255),
+                                left_image.cols(), left_image.rows()),
+                  asp::threaded_edge_mask(left_image,0,0,1024)
+                  );
+    ImageViewRef< PixelMask<uint8> > right_mask
+      = copy_mask(constant_view(uint8(255),
+                                right_image.cols(), right_image.rows() ),
+                  asp::threaded_edge_mask(right_image,0,0,1024));
 
     // Mask no-data pixels. Read the no-data values written to disk
     // previously when the normalized left and right images were
     // created.
     float left_nodata_value = std::numeric_limits<float>::quiet_NaN();
     float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
-    if ( left_rsrc->has_nodata_read()  ) left_nodata_value  = left_rsrc->nodata_read();
-    if ( right_rsrc->has_nodata_read() ) right_nodata_value = right_rsrc->nodata_read();
-    left_mask  = intersect_mask(left_mask,  create_mask_less_or_equal(left_image,  left_nodata_value));
-    right_mask = intersect_mask(right_mask, create_mask_less_or_equal(right_image, right_nodata_value));
+    if ( left_rsrc->has_nodata_read() )
+      left_nodata_value  = left_rsrc->nodata_read();
+    if ( right_rsrc->has_nodata_read() )
+      right_nodata_value = right_rsrc->nodata_read();
+    left_mask = intersect_mask(left_mask,
+                               create_mask_less_or_equal(left_image,
+                                                         left_nodata_value));
+    right_mask = intersect_mask(right_mask,
+                                create_mask_less_or_equal(right_image,
+                                                          right_nodata_value));
 
     // Invalidate pixels below threshold.
 
@@ -128,7 +140,8 @@ void stereo_preprocessing( Options& opt ) {
     double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
     if ( (!std::isnan(nodata_fraction)) && (!std::isnan(nodata_factor)) ){
       vw_throw( ArgumentErr()
-                << "\nCannot set both nodata-pixel-percentage and nodata-optimal-threshold-factor at the same time.\n");
+                << "\nCannot set both nodata-pixel-percentage and "
+                << "nodata-optimal-threshold-factor at the same time.\n");
     }
     if ( !std::isnan(nodata_factor) ){
       // Find the black pixels threshold using Otsu's optimal threshold method.
@@ -144,50 +157,53 @@ void stereo_preprocessing( Options& opt ) {
       right_threshold = right_cdf.quantile(nodata_fraction);
     }
     if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
-      ImageViewRef< PixelMask<uint8> > left_thresh_mask = mask_and_fill_holes(left_image, left_threshold);
+      ImageViewRef< PixelMask<uint8> > left_thresh_mask
+        = mask_and_fill_holes(left_image, left_threshold);
       left_mask = intersect_mask(left_mask, left_thresh_mask);
-      ImageViewRef< PixelMask<uint8> > right_thresh_mask = mask_and_fill_holes(right_image, right_threshold);
+      ImageViewRef< PixelMask<uint8> > right_thresh_mask
+        = mask_and_fill_holes(right_image, right_threshold);
       right_mask = intersect_mask(right_mask, right_thresh_mask);
     }
 
-    // Intersect the left mask with the warped version of the right mask, and vice-versa
-    // to reduce noise.
+    // Intersect the left mask with the warped version of the right
+    // mask, and vice-versa to reduce noise.
     cartography::GeoReference left_georef, right_georef;
     bool has_left_georef  = read_georeference(left_georef,  opt.in_file1);
     bool has_right_georef = read_georeference(right_georef, opt.in_file2);
 
-    vw_out() << "Writing masks: " << left_mask_file << ' ' << right_mask_file << ".\n";
+    vw_out() << "Writing masks: " << left_mask_file << ' '
+             << right_mask_file << ".\n";
     if (has_left_georef && has_right_georef){
-      ImageViewRef< PixelMask<uint8> > warped_left_mask = crop(vw::cartography::geo_transform
-                                                               (left_mask,
-                                                                left_georef,
-                                                                right_georef,
-                                                                ConstantEdgeExtension(),
-                                                                NearestPixelInterpolation()),
-                                                               bounding_box(right_mask)
-                                                               );
-      ImageViewRef< PixelMask<uint8> > warped_right_mask = crop(vw::cartography::geo_transform
-                                                                (right_mask,
-                                                                 right_georef,
-                                                                 left_georef,
-                                                                 ConstantEdgeExtension(),
-                                                                 NearestPixelInterpolation()),
-                                                                bounding_box(left_mask)
-                                                                );
-      asp::block_write_gdal_image( left_mask_file,
-                                   apply_mask(intersect_mask(left_mask, warped_right_mask)),
-                                   opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
-      asp::block_write_gdal_image( right_mask_file,
-                                   apply_mask(intersect_mask(right_mask, warped_left_mask)),
-                                   opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
+      ImageViewRef< PixelMask<uint8> > warped_left_mask
+        = crop(vw::cartography::geo_transform
+               (left_mask, left_georef, right_georef,
+                ConstantEdgeExtension(),NearestPixelInterpolation()),
+               bounding_box(right_mask));
+      ImageViewRef< PixelMask<uint8> > warped_right_mask
+        = crop(vw::cartography::geo_transform
+               (right_mask, right_georef, left_georef,
+                ConstantEdgeExtension(), NearestPixelInterpolation()),
+               bounding_box(left_mask) );
+      asp::block_write_gdal_image
+        ( left_mask_file,
+          apply_mask(intersect_mask(left_mask, warped_right_mask)),
+          opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
+      asp::block_write_gdal_image
+        ( right_mask_file,
+          apply_mask(intersect_mask(right_mask, warped_left_mask)),
+          opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
     }else{
-      asp::block_write_gdal_image( left_mask_file,
-                                   apply_mask(left_mask),
-                                   opt, TerminalProgressCallback("asp", "\t    Mask L: ") );
-      asp::block_write_gdal_image( right_mask_file,
-                                   apply_mask(right_mask),
-                                   opt, TerminalProgressCallback("asp", "\t    Mask R: ") );
+      asp::block_write_gdal_image( left_mask_file, apply_mask(left_mask), opt,
+                                   TerminalProgressCallback("asp",
+                                                            "\t    Mask L: ") );
+      asp::block_write_gdal_image( right_mask_file, apply_mask(right_mask), opt,
+                                   TerminalProgressCallback("asp",
+                                                            "\t    Mask R: ") );
     }
+
+    sw.stop();
+    vw_out(DebugMessage,"asp") << "Mask creation elapsed time: "
+                               << sw.elapsed_seconds() << " s." << std::endl;
 
   } // End creating masks
 

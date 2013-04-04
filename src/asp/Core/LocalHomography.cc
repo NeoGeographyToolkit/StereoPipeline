@@ -135,7 +135,7 @@ namespace asp {
 
     sw.stop();
     vw_out(DebugMessage,"asp") << "Local homographies elapsed time: "
-                               << sw.elapsed_seconds() << std::endl;
+                               << sw.elapsed_seconds() << " s." << std::endl;
 
     std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
     vw_out() << "Writing: " << local_hom_file << "\n";

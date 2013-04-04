@@ -141,6 +141,9 @@ namespace asp {
     ip1.clear();
     ip2.clear();
 
+    Stopwatch sw;
+    sw.start();
+
     // Detect Interest Points
     float number_boxes = (box1.width() / 1024.f) * (box1.height() / 1024.f);
     size_t points_per_tile = 5000.f / number_boxes;
@@ -159,6 +162,12 @@ namespace asp {
     else
       ip2 = detect_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), detector );
 
+    sw.stop();
+    vw_out(DebugMessage,"asp") << "Detect interest points elapsed time: "
+                               << sw.elapsed_seconds() << " s." << std::endl;
+
+    sw.start();
+
     vw_out() << "\t    Removing IP near nodata" << std::endl;
     if ( !boost::math::isnan(nodata1) )
       remove_ip_near_nodata( image1.impl(), nodata1, ip1 );
@@ -166,7 +175,13 @@ namespace asp {
     if ( !boost::math::isnan(nodata2) )
       remove_ip_near_nodata( image2.impl(), nodata2, ip2 );
 
-    vw_out() << "\t    Building Descriptors" << std::endl;
+    sw.stop();
+    vw_out(DebugMessage,"asp") << "Remove IP elapsed time: "
+                               << sw.elapsed_seconds() << " s." << std::endl;
+
+    sw.start();
+
+    vw_out() << "\t    Building descriptors" << std::endl;
     ip::SGradDescriptorGenerator descriptor;
     if ( boost::math::isnan(nodata1) )
       describe_interest_points( image1.impl(), descriptor, ip1 );
@@ -176,6 +191,9 @@ namespace asp {
       describe_interest_points( image2.impl(), descriptor, ip2 );
     else
       describe_interest_points( apply_mask(create_mask_less_or_equal(image2.impl(),nodata2)), descriptor, ip2 );
+
+    vw_out(DebugMessage,"asp") << "Building descriptors elapsed time: "
+                               << sw.elapsed_seconds() << " s." << std::endl;
 
     vw_out() << "\t    Found interest points:\n"
              << "\t      left: " << ip1.size() << "\n";
