@@ -109,8 +109,7 @@ void stereo_preprocessing( Options& opt ) {
     ImageViewRef< PixelMask<uint8> > left_mask
       = copy_mask(constant_view(uint8(255),
                                 left_image.cols(), left_image.rows()),
-                  asp::threaded_edge_mask(left_image,0,0,1024)
-                  );
+                  asp::threaded_edge_mask(left_image,0,0,1024));
     ImageViewRef< PixelMask<uint8> > right_mask
       = copy_mask(constant_view(uint8(255),
                                 right_image.cols(), right_image.rows() ),
