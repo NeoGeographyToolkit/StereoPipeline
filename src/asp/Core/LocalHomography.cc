@@ -21,6 +21,7 @@
 
 #include <vw/Image/ImageView.h>
 #include <vw/Image/Transform.h>
+#include <vw/Core/ThreadPool.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <asp/Core/LocalHomography.h>
@@ -57,6 +58,30 @@ namespace asp {
 
   }
 
+  // Task that computes local homography in a given tile
+  class LocalHomTask: public vw::Task, private boost::noncopyable {
+
+    int m_col, m_row;
+    BBox2i m_sub_bbox;
+    // We on purpose store a local deep copy of sub_disparity_crop to
+    // avoid segfault.
+    ImageView < PixelMask<Vector2i> > m_sub_disparity_crop;
+    ImageView<Matrix3x3> & m_local_hom;
+  public:
+    LocalHomTask(int col, int row,
+                 BBox2i sub_bbox,
+                 ImageViewRef < PixelMask<Vector2i> > const& sub_disparity_crop,
+                 ImageView<Matrix3x3> & local_hom):
+      m_col(col), m_row(row), m_sub_bbox(sub_bbox),
+      m_sub_disparity_crop(sub_disparity_crop),
+      m_local_hom(local_hom){}
+
+    void operator()() {
+      m_local_hom(m_col, m_row)
+        = homography_for_disparity(m_sub_bbox, m_sub_disparity_crop);
+    }
+  };
+
   // Create a local homography for each correlation tile
   void create_local_homographies(Options const& opt){
 
@@ -73,6 +98,14 @@ namespace asp {
     int rows = (int)ceil(left_img.rows()/double(ts));
     ImageView<Matrix3x3> local_hom(cols, rows);
 
+    // Calculate the local homographies using multiple threads.
+    // To do: Each thread calls RANSAC, which calls rand(), which
+    // is not thread safe. So for now use just one thread.
+
+    Stopwatch sw;
+    sw.start();
+
+    //FifoWorkQueue queue( vw_settings().default_num_threads() );
     for (int col = 0; col < cols; col++){
       for (int row = 0; row < rows; row++){
 
@@ -90,10 +123,19 @@ namespace asp {
         sub_bbox.expand(1);
         sub_bbox.crop( bounding_box(sub_disparity) );
 
+        //boost::shared_ptr<LocalHomTask>
+        //task(new LocalHomTask(col, row, sub_bbox, crop(sub_disparity, sub_bbox),
+        //                        local_hom));
+        //queue.add_task(task);
         local_hom(col, row)
-          = homography_for_disparity(sub_bbox, crop(sub_disparity, sub_bbox) );
+          = homography_for_disparity(sub_bbox, crop(sub_disparity, sub_bbox));
       }
     }
+    //queue.join_all();
+
+    sw.stop();
+    vw_out(DebugMessage,"asp") << "Local homographies elapsed time: "
+                               << sw.elapsed_seconds() << std::endl;
 
     std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
     vw_out() << "Writing: " << local_hom_file << "\n";
