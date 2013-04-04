@@ -483,11 +483,13 @@ namespace asp {
     float output_nodata = -32767.0;
 
     vw_out() << "\t--> Writing pre-aligned images.\n";
-    block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata), output_nodata, m_options,
+    block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
+                            output_nodata, m_options,
                             TerminalProgressCallback("asp","\t  L:  ") );
 
     if ( stereo_settings().alignment_method == "none" )
-      block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata), output_nodata, m_options,
+      block_write_gdal_image( right_output_file, apply_mask(Rimg, output_nodata),
+                              output_nodata, m_options,
                               TerminalProgressCallback("asp","\t  R:  ") );
     else
       block_write_gdal_image( right_output_file,
