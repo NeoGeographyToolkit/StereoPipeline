@@ -144,9 +144,9 @@ template <class Image1T, class Image2T, class SeedDispT>
 class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT> >{
   Image1T m_left_image;
   Image2T m_right_image;
-  ImageViewRef<PixelGray<float> > m_left_sub;
   ImageViewRef<uint8> m_right_mask;
   SeedDispT m_integer_disp;
+  SeedDispT m_sub_disp;
   ImageView<Matrix3x3> m_local_hom;
   Options const& m_opt;
   Vector2 m_upscale_factor;
@@ -154,18 +154,19 @@ class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT>
 public:
   PerTileRfne( ImageViewBase<Image1T> const& left_image,
                ImageViewBase<Image2T> const& right_image,
-               ImageViewRef<PixelGray<float> > const& left_sub,
                ImageViewRef<uint8> const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
+               ImageViewBase<SeedDispT> const& sub_disp,
                ImageView<Matrix3x3> const& local_hom,
                Options const& opt):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
-    m_left_sub(left_sub), m_right_mask(right_mask),
-    m_integer_disp( integer_disp.impl() ), m_local_hom(local_hom), m_opt(opt){
+    m_right_mask(right_mask),
+    m_integer_disp( integer_disp.impl() ), m_sub_disp( sub_disp.impl() ),
+    m_local_hom(local_hom), m_opt(opt){
 
     m_upscale_factor
-      = Vector2(double(m_left_image.impl().cols()) / m_left_sub.cols(),
-                double(m_left_image.impl().rows()) / m_left_sub.rows());
+      = Vector2(double(m_left_image.impl().cols()) / m_sub_disp.cols(),
+                double(m_left_image.impl().rows()) / m_sub_disp.rows());
   }
 
   // Image View interface
@@ -259,14 +260,14 @@ template <class Image1T, class Image2T, class SeedDispT>
 PerTileRfne<Image1T, Image2T, SeedDispT>
 per_tile_rfne( ImageViewBase<Image1T> const& left,
                ImageViewBase<Image2T> const& right,
-               ImageViewRef<PixelGray<float> > const& left_sub,
                ImageViewRef<uint8> const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
+               ImageViewBase<SeedDispT> const& sub_disp,
                ImageView<Matrix3x3> const& local_hom,
                Options const& opt) {
   typedef PerTileRfne<Image1T, Image2T, SeedDispT> return_type;
-  return return_type( left.impl(), right.impl(), left_sub,
-                      right_mask, integer_disp.impl(), local_hom, opt );
+  return return_type( left.impl(), right.impl(), right_mask,
+                      integer_disp.impl(), sub_disp.impl(), local_hom, opt );
 }
 
 void stereo_refinement( Options const& opt ) {
@@ -274,20 +275,20 @@ void stereo_refinement( Options const& opt ) {
   vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
 
   ImageViewRef<PixelGray<float> > left_disk_image, right_disk_image;
-  ImageViewRef<PixelGray<float> > left_sub;
   ImageViewRef<uint8> right_mask;
   ImageViewRef<PixelMask<Vector2i> > integer_disp;
+  ImageViewRef<PixelMask<Vector2i> > sub_disp;
   ImageView<Matrix3x3> local_hom;
   try {
     left_disk_image   = DiskImageView< PixelGray<float> >(opt.out_prefix+"-L.tif");
     right_disk_image  = DiskImageView< PixelGray<float> >(opt.out_prefix+"-R.tif");
-    left_sub          = DiskImageView<PixelGray<float> > (opt.out_prefix+"-L_sub.tif" ),
-
     right_mask        = DiskImageView<uint8>(opt.out_prefix + "-rMask.tif");
-
     integer_disp      = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
     if ( stereo_settings().seed_mode > 0 &&
          stereo_settings().use_local_homography ){
+      sub_disp =
+        DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
+
       std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
       read_local_homographies(local_hom_file, local_hom);
     }
@@ -297,8 +298,8 @@ void stereo_refinement( Options const& opt ) {
   }
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
-    = per_tile_rfne(left_disk_image, right_disk_image, left_sub,
-                    right_mask, integer_disp, local_hom, opt);
+    = per_tile_rfne(left_disk_image, right_disk_image, right_mask,
+                    integer_disp, sub_disp, local_hom, opt);
 
   asp::block_write_gdal_image( opt.out_prefix + "-RD.tif",
                                refined_disp, opt,
