@@ -91,9 +91,9 @@ void produce_lowres_disparity( Options & opt ) {
     produce_dem_disparity(opt, left_camera_model, right_camera_model);
   }
 
-  ImageView<PixelMask<Vector2i> > sub_disparity;
-  read_image( sub_disparity, opt.out_prefix + "-D_sub.tif" );
-  search_range = stereo::get_disparity_range( sub_disparity );
+  ImageView<PixelMask<Vector2i> > sub_disp;
+  read_image( sub_disp, opt.out_prefix + "-D_sub.tif" );
+  search_range = stereo::get_disparity_range( sub_disp );
   VW_OUT(DebugMessage,"asp") << "D_sub resolved search range: "
                              << search_range << " px\n";
   search_range.min() = floor(elem_quot(search_range.min(),downsample_scale));
@@ -206,8 +206,8 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, 
   Image2T m_right_image;
   Mask1T m_left_mask;
   Mask2T m_right_mask;
-  SeedDispT m_sub_disparity;
-  SeedDispT m_sub_disparity_spread;
+  SeedDispT m_sub_disp;
+  SeedDispT m_sub_disp_spread;
   ImageView<Matrix3x3> const& m_local_hom;
   PProcT m_preproc_func;
 
@@ -222,21 +222,20 @@ public:
                         ImageViewBase<Image2T> const& right_image,
                         ImageViewBase<Mask1T> const& left_mask,
                         ImageViewBase<Mask2T> const& right_mask,
-                        ImageViewBase<SeedDispT> const& sub_disparity,
-                        ImageViewBase<SeedDispT> const& sub_disparity_spread,
+                        ImageViewBase<SeedDispT> const& sub_disp,
+                        ImageViewBase<SeedDispT> const& sub_disp_spread,
                         ImageView<Matrix3x3> const& local_hom,
                         stereo::PreFilterBase<PProcT> const& filter,
                         BBox2i left_image_crop_win,
                         stereo::CostFunctionType cost_mode ) :
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask(left_mask.impl()), m_right_mask(right_mask.impl()),
-    m_sub_disparity( sub_disparity.impl() ),
-    m_sub_disparity_spread( sub_disparity_spread.impl() ),
+    m_sub_disp( sub_disp.impl() ), m_sub_disp_spread( sub_disp_spread.impl() ),
     m_local_hom(local_hom), m_preproc_func( filter.impl() ),
     m_left_image_crop_win(left_image_crop_win), m_cost_mode(cost_mode) {
-    m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disparity.cols();
-    m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disparity.rows();
-    m_seed_bbox = bounding_box( m_sub_disparity );
+    m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
+    m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disp.rows();
+    m_seed_bbox = bounding_box( m_sub_disp );
   }
 
   // Image View interface
@@ -304,7 +303,7 @@ public:
       seed_bbox.crop( m_seed_bbox );
       VW_OUT(DebugMessage, "stereo") << "Getting disparity range for : "
                                      << seed_bbox << "\n";
-      SeedDispT disparity_in_box = crop( m_sub_disparity, seed_bbox );
+      SeedDispT disparity_in_box = crop( m_sub_disp, seed_bbox );
 
       if (!use_local_homography){
         local_search_range = stereo::get_disparity_range( disparity_in_box );
@@ -316,11 +315,20 @@ public:
                                  lowres_hom, disparity_in_box));
       }
 
-      if (stereo_settings().seed_mode == 2){
-        // Expand the disparity range by the disparity spread computed
-        // from input DEM.
+      bool has_sub_disp_spread = ( m_sub_disp_spread.cols() != 0 && m_sub_disp_spread.rows() != 0 );
 
-        SeedDispT spread_in_box = crop( m_sub_disparity_spread, seed_bbox );
+      // Sanity check: If m_sub_disp_spread was provided, it better have
+      // the same size as sub_disp.
+      if ( has_sub_disp_spread &&
+           m_sub_disp_spread.cols() != m_sub_disp.cols() &&
+           m_sub_disp_spread.rows() != m_sub_disp.rows() ){
+        vw_throw( ArgumentErr() << "stereo_corr: D_sub and D_sub_spread must have equal sizes.\n");
+      }
+
+      if (has_sub_disp_spread){
+
+        // Expand the disparity range by m_sub_disp_spread.
+        SeedDispT spread_in_box = crop( m_sub_disp_spread, seed_bbox );
 
         if (!use_local_homography){
           BBox2f spread = stereo::get_disparity_range( spread_in_box );
@@ -359,7 +367,7 @@ public:
 
       local_search_range = grow_bbox_to_int(local_search_range);
       // Expand local_search_range by 1. This is necessary since
-      // m_sub_disparity is integer-valued, and perhaps the search
+      // m_sub_disp is integer-valued, and perhaps the search
       // range was supposed to be a fraction of integer bigger.
       local_search_range.expand(1);
       // Scale the search range to full-resolution
@@ -415,15 +423,15 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
                     ImageViewBase<Image2T> const& right,
                     ImageViewBase<Mask1T> const& lmask,
                     ImageViewBase<Mask2T> const& rmask,
-                    ImageViewBase<SeedDispT> const& sub_disparity,
-                    ImageViewBase<SeedDispT> const& sub_disparity_spread,
+                    ImageViewBase<SeedDispT> const& sub_disp,
+                    ImageViewBase<SeedDispT> const& sub_disp_spread,
                     ImageView<Matrix3x3> const& local_hom,
                     stereo::PreFilterBase<PProcT> const& filter,
                     BBox2i left_image_crop_win,
                     stereo::CostFunctionType cost_type ) {
   typedef SeededCorrelatorView<Image1T, Image2T, Mask1T, Mask2T, SeedDispT, PProcT> return_type;
   return return_type( left.impl(), right.impl(), lmask.impl(), rmask.impl(),
-                      sub_disparity.impl(), sub_disparity_spread.impl(),
+                      sub_disp.impl(), sub_disp_spread.impl(),
                       local_hom, filter.impl(), left_image_crop_win, cost_type );
 }
 
@@ -457,14 +465,26 @@ void stereo_correlation( Options& opt ) {
     right_disk_image(opt.out_prefix+"-R.tif");
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
-  ImageViewRef<PixelMask<Vector2i> > sub_disparity;
+  ImageViewRef<PixelMask<Vector2i> > sub_disp;
   if ( stereo_settings().seed_mode > 0 )
-    sub_disparity =
+    sub_disp =
       DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
-  ImageViewRef<PixelMask<Vector2i> > sub_disparity_spread;
-  if ( stereo_settings().seed_mode == 2 )
-    sub_disparity_spread =
+  ImageViewRef<PixelMask<Vector2i> > sub_disp_spread;
+  if ( stereo_settings().seed_mode == 2 ){
+    // D_sub_spread is mandatory for seed_mode 2.
+    sub_disp_spread =
       DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub_spread.tif");
+  }else if ( stereo_settings().seed_mode == 1 ){
+    // D_sub_spread is optional for seed_mode 1, we use it only if
+    // it is provided.
+    try {
+      sub_disp_spread =
+        DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub_spread.tif");
+    }
+    catch (vw::IOErr const& e) {}
+    catch (vw::ArgumentErr const& e) {}
+  }
+
   ImageView<Matrix3x3> local_hom;
   if ( stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography ){
     std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
@@ -485,7 +505,7 @@ void stereo_correlation( Options& opt ) {
              << stereo_settings().slogW << " sigma blur.\n";
     fullres_disparity =
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
-                          sub_disparity, sub_disparity_spread, local_hom,
+                          sub_disp, sub_disp_spread, local_hom,
                           stereo::LaplacianOfGaussian(stereo_settings().slogW),
                           opt.left_image_crop_win, cost_mode );
   } else if ( stereo_settings().pre_filter_mode == 1 ) {
@@ -493,14 +513,14 @@ void stereo_correlation( Options& opt ) {
              << stereo_settings().slogW << " sigma blur.\n";
     fullres_disparity =
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
-                          sub_disparity, sub_disparity_spread, local_hom,
+                          sub_disp, sub_disp_spread, local_hom,
                           stereo::SubtractedMean(stereo_settings().slogW),
                           opt.left_image_crop_win, cost_mode );
   } else {
     vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
     fullres_disparity =
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
-                          sub_disparity, sub_disparity_spread, local_hom,
+                          sub_disp, sub_disp_spread, local_hom,
                           stereo::NullOperation(), opt.left_image_crop_win,
                           cost_mode );
   }
