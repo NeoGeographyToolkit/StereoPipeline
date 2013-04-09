@@ -41,7 +41,7 @@ ImageViewRef<PixelMask<Vector2f> >
 refine_disparity(Image1T const& left_image,
                  Image2T const& right_image,
                  ImageViewRef< PixelMask<Vector2i> > const& integer_disp,
-                 Options const& opt){
+                 Options const& opt, bool verbose){
 
   ImageViewRef<PixelMask<Vector2f> > refined_disp =
     pixel_cast<PixelMask<Vector2f> >(integer_disp);
@@ -50,10 +50,10 @@ refine_disparity(Image1T const& left_image,
     // Do nothing
   } else if (stereo_settings().subpixel_mode == 1) {
     // Parabola
-    vw_out() << "\t--> Using parabola subpixel mode.\n";
+    if (verbose) vw_out() << "\t--> Using parabola subpixel mode.\n";
     if (stereo_settings().pre_filter_mode == 2) {
-      vw_out() << "\t--> Using LOG pre-processing filter with "
-               << stereo_settings().slogW << " sigma blur.\n";
+      if (verbose) vw_out() << "\t--> Using LOG pre-processing filter with "
+                            << stereo_settings().slogW << " sigma blur.\n";
       typedef stereo::LaplacianOfGaussian PreFilter;
       refined_disp =
         parabola_subpixel( integer_disp,
@@ -61,8 +61,8 @@ refine_disparity(Image1T const& left_image,
                            PreFilter(stereo_settings().slogW),
                            stereo_settings().subpixel_kernel );
     } else if (stereo_settings().pre_filter_mode == 1) {
-      vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
-               << stereo_settings().slogW << " sigma blur.\n";
+      if (verbose)  vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
+                             << stereo_settings().slogW << " sigma blur.\n";
       typedef stereo::SubtractedMean PreFilter;
       refined_disp =
         parabola_subpixel( integer_disp,
@@ -70,7 +70,7 @@ refine_disparity(Image1T const& left_image,
                            PreFilter(stereo_settings().slogW),
                            stereo_settings().subpixel_kernel );
     } else {
-      vw_out() << "\t--> NO preprocessing" << std::endl;
+      if (verbose) vw_out() << "\t--> NO preprocessing" << std::endl;
       typedef stereo::NullOperation PreFilter;
       refined_disp =
         parabola_subpixel( integer_disp,
@@ -80,9 +80,11 @@ refine_disparity(Image1T const& left_image,
     }
   } else if (stereo_settings().subpixel_mode == 2) {
     // Bayes EM
-    vw_out() << "\t--> Using affine adaptive subpixel mode\n";
-    vw_out() << "\t--> Forcing use of LOG filter with "
-             << stereo_settings().slogW << " sigma blur.\n";
+    if (verbose){
+      vw_out() << "\t--> Using affine adaptive subpixel mode\n";
+      vw_out() << "\t--> Forcing use of LOG filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+    }
     typedef stereo::LaplacianOfGaussian PreFilter;
     refined_disp =
       bayes_em_subpixel( integer_disp,
@@ -94,10 +96,12 @@ refine_disparity(Image1T const& left_image,
   } else if (stereo_settings().subpixel_mode == 3) {
     // Affine and Bayes subpixel refinement always use the
     // LogPreprocessingFilter...
-    vw_out() << "\t--> Using EM Subpixel mode "
-             << stereo_settings().subpixel_mode << std::endl;
-    vw_out() << "\t--> Mode 3 does internal preprocessing;"
-             << " settings will be ignored. " << std::endl;
+    if (verbose){
+      vw_out() << "\t--> Using EM Subpixel mode "
+               << stereo_settings().subpixel_mode << std::endl;
+      vw_out() << "\t--> Mode 3 does internal preprocessing;"
+               << " settings will be ignored. " << std::endl;
+    }
 
     typedef stereo::EMSubpixelCorrelatorView<float32> EMCorrelator;
     EMCorrelator em_correlator(channels_to_planes(left_image),
@@ -130,8 +134,10 @@ refine_disparity(Image1T const& left_image,
       per_pixel_filter(em_disparity_disk_image,
                        EMCorrelator::ExtractDisparityFunctor());
   } else {
-    vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << std::endl;
-    vw_out() << "\t--> Doing nothing\n";
+    if (verbose) {
+      vw_out() << "\t--> Invalid Subpixel mode selection: " << stereo_settings().subpixel_mode << std::endl;
+      vw_out() << "\t--> Doing nothing\n";
+    }
   }
 
   return refined_disp;
@@ -200,6 +206,7 @@ public:
     }
 
     ImageView<pixel_type> tile_disparity;
+    bool verbose = false;
     if (stereo_settings().seed_mode > 0 && stereo_settings().use_local_homography){
 
       int ts = Options::corr_tile_size();
@@ -220,8 +227,9 @@ public:
       ImageViewRef<right_pix_type> right_trans_img
         = apply_mask(right_trans_masked_img);
 
+
       tile_disparity = crop(refine_disparity(m_left_image, right_trans_img,
-                                             m_integer_disp, m_opt), bbox);
+                                             m_integer_disp, m_opt, verbose), bbox);
 
       // Must undo the local homography transform
       bool do_round = false; // don't round floating point disparities
@@ -230,7 +238,7 @@ public:
 
     }else{
       tile_disparity = crop(refine_disparity(m_left_image, m_right_image,
-                                             m_integer_disp, m_opt), bbox);
+                                             m_integer_disp, m_opt, verbose), bbox);
     }
 
     prerasterize_type disparity
@@ -296,6 +304,14 @@ void stereo_refinement( Options const& opt ) {
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at refinement stage -- could not read input files.\n" << e.what() << "\nExiting.\n\n" );
   }
+
+  // The whole goal of this block it to go through the motions of
+  // refining disparity solely for the purpose of printing
+  // the relevant messages.
+  bool verbose = true;
+  ImageView<PixelGray<float> > left_dummy, right_dummy;
+  ImageViewRef<PixelMask<Vector2i> > dummy_disp;
+  refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
     = per_tile_rfne(left_disk_image, right_disk_image, right_mask,
