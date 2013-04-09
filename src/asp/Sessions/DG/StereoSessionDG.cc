@@ -22,6 +22,7 @@
 // Ames Stereo Pipeline
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/DG/LinescanDGModel.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
@@ -371,7 +372,8 @@ namespace asp {
     ImageViewRef< PixelMask<float> > Limg, Rimg;
     std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
 
-    if ( stereo_settings().alignment_method == "homography" ) {
+    if ( stereo_settings().alignment_method == "homography" ||
+         stereo_settings().alignment_method == "affineepipolar" ) {
       std::string match_filename
         = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
@@ -427,18 +429,37 @@ namespace asp {
 
       std::vector<ip::InterestPoint> left_ip, right_ip;
       ip::read_binary_match_file( match_filename, left_ip, right_ip  );
-      Matrix<double> align_matrix =
-        homography_fit(right_ip, left_ip, bounding_box(left_disk_image) );
-      write_matrix( m_out_prefix + "-align.exr", align_matrix );
+      Matrix<double> align_left_matrix = math::identity_matrix<3>(),
+        align_right_matrix = math::identity_matrix<3>();
 
-      vw_out() << "\t--> Aligning right image to left using homography:\n"
-               << "\t      " << align_matrix << "\n";
+      Vector2i left_size = file_image_size( left_input_file ),
+        right_size = file_image_size( right_input_file );
+
+      if ( stereo_settings().alignment_method == "homography" ) {
+        align_right_matrix =
+          homography_fit(right_ip, left_ip, bounding_box(left_disk_image) );
+        vw_out() << "\t--> Aligning right image to left using homography:\n"
+                 << "\t      " << align_right_matrix << "\n";
+      } else {
+        left_size =
+          affine_epipolar_rectification( left_size, right_size,
+                                         left_ip, right_ip,
+                                         align_left_matrix,
+                                         align_right_matrix );
+        vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
+                 << "\t      " << submatrix(align_left_matrix,0,0,2,3) << "\n"
+                 << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
+      }
+      write_matrix( m_out_prefix + "-align-L.exr", align_left_matrix );
+      write_matrix( m_out_prefix + "-align-R.exr", align_right_matrix );
 
       // Applying alignment transform
-      Limg = left_masked_image;
+      Limg = transform(left_masked_image,
+                       HomographyTransform(align_left_matrix),
+                       left_size.x(), left_size.y() );
       Rimg = transform(right_masked_image,
-                       HomographyTransform(align_matrix),
-                       left_masked_image.cols(), left_masked_image.rows());
+                       HomographyTransform(align_right_matrix),
+                       left_size.x(), left_size.y() );
     } else if ( stereo_settings().alignment_method == "epipolar" ) {
       vw_throw( NoImplErr() << "StereoSessionDG does not support epipolar rectification" );
     } else {

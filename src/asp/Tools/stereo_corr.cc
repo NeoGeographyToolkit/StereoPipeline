@@ -142,15 +142,20 @@ void lowres_correlation( Options & opt ) {
       std::vector<ip::InterestPoint> ip1, ip2;
       ip::read_binary_match_file( match_filename, ip1, ip2 );
 
-      Matrix<double> align_matrix = math::identity_matrix<3>();
-      if ( fs::exists(opt.out_prefix+"-align.exr") )
-        read_matrix(align_matrix, opt.out_prefix + "-align.exr");
+      Matrix<double> align_left_matrix = math::identity_matrix<3>();
+      Matrix<double> align_right_matrix = math::identity_matrix<3>();
+      if ( fs::exists(opt.out_prefix+"-align-L.exr") )
+        read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
+      if ( fs::exists(opt.out_prefix+"-align-R.exr") )
+        read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
 
       BBox2 search_range;
       for ( size_t i = 0; i < ip1.size(); i++ ) {
-        Vector3 r = align_matrix * Vector3(ip2[i].x,ip2[i].y,1);
+        Vector3 r = align_right_matrix * Vector3(ip2[i].x,ip2[i].y,1);
         r /= r[2];
-        search_range.grow( subvector(r,0,2) - Vector2(ip1[i].x,ip1[i].y) );
+        Vector3 l = align_left_matrix * Vector3(ip1[i].x,ip1[i].y,1);
+        l /= l[2];
+        search_range.grow( subvector(r,0,2) - subvector(l,0,2) );
       }
       stereo_settings().search_range = grow_bbox_to_int( search_range );
     }

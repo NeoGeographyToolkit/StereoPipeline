@@ -30,6 +30,7 @@
 // Stereo Pipeline
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
@@ -222,6 +223,10 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
     left_isis_rsrc(new DiskImageResourceIsis(left_input_file)),
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
 
+  // Getting left image size. Later alignment options can choose to
+  // change this parameters. (Affine Epipolar).
+  Vector2i left_size = file_image_size( left_input_file ),
+    right_size = file_image_size( right_input_file );
 
   // These variables will be true if we reduce the valid range for ISIS images
   // using the nodata value provided by the user.
@@ -237,9 +242,10 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
   // Working out alignment
   float lo = std::min(left_lo, right_lo);  // Finding global
   float hi = std::max(left_hi, right_hi);
-  Matrix<double> align_matrix(3,3);
-  align_matrix.set_identity();
-  if ( stereo_settings().alignment_method == "homography" ) {
+  Matrix<double> align_left_matrix = math::identity_matrix<3>(),
+    align_right_matrix = math::identity_matrix<3>();
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
     std::string match_filename
       = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
@@ -269,18 +275,30 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
 
     std::vector<ip::InterestPoint> left_ip, right_ip;
     ip::read_binary_match_file( match_filename, left_ip, right_ip  );
-    align_matrix = homography_fit(right_ip, left_ip, bounding_box(DiskImageView<float>(left_input_file)) );
 
-    write_matrix( m_out_prefix + "-align.exr", align_matrix );
-    vw_out() << "\t--> Aligning right image to left using homography:\n"
-             << "\t      " << align_matrix << "\n";
+    if ( stereo_settings().alignment_method == "homography" ) {
+      align_right_matrix = homography_fit(right_ip, left_ip, bounding_box(DiskImageView<float>(left_input_file)) );
+      vw_out() << "\t--> Aligning right image to left using homography:\n"
+               << "\t      " << align_right_matrix << "\n";
+
+    } else {
+      left_size =
+        affine_epipolar_rectification( left_size, right_size,
+                                       left_ip, right_ip,
+                                       align_left_matrix,
+                                       align_right_matrix );
+      vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
+               << "\t      " << submatrix(align_left_matrix,0,0,2,3) << "\n"
+               << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
+    }
+    write_matrix( m_out_prefix + "-align-L.exr", align_left_matrix );
+    write_matrix( m_out_prefix + "-align-R.exr", align_right_matrix );
+    right_size = left_size; // Because the images are now aligned
+                            // .. they are the same size.
   } else if ( stereo_settings().alignment_method == "epipolar" ) {
     vw_throw( NoImplErr() << "StereoSessionISIS does not support epipolar rectification" );
   }
 
-  // Getting left image size
-  Vector2i left_size = file_image_size( left_input_file ),
-    right_size = file_image_size( right_input_file );
 
   // Apply alignment and normalization
   bool will_apply_user_nodata = ( will_apply_user_nodata_left || will_apply_user_nodata_right);
@@ -290,33 +308,21 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
     write_preprocessed_isis_image( m_options, will_apply_user_nodata,
                                    left_masked_image, left_output_file, "left",
                                    left_lo, left_hi, lo, hi,
-                                   math::identity_matrix<3>(), left_size );
-    if ( stereo_settings().alignment_method == "none" )
-      write_preprocessed_isis_image( m_options, will_apply_user_nodata,
-                                     right_masked_image, right_output_file, "right",
-                                     right_lo, right_hi, lo, hi,
-                                     math::identity_matrix<3>(), right_size );
-    else
-      write_preprocessed_isis_image( m_options, will_apply_user_nodata,
-                                     right_masked_image, right_output_file, "right",
-                                     right_lo, right_hi, lo, hi,
-                                     align_matrix, left_size );
+                                   align_left_matrix, left_size );
+    write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+                                   right_masked_image, right_output_file, "right",
+                                   right_lo, right_hi, lo, hi,
+                                   align_right_matrix, right_size );
   } else {
     vw_out() << "\t--> Individually normalizing.\n";
     write_preprocessed_isis_image( m_options, will_apply_user_nodata,
                                    left_masked_image, left_output_file, "left",
                                    left_lo, left_hi, left_lo, left_hi,
-                                   math::identity_matrix<3>(), left_size );
-    if ( stereo_settings().alignment_method == "none" )
-      write_preprocessed_isis_image( m_options, will_apply_user_nodata,
-                                     right_masked_image, right_output_file, "right",
-                                     right_lo, right_hi, right_lo, right_hi,
-                                     math::identity_matrix<3>(), right_size );
-    else
-      write_preprocessed_isis_image( m_options, will_apply_user_nodata,
-                                     right_masked_image, right_output_file, "right",
-                                     right_lo, right_hi, right_lo, right_hi,
-                                     align_matrix, left_size );
+                                   align_left_matrix, left_size );
+    write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+                                   right_masked_image, right_output_file, "right",
+                                   right_lo, right_hi, right_lo, right_hi,
+                                   align_right_matrix, right_size );
   }
 }
 
@@ -400,13 +406,16 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
   DiskImageView<PixelMask<Vector2f> > disparity_map(dust_result);
 
   ImageViewRef<PixelMask<Vector2f> > result;
-  if ( stereo_settings().alignment_method == "homography" ) {
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
     // We used a homography to line up the images, so we must undo the
     // homography transform in the disparity_map before triangulation
     // happens.
-    Matrix<double> align_matrix;
-    read_matrix(align_matrix, m_out_prefix + "-align.exr");
-    vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";
+    Matrix<double> align_left_matrix, align_right_matrix;
+    read_matrix(align_left_matrix, m_out_prefix + "-align-L.exr");
+    read_matrix(align_right_matrix, m_out_prefix + "-align-R.exr");
+    vw_out(DebugMessage,"asp") << "Alignment Left Matrix: " << align_left_matrix << "\n";
+    vw_out(DebugMessage,"asp") << "Alignment Right Matrix: " << align_right_matrix << "\n";
 
     // Remove pixels that are outside the bounds of the secondary image.
     DiskImageView<float> right_disk_image(m_right_image_file);

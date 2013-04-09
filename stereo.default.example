@@ -6,9 +6,10 @@
 # Pre-alignment options
 #
 # Available choices are (however not all are supported by all sessions):
-#    NONE       (Recommended for anything map projected)
-#    EPIPOLAR   (Recommended for Pinhole Sessions)
-#    HOMOGRAPHY (Recommended for ISIS and DG Sessions)
+#    NONE           (Recommended for anything map projected)
+#    EPIPOLAR       (Recommended for Pinhole Sessions)
+#    HOMOGRAPHY     (Recommended for ISIS wide-angle shots)
+#    AFFINEEPIPOLAR (Recommended for ISIS narrow-angle and DG sessions)
 alignment-method none
 
 # Intensity Normalization
@@ -38,7 +39,7 @@ prefilter-kernel-width 1.4
 cost-mode 2
 
 # Initialization step: correlation kernel size
-corr-kernel 25 25
+corr-kernel 21 21
 
 # Initializaion step: correlation window size
 # corr-search -80 -2 20 2
@@ -54,7 +55,7 @@ corr-kernel 25 25
 subpixel-mode 1
 
 # Subpixel step: correlation kernel size
-subpixel-kernel 25 25
+subpixel-kernel 21 21
 
 # Post Filtering / stereo_fltr
 ################################################################

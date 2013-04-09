@@ -58,7 +58,7 @@ namespace asp {
 
     (*this).add_options()
       ("alignment-method", po::value(&global.alignment_method),
-       "Rough alignment for input images. [Homography, Epipolar, None]")
+       "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
       ("force-use-entire-range", po::bool_switch(&global.force_use_entire_range),
        "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
       ("individually-normalize", po::bool_switch(&global.individually_normalize),
@@ -213,7 +213,7 @@ namespace asp {
     to_lower( alignment_method );
     trim( alignment_method );
     VW_ASSERT( alignment_method == "none" || alignment_method == "homography" ||
-               alignment_method == "epipolar",
+               alignment_method == "epipolar" || alignment_method == "affineepipolar",
                ArgumentErr() << "\"" <<  alignment_method
                << "\" is not a valid option for ALIGNMENT_METHOD." );
 
