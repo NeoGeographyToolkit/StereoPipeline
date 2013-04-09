@@ -11,9 +11,9 @@ set brew_root = /usr/local
 set src_root = /Users/dshean
 set np = 8
 
-setenv CC /usr/local/bin/gcc-4.7
-setenv CPP /usr/local/bin/cpp-4.7
-setenv CC /usr/local/bin/g++-4.7
+#setenv CC $brew_root/bin/gcc-4.7
+#setenv CPP $brew_root/bin/cpp-4.7
+#setenv CC $brew_root/bin/g++-4.7
 
 #setenv CPPFLAGS "-I${brew_root}/include"
 #setenv LDFLAGS "-L${brew_root}/lib"
@@ -31,8 +31,8 @@ cd $vwsrcdir
 #git reset --hard HEAD
 #git clean -f
 #git pull
-git fetch --all
-git rebase upstream/master
+#git fetch --all
+#git rebase upstream/master
 
 #Check status
 
@@ -84,8 +84,8 @@ setenv CPPFLAGS "-I${vwdstdir}/include"
 #setenv LDFLAGS "-L${brew_root}/lib -L${vwdstdir}/lib"
 setenv LDFLAGS "-L${vwdstdir}/lib"
 
-set aspsrcdir = $src_root/src/StereoPipeline
-set aspdstdir_root = $src_root/sw/asp
+#set aspsrcdir = $src_root/src/StereoPipeline
+#set aspdstdir_root = $src_root/sw/asp
 
 cd $aspsrcdir
 
@@ -101,6 +101,8 @@ set commit_id = `git log upstream/master -n 1 --pretty=format:%H | cut -c 1-7`
 set aspdstdir = "${aspdstdir_root}/asp_${commit_id}"
 
 set config_opt = (--prefix=$aspdstdir --enable-debug)
+set config_opt = ($config_opt --enable-app-point2las --with-liblas --with-laszip)
+set config_opt = ($config_opt --enable-app-dem_geoid)
 
 echo
 ./autogen
