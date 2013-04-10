@@ -276,7 +276,7 @@ def die(msg, code=-1):
     sys.exit(code)
 
 if __name__ == '__main__':
-    usage = '''stereo [options] <Left_input_image> <Right_input_image>
+    usage = '''stereo_mpi [options] <Left_input_image> <Right_input_image>
               [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]
         Extensions are automaticaly added to the output files.
         Camera model arguments may be optional for some stereo
