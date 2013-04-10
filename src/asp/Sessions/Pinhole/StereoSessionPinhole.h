@@ -23,34 +23,11 @@
 #define __STEREO_SESSION_PINHOLE_H__
 
 #include <asp/Sessions/StereoSession.h>
+#include <vw/Stereo/StereoModel.h>
 
 namespace asp {
 
   class StereoSessionPinhole : public StereoSession {
-
-  protected:
-    // This should probably be factored into the greater StereoSession
-    // as ISIS Session does something very similar to this.
-    template <class ViewT>
-    vw::Vector4f gather_stats( vw::ImageViewBase<ViewT> const& view_base,
-                               std::string const& tag) {
-      using namespace vw;
-      vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
-      ViewT image = view_base.impl();
-      int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
-
-      ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
-      for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
-                                 stat_scale ), accumulator );
-      Vector4f result( accumulator.quantile(0),
-                       accumulator.quantile(1),
-                       accumulator.approximate_mean(),
-                       accumulator.approximate_stddev() );
-      vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
-                          << " m: " << result[2] << " s: " << result[3] << " ]\n";
-      return result;
-    }
-
   public:
 
     virtual ~StereoSessionPinhole() {}
@@ -60,6 +37,13 @@ namespace asp {
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "");
 
+    // For reversing our arithmetic applied in preprocessing.
+    typedef vw::IdentityTransform   left_tx_type;
+    typedef vw::HomographyTransform right_tx_type;
+    typedef vw::stereo::StereoModel stereo_model_type;
+    left_tx_type tx_left() const;
+    right_tx_type tx_right() const;
+
     // Stage 1: Preprocessing
     //
     // Pre file is a pair of images.            ( ImageView<PixelT> )
@@ -68,10 +52,6 @@ namespace asp {
                                         std::string const& right_input_file,
                                         std::string &left_output_file,
                                         std::string &right_output_file);
-
-    // Stage 4: Point cloud generation
-    virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f> >
-    pre_pointcloud_hook(std::string const& input_file);
 
     static StereoSession* construct() { return new StereoSessionPinhole; }
   };

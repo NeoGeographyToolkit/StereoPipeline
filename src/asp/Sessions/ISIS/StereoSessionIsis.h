@@ -22,9 +22,8 @@
 #ifndef __STEREO_SESSION_ISIS_H__
 #define __STEREO_SESSION_ISIS_H__
 
-#include <vw/Image.h>
-
 #include <asp/Sessions/StereoSession.h>
+#include <vw/Stereo/StereoModel.h>
 
 // Isis Headers
 #include <SpecialPixel.h>
@@ -138,13 +137,19 @@ namespace asp {
                                 IsisSpecialPixelFunc<typename ViewT::pixel_type>(r_low,r_high,r_null));
   }
 
-  class StereoSessionIsis: public StereoSession {
+  class StereoSessionIsis : public StereoSession {
   public:
     virtual ~StereoSessionIsis() {}
 
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "");
+
+    typedef vw::HomographyTransform left_tx_type;
+    typedef vw::HomographyTransform right_tx_type;
+    typedef vw::stereo::StereoModel stereo_model_type;
+    left_tx_type tx_left() const;
+    right_tx_type tx_right() const;
 
     // Stage 1: Preprocessing
     //

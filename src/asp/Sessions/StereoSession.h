@@ -39,6 +39,18 @@
 
 namespace asp {
 
+  // Stereo Sessions define for different missions or satellites how to:
+  //   * Initialize, normalize, and align the input imagery
+  //   * Extract the camera model
+  //   * Custom code needed for correlation, filtering, and triangulation.
+  //
+  // All Stereo Session childs must define the following which are not
+  // available in the the parent:
+  //   typedef VWTransform left_tx_type;
+  //   left_tx_type tx_left( void ) const;
+  //   typedef VWTransform right_tx_type;
+  //   right_tx_type tx_right( void ) const;
+  //   typedef VWStereoModel stereo_model_type;
   class StereoSession {
   protected:
     asp::BaseOptions m_options;
@@ -112,8 +124,7 @@ namespace asp {
           // Worst case, no interest point operations have been performed before
           vw_out() << "\t--> Locating Interest Points\n";
           ip::InterestPointList ip1, ip2;
-          detect_ip( ip1, ip2, image1.impl(),
-                     image2.impl(),
+          detect_ip( ip1, ip2, image1, image2,
                      nodata1, nodata2 );
 
           if ( ip1.size() > 10000 ) {
@@ -187,6 +198,28 @@ namespace asp {
       return T;
     }
 
+    // This should probably be factored into the greater StereoSession
+    // as ISIS Session does something very similar to this.
+    template <class ViewT>
+    vw::Vector4f gather_stats( vw::ImageViewBase<ViewT> const& view_base,
+                               std::string const& tag) {
+      using namespace vw;
+      vw_out(InfoMessage) << "\t--> Computing statistics for the "+tag+" image\n";
+      ViewT image = view_base.impl();
+      int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
+
+      ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
+      for_each_pixel( subsample( edge_extend(image, ConstantEdgeExtension()),
+                                 stat_scale ), accumulator );
+      Vector4f result( accumulator.quantile(0),
+                       accumulator.quantile(1),
+                       accumulator.approximate_mean(),
+                       accumulator.approximate_stddev() );
+      vw_out(InfoMessage) << "\t  " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
+                          << " m: " << result[2] << " s: " << result[3] << " ]\n";
+      return result;
+    }
+
   public:
     virtual void initialize (BaseOptions const& options,
                              std::string const& left_image_file,
@@ -214,15 +247,6 @@ namespace asp {
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "") = 0;
-
-    // Does this project utilize look up tables to determine pixel
-    // location in camera model? (A map projected image or
-    // epipolar resampled image would use this function.)
-    virtual bool has_lut_images() const;
-
-    // Provide the LUT images for the session
-    virtual vw::ImageViewRef<vw::Vector2f> lut_image_left() const;
-    virtual vw::ImageViewRef<vw::Vector2f> lut_image_right() const;
 
     // Stage 1: Preprocessing
     //

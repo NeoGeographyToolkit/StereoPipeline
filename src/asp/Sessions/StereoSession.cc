@@ -26,6 +26,7 @@
 #include <asp/Sessions/RPC/StereoSessionRPC.h>
 
 #include <vw/Core/Exception.h>
+#include <vw/Stereo/DisparityMap.h>
 
 #include <map>
 
@@ -41,11 +42,6 @@ namespace {
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<PixelMask<Vector2f> >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
 }
 
 namespace asp {
@@ -111,20 +107,6 @@ namespace asp {
                                     boost::shared_ptr<vw::camera::CameraModel> &cam2) {
     cam1 = camera_model(m_left_image_file, m_left_camera_file);
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
-  }
-
-
-  // LUT image access methods
-  bool StereoSession::has_lut_images() const { return false; }
-
-  ImageViewRef<Vector2f> StereoSession::lut_image_left() const {
-    vw_throw(NoImplErr() << "This stereo session doesn't utilize LUT images.");
-    return DiskImageView<Vector2f>("");
-  }
-
-  ImageViewRef<Vector2f> StereoSession::lut_image_right() const {
-    vw_throw(NoImplErr() << "This stereo session doesn't utilize LUT images.");
-    return DiskImageView<Vector2f>("");
   }
 
   // Processing Hooks. The default is to do nothing.

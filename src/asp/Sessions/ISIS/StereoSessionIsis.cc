@@ -183,6 +183,26 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
 
 }
 
+StereoSessionIsis::left_tx_type
+StereoSessionIsis::tx_left() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
+    read_matrix( tx, m_out_prefix + "-align-L.exr" );
+  }
+  return left_tx_type( tx );
+}
+
+StereoSessionIsis::right_tx_type
+StereoSessionIsis::tx_right() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
+    read_matrix( tx, m_out_prefix + "-align-R.exr" );
+  }
+  return right_tx_type( tx );
+}
+
 void
 asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_file,
                                                std::string const& right_input_file,
@@ -403,33 +423,7 @@ asp::StereoSessionIsis::pre_pointcloud_hook(std::string const& input_file) {
                                    dust_result, stereo_settings().corr_kernel[0] );
   }
 
-  DiskImageView<PixelMask<Vector2f> > disparity_map(dust_result);
-
-  ImageViewRef<PixelMask<Vector2f> > result;
-  if ( stereo_settings().alignment_method == "homography" ||
-       stereo_settings().alignment_method == "affineepipolar" ) {
-    // We used a homography to line up the images, so we must undo the
-    // homography transform in the disparity_map before triangulation
-    // happens.
-    Matrix<double> align_left_matrix, align_right_matrix;
-    read_matrix(align_left_matrix, m_out_prefix + "-align-L.exr");
-    read_matrix(align_right_matrix, m_out_prefix + "-align-R.exr");
-    vw_out(DebugMessage,"asp") << "Alignment Left Matrix: " << align_left_matrix << "\n";
-    vw_out(DebugMessage,"asp") << "Alignment Right Matrix: " << align_right_matrix << "\n";
-
-    // Remove pixels that are outside the bounds of the secondary image.
-    DiskImageView<float> right_disk_image(m_right_image_file);
-    result =
-      stereo::disparity_range_mask(stereo::transform_disparities(disparity_map,
-                                                                 HomographyTransform(align_matrix)),
-                                   Vector2f(0,0),
-                                   Vector2f( right_disk_image.cols(),
-                                             right_disk_image.rows() ) );
-  } else {
-    result = disparity_map;
-  }
-
-  return result;
+  return DiskImageView<PixelMask<Vector2f> >(dust_result);
 }
 
 boost::shared_ptr<vw::camera::CameraModel>

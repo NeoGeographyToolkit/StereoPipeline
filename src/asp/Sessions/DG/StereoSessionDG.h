@@ -24,14 +24,15 @@
 #ifndef __STEREO_SESSION_DG_H__
 #define __STEREO_SESSION_DG_H__
 
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
+#include <asp/Sessions/StereoSession.h>
+#include <vw/Stereo/StereoModel.h>
 
 namespace asp {
 
   // Forward declaration
   class RPCModel;
 
-  class StereoSessionDG : public StereoSessionPinhole {
+  class StereoSessionDG : public StereoSession {
 
   public:
     StereoSessionDG();
@@ -55,10 +56,12 @@ namespace asp {
     camera_model( std::string const& image_file,
                   std::string const& camera_file = "" );
 
-    // LUT access (enabled only when working with images map projected by RPC)
-    virtual bool has_lut_images() const;
-    virtual vw::ImageViewRef<vw::Vector2f> lut_image_left() const;
-    virtual vw::ImageViewRef<vw::Vector2f> lut_image_right() const;
+    // For reversing our arithmetic applied in preprocessing.
+    typedef vw::TransformRef   left_tx_type;
+    typedef vw::TransformRef right_tx_type;
+    typedef vw::stereo::StereoModel stereo_model_type;
+    left_tx_type tx_left() const;
+    right_tx_type tx_right() const;
 
     // Stage 1: Preprocessing
     //

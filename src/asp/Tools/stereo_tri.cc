@@ -79,93 +79,13 @@ namespace asp{
 
 }
 
-// Class definition
-template <class DisparityImageT, class StereoModelT>
-class StereoAndErrorView : public ImageViewBase<StereoAndErrorView<DisparityImageT, StereoModelT> >
-{
-  DisparityImageT m_disparity_map;
-  StereoModelT m_stereo_model;
-  typedef typename DisparityImageT::pixel_type dpixel_type;
-
-  template <class PixelT>
-  struct NotSingleChannel {
-    static const bool value = (1 != CompoundNumChannels<typename UnmaskedPixelType<PixelT>::type>::value);
-  };
-
-  template <class T>
-  inline typename boost::enable_if<IsScalar<T>,Vector3>::type
-  StereoModelHelper( StereoModelT const& model, Vector2 const& index,
-                     T const& disparity, Vector3& error ) const {
-    return model( index, Vector2( index[0] + disparity, index[1] ), error );
-  }
-
-  template <class T>
-  inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
-    StereoModelHelper( StereoModelT const& model, Vector2 const& index,
-                       T const& disparity, Vector3& error ) const {
-    return model( index, Vector2( index[0] + disparity, index[1] ), error );
-  }
-
-  template <class T>
-  inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
-    StereoModelHelper( StereoModelT const& model, Vector2 const& index,
-                       T const& disparity, Vector3& error ) const {
-    return model( index, Vector2( index[0] + disparity[0],
-                                  index[1] + disparity[1] ), error );
-  }
-
-public:
-
-  typedef Vector6 pixel_type;
-  typedef const Vector6 result_type;
-  typedef ProceduralPixelAccessor<StereoAndErrorView> pixel_accessor;
-
-  StereoAndErrorView( DisparityImageT const& disparity_map,
-                      vw::camera::CameraModel const* camera_model1,
-                      vw::camera::CameraModel const* camera_model2,
-                      bool least_squares_refine = false) :
-    m_disparity_map(disparity_map),
-    m_stereo_model(camera_model1, camera_model2, least_squares_refine) {}
-
-  StereoAndErrorView( DisparityImageT const& disparity_map,
-                      StereoModelT const& stereo_model) :
-    m_disparity_map(disparity_map),
-    m_stereo_model(stereo_model) {}
-
-  inline int32 cols() const { return m_disparity_map.cols(); }
-  inline int32 rows() const { return m_disparity_map.rows(); }
-  inline int32 planes() const { return 1; }
-
-  inline pixel_accessor origin() const { return pixel_accessor(*this); }
-
-  inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
-    if ( is_valid(m_disparity_map(i,j,p)) ) {
-      Vector3 error;
-      pixel_type result;
-      subvector(result,0,3) = StereoModelHelper( m_stereo_model, Vector2(i,j),
-                                                 m_disparity_map(i,j,p), error );
-      subvector(result,3,3) = error;
-      return result;
-    }
-    // For missing pixels in the disparity map, we return a null 3D position.
-    return pixel_type();
-  }
-
-  /// \cond INTERNAL
-  typedef StereoAndErrorView<typename DisparityImageT::prerasterize_type, StereoModelT> prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const { return prerasterize_type( m_disparity_map.prerasterize(bbox), m_stereo_model ); }
-  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
-  /// \endcond
-};
-
 // Variant that uses LUT tables
-template <class DisparityImageT, class LUTImage1T, class LUTImage2T, class StereoModelT>
-class StereoLUTAndErrorView : public ImageViewBase<StereoLUTAndErrorView<DisparityImageT, LUTImage1T, LUTImage2T, StereoModelT> >
+template <class DisparityImageT, class TX1T, class TX2T, class StereoModelT>
+class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TX1T, TX2T, StereoModelT> >
 {
   DisparityImageT m_disparity_map;
-  LUTImage1T m_lut_image1;
-  InterpolationView< EdgeExtensionView<LUTImage2T, ConstantEdgeExtension>, BilinearInterpolation>  m_lut_image2;
-  LUTImage2T m_lut_image2_org;
+  TX1T m_tx1;
+  TX2T m_tx2;
   StereoModelT m_stereo_model;
   typedef typename DisparityImageT::pixel_type dpixel_type;
 
@@ -177,56 +97,48 @@ class StereoLUTAndErrorView : public ImageViewBase<StereoLUTAndErrorView<Dispari
   template <class T>
   inline typename boost::enable_if<IsScalar<T>,Vector3>::type
   StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-    return m_stereo_model( m_lut_image1(i,j),
-                           m_lut_image2( T(i) + disparity, j ), error );
+    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
+                           m_tx2.reverse( Vector2(T(i) + disparity, j) ), error );
   }
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
-    StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-    return m_stereo_model( m_lut_image1(i,j),
-                           m_lut_image2( float(i) + disparity, j ),  error );
+  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
+    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
+                           m_tx2.reverse( Vector2(float(i)+disparity, j) ), error );
   }
 
   template <class T>
   inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
-    StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-
-    float i2 = float(i) + disparity[0];
-    float j2 = float(j) + disparity[1];
-    if ( i2 < 0 || i2 >= m_lut_image2.cols() ||
-         j2 < 0 || j2 >= m_lut_image2.rows() ||
-         !is_valid( disparity ) ){
+  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
+    if ( !is_valid( disparity ) ){
       return Vector3(); // out of bounds
     }
 
-    return m_stereo_model( m_lut_image1(i,j), m_lut_image2(i2, j2), error );
+    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
+                           m_tx2.reverse( Vector2( double(i) + disparity[0],
+                                                   double(j) + disparity[1] ) ),
+                           error );
   }
 
 public:
 
   typedef Vector6 pixel_type;
   typedef const Vector6 result_type;
-  typedef ProceduralPixelAccessor<StereoLUTAndErrorView> pixel_accessor;
+  typedef ProceduralPixelAccessor<StereoTXAndErrorView> pixel_accessor;
 
-  StereoLUTAndErrorView( ImageViewBase<DisparityImageT> const& disparity_map,
-                         ImageViewBase<LUTImage1T> const& lut_image1,
-                         ImageViewBase<LUTImage2T> const& lut_image2,
-                         vw::camera::CameraModel const* camera_model1,
-                         vw::camera::CameraModel const* camera_model2,
-                         bool least_squares_refine = false) :
-    m_disparity_map(disparity_map.impl()), m_lut_image1( lut_image1.impl() ),
-    m_lut_image2(interpolate(lut_image2.impl())),
-    m_lut_image2_org( lut_image2.impl() ),
+  StereoTXAndErrorView( ImageViewBase<DisparityImageT> const& disparity_map,
+                        TX1T const& tx1, TX2T const& tx2,
+                        vw::camera::CameraModel const* camera_model1,
+                        vw::camera::CameraModel const* camera_model2,
+                        bool least_squares_refine = false) :
+    m_disparity_map(disparity_map.impl()), m_tx1(tx1), m_tx2(tx2),
     m_stereo_model(camera_model1, camera_model2, least_squares_refine) {}
 
-  StereoLUTAndErrorView( ImageViewBase<DisparityImageT> const& disparity_map,
-                         ImageViewBase<LUTImage1T> const& lut_image1,
-                         ImageViewBase<LUTImage2T> const& lut_image2,
-                         StereoModelT const& stereo_model) :
-    m_disparity_map(disparity_map.impl()), m_lut_image1(lut_image1.impl()),
-    m_lut_image2(interpolate(lut_image2.impl())),
-    m_lut_image2_org( lut_image2.impl() ),
+  StereoTXAndErrorView( ImageViewBase<DisparityImageT> const& disparity_map,
+                        TX1T const& tx1, TX2T const& tx2,
+                        StereoModelT const& stereo_model) :
+    m_disparity_map(disparity_map.impl()), m_tx1(tx1), m_tx2(tx2),
     m_stereo_model(stereo_model) {}
 
   inline int32 cols() const { return m_disparity_map.cols(); }
@@ -248,10 +160,8 @@ public:
   }
 
   /// \cond INTERNAL
-  typedef StereoLUTAndErrorView<CropView<ImageView<typename DisparityImageT::pixel_type> >,
-                                typename LUTImage1T::prerasterize_type,
-                                typename LUTImage2T::prerasterize_type,
-                                StereoModelT> prerasterize_type;
+  typedef StereoTXAndErrorView<CropView<ImageView<typename DisparityImageT::pixel_type> >,
+                               TX1T, TX2T, StereoModelT> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     typedef typename DisparityImageT::pixel_type DPixelT;
     CropView<ImageView<DPixelT> > disparity_preraster =
@@ -269,67 +179,47 @@ public:
       accum_t input_min = accumulator.minimum();
       accum_t input_max = accumulator.maximum();
       // Bugfix: expand the preraster window by 1 pixel to avoid segfaults.
-      // This is needed for interpolation.
+      // This is needed for interpolation. // Is this still needed? --ZMM 4/13
       preraster = BBox2i(bbox.min() + floor(Vector2f(input_min[0]-1,input_min[1]-1)),
                          bbox.max() + ceil(Vector2(input_max[0]+1,input_max[1]+1)) );
     }
 
-    return prerasterize_type( disparity_preraster,
-                              m_lut_image1.prerasterize(bbox),
-                              m_lut_image2_org.prerasterize(preraster),
+    return prerasterize_type( disparity_preraster, m_tx1, m_tx2,
                               m_stereo_model );
   }
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
   /// \endcond
 };
 
-template <class ImageT, class StereoModelT>
-StereoAndErrorView<ImageT, StereoModelT>
-stereo_error_triangulate( ImageViewBase<ImageT> const& v,
-                          vw::camera::CameraModel const* camera1,
-                          vw::camera::CameraModel const* camera2 ) {
-  return StereoAndErrorView<ImageT, StereoModelT>( v.impl(), camera1, camera2 );
-}
-
-template <class ImageT, class StereoModelT>
-StereoAndErrorView<ImageT, StereoModelT>
-lsq_stereo_error_triangulate( ImageViewBase<ImageT> const& v,
-                              vw::camera::CameraModel const* camera1,
-                              vw::camera::CameraModel const* camera2 ) {
-  return StereoAndErrorView<ImageT, StereoModelT>( v.impl(), camera1, camera2, true );
-}
-
-template <class DisparityT, class LUT1T, class LUT2T, class StereoModelT>
-StereoLUTAndErrorView<DisparityT, LUT1T, LUT2T, StereoModelT>
+template <class DisparityT, class TX1T, class TX2T, class StereoModelT>
+StereoTXAndErrorView<DisparityT, TX1T, TX2T, StereoModelT>
 stereo_error_triangulate( ImageViewBase<DisparityT> const& disparity,
-                          ImageViewBase<LUT1T> const& lut1,
-                          ImageViewBase<LUT2T> const& lut2,
+                          TX1T const& tx1, TX2T const& tx2,
                           vw::camera::CameraModel const* camera1,
                           vw::camera::CameraModel const* camera2 ) {
-  typedef StereoLUTAndErrorView<DisparityT, LUT1T, LUT2T, StereoModelT> result_type;
-  return result_type( disparity.impl(), lut1.impl(), lut2.impl(),
-                      camera1, camera2 );
+  typedef StereoTXAndErrorView<DisparityT, TX1T, TX2T, StereoModelT> result_type;
+  return result_type( disparity.impl(), tx1, tx2, camera1, camera2 );
 }
 
-template <class DisparityT, class LUT1T, class LUT2T, class StereoModelT>
-StereoLUTAndErrorView<DisparityT, LUT1T, LUT2T, StereoModelT>
+template <class DisparityT, class TX1T, class TX2T, class StereoModelT>
+StereoTXAndErrorView<DisparityT, TX1T, TX2T, StereoModelT>
 lsq_stereo_error_triangulate( ImageViewBase<DisparityT> const& disparity,
-                              ImageViewBase<LUT1T> const& lut1,
-                              ImageViewBase<LUT2T> const& lut2,
+                              TX1T const& tx1, TX2T const& tx2,
                               vw::camera::CameraModel const* camera1,
                               vw::camera::CameraModel const* camera2 ) {
-  typedef StereoLUTAndErrorView<DisparityT,LUT1T,LUT2T, StereoModelT> result_type;
-  return result_type( disparity.impl(), lut1.impl(), lut2.impl(),
-                      camera1, camera2, true );
+  typedef StereoTXAndErrorView<DisparityT,TX1T,TX2T,StereoModelT> result_type;
+  return result_type( disparity.impl(), tx1, tx2, camera1, camera2, true );
 }
 
-template <class StereoModelT>
+template <class SessionT>
 void stereo_triangulation( Options const& opt ) {
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : Stage 4 --> TRIANGULATION \n";
 
   typedef ImageViewRef<PixelMask<Vector2f> > PVImageT;
-  typedef ImageViewRef<Vector2f>             VImageT;
+  typedef SessionT::left_tx_type LeftTransformT;
+  typedef SessionT::right_tx_type RightTransformT;
+  typedef SessionT::stereo_model_type StereoModelT;
   try {
     PVImageT disparity_map =
       opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif");
@@ -370,7 +260,6 @@ void stereo_triangulation( Options const& opt ) {
     // directly to a file on disk.
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
     if ( stereo_settings().universe_center == "camera" ) {
-
       if (opt.stereo_session_string == "rpc")
         vw_throw(InputErr() << "Stereo with RPC cameras cannot have the camera as the universe center.\n");
 
@@ -389,38 +278,22 @@ void stereo_triangulation( Options const& opt ) {
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
     ImageViewRef<Vector6> point_cloud;
-    if ( opt.session->has_lut_images() ) {
-      if ( stereo_settings().use_least_squares )
-        point_cloud =
-          per_pixel_filter(lsq_stereo_error_triangulate<PVImageT, VImageT, VImageT, StereoModelT>
-                           ( disparity_map,
-                             opt.session->lut_image_left(),
-                             opt.session->lut_image_right(),
-                             camera_model1.get(),
-                             camera_model2.get() ),
-                           universe_radius_func);
-      else
-        point_cloud =
-          per_pixel_filter(stereo_error_triangulate<PVImageT, VImageT, VImageT, StereoModelT>
-                           ( disparity_map,
-                             opt.session->lut_image_left(),
-                             opt.session->lut_image_right(),
-                             camera_model1.get(),
-                             camera_model2.get() ),
-                           universe_radius_func);
+    if ( stereo_settings().use_least_squares ) {
+      typedef lsq_stereo_error_triangulate<PVImageT, LeftTransformT, RightTransformT, StereoModelT> TriT;
+      point_cloud =
+        per_pixel_filter( TriT( disparity_map,
+                                dynamic_pointer_cast<SessionT>(opt.session)->tx_left(),
+                                dynamic_pointer_cast<SessionT>(opt.session)->tx_right(),
+                                camera_model1.get(), camera_model2.get() ),
+                          universe_radius_func );
     } else {
-      if ( stereo_settings().use_least_squares )
-        point_cloud =
-          per_pixel_filter(lsq_stereo_error_triangulate<PVImageT, StereoModelT>( disparity_map,
-                                                                                 camera_model1.get(),
-                                                                                 camera_model2.get() ),
-                           universe_radius_func);
-      else
-        point_cloud =
-          per_pixel_filter(stereo_error_triangulate<PVImageT, StereoModelT>( disparity_map,
-                                                                             camera_model1.get(),
-                                                                             camera_model2.get() ),
-                           universe_radius_func);
+      typedef stereo_error_triangulate<PVImageT, LeftTransformT, RightTransformT, StereoModelT> TriT;
+      point_cloud =
+        per_pixel_filter( TriT( disparity_map,
+                                dynamic_pointer_cast<SessionT>(opt.session)->tx_left(),
+                                dynamic_pointer_cast<SessionT>(opt.session)->tx_right(),
+                                camera_model1.get(), camera_model2.get() ),
+                          universe_radius_func );
     }
 
     if (stereo_settings().compute_error_vector)
@@ -445,13 +318,14 @@ int main( int argc, char* argv[] ) {
 
     // Internal Processes
     //---------------------------------------------------------
-
-    if (opt.stereo_session_string != "rpc"){
-      stereo_triangulation<stereo::StereoModel>( opt );
-    }else{
-      // The RPC camera model does not fit in the existing framework
-      // as its method of triangulation is quite different.
-      stereo_triangulation<asp::RPCStereoModel>( opt );
+    if (       opt.stereo_session_string == "pinhole" ) {
+      stereo_triangulation<StereoSessionPinhole>( opt );
+    } else if ( opt.stereo_session_string == "isis"   ) {
+      stereo_triangulation<StereoSessionISIS>( opt );
+    } else if ( opt.stereo_session_string == "rpc"    ) {
+      stereo_triangulation<StereoSessionRPC>( opt );
+    } else if ( opt.stereo_session_string == "dg"     ) {
+      stereo_triangulation<StereoSessionDG>( opt );
     }
 
     vw_out() << "\n[ " << current_posix_time_string()

@@ -32,6 +32,7 @@
 // Vision Workbench
 #include <vw/Camera/Extrinsics.h>
 #include <vw/Math/EulerAngles.h>
+#include <vw/Math/Matrix.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/PointImageManipulation.h>
 
@@ -246,11 +247,6 @@ namespace asp {
                        );
   }
 
-  // LUT image access
-  bool StereoSessionDG::has_lut_images() const {
-    return m_rpc_map_projected;
-  }
-
   // The madness that happens below with the conversion from DEM
   // to cartesian and then geo_transforming ... is purely to
   // handle the problem of different datums between the DEM and
@@ -309,16 +305,34 @@ namespace asp {
              OriginalCameraIndex( *rpc_model, org_image_bbox ) ), map_image_bbox );
   }
 
-  ImageViewRef<Vector2f> StereoSessionDG::lut_image_left() const {
-    if ( !m_rpc_map_projected )
-      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table should not be used here" );
-    return generate_lut_image( m_left_image_file, m_left_camera_file );
+  StereoSessionDG::left_tx_type
+  StereoSessionDG::tx_left() const {
+    Matrix<double> tx = math::identity_matrix<3>();
+    if ( stereo_settings().alignment_method == "homography" ||
+         stereo_settings().alignment_method == "affineepipolar" ) {
+      read_matrix( tx, m_out_prefix + "-align-L.exr" );
+    }
+    if ( m_rpc_map_projected ) {
+      // This would compose to the above transforms
+      return TransformRef( IdentityTransform() ) ;
+      //return TransformRef( compose( HomographyTransform(tx), RPCTransform ) );
+    }
+    return TransformRef( HomographyTransform( tx ) );
   }
 
-  ImageViewRef<Vector2f> StereoSessionDG::lut_image_right() const {
-    if ( !m_rpc_map_projected )
-      vw_throw( LogicErr() << "StereoSessionDG: This is not a map projected session. LUT table should not be used here" );
-    return generate_lut_image( m_right_image_file, m_right_camera_file );
+  StereoSessionDG::right_tx_type
+  StereoSessionDG::tx_right() const {
+    Matrix<double> tx = math::identity_matrix<3>();
+    if ( stereo_settings().alignment_method == "homography" ||
+         stereo_settings().alignment_method == "affineepipolar" ) {
+      read_matrix( tx, m_out_prefix + "-align-R.exr" );
+    }
+    if ( m_rpc_map_projected ) {
+      // This would compose to the above transforms
+      return TransformRef( IdentityTransform() ) ;
+      //return TransformRef( compose( HomographyTransform(tx), RPCTransform ) );
+    }
+    return TransformRef( HomographyTransform( tx ) );
   }
 
   void StereoSessionDG::pre_preprocessing_hook(std::string const& left_input_file,

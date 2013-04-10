@@ -133,6 +133,21 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
   return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
 }
 
+asp::StereoSessionPinhole::left_tx_type
+asp::StereoSessionPinhole::tx_left() const {
+  return StereoSessionPinhole::left_tx_type();
+}
+
+asp::StereoSessionPinhole::right_tx_type
+asp::StereoSessionPinhole::tx_right() const {
+  if ( stereo_settings().alignment_method == "homography" ) {
+    Matrix<double> align_matrix;
+    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
+    return right_tx_type( math::identity_matrix<3>() );
+  }
+  return right_tx_type( math::identity_matrix<3>() );
+}
+
 void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_input_file,
                                                        std::string const& right_input_file,
                                                        std::string &left_output_file,
@@ -219,7 +234,7 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_i
                              left_disk_image, right_disk_image,
                              left_nodata_value, right_nodata_value,
                              gain_guess );
-    write_matrix( m_out_prefix + "-align.exr", align_matrix );
+    write_matrix( m_out_prefix + "-align-R.exr", align_matrix );
 
     // Applying alignment transform
     Limg = left_masked_image;
@@ -276,37 +291,4 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_i
   block_write_gdal_image( right_output_file, apply_mask(crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), output_nodata),
                           output_nodata, m_options,
                           TerminalProgressCallback("asp","\t  R:  ") );
-}
-
-// Reverse any pre-alignment that might have been done to the disparity map
-ImageViewRef<PixelMask<Vector2f> >
-asp::StereoSessionPinhole::pre_pointcloud_hook(std::string const& input_file) {
-
-  if ( stereo_settings().alignment_method == "homography" ) {
-
-    DiskImageView<PixelMask<Vector2f> > disparity_map( input_file );
-
-    vw::Matrix<double> align_matrix;
-    try {
-      read_matrix(align_matrix, m_out_prefix + "-align.exr");
-      vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";
-    } catch ( vw::IOErr const& e ) {
-      vw_out() << "\nCould not read in alignment matrix: " << m_out_prefix
-               << "-align.exr. Exiting. \n\n";
-      exit(1);
-    }
-
-    // Remove pixels that are outside the bounds of the second image
-    DiskImageView<float> right_disk_image( m_right_image_file );
-    ImageViewRef<PixelMask<Vector2f> > result =
-      stereo::disparity_range_mask( stereo::transform_disparities( disparity_map,
-                                             HomographyTransform(align_matrix)),
-                                    Vector2f(0,0),
-                                    Vector2f( right_disk_image.cols(),
-                                              right_disk_image.rows()) );
-
-    return result;
-  }
-
-  return DiskImageView<PixelMask<Vector2f> >( input_file );
 }
