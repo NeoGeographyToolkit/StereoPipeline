@@ -1067,8 +1067,8 @@ def nbhd_range(pt_list, dx_mat, dy_mat, tri, pt_dict, max_dist=None, calc_min_sl
         if max_dist is not None:
             dist2=(nbhd_pts[:,1]-this_pt[1])**2 + (nbhd_pts[:,0]-this_pt[0])**2
             nbhd_pts=nbhd_pts[dist2 < max_dist**2,:]
-        if nbhd_pts is None:
-            dxy_range[row,:]=0.
+        if nbhd_pts is None or min(nbhd_pts.shape) < 1:
+            continue
         dx_vals=np.append(np.array(dx_mat[nbhd_pts[:,1], nbhd_pts[:,0]]), dx_mat[this_pt[1], this_pt[0]])
         dy_vals=np.append(np.array(dy_mat[nbhd_pts[:,1], nbhd_pts[:,0]]), dy_mat[this_pt[1], this_pt[0]])
         if calc_min_slope is not None:
@@ -1248,12 +1248,13 @@ def main():
     # will be deleted.
     refine_x=np.array([-1., 0.,  1., -1.,  1., -1., 0.,  1.])
     refine_y=np.array([ -1., -1., -1., 0., 0., 1., 1., 1. ]);
-
+    recalc_nbhd_range=False
     for delta_x in skip_vals:
         print "----------refining to %d---------" % delta_x
         print str(datetime.datetime.now())
         if len(refine_pts)==0:
             print "    No refinement points for scale: %d" % delta_x
+            recalc_nbhd_range=True
             break
         # add neighbors of the last set of points to the list
         #sc=plt.scatter(all_pts[refine_pts,0], all_pts[refine_pts,1], c=dxy_score[:,1]-dxy_score[:,0]); plt.axis('equal'); plt.colorbar(sc)
@@ -1272,6 +1273,7 @@ def main():
         new_xy, new_dxy,  new_C, new_xy_bad=search_new_pts(new_xy, new_dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min)
         if len(new_xy)==0:
             print "    no new points found"
+            recalc_nbhd_range=True
             break
 
         good, ep_dist=test_epipolar(dxy_ctr, ep_vec, new_dxy, ep_tol)
@@ -1326,6 +1328,11 @@ def main():
         # refinement
         print "    found %d points to refine" %  len(refine_pts)
 
+    if recalc_nbhd_range:
+        all_pts=np.c_[C_mat.nonzero()];
+        all_pts=all_pts[:,[1,0]];
+        dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
+        
     # filter out the 99th percentile of matches
     R_dx=dxy_score[:,1]-dxy_score[:,0]
     R_dy=dxy_score[:,3]-dxy_score[:,2]
