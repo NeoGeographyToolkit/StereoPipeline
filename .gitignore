@@ -83,6 +83,7 @@ src/asp/IsisIO/tests/TestIsisAdjustCameraModel
 src/asp/IsisIO/tests/TestIsisCameraModel
 
 # Sessions
+src/asp/Sessions/tests/TestInstantiation
 src/asp/Sessions/tests/TestStereoSessionDG
 src/asp/Sessions/tests/TestStereoSessionRPC
 

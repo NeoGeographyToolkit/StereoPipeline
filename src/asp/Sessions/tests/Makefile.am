@@ -24,8 +24,9 @@ if MAKE_MODULE_SESSIONS
 
 TestStereoSessionDG_SOURCES  = TestStereoSessionDG.cxx
 TestStereoSessionRPC_SOURCES = TestStereoSessionRPC.cxx
+TestInstantiation_SOURCES    = TestInstantiation.cxx
 
-TESTS = TestStereoSessionDG TestStereoSessionRPC
+TESTS = TestStereoSessionDG TestStereoSessionRPC TestInstantiation
 
 endif
 
