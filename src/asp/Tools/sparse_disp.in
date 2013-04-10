@@ -1102,10 +1102,14 @@ def est_epipolar_vec(dxy, C, C_tol):
         offset.  The eigenvector corresponding to the largest eigenvalue is
         assumed to be the epipolar vector.
     """
-    good=np.array(C>C_tol, dtype=bool)
+    
+    ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], 16)) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], 84)) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], 16)) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], 84)) 
+    good=ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
     dxy1=np.array(dxy[good.ravel(),:])
-    dxy_ctr=[np.median(dxy1[:,0]), np.median(dxy1[:,1])]
-    dxy_0=dxy1-dxy_ctr
+    dxy_ctr=np.array([np.median(dxy1[:,0]), np.median(dxy1[:,1])])
+    dxy_0=dxy1.copy()
+    dxy_0[:,0]=dxy_0[:,0]-dxy_ctr[0]
+    dxy_0[:,1]=dxy_0[:,1]-dxy_ctr[1]
     vals, vecs=np.linalg.eig(np.dot(dxy_0.transpose(), dxy_0))
     biggest_vec=vecs[:,np.argmax(abs(vals)) ]
     return biggest_vec, dxy_ctr
