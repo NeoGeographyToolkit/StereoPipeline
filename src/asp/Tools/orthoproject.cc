@@ -185,13 +185,11 @@ int main(int argc, char* argv[]) {
 
   // Orthorpoject a camera image not a DEM.
   // Note: This process is not multi-threaded because it uses ISIS which is not thread safe.
-  
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
 
     // Create a fresh stereo session and query it for the camera models.
-    asp::StereoSession::register_session_type( "rmax", &asp::StereoSessionRmax::construct);
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
 #endif

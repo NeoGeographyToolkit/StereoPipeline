@@ -84,18 +84,6 @@ if MAKE_APP_DEM_GEOID
   dem_geoid_LDADD = $(APP_DEM_GEOID_LIBS)
 endif
 
-if MAKE_APP_RMAX2CAHVOR
-  bin_PROGRAMS += rmax2cahvor
-  rmax2cahvor_SOURCES = rmax2cahvor.cc
-  rmax2cahvor_LDADD = $(APP_RMAX2CAHVOR_LIBS)
-endif
-
-if MAKE_APP_RMAXADJUST
-  bin_PROGRAMS += rmax_adjust
-  rmax_adjust_SOURCES = rmax_adjust.cc
-  rmax_adjust_LDADD = $(APP_RMAXADJUST_LIBS)
-endif
-
 if MAKE_APP_ISISADJUST
   bin_PROGRAMS += isis_adjust
   isis_adjust_SOURCES = isis_adjust.cc isis_adjust.h

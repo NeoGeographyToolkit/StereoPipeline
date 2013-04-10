@@ -420,8 +420,6 @@ AX_APP(POINT2MESH,       [src/asp/Tools], yes, [OPENSCENEGRAPH CORE])
 AX_APP(POINT2LAS,        [src/asp/Tools], no,  [BOOST LASZIP LIBLAS CORE])
 AX_APP(DEM_GEOID,        [src/asp/Tools], no,  [GEOID CORE])
 AX_APP(RESULTS,          [src/asp/Tools], no,  [CORE ISISIO])
-AX_APP(RMAX2CAHVOR,      [src/asp/Tools], no,  [SESSIONS])
-AX_APP(RMAXADJUST,       [src/asp/Tools], no,  [VW_BUNDLEADJUSTMENT SESSIONS])
 AX_APP(RPCMAPPROJECT,    [src/asp/Tools], yes, [CORE SESSIONS GDAL])
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
 
@@ -456,8 +454,6 @@ AM_CONDITIONAL(MAKE_APP_POINT2MESH, [test "$MAKE_APP_POINT2MESH" = "yes"])
 AM_CONDITIONAL(MAKE_APP_POINT2LAS, [test "$MAKE_APP_POINT2LAS" = "yes"])
 AM_CONDITIONAL(MAKE_APP_DEM_GEOID, [test "$MAKE_APP_DEM_GEOID" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RESULTS, [test "$MAKE_APP_RESULTS" = "yes"])
-AM_CONDITIONAL(MAKE_APP_RMAX2CAHVOR, [test "$MAKE_APP_RMAX2CAHVOR" = "yes"])
-AM_CONDITIONAL(MAKE_APP_RMAXADJUST, [test "$MAKE_APP_RMAXADJUST" = "yes"])
 AM_CONDITIONAL(MAKE_APP_RPCMAPPROJECT, [test "$MAKE_APP_RPCMAPPROJECT" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREOGUI, [test "$MAKE_APP_STEREOGUI" = "yes"])
@@ -503,7 +499,6 @@ AC_CONFIG_FILES([                       \
   src/asp/Sessions/Makefile             \
   src/asp/Sessions/ISIS/Makefile        \
   src/asp/Sessions/Pinhole/Makefile     \
-  src/asp/Sessions/RMAX/Makefile        \
   src/asp/Sessions/DG/Makefile          \
   src/asp/Sessions/RPC/Makefile         \
   src/asp/Sessions/tests/Makefile       \
