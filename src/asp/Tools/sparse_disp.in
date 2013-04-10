@@ -1145,8 +1145,7 @@ def main():
         (max-min) neighbor x disparity
         (max-min) neighbor y disparity
      """
-    dxy_slope_tol=3.0
-    C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
+
     usage = '''%prog [options] T_file S_file
 
   [ASP [@]ASP_VERSION[@]]'''
@@ -1181,6 +1180,9 @@ def main():
 
     (options, args) = parser.parse_args()
 
+    if sys.version_info < (2, 6):
+        die('\nERROR: Must use python 2.6 or greater.', code=2)
+
     if len(args) < 2:
         parser.print_help()
         die('\nERROR: Missing input files', code=2)
@@ -1191,6 +1193,10 @@ def main():
     print str(datetime.datetime.now())
     print "T_file="+T_file
     print "S_file="+S_file
+
+    dxy_slope_tol=3.0
+    C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
+
     s_nx=options.s_nx
     s_ny=options.s_ny
     t_pixels=options.t_pixels
