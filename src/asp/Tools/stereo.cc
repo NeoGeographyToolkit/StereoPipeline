@@ -304,14 +304,14 @@ namespace asp {
 
     // Checks for map-projected images below
 
-    if ( opt.session->has_lut_images() && stereo_settings().seed_mode == 2 )
+    if ( !opt.input_dem.empty() && stereo_settings().seed_mode == 2 )
       vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
 
     GeoReference georef;
     bool has_georef1 = read_georeference( georef, opt.in_file1 );
     bool has_georef2 = read_georeference( georef, opt.in_file2 );
-    if ( opt.session->has_lut_images() && (!has_georef1 || !has_georef2)){
+    if ( !opt.input_dem.empty() && (!has_georef1 || !has_georef2)){
       vw_throw( ArgumentErr() << "The images are not map-projected, "
                 << "cannot use the provided DEM: " << opt.input_dem << ".n");
     }
