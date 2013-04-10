@@ -1,0 +1,1452 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2012, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+import sys, optparse, subprocess, re, os, math, time, gdal, time, datetime
+import os.path as P
+import gdal, gdalconst
+import numpy as np
+import scipy as sp
+import scipy.ndimage.filters as sf
+import scipy.stats as ss
+import scipy.spatial as sp
+from scipy.ndimage import convolve
+from scipy.sparse import coo_matrix
+from scipy.interpolate import griddata
+from multiprocessing import Pool
+from optparse import OptionParser
+#import matplotlib.pyplot as plt # This throws exception if no display is set
+
+def die(msg, code=-1):
+    print >>sys.stderr, msg
+    sys.exit(code)
+
+class im_subset:
+    def __init__(self, c0, r0, Nc, Nr, source, pad_val=0, Bands=(1,2,3)):
+        self.source=source
+        self.c0=c0
+        self.r0=r0
+        self.Nc=Nc
+        self.Nr=Nr
+        self.z=[]
+        self.level=0  # if the level is zero, this is a copy of a file, if it's >0, it's a copy of a copy of a file
+        self.Bands=Bands
+        self.pad_val=pad_val
+
+    def setBounds(self, c0, r0, Nc, Nr, update=0):
+        self.c0=np.int(c0)
+        self.r0=np.int(r0)
+        self.Nc=np.int(Nc)
+        self.Nr=np.int(Nr)
+        if update > 0:
+            self.copySubsetFrom(pad_val=self.pad_val)
+
+    def copySubsetFrom(self, pad_val=0):
+        if hasattr(self.source, 'level'):  # copy data from another subset
+            self.z = np.zeros((self.source.z.shape[0], self.Nr, self.Nc), self.source.z.dtype) + pad_val
+            (sr0, sr1, dr0, dr1, vr)=match_range(self.source.r0, self.source.Nr, self.r0, self.Nr)
+            (sc0, sc1, dc0, dc1, vc)=match_range(self.source.c0, self.source.Nc, self.c0, self.Nc)
+            if (vr & vc):
+                self.z[:, dr0:dr1, dc0:dc1]=self.source.z[:,sr0:sr1, sc0:sc1]
+            self.level=self.source.level+1
+        else:  # read data from a file
+            band=self.source.GetRasterBand(self.Bands[0][0])
+            src_NB=self.source.RasterCount
+            dt=gdal.GetDataTypeName(band.DataType)
+            self.z=np.zeros((src_NB, self.Nr, self.Nc), dt)+pad_val
+            (sr0, sr1, dr0, dr1, vr)=match_range(0, band.YSize, self.r0, self.Nr)
+            (sc0, sc1, dc0, dc1, vc)=match_range(0, band.XSize, self.c0, self.Nc)
+            if (vr & vc):
+                a=self.source.ReadAsArray(int(sc0),  int(sr0), int(sc1-sc0), int(sr1-sr0))
+                self.z[:, dr0:dr1, dc0:dc1]=a
+            self.level=0
+
+
+    def writeSubsetTo(self, bands, target):
+        if target.level > 0:
+            print "copying into target raster"
+            (sr0, sr1, dr0, dr1, vr)=match_range(target.source.r0, target.source.Nr, self.r0, self.Nr)
+            (sc0, sc1, dc0, dc1, vc)=match_range(target.source.c0, target.source.Nc, self.c0, self.Nc)
+            if (vr & vc):
+                for b in bands:
+                    target.source.z[b,sr0:sr1, sc0:sc1]=self.z[b, dr0:dr1, dc0:dc1]
+        else:
+            print "writing to file";
+            band=target.source.GetRasterBand(1)
+            (sr0, sr1, dr0, dr1, vr)=match_range(0, band.YSize, self.r0, self.Nr)
+            (sc0, sc1, dc0, dc1, vc)=match_range(0, band.XSize, self.c0, self.Nc)
+            print (sc0, sc1, dc0, dc1)
+            print (sr0, sr1, dr0, dr1)
+            print "vr=", vr, "vc=", vc
+            if (vr & vc):
+                print "...writing..."
+                for bb in (bands):
+                    band=target.source.GetRasterBand(bb)
+                    band.WriteArray( self.z[bb, dr0:dr1, dc0:dc1], int(sr0), int(sc0))
+
+def match_range(s0, ns, d0, nd):
+    i0 = max(s0, d0)
+    i1 = min(s0+ns, d0+nd)
+    si0=max(0, i0-s0)
+    si1=min(ns, i1-s0)
+    di0=max(0, i0-d0)
+    di1=min(nd,i1-d0)
+    any_valid=(di1>di0) & (si1 > si0)
+    return (si0, si1, di0, di1, any_valid)
+
+# Try and use the faster Fourier transform functions from the anfft module if
+# available
+try:
+	import anfft as _anfft
+	# measure == True for self-optimisation of repeat Fourier transforms of
+	# similarly-shaped arrays
+	def fftn(A,shape=None):
+		if shape != None:
+			A = _checkffttype(A)
+			A = procrustes(A,target=shape,side='after',padval=0)
+		return _anfft.fftn(A,measure=True)
+	def ifftn(B,shape=None):
+		if shape != None:
+			B = _checkffttype(B)
+			B = procrustes(B,target=shape,side='after',padval=0)
+		return _anfft.ifftn(B,measure=True)
+	def _checkffttype(C):
+		# make sure input arrays are typed correctly for FFTW
+		if C.dtype == 'complex256':
+			# the only incompatible complex type --> complex64
+			C = np.complex128(C)
+		elif C.dtype not in ['float32','float64','complex64','complex128']:
+			# any other incompatible type --> float64
+			C = np.float64(C)
+		return C
+# Otherwise use the normal scipy fftpack ones instead (~2-3x slower!)
+except ImportError:
+	print \
+	"Module 'anfft' (FFTW Python bindings) could not be imported.\n"\
+	"To install it, try running 'easy_install anfft' from the terminal.\n"\
+	"Falling back on the slower 'fftpack' module for ND Fourier transforms."
+	from scipy.fftpack import fftn, ifftn
+
+class TemplateMatch(object):
+	"""
+	N-dimensional template search by normalized cross-correlation or sum of
+	squared differences.
+
+	Arguments:
+	------------------------
+		template	The template to search for
+		method		The search method. Can be "ncc", "ssd" or
+				"both". See documentation for norm_xcorr and
+				fast_ssd for more details.
+
+	Example use:
+	------------------------
+	from scipy.misc import lena
+	from matplotlib.pyplot import subplots
+
+	image = lena()
+	template = image[240:281,240:281]
+	TM = TemplateMatch(template,method='both')
+	ncc,ssd = TM(image)
+	nccloc = np.nonzero(ncc == ncc.max())
+	ssdloc = np.nonzero(ssd == ssd.min())
+
+	fig,[[ax1,ax2],[ax3,ax4]] = subplots(2,2,num='ND Template Search')
+	ax1.imshow(image,interpolation='nearest')
+	ax1.set_title('Search image')
+	ax2.imshow(template,interpolation='nearest')
+	ax2.set_title('Template')
+	ax3.hold(True)
+	ax3.imshow(ncc,interpolation='nearest')
+	ax3.plot(nccloc[1],nccloc[0],'w+')
+	ax3.set_title('Normalized cross-correlation')
+	ax4.hold(True)
+	ax4.imshow(ssd,interpolation='nearest')
+	ax4.plot(ssdloc[1],ssdloc[0],'w+')
+	ax4.set_title('Sum of squared differences')
+	fig.tight_layout()
+	fig.canvas.draw()
+	"""
+	def __init__(self,template,method='ssd'):
+
+		if method not in ['ncc','ssd','both']:
+			raise Exception('Invalid method "%s". '\
+					'Valid methods are "ncc", "ssd" or "both"'
+					%method)
+
+		self.template = template
+		self.method = method
+
+	def __call__(self,a):
+
+		if a.ndim != self.template.ndim:
+			raise Exception('Input array must have the same number '\
+					'of dimensions as the template (%i)'
+					%self.template.ndim)
+
+		if self.method == 'ssd':
+			return self.fast_ssd(self.template,a,trim=True)
+		elif self.method == 'ncc':
+                  C=norm_xcorr(self.template,a,trim=True)
+                  return  C
+		elif self.method == 'both':
+			return norm_xcorr(self.template,a,trim=True,do_ssd=True)
+
+def norm_xcorr(t,a,method=None,trim=True,do_ssd=False):
+	"""
+	Fast normalized cross-correlation for n-dimensional arrays
+
+	Inputs:
+	----------------
+		t	The template. Must have at least 2 elements, which
+			cannot all be equal.
+
+		a	The search space. Its dimensionality must match that of
+			the template.
+
+		method	The convolution method to use when computing the
+			cross-correlation. Can be either 'direct', 'fourier' or
+			None. If method == None (default), the convolution time
+			is estimated for both methods and the best one is chosen
+			for the given input array sizes.
+
+		trim	If True (default), the output array is trimmed down to
+			the size of the search space. Otherwise, its size will
+			be (f.shape[dd] + t.shape[dd] -1) for dimension dd.
+
+		do_ssd	If True, the sum of squared differences between the
+			template and the search image will also be calculated.
+			It is very efficient to calculate normalized
+			cross-correlation and the SSD simultaneously, since they
+			require many of the same quantities.
+
+	Output:
+	----------------
+		nxcorr	An array of cross-correlation coefficients, which may
+			vary from -1.0 to 1.0.
+		[ssd]	[Returned if do_ssd == True. See fast_ssd for details.]
+
+	Wherever the search space has zero  variance under the template,
+	normalized  cross-correlation is undefined. In such regions, the
+	correlation coefficients are set to zero.
+
+	References:
+		Hermosillo et al 2002: Variational Methods for Multimodal Image
+		Matching, International Journal of Computer Vision 50(3),
+		329-343, 2002
+		<http://www.springerlink.com/content/u4007p8871w10645/>
+
+		Lewis 1995: Fast Template Matching, Vision Interface,
+		p.120-123, 1995
+		<http://www.idiom.com/~zilla/Papers/nvisionInterface/nip.html>
+
+		<http://en.wikipedia.org/wiki/Cross-correlation#Normalized_cross-correlation>
+
+	Alistair Muldal
+	Department of Pharmacology
+	University of Oxford
+	<alistair.muldal@pharm.ox.ac.uk>
+
+	Sept 2012
+
+	"""
+
+	if t.size < 2:
+		raise Exception('Invalid template')
+	if t.size > a.size:
+		raise Exception('The input array must be smaller than the template')
+
+	std_t,mean_t = np.std(t),np.mean(t)
+
+	if std_t == 0:
+		raise Exception('The values of the template must not all be equal')
+
+	t = np.float64(t)
+	a = np.float64(a)
+
+	# output dimensions of xcorr need to match those of local_sum
+	outdims = np.array([a.shape[dd]+t.shape[dd]-1 for dd in xrange(a.ndim)])
+	# hack by BS 1/15/2013-- the direct method appears not to work
+	method='fourier'
+	# would it be quicker to convolve in the spatial or frequency domain? NB
+	# this is not very accurate since the speed of the Fourier transform
+	# varies quite a lot with the output dimensions (e.g. 2-radix case)
+	if method == None:
+		spatialtime, ffttime = get_times(t,a,outdims)
+		if spatialtime < ffttime:
+			method = 'spatial'
+		else:
+			method = 'fourier'
+
+	if method == 'fourier':
+		# # in many cases, padding the dimensions to a power of 2
+		# # *dramatically* improves the speed of the Fourier transforms
+		# # since it allows using radix-2 FFTs
+		# fftshape = [nextpow2(ss) for ss in a.shape]
+
+		# Fourier transform of the input array and the inverted template
+
+		# af = fftn(a,shape=fftshape)
+		# tf = fftn(ndflip(t),shape=fftshape)
+
+		af = fftn(a,shape=outdims)
+		tf = fftn(ndflip(t),shape=outdims)
+
+		# 'non-normalized' cross-correlation
+		xcorr = np.real(ifftn(tf*af))
+
+	else:
+		xcorr = convolve(a,t,mode='constant',cval=0)
+
+	# local linear and quadratic sums of input array in the region of the
+	# template
+	ls_a = local_sum(a,t.shape, 0)
+	ls2_a = local_sum(a**2,t.shape, np.mean(a**2))
+
+	# now we need to make sure xcorr is the same size as ls_a
+	xcorr = procrustes(xcorr,ls_a.shape,side='both')
+
+	# local standard deviation of the input array
+	ls_diff = ls2_a - (ls_a**2)/t.size
+	ls_diff = np.where(ls_diff < 0,0,ls_diff)
+	sigma_a = np.sqrt(ls_diff)
+
+	# standard deviation of the template
+	sigma_t = np.sqrt(t.size-1.)*std_t
+
+	# denominator: product of standard deviations
+	denom = sigma_t*sigma_a
+
+	# numerator: local mean corrected cross-correlation
+	numer = (xcorr - ls_a*mean_t)
+
+	# sigma_t cannot be zero, so wherever the denominator is zero, this must
+	# be because sigma_a is zero (and therefore the normalized cross-
+	# correlation is undefined), so set nxcorr to zero in these regions
+	tol = np.sqrt(np.finfo(denom.dtype).eps)
+	nxcorr=np.zeros(numer.shape)
+	good=denom>tol
+	nxcorr[good]=numer[good]/denom[good]
+	#nxcorr = np.where(denom < tol,0,numer/denom)
+
+	# if any of the coefficients are outside the range [-1 1], they will be
+	# unstable to small variance in a or t, so set them to zero to reflect
+	# the undefined 0/0 condition
+	bad=nxcorr-1. >  np.sqrt(np.finfo(nxcorr.dtype).eps);
+	nxcorr[bad]=0.
+
+	# calculate the SSD if requested
+	if do_ssd:
+		# quadratic sum of the template
+		tsum2 = np.sum(t**2.)
+
+		# SSD between template and image
+		ssd = ls2_a + tsum2 - 2.*xcorr
+
+		# normalise to between 0 and 1
+		ssd -= ssd.min()
+		ssd /= ssd.max()
+
+		if trim:
+			nxcorr = procrustes(nxcorr,a.shape,side='both')
+			ssd = procrustes(ssd,a.shape,side='both')
+		return nxcorr,ssd
+
+	else:
+		if trim:
+                  nxcorr = procrustes(nxcorr,a.shape,side='both')
+                  sigma_a =procrustes(sigma_a,a.shape,side='both')
+	return nxcorr
+
+def fast_ssd(t,a,method=None,trim=True):
+	"""
+
+	Fast sum of squared differences (SSD block matching) for n-dimensional
+	arrays
+
+	Inputs:
+	----------------
+		t	The template. Must have at least 2 elements, which
+			cannot all be equal.
+
+		a	The search space. Its dimensionality must match that of
+			the template.
+
+		method	The convolution method to use when computing the
+			cross-correlation. Can be either 'direct', 'fourier' or
+			None. If method == None (default), the convolution time
+			is estimated for both methods and the best one is chosen
+			for the given input array sizes.
+
+		trim	If True (default), the output array is trimmed down to
+			the size of the search space. Otherwise, its size will
+			be (f.shape[dd] + t.shape[dd] -1) for dimension dd.
+
+	Output:
+	----------------
+		ssd	An array containing the sum of squared differences
+			between the image and the template, with the values
+			normalized in the range -1.0 to 1.0.
+
+	Wherever the search space has zero  variance under the template,
+	normalized  cross-correlation is undefined. In such regions, the
+	correlation coefficients are set to zero.
+
+	References:
+		Hermosillo et al 2002: Variational Methods for Multimodal Image
+		Matching, International Journal of Computer Vision 50(3),
+		329-343, 2002
+		<http://www.springerlink.com/content/u4007p8871w10645/>
+
+		Lewis 1995: Fast Template Matching, Vision Interface,
+		p.120-123, 1995
+		<http://www.idiom.com/~zilla/Papers/nvisionInterface/nip.html>
+
+
+	Alistair Muldal
+	Department of Pharmacology
+	University of Oxford
+	<alistair.muldal@pharm.ox.ac.uk>
+
+	Sept 2012
+
+	"""
+
+	if t.size < 2:
+		raise Exception('Invalid template')
+	if t.size > a.size:
+		raise Exception('The input array must be smaller than the template')
+
+	std_t,mean_t = np.std(t),np.mean(t)
+
+	if std_t == 0:
+		raise Exception('The values of the template must not all be equal')
+
+	# output dimensions of xcorr need to match those of local_sum
+	outdims = np.array([a.shape[dd]+t.shape[dd]-1 for dd in xrange(a.ndim)])
+
+	# would it be quicker to convolve in the spatial or frequency domain? NB
+	# this is not very accurate since the speed of the Fourier transform
+	# varies quite a lot with the output dimensions (e.g. 2-radix case)
+	if method == None:
+		spatialtime, ffttime = get_times(t,a,outdims)
+		if spatialtime < ffttime:
+			method = 'spatial'
+		else:
+			method = 'fourier'
+
+	if method == 'fourier':
+		# # in many cases, padding the dimensions to a power of 2
+		# # *dramatically* improves the speed of the Fourier transforms
+		# # since it allows using radix-2 FFTs
+		# fftshape = [nextpow2(ss) for ss in a.shape]
+
+		# Fourier transform of the input array and the inverted template
+
+		# af = fftn(a,shape=fftshape)
+		# tf = fftn(ndflip(t),shape=fftshape)
+
+		af = fftn(a,shape=outdims)
+		tf = fftn(ndflip(t),shape=outdims)
+
+		# 'non-normalized' cross-correlation
+		xcorr = np.real(ifftn(tf*af))
+
+	else:
+		xcorr = convolve(a,t,mode='constant',cval=0)
+
+	# quadratic sum of the template
+	tsum2 = np.sum(t**2.)
+
+	# local quadratic sum of input array in the region of the template
+	ls2_a = local_sum(a**2,t.shape, np.mean(a**2))
+
+	# now we need to make sure xcorr is the same size as ls2_a
+	xcorr = procrustes(xcorr,ls2_a.shape,side='both')
+
+	# SSD between template and image
+	ssd = ls2_a + tsum2 - 2.*xcorr
+
+	# normalise to between 0 and 1
+	ssd -= ssd.min()
+	ssd /= ssd.max()
+
+	if trim:
+		ssd = procrustes(ssd,a.shape,side='both')
+
+	return ssd
+
+
+def local_sum(a,tshape, padval):
+	"""For each element in an n-dimensional input array, calculate
+	the sum of the elements within a surrounding region the size of
+	the template"""
+
+	# zero-padding
+	a = ndpad(a,tshape, padval)
+
+	# difference between shifted copies of an array along a given dimension
+	def shiftdiff(a,tshape,shiftdim):
+		ind1 = [slice(None,None),]*a.ndim
+		ind2 = [slice(None,None),]*a.ndim
+		ind1[shiftdim] = slice(tshape[shiftdim],a.shape[shiftdim]-1)
+		ind2[shiftdim] = slice(0,a.shape[shiftdim]-tshape[shiftdim]-1)
+		return a[ind1] - a[ind2]
+
+	# take the cumsum along each dimension and subtracting a shifted version
+	# from itself. this reduces the number of computations to 2*N additions
+	# and 2*N subtractions for an N-dimensional array, independent of its
+	# size.
+	#
+	# See:
+	# <http://www.idiom.com/~zilla/Papers/nvisionInterface/nip.html>
+	for dd in xrange(a.ndim):
+		a = np.cumsum(a,dd)
+		a = shiftdiff(a,tshape,dd)
+	return a
+
+# # for debugging purposes, ~10x slower than local_sum for a (512,512) array
+# def slow_2D_local_sum(a,tshape):
+#	out = np.zeros_like(a)
+#	for ii in xrange(a.shape[0]):
+#		istart = np.max((0,ii-tshape[0]//2))
+#		istop = np.min((a.shape[0],ii+tshape[0]//2+1))
+#		for jj in xrange(a.shape[1]):
+#			jstart = np.max((0,jj-tshape[1]//2))
+#			jstop = np.min((a.shape[1],jj+tshape[0]//2+1))
+#			out[ii,jj] = np.sum(a[istart:istop,jstart:jstop])
+#	return out
+
+def get_times(t,a,outdims):
+
+	k_conv = 1.21667E-09
+	k_fft = 2.65125E-08
+
+	# # uncomment these lines to measure timing constants
+	# k_conv,k_fft,convreps,fftreps = benchmark(t,a,outdims,maxtime=60)
+	# print "-------------------------------------"
+	# print "Template size:\t\t%s" %str(t.shape)
+	# print "Search space size:\t%s" %str(a.shape)
+	# print "k_conv:\t%.6G\treps:\t%s" %(k_conv,str(convreps))
+	# print "k_fft:\t%.6G\treps:\t%s" %(k_fft,str(fftreps))
+	# print "-------------------------------------"
+
+	# spatial convolution time scales with the total number of elements
+	convtime = k_conv*(t.size*a.size)
+
+	# Fourier convolution time scales with N*log(N), cross-correlation
+	# requires 2x FFTs and 1x iFFT. ND FFT time scales with
+	# prod(dimensions)*log(prod(dimensions))
+	ffttime = 3*k_fft*(np.prod(outdims)*np.log(np.prod(outdims)))
+
+	# print	"Predicted spatial:\t%.6G\nPredicted fourier:\t%.6G" %(convtime,ffttime)
+	return convtime,ffttime
+
+def benchmark(t,a,outdims,maxtime=60):
+	import resource
+
+	# benchmark spatial convolutions
+	# ---------------------------------
+	convreps = 0
+	tic = resource.getrusage(resource.RUSAGE_SELF).ru_utime
+	toc = tic
+	while (toc-tic) < maxtime:
+		convolve(a,t,mode='constant',cval=0)
+		# xcorr = convolve(a,t,mode='full')
+		convreps += 1
+		toc = resource.getrusage(resource.RUSAGE_SELF).ru_utime
+	convtime = (toc-tic)/convreps
+
+	# convtime == k(N1+N2)
+	N = t.size*a.size
+	k_conv = convtime/N
+
+	# benchmark 1D Fourier transforms
+	# ---------------------------------
+	veclist = [np.random.randn(ss) for ss in outdims]
+	fft1times = []
+	fftreps = []
+	for vec in veclist:
+		reps = 0
+		tic = resource.getrusage(resource.RUSAGE_SELF).ru_utime
+		toc = tic
+		while (toc-tic) < maxtime:
+			fftn(vec)
+			toc = resource.getrusage(resource.RUSAGE_SELF).ru_utime
+			reps += 1
+		fft1times.append((toc-tic)/reps)
+		fftreps.append(reps)
+	fft1times = np.asarray(fft1times)
+
+	# fft1_time == k*N*log(N)
+	N = np.asarray([vec.size for vec in veclist])
+	k_fft = np.mean(fft1times/(N*np.log(N)))
+
+	# # benchmark ND Fourier transforms
+	# # ---------------------------------
+	# arraylist = [t,a]
+	# fftntimes = []
+	# fftreps = []
+	# for array in arraylist:
+	#	reps = 0
+	#	tic = resource.getrusage(resource.RUSAGE_SELF).ru_utime
+	#	toc = tic
+	#	while (toc-tic) < maxtime:
+	#		fftn(array,shape=a.shape)
+	#		reps += 1
+	#		toc = resource.getrusage(resource.RUSAGE_SELF).ru_utime
+	#	fftntimes.append((toc-tic)/reps)
+	#	fftreps.append(reps)
+	# fftntimes = np.asarray(fftntimes)
+
+	# # fftn_time == k*prod(dimensions)*log(prod(dimensions)) for an M-dimensional array
+	# nlogn = np.array([aa.size*np.log(aa.size) for aa in arraylist])
+	# k_fft = np.mean(fftntimes/nlogn)
+
+	return k_conv,k_fft,convreps,fftreps
+	# return k_conv,k_fft1,k_fftn
+
+
+def ndpad(a,npad=None,padval=0):
+	"""
+	Pads the edges of an n-dimensional input array with a constant value
+	across all of its dimensions.
+
+	Inputs:
+	----------------
+		a	The array to pad
+
+		npad*	The pad width. Can either be array-like, with one
+			element per dimension, or a scalar, in which case the
+			same pad width is applied to all dimensions.
+
+		padval	The value to pad with. Must be a scalar (default is 0).
+
+	Output:
+	----------------
+		b	The padded array
+
+	*If npad is not a whole number, padding will be applied so that the
+	'left' edge of the output is padded less than the 'right', e.g.:
+
+		a		== np.array([1,2,3,4,5,6])
+		ndpad(a,1.5)	== np.array([0,1,2,3,4,5,6,0,0])
+
+	In this case, the average pad width is equal to npad (but if npad was
+	not a multiple of 0.5 this would not still hold). This is so that ndpad
+	can be used to pad an array out to odd final dimensions.
+	"""
+
+	if npad == None:
+		npad = np.ones(a.ndim)
+	elif np.isscalar(npad):
+		npad = (npad,)*a.ndim
+	elif len(npad) != a.ndim:
+		raise Exception('Length of npad (%i) does not match the '\
+				'dimensionality of the input array (%i)'
+				%(len(npad),a.ndim))
+
+	# initialise padded output
+	padsize = [a.shape[dd]+2*npad[dd] for dd in xrange(a.ndim)]
+	b = np.ones(padsize,a.dtype)*padval
+
+	# construct an N-dimensional list of slice objects
+	ind = [slice(np.floor(npad[dd]),a.shape[dd]+np.floor(npad[dd])) for dd in xrange(a.ndim)]
+
+	# fill in the non-pad part of the array
+	b[ind] = a
+	return b
+
+# def ndunpad(b,npad=None):
+#	"""
+#	Removes padding from each dimension of an n-dimensional array (the
+#	reverse of ndpad)
+
+#	Inputs:
+#	----------------
+#		b	The array to unpad
+
+#		npad*	The pad width. Can either be array-like, with one
+#			element per dimension, or a scalar, in which case the
+#			same pad width is applied to all dimensions.
+
+#	Output:
+#	----------------
+#		a	The unpadded array
+
+#         *If npad is not a whole number, padding will be removed assuming that
+#	the 'left' edge of the output is padded less than the 'right', e.g.:
+
+#		b		== np.array([0,1,2,3,4,5,6,0,0])
+#		ndpad(b,1.5)	== np.array([1,2,3,4,5,6])
+
+#	This is consistent with the behaviour of ndpad.
+#	"""
+#	if npad == None:
+#		npad = np.ones(b.ndim)
+#	elif np.isscalar(npad):
+#		npad = (npad,)*b.ndim
+#	elif len(npad) != b.ndim:
+#		raise Exception('Length of npad (%i) does not match the '\
+#				'dimensionality of the input array (%i)'
+#				%(len(npad),b.ndim))
+#	ind = [slice(np.floor(npad[dd]),b.shape[dd]-np.ceil(npad[dd])) for dd in xrange(b.ndim)]
+#	return b[ind]
+
+def procrustes(a,target,side='both',padval=0):
+	"""
+	Forces an array to a target size by either padding it with a constant or
+	truncating it
+
+	Arguments:
+		a	Input array of any type or shape
+		target	Dimensions to pad/trim to, must be a list or tuple
+	"""
+
+	try:
+		if len(target) != a.ndim:
+			raise TypeError('Target shape must have the same number of dimensions as the input')
+	except TypeError:
+		raise TypeError('Target must be array-like')
+
+	try:
+		b = np.ones(target,a.dtype)*padval
+	except TypeError:
+		raise TypeError('Pad value must be numeric')
+	except ValueError:
+		raise ValueError('Pad value must be scalar')
+
+	aind = [slice(None,None)]*a.ndim
+	bind = [slice(None,None)]*a.ndim
+
+	# pad/trim comes after the array in each dimension
+	if side == 'after':
+		for dd in xrange(a.ndim):
+			if a.shape[dd] > target[dd]:
+				aind[dd] = slice(None,target[dd])
+			elif a.shape[dd] < target[dd]:
+				bind[dd] = slice(None,a.shape[dd])
+
+	# pad/trim comes before the array in each dimension
+	elif side == 'before':
+		for dd in xrange(a.ndim):
+			if a.shape[dd] > target[dd]:
+				aind[dd] = slice(a.shape[dd]-target[dd],None)
+			elif a.shape[dd] < target[dd]:
+				bind[dd] = slice(target[dd]-a.shape[dd],None)
+
+	# pad/trim both sides of the array in each dimension
+	elif side == 'both':
+		for dd in xrange(a.ndim):
+			if a.shape[dd] > target[dd]:
+				diff = (a.shape[dd]-target[dd])/2.
+				aind[dd] = slice(np.floor(diff),a.shape[dd]-np.ceil(diff))
+			elif a.shape[dd] < target[dd]:
+				diff = (target[dd]-a.shape[dd])/2.
+				bind[dd] = slice(np.floor(diff),target[dd]-np.ceil(diff))
+
+	else:
+		raise Exception('Invalid choice of pad type: %s' %side)
+
+	b[bind] = a[aind]
+
+	return b
+
+def ndflip(a):
+	"""Inverts an n-dimensional array along each of its axes"""
+	ind = (slice(None,None,-1),)*a.ndim
+	return a[ind]
+
+def log_filter(img):
+    """
+    performs a separable Laplacian of Gaussian filter on the input image.
+    Returns a copy of the original image, converted to float64
+    """
+    img1 = np.float64(img.copy())
+    img1 = sf.laplace( img1, mode='constant')
+    if np.sum(img==0) > 0 :  #zero the filtered image at  data-nodata boundaries
+        mask = np.float64(img.copy())
+        mask[:] = 1.
+        mask[img==0] = 0.
+        mask=sf.laplace(mask, mode='constant')
+        img1[mask != 0.] = 0.   # set the borders to zero
+    img1 = sf.gaussian_filter(img1, (1.4, 1.4), mode='constant')
+    return img1
+
+def run_one_block(params):
+
+    # Do template matching for a single block in the left image.
+    # The results are stored within the class itself and will be
+    # extracted later.
+
+    (count, t_pixels, KW, min_template_sigma, these_ind, Xc, Yc, s_nx,
+     s_ny, dx0, dy0, T_img, S_img) = params
+
+    # LOG filter the images
+    T_filt=log_filter(T_img)
+    S_filt=log_filter(S_img)
+    std_T=np.std(T_filt)
+    if not min_template_sigma is None:
+        if std_T < min_template_sigma:
+            return(-2, Xc, Yc, -1, -1, -1)
+
+    # run the feature match.
+    TT=T_filt[KW:t_pixels+KW, KW:t_pixels+KW]
+    SS=S_filt[KW:s_ny+KW, KW:s_nx+KW]
+    # If the search image is large, do an initial search at 2x lower resolution
+    if (SS.shape[0] > 32+TT.shape[0]) or (SS.shape[1] >32+TT.shape[1]):
+        TT1=TT[1:-1:2, 1:-1:2]
+        SS1=SS[1:-1:2, 1:-1:2]
+        TM=TemplateMatch(TT1, method='ncc')
+        result=TM(SS1)
+        result=result[(t_pixels/4):(s_ny/2-t_pixels/4), (t_pixels/4):(s_nx/2-t_pixels/4)]
+        ijC = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
+
+        t_xr=np.array(ijC[1]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[1]/2, dtype=np.int16)
+        t_yr=np.array(ijC[0]+[-t_pixels/2-16, t_pixels/2+16]+SS.shape[0]/2, dtype=np.int16)
+        if t_xr[0] >= 0 and t_yr[0] >= 0 and t_xr[1] <= SS.shape[1] and t_yr[1] <= SS.shape[0] :
+            dx0=dx0+ijC[1]
+            dy0=dy0+ijC[0]
+            SS=SS[t_yr[0]:t_yr[1], t_xr[0]:t_xr[1]]
+
+    TM=TemplateMatch(TT, method='ncc')
+    result=TM(SS)
+
+    # trim off edges of result
+    result=result[(t_pixels/2):(SS.shape[0]-t_pixels/2),
+                  (t_pixels/2):(SS.shape[1]-t_pixels/2)]
+
+    ij = np.unravel_index(np.argmax(result), result.shape)
+    ijC=ij-np.array([result.shape[0]/2, result.shape[1]/2])
+
+    return (result[ij], Xc, Yc, std_T, ijC[1]+dx0, ijC[0]+dy0)
+
+class fft_matcher(object):
+    """
+    class to perform fft matches on a pair of image files.  Uses the GDAL
+    API for reads and writes, and the norm_xcorr package to do the matching
+    Arguments:
+        For initialization:
+            Tfile  The template file-- small images are extracted from this file
+                and correlated against sub-images of Sfile
+            Sfile  The search file.
+
+        For correlation:
+            t_pixels : Size of the square template
+            s_nxy_i  : [2, N], array-like  search windows in x and y
+                        to use at each center (n_columns, n_rows)
+            dxy0_i   : [2, N], array-like  initial offset estimates
+                        (delta_col,  delta_row)
+            XYc_i    : [2,N] pixel centers to search in the template image
+                        (col, row)
+
+        Outputs from correlation:
+            xyC     :  Pixel centers in the template image
+            dxy     :  pixel offsets needed to shift the template to match the search image
+            C       :  Correlation value for the best match (0<C<1).
+                        -1 indicates invalid search or teplate data
+    """
+    def __init__(self, Tfile, Sfile):
+        self.T_ds=gdal.Open(Tfile, gdalconst.GA_ReadOnly)
+        self.T_band=self.T_ds.GetRasterBand(1)
+        self.S_ds=gdal.Open(Sfile, gdalconst.GA_ReadOnly)
+        self.S_band=self.S_ds.GetRasterBand(1)
+        self.Nx=self.T_band.XSize
+        self.Ny=self.T_band.YSize
+        self.KW=13  # pad the edges by this amount to avoid edge effects
+        self.S_sub=im_subset(0, 0, self.S_band.XSize, self.S_band.YSize,
+                         self.S_ds, pad_val=0, Bands=[[1]])
+        self.T_sub=im_subset(0, 0, self.T_band.XSize, self.S_band.YSize,
+                         self.T_ds, pad_val=0, Bands=[[1]])
+
+        GT_S=self.S_sub.source.GetGeoTransform()
+        self.GT_S=GT_S
+        self.UL_S=np.array([GT_S[0], GT_S[3]])
+        LL_S=np.array([GT_S[0], GT_S[3]+self.S_sub.Nr*GT_S[5]])
+        UR_S=np.array([GT_S[0]+self.S_sub.Nc*GT_S[1], GT_S[3]])
+
+        GT_T=self.T_sub.source.GetGeoTransform()
+        self.GT_T=GT_T
+        self.UL_T=np.array([GT_T[0], GT_T[3]])
+        LL_T=np.array([GT_T[0], GT_T[3]+self.T_sub.Nr*GT_T[5]])
+        UR_T=np.array([GT_T[0]+self.T_sub.Nc*GT_T[1], GT_T[3]])
+
+        XR=[np.max([LL_S[0], LL_T[0]]), np.min([UR_S[0], UR_T[0]])]
+        YR=[np.max([LL_S[1], LL_T[1]]), np.min([UR_S[1], UR_T[1]])]
+        self.XR=XR
+        self.YR=YR
+        self.T_c0c1=np.array([max([0, (LL_T[0]-XR[0])/GT_T[1]]), min(self.T_sub.Nc, (XR[1]-LL_T[0])/GT_T[1])]).astype(int)
+        self.T_r0r1=np.array([max([0 , (YR[1]-UR_T[1])/GT_T[5]]), min([self.T_sub.Nr, (LL_T[1]-YR[1])/GT_T[5]])]).astype(int)
+
+    def __call__(self, t_pixels, s_nxy_i, dxy0_i, XYc_i, min_template_sigma=None):
+        KW=self.KW
+        # loop over pixel centers
+        self.C=np.zeros([XYc_i.shape[0], 1])-1
+        self.sigma_template=(self.C).copy()
+        self.dxy=np.zeros([XYc_i.shape[0], 2])
+        self.xyC=np.zeros([XYc_i.shape[0], 2])
+
+        blocksize=8192
+        Ds2x=True     # this means: downsample by 2 to calculate an initial offset
+
+        xg0, yg0=np.meshgrid(np.arange(0, self.T_band.XSize, blocksize), np.arange(0, self.T_band.YSize, blocksize))
+        s_x_bounds=np.c_[XYc_i[:,0]+dxy0_i[:,0]-s_nxy_i[:,0]-KW-1000, XYc_i[:,0]+dxy0_i[:,0]+s_nxy_i[:,0]+KW+1000]
+        s_y_bounds=np.c_[XYc_i[:,1]+dxy0_i[:,1]-s_nxy_i[:,1]-KW-1000, XYc_i[:,1]+dxy0_i[:,1]+s_nxy_i[:,1]+KW+1000]
+
+        for xgi, ygi in zip(xg0.ravel(), yg0.ravel()):
+
+            # loop over the sub-blocks
+            these=np.logical_and(np.logical_and(XYc_i[:,0] > xgi , XYc_i[:,0] <= xgi+blocksize), np.logical_and(   XYc_i[:,1] > ygi , XYc_i[:,1] <= ygi+blocksize))
+            if ~np.any(these):
+                continue
+            self.T_sub.setBounds(xgi-t_pixels, ygi-t_pixels, blocksize+2*t_pixels, blocksize+2*t_pixels, update=1)
+            self.S_sub.setBounds(s_x_bounds[these,0].min(),  s_y_bounds[these,0].min(),
+                                 s_x_bounds[these,1].max()-s_x_bounds[these,0].min(), s_y_bounds[these,1].max()-s_y_bounds[these,0].min(), update=1)
+            #print "reading size:(%f,%f)" % (s_x_bounds[these,1].max()-s_x_bounds[these,0].min(), s_y_bounds[these,1].max()-s_y_bounds[these,0].min())
+            these_ind=np.array(np.nonzero(these)).ravel()
+
+            count=-1
+            TaskParams = []
+            for Xc, Yc, s_nx, s_ny, dx0, dy0 in zip(XYc_i[these,0], XYc_i[these,1], s_nxy_i[these,0],
+                                                    s_nxy_i[these,1], dxy0_i[these,0],
+                                                    dxy0_i[these,1]):
+
+                count=count+1
+
+                #print('count is ', count)
+                t_xr=[Xc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
+                t_yr=[Yc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
+
+                s_xr=[Xc+dx0-(s_nx/2-1)-KW, Xc+(s_nx/2)+KW]
+                s_yr=[Yc+dy0-(s_ny/2-1)-KW, Yc+(s_ny/2)+KW]
+
+                # Read in the data for this block. Use the im_subset objects:
+                # read nodata if we read past the image edges.
+
+                # Read T
+                T_buffer=im_subset(0, 0, self.T_band.XSize, self.S_band.YSize,
+                                   self.T_sub, pad_val=0)
+                T_buffer.setBounds(t_xr[0]-KW, t_yr[0]-KW, t_pixels+2.*KW,
+                                   t_pixels+2.*KW, update=1)
+                T_img=T_buffer.z[0,:,:]
+                if np.mean(T_img==0)>.1: # bail if > 10% 0, flag with C=-2
+                    continue
+
+                # Read S
+                S_buffer=im_subset(0, 0, self.S_band.XSize, self.S_band.YSize,
+                                   self.S_sub, pad_val=0)
+                S_buffer.setBounds(s_xr[0]-KW, s_yr[0]-KW, s_nx+2.*KW,
+                                   s_ny+2.*KW, update=1)
+                S_img=S_buffer.z [0,:,:]
+                if np.mean(S_img==0)> .25:  # bail if > 25% 0
+                    continue
+
+                # To do: Not all these parameters are necessary on the
+                # other side!
+                params = ( count, t_pixels, KW, min_template_sigma, these_ind,
+                           Xc, Yc, s_nx, s_ny, dx0, dy0, T_img.copy(), S_img.copy() )
+                TaskParams.append(params)
+
+            # To do: num processes must be a param!
+
+            pool = Pool(processes=16)
+            Out = pool.map(run_one_block, TaskParams)
+            for i in range(len(TaskParams)):
+                params = TaskParams[i]
+                #out = run_one_block(params) # single-threaded
+                out = Out[i]
+                count = params[0] # Need not have count == i.
+                self.C[these_ind[count]]=out[0]
+                self.xyC[these_ind[count]]=[out[1], out[2]]
+                if out[3] >= 0:
+                    self.sigma_template[these_ind[count]]=out[3]
+                    self.dxy[these_ind[count],:]=[out[4], out[5]]
+
+        return (self.xyC).copy(), (self.dxy).copy(), (self.C).copy(), (self.sigma_template).copy()
+
+#            print ij
+#            plt.figure(figsize=(6,9))
+#            plt.subplot(2,2,1)
+#            plt.imshow(SS)
+#            plt.subplot(2,2,2)
+#            plt.imshow(TT)
+#            plt.subplot(2,2,3)
+#            plt.imshow(result)
+#            plt.subplot(2,2,4)
+
+#            print [(ij[0]-T_img.shape[0]/2), (ij[0]+T_img.shape[0]/2)]
+#            print [(ij[1]-T_img.shape[1]/2), (ij[1]+T_img.shape[1]/2)]
+#             Imatch=SS[(ijC[0]-TT.shape[0]/2):(ijC[0]+TT.shape[0]/2), (ijC[1]-TT.shape[1]/2):(ijC[1]+TT.shape[1]/2)]
+#            plt.imshow(Imatch)
+#            plt.show()
+
+def make_pt_2_neighbors(tri):
+    """
+    make a dictionary of the neighbors of each point in triangulation
+    tri
+    """
+    pt_dict=dict()
+    for vlist in tri.vertices:
+        for i in vlist:
+            if not i in pt_dict:
+                pt_dict[i]=list()
+            for k in vlist:
+                if k != i:
+                    pt_dict[i].insert(0,k)
+    for i in range(tri.points.shape[0]):
+        pt_dict[i]=np.unique(pt_dict[i]).tolist()
+    return pt_dict
+
+
+def unique_rows(data):
+    """
+    return the indices for he unique rows of matrix (data)
+    """
+    udict = dict()
+    for row in range(len(data)):
+        row_data = tuple(data[row,:])
+        if not row_data in udict:
+            udict[row_data] =row
+    uInd=udict.values()
+    uRows=np.c_[udict.keys()]
+    return uInd, uRows
+
+def search_new_pts(xy, dxy, t_size, matcher, min_template_sigma=0.):
+    """
+    use an image matcher object to perform a template match between
+    two images at the points defined by xy, using search windows that
+    span the range in dxy
+    """
+    dxy0 = np.c_[dxy[:,0]+dxy[:,1], dxy[:,2]+dxy[:,3]]/2.
+    dxyR = np.c_[dxy[:,1]-dxy[:,0], dxy[:,3]-dxy[:,2]]
+    sw = np.array(2.**np.ceil(np.log2(np.maximum(dxyR+t_size, t_size+16))))
+    xy_new, dxy_new, C_new, Pt_new= matcher(t_size, sw, dxy0, xy, min_template_sigma=min_template_sigma)
+    xy_bad_mask=xy_new[C_new.ravel()==-2,:]
+    good=C_new>0
+    xy_new=xy_new[good.ravel(),:]
+    dxy_new=dxy_new[good.ravel(),:]
+    C_new=C_new[good.ravel()]
+    Pt_new=Pt_new[good.ravel()]
+    return xy_new, dxy_new, C_new, xy_bad_mask
+
+def nbhd_range(pt_list, dx_mat, dy_mat, tri, pt_dict, max_dist=None, calc_min_slope=None):
+    """
+    for each point in pt_list, return the maximum and minimum offset
+    for its neighbors.
+    inputs:
+        pt_list:  list of points to be searched
+        dx_mat: sparse matrix with x disparity values for each pixel in the
+                template image
+        dy_may: ditto, but for y
+        tri:    a triangulation.  th points field in this triangulation is
+                used to get the x and y offsets for the point indices
+        pt_dict:  a dictionary giving the neighbor point numbers for each
+                  point in tri
+    output:
+        dx_range: an Nx4 martix.  columns 0 and 1 give the min and max x
+        offsets around each point, columns 2 and 3 give the min and max y.
+    """
+    dxy_range=np.zeros([len(pt_list), 4])
+    if calc_min_slope is not None:
+        dxy_slope=np.zeros([len(pt_list), 2])
+    for row, pt in enumerate(pt_list):
+        neighbors=pt_dict[pt]
+        nbhd_pts=tri.points[neighbors,:]
+        this_pt=tri.points[pt,:]
+        if max_dist is not None:
+            dist2=(nbhd_pts[:,1]-this_pt[1])**2 + (nbhd_pts[:,0]-this_pt[0])**2
+            nbhd_pts=nbhd_pts[dist2 < max_dist**2,:]
+        if nbhd_pts is None:
+            dxy_range[row,:]=0.
+        dx_vals=np.append(np.array(dx_mat[nbhd_pts[:,1], nbhd_pts[:,0]]), dx_mat[this_pt[1], this_pt[0]])
+        dy_vals=np.append(np.array(dy_mat[nbhd_pts[:,1], nbhd_pts[:,0]]), dy_mat[this_pt[1], this_pt[0]])
+        if calc_min_slope is not None:
+            dist=np.sqrt((nbhd_pts[:,1]-this_pt[1])**2 + (nbhd_pts[:,0]-this_pt[0])**2)
+            dx_slope=np.abs(dx_vals[0:-1]-dx_vals[-1])/dist
+            dy_slope=np.abs(dy_vals[0:-1]-dy_vals[-1])/dist
+            dxy_slope[row,:]=[np.min(dx_slope), np.min(dy_slope)];
+
+        dxy_range[row,[0,1]]=[np.min(dx_vals), np.max(dx_vals)]
+        dxy_range[row,[2,3]]=[np.min(dy_vals), np.max(dy_vals)]
+    if calc_min_slope is not None:
+        return dxy_range, dxy_slope
+    else:
+        return dxy_range ##, dxy_bar
+
+def test_epipolar(dxy_0, ep_vec, dxy, tol):
+    """
+    given an origin vector and an epipolar unit vector, projects a set of
+    points against the epipolar vector and gives their perpendicular offset
+    WRT that vector, and a boolean array that shows whether this offset is
+    smaller that tol.
+    """
+    delta=np.abs(np.dot((dxy-dxy_0), [ep_vec[1], -ep_vec[0]]))
+    return (delta < tol), delta
+
+def est_epipolar_vec(dxy, C, C_tol):
+    """
+    given a set of offsets and correlation values:
+        For those point with  C>C_tol, find the median offset and the
+        eigenvectors of the distribution of the points around that median
+        offset.  The eigenvector corresponding to the largest eigenvalue is
+        assumed to be the epipolar vector.
+    """
+    good=np.array(C>C_tol, dtype=bool)
+    dxy1=np.array(dxy[good.ravel(),:])
+    dxy_ctr=[np.median(dxy1[:,0]), np.median(dxy1[:,1])]
+    dxy_0=dxy1-dxy_ctr
+    vals, vecs=np.linalg.eig(np.dot(dxy_0.transpose(), dxy_0))
+    biggest_vec=vecs[:,np.argmax(abs(vals)) ]
+    return biggest_vec, dxy_ctr
+
+def main():
+    """ For a pair of images, perform a sparse image match using the full
+    resolution of the images.  Begin at resolution coarse_skip.  For each
+    point in a grid spanning the image 1, extract a template image of
+    size t_pixels, and use fft-based correlation to find its match in image 2,
+    over a wide search window (size xsearch by ysearch).  Based on matches from
+    this coarse grid, estimate an epipolar vector (the largest eigenvector of
+    the disparity vectors) and a tolerance for disparities to be parallel to
+    this vector (use max (16 pix, 90th percentile of differeces)).
+
+    Next, refine points for which the range of disparities among the
+    neighbors are larger than tolerance refine_tol.  Refinement consists
+    of adding the eight grid neighbors of a point, at half the previous
+    point spacing.  During refinment, the search windows are selected to span
+    the neighbors' x and y disparities, and are padded by 16 pixels and padded
+    again to give a power-of-two search size.
+
+    After each refinement, the new matches are checked againt the epipolar
+    vector, and all the matched points are checked for convergence.  Refinment
+    continues until the point spacing reaches fine_skip, or until no points
+    need to be refined.
+
+    Results are written to oufile:
+        pixel_x
+        pixel_y
+        x_disparity
+        y_diparity
+        correlation value
+        (max-min) neighbor x disparity
+        (max-min) neighbor y disparity
+     """
+    dxy_slope_tol=3.0
+    C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
+    usage = '''%prog [options] T_file S_file
+
+  [ASP [@]ASP_VERSION[@]]'''
+
+    parser=OptionParser(usage=usage)
+    parser.add_option("-o", "--outfile", dest="outfile", default="match_out",
+                      help="output file is OUTFILE", metavar="OUTFILE")
+    parser.add_option("-x", "--xsearch", dest="s_nx", default=1024-56, type="int",
+                      help="initial x search range, pixels")
+    parser.add_option("-y", "--ysearch", dest="s_ny", default=1024-56, type="int",
+                      help="initial y search range, pixels")
+    parser.add_option("-t", "--template", dest="t_pixels", default=56, type="int",
+                      help="template size, pixels")
+    parser.add_option("-c", "--coarse", dest="coarse_skip", default=512, type="int",
+                      help="initial search-point spacing")
+    parser.add_option("-f", "--fine", dest="fine_skip", default=32, type="int",
+                      help="final search-point spacing")
+    parser.add_option("-r","--refine_tol", dest="refine_tol", default=8, type="int",
+                      help="pixel range tolerance for refinement")
+    parser.add_option("-d","--output_dec_scale", dest="output_scale",  default=6, type="int",
+                      help="if set, output a second copy of the offsets scaled by this amount, to file called OUTFILE_(OUTPUT_SCALE)")
+    parser.add_option("-p","--output_pad",dest="output_pad", default=2, type="int",
+                      help="pad the output search range by this amount")
+    parser.add_option("-s", "--sigma_t_min", dest="sigma_t_min",  default=10., type="float",
+                       help="matches will not be calculated if the standard deviation of the template is less than this value")
+    parser.add_option("-R", "--R_max", dest="R_max",  default=40., type="float",
+                       help="Points whose neighbors have a minimum disparity range larger than this value will be removed")
+    parser.add_option("-M", "--Max_disp_range", dest="M_max",  default=64., type="float",
+                       help="Un-scaled disparity range in output limited to this value")
+
+    (options, args) = parser.parse_args()
+
+    if len(args) < 2:
+        parser.print_help()
+        die('\nERROR: Missing input files', code=2)
+
+    T_file=args[0]
+    S_file=args[1]
+    sys.stdout.flush()
+    print str(datetime.datetime.now())
+    print "T_file="+T_file
+    print "S_file="+S_file
+    s_nx=options.s_nx
+    s_ny=options.s_ny
+    t_pixels=options.t_pixels
+
+    out_dir=os.path.dirname(options.outfile)
+    if len(out_dir)==0:
+        out_dir='.'
+
+    skip_vals=2.**np.arange(np.floor(np.log2(options.coarse_skip/2.)),
+                            np.floor(np.log2(options.fine_skip/2.)), -1)
+
+    #initialize the matcher object
+    ftm=fft_matcher(T_file, S_file)
+
+    # define the initial search points
+    edge_pad=np.array([s_nx/2+t_pixels/2, s_ny/2+t_pixels/2])
+    [XCg, YCg]=np.meshgrid(np.arange(ftm.T_c0c1[0]+edge_pad[0],
+                     ftm.T_c0c1[1]-edge_pad[0], options.coarse_skip),
+         np.arange(ftm.T_r0r1[0]+edge_pad[1],
+                   ftm.T_r0r1[1]-edge_pad[1], options.coarse_skip) )
+    XY0=np.c_[XCg.ravel(), YCg.ravel()]
+
+    # find the offset that matches the origins of the two images
+    D_origin=np.c_[np.floor(ftm.UL_T-ftm.UL_S)].transpose()
+
+    dxy0=np.dot(np.c_[np.ones_like(XY0[:,0])], D_origin*[1, -1])
+    dxy_score=np.c_[dxy0[:,0]-s_nx/2., dxy0[:,0]+s_nx/2, dxy0[:,1]-s_ny/2, dxy0[:,1]+s_ny/2]
+    xy, dxy, C, xy_bad_mask = search_new_pts(XY0, dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min)
+
+    # run the epipolar fit, establish a tolerance, run again
+    ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
+    good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, 32)
+    ep_tol=np.minimum(16,np.maximum(8, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
+    if np.any(~good):
+        ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol)
+        ep_tol=np.minimum(16,np.maximum(4, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
+        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
+    print " --- ep tol estimated at(%f,%f), tol=%f" % (ep_vec[0], ep_vec[1], ep_tol)
+    # make sparse matrices for storing dx and dy values, store initial values
+    im_shape=[ftm.Ny, ftm.Nx]
+    dx_mat=coo_matrix((dxy[good,0],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
+    dy_mat=coo_matrix((dxy[good,1],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
+    C_mat=coo_matrix(((C[good]).ravel(), (xy[good,1], xy[good,0])), shape=im_shape).tocsr()
+    bad_mask_mat = coo_matrix((np.ones_like(xy_bad_mask[:,0]), (xy_bad_mask[:,1], xy_bad_mask[:,0])), shape=im_shape).tocsr()
+    xy_list=xy[good,:]
+    # points tested so ar are the nozero members of C_mat
+    all_pts=np.c_[C_mat.nonzero()];
+    all_pts=all_pts[:,[1,0]];
+    tri=sp.Delaunay(all_pts)
+    pt_dict=make_pt_2_neighbors(tri)
+
+    dxy_score=nbhd_range(np.arange(0, all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
+    refine_pts=np.arange(0, xy_list.shape[0] )
+    # define the pattern of pixel centers to refineat each steps.  Duplicates
+    # will be deleted.
+    refine_x=np.array([-1., 0.,  1., -1.,  1., -1., 0.,  1.])
+    refine_y=np.array([ -1., -1., -1., 0., 0., 1., 1., 1. ]);
+
+    for delta_x in skip_vals:
+        print "----------refining to %d---------" % delta_x
+        print str(datetime.datetime.now())
+        if len(refine_pts)==0:
+            print "    No refinement points for scale: %d" % delta_x
+            break
+        # add neighbors of the last set of points to the list
+        #sc=plt.scatter(all_pts[refine_pts,0], all_pts[refine_pts,1], c=dxy_score[:,1]-dxy_score[:,0]); plt.axis('equal'); plt.colorbar(sc)
+        new_x=np.tile(all_pts[refine_pts, 0], [8,1]).transpose()+refine_x*delta_x
+        new_y=np.tile(all_pts[refine_pts, 1], [8,1]).transpose()+refine_y*delta_x
+        # the search range for the new points is set based on the min and max of the dxy_scores of the refined points
+        new_dxy_score=np.array([np.tile(dxy_score[:,0], [8,1]).transpose().ravel(),
+                       np.tile(dxy_score[:,1], [8,1]).transpose().ravel(),
+                       np.tile(dxy_score[:,2], [8,1]).transpose().ravel(),
+                       np.tile(dxy_score[:,3], [8,1]).transpose().ravel()]).transpose()
+        new_xy=np.array([new_x.ravel(), new_y.ravel()]).transpose()
+        uRows, new_xy=unique_rows(new_xy)
+        new_dxy_score=new_dxy_score[uRows,:]
+        N_search=new_xy.shape[0]
+
+        new_xy, new_dxy,  new_C, new_xy_bad=search_new_pts(new_xy, new_dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min)
+        if len(new_xy)==0:
+            print "    no new points found"
+            break
+
+        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, new_dxy, ep_tol)
+        print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
+        # add the new points to the sparse matrix of tested points
+        dx_mat=dx_mat+coo_matrix((new_dxy[good,0], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
+        dy_mat=dy_mat+coo_matrix((new_dxy[good,1], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
+        C_mat=C_mat+coo_matrix(((new_C[good]).ravel(), [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
+        bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(new_xy_bad[:,0]), (new_xy_bad[:,1], new_xy_bad[:,0])), shape=im_shape).tocsr()
+        bad=~good
+        bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(new_xy[bad,1]), (new_xy[bad,1], new_xy[bad,0])), shape=im_shape).tocsr()
+
+        #ID_new_pts=lil_matrix((np.ones_like(new_dxy[good,0]), [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
+
+        all_pts=np.c_[C_mat.nonzero()];
+        all_pts=all_pts[:,[1,0]];
+        # extract the dx and dy values, re-estimate the ep vector
+        dxy=np.array(np.c_[dx_mat[all_pts[:,1], all_pts[:,0]].transpose(), dy_mat[all_pts[:,1], all_pts[:,0]].transpose()])
+        C= np.array(C_mat[all_pts[:,1], all_pts[:,0]].transpose())
+        ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
+
+        # triangulate all the good points so far
+        tri=sp.Delaunay(all_pts)
+        pt_dict=make_pt_2_neighbors(tri)
+        # zero out points for which delta(disparity)/delta(dist) is too large
+        dxy_score, min_dxy_slope=nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict, calc_min_slope=True)
+        bad=np.max(min_dxy_slope, axis=1) > dxy_slope_tol
+        print "---deleting %d points that failed the d(disparity)/d(dist) test" % np.sum(bad)
+        if bad is not None:
+            C_mat=C_mat.tolil()
+            C_mat[all_pts[bad,1], all_pts[bad,0]]=0
+            C_mat=C_mat.tocsr()
+            bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(all_pts[bad,1]), (all_pts[bad,1], all_pts[bad,0])), shape=im_shape).tocsr()
+
+            all_pts=np.c_[C_mat.nonzero()]
+            all_pts=all_pts[:,[1,0]];
+            tri=sp.Delaunay(all_pts)
+            pt_dict=make_pt_2_neighbors(tri)
+            dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
+
+
+        ## don't refine if we're on the last value of the refinement list
+        if delta_x == skip_vals[-1]:
+            continue
+        test_pts=np.arange(0, all_pts.shape[0])
+        # test the new points and their neighbors for convergence
+        to_refine=np.logical_or((dxy_score[:,1]-dxy_score[:,0]>options.refine_tol), (dxy_score[:,3]-dxy_score[:,2]) > options.refine_tol)
+        refine_pts=test_pts[to_refine,:]
+        dxy_score=dxy_score[to_refine,:]
+        # N.B.  we can often end up refining more points than we searched on the
+        # last round, because points from previous rounds can get marked for
+        # refinement
+        print "    found %d points to refine" %  len(refine_pts)
+
+    # filter out the 99th percentile of matches
+    R_dx=dxy_score[:,1]-dxy_score[:,0]
+    R_dy=dxy_score[:,3]-dxy_score[:,2]
+
+    R_dx_mat=coo_matrix((R_dx, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
+    R_dy_mat=coo_matrix((R_dy, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
+    R_dxy_score=nbhd_range(range(all_pts.shape[0]), R_dx_mat, R_dy_mat, tri, pt_dict)
+    P98=(ss.scoreatpercentile(R_dxy_score[:,0], 98), ss.scoreatpercentile(R_dxy_score[:,2], 99))
+    R_max = np.minimum(P98, options.R_max)
+
+    bad_xy=all_pts[np.logical_or((R_dxy_score[:,0] > R_max[0]) ,  (R_dxy_score[:,2] > R_max[1])),:]
+    bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
+
+    print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
+    # delete the bad values  (prob don't need to delete from dx, dy_mat)
+    for bad in bad_xy:
+        dx_mat[bad[1], bad[0]]=0
+        dy_mat[bad[1], bad[0]]=0
+        C_mat[bad[1], bad[0]]=0
+    all_pts=np.c_[C_mat.nonzero()];
+    all_pts=all_pts[:,[1,0]];
+    # triangulate all the good points so far
+    tri=sp.Delaunay(all_pts)
+    pt_dict=make_pt_2_neighbors(tri)
+
+    # check the score for output, ignore differences for points separated by more than 2*coarse skip
+    dxy_score=nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict, max_dist= 2.*options.coarse_skip)
+    R_dx=dxy_score[:,1]-dxy_score[:,0]
+    R_dy=dxy_score[:,3]-dxy_score[:,2]
+
+    print "--------output stats------"
+    for pct in (99, 95, 90, 84):
+        P= (pct, ss.scoreatpercentile(R_dx, pct), ss.scoreatpercentile(R_dy, pct))
+        print "%dth percetiles (rx,ry) = (%5.2f %5.2f)" % P
+
+    dx=dx_mat[all_pts[:,1], all_pts[:,0]].transpose()
+    dy=dy_mat[all_pts[:,1], all_pts[:,0]].transpose()
+    C=C_mat[all_pts[:,1], all_pts[:,0]].transpose()
+
+    # transform the pixel centers to map coordinates
+    GT=ftm.GT_S
+    xy=np.c_[GT[0]+all_pts[:,0]*GT[1]+all_pts[:,1]*GT[2], GT[3]+all_pts[:,0]*GT[4]+all_pts[:,1]*GT[5]]
+    out=np.c_[xy, dx , dy , C, dxy_score[:,1]-dxy_score[:,0]+options.output_pad, dxy_score[:,3]-dxy_score[:,2]+options.output_pad]
+    outfile=open(options.outfile+'.csv','w')
+    outfile.write('x, y, dx, dy, C, R_dx, R_dy\n')
+    for line in out:
+        outfile.write("%7.0f, %7.0f, %7.0f, %7.0f, %4.2f, %7.0f, %7.0f\n" %  tuple(x for x in line.tolist()[0]))
+    outfile.close
+#    # spit out the good and bad masks
+    good_xy=np.c_[C_mat.nonzero()][:,[1, 0]]
+    good_xy=np.c_[GT[0]+good_xy[:,0]*GT[1]+good_xy[:,1]*GT[2], GT[3]+good_xy[:,0]*GT[4]+good_xy[:,1]*GT[5]]
+#
+    bad_xy=np.c_[bad_mask_mat.nonzero()][:,[1, 0]]
+    bad_xy=np.c_[GT[0]+bad_xy[:,0]*GT[1]+bad_xy[:,1]*GT[2], GT[3]+bad_xy[:,0]*GT[4]+bad_xy[:,1]*GT[5]]
+
+    if options.output_scale > 0.:
+        out=out/options.output_scale
+        # scale x, y, and C back up by output_scale
+        for col in [0, 1, 4]:
+            out[:,col]=out[:,col]*options.output_scale
+        driver = ftm.T_ds.GetDriver()
+        delta_x=options.output_scale*np.abs(GT[1])
+        x0=GT[0]
+        y0=GT[3]
+        x0=delta_x*(np.ceil(x0/delta_x))
+        y0=delta_x*(np.ceil(y0/delta_x))
+        Gdx=GT[1]*options.output_scale
+        Gdy=GT[5]*options.output_scale
+
+        GT1=np.array(GT)
+        GT1[0]=x0;
+        GT1[3]=y0;
+        GT1[1]=Gdx
+        GT1[5]=Gdy
+        nx1=np.int(im_shape[1]/options.output_scale)
+        ny1=np.int(im_shape[0]/options.output_scale)
+        xg, yg=np.meshgrid((np.arange(0, nx1)+0.5)*Gdx+x0, (np.arange(0, ny1)+0.5)*Gdy+y0)
+        outDs = driver.Create(out_dir+'/D_sub.tif',  nx1, ny1, 3, gdalconst.GDT_Int32)
+        # interoate the scaled dx and dy values
+        zi = np.nan_to_num(griddata(out[:,0:2], out[:,2], (xg, yg), method='linear'))
+        outBand = outDs.GetRasterBand(1)
+        outBand.WriteArray(zi[:,:,0])
+        zi = np.nan_to_num(griddata(out[:, 0:2], out[:,3], (xg, yg), method='linear'))
+        outBand = outDs.GetRasterBand(2)
+        outBand.WriteArray(zi[:,:,0])
+        goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
+        quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
+        outBand = outDs.GetRasterBand(3)
+        outBand.WriteArray(quality)
+        outDs.SetGeoTransform(tuple(GT1))
+        outDs.SetProjection(ftm.T_ds.GetProjection())
+        outDs=None
+
+        outDs = driver.Create(out_dir+'/D_sub_spread.tif',  nx1, ny1, 3, gdalconst.GDT_Int32)
+        # clip the output range to the specified limits
+        out[:,5]=np.minimum(out[:,5], options.M_max/options.output_scale)
+        out[:,6]=np.minimum(out[:,6], options.M_max/options.output_scale)
+
+        # interpolate the scaled range values
+        zi = np.nan_to_num(griddata(out[:,0:2], out[:,5], (xg, yg), method='linear'))
+        outBand = outDs.GetRasterBand(1)
+        outBand.WriteArray(zi[:,:,0])
+        zi = np.nan_to_num(griddata(out[:, 0:2], out[:,6], (xg, yg), method='linear'))
+        outBand = outDs.GetRasterBand(2)
+        outBand.WriteArray(zi[:,:,0])
+        goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
+        quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
+        outBand = outDs.GetRasterBand(3)
+        outBand.WriteArray(quality)
+        outDs.SetGeoTransform(tuple(GT1))
+        outDs.SetProjection(ftm.T_ds.GetProjection())
+        outDs=None
+
+
+
+#       # spit out the good and bad masks
+#        outfile=open('quality_mask_pts_by_%d.csv' % options.output_scale,'w')
+#        outfile.write('x, y, quality\n')
+#        for line in good_pts:
+#            outfile.write('%9.5f, %9.5f, 1.0\n' % (line[1]/options.output_scale, line[0]/options.output_scale))
+#        for line in bad_pts:
+#            outfile.write('%9.5f, %9.5f, 0.0\n' % (line[1]/options.output_scale, line[0]/options.output_scale))
+#        outfile.close()
+#
+
+if __name__=="__main__":
+    main()
