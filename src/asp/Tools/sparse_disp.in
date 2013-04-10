@@ -793,7 +793,7 @@ def run_one_block(params):
     # The results are stored within the class itself and will be
     # extracted later.
 
-    (count, t_pixels, KW, min_template_sigma, these_ind, Xc, Yc, s_nx,
+    (count, t_pixels, KW, min_template_sigma, Xc, Yc, s_nx,
      s_ny, dx0, dy0, T_img, S_img) = params
 
     # LOG filter the images
@@ -860,13 +860,14 @@ class fft_matcher(object):
             C       :  Correlation value for the best match (0<C<1).
                         -1 indicates invalid search or teplate data
     """
-    def __init__(self, Tfile, Sfile):
+    def __init__(self, Tfile, Sfile, processes):
         self.T_ds=gdal.Open(Tfile, gdalconst.GA_ReadOnly)
         self.T_band=self.T_ds.GetRasterBand(1)
         self.S_ds=gdal.Open(Sfile, gdalconst.GA_ReadOnly)
         self.S_band=self.S_ds.GetRasterBand(1)
         self.Nx=self.T_band.XSize
         self.Ny=self.T_band.YSize
+        self.processes = processes
         self.KW=13  # pad the edges by this amount to avoid edge effects
         self.S_sub=im_subset(0, 0, self.S_band.XSize, self.S_band.YSize,
                          self.S_ds, pad_val=0, Bands=[[1]])
@@ -955,26 +956,22 @@ class fft_matcher(object):
                 if np.mean(S_img==0)> .25:  # bail if > 25% 0
                     continue
 
-                # To do: Not all these parameters are necessary on the
-                # other side!
-                params = ( count, t_pixels, KW, min_template_sigma, these_ind,
+                params = ( count, t_pixels, KW, min_template_sigma,
                            Xc, Yc, s_nx, s_ny, dx0, dy0, T_img.copy(), S_img.copy() )
                 TaskParams.append(params)
 
-            # To do: num processes must be a param!
-
-            pool = Pool(processes=16)
+            pool = Pool(processes=self.processes)
             Out = pool.map(run_one_block, TaskParams)
             for i in range(len(TaskParams)):
                 params = TaskParams[i]
-                #out = run_one_block(params) # single-threaded
+                #out = run_one_block(params) # run w/o multi-processing
                 out = Out[i]
                 count = params[0] # Need not have count == i.
-                self.C[these_ind[count]]=out[0]
-                self.xyC[these_ind[count]]=[out[1], out[2]]
+                self.C[these_ind[count]] = out[0]
+                self.xyC[these_ind[count]] = [out[1], out[2]]
                 if out[3] >= 0:
-                    self.sigma_template[these_ind[count]]=out[3]
-                    self.dxy[these_ind[count],:]=[out[4], out[5]]
+                    self.sigma_template[these_ind[count]] = out[3]
+                    self.dxy[these_ind[count],:] = [out[4], out[5]]
 
         return (self.xyC).copy(), (self.dxy).copy(), (self.C).copy(), (self.sigma_template).copy()
 
@@ -1175,6 +1172,8 @@ def main():
                        help="Points whose neighbors have a minimum disparity range larger than this value will be removed")
     parser.add_option("-M", "--Max_disp_range", dest="M_max",  default=64., type="float",
                        help="Un-scaled disparity range in output limited to this value")
+    parser.add_option("-P", "--processes", dest="processes", default=8, type="int",
+                      help="The number of processes to use")
 
     (options, args) = parser.parse_args()
 
@@ -1193,14 +1192,14 @@ def main():
     t_pixels=options.t_pixels
 
     out_dir=os.path.dirname(options.outfile)
-    if len(out_dir)==0:
-        out_dir='.'
+    if len(out_dir)==0: out_dir='.'
+    if not os.path.exists(out_dir): os.mkdir(out_dir)
 
     skip_vals=2.**np.arange(np.floor(np.log2(options.coarse_skip/2.)),
                             np.floor(np.log2(options.fine_skip/2.)), -1)
 
     #initialize the matcher object
-    ftm=fft_matcher(T_file, S_file)
+    ftm=fft_matcher(T_file, S_file, options.processes)
 
     # define the initial search points
     edge_pad=np.array([s_nx/2+t_pixels/2, s_ny/2+t_pixels/2])
