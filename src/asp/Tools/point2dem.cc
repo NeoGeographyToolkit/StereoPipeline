@@ -116,7 +116,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "The center of projection latitude (if applicable)")
     ("proj-lon", po::value(&opt.proj_lon)->default_value(0),
      "The center of projection longitude (if applicable)")
-    ("proj-scale", po::value(&opt.proj_scale)->default_value(0),
+    ("proj-scale", po::value(&opt.proj_scale)->default_value(1),
      "The projection scale (if applicable)")
     ("dem-spacing,s", po::value(&dem_spacing2)->default_value(0.0),
      "Set the DEM post size (if this value is 0, the post spacing size is computed for you)");
