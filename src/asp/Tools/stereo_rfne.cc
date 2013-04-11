@@ -309,8 +309,8 @@ void stereo_refinement( Options const& opt ) {
   // refining disparity solely for the purpose of printing
   // the relevant messages.
   bool verbose = true;
-  ImageView<PixelGray<float> > left_dummy, right_dummy;
-  ImageViewRef<PixelMask<Vector2i> > dummy_disp;
+  ImageView<PixelGray<float> > left_dummy(1, 1), right_dummy(1, 1);
+  ImageView<PixelMask<Vector2i> > dummy_disp(1, 1);
   refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 
   ImageViewRef< PixelMask<Vector2f> > refined_disp
