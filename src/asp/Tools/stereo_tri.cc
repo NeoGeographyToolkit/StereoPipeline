@@ -64,22 +64,19 @@ namespace asp{
     std::string point_cloud_file = opt.out_prefix + "-PC.tif";
     vw_out() << "Writing Point Cloud: " << point_cloud_file << "\n";
 
-    boost::scoped_ptr<DiskImageResource> rsrc (asp::build_gdal_rsrc( point_cloud_file,
-                                                                     point_cloud, opt ));
     if ( opt.stereo_session_string == "isis" ){
       // ISIS does not support multi-threading
-      write_image(*rsrc, point_cloud,
-                  TerminalProgressCallback("asp", "\t--> Triangulating: "));
+      asp::write_gdal_image( point_cloud_file, point_cloud, opt,
+                             TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }else{
-      block_write_image(*rsrc, point_cloud,
-                        TerminalProgressCallback("asp", "\t--> Triangulating: "));
+      asp::block_write_gdal_image( point_cloud_file, point_cloud, opt,
+                                   TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }
 
   }
 
 }
 
-// Variant that uses LUT tables
 template <class DisparityImageT, class TX1T, class TX2T, class StereoModelT>
 class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<DisparityImageT, TX1T, TX2T, StereoModelT> >
 {
@@ -124,7 +121,7 @@ class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<Disparity
 public:
 
   typedef Vector6 pixel_type;
-  typedef const Vector6 result_type;
+  typedef Vector6 result_type;
   typedef ProceduralPixelAccessor<StereoTXAndErrorView> pixel_accessor;
 
   StereoTXAndErrorView( ImageViewBase<DisparityImageT> const& disparity_map,
@@ -156,27 +153,10 @@ public:
                                TX1T, TX2T, StereoModelT> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
     typedef typename DisparityImageT::pixel_type DPixelT;
-    CropView<ImageView<DPixelT> > disparity_preraster =
-      crop( ImageView<DPixelT>( crop( m_disparity_map, bbox ) ),
-            -bbox.min().x(), -bbox.min().y(), cols(), rows() );
+    ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
 
-    // Calculate the range of disparities in our BBox to determine the
-    // crop size needed for LUT 2.
-    typedef typename UnmaskedPixelType<DPixelT>::type accum_t;
-    PixelAccumulator<EWMinMaxAccumulator<accum_t> > accumulator;
-    for_each_pixel( disparity_preraster.child(), accumulator );
-
-    BBox2i preraster(0,0,0,0);
-    if ( accumulator.is_valid() ){
-      accum_t input_min = accumulator.minimum();
-      accum_t input_max = accumulator.maximum();
-      // Bugfix: expand the preraster window by 1 pixel to avoid segfaults.
-      // This is needed for interpolation. // Is this still needed? --ZMM 4/13
-      preraster = BBox2i(bbox.min() + floor(Vector2f(input_min[0]-1,input_min[1]-1)),
-                         bbox.max() + ceil(Vector2(input_max[0]+1,input_max[1]+1)) );
-    }
-
-    return prerasterize_type( disparity_preraster, m_tx1, m_tx2,
+    return prerasterize_type( crop(disparity_preraster,-bbox.min().x(),-bbox.min().y(),cols(),rows()),
+                              m_tx1, m_tx2,
                               m_stereo_model );
   }
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
