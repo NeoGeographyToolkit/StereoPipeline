@@ -37,7 +37,7 @@ namespace asp {
   template <class ImageT, class DEMImageT>
   class DemDisparity : public ImageViewBase<DemDisparity<ImageT, DEMImageT> > {
     ImageT m_left_image;
-    double m_dem_accuracy;
+    double m_dem_error;
     GeoReference m_dem_georef;
     const DEMImageT & m_dem;
     Vector2f m_downsample_scale;
@@ -50,7 +50,7 @@ namespace asp {
 
   public:
     DemDisparity( ImageViewBase<ImageT> const& left_image,
-                  double dem_accuracy, GeoReference dem_georef,
+                  double dem_error, GeoReference dem_georef,
                   DEMImageT const& dem,
                   Vector2f const& downsample_scale,
                   boost::shared_ptr<camera::CameraModel> left_camera_model,
@@ -58,7 +58,7 @@ namespace asp {
                   bool homography_align, Matrix<double> const& align_matrix,
                   int pixel_sample, ImageView<PixelMask<Vector2i> > & disparity_spread)
       :m_left_image(left_image.impl()),
-       m_dem_accuracy(dem_accuracy),
+       m_dem_error(dem_error),
        m_dem_georef(dem_georef),
        m_dem(dem),
        m_downsample_scale(downsample_scale),
@@ -100,7 +100,7 @@ namespace asp {
         }
       }
 
-      double height_error_tol = std::max(m_dem_accuracy/4.0, 1.0); // height error in meters
+      double height_error_tol = std::max(m_dem_error/4.0, 1.0); // height error in meters
       double max_abs_tol = height_error_tol/4.0; // abs cost function change b/w iterations
       double max_rel_tol = 1e-14;                // rel cost function change b/w iterations
       int num_max_iter   = 50;
@@ -193,9 +193,9 @@ namespace asp {
 
           // Since our DEM is only known approximately, the true
           // intersection point of the ray coming from the left camera
-          // with the DEM could be anywhere within m_dem_accuracy from
+          // with the DEM could be anywhere within m_dem_error from
           // xyz. Use that to get an estimate of the disparity
-          // accuracy.
+          // error.
 
           ImageView< PixelMask<Vector2> > curr_pixel_disp_range(3, 1);
           double bias[] = {-1.0, 1.0, 0.0};
@@ -205,7 +205,7 @@ namespace asp {
 
             Vector2 right_fullres_pix;
             try {
-              right_fullres_pix = m_right_camera_model->point_to_pixel(xyz + bias[k]*m_dem_accuracy*left_camera_vec);
+              right_fullres_pix = m_right_camera_model->point_to_pixel(xyz + bias[k]*m_dem_error*left_camera_vec);
             } catch ( camera::PointToPixelErr const& e ) {
               curr_pixel_disp_range(k, 0).invalidate();
               continue;
@@ -244,7 +244,7 @@ namespace asp {
   template <class ImageT, class DEMImageT>
   DemDisparity<ImageT, DEMImageT>
   dem_disparity( ImageViewBase<ImageT> const& left,
-                 double dem_accuracy, GeoReference dem_georef,
+                 double dem_error, GeoReference dem_georef,
                  DEMImageT const& dem,
                  Vector2f const& downsample_scale,
                  boost::shared_ptr<camera::CameraModel> left_camera_model,
@@ -255,7 +255,7 @@ namespace asp {
                  ) {
     typedef DemDisparity<ImageT, DEMImageT> return_type;
     return return_type( left.impl(),
-                        dem_accuracy, dem_georef,
+                        dem_error, dem_georef,
                         dem, downsample_scale,
                         left_camera_model, right_camera_model,
                         homography_align, align_matrix,
@@ -285,9 +285,9 @@ namespace asp {
     if (dem_file == ""){
       vw_throw( ArgumentErr() << "dem_disparity: No value was provided for: disparity-estimation-dem.\n" );
     }
-    double dem_accuracy = stereo_settings().disparity_estimation_dem_accuracy;
-    if (dem_accuracy < 0.0){
-      vw_throw( ArgumentErr() << "dem_disparity: Invalid value for disparity-estimation-dem-accuracy: " << dem_accuracy << ".\n" );
+    double dem_error = stereo_settings().disparity_estimation_dem_error;
+    if (dem_error < 0.0){
+      vw_throw( ArgumentErr() << "dem_disparity: Invalid value for disparity-estimation-dem-error: " << dem_error << ".\n" );
     }
 
     GeoReference dem_georef;
@@ -326,7 +326,7 @@ namespace asp {
 
     ImageViewRef<PixelMask<Vector2i> > lowres_disparity
       = dem_disparity(left_image_sub,
-                      dem_accuracy, dem_georef,
+                      dem_error, dem_georef,
                       dem, downsample_scale,
                       left_camera_model, right_camera_model,
                       homography_align, align_matrix, pixel_sample,

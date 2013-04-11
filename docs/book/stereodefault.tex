@@ -85,7 +85,7 @@ values listed after the parameter name.
 
 \end{description}
 
-\section{Correlation}
+\section{Correlation}\label{corr_section}
 \hrule
 \bigskip
 
@@ -144,8 +144,10 @@ values listed after the parameter name.
       resolutions due to its independent and tiled nature. This
       low-resolution disparity seed is a good hybrid approach.
     \item[2 - Low-resolution disparity from an input DEM] - Use a DEM together with an estimated
-      value for its accuracy to compute a low-resolution disparity, which will then be used
-      to find the full-resolution disparity as above.
+      value for its error to compute a low-resolution disparity, which will then be used
+      to find the full-resolution disparity as above. These quantities
+      can be specified via the options \texttt{disparity-estimation-dem}
+      and  \texttt{disparity-estimation-dem-error} respectively.
   \end{description}
 
   For large images, bigger than MOC-NA, using the low-resolution

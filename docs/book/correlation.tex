@@ -12,7 +12,7 @@ in their \acp{DEM} and hopefully eliminate them by tuning various
 parameters in the \texttt{stereo.default} file.  For scientists and
 engineers who are using \acp{DEM} produced with the Stereo Pipeline, this
 chapter may help to answer the question, ``What is the Stereo Pipeline
-doing to the raw data to produce this \ac{DEM}?''  
+doing to the raw data to produce this \ac{DEM}?''
 
 A related question that is commonly asked is, ``How accurate is a \ac{DEM}
 produced by the Stereo Pipeline?''  This chapter does not yet address
@@ -35,7 +35,7 @@ in Figure~\ref{fig:asp}, and detailed in the following sections.
 
 The first optional (but recommended) step in the process is least
 squares Bundle Adjustment, which is described in detail in
-Chapter~\ref{ch:bundle_adjustment}. 
+Chapter~\ref{ch:bundle_adjustment}.
 
 Next, the left and right images are roughly aligned using one of three
 methods: (1) a homography transform of the right image based on
@@ -110,7 +110,7 @@ correspondences is called a {\em disparity map}.  You can think of a
 disparity map as an image whose pixel locations correspond to
 the pixel $(u,v)$ in the left image, and whose pixel values
 contain the horizontal and vertical offsets $(d_u, d_v)$ to the
-matching pixel in the right image, which is $(u+d_u, v+d_v)$.  
+matching pixel in the right image, which is $(u+d_u, v+d_v)$.
 
 The correlation process attempts to find a match for every pixel in
 the left image. The only pixels skipped are those marked invalid in
@@ -152,7 +152,7 @@ template window from the from left image over the specified search
 region of the right image, as in Figure~\ref{fig:correlation_window}.
 The ``best'' match is determined by applying a cost function that
 compares the two windows. The location at which the window evaluates
-to the lowest cost compared to all the other search locations is 
+to the lowest cost compared to all the other search locations is
 reported as the disparity value. The \texttt{cost-mode} variable allows you
 to choose one of three cost functions, though we recommend normalized
 cross correlation \citep{Menard97:robust}, since it is most robust to
@@ -181,7 +181,7 @@ With the addition of the second tier of pyramid searching with
 \texttt{\textit{output\_prefix}-D\_sub.tif}, we are allowed to
 process beyond that limitation.
 
-Finally, this might go with out saying, but any colossal failure in
+Any large failure in
 the low resolution disparity image will be detrimental to the
 performance of the higher resolution disparity. In the event that the
 low resolution disparity is completely unhelpful, it can be skipped by
@@ -189,6 +189,16 @@ adding \texttt{corr-seed-mode 0} in the \texttt{stereo.default}
 file. This should only be considered in cases where the texture in an
 image is completely lost when subsampled. An example would be
 satellite imagery of fresh snow in the arctic.
+
+An alternative to computing \texttt{\textit{output\_prefix}-D.tif}
+from sub-sampled images (\texttt{corr-seed-mode 1}) or skipping it
+altogether (\texttt{corr-seed-mode 0}), is to compute it from a
+lower-resolution DEM of the area (\texttt{corr-seed-mode 2}). In this
+situation, the DEM needs to be specified together with its estimated
+error. See section \ref{corr_section} for more detailed information as
+to how to specify these options. In our experiments, if the input DEM
+has a resolution of 1 km, a good value of the DEM error is about 10 m,
+or higher if the terrain is very variable.
 
 \subsection{Debugging Disparity Map Initialization}
 
@@ -301,7 +311,7 @@ window from the left image that can be rotated, scaled, and translated
 as it zeros in on the correct match in the right image.  This
 adaptive window is essential for computing accurate matches on crater
 or canyon walls, and on other areas with significant perspective
-distortion due to foreshortening.  
+distortion due to foreshortening.
 
 This affine-adaptive behavior is based on the Lucas-Kanade template
 tracking algorithm, a classic algorithm in the field of computer
@@ -369,7 +379,7 @@ point.
   \caption{Once a disparity map has been generated and refined, it can
     be used in combination with the geometric camera models to compute
     the locations of 3D points on the surface of Mars.  This figure
-    shows the position (at the origins of the red, green, and blue vectors) and 
+    shows the position (at the origins of the red, green, and blue vectors) and
 	orientation of the Mars Global Surveyor at
     two points in time where it captured images in a stereo pair.}
   \label{fig:triangulation}
