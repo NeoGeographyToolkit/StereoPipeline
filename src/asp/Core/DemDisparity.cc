@@ -286,7 +286,7 @@ namespace asp {
       vw_throw( ArgumentErr() << "dem_disparity: No value was provided for: disparity-estimation-dem.\n" );
     }
     double dem_accuracy = stereo_settings().disparity_estimation_dem_accuracy;
-    if (dem_accuracy <= 0.0){
+    if (dem_accuracy < 0.0){
       vw_throw( ArgumentErr() << "dem_disparity: Invalid value for disparity-estimation-dem-accuracy: " << dem_accuracy << ".\n" );
     }
 
