@@ -787,14 +787,10 @@ def log_filter(img):
     img1 = sf.gaussian_filter(img1, (1.4, 1.4), mode='constant')
     return img1
 
-def run_one_block(params):
+def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
+                  s_nx, s_ny, dx0, dy0, T_img, S_img):
 
     # Do template matching for a single block in the left image.
-    # The results are stored within the class itself and will be
-    # extracted later.
-
-    (count, t_pixels, KW, min_template_sigma, Xc, Yc, s_nx,
-     s_ny, dx0, dy0, T_img, S_img) = params
 
     # LOG filter the images
     T_filt=log_filter(T_img)
@@ -802,7 +798,7 @@ def run_one_block(params):
     std_T=np.std(T_filt)
     if not min_template_sigma is None:
         if std_T < min_template_sigma:
-            return(-2, Xc, Yc, -1, -1, -1)
+            return(-2, Xc, Yc, -1, 0, 0)
 
     # run the feature match.
     TT=T_filt[KW:t_pixels+KW, KW:t_pixels+KW]
@@ -835,6 +831,80 @@ def run_one_block(params):
 
     return (result[ij], Xc, Yc, std_T, ijC[1]+dx0, ijC[0]+dy0)
 
+def run_blocks(param):
+
+    # Run template matching for a set of blocks. This function is being
+    # distributed across multiple processors.
+
+    (Tfile, Sfile, processes, xgi, ygi, these, t_pixels, s_nxy_i,
+     dxy0_i, XYc_i, min_template_sigma) = param
+    matcher = fft_matcher(Tfile, Sfile, processes)
+
+    KW=matcher.KW
+
+    s_x_bounds=np.c_[XYc_i[:,0]+dxy0_i[:,0]-s_nxy_i[:,0]-KW-1000,
+                     XYc_i[:,0]+dxy0_i[:,0]+s_nxy_i[:,0]+KW+1000]
+    s_y_bounds=np.c_[XYc_i[:,1]+dxy0_i[:,1]-s_nxy_i[:,1]-KW-1000,
+                     XYc_i[:,1]+dxy0_i[:,1]+s_nxy_i[:,1]+KW+1000]
+
+    matcher.T_sub.setBounds(xgi-t_pixels, ygi-t_pixels, matcher.blocksize+2*t_pixels,
+                            matcher.blocksize+2*t_pixels, update=1)
+    matcher.S_sub.setBounds(s_x_bounds[these,0].min(),
+                            s_y_bounds[these,0].min(),
+                            s_x_bounds[these,1].max()-s_x_bounds[these,0].min(),
+                            s_y_bounds[these,1].max()-s_y_bounds[these,0].min(),
+                            update=1)
+
+    these_ind = np.array(np.nonzero(these)).ravel()
+    indices = []; c = []; x = []; y = []; sigma = []; dx = []; dy = [];
+
+    # loop over the sub-blocks
+
+    count=-1
+    for Xc, Yc, s_nx, s_ny, dx0, dy0 in zip(XYc_i[these,0], XYc_i[these,1], s_nxy_i[these,0],
+                                            s_nxy_i[these,1], dxy0_i[these,0],
+                                            dxy0_i[these,1]):
+
+        count=count+1
+        t_xr=[Xc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
+        t_yr=[Yc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
+        s_xr=[Xc+dx0-(s_nx/2-1)-KW, Xc+(s_nx/2)+KW]
+        s_yr=[Yc+dy0-(s_ny/2-1)-KW, Yc+(s_ny/2)+KW]
+
+        # Read in the data for this block. Use the im_subset objects:
+        # read nodata if we read past the image edges.
+
+        # Read T
+        T_buffer=im_subset(0, 0, matcher.T_band.XSize, matcher.S_band.YSize,
+                           matcher.T_sub, pad_val=0)
+        T_buffer.setBounds(t_xr[0]-KW, t_yr[0]-KW, t_pixels+2.*KW,
+                           t_pixels+2.*KW, update=1)
+        T_img=T_buffer.z[0,:,:]
+        if np.mean(T_img==0)>.1: # bail if > 10% 0, flag with C=-2
+            continue
+
+        # Read S
+        S_buffer=im_subset(0, 0, matcher.S_band.XSize, matcher.S_band.YSize,
+                           matcher.S_sub, pad_val=0)
+        S_buffer.setBounds(s_xr[0]-KW, s_yr[0]-KW, s_nx+2.*KW,
+                           s_ny+2.*KW, update=1)
+        S_img=S_buffer.z [0,:,:]
+        if np.mean(S_img==0)> .25:  # bail if > 25% 0
+            continue
+
+        out = run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc, s_nx,
+                            s_ny, dx0, dy0, T_img, S_img)
+
+        indices.append(these_ind[count])
+        c.append(out[0])
+        x.append(out[1])
+        y.append(out[2])
+        sigma.append(out[3])
+        dx.append(out[4])
+        dy.append(out[5])
+
+    return(indices[:], c[:], x[:], y[:], sigma[:], dx[:], dy[:])
+
 class fft_matcher(object):
     """
     class to perform fft matches on a pair of image files.  Uses the GDAL
@@ -861,13 +931,15 @@ class fft_matcher(object):
                         -1 indicates invalid search or teplate data
     """
     def __init__(self, Tfile, Sfile, processes):
+        self.Tfile = Tfile
+        self.Sfile = Sfile
+        self.processes = processes
         self.T_ds=gdal.Open(Tfile, gdalconst.GA_ReadOnly)
         self.T_band=self.T_ds.GetRasterBand(1)
         self.S_ds=gdal.Open(Sfile, gdalconst.GA_ReadOnly)
         self.S_band=self.S_ds.GetRasterBand(1)
         self.Nx=self.T_band.XSize
         self.Ny=self.T_band.YSize
-        self.processes = processes
         self.KW=13  # pad the edges by this amount to avoid edge effects
         self.S_sub=im_subset(0, 0, self.S_band.XSize, self.S_band.YSize,
                          self.S_ds, pad_val=0, Bands=[[1]])
@@ -890,88 +962,50 @@ class fft_matcher(object):
         YR=[np.max([LL_S[1], LL_T[1]]), np.min([UR_S[1], UR_T[1]])]
         self.XR=XR
         self.YR=YR
-        self.T_c0c1=np.array([max([0, (LL_T[0]-XR[0])/GT_T[1]]), min(self.T_sub.Nc, (XR[1]-LL_T[0])/GT_T[1])]).astype(int)
-        self.T_r0r1=np.array([max([0 , (YR[1]-UR_T[1])/GT_T[5]]), min([self.T_sub.Nr, (LL_T[1]-YR[1])/GT_T[5]])]).astype(int)
+        self.T_c0c1=np.array([max([0, (LL_T[0]-XR[0])/GT_T[1]]),
+                              min(self.T_sub.Nc, (XR[1]-LL_T[0])/GT_T[1])]).astype(int)
+        self.T_r0r1=np.array([max([0 , (YR[1]-UR_T[1])/GT_T[5]]),
+                              min([self.T_sub.Nr, (LL_T[1]-YR[1])/GT_T[5]])]).astype(int)
 
-    def __call__(self, t_pixels, s_nxy_i, dxy0_i, XYc_i, min_template_sigma=None):
-        KW=self.KW
+        self.blocksize=8192/4
+
+    def __call__(self, t_pixels, s_nxy_i, dxy0_i, XYc_i, min_template_sigma):
+
         # loop over pixel centers
+
         self.C=np.zeros([XYc_i.shape[0], 1])-1
         self.sigma_template=(self.C).copy()
         self.dxy=np.zeros([XYc_i.shape[0], 2])
         self.xyC=np.zeros([XYc_i.shape[0], 2])
 
-        blocksize=8192
-        Ds2x=True     # this means: downsample by 2 to calculate an initial offset
+        xg0, yg0=np.meshgrid(np.arange(0, self.T_band.XSize, self.blocksize),
+                             np.arange(0, self.T_band.YSize, self.blocksize))
 
-        xg0, yg0=np.meshgrid(np.arange(0, self.T_band.XSize, blocksize), np.arange(0, self.T_band.YSize, blocksize))
-        s_x_bounds=np.c_[XYc_i[:,0]+dxy0_i[:,0]-s_nxy_i[:,0]-KW-1000, XYc_i[:,0]+dxy0_i[:,0]+s_nxy_i[:,0]+KW+1000]
-        s_y_bounds=np.c_[XYc_i[:,1]+dxy0_i[:,1]-s_nxy_i[:,1]-KW-1000, XYc_i[:,1]+dxy0_i[:,1]+s_nxy_i[:,1]+KW+1000]
-
+        TaskParams = []
         for xgi, ygi in zip(xg0.ravel(), yg0.ravel()):
-
-            # loop over the sub-blocks
-            these=np.logical_and(np.logical_and(XYc_i[:,0] > xgi , XYc_i[:,0] <= xgi+blocksize), np.logical_and(   XYc_i[:,1] > ygi , XYc_i[:,1] <= ygi+blocksize))
+            these=np.logical_and(np.logical_and(XYc_i[:,0] > xgi,
+                                                XYc_i[:,0] <= xgi+self.blocksize),
+                                 np.logical_and(XYc_i[:,1] > ygi,
+                                                XYc_i[:,1] <= ygi+self.blocksize))
             if ~np.any(these):
                 continue
-            self.T_sub.setBounds(xgi-t_pixels, ygi-t_pixels, blocksize+2*t_pixels, blocksize+2*t_pixels, update=1)
-            self.S_sub.setBounds(s_x_bounds[these,0].min(),  s_y_bounds[these,0].min(),
-                                 s_x_bounds[these,1].max()-s_x_bounds[these,0].min(), s_y_bounds[these,1].max()-s_y_bounds[these,0].min(), update=1)
-            #print "reading size:(%f,%f)" % (s_x_bounds[these,1].max()-s_x_bounds[these,0].min(), s_y_bounds[these,1].max()-s_y_bounds[these,0].min())
-            these_ind=np.array(np.nonzero(these)).ravel()
+            param = (self.Tfile, self.Sfile, self.processes, xgi.copy(), ygi.copy(), these.copy(),
+                     t_pixels, s_nxy_i.copy(), dxy0_i.copy(), XYc_i.copy(), min_template_sigma)
+            TaskParams.append(param)
 
-            count=-1
-            TaskParams = []
-            for Xc, Yc, s_nx, s_ny, dx0, dy0 in zip(XYc_i[these,0], XYc_i[these,1], s_nxy_i[these,0],
-                                                    s_nxy_i[these,1], dxy0_i[these,0],
-                                                    dxy0_i[these,1]):
+        # Run using multiple processes
+        pool = Pool(processes=self.processes)
+        Out = pool.map(run_blocks, TaskParams)
 
-                count=count+1
+        for out in Out:
+            (indices, c, x, y, sigma, dx, dy) = out
 
-                #print('count is ', count)
-                t_xr=[Xc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
-                t_yr=[Yc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
-
-                s_xr=[Xc+dx0-(s_nx/2-1)-KW, Xc+(s_nx/2)+KW]
-                s_yr=[Yc+dy0-(s_ny/2-1)-KW, Yc+(s_ny/2)+KW]
-
-                # Read in the data for this block. Use the im_subset objects:
-                # read nodata if we read past the image edges.
-
-                # Read T
-                T_buffer=im_subset(0, 0, self.T_band.XSize, self.S_band.YSize,
-                                   self.T_sub, pad_val=0)
-                T_buffer.setBounds(t_xr[0]-KW, t_yr[0]-KW, t_pixels+2.*KW,
-                                   t_pixels+2.*KW, update=1)
-                T_img=T_buffer.z[0,:,:]
-                if np.mean(T_img==0)>.1: # bail if > 10% 0, flag with C=-2
-                    continue
-
-                # Read S
-                S_buffer=im_subset(0, 0, self.S_band.XSize, self.S_band.YSize,
-                                   self.S_sub, pad_val=0)
-                S_buffer.setBounds(s_xr[0]-KW, s_yr[0]-KW, s_nx+2.*KW,
-                                   s_ny+2.*KW, update=1)
-                S_img=S_buffer.z [0,:,:]
-                if np.mean(S_img==0)> .25:  # bail if > 25% 0
-                    continue
-
-                params = ( count, t_pixels, KW, min_template_sigma,
-                           Xc, Yc, s_nx, s_ny, dx0, dy0, T_img.copy(), S_img.copy() )
-                TaskParams.append(params)
-
-            pool = Pool(processes=self.processes)
-            Out = pool.map(run_one_block, TaskParams)
-            for i in range(len(TaskParams)):
-                params = TaskParams[i]
-                #out = run_one_block(params) # run w/o multi-processing
-                out = Out[i]
-                count = params[0] # Need not have count == i.
-                self.C[these_ind[count]] = out[0]
-                self.xyC[these_ind[count]] = [out[1], out[2]]
-                if out[3] >= 0:
-                    self.sigma_template[these_ind[count]] = out[3]
-                    self.dxy[these_ind[count],:] = [out[4], out[5]]
+            for i in range(len(indices)):
+                ind = indices[i]
+                self.C[ind] = c[i]
+                self.xyC[ind] = [x[i], y[i]]
+                self.sigma_template[ind] = sigma[i]
+                self.dxy[ind,:] = [dx[i], dy[i]]
 
         return (self.xyC).copy(), (self.dxy).copy(), (self.C).copy(), (self.sigma_template).copy()
 
@@ -1031,7 +1065,8 @@ def search_new_pts(xy, dxy, t_size, matcher, min_template_sigma=0.):
     dxy0 = np.c_[dxy[:,0]+dxy[:,1], dxy[:,2]+dxy[:,3]]/2.
     dxyR = np.c_[dxy[:,1]-dxy[:,0], dxy[:,3]-dxy[:,2]]
     sw = np.array(2.**np.ceil(np.log2(np.maximum(dxyR+t_size, t_size+16))))
-    xy_new, dxy_new, C_new, Pt_new= matcher(t_size, sw, dxy0, xy, min_template_sigma=min_template_sigma)
+    xy_new, dxy_new, C_new, Pt_new= matcher(t_size, sw, dxy0, xy,
+                                            min_template_sigma=min_template_sigma)
     xy_bad_mask=xy_new[C_new.ravel()==-2,:]
     good=C_new>0
     xy_new=xy_new[good.ravel(),:]
@@ -1102,8 +1137,8 @@ def est_epipolar_vec(dxy, C, C_tol):
         offset.  The eigenvector corresponding to the largest eigenvalue is
         assumed to be the epipolar vector.
     """
-    
-    ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], 16)) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], 84)) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], 16)) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], 84)) 
+
+    ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], 16)) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], 84)) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], 16)) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], 84))
     good=ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
     dxy1=np.array(dxy[good.ravel(),:])
     dxy_ctr=np.array([np.median(dxy1[:,0]), np.median(dxy1[:,1])])
@@ -1190,7 +1225,7 @@ def main():
     T_file=args[0]
     S_file=args[1]
     sys.stdout.flush()
-    print str(datetime.datetime.now())
+    print "Start: " + str(datetime.datetime.now())
     print "T_file="+T_file
     print "S_file="+S_file
 
@@ -1257,7 +1292,7 @@ def main():
     recalc_nbhd_range=False
     for delta_x in skip_vals:
         print "----------refining to %d---------" % delta_x
-        print str(datetime.datetime.now())
+        print "Refining: " + str(datetime.datetime.now())
         if len(refine_pts)==0:
             print "    No refinement points for scale: %d" % delta_x
             recalc_nbhd_range=True
@@ -1338,7 +1373,7 @@ def main():
         all_pts=np.c_[C_mat.nonzero()];
         all_pts=all_pts[:,[1,0]];
         dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
-        
+
     # filter out the 99th percentile of matches
     R_dx=dxy_score[:,1]-dxy_score[:,0]
     R_dy=dxy_score[:,3]-dxy_score[:,2]
@@ -1452,6 +1487,7 @@ def main():
         outDs.SetProjection(ftm.T_ds.GetProjection())
         outDs=None
 
+    print "End: " + str(datetime.datetime.now())
 
 
 #       # spit out the good and bad masks
