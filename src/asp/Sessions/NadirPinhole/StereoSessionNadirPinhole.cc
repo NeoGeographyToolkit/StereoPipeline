@@ -16,136 +16,49 @@
 // __END_LICENSE__
 
 
-/// \file StereoSessionPinhole.cc
+/// \file StereoSessionNadirPinhole.cc
 ///
 
 #include <asp/Core/StereoSettings.h>
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
+#include <asp/Core/AffineEpipolar.h>
+#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
 
 #include <vw/Camera.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Image/MaskViews.h>
-#include <vw/Stereo/DisparityMap.h>
-#include <vw/Math.h>
+#include <vw/Image/Transform.h>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/operations.hpp>
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace vw::ip;
+using namespace asp;
 using namespace vw::camera;
 
-// Allows FileIO to correctly read/write these pixel types
-namespace vw {
-  template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
-}
-
-boost::shared_ptr<vw::camera::CameraModel>
-asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
-                                        std::string const& camera_file) {
-  if ( stereo_settings().alignment_method == "epipolar" ) {
-    // Load the image
-    DiskImageView<float> left_image(m_left_image_file);
-    DiskImageView<float> right_image(m_right_image_file);
-
-    Vector2i left_image_size( left_image.cols(), left_image.rows() ),
-      right_image_size( right_image.cols(), right_image.rows() );
-
-    bool is_left_camera = true;
-    if (camera_file == m_left_camera_file)
-      is_left_camera = true;
-    else if (camera_file == m_right_camera_file)
-      is_left_camera = false;
-    else
-      (ArgumentErr() << "StereoSessionPinhole: supplied camera model filename does not match the name supplied in the constructor.");
-
-    // Return the appropriate camera model object
-    std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
-    CAHVModel left_cahv, right_cahv;
-    if (boost::ends_with(lcase_file, ".cahvore") ) {
-      CAHVOREModel left_cahvore(m_left_camera_file);
-      CAHVOREModel right_cahvore(m_right_camera_file);
-      left_cahv =
-        linearize_camera(left_cahvore, left_image_size, left_image_size);
-      right_cahv =
-        linearize_camera(right_cahvore, right_image_size, right_image_size);
-    } else if (boost::ends_with(lcase_file, ".cahvor")  ||
-               boost::ends_with(lcase_file, ".cmod") ) {
-      CAHVORModel left_cahvor(m_left_camera_file);
-      CAHVORModel right_cahvor(m_right_camera_file);
-      left_cahv =
-        linearize_camera(left_cahvor, left_image_size, left_image_size);
-      right_cahv =
-        linearize_camera(right_cahvor, right_image_size, right_image_size);
-    } else if ( boost::ends_with(lcase_file, ".cahv") ||
-                boost::ends_with(lcase_file, ".pin" )) {
-      left_cahv = CAHVModel(m_left_camera_file);
-      right_cahv = CAHVModel(m_right_camera_file);
-
-    } else if ( boost::ends_with(lcase_file, ".pinhole") ||
-                boost::ends_with(lcase_file, ".tsai") ) {
-      PinholeModel left_pin(m_left_camera_file);
-      PinholeModel right_pin(m_right_camera_file);
-      left_cahv = linearize_camera(left_pin);
-      right_cahv = linearize_camera(right_pin);
-    } else {
-      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
-    }
-
-    // Create epipolar recitified camera views
-    boost::shared_ptr<CAHVModel> epipolar_left_cahv(new CAHVModel);
-    boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
-    epipolar(left_cahv, right_cahv, *epipolar_left_cahv, *epipolar_right_cahv);
-
-    if (is_left_camera)
-      return epipolar_left_cahv;
-    else
-      return epipolar_right_cahv;
-  } else {
-    // Keypoint alignment and everything else just gets camera models
-    std::string lcase_file = boost::to_lower_copy(camera_file);
-    if (boost::ends_with(lcase_file,".cahvore") ) {
-      return boost::shared_ptr<vw::camera::CameraModel>( new CAHVOREModel(camera_file) );
-    } else if (boost::ends_with(lcase_file,".cahvor") ||
-               boost::ends_with(lcase_file,".cmod") ) {
-      return boost::shared_ptr<vw::camera::CameraModel>( new CAHVORModel(camera_file) );
-    } else if ( boost::ends_with(lcase_file,".cahv") ||
-                boost::ends_with(lcase_file,".pin") ) {
-      return boost::shared_ptr<vw::camera::CameraModel>( new CAHVModel(camera_file) );
-    } else if ( boost::ends_with(lcase_file,".pinhole") ||
-                boost::ends_with(lcase_file,".tsai") ) {
-      return boost::shared_ptr<vw::camera::CameraModel> ( new PinholeModel(camera_file) );
-    } else {
-      vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
-    }
-
-
+StereoSessionNadirPinhole::left_tx_type
+StereoSessionNadirPinhole::tx_left() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
+    read_matrix( tx, m_out_prefix + "-align-L.exr" );
   }
-  return boost::shared_ptr<vw::camera::CameraModel>(); // Never reached
+  return left_tx_type( tx );
 }
 
-asp::StereoSessionPinhole::left_tx_type
-asp::StereoSessionPinhole::tx_left() const {
-  return StereoSessionPinhole::left_tx_type();
-}
-
-asp::StereoSessionPinhole::right_tx_type
-asp::StereoSessionPinhole::tx_right() const {
-  if ( stereo_settings().alignment_method == "homography" ) {
-    Matrix<double> align_matrix;
-    read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
-    return right_tx_type( math::identity_matrix<3>() );
+StereoSessionNadirPinhole::right_tx_type
+StereoSessionNadirPinhole::tx_right() const {
+  Matrix<double> tx = math::identity_matrix<3>();
+  if ( stereo_settings().alignment_method == "homography" ||
+       stereo_settings().alignment_method == "affineepipolar" ) {
+    read_matrix( tx, m_out_prefix + "-align-R.exr" );
   }
-  return right_tx_type( math::identity_matrix<3>() );
+  return right_tx_type( tx );
 }
 
-void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_input_file,
-                                                       std::string const& right_input_file,
-                                                       std::string &left_output_file,
-                                                       std::string &right_output_file) {
-
-
+void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(
+                                                            std::string const& left_input_file,
+                                                            std::string const& right_input_file,
+                                                            std::string &left_output_file,
+                                                            std::string &right_output_file) {
   boost::shared_ptr<DiskImageResource>
     left_rsrc( DiskImageResource::open(m_left_image_file) ),
     right_rsrc( DiskImageResource::open(m_right_image_file) );
@@ -211,29 +124,68 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_i
       vw_throw(ArgumentErr() << "PinholeStereoSession: unsupported camera file type.\n");
     }
 
-  } else if ( stereo_settings().alignment_method == "homography" ) {
+  } else if ( stereo_settings().alignment_method == "homography" ||
+              stereo_settings().alignment_method == "affineepipolar" ) {
+    // Getting left image size. Later alignment options can choose to
+    // change this parameters. (Affine Epipolar).
+    Vector2i left_size = file_image_size( left_input_file ),
+      right_size = file_image_size( right_input_file );
 
-    float low = std::min(left_stats[0], right_stats[0]);
-    float hi  = std::max(left_stats[1], right_stats[1]);
-    float gain_guess = 1.0f / (hi - low);
-    if ( gain_guess < 1.0f )
-      gain_guess = 1.0f;
+    std::string match_filename
+      = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
-    // Note: Here we use the original images, without mask
-    Matrix<double> align_matrix =
-      determine_image_align( m_out_prefix,
-                             left_input_file, right_input_file,
-                             left_disk_image, right_disk_image,
-                             left_nodata_value, right_nodata_value,
-                             gain_guess );
-    write_matrix( m_out_prefix + "-align-R.exr", align_matrix );
+    if (!fs::exists(match_filename)) {
+      boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+      camera_models( left_cam, right_cam );
+
+      bool inlier =
+        ip_matching_w_alignment( left_cam.get(), right_cam.get(),
+                                 left_disk_image, right_disk_image,
+                                 cartography::Datum("WGS84"), match_filename,
+                                 left_nodata_value, right_nodata_value );
+      if ( !inlier ) {
+        fs::remove( match_filename );
+        vw_throw( IOErr() << "Unable to match left and right images." );
+      }
+    } else{
+      vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
+    }
+
+    std::vector<ip::InterestPoint> left_ip, right_ip;
+    ip::read_binary_match_file( match_filename, left_ip, right_ip  );
+
+    Matrix<double> align_left_matrix = math::identity_matrix<3>(),
+      align_right_matrix = math::identity_matrix<3>();
+    if ( stereo_settings().alignment_method == "homography" ) {
+      align_right_matrix =
+        homography_fit(right_ip, left_ip,
+                       BBox2i(Vector2i(),left_size));
+      vw_out() << "\t--> Aligning right image to left using homography:\n"
+               << "\t      " << align_right_matrix << "\n";
+
+    } else {
+      left_size =
+        affine_epipolar_rectification( left_size, right_size,
+                                       left_ip, right_ip,
+                                       align_left_matrix,
+                                       align_right_matrix );
+
+      vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
+               << "\t      " << submatrix(align_left_matrix,0,0,2,3) << "\n"
+               << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
+    }
+    write_matrix( m_out_prefix + "-align-L.exr", align_left_matrix );
+    write_matrix( m_out_prefix + "-align-R.exr", align_right_matrix );
+    right_size = left_size; // Because the images are now aligned
+                            // .. they are the same size.
 
     // Applying alignment transform
-    Limg = left_masked_image;
+    Limg = transform(left_masked_image,
+                     HomographyTransform(align_left_matrix),
+                     left_size.x(), left_size.y() );
     Rimg = transform(right_masked_image,
-                     HomographyTransform(align_matrix),
-                     left_masked_image.cols(), left_masked_image.rows());
-
+                     HomographyTransform(align_right_matrix),
+                     right_size.x(), right_size.y() );
   } else {
     // Do nothing just provide the original files.
     Limg = left_masked_image;
@@ -280,7 +232,9 @@ void asp::StereoSessionPinhole::pre_preprocessing_hook(std::string const& left_i
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
                           output_nodata, m_options,
                           TerminalProgressCallback("asp","\t  L:  ") );
-  block_write_gdal_image( right_output_file, apply_mask(crop(edge_extend(Rimg,ConstantEdgeExtension()),bounding_box(Limg)), output_nodata),
+  block_write_gdal_image( right_output_file,
+                          apply_mask(crop(edge_extend(Rimg,ZeroEdgeExtension()),bounding_box(Limg)), output_nodata),
                           output_nodata, m_options,
                           TerminalProgressCallback("asp","\t  R:  ") );
+
 }

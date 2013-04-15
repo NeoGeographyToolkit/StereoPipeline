@@ -21,8 +21,9 @@
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
+#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
+#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 #include <asp/Sessions/RPC/StereoSessionRPC.h>
 
 #include <vw/Core/Exception.h>
@@ -73,6 +74,8 @@ namespace asp {
     static bool already = false;
     if ( already ) return;
     already = true;
+    StereoSession::register_session_type( "nadirpinhole",
+                                          &StereoSessionNadirPinhole::construct );
     StereoSession::register_session_type( "pinhole",
                                           &StereoSessionPinhole::construct );
     StereoSession::register_session_type( "dg",

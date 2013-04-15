@@ -26,6 +26,7 @@
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 #endif
 
+#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/RPC/StereoSessionRPC.h>

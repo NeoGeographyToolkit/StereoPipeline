@@ -279,6 +279,8 @@ int main( int argc, char* argv[] ) {
     //---------------------------------------------------------
     if (       opt.stereo_session_string == "pinhole" ) {
       stereo_triangulation<StereoSessionPinhole>( opt );
+    } else if ( opt.stereo_session_string == "nadirpinhole" ) {
+      stereo_triangulation<StereoSessionNadirPinhole>( opt );
     } else if ( opt.stereo_session_string == "isis"   ) {
       stereo_triangulation<StereoSessionIsis>( opt );
     } else if ( opt.stereo_session_string == "rpc"    ) {

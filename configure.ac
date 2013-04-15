@@ -486,25 +486,26 @@ AC_SUBST(ASP_LDFLAGS)
 # makefiles to process
 ##################################################
 
-AC_CONFIG_FILES([                       \
-  Makefile                              \
-  data/Makefile                         \
-  src/Makefile                          \
-  src/asp/Makefile                      \
-  src/asp/Core/Makefile                 \
-  src/asp/Core/tests/Makefile           \
-  src/asp/SpiceIO/Makefile              \
-  src/asp/IsisIO/Makefile               \
-  src/asp/IsisIO/tests/Makefile         \
-  src/asp/Sessions/Makefile             \
-  src/asp/Sessions/ISIS/Makefile        \
-  src/asp/Sessions/Pinhole/Makefile     \
-  src/asp/Sessions/DG/Makefile          \
-  src/asp/Sessions/RPC/Makefile         \
-  src/asp/Sessions/tests/Makefile       \
-  src/asp/MPI/Makefile                  \
-  src/asp/Tools/Makefile                \
-  src/asp/ControlNetTK/Makefile         \
+AC_CONFIG_FILES([                        \
+  Makefile                               \
+  data/Makefile                          \
+  src/Makefile                           \
+  src/asp/ControlNetTK/Makefile          \
+  src/asp/Core/Makefile                  \
+  src/asp/Core/tests/Makefile            \
+  src/asp/IsisIO/Makefile                \
+  src/asp/IsisIO/tests/Makefile          \
+  src/asp/MPI/Makefile                   \
+  src/asp/Makefile                       \
+  src/asp/Sessions/DG/Makefile           \
+  src/asp/Sessions/ISIS/Makefile         \
+  src/asp/Sessions/Makefile              \
+  src/asp/Sessions/NadirPinhole/Makefile \
+  src/asp/Sessions/Pinhole/Makefile      \
+  src/asp/Sessions/RPC/Makefile          \
+  src/asp/Sessions/tests/Makefile        \
+  src/asp/SpiceIO/Makefile               \
+  src/asp/Tools/Makefile                 \
 ])
 
 AC_OUTPUT

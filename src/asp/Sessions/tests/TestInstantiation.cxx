@@ -19,6 +19,7 @@
 #include <asp/Sessions/RPC/StereoSessionRPC.h>
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
+#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
 
 #include <test/Helpers.h>
 
@@ -39,7 +40,7 @@ public:
   SessionT session;
 };
 
-typedef ::testing::Types<StereoSessionDG, StereoSessionRPC, StereoSessionIsis, StereoSessionPinhole> SessionTypes;
+typedef ::testing::Types<StereoSessionDG, StereoSessionRPC, StereoSessionIsis, StereoSessionPinhole, StereoSessionNadirPinhole> SessionTypes;
 TYPED_TEST_CASE( InstantiationTest, SessionTypes );
 
 TYPED_TEST( InstantiationTest, Typedefs ) {

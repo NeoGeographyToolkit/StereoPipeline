@@ -48,7 +48,7 @@ namespace asp {
 
     po::options_description general_options_sub("");
     general_options_sub.add_options()
-      ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
+      ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc nadirpinhole]")
       ("stereo-file,s", po::value(&opt.stereo_default_filename)->default_value("./stereo.default"), "Explicitly specify the stereo.default file to use. [default: ./stereo.default]")
       ("left-image-crop-win", po::value(&opt.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Do stereo in a subregion of the left image [default: use the entire image].");
 
@@ -73,10 +73,10 @@ namespace asp {
       ("left-camera-model", po::value(&opt.cam_file1), "Left Camera Model File")
       ("right-camera-model", po::value(&opt.cam_file2), "Right Camera Model File")
       ("output-prefix", po::value(&opt.out_prefix), "Prefix for output filenames")
-      ("input_dem", po::value(&opt.input_dem), "Input DEM")
-      ("extra_argument1", po::value(&opt.extra_argument1), "Extra Argument 1")
-      ("extra_argument2", po::value(&opt.extra_argument2), "Extra Argument 2")
-      ("extra_argument3", po::value(&opt.extra_argument3), "Extra Argument 3");
+      ("input-dem", po::value(&opt.input_dem), "Input DEM")
+      ("extra-argument1", po::value(&opt.extra_argument1), "Extra Argument 1")
+      ("extra-argument2", po::value(&opt.extra_argument2), "Extra Argument 2")
+      ("extra-argument3", po::value(&opt.extra_argument3), "Extra Argument 3");
 
     po::positional_options_description positional_desc;
     positional_desc.add("left-input-image", 1);
@@ -84,10 +84,10 @@ namespace asp {
     positional_desc.add("left-camera-model", 1);
     positional_desc.add("right-camera-model", 1);
     positional_desc.add("output-prefix", 1);
-    positional_desc.add("input_dem", 1);
-    positional_desc.add("extra_argument1", 1);
-    positional_desc.add("extra_argument2", 1);
-    positional_desc.add("extra_argument3", 1);
+    positional_desc.add("input-dem", 1);
+    positional_desc.add("extra-argument1", 1);
+    positional_desc.add("extra-argument2", 1);
+    positional_desc.add("extra-argument3", 1);
 
     std::string usage("[options] <Left_input_image> <Right_input_image> [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]\n  Extensions are automaticaly added to the output files.\n  Camera model arguments may be optional for some stereo session types (e.g., isis).\n  Stereo parameters should be set in the stereo.default file.");
     po::variables_map vm =
