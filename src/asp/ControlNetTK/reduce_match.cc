@@ -64,7 +64,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage );
 
   if ( opt.match_files.empty() )
-    vw_throw( ArgumentErr() << "Must specify at least one input file!\n\n" << usage );
+    vw_throw( ArgumentErr() << "Must specify at least one input file!\n\n"
+              << usage << general_options );
 }
 
 int main( int argc, char* argv[] ) {

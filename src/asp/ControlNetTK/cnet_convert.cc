@@ -118,7 +118,7 @@ int main( int argc, char** argv) {
           tpc.report_incremental_progress(inc_amt);
           if ( buf != "" ) {
             IsisCameraModel cam(buf);
-            std::string name = fs::path(buf).filename();
+            std::string name = fs::path(buf).filename().string();
             serial_to_name[cam.serial_number()]=name;
             serial_to_id[  cam.serial_number()]=count;
           }

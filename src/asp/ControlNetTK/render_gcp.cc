@@ -70,7 +70,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
   if ( opt.output_file.empty() )
     opt.output_file =
-      fs::path( opt.gcp_file ).stem()+"-render.tif";
+      fs::path( opt.gcp_file ).stem().string()+"-render.tif";
 }
 
 int main( int argc, char *argv[] ) {
