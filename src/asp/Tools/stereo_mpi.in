@@ -379,6 +379,8 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 0 ):
             # Preprocessing
             run('stereo_pprc', args, msg='0: Preprocessing')
+            # Now the left is defined. Regather the settings
+            settings=get_settings( args )
         if ( opt.entry_point <= 1 ):
             # Correlation
             if ( opt.stop_point <= 1 ):
@@ -417,7 +419,6 @@ if __name__ == '__main__':
             build_vrt( settings, "-PC.tif", 4, "Float64", tiles_cropped=True )
 
     else:
-
         # Launch multiple processes doing actual work on the current
         # machine.
 
@@ -425,6 +426,8 @@ if __name__ == '__main__':
             if ( opt.entry_point <= 0 ):
                 # Run stereo pprc in single threaded mode
                 run('stereo_pprc', args, msg='0: Preprocessing')
+                # Now the left is defined. Regather the settings
+                settings=get_settings( args )
 
             # Define the tiles that we'll be processing on
             tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h );
