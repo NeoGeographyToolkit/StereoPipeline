@@ -164,10 +164,10 @@ void lowres_correlation( Options & opt ) {
   if ( stereo_settings().seed_mode > 0 ) {
     // Reuse prior existing D_sub if it exists
     bool rebuild = false;
-
+    std::string sub_disp_file = opt.out_prefix+"-D_sub.tif";
     try {
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelMask<Vector2i> > test(opt.out_prefix+"-D_sub.tif");
+      DiskImageView<PixelMask<Vector2i> > test(sub_disp_file);
       vw_settings().reload_config();
     } catch (vw::IOErr const& e) {
       vw_settings().reload_config();
@@ -180,6 +180,8 @@ void lowres_correlation( Options & opt ) {
 
     if ( rebuild )
       produce_lowres_disparity( opt );
+    else
+      vw_out() << "\t--> Using cached low-resolution disparity: " << sub_disp_file << "\n";
   }
 
   // Create the local homographies based on D_sub
