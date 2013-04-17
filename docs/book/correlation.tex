@@ -129,7 +129,7 @@ We employ several optimizations to accelerate disparity map
 initialization: (1) a box filter-like accumulator that reduces
 duplicate operations during correlation \citep{Sun02rectangular}; (2) a
 coarse-to-fine pyramid based approach where disparities are estimated
-using low resolution images, and then successively refined at higher
+using low-resolution images, and then successively refined at higher
 resolutions; and (3) partitioning of the disparity search space into
 rectangular sub-regions with similar values of disparity determined in
 the previous lower resolution level of the
@@ -166,7 +166,7 @@ computed from the greatly reduced input images \texttt{*-L\_sub.tif}
 and \texttt{\textit{output\_prefix}-R\_sub.tif}. Those ``sub'' images
 have their size chosen so that their area is around 2.25 mega pixels,
 a size that is easily viewed on the screen unlike the raw source
-imagery. The low resolution disparity image then defines the per
+imagery. The low-resolution disparity image then defines the per
 thread search range of the higher resolution disparity,
 \texttt{\textit{output\_prefix}-D.tif}.
 
@@ -182,9 +182,9 @@ With the addition of the second tier of pyramid searching with
 process beyond that limitation.
 
 Any large failure in
-the low resolution disparity image will be detrimental to the
+the low-resolution disparity image will be detrimental to the
 performance of the higher resolution disparity. In the event that the
-low resolution disparity is completely unhelpful, it can be skipped by
+low-resolution disparity is completely unhelpful, it can be skipped by
 adding \texttt{corr-seed-mode 0} in the \texttt{stereo.default}
 file. This should only be considered in cases where the texture in an
 image is completely lost when subsampled. An example would be
@@ -242,6 +242,29 @@ are usually also obvious when inspecting these images.  With a good
 intuition for the effects of various {\tt stereo.default} parameters
 and a good intuition for reading the output of {\tt disparitydebug},
 it is possible to quickly identify and address most problems.
+
+\subsection{Local Homography}
+\label{sec:local_hom}
+
+Correlation works by decomposing the left image into tiles, and for each
+pixel in each tile finding the best-matching pixel in the right image.
+
+Depending on user's choices, by this stage either the left or the right
+image (or both) may already be transformed so that they are very
+similar, making the matching process more likely to succeed.
+
+Whether that is the case or not, Stereo Pipeline can estimate, based on
+the low-resolution disparity
+\texttt{\textit{output\_prefix}-D\_sub.tif}, a local homography transform
+for every left image tile, which, when applied to the right image,
+improves the similarity of the right image to the current left image tile. This
+option can be turned on with the flag \texttt{use-local-homography}.
+
+This local homography transform comes in most useful when a global
+homography transform could not be applied (for example, if interest
+point matching failed). The input low-resolution disparity can be
+computed in several ways, as described earlier in the section.
+
 
 \section{Sub-pixel Refinement}
 \label{sec:subpixel}
