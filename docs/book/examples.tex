@@ -198,7 +198,7 @@ Below is an outline of the processing.
 \end{verbatim}
 
 To use our script, first go to the directory where you have downloaded
-the HiRISE's RED EDR \texttt{IMG} files. You can run the 
+the HiRISE's RED EDR \texttt{IMG} files. You can run the
 \texttt{hiedr2mosaic.py} program without any arguments to view a short
 help statement, with the \texttt{-h} option to view a longer help statement,
 or just run the program on the EDR files like so:
@@ -210,34 +210,12 @@ or just run the program on the EDR files like so:
 If you have more than one observation's worth of EDRs in that
 directory, then limit the program to just one observation's EDRs
 at a time, e.g. \texttt{hiedr2mosaic.py PSP\_001513\_1655*IMG}.  If you
-run into problems, try using the \texttt{-k} option to retain all of 
+run into problems, try using the \texttt{-k} option to retain all of
 the intermediary image files to help track down the issue.  The
-\texttt{hiedr2mosaic.py} program will create a single mosaic file 
+\texttt{hiedr2mosaic.py} program will create a single mosaic file
 with the extension \texttt{.mos\_hijitreged.norm.cub}.  Be warned that
-the operations carried out by \texttt{hiedr2mosaic.py} can take many 
+the operations carried out by \texttt{hiedr2mosaic.py} can take many
 hours to complete on the very large HiRISE images.
-
-Finally we recommend map projecting the product and normalizing both
-images in the stereo pair using the same dynamic range. Notice that we
-map project the second image using the same map settings and crop of
-the first image. This means the images will share the same origin and
-the {\tt stereo.default} search range can be centered around zero.
-
-\begin{verbatim}
-  ISIS 3> cam2map4stereo.py first.mos_hijitreged.norm.cub second.mos_hijitreged.norm.cub 
-  ISIS 3> bandnorm f=first.map.cub t=first.norm.cub
-  ISIS 3> bandnorm f=second.map.cub t=second.norm.cub
-  ISIS 3> ls first.norm.cub second.norm.cub > fromlist
-  ISIS 3> ls first.norm.cub > holdlist
-  ISIS 3> equalizer fromlist=fromlist holdlist=holdlist
-  ISIS 3> mkdir result
-  ISIS 3> stereo first.norm.equ.cub second.norm.equ.cub result/output
-\end{verbatim}
-
-In the future, the HiRISE team will be producing de-jittered, noproj'ed
-imagery in the \texttt{extras/} directory of their \ac{PDS} volume.
-When this happens, most of the above commands will no longer be required,
-as you will be able to just run \texttt{cam2map4stereo.py} on their provided imagery.
 
 \subsection{Columbia Hills}
 
@@ -249,7 +227,7 @@ as you will be able to just run \texttt{cam2map4stereo.py} on their provided ima
 \ac{HiRISE} observations
 \href{http://hirise.lpl.arizona.edu/PSP_001513_1655}{PSP\_001513\_1655} and
 \href{http://hirise.lpl.arizona.edu/PSP_001777_1650}{PSP\_001777\_1650}
-are on the floor of Gusev Crater and cover the area where the \ac{MER} 
+are on the floor of Gusev Crater and cover the area where the \ac{MER}
 Spirit landed and has roved, including the Columbia Hills.
 
 \begin{figure}[h!]
@@ -298,7 +276,7 @@ contrast.
 
 \ac{HiRISE} observations
 \href{http://hirise.lpl.arizona.edu/PSP_001760_2160}{PSP\_001760\_2160} and
-\href{http://hirise.lpl.arizona.edu/PSP_001364_2160}{PSP\_001364\_2160} 
+\href{http://hirise.lpl.arizona.edu/PSP_001364_2160}{PSP\_001364\_2160}
 cover East Mareotis Tholus, a small volcano in Tempe Terra.
 
 \begin{figure}[h!]
@@ -461,7 +439,7 @@ covered a portion of Hrad Vallis. In this section we will show you
 more examples, some of which exhibit a problem common to stereo
 pairs from linescan imagers: ``spacecraft jitter'' is caused by
 oscillations of the spacecraft due to the movement of other spacecraft
-hardware.  All spacecraft wobble around to some degree but some are 
+hardware.  All spacecraft wobble around to some degree but some are
 particularly susceptible.
 
 Jitter causes wave-like distortions along the track of the satellite
