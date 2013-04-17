@@ -132,8 +132,7 @@ namespace asp {
     // initialization and not be dependent on Stereo knowing what
     // session it is in.
     bool check_for_camera_models = true;
-    if ( opt.stereo_session_string == "isis" ||
-         opt.stereo_session_string == "rpc" ) {
+    if ( opt.stereo_session_string == "isis" ) {
       // Fix the ordering of the arguments if the user only supplies 3
       if (opt.out_prefix.empty()) {
         opt.out_prefix = opt.cam_file1;
