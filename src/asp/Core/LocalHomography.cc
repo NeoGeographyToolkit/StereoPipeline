@@ -62,15 +62,9 @@ namespace asp {
   // transform which aligns best the two images based on this disparity.
   template<class SeedDispT>
   vw::math::Matrix<double> homography_for_disparity(vw::BBox2i subregion,
-                                                    SeedDispT const& disparity){
-
-    // To do: I've never seen this, but it is possible that this
-    // homography computation may fail if the disparity in subregion
-    // has too few points or not scattered well. This function may
-    // need to be made more robust by taking in the entire disparity,
-    // not just cropped to subregion, as done now. And, we would crop
-    // the disparity to increasingly larger boxes containing
-    // subregion until the computation would succeed.
+                                                    SeedDispT const& disparity,
+                                                    bool & success){
+    success = true;
 
     VW_ASSERT(subregion.width() == disparity.cols() &&
               subregion.height() == disparity.rows(),
@@ -115,11 +109,11 @@ namespace asp {
 
     try {
       return homography_fit(right_ip, left_ip, bounding_box(disparity));
-    }catch ( const vw::ArgumentErr& e ){
-      // Will return the identity matrix.
     }
+    catch ( const vw::ArgumentErr& e ){}
+    catch ( const vw::math::RANSACErr& e ){}
+    success = false;
     return vw::math::identity_matrix<3>();
-
   }
 
   // Task that computes local homography in a given tile
@@ -141,8 +135,12 @@ namespace asp {
       m_local_hom(local_hom){}
 
     void operator()() {
+      bool success;
+      // To do: If this function is ever used, the variable 'success'
+      // needs to be treated properly.
+      exit(1); // broken, for now
       m_local_hom(m_col, m_row)
-        = homography_for_disparity(m_sub_bbox, m_sub_disparity_crop);
+        = homography_for_disparity(m_sub_bbox, m_sub_disparity_crop, success);
     }
   };
 
@@ -180,19 +178,35 @@ namespace asp {
         BBox2i sub_bbox( elem_quot(bbox.min(), upscale_factor),
                           elem_quot(bbox.max(), upscale_factor) );
 
-        // Expand the box until square to make sure the local homography
-        // calculation does not fail.
+        // Expand the box until square to make sure the local
+        // homography calculation does not fail. If that does not
+        // help, keep on expanding the box.
+        bool success = false;
         int len = std::max(sub_bbox.width(), sub_bbox.height());
         sub_bbox = BBox2i(sub_bbox.max() - Vector2(len, len), sub_bbox.max());
         sub_bbox.expand(1);
-        sub_bbox.crop( bounding_box(sub_disparity) );
+        while(1){
 
-        //boost::shared_ptr<LocalHomTask>
-        //task(new LocalHomTask(col, row, sub_bbox, crop(sub_disparity, sub_bbox),
-        //                        local_hom));
-        //queue.add_task(task);
-        local_hom(col, row)
-          = homography_for_disparity(sub_bbox, crop(sub_disparity, sub_bbox));
+          // This code enables multi-threading. It gives different answers each time,
+          // as multiple threads pull random numbers from the same stream.
+          // This code must be kept disabled until Boost's random function is used
+          // with one random stream for each thread.
+          //boost::shared_ptr<LocalHomTask>
+          //task(new LocalHomTask(col, row, sub_bbox, crop(sub_disparity, sub_bbox),
+          //                        local_hom));
+          //queue.add_task(task);
+
+          sub_bbox.crop( bounding_box(sub_disparity) );
+          local_hom(col, row)
+            = homography_for_disparity(sub_bbox, crop(sub_disparity, sub_bbox), success);
+          if (success) break;
+          vw_out() << "\t--> Failed to find local disparity in box: " << bbox  << std::endl;
+          vw_out() << "\t--> Trying again by increasing the local region."  << std::endl;
+          if (sub_bbox == bounding_box(sub_disparity)) break; // can't expand more
+          len = std::max(sub_bbox.width(), sub_bbox.height());
+          sub_bbox.expand(len);
+        }
+
       }
     }
     //queue.join_all();
