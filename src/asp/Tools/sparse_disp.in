@@ -176,10 +176,10 @@ class TemplateMatch(object):
 					%self.template.ndim)
 
 		if self.method == 'ssd':
-			return self.fast_ssd(self.template,a,trim=True)
+                    return self.fast_ssd(self.template,a,trim=True)
 		elif self.method == 'ncc':
-                  C=norm_xcorr(self.template,a,trim=True)
-                  return  C
+                    C=norm_xcorr(self.template,a,trim=True)
+                    return  C
 		elif self.method == 'both':
                     return norm_xcorr(self.template,a,trim=True,do_ssd=True)
 
