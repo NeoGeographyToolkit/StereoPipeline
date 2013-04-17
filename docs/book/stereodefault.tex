@@ -38,6 +38,13 @@ values listed after the parameter name.
   left image.  Note: the user may exercise more control over this
   process by using the \texttt{ipfind} and \texttt{ipmatch} tools.
 
+  When \texttt{alignment-method} is set to \texttt{affineepipolar},
+  \texttt{stereo} will attempt to pre-align the images by detecting
+  tie-points, as earlier, and using those to transform the images such
+  that pairs of conjugate epipolar lines become collinear and parallel to
+  one of the image axes.  The effect of this is equivalent to rotating the
+  original cameras which took the pictures.
+
   When \texttt{alignment-method} is set to \texttt{epipolar},
   \texttt{stereo} will apply a 3D transform to both images so that
   their epipolar lines will be horizontal. This speeds of stereo
