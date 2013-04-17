@@ -16,9 +16,9 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import sys, optparse, subprocess, re, os, math, time, gdal, time, datetime
-import os.path as P
+import sys, optparse, subprocess, re, os, math, time, datetime
 import gdal, gdalconst
+import os.path as P
 import numpy as np
 import scipy as sp
 import scipy.ndimage.filters as sf
@@ -29,7 +29,6 @@ from scipy.sparse import coo_matrix
 from scipy.interpolate import griddata
 from multiprocessing import Pool
 from optparse import OptionParser
-#import matplotlib.pyplot as plt # This throws exception if no display is set
 
 def die(msg, code=-1):
     print >>sys.stderr, msg
@@ -43,7 +42,8 @@ class im_subset:
         self.Nc=Nc
         self.Nr=Nr
         self.z=[]
-        self.level=0  # if the level is zero, this is a copy of a file, if it's >0, it's a copy of a copy of a file
+        # if the level is zero, this is a copy of a file, if it's >0, it's a copy of a copy of a file
+        self.level=0
         self.Bands=Bands
         self.pad_val=pad_val
 
@@ -75,29 +75,6 @@ class im_subset:
                 self.z[:, dr0:dr1, dc0:dc1]=a
             self.level=0
 
-
-    def writeSubsetTo(self, bands, target):
-        if target.level > 0:
-            print "copying into target raster"
-            (sr0, sr1, dr0, dr1, vr)=match_range(target.source.r0, target.source.Nr, self.r0, self.Nr)
-            (sc0, sc1, dc0, dc1, vc)=match_range(target.source.c0, target.source.Nc, self.c0, self.Nc)
-            if (vr & vc):
-                for b in bands:
-                    target.source.z[b,sr0:sr1, sc0:sc1]=self.z[b, dr0:dr1, dc0:dc1]
-        else:
-            print "writing to file";
-            band=target.source.GetRasterBand(1)
-            (sr0, sr1, dr0, dr1, vr)=match_range(0, band.YSize, self.r0, self.Nr)
-            (sc0, sc1, dc0, dc1, vc)=match_range(0, band.XSize, self.c0, self.Nc)
-            print (sc0, sc1, dc0, dc1)
-            print (sr0, sr1, dr0, dr1)
-            print "vr=", vr, "vc=", vc
-            if (vr & vc):
-                print "...writing..."
-                for bb in (bands):
-                    band=target.source.GetRasterBand(bb)
-                    band.WriteArray( self.z[bb, dr0:dr1, dc0:dc1], int(sr0), int(sc0))
-
 def match_range(s0, ns, d0, nd):
     i0 = max(s0, d0)
     i1 = min(s0+ns, d0+nd)
@@ -108,38 +85,38 @@ def match_range(s0, ns, d0, nd):
     any_valid=(di1>di0) & (si1 > si0)
     return (si0, si1, di0, di1, any_valid)
 
-# Try and use the faster Fourier transform functions from the anfft module if
-# available
+# Try and use the faster Fourier transform functions from the anfft
+# module if available. Otherwise use the normal scipy fftpack ones
+# instead (~2-3x slower!).
 try:
-	import anfft as _anfft
-	# measure == True for self-optimisation of repeat Fourier transforms of
-	# similarly-shaped arrays
-	def fftn(A,shape=None):
-		if shape != None:
-			A = _checkffttype(A)
-			A = procrustes(A,target=shape,side='after',padval=0)
-		return _anfft.fftn(A,measure=True)
-	def ifftn(B,shape=None):
-		if shape != None:
-			B = _checkffttype(B)
-			B = procrustes(B,target=shape,side='after',padval=0)
-		return _anfft.ifftn(B,measure=True)
-	def _checkffttype(C):
-		# make sure input arrays are typed correctly for FFTW
-		if C.dtype == 'complex256':
-			# the only incompatible complex type --> complex64
-			C = np.complex128(C)
-		elif C.dtype not in ['float32','float64','complex64','complex128']:
-			# any other incompatible type --> float64
-			C = np.float64(C)
-		return C
-# Otherwise use the normal scipy fftpack ones instead (~2-3x slower!)
+    import anfft as _anfft
+    # measure == True for self-optimisation of repeat Fourier transforms of
+    # similarly-shaped arrays
+    def fftn(A,shape=None):
+            if shape != None:
+                    A = _checkffttype(A)
+                    A = procrustes(A,target=shape,side='after',padval=0)
+            return _anfft.fftn(A,measure=True)
+    def ifftn(B,shape=None):
+            if shape != None:
+                    B = _checkffttype(B)
+                    B = procrustes(B,target=shape,side='after',padval=0)
+            return _anfft.ifftn(B,measure=True)
+    def _checkffttype(C):
+            # make sure input arrays are typed correctly for FFTW
+            if C.dtype == 'complex256':
+                    # the only incompatible complex type --> complex64
+                    C = np.complex128(C)
+            elif C.dtype not in ['float32','float64','complex64','complex128']:
+                    # any other incompatible type --> float64
+                    C = np.float64(C)
+            return C
+
 except ImportError:
-	print \
-	"Module 'anfft' (FFTW Python bindings) could not be imported.\n"\
-	"To install it, try running 'easy_install anfft' from the terminal.\n"\
-	"Falling back on the slower 'fftpack' module for ND Fourier transforms."
-	from scipy.fftpack import fftn, ifftn
+    print "Module 'anfft' (FFTW Python bindings) could not be imported.\n"\
+          "To install it, try running 'easy_install anfft' from the terminal.\n"\
+          "Falling back on the slower 'fftpack' module for ND Fourier transforms."
+    from scipy.fftpack import fftn, ifftn
 
 class TemplateMatch(object):
 	"""
@@ -204,7 +181,7 @@ class TemplateMatch(object):
                   C=norm_xcorr(self.template,a,trim=True)
                   return  C
 		elif self.method == 'both':
-			return norm_xcorr(self.template,a,trim=True,do_ssd=True)
+                    return norm_xcorr(self.template,a,trim=True,do_ssd=True)
 
 def norm_xcorr(t,a,method=None,trim=True,do_ssd=False):
 	"""
@@ -518,18 +495,6 @@ def local_sum(a,tshape, padval):
 		a = np.cumsum(a,dd)
 		a = shiftdiff(a,tshape,dd)
 	return a
-
-# # for debugging purposes, ~10x slower than local_sum for a (512,512) array
-# def slow_2D_local_sum(a,tshape):
-#	out = np.zeros_like(a)
-#	for ii in xrange(a.shape[0]):
-#		istart = np.max((0,ii-tshape[0]//2))
-#		istop = np.min((a.shape[0],ii+tshape[0]//2+1))
-#		for jj in xrange(a.shape[1]):
-#			jstart = np.max((0,jj-tshape[1]//2))
-#			jstop = np.min((a.shape[1],jj+tshape[0]//2+1))
-#			out[ii,jj] = np.sum(a[istart:istop,jstart:jstop])
-#	return out
 
 def get_times(t,a,outdims):
 
@@ -1009,22 +974,6 @@ class fft_matcher(object):
 
         return (self.xyC).copy(), (self.dxy).copy(), (self.C).copy(), (self.sigma_template).copy()
 
-#            print ij
-#            plt.figure(figsize=(6,9))
-#            plt.subplot(2,2,1)
-#            plt.imshow(SS)
-#            plt.subplot(2,2,2)
-#            plt.imshow(TT)
-#            plt.subplot(2,2,3)
-#            plt.imshow(result)
-#            plt.subplot(2,2,4)
-
-#            print [(ij[0]-T_img.shape[0]/2), (ij[0]+T_img.shape[0]/2)]
-#            print [(ij[1]-T_img.shape[1]/2), (ij[1]+T_img.shape[1]/2)]
-#             Imatch=SS[(ijC[0]-TT.shape[0]/2):(ijC[0]+TT.shape[0]/2), (ijC[1]-TT.shape[1]/2):(ijC[1]+TT.shape[1]/2)]
-#            plt.imshow(Imatch)
-#            plt.show()
-
 def make_pt_2_neighbors(tri):
     """
     make a dictionary of the neighbors of each point in triangulation
@@ -1255,7 +1204,10 @@ def main():
     XY0=np.c_[XCg.ravel(), YCg.ravel()]
 
     # find the offset that matches the origins of the two images
-    D_origin=np.c_[np.floor(ftm.UL_T-ftm.UL_S)].transpose()
+    GT=ftm.GT_S
+    D_origin = np.c_[ftm.UL_T-ftm.UL_S].transpose()
+    D_origin[0][0]=np.floor(D_origin[0][0]/np.abs(GT[1]))
+    D_origin[0][1]=np.floor(D_origin[0][1]/np.abs(GT[5]))
 
     dxy0=np.dot(np.c_[np.ones_like(XY0[:,0])], D_origin*[1, -1])
     dxy_score=np.c_[dxy0[:,0]-s_nx/2., dxy0[:,0]+s_nx/2, dxy0[:,1]-s_ny/2, dxy0[:,1]+s_ny/2]
@@ -1492,17 +1444,6 @@ def main():
         outDs=None
 
     print "End: " + str(datetime.datetime.now())
-
-
-#       # spit out the good and bad masks
-#        outfile=open('quality_mask_pts_by_%d.csv' % options.output_scale,'w')
-#        outfile.write('x, y, quality\n')
-#        for line in good_pts:
-#            outfile.write('%9.5f, %9.5f, 1.0\n' % (line[1]/options.output_scale, line[0]/options.output_scale))
-#        for line in bad_pts:
-#            outfile.write('%9.5f, %9.5f, 0.0\n' % (line[1]/options.output_scale, line[0]/options.output_scale))
-#        outfile.close()
-#
 
 if __name__=="__main__":
     main()
