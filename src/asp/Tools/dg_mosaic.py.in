@@ -145,6 +145,8 @@ def tlc_pixel_lookup( tlctime, tlclist, time ):
     fraction = ( seconds_since_ref - tlclist[0][1] ) / (tlclist[1][1] - tlclist[0][1]);
     return fraction * ( tlclist[1][0] - tlclist[0][0] ) + tlclist[0][0]
 
+# Get the xml file name from the .ntf or .tif file name. The xml file
+# must exist and end in either '.xml' or '.XML'.
 def xml_name( filename ):
 
     path, ext = os.path.splitext(filename)
@@ -207,7 +209,7 @@ def main():
 
         # orig_sizes[i] holds the original size of i-th image. After
         # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
-        # store the new image size (and other stuff) in placements[i].
+        # store the new image size (and origin) in placements[i].
         orig_sizes = []
         placements = []
         orig_sizes.append(ref_image_size)
@@ -222,7 +224,6 @@ def main():
 
             # Sanity checks
             if ref_originx != originx:
-                print(ref_originx, originx)
                 raise Exception('InputError', 'Must have the same originx in: '
                                 + xml_name(args[0]) + ' ' + xml_name(filename) )
             if ref_pd != pd:
@@ -236,11 +237,10 @@ def main():
                                 + xml_name(args[0]) + ' ' + xml_name(filename) )
 
             orig_sizes.append(image_size)
-
             pitch_ratio = pitch/ref_pitch
-            scaled_image_size = [int(round(image_size[0]*pitch_ratio)), int(round(image_size[1]*pitch_ratio))]
-
-            val = [int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist, firstlinetime)))]
+            scaled_image_size = [int(round(image_size[0]*pitch_ratio)),
+                                 int(round(image_size[1]*pitch_ratio))]
+            val = [int(round(tlc_pixel_lookup(ref_tlctime, ref_tlclist, firstlinetime)))]
             val.extend( scaled_image_size )
             placements.append( val )
 
@@ -278,7 +278,6 @@ def main():
             options.output_prefix = args[0].split('-')[-1].split('.')[0]
 
         # Write the VRT that composites these JP2 images together
-        #with open(options.output_prefix+".vrt",'w') as f:
         f = open(options.output_prefix+".vrt",'w')
         f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (boundary.width(),boundary.height()))
         f.write("  <VRTRasterBand dataType=\"UInt16\" band=\"1\">\n")
