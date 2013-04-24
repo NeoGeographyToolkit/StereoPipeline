@@ -244,65 +244,7 @@ namespace asp {
                                                                                            geo.detector_origin[1],
                                                                                            0)), 0, 2),
                                        geo.principal_distance, correct_velocity_aberration)
-                       );
-  }
-
-  // The madness that happens below with the conversion from DEM
-  // to cartesian and then geo_transforming ... is purely to
-  // handle the problem of different datums between the DEM and
-  // the project camera models. I hope GDAL noticed this.
-  ImageViewRef<Vector2f>
-  StereoSessionDG::generate_lut_image( std::string const& image_file,
-                                       std::string const& camera_file ) const {
-    boost::shared_ptr<DiskImageResource> dem_rsrc( DiskImageResource::open( m_input_dem ) ),
-      image_rsrc( DiskImageResource::open( image_file ) );
-
-    GeometricXML geo_xml;
-    AttitudeXML att_xml;
-    EphemerisXML eph_xml;
-    ImageXML img_xml;
-    RPCXML rpc_xml;
-    read_xml( camera_file, geo_xml, att_xml, eph_xml, img_xml, rpc_xml );
-
-    BBox2i map_image_bbox( 0, 0, image_rsrc->cols(),
-                           image_rsrc->rows() ),
-      org_image_bbox( Vector2i(),
-                      img_xml.image_size );
-
-    cartography::GeoReference dem_georef, image_georef;
-    bool has_georef1 = read_georeference( dem_georef,   m_input_dem );
-    bool has_georef2 = read_georeference( image_georef, image_file );
-    if (!has_georef1)
-      vw_throw( ArgumentErr() << "The image " << image_file << " lacks a georeference.\n\n");
-    if (!has_georef2)
-      vw_throw( ArgumentErr() << "The DEM " << m_input_dem << " lacks a georeference.\n\n");
-
-    boost::scoped_ptr<RPCModel> rpc_model( new RPCModel( *rpc_xml.rpc_ptr() ) );
-
-    DiskImageView<float> dem( dem_rsrc );
-    if ( dem_rsrc->has_nodata_read() ) {
-      return crop(per_pixel_filter(
-               cartography::geo_transform(
-                 geodetic_to_cartesian(
-                   dem_to_geodetic(
-                     create_mask(dem, dem_rsrc->nodata_read()), dem_georef ), dem_georef.datum()),
-                 dem_georef, image_georef,
-                 image_rsrc->cols(),
-                 image_rsrc->rows(),
-                 ValueEdgeExtension<Vector3>( Vector3() ),
-                 BicubicInterpolation()),
-               OriginalCameraIndex( *rpc_model, org_image_bbox ) ), map_image_bbox );
-    }
-    return crop(per_pixel_filter(
-             cartography::geo_transform(
-               geodetic_to_cartesian(
-                 dem_to_geodetic(dem, dem_georef ), dem_georef.datum()),
-               dem_georef, image_georef,
-               image_rsrc->cols(),
-               image_rsrc->rows(),
-               ValueEdgeExtension<Vector3>( Vector3() ),
-               BicubicInterpolation()),
-             OriginalCameraIndex( *rpc_model, org_image_bbox ) ), map_image_bbox );
+                      );
   }
 
   StereoSessionDG::left_tx_type
@@ -313,9 +255,23 @@ namespace asp {
       read_matrix( tx, m_out_prefix + "-align-L.exr" );
     }
     if ( m_rpc_map_projected ) {
-      // This would compose to the above transforms
-      return TransformRef( IdentityTransform() ) ;
-      //return TransformRef( compose( HomographyTransform(tx), RPCTransform ) );
+      cartography::GeoReference dem_georef, image_georef;
+      if ( !read_georeference( dem_georef, m_input_dem ) )
+        vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
+      if (!read_georeference( image_georef, m_left_image_file ) )
+        vw_throw( ArgumentErr() << "The image \"" << m_left_image_file << "\" lacks georeferencing information.");
+
+      // Load DEM rsrc. RPCMapTransform is casting to float internally
+      // no matter what the original type of the DEM file was.
+      boost::shared_ptr<DiskImageResource>
+        dem_rsrc( DiskImageResource::open( m_input_dem ) );
+
+      // This composes the two transforms as it is possible to do
+      // homography and affineepipolar alignment options with map
+      // projected imagery.
+      return TransformRef( compose( RPCMapTransform(*read_rpc_model(m_left_image_file, m_left_camera_file),
+                                                    image_georef, dem_georef, dem_rsrc),
+                                    HomographyTransform(tx) ) );
     }
     return TransformRef( HomographyTransform( tx ) );
   }
@@ -328,9 +284,23 @@ namespace asp {
       read_matrix( tx, m_out_prefix + "-align-R.exr" );
     }
     if ( m_rpc_map_projected ) {
-      // This would compose to the above transforms
-      return TransformRef( IdentityTransform() ) ;
-      //return TransformRef( compose( HomographyTransform(tx), RPCTransform ) );
+      cartography::GeoReference dem_georef, image_georef;
+      if ( !read_georeference( dem_georef, m_input_dem ) )
+        vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
+      if (!read_georeference( image_georef, m_right_image_file ) )
+        vw_throw( ArgumentErr() << "The image \"" << m_right_image_file << "\" lacks georeferencing information.");
+
+      // Load DEM rsrc. RPCMapTransform is casting to float internally
+      // no matter what the original type of the DEM file was.
+      boost::shared_ptr<DiskImageResource>
+        dem_rsrc( DiskImageResource::open( m_input_dem ) );
+
+      // This composes the two transforms as it is possible to do
+      // homography and affineepipolar alignment options with map
+      // projected imagery.
+      return TransformRef( compose( RPCMapTransform(*read_rpc_model(m_right_image_file, m_right_camera_file),
+                                                    image_georef, dem_georef, dem_rsrc),
+                                    HomographyTransform(tx) ) );
     }
     return TransformRef( HomographyTransform( tx ) );
   }
