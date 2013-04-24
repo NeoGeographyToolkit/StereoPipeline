@@ -119,12 +119,18 @@ namespace asp {
                         vw::BBox2i const& box1, vw::BBox2i const& box2,
                         vw::cartography::Datum const& datum );
 
-  // Homography fit to interest points
-  vw::Matrix<double>
-  homography_fit( std::vector<vw::ip::InterestPoint> const& right_ip,
-                  std::vector<vw::ip::InterestPoint> const& left_ip,
-                  vw::BBox2i const& left_image_size );
-
+  // Homography rectification that aligns the right image to the left
+  // image via a homography transform. It returns a vector2i of the
+  // ideal cropping size to use for the left and right image. The left
+  // transform is actually just a translation that sets origin to the
+  // shared corner of left and right.
+  vw::Vector2i
+  homography_rectification( vw::Vector2i const& left_size,
+                            vw::Vector2i const& right_size,
+                            std::vector<vw::ip::InterestPoint> const& left_ip,
+                            std::vector<vw::ip::InterestPoint> const& right_ip,
+                            vw::Matrix<double>& left_matrix,
+                            vw::Matrix<double>& right_matrix );
 
   // Detect InterestPoints
   //
@@ -456,10 +462,11 @@ namespace asp {
 
     std::vector<ip::InterestPoint> ip1_copy, ip2_copy;
     ip::read_binary_match_file( output_name, ip1_copy, ip2_copy );
-    Matrix<double> post_fit =
-      homography_fit( ip2_copy, ip1_copy, raster_box );
-    if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(post_fit,0,0,2,2))) > 4 ) {
-      VW_OUT( DebugMessage, "asp" ) << "Post homography has largely different scale and skew from rough fit. Post solution is " << post_fit << "\n";
+    Matrix<double> matrix1, matrix2;
+    homography_rectification( raster_box.size(), raster_box.size(),
+                              ip1_copy, ip2_copy, matrix1, matrix2 );
+    if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4 ) {
+      VW_OUT( DebugMessage, "asp" ) << "Post homography has largely different scale and skew from rough fit. Post solution is " << matrix2 << "\n";
       return false;
     }
 

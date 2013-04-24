@@ -420,9 +420,11 @@ namespace asp {
         right_size = file_image_size( right_input_file );
 
       if ( stereo_settings().alignment_method == "homography" ) {
-        align_right_matrix =
-          homography_fit(right_ip, left_ip, bounding_box(left_disk_image) );
-        vw_out() << "\t--> Aligning right image to left using homography:\n"
+        left_size =
+          homography_rectification( left_size, right_size, left_ip, right_ip,
+                                    align_left_matrix, align_right_matrix );
+        vw_out() << "\t--> Aligning right image to left using matrices:\n"
+                 << "\t      " << align_left_matrix << "\n"
                  << "\t      " << align_right_matrix << "\n";
       } else {
         left_size =

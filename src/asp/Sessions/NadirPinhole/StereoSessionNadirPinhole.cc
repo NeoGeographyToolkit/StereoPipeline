@@ -157,12 +157,12 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(
     Matrix<double> align_left_matrix = math::identity_matrix<3>(),
       align_right_matrix = math::identity_matrix<3>();
     if ( stereo_settings().alignment_method == "homography" ) {
-      align_right_matrix =
-        homography_fit(right_ip, left_ip,
-                       BBox2i(Vector2i(),left_size));
-      vw_out() << "\t--> Aligning right image to left using homography:\n"
+      left_size =
+        homography_rectification( left_size, right_size, left_ip, right_ip,
+                                  align_left_matrix, align_right_matrix );
+      vw_out() << "\t--> Aligning right image to left using matrices:\n"
+               << "\t      " << align_left_matrix << "\n"
                << "\t      " << align_right_matrix << "\n";
-
     } else {
       left_size =
         affine_epipolar_rectification( left_size, right_size,

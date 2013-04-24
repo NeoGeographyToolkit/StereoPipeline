@@ -270,11 +270,13 @@ namespace asp {
     return H;
   }
 
-  vw::Matrix<double>
-  homography_fit( std::vector<vw::ip::InterestPoint> const& right_ip,
-                  std::vector<vw::ip::InterestPoint> const& left_ip,
-                  vw::BBox2i const& left_image_size ) {
-    using namespace vw;
+  Vector2i
+  homography_rectification( Vector2i const& left_size,
+                            Vector2i const& right_size,
+                            std::vector<ip::InterestPoint> const& left_ip,
+                            std::vector<ip::InterestPoint> const& right_ip,
+                            vw::Matrix<double>& left_matrix,
+                            vw::Matrix<double>& right_matrix ) {
 
     std::vector<Vector3>  right_copy, left_copy;
     right_copy.reserve( right_ip.size() );
@@ -288,14 +290,44 @@ namespace asp {
     math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
       ransac( hfit_func(), math::InterestPointErrorMetric(),
               100, // num iter
-              norm_2(Vector2(left_image_size.width(),left_image_size.height())) / 10, // inlier threshold
+              norm_2(Vector2(left_size.x(),left_size.y())) / 10, // inlier threshold
               left_copy.size()/2 // min output inliers
               );
     Matrix<double> H = ransac(right_copy, left_copy);
     std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
     check_homography_matrix(H, left_copy, right_copy, indices);
 
-    return hfit_func()(right_copy, left_copy, H);
+    // Set right to a homography that has been refined just to our inliers
+    left_matrix = math::identity_matrix<3>();
+    right_matrix = hfit_func()(right_copy, left_copy, H);
+
+    // Work out the ideal render size
+    BBox2i output_bbox, right_bbox;
+    output_bbox.grow( Vector2i(0,0) );
+    output_bbox.grow( Vector2i(left_size.x(),0) );
+    output_bbox.grow( Vector2i(0,left_size.y()) );
+    output_bbox.grow( left_size );
+    Vector3 temp = right_matrix*Vector3(0,0,1);
+    temp /= temp.z();
+    right_bbox.grow( subvector(temp,0,2) );
+    temp = right_matrix*Vector3(right_size.x(),0,1);
+    temp /= temp.z();
+    right_bbox.grow( subvector(temp,0,2) );
+    temp = right_matrix*Vector3(0,right_size.y(),1);
+    temp /= temp.z();
+    right_bbox.grow( subvector(temp,0,2) );
+    temp = right_matrix*Vector3(right_size.x(),right_size.y(),1);
+    temp /= temp.z();
+    right_bbox.grow( subvector(temp,0,2) );
+    output_bbox.crop( right_bbox );
+
+    //  Move the ideal render size to be aligned up with origin
+    left_matrix(0,2) -= output_bbox.min().x();
+    right_matrix(0,2) -= output_bbox.min().x();
+    left_matrix(1,2) -= output_bbox.min().y();
+    right_matrix(1,2) -= output_bbox.min().y();
+
+    return Vector2i( output_bbox.width(), output_bbox.height() );
   }
 
   bool
