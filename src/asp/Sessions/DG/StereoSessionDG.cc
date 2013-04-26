@@ -256,7 +256,7 @@ namespace asp {
     }
     if ( m_rpc_map_projected ) {
       cartography::GeoReference dem_georef, image_georef;
-      if ( !read_georeference( dem_georef, m_input_dem ) )
+      if (!read_georeference( dem_georef, m_input_dem ) )
         vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
       if (!read_georeference( image_georef, m_left_image_file ) )
         vw_throw( ArgumentErr() << "The image \"" << m_left_image_file << "\" lacks georeferencing information.");
@@ -285,7 +285,7 @@ namespace asp {
     }
     if ( m_rpc_map_projected ) {
       cartography::GeoReference dem_georef, image_georef;
-      if ( !read_georeference( dem_georef, m_input_dem ) )
+      if (!read_georeference( dem_georef, m_input_dem ) )
         vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
       if (!read_georeference( image_georef, m_right_image_file ) )
         vw_throw( ArgumentErr() << "The image \"" << m_right_image_file << "\" lacks georeferencing information.");
