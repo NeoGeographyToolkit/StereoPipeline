@@ -150,20 +150,32 @@ namespace asp {
     BBox2i b = opt.left_image_crop_win;
     opt.left_image_crop_win = BBox2i(b.min().x(), b.min().y(), b.max().x(), b.max().y());
     // By default, we do stereo in the entire image
-    if ( fs::exists( opt.out_prefix+"-L.tif" ) ) {
-      DiskImageView<PixelGray<float> > left_image(opt.out_prefix+"-L.tif");
-      BBox2i full_box = BBox2i(0, 0, left_image.cols(), left_image.rows());
-      if (opt.left_image_crop_win == BBox2i(0, 0, 0, 0)){
-        opt.left_image_crop_win = full_box;
-      }
-      // Ensure that the region is inside the maximum theoretical region
-      opt.left_image_crop_win.crop(full_box);
+    DiskImageView<PixelGray<float> > left_image(opt.in_file1);
+    BBox2i full_box = BBox2i(0, 0, left_image.cols(), left_image.rows());
+    if (opt.left_image_crop_win == BBox2i(0, 0, 0, 0)){
+      opt.left_image_crop_win = full_box;
+    }
+    // Ensure that the region is inside the maximum theoretical region
+    opt.left_image_crop_win.crop(full_box);
 
-      // Sanity check. This check is only valid if the L.tif is defined.
-      if (opt.left_image_crop_win.width() <= 0 || opt.left_image_crop_win.height() <= 0 ){
-        vw_throw( ArgumentErr() << "Invalid region for doing stereo.\n\n"
-                  << usage << general_options );
-      }
+    // Adjust the box if we transform the image
+    if ( fs::exists(opt.out_prefix+"-align-L.exr") ){
+      Matrix<double> align_left_matrix = math::identity_matrix<3>();
+      read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
+      BBox2i b = opt.left_image_crop_win;
+      HomographyTransform T(align_left_matrix);
+      opt.left_image_crop_win = BBox2i(round(T.forward(b.min())), round(T.forward(b.max())));
+
+      // Intersect with L.tif which is the transformed and processed left image
+      DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+      BBox2i full_box = BBox2i(0, 0, L_img.cols(), L_img.rows());
+      opt.left_image_crop_win.crop(full_box);
+    }
+
+    // Sanity check
+    if (opt.left_image_crop_win.width() <= 0 || opt.left_image_crop_win.height() <= 0 ){
+      vw_throw( ArgumentErr() << "Invalid region for doing stereo.\n\n"
+                << usage << general_options );
     }
 
     fs::path out_prefix_path(opt.out_prefix);
