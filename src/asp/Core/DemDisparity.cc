@@ -43,8 +43,8 @@ namespace asp {
     Vector2f m_downsample_scale;
     boost::shared_ptr<camera::CameraModel> m_left_camera_model;
     boost::shared_ptr<camera::CameraModel> m_right_camera_model;
-    bool m_homography_align;
-    Matrix<double>  m_align_matrix;
+    bool m_do_align;
+    Matrix<double>  m_align_left_matrix, m_align_right_matrix;
     int m_pixel_sample;
     ImageView<PixelMask<Vector2i> > & m_disparity_spread;
 
@@ -55,7 +55,8 @@ namespace asp {
                   Vector2f const& downsample_scale,
                   boost::shared_ptr<camera::CameraModel> left_camera_model,
                   boost::shared_ptr<camera::CameraModel> right_camera_model,
-                  bool homography_align, Matrix<double> const& align_matrix,
+                  bool do_align,
+                  Matrix<double> const& align_left_matrix, Matrix<double> const& align_right_matrix,
                   int pixel_sample, ImageView<PixelMask<Vector2i> > & disparity_spread)
       :m_left_image(left_image.impl()),
        m_dem_error(dem_error),
@@ -64,8 +65,9 @@ namespace asp {
        m_downsample_scale(downsample_scale),
        m_left_camera_model(left_camera_model),
        m_right_camera_model(right_camera_model),
-       m_homography_align(homography_align),
-       m_align_matrix(align_matrix),
+       m_do_align(do_align),
+       m_align_left_matrix(align_left_matrix),
+       m_align_right_matrix(align_right_matrix),
        m_pixel_sample(pixel_sample),
        m_disparity_spread(disparity_spread){}
 
@@ -123,8 +125,15 @@ namespace asp {
 
       BBox2i dem_box;
       for (unsigned k = 0; k < diagonals.size(); k++){
+
         Vector2 left_lowres_pix = diagonals[k];
+
         Vector2 left_fullres_pix = elem_quot(left_lowres_pix, m_downsample_scale);
+        if (m_do_align){
+          // Need to go to the image pixel in the untransformed image
+          left_fullres_pix = HomographyTransform(m_align_left_matrix).reverse(left_fullres_pix);
+        }
+
         bool has_intersection;
         Vector3 left_camera_ctr, left_camera_vec;
         try {
@@ -171,7 +180,13 @@ namespace asp {
           if (col%m_pixel_sample != 0) continue;
 
           Vector2 left_lowres_pix = Vector2(col, row);
+
           Vector2 left_fullres_pix = elem_quot(left_lowres_pix, m_downsample_scale);
+          if (m_do_align){
+            // Need to go to the image pixel in the untransformed image
+            left_fullres_pix = HomographyTransform(m_align_left_matrix).reverse(left_fullres_pix);
+          }
+
           bool has_intersection;
           Vector3 left_camera_ctr, left_camera_vec;
           try {
@@ -210,8 +225,8 @@ namespace asp {
               curr_pixel_disp_range(k, 0).invalidate();
               continue;
             }
-            if (m_homography_align){
-              right_fullres_pix = HomographyTransform(m_align_matrix).forward(right_fullres_pix);
+            if (m_do_align){
+              right_fullres_pix = HomographyTransform(m_align_right_matrix).forward(right_fullres_pix);
             }
 
             Vector2 right_lowres_pix = elem_prod(right_fullres_pix, m_downsample_scale);
@@ -249,7 +264,9 @@ namespace asp {
                  Vector2f const& downsample_scale,
                  boost::shared_ptr<camera::CameraModel> left_camera_model,
                  boost::shared_ptr<camera::CameraModel> right_camera_model,
-                 bool homography_align, Matrix<double> const& align_matrix,
+                 bool do_align,
+                 Matrix<double> const& align_left_matrix,
+                 Matrix<double> const& align_right_matrix,
                  int pixel_sample,
                  ImageView<PixelMask<Vector2i> > & disparity_spread
                  ) {
@@ -258,7 +275,7 @@ namespace asp {
                         dem_error, dem_georef,
                         dem, downsample_scale,
                         left_camera_model, right_camera_model,
-                        homography_align, align_matrix,
+                        do_align, align_left_matrix, align_right_matrix,
                         pixel_sample, disparity_spread
                         );
   }
@@ -307,14 +324,18 @@ namespace asp {
     Vector2f downsample_scale( float(left_image_sub.cols()) / float(left_image.cols()),
                                float(left_image_sub.rows()) / float(left_image.rows()) );
 
-    Matrix<double> align_matrix = identity_matrix<3>();
-    bool homography_align = (stereo_settings().alignment_method == "homography");
-    if ( homography_align ) {
-      // We used a homography transform to align the images, so we
-      // have to make sure to apply that transform to the disparity we
-      // are about to compute as well.
-      read_matrix(align_matrix, opt.out_prefix + "-align.exr");
-      vw_out(DebugMessage,"asp") << "Alignment Matrix: " << align_matrix << "\n";
+    Matrix<double> align_left_matrix = math::identity_matrix<3>();
+    Matrix<double> align_right_matrix = math::identity_matrix<3>();
+    bool do_align = (stereo_settings().alignment_method == "homography" ||
+                     stereo_settings().alignment_method == "affineepipolar");
+    if ( do_align ){
+      // We used a transform to align the images, so we have to make
+      // sure to apply that transform to the disparity we are about to
+      // compute as well.
+      read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
+      read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
+      vw_out(DebugMessage,"asp") << "Left alignment matrix: " << align_left_matrix << "\n";
+      vw_out(DebugMessage,"asp") << "Right alignment matrix: " << align_right_matrix << "\n";
     }
 
     // Smaller tiles is better
@@ -329,8 +350,9 @@ namespace asp {
                       dem_error, dem_georef,
                       dem, downsample_scale,
                       left_camera_model, right_camera_model,
-                      homography_align, align_matrix, pixel_sample,
-                      disparity_spread
+                      do_align,
+                      align_left_matrix, align_right_matrix,
+                      pixel_sample, disparity_spread
                       );
     std::string disparity_file = opt.out_prefix + "-D_sub.tif";
     vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
