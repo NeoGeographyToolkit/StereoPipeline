@@ -213,7 +213,7 @@ def create_subproject_dirs( settings, **kw ):
             # all existing files rather than having a list.
             for postfix in ["-L.tif","-R.tif","-L_sub.tif","-R_sub.tif",
                             "-lMask.tif","-rMask.tif","-lMask_sub.tif",
-                            "-rMask_sub.tif","-align.exr","-F.tif",
+                            "-rMask_sub.tif","-align-L.exr","-align-R.exr","-F.tif",
                             "-D_sub.tif", "-D_sub_spread.tif", "-local_hom.txt",
                             "-"+os.path.basename(settings['in_file1'][0])[:-4]+"__"+
                             os.path.basename(settings['in_file2'][0])[:-4]+".match"]:
