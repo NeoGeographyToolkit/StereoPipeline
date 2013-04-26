@@ -162,14 +162,12 @@ namespace asp {
     if ( fs::exists(opt.out_prefix+"-align-L.exr") ){
       Matrix<double> align_left_matrix = math::identity_matrix<3>();
       read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
-      BBox2i b = opt.left_image_crop_win;
-      HomographyTransform T(align_left_matrix);
-      opt.left_image_crop_win = BBox2i(round(T.forward(b.min())), round(T.forward(b.max())));
+      opt.left_image_crop_win
+        = HomographyTransform(align_left_matrix).forward_bbox(opt.left_image_crop_win);
 
       // Intersect with L.tif which is the transformed and processed left image
       DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
-      BBox2i full_box = BBox2i(0, 0, L_img.cols(), L_img.rows());
-      opt.left_image_crop_win.crop(full_box);
+      opt.left_image_crop_win.crop(bounding_box(L_img));
     }
 
     // Sanity check
