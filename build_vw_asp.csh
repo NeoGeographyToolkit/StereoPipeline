@@ -79,21 +79,27 @@ echo
 echo "Building ASP"
 echo
 
-#setenv CPPFLAGS "-I${brew_root}/include -I${vwdstdir}/include"
-setenv CPPFLAGS "-I${vwdstdir}/include"
-#setenv LDFLAGS "-L${brew_root}/lib -L${vwdstdir}/lib"
-setenv LDFLAGS "-L${vwdstdir}/lib"
+set aspsrcdir = $src_root/src/StereoPipeline
+set aspdstdir_root = $src_root/sw/asp
 
-#set aspsrcdir = $src_root/src/StereoPipeline
-#set aspdstdir_root = $src_root/sw/asp
+#NOTE: laslib is available through brew
+#set laslib = $src_root/sw/liblas
+set laszip = $src_root/sw/laszip
+
+#setenv CPPFLAGS "-I${brew_root}/include -I${vwdstdir}/include"
+#setenv CPPFLAGS "-I${vwdstdir}/include -I${laslib}/include -I${laszip}/include"
+setenv CPPFLAGS "-I${vwdstdir}/include -I${laszip}/include"
+#setenv LDFLAGS "-L${brew_root}/lib -L${vwdstdir}/lib"
+#setenv LDFLAGS "-L${vwdstdir}/lib -L${laslib}/lib -L${laszip}/lib"
+setenv LDFLAGS "-L${vwdstdir}/lib -L${laszip}/lib"
 
 cd $aspsrcdir
 
 #git reset --hard HEAD
 #git clean -f
 
-git fetch --all
-git rebase upstream/master
+#git fetch --all
+#git rebase upstream/master
 
 #Check status
 
