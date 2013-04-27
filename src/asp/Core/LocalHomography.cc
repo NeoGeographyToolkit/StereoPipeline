@@ -108,12 +108,14 @@ namespace asp {
     }
 
     try {
-      Matrix<double> left, right;
+      Matrix<double> left_matrix, right_matrix;
       BBox2i image_size = bounding_box(disparity);
       homography_rectification( image_size.size(), image_size.size(),
-                                right_ip, left_ip, right, left );
-      submatrix(left,0,2,2,1) -= submatrix(right,0,2,2,1); // Undoing the shift in origin.
-      return left;
+                                left_ip, right_ip, left_matrix, right_matrix );
+      // Undoing the shift in origin.
+      right_matrix(0,2) -= left_matrix(0,2);
+      right_matrix(1,2) -= left_matrix(1,2);
+      return right_matrix;
     }
     catch ( const vw::ArgumentErr& e ){}
     catch ( const vw::math::RANSACErr& e ){}
