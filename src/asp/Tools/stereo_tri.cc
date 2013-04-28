@@ -154,15 +154,23 @@ public:
     typedef typename DisparityImageT::pixel_type DPixelT;
     ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
 
+    // Work out what spots in the right image we'll be touching.
+    BBox2i disparity_range = vw::stereo::get_disparity_range( disparity_preraster );
+    disparity_range.max() += Vector2i(1,1);
+    BBox2i right_bbox = bbox + disparity_range.min();
+    right_bbox.max() += disparity_range.size();
+
     // This is to help any transforms (right now just RPCMapTransform)
     // that must cache their side data. Normally this would happen if
-    // we were using a TransformView.
-    volatile BBox2i left_reverse =  m_tx1.reverse_bbox( bbox );
-    volatile BBox2i right_reverse = m_tx2.reverse_bbox( bbox );
+    // we were using a TransformView. Copies are made of the
+    // transforms so we are not having a race condition with setting
+    // the cache in both transforms while the other threads want to do
+    // the same.
+    TX1T left_tx = m_tx1; left_tx.reverse_bbox(bbox);
+    TX2T right_tx = m_tx2; right_tx.reverse_bbox(right_bbox);
 
     return prerasterize_type( crop(disparity_preraster,-bbox.min().x(),-bbox.min().y(),cols(),rows()),
-                              m_tx1, m_tx2,
-                              m_stereo_model );
+                              left_tx, right_tx, m_stereo_model );
   }
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
   /// \endcond
