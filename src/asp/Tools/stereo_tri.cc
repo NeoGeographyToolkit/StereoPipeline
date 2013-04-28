@@ -18,7 +18,6 @@
 
 /// \file stereo_tri.cc
 ///
-//#define USE_GRAPHICS
 
 #include <asp/Tools/stereo.h>
 #include <asp/Sessions/RPC/RPCModel.h>
@@ -155,6 +154,12 @@ public:
     typedef typename DisparityImageT::pixel_type DPixelT;
     ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
 
+    // This is to help any transforms (right now just RPCMapTransform)
+    // that must cache their side data. Normally this would happen if
+    // we were using a TransformView.
+    volatile BBox2i left_reverse =  m_tx1.reverse_bbox( bbox );
+    volatile BBox2i right_reverse = m_tx2.reverse_bbox( bbox );
+
     return prerasterize_type( crop(disparity_preraster,-bbox.min().x(),-bbox.min().y(),cols(),rows()),
                               m_tx1, m_tx2,
                               m_stereo_model );
@@ -277,7 +282,7 @@ int main( int argc, char* argv[] ) {
 
     // Internal Processes
     //---------------------------------------------------------
-    if (       opt.stereo_session_string == "pinhole" ) {
+    if (        opt.stereo_session_string == "pinhole" ) {
       stereo_triangulation<StereoSessionPinhole>( opt );
     } else if ( opt.stereo_session_string == "nadirpinhole" ) {
       stereo_triangulation<StereoSessionNadirPinhole>( opt );
@@ -287,6 +292,8 @@ int main( int argc, char* argv[] ) {
       stereo_triangulation<StereoSessionRPC>( opt );
     } else if ( opt.stereo_session_string == "dg"     ) {
       stereo_triangulation<StereoSessionDG>( opt );
+    } else if ( opt.stereo_session_string == "dgmaprpc" ) {
+      stereo_triangulation<StereoSessionDGMapRPC>( opt );
     }
 
     vw_out() << "\n[ " << current_posix_time_string()

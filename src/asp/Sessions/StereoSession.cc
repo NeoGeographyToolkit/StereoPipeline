@@ -22,6 +22,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
+#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
 #include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 #include <asp/Sessions/RPC/StereoSessionRPC.h>
@@ -74,14 +75,11 @@ namespace asp {
     static bool already = false;
     if ( already ) return;
     already = true;
-    StereoSession::register_session_type( "nadirpinhole",
-                                          &StereoSessionNadirPinhole::construct );
-    StereoSession::register_session_type( "pinhole",
-                                          &StereoSessionPinhole::construct );
-    StereoSession::register_session_type( "dg",
-                                          &StereoSessionDG::construct );
-    StereoSession::register_session_type( "rpc",
-                                          &StereoSessionRPC::construct );
+    StereoSession::register_session_type( "dg", &StereoSessionDG::construct );
+    StereoSession::register_session_type( "dgmaprpc", &StereoSessionDGMapRPC::construct );
+    StereoSession::register_session_type( "nadirpinhole", &StereoSessionNadirPinhole::construct );
+    StereoSession::register_session_type( "pinhole", &StereoSessionPinhole::construct );
+    StereoSession::register_session_type( "rpc", &StereoSessionRPC::construct );
   }
 
   StereoSession* StereoSession::create( std::string const& session_type ) {

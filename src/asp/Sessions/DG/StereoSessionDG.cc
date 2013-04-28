@@ -25,9 +25,8 @@
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Sessions/DG/LinescanDGModel.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/DG/XML.h>
 #include <asp/Sessions/RPC/RPCModel.h>
-#include <asp/Sessions/RPC/RPCMapTransform.h>
+#include <asp/Sessions/DG/XML.h>
 
 // Vision Workbench
 #include <vw/Camera/Extrinsics.h>
@@ -40,19 +39,16 @@
 #include <iostream>
 #include <string>
 
-// Other
-#include <xercesc/dom/DOM.hpp>
-#include <xercesc/parsers/XercesDOMParser.hpp>
-#include <xercesc/sax/HandlerBase.hpp>
-#include <xercesc/util/PlatformUtils.hpp>
-#include <xercesc/util/XMLString.hpp>
-
 // Boost
 #include <boost/date_time/posix_time/posix_time.hpp>
+
+// Other
+#include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
 using namespace asp;
 using namespace xercesc;
+
 namespace pt = boost::posix_time;
 namespace fs = boost::filesystem;
 
@@ -75,91 +71,16 @@ public:
 };
 
 
-// Helper functor that converts projected pixel indices and height
-// value to unprojected pixel indices.
-class OriginalCameraIndex : public ReturnFixedType<Vector2f> {
-  RPCModel m_rpc;
-  BBox2i m_image_boundaries;
-public:
-  OriginalCameraIndex( RPCModel const& rpc,
-                       BBox2i const& bbox ) : m_rpc(rpc),
-                                              m_image_boundaries(bbox) {}
-
-  Vector2f operator()( Vector3 const& point ) const {
-
-    const double nan = std::numeric_limits<double>::quiet_NaN();
-
-    if ( point == Vector3() )
-      return Vector2f(nan, nan);
-
-    Vector2f result = m_rpc.point_to_pixel( point );
-    if ( m_image_boundaries.contains( result ) )
-      return result;
-
-    return Vector2f(nan, nan);
-  }
-
-};
-
 namespace asp {
 
-  // Xerces-C initialize
-  StereoSessionDG::StereoSessionDG() : m_rpc_map_projected(false) {
+  // These are initializers and closers for Xercesc since we use it to
+  // read our RPC models.
+  StereoSessionDG::StereoSessionDG() {
     XMLPlatformUtils::Initialize();
   }
 
-  // Initializer to determine what kind of input we have.
-  void StereoSessionDG::initialize(BaseOptions const& options,
-                                   std::string const& left_image_file,
-                                   std::string const& right_image_file,
-                                   std::string const& left_camera_file,
-                                   std::string const& right_camera_file,
-                                   std::string const& out_prefix,
-                                   std::string const& input_dem,
-                                   std::string const& extra_argument1,
-                                   std::string const& extra_argument2,
-                                   std::string const& extra_argument3 ) {
-    StereoSession::initialize( options, left_image_file,
-                               right_image_file, left_camera_file,
-                               right_camera_file, out_prefix,
-                               input_dem, extra_argument1,
-                               extra_argument2, extra_argument3 );
-
-    // Is there a possible DEM?
-    if ( !input_dem.empty() ) {
-      boost::scoped_ptr<RPCModel> model1, model2;
-      // Try and pull RPC Camera Models from left and right images.
-      try {
-        model1.reset( new RPCModel(left_image_file) );
-        model2.reset( new RPCModel(right_image_file) );
-      } catch ( NotFoundErr const& err ) {}
-
-      // If the above failed to load the RPC Model, try from the XML.
-      if ( !model1.get() || !model2.get() ) {
-        try {
-          RPCXML rpc_xml;
-          rpc_xml.read_from_file( left_camera_file );
-          model1.reset( new RPCModel( *rpc_xml.rpc_ptr() ) ); // Copy the ptr
-          rpc_xml.read_from_file( right_camera_file );
-          model2.reset( new RPCModel( *rpc_xml.rpc_ptr() ) );
-        } catch ( IOErr const& err ) {
-          // Just give up if it is not there.
-          vw_out(WarningMessage) << "Could not read the RPC models. Ignoring the input DEM \"" << input_dem << "\".";
-          return;
-        }
-      }
-
-      // Double check that we can read the DEM and that it has
-      // cartographic information.
-      if ( !fs::exists( input_dem ) )
-        vw_throw( ArgumentErr() << "StereoSessionDG: DEM \"" << input_dem
-                  << "\" does not exist." );
-
-      // Verify that center of our lonlat boundaries from the RPC models
-      // actually projects into the DEM. (?)
-
-      m_rpc_map_projected = true;
-    }
+  StereoSessionDG::~StereoSessionDG() {
+    XMLPlatformUtils::Terminate();
   }
 
   // Provide our camera model
@@ -247,6 +168,24 @@ namespace asp {
                       );
   }
 
+  bool StereoSessionDG::ip_matching( std::string const& match_filename,
+                                     double left_nodata_value,
+                                     double right_nodata_value ) {
+    // Load the unmodified images
+    DiskImageView<float> left_disk_image( m_left_image_file ),
+      right_disk_image( m_right_image_file );
+
+    boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+    camera_models( left_cam, right_cam );
+
+    return
+      ip_matching_w_alignment( left_cam.get(), right_cam.get(),
+                               left_disk_image, right_disk_image,
+                               cartography::Datum("WGS84"), match_filename,
+                               left_nodata_value,
+                               right_nodata_value);
+  }
+
   StereoSessionDG::left_tx_type
   StereoSessionDG::tx_left() const {
     Matrix<double> tx = math::identity_matrix<3>();
@@ -254,26 +193,7 @@ namespace asp {
          stereo_settings().alignment_method == "affineepipolar" ) {
       read_matrix( tx, m_out_prefix + "-align-L.exr" );
     }
-    if ( m_rpc_map_projected ) {
-      cartography::GeoReference dem_georef, image_georef;
-      if (!read_georeference( dem_georef, m_input_dem ) )
-        vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
-      if (!read_georeference( image_georef, m_left_image_file ) )
-        vw_throw( ArgumentErr() << "The image \"" << m_left_image_file << "\" lacks georeferencing information.");
-
-      // Load DEM rsrc. RPCMapTransform is casting to float internally
-      // no matter what the original type of the DEM file was.
-      boost::shared_ptr<DiskImageResource>
-        dem_rsrc( DiskImageResource::open( m_input_dem ) );
-
-      // This composes the two transforms as it is possible to do
-      // homography and affineepipolar alignment options with map
-      // projected imagery.
-      return TransformRef( compose( RPCMapTransform(*read_rpc_model(m_left_image_file, m_left_camera_file),
-                                                    image_georef, dem_georef, dem_rsrc),
-                                    HomographyTransform(tx) ) );
-    }
-    return TransformRef( HomographyTransform( tx ) );
+    return left_tx_type( tx );
   }
 
   StereoSessionDG::right_tx_type
@@ -283,26 +203,7 @@ namespace asp {
          stereo_settings().alignment_method == "affineepipolar" ) {
       read_matrix( tx, m_out_prefix + "-align-R.exr" );
     }
-    if ( m_rpc_map_projected ) {
-      cartography::GeoReference dem_georef, image_georef;
-      if (!read_georeference( dem_georef, m_input_dem ) )
-        vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
-      if (!read_georeference( image_georef, m_right_image_file ) )
-        vw_throw( ArgumentErr() << "The image \"" << m_right_image_file << "\" lacks georeferencing information.");
-
-      // Load DEM rsrc. RPCMapTransform is casting to float internally
-      // no matter what the original type of the DEM file was.
-      boost::shared_ptr<DiskImageResource>
-        dem_rsrc( DiskImageResource::open( m_input_dem ) );
-
-      // This composes the two transforms as it is possible to do
-      // homography and affineepipolar alignment options with map
-      // projected imagery.
-      return TransformRef( compose( RPCMapTransform(*read_rpc_model(m_right_image_file, m_right_camera_file),
-                                                    image_georef, dem_georef, dem_rsrc),
-                                    HomographyTransform(tx) ) );
-    }
-    return TransformRef( HomographyTransform( tx ) );
+    return right_tx_type( tx );
   }
 
   void StereoSessionDG::pre_preprocessing_hook(std::string const& left_input_file,
@@ -362,52 +263,16 @@ namespace asp {
         = ip::match_filename(m_out_prefix, left_input_file, right_input_file);
 
       if (!fs::exists(match_filename)) {
-        bool inlier = false;
-
-        boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-        camera_models( left_cam, right_cam );
-        if ( m_rpc_map_projected ) {
-          // We'll make the assumption that the user has map
-          // projected the images to the same scale. If they
-          // haven't, below would be the ideal but lossy method.
-          //            inlier =
-          //  homography_ip_matching( left_disk_image, right_disk_image,
-          //                          match_filename );
-          boost::scoped_ptr<RPCModel>
-            left_rpc( read_rpc_model( m_left_image_file, m_left_camera_file ) ),
-            right_rpc( read_rpc_model( m_right_image_file, m_right_camera_file ) );
-          cartography::GeoReference left_georef, right_georef, dem_georef;
-          read_georeference( left_georef, m_left_image_file );
-          read_georeference( right_georef, m_right_image_file );
-          read_georeference( dem_georef, m_input_dem );
-          boost::shared_ptr<DiskImageResource>
-            dem_rsrc( DiskImageResource::open( m_input_dem ) );
-          TransformRef
-            left_tx( RPCMapTransform( *left_rpc, left_georef,
-                                      dem_georef, dem_rsrc ) ),
-            right_tx( RPCMapTransform( *right_rpc, right_georef,
-                                       dem_georef, dem_rsrc ) );
-          inlier =
-            ip_matching( left_cam.get(), right_cam.get(),
-                         left_disk_image, right_disk_image,
-                         cartography::Datum("WGS84"), match_filename,
-                         left_nodata_value,
-                         right_nodata_value,
-                         left_tx, right_tx, false );
-        } else {
-          inlier =
-            ip_matching_w_alignment( left_cam.get(), right_cam.get(),
-                                     left_disk_image, right_disk_image,
-                                     cartography::Datum("WGS84"), match_filename,
-                                     left_nodata_value,
-                                     right_nodata_value);
-        }
-
+        // This is calling an internal virtualized method.
+        bool inlier =
+          ip_matching( match_filename,
+                       left_nodata_value,
+                       right_nodata_value );
         if ( !inlier ) {
           fs::remove( match_filename );
           vw_throw( IOErr() << "Unable to match left and right images." );
         }
-      }else{
+      } else {
         vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
       }
 
@@ -503,36 +368,6 @@ namespace asp {
                               apply_mask(crop(edge_extend(Rimg, ConstantEdgeExtension()), bounding_box(Limg)), output_nodata),
                               output_nodata, m_options,
                               TerminalProgressCallback("asp","\t  R:  ") );
-
-    // We could write the LUT images at this point, but I'm going to
-    // let triangulation render them on the fly. This will save a lot
-    // of storage and possibly make the triangulation faster since we
-    // don't mutex on these massive files
-  }
-
-  // Helper function to read RPC models.
-  RPCModel* StereoSessionDG::read_rpc_model( std::string const& image_file,
-                                             std::string const& camera_file ) {
-    RPCModel* rpc_model = NULL;
-    try {
-      rpc_model = new RPCModel( image_file );
-    } catch ( NotFoundErr const& err ) {}
-
-    if ( !rpc_model ) {
-      RPCXML rpc_xml;
-      rpc_xml.read_from_file( camera_file );
-      rpc_model = new RPCModel( *rpc_xml.rpc_ptr() ); // Copy the value
-
-      // We don't catch an error here because the User will need to
-      // know of a failure at this point. We previously opened the
-      // XML safely before.
-    }
-    return rpc_model;
-  }
-
-  // Xerces-C terminate
-  StereoSessionDG::~StereoSessionDG() {
-    XMLPlatformUtils::Terminate();
   }
 
 }

@@ -498,6 +498,7 @@ AC_CONFIG_FILES([                        \
   src/asp/MPI/Makefile                   \
   src/asp/Makefile                       \
   src/asp/Sessions/DG/Makefile           \
+  src/asp/Sessions/DGMapRPC/Makefile     \
   src/asp/Sessions/ISIS/Makefile         \
   src/asp/Sessions/Makefile              \
   src/asp/Sessions/NadirPinhole/Makefile \

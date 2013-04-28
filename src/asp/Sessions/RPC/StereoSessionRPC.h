@@ -26,11 +26,13 @@
 
 namespace asp {
 
+  // Forward declaration
+  class RPCModel;
+
   class StereoSessionRPC : public StereoSessionDG {
-
   public:
-
-    StereoSessionRPC(): StereoSessionDG(){}
+    StereoSessionRPC(){};
+    virtual ~StereoSessionRPC(){};
 
     // Produces a camera model from the images
     virtual boost::shared_ptr<vw::camera::CameraModel>
@@ -38,6 +40,9 @@ namespace asp {
                   std::string const& camera_file);
 
     static StereoSession* construct() { return new StereoSessionRPC; }
+
+    static RPCModel* read_rpc_model( std::string const& image_file,
+                                     std::string const& camera_file );
   };
 
 } // namespace asp

@@ -29,36 +29,26 @@
 
 namespace asp {
 
-  // Forward declaration
-  class RPCModel;
-
   class StereoSessionDG : public StereoSession {
 
   public:
     StereoSessionDG();
     virtual ~StereoSessionDG();
 
-    // Initializer that determines if our input images are map
-    // projected or if this is just a straight Digitial Globe session.
-    virtual void initialize(BaseOptions const& options,
-                            std::string const& left_image_file,
-                            std::string const& right_image_file,
-                            std::string const& left_camera_file,
-                            std::string const& right_camera_file,
-                            std::string const& out_prefix,
-                            std::string const& input_dem,
-                            std::string const& extra_argument1,
-                            std::string const& extra_argument2,
-                            std::string const& extra_argument3);
-
     // Produces a camera model from the images
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model( std::string const& image_file,
                   std::string const& camera_file = "" );
 
+    // Allows specialization of how matches are captured. Important
+    // for StereoSessionDGMapRPC.
+    virtual bool ip_matching( std::string const& match_filename,
+                              double left_nodata_value,
+                              double right_nodata_value );
+
     // For reversing our arithmetic applied in preprocessing.
-    typedef vw::TransformRef   left_tx_type;
-    typedef vw::TransformRef right_tx_type;
+    typedef vw::HomographyTransform left_tx_type;
+    typedef vw::HomographyTransform right_tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
     left_tx_type tx_left() const;
     right_tx_type tx_right() const;
@@ -73,14 +63,6 @@ namespace asp {
                                         std::string &right_output_file);
 
     static StereoSession* construct() { return new StereoSessionDG; }
-
-  protected:
-
-    bool m_rpc_map_projected;
-
-    vw::ImageViewRef<vw::Vector2f> generate_lut_image( std::string const&, std::string const& ) const;
-    static RPCModel* read_rpc_model( std::string const& image_file, std::string const& camera_file );
-
   };
 
 }

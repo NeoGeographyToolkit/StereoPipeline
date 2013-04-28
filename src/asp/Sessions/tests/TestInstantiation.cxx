@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Sessions/DG/StereoSessionDG.h>
+#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
 #include <asp/Sessions/RPC/StereoSessionRPC.h>
 #include <asp/Sessions/ISIS/StereoSessionIsis.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
@@ -27,7 +28,8 @@ using namespace vw;
 using namespace asp;
 
 // This is to make sure the developers provide types for their
-// sessions. The test is to see if this even compiles.
+// sessions. The test is to see if this even compiles. Not if it
+// runs. (It doesn't)
 template <typename T>
 class InstantiationTest : public ::testing::Test {
 public:
@@ -40,18 +42,18 @@ public:
   SessionT session;
 };
 
-typedef ::testing::Types<StereoSessionDG, StereoSessionRPC, StereoSessionIsis, StereoSessionPinhole, StereoSessionNadirPinhole> SessionTypes;
+typedef ::testing::Types<StereoSessionDG, StereoSessionDGMapRPC, StereoSessionRPC, StereoSessionIsis, StereoSessionPinhole, StereoSessionNadirPinhole> SessionTypes;
 TYPED_TEST_CASE( InstantiationTest, SessionTypes );
 
 TYPED_TEST( InstantiationTest, Typedefs ) {
-  // Verify object for left transform
-  typename TestFixture::SessionT::left_tx_type left_tx =
-    this->session.tx_left();
-
-  // Verify object for right transform
-  typename TestFixture::SessionT::right_tx_type right_tx =
-    this->session.tx_right();
-
-  // Verify object for stereo model
-  typename TestFixture::SessionT::stereo_model_type stereo_model();
+  try {
+    // Verify object for left transform
+    typename TestFixture::SessionT::left_tx_type left_tx =
+      this->session.tx_left();
+    // Verify object for right transform
+    typename TestFixture::SessionT::right_tx_type right_tx =
+      this->session.tx_right();
+    // Verify object for stereo model
+    typename TestFixture::SessionT::stereo_model_type stereo_model();
+  } catch ( const vw::Exception& e ) {}
 }

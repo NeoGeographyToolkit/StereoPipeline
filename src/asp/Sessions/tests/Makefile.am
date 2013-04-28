@@ -23,10 +23,12 @@
 if MAKE_MODULE_SESSIONS
 
 TestStereoSessionDG_SOURCES  = TestStereoSessionDG.cxx
+TestStereoSessionDGMapRPC_SOURCES = TestStereoSessionDGMapRPC.cxx
 TestStereoSessionRPC_SOURCES = TestStereoSessionRPC.cxx
 TestInstantiation_SOURCES    = TestInstantiation.cxx
 
-TESTS = TestStereoSessionDG TestStereoSessionRPC TestInstantiation
+TESTS = TestStereoSessionDG TestStereoSessionDGMapRPC	\
+TestStereoSessionRPC TestInstantiation
 
 endif
 
