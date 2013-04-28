@@ -29,7 +29,7 @@ namespace asp {
   // RPCMapTransform. Used to test the validity of IP matching on map
   // projected images. However, this could be used for performing an RPC
   // map projection.
-  class RPCMapTransform : public vw::TransformBase<RPCMapTransform> {
+  class RPCMapTransform : public vw::TransformHelper<RPCMapTransform,vw::ConvexFunction,vw::ConvexFunction> {
     RPCModel m_rpc;
     vw::cartography::GeoReference m_image_georef, m_dem_georef;
     vw::DiskImageView<float> m_dem;
