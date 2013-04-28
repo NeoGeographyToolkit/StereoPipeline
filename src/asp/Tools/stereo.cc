@@ -217,8 +217,24 @@ namespace asp {
       opt.stereo_session_string = "isis";
       return;
     }
-    // RPC can be in the main file or it can be in the camera file
+    if (boost::iends_with(boost::to_lower_copy(opt.cam_file1), ".xml") &&
+        boost::iends_with(boost::to_lower_copy(opt.cam_file2), ".xml")) {
+      if ( !opt.input_dem.empty() ) {
+        vw_out() << "\t--> Detected likely Digital Globe XML files and DEM. "
+                 << "Executing DG RPC Map Projected stereo pipeline.\n";
+        opt.stereo_session_string = "dgmaprpc";
+      } else {
+        vw_out() << "\t--> Detected likely Digital Globe XML files. "
+                 << "Executing DG stereo pipeline.\n";
+        opt.stereo_session_string = "dg";
+      }
+      return;
+    }
     try {
+      // RPC can be in the main file or it can be in the camera file
+      // DG sessions are always RPC sessions because they contain that
+      // as an extra camera model. Thus this RPC check must happen
+      // last.
       StereoSessionRPC session;
       boost::shared_ptr<camera::CameraModel>
         left_model = session.camera_model( opt.in_file1, opt.cam_file1 ),
@@ -229,13 +245,6 @@ namespace asp {
       return;
     } catch ( vw::NotFoundErr const& e ) {
       // If it throws, it wasn't RPC
-    }
-    if (boost::iends_with(boost::to_lower_copy(opt.cam_file1), ".xml") &&
-        boost::iends_with(boost::to_lower_copy(opt.cam_file2), ".xml")) {
-      vw_out() << "\t--> Detected likely Digital Globe XML files. "
-               << "Executing DG stereo pipeline.\n";
-      opt.stereo_session_string = "dg";
-      return;
     }
 
     // If we get to this point. We couldn't guess the session type
