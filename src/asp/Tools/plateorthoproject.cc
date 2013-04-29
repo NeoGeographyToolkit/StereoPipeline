@@ -242,10 +242,6 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
 
 void do_run( Options& opt ) {
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
-#endif
-
   // Extracting camera model from stereo session
   typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
   SessionPtr session( asp::StereoSession::create(opt.session) );

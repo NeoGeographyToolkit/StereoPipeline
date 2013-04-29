@@ -264,11 +264,6 @@ namespace asp {
                                           &DiskImageResourceIsis::construct_open,
                                           &DiskImageResourceIsis::construct_create);
 #endif
-    asp::StereoSession::register_session_type( "rpc",  &asp::StereoSessionRPC::construct);
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
-#endif
-
   }
 
   void user_safety_checks(Options const& opt){

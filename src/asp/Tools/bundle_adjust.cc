@@ -185,12 +185,6 @@ int main(int argc, char* argv[]) {
                                         &DiskImageResourceIsis::construct_create);
 #endif
 
-  // Register all stereo session types
-  asp::StereoSession::register_session_type( "rmax", &asp::StereoSessionRmax::construct);
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
-#endif
-
   Options opt;
   try {
     handle_arguments( argc, argv, opt );

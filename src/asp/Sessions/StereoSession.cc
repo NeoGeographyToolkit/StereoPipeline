@@ -80,6 +80,9 @@ namespace asp {
     StereoSession::register_session_type( "nadirpinhole", &StereoSessionNadirPinhole::construct );
     StereoSession::register_session_type( "pinhole", &StereoSessionPinhole::construct );
     StereoSession::register_session_type( "rpc", &StereoSessionRPC::construct );
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+    asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
+#endif
   }
 
   StereoSession* StereoSession::create( std::string const& session_type ) {

@@ -189,11 +189,6 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
-    // Create a fresh stereo session and query it for the camera models.
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-    asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
-#endif
-
     // If the user hasn't specified a stereo session type, we take a
     // guess here based on the file suffixes.
     if ( opt.stereo_session.empty() ) {

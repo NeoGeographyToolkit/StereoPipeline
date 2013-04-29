@@ -131,10 +131,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  asp::StereoSession::register_session_type( "isis", &asp::StereoSessionIsis::construct);
-#endif
-
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
