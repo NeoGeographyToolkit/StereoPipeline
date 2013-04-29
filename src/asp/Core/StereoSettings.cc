@@ -334,7 +334,10 @@ namespace asp {
                          bool allow_unregistered ) {
     std::basic_ifstream<char> strm(filename.c_str());
     if (!strm) {
-      boost::throw_exception(po::reading_file(filename.c_str()));
+      vw_out(WarningMessage)
+        << "Stereo file: " << filename << " could not be found. "
+        << "Will use default settings and command line options only."
+        << std::endl;
     }
     return parse_asp_config_file(strm, desc, allow_unregistered);
   }
