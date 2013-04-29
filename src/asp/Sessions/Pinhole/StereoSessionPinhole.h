@@ -38,7 +38,7 @@ namespace asp {
                  std::string const& camera_file = "");
 
     // For reversing our arithmetic applied in preprocessing.
-    typedef vw::IdentityTransform   left_tx_type;
+    typedef vw::HomographyTransform left_tx_type;
     typedef vw::HomographyTransform right_tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
     left_tx_type tx_left() const;
