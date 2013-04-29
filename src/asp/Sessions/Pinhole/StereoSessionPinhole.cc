@@ -127,7 +127,7 @@ asp::StereoSessionPinhole::camera_model(std::string const& /*image_file*/,
 
 asp::StereoSessionPinhole::left_tx_type
 asp::StereoSessionPinhole::tx_left() const {
-  return StereoSessionPinhole::left_tx_type();
+  return left_tx_type( math::identity_matrix<3>() );
 }
 
 asp::StereoSessionPinhole::right_tx_type
@@ -135,7 +135,7 @@ asp::StereoSessionPinhole::tx_right() const {
   if ( stereo_settings().alignment_method == "homography" ) {
     Matrix<double> align_matrix;
     read_matrix( align_matrix, m_out_prefix + "-align-R.exr" );
-    return right_tx_type( math::identity_matrix<3>() );
+    return right_tx_type( align_matrix );
   }
   return right_tx_type( math::identity_matrix<3>() );
 }
