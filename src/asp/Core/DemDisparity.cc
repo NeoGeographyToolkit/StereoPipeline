@@ -28,6 +28,8 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
 #include <vw/InterestPoint/MatrixIO.h>
+#include <boost/filesystem/operations.hpp>
+namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace vw::cartography;
@@ -332,8 +334,10 @@ namespace asp {
       // We used a transform to align the images, so we have to make
       // sure to apply that transform to the disparity we are about to
       // compute as well.
-      read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
-      read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
+      if ( fs::exists(opt.out_prefix+"-align-L.exr") )
+        read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
+      if ( fs::exists(opt.out_prefix+"-align-R.exr") )
+        read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
       vw_out(DebugMessage,"asp") << "Left alignment matrix: " << align_left_matrix << "\n";
       vw_out(DebugMessage,"asp") << "Right alignment matrix: " << align_right_matrix << "\n";
     }
