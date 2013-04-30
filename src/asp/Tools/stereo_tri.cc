@@ -290,19 +290,23 @@ int main( int argc, char* argv[] ) {
 
     // Internal Processes
     //---------------------------------------------------------
-    if (        opt.stereo_session_string == "pinhole" ) {
+#define TEST(T) boost::dynamic_pointer_cast<T>( opt.session )
+
+    if ( TEST(StereoSessionPinhole) ) {
       stereo_triangulation<StereoSessionPinhole>( opt );
-    } else if ( opt.stereo_session_string == "nadirpinhole" ) {
+    } else if ( TEST(StereoSessionNadirPinhole) ) {
       stereo_triangulation<StereoSessionNadirPinhole>( opt );
-    } else if ( opt.stereo_session_string == "isis"   ) {
+    } else if ( TEST(StereoSessionIsis ) ) {
       stereo_triangulation<StereoSessionIsis>( opt );
-    } else if ( opt.stereo_session_string == "rpc"    ) {
+    } else if ( TEST(StereoSessionRPC ) ) {
       stereo_triangulation<StereoSessionRPC>( opt );
-    } else if ( opt.stereo_session_string == "dg"     ) {
+    } else if ( TEST(StereoSessionDG ) ) {
       stereo_triangulation<StereoSessionDG>( opt );
-    } else if ( opt.stereo_session_string == "dgmaprpc" ) {
+    } else if ( TEST(StereoSessionDGMapRPC ) ) {
       stereo_triangulation<StereoSessionDGMapRPC>( opt );
     }
+
+#undef TEST
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : TRIANGULATION FINISHED \n";

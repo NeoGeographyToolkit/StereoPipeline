@@ -85,13 +85,80 @@ namespace asp {
 #endif
   }
 
-  StereoSession* StereoSession::create( std::string const& session_type ) {
+  StereoSession* StereoSession::create( std::string const& session_type,
+                                        BaseOptions const& options,
+                                        std::string const& left_image_file,
+                                        std::string const& right_image_file,
+                                        std::string const& left_camera_file,
+                                        std::string const& right_camera_file,
+                                        std::string const& out_prefix,
+                                        std::string const& input_dem,
+                                        std::string const& extra_argument1,
+                                        std::string const& extra_argument2,
+                                        std::string const& extra_argument3) {
     register_default_session_types();
+
+    // Known user session types are:
+    // DG, RPC, ISIS, Pinhole, NadirPinhole
+    //
+    // Hidden sessions are:
+    // DGMapRPC, Blank (Guessing)
+    std::string actual_session_type = session_type;
+    boost::to_lower(actual_session_type);
+    if ( !input_dem.empty() && actual_session_type == "dg" ) {
+      // User says DG .. but also gives a DEM.
+      actual_session_type = "dgmaprpc";
+    } else if ( actual_session_type.empty() ) {
+      if ( asp::has_cam_extension( left_camera_file ) ||
+           asp::has_cam_extension( right_camera_file ) ) {
+        actual_session_type = "pinhole";
+      }
+      if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") ||
+          boost::iends_with(boost::to_lower_copy(right_image_file), ".cub")) {
+        actual_session_type = "isis";
+      }
+      if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".xml") ||
+          boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml")) {
+        if ( !input_dem.empty() ) {
+          actual_session_type = "dgmaprpc";
+        } else {
+          actual_session_type = "dg";
+        }
+      }
+      try {
+        // RPC can be in the main file or it can be in the camera file
+        // DG sessions are always RPC sessions because they contain that
+        // as an extra camera model. Thus this RPC check must happen
+        // last.
+        StereoSessionRPC session;
+        boost::shared_ptr<camera::CameraModel>
+          left_model = session.camera_model( left_image_file, left_camera_file ),
+          right_model = session.camera_model( right_image_file, right_camera_file );
+        actual_session_type = "rpc";
+      } catch ( vw::NotFoundErr const& e ) {
+        // If it throws, it wasn't RPC
+      }
+
+      // If we get to this point. We couldn't guess the session type
+      VW_ASSERT( !actual_session_type.empty(),
+                 ArgumentErr() << "Could not determine stereo session type. "
+                 << "Please set it explicitly.\n"
+                 << "using the -t switch. Options include: [pinhole isis dg rpc].\n" );
+      VW_OUT(DebugMessage,"asp") << "Guessed session type to be " << actual_session_type << std::endl;
+    }
+
     if( stereo_session_construct_map ) {
       ConstructMapType::const_iterator i =
-        stereo_session_construct_map->find( session_type );
-      if( i != stereo_session_construct_map->end() )
-        return i->second();
+        stereo_session_construct_map->find( actual_session_type );
+      if( i != stereo_session_construct_map->end() ) {
+        StereoSession* session_new = i->second();
+        session_new->initialize( options,
+                                 left_image_file, right_image_file,
+                                 left_camera_file, right_camera_file,
+                                 out_prefix, input_dem, extra_argument1,
+                                 extra_argument2, extra_argument3 );
+        return session_new;
+      }
     }
     vw_throw( vw::NoImplErr() << "Unsuppported stereo session type: "
               << session_type );

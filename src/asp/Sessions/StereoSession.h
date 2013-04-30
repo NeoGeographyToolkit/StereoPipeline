@@ -81,7 +81,6 @@ namespace asp {
       return result;
     }
 
-  public:
     virtual void initialize (BaseOptions const& options,
                              std::string const& left_image_file,
                              std::string const& right_image_file,
@@ -93,10 +92,21 @@ namespace asp {
                              std::string const& extra_argument2,
                              std::string const& extra_argument3);
 
+  public:
     virtual ~StereoSession() {}
 
     // Methods (mostly static) for registering and creating stereo sessions.
-    static StereoSession* create( std::string const& session_type );
+    static StereoSession* create( std::string const& session_type,
+                                  BaseOptions const& options,
+                                  std::string const& left_image_file = "",
+                                  std::string const& right_image_file = "",
+                                  std::string const& left_camera_file = "",
+                                  std::string const& right_camera_file = "",
+                                  std::string const& out_prefix = "",
+                                  std::string const& input_dem = "",
+                                  std::string const& extra_argument1 = "",
+                                  std::string const& extra_argument2 = "",
+                                  std::string const& extra_argument3 = "");
     typedef StereoSession* (*construct_func)();
     static void register_session_type( std::string const& id, construct_func func);
 

@@ -119,11 +119,6 @@ namespace asp {
     }
     asp::stereo_settings().validate();
 
-    // If the user hasn't specified a stereo session type, we take a
-    // guess here based on the file suffixes.
-    if (opt.stereo_session_string.empty())
-      guess_session_type(opt);
-
     // Some specialization here so that the user doesn't need to list
     // camera models on the command line for certain stereo session
     // types.  (e.g. isis).
@@ -185,12 +180,15 @@ namespace asp {
       }
     }
 
-    opt.session.reset( asp::StereoSession::create(opt.stereo_session_string) );
-    opt.session->initialize(opt, opt.in_file1, opt.in_file2,
-                            opt.cam_file1, opt.cam_file2,
-                            opt.out_prefix, opt.input_dem, opt.extra_argument1,
-                            opt.extra_argument2, opt.extra_argument3);
-
+    opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,
+                                                  opt, opt.in_file1,
+                                                  opt.in_file2,
+                                                  opt.cam_file1, opt.cam_file2,
+                                                  opt.out_prefix,
+                                                  opt.input_dem,
+                                                  opt.extra_argument1,
+                                                  opt.extra_argument2,
+                                                  opt.extra_argument3) );
     user_safety_checks(opt);
 
     // The last thing we do before we get started is to copy the
@@ -200,57 +198,6 @@ namespace asp {
     asp::stereo_settings().write_copy( argc, argv,
                                        opt.stereo_default_filename,
                                        opt.out_prefix + "-stereo.default" );
-  }
-
-  void guess_session_type(Options& opt) {
-    if ( asp::has_cam_extension( opt.cam_file1 ) &&
-         asp::has_cam_extension( opt.cam_file2 ) ) {
-      vw_out() << "\t--> Detected pinhole camera files. "
-               << "Executing pinhole stereo pipeline.\n";
-      opt.stereo_session_string = "pinhole";
-      return;
-    }
-    if (boost::iends_with(boost::to_lower_copy(opt.in_file1), ".cub") &&
-        boost::iends_with(boost::to_lower_copy(opt.in_file2), ".cub")) {
-      vw_out() << "\t--> Detected ISIS cube files. "
-               << "Executing ISIS stereo pipeline.\n";
-      opt.stereo_session_string = "isis";
-      return;
-    }
-    if (boost::iends_with(boost::to_lower_copy(opt.cam_file1), ".xml") &&
-        boost::iends_with(boost::to_lower_copy(opt.cam_file2), ".xml")) {
-      if ( !opt.input_dem.empty() ) {
-        vw_out() << "\t--> Detected likely Digital Globe XML files and DEM. "
-                 << "Executing DG RPC Map Projected stereo pipeline.\n";
-        opt.stereo_session_string = "dgmaprpc";
-      } else {
-        vw_out() << "\t--> Detected likely Digital Globe XML files. "
-                 << "Executing DG stereo pipeline.\n";
-        opt.stereo_session_string = "dg";
-      }
-      return;
-    }
-    try {
-      // RPC can be in the main file or it can be in the camera file
-      // DG sessions are always RPC sessions because they contain that
-      // as an extra camera model. Thus this RPC check must happen
-      // last.
-      StereoSessionRPC session;
-      boost::shared_ptr<camera::CameraModel>
-        left_model = session.camera_model( opt.in_file1, opt.cam_file1 ),
-        right_model = session.camera_model( opt.in_file2, opt.cam_file2 );
-      vw_out() << "\t--> Detected RPC Model inside image files. "
-               << "Executing RPC stereo pipeline.\n";
-      opt.stereo_session_string = "rpc";
-      return;
-    } catch ( vw::NotFoundErr const& e ) {
-      // If it throws, it wasn't RPC
-    }
-
-    // If we get to this point. We couldn't guess the session type
-    vw_throw( ArgumentErr() << "Could not determine stereo session type. "
-              << "Please set it explicitly.\n"
-              << "using the -t switch. Options include: [pinhole isis dg rpc].\n" );
   }
 
   // Register Session types

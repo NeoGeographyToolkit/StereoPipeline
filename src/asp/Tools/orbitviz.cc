@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
     handle_arguments( argc, argv, opt );
 
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSession::create(opt.stereo_session_string) );
+    SessionPtr session( asp::StereoSession::create(opt.stereo_session_string, opt ) );
 
     // Data to be loaded
     unsigned no_cameras = opt.loading_image_camera_order ? opt.input_files.size()/2 : opt.input_files.size();
@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
       else
         current_camera = session->camera_model( opt.input_files[read_i],
                                                 opt.input_files[read_i] );
-	
+
       if ( opt.write_csv ) {
         csv_file << camera_names[load_i] << ", ";
 

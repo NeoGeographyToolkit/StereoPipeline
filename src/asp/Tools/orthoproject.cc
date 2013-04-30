@@ -226,12 +226,13 @@ int main(int argc, char* argv[]) {
     // camera models, but only one is used.  The last four empty strings
     // are dummy arguments.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSession::create(opt.stereo_session) );
-    session->initialize(opt, opt.image_file, opt.image_file,
-                        opt.camera_model_file, opt.camera_model_file,
-                        opt.output_file, "","","","" );
-    boost::shared_ptr<camera::CameraModel> camera_model;
-    camera_model = session->camera_model(opt.image_file, opt.camera_model_file);
+    SessionPtr session( asp::StereoSession::create(opt.stereo_session, opt,
+                                                   opt.image_file, opt.image_file,
+                                                   opt.camera_model_file,
+                                                   opt.camera_model_file,
+                                                   opt.output_file) );
+    boost::shared_ptr<camera::CameraModel> camera_model =
+      session->camera_model(opt.image_file, opt.camera_model_file);
 
     GeoReference dem_georef;
     ImageViewRef<PixelMask<float > > dem;
@@ -258,7 +259,7 @@ int main(int argc, char* argv[]) {
       bool has_georef = cartography::read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
         vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
-      
+
       DiskImageView<float> dem_disk_image(opt.dem_file);
       dem = pixel_cast<PixelMask<float> >(dem_disk_image);
 
