@@ -65,6 +65,8 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
     rpc_xml.read_from_file( right_camera_file );
     model2.reset( new RPCModel( *rpc_xml.rpc_ptr() ) );
   }
+  VW_ASSERT( model1.get() && model2.get(),
+             ArgumentErr() << "StereoSessionDGMapRPC: Unable to locate RPC inside input files." );
 
   // Double check that we can read the DEM and that it has
   // cartographic information.

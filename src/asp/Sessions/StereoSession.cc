@@ -108,6 +108,7 @@ namespace asp {
     if ( !input_dem.empty() && actual_session_type == "dg" ) {
       // User says DG .. but also gives a DEM.
       actual_session_type = "dgmaprpc";
+      VW_OUT(DebugMessage,"asp") << "Changing session type to be \"dgmaprpc\"" << std::endl;
     } else if ( actual_session_type.empty() ) {
       if ( asp::has_cam_extension( left_camera_file ) ||
            asp::has_cam_extension( right_camera_file ) ) {

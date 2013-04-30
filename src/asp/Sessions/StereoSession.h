@@ -95,7 +95,7 @@ namespace asp {
   public:
     virtual ~StereoSession() {}
 
-    // Methods (mostly static) for registering and creating stereo sessions.
+    // Methods for registering and creating stereo sessions.
     static StereoSession* create( std::string const& session_type,
                                   BaseOptions const& options,
                                   std::string const& left_image_file = "",
@@ -114,10 +114,13 @@ namespace asp {
     virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
                                boost::shared_ptr<vw::camera::CameraModel> &cam2);
 
-    // Method that actual produces a Camera Model.
+    // Method that produces a Camera Model.
     virtual boost::shared_ptr<vw::camera::CameraModel>
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "") = 0;
+
+    // Method to help determine what session we actually have
+    virtual std::string name() const = 0;
 
     // Stage 1: Preprocessing
     //

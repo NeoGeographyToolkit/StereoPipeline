@@ -57,3 +57,29 @@ TYPED_TEST( InstantiationTest, Typedefs ) {
     typename TestFixture::SessionT::stereo_model_type stereo_model();
   } catch ( const vw::Exception& e ) {}
 }
+
+TEST( Instantiation, Names ) {
+  std::vector<StereoSession*> sessions;
+  BaseOptions opt;
+  sessions.push_back( StereoSessionDG::construct() );
+  sessions.push_back( StereoSessionDGMapRPC::construct() );
+  sessions.push_back( StereoSessionRPC::construct() );
+  sessions.push_back( StereoSessionIsis::construct() );
+  sessions.push_back( StereoSessionPinhole::construct() );
+  sessions.push_back( StereoSessionNadirPinhole::construct() );
+
+  for ( size_t i = 0; i < 6; i++ ) {
+    EXPECT_TRUE( sessions[i] );
+  }
+
+  std::set<std::string> names;
+  for ( size_t i = 0; i < 6; i++ ) {
+    EXPECT_EQ( names.end(), names.find( sessions[i]->name() ) );
+    names.insert( sessions[i]->name() );
+  }
+  EXPECT_EQ( names.size(), 6 );
+
+  for ( size_t i = 0; i < 6; i++ ) {
+    delete sessions[i];
+  }
+}

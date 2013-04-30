@@ -36,13 +36,14 @@ namespace asp {
   public:
     virtual ~StereoSessionNadirPinhole() {}
 
+    virtual std::string name() const { return "nadirpinhole"; }
+
     // For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform left_tx_type;
     typedef vw::HomographyTransform right_tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
     left_tx_type tx_left() const;
     right_tx_type tx_right() const;
-
 
     // Stage 1: Preprocessing
     virtual void pre_preprocessing_hook( std::string const& left_input_file,

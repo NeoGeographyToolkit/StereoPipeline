@@ -145,6 +145,8 @@ namespace asp {
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "");
 
+    virtual std::string name() const { return "isis"; }
+
     typedef vw::HomographyTransform left_tx_type;
     typedef vw::HomographyTransform right_tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;

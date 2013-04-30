@@ -37,6 +37,8 @@ namespace asp {
     camera_model(std::string const& image_file,
                  std::string const& camera_file = "");
 
+    virtual std::string name() const { return "pinhole"; }
+
     // For reversing our arithmetic applied in preprocessing.
     typedef vw::HomographyTransform left_tx_type;
     typedef vw::HomographyTransform right_tx_type;

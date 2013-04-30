@@ -290,23 +290,16 @@ int main( int argc, char* argv[] ) {
 
     // Internal Processes
     //---------------------------------------------------------
-#define TEST(T) boost::dynamic_pointer_cast<T>( opt.session )
+#define INSTANTIATE(T,NAME) if ( opt.session->name() == NAME ) { stereo_triangulation<T>(opt); }
 
-    if ( TEST(StereoSessionPinhole) ) {
-      stereo_triangulation<StereoSessionPinhole>( opt );
-    } else if ( TEST(StereoSessionNadirPinhole) ) {
-      stereo_triangulation<StereoSessionNadirPinhole>( opt );
-    } else if ( TEST(StereoSessionIsis ) ) {
-      stereo_triangulation<StereoSessionIsis>( opt );
-    } else if ( TEST(StereoSessionRPC ) ) {
-      stereo_triangulation<StereoSessionRPC>( opt );
-    } else if ( TEST(StereoSessionDG ) ) {
-      stereo_triangulation<StereoSessionDG>( opt );
-    } else if ( TEST(StereoSessionDGMapRPC ) ) {
-      stereo_triangulation<StereoSessionDGMapRPC>( opt );
-    }
+    INSTANTIATE(StereoSessionPinhole,"pinhole");
+    INSTANTIATE(StereoSessionNadirPinhole,"nadirpinhole");
+    INSTANTIATE(StereoSessionIsis,"isis");
+    INSTANTIATE(StereoSessionRPC,"rpc");
+    INSTANTIATE(StereoSessionDG,"dg");
+    INSTANTIATE(StereoSessionDGMapRPC,"dgmaprpc");
 
-#undef TEST
+#undef INSTANTIATE
 
     vw_out() << "\n[ " << current_posix_time_string()
              << " ] : TRIANGULATION FINISHED \n";

@@ -65,6 +65,8 @@ namespace asp {
                             std::string const& extra_argument2,
                             std::string const& extra_argument3);
 
+    virtual std::string name() const { return "dgmaprpc"; }
+
     // Allows specialization of how matches are captured.
     virtual bool ip_matching( std::string const& match_filename,
                               double left_nodata_value,

@@ -39,6 +39,8 @@ namespace asp {
     camera_model( std::string const& image_file,
                   std::string const& camera_file);
 
+    virtual std::string name() const { return "rpc"; }
+
     static StereoSession* construct() { return new StereoSessionRPC; }
 
     static RPCModel* read_rpc_model( std::string const& image_file,

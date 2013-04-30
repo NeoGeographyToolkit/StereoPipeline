@@ -40,6 +40,8 @@ namespace asp {
     camera_model( std::string const& image_file,
                   std::string const& camera_file = "" );
 
+    virtual std::string name() const { return "dg"; }
+
     // Allows specialization of how matches are captured. Important
     // for StereoSessionDGMapRPC.
     virtual bool ip_matching( std::string const& match_filename,
