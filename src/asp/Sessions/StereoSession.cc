@@ -20,12 +20,7 @@
 ///
 
 #include <asp/Core/StereoSettings.h>
-#include <asp/Sessions/StereoSession.h>
-#include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
-#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
-#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
-#include <asp/Sessions/RPC/StereoSessionRPC.h>
+#include <asp/Sessions.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Stereo/DisparityMap.h>
