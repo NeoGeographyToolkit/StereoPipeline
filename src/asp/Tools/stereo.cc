@@ -119,26 +119,30 @@ namespace asp {
     }
     asp::stereo_settings().validate();
 
-    // Some specialization here so that the user doesn't need to list
-    // camera models on the command line for certain stereo session
-    // types.  (e.g. isis).
-    //
-    // TODO: This modification of arguments should probably happen in
-    // initialization and not be dependent on Stereo knowing what
-    // session it is in.
-    bool check_for_camera_models = true;
-    if ( opt.stereo_session_string == "isis" ) {
-      // Fix the ordering of the arguments if the user only supplies 3
-      if (opt.out_prefix.empty()) {
-        opt.out_prefix = opt.cam_file1;
-        opt.cam_file1.clear();
-      }
-      check_for_camera_models = false;
+    /// There are 3 valid methods of input into this application
+    /// 1.) <image1> <image2> <cam1> <cam2> <prefix> <dem>
+    /// 2.) <image1> <image2> <cam1> <cam2> <prefix>
+    /// 3.) <image1> <image2> <prefix>
+
+    /// Correcting for Case 3:
+    bool this_is_case3 = false;
+    if ( opt.out_prefix.empty() && opt.cam_file2.empty() ) {
+      opt.out_prefix = opt.cam_file1;
+      opt.cam_file1.clear();
+      this_is_case3 = true;
     }
 
-    if ( check_for_camera_models &&
-         ( opt.out_prefix.empty() || opt.cam_file2.empty() ) )
-      vw_throw( ArgumentErr() << "\nMissing output-prefix or right camera model.\n" );
+    /// Error checking
+    if ( opt.out_prefix.empty() )
+      vw_throw( ArgumentErr() << "Missing output prefix" );
+    if ( opt.in_file1.empty() )
+      vw_throw( ArgumentErr() << "Missing left input image" );
+    if ( opt.in_file2.empty() )
+      vw_throw( ArgumentErr() << "Missing right input image" );
+    if ( !this_is_case3 && opt.cam_file1.empty() )
+      vw_throw( ArgumentErr() << "Missing left camera file" );
+    if ( !this_is_case3 && opt.cam_file2.empty() )
+      vw_throw( ArgumentErr() << "Missing right camera file" );
 
     // Interpret the the last two coordinates of left_image_crop_win as
     // width and height rather than max_x and max_y
