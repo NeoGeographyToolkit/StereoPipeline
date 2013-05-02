@@ -22,12 +22,14 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/Transform.h>
+#include <vw/Image/MaskViews.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <vw/Image/MaskViews.h>
+#include <vw/InterestPoint/MatrixIO.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DemDisparity.h>
-#include <vw/InterestPoint/MatrixIO.h>
+#include <asp/Sessions/StereoSession.h>
+
 #include <boost/filesystem/operations.hpp>
 namespace fs = boost::filesystem;
 
@@ -360,7 +362,7 @@ namespace asp {
                       );
     std::string disparity_file = opt.out_prefix + "-D_sub.tif";
     vw_out() << "Writing low-resolution disparity: " << disparity_file << "\n";
-    if ( opt.stereo_session_string == "isis" ){
+    if ( opt.session->name() == "isis" ){
       // ISIS does not support multi-threading
       boost::scoped_ptr<DiskImageResource> drsrc( asp::build_gdal_rsrc( disparity_file,
                                                                         lowres_disparity, opt ) );

@@ -271,7 +271,6 @@ namespace asp {
     }
 
     // Checks for map-projected images below
-
     if ( !opt.input_dem.empty() && stereo_settings().seed_mode == 2 )
       vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
@@ -284,8 +283,8 @@ namespace asp {
                 << "cannot use the provided DEM: " << opt.input_dem << ".n");
     }
 
-    if (opt.stereo_session_string == "dg" &&
-        has_georef1 && has_georef2 && opt.input_dem == "") {
+    if ( (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" ) &&
+         has_georef1 && has_georef2 && opt.input_dem == "") {
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";

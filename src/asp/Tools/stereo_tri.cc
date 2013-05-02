@@ -63,7 +63,7 @@ namespace asp{
     std::string point_cloud_file = opt.out_prefix + "-PC.tif";
     vw_out() << "Writing Point Cloud: " << point_cloud_file << "\n";
 
-    if ( opt.stereo_session_string == "isis" ){
+    if ( opt.session->name() == "isis" ){
       // ISIS does not support multi-threading
       asp::write_gdal_image( point_cloud_file, point_cloud, opt,
                              TerminalProgressCallback("asp", "\t--> Triangulating: "));
@@ -232,7 +232,7 @@ void stereo_triangulation( Options const& opt ) {
     // directly to a file on disk.
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
     if ( stereo_settings().universe_center == "camera" ) {
-      if (opt.stereo_session_string == "rpc")
+      if (opt.session->name() == "rpc")
         vw_throw(InputErr() << "Stereo with RPC cameras cannot have the camera as the universe center.\n");
 
       universe_radius_func =
