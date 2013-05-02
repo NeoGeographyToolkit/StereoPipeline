@@ -102,19 +102,26 @@ namespace asp {
     boost::to_lower(actual_session_type);
     if ( !input_dem.empty() && actual_session_type == "dg" ) {
       // User says DG .. but also gives a DEM.
+
       actual_session_type = "dgmaprpc";
       VW_OUT(DebugMessage,"asp") << "Changing session type to be \"dgmaprpc\"" << std::endl;
     } else if ( actual_session_type.empty() ) {
-      if ( asp::has_cam_extension( left_camera_file ) ||
-           asp::has_cam_extension( right_camera_file ) ) {
+      // User didn't tell us. So let's guess
+
+      bool still_checking = true;
+      if ( ( asp::has_cam_extension( left_camera_file ) ||
+             asp::has_cam_extension( right_camera_file ) ) &&
+           actual_session_type.empty() ) {
         actual_session_type = "pinhole";
       }
-      if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") ||
-          boost::iends_with(boost::to_lower_copy(right_image_file), ".cub")) {
+      if ( (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") ||
+            boost::iends_with(boost::to_lower_copy(right_image_file), ".cub") ) &&
+           actual_session_type.empty() ) {
         actual_session_type = "isis";
       }
-      if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".xml") ||
-          boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml")) {
+      if ( (boost::iends_with(boost::to_lower_copy(left_camera_file), ".xml") ||
+            boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml") ) &&
+           actual_session_type.empty() ) {
         if ( !input_dem.empty() ) {
           actual_session_type = "dgmaprpc";
         } else {
@@ -122,17 +129,21 @@ namespace asp {
         }
       }
       try {
-        // RPC can be in the main file or it can be in the camera file
-        // DG sessions are always RPC sessions because they contain that
-        // as an extra camera model. Thus this RPC check must happen
-        // last.
-        StereoSessionRPC session;
-        boost::shared_ptr<camera::CameraModel>
-          left_model = session.camera_model( left_image_file, left_camera_file ),
-          right_model = session.camera_model( right_image_file, right_camera_file );
-        actual_session_type = "rpc";
+        if ( actual_session_type.empty() ) {
+          // RPC can be in the main file or it can be in the camera file
+          // DG sessions are always RPC sessions because they contain that
+          // as an extra camera model. Thus this RPC check must happen
+          // last.
+          StereoSessionRPC session;
+          boost::shared_ptr<camera::CameraModel>
+            left_model = session.camera_model( left_image_file, left_camera_file ),
+            right_model = session.camera_model( right_image_file, right_camera_file );
+          actual_session_type = "rpc";
+        }
       } catch ( vw::NotFoundErr const& e ) {
         // If it throws, it wasn't RPC
+      } catch ( ... ) {
+        // It didn't even have XML!
       }
 
       // If we get to this point. We couldn't guess the session type
