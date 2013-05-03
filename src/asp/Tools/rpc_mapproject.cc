@@ -184,37 +184,56 @@ int main( int argc, char* argv[] ) {
       target_georef.point_to_pixel_bbox( point_bounds );
     vw_out() << "Creating output file that is " << target_image_size.size() << " px.\n";
 
+    // Check if the four corners of the projected image
+    // are at valid DEM points.
+    double nodata = std::numeric_limits<double>::quiet_NaN();
+    if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
+    DiskImageView<float> dem(dem_rsrc);
+    int x[] = {0, target_image_size.width()-1, target_image_size.width()-1, 0};
+    int y[] = {0, 0, target_image_size.height()-1, target_image_size.height()-1};
+    for (int i = 0; i < 4; i++){
+      Vector2i img_pix(x[i], y[i]);
+      Vector2 lon_lat = target_georef.pixel_to_lonlat(img_pix);
+      Vector2i dem_pix = round(dem_georef.lonlat_to_pixel(lon_lat));
+      int c = dem_pix[0], r = dem_pix[1];
+      bool isBad = (c < 0 || c >= dem.cols() || r < 0 || r >= dem.rows() ||
+                    dem(c, r) == nodata);
+      if (isBad){
+        vw_out(WarningMessage)
+          << "It appears that the map-projected image is not contained "
+          << "entirely within the DEM. This may result in large memory usage."
+          << std::endl;
+        break;
+      }
+    }
+
     boost::shared_ptr<DiskImageResource>
       src_rsrc( DiskImageResource::open( opt.image_file ) );
 
     // Raster output image
     if ( src_rsrc->has_nodata_read() ) {
-      asp::block_write_gdal_image( opt.output_file,
-                                   apply_mask(transform( create_mask( DiskImageView<float>( src_rsrc), src_rsrc->nodata_read() ),
-                                                         asp::RPCMapTransform( *xml.rpc_ptr(),
-                                                                               target_georef,
-                                                                               dem_georef,
-                                                                               dem_rsrc ),
-                                                         target_image_size.width(),
-                                                         target_image_size.height(),
-                                                         ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
-                                                         BicubicInterpolation() ),
-                                              src_rsrc->nodata_read() ),
-                                   target_georef, opt,
-                                   TerminalProgressCallback("","") );
+      asp::block_write_gdal_image
+        (opt.output_file,
+         apply_mask
+         (transform
+          (create_mask(DiskImageView<float>( src_rsrc), src_rsrc->nodata_read()),
+           asp::RPCMapTransform( *xml.rpc_ptr(),
+                                 target_georef, dem_georef,
+                                 dem_rsrc, image_size ),
+           target_image_size.width(), target_image_size.height(),
+           ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
+           BicubicInterpolation() ), src_rsrc->nodata_read() ),
+         target_georef, opt, TerminalProgressCallback("","") );
     } else {
-      asp::block_write_gdal_image(opt.output_file,
-                                  transform( DiskImageView<float>( src_rsrc ),
-                                             asp::RPCMapTransform( *xml.rpc_ptr(),
-                                                                   target_georef,
-                                                                   dem_georef,
-                                                                   dem_rsrc ),
-                                             target_image_size.width(),
-                                             target_image_size.height(),
-                                             ZeroEdgeExtension(),
-                                             BicubicInterpolation() ),
-                                  target_georef, opt,
-                                  TerminalProgressCallback("","") );
+      asp::block_write_gdal_image
+        (opt.output_file,
+         transform(DiskImageView<float>( src_rsrc ),
+                   asp::RPCMapTransform( *xml.rpc_ptr(),
+                                         target_georef, dem_georef,
+                                         dem_rsrc, image_size ),
+                   target_image_size.width(), target_image_size.height(),
+                   ZeroEdgeExtension(), BicubicInterpolation() ),
+         target_georef, opt, TerminalProgressCallback("","") );
     }
 
   } ASP_STANDARD_CATCHES;
