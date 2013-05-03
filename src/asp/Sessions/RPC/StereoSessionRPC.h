@@ -23,6 +23,7 @@
 #define __STEREO_SESSION_RPC_H__
 
 #include <asp/Sessions/DG/StereoSessionDG.h>
+#include <asp/Sessions/RPC/RPCStereoModel.h>
 
 namespace asp {
 
@@ -40,6 +41,8 @@ namespace asp {
                   std::string const& camera_file);
 
     virtual std::string name() const { return "rpc"; }
+
+    typedef asp::RPCStereoModel stereo_model_type;
 
     static StereoSession* construct() { return new StereoSessionRPC; }
 

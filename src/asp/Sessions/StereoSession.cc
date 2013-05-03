@@ -108,7 +108,6 @@ namespace asp {
     } else if ( actual_session_type.empty() ) {
       // User didn't tell us. So let's guess
 
-      bool still_checking = true;
       if ( ( asp::has_cam_extension( left_camera_file ) ||
              asp::has_cam_extension( right_camera_file ) ) &&
            actual_session_type.empty() ) {
