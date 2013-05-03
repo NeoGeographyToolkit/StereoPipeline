@@ -171,10 +171,17 @@ def run_cmd( cmd, options ):
         if code:
             raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
 
+def die(msg, code=-1):
+    print >>sys.stderr, msg
+    sys.exit(code)
+
 def main():
     try:
         try:
-            usage = "usage dg_mosaic.py [--help][--gdal-dir dir] <all ntf or tif files that make up observation>\n  [ASP [@]ASP_VERSION[@]]"
+            usage = '''dg_mosaic [--help][--gdal-dir dir] <all ntf or tif files that make up the observation>
+
+  [ASP [@]ASP_VERSION[@]]'''
+
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(dryrun=False)
             parser.set_defaults(preview=False)
@@ -195,7 +202,10 @@ def main():
                               help="Make caclulations, but just print out the commands.")
 
             (options, args) = parser.parse_args()
-            if not args: parser.error("Need .ntf or .tif files.")
+            if not args:
+                parser.print_help()
+                die('\nERROR: Need .ntf or .tif files.', code=2)
+
             if len(options.gdaldir): options.gdaldir += "/"
 
         except optparse.OptionError, msg:

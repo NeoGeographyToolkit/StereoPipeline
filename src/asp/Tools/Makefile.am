@@ -25,7 +25,7 @@ python_tool_scripts =
 libexec_PROGRAMS =
 
 if MAKE_APP_STEREO
-  python_tool_scripts += stereo stereo_mpi sparse_disp
+  python_tool_scripts += stereo stereo_mpi sparse_disp dg_mosaic
   bin_PROGRAMS += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
   libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
@@ -166,7 +166,7 @@ endif
 ##############################################################################
 
 python_tool_scripts += time_trials cam2map4stereo.py \
-	hiedr2mosaic.py lronac4staged.py dg_mosaic.py
+	hiedr2mosaic.py lronac4staged.py
 bin_SCRIPTS = $(python_tool_scripts)
 CLEANFILES = $(python_tool_scripts)
 
