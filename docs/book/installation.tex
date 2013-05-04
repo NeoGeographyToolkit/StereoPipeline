@@ -20,47 +20,34 @@ optional, \ac{ISIS} version is listed next to the name; choose the
 newest version you have available.
 
 \item [{USGS~ISIS.}] \hspace*{\fill} \\
-The Stereo Pipeline optionally depends on \ac{ISIS} version 3 from the
-\ac{USGS}\@.  For processing planetary data, processing steps
-with ISIS programs are needed prior to running Stereo Pipeline. 
-However, this processing could be done on a completely separate
-machine.  Stereo Pipeline itself uses ISIS internally, but the
-Stereo Pipeline binaries now have a self-contained version of
-ISIS (meaning that Stereo Pipeline itself doesn't depend on a
-particular version of ISIS installed on your computer).  So 
-while the Stereo Pipeline binary programs don't depend on a local 
-ISIS installation, they will need access to an ISIS data directory
-(if working with planetary data).
-
 If you are working with planetary missions, you will need to install
-ISIS so that you can perform preprocessing.  Their installation
-guide is at \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.
-You must use their binaries as-is; if you need to recompile, you
-must follow the \emph{Source Installation} guide for the Stereo
-Pipeline in Section~\ref{sec:Source-Installation}.  Note also that
-the \ac{USGS} provides only the current version of \ac{ISIS} and
-the previous version (denoted with a `\texttt{\_OLD}' suffix) via
-their \texttt{rsync} service.  If the current version is newer than
-the version of ISIS that the Stereo Pipeline is compiled against,
-be assured that we're working on rolling out a new version.  However,
-since Stereo Pipeline has its own self-contained version of ISIS,
-as long as there aren't major differences, you should be able to
-use a slightly newer version of ISIS to preprocess your data, and
-then still get good results with the Stereo Pipeline binaries.  If
-not, you should be able to sync the previous version of ISIS which
-should work with Stereo Pipeline.  To do so, view the listing of
+\ac{ISIS} so that you can perform preprocessing such as radiometric
+calibration and ephemeris attachment. Their installation guide is at
+\url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.  You
+must use their binaries as-is; if you need to recompile, you can
+follow the \emph{Source Installation} guide for the Stereo Pipeline in
+Section~\ref{sec:Source-Installation}.  Note also that the \ac{USGS}
+provides only the current version of \ac{ISIS} and the previous
+version (denoted with a `\texttt{\_OLD}' suffix) via their
+\texttt{rsync} service. If the current version is newer than the
+version of ISIS that the Stereo Pipeline is compiled against, be
+assured that we're working on rolling out a new version. However,
+since Stereo Pipeline has its own self-contained version of ISIS's
+libraries built internally, you should be able to use a newer version
+of ISIS with the now dated version of \ac{ASP}. This is assuming no major
+changes have accorded in the data formats or camera models by
+\ac{USGS}. At the very least, you should be able to rsync the previous
+version of ISIS if a break is found.  To do so, view the listing of
 modules that is provided via the
-`\texttt{rsync~isisdist.astrogeology.usgs.gov::}' command.  You
-should see several modules listed with the `\texttt{\_OLD}' suffix.
-Select the one that is appropriate for your system, and \texttt{rsync}
+`\texttt{rsync~isisdist.astrogeology.usgs.gov::}' command.  You should
+see several modules listed with the `\texttt{\_OLD}' suffix.  Select
+the one that is appropriate for your system, and \texttt{rsync}
 according to the instructions.
 
-The Stereo Pipeline should be able to work with data from newer
-versions of ISIS than it was built against as long as the ISIS cube
-format hasn't changed. Running the Stereo Pipeline executables only
-requires that you have downloaded the ISIS secondary data and have
-appropriately set the \texttt{ISIS3DATA} environment variable. This
-is normally performed for the user by ISIS's startup script,
+In closing, running the Stereo Pipeline executables only requires that
+you have downloaded the ISIS secondary data and have appropriately set
+the \texttt{ISIS3DATA} environment variable. This is normally
+performed for the user by ISIS startup script,
 \texttt{\$ISISROOT/scripts/isis3Startup.sh}.
 
 \end{description}
@@ -109,19 +96,12 @@ Download the Stereo Pipeline from \url{http://irg.arc.nasa.gov/ngt/stereo}.
 \texttt{tar xvfz StereoPipeline-\textit{VERSION-ARCH-OS}.tar.gz}
 
 \item [{Try~It~Out!}] ~\\
-This documentation hasn't been finished yet. However
-your imagery needs to be converted to the GeoTIFF format before ASP
-can read it. ASP doesn't have native support for NITF that uses an
-underlying JPEG2000 compression.
+Processing Earth imagery is similar in principal to processing any of
+the NASA imagery. We encourage you to still read the next chapter
+(Chapter~\ref{ch:tutorial}) that demos processing Mars
+imagery. Afterwards you should skip to the data processing example
+shown in section \ref{sec:digital_globe_imagery}.
 
-Once converted, the command line arguments to \texttt{stereo} look
-like the following: ~\\
-\texttt{stereo \textit{left-image} \textit{right-image} \textit{left-xml} \textit{right-xml} \textit{output-prefix}}
-
-The settings discussed in the next chapter (Chapter~\ref{ch:tutorial})
-apply to Digital Globe sessions as well. However the example requires
-ISIS to be installed inorder to run. This may or may not be worth your
-time to install.
 \end{description}
 
 \subsection{Common Traps}
@@ -135,7 +115,8 @@ be slightly different.
 Stereo step 0: Preprocessing failed
 \end{verbatim}
 
-You need to set up your ISIS environment or manually set the correct location for \texttt{ISIS3DATA}.
+You need to set up your ISIS environment or manually set the correct
+location for \texttt{ISIS3DATA}.
 
 \begin{verbatim}
 point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
@@ -155,6 +136,13 @@ from the path if that is the case. It is not necessary to remove the
 old versions from your computer, you just need to remove the reference
 to them from your library path.
 
+\begin{verbatim}
+bash: stereo: command not found
+\end{verbatim}
+
+You need to add the \texttt{bin} directory of your deployed Stereo
+Pipeline installation to the environmental variable \texttt{PATH}.
+
 \newpage
 
 \section{\label{sec:Source-Installation}Source Installation}
@@ -167,14 +155,15 @@ with questions about those libraries.
 
 In order to compile and build your own version of Stereo Pipeline you
 will need the source code. The binary distribution that we provide
-does not provide this. The source code for Stereo Pipeline is
+does not contain this. The source code for Stereo Pipeline is
 available from Github at
 \url{https://github.com/NeoGeographyToolkit/StereoPipeline}.
 
 \subsection{Dependency List}
 
-This is a list of the prime dependencies of Stereo Pipeline. Some libraries
-(like \ac{ISIS} and \ac{VW}) have dependencies of their own which are not covered here.
+This is a list of the prime dependencies of Stereo Pipeline. Some
+libraries (like \ac{ISIS} and \ac{VW}) have dependencies of their own
+which are not covered here.
 
 \begin{figure}[h]
   \centering
@@ -238,6 +227,10 @@ algorithms, such as image filters, image arithmetic, stereo
 correlation, and triangulation. This means that Stereo Pipeline is
 just a collection of applications that implement Vision Workbench in
 the context of ISIS.
+
+\item [{Xerces-C}] (Optional) \url{http://xerces.apache.org/xerces-c/}\\
+Xerces is an XML parsing library that we use to parse data files provided
+by commerical satellite imagery vendors.
 
 \end{description}
 

@@ -31,70 +31,6 @@ commands.  The \texttt{\textit{stereo-output}-PC.tif} and
 \hspace*{2em}\texttt{ISIS 3> point2dem \textit{stereo-output}-PC.tif \textit{stereo-output}-L.tif}
 \smallskip
 
-
-% \section{Examples of Use}
-%
-% Download the tarball and it will unpack into a \texttt{p19} directory.  Create an output directory to hold the results, and invoke the \texttt{stereo} program:
-%
-% \begin{verbatim}
-%       mkdir results
-%       stereo E0201461.cub M0100115.cub results/p19
-% \end{verbatim}
-%
-% You can look at the results by examining the disparity images. These
-% show the horizontal and vertical components of the matching offsets
-% for each pixel, and they can be a useful debugging tool if you want
-% to check how the stereo matcher performed for a given stereo pair:
-%
-% \begin{verbatim}
-%       cd results
-%       disparitydebug p19-D.exr -o p19-D
-%       disparitydebug p19-F.exr -o p19-F
-% \end{verbatim}
-%
-% \emph{MJB: What exactly is being examined in the resultant images, what are users looking for?}
-%
-% A 3D mesh can be built from the point cloud and viewed using the
-% \texttt{osgviewer} program:
-%
-% \begin{verbatim}
-%       point2mesh p19-PC.tif p19-L.tif -o p19
-%       osgviewer p19.ive
-% \end{verbatim}
-%
-% When the \texttt{osgviewer} starts, you may want to turn off the
-% lighting (hit the `L' key).
-%
-% A gridded DEM with floating point pixels can also be built from the point cloud:
-%
-% \begin{verbatim}
-%       point2dem --xyz-to-lonlat -r mars p19-PC.tif -n -o p19
-% \end{verbatim}
-%
-% You can also orthoproject the raw satellite imagery onto the DEM during this step:
-%
-% \begin{verbatim}
-%       point2dem --xyz-to-lonlat -r mars p19-PC.tif -o p19 --orthoimage p19-L.tif
-% \end{verbatim}
-%
-% Finally, you can create colorized, shaded relief (or both) images from the DEM, using these Vision Workbench programs:
-%
-% \begin{verbatim}
-%       colormap p19-DEM.tif -o p19-colorized.tif
-%       hillshade p19-DEM.tif -o p19-shaded.tif -e 25
-%       colormap p19-DEM.tif --shaded-relief-file p19-shaded.tif -o p19-color-shaded.tif
-% \end{verbatim}
-%
-% Finally, you can run the Vision Workbench's \texttt{image2qtree} on any of the following files:
-%
-% \begin{itemize}
-% \item p19-DEM-normalized.tif
-% \item p19-DRG.tif
-% \item p19-shaded.tif
-% \item p19-colorized.tif
-% \item p19-shaded-colorized.tif
-% \end{itemize}
-
 \section{Preparing the Data}
 
 The data set that is used in the tutorial and examples below is a
@@ -267,16 +203,7 @@ will take care of all these steps for you.
 \section{Running the Stereo Pipeline}
 
 Once the data has been prepared for processing, we invoke the the
-\texttt{stereo} program (page \pageref{stereo}).  The \texttt{stereo}
-program can generate a number of output files, and you may find it
-helpful to create a directory to store the results of stereo
-processing, as illustrated below.
-
-\begin{verbatim}
-    ISIS 3> ls
-    E0201461.cub   E0201461.map.cub   M0100115.cub   M0100115.map.cub
-    ISIS 3> mkdir results
-\end{verbatim}
+\texttt{stereo} program (page \pageref{stereo}).
 
 \subsection{Setting Options in the \texttt{stereo.default} File}
 \label{settingoptionsinstereodefault}
@@ -292,59 +219,69 @@ this, be sure to specify a configuration file by invoking
 given, the \texttt{stereo} program will search for a file named
 \texttt{stereo.default} in the current working directory. The
 extension of this file is unimportant. Feel free to use any name that
-best suits your project.
+best suits your project. If \texttt{stereo} doesn't find
+\texttt{stereo.default} in the current working directory and no file
+was given with the \texttt{-s} option, \texttt{stereo} will assume
+default settings and continue.
 
-There is a \texttt{stereo.map} file included with the example data set
-for \ac{MOC} that is different from the example
-\texttt{stereo.default.example} file distributed with the Stereo
-Pipeline.  The \texttt{stereo.map} included with the example data has
-a smaller correlation window (smaller values for the
-\texttt{corr-search} variables) that is more suited to that particular
-MOC stereo image pair.
-
-Alternatively, it is possible to not 
-\texttt{corr-search} in the stereo settings file. If no such options
-are specified, \texttt{stereo} will attempt to guess the correct
-search range. The guess is printed along with the rest of the program
-output.  If this technique does not produce satisfactory results, then
-it can at least be used as a starting point for picking a better
-search range by hand.
-
-For this example use the \texttt{stereo.default} that is included with
-the example data set. It has these key properties:
+The example \texttt{stereo.default.example} file distributed in the
+base directory of \ac{ASP} is everything you need to process this
+stereo pair. The actual file has a lot of comments to show you what
+options and values are possible. Here's a trimmed version of the
+important values in that file.
 \begin{verbatim}
         alignment-method none
-        corr-search -35 -280 -15 -265
+        cost-mode 2
+        corr-kernel 21 21
+        subpixel-mode 1
+        subpixel-kernel 21 21
 \end{verbatim}
 
-The first says, \emph{`Don't do try to automatically align my
-  images!'} since we have map-projected the images. The other line
-defines the range that should be searched by scanning a template from
-the left image over the right image. The values above are tuned to the
-range of offsets that are found in this particular set of map
-projected images. The order of the arguments are horizontal minimum
-index, vertical minimum index, horizontal maximum index, and finally
-vertical maximum index.
+The first line says, \emph{`Don't do try to automatically align my
+  images!'} since we have map-projected images that are already
+aligned. The second and third line define what correlation metric
+\textit{(normalized cross correlation)} we'll be using and how big the
+template or kernel size should be \textit{(21 pixels square)}. The
+fourth and fifth line define how the subpixel refinement or the fine
+features will be resolved within an image \textit{(this case
+  parabola)} and what kernel size to use during that method
+\textit{(also 21 pixels square)}.
+
+Using those settings alone, \ac{ASP} will attempt to work out that
+minimium and maximum disparity it will search for automatically. These
+days, our code is pretty good at figuring this out. However if you
+wish to, you can explicitly set the extent of the search range by
+adding the option:
+\begin{verbatim}
+        corr-search -80 -2 20 2
+\end{verbatim}
+
+The exact values to use with this option you'll have to discover
+yourself. The numbers right of the \texttt{corr-search} represents the
+horizontal minimum boundary, vertical minimum boundary, horizontal
+maximum boundary, and finally the horizontal maximum boundary.
 
 Given that we map projected the images using the same settings, you
-may be wondering why there would still be an offset. The reason is
-twofold: (1) the camera position may be slightly off, resulting in
-slight mis-alignment between stereo images; or (2) \ac{ISIS} doesn't
-have a perfect surface to project onto during map projection, so small
-terrain features still produce changes in perspective.  (In fact,
-these are precisely the features we are hoping to detect!)
+may be wondering why there would still be an offset or search range at
+all. The reason is twofold: (1) the camera position may be slightly
+off, resulting in slight mis-alignment between stereo images; and then (2)
+\ac{ISIS} doesn't have a perfect surface to project onto during map
+projection, so small terrain features still produce changes in
+perspective.  (In fact, these are precisely the features we are hoping
+to detect!)
 
 \begin{center}
 \fcolorbox{black}{lgray}{ \begin{minipage}{6in}
 
-Given the uncertainties due to (1) and (2) above, it can be tricky
-to select a good search range for the \texttt{stereo.default} file.
-One way is to let \texttt{stereo} perform one round of auto search
-range search.  Look at the results using the
-\texttt{disparitydebug} program.  The output images will clearly
-show good data or bad data depending on whether the search range is
-correct.  If the edges of these images look degraded, then the
-search range may need to be expanded by hand.
+Given the uncertainties due to (1) and (2) above, it can be tricky to
+select a good search range for the \texttt{stereo.default} file.
+That's why the best way is to let \texttt{stereo} perform an automated
+guess for the search range search. If you find that you can do a
+better estimate of the search range, take look at the intermediate
+disparity images using the \texttt{disparitydebug} program to figure
+out which search directions can be expanded or contracted. The output
+images will clearly show good data or bad data depending on whether
+the search range is correct.
 
 \medskip
 
@@ -352,11 +289,17 @@ The worst case scenario is to determine search range manually by
 opening both images in \texttt{qview} and comparing the coordinates
 of points that you can match visually. Subtract line,sample locations
 in the first image from the coordinates of the same feature in the
-second image, this will yield offsets that must be in the search
+second image, and this will yield offsets that can be used in the search
 range.  Make several of these offset measurements and use them to
 define a line,sample bounding box, then expand this by 50\% and use
 it for \texttt{corr-search}.  This will produce good results in
 most images.
+
+\medskip
+
+Also, if you are using an alignment option, you'll instead want to
+make those disparity measurements against the written L and R tiff
+files instead of the original input files.
 
 \end{minipage}}
 \end{center}
@@ -367,7 +310,7 @@ Here is how the \texttt{stereo} program is invoked:
 
 \begin{verbatim}
     ISIS 3> stereo E0201461.map.cub M0100115.map.cub \
-              -s stereo.map                          \
+              -s stereo.default.example              \
               results/E0201461-M0100115
 \end{verbatim}
 
@@ -376,7 +319,7 @@ That last option (\texttt{results/E0201461-M0100115}) is a prefix that
 is used when generating names for \texttt{stereo} output files.  In
 this case the first part is \texttt{results/}, which causes the
 program to generate results in that directory with filenames that start
-with \texttt{E0201461-M0100115}. If instead that last text was
+with \texttt{E0201461-M0100115}. If instead that last text was just
 \texttt{E0201461-M0100115} it would have created a collection of files
 that start with \texttt{E0201461-M0100115} in the {\em same} directory as
 the input files.
@@ -430,28 +373,7 @@ directory provides some insight into the process.
 \end{minipage}
 \end{figure}
 
-% \begin{figure}
-% \begin{center}
-% \includegraphics[height=8in]{images/p19-goodpixel.png}
-% \caption[P19 good pixel image]{
-%     \label{p19-goodpixel}
-% 	The Good Pixel map.
-% 	Red pixels are not useful for alignment.
-%     }
-% \end{center}
-% \end{figure}
-%
-% \begin{figure}
-% \begin{center}
-% \includegraphics[width=3in]{images/p19-aligned.png}
-% \caption[P19 aligned image]{
-%     \label{p19-aligned}
-% 	The left and right aligned images.
-%     }
-% \end{center}
-% \end{figure}
-
-Perhaps the most important file for assessing the quality of your
+Perhaps the most accessible file for assessing the quality of your
 results is the good pixel image,
 \\ (\texttt{E0201461-M0100115-GoodPixelMap.tif}).  If this file shows
 mostly good, gray pixels in the overlap area (the area that is white
@@ -477,11 +399,11 @@ results from the stereo correlation algorithm.
 \texttt{disparitydebug} converts information in the disparity image
 files into two TIFF images that contain horizontal and vertical
 components of the disparity (i.e. matching offsets for each pixel in
-the horizontal and vertical directions).  There are actually four
+the horizontal and vertical directions).  There are actually three
 flavors of disparity map: the \texttt{-D.tif}, the \texttt{-RD.tif},
-the \texttt{-F-corrected.tif}, and \texttt{-F.tif}.  You can run
-\texttt{disparitydebug} on any of them.  Each shows the disparity map
-at the different stages of processing.
+and \texttt{-F.tif}.  You can run \texttt{disparitydebug} on any of
+them.  Each shows the disparity map at the different stages of
+processing.
 
 \begin{verbatim}
     ISIS 3> cd results
@@ -603,8 +525,8 @@ to use for the projection:
 \end{verbatim}
 
 \noindent
-The \texttt{point2dem} program is also able to accept output projection
-options the same way as the popular tools in GDAL. Well known EPSG,
+The \texttt{point2dem} program is also able to accept output
+projection options the same way as the tools in GDAL. Well known EPSG,
 IAU2000 projections, and custom Proj4 strings can applied with the
 target spatial reference set flag, \texttt{-\/-t\_srs}. If the target
 spatial reference flag is applied with any of the reference spheroid
@@ -636,7 +558,7 @@ sure to take your time to explore all of the options.
         and high terrain values as white.  The image on the right is
         the left input image projected onto the DEM (created using the
         \texttt{-\/-orthoimage} option to \texttt{point2dem}).  }
-\end{minipage} 
+\end{minipage}
 \hfill
 \end{figure}
 
