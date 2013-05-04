@@ -87,9 +87,13 @@ namespace asp {
   // pixels.
   vw::BBox2i
   RPCMapTransform::reverse_bbox( vw::BBox2i const& bbox ) const {
-    m_point_cloud_cache = crop( m_point_cloud, bbox );
-    m_cache_size = bbox;
+    cache_dem( bbox );
     return vw::TransformBase<RPCMapTransform>::reverse_bbox( bbox );
   }
 
+  void
+  RPCMapTransform::cache_dem( vw::BBox2i const& bbox ) const {
+    m_point_cloud_cache = crop( m_point_cloud, bbox );
+    m_cache_size = bbox;
+  }
 }

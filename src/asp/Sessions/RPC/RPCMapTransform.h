@@ -52,6 +52,9 @@ namespace asp {
     vw::Vector2 reverse(const vw::Vector2 &p) const;
 
     vw::BBox2i reverse_bbox( vw::BBox2i const& bbox ) const;
+
+    // Not thread safe ... you must copy this object
+    void cache_dem( vw::BBox2i const& bbox ) const;
   };
 
 }

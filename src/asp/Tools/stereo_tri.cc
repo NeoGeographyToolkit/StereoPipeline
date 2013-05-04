@@ -83,39 +83,8 @@ class StereoTXAndErrorView : public ImageViewBase<StereoTXAndErrorView<Disparity
   TX1T m_tx1;
   TX2T m_tx2;
   StereoModelT m_stereo_model;
-  typedef typename DisparityImageT::pixel_type dpixel_type;
 
-  template <class PixelT>
-  struct NotSingleChannel {
-    static const bool value = (1 != CompoundNumChannels<typename UnmaskedPixelType<PixelT>::type>::value);
-  };
-
-  template <class T>
-  inline typename boost::enable_if<IsScalar<T>,Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
-                           m_tx2.reverse( Vector2(T(i) + disparity, j) ), error );
-  }
-
-  template <class T>
-  inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
-                           m_tx2.reverse( Vector2(float(i)+disparity, j) ), error );
-  }
-
-  template <class T>
-  inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
-  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
-    if ( !is_valid( disparity ) ){
-      return Vector3(); // out of bounds
-    }
-
-    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
-                           m_tx2.reverse( Vector2( double(i) + disparity[0],
-                                                   double(j) + disparity[1] ) ),
-                           error );
-  }
+  typedef typename DisparityImageT::pixel_type DPixelT;
 
 public:
 
@@ -147,11 +116,56 @@ public:
     return pixel_type();
   }
 
-  /// \cond INTERNAL
-  typedef StereoTXAndErrorView<CropView<ImageView<typename DisparityImageT::pixel_type> >,
+  typedef StereoTXAndErrorView<CropView<ImageView<DPixelT> >,
                                TX1T, TX2T, StereoModelT> prerasterize_type;
   inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
-    typedef typename DisparityImageT::pixel_type DPixelT;
+    return PreRasterHelper( bbox, m_tx1, m_tx2 );
+  }
+  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
+
+private:
+
+  template <class T>
+  inline typename boost::enable_if<IsScalar<T>,Vector3>::type
+  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
+    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
+                           m_tx2.reverse( Vector2(T(i) + disparity, j) ), error );
+  }
+
+  template <class T>
+  inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value == 1),Vector3>::type
+  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
+    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
+                           m_tx2.reverse( Vector2(float(i)+disparity, j) ), error );
+  }
+
+  template <class T>
+  inline typename boost::enable_if_c<IsCompound<T>::value && (CompoundNumChannels<typename UnmaskedPixelType<T>::type>::value != 1),Vector3>::type
+  StereoModelHelper( size_t i, size_t j, T const& disparity, Vector3& error ) const {
+    if ( !is_valid( disparity ) ){
+      return Vector3(); // out of bounds
+    }
+
+    return m_stereo_model( m_tx1.reverse( Vector2(i,j) ),
+                           m_tx2.reverse( Vector2( double(i) + disparity[0],
+                                                   double(j) + disparity[1] ) ),
+                           error );
+  }
+
+  template <class T1, class T2>
+  typename boost::disable_if< boost::mpl::and_<boost::is_same<T1,RPCMapTransform>,boost::is_same<T2,RPCMapTransform> >, prerasterize_type>::type
+  PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
+    // General Case
+    ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
+    return prerasterize_type( crop( disparity_preraster, -bbox.min().x(), -bbox.min().y(), cols(), rows() ),
+                              tx1, tx2, m_stereo_model );
+  }
+
+  template <class T1, class T2>
+  typename boost::enable_if< boost::mpl::and_<boost::is_same<T1,RPCMapTransform>,boost::is_same<T2,RPCMapTransform> >, prerasterize_type>::type
+  PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
+    // RPC Map Transform needs to be explicitly copied and told to
+    // cache for performance.
     ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
 
     // Work out what spots in the right image we'll be touching.
@@ -166,14 +180,14 @@ public:
     // transforms so we are not having a race condition with setting
     // the cache in both transforms while the other threads want to do
     // the same.
-    TX1T left_tx = m_tx1; left_tx.reverse_bbox(bbox);
-    TX2T right_tx = m_tx2; right_tx.reverse_bbox(right_bbox);
+    RPCMapTransform tx1_copy = tx1, tx2_copy = tx2;
+    tx1_copy.cache_dem( bbox );
+    tx2_copy.cache_dem( right_bbox );
 
     return prerasterize_type( crop(disparity_preraster,-bbox.min().x(),-bbox.min().y(),cols(),rows()),
-                              left_tx, right_tx, m_stereo_model );
+                              tx1_copy, tx2_copy, m_stereo_model );
   }
-  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
-  /// \endcond
+
 };
 
 template <class DisparityT, class TX1T, class TX2T, class StereoModelT>
