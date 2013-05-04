@@ -1,6 +1,6 @@
 #!/bin/bash
 # __BEGIN_LICENSE__
-#  Copyright (c) 2009-2012, United States Government as represented by the
+#  Copyright (c) 2009-2013, United States Government as represented by the
 #  Administrator of the National Aeronautics and Space Administration. All
 #  rights reserved.
 #
@@ -15,6 +15,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 # __END_LICENSE__
+
 
 phase_prefix=${1:0:3}
 orbit_prefix=${1:4:4}

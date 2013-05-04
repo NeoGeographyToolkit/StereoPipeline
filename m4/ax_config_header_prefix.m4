@@ -1,5 +1,5 @@
-B0;95;cdnl __BEGIN_LICENSE__
-dnl  Copyright (c) 2009-2012, United States Government as represented by the
+dnl __BEGIN_LICENSE__
+dnl  Copyright (c) 2009-2013, United States Government as represented by the
 dnl  Administrator of the National Aeronautics and Space Administration. All
 dnl  rights reserved.
 dnl
