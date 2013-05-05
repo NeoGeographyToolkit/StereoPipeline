@@ -308,7 +308,9 @@ int main( int argc, char* argv[] ) {
 
     INSTANTIATE(StereoSessionPinhole,"pinhole");
     INSTANTIATE(StereoSessionNadirPinhole,"nadirpinhole");
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
     INSTANTIATE(StereoSessionIsis,"isis");
+#endif
     INSTANTIATE(StereoSessionRPC,"rpc");
     INSTANTIATE(StereoSessionDG,"dg");
     INSTANTIATE(StereoSessionDGMapRPC,"dgmaprpc");
