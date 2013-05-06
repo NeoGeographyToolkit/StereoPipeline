@@ -1,3 +1,31 @@
+*** RELEASE 2.2.0, 6 MAY 2013 ***
+
+GENERAL
+ - ISIS headers removed from IsisIO's headers.
+ - Removed unneeded mutex inside inpaint algorithm.
+ - Interest point matching and description are parallel now.
+ - Stereo pprc uses separable convolution for anti-aliasing.
+ - IsisIO made compliant with ISIS 3.4.3's API.
+ - Blob consolidation (for inpainting) is now parallel.
+ - Yamaha RMAX code dropped.
+
+SESSIONS
+ - RPC Mode can now read Astrium data.
+ - DG added additional safety checks for XML values.
+ - DG, ISIS, and RPC now have affineepipolar alignment option.
+ - All sessions had their API changed. We now use Transform objects
+   instead of LUTs to reverse map projections and alignments.
+
+TOOLS
+ - Added dem_geoid, dg_mosaic, and stereo_mpi.
+ - Added new interest point matching method to stereo.
+ - Added new DEM seed mode for stereo.
+ - Point2dem sped up by reducing over rasterization of triangles.
+ - Stereo_corr has local_homography option. Homography transform
+   applied per tile.
+ - Fix point2dem where for certain projections we were setting K=0.
+ - Stereo can now operate on terminal only arguments without stereo.default.
+
 *** RELEASE 2.1.0, 8 JANUARY 2013 ***
 
 GENERAL
