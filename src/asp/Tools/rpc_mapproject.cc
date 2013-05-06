@@ -218,9 +218,8 @@ int main( int argc, char* argv[] ) {
          apply_mask
          (transform
           (create_mask(DiskImageView<float>( src_rsrc), src_rsrc->nodata_read()),
-           asp::RPCMapTransform( *xml.rpc_ptr(),
-                                 target_georef, dem_georef,
-                                 dem_rsrc, image_size ),
+           asp::RPCMapTransform( *xml.rpc_ptr(), target_georef,
+                                 dem_georef, dem_rsrc ),
            target_image_size.width(), target_image_size.height(),
            ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
            BicubicInterpolation() ), src_rsrc->nodata_read() ),
@@ -229,9 +228,8 @@ int main( int argc, char* argv[] ) {
       asp::block_write_gdal_image
         (opt.output_file,
          transform(DiskImageView<float>( src_rsrc ),
-                   asp::RPCMapTransform( *xml.rpc_ptr(),
-                                         target_georef, dem_georef,
-                                         dem_rsrc, image_size ),
+                   asp::RPCMapTransform( *xml.rpc_ptr(), target_georef,
+                                         dem_georef, dem_rsrc ),
                    target_image_size.width(), target_image_size.height(),
                    ZeroEdgeExtension(), BicubicInterpolation() ),
          target_georef, opt, TerminalProgressCallback("","") );

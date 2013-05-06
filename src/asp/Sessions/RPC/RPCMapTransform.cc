@@ -27,10 +27,9 @@ namespace asp {
   RPCMapTransform::RPCMapTransform( RPCModel const& rpc,
                                     cartography::GeoReference const& image_georef,
                                     cartography::GeoReference const& dem_georef,
-                                    boost::shared_ptr<DiskImageResource> dem_rsrc,
-                                    Vector2i image_size ) :
+                                    boost::shared_ptr<DiskImageResource> dem_rsrc ) :
     m_rpc(rpc), m_image_georef(image_georef), m_dem_georef(dem_georef),
-    m_dem(dem_rsrc), m_image_size(image_size) {
+    m_dem(dem_rsrc) {
     using namespace vw;
     using namespace vw::cartography;
 
@@ -63,22 +62,7 @@ namespace asp {
                           p.y() - m_cache_size.min().y()):
       m_point_cloud(p.x(),p.y());
 
-    int neg = -1;
-    if (xyz == Vector3()) return Vector2(neg, neg);
-
-    Vector2 rv = m_rpc.point_to_pixel(xyz);
-
-    // Straying too far from the intended image size is wasteful of
-    // memory in rasterization.
-    if (m_image_size != Vector2i(-1, -1)){
-      for (int i = 0; i < 2; i++){
-        // Note: rv is double precision, so the check below
-        // must be exactly as it is now.
-        if (rv[i] < 0.0 || rv[i] > m_image_size[i]-1.0) rv = Vector2(neg, neg);
-      }
-    }
-
-    return rv;
+    return m_rpc.point_to_pixel(xyz);
   }
 
   // This function will be called whenever we start to apply the

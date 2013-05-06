@@ -35,7 +35,6 @@ namespace asp {
     vw::cartography::GeoReference m_image_georef, m_dem_georef;
     vw::DiskImageView<float> m_dem;
     vw::ImageViewRef<vw::Vector3> m_point_cloud;
-    vw::Vector2i m_image_size;
 
     // We will always be modifying these
     mutable vw::ImageView<vw::Vector3> m_point_cloud_cache;
@@ -44,9 +43,7 @@ namespace asp {
     RPCMapTransform( asp::RPCModel const& rpc,
                      vw::cartography::GeoReference const& image_georef,
                      vw::cartography::GeoReference const& dem_georef,
-                     boost::shared_ptr<vw::DiskImageResource> dem_rsrc,
-                     vw::Vector2i image_size = vw::Vector2(-1, -1)
-                     );
+                     boost::shared_ptr<vw::DiskImageResource> dem_rsrc );
 
     // Convert Map Projected Coordinate to camera coordinate
     vw::Vector2 reverse(const vw::Vector2 &p) const;
