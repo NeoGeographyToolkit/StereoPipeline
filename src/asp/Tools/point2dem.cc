@@ -91,7 +91,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("x-offset", po::value(&opt.x_offset)->default_value(0), "Add a horizontal offset to the DEM")
     ("y-offset", po::value(&opt.y_offset)->default_value(0), "Add a horizontal offset to the DEM")
     ("z-offset", po::value(&opt.z_offset)->default_value(0), "Add a vertical offset to the DEM")
-    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization")
+    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization")
     ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),"Set a rotation angle phi")
     ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega")
     ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa");
