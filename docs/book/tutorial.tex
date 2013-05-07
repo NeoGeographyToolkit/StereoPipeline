@@ -340,6 +340,17 @@ mode from the command line.
               results/E0201461-M0100115
 \end{verbatim}
 
+When \texttt{stereo} finishes, it will have produced a point cloud
+image. Section \ref{visualising} describes how to convert it to a
+digital elevation model (DEM) or other formats.
+
+\subsection{Stereo on Multiple Machines}
+
+If the input images are really large, it may desirable to distribute the
+computations over several computing nodes. ASP provides a tool named
+\texttt{stereo\_mpi} for that purpose. Its usage is described in section
+\ref{stereompi}.
+
 \subsection{Diagnosing Problems}
 
 Once invoked, \texttt{stereo} proceeds through several stages that are
@@ -449,6 +460,7 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 \clearpage
 
 \section{Visualizing the Results}
+\label{visualising}
 
 When \texttt{stereo} finishes, it will have produced a point cloud
 image.  At this point, many kinds of data products can be built from
@@ -567,11 +579,11 @@ sure to take your time to explore all of the options.
 % \includegraphics[width=4in]{images/p19-dems.png}
 % \caption[P19 dem images]{
 %     \label{p19-dems}
-% 	The non-normalized and normalized DEMs. Note that the
-% 	non-normalized version contains floating point pixel values
-% 	and will not open in most image viewing programs which
-% 	expect integer pixel values between 0 and 255 (which is
-% 	what the normalized version does for you).
+%	The non-normalized and normalized DEMs. Note that the
+%	non-normalized version contains floating point pixel values
+%	and will not open in most image viewing programs which
+%	expect integer pixel values between 0 and 255 (which is
+%	what the normalized version does for you).
 %     }
 % \end{center}
 % \end{figure}
@@ -581,12 +593,19 @@ sure to take your time to explore all of the options.
 % \includegraphics[width=3in]{images/p19-ortho.png}
 % \caption[P19 orthophoto]{
 %     \label{p19-ortho}
-% 	The left image orthoprojected onto the DEM.
+%	The left image orthoprojected onto the DEM.
 %     }
 % \end{center}
 % \end{figure}
 
 \clearpage
+
+\subsection{Converting to the LAS Format}
+
+If it is desired to use the generated point cloud in contexts outside
+ASP, it can be converted to the LAS file format, which is a public file
+format for the interchange of 3-dimensional point cloud data. The tool
+\texttt{point2las} can be used for that purpose (section \ref{point2las}).
 
 \subsection{Generating Color Hillshade Maps}
 

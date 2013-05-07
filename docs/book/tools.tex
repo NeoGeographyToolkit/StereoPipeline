@@ -50,12 +50,12 @@ in sub-directories, we recommend using an output prefix like
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help information\\ \hline
+\texttt{-\/-help|-h} & Display this help message\\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|dg} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
 \texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a subregion of the left image [default: use the entire image].\\ \hline
-\texttt{-\/-entry-point|-e 1|2|3|4} & Pipeline entry point \\ \hline
+\texttt{-\/-entry-point|-e 1|2|3|4} & Stereo Pipeline entry point \\ \hline
 \end{longtable}
 
 More information about the stereo.default configuration file can be
@@ -90,6 +90,7 @@ Stage 4 (Triangulation) generates a 3D point cloud from the disparity
 map.
 
 \subsection{Decomposition of Stereo}
+\label{stereo_dec}
 
 The \texttt{stereo}
 executable is a python script that makes calls to seperate
@@ -113,6 +114,63 @@ cluster my find it advantageous to call these executables in their own
 manner. An example would be to run stages 0-3 in order for each stereo
 pair. Then run several sessions of \texttt{stereo\_tri} since it is
 single threaded.
+
+\section{stereo\_mpi}
+\label{stereompi}
+
+The \texttt{stereo\_mpi} program is a modification of \texttt{stereo}
+designed to distribute the stereo processing over multiple computing
+nodes.
+
+It is important to note that \texttt{stereo\_mpi} can, as of now, run
+only as a scheduled job on a supercomputer, and it depends on Intel's
+\texttt{mpiexec} to distribute the jobs.
+
+Also, note that, when invoking this tool, only stages 1, 2, and 4 of
+stereo (section \ref{stereo_dec}) are spread over multiple machines,
+with stages 0 and 3 still being done on the current computing node, as
+they require global knowledge of the data. In addition, not all stages
+of stereo benefit equally from parallelization, most likely to gain
+are stages 1 and 2 (correlation and refinement), which are the most
+computationally expensive.
+
+For these reasons, while \texttt{stereo\_mpi} can be called to do all
+stages of stereo generation from start to finish in one command, it may
+be more reseource-efficient to invoke
+it using just one node for stages 0 and 3, many nodes for stages 1 and
+2, and just a handful of nodes for stage 4 (triangulation).
+
+\texttt{stereo\_mpi} accepts the following options (any additional
+options given to it will be passed to the stereo executables
+for each stage).
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Command-line options for stereo\_mpi}
+\label{tbl:stereompi}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display this help message.\\ \hline
+\texttt{-\/-mpiexec \textit{integer(=1)}} & The number of computing nodes to use. \\ \hline
+\texttt{-\/-processes \textit{integer(=4)}} & The number of processes to
+use per node. \\ \hline
+\texttt{-\/-threads-multiprocess \textit{integer(=2)}} & The number of threads to use per process.\\ \hline
+\texttt{-\/-threads-singleprocess \textit{integer(=1)}} & The number of threads to use when running a single process (for pre-processing and filtering).\\ \hline
+\texttt{-\/-session-type|-t pinhole|isis|dg} & Select the stereo session
+type to use for processing (e.g., ISIS, DG, etc.).\\ \hline
+\texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use.\\ \hline
+\texttt{-\/-entry-point|-e integer(=0 to 5)} & Stereo Pipeline entry point. \\ \hline
+\texttt{-\/-entry-point|-e integer(=1 to 6)} & Stereo Pipeline stop point. \\ \hline
+\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs\\ \hline
+\texttt{-\/-job-size-w \textit{integer(=2048)}} & Pixel width of input
+image tile for a single process. \\ \hline
+\texttt{-\/-job-size-h \textit{integer(=2048)}} & Pixel height of input
+image tile for a single process. \\ \hline
+\texttt{-\/-correlation-timeout \textit{integer(=none)}} & Timeout in seconds for a stereo correlation process.\\ \hline
+\end{longtable}
 
 \section{disparitydebug}
 \label{disparitydebug}
@@ -145,7 +203,7 @@ statistics when tuning the search range settings in the
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help\\ \hline
+\texttt{-\/-help|-h} & Display this help message\\ \hline
 \texttt{-\/-input-file \textit{filename}} & Explicitly specify the input file \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the outfile type \\ \hline
@@ -186,7 +244,7 @@ it onto the 3D terrain produced by the Stereo Pipeline.  The resulting
 {\tt *-DRG.tif} file will be saved as an 8-bit GeoTIFF image in a
 simple cylindrical map projection.
 
-\subsection{Comparing with MOLA data}
+\subsection{Comparing with MOLA Data}
 
 When comparing the output of \texttt{point2dem} to laser altimeter
 data, like MOLA, it is important to understand the different kinds
@@ -305,10 +363,10 @@ Options & Description \\ \hline \hline
 \texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
 \texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
-\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF Compression method.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \hline
-\texttt{-\/-help|-h} & Display this table \\ \hline
+\texttt{-\/-help|-h} & Display this help message \\ \hline
 \end{longtable}
 
 \section{point2mesh}
@@ -373,7 +431,7 @@ model.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help \\ \hline
+\texttt{-\/-help|-h} & Display this help message\\ \hline
 \texttt{-\/-simplify-mesh \textit{float}} & Run OSG Simplifier on mesh, 1.0 = 100\% \\ \hline
 \texttt{-\/-smooth-mesh} & Run OSG Smoother on mesh \\ \hline
 \texttt{-\/-use-delaunay} & Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with noise issues. \\ \hline
@@ -410,7 +468,7 @@ Options & Description \\ \hline \hline
 %% \endlastfoot
 %% \hline
 %% Options & Description \\ \hline \hline
-%% \verb#--help# & Display this table \\ \hline
+%% \verb#--help# & Display this help message \\ \hline
 %% \verb#--mpp arg# & Specify the output resolution of the orthoimage in meters per pixel \\ \hline
 %% \verb#--ppd arg# & Specify the output resolution of the orthoimage in pixels per degree \\ \hline
 %% \verb#--nodata-value arg# & Specify the pixel used in this DEM to denote missing data \\ \hline
@@ -452,7 +510,7 @@ position. The input for this tool is one or more \texttt{*.cub} files.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help \\ \hline
+\texttt{-\/-help|-h} & Display this help message\\ \hline
 \texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
 \texttt{-\/-scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
 \texttt{-\/-use\_path\_to\_dae\_model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
@@ -484,7 +542,7 @@ Use the \texttt{-\/-dry-run} option the first few times to get an idea of what \
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help \\ \hline
+\texttt{-\/-help|-h} & Display this help message. \\ \hline
 \texttt{-\/-manual} & Read the manual. \\ \hline
 \texttt{-\/-map=\textit{MAP}|-m \textit{MAP}} & The mapfile to use for \texttt{cam2map}. \\ \hline
 \texttt{-\/-pixres=\textit{PIXRES}|-p \textit{PIXRES}} & The pixel resolution mode to use for \texttt{cam2map}. \\ \hline
@@ -501,15 +559,15 @@ Options & Description \\ \hline \hline
 \section{dem\_geoid}
 \label{demgeoid}
 
-Takes as input a DEM whose height values are relative to the datum
+This tool takes as input a DEM whose height values are relative to the datum
 ellipsoid, and adjusts those values to be relative to the equipotential
 surface of the planet (geoid on Earth, and areoid on Mars). The program
 can also apply the reverse of this adjustment.
 
-Two geoids and one areoid are supported. Earth geoids: EGM96
-(\url{http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html})
-and NAVD88 (\url{http://www.ngs.noaa.gov/GEOID/GEOID09/}).
-Mars areoid: MOLA MEGDR (\url{http://geo.pds.nasa.gov/missions/mgs/megdr.html}).
+Two geoids and one areoid are supported. The Earth geoids are: EGM96, referenced to the WGS84 datum ellipsoid (\url{http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html})
+and NAVD88, referenced to the NAD83 datum ellipsoid (\url{http://www.ngs.noaa.gov/GEOID/GEOID09/}).
+
+The Mars areoid is MOLA MEGDR (\url{http://geo.pds.nasa.gov/missions/mgs/megdr.html}). We adjusted the areoid height values to be relative to the mean Mars radius of 3,396,190 meters used internally in ASP, from the original value of 3,396,000 meters used at that source.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_geoid}
@@ -520,26 +578,74 @@ Mars areoid: MOLA MEGDR (\url{http://geo.pds.nasa.gov/missions/mgs/megdr.html}).
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help \\ \hline
-\texttt{-\/-nodata-value \textit{=-32767}} & The value of no-data pixels, unless specified in the DEM \\ \hline
+\texttt{-\/-help|-h} & Display this help message\\ \hline
+\texttt{-\/-nodata-value \textit{integer(=-32767)}} & The value of no-data pixels, unless specified in the DEM \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
 \texttt{-\/-double} & Output using double precision (64 bit) instead of float (32 bit)\\ \hline
 \texttt{-\/-reverse-adjustment} & Go from DEM relative to the geoid/areoid to DEM relative to the datum ellipsoid\\ \hline
 \end{longtable}
 
+\section{dg\_mosaic}
+\label{dgmosaic}
 
-%% \section{reconstruct}
-%% \label{reconstruct}
+This tool can be used when processing Digital Globe Imagery (section
+\ref{sec:digital_globe_imagery}). A Digital Globe satellite may take a
+picture, and then split it into several images and corresponding camera XML
+files. \texttt{dg\_mosaic} will mosaic these images into a single file,
+and create the appropriate combined camera XML file. The tool needs to be applied
+twice, for each of the left and right image sets.
 
-%% Tool under development
+\texttt{dg\_mosaic} can also reduce the image resolution while creating the
+mosaics (with the camera files modified accordingly).
 
-%% \section{results}
-%% \label{results}
+It is important to note that Digital Globe camera files contain, in
+addition to the original camera models, their RPC approximations
+(section \ref{rpc}). As of now, this tool does not attempt to create a
+combined RPC model, as such, one cannot map-project the mosaiced images
+with the goal of computing stereo from them (section \ref{mapproj}). This
+functionality is planned for the next version of ASP.
 
-%% Tool under development
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for dg\_mosaic}
+\label{tbl:dgmosaic}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display this help message.\\ \hline
+\texttt{-\/-gdal-dir \textit{directory}} &
+Directory where the GDAL tools are. If not provided, we get them from the environment. \\ \hline
+\texttt{-\/-reduce-percent \textit{integer(=100)}} &
+Render a reduced resolution image and XML based on this percentage. \\
+\hline
+\texttt{-\/-output-prefix \textit{string}} & The prefix for the output .tif and .xml files. \\ \hline
 
-%% \section{rmax\_adjust}
-%% \label{ramx_adjust}
+\texttt{-\/-preview } & Render a small 8 bit png of the input for preview. \\ \hline
+\texttt{-\/- \textit{dry-run|-n}} & Make calculations, but just print out the commands. \\ \hline
+\end{longtable}
 
-%% Bundle Adjustment tool specifically for the Yamaha RMAX unmanned
-%% aerial vehicle.
+\section{point2las}
+\label{point2las}
+
+This tool can be used to convert point clouds generated by ASP to the
+public LAS format for interchange of 3-dimensional point cloud data.
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for point2las}
+\label{tbl:point2las}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display this help message.\\ \hline
+\texttt{-\/-compressed} &
+Compress using laszip. \\ \hline
+\texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
+\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
+\end{longtable}

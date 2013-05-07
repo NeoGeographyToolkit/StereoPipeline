@@ -45,7 +45,7 @@ Remember, in order for \texttt{stereo} to process stereo pairs in
 \ac{ISIS} cube format, the images must have had SPICE data associated
 by running ISIS's \texttt{spiceinit} program run on them first.
 
-\subsection{Combatting long run times}
+\subsection{Combatting Long Run Times}
 
 The factor that predominantly determines running time in the Stereo
 Pipeline is the size of the search space considered by the correlation
@@ -62,54 +62,58 @@ the two images, then you may want to try setting the search range
 yourself in your \texttt{stereo.default} using the aforementioned
 parameters.
 
-More generally, here are three strategies that tend to keep the
+More generally, here are several strategies that tend to keep the
 search range small and run-times low:
 
 \begin{enumerate}
-\item You can crop your stereo pair (using the ISIS \texttt{crop}
-command) to a small region of interest within a large stereo pair.
-ISIS and the Stereo Pipeline will keep track of these crop parameters
-automatically and take them into account when applying the camera
-model during triangulation.  You may want to work with a cropped
-pair when you first start working with a new data set.  Run times
-will be much lower (minutes instead of days), and you can quickly
-tune parameters in the \texttt{stereo.default} file before scaling
-up to the full image.
 
-\item The ISIS \texttt{reduce} command can be used to subsample the
-image pair.  In this case, you are trading resolution for speed,
-so this probably only makes sense for debugging or ``previewing'' 3D
-terrain. That said, subsampling will tend to increase the signal
-to noise ratio, so it may also be helpful for pulling 3D terrain
-out of noisy, low quality images.
+\item You can instruct ASP to work only on a subregion of the left input
+image (section \ref{stereo}). Run times will be much lower (minutes
+instead of days), and you can quickly tune parameters in the
+\texttt{stereo.default} file before scaling up to the full image.
+
+\item You can use the \texttt{stereo\_mpi} tool to distribute the
+  computations over multiple machines (section \ref{stereompi}).
+
+\item A solution specific to ISIS imagery is to crop your stereo pair
+(using the ISIS \texttt{crop} command) to a small region of interest
+within a large stereo pair.
+
+\item The image pair can be subsampled. For ISIS imagery, the ISIS
+\texttt{reduce} command can be used, while for Digital Globe data one
+can invoke the \texttt{dg\_mosaic} tool (section \ref{dgmosaic}). With
+subsampling, you are trading resolution for speed, so this probably only
+makes sense for debugging or ``previewing'' 3D terrain. That said,
+subsampling will tend to increase the signal to noise ratio, so it may
+also be helpful for obtaining 3D terrain out of noisy, low quality images.
 
 These options of croping or reducing the resolution of the source
-imagery are only easily achieved with ISIS sessions. Pinhole and
-Digital Globe sessions will be required to manually edit their camera
-models in the event that you have edited the source imagery. This is
-a unique problem for each camera model and thus will not be discussed
-here.
+imagery are only easily achieved with ISIS or Digital Globe data. For
+Pinhole or RPC sessions, users may reduce the image size using for
+example GDAL, but then the camera models will need to be adjusted
+manually. This is a unique problem for each camera model and thus will
+not be discussed here.
 
-\item You can map project the images (using the ISIS \texttt{cam2map}
-command or the \texttt{cam2map4stereo.py} program provided with the
-Stereo Pipeline).  If you project both images into the same map
-projection and same pixel scale, then they will be aligned modulo
-uncertainty in spacecraft telemetry (typically 10-100's of meters
-of error when the image is projected onto the ground).  By default
+\item You can map-project the images. For Digital Globe images one can
+  use \texttt{rpc\_mapproject} (section \ref{mapproj}), while for ISIS
+  data the ISIS \texttt{cam2map} command or the \texttt{cam2map4stereo.py} program
+provided with the Stereo Pipeline can be applied. If you project both images into the
+same map projection and same pixel scale, then they will be aligned
+modulo uncertainty in spacecraft telemetry (typically tens or hundreds
+of meters of error when the image is projected onto the ground).  By default
 \texttt{cam2map} will also project the image onto the local elevation
-model (MOLA or LOLA), which removes the stereo disparity in the
-images that is due to coarse topography.  The resulting image pair
-has only small position offsets and fine 3D detail left to discover,
-so the search range can be kept very small and run times can be
-improved.  Again, ISIS and the Stereo Pipeline will keep track of
-how these map projections affect the camera model, and take them
-into account when building up the 3D mesh via triangulation.  If
-you use \texttt{cam2map}, be sure that your \texttt{stereo.default}'s
-\texttt{alignment-method} is set to NONE.  Note also that the
-\texttt{-\/-lat} and \texttt{-\/-lon} arguments to
-\texttt{cam2map4stereo.py} can be used to crop your stereo images,
-and the \texttt{-\/-resolution} argument can be used to subsample
-them.
+model (MOLA or LOLA), which removes the stereo disparity in the images
+that is due to coarse topography.  The resulting image pair has only
+small position offsets and fine 3D detail left to discover, so the
+search range can be kept very small and run times can be improved.
+The Stereo Pipeline will keep track of how these map
+projections affect the camera model, and take them into account when
+building up the 3D mesh via triangulation.  If you use \texttt{cam2map},
+be sure that your \texttt{stereo.default}'s \texttt{alignment-method} is
+set to NONE.  Note also that the \texttt{-\/-lat} and \texttt{-\/-lon}
+arguments to \texttt{cam2map4stereo.py} can be used to crop your stereo
+images, and the \texttt{-\/-resolution} argument can be used to
+subsample them.
 \end{enumerate}
 
 If you are working with very large images, we highly recommend
@@ -419,7 +423,7 @@ in the MER data example directory.
   \hfil
   \subfigure[{\tt Output Point Cloud}]{\includegraphics[width=3in]{images/examples/mer/fh01_pointcloud.png}}
 \caption{Example output possible with the front hazard cameras.}
-\label{fig:metric_example}
+\label{fig:mer_example}
 \end{figure}
 
 \pagebreak
@@ -778,7 +782,7 @@ ASP can only process Level 1B imagery and can not process Digital
 Globe's aerial imagery. We can pull a camera model from the RPC
 coefficients or from their linear camera model described in the
 provided XML files. We won't be discussing the RPC method in this
-section, however you can learn more about it in the later example
+section, however you can learn more about it in the later example (section \ref{rpc})
 where we discuss processing GeoEye imagery which comes only with RPC
 coefficients. Our implementation of the linear camera model only
 models the geometry of the imaging hardware itself and velocity
@@ -803,11 +807,13 @@ least you should be able to download this imagery yourself and follow
 along.
 
 \subsection{Processing Raw}
+\label{rawdg}
 
 After you have downloaded the example stereo imagery of India, you
-will find a directory titled \texttt{052783824050\_01\_P001\_PAN}. It contains a
+will find a directory titled\newline
+\texttt{052783824050\_01\_P001\_PAN}. It has a
 lot of files and many of them contain redundant information just
-displayed in different forms. We are interested only in the TIF or NTF
+displayed in different formats. We are interested only in the TIF or NTF
 imagery and the similarly named XML file. In this example product from
 Digital Globe, we received our ideal format of a TIFF file. NTF files
 can sometimes use JPEG2000 for the underlining encoding. We supply a
@@ -815,12 +821,13 @@ decoder from OpenJPEG in ASP, unfortunately it is quite slow and might
 mean extremely long preprocessing times.
 
 Further investigation of the files downloaded will show that there are
-in fact 4 files. This is because Digital Globe breaks down a single
-observation into multiple files for what we assume are size
+in fact 4 image files. This is because Digital Globe breaks down a
+single observation into multiple files for what we assume are size
 reasons. These files have a pattern string of ``\_R[N]C1-'', where N
-increments for every subframe of the full observation. ASP currently
-doesn't know how to ingest an entire frame, so instead we can only
-process pairs of subframes.
+increments for every subframe of the full observation. The tool named
+\texttt{dg\_mosaic} can be used to mosaic (and optionally reduce the
+resolution of) such a set of sub-observations into a single image file
+and create an appropriate camera file (section \ref{dgmosaic}).
 
 Since we are ingesting these images raw, it is strongly recommend that
 you use a homography alignment to reduce the search range. Processing
@@ -850,10 +857,11 @@ completed command and a rendering in QGIS are shown below.
 \subsubsection*{stereo.default}
 
 The stereo.default example file works generally well with all Digital
-Globe pairs. As well as they can anyways. Just set
+Globe pairs. Just set
 \texttt{alignment-method} to \texttt{homography}.
 
 \subsection{Processing Map Projected Imagery}
+\label{mapproj}
 
 Eventually you will run into Digital Globe imagery that has too much
 parallax to be processed in a reasonable time. (That wasn't the case
@@ -873,18 +881,23 @@ to calculate the final result.
 The hardest part of this whole process is getting your input low
 resolution 3D model. In this example we will use a void filled variant
 of NASA SRTM data. Other choices might be GMTED2010 or USGS's NED
-data. However, you must be careful that the DEM data you are
-downloading does not use a vertical datum. ASP only understand
-ellipsoidal references such as WGS84. Vertical datums such as NAVD88
-used by USGS's NED data products or EGM96 should be added to your
-DEM's elevations prior to use by ASP. Not doing this might not
-properly negate the parallax seen between the two images, though it
-will not corrupt the triangulation results. In other-words, we are
-saying you can sometimes get lucky ignoring the vertical datums on the
-input but do not recommend doing that. Also, you should note, that the
-geoheader attached to those types of files usually do not describe the
-vertical datum they used. That can only be understood by careful
-reading of your provider's documents.
+data.
+
+It is important to note that ASP expects DEM images to be in
+reference to a datum ellipsoid, such as WGS84 or NAD83. If the
+low-resolution DEM is in respect to either the EGM96 or NAVD88 geoids,
+the ASP tool \texttt{dem\_geoid} can be used to convert the DEM to WGS84
+or NAD83 (section \ref{demgeoid}). (The same tool can be used to convert
+back the final output ASP DEM to be in reference to a geoid, if
+desired.)
+
+Not applying this conversion might not properly negate the parallax seen
+between the two images, though it will not corrupt the triangulation
+results. In other words, sometimes one may get by ignoring the
+vertical datums on the input but do not recommend doing that. Also, you
+should note that the geoheader attached to those types of files usually
+do not describe the vertical datum they used. That can only be
+understood by careful reading of your provider's documents.
 
 The NASA SRTM square for our example spot in India is N26E080. Below
 are the commands for map projecting the input and then running
@@ -934,6 +947,7 @@ Globe pairs. As well as they can anyways. Just set
 
 \newpage
 \section{GeoEye Imagery / RPC Imagery}
+\label{rpc}
 
 GeoEye provides imagery from Ikonos and the two GeoEye
 satellites. They provide only Rational Polynomial Camera (RPC)
