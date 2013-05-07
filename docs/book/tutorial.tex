@@ -459,7 +459,7 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 
 \clearpage
 
-\section{Visualizing the Results}
+\section{Visualizing and Manipulating the Results}
 \label{visualising}
 
 When \texttt{stereo} finishes, it will have produced a point cloud
@@ -503,7 +503,7 @@ other interactive options.
 \subsection{Building a Digital Elevation Model}
 
 The \texttt{point2dem} program (page \pageref{point2dem}) creates a
-\ac{DEM} from the point cloud file.
+Digital Elevation Model (\ac{DEM}) from the point cloud file.
 
 \begin{verbatim}
     ISIS 3> point2dem E0201461-M0100115-PC.tif
@@ -599,6 +599,13 @@ sure to take your time to explore all of the options.
 % \end{figure}
 
 \clearpage
+
+\subsection{Creating DEMs relative to the Geoid/Areoid}
+
+The DEMs generated using \texttt{point2dem} are in reference to a datum
+ellipsoid. If desired, the \texttt{dem\_geoid} program can be used to
+convert this DEM to be relative to a geoid/areoid on Earth/Mars
+respectively.
 
 \subsection{Converting to the LAS Format}
 

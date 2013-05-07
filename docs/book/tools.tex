@@ -253,8 +253,8 @@ returns planetary radius values in meters.  These are often large
 numbers that are difficult to deal with.  If you use the \texttt{-r
 mars} option, the output terrain model will be in meters of elevation
 with reference to the IAU reference spheroid for Mars: 3,396,190~m.
-So if a post would have a radius value of 3,396,195 m, in the model
-returned with the \texttt{-r mars} option, that pixel would just be 5 m.
+So if a post would have a radius value of 3,396,195~m, in the model
+returned with the \texttt{-r mars} option, that pixel would just be 5~m.
 
 You may want to compare the output to MOLA data.  MOLA data is
 released in three `flavors,' namely: Topography, Radius, and Areoid.
@@ -262,10 +262,7 @@ The MOLA Topography data product that most people use is just the MOLA Radius
 product with the MOLA Areoid product subtracted.  Additionally, it is
 important to note that all of these data products have a reference
 value subtracted from them.  The MOLA reference value is NOT the
-IAU reference value, but 3,396,000 m.
-
-So you cannot just compare the output of \texttt{point2dem}
-to the MOLA Topography data, since \texttt{point2dem} doesn't know about the Areoid.
+IAU reference value, but 3,396,000~m.
 
 In order to compare with the MOLA data, you can do one of two
 different things.  You could operate purely in radius space, and
@@ -276,25 +273,23 @@ comparable to the MOLA Radius data.  You can do this by having
 3396000}.
 
 To get values that are directly comparable to MOLA Topography data,
-you'll need to run \texttt{point2dem} with the \texttt{-\/-semi-major-axis}
-and \texttt{-\/-semi-minor-axis} switches with the MOLA reference, to get
-something that is comparable with the MOLA Radius values.  Then you'll need
-to obtain the MOLA Areoid data and scale it up to the DEM ground scale, and then
-subtract that areoid data from the model produced by \texttt{point2dem}.  That
-resultant model can then be directly compared to the MOLA Topography data.
+you'll need to run \texttt{point2dem} with the option \texttt{-r mars},
+then run the ASP tool \texttt{dem\_geoid} (section \ref{demgeoid}). This
+program will convert the DEM height values from being relative to the IAU
+reference spheroid to being relative to the MOLA Areoid.
 
 \subsection{Post Spacing}
 
-Recall that \texttt{stereo} creates a pointcloud file as its output
+Recall that \texttt{stereo} creates a point cloud file as its output
 that you need to use \texttt{point2dem} on to create a GeoTIFF that
-you can use in other tools.  The pointcloud file is the result of
+you can use in other tools.  The point cloud file is the result of
 taking the image-to-image matches (which were created from the
 kernel sizes you specified, and the subpixel versions of the same,
 if used) and projecting them out into space from the cameras, and
 arriving at a point in real world coordinates.  Since \texttt{stereo} does
 this for every pixel in the input images, the \emph{default} value that
 \texttt{point2dem} uses (if you don't specify anything explicitly) is: the
-input image scale, because there's an `answer' in the pointcloud
+input image scale, because there's an `answer' in the point cloud
 file for each pixel in the original image.
 
 However, as you may suspect, this is probably not the best value to
@@ -341,12 +336,12 @@ Options & Description \\ \hline \hline
 \texttt{-\/-x-offset \textit{float(=0)}} & Add a horizontal offset to the \ac{DEM} \\ \hline
 \texttt{-\/-y-offset \textit{float(=0)}} & Add a horizontal offset to the \ac{DEM} \\ \hline
 \texttt{-\/-z-offset \textit{float(=0)}} & Add a vertical offset to the \ac{DEM} \\ \hline
-\texttt{-\/-rotation-order \textit{order(=xyz)}} & Set the order of an euler angle rotation applied to the 3D points prior to \ac{DEM} rasterization \\ \hline
+\texttt{-\/-rotation-order \textit{order(=xyz)}} & Set the order of an Euler angle rotation applied to the 3D points prior to \ac{DEM} rasterization \\ \hline
 \texttt{-\/-phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline
 \texttt{-\/-omega-rotation \textit{float(=0)}} & Set a rotation angle omega \\ \hline
 \texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa \\ \hline
 \hline
-\texttt{-\/-t\_srs \textit{string}} & Target spatial reference set. This mimicks the GDAL option used on their tools. \\ \hline
+\texttt{-\/-t\_srs \textit{string}} & Target spatial reference set. This mimics the GDAL option used on their tools. \\ \hline
 \texttt{-\/-reference-spheroid|-r moon|mars} & Set a reference surface to a hard coded value. This will override manually set datum information. \\ \hline
 \texttt{-\/-semi-major-axis \textit{float(=0)}} & Set the dimensions of the datum in meters\\ \hline
 \texttt{-\/-semi-minor-axis \textit{float(=0)}} & Set the dimensions of the datum in meters\\ \hline
@@ -567,7 +562,12 @@ can also apply the reverse of this adjustment.
 Two geoids and one areoid are supported. The Earth geoids are: EGM96, referenced to the WGS84 datum ellipsoid (\url{http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html})
 and NAVD88, referenced to the NAD83 datum ellipsoid (\url{http://www.ngs.noaa.gov/GEOID/GEOID09/}).
 
-The Mars areoid is MOLA MEGDR (\url{http://geo.pds.nasa.gov/missions/mgs/megdr.html}). We adjusted the areoid height values to be relative to the mean Mars radius of 3,396,190 meters used internally in ASP, from the original value of 3,396,000 meters used at that source.
+The Mars areoid is MOLA MEGDR
+(\url{http://geo.pds.nasa.gov/missions/mgs/megdr.html}). When importing
+it into ASP, we adjusted the areoid height values to be relative to
+the IAU reference spheroid for Mars of radius 3,396,190~m, to be
+consistent with the DEM data produced by ASP. The areoid at that source was
+relative to the Mars radius of 3,396,000~m.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dem\_geoid}
