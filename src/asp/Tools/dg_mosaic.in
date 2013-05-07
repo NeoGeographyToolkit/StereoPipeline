@@ -190,9 +190,9 @@ def main():
             parser.set_defaults(reduce_percent=100)
             parser.set_defaults(output_prefix="")
             parser.add_option("--gdal-dir", dest="gdaldir",
-                              help="Directory where GDAL tools are. Alternatively we try and pull the tools from the enviroment.")
+                              help="Directory where the GDAL tools are. If not provided, we get them from the environment.")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="int",
-                              help="Render a reduced output image and xml based on this percentage.")
+                              help="Render a reduced resolution image and xml based on this percentage.")
             parser.add_option("--output-prefix", dest="output_prefix", type="str",
                               help="The prefix for the output .tif and .xml files.")
             parser.add_option("--preview", dest="preview",
@@ -200,7 +200,7 @@ def main():
                               help="Render a small 8 bit png of the input for preview.")
             parser.add_option("-n", "--dry-run", dest="dryrun",
                               action="store_true",
-                              help="Make caclulations, but just print out the commands.")
+                              help="Make calculations, but just print out the commands.")
 
             (options, args) = parser.parse_args()
             if not args:
