@@ -35,10 +35,11 @@ namespace asp {
   // RPCMapTransform can cache itself.
   template <class Tx1T, class Tx2T>
   class CompositionTransformPassBBox : public vw::TransformBase<CompositionTransformPassBBox<Tx1T,Tx2T> > {
-    Tx1T tx1;
-    Tx2T tx2;
   public:
     CompositionTransformPassBBox( Tx1T const& tx1, Tx2T const& tx2 ) : tx1(tx1), tx2(tx2) {}
+
+    Tx1T tx1; // Be sure to copy!
+    Tx2T tx2; // public so that we can invoke caching manually for RPCMapTransform
 
     inline vw::Vector2 forward( vw::Vector2 const& p ) const { return tx1.forward( tx2.forward( p ) ); }
     inline vw::Vector2 reverse( vw::Vector2 const& p ) const { return tx2.reverse( tx1.reverse( p ) ); }

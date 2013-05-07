@@ -153,7 +153,9 @@ private:
   }
 
   template <class T1, class T2>
-  typename boost::disable_if< boost::mpl::and_<boost::is_same<T1,RPCMapTransform>,boost::is_same<T2,RPCMapTransform> >, prerasterize_type>::type
+  typename boost::disable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::left_tx_type>,
+                                               boost::is_same<T2,StereoSessionDGMapRPC::right_tx_type> >,
+                              prerasterize_type>::type
   PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
     // General Case
     ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
@@ -162,7 +164,9 @@ private:
   }
 
   template <class T1, class T2>
-  typename boost::enable_if< boost::mpl::and_<boost::is_same<T1,RPCMapTransform>,boost::is_same<T2,RPCMapTransform> >, prerasterize_type>::type
+  typename boost::enable_if< boost::mpl::and_<boost::is_same<T1,StereoSessionDGMapRPC::left_tx_type>,
+                                              boost::is_same<T2,StereoSessionDGMapRPC::right_tx_type> >,
+                             prerasterize_type>::type
   PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
     // RPC Map Transform needs to be explicitly copied and told to
     // cache for performance.
@@ -180,9 +184,10 @@ private:
     // transforms so we are not having a race condition with setting
     // the cache in both transforms while the other threads want to do
     // the same.
-    RPCMapTransform tx1_copy = tx1, tx2_copy = tx2;
-    tx1_copy.cache_dem( bbox );
-    tx2_copy.cache_dem( right_bbox );
+    T1 tx1_copy = tx1;
+    T2 tx2_copy = tx2;
+    tx1_copy.tx1.cache_dem( bbox );
+    tx2_copy.tx1.cache_dem( right_bbox );
 
     return prerasterize_type( crop(disparity_preraster,-bbox.min().x(),-bbox.min().y(),cols(),rows()),
                               tx1_copy, tx2_copy, m_stereo_model );
