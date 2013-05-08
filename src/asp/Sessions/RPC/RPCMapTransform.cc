@@ -60,8 +60,10 @@ namespace asp {
     ImageViewRef<Vector3> interp_point_cloud =
       interpolate(m_point_cloud_cache, BicubicInterpolation(), ZeroEdgeExtension());
 
+    // Avoid interpolating close to edges
     BBox2i shrank_bbox = m_cache_size;
-    shrank_bbox.expand(-BicubicInterpolation::pixel_buffer); // Avoid interpolating close to edges
+    shrank_bbox.contract(BicubicInterpolation::pixel_buffer);
+
     Vector3 xyz =
       shrank_bbox.contains( p ) ?
       interp_point_cloud(p.x() - m_cache_size.min().x(),
@@ -84,7 +86,10 @@ namespace asp {
   void
   RPCMapTransform::cache_dem( vw::BBox2i const& bbox ) const {
     m_cache_size = bbox;
-    m_cache_size.expand(BicubicInterpolation::pixel_buffer); // For bicubic interpolation later
+
+    // For bicubic interpolation later
+    m_cache_size.expand(BicubicInterpolation::pixel_buffer);
+
     m_point_cloud_cache = crop( m_point_cloud, m_cache_size );
   }
 }
