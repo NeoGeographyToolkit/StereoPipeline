@@ -108,9 +108,13 @@ int main( int argc, char *argv[] ) {
     double maxInt = std::numeric_limits<int32>::max();
     maxInt *= 0.95; // Just in case stay a bit away
     Vector3 scale = cloud_bbox.size()/(2.0*maxInt);
+    for (size_t i = 0; i < scale.size(); i++){
+      if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
+    }
 
     liblas::Header header;
-    header.SetDataFormatId(liblas::ePointFormat1);
+    // The line below causes trouble with compression in libLAS-1.7.0.
+    //header.SetDataFormatId(liblas::ePointFormat1);
     header.SetScale(scale[0], scale[1], scale[2]);
     header.SetOffset(offset[0], offset[1], offset[2]);
 
@@ -136,10 +140,16 @@ int main( int argc, char *argv[] ) {
         Vector3 point = point_image(col, row);
         if ( point == Vector3() ) continue; // skip no-data points
 
+#if 0
+        // For comparison later with las2txt.
+        std::cout.precision(16);
+        std::cout << "\npoint " << point[0] << ' ' << point[1] << ' '
+                  << point[2] << std::endl;
+#endif
+
         point = round( elem_quot((point - offset), scale) );
 
         liblas::Point las_point;
-        las_point.SetHeader(&header);
         las_point.SetCoordinates(point[0], point[1], point[2]);
         writer.WritePoint(las_point);
 
