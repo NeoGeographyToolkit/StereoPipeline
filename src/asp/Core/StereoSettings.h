@@ -71,6 +71,7 @@ namespace asp {
   // Structure holding variables
   class StereoSettings {
   public:
+    StereoSettings();
     void validate();
     void write_copy( int argc, char *argv[],
                      std::string const& input_file,
@@ -157,7 +158,7 @@ namespace asp {
 
   /// Return the singleton instance of the stereo setting structure.
   /// The stereo settings struct is created the first time this method
-  /// is invoked.  You should *always* access the stereo settings
+  /// is invoked.  You must *always* access the stereo settings
   /// through this function.
   StereoSettings& stereo_settings();
 

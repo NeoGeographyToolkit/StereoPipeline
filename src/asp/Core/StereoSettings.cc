@@ -40,9 +40,16 @@ namespace {
 }
 
 namespace asp {
+
   StereoSettings& stereo_settings() {
     stereo_settings_once.run( init_stereo_settings );
     return *stereo_settings_ptr;
+  }
+
+  StereoSettings::StereoSettings(){
+    // Must initialize this variable as it is used in rpc_mapproject
+    // to get a camera pointer, and there we don't parse stereo.default
+    disable_correct_velocity_aberration = false;
   }
 
   // Define our options that are available
