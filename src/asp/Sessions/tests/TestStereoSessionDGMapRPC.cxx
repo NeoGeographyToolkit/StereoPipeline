@@ -44,7 +44,8 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   tx(0,2) = tx(1,2) = -2000;
   lowres_overcrop_georef.set_transform( tx );
   ImageView<float> lowres_overcrop_image(8,8);
-  fill( lowres_overcrop_image, 2287 ); // Average height of this area
+  double dem_height = 2287; // Average height of this area
+  fill( lowres_overcrop_image, dem_height );
   UnlinkName lowres_dem_name( "lowres_dem.tif" );
   write_georeferenced_image( lowres_dem_name, lowres_overcrop_image, lowres_overcrop_georef );
 
@@ -79,7 +80,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
     for ( size_t i = 0; i < 4; i++ ) {
       Vector3 lonlatheight;
       subvector(lonlatheight,0,2) = lowres_georef.pixel_to_lonlat( Vector2(i,j) );
-      lonlatheight.z() = 2287;
+      lonlatheight.z() = dem_height;
       Vector3 xyz = datum.geodetic_to_cartesian( lonlatheight );
       EXPECT_VECTOR_NEAR( left_xml.rpc_ptr()->point_to_pixel( xyz ),
                           left_tx.reverse( Vector2(i,j) ), 1e-1 );
@@ -91,11 +92,10 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
     for ( size_t i = 0; i < 20; i++ ) {
       Vector3 lonlatheight;
       subvector(lonlatheight,0,2) = hires_georef.pixel_to_lonlat( Vector2(i,j) );
-      lonlatheight.z() = 2287;
+      lonlatheight.z() = dem_height;
       Vector3 xyz = datum.geodetic_to_cartesian( lonlatheight );
       EXPECT_VECTOR_NEAR( right_xml.rpc_ptr()->point_to_pixel( xyz ),
                           right_tx.reverse( Vector2(i,j) ), 1e-1 );
     }
   }
 }
-
