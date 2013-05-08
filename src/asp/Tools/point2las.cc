@@ -139,6 +139,7 @@ int main( int argc, char *argv[] ) {
         point = round( elem_quot((point - offset), scale) );
 
         liblas::Point las_point;
+        las_point.SetHeader(&header);
         las_point.SetCoordinates(point[0], point[1], point[2]);
         writer.WritePoint(las_point);
 
