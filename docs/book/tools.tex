@@ -24,8 +24,8 @@ Usage:\\
 
 \medskip
 
-This release of the stereo pipeline has been specifically designed to
-process USGS ISIS \texttt{.cub} files. However, the stereo pipeline
+This release of the Stereo Pipeline has been specifically designed to
+process USGS ISIS \texttt{.cub} files. However, the Stereo Pipeline
 does have the capability to process other types of stereo image pairs
 (e.g. image files with a CAHVOR camera model from the NASA MER
 rovers).  If you would like to experiment with these features, please
@@ -34,7 +34,7 @@ contact us for more information.
 The \texttt{\textit{output\_file\_prefix}} is prepended to all
 output data files.  For example, setting \texttt{\textit{output\_file\_prefix}}
 to `\texttt{out}' will yield files with names like \texttt{out-L.tif}
-and \texttt{out-PC.tif}.  To keep stereo pipeline results organized
+and \texttt{out-PC.tif}.  To keep the Stereo Pipeline results organized
 in sub-directories, we recommend using an output prefix like
 `\texttt{results-10-12-09/out}' for \texttt{\textit{output\_file\_prefix}}.  The
 \texttt{stereo} program will create a directory called
@@ -110,7 +110,7 @@ Stage 4 (Triangulation) calls \texttt{stereo\_tri}. Single-Threaded.
 
 All of the sub-programs have the same interface as
 \texttt{stereo}. Users processing a large number of stereo pairs on a
-cluster my find it advantageous to call these executables in their own
+cluster may find it advantageous to call these executables in their own
 manner. An example would be to run stages 0-3 in order for each stereo
 pair. Then run several sessions of \texttt{stereo\_tri} since it is
 single threaded.
@@ -136,9 +136,11 @@ computationally expensive.
 
 For these reasons, while \texttt{stereo\_mpi} can be called to do all
 stages of stereo generation from start to finish in one command, it may
-be more reseource-efficient to invoke
+be more resource-efficient to invoke
 it using just one node for stages 0 and 3, many nodes for stages 1 and
-2, and just a handful of nodes for stage 4 (triangulation).
+2, and just a handful of nodes for stage 4 (triangulation). As an example, to
+call \texttt{stereo\_mpi} just for stage 3, one invokes it with the
+options \texttt{-\/-entry-point 3 -\/-stop-point 4}.
 
 \texttt{stereo\_mpi} accepts the following options (any additional
 options given to it will be passed to the stereo executables
@@ -163,7 +165,7 @@ use per node. \\ \hline
 type to use for processing (e.g., ISIS, DG, etc.).\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use.\\ \hline
 \texttt{-\/-entry-point|-e integer(=0 to 5)} & Stereo Pipeline entry point. \\ \hline
-\texttt{-\/-entry-point|-e integer(=1 to 6)} & Stereo Pipeline stop point. \\ \hline
+\texttt{-\/-stop-point|-e integer(=1 to 6)} & Stereo Pipeline stop point. \\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs\\ \hline
 \texttt{-\/-job-size-w \textit{integer(=2048)}} & Pixel width of input
 image tile for a single process. \\ \hline

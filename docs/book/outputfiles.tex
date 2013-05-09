@@ -10,8 +10,8 @@ line argument to {\tt stereo}.  Run {\tt stereo -\/-help} for details.
 \begin{description}
 
 \item[*.vwip \textnormal{- image feature files}] \hfill \\
-  If \texttt{alignment-method homography} is enabled, the stereo
-  pipeline will automatically search for image features to use for
+  If \texttt{alignment-method homography} is enabled, the Stereo
+  Pipeline will automatically search for image features to use for
   tie-points.  Raw image features are stored in \texttt{*.vwip} files;
   one per input image. For example, if your images are
   \texttt{left.cub} and \texttt{right.cub} you'll get
@@ -28,7 +28,7 @@ line argument to {\tt stereo}.  Run {\tt stereo -\/-help} for details.
 
   The \texttt{.vwip} and \texttt{.match} files are meant to serve
   as cached tie-point information, and they help speed up the
-  pre-processing phase of the stereo pipeline: if these files exist
+  pre-processing phase of the Stereo Pipeline: if these files exist
   then the \texttt{stereo} program will skip over the interest point
   alignment stage and instead use the cached tie-points contained
   in the \texttt{*.match} files.  In the rare case that one of these files
@@ -110,7 +110,7 @@ line argument to {\tt stereo}.  Run {\tt stereo -\/-help} for details.
   Pipeline, such as {\tt point2mesh} and {\tt point2dem} will convert
   the contents of this file to more easily visualized formats.
 
-\item[*-stereo.default \textnormal{- backup of the stereo pipeline settings file}] \hfill \\
+\item[*-stereo.default \textnormal{- backup of the Stereo Pipeline settings file}] \hfill \\
   This is a copy of the \texttt{stereo.default} file used by
   \texttt{stereo}.  It is stored alongside the output products as
   a record of the settings that were used for this particular stereo
