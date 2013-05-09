@@ -6,9 +6,10 @@
 # Pre-alignment options
 #
 # Available choices are (however not all are supported by all sessions):
-#    NONE       (Recommended for anything map projected)
-#    EPIPOLAR   (Recommended for Pinhole Sessions)
-#    HOMOGRAPHY (Recommended for ISIS and DG Sessions)
+#    NONE           (Recommended for anything map projected)
+#    EPIPOLAR       (Recommended for Pinhole Sessions)
+#    HOMOGRAPHY     (Recommended for ISIS wide-angle shots)
+#    AFFINEEPIPOLAR (Recommended for ISIS narrow-angle and DG sessions)
 alignment-method none
 
 # Intensity Normalization

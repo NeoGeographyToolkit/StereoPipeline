@@ -6,10 +6,11 @@
 # Pre-alignment options
 #
 # Available choices are (however not all are supported by all sessions):
-#    NONE       (Recommended for anything map projected)
-#    EPIPOLAR   (Recommended for Pinhole Sessions)
-#    HOMOGRAPHY (Recommended for ISIS and DG Sessions)
-alignment-method homography
+#    NONE           (Recommended for anything map projected)
+#    EPIPOLAR       (Recommended for Pinhole Sessions)
+#    HOMOGRAPHY     (Recommended for ISIS wide-angle shots)
+#    AFFINEEPIPOLAR (Recommended for ISIS narrow-angle and DG sessions)
+alignment-method affineepipolar
 
 # Intensity Normalization
 force-use-entire-range       # Use entire input range
