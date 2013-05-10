@@ -148,22 +148,23 @@ def wait_on_all_jobs():
                 break # must restart as array changed size
         time.sleep( sleep_time )
 
-def wipe_existing_threads_arg(call):
-    # Before inserting a '--threads val' option
-    # wipe the existing one if present.
-    p = '--threads';
-    while p in call:
-        r = call.index(p)
-        if r < len(call): del call[r] # rm '--threads'
-        if r < len(call): del call[r] # rm value of '--threads'
+def wipe_option(options, opt, n):
+    # In the array 'options', find the entry with value 'opt'.
+    # Wipe this entry and the next n values.
+    while opt in options:
+        r = options.index(opt)
+        if r < len(options): del options[r] # rm 'opt'
+        for i in range(n):
+            if r < len(options): del options[r]
 
 def run(bin, args, **kw):
+
     binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
     call = [binpath]
     call.extend(args)
 
     if opt.threads_single is not None:
-        wipe_existing_threads_arg(call)
+        wipe_option(call, '--threads', 1)
         call.extend(['--threads', str(opt.threads_single)])
 
     if opt.dryrun:
@@ -186,6 +187,7 @@ def get_settings( args, **kw ):
     except OSError, e:
         raise Exception('%s: %s' % (libexecpath, e))
     (stdout, stderr) = p.communicate()
+
     p.wait()
     if p.returncode != 0:
         raise Exception('Failed getting stereo settings')
@@ -220,8 +222,7 @@ def create_subproject_dirs( settings, **kw ):
                             os.path.basename(settings['in_file2'][0])[:-4]+".match"]:
                 if os.path.lexists( prefix + postfix ):
                     os.remove( prefix + postfix )
-                os.symlink( relation + postfix,
-                            prefix + postfix )
+                os.symlink( relation + postfix, prefix + postfix )
 
 def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
 
@@ -236,12 +237,8 @@ def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
                 f.write("    <SimpleSource>\n")
                 f.write("       <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % relative)
                 f.write("       <SourceBand>%i</SourceBand>\n" % b)
-                if 'tiles_cropped' in kw and kw['tiles_cropped']:
-                    f.write("       <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" %
-                            (tile.width, tile.height) )
-                else:
-                    f.write("       <SrcRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
-                            (tile.x, tile.y, tile.width, tile.height) )
+                f.write("       <SrcRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
+                        (tile.x, tile.y, tile.width, tile.height) )
                 f.write("       <DstRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
                         (tile.x, tile.y, tile.width, tile.height) )
                 f.write("    </SimpleSource>\n")
@@ -249,13 +246,58 @@ def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
         f.write("</VRTDataset>\n")
 
 
+def get_num_nodes(nodes_list):
+
+    if nodes_list is None:
+        return 1 # local machine
+
+    num_nodes = 0
+    try:
+        fh = open(nodes_list, "r")
+        for line in fh:
+            if re.match('^\s*$', line): continue # skip empty lines
+            num_nodes += 1
+
+    except Exception, e:
+        if not opt.debug:
+            die(e)
+            raise
+
+    if num_nodes == 0:
+        raise Exception('The list of computing ndoes is empty')
+
+    return num_nodes
+
+# Create copies of the run manager on multiple machines.
+# Those will in turn launch the jobs on those machines.
+def sprawn_to_nodes(start, stop, num_nodes, settings, args):
+
+    # Each node gets an id
+    ids = [];
+    for i in range(num_nodes): ids += [str(i)]
+
+    cmd = ['parallel', '-u']
+
+    if opt.nodes_list is not None:
+        cmd += ['--sshloginfile', opt.nodes_list]
+
+    args_list = " ".join(args) + " --entry-point " + str(start) + \
+                " --stop-point " + str(stop) + " --work-dir "   + \
+                opt.work_dir + " --rank {}"
+    cmd += [args_list, ':::'] + ids
+
+    code = subprocess.call(cmd)
+    if code != 0:
+        raise Exception('parallel_stereo call for step ' + start + ' failed')
+
+# Launch jobs on the current machine
 def parallel_run(bin, args, settings, tiles, **kw):
     binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
     call = [binpath]
     call.extend(args)
 
     if opt.threads_multi is not None:
-        wipe_existing_threads_arg(call)
+        wipe_option(call, '--threads', 1)
         call.extend(['--threads', str(opt.threads_multi)])
 
     try:
@@ -277,7 +319,7 @@ def die(msg, code=-1):
     sys.exit(code)
 
 if __name__ == '__main__':
-    usage = '''stereo_mpi [options] <Left_input_image> <Right_input_image>
+    usage = '''parallel_stereo [options] <Left_input_image> <Right_input_image>
               [Left_camera_file] [Right_camera_file] <output_file_prefix> [DEM]
         Extensions are automaticaly added to the output files.
         Camera model arguments may be optional for some stereo
@@ -293,9 +335,14 @@ if __name__ == '__main__':
     # computers. It also allows us to get past the single-threaded
     # constraints of ISIS.
 
+    # Algorithm: When the script is started, it starts one copy of
+    # itself on each node if doing steps 1, 2, or 4 (corr, rfne, tri).
+    # Those scripts in turn start actual jobs on those nodes.
+    # For the other steps, the script does the work itself.
+
     p = PassThroughOptionParser(usage=usage)
-    p.add_option('--mpiexec',              dest='mpi_nodes',   default=None,  type='int',
-                 help='The number of computing nodes to use in an MPIEXEC capable system.')
+    p.add_option('--nodes-list',              dest='nodes_list',   default=None,
+                 help='A file having the list of computing nodes.')
     p.add_option('--processes',            dest='processes',   default=4,     type='int',
                  help='The number of processes to use per node.')
     p.add_option('--threads-multiprocess', dest='threads_multi', default=2,   type='int',
@@ -307,26 +354,47 @@ if __name__ == '__main__':
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
-                 help='Stereo Pipeline entry point (an integer from 0-5)', type='int')
+                 help='Stereo Pipeline entry point (an integer from 0-5).', type='int')
     p.add_option('--stop-point',           dest='stop_point',  default=6,
-                 help='Stereo Pipeline stop point (an integer from 1-6)', type='int')
+                 help='Stereo Pipeline stop point (an integer from 1-6).', type='int')
     p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
                  help='Tell GDAL to not create bigtiffs.')
     p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
-                 help='Pixel width of input image tile for a single process', type='int')
+                 help='Pixel width of input image tile for a single process.', type='int')
     p.add_option('--job-size-h',           dest='job_size_h',  default=2048,
-                 help='Pixel height of input image tile for a single process', type='int')
+                 help='Pixel height of input image tile for a single process.', type='int')
     p.add_option('--correlation-timeout',  dest='corr_timeout',   default=None,  type='int',
-                 help='Timeout in seconds for a stereo correlation process')
-    p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
-                 help=optparse.SUPPRESS_HELP)
-    p.add_option('--debug',                dest='debug',       default=False, action='store_true',
-                 help=optparse.SUPPRESS_HELP)
+                 help='Timeout in seconds for a stereo correlation process.')
     p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
-                 help='Display the version of software')
+                 help='Display the version of software.')
+
+    # Internal variables below.
+    # The rank of the sprawned process (0 <= rank < num_nodes).
+    p.add_option('--rank',                 dest='rank', default=None, type='int',
+                 help=optparse.SUPPRESS_HELP)
+    # Directory where the job is running
+    p.add_option('--work-dir',            dest='work_dir', default=None,
+                 help=optparse.SUPPRESS_HELP)
+    # Debug options
+    p.add_option('--dry-run',              dest='dryrun', default=False, action='store_true',
+                 help=optparse.SUPPRESS_HELP)
+    p.add_option('--debug',                dest='debug', default=False, action='store_true',
+                 help=optparse.SUPPRESS_HELP)
 
     global opt
     (opt, args) = p.parse_args()
+
+    if opt.rank is None:
+        # When the script is started.
+        opt.work_dir = os.getcwd()
+    else:
+        # After the script spawns itself to nodes, it starts in the
+        # home dir. Make it go to the right place.
+        os.chdir(opt.work_dir)
+
+    num_nodes = get_num_nodes(opt.nodes_list)
+
+    # To do: Make it work for isis!!!
 
     if not args and not opt.version:
         p.print_help()
@@ -348,13 +416,11 @@ if __name__ == '__main__':
 
     settings=get_settings( args )
 
-    mpiexec_rank = os.getenv("MPIEXEC_RANK")
+    if opt.rank is None:
 
-    if opt.mpi_nodes is None or opt.mpi_nodes == 1:
-        create_subproject_dirs( settings )
+        print("launching on machine", os.uname())
 
-    if opt.mpi_nodes is not None and opt.mpi_nodes > 1 and mpiexec_rank is None:
-        # Multi-machine execution. This means that the current running
+        # We get here when the script is started. The current running
         # process has become the management process that spawns other
         # copies of itself on other machines. This block will only do
         # actual work when we hit a non-multiprocess step like PPRC or
@@ -362,20 +428,16 @@ if __name__ == '__main__':
 
         create_subproject_dirs( settings )
 
-        mpi_cmd = ['mpiexec','-comm','none','-np',str(opt.mpi_nodes)]
+        # Remove the '-e', '--entry-point', and '--stop-point' options
+        # and their values from sys.argv as we will overwite those
+        # below.
+        self_args = sys.argv # shallow copy
+        wipe_option(self_args, '-e', 1)
+        wipe_option(self_args, '--entry-point', 1)
+        wipe_option(self_args, '--stop-point', 1)
 
-        # Remove the '-e' and '--entry-point' options from sys.argv
-        # as we will overwite those below. Should we do the same
-        # for '--stop-point'?
-        call_self = sys.argv
-        if '-e' in call_self:
-            i = call_self.index('-e')
-            call_self.pop(i+1)
-            call_self.pop(i)
-        if '--entry-point' in call_self:
-            i = call_self.index('--entry-point')
-            call_self.pop(i+1)
-            call_self.pop(i)
+        # To do: Respect user's crop-win option!
+        wipe_option(self_args, '--left-image-crop-win', 4)
 
         if ( opt.entry_point <= 0 ):
             # Preprocessing
@@ -383,45 +445,34 @@ if __name__ == '__main__':
             # Now the left is defined. Regather the settings
             settings=get_settings( args )
         if ( opt.entry_point <= 1 ):
-            # Correlation
-            if ( opt.stop_point <= 1 ):
-                sys.exit()
+            # Correlation. First do low-res.
+            if ( opt.stop_point <= 1 ): sys.exit()
             run('stereo_corr', args_sub, msg='1: Low-res correlation')
-            cmd = mpi_cmd + sys.argv + ['-e','1','--stop-point','2']
-            code = subprocess.call(cmd)
-            if code != 0:
-                raise Exception('MPI Exec call for stereo step 1 failed')
+            sprawn_to_nodes(1, 2, num_nodes, settings, self_args)
         if ( opt.entry_point <= 2 ):
-            # Refine
-            if ( opt.stop_point <= 2 ):
-                sys.exit()
-            cmd = mpi_cmd + sys.argv + ['-e','2','--stop-point','3']
-            code = subprocess.call(cmd)
-            if code != 0:
-                raise Exception('MPI Exec call for stereo step 2 failed')
+            # Refinement
+            if ( opt.stop_point <= 2 ): sys.exit()
+            sprawn_to_nodes(2, 3, num_nodes, settings, self_args)
         if ( opt.entry_point <= 3 ):
             # Filtering
-            if ( opt.stop_point <= 3 ):
-                sys.exit()
+            if ( opt.stop_point <= 3 ): sys.exit()
             build_vrt( settings, "-RD.tif", 3, "Float32" );
             run('stereo_fltr', args, msg='3: Filtering')
         if ( opt.entry_point <= 4 ):
             # Triangulation
-            if ( opt.stop_point <= 4 ):
-                sys.exit()
-            cmd = mpi_cmd + sys.argv + ['-e','4','--stop-point','5']
-            code = subprocess.call(cmd )
-            if code != 0:
-                raise Exception('MPI Exec call for stereo step 4 failed')
+            if ( opt.stop_point <= 4 ): sys.exit()
+            sprawn_to_nodes(4, 5, num_nodes, settings, self_args)
         if ( opt.entry_point <= 5 ):
-            # PC Mosaic
-            if ( opt.stop_point <= 5 ):
-                sys.exit()
+            # Point cloud mosaic
+            if ( opt.stop_point <= 5 ): sys.exit()
             build_vrt( settings, "-PC.tif", 4, "Float64", tiles_cropped=True )
 
     else:
+
         # Launch multiple processes doing actual work on the current
-        # machine.
+        # machine for the current entry point.
+
+        print("launching on machine", os.uname())
 
         try:
             if ( opt.entry_point <= 0 ):
@@ -433,37 +484,35 @@ if __name__ == '__main__':
             # Define the tiles that we'll be processing on
             tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h );
 
-            if mpiexec_rank is not None and opt.mpi_nodes is not None:
-                # We are processing the jobs that correspond to the
-                # fraction 1 / opt.mpi_nodes and are at index
-                # mpiexec_rank
-                num_tiles = len(tiles)
-                min_index = int((float(mpiexec_rank)/float(opt.mpi_nodes)) * num_tiles)
-                max_index = int(((float(mpiexec_rank)+1)/float(opt.mpi_nodes)) * num_tiles)
-                tiles = tiles[min_index:max_index]
+            # We are processing the jobs that correspond to the
+            # fraction 1 / num_nodes and are at index opt.rank.
+            num_tiles = len(tiles)
+            min_index = int((float(opt.rank)/float(num_nodes)) * num_tiles)
+            max_index = int(((float(opt.rank)+1)/float(num_nodes)) * num_tiles)
+            tiles = tiles[min_index:max_index]
 
             if ( opt.entry_point <= 1 ):
-                if ( opt.stop_point <= 1 ):
-                    sys.exit()
+                if ( opt.stop_point <= 1 ): sys.exit()
                 run('stereo_corr', args_sub, msg='1: Low-res correlation')
                 parallel_run('stereo_corr', args, settings, tiles, msg='1: Correlation')
+                sys.exit()
             if ( opt.entry_point <= 2 ):
-                if ( opt.stop_point <= 2 ):
-                    sys.exit()
+                if ( opt.stop_point <= 2 ): sys.exit()
                 parallel_run('stereo_rfne', args, settings, tiles, msg='2: Refinement')
                 build_vrt( settings, "-RD.tif", 3, "Float32" );
+                sys.exit()
             if ( opt.entry_point <= 3 ):
-                if ( opt.stop_point <= 3 ):
-                    sys.exit()
+                if ( opt.stop_point <= 3 ): sys.exit()
                 run('stereo_fltr', args, msg='3: Filtering')
+                sys.exit()
             if ( opt.entry_point <= 4 ):
-                if ( opt.stop_point <= 4 ):
-                    sys.exit()
+                if ( opt.stop_point <= 4 ): sys.exit()
                 parallel_run('stereo_tri', args, settings, tiles, msg='4: Triangulation')
+                sys.exit()
             if ( opt.entry_point <= 5 ):
-                if ( opt.stop_point <= 5 ):
-                    sys.exit()
+                if ( opt.stop_point <= 5 ): sys.exit()
                 build_vrt( settings, "-PC.tif", 4, "Float64", tiles_cropped=True )
+                sys.exit()
         except Exception, e:
             if not opt.debug:
                 die(e)
