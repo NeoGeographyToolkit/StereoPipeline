@@ -17,7 +17,7 @@ SESSIONS
    instead of LUTs to reverse map projections and alignments.
 
 TOOLS
- - Added dem_geoid, dg_mosaic, and stereo_mpi.
+ - Added dem_geoid, dg_mosaic, and parallel_stereo.
  - Added new interest point matching method to stereo.
  - Added new DEM seed mode for stereo.
  - Point2dem sped up by reducing over rasterization of triangles.
