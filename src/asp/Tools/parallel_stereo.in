@@ -105,6 +105,18 @@ class BBox:
         if self.y + self.height > settings["left_image"][1]:
             self.height = settings["left_image"] - self.y
 
+def intersect_boxes(A, B):
+    axmin = A.x; axmax = A.x + A.width; aymin = A.y; aymax = A.y + A.height
+    bxmin = B.x; bxmax = B.x + B.width; bymin = B.y; bymax = B.y + B.height
+    xmin = max(axmin, bxmin); xmax = min(axmax, bxmax)
+    ymin = max(aymin, bymin); ymax = min(aymax, bymax)
+    C = BBox(0, 0, 0, 0)
+    C.x = xmin; C.width = xmax - xmin
+    if (C.width  < 0): C.width = 0
+    C.y = ymin; C.height = ymax - ymin
+    if (C.height < 0): C.height = 0
+    return C
+
 def produce_tiles( settings, tile_w, tile_h ):
     image_size = settings["left_image"]
     tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
@@ -147,6 +159,29 @@ def wait_on_all_jobs():
                 job_pool.pop(i)
                 break # must restart as array changed size
         time.sleep( sleep_time )
+
+def get_user_crop_win(options):
+    # Find the entries --left-image-crop-win 0 512 1024 1024 and
+    # return the string 0x512x1024x1024.
+    opt = '--left-image-crop-win'
+    if not opt in options:
+        return None
+
+    crop_win = ""
+    r = options.index(opt)
+    for i in range(4):
+        r += 1
+        if r >= len(options):
+            raise Exception('Could not parse %s from: %s' % ( opt, " ".join(options) ) )
+        crop_win += str(options[r])
+        if i < 3: crop_win += "x"
+
+    return crop_win
+
+def parse_user_crop_win(crop_win):
+    # Parse 0x512x1024x1024 into BBox(0, 512, 1014, 1024)
+    arr = crop_win.split("x")
+    return BBox(int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3]))
 
 def wipe_option(options, opt, n):
     # In the array 'options', find the entry with value 'opt'.
@@ -230,9 +265,29 @@ def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
         f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(settings['left_image'][0]),int(settings['left_image'][1])) )
         for b in range( 1, num_bands + 1 ):
             f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" % (data_type,b) )
-            for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
+
+            tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+
+            # If a tile is missing, for example, in the case we
+            # skipped it when it does not intersect user's crop box,
+            # substitute it with a different one, to ensure the mosaic
+            # does not have holes.
+            goodFilename = ""
+            for tile in tiles:
                 directory = settings['out_prefix'][0] + tile.name_str()
-                filename   = directory + "/" + tile.name_str() + postfix
+                filename  = directory + "/" + tile.name_str() + postfix
+                if os.path.isfile(filename):
+                    goodFilename = filename
+                    break
+            if goodFilename == "":
+                raise Exception('No tiles were generated')
+
+            for tile in tiles:
+                directory = settings['out_prefix'][0] + tile.name_str()
+                filename  = directory + "/" + tile.name_str() + postfix
+
+                if not os.path.isfile(filename): filename = goodFilename
+
                 relative  = os.path.relpath(filename, os.path.dirname( settings['out_prefix'][0] ) )
                 f.write("    <SimpleSource>\n")
                 f.write("       <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % relative)
@@ -276,19 +331,26 @@ def sprawn_to_nodes(start, stop, num_nodes, settings, args):
     ids = [];
     for i in range(num_nodes): ids += [str(i)]
 
+    # Use GNU parallel
     cmd = ['parallel', '-u']
 
     if opt.nodes_list is not None:
         cmd += ['--sshloginfile', opt.nodes_list]
 
-    args_list = " ".join(args) + " --entry-point " + str(start) + \
-                " --stop-point " + str(stop) + " --work-dir "   + \
-                opt.work_dir + " --rank {}"
-    cmd += [args_list, ':::'] + ids
+    # The options which we want GNU parallel to not mess up with.
+    # Put them into a single string.
+    args_str = " ".join(args) + " --entry-point " + str(start) + \
+               " --stop-point " + str(stop) + " --work-dir " + opt.work_dir
+    if opt.isisroot  is not None: args_str += " --isisroot "  + opt.isisroot
+    if opt.isis3data is not None: args_str += " --isis3data " + opt.isis3data
+    if opt.user_crop_win is not None: args_str += " --user-crop-win " + opt.user_crop_win
+    args_str += " --rank {}"
+
+    cmd += [args_str, ':::'] + ids # GNU parallel syntax
 
     code = subprocess.call(cmd)
     if code != 0:
-        raise Exception('parallel_stereo call for step ' + start + ' failed')
+        raise Exception('parallel_stereo call for step ' + str(start) + ' failed')
 
 # Launch jobs on the current machine
 def parallel_run(bin, args, settings, tiles, **kw):
@@ -300,9 +362,23 @@ def parallel_run(bin, args, settings, tiles, **kw):
         wipe_option(call, '--threads', 1)
         call.extend(['--threads', str(opt.threads_multi)])
 
+    # Will do only the tiles intersecting user's crop window.
+    user_crop_win = None
+    if opt.user_crop_win is not None:
+        user_crop_win = parse_user_crop_win(opt.user_crop_win)
+
     try:
         for tile in tiles:
-            cmd = call+tile.crop_str()
+
+            if user_crop_win is None:
+                crop_str = tile.crop_str()
+            else:
+                # Intersect with user's crop win
+                crop_box = intersect_boxes(user_crop_win, tile)
+                if crop_box.width <= 0 or crop_box.height <= 0: continue
+                crop_str = crop_box.crop_str()
+
+            cmd = call+crop_str
             cmd[cmd.index( settings['out_prefix'][0] )] = settings['out_prefix'][0] + tile.name_str() + "/" + tile.name_str()
             if opt.dryrun:
                 print " ".join(cmd)
@@ -375,6 +451,14 @@ if __name__ == '__main__':
     # Directory where the job is running
     p.add_option('--work-dir',            dest='work_dir', default=None,
                  help=optparse.SUPPRESS_HELP)
+    # ISIS settings
+    p.add_option('--isisroot',            dest='isisroot', default=None,
+                 help=optparse.SUPPRESS_HELP)
+    p.add_option('--isis3data',            dest='isis3data', default=None,
+                 help=optparse.SUPPRESS_HELP)
+    # User's crop win, which the user passed in as --left-image-crop-win
+    p.add_option('--user-crop-win',        dest='user_crop_win', default=None,
+                 help=optparse.SUPPRESS_HELP)
     # Debug options
     p.add_option('--dry-run',              dest='dryrun', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
@@ -385,12 +469,25 @@ if __name__ == '__main__':
     (opt, args) = p.parse_args()
 
     if opt.rank is None:
-        # When the script is started.
+        # When the script is started, set some options from the
+        # environment which we will pass to the scripts we sprawn
+        # 1. Set the work directory
         opt.work_dir = os.getcwd()
+        # 2. Set the ISIS settings if any
+        if 'ISISROOT'  in os.environ: opt.isisroot  = os.environ['ISISROOT']
+        if 'ISIS3DATA' in os.environ: opt.isis3data = os.environ['ISIS3DATA']
+        # 3. Must save user's crop-win option before we start using
+        # this option internally.
+        crop_win = get_user_crop_win(sys.argv)
+        if crop_win is not None: opt.user_crop_win = crop_win
+
     else:
         # After the script spawns itself to nodes, it starts in the
         # home dir. Make it go to the right place.
         os.chdir(opt.work_dir)
+        # Set the ISIS setttings
+        if opt.isisroot  is not None: os.environ['ISISROOT']  = opt.isisroot
+        if opt.isis3data is not None: os.environ['ISIS3DATA'] = opt.isis3data
 
     num_nodes = get_num_nodes(opt.nodes_list)
 
@@ -417,8 +514,6 @@ if __name__ == '__main__':
     settings=get_settings( args )
 
     if opt.rank is None:
-
-        print("launching on machine", os.uname())
 
         # We get here when the script is started. The current running
         # process has become the management process that spawns other
@@ -465,14 +560,12 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 5 ):
             # Point cloud mosaic
             if ( opt.stop_point <= 5 ): sys.exit()
-            build_vrt( settings, "-PC.tif", 4, "Float64", tiles_cropped=True )
+            build_vrt( settings, "-PC.tif", 4, "Float64" )
 
     else:
 
         # Launch multiple processes doing actual work on the current
         # machine for the current entry point.
-
-        print("launching on machine", os.uname())
 
         try:
             if ( opt.entry_point <= 0 ):
@@ -511,7 +604,7 @@ if __name__ == '__main__':
                 sys.exit()
             if ( opt.entry_point <= 5 ):
                 if ( opt.stop_point <= 5 ): sys.exit()
-                build_vrt( settings, "-PC.tif", 4, "Float64", tiles_cropped=True )
+                build_vrt( settings, "-PC.tif", 4, "Float64" )
                 sys.exit()
         except Exception, e:
             if not opt.debug:
