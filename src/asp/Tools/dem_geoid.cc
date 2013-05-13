@@ -154,7 +154,8 @@ std::string get_geoid_full_path(std::string geoid_file){
   // Must keep this version synchronized with Packages.py!
   full_path = std::string(asp_data) + "/geoids-1.1/" + geoid_file;
   if (!fs::exists(full_path)){
-    vw_throw( ArgumentErr() << "Could not find geoid: " << full_path << "\n" );
+    vw_throw( ArgumentErr() << "Could not find geoid: " << full_path << ".\n"
+              << "The value of environmental variable ASP_DATA is '" << asp_data << "'.\n");
   }
 
   return full_path;
