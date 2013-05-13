@@ -17,6 +17,7 @@
 
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/filesystem.hpp>
 
 #include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
@@ -29,6 +30,7 @@
 
 using namespace vw;
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 // Remove file name extension
 std::string asp::prefix_from_filename(std::string const& filename) {
@@ -42,6 +44,21 @@ std::string asp::prefix_from_filename(std::string const& filename) {
 // Print time function
 std::string asp::current_posix_time_string() {
   return boost::posix_time::to_simple_string(boost::posix_time::second_clock::local_time());
+}
+
+// If prefix is "dir/out", create directory "dir"
+void asp::create_out_dir(std::string out_prefix){
+
+  fs::path out_prefix_path(out_prefix);
+  if (out_prefix_path.has_parent_path()) {
+    if (!fs::is_directory(out_prefix_path.parent_path())) {
+      vw_out() << "\nCreating output directory: "
+               << out_prefix_path.parent_path() << std::endl;
+      fs::create_directory(out_prefix_path.parent_path());
+    }
+  }
+
+  return;
 }
 
 asp::BaseOptions::BaseOptions() {

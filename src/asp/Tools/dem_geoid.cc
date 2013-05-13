@@ -26,6 +26,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
 
+#include <boost/filesystem.hpp>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -289,6 +290,7 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef, geoid, geoid_georef,
                                              reverse_adjustment, correction, dem_nodata_val);
 
+    asp::create_out_dir(opt.output_prefix);
     std::string adj_dem_file = opt.output_prefix + "-adj.tif";
     vw_out() << "Writing adjusted DEM: " << adj_dem_file << std::endl;
 

@@ -38,6 +38,9 @@ namespace asp {
   // Print time function
   std::string current_posix_time_string();
 
+  // If prefix is "dir/out", create directory "dir"
+  void create_out_dir(std::string out_prefix);
+
   // Standard Options
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;

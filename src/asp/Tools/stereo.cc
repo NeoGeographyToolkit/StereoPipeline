@@ -175,14 +175,7 @@ namespace asp {
                 << usage << general_options );
     }
 
-    fs::path out_prefix_path(opt.out_prefix);
-    if (out_prefix_path.has_parent_path()) {
-      if (!fs::is_directory(out_prefix_path.parent_path())) {
-        vw_out() << "\nCreating output directory: "
-                 << out_prefix_path.parent_path() << std::endl;
-        fs::create_directory(out_prefix_path.parent_path());
-      }
-    }
+    asp::create_out_dir(opt.out_prefix);
 
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,
                                                   opt, opt.in_file1,
