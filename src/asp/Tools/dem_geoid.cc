@@ -134,11 +134,30 @@ struct Options : asp::BaseOptions {
   bool reverse_adjustment;
 };
 
-std::string get_geoids_path(){
-  // The path to the geoids, read from GEOID_PATH macro
+std::string get_geoid_full_path(std::string geoid_file){
+
+  // We try two ways of finding the path to the geoid file.
+
+  // 1. Using the compile flag, from the GEOID_PATH macro.
 #define STR_EXPAND(tok) #tok
 #define STR_QUOTE(tok) STR_EXPAND(tok)
-  return STR_QUOTE(GEOID_PATH);
+  std::string full_path = std::string(STR_QUOTE(GEOID_PATH)) + "/" + geoid_file;
+  if (fs::exists(full_path)) return full_path;
+
+  // 2. Using the ASP_DATA path.
+  char * asp_data = getenv("ASP_DATA");
+  if (asp_data == NULL){
+    vw_throw( ArgumentErr() << "The environmental variable ASP_DATA was not set. "
+              << "It should point to the 'share' directory of your ASP distribution.\n" );
+  }
+
+  // Must keep this version synchronized with Packages.py!
+  full_path = std::string(asp_data) + "/geoids-1.1/" + geoid_file;
+  if (!fs::exists(full_path)){
+    vw_throw( ArgumentErr() << "Could not find geoid: " << full_path << "\n" );
+  }
+
+  return full_path;
 }
 
 void handle_arguments( int argc, char *argv[], Options& opt ){
@@ -241,7 +260,7 @@ int main( int argc, char *argv[] ) {
       vw_throw( ArgumentErr() << "Cannot apply geoid adjustment to DEM relative to datum: "
                 << datum_name << "\n");
     }
-    geoid_file = get_geoids_path() + "/" + geoid_file;
+    geoid_file = get_geoid_full_path(geoid_file);
     vw_out() << "Adjusting the DEM using the geoid: " << geoid_file << endl;
 
     // Read the geoid containing the adjustments. Read it in memory
