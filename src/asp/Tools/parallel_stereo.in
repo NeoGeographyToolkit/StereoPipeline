@@ -312,12 +312,10 @@ def get_num_nodes(nodes_list):
         for line in fh:
             if re.match('^\s*$', line): continue # skip empty lines
             num_nodes += 1
-
     except Exception, e:
         if not opt.debug:
             die(e)
             raise
-
     if num_nodes == 0:
         raise Exception('The list of computing ndoes is empty')
 
@@ -480,7 +478,6 @@ if __name__ == '__main__':
         # this option internally.
         crop_win = get_user_crop_win(sys.argv)
         if crop_win is not None: opt.user_crop_win = crop_win
-
     else:
         # After the script spawns itself to nodes, it starts in the
         # home dir. Make it go to the right place.
@@ -490,8 +487,6 @@ if __name__ == '__main__':
         if opt.isis3data is not None: os.environ['ISIS3DATA'] = opt.isis3data
 
     num_nodes = get_num_nodes(opt.nodes_list)
-
-    # To do: Make it work for isis!!!
 
     if not args and not opt.version:
         p.print_help()
@@ -523,15 +518,11 @@ if __name__ == '__main__':
 
         create_subproject_dirs( settings )
 
-        # Remove the '-e', '--entry-point', and '--stop-point' options
-        # and their values from sys.argv as we will overwite those
-        # below.
+        # Wipe options which we will override.
         self_args = sys.argv # shallow copy
         wipe_option(self_args, '-e', 1)
         wipe_option(self_args, '--entry-point', 1)
         wipe_option(self_args, '--stop-point', 1)
-
-        # To do: Respect user's crop-win option!
         wipe_option(self_args, '--left-image-crop-win', 4)
 
         if ( opt.entry_point <= 0 ):
