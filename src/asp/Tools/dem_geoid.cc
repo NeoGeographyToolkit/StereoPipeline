@@ -251,12 +251,14 @@ int main( int argc, char *argv[] ) {
     if (!has_georef)
       vw_throw( ArgumentErr() << "Missing georeference for DEM: " << opt.dem_name << "\n" );
 
-    std::string datum_name = dem_georef.datum().name(), geoid_file;
-    if ( datum_name == "WGS_1984" ){
+    std::string datum_name = dem_georef.datum().name();
+    std::string lname = boost::to_lower_copy(datum_name);
+    std::string geoid_file;
+    if ( lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" || lname == "wgs84" ){
       geoid_file = "egm96-5.tif";
-    }else if (datum_name == "North_American_Datum_1983"){
+    }else if (lname == "north_american_datum_1983"){
       geoid_file = "navd88.tif";
-    }else if (datum_name == "D_MARS"){
+    }else if (lname == "d_mars"){
       geoid_file = "mola_areoid.tif";
     }else{
       vw_throw( ArgumentErr() << "Cannot apply geoid adjustment to DEM relative to datum: "
@@ -277,10 +279,19 @@ int main( int argc, char *argv[] ) {
     read_georeference(geoid_georef, geoid_rsrc);
 
     // Need to apply an extra correction if the datum radius of the geoid is different
-    // than the datum radius of the DEM to correct.
-    double correction = geoid_georef.datum().semi_major_axis() - dem_georef.datum().semi_major_axis();
-    if (correction != 0){
-      vw_out() << "\tWill compensate the fact that the input DEM and geoid datums axis lengths differ.\n";
+    // than the datum radius of the DEM to correct. We do this only if the datum is
+    // a sphere, such on mars, as otherwise a uniform correction won't work.
+    double major_correction
+      = geoid_georef.datum().semi_major_axis() - dem_georef.datum().semi_major_axis();
+    double minor_correction
+      = geoid_georef.datum().semi_minor_axis() - dem_georef.datum().semi_minor_axis();
+    if (major_correction != 0){
+      if (std::abs(1.0 - minor_correction/major_correction) > 1.0e-5){
+        vw_throw( ArgumentErr() << "The input DEM and geoid datums are incompatible. "
+                  << "Cannot apply geoid adjustment.\n" );
+      }
+      vw_out(WarningMessage) << "Will compensate for the fact that the input DEM and geoid datums "
+                             << "axis lengths differ.\n";
     }
 
     ImageViewRef<PixelMask<double> > geoid
@@ -288,7 +299,7 @@ int main( int argc, char *argv[] ) {
                     BicubicInterpolation(), ZeroEdgeExtension());
 
     ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef, geoid, geoid_georef,
-                                             reverse_adjustment, correction, dem_nodata_val);
+                                             reverse_adjustment, major_correction, dem_nodata_val);
 
     asp::create_out_dir(opt.output_prefix);
     std::string adj_dem_file = opt.output_prefix + "-adj.tif";
