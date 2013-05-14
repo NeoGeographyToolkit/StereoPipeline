@@ -251,14 +251,24 @@ int main( int argc, char *argv[] ) {
     if (!has_georef)
       vw_throw( ArgumentErr() << "Missing georeference for DEM: " << opt.dem_name << "\n" );
 
+    // Find out the datum from the DEM. If we fail, we do an educated guess.
     std::string datum_name = dem_georef.datum().name();
     std::string lname = boost::to_lower_copy(datum_name);
     std::string geoid_file;
-    if ( lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" || lname == "wgs84" ){
+    if ( lname == "wgs_1984" || lname == "wgs 1984" || lname == "wgs1984" ||
+         lname == "wgs84" || lname == "world geodetic system 1984" ){
       geoid_file = "egm96-5.tif";
     }else if (lname == "north_american_datum_1983"){
       geoid_file = "navd88.tif";
     }else if (lname == "d_mars"){
+      geoid_file = "mola_areoid.tif";
+    }else if ( std::abs( dem_georef.datum().semi_major_axis() - 6378137.0 ) < 500.0){
+      // Guess Earth
+      vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: WGS_1984.\n";
+      geoid_file = "egm96-5.tif";
+    }else if ( std::abs( dem_georef.datum().semi_major_axis() - 3396190.0) < 500.0){
+      // Guess Mars
+      vw_out(WarningMessage) << "Unknown datum: " << datum_name << ". Guessing: D_MARS.\n";
       geoid_file = "mola_areoid.tif";
     }else{
       vw_throw( ArgumentErr() << "Cannot apply geoid adjustment to DEM relative to datum: "
