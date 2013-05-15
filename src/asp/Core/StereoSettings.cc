@@ -201,6 +201,12 @@ namespace asp {
        "Apply the velocity aberration correction for Digital Globe cameras.");
   }
 
+  UndocOptsDescription::UndocOptsDescription() : po::options_description("Undocumented Options") {
+    StereoSettings& global = stereo_settings();
+    (*this).add_options()
+      ("trans-crop-win", po::value(&global.trans_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"), "Left image crop window in respect to L.tif. This is an internal option. [default: use the entire image].");
+  }
+
   po::options_description
   generate_config_file_options( asp::BaseOptions& opt ) {
     po::options_description cfg_options;
@@ -211,6 +217,7 @@ namespace asp {
     cfg_options.add( FilteringDescription() );
     cfg_options.add( TriangulationDescription() );
     cfg_options.add( DGDescription() );
+    cfg_options.add( UndocOptsDescription() );
 
     return cfg_options;
   }

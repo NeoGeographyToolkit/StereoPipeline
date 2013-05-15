@@ -221,7 +221,7 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, 
   // Settings
   Vector2 m_upscale_factor;
   BBox2i m_seed_bbox;
-  BBox2i m_left_image_crop_win;
+  BBox2i m_trans_crop_win;
   stereo::CostFunctionType m_cost_mode;
 
 public:
@@ -233,13 +233,13 @@ public:
                         ImageViewBase<SeedDispT> const& sub_disp_spread,
                         ImageView<Matrix3x3> const& local_hom,
                         stereo::PreFilterBase<PProcT> const& filter,
-                        BBox2i left_image_crop_win,
+                        BBox2i trans_crop_win,
                         stereo::CostFunctionType cost_mode ) :
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask(left_mask.impl()), m_right_mask(right_mask.impl()),
     m_sub_disp( sub_disp.impl() ), m_sub_disp_spread( sub_disp_spread.impl() ),
     m_local_hom(local_hom), m_preproc_func( filter.impl() ),
-    m_left_image_crop_win(left_image_crop_win), m_cost_mode(cost_mode) {
+    m_trans_crop_win(trans_crop_win), m_cost_mode(cost_mode) {
     m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
     m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disp.rows();
     m_seed_bbox = bounding_box( m_sub_disp );
@@ -264,9 +264,9 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
-    // We do stereo only in m_left_image_crop_win. Skip the current tile if
+    // We do stereo only in m_trans_crop_win. Skip the current tile if
     // it does not intersect this region.
-    BBox2i intersection = bbox; intersection.crop(m_left_image_crop_win);
+    BBox2i intersection = bbox; intersection.crop(m_trans_crop_win);
     if (intersection.empty()){
       return prerasterize_type(ImageView<pixel_type>(bbox.width(),
                                                      bbox.height()),
@@ -276,10 +276,10 @@ public:
 
     CropView<ImageView<pixel_type> > disparity = prerasterize_helper(bbox);
 
-    // Set to invalid the disparity outside m_left_image_crop_win.
+    // Set to invalid the disparity outside m_trans_crop_win.
     for (int col = bbox.min().x(); col < bbox.max().x(); col++){
       for (int row = bbox.min().y(); row < bbox.max().y(); row++){
-        if (!m_left_image_crop_win.contains(Vector2(col, row))){
+        if (!m_trans_crop_win.contains(Vector2(col, row))){
           disparity(col, row) = pixel_type();
         }
       }
@@ -434,12 +434,12 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
                     ImageViewBase<SeedDispT> const& sub_disp_spread,
                     ImageView<Matrix3x3> const& local_hom,
                     stereo::PreFilterBase<PProcT> const& filter,
-                    BBox2i left_image_crop_win,
+                    BBox2i trans_crop_win,
                     stereo::CostFunctionType cost_type ) {
   typedef SeededCorrelatorView<Image1T, Image2T, Mask1T, Mask2T, SeedDispT, PProcT> return_type;
   return return_type( left.impl(), right.impl(), lmask.impl(), rmask.impl(),
                       sub_disp.impl(), sub_disp_spread.impl(),
-                      local_hom, filter.impl(), left_image_crop_win, cost_type );
+                      local_hom, filter.impl(), trans_crop_win, cost_type );
 }
 
 void stereo_correlation( Options& opt ) {
@@ -514,7 +514,7 @@ void stereo_correlation( Options& opt ) {
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disp, sub_disp_spread, local_hom,
                           stereo::LaplacianOfGaussian(stereo_settings().slogW),
-                          opt.left_image_crop_win, cost_mode );
+                          stereo_settings().trans_crop_win, cost_mode );
   } else if ( stereo_settings().pre_filter_mode == 1 ) {
     vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
              << stereo_settings().slogW << " sigma blur.\n";
@@ -522,13 +522,13 @@ void stereo_correlation( Options& opt ) {
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disp, sub_disp_spread, local_hom,
                           stereo::SubtractedMean(stereo_settings().slogW),
-                          opt.left_image_crop_win, cost_mode );
+                          stereo_settings().trans_crop_win, cost_mode );
   } else {
     vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
     fullres_disparity =
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disp, sub_disp_spread, local_hom,
-                          stereo::NullOperation(), opt.left_image_crop_win,
+                          stereo::NullOperation(), stereo_settings().trans_crop_win,
                           cost_mode );
   }
 

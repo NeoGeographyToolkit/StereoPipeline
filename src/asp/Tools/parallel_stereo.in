@@ -17,7 +17,8 @@
 # __END_LICENSE__
 
 
-import sys, optparse, subprocess, re, os, math, time
+import sys, optparse, subprocess, re, os, math, time, tempfile
+import shutil
 import os.path as P
 
 job_pool  = [] # currently running jobs
@@ -88,10 +89,11 @@ class BBox:
         return "%i_%i_%i_%i" % ( self.x, self.y, self.width, self.height )
 
     def crop_str(self):
-        return ["--left-image-crop-win",str(self.x),
+        return ["--trans-crop-win",str(self.x),
                 str(self.y),str(self.width),str(self.height)]
 
     def expand( self, px, settings ):
+        image_size = settings["trans_left_image"]
         self.x = self.x - px
         self.y = self.y - px
         self.width = self.width + 2 * px
@@ -100,10 +102,10 @@ class BBox:
             self.x = 0
         if self.y < 0:
             self.y = 0
-        if self.x + self.width > settings["left_image"][0]:
-            self.width =  settings["left_image"] - self.x
-        if self.y + self.height > settings["left_image"][1]:
-            self.height = settings["left_image"] - self.y
+        if self.x + self.width > image_size[0]:
+            self.width =  image_size - self.x
+        if self.y + self.height > image_size[1]:
+            self.height = image_size - self.y
 
 def intersect_boxes(A, B):
     axmin = A.x; axmax = A.x + A.width; aymin = A.y; aymax = A.y + A.height
@@ -118,7 +120,7 @@ def intersect_boxes(A, B):
     return C
 
 def produce_tiles( settings, tile_w, tile_h ):
-    image_size = settings["left_image"]
+    image_size = settings["trans_left_image"]
     tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
     tiles_ny = int(math.ceil( float(image_size[1]) / tile_h ))
 
@@ -159,29 +161,6 @@ def wait_on_all_jobs():
                 job_pool.pop(i)
                 break # must restart as array changed size
         time.sleep( sleep_time )
-
-def get_user_crop_win(options):
-    # Find the entries --left-image-crop-win 0 512 1024 1024 and
-    # return the string 0x512x1024x1024.
-    opt = '--left-image-crop-win'
-    if not opt in options:
-        return None
-
-    crop_win = ""
-    r = options.index(opt)
-    for i in range(4):
-        r += 1
-        if r >= len(options):
-            raise Exception('Could not parse %s from: %s' % ( opt, " ".join(options) ) )
-        crop_win += str(options[r])
-        if i < 3: crop_win += "x"
-
-    return crop_win
-
-def parse_user_crop_win(crop_win):
-    # Parse 0x512x1024x1024 into BBox(0, 512, 1014, 1024)
-    arr = crop_win.split("x")
-    return BBox(int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3]))
 
 def wipe_option(options, opt, n):
     # In the array 'options', find the entry with value 'opt'.
@@ -261,8 +240,9 @@ def create_subproject_dirs( settings, **kw ):
 
 def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
 
+    image_size = settings["trans_left_image"]
     with open(settings['out_prefix'][0]+postfix,'w') as f:
-        f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(settings['left_image'][0]),int(settings['left_image'][1])) )
+        f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(image_size[0]),int(image_size[1])) )
         for b in range( 1, num_bands + 1 ):
             f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" % (data_type,b) )
 
@@ -306,20 +286,43 @@ def get_num_nodes(nodes_list):
     if nodes_list is None:
         return 1 # local machine
 
+    # Count the number of nodes without repetition
+    # (need this for Pleiades).
+    nodes = {}
     num_nodes = 0
     try:
         fh = open(nodes_list, "r")
         for line in fh:
             if re.match('^\s*$', line): continue # skip empty lines
-            num_nodes += 1
+            matches = re.match('^\s*([^\s]*)', line)
+            if matches:
+                nodes[matches.group(1)] = 1
+
+        num_nodes = len(nodes)
     except Exception, e:
-        if not opt.debug:
-            die(e)
-            raise
+        die(e)
     if num_nodes == 0:
-        raise Exception('The list of computing ndoes is empty')
+        raise Exception('The list of computing nodes is empty')
 
     return num_nodes
+
+# Find if a program is in the path
+def which(program):
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
 
 # Create copies of the run manager on multiple machines.
 # Those will in turn launch the jobs on those machines.
@@ -330,7 +333,9 @@ def sprawn_to_nodes(start, stop, num_nodes, settings, args):
     for i in range(num_nodes): ids += [str(i)]
 
     # Use GNU parallel
-    cmd = ['parallel', '-u']
+    cmd = ['parallel', '-u', '-P', '1']
+    if which(cmd[0]) is None:
+        raise Exception('Need GNU Parallel to distribute the jobs.')
 
     if opt.nodes_list is not None:
         cmd += ['--sshloginfile', opt.nodes_list]
@@ -341,10 +346,12 @@ def sprawn_to_nodes(start, stop, num_nodes, settings, args):
                " --stop-point " + str(stop) + " --work-dir " + opt.work_dir
     if opt.isisroot  is not None: args_str += " --isisroot "  + opt.isisroot
     if opt.isis3data is not None: args_str += " --isis3data " + opt.isis3data
-    if opt.user_crop_win is not None: args_str += " --user-crop-win " + opt.user_crop_win
     args_str += " --rank {}"
 
     cmd += [args_str, ':::'] + ids # GNU parallel syntax
+
+    if opt.debug:
+        print(" ".join(cmd))
 
     code = subprocess.call(cmd)
     if code != 0:
@@ -361,20 +368,14 @@ def parallel_run(bin, args, settings, tiles, **kw):
         call.extend(['--threads', str(opt.threads_multi)])
 
     # Will do only the tiles intersecting user's crop window.
-    user_crop_win = None
-    if opt.user_crop_win is not None:
-        user_crop_win = parse_user_crop_win(opt.user_crop_win)
-
+    w = settings['transformed_window']
+    user_crop_win = BBox(int(w[0]), int(w[1]), int(w[2]), int(w[3]))
     try:
         for tile in tiles:
 
-            if user_crop_win is None:
-                crop_str = tile.crop_str()
-            else:
-                # Intersect with user's crop win
-                crop_box = intersect_boxes(user_crop_win, tile)
-                if crop_box.width <= 0 or crop_box.height <= 0: continue
-                crop_str = crop_box.crop_str()
+            crop_box = intersect_boxes(user_crop_win, tile)
+            if crop_box.width <= 0 or crop_box.height <= 0: continue
+            crop_str = crop_box.crop_str()
 
             cmd = call+crop_str
             cmd[cmd.index( settings['out_prefix'][0] )] = settings['out_prefix'][0] + tile.name_str() + "/" + tile.name_str()
@@ -416,23 +417,17 @@ if __name__ == '__main__':
 
     p = PassThroughOptionParser(usage=usage)
     p.add_option('--nodes-list',              dest='nodes_list',   default=None,
-                 help='A file having the list of computing nodes.')
+                 help='The list of computing nodes, one per line.')
     p.add_option('--processes',            dest='processes',   default=4,     type='int',
                  help='The number of processes to use per node.')
     p.add_option('--threads-multiprocess', dest='threads_multi', default=2,   type='int',
                  help='The number of threads to use per process.')
     p.add_option('--threads-singleprocess',dest='threads_single',default=None,type='int',
                  help='The number of threads to use when running a single process (PPRC and FLTR).')
-    p.add_option('-t', '--session-type',   dest='session',
-                 help='The stereo session type to use for processing. [options: pinhole isis dg rpc]')
-    p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
-                 help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Stereo Pipeline entry point (an integer from 0-5).', type='int')
     p.add_option('--stop-point',           dest='stop_point',  default=6,
                  help='Stereo Pipeline stop point (an integer from 1-6).', type='int')
-    p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
-                 help='Tell GDAL to not create bigtiffs.')
     p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
                  help='Pixel width of input image tile for a single process.', type='int')
     p.add_option('--job-size-h',           dest='job_size_h',  default=2048,
@@ -454,9 +449,6 @@ if __name__ == '__main__':
                  help=optparse.SUPPRESS_HELP)
     p.add_option('--isis3data',            dest='isis3data', default=None,
                  help=optparse.SUPPRESS_HELP)
-    # User's crop win, which the user passed in as --left-image-crop-win
-    p.add_option('--user-crop-win',        dest='user_crop_win', default=None,
-                 help=optparse.SUPPRESS_HELP)
     # Debug options
     p.add_option('--dry-run',              dest='dryrun', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
@@ -474,10 +466,13 @@ if __name__ == '__main__':
         # 2. Set the ISIS settings if any
         if 'ISISROOT'  in os.environ: opt.isisroot  = os.environ['ISISROOT']
         if 'ISIS3DATA' in os.environ: opt.isis3data = os.environ['ISIS3DATA']
-        # 3. Must save user's crop-win option before we start using
-        # this option internally.
-        crop_win = get_user_crop_win(sys.argv)
-        if crop_win is not None: opt.user_crop_win = crop_win
+        # 3. Fix for Pleiades, copy the nodes_list to current directory
+        if opt.nodes_list is not None:
+            tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
+            shutil.copy2(opt.nodes_list, tmpFile.name)
+            opt.nodes_list = tmpFile.name
+            wipe_option(sys.argv, '--nodes-list', 1)
+            sys.argv.extend(['--nodes-list', tmpFile.name])
     else:
         # After the script spawns itself to nodes, it starts in the
         # home dir. Make it go to the right place.
@@ -492,14 +487,8 @@ if __name__ == '__main__':
         p.print_help()
         die('\nERROR: Missing input files', code=2)
 
-    if opt.session is not None:
-        args.extend(['--session-type', opt.session])
-    if opt.no_bigtiff:
-        args.append('--no-bigtiff')
     if opt.version:
         args.append('-v')
-
-    args.extend(['--stereo-file', opt.filename])
 
     args=unescape_vals(args)
 
@@ -523,13 +512,14 @@ if __name__ == '__main__':
         wipe_option(self_args, '-e', 1)
         wipe_option(self_args, '--entry-point', 1)
         wipe_option(self_args, '--stop-point', 1)
-        wipe_option(self_args, '--left-image-crop-win', 4)
 
         if ( opt.entry_point <= 0 ):
             # Preprocessing
             run('stereo_pprc', args, msg='0: Preprocessing')
             # Now the left is defined. Regather the settings
+            # and properly create the project dirs.
             settings=get_settings( args )
+            create_subproject_dirs( settings )
         if ( opt.entry_point <= 1 ):
             # Correlation. First do low-res.
             if ( opt.stop_point <= 1 ): sys.exit()
@@ -557,13 +547,10 @@ if __name__ == '__main__':
 
         # Launch multiple processes doing actual work on the current
         # machine for the current entry point.
+        if opt.debug:
+            print("Running on machine: ", os.uname())
 
         try:
-            if ( opt.entry_point <= 0 ):
-                # Run stereo pprc in single threaded mode
-                run('stereo_pprc', args, msg='0: Preprocessing')
-                # Now the left is defined. Regather the settings
-                settings=get_settings( args )
 
             # Define the tiles that we'll be processing on
             tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h );
@@ -575,29 +562,14 @@ if __name__ == '__main__':
             max_index = int(((float(opt.rank)+1)/float(num_nodes)) * num_tiles)
             tiles = tiles[min_index:max_index]
 
-            if ( opt.entry_point <= 1 ):
-                if ( opt.stop_point <= 1 ): sys.exit()
-                run('stereo_corr', args_sub, msg='1: Low-res correlation')
+            if ( opt.entry_point == 1 ):
                 parallel_run('stereo_corr', args, settings, tiles, msg='1: Correlation')
-                sys.exit()
-            if ( opt.entry_point <= 2 ):
-                if ( opt.stop_point <= 2 ): sys.exit()
+            if ( opt.entry_point == 2 ):
                 parallel_run('stereo_rfne', args, settings, tiles, msg='2: Refinement')
                 build_vrt( settings, "-RD.tif", 3, "Float32" );
-                sys.exit()
-            if ( opt.entry_point <= 3 ):
-                if ( opt.stop_point <= 3 ): sys.exit()
-                run('stereo_fltr', args, msg='3: Filtering')
-                sys.exit()
-            if ( opt.entry_point <= 4 ):
-                if ( opt.stop_point <= 4 ): sys.exit()
+            if ( opt.entry_point == 4 ):
                 parallel_run('stereo_tri', args, settings, tiles, msg='4: Triangulation')
-                sys.exit()
-            if ( opt.entry_point <= 5 ):
-                if ( opt.stop_point <= 5 ): sys.exit()
-                build_vrt( settings, "-PC.tif", 4, "Float64" )
-                sys.exit()
+
         except Exception, e:
-            if not opt.debug:
-                die(e)
+            die(e)
             raise

@@ -65,6 +65,9 @@ enum { PREPROCESSING = 0,
 // Allows FileIO to correctly read/write these pixel types
 namespace asp {
 
+  // Transform the crop window to be in reference to L.tif
+  vw::BBox2i transformed_crop_win(Options const& opt);
+
   // Parse input command line arguments
   void handle_arguments( int argc, char *argv[], Options& opt,
                          boost::program_options::options_description const&

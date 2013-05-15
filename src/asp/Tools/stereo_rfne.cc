@@ -194,10 +194,10 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
-    // We do stereo only in left_image_crop_win. Skip the current tile if
+    // We do stereo only in trans_crop_win. Skip the current tile if
     // it does not intersect this region.
-    BBox2i left_image_crop_win = m_opt.left_image_crop_win;
-    BBox2i intersection = bbox; intersection.crop(left_image_crop_win);
+    BBox2i trans_crop_win = stereo_settings().trans_crop_win;
+    BBox2i intersection = bbox; intersection.crop(trans_crop_win);
     if (intersection.empty()){
       return prerasterize_type(ImageView<pixel_type>(bbox.width(),
                                                      bbox.height()),
@@ -246,10 +246,10 @@ public:
                           -bbox.min().x(), -bbox.min().y(),
                           cols(), rows() );
 
-    // Set to invalid the disparity outside left_image_crop_win.
+    // Set to invalid the disparity outside trans_crop_win.
     for (int col = bbox.min().x(); col < bbox.max().x(); col++){
       for (int row = bbox.min().y(); row < bbox.max().y(); row++){
-        if (!left_image_crop_win.contains(Vector2(col, row))){
+        if (!trans_crop_win.contains(Vector2(col, row))){
           disparity(col, row) = pixel_type();
         }
       }

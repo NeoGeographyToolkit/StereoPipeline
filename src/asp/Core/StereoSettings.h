@@ -64,6 +64,9 @@ namespace asp {
   struct DGDescription : public boost::program_options::options_description {
     DGDescription();
   };
+  struct UndocOptsDescription : public boost::program_options::options_description {
+    UndocOptsDescription();
+  };
 
   boost::program_options::options_description
   generate_config_file_options( asp::BaseOptions& opt );
@@ -154,6 +157,10 @@ namespace asp {
 
     // DG Options
     bool disable_correct_velocity_aberration;
+
+    // Undocumented options
+    vw::BBox2i trans_crop_win;        // Left image crop window in respect to L.tif.
+
   };
 
   /// Return the singleton instance of the stereo setting structure.

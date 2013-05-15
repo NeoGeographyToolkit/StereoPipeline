@@ -15,15 +15,17 @@ git log v2.0.0..HEAD --reverse > commits_that_happened
 
 4.) Update version number in DOCS
 
-5.) Commit and Tag release in repo
+5.) Commit and tag release in repo
 
-6.) Download and operate Lundy's binary builder on OSX10.6, x86_32, and x86_64
+6.) Download and operate BinaryBuilder on OSX10.6, x86_32, and x86_64
 
 Code modification to Binary Builder will probably have to happen here as dependencies will have probably changed.
 
 7.) Test all binary release on different machines by just running the example dataset
 
-8.) Build docs
+8.) Build docs. To greatly reduce the file size use the command 
+
+gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
 
 9.) Update website
 
@@ -32,3 +34,4 @@ Code modification to Binary Builder will probably have to happen here as depende
 Inside configure.ac, append "_post" to version number in AC_INIT line.
 
 11.) Commit changes.
+

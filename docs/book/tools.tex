@@ -50,7 +50,7 @@ in sub-directories, we recommend using an output prefix like
 \endlastfoot
 \hline
 Option & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message\\ \hline
+\texttt{-\/-help|-h} & Display the help message\\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|dg} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
@@ -93,40 +93,40 @@ map.
 \label{stereo_dec}
 
 The \texttt{stereo}
-executable is a python script that makes calls to seperate
+executable is a python script that makes calls to separate
 C++ executables for each entry point.
 
-Stage 0 (Preprocessing) calls \texttt{stereo\_pprc}. Multithreaded.
+Stage 0 (Preprocessing) calls \texttt{stereo\_pprc}. Multi-threaded.
 
 Stage 1 (Disparity Map Initialization) calls
-\texttt{stereo\_corr}. Multithreaded.
+\texttt{stereo\_corr}. Multi-threaded.
 
-Stage 2 (Sub-pixel Refinement) class \texttt{stereo\_rfne}. Multithreaded.
+Stage 2 (Sub-pixel Refinement) class \texttt{stereo\_rfne}. Multi-threaded.
 
 Stage 3 (Outlier Rejection and Hole Filling) calls
-\texttt{stereo\_fltr}. Multithreaded.
+\texttt{stereo\_fltr}. Multi-threaded.
 
-Stage 4 (Triangulation) calls \texttt{stereo\_tri}. Single-Threaded.
+Stage 4 (Triangulation) calls \texttt{stereo\_tri}. Multi-threaded,
+except for ISIS input data.
 
 All of the sub-programs have the same interface as
 \texttt{stereo}. Users processing a large number of stereo pairs on a
 cluster may find it advantageous to call these executables in their own
 manner. An example would be to run stages 0-3 in order for each stereo
 pair. Then run several sessions of \texttt{stereo\_tri} since it is
-single threaded.
+single-threaded for ISIS.
 
-\section{stereo\_mpi}
-\label{stereompi}
+\section{parallel\_stereo}
+\label{parallel}
 
-The \texttt{stereo\_mpi} program is a modification of \texttt{stereo}
+The \texttt{parallel\_stereo} program is a modification of \texttt{stereo}
 designed to distribute the stereo processing over multiple computing
 nodes.
 
-It is important to note that \texttt{stereo\_mpi} can, as of now, run
-only as a scheduled job on a supercomputer, and it depends on Intel's
-\texttt{mpiexec} to distribute the jobs.
+It uses GNU Parallel to manage the jobs, which needs to be installed
+on your system.
 
-Also, note that, when invoking this tool, only stages 1, 2, and 4 of
+Note that, when invoking this tool, only stages 1, 2, and 4 of
 stereo (section \ref{stereo_dec}) are spread over multiple machines,
 with stages 0 and 3 still being done on the current computing node, as
 they require global knowledge of the data. In addition, not all stages
@@ -134,20 +134,19 @@ of stereo benefit equally from parallelization, most likely to gain
 are stages 1 and 2 (correlation and refinement), which are the most
 computationally expensive.
 
-For these reasons, while \texttt{stereo\_mpi} can be called to do all
-stages of stereo generation from start to finish in one command, it may
-be more resource-efficient to invoke
-it using just one node for stages 0 and 3, many nodes for stages 1 and
-2, and just a handful of nodes for stage 4 (triangulation). As an example, to
-call \texttt{stereo\_mpi} just for stage 3, one invokes it with the
-options \texttt{-\/-entry-point 3 -\/-stop-point 4}.
+For these reasons, while \texttt{parallel\_stereo} can be called to do
+all stages of stereo generation from start to finish in one command, it
+may be more resource-efficient to invoke it using a single node for
+stages 0 and 3, many nodes for stages 1 and 2, and just a handful of
+nodes for stage 4 (triangulation). The example below explains how to do
+that.
 
-\texttt{stereo\_mpi} accepts the following options (any additional
+\texttt{parallel\_stereo} accepts the following options (any additional
 options given to it will be passed to the stereo executables
 for each stage).
 
 \begin{longtable}{|l|p{7.5cm}|}
-\caption{Command-line options for stereo\_mpi}
+\caption{Command-line options for parallel\_stereo}
 \label{tbl:stereompi}
 \endfirsthead
 \endhead
@@ -155,24 +154,41 @@ for each stage).
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message.\\ \hline
-\texttt{-\/-mpiexec \textit{integer(=1)}} & The number of computing nodes to use. \\ \hline
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
+\texttt{-\/-nodes-list \textit{filename} } & The list of computing nodes,
+one per line. If not provided, run on the local machine. \\ \hline
 \texttt{-\/-processes \textit{integer(=4)}} & The number of processes to
 use per node. \\ \hline
 \texttt{-\/-threads-multiprocess \textit{integer(=2)}} & The number of threads to use per process.\\ \hline
 \texttt{-\/-threads-singleprocess \textit{integer(=1)}} & The number of threads to use when running a single process (for pre-processing and filtering).\\ \hline
-\texttt{-\/-session-type|-t pinhole|isis|dg} & Select the stereo session
-type to use for processing (e.g., ISIS, DG, etc.).\\ \hline
-\texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use.\\ \hline
-\texttt{-\/-entry-point|-e integer(=0 to 5)} & Stereo Pipeline entry point. \\ \hline
-\texttt{-\/-stop-point|-e integer(=1 to 6)} & Stereo Pipeline stop point. \\ \hline
-\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs\\ \hline
+\texttt{-\/-entry-point|-e integer(=0 to 5)} & Stereo Pipeline entry
+point (start at this stage). \\ \hline
+\texttt{-\/-stop-point|-e integer(=1 to 6)} & Stereo Pipeline stop point
+(stop at the stage {\it right before} this value). \\ \hline
 \texttt{-\/-job-size-w \textit{integer(=2048)}} & Pixel width of input
 image tile for a single process. \\ \hline
 \texttt{-\/-job-size-h \textit{integer(=2048)}} & Pixel height of input
 image tile for a single process. \\ \hline
 \texttt{-\/-correlation-timeout \textit{integer(=none)}} & Timeout in seconds for a stereo correlation process.\\ \hline
 \end{longtable}
+
+As an example, assume that we would like to launch the refinement and
+filtering steps only (stages 2 and 3). We will distribute the
+refinement over a number of nodes, using 4 processes on each node, with
+each process creating 16 threads. For the filtering stage, which is done
+in one process on one machine, we want to use 32 threads. The
+appropriate command is then:
+
+\begin{verbatim}
+parallel_stereo --nodes-list machines.txt --processes 4 --threads-multiprocess 16 \
+ --threads-singleprocess 32 --entry-point 2 --stop-point 4 <other stereo options>
+\end{verbatim}
+
+Note that, if \texttt{parallel\_stereo} is launched as a supercomputer
+job, the path to the file containing the list of nodes may exist as an environmental
+variable. For example, on NASA's Pleiades Supercomputer, which uses the
+Portable Batch System (PBS), the list of computing nodes currently
+available can be retrieved as \$PBS\_NODEFILE.
 
 \section{disparitydebug}
 \label{disparitydebug}
@@ -205,7 +221,7 @@ statistics when tuning the search range settings in the
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message\\ \hline
+\texttt{-\/-help|-h} & Display the help message\\ \hline
 \texttt{-\/-input-file \textit{filename}} & Explicitly specify the input file \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the outfile type \\ \hline
@@ -363,7 +379,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \hline
-\texttt{-\/-help|-h} & Display this help message \\ \hline
+\texttt{-\/-help|-h} & Display the help message \\ \hline
 \end{longtable}
 
 \section{point2mesh}
@@ -428,7 +444,7 @@ model.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message\\ \hline
+\texttt{-\/-help|-h} & Display the help message\\ \hline
 \texttt{-\/-simplify-mesh \textit{float}} & Run OSG Simplifier on mesh, 1.0 = 100\% \\ \hline
 \texttt{-\/-smooth-mesh} & Run OSG Smoother on mesh \\ \hline
 \texttt{-\/-use-delaunay} & Uses the delaunay triangulator to create a surface from the point cloud. This is not recommended for point clouds with noise issues. \\ \hline
@@ -465,7 +481,7 @@ Options & Description \\ \hline \hline
 %% \endlastfoot
 %% \hline
 %% Options & Description \\ \hline \hline
-%% \verb#--help# & Display this help message \\ \hline
+%% \verb#--help# & Display the help message \\ \hline
 %% \verb#--mpp arg# & Specify the output resolution of the orthoimage in meters per pixel \\ \hline
 %% \verb#--ppd arg# & Specify the output resolution of the orthoimage in pixels per degree \\ \hline
 %% \verb#--nodata-value arg# & Specify the pixel used in this DEM to denote missing data \\ \hline
@@ -507,7 +523,7 @@ position. The input for this tool is one or more \texttt{*.cub} files.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message\\ \hline
+\texttt{-\/-help|-h} & Display the help message\\ \hline
 \texttt{-\/-output|-o \textit{filename(=orbit.kml)}} & Specifies the output file name \\ \hline
 \texttt{-\/-scale|-s \textit{float(=1)}} & Scale the size of the coordinate axes by this amount. Ex: To scale axis sizes up to earth size, use 3.66 \\ \hline
 \texttt{-\/-use\_path\_to\_dae\_model|-u \textit{fullpath}} & Use this dae model to represent camera location. \emph{Google Sketch up can create these.} \\ \hline
@@ -539,7 +555,7 @@ Use the \texttt{-\/-dry-run} option the first few times to get an idea of what \
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message. \\ \hline
+\texttt{-\/-help|-h} & Display the help message. \\ \hline
 \texttt{-\/-manual} & Read the manual. \\ \hline
 \texttt{-\/-map=\textit{MAP}|-m \textit{MAP}} & The mapfile to use for \texttt{cam2map}. \\ \hline
 \texttt{-\/-pixres=\textit{PIXRES}|-p \textit{PIXRES}} & The pixel resolution mode to use for \texttt{cam2map}. \\ \hline
@@ -556,10 +572,13 @@ Options & Description \\ \hline \hline
 \section{dem\_geoid}
 \label{demgeoid}
 
-This tool takes as input a DEM whose height values are relative to the datum
-ellipsoid, and adjusts those values to be relative to the equipotential
-surface of the planet (geoid on Earth, and areoid on Mars). The program
-can also apply the reverse of this adjustment.
+This tool takes as input a DEM whose height values are relative to the
+datum ellipsoid, and adjusts those values to be relative to the
+equipotential surface of the planet (geoid on Earth, and areoid on
+Mars). The program can also apply the reverse of this adjustment. The
+adjustment simply subtracts from the DEM height the geoid height
+(correcting, if need be, for differences in dimensions between the DEM
+and geoid datum ellipsoids).
 
 Two geoids and one areoid are supported. The Earth geoids are: EGM96, referenced to the WGS84 datum ellipsoid (\url{http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html})
 and NAVD88, referenced to the NAD83 datum ellipsoid (\url{http://www.ngs.noaa.gov/GEOID/GEOID09/}).
@@ -580,7 +599,7 @@ relative to the Mars radius of 3,396,000~m.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message\\ \hline
+\texttt{-\/-help|-h} & Display the help message\\ \hline
 \texttt{-\/-nodata-value \textit{integer(=-32767)}} & The value of no-data pixels, unless specified in the DEM \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
 \texttt{-\/-double} & Output using double precision (64 bit) instead of float (32 bit)\\ \hline
@@ -616,7 +635,7 @@ functionality is planned for the next version of ASP.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message.\\ \hline
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-gdal-dir \textit{directory}} &
 Directory where the GDAL tools are. If not provided, we get them from the environment. \\ \hline
 \texttt{-\/-reduce-percent \textit{integer(=100)}} &
@@ -643,7 +662,7 @@ public LAS format for interchange of 3-dimensional point cloud data.
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
-\texttt{-\/-help|-h} & Display this help message.\\ \hline
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-compressed} &
 Compress using laszip. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline

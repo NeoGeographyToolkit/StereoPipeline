@@ -1,3 +1,14 @@
+*** RELEASE 2.2.1, 17 MAY 2013 ***
+
+TOOLS
+ - stereo_mpi renamed to parallel_stereo and made to work
+   on any machines with shared storage, rather than just on 
+   supercomputers using Intel's MPI library. Bug fixes for
+   homography and affine epipolar alignment modes, etc.
+
+ - Bugfix for dem_geoid path to geoids, more robust datum
+   identification.
+
 *** RELEASE 2.2.0, 6 MAY 2013 ***
 
 GENERAL
@@ -17,7 +28,7 @@ SESSIONS
    instead of LUTs to reverse map projections and alignments.
 
 TOOLS
- - Added dem_geoid, dg_mosaic, and parallel_stereo.
+ - Added dem_geoid, dg_mosaic, and stereo_mpi.
  - Added new interest point matching method to stereo.
  - Added new DEM seed mode for stereo.
  - Point2dem sped up by reducing over rasterization of triangles.

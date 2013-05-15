@@ -56,12 +56,31 @@ int main( int argc, char* argv[] ) {
              << opt.left_image_crop_win.width() << ","
              << opt.left_image_crop_win.height() << std::endl;
 
+    // The executable may have been called with both
+    // --left-image-crop-win box and -trans-crop-win box. We on
+    // purpose transform the former, rather than use the later, as
+    // that one could be a small tile and not the whole thing.
+    BBox2i transformed_window = transformed_crop_win(opt);
+    vw_out() << "transformed_window," << transformed_window.min().x() << ","
+             << transformed_window.min().y() << ","
+             << transformed_window.width() << ","
+             << transformed_window.height() << std::endl;
+
     vw_out() << "out_prefix," << opt.out_prefix << std::endl;
 
     Vector2i left_image_size = file_image_size( opt.in_file1 ),
       right_image_size = file_image_size( opt.in_file2 );
     vw_out() << "left_image," << left_image_size.x() << "," << left_image_size.y() << std::endl;
     vw_out() << "right_image," << right_image_size.x() << "," << right_image_size.y() << std::endl;
+
+    Vector2 trans_left_image_size;
+    if ( fs::exists(opt.out_prefix+"-L.tif") ){
+      trans_left_image_size = file_image_size(opt.out_prefix+"-L.tif");
+    }
+    vw_out() << "trans_left_image," << trans_left_image_size.x() << ","
+             << trans_left_image_size.y() << std::endl;
+
+
   } ASP_STANDARD_CATCHES;
 
   return 0;
