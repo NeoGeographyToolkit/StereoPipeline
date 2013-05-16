@@ -2,7 +2,7 @@ HOW TO ROLL A RELEASE
 
 Here's a developer checklist for performing a binary release
 
-1.) Modify build system
+1.) Modify the build system:
 
 Inside configure.ac, remove "_post" and increment version number from AC_INIT line.
 
@@ -10,26 +10,24 @@ Inside configure.ac, remove "_post" and increment version number from AC_INIT li
 
 3.) Update NEWS
 
-Just summarize all commits that have happened since last release
-git log v2.0.0..HEAD --reverse > commits_that_happened
+4.) Commit and tag release in repo
 
-4.) Update version number in DOCS
-
-5.) Commit and tag release in repo
-
-6.) Download and operate BinaryBuilder on OSX10.6, x86_32, and x86_64
+5.) Download and operate BinaryBuilder on OSX10.6, x86_32, and x86_64
 
 Code modification to Binary Builder will probably have to happen here as dependencies will have probably changed.
 
-7.) Test all binary release on different machines by just running the example dataset
+6.) Test all binary release on different machines by running StereoPipelineTest.
 
-8.) Build docs. To greatly reduce the file size use the command 
+7.) Build docs, ensure you do 'make clean' first, to ensure that the
+ASP version gets updated. To greatly reduce the file size use the command 
 
 gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
 
+8.) Check that the doc has the correct ASP version.
+
 9.) Update website
 
-10.) Modify build system
+10.) Modify the build system:
 
 Inside configure.ac, append "_post" to version number in AC_INIT line.
 
