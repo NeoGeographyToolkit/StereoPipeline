@@ -1,35 +1,43 @@
 HOW TO ROLL A RELEASE
 
-Here's a developer checklist for performing a binary release
+Here's a developer's checklist for performing a binary release.
 
 1.) Modify the build system:
 
-Inside configure.ac, remove "_post" and increment version number from AC_INIT line.
+Inside ASP's configure.ac, remove "_post" and increment version number
+from AC_INIT line. Do not do this for VW, as VW has its own
+versioning.
 
 2.) Update ISIS Version in README
 
 3.) Update NEWS
 
-4.) Commit and tag release in repo
+4.) Commit and tag release in repo. Example: git tag v2.2.1
 
-5.) Download and operate BinaryBuilder on OSX10.6, x86_32, and x86_64
+5.) Build and package the software and documentation:
 
-Code modification to Binary Builder will probably have to happen here as dependencies will have probably changed.
+  - Modify BinaryBuilder to deal with any changes in dependencies.
+  - Build the dependenices, see BinaryBuilder/README, section 3.B, part1.
+  - Build the documentation in StereoPipeline/docs/book. Must do make 
+    clean first, to force that ASP version gets updated.
+  - Greatly reduce the size of the pdf with:
+    gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
+       -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
+  - Put the doc in BinaryBuilder/asp_book.pdf.
+  - Build the ASP release tarball, see BinaryBuilder/README,
+    section 3.B, part2.
 
-6.) Test all binary release on different machines by running StereoPipelineTest.
+7.) Test all binary releases on different machines by running
+    StereoPipelineTest.
 
-7.) Build docs, ensure you do 'make clean' first, to ensure that the
-ASP version gets updated. To greatly reduce the file size use the command 
+8.) Check that the documentation version is correct.
 
-gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
-
-8.) Check that the doc has the correct ASP version.
-
-9.) Update website
+9.) Update the website.
 
 10.) Modify the build system:
 
-Inside configure.ac, append "_post" to version number in AC_INIT line.
+Inside ASP's configure.ac, append "_post" to version number in AC_INIT
+line.
 
 11.) Commit changes.
 

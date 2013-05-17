@@ -42,21 +42,33 @@ namespace asp {
     BBox2i b = opt.left_image_crop_win;
     DiskImageView<PixelGray<float> > left_image(opt.in_file1);
     BBox2i full_box = bounding_box(left_image);
-    if (b == BBox2i(0, 0, 0, 0)) b = full_box; // if no box was provided
+    if (b == BBox2i(0, 0, 0, 0)){
 
-    // Ensure that the region is inside the maximum theoretical region
-    b.crop(full_box);
+      // No box was provided. Use the full box.
+      if ( fs::exists(opt.out_prefix+"-L.tif") ){
+        DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+        b = bounding_box(L_img);
+      }else{
+        b = full_box; // To not have an empty box
+      }
 
-    if ( fs::exists(opt.out_prefix+"-align-L.exr") ){
-      Matrix<double> align_left_matrix = math::identity_matrix<3>();
-      read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
-      b = HomographyTransform(align_left_matrix).forward_bbox(b);
-    }
+    }else{
 
-    if ( fs::exists(opt.out_prefix+"-L.tif") ){
-      // Intersect with L.tif which is the transformed and processed left image
-      DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
-      b.crop(bounding_box(L_img));
+      // Ensure that the region is inside the maximum theoretical region
+      b.crop(full_box);
+
+      if ( fs::exists(opt.out_prefix+"-align-L.exr") ){
+        Matrix<double> align_left_matrix = math::identity_matrix<3>();
+        read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
+        b = HomographyTransform(align_left_matrix).forward_bbox(b);
+      }
+
+      if ( fs::exists(opt.out_prefix+"-L.tif") ){
+        // Intersect with L.tif which is the transformed and processed left image
+        DiskImageView<PixelGray<float> > L_img(opt.out_prefix+"-L.tif");
+        b.crop(bounding_box(L_img));
+      }
+
     }
 
     return b;

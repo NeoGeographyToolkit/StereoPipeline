@@ -287,10 +287,22 @@ void stereo_triangulation( Options const& opt ) {
                                     stereo_model ), universe_radius_func );
     }
 
-    if (stereo_settings().compute_error_vector)
-      save_point_cloud(point_cloud, opt);
-    else
-      save_point_cloud(point_and_error_norm(point_cloud), opt);
+    // We are supposed to do the triangulation in trans_crop_win only.
+    // So force rasterization in that box only using crop(), then pad
+    // with zeros, as we want to have the point cloud to have the same
+    // dimensions as L.tif, for the sake of point2dem.
+    BBox2i cbox = stereo_settings().trans_crop_win;
+    if (stereo_settings().compute_error_vector){
+      ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
+      save_point_cloud(crop(edge_extend(crop_pc, ZeroEdgeExtension()),
+                            bounding_box(point_cloud) - cbox.min()),
+                       opt);
+    }else{
+      ImageViewRef<Vector4> crop_pc = crop(point_and_error_norm(point_cloud), cbox);
+      save_point_cloud(crop(edge_extend(crop_pc, ZeroEdgeExtension()),
+                            bounding_box(point_cloud) - cbox.min()),
+                       opt);
+    }
 
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at point cloud stage -- could not read input files.\n"
