@@ -117,7 +117,7 @@ src/asp/Tools/rpc_mapproject
 src/asp/Tools/stereo
 src/asp/Tools/stereo_corr
 src/asp/Tools/stereo_fltr
-src/asp/Tools/stereo_mpi
+src/asp/Tools/parallel_stereo
 src/asp/Tools/stereo_parse
 src/asp/Tools/stereo_pprc
 src/asp/Tools/stereo_rfne
