@@ -17,59 +17,9 @@
 # __END_LICENSE__
 
 
-import sys
-import optparse
-import subprocess
-import re
+import sys, optparse, subprocess, re
 import os.path as P
-
-# Utilities to ensure that the parser does not garble negative integers
-# such as '-365' into '-3'.
-escapeStr='esc_rand_str'
-def escape_vals(vals):
-    for index, val in enumerate(vals):
-        p = re.match("^-\d+$", val)
-        if p:
-            vals[index] = escapeStr + val
-    return vals
-def unescape_vals(vals):
-    for index, val in enumerate(vals):
-        p = re.match("^" + escapeStr + "(-\d+)$", val)
-        if p:
-            vals[index] = p.group(1)
-    return vals
-
-# Custom option parser that will ignore unknown options
-class PassThroughOptionParser(optparse.OptionParser):
-    def _process_args( self, largs, rargs, values ):
-
-        rargs=escape_vals(rargs)
-        largs=escape_vals(largs)
-
-        while rargs:
-            try:
-                optparse.OptionParser._process_args(self,largs,rargs,values)
-            except (optparse.BadOptionError), e:
-                largs.append(e.opt_str)
-
-def run(bin, args, **kw):
-    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
-    call = [binpath]
-    call.extend(args)
-
-    if opt.dryrun:
-        print '%s' % ' '.join(call)
-        return
-    try:
-        code = subprocess.call(call)
-    except OSError, e:
-        raise Exception('%s: %s' % (binpath, e))
-    if code != 0:
-        raise Exception('Stereo step ' + kw['msg'] + ' failed')
-
-def die(msg, code=-1):
-    print >>sys.stderr, msg
-    sys.exit(code)
+from stereo_utils import *
 
 if __name__ == '__main__':
     usage = '''stereo [options] <Left_input_image> <Right_input_image>
@@ -88,6 +38,8 @@ if __name__ == '__main__':
                  help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc]')
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
+    p.add_option('--corr-seed-mode',    dest='seed_mode', default=1,
+                 help='Correlation seed strategy. See stereo_pprc for options.', type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Pipeline entry point (an integer from 0-4)', type='int')
     p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
@@ -108,6 +60,8 @@ if __name__ == '__main__':
 
     if opt.session is not None:
         args.extend(['--session-type', opt.session])
+    if opt.seed_mode is not None:
+        args.extend(['--corr-seed-mode', str(opt.seed_mode)])
     if opt.threads is not None:
         args.extend(['--threads', str(opt.threads)])
     if opt.no_bigtiff:
@@ -121,15 +75,17 @@ if __name__ == '__main__':
 
     try:
         if ( opt.entry_point <= 0 ):
-            run('stereo_pprc', args, msg='0: Preprocessing')
+            run('stereo_pprc', args, opt, msg = '0: Preprocessing')
         if ( opt.entry_point <= 1 ):
-            run('stereo_corr', args, msg='1: Correlation')
+            if ( opt.seed_mode == 3 ):
+                run_sparse_disp(args, opt)
+            run('stereo_corr', args, opt, msg = '1: Correlation')
         if ( opt.entry_point <= 2 ):
-            run('stereo_rfne', args, msg='2: Refinement')
+            run('stereo_rfne', args, opt, msg = '2: Refinement')
         if ( opt.entry_point <= 3 ):
-            run('stereo_fltr', args, msg='3: Filtering')
+            run('stereo_fltr', args, opt, msg = '3: Filtering')
         if ( opt.entry_point <= 4 ):
-            run('stereo_tri',  args, msg='4: Triangulation')
+            run('stereo_tri',  args, opt, msg = '4: Triangulation')
     except Exception, e:
         if not opt.debug:
             die(e)

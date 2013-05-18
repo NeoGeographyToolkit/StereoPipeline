@@ -103,11 +103,14 @@ namespace asp {
                                       // 1 = Gaussian Blur
                                       // 2 = Log Filter
                                       // 3 = SLog Filter
-    vw::uint16  seed_mode;            // 0 = User global search for each tile
-                                      // 1 = Narrow search for each tile to low
-                                      //     resolution disparity seed (D_sub)
-                                      // 2 = Affine transform and narrow search
-                                      //     based on disparity seed
+
+    vw::uint16  seed_mode;            // 0 = None, use global search for each tile
+                                      // 1 = Use low-res disparity from stereo
+                                      // 2 = Use low-res disparity from provided DEM
+                                      //     (see disparity-estimation-dem)
+                                      // 3 = Use low-res disparity produced by sparse_disp
+                                      //     (in development)
+
     float seed_percent_pad;           // Pad amound towards the IP found
     vw::uint16 cost_mode;             // 0 = absolute difference
                                       // 1 = squared difference

@@ -20,24 +20,9 @@
 import sys, optparse, subprocess, re, os, math, time, tempfile
 import shutil
 import os.path as P
+from stereo_utils import *
 
 job_pool  = [] # currently running jobs
-
-# Utilities to ensure that the Python parser does not garble negative
-# integers such as '-365' into '-3'.
-escapeStr='esc_rand_str'
-def escape_vals(vals):
-    for index, val in enumerate(vals):
-        p = re.match("^-\d+$", val)
-        if p:
-            vals[index] = escapeStr + val
-    return vals
-def unescape_vals(vals):
-    for index, val in enumerate(vals):
-        p = re.match("^" + escapeStr + "(-\d+)$", val)
-        if p:
-            vals[index] = p.group(1)
-    return vals
 
 # Launch a job using Popen. If that job is stereo_corr, enforce
 # timeout.
@@ -64,60 +49,6 @@ class popen_timeout(subprocess.Popen):
                 super(popen_timeout, self).kill()
 
         return super(popen_timeout, self).poll()
-
-# Custom option parser that will ignore unknown options
-class PassThroughOptionParser(optparse.OptionParser):
-    def _process_args( self, largs, rargs, values ):
-
-        rargs=escape_vals(rargs)
-        largs=escape_vals(largs)
-
-        while rargs:
-            try:
-                optparse.OptionParser._process_args(self,largs,rargs,values)
-            except (optparse.BadOptionError), e:
-                largs.append(e.opt_str)
-
-class BBox:
-    def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-
-    def name_str(self):
-        return "%i_%i_%i_%i" % ( self.x, self.y, self.width, self.height )
-
-    def crop_str(self):
-        return ["--trans-crop-win",str(self.x),
-                str(self.y),str(self.width),str(self.height)]
-
-    def expand( self, px, settings ):
-        image_size = settings["trans_left_image"]
-        self.x = self.x - px
-        self.y = self.y - px
-        self.width = self.width + 2 * px
-        self.height = self.height + 2 * px
-        if self.x < 0:
-            self.x = 0
-        if self.y < 0:
-            self.y = 0
-        if self.x + self.width > image_size[0]:
-            self.width =  image_size - self.x
-        if self.y + self.height > image_size[1]:
-            self.height = image_size - self.y
-
-def intersect_boxes(A, B):
-    axmin = A.x; axmax = A.x + A.width; aymin = A.y; aymax = A.y + A.height
-    bxmin = B.x; bxmax = B.x + B.width; bymin = B.y; bymax = B.y + B.height
-    xmin = max(axmin, bxmin); xmax = min(axmax, bxmax)
-    ymin = max(aymin, bymin); ymax = min(aymax, bymax)
-    C = BBox(0, 0, 0, 0)
-    C.x = xmin; C.width = xmax - xmin
-    if (C.width  < 0): C.width = 0
-    C.y = ymin; C.height = ymax - ymin
-    if (C.height < 0): C.height = 0
-    return C
 
 def produce_tiles( settings, tile_w, tile_h ):
     image_size = settings["trans_left_image"]
@@ -170,48 +101,6 @@ def wipe_option(options, opt, n):
         if r < len(options): del options[r] # rm 'opt'
         for i in range(n):
             if r < len(options): del options[r]
-
-def run(bin, args, **kw):
-
-    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
-    call = [binpath]
-    call.extend(args)
-
-    if opt.threads_single is not None:
-        wipe_option(call, '--threads', 1)
-        call.extend(['--threads', str(opt.threads_single)])
-
-    if opt.dryrun:
-        print '%s' % ' '.join(call)
-        return
-    try:
-        code = subprocess.call(call)
-    except OSError, e:
-        raise Exception('%s: %s' % (binpath, e))
-    if code != 0:
-        raise Exception('Stereo step ' + kw['msg'] + ' failed')
-
-def get_settings( args, **kw ):
-    libexecpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'libexec', 'stereo_parse')
-    call = [libexecpath]
-    call.extend(args)
-
-    try:
-        p = subprocess.Popen(call, stdout=subprocess.PIPE)
-    except OSError, e:
-        raise Exception('%s: %s' % (libexecpath, e))
-    (stdout, stderr) = p.communicate()
-
-    p.wait()
-    if p.returncode != 0:
-        raise Exception('Failed getting stereo settings')
-    data = {}
-    for line in stdout.split('\n'):
-        if "," in line:
-            keywords = line.split(',')
-            data[keywords[0]] = keywords[1:]
-
-    return data
 
 def create_subproject_dirs( settings, **kw ):
     for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
@@ -306,24 +195,6 @@ def get_num_nodes(nodes_list):
 
     return num_nodes
 
-# Find if a program is in the path
-def which(program):
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
-
 # Create copies of the run manager on multiple machines.
 # Those will in turn launch the jobs on those machines.
 def sprawn_to_nodes(start, stop, num_nodes, settings, args):
@@ -389,9 +260,25 @@ def parallel_run(bin, args, settings, tiles, **kw):
     except OSError, e:
         raise Exception('%s: %s' % (binpath, e))
 
-def die(msg, code=-1):
-    print >>sys.stderr, msg
-    sys.exit(code)
+def single_run(bin, args, **kw):
+
+    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
+    call = [binpath]
+    call.extend(args)
+
+    if opt.threads_single is not None:
+        wipe_option(call, '--threads', 1)
+        call.extend(['--threads', str(opt.threads_single)])
+
+    if opt.dryrun:
+        print '%s' % ' '.join(call)
+        return
+    try:
+        code = subprocess.call(call)
+    except OSError, e:
+        raise Exception('%s: %s' % (binpath, e))
+    if code != 0:
+        raise Exception('Stereo step ' + kw['msg'] + ' failed')
 
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <Left_input_image> <Right_input_image>
@@ -424,6 +311,8 @@ if __name__ == '__main__':
                  help='The number of threads to use per process.')
     p.add_option('--threads-singleprocess',dest='threads_single',default=None,type='int',
                  help='The number of threads to use when running a single process (PPRC and FLTR).')
+    p.add_option('--corr-seed-mode',    dest='seed_mode', default=1,
+                 help='Correlation seed strategy. See stereo_pprc for options.', type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Stereo Pipeline entry point (an integer from 0-5).', type='int')
     p.add_option('--stop-point',           dest='stop_point',  default=6,
@@ -457,6 +346,9 @@ if __name__ == '__main__':
 
     global opt
     (opt, args) = p.parse_args()
+
+    if opt.seed_mode is not None:
+        args.extend(['--corr-seed-mode', str(opt.seed_mode)])
 
     if opt.rank is None:
         # When the script is started, set some options from the
@@ -515,7 +407,7 @@ if __name__ == '__main__':
 
         if ( opt.entry_point <= 0 ):
             # Preprocessing
-            run('stereo_pprc', args, msg='0: Preprocessing')
+            single_run('stereo_pprc', args, msg='0: Preprocessing')
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
             settings=get_settings( args )
@@ -523,7 +415,10 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 1 ):
             # Correlation. First do low-res.
             if ( opt.stop_point <= 1 ): sys.exit()
-            run('stereo_corr', args_sub, msg='1: Low-res correlation')
+            if ( opt.seed_mode == 3 ):
+                run_sparse_disp(args, opt)
+            else:
+                single_run('stereo_corr', args_sub, msg='1: Low-res correlation')
             sprawn_to_nodes(1, 2, num_nodes, settings, self_args)
         if ( opt.entry_point <= 2 ):
             # Refinement
@@ -533,7 +428,7 @@ if __name__ == '__main__':
             # Filtering
             if ( opt.stop_point <= 3 ): sys.exit()
             build_vrt( settings, "-RD.tif", 3, "Float32" );
-            run('stereo_fltr', args, msg='3: Filtering')
+            single_run('stereo_fltr', args, msg='3: Filtering')
         if ( opt.entry_point <= 4 ):
             # Triangulation
             if ( opt.stop_point <= 4 ): sys.exit()

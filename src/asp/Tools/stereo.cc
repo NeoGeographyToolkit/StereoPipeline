@@ -301,10 +301,25 @@ namespace asp {
       // projected image.
     }
 
+    if ( stereo_settings().seed_mode < 0 || stereo_settings().seed_mode > 3 ){
+      vw_throw( ArgumentErr() << "Invalid value for seed-mode: "
+                << stereo_settings().seed_mode << ".\n" );
+    }
+
+    if ( stereo_settings().seed_mode == 0 &&
+         stereo_settings().use_local_homography ){
+      vw_throw( ArgumentErr() << "Cannot use local homography without "
+                << "computing low-resolution disparity.\n");
+    }
+
     // Checks for map-projected images below
     if ( !opt.input_dem.empty() && stereo_settings().seed_mode == 2 )
       vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
+
+    if ( opt.input_dem.empty() && stereo_settings().seed_mode == 3 )
+      vw_throw( NoImplErr() << "Computation of low-resolution disparity using "
+                << "sparse_disp is implemented only for map-projected images.\n");
 
     GeoReference georef;
     bool has_georef1 = read_georeference( georef, opt.in_file1 );
@@ -319,12 +334,6 @@ namespace asp {
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";
-    }
-
-    if ( stereo_settings().seed_mode == 0 &&
-         stereo_settings().use_local_homography ){
-      vw_throw( ArgumentErr() << "Cannot use local homography without "
-                << "computing low-resolution disparity.\n");
     }
 
   }
