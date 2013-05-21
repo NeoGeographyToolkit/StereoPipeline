@@ -37,7 +37,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 struct Options : asp::BaseOptions {
-  Options() : lo(0), hi(0), do_color(false), mark_no_processed_data(false) {
+  Options() : lo(0), hi(0), mark_no_processed_data(false) {
     nodata_value = mpp = ppd = std::numeric_limits<double>::quiet_NaN();
   }
 
@@ -48,8 +48,6 @@ struct Options : asp::BaseOptions {
   std::string stereo_session, output_file;
   double mpp, ppd, nodata_value;
   float lo, hi;
-  bool do_color;
-  PixelRGB<uint8> color;
   bool mark_no_processed_data;
 };
 
@@ -66,8 +64,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max", po::value(&opt.hi), "Explicitly specify the range of the normalization (for ISIS images only)")
     ("session-type,t", po::value(&opt.stereo_session),
      "Select the stereo session type to use for processing. [default: pinhole]")
-    ("use-solid-color", po::value(&color_text),
-     "Use a solid color instead of camera image. Example: 255,0,128")
     ("mark-no-processed-data", po::bool_switch(&opt.mark_no_processed_data)->default_value(false),
      "If to set no-data pixels in the DEM which project onto the camera to black.");
 
@@ -95,23 +91,19 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
        opt.camera_model_file.empty() )
     vw_throw( ArgumentErr() << "Missing input files!\n"
               << usage << general_options );
-  if ( !color_text.empty() ) {
-    opt.do_color=true;
-    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    boost::char_separator<char> sep(",:@");
-    tokenizer tokens(color_text, sep);
-    tokenizer::iterator tok_iter = tokens.begin();
+}
 
-    if (tok_iter == tokens.end()) vw_throw(ArgumentErr() << "Error parsing color input.");
-    opt.color[0] = boost::lexical_cast<uint16>(*tok_iter);
-    ++tok_iter;
-    if (tok_iter == tokens.end()) vw_throw(ArgumentErr() << "Error parsing color input.");
-    opt.color[1] = boost::lexical_cast<uint16>(*tok_iter);
-    ++tok_iter;
-    if (tok_iter == tokens.end()) vw_throw(ArgumentErr() << "Error parsing color input.");
-    opt.color[2] = boost::lexical_cast<uint16>(*tok_iter);
+template <class ImageT>
+void write_parallel_cond( std::string const& filename,
+                          ImageViewBase<ImageT> const& image,
+                          cartography::GeoReference const& georef, Options const& opt,
+                          TerminalProgressCallback const& tpc ) {
+  // ISIS is not thread safe so we must switch out base on what the
+  // session is.
+  if ( opt.stereo_session == "isis" ) {
+    asp::write_gdal_georeferenced_image( filename, image.impl(), georef, opt, tpc );
   } else {
-    opt.do_color=false;
+    asp::block_write_gdal_image( filename, image.impl(), georef, opt, tpc );
   }
 }
 
@@ -121,62 +113,27 @@ void do_projection( Options& opt,
                     GeoReference const& drg_georef,
                     boost::shared_ptr<camera::CameraModel> camera_model ) {
   DiskImageView<PixelT > texture_disk_image(opt.image_file);
-  ImageViewRef<PixelT > texture_image = texture_disk_image;
   DiskImageView<float > float_texture_disk_image(opt.image_file);
-
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-  // ISIS cubes need to be normalized because their pixels are often
-  // photometrically calibrated.
-  if ( opt.stereo_session == "isis" && !opt.do_color ) {
-    DiskImageResourceIsis isis_rsrc( opt.image_file);
-    if (opt.lo == 0 && opt.hi == 0) {
-      vw_out(InfoMessage) << "\t--> Computing statistics for ISIS image\n";
-      int32 left_stat_scale =
-        int32(ceil(sqrt(float(texture_image.cols())*
-                        float(texture_image.rows()) / 1000000)));
-      ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
-      for_each_pixel(
-                     subsample(create_mask( float_texture_disk_image,
-                                            float(isis_rsrc.valid_minimum()),
-                                            float(isis_rsrc.valid_maximum())),
-                               left_stat_scale ),
-                     accumulator );
-      opt.lo = accumulator.approximate_mean() -
-        2*accumulator.approximate_stddev();
-      opt.hi = accumulator.approximate_mean() +
-        2*accumulator.approximate_stddev();
-      vw_out() << "\t--> Normalizing ISIS pixel range range: ["
-               << opt.lo << "  " << opt.hi << "]\n";
-    } else {
-      vw_out() << "\t--> Using user-specified normalization range: ["
-               << opt.lo << "  " << opt.hi << "]\n";
-    }
-    texture_image =
-      pixel_cast_rescale<PixelT >(normalize(asp::remove_isis_special_pixels(float_texture_disk_image, opt.lo), opt.lo, opt.hi, 0, 1));
-  }
-#endif
-
 
   vw_out() << "\t--> Orthoprojecting texture.\n";
   if (!opt.mark_no_processed_data){
     // Default
-    asp::write_gdal_georeferenced_image(
-      opt.output_file,
-      orthoproject(dem, drg_georef,
-                   texture_image, camera_model,
-                   BicubicInterpolation(),
-                   ZeroEdgeExtension()),
-      drg_georef, opt,
-      TerminalProgressCallback("asp","") );
-  }else{
+    write_parallel_cond( opt.output_file,
+                         orthoproject(dem, drg_georef,
+                                      texture_disk_image, camera_model,
+                                      BicubicInterpolation(),
+                                      ZeroEdgeExtension()),
+                         drg_georef, opt,
+                         TerminalProgressCallback("asp","") );
+  } else {
     // Save as uint8, need this for albedo
-    asp::write_gdal_georeferenced_image(
-      opt.output_file,
-      pixel_cast_rescale< PixelGrayA<uint8> >(clamp(
-        orthoproject_markNoProcessedData(dem, drg_georef,
-                                         texture_image, camera_model,
-                                         BicubicInterpolation(), ZeroEdgeExtension()), 0, 32767)),
-      drg_georef, opt, TerminalProgressCallback("asp","") );
+    write_parallel_cond( opt.output_file,
+                         pixel_cast_rescale< PixelGrayA<uint8> >
+                         (clamp(orthoproject_markNoProcessedData
+                                (dem, drg_georef,
+                                 texture_disk_image, camera_model,
+                                 BicubicInterpolation(), ZeroEdgeExtension()), 0, 32767)),
+                         drg_georef, opt, TerminalProgressCallback("asp","") );
   }
 
 }
@@ -184,7 +141,6 @@ void do_projection( Options& opt,
 int main(int argc, char* argv[]) {
 
   // Orthorpoject a camera image not a DEM.
-  // Note: This process is not multi-threaded because it uses ISIS which is not thread safe.
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
@@ -194,7 +150,7 @@ int main(int argc, char* argv[]) {
     if ( opt.stereo_session.empty() ) {
       std::string ext = fs::path(opt.camera_model_file).extension().string();
       if ( ext == ".cahvor" || ext == ".cmod" ||
-           ext == ".cahv" || ext ==  ".pin" || ext == ".tsai" ) {
+           ext == ".cahv" || ext ==  ".pinhole" || ext == ".tsai" ) {
         vw_out() << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
         opt.stereo_session = "pinhole";
       } else if ( fs::path(opt.image_file).extension() == ".cub" ) {
@@ -320,7 +276,7 @@ int main(int argc, char* argv[]) {
       // Use a bbox where both the image and the DEM have valid data.
       // Throw an error if there turns out to be no overlap.
       projection_bbox = cam_bbox; projection_bbox.crop(dem_bbox);
-      
+
       if ( projection_bbox.empty() && !dem_georef.is_projected()) {
 
         // If the boxes do not intersect, it may be that one box is
@@ -339,7 +295,7 @@ int main(int argc, char* argv[]) {
           }
         }
       }
-      
+
       if ( scale == 0 )
         scale = mpp_auto_scale;
     }
@@ -351,7 +307,7 @@ int main(int argc, char* argv[]) {
 
     // We must adjust the projection box given that we performed snapping to integer above.
     projection_bbox = scale*BBox2(min_x, min_y, output_width, output_height);
-    
+
     vw_out( DebugMessage, "asp" ) << "Output size : "
                                   << output_width << " " << output_height << " px\n"
                                   << scale << " pt/px\n";
@@ -375,77 +331,49 @@ int main(int argc, char* argv[]) {
                      ConstantEdgeExtension(),
                      BicubicInterpolation()),
            0,0,output_width,output_height);
-    
+
     vw_out( DebugMessage, "asp" ) << "Output GeoReference: "
                                   << drg_georef << "\n";
 
-    if ( opt.do_color ) {
-      vw_out() << "\t--> Orthoprojecting solid color image.\n";
-      if (!opt.mark_no_processed_data){
-        // Default
-        asp::write_gdal_georeferenced_image(
-          opt.output_file,
-          orthoproject(output_dem, drg_georef,
-                       constant_view(opt.color, texture_fmt.cols,
-                                     texture_fmt.rows),
-                       camera_model,
-                       BicubicInterpolation(), ZeroEdgeExtension()),
-          drg_georef, opt,
-          TerminalProgressCallback("asp","") );
-      } else {
-        asp::write_gdal_georeferenced_image(
-          opt.output_file,
-          orthoproject_markNoProcessedData(output_dem, drg_georef,
-                                           constant_view(opt.color, texture_fmt.cols,
-                                                         texture_fmt.rows),
-                                           camera_model,
-                                           BicubicInterpolation(), ZeroEdgeExtension()),
-          drg_georef, opt,
-          TerminalProgressCallback("asp","") );
-      }
-    } else {
-      switch(texture_fmt.pixel_format) {
-      case VW_PIXEL_GRAY:
-      case VW_PIXEL_GRAYA:
-      default:
-        switch(texture_fmt.channel_type) {
-        case VW_CHANNEL_UINT8: do_projection<PixelGrayA<uint8> >( opt, output_dem,
+    switch(texture_fmt.pixel_format) {
+    case VW_PIXEL_GRAY:
+    case VW_PIXEL_GRAYA:
+    default:
+      switch(texture_fmt.channel_type) {
+      case VW_CHANNEL_UINT8: do_projection<PixelGrayA<uint8> >( opt, output_dem,
+                                                                drg_georef,
+                                                                camera_model ); break;
+      case VW_CHANNEL_INT16: do_projection<PixelGrayA<int16> >( opt, output_dem,
+                                                                drg_georef,
+                                                                camera_model ); break;
+      case VW_CHANNEL_UINT16: do_projection<PixelGrayA<uint16> >( opt, output_dem,
                                                                   drg_georef,
                                                                   camera_model ); break;
-        case VW_CHANNEL_INT16: do_projection<PixelGrayA<int16> >( opt, output_dem,
-                                                                  drg_georef,
-                                                                  camera_model ); break;
-        case VW_CHANNEL_UINT16: do_projection<PixelGrayA<uint16> >( opt, output_dem,
-                                                                    drg_georef,
-                                                                    camera_model ); break;
-        default: do_projection<PixelGrayA<float32> >( opt, output_dem,
-                                                      drg_georef,
-                                                      camera_model ); break;
-        }
-        break;
-      case VW_PIXEL_RGB:
-      case VW_PIXEL_RGBA:
-        switch(texture_fmt.channel_type) {
-        case VW_CHANNEL_UINT8: do_projection<PixelRGBA<uint8> >( opt, output_dem,
-                                                                 drg_georef,
-                                                                 camera_model ); break;
-        case VW_CHANNEL_INT16: do_projection<PixelRGBA<int16> >( opt, output_dem,
-                                                                 drg_georef,
-                                                                 camera_model ); break;
-        case VW_CHANNEL_UINT16: do_projection<PixelRGBA<uint16> >( opt, output_dem,
-                                                                   drg_georef,
-                                                                   camera_model ); break;
-        default: do_projection<PixelRGBA<float32> >( opt, output_dem,
-                                                     drg_georef,
-                                                     camera_model ); break;
-        }
-        break;
+      default: do_projection<PixelGrayA<float32> >( opt, output_dem,
+                                                    drg_georef,
+                                                    camera_model ); break;
       }
+      break;
+    case VW_PIXEL_RGB:
+    case VW_PIXEL_RGBA:
+      switch(texture_fmt.channel_type) {
+      case VW_CHANNEL_UINT8: do_projection<PixelRGBA<uint8> >( opt, output_dem,
+                                                               drg_georef,
+                                                               camera_model ); break;
+      case VW_CHANNEL_INT16: do_projection<PixelRGBA<int16> >( opt, output_dem,
+                                                               drg_georef,
+                                                               camera_model ); break;
+      case VW_CHANNEL_UINT16: do_projection<PixelRGBA<uint16> >( opt, output_dem,
+                                                                 drg_georef,
+                                                                 camera_model ); break;
+      default: do_projection<PixelRGBA<float32> >( opt, output_dem,
+                                                   drg_georef,
+                                                   camera_model ); break;
+      }
+      break;
     }
 
   } ASP_STANDARD_CATCHES;
 
   return 0;
 }
-
-
