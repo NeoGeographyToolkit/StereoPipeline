@@ -120,7 +120,7 @@ void do_projection( Options& opt,
     // Default
     write_parallel_cond( opt.output_file,
                          orthoproject(dem, drg_georef,
-                                      texture_disk_image, camera_model,
+                                      texture_disk_image, camera_model.get(),
                                       BicubicInterpolation(),
                                       ZeroEdgeExtension()),
                          drg_georef, opt,
@@ -131,7 +131,7 @@ void do_projection( Options& opt,
                          pixel_cast_rescale< PixelGrayA<uint8> >
                          (clamp(orthoproject_markNoProcessedData
                                 (dem, drg_georef,
-                                 texture_disk_image, camera_model,
+                                 texture_disk_image, camera_model.get(),
                                  BicubicInterpolation(), ZeroEdgeExtension()), 0, 32767)),
                          drg_georef, opt, TerminalProgressCallback("asp","") );
   }
