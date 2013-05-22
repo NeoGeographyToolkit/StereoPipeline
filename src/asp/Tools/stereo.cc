@@ -301,7 +301,7 @@ namespace asp {
       // projected image.
     }
 
-    if ( stereo_settings().seed_mode < 0 || stereo_settings().seed_mode > 3 ){
+    if ( stereo_settings().seed_mode > 3 ){
       vw_throw( ArgumentErr() << "Invalid value for seed-mode: "
                 << stereo_settings().seed_mode << ".\n" );
     }
