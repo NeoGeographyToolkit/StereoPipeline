@@ -43,7 +43,11 @@ public:
   SessionT session;
 };
 
-typedef ::testing::Types<StereoSessionDG, StereoSessionDGMapRPC, StereoSessionRPC, StereoSessionIsis, StereoSessionPinhole, StereoSessionNadirPinhole> SessionTypes;
+typedef ::testing::Types<StereoSessionDG, StereoSessionDGMapRPC, StereoSessionRPC,
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+                         StereoSessionIsis,
+#endif
+                         StereoSessionPinhole, StereoSessionNadirPinhole> SessionTypes;
 TYPED_TEST_CASE( InstantiationTest, SessionTypes );
 
 TYPED_TEST( InstantiationTest, Typedefs ) {
@@ -65,22 +69,24 @@ TEST( Instantiation, Names ) {
   sessions.push_back( StereoSessionDG::construct() );
   sessions.push_back( StereoSessionDGMapRPC::construct() );
   sessions.push_back( StereoSessionRPC::construct() );
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
   sessions.push_back( StereoSessionIsis::construct() );
+#endif
   sessions.push_back( StereoSessionPinhole::construct() );
   sessions.push_back( StereoSessionNadirPinhole::construct() );
 
-  for ( size_t i = 0; i < 6; i++ ) {
+  for ( size_t i = 0; i < sessions.size(); i++ ) {
     EXPECT_TRUE( sessions[i] );
   }
 
   std::set<std::string> names;
-  for ( size_t i = 0; i < 6; i++ ) {
+  for ( size_t i = 0; i < sessions.size(); i++ ) {
     EXPECT_EQ( names.end(), names.find( sessions[i]->name() ) );
     names.insert( sessions[i]->name() );
   }
-  EXPECT_EQ( names.size(), 6 );
+  EXPECT_EQ( names.size(), sessions.size() );
 
-  for ( size_t i = 0; i < 6; i++ ) {
+  for ( size_t i = 0; i < sessions.size(); i++ ) {
     delete sessions[i];
   }
 }

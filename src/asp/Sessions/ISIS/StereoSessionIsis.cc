@@ -19,6 +19,8 @@
 /// \file StereoSessionIsis.cc
 ///
 
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+
 // Vision Workbench
 #include <vw/FileIO.h>
 #include <vw/Math/Functors.h>
@@ -447,3 +449,5 @@ asp::StereoSessionIsis::camera_model(std::string const& image_file,
   }
 
 }
+
+#endif  // ASP_HAVE_PKG_ISISIO

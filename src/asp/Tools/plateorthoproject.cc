@@ -163,7 +163,8 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
   Vector3 camera_lla = cartography::xyz_to_lon_lat_radius( camera_center );
   vw_out() << "\tLoaded Camera Location: " << camera_lla << " [deg deg meters]\n";
 
-  // Normalize between 0->1 since ISIS is crazy (not really)
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
+  // Normalize between 0->1.
   if ( opt.session == "isis" ) {
     DiskImageResourceIsis isis_rsrc( opt.camera_image );
     texture_image =
@@ -171,6 +172,7 @@ void do_projection(boost::shared_ptr<PlateFile> input_plate,
                              isis_rsrc.valid_minimum(),isis_rsrc.valid_maximum(),
                              ChannelRange<PixelT>::min(), ChannelRange<PixelT>::max() );
   }
+#endif
 
   if ( !opt.mask_image.empty() ) {
     DiskImageView<uint8> mask(opt.mask_image);
