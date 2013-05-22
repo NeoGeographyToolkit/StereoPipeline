@@ -22,13 +22,14 @@
 #ifndef __STEREO_SESSION_ISIS_H__
 #define __STEREO_SESSION_ISIS_H__
 
-#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
-
 #include <asp/Sessions/StereoSession.h>
+#include <asp/asp_config.h>
 #include <vw/Stereo/StereoModel.h>
 
 // Isis Headers
 #include <SpecialPixel.h>
+
+#if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 
 namespace asp {
 
