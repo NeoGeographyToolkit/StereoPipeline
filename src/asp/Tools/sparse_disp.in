@@ -35,6 +35,14 @@ def die(msg, code=-1):
     print >>sys.stderr, msg
     sys.exit(code)
 
+def prevpow2(i):
+    """
+    Find largest 2^n that is <= given number.
+    """
+    n = 1
+    while 2*n <= i: n *= 2
+    return n
+
 class im_subset:
     def __init__(self, c0, r0, Nc, Nr, source, pad_val=0, Bands=(1,2,3)):
         self.source=source
@@ -1178,6 +1186,19 @@ def main():
     print "T_file = " + T_file
     print "S_file = " + S_file
     print "output_prefix = " + output_prefix
+
+    # Adjust the input parameters based on the images. This
+    # may need to become more advanced.
+    T_ds=gdal.Open(T_file, gdalconst.GA_ReadOnly)
+    T_band=T_ds.GetRasterBand(1)
+    prev2x = prevpow2(T_band.XSize)
+    if options.s_nx > prev2x/2:
+        print "Warning: Decreasing xsearch value to: " + str(prev2x/2)
+        options.s_nx = prev2x/2
+    prev2y = prevpow2(T_band.YSize)
+    if options.s_ny > prev2y/2:
+        print "Warning: Decreasing ysearch value to: " + str(prev2y/2)
+        options.s_ny = prev2y/2
 
     dxy_slope_tol=3.0
     C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
