@@ -212,6 +212,15 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
+        if options.output_prefix == "":
+            options.output_prefix = args[0].split('-')[-1].split('.')[0]
+        if options.output_prefix == "":
+            die('\nERROR: Empty output prefix. Please set it via the ' + \
+                '--output-prefix option', code=2)
+        out_dir=os.path.dirname(options.output_prefix)
+        if len(out_dir)==0: out_dir='.'
+        if not os.path.exists(out_dir): os.mkdir(out_dir)
+
         # We reference everything from the perspective of the first
         # image. So lets load it up first into our special variables.
         [ref_tlctime, ref_tlclist, ref_firstlinetime,
@@ -285,18 +294,18 @@ def main():
         # Table lookup
         #
         # We need to perform a LUT and then a nodata mask
-        if options.output_prefix == "":
-            options.output_prefix = args[0].split('-')[-1].split('.')[0]
 
         # Write the VRT that composites these JP2 images together
-        f = open(options.output_prefix+".vrt",'w')
+        vrt_file = options.output_prefix+".vrt"
+        print "Writing: " + vrt_file
+        f = open(vrt_file,'w')
         f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (boundary.width(),boundary.height()))
         f.write("  <VRTRasterBand dataType=\"UInt16\" band=\"1\">\n")
         f.write("    <ColorInterp>Gray</ColorInterp>\n")
         f.write("    <NoDataValue>0</NoDataValue>\n")
         for i in range(len(args)):
             f.write("    <ComplexSource>\n")
-            f.write("      <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % args[i])
+            f.write("      <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % os.path.abspath(args[i]))
             f.write("      <SourceBand>1</SourceBand>\n")
             f.write("      <LUT>0:0,4:0,5:5,4096:4096</LUT>\n")
             f.write("      <NODATA>0</NODATA>\n")
@@ -326,22 +335,29 @@ def main():
         if imd.find("BAND_P") != None: imd.remove( imd.find ("BAND_P") )
         if root.find("TIL")   != None: root.remove( root.find("TIL") ) # TIL no longer applies
         if root.find("RPB")   != None: root.remove( root.find("RPB") ) # The RPC model no longer applies
-        tree.write(options.output_prefix+".xml")
+        xml_file = options.output_prefix+".xml"
+        print "Writing: " + xml_file
+        tree.write(xml_file)
 
         # Raster into a TIFF at full resolution. If we lower the
         # resolution now, we'll develop raster errors on the nodata
         # portions of the input. I'm not sure why this happens.
-        cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -co TILED=yes -co COMPRESS=lzw %s.vrt %s.tif" % (options.gdaldir,options.output_prefix,options.output_prefix)
+        tif_file = options.output_prefix+".tif"
+        print "Writing: " + tif_file
+        cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -co TILED=yes -co COMPRESS=lzw %s %s" % (options.gdaldir,vrt_file,tif_file)
         run_cmd( cmd, options )
 
         # Render reduced image and reduced xml
         if options.reduce_percent != 100:
-            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -outsize %i%% %i%% -co TILED=yes -co COMPRESS=lzw %s.tif %s.r%i.tif" % (options.gdaldir,options.reduce_percent,options.reduce_percent,options.output_prefix,options.output_prefix,options.reduce_percent)
+            rtif_file = options.output_prefix + ".r" \
+                       + str(options.reduce_percent) + ".tif"
+            print "Writing: " + rtif_file
+            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -outsize %i%% %i%% -co TILED=yes -co COMPRESS=lzw %s %s" % (options.gdaldir,options.reduce_percent,options.reduce_percent,tif_file,rtif_file)
             run_cmd( cmd, options )
 
             scale = options.reduce_percent / 100.0
 
-            tree = ET.parse(options.output_prefix+".xml")
+            tree = ET.parse(xml_file)
             root = tree.getroot()
             # Update NumRows and NumColumns
             imd = root.find("IMD")
@@ -360,11 +376,16 @@ def main():
             # Update Detector Pitch
             pitch = root.find("GEO").find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY").find("DETPITCH")
             pitch.text = str(float(pitch.text) / scale)
-            tree.write(options.output_prefix+".r%i.xml" % options.reduce_percent )
+            rxml_file = options.output_prefix + ".r" \
+                        + str(options.reduce_percent) + ".xml"
+            print "Writing: " + rxml_file
+            tree.write(rxml_file)
 
         # Make a preview image
         if options.preview:
-            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize 5%% 5%% %s.tif %s.small.png" % (options.gdaldir,options.output_prefix,options.output_prefix)
+            stif_file = options.output_prefix + ".small.png"
+            print "Writing: " + stif_file
+            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize 5%% 5%% %s %s" % (options.gdaldir,tif_file,stif_file)
             run_cmd( cmd, options )
 
     except Usage, err:
