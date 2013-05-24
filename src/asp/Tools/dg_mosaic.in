@@ -69,10 +69,8 @@ class BBox:
         self.maxx = maxx
         self.maxy = maxy
 
-    # To do: When writing the function to expand the box by a value,
-    # make sure the case of empty box is treated separately. When
-    # shrinking, again keep in mind that the box may become empty
-    # after shrinking.
+    def empty(self):
+        return ( self.maxx < self.minx ) or ( self.maxy < self.miny )
 
     def expand_with_box(self, box):
         if box.empty(): return
@@ -87,8 +85,25 @@ class BBox:
         if box.maxx > self.maxx: self.maxx = box.maxx
         if box.maxy > self.maxy: self.maxy = box.maxy
 
-    def empty(self):
-        return ( self.maxx < self.minx ) or ( self.maxy < self.miny )
+    def add_point(self, pt):
+        self.expand_with_box(BBox(pt[0], pt[1], pt[0], pt[1]))
+
+    def extend (self, val):
+        # Note: val can be negative
+        if self.empty(): return
+        self.minx = self.minx - val
+        self.miny = self.miny - val
+        self.maxx = self.maxx + val
+        self.maxy = self.maxy + val
+        if self.empty():
+            # Ensure all empty boxes are identical. For some reason
+            # the line self = BBox() does not work.  So need to assign
+            # the members one by one.
+            b = BBox()
+            self.minx = b.minx
+            self.miny = b.miny
+            self.maxx = b.maxx
+            self.maxy = b.maxy
 
     def width(self):
         if self.empty(): return 0
@@ -99,7 +114,7 @@ class BBox:
         return self.maxy - self.miny
 
     def __repr__(self):
-        return "BBox %i %i -> %i %i" % (self.minx,self.miny,self.maxx,self.maxy)
+        return "BBox %f %f -> %f %f" % (self.minx,self.miny,self.maxx,self.maxy)
 
 # Provide the image files that make up the composite. We assume the XML
 # files are in the same directory and end with extension ".xml" or ".XML".
@@ -111,6 +126,7 @@ def read_xml( filename ):
     GEO  = root.find("GEO")
     EPH  = root.find("EPH")
     ATT  = root.find("ATT")
+    RPB  = root.find("RPB")
 
     IMAGE = IMD.find("IMAGE")
     tlctime = parse_time(IMAGE.find("TLCTIME").text.strip(),
@@ -132,6 +148,43 @@ def read_xml( filename ):
     image_size.append( int(IMD.find("NUMCOLUMNS").text) )
     image_size.append( int(IMD.find("NUMROWS").text) )
 
+    # The longitude-lattitude box
+    llbox = BBox()
+    try:
+        ullon = float(IMD.find("BAND_P").find("ULLON").text)
+        ullat = float(IMD.find("BAND_P").find("ULLAT").text)
+        llbox.add_point([ullon, ullat])
+
+        urlon = float(IMD.find("BAND_P").find("URLON").text)
+        urlat = float(IMD.find("BAND_P").find("URLAT").text)
+        llbox.add_point([urlon, urlat])
+
+        lrlon = float(IMD.find("BAND_P").find("LRLON").text)
+        lrlat = float(IMD.find("BAND_P").find("LRLAT").text)
+        llbox.add_point([lrlon, lrlat])
+
+        lllon = float(IMD.find("BAND_P").find("LLLON").text)
+        lllat = float(IMD.find("BAND_P").find("LLLAT").text)
+        llbox.add_point([lllon, lllat])
+    except Exception, e:
+        print("Warning: File " + filename + " lacks longitude/lattitude information. "
+              + "It will not be used in generating the combined RPC model.\n")
+        pass
+
+    # The height range, [ht_min, ht_max]. We store it as a 2D box as to not
+    # create an interval class.
+    htbox = BBox()
+    try:
+        ht_scale = float(RPB.find("IMAGE").find("HEIGHTSCALE").text)
+        ht_offset = float(RPB.find("IMAGE").find("HEIGHTOFFSET").text)
+        min_ht = -ht_scale + ht_offset
+        max_ht =  ht_scale + ht_offset
+        htbox = BBox(min_ht, min_ht, max_ht, max_ht)
+    except Exception, e:
+        print("Warning: File " + filename + " lacks height information. "
+              + "It will not be used in generating the combined RPC model.\n")
+        pass
+
     DET_ARRAY = GEO.find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY")
     pitch     = float(DET_ARRAY.find("DETPITCH").text)
     originx   = DET_ARRAY.find("DETORIGINX").text
@@ -152,7 +205,7 @@ def read_xml( filename ):
         att_list.extend(tokens)
 
     return [tlctime, tlclist, firstlinetime, image_size, pitch,
-            originx, pd, eph_list, att_list]
+            originx, pd, eph_list, att_list, llbox, htbox]
 
 def tlc_time_lookup( tlctime, tlclist, pixel_y ):
     fraction = (pixel_y - tlclist[0][0]) / (tlclist[1][0] - tlclist[0][0])
@@ -196,6 +249,7 @@ def die(msg, code=-1):
     sys.exit(code)
 
 def main():
+
     try:
         try:
             usage = '''dg_mosaic [--help][--gdal-dir dir] <all ntf or tif files that make up the observation>
@@ -244,7 +298,7 @@ def main():
         # image. So lets load it up first into our special variables.
         [ref_tlctime, ref_tlclist, ref_firstlinetime,
          ref_image_size, ref_pitch, ref_originx, ref_pd,
-         ref_eph_list, ref_att_list] = read_xml( xml_name(args[0]) )
+         ref_eph_list, ref_att_list, ref_llbox, ref_htbox] = read_xml( xml_name(args[0]) )
 
         # orig_sizes[i] holds the original size of i-th image. After
         # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
@@ -260,9 +314,9 @@ def main():
         placements.append( placement )
 
         for filename in args[1:]:
-            [tlctime, tlclist, firstlinetime,
-             image_size, pitch, originx, pd,
-             eph_list, att_list] = read_xml( xml_name(filename) )
+
+            [tlctime, tlclist, firstlinetime, image_size, pitch, originx, pd,
+             eph_list, att_list, llbox, htbox] = read_xml( xml_name(filename) )
 
             # Sanity checks
             if ref_originx != originx:
@@ -288,6 +342,9 @@ def main():
                              shiftx + scaled_image_size[0],
                              shifty + scaled_image_size[1])
             placements.append( placement )
+
+            ref_llbox.expand_with_box(llbox)
+            ref_htbox.expand_with_box(htbox)
 
         boundary = BBox()
         for placement in placements:
