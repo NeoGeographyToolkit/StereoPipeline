@@ -58,32 +58,51 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-# Provide the image files that make up the composite. We assume the XML
-# files are in the same directory and end with extension ".xml" or ".XML".
+# We assume that the boxes are products of closed intervals, [a, b] x
+# [c, d]. As such, the box [0, 0] x [0, 0] of width 0 is not empty.
 class BBox:
-    def __init__(self):
-        self.minx = 0
-        self.miny = 0
-        self.maxx = 0
-        self.maxy = 0
+    def __init__(self,
+                 minx =  sys.float_info.max, miny =  sys.float_info.max,
+                 maxx = -sys.float_info.max, maxy = -sys.float_info.max):
+        self.minx = minx
+        self.miny = miny
+        self.maxx = maxx
+        self.maxy = maxy
 
-    def grow(self, placement):
-        if placement[0] < self.miny:
-            self.miny = placement[0]
-        if placement[1] > self.maxx:
-            self.maxx = placement[1]
-        if placement[2] + placement[0] > self.maxy:
-            self.maxy = placement[2] + placement[0]
+    # To do: When writing the function to expand the box by a value,
+    # make sure the case of empty box is treated separately. When
+    # shrinking, again keep in mind that the box may become empty
+    # after shrinking.
+
+    def expand_with_box(self, box):
+        if box.empty(): return
+        if self.empty():
+            self.minx = box.minx
+            self.miny = box.miny
+            self.maxx = box.maxx
+            self.maxy = box.maxy
+            return
+        if box.minx < self.minx: self.minx = box.minx
+        if box.miny < self.miny: self.miny = box.miny
+        if box.maxx > self.maxx: self.maxx = box.maxx
+        if box.maxy > self.maxy: self.maxy = box.maxy
+
+    def empty(self):
+        return ( self.maxx < self.minx ) or ( self.maxy < self.miny )
 
     def width(self):
+        if self.empty(): return 0
         return self.maxx - self.minx
 
     def height(self):
+        if self.empty(): return 0
         return self.maxy - self.miny
 
     def __repr__(self):
         return "BBox %i %i -> %i %i" % (self.minx,self.miny,self.maxx,self.maxy)
 
+# Provide the image files that make up the composite. We assume the XML
+# files are in the same directory and end with extension ".xml" or ".XML".
 def read_xml( filename ):
 
     tree = ET.parse( filename )
@@ -229,13 +248,16 @@ def main():
 
         # orig_sizes[i] holds the original size of i-th image. After
         # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
-        # store the new image size (and origin) in placements[i].
+        # store the new image box in placements[i].
         orig_sizes = []
         placements = []
         orig_sizes.append(ref_image_size)
-        val = [int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist, ref_firstlinetime)))]
-        val.extend( ref_image_size )
-        placements.append( val )
+        shiftx = 0
+        shifty = int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist,
+                                             ref_firstlinetime)))
+        placement = BBox(shiftx, shifty,
+                         shiftx + ref_image_size[0], shifty + ref_image_size[1])
+        placements.append( placement )
 
         for filename in args[1:]:
             [tlctime, tlclist, firstlinetime,
@@ -260,19 +282,23 @@ def main():
             pitch_ratio = pitch/ref_pitch
             scaled_image_size = [int(round(image_size[0]*pitch_ratio)),
                                  int(round(image_size[1]*pitch_ratio))]
-            val = [int(round(tlc_pixel_lookup(ref_tlctime, ref_tlclist, firstlinetime)))]
-            val.extend( scaled_image_size )
-            placements.append( val )
+            shiftx = 0
+            shifty = int(round(tlc_pixel_lookup(ref_tlctime, ref_tlclist, firstlinetime)))
+            placement = BBox(shiftx, shifty,
+                             shiftx + scaled_image_size[0],
+                             shifty + scaled_image_size[1])
+            placements.append( placement )
 
         boundary = BBox()
         for placement in placements:
-            boundary.grow(placement)
+            boundary.expand_with_box(placement)
 
         print "Output image size: %ix%i px" % (boundary.width(),boundary.height())
         for i in range(len(args)):
-            placements[i][0] -= boundary.miny
+            placements[i].miny -= boundary.miny
+            placements[i].maxy -= boundary.miny
             print "  Placing %s" % args[i]
-            print "    Size %ix%i at line %i" % (placements[i][1],placements[i][2],placements[i][0])
+            print "    Size %ix%i at column %i and line %i" % (placements[i].width(),placements[i].height(),placements[i].minx, placements[i].miny)
 
         # Dummy check: Look for duplicate files that will insert at
         # same location. Files that do this would be the R?C1 variants
@@ -280,9 +306,9 @@ def main():
         # simplying mixing of R?C1 and the other format.
         seen = set()
         for i in range(len(args)):
-            if placements[i][0] in seen:
+            if placements[i].miny in seen:
                 raise Exception('InputError', 'Input images have same input location which could be caused by repeated XML file or invalid TLC information')
-            seen.add(placements[i][0])
+            seen.add(placements[i].miny)
 
         # We do two passes with VRT wrapping because the following
         # operations are performed in this order:
@@ -310,7 +336,7 @@ def main():
             f.write("      <LUT>0:0,4:0,5:5,4096:4096</LUT>\n")
             f.write("      <NODATA>0</NODATA>\n")
             f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (orig_sizes[i][0],orig_sizes[i][1]))
-            f.write("      <DstRect xOff=\"0\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i][0], placements[i][1], placements[i][2]))
+            f.write("      <DstRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i].minx, placements[i].miny, placements[i].width(), placements[i].height()))
 
             f.write("    </ComplexSource>\n")
         f.write("  </VRTRasterBand>\n")
