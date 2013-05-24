@@ -103,19 +103,35 @@ namespace asp {
     return elem_prod( normalized_pixel, m_xy_scale ) + m_xy_offset;
   }
 
-  Vector2 RPCModel::normalized_geodetic_to_normalized_pixel( Vector3 const& normalized_geodetic ) const {
+  Vector2 RPCModel::normalized_geodetic_to_normalized_pixel
+  (Vector3 const& normalized_geodetic,
+   RPCModel::CoeffVec const& line_num_coeff,
+   RPCModel::CoeffVec const& line_den_coeff,
+   RPCModel::CoeffVec const& sample_num_coeff,
+   RPCModel::CoeffVec const& sample_den_coeff){
 
     CoeffVec term = calculate_terms( normalized_geodetic );
-
-    Vector2 normalized_pixel( dot_prod(term,m_sample_num_coeff) /
-                              dot_prod(term,m_sample_den_coeff),
-                              dot_prod(term,m_line_num_coeff) /
-                              dot_prod(term,m_line_den_coeff) );
+    Vector2 normalized_pixel( dot_prod(term,sample_num_coeff) /
+                              dot_prod(term,sample_den_coeff),
+                              dot_prod(term,line_num_coeff) /
+                              dot_prod(term,line_den_coeff) );
 
     return normalized_pixel;
   }
 
-  vw::Vector<double,20> RPCModel::calculate_terms( vw::Vector3 const& normalized_geodetic ) {
+  Vector2 RPCModel::normalized_geodetic_to_normalized_pixel
+  (Vector3 const& normalized_geodetic ) const {
+
+    return normalized_geodetic_to_normalized_pixel(normalized_geodetic,
+                                                   m_line_num_coeff,
+                                                   m_line_den_coeff,
+                                                   m_sample_num_coeff,
+                                                   m_sample_den_coeff
+                                                   );
+  }
+
+  RPCModel::CoeffVec RPCModel::calculate_terms( vw::Vector3 const& normalized_geodetic ) {
+
     double x = normalized_geodetic.x(); // normalized lon
     double y = normalized_geodetic.y(); // normalized lat
     double z = normalized_geodetic.z(); // normalized height

@@ -33,25 +33,18 @@
 namespace asp {
 
   class RPCModel : public vw::camera::CameraModel {
-    vw::cartography::Datum m_datum;
 
-    // Scaling parameters
-    vw::Vector<double,20> m_line_num_coeff, m_line_den_coeff,
-      m_sample_num_coeff, m_sample_den_coeff;
-    vw::Vector2 m_xy_offset;
-    vw::Vector2 m_xy_scale;
-    vw::Vector3 m_lonlatheight_offset;
-    vw::Vector3 m_lonlatheight_scale;
-
-    void initialize( vw::DiskImageResourceGDAL* resource );
   public:
+
+    typedef vw::Vector<double,20> CoeffVec;
+
     RPCModel( std::string const& filename );
     RPCModel( vw::DiskImageResourceGDAL* resource );
     RPCModel( vw::cartography::Datum const& datum,
-              vw::Vector<double,20> const& line_num_coeff,
-              vw::Vector<double,20> const& line_den_coeff,
-              vw::Vector<double,20> const& samp_num_coeff,
-              vw::Vector<double,20> const& samp_den_coeff,
+              CoeffVec const& line_num_coeff,
+              CoeffVec const& line_den_coeff,
+              CoeffVec const& samp_num_coeff,
+              CoeffVec const& samp_den_coeff,
               vw::Vector2 const& xy_offset,
               vw::Vector2 const& xy_scale,
               vw::Vector3 const& lonlatheight_offset,
@@ -67,11 +60,18 @@ namespace asp {
     virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix ) const;
     virtual vw::Vector3 camera_center( vw::Vector2 const& pix ) const;
 
-    vw::Vector2 normalized_geodetic_to_normalized_pixel( vw::Vector3 const& normalized_geodetic ) const;
+    static vw::Vector2 normalized_geodetic_to_normalized_pixel
+    (vw::Vector3 const& normalized_geodetic,
+     CoeffVec const& line_num_coeff, CoeffVec const& line_den_coeff,
+     CoeffVec const& sample_num_coeff, CoeffVec const& sample_den_coeff
+     );
+
+    vw::Vector2 normalized_geodetic_to_normalized_pixel
+    ( vw::Vector3 const& normalized_geodetic ) const;
+
     vw::Vector2 geodetic_to_pixel( vw::Vector3 const& geodetic ) const;
 
     // Access to constants
-    typedef vw::Vector<double,20> CoeffVec;
     vw::cartography::Datum const& datum() const { return m_datum; }
     CoeffVec const& line_num_coeff() const   { return m_line_num_coeff; }
     CoeffVec const& line_den_coeff() const   { return m_line_den_coeff; }
@@ -98,6 +98,19 @@ namespace asp {
 
     void point_and_dir(vw::Vector2 const& pix, vw::Vector3 & P, vw::Vector3 & dir ) const;
 
+  private:
+    vw::cartography::Datum m_datum;
+
+    // Scaling parameters
+    CoeffVec m_line_num_coeff, m_line_den_coeff,
+      m_sample_num_coeff, m_sample_den_coeff;
+    vw::Vector2 m_xy_offset;
+    vw::Vector2 m_xy_scale;
+    vw::Vector3 m_lonlatheight_offset;
+    vw::Vector3 m_lonlatheight_scale;
+
+    void initialize( vw::DiskImageResourceGDAL* resource );
+
   };
 
   inline std::ostream& operator<<(std::ostream& os, const RPCModel& rpc) {
@@ -111,6 +124,7 @@ namespace asp {
        << "Geodetic Offset: " << rpc.lonlatheight_offset() << std::endl
        << "Geodetic Scale: " << rpc.lonlatheight_scale();
     return os;
+
   }
 }
 
