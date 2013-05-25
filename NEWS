@@ -1,4 +1,9 @@
-*** RELEASE 2.2.1, 17 MAY 2013 ***
+*** RELEASE 2.2.x, Upcoming! ***
+
+  - dg_mosaic can generate a combined RPC model in addition to the combined DG model.
+
+*** RELEASE 2.2.2, 17 MAY 2013 ***
+    (incremented from 2.2.1 after one more bugfix)
 
 TOOLS
  - stereo_mpi renamed to parallel_stereo and made to work
@@ -21,7 +26,7 @@ GENERAL
  - Yamaha RMAX code dropped.
 
 SESSIONS
- - RPC Mode can now read Astrium data.
+ - RPC mode can now read Astrium data.
  - DG added additional safety checks for XML values.
  - DG, ISIS, and RPC now have affineepipolar alignment option.
  - All sessions had their API changed. We now use Transform objects

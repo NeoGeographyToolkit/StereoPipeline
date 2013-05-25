@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file rpc_gen.cc
 ///
 /// This program will generate an RPC model from a DG model.
@@ -33,240 +32,158 @@
 #include <asp/Sessions/DG/XML.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace asp;
 using namespace xercesc;
 
-typedef RPCModel::CoeffVec rmc;
-
-void unpackCoeffs(Vector<double> const& C,
-                  rmc& lineNum, rmc& lineDen, rmc& sampNum, rmc& sampDen
-                  ){
-
-  // There are 20 polynomial coefficients for each of lineNum,
-  // lineDen, sampNum, sampDen, as the RPC polynomials are of degree 3
-  // in x and y.  However, the 0 degree coeffs for both denominators
-  // is 1, so only 78 coefficients vary.
-
-  // Extract the variable coefficients from a vector.
-
-  VW_ASSERT(C.size() == 78,
-            ArgumentErr() << "Must have 78 coefficients.\n");
-
-  int start = 0;
-  // Line
-  subvector(lineNum, 0, 20) = subvector(C, start, 20); start += 20;
-  lineDen[0] = 1;
-  subvector(lineDen, 1, 19) = subvector(C, start, 19); start += 19;
-  // Sample
-  subvector(sampNum, 0, 20) = subvector(C, start, 20); start += 20;
-  sampDen[0] = 1;
-  subvector(sampDen, 1, 19) = subvector(C, start, 19); start += 19;
-
-  VW_ASSERT(start == 78, ArgumentErr() << "Book-keeping error.\n");
-
-  return;
-}
-
-void packCoeffs( rmc const& lineNum, rmc const& lineDen,
-                 rmc const& sampNum, rmc const& sampDen,
-                 Vector<double> & C
-                ){
-
-  // This function does the reverse of unpackCoeffs().
-
-  C.set_size(78);
-  int start = 0;
-  subvector(C, start, 20) = subvector(lineNum, 0, 20); start += 20;
-  subvector(C, start, 19) = subvector(lineDen, 1, 19); start += 19;
-  subvector(C, start, 20) = subvector(sampNum, 0, 20); start += 20;
-  subvector(C, start, 19) = subvector(sampDen, 1, 19); start += 19;
-
-  return;
-}
-
-
-// Find the best-fitting RPC coefficients for the camera transform
-// mapping a set of normalized geodetics to a set of normalized
-// pixel values.
-class RpcSolveLMA : public vw::math::LeastSquaresModelBase<RpcSolveLMA> {
-  vw::Vector<double> m_normalizedGeodetics, m_normalizedPixels;
-  double m_wt;
-public:
-  typedef vw::Vector<double> result_type; // normalized pixels
-  typedef result_type domain_type;        // RPC coefficients
-  typedef vw::Matrix<double> jacobian_type;
-
-  RpcSolveLMA( const vw::Vector<double>& normalizedGeodetics,
-               const vw::Vector<double>& normalizedPixels,
-               double penaltyWeight
-               ) :
-    m_normalizedGeodetics(normalizedGeodetics),
-    m_normalizedPixels(normalizedPixels),
-    m_wt(penaltyWeight){}
-
-  inline result_type operator()( domain_type const& C ) const {
-
-    // The input is the RPC coefficients, packed in a vector.
-    // For each normalized geodetic, compute the normalized
-    // pixel value. This will be the output.
-
-    // Add the penalization terms to the output,
-    // see the note later in the code.
-
-    RPCModel::CoeffVec lineNum, lineDen, sampNum, sampDen;
-    unpackCoeffs(C, lineNum, lineDen, sampNum, sampDen);
-
-    int numPts = m_normalizedGeodetics.size()/3;
-
-    result_type result;
-    result.set_size(m_normalizedPixels.size());
-    for (int i = 0; i < numPts; i++){
-      Vector3 G = subvector(m_normalizedGeodetics, 3*i, 3);
-      // Note that we normalize the cost function by numPts.
-      subvector(result, 2*i, 2)
-        = RPCModel::normalized_geodetic_to_normalized_pixel
-        (G, lineNum, lineDen, sampNum, sampDen)/numPts;
-    }
-
-    // There are 4*20 - 2 = 78 coefficients we optimize. Of those, 2
-    // are 0-th degree, 4*3 = 12 are 1st degree, and the rest, 78 - 12
-    // - 2 = 64 are higher degree.  Per Hartley, we'll add for each
-    // such coefficient c, a term K*c in the cost function vector,
-    // where K is a large number. This will penalize large values in
-    // the higher degree coefficients.
-    int count = 2*numPts;
-    for (int i = 4; i < (int)lineNum.size(); i++) result[count++] = m_wt*lineNum[i];
-    for (int i = 4; i < (int)lineDen.size(); i++) result[count++] = m_wt*lineDen[i];
-    for (int i = 4; i < (int)sampNum.size(); i++) result[count++] = m_wt*sampNum[i];
-    for (int i = 4; i < (int)sampDen.size(); i++) result[count++] = m_wt*sampDen[i];
-
-    VW_ASSERT((int)result.size() == count,
-            ArgumentErr() << "Book-keeping error.\n");
-
-
-    double e = norm_2(m_normalizedPixels - result);
-    std::cout << "error is " << e << std::endl;
-
-    return result;
-  }
-
+struct Options : asp::BaseOptions {
+  // Input
+  std::string camera_model;
+  // Settings
+  double penalty_weight;
+  BBox3 lon_lat_height_box;
 };
 
+void handle_arguments( int argc, char *argv[], Options& opt ) {
+  po::options_description general_options("");
+  general_options.add_options()
+    ("penalty-weight", po::value(&opt.penalty_weight)->default_value(0.1),
+     "Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.")
+    ("lon-lat-height-box", po::value(&opt.lon_lat_height_box)->default_value(BBox3(0,0,0,0,0,0)),
+     "The 3D region in which to solve for the PRC model [lon_min lat_min height_min lon_max lat_max height_max].");
+
+  general_options.add( asp::BaseOptionsDescription(opt) );
+
+  po::options_description positional("");
+  positional.add_options()
+    ("camera-model", po::value(&opt.camera_model));
+
+  po::positional_options_description positional_desc;
+  positional_desc.add("camera-model", 1);
+
+  std::string usage("[options] <camera_model>");
+  po::variables_map vm =
+    asp::check_command_line( argc, argv, opt, general_options, general_options,
+                             positional, positional_desc, usage );
+
+  if ( !vm.count("camera-model") )
+    vw_throw( ArgumentErr() << "Requires <camera_model> input in order to proceed.\n\n"
+              << usage << general_options );
+
+}
 
 int main( int argc, char* argv[] ) {
 
-  XMLPlatformUtils::Initialize();
+  Options opt;
+  try {
+    handle_arguments( argc, argv, opt );
 
-  double penaltyWeight = 0.01;
-  std::string xml_file = "WV01_11JAN131652222-P1BS-10200100104A0300.xml";
+    std::cout << "penalty: " << opt.penalty_weight << std::endl;
+    std::cout << "xml file: " << opt.camera_model << std::endl;
+    std::cout << "box is " << opt.lon_lat_height_box << std::endl;
 
-  StereoSessionDG session;
-  boost::shared_ptr<camera::CameraModel>
-    cam_dg( session.camera_model("", xml_file) );
+    XMLPlatformUtils::Initialize();
 
-  // Create an RPC Model
-  RPCXML xml2;
-  xml2.read_from_file( xml_file );
-  RPCModel * model = new RPCModel( *xml2.rpc_ptr() );
-  boost::shared_ptr<camera::CameraModel> cam_rp(model);
+    StereoSessionDG session;
+    boost::shared_ptr<camera::CameraModel>
+      cam_dg( session.camera_model("", opt.camera_model) );
 
-  GeometricXML geo;
-  AttitudeXML att;
-  EphemerisXML eph;
-  ImageXML img;
-  RPCXML rpc;
-  asp::read_xml(xml_file, geo, att, eph, img, rpc);
-  std::cout << "image size is " << img.image_size << std::endl;
-  int sizeX = img.image_size[0];
-  int sizeY = img.image_size[1];
-  std::cout << "cols is " << sizeX << std::endl;
-  std::cout << "rows is " << sizeY << std::endl;
+    RPCXML xml;
+    xml.read_from_file( opt.camera_model );
+    boost::shared_ptr<RPCModel> cam_rpc( new RPCModel( *xml.rpc_ptr() ) );
 
-  Vector3 llh_scale  = model->lonlatheight_scale();
-  Vector3 llh_offset = model->lonlatheight_offset();
-  std::cout << "llh scale off: " << llh_scale << ' ' << llh_offset << std::endl;
+    // To do: Test with binary builder that this executable goes in the right place.
 
-  Vector2 xy_scale  = model->xy_scale();
-  Vector2 xy_offset = model->xy_offset();
-  std::cout << "xy scale off: " << xy_scale << ' ' << xy_offset << std::endl;
+    // To do: Cleanup below.
 
-  // Number of points in x and y at which we will optimize the RPC model
-  int numPts = 10;
+    Vector3 llh_scale  = cam_rpc->lonlatheight_scale();
+    Vector3 llh_offset = cam_rpc->lonlatheight_offset();
+    std::cout << "llh scale off: " << llh_scale << ' ' << llh_offset << std::endl;
 
-  int numTotalPts = numPts*numPts*numPts;
+    Vector2 xy_scale  = cam_rpc->xy_scale();
+    Vector2 xy_offset = cam_rpc->xy_offset();
+    std::cout << "xy scale off: " << xy_scale << ' ' << xy_offset << std::endl;
 
-  std::cout << "numPts2 is " << numTotalPts << std::endl;
-  // See comment about penalization in class RpcSolveLMA().
-  int numExtraTerms = 64;
+    // Number of points in x and y at which we will optimize the RPC model
+    int numPts = 10;
 
-  Vector<double> normalizedGeodetics; normalizedGeodetics.set_size(3*numTotalPts);
-  Vector<double> normalizedPixels; normalizedPixels.set_size(2*numTotalPts + numExtraTerms);
-  for (int i = 0; i < (int)normalizedPixels.size(); i++) normalizedPixels[i] = 0.0;
+    int numTotalPts = numPts*numPts*numPts;
 
-  int count = 0;
-  for (int x = 0; x < numPts; x++){
-    for (int y = 0; y < numPts; y++){
-      for (int z = 0; z < numPts; z++){
+    std::cout << "numPts2 is " << numTotalPts << std::endl;
+    // See comment about penalization in class RpcSolveLMA().
+    int numExtraTerms = 64;
 
-        Vector3 U( x/(numPts - 1.0), y/(numPts - 1.0), z/(numPts - 1.0) );
-        U = 2*U - Vector3(1, 1, 1); // in the box [-1, 1]^3.
+    Vector<double> normalizedGeodetics; normalizedGeodetics.set_size(3*numTotalPts);
+    Vector<double> normalizedPixels; normalizedPixels.set_size(2*numTotalPts + numExtraTerms);
+    for (int i = 0; i < (int)normalizedPixels.size(); i++) normalizedPixels[i] = 0.0;
 
-        Vector3 G = elem_prod(U, llh_scale) + llh_offset; // geodetic
-        Vector3 P = model->datum().geodetic_to_cartesian(G); // xyz
-        Vector2 pxg = cam_dg->point_to_pixel(P);
-        Vector2 pxn = elem_quot(pxg - xy_offset, xy_scale);
+    int count = 0;
+    for (int x = 0; x < numPts; x++){
+      for (int y = 0; y < numPts; y++){
+        for (int z = 0; z < numPts; z++){
 
-        Vector2 pxr = cam_rp->point_to_pixel(P);
-        //std::cout << U << ' ' << P << ' ' << pxg << ' ' << pxr  << ' '
-        //          << norm_2(pxg-pxr)<< std::endl;
-        //std::cout << U << ' ' << pxn << std::endl;
+          Vector3 U( x/(numPts - 1.0), y/(numPts - 1.0), z/(numPts - 1.0) );
+          U = 2*U - Vector3(1, 1, 1); // in the box [-1, 1]^3.
 
-        subvector(normalizedGeodetics, 3*count, 3) = U;
-        // Note that we normalize the error vector below
-        subvector(normalizedPixels, 2*count, 2) = pxn/numTotalPts;
-        count++;
+          Vector3 G = elem_prod(U, llh_scale) + llh_offset; // geodetic
+          Vector3 P = cam_rpc->datum().geodetic_to_cartesian(G); // xyz
+          Vector2 pxg = cam_dg->point_to_pixel(P);
+          Vector2 pxn = elem_quot(pxg - xy_offset, xy_scale);
 
+          Vector2 pxr = cam_rpc->point_to_pixel(P);
+          //std::cout << U << ' ' << P << ' ' << pxg << ' ' << pxr  << ' '
+          //          << norm_2(pxg-pxr)<< std::endl;
+          //std::cout << U << ' ' << pxn << std::endl;
+
+          subvector(normalizedGeodetics, 3*count, 3) = U;
+          // Note that we normalize the error vector below
+          subvector(normalizedPixels, 2*count, 2) = pxn/numTotalPts;
+          count++;
+
+        }
       }
     }
-  }
 
-  RpcSolveLMA lma_model (normalizedGeodetics, normalizedPixels, penaltyWeight);
-  int status;
+    RpcSolveLMA lma_model (normalizedGeodetics, normalizedPixels, opt.penalty_weight);
+    int status;
 
-  // Use the current model as an initial guess
+    // Use the current model as an initial guess
 
-  Vector<double> start;
-  packCoeffs(model->line_num_coeff(), model->line_den_coeff(),
-             model->sample_num_coeff(), model->sample_den_coeff(),
-             start);
+    Vector<double> start;
+    packCoeffs(cam_rpc->line_num_coeff(), cam_rpc->line_den_coeff(),
+               cam_rpc->sample_num_coeff(), cam_rpc->sample_den_coeff(),
+               start);
 
-  for (int i = 0; i < (int)start.size(); i++) start[i] = 0.0;
-  std::cout << "start is " << start << std::endl;
-  //   double err1 = calcError(model, start, normalizedGeodetics, normalizedPixels);
-//   std::cout << "start error is " << err1 << std::endl;
+    for (int i = 0; i < (int)start.size(); i++) start[i] = 0.0;
+    std::cout << "start is " << start << std::endl;
+    //   double err1 = calcError(model, start, normalizedGeodetics, normalizedPixels);
+    //   std::cout << "start error is " << err1 << std::endl;
 
-  RPCModel::CoeffVec lineNum, lineDen, sampNum, sampDen;
-  unpackCoeffs(start, lineNum, lineDen, sampNum, sampDen);
-  std::cout << "1 lineNum: " << lineNum << std::endl;
-  std::cout << "1 lineDen: " << lineDen << std::endl;
-  std::cout << "1 sampNum: " << sampNum << std::endl;
-  std::cout << "1 sampDen: " << sampDen << std::endl;
+    RPCModel::CoeffVec lineNum, lineDen, sampNum, sampDen;
+    unpackCoeffs(start, lineNum, lineDen, sampNum, sampDen);
+    std::cout << "1 lineNum: " << lineNum << std::endl;
+    std::cout << "1 lineDen: " << lineDen << std::endl;
+    std::cout << "1 sampNum: " << sampNum << std::endl;
+    std::cout << "1 sampDen: " << sampDen << std::endl;
 
-  Vector<double> solution =
-    math::levenberg_marquardt( lma_model, start, normalizedPixels, status,
-                               1e-16, 1e-16, 1e3 );
+    Vector<double> solution =
+      math::levenberg_marquardt( lma_model, start, normalizedPixels, status,
+                                 1e-16, 1e-16, 1e3 );
 
-  std::cout << "solution is " << solution << std::endl;
-//   double err2 = calcError(model, solution, normalizedGeodetics, normalizedPixels);
-//   std::cout << "stop error is " << err2 << std::endl;
+    std::cout << "solution is " << solution << std::endl;
+    //   double err2 = calcError(model, solution, normalizedGeodetics, normalizedPixels);
+    //   std::cout << "stop error is " << err2 << std::endl;
 
-  unpackCoeffs(solution, lineNum, lineDen, sampNum, sampDen);
-  std::cout << "1 lineNum: " << lineNum << std::endl;
-  std::cout << "1 lineDen: " << lineDen << std::endl;
-  std::cout << "1 sampNum: " << sampNum << std::endl;
-  std::cout << "1 sampDen: " << sampDen << std::endl;
+    unpackCoeffs(solution, lineNum, lineDen, sampNum, sampDen);
+    std::cout << "1 lineNum: " << lineNum << std::endl;
+    std::cout << "1 lineDen: " << lineDen << std::endl;
+    std::cout << "1 sampNum: " << sampNum << std::endl;
+    std::cout << "1 sampDen: " << sampDen << std::endl;
+
+  } ASP_STANDARD_CATCHES;
 
   return 0;
 }

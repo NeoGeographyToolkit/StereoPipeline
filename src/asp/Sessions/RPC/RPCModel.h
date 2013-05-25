@@ -128,4 +128,4 @@ namespace asp {
   }
 }
 
-#endif//__STEREO_SESSION_RPC_CAMERA_MODEL_H__
+#endif //__STEREO_SESSION_RPC_MODEL_H__

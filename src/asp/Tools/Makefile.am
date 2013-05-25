@@ -22,7 +22,7 @@
 
 bin_PROGRAMS =
 python_tool_scripts =
-libexec_PROGRAMS =
+libexec_PROGRAMS = # Auxiliary C++ executables
 
 if MAKE_APP_STEREO
   python_tool_scripts += stereo parallel_stereo sparse_disp dg_mosaic
@@ -156,10 +156,16 @@ if MAKE_APP_MER2CAMERA
   mer2camera_LDADD   = $(APP_MER2CAMERA_LIBS)
 endif
 
-if MAKE_APP_RPCMAPPROJECT
+if MAKE_APP_RPC_MAPPROJECT
   bin_PROGRAMS += rpc_mapproject
   rpc_mapproject_SOURCES = rpc_mapproject.cc
-  rpc_mapproject_LDADD   = $(APP_RPCMAPPROJECT_LIBS)
+  rpc_mapproject_LDADD   = $(APP_RPC_MAPPROJECT_LIBS)
+endif
+
+if MAKE_APP_RPC_GEN
+  libexec_PROGRAMS += rpc_gen
+  rpc_gen_SOURCES = rpc_gen.cc
+  rpc_gen_LDADD   = $(APP_RPC_GEN_LIBS)
 endif
 
 # Scripts
