@@ -212,6 +212,13 @@ namespace program_options {
     return r;
   }
 
+  typed_6_value<vw::BBox3>*
+  value( vw::BBox3* v ) {
+    typed_6_value<vw::BBox3>* r =
+      new typed_6_value<vw::BBox3>(v);
+    return r;
+  }
+
   // Custom validators which describe how text is turned into values
 
   // Validator for Vector2i
@@ -288,6 +295,37 @@ namespace program_options {
                             boost::lexical_cast<double>( cvalues[1] ) ),
                    Vector2( boost::lexical_cast<double>( cvalues[2] ),
                             boost::lexical_cast<double>( cvalues[3] ) ) );
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
+
+  // Validator for BBox3
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox3*, long ) {
+    validators::check_first_occurrence(v);
+
+    // Concatenate and then split again, so that the user can mix
+    // comma and space delimited values.
+    std::string joined = boost::algorithm::join(values, " ");
+    std::vector<std::string> cvalues;
+    boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
+
+    if ( cvalues.size() != 6 )
+      boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
+
+    try {
+      BBox3 output(Vector3( boost::lexical_cast<double>( cvalues[0] ),
+                            boost::lexical_cast<double>( cvalues[1] ),
+                            boost::lexical_cast<double>( cvalues[2] )
+                            ),
+                   Vector3( boost::lexical_cast<double>( cvalues[3] ),
+                            boost::lexical_cast<double>( cvalues[4] ),
+                            boost::lexical_cast<double>( cvalues[5] )
+                            ) );
       v = output;
     } catch (boost::bad_lexical_cast const& e ) {
       boost::throw_exception(validation_error(validation_error::invalid_option_value));

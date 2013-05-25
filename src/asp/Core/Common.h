@@ -163,16 +163,6 @@ namespace boost {
 namespace program_options {
 
   // Custom value semantics, these explain how many tokens should be ingested.
-  template <class T, class charT = char>
-  class typed_4_value : public typed_value<T,charT> {
-  public:
-    typed_4_value(T* store_to) : typed_value<T,charT>(store_to) {
-      this->multitoken();
-    }
-
-    unsigned min_tokens() const { return 4; }
-    unsigned max_tokens() const { return 4; }
-  };
 
   template <class T, class charT = char>
   class typed_2_value : public typed_value<T,charT> {
@@ -185,9 +175,32 @@ namespace program_options {
     unsigned max_tokens() const { return 2; }
   };
 
+  template <class T, class charT = char>
+  class typed_4_value : public typed_value<T,charT> {
+  public:
+    typed_4_value(T* store_to) : typed_value<T,charT>(store_to) {
+      this->multitoken();
+    }
+
+    unsigned min_tokens() const { return 4; }
+    unsigned max_tokens() const { return 4; }
+  };
+
+  template <class T, class charT = char>
+  class typed_6_value : public typed_value<T,charT> {
+  public:
+    typed_6_value(T* store_to) : typed_value<T,charT>(store_to) {
+      this->multitoken();
+    }
+
+    unsigned min_tokens() const { return 6; }
+    unsigned max_tokens() const { return 6; }
+  };
+
   typed_2_value<vw::Vector2i>* value( vw::Vector2i* v );
   typed_4_value<vw::BBox2i>*   value( vw::BBox2i* v );
-  typed_4_value<vw::BBox2>*   value( vw::BBox2* v );
+  typed_4_value<vw::BBox2>*    value( vw::BBox2* v );
+  typed_6_value<vw::BBox3>*    value( vw::BBox3* v );
 
   // Custom validators which describe how text is turned into a value
   template <>
@@ -203,6 +216,12 @@ namespace program_options {
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::BBox2*, long );
+
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::BBox3*, long );
+
 }}
 
 
