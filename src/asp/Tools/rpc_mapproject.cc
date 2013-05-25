@@ -15,6 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+/// \file rpc_mapproject.cc
+///
+/// This program will project a camera image onto a DEM using the RPC
+/// camera model.
 
 #include <vw/Core.h>
 #include <vw/FileIO.h>
