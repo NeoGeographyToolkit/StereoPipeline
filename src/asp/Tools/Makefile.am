@@ -25,7 +25,7 @@ python_tool_scripts =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
 if MAKE_APP_STEREO
-  python_tool_scripts += stereo parallel_stereo sparse_disp dg_mosaic
+  python_tool_scripts += stereo parallel_stereo sparse_disp dg_mosaic stereo_utils.py
   bin_PROGRAMS += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
   libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
