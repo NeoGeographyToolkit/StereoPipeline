@@ -613,18 +613,16 @@ This tool can be used when processing Digital Globe Imagery (section
 \ref{sec:digital_globe_imagery}). A Digital Globe satellite may take a
 picture, and then split it into several images and corresponding camera XML
 files. \texttt{dg\_mosaic} will mosaic these images into a single file,
-and create the appropriate combined camera XML file. The tool needs to be applied
-twice, for each of the left and right image sets.
+and create the appropriate combined camera XML file.
+
+Digital Globe camera files contain, in addition to the original camera models, their RPC approximations
+(section \ref{rpc}). \texttt{dg\_mosaic} outputs both types of combined models. The combined RPC model can be used to map-project the mosaiced images with the goal of computing stereo from them (section \ref{mapproj}).
+
+The tool needs to be applied twice, for each of the left and right image sets.
 
 \texttt{dg\_mosaic} can also reduce the image resolution while creating the
 mosaics (with the camera files modified accordingly).
 
-It is important to note that Digital Globe camera files contain, in
-addition to the original camera models, their RPC approximations
-(section \ref{rpc}). As of now, this tool does not attempt to create a
-combined RPC model, as such, one cannot map-project the mosaiced images
-with the goal of computing stereo from them (section \ref{mapproj}). This
-functionality is planned for the next version of ASP.
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for dg\_mosaic}
@@ -639,8 +637,11 @@ Options & Description \\ \hline \hline
 \texttt{-\/-gdal-dir \textit{directory}} &
 Directory where the GDAL tools are. If not provided, we get them from the environment. \\ \hline
 \texttt{-\/-reduce-percent \textit{integer(=100)}} &
-Render a reduced resolution image and XML based on this percentage. \\
-\hline
+Render a reduced resolution image and XML based on this percentage. \\ \hline
+\texttt{-\/-skip-rpc-gen \textit{[default: false]}} &
+Skip RPC model generation.\\ \hline
+\texttt{-\/-rpc-penalty-weight \textit{float(=0.1)}} &
+The weight to use to penalize higher order RPC coefficients when generating the combined RPC model. Higher penalty weight results in smaller such coefficients.\\ \hline
 \texttt{-\/-output-prefix \textit{string}} & The prefix for the output .tif and .xml files. \\ \hline
 
 \texttt{-\/-preview } & Render a small 8 bit png of the input for preview. \\ \hline

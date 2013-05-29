@@ -49,11 +49,14 @@ class PassThroughOptionParser(optparse.OptionParser):
             except (optparse.BadOptionError), e:
                 largs.append(e.opt_str)
 
-# Have a stereo executable parse and display all the settings
-# being passed to it.
-def get_settings( args, **kw ):
+# Execute a given command stored in the libexec directory and parse
+# its output. The output format is expected to be lines of
+# comma-separated values.  The first value on each line becomes the
+# output variable name, the other values are read into the array of
+# variable values.
+def run_and_parse_output(cmd, args, **kw ):
     libexecpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..',\
-                         'libexec', 'stereo_parse')
+                         'libexec', cmd)
     call = [libexecpath]
     call.extend(args)
 
@@ -65,7 +68,9 @@ def get_settings( args, **kw ):
 
     p.wait()
     if p.returncode != 0:
-        raise Exception('Failed getting stereo settings')
+        print(stdout)
+        print(stderr)
+        raise Exception('Failed executing: ' + " ".join(call))
     data = {}
     for line in stdout.split('\n'):
         if "," in line:
@@ -154,7 +159,7 @@ def run(bin, args, opt, **kw):
 
 def run_sparse_disp(args, opt):
 
-    settings   = get_settings( args )
+    settings   = run_and_parse_output( "stereo_parse", args )
     left_img   = settings["in_file1"]
     right_img  = settings["in_file2"]
     out_prefix = settings["out_prefix"]

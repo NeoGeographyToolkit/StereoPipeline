@@ -369,7 +369,7 @@ if __name__ == '__main__':
         # After the script spawns itself to nodes, it starts in the
         # home dir. Make it go to the right place.
         os.chdir(opt.work_dir)
-        # Set the ISIS setttings
+        # Set the ISIS settings
         if opt.isisroot  is not None: os.environ['ISISROOT']  = opt.isisroot
         if opt.isis3data is not None: os.environ['ISIS3DATA'] = opt.isis3data
 
@@ -387,7 +387,7 @@ if __name__ == '__main__':
     args_sub = args[:] # deep copy
     args_sub.extend(['--compute-low-res-disparity-only'])
 
-    settings=get_settings( args )
+    settings=run_and_parse_output( "stereo_parse", args )
 
     if opt.rank is None:
 
@@ -410,7 +410,7 @@ if __name__ == '__main__':
             single_run('stereo_pprc', args, msg='0: Preprocessing')
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
-            settings=get_settings( args )
+            settings=run_and_parse_output( "stereo_parse", args )
             create_subproject_dirs( settings )
         if ( opt.entry_point <= 1 ):
             # Correlation. First do low-res.

@@ -588,6 +588,17 @@ void asp::read_xml( std::string const& filename,
   }
 }
 
+vw::Vector2i asp::xml_image_size( std::string const& filename ){
+  GeometricXML geo;
+  AttitudeXML att;
+  EphemerisXML eph;
+  ImageXML img;
+  RPCXML rpc;
+
+  read_xml( filename, geo, att, eph, img, rpc);
+  return img.image_size;
+}
+
 asp::RPCModel* asp::RPCXML::rpc_ptr() const {
   VW_ASSERT( m_rpc.get(),
              LogicErr() << "read_from_file or parse needs to be called first before an RPCModel is ready" );

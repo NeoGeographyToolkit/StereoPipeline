@@ -136,6 +136,7 @@ namespace asp {
                  EphemerisXML& eph,
                  ImageXML& img,
                  RPCXML& rpc );
+  vw::Vector2i xml_image_size( std::string const& filename );
 
 } //end namespace asp
 

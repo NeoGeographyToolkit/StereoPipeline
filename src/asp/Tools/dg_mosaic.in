@@ -19,6 +19,7 @@
 
 import os, sys, string, subprocess, math, re, optparse, time
 from datetime import datetime, timedelta
+from stereo_utils import *
 
 try:
     import xml.etree.ElementTree as ET
@@ -118,7 +119,7 @@ class BBox:
 
 # Provide the image files that make up the composite. We assume the XML
 # files are in the same directory and end with extension ".xml" or ".XML".
-def read_xml( filename ):
+def read_xml( filename, options):
 
     tree = ET.parse( filename )
     root = tree.getroot()
@@ -148,42 +149,41 @@ def read_xml( filename ):
     image_size.append( int(IMD.find("NUMCOLUMNS").text) )
     image_size.append( int(IMD.find("NUMROWS").text) )
 
-    # The longitude-lattitude box
     llbox = BBox()
-    try:
-        ullon = float(IMD.find("BAND_P").find("ULLON").text)
-        ullat = float(IMD.find("BAND_P").find("ULLAT").text)
-        llbox.add_point([ullon, ullat])
-
-        urlon = float(IMD.find("BAND_P").find("URLON").text)
-        urlat = float(IMD.find("BAND_P").find("URLAT").text)
-        llbox.add_point([urlon, urlat])
-
-        lrlon = float(IMD.find("BAND_P").find("LRLON").text)
-        lrlat = float(IMD.find("BAND_P").find("LRLAT").text)
-        llbox.add_point([lrlon, lrlat])
-
-        lllon = float(IMD.find("BAND_P").find("LLLON").text)
-        lllat = float(IMD.find("BAND_P").find("LLLAT").text)
-        llbox.add_point([lllon, lllat])
-    except Exception, e:
-        print("Warning: File " + filename + " lacks longitude/lattitude information. "
-              + "It will not be used in generating the combined RPC model.\n")
-        pass
-
-    # The height range, [ht_min, ht_max]. We store it as a 2D box as to not
-    # create an interval class.
     htbox = BBox()
-    try:
-        ht_scale = float(RPB.find("IMAGE").find("HEIGHTSCALE").text)
-        ht_offset = float(RPB.find("IMAGE").find("HEIGHTOFFSET").text)
-        min_ht = -ht_scale + ht_offset
-        max_ht =  ht_scale + ht_offset
-        htbox = BBox(min_ht, min_ht, max_ht, max_ht)
-    except Exception, e:
-        print("Warning: File " + filename + " lacks height information. "
-              + "It will not be used in generating the combined RPC model.\n")
-        pass
+    if not options.skip_rpc_gen:
+        # The longitude-lattitude box
+        try:
+            ullon = float(IMD.find("BAND_P").find("ULLON").text)
+            ullat = float(IMD.find("BAND_P").find("ULLAT").text)
+            llbox.add_point([ullon, ullat])
+
+            urlon = float(IMD.find("BAND_P").find("URLON").text)
+            urlat = float(IMD.find("BAND_P").find("URLAT").text)
+            llbox.add_point([urlon, urlat])
+
+            lrlon = float(IMD.find("BAND_P").find("LRLON").text)
+            lrlat = float(IMD.find("BAND_P").find("LRLAT").text)
+            llbox.add_point([lrlon, lrlat])
+
+            lllon = float(IMD.find("BAND_P").find("LLLON").text)
+            lllat = float(IMD.find("BAND_P").find("LLLAT").text)
+            llbox.add_point([lllon, lllat])
+        except Exception, e:
+            raise Exception('InputError', "File " + filename
+                            + " lacks longitude/lattitude information.")
+
+        # The height range, [ht_min, ht_max]. We store it as a 2D box
+        # as to not create an interval class.
+        try:
+            ht_scale = float(RPB.find("IMAGE").find("HEIGHTSCALE").text)
+            ht_offset = float(RPB.find("IMAGE").find("HEIGHTOFFSET").text)
+            min_ht = -ht_scale + ht_offset
+            max_ht =  ht_scale + ht_offset
+            htbox = BBox(min_ht, min_ht, max_ht, max_ht)
+        except Exception, e:
+            raise Exception('InputError', "File " + filename
+                            + " lacks RPC model information.")
 
     DET_ARRAY = GEO.find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY")
     pitch     = float(DET_ARRAY.find("DETPITCH").text)
@@ -248,6 +248,12 @@ def die(msg, code=-1):
     print >>sys.stderr, msg
     sys.exit(code)
 
+def scale_xml_element(elem, scale):
+    tokens = elem.text.strip().split(' ')
+    for i in range(len(tokens)):
+        tokens[i] = str(float(tokens[i]) * scale)
+    elem.text = " ".join(tokens)
+
 def main():
 
     try:
@@ -268,12 +274,21 @@ def main():
                               help="Render a reduced resolution image and xml based on this percentage.")
             parser.add_option("--output-prefix", dest="output_prefix", type="str",
                               help="The prefix for the output .tif and .xml files.")
+            parser.add_option('--skip-rpc-gen', dest='skip_rpc_gen', default=False,
+                              action='store_true', help="Skip RPC model generation")
+            parser.add_option("--rpc-penalty-weight", dest="penalty_weight", type="float",
+                              default=0.1,
+                              help="The weight to use to penalize higher order RPC coefficients when generating the combined RPC model. Higher penalty weight results in smaller such coefficients.")
             parser.add_option("--preview", dest="preview",
                               action="store_true",
                               help="Render a small 8 bit png of the input for preview.")
             parser.add_option("-n", "--dry-run", dest="dryrun",
                               action="store_true",
-                              help="Make calculations, but just print out the commands.")
+                              help="Make the calculations, but just print out the commands.")
+            # Debug option. Skip the part where we create the tif file,
+            # that is quite time-consuming.
+            parser.add_option('--skip-tif-gen', dest='skip_tif_gen', default=False,
+                              action='store_true', help=optparse.SUPPRESS_HELP)
 
             (options, args) = parser.parse_args()
             if not args:
@@ -296,9 +311,9 @@ def main():
 
         # We reference everything from the perspective of the first
         # image. So lets load it up first into our special variables.
-        [ref_tlctime, ref_tlclist, ref_firstlinetime,
-         ref_image_size, ref_pitch, ref_originx, ref_pd,
-         ref_eph_list, ref_att_list, ref_llbox, ref_htbox] = read_xml( xml_name(args[0]) )
+        [ref_tlctime, ref_tlclist, ref_firstlinetime, ref_image_size,
+         ref_pitch, ref_originx, ref_pd, ref_eph_list, ref_att_list,
+         ref_llbox, ref_htbox] = read_xml( xml_name(args[0]), options )
 
         # orig_sizes[i] holds the original size of i-th image. After
         # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
@@ -316,7 +331,7 @@ def main():
         for filename in args[1:]:
 
             [tlctime, tlclist, firstlinetime, image_size, pitch, originx, pd,
-             eph_list, att_list, llbox, htbox] = read_xml( xml_name(filename) )
+             eph_list, att_list, llbox, htbox] = read_xml( xml_name(filename), options )
 
             # Sanity checks
             if ref_originx != originx:
@@ -337,7 +352,8 @@ def main():
             scaled_image_size = [int(round(image_size[0]*pitch_ratio)),
                                  int(round(image_size[1]*pitch_ratio))]
             shiftx = 0
-            shifty = int(round(tlc_pixel_lookup(ref_tlctime, ref_tlclist, firstlinetime)))
+            shifty = int(round(tlc_pixel_lookup(ref_tlctime, ref_tlclist,
+                                                firstlinetime)))
             placement = BBox(shiftx, shifty,
                              shiftx + scaled_image_size[0],
                              shifty + scaled_image_size[1])
@@ -415,10 +431,50 @@ def main():
         # The verbose operation below is needed for python 2.4
         first_line_item.text = tlc_lookup.strftime("%Y-%m-%dT%H:%M:%S") + '.' + str(tlc_lookup.microsecond) + "Z"
 
-        if imd.find("BAND_P") != None: imd.remove( imd.find ("BAND_P") )
-        if root.find("TIL")   != None: root.remove( root.find("TIL") ) # TIL no longer applies
-        if root.find("RPB")   != None: root.remove( root.find("RPB") ) # The RPC model no longer applies
         xml_file = options.output_prefix+".xml"
+        if not options.skip_rpc_gen:
+            # Find the best-fitting RPC coefficients
+            tree.write(xml_file)
+            cmd = "rpc_gen"
+            args = ['--penalty-weight', str(options.penalty_weight), '--lon-lat-height-box',
+                    str(ref_llbox.minx), str(ref_llbox.miny), str(ref_htbox.minx),
+                    str(ref_llbox.maxx), str(ref_llbox.maxy), str(ref_htbox.maxx),
+                    xml_file]
+            rpc_model = run_and_parse_output( cmd, args )
+            try:
+                # Set the RPC model info. Wipe all other outdated info.
+                RPI = tree.find("RPB").find("IMAGE")
+                if RPI.find("ERRBIAS") != None: RPI.remove( RPI.find ("ERRBIAS") )
+                if RPI.find("ERRRAND") != None: RPI.remove( RPI.find ("ERRRAND") )
+
+                RPI.find("SAMPSCALE").text    = rpc_model["xy_scale"][0]
+                RPI.find("LINESCALE").text    = rpc_model["xy_scale"][1]
+
+                RPI.find("SAMPOFFSET").text   = rpc_model["xy_offset"][0]
+                RPI.find("LINEOFFSET").text   = rpc_model["xy_offset"][1]
+
+                RPI.find("LONGSCALE").text    = rpc_model["llh_scale"][0]
+                RPI.find("LATSCALE").text     = rpc_model["llh_scale"][1]
+                RPI.find("HEIGHTSCALE").text  = rpc_model["llh_scale"][2]
+
+                RPI.find("LONGOFFSET").text   = rpc_model["llh_offset"][0]
+                RPI.find("LATOFFSET").text    = rpc_model["llh_offset"][1]
+                RPI.find("HEIGHTOFFSET").text = rpc_model["llh_offset"][2]
+
+                RPI.find("LINENUMCOEFList").find("LINENUMCOEF").text = " ".join(rpc_model["line_num"])
+                RPI.find("LINEDENCOEFList").find("LINEDENCOEF").text = " ".join(rpc_model["line_den"])
+                RPI.find("SAMPNUMCOEFList").find("SAMPNUMCOEF").text = " ".join(rpc_model["samp_num"])
+                RPI.find("SAMPDENCOEFList").find("SAMPDENCOEF").text = " ".join(rpc_model["samp_den"])
+            except Exception, e:
+                raise Exception('InputError', "File " + args[0] +
+                                " lacks complete RPC model information.")
+        else:
+            if tree.find("RPB") != None: tree.remove( tree.find ("RPB") )
+
+        # Wipe other outdated info
+        if imd.find("BAND_P") != None: imd.remove( imd.find ("BAND_P") )
+        if root.find("TIL")   != None: root.remove( root.find("TIL") )
+
         print "Writing: " + xml_file
         tree.write(xml_file)
 
@@ -427,16 +483,18 @@ def main():
         # portions of the input. I'm not sure why this happens.
         tif_file = options.output_prefix+".tif"
         print "Writing: " + tif_file
-        cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -co TILED=yes -co COMPRESS=lzw %s %s" % (options.gdaldir,vrt_file,tif_file)
-        run_cmd( cmd, options )
+        if not options.skip_tif_gen:
+            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -co TILED=yes -co COMPRESS=lzw %s %s" % (options.gdaldir,vrt_file,tif_file)
+            run_cmd( cmd, options )
 
         # Render reduced image and reduced xml
         if options.reduce_percent != 100:
             rtif_file = options.output_prefix + ".r" \
                        + str(options.reduce_percent) + ".tif"
             print "Writing: " + rtif_file
-            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -outsize %i%% %i%% -co TILED=yes -co COMPRESS=lzw %s %s" % (options.gdaldir,options.reduce_percent,options.reduce_percent,tif_file,rtif_file)
-            run_cmd( cmd, options )
+            if not options.skip_tif_gen:
+                cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -outsize %i%% %i%% -co TILED=yes -co COMPRESS=lzw %s %s" % (options.gdaldir,options.reduce_percent,options.reduce_percent,tif_file,rtif_file)
+                run_cmd( cmd, options )
 
             scale = options.reduce_percent / 100.0
 
@@ -452,13 +510,19 @@ def main():
                 tokens = tlc_item.text.strip().split(' ')
                 tokens[0] = str(float(tokens[0]) * scale)
                 tlc_item.text = " ".join(tokens)
-            linerate = image.find("AVGLINERATE")
-            linerate.text = str(float(linerate.text) * scale)
-            duration = image.find("EXPOSUREDURATION")
-            duration.text = str(float(duration.text) / scale)
+            scale_xml_element(image.find("AVGLINERATE"), scale)
+            scale_xml_element(image.find("EXPOSUREDURATION"), 1.0/scale)
             # Update Detector Pitch
             pitch = root.find("GEO").find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY").find("DETPITCH")
-            pitch.text = str(float(pitch.text) / scale)
+            scale_xml_element(pitch, 1.0/scale)
+            # Scale the RPC model
+            if not options.skip_rpc_gen:
+                RPI = tree.find("RPB").find("IMAGE")
+                scale_xml_element(RPI.find("SAMPSCALE"), scale)
+                scale_xml_element(RPI.find("LINESCALE"), scale)
+                scale_xml_element(RPI.find("SAMPOFFSET"), scale)
+                scale_xml_element(RPI.find("LINEOFFSET"), scale)
+
             rxml_file = options.output_prefix + ".r" \
                         + str(options.reduce_percent) + ".xml"
             print "Writing: " + rxml_file
@@ -468,8 +532,9 @@ def main():
         if options.preview:
             stif_file = options.output_prefix + ".small.png"
             print "Writing: " + stif_file
-            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize 5%% 5%% %s %s" % (options.gdaldir,tif_file,stif_file)
-            run_cmd( cmd, options )
+            if not options.skip_tif_gen:
+                cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize 5%% 5%% %s %s" % (options.gdaldir,tif_file,stif_file)
+                run_cmd( cmd, options )
 
     except Usage, err:
         print >>sys.stderr, err.msg
