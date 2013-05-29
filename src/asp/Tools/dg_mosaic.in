@@ -19,6 +19,7 @@
 
 import os, sys, string, subprocess, math, re, optparse, time
 from datetime import datetime, timedelta
+sys.path.append(sys.path[0] + '/../libexec')
 from stereo_utils import *
 
 try:

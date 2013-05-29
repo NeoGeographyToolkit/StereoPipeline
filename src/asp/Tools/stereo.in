@@ -19,6 +19,7 @@
 
 import sys, optparse, subprocess, re
 import os.path as P
+sys.path.append(sys.path[0] + '/../libexec')
 from stereo_utils import *
 
 if __name__ == '__main__':

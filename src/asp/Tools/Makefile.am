@@ -25,9 +25,9 @@ python_tool_scripts =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
 if MAKE_APP_STEREO
-  python_tool_scripts += stereo parallel_stereo sparse_disp dg_mosaic stereo_utils.py
+  python_tool_scripts += stereo parallel_stereo sparse_disp dg_mosaic
   bin_PROGRAMS += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
-  libexec_PROGRAMS += stereo_parse
+  libexec_PROGRAMS += stereo_parse stereo_utils.py
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
   stereo_corr_SOURCES     = stereo_corr.cc stereo.cc
   stereo_fltr_LDADD       = $(APP_STEREO_LIBS)
@@ -177,6 +177,10 @@ bin_SCRIPTS = $(python_tool_scripts)
 CLEANFILES = $(python_tool_scripts)
 
 $(python_tool_scripts): %: %.in
+	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
+	chmod +x $@
+
+stereo_utils.py: %: %.in
 	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
 	chmod +x $@
 
