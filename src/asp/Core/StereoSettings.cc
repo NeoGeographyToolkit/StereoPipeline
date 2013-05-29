@@ -57,30 +57,25 @@ namespace asp {
   PreProcessingDescription::PreProcessingDescription() : po::options_description("Preprocessing Options") {
 
     StereoSettings& global = stereo_settings();
-
     double nan = std::numeric_limits<double>::quiet_NaN();
-    global.nodata_value = nan;
-    global.nodata_pixel_percentage = nan;
-    global.nodata_optimal_threshold_factor = nan;
 
     (*this).add_options()
-      ("alignment-method", po::value(&global.alignment_method),
+      ("alignment-method", po::value(&global.alignment_method)->default_value("none"),
        "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
-      ("force-use-entire-range", po::bool_switch(&global.force_use_entire_range),
+      ("force-use-entire-range", po::bool_switch(&global.force_use_entire_range)->default_value(false)->implicit_value(true),
        "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
-      ("individually-normalize", po::bool_switch(&global.individually_normalize),
+      ("individually-normalize", po::bool_switch(&global.individually_normalize)->default_value(false)->implicit_value(true),
        "Individually normalize the input images between 0.0-1.0 using +- 2.5 sigmas about their mean values.")
-      ("nodata-value", po::value(&global.nodata_value),
+      ("nodata-value", po::value(&global.nodata_value)->default_value(nan),
        "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
-      ("nodata-pixel-percentage", po::value(&global.nodata_pixel_percentage),
+      ("nodata-pixel-percentage", po::value(&global.nodata_pixel_percentage)->default_value(nan),
        "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
-      ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor),
+      ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor)->default_value(nan),
        "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.");
   }
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {
     StereoSettings& global = stereo_settings();
-    global.disparity_estimation_dem_error = 0.0;
     (*this).add_options()
       ("prefilter-kernel-width", po::value(&global.slogW)->default_value(1.5),
        "Sigma value for Gaussian kernel used in prefilter for correlator.")
@@ -104,12 +99,14 @@ namespace asp {
        "Compute only the low-resolution disparity, skip the full-resolution disparity computation.")
       ("disparity-estimation-dem", po::value(&global.disparity_estimation_dem)->default_value(""),
        "DEM to use in estimating the low-resolution disparity (when corr-seed-mode is 2).")
-      ("disparity-estimation-dem-error", po::value(&global.disparity_estimation_dem_error),
+      ("disparity-estimation-dem-error", po::value(&global.disparity_estimation_dem_error)->default_value(0.0),
        "Error (in meters) of the disparity estimation DEM.")
       ("use-local-homography", po::bool_switch(&global.use_local_homography)->default_value(false)->implicit_value(true),
        "Apply a local homography in each tile.");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
+    // Do not add default values here. They may override the values set
+    // earlier for these variables.
     backwards_compat_options.add_options()
       ("h-kernel", po::value(&global.corr_kernel[0]), "Correlation kernel width")
       ("v-kernel", po::value(&global.corr_kernel[1]), "Correlation kernel height")
@@ -127,9 +124,9 @@ namespace asp {
        "Subpixel algorithm. [0 None, 1 Parabola, 2 Bayes EM]")
       ("subpixel-kernel", po::value(&global.subpixel_kernel)->default_value(Vector2i(35,35), "35 35"),
        "Kernel size used for subpixel method.")
-      ("disable-h-subpixel", po::bool_switch(&global.disable_h_subpixel),
+      ("disable-h-subpixel", po::bool_switch(&global.disable_h_subpixel)->default_value(false)->implicit_value(true),
        "Disable calculation of subpixel in horizontal direction.")
-      ("disable-v-subpixel", po::bool_switch(&global.disable_v_subpixel),
+      ("disable-v-subpixel", po::bool_switch(&global.disable_v_subpixel)->default_value(false)->implicit_value(true),
        "Disable calculation of subpixel in vertical direction.")
       ("subpixel-max-levels", po::value(&global.subpixel_max_levels)->default_value(2),
        "Max pyramid levels to process when using the BayesEM refinement. (0 is just a single level).");
@@ -164,14 +161,16 @@ namespace asp {
        "Number of passes for cleanup during the post-processing phase")
       ("erode-max-size", po::value(&global.erode_max_size)->default_value(1000),
        "Max size of islands that should be removed")
-      ("disable-fill-holes", po::bool_switch(&global.disable_fill_holes),
+      ("disable-fill-holes", po::bool_switch(&global.disable_fill_holes)->default_value(false)->implicit_value(true),
        "Disable filling of holes using an inpainting method")
       ("fill-holes-max-size", po::value(&global.fill_hole_max_size)->default_value(100000),
        "Max size in pixels of holes that can be filled in.")
-      ("mask-flatfield", po::bool_switch(&global.mask_flatfield),
+      ("mask-flatfield", po::bool_switch(&global.mask_flatfield)->default_value(false)->implicit_value(true),
        "Mask dust found on the sensor or film. (For use with Apollo Metric Cameras only!)");
 
     po::options_description backwards_compat_options("Aliased backwards compatibility options");
+    // Do not add default values here. They may override the values set
+    // earlier for these variables.
     backwards_compat_options.add_options()
       ("rm-h-half-kern", po::value(&global.rm_half_kernel[0]), "Filter kernel half width")
       ("rm-v-half-kern", po::value(&global.rm_half_kernel[1]), "Filter kernel half height");
