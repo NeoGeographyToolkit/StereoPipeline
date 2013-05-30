@@ -317,10 +317,6 @@ namespace asp {
       vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
 
-    if ( opt.input_dem.empty() && stereo_settings().seed_mode == 3 )
-      vw_throw( NoImplErr() << "Computation of low-resolution disparity using "
-                << "sparse_disp is implemented only for map-projected images.\n");
-
     GeoReference georef;
     bool has_georef1 = read_georeference( georef, opt.in_file1 );
     bool has_georef2 = read_georeference( georef, opt.in_file2 );

@@ -52,7 +52,7 @@ class popen_timeout(subprocess.Popen):
         return super(popen_timeout, self).poll()
 
 def produce_tiles( settings, tile_w, tile_h ):
-    image_size = settings["trans_left_image"]
+    image_size = settings["trans_left_image_size"]
     tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
     tiles_ny = int(math.ceil( float(image_size[1]) / tile_h ))
 
@@ -130,7 +130,7 @@ def create_subproject_dirs( settings, **kw ):
 
 def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
 
-    image_size = settings["trans_left_image"]
+    image_size = settings["trans_left_image_size"]
     with open(settings['out_prefix'][0]+postfix,'w') as f:
         f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(image_size[0]),int(image_size[1])) )
         for b in range( 1, num_bands + 1 ):
