@@ -22,6 +22,16 @@ from datetime import datetime, timedelta
 sys.path.append(sys.path[0] + '/../libexec')
 from stereo_utils import *
 
+def format_microsec(microsec):
+    # Ensure that we have 6 digits in a microsecond. Pre-pad with
+    # zeros if necessary.
+    if len(microsec) > 6:
+        raise Exception('InputError', "The microsecond value: " + microsec
+                        + " has more than 6 digits.")
+
+    microsec  = (6 - len(microsec)) * '0' + microsec
+    return microsec
+
 try:
     import xml.etree.ElementTree as ET
 except ImportError:
@@ -34,22 +44,18 @@ if hasattr(datetime, 'strptime'):
 else:
     # python 2.4
     def parse_time(date_str, fmt):
-        m = re.match('^(.*?)T(.*?)\.(.*?)Z', date_str)
+        m = re.match('^(.*?)T(.*?)\.(\d+)Z', date_str)
         if m:
             date_str  = m.group(1) + " " + m.group(2)
-            microsec  = m.group(3)
-            microsec  = microsec[:6]  # truncate beyond 6 chars
-            microsec += (6 - len(microsec)) * '0'  # leading 0s
+            microsec  = format_microsec(m.group(3))
         else:
-            print('Could not match string: ' + date_str)
-            sys.exit(1)
+            raise Exception('InputError', "Could not match string: " + date_str)
 
         m = re.match('^(.*?)T(.*?)\.(.*?)Z', fmt)
         if m:
             fmt = m.group(1) + " " + m.group(2)
         else:
-            print('Could not match string: ' + fmt)
-            sys.exit(1)
+            raise Exception('InputError', "Could not match string: " + fmt)
 
         parsed = datetime(*(time.strptime(date_str, fmt)[0:6]))
         parsed = parsed.replace(microsecond=int(microsec))
@@ -430,7 +436,8 @@ def main():
         first_line_item = root.find("IMD").find("IMAGE").find("FIRSTLINETIME")
         tlc_lookup = tlc_time_lookup( ref_tlctime, ref_tlclist, boundary.miny )
         # The verbose operation below is needed for python 2.4
-        first_line_item.text = tlc_lookup.strftime("%Y-%m-%dT%H:%M:%S") + '.' + str(tlc_lookup.microsecond) + "Z"
+        first_line_item.text = tlc_lookup.strftime("%Y-%m-%dT%H:%M:%S") + '.' \
+                               + format_microsec(str(tlc_lookup.microsecond)) + "Z"
 
         xml_file = options.output_prefix+".xml"
         if not options.skip_rpc_gen:
@@ -444,7 +451,7 @@ def main():
             rpc_model = run_and_parse_output( cmd, args )
             try:
                 # Set the RPC model info. Wipe all other outdated info.
-                RPI = tree.find("RPB").find("IMAGE")
+                RPI = root.find("RPB").find("IMAGE")
                 if RPI.find("ERRBIAS") != None: RPI.remove( RPI.find ("ERRBIAS") )
                 if RPI.find("ERRRAND") != None: RPI.remove( RPI.find ("ERRRAND") )
 
@@ -470,7 +477,7 @@ def main():
                 raise Exception('InputError', "File " + args[0] +
                                 " lacks complete RPC model information.")
         else:
-            if tree.find("RPB") != None: tree.remove( tree.find ("RPB") )
+            if root.find("RPB") != None: root.remove( root.find ("RPB") )
 
         # Wipe other outdated info
         if imd.find("BAND_P") != None: imd.remove( imd.find ("BAND_P") )
@@ -518,7 +525,7 @@ def main():
             scale_xml_element(pitch, 1.0/scale)
             # Scale the RPC model
             if not options.skip_rpc_gen:
-                RPI = tree.find("RPB").find("IMAGE")
+                RPI = root.find("RPB").find("IMAGE")
                 scale_xml_element(RPI.find("SAMPSCALE"), scale)
                 scale_xml_element(RPI.find("LINESCALE"), scale)
                 scale_xml_element(RPI.find("SAMPOFFSET"), scale)
