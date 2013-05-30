@@ -19,7 +19,7 @@
 
 import sys, optparse, subprocess, re, os, math, time, datetime
 import gdal, gdalconst
-import os.path as P
+#import os.path as P
 import numpy as np
 import scipy as sp
 import scipy.ndimage.filters as sf
@@ -55,6 +55,16 @@ class im_subset:
         self.level=0
         self.Bands=Bands
         self.pad_val=pad_val
+        # get the nodata value from the source
+        if hasattr(self.source, 'level'):
+            self.level=self.source.level+1
+            self.noData=self.source.noData
+        else:
+            band=self.source.GetRasterBand(self.Bands[0][0])
+            self.noData=band.GetNoDataValue()
+            if self.noData is None:
+                self.noData=0.
+
 
     def setBounds(self, c0, r0, Nc, Nr, update=0):
         self.c0=np.int(c0)
@@ -745,32 +755,32 @@ def ndflip(a):
 	ind = (slice(None,None,-1),)*a.ndim
 	return a[ind]
 
-def log_filter(img):
+def log_filter(img, noData):
     """
     performs a separable Laplacian of Gaussian filter on the input image.
     Returns a copy of the original image, converted to float64
     """
     img1 = np.float64(img.copy())
     img1 = sf.laplace( img1, mode='constant')
-    if np.sum(img==0) > 0 :  #zero the filtered image at  data-nodata boundaries
+    if np.sum(img==noData) > 0 :  #zero the filtered image at  data-nodata boundaries
         mask = np.float64(img.copy())
         mask[:] = 1.
-        mask[img==0] = 0.
+        mask[img==noData] = 0.
         mask=sf.laplace(mask, mode='constant')
         img1[mask != 0.] = 0.   # set the borders to zero
     img1 = sf.gaussian_filter(img1, (1.4, 1.4), mode='constant')
     return img1
 
 def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
-                  s_nx, s_ny, dx0, dy0, T_img, S_img):
+                  s_nx, s_ny, dx0, dy0, T_img, S_img, noData):
 
     # Do template matching for a single block in the left image.
 
     # LOG filter the images
-    T_filt=log_filter(T_img)
-    S_filt=log_filter(S_img)
+    T_filt=log_filter(T_img, noData)
+    S_filt=log_filter(S_img, noData)
     std_T=np.std(T_filt)
-    if not min_template_sigma is None:
+    if min_template_sigma is not None:
         if std_T < min_template_sigma:
             return(-2, Xc, Yc, -1, 0, 0)
 
@@ -820,7 +830,6 @@ def run_blocks(param):
                      XYc_i[:,0]+dxy0_i[:,0]+s_nxy_i[:,0]+KW+1000]
     s_y_bounds=np.c_[XYc_i[:,1]+dxy0_i[:,1]-s_nxy_i[:,1]-KW-1000,
                      XYc_i[:,1]+dxy0_i[:,1]+s_nxy_i[:,1]+KW+1000]
-
     matcher.T_sub.setBounds(xgi-t_pixels, ygi-t_pixels, matcher.blocksize+2*t_pixels,
                             matcher.blocksize+2*t_pixels, update=1)
     matcher.S_sub.setBounds(s_x_bounds[these,0].min(),
@@ -828,7 +837,6 @@ def run_blocks(param):
                             s_x_bounds[these,1].max()-s_x_bounds[these,0].min(),
                             s_y_bounds[these,1].max()-s_y_bounds[these,0].min(),
                             update=1)
-
     these_ind = np.array(np.nonzero(these)).ravel()
     indices = []; c = []; x = []; y = []; sigma = []; dx = []; dy = [];
 
@@ -838,7 +846,7 @@ def run_blocks(param):
     for Xc, Yc, s_nx, s_ny, dx0, dy0 in zip(XYc_i[these,0], XYc_i[these,1], s_nxy_i[these,0],
                                             s_nxy_i[these,1], dxy0_i[these,0],
                                             dxy0_i[these,1]):
-
+        #print "S_buffer.Nodata=%f, T_buffer.noData"% (matcher.S_sub.noData, matcher.T_sub.noData)                                       
         count=count+1
         t_xr=[Xc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
         t_yr=[Yc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
@@ -850,24 +858,23 @@ def run_blocks(param):
 
         # Read T
         T_buffer=im_subset(0, 0, matcher.T_band.XSize, matcher.S_band.YSize,
-                           matcher.T_sub, pad_val=0)
+                           matcher.T_sub, pad_val=matcher.T_sub.noData)
         T_buffer.setBounds(t_xr[0]-KW, t_yr[0]-KW, t_pixels+2.*KW,
                            t_pixels+2.*KW, update=1)
         T_img=T_buffer.z[0,:,:]
-        if np.mean(T_img==0)>.1: # bail if > 10% 0, flag with C=-2
+        if np.mean(T_img==T_buffer.noData)>.1: # bail if > 10% 0, flag with C=-2
             continue
 
         # Read S
         S_buffer=im_subset(0, 0, matcher.S_band.XSize, matcher.S_band.YSize,
-                           matcher.S_sub, pad_val=0)
+                           matcher.S_sub, pad_val=matcher.S_sub.noData)
         S_buffer.setBounds(s_xr[0]-KW, s_yr[0]-KW, s_nx+2.*KW,
                            s_ny+2.*KW, update=1)
         S_img=S_buffer.z [0,:,:]
-        if np.mean(S_img==0)> .25:  # bail if > 25% 0
+        if np.mean(S_img==S_buffer.noData) > .25:  # bail if > 25% 0
             continue
-
         out = run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc, s_nx,
-                            s_ny, dx0, dy0, T_img, S_img)
+                            s_ny, dx0, dy0, T_img, S_img, T_buffer.noData)
 
         indices.append(these_ind[count])
         c.append(out[0])
@@ -1087,15 +1094,18 @@ def test_epipolar(dxy_0, ep_vec, dxy, tol):
     delta=np.abs(np.dot((dxy-dxy_0), [ep_vec[1], -ep_vec[0]]))
     return (delta < tol), delta
 
-def est_epipolar_vec(dxy, C, C_tol):
+def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial):
     """
     given a set of offsets and correlation values:
         For those point with  C>C_tol, find the median offset and the
         eigenvectors of the distribution of the points around that median
         offset.  The eigenvector corresponding to the largest eigenvalue is
         assumed to be the epipolar vector.
+        
     """
-
+    if ep_vec_initial is not None:
+        return ep_vec_initial, np.zeros([1,2])
+        
     ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], 16)) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], 84)) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], 16)) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], 84))
     good=ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
     dxy1=np.array(dxy[good.ravel(),:])
@@ -1145,30 +1155,31 @@ def main():
 
     parser=OptionParser(usage=usage)
     parser.add_option("-x", "--xsearch", dest="s_nx", default=1024-56, type="int",
-                      help="initial x search range, pixels")
+                      help="initial x search range, pixels (%default)")
     parser.add_option("-y", "--ysearch", dest="s_ny", default=1024-56, type="int",
-                      help="initial y search range, pixels")
+                      help="initial y search range, pixels (%default)")
     parser.add_option("-t", "--template", dest="t_pixels", default=56, type="int",
-                      help="template size, pixels")
+                      help="template size, pixels (%default)")
     parser.add_option("-c", "--coarse", dest="coarse_skip", default=512, type="int",
-                      help="initial search-point spacing")
+                      help="initial search-point spacing, pixels (%default)")
     parser.add_option("-f", "--fine", dest="fine_skip", default=32, type="int",
-                      help="final search-point spacing")
+                      help="final search-point spacing, pixels (%default)")
     parser.add_option("-r","--refine_tol", dest="refine_tol", default=8, type="int",
-                      help="pixel range tolerance for refinement")
+                      help="pixel range tolerance for refinement (%default)")
     parser.add_option("-d","--output_dec_scale", dest="output_scale",  default=6, type="int",
-                      help="if set, output a second copy of the offsets scaled by this amount, to file called OUTFILE_(OUTPUT_SCALE)")
+                      help="if set, output a second copy of the offsets scaled by this amount (%default), to file called OUTFILE_(OUTPUT_SCALE)")
     parser.add_option("-p","--output_pad",dest="output_pad", default=2, type="int",
-                      help="pad the output search range by this amount")
-    parser.add_option("-s", "--sigma_t_min", dest="sigma_t_min",  default=10., type="float",
-                       help="matches will not be calculated if the standard deviation of the template is less than this value")
+                      help="pad the output search range by this amount (%default)")
+    parser.add_option("-s", "--sigma_t_min", dest="sigma_t_min",  default=0., type="float",
+                       help="matches will not be calculated if the standard deviation of the template is less than this value (%default)")
     parser.add_option("-R", "--R_max", dest="R_max",  default=40., type="float",
-                       help="Points whose neighbors have a minimum disparity range larger than this value will be removed")
+                       help="Points whose neighbors have a minimum disparity range larger than this value will be removed (%default)")
     parser.add_option("-M", "--Max_disp_range", dest="M_max",  default=64., type="float",
-                       help="Un-scaled disparity range in output limited to this value")
+                       help="Un-scaled disparity range in output limited to this value (%default)")
     parser.add_option("-P", "--processes", dest="processes", default=8, type="int",
-                      help="The number of processes to use")
-
+                      help="The number of processes to use (%default)")
+    parser.add_option("-e", "--epipolar_axis", dest="epipolar_axis", default=None, type="int",
+                      help="If set, specify the axis that is epipolar 0=x, 1=y (%default)")
     (options, args) = parser.parse_args()
 
     if sys.version_info < (2, 6):
@@ -1191,14 +1202,14 @@ def main():
     # may need to become more advanced.
     T_ds=gdal.Open(T_file, gdalconst.GA_ReadOnly)
     T_band=T_ds.GetRasterBand(1)
-    prev2x = prevpow2(T_band.XSize)
-    if options.s_nx > prev2x/2:
-        print "Warning: Decreasing xsearch value to: " + str(prev2x/2)
-        options.s_nx = prev2x/2
+    prev2x = prevpow2( T_band.XSize)
+    if options.s_nx > prev2x/4:
+        print "Warning: Decreasing xsearch value to: " + str(prev2x/4)
+        options.s_nx = prev2x/4
     prev2y = prevpow2(T_band.YSize)
-    if options.s_ny > prev2y/2:
-        print "Warning: Decreasing ysearch value to: " + str(prev2y/2)
-        options.s_ny = prev2y/2
+    if options.s_ny > prev2y/4:
+        print "Warning: Decreasing ysearch value to: " + str(prev2y/4)
+        options.s_ny = prev2y/4
 
     dxy_slope_tol=3.0
     C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
@@ -1206,6 +1217,16 @@ def main():
     s_nx=options.s_nx
     s_ny=options.s_ny
     t_pixels=options.t_pixels
+
+    if options.epipolar_axis is not None:
+        ep_vec_initial=np.zeros([1,2])
+        ep_vec_initial[options.epipolar_axis]=1.
+        if options.epipolar_axis==0:
+            s_ny=np.min([s_ny, s_nx/10.]);
+        else:
+            s_nx=np.min([s_nx, s_ny/10.]);
+    else:
+        ep_vec_initial=None
 
     out_dir=os.path.dirname(output_prefix)
     if len(out_dir)==0: out_dir='.'
@@ -1216,6 +1237,7 @@ def main():
 
     #initialize the matcher object
     ftm=fft_matcher(T_file, S_file, options.processes)
+
 
     # define the initial search points
     edge_pad=np.array([s_nx/2+t_pixels/2, s_ny/2+t_pixels/2])
@@ -1236,14 +1258,14 @@ def main():
     xy, dxy, C, xy_bad_mask = search_new_pts(XY0, dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min)
 
     # run the epipolar fit, establish a tolerance, run again
-    ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
+    ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial)
     good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, 32)
     ep_tol=np.minimum(16,np.maximum(8, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
-    if np.any(~good):
-        ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol)
+    if ep_vec_initial is not None and np.any(~good):
+        ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None)
         ep_tol=np.minimum(16,np.maximum(4, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
         good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-    print " --- ep tol estimated at(%f,%f), tol=%f" % (ep_vec[0], ep_vec[1], ep_tol)
+    print " --- ep vec estimated at(%f,%f), tol=%f" % (ep_vec[0], ep_vec[1], ep_tol)
     # make sparse matrices for storing dx and dy values, store initial values
     im_shape=[ftm.Ny, ftm.Nx]
     dx_mat=coo_matrix((dxy[good,0],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
@@ -1308,7 +1330,8 @@ def main():
         # extract the dx and dy values, re-estimate the ep vector
         dxy=np.array(np.c_[dx_mat[all_pts[:,1], all_pts[:,0]].transpose(), dy_mat[all_pts[:,1], all_pts[:,0]].transpose()])
         C= np.array(C_mat[all_pts[:,1], all_pts[:,0]].transpose())
-        ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
+        if ep_vec_initial is not None:
+            ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
 
         # triangulate all the good points so far
         tri=sp.Delaunay(all_pts)
