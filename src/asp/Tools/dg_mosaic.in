@@ -171,6 +171,61 @@ def set_or_wipe_image_tags(IMAGE, avg_meangsd):
 
     IMAGE.find("MEANPRODUCTGSD").text = str(avg_meangsd)
 
+def adjust_camera_corners(BAND_P, all_ll_corners):
+
+    # The lon-lat box for the combined camera is the union of the
+    # lon-lat boxes for all the cameras.
+
+    # Wipe unneeded tags. For that, first store the tags, then wipe
+    # them.
+    wipe_tags = set(["ULHAE", "URHAE","LRHAE","LLHAE"]);
+    tags = []
+    for i in range(len(BAND_P)):
+        tag = BAND_P[i].tag
+        tags.append(tag)
+    for tag in tags:
+        if tag in wipe_tags:
+            BAND_P.remove( BAND_P.find (tag) )
+
+    # Each camera has 4 corners, which are arbitrarily placed.  Find
+    # the average of all corners over all cameras. This will be the
+    # center. Look at all cameras' LL corner. The one furthest from
+    # the center will be the new LL corner. Same for LR, UL, and UR.
+    cx = 0
+    cy = 0
+    np = 0
+    for corner_vec in all_ll_corners:
+        for corner in corner_vec:
+            cx = cx + corner[0]
+            cy = cy + corner[1]
+            np = np + 1
+    cx = cx/np
+    cy = cy/np
+
+    out_corners = []
+    for i in range(4):
+        dist = -1
+        cr   = [0, 0]
+        for corner_vec in all_ll_corners:
+            pt = corner_vec[i]
+            ldist = math.sqrt((pt[0]-cx)**2 + (pt[1] - cy)**2)
+            if ldist > dist:
+                cr   = pt
+                dist = ldist
+        out_corners.append(cr)
+
+    BAND_P.find("ULLON").text = str(out_corners[0][0])
+    BAND_P.find("ULLAT").text = str(out_corners[0][1])
+
+    BAND_P.find("URLON").text = str(out_corners[1][0])
+    BAND_P.find("URLAT").text = str(out_corners[1][1])
+
+    BAND_P.find("LRLON").text = str(out_corners[2][0])
+    BAND_P.find("LRLAT").text = str(out_corners[2][1])
+
+    BAND_P.find("LLLON").text = str(out_corners[3][0])
+    BAND_P.find("LLLAT").text = str(out_corners[3][1])
+
 # Provide the image files that make up the composite. We assume the XML
 # files are in the same directory and end with extension ".xml" or ".XML".
 def read_xml( filename, options):
@@ -207,28 +262,37 @@ def read_xml( filename, options):
 
     llbox = BBox()
     htbox = BBox()
+    ll_corners = []
+
+    # The longitude-lattitude box. Note: Later when we create
+    # the adjusted box we will traverse the corners in
+    # exactly the same order as here, so this and that
+    # code blocks must be kept consistent.
+    try:
+        ullon = float(IMD.find("BAND_P").find("ULLON").text)
+        ullat = float(IMD.find("BAND_P").find("ULLAT").text)
+        llbox.add_point([ullon, ullat])
+        ll_corners.append([ullon, ullat])
+
+        urlon = float(IMD.find("BAND_P").find("URLON").text)
+        urlat = float(IMD.find("BAND_P").find("URLAT").text)
+        llbox.add_point([urlon, urlat])
+        ll_corners.append([urlon, urlat])
+
+        lrlon = float(IMD.find("BAND_P").find("LRLON").text)
+        lrlat = float(IMD.find("BAND_P").find("LRLAT").text)
+        llbox.add_point([lrlon, lrlat])
+        ll_corners.append([lrlon, lrlat])
+
+        lllon = float(IMD.find("BAND_P").find("LLLON").text)
+        lllat = float(IMD.find("BAND_P").find("LLLAT").text)
+        llbox.add_point([lllon, lllat])
+        ll_corners.append([lllon, lllat])
+    except Exception, e:
+        raise Exception('InputError', "File " + filename
+                        + " lacks longitude/lattitude information.")
+
     if not options.skip_rpc_gen:
-        # The longitude-lattitude box
-        try:
-            ullon = float(IMD.find("BAND_P").find("ULLON").text)
-            ullat = float(IMD.find("BAND_P").find("ULLAT").text)
-            llbox.add_point([ullon, ullat])
-
-            urlon = float(IMD.find("BAND_P").find("URLON").text)
-            urlat = float(IMD.find("BAND_P").find("URLAT").text)
-            llbox.add_point([urlon, urlat])
-
-            lrlon = float(IMD.find("BAND_P").find("LRLON").text)
-            lrlat = float(IMD.find("BAND_P").find("LRLAT").text)
-            llbox.add_point([lrlon, lrlat])
-
-            lllon = float(IMD.find("BAND_P").find("LLLON").text)
-            lllat = float(IMD.find("BAND_P").find("LLLAT").text)
-            llbox.add_point([lllon, lllat])
-        except Exception, e:
-            raise Exception('InputError', "File " + filename
-                            + " lacks longitude/lattitude information.")
-
         # The height range, [ht_min, ht_max]. We store it as a 2D box
         # as to not create an interval class.
         try:
@@ -261,7 +325,7 @@ def read_xml( filename, options):
         att_list.extend(tokens)
 
     return [tlctime, tlclist, firstlinetime, image_size, pitch,
-            originx, pd, eph_list, att_list, llbox, htbox, meangsd]
+            originx, pd, eph_list, att_list, llbox, htbox, ll_corners, meangsd]
 
 def tlc_time_lookup( tlctime, tlclist, pixel_y ):
     fraction = (pixel_y - tlclist[0][0]) / (tlclist[1][0] - tlclist[0][0])
@@ -366,13 +430,16 @@ def main():
         if len(out_dir)==0: out_dir='.'
         if not os.path.exists(out_dir): os.mkdir(out_dir)
 
+        all_ll_corners = []
+
         # We reference everything from the perspective of the first
         # image. So lets load it up first into our special variables.
         [ref_tlctime, ref_tlclist, ref_firstlinetime, ref_image_size,
          ref_pitch, ref_originx, ref_pd, ref_eph_list, ref_att_list,
-         ref_llbox, ref_htbox, avg_meangsd] \
+         ref_llbox, ref_htbox, ll_corners, avg_meangsd] \
          = read_xml( xml_name(args[0]), options )
         num_gsd = 1
+        all_ll_corners.append(ll_corners)
 
         # orig_sizes[i] holds the original size of i-th image. After
         # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
@@ -390,8 +457,9 @@ def main():
         for filename in args[1:]:
 
             [tlctime, tlclist, firstlinetime, image_size, pitch, originx, pd,
-             eph_list, att_list, llbox, htbox, meangsd] \
+             eph_list, att_list, llbox, htbox, ll_corners, meangsd] \
              = read_xml( xml_name(filename), options )
+            all_ll_corners.append(ll_corners)
 
             # Sanity checks
             if ref_originx != originx:
@@ -548,8 +616,9 @@ def main():
             if root.find("RPB") != None: root.remove( root.find ("RPB") )
 
         # Wipe other outdated info
-        if imd.find("BAND_P") != None: imd.remove( imd.find ("BAND_P") )
         if root.find("TIL")   != None: root.remove( root.find("TIL") )
+        if imd.find("BAND_P") != None:
+            adjust_camera_corners(imd.find("BAND_P"), all_ll_corners)
         set_or_wipe_image_tags(root.find("IMD").find("IMAGE"), avg_meangsd)
 
         print "Writing: " + xml_file
