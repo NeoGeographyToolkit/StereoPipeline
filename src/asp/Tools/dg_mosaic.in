@@ -17,7 +17,7 @@
 # __END_LICENSE__
 
 
-import os, sys, string, subprocess, math, re, optparse, time
+import os, sys, string, subprocess, math, re, optparse, time, copy
 from datetime import datetime, timedelta
 sys.path.append(sys.path[0] + '/../libexec')
 from stereo_utils import *
@@ -123,6 +123,29 @@ class BBox:
 
     def __repr__(self):
         return "BBox %f %f -> %f %f" % (self.minx,self.miny,self.maxx,self.maxy)
+
+# Create an object made of a string, a 2D vector, and a box. Sort an
+# array of such objects by the min coordinate of the box.
+class StVecBox:
+    def __init__(self, st, vec, box):
+        self.st  = st
+        self.vec = vec
+        self.box = box
+def minyCompare(P, Q):
+    return P.box.miny - Q.box.miny
+def sort_by_miny(args, orig_sizes, placements):
+    S = []
+    for i in range(len(args)):
+        S.append(StVecBox(copy.deepcopy(args[i]),
+                          copy.deepcopy(orig_sizes[i]),
+                          copy.deepcopy(placements[i])))
+    S.sort(minyCompare)
+    s_args = []; s_orig_sizes = []; s_placements = []
+    for i in range(len(S)):
+        s_args.append(S[i].st)
+        s_orig_sizes.append(S[i].vec)
+        s_placements.append(S[i].box)
+    return (s_args, s_orig_sizes, s_placements)
 
 # Provide the image files that make up the composite. We assume the XML
 # files are in the same directory and end with extension ".xml" or ".XML".
@@ -298,6 +321,7 @@ def main():
                               action='store_true', help=optparse.SUPPRESS_HELP)
 
             (options, args) = parser.parse_args()
+
             if not args:
                 parser.print_help()
                 die('\nERROR: Need .ntf or .tif files.', code=2)
@@ -377,8 +401,6 @@ def main():
         for i in range(len(args)):
             placements[i].miny -= boundary.miny
             placements[i].maxy -= boundary.miny
-            print "  Placing %s" % args[i]
-            print "    Size %ix%i at column %i and line %i" % (placements[i].width(),placements[i].height(),placements[i].minx, placements[i].miny)
 
         # Dummy check: Look for duplicate files that will insert at
         # same location. Files that do this would be the R?C1 variants
@@ -389,6 +411,18 @@ def main():
             if placements[i].miny in seen:
                 raise Exception('InputError', 'Input images have same input location which could be caused by repeated XML file or invalid TLC information')
             seen.add(placements[i].miny)
+
+        # Ensure that the images are placed in order, from top to
+        # bottom.  So the second image will partially cover the first
+        # image, etc.  This is a bug fix for the situation when some
+        # images have a black area at the bottom.
+        (s_args, s_orig_sizes, s_placements) = \
+                 sort_by_miny(args, orig_sizes, placements)
+        for i in range(len(s_args)):
+            print "  Placing %s" % s_args[i]
+            print "    Size %ix%i at column %i and line %i" % \
+                  (s_placements[i].width(),s_placements[i].height(),
+                   s_placements[i].minx, s_placements[i].miny)
 
         # We do two passes with VRT wrapping because the following
         # operations are performed in this order:
@@ -409,14 +443,14 @@ def main():
         f.write("  <VRTRasterBand dataType=\"UInt16\" band=\"1\">\n")
         f.write("    <ColorInterp>Gray</ColorInterp>\n")
         f.write("    <NoDataValue>0</NoDataValue>\n")
-        for i in range(len(args)):
+        for i in range(len(s_args)):
             f.write("    <ComplexSource>\n")
-            f.write("      <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % os.path.abspath(args[i]))
+            f.write("      <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % os.path.abspath(s_args[i]))
             f.write("      <SourceBand>1</SourceBand>\n")
             f.write("      <LUT>0:0,4:0,5:5,4096:4096</LUT>\n")
             f.write("      <NODATA>0</NODATA>\n")
-            f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (orig_sizes[i][0],orig_sizes[i][1]))
-            f.write("      <DstRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (placements[i].minx, placements[i].miny, placements[i].width(), placements[i].height()))
+            f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (s_orig_sizes[i][0],s_orig_sizes[i][1]))
+            f.write("      <DstRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (s_placements[i].minx, s_placements[i].miny, s_placements[i].width(), s_placements[i].height()))
 
             f.write("    </ComplexSource>\n")
         f.write("  </VRTRasterBand>\n")
