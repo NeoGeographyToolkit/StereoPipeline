@@ -29,6 +29,9 @@ using namespace xercesc;
 namespace fs=boost::filesystem;
 
 void asp::ImageXML::parse_meta( xercesc::DOMElement* node ) {
+  // Note: dg_mosaic wipes most image tags. If it is desired to parse
+  // more tags here, ensure they are not wiped by dg_mosaic and use
+  // sensible values when creating them for the combined mosaics.
   cast_xmlch( get_node<DOMElement>( node, "SCANDIRECTION" )->getTextContent(),
               scan_direction );
   cast_xmlch( get_node<DOMElement>( node, "TLCTIME" )->getTextContent(),
