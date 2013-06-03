@@ -1169,9 +1169,9 @@ def main():
     parser.add_option("-d","--output_dec_scale", dest="output_scale",  default=6, type="int",
                       help="if set, output a second copy of the offsets scaled by this amount (%default), to file called OUTFILE_(OUTPUT_SCALE)")
     parser.add_option("-p","--output_pad",dest="output_pad", default=2, type="int",
-                      help="pad the output search range by this amount")
-    parser.add_option("-s", "--sigma_t_min", dest="sigma_t_min",  default=None, type="float",
-                       help="matches will not be calculated if the standard deviation of the template is less than this value")
+                      help="pad the output search range by this amount (%default)")
+    parser.add_option("-s", "--sigma_t_min", dest="sigma_t_min",  default=0., type="float",
+                       help="matches will not be calculated if the standard deviation of the template is less than this value (%default)")
     parser.add_option("-R", "--R_max", dest="R_max",  default=40., type="float",
                        help="Points whose neighbors have a minimum disparity range larger than this value will be removed (%default)")
     parser.add_option("-M", "--Max_disp_range", dest="M_max",  default=64., type="float",
