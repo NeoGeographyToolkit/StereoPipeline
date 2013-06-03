@@ -269,7 +269,7 @@ def norm_xcorr(t,a,method=None,trim=True,do_ssd=False):
 	std_t,mean_t = np.std(t),np.mean(t)
 
 	if std_t == 0:
-		raise Exception('The values of the template must not all be equal')
+		raise Exception('The values of the template must not all be equal (they are equal to %f)' % mean_t)
 
 	t = np.float64(t)
 	a = np.float64(a)
@@ -430,7 +430,7 @@ def fast_ssd(t,a,method=None,trim=True):
 	std_t,mean_t = np.std(t),np.mean(t)
 
 	if std_t == 0:
-		raise Exception('The values of the template must not all be equal')
+		raise Exception('The values of the template must not all be equal (they are all equal to %f)' % t[0,0]) 
 
 	# output dimensions of xcorr need to match those of local_sum
 	outdims = np.array([a.shape[dd]+t.shape[dd]-1 for dd in xrange(a.ndim)])
@@ -781,7 +781,7 @@ def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
     S_filt=log_filter(S_img, noData)
     std_T=np.std(T_filt)
     if min_template_sigma is not None:
-        if std_T < min_template_sigma:
+        if std_T <= min_template_sigma:
             return(-2, Xc, Yc, -1, 0, 0)
 
     # run the feature match.
@@ -1204,12 +1204,17 @@ def main():
     T_band=T_ds.GetRasterBand(1)
     prev2x = prevpow2( T_band.XSize)
     if options.s_nx > prev2x/4:
-        print "Warning: Decreasing xsearch value to: " + str(prev2x/4)
         options.s_nx = prev2x/4
+        print "Warning: Decreasing xsearch value to: %d" % options.s_nx  
+        
     prev2y = prevpow2(T_band.YSize)
     if options.s_ny > prev2y/4:
-        print "Warning: Decreasing ysearch value to: " + str(prev2y/4)
         options.s_ny = prev2y/4
+        print "Warning: Decreasing ysearch value to: %d" % options.s_ny
+ 
+    if options.coarse_skip > np.min([prev2x/4, prev2y/4]):
+        options.coarse_skip = np.min([prev2x/4, prev2y/4])
+        print "Warning: decreasing coarse skip to: %d" % options.coarse_skip
 
     dxy_slope_tol=3.0
     C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
