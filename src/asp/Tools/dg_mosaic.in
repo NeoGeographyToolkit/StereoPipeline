@@ -357,12 +357,11 @@ def xml_name( filename ):
     return xml_file
 
 def run_cmd( cmd, options ):
-    if options.dryrun:
-        print cmd
-    else:
-        code = subprocess.call(cmd, shell=True)
-        if code:
-            raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
+    if options.dryrun or options.verbose: print cmd
+    if options.dryrun: return
+    code = subprocess.call(cmd, shell=True)
+    if code:
+        raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
 
 def die(msg, code=-1):
     print >>sys.stderr, msg
@@ -405,6 +404,8 @@ def main():
             parser.add_option("-n", "--dry-run", dest="dryrun",
                               action="store_true",
                               help="Make the calculations, but just print out the commands.")
+            parser.add_option("-v", "--verbose", dest="verbose",
+                              action="store_true", help="Increase verbosity.")
             # Debug option. Skip the part where we create the tif file,
             # that is quite time-consuming.
             parser.add_option('--skip-tif-gen', dest='skip_tif_gen', default=False,
