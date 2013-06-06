@@ -54,11 +54,14 @@ class PassThroughOptionParser(optparse.OptionParser):
 # comma-separated values.  The first value on each line becomes the
 # output variable name, the other values are read into the array of
 # variable values.
-def run_and_parse_output(cmd, args, **kw ):
+def run_and_parse_output(cmd, args, verbose = False, **kw ):
     libexecpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..',\
                          'libexec', cmd)
     call = [libexecpath]
     call.extend(args)
+
+    if verbose:
+        print(" ".join(call))
 
     try:
         p = subprocess.Popen(call, stdout=subprocess.PIPE)

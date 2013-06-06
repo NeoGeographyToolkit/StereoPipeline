@@ -553,7 +553,7 @@ def main():
                         str(ref_llbox.minx), str(ref_llbox.miny),
                         str(ref_htbox.minx), str(ref_llbox.maxx),
                         str(ref_llbox.maxy), str(ref_htbox.maxx), xml_file]
-            rpc_model = run_and_parse_output( rpc_cmd, rpc_args )
+            rpc_model = run_and_parse_output( rpc_cmd, rpc_args, options.verbose )
             os.remove(xml_file)
             try:
                 # Set the RPC model info. Wipe all other outdated info.
@@ -647,7 +647,7 @@ def main():
                            '--reduce-percent', str(options.reduce_percent),
                            '--image-data', tif_mosaic_opts]
             print "Writing: " + tif_file
-            run_and_parse_output( mosaic_cmd, mosaic_args )
+            run_and_parse_output( mosaic_cmd, mosaic_args, options.verbose )
 
             # Make a preview image
             if options.preview:
