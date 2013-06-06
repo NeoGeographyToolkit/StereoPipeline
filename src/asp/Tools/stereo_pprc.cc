@@ -250,6 +250,10 @@ void stereo_preprocessing( Options& opt ) {
     float output_nodata = -32767.0;
 
     DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
+    // Below we use ImageView instead of ImageViewRef as the output
+    // images are small.  Using an ImageViewRef would make the
+    // subsampling operations happen twice, once for L_sub.tif and
+    // second time for lMask_sub.tif.
     ImageView< PixelMask < PixelGray<float> > > left_sub_image, right_sub_image;
     if ( sub_scale > 0.5 ) {
       // When we are near the pixel input to output ratio, standard
