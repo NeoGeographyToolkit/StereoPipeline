@@ -16,6 +16,9 @@
 #  limitations under the License.
 # __END_LICENSE__
 
+# To do: There is no need to round the corners of the images
+# which are combined into the mosaic. May improve accuracy
+# that way. This change would need very careful testing.
 
 import os, sys, string, subprocess, math, re, optparse, time, copy
 from datetime import datetime, timedelta
@@ -385,11 +388,11 @@ def main():
             parser.set_defaults(dryrun=False)
             parser.set_defaults(preview=False)
             parser.set_defaults(gdaldir="")
-            parser.set_defaults(reduce_percent=100)
+            parser.set_defaults(reduce_percent=100.0)
             parser.set_defaults(output_prefix="")
             parser.add_option("--gdal-dir", dest="gdaldir",
                               help="Directory where the GDAL tools are. If not provided, we get them from the environment.")
-            parser.add_option("--reduce-percent", dest="reduce_percent", type="int",
+            parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
                               help="Render a reduced resolution image and xml based on this percentage.")
             parser.add_option("--output-prefix", dest="output_prefix", type="str",
                               help="The prefix for the output .tif and .xml files.")
@@ -412,6 +415,10 @@ def main():
                               action='store_true', help=optparse.SUPPRESS_HELP)
 
             (options, args) = parser.parse_args()
+
+            # Transform 50.0 into just 50
+            if options.reduce_percent == int(options.reduce_percent):
+                options.reduce_percent = int(options.reduce_percent)
 
             if not args:
                 parser.print_help()
@@ -515,52 +522,11 @@ def main():
                 raise Exception('InputError', 'Input images have same input location which could be caused by repeated XML file or invalid TLC information')
             seen.add(placements[i].miny)
 
-        # Ensure that the images are placed in order, from top to
-        # bottom.  So the second image will partially cover the first
-        # image, etc.  This is a bug fix for the situation when some
-        # images have a black area at the bottom.
-        (s_args, s_orig_sizes, s_placements) = \
-                 sort_by_miny(args, orig_sizes, placements)
-        for i in range(len(s_args)):
-            print "  Placing %s" % s_args[i]
-            print "    Size %ix%i at column %i and line %i" % \
-                  (s_placements[i].width(),s_placements[i].height(),
-                   s_placements[i].minx, s_placements[i].miny)
+        scale = options.reduce_percent / 100.0
+        suffix = ".r" + str(options.reduce_percent)
 
-        # We do two passes with VRT wrapping because the following
-        # operations are performed in this order:
-        #
-        # Nodata masking
-        # Color table expansion
-        # Applying the scale ratio
-        # Applying the scale offset
-        # Table lookup
-        #
-        # We need to perform a LUT and then a nodata mask
-
-        # Write the VRT that composites these JP2 images together
-        vrt_file = options.output_prefix+".vrt"
-        print "Writing: " + vrt_file
-        f = open(vrt_file,'w')
-        f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (boundary.width(),boundary.height()))
-        f.write("  <VRTRasterBand dataType=\"UInt16\" band=\"1\">\n")
-        f.write("    <ColorInterp>Gray</ColorInterp>\n")
-        f.write("    <NoDataValue>0</NoDataValue>\n")
-        for i in range(len(s_args)):
-            f.write("    <ComplexSource>\n")
-            f.write("      <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % os.path.abspath(s_args[i]))
-            f.write("      <SourceBand>1</SourceBand>\n")
-            f.write("      <LUT>0:0,4:0,5:5,4096:4096</LUT>\n")
-            f.write("      <NODATA>0</NODATA>\n")
-            f.write("      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"%i\" ySize=\"%i\"/>\n" % (s_orig_sizes[i][0],s_orig_sizes[i][1]))
-            f.write("      <DstRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" % (s_placements[i].minx, s_placements[i].miny, s_placements[i].width(), s_placements[i].height()))
-
-            f.write("    </ComplexSource>\n")
-        f.write("  </VRTRasterBand>\n")
-        f.write("</VRTDataset>\n")
-        f.close()
-
-        # Write a composite XML file
+        # Write a composite scaled XML file. We first create the xml at
+        # the original resolution and then we scale it.
         tree = ET.parse(xml_name(args[0]))
         root = tree.getroot()
         imd = root.find("IMD")
@@ -576,16 +542,19 @@ def main():
         first_line_item.text = tlc_lookup.strftime("%Y-%m-%dT%H:%M:%S") + '.' \
                                + format_microsec(str(tlc_lookup.microsecond)) + "Z"
 
-        xml_file = options.output_prefix+".xml"
         if not options.skip_rpc_gen:
-            # Find the best-fitting RPC coefficients
+            # Find the best-fitting RPC coefficients Need to
+            # temporarily write the xml file to disk.
+            xml_file = options.output_prefix+".xml"
             tree.write(xml_file)
-            cmd = "rpc_gen"
-            args = ['--penalty-weight', str(options.penalty_weight), '--lon-lat-height-box',
-                    str(ref_llbox.minx), str(ref_llbox.miny), str(ref_htbox.minx),
-                    str(ref_llbox.maxx), str(ref_llbox.maxy), str(ref_htbox.maxx),
-                    xml_file]
-            rpc_model = run_and_parse_output( cmd, args )
+            rpc_cmd = "rpc_gen"
+            rpc_args = ['--penalty-weight', str(options.penalty_weight),
+                        '--lon-lat-height-box',
+                        str(ref_llbox.minx), str(ref_llbox.miny),
+                        str(ref_htbox.minx), str(ref_llbox.maxx),
+                        str(ref_llbox.maxy), str(ref_htbox.maxx), xml_file]
+            rpc_model = run_and_parse_output( rpc_cmd, rpc_args )
+            os.remove(xml_file)
             try:
                 # Set the RPC model info. Wipe all other outdated info.
                 RPI = root.find("RPB").find("IMAGE")
@@ -622,70 +591,77 @@ def main():
             adjust_camera_corners(imd.find("BAND_P"), all_ll_corners)
         set_or_wipe_image_tags(root.find("IMD").find("IMAGE"), avg_meangsd)
 
+        # Scale the xml file
+        # Update NumRows and NumColumns
+        imd = root.find("IMD")
+        imd.find("NUMROWS").text = str( int(boundary.height() * scale) )
+        imd.find("NUMCOLUMNS").text = str( int(boundary.width() * scale) )
+        # Update TLCList, AVGLineRate, ExposureDur
+        image = imd.find("IMAGE")
+        for tlc_item in image.find("TLCLISTList").findall("TLCLIST"):
+            tokens = tlc_item.text.strip().split(' ')
+            tokens[0] = str(float(tokens[0]) * scale)
+            tlc_item.text = " ".join(tokens)
+        scale_xml_element(image.find("AVGLINERATE"), scale)
+        scale_xml_element(image.find("EXPOSUREDURATION"), 1.0/scale)
+        # Update Detector Pitch
+        pitch = root.find("GEO").find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY").find("DETPITCH")
+        scale_xml_element(pitch, 1.0/scale)
+        # Scale the RPC model
+        if not options.skip_rpc_gen:
+            RPI = root.find("RPB").find("IMAGE")
+            scale_xml_element(RPI.find("SAMPSCALE"), scale)
+            scale_xml_element(RPI.find("LINESCALE"), scale)
+            scale_xml_element(RPI.find("SAMPOFFSET"), scale)
+            scale_xml_element(RPI.find("LINEOFFSET"), scale)
+
+        xml_file = options.output_prefix + suffix + ".xml"
         print "Writing: " + xml_file
         tree.write(xml_file)
 
-        # Raster into a TIFF at full resolution. If we lower the
-        # resolution now, we'll develop raster errors on the nodata
-        # portions of the input. I'm not sure why this happens.
-        tif_file = options.output_prefix+".tif"
-        print "Writing: " + tif_file
         if not options.skip_tif_gen:
-            cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -co TILED=yes -co COMPRESS=lzw %s %s" % (options.gdaldir,vrt_file,tif_file)
-            run_cmd( cmd, options )
+            # Ensure that the images are placed in order, from top to
+            # bottom.  So the second image will partially cover the first
+            # image, etc.  This is a bug fix for the situation when some
+            # images have a black area at the bottom.
+            (s_args, s_orig_sizes, s_placements) = \
+                     sort_by_miny(args, orig_sizes, placements)
 
-        # Render reduced image and reduced xml
-        if options.reduce_percent != 100:
-            rtif_file = options.output_prefix + ".r" \
-                       + str(options.reduce_percent) + ".tif"
-            print "Writing: " + rtif_file
-            if not options.skip_tif_gen:
-                cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of GTiff -ot UInt16 -co BIGTIFF=yes -outsize %i%% %i%% -co TILED=yes -co COMPRESS=lzw %s %s" % (options.gdaldir,options.reduce_percent,options.reduce_percent,tif_file,rtif_file)
-                run_cmd( cmd, options )
+            tif_mosaic_opts = "%d,%d," % (boundary.width(), boundary.height())
+            for i in range(len(s_args)):
+                print "  Placing %s" % s_args[i]
+                print "    Size %ix%i at column %i and line %i" % \
+                      (s_placements[i].width(),s_placements[i].height(),
+                       s_placements[i].minx, s_placements[i].miny)
 
-            scale = options.reduce_percent / 100.0
+                tif_mosaic_opts += ("%s,%0.16f,%0.16f,%0.16f,%0.16f,%0.16f,%0.16f," %
+                                    ( os.path.abspath(s_args[i]),
+                                      s_orig_sizes[i][0], s_orig_sizes[i][1],
+                                      s_placements[i].minx, s_placements[i].miny,
+                                      s_placements[i].width(), s_placements[i].height() ) )
 
-            tree = ET.parse(xml_file)
-            root = tree.getroot()
-            # Update NumRows and NumColumns
-            imd = root.find("IMD")
-            imd.find("NUMROWS").text = str( int(boundary.height() * scale) )
-            imd.find("NUMCOLUMNS").text = str( int(boundary.width() * scale) )
-            # Update TLCList, AVGLineRate, ExposureDur
-            image = imd.find("IMAGE")
-            for tlc_item in image.find("TLCLISTList").findall("TLCLIST"):
-                tokens = tlc_item.text.strip().split(' ')
-                tokens[0] = str(float(tokens[0]) * scale)
-                tlc_item.text = " ".join(tokens)
-            scale_xml_element(image.find("AVGLINERATE"), scale)
-            scale_xml_element(image.find("EXPOSUREDURATION"), 1.0/scale)
-            # Update Detector Pitch
-            pitch = root.find("GEO").find("DETECTOR_MOUNTING").find("BAND_P").find("DETECTOR_ARRAY").find("DETPITCH")
-            scale_xml_element(pitch, 1.0/scale)
-            # Scale the RPC model
-            if not options.skip_rpc_gen:
-                RPI = root.find("RPB").find("IMAGE")
-                scale_xml_element(RPI.find("SAMPSCALE"), scale)
-                scale_xml_element(RPI.find("LINESCALE"), scale)
-                scale_xml_element(RPI.find("SAMPOFFSET"), scale)
-                scale_xml_element(RPI.find("LINEOFFSET"), scale)
+            tif_file = options.output_prefix + suffix + ".tif";
+            mosaic_cmd = "tif_mosaic"
+            mosaic_args = ['--threads', str(4),
+                           '--output-image', tif_file,
+                           '--reduce-percent', str(options.reduce_percent),
+                           '--image-data', tif_mosaic_opts]
+            print "Writing: " + tif_file
+            run_and_parse_output( mosaic_cmd, mosaic_args )
 
-            rxml_file = options.output_prefix + ".r" \
-                        + str(options.reduce_percent) + ".xml"
-            print "Writing: " + rxml_file
-            tree.write(rxml_file)
+            # Make a preview image
+            if options.preview:
 
-        # Make a preview image
-        if options.preview:
-            stif_file = options.output_prefix + ".small.png"
-            print "Writing: " + stif_file
-            if not options.skip_tif_gen:
-                cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize 5%% 5%% %s %s" % (options.gdaldir,tif_file,stif_file)
+                # The preview image size will be around 5% of the input image size.
+                small_scale = int(round(5.0/scale))
+
+                stif_file = options.output_prefix + ".small.png"
+                print "Writing: " + stif_file
+                cmd = "GDAL_CACHEMAX=256 %sgdal_translate -of PNG -ot Byte -scale -outsize %d%% %d%% %s %s" % (options.gdaldir,small_scale,small_scale,tif_file,stif_file)
                 run_cmd( cmd, options )
 
     except Usage, err:
         print >>sys.stderr, err.msg
-        # print >>sys.stderr, "for help use --help"
         return 2
 
 if __name__ == "__main__":

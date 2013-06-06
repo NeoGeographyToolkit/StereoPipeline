@@ -168,6 +168,12 @@ if MAKE_APP_RPC_GEN
   rpc_gen_LDADD   = $(APP_RPC_GEN_LIBS)
 endif
 
+if MAKE_APP_TIF_MOSAIC
+  libexec_PROGRAMS += tif_mosaic
+  tif_mosaic_SOURCES = tif_mosaic.cc
+  tif_mosaic_LDADD   = $(APP_TIF_MOSAIC_LIBS)
+endif
+
 # Scripts
 ##############################################################################
 
