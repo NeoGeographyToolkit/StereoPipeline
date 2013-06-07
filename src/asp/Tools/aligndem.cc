@@ -77,11 +77,10 @@ void match_orthoimages(string const& out_prefix,
 
   vw_out() << "\t--> Finding Interest Points for the orthoimages\n";
 
-  fs::path left_image_path(left_image_name), right_image_path(right_image_name);
   string left_ip_file, right_ip_file;
-  ip::ip_filenames(out_prefix, input_file1, input_file2,
+  ip::ip_filenames(out_prefix, left_image_name, right_image_name,
                    left_ip_file, right_ip_file);
-  string match_file = ip::match_filename(out_prefix, left_image_file, right_image_file);
+  string match_file = ip::match_filename(out_prefix, left_image_name, right_image_name);
 
   // Building / Loading Interest point data
   if ( fs::exists(match_file) ) {
@@ -134,7 +133,7 @@ void match_orthoimages(string const& out_prefix,
     ip::DefaultMatcher matcher(0.6);
 
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-            false, TerminalProgressCallback( "asp", "\t    Matching: "));
+            TerminalProgressCallback( "asp", "\t    Matching: "));
     ip::remove_duplicates(matched_ip1, matched_ip2);
     vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
     asp::cnettk::equalization( matched_ip1, matched_ip2, max_points );
@@ -201,8 +200,7 @@ int main( int argc, char *argv[] ) {
       dem1_rsrc(opt.dem1_name), dem2_rsrc(opt.dem2_name);
 
     // Pull out dem nodatas
-    if ( opt.dem1_nodata == std::numeric_limits<double>::quiet_NaN() &&
-         dem1_rsrc.has_nodata_read() ) {
+    if ( dem1_rsrc.has_nodata_read() ) {
       opt.dem1_nodata = dem1_rsrc.nodata_read();
       vw_out() << "\tFound DEM1 input nodata value: "
                << opt.dem1_nodata << endl;
@@ -216,19 +214,8 @@ int main( int argc, char *argv[] ) {
       opt.dem2_nodata = opt.dem1_nodata;
     }
 
-    typedef DiskImageView<double> dem_type;
-    dem_type dem1_dmg(opt.dem1_name), dem2_dmg(opt.dem2_name);
-
-    typedef InterpolationView<EdgeExtensionView<dem_type, ConstantEdgeExtension>, BilinearInterpolation> bilinear_type;
-    typedef InterpolationView<EdgeExtensionView<dem_type, ConstantEdgeExtension>, NearestPixelInterpolation> nearest_type;
-    bilinear_type dem1_interp =
-      interpolate(dem1_dmg, BilinearInterpolation(), ConstantEdgeExtension());
-    bilinear_type dem2_interp =
-      interpolate(dem2_dmg, BilinearInterpolation(), ConstantEdgeExtension());
-    nearest_type dem1_nearest =
-      interpolate(dem1_dmg, NearestPixelInterpolation(), ConstantEdgeExtension());
-    nearest_type dem2_nearest =
-      interpolate(dem2_dmg, NearestPixelInterpolation(), ConstantEdgeExtension());
+    typedef DiskImageView<float> dem_type;
+    dem_type dem1(opt.dem1_name), dem2(opt.dem2_name);
 
     GeoReference ortho1_georef, ortho2_georef, dem1_georef, dem2_georef;
     read_georeference(ortho1_georef, ortho1_rsrc);
@@ -236,30 +223,26 @@ int main( int argc, char *argv[] ) {
     read_georeference(dem1_georef, dem1_rsrc);
     read_georeference(dem2_georef, dem2_rsrc);
 
+    ImageViewRef<Vector3> pointcloud1 =
+      geodetic_to_cartesian( dem_to_geodetic( apply_mask(dem1, opt.dem1_nodata), dem1_georef ), dem1_georef.datum() );
+    ImageViewRef<Vector3> pointcloud2 =
+      geodetic_to_cartesian( dem_to_geodetic( apply_mask(dem2, opt.dem2_nodata), dem2_georef ), dem2_georef.datum() );
+
     std::vector<InterestPoint> matched_ip1, matched_ip2;
 
-    match_orthoimages(opt.output_prefix,
+    match_orthoimages("",
                       opt.ortho1_name, opt.ortho2_name,
                       matched_ip1, matched_ip2, opt.max_points);
 
     vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
     std::vector<Vector4> ransac_ip1, ransac_ip2;
     for (size_t i = 0; i < matched_ip1.size(); i++) {
-      Vector2 point1 = ortho1_georef.pixel_to_lonlat(Vector2(matched_ip1[i].x, matched_ip1[i].y));
-      Vector2 point2 = ortho2_georef.pixel_to_lonlat(Vector2(matched_ip2[i].x, matched_ip2[i].y));
 
-      Vector2 dem_pixel1 = dem1_georef.lonlat_to_pixel(point1);
-      Vector2 dem_pixel2 = dem2_georef.lonlat_to_pixel(point2);
+      Vector3 xyz1 = pointcloud1( matched_ip1[i].x, matched_ip1[i].y );
+      Vector3 xyz2 = pointcloud2( matched_ip2[i].x, matched_ip2[i].y );
 
-      if ( dem1_nearest(dem_pixel1.x(),dem_pixel1.y()) != opt.dem1_nodata &&
-           dem2_nearest(dem_pixel2.x(),dem_pixel2.y()) != opt.dem2_nodata ) {
-
-        double alt1 = dem1_georef.datum().radius(point1.x(), point1.y()) + dem1_interp(dem_pixel1.x(), dem_pixel1.y());
-        double alt2 = dem2_georef.datum().radius(point2.x(), point2.y()) + dem2_interp(dem_pixel2.x(), dem_pixel2.y());
-
-        Vector3 xyz1 = lon_lat_radius_to_xyz(Vector3(point1.x(), point1.y(), alt1));
-        Vector3 xyz2 = lon_lat_radius_to_xyz(Vector3(point2.x(), point2.y(), alt2));
-
+      if ( xyz1 != Vector3() &&
+           xyz2 != Vector3() ) {
         ransac_ip1.push_back(Vector4(xyz1.x(), xyz1.y(), xyz1.z(), 1));
         ransac_ip2.push_back(Vector4(xyz2.x(), xyz2.y(), xyz2.z(), 1));
       } else {
@@ -269,13 +252,21 @@ int main( int argc, char *argv[] ) {
 
     std::vector<size_t> indices;
     Matrix<double> trans;
-    math::RandomSampleConsensus<math::AffineFittingFunctorN<3>,math::L2NormErrorMetric>
-      ransac( math::AffineFittingFunctorN<3>(), math::L2NormErrorMetric(), 100, 10, ransac_ip1.size()/2, true);
-    trans = ransac(ransac_ip1, ransac_ip2);
-    indices = ransac.inlier_indices(trans, ransac_ip1, ransac_ip2);
+    math::RandomSampleConsensus<math::SimilarityFittingFunctorN<3>,math::L2NormErrorMetric>
+      ransac( math::SimilarityFittingFunctorN<3>(), math::L2NormErrorMetric(), 2000, 200, 2*ransac_ip1.size()/3, true);
+    trans = ransac(ransac_ip2, ransac_ip1);
+    indices = ransac.inlier_indices(trans, ransac_ip2, ransac_ip1);
 
     vw_out() << "\t    * Ransac Result: " << trans << "\n";
     vw_out() << "\t                     # inliers: " << indices.size() << "\n";
+
+    if (1) {
+      for ( size_t i = 0; i < ransac_ip1.size(); i++ ) {
+        std::cout << ransac_ip1[i] << " " << ransac_ip2[i] << " " << trans * ransac_ip2[i] << " "
+                  << norm_2(ransac_ip1[i]-ransac_ip2[i]) << " "
+                  << norm_2(ransac_ip1[i]-trans*ransac_ip2[i]) << std::endl;
+      }
+    }
 
     { // Saving transform to human readable text
       std::string filename = (fs::path(opt.dem1_name).branch_path() / (fs::basename(fs::path(opt.dem1_name)) + "__" + fs::basename(fs::path(opt.dem2_name)) + "-Matrix.txt")).string();
@@ -286,19 +277,18 @@ int main( int argc, char *argv[] ) {
       ofile.close();
     }
 
-    ImageViewRef<PixelMask<double> > dem1_masked(create_mask(dem1_dmg, opt.dem1_nodata));
+    // ImageViewRef<Vector3> point_cloud =
+    //   geodetic_to_cartesian( dem_to_geodetic( create_mask(dem1_dmg, opt.dem1_nodata), dem1_georef ), dem1_georef.datum() );
 
-    ImageViewRef<Vector3> point_cloud =
-      lon_lat_radius_to_xyz(project_point_image(dem_to_point_image(dem1_masked, dem1_georef), dem1_georef, false));
-    ImageViewRef<Vector3> point_cloud_trans =
-      per_pixel_filter(point_cloud, HomogeneousTransformFunctor<3>(trans));
+    // ImageViewRef<Vector3> point_cloud_trans =
+    //   per_pixel_filter(point_cloud, HomogeneousTransformFunctor<3>(trans));
 
-    DiskImageResourceGDAL point_cloud_rsrc(opt.output_prefix + "-PC.tif",
-                                           point_cloud_trans.format(),
-                                           opt.raster_tile_size,
-                                           opt.gdal_options);
-    block_write_image(point_cloud_rsrc, point_cloud_trans,
-                      TerminalProgressCallback("asp", "\t--> Transforming: "));
+    // DiskImageResourceGDAL point_cloud_rsrc(opt.output_prefix + "-PC.tif",
+    //                                        point_cloud_trans.format(),
+    //                                        opt.raster_tile_size,
+    //                                        opt.gdal_options);
+    // block_write_image(point_cloud_rsrc, point_cloud_trans,
+    //                   TerminalProgressCallback("asp", "\t--> Transforming: "));
   } ASP_STANDARD_CATCHES;
 
   return 0;
