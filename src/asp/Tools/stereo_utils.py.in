@@ -100,21 +100,6 @@ class BBox:
         return ["--trans-crop-win",str(self.x),
                 str(self.y),str(self.width),str(self.height)]
 
-    def expand( self, px, settings ):
-        image_size = settings["trans_left_image"]
-        self.x = self.x - px
-        self.y = self.y - px
-        self.width = self.width + 2 * px
-        self.height = self.height + 2 * px
-        if self.x < 0:
-            self.x = 0
-        if self.y < 0:
-            self.y = 0
-        if self.x + self.width > image_size[0]:
-            self.width =  image_size - self.x
-        if self.y + self.height > image_size[1]:
-            self.height = image_size - self.y
-
 def intersect_boxes(A, B):
     axmin = A.x; axmax = A.x + A.width; aymin = A.y; aymax = A.y + A.height
     bxmin = B.x; bxmax = B.x + B.width; bymin = B.y; bymax = B.y + B.height
@@ -150,9 +135,8 @@ def run(bin, args, opt, **kw):
     call = [binpath]
     call.extend(args)
 
-    if opt.dryrun:
-        print '%s' % ' '.join(call)
-        return
+    if opt.dryrun or opt.verbose: print(" ".join(call))
+    if opt.dryrun: return
     try:
         code = subprocess.call(call)
     except OSError, e:
@@ -163,9 +147,9 @@ def run(bin, args, opt, **kw):
 def run_sparse_disp(args, opt):
 
     settings   = run_and_parse_output( "stereo_parse", args )
-    left_img   = settings["in_file1"]
-    right_img  = settings["in_file2"]
+    left_img   = settings["trans_left_image"]
+    right_img  = settings["trans_right_image"]
     out_prefix = settings["out_prefix"]
 
-    sparse_args = left_img + right_img + out_prefix
+    sparse_args = left_img + right_img + out_prefix + ['--nodata-value', str(0)];
     run('sparse_disp', sparse_args, opt, msg='1: Low-res correlation with sparse_disp')
