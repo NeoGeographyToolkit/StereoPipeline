@@ -222,7 +222,7 @@ def sprawn_to_nodes(start, stop, num_nodes, settings, args):
 
     cmd += [args_str, ':::'] + ids # GNU parallel syntax
 
-    if opt.debug:
+    if opt.verbose:
         print(" ".join(cmd))
 
     code = subprocess.call(cmd)
@@ -329,20 +329,20 @@ if __name__ == '__main__':
 
     # Internal variables below.
     # The rank of the sprawned process (0 <= rank < num_nodes).
-    p.add_option('--rank',                 dest='rank', default=None, type='int',
+    p.add_option('--rank',      dest='rank', default=None, type='int',
                  help=optparse.SUPPRESS_HELP)
     # Directory where the job is running
-    p.add_option('--work-dir',            dest='work_dir', default=None,
+    p.add_option('--work-dir',  dest='work_dir', default=None,
                  help=optparse.SUPPRESS_HELP)
     # ISIS settings
-    p.add_option('--isisroot',            dest='isisroot', default=None,
+    p.add_option('--isisroot',  dest='isisroot', default=None,
                  help=optparse.SUPPRESS_HELP)
-    p.add_option('--isis3data',            dest='isis3data', default=None,
+    p.add_option('--isis3data', dest='isis3data', default=None,
                  help=optparse.SUPPRESS_HELP)
     # Debug options
-    p.add_option('--dry-run',              dest='dryrun', default=False, action='store_true',
+    p.add_option('--dry-run',   dest='dryrun', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
-    p.add_option('--debug',                dest='debug', default=False, action='store_true',
+    p.add_option('--verbose',   dest='verbose', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
 
     global opt
@@ -443,7 +443,7 @@ if __name__ == '__main__':
 
         # Launch multiple processes doing actual work on the current
         # machine for the current entry point.
-        if opt.debug:
+        if opt.verbose:
             print("Running on machine: ", os.uname())
 
         try:

@@ -47,7 +47,7 @@ if __name__ == '__main__':
                  help='Tell GDAL to not create bigtiffs.')
     p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
-    p.add_option('--debug',                dest='debug',       default=False, action='store_true',
+    p.add_option('--verbose',                dest='verbose', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
     p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
                  help='Display the version of software.')
@@ -88,6 +88,4 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 4 ):
             run('stereo_tri',  args, opt, msg = '4: Triangulation')
     except Exception, e:
-        if not opt.debug:
             die(e)
-        raise
