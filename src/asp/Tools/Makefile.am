@@ -21,13 +21,15 @@
 ########################################################################
 
 bin_PROGRAMS =
-python_tool_scripts =
+bin_SCRIPTS =
+libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
 if MAKE_APP_STEREO
-  python_tool_scripts += stereo parallel_stereo sparse_disp dg_mosaic
+  bin_SCRIPTS += stereo parallel_stereo sparse_disp dg_mosaic
+  libexec_SCRIPTS += stereo_utils.py
   bin_PROGRAMS += stereo_corr stereo_fltr stereo_pprc stereo_rfne stereo_tri
-  libexec_PROGRAMS += stereo_parse stereo_utils.py
+  libexec_PROGRAMS += stereo_parse
   stereo_corr_LDADD       = $(APP_STEREO_LIBS)
   stereo_corr_SOURCES     = stereo_corr.cc stereo.cc
   stereo_fltr_LDADD       = $(APP_STEREO_LIBS)
@@ -177,16 +179,13 @@ endif
 # Scripts
 ##############################################################################
 
-python_tool_scripts += time_trials cam2map4stereo.py \
+bin_SCRIPTS += time_trials cam2map4stereo.py \
 	hiedr2mosaic.py lronac4staged.py
-bin_SCRIPTS = $(python_tool_scripts)
-CLEANFILES = $(python_tool_scripts)
+all_scripts = $(bin_SCRIPTS)
+all_scripts += $(libexec_SCRIPTS)
+CLEANFILES = $(all_scripts)
 
-$(python_tool_scripts): %: %.in
-	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
-	chmod +x $@
-
-stereo_utils.py: %: %.in
+$(all_scripts): %: %.in
 	sed 's/\[@\]ASP_VERSION\[@\]/$(VERSION)/g' < $(srcdir)/$< > $@
 	chmod +x $@
 
