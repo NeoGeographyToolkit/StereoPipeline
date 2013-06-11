@@ -123,6 +123,7 @@ namespace asp {
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
     double disparity_estimation_dem_error; // Error (in meters) of the disparity estimation DEM
     bool use_local_homography;        // Apply a local homography in each tile
+    int corr_timeout;                 // Correlation timeout for a tile, in seconds
 
     // Subpixel Options
     vw::uint16 subpixel_mode;         // 0 = parabola fitting

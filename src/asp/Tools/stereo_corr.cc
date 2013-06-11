@@ -68,7 +68,9 @@ void produce_lowres_disparity( Options & opt ) {
                                << search_range << " px\n";
     // Below we use on purpose stereo::CROSS_CORRELATION instead of
     // user's choice of correlation method, since this is the most
-    // accurate, as well as reasonably fast for subsapled images.
+    // accurate, as well as reasonably fast for sub-sampled images.
+    int corr_timeout = 0; double seconds_per_op = 0.0;
+
     asp::block_write_gdal_image
       (opt.out_prefix + "-D_sub.tif",
        remove_outliers(stereo::pyramid_correlate
@@ -77,8 +79,9 @@ void produce_lowres_disparity( Options & opt ) {
                         stereo::LaplacianOfGaussian(stereo_settings().slogW),
                         search_range,
                         stereo_settings().corr_kernel,
-                        stereo::CROSS_CORRELATION, 2
-                        ),
+                        stereo::CROSS_CORRELATION,
+                        corr_timeout, seconds_per_op,
+                        2, 5),
                        1, 1, 2.0, 0.5
                        ), opt,
        TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
@@ -226,7 +229,10 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, 
   Vector2 m_upscale_factor;
   BBox2i m_seed_bbox;
   BBox2i m_trans_crop_win;
+  Vector2i m_kernel_size;
   stereo::CostFunctionType m_cost_mode;
+  int m_corr_timeout;
+  double m_seconds_per_op;
 
 public:
   SeededCorrelatorView( ImageViewBase<Image1T> const& left_image,
@@ -238,12 +244,16 @@ public:
                         ImageView<Matrix3x3> const& local_hom,
                         stereo::PreFilterBase<PProcT> const& filter,
                         BBox2i trans_crop_win,
-                        stereo::CostFunctionType cost_mode ) :
+                        Vector2i const& kernel_size,
+                        stereo::CostFunctionType cost_mode,
+                        int corr_timeout, double seconds_per_op) :
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_left_mask(left_mask.impl()), m_right_mask(right_mask.impl()),
     m_sub_disp( sub_disp.impl() ), m_sub_disp_spread( sub_disp_spread.impl() ),
     m_local_hom(local_hom), m_preproc_func( filter.impl() ),
-    m_trans_crop_win(trans_crop_win), m_cost_mode(cost_mode) {
+    m_trans_crop_win(trans_crop_win),
+    m_kernel_size(kernel_size), m_cost_mode(cost_mode),
+    m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
     m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
     m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disp.rows();
     m_seed_bbox = bounding_box( m_sub_disp );
@@ -403,7 +413,8 @@ public:
       CorrView corr_view( m_left_image, right_trans_img,
                           m_left_mask, right_trans_mask,
                           m_preproc_func, local_search_range,
-                          stereo_settings().corr_kernel, m_cost_mode,
+                          m_kernel_size, m_cost_mode,
+                          m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels );
       return corr_view.prerasterize(bbox);
@@ -412,7 +423,8 @@ public:
       CorrView corr_view( m_left_image, m_right_image,
                           m_left_mask, m_right_mask,
                           m_preproc_func, local_search_range,
-                          stereo_settings().corr_kernel, m_cost_mode,
+                          m_kernel_size, m_cost_mode,
+                          m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels );
       return corr_view.prerasterize(bbox);
@@ -436,11 +448,14 @@ seeded_correlation( ImageViewBase<Image1T> const& left,
                     ImageView<Matrix3x3> const& local_hom,
                     stereo::PreFilterBase<PProcT> const& filter,
                     BBox2i trans_crop_win,
-                    stereo::CostFunctionType cost_type ) {
+                    Vector2i const& kernel_size,
+                    stereo::CostFunctionType cost_type,
+                    int corr_timeout, double seconds_per_op) {
   typedef SeededCorrelatorView<Image1T, Image2T, Mask1T, Mask2T, SeedDispT, PProcT> return_type;
   return return_type( left.impl(), right.impl(), lmask.impl(), rmask.impl(),
                       sub_disp.impl(), sub_disp_spread.impl(),
-                      local_hom, filter.impl(), trans_crop_win, cost_type );
+                      local_hom, filter.impl(), trans_crop_win, kernel_size,
+                      cost_type, corr_timeout, seconds_per_op );
 }
 
 void stereo_correlation( Options& opt ) {
@@ -508,6 +523,14 @@ void stereo_correlation( Options& opt ) {
               << " for cost-mode.\n" );
 
   ImageViewRef<PixelMask<Vector2i> > fullres_disparity;
+  Vector2i kernel_size = stereo_settings().corr_kernel;
+  BBox2i trans_crop_win = stereo_settings().trans_crop_win;
+  int corr_timeout      = stereo_settings().corr_timeout;
+  double seconds_per_op = 0.0;
+  if (corr_timeout > 0)
+    seconds_per_op = calc_seconds_per_op(cost_mode, left_disk_image, right_disk_image,
+                                         kernel_size);
+
   if ( stereo_settings().pre_filter_mode == 2 ) {
     vw_out() << "\t--> Using LOG pre-processing filter with "
              << stereo_settings().slogW << " sigma blur.\n";
@@ -515,7 +538,8 @@ void stereo_correlation( Options& opt ) {
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disp, sub_disp_spread, local_hom,
                           stereo::LaplacianOfGaussian(stereo_settings().slogW),
-                          stereo_settings().trans_crop_win, cost_mode );
+                          trans_crop_win, kernel_size, cost_mode, corr_timeout,
+                          seconds_per_op );
   } else if ( stereo_settings().pre_filter_mode == 1 ) {
     vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
              << stereo_settings().slogW << " sigma blur.\n";
@@ -523,14 +547,16 @@ void stereo_correlation( Options& opt ) {
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disp, sub_disp_spread, local_hom,
                           stereo::SubtractedMean(stereo_settings().slogW),
-                          stereo_settings().trans_crop_win, cost_mode );
+                          trans_crop_win, kernel_size, cost_mode, corr_timeout,
+                          seconds_per_op );
   } else {
     vw_out() << "\t--> Using NO pre-processing filter." << std::endl;
     fullres_disparity =
       seeded_correlation( left_disk_image, right_disk_image, Lmask, Rmask,
                           sub_disp, sub_disp_spread, local_hom,
-                          stereo::NullOperation(), stereo_settings().trans_crop_win,
-                          cost_mode );
+                          stereo::NullOperation(),
+                          trans_crop_win, kernel_size, cost_mode, corr_timeout,
+                          seconds_per_op );
   }
 
   asp::block_write_gdal_image( opt.out_prefix + "-D.tif",

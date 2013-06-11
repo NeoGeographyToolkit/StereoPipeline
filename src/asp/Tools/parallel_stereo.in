@@ -25,32 +25,6 @@ from stereo_utils import *
 
 job_pool  = [] # currently running jobs
 
-# Launch a job using Popen. If that job is stereo_corr, enforce
-# timeout.
-# To do: Write a custom wait() function. For now, timeout
-# will be enforced only if the poll() function is called
-# periodically.
-class popen_timeout(subprocess.Popen):
-
-    prog_name  = ""
-    start_time = 0
-
-    def __init__(self, *args, **kwargs):
-        self.cmd = args[0]
-        self.prog_name = args[0][0]
-        self.start_time = time.time()
-        super(popen_timeout, self).__init__(*args, **kwargs)
-
-    def poll(self):
-        if re.match('^.*?stereo_corr', self.prog_name):
-            diff = time.time() - self.start_time
-            if ( opt.corr_timeout is not None ) and ( diff > opt.corr_timeout ):
-                # Enforce timeout on stereo_corr
-                print('Job timeout (' + str(opt.corr_timeout) + 'sec): ' + " ".join(self.cmd))
-                super(popen_timeout, self).kill()
-
-        return super(popen_timeout, self).poll()
-
 def produce_tiles( settings, tile_w, tile_h ):
     image_size = settings["trans_left_image_size"]
     tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
@@ -70,22 +44,19 @@ def produce_tiles( settings, tile_w, tile_h ):
     return tiles;
 
 def add_job( cmd ):
-    # This code could be smarter. It is possible that the processes
-    # might finish out of order.
     sleep_time = 0.001
     while ( len(job_pool) >= opt.processes ):
         for i in range(len(job_pool)):
             if ( job_pool[i].poll() is not None ):
                 job_pool.pop(i)
-                job_pool.append( popen_timeout(cmd) )
+                job_pool.append( subprocess.Popen(cmd) )
                 return
         time.sleep( sleep_time )
         sleep_time = (sleep_time * 5) % 60
-    job_pool.append( popen_timeout(cmd) )
+    job_pool.append( subprocess.Popen(cmd) )
 
 def wait_on_all_jobs():
     print "Waiting for jobs to finish";
-    # Must keep on polling the jobs to enforce the timeout
     sleep_time = 1
     while len(job_pool) > 0:
         for i in range(len(job_pool)):
@@ -322,8 +293,6 @@ if __name__ == '__main__':
                  help='Pixel width of input image tile for a single process.', type='int')
     p.add_option('--job-size-h',           dest='job_size_h',  default=2048,
                  help='Pixel height of input image tile for a single process.', type='int')
-    p.add_option('--correlation-timeout',  dest='corr_timeout',   default=None,  type='int',
-                 help='Timeout in seconds for a stereo correlation process.')
     p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
                  help='Display the version of software.')
 

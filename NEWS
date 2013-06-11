@@ -3,6 +3,8 @@
   - dg_mosaic can generate a combined RPC model in addition to the combined DG model.
   - Subpixel mosaicing in dg_mosaic instead of nearest neighbor.
 
+  - Timeout option added for stereo correlation, preventing unreasonably long correlation times for certain image tiles.
+
 *** RELEASE 2.2.2, 17 MAY 2013 ***
     (incremented from 2.2.1 after one more bugfix)
 
