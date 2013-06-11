@@ -101,13 +101,20 @@ void parseImgData(std::string data, int& dst_cols, int& dst_rows,
         img_data[l].dst_box.min().y() = img_data[l].dst_box.max().y();
     }
 
-    // Adjust the source box as well
-    img_data[k].src_box = img_data[k].T.reverse_bbox(img_data[k].dst_box);
+    // Adjust the source box as well. Expand the box slightly before
+    // reversing as reverse_bbox casts its input to BBox2i which
+    // is a problem if the box has floating point corners.
+    // The ultimate references are always the destination box
+    // and the affine transform.
+    BBox2 box = img_data[k].dst_box;
+    box.expand(1);
+    img_data[k].src_box = img_data[k].T.reverse_bbox(box);
   }
 
 #if 0
   for (int k = 0; k < (int)img_data.size(); k++){
-    std::cout << "boxes: " << img_data[k].src_box << ' '
+    std::cout << "boxes: " << img_data[k].src_file << " "
+              << img_data[k].src_box << ' '
               << img_data[k].T.reverse_bbox(img_data[k].dst_box)
               << ' ' << img_data[k].dst_box << std::endl;
   }
@@ -163,14 +170,17 @@ public:
     typedef InterpolationView<EdgeExtensionView<ImageT, ConstantEdgeExtension>,
       BilinearInterpolation> InterpT;
 
-    std::vector<BBox2>   src_vec(m_img_data.size());
+    std::vector<BBox2i>  src_vec(m_img_data.size());
     std::vector<ImageT>  crop_vec(m_img_data.size());
     for (int k = 0; k < (int)m_img_data.size(); k++){
       BBox2 box = m_img_data[k].dst_box;
       box.crop(scaled_box);
+      if (box.empty()) continue;
+      box.expand(1); // since reverse_bbox will truncate input box to BBox2i
       box = m_img_data[k].T.reverse_bbox(box);
       box = grow_bbox_to_int(box);
       box.crop(bounding_box(m_img_data[k].src_img));
+      if (box.empty()) continue;
       src_vec[k] = box;
       crop_vec[k] = create_mask(crop(m_img_data[k].src_img, box),
                                 m_img_data[k].nodata_val);
@@ -189,10 +199,11 @@ public:
         Vector2 dst_pix
           = Vector2(col + bbox.min().x(), row + bbox.min().y())/m_scale;
 
-        // See which src image we end up in.
+        // See which src image we end up in. Start from the later
+        // images, as those are on top.
         int good_k = -1;
         Vector2 src_pix;
-        for (int k = 0; k < (int)m_img_data.size(); k++){
+        for (int k = (int)m_img_data.size()-1; k >= 0; k--){
           src_pix = m_img_data[k].T.reverse(dst_pix);
           if (src_vec[k].contains(src_pix)){
             good_k = k;
@@ -281,7 +292,7 @@ int main( int argc, char *argv[] ) {
     // as the output nodata value.
     double output_nodata_val = img_data[0].nodata_val;
 
-    std::cout << "Writing: " << opt.output_image << std::endl;
+    vw_out() << "Writing: " << opt.output_image << std::endl;
     asp::block_write_gdal_image(opt.output_image,
                                 tifMosaic(dst_cols, dst_rows,
                                           img_data, scale,
