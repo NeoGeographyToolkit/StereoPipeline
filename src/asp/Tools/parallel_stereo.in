@@ -357,7 +357,7 @@ if __name__ == '__main__':
     args_sub = args[:] # deep copy
     args_sub.extend(['--compute-low-res-disparity-only'])
 
-    settings=run_and_parse_output( "stereo_parse", args )
+    settings=run_and_parse_output( "stereo_parse", args, opt.verbose )
 
     if opt.rank is None:
 
@@ -380,7 +380,7 @@ if __name__ == '__main__':
             single_run('stereo_pprc', args, msg='0: Preprocessing')
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
-            settings=run_and_parse_output( "stereo_parse", args )
+            settings=run_and_parse_output( "stereo_parse", args, opt.verbose )
             create_subproject_dirs( settings )
         if ( opt.entry_point <= 1 ):
             # Correlation. First do low-res.
