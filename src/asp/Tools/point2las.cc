@@ -127,7 +127,7 @@ int main( int argc, char *argv[] ) {
     }
 
     vw_out() << "Writing LAS file: " << lasFile + "\n";
-
+    asp::create_out_dir(lasFile);
     std::ofstream ofs;
     ofs.open(lasFile.c_str(), std::ios::out | std::ios::binary);
     liblas::Writer writer(ofs, header);
