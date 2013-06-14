@@ -290,51 +290,35 @@ int main(int argc, char* argv[]) {
   try {
     handle_arguments( argc, argv, opt );
 
-    // If the user hasn't specified a stereo session type, we take a
-    // guess here based on the file suffixes.
-    if ( opt.stereo_session.empty() ) {
-      std::string ext = fs::path(opt.camera_model_file).extension().string();
-      if ( ext == ".cahvor" || ext == ".cmod" ||
-           ext == ".cahv" || ext ==  ".pinhole" || ext == ".tsai" ) {
-        vw_out() << "\t--> Detected pinhole camera.\n";
-        opt.stereo_session = "pinhole";
-      } else if ( fs::path(opt.image_file).extension() == ".cub" ) {
-        vw_out() << "\t--> Detected ISIS cube.\n";
-        opt.stereo_session = "isis";
-      } else {
-        vw_out() << "\n\n******************************************************************\n";
-        vw_out() << "Could not determine stereo session type.   Please set it explicitly\n";
-        vw_out() << "using the -t switch.  Options include: [pinhole isis].\n";
-        vw_out() << "******************************************************************\n\n";
-        return 1;
-      }
-    }
-
-    // Isis Session command handling
-    if (opt.stereo_session == "isis") {
-      // User didn't provide an output file, meaning camera_model was not an isis_adjust file.
-      if ( opt.output_file.empty() )
-        opt.output_file = opt.camera_model_file;
-    } else {
-      if ( opt.output_file.empty() )
-        vw_throw( ArgumentErr() << "Missing output filename.\n" );
-    }
-
-    asp::create_out_dir(opt.output_file);
-
     // We create a stereo session where both of the cameras and images
     // are the same, because we want to take advantage of the stereo
     // pipeline's ability to generate camera models for various
     // missions.  Hence, we create two identical camera models, but
     // only one is used.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSession::create(opt.stereo_session, opt,
+    SessionPtr session( asp::StereoSession::create(opt.stereo_session, // this gets updated inside
+                                                   opt,
                                                    opt.image_file, opt.image_file,
                                                    opt.camera_model_file,
                                                    opt.camera_model_file,
                                                    opt.output_file) );
     boost::shared_ptr<camera::CameraModel> camera_model =
       session->camera_model(opt.image_file, opt.camera_model_file);
+
+    if ( opt.stereo_session != "isis" && opt.stereo_session != "pinhole" ) {
+      vw_throw( ArgumentErr() << "Supported sessions: [pinhole isis].\n" );
+    }
+
+    if (session->name() == "isis" && opt.output_file.empty() ){
+      // The user did not provide an output file. Then the camera
+      // information is contained within the image file and what is in
+      // the camera file is actually the output file.
+      opt.output_file = opt.camera_model_file;
+      opt.camera_model_file.clear();
+    }
+
+    if ( opt.output_file.empty() )
+      vw_throw( ArgumentErr() << "Missing output filename.\n" );
 
     GeoReference dem_georef;
     ImageViewRef<PixelMask<float > > dem;
@@ -486,6 +470,8 @@ int main(int argc, char* argv[]) {
     vw_out( DebugMessage, "asp" ) << "Output GeoReference: "
                                   << drg_georef << "\n";
 
+    // Create and write the orthoprojected image.
+    asp::create_out_dir(opt.output_file);
     switch(texture_fmt.pixel_format) {
 
       // 1.0. RGB, with our without alpha channel
