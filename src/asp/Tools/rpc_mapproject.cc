@@ -38,7 +38,7 @@ namespace fs = boost::filesystem;
 
 struct Options : asp::BaseOptions {
   // Input
-  std::string dem_file, image_file, camera_model_file, output_file;
+  std::string dem_file, image_file, camera_model_file, output_file, stereo_session;
 
   // Settings
   std::string target_srs_string;
@@ -53,6 +53,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("nodata-value", po::value(&opt.nodata_value), "Nodata value to use on output.")
     ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the  gdal option.")
     ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)")
+    ("session-type,t", po::value(&opt.stereo_session)->default_value("rpc"), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]") // pinhole???
     ("t_projwin", po::value(&opt.target_projwin),
      "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.");
 
@@ -78,7 +79,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   if ( !vm.count("dem") || !vm.count("camera-image") ||
        !vm.count("camera-model") || !vm.count("t_srs") )
-    vw_throw( ArgumentErr() << "Requires <dem> <camera-image> <camera-model> and <t_srs> input in order to proceed.\n\n"
+    vw_throw( ArgumentErr() << "Requires <dem> <camera-image> <camera-model> "
+              << "and <t_srs> input in order to proceed.\n\n"
               << usage << general_options );
 
   if ( opt.output_file.empty() )
@@ -96,7 +98,9 @@ int main( int argc, char* argv[] ) {
     {
       cartography::GeoReference dummy_georef;
       VW_ASSERT( !read_georeference( dummy_georef, opt.image_file ),
-                 ArgumentErr() << "Your input camera image is already map projected. The expected input is required to be unprojected or raw camera imagery." );
+                 ArgumentErr() << "Your input camera image is already map "
+                 << "projected. The expected input is required to be "
+                 << "unprojected or raw camera imagery." );
     }
 
     // Load DEM
@@ -114,7 +118,8 @@ int main( int argc, char* argv[] ) {
                                << opt.target_srs_string << "\"\n";
     OGRSpatialReference gdal_spatial_ref;
     if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
-      vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string << "\"." );
+      vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string
+                << "\"." );
     char *wkt = NULL;
     gdal_spatial_ref.exportToWkt( &wkt );
     std::string wkt_string(wkt);
@@ -122,42 +127,59 @@ int main( int argc, char* argv[] ) {
 
     target_georef.set_wkt( wkt_string );
 
-    // Work out target resolution and image size
-    asp::StereoSessionDG session;
+    // Work out target resolution and image size. For that we use
+    // the DG camera model.
+    asp::StereoSessionDG dg_session;
     boost::shared_ptr<camera::CameraModel>
-      camera_model( session.camera_model( opt.image_file, opt.camera_model_file ) );
+      dg_model(dg_session.camera_model(opt.image_file, opt.camera_model_file));
     Vector2i image_size = asp::file_image_size( opt.image_file );
+
+    // Find the camera bbox. We don't just use the RPC boundary, in
+    // the event of pole crossing. (camera_bbox does this nice
+    // X-shaped test that is good for working on how much latitude we
+    // can draw in the even they're using a equirectangular
+    // projection.)
     BBox2 point_bounds =
       opt.target_resolution <= 0 ?
-      camera_bbox( target_georef, camera_model,
+      camera_bbox( target_georef, dg_model,
                    image_size.x(), image_size.y(),
                    opt.target_resolution ) :
-      camera_bbox( target_georef, camera_model,
+      camera_bbox( target_georef, dg_model,
                    image_size.x(), image_size.y() );
 
-    // Load up RPC - and then add its bounds to the point_bounds. We
-    // don't just use the RPC boundary, in the event of pole
-    // crossing. (camera bbox does this nice 'X' shaped test that is
-    // good for working on how much latitude we can draw in the even
-    // they're using a equirectangular projection.).
-    asp::RPCXML xml;
-    xml.read_from_file( opt.camera_model_file );
-    {
-      asp::RPCModel* ptr = xml.rpc_ptr();
-      point_bounds.grow(
-        target_georef.lonlat_to_point( subvector(ptr->lonlatheight_offset() +
-                                                 ptr->lonlatheight_scale(), 0, 2) ) );
-      point_bounds.grow(
-        target_georef.lonlat_to_point( subvector(ptr->lonlatheight_offset() -
-                                                 ptr->lonlatheight_scale(), 0, 2) ) );
-      point_bounds.grow(
-        target_georef.lonlat_to_point( subvector(ptr->lonlatheight_offset() +
-                                                 elem_prod( Vector3(1,-1,1),
-                                                            ptr->lonlatheight_scale() ), 0, 2) ) );
-      point_bounds.grow(
-        target_georef.lonlat_to_point( subvector(ptr->lonlatheight_offset() +
-                                                 elem_prod( Vector3(-1,1,1),
-                                                            ptr->lonlatheight_scale() ), 0, 2) ) );
+
+    boost::shared_ptr<asp::RPCModel> rpc_model; // To reclaim the pointer later
+    camera::CameraModel * cam_model;
+    if (opt.stereo_session == "rpc"){
+      asp::RPCXML xml;
+      xml.read_from_file( opt.camera_model_file );
+      rpc_model = boost::shared_ptr<asp::RPCModel>(new asp::RPCModel(*xml.rpc_ptr()));
+      cam_model = rpc_model.get();
+
+      // Add the corners based on the RPC model to the point_bounds.
+      point_bounds.grow
+        (target_georef.lonlat_to_point
+         (subvector(rpc_model->lonlatheight_offset() +
+                    rpc_model->lonlatheight_scale(), 0, 2) ) );
+      point_bounds.grow
+        (target_georef.lonlat_to_point
+         (subvector(rpc_model->lonlatheight_offset() -
+                    rpc_model->lonlatheight_scale(), 0, 2) ) );
+      point_bounds.grow
+        (target_georef.lonlat_to_point
+         (subvector(rpc_model->lonlatheight_offset() +
+                    elem_prod( Vector3(1,-1,1),
+                               rpc_model->lonlatheight_scale() ), 0, 2) ) );
+      point_bounds.grow
+        (target_georef.lonlat_to_point
+         (subvector(rpc_model->lonlatheight_offset() +
+                    elem_prod( Vector3(-1,1,1),
+                               rpc_model->lonlatheight_scale() ), 0, 2) ) );
+
+    }else if (opt.stereo_session == "dg"){
+      cam_model = dg_model.get();
+    }else{
+      vw_throw( ArgumentErr() << "Supported sessions: [dg rpc].\n" );
     }
 
     if ( opt.target_projwin != BBox2() ) {
@@ -170,27 +192,26 @@ int main( int argc, char* argv[] ) {
       point_bounds.min().y() += opt.target_resolution;
     }
 
-    {
-      Matrix3x3 transform = math::identity_matrix<3>();
-      transform(0,0) = opt.target_resolution;
-      transform(1,1) = -opt.target_resolution;
-      transform(0,2) = point_bounds.min().x();
-      transform(1,2) = point_bounds.max().y();
-      if ( target_georef.pixel_interpretation() ==
-           cartography::GeoReference::PixelAsArea ) {
-        transform(0,2) -= 0.5 * opt.target_resolution;
-        transform(1,2) += 0.5 * opt.target_resolution;
-      }
-      target_georef.set_transform( transform );
+    Matrix3x3 T = math::identity_matrix<3>();
+    T(0,0) = opt.target_resolution;
+    T(1,1) = -opt.target_resolution;
+    T(0,2) = point_bounds.min().x();
+    T(1,2) = point_bounds.max().y();
+    if ( target_georef.pixel_interpretation() ==
+         cartography::GeoReference::PixelAsArea ) {
+      T(0,2) -= 0.5 * opt.target_resolution;
+      T(1,2) += 0.5 * opt.target_resolution;
     }
+    target_georef.set_transform( T );
     vw_out() << "Output georeference:\n" << target_georef << std::endl;
 
     BBox2i target_image_size =
       target_georef.point_to_pixel_bbox( point_bounds );
-    vw_out() << "Creating output file that is " << target_image_size.size() << " px.\n";
+    vw_out() << "Creating output file that is " << target_image_size.size()
+             << " px.\n";
 
-    // Check if the four corners of the projected image
-    // are at valid DEM points.
+    // Check if the four corners of the projected image are at valid
+    // DEM points.
     double nodata = std::numeric_limits<double>::quiet_NaN();
     if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
     DiskImageView<float> dem(dem_rsrc);
@@ -216,13 +237,14 @@ int main( int argc, char* argv[] ) {
       src_rsrc( DiskImageResource::open( opt.image_file ) );
 
     // Raster output image
+    asp::create_out_dir(opt.output_file);
     if ( src_rsrc->has_nodata_read() ) {
       asp::block_write_gdal_image
         (opt.output_file,
          apply_mask
          (transform
           (create_mask(DiskImageView<float>( src_rsrc), src_rsrc->nodata_read()),
-           asp::RPCMapTransform( *xml.rpc_ptr(), target_georef,
+           asp::RPCMapTransform( cam_model, target_georef,
                                  dem_georef, dem_rsrc ),
            target_image_size.width(), target_image_size.height(),
            ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
@@ -232,7 +254,7 @@ int main( int argc, char* argv[] ) {
       asp::block_write_gdal_image
         (opt.output_file,
          transform(DiskImageView<float>( src_rsrc ),
-                   asp::RPCMapTransform( *xml.rpc_ptr(), target_georef,
+                   asp::RPCMapTransform( cam_model, target_georef,
                                          dem_georef, dem_rsrc ),
                    target_image_size.width(), target_image_size.height(),
                    ZeroEdgeExtension(), BicubicInterpolation() ),
