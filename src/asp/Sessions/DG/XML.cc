@@ -556,39 +556,44 @@ void asp::read_xml( std::string const& filename,
 
   // Check if the file actually exists and throw a user helpful file.
   if ( !fs::exists( filename ) )
-    vw_throw( ArgumentErr() << "XML: File \"" << filename << "\" does not exist." );
+    vw_throw( ArgumentErr() << "XML file \"" << filename << "\" does not exist." );
 
-  boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
-  parser->setValidationScheme(XercesDOMParser::Val_Always);
-  parser->setDoNamespaces(true);
-  boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
-  parser->setErrorHandler(errHandler.get());
+  try{
+    boost::scoped_ptr<XercesDOMParser> parser( new XercesDOMParser() );
+    parser->setValidationScheme(XercesDOMParser::Val_Always);
+    parser->setDoNamespaces(true);
+    boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
+    parser->setErrorHandler(errHandler.get());
 
-  parser->parse( filename.c_str() );
-  DOMDocument* xmlDoc = parser->getDocument();
-  DOMElement* elementRoot = xmlDoc->getDocumentElement();
+    parser->parse( filename.c_str() );
+    DOMDocument* xmlDoc = parser->getDocument();
+    DOMElement* elementRoot = xmlDoc->getDocumentElement();
 
-  DOMNodeList* children = elementRoot->getChildNodes();
-  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
-    DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() == DOMNode::ELEMENT_NODE ) {
-      DOMElement* curr_element =
-        dynamic_cast<DOMElement*>( curr_node );
+    DOMNodeList* children = elementRoot->getChildNodes();
+    for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+      DOMNode* curr_node = children->item(i);
+      if ( curr_node->getNodeType() == DOMNode::ELEMENT_NODE ) {
+        DOMElement* curr_element =
+          dynamic_cast<DOMElement*>( curr_node );
 
-      std::string tag( XMLString::transcode(curr_element->getTagName()) );
+        std::string tag( XMLString::transcode(curr_element->getTagName()) );
 
-      if ( tag == "GEO" )
-        geo.parse( curr_element );
-      else if ( tag == "EPH" )
-        eph.parse( curr_element );
-      else if ( tag == "ATT" )
-        att.parse( curr_element );
-      else if ( tag == "IMD" )
-        img.parse( curr_element );
-      else if ( tag == "RPB" )
-        rpc.parse( curr_element );
+        if ( tag == "GEO" )
+          geo.parse( curr_element );
+        else if ( tag == "EPH" )
+          eph.parse( curr_element );
+        else if ( tag == "ATT" )
+          att.parse( curr_element );
+        else if ( tag == "IMD" )
+          img.parse( curr_element );
+        else if ( tag == "RPB" )
+          rpc.parse( curr_element );
+      }
     }
+  }catch(...){
+    vw_throw( ArgumentErr() << "XML file \"" << filename << "\" is invalid." );
   }
+
 }
 
 vw::Vector2i asp::xml_image_size( std::string const& filename ){
