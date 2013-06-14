@@ -96,7 +96,7 @@ namespace asp {
     virtual ~StereoSession() {}
 
     // Methods for registering and creating stereo sessions.
-    static StereoSession* create( std::string const& session_type,
+    static StereoSession* create( std::string & session_type,
                                   BaseOptions const& options,
                                   std::string const& left_image_file = "",
                                   std::string const& right_image_file = "",
