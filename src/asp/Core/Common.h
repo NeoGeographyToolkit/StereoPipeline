@@ -126,14 +126,7 @@ namespace asp {
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
 
-  template <class ImageT>
-  void write_gdal_image( const std::string &filename,
-                         vw::ImageViewBase<ImageT> const& image,
-                         BaseOptions const& opt,
-                         vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
-    boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
-    vw::write_image( *rsrc, image.impl(), progress_callback );
-  }
+  // Single-threaded write functions.
 
   template <class ImageT>
   void write_gdal_georeferenced_image( const std::string &filename,
@@ -143,6 +136,29 @@ namespace asp {
                                        vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
     boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
     vw::cartography::write_georeference(*rsrc, georef);
+    vw::write_image( *rsrc, image.impl(), progress_callback );
+  }
+
+  // Write image with nodata and georef.
+  template <class ImageT, class NoDataT>
+  void write_gdal_georeferenced_image( const std::string &filename,
+                                       vw::ImageViewBase<ImageT> const& image,
+                                       vw::cartography::GeoReference const& georef,
+                                       NoDataT nodata,
+                                       BaseOptions const& opt,
+                                       vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
+    boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
+    rsrc->set_nodata_write(nodata);
+    vw::cartography::write_georeference(*rsrc, georef);
+    vw::write_image( *rsrc, image.impl(), progress_callback );
+  }
+
+  template <class ImageT>
+  void write_gdal_image( const std::string &filename,
+                         vw::ImageViewBase<ImageT> const& image,
+                         BaseOptions const& opt,
+                         vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
+    boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
     vw::write_image( *rsrc, image.impl(), progress_callback );
   }
 
