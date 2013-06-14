@@ -24,11 +24,11 @@ using namespace vw;
 
 namespace asp {
 
-  RPCMapTransform::RPCMapTransform( RPCModel const& rpc,
+  RPCMapTransform::RPCMapTransform( vw::camera::CameraModel const* cam,
                                     cartography::GeoReference const& image_georef,
                                     cartography::GeoReference const& dem_georef,
                                     boost::shared_ptr<DiskImageResource> dem_rsrc ) :
-    m_rpc(rpc), m_image_georef(image_georef), m_dem_georef(dem_georef),
+    m_cam(cam), m_image_georef(image_georef), m_dem_georef(dem_georef),
     m_dem(dem_rsrc) {
     using namespace vw;
     using namespace vw::cartography;
@@ -70,7 +70,7 @@ namespace asp {
                          p.y() - m_cache_size.min().y()):
       m_point_cloud(p.x(),p.y());
 
-    return m_rpc.point_to_pixel(xyz);
+    return m_cam->point_to_pixel(xyz);
   }
 
   // This function will be called whenever we start to apply the

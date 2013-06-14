@@ -31,7 +31,7 @@ namespace asp {
   // projected images. However, this could be used for performing an RPC
   // map projection.
   class RPCMapTransform : public vw::TransformBase<RPCMapTransform> {
-    RPCModel m_rpc;
+    vw::camera::CameraModel const* m_cam;
     vw::cartography::GeoReference m_image_georef, m_dem_georef;
     vw::DiskImageView<float> m_dem;
     vw::ImageViewRef<vw::Vector3> m_point_cloud;
@@ -40,7 +40,7 @@ namespace asp {
     mutable vw::ImageView<vw::Vector3> m_point_cloud_cache;
     mutable vw::BBox2i m_cache_size;
   public:
-    RPCMapTransform( asp::RPCModel const& rpc,
+    RPCMapTransform( vw::camera::CameraModel const* cam,
                      vw::cartography::GeoReference const& image_georef,
                      vw::cartography::GeoReference const& dem_georef,
                      boost::shared_ptr<vw::DiskImageResource> dem_rsrc );

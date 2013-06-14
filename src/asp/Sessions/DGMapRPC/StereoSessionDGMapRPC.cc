@@ -98,9 +98,9 @@ bool StereoSessionDGMapRPC::ip_matching( std::string const& match_filename,
   boost::shared_ptr<DiskImageResource>
     dem_rsrc( DiskImageResource::open( m_input_dem ) );
   TransformRef
-    left_tx( RPCMapTransform( *left_rpc, left_georef,
+    left_tx( RPCMapTransform( left_rpc.get(), left_georef,
                               dem_georef, dem_rsrc ) ),
-    right_tx( RPCMapTransform( *right_rpc, right_georef,
+    right_tx( RPCMapTransform( right_rpc.get(), right_georef,
                                dem_georef, dem_rsrc ) );
   return
     asp::ip_matching( left_cam.get(), right_cam.get(),
@@ -133,7 +133,7 @@ StereoSessionDGMapRPC::tx_left() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return left_tx_type( RPCMapTransform(*StereoSessionRPC::read_rpc_model(m_left_image_file, m_left_camera_file),
+  return left_tx_type( RPCMapTransform(StereoSessionRPC::read_rpc_model(m_left_image_file, m_left_camera_file),
                                        image_georef, dem_georef, dem_rsrc),
                        HomographyTransform(tx) );
 }
@@ -160,7 +160,7 @@ StereoSessionDGMapRPC::tx_right() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return right_tx_type( RPCMapTransform(*StereoSessionRPC::read_rpc_model(m_right_image_file, m_right_camera_file),
+  return right_tx_type( RPCMapTransform(StereoSessionRPC::read_rpc_model(m_right_image_file, m_right_camera_file),
                                         image_georef, dem_georef, dem_rsrc),
                         HomographyTransform(tx) );
 }
