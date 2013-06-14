@@ -193,17 +193,17 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
     if ( opt.fsaa > 1 ) {
       // subsample .. samples from the corner.
       rasterizer_fsaa =
-        crop(edge_extend(
-                         apply_mask(
-                                    subsample(
-                                              translate(
-                                                        gaussian_filter(
-                                                                        create_mask(rasterizer.impl(),opt.nodata_value),
-                                                                        1.0f * float(opt.fsaa)/2.0f),
-                                                        -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-                                                        ConstantEdgeExtension()), opt.fsaa),
-                                    opt.nodata_value),
-                         ValExtend(opt.nodata_value)), opt.target_projwin_pixels );
+        crop(edge_extend
+             (apply_mask
+              (subsample
+               (translate
+                (gaussian_filter
+                 (create_mask(rasterizer.impl(),opt.nodata_value),
+                  1.0f * float(opt.fsaa)/2.0f),
+                 -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
+                 ConstantEdgeExtension()), opt.fsaa),
+               opt.nodata_value),
+              ValExtend(opt.nodata_value)), opt.target_projwin_pixels );
     } else {
       rasterizer_fsaa =
         crop(edge_extend(rasterizer.impl(),
@@ -213,15 +213,15 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
     if ( opt.fsaa > 1 ) {
       // subsample .. samples from the corner.
       rasterizer_fsaa =
-        apply_mask(
-                   subsample(
-                             translate(
-                                       gaussian_filter(
-                                                       create_mask(rasterizer.impl(),opt.nodata_value),
-                                                       1.0f * float(opt.fsaa)/2.0f),
-                                       -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-                                       ConstantEdgeExtension()), opt.fsaa),
-                   opt.nodata_value);
+        apply_mask
+        (subsample
+         (translate
+          (gaussian_filter
+           (create_mask(rasterizer.impl(),opt.nodata_value),
+            1.0f * float(opt.fsaa)/2.0f),
+           -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
+           ConstantEdgeExtension()), opt.fsaa),
+         opt.nodata_value);
     } else {
       rasterizer_fsaa = rasterizer.impl();
     }
@@ -519,10 +519,12 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
       dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
 
     save_image(opt,
-               apply_mask(channel_cast<uint8>(normalize(create_mask(dem_image,opt.nodata_value),
-                                                        rasterizer.bounding_box().min().z(),
-                                                        rasterizer.bounding_box().max().z(),
-                                                        0, 255))),
+               apply_mask
+               (channel_cast<uint8>
+                (normalize(create_mask(dem_image,opt.nodata_value),
+                           rasterizer.bounding_box().min().z(),
+                           rasterizer.bounding_box().max().z(),
+                           0, 255))),
                georef, "DEM-normalized");
   }
 }
@@ -541,9 +543,8 @@ int main( int argc, char *argv[] ) {
                << "      Angles: " << opt.phi_rot << "   "
                << opt.omega_rot << "  " << opt.kappa_rot << "\n";
       point_image =
-        point_transform( point_image,
-                         math::euler_to_rotation_matrix(opt.phi_rot, opt.omega_rot,
-                                                        opt.kappa_rot, opt.rot_order) );
+        point_transform(point_image, math::euler_to_rotation_matrix
+                        (opt.phi_rot, opt.omega_rot,opt.kappa_rot, opt.rot_order));
     }
 
     // Set up the georeferencing information.  We specify everything
@@ -635,7 +636,8 @@ int main( int argc, char *argv[] ) {
     // average location of the points. If the average location has a
     // negative x value (think in ECEF coordinates) then we should
     // be using [0,360].
-    int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),point_image.rows()))/32.0);
+    int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
+                                               point_image.rows()))/32.0);
     if (subsample_amt < 1 ) subsample_amt = 1;
     PixelAccumulator<MeanAccumulator<Vector3> > mean_accum;
     for_each_pixel( subsample(point_image, subsample_amt),
@@ -648,17 +650,21 @@ int main( int argc, char *argv[] ) {
     if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.x_offset
                << " " << opt.y_offset << " " << opt.z_offset << "\n";
-      do_software_rasterization(
-        geodetic_to_point(point_image_offset(recenter_longitude(cartesian_to_geodetic(point_image,georef),
-                                                                avg_lon),
-                                             Vector3(opt.x_offset,
-                                                     opt.y_offset,
-                                                     opt.z_offset)),georef),
-        opt, georef );
+      do_software_rasterization
+        (geodetic_to_point
+         (point_image_offset
+          (recenter_longitude(cartesian_to_geodetic(point_image,georef),
+                              avg_lon),
+           Vector3(opt.x_offset,
+                   opt.y_offset,
+                   opt.z_offset)),georef),
+         opt, georef );
     } else {
-      do_software_rasterization(
-        geodetic_to_point(recenter_longitude(cartesian_to_geodetic(point_image,georef), avg_lon),georef),
-        opt, georef );
+      do_software_rasterization
+        (geodetic_to_point
+         (recenter_longitude
+          (cartesian_to_geodetic(point_image,georef), avg_lon),georef),
+         opt, georef );
     }
 
   } ASP_STANDARD_CATCHES;
