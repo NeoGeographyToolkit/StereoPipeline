@@ -96,15 +96,91 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 template <class ImageT>
 void write_parallel_cond( std::string const& filename,
                           ImageViewBase<ImageT> const& image,
-                          cartography::GeoReference const& georef, Options const& opt,
+                          cartography::GeoReference const& georef,
+                          bool use_nodata, double nodata_val,
+                          Options const& opt,
                           TerminalProgressCallback const& tpc ) {
   // ISIS is not thread safe so we must switch out base on what the
   // session is.
-  if ( opt.stereo_session == "isis" ) {
-    asp::write_gdal_georeferenced_image( filename, image.impl(), georef, opt, tpc );
-  } else {
-    asp::block_write_gdal_image( filename, image.impl(), georef, opt, tpc );
+  vw_out() << "Writing: " << filename << "\n";
+  if (use_nodata){
+    if ( opt.stereo_session == "isis" ) {
+      asp::write_gdal_georeferenced_image(filename, image.impl(), georef, nodata_val, opt, tpc);
+    } else {
+      asp::block_write_gdal_image(filename, image.impl(), georef, nodata_val, opt, tpc);
+    }
+  }else{
+    if ( opt.stereo_session == "isis" ) {
+      asp::write_gdal_georeferenced_image(filename, image.impl(), georef, opt, tpc);
+    } else {
+      asp::block_write_gdal_image(filename, image.impl(), georef, opt, tpc);
+    }
   }
+
+}
+
+// Convert PixelMask<PixelT> to PixelGrayA<PixelT> taking particular care
+// with no-data values.
+template <class ImageT, class OutPixelT>
+class MaskToGrayA : public ImageViewBase<MaskToGrayA<ImageT, OutPixelT> > {
+  ImageT m_masked_image;
+  OutPixelT m_left_mask;
+  double m_nodata_val;
+
+public:
+  MaskToGrayA( ImageViewBase<ImageT> const& masked_image,
+               OutPixelT const& left_mask,
+               double nodata_val) :
+    m_masked_image(masked_image.impl()),
+    m_left_mask(left_mask),
+    m_nodata_val(nodata_val){}
+
+  typedef OutPixelT pixel_type;
+  typedef pixel_type result_type;
+  typedef ProceduralPixelAccessor<MaskToGrayA> pixel_accessor;
+
+  inline int32 cols() const { return m_masked_image.cols(); }
+  inline int32 rows() const { return m_masked_image.rows(); }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+
+  inline result_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
+    vw_throw(NoImplErr() << "MaskToGrayA::operator()(...) is not implemented");
+    return result_type();
+  }
+
+  typedef CropView<ImageView<result_type> > prerasterize_type;
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+
+    ImageView<result_type> tileImg(bbox.width(), bbox.height());
+    for (int col = 0; col < bbox.width(); col++){
+      for (int row = 0; row < bbox.height(); row++){
+        typename ImageT::result_type pix = m_masked_image(col + bbox.min().x(),
+                                                          row + bbox.min().y());
+        if (is_valid(pix))
+          tileImg(col, row) = result_type(pix.child());     // valid and non-transparent
+        else
+          tileImg(col, row) = result_type(m_nodata_val, 0); // invalid and transparent
+      }
+    }
+
+    return prerasterize_type(tileImg, -bbox.min().x(), -bbox.min().y(), cols(), rows() );
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
+
+template <class ImageT, class OutPixelT>
+MaskToGrayA<ImageT, OutPixelT>
+mask_to_graya( ImageViewBase<ImageT> const& left,
+               OutPixelT const& out_pixel,
+               double nodata_val) {
+  typedef MaskToGrayA<ImageT, OutPixelT> return_type;
+  return return_type(left.impl(), out_pixel, nodata_val );
 }
 
 template <class PixelT>
@@ -112,18 +188,19 @@ void do_projection( Options& opt,
                     ImageViewRef<PixelMask<float> > const& dem,
                     GeoReference const& drg_georef,
                     boost::shared_ptr<camera::CameraModel> camera_model ) {
-  DiskImageView<PixelT > texture_disk_image(opt.image_file);
-  DiskImageView<float > float_texture_disk_image(opt.image_file);
 
-  vw_out() << "\t--> Orthoprojecting texture.\n";
+  DiskImageView<PixelT> texture_disk_image(opt.image_file);
+
+  bool use_nodata = false;
+  double nodata_val = std::numeric_limits<double>::quiet_NaN();
+
   if (!opt.mark_no_processed_data){
     // Default
     write_parallel_cond( opt.output_file,
                          orthoproject(dem, drg_georef,
                                       texture_disk_image, camera_model.get(),
-                                      BicubicInterpolation(),
-                                      ZeroEdgeExtension()),
-                         drg_georef, opt,
+                                      BicubicInterpolation(), ZeroEdgeExtension()),
+                         drg_georef, use_nodata, nodata_val, opt,
                          TerminalProgressCallback("asp","") );
   } else {
     // Save as uint8, need this for albedo
@@ -132,15 +209,83 @@ void do_projection( Options& opt,
                          (clamp(orthoproject_markNoProcessedData
                                 (dem, drg_georef,
                                  texture_disk_image, camera_model.get(),
-                                 BicubicInterpolation(), ZeroEdgeExtension()), 0, 32767)),
-                         drg_georef, opt, TerminalProgressCallback("asp","") );
+                                 BicubicInterpolation(), ZeroEdgeExtension()),
+                                0, 32767)),
+                         drg_georef, use_nodata, nodata_val, opt,
+                         TerminalProgressCallback("asp","") );
+  }
+
+}
+
+template <class PixelT>
+void do_projection_scalar(Options& opt,
+                          ImageViewRef<PixelMask<float> > const& dem,
+                          GeoReference const& drg_georef,
+                          boost::shared_ptr<camera::CameraModel> camera_model ) {
+
+  // Orthoprojection of scalar images, when there can be no-data values
+  // which need to be handled.
+
+  // Find the smallest valid value for this type.
+  PixelT smallest_val = std::min(std::numeric_limits<PixelT>::min(),
+                                 PixelT(-std::numeric_limits<PixelT>::max())
+                                 );
+
+  // We will always use a nodata value on output, even when the input
+  // has none. Orthoprojecting will one way or another create invalid
+  // pixels, we must map them to something. Use the smallest valid
+  // pixel value as no-data value if it was not present in the input.
+  double nodata_val = smallest_val;
+  bool use_nodata = true;
+
+  // Mask the input nodata values.
+  DiskImageView<PixelT> texture_disk_image(opt.image_file);
+  ImageViewRef< PixelMask<PixelT> > masked_texture;
+  masked_texture = pixel_cast< PixelMask<PixelT> >(texture_disk_image);
+  boost::scoped_ptr<SrcImageResource> rsrc( DiskImageResource::open(opt.image_file) );
+  if ( rsrc->has_nodata_read() ){
+    nodata_val = rsrc->nodata_read();
+    masked_texture = create_mask(texture_disk_image, nodata_val);
+  }
+
+  // This is needed purely to force mask_to_graya() output pixels of this type.
+  PixelGrayA<PixelT> out_pixel;
+
+  if (!opt.mark_no_processed_data){
+    // Default
+    write_parallel_cond( opt.output_file,
+                         mask_to_graya
+                         (orthoproject
+                          (dem, drg_georef,
+                           masked_texture,
+                           camera_model.get(),
+                           BicubicInterpolation(),
+                           ZeroEdgeExtension()),
+                          out_pixel, nodata_val),
+                         drg_georef, use_nodata, nodata_val, opt,
+                         TerminalProgressCallback("asp","") );
+  } else {
+    // Save as uint8, need this for albedo
+    write_parallel_cond( opt.output_file,
+                         pixel_cast_rescale< PixelGrayA<uint8> >
+                         (clamp
+                          (mask_to_graya
+                           (orthoproject_markNoProcessedData
+                            (dem, drg_georef,
+                             masked_texture,
+                             camera_model.get(),
+                             Bicubicnterpolation(),
+                             ZeroEdgeExtension()),
+                            out_pixel, nodata_val), 0, 32767)),
+                         drg_georef, use_nodata, nodata_val, opt,
+                         TerminalProgressCallback("asp","") );
   }
 
 }
 
 int main(int argc, char* argv[]) {
 
-  // Orthorpoject a camera image not a DEM.
+  // Orthorpoject a camera image onto a DEM.
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
@@ -151,10 +296,10 @@ int main(int argc, char* argv[]) {
       std::string ext = fs::path(opt.camera_model_file).extension().string();
       if ( ext == ".cahvor" || ext == ".cmod" ||
            ext == ".cahv" || ext ==  ".pinhole" || ext == ".tsai" ) {
-        vw_out() << "\t--> Detected pinhole camera files.  Executing pinhole stereo pipeline.\n";
+        vw_out() << "\t--> Detected pinhole camera.\n";
         opt.stereo_session = "pinhole";
       } else if ( fs::path(opt.image_file).extension() == ".cub" ) {
-        vw_out() << "\t--> Detected ISIS cube files.  Executing ISIS stereo pipeline.\n";
+        vw_out() << "\t--> Detected ISIS cube.\n";
         opt.stereo_session = "isis";
       } else {
         vw_out() << "\n\n******************************************************************\n";
@@ -175,12 +320,13 @@ int main(int argc, char* argv[]) {
         vw_throw( ArgumentErr() << "Missing output filename.\n" );
     }
 
-    // Okay, here's a total hack.  We create a stereo session where both
-    // of the imagers and images are the same, because we want to take
-    // advantage of the stereo pipeline's ability to generate camera
-    // models for various missions.  Hence, we create two identical
-    // camera models, but only one is used.  The last four empty strings
-    // are dummy arguments.
+    asp::create_out_dir(opt.output_file);
+
+    // We create a stereo session where both of the cameras and images
+    // are the same, because we want to take advantage of the stereo
+    // pipeline's ability to generate camera models for various
+    // missions.  Hence, we create two identical camera models, but
+    // only one is used.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
     SessionPtr session( asp::StereoSession::create(opt.stereo_session, opt,
                                                    opt.image_file, opt.image_file,
@@ -235,7 +381,8 @@ int main(int argc, char* argv[]) {
     // Do the math to convert pixel-per-degree to meter-per-pixel and vice-versa
     double radius = dem_georef.datum().semi_major_axis();
     if ( !std::isnan(opt.mpp) && !std::isnan(opt.ppd) ) {
-      vw_throw( ArgumentErr() << "Must specify either --mpp or --ppd option, never both.\n" );
+      vw_throw( ArgumentErr()
+                << "Must specify either --mpp or --ppd option, but not both.\n" );
       return 1;
     }else if ( !std::isnan(opt.mpp) ){
       opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
@@ -255,7 +402,8 @@ int main(int argc, char* argv[]) {
 
     ImageFormat texture_fmt;
     {
-      boost::scoped_ptr<SrcImageResource> texture_rsrc( DiskImageResource::open(opt.image_file) );
+      boost::scoped_ptr<SrcImageResource>
+        texture_rsrc( DiskImageResource::open(opt.image_file) );
       texture_fmt = texture_rsrc->format();
     }
 
@@ -282,22 +430,24 @@ int main(int argc, char* argv[]) {
         // If the boxes do not intersect, it may be that one box is
         // shifted in respect to the other by 360 degrees.
         // Attempt 1
-        projection_bbox = cam_bbox - Vector2(360.0, 0.0); projection_bbox.crop(dem_bbox);
+        projection_bbox = cam_bbox - Vector2(360.0, 0.0);
+        projection_bbox.crop(dem_bbox);
         if ( projection_bbox.empty() ) {
           // Attempt 2
-          projection_bbox = cam_bbox + Vector2(360.0, 0.0); projection_bbox.crop(dem_bbox);
+          projection_bbox = cam_bbox + Vector2(360.0, 0.0);
+          projection_bbox.crop(dem_bbox);
 
           // If still no overlap, throw an error.
           if ( projection_bbox.empty() ) {
-            vw_out() << "Image bounding box (" << cam_bbox << ") and DEM bounding box ("
-                     << dem_bbox << ") have no overlap.  Are you sure that your input files overlap?\n";
+            vw_out() << "Image bounding box (" << cam_bbox
+                     << ") and DEM bounding box (" << dem_bbox
+                     << ") have no overlap.\n";
             return 1;
           }
         }
       }
 
-      if ( scale == 0 )
-        scale = mpp_auto_scale;
+      if ( scale == 0 ) scale = mpp_auto_scale;
     }
 
     int min_x         = (int)round(projection_bbox.min().x() / scale);
@@ -305,17 +455,18 @@ int main(int argc, char* argv[]) {
     int output_width  = (int)round(projection_bbox.width()   / scale);
     int output_height = (int)round(projection_bbox.height()  / scale);
 
-    // We must adjust the projection box given that we performed snapping to integer above.
+    // We must adjust the projection box given that we performed
+    // snapping to integer above.
     projection_bbox = scale*BBox2(min_x, min_y, output_width, output_height);
 
-    vw_out( DebugMessage, "asp" ) << "Output size : "
-                                  << output_width << " " << output_height << " px\n"
-                                  << scale << " pt/px\n";
+    vw_out( DebugMessage, "asp" )
+      << "Output size: " << output_width << " x " << output_height << " px\n"
+      << scale << " pt/px\n";
 
     Matrix3x3 drg_trans = drg_georef.transform();
-    // This weird polarity checking is to make sure the output has been
-    // transposed after going through reprojection. Normally this is the
-    // case. Yet with grid data from GMT, it is not.     -ZMM
+    // This polarity checking is to make sure the output has been
+    // transposed after going through reprojection. Normally this is
+    // the case. Yet with grid data from GMT, it is not.
     if ( drg_trans(0,0) < 0 )
       drg_trans(0,2) = projection_bbox.max().x();
     else
@@ -336,39 +487,61 @@ int main(int argc, char* argv[]) {
                                   << drg_georef << "\n";
 
     switch(texture_fmt.pixel_format) {
-    case VW_PIXEL_GRAY:
-    case VW_PIXEL_GRAYA:
-    default:
-      switch(texture_fmt.channel_type) {
-      case VW_CHANNEL_UINT8: do_projection<PixelGrayA<uint8> >( opt, output_dem,
-                                                                drg_georef,
-                                                                camera_model ); break;
-      case VW_CHANNEL_INT16: do_projection<PixelGrayA<int16> >( opt, output_dem,
-                                                                drg_georef,
-                                                                camera_model ); break;
-      case VW_CHANNEL_UINT16: do_projection<PixelGrayA<uint16> >( opt, output_dem,
-                                                                  drg_georef,
-                                                                  camera_model ); break;
-      default: do_projection<PixelGrayA<float32> >( opt, output_dem,
-                                                    drg_georef,
-                                                    camera_model ); break;
-      }
-      break;
+
+      // 1.0. RGB, with our without alpha channel
     case VW_PIXEL_RGB:
     case VW_PIXEL_RGBA:
       switch(texture_fmt.channel_type) {
-      case VW_CHANNEL_UINT8: do_projection<PixelRGBA<uint8> >( opt, output_dem,
-                                                               drg_georef,
-                                                               camera_model ); break;
-      case VW_CHANNEL_INT16: do_projection<PixelRGBA<int16> >( opt, output_dem,
-                                                               drg_georef,
-                                                               camera_model ); break;
-      case VW_CHANNEL_UINT16: do_projection<PixelRGBA<uint16> >( opt, output_dem,
-                                                                 drg_georef,
-                                                                 camera_model ); break;
-      default: do_projection<PixelRGBA<float32> >( opt, output_dem,
-                                                   drg_georef,
-                                                   camera_model ); break;
+      case VW_CHANNEL_UINT8:
+        do_projection<PixelRGBA<uint8> >( opt, output_dem, drg_georef,
+                                          camera_model ); break;
+      case VW_CHANNEL_INT16:
+        do_projection<PixelRGBA<int16> >( opt, output_dem, drg_georef,
+                                          camera_model ); break;
+      case VW_CHANNEL_UINT16:
+        do_projection<PixelRGBA<uint16> >( opt, output_dem, drg_georef,
+                                           camera_model ); break;
+      default:
+        do_projection<PixelRGBA<float32> >( opt, output_dem, drg_georef,
+                                            camera_model ); break;
+      }
+      break;
+
+      // 2.0. Grayscale images with alpha channel
+    case VW_PIXEL_GRAYA:
+      switch(texture_fmt.channel_type) {
+      case VW_CHANNEL_UINT8:
+        do_projection<PixelGrayA<uint8> >( opt, output_dem, drg_georef,
+                                           camera_model ); break;
+      case VW_CHANNEL_INT16:
+        do_projection<PixelGrayA<int16> >( opt, output_dem, drg_georef,
+                                           camera_model ); break;
+      case VW_CHANNEL_UINT16:
+        do_projection<PixelGrayA<uint16> >( opt, output_dem, drg_georef,
+                                            camera_model ); break;
+      default:
+        do_projection<PixelGrayA<float32> >( opt, output_dem, drg_georef,
+                                             camera_model ); break;
+      }
+      break;
+
+      // 3.0. Grayscale images without alpha channel and all other
+      // cases.
+    case VW_PIXEL_GRAY:
+    default:
+      switch(texture_fmt.channel_type) {
+      case VW_CHANNEL_UINT8:
+        do_projection_scalar<uint8>( opt, output_dem, drg_georef,
+                                     camera_model ); break;
+      case VW_CHANNEL_INT16:
+        do_projection_scalar<int16>( opt, output_dem, drg_georef,
+                                     camera_model ); break;
+      case VW_CHANNEL_UINT16:
+        do_projection_scalar<uint16>( opt, output_dem, drg_georef,
+                                      camera_model ); break;
+      default:
+        do_projection_scalar<float32>( opt, output_dem, drg_georef,
+                                       camera_model ); break;
       }
       break;
     }
