@@ -434,13 +434,19 @@ int main(int argc, char* argv[]) {
       if ( scale == 0 ) scale = mpp_auto_scale;
     }
 
+
+    // In principle the corners of the projection box can be
+    // arbitrary.  However, we will force them to be at integer
+    // multiples of pixel dimensions. This is needed if we want to do
+    // tiling, that is break the DEM into tiles, orthoproject on
+    // individual tiles, and then combine the tiles nicely without
+    // seams into a single orthoprojected image. The tiling solution
+    // provides a nice speedup when dealing with ISIS images, when
+    // orthoproject runs only with one thread.
     int min_x         = (int)round(projection_bbox.min().x() / scale);
     int min_y         = (int)round(projection_bbox.min().y() / scale);
     int output_width  = (int)round(projection_bbox.width()   / scale);
     int output_height = (int)round(projection_bbox.height()  / scale);
-
-    // We must adjust the projection box given that we performed
-    // snapping to integer above.
     projection_bbox = scale*BBox2(min_x, min_y, output_width, output_height);
 
     vw_out( DebugMessage, "asp" )
@@ -458,6 +464,11 @@ int main(int argc, char* argv[]) {
     drg_trans(0,0) = scale;
     drg_trans(1,1) = -scale;
     drg_trans(1,2) = projection_bbox.max().y();
+    if ( drg_georef.pixel_interpretation() ==
+         cartography::GeoReference::PixelAsArea ) {
+      drg_trans(0,2) -= 0.5 * scale;
+      drg_trans(1,2) += 0.5 * scale;
+    }
     drg_georef.set_transform(drg_trans);
 
     GeoTransform trans(dem_georef, drg_georef);
@@ -467,7 +478,7 @@ int main(int argc, char* argv[]) {
                      BicubicInterpolation()),
            0,0,output_width,output_height);
 
-    vw_out( DebugMessage, "asp" ) << "Output GeoReference: "
+    vw_out( DebugMessage, "asp" ) << "Output georeference: "
                                   << drg_georef << "\n";
 
     // Create and write the orthoprojected image.

@@ -50,10 +50,15 @@ struct Options : asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata-value", po::value(&opt.nodata_value), "Nodata value to use on output.")
-    ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the  gdal option.")
-    ("tr", po::value(&opt.target_resolution)->default_value(0), "Set output file resolution (in target georeferenced units per pixel)")
-    ("session-type,t", po::value(&opt.stereo_session)->default_value("rpc"), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]") // pinhole???
+    // To do: The nodata-value is not respected.
+    ("nodata-value", po::value(&opt.nodata_value)->default_value(0),
+     "Nodata value to use on output.")
+    ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
+     "Target spatial reference set. This mimicks the gdal option. If not provided use the one from the DEM.") // To do: Put note on the doc that this is now optional.
+    ("tr", po::value(&opt.target_resolution)->default_value(0),
+     "Set output file resolution (in target georeferenced units per pixel)")
+    ("session-type,t", po::value(&opt.stereo_session)->default_value("rpc"),
+     "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
     ("t_projwin", po::value(&opt.target_projwin),
      "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.");
 
@@ -78,9 +83,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage );
 
   if ( !vm.count("dem") || !vm.count("camera-image") ||
-       !vm.count("camera-model") || !vm.count("t_srs") )
-    vw_throw( ArgumentErr() << "Requires <dem> <camera-image> <camera-model> "
-              << "and <t_srs> input in order to proceed.\n\n"
+       !vm.count("camera-model") )
+    vw_throw( ArgumentErr() << "Requires <dem> <camera-image> and <camera-model> "
+              << "input in order to proceed.\n\n"
               << usage << general_options );
 
   if ( opt.output_file.empty() )
@@ -111,21 +116,22 @@ int main( int argc, char* argv[] ) {
 
     // Read projection. Work out output bounding box in points using
     // original camera model.
-    cartography::GeoReference target_georef;
-    boost::replace_first(opt.target_srs_string,
-                         "IAU2000:","DICT:IAU2000.wkt,");
-    VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
-                               << opt.target_srs_string << "\"\n";
-    OGRSpatialReference gdal_spatial_ref;
-    if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
-      vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string
-                << "\"." );
-    char *wkt = NULL;
-    gdal_spatial_ref.exportToWkt( &wkt );
-    std::string wkt_string(wkt);
-    delete[] wkt;
-
-    target_georef.set_wkt( wkt_string );
+    cartography::GeoReference target_georef = dem_georef;
+    if (opt.target_srs_string != ""){
+      boost::replace_first(opt.target_srs_string,
+                           "IAU2000:","DICT:IAU2000.wkt,");
+      VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
+                                 << opt.target_srs_string << "\"\n";
+      OGRSpatialReference gdal_spatial_ref;
+      if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
+        vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string
+                  << "\"." );
+      char *wkt = NULL;
+      gdal_spatial_ref.exportToWkt( &wkt );
+      std::string wkt_string(wkt);
+      delete[] wkt;
+      target_georef.set_wkt( wkt_string );
+    }
 
     // Work out target resolution and image size. For that we use
     // the DG camera model.
@@ -187,15 +193,37 @@ int main( int argc, char* argv[] ) {
       if ( point_bounds.min().y() > point_bounds.max().y() )
         std::swap( point_bounds.min().y(),
                    point_bounds.max().y() );
-      vw_out() << "Cropping to " << point_bounds << " pt. " << std::endl;
       point_bounds.max().x() -= opt.target_resolution;
       point_bounds.min().y() += opt.target_resolution;
     }
 
-    Matrix3x3 T = math::identity_matrix<3>();
+    // In principle the corners of the projection box can be
+    // arbitrary.  However, we will force them to be at integer
+    // multiples of pixel dimensions. This is needed if we want to do
+    // tiling, that is break the DEM into tiles, project on individual
+    // tiles, and then combine the tiles nicely without seams into a
+    // single projected image. The tiling solution provides a nice
+    // speedup when dealing with ISIS images, when projection runs
+    // only with one thread.
+    double s = opt.target_resolution;
+    int min_x         = (int)round(point_bounds.min().x() / s);
+    int min_y         = (int)round(point_bounds.min().y() / s);
+    int output_width  = (int)round(point_bounds.width()   / s);
+    int output_height = (int)round(point_bounds.height()  / s);
+    point_bounds = s * BBox2(min_x, min_y, output_width, output_height);
+
+    vw_out() << "Cropping to " << point_bounds << " pt. " << std::endl;
+
+    Matrix3x3 T = target_georef.transform();
+    // This polarity checking is to make sure the output has been
+    // transposed after going through reprojection. Normally this is
+    // the case. Yet with grid data from GMT, it is not.
+    if ( T(0,0) < 0 )
+      T(0,2) = point_bounds.max().x();
+    else
+      T(0,2) = point_bounds.min().x();
     T(0,0) = opt.target_resolution;
     T(1,1) = -opt.target_resolution;
-    T(0,2) = point_bounds.min().x();
     T(1,2) = point_bounds.max().y();
     if ( target_georef.pixel_interpretation() ==
          cartography::GeoReference::PixelAsArea ) {
