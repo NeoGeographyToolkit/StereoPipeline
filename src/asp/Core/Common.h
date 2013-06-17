@@ -214,6 +214,7 @@ namespace program_options {
   };
 
   typed_2_value<vw::Vector2i>* value( vw::Vector2i* v );
+  typed_2_value<vw::Vector2>*  value( vw::Vector2* v );
   typed_4_value<vw::BBox2i>*   value( vw::BBox2i* v );
   typed_4_value<vw::BBox2>*    value( vw::BBox2* v );
   typed_6_value<vw::BBox3>*    value( vw::BBox3* v );
@@ -223,6 +224,12 @@ namespace program_options {
   void validate( boost::any& v,
                  const std::vector<std::string>& values,
                  vw::Vector2i*, long );
+
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector2*, long );
+
   template <>
   void validate( boost::any& v,
                  const std::vector<std::string>& values,

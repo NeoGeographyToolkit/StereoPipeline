@@ -198,6 +198,13 @@ namespace program_options {
     return r;
   }
 
+  typed_2_value<vw::Vector2>*
+  value( vw::Vector2* v ) {
+    typed_2_value<vw::Vector2>* r =
+      new typed_2_value<vw::Vector2>(v);
+    return r;
+  }
+
   typed_4_value<vw::BBox2i>*
   value( vw::BBox2i* v ) {
     typed_4_value<vw::BBox2i>* r =
@@ -246,6 +253,30 @@ namespace program_options {
     }
   }
 
+  // Validator for Vector2
+  template <>
+  void validate( boost::any& v,
+                 const std::vector<std::string>& values,
+                 vw::Vector2*, long ) {
+    validators::check_first_occurrence(v);
+
+    // Concatenate and then split again, so that the user can mix
+    // comma and space delimited values.
+    std::string joined = boost::algorithm::join(values, " ");
+    std::vector<std::string> cvalues;
+    boost::split(cvalues, joined, is_any_of(", "), boost::token_compress_on);
+
+    if ( cvalues.size() != 2 )
+      boost::throw_exception(invalid_syntax(invalid_syntax::missing_parameter));
+
+    try {
+      Vector2 output( boost::lexical_cast<double>( cvalues[0] ),
+                      boost::lexical_cast<double>( cvalues[1] ) );
+      v = output;
+    } catch (boost::bad_lexical_cast const& e ) {
+      boost::throw_exception(validation_error(validation_error::invalid_option_value));
+    }
+  }
 
   // Validator for BBox2i
   template <>
