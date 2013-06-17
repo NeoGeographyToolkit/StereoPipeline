@@ -30,7 +30,6 @@ using namespace vw;
 #include <asp/Core/Common.h>
 #include <asp/Sessions/DG/StereoSessionDG.h>
 #include <asp/Sessions/DG/XML.h>
-#include <asp/Sessions/RPC/RPCMapTransform.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -49,15 +48,22 @@ struct Options : asp::BaseOptions {
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
+  // To do: Use mpp and tr for backward comp. Put this in doc.
+  // to do: Tell folks about mandatory -t flag.
+  // To do: Tell that t_srs is now optional.
+  // To do: Tell about the output nodata value.
+  // To do: Test the new rpc by doing stereo with old and new rpc_mapproject.
+  // To do: Tell about the fix with small DEM.
   general_options.add_options()
     // To do: The nodata-value is not respected.
+    // To do: use nan below instead of 0?
     ("nodata-value", po::value(&opt.nodata_value)->default_value(0),
      "Nodata value to use on output.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Target spatial reference set. This mimicks the gdal option. If not provided use the one from the DEM.") // To do: Put note on the doc that this is now optional.
     ("tr", po::value(&opt.target_resolution)->default_value(0),
      "Set output file resolution (in target georeferenced units per pixel)")
-    ("session-type,t", po::value(&opt.stereo_session)->default_value("rpc"),
+    ("session-type,t", po::value(&opt.stereo_session)->default_value(""),
      "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
     ("t_projwin", po::value(&opt.target_projwin),
      "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.");
@@ -89,7 +95,46 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << usage << general_options );
 
   if ( opt.output_file.empty() )
-    opt.output_file = fs::path( opt.image_file ).replace_extension( "_rpcmapped.tif" ).string();
+    vw_throw( ArgumentErr() << "Missing output file.\n\n"
+              << usage << general_options );
+
+  // When doing stereo, we usually guess the session type to be dg if
+  // the camera model is an xml file, yet this tool will most likely
+  // be used with rpc sessions, hence the user must be explicit about
+  // which session is desired.
+  if ( boost::iends_with(boost::to_lower_copy(opt.camera_model_file), ".xml") &&
+       opt.stereo_session == "" ){
+    vw_throw( ArgumentErr() << "Unable to guess session type. Please specify "
+              << "whether it is dg or rpc via the -t option.\n\n"
+              << usage << general_options );
+  }
+
+}
+
+template <class ImageT>
+void write_parallel_cond( std::string const& filename,
+                          ImageViewBase<ImageT> const& image,
+                          cartography::GeoReference const& georef,
+                          bool use_nodata, double nodata_val,
+                          Options const& opt,
+                          TerminalProgressCallback const& tpc ) {
+  // ISIS is not thread safe so we must switch out base on what the
+  // session is.
+  vw_out() << "Writing: " << filename << "\n";
+  if (use_nodata){
+    if ( opt.stereo_session == "isis" ) {
+      asp::write_gdal_georeferenced_image(filename, image.impl(), georef, nodata_val, opt, tpc);
+    } else {
+      asp::block_write_gdal_image(filename, image.impl(), georef, nodata_val, opt, tpc);
+    }
+  }else{
+    if ( opt.stereo_session == "isis" ) {
+      asp::write_gdal_georeferenced_image(filename, image.impl(), georef, opt, tpc);
+    } else {
+      asp::block_write_gdal_image(filename, image.impl(), georef, opt, tpc);
+    }
+  }
+
 }
 
 int main( int argc, char* argv[] ) {
@@ -97,6 +142,21 @@ int main( int argc, char* argv[] ) {
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
+
+    // We create a stereo session where both of the cameras and images
+    // are the same, because we want to take advantage of the stereo
+    // pipeline's ability to generate camera models for various
+    // missions.  Hence, we create two identical camera models, but
+    // only one is used.
+    typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
+    SessionPtr session( asp::StereoSession::create(opt.stereo_session, // in-out
+                                                   opt,
+                                                   opt.image_file, opt.image_file,
+                                                   opt.camera_model_file,
+                                                   opt.camera_model_file,
+                                                   opt.output_file) );
+    boost::shared_ptr<camera::CameraModel> camera_model =
+      session->camera_model(opt.image_file, opt.camera_model_file);
 
     // Safety check that the users are not trying to map project map
     // projected images.
@@ -133,60 +193,13 @@ int main( int argc, char* argv[] ) {
       target_georef.set_wkt( wkt_string );
     }
 
-    // Work out target resolution and image size. For that we use
-    // the DG camera model.
-    asp::StereoSessionDG dg_session;
-    boost::shared_ptr<camera::CameraModel>
-      dg_model(dg_session.camera_model(opt.image_file, opt.camera_model_file));
+    // Find the camera bbox target resolution unless user-supplied.
+    float auto_res;
     Vector2i image_size = asp::file_image_size( opt.image_file );
-
-    // Find the camera bbox. We don't just use the RPC boundary, in
-    // the event of pole crossing. (camera_bbox does this nice
-    // X-shaped test that is good for working on how much latitude we
-    // can draw in the even they're using a equirectangular
-    // projection.)
     BBox2 point_bounds =
-      opt.target_resolution <= 0 ?
-      camera_bbox( target_georef, dg_model,
-                   image_size.x(), image_size.y(),
-                   opt.target_resolution ) :
-      camera_bbox( target_georef, dg_model,
-                   image_size.x(), image_size.y() );
-
-
-    boost::shared_ptr<asp::RPCModel> rpc_model; // To reclaim the pointer later
-    camera::CameraModel * cam_model;
-    if (opt.stereo_session == "rpc"){
-      asp::RPCXML xml;
-      xml.read_from_file( opt.camera_model_file );
-      rpc_model = boost::shared_ptr<asp::RPCModel>(new asp::RPCModel(*xml.rpc_ptr()));
-      cam_model = rpc_model.get();
-
-      // Add the corners based on the RPC model to the point_bounds.
-      point_bounds.grow
-        (target_georef.lonlat_to_point
-         (subvector(rpc_model->lonlatheight_offset() +
-                    rpc_model->lonlatheight_scale(), 0, 2) ) );
-      point_bounds.grow
-        (target_georef.lonlat_to_point
-         (subvector(rpc_model->lonlatheight_offset() -
-                    rpc_model->lonlatheight_scale(), 0, 2) ) );
-      point_bounds.grow
-        (target_georef.lonlat_to_point
-         (subvector(rpc_model->lonlatheight_offset() +
-                    elem_prod( Vector3(1,-1,1),
-                               rpc_model->lonlatheight_scale() ), 0, 2) ) );
-      point_bounds.grow
-        (target_georef.lonlat_to_point
-         (subvector(rpc_model->lonlatheight_offset() +
-                    elem_prod( Vector3(-1,1,1),
-                               rpc_model->lonlatheight_scale() ), 0, 2) ) );
-
-    }else if (opt.stereo_session == "dg"){
-      cam_model = dg_model.get();
-    }else{
-      vw_throw( ArgumentErr() << "Supported sessions: [dg rpc].\n" );
-    }
+      camera_bbox( target_georef, camera_model,
+                   image_size.x(), image_size.y(), auto_res);
+    if (opt.target_resolution <= 0) opt.target_resolution = auto_res;
 
     if ( opt.target_projwin != BBox2() ) {
       point_bounds = opt.target_projwin;
@@ -264,29 +277,32 @@ int main( int argc, char* argv[] ) {
     boost::shared_ptr<DiskImageResource>
       src_rsrc( DiskImageResource::open( opt.image_file ) );
 
-    // Raster output image
+    // Write output image
     asp::create_out_dir(opt.output_file);
-    if ( src_rsrc->has_nodata_read() ) {
-      asp::block_write_gdal_image
+    bool use_nodata = src_rsrc->has_nodata_read();
+    double nodata_val = std::numeric_limits<double>::quiet_NaN();
+    if ( use_nodata) {
+      nodata_val = src_rsrc->nodata_read();
+      write_parallel_cond
         (opt.output_file,
          apply_mask
          (transform
-          (create_mask(DiskImageView<float>( src_rsrc), src_rsrc->nodata_read()),
-           asp::RPCMapTransform( cam_model, target_georef,
-                                 dem_georef, dem_rsrc ),
+          (create_mask(DiskImageView<float>( src_rsrc), nodata_val),
+           cartography::MapTransform( camera_model.get(), target_georef,
+                                      dem_georef, dem_rsrc ),
            target_image_size.width(), target_image_size.height(),
            ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
-           BicubicInterpolation() ), src_rsrc->nodata_read() ),
-         target_georef, opt, TerminalProgressCallback("","") );
+           BicubicInterpolation() ), nodata_val ),
+         target_georef, use_nodata, nodata_val, opt, TerminalProgressCallback("","") );
     } else {
-      asp::block_write_gdal_image
+      write_parallel_cond
         (opt.output_file,
          transform(DiskImageView<float>( src_rsrc ),
-                   asp::RPCMapTransform( cam_model, target_georef,
-                                         dem_georef, dem_rsrc ),
+                   cartography::MapTransform( camera_model.get(), target_georef,
+                                              dem_georef, dem_rsrc ),
                    target_image_size.width(), target_image_size.height(),
                    ZeroEdgeExtension(), BicubicInterpolation() ),
-         target_georef, opt, TerminalProgressCallback("","") );
+         target_georef, use_nodata, nodata_val, opt, TerminalProgressCallback("","") );
     }
 
   } ASP_STANDARD_CATCHES;
