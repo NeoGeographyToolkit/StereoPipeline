@@ -178,7 +178,7 @@ private:
     BBox2i right_bbox = bbox + disparity_range.min();
     right_bbox.max() += disparity_range.size();
 
-    // This is to help any transforms (right now just RPCMapTransform)
+    // This is to help any transforms (right now just MapTransform)
     // that must cache their side data. Normally this would happen if
     // we were using a TransformView. Copies are made of the
     // transforms so we are not having a race condition with setting

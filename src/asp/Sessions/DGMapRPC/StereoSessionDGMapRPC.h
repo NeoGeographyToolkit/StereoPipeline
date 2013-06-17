@@ -26,20 +26,20 @@
 #define __STEREO_SESSION_DGMAPRPC_H__
 
 #include <asp/Sessions/DG/StereoSessionDG.h>
-#include <asp/Sessions/RPC/RPCMapTransform.h>
+#include <vw/Cartography/MapTransform.h>
 #include <vw/Image/Transform.h>
 
 namespace asp {
 
   // Specialize CompositionTransform that allows passing of BBox so
-  // RPCMapTransform can cache itself.
+  // MapTransform can cache itself.
   template <class Tx1T, class Tx2T>
   class CompositionTransformPassBBox : public vw::TransformBase<CompositionTransformPassBBox<Tx1T,Tx2T> > {
   public:
     CompositionTransformPassBBox( Tx1T const& tx1, Tx2T const& tx2 ) : tx1(tx1), tx2(tx2) {}
 
     Tx1T tx1; // Be sure to copy!
-    Tx2T tx2; // public so that we can invoke caching manually for RPCMapTransform
+    Tx2T tx2; // public so that we can invoke caching manually for MapTransform
 
     inline vw::Vector2 forward( vw::Vector2 const& p ) const { return tx1.forward( tx2.forward( p ) ); }
     inline vw::Vector2 reverse( vw::Vector2 const& p ) const { return tx2.reverse( tx1.reverse( p ) ); }
@@ -75,8 +75,8 @@ namespace asp {
 
     // For reversing the arithmetic applied in preprocessing plus the
     // map projection.
-    typedef CompositionTransformPassBBox<RPCMapTransform,vw::HomographyTransform> left_tx_type;
-    typedef CompositionTransformPassBBox<RPCMapTransform,vw::HomographyTransform> right_tx_type;
+    typedef CompositionTransformPassBBox<vw::cartography::MapTransform,vw::HomographyTransform> left_tx_type;
+    typedef CompositionTransformPassBBox<vw::cartography::MapTransform,vw::HomographyTransform> right_tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
     left_tx_type tx_left() const;
     right_tx_type tx_right() const;
