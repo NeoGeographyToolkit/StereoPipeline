@@ -20,7 +20,7 @@
 # which are combined into the mosaic. May improve accuracy
 # that way. This change would need very careful testing.
 
-import os, sys, string, subprocess, math, re, optparse, time, copy
+import os, sys, string, subprocess, math, re, optparse, time, copy, tempfile
 from datetime import datetime, timedelta
 sys.path.append(sys.path[0] + '/../libexec')
 from stereo_utils import *
@@ -543,18 +543,16 @@ def main():
                                + format_microsec(str(tlc_lookup.microsecond)) + "Z"
 
         if not options.skip_rpc_gen:
-            # Find the best-fitting RPC coefficients Need to
-            # temporarily write the xml file to disk.
-            xml_file = options.output_prefix+".xml"
-            tree.write(xml_file)
+            # Find the best-fitting RPC coefficients.
+            temp_xml_file = tempfile.NamedTemporaryFile(suffix = ".xml", dir = ".");
+            tree.write(temp_xml_file.name)
             rpc_cmd = "rpc_gen"
             rpc_args = ['--penalty-weight', str(options.penalty_weight),
                         '--lon-lat-height-box',
                         str(ref_llbox.minx), str(ref_llbox.miny),
                         str(ref_htbox.minx), str(ref_llbox.maxx),
-                        str(ref_llbox.maxy), str(ref_htbox.maxx), xml_file]
+                        str(ref_llbox.maxy), str(ref_htbox.maxx), temp_xml_file.name]
             rpc_model = run_and_parse_output( rpc_cmd, rpc_args, options.verbose )
-            os.remove(xml_file)
             try:
                 # Set the RPC model info. Wipe all other outdated info.
                 RPI = root.find("RPB").find("IMAGE")
