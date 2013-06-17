@@ -80,7 +80,7 @@ namespace asp {
 #endif
   }
 
-  StereoSession* StereoSession::create( std::string & session_type,
+  StereoSession* StereoSession::create( std::string & session_type, // in-out variable
                                         BaseOptions const& options,
                                         std::string const& left_image_file,
                                         std::string const& right_image_file,
@@ -163,7 +163,7 @@ namespace asp {
                                  left_camera_file, right_camera_file,
                                  out_prefix, input_dem, extra_argument1,
                                  extra_argument2, extra_argument3 );
-        session_type = session_new->name(); // we use this in orthoproject.cc
+        session_type = session_new->name(); // we count on this in the caller
         return session_new;
       }
     }
