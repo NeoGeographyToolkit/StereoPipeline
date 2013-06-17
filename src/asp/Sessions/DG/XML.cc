@@ -353,9 +353,16 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
   boost::scoped_ptr<ErrorHandler> errHandler( new HandlerBase() );
   parser->setErrorHandler(errHandler.get());
 
-  parser->parse( name.c_str() );
-  DOMDocument* xmlDoc = parser->getDocument();
-  DOMElement* elementRoot = xmlDoc->getDocumentElement();
+  DOMDocument* xmlDoc;
+  DOMElement* elementRoot;
+
+  try{
+    parser->parse( name.c_str() );
+    xmlDoc = parser->getDocument();
+    elementRoot = xmlDoc->getDocumentElement();
+  }catch(...){
+    vw_throw( ArgumentErr() << "XML file \"" << name << "\" is invalid." );
+  }
 
   try {
     parse_rpb( get_node<DOMElement>( elementRoot, "RPB" ) );
