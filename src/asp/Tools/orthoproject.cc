@@ -296,7 +296,7 @@ int main(int argc, char* argv[]) {
     // missions.  Hence, we create two identical camera models, but
     // only one is used.
     typedef boost::scoped_ptr<asp::StereoSession> SessionPtr;
-    SessionPtr session( asp::StereoSession::create(opt.stereo_session, // this gets updated inside
+    SessionPtr session( asp::StereoSession::create(opt.stereo_session, // in-out
                                                    opt,
                                                    opt.image_file, opt.image_file,
                                                    opt.camera_model_file,
