@@ -288,20 +288,20 @@ int main( int argc, char* argv[] ) {
          apply_mask
          (transform
           (create_mask(DiskImageView<float>( src_rsrc), nodata_val),
-           cartography::MapTransform( camera_model.get(), target_georef,
-                                      dem_georef, dem_rsrc ),
+           cartography::MapTransform2( camera_model.get(), target_georef,
+                                       dem_georef, dem_rsrc, image_size ),
            target_image_size.width(), target_image_size.height(),
            ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
-           BicubicInterpolation() ), nodata_val ),
+           BicubicInterpolation(), nodata_val ), nodata_val ),
          target_georef, use_nodata, nodata_val, opt, TerminalProgressCallback("","") );
     } else {
       write_parallel_cond
         (opt.output_file,
          transform(DiskImageView<float>( src_rsrc ),
-                   cartography::MapTransform( camera_model.get(), target_georef,
-                                              dem_georef, dem_rsrc ),
+                   cartography::MapTransform2( camera_model.get(), target_georef,
+                                               dem_georef, dem_rsrc, image_size ),
                    target_image_size.width(), target_image_size.height(),
-                   ZeroEdgeExtension(), BicubicInterpolation() ),
+                   ZeroEdgeExtension(), BicubicInterpolation(), nodata_val ),
          target_georef, use_nodata, nodata_val, opt, TerminalProgressCallback("","") );
     }
 
