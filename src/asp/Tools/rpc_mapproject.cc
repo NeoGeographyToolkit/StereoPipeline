@@ -41,7 +41,7 @@ struct Options : asp::BaseOptions {
 
   // Settings
   std::string target_srs_string;
-  float target_resolution;
+  double target_resolution, mpp, ppd;
   BBox2 target_projwin;
   double nodata_value;
 };
@@ -54,15 +54,22 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // To do: Tell about the output nodata value.
   // To do: Test the new rpc by doing stereo with old and new rpc_mapproject.
   // To do: Tell about the fix with small DEM.
+  // To do: Update doc with options.
+  double NaN = std::numeric_limits<double>::quiet_NaN();
+
   general_options.add_options()
     // To do: The nodata-value is not respected.
     // To do: use nan below instead of 0?
     ("nodata-value", po::value(&opt.nodata_value)->default_value(0),
      "Nodata value to use on output.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
-     "Target spatial reference set. This mimicks the gdal option. If not provided use the one from the DEM.") // To do: Put note on the doc that this is now optional.
-    ("tr", po::value(&opt.target_resolution)->default_value(0),
-     "Set output file resolution (in target georeferenced units per pixel)")
+     "Target spatial reference set. This mimics the gdal option. If not provided use the one from the DEM.") // To do: Put note on the doc that this is now optional.
+    ("tr", po::value(&opt.target_resolution)->default_value(NaN),
+     "Set the output file resolution in target georeferenced units per pixel.")
+    ("mpp", po::value(&opt.mpp)->default_value(NaN),
+     "Set the output file resolution in meters per pixel.")
+    ("ppd", po::value(&opt.ppd)->default_value(NaN),
+     "Set the output file resolution in pixels per degree.")
     ("session-type,t", po::value(&opt.stereo_session)->default_value(""),
      "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
     ("t_projwin", po::value(&opt.target_projwin),
@@ -94,10 +101,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << "input in order to proceed.\n\n"
               << usage << general_options );
 
-  if ( opt.output_file.empty() )
-    vw_throw( ArgumentErr() << "Missing output file.\n\n"
-              << usage << general_options );
-
   // When doing stereo, we usually guess the session type to be dg if
   // the camera model is an xml file, yet this tool will most likely
   // be used with rpc sessions, hence the user must be explicit about
@@ -115,23 +118,27 @@ template <class ImageT>
 void write_parallel_cond( std::string const& filename,
                           ImageViewBase<ImageT> const& image,
                           cartography::GeoReference const& georef,
-                          bool use_nodata, double nodata_val,
+                          bool has_nodata, double nodata_val,
                           Options const& opt,
                           TerminalProgressCallback const& tpc ) {
   // ISIS is not thread safe so we must switch out base on what the
   // session is.
   vw_out() << "Writing: " << filename << "\n";
-  if (use_nodata){
+  if (has_nodata){
     if ( opt.stereo_session == "isis" ) {
-      asp::write_gdal_georeferenced_image(filename, image.impl(), georef, nodata_val, opt, tpc);
+      asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
+                                          nodata_val, opt, tpc);
     } else {
-      asp::block_write_gdal_image(filename, image.impl(), georef, nodata_val, opt, tpc);
+      asp::block_write_gdal_image(filename, image.impl(), georef,
+                                  nodata_val, opt, tpc);
     }
   }else{
     if ( opt.stereo_session == "isis" ) {
-      asp::write_gdal_georeferenced_image(filename, image.impl(), georef, opt, tpc);
+      asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
+                                          opt, tpc);
     } else {
-      asp::block_write_gdal_image(filename, image.impl(), georef, opt, tpc);
+      asp::block_write_gdal_image(filename, image.impl(), georef,
+                                  opt, tpc);
     }
   }
 
@@ -155,6 +162,17 @@ int main( int argc, char* argv[] ) {
                                                    opt.camera_model_file,
                                                    opt.camera_model_file,
                                                    opt.output_file) );
+
+    if (session->name() == "isis" && opt.output_file.empty() ){
+      // The user did not provide an output file. Then the camera
+      // information is contained within the image file and what is in
+      // the camera file is actually the output file.
+      opt.output_file = opt.camera_model_file;
+      opt.camera_model_file.clear();
+    }
+    if ( opt.output_file.empty() )
+      vw_throw( ArgumentErr() << "Missing output filename.\n" );
+
     boost::shared_ptr<camera::CameraModel> camera_model =
       session->camera_model(opt.image_file, opt.camera_model_file);
 
@@ -193,13 +211,44 @@ int main( int argc, char* argv[] ) {
       target_georef.set_wkt( wkt_string );
     }
 
+    // Find the target resolution based on mpp or ppd if provided.  Do
+    // the math to convert pixel-per-degree to meter-per-pixel and
+    // vice-versa.
+    int sum = (!std::isnan(opt.target_resolution)) + (!std::isnan(opt.mpp))
+      + (!std::isnan(opt.ppd));
+    if (sum >= 2){
+      vw_throw( ArgumentErr() << "Must specify at most one of the options: "
+                << "--tr, --mpp, --ppd.\n" );
+    }
+    double radius = dem_georef.datum().semi_major_axis();
+    if ( !std::isnan(opt.mpp) ){
+      opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
+    }else if ( !std::isnan(opt.ppd) ){
+      opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
+    }
+    if ( !std::isnan(opt.ppd) ) {
+      if (dem_georef.is_projected()) {
+        opt.target_resolution = opt.mpp;
+      } else {
+        opt.target_resolution = 1/opt.ppd;
+      }
+    }
+
+    DiskImageView<float> dem_disk_image(dem_rsrc);
+    ImageViewRef< PixelMask<float> > dem;
+    if (dem_rsrc->has_nodata_read()){
+      dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
+    }else{
+      dem = pixel_cast< PixelMask<float> >(dem_disk_image);
+    }
+
     // Find the camera bbox target resolution unless user-supplied.
     float auto_res;
     Vector2i image_size = asp::file_image_size( opt.image_file );
     BBox2 point_bounds =
-      camera_bbox( target_georef, camera_model,
+      camera_bbox( dem, dem_georef, camera_model,
                    image_size.x(), image_size.y(), auto_res);
-    if (opt.target_resolution <= 0) opt.target_resolution = auto_res;
+    if (std::isnan(opt.target_resolution)) opt.target_resolution = auto_res;
 
     if ( opt.target_projwin != BBox2() ) {
       point_bounds = opt.target_projwin;
@@ -251,58 +300,35 @@ int main( int argc, char* argv[] ) {
     vw_out() << "Creating output file that is " << target_image_size.size()
              << " px.\n";
 
-    // Check if the four corners of the projected image are at valid
-    // DEM points.
-    double nodata = std::numeric_limits<double>::quiet_NaN();
-    if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
-    DiskImageView<float> dem(dem_rsrc);
-    int x[] = {0, target_image_size.width()-1, target_image_size.width()-1, 0};
-    int y[] = {0, 0, target_image_size.height()-1, target_image_size.height()-1};
-    for (int i = 0; i < 4; i++){
-      Vector2i img_pix(x[i], y[i]);
-      Vector2 lon_lat = target_georef.pixel_to_lonlat(img_pix);
-      Vector2i dem_pix = round(dem_georef.lonlat_to_pixel(lon_lat));
-      int c = dem_pix[0], r = dem_pix[1];
-      bool isBad = (c < 0 || c >= dem.cols() || r < 0 || r >= dem.rows() ||
-                    dem(c, r) == nodata);
-      if (isBad){
-        vw_out(WarningMessage)
-          << "It appears that the map-projected image is not contained "
-          << "entirely within the DEM. This may result in large memory usage."
-          << std::endl;
-        break;
-      }
-    }
-
     boost::shared_ptr<DiskImageResource>
-      src_rsrc( DiskImageResource::open( opt.image_file ) );
+      img_rsrc( DiskImageResource::open( opt.image_file ) );
 
     // Write output image
     asp::create_out_dir(opt.output_file);
-    bool use_nodata = src_rsrc->has_nodata_read();
-    double nodata_val = std::numeric_limits<double>::quiet_NaN();
-    if ( use_nodata) {
-      nodata_val = src_rsrc->nodata_read();
+    bool has_img_nodata = img_rsrc->has_nodata_read();
+    double img_nodata_val = std::numeric_limits<double>::quiet_NaN();
+    if ( has_img_nodata) {
+      img_nodata_val = img_rsrc->nodata_read();
       write_parallel_cond
         (opt.output_file,
          apply_mask
          (transform
-          (create_mask(DiskImageView<float>( src_rsrc), nodata_val),
+          (create_mask(DiskImageView<float>( img_rsrc), img_nodata_val),
            cartography::MapTransform2( camera_model.get(), target_georef,
                                        dem_georef, dem_rsrc, image_size ),
            target_image_size.width(), target_image_size.height(),
            ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
-           BicubicInterpolation(), nodata_val ), nodata_val ),
-         target_georef, use_nodata, nodata_val, opt, TerminalProgressCallback("","") );
+           BicubicInterpolation(), img_nodata_val ), img_nodata_val ),
+         target_georef, has_img_nodata, img_nodata_val, opt, TerminalProgressCallback("","") );
     } else {
       write_parallel_cond
         (opt.output_file,
-         transform(DiskImageView<float>( src_rsrc ),
+         transform(DiskImageView<float>( img_rsrc ),
                    cartography::MapTransform2( camera_model.get(), target_georef,
                                                dem_georef, dem_rsrc, image_size ),
                    target_image_size.width(), target_image_size.height(),
-                   ZeroEdgeExtension(), BicubicInterpolation(), nodata_val ),
-         target_georef, use_nodata, nodata_val, opt, TerminalProgressCallback("","") );
+                   ZeroEdgeExtension(), BicubicInterpolation(), img_nodata_val ),
+         target_georef, has_img_nodata, img_nodata_val, opt, TerminalProgressCallback("","") );
     }
 
   } ASP_STANDARD_CATCHES;
