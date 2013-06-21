@@ -186,8 +186,8 @@ private:
     // the same.
     T1 tx1_copy = tx1;
     T2 tx2_copy = tx2;
-    tx1_copy.tx1.cache_dem( bbox );
-    tx2_copy.tx1.cache_dem( right_bbox );
+    tx1_copy.tx1.reverse_bbox( bbox );
+    tx2_copy.tx1.reverse_bbox( right_bbox );
 
     return prerasterize_type( crop(disparity_preraster,-bbox.min().x(),-bbox.min().y(),cols(),rows()),
                               tx1_copy, tx2_copy, m_stereo_model );
