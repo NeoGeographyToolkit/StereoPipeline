@@ -47,7 +47,7 @@ namespace asp {
   }
 
   StereoSettings::StereoSettings(){
-    // Must initialize this variable as it is used in rpc_mapproject
+    // Must initialize this variable as it is used in mapproject
     // to get a camera pointer, and there we don't parse stereo.default
     disable_correct_velocity_aberration = false;
   }

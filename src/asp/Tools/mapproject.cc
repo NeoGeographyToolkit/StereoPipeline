@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file rpc_mapproject.cc
+/// \file mapproject.cc
 ///
 /// This program will project a camera image onto a DEM using the RPC
 /// camera model.
@@ -51,7 +51,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // To do: add manual entry in tools.tex.
   // to do: Tell folks about mandatory -t flag.
   // To do: Tell that t_srs is now optional.
-  // To do: Test the new rpc by doing stereo with old and new rpc_mapproject.
+  // To do: Test the new rpc by doing stereo with old and new mapproject.
   // To do: Tell about the fix with small DEM.
   double NaN = std::numeric_limits<double>::quiet_NaN();
   general_options.add_options()

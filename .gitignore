@@ -113,7 +113,7 @@ src/asp/Tools/reconstruct
 src/asp/Tools/results
 src/asp/Tools/rmax2cahvor
 src/asp/Tools/rmax_adjust
-src/asp/Tools/rpc_mapproject
+src/asp/Tools/mapproject
 src/asp/Tools/stereo
 src/asp/Tools/stereo_corr
 src/asp/Tools/stereo_fltr

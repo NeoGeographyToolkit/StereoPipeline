@@ -158,10 +158,10 @@ if MAKE_APP_MER2CAMERA
   mer2camera_LDADD   = $(APP_MER2CAMERA_LIBS)
 endif
 
-if MAKE_APP_RPC_MAPPROJECT
-  bin_PROGRAMS += rpc_mapproject
-  rpc_mapproject_SOURCES = rpc_mapproject.cc
-  rpc_mapproject_LDADD   = $(APP_RPC_MAPPROJECT_LIBS)
+if MAKE_APP_MAPPROJECT
+  bin_PROGRAMS += mapproject
+  mapproject_SOURCES = mapproject.cc
+  mapproject_LDADD   = $(APP_MAPPROJECT_LIBS)
 endif
 
 if MAKE_APP_RPC_GEN
