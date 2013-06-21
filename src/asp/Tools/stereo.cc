@@ -261,7 +261,7 @@ namespace asp {
       Vector3 cam2_vec = camera_model2->pixel_to_vector(Vector2());
       // Do the cameras appear to be in the same location?
       if ( norm_2(cam1_ctr - cam2_ctr) < 1e-3 )
-        vw_out(WarningMessage,"console")
+        vw_out(WarningMessage)
           << "Your cameras appear to be in the same location!\n"
           << "\tYou should double check your given camera\n"
           << "\tmodels as most likely stereo won't be able\n"
@@ -288,7 +288,7 @@ namespace asp {
                dot_prod( cam2_vec, point - cam2_ctr ) < 0
                )
            ){
-        vw_out(WarningMessage,"console")
+        vw_out(WarningMessage)
           << "Your cameras appear not to be pointing at the same location!\n"
           << "\tA test vector triangulated backwards through\n"
           << "\tthe camera models. You should double check\n"
