@@ -59,9 +59,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("ppd", po::value(&opt.ppd), "Specify the output resolution of the orthoimage in pixels per degree.")
     ("nodata-value", po::value(&opt.nodata_value),
      "Specify the nodata pixel value in input DEM. Will automatically find if available.")
-    ("match-dem", "Match the georeferencing parameters and dimensions of the input DEM.")
-    ("min", po::value(&opt.lo), "Explicitly specify the range of the normalization (for ISIS images only)")
-    ("max", po::value(&opt.hi), "Explicitly specify the range of the normalization (for ISIS images only)")
     ("session-type,t", po::value(&opt.stereo_session),
      "Select the stereo session type to use for processing. [default: pinhole]")
     ("mark-no-processed-data", po::bool_switch(&opt.mark_no_processed_data)->default_value(false),
@@ -302,12 +299,6 @@ int main(int argc, char* argv[]) {
                                                    opt.camera_model_file,
                                                    opt.camera_model_file,
                                                    opt.output_file) );
-    boost::shared_ptr<camera::CameraModel> camera_model =
-      session->camera_model(opt.image_file, opt.camera_model_file);
-
-    if ( opt.stereo_session != "isis" && opt.stereo_session != "pinhole" ) {
-      vw_throw( ArgumentErr() << "Supported sessions: [pinhole isis].\n" );
-    }
 
     if (session->name() == "isis" && opt.output_file.empty() ){
       // The user did not provide an output file. Then the camera
@@ -316,9 +307,16 @@ int main(int argc, char* argv[]) {
       opt.output_file = opt.camera_model_file;
       opt.camera_model_file.clear();
     }
-
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
+
+
+    boost::shared_ptr<camera::CameraModel> camera_model =
+      session->camera_model(opt.image_file, opt.camera_model_file);
+
+    if ( opt.stereo_session != "isis" && opt.stereo_session != "pinhole" ) {
+      vw_throw( ArgumentErr() << "Supported sessions: [pinhole isis].\n" );
+    }
 
     GeoReference dem_georef;
     ImageViewRef<PixelMask<float > > dem;
@@ -367,7 +365,6 @@ int main(int argc, char* argv[]) {
     if ( !std::isnan(opt.mpp) && !std::isnan(opt.ppd) ) {
       vw_throw( ArgumentErr()
                 << "Must specify either --mpp or --ppd option, but not both.\n" );
-      return 1;
     }else if ( !std::isnan(opt.mpp) ){
       opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
     }else if ( !std::isnan(opt.ppd) ){

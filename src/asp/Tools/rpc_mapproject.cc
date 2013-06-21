@@ -55,11 +55,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // To do: Test the new rpc by doing stereo with old and new rpc_mapproject.
   // To do: Tell about the fix with small DEM.
   // To do: Update doc with options.
+  // To do: Update doc of orthoproject as well.
+  // To do: The nodata-value is not respected.
+  // To do: use nan below instead of 0?
   double NaN = std::numeric_limits<double>::quiet_NaN();
 
   general_options.add_options()
-    // To do: The nodata-value is not respected.
-    // To do: use nan below instead of 0?
     ("nodata-value", po::value(&opt.nodata_value)->default_value(0),
      "Nodata value to use on output.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
@@ -187,28 +188,47 @@ int main( int argc, char* argv[] ) {
     }
 
     // Load DEM
-    boost::shared_ptr<DiskImageResource>
-      dem_rsrc( DiskImageResource::open( opt.dem_file ) );
     cartography::GeoReference dem_georef;
-    read_georeference( dem_georef, opt.dem_file );
+    ImageViewRef< PixelMask<float> > dem;
+    boost::shared_ptr<DiskImageResource> dem_rsrc;
 
-    // Read projection. Work out output bounding box in points using
-    // original camera model.
-    cartography::GeoReference target_georef = dem_georef;
-    if (opt.target_srs_string != ""){
-      boost::replace_first(opt.target_srs_string,
-                           "IAU2000:","DICT:IAU2000.wkt,");
-      VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
-                                 << opt.target_srs_string << "\"\n";
-      OGRSpatialReference gdal_spatial_ref;
-      if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
-        vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string
-                  << "\"." );
-      char *wkt = NULL;
-      gdal_spatial_ref.exportToWkt( &wkt );
-      std::string wkt_string(wkt);
-      delete[] wkt;
-      target_georef.set_wkt( wkt_string );
+    if ( fs::path(opt.dem_file).extension() == "" ) {
+      // This option allows the user to just project directly unto to
+      // the datum. This seems like a stop gap. This should be
+      // addressed after a rewrite of this tool.
+      //
+      // Valid values are well known Datums like D_MOON D_MARS WGS84 and so on.
+      Vector3 llr_camera_loc =
+        cartography::XYZtoLonLatRadFunctor::apply
+        ( camera_model->camera_center(Vector2()) );
+      if ( llr_camera_loc[0] < 0 ) llr_camera_loc[0] += 360;
+
+      dem_georef =
+        cartography::GeoReference(cartography::Datum(opt.dem_file),
+                                  Matrix3x3(1, 0,
+                                            (llr_camera_loc[0] < 90 ||
+                                             llr_camera_loc[0] > 270) ? -180 : 0,
+                                            0, -1, 90, 0, 0, 1) );
+      dem = constant_view(PixelMask<float>(0), 360, 180 );
+      vw_out() << "\t--> Using flat datum \"" << opt.dem_file
+               << "\" as elevation model.\n";
+    }else{
+
+      bool has_georef = cartography::read_georeference(dem_georef, opt.dem_file);
+      if (!has_georef)
+        vw_throw( ArgumentErr() << "There is no georeference information in: "
+                  << opt.dem_file << ".\n" );
+
+      dem_rsrc = boost::shared_ptr<DiskImageResource>
+        ( DiskImageResource::open( opt.dem_file ) );
+
+      // If we have a nodata value, create a mask.
+      DiskImageView<float> dem_disk_image(dem_rsrc);
+      if (dem_rsrc->has_nodata_read()){
+        dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
+      }else{
+        dem = pixel_cast< PixelMask<float> >(dem_disk_image);
+      }
     }
 
     // Find the target resolution based on mpp or ppd if provided.  Do
@@ -234,12 +254,23 @@ int main( int argc, char* argv[] ) {
       }
     }
 
-    DiskImageView<float> dem_disk_image(dem_rsrc);
-    ImageViewRef< PixelMask<float> > dem;
-    if (dem_rsrc->has_nodata_read()){
-      dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
-    }else{
-      dem = pixel_cast< PixelMask<float> >(dem_disk_image);
+    // Read projection. Work out output bounding box in points using
+    // original camera model.
+    cartography::GeoReference target_georef = dem_georef;
+    if (opt.target_srs_string != ""){
+      boost::replace_first(opt.target_srs_string,
+                           "IAU2000:","DICT:IAU2000.wkt,");
+      VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
+                                 << opt.target_srs_string << "\"\n";
+      OGRSpatialReference gdal_spatial_ref;
+      if (gdal_spatial_ref.SetFromUserInput( opt.target_srs_string.c_str() ))
+        vw_throw( ArgumentErr() << "Failed to parse: \"" << opt.target_srs_string
+                  << "\"." );
+      char *wkt = NULL;
+      gdal_spatial_ref.exportToWkt( &wkt );
+      std::string wkt_string(wkt);
+      delete[] wkt;
+      target_georef.set_wkt( wkt_string );
     }
 
     // Find the camera bbox target resolution unless user-supplied.
@@ -313,22 +344,24 @@ int main( int argc, char* argv[] ) {
         (opt.output_file,
          apply_mask
          (transform
-          (create_mask(DiskImageView<float>( img_rsrc), img_nodata_val),
-           cartography::MapTransform2( camera_model.get(), target_georef,
-                                       dem_georef, dem_rsrc, image_size ),
+          (create_mask(DiskImageView<float>(img_rsrc), img_nodata_val),
+           cartography::MapTransform( camera_model.get(), target_georef,
+                                      dem_georef, dem_rsrc, image_size ),
            target_image_size.width(), target_image_size.height(),
            ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
            BicubicInterpolation(), img_nodata_val ), img_nodata_val ),
-         target_georef, has_img_nodata, img_nodata_val, opt, TerminalProgressCallback("","") );
+         target_georef, has_img_nodata, img_nodata_val, opt,
+         TerminalProgressCallback("","") );
     } else {
       write_parallel_cond
         (opt.output_file,
-         transform(DiskImageView<float>( img_rsrc ),
-                   cartography::MapTransform2( camera_model.get(), target_georef,
+         transform(DiskImageView<float>(img_rsrc),
+                   cartography::MapTransform( camera_model.get(), target_georef,
                                                dem_georef, dem_rsrc, image_size ),
                    target_image_size.width(), target_image_size.height(),
                    ZeroEdgeExtension(), BicubicInterpolation(), img_nodata_val ),
-         target_georef, has_img_nodata, img_nodata_val, opt, TerminalProgressCallback("","") );
+         target_georef, has_img_nodata, img_nodata_val, opt,
+         TerminalProgressCallback("","") );
     }
 
   } ASP_STANDARD_CATCHES;
