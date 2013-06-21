@@ -1,12 +1,14 @@
 *** RELEASE 2.2.x, Upcoming! ***
 
-  - rpc_maprpoject and orthoproject combined into a single tool for projecting 
+  - rpc_maprpoject and orthoproject are combined into a single tool for projecting 
     a camera image onto a DEM for any camera model supported by ASP. The old
     orthoproject is kept for backward compatibility for a while.
+
   - dg_mosaic can generate a combined RPC model in addition to the combined DG model.
   - Subpixel mosaicing in dg_mosaic instead of nearest neighbor.
 
-  - Timeout option added for stereo correlation, preventing unreasonably long correlation times for certain image tiles.
+  - Timeout option added for stereo correlation, preventing unreasonably long correlation
+    times for certain image tiles.
 
 *** RELEASE 2.2.2, 17 MAY 2013 ***
     (incremented from 2.2.1 after one more bugfix)
