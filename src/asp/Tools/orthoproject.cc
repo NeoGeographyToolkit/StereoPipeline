@@ -58,7 +58,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("mpp", po::value(&opt.mpp), "Specify the output resolution of the orthoimage in meters per pixel.")
     ("ppd", po::value(&opt.ppd), "Specify the output resolution of the orthoimage in pixels per degree.")
     ("nodata-value", po::value(&opt.nodata_value),
-     "Specify the nodata pixel value in input DEM. Will automatically find if available.")
+     "The nodata pixel value to use for the input DEM, overriding the value specified in the DEM.")
     ("session-type,t", po::value(&opt.stereo_session),
      "Select the stereo session type to use for processing. [default: pinhole]")
     ("mark-no-processed-data", po::bool_switch(&opt.mark_no_processed_data)->default_value(false),
@@ -318,6 +318,7 @@ int main(int argc, char* argv[]) {
       vw_throw( ArgumentErr() << "Supported sessions: [pinhole isis].\n" );
     }
 
+    // Load the DEM
     GeoReference dem_georef;
     ImageViewRef<PixelMask<float > > dem;
 
@@ -339,10 +340,10 @@ int main(int argc, char* argv[]) {
       dem = constant_view(PixelMask<float>(0), 360, 180 );
       vw_out() << "\t--> Using flat datum \"" << opt.dem_file << "\" as elevation model.\n";
     } else {
-      // Open the DEM
       bool has_georef = cartography::read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
-        vw_throw( ArgumentErr() << "There is no georeference information in: " << opt.dem_file << ".\n" );
+        vw_throw( ArgumentErr() << "There is no georeference information in: "
+                  << opt.dem_file << ".\n" );
 
       DiskImageView<float> dem_disk_image(opt.dem_file);
       dem = pixel_cast<PixelMask<float> >(dem_disk_image);

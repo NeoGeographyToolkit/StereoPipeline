@@ -43,26 +43,18 @@ struct Options : asp::BaseOptions {
   std::string target_srs_string;
   double target_resolution, mpp, ppd;
   BBox2 target_projwin;
-  double nodata_value;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
-  // To do: Use mpp and tr for backward comp. Put this in doc.
+  // To do: Rename to mapproject.
+  // To do: add manual entry in tools.tex.
   // to do: Tell folks about mandatory -t flag.
   // To do: Tell that t_srs is now optional.
-  // To do: Tell about the output nodata value.
   // To do: Test the new rpc by doing stereo with old and new rpc_mapproject.
   // To do: Tell about the fix with small DEM.
-  // To do: Update doc with options.
-  // To do: Update doc of orthoproject as well.
-  // To do: The nodata-value is not respected.
-  // To do: use nan below instead of 0?
   double NaN = std::numeric_limits<double>::quiet_NaN();
-
   general_options.add_options()
-    ("nodata-value", po::value(&opt.nodata_value)->default_value(0),
-     "Nodata value to use on output.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Target spatial reference set. This mimics the gdal option. If not provided use the one from the DEM.") // To do: Put note on the doc that this is now optional.
     ("tr", po::value(&opt.target_resolution)->default_value(NaN),
@@ -187,7 +179,7 @@ int main( int argc, char* argv[] ) {
                  << "unprojected or raw camera imagery." );
     }
 
-    // Load DEM
+    // Load the DEM
     cartography::GeoReference dem_georef;
     ImageViewRef< PixelMask<float> > dem;
     boost::shared_ptr<DiskImageResource> dem_rsrc;
@@ -213,7 +205,6 @@ int main( int argc, char* argv[] ) {
       vw_out() << "\t--> Using flat datum \"" << opt.dem_file
                << "\" as elevation model.\n";
     }else{
-
       bool has_georef = cartography::read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
         vw_throw( ArgumentErr() << "There is no georeference information in: "
@@ -231,7 +222,7 @@ int main( int argc, char* argv[] ) {
       }
     }
 
-    // Find the target resolution based on mpp or ppd if provided.  Do
+    // Find the target resolution based on mpp or ppd if provided. Do
     // the math to convert pixel-per-degree to meter-per-pixel and
     // vice-versa.
     int sum = (!std::isnan(opt.target_resolution)) + (!std::isnan(opt.mpp))
