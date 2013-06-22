@@ -137,6 +137,17 @@ void write_parallel_cond( std::string const& filename,
 
 }
 
+BBox2 conv_point_box(BBox2 inBox,
+                     cartography::GeoReference ig, cartography:: GeoReference og){
+  BBox2 outBox;
+  outBox.grow(og.lonlat_to_point(ig.point_to_lonlat(Vector2(inBox.min()[0], inBox.min()[1]))));
+  outBox.grow(og.lonlat_to_point(ig.point_to_lonlat(Vector2(inBox.min()[0], inBox.max()[1]))));
+  outBox.grow(og.lonlat_to_point(ig.point_to_lonlat(Vector2(inBox.max()[0], inBox.min()[1]))));
+  outBox.grow(og.lonlat_to_point(ig.point_to_lonlat(Vector2(inBox.max()[0], inBox.max()[1]))));
+  return outBox;
+
+}
+
 int main( int argc, char* argv[] ) {
 
   Options opt;
@@ -270,6 +281,12 @@ int main( int argc, char* argv[] ) {
     BBox2 point_bounds =
       camera_bbox( dem, dem_georef, camera_model,
                    image_size.x(), image_size.y(), auto_res);
+
+    point_bounds = conv_point_box(point_bounds, dem_georef, target_georef);
+    // To do: The call below gives boxes which are way too large.
+    //point_bounds = target_georef.lonlat_to_point_bbox
+    //  (dem_georef.point_to_lonlat_bbox(point_bounds));
+
     if (std::isnan(opt.target_resolution)) opt.target_resolution = auto_res;
 
     if ( opt.target_projwin != BBox2() ) {
