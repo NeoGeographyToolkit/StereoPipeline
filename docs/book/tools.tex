@@ -52,7 +52,7 @@ in sub-directories, we recommend using an output prefix like
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
-\texttt{-\/-session-type|-t pinhole|isis|dg} & Select the stereo session type to use for processing. Usually the program can select this automatically for the file extension.\\ \hline
+\texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
 \texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a subregion of the left image [default: use the entire image].\\ \hline
 \texttt{-\/-entry-point|-e 1|2|3|4} & Stereo Pipeline entry point \\ \hline
@@ -460,40 +460,63 @@ Options & Description \\ \hline \hline
 \texttt{-\/-kappa-rotation \textit{float(=0)}} & Set a rotation angle kappa \\ \hline
 \end{longtable}
 
-%% \section{orthoproject}
-%% \label{orthoproject}
+\section{mapproject}
+\label{mapproject}
 
-%% Map projects imagery on to point clouds.
-%% Note: This process is not multi-threaded because it uses ISIS which is not thread safe.
-%% Example:
-%% \begin{verbatim}
-%% orthoproject -t isis filename-DEM.tif filename.cub filename.isis_adjust \\
-%%         filename-DRG.tif --nodata -10000 --ppd 256
-%% \end{verbatim}
+The tool \texttt{mapproject} is used to map-project a camera image onto
+a DEM. The obtained images can be used, for example, to visualize how
+camera images would look when projected onto the ground obtained by
+doing stereo of these images (ideally, if there were no correlation or
+triangulation error, the images would project perfectly). The tool can
+also be used to compute stereo from the obtained map-projected images;
+this functionality is currently supported only with RPC models (section
+\ref{mapproj}).
 
-%% \begin{longtable}{|l|p{10cm}|}
-%% \caption{Command-line options for orthoproject}
-%% \label{tbl:orthoproject}
-%% \endfirsthead
-%% \endhead
-%% \endfoot
-%% \endlastfoot
-%% \hline
-%% Options & Description \\ \hline \hline
-%% \verb#--help# & Display the help message \\ \hline
-%% \verb#--mpp arg# & Specify the output resolution of the orthoimage in meters per pixel \\ \hline
-%% \verb#--ppd arg# & Specify the output resolution of the orthoimage in pixels per degree \\ \hline
-%% \verb#--nodata-value arg# & Specify the pixel used in this DEM to denote missing data \\ \hline
-%% \verb#-m# & Match the georeferencing parameters and dimensions of the input DEM \\ \hline
-%% \verb#--min arg# & Explicitly specify the range of the normalization (for ISIS images only) \\ \hline
-%% \verb#--max arg# & Explicitly specify the range of the normalization (for ISIS images only) \\ \hline
-%% \verb#--cache arg# & Cache size, in megabytes \\ \hline
-%% \verb#-t arg (=pinhole)# & Select the stereo session type to use for processing. [default: pinhole] \\ \hline
-%% \verb#--mark-no-processed-data# & If to set no-data pixels in the DEM which project onto the camera to black. [default: false]
-%%                                   This option is used used only for creating images suitable for albedo generation. \\ \hline
+\texttt{mapproject} supersedes the older
+\texttt{orthoproject} tool, which could map-project only with ISIS and
+pinhole camera models (the latter program is still being kept for a few
+releases for backward compatibility). We ported all features of
+\texttt{orthoproject} except for projecting of vector imagery (for
+example, RGB pixel data).
 
-%% \verb#-d arg (=29)# & Set the debugging output level. (0-50+) \\ \hline
-%% \end{longtable}
+\texttt{mapproject} is single-threaded for ISIS cameras, this is due to
+the limitations of ISIS. At some point this tool will be able to
+distribute itself using multiple processes to work around this limitation.
+
+
+Example:
+\begin{verbatim}
+mapproject -t isis DEM.tif image.cub camera.isis_adjust \\
+         output-IMG.tif --ppd 256
+\end{verbatim}
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for mapproject}
+\label{tbl:mapproject}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-t\_srs} & Target spatial reference set. This mimics the GDAL
+option. If not provided use the one from the DEM. \\ \hline
+\texttt{-\/-tr \textit{float}} & Set the output file resolution in target
+  georeferenced units per pixel. \\ \hline
+\texttt{-\/-mpp \textit{float}} & Set the output file resolution in meters per
+pixel. \\ \hline
+\texttt{-\/-ppd \textit{float}} & Set the output file resolution in pixels per
+degree. \\ \hline
+\texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo
+session type to use for processing. Usually the program can select this
+automatically by the file extension except for DG and RPC.\\ \hline
+\texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax}} & Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates. Max is exclusive. \\ \hline
+\texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
+\texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
+\texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
+\texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
+\texttt{-\/-help|-h} & Display the help message\\ \hline
+\end{longtable}
 
 \clearpage
 

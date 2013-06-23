@@ -62,7 +62,7 @@
 \setlength{\parindent}{0pt}
 
 % Again, uncomment when/if needed.
-% % Define the \sourcelst command to create a floating listing of 
+% % Define the \sourcelst command to create a floating listing of
 % % a (separate) source file.
 % \newfloat{listing}{t}{lop}
 % \floatname{listing}{Listing}
