@@ -17,7 +17,7 @@
 
 /// \file mapproject.cc
 ///
-/// This program will project a camera image onto a DEM using the RPC
+/// This program will project a camera image onto a DEM using the
 /// camera model.
 
 #include <vw/Core.h>
@@ -25,6 +25,7 @@
 #include <vw/Image.h>
 #include <vw/Cartography.h>
 using namespace vw;
+using namespace vw::cartography;
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -34,6 +35,8 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 #include "ogr_spatialref.h"
+
+typedef PixelMask<float> PMaskT;
 
 struct Options : asp::BaseOptions {
   // Input
@@ -47,16 +50,10 @@ struct Options : asp::BaseOptions {
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
-  // To do: Rename to mapproject.
-  // To do: add manual entry in tools.tex.
-  // to do: Tell folks about mandatory -t flag.
-  // To do: Tell that t_srs is now optional.
-  // To do: Test the new rpc by doing stereo with old and new mapproject.
-  // To do: Tell about the fix with small DEM.
   double NaN = std::numeric_limits<double>::quiet_NaN();
   general_options.add_options()
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
-     "Target spatial reference set. This mimics the gdal option. If not provided use the one from the DEM.") // To do: Put note on the doc that this is now optional.
+     "Target spatial reference set. This mimics the GDAL option. If not provided use the one from the DEM.")
     ("tr", po::value(&opt.target_resolution)->default_value(NaN),
      "Set the output file resolution in target georeferenced units per pixel.")
     ("mpp", po::value(&opt.mpp)->default_value(NaN),
@@ -110,7 +107,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 template <class ImageT>
 void write_parallel_cond( std::string const& filename,
                           ImageViewBase<ImageT> const& image,
-                          cartography::GeoReference const& georef,
+                          GeoReference const& georef,
                           bool has_nodata, double nodata_val,
                           Options const& opt,
                           TerminalProgressCallback const& tpc ) {
@@ -137,15 +134,72 @@ void write_parallel_cond( std::string const& filename,
 
 }
 
-BBox2 conv_point_box(BBox2 inBox,
-                     cartography::GeoReference ig, cartography:: GeoReference og){
-  BBox2 outBox;
-  outBox.grow(og.lonlat_to_point(ig.point_to_lonlat(Vector2(inBox.min()[0], inBox.min()[1]))));
-  outBox.grow(og.lonlat_to_point(ig.point_to_lonlat(Vector2(inBox.min()[0], inBox.max()[1]))));
-  outBox.grow(og.lonlat_to_point(ig.point_to_lonlat(Vector2(inBox.max()[0], inBox.min()[1]))));
-  outBox.grow(og.lonlat_to_point(ig.point_to_lonlat(Vector2(inBox.max()[0], inBox.max()[1]))));
-  return outBox;
+void calc_target_geom(// Inputs
+                      bool first_pass,
+                      bool calc_target_res,
+                      Vector2i const& image_size,
+                      boost::shared_ptr<camera::CameraModel> const& camera_model,
+                      ImageViewRef<PMaskT> const& dem,
+                      GeoReference dem_georef, // make copy on purpose
+                      // Outputs
+                      Options & opt, BBox2 & cam_box, GeoReference & target_georef
+                      ){
 
+  // Find the camera bbox and the target resolution unless user-supplied.
+
+  float auto_res;
+  cam_box = camera_bbox(dem, dem_georef, camera_model, image_size.x(),
+                             image_size.y(), auto_res);
+
+  if (first_pass){
+    cam_box = target_georef.lonlat_to_point_bbox
+      (dem_georef.point_to_lonlat_bbox(cam_box));
+  }
+
+  if (calc_target_res) opt.target_resolution = auto_res;
+
+  if ( opt.target_projwin != BBox2() ) {
+    cam_box = opt.target_projwin;
+    if ( cam_box.min().y() > cam_box.max().y() )
+      std::swap( cam_box.min().y(), cam_box.max().y() );
+    cam_box.max().x() -= opt.target_resolution;
+    cam_box.min().y() += opt.target_resolution;
+  }
+
+  // In principle the corners of the projection box can be
+  // arbitrary.  However, we will force them to be at integer
+  // multiples of pixel dimensions. This is needed if we want to do
+  // tiling, that is break the DEM into tiles, project on individual
+  // tiles, and then combine the tiles nicely without seams into a
+  // single projected image. The tiling solution provides a nice
+  // speedup when dealing with ISIS images, when projection runs
+  // only with one thread.
+  double s = opt.target_resolution;
+  int min_x         = (int)round(cam_box.min().x() / s);
+  int min_y         = (int)round(cam_box.min().y() / s);
+  int output_width  = (int)round(cam_box.width()   / s);
+  int output_height = (int)round(cam_box.height()  / s);
+  cam_box = s * BBox2(min_x, min_y, output_width, output_height);
+
+  Matrix3x3 T = target_georef.transform();
+  // This polarity checking is to make sure the output has been
+  // transposed after going through reprojection. Normally this is
+  // the case. Yet with grid data from GMT, it is not.
+  if ( T(0,0) < 0 )
+    T(0,2) = cam_box.max().x();
+  else
+    T(0,2) = cam_box.min().x();
+  T(0,0) = opt.target_resolution;
+  T(1,1) = -opt.target_resolution;
+  T(1,2) = cam_box.max().y();
+  if ( target_georef.pixel_interpretation() ==
+       GeoReference::PixelAsArea ) {
+    T(0,2) -= 0.5 * opt.target_resolution;
+    T(1,2) += 0.5 * opt.target_resolution;
+  }
+  target_georef.set_transform( T );
+
+  return;
 }
 
 int main( int argc, char* argv[] ) {
@@ -183,7 +237,7 @@ int main( int argc, char* argv[] ) {
     // Safety check that the users are not trying to map project map
     // projected images.
     {
-      cartography::GeoReference dummy_georef;
+      GeoReference dummy_georef;
       VW_ASSERT( !read_georeference( dummy_georef, opt.image_file ),
                  ArgumentErr() << "Your input camera image is already map "
                  << "projected. The expected input is required to be "
@@ -191,8 +245,8 @@ int main( int argc, char* argv[] ) {
     }
 
     // Load the DEM
-    cartography::GeoReference dem_georef;
-    ImageViewRef< PixelMask<float> > dem;
+    GeoReference dem_georef;
+    ImageViewRef<PMaskT> dem;
     boost::shared_ptr<DiskImageResource> dem_rsrc;
 
     if ( fs::path(opt.dem_file).extension() == "" ) {
@@ -202,21 +256,21 @@ int main( int argc, char* argv[] ) {
       //
       // Valid values are well known Datums like D_MOON D_MARS WGS84 and so on.
       Vector3 llr_camera_loc =
-        cartography::XYZtoLonLatRadFunctor::apply
+        XYZtoLonLatRadFunctor::apply
         ( camera_model->camera_center(Vector2()) );
       if ( llr_camera_loc[0] < 0 ) llr_camera_loc[0] += 360;
 
       dem_georef =
-        cartography::GeoReference(cartography::Datum(opt.dem_file),
-                                  Matrix3x3(1, 0,
-                                            (llr_camera_loc[0] < 90 ||
-                                             llr_camera_loc[0] > 270) ? -180 : 0,
-                                            0, -1, 90, 0, 0, 1) );
-      dem = constant_view(PixelMask<float>(0), 360, 180 );
+        GeoReference(Datum(opt.dem_file),
+                     Matrix3x3(1, 0,
+                               (llr_camera_loc[0] < 90 ||
+                                llr_camera_loc[0] > 270) ? -180 : 0,
+                               0, -1, 90, 0, 0, 1) );
+      dem = constant_view(PMaskT(0), 360, 180 );
       vw_out() << "\t--> Using flat datum \"" << opt.dem_file
                << "\" as elevation model.\n";
     }else{
-      bool has_georef = cartography::read_georeference(dem_georef, opt.dem_file);
+      bool has_georef = read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
         vw_throw( ArgumentErr() << "There is no georeference information in: "
                   << opt.dem_file << ".\n" );
@@ -229,7 +283,7 @@ int main( int argc, char* argv[] ) {
       if (dem_rsrc->has_nodata_read()){
         dem = create_mask(dem_disk_image, dem_rsrc->nodata_read());
       }else{
-        dem = pixel_cast< PixelMask<float> >(dem_disk_image);
+        dem = pixel_cast<PMaskT>(dem_disk_image);
       }
     }
 
@@ -258,7 +312,7 @@ int main( int argc, char* argv[] ) {
 
     // Read projection. Work out output bounding box in points using
     // original camera model.
-    cartography::GeoReference target_georef = dem_georef;
+    GeoReference target_georef = dem_georef;
     if (opt.target_srs_string != ""){
       boost::replace_first(opt.target_srs_string,
                            "IAU2000:","DICT:IAU2000.wkt,");
@@ -275,67 +329,37 @@ int main( int argc, char* argv[] ) {
       target_georef.set_wkt( wkt_string );
     }
 
-    // Find the camera bbox target resolution unless user-supplied.
-    float auto_res;
+    // We compute the target_georef and camera box in two passes,
+    // first in the DEM coordinate system and we rotate it to target's
+    // coordinate system (which makes it grow), and then we tighten it
+    // in target's coordinate system.
+    bool calc_target_res = std::isnan(opt.target_resolution);
     Vector2i image_size = asp::file_image_size( opt.image_file );
-    BBox2 point_bounds =
-      camera_bbox( dem, dem_georef, camera_model,
-                   image_size.x(), image_size.y(), auto_res);
-
-    point_bounds = conv_point_box(point_bounds, dem_georef, target_georef);
-    // To do: The call below gives boxes which are way too large.
-    //point_bounds = target_georef.lonlat_to_point_bbox
-    //  (dem_georef.point_to_lonlat_bbox(point_bounds));
-
-    if (std::isnan(opt.target_resolution)) opt.target_resolution = auto_res;
-
-    if ( opt.target_projwin != BBox2() ) {
-      point_bounds = opt.target_projwin;
-      if ( point_bounds.min().y() > point_bounds.max().y() )
-        std::swap( point_bounds.min().y(),
-                   point_bounds.max().y() );
-      point_bounds.max().x() -= opt.target_resolution;
-      point_bounds.min().y() += opt.target_resolution;
-    }
-
-    // In principle the corners of the projection box can be
-    // arbitrary.  However, we will force them to be at integer
-    // multiples of pixel dimensions. This is needed if we want to do
-    // tiling, that is break the DEM into tiles, project on individual
-    // tiles, and then combine the tiles nicely without seams into a
-    // single projected image. The tiling solution provides a nice
-    // speedup when dealing with ISIS images, when projection runs
-    // only with one thread.
-    double s = opt.target_resolution;
-    int min_x         = (int)round(point_bounds.min().x() / s);
-    int min_y         = (int)round(point_bounds.min().y() / s);
-    int output_width  = (int)round(point_bounds.width()   / s);
-    int output_height = (int)round(point_bounds.height()  / s);
-    point_bounds = s * BBox2(min_x, min_y, output_width, output_height);
-
-    vw_out() << "Cropping to " << point_bounds << " pt. " << std::endl;
-
-    Matrix3x3 T = target_georef.transform();
-    // This polarity checking is to make sure the output has been
-    // transposed after going through reprojection. Normally this is
-    // the case. Yet with grid data from GMT, it is not.
-    if ( T(0,0) < 0 )
-      T(0,2) = point_bounds.max().x();
-    else
-      T(0,2) = point_bounds.min().x();
-    T(0,0) = opt.target_resolution;
-    T(1,1) = -opt.target_resolution;
-    T(1,2) = point_bounds.max().y();
-    if ( target_georef.pixel_interpretation() ==
-         cartography::GeoReference::PixelAsArea ) {
-      T(0,2) -= 0.5 * opt.target_resolution;
-      T(1,2) += 0.5 * opt.target_resolution;
-    }
-    target_georef.set_transform( T );
-    vw_out() << "Output georeference:\n" << target_georef << std::endl;
+    BBox2 cam_box;
+    // First pass
+    bool first_pass = true;
+    calc_target_geom(// Inputs
+                     first_pass, calc_target_res, image_size, camera_model,
+                     dem, dem_georef,
+                     // Outputs
+                     opt, cam_box, target_georef);
+    // Second pass
+    first_pass = false;
+    ImageViewRef<PMaskT> trans_dem
+      = geo_transform(dem, dem_georef, target_georef,
+                      ValueEdgeExtension<PMaskT>(PMaskT()),
+                      BicubicInterpolation());
+    calc_target_geom(// Inputs
+                     first_pass, calc_target_res, image_size, camera_model,
+                     trans_dem, target_georef,
+                     // Outputs
+                     opt, cam_box, target_georef);
 
     BBox2i target_image_size =
-      target_georef.point_to_pixel_bbox( point_bounds );
+      target_georef.point_to_pixel_bbox( cam_box );
+
+    vw_out() << "Cropping to " << cam_box << " pt. " << std::endl;
+    vw_out() << "Output georeference:\n" << target_georef << std::endl;
     vw_out() << "Creating output file that is " << target_image_size.size()
              << " px.\n";
 
@@ -353,10 +377,10 @@ int main( int argc, char* argv[] ) {
          apply_mask
          (transform
           (create_mask(DiskImageView<float>(img_rsrc), img_nodata_val),
-           cartography::MapTransform( camera_model.get(), target_georef,
-                                      dem_georef, dem_rsrc, image_size ),
+           MapTransform( camera_model.get(), target_georef,
+                         dem_georef, dem_rsrc, image_size ),
            target_image_size.width(), target_image_size.height(),
-           ValueEdgeExtension<PixelMask<float> >( PixelMask<float>() ),
+           ValueEdgeExtension<PMaskT>(PMaskT()),
            BicubicInterpolation(), img_nodata_val ), img_nodata_val ),
          target_georef, has_img_nodata, img_nodata_val, opt,
          TerminalProgressCallback("","") );
@@ -364,8 +388,8 @@ int main( int argc, char* argv[] ) {
       write_parallel_cond
         (opt.output_file,
          transform(DiskImageView<float>(img_rsrc),
-                   cartography::MapTransform( camera_model.get(), target_georef,
-                                               dem_georef, dem_rsrc, image_size ),
+                   MapTransform( camera_model.get(), target_georef,
+                                 dem_georef, dem_rsrc, image_size ),
                    target_image_size.width(), target_image_size.height(),
                    ZeroEdgeExtension(), BicubicInterpolation(), img_nodata_val ),
          target_georef, has_img_nodata, img_nodata_val, opt,
