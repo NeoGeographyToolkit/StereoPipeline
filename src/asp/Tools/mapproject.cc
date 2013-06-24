@@ -44,7 +44,7 @@ struct Options : asp::BaseOptions {
 
   // Settings
   std::string target_srs_string;
-  double target_resolution, mpp, ppd;
+  double nodata_value, target_resolution, mpp, ppd;
   BBox2 target_projwin;
 };
 
@@ -52,6 +52,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   double NaN = std::numeric_limits<double>::quiet_NaN();
   general_options.add_options()
+    // Note: We do ignore the nodata-value option for now.
+    ("nodata-value", po::value(&opt.nodata_value),
+     "Nodata value to use on output.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Target spatial reference set. This mimics the GDAL option. If not provided use the one from the DEM.")
     ("tr", po::value(&opt.target_resolution)->default_value(NaN),
