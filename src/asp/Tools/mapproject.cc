@@ -380,7 +380,7 @@ int main( int argc, char* argv[] ) {
          apply_mask
          (transform
           (create_mask(DiskImageView<float>(img_rsrc), img_nodata_val),
-           MapTransform( camera_model.get(), target_georef,
+           MapTransform2( camera_model.get(), target_georef,
                          dem_georef, dem_rsrc, image_size ),
            target_image_size.width(), target_image_size.height(),
            ValueEdgeExtension<PMaskT>(PMaskT()),
@@ -391,7 +391,7 @@ int main( int argc, char* argv[] ) {
       write_parallel_cond
         (opt.output_file,
          transform(DiskImageView<float>(img_rsrc),
-                   MapTransform( camera_model.get(), target_georef,
+                   MapTransform2( camera_model.get(), target_georef,
                                  dem_georef, dem_rsrc, image_size ),
                    target_image_size.width(), target_image_size.height(),
                    ZeroEdgeExtension(), BicubicInterpolation(), img_nodata_val ),
