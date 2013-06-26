@@ -227,19 +227,26 @@ void stereo_preprocessing( Options& opt ) {
 
   } // End creating masks
 
+  std::string lsub = opt.out_prefix+"-L_sub.tif";
+  std::string rsub = opt.out_prefix+"-R_sub.tif";
+  std::string lmsub = opt.out_prefix+"-lMask_sub.tif";
+  std::string rmsub = opt.out_prefix+"-rMask_sub.tif";
   try {
     // This confusing try catch is to see if the subsampled images
     // actually have content.
-    DiskImageView<PixelGray<float> > testa(opt.out_prefix+"-L_sub.tif");
-    DiskImageView<PixelGray<float> > testb(opt.out_prefix+"-R_sub.tif");
+    DiskImageView<PixelGray<float> > testl(lsub);
+    DiskImageView<PixelGray<float> > testr(rsub);
+    DiskImageView<uint8>             testlm(lmsub);
+    DiskImageView<uint8>             testrm(rmsub);
     vw_out() << "\t--> Using cached subsampled images.\n";
   } catch (vw::Exception const& e) {
     // Produce subsampled images, these will be used later for Auto
     // search range. They're also a handy debug tool.
+    double s = 1500.0;
     float sub_scale =
-      sqrt(1500.0 * 1500.0 / (float(left_image.cols()) * float(left_image.rows())));
+      sqrt(s * s / (float(left_image.cols()) * float(left_image.rows())));
     sub_scale +=
-      sqrt(1500.0 * 1500.0 / (float(right_image.cols()) * float(right_image.rows())));
+      sqrt(s * s / (float(right_image.cols()) * float(right_image.rows())));
     sub_scale /= 2;
     if ( sub_scale > 0.6 ) sub_scale = 0.6;
 
@@ -247,7 +254,7 @@ void stereo_preprocessing( Options& opt ) {
     // subsampling while only using 500 MiB of memory. (The cache code
     // is a little slow on releasing so it will probably use 1.5GiB
     // memory during subsampling) Also tile size must be a power of 2
-    // and greater than or equal to 64 px;
+    // and greater than or equal to 64 px.
     uint32 sub_threads = vw_settings().default_num_threads() + 1;
     uint32 tile_power = 0;
     while ( tile_power < 6 && sub_threads > 1) {
@@ -290,16 +297,16 @@ void stereo_preprocessing( Options& opt ) {
         = block_rasterize(cache_tile_aware_render(resample_aa( copy_mask(right_image,create_mask(right_mask)), sub_scale), Vector2i(256,256) * sub_scale), sub_tile_size, sub_threads);
     }
 
-    asp::block_write_gdal_image( opt.out_prefix+"-L_sub.tif",
+    asp::block_write_gdal_image( lsub,
                                  apply_mask(left_sub_image, output_nodata), output_nodata, opt,
                                  TerminalProgressCallback("asp", "\t    Sub L: ") );
-    asp::block_write_gdal_image( opt.out_prefix+"-R_sub.tif",
+    asp::block_write_gdal_image( rsub,
                                  apply_mask(right_sub_image, output_nodata), output_nodata, opt,
                                  TerminalProgressCallback("asp", "\t    Sub R: ") );
-    asp::block_write_gdal_image( opt.out_prefix+"-lMask_sub.tif",
+    asp::block_write_gdal_image( lmsub,
                                  channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)), opt,
                                  TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
-    asp::block_write_gdal_image( opt.out_prefix+"-rMask_sub.tif",
+    asp::block_write_gdal_image( rmsub,
                                  channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)), opt,
                                  TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
   }
