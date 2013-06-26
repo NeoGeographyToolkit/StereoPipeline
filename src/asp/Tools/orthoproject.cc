@@ -282,6 +282,8 @@ void do_projection_scalar(Options& opt,
 
 int main(int argc, char* argv[]) {
 
+  vw_out(WarningMessage) << "orthoproject is obsolete and will be dropped in future releases. The tool named mapproject is its replacement.\n";
+
   // Orthorpoject a camera image onto a DEM.
   Options opt;
   try {
