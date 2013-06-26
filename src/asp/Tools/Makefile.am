@@ -25,6 +25,12 @@ bin_SCRIPTS =
 libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
+#TODO: Add the new code properly!
+bin_PROGRAMS += lronacjitreg
+lronacjitreg_LDADD = $(APP_STEREO_LIBS)
+lronacjitreg_SOURCES = lronacjitreg.cc
+
+
 if MAKE_APP_STEREO
   bin_SCRIPTS += stereo parallel_stereo sparse_disp dg_mosaic
   libexec_SCRIPTS += stereo_utils.py
