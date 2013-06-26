@@ -151,8 +151,8 @@ void calc_target_geom(// Inputs
   // Find the camera bbox and the target resolution unless user-supplied.
 
   float auto_res;
-  cam_box = camera_bbox(dem, dem_georef, camera_model, image_size.x(),
-                             image_size.y(), auto_res);
+  cam_box = camera_bbox(dem, dem_georef, camera_model,
+                        image_size.x(), image_size.y(), auto_res);
 
   if (first_pass){
     cam_box = target_georef.lonlat_to_point_bbox
@@ -351,7 +351,7 @@ int main( int argc, char* argv[] ) {
     ImageViewRef<PMaskT> trans_dem
       = geo_transform(dem, dem_georef, target_georef,
                       ValueEdgeExtension<PMaskT>(PMaskT()),
-                      BicubicInterpolation());
+                      BilinearInterpolation());
     calc_target_geom(// Inputs
                      first_pass, calc_target_res, image_size, camera_model,
                      trans_dem, target_georef,
