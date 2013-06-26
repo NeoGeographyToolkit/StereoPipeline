@@ -9,7 +9,6 @@
 
 set brew_root = /usr/local
 set src_root = /Users/dshean
-set src_root = /Volumes/dshean
 set np = 8
 
 #setenv CC $brew_root/bin/gcc-4.7
