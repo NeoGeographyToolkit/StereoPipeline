@@ -73,6 +73,17 @@ public:
 
 namespace asp {
 
+  pt::ptime parse_time(std::string str){
+    try{
+      return pt::time_from_string(str);
+    }catch(...){
+      vw_throw(ArgumentErr() << "Failed to parse time from string: "
+               << str << "\n");
+    }
+    return pt::time_from_string(str); // never reached
+  }
+
+
   // These are initializers and closers for Xercesc since we use it to
   // read our RPC models.
   StereoSessionDG::StereoSessionDG() {
@@ -110,7 +121,7 @@ namespace asp {
     // Convert UTC time measurements to line measurements. Ephemeris
     // start time will be our reference frame to calculate seconds
     // against.
-    SecondsFrom convert( pt::time_from_string( eph.start_time ) );
+    SecondsFrom convert( parse_time( eph.start_time ) );
 
     // I'm going make the assumption that EPH and ATT are sampled at the
     // same rate and time.
@@ -145,15 +156,15 @@ namespace asp {
 
     // Build the TLCTimeInterpolation object and do a quick sanity check.
     camera::TLCTimeInterpolation tlc_time_interpolation( img.tlc_vec,
-                                                         convert( pt::time_from_string( img.tlc_start_time ) ) );
-    VW_ASSERT( fabs( convert( pt::time_from_string( img.first_line_start_time ) ) -
+                                                         convert( parse_time( img.tlc_start_time ) ) );
+    VW_ASSERT( fabs( convert( parse_time( img.first_line_start_time ) ) -
                      tlc_time_interpolation( 0 ) ) < fabs( 1.0 / (10.0 * img.avg_line_rate ) ),
                MathErr() << "First Line Time and output from TLC lookup table do not agree of the ephemeris time for the first line of the image." );
 
     typedef LinescanDGModel<camera::PiecewiseAPositionInterpolation, camera::LinearPiecewisePositionInterpolation, camera::SLERPPoseInterpolation, camera::TLCTimeInterpolation> camera_type;
     typedef boost::shared_ptr<camera::CameraModel> result_type;
-    double et0 = convert( pt::time_from_string( eph.start_time ) );
-    double at0 = convert( pt::time_from_string( att.start_time ) );
+    double et0 = convert( parse_time( eph.start_time ) );
+    double at0 = convert( parse_time( att.start_time ) );
     double edt = eph.time_interval;
     double adt = att.time_interval;
     return result_type(new camera_type(camera::PiecewiseAPositionInterpolation(eph.position_vec, eph.velocity_vec,

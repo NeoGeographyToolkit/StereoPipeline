@@ -253,7 +253,13 @@ void asp::EphemerisXML::parse_eph_list( xercesc::DOMElement* node ) {
       std::istringstream istr( buffer );
       std::string index_b;
       istr >> index_b;
-      size_t index = size_t(boost::lexical_cast<float>(index_b) + 0.5) - 1;
+      size_t index;
+      try{
+        index = size_t(boost::lexical_cast<float>(index_b) + 0.5) - 1;
+      } catch (boost::bad_lexical_cast const& e) {
+        vw_throw(ArgumentErr() << "Failed to parse string: " << index_b << "\n");
+      }
+
       istr >> position_vec[index][0] >> position_vec[index][1]
            >> position_vec[index][2] >> velocity_vec[index][0]
            >> velocity_vec[index][1] >> velocity_vec[index][2];
@@ -305,7 +311,13 @@ void asp::AttitudeXML::parse_att_list( xercesc::DOMElement* node ) {
       std::istringstream istr( buffer );
       std::string index_b;
       istr >> index_b;
-      size_t index = size_t(boost::lexical_cast<float>(index_b) + 0.5) - 1;
+      size_t index;
+      try {
+        index = size_t(boost::lexical_cast<float>(index_b) + 0.5) - 1;
+      } catch (boost::bad_lexical_cast const& e) {
+        vw_throw(ArgumentErr() << "Failed to parse string: " << index_b << "\n");
+      }
+
       istr >> qbuf[0] >> qbuf[1] >> qbuf[2] >> qbuf[3];
       quat_vec[index] = Quat(qbuf[3], qbuf[0], qbuf[1], qbuf[2] );
       istr >> covariance_vec[index][0] >> covariance_vec[index][1]
@@ -361,7 +373,7 @@ void asp::RPCXML::read_from_file( std::string const& name ) {
     xmlDoc = parser->getDocument();
     elementRoot = xmlDoc->getDocumentElement();
   }catch(...){
-    vw_throw( ArgumentErr() << "XML file \"" << name << "\" is invalid." );
+    vw_throw( ArgumentErr() << "XML file \"" << name << "\" is invalid.\n" );
   }
 
   try {
@@ -598,7 +610,7 @@ void asp::read_xml( std::string const& filename,
       }
     }
   }catch(...){
-    vw_throw( ArgumentErr() << "XML file \"" << filename << "\" is invalid." );
+    vw_throw( ArgumentErr() << "XML file \"" << filename << "\" is invalid.\n" );
   }
 
 }

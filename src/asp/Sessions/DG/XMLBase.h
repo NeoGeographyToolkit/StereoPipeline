@@ -46,7 +46,12 @@ namespace asp {
     template <class T>
     void cast_xmlch( const XMLCh* ch, T& dst) {
       char* text = xercesc::XMLString::transcode(ch);
-      dst = boost::lexical_cast<T>( text );
+      try {
+        dst = boost::lexical_cast<T>( text );
+      } catch (boost::bad_lexical_cast const& e) {
+        vw_throw(vw::ArgumentErr() << "Failed to parse string: " << text << "\n");
+      }
+
       xercesc::XMLString::release( &text );
     }
 
