@@ -1170,7 +1170,7 @@ def main():
                       help="template size, pixels (%default)")
     parser.add_option("-c", "--coarse", dest="coarse_skip", default=512, type="int",
                       help="initial search-point spacing, pixels (%default)")
-    parser.add_option("-f", "--fine", dest="fine_skip", default=32, type="int",
+    parser.add_option("-f", "--fine", dest="fine_skip", default=64, type="int",
                       help="final search-point spacing, pixels (%default)")
     parser.add_option("-r","--refine_tol", dest="refine_tol", default=8, type="int",
                       help="pixel range tolerance for refinement (%default)")
@@ -1261,11 +1261,11 @@ def main():
     # define the initial search points
     edge_pad=np.array([s_nx/4.+t_pixels/2, s_ny/4.+t_pixels/2])
     XC=np.arange(ftm.T_c0c1[0]+edge_pad[0], ftm.T_c0c1[1]-edge_pad[0], options.coarse_skip)
-    if XC[-1] < ftm.t_c0c1[1]:
-        XC=XC.append(int((XC[-1]+ftm.t_c0c1[1])/2.))
+    if XC[-1] < ftm.T_c0c1[1]:
+        XC=np.append(XC, int((XC[-1]+ftm.T_c0c1[1])/2.))
     YC=np.arange(ftm.T_r0r1[0]+edge_pad[1], ftm.T_r0r1[1]-edge_pad[1], options.coarse_skip)
-    if YC[-1] < ftm.t_r0r1[1]:
-        YC=YC.append(int((YC[-1]+ftm.t_r0r1[1])/2.))       
+    if YC[-1] < ftm.T_r0r1[1]:
+        YC=np.append(YC, int((YC[-1]+ftm.T_r0r1[1])/2.))       
     [XCg, YCg]=np.meshgrid(XC, YC)
     XY0=np.c_[XCg.ravel(), YCg.ravel()]
 
