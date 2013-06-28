@@ -499,6 +499,7 @@ mapproject -t isis DEM.tif image.cub camera.isis_adjust \\
 \endlastfoot
 \hline
 Options & Description \\ \hline \hline
+\texttt{-\/-nodata-value \textit{double(=-32768)}} & No-data value to use unless specified in the input image. \\ \hline
 \texttt{-\/-t\_srs} & Target spatial reference set. This mimics the GDAL
 option. If not provided use the one from the DEM. \\ \hline
 \texttt{-\/-tr \textit{float}} & Set the output file resolution in target
@@ -622,7 +623,7 @@ relative to the Mars radius of 3,396,000~m.
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-nodata-value \textit{integer(=-32767)}} & The value of no-data pixels, unless specified in the DEM \\ \hline
+\texttt{-\/-nodata-value \textit{integer(=-32768)}} & The value of no-data pixels, unless specified in the DEM \\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix \\ \hline
 \texttt{-\/-double} & Output using double precision (64 bit) instead of float (32 bit)\\ \hline
 \texttt{-\/-reverse-adjustment} & Go from DEM relative to the geoid/areoid to DEM relative to the datum ellipsoid\\ \hline

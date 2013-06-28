@@ -224,7 +224,7 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(
   }
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
-  float output_nodata = -32767.0;
+  float output_nodata = -32768.0;
 
   left_output_file = m_out_prefix + "-L.tif";
   right_output_file = m_out_prefix + "-R.tif";

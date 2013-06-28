@@ -166,7 +166,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
 
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata_value", po::value(&opt.nodata_value)->default_value(-32767),
+    ("nodata_value", po::value(&opt.nodata_value)->default_value(-32768),
      "The value of no-data pixels, unless specified in the DEM.")
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
     ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),

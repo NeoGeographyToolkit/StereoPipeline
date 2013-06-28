@@ -128,7 +128,7 @@ void write_preprocessed_isis_image( BaseOptions const& opt,
                                     Vector2i const& crop_size ) {
 
   // The output no-data value must be < 0 as we scale the images to [0, 1].
-  float output_nodata = -32767.0;
+  float output_nodata = -32768.0;
 
   ImageViewRef<float> image_sans_mask = apply_mask(masked_image, isis_lo);
 

@@ -275,7 +275,7 @@ void stereo_preprocessing( Options& opt ) {
 
     // The output no-data value must be < 0 as the images are scaled
     // to around [0, 1].
-    float output_nodata = -32767.0;
+    float output_nodata = -32768.0;
 
     DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
     // Below we use ImageView instead of ImageViewRef as the output
