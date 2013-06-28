@@ -53,8 +53,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   double NaN = std::numeric_limits<double>::quiet_NaN();
   general_options.add_options()
     // Note: We do ignore the nodata-value option for now.
-    ("nodata-value", po::value(&opt.nodata_value),
-     "Nodata value to use on output.")
+    ("nodata-value", po::value(&opt.nodata_value)->default_value(-32768),
+     "No-data value to use unless specified in the input image.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Target spatial reference set. This mimics the GDAL option. If not provided use the one from the DEM.")
     ("tr", po::value(&opt.target_resolution)->default_value(NaN),
@@ -369,35 +369,24 @@ int main( int argc, char* argv[] ) {
     boost::shared_ptr<DiskImageResource>
       img_rsrc( DiskImageResource::open( opt.image_file ) );
 
-    // Write output image
+    // Write the output image. Use the nodata passed in by the user
+    // if it is not available in the input file.
+    if (img_rsrc->has_nodata_read()) opt.nodata_value = img_rsrc->nodata_read();
     asp::create_out_dir(opt.output_file);
-    bool has_img_nodata = img_rsrc->has_nodata_read();
-    double img_nodata_val = std::numeric_limits<double>::quiet_NaN();
-    if ( has_img_nodata) {
-      img_nodata_val = img_rsrc->nodata_read();
-      write_parallel_cond
-        (opt.output_file,
-         apply_mask
-         (transform
-          (create_mask(DiskImageView<float>(img_rsrc), img_nodata_val),
-           MapTransform2( camera_model.get(), target_georef,
-                         dem_georef, dem_rsrc, image_size ),
-           target_image_size.width(), target_image_size.height(),
-           ValueEdgeExtension<PMaskT>(PMaskT()),
-           BicubicInterpolation(), img_nodata_val ), img_nodata_val ),
-         target_georef, has_img_nodata, img_nodata_val, opt,
-         TerminalProgressCallback("","") );
-    } else {
-      write_parallel_cond
-        (opt.output_file,
-         transform(DiskImageView<float>(img_rsrc),
-                   MapTransform2( camera_model.get(), target_georef,
-                                 dem_georef, dem_rsrc, image_size ),
-                   target_image_size.width(), target_image_size.height(),
-                   ZeroEdgeExtension(), BicubicInterpolation(), img_nodata_val ),
-         target_georef, has_img_nodata, img_nodata_val, opt,
-         TerminalProgressCallback("","") );
-    }
+    bool has_img_nodata = true;
+    PMaskT nodata_mask = PMaskT(); // invalid value for a PixelMask
+    write_parallel_cond
+      (opt.output_file,
+       apply_mask
+       (transform_nodata
+        (create_mask(DiskImageView<float>(img_rsrc), opt.nodata_value),
+         MapTransform2( camera_model.get(), target_georef,
+                        dem_georef, dem_rsrc, image_size ),
+         target_image_size.width(), target_image_size.height(),
+         ValueEdgeExtension<PMaskT>(nodata_mask),
+         BicubicInterpolation(), nodata_mask), opt.nodata_value),
+       target_georef, has_img_nodata, opt.nodata_value, opt,
+       TerminalProgressCallback("","") );
 
   } ASP_STANDARD_CATCHES;
 
