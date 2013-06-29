@@ -198,7 +198,7 @@ def lronacecho( cub_files, threads, delete=False ):
 
 def spice( cub_files, threads):
     for cub in cub_files:
-        cmd = 'spiceinit web=true from= '+ cub
+        cmd = 'spiceinit web=false from= '+ cub
         add_job(cmd, threads)
     wait_on_all_jobs()
     for cub in cub_files:
@@ -247,33 +247,33 @@ def noproj( file_pairs, threads, delete=False ):
 
 def lronacjitreg( noproj_pairs, threads ):
     
-#TODO: Remove cropping code! Note that temps are not deleted!
+##TODO: Remove cropping code! Note that temps are not deleted!
     
-    # Crop all the files    
-    tempDict = dict();
-    for k,v in noproj_pairs.items(): 
+#    # Crop all the files    
+#    tempDict = dict();
+#    for k,v in noproj_pairs.items(): 
     
-        print "v[0] = " + str(v[0]);        
-        print "v[1] = " + str(v[1]);           
+#        print "v[0] = " + str(v[0]);        
+#        print "v[1] = " + str(v[1]);           
     
-        outFileLeft  = os.path.splitext(v[0])[0] + '.centerline.cub'
-        outFileRight = os.path.splitext(v[1])[0] + '.centerline.cub'        
-        cmdLeft  = 'crop from=' + v[0] + ' to=' + outFileLeft  + ' sample=4900 nsamples=200'
-        cmdRight = 'crop from=' + v[1] + ' to=' + outFileRight + ' sample=4900 nsamples=200'        
-        add_job(cmdLeft,  threads)
-        add_job(cmdRight, threads)        
-        tempDict[k] = (outFileLeft, outFileRight);
+#        outFileLeft  = os.path.splitext(v[0])[0] + '.centerline.cub'
+#        outFileRight = os.path.splitext(v[1])[0] + '.centerline.cub'        
+#        cmdLeft  = 'crop from=' + v[0] + ' to=' + outFileLeft  + ' sample=4900 nsamples=200'
+#        cmdRight = 'crop from=' + v[1] + ' to=' + outFileRight + ' sample=4900 nsamples=200'        
+#        add_job(cmdLeft,  threads)
+#        add_job(cmdRight, threads)        
+#        tempDict[k] = (outFileLeft, outFileRight);
         
-#        print "outFileLeft  = " + outFileLeft;        
-#        print "outFileRight = " + outFileRight;               
+##        print "outFileLeft  = " + outFileLeft;        
+##        print "outFileRight = " + outFileRight;               
         
-    wait_on_all_jobs()
+#    wait_on_all_jobs()
     
    
     boundsCommands = '--correlator-type 2 --xkernel 15 --ykernel 15 --pyramid --h-corr-min 0 --h-corr-max 60 --v-corr-min -50 --v-corr-max -10 --cropWidth 200';
-    for k,v in tempDict.items(): 
+    for k,v in noproj_pairs.items(): 
 #        cmd = 'lronacjitreg ' + boundsCommands   \
-        cmd = '~/repot/StereoPipeline/src/asp/Tools/lronacjitreg ' + boundsCommands   \
+        cmd = '~/repot/StereoPipelineFork/StereoPipeline/src/asp/Tools/lronacjitreg ' + boundsCommands   \
             + ' --rowLog /root/data/auto/logs/rowLog_'+str(k)+'.txt' \
             + ' '+ v[0] \
             + ' '+ v[1];
@@ -282,7 +282,7 @@ def lronacjitreg( noproj_pairs, threads ):
 
     # Read in all the shift values from the output text files
     averages = dict()
-    for k,v in tempDict.items():
+    for k,v in noproj_pairs.items():
         flat_file = '/root/data/auto/logs/rowLog_'+str(k)+'.txt'
         print 'Reading log file ' + flat_file;
         averages[k] = read_flatfile( flat_file )
