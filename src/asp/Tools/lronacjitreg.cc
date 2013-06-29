@@ -236,18 +236,20 @@ bool determineShifts(Parameters & params,
 //                                                       rightCropStartX,  imageTopRow, 
 //                                                       params.cropWidth, imageHeight);
 
-//  ImageViewRef<PixelGray<float> > left  = vw::CropView<DiskImageView<PixelGray<float> > > (left_disk_image,
-//                                                       leftCropStartX,   imageTopRow, 
-//                                                       params.cropWidth, imageHeight);
-//  ImageViewRef<PixelGray<float> > right = vw::CropView<DiskImageView<PixelGray<float> > > (right_disk_image,
-//                                                       rightCropStartX,  imageTopRow, 
-//                                                       params.cropWidth, imageHeight);
+  ImageViewRef<PixelGray<float> > left  = vw::CropView<DiskImageView<PixelGray<float> > > (left_disk_image,
+                                                       leftCropStartX,   imageTopRow, 
+                                                       params.cropWidth, imageHeight);
+  ImageViewRef<PixelGray<float> > right = vw::CropView<DiskImageView<PixelGray<float> > > (right_disk_image,
+                                                       rightCropStartX,  imageTopRow, 
+                                                       params.cropWidth, imageHeight);
 
   printf("Disparity search image size = %d by %d\n", params.cropWidth, rows);
 
-  // Dump the cropped image to disk
-//  vw::write_image("/root/data/cropdumpLeft.tif",  vw::pixel_cast_rescale<unsigned char>(left));
-//  vw::write_image("/root/data/cropdumpRight.tif", vw::pixel_cast_rescale<unsigned char>(right));  
+//  // Dump the cropped image to disk
+//  ImageView<PixelRGB<uint8> > rgbLeft  = left;
+//  ImageView<PixelRGB<uint8> > rgbRight = right;
+//  vw::write_image("/root/data/cropdumpLeft.tif",  rgbLeft);
+//  vw::write_image("/root/data/cropdumpRight.tif", rgbRight);  
 
 
   // Use correlation function to compute image disparity
@@ -275,9 +277,9 @@ bool determineShifts(Parameters & params,
   {
     printf("Using pyramid search.\n");
     disparity_map =
-      stereo::pyramid_correlate( leftExt, rightExt,
-                                 constant_view( uint8(255), leftExt ),
-                                 constant_view( uint8(255), rightExt ),
+      stereo::pyramid_correlate( left, right,
+                                 constant_view( uint8(255), left ),
+                                 constant_view( uint8(255), right ),
                                  stereo::LaplacianOfGaussian(params.log),
                                  BBox2i(Vector2i(params.h_corr_min, params.v_corr_min),
                                         Vector2i(params.h_corr_max, params.v_corr_max)),
@@ -289,7 +291,7 @@ bool determineShifts(Parameters & params,
   {
     printf("Using non-pyramid search.\n");  
     disparity_map =
-      stereo::correlate( leftExt, rightExt,
+      stereo::correlate( left, right,
                          stereo::LaplacianOfGaussian(params.log),
                          BBox2i(Vector2i(params.h_corr_min, params.v_corr_min),
                                 Vector2i(params.h_corr_max, params.v_corr_max)),
