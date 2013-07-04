@@ -1324,6 +1324,19 @@ def main():
                        np.tile(dxy_score[:,1], [8,1]).transpose().ravel(),
                        np.tile(dxy_score[:,2], [8,1]).transpose().ravel(),
                        np.tile(dxy_score[:,3], [8,1]).transpose().ravel()]).transpose()
+
+        #Define min and max point indices
+        min_x = 1
+        max_x = im_shape[1] - 1
+        min_y = 1
+        max_y = im_shape[0] - 1
+
+        #Clamp point indices
+        new_x[new_x>im_shape[1]] = max_x
+        new_y[new_y>im_shape[0]] = max_y
+        new_x[new_x<0] = min_x 
+        new_y[new_y<0] = min_y 
+
         new_xy=np.array([new_x.ravel(), new_y.ravel()]).transpose()
         uRows, new_xy=unique_rows(new_xy)
         new_dxy_score=new_dxy_score[uRows,:]
@@ -1334,6 +1347,12 @@ def main():
             print "    no new points found"
             recalc_nbhd_range=True
             break
+        
+        #Clamp point indices
+        new_xy[new_xy[:,0]>im_shape[1]][:,0] = max_x
+        new_xy[new_xy[:,1]>im_shape[0]][:,1] = max_y 
+        new_xy[new_xy[:,0]<0][:,0] = min_x 
+        new_xy[new_xy[:,1]<0][:,1] = min_y 
 
         good, ep_dist=test_epipolar(dxy_ctr, ep_vec, new_dxy, ep_tol)
         print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
