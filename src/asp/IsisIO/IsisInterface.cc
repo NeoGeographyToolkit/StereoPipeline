@@ -42,7 +42,7 @@ IsisInterface::IsisInterface( std::string const& file ) {
   // Opening labels and camera
   Isis::FileName ifilename( QString::fromStdString(file) );
   m_label.reset( new Isis::Pvl() );
-  m_label->Read( ifilename.expanded() );
+  m_label->read( ifilename.expanded() );
 
   // Opening Isis::Camera
   m_camera.reset(Isis::CameraFactory::Create( *m_label ));
@@ -54,7 +54,7 @@ IsisInterface* IsisInterface::open( std::string const& filename ) {
   // Opening Labels (This should be done somehow though labels)
   Isis::FileName ifilename( QString::fromStdString(filename) );
   Isis::Pvl label;
-  label.Read( ifilename.expanded() );
+  label.read( ifilename.expanded() );
 
   Isis::Camera* camera = Isis::CameraFactory::Create( label );
 

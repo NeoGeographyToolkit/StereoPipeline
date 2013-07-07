@@ -42,7 +42,7 @@ IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
 
   // Opening labels and camera
   Isis::FileName cubefile( cube_filename.c_str() );
-  m_label.Read( cubefile.expanded() );
+  m_label.read( cubefile.expanded() );
   m_camera = boost::shared_ptr<Isis::Camera>(Isis::CameraFactory::Create( m_label ));
 
   // Gutting Camera

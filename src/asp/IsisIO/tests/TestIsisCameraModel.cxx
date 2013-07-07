@@ -58,7 +58,7 @@ TEST(IsisCameraModel, mapprojected) {
   std::string file("E0201461.tiny.cub");
   Isis::FileName cubefile( file.c_str() );
   Isis::Pvl label;
-  label.Read( cubefile.expanded() );
+  label.read( cubefile.expanded() );
   Isis::Camera* cam = Isis::CameraFactory::Create( label );
   Isis::AlphaCube alphacube( label );
   Isis::Projection* proj = Isis::ProjectionFactory::CreateFromCube( label );
@@ -118,7 +118,7 @@ TEST(IsisCameraModel, groundmap_chk) {
 
     Isis::FileName cubefile( files[j].c_str() );
     Isis::Pvl label;
-    label.Read( cubefile.expanded() );
+    label.read( cubefile.expanded() );
     Isis::Camera* cam = Isis::CameraFactory::Create( label );
     Isis::AlphaCube alphacube( label );
 
