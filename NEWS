@@ -1,5 +1,6 @@
 *** RELEASE 2.2.x, Upcoming! ***
 
+  - Added pc_align, a tool for aligning point clouds. Sparse and dense point cloud are supported, as well as DEMs. 
   - rpc_maprpoject and orthoproject are combined into a single tool for projecting 
     a camera image onto a DEM for any camera model supported by ASP. The old
     orthoproject is kept for backward compatibility for a while.

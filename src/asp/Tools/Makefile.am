@@ -110,10 +110,10 @@ if MAKE_APP_RESULTS
   results_LDADD = $(APP_RESULTS_LIBS)
 endif
 
-if MAKE_APP_ALIGNDEM
-  bin_PROGRAMS += aligndem
-  aligndem_SOURCES = aligndem.cc
-  aligndem_LDADD = $(APP_ALIGNDEM_LIBS)
+if MAKE_APP_PC_ALIGN
+  bin_PROGRAMS += pc_align
+  pc_align_SOURCES = pc_align.cc
+  pc_align_LDADD = $(APP_PC_ALIGN_LIBS)
 endif
 
 if MAKE_APP_GEODIFF
