@@ -71,6 +71,22 @@ namespace asp {
     friend class EpipolarLineMatchTask;
   };
 
+  // Pulls out matched IP that are identified by vector containing indices
+  void produce_match_subset( vw::ip::InterestPointList const& ip1,
+                             vw::ip::InterestPointList const& ip2,
+                             std::vector<size_t> const& match_indices,
+                             std::vector<vw::ip::InterestPoint>& matched_ip1,
+                             std::vector<vw::ip::InterestPoint>& matched_ip2 );
+
+  // For each functor to apply a transform
+  class ApplyIPTransform {
+    vw::TransformRef m_tx;
+  public:
+    ApplyIPTransform( vw::TransformRef const& tx ) : m_tx(tx) {}
+
+    void operator()( vw::ip::InterestPoint& ip ) const;
+  };
+
   // Tool to remove points on or within 1 px of nodata pixels.
   // Note: A nodata pixel is one for which pixel <= nodata.
   template <class ImageT>
@@ -142,6 +158,11 @@ namespace asp {
                   vw::ImageViewBase<Image2T> const& image2,
                   double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                   double nodata2 = std::numeric_limits<double>::quiet_NaN() ) {
+    // Magic constants that determine the min and max bounds on the
+    // number of IP in a single 1024^2 tile.
+    static const size_t MAX_BOUND = 2000;
+    static const size_t MIN_BOUND = 25;
+
     using namespace vw;
     BBox2i box1 = bounding_box(image1.impl());
     ip1.clear();
@@ -152,9 +173,9 @@ namespace asp {
 
     // Detect Interest Points
     float number_boxes = (box1.width() / 1024.f) * (box1.height() / 1024.f);
-    size_t points_per_tile = 5000.f / number_boxes;
-    if ( points_per_tile > 5000 ) points_per_tile = 5000;
-    if ( points_per_tile < 50 ) points_per_tile = 50;
+    size_t points_per_tile = float(MAX_BOUND) / number_boxes;
+    points_per_tile = std::min(MAX_BOUND, points_per_tile);
+    points_per_tile = std::max(MIN_BOUND, points_per_tile);
     VW_OUT( DebugMessage, "asp" ) << "Setting IP code to search " << points_per_tile << " IP per tile (1024^2 px).\n";
     asp::IntegralAutoGainDetector detector( points_per_tile );
     vw_out() << "\t    Processing Left" << std::endl;
@@ -292,7 +313,7 @@ namespace asp {
                             vw::camera::CameraModel* cam1,
                             vw::camera::CameraModel* cam2,
                             vw::cartography::Datum const& datum,
-                            std::list<size_t>& output,
+                            std::vector<size_t>& output_indices,
                             vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
                             vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
 
@@ -350,23 +371,11 @@ namespace asp {
 
     // Pull out correct subset
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-    matched_ip1.reserve( valid_count ); // Get our allocations out of the way.
-    matched_ip2.reserve( valid_count );
-    {
-      ip::InterestPointList::const_iterator ip1_it = ip1.begin(), ip2_it = ip2.begin();
-      for ( size_t i = 0; i < forward_match.size(); i++ ) {
-        if ( forward_match[i] != NULL_INDEX ) {
-          matched_ip1.push_back( *ip1_it );
-          ip2_it = ip2.begin();
-          std::advance( ip2_it, forward_match[i] );
-          matched_ip2.push_back( *ip2_it );
-        }
-        ip1_it++;
-      }
-    }
+    produce_match_subset( ip1, ip2, forward_match,
+                          matched_ip1, matched_ip2 );
 
     // Apply filtering of triangulation error and altitude
-    std::list<size_t> good_indices;
+    std::vector<size_t> good_indices;
     if (!tri_and_alt_ip_filtering( matched_ip1, matched_ip2,
                                    cam1, cam2, datum, good_indices, left_tx, right_tx ) ){
       vw_out() << "No interest points left after filtering." << std::endl;
@@ -374,37 +383,19 @@ namespace asp {
     }
 
     // Record new list that contains only the inliers.
-    vw_out() << "\t    Reduced matches to " << good_indices.size() << "\n";
-    std::vector<ip::InterestPoint> buffer( good_indices.size() );
+    ip1 = std::list<ip::InterestPoint>( matched_ip1.begin(), matched_ip1.end() );
+    ip2 = std::list<ip::InterestPoint>( matched_ip2.begin(), matched_ip2.end() );
+    produce_match_subset( ip1, ip2, good_indices,
+                          matched_ip1, matched_ip2 );
 
-    // Subselect, Transform, Copy, Matched Ip1
-    size_t w_index = 0;
-    BOOST_FOREACH( size_t index, good_indices ) {
-      Vector2 l( matched_ip1[index].x, matched_ip1[index].y );
-      if ( transform_to_original_coord )
-        l = left_tx.reverse( l );
-      matched_ip1[index].ix = matched_ip1[index].x = l.x();
-      matched_ip1[index].iy = matched_ip1[index].y = l.y();
-      buffer[w_index] = matched_ip1[index];
-      w_index++;
+    if ( transform_to_original_coord ) {
+      std::for_each( matched_ip1.begin(), matched_ip1.end(),
+                     ApplyIPTransform( left_tx ) );
+      std::for_each( matched_ip2.begin(), matched_ip2.end(),
+                     ApplyIPTransform( right_tx ) );
     }
-    matched_ip1 = buffer;
-
-    // Subselect, Transform, Copy, Matched ip2
-    w_index = 0;
-    BOOST_FOREACH( size_t index, good_indices ) {
-      Vector2 r( matched_ip2[index].x, matched_ip2[index].y );
-      if ( transform_to_original_coord )
-        r = right_tx.reverse( r );
-      matched_ip2[index].ix = matched_ip2[index].x = r.x();
-      matched_ip2[index].iy = matched_ip2[index].y = r.y();
-      buffer[w_index] = matched_ip2[index];
-      w_index++;
-    }
-    matched_ip2 = buffer;
 
     ip::write_binary_match_file( output_name, matched_ip1, matched_ip2 );
-
     return true;
   }
 
