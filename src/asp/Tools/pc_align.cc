@@ -26,8 +26,8 @@
 #include <asp/ControlNetTK/Equalization.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
-#include "pointmatcher/PointMatcher.h" // don't check this in!!!
-#include "pointmatcher/Bibliography.h"
+// #include "pointmatcher/PointMatcher.h" // don't check this in!!!
+// #include "pointmatcher/Bibliography.h"
 #include <limits>
 
 #include <boost/filesystem.hpp>
