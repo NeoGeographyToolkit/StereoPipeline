@@ -357,6 +357,11 @@ if test x"$HAVE_PKG_ISIS" = "xyes"; then
   AX_PKG_ISIS_CHECK_VERSION()
 fi
 
+AX_PKG(YAML, [], [-lyaml-cpp], [])
+AX_PKG(EIGEN,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS], [], [])
+AX_PKG(LIBNABO, [], [-lnabo], [])
+AX_PKG(LIBPOINTMATCHER, [LIBNABO EIGEN YAML], [-lpointmatcher], [])
+
 dnl check for recent rabbitmq; this can go away soon, it's just to prevent a
 dnl flag-day upgrade
 old_CXXFLAGS="$CXXFLAGS"
@@ -402,7 +407,7 @@ AX_MODULE(SESSIONS, [src/asp/Sessions], [libaspSessions.la], yes, [CORE], [XERCE
 AX_MODULE(MPI,      [src/asp/MPI],      [],                  no,  [VW_BUNDLEADJUSTMENT ISISIO CORE], [BOOST_SERIALIZATION BOOST_MPI OPEN_MPI VW_ALL])
 
 # Tools
-AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE])
+AX_APP(PC_ALIGN,         [src/asp/Tools], yes, [CORE BOOST LIBPOINTMATCHER LIBNABO YAML])
 AX_APP(BUNDLEADJUST,     [src/asp/Tools], no,  [VW_BUNDLEADJUSTMENT SESSIONS])
 AX_APP(BUNDLEVIS,        [src/asp/Tools], no,  [OPENSCENEGRAPH VW_BUNDLEADJUSTMENT CORE])
 AX_APP(DEMPROFILE,       [src/asp/Tools], no,  [CORE])

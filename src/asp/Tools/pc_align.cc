@@ -15,6 +15,34 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// Copyright (c) 2010--2012,
+// François Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
+// You can contact the authors at <f dot pomerleau at gmail dot com> and
+// <stephane at magnenat dot net>
+
+// All rights reserved.
+
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//     * Redistributions of source code must retain the above copyright
+//       notice, this list of conditions and the following disclaimer.
+//     * Redistributions in binary form must reproduce the above copyright
+//       notice, this list of conditions and the following disclaimer in the
+//       documentation and/or other materials provided with the distribution.
+//     * Neither the name of the <organization> nor the
+//       names of its contributors may be used to endorse or promote products
+//       derived from this software without specific prior written permission.
+
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL ETH-ASL BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <vw/FileIO.h>
 #include <vw/Image.h>
@@ -23,24 +51,18 @@
 #include <vw/Math.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Mosaic/ImageComposite.h>
-#include <asp/ControlNetTK/Equalization.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
-// #include "pointmatcher/PointMatcher.h" // don't check this in!!!
-// #include "pointmatcher/Bibliography.h"
+#include <pointmatcher/PointMatcher.h>
 #include <limits>
 
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
-using std::cout;
-using std::endl;
-using std::string;
-
 using namespace vw;
+using namespace std;
 using namespace vw::cartography;
-using namespace vw::ip;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
@@ -52,8 +74,8 @@ template <int dim>
 class HomogeneousTransformFunctor : public UnaryReturnSameType {
   Matrix<double,dim+1,dim+1> m_trans;
 
-public:
-  HomogeneousTransformFunctor(Matrix<double,dim+1,dim+1> trans) : m_trans(trans) {}
+ public:
+   HomogeneousTransformFunctor(Matrix<double,dim+1,dim+1> trans) : m_trans(trans) {}
 
   inline Vector<double,dim> operator()(Vector<double,dim> pt) const {
     if (pt == Vector<double,dim>())
@@ -147,7 +169,6 @@ void match_orthoimages(string const& out_prefix,
   }
 
 }
-#endif
 struct Options : public asp::BaseOptions {
   Options() : dem1_nodata(std::numeric_limits<double>::quiet_NaN()), dem2_nodata(std::numeric_limits<double>::quiet_NaN()) {}
   // Input
@@ -192,13 +213,254 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.output_prefix.empty() )
     opt.output_prefix = change_extension(fs::path(opt.dem1_name), "").string();
 }
+#endif
+
+typedef PointMatcher<double> PM;
+typedef PM::DataPoints DP;
+typedef PM::Parameters Parameters;
+//typedef PointMatcherSupport::CurrentBibliography;
+using namespace PointMatcherSupport;
+
+// Load a point cloud
+template<typename T>
+typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName, Vector3 shift)
+{
+  validateFile(fileName);
+
+  typedef typename PointMatcher<T>::DataPoints::Label Label;
+  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
+  typedef typename PointMatcher<T>::Vector Vector;
+  typedef typename PointMatcher<T>::Matrix Matrix;
+  typedef typename PointMatcher<T>::TransformationParameters TransformationParameters;
+  typedef typename PointMatcher<T>::Matrix Parameters;
+  typedef typename PointMatcher<T>::DataPoints DataPoints;
+
+  vector<T> xData;
+  vector<T> yData;
+  vector<T> zData;
+  vector<T> padData;
+  vector<string> header;
+  int dim = 3;
+  Labels labels;
+
+  for (int i=0; i < dim; i++){
+    string text;
+    text += char('x' + i);
+    labels.push_back(Label(text, 1));
+  }
+  labels.push_back(Label("pad", 1));
+
+  cartography::GeoReference dem_georef;
+  cartography::read_georeference( dem_georef, fileName );
+  DiskImageView<float> dem( fileName );
+  double nodata = std::numeric_limits<double>::quiet_NaN();
+  boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(fileName) );
+  if (dem_rsrc->has_nodata_read()){
+    nodata = dem_rsrc->nodata_read();
+    cout<<"nodata =" << nodata << std::endl;
+  }
+
+  Vector3 mean_center;
+  int count = 0;
+  for (int j = 0; j < dem.rows(); j++ ) {
+    int local_count = 0;
+    Vector3 local_mean;
+    for ( int i = 0; i < dem.cols(); i++ ) {
+      if (dem(i, j) == nodata) continue;
+      Vector2 lonlat = dem_georef.pixel_to_lonlat( Vector2(i,j) );
+      Vector3 lonlatrad( lonlat.x(), lonlat.y(), dem(i,j) );
+      Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( lonlatrad );
+      if ( xyz != Vector3() && xyz == xyz ){
+        xData.push_back(xyz[0]);
+        yData.push_back(xyz[1]);
+        zData.push_back(xyz[2]);
+        padData.push_back(1);
+        local_mean += xyz;
+        local_count++;
+      }
+    }
+    if ( local_count > 0 ) {
+      local_mean /= double(local_count);
+      double afraction = double(count) / double(count + local_count);
+      double bfraction = double(local_count) / double(count + local_count);
+      mean_center = afraction*mean_center + bfraction*local_mean;
+      count += local_count;
+    }
+  }
+  std::cout << "mean is " << mean_center << std::endl;
+
+  std::cout << "Loaded points: " << count << std::endl;
+  assert(xData.size() == yData.size());
+  int nbPoints = xData.size();
+
+  // Transfer loaded points in specific structure (eigen matrix)
+  Matrix features(dim+1, nbPoints);
+  for(int i=0; i < nbPoints; i++){
+    features(0,i) = xData[i] - mean_center[0] + shift[0];
+    features(1,i) = yData[i] - mean_center[1] + shift[1];
+    features(2,i) = zData[i] - mean_center[2] + shift[2];
+    features(3,i) = 1;
+  }
+
+  DataPoints dataPoints(features, labels);
+  //cout << "Loaded " << dataPoints.features.cols() << " points." << endl;
+  //cout << "Find " << dataPoints.features.rows() << " dimensions." << endl;
+  //cout << features << endl;
+
+  return dataPoints;
+}
+
+// Load a point cloud
+template<typename T>
+typename PointMatcher<T>::DataPoints loadFile(const std::string& fileName, Vector3 shift){
+
+  const boost::filesystem::path path(fileName);
+  const string& ext(boost::filesystem::extension(path));
+  if (boost::iequals(ext, ".tif"))
+    return loadPC<T>(fileName, shift);
+
+  return DP::load(fileName);
+}
+
+// Dump command-line help
+void usage(char *argv[])
+{
+  cerr << endl << endl;
+  cerr << "* To list modules:" << endl;
+  cerr << "  " << argv[0] << " -l" << endl;
+  cerr << endl;
+  cerr << "* To run ICP:" << endl;
+  cerr << "  " << argv[0] << " [OPTIONS] reference.csv reading.csv" << endl;
+  cerr << endl;
+  cerr << "OPTIONS can be a combination of:" << endl;
+  cerr << "--config YAML_CONFIG_FILE  Load the config from a YAML file (default: default parameters)" << endl;
+  cerr << "--output FILENAME          Name of output files (default: test)" << endl;
+  cerr << endl;
+  cerr << "Running this program with a VTKFileInspector as Inspector will create three" << endl;
+  cerr << "vtk ouptput files: ./test_ref.vtk, ./test_data_in.vtk and ./test_data_out.vtk" << endl;
+  cerr << endl << "2D Example:" << endl;
+  cerr << "  " << argv[0] << " examples/data/2D_twoBoxes.csv examples/data/2D_oneBox.csv" << endl;
+  cerr << endl << "3D Example:" << endl;
+  cerr << "  " << argv[0] << " examples/data/car_cloud400.csv examples/data/car_cloud401.csv" << endl;
+  cerr << endl;
+
+}
+
+// Make sure that the command arguments make sense
+int validateArgs(const int argc, char *argv[], bool& isCSV, string& configFile, string& outputBaseFile)
+{
+  if (argc == 1)
+    {
+      cerr << "Not enough arguments, usage:";
+      usage(argv);
+      return 1;
+    }
+  else if (argc == 2)
+    {
+      if (string(argv[1]) == "-l")
+        {
+          return -1; // we use -1 to say that we wish to quit but in a normal way
+        }
+      else
+        {
+          cerr << "Wrong option, usage:";
+          usage(argv);
+          return 2;
+        }
+    }
+
+  const int endOpt(argc - 2);
+  for (int i = 1; i < endOpt; i += 2)
+    {
+      const string opt(argv[i]);
+      if (i + 1 > endOpt)
+        {
+          cerr << "Missing value for option " << opt << ", usage:"; usage(argv); exit(1);
+        }
+      if (opt == "--config")
+        configFile = argv[i+1];
+      else if (opt == "--output")
+        outputBaseFile = argv[i+1];
+      else
+        {
+          cerr << "Unknown option " << opt << ", usage:"; usage(argv); exit(1);
+        }
+    }
+  return 0;
+}
+
+
+// To do: Rm unneeded dependencies on top.
+// To do: Put ASP note on top.
+// To do: Investigate if we can get by using floats instead of double.
+// To do: Better ways of using memory are needed.
+// To do: Must subtract same mean from both datasets!!! This is a bug!!!
 
 int main( int argc, char *argv[] ) {
 
-  Options opt;
+  std::cout << "6now 2in main!!!" << std::endl;
+  string configFile;
+  string outputBaseFile("test");
+  bool isCSV = false;
+  const int ret = validateArgs(argc, argv, isCSV, configFile, outputBaseFile);
+  std::cout << "Config file is " << configFile << std::endl;
+
+  if (ret != 0)
+    return ret;
+  string refFile  = argv[argc-2];
+  string dataFile = argv[argc-1];
+
+  std::cout << "xxx ---loaded files: " << refFile << ' ' << dataFile << std::endl;
+
+  Vector3 shift1, shift2(20, -30, 100);
+  std::cout << "shift is " << shift2 << std::endl;
+
+  // Load point clouds
+  const DP ref  = loadFile<double>(refFile,  shift1);
+  const DP data = loadFile<double>(dataFile, shift2);
+
+  // Create the default ICP algorithm
+  PM::ICP icp;
+
+  if (configFile.empty())
+    {
+      // See the implementation of setDefault() to create a custom ICP algorithm
+      icp.setDefault();
+    }
+  else
+    {
+      // load YAML config
+      ifstream ifs(configFile.c_str());
+      std::cout << "---- Will load file: " << configFile << std::endl;
+      if (!ifs.good())
+        {
+          cerr << "Cannot open config file " << configFile << ", usage:"; usage(argv); exit(1);
+        }
+      std::cout << "now before" << std::endl;
+      icp.loadFromYaml(ifs);
+      std::cout << "now after" << std::endl;
+    }
+
+  // Compute the transformation to express data in ref
+  PM::TransformationParameters T = icp(data, ref);
+  cout << "match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
+
+  // Transform data to express it in ref
+  DP data_out(data);
+  icp.transformations.apply(data_out, T);
+
+  // Safe files to see the results
+  ref.save(outputBaseFile + "_ref.vtk");
+  data.save(outputBaseFile + "_data_in.vtk");
+  data_out.save(outputBaseFile + "_data_out.vtk");
+  cout << "Final transformation:" << endl << T << endl;
+
+  return 0;
+#if 0
+
+   Options opt;
   try {
     handle_arguments( argc, argv, opt );
-#if 0
     DiskImageResourceGDAL ortho1_rsrc(opt.ortho1_name), ortho2_rsrc(opt.ortho2_name),
       dem1_rsrc(opt.dem1_name), dem2_rsrc(opt.dem2_name);
 
@@ -292,8 +554,8 @@ int main( int argc, char *argv[] ) {
     //                                        opt.gdal_options);
     // block_write_image(point_cloud_rsrc, point_cloud_trans,
     //                   TerminalProgressCallback("asp", "\t--> Transforming: "));
-#endif
   } ASP_STANDARD_CATCHES;
 
+#endif
   return 0;
 }
