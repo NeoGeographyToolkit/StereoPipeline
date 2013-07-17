@@ -97,6 +97,7 @@ def read_flatfile( flat ):
 
 #TODO: This should be somewhere else
 def isisversion(verbose=False):
+
     path = ''
     try: path = os.environ['ISISROOT']
     except KeyError, msg:
@@ -208,7 +209,7 @@ def spice( cub_files, threads):
     return
 
 # Left file is in index 0, right is in index 1
-def noproj( file_pairs, threads, delete=False ):
+def noproj( file_pairs, threads, delete=False, specFile=""):
     noproj_pairs = dict();
     for k, v in file_pairs.items():
     
@@ -224,18 +225,12 @@ def noproj( file_pairs, threads, delete=False ):
           if os.path.exists( to_cub ):
               print to_cub + ' exists, skipping noproj.'
           else:
-#              cmd = 'mkdir -p tmp_' + v[i] + '&& '  \
-#                        + 'cd tmp_' + v[i] + '&& '  \
-#                        + 'noproj from=../'  + v[i] \
-#                        +       ' match=../' + v[0] \
-#                        + ' source= frommatch to=../'+ to_cub + '&& ' \
-#                        + 'cd .. && rm -rf tmp_' + v[i]
               cmd = 'noproj from= '+ v[i]   \
                         + ' to= '  + to_cub \
                         +' match= '+ v[0];
-#              print cmd;
+              if specFile:
+	          cmd += ' spec= ' + specFile;
               add_job(cmd, threads)
-              # print cmd
     wait_on_all_jobs()
     
     if( delete ): # Clean up input cube files
@@ -245,36 +240,13 @@ def noproj( file_pairs, threads, delete=False ):
     return noproj_pairs;
 
 
-def lronacjitreg( noproj_pairs, threads ):
+def lronacjitreg( noproj_pairs, threads, delete=False ):
     
-##TODO: Remove cropping code! Note that temps are not deleted!
-    
-#    # Crop all the files    
-#    tempDict = dict();
-#    for k,v in noproj_pairs.items(): 
-    
-#        print "v[0] = " + str(v[0]);        
-#        print "v[1] = " + str(v[1]);           
-    
-#        outFileLeft  = os.path.splitext(v[0])[0] + '.centerline.cub'
-#        outFileRight = os.path.splitext(v[1])[0] + '.centerline.cub'        
-#        cmdLeft  = 'crop from=' + v[0] + ' to=' + outFileLeft  + ' sample=4900 nsamples=200'
-#        cmdRight = 'crop from=' + v[1] + ' to=' + outFileRight + ' sample=4900 nsamples=200'        
-#        add_job(cmdLeft,  threads)
-#        add_job(cmdRight, threads)        
-#        tempDict[k] = (outFileLeft, outFileRight);
-        
-##        print "outFileLeft  = " + outFileLeft;        
-##        print "outFileRight = " + outFileRight;               
-        
-#    wait_on_all_jobs()
-    
-   
-    boundsCommands = '--correlator-type 2 --xkernel 15 --ykernel 15 --pyramid --h-corr-min 0 --h-corr-max 60 --v-corr-min -50 --v-corr-max -10 --cropWidth 200';
+    #TODO: Move boundary inputs to config file?   
+    boundsCommands = '--correlator-type 2 --xkernel 15 --ykernel 15 --pyramid --h-corr-min -30 --h-corr-max 60 --v-corr-min -60 --v-corr-max -30 --cropWidth 200';
     for k,v in noproj_pairs.items(): 
-#        cmd = 'lronacjitreg ' + boundsCommands   \
-        cmd = '~/repot/StereoPipelineFork/StereoPipeline/src/asp/Tools/lronacjitreg ' + boundsCommands   \
-            + ' --rowLog /root/data/auto/logs/rowLog_'+str(k)+'.txt' \
+        cmd = './lronacjitreg ' + boundsCommands    \
+            + ' --rowLog rowLog_'+str(k)+'.txt' \
             + ' '+ v[0] \
             + ' '+ v[1];
         add_job(cmd, threads)
@@ -283,10 +255,11 @@ def lronacjitreg( noproj_pairs, threads ):
     # Read in all the shift values from the output text files
     averages = dict()
     for k,v in noproj_pairs.items():
-        flat_file = '/root/data/auto/logs/rowLog_'+str(k)+'.txt'
+        flat_file = 'rowLog_'+str(k)+'.txt'
         print 'Reading log file ' + flat_file;
         averages[k] = read_flatfile( flat_file )
-#        os.remove( flat_file )
+        if delete:
+            os.remove( flat_file )
 
     return averages
 
@@ -361,29 +334,25 @@ def main():
 
     try:
         try:
-            #TODO: File name format?
             usage = "usage: lronac2mosaic.py [--help][--manual][--threads N]" \
-                    "[--keep][-m match] HiRISE-EDR.IMG-files\n  [ASP 2.2.2_post]"
+                    "[--keep] LRONAC.IMG-files\n  [ASP 2.2.2_post]"
             parser = optparse.OptionParser(usage=usage)
-#            parser.set_defaults(delete =True)
-            parser.set_defaults(delete =False)
-#            parser.set_defaults(match  =5)
-#            parser.set_defaults(threads=4)
-            parser.set_defaults(threads=1)
+            parser.set_defaults(delete =True)
+            parser.set_defaults(threads=4)
             parser.add_option("--manual", action="callback", callback=man,
                               help="Read the manual.")
             parser.add_option("--stop-at-no-proj", dest="stop_no_proj", action="store_true",
                               help="Process the IMG files only to have SPICE attached.")
-#            parser.add_option("--resume-at-no-proj", dest="resume_no_proj", action="store_true",
-#                              help="Pick back up after spiceinit has happened. " /
-#                                   "This was noproj uses your new camera information") 
+            parser.add_option("--resume-at-no-proj", dest="resume_no_proj", action="store_true",
+                              help="Pick back up after spiceinit has happened. " /
+                                   "This was noproj uses your new camera information") 
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
-#            parser.add_option("-m", "--match", dest="match",
-#                              help="CCD number of match CCD")
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
                               help="Will not delete intermediate files.")
+            parser.add_option("-s", "--specFile", dest="specFile",
+                              help="Optional spec argument to noproj.",type="string")
 
             (options, args) = parser.parse_args()
 
@@ -394,49 +363,41 @@ def main():
 
         # # Determine Isis Version
         # post_isis_20 = is_post_isis_3_1_20();
-        isisversion( True )
+        #isisversion( True ) --> Not working on home installation!
 
         print "Beginning processing....."
 
-        if 1:#not options.resume_no_proj: # If not skipping to later point
-            print "lronac2isis"
-            # lronac2isis - Per-file operation, returns list of new files
+        if not options.resume_no_proj: # If not skipping to later point
+
+            print "lronac2isis" # Per-file operation, returns list of new files
             lronac2isised = lronac2isis( args, options.threads )
 
-            print "spice"
-            # Attach spice info to cubes (adds to existing files)
+            print "spice"       # Attach spice info to cubes (adds to existing files)
             spice( lronac2isised, options.threads )
 
-# --> This is missing data files!
-            print "lronaccal"
-#            # lronaccal - Per-file operation, returns list of new files
+            print "lronaccal"   # Per-file operation, returns list of new files
             lronaccaled = lronaccal( lronac2isised, options.threads, options.delete )
 
-            print "lronacecho"
-            # lronacecho - Per-file operation, returns list of new files
+            print "lronacecho"  # Per-file operation, returns list of new files
             lronacechod = lronacecho( lronac2isised, options.threads, options.delete )
 
         if options.stop_no_proj: # Stop early if requested
             print "Finished"
             return 0
 
-#        if options.resume_no_proj: # If resume option was set
-#            lronacechod = args
+        if options.resume_no_proj: # If resume option was set
+            lronacechod = args
 
         print "build_cube_pairs"
-        # TODO: Update this step, it just needs to get the files into left/right pairs.
         lronac_file_pairs = build_cube_pairs( lronacechod )
 
-        print "noproj"
-        # noproj - Per-file operation
-        noprojed_file_pairs = noproj( lronac_file_pairs, options.threads, options.delete )
+        print "noproj"       # Per-file operation
+        noprojed_file_pairs = noproj( lronac_file_pairs, options.threads, options.delete, options.specFile )
 
-        print "lronacjitreg"
-        # lronacjitreg - Determines mean shift for each file pair
-        averages = lronacjitreg( noprojed_file_pairs, options.threads )
+        print "lronacjitreg" # Determines mean shift for each file pair
+        averages = lronacjitreg( noprojed_file_pairs, options.threads, options.delete )
 
-        print "mosaic"
-        # mosaic handmos - Use mean shifts to combine the file pairs
+        print "mosaic"       # handmos - Use mean shifts to combine the file pairs
         mosaicked = mosaic( noprojed_file_pairs, averages, options.threads )
 
         # Clean up noproj files
