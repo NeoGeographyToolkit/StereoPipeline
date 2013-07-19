@@ -136,14 +136,14 @@ bool handle_arguments(int argc, char* argv[],
 { 
   po::options_description general_options("Options");
   general_options.add_options()
-    ("rowLog",          po::value(&opt.rowLogFilePath)->default_value(""), "Explicitly specify the per row output text file")
+    ("output-log",          po::value(&opt.rowLogFilePath)->default_value(""), "Explicitly specify the per row output text file")
     ("log",             po::value(&opt.log)->default_value(1.4), "Apply LOG filter with the given sigma, or 0 to disable")
-    ("cropWidth",       po::value(&opt.cropWidth )->default_value(300), "Crop images to this width before disparity search")    
-    ("h-corr-min",      po::value(&opt.h_corr_min)->default_value(-30), "Minimum horizontal disparity")
-    ("h-corr-max",      po::value(&opt.h_corr_max)->default_value( 30), "Maximum horizontal disparity")
-    ("v-corr-min",      po::value(&opt.v_corr_min)->default_value(-5), "Minimum vertical disparity")
-    ("v-corr-max",      po::value(&opt.v_corr_max)->default_value(5), "Maximum vertical disparity")
-    ("kernel",          po::value(&opt.kernel)->default_value(Vector2i(15,15)), "Correlation kernel size")
+    ("crop-width",       po::value(&opt.cropWidth )->default_value(200), "Crop images to this width before disparity search")    
+    ("h-corr-min",      po::value(&opt.h_corr_min)->default_value(-60), "Minimum horizontal disparity")
+    ("h-corr-max",      po::value(&opt.h_corr_max)->default_value( 60), "Maximum horizontal disparity")
+    ("v-corr-min",      po::value(&opt.v_corr_min)->default_value(-50), "Minimum vertical disparity")
+    ("v-corr-max",      po::value(&opt.v_corr_max)->default_value(50), "Maximum vertical disparity")
+    ("kernel",          po::value(&opt.kernel    )->default_value(Vector2i(15,15)), "Correlation kernel size")
     ("lrthresh",        po::value(&opt.lrthresh  )->default_value(2), "Left/right correspondence threshold")
     ("correlator-type", po::value(&opt.correlator_type)->default_value(0), "0 - Abs difference; 1 - Sq Difference; 2 - NormXCorr")
     ("affine-subpix", "Enable affine adaptive sub-pixel correlation (slower, but more accurate)");
@@ -169,9 +169,6 @@ bool handle_arguments(int argc, char* argv[],
     vw_throw( ArgumentErr() << "Requires <left> and <right> input in order to proceed.\n\n"
               << usage << general_options );
 
-  //TODO: Should output file be mandatory?
-  //if ( opt.output_file.empty() )
-  //  opt.output_file = fs::path( opt.image_file ).replace_extension( "_rpcmapped.tif" ).string();
   return true;
 }
 
@@ -214,13 +211,15 @@ bool determineShifts(Parameters & params,
   const BBox2i crop_roi( cropStartX, imageTopRow,
 			 params.cropWidth, imageHeight );
 
+  // Now use interest point finding/matching functions to estimate the search offset between the images
+
   // Gather interest points
   asp::IntegralAutoGainDetector detector( 500 );
-  ip::InterestPointList ip1 = ip::detect_interest_points( crop(left_disk_image,crop_roi), detector );
+  ip::InterestPointList ip1 = ip::detect_interest_points( crop(left_disk_image,crop_roi ), detector );
   ip::InterestPointList ip2 = ip::detect_interest_points( crop(right_disk_image,crop_roi), detector );
-  printf("Found %d left ip, %d right ip", ip1.size(), ip2.size());
+
   ip::SGradDescriptorGenerator descriptor;
-  describe_interest_points( crop(left_disk_image,crop_roi), descriptor, ip1 );
+  describe_interest_points( crop(left_disk_image,crop_roi ), descriptor, ip1 );
   describe_interest_points( crop(right_disk_image,crop_roi), descriptor, ip2 );
 
   // Match interest points
@@ -228,7 +227,7 @@ bool determineShifts(Parameters & params,
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   matcher(ip1, ip2, matched_ip1, matched_ip2 );
   ip::remove_duplicates( matched_ip1, matched_ip2 );
-  printf("Initial %d matches", matched_ip1.size());
+
 
   // Filter interest point matches
   math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric> ransac( math::SimilarityFittingFunctor(),
@@ -238,13 +237,22 @@ bool determineShifts(Parameters & params,
   std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
 
   Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
-  std::cout << "Similarity: " << H << std::endl;
-  std::vector<size_t> indices =
-    ransac.inlier_indices(H,ransac_ip1, ransac_ip2);
+  std::cout << "ipfind based similarity: " << H << std::endl;
 
-  std::cout << "A valid disparity found by ip[0] " << ransac_ip2[indices[0]] - ransac_ip1[indices[0]] << std::endl;
+  // Use the estimated transform between the images to determine a search offset range
+  const int SEARCH_RANGE_EXPANSION = 5;
+  int ipFindXOffset = static_cast<int>(H[0][2]);
+  int ipFindYOffset = static_cast<int>(H[1][2]);
+  BBox2i searchRegion(Vector2i(ipFindXOffset-SEARCH_RANGE_EXPANSION, ipFindYOffset-SEARCH_RANGE_EXPANSION),
+   		      Vector2i(ipFindXOffset+SEARCH_RANGE_EXPANSION, ipFindYOffset+SEARCH_RANGE_EXPANSION));
+  
+
+  // Factor in user bounds overrides
+//TODO: Check if parameters entered!  if (opt.h_corr_min
 
   printf("Disparity search image size = %d by %d\n", params.cropWidth, imageHeight);
+  std::cout << "Offset search region = " << searchRegion << endl;
+
 
   // Use correlation function to compute image disparity
   stereo::CostFunctionType corr_type = ABSOLUTE_DIFFERENCE;
@@ -267,8 +275,7 @@ bool determineShifts(Parameters & params,
 				 constant_view( uint8(255), left_disk_image ),
 				 constant_view( uint8(255), right_disk_image ),
 				 stereo::LaplacianOfGaussian(params.log),
-				 BBox2i(Vector2i(params.h_corr_min, params.v_corr_min),
-					Vector2i(params.h_corr_max, params.v_corr_max)),
+				 searchRegion,
 				 params.kernel,
 				 corr_type, corr_timeout, seconds_per_op,
 				 params.lrthresh, 5 ) );
@@ -278,7 +285,6 @@ bool determineShifts(Parameters & params,
   
   printf("Accumulating offsets...\n");  
 
-  //TODO: Pick exact output format
   std::ofstream out;
   const bool writeLogFile = !params.rowLogFilePath.empty();
   if (writeLogFile)
@@ -294,20 +300,11 @@ bool determineShifts(Parameters & params,
 
     out << "#       Lronacjitreg ISIS Application Results" << endl;
     out << "#    Coordinates are (Sample, Line) unless indicated" << endl;
-    out << "#           RunDate:  " << 0 /*iTime::CurrentLocalTime()*/ << endl;
     out << "#\n#    ****  Image Input Information ****\n";
     out << "#  FROM:  " << params.leftFilePath << endl;
     out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
     out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
-    out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
     out << "#    SampOffset:  " << cropStartX << endl;
-    out << "#    LineOffset:  " << 0 << endl;
-    out << "#    CPMMNumber:  " << 0 << endl;
-    out << "#    Summing:     " << 0 << endl;
-    out << "#    TdiMode:     " << 0 << endl;
-    out << "#    Channel:     " << 0 << endl;
-    out << "#    LineRate:    " << setprecision(8) << 0
-        << " <seconds>" << endl;
     out << "#    TopLeft:     " << setw(7) << setprecision(0)
         << cropStartX << " "
         << setw(7) << setprecision(0)
@@ -316,23 +313,11 @@ bool determineShifts(Parameters & params,
         << cropStartX + params.cropWidth << " "
         << setw(7) << setprecision(0)
         << imageHeight << endl;
-    out << "#    StartTime:   " << 0 << " <UTC>" << endl;
-    out << "#    SCStartTime: " << 0 << " <SCLK>" << endl;
-    out << "#    StartTime:   " << setprecision(8) << 0
-        << " <seconds>" << endl;
     out << "\n";
     out << "#  MATCH: " << params.rightFilePath << endl;
     out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
     out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
-    out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
     out << "#    SampOffset:  " << cropStartX << endl;
-    out << "#    LineOffset:  " << 0 << endl;
-    out << "#    CPMMNumber:  " << 0 << endl;
-    out << "#    Summing:     " << 0 << endl;
-    out << "#    TdiMode:     " << 0 << endl;
-    out << "#    Channel:     " << 0 << endl;
-    out << "#    LineRate:    " << setprecision(8) << 0
-        << " <seconds>" << endl;
     out << "#    TopLeft:     " << setw(7) << setprecision(0)
         << cropStartX << " "
         << setw(7) << setprecision(0)
@@ -341,17 +326,9 @@ bool determineShifts(Parameters & params,
         << cropStartX+params.cropWidth  << " "
         << setw(7) << setprecision(0)
         << imageHeight << endl;
-    out << "#    StartTime:   " << 0 << " <UTC>" << endl;
-    out << "#    SCStartTime: " << 0 << " <SCLK>" << endl;
-    out << "#    StartTime:   " << setprecision(8) << 0
-        << " <seconds>" << endl;
     out << "\n";
 
   }
-  
-
-  const int X_INDEX = 0;
-  const int Y_INDEX = 1;  
   
   double meanVertOffset      = 0.0;
   double meanHorizOffset     = 0.0;
@@ -374,8 +351,8 @@ bool determineShifts(Parameters & params,
     
       if (is_valid(disparity_map(col,row)))
       {
-        float dY = disparity_map(col,row)[Y_INDEX]; 
-        float dX = disparity_map(col,row)[X_INDEX];
+        float dY = disparity_map(col,row)[1]; // Y
+        float dX = disparity_map(col,row)[0]; // X
         rowSum += dY;
         colSum += dX;
         ++numValidInRow;
@@ -384,7 +361,6 @@ bool determineShifts(Parameters & params,
         stdCalcY.Push(dY);
       }
     }  
-    //printf("%d valid in row %d\n", numValidInRow, row);
     
     // Compute mean shift for this row
     if (numValidInRow == 0)
@@ -397,8 +373,7 @@ bool determineShifts(Parameters & params,
       rowOffsets[row] = rowSum / static_cast<double>(numValidInRow);
       colOffsets[row] = colSum / static_cast<double>(numValidInRow);
       totalNumValidPixels += numValidInRow;
-      ++numValidRows;
-      
+      ++numValidRows;      
     }
     
     
@@ -408,16 +383,10 @@ bool determineShifts(Parameters & params,
                  << ", " << colOffsets[row] << std::endl;    
     }
     
-
-    //// Accumulate global shift
-    //meanVertOffset  += rowOffsets[row];
-    //meanHorizOffset += colOffsets[row];
-  }
+  } // End loop through rows
   
   if (writeLogFile)
   {
-   // out << std::endl << "Average Sample Offset: " << stdCalcX.Mean() << " StdDev: " << stdCalcX.StandardDeviation()
-   //     << std::endl << "Average Line Offset: "   << stdCalcY.Mean() << " StdDev: " << stdCalcX.StandardDeviation() << std::endl;
 
     out << "\n#  **** Registration Data ****\n";
     out << "#   RegFile: " << "" << endl;
@@ -433,10 +402,6 @@ bool determineShifts(Parameters & params,
       case 2:  out << "CROSS_CORRELATION"   << endl; break;
       default: out << "ABSOLUTE_DIFFERENCE" << endl; break;
     };
-    out << "#   Corr. Tolerance:  " << setprecision(2) << 0 << endl;
-    out << "#   Total Registers:  " << 0 << " of "
-        << 0 << endl;
-    out << "#   Number Suspect:   " << 0 << endl;
     if(numValidRows > 0) 
     {
       out << "#   Average Sample Offset: " << setprecision(4)
@@ -448,7 +413,7 @@ bool determineShifts(Parameters & params,
           << " StdDev: " << setprecision(4) << stdCalcY.StandardDeviation()
           << endl;
      }
-     else 
+     else  // No valid rows
      {
        out << "#   Average Sample Offset: " << "NULL\n";
        out << "#   Average Line Offset:   " << "NULL\n";
