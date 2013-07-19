@@ -214,10 +214,39 @@ bool determineShifts(Parameters & params,
   const BBox2i crop_roi( cropStartX, imageTopRow,
 			 params.cropWidth, imageHeight );
 
+  // Gather interest points
+  asp::IntegralAutoGainDetector detector( 500 );
+  ip::InterestPointList ip1 = ip::detect_interest_points( crop(left_disk_image,crop_roi), detector );
+  ip::InterestPointList ip2 = ip::detect_interest_points( crop(right_disk_image,crop_roi), detector );
+  printf("Found %d left ip, %d right ip", ip1.size(), ip2.size());
+  ip::SGradDescriptorGenerator descriptor;
+  describe_interest_points( crop(left_disk_image,crop_roi), descriptor, ip1 );
+  describe_interest_points( crop(right_disk_image,crop_roi), descriptor, ip2 );
+
+  // Match interest points
+  ip::DefaultMatcher matcher(0.5);
+  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+  matcher(ip1, ip2, matched_ip1, matched_ip2 );
+  ip::remove_duplicates( matched_ip1, matched_ip2 );
+  printf("Initial %d matches", matched_ip1.size());
+
+  // Filter interest point matches
+  math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric> ransac( math::SimilarityFittingFunctor(),
+												      math::InterestPointErrorMetric(),
+												      100, 5, 100, true );
+  std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
+  std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
+
+  Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
+  std::cout << "Similarity: " << H << std::endl;
+  std::vector<size_t> indices =
+    ransac.inlier_indices(H,ransac_ip1, ransac_ip2);
+
+  std::cout << "A valid disparity found by ip[0] " << ransac_ip2[indices[0]] - ransac_ip1[indices[0]] << std::endl;
+
   printf("Disparity search image size = %d by %d\n", params.cropWidth, imageHeight);
 
   // Use correlation function to compute image disparity
-
   stereo::CostFunctionType corr_type = ABSOLUTE_DIFFERENCE;
   if (params.correlator_type == 1)
     corr_type = SQUARED_DIFFERENCE;
