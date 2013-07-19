@@ -426,7 +426,7 @@ def main():
               os.remove( cub )
 
         # Run a final cubenorm across the image:
-        #cubenorm( mosaicked, options.threads, options.delete )
+        cubenorm( mosaicked, options.threads, options.delete )
 
         print "Finished"
         return 0
