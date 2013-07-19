@@ -24,6 +24,7 @@
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
 #include <vw/FileIO/DiskImageResource.h>
+#include <vw/FileIO/DiskImageView.h>
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
@@ -37,7 +38,9 @@
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
-
+using std::endl;
+using std::setprecision;
+using std::setw;
 
 /* LROJITREG utility
 
@@ -134,9 +137,6 @@ bool handle_arguments(int argc, char* argv[],
 { 
   po::options_description general_options("Options");
   general_options.add_options()
-    ("help,h", "Display this help message")
-    //("left",            po::value(&opt.leftFilePath  ), "Explicitly specify the \"left\" input file")
-    //("right",           po::value(&opt.rightFilePath ), "Explicitly specify the \"right\" input file")
     ("rowLog",          po::value(&opt.rowLogFilePath)->default_value(""), "Explicitly specify the per row output text file")
     ("log",             po::value(&opt.log)->default_value(1.4), "Apply LOG filter with the given sigma, or 0 to disable")
     ("cropWidth",       po::value(&opt.cropWidth )->default_value(300), "Crop images to this width before disparity search")    
@@ -183,10 +183,6 @@ bool determineShifts(Parameters & params,
                      double &dX, double &dY)
 {
   
-  // TODO: Verify that the images have already been initialized with the proper ISIS calls?
-  //       --> lronac2isis, spiceinit, noproj, etc.
-
-
   // Verify images are present
   boost::filesystem::path leftBoostPath (params.leftFilePath );
   boost::filesystem::path rightBoostPath(params.rightFilePath);
@@ -228,13 +224,8 @@ bool determineShifts(Parameters & params,
   const int leftCropStartX  = imageMidPointX - (params.cropWidth/2); 
   const int rightCropStartX = imageMidPointX - (params.cropWidth/2); 
   const int imageHeight     = rows;
+  const int imageWidth      = cols;
   const int imageTopRow     = 0;
-//  vw::CropView<ImageViewRef<PixelGray<float> > > left (leftExt,
-//                                                       leftCropStartX,   imageTopRow, 
-//                                                       params.cropWidth, imageHeight);
-//  vw::CropView<ImageViewRef<PixelGray<float> > > right(rightExt,
-//                                                       rightCropStartX,  imageTopRow, 
-//                                                       params.cropWidth, imageHeight);
 
   ImageViewRef<PixelGray<float> > left  = vw::CropView<DiskImageView<PixelGray<float> > > (left_disk_image,
                                                        leftCropStartX,   imageTopRow, 
@@ -269,8 +260,8 @@ bool determineShifts(Parameters & params,
   printf("v_corr_max = %d\n", params.v_corr_max);        
   
   
-//  ImageViewRef<PixelMask<Vector2i> > disparity_map;
-  ImageView<PixelMask<Vector2i> > disparity_map;
+  ImageView<PixelMask<Vector2i> > disparityMapBack(params.cropWidth, imageHeight);
+  DiskCacheImageView<PixelMask<Vector2i> > disparity_map(disparityMapBack);
   int    corr_timeout   = 0;
   double seconds_per_op = 0.0;
   if (params.usePyramid) 
@@ -306,20 +297,77 @@ bool determineShifts(Parameters & params,
   printf("Accumulating offsets...\n");  
 
   //TODO: Pick exact output format
-  std::ofstream logFile;
+  std::ofstream out;
   const bool writeLogFile = !params.rowLogFilePath.empty();
   if (writeLogFile)
   {
-    logFile.open(params.rowLogFilePath.c_str());
-    if (logFile.fail())
+    out.open(params.rowLogFilePath.c_str());
+    if (out.fail())
     {
       printf("Failed to create output log file %s!\n", params.rowLogFilePath.c_str());
       return false;
     }
-    else
-      printf("Created output log file %s\n", params.rowLogFilePath.c_str());
+
+    printf("Created output log file %s\n", params.rowLogFilePath.c_str());
+
+    out << "#       Lronacjitreg ISIS Application Results" << endl;
+    out << "#    Coordinates are (Sample, Line) unless indicated" << endl;
+    out << "#           RunDate:  " << 0 /*iTime::CurrentLocalTime()*/ << endl;
+    out << "#\n#    ****  Image Input Information ****\n";
+    out << "#  FROM:  " << params.leftFilePath << endl;
+    out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
+    out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
+    out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
+    out << "#    SampOffset:  " << leftCropStartX << endl;
+    out << "#    LineOffset:  " << 0 << endl;
+    out << "#    CPMMNumber:  " << 0 << endl;
+    out << "#    Summing:     " << 0 << endl;
+    out << "#    TdiMode:     " << 0 << endl;
+    out << "#    Channel:     " << 0 << endl;
+    out << "#    LineRate:    " << setprecision(8) << 0
+        << " <seconds>" << endl;
+    out << "#    TopLeft:     " << setw(7) << setprecision(0)
+        << leftCropStartX << " "
+        << setw(7) << setprecision(0)
+        << 0 << endl;
+    out << "#    LowerRight:  " << setw(7) << setprecision(0)
+        << leftCropStartX + params.cropWidth << " "
+        << setw(7) << setprecision(0)
+        << imageHeight << endl;
+    out << "#    StartTime:   " << 0 << " <UTC>" << endl;
+    out << "#    SCStartTime: " << 0 << " <SCLK>" << endl;
+    out << "#    StartTime:   " << setprecision(8) << 0
+        << " <seconds>" << endl;
+    out << "\n";
+    out << "#  MATCH: " << params.rightFilePath << endl;
+    out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
+    out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
+    out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
+    out << "#    SampOffset:  " << rightCropStartX << endl;
+    out << "#    LineOffset:  " << 0 << endl;
+    out << "#    CPMMNumber:  " << 0 << endl;
+    out << "#    Summing:     " << 0 << endl;
+    out << "#    TdiMode:     " << 0 << endl;
+    out << "#    Channel:     " << 0 << endl;
+    out << "#    LineRate:    " << setprecision(8) << 0
+        << " <seconds>" << endl;
+    out << "#    TopLeft:     " << setw(7) << setprecision(0)
+        << rightCropStartX << " "
+        << setw(7) << setprecision(0)
+        << 0 << endl;
+    out << "#    LowerRight:  " << setw(7) << setprecision(0)
+        << rightCropStartX+params.cropWidth  << " "
+        << setw(7) << setprecision(0)
+        << imageHeight << endl;
+    out << "#    StartTime:   " << 0 << " <UTC>" << endl;
+    out << "#    SCStartTime: " << 0 << " <SCLK>" << endl;
+    out << "#    StartTime:   " << setprecision(8) << 0
+        << " <seconds>" << endl;
+    out << "\n";
+
   }
   
+
   const int X_INDEX = 0;
   const int Y_INDEX = 1;  
   
@@ -344,13 +392,14 @@ bool determineShifts(Parameters & params,
     
       if (is_valid(disparity_map(col,row)))
       {
-//        printf("Location %d, %d has values x=%d, y=%d\n", 
-//                row, col, disparity_map(col,row)[X_INDEX], 
-//                disparity_map(col,row)[Y_INDEX]);
-        rowSum += disparity_map(col,row)[Y_INDEX];
-        colSum += disparity_map(col,row)[X_INDEX];
+        float dY = disparity_map(col,row)[Y_INDEX]; 
+        float dX = disparity_map(col,row)[X_INDEX];
+        rowSum += dY;
+        colSum += dX;
         ++numValidInRow;
-                
+      
+        stdCalcX.Push(dX);
+        stdCalcY.Push(dY);
       }
     }  
     //printf("%d valid in row %d\n", numValidInRow, row);
@@ -368,33 +417,154 @@ bool determineShifts(Parameters & params,
       totalNumValidPixels += numValidInRow;
       ++numValidRows;
       
-//      printf("%d valid in row %d\n", numValidInRow, row);    
-//      printf("Row offset = %lf, col offset = %lf\n\n", 
-//             rowOffsets[row], colOffsets[row]);      
-
-      stdCalcX.Push(colOffsets[row]);
-      stdCalcY.Push(rowOffsets[row]);
     }
     
     
     if (writeLogFile)
     {
-      logFile << row << ", " << rowOffsets[row]
-                     << ", " << colOffsets[row] << std::endl;    
+      out << row << ", " << rowOffsets[row]
+                 << ", " << colOffsets[row] << std::endl;    
     }
     
 
-    //TODO: Should we accumulate this per-pixel instead of per-row?      
-    // Accumulate global shift
-    meanVertOffset  += rowOffsets[row];
-    meanHorizOffset += colOffsets[row];
+    //// Accumulate global shift
+    //meanVertOffset  += rowOffsets[row];
+    //meanHorizOffset += colOffsets[row];
   }
   
   if (writeLogFile)
   {
-    logFile << std::endl << "Average Sample Offset: " << stdCalcX.Mean() << " StdDev: " << stdCalcX.StandardDeviation()
-            << std::endl << "Average Line Offset: "   << stdCalcY.Mean() << " StdDev: " << stdCalcX.StandardDeviation() << std::endl;
-    logFile.close();                   
+   // out << std::endl << "Average Sample Offset: " << stdCalcX.Mean() << " StdDev: " << stdCalcX.StandardDeviation()
+   //     << std::endl << "Average Line Offset: "   << stdCalcY.Mean() << " StdDev: " << stdCalcX.StandardDeviation() << std::endl;
+
+    out << "#       Lronacjitreg ISIS Application Results" << endl;
+    out << "#    Coordinates are (Sample, Line) unless indicated" << endl;
+    out << "#           RunDate:  " << 0 /*iTime::CurrentLocalTime()*/ << endl;
+    out << "#\n#    ****  Image Input Information ****\n";
+    out << "#  FROM:  " << params.leftFilePath << endl;
+    out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
+    out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
+    out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
+    out << "#    SampOffset:  " << leftCropStartX << endl;
+    out << "#    LineOffset:  " << 0 << endl;
+    out << "#    CPMMNumber:  " << 0 << endl;
+    out << "#    Summing:     " << 0 << endl;
+    out << "#    TdiMode:     " << 0 << endl;
+    out << "#    Channel:     " << 0 << endl;
+    out << "#    LineRate:    " << setprecision(8) << 0
+        << " <seconds>" << endl;
+    out << "#    TopLeft:     " << setw(7) << setprecision(0)
+        << leftCropStartX << " "
+        << setw(7) << setprecision(0)
+        << 0 << endl;
+    out << "#    LowerRight:  " << setw(7) << setprecision(0)
+        << leftCropStartX + params.cropWidth << " "
+        << setw(7) << setprecision(0)
+        << imageHeight << endl;
+    out << "#    StartTime:   " << 0 << " <UTC>" << endl;
+    out << "#    SCStartTime: " << 0 << " <SCLK>" << endl;
+    out << "#    StartTime:   " << setprecision(8) << 0
+        << " <seconds>" << endl;
+    out << "\n";
+    out << "#  MATCH: " << params.rightFilePath << endl;
+    out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
+    out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
+    out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
+    out << "#    SampOffset:  " << rightCropStartX << endl;
+    out << "#    LineOffset:  " << 0 << endl;
+    out << "#    CPMMNumber:  " << 0 << endl;
+    out << "#    Summing:     " << 0 << endl;
+    out << "#    TdiMode:     " << 0 << endl;
+    out << "#    Channel:     " << 0 << endl;
+    out << "#    LineRate:    " << setprecision(8) << 0
+        << " <seconds>" << endl;
+    out << "#    TopLeft:     " << setw(7) << setprecision(0)
+        << rightCropStartX << " "
+        << setw(7) << setprecision(0)
+        << 0 << endl;
+    out << "#    LowerRight:  " << setw(7) << setprecision(0)
+        << rightCropStartX+params.cropWidth  << " "
+        << setw(7) << setprecision(0)
+        << imageHeight << endl;
+    out << "#    StartTime:   " << 0 << " <UTC>" << endl;
+    out << "#    SCStartTime: " << 0 << " <SCLK>" << endl;
+    out << "#    StartTime:   " << setprecision(8) << 0
+        << " <seconds>" << endl;
+    out << "\n";
+
+    out << "\n#  **** Registration Data ****\n";
+    out << "#   RegFile: " << "" << endl;
+    out << "#   OverlapSize:      " << setw(7) << params.cropWidth << " "
+        << setw(7) << imageHeight << "\n";
+    out << "#   Sample Spacing:   " << setprecision(1) << 1 << endl;
+    out << "#   Line Spacing:     " << setprecision(1) << 1 << endl;
+    out << "#   Columns, Rows:    " << params.xkernel << " " << params.ykernel << endl;
+    out << "#   Corr. Algorithm:  ";
+    switch(params.correlator_type)
+    {
+      case 1:  out << "SQUARED_DIFFERENCE"  << endl;
+      case 2:  out << "CROSS_CORRELATION"   << endl;
+      default: out << "ABSOLUTE_DIFFERENCE" << endl;
+    };
+    out << "#   Corr. Tolerance:  " << setprecision(2) << 0 << endl;
+    out << "#   Total Registers:  " << 0 << " of "
+        << 0 << endl;
+    out << "#   Number Suspect:   " << 0 << endl;
+    if(numValidRows > 0) 
+    {
+      out << "#   Average Sample Offset: " << setprecision(4)
+          << stdCalcX.Mean()
+          << "  StdDev: " << setprecision(4) << stdCalcX.StandardDeviation()
+          << endl;
+      out << "#   Average Line Offset:   " << setprecision(4)
+          << stdCalcY.Mean()
+          << " StdDev: " << setprecision(4) << stdCalcY.StandardDeviation()
+          << endl;
+     }
+     else 
+     {
+       out << "#   Average Sample Offset: " << "NULL\n";
+       out << "#   Average Line Offset:   " << "NULL\n";
+     }
+
+  //out << "\n#  Column Headers and Data\n";
+/*
+//  Write headers
+  out
+      << setw(20) << "FromTime"
+      << setw(10) << "FromSamp"
+      << setw(10) << "FromLine"
+      << setw(20) << "MatchTime"
+      << setw(10) << "MatchSamp"
+      << setw(10) << "MatchLine"
+      << setw(15) << "RegSamp"
+      << setw(15) << "RegLine"
+      << setw(10) << "RegCorr"
+      << setw(15) << "B0_Offset"
+      << setw(15) << "B1_Slope"
+      << setw(10) << "B_RCorr"
+      << endl;
+
+  RegList::const_iterator reg;
+  for(reg = regs.begin() ; reg != regs.end() ; ++reg) 
+  {
+    out << setw(20) << setprecision(8) << reg->fLTime
+        << setw(10) << setprecision(0) << reg->fSamp
+        << setw(10) << setprecision(0) << reg->fLine
+        << setw(20) << setprecision(8) << reg->mLTime
+        << setw(10) << setprecision(0) << reg->mSamp
+        << setw(10) << setprecision(0) << reg->mLine
+        << setw(15) << setprecision(4) << reg->regSamp
+        << setw(15) << setprecision(4) << reg->regLine
+        << setw(10) << setprecision(6) << reg->regCorr
+        << setw(15) << setprecision(6) << reg->B0
+        << setw(15) << setprecision(6) << reg->B1
+        << setw(10) << setprecision(6) << reg->Bcorr
+        << std::endl;
+  }
+*/
+
+    out.close();                   
   }  
   
   if (numValidRows == 0)
@@ -404,8 +574,8 @@ bool determineShifts(Parameters & params,
   }
   
   // Compute overall mean shift
-  meanVertOffset  = meanVertOffset  / static_cast<double>(numValidRows);
-  meanHorizOffset = meanHorizOffset / static_cast<double>(numValidRows);
+  meanVertOffset  = stdCalcY.Mean(); //meanVertOffset  / static_cast<double>(numValidRows);
+  meanHorizOffset = stdCalcX.Mean(); //meanHorizOffset / static_cast<double>(numValidRows);
   
   dX = meanHorizOffset;
   dY = meanVertOffset;
