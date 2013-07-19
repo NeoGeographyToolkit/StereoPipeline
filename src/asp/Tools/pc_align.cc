@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 // Copyright (c) 2010--2012,
-// François Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
+// Francois Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
 // You can contact the authors at <f dot pomerleau at gmail dot com> and
 // <stephane at magnenat dot net>
 
@@ -53,9 +53,10 @@
 #include <vw/Mosaic/ImageComposite.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
+#include <asp/Tools/point2dem.h>
 #include <pointmatcher/PointMatcher.h>
 #include <limits>
-
+#include <cstring>
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
@@ -66,165 +67,397 @@ using namespace vw::cartography;
 
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
+  typedef Vector<float64,6> Vector6;
   template<> struct PixelFormatID<Vector3>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID<Vector3f>  { static const PixelFormatEnum value = VW_PIXEL_GENERIC_3_CHANNEL; };
+  template<> struct PixelFormatID<Vector4>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_4_CHANNEL; };
+  template<> struct PixelFormatID<Vector6>   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-#if 0
-template <int dim>
-class HomogeneousTransformFunctor : public UnaryReturnSameType {
-  Matrix<double,dim+1,dim+1> m_trans;
-
- public:
-   HomogeneousTransformFunctor(Matrix<double,dim+1,dim+1> trans) : m_trans(trans) {}
-
-  inline Vector<double,dim> operator()(Vector<double,dim> pt) const {
-    if (pt == Vector<double,dim>())
-      return pt;
-
-    Vector<double,dim+1> pt_h;
-    subvector(pt_h, 0, dim) = pt;
-    pt_h[dim] = 1;
-
-    Vector<double,dim+1> result = m_trans * pt_h;
-    if (result[dim] != 1)
-      result /= result[dim];
-    return subvector(result,0,dim);
-  }
-};
-
-void match_orthoimages(string const& out_prefix,
-                       string const& left_image_name,
-                       string const& right_image_name,
-                       std::vector<InterestPoint> & matched_ip1,
-                       std::vector<InterestPoint> & matched_ip2,
-                       size_t const& max_points )
-{
-
-  vw_out() << "\t--> Finding Interest Points for the orthoimages\n";
-
-  string left_ip_file, right_ip_file;
-  ip::ip_filenames(out_prefix, left_image_name, right_image_name,
-                   left_ip_file, right_ip_file);
-  string match_file = ip::match_filename(out_prefix, left_image_name, right_image_name);
-
-  // Building / Loading Interest point data
-  if ( fs::exists(match_file) ) {
-
-    vw_out() << "\t    * Using cached match file.\n";
-    read_binary_match_file(match_file, matched_ip1, matched_ip2);
-    vw_out() << "\t    * " << matched_ip1.size() << " matches\n";
-
-  } else {
-    std::vector<InterestPoint> ip1_copy, ip2_copy;
-
-    if ( !fs::exists(left_ip_file) ||
-         !fs::exists(right_ip_file) ) {
-
-      // Worst case, no interest point operations have been performed before
-      vw_out() << "\t    * Locating Interest Points\n";
-      DiskImageView<PixelGray<float32> > left_disk_image(left_image_name);
-      DiskImageView<PixelGray<float32> > right_disk_image(right_image_name);
-
-      // Interest Point module detector code.
-      OBALoGInterestOperator obalog_detector(0.03);
-      IntegralInterestPointDetector<OBALoGInterestOperator> detector( obalog_detector, 200 );
-      std::list<InterestPoint> ip1, ip2;
-      vw_out() << "\t    * Processing " << left_image_name << "...\n" << std::flush;
-      ip1 = detect_interest_points( left_disk_image, detector );
-      vw_out() << "Located " << ip1.size() << " points.\n";
-      vw_out() << "\t    * Processing " << right_image_name << "...\n" << std::flush;
-      ip2 = detect_interest_points( right_disk_image, detector );
-      vw_out() << "Located " << ip2.size() << " points.\n";
-
-      vw_out() << "\t    * Generating descriptors..." << std::flush;
-      SGradDescriptorGenerator descriptor;
-      descriptor( left_disk_image, ip1 );
-      descriptor( right_disk_image, ip2 );
-      vw_out() << "done.\n";
-
-      // Writing out the results
-      vw_out() << "\t    * Caching interest points: "
-               << left_ip_file << " & " << right_ip_file << std::endl;
-      write_binary_ip_file( left_ip_file, ip1 );
-      write_binary_ip_file( right_ip_file, ip2 );
-
-    }
-
-    vw_out() << "\t    * Using cached IPs.\n";
-    ip1_copy = read_binary_ip_file(left_ip_file);
-    ip2_copy = read_binary_ip_file(right_ip_file);
-
-    vw_out() << "\t    * Matching interest points\n";
-    ip::DefaultMatcher matcher(0.6);
-
-    matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
-            TerminalProgressCallback( "asp", "\t    Matching: "));
-    ip::remove_duplicates(matched_ip1, matched_ip2);
-    vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " putative matches.\n";
-    asp::cnettk::equalization( matched_ip1, matched_ip2, max_points );
-    vw_out(InfoMessage) << "\t    " << matched_ip1.size() << " thinned matches.\n";
-
-    vw_out() << "\t    * Caching matches: " << match_file << "\n";
-    write_binary_match_file( match_file, matched_ip1, matched_ip2);
-  }
-
-}
 struct Options : public asp::BaseOptions {
-  Options() : dem1_nodata(std::numeric_limits<double>::quiet_NaN()), dem2_nodata(std::numeric_limits<double>::quiet_NaN()) {}
   // Input
-  string dem1_name, dem2_name, ortho1_name, ortho2_name;
-  double dem1_nodata, dem2_nodata;
-  size_t max_points;
-
+  string reference, source, config_file, csv_format;
   // Output
-  string output_prefix;
+  //string output_prefix;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("max-match-points", po::value(&opt.max_points)->default_value(800), "The max number of points that will be enforced after matching.")
-    ("default-value", po::value(&opt.dem1_nodata), "The value of missing pixels in the first dem")
-    ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.");
+    //("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
+    ("config-file,c", po::value(&opt.config_file), "Specify the configuration file.")
+    ("csv-format", po::value(&opt.csv_format)->default_value("earth_lat_lon_height"), "Specify the input csv file format [earth_lat_lon_height lola_rdr_point_per_row].");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
-    ("dem1", po::value(&opt.dem1_name), "Explicitly specify the first dem")
-    ("dem2", po::value(&opt.dem2_name), "Explicitly specify the second dem")
-    ("ortho1", po::value(&opt.ortho1_name), "Explicitly specify the first orthoimage")
-    ("ortho2", po::value(&opt.ortho2_name), "Explicitly specify the second orthoimage");
+    ("reference", po::value(&opt.reference),
+     "The reference (fixed) point cloud/DEM")
+    ("source", po::value(&opt.source),
+     "The source (movable) point cloud/DEM");
 
   po::positional_options_description positional_desc;
-  positional_desc.add("dem1", 1);
-  positional_desc.add("ortho1", 1);
-  positional_desc.add("dem2", 1);
-  positional_desc.add("ortho2", 1);
+  positional_desc.add("reference", 1);
+  positional_desc.add("source", 1);
 
-  std::string usage("<dem1> <ortho1> <dem2> <ortho2>");
+  std::string usage("<reference cloud> <source cloud>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
 
-  if ( opt.dem1_name.empty() || opt.dem2_name.empty() ||
-       opt.ortho1_name.empty() || opt.ortho2_name.empty() )
+  if ( opt.reference.empty() || opt.source.empty() )
     vw_throw( ArgumentErr() << "Missing input files.\n"
               << usage << general_options );
-  if ( opt.output_prefix.empty() )
-    opt.output_prefix = change_extension(fs::path(opt.dem1_name), "").string();
+//   if ( opt.output_prefix.empty() )
+//     opt.output_prefix = change_extension(fs::path(opt.reference), "").string();
 }
-#endif
 
 typedef PointMatcher<double> PM;
 typedef PM::DataPoints DP;
 typedef PM::Parameters Parameters;
-//typedef PointMatcherSupport::CurrentBibliography;
 using namespace PointMatcherSupport;
 
-// Load a point cloud
+vw::Vector3 cartesian_to_geodetic_adj(const vw::cartography::GeoReference& georef,
+                                      vw::Vector3 xyz
+                                      ){
+
+  // cartesian_to_geodetic() returns longitude between -180 and 180.
+  // Sometimes this is 360 degrees less than what desired,
+  // so here we do an adjustment.
+  // To do: This may not be perfectly fool-proof.
+  vw::Vector3 G = georef.datum().cartesian_to_geodetic(xyz);
+  Vector2 ll = georef.pixel_to_lonlat(Vector2(0, 0));
+  G(0) += 360*round(ll[0] - G(0))/360.0;
+  return G;
+}
+
+double dem_height_diff(Vector3 const& xyz, GeoReference const& dem_georef,
+                       ImageView<float> const& dem, double nodata){
+
+  Vector3 llh = cartesian_to_geodetic_adj(dem_georef, xyz);
+  Vector2 pix = dem_georef.lonlat_to_pixel(subvector(llh, 0, 2));
+  int c = (int)round(pix[0]), r = (int)round(pix[1]);
+  if (c < 0 || c >= dem.cols() || r < 0 || r >= dem.rows() || dem(c, r) == nodata){
+    //std::cout << "nval: " << llh[0] << ' ' << llh[1] << std::endl;
+    return std::numeric_limits<double>::quiet_NaN();
+  }
+  //std::cout << "yval: " << llh[0] << ' ' << llh[1] << std::endl;
+  return std::abs(llh[2] - dem(c, r));
+}
+
+void calc_errors(ImageView<Vector3> const& point_cloud,
+                 GeoReference const& dem_georef,
+                 ImageView<float> const& dem, double nodata,
+                 ImageView<double> & errors
+                 ){
+
+  double nan = std::numeric_limits<double>::quiet_NaN();
+
+  int count = 0;
+  double mean = 0;
+
+  errors.set_size(point_cloud.cols(), point_cloud.rows());
+  for (int col = 0; col < point_cloud.cols(); col++){
+    for (int row = 0; row < point_cloud.rows(); row++){
+
+      Vector3 xyz = point_cloud(col, row);
+      double e;
+      if ( xyz == Vector3() || !(xyz == xyz) ) // invalid and NaN check
+        e = nan;
+      else
+        e = dem_height_diff(xyz, dem_georef, dem, nodata);
+      errors(col, row) = e;
+
+      if (e != e) continue; // NaN
+      count++;
+      mean += e;
+    }
+  }
+
+  mean /= count;
+  std::cout << "good points and mean: " << count << ' ' << mean << std::endl;
+
+  return;
+}
+
+void null_check(const char* token, string const& line){
+  if (token == NULL)
+    vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
+}
+
+// Load a RDR_*PointPerRow_csv_table.csv file used for LOLA. Code
+// copied from Ara Nefian's lidar2dem tool.
+// We will ignore lines which do not start with year (or a value that
+// cannot be converted into an integer greater than zero, specifically).
 template<typename T>
-typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName, Vector3 shift)
-{
+typename PointMatcher<T>::DataPoints loadRDR(std::string demFile,
+                                             const std::string& fileName,
+                                             bool calc_shift,
+                                             Vector3 & shift,
+                                             ImageView<Vector3> & point_cloud
+                                             ){
+
+  cartography::GeoReference dem_georef;
+  cartography::read_georeference( dem_georef, demFile );
+  ImageView<float> dem = copy(DiskImageView<float>(demFile));
+  double nodata = std::numeric_limits<double>::quiet_NaN();
+  boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(demFile) );
+  if (dem_rsrc->has_nodata_read()){
+    nodata = dem_rsrc->nodata_read();
+    cout<<"nodata =" << nodata << std::endl;
+  }
+
+  validateFile(fileName);
+  const int bufSize = 1024;
+  char temp[bufSize];
+  ifstream file( fileName.c_str() );
+  if( !file ) {
+    vw_throw( vw::IOErr() << "Unable to open file \"" << fileName << "\"" );
+  }
+
+  typedef typename PointMatcher<T>::DataPoints::Label Label;
+  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
+  typedef typename PointMatcher<T>::Vector Vector;
+  typedef typename PointMatcher<T>::Matrix Matrix;
+  typedef typename PointMatcher<T>::TransformationParameters TransformationParameters;
+  typedef typename PointMatcher<T>::Matrix Parameters;
+  typedef typename PointMatcher<T>::DataPoints DataPoints;
+
+  int dim = 3;
+  Labels labels;
+
+  //cartography::Datum datum;
+  //datum.set_well_known_datum("D_MOON");
+
+  for (int i=0; i < dim; i++){
+    string text;
+    text += char('x' + i);
+    labels.push_back(Label(text, 1));
+  }
+  labels.push_back(Label("pad", 1));
+
+  vector<Vector3> points;
+  Vector3 mean_center;
+  string line;
+  int year, month, day, hour, min;
+  double lon, lat, rad, sec, is_invalid;
+  bool is_first_line = true;
+  char sep[] = ", \t";
+  while( getline(file, line, '\n') ) {
+
+    // We went with C-style file reading instead of C++ in this instance
+    // because we found it to be significantly faster on large files.
+
+    strncpy(temp, line.c_str(), bufSize);
+    const char* token = strtok(temp, sep); null_check(token, line);
+
+    int ret = sscanf(token, "%d-%d-%dT%d:%d:%lg", &year, &month, &day, &hour,
+                     &min, &sec);
+    if( year <= 0 ) { continue; }
+
+    token = strtok(NULL, sep); null_check(token, line);
+    ret += sscanf(token, "%lg", &lon);
+
+    token = strtok(NULL, sep); null_check(token, line);
+    ret += sscanf(token, "%lg", &lat);
+    token = strtok(NULL, sep); null_check(token, line);
+    ret += sscanf(token, "%lg", &rad);
+    rad *= 1000; // km to m
+
+    // Scan 7 more fields, until we get to the is_invalid flag.
+    for (int i = 0; i < 7; i++)
+      token = strtok(NULL, sep); null_check(token, line);
+    ret += sscanf(token, "%lg", &is_invalid);
+
+    // Be prepared for the fact that the first line may be the header.
+    if (ret != 10){
+      if (!is_first_line){
+        vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
+      }else{
+        is_first_line = false;
+        continue;
+      }
+    }
+    is_first_line = false;
+
+    if (is_invalid) continue;
+
+    Vector3 lonlatrad( lon, lat, 0 );
+    //Vector3 xyz = datum.geodetic_to_cartesian( lonlatrad );
+    Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( lonlatrad );
+    if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+
+    // Adjust the point so that it is at the right distance from
+    // planet center. This will work even if the planet is Earth,
+    // which is an ellipsoid rather than a sphere.
+    xyz = rad*(xyz/norm_2(xyz));
+
+    double herr = dem_height_diff(xyz, dem_georef, dem, nodata);
+    if (herr != herr) continue; // NaN
+
+    points.push_back(xyz);
+    mean_center += xyz;
+  }
+
+  mean_center = mean_center/points.size();
+  std::cout << "mean is " << mean_center << std::endl;
+
+  if (calc_shift) shift = mean_center;
+  std::cout << "calc shift is " << calc_shift << std::endl;
+
+  point_cloud.set_size(points.size(), 1);
+  for (int i = 0; i < (int)points.size(); i++) {
+    Vector3 xyz = points[i];
+    point_cloud(i, 0) = xyz - shift;
+  }
+
+  std::cout << "Loaded points: " << points.size() << std::endl;
+  int nbPoints = points.size();
+
+  // Transfer loaded points in specific structure (eigen matrix)
+  Matrix features(dim+1, nbPoints);
+  for(int i=0; i < nbPoints; i++){
+    features(0,i) = points[i][0] - shift[0];
+    features(1,i) = points[i][1] - shift[1];
+    features(2,i) = points[i][2] - shift[2];
+    features(3,i) = 1;
+  }
+
+  DataPoints dataPoints(features, labels);
+  return dataPoints;
+}
+
+// Load a CSV file having lat, lon, and height values (in meters from datum).
+// We assume the Earth datum.
+template<typename T>
+typename PointMatcher<T>::DataPoints loadLLH(std::string demFile,
+                                             const std::string& fileName,
+                                             bool calc_shift,
+                                             Vector3 & shift,
+                                             ImageView<Vector3> & point_cloud
+                                             ){
+
+  cartography::GeoReference dem_georef;
+  cartography::read_georeference( dem_georef, demFile );
+  ImageView<float> dem = copy(DiskImageView<float>(demFile));
+  double nodata = std::numeric_limits<double>::quiet_NaN();
+  boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(demFile) );
+  if (dem_rsrc->has_nodata_read()){
+    nodata = dem_rsrc->nodata_read();
+    cout<<"nodata =" << nodata << std::endl;
+  }
+
+  validateFile(fileName);
+  const int bufSize = 1024;
+  char temp[bufSize];
+  ifstream file( fileName.c_str() );
+  if( !file ) {
+    vw_throw( vw::IOErr() << "Unable to open file \"" << fileName << "\"" );
+  }
+
+  typedef typename PointMatcher<T>::DataPoints::Label Label;
+  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
+  typedef typename PointMatcher<T>::Vector Vector;
+  typedef typename PointMatcher<T>::Matrix Matrix;
+  typedef typename PointMatcher<T>::TransformationParameters TransformationParameters;
+  typedef typename PointMatcher<T>::Matrix Parameters;
+  typedef typename PointMatcher<T>::DataPoints DataPoints;
+
+  int dim = 3;
+  Labels labels;
+
+  //cartography::Datum datum;
+  //datum.set_well_known_datum("");
+
+  for (int i=0; i < dim; i++){
+    string text;
+    text += char('x' + i);
+    labels.push_back(Label(text, 1));
+  }
+  labels.push_back(Label("pad", 1));
+
+  vector<Vector3> points;
+  Vector3 mean_center;
+  string line;
+  double lon, lat, height;
+  bool is_first_line = true;
+  char sep[] = ", \t";
+  while( getline(file, line, '\n') ) {
+
+    // We went with C-style file reading instead of C++ in this instance
+    // because we found it to be significantly faster on large files.
+
+    strncpy(temp, line.c_str(), bufSize);
+    const char* token;
+    int ret = 0;
+    token = strtok(temp, sep); null_check(token, line);
+    ret += sscanf(token, "%lg", &lat);
+
+    token = strtok(NULL, sep); null_check(token, line);
+    ret += sscanf(token, "%lg", &lon);
+
+    token = strtok(NULL, sep); null_check(token, line);
+    ret += sscanf(token, "%lg", &height);
+
+    // Be prepared for the fact that the first line may be the header.
+    if (ret != 3){
+      if (!is_first_line){
+        vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
+      }else{
+        is_first_line = false;
+        continue;
+      }
+    }
+    is_first_line = false;
+
+    Vector3 llh( lon, lat, height );
+    //Vector3 xyz = datum.geodetic_to_cartesian( llh );
+    Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( llh );
+    if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+
+    double herr = dem_height_diff(xyz, dem_georef, dem, nodata);
+    if (herr != herr) continue; // NaN
+
+    points.push_back(xyz);
+    mean_center += xyz;
+  }
+
+  mean_center = mean_center/points.size();
+  std::cout << "mean is " << mean_center << std::endl;
+
+  if (calc_shift) shift = mean_center;
+  std::cout << "calc shift is " << calc_shift << std::endl;
+
+  point_cloud.set_size(points.size(), 1);
+  for (int i = 0; i < (int)points.size(); i++) {
+    Vector3 xyz = points[i];
+    point_cloud(i, 0) = xyz - shift;
+  }
+
+  std::cout << "Loaded points: " << points.size() << std::endl;
+  int nbPoints = points.size();
+
+  // Transfer loaded points in specific structure (eigen matrix)
+  Matrix features(dim+1, nbPoints);
+  for(int i=0; i < nbPoints; i++){
+    features(0,i) = points[i][0] - shift[0];
+    features(1,i) = points[i][1] - shift[1];
+    features(2,i) = points[i][2] - shift[2];
+    features(3,i) = 1;
+  }
+
+  DataPoints dataPoints(features, labels);
+  return dataPoints;
+
+}
+
+// Load a DEM
+template<typename T>
+typename PointMatcher<T>::DataPoints loadDEM(const std::string& fileName,
+                                             bool calc_shift,
+                                             Vector3 & shift,
+                                             ImageView<Vector3> & point_cloud
+                                             ){
   validateFile(fileName);
 
   typedef typename PointMatcher<T>::DataPoints::Label Label;
@@ -238,8 +471,6 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName, Vector3
   vector<T> xData;
   vector<T> yData;
   vector<T> zData;
-  vector<T> padData;
-  vector<string> header;
   int dim = 3;
   Labels labels;
 
@@ -252,7 +483,7 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName, Vector3
 
   cartography::GeoReference dem_georef;
   cartography::read_georeference( dem_georef, fileName );
-  DiskImageView<float> dem( fileName );
+  ImageView<float> dem = copy(DiskImageView<float>(fileName));
   double nodata = std::numeric_limits<double>::quiet_NaN();
   boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(fileName) );
   if (dem_rsrc->has_nodata_read()){
@@ -260,6 +491,7 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName, Vector3
     cout<<"nodata =" << nodata << std::endl;
   }
 
+  point_cloud.set_size(dem.cols(), dem.rows());
   Vector3 mean_center;
   int count = 0;
   for (int j = 0; j < dem.rows(); j++ ) {
@@ -268,16 +500,15 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName, Vector3
     for ( int i = 0; i < dem.cols(); i++ ) {
       if (dem(i, j) == nodata) continue;
       Vector2 lonlat = dem_georef.pixel_to_lonlat( Vector2(i,j) );
-      Vector3 lonlatrad( lonlat.x(), lonlat.y(), dem(i,j) );
-      Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( lonlatrad );
-      if ( xyz != Vector3() && xyz == xyz ){
-        xData.push_back(xyz[0]);
-        yData.push_back(xyz[1]);
-        zData.push_back(xyz[2]);
-        padData.push_back(1);
-        local_mean += xyz;
-        local_count++;
-      }
+      Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
+      Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( llh );
+      if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+      point_cloud(i, j) = xyz;
+      xData.push_back(xyz[0]);
+      yData.push_back(xyz[1]);
+      zData.push_back(xyz[2]);
+      local_mean += xyz;
+      local_count++;
     }
     if ( local_count > 0 ) {
       local_mean /= double(local_count);
@@ -289,6 +520,18 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName, Vector3
   }
   std::cout << "mean is " << mean_center << std::endl;
 
+  if (calc_shift) shift = mean_center;
+  std::cout << "calc shift is " << calc_shift << std::endl;
+  //std::cout << "setting the shift to 0!!!" << std::endl;
+  //shift = Vector3(0, 0, 0);
+  for (int j = 0; j < point_cloud.rows(); j++ ) {
+    for ( int i = 0; i < point_cloud.cols(); i++ ) {
+      Vector3 xyz = point_cloud(i, j);
+      if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+      point_cloud(i, j) -= shift;
+    }
+  }
+
   std::cout << "Loaded points: " << count << std::endl;
   assert(xData.size() == yData.size());
   int nbPoints = xData.size();
@@ -296,266 +539,260 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName, Vector3
   // Transfer loaded points in specific structure (eigen matrix)
   Matrix features(dim+1, nbPoints);
   for(int i=0; i < nbPoints; i++){
-    features(0,i) = xData[i] - mean_center[0] + shift[0];
-    features(1,i) = yData[i] - mean_center[1] + shift[1];
-    features(2,i) = zData[i] - mean_center[2] + shift[2];
+    features(0,i) = xData[i] - shift[0];
+    features(1,i) = yData[i] - shift[1];
+    features(2,i) = zData[i] - shift[2];
     features(3,i) = 1;
   }
 
   DataPoints dataPoints(features, labels);
-  //cout << "Loaded " << dataPoints.features.cols() << " points." << endl;
-  //cout << "Find " << dataPoints.features.rows() << " dimensions." << endl;
-  //cout << features << endl;
-
   return dataPoints;
 }
 
 // Load a point cloud
 template<typename T>
-typename PointMatcher<T>::DataPoints loadFile(const std::string& fileName, Vector3 shift){
+typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName,
+                                            bool calc_shift,
+                                            Vector3 & shift,
+                                            ImageView<Vector3> & point_cloud
+                                            ){
+
+  validateFile(fileName);
+
+  typedef typename PointMatcher<T>::DataPoints::Label Label;
+  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
+  typedef typename PointMatcher<T>::Vector Vector;
+  typedef typename PointMatcher<T>::Matrix Matrix;
+  typedef typename PointMatcher<T>::TransformationParameters TransformationParameters;
+  typedef typename PointMatcher<T>::Matrix Parameters;
+  typedef typename PointMatcher<T>::DataPoints DataPoints;
+
+  vector<T> xData;
+  vector<T> yData;
+  vector<T> zData;
+  int dim = 3;
+  Labels labels;
+
+  for (int i=0; i < dim; i++){
+    string text;
+    text += char('x' + i);
+    labels.push_back(Label(text, 1));
+  }
+  labels.push_back(Label("pad", 1));
+
+  point_cloud = read_n_channels<3>(fileName);
+  Vector3 mean_center;
+  int count = 0;
+  for (int j = 0; j < point_cloud.rows(); j++ ) {
+    int local_count = 0;
+    Vector3 local_mean;
+    for ( int i = 0; i < point_cloud.cols(); i++ ) {
+      Vector3 xyz = point_cloud(i, j);
+      if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+      xData.push_back(xyz[0]);
+      yData.push_back(xyz[1]);
+      zData.push_back(xyz[2]);
+      local_mean += xyz;
+      local_count++;
+    }
+    if ( local_count > 0 ) {
+      local_mean /= double(local_count);
+      double afraction = double(count) / double(count + local_count);
+      double bfraction = double(local_count) / double(count + local_count);
+      mean_center = afraction*mean_center + bfraction*local_mean;
+      count += local_count;
+    }
+  }
+  std::cout << "mean is " << mean_center << std::endl;
+
+  if (calc_shift) shift = mean_center;
+  std::cout << "calc shift is " << calc_shift << std::endl;
+  //std::cout << "setting the shift to 0!!!" << std::endl;
+  //shift = Vector3(0, 0, 0);
+  for (int j = 0; j < point_cloud.rows(); j++ ) {
+    for ( int i = 0; i < point_cloud.cols(); i++ ) {
+      Vector3 xyz = point_cloud(i, j);
+      if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+      point_cloud(i, j) -= shift;
+    }
+  }
+
+  std::cout << "Loaded points: " << count << std::endl;
+  assert(xData.size() == yData.size());
+  int nbPoints = xData.size();
+
+  // Transfer loaded points in specific structure (eigen matrix)
+  Matrix features(dim+1, nbPoints);
+  for(int i=0; i < nbPoints; i++){
+    features(0,i) = xData[i] - shift[0];
+    features(1,i) = yData[i] - shift[1];
+    features(2,i) = zData[i] - shift[2];
+    features(3,i) = 1;
+  }
+
+  DataPoints dataPoints(features, labels);
+  return dataPoints;
+}
+
+// Load file from disk and convert to libpointmatcher's format
+template<typename T>
+typename PointMatcher<T>::DataPoints loadFile(Options const& opt,
+                                              const std::string& demFile, //tmp!!!
+                                              const std::string& fileName,
+                                              bool calc_shift,
+                                              Vector3 & shift,
+                                              ImageView<Vector3> & point_cloud
+                                              ){
 
   const boost::filesystem::path path(fileName);
   const string& ext(boost::filesystem::extension(path));
-  if (boost::iequals(ext, ".tif"))
-    return loadPC<T>(fileName, shift);
+  if (boost::iequals(ext, ".tif")){
+    // Load tif files, PC or DEM
+    int nc = get_num_channels(fileName);
+    if (nc == 1)
+      return loadDEM<T>(fileName, calc_shift, shift, point_cloud);
+    if (nc >= 3)
+      return loadPC<T>(fileName, calc_shift, shift, point_cloud);
+    vw_throw(ArgumentErr() << "File: " << fileName
+             << " is neither a point cloud or DEM.\n");
+  }
 
-  return DP::load(fileName);
+  if (opt.csv_format == "lola_rdr_point_per_row")
+    return loadRDR<T>(demFile, fileName, calc_shift, shift, point_cloud);
+
+  return loadLLH<T>(demFile, fileName, calc_shift, shift, point_cloud);
+
+  // Load CSV and VTK files
+  //return DP::load(fileName);
 }
 
-// Dump command-line help
-void usage(char *argv[])
-{
-  cerr << endl << endl;
-  cerr << "* To list modules:" << endl;
-  cerr << "  " << argv[0] << " -l" << endl;
-  cerr << endl;
-  cerr << "* To run ICP:" << endl;
-  cerr << "  " << argv[0] << " [OPTIONS] reference.csv reading.csv" << endl;
-  cerr << endl;
-  cerr << "OPTIONS can be a combination of:" << endl;
-  cerr << "--config YAML_CONFIG_FILE  Load the config from a YAML file (default: default parameters)" << endl;
-  cerr << "--output FILENAME          Name of output files (default: test)" << endl;
-  cerr << endl;
-  cerr << "Running this program with a VTKFileInspector as Inspector will create three" << endl;
-  cerr << "vtk ouptput files: ./test_ref.vtk, ./test_data_in.vtk and ./test_data_out.vtk" << endl;
-  cerr << endl << "2D Example:" << endl;
-  cerr << "  " << argv[0] << " examples/data/2D_twoBoxes.csv examples/data/2D_oneBox.csv" << endl;
-  cerr << endl << "3D Example:" << endl;
-  cerr << "  " << argv[0] << " examples/data/car_cloud400.csv examples/data/car_cloud401.csv" << endl;
-  cerr << endl;
-
-}
-
-// Make sure that the command arguments make sense
-int validateArgs(const int argc, char *argv[], bool& isCSV, string& configFile, string& outputBaseFile)
-{
-  if (argc == 1)
-    {
-      cerr << "Not enough arguments, usage:";
-      usage(argv);
-      return 1;
-    }
-  else if (argc == 2)
-    {
-      if (string(argv[1]) == "-l")
-        {
-          return -1; // we use -1 to say that we wish to quit but in a normal way
-        }
-      else
-        {
-          cerr << "Wrong option, usage:";
-          usage(argv);
-          return 2;
-        }
-    }
-
-  const int endOpt(argc - 2);
-  for (int i = 1; i < endOpt; i += 2)
-    {
-      const string opt(argv[i]);
-      if (i + 1 > endOpt)
-        {
-          cerr << "Missing value for option " << opt << ", usage:"; usage(argv); exit(1);
-        }
-      if (opt == "--config")
-        configFile = argv[i+1];
-      else if (opt == "--output")
-        outputBaseFile = argv[i+1];
-      else
-        {
-          cerr << "Unknown option " << opt << ", usage:"; usage(argv); exit(1);
-        }
-    }
-  return 0;
-}
-
-
+// To do: Put all licenses in the ASP license file.
+// To do: Add documentation.
+// To do: Deal with output prefix.
+// To do: We now assume first argument is DEM and second is CSV!!!
+// To do: Put the DEM loading in just one place.
+// To do: Integrate loadPC and loadDEM into one function to rm duplication.
+// To do: Format for CSV files requires convertion from lonlat to xyz.
+// To do: Move stuff from point2dem.h and from here to Core in pc_utils.h!
+// See also point2mesh and point2las, which use this stuff.
 // To do: Rm unneeded dependencies on top.
-// To do: Put ASP note on top.
 // To do: Investigate if we can get by using floats instead of double.
 // To do: Better ways of using memory are needed.
-// To do: Must subtract same mean from both datasets!!! This is a bug!!!
 
 int main( int argc, char *argv[] ) {
 
-  std::cout << "6now 2in main!!!" << std::endl;
-  string configFile;
-  string outputBaseFile("test");
-  bool isCSV = false;
-  const int ret = validateArgs(argc, argv, isCSV, configFile, outputBaseFile);
-  std::cout << "Config file is " << configFile << std::endl;
-
-  if (ret != 0)
-    return ret;
-  string refFile  = argv[argc-2];
-  string dataFile = argv[argc-1];
-
-  std::cout << "xxx ---loaded files: " << refFile << ' ' << dataFile << std::endl;
-
-  Vector3 shift1, shift2(20, -30, 100);
-  std::cout << "shift is " << shift2 << std::endl;
-
-  // Load point clouds
-  const DP ref  = loadFile<double>(refFile,  shift1);
-  const DP data = loadFile<double>(dataFile, shift2);
-
-  // Create the default ICP algorithm
-  PM::ICP icp;
-
-  if (configFile.empty())
-    {
-      // See the implementation of setDefault() to create a custom ICP algorithm
-      icp.setDefault();
-    }
-  else
-    {
-      // load YAML config
-      ifstream ifs(configFile.c_str());
-      std::cout << "---- Will load file: " << configFile << std::endl;
-      if (!ifs.good())
-        {
-          cerr << "Cannot open config file " << configFile << ", usage:"; usage(argv); exit(1);
-        }
-      std::cout << "now before" << std::endl;
-      icp.loadFromYaml(ifs);
-      std::cout << "now after" << std::endl;
-    }
-
-  // Compute the transformation to express data in ref
-  PM::TransformationParameters T = icp(data, ref);
-  cout << "match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
-
-  // Transform data to express it in ref
-  DP data_out(data);
-  icp.transformations.apply(data_out, T);
-
-  // Safe files to see the results
-  ref.save(outputBaseFile + "_ref.vtk");
-  data.save(outputBaseFile + "_data_in.vtk");
-  data_out.save(outputBaseFile + "_data_out.vtk");
-  cout << "Final transformation:" << endl << T << endl;
-
-  return 0;
-#if 0
-
-   Options opt;
+  Options opt;
   try {
     handle_arguments( argc, argv, opt );
-    DiskImageResourceGDAL ortho1_rsrc(opt.ortho1_name), ortho2_rsrc(opt.ortho2_name),
-      dem1_rsrc(opt.dem1_name), dem2_rsrc(opt.dem2_name);
 
-    // Pull out dem nodatas
-    if ( dem1_rsrc.has_nodata_read() ) {
-      opt.dem1_nodata = dem1_rsrc.nodata_read();
-      vw_out() << "\tFound DEM1 input nodata value: "
-               << opt.dem1_nodata << endl;
+    // Create the default ICP algorithm
+    PM::ICP icp;
+
+    if (opt.config_file.empty()){
+      // See the implementation of setDefault() to create a custom ICP algorithm
+      icp.setDefault();
+    }else{
+      // load YAML config file
+      ifstream ifs(opt.config_file.c_str());
+      std::cout << "---- Will load file: " << opt.config_file << std::endl;
+      if (!ifs.good()) vw_throw( ArgumentErr()
+                                 << "Cannot open configuration file: "
+                                 << opt.config_file << "\n" );
+      icp.loadFromYaml(ifs);
     }
-    if ( dem2_rsrc.has_nodata_read() ) {
-      opt.dem2_nodata = dem2_rsrc.nodata_read();
-      vw_out() << "\tFound DEM2 input nodata value: "
-               << opt.dem2_nodata << endl;
-    } else {
-      vw_out() << "\tMissing nodata value for DEM2. Using DEM1 nodata value.\n";
-      opt.dem2_nodata = opt.dem1_nodata;
+
+    std::cout << "Loading files: " << opt.reference << ' '
+              << opt.source << std::endl;
+
+    // Load the point clouds. We will shift both point clouds by the
+    // centroid of the first one to bring them closer to origin.
+    Vector3 shift;
+    bool calc_shift = true;
+    ImageView<Vector3> ref_point_cloud, data_point_cloud;
+    const DP ref  = loadFile<double>(opt, opt.reference, opt.reference,
+                                     calc_shift, shift, ref_point_cloud);
+    calc_shift = false;
+    const DP data = loadFile<double>(opt, opt.reference, opt.source,
+                                     calc_shift, shift, data_point_cloud);
+
+    // Compute the transformation to express data in ref
+    PM::TransformationParameters T = icp(data, ref);
+    cout << "match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
+         << endl;
+
+    // Transform data to express it in ref
+    DP data_out(data);
+    icp.transformations.apply(data_out, T);
+
+    // Safe files to see the results
+    //   ref.save(outputBaseFile + "_ref.vtk");
+    //   data.save(outputBaseFile + "_data_in.vtk");
+    //   data_out.save(outputBaseFile + "_data_out.vtk");
+    cout << "Final transformation:" << endl << T << endl;
+    //   for (int row = 0; row < 4; row++){
+    //     for (int col = 0; col < 4; col++){
+    //       std::cout << T(row, col) << " ";
+    //     }
+    //     std::cout << std::endl;
+    //   }
+
+    ImageView<Vector3> trans_data_point_cloud = copy(data_point_cloud);
+
+    // Put the shifts back and apply the transform
+    for (int col = 0; col < ref_point_cloud.cols(); col++){
+      for (int row = 0; row < ref_point_cloud.rows(); row++){
+        Vector3 P = ref_point_cloud(col, row);
+        if ( P == Vector3() || !(P == P) ) continue;
+        ref_point_cloud(col, row) += shift;
+      }
     }
-
-    typedef DiskImageView<float> dem_type;
-    dem_type dem1(opt.dem1_name), dem2(opt.dem2_name);
-
-    GeoReference ortho1_georef, ortho2_georef, dem1_georef, dem2_georef;
-    read_georeference(ortho1_georef, ortho1_rsrc);
-    read_georeference(ortho2_georef, ortho2_rsrc);
-    read_georeference(dem1_georef, dem1_rsrc);
-    read_georeference(dem2_georef, dem2_rsrc);
-
-    ImageViewRef<Vector3> pointcloud1 =
-      geodetic_to_cartesian( dem_to_geodetic( apply_mask(dem1, opt.dem1_nodata), dem1_georef ), dem1_georef.datum() );
-    ImageViewRef<Vector3> pointcloud2 =
-      geodetic_to_cartesian( dem_to_geodetic( apply_mask(dem2, opt.dem2_nodata), dem2_georef ), dem2_georef.datum() );
-
-    std::vector<InterestPoint> matched_ip1, matched_ip2;
-
-    match_orthoimages("",
-                      opt.ortho1_name, opt.ortho2_name,
-                      matched_ip1, matched_ip2, opt.max_points);
-
-    vw_out() << "\t--> Rejecting outliers using RANSAC.\n";
-    std::vector<Vector4> ransac_ip1, ransac_ip2;
-    for (size_t i = 0; i < matched_ip1.size(); i++) {
-
-      Vector3 xyz1 = pointcloud1( matched_ip1[i].x, matched_ip1[i].y );
-      Vector3 xyz2 = pointcloud2( matched_ip2[i].x, matched_ip2[i].y );
-
-      if ( xyz1 != Vector3() &&
-           xyz2 != Vector3() ) {
-        ransac_ip1.push_back(Vector4(xyz1.x(), xyz1.y(), xyz1.z(), 1));
-        ransac_ip2.push_back(Vector4(xyz2.x(), xyz2.y(), xyz2.z(), 1));
-      } else {
-        vw_out() << "Actually dropped something.\n";
+    for (int col = 0; col < data_point_cloud.cols(); col++){
+      for (int row = 0; row < data_point_cloud.rows(); row++){
+        Vector3 P = data_point_cloud(col, row);
+        if ( P == Vector3() || !(P == P) ) continue;
+        data_point_cloud(col, row) += shift;
+      }
+    }
+    for (int col = 0; col < trans_data_point_cloud.cols(); col++){
+      for (int row = 0; row < trans_data_point_cloud.rows(); row++){
+        Vector3 P = trans_data_point_cloud(col, row);
+        if ( P == Vector3() || !(P == P) ) continue;
+        Eigen::VectorXd V(4);
+        V[0] = P[0]; V[1] = P[1]; V[2] = P[2]; V[3] = 1;
+        V = T*V;
+        P[0] = V[0]; P[1] = V[1]; P[2] = V[2];
+        trans_data_point_cloud(col, row) = P + shift;
       }
     }
 
-    std::vector<size_t> indices;
-    Matrix<double> trans;
-    math::RandomSampleConsensus<math::SimilarityFittingFunctorN<3>,math::L2NormErrorMetric>
-      ransac( math::SimilarityFittingFunctorN<3>(), math::L2NormErrorMetric(), 2000, 200, 2*ransac_ip1.size()/3, true);
-    trans = ransac(ransac_ip2, ransac_ip1);
-    indices = ransac.inlier_indices(trans, ransac_ip2, ransac_ip1);
-
-    vw_out() << "\t    * Ransac Result: " << trans << "\n";
-    vw_out() << "\t                     # inliers: " << indices.size() << "\n";
-
-    if (1) {
-      for ( size_t i = 0; i < ransac_ip1.size(); i++ ) {
-        std::cout << ransac_ip1[i] << " " << ransac_ip2[i] << " " << trans * ransac_ip2[i] << " "
-                  << norm_2(ransac_ip1[i]-ransac_ip2[i]) << " "
-                  << norm_2(ransac_ip1[i]-trans*ransac_ip2[i]) << std::endl;
-      }
+    cartography::GeoReference dem_georef;
+    cartography::read_georeference( dem_georef, opt.reference );
+    ImageView<float> dem = copy(DiskImageView<float>(opt.reference));
+    double nodata = std::numeric_limits<double>::quiet_NaN();
+    boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(opt.reference) );
+    if (dem_rsrc->has_nodata_read()){
+      nodata = dem_rsrc->nodata_read();
+      cout<<"nodata =" << nodata << std::endl;
     }
 
-    { // Saving transform to human readable text
-      std::string filename = (fs::path(opt.dem1_name).branch_path() / (fs::basename(fs::path(opt.dem1_name)) + "__" + fs::basename(fs::path(opt.dem2_name)) + "-Matrix.txt")).string();
-      std::ofstream ofile( filename.c_str() );
-      ofile << std::setprecision(15) << std::flush;
-      ofile << "# inliers: " << indices.size() << endl;
-      ofile << trans << endl;
-      ofile.close();
-    }
+    ImageView<double> beg_errors, end_errors;
+    calc_errors(data_point_cloud, dem_georef, dem, nodata, beg_errors);
+    calc_errors(trans_data_point_cloud, dem_georef, dem, nodata, end_errors);
 
-    // ImageViewRef<Vector3> point_cloud =
-    //   geodetic_to_cartesian( dem_to_geodetic( create_mask(dem1_dmg, opt.dem1_nodata), dem1_georef ), dem1_georef.datum() );
+    std::string outRefFile = "out_ref.tif";
+    std::string outDataFile = "out_data.tif";
+    std::string transDataFile = "out_trans_data.tif";
+    std::cout << "Writing: " << outRefFile << std::endl;
+    asp::block_write_gdal_image(outRefFile, ref_point_cloud, opt,
+                                TerminalProgressCallback("asp", "\t-->: "));
+    std::cout << "Writing: " << outDataFile << std::endl;
+    asp::block_write_gdal_image(outDataFile, data_point_cloud, opt,
+                                TerminalProgressCallback("asp", "\t-->: "));
+    std::cout << "Writing: " << transDataFile << std::endl;
+    asp::block_write_gdal_image(transDataFile, trans_data_point_cloud, opt,
+                                TerminalProgressCallback("asp", "\t-->: "));
 
-    // ImageViewRef<Vector3> point_cloud_trans =
-    //   per_pixel_filter(point_cloud, HomogeneousTransformFunctor<3>(trans));
-
-    // DiskImageResourceGDAL point_cloud_rsrc(opt.output_prefix + "-PC.tif",
-    //                                        point_cloud_trans.format(),
-    //                                        opt.raster_tile_size,
-    //                                        opt.gdal_options);
-    // block_write_image(point_cloud_rsrc, point_cloud_trans,
-    //                   TerminalProgressCallback("asp", "\t--> Transforming: "));
   } ASP_STANDARD_CATCHES;
 
-#endif
   return 0;
 }
