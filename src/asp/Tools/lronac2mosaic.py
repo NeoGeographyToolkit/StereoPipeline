@@ -70,10 +70,10 @@ def build_cube_pairs(cubePaths):
       # Store the path in the spot for either the left or right cube
       if (sideLetter == "L"):
           pairDict[number][0] = cube; # Left
-          print "Left --> " + cube;
+          #print "Left --> " + cube;
       else:
           pairDict[number][1] = cube; # Right
-          print "Right --> " + cube;
+          #print "Right --> " + cube;
   return pairDict;
 
 def read_flatfile( flat ):
@@ -233,10 +233,7 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
 
     noproj_pairs = dict();
     for k, v in file_pairs.items():
-    
-        print "v[0] = " + str(v[0]);        
-        print "v[1] = " + str(v[1]);                
-    
+        
         noproj_pairs[k] = ['', ''];
         for i in range(2): # Process left and right image
           print i;
@@ -266,7 +263,7 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
 def lronacjitreg( noproj_pairs, threads, delete=False ):
     
     #TODO: Move boundary inputs to config file?   
-    boundsCommands = '--correlator-type 2 --xkernel 15 --ykernel 15 --pyramid --h-corr-min -30 --h-corr-max 60 --v-corr-min -60 --v-corr-max -30 --cropWidth 200';
+    boundsCommands = '--correlator-type 2 --xkernel 21 --ykernel 21 --pyramid --h-corr-min 40 --h-corr-max 50 --v-corr-min -38 --v-corr-max -32 --cropWidth 200';
     for k,v in noproj_pairs.items(): 
         cmd = './lronacjitreg ' + boundsCommands    \
             + ' --rowLog rowLog_'+str(k)+'.txt' \
@@ -429,7 +426,7 @@ def main():
               os.remove( cub )
 
         # Run a final cubenorm across the image:
-        cubenorm( mosaicked, options.threads, options.delete )
+        #cubenorm( mosaicked, options.threads, options.delete )
 
         print "Finished"
         return 0
