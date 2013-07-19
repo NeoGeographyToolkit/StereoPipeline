@@ -236,7 +236,6 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
         
         noproj_pairs[k] = ['', ''];
         for i in range(2): # Process left and right image
-          print i;
           to_cub = os.path.splitext(v[i])[0] + '.noproj.cub'
           
           noproj_pairs[k][i] = to_cub; # Add file to output list
@@ -263,10 +262,10 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
 def lronacjitreg( noproj_pairs, threads, delete=False ):
     
     #TODO: Move boundary inputs to config file?   
-    boundsCommands = '--correlator-type 2 --xkernel 21 --ykernel 21 --pyramid --h-corr-min 40 --h-corr-max 50 --v-corr-min -38 --v-corr-max -32 --cropWidth 200';
+    boundsCommands = '--correlator-type 2 --kernel 21 21 --h-corr-min 40 --h-corr-max 50 --v-corr-min -38 --v-corr-max -32 --crop-width 200';
     for k,v in noproj_pairs.items(): 
         cmd = './lronacjitreg ' + boundsCommands    \
-            + ' --rowLog rowLog_'+str(k)+'.txt' \
+            + ' --output-log outout-log_'+str(k)+'.txt' \
             + ' '+ v[0] \
             + ' '+ v[1];
         add_job(cmd, threads)
@@ -275,7 +274,7 @@ def lronacjitreg( noproj_pairs, threads, delete=False ):
     # Read in all the shift values from the output text files
     averages = dict()
     for k,v in noproj_pairs.items():
-        flat_file = 'rowLog_'+str(k)+'.txt'
+        flat_file = 'outout-log_'+str(k)+'.txt'
         print 'Reading log file ' + flat_file;
         averages[k] = read_flatfile( flat_file )
         if delete:
@@ -309,14 +308,13 @@ def mosaic( noproj_pairs, averages, threads ):
 
 def handmos( fromcub, tocub, outsamp, outline, threads ):
 
-    offsetSample = 4900 + int(outsamp);
+#    offsetSample = 4900 + int(outsamp);
     cmd = 'handmos from= '+ fromcub +' mosaic= '+ tocub \
-            +' outsample= '+ str(offsetSample) \
-            +' insample= 4900'   \
-            +' outline= '  + outline \
             +' matchbandbin=FALSE priority=ontop';
-#TODO: Get crop number to use with insample!      
-#TODO: Do anything with the top?      
+
+#            +' outsample= '+ str(offsetSample) \
+#            +' insample= 4900'   \
+#            +' outline= '  + outline \
 
 #    if( isisversion() > (3,1,20) ):
 #        # ISIS 3.1.21+
@@ -408,7 +406,7 @@ def main():
         if options.resume_no_proj: # If resume option was set
             lronacechod = args
 
-        print "build_cube_pairs"
+        print "build_cube_pairs" # Detected corresponding pairs of cubes
         lronac_file_pairs = build_cube_pairs( lronacechod )
 
         print "noproj"       # Per-file operation
@@ -433,7 +431,6 @@ def main():
 
     except Usage, err:
         print >>sys.stderr, err.msg
-        # print >>sys.stderr, "for help use --help"
         return 2
 
 	# To more easily debug this program, comment out this catch block.
