@@ -128,7 +128,7 @@ namespace vw {
                                                                                         SelectPoints<n, m>() );
   }
 
-  int get_num_channles(std::string filename){
+  int get_num_channels(std::string filename){
     boost::scoped_ptr<SrcImageResource> src(DiskImageResource::open(filename));
     int num_channels = src->channels();
     int num_planes   = src->planes();
@@ -141,7 +141,7 @@ namespace vw {
   ImageViewRef< Vector<double, n> > read_n_channels(std::string filename){
 
     int max_m = 6;
-    int m = get_num_channles(filename);
+    int m = get_num_channels(filename);
 
     VW_ASSERT( 1 <= n,
                ArgumentErr() << "Attempting to read " << n << " channels from an image.");

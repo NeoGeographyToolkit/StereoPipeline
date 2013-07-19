@@ -464,7 +464,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   // Write triangulation error image if requested
   if ( opt.do_error ) {
-    int num_channels = get_num_channles(opt.pointcloud_filename);
+    int num_channels = get_num_channels(opt.pointcloud_filename);
 
     if (num_channels == 4){
       // The error is a scalar.
