@@ -208,8 +208,29 @@ def spice( cub_files, threads):
     wait_on_all_jobs()
     return
 
-# Left file is in index 0, right is in index 1
-def noproj( file_pairs, threads, delete=False, specFile=""):
+# Left file is/home/smcmich1 in index 0, right is in index 1
+def noproj( file_pairs, threads, delete=False, fakePvl=True):
+
+    if fakePvl: # Generate temporary PVL file
+       specFilePath = '/home/smcmich1/data/noprojInstruments003.pvl'
+       print 'Generating fake .pvl file ' + specFilePath
+       f = open(specFilePath, 'w')
+
+       f.write('Object = IdealInstrumentsSpecifications\n');
+       f.write('   UserName     = auto\n');
+       f.write('   Created      = 2013-07-18T13:42:00\n');
+       f.write('   LastModified = 2013-07-18T13:42:00\n\n');
+       f.write('   Group = "LUNAR RECONNAISSANCE ORBITER/NACL"\n');
+       f.write('      TransY = 16.8833\n')
+       f.write('      ItransS = -2411.9\n')
+       f.write('      TransX = 0.6475\n')
+       f.write('      ItransL = -92.5\n')
+       f.write('      DetectorSamples = 10000\n')
+       f.write('   End_Group\n\n')
+       f.write('End_Object\n')
+       f.write('End')
+       f.close()
+
     noproj_pairs = dict();
     for k, v in file_pairs.items():
     
@@ -228,15 +249,17 @@ def noproj( file_pairs, threads, delete=False, specFile=""):
               cmd = 'noproj from= '+ v[i]   \
                         + ' to= '  + to_cub \
                         +' match= '+ v[0];
-              if specFile:
-	          cmd += ' spec= ' + specFile;
+              if fakePvl:
+	          cmd += ' specs= ' + specFilePath;
               add_job(cmd, threads)
     wait_on_all_jobs()
     
     if( delete ): # Clean up input cube files
         for v in file_pairs.values(): 
            os.remove( v[0] );
-           os.remove( v[1] );           
+           os.remove( v[1] );       
+#        if fakePvl:
+#           os.remove( specFilePath );    
     return noproj_pairs;
 
 
@@ -339,21 +362,20 @@ def main():
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(delete =True)
             parser.set_defaults(threads=4)
+            parser.set_defaults(fakePvl=True)
             parser.add_option("--manual", action="callback", callback=man,
                               help="Read the manual.")
             parser.add_option("--stop-at-no-proj", dest="stop_no_proj", action="store_true",
                               help="Process the IMG files only to have SPICE attached.")
             parser.add_option("--resume-at-no-proj", dest="resume_no_proj", action="store_true",
-                              help="Pick back up after spiceinit has happened. " /
-                                   "This was noproj uses your new camera information") 
+                              help="Pick back up after spiceinit has happened. This was noproj uses your new camera information") 
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
                               help="Will not delete intermediate files.")
-            parser.add_option("-s", "--specFile", dest="specFile",
-                              help="Optional spec argument to noproj.",type="string")
-
+            parser.add_option("--p", dest="fakePvl", action="store_true",
+                              help="Don't automatically create a LRONAC pvl file")
             (options, args) = parser.parse_args()
 
             if not args: parser.error("need .IMG files")
@@ -372,14 +394,15 @@ def main():
             print "lronac2isis" # Per-file operation, returns list of new files
             lronac2isised = lronac2isis( args, options.threads )
 
-            print "spice"       # Attach spice info to cubes (adds to existing files)
-            spice( lronac2isised, options.threads )
-
             print "lronaccal"   # Per-file operation, returns list of new files
             lronaccaled = lronaccal( lronac2isised, options.threads, options.delete )
 
             print "lronacecho"  # Per-file operation, returns list of new files
-            lronacechod = lronacecho( lronac2isised, options.threads, options.delete )
+            lronacechod = lronacecho( lronaccaled, options.threads, options.delete )
+
+            print "spice"       # Attach spice info to cubes (adds to existing files)
+            spice( lronacechod, options.threads )
+
 
         if options.stop_no_proj: # Stop early if requested
             print "Finished"
@@ -392,7 +415,7 @@ def main():
         lronac_file_pairs = build_cube_pairs( lronacechod )
 
         print "noproj"       # Per-file operation
-        noprojed_file_pairs = noproj( lronac_file_pairs, options.threads, options.delete, options.specFile )
+        noprojed_file_pairs = noproj( lronac_file_pairs, options.threads, options.delete, options.fakePvl)
 
         print "lronacjitreg" # Determines mean shift for each file pair
         averages = lronacjitreg( noprojed_file_pairs, options.threads, options.delete )
