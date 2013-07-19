@@ -123,11 +123,10 @@ struct Parameters : asp::BaseOptions
   float log;
   int   h_corr_min, h_corr_max;
   int   v_corr_min, v_corr_max;
-  int   xkernel, ykernel;
+  Vector2i kernel;
   int   lrthresh;
   int   correlator_type;
   int   cropWidth;  
-  bool  usePyramid;
 };
 
 
@@ -144,12 +143,11 @@ bool handle_arguments(int argc, char* argv[],
     ("h-corr-max",      po::value(&opt.h_corr_max)->default_value( 30), "Maximum horizontal disparity")
     ("v-corr-min",      po::value(&opt.v_corr_min)->default_value(-5), "Minimum vertical disparity")
     ("v-corr-max",      po::value(&opt.v_corr_max)->default_value(5), "Maximum vertical disparity")
-    ("xkernel",         po::value(&opt.xkernel   )->default_value(15), "Horizontal correlation kernel size")
-    ("ykernel",         po::value(&opt.ykernel   )->default_value(15), "Vertical correlation kernel size")
+    ("kernel",          po::value(&opt.kernel)->default_value(Vector2i(15,15)), "Correlation kernel size")
     ("lrthresh",        po::value(&opt.lrthresh  )->default_value(2), "Left/right correspondence threshold")
     ("correlator-type", po::value(&opt.correlator_type)->default_value(0), "0 - Abs difference; 1 - Sq Difference; 2 - NormXCorr")
-    ("affine-subpix", "Enable affine adaptive sub-pixel correlation (slower, but more accurate)")
-    ("pyramid", "Use the pyramid based correlator");
+    ("affine-subpix", "Enable affine adaptive sub-pixel correlation (slower, but more accurate)");
+  
   general_options.add( asp::BaseOptionsDescription(opt) );
     
   po::options_description positional("");
@@ -166,8 +164,6 @@ bool handle_arguments(int argc, char* argv[],
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
-
-  opt.usePyramid = vm.count("pyramid");
 
   if ( !vm.count("left") || !vm.count("right") )
     vw_throw( ArgumentErr() << "Requires <left> and <right> input in order to proceed.\n\n"
@@ -207,41 +203,18 @@ bool determineShifts(Parameters & params,
   DiskImageView<PixelGray<float> > right_disk_image(params.rightFilePath);
   
   
-  // Pad out both images to be the same size
-  int cols = std::min(left_disk_image.cols(), right_disk_image.cols());
-  int rows = std::min(left_disk_image.rows(), right_disk_image.rows());
+  const int imageWidth  = std::min(left_disk_image.cols(), right_disk_image.cols());
+  const int imageHeight = std::min(left_disk_image.rows(), right_disk_image.rows());
+  const int imageTopRow = 0;
+  const int imageMidPointX  = imageWidth / 2;
+  const int cropStartX  = imageMidPointX - (params.cropWidth/2);
 
-  ImageViewRef<PixelGray<float> > leftExt  = edge_extend(left_disk_image, 0,0,cols,rows);
-  ImageViewRef<PixelGray<float> > rightExt = edge_extend(right_disk_image,0,0,cols,rows);
-  
-  printf("Input image size = %d by %d\n", cols, rows);
-  
-  
-  
   // Restrict processing to the border of the images
   // - Since both images were nproj'd the overlap areas should be in about the same spots.
-  const int imageMidPointX  = cols / 2;
-  const int leftCropStartX  = imageMidPointX - (params.cropWidth/2); 
-  const int rightCropStartX = imageMidPointX - (params.cropWidth/2); 
-  const int imageHeight     = rows;
-  const int imageWidth      = cols;
-  const int imageTopRow     = 0;
+  const BBox2i crop_roi( cropStartX, imageTopRow,
+			 params.cropWidth, imageHeight );
 
-  ImageViewRef<PixelGray<float> > left  = vw::CropView<DiskImageView<PixelGray<float> > > (left_disk_image,
-                                                       leftCropStartX,   imageTopRow, 
-                                                       params.cropWidth, imageHeight);
-  ImageViewRef<PixelGray<float> > right = vw::CropView<DiskImageView<PixelGray<float> > > (right_disk_image,
-                                                       rightCropStartX,  imageTopRow, 
-                                                       params.cropWidth, imageHeight);
-
-  printf("Disparity search image size = %d by %d\n", params.cropWidth, rows);
-
-//  // Dump the cropped image to disk
-//  ImageView<PixelRGB<uint8> > rgbLeft  = left;
-//  ImageView<PixelRGB<uint8> > rgbRight = right;
-//  vw::write_image("/root/data/cropdumpLeft.tif",  rgbLeft);
-//  vw::write_image("/root/data/cropdumpRight.tif", rgbRight);  
-
+  printf("Disparity search image size = %d by %d\n", params.cropWidth, imageHeight);
 
   // Use correlation function to compute image disparity
 
@@ -250,46 +223,26 @@ bool determineShifts(Parameters & params,
     corr_type = SQUARED_DIFFERENCE;
   else if (params.correlator_type == 2)
     corr_type = CROSS_CORRELATION;
-
  
   printf("Running stereo correlation...\n");
-  //printf("Search bounds:\n");
-  //printf("h_corr_min = %d\n", params.h_corr_min);  
-  //printf("h_corr_max = %d\n", params.h_corr_max);  
-  //printf("v_corr_min = %d\n", params.v_corr_min);  
-  //printf("v_corr_max = %d\n", params.v_corr_max);        
   
-  
-  ImageView<PixelMask<Vector2i> > disparityMapBack(params.cropWidth, imageHeight);
-  DiskCacheImageView<PixelMask<Vector2i> > disparity_map(disparityMapBack);
+  // Pyramid Correlation works best rasterizing in 1024^2 chunks
+  vw_settings().set_default_tile_size(1024);
+
   int    corr_timeout   = 0;
   double seconds_per_op = 0.0;
-  if (params.usePyramid) 
-  {
-    printf("Using pyramid search.\n");
-    disparity_map =
-      stereo::pyramid_correlate( left, right,
-                                 constant_view( uint8(255), left ),
-                                 constant_view( uint8(255), right ),
-                                 stereo::LaplacianOfGaussian(params.log),
-                                 BBox2i(Vector2i(params.h_corr_min, params.v_corr_min),
-                                        Vector2i(params.h_corr_max, params.v_corr_max)),
-                                 Vector2i(params.xkernel, params.ykernel),
-                                 corr_type, corr_timeout, seconds_per_op,
-                                 params.lrthresh, 5 );
-  } 
-  else 
-  {
-    printf("Using non-pyramid search.\n");  
-    disparity_map =
-      stereo::correlate( left, right,
-                         stereo::LaplacianOfGaussian(params.log),
-                         BBox2i(Vector2i(params.h_corr_min, params.v_corr_min),
-                                Vector2i(params.h_corr_max, params.v_corr_max)),
-                         Vector2i(params.xkernel, params.ykernel),
-                         corr_type, params.lrthresh);
-  }  
-  
+  DiskCacheImageView<PixelMask<Vector2i> >
+    disparity_map
+    ( stereo::pyramid_correlate( crop( left_disk_image, crop_roi ),
+				 crop( right_disk_image, crop_roi ),
+				 constant_view( uint8(255), left_disk_image ),
+				 constant_view( uint8(255), right_disk_image ),
+				 stereo::LaplacianOfGaussian(params.log),
+				 BBox2i(Vector2i(params.h_corr_min, params.v_corr_min),
+					Vector2i(params.h_corr_max, params.v_corr_max)),
+				 params.kernel,
+				 corr_type, corr_timeout, seconds_per_op,
+				 params.lrthresh, 5 ) );
   
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts
@@ -318,7 +271,7 @@ bool determineShifts(Parameters & params,
     out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
     out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
     out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
-    out << "#    SampOffset:  " << leftCropStartX << endl;
+    out << "#    SampOffset:  " << cropStartX << endl;
     out << "#    LineOffset:  " << 0 << endl;
     out << "#    CPMMNumber:  " << 0 << endl;
     out << "#    Summing:     " << 0 << endl;
@@ -327,11 +280,11 @@ bool determineShifts(Parameters & params,
     out << "#    LineRate:    " << setprecision(8) << 0
         << " <seconds>" << endl;
     out << "#    TopLeft:     " << setw(7) << setprecision(0)
-        << leftCropStartX << " "
+        << cropStartX << " "
         << setw(7) << setprecision(0)
         << 0 << endl;
     out << "#    LowerRight:  " << setw(7) << setprecision(0)
-        << leftCropStartX + params.cropWidth << " "
+        << cropStartX + params.cropWidth << " "
         << setw(7) << setprecision(0)
         << imageHeight << endl;
     out << "#    StartTime:   " << 0 << " <UTC>" << endl;
@@ -343,7 +296,7 @@ bool determineShifts(Parameters & params,
     out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
     out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
     out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
-    out << "#    SampOffset:  " << rightCropStartX << endl;
+    out << "#    SampOffset:  " << cropStartX << endl;
     out << "#    LineOffset:  " << 0 << endl;
     out << "#    CPMMNumber:  " << 0 << endl;
     out << "#    Summing:     " << 0 << endl;
@@ -352,11 +305,11 @@ bool determineShifts(Parameters & params,
     out << "#    LineRate:    " << setprecision(8) << 0
         << " <seconds>" << endl;
     out << "#    TopLeft:     " << setw(7) << setprecision(0)
-        << rightCropStartX << " "
+        << cropStartX << " "
         << setw(7) << setprecision(0)
         << 0 << endl;
     out << "#    LowerRight:  " << setw(7) << setprecision(0)
-        << rightCropStartX+params.cropWidth  << " "
+        << cropStartX+params.cropWidth  << " "
         << setw(7) << setprecision(0)
         << imageHeight << endl;
     out << "#    StartTime:   " << 0 << " <UTC>" << endl;
@@ -443,7 +396,7 @@ bool determineShifts(Parameters & params,
         << setw(7) << imageHeight << "\n";
     out << "#   Sample Spacing:   " << setprecision(1) << 1 << endl;
     out << "#   Line Spacing:     " << setprecision(1) << 1 << endl;
-    out << "#   Columns, Rows:    " << params.xkernel << " " << params.ykernel << endl;
+    out << "#   Columns, Rows:    " << params.kernel[0] << " " << params.kernel[1] << endl;
     out << "#   Corr. Algorithm:  ";
     switch(params.correlator_type)
     {
@@ -472,43 +425,6 @@ bool determineShifts(Parameters & params,
        out << "#   Average Line Offset:   " << "NULL\n";
      }
 
-  //out << "\n#  Column Headers and Data\n";
-/*
-//  Write headers
-  out
-      << setw(20) << "FromTime"
-      << setw(10) << "FromSamp"
-      << setw(10) << "FromLine"
-      << setw(20) << "MatchTime"
-      << setw(10) << "MatchSamp"
-      << setw(10) << "MatchLine"
-      << setw(15) << "RegSamp"
-      << setw(15) << "RegLine"
-      << setw(10) << "RegCorr"
-      << setw(15) << "B0_Offset"
-      << setw(15) << "B1_Slope"
-      << setw(10) << "B_RCorr"
-      << endl;
-
-  RegList::const_iterator reg;
-  for(reg = regs.begin() ; reg != regs.end() ; ++reg) 
-  {
-    out << setw(20) << setprecision(8) << reg->fLTime
-        << setw(10) << setprecision(0) << reg->fSamp
-        << setw(10) << setprecision(0) << reg->fLine
-        << setw(20) << setprecision(8) << reg->mLTime
-        << setw(10) << setprecision(0) << reg->mSamp
-        << setw(10) << setprecision(0) << reg->mLine
-        << setw(15) << setprecision(4) << reg->regSamp
-        << setw(15) << setprecision(4) << reg->regLine
-        << setw(10) << setprecision(6) << reg->regCorr
-        << setw(15) << setprecision(6) << reg->B0
-        << setw(15) << setprecision(6) << reg->B1
-        << setw(10) << setprecision(6) << reg->Bcorr
-        << std::endl;
-  }
-*/
-
     out.close();                   
   }  
   
@@ -519,15 +435,13 @@ bool determineShifts(Parameters & params,
   }
   
   // Compute overall mean shift
-  meanVertOffset  = stdCalcY.Mean(); //meanVertOffset  / static_cast<double>(numValidRows);
-  meanHorizOffset = stdCalcX.Mean(); //meanHorizOffset / static_cast<double>(numValidRows);
+  meanVertOffset  = stdCalcY.Mean();
+  meanHorizOffset = stdCalcX.Mean();
   
   dX = meanHorizOffset;
   dY = meanVertOffset;
   
   printf("%d valid pixels in %d rows\n", totalNumValidPixels, numValidRows);
-
-
   return true;
 }
 
