@@ -253,11 +253,11 @@ bool determineShifts(Parameters & params,
 
  
   printf("Running stereo correlation...\n");
-  printf("Search bounds:\n");
-  printf("h_corr_min = %d\n", params.h_corr_min);  
-  printf("h_corr_max = %d\n", params.h_corr_max);  
-  printf("v_corr_min = %d\n", params.v_corr_min);  
-  printf("v_corr_max = %d\n", params.v_corr_max);        
+  //printf("Search bounds:\n");
+  //printf("h_corr_min = %d\n", params.h_corr_min);  
+  //printf("h_corr_max = %d\n", params.h_corr_max);  
+  //printf("v_corr_min = %d\n", params.v_corr_min);  
+  //printf("v_corr_max = %d\n", params.v_corr_max);        
   
   
   ImageView<PixelMask<Vector2i> > disparityMapBack(params.cropWidth, imageHeight);
@@ -437,61 +437,6 @@ bool determineShifts(Parameters & params,
    // out << std::endl << "Average Sample Offset: " << stdCalcX.Mean() << " StdDev: " << stdCalcX.StandardDeviation()
    //     << std::endl << "Average Line Offset: "   << stdCalcY.Mean() << " StdDev: " << stdCalcX.StandardDeviation() << std::endl;
 
-    out << "#       Lronacjitreg ISIS Application Results" << endl;
-    out << "#    Coordinates are (Sample, Line) unless indicated" << endl;
-    out << "#           RunDate:  " << 0 /*iTime::CurrentLocalTime()*/ << endl;
-    out << "#\n#    ****  Image Input Information ****\n";
-    out << "#  FROM:  " << params.leftFilePath << endl;
-    out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
-    out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
-    out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
-    out << "#    SampOffset:  " << leftCropStartX << endl;
-    out << "#    LineOffset:  " << 0 << endl;
-    out << "#    CPMMNumber:  " << 0 << endl;
-    out << "#    Summing:     " << 0 << endl;
-    out << "#    TdiMode:     " << 0 << endl;
-    out << "#    Channel:     " << 0 << endl;
-    out << "#    LineRate:    " << setprecision(8) << 0
-        << " <seconds>" << endl;
-    out << "#    TopLeft:     " << setw(7) << setprecision(0)
-        << leftCropStartX << " "
-        << setw(7) << setprecision(0)
-        << 0 << endl;
-    out << "#    LowerRight:  " << setw(7) << setprecision(0)
-        << leftCropStartX + params.cropWidth << " "
-        << setw(7) << setprecision(0)
-        << imageHeight << endl;
-    out << "#    StartTime:   " << 0 << " <UTC>" << endl;
-    out << "#    SCStartTime: " << 0 << " <SCLK>" << endl;
-    out << "#    StartTime:   " << setprecision(8) << 0
-        << " <seconds>" << endl;
-    out << "\n";
-    out << "#  MATCH: " << params.rightFilePath << endl;
-    out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
-    out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
-    out << "#    FPSamp0:     " << setprecision(0) << 0 << endl;
-    out << "#    SampOffset:  " << rightCropStartX << endl;
-    out << "#    LineOffset:  " << 0 << endl;
-    out << "#    CPMMNumber:  " << 0 << endl;
-    out << "#    Summing:     " << 0 << endl;
-    out << "#    TdiMode:     " << 0 << endl;
-    out << "#    Channel:     " << 0 << endl;
-    out << "#    LineRate:    " << setprecision(8) << 0
-        << " <seconds>" << endl;
-    out << "#    TopLeft:     " << setw(7) << setprecision(0)
-        << rightCropStartX << " "
-        << setw(7) << setprecision(0)
-        << 0 << endl;
-    out << "#    LowerRight:  " << setw(7) << setprecision(0)
-        << rightCropStartX+params.cropWidth  << " "
-        << setw(7) << setprecision(0)
-        << imageHeight << endl;
-    out << "#    StartTime:   " << 0 << " <UTC>" << endl;
-    out << "#    SCStartTime: " << 0 << " <SCLK>" << endl;
-    out << "#    StartTime:   " << setprecision(8) << 0
-        << " <seconds>" << endl;
-    out << "\n";
-
     out << "\n#  **** Registration Data ****\n";
     out << "#   RegFile: " << "" << endl;
     out << "#   OverlapSize:      " << setw(7) << params.cropWidth << " "
@@ -502,9 +447,9 @@ bool determineShifts(Parameters & params,
     out << "#   Corr. Algorithm:  ";
     switch(params.correlator_type)
     {
-      case 1:  out << "SQUARED_DIFFERENCE"  << endl;
-      case 2:  out << "CROSS_CORRELATION"   << endl;
-      default: out << "ABSOLUTE_DIFFERENCE" << endl;
+      case 1:  out << "SQUARED_DIFFERENCE"  << endl; break;
+      case 2:  out << "CROSS_CORRELATION"   << endl; break;
+      default: out << "ABSOLUTE_DIFFERENCE" << endl; break;
     };
     out << "#   Corr. Tolerance:  " << setprecision(2) << 0 << endl;
     out << "#   Total Registers:  " << 0 << " of "
