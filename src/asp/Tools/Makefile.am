@@ -113,6 +113,7 @@ endif
 if MAKE_APP_PC_ALIGN
   bin_PROGRAMS += pc_align
   pc_align_SOURCES = pc_align.cc
+  pc_align_CPPFLAGS = $(AM_CPPFLAGS) $(APP_PC_ALIGN_CPPFLAGS)
   pc_align_LDADD = $(APP_PC_ALIGN_LIBS)
 endif
 
