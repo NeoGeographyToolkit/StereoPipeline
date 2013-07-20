@@ -139,10 +139,10 @@ bool handle_arguments(int argc, char* argv[],
     ("output-log",          po::value(&opt.rowLogFilePath)->default_value(""), "Explicitly specify the per row output text file")
     ("log",             po::value(&opt.log)->default_value(1.4), "Apply LOG filter with the given sigma, or 0 to disable")
     ("crop-width",       po::value(&opt.cropWidth )->default_value(200), "Crop images to this width before disparity search")    
-    ("h-corr-min",      po::value(&opt.h_corr_min)->default_value(-60), "Minimum horizontal disparity")
-    ("h-corr-max",      po::value(&opt.h_corr_max)->default_value( 60), "Maximum horizontal disparity")
-    ("v-corr-min",      po::value(&opt.v_corr_min)->default_value(-50), "Minimum vertical disparity")
-    ("v-corr-max",      po::value(&opt.v_corr_max)->default_value(50), "Maximum vertical disparity")
+    ("h-corr-min",      po::value(&opt.h_corr_min)->default_value( 0), "Minimum horizontal disparity - computed automatically if not set.")
+    ("h-corr-max",      po::value(&opt.h_corr_max)->default_value(-1), "Maximum horizontal disparity - computed automatically if not set.")
+    ("v-corr-min",      po::value(&opt.v_corr_min)->default_value( 0), "Minimum vertical disparity - computed automatically if not set.")
+    ("v-corr-max",      po::value(&opt.v_corr_max)->default_value(-1), "Maximum vertical disparity - computed automatically if not set.")
     ("kernel",          po::value(&opt.kernel    )->default_value(Vector2i(15,15)), "Correlation kernel size")
     ("lrthresh",        po::value(&opt.lrthresh  )->default_value(2), "Left/right correspondence threshold")
     ("correlator-type", po::value(&opt.correlator_type)->default_value(0), "0 - Abs difference; 1 - Sq Difference; 2 - NormXCorr")
@@ -211,44 +211,63 @@ bool determineShifts(Parameters & params,
   const BBox2i crop_roi( cropStartX, imageTopRow,
 			 params.cropWidth, imageHeight );
 
-  // Now use interest point finding/matching functions to estimate the search offset between the images
 
-  // Gather interest points
-  asp::IntegralAutoGainDetector detector( 500 );
-  ip::InterestPointList ip1 = ip::detect_interest_points( crop(left_disk_image,crop_roi ), detector );
-  ip::InterestPointList ip2 = ip::detect_interest_points( crop(right_disk_image,crop_roi), detector );
+  const int SEARCH_RANGE_EXPANSION = 5;
+  int ipFindXOffset = 0;
+  int ipFindYOffset = 0;
 
-  ip::SGradDescriptorGenerator descriptor;
-  describe_interest_points( crop(left_disk_image,crop_roi ), descriptor, ip1 );
-  describe_interest_points( crop(right_disk_image,crop_roi), descriptor, ip2 );
+  // If the search box was not fully populated use ipfind to estimate a search region
+  if ( (params.h_corr_min > params.h_corr_max) || (params.v_corr_min > params.v_corr_max) )
+  {
 
-  // Match interest points
-  ip::DefaultMatcher matcher(0.5);
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
-  matcher(ip1, ip2, matched_ip1, matched_ip2 );
-  ip::remove_duplicates( matched_ip1, matched_ip2 );
+    // Now use interest point finding/matching functions to estimate the search offset between the images
+
+    // Gather interest points
+    asp::IntegralAutoGainDetector detector( 500 );
+    ip::InterestPointList ip1 = ip::detect_interest_points( crop(left_disk_image,crop_roi ), detector );
+    ip::InterestPointList ip2 = ip::detect_interest_points( crop(right_disk_image,crop_roi), detector );
+
+    ip::SGradDescriptorGenerator descriptor;
+    describe_interest_points( crop(left_disk_image,crop_roi ), descriptor, ip1 );
+    describe_interest_points( crop(right_disk_image,crop_roi), descriptor, ip2 );
+
+    // Match interest points
+    ip::DefaultMatcher matcher(0.5);
+    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+    matcher(ip1, ip2, matched_ip1, matched_ip2 );
+    ip::remove_duplicates( matched_ip1, matched_ip2 );
 
 
-  // Filter interest point matches
-  math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric> ransac( math::SimilarityFittingFunctor(),
+    // Filter interest point matches
+    math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric> ransac( math::SimilarityFittingFunctor(),
 												      math::InterestPointErrorMetric(),
 												      100, 5, 100, true );
-  std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
-  std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
+    std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
+    std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
 
-  Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
-  std::cout << "ipfind based similarity: " << H << std::endl;
+    Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
+    std::cout << "ipfind based similarity: " << H << std::endl;
 
-  // Use the estimated transform between the images to determine a search offset range
-  const int SEARCH_RANGE_EXPANSION = 5;
-  int ipFindXOffset = static_cast<int>(H[0][2]);
-  int ipFindYOffset = static_cast<int>(H[1][2]);
+    // Use the estimated transform between the images to determine a search offset range
+    ipFindXOffset = static_cast<int>(H[0][2]);
+    ipFindYOffset = static_cast<int>(H[1][2]);
+
+  } // End ipfind case
+
   BBox2i searchRegion(Vector2i(ipFindXOffset-SEARCH_RANGE_EXPANSION, ipFindYOffset-SEARCH_RANGE_EXPANSION),
-   		      Vector2i(ipFindXOffset+SEARCH_RANGE_EXPANSION, ipFindYOffset+SEARCH_RANGE_EXPANSION));
-  
+    		      Vector2i(ipFindXOffset+SEARCH_RANGE_EXPANSION, ipFindYOffset+SEARCH_RANGE_EXPANSION));  
 
   // Factor in user bounds overrides
-//TODO: Check if parameters entered!  if (opt.h_corr_min
+  if (params.h_corr_min < params.h_corr_max)
+  {
+    searchRegion.min()[0] = params.h_corr_min;
+    searchRegion.max()[0] = params.h_corr_max;
+  }
+  if (params.v_corr_min < params.v_corr_max)
+  {
+    searchRegion.min()[1] = params.v_corr_min;
+    searchRegion.max()[1] = params.v_corr_max;    
+  }
 
   printf("Disparity search image size = %d by %d\n", params.cropWidth, imageHeight);
   std::cout << "Offset search region = " << searchRegion << endl;
