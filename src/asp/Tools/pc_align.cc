@@ -148,7 +148,8 @@ double dem_height_diff(Vector3 const& xyz, GeoReference const& dem_georef,
 void calc_errors(ImageView<Vector3> const& point_cloud,
                  GeoReference const& dem_georef,
                  ImageView<float> const& dem, double nodata,
-                 ImageView<double> & errors
+                 //ImageView<double> & errors
+                 vector<double> & errors
                  ){
 
   double nan = std::numeric_limits<double>::quiet_NaN();
@@ -156,7 +157,7 @@ void calc_errors(ImageView<Vector3> const& point_cloud,
   int count = 0;
   double mean = 0;
 
-  errors.set_size(point_cloud.cols(), point_cloud.rows());
+  //errors.set_size(point_cloud.cols(), point_cloud.rows());
   for (int col = 0; col < point_cloud.cols(); col++){
     for (int row = 0; row < point_cloud.rows(); row++){
 
@@ -166,7 +167,8 @@ void calc_errors(ImageView<Vector3> const& point_cloud,
         e = nan;
       else
         e = dem_height_diff(xyz, dem_georef, dem, nodata);
-      errors(col, row) = e;
+      //errors(col, row) = e;
+      errors.push_back(e);
 
       if (e != e) continue; // NaN
       count++;
@@ -201,7 +203,8 @@ typename PointMatcher<T>::DataPoints loadRDR(std::string demFile,
   cartography::read_georeference( dem_georef, demFile );
   ImageView<float> dem = copy(DiskImageView<float>(demFile));
   double nodata = std::numeric_limits<double>::quiet_NaN();
-  boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(demFile) );
+  boost::shared_ptr<DiskImageResource> dem_rsrc
+    ( new DiskImageResourceGDAL(demFile) );
   if (dem_rsrc->has_nodata_read()){
     nodata = dem_rsrc->nodata_read();
     cout<<"nodata =" << nodata << std::endl;
@@ -341,7 +344,8 @@ typename PointMatcher<T>::DataPoints loadLLH(std::string demFile,
   cartography::read_georeference( dem_georef, demFile );
   ImageView<float> dem = copy(DiskImageView<float>(demFile));
   double nodata = std::numeric_limits<double>::quiet_NaN();
-  boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(demFile) );
+  boost::shared_ptr<DiskImageResource> dem_rsrc
+    ( new DiskImageResourceGDAL(demFile) );
   if (dem_rsrc->has_nodata_read()){
     nodata = dem_rsrc->nodata_read();
     cout<<"nodata =" << nodata << std::endl;
@@ -485,7 +489,8 @@ typename PointMatcher<T>::DataPoints loadDEM(const std::string& fileName,
   cartography::read_georeference( dem_georef, fileName );
   ImageView<float> dem = copy(DiskImageView<float>(fileName));
   double nodata = std::numeric_limits<double>::quiet_NaN();
-  boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(fileName) );
+  boost::shared_ptr<DiskImageResource> dem_rsrc
+    ( new DiskImageResourceGDAL(fileName) );
   if (dem_rsrc->has_nodata_read()){
     nodata = dem_rsrc->nodata_read();
     cout<<"nodata =" << nodata << std::endl;
@@ -666,6 +671,8 @@ typename PointMatcher<T>::DataPoints loadFile(Options const& opt,
   //return DP::load(fileName);
 }
 
+// To do: Rm the yaml file
+// To do: Auto-guess CSV file type
 // To do: Put all licenses in the ASP license file.
 // To do: Add documentation.
 // To do: Deal with output prefix.
@@ -769,15 +776,32 @@ int main( int argc, char *argv[] ) {
     cartography::read_georeference( dem_georef, opt.reference );
     ImageView<float> dem = copy(DiskImageView<float>(opt.reference));
     double nodata = std::numeric_limits<double>::quiet_NaN();
-    boost::shared_ptr<DiskImageResource> dem_rsrc( new DiskImageResourceGDAL(opt.reference) );
+    boost::shared_ptr<DiskImageResource> dem_rsrc
+      ( new DiskImageResourceGDAL(opt.reference) );
     if (dem_rsrc->has_nodata_read()){
       nodata = dem_rsrc->nodata_read();
       cout<<"nodata =" << nodata << std::endl;
     }
 
-    ImageView<double> beg_errors, end_errors;
+    //ImageView<double> beg_errors, end_errors;
+    vector<double> beg_errors, end_errors;
     calc_errors(data_point_cloud, dem_georef, dem, nodata, beg_errors);
     calc_errors(trans_data_point_cloud, dem_georef, dem, nodata, end_errors);
+
+    std::sort(beg_errors.begin(), beg_errors.end());
+    std::sort(end_errors.begin(), end_errors.end());
+
+    std::string begErrFile = "beg_errors.txt";
+    std::cout << "Writing: " << begErrFile << std::endl;
+    ofstream be(begErrFile.c_str());
+    for (int i = 0; i < (int)beg_errors.size(); i++)
+      be << beg_errors[i] << std::endl;
+
+    std::string endErrFile = "end_errors.txt";
+    std::cout << "Writing: " << endErrFile << std::endl;
+    ofstream ee(endErrFile.c_str());
+    for (int i = 0; i < (int)end_errors.size(); i++)
+      ee << end_errors[i] << std::endl;
 
     std::string outRefFile = "out_ref.tif";
     std::string outDataFile = "out_data.tif";
