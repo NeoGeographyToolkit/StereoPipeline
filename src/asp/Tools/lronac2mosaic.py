@@ -173,7 +173,6 @@ def lronaccal( cub_files, threads, delete=False ):
     
 
 # Call lronacecho on each input file, return list of output files.
-#TODO: Put in delta option?
 def lronacecho( cub_files, threads, delete=False ):
     lronacecho_cubs = []
     for cub in cub_files:
@@ -190,10 +189,6 @@ def lronacecho( cub_files, threads, delete=False ):
     if( delete ): # Delete all input .cub files and log files
         for cub in cub_files: 
           os.remove( cub )
-        #TODO: Are log files generated?
-        #lronacecho_log_files = glob.glob( os.path.commonprefix(cub_files) + '*.lronacecho.log' )
-        #for file in lronacecho_log_files: 
-        #  os.remove( file )
     return lronacecho_cubs
 
 
@@ -211,7 +206,7 @@ def spice( cub_files, threads):
 # Left file is/home/smcmich1 in index 0, right is in index 1
 def noproj( file_pairs, threads, delete=False, fakePvl=True):
 
-    if fakePvl: # Generate temporary PVL file
+    if fakePvl: # Generate temporary PVL file containing LRONAC definition
        specFilePath = '/home/smcmich1/data/noprojInstruments003.pvl'
        print 'Generating fake .pvl file ' + specFilePath
        f = open(specFilePath, 'w')
@@ -254,15 +249,14 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
         for v in file_pairs.values(): 
            os.remove( v[0] );
            os.remove( v[1] );       
-#        if fakePvl:
-#           os.remove( specFilePath );    
+        if fakePvl:
+           os.remove( specFilePath );    
     return noproj_pairs;
 
 
 def lronacjitreg( noproj_pairs, threads, delete=False ):
     
-    #TODO: Move boundary inputs to config file?   
-    boundsCommands = '--correlator-type 2 --kernel 21 21 --h-corr-min 40 --h-corr-max 50 --v-corr-min -38 --v-corr-max -32 --crop-width 200';
+    boundsCommands = '--correlator-type 2 --kernel 21 21'
     for k,v in noproj_pairs.items(): 
         cmd = './lronacjitreg ' + boundsCommands    \
             + ' --output-log outout-log_'+str(k)+'.txt' \
@@ -308,20 +302,8 @@ def mosaic( noproj_pairs, averages, threads ):
 
 def handmos( fromcub, tocub, outsamp, outline, threads ):
 
-#    offsetSample = 4900 + int(outsamp);
     cmd = 'handmos from= '+ fromcub +' mosaic= '+ tocub \
             +' matchbandbin=FALSE priority=ontop';
-
-#            +' outsample= '+ str(offsetSample) \
-#            +' insample= 4900'   \
-#            +' outline= '  + outline \
-
-#    if( isisversion() > (3,1,20) ):
-#        # ISIS 3.1.21+
-#        cmd += ' priority= beneath'
-#    else:
-#        # ISIS 3.1.20-
-#        cmd += ' input= beneath'
     add_job(cmd, threads);
     return
 
@@ -377,10 +359,6 @@ def main():
 
         except optparse.OptionError, msg:
             raise Usage(msg)
-
-        # # Determine Isis Version
-        # post_isis_20 = is_post_isis_3_1_20();
-        #isisversion( True ) --> Not working on home installation!
 
         print "Beginning processing....."
 
