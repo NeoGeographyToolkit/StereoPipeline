@@ -362,8 +362,8 @@ bool determineShifts(Parameters & params,
   
   RunningStatistics stdCalcX, stdCalcY;
   
-//  std::vector<double> rowOffsets(disparity_map.rows());
-//  std::vector<double> colOffsets(disparity_map.rows());  
+  std::vector<double> rowOffsets(disparity_map.rows());
+  std::vector<double> colOffsets(disparity_map.rows());  
   for (int row=0; row<disparity_map.rows(); ++row)
   {
   
@@ -386,7 +386,7 @@ bool determineShifts(Parameters & params,
         stdCalcY.Push(dY);
       }
     }  
-/*    
+
     // Compute mean shift for this row
     if (numValidInRow == 0)
     {
@@ -407,81 +407,8 @@ bool determineShifts(Parameters & params,
       out << row << ", " << rowOffsets[row]
                  << ", " << colOffsets[row] << std::endl;    
     }
-*/    
+
   } // End loop through rows
-
-  printf("Initial X mean = %f\n", stdCalcX.Mean());
-  printf("Initial Y mean = %f\n", stdCalcY.Mean());
-
-  float minDispX = stdCalcX.Mean() - 3.0f*stdCalcX.StandardDeviation();
-  float maxDispX = stdCalcX.Mean() + 3.0f*stdCalcX.StandardDeviation();
-
-  float minDispY = stdCalcY.Mean() - 3.0f*stdCalcY.StandardDeviation();
-  float maxDispY = stdCalcY.Mean() + 3.0f*stdCalcY.StandardDeviation();
-
-  printf("Y limits: %f to %f\n", minDispY, maxDispY);
-  printf("X limits: %f to %f\n", minDispX, maxDispX);
-
-
-  // Loop through the rows again, removing outliers
-  RunningStatistics stdCalcFinalX, stdCalcFinalY;
-  std::vector<double> rowOffsets(disparity_map.rows());
-  std::vector<double> colOffsets(disparity_map.rows());  
-  for (int row=0; row<disparity_map.rows(); ++row)
-  {
-  
-    // Accumulate the shifts for this row
-    double rowSum        = 0.0;
-    double colSum        = 0.0;
-    int    numValidInRow = 0;
-    for (int col=0; col<disparity_map.cols(); ++col)
-    {
-    
-      if (is_valid(disparity_map(col,row)))
-      {
-        float dY = disparity_map(col,row)[1]; // Y
-        float dX = disparity_map(col,row)[0]; // X
-
-        // Skip this value if it is outside the valid range
-        if ( (dY < minDispY) || (dY > maxDispY) || 
-             (dX < minDispX) || (dX > maxDispX)   )
-          break;
-
-        rowSum += dY;
-        colSum += dX;
-        ++numValidInRow;
-      
-        stdCalcFinalX.Push(dX);
-        stdCalcFinalY.Push(dY);
-      }
-    }  
-    
-    // Compute mean shift for this row
-    if (numValidInRow == 0)
-    {
-      rowOffsets[row] = 0;
-      colOffsets[row] = 0;
-    }
-    else 
-    {
-      rowOffsets[row] = rowSum / static_cast<double>(numValidInRow);
-      colOffsets[row] = colSum / static_cast<double>(numValidInRow);
-      totalNumValidPixels += numValidInRow;
-      ++numValidRows;      
-    }
-    
-    
-    if (writeLogFile)
-    {
-      out << row << ", " << rowOffsets[row]
-                 << ", " << colOffsets[row] << std::endl;    
-    }
-    
-  } // End loop through rows
-
-
-
-
   
   if (writeLogFile)
   {
@@ -503,12 +430,12 @@ bool determineShifts(Parameters & params,
     if(numValidRows > 0) 
     {
       out << "#   Average Sample Offset: " << setprecision(4)
-          << stdCalcFinalX.Mean()
-          << "  StdDev: " << setprecision(4) << stdCalcFinalX.StandardDeviation()
+          << stdCalcX.Mean()
+          << "  StdDev: " << setprecision(4) << stdCalcX.StandardDeviation()
           << endl;
       out << "#   Average Line Offset:   " << setprecision(4)
-          << stdCalcFinalY.Mean()
-          << " StdDev: " << setprecision(4) << stdCalcFinalY.StandardDeviation()
+          << stdCalcY.Mean()
+          << " StdDev: " << setprecision(4) << stdCalcY.StandardDeviation()
           << endl;
      }
      else  // No valid rows
@@ -527,8 +454,8 @@ bool determineShifts(Parameters & params,
   }
   
   // Compute overall mean shift
-  meanVertOffset  = stdCalcFinalY.Mean();
-  meanHorizOffset = stdCalcFinalX.Mean();
+  meanVertOffset  = stdCalcY.Mean();
+  meanHorizOffset = stdCalcX.Mean();
   
   dX = meanHorizOffset;
   dY = meanVertOffset;
