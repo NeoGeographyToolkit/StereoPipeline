@@ -303,6 +303,8 @@ def mosaic( noproj_pairs, averages, threads ):
 def handmos( fromcub, tocub, outsamp, outline, threads ):
 
     cmd = 'handmos from= '+ fromcub +' mosaic= '+ tocub \
+            +' outsample= '+ str(outsamp) \
+            +' outline= '  + str(outline) \
             +' matchbandbin=FALSE priority=ontop';
     add_job(cmd, threads);
     return
