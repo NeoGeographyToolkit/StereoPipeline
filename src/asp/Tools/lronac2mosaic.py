@@ -401,7 +401,8 @@ def main():
         # Clean up noproj files
         if( options.delete ):
           for cub in noprojed_file_pairs.values():
-              os.remove( cub )
+              os.remove( cub[0] )
+              os.remove( cub[1] )
 
         # Run a final cubenorm across the image:
         cubenorm( mosaicked, options.threads, options.delete )

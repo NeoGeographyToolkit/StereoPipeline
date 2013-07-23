@@ -368,6 +368,7 @@ bool determineShifts(Parameters & params,
   {
   
     // Accumulate the shifts for this row
+    RunningStatistics rowCalcY;
     double rowSum        = 0.0;
     double colSum        = 0.0;
     int    numValidInRow = 0;
@@ -384,6 +385,8 @@ bool determineShifts(Parameters & params,
       
         stdCalcX.Push(dX);
         stdCalcY.Push(dY);
+
+        rowCalcY.Push(dY);
       }
     }  
 
@@ -393,7 +396,7 @@ bool determineShifts(Parameters & params,
       rowOffsets[row] = 0;
       colOffsets[row] = 0;
     }
-    else 
+    else  // At least one valid pixel
     {
       rowOffsets[row] = rowSum / static_cast<double>(numValidInRow);
       colOffsets[row] = colSum / static_cast<double>(numValidInRow);
@@ -404,8 +407,12 @@ bool determineShifts(Parameters & params,
     
     if (writeLogFile)
     {
-      out << row << ", " << rowOffsets[row]
-                 << ", " << colOffsets[row] << std::endl;    
+      out << setprecision(4)
+          << setw(5) << row             << ", " 
+          << setw(6) << rowOffsets[row] << ", " 
+          << setw(6) << colOffsets[row] << " Count = " 
+          << setw(3) << numValidInRow   << " Std = " 
+          << setw(4) << rowCalcY.StandardDeviation() << std::endl;    
     }
 
   } // End loop through rows
