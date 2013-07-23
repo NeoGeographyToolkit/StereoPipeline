@@ -54,10 +54,10 @@ using std::setw;
 // TODO: Move this class to a library file!
 /// Class to compute a running standard deviation
 /// - Code from http://www.johndcook.com/standard_deviation.html
-class RunningStandardDeviation
+class RunningStatistics
 {
 public:
-  RunningStandardDeviation() : m_n(0) {}
+  RunningStatistics() : m_n(0) {}
 
   void Clear()
   {
@@ -212,7 +212,7 @@ bool determineShifts(Parameters & params,
 			 params.cropWidth, imageHeight );
 
 
-  const int SEARCH_RANGE_EXPANSION = 5;
+  const int SEARCH_RANGE_EXPANSION = 10;
   int ipFindXOffset = 0;
   int ipFindYOffset = 0;
 
@@ -249,8 +249,8 @@ bool determineShifts(Parameters & params,
     std::cout << "ipfind based similarity: " << H << std::endl;
 
     // Use the estimated transform between the images to determine a search offset range
-    ipFindXOffset = static_cast<int>(H[0][2]);
-    ipFindYOffset = static_cast<int>(H[1][2]);
+    ipFindXOffset = -1*static_cast<int>(H[0][2]);
+    ipFindYOffset = -1*static_cast<int>(H[1][2]);
 
   } // End ipfind case
 
@@ -298,7 +298,13 @@ bool determineShifts(Parameters & params,
 				 params.kernel,
 				 corr_type, corr_timeout, seconds_per_op,
 				 params.lrthresh, 5 ) );
-  
+
+  // DEBUG!!!  
+  //write_image("/home/smcmich1/data/dispMap.tif", disparity_map);
+
+
+
+
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts
   
@@ -354,10 +360,10 @@ bool determineShifts(Parameters & params,
   int    numValidRows        = 0;
   int    totalNumValidPixels = 0;
   
-  RunningStandardDeviation stdCalcX, stdCalcY;
+  RunningStatistics stdCalcX, stdCalcY;
   
-  std::vector<double> rowOffsets(disparity_map.rows());
-  std::vector<double> colOffsets(disparity_map.rows());  
+//  std::vector<double> rowOffsets(disparity_map.rows());
+//  std::vector<double> colOffsets(disparity_map.rows());  
   for (int row=0; row<disparity_map.rows(); ++row)
   {
   
@@ -378,6 +384,75 @@ bool determineShifts(Parameters & params,
       
         stdCalcX.Push(dX);
         stdCalcY.Push(dY);
+      }
+    }  
+/*    
+    // Compute mean shift for this row
+    if (numValidInRow == 0)
+    {
+      rowOffsets[row] = 0;
+      colOffsets[row] = 0;
+    }
+    else 
+    {
+      rowOffsets[row] = rowSum / static_cast<double>(numValidInRow);
+      colOffsets[row] = colSum / static_cast<double>(numValidInRow);
+      totalNumValidPixels += numValidInRow;
+      ++numValidRows;      
+    }
+ 
+    
+    if (writeLogFile)
+    {
+      out << row << ", " << rowOffsets[row]
+                 << ", " << colOffsets[row] << std::endl;    
+    }
+*/    
+  } // End loop through rows
+
+  printf("Initial X mean = %f\n", stdCalcX.Mean());
+  printf("Initial Y mean = %f\n", stdCalcY.Mean());
+
+  float minDispX = stdCalcX.Mean() - 3.0f*stdCalcX.StandardDeviation();
+  float maxDispX = stdCalcX.Mean() + 3.0f*stdCalcX.StandardDeviation();
+
+  float minDispY = stdCalcY.Mean() - 3.0f*stdCalcY.StandardDeviation();
+  float maxDispY = stdCalcY.Mean() + 3.0f*stdCalcY.StandardDeviation();
+
+  printf("Y limits: %f to %f\n", minDispY, maxDispY);
+  printf("X limits: %f to %f\n", minDispX, maxDispX);
+
+
+  // Loop through the rows again, removing outliers
+  RunningStatistics stdCalcFinalX, stdCalcFinalY;
+  std::vector<double> rowOffsets(disparity_map.rows());
+  std::vector<double> colOffsets(disparity_map.rows());  
+  for (int row=0; row<disparity_map.rows(); ++row)
+  {
+  
+    // Accumulate the shifts for this row
+    double rowSum        = 0.0;
+    double colSum        = 0.0;
+    int    numValidInRow = 0;
+    for (int col=0; col<disparity_map.cols(); ++col)
+    {
+    
+      if (is_valid(disparity_map(col,row)))
+      {
+        float dY = disparity_map(col,row)[1]; // Y
+        float dX = disparity_map(col,row)[0]; // X
+
+        // Skip this value if it is outside the valid range
+        if ( (dY < minDispY) || (dY > maxDispY) || 
+             (dX < minDispX) || (dX > maxDispX)   )
+          break;
+
+        rowSum += dY;
+        colSum += dX;
+        ++numValidInRow;
+      
+        stdCalcFinalX.Push(dX);
+        stdCalcFinalY.Push(dY);
       }
     }  
     
@@ -403,6 +478,10 @@ bool determineShifts(Parameters & params,
     }
     
   } // End loop through rows
+
+
+
+
   
   if (writeLogFile)
   {
@@ -424,12 +503,12 @@ bool determineShifts(Parameters & params,
     if(numValidRows > 0) 
     {
       out << "#   Average Sample Offset: " << setprecision(4)
-          << stdCalcX.Mean()
-          << "  StdDev: " << setprecision(4) << stdCalcX.StandardDeviation()
+          << stdCalcFinalX.Mean()
+          << "  StdDev: " << setprecision(4) << stdCalcFinalX.StandardDeviation()
           << endl;
       out << "#   Average Line Offset:   " << setprecision(4)
-          << stdCalcY.Mean()
-          << " StdDev: " << setprecision(4) << stdCalcY.StandardDeviation()
+          << stdCalcFinalY.Mean()
+          << " StdDev: " << setprecision(4) << stdCalcFinalY.StandardDeviation()
           << endl;
      }
      else  // No valid rows
@@ -448,8 +527,8 @@ bool determineShifts(Parameters & params,
   }
   
   // Compute overall mean shift
-  meanVertOffset  = stdCalcY.Mean();
-  meanHorizOffset = stdCalcX.Mean();
+  meanVertOffset  = stdCalcFinalY.Mean();
+  meanHorizOffset = stdCalcFinalX.Mean();
   
   dX = meanHorizOffset;
   dY = meanVertOffset;
