@@ -207,7 +207,7 @@ def spice( cub_files, threads):
 def noproj( file_pairs, threads, delete=False, fakePvl=True):
 
     if fakePvl: # Generate temporary PVL file containing LRONAC definition
-       specFilePath = '/home/smcmich1/data/noprojInstruments003.pvl'
+       specFilePath = 'noprojInstruments003.pvl'
        print 'Generating fake .pvl file ' + specFilePath
        f = open(specFilePath, 'w')
 
