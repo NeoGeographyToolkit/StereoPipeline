@@ -166,6 +166,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.out_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
+  asp::create_out_dir(opt.out_prefix);
+
   boost::to_lower( opt.reference_spheroid );
   if ( vm.count("sinusoidal") )          opt.projection = SINUSOIDAL;
   else if ( vm.count("mercator") )       opt.projection = MERCATOR;
