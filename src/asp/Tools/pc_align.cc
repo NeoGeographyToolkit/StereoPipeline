@@ -66,7 +66,6 @@ using namespace vw::cartography;
 typedef double RealT; // We will use doubles in libpointmatcher.
 typedef PointMatcher<RealT> PM;
 typedef PM::DataPoints DP;
-typedef PM::Parameters Parameters;
 using namespace PointMatcherSupport;
 
 // Allows FileIO to correctly read/write these pixel types
@@ -80,10 +79,11 @@ namespace vw {
 
 struct Options : public asp::BaseOptions {
   // Input
-  string reference, source, init_trans_file;
+  string reference, source, init_transform_file;
   PointMatcher<RealT>::Matrix init_transform;
   int num_iter;
   double diff_translation_err, diff_rotation_err, max_disp, outlier_ratio;
+  bool save_trans_source, save_trans_ref;
   // Output
   string output_prefix;
 };
@@ -91,13 +91,17 @@ struct Options : public asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("initial-transform", po::value(&opt.init_trans_file)->default_value(""), "The file containing the rotation + translation transform to be used as an initial guess.")
+    ("initial-transform", po::value(&opt.init_transform_file)->default_value(""), "The file containing the rotation + translation transform to be used as an initial guess.")
     ("num-iterations", po::value(&opt.num_iter)->default_value(400), "Maximum number of iterations.")
     ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-4), "Change in rotation amount below which the algorithm will stop.")
     ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop.")
     ("max-displacement", po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
-    ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.");
+    ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.")
+    ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
+     "Apply the obtained transform to the source points so they match the reference points and save them.")
+    ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
+     "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -111,7 +115,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("reference", 1);
   positional_desc.add("source", 1);
 
-  std::string usage("[options] <reference cloud> <source cloud>");
+  string usage("[options] <reference cloud> <source cloud>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
@@ -126,22 +130,24 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   asp::create_out_dir(opt.output_prefix);
 
+  // Read the initial transform
   int dim = 4;
-  opt.init_transform = PointMatcher<RealT>::TransformationParameters::Identity(dim, dim);
-  if (opt.init_trans_file != ""){
-    validateFile(opt.init_trans_file);
+  opt.init_transform = PointMatcher<RealT>::Matrix::Identity(dim, dim);
+  if (opt.init_transform_file != ""){
+    validateFile(opt.init_transform_file);
     PointMatcher<RealT>::Matrix T;
-    ifstream is(opt.init_trans_file);
+    ifstream is(opt.init_transform_file);
     for (int row = 0; row < dim; row++){
       for (int col = 0; col < dim; col++){
         double a;
-        if (! (is >> a) ) vw_throw( vw::IOErr() << "Failed to read initial transform from: "
-                                    << opt.init_trans_file << "\n" );
+        if (! (is >> a) )
+          vw_throw( vw::IOErr() << "Failed to read initial transform from: "
+                    << opt.init_transform_file << "\n" );
         opt.init_transform(row, col) = a;
       }
     }
-    std::cout.precision(16);
-    std::cout << "Initial guess transform:\n" << opt.init_transform << std::endl;
+    cout.precision(16);
+    cout << "Initial guess transform:\n" << opt.init_transform << endl;
   }
 
 }
@@ -167,10 +173,10 @@ double dem_height_diff(Vector3 const& xyz, GeoReference const& dem_georef,
   Vector2 pix = dem_georef.lonlat_to_pixel(subvector(llh, 0, 2));
   int c = (int)round(pix[0]), r = (int)round(pix[1]);
   if (c < 0 || c >= dem.cols() || r < 0 || r >= dem.rows() || dem(c, r) == nodata){
-    //vw_out() << "nval: " << llh[0] << ' ' << llh[1] << std::endl;
-    return std::numeric_limits<double>::quiet_NaN();
+    //vw_out() << "nval: " << llh[0] << ' ' << llh[1] << endl;
+    return numeric_limits<double>::quiet_NaN();
   }
-  //vw_out() << "yval: " << llh[0] << ' ' << llh[1] << std::endl;
+  //vw_out() << "yval: " << llh[0] << ' ' << llh[1] << endl;
   return std::abs(llh[2] - dem(c, r));
 }
 
@@ -180,7 +186,42 @@ void null_check(const char* token, string const& line){
 }
 
 template<typename T>
-typename PointMatcher<T>::DataPoints loadCSV(const std::string& fileName,
+typename PointMatcher<T>::DataPoints::Labels formLabels(int dim){
+
+  typedef typename PointMatcher<T>::DataPoints::Label Label;
+  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
+
+  Labels labels;
+  for (int i=0; i < dim; i++){
+    string text;
+    text += char('x' + i);
+    labels.push_back(Label(text, 1));
+  }
+  labels.push_back(Label("pad", 1));
+
+  return labels;
+}
+
+template<typename T>
+typename PointMatcher<T>::DataPoints
+formDataPoints(int dim, Vector3 const& shift, vector<Vector3> const& points){
+
+  int numPoints = points.size();
+  vw_out() << "Loaded points: " << numPoints << endl;
+
+  typename PointMatcher<T>::Matrix features(dim+1, numPoints);
+  for(int i=0; i < numPoints; i++){
+    features(0,i) = points[i][0] - shift[0];
+    features(1,i) = points[i][1] - shift[1];
+    features(2,i) = points[i][2] - shift[2];
+    features(3,i) = 1;
+  }
+
+  return typename PointMatcher<T>::DataPoints(features, formLabels<T>(dim));
+}
+
+template<typename T>
+typename PointMatcher<T>::DataPoints loadCSV(const string& fileName,
                                              bool calc_shift,
                                              Vector3 & shift,
                                              ImageView<Vector3> & point_cloud
@@ -194,26 +235,7 @@ typename PointMatcher<T>::DataPoints loadCSV(const std::string& fileName,
     vw_throw( vw::IOErr() << "Unable to open file \"" << fileName << "\"" );
   }
 
-  typedef typename PointMatcher<T>::DataPoints::Label Label;
-  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
-  typedef typename PointMatcher<T>::Vector Vector;
-  typedef typename PointMatcher<T>::Matrix Matrix;
-  typedef typename PointMatcher<T>::TransformationParameters TransformationParameters;
-  typedef typename PointMatcher<T>::Matrix Parameters;
-  typedef typename PointMatcher<T>::DataPoints DataPoints;
-
   int dim = 3;
-  Labels labels;
-
-  cartography::Datum datum;
-
-  for (int i=0; i < dim; i++){
-    string text;
-    text += char('x' + i);
-    labels.push_back(Label(text, 1));
-  }
-  labels.push_back(Label("pad", 1));
-
   vector<Vector3> points;
   Vector3 mean_center;
   string line;
@@ -225,7 +247,7 @@ typename PointMatcher<T>::DataPoints loadCSV(const std::string& fileName,
   // Peek at first line and see how many elements it has
   int len = file.tellg(); // current position in file
   getline(file, line);
-  file.seekg(len, std::ios_base::beg); // go back to start of file
+  file.seekg(len, ios_base::beg); // go back to start of file
   strncpy(temp, line.c_str(), bufSize);
   const char* token = strtok (temp, sep);
   int numTokens = 0;
@@ -234,10 +256,11 @@ typename PointMatcher<T>::DataPoints loadCSV(const std::string& fileName,
     token = strtok (NULL, sep);
   }
   if (numTokens < 3){
-    vw_throw( vw::IOErr() << "Expecting at least three fields on each line of file: "
-              << fileName << "\n" );
+    vw_throw( vw::IOErr() << "Expecting at least three fields on each "
+              << "line of file: " << fileName << "\n" );
   }
 
+  cartography::Datum datum;
   bool is_earth_lat_lon_z_format = true;
   if (numTokens > 3){
     is_earth_lat_lon_z_format = false;
@@ -338,7 +361,7 @@ typename PointMatcher<T>::DataPoints loadCSV(const std::string& fileName,
   }
 
   mean_center = mean_center/points.size();
-  vw_out() << "mean is " << mean_center << std::endl;
+  //vw_out() << "mean is " << mean_center << endl;
 
   if (calc_shift) shift = mean_center;
 
@@ -348,56 +371,22 @@ typename PointMatcher<T>::DataPoints loadCSV(const std::string& fileName,
     point_cloud(i, 0) = xyz - shift;
   }
 
-  vw_out() << "Loaded points: " << points.size() << std::endl;
-  int nbPoints = points.size();
-
-  // Transfer loaded points in specific structure (eigen matrix)
-  Matrix features(dim+1, nbPoints);
-  for(int i=0; i < nbPoints; i++){
-    features(0,i) = points[i][0] - shift[0];
-    features(1,i) = points[i][1] - shift[1];
-    features(2,i) = points[i][2] - shift[2];
-    features(3,i) = 1;
-  }
-
-  DataPoints dataPoints(features, labels);
-  return dataPoints;
+  return formDataPoints<T>(dim, shift, points);
 }
 
 // Load a DEM
 template<typename T>
-typename PointMatcher<T>::DataPoints loadDEM(const std::string& fileName,
+typename PointMatcher<T>::DataPoints loadDEM(const string& fileName,
                                              bool calc_shift,
                                              Vector3 & shift,
                                              ImageView<Vector3> & point_cloud
                                              ){
   validateFile(fileName);
 
-  typedef typename PointMatcher<T>::DataPoints::Label Label;
-  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
-  typedef typename PointMatcher<T>::Vector Vector;
-  typedef typename PointMatcher<T>::Matrix Matrix;
-  typedef typename PointMatcher<T>::TransformationParameters TransformationParameters;
-  typedef typename PointMatcher<T>::Matrix Parameters;
-  typedef typename PointMatcher<T>::DataPoints DataPoints;
-
-  vector<T> xData;
-  vector<T> yData;
-  vector<T> zData;
-  int dim = 3;
-  Labels labels;
-
-  for (int i=0; i < dim; i++){
-    string text;
-    text += char('x' + i);
-    labels.push_back(Label(text, 1));
-  }
-  labels.push_back(Label("pad", 1));
-
   cartography::GeoReference dem_georef;
   cartography::read_georeference( dem_georef, fileName );
-  ImageView<float> dem = copy(DiskImageView<float>(fileName));
-  double nodata = std::numeric_limits<double>::quiet_NaN();
+  DiskImageView<float> dem(fileName);
+  double nodata = numeric_limits<double>::quiet_NaN();
   boost::shared_ptr<DiskImageResource> dem_rsrc
     ( new DiskImageResourceGDAL(fileName) );
   if (dem_rsrc->has_nodata_read()){
@@ -405,6 +394,8 @@ typename PointMatcher<T>::DataPoints loadDEM(const std::string& fileName,
   }
 
   point_cloud.set_size(dem.cols(), dem.rows());
+  vector<Vector3> points;
+  int dim = 3;
   Vector3 mean_center;
   int count = 0;
   for (int j = 0; j < dem.rows(); j++ ) {
@@ -417,9 +408,7 @@ typename PointMatcher<T>::DataPoints loadDEM(const std::string& fileName,
       Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( llh );
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
       point_cloud(i, j) = xyz;
-      xData.push_back(xyz[0]);
-      yData.push_back(xyz[1]);
-      zData.push_back(xyz[2]);
+      points.push_back(xyz);
       local_mean += xyz;
       local_count++;
     }
@@ -431,7 +420,7 @@ typename PointMatcher<T>::DataPoints loadDEM(const std::string& fileName,
       count += local_count;
     }
   }
-  vw_out() << "mean is " << mean_center << std::endl;
+  //vw_out() << "mean is " << mean_center << endl;
 
   if (calc_shift) shift = mean_center;
   for (int j = 0; j < point_cloud.rows(); j++ ) {
@@ -442,26 +431,12 @@ typename PointMatcher<T>::DataPoints loadDEM(const std::string& fileName,
     }
   }
 
-  vw_out() << "Loaded points: " << count << std::endl;
-  assert(xData.size() == yData.size());
-  int nbPoints = xData.size();
-
-  // Transfer loaded points in specific structure (eigen matrix)
-  Matrix features(dim+1, nbPoints);
-  for(int i=0; i < nbPoints; i++){
-    features(0,i) = xData[i] - shift[0];
-    features(1,i) = yData[i] - shift[1];
-    features(2,i) = zData[i] - shift[2];
-    features(3,i) = 1;
-  }
-
-  DataPoints dataPoints(features, labels);
-  return dataPoints;
+  return formDataPoints<T>(dim, shift, points);
 }
 
 // Load a point cloud
 template<typename T>
-typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName,
+typename PointMatcher<T>::DataPoints loadPC(const string& fileName,
                                             bool calc_shift,
                                             Vector3 & shift,
                                             ImageView<Vector3> & point_cloud
@@ -469,28 +444,9 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName,
 
   validateFile(fileName);
 
-  typedef typename PointMatcher<T>::DataPoints::Label Label;
-  typedef typename PointMatcher<T>::DataPoints::Labels Labels;
-  typedef typename PointMatcher<T>::Vector Vector;
-  typedef typename PointMatcher<T>::Matrix Matrix;
-  typedef typename PointMatcher<T>::TransformationParameters TransformationParameters;
-  typedef typename PointMatcher<T>::Matrix Parameters;
-  typedef typename PointMatcher<T>::DataPoints DataPoints;
-
-  vector<T> xData;
-  vector<T> yData;
-  vector<T> zData;
-  int dim = 3;
-  Labels labels;
-
-  for (int i=0; i < dim; i++){
-    string text;
-    text += char('x' + i);
-    labels.push_back(Label(text, 1));
-  }
-  labels.push_back(Label("pad", 1));
-
-  point_cloud = read_n_channels<3>(fileName);
+  vector<Vector3> points;
+  const int dim = 3;
+  point_cloud = read_n_channels<dim>(fileName);
   Vector3 mean_center;
   int count = 0;
   for (int j = 0; j < point_cloud.rows(); j++ ) {
@@ -499,9 +455,7 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName,
     for ( int i = 0; i < point_cloud.cols(); i++ ) {
       Vector3 xyz = point_cloud(i, j);
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
-      xData.push_back(xyz[0]);
-      yData.push_back(xyz[1]);
-      zData.push_back(xyz[2]);
+      points.push_back(xyz);
       local_mean += xyz;
       local_count++;
     }
@@ -513,7 +467,7 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName,
       count += local_count;
     }
   }
-  vw_out() << "mean is " << mean_center << std::endl;
+  //vw_out() << "mean is " << mean_center << endl;
 
   if (calc_shift) shift = mean_center;
   for (int j = 0; j < point_cloud.rows(); j++ ) {
@@ -524,31 +478,19 @@ typename PointMatcher<T>::DataPoints loadPC(const std::string& fileName,
     }
   }
 
-  vw_out() << "Loaded points: " << count << std::endl;
-  assert(xData.size() == yData.size());
-  int nbPoints = xData.size();
-
-  // Transfer loaded points in specific structure (eigen matrix)
-  Matrix features(dim+1, nbPoints);
-  for(int i=0; i < nbPoints; i++){
-    features(0,i) = xData[i] - shift[0];
-    features(1,i) = yData[i] - shift[1];
-    features(2,i) = zData[i] - shift[2];
-    features(3,i) = 1;
-  }
-
-  DataPoints dataPoints(features, labels);
-  return dataPoints;
+  return formDataPoints<T>(dim, shift, points);
 }
 
 // Load file from disk and convert to libpointmatcher's format
 template<typename T>
 typename PointMatcher<T>::DataPoints loadFile(Options const& opt,
-                                              const std::string& fileName,
+                                              const string& fileName,
                                               bool calc_shift,
                                               Vector3 & shift,
                                               ImageView<Vector3> & point_cloud
                                               ){
+
+  vw_out() << "Reading: " << fileName << endl;
 
   boost::filesystem::path path(fileName);
   string ext = boost::filesystem::extension(path);
@@ -569,15 +511,6 @@ typename PointMatcher<T>::DataPoints loadFile(Options const& opt,
   vw_throw( ArgumentErr() << "Unknown file type: " << fileName << "\n" );
 }
 
-// To do: Implement multiple passes.
-// To do: Clean up filterGrossOutliers, particularly the API
-// To do: pointmatcher does not compile.
-// To do: Put all licenses in the ASP license file.
-// To do: Add documentation.
-// To do: Integrate loadPC and loadDEM into one function to rm duplication.
-// To do: Move stuff from point2dem.h and from here to Core in pc_utils.h.
-// To do: Investigate if we can get by using floats instead of double.
-
 double calc_mean(vector<double> const& errs, int len){
   double mean = 0;
   for (int i = 0; i < len; i++){
@@ -587,7 +520,34 @@ double calc_mean(vector<double> const& errs, int len){
   return mean/len;
 }
 
-void calc_stats(PointMatcher<RealT>::Matrix const& dists){
+PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
+                                        Vector3 const& shift){
+
+  // Consider a 4x4 matrix T which implements a rotation + translation
+  // y = A*x + b. Consider a point s in space close to the points
+  // x. We want to make that the new origin, so the points x get
+  // closer to origin. In the coordinates (x2 = x - s, y2 = y - s) the
+  // transform becomes y2 + s = A*(x2 + s) + b, or
+  // y2 = A*x2 + b + A*s - s. Encode the obtained transform into another
+  // 4x4 matrix T2.
+
+  VW_ASSERT(T.cols() == 4 && T.rows() == 4,
+            ArgumentErr() << "Expected square matrix of size 4.");
+
+  Eigen::MatrixXd A = T.block(0, 0, 3, 3);
+  Eigen::MatrixXd b = T.block(0, 3, 3, 1);
+
+  Eigen::MatrixXd s = b;
+  for (int i = 0; i < 3; i++) s(i, 0) = shift[i];
+
+  Eigen::MatrixXd b2 = b + A*s - s;
+  PointMatcher<RealT>::Matrix T2 = T;
+  T2.block(0, 3, 3, 1) = b2;
+
+  return T2;
+}
+
+void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
 
   vector<double> errs(dists.cols()*dists.rows());
   int count = 0;
@@ -597,16 +557,16 @@ void calc_stats(PointMatcher<RealT>::Matrix const& dists){
       count++;
     }
   }
-  std::sort(errs.begin(), errs.end());
+  sort(errs.begin(), errs.end());
 
   int len = errs.size();
-  vw_out() << "Number of errors: " << len << std::endl;
-  vw_out() << "Mean of errors: " << std::endl;
-  vw_out() << "--------------- " << std::endl;
-  vw_out() << "Smallest 25%: " << calc_mean(errs, len/4) << std::endl;
-  vw_out() << "Smallest 50%: " << calc_mean(errs, len/2) << std::endl;
-  vw_out() << "Smallest 75%: " << calc_mean(errs, 3*len/4) << std::endl;
-  vw_out() << "All:          " << calc_mean(errs, len) << std::endl;
+  double a25 = calc_mean(errs, len/4),   a50  = calc_mean(errs, len/2);
+  double a75 = calc_mean(errs, 3*len/4), a100 = calc_mean(errs, len);
+
+  vw_out() << "Number of errors: " << len << endl;
+  vw_out() << label << ": mean of smallest errors:"
+           << " 25%: " << a25 << " 50%: " << a50
+           << " 75%: " << a75 << " 100%: " << a100 << std::endl;
 }
 
 void dump_llh(DP const & data, Vector3 const& shift){
@@ -616,28 +576,124 @@ void dump_llh(DP const & data, Vector3 const& shift){
   datum.set_well_known_datum("WGS_1984");
 
   vw_out() << "size of data: " << data.features.rows() << ' '
-           << data.features.cols() << std::endl;
+           << data.features.cols() << endl;
 
   for (int c = 0; c < data.features.cols(); c++){
     Vector3 xyz;
     for (int r = 0; r < data.features.rows() - 1; r++)
       xyz[r] = data.features(r, c) + shift[r];
     Vector3 llh = datum.cartesian_to_geodetic(xyz);
-    vw_out() << "llh " << llh[0] << ' ' << llh[1] << ' '
-             << llh[2] << std::endl;
+    vw_out() << "llh " << llh[0] << ' ' << llh[1] << ' ' << llh[2] << endl;
   }
 
 }
 
-void save_errors(std::string errFile, PointMatcher<RealT>::Matrix const& errors){
-  vw_out() << "Writing: " << errFile << std::endl;
+void save_errors(string errFile, PointMatcher<RealT>::Matrix const& errors){
+  vw_out() << "Writing: " << errFile << endl;
   ofstream ef(errFile.c_str());
   for (int row = 0; row < (int)errors.rows(); row++){
     for (int col = 0; col < (int)errors.cols(); col++){
-      ef << errors(row, col) << std::endl;
+      ef << errors(row, col) << endl;
     }
   }
 }
+
+void save_transform(Options const& opt,
+                    PointMatcher<RealT>::Matrix const& T,
+                    Vector3 const& shift){
+
+  // Save the transform in the original coordinate system
+  // (so we undo the internal shift).
+  PointMatcher<RealT>::Matrix globalT = apply_shift(T, -shift);
+  string transFile = opt.output_prefix + "-transform.txt";
+  cout.precision(16);
+  cout << "Alignment transform:" << endl << globalT << endl;
+  vw_out() << "Writing: " << transFile  << endl;
+  ofstream tf(transFile.c_str());
+  tf.precision(16);
+  tf << globalT << endl;
+  tf.close();
+}
+
+void save_point_clouds(Options const& opt,
+                       PointMatcher<RealT>::Matrix const& T,
+                       Vector3 const& shift,
+                       ImageView<Vector3> & source_point_cloud,
+                       ImageView<Vector3> & ref_point_cloud
+                       ){
+
+  // Save the point clouds. Note: This modifies them along the way.
+
+  // Copy the source point cloud before the shift is applied
+  ImageView<Vector3> trans_source_point_cloud = copy(source_point_cloud);
+
+  // Undo the internal shift in the source point cloud.
+  for (int col = 0; col < source_point_cloud.cols(); col++){
+    for (int row = 0; row < source_point_cloud.rows(); row++){
+      Vector3 P = source_point_cloud(col, row);
+      if ( P == Vector3() || !(P == P) ) continue;
+      source_point_cloud(col, row) += shift;
+    }
+  }
+
+  // Undo the internal shift and compute the transformed source point cloud.
+  double max_obtained_disp = 0.0;
+  for (int col = 0; col < trans_source_point_cloud.cols(); col++){
+    for (int row = 0; row < trans_source_point_cloud.rows(); row++){
+      Vector3 P = trans_source_point_cloud(col, row);
+      if ( P == Vector3() || !(P == P) ) continue;
+      Eigen::VectorXd V(4);
+      V[0] = P[0]; V[1] = P[1]; V[2] = P[2]; V[3] = 1;
+      V = T*V;
+      P[0] = V[0]; P[1] = V[1]; P[2] = V[2];
+      trans_source_point_cloud(col, row) = P + shift;
+      max_obtained_disp
+        = max(max_obtained_disp,
+              norm_2(source_point_cloud(col, row)
+                     - trans_source_point_cloud(col, row)));
+    }
+  }
+  vw_out() << "Maximum displacement of source points: "
+           << max_obtained_disp << " m" << endl;
+
+  // Save the transformed source point cloud if requested
+  if (opt.save_trans_source){
+    string trans_source_file = opt.output_prefix + "trans_source.tif";
+    cout << "Writing: " << trans_source_file << endl;
+    asp::block_write_gdal_image(trans_source_file, trans_source_point_cloud, opt,
+                                TerminalProgressCallback("asp", "\t-->: "));
+  }
+
+  // Save the transformed reference point cloud if requested. Undo the
+  // internal shift first.
+  if (opt.save_trans_ref){
+    PointMatcher<RealT>::Matrix Tinv = T.inverse();
+    // Here we overwrite the reference data, as that one can be huge
+    string trans_ref_file = opt.output_prefix + "trans_reference.tif";
+    for (int col = 0; col < ref_point_cloud.cols(); col++){
+      for (int row = 0; row < ref_point_cloud.rows(); row++){
+        Vector3 P = ref_point_cloud(col, row);
+        if ( P == Vector3() || !(P == P) ) continue;
+        Eigen::VectorXd V(4);
+        V[0] = P[0]; V[1] = P[1]; V[2] = P[2]; V[3] = 1;
+        V = Tinv*V;
+        P[0] = V[0]; P[1] = V[1]; P[2] = V[2];
+        ref_point_cloud(col, row) = P + shift;
+      }
+    }
+    cout << "Writing: " << trans_ref_file << endl;
+    asp::block_write_gdal_image(trans_ref_file, ref_point_cloud, opt,
+                                TerminalProgressCallback("asp", "\t-->: "));
+  }
+}
+
+// To do: Have an option --max-num-source-points
+// To do: For speed, do an initial alignment using just a few ref points
+// To do: Remove YAML dependencies, also from THIRDPARTYLICENSES.
+// To do: Implement multiple passes.
+// To do: Add documentation.
+// To do: Move point cloud utils from point2dem.h to Core in pc_utils.h.
+// To do: Investigate if we can get by using floats instead of double.
 
 int main( int argc, char *argv[] ) {
 
@@ -652,124 +708,64 @@ int main( int argc, char *argv[] ) {
 
 #if 0
     // load YAML config file
-    std::string file = "default3.yaml";
+    string file = "default3.yaml";
     ifstream ifs(file.c_str());
-    vw_out() << "Will load file: " << file << std::endl;
-    if (!ifs.good()) vw_throw( ArgumentErr()
-                               << "Cannot open configuration file: "
-                               << file << "\n" );
+    vw_out() << "Will load file: " << file << endl;
+    if (!ifs.good())
+      vw_throw( ArgumentErr() << "Cannot open configuration file: "
+                << file << "\n" );
     icp.loadFromYaml(ifs);
 #endif
-
-    vw_out() << "Loading files: " << opt.reference << ' '
-             << opt.source << std::endl;
 
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
     Vector3 shift;
     bool calc_shift = true;
-    ImageView<Vector3> ref_point_cloud, data_point_cloud;
+    ImageView<Vector3> ref_point_cloud, source_point_cloud;
     DP ref  = loadFile<RealT>(opt, opt.reference,
-                               calc_shift, shift, ref_point_cloud);
+                              calc_shift, shift, ref_point_cloud);
+    //ref.save(outputBaseFile + "_ref.vtk");
     calc_shift = false;
-    DP data = loadFile<RealT>(opt, opt.source,
-                               calc_shift, shift, data_point_cloud);
+    DP source = loadFile<RealT>(opt, opt.source,
+                                calc_shift, shift, source_point_cloud);
 
-#if 0
-    vw_out() << "size of ref: " << ref.features.rows() << ' '
-             << ref.features.cols() << std::endl;
-    vw_out() << "size of data: " << data.features.rows() << ' '
-             << data.features.cols() << std::endl;
-#endif
+    // Apply the shift to the initial guess matrix as well.
+    PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
-    PointMatcher<RealT>::Matrix in_errors;
-    // Filter out the gross outliers from data, and calculate
-    // the stats for the remaining data.
+    PointMatcher<RealT>::Matrix beg_errors;
+    // Filter out the gross outliers from source, and calculate
+    // the stats for the remaining source.
+    // Create a separate ICP object for that, as here we don't do filtering
+    // on the point clouds.
     PM::ICP icp2;
-    icp2.filterGrossOutliers(data, in_errors, ref, opt.max_disp*opt.max_disp);
-    //dump_llh(data, shift);
-    calc_stats(in_errors);
-    save_errors(opt.output_prefix + "-in_errors.txt", in_errors);
+    icp2.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
+                                          source, beg_errors); //in-out
+    calc_stats("Input", beg_errors);
+    //dump_llh(source, shift);
 
-    // Compute the transformation to express data in ref
-    PM::TransformationParameters T = icp(data, ref, opt.init_transform);
+    // Compute the transformation to align the source to reference.
+    PointMatcher<RealT>::Matrix T = icp(source, ref, initT);
     vw_out() << "Match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
              << endl;
 
-    // Transform data to express it in ref
-    DP data_out(data);
-    icp.transformations.apply(data_out, T);
+    // Transform the source to make it close to reference.
+    DP trans_source(source);
+    icp.transformations.apply(trans_source, T);
 
     // Calculate the stats after the transform was applied
-    PointMatcher<RealT>::Matrix out_errors;
-    icp2.filterGrossOutliers(data_out, out_errors, ref, 1e+300);
-    //dump_llh(data, shift);
-    calc_stats(out_errors);
-    save_errors(opt.output_prefix + "-out_errors.txt", out_errors);
+    PointMatcher<RealT>::Matrix end_errors;
+    icp2.filterGrossOutliersAndCalcErrors(ref, 1e+300,
+                                          trans_source, end_errors); // in-out
+    calc_stats("Output", end_errors);
 
-    // Safe files to see the results
-    //   ref.save(outputBaseFile + "_ref.vtk");
-    //   data.save(outputBaseFile + "_data_in.vtk");
-    //   data_out.save(outputBaseFile + "_data_out.vtk");
-    std::string transFile = opt.output_prefix + "-transform.txt";
-    vw_out() << "Final transformation:" << endl << T << endl;
-    vw_out() << "Writing: " << transFile  << std::endl;
-    ofstream tf(transFile.c_str());
-    tf.precision(16);
-    tf << T << std::endl;
-    tf.close();
+    save_transform(opt, T, shift);
 
-    // Copy the data point cloud before the shift is applied
-    ImageView<Vector3> trans_data_point_cloud = copy(data_point_cloud);
+    // Save the point clouds if requested.
+    // Note: We modify them along the way, so this must be the last step!
+    save_point_clouds(opt, T, shift, source_point_cloud, ref_point_cloud);
 
-    // Put the shifts back and apply the transform
-    for (int col = 0; col < ref_point_cloud.cols(); col++){
-      for (int row = 0; row < ref_point_cloud.rows(); row++){
-        Vector3 P = ref_point_cloud(col, row);
-        if ( P == Vector3() || !(P == P) ) continue;
-        ref_point_cloud(col, row) += shift;
-      }
-    }
-
-    double max_obtained_disp = 0.0;
-    for (int col = 0; col < data_point_cloud.cols(); col++){
-      for (int row = 0; row < data_point_cloud.rows(); row++){
-        Vector3 P = data_point_cloud(col, row);
-        if ( P == Vector3() || !(P == P) ) continue;
-        data_point_cloud(col, row) += shift;
-      }
-    }
-    for (int col = 0; col < trans_data_point_cloud.cols(); col++){
-      for (int row = 0; row < trans_data_point_cloud.rows(); row++){
-        Vector3 P = trans_data_point_cloud(col, row);
-        if ( P == Vector3() || !(P == P) ) continue;
-        Eigen::VectorXd V(4);
-        V[0] = P[0]; V[1] = P[1]; V[2] = P[2]; V[3] = 1;
-        V = T*V;
-        P[0] = V[0]; P[1] = V[1]; P[2] = V[2];
-        trans_data_point_cloud(col, row) = P + shift;
-        max_obtained_disp
-          = std::max(max_obtained_disp,
-                     norm_2(data_point_cloud(col, row)
-                            - trans_data_point_cloud(col, row)));
-      }
-    }
-    vw_out() << "* Actual max displacement: " << max_obtained_disp << std::endl;
-
-#if 0
-    std::string outRefFile = "out_ref.tif";
-    std::string outDataFile = "out_data.tif";
-    std::string transDataFile = "out_trans_data.tif";
-    vw_out() << "Writing: " << outRefFile << std::endl;
-    asp::block_write_gdal_image(outRefFile, ref_point_cloud, opt,
-                                TerminalProgressCallback("asp", "\t-->: "));
-    vw_out() << "Writing: " << outDataFile << std::endl;
-    asp::block_write_gdal_image(outDataFile, data_point_cloud, opt,
-                                TerminalProgressCallback("asp", "\t-->: "));
-    vw_out() << "Writing: " << transDataFile << std::endl;
-    asp::block_write_gdal_image(transDataFile, trans_data_point_cloud, opt,
-                                TerminalProgressCallback("asp", "\t-->: "));
-#endif
+    save_errors(opt.output_prefix + "-beg_errors.txt", beg_errors);
+    save_errors(opt.output_prefix + "-end_errors.txt", end_errors);
 
   } ASP_STANDARD_CATCHES;
 
