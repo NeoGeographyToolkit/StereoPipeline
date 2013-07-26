@@ -60,20 +60,18 @@ def build_cube_pairs(cubePaths):
   pairDict = dict();
      
   for cube in cubePaths:
-      # Get the image number TODO: in a better manner!
+      # Get the image number
       prefixOffset = len(os.path.dirname(cube)) + 2;
-      number = int( cube[prefixOffset:prefixOffset+9] ); 
-      sideLetter = cube[prefixOffset+9]
+      number       = int( cube[prefixOffset:prefixOffset+9] ); 
+      sideLetter   = cube[prefixOffset+9]
      
       if (number not in pairDict):
           pairDict[number] = ['', ''];
       # Store the path in the spot for either the left or right cube
       if (sideLetter == "L"):
           pairDict[number][0] = cube; # Left
-          #print "Left --> " + cube;
       else:
           pairDict[number][1] = cube; # Right
-          #print "Right --> " + cube;
   return pairDict;
 
 def read_flatfile( flat ):
@@ -207,8 +205,8 @@ def spice( cub_files, threads):
 def noproj( file_pairs, threads, delete=False, fakePvl=True):
 
     if fakePvl: # Generate temporary PVL file containing LRONAC definition
-       specFilePath = 'noprojInstruments003.pvl'
-       print 'Generating fake .pvl file ' + specFilePath
+       specFilePath = 'noprojInstrumentsLRONAC.pvl'
+       print 'Generating LRONAC compatible .pvl file ' + specFilePath
        f = open(specFilePath, 'w')
 
        f.write('Object = IdealInstrumentsSpecifications\n');
@@ -256,10 +254,10 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
 
 def lronacjitreg( noproj_pairs, threads, delete=False ):
     
-    boundsCommands = '--correlator-type 2 --kernel 21 21'
+    boundsCommands = '--correlator-type 2 --kernel 15 15'
     for k,v in noproj_pairs.items(): 
         cmd = './lronacjitreg ' + boundsCommands    \
-            + ' --output-log outout-log_'+str(k)+'.txt' \
+            + ' --output-log outputLog_'+str(k)+'.txt' \
             + ' '+ v[0] \
             + ' '+ v[1];
         add_job(cmd, threads)
@@ -268,7 +266,7 @@ def lronacjitreg( noproj_pairs, threads, delete=False ):
     # Read in all the shift values from the output text files
     averages = dict()
     for k,v in noproj_pairs.items():
-        flat_file = 'outout-log_'+str(k)+'.txt'
+        flat_file = 'outputLog_'+str(k)+'.txt'
         print 'Reading log file ' + flat_file;
         averages[k] = read_flatfile( flat_file )
         if delete:
@@ -286,8 +284,8 @@ def mosaic( noproj_pairs, averages, threads ):
         mosaicPath = os.path.splitext(v[0])[0] + '.mosaic.cub'
         shutil.copy( v[0], mosaicPath ) # Copy the LE image to the output path
     
-        xOffset = averages[k][0]
-        yOffset = averages[k][1]        
+        xOffset = -1*averages[k][0] # Sign convention changes here
+        yOffset = -1*averages[k][1]
     
         handmos( v[1], mosaicPath,
                  str( int(round( xOffset )) ),

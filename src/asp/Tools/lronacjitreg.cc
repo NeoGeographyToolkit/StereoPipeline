@@ -57,7 +57,7 @@ using std::setw;
 class RunningStatistics
 {
 public:
-  RunningStatistics() : m_n(0) {}
+  RunningStatistics() : m_n(0), m_oldM(0), m_newM(0), m_oldS(0), m_newS(0) {}
 
   void Clear()
   {
@@ -106,7 +106,7 @@ public:
   }
 
 private:
-  int m_n;
+  int    m_n;
   double m_oldM, m_newM, m_oldS, m_newS;
 
 };
@@ -212,7 +212,7 @@ bool determineShifts(Parameters & params,
 			 params.cropWidth, imageHeight );
 
 
-  const int SEARCH_RANGE_EXPANSION = 10;
+  const int SEARCH_RANGE_EXPANSION = 5;
   int ipFindXOffset = 0;
   int ipFindYOffset = 0;
 
@@ -249,13 +249,13 @@ bool determineShifts(Parameters & params,
     std::cout << "ipfind based similarity: " << H << std::endl;
 
     // Use the estimated transform between the images to determine a search offset range
-    ipFindXOffset = -1*static_cast<int>(H[0][2]);
-    ipFindYOffset = -1*static_cast<int>(H[1][2]);
+    ipFindXOffset = static_cast<int>(H[0][2]);
+    ipFindYOffset = static_cast<int>(H[1][2]);
 
   } // End ipfind case
 
-  BBox2i searchRegion(Vector2i(ipFindXOffset-SEARCH_RANGE_EXPANSION, ipFindYOffset-SEARCH_RANGE_EXPANSION),
-    		      Vector2i(ipFindXOffset+SEARCH_RANGE_EXPANSION, ipFindYOffset+SEARCH_RANGE_EXPANSION));  
+  BBox2i searchRegion(ipFindXOffset, ipFindYOffset, 1, 1 );
+  searchRegion.expand(SEARCH_RANGE_EXPANSION);
 
   // Factor in user bounds overrides
   if (params.h_corr_min < params.h_corr_max)
@@ -289,7 +289,7 @@ bool determineShifts(Parameters & params,
   double seconds_per_op = 0.0;
   DiskCacheImageView<PixelMask<Vector2i> >
     disparity_map
-    ( stereo::pyramid_correlate( crop( left_disk_image, crop_roi ),
+    ( stereo::pyramid_correlate( crop( left_disk_image,  crop_roi ),
 				 crop( right_disk_image, crop_roi ),
 				 constant_view( uint8(255), left_disk_image ),
 				 constant_view( uint8(255), right_disk_image ),
@@ -298,12 +298,6 @@ bool determineShifts(Parameters & params,
 				 params.kernel,
 				 corr_type, corr_timeout, seconds_per_op,
 				 params.lrthresh, 5 ) );
-
-  // DEBUG!!!  
-  //write_image("/home/smcmich1/data/dispMap.tif", disparity_map);
-
-
-
 
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts
@@ -354,7 +348,7 @@ bool determineShifts(Parameters & params,
     out << "\n";
 
   }
-  
+
   double meanVertOffset      = 0.0;
   double meanHorizOffset     = 0.0;
   int    numValidRows        = 0;
@@ -388,7 +382,7 @@ bool determineShifts(Parameters & params,
 
         rowCalcY.Push(dY);
       }
-    }  
+    } // End loop through cols
 
     // Compute mean shift for this row
     if (numValidInRow == 0)
@@ -416,10 +410,9 @@ bool determineShifts(Parameters & params,
     }
 
   } // End loop through rows
-  
+ 
   if (writeLogFile)
   {
-
     out << "\n#  **** Registration Data ****\n";
     out << "#   RegFile: " << "" << endl;
     out << "#   OverlapSize:      " << setw(7) << params.cropWidth << " "
@@ -467,7 +460,7 @@ bool determineShifts(Parameters & params,
   dX = meanHorizOffset;
   dY = meanVertOffset;
   
-  printf("%d valid pixels in %d rows\n", totalNumValidPixels, numValidRows);
+  printf("Found %d valid pixels in %d rows\n", totalNumValidPixels, numValidRows);
   return true;
 }
 
