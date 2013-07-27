@@ -81,7 +81,7 @@ struct Options : public asp::BaseOptions {
   // Input
   string reference, source, init_transform_file;
   PointMatcher<RealT>::Matrix init_transform;
-  int num_iter;
+  int num_iter, max_num_source_points;
   double diff_translation_err, diff_rotation_err, max_disp, outlier_ratio;
   bool save_trans_source, save_trans_ref;
   // Output
@@ -97,6 +97,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop.")
     ("max-displacement", po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
+    ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(25000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
      "Apply the obtained transform to the source points so they match the reference points and save them.")
@@ -186,7 +187,7 @@ void null_check(const char* token, string const& line){
 }
 
 template<typename T>
-typename PointMatcher<T>::DataPoints::Labels formLabels(int dim){
+typename PointMatcher<T>::DataPoints::Labels form_labels(int dim){
 
   typedef typename PointMatcher<T>::DataPoints::Label Label;
   typedef typename PointMatcher<T>::DataPoints::Labels Labels;
@@ -204,28 +205,76 @@ typename PointMatcher<T>::DataPoints::Labels formLabels(int dim){
 
 template<typename T>
 typename PointMatcher<T>::DataPoints
-formDataPoints(int dim, Vector3 const& shift, vector<Vector3> const& points){
+form_data_points(int dim, Vector3 const& shift, vector<Vector3> const& points){
 
   int numPoints = points.size();
   vw_out() << "Loaded points: " << numPoints << endl;
 
   typename PointMatcher<T>::Matrix features(dim+1, numPoints);
-  for(int i=0; i < numPoints; i++){
-    features(0,i) = points[i][0] - shift[0];
-    features(1,i) = points[i][1] - shift[1];
-    features(2,i) = points[i][2] - shift[2];
-    features(3,i) = 1;
+  for(int col = 0; col < numPoints; col++){
+    for (int row = 0; row < dim; row++)
+      features(row, col) = points[col][row] - shift[row];
+    features(dim, col) = 1;
   }
 
-  return typename PointMatcher<T>::DataPoints(features, formLabels<T>(dim));
+  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
+}
+
+void pick_at_most_m_unique_elems_from_n_elems(int m, int n, vector<int>& elems){
+
+  // Out of the elements 0, 1,..., n - 1, pick m unique
+  // random elements and sort them in increasing order.
+
+  elems.clear();
+
+  if (m < 1 || n < 1) return;
+  if (m > n) m = n;
+
+  vector<int> all(n);
+  for (int i = 0; i < n; i++) all[i] = i;
+
+  // Swap a randomly selected element from index 0 to j with the one
+  // at index j. Then decrement j. Done after m elements are
+  // processed.
+  for (int j = n-1; j >= n-m; j--){
+    int r = rand()%(j+1); // 0 <= r <= j
+    swap(all[r], all[j]);
+  }
+
+  elems.resize(m);
+  for (int i = 0; i < m; i++) elems[i] = all[n-m+i];
+  sort(elems.begin(), elems.end());
+
 }
 
 template<typename T>
-typename PointMatcher<T>::DataPoints loadCSV(const string& fileName,
-                                             bool calc_shift,
-                                             Vector3 & shift,
-                                             ImageView<Vector3> & point_cloud
-                                             ){
+typename PointMatcher<T>::DataPoints
+random_pc_subsample(int m, typename PointMatcher<T>::DataPoints const& in_points){
+
+  // Return at most m random points out of the input point cloud.
+
+  int n = in_points.features.cols();
+  vector<int> elems;
+  pick_at_most_m_unique_elems_from_n_elems(m, n, elems);
+  m = elems.size();
+
+  int dim = 3;
+  typename PointMatcher<T>::Matrix features(dim+1, m);
+  for(int col = 0; col < m; col++){
+    for (int row = 0; row < dim; row++)
+      features(row, col) = in_points.features(row, elems[col]);
+    features(dim, col) = 1;
+  }
+
+  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
+}
+
+template<typename T>
+typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
+                                              bool calc_shift,
+                                              Vector3 & shift,
+                                              ImageView<Vector3> & point_cloud
+                                              ){
 
   validateFile(fileName);
   const int bufSize = 1024;
@@ -371,16 +420,16 @@ typename PointMatcher<T>::DataPoints loadCSV(const string& fileName,
     point_cloud(i, 0) = xyz - shift;
   }
 
-  return formDataPoints<T>(dim, shift, points);
+  return form_data_points<T>(dim, shift, points);
 }
 
 // Load a DEM
 template<typename T>
-typename PointMatcher<T>::DataPoints loadDEM(const string& fileName,
-                                             bool calc_shift,
-                                             Vector3 & shift,
-                                             ImageView<Vector3> & point_cloud
-                                             ){
+typename PointMatcher<T>::DataPoints load_dem(const string& fileName,
+                                              bool calc_shift,
+                                              Vector3 & shift,
+                                              ImageView<Vector3> & point_cloud
+                                              ){
   validateFile(fileName);
 
   cartography::GeoReference dem_georef;
@@ -431,16 +480,16 @@ typename PointMatcher<T>::DataPoints loadDEM(const string& fileName,
     }
   }
 
-  return formDataPoints<T>(dim, shift, points);
+  return form_data_points<T>(dim, shift, points);
 }
 
 // Load a point cloud
 template<typename T>
-typename PointMatcher<T>::DataPoints loadPC(const string& fileName,
-                                            bool calc_shift,
-                                            Vector3 & shift,
-                                            ImageView<Vector3> & point_cloud
-                                            ){
+typename PointMatcher<T>::DataPoints load_pc(const string& fileName,
+                                             bool calc_shift,
+                                             Vector3 & shift,
+                                             ImageView<Vector3> & point_cloud
+                                             ){
 
   validateFile(fileName);
 
@@ -478,16 +527,16 @@ typename PointMatcher<T>::DataPoints loadPC(const string& fileName,
     }
   }
 
-  return formDataPoints<T>(dim, shift, points);
+  return form_data_points<T>(dim, shift, points);
 }
 
 // Load file from disk and convert to libpointmatcher's format
 template<typename T>
-typename PointMatcher<T>::DataPoints loadFile(Options const& opt,
-                                              const string& fileName,
-                                              bool calc_shift,
-                                              Vector3 & shift,
-                                              ImageView<Vector3> & point_cloud
+typename PointMatcher<T>::DataPoints load_file(Options const& opt,
+                                               const string& fileName,
+                                               bool calc_shift,
+                                               Vector3 & shift,
+                                               ImageView<Vector3> & point_cloud
                                               ){
 
   vw_out() << "Reading: " << fileName << endl;
@@ -499,13 +548,13 @@ typename PointMatcher<T>::DataPoints loadFile(Options const& opt,
     // Load tif files, PC or DEM
     int nc = get_num_channels(fileName);
     if (nc == 1)
-      return loadDEM<T>(fileName, calc_shift, shift, point_cloud);
+      return load_dem<T>(fileName, calc_shift, shift, point_cloud);
     if (nc >= 3)
-      return loadPC<T>(fileName, calc_shift, shift, point_cloud);
+      return load_pc<T>(fileName, calc_shift, shift, point_cloud);
     vw_throw(ArgumentErr() << "File: " << fileName
              << " is neither a point cloud or DEM.\n");
   }else if (boost::iequals(ext, ".csv") || boost::iequals(ext, ".txt")){
-    return loadCSV<T>(fileName, calc_shift, shift, point_cloud);
+    return load_csv<T>(fileName, calc_shift, shift, point_cloud);
   }
 
   vw_throw( ArgumentErr() << "Unknown file type: " << fileName << "\n" );
@@ -722,12 +771,12 @@ int main( int argc, char *argv[] ) {
     Vector3 shift;
     bool calc_shift = true;
     ImageView<Vector3> ref_point_cloud, source_point_cloud;
-    DP ref  = loadFile<RealT>(opt, opt.reference,
-                              calc_shift, shift, ref_point_cloud);
+    DP ref  = load_file<RealT>(opt, opt.reference,
+                               calc_shift, shift, ref_point_cloud);
     //ref.save(outputBaseFile + "_ref.vtk");
     calc_shift = false;
-    DP source = loadFile<RealT>(opt, opt.source,
-                                calc_shift, shift, source_point_cloud);
+    DP source = load_file<RealT>(opt, opt.source,
+                                 calc_shift, shift, source_point_cloud);
 
     // Apply the shift to the initial guess matrix as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
@@ -738,7 +787,12 @@ int main( int argc, char *argv[] ) {
     // Create a separate ICP object for that, as here we don't do filtering
     // on the point clouds.
     PM::ICP icp2;
+    double big = 1e+300;
     icp2.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
+                                          source, beg_errors); //in-out
+    source = random_pc_subsample<RealT>(opt.max_num_source_points, source);
+    // Recompute the errors after the points were sub-sampled.
+    icp2.filterGrossOutliersAndCalcErrors(ref, big,
                                           source, beg_errors); //in-out
     calc_stats("Input", beg_errors);
     //dump_llh(source, shift);
@@ -752,9 +806,9 @@ int main( int argc, char *argv[] ) {
     DP trans_source(source);
     icp.transformations.apply(trans_source, T);
 
-    // Calculate the stats after the transform was applied
+    // Calculate the errors after the transform was applied
     PointMatcher<RealT>::Matrix end_errors;
-    icp2.filterGrossOutliersAndCalcErrors(ref, 1e+300,
+    icp2.filterGrossOutliersAndCalcErrors(ref, big,
                                           trans_source, end_errors); // in-out
     calc_stats("Output", end_errors);
 
