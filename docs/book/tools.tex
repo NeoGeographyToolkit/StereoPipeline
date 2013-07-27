@@ -694,3 +694,69 @@ Compress using laszip. \\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline
 \texttt{-\/-cache-dir \textit{directory(=/tmp)}} & Folder for temporary files. Normally this need not be changed.\\ \hline
 \end{longtable}
+
+\section{pc\_align}
+\label{pcalign}
+
+This tool can be used to align two point clouds using Point-to-Plane Iterative
+Closest Point (ICP) based on libpointmatcher
+(https://github.com/ethz-asl/libpointmatcher).
+
+Due to the nature of ICP, the reference (fixed) point cloud should be
+denser than the source (movable) point cloud. This is not a serious
+restriction, as one can perform the alignment this way and then simply
+invert the obtained transform if desired (and in any case \texttt{pc\_align} can
+output the reference point cloud transformed to match the source and
+vice-versa).
+
+The input point clouds can be in one of several formats: ASP's point
+cloud format, DEMs as GeoTiff files, or plain-text CSV files (with .csv
+or .txt extension). For now, two CSV file formats are supported. For
+Earth data one can specify on each line the latitude, longitude, and
+height above the datum (separated by commas or spaces), while for the
+Moon one can use the LOLA RDR PointPerRow format. The tool is able to
+auto-detect which of these formats is being used.
+
+The transform obtained by \texttt{pc\_align} is output to a file as a
+$4\times 4$ matrix, with the upper-left $3\times 3$ submatrix being the
+rotation, and the top three elements of the right-most column being the
+translation. This matrix can be supplied back to the tool as an initial
+guess.
+
+The tool also outputs the means of the smallest 25\%, 50\%, 75\%, and
+100\% of the errors, before and after alignment, where the errors are
+defined as the closest distances between points in the transformed
+source point cloud and the reference point cloud. The entire lists of
+errors are saved to a file.
+
+Lastly, pc\_align displays the maximum displacement between source
+points and their aligned versions. This (or a multiple of it) can be fed
+back into the tool to help identify the gross outliers in the source
+data (see the options below).
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for pc\_align}
+\label{tbl:pcalign}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-help|-h} & Display the help message.\\ \hline
+\texttt{-\/-initial-transform \textit{arg}} &
+The file containing the rotation + translation transform to be used as an
+initial guess. It can come from a previous run of the tool. \\ \hline
+\texttt{-\/-num-iterations \textit{default: 400}} &  Maximum number of iterations. \\ \hline
+\texttt{-\/-diff-rotation-error \textit{default: 0.0001}} & Change in rotation amount below which the algorithm will stop. \\ \hline
+\texttt{-\/-diff-translation-error \textit{default: 0.001}} & Change in translation amount below which the algorithm will stop. \\ \hline
+\texttt{-\/-max-displacement \textit{default: 1e+10}} & Maximum expected
+displacement of source points as result of alignment, in meters. Used
+for removing gross outliers in the source (movable) point cloud.\\ \hline
+\texttt{-\/-outlier-ratio \textit{default: 0.75}} &  Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed). \\ \hline
+\texttt{-\/-max-num-source-points \textit{default: 25000}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
+\texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
+\texttt{-\/-save-transformed-source-points} & Apply the obtained transform to the source points so they match the reference points and save them. \\ \hline
+\texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
+\\ \hline
+\end{longtable}

@@ -91,11 +91,13 @@ struct Options : public asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("initial-transform", po::value(&opt.init_transform_file)->default_value(""), "The file containing the rotation + translation transform to be used as an initial guess.")
+    ("initial-transform",
+    po::value(&opt.init_transform_file)->default_value(""), "The file containing the rotation + translation transform to be used as an initial guess. It can come from a previous run of the tool.")
     ("num-iterations", po::value(&opt.num_iter)->default_value(400), "Maximum number of iterations.")
     ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-4), "Change in rotation amount below which the algorithm will stop.")
     ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop.")
-    ("max-displacement", po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters.")
+    ("max-displacement",
+    po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters. Used for removing gross outliers in the source point cloud.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(25000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.")
@@ -736,11 +738,9 @@ void save_point_clouds(Options const& opt,
   }
 }
 
-// To do: Have an option --max-num-source-points
 // To do: For speed, do an initial alignment using just a few ref points
 // To do: Remove YAML dependencies, also from THIRDPARTYLICENSES.
 // To do: Implement multiple passes.
-// To do: Add documentation.
 // To do: Move point cloud utils from point2dem.h to Core in pc_utils.h.
 // To do: Investigate if we can get by using floats instead of double.
 
