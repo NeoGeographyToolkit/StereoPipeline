@@ -698,8 +698,8 @@ Compress using laszip. \\ \hline
 \section{pc\_align}
 \label{pcalign}
 
-This tool can be used to align two point clouds using Point-to-Plane Iterative
-Closest Point (ICP) based on libpointmatcher
+This tool can be used to align two point clouds using Point-to-Plane or
+Point-to-Point Iterative Closest Point (ICP) based on libpointmatcher
 (https://github.com/ethz-asl/libpointmatcher).
 
 Due to the nature of ICP, the reference (fixed) point cloud should be
@@ -713,9 +713,10 @@ The input point clouds can be in one of several formats: ASP's point
 cloud format, DEMs as GeoTiff files, or plain-text CSV files (with .csv
 or .txt extension). For now, two CSV file formats are supported. For
 Earth data one can specify on each line the latitude, longitude, and
-height above the datum (separated by commas or spaces), while for the
+height above the WGS\_1984 datum (separated by commas or spaces), while for the
 Moon one can use the LOLA RDR PointPerRow format. The tool is able to
-auto-detect which of these formats is being used.
+auto-detect which of these formats is being used. If desired, the datum
+can be explicitly specified via the \texttt{-\/-datum} option.
 
 The transform obtained by \texttt{pc\_align} is output to a file as a
 $4\times 4$ matrix, with the upper-left $3\times 3$ submatrix being the
@@ -733,6 +734,13 @@ Lastly, pc\_align displays the maximum displacement between source
 points and their aligned versions. This (or a multiple of it) can be fed
 back into the tool to help identify the gross outliers in the source
 data (see the options below).
+
+\medskip
+
+Usage:\\
+\hspace*{2em}\texttt{pc\_align [options] <reference cloud> <source cloud>}
+
+\medskip
 
 \begin{longtable}{|l|p{10cm}|}
 \caption{Command-line options for pc\_align}
@@ -755,6 +763,13 @@ displacement of source points as result of alignment, in meters. Used
 for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-outlier-ratio \textit{default: 0.75}} &  Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed). \\ \hline
 \texttt{-\/-max-num-source-points \textit{default: 25000}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
+\texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
+method to use. [point-to-plane, point-to-point]\\ \hline
+\texttt{-\/-datum \textit{}} & Use this datum for CSV files instead of
+auto-detecting it. [WGS\_1984, D\_MOON, D\_MARS] \\ \hline
+\texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
+option. Read the alignment parameters from a configuration file, in the
+format expected by libpointmatcher, over-riding the command-line options.\\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
 \texttt{-\/-save-transformed-source-points} & Apply the obtained transform to the source points so they match the reference points and save them. \\ \hline
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
