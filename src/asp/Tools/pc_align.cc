@@ -79,7 +79,7 @@ namespace vw {
 
 struct Options : public asp::BaseOptions {
   // Input
-  string reference, source, init_transform_file;
+  string reference, source, init_transform_file, alignment_method, config_file, datum;
   PointMatcher<RealT>::Matrix init_transform;
   int num_iter, max_num_source_points;
   double diff_translation_err, diff_rotation_err, max_disp, outlier_ratio;
@@ -100,6 +100,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters. Used for removing gross outliers in the source point cloud.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(25000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
+    ("alignment-method", po::value(&opt.alignment_method)->default_value("point-to-plane"), "The type of iterative closest point method to use. [point-to-plane, point-to-point]")
+    ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON]")
+    ("config-file", po::value(&opt.config_file)->default_value(""),
+    "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
     ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
      "Apply the obtained transform to the source points so they match the reference points and save them.")
@@ -273,6 +277,7 @@ random_pc_subsample(int m, typename PointMatcher<T>::DataPoints const& in_points
 
 template<typename T>
 typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
+                                              std::string datum_str,
                                               bool calc_shift,
                                               Vector3 & shift,
                                               ImageView<Vector3> & point_cloud
@@ -316,13 +321,16 @@ typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
   if (numTokens > 3){
     is_earth_lat_lon_z_format = false;
     vw_out() << "Guessing file: " << fileName << " to be in LOLA RDR PointPerRow "
-             << "format for Moon.\n";
+             << "format.\n";
     datum.set_well_known_datum("D_MOON");
   }else{
     vw_out() << "Guessing file: " << fileName << " to be in lat-lon-height "
-             << "format for Earth.\n";
+             << "format.\n";
     datum.set_well_known_datum("WGS_1984");
   }
+
+  if (datum_str != "") datum.set_well_known_datum(datum_str);
+  vw_out() << "Using the datum: " << datum.name() << std::endl;
 
   while ( getline(file, line, '\n') ){
 
@@ -539,7 +547,7 @@ typename PointMatcher<T>::DataPoints load_file(Options const& opt,
                                                bool calc_shift,
                                                Vector3 & shift,
                                                ImageView<Vector3> & point_cloud
-                                              ){
+                                               ){
 
   vw_out() << "Reading: " << fileName << endl;
 
@@ -556,7 +564,7 @@ typename PointMatcher<T>::DataPoints load_file(Options const& opt,
     vw_throw(ArgumentErr() << "File: " << fileName
              << " is neither a point cloud or DEM.\n");
   }else if (boost::iequals(ext, ".csv") || boost::iequals(ext, ".txt")){
-    return load_csv<T>(fileName, calc_shift, shift, point_cloud);
+    return load_csv<T>(fileName, opt.datum, calc_shift, shift, point_cloud);
   }
 
   vw_throw( ArgumentErr() << "Unknown file type: " << fileName << "\n" );
@@ -753,18 +761,16 @@ int main( int argc, char *argv[] ) {
     // Create the default ICP algorithm
     PM::ICP icp;
     icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
-                  opt.diff_translation_err);
+                  opt.diff_translation_err, opt.alignment_method);
 
-#if 0
-    // load YAML config file
-    string file = "default3.yaml";
-    ifstream ifs(file.c_str());
-    vw_out() << "Will load file: " << file << endl;
-    if (!ifs.good())
-      vw_throw( ArgumentErr() << "Cannot open configuration file: "
-                << file << "\n" );
-    icp.loadFromYaml(ifs);
-#endif
+    if (opt.config_file != ""){
+      vw_out() << "Will read the options from: " << opt.config_file << endl;
+      ifstream ifs(opt.config_file.c_str());
+      if (!ifs.good())
+        vw_throw( ArgumentErr() << "Cannot open configuration file: "
+                  << opt.config_file << "\n" );
+      icp.loadFromYaml(ifs);
+    }
 
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
