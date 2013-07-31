@@ -13,7 +13,7 @@ set np = 8
 
 #setenv CC $brew_root/bin/gcc-4.7
 #setenv CPP $brew_root/bin/cpp-4.7
-#setenv CC $brew_root/bin/g++-4.7
+#setenv CXX $brew_root/bin/g++-4.7
 
 #setenv CPPFLAGS "-I${brew_root}/include"
 #setenv LDFLAGS "-L${brew_root}/lib"
@@ -85,12 +85,16 @@ set aspdstdir_root = $src_root/sw/asp
 #NOTE: laslib is available through brew
 #set laslib = $src_root/sw/liblas
 set laszip = $src_root/sw/laszip
+set swdir = $src_root/sw
 
 #setenv CPPFLAGS "-I${vwdstdir}/include -I${laslib}/include -I${laszip}/include"
-setenv CPPFLAGS "-I${vwdstdir}/include" 
+#setenv CPPFLAGS "-I${vwdstdir}/include" 
+#setenv CPPFLAGS "-I${vwdstdir}/include -I${swdir}/include -I${brew_root}/include/eigen3" 
+setenv CPPFLAGS "-I${vwdstdir}/include -I${swdir}/include" 
 
 #setenv LDFLAGS "-L${vwdstdir}/lib -L${laslib}/lib -L${laszip}/lib"
-setenv LDFLAGS "-L${vwdstdir}/lib"
+#setenv LDFLAGS "-L${vwdstdir}/lib"
+setenv LDFLAGS "-L${vwdstdir}/lib -L${swdir}/lib"
 
 cd $aspsrcdir
 
