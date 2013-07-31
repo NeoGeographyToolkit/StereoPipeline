@@ -143,7 +143,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.init_transform_file != ""){
     validateFile(opt.init_transform_file);
     PointMatcher<RealT>::Matrix T;
-    ifstream is(opt.init_transform_file);
+    ifstream is(opt.init_transform_file.c_str());
     for (int row = 0; row < dim; row++){
       for (int col = 0; col < dim; col++){
         double a;
