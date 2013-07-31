@@ -17,7 +17,7 @@
 # __END_LICENSE__
 
 
-import os, glob, optparse, re, shutil, subprocess, sys, string
+import os, glob, optparse, re, shutil, subprocess, sys, string, time
 
 job_pool = [];
 
@@ -75,23 +75,31 @@ def build_cube_pairs(cubePaths):
   return pairDict;
 
 def read_flatfile( flat ):
-    f = open(flat,'r')
+
+    # Fail if the input file is not present
+    if not os.path.isfile(flat):
+        raise Exception('File ' + flat + ' is missing!')
+
     averages = [0.0,0.0]
+
+    f = open(flat,'r')
     for line in f:
         if ( line.rfind("Average Sample Offset:") >= 0 ):
-            print 'FOUND FLAT LINE SAMPLE';
             index       = line.rfind("Offset:");
             index_e     = line.rfind("StdDev:");
             crop        = line[index+7:index_e];
+            if crop == " NULL ": # Check for null value
+                raise Exception('Null sample offset in file ' + flat)
             averages[0] = float(crop);
         elif ( line.rfind("Average Line Offset:") >= 0 ):
-            print 'FOUND FLAT LINE LINE';        
             index       = line.rfind("Offset:");
             index_e     = line.rfind("StdDev:");
             crop        = line[index+7:index_e];
+            if crop == "   NULL ": # Check for null value
+                raise Exception('Null sample offset in file ' + flat)
             averages[1] = float(crop);
-    print str(averages);
-    return averages;
+    print str(averages)
+    return averages
 
 #TODO: This should be somewhere else
 def isisversion(verbose=False):
@@ -201,28 +209,70 @@ def spice( cub_files, threads):
     wait_on_all_jobs()
     return
 
+# Returns true if the .cub LRONAC file has CROSSTRACK_SUMMING = 1
+def isFileHalfRes(cubFilePath):
+
+    return false; # It looks like the normal pvl file works so use it in all cases
+
+    f = open(cubFilePath, 'r')
+    for line in f:
+        if ( line.rfind("CROSSTRACK_SUMMING") >= 0 ):  
+            index       = line.rfind("=");
+            crop        = line[index+2];
+            result      = (crop == "2")
+    f.close()
+ 
+    return result;
+
+
 # Left file is/home/smcmich1 in index 0, right is in index 1
 def noproj( file_pairs, threads, delete=False, fakePvl=True):
 
-    if fakePvl: # Generate temporary PVL file containing LRONAC definition
-       specFilePath = 'noprojInstrumentsLRONAC.pvl'
-       print 'Generating LRONAC compatible .pvl file ' + specFilePath
-       f = open(specFilePath, 'w')
+    
+    if fakePvl: # Generate temporary PVL files containing LRONAC definition
+                # - We need one for full-res mode, one for half-X-res mode.
 
-       f.write('Object = IdealInstrumentsSpecifications\n');
-       f.write('   UserName     = auto\n');
-       f.write('   Created      = 2013-07-18T13:42:00\n');
-       f.write('   LastModified = 2013-07-18T13:42:00\n\n');
-       f.write('   Group = "LUNAR RECONNAISSANCE ORBITER/NACL"\n');
-       f.write('      TransY = 16.8833\n')
-       f.write('      ItransS = -2411.9\n')
-       f.write('      TransX = 0.6475\n')
-       f.write('      ItransL = -92.5\n')
-       f.write('      DetectorSamples = 10000\n')
-       f.write('   End_Group\n\n')
-       f.write('End_Object\n')
-       f.write('End')
-       f.close()
+       fullResFilePath = 'noprojInstruments_fullRes.pvl'
+       if os.path.exists(fullResFilePath):
+          print fullResFilePath + ' exists, using existing file.'
+       else: # Need to write the file
+          print 'Generating LRONAC compatible .pvl file ' + fullResFilePath
+	  f = open(fullResFilePath, 'w')
+	  f.write('Object = IdealInstrumentsSpecifications\n');
+	  f.write('  UserName     = auto\n');
+	  f.write('  Created      = 2013-07-18T13:42:00\n');
+	  f.write('  LastModified = 2013-07-18T13:42:00\n\n');
+	  f.write('  Group = "LUNAR RECONNAISSANCE ORBITER/NACL"\n');
+	  f.write('     TransY = 16.8833\n')
+	  f.write('     ItransS = -2411.9\n')
+	  f.write('     TransX = 0.6475\n')
+	  f.write('     ItransL = -92.5\n')
+	  f.write('     DetectorSamples = 10000\n')
+	  f.write('  End_Group\n\n')
+	  f.write('End_Object\n')
+	  f.write('End')
+	  f.close()
+
+       halfResFilePath = 'noprojInstruments_halfRes.pvl'
+       if os.path.exists(halfResFilePath):
+          print halfResFilePath + ' exists, using existing file.'
+       else: # Need to write the file
+          print 'Generating LRONAC compatible .pvl file ' + halfResFilePath
+	  f = open(halfResFilePath, 'w')
+	  f.write('Object = IdealInstrumentsSpecifications\n');
+	  f.write('  UserName     = auto\n');
+	  f.write('  Created      = 2013-07-18T13:42:00\n');
+	  f.write('  LastModified = 2013-07-18T13:42:00\n\n');
+	  f.write('  Group = "LUNAR RECONNAISSANCE ORBITER/NACL"\n');
+	  f.write('     TransY = 16.8833\n')
+	  f.write('     ItransS = -4823.8\n')     # Halved
+	  f.write('     TransX = 0.6475\n')
+	  f.write('     ItransL = -185\n')       # Halved
+	  f.write('     DetectorSamples = 5000\n') # Halved
+	  f.write('  End_Group\n\n')
+	  f.write('End_Object\n')
+	  f.write('End')
+	  f.close()
 
     noproj_pairs = dict();
     for k, v in file_pairs.items():
@@ -235,11 +285,29 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
           if os.path.exists( to_cub ):
               print to_cub + ' exists, skipping noproj.'
           else:
-              cmd = 'noproj from= '+ v[i]   \
-                        + ' to= '  + to_cub \
-                        +' match= '+ v[0];
+
+              # Generate pvl command if needed
               if fakePvl:
-	          cmd += ' specs= ' + specFilePath;
+
+                  fileIsHalfRes = isFileHalfRes(v[0])
+                  if fileIsHalfRes:
+                      specsLine = ' specs= ../' + halfResFilePath + ' ';
+                  else: # Full resolution
+                      specsLine = ' specs= ../' + fullResFilePath + ' ';
+              else: # Use the default file
+                  specsLine = '';              
+
+              # Multiple noproj threads will create clashing temporary files
+              #  so we need to make temporary directories to run each thread in.
+              tempDir = 'temp_' + str(k) + '_' + str(i)
+              cmd = 'mkdir -p ' + tempDir + ' && ' \
+                  + 'cd ' + tempDir + ' && ' \
+                  + 'noproj from=' + v[i] \
+                  + ' match=' + v[0] \
+                  + specsLine \
+                  + ' to='+ to_cub + ' && ' \
+                  + 'cd .. && rm -rf ' + tempDir
+
               add_job(cmd, threads)
     wait_on_all_jobs()
     
@@ -248,7 +316,8 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
            os.remove( v[0] );
            os.remove( v[1] );       
         if fakePvl:
-           os.remove( specFilePath );    
+           os.remove( halfResFilePath );    
+           os.remove( fullResFilePath );    
     return noproj_pairs;
 
 
@@ -329,6 +398,8 @@ def cubenorm( mosaicList, threads, delete=False ):
     return normedList
 
 #--------------------------------------------------------------------------------
+
+#TODO: Disable multi-file capability
 
 def main():
 

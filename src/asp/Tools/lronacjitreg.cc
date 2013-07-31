@@ -200,35 +200,48 @@ bool determineShifts(Parameters & params,
   DiskImageView<PixelGray<float> > right_disk_image(params.rightFilePath);
   
   
-  const int imageWidth  = std::min(left_disk_image.cols(), right_disk_image.cols());
-  const int imageHeight = std::min(left_disk_image.rows(), right_disk_image.rows());
-  const int imageTopRow = 0;
+  const int imageWidth      = std::min(left_disk_image.cols(), right_disk_image.cols());
+  const int imageHeight     = std::min(left_disk_image.rows(), right_disk_image.rows());
+  const int imageTopRow     = 0;
   const int imageMidPointX  = imageWidth / 2;
-  const int cropStartX  = imageMidPointX - (params.cropWidth/2);
+  const int cropStartX      = imageMidPointX - (params.cropWidth/2);
 
   // Restrict processing to the border of the images
   // - Since both images were nproj'd the overlap areas should be in about the same spots.
   const BBox2i crop_roi( cropStartX, imageTopRow,
 			 params.cropWidth, imageHeight );
+  std::cout << "Expected overlap ROI = " << crop_roi << std::endl;
 
+  // Dump the cropped image to disk
+  ImageView<PixelRGB<uint8> > rgbLeft  = 2500*crop(left_disk_image,crop_roi);
+  ImageView<PixelRGB<uint8> > rgbRight = 2500*crop(right_disk_image,crop_roi);
+  vw::write_image("cropdumpLeft.tif",  rgbLeft);
+  vw::write_image("cropdumpRight.tif", rgbRight);  
+
+  ImageView<PixelRGB<uint8> > rgbLeftI  = 0.005*vw::ip::IntegralImage( crop(left_disk_image, crop_roi) );
+  ImageView<PixelRGB<uint8> > rgbRightI = 0.005*vw::ip::IntegralImage( crop(right_disk_image,crop_roi) );
+  write_image("leftCropIntegral.tif",  rgbLeftI );
+  write_image("rightCropIntegral.tif", rgbRightI);
 
   const int SEARCH_RANGE_EXPANSION = 5;
-  int ipFindXOffset = 0;
-  int ipFindYOffset = 0;
+  int  ipFindXOffset = 0;
+  int  ipFindYOffset = 0;
+  bool ransacFailed  = false;
 
   // If the search box was not fully populated use ipfind to estimate a search region
   if ( (params.h_corr_min > params.h_corr_max) || (params.v_corr_min > params.v_corr_max) )
   {
-
     // Now use interest point finding/matching functions to estimate the search offset between the images
+    printf("Gathering interest points...\n");
 
     // Gather interest points
     asp::IntegralAutoGainDetector detector( 500 );
-    ip::InterestPointList ip1 = ip::detect_interest_points( crop(left_disk_image,crop_roi ), detector );
+    ip::InterestPointList ip1 = ip::detect_interest_points( crop(left_disk_image, crop_roi), detector );
     ip::InterestPointList ip2 = ip::detect_interest_points( crop(right_disk_image,crop_roi), detector );
-
+    printf("Found %lu, %lu interest points.\n", ip1.size(), ip2.size());
+       
     ip::SGradDescriptorGenerator descriptor;
-    describe_interest_points( crop(left_disk_image,crop_roi ), descriptor, ip1 );
+    describe_interest_points( crop(left_disk_image, crop_roi), descriptor, ip1 );
     describe_interest_points( crop(right_disk_image,crop_roi), descriptor, ip2 );
 
     // Match interest points
@@ -237,25 +250,51 @@ bool determineShifts(Parameters & params,
     matcher(ip1, ip2, matched_ip1, matched_ip2 );
     ip::remove_duplicates( matched_ip1, matched_ip2 );
 
+    if (matched_ip1.empty() || matched_ip2.empty())
+    {
+     ransacFailed = true;
+     printf("Failed to find any matching interest points, defaulting to large search range.\n");
+    }
+    else
+    {
+      printf("Found %lu, %lu matched interest points.\n", matched_ip1.size(), matched_ip2.size());
 
-    // Filter interest point matches
-    math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric> ransac( math::SimilarityFittingFunctor(),
+      // Filter interest point matches
+      math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric> ransac( math::SimilarityFittingFunctor(),
 												      math::InterestPointErrorMetric(),
 												      100, 5, 100, true );
-    std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
-    std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
+      std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
+      std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
 
-    Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
-    std::cout << "ipfind based similarity: " << H << std::endl;
+      // Finding offset using RANSAC...
+      try
+      {
+        Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
+        std::cout << "ipfind based similarity: " << H << std::endl;
 
-    // Use the estimated transform between the images to determine a search offset range
-    ipFindXOffset = static_cast<int>(H[0][2]);
-    ipFindYOffset = static_cast<int>(H[1][2]);
+        // Use the estimated transform between the images to determine a search offset range
+        ipFindXOffset = static_cast<int>(H[0][2]);
+        ipFindYOffset = static_cast<int>(H[1][2]);
+      }
+      catch(...) // Handle a RANSAC failure
+      {
+        printf("RANSAC solution failed, defaulting to large search range.\n");
+        ransacFailed = true;
+      }
+    } // End of successful IP matching 
 
   } // End ipfind case
 
   BBox2i searchRegion(ipFindXOffset, ipFindYOffset, 1, 1 );
   searchRegion.expand(SEARCH_RANGE_EXPANSION);
+
+  if (ransacFailed) // Default to a large search radius
+  {
+    searchRegion.min()[0] = -100;
+    searchRegion.max()[0] =  100;
+    searchRegion.min()[1] = -100;
+    searchRegion.max()[1] =  100;
+  }
 
   // Factor in user bounds overrides
   if (params.h_corr_min < params.h_corr_max)
@@ -440,8 +479,8 @@ bool determineShifts(Parameters & params,
      }
      else  // No valid rows
      {
-       out << "#   Average Sample Offset: " << "NULL\n";
-       out << "#   Average Line Offset:   " << "NULL\n";
+       out << "#   Average Sample Offset: NULL StdDev: NULL\n";
+       out << "#   Average Line Offset:   NULL StdDev: NULL\n";
      }
 
     out.close();                   
