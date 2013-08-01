@@ -89,8 +89,8 @@ set swdir = $src_root/sw
 
 #setenv CPPFLAGS "-I${vwdstdir}/include -I${laslib}/include -I${laszip}/include"
 #setenv CPPFLAGS "-I${vwdstdir}/include" 
-#setenv CPPFLAGS "-I${vwdstdir}/include -I${swdir}/include -I${brew_root}/include/eigen3" 
-setenv CPPFLAGS "-I${vwdstdir}/include -I${swdir}/include" 
+setenv CPPFLAGS "-I${vwdstdir}/include -I${swdir}/include -I${brew_root}/include/eigen3" 
+#setenv CPPFLAGS "-I${vwdstdir}/include -I${swdir}/include" 
 
 #setenv LDFLAGS "-L${vwdstdir}/lib -L${laslib}/lib -L${laszip}/lib"
 #setenv LDFLAGS "-L${vwdstdir}/lib"
