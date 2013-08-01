@@ -81,9 +81,9 @@ struct Options : public asp::BaseOptions {
   // Input
   string reference, source, init_transform_file, alignment_method, config_file, datum;
   PointMatcher<RealT>::Matrix init_transform;
-  int num_iter, max_num_source_points;
+  int num_iter, max_num_reference_points, max_num_source_points;
   double diff_translation_err, diff_rotation_err, max_disp, outlier_ratio;
-  bool save_trans_source, save_trans_ref;
+  bool compute_translation_only, save_trans_source, save_trans_ref;
   // Output
   string output_prefix;
 };
@@ -99,12 +99,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-displacement",
     po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters. Used for removing gross outliers in the source point cloud.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
+    ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000), "Maximum number of (randomly picked) reference points to use.")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(25000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method", po::value(&opt.alignment_method)->default_value("point-to-plane"), "The type of iterative closest point method to use. [point-to-plane, point-to-point]")
     ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON]")
     ("config-file", po::value(&opt.config_file)->default_value(""),
     "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
     ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.")
+    ("compute-translation-only", po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
+     "Compute the transform from source to reference point cloud as a translation only (no rotation).")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
      "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
@@ -774,12 +777,18 @@ int main( int argc, char *argv[] ) {
 
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
+
+    // Load the reference point cloud, and subsample it.
     Vector3 shift;
     bool calc_shift = true;
     ImageView<Vector3> ref_point_cloud, source_point_cloud;
     DP ref  = load_file<RealT>(opt, opt.reference,
                                calc_shift, shift, ref_point_cloud);
+    ref = random_pc_subsample<RealT>(opt.max_num_reference_points, ref);
     //ref.save(outputBaseFile + "_ref.vtk");
+
+    // Load the source point cloud. Note: We'll subsample after we
+    // remove the gross outliers.
     calc_shift = false;
     DP source = load_file<RealT>(opt, opt.source,
                                  calc_shift, shift, source_point_cloud);
@@ -787,24 +796,25 @@ int main( int argc, char *argv[] ) {
     // Apply the shift to the initial guess matrix as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
+    // Filter out the gross outliers from source, subsample the source,
+    // and calculate the stats for the remaining points. Create a
+    // separate ICP object for that, as here we don't do filtering on
+    // the point clouds.
     PointMatcher<RealT>::Matrix beg_errors;
-    // Filter out the gross outliers from source, and calculate
-    // the stats for the remaining source.
-    // Create a separate ICP object for that, as here we don't do filtering
-    // on the point clouds.
     PM::ICP icp2;
     double big = 1e+300;
     icp2.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
                                           source, beg_errors); //in-out
     source = random_pc_subsample<RealT>(opt.max_num_source_points, source);
-    // Recompute the errors after the points were sub-sampled.
+    // Recompute the errors after the points were subsampled.
     icp2.filterGrossOutliersAndCalcErrors(ref, big,
                                           source, beg_errors); //in-out
     calc_stats("Input", beg_errors);
     //dump_llh(source, shift);
 
     // Compute the transformation to align the source to reference.
-    PointMatcher<RealT>::Matrix T = icp(source, ref, initT);
+    PointMatcher<RealT>::Matrix T = icp(source, ref, initT,
+                                        opt.compute_translation_only);
     vw_out() << "Match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
              << endl;
 

@@ -762,6 +762,7 @@ initial guess. It can come from a previous run of the tool. \\ \hline
 displacement of source points as result of alignment, in meters. Used
 for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-outlier-ratio \textit{default: 0.75}} &  Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed). \\ \hline
+\texttt{-\/-max-num-reference-points \textit{default: 100000000}} & Maximum number of (randomly picked) reference points to use). \\ \hline
 \texttt{-\/-max-num-source-points \textit{default: 25000}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
@@ -771,6 +772,7 @@ auto-detecting it. [WGS\_1984, D\_MOON, D\_MARS] \\ \hline
 option. Read the alignment parameters from a configuration file, in the
 format expected by libpointmatcher, over-riding the command-line options.\\ \hline
 \texttt{-\/-output-prefix|-o \textit{filename}} & Specify the output file prefix. \\ \hline
+\texttt{-\/-compute-translation-only} & Compute the transform from source to reference point cloud as a translation only (no rotation). \\ \hline
 \texttt{-\/-save-transformed-source-points} & Apply the obtained transform to the source points so they match the reference points and save them. \\ \hline
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
 \\ \hline
