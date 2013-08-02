@@ -81,19 +81,16 @@ namespace asp {
       Vector<int> indices(10);
       Vector<float> distances(10);
 
-      // Iterate over a subsection of the first list
       for ( IPListIter ip = m_start; ip != m_end; ip++ ) {
         Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
         Vector3 line_eq;
 
         // Can't assume the camera is safe (ISIS)
         {
-          // Generating the line equation
           Mutex::Lock lock( m_camera_mutex );
           line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2 );
         }
 
-        // Match the current ip against the right and return the closest 10 by descriptor
         std::vector<std::pair<float,int> > kept_indices;
         kept_indices.reserve(10);
         m_tree.knn_search( ip->descriptor, indices, distances, 10 );
@@ -176,42 +173,6 @@ namespace asp {
                                              camera_mutex, output_it ) );
     matching_queue.add_task( match_task );
     matching_queue.join_all();
-  }
-
-  void produce_match_subset( vw::ip::InterestPointList const& ip1,
-                             vw::ip::InterestPointList const& ip2,
-                             std::vector<size_t> const& match_indices,
-                             std::vector<vw::ip::InterestPoint>& matched_ip1,
-                             std::vector<vw::ip::InterestPoint>& matched_ip2 ) {
-    const size_t NULL_INDEX = (size_t)(-1);
-
-    size_t valid_count = 0;
-    for ( size_t i = 0; i < match_indices.size(); i++ ) {
-      if ( match_indices[i] != NULL_INDEX ) valid_count++;
-    }
-
-    matched_ip1.clear();
-    matched_ip2.clear();
-    matched_ip1.reserve( valid_count ); // Get our allocations out of the way.
-    matched_ip2.reserve( valid_count );
-
-    ip::InterestPointList::const_iterator ip1_it = ip1.begin(), ip2_it = ip2.begin();
-    for ( size_t i = 0; i < match_indices.size(); i++ ) {
-      if ( match_indices[i] != NULL_INDEX ) {
-        matched_ip1.push_back( *ip1_it );
-        ip2_it = ip2.begin();
-        std::advance( ip2_it, match_indices[i] );
-        matched_ip2.push_back( *ip2_it );
-      }
-      ip1_it++;
-    }
-  }
-
-  void ApplyIPTransform::operator()( vw::ip::InterestPoint& ip ) const {
-    Vector2 l( ip.x, ip.y);
-    l = m_tx.reverse( l );
-    ip.ix = ip.x = l.x();
-    ip.iy = ip.y = l.y();
   }
 
   void check_homography_matrix(Matrix<double>       const& H,
@@ -375,7 +336,7 @@ namespace asp {
                             vw::camera::CameraModel* cam1,
                             vw::camera::CameraModel* cam2,
                             vw::cartography::Datum const& datum,
-                            std::vector<size_t>& output_indices,
+                            std::list<size_t>& output,
                             vw::TransformRef const& left_tx,
                             vw::TransformRef const& right_tx ) {
     typedef std::vector<double> ArrayT;
@@ -434,8 +395,7 @@ namespace asp {
     }
 
     // Record indices of points that match our clustering result
-    output_indices =
-      std::vector<size_t>( matched_ip1.size(), (size_t)(-1) );
+    output.clear();
     const double escalar1 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.front().second[0] ); // outside exp of normal eq
     const double escalar2 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.back().second[0] );
     const double escalar3 = 1.0 / (2 * error_clusters.front().second[0] ); // inside exp of normal eq
@@ -464,7 +424,7 @@ namespace asp {
          fabs(alt_diff_front) < 3 * sqrt(alt_clusters.front().second[0]) );
 
       if ( error_inlier && alt_inlier ) {
-        output_indices[i] = i;
+        output.push_back(i);
       }
     }
 
