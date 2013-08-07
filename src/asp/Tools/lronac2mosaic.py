@@ -399,8 +399,6 @@ def cubenorm( mosaicList, threads, delete=False ):
 
 #--------------------------------------------------------------------------------
 
-#TODO: Disable multi-file capability
-
 def main():
 
     try:
@@ -430,6 +428,11 @@ def main():
 
         except optparse.OptionError, msg:
             raise Usage(msg)
+
+	# Make sure only one pair of cubes was passed in
+        input_file_pair = build_cube_pairs( args )
+        if len(input_file_pair) > 1:
+            raise Usage('Input error: Only one pair of input files are allowed!')
 
         print "Beginning processing....."
 
