@@ -101,7 +101,7 @@ def read_flatfile( flat ):
         elif ( line.rfind("Using IpFind result only:") >= 0 ):
             index       = line.rfind("only:");
             if (line[index + 7] == 1):
-                printf('Warning: This result based only on IpFind search."
+                print "Warning: This result based only on IpFind search."
     print str(averages)
     return averages
 
@@ -436,9 +436,9 @@ def main():
             raise Usage(msg)
 
 	# Make sure only one pair of cubes was passed in
-        input_file_pair = build_cube_pairs( args )
-        if len(input_file_pair) > 1:
-            raise Usage('Input error: Only one pair of input files are allowed!')
+#        input_file_pair = build_cube_pairs( args )
+#        if len(input_file_pair) > 1:
+#            raise Usage('Input error: Only one pair of input files are allowed!')
 
         print "Beginning processing....."
 
