@@ -503,7 +503,7 @@ bool determineShifts(Parameters & params,
      {
        if (ransacSuccess)
        {
-    	 printf("Pixel correlation search failed, using IpFind results.\n")
+    	 printf("Pixel correlation search failed, using IpFind results.\n");
 		 out << "#   Using IpFind result only:   1" << endl;
   	     out << "#   Average Sample Offset: " << setprecision(4) << ipFindXOffset
 		     << "  StdDev: 0.0" << endl;
