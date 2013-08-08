@@ -98,6 +98,10 @@ def read_flatfile( flat ):
             if crop == "   NULL ": # Check for null value
                 raise Exception('Null sample offset in file ' + flat)
             averages[1] = float(crop);
+        elif ( line.rfind("Using IpFind result only:") >= 0 ):
+            index       = line.rfind("only:");
+            if (line[index + 7] == 1):
+                printf('Warning: This result based only on IpFind search."
     print str(averages)
     return averages
 
@@ -212,7 +216,7 @@ def spice( cub_files, threads):
 # Returns true if the .cub LRONAC file has CROSSTRACK_SUMMING = 1
 def isFileHalfRes(cubFilePath):
 
-    return false; # It looks like the normal pvl file works so use it in all cases
+    return False; # It looks like the normal pvl file works so use it in all cases
 
     f = open(cubFilePath, 'r')
     for line in f:
@@ -398,6 +402,8 @@ def cubenorm( mosaicList, threads, delete=False ):
     return normedList
 
 #--------------------------------------------------------------------------------
+
+#TODO: Support for file based logging of results
 
 def main():
 
