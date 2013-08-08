@@ -21,6 +21,7 @@
 
 #include <asp/Tools/stereo.h>
 #include <vw/InterestPoint.h>
+#include <vw/Image/MaskViews.h>
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
 #include <vw/FileIO/DiskImageResource.h>
@@ -211,22 +212,45 @@ bool determineShifts(Parameters & params,
   const BBox2i crop_roi( cropStartX, imageTopRow,
 			 params.cropWidth, imageHeight );
   std::cout << "Expected overlap ROI = " << crop_roi << std::endl;
-
+/*
   // Dump the cropped image to disk
   ImageView<PixelRGB<uint8> > rgbLeft  = 2500*crop(left_disk_image,crop_roi);
-  ImageView<PixelRGB<uint8> > rgbRight = 2500*crop(right_disk_image,crop_roi);
+  ImageView<PixelRGB<uint8> > rgbRight = 2500*crop(right_disk_image, crop_roi);
   vw::write_image("cropdumpLeft.tif",  rgbLeft);
   vw::write_image("cropdumpRight.tif", rgbRight);  
 
+  for (int i=0; i<10; ++i)
+  {
+    for (int j=0; j<10; ++j)
+    {
+      float a = right_disk_image(cropStartX+j, 0+i);
+      std::cout << a << ", ";
+    }
+    std::cout << std::endl;
+  }
+
+  std::cout << std::endl;
+  std::cout << std::endl;
+  for (int i=0; i<10; ++i)
+  {
+    for (int j=0; j<10; ++j)
+    {
+      float a = left_disk_image(cropStartX+j, 0+i);
+      std::cout << a << ", ";
+    }
+    std::cout << std::endl;
+  }
+
+  ImageView<PixelRGB<uint8> > rgbRightI = 0.005*vw::ip::IntegralImage( vw::create_mask_less_or_equal(crop(right_disk_image,crop_roi), 0) );
   ImageView<PixelRGB<uint8> > rgbLeftI  = 0.005*vw::ip::IntegralImage( crop(left_disk_image, crop_roi) );
-  ImageView<PixelRGB<uint8> > rgbRightI = 0.005*vw::ip::IntegralImage( crop(right_disk_image,crop_roi) );
   write_image("leftCropIntegral.tif",  rgbLeftI );
   write_image("rightCropIntegral.tif", rgbRightI);
+*/
 
   const int SEARCH_RANGE_EXPANSION = 5;
   int  ipFindXOffset = 0;
   int  ipFindYOffset = 0;
-  bool ransacFailed  = false;
+  bool ransacSuccess = false;
 
   // If the search box was not fully populated use ipfind to estimate a search region
   if ( (params.h_corr_min > params.h_corr_max) || (params.v_corr_min > params.v_corr_max) )
@@ -236,13 +260,13 @@ bool determineShifts(Parameters & params,
 
     // Gather interest points
     asp::IntegralAutoGainDetector detector( 500 );
-    ip::InterestPointList ip1 = ip::detect_interest_points( crop(left_disk_image, crop_roi), detector );
-    ip::InterestPointList ip2 = ip::detect_interest_points( crop(right_disk_image,crop_roi), detector );
+    ip::InterestPointList ip1 = ip::detect_interest_points( vw::create_mask_less_or_equal(crop(left_disk_image, crop_roi), 0), detector );
+    ip::InterestPointList ip2 = ip::detect_interest_points( vw::create_mask_less_or_equal(crop(right_disk_image,crop_roi), 0), detector );
     printf("Found %lu, %lu interest points.\n", ip1.size(), ip2.size());
        
     ip::SGradDescriptorGenerator descriptor;
-    describe_interest_points( crop(left_disk_image, crop_roi), descriptor, ip1 );
-    describe_interest_points( crop(right_disk_image,crop_roi), descriptor, ip2 );
+    describe_interest_points( vw::create_mask_less_or_equal(crop(left_disk_image, crop_roi), 0), descriptor, ip1 );
+    describe_interest_points( vw::create_mask_less_or_equal(crop(right_disk_image,crop_roi), 0), descriptor, ip2 );
 
     // Match interest points
     ip::DefaultMatcher matcher(0.5);
@@ -252,7 +276,7 @@ bool determineShifts(Parameters & params,
 
     if (matched_ip1.empty() || matched_ip2.empty())
     {
-     ransacFailed = true;
+     ransacSuccess = false;
      printf("Failed to find any matching interest points, defaulting to large search range.\n");
     }
     else
@@ -275,11 +299,12 @@ bool determineShifts(Parameters & params,
         // Use the estimated transform between the images to determine a search offset range
         ipFindXOffset = static_cast<int>(H[0][2]);
         ipFindYOffset = static_cast<int>(H[1][2]);
+        ransacSuccess = true;
       }
       catch(...) // Handle a RANSAC failure
       {
         printf("RANSAC solution failed, defaulting to large search range.\n");
-        ransacFailed = true;
+        ransacSuccess = false;
       }
     } // End of successful IP matching 
 
@@ -288,7 +313,7 @@ bool determineShifts(Parameters & params,
   BBox2i searchRegion(ipFindXOffset, ipFindYOffset, 1, 1 );
   searchRegion.expand(SEARCH_RANGE_EXPANSION);
 
-  if (ransacFailed) // Default to a large search radius
+  if (!ransacSuccess) // Default to a large search radius
   {
     searchRegion.min()[0] = -100;
     searchRegion.max()[0] =  100;
@@ -328,8 +353,8 @@ bool determineShifts(Parameters & params,
   double seconds_per_op = 0.0;
   DiskCacheImageView<PixelMask<Vector2i> >
     disparity_map
-    ( stereo::pyramid_correlate( crop( left_disk_image,  crop_roi ),
-				 crop( right_disk_image, crop_roi ),
+    ( stereo::pyramid_correlate( crop(left_disk_image,  crop_roi),
+    		crop(right_disk_image, crop_roi ),
 				 constant_view( uint8(255), left_disk_image ),
 				 constant_view( uint8(255), right_disk_image ),
 				 stereo::LaplacianOfGaussian(params.log),
@@ -468,27 +493,37 @@ bool determineShifts(Parameters & params,
     };
     if(numValidRows > 0) 
     {
-      out << "#   Average Sample Offset: " << setprecision(4)
-          << stdCalcX.Mean()
-          << "  StdDev: " << setprecision(4) << stdCalcX.StandardDeviation()
-          << endl;
-      out << "#   Average Line Offset:   " << setprecision(4)
-          << stdCalcY.Mean()
-          << " StdDev: " << setprecision(4) << stdCalcY.StandardDeviation()
-          << endl;
+      out << "#   Using IpFind result only:   0" << endl;
+      out << "#   Average Sample Offset: " << setprecision(4) << stdCalcX.Mean()
+          << "  StdDev: " << setprecision(4) << stdCalcX.StandardDeviation() << endl;
+      out << "#   Average Line Offset:   " << setprecision(4) << stdCalcY.Mean()
+          << " StdDev: " << setprecision(4) << stdCalcY.StandardDeviation() << endl;
      }
      else  // No valid rows
      {
-       out << "#   Average Sample Offset: NULL StdDev: NULL\n";
-       out << "#   Average Line Offset:   NULL StdDev: NULL\n";
+       if (ransacSuccess)
+       {
+    	 printf("Pixel correlation search failed, using IpFind results.\n")
+		 out << "#   Using IpFind result only:   1" << endl;
+  	     out << "#   Average Sample Offset: " << setprecision(4) << ipFindXOffset
+		     << "  StdDev: 0.0" << endl;
+	     out << "#   Average Line Offset:   " << setprecision(4) << ipFindYOffset
+		     << " StdDev: 0.0" << endl;
+       }
+       else // No information to go by
+       {
+    	 out << "#   Using IpFind result only:   0" << endl;
+         out << "#   Average Sample Offset: NULL StdDev: NULL\n";
+         out << "#   Average Line Offset:   NULL StdDev: NULL\n";
+       }
      }
 
     out.close();                   
   }  
   
-  if (numValidRows == 0)
+  if ((numValidRows == 0) && (!ransacSuccess))
   {
-    printf("Error: No valid pixel matches found!\n");
+	printf("Error: No valid pixel matches found!\n");
     return false;
   }
   
