@@ -172,13 +172,14 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
   std::string tex_file;
   if ( opt.texture_file_name.size() ) {
     DiskImageView<PixelGray<uint8> > previous_texture(opt.texture_file_name);
-    tex_file = prefix_from_pointcloud_filename(opt.texture_file_name) + "-tex";
+    tex_file = prefix_from_pointcloud_filename(opt.output_prefix) + "-tex";
     if (point_image.impl().cols() > 4096 ||
         point_image.impl().rows() > 4096 ) {
       vw_out() << "Resampling to reduce texture size:\n";
       float tex_sub_scale = 4096.0/float(std::max(previous_texture.cols(),previous_texture.rows()));
       ImageViewRef<PixelGray<uint8> > new_texture = resample(previous_texture,tex_sub_scale);
       vw_out() << "\t--> Texture size: [" << new_texture.cols() << ", " << new_texture.rows() << "]\n";
+      vw_out() << "Writing temporary file: " << tex_file+".tif" << "\n";
       asp::block_write_gdal_image( tex_file+".tif", new_texture, opt,
                                    TerminalProgressCallback("asp","\tSubsampling:") );
     } else {
@@ -186,6 +187,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
       // normalizes the data for us (which is a problem for datasets
       // like HiRISE which will feed us tiffs with values outside of
       // 0-1).
+      vw_out() << "Writing temporary file: " << tex_file+".tif" << "\n";
       asp::block_write_gdal_image( tex_file+".tif", previous_texture, opt,
                                    TerminalProgressCallback("asp","\tNormalizing:") );
     }
@@ -195,6 +197,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
     // if gdal was compiled with internal tiff, and osg will fail to load
     // the texture. To avoid all this, we resave our subsampled texture as a jpg
     DiskImageView<PixelGray<uint8> > new_texture(tex_file+".tif");
+    vw_out() << "Writing temporary file: " << tex_file+".jpg" << "\n";
     write_image(tex_file+".jpg", new_texture);
     unlink((tex_file+".tif").c_str());
     tex_file += ".jpg";
@@ -321,8 +324,8 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
   }
 
   //////////////////////////////////////////////////
-  /// Deciding How to draw triangle strips
-  vw_out() << "Drawing Triangle Strips\n";
+  // Deciding How to draw triangle strips
+  vw_out() << "Drawing triangle strips\n";
   {
     uint32 col_steps = point_image.impl().cols()/opt.step_size;
 
@@ -391,7 +394,7 @@ osg::Node* build_mesh( vw::ImageViewBase<ViewT> const& point_image,
   /// Adding texture to the DTM
   if (tex_file.size()){
 
-    vw_out() << "Attaching Texture Data\n";
+    vw_out() << "Attaching texture data\n";
 
     osg::Image* textureImage = osgDB::readImageFile(tex_file.c_str());
 
@@ -462,6 +465,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.output_prefix.empty() )
     opt.output_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
+
+  asp::create_out_dir(opt.output_prefix);
+
   opt.simplify_mesh = vm.count("simplify-mesh");
 }
 
@@ -508,7 +514,7 @@ int main( int argc, char *argv[] ){
     }
 
     if ( opt.smooth_mesh ) {
-      vw_out() << "Smoothing Data\n";
+      vw_out() << "Smoothing data\n";
       osgUtil::SmoothingVisitor sv;
       opt.root->accept(sv);
     }
@@ -517,7 +523,7 @@ int main( int argc, char *argv[] ){
       if ( opt.simplify_percent == 0.0 )
         opt.simplify_percent = 1.0;
 
-      vw_out() << "Simplifying Data\n";
+      vw_out() << "Simplifying data\n";
       osgUtil::Simplifier simple;
       simple.setSmoothing( opt.smooth_mesh );
       simple.setSampleRatio( opt.simplify_percent );
@@ -525,15 +531,15 @@ int main( int argc, char *argv[] ){
     }
 
     {
-      vw_out() << "Optimizing Data\n";
+      vw_out() << "Optimizing data\n";
       osgUtil::Optimizer optimizer;
       optimizer.optimize( opt.root.get() );
     }
 
     {
-      vw_out() << "\nSaving Data:\n";
       std::ostringstream os;
       os << opt.output_prefix << "." << opt.output_file_type;
+      vw_out() << "Writing: " << os.str() << "\n";
       osgDB::writeNodeFile( *opt.root.get() , os.str() );
     }
 
