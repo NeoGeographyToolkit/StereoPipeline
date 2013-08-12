@@ -25,12 +25,6 @@ bin_SCRIPTS =
 libexec_SCRIPTS =
 libexec_PROGRAMS = # Auxiliary C++ executables
 
-#TODO: Add the new code properly!
-bin_PROGRAMS += lronacjitreg
-lronacjitreg_LDADD = $(APP_STEREO_LIBS)
-lronacjitreg_SOURCES = lronacjitreg.cc
-
-
 if MAKE_APP_STEREO
   bin_SCRIPTS += stereo parallel_stereo sparse_disp dg_mosaic
   libexec_SCRIPTS += stereo_utils.py
@@ -180,6 +174,13 @@ if MAKE_APP_TIF_MOSAIC
   libexec_PROGRAMS += tif_mosaic
   tif_mosaic_SOURCES = tif_mosaic.cc
   tif_mosaic_LDADD   = $(APP_TIF_MOSAIC_LIBS)
+endif
+
+if MAKE_APP_LRONACJITREG
+  bin_PROGRAMS += lronacjitreg
+  bin_SCRIPTS  += lronac2mosaic.py
+  lronacjitreg_LDADD = $(APP_LRONACJITREG_LIBS)
+  lronacjitreg_SOURCES = lronacjitreg.cc
 endif
 
 # Scripts
