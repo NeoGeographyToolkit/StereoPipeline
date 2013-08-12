@@ -212,40 +212,6 @@ bool determineShifts(Parameters & params,
   const BBox2i crop_roi( cropStartX, imageTopRow,
 			 params.cropWidth, imageHeight );
   std::cout << "Expected overlap ROI = " << crop_roi << std::endl;
-/*
-  // Dump the cropped image to disk
-  ImageView<PixelRGB<uint8> > rgbLeft  = 2500*crop(left_disk_image,crop_roi);
-  ImageView<PixelRGB<uint8> > rgbRight = 2500*crop(right_disk_image, crop_roi);
-  vw::write_image("cropdumpLeft.tif",  rgbLeft);
-  vw::write_image("cropdumpRight.tif", rgbRight);  
-
-  for (int i=0; i<10; ++i)
-  {
-    for (int j=0; j<10; ++j)
-    {
-      float a = right_disk_image(cropStartX+j, 0+i);
-      std::cout << a << ", ";
-    }
-    std::cout << std::endl;
-  }
-
-  std::cout << std::endl;
-  std::cout << std::endl;
-  for (int i=0; i<10; ++i)
-  {
-    for (int j=0; j<10; ++j)
-    {
-      float a = left_disk_image(cropStartX+j, 0+i);
-      std::cout << a << ", ";
-    }
-    std::cout << std::endl;
-  }
-
-  ImageView<PixelRGB<uint8> > rgbRightI = 0.005*vw::ip::IntegralImage( vw::create_mask_less_or_equal(crop(right_disk_image,crop_roi), 0) );
-  ImageView<PixelRGB<uint8> > rgbLeftI  = 0.005*vw::ip::IntegralImage( crop(left_disk_image, crop_roi) );
-  write_image("leftCropIntegral.tif",  rgbLeftI );
-  write_image("rightCropIntegral.tif", rgbRightI);
-*/
 
   const int SEARCH_RANGE_EXPANSION = 5;
   int  ipFindXOffset = 0;
@@ -353,8 +319,8 @@ bool determineShifts(Parameters & params,
   double seconds_per_op = 0.0;
   DiskCacheImageView<PixelMask<Vector2i> >
     disparity_map
-    ( stereo::pyramid_correlate( crop(left_disk_image,  crop_roi),
-    		crop(right_disk_image, crop_roi ),
+    ( stereo::pyramid_correlate( apply_mask(create_mask_less_or_equal(crop(left_disk_image,  crop_roi),0)),
+				 apply_mask(create_mask_less_or_equal(crop(right_disk_image, crop_roi),0)),
 				 constant_view( uint8(255), left_disk_image ),
 				 constant_view( uint8(255), right_disk_image ),
 				 stereo::LaplacianOfGaussian(params.log),
