@@ -19,8 +19,12 @@
 
 import sys, optparse, subprocess, re
 import os.path as P
-sys.path.append(sys.path[0] + '/../libexec')
-from stereo_utils import *
+libexec_path = sys.path[0] + '/../libexec'
+sys.path.insert(0, libexec_path) # prepend to Python path
+from stereo_utils import * # must be after the path is altered above
+
+# Prepend to system PATH
+os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
 
 if __name__ == '__main__':
     usage = '''stereo [options] <Left_input_image> <Right_input_image>

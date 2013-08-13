@@ -20,8 +20,12 @@
 import sys, optparse, subprocess, re, os, math, time, tempfile
 import shutil
 import os.path as P
-sys.path.append(sys.path[0] + '/../libexec')
-from stereo_utils import *
+libexec_path = sys.path[0] + '/../libexec'
+sys.path.insert(0, libexec_path) # prepend to Python path
+from stereo_utils import * # must be after the path is altered above
+
+# Prepend to system PATH
+os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
 
 job_pool  = [] # currently running jobs
 
