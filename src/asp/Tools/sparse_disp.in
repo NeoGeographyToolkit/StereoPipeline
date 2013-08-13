@@ -18,7 +18,7 @@
 
 
 import sys, optparse, subprocess, re, os, math, time, datetime
-import gdal, gdalconst
+from osgeo import gdal, gdalconst
 #import os.path as P
 import numpy as np
 import scipy as sp
