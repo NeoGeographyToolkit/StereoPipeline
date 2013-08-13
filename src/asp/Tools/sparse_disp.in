@@ -1172,7 +1172,7 @@ def main():
                       help="initial y search range, pixels (%default)")
     parser.add_option("-t", "--template", dest="t_pixels", default=56, type="int",
                       help="template size, pixels (%default)")
-    parser.add_option("-c", "--coarse", dest="coarse_skip", default=512, type="int",
+    parser.add_option("-c", "--coarse", dest="coarse_skip", default=None, type="int",
                       help="initial search-point spacing, pixels (%default)")
     parser.add_option("-f", "--fine", dest="fine_skip", default=64, type="int",
                       help="final search-point spacing, pixels (%default)")
@@ -1233,6 +1233,17 @@ def main():
     if options.s_ny > prev2y/4:
         options.s_ny = prev2y/4
         print "Warning: Decreasing ysearch value to: %d" % options.s_ny
+
+    #Automatically set coarse_skip if not specified
+    if options.coarse_skip is None:
+        options.coarse_skip = np.min([prev2x/4, prev2y/4])
+        print "Setting coarse skip to: %d" % options.coarse_skip
+    else:
+        #Check to make sure coarse_skip isn't TOO coarse
+        #Minimum of 4 points in smallest dimension
+        if options.coarse_skip > np.min([prev2x/4, prev2y/4]):
+            options.coarse_skip = np.min([prev2x/4, prev2y/4])
+            print "Warning: decreasing coarse skip to: %d" % options.coarse_skip
 
     if options.coarse_skip > np.min([prev2x/4, prev2y/4]):
         options.coarse_skip = np.min([prev2x/4, prev2y/4])
