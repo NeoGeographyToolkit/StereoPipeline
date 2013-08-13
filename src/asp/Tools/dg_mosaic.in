@@ -22,8 +22,12 @@
 
 import os, sys, string, subprocess, math, re, optparse, time, copy, tempfile
 from datetime import datetime, timedelta
-sys.path.append(sys.path[0] + '/../libexec')
-from stereo_utils import *
+libexec_path = sys.path[0] + '/../libexec'
+sys.path.insert(0, libexec_path) # prepend to Python path
+from stereo_utils import * # must be after the path is altered above
+
+# Prepend to system PATH
+os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
 
 def format_microsec(microsec):
     # Ensure that we have 6 digits in a microsecond. Pre-pad with
