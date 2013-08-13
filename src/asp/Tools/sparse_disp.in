@@ -274,7 +274,9 @@ def norm_xcorr(t,a,method=None,trim=True,do_ssd=False):
 	std_t,mean_t = np.std(t),np.mean(t)
 
 	if std_t == 0:
-		raise Exception('The values of the template must not all be equal (they are equal to %f)' % mean_t)
+		#raise Exception('The values of the template must not all be equal (they are equal to %f)' % mean_t)
+        #warnings.warn('The values of the template are all the same, correlation failed')
+        return None
 
 	t = np.float64(t)
 	a = np.float64(a)
@@ -435,7 +437,9 @@ def fast_ssd(t,a,method=None,trim=True):
 	std_t,mean_t = np.std(t),np.mean(t)
 
 	if std_t == 0:
-		raise Exception('The values of the template must not all be equal (they are all equal to %f)' % t[0,0])
+		#raise Exception('The values of the template must not all be equal (they are all equal to %f)' % t[0,0])
+        #warnings.warn('The values of the template are all the same, correlation failed')
+        return None
 
 	# output dimensions of xcorr need to match those of local_sum
 	outdims = np.array([a.shape[dd]+t.shape[dd]-1 for dd in xrange(a.ndim)])
