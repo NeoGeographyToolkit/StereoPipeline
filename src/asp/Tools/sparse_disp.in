@@ -1178,7 +1178,7 @@ def main():
                       help="final search-point spacing, pixels (%default)")
     parser.add_option("-r","--refine_tol", dest="refine_tol", default=8, type="int",
                       help="pixel range tolerance for refinement (%default)")
-    parser.add_option("-d","--output_dec_scale", dest="output_scale",  default=6, type="int",
+    parser.add_option("-d","--output_dec_scale", dest="output_scale",  default=8, type="int",
                       help="if set, output a second copy of the offsets scaled by this amount (%default), to file called OUTFILE_(OUTPUT_SCALE)")
     parser.add_option("-p","--output_pad",dest="output_pad", default=2, type="int",
                       help="pad the output search range by this amount (%default)")
