@@ -1289,6 +1289,7 @@ def main():
     D_origin = np.c_[ftm.UL_T-ftm.UL_S].transpose()
     D_origin[0][0]=np.floor(D_origin[0][0]/np.abs(GT[1]))
     D_origin[0][1]=np.floor(D_origin[0][1]/np.abs(GT[5]))
+    print "Running initial search: " + str(datetime.datetime.now())
 
     dxy0=np.dot(np.c_[np.ones_like(XY0[:,0])], D_origin*[1, -1])
     dxy_score=np.c_[dxy0[:,0]-s_nx/2., dxy0[:,0]+s_nx/2, dxy0[:,1]-s_ny/2, dxy0[:,1]+s_ny/2]
