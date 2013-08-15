@@ -660,12 +660,13 @@ void save_errors(string errFile, PointMatcher<RealT>::Matrix const& errors){
   }
 }
 
-void save_transform(Options const& opt,
-                    PointMatcher<RealT>::Matrix const& T,
-                    Vector3 const& shift){
+void save_transforms(Options const& opt,
+                     PointMatcher<RealT>::Matrix const& T,
+                     Vector3 const& shift){
 
   // Save the transform in the original coordinate system
-  // (so we undo the internal shift).
+  // (so we undo the internal shift). Save its inverse as well.
+
   PointMatcher<RealT>::Matrix globalT = apply_shift(T, -shift);
   string transFile = opt.output_prefix + "-transform.txt";
   cout.precision(16);
@@ -675,6 +676,15 @@ void save_transform(Options const& opt,
   tf.precision(16);
   tf << globalT << endl;
   tf.close();
+
+  string iTransFile = opt.output_prefix + "-inverse-transform.txt";
+  PointMatcher<RealT>::Matrix invT = globalT.inverse();
+  vw_out() << "Writing: " << iTransFile  << endl;
+  ofstream itf(iTransFile.c_str());
+  itf.precision(16);
+  itf << invT << endl;
+  itf.close();
+
 }
 
 void save_point_clouds(Options const& opt,
@@ -828,7 +838,7 @@ int main( int argc, char *argv[] ) {
                                           trans_source, end_errors); // in-out
     calc_stats("Output", end_errors);
 
-    save_transform(opt, T, shift);
+    save_transforms(opt, T, shift);
 
     // Save the point clouds if requested.
     // Note: We modify them along the way, so this must be the last step!
