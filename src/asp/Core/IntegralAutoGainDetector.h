@@ -77,6 +77,7 @@ namespace asp {
         Timer t("done, elapsed time", DebugMessage, "interest_point");
         m_interest( interest_data[1], 1 );
       }
+
       // Finally processing scales
       for ( int scale = 2; scale < m_scales; scale++ ) {
 
@@ -104,7 +105,7 @@ namespace asp {
           AccessT h_col = h_row;
           for ( int32 c=0; c < cols; c++ ) {
             if ( is_extrema( l_col, m_col, h_col ) ) {
-              scale_points.push_back(ip::InterestPoint(c+2,r+2,
+              scale_points.push_back(ip::InterestPoint(c+1,r+1,
                                                        m_interest.float_scale(scale-1),
                                                        *m_col) );
             }
@@ -167,17 +168,18 @@ namespace asp {
       AccessT mid_o = mid;
       AccessT hi_o  = hi;
 
-      if ( *mid_o <= *low_o ||
-           *mid_o <= *hi_o  ) return false;
+      if ( *mid_o <= *low_o ) return false;
+      if ( *mid_o <= *hi_o  ) return false;
 
-      low_o.advance(-1,-1); mid_o.advance(-1,-1);hi_o.advance(-1,-1);
-      if ( *mid <= *low_o ||
-           *mid <= *mid_o ||
-           *mid <= *hi_o ) return false;
-
-      for ( vw::uint8 step = 1; step < 8; step++ ) {
-        if ( step == 1 || step == 2 || step == 5 || step == 6 ) {
+      for ( vw::uint8 step = 0; step < 8; step++ ) {
+        if ( step == 0 ) {
+          low_o.advance(-1,-1); mid_o.advance(-1,-1);hi_o.advance(-1,-1);
+        } else if ( step == 1 || step == 2 ) {
           low_o.next_col(); mid_o.next_col(); hi_o.next_col();
+        } else if ( step == 3 || step == 4 ) {
+          low_o.next_row(); mid_o.next_row(); hi_o.next_row();
+        } else if ( step == 5 || step == 6 ) {
+          low_o.prev_col(); mid_o.prev_col(); hi_o.prev_col();
         } else {
           low_o.prev_row(); mid_o.prev_row(); hi_o.prev_row();
         }

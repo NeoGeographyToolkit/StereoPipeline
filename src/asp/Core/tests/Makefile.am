@@ -26,13 +26,14 @@ TestAntiAliasing_SOURCES       = TestAntiAliasing.cxx
 TestBlobIndexThreaded_SOURCES  = TestBlobIndexThreaded.cxx
 TestErodeView_SOURCES          = TestErodeView.cxx
 TestGaussianClustering_SOURCES = TestGaussianClustering.cxx
+TestIntegralAutoGainDetector_SOURCES = TestIntegralAutoGainDetector.cxx
 TestInterestPointMatching_SOURCES = TestInterestPointMatching.cxx
 TestThreadedEdgeMask_SOURCES   = TestThreadedEdgeMask.cxx
 TestSoftwareRenderer_SOURCES   = TestSoftwareRenderer.cxx
 
 TESTS = TestErodeView TestBlobIndexThreaded TestThreadedEdgeMask \
         TestGaussianClustering TestInterestPointMatching         \
-        TestSoftwareRenderer TestAntiAliasing
+        TestSoftwareRenderer TestAntiAliasing TestIntegralAutoGainDetector
 
 endif
 
