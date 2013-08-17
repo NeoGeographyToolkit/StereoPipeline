@@ -30,7 +30,7 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
 
   const float SIGMA = 3;
 
-  // Drawing a sinc function
+  // Drawing a DoG signal
   Vector2i location, center(50,50);
   for ( ; location.y() < test_image.rows(); location.y()++ ) {
     for ( location.x() = 0; location.x() < test_image.cols(); location.x()++ ) {
@@ -43,8 +43,12 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
     }
   }
 
+  // Detect interest points
   IntegralAutoGainDetector detector;
   ip::InterestPointList list = detector.process_image( test_image );
+  EXPECT_EQ( list.size(), 9 ); // Digitization error
+
+  // Find the best IP
   const ip::InterestPoint* best_ip = &list.front();
   float best_ip_value = list.begin()->interest;
   BOOST_FOREACH( ip::InterestPoint const& ip, list ) {
@@ -53,6 +57,11 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
       best_ip = &ip;
     }
   }
+
+  // The best IP is the one centered on the circle feature we
+  // drew. There are more due to digitization errors and float point
+  // errors in the the integral image.
   EXPECT_EQ( best_ip->x, 50 );
   EXPECT_EQ( best_ip->y, 50 );
+  EXPECT_EQ( best_ip->scale, 1.875 );
 }

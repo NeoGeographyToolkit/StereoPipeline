@@ -415,6 +415,10 @@ namespace asp {
         (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
         error_samples[i] < error_clusters.front().first[0];
 
+      if ( error_inlier ) {
+        std::cout << i << " " << error_samples[i] << " " << alt_samples[i] << " " << error_clusters.front().first[0]  << std::endl;
+      }
+
       // Is this point an inlier in terms of altitude against world datum?
       bool alt_inlier =
         disable_alt_check ||
@@ -426,6 +430,27 @@ namespace asp {
       if ( error_inlier && alt_inlier ) {
         output.push_back(i);
       }
+    }
+
+    // See what happens if we apply altitude thresholding here ...
+    alt_samples.clear();
+    BOOST_FOREACH( size_t i, output ) {
+      double error;
+      Vector3 geodetic =
+        datum.cartesian_to_geodetic( model( left_tx.reverse(Vector2( matched_ip1[i].x, matched_ip1[i].y )),
+                                            right_tx.reverse(Vector2(matched_ip2[i].x,
+                                                                     matched_ip2[i].y)),
+                                            error ) );
+      alt_samples.push_back( geodetic.z() );
+    }
+    alt_clusters =
+      asp::gaussian_clustering<ArrayT>( alt_samples.begin(),
+                                        alt_samples.end(), 2 );
+    if ( alt_clusters.front().second[0] > alt_clusters.back().second[0] &&
+         alt_clusters.back().second[0] != 0 )
+      std::swap( alt_clusters[0], alt_clusters[1] );
+    BOOST_FOREACH( float a, alt_samples ) {
+      std::cout << a << std::endl;
     }
 
     return true;

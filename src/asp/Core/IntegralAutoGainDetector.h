@@ -22,6 +22,8 @@
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/InterestPoint/IntegralDetector.h>
 #include <vw/InterestPoint/IntegralInterestOperator.h>
+#include <boost/foreach.hpp>
+#include <vw/Image/Statistics.h>
 
 namespace asp {
 
@@ -118,10 +120,20 @@ namespace asp {
           h_row.next_row();
         }
 
-        VW_OUT(DebugMessage, "interest_point") << "\tPrior to thresholding there was: " << scale_points.size() << "\n";
+        VW_OUT(DebugMessage, "interest_point") << "\tPrior to thresholding there was: "
+                                               << scale_points.size() << "\n";
 
-        // Thresholding
-        threshold(scale_points, interest_data[1], scale-1);
+        // Remove all interest points in the bottom 0.1% of our interest point range
+        float imin, imax;
+        min_max_pixel_values( interest_data[1].interest(), imin, imax );
+        float threshold_lvl = imin + 0.001 * ( imax - imin );
+        VW_OUT(DebugMessage, "interest_point") << "\tInterest threshold for scale: " << threshold_lvl << "\n";
+
+        // Thresholding (in OBALOG this also does Harris)
+        threshold(scale_points, interest_data[1], scale-1, threshold_lvl);
+
+        VW_OUT(DebugMessage, "interest_point") << "\tAfter thresholding there was: "
+                                               << scale_points.size() << "\n";
 
         // Appending to the greater set
         new_points.insert(new_points.end(),
@@ -132,23 +144,22 @@ namespace asp {
         interest_data.pop_front();
       }
 
-      // Cull down to what we want
-      if ( m_obj_points > 0 && new_points.size() > m_obj_points ) { // Cull
+      // Are all points good?
+      if ( m_obj_points < new_points.size() && m_obj_points > 0 ) {
         VW_OUT(DebugMessage, "interest_point") << "\tCulling ...\n";
         Timer t("elapsed time", DebugMessage, "interest_point");
 
         int original_num_points = new_points.size();
 
-
         // Sort the interest of the points and pull out the top amount that the user wants
         new_points.sort();
-        VW_OUT(DebugMessage, "interest_point") << "     Best IP : " << new_points.front().interest << std::endl;
-        VW_OUT(DebugMessage, "interest_point") << "     Worst IP: " << new_points.back().interest << std::endl;
+        VW_OUT(DebugMessage, "interest_point") << "\t     Best IP : " << new_points.front().interest << std::endl;
+        VW_OUT(DebugMessage, "interest_point") << "\t     Worst IP: " << new_points.back().interest << std::endl;
         new_points.resize( m_obj_points );
 
-        VW_OUT(DebugMessage, "interest_point") << "     (removed " << original_num_points - new_points.size() << " interest points, " << new_points.size() << " remaining.)\n";
+        VW_OUT(DebugMessage, "interest_point") << "\t     (removed " << original_num_points - new_points.size() << " interest points, " << new_points.size() << " remaining.)\n";
       } else {
-        VW_OUT(DebugMessage, "interest_point") << "     Not enough IP to cull.\n";
+        VW_OUT(DebugMessage, "interest_point") << "\t     Not culling anything.\n";
       }
 
       return new_points;
@@ -194,14 +205,16 @@ namespace asp {
     template <class DataT>
     inline void threshold( vw::ip::InterestPointList& points,
                            DataT const& img_data,
-                           int const& scale ) const {
+                           int const& scale, float threshold_lvl ) const {
       vw::ip::InterestPointList::iterator pos = points.begin();
       while (pos != points.end()) {
-        if (!m_interest.threshold(*pos,
-                                  img_data, scale) )
+        if ( pos->interest < threshold_lvl ||
+             !m_interest.threshold(*pos,
+                                   img_data, scale) ) {
           pos = points.erase(pos);
-        else
+        } else {
           pos++;
+        }
       }
     }
   };
