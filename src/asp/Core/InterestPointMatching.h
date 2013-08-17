@@ -467,6 +467,7 @@ namespace asp {
                               ip1_copy, ip2_copy, matrix1, matrix2 );
     if ( sum(abs(submatrix(rough_homography,0,0,2,2) - submatrix(matrix2,0,0,2,2))) > 4 ) {
       VW_OUT( DebugMessage, "asp" ) << "Post homography has largely different scale and skew from rough fit. Post solution is " << matrix2 << "\n";
+      exit(0);
       return false;
     }
 
