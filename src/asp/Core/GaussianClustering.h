@@ -92,7 +92,8 @@ namespace asp {
       for ( size_t c = 0; c < clusters; c++ ) {
         for ( size_t d = 0; d < DimensionsT; d++ ) {
           means[c][d] = ba::mean( acc[ c * DimensionsT + d ] );
-          variances[c][d] = ba::variance( acc[ c * DimensionsT + d ] );
+          variances[c][d] = std::max(ba::variance( acc[ c * DimensionsT + d ] ),
+                                     std::numeric_limits<double>::epsilon());
         }
         VW_OUT( DebugMessage, "asp" ) << "Cluster " << c << " seeded with:\n"
                                       << means[c] << " " << variances[c]
@@ -133,7 +134,8 @@ namespace asp {
       for ( size_t c = 0; c < clusters; c++ ) {
         for ( size_t d = 0; d < DimensionsT; d++ ) {
           means[c][d] = ba::mean( acc[ c * DimensionsT + d ] );
-          variances[c][d] = ba::variance( acc[ c * DimensionsT + d ] );
+          variances[c][d] = std::max(ba::variance( acc[ c * DimensionsT + d ] ),
+                                     std::numeric_limits<double>::epsilon());
         }
         VW_OUT( DebugMessage, "asp" ) << "Cluster " << c << " updated:\n"
                                       << means[c] << " " << variances[c] << " "
@@ -208,7 +210,8 @@ namespace asp {
       // Pull mean an variance from accumulators
       for ( size_t c = 0; c < clusters; c++ ) {
         means[c] = ba::mean( acc[ c ] );
-        variances[c] = ba::variance( acc[ c ] );
+        variances[c] = std::max(ba::variance( acc[ c ] ),
+                                std::numeric_limits<double>::epsilon());
         VW_OUT( DebugMessage, "asp" ) << "Cluster " << c << " seeded with:\n"
                                       << means[c] << " " << variances[c] << std::endl;
       }
@@ -243,7 +246,8 @@ namespace asp {
       // Pull mean and variance from accumulators
       for ( size_t c = 0; c < clusters; c++ ) {
         means[c] = ba::mean( acc[ c ] );
-        variances[c] = ba::variance( acc[ c ] );
+        variances[c] = std::max(ba::variance( acc[ c ] ),
+                                std::numeric_limits<double>::epsilon());
         VW_OUT( DebugMessage, "asp" ) << "Cluster " << c << " updated:\n"
                                       << means[c] << " " << variances[c]
                                       << " " << ba::count( acc[c] ) << std::endl;
