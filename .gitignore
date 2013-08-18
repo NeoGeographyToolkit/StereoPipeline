@@ -73,6 +73,7 @@ src/asp/Core/tests/TestAntiAliasing
 src/asp/Core/tests/TestBlobIndexThreaded
 src/asp/Core/tests/TestErodeView
 src/asp/Core/tests/TestGaussianClustering
+src/asp/Core/tests/TestIntegralAutoGainDetector
 src/asp/Core/tests/TestInterestPointMatching
 src/asp/Core/tests/TestSoftwareRenderer
 src/asp/Core/tests/TestThreadedEdgeMask
@@ -104,11 +105,13 @@ src/asp/Tools/hsv_merge
 src/asp/Tools/isis_adjust
 src/asp/Tools/isis_adjust_camera_err
 src/asp/Tools/isis_adjust_cnet_clip
+src/asp/Tools/lronacjitreg
 src/asp/Tools/mapproject
 src/asp/Tools/mer2camera
 src/asp/Tools/orbitviz
 src/asp/Tools/orthoproject
 src/asp/Tools/parallel_stereo
+src/asp/Tools/pc_align
 src/asp/Tools/plateorthoproject
 src/asp/Tools/point2dem
 src/asp/Tools/point2las
