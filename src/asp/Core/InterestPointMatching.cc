@@ -340,7 +340,7 @@ namespace asp {
                             vw::TransformRef const& left_tx,
                             vw::TransformRef const& right_tx ) {
     typedef std::vector<double> ArrayT;
-    ArrayT error_samples( matched_ip1.size() ), alt_samples( matched_ip1.size() );
+    ArrayT error_samples( matched_ip1.size() ), alt_samples( matched_ip1.size() ), alt_inlier_samples;
 
     // Create the 'error' samples. Which are triangulation error and
     // distance to sphere.
@@ -358,20 +358,14 @@ namespace asp {
     ClusterT error_clusters =
       asp::gaussian_clustering<ArrayT>( error_samples.begin(),
                                         error_samples.end(), 2 );
-    ClusterT alt_clusters =
-      asp::gaussian_clustering<ArrayT>( alt_samples.begin(),
-                                        alt_samples.end(), 2 );
 
-    // The best triangulation error and altitude clusters are ones
-    // that have small standard deviations. They are focused on the
-    // tight pack of inliers. Bring the smaller std-dev cluster to the
-    // front as it is what we are interested in.
+    // The best triangulation error is the one that has the smallest
+    // standard deviations. They are focused on the tight pack of
+    // inliers. Bring the smaller std-dev cluster to the front as it
+    // is what we are interested in.OB
     if ( error_clusters.front().second[0] > error_clusters.back().second[0] &&
-         error_clusters.back().second[0] != 0 )
+         error_clusters.back().second[0] != std::numeric_limits<double>::epsilon() )
       std::swap( error_clusters[0], error_clusters[1] );
-    if ( alt_clusters.front().second[0] > alt_clusters.back().second[0] &&
-         alt_clusters.back().second[0] != 0 )
-      std::swap( alt_clusters[0], alt_clusters[1] );
 
     // Determine if we just wrote nothing but outliers (the variance
     // on triangulation is too high).
@@ -382,76 +376,77 @@ namespace asp {
              << "\t      Triangulation Err: " << error_clusters.front().first[0]
              << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
 
-    // Determine if we should disable the altitude constraint if the
-    // standard deviations are not wild different. If everything is an
-    // inlier .. the mixture model will just seperate different planar
-    // regions of the image.
-    bool disable_alt_check = false;
-    if ( fabs( log10( alt_clusters.front().second[0] ) - log10( alt_clusters.back().second[0] ) ) < 1 ) {
-      disable_alt_check = true;
-    } else {
-      vw_out() << "\t      Altitude         : " << alt_clusters.front().first[0]
-               << " +- " << sqrt( alt_clusters.front().second[0] ) << " meters\n";
-    }
-
     // Record indices of points that match our clustering result
     output.clear();
     const double escalar1 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.front().second[0] ); // outside exp of normal eq
     const double escalar2 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.back().second[0] );
     const double escalar3 = 1.0 / (2 * error_clusters.front().second[0] ); // inside exp of normal eq
     const double escalar4 = 1.0 / (2 * error_clusters.back().second[0] );
-    const double ascalar1 = 1.0 / sqrt( 2.0 * M_PI * alt_clusters.front().second[0] );
-    const double ascalar2 = 1.0 / sqrt( 2.0 * M_PI * alt_clusters.back().second[0] );
-    const double ascalar3 = 1.0 / (2 * alt_clusters.front().second[0] );
-    const double ascalar4 = 1.0 / (2 * alt_clusters.back().second[0] );
     for (size_t i = 0; i < matched_ip1.size(); i++ ) {
       double err_diff_front = error_samples[i]-error_clusters.front().first[0];
       double err_diff_back = error_samples[i]-error_clusters.back().first[0];
-      double alt_diff_front = alt_samples[i]-alt_clusters.front().first[0];
-      double alt_diff_back = alt_samples[i]-alt_clusters.back().first[0];
+
       // Is this point an inlier in terms of triangulation error?
-      bool error_inlier =
-        (escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
-        (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
-        error_samples[i] < error_clusters.front().first[0];
-
-      if ( error_inlier ) {
-        std::cout << i << " " << error_samples[i] << " " << alt_samples[i] << " " << error_clusters.front().first[0]  << std::endl;
-      }
-
-      // Is this point an inlier in terms of altitude against world datum?
-      bool alt_inlier =
-        disable_alt_check ||
-        (
-         (ascalar1 * exp( (-alt_diff_front * alt_diff_front) * ascalar3 ) ) >
-         (ascalar2 * exp( (-alt_diff_back * alt_diff_back ) * ascalar4 ) ) &&
-         fabs(alt_diff_front) < 3 * sqrt(alt_clusters.front().second[0]) );
-
-      if ( error_inlier && alt_inlier ) {
+      if (
+          (escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
+          (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
+          error_samples[i] < error_clusters.front().first[0] ) {
         output.push_back(i);
       }
     }
 
-    // See what happens if we apply altitude thresholding here ...
-    alt_samples.clear();
-    BOOST_FOREACH( size_t i, output ) {
-      double error;
-      Vector3 geodetic =
-        datum.cartesian_to_geodetic( model( left_tx.reverse(Vector2( matched_ip1[i].x, matched_ip1[i].y )),
-                                            right_tx.reverse(Vector2(matched_ip2[i].x,
-                                                                     matched_ip2[i].y)),
-                                            error ) );
-      alt_samples.push_back( geodetic.z() );
+    // Thresholding on altitude of the remaining inliers
+    alt_inlier_samples.resize( output.size(), 0 );
+    std::list<size_t>::iterator output_it = output.begin();
+    for ( size_t i = 0; i < alt_inlier_samples.size(); i++ ) {
+      alt_inlier_samples[i] = alt_samples[ *output_it ];
+      output_it++;
     }
-    alt_clusters =
-      asp::gaussian_clustering<ArrayT>( alt_samples.begin(),
-                                        alt_samples.end(), 2 );
-    if ( alt_clusters.front().second[0] > alt_clusters.back().second[0] &&
-         alt_clusters.back().second[0] != 0 )
+    ClusterT alt_clusters =
+      asp::gaussian_clustering<ArrayT>( alt_inlier_samples.begin(),
+                                        alt_inlier_samples.end(), 2 );
+
+
+    // Determine if we should disable the altitude constraint if the
+    // standard deviations are not wildly different. If everything is an
+    // inlier .. the mixture model will just seperate different planar
+    // regions of the image.
+    if ( fabs( log10( alt_clusters.front().second[0] ) - log10( alt_clusters.back().second[0] ) ) < 1 ) {
+      return true; // Exit early
+    }
+
+    const double ascalar1 = 1.0 / sqrt( 2.0 * M_PI * alt_clusters.front().second[0] ); // outside exp of normal eq
+    const double ascalar2 = 1.0 / sqrt( 2.0 * M_PI * alt_clusters.back().second[0] );
+    const double ascalar3 = 1.0 / (2 * alt_clusters.front().second[0] ); // inside exp of normal eq
+    const double ascalar4 = 1.0 / (2 * alt_clusters.back().second[0] );
+    output_it = output.begin();
+    ssize_t is_first_cluster_bigger = 0;
+    std::list<size_t> output_front, output_back;
+    for ( size_t i = 0; i < alt_inlier_samples.size(); i++ ) {
+      double alt_diff_front = alt_inlier_samples[i] - alt_clusters.front().first[0];
+      double alt_diff_back  = alt_inlier_samples[i] - alt_clusters.back().first[0];
+
+      if (
+          (ascalar1 * exp( (-alt_diff_front*alt_diff_front) * ascalar3 ) ) >
+          (ascalar2 * exp( (-alt_diff_back*alt_diff_back) * ascalar4 ) ) ) {
+        output_front.push_back( *output_it );
+        is_first_cluster_bigger++;
+      } else {
+        output_back.push_back( *output_it );
+        is_first_cluster_bigger--;
+      }
+      output_it++;
+    }
+
+    if ( is_first_cluster_bigger < 0 ) {
+      // i.e. first cluster is not bigger
+      std::swap( output_front, output_back );
       std::swap( alt_clusters[0], alt_clusters[1] );
-    BOOST_FOREACH( float a, alt_samples ) {
-      std::cout << a << std::endl;
     }
+
+    vw_out() << "\t      Altitude         : " << alt_clusters.front().first[0]
+             << " +- " << sqrt( alt_clusters.front().second[0] ) << " meters\n";
+    output = output_front;
 
     return true;
   }
