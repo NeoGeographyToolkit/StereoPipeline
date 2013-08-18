@@ -64,4 +64,9 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
   EXPECT_EQ( best_ip->x, 50 );
   EXPECT_EQ( best_ip->y, 50 );
   EXPECT_EQ( best_ip->scale, 1.875 );
+
+  // This is odd ... but I'm just verifying the impl calls the same
+  // code. This was a bug that elluded me for a very long time.
+  ASSERT_EQ( typeid(detector),
+             typeid(detector.impl()) );
 }
