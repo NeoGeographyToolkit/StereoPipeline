@@ -27,14 +27,15 @@
 
 namespace asp {
 
-  class IntegralAutoGainDetector : public vw::ip::InterestDetectorBase<IntegralAutoGainDetector>,
-                                   private boost::noncopyable {
-
+  class IntegralAutoGainDetector : public vw::ip::InterestDetectorBase<IntegralAutoGainDetector >,
+                                   vw::ip::IntegralInterestPointDetector<vw::ip::OBALoGInterestOperator> {
   public:
-    static const int IP_DEFAULT_SCALES = 8;
+    // Clear ambiguity of which impl to use. Scope doesn't work.
+    using vw::ip::InterestDetectorBase<IntegralAutoGainDetector>::impl;
+    using vw::ip::InterestDetectorBase<IntegralAutoGainDetector>::operator();
 
     IntegralAutoGainDetector( size_t max_points = 200 )
-      : m_interest(0), m_scales(IP_DEFAULT_SCALES), m_obj_points(max_points) {}
+      : vw::ip::IntegralInterestPointDetector<vw::ip::OBALoGInterestOperator>( vw::ip::OBALoGInterestOperator(0), IP_DEFAULT_SCALES, max_points ) {}
 
     /// Detect Interest Points in the source image.
     template <class ViewT>
@@ -145,7 +146,7 @@ namespace asp {
       }
 
       // Are all points good?
-      if ( m_obj_points < new_points.size() && m_obj_points > 0 ) {
+      if ( m_max_points < int(new_points.size()) && m_max_points > 0 ) {
         VW_OUT(DebugMessage, "interest_point") << "\tCulling ...\n";
         Timer t("elapsed time", DebugMessage, "interest_point");
 
@@ -155,7 +156,7 @@ namespace asp {
         new_points.sort();
         VW_OUT(DebugMessage, "interest_point") << "\t     Best IP : " << new_points.front().interest << std::endl;
         VW_OUT(DebugMessage, "interest_point") << "\t     Worst IP: " << new_points.back().interest << std::endl;
-        new_points.resize( m_obj_points );
+        new_points.resize( m_max_points );
 
         VW_OUT(DebugMessage, "interest_point") << "\t     (removed " << original_num_points - new_points.size() << " interest points, " << new_points.size() << " remaining.)\n";
       } else {
@@ -166,41 +167,6 @@ namespace asp {
     }
 
   protected:
-
-    vw::ip::OBALoGInterestOperator m_interest;
-    int m_scales;
-    size_t m_obj_points;
-
-    template <class AccessT>
-    bool inline is_extrema( AccessT const& low,
-                            AccessT const& mid,
-                            AccessT const& hi ) const {
-      AccessT low_o = low;
-      AccessT mid_o = mid;
-      AccessT hi_o  = hi;
-
-      if ( *mid_o <= *low_o ) return false;
-      if ( *mid_o <= *hi_o  ) return false;
-
-      for ( vw::uint8 step = 0; step < 8; step++ ) {
-        if ( step == 0 ) {
-          low_o.advance(-1,-1); mid_o.advance(-1,-1);hi_o.advance(-1,-1);
-        } else if ( step == 1 || step == 2 ) {
-          low_o.next_col(); mid_o.next_col(); hi_o.next_col();
-        } else if ( step == 3 || step == 4 ) {
-          low_o.next_row(); mid_o.next_row(); hi_o.next_row();
-        } else if ( step == 5 || step == 6 ) {
-          low_o.prev_col(); mid_o.prev_col(); hi_o.prev_col();
-        } else {
-          low_o.prev_row(); mid_o.prev_row(); hi_o.prev_row();
-        }
-        if ( *mid <= *low_o ||
-             *mid <= *mid_o ||
-             *mid <= *hi_o ) return false;
-      }
-
-      return true;
-    }
 
     template <class DataT>
     inline void threshold( vw::ip::InterestPointList& points,
