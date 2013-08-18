@@ -73,7 +73,7 @@ TEST( GaussianClustering, ClusterOf3_1D ) {
   EXPECT_NEAR( 5, c[2].second[0], 2 );
 }
 
-TEST( GaussianClustering, CluserOf2_1D_one_outlier ) {
+TEST( GaussianClustering, ClusterOf2_1D_one_outlier ) {
   std::vector<double> samples;
   samples += 2.84, 1.62, 2.49, 2.94, 1.66, 1.51, 2.45, 2.3, 1.87, 1.90, 1.5, 2.19;
   samples += 8190; // One outlier
@@ -82,4 +82,16 @@ TEST( GaussianClustering, CluserOf2_1D_one_outlier ) {
   EXPECT_EQ( 2, c.size() );
   EXPECT_NEAR( 2, c[0].first[0], 1 );
   EXPECT_NEAR( 8190, c[1].first[0], 1 );
+}
+
+TEST( GaussianClustering, ClusterOf2_1D_no_outliers ) {
+  // This was largely just to see what would happen. Clean split!
+
+  std::vector<double> samples;
+  samples += 2.84, 1.62, 2.49, 2.94, 1.66, 1.51, 2.45, 2.3, 1.87, 1.90, 1.5, 2.19;
+  Clusters c =
+    gaussian_clustering<std::vector<double> >( samples.begin(), samples.end(), 2 );
+  EXPECT_EQ( 2, c.size() );
+  EXPECT_NEAR( 2, c[0].first[0], 1 );
+  EXPECT_NEAR( 2, c[1].first[0], 1 );
 }
