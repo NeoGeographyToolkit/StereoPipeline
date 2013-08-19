@@ -734,7 +734,7 @@ void save_point_clouds(Options const& opt,
 
   // Save the transformed source point cloud if requested
   if (opt.save_trans_source){
-    string trans_source_file = opt.output_prefix + "trans_source.tif";
+    string trans_source_file = opt.output_prefix + "-trans_source.tif";
     cout << "Writing: " << trans_source_file << endl;
     asp::block_write_gdal_image(trans_source_file, trans_source_point_cloud, opt,
                                 TerminalProgressCallback("asp", "\t-->: "));
@@ -745,7 +745,7 @@ void save_point_clouds(Options const& opt,
   if (opt.save_trans_ref){
     PointMatcher<RealT>::Matrix Tinv = T.inverse();
     // Here we overwrite the reference data, as that one can be huge
-    string trans_ref_file = opt.output_prefix + "trans_reference.tif";
+    string trans_ref_file = opt.output_prefix + "-trans_reference.tif";
     for (int col = 0; col < ref_point_cloud.cols(); col++){
       for (int row = 0; row < ref_point_cloud.rows(); row++){
         Vector3 P = ref_point_cloud(col, row);
