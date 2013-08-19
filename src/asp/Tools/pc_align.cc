@@ -102,7 +102,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000), "Maximum number of (randomly picked) reference points to use.")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(25000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method", po::value(&opt.alignment_method)->default_value("point-to-plane"), "The type of iterative closest point method to use. [point-to-plane, point-to-point]")
-    ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON]")
+    ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON, D_MARS, etc.]")
     ("config-file", po::value(&opt.config_file)->default_value(""),
     "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
     ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.")
@@ -320,12 +320,16 @@ typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
   }
 
   cartography::Datum datum;
-  bool is_earth_lat_lon_z_format = true;
+  bool is_lat_lon_z_format = true;
   if (numTokens > 3){
-    is_earth_lat_lon_z_format = false;
+    is_lat_lon_z_format = false;
     vw_out() << "Guessing file: " << fileName << " to be in LOLA RDR PointPerRow "
              << "format.\n";
     datum.set_well_known_datum("D_MOON");
+    if (datum_str != "" && datum_str != "D_MOON")
+      vw_throw( vw::IOErr() << "The datum for LOLA RDR PointPerRow format "
+                << "is expected to be D_MOON. Got instead: '" << datum_str << "'\n" );
+
   }else{
     vw_out() << "Guessing file: " << fileName << " to be in lat-lon-height "
              << "format.\n";
@@ -341,7 +345,7 @@ typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
     // because we found it to be significantly faster on large files.
 
     Vector3 xyz;
-    if (is_earth_lat_lon_z_format){
+    if (is_lat_lon_z_format){
 
       strncpy(temp, line.c_str(), bufSize);
       const char* token = strtok(temp, sep); null_check(token, line);

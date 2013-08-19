@@ -703,20 +703,20 @@ Point-to-Point Iterative Closest Point (ICP) based on libpointmatcher
 (https://github.com/ethz-asl/libpointmatcher).
 
 Due to the nature of ICP, the reference (fixed) point cloud should be
-denser than the source (movable) point cloud. This is not a serious
-restriction, as one can perform the alignment this way and then simply
-invert the obtained transform if desired (and in any case \texttt{pc\_align} can
-output the reference point cloud transformed to match the source and
-vice-versa).
+denser than the source (movable) point cloud to get the most accurate
+results. This is not a serious restriction, as one can perform the
+alignment this way and then simply invert the obtained transform if
+desired (\texttt{pc\_align} outputs both the direct and inverse
+transform, and can output the reference point cloud transformed to match
+the source and vice-versa).
 
 The input point clouds can be in one of several formats: ASP's point
 cloud format, DEMs as GeoTiff files, or plain-text CSV files (with .csv
-or .txt extension). For now, two CSV file formats are supported. For
-Earth data one can specify on each line the latitude, longitude, and
-height above the WGS\_1984 datum (separated by commas or spaces), while for the
-Moon one can use the LOLA RDR PointPerRow format. The tool is able to
-auto-detect which of these formats is being used. If desired, the datum
-can be explicitly specified via the \texttt{-\/-datum} option.
+or .txt extension). CSV files are expected to have on each line the
+latitude, longitude, and height above the datum (separated by commas or
+spaces). The datum itself can be set via the \texttt{-\/-datum} option.
+The tool can also read the LOLA RDR PointPerRow format (when the datum
+is assumed to be of the Moon).
 
 The transform obtained by \texttt{pc\_align} is output to a file as a
 $4\times 4$ matrix, with the upper-left $3\times 3$ submatrix being the
@@ -767,7 +767,7 @@ for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-datum \textit{}} & Use this datum for CSV files instead of
-auto-detecting it. [WGS\_1984, D\_MOON, D\_MARS] \\ \hline
+auto-detecting it. [WGS\_1984, D\_MOON, D\_MARS, etc.] \\ \hline
 \texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
 option. Read the alignment parameters from a configuration file, in the
 format expected by libpointmatcher, over-riding the command-line options.\\ \hline
