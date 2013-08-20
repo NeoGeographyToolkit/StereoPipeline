@@ -25,7 +25,7 @@ import scipy as sp
 import scipy.ndimage.filters as sf
 import scipy.stats as ss
 import scipy.spatial as sp
-from scipy.ndimage import convolve
+from scipy.ndimage import convolve, binary_dilation
 from scipy.sparse import coo_matrix
 from scipy.interpolate import griddata
 from multiprocessing import Pool
@@ -1101,7 +1101,7 @@ def test_epipolar(dxy_0, ep_vec, dxy, tol):
     delta=np.abs(np.dot((dxy-dxy_0), [ep_vec[1], -ep_vec[0]]))
     return (delta < tol), delta
 
-def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial):
+def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
     """
     given a set of offsets and correlation values:
         For those point with  C>C_tol, find the median offset and the
@@ -1112,8 +1112,9 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial):
     """
     if ep_vec_initial is not None:
         return ep_vec_initial, np.zeros([1,2])
-
-    ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], 16)) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], 84)) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], 16)) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], 84))
+    
+    P_use=100*np.array([(1-F_use)/2., (F_use+1.)/2.])
+    ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], P_use[0])) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], P_use[1])) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], P_use[0])) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], P_use[1]))
     good=ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
     dxy1=np.array(dxy[good.ravel(),:])
     dxy_ctr=np.array([np.median(dxy1[:,0]), np.median(dxy1[:,1])])
@@ -1169,7 +1170,7 @@ def main():
                       help="template size, pixels (%default)")
     parser.add_option("-c", "--coarse", dest="coarse_skip", default=512, type="int",
                       help="initial search-point spacing, pixels (%default)")
-    parser.add_option("-f", "--fine", dest="fine_skip", default=32, type="int",
+    parser.add_option("-f", "--fine", dest="fine_skip", default=64, type="int",
                       help="final search-point spacing, pixels (%default)")
     parser.add_option("-r","--refine_tol", dest="refine_tol", default=8, type="int",
                       help="pixel range tolerance for refinement (%default)")
@@ -1198,6 +1199,14 @@ def main():
         parser.print_help()
         die('\nERROR: Missing input files or output prefix', code=2)
 
+    #undocumented options#
+    F_ep_pts_to_use=0.9
+    ep_tol_max=24
+    ep_tol_min=8
+    dxy_slope_tol=3.0
+    C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
+
+
     T_file = args[0]
     S_file = args[1]
     output_prefix = args[2]
@@ -1225,9 +1234,6 @@ def main():
         options.coarse_skip = np.min([prev2x/4, prev2y/4])
         print "Warning: decreasing coarse skip to: %d" % options.coarse_skip
 
-    dxy_slope_tol=3.0
-    C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
-
     s_nx=options.s_nx
     s_ny=options.s_ny
     t_pixels=options.t_pixels
@@ -1252,13 +1258,15 @@ def main():
     #initialize the matcher object
     ftm=fft_matcher(T_file, S_file, options.processes, options.user_nodata)
 
-
     # define the initial search points
-    edge_pad=np.array([s_nx/2+t_pixels/2, s_ny/2+t_pixels/2])
-    [XCg, YCg]=np.meshgrid(np.arange(ftm.T_c0c1[0]+edge_pad[0],
-                     ftm.T_c0c1[1]-edge_pad[0], options.coarse_skip),
-         np.arange(ftm.T_r0r1[0]+edge_pad[1],
-                   ftm.T_r0r1[1]-edge_pad[1], options.coarse_skip) )
+    edge_pad=np.array([s_nx/4.+t_pixels/2, s_ny/4.+t_pixels/2])
+    XC=np.arange(ftm.T_c0c1[0]+edge_pad[0], ftm.T_c0c1[1]-edge_pad[0], options.coarse_skip)
+    if XC[-1] < ftm.T_c0c1[1]:
+        XC=np.append(XC, int((XC[-1]+ftm.T_c0c1[1])/2.))
+    YC=np.arange(ftm.T_r0r1[0]+edge_pad[1], ftm.T_r0r1[1]-edge_pad[1], options.coarse_skip)
+    if YC[-1] < ftm.T_r0r1[1]:
+        YC=np.append(YC, int((YC[-1]+ftm.T_r0r1[1])/2.))       
+    [XCg, YCg]=np.meshgrid(XC, YC)
     XY0=np.c_[XCg.ravel(), YCg.ravel()]
 
     # find the offset that matches the origins of the two images
@@ -1272,12 +1280,12 @@ def main():
     xy, dxy, C, xy_bad_mask = search_new_pts(XY0, dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min)
 
     # run the epipolar fit, establish a tolerance, run again
-    ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial)
+    ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_ep_pts_to_use)
     good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, 32)
-    ep_tol=np.minimum(16,np.maximum(8, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
+    ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
     if ep_vec_initial is not None and np.any(~good):
-        ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None)
-        ep_tol=np.minimum(16,np.maximum(4, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
+        ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None, F_ep_pts_to_use)
+        ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
         good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
     print " --- ep vec estimated at(%f,%f), tol=%f" % (ep_vec[0], ep_vec[1], ep_tol)
     # make sparse matrices for storing dx and dy values, store initial values
@@ -1297,8 +1305,8 @@ def main():
     refine_pts=np.arange(0, xy_list.shape[0] )
     # define the pattern of pixel centers to refineat each steps.  Duplicates
     # will be deleted.
-    refine_x=np.array([-1., 0.,  1., -1.,  1., -1., 0.,  1.])
-    refine_y=np.array([ -1., -1., -1., 0., 0., 1., 1., 1. ]);
+    refine_x=np.array([-1.,  0.,  1., -1.,  1., -1., 0., 1.])
+    refine_y=np.array([-1., -1., -1.,  0.,  0.,  1., 1., 1.]);
     recalc_nbhd_range=False
     for delta_x in skip_vals:
         print "----------refining to %d---------" % delta_x
@@ -1354,7 +1362,7 @@ def main():
         dxy_score, min_dxy_slope=nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict, calc_min_slope=True)
         bad=np.max(min_dxy_slope, axis=1) > dxy_slope_tol
         print "---deleting %d points that failed the d(disparity)/d(dist) test" % np.sum(bad)
-        if bad is not None:
+        if bad is not None and np.any(bad):
             C_mat=C_mat.tolil()
             C_mat[all_pts[bad,1], all_pts[bad,0]]=0
             C_mat=C_mat.tocsr()
@@ -1488,15 +1496,24 @@ def main():
         out[:,5]=np.minimum(out[:,5], options.M_max/options.output_scale)
         out[:,6]=np.minimum(out[:,6], options.M_max/options.output_scale)
 
+        # make a quality mask
+        goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
+        quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
+        N_dilate=np.ceil(options.coarse_skip/options.output_scale/4.)
+        xg1, yg1=np.meshgrid(np.arange(-N_dilate, N_dilate+1), np.arange(-N_dilate, N_dilate+1))
+        dilate_kernel=xg1**2+yg1**2 <=np.float32(N_dilate)**2
+        quality=binary_dilation(quality>0, dilate_kernel)
+
         # interpolate the scaled range values
         zi = np.nan_to_num(griddata(out[:,0:2], out[:,5], (xg, yg), method='linear'))
+        mask=(zi[:,:,0]==0) | (quality==0)
+        zi[mask]=0
         outBand = outDs.GetRasterBand(1)
         outBand.WriteArray(zi[:,:,0])
         zi = np.nan_to_num(griddata(out[:, 0:2], out[:,6], (xg, yg), method='linear'))
+        zi[mask]=0
         outBand = outDs.GetRasterBand(2)
         outBand.WriteArray(zi[:,:,0])
-        goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
-        quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
         outBand = outDs.GetRasterBand(3)
         outBand.WriteArray(quality)
         outDs.SetGeoTransform(tuple(GT1))
