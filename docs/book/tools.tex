@@ -825,3 +825,47 @@ format expected by libpointmatcher, over-riding the command-line options.\\ \hli
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
 \\ \hline
 \end{longtable}
+
+
+
+
+
+
+\section{lronac2mosaic.py}
+\label{lronac2mosaic}
+
+This tool takes in two LRONAC files (M*LE.IMG and M*RE.IMG) and produces a single noproj mosaic composed of the two inputs.  It performs the following operations in this process: lronac2isis, lronaccal, lronacecho, spice.
+
+\medskip
+
+Usage:\\
+\hspace*{2em}\texttt{lronac2mosaic.py [options] <IMG file 1> <IMG file 2>}
+
+\medskip
+
+\begin{longtable}{|l|p{10cm}|}
+\caption{Command-line options for lronac2mosaic.py}
+\label{tbl:lronac2mosaic}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-manual} & Display the help message.\\ \hline
+\texttt{-\/-stop-at-no-proj} & Stops processing after the noproj steps are complete. \\ \hline
+\texttt{-\/-resume-at-no-proj} & Restarts processing using the results from 'stop-at-no-proj. \\ \hline
+\texttt{-\/-threads|-t} & Specify the number of threads to use.\\ \hline
+\texttt{-\/-keep|-k} & Keep all intermediate files.\\ \hline
+\texttt{-\/-fakePvl|-p} & Does not automatically create the LRONAC pvl file, requiring the user to provide one.\\ \hline
+\end{longtable}
+
+
+
+         
+
+
+
+
+
+
