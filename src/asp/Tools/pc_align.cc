@@ -83,7 +83,7 @@ struct Options : public asp::BaseOptions {
   PointMatcher<RealT>::Matrix init_transform;
   int num_iter, max_num_reference_points, max_num_source_points;
   double diff_translation_err, diff_rotation_err, max_disp, outlier_ratio;
-  bool compute_translation_only, save_trans_source, save_trans_ref;
+  bool compute_translation_only, save_trans_source, save_trans_ref, verbose;
   // Output
   string output_prefix;
 };
@@ -97,7 +97,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-4), "Change in rotation amount below which the algorithm will stop.")
     ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop.")
     ("max-displacement",
-    po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters. Used for removing gross outliers in the source point cloud.")
+    po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters (after the intial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000), "Maximum number of (randomly picked) reference points to use.")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(25000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
@@ -111,7 +111,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
      "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
-     "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.");
+     "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.")
+    ("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
+     "Print debug information");
+
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -512,6 +515,7 @@ typename PointMatcher<T>::DataPoints load_pc(const string& fileName,
 
   vector<Vector3> points;
   const int dim = 3;
+  // To do: Is it faster to to do for_each?
   point_cloud = read_n_channels<dim>(fileName);
   Vector3 mean_center;
   int count = 0;
@@ -763,24 +767,30 @@ void save_point_clouds(Options const& opt,
   }
 }
 
-// To do: For speed, do an initial alignment using just a few ref points
-// To do: Remove YAML dependencies, also from THIRDPARTYLICENSES.
-// To do: Implement multiple passes.
-// To do: Move point cloud utils from point2dem.h to Core in pc_utils.h.
-// To do: Investigate if we can get by using floats instead of double.
-
 int main( int argc, char *argv[] ) {
+
+  // Mandatory line for Eigen
+  Eigen::initParallel();
 
   Options opt;
   try {
     handle_arguments( argc, argv, opt );
 
+    // Set the number of threads for OpenMP
+    if ( opt.num_threads != 0 ) {
+      vw::vw_out() << "\t--> Setting number of processing threads to: "
+                   << opt.num_threads << std::endl;
+      omp_set_num_threads(opt.num_threads);
+    }
+
     // Create the default ICP algorithm
     PM::ICP icp;
-    icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
-                  opt.diff_translation_err, opt.alignment_method);
+    if (opt.config_file == ""){
+      // Read the options from the command line
+      icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
+                    opt.diff_translation_err, opt.alignment_method);
 
-    if (opt.config_file != ""){
+    }else{
       vw_out() << "Will read the options from: " << opt.config_file << endl;
       ifstream ifs(opt.config_file.c_str());
       if (!ifs.good())
@@ -796,41 +806,80 @@ int main( int argc, char *argv[] ) {
     Vector3 shift;
     bool calc_shift = true;
     ImageView<Vector3> ref_point_cloud, source_point_cloud;
+    Stopwatch sw1;
+    sw1.start();
     DP ref  = load_file<RealT>(opt, opt.reference,
                                calc_shift, shift, ref_point_cloud);
+    sw1.stop();
+    if (opt.verbose) vw_out() << "Loading the reference point cloud took "
+                              << sw1.elapsed_seconds() << " [s]" << std::endl;
     ref = random_pc_subsample<RealT>(opt.max_num_reference_points, ref);
     //ref.save(outputBaseFile + "_ref.vtk");
 
     // Load the source point cloud. Note: We'll subsample after we
     // remove the gross outliers.
     calc_shift = false;
+    Stopwatch sw2;
+    sw2.start();
     DP source = load_file<RealT>(opt, opt.source,
                                  calc_shift, shift, source_point_cloud);
+    sw2.stop();
+    if (opt.verbose) vw_out() << "Loading the source point cloud took "
+                              << sw2.elapsed_seconds() << " [s]" << std::endl;
 
     // Apply the shift to the initial guess matrix as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
-    // Filter out the gross outliers from source, subsample the source,
-    // and calculate the stats for the remaining points. Create a
-    // separate ICP object for that, as here we don't do filtering on
-    // the point clouds.
-    PointMatcher<RealT>::Matrix beg_errors;
+    // Apply the initial guess transform to the source point cloud.
+    icp.transformations.apply(source, initT);
+
+    // Filter out the gross outliers from source, subsample the
+    // source, and calculate the stats for the remaining points.
+    // Create a separate ICP object for that as we don't want to do
+    // filtering here.
     PM::ICP icp2;
-    double big = 1e+300;
+    PointMatcher<RealT>::Matrix beg_errors;
+    Stopwatch sw3;
+    sw3.start();
+    icp2.initICP(ref);
+    sw3.stop();
+    if (opt.verbose) vw_out() << "Point cloud initialization took "
+                              << sw3.elapsed_seconds() << " [s]" << std::endl;
+
+    Stopwatch sw4;
+    sw4.start();
     icp2.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
                                           source, beg_errors); //in-out
+    sw4.stop();
+    if (opt.verbose) vw_out() << "Filter gross outliers took "
+                              << sw4.elapsed_seconds() << " [s]" << std::endl;
+
     source = random_pc_subsample<RealT>(opt.max_num_source_points, source);
+
     // Recompute the errors after the points were subsampled.
+    Stopwatch sw5;
+    sw5.start();
+    double big = 1e+300;
     icp2.filterGrossOutliersAndCalcErrors(ref, big,
                                           source, beg_errors); //in-out
+    sw5.stop();
+    if (opt.verbose) vw_out() << "Initial error computation took "
+                              << sw5.elapsed_seconds() << " [s]" << std::endl;
+
     calc_stats("Input", beg_errors);
     //dump_llh(source, shift);
 
     // Compute the transformation to align the source to reference.
-    PointMatcher<RealT>::Matrix T = icp(source, ref, initT,
+    PointMatcher<RealT>::Matrix Id = PointMatcher<RealT>::Matrix::Identity(4, 4);
+    Stopwatch sw6;
+    sw6.start();
+    PointMatcher<RealT>::Matrix T = icp(source, ref, Id,
                                         opt.compute_translation_only);
     vw_out() << "Match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
              << endl;
+    sw6.stop();
+    if (opt.verbose) vw_out() << "ICP took "
+                              << sw6.elapsed_seconds() << " [s]" << std::endl;
 
     // Transform the source to make it close to reference.
     DP trans_source(source);
@@ -838,9 +887,18 @@ int main( int argc, char *argv[] ) {
 
     // Calculate the errors after the transform was applied
     PointMatcher<RealT>::Matrix end_errors;
+    Stopwatch sw7;
+    sw7.start();
     icp2.filterGrossOutliersAndCalcErrors(ref, big,
                                           trans_source, end_errors); // in-out
+    sw7.stop();
+    if (opt.verbose) vw_out() << "Final error computation took "
+                              << sw7.elapsed_seconds() << " [s]" << std::endl;
+
     calc_stats("Output", end_errors);
+
+    // We must apply to T the initial guess transform
+    T = T*initT;
 
     save_transforms(opt, T, shift);
 

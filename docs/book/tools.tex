@@ -727,11 +727,12 @@ guess. The inverse transform is saved to a file as well.
 The tool also outputs the means of the smallest 25\%, 50\%, 75\%, and
 100\% of the errors, before and after alignment, where the errors are
 defined as the closest distances between points in the transformed
-source point cloud and the reference point cloud. The entire lists of
-errors are saved to a file.
+source point cloud and the reference point cloud. The complete lists of
+errors are also saved to disk.
 
 Lastly, pc\_align displays the maximum displacement between source
-points and their aligned versions. This (or a multiple of it) can be fed
+points (after being transformed by the initial guess transform, if
+provided) and their aligned versions. This (or a multiple of it) can be fed
 back into the tool to help identify the gross outliers in the source
 data (see the options below).
 
@@ -752,6 +753,8 @@ Usage:\\
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
+use. 0 means use the default as set by OpenMP. \\ \hline
 \texttt{-\/-initial-transform \textit{arg}} &
 The file containing the rotation + translation transform to be used as an
 initial guess. It can come from a previous run of the tool. \\ \hline
@@ -759,10 +762,12 @@ initial guess. It can come from a previous run of the tool. \\ \hline
 \texttt{-\/-diff-rotation-error \textit{default: 0.0001}} & Change in rotation amount below which the algorithm will stop. \\ \hline
 \texttt{-\/-diff-translation-error \textit{default: 0.001}} & Change in translation amount below which the algorithm will stop. \\ \hline
 \texttt{-\/-max-displacement \textit{default: 1e+10}} & Maximum expected
-displacement of source points as result of alignment, in meters. Used
+displacement of source points as result of alignment, in meters (after
+the intial guess transform is applied to the source points). Used
 for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-outlier-ratio \textit{default: 0.75}} &  Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed). \\ \hline
-\texttt{-\/-max-num-reference-points \textit{default: 100000000}} & Maximum number of (randomly picked) reference points to use). \\ \hline
+\texttt{-\/-max-num-reference-points \textit{default: 100000000}} &
+Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-max-num-source-points \textit{default: 25000}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
@@ -776,4 +781,5 @@ format expected by libpointmatcher, over-riding the command-line options.\\ \hli
 \texttt{-\/-save-transformed-source-points} & Apply the obtained transform to the source points so they match the reference points and save them. \\ \hline
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
 \\ \hline
+\texttt{-\/-verbose} & Print debug information. \\ \hline
 \end{longtable}
