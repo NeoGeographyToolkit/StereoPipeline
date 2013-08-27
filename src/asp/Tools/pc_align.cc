@@ -282,34 +282,44 @@ random_pc_subsample(int m, typename PointMatcher<T>::DataPoints const& in_points
 }
 
 template<typename T>
-typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
+typename PointMatcher<T>::DataPoints load_csv(const string& file_name,
+                                              int num_points_to_load,
                                               std::string datum_str,
                                               bool calc_shift,
                                               Vector3 & shift,
                                               ImageView<Vector3> & point_cloud
                                               ){
 
-  validateFile(fileName);
+  validateFile(file_name);
   const int bufSize = 1024;
   char temp[bufSize];
-  ifstream file( fileName.c_str() );
+  ifstream file( file_name.c_str() );
   if( !file ) {
-    vw_throw( vw::IOErr() << "Unable to open file \"" << fileName << "\"" );
+    vw_throw( vw::IOErr() << "Unable to open file \"" << file_name << "\"" );
   }
+
+  // Find how many lines are in the file
+  int num_points = 0;
+  string line;
+  while ( getline(file, line, '\n') ){
+    num_points++;
+  }
+  file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
+
+  // We will randomly pick or not a point with probability load_ratio
+  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
   int dim = 3;
   vector<Vector3> points;
   Vector3 mean_center;
-  string line;
   int year, month, day, hour, min;
   double lon, lat, rad, height, sec, is_invalid;
   bool is_first_line = true;
   char sep[] = ", \t";
 
   // Peek at first line and see how many elements it has
-  int len = file.tellg(); // current position in file
   getline(file, line);
-  file.seekg(len, ios_base::beg); // go back to start of file
+  file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
   strncpy(temp, line.c_str(), bufSize);
   const char* token = strtok (temp, sep);
   int numTokens = 0;
@@ -319,14 +329,14 @@ typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
   }
   if (numTokens < 3){
     vw_throw( vw::IOErr() << "Expecting at least three fields on each "
-              << "line of file: " << fileName << "\n" );
+              << "line of file: " << file_name << "\n" );
   }
 
   cartography::Datum datum;
   bool is_lat_lon_z_format = true;
   if (numTokens > 3){
     is_lat_lon_z_format = false;
-    vw_out() << "Guessing file: " << fileName << " to be in LOLA RDR PointPerRow "
+    vw_out() << "Guessing file: " << file_name << " to be in LOLA RDR PointPerRow "
              << "format.\n";
     datum.set_well_known_datum("D_MOON");
     if (datum_str != "" && datum_str != "D_MOON")
@@ -334,7 +344,7 @@ typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
                 << "is expected to be D_MOON. Got instead: '" << datum_str << "'\n" );
 
   }else{
-    vw_out() << "Guessing file: " << fileName << " to be in lat-lon-height "
+    vw_out() << "Guessing file: " << file_name << " to be in lat-lon-height "
              << "format.\n";
     datum.set_well_known_datum("WGS_1984");
   }
@@ -343,6 +353,9 @@ typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
   vw_out() << "Using the datum: " << datum.name() << std::endl;
 
   while ( getline(file, line, '\n') ){
+
+    double r = (double)std::rand()/(double)RAND_MAX;
+    if (r > load_ratio) continue;
 
     // We went with C-style file reading instead of C++ in this instance
     // because we found it to be significantly faster on large files.
@@ -445,22 +458,27 @@ typename PointMatcher<T>::DataPoints load_csv(const string& fileName,
 
 // Load a DEM
 template<typename T>
-typename PointMatcher<T>::DataPoints load_dem(const string& fileName,
+typename PointMatcher<T>::DataPoints load_dem(const string& file_name,
+                                              int num_points_to_load,
                                               bool calc_shift,
                                               Vector3 & shift,
                                               ImageView<Vector3> & point_cloud
                                               ){
-  validateFile(fileName);
+  validateFile(file_name);
 
   cartography::GeoReference dem_georef;
-  cartography::read_georeference( dem_georef, fileName );
-  DiskImageView<float> dem(fileName);
+  cartography::read_georeference( dem_georef, file_name );
+  DiskImageView<float> dem(file_name);
   double nodata = numeric_limits<double>::quiet_NaN();
   boost::shared_ptr<DiskImageResource> dem_rsrc
-    ( new DiskImageResourceGDAL(fileName) );
+    ( new DiskImageResourceGDAL(file_name) );
   if (dem_rsrc->has_nodata_read()){
     nodata = dem_rsrc->nodata_read();
   }
+
+  // We will randomly pick or not a point with probability load_ratio
+  int num_points = dem.cols()*dem.rows();
+  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
   point_cloud.set_size(dem.cols(), dem.rows());
   vector<Vector3> points;
@@ -470,7 +488,12 @@ typename PointMatcher<T>::DataPoints load_dem(const string& fileName,
   for (int j = 0; j < dem.rows(); j++ ) {
     int local_count = 0;
     Vector3 local_mean;
+
     for ( int i = 0; i < dem.cols(); i++ ) {
+
+      double r = (double)std::rand()/(double)RAND_MAX;
+      if (r > load_ratio) continue;
+
       if (dem(i, j) == nodata) continue;
       Vector2 lonlat = dem_georef.pixel_to_lonlat( Vector2(i,j) );
       Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
@@ -481,6 +504,7 @@ typename PointMatcher<T>::DataPoints load_dem(const string& fileName,
       local_mean += xyz;
       local_count++;
     }
+
     if ( local_count > 0 ) {
       local_mean /= double(local_count);
       double afraction = double(count) / double(count + local_count);
@@ -505,24 +529,34 @@ typename PointMatcher<T>::DataPoints load_dem(const string& fileName,
 
 // Load a point cloud
 template<typename T>
-typename PointMatcher<T>::DataPoints load_pc(const string& fileName,
+typename PointMatcher<T>::DataPoints load_pc(const string& file_name,
+                                             int num_points_to_load,
                                              bool calc_shift,
                                              Vector3 & shift,
                                              ImageView<Vector3> & point_cloud
                                              ){
 
-  validateFile(fileName);
+  validateFile(file_name);
 
   vector<Vector3> points;
   const int dim = 3;
   // To do: Is it faster to to do for_each?
-  point_cloud = read_n_channels<dim>(fileName);
+  point_cloud = read_n_channels<dim>(file_name);
+
+  // We will randomly pick or not a point with probability load_ratio
+  int num_points = point_cloud.cols()*point_cloud.rows();
+  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
+
   Vector3 mean_center;
   int count = 0;
   for (int j = 0; j < point_cloud.rows(); j++ ) {
     int local_count = 0;
     Vector3 local_mean;
     for ( int i = 0; i < point_cloud.cols(); i++ ) {
+
+      double r = (double)std::rand()/(double)RAND_MAX;
+      if (r > load_ratio) continue;
+
       Vector3 xyz = point_cloud(i, j);
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
       points.push_back(xyz);
@@ -554,31 +588,32 @@ typename PointMatcher<T>::DataPoints load_pc(const string& fileName,
 // Load file from disk and convert to libpointmatcher's format
 template<typename T>
 typename PointMatcher<T>::DataPoints load_file(Options const& opt,
-                                               const string& fileName,
+                                               const string& file_name,
+                                               int num_points_to_load,
                                                bool calc_shift,
                                                Vector3 & shift,
                                                ImageView<Vector3> & point_cloud
                                                ){
 
-  vw_out() << "Reading: " << fileName << endl;
+  vw_out() << "Reading: " << file_name << endl;
 
-  boost::filesystem::path path(fileName);
+  boost::filesystem::path path(file_name);
   string ext = boost::filesystem::extension(path);
   boost::algorithm::to_lower(ext);
   if (boost::iequals(ext, ".tif")){
     // Load tif files, PC or DEM
-    int nc = get_num_channels(fileName);
+    int nc = get_num_channels(file_name);
     if (nc == 1)
-      return load_dem<T>(fileName, calc_shift, shift, point_cloud);
+      return load_dem<T>(file_name, num_points_to_load, calc_shift, shift, point_cloud);
     if (nc >= 3)
-      return load_pc<T>(fileName, calc_shift, shift, point_cloud);
-    vw_throw(ArgumentErr() << "File: " << fileName
+      return load_pc<T>(file_name, num_points_to_load, calc_shift, shift, point_cloud);
+    vw_throw(ArgumentErr() << "File: " << file_name
              << " is neither a point cloud or DEM.\n");
   }else if (boost::iequals(ext, ".csv") || boost::iequals(ext, ".txt")){
-    return load_csv<T>(fileName, opt.datum, calc_shift, shift, point_cloud);
+    return load_csv<T>(file_name, num_points_to_load, opt.datum, calc_shift, shift, point_cloud);
   }
 
-  vw_throw( ArgumentErr() << "Unknown file type: " << fileName << "\n" );
+  vw_throw( ArgumentErr() << "Unknown file type: " << file_name << "\n" );
 }
 
 double calc_mean(vector<double> const& errs, int len){
@@ -808,20 +843,18 @@ int main( int argc, char *argv[] ) {
     ImageView<Vector3> ref_point_cloud, source_point_cloud;
     Stopwatch sw1;
     sw1.start();
-    DP ref  = load_file<RealT>(opt, opt.reference,
+    DP ref  = load_file<RealT>(opt, opt.reference, opt.max_num_reference_points,
                                calc_shift, shift, ref_point_cloud);
     sw1.stop();
     if (opt.verbose) vw_out() << "Loading the reference point cloud took "
                               << sw1.elapsed_seconds() << " [s]" << std::endl;
-    ref = random_pc_subsample<RealT>(opt.max_num_reference_points, ref);
     //ref.save(outputBaseFile + "_ref.vtk");
 
-    // Load the source point cloud. Note: We'll subsample after we
-    // remove the gross outliers.
+    // Load the source point cloud and subsample it.
     calc_shift = false;
     Stopwatch sw2;
     sw2.start();
-    DP source = load_file<RealT>(opt, opt.source,
+    DP source = load_file<RealT>(opt, opt.source, opt.max_num_source_points,
                                  calc_shift, shift, source_point_cloud);
     sw2.stop();
     if (opt.verbose) vw_out() << "Loading the source point cloud took "
@@ -833,10 +866,9 @@ int main( int argc, char *argv[] ) {
     // Apply the initial guess transform to the source point cloud.
     icp.transformations.apply(source, initT);
 
-    // Filter out the gross outliers from source, subsample the
-    // source, and calculate the stats for the remaining points.
-    // Create a separate ICP object for that as we don't want to do
-    // filtering here.
+    // Filter out the gross outliers from source, and calculate the
+    // stats for the remaining points.  Create a separate ICP object
+    // for that as we don't want to do filtering here.
     PM::ICP icp2;
     PointMatcher<RealT>::Matrix beg_errors;
     Stopwatch sw3;
@@ -854,32 +886,20 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose) vw_out() << "Filter gross outliers took "
                               << sw4.elapsed_seconds() << " [s]" << std::endl;
 
-    source = random_pc_subsample<RealT>(opt.max_num_source_points, source);
-
-    // Recompute the errors after the points were subsampled.
-    Stopwatch sw5;
-    sw5.start();
-    double big = 1e+300;
-    icp2.filterGrossOutliersAndCalcErrors(ref, big,
-                                          source, beg_errors); //in-out
-    sw5.stop();
-    if (opt.verbose) vw_out() << "Initial error computation took "
-                              << sw5.elapsed_seconds() << " [s]" << std::endl;
-
     calc_stats("Input", beg_errors);
     //dump_llh(source, shift);
 
     // Compute the transformation to align the source to reference.
     PointMatcher<RealT>::Matrix Id = PointMatcher<RealT>::Matrix::Identity(4, 4);
-    Stopwatch sw6;
-    sw6.start();
+    Stopwatch sw5;
+    sw5.start();
     PointMatcher<RealT>::Matrix T = icp(source, ref, Id,
                                         opt.compute_translation_only);
     vw_out() << "Match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
              << endl;
-    sw6.stop();
+    sw5.stop();
     if (opt.verbose) vw_out() << "ICP took "
-                              << sw6.elapsed_seconds() << " [s]" << std::endl;
+                              << sw5.elapsed_seconds() << " [s]" << std::endl;
 
     // Transform the source to make it close to reference.
     DP trans_source(source);
@@ -887,13 +907,14 @@ int main( int argc, char *argv[] ) {
 
     // Calculate the errors after the transform was applied
     PointMatcher<RealT>::Matrix end_errors;
-    Stopwatch sw7;
-    sw7.start();
+    Stopwatch sw6;
+    sw6.start();
+    double big = 1e+300;
     icp2.filterGrossOutliersAndCalcErrors(ref, big,
                                           trans_source, end_errors); // in-out
-    sw7.stop();
+    sw6.stop();
     if (opt.verbose) vw_out() << "Final error computation took "
-                              << sw7.elapsed_seconds() << " [s]" << std::endl;
+                              << sw6.elapsed_seconds() << " [s]" << std::endl;
 
     calc_stats("Output", end_errors);
 
