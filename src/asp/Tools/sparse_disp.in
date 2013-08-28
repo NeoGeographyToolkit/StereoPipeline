@@ -825,6 +825,10 @@ def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
         SS1=SS[1:-1:2, 1:-1:2]
         TM=TemplateMatch(TT1, method='ncc')
         result=TM(SS1)
+        if result is None:
+            #warnings.warn('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
+            return(-3., Xc, Yc, 0., np.NaN, np.NaN)
+
         result=result[(t_pixels/4):(s_ny/2-t_pixels/4), (t_pixels/4):(s_nx/2-t_pixels/4)]
         ijC = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
 
