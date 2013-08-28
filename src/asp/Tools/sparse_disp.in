@@ -99,12 +99,12 @@ class im_subset:
                 self.z[:, dr0:dr1, dc0:dc1]=a
             self.level=0
 
-    def trim_from_edges(self, n_trim):
-        self.z=self.z[:, n_trim[1]:-n_trim[1], n_trim[0]:-n_trim[0]]
-        self.r0=self.r0+n_trim[1]
-        self.c0=self.c0+n_trim[0]
-        self.Nr=self.Nr-2*n_trim[1]
-        self.Nc=self.Nc-2*n_trim[0]
+    def trim_from_edges(self, x_trim, y_trim):
+        self.z=self.z[:, y_trim[0]:-y_trim[1], x_trim[0]:-x_trim[1]]
+        self.r0=self.r0+y_trim[0]
+        self.c0=self.c0+x_trim[0]
+        self.Nr=self.Nr-np.sum(y_trim)
+        self.Nc=self.Nc-np.sum(x_trim)
 
     def writeSubsetTo(self, bands, target):
         if hasattr(target, 'level') and target.level > 0:
