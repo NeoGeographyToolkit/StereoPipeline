@@ -1462,11 +1462,17 @@ def main():
     bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
 
     print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
-    # delete the bad values  (prob don't need to delete from dx, dy_mat)
+    # delete the bad value, convert dx dy, and C to lil matrices
+    C_mat=C_mat.tolil()
+    dx_mat=dx_mat.tolil()
+    dy_mat=dy_mat.tolil()
     for bad in bad_xy:
         dx_mat[bad[1], bad[0]]=0
         dy_mat[bad[1], bad[0]]=0
         C_mat[bad[1], bad[0]]=0
+    C_mat=C_mat.tocsr()
+    dx_mat=dx_mat.tocsr()
+    dy_mat=dy_mat.tocsr()
     all_pts=np.c_[C_mat.nonzero()];
     all_pts=all_pts[:,[1,0]];
     # triangulate all the good points so far
