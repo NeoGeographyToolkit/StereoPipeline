@@ -1561,9 +1561,9 @@ def main():
         goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
         quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
         N_dilate=np.ceil(options.coarse_skip/options.output_scale/4.)
-        xg1, yg1=np.meshgrid(np.arange(-N_dilate, N_dilate+1), np.arange(-N_dilate, N_dilate+1))
-        dilate_kernel=xg1**2+yg1**2 <=np.float32(N_dilate)**2
-        quality=binary_dilation(quality>0, dilate_kernel)
+        dilate_kernel=np.ones([1, 2*N_dilate])
+        quality=binary_dilation(quality>0, structure=dilate_kernel)
+        quality=binary_dilation(quality>0, structure=dilate_kernel.transpose())
 
         # interpolate the scaled range values
         zi = np.nan_to_num(griddata(out[:,0:2], out[:,5], (xg, yg), method='linear'))
