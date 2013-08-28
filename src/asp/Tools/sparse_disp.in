@@ -1012,9 +1012,11 @@ class fft_matcher(object):
                      self.user_nodata)
             TaskParams.append(param)
 
-        # Run using multiple processes
-        pool = Pool(processes=self.processes)
-        Out = pool.map(run_blocks, TaskParams)
+        if self.processes > 0: # Run using multiple processes
+            pool = Pool(processes=self.processes)
+            Out = pool.map(run_blocks, TaskParams)
+        else: # Run using single process (for debugging)
+            Out=[run_blocks(TP) for TP in TaskParams]
 
         for out in Out:
             (indices, c, x, y, sigma, dx, dy) = out
