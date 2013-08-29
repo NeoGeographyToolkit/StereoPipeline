@@ -879,6 +879,30 @@ void save_trans_point_cloud(Options const& opt,
 
 }
 
+void debug_save_point_cloud(DP const& point_cloud, Vector3 const& shift,
+                            string const& output_file){
+
+  int numPts = point_cloud.features.cols();
+  int dim = 3;
+
+  cartography::Datum datum;
+  datum.set_well_known_datum("WGS_1984");
+
+  vw_out() << "Writing: " << output_file << std::endl;
+  ofstream outfile( output_file.c_str() );
+  outfile.precision(16);
+
+  for(int col = 0; col < numPts; col++){
+
+    Vector3 P;
+    for (int row = 0; row < dim; row++)
+      P[row] = point_cloud.features(row, col) + shift[row];
+
+    Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
+    outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << std::endl;
+  }
+}
+
 int main( int argc, char *argv[] ) {
 
   // Mandatory line for Eigen
