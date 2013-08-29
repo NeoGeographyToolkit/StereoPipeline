@@ -710,6 +710,19 @@ desired (\texttt{pc\_align} outputs both the direct and inverse
 transform, and can output the reference point cloud transformed to match
 the source and vice-versa).
 
+If the source point cloud covers a much larger area than the reference
+point cloud, the algorithm may fail, again due to the nature of ICP. To
+help the tool decide which source points to align with the reference,
+one can use the option \texttt{-\/-max-displacement}, and provide it
+with a value, say 100 meters. The algorithm will interpret this to mean
+that as result of alignment the source points will not move by a larger
+amount than this value. It will then discard all points in the input
+source point cloud which are further than this value from the reference
+point cloud before doing the alignment. The actual displacement of
+source points as result of alignment will be displayed after the
+alignment finishes, and it can help refine the number to be passed as
+input to this option.
+
 The input point clouds can be in one of several formats: ASP's point
 cloud format, DEMs as GeoTiff files, or plain-text CSV files (with .csv
 or .txt extension). CSV files are expected to have on each line the
@@ -730,7 +743,13 @@ defined as the closest distances between points in the transformed
 source point cloud and the reference point cloud. The complete lists of
 errors are also saved to disk.
 
-Lastly, pc\_align displays the maximum displacement between source
+By default, when \texttt{pc\_align} discards
+outliers during the computation of the alignment transform, it keeps
+the 75\% of the points with the smallest errors. As such, a way of
+judging the effectiveness of the tool is to look at the mean of the
+smallest 75\% of the errors before and after alignment.
+
+Lastly, \texttt{pc\_align} displays the maximum displacement between source
 points (after being transformed by the initial guess transform, if
 provided) and their aligned versions. This (or a multiple of it) can be fed
 back into the tool to help identify the gross outliers in the source
@@ -763,12 +782,12 @@ initial guess. It can come from a previous run of the tool. \\ \hline
 \texttt{-\/-diff-translation-error \textit{default: 0.001}} & Change in translation amount below which the algorithm will stop. \\ \hline
 \texttt{-\/-max-displacement \textit{default: 1e+10}} & Maximum expected
 displacement of source points as result of alignment, in meters (after
-the intial guess transform is applied to the source points). Used
+the initial guess transform is applied to the source points). Used
 for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-outlier-ratio \textit{default: 0.75}} &  Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed). \\ \hline
 \texttt{-\/-max-num-reference-points \textit{default: 100000000}} &
 Maximum number of (randomly picked) reference points to use. \\ \hline
-\texttt{-\/-max-num-source-points \textit{default: 25000}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
+\texttt{-\/-max-num-source-points \textit{default: 100000}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-datum \textit{}} & Use this datum for CSV files instead of
