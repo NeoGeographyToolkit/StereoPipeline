@@ -86,6 +86,7 @@ struct Options : public asp::BaseOptions {
   bool compute_translation_only, save_trans_source, save_trans_ref, verbose;
   // Output
   string output_prefix;
+  Options():max_disp(0.0){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -97,7 +98,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-4), "Change in rotation amount below which the algorithm will stop.")
     ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop.")
     ("max-displacement",
-    po::value(&opt.max_disp)->default_value(1e+10), "Maximum expected displacement of source points as result of alignment, in meters (after the intial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.")
+     po::value(&opt.max_disp), "Maximum expected displacement of source points as result of alignment, in meters (after the initial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.") // no default on purpose, set to 0 in constructor
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000), "Maximum number of (randomly picked) reference points to use.")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(100000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
@@ -686,7 +687,7 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
   vw_out() << "Number of errors: " << len << endl;
   vw_out() << label << ": mean of smallest errors:"
            << " 25%: " << a25 << " 50%: " << a50
-           << " 75%: " << a75 << " 100%: " << a100 << std::endl;
+           << " 75%: " << a75 << " 100%: " << a100 << endl;
 }
 
 void dump_llh(DP const & data, Vector3 const& shift){
@@ -829,7 +830,7 @@ void save_trans_point_cloud(Options const& opt,
     bool verbose = false;
     bool calc_shift = true;
     Vector3 shift;
-    std::string actual_datum_str;
+    string actual_datum_str;
     bool is_lola_rdr_format;
     double mean_longitude;
     DP point_cloud = load_csv<RealT>(input_file, numeric_limits<int>::max(),
@@ -845,9 +846,9 @@ void save_trans_point_cloud(Options const& opt,
     outfile.precision(16);
 
     if (is_lola_rdr_format)
-      outfile << "# longitude,latitude,radius (km)" << std::endl;
+      outfile << "# longitude,latitude,radius (km)" << endl;
     else
-      outfile << "# latitude,longitude,height above datum (meters)" << std::endl;
+      outfile << "# latitude,longitude,height above datum (meters)" << endl;
 
     int numPts = point_cloud.features.cols();
     int dim = 3;
@@ -867,9 +868,9 @@ void save_trans_point_cloud(Options const& opt,
       llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
 
       if (is_lola_rdr_format)
-        outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0 << std::endl;
+        outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0 << endl;
       else
-        outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << std::endl;
+        outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << endl;
     }
     outfile.close();
 
@@ -888,7 +889,7 @@ void debug_save_point_cloud(DP const& point_cloud, Vector3 const& shift,
   cartography::Datum datum;
   datum.set_well_known_datum("WGS_1984");
 
-  vw_out() << "Writing: " << output_file << std::endl;
+  vw_out() << "Writing: " << output_file << endl;
   ofstream outfile( output_file.c_str() );
   outfile.precision(16);
 
@@ -899,7 +900,7 @@ void debug_save_point_cloud(DP const& point_cloud, Vector3 const& shift,
       P[row] = point_cloud.features(row, col) + shift[row];
 
     Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
-    outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << std::endl;
+    outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << endl;
   }
 }
 
@@ -915,7 +916,7 @@ int main( int argc, char *argv[] ) {
     // Set the number of threads for OpenMP
     if ( opt.num_threads != 0 ) {
       vw::vw_out() << "\t--> Setting number of processing threads to: "
-                   << opt.num_threads << std::endl;
+                   << opt.num_threads << endl;
       omp_set_num_threads(opt.num_threads);
     }
 
@@ -938,7 +939,7 @@ int main( int argc, char *argv[] ) {
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
 
-    // Load the reference point cloud, and subsample it.
+    // Load the subsampled reference point cloud.
     Vector3 shift;
     bool calc_shift = true;
     Stopwatch sw1;
@@ -947,28 +948,34 @@ int main( int argc, char *argv[] ) {
                                calc_shift, shift);
     sw1.stop();
     if (opt.verbose) vw_out() << "Loading the reference point cloud took "
-                              << sw1.elapsed_seconds() << " [s]" << std::endl;
+                              << sw1.elapsed_seconds() << " [s]" << endl;
     //ref.save(outputBaseFile + "_ref.vtk");
 
-    // Load the source point cloud and subsample it.
+    // Load the subsampled source point cloud. If the user wants
+    // to filter gross outliers in the source points based on
+    // max_disp, load a lot more points than asked, filter based on
+    // max_disp, then resample to the number desired by the user.
+    int num_source_pts = opt.max_num_source_points;
+    if (opt.max_disp > 0.0) num_source_pts = max(num_source_pts, 50000000);
     calc_shift = false;
     Stopwatch sw2;
     sw2.start();
-    DP source = load_file<RealT>(opt, opt.source, opt.max_num_source_points,
+    DP source = load_file<RealT>(opt, opt.source, num_source_pts,
                                  calc_shift, shift);
     sw2.stop();
     if (opt.verbose) vw_out() << "Loading the source point cloud took "
-                              << sw2.elapsed_seconds() << " [s]" << std::endl;
+                              << sw2.elapsed_seconds() << " [s]" << endl;
 
-    // Apply the shift to the initial guess matrix as well.
+    // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
     // Apply the initial guess transform to the source point cloud.
     icp.transformations.apply(source, initT);
 
-    // Filter out the gross outliers from source, and calculate the
-    // stats for the remaining points.  Create a separate ICP object
-    // for that as we don't want to do filtering here.
+    // Create a separate ICP object for filtering gross outliers and
+    // statistics computations.  Need this as the ICP object used to
+    // compute the transform internally modifies the points before
+    // placing them in the tree.
     PM::ICP icp2;
     PointMatcher<RealT>::Matrix beg_errors;
     Stopwatch sw3;
@@ -976,15 +983,31 @@ int main( int argc, char *argv[] ) {
     icp2.initICP(ref);
     sw3.stop();
     if (opt.verbose) vw_out() << "Point cloud initialization took "
-                              << sw3.elapsed_seconds() << " [s]" << std::endl;
+                              << sw3.elapsed_seconds() << " [s]" << endl;
 
-    Stopwatch sw4;
-    sw4.start();
-    icp2.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
+    if (opt.max_disp > 0.0){
+      // Filter gross outliers
+      Stopwatch sw4;
+      sw4.start();
+      icp2.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
+                                            source, beg_errors); //in-out
+      sw4.stop();
+      if (opt.verbose) vw_out() << "Filter gross outliers took "
+                                << sw4.elapsed_seconds() << " [s]" << endl;
+      source = random_pc_subsample<RealT>(opt.max_num_source_points, source);
+      vw_out() << "Reducing number of source points to " << source.features.cols() << endl;
+    }
+
+    // Calculate the errors before doing ICP
+    Stopwatch sw5;
+    sw5.start();
+    double big = 1e+300;
+    icp2.filterGrossOutliersAndCalcErrors(ref, big,
                                           source, beg_errors); //in-out
-    sw4.stop();
-    if (opt.verbose) vw_out() << "Filter gross outliers took "
-                              << sw4.elapsed_seconds() << " [s]" << std::endl;
+    sw5.stop();
+    if (opt.verbose) vw_out() << "Initial error computation took "
+                              << sw5.elapsed_seconds() << " [s]" << endl;
+
 
     calc_stats("Input", beg_errors);
     //dump_llh(source, shift);
@@ -993,15 +1016,15 @@ int main( int argc, char *argv[] ) {
     int dim = 3;
     PointMatcher<RealT>::Matrix Id
       = PointMatcher<RealT>::Matrix::Identity(dim + 1, dim + 1);
-    Stopwatch sw5;
-    sw5.start();
+    Stopwatch sw6;
+    sw6.start();
     PointMatcher<RealT>::Matrix T = icp(source, ref, Id,
                                         opt.compute_translation_only);
     vw_out() << "Match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
              << endl;
-    sw5.stop();
+    sw6.stop();
     if (opt.verbose) vw_out() << "ICP took "
-                              << sw5.elapsed_seconds() << " [s]" << std::endl;
+                              << sw6.elapsed_seconds() << " [s]" << endl;
 
     // Transform the source to make it close to reference.
     DP trans_source(source);
@@ -1010,16 +1033,15 @@ int main( int argc, char *argv[] ) {
     // Calculate by how much points move as result of T
     calc_max_displacment(source, trans_source);
 
-    // Calculate the errors after the transform was applied
+    // Calculate the errors after doing ICP
     PointMatcher<RealT>::Matrix end_errors;
-    Stopwatch sw6;
-    sw6.start();
-    double big = 1e+300;
+    Stopwatch sw7;
+    sw7.start();
     icp2.filterGrossOutliersAndCalcErrors(ref, big,
                                           trans_source, end_errors); // in-out
-    sw6.stop();
+    sw7.stop();
     if (opt.verbose) vw_out() << "Final error computation took "
-                              << sw6.elapsed_seconds() << " [s]" << std::endl;
+                              << sw7.elapsed_seconds() << " [s]" << endl;
 
     calc_stats("Output", end_errors);
 
