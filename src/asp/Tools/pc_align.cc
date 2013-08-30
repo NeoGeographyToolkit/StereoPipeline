@@ -244,42 +244,43 @@ void pick_at_most_m_unique_elems_from_n_elems(int m, int n, vector<int>& elems){
 }
 
 template<typename T>
-typename PointMatcher<T>::DataPoints
-random_pc_subsample(int m, typename PointMatcher<T>::DataPoints const& in_points){
+void random_pc_subsample(int m, typename PointMatcher<T>::DataPoints& points){
 
   // Return at most m random points out of the input point cloud.
 
-  int n = in_points.features.cols();
+  int n = points.features.cols();
   vector<int> elems;
   pick_at_most_m_unique_elems_from_n_elems(m, n, elems);
   m = elems.size();
 
-  int dim = 3;
-  typename PointMatcher<T>::Matrix features(dim+1, m);
-  for(int col = 0; col < m; col++){
+  const int dim = 3;
+  for (int col = 0; col < m; col++){
     for (int row = 0; row < dim; row++)
-      features(row, col) = in_points.features(row, elems[col]);
-    features(dim, col) = 1;
+      points.features(row, col) = points.features(row, elems[col]);
   }
-
-  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
+  points.features.conservativeResize(Eigen::NoChange, m);
 }
 
 template<typename T>
-typename PointMatcher<T>::DataPoints load_csv(string const& file_name,
-                                              int num_points_to_load,
-                                              string const& input_datum_str,
-                                              bool verbose,
-                                              bool calc_shift,
-                                              Vector3 & shift,
-                                              string & actual_datum_str,
-                                              bool & is_lola_rdr_format,
-                                              double & mean_longitude
-                                              ){
-
-  is_lola_rdr_format = false;
+void load_csv(string const& file_name,
+              int num_points_to_load,
+              string const& input_datum_str,
+              bool verbose,
+              bool calc_shift,
+              Vector3 & shift,
+              string & actual_datum_str,
+              bool & is_lola_rdr_format,
+              double & mean_longitude,
+              typename PointMatcher<T>::DataPoints & data
+              ){
 
   validateFile(file_name);
+
+  const int dim = 3;
+  data.features.conservativeResize(dim+1, num_points_to_load);
+  data.featureLabels = form_labels<T>(dim);
+
+  is_lola_rdr_format = false;
 
   const int bufSize = 1024;
   char temp[bufSize];
@@ -340,9 +341,6 @@ typename PointMatcher<T>::DataPoints load_csv(string const& file_name,
   if (input_datum_str != "") datum.set_well_known_datum(input_datum_str);
   actual_datum_str = datum.name();
   if (verbose) vw_out() << "Using the datum: " << actual_datum_str << endl;
-
-  const int dim = 3;
-  typename PointMatcher<T>::Matrix features(dim+1, num_points_to_load);
 
   bool shift_was_calc = false;
   bool is_first_line = true;
@@ -445,31 +443,36 @@ typename PointMatcher<T>::DataPoints load_csv(string const& file_name,
     }
 
     for (int row = 0; row < dim; row++)
-      features(row, points_count) = xyz[row] - shift[row];
-    features(dim, points_count) = 1;
+      data.features(row, points_count) = xyz[row] - shift[row];
+    data.features(dim, points_count) = 1;
 
     points_count++;
     if (points_count >= num_points_to_load) break;
 
     mean_longitude += lon;
   }
-  features.conservativeResize(Eigen::NoChange, points_count);
+  data.features.conservativeResize(Eigen::NoChange, points_count);
 
   mean_longitude /= points_count;
 
   if (verbose) vw_out() << "Loaded points: " << points_count << endl;
-  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
 }
 
 // Load a DEM
 template<typename T>
-typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
-                                              int num_points_to_load,
-                                              bool calc_shift,
-                                              Vector3 & shift,
-                                              string & actual_datum_str
-                                              ){
+void load_dem(string const& file_name,
+              int num_points_to_load,
+              bool calc_shift,
+              Vector3 & shift,
+              string & actual_datum_str,
+              typename PointMatcher<T>::DataPoints & data
+              ){
+
   validateFile(file_name);
+
+  const int dim = 3;
+  data.features.conservativeResize(dim+1, num_points_to_load);
+  data.featureLabels = form_labels<T>(dim);
 
   cartography::GeoReference dem_georef;
   bool is_good = cartography::read_georeference( dem_georef, file_name );
@@ -486,9 +489,6 @@ typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
   // We will randomly pick or not a point with probability load_ratio
   int num_points = dem.cols()*dem.rows();
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
-
-  const int dim = 3;
-  typename PointMatcher<T>::Matrix features(dim+1, num_points_to_load);
 
   bool shift_was_calc = false;
   int points_count = 0;
@@ -510,33 +510,34 @@ typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
       }
 
       for (int row = 0; row < dim; row++)
-        features(row, points_count) = xyz[row] - shift[row];
-      features(dim, points_count) = 1;
+        data.features(row, points_count) = xyz[row] - shift[row];
+      data.features(dim, points_count) = 1;
 
       points_count++;
       if (points_count >= num_points_to_load) break;
     }
 
   }
-  features.conservativeResize(Eigen::NoChange, points_count);
+  data.features.conservativeResize(Eigen::NoChange, points_count);
 
   vw_out() << "Loaded points: " << points_count << endl;
-  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
 }
 
 // Load a point cloud
 template<typename T>
-typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
-                                             int num_points_to_load,
-                                             bool calc_shift,
-                                             Vector3 & shift,
-                                             string & actual_datum_str
-                                             ){
+void load_pc(string const& file_name,
+             int num_points_to_load,
+             bool calc_shift,
+             Vector3 & shift,
+             string & actual_datum_str,
+             typename PointMatcher<T>::DataPoints & data
+             ){
 
   validateFile(file_name);
 
   const int dim = 3;
-  typename PointMatcher<T>::Matrix features(dim+1, num_points_to_load);
+  data.features.conservativeResize(dim+1, num_points_to_load);
+  data.featureLabels = form_labels<T>(dim);
 
   // To do: Is it faster to to do for_each?
   ImageViewRef<Vector3> point_cloud = read_n_channels<dim>(file_name);
@@ -562,14 +563,14 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
       }
 
       for (int row = 0; row < dim; row++)
-        features(row, points_count) = xyz[row] - shift[row];
-      features(dim, points_count) = 1;
+        data.features(row, points_count) = xyz[row] - shift[row];
+      data.features(dim, points_count) = 1;
 
       points_count++;
       if (points_count >= num_points_to_load) break;
     }
   }
-  features.conservativeResize(Eigen::NoChange, points_count);
+  data.features.conservativeResize(Eigen::NoChange, points_count);
 
   if (actual_datum_str == ""){
     // No datum so far, try to guess
@@ -587,7 +588,6 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
   }
 
   vw_out() << "Loaded points: " << points_count << endl;
-  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
 }
 
 string get_file_type(string const& file_name){
@@ -611,32 +611,32 @@ string get_file_type(string const& file_name){
 
 // Load file from disk and convert to libpointmatcher's format
 template<typename T>
-typename PointMatcher<T>::DataPoints load_file(Options const& opt,
-                                               string const& file_name,
-                                               int num_points_to_load,
-                                               bool calc_shift,
-                                               Vector3 & shift,
-                                               string & actual_datum_str,
-                                               bool & is_lola_rdr_format,
-                                               double & mean_longitude
-                                               ){
+void load_file(Options const& opt,
+               string const& file_name,
+               int num_points_to_load,
+               bool calc_shift,
+               Vector3 & shift,
+               string & actual_datum_str,
+               bool & is_lola_rdr_format,
+               double & mean_longitude,
+               typename PointMatcher<T>::DataPoints & data
+               ){
 
   vw_out() << "Reading: " << file_name << endl;
 
   string file_type = get_file_type(file_name);
   if (file_type == "DEM")
-    return load_dem<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str);
-  if (file_type == "PC")
-    return load_pc<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str);
-  if (file_type == "CSV"){
+    load_dem<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str, data);
+  else if (file_type == "PC")
+    load_pc<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str, data);
+  else if (file_type == "CSV"){
     bool verbose = true;
-    return load_csv<T>(file_name, num_points_to_load, opt.datum, verbose,
-                       calc_shift, shift, actual_datum_str, is_lola_rdr_format,
-                       mean_longitude
-                       );
-  }
-
-  vw_throw( ArgumentErr() << "Unknown file type: " << file_name << "\n" );
+    load_csv<T>(file_name, num_points_to_load, opt.datum, verbose,
+                calc_shift, shift, actual_datum_str, is_lola_rdr_format,
+                mean_longitude, data
+                );
+  }else
+    vw_throw( ArgumentErr() << "Unknown file type: " << file_name << "\n" );
 }
 
 double calc_mean(vector<double> const& errs, int len){
@@ -884,11 +884,12 @@ void save_trans_point_cloud(Options const& opt,
     string actual_datum_str;
     bool is_lola_rdr_format;
     double mean_longitude;
-    DP point_cloud = load_csv<RealT>(input_file, numeric_limits<int>::max(),
-                                     opt.datum, verbose, calc_shift, shift,
-                                     actual_datum_str, is_lola_rdr_format,
-                                     mean_longitude
-                                     );
+    DP point_cloud;
+    load_csv<RealT>(input_file, numeric_limits<int>::max(),
+                    opt.datum, verbose, calc_shift, shift,
+                    actual_datum_str, is_lola_rdr_format,
+                    mean_longitude, point_cloud
+                    );
 
     cartography::Datum datum;
     datum.set_well_known_datum(actual_datum_str);
@@ -998,9 +999,10 @@ int main( int argc, char *argv[] ) {
     double mean_longitude = 0.0;         // may get overwritten
     Stopwatch sw1;
     sw1.start();
-    DP ref  = load_file<RealT>(opt, opt.reference, opt.max_num_reference_points,
-                               calc_shift, shift, actual_datum_str, is_lola_rdr_format,
-                               mean_longitude);
+    DP ref;
+    load_file<RealT>(opt, opt.reference, opt.max_num_reference_points,
+                     calc_shift, shift, actual_datum_str, is_lola_rdr_format,
+                     mean_longitude, ref);
     sw1.stop();
     if (opt.verbose) vw_out() << "Loading the reference point cloud took "
                               << sw1.elapsed_seconds() << " [s]" << endl;
@@ -1015,9 +1017,10 @@ int main( int argc, char *argv[] ) {
     calc_shift = false;
     Stopwatch sw2;
     sw2.start();
-    DP source = load_file<RealT>(opt, opt.source, num_source_pts,
-                                 calc_shift, shift, actual_datum_str, is_lola_rdr_format,
-                                 mean_longitude);
+    DP source;
+    load_file<RealT>(opt, opt.source, num_source_pts,
+                     calc_shift, shift, actual_datum_str, is_lola_rdr_format,
+                     mean_longitude, source);
     sw2.stop();
     if (opt.verbose) vw_out() << "Loading the source point cloud took "
                               << sw2.elapsed_seconds() << " [s]" << endl;
@@ -1050,7 +1053,7 @@ int main( int argc, char *argv[] ) {
       sw4.stop();
       if (opt.verbose) vw_out() << "Filter gross outliers took "
                                 << sw4.elapsed_seconds() << " [s]" << endl;
-      source = random_pc_subsample<RealT>(opt.max_num_source_points, source);
+      random_pc_subsample<RealT>(opt.max_num_source_points, source);
       vw_out() << "Reducing number of source points to " << source.features.cols() << endl;
     }
 
