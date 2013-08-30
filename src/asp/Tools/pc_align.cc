@@ -317,7 +317,8 @@ typename PointMatcher<T>::DataPoints load_csv(string const& file_name,
 
   int dim = 3;
   vector<Vector3> points;
-  Vector3 mean_center;
+  bool shift_was_calc = false;
+  Vector3 curr_dataset_shift;
   bool is_first_line = true;
   char sep[] = ", \t";
 
@@ -454,15 +455,18 @@ typename PointMatcher<T>::DataPoints load_csv(string const& file_name,
       xyz = rad*(xyz/norm_2(xyz));
     }
 
+    if (!shift_was_calc){
+      curr_dataset_shift = xyz;
+      shift_was_calc = true;
+    }
+
     points.push_back(xyz);
-    mean_center += xyz;
     mean_longitude += lon;
   }
 
-  mean_center    /= points.size();
   mean_longitude /= points.size();
 
-  if (calc_shift) shift = mean_center;
+  if (calc_shift) shift = curr_dataset_shift;
 
   if (verbose) vw_out() << "Loaded points: " << points.size() << endl;
   return form_data_points<T>(dim, shift, points);
@@ -496,7 +500,8 @@ typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
 
   vector<Vector3> points;
   int dim = 3;
-  Vector3 mean_center;
+  bool shift_was_calc = false;
+  Vector3 curr_dataset_shift;
   int count = 0;
   for (int j = 0; j < dem.rows(); j++ ) {
     int local_count = 0;
@@ -512,22 +517,16 @@ typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
       Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
       Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( llh );
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+      if (!shift_was_calc){
+        curr_dataset_shift = xyz;
+        shift_was_calc = true;
+      }
       points.push_back(xyz);
-      local_mean += xyz;
-      local_count++;
     }
 
-    if ( local_count > 0 ) {
-      local_mean /= double(local_count);
-      double afraction = double(count) / double(count + local_count);
-      double bfraction = double(local_count) / double(count + local_count);
-      mean_center = afraction*mean_center + bfraction*local_mean;
-      count += local_count;
-    }
   }
-  //vw_out() << "mean is " << mean_center << endl;
 
-  if (calc_shift) shift = mean_center;
+  if (calc_shift) shift = curr_dataset_shift;
 
   vw_out() << "Loaded points: " << points.size() << endl;
   return form_data_points<T>(dim, shift, points);
@@ -554,7 +553,10 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
   int num_points = point_cloud.cols()*point_cloud.rows();
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
-  Vector3 mean_center;
+  //typename PointMatcher<T>::Matrix features(dim+1, num_points_to_load);
+
+  bool shift_was_calc = false;
+  Vector3 curr_dataset_shift;
   int count = 0;
   for (int j = 0; j < point_cloud.rows(); j++ ) {
     int local_count = 0;
@@ -566,21 +568,15 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
 
       Vector3 xyz = point_cloud(i, j);
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+      if (!shift_was_calc){
+        curr_dataset_shift = xyz;
+        shift_was_calc = true;
+      }
       points.push_back(xyz);
-      local_mean += xyz;
-      local_count++;
-    }
-    if ( local_count > 0 ) {
-      local_mean /= double(local_count);
-      double afraction = double(count) / double(count + local_count);
-      double bfraction = double(local_count) / double(count + local_count);
-      mean_center = afraction*mean_center + bfraction*local_mean;
-      count += local_count;
     }
   }
-  //vw_out() << "mean is " << mean_center << endl;
 
-  if (calc_shift) shift = mean_center;
+  if (calc_shift) shift = curr_dataset_shift;
 
   if (actual_datum_str == ""){
     // No datum so far, try to guess
@@ -1135,6 +1131,7 @@ int main( int argc, char *argv[] ) {
 
     save_errors(source, beg_errors,  opt.output_prefix + "-beg_errors.csv",
                 shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
+    // Shoud use below source instead of trans_source?
     save_errors(trans_source, end_errors,  opt.output_prefix + "-end_errors.csv",
                 shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
 
