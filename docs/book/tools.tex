@@ -762,7 +762,7 @@ Usage:\\
 
 \medskip
 
-\begin{longtable}{|l|p{10cm}|}
+\begin{longtable}{|p{8cm}|p{9cm}|}
 \caption{Command-line options for pc\_align}
 \label{tbl:pcalign}
 \endfirsthead
@@ -785,9 +785,9 @@ displacement of source points as result of alignment, in meters (after
 the initial guess transform is applied to the source points). Used
 for removing gross outliers in the source (movable) point cloud.\\ \hline
 \texttt{-\/-outlier-ratio \textit{default: 0.75}} &  Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed). \\ \hline
-\texttt{-\/-max-num-reference-points \textit{default: 100000000}} &
+\texttt{-\/-max-num-reference-points \textit{default: $10^8$}} &
 Maximum number of (randomly picked) reference points to use. \\ \hline
-\texttt{-\/-max-num-source-points \textit{default: 100000}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
+\texttt{-\/-max-num-source-points \textit{default: $10^5$}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-datum \textit{}} & Use this datum for CSV files instead of
