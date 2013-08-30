@@ -216,22 +216,6 @@ typename PointMatcher<T>::DataPoints::Labels form_labels(int dim){
   return labels;
 }
 
-template<typename T>
-typename PointMatcher<T>::DataPoints
-form_data_points(int dim, Vector3 const& shift, vector<Vector3> const& points){
-
-  int numPoints = points.size();
-
-  typename PointMatcher<T>::Matrix features(dim+1, numPoints);
-  for(int col = 0; col < numPoints; col++){
-    for (int row = 0; row < dim; row++)
-      features(row, col) = points[col][row] - shift[row];
-    features(dim, col) = 1;
-  }
-
-  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
-}
-
 void pick_at_most_m_unique_elems_from_n_elems(int m, int n, vector<int>& elems){
 
   // Out of the elements 0, 1,..., n - 1, pick m unique
@@ -315,11 +299,6 @@ typename PointMatcher<T>::DataPoints load_csv(string const& file_name,
   // We will randomly pick or not a point with probability load_ratio
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
-  int dim = 3;
-  vector<Vector3> points;
-  bool shift_was_calc = false;
-  Vector3 curr_dataset_shift;
-  bool is_first_line = true;
   char sep[] = ", \t";
 
   // Peek at first line and see how many elements it has
@@ -362,8 +341,13 @@ typename PointMatcher<T>::DataPoints load_csv(string const& file_name,
   actual_datum_str = datum.name();
   if (verbose) vw_out() << "Using the datum: " << actual_datum_str << endl;
 
-  mean_longitude = 0.0;
+  const int dim = 3;
+  typename PointMatcher<T>::Matrix features(dim+1, num_points_to_load);
 
+  bool shift_was_calc = false;
+  bool is_first_line = true;
+  int points_count = 0;
+  mean_longitude = 0.0;
   while ( getline(file, line, '\n') ){
 
     int year, month, day, hour, min;
@@ -455,21 +439,26 @@ typename PointMatcher<T>::DataPoints load_csv(string const& file_name,
       xyz = rad*(xyz/norm_2(xyz));
     }
 
-    if (!shift_was_calc){
-      curr_dataset_shift = xyz;
+    if (calc_shift && !shift_was_calc){
+      shift = xyz;
       shift_was_calc = true;
     }
 
-    points.push_back(xyz);
+    for (int row = 0; row < dim; row++)
+      features(row, points_count) = xyz[row] - shift[row];
+    features(dim, points_count) = 1;
+
+    points_count++;
+    if (points_count >= num_points_to_load) break;
+
     mean_longitude += lon;
   }
+  features.conservativeResize(Eigen::NoChange, points_count);
 
-  mean_longitude /= points.size();
+  mean_longitude /= points_count;
 
-  if (calc_shift) shift = curr_dataset_shift;
-
-  if (verbose) vw_out() << "Loaded points: " << points.size() << endl;
-  return form_data_points<T>(dim, shift, points);
+  if (verbose) vw_out() << "Loaded points: " << points_count << endl;
+  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
 }
 
 // Load a DEM
@@ -498,15 +487,12 @@ typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
   int num_points = dem.cols()*dem.rows();
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
-  vector<Vector3> points;
-  int dim = 3;
-  bool shift_was_calc = false;
-  Vector3 curr_dataset_shift;
-  int count = 0;
-  for (int j = 0; j < dem.rows(); j++ ) {
-    int local_count = 0;
-    Vector3 local_mean;
+  const int dim = 3;
+  typename PointMatcher<T>::Matrix features(dim+1, num_points_to_load);
 
+  bool shift_was_calc = false;
+  int points_count = 0;
+  for (int j = 0; j < dem.rows(); j++ ) {
     for ( int i = 0; i < dem.cols(); i++ ) {
 
       double r = (double)std::rand()/(double)RAND_MAX;
@@ -517,19 +503,25 @@ typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
       Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
       Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( llh );
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
-      if (!shift_was_calc){
-        curr_dataset_shift = xyz;
+
+      if (calc_shift && !shift_was_calc){
+        shift = xyz;
         shift_was_calc = true;
       }
-      points.push_back(xyz);
+
+      for (int row = 0; row < dim; row++)
+        features(row, points_count) = xyz[row] - shift[row];
+      features(dim, points_count) = 1;
+
+      points_count++;
+      if (points_count >= num_points_to_load) break;
     }
 
   }
+  features.conservativeResize(Eigen::NoChange, points_count);
 
-  if (calc_shift) shift = curr_dataset_shift;
-
-  vw_out() << "Loaded points: " << points.size() << endl;
-  return form_data_points<T>(dim, shift, points);
+  vw_out() << "Loaded points: " << points_count << endl;
+  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
 }
 
 // Load a point cloud
@@ -543,8 +535,8 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
 
   validateFile(file_name);
 
-  vector<Vector3> points;
   const int dim = 3;
+  typename PointMatcher<T>::Matrix features(dim+1, num_points_to_load);
 
   // To do: Is it faster to to do for_each?
   ImageViewRef<Vector3> point_cloud = read_n_channels<dim>(file_name);
@@ -553,14 +545,9 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
   int num_points = point_cloud.cols()*point_cloud.rows();
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
-  //typename PointMatcher<T>::Matrix features(dim+1, num_points_to_load);
-
   bool shift_was_calc = false;
-  Vector3 curr_dataset_shift;
-  int count = 0;
+  int points_count = 0;
   for (int j = 0; j < point_cloud.rows(); j++ ) {
-    int local_count = 0;
-    Vector3 local_mean;
     for ( int i = 0; i < point_cloud.cols(); i++ ) {
 
       double r = (double)std::rand()/(double)RAND_MAX;
@@ -568,15 +555,21 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
 
       Vector3 xyz = point_cloud(i, j);
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
-      if (!shift_was_calc){
-        curr_dataset_shift = xyz;
+
+      if (calc_shift && !shift_was_calc){
+        shift = xyz;
         shift_was_calc = true;
       }
-      points.push_back(xyz);
+
+      for (int row = 0; row < dim; row++)
+        features(row, points_count) = xyz[row] - shift[row];
+      features(dim, points_count) = 1;
+
+      points_count++;
+      if (points_count >= num_points_to_load) break;
     }
   }
-
-  if (calc_shift) shift = curr_dataset_shift;
+  features.conservativeResize(Eigen::NoChange, points_count);
 
   if (actual_datum_str == ""){
     // No datum so far, try to guess
@@ -593,8 +586,8 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
     }
   }
 
-  vw_out() << "Loaded points: " << points.size() << endl;
-  return form_data_points<T>(dim, shift, points);
+  vw_out() << "Loaded points: " << points_count << endl;
+  return typename PointMatcher<T>::DataPoints(features, form_labels<T>(dim));
 }
 
 string get_file_type(string const& file_name){
