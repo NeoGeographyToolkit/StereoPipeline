@@ -360,7 +360,7 @@ fi
 AX_PKG(YAML, [], [-lyaml-cpp], [])
 AX_PKG(EIGEN,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS], [], [])
 AX_PKG(LIBNABO, [], [-lnabo], [])
-AX_PKG(LIBPOINTMATCHER, [LIBNABO EIGEN YAML], [-lpointmatcher], [])
+AX_PKG(LIBPOINTMATCHER, [LIBNABO EIGEN YAML BOOST_THREAD BOOST_FILESYSTEM BOOST_SYSTEM BOOST_PROGRAM_OPTIONS BOOST_DATETIME], [-lpointmatcher], [])
 
 dnl check for recent rabbitmq; this can go away soon, it's just to prevent a
 dnl flag-day upgrade
