@@ -473,7 +473,8 @@ template<typename T>
 typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
                                               int num_points_to_load,
                                               bool calc_shift,
-                                              Vector3 & shift
+                                              Vector3 & shift,
+                                              string & actual_datum_str
                                               ){
   validateFile(file_name);
 
@@ -481,6 +482,7 @@ typename PointMatcher<T>::DataPoints load_dem(string const& file_name,
   bool is_good = cartography::read_georeference( dem_georef, file_name );
   if (!is_good) vw_throw(ArgumentErr() << "DEM: " << file_name
                          << " does not have a georeference.\n");
+  actual_datum_str = dem_georef.datum().name();
 
   DiskImageView<float> dem(file_name);
   double nodata = numeric_limits<double>::quiet_NaN();
@@ -536,7 +538,8 @@ template<typename T>
 typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
                                              int num_points_to_load,
                                              bool calc_shift,
-                                             Vector3 & shift
+                                             Vector3 & shift,
+                                             string & actual_datum_str
                                              ){
 
   validateFile(file_name);
@@ -579,6 +582,21 @@ typename PointMatcher<T>::DataPoints load_pc(string const& file_name,
 
   if (calc_shift) shift = mean_center;
 
+  if (actual_datum_str == ""){
+    // No datum so far, try to guess
+    string names[] = {"WGS_1984", "D_MOON", "D_MARS"};
+    double small = 1e+10;
+    for (int i = 0; i < sizeof(names)/sizeof(string); i++){
+      cartography::Datum datum;
+      datum.set_well_known_datum(names[i]);
+      double local_small = std::abs(1.0 - norm_2(shift)/datum.semi_major_axis());
+      if ( local_small < small ){
+        actual_datum_str = names[i];
+        small = local_small;
+      }
+    }
+  }
+
   vw_out() << "Loaded points: " << points.size() << endl;
   return form_data_points<T>(dim, shift, points);
 }
@@ -608,21 +626,21 @@ typename PointMatcher<T>::DataPoints load_file(Options const& opt,
                                                string const& file_name,
                                                int num_points_to_load,
                                                bool calc_shift,
-                                               Vector3 & shift
+                                               Vector3 & shift,
+                                               string & actual_datum_str,
+                                               bool & is_lola_rdr_format,
+                                               double & mean_longitude
                                                ){
 
   vw_out() << "Reading: " << file_name << endl;
 
   string file_type = get_file_type(file_name);
   if (file_type == "DEM")
-    return load_dem<T>(file_name, num_points_to_load, calc_shift, shift);
+    return load_dem<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str);
   if (file_type == "PC")
-    return load_pc<T>(file_name, num_points_to_load, calc_shift, shift);
+    return load_pc<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str);
   if (file_type == "CSV"){
-    string actual_datum_str;
     bool verbose = true;
-    bool is_lola_rdr_format;
-    double mean_longitude;
     return load_csv<T>(file_name, num_points_to_load, opt.datum, verbose,
                        calc_shift, shift, actual_datum_str, is_lola_rdr_format,
                        mean_longitude
@@ -709,16 +727,6 @@ void dump_llh(DP const & data, Vector3 const& shift){
 
 }
 
-void save_errors(string errFile, PointMatcher<RealT>::Matrix const& errors){
-  vw_out() << "Writing: " << errFile << endl;
-  ofstream ef(errFile.c_str());
-  for (int row = 0; row < (int)errors.rows(); row++){
-    for (int col = 0; col < (int)errors.cols(); col++){
-      ef << errors(row, col) << endl;
-    }
-  }
-}
-
 void save_transforms(Options const& opt,
                      PointMatcher<RealT>::Matrix const& T){
 
@@ -782,6 +790,55 @@ void calc_max_displacment(DP const& source, DP const& trans_source){
            << max_obtained_disp << " m" << endl;
 }
 
+void save_errors(DP const& point_cloud,
+                 PointMatcher<RealT>::Matrix const& errors,
+                 string const& output_file,
+                 Vector3 const& shift,
+                 string const& actual_datum_str,
+                 bool is_lola_rdr_format,
+                 double mean_longitude
+                 ){
+
+  // Save the lon, lat, radius/height, and error. Use a format
+  // consistent with the input CSV format.
+
+  std::cout << "Writing: " << output_file << std::endl;
+
+  VW_ASSERT(point_cloud.features.cols() == errors.cols(),
+            ArgumentErr() << "Expecting as many errors as source points.");
+
+  cartography::Datum datum;
+  datum.set_well_known_datum(actual_datum_str);
+
+  ofstream outfile( output_file.c_str() );
+  outfile.precision(16);
+
+  if (is_lola_rdr_format)
+    outfile << "# longitude,latitude,radius (km),error (meters)" << endl;
+  else
+    outfile << "# latitude,longitude,height above datum (meters),error(meters)" << endl;
+
+  int numPts = point_cloud.features.cols();
+  int dim = 3;
+  for(int col = 0; col < numPts; col++){
+
+    Vector3 P;
+    for (int row = 0; row < dim; row++)
+      P[row] = point_cloud.features(row, col) + shift[row];
+
+    Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
+    llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
+
+    if (is_lola_rdr_format)
+      outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0
+              << "," << errors(0, col) << endl;
+    else
+      outfile << llh[1] << ',' << llh[0] << ',' << llh[2]
+              << "," << errors(0, col) << endl;
+  }
+  outfile.close();
+}
+
 void save_trans_point_cloud(Options const& opt,
                             string input_file,
                             string output_prefix,
@@ -790,6 +847,9 @@ void save_trans_point_cloud(Options const& opt,
 
   // Apply a given transform to the point cloud in input file,
   // and save it.
+
+  // Note: We transform the entire point cloud, not just the resampled version
+  // used in alignment.
 
   string file_type = get_file_type(input_file);
 
@@ -826,6 +886,8 @@ void save_trans_point_cloud(Options const& opt,
                                 opt,
                                 TerminalProgressCallback("asp", "\t--> "));
   }else if (file_type == "CSV"){
+
+    // Write a CSV file in format consistent with the input CSV file.
 
     bool verbose = false;
     bool calc_shift = true;
@@ -942,10 +1004,14 @@ int main( int argc, char *argv[] ) {
     // Load the subsampled reference point cloud.
     Vector3 shift;
     bool calc_shift = true;
+    string actual_datum_str = opt.datum; // may get overwritten
+    bool is_lola_rdr_format = false;     // may get overwritten
+    double mean_longitude = 0.0;         // may get overwritten
     Stopwatch sw1;
     sw1.start();
     DP ref  = load_file<RealT>(opt, opt.reference, opt.max_num_reference_points,
-                               calc_shift, shift);
+                               calc_shift, shift, actual_datum_str, is_lola_rdr_format,
+                               mean_longitude);
     sw1.stop();
     if (opt.verbose) vw_out() << "Loading the reference point cloud took "
                               << sw1.elapsed_seconds() << " [s]" << endl;
@@ -961,7 +1027,8 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw2;
     sw2.start();
     DP source = load_file<RealT>(opt, opt.source, num_source_pts,
-                                 calc_shift, shift);
+                                 calc_shift, shift, actual_datum_str, is_lola_rdr_format,
+                                 mean_longitude);
     sw2.stop();
     if (opt.verbose) vw_out() << "Loading the source point cloud took "
                               << sw2.elapsed_seconds() << " [s]" << endl;
@@ -1051,6 +1118,8 @@ int main( int argc, char *argv[] ) {
     // Go back to the original coordinate system, undoing the shift
     PointMatcher<RealT>::Matrix globalT = apply_shift(combinedT, -shift);
 
+    Stopwatch sw8;
+    sw8.start();
     save_transforms(opt, globalT);
 
     if (opt.save_trans_ref){
@@ -1064,8 +1133,14 @@ int main( int argc, char *argv[] ) {
        save_trans_point_cloud(opt, opt.source, trans_source_prefix, globalT);
     }
 
-    save_errors(opt.output_prefix + "-beg_errors.txt", beg_errors);
-    save_errors(opt.output_prefix + "-end_errors.txt", end_errors);
+    save_errors(source, beg_errors,  opt.output_prefix + "-beg_errors.csv",
+                shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
+    save_errors(trans_source, end_errors,  opt.output_prefix + "-end_errors.csv",
+                shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
+
+    sw8.stop();
+    if (opt.verbose) vw_out() << "Saving to disk took "
+                              << sw8.elapsed_seconds() << " [s]" << endl;
 
   } ASP_STANDARD_CATCHES;
 
