@@ -86,7 +86,7 @@ struct Options : public asp::BaseOptions {
   bool compute_translation_only, save_trans_source, save_trans_ref, verbose;
   // Output
   string output_prefix;
-  Options():max_disp(0.0){}
+  Options():max_disp(0.0), verbose(true){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -112,9 +112,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
      "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
-     "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.")
-    ("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
-     "Print debug information");
+     "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.");
+    //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
+    // "Print debug information");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -576,7 +576,7 @@ void load_pc(string const& file_name,
     // No datum so far, try to guess
     string names[] = {"WGS_1984", "D_MOON", "D_MARS"};
     double small = 1e+10;
-    for (int i = 0; i < sizeof(names)/sizeof(string); i++){
+    for (int i = 0; i < (int)sizeof(names)/sizeof(string); i++){
       cartography::Datum datum;
       datum.set_well_known_datum(names[i]);
       double local_small = std::abs(1.0 - norm_2(shift)/datum.semi_major_axis());
@@ -723,7 +723,7 @@ void save_transforms(Options const& opt,
 
   string transFile = opt.output_prefix + "-transform.txt";
   cout.precision(16);
-  cout << "Alignment transform:" << endl << T << endl;
+  cout << "Alignment transform (origin is planet center):" << endl << T << endl;
   vw_out() << "Writing: " << transFile  << endl;
   ofstream tf(transFile.c_str());
   tf.precision(16);
@@ -972,22 +972,6 @@ int main( int argc, char *argv[] ) {
       omp_set_num_threads(opt.num_threads);
     }
 
-    // Create the default ICP algorithm
-    PM::ICP icp;
-    if (opt.config_file == ""){
-      // Read the options from the command line
-      icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
-                    opt.diff_translation_err, opt.alignment_method);
-
-    }else{
-      vw_out() << "Will read the options from: " << opt.config_file << endl;
-      ifstream ifs(opt.config_file.c_str());
-      if (!ifs.good())
-        vw_throw( ArgumentErr() << "Cannot open configuration file: "
-                  << opt.config_file << "\n" );
-      icp.loadFromYaml(ifs);
-    }
-
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
 
@@ -1028,9 +1012,6 @@ int main( int argc, char *argv[] ) {
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
-    // Apply the initial guess transform to the source point cloud.
-    icp.transformations.apply(source, initT);
-
     // Create a separate ICP object for filtering gross outliers and
     // statistics computations.  Need this as the ICP object used to
     // compute the transform internally modifies the points before
@@ -1043,6 +1024,9 @@ int main( int argc, char *argv[] ) {
     sw3.stop();
     if (opt.verbose) vw_out() << "Point cloud initialization took "
                               << sw3.elapsed_seconds() << " [s]" << endl;
+
+    // Apply the initial guess transform to the source point cloud.
+    icp2.transformations.apply(source, initT);
 
     if (opt.max_disp > 0.0){
       // Filter gross outliers
@@ -1071,12 +1055,29 @@ int main( int argc, char *argv[] ) {
     calc_stats("Input", beg_errors);
     //dump_llh(source, shift);
 
+    Stopwatch sw6;
+    sw6.start();
+
+    // Create the default ICP algorithm
+    PM::ICP icp;
+    if (opt.config_file == ""){
+      // Read the options from the command line
+      icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
+                    opt.diff_translation_err, opt.alignment_method, opt.verbose);
+
+    }else{
+      vw_out() << "Will read the options from: " << opt.config_file << endl;
+      ifstream ifs(opt.config_file.c_str());
+      if (!ifs.good())
+        vw_throw( ArgumentErr() << "Cannot open configuration file: "
+                  << opt.config_file << "\n" );
+      icp.loadFromYaml(ifs);
+    }
+
     // Compute the transformation to align the source to reference.
     int dim = 3;
     PointMatcher<RealT>::Matrix Id
       = PointMatcher<RealT>::Matrix::Identity(dim + 1, dim + 1);
-    Stopwatch sw6;
-    sw6.start();
     PointMatcher<RealT>::Matrix T = icp(source, ref, Id,
                                         opt.compute_translation_only);
     vw_out() << "Match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
@@ -1087,7 +1088,7 @@ int main( int argc, char *argv[] ) {
 
     // Transform the source to make it close to reference.
     DP trans_source(source);
-    icp.transformations.apply(trans_source, T);
+    icp2.transformations.apply(trans_source, T);
 
     // Calculate by how much points move as result of T
     calc_max_displacment(source, trans_source);
