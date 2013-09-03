@@ -49,6 +49,8 @@ if __name__ == '__main__':
                  help='Pipeline entry point (an integer from 0-4)', type='int')
     p.add_option('--no-bigtiff',           dest='no_bigtiff',  default=False, action='store_true',
                  help='Tell GDAL to not create bigtiffs.')
+    p.add_option('--sparse-disp-options', dest='sparse_disp_options',
+                 help='Options to pass directly to sparse_disp.')
     p.add_option('--dry-run',              dest='dryrun',      default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
     p.add_option('--verbose',                dest='verbose', default=False, action='store_true',

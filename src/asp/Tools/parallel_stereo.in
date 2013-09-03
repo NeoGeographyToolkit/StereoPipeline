@@ -297,6 +297,8 @@ if __name__ == '__main__':
                  help='Pixel width of input image tile for a single process.', type='int')
     p.add_option('--job-size-h',           dest='job_size_h',  default=2048,
                  help='Pixel height of input image tile for a single process.', type='int')
+    p.add_option('--sparse-disp-options', dest='sparse_disp_options',
+                 help='Options to pass directly to sparse_disp.')
     p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
                  help='Display the version of software.')
 
