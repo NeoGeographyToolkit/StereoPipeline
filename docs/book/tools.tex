@@ -790,6 +790,7 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-max-num-source-points \textit{default: $10^5$}} & Maximum number of (randomly picked) source points to use (after discarding gross outliers). \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
+\texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
 \texttt{-\/-datum \textit{}} & Use this datum for CSV files instead of
 auto-detecting it. [WGS\_1984, D\_MOON, D\_MARS, etc.] \\ \hline
 \texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
@@ -800,5 +801,4 @@ format expected by libpointmatcher, over-riding the command-line options.\\ \hli
 \texttt{-\/-save-transformed-source-points} & Apply the obtained transform to the source points so they match the reference points and save them. \\ \hline
 \texttt{ -\/-save-inv-transformed-reference-points} & Apply the inverse of the obtained transform to the reference points so they match the source points and save them.
 \\ \hline
-\texttt{-\/-verbose} & Print debug information. \\ \hline
 \end{longtable}

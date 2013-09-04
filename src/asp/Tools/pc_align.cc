@@ -83,7 +83,7 @@ struct Options : public asp::BaseOptions {
   PointMatcher<RealT>::Matrix init_transform;
   int num_iter, max_num_reference_points, max_num_source_points;
   double diff_translation_err, diff_rotation_err, max_disp, outlier_ratio;
-  bool compute_translation_only, save_trans_source, save_trans_ref, verbose;
+  bool compute_translation_only, save_trans_source, save_trans_ref, highest_accuracy, verbose;
   // Output
   string output_prefix;
   Options():max_disp(0.0), verbose(true){}
@@ -103,9 +103,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000), "Maximum number of (randomly picked) reference points to use.")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(100000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
     ("alignment-method", po::value(&opt.alignment_method)->default_value("point-to-plane"), "The type of iterative closest point method to use. [point-to-plane, point-to-point]")
+    ("highest-accuracy", po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
+     "Compute with highest accuracy for point-to-plane (can be much slower).")
     ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON, D_MARS, etc.]")
     ("config-file", po::value(&opt.config_file)->default_value(""),
-    "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
+     "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
     ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.")
     ("compute-translation-only", po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
      "Compute the transform from source to reference point cloud as a translation only (no rotation).")
@@ -113,8 +115,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
      "Apply the inverse of the obtained transform to the reference points so they match the source points and save them.");
-    //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
-    // "Print debug information");
+  //("verbose", po::bool_switch(&opt.verbose)->default_value(false)->implicit_value(true),
+  // "Print debug information");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
@@ -264,7 +266,6 @@ void random_pc_subsample(int m, typename PointMatcher<T>::DataPoints& points){
 template<typename T>
 void load_csv(string const& file_name,
               int num_points_to_load,
-              string const& input_datum_str,
               bool verbose,
               bool calc_shift,
               Vector3 & shift,
@@ -324,10 +325,10 @@ void load_csv(string const& file_name,
       vw_out() << "Guessing file " << file_name
                << " to be in LOLA RDR PointPerRow format.\n";
     datum.set_well_known_datum("D_MOON");
-    if (input_datum_str != "" && input_datum_str != "D_MOON")
+    if (actual_datum_str != "" && actual_datum_str != "D_MOON")
       vw_throw( vw::IOErr() << "The datum for LOLA RDR PointPerRow format "
                 << "is expected to be D_MOON. Got instead: '"
-                << input_datum_str << "'\n" );
+                << actual_datum_str << "'\n" );
 
   }else{
     is_lola_rdr_format = false;
@@ -335,12 +336,12 @@ void load_csv(string const& file_name,
       vw_out() << "Guessing file " << file_name
                << " to be in latitude,longitude,height above datum (meters) "
                << "format.\n";
-    datum.set_well_known_datum("WGS_1984");
+    // If we did not guess the datum by now, it will be WGS_1984
+    if (actual_datum_str == "") datum.set_well_known_datum("WGS_1984");
   }
 
-  if (input_datum_str != "") datum.set_well_known_datum(input_datum_str);
+  if (actual_datum_str != "") datum.set_well_known_datum(actual_datum_str);
   actual_datum_str = datum.name();
-  if (verbose) vw_out() << "Using the datum: " << actual_datum_str << endl;
 
   bool shift_was_calc = false;
   bool is_first_line = true;
@@ -478,7 +479,8 @@ void load_dem(string const& file_name,
   bool is_good = cartography::read_georeference( dem_georef, file_name );
   if (!is_good) vw_throw(ArgumentErr() << "DEM: " << file_name
                          << " does not have a georeference.\n");
-  actual_datum_str = dem_georef.datum().name();
+  if (actual_datum_str == "")
+    actual_datum_str = boost::to_upper_copy(dem_georef.datum().name());
 
   DiskImageView<float> dem(file_name);
   double nodata = numeric_limits<double>::quiet_NaN();
@@ -611,8 +613,7 @@ string get_file_type(string const& file_name){
 
 // Load file from disk and convert to libpointmatcher's format
 template<typename T>
-void load_file(Options const& opt,
-               string const& file_name,
+void load_file(string const& file_name,
                int num_points_to_load,
                bool calc_shift,
                Vector3 & shift,
@@ -631,7 +632,7 @@ void load_file(Options const& opt,
     load_pc<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str, data);
   else if (file_type == "CSV"){
     bool verbose = true;
-    load_csv<T>(file_name, num_points_to_load, opt.datum, verbose,
+    load_csv<T>(file_name, num_points_to_load, verbose,
                 calc_shift, shift, actual_datum_str, is_lola_rdr_format,
                 mean_longitude, data
                 );
@@ -722,8 +723,6 @@ void save_transforms(Options const& opt,
   // Save the transform and its inverse.
 
   string transFile = opt.output_prefix + "-transform.txt";
-  cout.precision(16);
-  cout << "Alignment transform (origin is planet center):" << endl << T << endl;
   vw_out() << "Writing: " << transFile  << endl;
   ofstream tf(transFile.c_str());
   tf.precision(16);
@@ -762,11 +761,25 @@ inline transform_pc( ImageViewBase<ImageT> const& image,
   return UnaryPerPixelView<ImageT, TransformPC>( image.impl(), TransformPC(T) );
 }
 
+Vector3 calc_translation_vec(DP const& source, DP const& trans_source){
+
+  Eigen::VectorXd source_ctr
+    = source.features.rowwise().sum() / source.features.cols();
+  Eigen::VectorXd trans_source_ctr
+    = trans_source.features.rowwise().sum() / trans_source.features.cols();
+
+  const int dim = 3;
+  Vector3 trans;
+  for (int row = 0; row < dim; row++)
+    trans[row] = trans_source_ctr(row, 0) - source_ctr(row, 0);
+  return trans;
+}
+
 void calc_max_displacment(DP const& source, DP const& trans_source){
 
+  const int dim = 3;
   double max_obtained_disp = 0.0;
   int numPts = source.features.cols();
-  const int dim = 3;
   for(int col = 0; col < numPts; col++){
     Vector3 s, t;
     for (int row = 0; row < dim; row++){
@@ -775,6 +788,7 @@ void calc_max_displacment(DP const& source, DP const& trans_source){
     }
     max_obtained_disp = max(max_obtained_disp, norm_2(s - t));
   }
+
   vw_out() << "Maximum displacement of source points: "
            << max_obtained_disp << " m" << endl;
 }
@@ -803,7 +817,7 @@ void save_errors(DP const& point_cloud,
   outfile.precision(16);
 
   if (is_lola_rdr_format)
-    outfile << "# longitude,latitude,radius (km),error (meters)" << endl;
+    outfile << "# longitude,latitude,radius (meters),error(meters)" << endl;
   else
     outfile << "# latitude,longitude,height above datum (meters),error(meters)" << endl;
 
@@ -819,7 +833,7 @@ void save_errors(DP const& point_cloud,
     llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
 
     if (is_lola_rdr_format)
-      outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0
+      outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)
               << "," << errors(0, col) << endl;
     else
       outfile << llh[1] << ',' << llh[0] << ',' << llh[2]
@@ -886,7 +900,7 @@ void save_trans_point_cloud(Options const& opt,
     double mean_longitude;
     DP point_cloud;
     load_csv<RealT>(input_file, numeric_limits<int>::max(),
-                    opt.datum, verbose, calc_shift, shift,
+                    verbose, calc_shift, shift,
                     actual_datum_str, is_lola_rdr_format,
                     mean_longitude, point_cloud
                     );
@@ -984,7 +998,7 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw1;
     sw1.start();
     DP ref;
-    load_file<RealT>(opt, opt.reference, opt.max_num_reference_points,
+    load_file<RealT>(opt.reference, opt.max_num_reference_points,
                      calc_shift, shift, actual_datum_str, is_lola_rdr_format,
                      mean_longitude, ref);
     sw1.stop();
@@ -1002,7 +1016,7 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw2;
     sw2.start();
     DP source;
-    load_file<RealT>(opt, opt.source, num_source_pts,
+    load_file<RealT>(opt.source, num_source_pts,
                      calc_shift, shift, actual_datum_str, is_lola_rdr_format,
                      mean_longitude, source);
     sw2.stop();
@@ -1011,6 +1025,8 @@ int main( int argc, char *argv[] ) {
 
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
+
+    if (opt.verbose) vw_out() << "Using the datum: " << actual_datum_str << endl;
 
     // Create a separate ICP object for filtering gross outliers and
     // statistics computations.  Need this as the ICP object used to
@@ -1038,7 +1054,8 @@ int main( int argc, char *argv[] ) {
       if (opt.verbose) vw_out() << "Filter gross outliers took "
                                 << sw4.elapsed_seconds() << " [s]" << endl;
       random_pc_subsample<RealT>(opt.max_num_source_points, source);
-      vw_out() << "Reducing number of source points to " << source.features.cols() << endl;
+      vw_out() << "Reducing number of source points to " << source.features.cols()
+               << endl;
     }
 
     // Calculate the errors before doing ICP
@@ -1063,7 +1080,9 @@ int main( int argc, char *argv[] ) {
     if (opt.config_file == ""){
       // Read the options from the command line
       icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
-                    opt.diff_translation_err, opt.alignment_method, opt.verbose);
+                    opt.diff_translation_err, opt.alignment_method,
+                    opt.highest_accuracy,
+                    false/*opt.verbose */);
 
     }else{
       vw_out() << "Will read the options from: " << opt.config_file << endl;
@@ -1092,6 +1111,7 @@ int main( int argc, char *argv[] ) {
 
     // Calculate by how much points move as result of T
     calc_max_displacment(source, trans_source);
+    Vector3 trans = calc_translation_vec(source, trans_source);
 
     // Calculate the errors after doing ICP
     PointMatcher<RealT>::Matrix end_errors;
@@ -1111,6 +1131,19 @@ int main( int argc, char *argv[] ) {
     // Go back to the original coordinate system, undoing the shift
     PointMatcher<RealT>::Matrix globalT = apply_shift(combinedT, -shift);
 
+    // Print statistics
+    cout.precision(16);
+    cout << "Alignment transform (rotation + translation, "
+         << "origin is planet center):" << endl << globalT << endl;
+    cout << "Translation vector: " << trans << std::endl;
+    Matrix3x3 rot;
+    for (int r = 0; r < 3; r++) for (int c = 0; c < dim; c++)
+      rot(r, c) = globalT(r, c);
+    Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
+    Vector3 axis_angles = math::matrix_to_axis_angle( rot) * 180/M_PI;
+    cout << "Euler angles = " << euler_angles << " degrees" << endl;
+    cout << "Axis angles  = " << axis_angles  << " degrees" << endl;
+
     Stopwatch sw8;
     sw8.start();
     save_transforms(opt, globalT);
@@ -1128,7 +1161,6 @@ int main( int argc, char *argv[] ) {
 
     save_errors(source, beg_errors,  opt.output_prefix + "-beg_errors.csv",
                 shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
-    // Shoud use below source instead of trans_source?
     save_errors(trans_source, end_errors,  opt.output_prefix + "-end_errors.csv",
                 shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
 
