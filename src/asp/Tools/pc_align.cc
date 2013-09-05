@@ -1023,32 +1023,61 @@ int main( int argc, char *argv[] ) {
     if (opt.verbose) vw_out() << "Loading the source point cloud took "
                               << sw2.elapsed_seconds() << " [s]" << endl;
 
+    // So far we shifted by first point in first point cloud
+    // to reduce the magnitude of all loaded points. Now that we
+    // have loaded all points, shift one more time, to place the centroid
+    // of the reference at the origin.
+    int dim = 3;
+    int numRefPts = ref.features.cols();
+    Eigen::VectorXd meanRef = ref.features.rowwise().sum() / numRefPts;
+    ref.features.topRows(dim).colwise()    -= meanRef.head(dim);
+    source.features.topRows(dim).colwise() -= meanRef.head(dim);
+    for (int row = 0; row < dim; row++) shift[row] += meanRef(row);
+
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
 
     if (opt.verbose) vw_out() << "Using the datum: " << actual_datum_str << endl;
 
+    // Create the default ICP algorithm
+    PM::ICP icp;
+    icp.initRefTree(ref, opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
+                    opt.diff_translation_err, opt.alignment_method,
+                    opt.highest_accuracy,
+                    false/*opt.verbose */);
+
+    if (opt.config_file == ""){
+      // Read the options from the command line
+    }else{
+      vw_out() << "Will read the options from: " << opt.config_file << endl;
+      ifstream ifs(opt.config_file.c_str());
+      if (!ifs.good())
+        vw_throw( ArgumentErr() << "Cannot open configuration file: "
+                  << opt.config_file << "\n" );
+      icp.loadFromYaml(ifs);
+    }
+
     // Create a separate ICP object for filtering gross outliers and
     // statistics computations.  Need this as the ICP object used to
     // compute the transform internally modifies the points before
     // placing them in the tree.
-    PM::ICP icp2;
     PointMatcher<RealT>::Matrix beg_errors;
     Stopwatch sw3;
     sw3.start();
-    icp2.initICP(ref);
+    icp.initICP(ref);
     sw3.stop();
     if (opt.verbose) vw_out() << "Point cloud initialization took "
                               << sw3.elapsed_seconds() << " [s]" << endl;
 
     // Apply the initial guess transform to the source point cloud.
-    icp2.transformations.apply(source, initT);
+    icp.transformations.apply(source, initT);
 
     if (opt.max_disp > 0.0){
       // Filter gross outliers
       Stopwatch sw4;
       sw4.start();
-      icp2.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
+      icp.initICP(ref);
+      icp.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
                                             source, beg_errors); //in-out
       sw4.stop();
       if (opt.verbose) vw_out() << "Filter gross outliers took "
@@ -1062,7 +1091,8 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw5;
     sw5.start();
     double big = 1e+300;
-    icp2.filterGrossOutliersAndCalcErrors(ref, big,
+    icp.initICP(ref);
+    icp.filterGrossOutliersAndCalcErrors(ref, big,
                                           source, beg_errors); //in-out
     sw5.stop();
     if (opt.verbose) vw_out() << "Initial error computation took "
@@ -1075,26 +1105,12 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw6;
     sw6.start();
 
-    // Create the default ICP algorithm
-    PM::ICP icp;
-    if (opt.config_file == ""){
-      // Read the options from the command line
-      icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
-                    opt.diff_translation_err, opt.alignment_method,
-                    opt.highest_accuracy,
-                    false/*opt.verbose */);
-
-    }else{
-      vw_out() << "Will read the options from: " << opt.config_file << endl;
-      ifstream ifs(opt.config_file.c_str());
-      if (!ifs.good())
-        vw_throw( ArgumentErr() << "Cannot open configuration file: "
-                  << opt.config_file << "\n" );
-      icp.loadFromYaml(ifs);
-    }
-
     // Compute the transformation to align the source to reference.
-    int dim = 3;
+    icp.setParams(ref, opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
+                  opt.diff_translation_err, opt.alignment_method,
+                  opt.highest_accuracy,
+                  false/*opt.verbose */);
+
     PointMatcher<RealT>::Matrix Id
       = PointMatcher<RealT>::Matrix::Identity(dim + 1, dim + 1);
     PointMatcher<RealT>::Matrix T = icp(source, ref, Id,
@@ -1107,7 +1123,7 @@ int main( int argc, char *argv[] ) {
 
     // Transform the source to make it close to reference.
     DP trans_source(source);
-    icp2.transformations.apply(trans_source, T);
+    icp.transformations.apply(trans_source, T);
 
     // Calculate by how much points move as result of T
     calc_max_displacment(source, trans_source);
@@ -1117,7 +1133,8 @@ int main( int argc, char *argv[] ) {
     PointMatcher<RealT>::Matrix end_errors;
     Stopwatch sw7;
     sw7.start();
-    icp2.filterGrossOutliersAndCalcErrors(ref, big,
+    icp.initICP(ref);
+    icp.filterGrossOutliersAndCalcErrors(ref, big,
                                           trans_source, end_errors); // in-out
     sw7.stop();
     if (opt.verbose) vw_out() << "Final error computation took "
