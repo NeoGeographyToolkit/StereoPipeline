@@ -28,7 +28,7 @@ import scipy.spatial as sp
 from scipy.ndimage import convolve, binary_dilation
 from scipy.sparse import coo_matrix
 from scipy.interpolate import griddata
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 from optparse import OptionParser
 
 def die(msg, code=-1):
@@ -1217,7 +1217,7 @@ def main():
                        help="Points whose neighbors have a minimum disparity range larger than this value will be removed (%default)")
     parser.add_option("-M", "--Max_disp_range", dest="M_max",  default=64., type="float",
                        help="Un-scaled disparity range in output limited to this value (%default)")
-    parser.add_option("-P", "--processes", dest="processes", default=8, type="int",
+    parser.add_option("-P", "--processes", dest="processes", default=cpu_count(), type="int",
                       help="The number of processes to use (%default)")
     parser.add_option("-e", "--epipolar_axis", dest="epipolar_axis", default=None, type="int",
                       help="If set, specify the axis that is epipolar 0=x, 1=y (%default)")
