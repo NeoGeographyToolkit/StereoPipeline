@@ -152,7 +152,7 @@ def run_sparse_disp(args, opt):
     out_prefix = settings["out_prefix"]
 
     sparse_args = left_img + right_img + out_prefix + ['--nodata-value', str(0)]
-    sparse_args += ['--processes', str(opt.threads)]'
+    sparse_args += ['--processes', str(opt.threads)]
     if opt.sparse_disp_options is not None:
         sparse_args += opt.sparse_disp_options.split()
 

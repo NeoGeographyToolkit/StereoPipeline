@@ -1239,7 +1239,6 @@ def main():
     dxy_slope_tol=3.0
     C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
 
-
     T_file = args[0]
     S_file = args[1]
     output_prefix = args[2]
@@ -1248,6 +1247,9 @@ def main():
     print "T_file = " + T_file
     print "S_file = " + S_file
     print "output_prefix = " + output_prefix
+
+    #Minimum number of coarse points in any dimension
+    min_npts = 8
 
     # Adjust the input parameters based on the images. This
     # may need to become more advanced.
@@ -1265,18 +1267,14 @@ def main():
 
     #Automatically set coarse_skip if not specified
     if options.coarse_skip is None:
-        options.coarse_skip = np.min([prev2x/4, prev2y/4])
+        options.coarse_skip = np.min([prev2x/min_npts, prev2y/min_npts])
         print "Setting coarse skip to: %d" % options.coarse_skip
     else:
         #Check to make sure coarse_skip isn't TOO coarse
         #Minimum of 4 points in smallest dimension
-        if options.coarse_skip > np.min([prev2x/4, prev2y/4]):
-            options.coarse_skip = np.min([prev2x/4, prev2y/4])
+        if options.coarse_skip > np.min([prev2x/min_npts, prev2y/min_npts]):
+            options.coarse_skip = np.min([prev2x/min_npts, prev2y/min_npts])
             print "Warning: decreasing coarse skip to: %d" % options.coarse_skip
-
-    if options.coarse_skip > np.min([prev2x/4, prev2y/4]):
-        options.coarse_skip = np.min([prev2x/4, prev2y/4])
-        print "Warning: decreasing coarse skip to: %d" % options.coarse_skip
 
     s_nx=options.s_nx
     s_ny=options.s_ny
