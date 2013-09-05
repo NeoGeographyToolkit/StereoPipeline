@@ -189,7 +189,7 @@ endif
 ##############################################################################
 
 bin_SCRIPTS += time_trials cam2map4stereo.py \
-	hiedr2mosaic.py lronac4staged.py
+	hiedr2mosaic.py
 all_scripts = $(bin_SCRIPTS)
 all_scripts += $(libexec_SCRIPTS)
 CLEANFILES = $(all_scripts)
