@@ -578,7 +578,7 @@ void load_pc(string const& file_name,
     // No datum so far, try to guess
     string names[] = {"WGS_1984", "D_MOON", "D_MARS"};
     double small = 1e+10;
-    for (int i = 0; i < (int)sizeof(names)/sizeof(string); i++){
+    for (int i = 0; i < (int)(sizeof(names)/sizeof(string)); i++){
       cartography::Datum datum;
       datum.set_well_known_datum(names[i]);
       double local_small = std::abs(1.0 - norm_2(shift)/datum.semi_major_axis());
@@ -1039,44 +1039,24 @@ int main( int argc, char *argv[] ) {
 
     if (opt.verbose) vw_out() << "Using the datum: " << actual_datum_str << endl;
 
-    // Create the default ICP algorithm
+    // Filter the reference and initialize the reference tree
     PM::ICP icp;
-    icp.initRefTree(ref, opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
-                    opt.diff_translation_err, opt.alignment_method,
-                    opt.highest_accuracy,
-                    false/*opt.verbose */);
-
-    if (opt.config_file == ""){
-      // Read the options from the command line
-    }else{
-      vw_out() << "Will read the options from: " << opt.config_file << endl;
-      ifstream ifs(opt.config_file.c_str());
-      if (!ifs.good())
-        vw_throw( ArgumentErr() << "Cannot open configuration file: "
-                  << opt.config_file << "\n" );
-      icp.loadFromYaml(ifs);
-    }
-
-    // Create a separate ICP object for filtering gross outliers and
-    // statistics computations.  Need this as the ICP object used to
-    // compute the transform internally modifies the points before
-    // placing them in the tree.
-    PointMatcher<RealT>::Matrix beg_errors;
     Stopwatch sw3;
     sw3.start();
-    icp.initICP(ref);
+    icp.initRefTree(ref, opt.alignment_method, opt.highest_accuracy,
+                    false/*opt.verbose */);
     sw3.stop();
-    if (opt.verbose) vw_out() << "Point cloud initialization took "
+    if (opt.verbose) vw_out() << "Reference point cloud processing took "
                               << sw3.elapsed_seconds() << " [s]" << endl;
 
     // Apply the initial guess transform to the source point cloud.
     icp.transformations.apply(source, initT);
 
+    PointMatcher<RealT>::Matrix beg_errors;
     if (opt.max_disp > 0.0){
       // Filter gross outliers
       Stopwatch sw4;
       sw4.start();
-      icp.initICP(ref);
       icp.filterGrossOutliersAndCalcErrors(ref, opt.max_disp*opt.max_disp,
                                             source, beg_errors); //in-out
       sw4.stop();
@@ -1091,7 +1071,6 @@ int main( int argc, char *argv[] ) {
     Stopwatch sw5;
     sw5.start();
     double big = 1e+300;
-    icp.initICP(ref);
     icp.filterGrossOutliersAndCalcErrors(ref, big,
                                           source, beg_errors); //in-out
     sw5.stop();
@@ -1102,17 +1081,24 @@ int main( int argc, char *argv[] ) {
     calc_stats("Input", beg_errors);
     //dump_llh(source, shift);
 
+    // Compute the transformation to align the source to reference.
     Stopwatch sw6;
     sw6.start();
-
-    // Compute the transformation to align the source to reference.
-    icp.setParams(ref, opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
-                  opt.diff_translation_err, opt.alignment_method,
-                  opt.highest_accuracy,
-                  false/*opt.verbose */);
-
     PointMatcher<RealT>::Matrix Id
       = PointMatcher<RealT>::Matrix::Identity(dim + 1, dim + 1);
+    if (opt.config_file == ""){
+      // Read the options from the command line
+      icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
+                    opt.diff_translation_err, opt.alignment_method,
+                    false/*opt.verbose*/);
+    }else{
+      vw_out() << "Will read the options from: " << opt.config_file << endl;
+      ifstream ifs(opt.config_file.c_str());
+      if (!ifs.good())
+        vw_throw( ArgumentErr() << "Cannot open configuration file: "
+                  << opt.config_file << "\n" );
+      icp.loadFromYaml(ifs);
+    }
     PointMatcher<RealT>::Matrix T = icp(source, ref, Id,
                                         opt.compute_translation_only);
     vw_out() << "Match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
@@ -1133,7 +1119,6 @@ int main( int argc, char *argv[] ) {
     PointMatcher<RealT>::Matrix end_errors;
     Stopwatch sw7;
     sw7.start();
-    icp.initICP(ref);
     icp.filterGrossOutliersAndCalcErrors(ref, big,
                                           trans_source, end_errors); // in-out
     sw7.stop();
