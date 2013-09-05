@@ -28,34 +28,32 @@ using namespace vw;
 #include <asp/Core/Macros.h>
 namespace po = boost::program_options;
 
-struct imgData{
+#include <limits>
+
+struct ImageData{
   std::string src_file;
-  ImageViewRef<float> src_img;
+  DiskImageView<float> src_img;
   BBox2 src_box, dst_box;
   double nodata_val;
-  AffineTransform T; // Transform from src_box to dst_box.
+  AffineTransform transform; // Transform from src_box to dst_box.
 
-  imgData(std::string const& src_file_in,
-          BBox2 const& src_box_in, BBox2 const& dst_box_in):
-    src_file(src_file_in), src_img(DiskImageView<float>(src_file)),
+  ImageData(std::string const& src_file_in,
+            BBox2 const& src_box_in, BBox2 const& dst_box_in):
+    src_file(src_file_in), src_img(src_file),
     src_box(src_box_in), dst_box(dst_box_in), nodata_val(0.0),
-    T(AffineTransform(identity_matrix(2), Vector2())){
+    transform(AffineTransform(Matrix2x2(dst_box.width()/src_box.width(),0,
+                                        0,dst_box.height()/src_box.height()),
+                              dst_box.min() - src_box.min())) {
 
     DiskImageResourceGDAL in_rsrc(src_file);
     if ( in_rsrc.has_nodata_read() ){
       nodata_val = in_rsrc.nodata_read();
     }
-
-    Vector2 offset = dst_box.min() - src_box.min();
-    Matrix2x2 matrix;
-    matrix(0, 0) = dst_box.width()/src_box.width();
-    matrix(1, 1) = dst_box.height()/src_box.height();
-    T = AffineTransform(matrix, offset);
   }
 };
 
 void parseImgData(std::string data, int& dst_cols, int& dst_rows,
-                  std::vector<imgData> & img_data){
+                  std::vector<ImageData> & img_data){
 
   // Extract the tif files to mosaic, their dimensions, and for each
   // of them the location to mosaic to in the output image.  The input
@@ -82,23 +80,22 @@ void parseImgData(std::string data, int& dst_cols, int& dst_rows,
          >> dst_lenx >> dst_leny){
     src_box = BBox2(0,        0,        src_lenx, src_leny);
     dst_box = BBox2(dst_minx, dst_miny, dst_lenx, dst_leny);
-    img_data.push_back(imgData(src_file, src_box, dst_box));
+    img_data.push_back(ImageData(src_file, src_box, dst_box));
   }
 
-  for (int k = (int)img_data.size()-1; k >= 0; k--){
-
-    for (int l = k - 1; l >= 0; l--){
-
+  for (size_t k = img_data.size()-1; k < img_data.size(); k--){
+    for (size_t l = k-1; l < k; l--) {
       // Later images will be on top of earlier images. For that
       // reason, reduce each image to the part it does not overlap
       // with later images.
-      if (img_data[l].dst_box.max().y() > img_data[k].dst_box.min().y()){
-        img_data[l].dst_box.max().y() = img_data[k].dst_box.min().y();
-      }
+      img_data[l].dst_box.max().y() =
+        std::min( img_data[l].dst_box.max().y(),
+                  img_data[k].dst_box.min().y() );
 
       // Make sure min of box is <= max of box
-      if (img_data[l].dst_box.min().y() > img_data[l].dst_box.max().y())
-        img_data[l].dst_box.min().y() = img_data[l].dst_box.max().y();
+      img_data[l].dst_box.min().y() =
+        std::min( img_data[l].dst_box.min().y(),
+                  img_data[l].dst_box.max().y() );
     }
 
     // Adjust the source box as well. Expand the box slightly before
@@ -108,14 +105,14 @@ void parseImgData(std::string data, int& dst_cols, int& dst_rows,
     // and the affine transform.
     BBox2 box = img_data[k].dst_box;
     box.expand(1);
-    img_data[k].src_box = img_data[k].T.reverse_bbox(box);
+    img_data[k].src_box = img_data[k].transform.reverse_bbox(box);
   }
 
 #if 0
   for (int k = 0; k < (int)img_data.size(); k++){
     std::cout << "boxes: " << img_data[k].src_file << " "
               << img_data[k].src_box << ' '
-              << img_data[k].T.reverse_bbox(img_data[k].dst_box)
+              << img_data[k].transform.reverse_bbox(img_data[k].dst_box)
               << ' ' << img_data[k].dst_box << std::endl;
   }
 #endif
@@ -124,22 +121,22 @@ void parseImgData(std::string data, int& dst_cols, int& dst_rows,
 
 // A class to mosaic and rescale images using bilinear interpolation.
 
-class tifMosaic: public ImageViewBase<tifMosaic>{
+class TifMosaicView: public ImageViewBase<TifMosaicView>{
   int m_dst_cols, m_dst_rows;
-  std::vector<imgData> m_img_data;
+  std::vector<ImageData> m_img_data;
   double m_scale;
   double m_output_nodata_val;
 
 public:
-  tifMosaic(int dst_cols, int dst_rows, std::vector<imgData> & img_data,
+  TifMosaicView(int dst_cols, int dst_rows, std::vector<ImageData> & img_data,
             double scale, double output_nodata_val):
     m_dst_cols((int)(scale*dst_cols)), m_dst_rows((int)(scale*dst_rows)),
     m_img_data(img_data), m_scale(scale), m_output_nodata_val(output_nodata_val){}
 
   typedef float pixel_type;
   typedef pixel_type result_type;
-  typedef PixelMask<float> m_pixel_type;
-  typedef ProceduralPixelAccessor<tifMosaic> pixel_accessor;
+  typedef PixelMask<float> masked_pixel_type;
+  typedef ProceduralPixelAccessor<TifMosaicView> pixel_accessor;
 
   inline int32 cols() const { return m_dst_cols; }
   inline int32 rows() const { return m_dst_rows; }
@@ -148,7 +145,7 @@ public:
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
 
   inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
-    vw_throw(NoImplErr() << "tifMosaic::operator()(...) is not implemented");
+    vw_throw(NoImplErr() << "TifMosaicView::operator()(...) is not implemented");
     return pixel_type();
   }
 
@@ -157,7 +154,7 @@ public:
 
     // Scaled box
     Vector2i b = floor(bbox.min()/m_scale);
-    Vector2i e = ceil((bbox.max() - Vector2(1, 1))/m_scale) + Vector2i(1, 1);
+    Vector2i e = ceil(elem_diff(bbox.max(),1)/m_scale) + Vector2i(1, 1);
     BBox2i scaled_box(b[0], b[1], e[0] - b[0], e[1] - b[1]);
 
     // The scaled box can potentially intersect several of the images
@@ -166,61 +163,58 @@ public:
     // and no bigger than they need to be.
     // Note 2: We mask each image using its individual nodata-value.
     // The output mosaic uses the global m_output_nodata_val.
-    typedef ImageView<m_pixel_type> ImageT;
-    typedef InterpolationView<EdgeExtensionView<ImageT, ConstantEdgeExtension>,
-      BilinearInterpolation> InterpT;
+    typedef ImageView<masked_pixel_type> ImageT;
+    typedef InterpolationView<ImageT, BilinearInterpolation> InterpT;
 
-    std::vector<BBox2i>  src_vec(m_img_data.size());
-    std::vector<ImageT>  crop_vec(m_img_data.size());
-    for (int k = 0; k < (int)m_img_data.size(); k++){
+    std::vector<BBox2i>  src_vec(m_img_data.size());  // Effective area of image tile
+    std::vector<InterpT> crop_vec(m_img_data.size(),
+                                  InterpT(ImageT())); // Image data but expanded a bit for interpolation's sake
+    for (size_t k = 0; k < m_img_data.size(); k++){
       BBox2 box = m_img_data[k].dst_box;
       box.crop(scaled_box);
       if (box.empty()) continue;
       box.expand(1); // since reverse_bbox will truncate input box to BBox2i
-      box = m_img_data[k].T.reverse_bbox(box);
+      box = m_img_data[k].transform.reverse_bbox(box);
       box = grow_bbox_to_int(box);
       box.crop(bounding_box(m_img_data[k].src_img));
       if (box.empty()) continue;
-      src_vec[k] = box;
-      crop_vec[k] = create_mask(crop(m_img_data[k].src_img, box),
-                                m_img_data[k].nodata_val);
+      src_vec[k] = ( box );                          // Recording active area of the tile
+      box.expand( BilinearInterpolation::pixel_buffer ); // Expanding so Interpolation doesn't reach outside image
+      crop_vec[k] =
+        InterpT(create_mask(crop(edge_extend(m_img_data[k].src_img, ConstantEdgeExtension()), box),
+                             m_img_data[k].nodata_val));
     }
 
     ImageView<pixel_type> tile(bbox.width(), bbox.height());
-    for (int col = 0; col < bbox.width(); col++){
-      for (int row = 0; row < bbox.height(); row++){
-        tile(col, row) = m_output_nodata_val;
-      }
-    }
+    fill( tile, m_output_nodata_val );
 
-    for (int col = 0; col < bbox.width(); col++){
-      for (int row = 0; row < bbox.height(); row++){
-
+    // TODO: This could possibly be performed entirely with a
+    // TransformView and apply_mask.
+    // -- or --
+    // Since we have no rotations, we can assume whole lines will come from a single image
+    for (int row = 0; row < bbox.height(); row++){
+      for (int col = 0; col < bbox.width(); col++){
         Vector2 dst_pix
           = Vector2(col + bbox.min().x(), row + bbox.min().y())/m_scale;
 
         // See which src image we end up in. Start from the later
         // images, as those are on top.
-        int good_k = -1;
+        size_t good_k = std::numeric_limits<size_t>::max();
         Vector2 src_pix;
-        for (int k = (int)m_img_data.size()-1; k >= 0; k--){
-          src_pix = m_img_data[k].T.reverse(dst_pix);
+        for (size_t k = m_img_data.size()-1; k < m_img_data.size(); k--){
+          src_pix = m_img_data[k].transform.reverse(dst_pix);
           if (src_vec[k].contains(src_pix)){
             good_k = k;
             break;
           }
         }
 
-        if (good_k < 0) continue;
+        if (good_k == std::numeric_limits<size_t>::max()) continue;
 
-        InterpT interp_masked_img
-          = interpolate(crop_vec[good_k], BilinearInterpolation(),
-                        ConstantEdgeExtension());
-
-        m_pixel_type r = interp_masked_img(src_pix[0] - src_vec[good_k].min().x(),
-                                           src_pix[1] - src_vec[good_k].min().y());
+        src_pix += elem_diff(BilinearInterpolation::pixel_buffer,src_vec[good_k].min());
+        masked_pixel_type r =
+          crop_vec[good_k](src_pix[0], src_pix[1] );
         if (is_valid(r)) tile(col, row) = r.child();
-
       }
     }
 
@@ -282,7 +276,7 @@ int main( int argc, char *argv[] ) {
     double scale = opt.percent/100.0;
 
     int dst_cols, dst_rows;
-    std::vector<imgData> img_data;
+    std::vector<ImageData> img_data;
     parseImgData(opt.img_data, dst_cols, dst_rows, img_data);
     if ( dst_cols <= 0 || dst_rows <= 0 || img_data.empty() )
       vw_throw( ArgumentErr() << "Invalid input data.\n");
@@ -294,9 +288,9 @@ int main( int argc, char *argv[] ) {
 
     vw_out() << "Writing: " << opt.output_image << std::endl;
     asp::block_write_gdal_image(opt.output_image,
-                                tifMosaic(dst_cols, dst_rows,
-                                          img_data, scale,
-                                          output_nodata_val),
+                                TifMosaicView(dst_cols, dst_rows,
+                                              img_data, scale,
+                                              output_nodata_val),
                                 output_nodata_val, opt,
                                 TerminalProgressCallback("asp", "\t    Mosaic:"));
 
