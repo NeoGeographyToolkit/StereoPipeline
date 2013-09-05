@@ -154,4 +154,7 @@ def run_sparse_disp(args, opt):
     sparse_args = left_img + right_img + out_prefix + ['--nodata-value', str(0)]
     if opt.sparse_disp_options is not None:
         sparse_args += opt.sparse_disp_options.split()
+    if opt.threads is not None and opt.threads > 0:
+        sparse_args += ['--processes', str(opt.threads)]
+    print("willl run with ", sparse_args)
     run('sparse_disp', sparse_args, opt, msg='1: Low-res correlation with sparse_disp')
