@@ -1540,8 +1540,15 @@ def main():
         zi = np.nan_to_num(griddata(out[:, 0:2], out[:,3], (xg, yg), method='linear'))
         outBand = outDs.GetRasterBand(2)
         outBand.WriteArray(zi[:,:,0])
+
+        #Generate quality mask, used by both D_sub and D_sub_spread
         goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
         quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
+        N_dilate=np.ceil(options.coarse_skip/options.output_scale/4.)
+        dilate_kernel=np.ones([1, 2*N_dilate])
+        quality=binary_dilation(quality>0, structure=dilate_kernel)
+        quality=binary_dilation(quality>0, structure=dilate_kernel.transpose())
+
         outBand = outDs.GetRasterBand(3)
         outBand.WriteArray(quality)
         outDs.SetGeoTransform(tuple(GT1))
@@ -1554,14 +1561,6 @@ def main():
         # clip the output range to the specified limits
         out[:,5]=np.minimum(out[:,5], options.M_max/options.output_scale)
         out[:,6]=np.minimum(out[:,6], options.M_max/options.output_scale)
-
-        # make a quality mask
-        goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
-        quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
-        N_dilate=np.ceil(options.coarse_skip/options.output_scale/4.)
-        dilate_kernel=np.ones([1, 2*N_dilate])
-        quality=binary_dilation(quality>0, structure=dilate_kernel)
-        quality=binary_dilation(quality>0, structure=dilate_kernel.transpose())
 
         # interpolate the scaled range values
         zi = np.nan_to_num(griddata(out[:,0:2], out[:,5], (xg, yg), method='linear'))
