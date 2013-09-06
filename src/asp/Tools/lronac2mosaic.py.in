@@ -18,7 +18,8 @@
 
 
 import os, glob, optparse, re, shutil, subprocess, sys, string, time
-
+exec_path = sys.path[0]
+os.environ["PATH"] = exec_path + os.pathsep + os.environ["PATH"]
 job_pool = [];
 
 def man(option, opt, value, parser):
@@ -33,7 +34,7 @@ following ISIS 3 operations:
  * Removes camera distortions from the CCD images (noproj)
  * Performs jitter analysis (lrojitreg)
  * Mosaics individual CCDs into one unified image file (handmos)
- * Normalizes the mosaic (cubenorm) 
+ * Normalizes the mosaic (cubenorm)
 '''
 
     sys.exit()
@@ -47,7 +48,7 @@ def add_job( cmd, num_working_threads=4 ):
         job_pool[0].wait();
         job_pool.pop(0);
     print cmd;
-    job_pool.append( subprocess.Popen(cmd, shell=True) );
+    job_pool.append( subprocess.Popen(cmd, shell=True, env=os.environ) );
 
 def wait_on_all_jobs():
     print "Waiting for jobs to finish";
@@ -57,25 +58,24 @@ def wait_on_all_jobs():
 
 # Go through a list of cubes and sort them into left/right pairs
 def build_cube_pairs(cubePaths):
-  pairDict = dict();
-     
-  for cube in cubePaths:
-      # Get the image number
-      prefixOffset = len(os.path.dirname(cube)) + 2;
-      number       = int( cube[prefixOffset:prefixOffset+9] ); 
-      sideLetter   = cube[prefixOffset+9]
-     
-      if (number not in pairDict):
-          pairDict[number] = ['', ''];
-      # Store the path in the spot for either the left or right cube
-      if (sideLetter == "L"):
-          pairDict[number][0] = cube; # Left
-      else:
-          pairDict[number][1] = cube; # Right
-  return pairDict;
+    pairDict = dict();
+
+    for cube in cubePaths:
+        print cube
+        m = re.search('\D*(\d+)(.).*',os.path.basename(cube))
+        number     = m.group(1)
+        sideLetter = m.group(2)
+
+        if (number not in pairDict):
+            pairDict[number] = ['', ''];
+        # Store the path in the spot for either the left or right cube
+        if (sideLetter == "L"):
+            pairDict[number][0] = cube; # Left
+        else:
+            pairDict[number][1] = cube; # Right
+    return pairDict
 
 def read_flatfile( flat ):
-
     # Fail if the input file is not present
     if not os.path.isfile(flat):
         raise Exception('File ' + flat + ' is missing!')
@@ -104,44 +104,6 @@ def read_flatfile( flat ):
                 print "Warning: This result based only on IpFind search."
     print str(averages)
     return averages
-
-#TODO: This should be somewhere else
-def isisversion(verbose=False):
-
-    path = ''
-    try: path = os.environ['ISISROOT']
-    except KeyError, msg:
-        raise Exception( "The ISIS environment does not seem to be enabled.\nThe " + str(msg) + " environment variable must be set." )
-
-    version = None
-    if os.path.exists( path+'/version' ):
-        v = open( path+"/version", 'r')
-        version = v.readline().strip()
-        v.close()
-
-    f = open(path+"/inc/Constants.h",'r');
-    for line in f:
-         if ( line.rfind("std::string version(") > 0 ):
-            index = line.find("version(\"");
-            index_e = line.rfind("|");
-            version = line[index+9:index_e].rstrip()
-            #version = version +'b'
-    f.close() 
-
-    if( version ):
-        if( verbose ): print "\tFound Isis Version: "+version+ " at "+path
-        alphaend = version.lstrip(string.digits+'.')
-        version_numbers = version.rstrip(string.ascii_letters);
-        version_strings = version_numbers.split('.')
-        version_list = []
-        version_list = [int(item) for item in version_strings]
-        if( alphaend ): version_list.append( alphaend )
-        version_tuple = tuple( version_list )
-        return version_tuple
-
-    raise Exception( "Could not find an ISIS version string in " + f.str() )
-    return False
-
 
 # Call lronac2isis on each input file, return list of output files.
 def lronac2isis( img_files, threads ):
@@ -172,15 +134,15 @@ def lronaccal( cub_files, threads, delete=False ):
             add_job(cmd, threads)
         lronaccal_cubs.append( to_cub )
     wait_on_all_jobs()
-    
+
     if( delete ): # Delete all input .cub files and log files
-        for cub in cub_files: 
+        for cub in cub_files:
           os.remove( cub )
         lronaccal_log_files = glob.glob( os.path.commonprefix(cub_files) + '*.lronaccal.log' )
-        for file in lronaccal_log_files: 
+        for file in lronaccal_log_files:
           os.remove( file )
     return lronaccal_cubs
-    
+
 
 # Call lronacecho on each input file, return list of output files.
 def lronacecho( cub_files, threads, delete=False ):
@@ -195,9 +157,9 @@ def lronacecho( cub_files, threads, delete=False ):
             add_job(cmd, threads)
         lronacecho_cubs.append( to_cub )
     wait_on_all_jobs()
-    
+
     if( delete ): # Delete all input .cub files and log files
-        for cub in cub_files: 
+        for cub in cub_files:
           os.remove( cub )
     return lronacecho_cubs
 
@@ -220,19 +182,17 @@ def isFileHalfRes(cubFilePath):
 
     f = open(cubFilePath, 'r')
     for line in f:
-        if ( line.rfind("CROSSTRACK_SUMMING") >= 0 ):  
+        if ( line.rfind("CROSSTRACK_SUMMING") >= 0 ):
             index       = line.rfind("=");
             crop        = line[index+2];
             result      = (crop == "2")
     f.close()
- 
+
     return result;
 
 
 # Left file is/home/smcmich1 in index 0, right is in index 1
 def noproj( file_pairs, threads, delete=False, fakePvl=True):
-
-    
     if fakePvl: # Generate temporary PVL files containing LRONAC definition
                 # - We need one for full-res mode, one for half-X-res mode.
 
@@ -241,50 +201,50 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
           print fullResFilePath + ' exists, using existing file.'
        else: # Need to write the file
           print 'Generating LRONAC compatible .pvl file ' + fullResFilePath
-	  f = open(fullResFilePath, 'w')
-	  f.write('Object = IdealInstrumentsSpecifications\n');
-	  f.write('  UserName     = auto\n');
-	  f.write('  Created      = 2013-07-18T13:42:00\n');
-	  f.write('  LastModified = 2013-07-18T13:42:00\n\n');
-	  f.write('  Group = "LUNAR RECONNAISSANCE ORBITER/NACL"\n');
-	  f.write('     TransY = 16.8833\n')
-	  f.write('     ItransS = -2411.9\n')
-	  f.write('     TransX = 0.6475\n')
-	  f.write('     ItransL = -92.5\n')
-	  f.write('     DetectorSamples = 10000\n')
-	  f.write('  End_Group\n\n')
-	  f.write('End_Object\n')
-	  f.write('End')
-	  f.close()
+          f = open(fullResFilePath, 'w')
+          f.write('Object = IdealInstrumentsSpecifications\n');
+          f.write('  UserName     = auto\n');
+          f.write('  Created      = 2013-07-18T13:42:00\n');
+          f.write('  LastModified = 2013-07-18T13:42:00\n\n');
+          f.write('  Group = "LUNAR RECONNAISSANCE ORBITER/NACL"\n');
+          f.write('     TransY = 16.8833\n')
+          f.write('     ItransS = -2411.9\n')
+          f.write('     TransX = 0.6475\n')
+          f.write('     ItransL = -92.5\n')
+          f.write('     DetectorSamples = 10000\n')
+          f.write('  End_Group\n\n')
+          f.write('End_Object\n')
+          f.write('End')
+          f.close()
 
        halfResFilePath = 'noprojInstruments_halfRes.pvl'
        if os.path.exists(halfResFilePath):
           print halfResFilePath + ' exists, using existing file.'
        else: # Need to write the file
           print 'Generating LRONAC compatible .pvl file ' + halfResFilePath
-	  f = open(halfResFilePath, 'w')
-	  f.write('Object = IdealInstrumentsSpecifications\n');
-	  f.write('  UserName     = auto\n');
-	  f.write('  Created      = 2013-07-18T13:42:00\n');
-	  f.write('  LastModified = 2013-07-18T13:42:00\n\n');
-	  f.write('  Group = "LUNAR RECONNAISSANCE ORBITER/NACL"\n');
-	  f.write('     TransY = 16.8833\n')
-	  f.write('     ItransS = -4823.8\n')     # Halved
-	  f.write('     TransX = 0.6475\n')
-	  f.write('     ItransL = -185\n')       # Halved
-	  f.write('     DetectorSamples = 5000\n') # Halved
-	  f.write('  End_Group\n\n')
-	  f.write('End_Object\n')
-	  f.write('End')
-	  f.close()
+          f = open(halfResFilePath, 'w')
+          f.write('Object = IdealInstrumentsSpecifications\n');
+          f.write('  UserName     = auto\n');
+          f.write('  Created      = 2013-07-18T13:42:00\n');
+          f.write('  LastModified = 2013-07-18T13:42:00\n\n');
+          f.write('  Group = "LUNAR RECONNAISSANCE ORBITER/NACL"\n');
+          f.write('     TransY = 16.8833\n')
+          f.write('     ItransS = -4823.8\n')     # Halved
+          f.write('     TransX = 0.6475\n')
+          f.write('     ItransL = -185\n')       # Halved
+          f.write('     DetectorSamples = 5000\n') # Halved
+          f.write('  End_Group\n\n')
+          f.write('End_Object\n')
+          f.write('End')
+          f.close()
 
     noproj_pairs = dict();
     for k, v in file_pairs.items():
-        
+
         noproj_pairs[k] = ['', ''];
         for i in range(2): # Process left and right image
           to_cub = os.path.splitext(v[i])[0] + '.noproj.cub'
-          
+
           noproj_pairs[k][i] = to_cub; # Add file to output list
           if os.path.exists( to_cub ):
               print to_cub + ' exists, skipping noproj.'
@@ -299,37 +259,36 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
                   else: # Full resolution
                       specsLine = ' specs= ../' + fullResFilePath + ' ';
               else: # Use the default file
-                  specsLine = '';              
+                  specsLine = '';
 
               # Multiple noproj threads will create clashing temporary files
               #  so we need to make temporary directories to run each thread in.
               tempDir = 'temp_' + str(k) + '_' + str(i)
               cmd = 'mkdir -p ' + tempDir + ' && ' \
                   + 'cd ' + tempDir + ' && ' \
-                  + 'noproj from=' + v[i] \
-                  + ' match=' + v[0] \
+                  + 'noproj from=../' + v[i] \
+                  + ' match=../' + v[0] \
                   + specsLine \
-                  + ' to='+ to_cub + ' && ' \
+                  + ' to=../'+ to_cub + ' && ' \
                   + 'cd .. && rm -rf ' + tempDir
 
               add_job(cmd, threads)
     wait_on_all_jobs()
-    
+
     if( delete ): # Clean up input cube files
-        for v in file_pairs.values(): 
+        for v in file_pairs.values():
            os.remove( v[0] );
-           os.remove( v[1] );       
+           os.remove( v[1] );
         if fakePvl:
-           os.remove( halfResFilePath );    
-           os.remove( fullResFilePath );    
+           os.remove( halfResFilePath );
+           os.remove( fullResFilePath );
     return noproj_pairs;
 
 
 def lronacjitreg( noproj_pairs, threads, delete=False ):
-    
     boundsCommands = '--correlator-type 2 --kernel 15 15'
-    for k,v in noproj_pairs.items(): 
-        cmd = './lronacjitreg ' + boundsCommands    \
+    for k,v in noproj_pairs.items():
+        cmd = 'lronacjitreg ' + boundsCommands    \
             + ' --output-log outputLog_'+str(k)+'.txt' \
             + ' '+ v[0] \
             + ' '+ v[1];
@@ -349,30 +308,28 @@ def lronacjitreg( noproj_pairs, threads, delete=False ):
 
 
 def mosaic( noproj_pairs, averages, threads ):
-
     mosaicList = dict();
-    for k,v in noproj_pairs.items(): 
-    
+    for k,v in noproj_pairs.items():
+
         # Create mosaic output file
         mosaicPath = os.path.splitext(v[0])[0] + '.mosaic.cub'
         shutil.copy( v[0], mosaicPath ) # Copy the LE image to the output path
-    
+
         xOffset = -1*averages[k][0] # Sign convention changes here
         yOffset = -1*averages[k][1]
-    
+
         handmos( v[1], mosaicPath,
                  str( int(round( xOffset )) ),
                  str( int(round( yOffset )) ),
                  threads )
         mosaicList[k] = mosaicPath;
-                 
+
     wait_on_all_jobs()
 
     return mosaicList
 
 
 def handmos( fromcub, tocub, outsamp, outline, threads ):
-
     cmd = 'handmos from= '+ fromcub +' mosaic= '+ tocub \
             +' outsample= '+ str(outsamp) \
             +' outline= '  + str(outline) \
@@ -382,21 +339,20 @@ def handmos( fromcub, tocub, outsamp, outline, threads ):
 
 
 def cubenorm( mosaicList, threads, delete=False ):
-
     normedList = dict();
-    for k,v in mosaicList.items(): 
-    
+    for k,v in mosaicList.items():
+
         normedPath = os.path.splitext(v)[0] + '.norm.cub'
-   
+
         cmd = 'cubenorm from= '+ v +' to= '+ normedPath
         add_job(cmd, threads);
-       
+
         normedList[k] = normedPath;
-                 
+
     wait_on_all_jobs()
 
     if( delete ): # Clean up input cube files
-        for v in mosaicList.values(): 
+        for v in mosaicList.values():
            os.remove(v);
 
     return normedList
@@ -406,7 +362,6 @@ def cubenorm( mosaicList, threads, delete=False ):
 #TODO: Support for file based logging of results
 
 def main():
-
     try:
         try:
             usage = "usage: lronac2mosaic.py [--help][--manual][--threads N]" \
@@ -420,7 +375,7 @@ def main():
             parser.add_option("--stop-at-no-proj", dest="stop_no_proj", action="store_true",
                               help="Process the IMG files only to have SPICE attached.")
             parser.add_option("--resume-at-no-proj", dest="resume_no_proj", action="store_true",
-                              help="Pick back up after spiceinit has happened. This was noproj uses your new camera information") 
+                              help="Pick back up after spiceinit has happened. This was noproj uses your new camera information")
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
             parser.add_option("-k", "--keep", action="store_false",
@@ -435,10 +390,10 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
-	# Make sure only one pair of cubes was passed in
-#        input_file_pair = build_cube_pairs( args )
-#        if len(input_file_pair) > 1:
-#            raise Usage('Input error: Only one pair of input files are allowed!')
+        # Make sure only one pair of cubes was passed in
+        #        input_file_pair = build_cube_pairs( args )
+        #        if len(input_file_pair) > 1:
+        #            raise Usage('Input error: Only one pair of input files are allowed!')
 
         print "Beginning processing....."
 
