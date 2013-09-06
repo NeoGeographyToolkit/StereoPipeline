@@ -156,17 +156,18 @@ def run_sparse_disp(args, opt):
     out_prefix = settings["out_prefix"]
 
     sparse_args = left_img + right_img + out_prefix + ['--nodata-value', str(0)]
-    sparse_args += ['--processes', str(opt.threads)]
     if opt.sparse_disp_options is not None:
         sparse_args += opt.sparse_disp_options.split()
 
     # Pass the number of threads to sparse_disp
-    num_threads = 0
-    if hasattr(opt, 'threads') and opt.threads is not None and opt.threads > 0:
-        num_threads = opt.threads
-    if hasattr(opt, 'threads_single') and opt.threads_single is not None and opt.threads_single > 0:
-        num_threads = opt.threads_single
-    if num_threads > 0:
-        sparse_args += ['--processes', str(num_threads)]
+    # sparse_disp_options should trump
+    if not any('--processes' in s for s in sparse_args):
+        num_threads = 0
+        if hasattr(opt, 'threads') and opt.threads is not None and opt.threads > 0:
+            num_threads = opt.threads
+        if hasattr(opt, 'threads_single') and opt.threads_single is not None and opt.threads_single > 0:
+            num_threads = opt.threads_single
+        if num_threads > 0:
+            sparse_args += ['--processes', str(num_threads)]
 
     run('sparse_disp', sparse_args, opt, msg='1: Low-res correlation with sparse_disp')
