@@ -17,7 +17,7 @@
 # __END_LICENSE__
 
 
-import sys, optparse, subprocess, re, os
+import sys, optparse, subprocess, re, os, time
 import os.path as P
 
 # Utilities to ensure that the Python parser does not garble negative
@@ -138,7 +138,11 @@ def run(bin, args, opt, **kw):
     if opt.dryrun or opt.verbose: print(" ".join(call))
     if opt.dryrun: return
     try:
+        t_start = time.time()
         code = subprocess.call(call)
+        if opt.verbose:
+            wall_s = time.time() - t_start
+            print('Wall time (s): {0:.1f}\n'.format(wall_s))
     except OSError, e:
         raise Exception('%s: %s' % (binpath, e))
     if code != 0:
