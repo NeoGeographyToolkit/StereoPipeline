@@ -68,6 +68,10 @@ typedef PointMatcher<RealT> PM;
 typedef PM::DataPoints DP;
 using namespace PointMatcherSupport;
 
+// Note: Just changing 3 to 2 below won't be enough to make the code
+// work with 2D point clouds. There are some Vector3's all over the place.
+const int DIM = 3;
+
 // Allows FileIO to correctly read/write these pixel types
 namespace vw {
   typedef Vector<float64,6> Vector6;
@@ -86,7 +90,7 @@ struct Options : public asp::BaseOptions {
   bool compute_translation_only, save_trans_source, save_trans_ref, highest_accuracy, verbose;
   // Output
   string output_prefix;
-  Options():max_disp(0.0), verbose(true){}
+  Options():max_disp(-1.0), verbose(true){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -94,11 +98,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("initial-transform",
     po::value(&opt.init_transform_file)->default_value(""), "The file containing the rotation + translation transform to be used as an initial guess. It can come from a previous run of the tool.")
-    ("num-iterations", po::value(&opt.num_iter)->default_value(400), "Maximum number of iterations.")
-    ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-4), "Change in rotation amount below which the algorithm will stop.")
-    ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop.")
+    ("num-iterations", po::value(&opt.num_iter)->default_value(1000), "Maximum number of iterations.")
+    ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-8), "Change in rotation amount below which the algorithm will stop, in degrees.")
+    ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop, in meters.")
     ("max-displacement",
-     po::value(&opt.max_disp), "Maximum expected displacement of source points as result of alignment, in meters (after the initial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.") // no default on purpose, set to 0 in constructor
+     po::value(&opt.max_disp)->default_value(0.0), "Maximum expected displacement of source points as result of alignment, in meters (after the initial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
     ("max-num-reference-points", po::value(&opt.max_num_reference_points)->default_value(100000000), "Maximum number of (randomly picked) reference points to use.")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(100000), "Maximum number of (randomly picked) source points to use (after discarding gross outliers).")
@@ -144,17 +148,20 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
               << usage << general_options );
 
+  if ( opt.max_disp == 0.0 )
+    vw_throw( ArgumentErr() << "The max-displacement option was not set. Use -1 if it is desired not to use it.\n"
+              << usage << general_options );
+
   asp::create_out_dir(opt.output_prefix);
 
   // Read the initial transform
-  int dim = 3;
-  opt.init_transform = PointMatcher<RealT>::Matrix::Identity(dim + 1, dim + 1);
+  opt.init_transform = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
   if (opt.init_transform_file != ""){
     validateFile(opt.init_transform_file);
     PointMatcher<RealT>::Matrix T;
     ifstream is(opt.init_transform_file.c_str());
-    for (int row = 0; row < dim + 1; row++){
-      for (int col = 0; col < dim + 1; col++){
+    for (int row = 0; row < DIM + 1; row++){
+      for (int col = 0; col < DIM + 1; col++){
         double a;
         if (! (is >> a) )
           vw_throw( vw::IOErr() << "Failed to read initial transform from: "
@@ -255,9 +262,8 @@ void random_pc_subsample(int m, typename PointMatcher<T>::DataPoints& points){
   pick_at_most_m_unique_elems_from_n_elems(m, n, elems);
   m = elems.size();
 
-  const int dim = 3;
   for (int col = 0; col < m; col++){
-    for (int row = 0; row < dim; row++)
+    for (int row = 0; row < DIM; row++)
       points.features(row, col) = points.features(row, elems[col]);
   }
   points.features.conservativeResize(Eigen::NoChange, m);
@@ -277,9 +283,8 @@ void load_csv(string const& file_name,
 
   validateFile(file_name);
 
-  const int dim = 3;
-  data.features.conservativeResize(dim+1, num_points_to_load);
-  data.featureLabels = form_labels<T>(dim);
+  data.features.conservativeResize(DIM+1, num_points_to_load);
+  data.featureLabels = form_labels<T>(DIM);
 
   is_lola_rdr_format = false;
 
@@ -443,9 +448,9 @@ void load_csv(string const& file_name,
       shift_was_calc = true;
     }
 
-    for (int row = 0; row < dim; row++)
+    for (int row = 0; row < DIM; row++)
       data.features(row, points_count) = xyz[row] - shift[row];
-    data.features(dim, points_count) = 1;
+    data.features(DIM, points_count) = 1;
 
     points_count++;
     if (points_count >= num_points_to_load) break;
@@ -471,9 +476,8 @@ void load_dem(string const& file_name,
 
   validateFile(file_name);
 
-  const int dim = 3;
-  data.features.conservativeResize(dim+1, num_points_to_load);
-  data.featureLabels = form_labels<T>(dim);
+  data.features.conservativeResize(DIM+1, num_points_to_load);
+  data.featureLabels = form_labels<T>(DIM);
 
   cartography::GeoReference dem_georef;
   bool is_good = cartography::read_georeference( dem_georef, file_name );
@@ -511,9 +515,9 @@ void load_dem(string const& file_name,
         shift_was_calc = true;
       }
 
-      for (int row = 0; row < dim; row++)
+      for (int row = 0; row < DIM; row++)
         data.features(row, points_count) = xyz[row] - shift[row];
-      data.features(dim, points_count) = 1;
+      data.features(DIM, points_count) = 1;
 
       points_count++;
       if (points_count >= num_points_to_load) break;
@@ -537,12 +541,11 @@ void load_pc(string const& file_name,
 
   validateFile(file_name);
 
-  const int dim = 3;
-  data.features.conservativeResize(dim+1, num_points_to_load);
-  data.featureLabels = form_labels<T>(dim);
+  data.features.conservativeResize(DIM+1, num_points_to_load);
+  data.featureLabels = form_labels<T>(DIM);
 
   // To do: Is it faster to to do for_each?
-  ImageViewRef<Vector3> point_cloud = read_n_channels<dim>(file_name);
+  ImageViewRef<Vector3> point_cloud = read_n_channels<DIM>(file_name);
 
   // We will randomly pick or not a point with probability load_ratio
   int num_points = point_cloud.cols()*point_cloud.rows();
@@ -564,9 +567,9 @@ void load_pc(string const& file_name,
         shift_was_calc = true;
       }
 
-      for (int row = 0; row < dim; row++)
+      for (int row = 0; row < DIM; row++)
         data.features(row, points_count) = xyz[row] - shift[row];
-      data.features(dim, points_count) = 1;
+      data.features(DIM, points_count) = 1;
 
       points_count++;
       if (points_count >= num_points_to_load) break;
@@ -768,21 +771,19 @@ Vector3 calc_translation_vec(DP const& source, DP const& trans_source){
   Eigen::VectorXd trans_source_ctr
     = trans_source.features.rowwise().sum() / trans_source.features.cols();
 
-  const int dim = 3;
   Vector3 trans;
-  for (int row = 0; row < dim; row++)
+  for (int row = 0; row < DIM; row++)
     trans[row] = trans_source_ctr(row, 0) - source_ctr(row, 0);
   return trans;
 }
 
 void calc_max_displacment(DP const& source, DP const& trans_source){
 
-  const int dim = 3;
   double max_obtained_disp = 0.0;
   int numPts = source.features.cols();
   for(int col = 0; col < numPts; col++){
     Vector3 s, t;
-    for (int row = 0; row < dim; row++){
+    for (int row = 0; row < DIM; row++){
       s[row] = source.features(row, col);
       t[row] = trans_source.features(row, col);
     }
@@ -822,11 +823,10 @@ void save_errors(DP const& point_cloud,
     outfile << "# latitude,longitude,height above datum (meters),error(meters)" << endl;
 
   int numPts = point_cloud.features.cols();
-  int dim = 3;
   for(int col = 0; col < numPts; col++){
 
     Vector3 P;
-    for (int row = 0; row < dim; row++)
+    for (int row = 0; row < DIM; row++)
       P[row] = point_cloud.features(row, col) + shift[row];
 
     Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
@@ -883,8 +883,7 @@ void save_trans_point_cloud(Options const& opt,
                                 opt,
                                 TerminalProgressCallback("asp", "\t--> "));
   }else if (file_type == "PC"){
-    const int dim = 3;
-    ImageViewRef<Vector3> point_cloud = read_n_channels<dim>(input_file);
+    ImageViewRef<Vector3> point_cloud = read_n_channels<DIM>(input_file);
     asp::block_write_gdal_image(output_file, transform_pc(point_cloud, T),
                                 opt,
                                 TerminalProgressCallback("asp", "\t--> "));
@@ -917,19 +916,18 @@ void save_trans_point_cloud(Options const& opt,
       outfile << "# latitude,longitude,height above datum (meters)" << endl;
 
     int numPts = point_cloud.features.cols();
-    int dim = 3;
     for(int col = 0; col < numPts; col++){
 
-      Eigen::VectorXd V(dim + 1);
-      for (int row = 0; row < dim; row++)
+      Eigen::VectorXd V(DIM + 1);
+      for (int row = 0; row < DIM; row++)
         V[row] = point_cloud.features(row, col) + shift[row];
-      V[dim] = 1;
+      V[DIM] = 1;
 
       // Apply the transform
       V = T*V;
 
       Vector3 P;
-      for (int row = 0; row < dim; row++) P[row] = V[row];
+      for (int row = 0; row < DIM; row++) P[row] = V[row];
       Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
       llh[0] += 360.0*round((mean_longitude - llh[0])/360.0); // 360 deg adjustment
 
@@ -950,7 +948,6 @@ void debug_save_point_cloud(DP const& point_cloud, Vector3 const& shift,
                             string const& output_file){
 
   int numPts = point_cloud.features.cols();
-  int dim = 3;
 
   cartography::Datum datum;
   datum.set_well_known_datum("WGS_1984");
@@ -962,7 +959,7 @@ void debug_save_point_cloud(DP const& point_cloud, Vector3 const& shift,
   for(int col = 0; col < numPts; col++){
 
     Vector3 P;
-    for (int row = 0; row < dim; row++)
+    for (int row = 0; row < DIM; row++)
       P[row] = point_cloud.features(row, col) + shift[row];
 
     Vector3 llh = datum.cartesian_to_geodetic(P); // lon-lat-height
@@ -1022,29 +1019,31 @@ int main( int argc, char *argv[] ) {
     sw2.stop();
     if (opt.verbose) vw_out() << "Loading the source point cloud took "
                               << sw2.elapsed_seconds() << " [s]" << endl;
+    if (opt.verbose) vw_out() << "Using the datum: " << actual_datum_str << endl;
 
-    // So far we shifted by first point in first point cloud
-    // to reduce the magnitude of all loaded points. Now that we
-    // have loaded all points, shift one more time, to place the centroid
-    // of the reference at the origin.
-    int dim = 3;
+    // So far we shifted by first point in first point cloud to reduce
+    // the magnitude of all loaded points. Now that we have loaded all
+    // points, shift one more time, to place the centroid of the
+    // reference at the origin.
+    // Note: If this code is ever converting to using floats,
+    // the operation below needs to be re-implemented to be accurate.
     int numRefPts = ref.features.cols();
     Eigen::VectorXd meanRef = ref.features.rowwise().sum() / numRefPts;
-    ref.features.topRows(dim).colwise()    -= meanRef.head(dim);
-    source.features.topRows(dim).colwise() -= meanRef.head(dim);
-    for (int row = 0; row < dim; row++) shift[row] += meanRef(row);
+    ref.features.topRows(DIM).colwise()    -= meanRef.head(DIM);
+    source.features.topRows(DIM).colwise() -= meanRef.head(DIM);
+    for (int row = 0; row < DIM; row++) shift[row] += meanRef(row);
+    if (opt.verbose) vw_out() << "Data shifted internally by subtracting: "
+                              << shift << std::endl;
 
     // The point clouds are shifted, so shift the initial transform as well.
     PointMatcher<RealT>::Matrix initT = apply_shift(opt.init_transform, shift);
-
-    if (opt.verbose) vw_out() << "Using the datum: " << actual_datum_str << endl;
 
     // Filter the reference and initialize the reference tree
     PM::ICP icp;
     Stopwatch sw3;
     sw3.start();
     icp.initRefTree(ref, opt.alignment_method, opt.highest_accuracy,
-                    false/*opt.verbose */);
+                    opt.verbose);
     sw3.stop();
     if (opt.verbose) vw_out() << "Reference point cloud processing took "
                               << sw3.elapsed_seconds() << " [s]" << endl;
@@ -1073,22 +1072,21 @@ int main( int argc, char *argv[] ) {
     double big = 1e+300;
     icp.filterGrossOutliersAndCalcErrors(ref, big,
                                           source, beg_errors); //in-out
+    calc_stats("Input", beg_errors);
+    //dump_llh(source, shift);
     sw5.stop();
     if (opt.verbose) vw_out() << "Initial error computation took "
                               << sw5.elapsed_seconds() << " [s]" << endl;
-
-
-    calc_stats("Input", beg_errors);
-    //dump_llh(source, shift);
 
     // Compute the transformation to align the source to reference.
     Stopwatch sw6;
     sw6.start();
     PointMatcher<RealT>::Matrix Id
-      = PointMatcher<RealT>::Matrix::Identity(dim + 1, dim + 1);
+      = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
     if (opt.config_file == ""){
       // Read the options from the command line
-      icp.setParams(opt.num_iter, opt.outlier_ratio, opt.diff_rotation_err,
+      icp.setParams(opt.num_iter, opt.outlier_ratio,
+                    (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
                     opt.diff_translation_err, opt.alignment_method,
                     false/*opt.verbose*/);
     }else{
@@ -1121,11 +1119,10 @@ int main( int argc, char *argv[] ) {
     sw7.start();
     icp.filterGrossOutliersAndCalcErrors(ref, big,
                                           trans_source, end_errors); // in-out
+    calc_stats("Output", end_errors);
     sw7.stop();
     if (opt.verbose) vw_out() << "Final error computation took "
                               << sw7.elapsed_seconds() << " [s]" << endl;
-
-    calc_stats("Output", end_errors);
 
     // We must apply to T the initial guess transform
     PointMatcher<RealT>::Matrix combinedT = T*initT;
@@ -1139,7 +1136,7 @@ int main( int argc, char *argv[] ) {
          << "origin is planet center):" << endl << globalT << endl;
     cout << "Translation vector: " << trans << std::endl;
     Matrix3x3 rot;
-    for (int r = 0; r < 3; r++) for (int c = 0; c < dim; c++)
+    for (int r = 0; r < DIM; r++) for (int c = 0; c < DIM; c++)
       rot(r, c) = globalT(r, c);
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle( rot) * 180/M_PI;

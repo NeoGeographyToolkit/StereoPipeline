@@ -699,8 +699,12 @@ Compress using laszip. \\ \hline
 \label{pcalign}
 
 This tool can be used to align two point clouds using Point-to-Plane or
-Point-to-Point Iterative Closest Point (ICP) based on libpointmatcher
+Point-to-Point Iterative Closest Point (ICP). It uses the
+\texttt{libpointmatcher} library
 (https://github.com/ethz-asl/libpointmatcher).
+
+Several important things need to be kept in mind if \texttt{pc\_align} is to be
+used successfully and give accurate results, as described below.
 
 Due to the nature of ICP, the reference (fixed) point cloud should be
 denser than the source (movable) point cloud to get the most accurate
@@ -710,26 +714,40 @@ desired (\texttt{pc\_align} outputs both the direct and inverse
 transform, and can output the reference point cloud transformed to match
 the source and vice-versa).
 
-If the source point cloud covers a much larger area than the reference
-point cloud, the algorithm may fail, again due to the nature of ICP. To
-help the tool decide which source points to align with the reference,
-one can use the option \texttt{-\/-max-displacement}, and provide it
-with a value, say 100 meters. The algorithm will interpret this to mean
-that as result of alignment the source points will not move by a larger
-amount than this value. It will then discard all points in the input
-source point cloud which are further than this value from the reference
-point cloud before doing the alignment. The actual displacement of
-source points as result of alignment will be displayed after the
-alignment finishes, and it can help refine the number to be passed as
-input to this option.
+In many typical applications, the source and reference point clouds are
+already roughly aligned, but the source point cloud may cover a larger
+area than the reference. The user is expected to provide to the tool the
+expected maximum distance (displacement) source points may move by as
+result of alignment, using the option
+\texttt{-\/-max-displacement}. This number will help remove source
+points too far from the reference point cloud which may not match
+successfully and may degrade the accuracy. If in doubt, this value can be
+set to something large but still reasonable, as the tool is able to
+throw away a certain number of unmatched outliers. At the end of
+alignment, \texttt{pc\_align} will display the {\it observed} maximum
+displacement, which can be used to seed the tool in a subsequent run.
+
+The user can choose how many points to pick from the reference and
+source point clouds to perform the alignment. The amount of memory and
+processing time is directly proportional to these numbers.
+
+Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
+the latter can be good enough if the input point clouds have small
+alignment errors, and it uses less storage and memory as well.  The tool
+also accepts an option named \texttt{-\/-highest-accuracy}, when it will
+compute the normals for Point-to-Plane ICP at all points rather than
+about a tenth of them. This option is not necessary most of the time,
+but may result in better alignment, at the expense of using more memory
+and processing time.
 
 The input point clouds can be in one of several formats: ASP's point
 cloud format, DEMs as GeoTiff files, or plain-text CSV files (with .csv
 or .txt extension). CSV files are expected to have on each line the
 latitude, longitude, and height above the datum (separated by commas or
-spaces). The datum itself can be set via the \texttt{-\/-datum} option.
-The tool can also read the LOLA RDR PointPerRow format (when the datum
-is assumed to be of the Moon).
+spaces). The datum itself can be set via the \texttt{-\/-datum} option
+(\texttt{pc\_align} attempts to infer the datum from the data if not
+provided).  The tool can also read the LOLA RDR PointPerRow format (when
+the datum is assumed to be of the Moon).
 
 The transform obtained by \texttt{pc\_align} is output to a file as a
 $4\times 4$ matrix, with the upper-left $3\times 3$ submatrix being the
@@ -737,11 +755,17 @@ rotation, and the top three elements of the right-most column being the
 translation. This matrix can be supplied back to the tool as an initial
 guess. The inverse transform is saved to a file as well.
 
+The tool outputs the translation component of this transform, defined
+as the vector from the centroid of the original source points to the transformed
+centroid. The transform itself, with its origin at the center of the planet,
+can result in large movements on the planet surface even for small angles
+of rotation, as such both its rotation and translation components may not
+be amenable to good interpretation.
+
 The tool also outputs the means of the smallest 25\%, 50\%, 75\%, and
 100\% of the errors, before and after alignment, where the errors are
-defined as the closest distances between points in the transformed
-source point cloud and the reference point cloud. The complete lists of
-errors are also saved to disk.
+defined as the closest distances between transformed source points and
+reference points. The complete lists of errors are also saved to disk.
 
 By default, when \texttt{pc\_align} discards
 outliers during the computation of the alignment transform, it keeps
@@ -749,16 +773,10 @@ the 75\% of the points with the smallest errors. As such, a way of
 judging the effectiveness of the tool is to look at the mean of the
 smallest 75\% of the errors before and after alignment.
 
-Lastly, \texttt{pc\_align} displays the maximum displacement between source
-points (after being transformed by the initial guess transform, if
-provided) and their aligned versions. This (or a multiple of it) can be fed
-back into the tool to help identify the gross outliers in the source
-data (see the options below).
-
 \medskip
 
 Usage:\\
-\hspace*{2em}\texttt{pc\_align [options] <reference cloud> <source cloud>}
+\hspace*{2em}\texttt{pc\_align -\/-max-displacement arg [other options] <reference cloud> <source cloud>}
 
 \medskip
 
@@ -773,13 +791,13 @@ Usage:\\
 Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
-use. 0 means use the default as set by OpenMP. \\ \hline
+use. 0 means use the default as set by OpenMP. Only some parts of the algorithm are multi-threaded.\\ \hline
 \texttt{-\/-initial-transform \textit{arg}} &
 The file containing the rotation + translation transform to be used as an
 initial guess. It can come from a previous run of the tool. \\ \hline
-\texttt{-\/-num-iterations \textit{default: 400}} &  Maximum number of iterations. \\ \hline
-\texttt{-\/-diff-rotation-error \textit{default: 0.0001}} & Change in rotation amount below which the algorithm will stop. \\ \hline
-\texttt{-\/-diff-translation-error \textit{default: 0.001}} & Change in translation amount below which the algorithm will stop. \\ \hline
+\texttt{-\/-num-iterations \textit{default: 1000}} &  Maximum number of iterations. \\ \hline
+\texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop, in degrees. \\ \hline
+\texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop, in meters. \\ \hline
 \texttt{-\/-max-displacement \textit{arg}} & Maximum expected
 displacement of source points as result of alignment, in meters (after
 the initial guess transform is applied to the source points). Used
