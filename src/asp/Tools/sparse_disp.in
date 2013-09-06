@@ -28,7 +28,7 @@ import scipy.spatial as sp
 from scipy.ndimage import convolve, binary_dilation
 from scipy.sparse import coo_matrix
 from scipy.interpolate import griddata
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 from optparse import OptionParser
 
 def die(msg, code=-1):
@@ -1217,7 +1217,7 @@ def main():
                        help="Points whose neighbors have a minimum disparity range larger than this value will be removed (%default)")
     parser.add_option("-M", "--Max_disp_range", dest="M_max",  default=64., type="float",
                        help="Un-scaled disparity range in output limited to this value (%default)")
-    parser.add_option("-P", "--processes", dest="processes", default=8, type="int",
+    parser.add_option("-P", "--processes", dest="processes", default=cpu_count(), type="int",
                       help="The number of processes to use (%default)")
     parser.add_option("-e", "--epipolar_axis", dest="epipolar_axis", default=None, type="int",
                       help="If set, specify the axis that is epipolar 0=x, 1=y (%default)")
@@ -1239,7 +1239,6 @@ def main():
     dxy_slope_tol=3.0
     C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
 
-
     T_file = args[0]
     S_file = args[1]
     output_prefix = args[2]
@@ -1248,6 +1247,9 @@ def main():
     print "T_file = " + T_file
     print "S_file = " + S_file
     print "output_prefix = " + output_prefix
+
+    #Minimum number of coarse points in any dimension
+    min_npts = 8
 
     # Adjust the input parameters based on the images. This
     # may need to become more advanced.
@@ -1265,18 +1267,14 @@ def main():
 
     #Automatically set coarse_skip if not specified
     if options.coarse_skip is None:
-        options.coarse_skip = np.min([prev2x/4, prev2y/4])
+        options.coarse_skip = np.min([prev2x/min_npts, prev2y/min_npts])
         print "Setting coarse skip to: %d" % options.coarse_skip
     else:
         #Check to make sure coarse_skip isn't TOO coarse
         #Minimum of 4 points in smallest dimension
-        if options.coarse_skip > np.min([prev2x/4, prev2y/4]):
-            options.coarse_skip = np.min([prev2x/4, prev2y/4])
+        if options.coarse_skip > np.min([prev2x/min_npts, prev2y/min_npts]):
+            options.coarse_skip = np.min([prev2x/min_npts, prev2y/min_npts])
             print "Warning: decreasing coarse skip to: %d" % options.coarse_skip
-
-    if options.coarse_skip > np.min([prev2x/4, prev2y/4]):
-        options.coarse_skip = np.min([prev2x/4, prev2y/4])
-        print "Warning: decreasing coarse skip to: %d" % options.coarse_skip
 
     s_nx=options.s_nx
     s_ny=options.s_ny
@@ -1542,8 +1540,15 @@ def main():
         zi = np.nan_to_num(griddata(out[:, 0:2], out[:,3], (xg, yg), method='linear'))
         outBand = outDs.GetRasterBand(2)
         outBand.WriteArray(zi[:,:,0])
+
+        #Generate quality mask, used by both D_sub and D_sub_spread
         goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
         quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
+        N_dilate=np.ceil(options.coarse_skip/options.output_scale/4.)
+        dilate_kernel=np.ones([1, 2*N_dilate])
+        quality=binary_dilation(quality>0, structure=dilate_kernel)
+        quality=binary_dilation(quality>0, structure=dilate_kernel.transpose())
+
         outBand = outDs.GetRasterBand(3)
         outBand.WriteArray(quality)
         outDs.SetGeoTransform(tuple(GT1))
@@ -1556,14 +1561,6 @@ def main():
         # clip the output range to the specified limits
         out[:,5]=np.minimum(out[:,5], options.M_max/options.output_scale)
         out[:,6]=np.minimum(out[:,6], options.M_max/options.output_scale)
-
-        # make a quality mask
-        goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
-        quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
-        N_dilate=np.ceil(options.coarse_skip/options.output_scale/4.)
-        dilate_kernel=np.ones([1, 2*N_dilate])
-        quality=binary_dilation(quality>0, structure=dilate_kernel)
-        quality=binary_dilation(quality>0, structure=dilate_kernel.transpose())
 
         # interpolate the scaled range values
         zi = np.nan_to_num(griddata(out[:,0:2], out[:,5], (xg, yg), method='linear'))

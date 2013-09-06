@@ -17,7 +17,7 @@
 # __END_LICENSE__
 
 
-import sys, optparse, subprocess, re, os
+import sys, optparse, subprocess, re, os, time
 import os.path as P
 
 # Utilities to ensure that the Python parser does not garble negative
@@ -138,7 +138,11 @@ def run(bin, args, opt, **kw):
     if opt.dryrun or opt.verbose: print(" ".join(call))
     if opt.dryrun: return
     try:
+        t_start = time.time()
         code = subprocess.call(call)
+        if opt.verbose:
+            wall_s = time.time() - t_start
+            print('Wall time (s): {0:.1f}\n'.format(wall_s))
     except OSError, e:
         raise Exception('%s: %s' % (binpath, e))
     if code != 0:
@@ -156,12 +160,14 @@ def run_sparse_disp(args, opt):
         sparse_args += opt.sparse_disp_options.split()
 
     # Pass the number of threads to sparse_disp
-    num_threads = 0
-    if hasattr(opt, 'threads') and opt.threads is not None and opt.threads > 0:
-        num_threads = opt.threads
-    if hasattr(opt, 'threads_single') and opt.threads_single is not None and opt.threads_single > 0:
-        num_threads = opt.threads_single
-    if num_threads > 0:
-        sparse_args += ['--processes', str(num_threads)]
+    # sparse_disp_options should trump
+    if not any('--processes' in s for s in sparse_args):
+        num_threads = 0
+        if hasattr(opt, 'threads') and opt.threads is not None and opt.threads > 0:
+            num_threads = opt.threads
+        if hasattr(opt, 'threads_single') and opt.threads_single is not None and opt.threads_single > 0:
+            num_threads = opt.threads_single
+        if num_threads > 0:
+            sparse_args += ['--processes', str(num_threads)]
 
     run('sparse_disp', sparse_args, opt, msg='1: Low-res correlation with sparse_disp')
