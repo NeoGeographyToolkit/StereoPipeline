@@ -15,6 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+// This tool uses libpointmatcher for alignment,
+// https://github.com/ethz-asl/libpointmatcher
 // Copyright (c) 2010--2012,
 // Francois Pomerleau and Stephane Magnenat, ASL, ETHZ, Switzerland
 // You can contact the authors at <f dot pomerleau at gmail dot com> and
@@ -1134,14 +1136,14 @@ int main( int argc, char *argv[] ) {
     cout.precision(16);
     cout << "Alignment transform (rotation + translation, "
          << "origin is planet center):" << endl << globalT << endl;
-    cout << "Translation vector: " << trans << std::endl;
+    cout << "Translation vector (meters): " << trans << std::endl;
     Matrix3x3 rot;
     for (int r = 0; r < DIM; r++) for (int c = 0; c < DIM; c++)
       rot(r, c) = globalT(r, c);
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle( rot) * 180/M_PI;
-    cout << "Euler angles = " << euler_angles << " degrees" << endl;
-    cout << "Axis angles  = " << axis_angles  << " degrees" << endl;
+    cout << "Euler angles (degrees) = " << euler_angles  << endl;
+    cout << "Axis angles  (degrees) = " << axis_angles   << endl;
 
     Stopwatch sw8;
     sw8.start();
