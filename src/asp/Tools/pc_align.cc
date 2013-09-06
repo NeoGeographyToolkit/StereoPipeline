@@ -135,7 +135,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("reference", 1);
   positional_desc.add("source", 1);
 
-  string usage("[options] <reference cloud> <source cloud>");
+  string usage("--max-displacement arg [other options] <reference cloud> <source cloud>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
