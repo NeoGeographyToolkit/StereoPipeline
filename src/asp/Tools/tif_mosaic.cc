@@ -83,8 +83,10 @@ void parseImgData(std::string data, int& dst_cols, int& dst_rows,
     img_data.push_back(ImageData(src_file, src_box, dst_box));
   }
 
-  for (size_t k = img_data.size()-1; k < img_data.size(); k--){
-    for (size_t l = k-1; l < k; l--) {
+  for (int k = (int)img_data.size()-1; k >= 0; k--){
+
+    for (int l = k - 1; l >= 0; l--){
+
       // Later images will be on top of earlier images. For that
       // reason, reduce each image to the part it does not overlap
       // with later images.
@@ -169,7 +171,7 @@ public:
     std::vector<BBox2i>  src_vec(m_img_data.size());  // Effective area of image tile
     std::vector<InterpT> crop_vec(m_img_data.size(),
                                   InterpT(ImageT())); // Image data but expanded a bit for interpolation's sake
-    for (size_t k = 0; k < m_img_data.size(); k++){
+    for (int k = 0; k < (int)m_img_data.size(); k++){
       BBox2 box = m_img_data[k].dst_box;
       box.crop(scaled_box);
       if (box.empty()) continue;
@@ -199,9 +201,9 @@ public:
 
         // See which src image we end up in. Start from the later
         // images, as those are on top.
-        size_t good_k = std::numeric_limits<size_t>::max();
+        int good_k = -1;
         Vector2 src_pix;
-        for (size_t k = m_img_data.size()-1; k < m_img_data.size(); k--){
+        for (int k = (int)m_img_data.size()-1; k >= 0; k--){
           src_pix = m_img_data[k].transform.reverse(dst_pix);
           if (src_vec[k].contains(src_pix)){
             good_k = k;
@@ -209,7 +211,7 @@ public:
           }
         }
 
-        if (good_k == std::numeric_limits<size_t>::max()) continue;
+        if (good_k < 0) continue;
 
         src_pix += elem_diff(BilinearInterpolation::pixel_buffer,src_vec[good_k].min());
         masked_pixel_type r =
