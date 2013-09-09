@@ -282,19 +282,23 @@ namespace asp {
     return true;
   }
 
-  // Smart IP matching that uses clustering on triangulation error and
-  // altitude to determine inliers.
+  // IP matching that uses clustering on triangulation error to determine inliers.
+  // Check output this filter can fail.
   //
-  // Check output this filter can fail. Output is the index list.
+  // Input and output is the valid indices. Valid indices must have something to start with.
   bool
-  tri_and_alt_ip_filtering( std::vector<vw::ip::InterestPoint> const& matched_ip1,
-                            std::vector<vw::ip::InterestPoint> const& matched_ip2,
-                            vw::camera::CameraModel* cam1,
-                            vw::camera::CameraModel* cam2,
-                            vw::cartography::Datum const& datum,
-                            std::list<size_t>& output,
-                            vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
-                            vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+  tri_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
+                    std::vector<vw::ip::InterestPoint> const& ip2,
+                    vw::camera::CameraModel* cam1,
+                    vw::camera::CameraModel* cam2,
+                    std::list<size_t>& valid_indices,
+                    vw::TransformRef const& left_tx = vw::TransformRef(vw::TranslateTransform(0,0)),
+                    vw::TransformRef const& right_tx = vw::TransformRef(vw::TranslateTransform(0,0)) );
+
+  bool
+  stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
+                       std::vector<vw::ip::InterestPoint> const& ip2,
+                       std::list<size_t>& valid_indices );
 
   // Smart IP matching that uses clustering on triangulation and
   // datum information to determine inliers.
@@ -348,7 +352,7 @@ namespace asp {
     }
     vw_out() << "\t    Matched " << valid_count << " points." << std::endl;
 
-    // Pull out correct subset
+    // Produce listing of valid indices that agree with forward and backward matching
     std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
     matched_ip1.reserve( valid_count ); // Get our allocations out of the way.
     matched_ip2.reserve( valid_count );
@@ -365,11 +369,21 @@ namespace asp {
       }
     }
 
-    // Apply filtering of triangulation error and altitude
+    // Apply filtering of IP by a selection of assumptions. Low
+    // triangulation error, agreement with klt tracking, and local
+    // neighbors are the same neighbors in both images.
     std::list<size_t> good_indices;
-    if (!tri_and_alt_ip_filtering( matched_ip1, matched_ip2,
-                                   cam1, cam2, datum, good_indices, left_tx, right_tx ) ){
-      vw_out() << "No interest points left after filtering." << std::endl;
+    for ( size_t i = 0; i < matched_ip1.size(); i++ ) {
+      good_indices.push_back(i);
+    }
+    if (!tri_ip_filtering( matched_ip1, matched_ip2,
+                           cam1, cam2, good_indices, left_tx, right_tx ) ){
+      vw_out() << "No interest points left after triangulation filtering." << std::endl;
+      return false;
+    }
+    if (!stddev_ip_filtering( matched_ip1, matched_ip2,
+                              good_indices ) ) {
+      vw_out() << "No interest points left after stddev filtering." << std::endl;
       return false;
     }
 

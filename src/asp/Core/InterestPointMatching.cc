@@ -73,7 +73,7 @@ namespace asp {
                            EpipolarLinePointMatcher const& matcher,
                            Mutex& camera_mutex,
                            std::vector<size_t>::iterator output ) :
-    m_tree(tree), m_start(start), m_end(end), m_ip_other(ip2),
+      m_tree(tree), m_start(start), m_end(end), m_ip_other(ip2),
       m_cam1(cam1), m_cam2(cam2), m_tx1(tx1), m_tx2(tx2),
       m_matcher( matcher ), m_camera_mutex(camera_mutex), m_output(output) {}
 
@@ -291,7 +291,7 @@ namespace asp {
       ransac( hfit_func(), math::InterestPointErrorMetric(),
               100, // num iter
               norm_2(Vector2(left_size.x(),left_size.y())) / 10, // inlier threshold
-              left_copy.size()/2 // min output inliers
+              left_copy.size()*2/3 // min output inliers
               );
     Matrix<double> H = ransac(right_copy, left_copy);
     std::vector<size_t> indices = ransac.inlier_indices(H, right_copy, left_copy);
@@ -331,28 +331,30 @@ namespace asp {
   }
 
   bool
-  tri_and_alt_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
-                            std::vector<ip::InterestPoint> const& matched_ip2,
-                            vw::camera::CameraModel* cam1,
-                            vw::camera::CameraModel* cam2,
-                            vw::cartography::Datum const& datum,
-                            std::list<size_t>& output,
-                            vw::TransformRef const& left_tx,
-                            vw::TransformRef const& right_tx ) {
+  tri_ip_filtering( std::vector<ip::InterestPoint> const& matched_ip1,
+                    std::vector<ip::InterestPoint> const& matched_ip2,
+                    vw::camera::CameraModel* cam1,
+                    vw::camera::CameraModel* cam2,
+                    std::list<size_t>& valid_indices,
+                    vw::TransformRef const& left_tx,
+                    vw::TransformRef const& right_tx ) {
     typedef std::vector<double> ArrayT;
-    ArrayT error_samples( matched_ip1.size() ), alt_samples( matched_ip1.size() ), alt_inlier_samples;
+    ArrayT error_samples( valid_indices.size() );
 
     // Create the 'error' samples. Which are triangulation error and
     // distance to sphere.
     stereo::StereoModel model( cam1, cam2 );
-    for (size_t i = 0; i < matched_ip1.size(); i++ ) {
-      Vector3 geodetic =
-        datum.cartesian_to_geodetic( model( left_tx.reverse(Vector2( matched_ip1[i].x, matched_ip1[i].y )),
-                                            right_tx.reverse(Vector2(matched_ip2[i].x,
-                                                                     matched_ip2[i].y)),
-                                            error_samples[i] ) );
-      alt_samples[i] = geodetic.z();
+    size_t count = 0;
+    BOOST_FOREACH( size_t i, valid_indices ) {
+      model( left_tx.reverse(Vector2( matched_ip1[i].x,
+                                      matched_ip1[i].y )),
+             right_tx.reverse(Vector2(matched_ip2[i].x,
+                                      matched_ip2[i].y)),
+             error_samples[count] );
+      count++;
     }
+    VW_ASSERT( count == valid_indices.size(),
+               vw::MathErr() << "tri_ip_filtering: Programmer error. Count indices not aligned." );
 
     typedef std::vector<std::pair<Vector<double>, Vector<double> > > ClusterT;
     ClusterT error_clusters =
@@ -377,78 +379,102 @@ namespace asp {
              << " +- " << sqrt( error_clusters.front().second[0] ) << " meters\n";
 
     // Record indices of points that match our clustering result
-    output.clear();
     const double escalar1 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.front().second[0] ); // outside exp of normal eq
     const double escalar2 = 1.0 / sqrt( 2.0 * M_PI * error_clusters.back().second[0] );
     const double escalar3 = 1.0 / (2 * error_clusters.front().second[0] ); // inside exp of normal eq
     const double escalar4 = 1.0 / (2 * error_clusters.back().second[0] );
-    for (size_t i = 0; i < matched_ip1.size(); i++ ) {
-      double err_diff_front = error_samples[i]-error_clusters.front().first[0];
-      double err_diff_back = error_samples[i]-error_clusters.back().first[0];
-
-      // Is this point an inlier in terms of triangulation error?
-      if (
-          (escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
-          (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
-          error_samples[i] < error_clusters.front().first[0] ) {
-        output.push_back(i);
-      }
-    }
-
-    // Thresholding on altitude of the remaining inliers
-    alt_inlier_samples.resize( output.size(), 0 );
-    std::list<size_t>::iterator output_it = output.begin();
-    for ( size_t i = 0; i < alt_inlier_samples.size(); i++ ) {
-      alt_inlier_samples[i] = alt_samples[ *output_it ];
-      output_it++;
-    }
-    ClusterT alt_clusters =
-      asp::gaussian_clustering<ArrayT>( alt_inlier_samples.begin(),
-                                        alt_inlier_samples.end(), 2 );
-
-
-    // Determine if we should disable the altitude constraint if the
-    // standard deviations are not wildly different. If everything is an
-    // inlier .. the mixture model will just seperate different planar
-    // regions of the image.
-    if ( fabs( log10( alt_clusters.front().second[0] ) - log10( alt_clusters.back().second[0] ) ) < 1 ) {
-      return true; // Exit early
-    }
-
-    const double ascalar1 = 1.0 / sqrt( 2.0 * M_PI * alt_clusters.front().second[0] ); // outside exp of normal eq
-    const double ascalar2 = 1.0 / sqrt( 2.0 * M_PI * alt_clusters.back().second[0] );
-    const double ascalar3 = 1.0 / (2 * alt_clusters.front().second[0] ); // inside exp of normal eq
-    const double ascalar4 = 1.0 / (2 * alt_clusters.back().second[0] );
-    output_it = output.begin();
-    ssize_t is_first_cluster_bigger = 0;
-    std::list<size_t> output_front, output_back;
-    for ( size_t i = 0; i < alt_inlier_samples.size(); i++ ) {
-      double alt_diff_front = alt_inlier_samples[i] - alt_clusters.front().first[0];
-      double alt_diff_back  = alt_inlier_samples[i] - alt_clusters.back().first[0];
+    size_t error_idx = 0;
+    size_t prior_valid_size = valid_indices.size();
+    for ( std::list<size_t>::iterator i = valid_indices.begin();
+          i != valid_indices.end(); i++ ) {
+      double err_diff_front = error_samples[error_idx]-error_clusters.front().first[0];
+      double err_diff_back = error_samples[error_idx]-error_clusters.back().first[0];
 
       if (
-          (ascalar1 * exp( (-alt_diff_front*alt_diff_front) * ascalar3 ) ) >
-          (ascalar2 * exp( (-alt_diff_back*alt_diff_back) * ascalar4 ) ) ) {
-        output_front.push_back( *output_it );
-        is_first_cluster_bigger++;
-      } else {
-        output_back.push_back( *output_it );
-        is_first_cluster_bigger--;
+          !((escalar1 * exp( (-err_diff_front * err_diff_front) * escalar3 ) ) >
+            (escalar2 * exp( (-err_diff_back * err_diff_back) * escalar4 ) ) ||
+            error_samples[error_idx] < error_clusters.front().first[0]) ) {
+        // It's an outlier!
+        i = valid_indices.erase(i);
+        i--; // For loop is going to increment this back up
       }
-      output_it++;
+      error_idx++;
     }
-
-    if ( is_first_cluster_bigger < 0 ) {
-      // i.e. first cluster is not bigger
-      std::swap( output_front, output_back );
-      std::swap( alt_clusters[0], alt_clusters[1] );
-    }
-
-    vw_out() << "\t      Altitude         : " << alt_clusters.front().first[0]
-             << " +- " << sqrt( alt_clusters.front().second[0] ) << " meters\n";
-    output = output_front;
+    VW_ASSERT( prior_valid_size == error_idx,
+               vw::MathErr() << "tri_ip_filtering: Programmer error. Indices don't seem to be aligned." );
 
     return true;
   }
 
+  bool
+  stddev_ip_filtering( std::vector<vw::ip::InterestPoint> const& ip1,
+                       std::vector<vw::ip::InterestPoint> const& ip2,
+                       std::list<size_t>& valid_indices ) {
+    // 4 stddev filtering. Deletes any disparity measurement that is 4
+    // stddev away from the measurements of it's local neighbors. We
+    // kill off worse offender one at a time until everyone is
+    // compliant.
+    bool deleted_something;
+    do {
+      deleted_something = false;
+      Matrix<float> locations1( valid_indices.size(), 2 );
+      size_t count = 0;
+      std::vector<size_t> reverse_lookup( valid_indices.size() );
+      std::vector<Vector2> disparity_vector( valid_indices.size() );
+      BOOST_FOREACH( size_t index, valid_indices ) {
+        locations1( count, 0 ) = ip1[index].x;
+        locations1( count, 1 ) = ip1[index].y;
+        reverse_lookup[ count ] = index;
+        disparity_vector[ count ] = Vector2(ip2[index].x,ip2[index].y) -
+          Vector2(ip1[index].x,ip1[index].y);
+        count++;
+      }
+      math::FLANNTree<float> tree1( locations1 );
+
+      std::pair<double,size_t> worse_index;
+      worse_index.first = 0;
+      for ( size_t i = 0; i < valid_indices.size(); i++ ) {
+        Vector<int> indices;
+        Vector<float> distance;
+        tree1.knn_search( select_row( locations1, i ),
+                          indices, distance, 11 );
+
+        // Make an average of the disparities around us and not our own
+        // measurement
+        Vector2 sum;
+        for ( size_t j = 1; j < indices.size(); j++ ) {
+          sum += disparity_vector[ indices[j] ];
+        }
+        sum = normalize( sum );
+
+        // Project all disparities along the new gradient
+        Vector<double> projections( indices.size() );
+        for ( size_t j = 0; j < indices.size(); j++ ) {
+          projections[j] = dot_prod( disparity_vector[indices[j]], sum );
+        }
+        double mean = 0;
+        double stddev = 0;
+        for ( size_t j = 1; j < indices.size(); j++ ) {
+          mean += projections[j];
+          stddev += projections[j]*projections[j];
+        }
+        mean /= indices.size() - 1;
+        stddev = sqrt( stddev / ( indices.size() - 1 ) - mean*mean );
+
+        double std_distance = fabs(projections[0]-mean)/stddev;
+        if ( std_distance > worse_index.first ) {
+          worse_index.first = std_distance;
+          worse_index.second = i;
+        }
+      }
+      if ( worse_index.first > 4 ) {
+        std::list<size_t>::iterator it = valid_indices.begin();
+        std::advance( it, worse_index.second );
+        valid_indices.erase( it );
+        deleted_something = true;
+      }
+    } while( deleted_something );
+
+    return valid_indices.size();
+  }
 }
