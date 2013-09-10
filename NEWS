@@ -1,11 +1,28 @@
 *** RELEASE 2.2.x, Upcoming! ***
 
-  - Added pc_align, a tool for aligning point clouds. Sparse and dense point cloud are supported, as well as DEMs. 
+  - Point cloud files are now saved in single precision (float),
+  instead of double, reducing the point cloud file size by about 50%,
+  with an accuracy loss of only about 1 mm (an internal shift is
+  applied befor casting to float as to not lose precision).
+
+ - StereoPipline (almost) daily and fully verfied builds for all
+ platforms are available for the adventurous user
+ (http://byss.arc.nasa.gov/stereopipeline/daily_build/).
+
+  - Added pc_align, a tool for aligning point clouds, using the
+  libpointmacher library
+  (https://github.com/ethz-asl/libpointmatcher). Sparse and dense
+  point cloud are supported, as well as DEMs. Two ICP methods are
+  supported, point-to-plane and point-to-point. Memory and processing
+  power usage are similar to desired number of input points rather
+  than overall input data sizes.
+
   - rpc_maprpoject and orthoproject are combined into a single tool for projecting 
     a camera image onto a DEM for any camera model supported by ASP. The old
     orthoproject is kept for backward compatibility for a while.
 
   - dg_mosaic can generate a combined RPC model in addition to the combined DG model.
+
   - Subpixel mosaicing in dg_mosaic instead of nearest neighbor.
 
   - Timeout option added for stereo correlation, preventing unreasonably long correlation
