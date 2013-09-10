@@ -54,9 +54,16 @@ class PassThroughOptionParser(optparse.OptionParser):
 # comma-separated values.  The first value on each line becomes the
 # output variable name, the other values are read into the array of
 # variable values.
-def run_and_parse_output(cmd, args, verbose, **kw ):
+def run_and_parse_output(cmd, args, sep, verbose, **kw ):
     libexecpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..',\
                          'libexec', cmd)
+
+    # If we cannot find cmd in libexec, look in the path
+    if not os.path.isfile(libexecpath) or not os.access(libexecpath, os.X_OK):
+        print("Warning: Cannot find: " + libexecpath)
+        libexecpath = which(cmd)
+        print("Warning: Using instead: " + libexecpath)
+
     call = [libexecpath]
     call.extend(args)
 
@@ -76,8 +83,11 @@ def run_and_parse_output(cmd, args, verbose, **kw ):
         raise Exception('Failed executing: ' + " ".join(call))
     data = {}
     for line in stdout.split('\n'):
-        if "," in line:
-            keywords = line.split(',')
+        if sep in line:
+            keywords = line.split(sep)
+            for index, item in enumerate(keywords):
+                # Strip whitespace
+                keywords[index] = item.strip(' \t\n\r')
             data[keywords[0]] = keywords[1:]
 
     return data
@@ -150,7 +160,7 @@ def run(bin, args, opt, **kw):
 
 def run_sparse_disp(args, opt):
 
-    settings   = run_and_parse_output( "stereo_parse", args, opt.verbose )
+    settings   = run_and_parse_output( "stereo_parse", args, ",", opt.verbose )
     left_img   = settings["trans_left_image"]
     right_img  = settings["trans_right_image"]
     out_prefix = settings["out_prefix"]

@@ -114,55 +114,6 @@ namespace vw {
                                                      PointTransFunc(t));
   }
 
-  // Imageview operator that extracts only the first n channels of an
-  // image with m channels.
-  template <int n, int m>
-  struct SelectPoints : public ReturnFixedType< Vector<double, n> > {
-    Vector<double, n> operator() (Vector<double, m> const& pt) const { return subvector(pt,0,n); }
-  };
-
-  template <int n, int m>
-  UnaryPerPixelView<DiskImageView< Vector<double, m> >, SelectPoints<n, m> >
-  inline select_points( ImageViewBase<DiskImageView< Vector<double, m> > > const& image ) {
-    return UnaryPerPixelView<DiskImageView< Vector<double, m> >, SelectPoints<n, m> >( image.impl(),
-                                                                                        SelectPoints<n, m>() );
-  }
-
-  int get_num_channels(std::string filename){
-    boost::scoped_ptr<SrcImageResource> src(DiskImageResource::open(filename));
-    int num_channels = src->channels();
-    int num_planes   = src->planes();
-    return num_channels*num_planes;
-  }
-
-  // Given an image with each pixel a vector of size m, return the
-  // first n channels of that image. We must have 1 <= n <= m <= 6.
-  template<int n>
-  ImageViewRef< Vector<double, n> > read_n_channels(std::string filename){
-
-    int max_m = 6;
-    int m = get_num_channels(filename);
-
-    VW_ASSERT( 1 <= n,
-               ArgumentErr() << "Attempting to read " << n << " channels from an image.");
-    VW_ASSERT( n <= m,
-               ArgumentErr() << "Attempting to read " << n << " channels from an image with "
-               << m << " channels.");
-    VW_ASSERT( m <= max_m,
-               NoImplErr() << "Reading from images with more than "
-               << max_m << " channels is not implemented.");
-
-    ImageViewRef< Vector<double, n> > out_image;
-    if      (m == 1) out_image = select_points<n, 1>(DiskImageView< Vector<double, 1> >(filename));
-    else if (m == 2) out_image = select_points<n, 2>(DiskImageView< Vector<double, 2> >(filename));
-    else if (m == 3) out_image = select_points<n, 3>(DiskImageView< Vector<double, 3> >(filename));
-    else if (m == 4) out_image = select_points<n, 4>(DiskImageView< Vector<double, 4> >(filename));
-    else if (m == 5) out_image = select_points<n, 5>(DiskImageView< Vector<double, 5> >(filename));
-    else if (m == 6) out_image = select_points<n, 6>(DiskImageView< Vector<double, 6> >(filename));
-
-    return out_image;
-  }
-
   // Helper function that extracts the bounding box of a point cloud. It
   // skips the point Vector3(), which, being at the center of the
   // planet, is an invalid point.

@@ -466,7 +466,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   // Write triangulation error image if requested
   if ( opt.do_error ) {
-    int num_channels = get_num_channels(opt.pointcloud_filename);
+    int num_channels = asp::get_num_channels(opt.pointcloud_filename);
 
     if (num_channels == 4){
       // The error is a scalar.
@@ -537,7 +537,8 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    ImageViewRef<Vector3> point_image = read_n_channels<3>(opt.pointcloud_filename);
+    ImageViewRef<Vector3> point_image
+      = asp::read_n_channels<3>(opt.pointcloud_filename);
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {

@@ -95,7 +95,7 @@ int main( int argc, char *argv[] ) {
   try {
     handle_arguments( argc, argv, opt );
 
-    ImageViewRef<Vector3> point_image = read_n_channels<3>(opt.pointcloud_filename);
+    ImageViewRef<Vector3> point_image = asp::read_n_channels<3>(opt.pointcloud_filename);
     BBox3 cloud_bbox = pointcloud_bbox(point_image);
 
     // The las format stores the values as 32 bit integers. So, for a

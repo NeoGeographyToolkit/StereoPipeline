@@ -547,7 +547,7 @@ void load_pc(string const& file_name,
   data.featureLabels = form_labels<T>(DIM);
 
   // To do: Is it faster to to do for_each?
-  ImageViewRef<Vector3> point_cloud = read_n_channels<DIM>(file_name);
+  ImageViewRef<Vector3> point_cloud = asp::read_n_channels<DIM>(file_name);
 
   // We will randomly pick or not a point with probability load_ratio
   int num_points = point_cloud.cols()*point_cloud.rows();
@@ -603,7 +603,7 @@ string get_file_type(string const& file_name){
   string ext = boost::filesystem::extension(path);
   boost::algorithm::to_lower(ext);
   if (boost::iequals(ext, ".tif")){
-    int nc = get_num_channels(file_name);
+    int nc = asp::get_num_channels(file_name);
     if (nc == 1)
       return "DEM";
     if (nc >= 3)
@@ -885,7 +885,7 @@ void save_trans_point_cloud(Options const& opt,
                                 opt,
                                 TerminalProgressCallback("asp", "\t--> "));
   }else if (file_type == "PC"){
-    ImageViewRef<Vector3> point_cloud = read_n_channels<DIM>(input_file);
+    ImageViewRef<Vector3> point_cloud = asp::read_n_channels<DIM>(input_file);
     asp::block_write_gdal_image(output_file, transform_pc(point_cloud, T),
                                 opt,
                                 TerminalProgressCallback("asp", "\t--> "));
