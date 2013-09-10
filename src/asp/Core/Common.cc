@@ -61,6 +61,14 @@ void asp::create_out_dir(std::string out_prefix){
   return;
 }
 
+// Find how many channels/bands are in a given image
+int asp::get_num_channels(std::string filename){
+  boost::scoped_ptr<vw::SrcImageResource> src(vw::DiskImageResource::open(filename));
+  int num_channels = src->channels();
+  int num_planes   = src->planes();
+  return num_channels*num_planes;
+}
+
 asp::BaseOptions::BaseOptions() {
 #if defined(VW_HAS_BIGTIFF) && VW_HAS_BIGTIFF == 1
   gdal_options["COMPRESS"] = "LZW";

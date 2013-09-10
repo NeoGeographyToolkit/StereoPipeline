@@ -27,10 +27,38 @@
 #include <boost/shared_ptr.hpp>
 #include <vw/Image/ImageIO.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
+#include <vw/FileIO/DiskImageView.h>
 #include <vw/Math/Vector.h>
+#include <vw/Image/ImageViewRef.h>
 #include <vw/Cartography/GeoReference.h>
 
 namespace asp {
+
+  // Pack a Vector into a string
+  template <class VecT>
+  std::string vec_to_str(VecT const& vec){
+
+    std::ostringstream oss;
+    oss.precision(16);
+    for (int i = 0; i < (int)vec.size(); i++)
+      oss << vec[i] << " ";
+
+    return oss.str();
+  }
+
+  // Extract a string into a Vector of given size.
+  template<class VecT>
+  VecT str_to_vec(std::string const& str){
+
+    VecT vec;
+    std::istringstream iss(str);
+    for (int i = 0; i < (int)vec.size(); i++){
+      if (! (iss >> vec[i]) )
+        vw::vw_throw( vw::ArgumentErr() << "Could not extract xyz point from: "
+                      << str << "\n");
+    }
+    return vec;
+  }
 
   // Remove file name extension
   std::string prefix_from_filename(std::string const& filename);
@@ -40,6 +68,23 @@ namespace asp {
 
   // If prefix is "dir/out", create directory "dir"
   void create_out_dir(std::string out_prefix);
+
+  // Imageview operator that extracts only the first n channels of an
+  // image with m channels.
+  template <int n, int m>
+  struct SelectPoints : public vw::ReturnFixedType< vw::Vector<double, n> > {
+    vw::Vector<double, n> operator() (vw::Vector<double, m> const& pt) const { return subvector(pt,0,n); }
+  };
+
+  template <int n, int m>
+  vw::UnaryPerPixelView<vw::DiskImageView< vw::Vector<double, m> >, SelectPoints<n, m> >
+  inline select_points( vw::ImageViewBase<vw::DiskImageView< vw::Vector<double, m> > > const& image ) {
+    return vw::UnaryPerPixelView<vw::DiskImageView< vw::Vector<double, m> >, SelectPoints<n, m> >( image.impl(),
+                                                                                        SelectPoints<n, m>() );
+  }
+
+  // Find how many channels/bands are in a given image
+  int get_num_channels(std::string filename);
 
   // Standard Options
   struct BaseOptions {
@@ -172,7 +217,131 @@ namespace asp {
                                     progress_callback );
   }
 
-}
+  // Specialized functions for reading/writing images with a shift.
+  // The shift is meant to bring the pixel values closer to origin,
+  // with goal of saving the pixels as float instead of double.
+
+  // Subtract a given shift from first 3 components of given vector image.
+  // Skip pixels for which the first 3 components are (0, 0, 0).
+  template <class VecT>
+  struct SubtractShift: public vw::ReturnFixedType<VecT> {
+    vw::Vector3 m_shift;
+    SubtractShift(vw::Vector3 const& shift):m_shift(shift){}
+    VecT operator() (VecT const& pt) const {
+      VecT lpt = pt;
+      int len = std::min(3, (int)lpt.size());
+      if (subvector(lpt, 0, len) != subvector(vw::Vector3(), 0, len))
+        subvector(lpt, 0, len) -= subvector(m_shift, 0, len);
+      return lpt;
+    }
+  };
+  template <class ImageT>
+  vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type> >
+  inline subtract_shift( vw::ImageViewBase<ImageT> const& image,
+                         vw::Vector3 const& shift ) {
+    return vw::UnaryPerPixelView<ImageT, SubtractShift<typename ImageT::pixel_type> >
+      ( image.impl(), SubtractShift<typename ImageT::pixel_type>(shift) );
+  }
+
+  // Note: We use this constant in the python code as well
+  const std::string POINT_OFFSET = "POINT_OFFSET";
+
+  // Given an image with each pixel a vector of size m, return the
+  // first n channels of that image. We must have 1 <= n <= m <= 6.
+  // If the image was written by subtracting a shift, put that shift back.
+  template<int n>
+  vw::ImageViewRef< vw::Vector<double, n> > read_n_channels(std::string filename){
+
+    int max_m = 6;
+    int m = get_num_channels(filename);
+
+    vw::Vector3 shift;
+    std::string shift_str;
+    boost::shared_ptr<vw::DiskImageResource> rsrc ( new vw::DiskImageResourceGDAL(filename) );
+    if (vw::cartography::read_header_string(*rsrc.get(), POINT_OFFSET, shift_str)){
+      shift = str_to_vec<vw::Vector3>(shift_str);
+    }
+
+    VW_ASSERT( 1 <= n,
+               vw::ArgumentErr() << "Attempting to read " << n << " channels from an image.");
+    VW_ASSERT( n <= m,
+               vw::ArgumentErr() << "Attempting to read " << n << " channels from an image with "
+               << m << " channels.");
+    VW_ASSERT( m <= max_m,
+               vw::NoImplErr() << "Reading from images with more than "
+               << max_m << " channels is not implemented.");
+
+    vw::ImageViewRef< vw::Vector<double, n> > out_image;
+    if      (m == 1) out_image = select_points<n, 1>(vw::DiskImageView< vw::Vector<double, 1> >(filename));
+    else if (m == 2) out_image = select_points<n, 2>(vw::DiskImageView< vw::Vector<double, 2> >(filename));
+    else if (m == 3) out_image = select_points<n, 3>(vw::DiskImageView< vw::Vector<double, 3> >(filename));
+    else if (m == 4) out_image = select_points<n, 4>(vw::DiskImageView< vw::Vector<double, 4> >(filename));
+    else if (m == 5) out_image = select_points<n, 5>(vw::DiskImageView< vw::Vector<double, 5> >(filename));
+    else if (m == 6) out_image = select_points<n, 6>(vw::DiskImageView< vw::Vector<double, 6> >(filename));
+
+    out_image = subtract_shift(out_image, -shift);
+
+    return out_image;
+  }
+
+  // Block write image while subtracting a given value from all pixels
+  // and casting the result to float.
+  template <class ImageT>
+  void block_write_gdal_image( const std::string &filename,
+                               vw::Vector3 const& shift,
+                               vw::ImageViewBase<ImageT> const& image,
+                               BaseOptions const& opt,
+                               vw::ProgressCallback const& progress_callback
+                               = vw::ProgressCallback::dummy_instance() ) {
+
+
+    if (shift != vw::Vector3()){
+      boost::scoped_ptr<vw::DiskImageResourceGDAL>
+        rsrc( build_gdal_rsrc( filename,
+                               vw::channel_cast<float>(image.impl()),
+                               opt));
+      vw::cartography::write_header_string(*rsrc, POINT_OFFSET, vec_to_str(shift));
+      vw::block_write_image( *rsrc,
+                             vw::channel_cast<float>(subtract_shift(image.impl(),
+                                                                    shift)),
+                             progress_callback );
+    }else{
+      boost::scoped_ptr<vw::DiskImageResourceGDAL>
+        rsrc( build_gdal_rsrc( filename, image, opt ) );
+      vw::block_write_image( *rsrc, image.impl(), progress_callback );
+    }
+
+  }
+
+  // Write image using a single thread while subtracting a given value
+  // from all pixels and casting the result to float.
+  template <class ImageT>
+  void write_gdal_image( const std::string &filename,
+                         vw::Vector3 const& shift,
+                         vw::ImageViewBase<ImageT> const& image,
+                         BaseOptions const& opt,
+                         vw::ProgressCallback const& progress_callback
+                         = vw::ProgressCallback::dummy_instance() ) {
+
+
+    if (shift != vw::Vector3()){
+      boost::scoped_ptr<vw::DiskImageResourceGDAL>
+        rsrc( build_gdal_rsrc( filename,
+                               vw::channel_cast<float>(image.impl()),
+                               opt ) );
+      vw::cartography::write_header_string(*rsrc, POINT_OFFSET, vec_to_str(shift));
+      vw::write_image( *rsrc,
+                       vw::channel_cast<float>(subtract_shift(image.impl(),
+                                                              shift)),
+                       progress_callback );
+    }else{
+      boost::scoped_ptr<vw::DiskImageResourceGDAL>
+        rsrc( build_gdal_rsrc( filename, image, opt ) );
+      vw::write_image( *rsrc, image.impl(), progress_callback );
+    }
+  }
+
+} // namespace asp
 
 // Custom Boost Program Options validators for VW/ASP types
 namespace boost {
