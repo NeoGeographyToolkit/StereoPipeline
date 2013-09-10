@@ -433,6 +433,8 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
+        sep = ","
+
         if options.output_prefix == "":
             options.output_prefix = args[0].split('-')[-1].split('.')[0]
         if options.output_prefix == "":
@@ -556,7 +558,8 @@ def main():
                         str(ref_llbox.minx), str(ref_llbox.miny),
                         str(ref_htbox.minx), str(ref_llbox.maxx),
                         str(ref_llbox.maxy), str(ref_htbox.maxx), temp_xml_file.name]
-            rpc_model = run_and_parse_output( rpc_cmd, rpc_args, options.verbose )
+            rpc_model = run_and_parse_output( rpc_cmd, rpc_args, sep,
+                                              options.verbose )
             try:
                 # Set the RPC model info. Wipe all other outdated info.
                 RPI = root.find("RPB").find("IMAGE")
@@ -649,7 +652,8 @@ def main():
                            '--reduce-percent', str(options.reduce_percent),
                            '--image-data', tif_mosaic_opts]
             print "Writing: " + tif_file
-            run_and_parse_output( mosaic_cmd, mosaic_args, options.verbose )
+            run_and_parse_output( mosaic_cmd, mosaic_args, sep,
+                                  options.verbose )
 
             # Make a preview image
             if options.preview:
