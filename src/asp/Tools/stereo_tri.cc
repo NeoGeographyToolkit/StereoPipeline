@@ -213,7 +213,7 @@ Vector3 find_approx_points_median(std::vector<Vector3> const& points){
     std::sort(V.begin(), V.end());
     median[i] = V[points.size()/2];
 
-    median[i] += rand()/double(RAND_MAX);
+    median[i] += median[i]*1e-10*rand()/double(RAND_MAX);
   }
 
   return median;
