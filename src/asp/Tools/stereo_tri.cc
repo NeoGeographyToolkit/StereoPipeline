@@ -351,7 +351,9 @@ void stereo_triangulation( Options const& opt ) {
                                     stereo_model ), universe_radius_func );
     }
 
-    Vector3 shift = find_point_cloud_center(point_cloud);
+    Vector3 shift;
+    if (!stereo_settings().save_double_precision_point_cloud)
+      shift = find_point_cloud_center(point_cloud);
 
     // We are supposed to do the triangulation in trans_crop_win only.
     // So force rasterization in that box only using crop(), then pad
