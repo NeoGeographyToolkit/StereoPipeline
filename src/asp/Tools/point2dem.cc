@@ -79,7 +79,8 @@ struct Options : asp::BaseOptions {
 
   // Defaults that the user doesn't need to see. (The Magic behind the
   // curtain).
-  Options() : semi_major(0), semi_minor(0), fsaa(1) {}
+  Options() : nodata_value(std::numeric_limits<float>::quiet_NaN()),
+              semi_major(0), semi_minor(0), fsaa(1){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -379,6 +380,30 @@ namespace asp{
 
     return CombinedView<ImageT>(nodata_value, image1.impl(), image2.impl(), image3.impl());
   }
+
+  // Round pixels in given image to multiple of given scale.
+  // Don't round nodata values.
+  template <class PixelT>
+  struct RoundImagePixelsWithNoData: public vw::ReturnFixedType<PixelT> {
+    double m_scale, m_nodata;
+    RoundImagePixelsWithNoData(double scale, double nodata):m_scale(scale),
+                                                            m_nodata(nodata){
+      VW_ASSERT( m_scale > 0.0,
+                 vw::ArgumentErr() << "Scale must be positive.");
+    }
+    PixelT operator() (PixelT const& pt) const {
+      if (pt == m_nodata) return pt;
+      return PixelT(m_scale*round(double(pt)/m_scale));
+    }
+  };
+  template <class ImageT>
+  vw::UnaryPerPixelView<ImageT, RoundImagePixelsWithNoData<typename ImageT::pixel_type> >
+  inline round_image_pixels_with_nodata( vw::ImageViewBase<ImageT> const& image,
+                                         double scale, double nodata ) {
+    return vw::UnaryPerPixelView<ImageT, RoundImagePixelsWithNoData<typename ImageT::pixel_type> >
+      ( image.impl(), RoundImagePixelsWithNoData<typename ImageT::pixel_type>(scale, nodata) );
+  }
+
 }
 
 template <class ViewT>
@@ -458,7 +483,11 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
   if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
     Stopwatch sw2;
     sw2.start();
-    save_image(opt, rasterizer_fsaa, georef, "DEM");
+    save_image(opt,
+               asp::round_image_pixels_with_nodata(rasterizer_fsaa,
+                                                   asp::APPROX_ONE_MM,
+                                                   opt.nodata_value),
+               georef, "DEM");
     sw2.stop();
     vw_out(DebugMessage,"asp") << "Render time: "
                                << sw2.elapsed_seconds() << std::endl;

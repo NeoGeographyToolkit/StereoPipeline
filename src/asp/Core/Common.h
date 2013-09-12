@@ -243,6 +243,26 @@ namespace asp {
       ( image.impl(), SubtractShift<typename ImageT::pixel_type>(shift) );
   }
 
+  // Round pixels in given image to multiple of given scale.
+  template <class VecT>
+  struct RoundImagePixels: public vw::ReturnFixedType<VecT> {
+    double m_scale;
+    RoundImagePixels(double scale):m_scale(scale){
+      VW_ASSERT( m_scale > 0.0,
+                 vw::ArgumentErr() << "Scale must be positive.");
+    }
+    VecT operator() (VecT const& pt) const {
+      return m_scale*round(pt/m_scale);
+    }
+  };
+  template <class ImageT>
+  vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
+  inline round_image_pixels( vw::ImageViewBase<ImageT> const& image,
+                         double scale ) {
+    return vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
+      ( image.impl(), RoundImagePixels<typename ImageT::pixel_type>(scale) );
+  }
+
   // Note: We use this constant in the python code as well
   const std::string POINT_OFFSET = "POINT_OFFSET";
 
@@ -284,15 +304,19 @@ namespace asp {
     return out_image;
   }
 
+  // To help with compression, round to about 1mm, but
+  // use for rounding a number with few digits in binary.
+  const double APPROX_ONE_MM = 1.0/1024.0;
+
   // Block write image while subtracting a given value from all pixels
-  // and casting the result to float.
+  // and casting the result to float, while rounding to nearest mm.
   template <class ImageT>
-  void block_write_gdal_image( const std::string &filename,
-                               vw::Vector3 const& shift,
-                               vw::ImageViewBase<ImageT> const& image,
-                               BaseOptions const& opt,
-                               vw::ProgressCallback const& progress_callback
-                               = vw::ProgressCallback::dummy_instance() ) {
+  void block_write_approx_gdal_image( const std::string &filename,
+                                      vw::Vector3 const& shift,
+                                      vw::ImageViewBase<ImageT> const& image,
+                                      BaseOptions const& opt,
+                                      vw::ProgressCallback const& progress_callback
+                                      = vw::ProgressCallback::dummy_instance() ) {
 
 
     if (shift != vw::Vector3()){
@@ -302,8 +326,10 @@ namespace asp {
                                opt));
       vw::cartography::write_header_string(*rsrc, POINT_OFFSET, vec_to_str(shift));
       vw::block_write_image( *rsrc,
-                             vw::channel_cast<float>(subtract_shift(image.impl(),
-                                                                    shift)),
+                             vw::channel_cast<float>
+                             (round_image_pixels(subtract_shift(image.impl(),
+                                                                shift),
+                                                 APPROX_ONE_MM)),
                              progress_callback );
     }else{
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
@@ -316,12 +342,12 @@ namespace asp {
   // Write image using a single thread while subtracting a given value
   // from all pixels and casting the result to float.
   template <class ImageT>
-  void write_gdal_image( const std::string &filename,
-                         vw::Vector3 const& shift,
-                         vw::ImageViewBase<ImageT> const& image,
-                         BaseOptions const& opt,
-                         vw::ProgressCallback const& progress_callback
-                         = vw::ProgressCallback::dummy_instance() ) {
+  void write_approx_gdal_image( const std::string &filename,
+                                vw::Vector3 const& shift,
+                                vw::ImageViewBase<ImageT> const& image,
+                                BaseOptions const& opt,
+                                vw::ProgressCallback const& progress_callback
+                                = vw::ProgressCallback::dummy_instance() ) {
 
 
     if (shift != vw::Vector3()){
@@ -331,8 +357,10 @@ namespace asp {
                                opt ) );
       vw::cartography::write_header_string(*rsrc, POINT_OFFSET, vec_to_str(shift));
       vw::write_image( *rsrc,
-                       vw::channel_cast<float>(subtract_shift(image.impl(),
-                                                              shift)),
+                       vw::channel_cast<float>
+                       (round_image_pixels(subtract_shift(image.impl(),
+                                                          shift),
+                                           APPROX_ONE_MM)),
                        progress_callback );
     }else{
       boost::scoped_ptr<vw::DiskImageResourceGDAL>

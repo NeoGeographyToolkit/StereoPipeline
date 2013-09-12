@@ -64,15 +64,17 @@ namespace asp{
                         ImageT const& point_cloud, Options const& opt){
 
     std::string point_cloud_file = opt.out_prefix + "-PC.tif";
-    vw_out() << "Writing Point Cloud: " << point_cloud_file << "\n";
+    vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
 
     if ( opt.session->name() == "isis" ){
       // ISIS does not support multi-threading
-      asp::write_gdal_image( point_cloud_file, shift, point_cloud, opt,
-                             TerminalProgressCallback("asp", "\t--> Triangulating: "));
+      asp::write_approx_gdal_image
+        ( point_cloud_file, shift, point_cloud, opt,
+          TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }else{
-      asp::block_write_gdal_image( point_cloud_file, shift, point_cloud, opt,
-                                   TerminalProgressCallback("asp", "\t--> Triangulating: "));
+      asp::block_write_approx_gdal_image
+        ( point_cloud_file, shift, point_cloud, opt,
+          TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }
 
   }
