@@ -226,15 +226,19 @@ void asp::StereoSessionNadirPinhole::pre_preprocessing_hook(
   // The output no-data value must be < 0 as we scale the images to [0, 1].
   float output_nodata = -32768.0;
 
+  // Enforce no predictor in compression, it works badly with L.tif and R.tif.
+  asp::BaseOptions options = m_options;
+  options.gdal_options["PREDICTOR"] = "1";
+
   left_output_file = m_out_prefix + "-L.tif";
   right_output_file = m_out_prefix + "-R.tif";
   vw_out() << "\t--> Writing pre-aligned images.\n";
   block_write_gdal_image( left_output_file, apply_mask(Limg, output_nodata),
-                          output_nodata, m_options,
+                          output_nodata, options,
                           TerminalProgressCallback("asp","\t  L:  ") );
   block_write_gdal_image( right_output_file,
                           apply_mask(crop(edge_extend(Rimg,ZeroEdgeExtension()),bounding_box(Limg)), output_nodata),
-                          output_nodata, m_options,
+                          output_nodata, options,
                           TerminalProgressCallback("asp","\t  R:  ") );
 
 }

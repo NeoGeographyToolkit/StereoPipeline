@@ -297,18 +297,28 @@ void stereo_preprocessing( Options& opt ) {
         = block_rasterize(cache_tile_aware_render(resample_aa( copy_mask(right_image,create_mask(right_mask)), sub_scale), Vector2i(256,256) * sub_scale), sub_tile_size, sub_threads);
     }
 
-    asp::block_write_gdal_image( lsub,
-                                 apply_mask(left_sub_image, output_nodata), output_nodata, opt,
-                                 TerminalProgressCallback("asp", "\t    Sub L: ") );
-    asp::block_write_gdal_image( rsub,
-                                 apply_mask(right_sub_image, output_nodata), output_nodata, opt,
-                                 TerminalProgressCallback("asp", "\t    Sub R: ") );
-    asp::block_write_gdal_image( lmsub,
-                                 channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)), opt,
-                                 TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
-    asp::block_write_gdal_image( rmsub,
-                                 channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)), opt,
-                                 TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+    // Enforce no predictor in compression, it works badly with sub-images
+    asp::BaseOptions opt_nopred = opt;
+    opt_nopred.gdal_options["PREDICTOR"] = "1";
+
+    asp::block_write_gdal_image
+      ( lsub, apply_mask(left_sub_image, output_nodata),
+        output_nodata, opt_nopred,
+        TerminalProgressCallback("asp", "\t    Sub L: ") );
+    asp::block_write_gdal_image
+      ( rsub, apply_mask(right_sub_image, output_nodata),
+        output_nodata, opt_nopred,
+        TerminalProgressCallback("asp", "\t    Sub R: ") );
+    asp::block_write_gdal_image
+      ( lmsub,
+        channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
+        opt_nopred,
+        TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
+    asp::block_write_gdal_image
+      ( rmsub,
+        channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
+        opt_nopred,
+        TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
   }
 }
 

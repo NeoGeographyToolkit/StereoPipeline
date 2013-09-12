@@ -327,23 +327,27 @@ asp::StereoSessionIsis::pre_preprocessing_hook(std::string const& left_input_fil
   // Apply alignment and normalization
   bool will_apply_user_nodata = ( will_apply_user_nodata_left || will_apply_user_nodata_right);
 
+  // Enforce no predictor in compression, it works badly with L.tif and R.tif.
+  asp::BaseOptions options = m_options;
+  options.gdal_options["PREDICTOR"] = "1";
+
   if (stereo_settings().individually_normalize == 0 ) {
     vw_out() << "\t--> Normalizing globally to: ["<<lo<<" "<<hi<<"]\n";
-    write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+    write_preprocessed_isis_image( options, will_apply_user_nodata,
                                    left_masked_image, left_output_file, "left",
                                    left_lo, left_hi, lo, hi,
                                    align_left_matrix, left_size );
-    write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+    write_preprocessed_isis_image( options, will_apply_user_nodata,
                                    right_masked_image, right_output_file, "right",
                                    right_lo, right_hi, lo, hi,
                                    align_right_matrix, right_size );
   } else {
     vw_out() << "\t--> Individually normalizing.\n";
-    write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+    write_preprocessed_isis_image( options, will_apply_user_nodata,
                                    left_masked_image, left_output_file, "left",
                                    left_lo, left_hi, left_lo, left_hi,
                                    align_left_matrix, left_size );
-    write_preprocessed_isis_image( m_options, will_apply_user_nodata,
+    write_preprocessed_isis_image( options, will_apply_user_nodata,
                                    right_masked_image, right_output_file, "right",
                                    right_lo, right_hi, right_lo, right_hi,
                                    align_right_matrix, right_size );
