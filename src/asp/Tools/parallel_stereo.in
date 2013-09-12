@@ -103,7 +103,7 @@ def create_subproject_dirs( settings, **kw ):
                     os.remove( prefix + postfix )
                 os.symlink( relation + postfix, prefix + postfix )
 
-def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
+def build_vrt( settings, postfix, num_bands=4, **kw ):
 
     image_size = settings["trans_left_image_size"]
     with open(settings['out_prefix'][0]+postfix,'w') as f:
@@ -125,11 +125,22 @@ def build_vrt( settings, postfix, num_bands=4, data_type="float", **kw ):
         if goodFilename == "":
             raise Exception('No tiles were generated')
 
-        # Extract the shift in a point clound file, if present
+        # Do gdalinfo on the file to get metadata
         args=[goodFilename]
         sep = "="
         verbose = False
         gdal_settings=run_and_parse_output( "gdalinfo", args, sep, verbose )
+
+        # Extract the data type (e.g., Float32 or Float64)
+        data_type = "Float32"
+        for s in gdal_settings:
+            val = " ".join(gdal_settings[s])
+            m = re.match('^.*?=Type\s+(\w+)', val)
+            if m:
+                data_type = m.group(1)
+                break
+
+        # Extract the shift in a point clound file, if present
         POINT_OFFSET = "POINT_OFFSET" # Tag name must be synced with C++ code
         if POINT_OFFSET in gdal_settings:
             f.write("  <Metadata>\n    <MDI key=\"" + POINT_OFFSET + "\">" +
@@ -417,7 +428,7 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 3 ):
             # Filtering
             if ( opt.stop_point <= 3 ): sys.exit()
-            build_vrt( settings, "-RD.tif", 3, "Float32" );
+            build_vrt( settings, "-RD.tif", 3 )
             single_run('stereo_fltr', args, msg='3: Filtering')
         if ( opt.entry_point <= 4 ):
             # Triangulation
@@ -426,7 +437,7 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 5 ):
             # Point cloud mosaic
             if ( opt.stop_point <= 5 ): sys.exit()
-            build_vrt( settings, "-PC.tif", 4, "Float64" )
+            build_vrt( settings, "-PC.tif", 4 )
 
     else:
 
@@ -451,7 +462,7 @@ if __name__ == '__main__':
                 parallel_run('stereo_corr', args, settings, tiles, msg='1: Correlation')
             if ( opt.entry_point == 2 ):
                 parallel_run('stereo_rfne', args, settings, tiles, msg='2: Refinement')
-                build_vrt( settings, "-RD.tif", 3, "Float32" );
+                build_vrt( settings, "-RD.tif", 3 )
             if ( opt.entry_point == 4 ):
                 parallel_run('stereo_tri', args, settings, tiles, msg='4: Triangulation')
 
