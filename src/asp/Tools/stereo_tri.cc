@@ -69,11 +69,15 @@ namespace asp{
     if ( opt.session->name() == "isis" ){
       // ISIS does not support multi-threading
       asp::write_approx_gdal_image
-        ( point_cloud_file, shift, point_cloud, opt,
+        ( point_cloud_file, shift,
+          stereo_settings().point_cloud_rounding_error,
+          point_cloud, opt,
           TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }else{
       asp::block_write_approx_gdal_image
-        ( point_cloud_file, shift, point_cloud, opt,
+        ( point_cloud_file, shift,
+          stereo_settings().point_cloud_rounding_error,
+          point_cloud, opt,
           TerminalProgressCallback("asp", "\t--> Triangulating: "));
     }
 

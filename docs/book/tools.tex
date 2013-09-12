@@ -332,7 +332,7 @@ If you attempt to derive science results from an ASP-produced terrain model
 with the default DEM spacing, expect serious questions from reviewers.
 
 
-\begin{longtable}{|l|p{10cm}|}
+\begin{longtable}{|p{8cm}|p{9cm}|}
 \caption{Command-line options for point2dem}
 \label{tbl:point2dem}
 \endfirsthead
@@ -373,6 +373,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-proj-lon \textit{float}} & The center of projection longitude (if applicable) \\ \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable) \\ \hline
 \texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
+\texttt{-\/-rounding-error \textit{float(=$1/2^{10}$=$0.0009765625$)}} & How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. \\ \hline
 \texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline
 \texttt{-\/-tif-compress None|LZW|Deflate|Packbits} & TIFF compression method.\\ \hline

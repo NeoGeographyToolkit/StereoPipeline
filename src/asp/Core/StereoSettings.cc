@@ -191,7 +191,9 @@ namespace asp {
       ("use-least-squares", po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
        "Use rigorous least squares triangulation process. This is slow for ISIS processes.")
       ("save-double-precision-point-cloud", po::bool_switch(&global.save_double_precision_point_cloud)->default_value(false)->implicit_value(true),
-       "Save final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at 2x the storage).")
+       "Save the final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at twice the storage).")
+      ("point-cloud-rounding-error", po::value(&global.point_cloud_rounding_error)->default_value(asp::APPROX_ONE_MM),
+       "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
       ("compute-error-vector", po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
        "Compute the triangulation error vector, not just its length.")
       ;

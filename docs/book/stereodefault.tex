@@ -229,7 +229,7 @@ values listed after the parameter name.
   This flag, if provided, enables using local homography during
   correlation, as described in Section \ref{sec:local_hom}.
 
-\item[corr-timeout \textnormal (default = 0) ]\hfill \\
+\item[corr-timeout \textnormal{\small{(= \emph{integer})}} (default = 0)]\hfill \\
 
   Correlation timeout for an image tile, in seconds. A non-positive
 value will result in no timeout enforcement.
@@ -375,5 +375,18 @@ value will result in no timeout enforcement.
       center.
     \item[Zero] - Filter in terms of radii from the target's center.
   \end{description}
+
+\item[point-cloud-rounding-error \textnormal{\small{(= \emph{double})}}
+  (default = $1/2^{10} = 0.0009765625$)] \hfill \\
+
+How much to round the output point cloud values, in meters (more rounding means
+less precision but potentially smaller size on disk). The inverse of a
+power of 2 is suggested.
+
+\item[save-double-precision-point-cloud \textnormal (default = false)] \hfill \\
+
+Save the final point cloud in double precision rather than bringing the
+points closer to origin and saving as float (marginally more precision
+at twice the storage).
 
 \end{description}

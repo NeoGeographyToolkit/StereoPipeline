@@ -69,6 +69,7 @@ struct Options : asp::BaseOptions {
   size_t utm_zone;
   ProjectionType projection;
   bool has_nodata_value, has_alpha, do_normalize, do_error, no_dem;
+  double rounding_error;
   std::string target_srs_string;
   BBox2 target_projwin;
   BBox2i target_projwin_pixels;
@@ -135,7 +136,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
-    ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
+    ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.")
+    ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
+     "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]");
+
   general_options.add( manipulation_options );
   general_options.add( projection_options );
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -384,24 +388,37 @@ namespace asp{
   // Round pixels in given image to multiple of given scale.
   // Don't round nodata values.
   template <class PixelT>
-  struct RoundImagePixelsWithNoData: public vw::ReturnFixedType<PixelT> {
+  struct RoundImagePixelsSkipNoData: public vw::ReturnFixedType<PixelT> {
+
     double m_scale, m_nodata;
-    RoundImagePixelsWithNoData(double scale, double nodata):m_scale(scale),
+
+    RoundImagePixelsSkipNoData(double scale, double nodata):m_scale(scale),
                                                             m_nodata(nodata){
       VW_ASSERT( m_scale > 0.0,
                  vw::ArgumentErr() << "Scale must be positive.");
     }
+
     PixelT operator() (PixelT const& pt) const {
-      if (pt == m_nodata) return pt;
-      return PixelT(m_scale*round(double(pt)/m_scale));
+
+      // Skip given pixel if any channels are nodata
+      int num_channels = PixelNumChannels<PixelT>::value;
+      typedef typename CompoundChannelType<PixelT>::type channel_type;
+      for (int c = 0; c < num_channels; c++){
+        if ( (double)compound_select_channel<channel_type const&>(pt,c) == m_nodata )
+          return pt;
+      }
+
+      return PixelT(m_scale*round(channel_cast<double>(pt)/m_scale));
     }
+
   };
+
   template <class ImageT>
-  vw::UnaryPerPixelView<ImageT, RoundImagePixelsWithNoData<typename ImageT::pixel_type> >
-  inline round_image_pixels_with_nodata( vw::ImageViewBase<ImageT> const& image,
+  vw::UnaryPerPixelView<ImageT, RoundImagePixelsSkipNoData<typename ImageT::pixel_type> >
+  inline round_image_pixels_skip_nodata( vw::ImageViewBase<ImageT> const& image,
                                          double scale, double nodata ) {
-    return vw::UnaryPerPixelView<ImageT, RoundImagePixelsWithNoData<typename ImageT::pixel_type> >
-      ( image.impl(), RoundImagePixelsWithNoData<typename ImageT::pixel_type>(scale, nodata) );
+    return vw::UnaryPerPixelView<ImageT, RoundImagePixelsSkipNoData<typename ImageT::pixel_type> >
+      ( image.impl(), RoundImagePixelsSkipNoData<typename ImageT::pixel_type>(scale, nodata) );
   }
 
 }
@@ -484,8 +501,8 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
     Stopwatch sw2;
     sw2.start();
     save_image(opt,
-               asp::round_image_pixels_with_nodata(rasterizer_fsaa,
-                                                   asp::APPROX_ONE_MM,
+               asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+                                                   opt.rounding_error,
                                                    opt.nodata_value),
                georef, "DEM");
     sw2.stop();
@@ -503,7 +520,11 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
       rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
-      save_image(opt, rasterizer_fsaa, georef, "IntersectionErr");
+      save_image(opt,
+                 asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
+                                                     opt.rounding_error,
+                                                     opt.nodata_value),
+                 georef, "IntersectionErr");
     }else if (num_channels == 6){
       // The error is a 3D vector. Convert it to NED coordinate system,
       // and rasterize it.
@@ -521,8 +542,10 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
                                                vw_settings().default_tile_size()),0);
       }
       save_image(opt,
-                 asp::combine_channels(opt.nodata_value,
-                                       rasterized[0], rasterized[1], rasterized[2]),
+                 asp::round_image_pixels_skip_nodata
+                 (asp::combine_channels(opt.nodata_value,
+                                        rasterized[0], rasterized[1], rasterized[2]),
+                  opt.rounding_error, opt.nodata_value),
                  georef, "IntersectionErr");
     }else{
       vw_throw( ArgumentErr() << "Expecting the input point cloud to have points of size 4 or 6.");

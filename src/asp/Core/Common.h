@@ -243,24 +243,24 @@ namespace asp {
       ( image.impl(), SubtractShift<typename ImageT::pixel_type>(shift) );
   }
 
-  // Round pixels in given image to multiple of given scale.
+  // Round pixels in given image to multiple of given rounding_error.
   template <class VecT>
   struct RoundImagePixels: public vw::ReturnFixedType<VecT> {
-    double m_scale;
-    RoundImagePixels(double scale):m_scale(scale){
-      VW_ASSERT( m_scale > 0.0,
-                 vw::ArgumentErr() << "Scale must be positive.");
+    double m_rounding_error;
+    RoundImagePixels(double rounding_error):m_rounding_error(rounding_error){
+      VW_ASSERT( m_rounding_error > 0.0,
+                 vw::ArgumentErr() << "Rounding error must be positive.");
     }
     VecT operator() (VecT const& pt) const {
-      return m_scale*round(pt/m_scale);
+      return m_rounding_error*round(pt/m_rounding_error);
     }
   };
   template <class ImageT>
   vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
   inline round_image_pixels( vw::ImageViewBase<ImageT> const& image,
-                         double scale ) {
+                         double rounding_error ) {
     return vw::UnaryPerPixelView<ImageT, RoundImagePixels<typename ImageT::pixel_type> >
-      ( image.impl(), RoundImagePixels<typename ImageT::pixel_type>(scale) );
+      ( image.impl(), RoundImagePixels<typename ImageT::pixel_type>(rounding_error) );
   }
 
   // Note: We use this constant in the python code as well
@@ -313,6 +313,7 @@ namespace asp {
   template <class ImageT>
   void block_write_approx_gdal_image( const std::string &filename,
                                       vw::Vector3 const& shift,
+                                      double rounding_error,
                                       vw::ImageViewBase<ImageT> const& image,
                                       BaseOptions const& opt,
                                       vw::ProgressCallback const& progress_callback
@@ -329,7 +330,7 @@ namespace asp {
                              vw::channel_cast<float>
                              (round_image_pixels(subtract_shift(image.impl(),
                                                                 shift),
-                                                 APPROX_ONE_MM)),
+                                                 rounding_error)),
                              progress_callback );
     }else{
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
@@ -344,6 +345,7 @@ namespace asp {
   template <class ImageT>
   void write_approx_gdal_image( const std::string &filename,
                                 vw::Vector3 const& shift,
+                                double rounding_error,
                                 vw::ImageViewBase<ImageT> const& image,
                                 BaseOptions const& opt,
                                 vw::ProgressCallback const& progress_callback
@@ -360,7 +362,7 @@ namespace asp {
                        vw::channel_cast<float>
                        (round_image_pixels(subtract_shift(image.impl(),
                                                           shift),
-                                           APPROX_ONE_MM)),
+                                           rounding_error)),
                        progress_callback );
     }else{
       boost::scoped_ptr<vw::DiskImageResourceGDAL>
