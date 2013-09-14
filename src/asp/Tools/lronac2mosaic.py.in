@@ -22,6 +22,9 @@ exec_path = sys.path[0]
 os.environ["PATH"] = exec_path + os.pathsep + os.environ["PATH"]
 job_pool = [];
 
+# Global output folder variable
+outputFolder = ""
+
 def man(option, opt, value, parser):
     print >>sys.stderr, parser.usage
     print >>sys.stderr, '''\
@@ -106,17 +109,18 @@ def read_flatfile( flat ):
     return averages
 
 # Call lronac2isis on each input file, return list of output files.
-def lronac2isis( img_files, threads ):
+def lronac2isis( img_files, threads, outputFolder ):
     lronac2isis_cubs = []
     for img in img_files:
-        # Expect to end in .IMG, change to end in .cub
-        to_cub = os.path.splitext(img)[0] + '.cub'
-        if( os.path.exists(to_cub) ):
-            print to_cub + ' exists, skipping lronac2isis.'
+        # Expect to end in .IMG, change to end in .cub and move to output folder
+        newExtension = os.path.splitext(img)[0] + '.cub'
+        cubFilePath  = os.path.join(outputFolder, os.path.basename(newExtension))
+        if( os.path.exists(cubFilePath) ):
+            print cubFilePath + ' exists, skipping lronac2isis.'
         else:
-            cmd = 'lronac2isis from= '+ img +' to= '+ to_cub
+            cmd = 'lronac2isis from= '+ img +' to= '+ cubFilePath
             add_job(cmd, threads)
-        lronac2isis_cubs.append( to_cub )
+        lronac2isis_cubs.append( cubFilePath )
     wait_on_all_jobs()
     return lronac2isis_cubs
 
@@ -192,11 +196,11 @@ def isFileHalfRes(cubFilePath):
 
 
 # Left file is/home/smcmich1 in index 0, right is in index 1
-def noproj( file_pairs, threads, delete=False, fakePvl=True):
+def noproj( file_pairs, threads, delete, fakePvl, outputFolder):
     if fakePvl: # Generate temporary PVL files containing LRONAC definition
                 # - We need one for full-res mode, one for half-X-res mode.
 
-       fullResFilePath = 'noprojInstruments_fullRes.pvl'
+       fullResFilePath = os.path.join(outputFolder, 'noprojInstruments_fullRes.pvl')
        if os.path.exists(fullResFilePath):
           print fullResFilePath + ' exists, using existing file.'
        else: # Need to write the file
@@ -217,7 +221,7 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
           f.write('End')
           f.close()
 
-       halfResFilePath = 'noprojInstruments_halfRes.pvl'
+       halfResFilePath = os.path.join(outputFolder, 'noprojInstruments_halfRes.pvl')
        if os.path.exists(halfResFilePath):
           print halfResFilePath + ' exists, using existing file.'
        else: # Need to write the file
@@ -255,21 +259,22 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
 
                   fileIsHalfRes = isFileHalfRes(v[0])
                   if fileIsHalfRes:
-                      specsLine = ' specs= ../' + halfResFilePath + ' ';
+                      specsLine = ' specs= ' + halfResFilePath + ' ';
                   else: # Full resolution
-                      specsLine = ' specs= ../' + fullResFilePath + ' ';
+                      specsLine = ' specs= ' + fullResFilePath + ' ';
               else: # Use the default file
                   specsLine = '';
 
               # Multiple noproj threads will create clashing temporary files
               #  so we need to make temporary directories to run each thread in.
               tempDir = 'temp_' + str(k) + '_' + str(i)
+              tempDir = os.path.join(outputFolder, tempDir)
               cmd = 'mkdir -p ' + tempDir + ' && ' \
                   + 'cd ' + tempDir + ' && ' \
-                  + 'noproj from=../' + v[i] \
-                  + ' match=../' + v[0] \
+                  + 'noproj from=' + v[i] \
+                  + ' match=' + v[0] \
                   + specsLine \
-                  + ' to=../'+ to_cub + ' && ' \
+                  + ' to='+ to_cub + ' && ' \
                   + 'cd .. && rm -rf ' + tempDir
 
               add_job(cmd, threads)
@@ -279,9 +284,9 @@ def noproj( file_pairs, threads, delete=False, fakePvl=True):
         for v in file_pairs.values():
            os.remove( v[0] );
            os.remove( v[1] );
-        if fakePvl:
-           os.remove( halfResFilePath );
-           os.remove( fullResFilePath );
+#        if fakePvl: # These are not deleted in case this program is running in multiple threads
+#           os.remove( halfResFilePath );
+#           os.remove( fullResFilePath );
     return noproj_pairs;
 
 
@@ -372,6 +377,8 @@ def main():
             parser.set_defaults(fakePvl=True)
             parser.add_option("--manual", action="callback", callback=man,
                               help="Read the manual.")
+            parser.add_option("-o", "--output-dir", dest="outputFolder",
+                              help="Output folder (default to input folder).",type="string")
             parser.add_option("--stop-at-no-proj", dest="stop_no_proj", action="store_true",
                               help="Process the IMG files only to have SPICE attached.")
             parser.add_option("--resume-at-no-proj", dest="resume_no_proj", action="store_true",
@@ -391,16 +398,22 @@ def main():
             raise Usage(msg)
 
         # Make sure only one pair of cubes was passed in
-        #        input_file_pair = build_cube_pairs( args )
-        #        if len(input_file_pair) > 1:
-        #            raise Usage('Input error: Only one pair of input files are allowed!')
+        input_file_pair = build_cube_pairs( args )
+        if len(input_file_pair) > 1:
+            raise Usage('Input error: Only one pair of input files are allowed!')
+
+        if not options.outputFolder: # Set the output folder equal to the input folder
+            options.outputFolder = os.path.dirname(args[0])
+        print 'Using output folder: ' + options.outputFolder
+        if not os.path.exists(options.outputFolder):
+            os.makedirs(options.outputFolder)
 
         print "Beginning processing....."
 
         if not options.resume_no_proj: # If not skipping to later point
 
             print "lronac2isis" # Per-file operation, returns list of new files
-            lronac2isised = lronac2isis( args, options.threads )
+            lronac2isised = lronac2isis( args, options.threads, options.outputFolder )
 
             print "lronaccal"   # Per-file operation, returns list of new files
             lronaccaled = lronaccal( lronac2isised, options.threads, options.delete )
@@ -423,7 +436,7 @@ def main():
         lronac_file_pairs = build_cube_pairs( lronacechod )
 
         print "noproj"       # Per-file operation
-        noprojed_file_pairs = noproj( lronac_file_pairs, options.threads, options.delete, options.fakePvl)
+        noprojed_file_pairs = noproj( lronac_file_pairs, options.threads, options.delete, options.fakePvl, options.outputFolder)
 
         print "lronacjitreg" # Determines mean shift for each file pair
         averages = lronacjitreg( noprojed_file_pairs, options.threads, options.delete )
