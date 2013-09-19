@@ -504,6 +504,25 @@ projecting them. Map-projecting with higher resolution data such as
 LRO-WAC Global DTM also helps processing greatly. When map projecting,
 be sure to remember to set \texttt{alignment-method NONE}.
 
+
+\subsubsection*{Merging LRONAC files}
+
+Download the EDRs for the left and right CCDs for observations M104318871 and
+M104318871. Alternatively you can search by original IDs of 2DB8 and
+4C86 in the PDS.
+
+
+\begin{verbatim}
+    ISIS 3> lronac2mosaic.py M104318871LE.img M104318871RE.img
+    ISIS 3> lronac2mosaic.py M104311715LE.img M104311715RE.img   
+    ISIS 3> stereo M104318871LE.lronaccal.lronacecho.noproj.mosaic.norm.cub M104311715LE.lronaccal.lronacecho.noproj.mosaic.norm.cub result/output
+\end{verbatim}
+
+ 
+
+
+
+
 \section{Apollo 15 Metric Camera Images}
 
 \begin{tabular}{ r c r c}
