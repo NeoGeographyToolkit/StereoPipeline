@@ -827,6 +827,7 @@ def run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc,
         result=TM(SS1)
         if result is None:
             #warnings.warn('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
+            #print('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
             return(-3., Xc, Yc, 0., np.NaN, np.NaN)
 
         result=result[(t_pixels/4):(s_ny/2-t_pixels/4), (t_pixels/4):(s_nx/2-t_pixels/4)]
@@ -898,7 +899,7 @@ def run_blocks(param):
         T_buffer.setBounds(t_xr[0]-KW, t_yr[0]-KW, t_pixels+2.*KW,
                            t_pixels+2.*KW, update=1)
         T_img=T_buffer.z[0,:,:]
-        if np.mean(T_img<=T_buffer.noData)>.1: # bail if > 10% 0, flag with C=-2
+        if np.mean(T_img<=T_buffer.noData)>.1: # bail if > 10% invalid
             continue
 
         # Read S
@@ -907,7 +908,7 @@ def run_blocks(param):
         S_buffer.setBounds(s_xr[0]-KW, s_yr[0]-KW, s_nx+2.*KW,
                            s_ny+2.*KW, update=1)
         S_img=S_buffer.z [0,:,:]
-        if np.mean(S_img<=S_buffer.noData) > .25: # bail if > 25% 0
+        if np.mean(S_img<=S_buffer.noData) > .25: # bail if > 25% invalid
             continue
         out = run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc, s_nx,
                             s_ny, dx0, dy0, T_img, S_img, T_buffer.noData)
@@ -1072,7 +1073,7 @@ def search_new_pts(xy, dxy, t_size, matcher, min_template_sigma=0.):
     sw = np.array(2.**np.ceil(np.log2(np.maximum(dxyR+t_size, t_size+16))))
     xy_new, dxy_new, C_new, Pt_new= matcher(t_size, sw, dxy0, xy,
                                             min_template_sigma=min_template_sigma)
-    xy_bad_mask=xy_new[C_new.ravel()==-2,:]
+    xy_bad_mask=xy_new[C_new.ravel()<0,:]
     good=C_new>0
     xy_new=xy_new[good.ravel(),:]
     dxy_new=dxy_new[good.ravel(),:]
@@ -1145,7 +1146,7 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
     """
     if ep_vec_initial is not None:
         return ep_vec_initial, np.zeros([1,2])
-    
+
     P_use=100*np.array([(1-F_use)/2., (F_use+1.)/2.])
     ctr_vals=(dxy[:,0] >= ss.scoreatpercentile(dxy[:,0], P_use[0])) & (dxy[:,0] <= ss.scoreatpercentile(dxy[:,0], P_use[1])) & (dxy[:,1] >= ss.scoreatpercentile(dxy[:,1], P_use[0])) & (dxy[:,1] <= ss.scoreatpercentile(dxy[:,1], P_use[1]))
     good=ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
@@ -1223,6 +1224,8 @@ def main():
                       help="If set, specify the axis that is epipolar 0=x, 1=y (%default)")
     parser.add_option("-n", "--nodata-value", dest="user_nodata", default=None, type="int",
                       help="The no-data value (pixel values <= nodata are not not used. (%default)")
+    parser.add_option("-D", "--Debug", dest="Debug", default=False, action="store_true",
+                      help="Output deugging info and text file of correlation-estimate points")
     (options, args) = parser.parse_args()
 
     if sys.version_info < (2, 6):
@@ -1231,6 +1234,14 @@ def main():
     if len(args) < 3:
         parser.print_help()
         die('\nERROR: Missing input files or output prefix', code=2)
+
+    if options.Debug:
+        optDict=vars(options)
+        print "DEBUG: list of input options"
+        for key in optDict:
+            if optDict[key] is not None:
+                print "\t%s is %s" %(key, str(optDict[key]))
+
 
     #undocumented options#
     F_ep_pts_to_use=0.9
@@ -1394,9 +1405,9 @@ def main():
         dx_mat=dx_mat+coo_matrix((new_dxy[good,0], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
         dy_mat=dy_mat+coo_matrix((new_dxy[good,1], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
         C_mat=C_mat+coo_matrix(((new_C[good]).ravel(), [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
-        bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(new_xy_bad[:,0]), (new_xy_bad[:,1], new_xy_bad[:,0])), shape=im_shape).tocsr()
+        bad_mask_mat = bad_mask_mat + coo_matrix((1*np.ones_like(new_xy_bad[:,0]), (new_xy_bad[:,1], new_xy_bad[:,0])), shape=im_shape).tocsr()
         bad=~good
-        bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(new_xy[bad,1]), (new_xy[bad,1], new_xy[bad,0])), shape=im_shape).tocsr()
+        bad_mask_mat = bad_mask_mat + coo_matrix((2*np.ones_like(new_xy[bad,1]), (new_xy[bad,1], new_xy[bad,0])), shape=im_shape).tocsr()
 
         #ID_new_pts=lil_matrix((np.ones_like(new_dxy[good,0]), [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
 
@@ -1414,12 +1425,13 @@ def main():
         # zero out points for which delta(disparity)/delta(dist) is too large
         dxy_score, min_dxy_slope=nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict, calc_min_slope=True)
         bad=np.max(min_dxy_slope, axis=1) > dxy_slope_tol
-        print "---deleting %d points that failed the d(disparity)/d(dist) test" % np.sum(bad)
+        if options.Debug:
+            print "---deleting %d points that failed the d(disparity)/d(dist) test" % np.sum(bad)
         if bad is not None and np.any(bad):
             C_mat=C_mat.tolil()
             C_mat[all_pts[bad,1], all_pts[bad,0]]=0
             C_mat=C_mat.tocsr()
-            bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(all_pts[bad,1]), (all_pts[bad,1], all_pts[bad,0])), shape=im_shape).tocsr()
+            bad_mask_mat = bad_mask_mat + coo_matrix((4*np.ones_like(all_pts[bad,1]), (all_pts[bad,1], all_pts[bad,0])), shape=im_shape).tocsr()
 
             all_pts=np.c_[C_mat.nonzero()]
             all_pts=all_pts[:,[1,0]];
@@ -1457,9 +1469,9 @@ def main():
     R_max = np.minimum(P98, options.R_max)
 
     bad_xy=all_pts[np.logical_or((R_dxy_score[:,0] > R_max[0]) ,  (R_dxy_score[:,2] > R_max[1])),:]
-    bad_mask_mat = bad_mask_mat + coo_matrix((np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
-
-    print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
+    bad_mask_mat = bad_mask_mat + coo_matrix((8*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
+    if options.Debug:
+        print "rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" % (bad_xy.shape[0], R_max[0], R_max[1])
     # delete the bad value, convert dx dy, and C to lil matrices
     C_mat=C_mat.tolil()
     dx_mat=dx_mat.tolil()
@@ -1504,9 +1516,33 @@ def main():
 #    # spit out the good and bad masks
     good_xy=np.c_[C_mat.nonzero()][:,[1, 0]]
     good_xy=np.c_[GT[0]+good_xy[:,0]*GT[1]+good_xy[:,1]*GT[2], GT[3]+good_xy[:,0]*GT[4]+good_xy[:,1]*GT[5]]
-#
     bad_xy=np.c_[bad_mask_mat.nonzero()][:,[1, 0]]
+    bad_flag=bad_mask_mat[bad_xy[:,1], bad_xy[:,0]]
     bad_xy=np.c_[GT[0]+bad_xy[:,0]*GT[1]+bad_xy[:,1]*GT[2], GT[3]+bad_xy[:,0]*GT[4]+bad_xy[:,1]*GT[5]]
+
+    if options.Debug:
+        print "--- Debug enabled-----"
+        print " writing csv file: %s" % output_prefix+'.csv'
+        outfile=open(output_prefix+'.csv','w')
+        outfile.write('%x, y, dx, dy, C, R_dx, R_dy\n')
+        for line in out:
+            outfile.write("%7.0f, %7.0f, %7.0f, %7.0f, %4.2f, %7.0f, %7.0f\n" %  tuple(x for x in line.tolist()[0]))
+        outfile.close
+        print " writing bad points to file: %s" % output_prefix+'_bad_pts.csv'
+        print " bad matches are flagged:"
+        print "  1: failed signal strength test"
+        print "  2: failed epipolar test"
+        print "  4: failed d(disparity)/d(dist) test"
+        print "  8: failed the total-delta-disparity test"
+        print "-----"
+        outfile=open(output_prefix+'_bad_pts.csv', 'w')
+        outfile.write('%x, y, flag\n')
+        out_bad=np.c_[bad_xy[:,0], bad_xy[:,1], bad_flag.transpose()]
+        for line in out_bad:
+            outfile.write("%7.2f, %7.2f, %3d\n" %  tuple(x for x in line.tolist()[0]))
+        outfile.close
+        out_bad=None
+        bad_flag=None
 
     if options.output_scale > 0.:
         out=out/options.output_scale
@@ -1531,7 +1567,8 @@ def main():
         ny1=np.int(im_shape[0]/options.output_scale)
         xg, yg=np.meshgrid((np.arange(0, nx1)+0.5)*Gdx+x0, (np.arange(0, ny1)+0.5)*Gdy+y0)
         disp_file = output_prefix + '-D_sub.tif'
-        print("Writing: " + disp_file)
+        if options.Debug:
+            print "Writing: " + disp_file + "   "+ str(datetime.datetime.now())
         outDs = driver.Create(disp_file,  nx1, ny1, 3, gdalconst.GDT_Int32)
         # interoate the scaled dx and dy values
         zi = np.nan_to_num(griddata(out[:,0:2], out[:,2], (xg, yg), method='linear'))
@@ -1542,32 +1579,43 @@ def main():
         outBand.WriteArray(zi[:,:,0])
 
         #Generate quality mask, used by both D_sub and D_sub_spread
+        if options.Debug:
+            print "generating the quality mask " + str(datetime.datetime.now())
         goodbad=np.append(np.c_[good_xy, np.ones([good_xy.shape[0], 1])], np.c_[bad_xy, np.zeros([bad_xy.shape[0], 1])], 0)
         quality =  np.nan_to_num(np.round(griddata(goodbad[:,0:2], goodbad[:,2], (xg, yg), method='linear'))).astype(np.int32)
         N_dilate=np.ceil(options.coarse_skip/options.output_scale/2.)
         dilate_kernel=np.ones([1, 2*N_dilate])
+        if options.Debug:
+            print "dilating the quality mask" + str(datetime.datetime.now())
         quality=binary_dilation(quality>0, structure=dilate_kernel)
         quality=binary_dilation(quality>0, structure=dilate_kernel.transpose())
 
         outBand = outDs.GetRasterBand(3)
+        if options.Debug:
+            print "writing out the quality mask " + str(datetime.datetime.now())
         outBand.WriteArray(quality)
         outDs.SetGeoTransform(tuple(GT1))
         outDs.SetProjection(ftm.T_ds.GetProjection())
         outDs=None
 
         spread_file = output_prefix + '-D_sub_spread.tif'
-        print("Writing: " + spread_file)
+        if options.Debug:
+            print "Writing: " + spread_file + str(datetime.datetime.now())
         outDs = driver.Create(spread_file,  nx1, ny1, 3, gdalconst.GDT_Int32)
         # clip the output range to the specified limits
         out[:,5]=np.minimum(out[:,5], options.M_max/options.output_scale)
         out[:,6]=np.minimum(out[:,6], options.M_max/options.output_scale)
 
         # interpolate the scaled range values
+        if options.Debug:
+            print "interpolating D_sub_spread, x "  + str(datetime.datetime.now())
         zi = np.nan_to_num(griddata(out[:,0:2], out[:,5], (xg, yg), method='linear'))
         mask=(zi[:,:,0]==0) | (quality==0)
         zi[mask]=0
         outBand = outDs.GetRasterBand(1)
         outBand.WriteArray(zi[:,:,0])
+        if options.Debug:
+            print "interpolating D_sub_spread, y "  + str(datetime.datetime.now())
         zi = np.nan_to_num(griddata(out[:, 0:2], out[:,6], (xg, yg), method='linear'))
         zi[mask]=0
         outBand = outDs.GetRasterBand(2)
