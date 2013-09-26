@@ -939,6 +939,7 @@ def main():
   [ASP [@]ASP_VERSION[@]]'''
 
     parser=OptionParser(usage=usage)
+    parser.set_defaults(epipolar_fltr=True)
     parser.add_option("-x", "--xsearch", dest="s_nx", default=1024-56, type="int",
                       help="initial x search range, pixels (%default)")
     parser.add_option("-y", "--ysearch", dest="s_ny", default=1024-56, type="int",
@@ -967,6 +968,8 @@ def main():
                        help="Un-scaled disparity range in output limited to this value (%default)")
     parser.add_option("-P", "--processes", dest="processes", default=cpu_count(), type="int",
                       help="The number of processes to use (%default)")
+    parser.add_option("--no_epipolar_fltr", action="store_false", dest="epipolar_fltr", 
+                      help="Disable filtering of disparities by distance from epipolar vector")
     parser.add_option("-e", "--epipolar_axis", dest="epipolar_axis", default=None, type="int",
                       help="If set, specify the axis that is epipolar 0=x, 1=y (%default)")
     parser.add_option("-n", "--nodata-value", dest="user_nodata", default=None, type="int",
@@ -1080,18 +1083,23 @@ def main():
     dxy_score=np.c_[dxy0[:,0]-s_nx/2., dxy0[:,0]+s_nx/2, dxy0[:,1]-s_ny/2, dxy0[:,1]+s_ny/2]
     xy, dxy, C, xy_bad_mask = search_new_pts(XY0, dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min, mask=in_mask)
 
-    # run the epipolar fit, establish a tolerance, run again
-    ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_ep_pts_to_use)
-    good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, 32)
-    ep_f90=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
-    ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
-    # run fit again if any points were marked as bad in the first epipolar test
-    if ep_vec_initial is not None and np.any(~good):
-        ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None, F_ep_pts_to_use)
-        ep_f90= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
+    if options.epipolar_fltr:
+        # run the epipolar fit, establish a tolerance, run again
+        ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_ep_pts_to_use)
+        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, 32)
+        ep_f90=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
         ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
-        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-    print " --- ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
+        # run fit again if any points were marked as bad in the first epipolar test
+        if ep_vec_initial is not None and np.any(~good):
+            ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None, F_ep_pts_to_use)
+            ep_f90= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
+            ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
+            good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
+        print " --- ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
+    else:
+        #Create boolean array with True for all values in dx
+        good = (dxy != np.nan)[:,0]
+    
     # make sparse matrices for storing dx and dy values, store initial values
     im_shape=[ftm.Ny, ftm.Nx]
     dx_mat=coo_matrix((dxy[good,0],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
@@ -1150,8 +1158,12 @@ def main():
             recalc_nbhd_range=True
             break
 
-        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, new_dxy, ep_tol)
-        print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
+        if options.epipolar_fltr:
+            good, ep_dist=test_epipolar(dxy_ctr, ep_vec, new_dxy, ep_tol)
+            print "    searched %d points, found %d good matches" % (N_search, np.sum(good) )
+        else:
+            good = (new_dxy != np.nan)[:,0]
+
         # add the new points to the sparse matrix of tested points
         dx_mat=dx_mat+coo_matrix((new_dxy[good,0], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
         dy_mat=dy_mat+coo_matrix((new_dxy[good,1], [new_xy[good,1], new_xy[good,0]]), im_shape).tocsr()
@@ -1167,7 +1179,8 @@ def main():
         # extract the dx and dy values, re-estimate the ep vector
         dxy=np.array(np.c_[dx_mat[all_pts[:,1], all_pts[:,0]].transpose(), dy_mat[all_pts[:,1], all_pts[:,0]].transpose()])
         C= np.array(C_mat[all_pts[:,1], all_pts[:,0]].transpose())
-        if ep_vec_initial is not None:
+
+        if options.epipolar_fltr and ep_vec_initial is not None:
             ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
 
         # triangulate all the good points so far
