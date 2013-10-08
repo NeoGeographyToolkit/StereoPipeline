@@ -285,9 +285,6 @@ void load_csv(string const& file_name,
 
   validateFile(file_name);
 
-  data.features.conservativeResize(DIM+1, num_points_to_load);
-  data.featureLabels = form_labels<T>(DIM);
-
   is_lola_rdr_format = false;
 
   const int bufSize = 1024;
@@ -307,6 +304,9 @@ void load_csv(string const& file_name,
 
   // We will randomly pick or not a point with probability load_ratio
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
+
+  data.features.conservativeResize(DIM+1, std::min(num_points_to_load, num_points));
+  data.featureLabels = form_labels<T>(DIM);
 
   char sep[] = ", \t";
 
