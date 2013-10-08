@@ -784,17 +784,30 @@ inline transparent_to_nan( ImageViewBase<ImageT> const& image) {
       TransparentToNaN<typename ImageT::pixel_type>() );
 }
 
-Vector3 calc_translation_vec(DP const& source, DP const& trans_source){
+void calc_translation_vec(DP const& source, DP const& trans_source,
+                          string const& actual_datum_str,
+                          Vector3 & trans, Vector3 & trans_llh){
 
   Eigen::VectorXd source_ctr
     = source.features.rowwise().sum() / source.features.cols();
   Eigen::VectorXd trans_source_ctr
     = trans_source.features.rowwise().sum() / trans_source.features.cols();
 
-  Vector3 trans;
-  for (int row = 0; row < DIM; row++)
-    trans[row] = trans_source_ctr(row, 0) - source_ctr(row, 0);
-  return trans;
+  Vector3 source_ctr_vec, trans_source_ctr_vec;
+  for (int row = 0; row < DIM; row++){
+    source_ctr_vec[row]       = source_ctr(row, 0);
+    trans_source_ctr_vec[row] = trans_source_ctr(row, 0);
+  }
+
+  trans = trans_source_ctr_vec - source_ctr_vec;
+
+  cartography::Datum datum;
+  datum.set_well_known_datum(actual_datum_str);
+  Vector3 source_llh = datum.cartesian_to_geodetic(source_ctr_vec);
+  Vector3 trans_source_llh = datum.cartesian_to_geodetic(trans_source_ctr_vec);
+
+  trans_llh = trans_source_llh - source_llh;
+  
 }
 
 void calc_max_displacment(DP const& source, DP const& trans_source){
@@ -1132,7 +1145,8 @@ int main( int argc, char *argv[] ) {
 
     // Calculate by how much points move as result of T
     calc_max_displacment(source, trans_source);
-    Vector3 trans = calc_translation_vec(source, trans_source);
+    Vector3 trans, trans_llh;
+    calc_translation_vec(source, trans_source, actual_datum_str, trans, trans_llh);
 
     // Calculate the errors after doing ICP
     PointMatcher<RealT>::Matrix end_errors;
@@ -1156,6 +1170,12 @@ int main( int argc, char *argv[] ) {
     cout << "Alignment transform (rotation + translation, "
          << "origin is planet center):" << endl << globalT << endl;
     cout << "Translation vector (meters): " << trans << std::endl;
+    cout << "Translation vector magnitude (meters): " << norm_2(trans)
+         << std::endl;
+    // Swap lat and lon, as we want to print lat first
+    std::swap(trans_llh[0], trans_llh[1]);
+    std::cout << "Translation vector (lat,lon,z): " << trans_llh << std::endl;
+    
     Matrix3x3 rot;
     for (int r = 0; r < DIM; r++) for (int c = 0; c < DIM; c++)
       rot(r, c) = globalT(r, c);
