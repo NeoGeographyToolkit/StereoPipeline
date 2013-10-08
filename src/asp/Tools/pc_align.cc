@@ -470,6 +470,7 @@ void load_csv(string const& file_name,
 template<typename T>
 void load_dem(string const& file_name,
               int num_points_to_load,
+              BBox2 lonlat_box,
               bool calc_shift,
               Vector3 & shift,
               string & actual_datum_str,
@@ -500,6 +501,7 @@ void load_dem(string const& file_name,
 
   bool shift_was_calc = false;
   int points_count = 0;
+
   for (int j = 0; j < dem.rows(); j++ ) {
     for ( int i = 0; i < dem.cols(); i++ ) {
 
@@ -507,7 +509,12 @@ void load_dem(string const& file_name,
       if (r > load_ratio) continue;
 
       if (dem(i, j) == nodata) continue;
+
       Vector2 lonlat = dem_georef.pixel_to_lonlat( Vector2(i,j) );
+
+      // Skip points outside the given box
+      if (!lonlat_box.empty() && !lonlat_box.contains(lonlat)) continue;
+      
       Vector3 llh( lonlat.x(), lonlat.y(), dem(i,j) );
       Vector3 xyz = dem_georef.datum().geodetic_to_cartesian( llh );
       if ( xyz == Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
@@ -616,10 +623,62 @@ string get_file_type(string const& file_name){
   vw_throw( ArgumentErr() << "Unknown file type: " << file_name << "\n" );
 }
 
+// Calc extended lonlat bbox
+BBox2 calc_extended_lonlat_bbox(string const& file_name,
+                               double max_disp){
+  
+  // If the point cloud comes from a DEM, and finds its lon-lat
+  // bounding box and bias it outwards by max_disp (which is in
+  // meters).
+
+  validateFile(file_name);
+
+  string file_type = get_file_type(file_name);
+  if (file_type != "DEM" || max_disp <= 0.0 )
+    return BBox2();
+  
+  cartography::GeoReference dem_georef;
+  bool is_good = cartography::read_georeference( dem_georef, file_name );
+  if (!is_good) vw_throw(ArgumentErr() << "DEM: " << file_name
+                         << " does not have a georeference.\n");
+
+  DiskImageView<float> dem(file_name);
+  BBox2 box = dem_georef.pixel_to_lonlat_bbox(bounding_box(dem));
+
+  // Expand the box by max_disp, which is in meters. To do that, find
+  // the xyz coordinates of the corners, bias these xyz points in
+  // several directions by max_disp, and grow the box by the lonlat of
+  // obtained points. The resulting biased box is a rough
+  // overestimate, but should be good enough.
+  
+  vector<Vector3> P;
+  cartography::Datum D = dem_georef.datum();
+  P.push_back(D.geodetic_to_cartesian(Vector3(box.min().x(), box.min().y(), 0)));
+  P.push_back(D.geodetic_to_cartesian(Vector3(box.max().x(), box.min().y(), 0)));
+  P.push_back(D.geodetic_to_cartesian(Vector3(box.min().x(), box.max().y(), 0)));
+  P.push_back(D.geodetic_to_cartesian(Vector3(box.max().x(), box.max().y(), 0)));
+
+  for (int i = 0; i < (int)P.size(); i++){
+    Vector3 p = P[i];
+    for (int x = -1; x <= 1 ; x += 2){
+      for (int y = -1; y <= 1 ; y += 2){
+        for (int z = -1; z <= 1 ; z += 2){
+          Vector3 q = p + Vector3(x, y, z)*max_disp;
+          box.grow(subvector(D.cartesian_to_geodetic(q), 0, 2));
+        }
+      }
+    }
+  }
+
+  return box;
+}
+
+
 // Load file from disk and convert to libpointmatcher's format
 template<typename T>
 void load_file(string const& file_name,
                int num_points_to_load,
+               BBox2 lonlat_box,
                bool calc_shift,
                Vector3 & shift,
                string & actual_datum_str,
@@ -632,7 +691,8 @@ void load_file(string const& file_name,
 
   string file_type = get_file_type(file_name);
   if (file_type == "DEM")
-    load_dem<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str, data);
+    load_dem<T>(file_name, num_points_to_load, lonlat_box,
+                calc_shift, shift, actual_datum_str, data);
   else if (file_type == "PC")
     load_pc<T>(file_name, num_points_to_load, calc_shift, shift, actual_datum_str, data);
   else if (file_type == "CSV"){
@@ -1017,9 +1077,20 @@ int main( int argc, char *argv[] ) {
       omp_set_num_threads(opt.num_threads);
     }
 
+    // We will use ref_box to bound the source points, and vice-versa.
+    // If ref points are offset by 360 degrees in longitude in respect to
+    // source points, adjust the ref box. Same for the source box.
+    BBox2 ref_box = calc_extended_lonlat_bbox(opt.reference, opt.max_disp);
+    BBox2 source_box = calc_extended_lonlat_bbox(opt.source, opt.max_disp);
+    double lon_offset = (source_box.min().x() + source_box.max().x())/2.0
+      - (ref_box.min().x() + ref_box.max().x())/2.0;
+    lon_offset = 360.0*round(lon_offset/360.0);
+    ref_box    += Vector2(lon_offset, 0);
+    source_box -= Vector2(lon_offset, 0);
+    
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
-
+    
     // Load the subsampled reference point cloud.
     Vector3 shift;
     bool calc_shift = true;
@@ -1030,6 +1101,7 @@ int main( int argc, char *argv[] ) {
     sw1.start();
     DP ref;
     load_file<RealT>(opt.reference, opt.max_num_reference_points,
+                     source_box, // source box is used to bound reference
                      calc_shift, shift, actual_datum_str, is_lola_rdr_format,
                      mean_longitude, ref);
     sw1.stop();
@@ -1048,6 +1120,7 @@ int main( int argc, char *argv[] ) {
     sw2.start();
     DP source;
     load_file<RealT>(opt.source, num_source_pts,
+                     ref_box, // ref box is used to bound source
                      calc_shift, shift, actual_datum_str, is_lola_rdr_format,
                      mean_longitude, source);
     sw2.stop();
