@@ -763,10 +763,12 @@ can result in large movements on the planet surface even for small angles
 of rotation, as such both its rotation and translation components may not
 be amenable to good interpretation.
 
-The tool also outputs the means of the smallest 25\%, 50\%, 75\%, and
-100\% of the errors, before and after alignment, where the errors are
-defined as the closest distances between transformed source points and
-reference points. The complete lists of errors are also saved to disk.
+The tool outputs to a file the complete list of errors. It displays the
+16th, 50th, and 84th error percentiles, the mean and standard deviation
+of all errors, as well as the means of the smallest 25\%, 50\%, 75\%,
+and 100\% of the errors, all these before and after alignment. The
+errors are defined as the closest distances between transformed source
+points and corresponding reference points.
 
 By default, when \texttt{pc\_align} discards
 outliers during the computation of the alignment transform, it keeps

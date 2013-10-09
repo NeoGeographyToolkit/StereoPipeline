@@ -660,9 +660,9 @@ BBox2 calc_extended_lonlat_bbox(string const& file_name,
 
   for (int i = 0; i < (int)P.size(); i++){
     Vector3 p = P[i];
-    for (int x = -1; x <= 1 ; x += 2){
-      for (int y = -1; y <= 1 ; y += 2){
-        for (int z = -1; z <= 1 ; z += 2){
+    for (int x = -1; x <= 1; x++){
+      for (int y = -1; y <= 1; y++){
+        for (int z = -1; z <= 1; z++){
           Vector3 q = p + Vector3(x, y, z)*max_disp;
           box.grow(subvector(D.cartesian_to_geodetic(q), 0, 2));
         }
@@ -706,12 +706,22 @@ void load_file(string const& file_name,
 }
 
 double calc_mean(vector<double> const& errs, int len){
-  double mean = 0;
+  double mean = 0.0;
   for (int i = 0; i < len; i++){
     mean += errs[i];
   }
   if (len == 0) return 0;
   return mean/len;
+}
+
+double calc_stddev(vector<double> const& errs, double mean){
+  double stddev = 0.0;
+  int len = errs.size();
+  for (int i = 0; i < len; i++){
+    stddev += (errs[i] - mean)*(errs[i] - mean);
+  }
+  if (len == 0) return 0;
+  return sqrt(stddev/len);
 }
 
 PointMatcher<RealT>::Matrix apply_shift(PointMatcher<RealT>::Matrix const& T,
@@ -754,13 +764,24 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
   sort(errs.begin(), errs.end());
 
   int len = errs.size();
+  vw_out() << "Number of errors: " << len << endl;
+  if (len == 0) return;
+
+  double p16 = errs[std::min(len-1, (int)round(len*0.16))];
+  double p50 = errs[std::min(len-1, (int)round(len*0.50))];
+  double p84 = errs[std::min(len-1, (int)round(len*0.84))];
+  vw_out() << label << ": error percentile:"
+           << " 16%: " << p16 << ", 50%: " << p50 << ", 84%: " << p84 << endl;
+
+  double mean = calc_mean(errs, len);
+  double stddev = calc_stddev(errs, mean);
+  vw_out() << label << ": error mean: " << mean << ", error stddev: " << stddev << std::endl;
+  
   double a25 = calc_mean(errs, len/4),   a50  = calc_mean(errs, len/2);
   double a75 = calc_mean(errs, 3*len/4), a100 = calc_mean(errs, len);
-
-  vw_out() << "Number of errors: " << len << endl;
   vw_out() << label << ": mean of smallest errors:"
-           << " 25%: " << a25 << " 50%: " << a50
-           << " 75%: " << a75 << " 100%: " << a100 << endl;
+           << " 25%: " << a25 << ", 50%: " << a50
+           << ", 75%: " << a75 << ", 100%: " << a100 << endl;
 }
 
 void dump_llh(DP const & data, Vector3 const& shift){
