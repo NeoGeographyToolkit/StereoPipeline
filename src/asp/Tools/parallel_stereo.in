@@ -17,8 +17,7 @@
 # __END_LICENSE__
 
 
-import sys, optparse, subprocess, re, os, math, time, tempfile
-import shutil
+import sys, optparse, subprocess, re, os, math, time, tempfile, glob, shutil
 import os.path as P
 libexec_path = sys.path[0] + '/../libexec'
 sys.path.insert(0, libexec_path) # prepend to Python path
@@ -79,29 +78,32 @@ def wipe_option(options, opt, n):
             if r < len(options): del options[r]
 
 def create_subproject_dirs( settings, **kw ):
+
+    # Create a subdirectory for each process we start.
+    # Pretend previous steps of stereo already ran in
+    # that directory by creating symbolic links to
+    # actual files in parent run directory.
+    
     for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
-        directory = settings['out_prefix'][0] + tile.name_str()
-        prefix    = directory + "/" + tile.name_str()
-        relation = os.path.relpath(settings['out_prefix'][0],directory)
+        out_prefix = settings['out_prefix'][0]
+        subproject_dir = out_prefix + tile.name_str()
+        tile_prefix = subproject_dir + "/" + tile.name_str() 
         if opt.dryrun:
-            print "mkdir -p %s" % directory
-            print "soft linking via %s %s" % (prefix, relation)
+            print "mkdir -p %s" % subproject_dir
+            print "soft linking via %s %s" % (tile_prefix, out_prefix)
         else:
             try:
-                os.mkdir( directory )
+                os.mkdir( subproject_dir )
             except OSError, e:
                 pass
-            # To do: A more robust approach below would be to soft-link
-            # all existing files rather than having a list.
-            for postfix in ["-L.tif","-R.tif","-L_sub.tif","-R_sub.tif",
-                            "-lMask.tif","-rMask.tif","-lMask_sub.tif",
-                            "-rMask_sub.tif","-align-L.exr","-align-R.exr","-F.tif",
-                            "-D_sub.tif", "-D_sub_spread.tif", "-local_hom.txt",
-                            "-"+os.path.basename(settings['in_file1'][0])[:-4]+"__"+
-                            os.path.basename(settings['in_file2'][0])[:-4]+".match"]:
-                if os.path.lexists( prefix + postfix ):
-                    os.remove( prefix + postfix )
-                os.symlink( relation + postfix, prefix + postfix )
+
+            files = glob.glob(out_prefix + '*')
+            for f in files:
+                if os.path.isdir(f): continue
+                sym_f = f.replace(out_prefix, tile_prefix)
+                relative_f = os.path.relpath(f, subproject_dir)
+                if not os.path.lexists(sym_f):
+                    os.symlink(relative_f, sym_f)
 
 def build_vrt( settings, postfix, num_bands=4, **kw ):
 
@@ -398,8 +400,6 @@ if __name__ == '__main__':
         # actual work when we hit a non-multiprocess step like PPRC or
         # FLTR.
 
-        create_subproject_dirs( settings )
-
         # Wipe options which we will override.
         self_args = sys.argv # shallow copy
         wipe_option(self_args, '-e', 1)
@@ -409,10 +409,11 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 0 ):
             # Preprocessing
             single_run('stereo_pprc', args, msg='0: Preprocessing')
+            create_subproject_dirs( settings ) # symlink L.tif, etc
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
-            settings=run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
-            create_subproject_dirs( settings )
+            settings=run_and_parse_output( "stereo_parse", args, sep,
+                                           opt.verbose )
         if ( opt.entry_point <= 1 ):
             # Correlation. First do low-res.
             if ( opt.stop_point <= 1 ): sys.exit()
@@ -420,23 +421,31 @@ if __name__ == '__main__':
                 run_sparse_disp(args, opt)
             else:
                 single_run('stereo_corr', args_sub, msg='1: Low-res correlation')
+            create_subproject_dirs( settings ) # symlink D_sub
             sprawn_to_nodes(1, 2, num_nodes, settings, self_args)
         if ( opt.entry_point <= 2 ):
             # Refinement
             if ( opt.stop_point <= 2 ): sys.exit()
+            create_subproject_dirs( settings )
             sprawn_to_nodes(2, 3, num_nodes, settings, self_args)
         if ( opt.entry_point <= 3 ):
             # Filtering
             if ( opt.stop_point <= 3 ): sys.exit()
             build_vrt( settings, "-RD.tif", 3 )
             single_run('stereo_fltr', args, msg='3: Filtering')
+            create_subproject_dirs( settings ) # symlink F.tif
         if ( opt.entry_point <= 4 ):
-            # Triangulation
+            # Triangulation. First compute the point cloud center.
             if ( opt.stop_point <= 4 ): sys.exit()
+            l_args = args[:] # deep copy
+            l_args.append('--compute-point-cloud-center-only')
+            single_run('stereo_tri',  l_args, msg='4: Triangulation')
+            create_subproject_dirs( settings ) # symlink cloud center
             sprawn_to_nodes(4, 5, num_nodes, settings, self_args)
         if ( opt.entry_point <= 5 ):
             # Point cloud mosaic
             if ( opt.stop_point <= 5 ): sys.exit()
+            create_subproject_dirs( settings )
             build_vrt( settings, "-PC.tif", 4 )
 
     else:
@@ -462,7 +471,6 @@ if __name__ == '__main__':
                 parallel_run('stereo_corr', args, settings, tiles, msg='1: Correlation')
             if ( opt.entry_point == 2 ):
                 parallel_run('stereo_rfne', args, settings, tiles, msg='2: Refinement')
-                build_vrt( settings, "-RD.tif", 3 )
             if ( opt.entry_point == 4 ):
                 parallel_run('stereo_tri', args, settings, tiles, msg='4: Triangulation')
 
