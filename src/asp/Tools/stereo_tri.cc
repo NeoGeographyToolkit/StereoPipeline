@@ -168,6 +168,7 @@ private:
   PreRasterHelper( BBox2i const& bbox, T1 const& tx1, T2 const& tx2 ) const {
     // General Case
     ImageView<DPixelT> disparity_preraster( crop( m_disparity_map, bbox ) );
+
     return prerasterize_type( crop( disparity_preraster, -bbox.min().x(), -bbox.min().y(), cols(), rows() ),
                               tx1, tx2, m_stereo_model );
   }
@@ -212,6 +213,8 @@ Vector3 find_approx_points_median(std::vector<Vector3> const& points){
   // point from median we'd get the zero vector which by convention
   // is invalid.
 
+  if (points.empty()) return Vector3();
+
   Vector3 median;
   std::vector<double> V(points.size());
   for (int i = 0; i < (int)median.size(); i++){
@@ -225,43 +228,53 @@ Vector3 find_approx_points_median(std::vector<Vector3> const& points){
   return median;
 }
 
-Vector3 find_point_cloud_center(ImageViewRef<Vector6> const& point_cloud){
+Vector3 find_point_cloud_center(Vector2i const& tile_size,
+                                ImageViewRef<Vector6> const& point_cloud){
 
-  // Take a small tile around the point cloud center and find the
-  // median of the points in that tile. That will be the robust
-  // estimation of a point somewhere in the center of the point cloud.
-  // If we fail, increase the tile size.
+  // Compute the point cloud in a tile around the center of the
+  // cloud. Find the median of all the points in that cloud.  That
+  // will be the cloud center. If the tile is too small, spiral away
+  // from the center adding other tiles.  Keep the tiles aligned to a
+  // multiple of tile_size, for consistency with how the point cloud
+  // is written to disk later on.
 
-  int wid = 10;
-  int ctx = point_cloud.cols()/2, cty = point_cloud.rows()/2;
-  while (1){
+  int numx = (int)ceil(point_cloud.cols()/double(tile_size[0]));
+  int numy = (int)ceil(point_cloud.rows()/double(tile_size[1]));
 
-    int bx = std::max(0, ctx - wid), ex = std::min(point_cloud.cols(), ctx + wid);
-    int by = std::max(0, cty - wid), ey = std::min(point_cloud.rows(), cty + wid);
-    BBox2i box(bx, by, ex - bx, ey - by);
-    ImageView<Vector6> cropped_cloud = crop(point_cloud, box);
-    std::vector<Vector3> points;
-    for (int x = 0; x < cropped_cloud.cols(); x++){
-      for (int y = 0; y < cropped_cloud.rows(); y++){
-        Vector3 xyz = subvector(cropped_cloud(x, y), 0, 3);
-        if (xyz == Vector3()) continue;
-        points.push_back(xyz);
+  std::vector<Vector3> points;
+  for (int r = 0; r <= std::max(numx/2, numy/2); r++){
+    // We are now on the boundary of the square of size 2*r with
+    // center at (numx/2, numy/2). Iterate over that boundary.
+    for (int x = numx/2-r; x <= numx/2+r; x++){
+      for (int y = numy/2-r; y <= numy/2+r; y++){
+        if ( x != numx/2-r && x != numx/2+r &&
+             y != numy/2-r && y != numy/2+r) continue; // skip inner points
+        if (x < 0 || y < 0 || x >= numx || y >= numy) continue; // out of bounds
+
+        BBox2i box(x*tile_size[0], y*tile_size[1], tile_size[0], tile_size[1]);
+        box.crop(bounding_box(point_cloud));
+
+        // Triangulate in the existing box
+        ImageView<Vector6> cropped_cloud = crop(point_cloud, box);
+        for (int px = 0; px < cropped_cloud.cols(); px++){
+          for (int py = 0; py < cropped_cloud.rows(); py++){
+            Vector3 xyz = subvector(cropped_cloud(px, py), 0, 3);
+            if (xyz == Vector3()) continue;
+            points.push_back(xyz);
+          }
+        }
+        
+        // Stop if we have enough points to do a reliable mean estimation
+        if (points.size() > 100)
+          return find_approx_points_median(points);
+        
       }
+      
     }
-
-    // Stop if we have enough points to do a reliable mean estimation
-    if (points.size() > 100)
-      return find_approx_points_median(points);
-
-    // Stop if the region is as big as it can get
-    if (bx == 0 && ex == (int)point_cloud.cols() &&
-        by == 0 && ey == (int)point_cloud.rows()) break;
-
-    // Increase the region if we failed
-    wid *= 2;
   }
 
-  return Vector3();
+  // Have to use what we've got
+  return find_approx_points_median(points);
 }
 
 
@@ -272,6 +285,29 @@ stereo_error_triangulate( ImageViewBase<DisparityT> const& disparity,
                           StereoModelT const& model ) {
   typedef StereoTXAndErrorView<DisparityT, TX1T, TX2T, StereoModelT> result_type;
   return result_type( disparity.impl(), tx1, tx2, model );
+}
+
+bool read_point(std::string const& file, Vector3 & point){
+
+  point = Vector3();
+  
+  std::ifstream fh(file.c_str());
+  if (!fh.good()) return false;
+
+  for (int c = 0; c < (int)point.size(); c++)
+    if (! (fh >> point[c]) ) return false;
+
+  return true;
+}
+
+void write_point(std::string const& file, Vector3 const& point){
+
+  std::ofstream fh(file.c_str());
+  fh.precision(16);
+  for (int c = 0; c < (int)point.size(); c++)
+    fh << point[c] << " ";
+  fh << std::endl;
+
 }
 
 template <class SessionT>
@@ -357,9 +393,18 @@ void stereo_triangulation( Options const& opt ) {
                                     stereo_model ), universe_radius_func );
     }
 
-    Vector3 shift;
-    if (!stereo_settings().save_double_precision_point_cloud)
-      shift = find_point_cloud_center(point_cloud);
+    // Compute the point cloud center, unless done by now
+    Vector3 cloud_center;
+    if (!stereo_settings().save_double_precision_point_cloud){
+      std::string cloud_center_file = opt.out_prefix + "-PC-center.txt";
+      if (!read_point(cloud_center_file, cloud_center)){
+        cloud_center = find_point_cloud_center(opt.raster_tile_size,
+                                        point_cloud);
+        write_point(cloud_center_file, cloud_center);
+      }
+    }
+    
+    if (stereo_settings().compute_point_cloud_center_only) return;
 
     // We are supposed to do the triangulation in trans_crop_win only.
     // So force rasterization in that box only using crop(), then pad
@@ -369,14 +414,14 @@ void stereo_triangulation( Options const& opt ) {
 
     if (stereo_settings().compute_error_vector){
       ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
-      save_point_cloud(shift,
+      save_point_cloud(cloud_center,
                        crop(edge_extend(crop_pc, ZeroEdgeExtension()),
                             bounding_box(point_cloud) - cbox.min()),
                        opt);
     }else{
       ImageViewRef<Vector4> crop_pc
         = crop(point_and_error_norm(point_cloud), cbox);
-      save_point_cloud(shift,
+      save_point_cloud(cloud_center,
                        crop(edge_extend(crop_pc, ZeroEdgeExtension()),
                             bounding_box(point_cloud) - cbox.min()),
                        opt);

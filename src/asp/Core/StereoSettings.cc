@@ -194,6 +194,8 @@ namespace asp {
        "Save the final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at twice the storage).")
       ("point-cloud-rounding-error", po::value(&global.point_cloud_rounding_error)->default_value(asp::APPROX_ONE_MM),
        "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
+      ("compute-point-cloud-center-only", po::bool_switch(&global.compute_point_cloud_center_only)->default_value(false)->implicit_value(true),
+       "Only compute the center of triangulated point cloud and exit.")
       ("compute-error-vector", po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
        "Compute the triangulation error vector, not just its length.")
       ;

@@ -159,6 +159,7 @@ namespace asp {
     bool use_least_squares;           // Use a more rigorous triangulation
     bool save_double_precision_point_cloud; // Save final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at 2x the storage).
     double point_cloud_rounding_error;// How much to round the output point cloud values
+    bool compute_point_cloud_center_only; // Only compute the center of triangulated point cloud and exit.
     bool compute_error_vector;        // Compute the triangulation error vector, not just its length
 
     // DG Options
