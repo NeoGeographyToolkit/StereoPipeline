@@ -627,9 +627,8 @@ string get_file_type(string const& file_name){
 BBox2 calc_extended_lonlat_bbox(string const& file_name,
                                double max_disp){
   
-  // If the point cloud comes from a DEM, and finds its lon-lat
-  // bounding box and bias it outwards by max_disp (which is in
-  // meters).
+  // If the point cloud comes from a DEM, find its lon-lat bounding box
+  // and bias it outwards by max_disp (which is in meters).
 
   validateFile(file_name);
 
