@@ -213,7 +213,6 @@ namespace asp {
                 << usage << general_options );
     }
 
-
     asp::create_out_dir(opt.out_prefix);
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,
                                                   opt, opt.in_file1,

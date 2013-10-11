@@ -71,7 +71,9 @@ namespace asp {
       ("nodata-pixel-percentage", po::value(&global.nodata_pixel_percentage)->default_value(nan),
        "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
       ("nodata-optimal-threshold-factor", po::value(&global.nodata_optimal_threshold_factor)->default_value(nan),
-       "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.");
+       "Pixels with values less than this factor times the optimal Otsu threshold are treated as no-data. Suggested value: 0.1 to 0.2.")
+      ("skip-image-normalization", po::bool_switch(&global.skip_image_normalization)->default_value(false)->implicit_value(true),
+       "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.");
   }
 
   CorrelationDescription::CorrelationDescription() : po::options_description("Correlation Options") {

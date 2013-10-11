@@ -96,7 +96,8 @@ namespace asp {
     double nodata_pixel_percentage;         // Percentage of low-value pixels treated as no-data
     double nodata_optimal_threshold_factor; // Pixels with values less than this factor times the optimal Otsu threshold
                                             // are treated as no-data
-
+    bool skip_image_normalization;          // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
+    
     // Correlation Options
     float slogW;                      // Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None

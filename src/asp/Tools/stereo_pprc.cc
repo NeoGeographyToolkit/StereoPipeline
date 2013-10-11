@@ -78,20 +78,65 @@ BlobHolder::mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
   return inpaint(thresh_mask.impl(), *m_blobPtr.get(), use_grassfire, default_inpaint_val);
 }
 
+void create_sym_links(std::string const& left_input_file,
+                      std::string const& right_input_file,
+                      std::string const& out_prefix,
+                      std::string & left_output_file,
+                      std::string & right_output_file) {
+  
+  vw_out(WarningMessage) << "Skipping image normalization.\n";
+    
+  left_output_file  = out_prefix+"-L.tif";
+  right_output_file = out_prefix+"-R.tif";
+  
+  fs::path left_img_full_path  = fs::complete(left_input_file);
+  fs::path right_img_full_path = fs::complete(right_input_file);
+  
+  std::string cmd;
+  if (!fs::exists(left_output_file)){
+    cmd = "ln -s " + left_img_full_path.string() + " " + left_output_file;
+    vw_out() << cmd << std::endl;
+    int ret = system(cmd.c_str());
+    VW_ASSERT( ret == 0,
+               ArgumentErr() << "Failed to execute: " << cmd << "\n" );
+  }
+  if (!fs::exists(right_output_file)){
+    cmd = "ln -s " + right_img_full_path.string() + " " + right_output_file;
+    vw_out() << cmd << std::endl;
+    int ret = system(cmd.c_str());
+    VW_ASSERT( ret == 0,
+               ArgumentErr() << "Failed to execute: " << cmd << "\n" );
+  }
+
+}
+
 void stereo_preprocessing( Options& opt ) {
 
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : Stage 0 --> PREPROCESSING \n";
 
-  // Normalize the images.
-  std::string pre_preproc_file_left, pre_preproc_file_right;
-  opt.session->pre_preprocessing_hook(opt.in_file1, opt.in_file2,
-                                      pre_preproc_file_left,
-                                      pre_preproc_file_right);
+  // Normalize the images, unless the user prefers not to.
+  std::string left_image_file, right_image_file;
+  boost::shared_ptr<DiskImageResource>
+    in_file1_rsrc( DiskImageResource::open(opt.in_file1) ),
+    in_file2_rsrc( DiskImageResource::open(opt.in_file2) );
+  if (stereo_settings().skip_image_normalization                    && 
+      stereo_settings().alignment_method == "none"                  &&
+      boost::iends_with(boost::to_lower_copy(opt.in_file1), ".tif") &&
+      boost::iends_with(boost::to_lower_copy(opt.in_file2), ".tif") &&
+      std::isnan(stereo_settings().nodata_value)                    &&
+      (!in_file1_rsrc->has_nodata_read())                           &&
+      (!in_file2_rsrc->has_nodata_read())
+      )
+    create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
+                     left_image_file, right_image_file);
+  else
+    opt.session->pre_preprocessing_hook(opt.in_file1, opt.in_file2,
+                                        left_image_file, right_image_file);
 
   boost::shared_ptr<DiskImageResource>
-    left_rsrc( DiskImageResource::open(pre_preproc_file_left) ),
-    right_rsrc( DiskImageResource::open(pre_preproc_file_right) );
+    left_rsrc( DiskImageResource::open(left_image_file) ),
+    right_rsrc( DiskImageResource::open(right_image_file) );
 
   // Load the normalized images.
   DiskImageView<PixelGray<float> > left_image( left_rsrc ),
