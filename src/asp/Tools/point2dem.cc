@@ -26,6 +26,7 @@ using namespace vw::cartography;
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
+#include <asp/Core/AntiAliasing.h>
 namespace po = boost::program_options;
 
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
@@ -185,6 +186,78 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   opt.has_nodata_value = vm.count("nodata-value");
 }
 
+// If a pixel has invalid data, fill its value with the average of
+// valid pixel values within a given window around the pixel.
+template <class ImageT>
+class FillNoDataWithAvg:
+  public ImageViewBase< FillNoDataWithAvg<ImageT> > {
+  ImageT m_img;
+  int m_kernel_size;
+  typedef typename ImageT::pixel_type PixelT;
+
+public:
+
+  typedef PixelT pixel_type;
+  typedef PixelT result_type;
+  typedef ProceduralPixelAccessor<FillNoDataWithAvg> pixel_accessor;
+
+  FillNoDataWithAvg( ImageViewBase<ImageT> const& img,
+                     int kernel_size) :
+    m_img(img.impl()), m_kernel_size(kernel_size) {
+    VW_ASSERT(m_kernel_size%2 == 1 && m_kernel_size > 0,
+              ArgumentErr() << "Expecting odd and positive kernel size.");
+  }
+
+  inline int32 cols() const { return m_img.cols(); }
+  inline int32 rows() const { return m_img.rows(); }
+  inline int32 planes() const { return 1; }
+
+  inline pixel_accessor origin() const { return pixel_accessor(*this); }
+
+  inline result_type operator()( size_t i, size_t j, size_t p=0 ) const {
+    if (is_valid(m_img(i, j)))
+      return m_img(i, j);
+
+    pixel_type val; val.validate();
+    int nvalid = 0;
+    int c0 = i, r0 = j; // convert to int from size_t
+    int k2 = m_kernel_size/2, nc = m_img.cols(), nr = m_img.rows();
+    for (int c = std::max(0, c0-k2); c <= std::min(nc-1, c0+k2); c++){
+      for (int r = std::max(0, r0-k2); r <= std::min(nr-1, r0+k2); r++){
+        if (!is_valid(m_img(c, r))) continue;
+        val += m_img(c, r);
+        nvalid++;
+      }
+    }
+
+    if (nvalid == 0) return m_img(i, j); // could not find valid points
+    return val/nvalid; // average of valid values within window
+  }
+
+  typedef FillNoDataWithAvg<CropView<ImageView<PixelT> > > prerasterize_type;
+  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
+
+    // Crop into an expanded box as to have enough pixels to do
+    // averaging with given window at every pixel in the current box.
+    BBox2i biased_box = bbox;
+    biased_box.expand(m_kernel_size/2);
+    biased_box.crop(bounding_box(m_img));
+    ImageView<PixelT> dest( crop( m_img, biased_box ) );
+ 
+    return prerasterize_type( crop( dest, -biased_box.min().x(), -biased_box.min().y(), cols(), rows() ), m_kernel_size );
+    
+}
+  template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
+  
+};
+template <class DisparityT>
+FillNoDataWithAvg<DisparityT>
+fill_nodata_with_avg( ImageViewBase<DisparityT> const& disparity,
+                      int kernel_size) {
+  typedef FillNoDataWithAvg<DisparityT> result_type;
+  return result_type( disparity.impl(), kernel_size);
+}
+
 template <class ImageT>
 ImageViewRef<PixelGray<float> >
 generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
@@ -194,6 +267,9 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
   // ... or ...
   // possibly apply the blur on a linear scale (pow(0,2.2), blur, then exp).
 
+  float fsaa_sigma = 1.0f * float(opt.fsaa)/2.0f;
+  int kernel_size = vw::compute_kernel_size(fsaa_sigma);
+  
   ImageViewRef<PixelGray<float> > rasterizer_fsaa;
   if ( opt.target_projwin != BBox2() ) {
     typedef ValueEdgeExtension<PixelGray<float> > ValExtend;
@@ -202,13 +278,15 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
       rasterizer_fsaa =
         crop(edge_extend
              (apply_mask
-              (subsample
+              (asp::resample_aa
                (translate
                 (gaussian_filter
-                 (create_mask(rasterizer.impl(),opt.nodata_value),
-                  1.0f * float(opt.fsaa)/2.0f),
+                 (fill_nodata_with_avg
+                  (create_mask(rasterizer.impl(),opt.nodata_value),
+                   kernel_size),
+                  fsaa_sigma),
                  -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-                 ConstantEdgeExtension()), opt.fsaa),
+                 ConstantEdgeExtension()), 1.0/opt.fsaa),
                opt.nodata_value),
               ValExtend(opt.nodata_value)), opt.target_projwin_pixels );
     } else {
@@ -221,13 +299,15 @@ generate_fsaa_raster( ImageViewBase<ImageT> const& rasterizer,
       // subsample .. samples from the corner.
       rasterizer_fsaa =
         apply_mask
-        (subsample
+        (asp::resample_aa
          (translate
           (gaussian_filter
-           (create_mask(rasterizer.impl(),opt.nodata_value),
-            1.0f * float(opt.fsaa)/2.0f),
+           (fill_nodata_with_avg
+            (create_mask(rasterizer.impl(),opt.nodata_value),
+             kernel_size),
+            fsaa_sigma),
            -double(opt.fsaa-1)/2., double(opt.fsaa-1)/2.,
-           ConstantEdgeExtension()), opt.fsaa),
+           ConstantEdgeExtension()), 1.0/opt.fsaa),
          opt.nodata_value);
     } else {
       rasterizer_fsaa = rasterizer.impl();
