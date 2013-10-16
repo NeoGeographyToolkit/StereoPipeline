@@ -50,6 +50,11 @@ namespace po = boost::program_options;
 #include <osgDB/Registry>
 #include <osgDB/WriteFile>
 #include <osgDB/ReadFile>
+#include <osgSim/Version>
+#include <osgFX/Version>
+#include <osgTerrain/Version>
+#include <osgVolume/Version>
+
 
 // ---------------------------------------------------------
 // UTILITIES
@@ -76,7 +81,8 @@ struct Options : asp::BaseOptions {
   std::string rot_order;
   double phi_rot, omega_rot, kappa_rot;
   bool center, enable_lighting, smooth_mesh, simplify_mesh;
-
+  std::string osg_version;
+  
   // Output
   std::string output_prefix, output_file_type;
 };
@@ -469,6 +475,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   asp::create_out_dir(opt.output_prefix);
 
   opt.simplify_mesh = vm.count("simplify-mesh");
+
+  // The purpose of this is to force ASP to link to the OSG libraries
+  // at link-time, otherwise it fails to find them at run-time
+  // due to peculiarities in OSG's functionality for library search.
+  opt.osg_version = std::string("")
+    + osgSimGetVersion()
+    + osgFXGetVersion()
+    + osgTerrainGetVersion();
+    + osgVolumeGetVersion();
 }
 
 int main( int argc, char *argv[] ){
