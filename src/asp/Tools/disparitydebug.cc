@@ -77,7 +77,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Missing input file!\n"
               << usage << general_options );
   if ( opt.output_prefix.empty() )
-    opt.output_prefix = fs::path(opt.input_file_name).stem().string();
+    opt.output_prefix = asp::prefix_from_filename(opt.input_file_name);
 }
 
 template <class PixelT>
