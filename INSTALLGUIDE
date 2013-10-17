@@ -32,7 +32,8 @@ the process of building the NGT itself is generally
 straightforward.  There are four steps:
 
 i. Configure the library.  This is usually as simple as running the
-"./configure" script from within the root NGT package directory.
+"./autogen and ./configure" scripts from within the root NGT package 
+directory.
 
 ii. Build the tools by running "make".
 
