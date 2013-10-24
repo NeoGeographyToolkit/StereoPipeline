@@ -18,7 +18,11 @@
 
 
 import sys, optparse, subprocess, re
-from multiprocessing import cpu_count
+if sys.version_info < (2, 6, 0):
+    num_cpus = 8
+else:
+    from multiprocessing import cpu_count
+    num_cpus = cpu_count()
 import os.path as P
 libexec_path = sys.path[0] + '/../libexec'
 sys.path.insert(0, libexec_path) # prepend to Python path
@@ -38,7 +42,7 @@ if __name__ == '__main__':
   [ASP [@]ASP_VERSION[@]]'''
 
     p = PassThroughOptionParser(usage=usage)
-    p.add_option('--threads',              dest='threads', default=cpu_count(), type='int',
+    p.add_option('--threads',              dest='threads', default=num_cpus, type='int',
                  help='Select the number of processors (threads) to use.')
     p.add_option('-t', '--session-type',   dest='session',
                  help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc]')

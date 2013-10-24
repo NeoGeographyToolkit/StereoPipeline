@@ -47,7 +47,13 @@ class PassThroughOptionParser(optparse.OptionParser):
             try:
                 optparse.OptionParser._process_args(self,largs,rargs,values)
             except (optparse.BadOptionError), e:
-                largs.append(e.opt_str)
+                if sys.version_info < (2, 6, 0):
+                    # Port to Python 2.4
+                    p = re.match("^.*?no such option:\s*(.*?)$", e.msg)
+                    if p:
+                        largs.append(p.group(1))
+                else:
+                    largs.append(e.opt_str)
 
 # Execute a given command stored in the libexec directory and parse
 # its output. The output format is expected to be lines of
