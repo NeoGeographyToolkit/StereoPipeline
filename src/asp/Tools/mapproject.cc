@@ -52,7 +52,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   double NaN = std::numeric_limits<double>::quiet_NaN();
   general_options.add_options()
-    // Note: We do ignore the nodata-value option for now.
     ("nodata-value", po::value(&opt.nodata_value)->default_value(-32768),
      "No-data value to use unless specified in the input image.")
     ("t_srs", po::value(&opt.target_srs_string)->default_value(""),

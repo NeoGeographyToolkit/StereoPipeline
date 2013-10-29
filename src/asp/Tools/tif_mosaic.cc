@@ -34,20 +34,20 @@ struct ImageData{
   std::string src_file;
   DiskImageView<float> src_img;
   BBox2 src_box, dst_box;
-  double nodata_val;
+  double nodata_value;
   AffineTransform transform; // Transform from src_box to dst_box.
 
   ImageData(std::string const& src_file_in,
             BBox2 const& src_box_in, BBox2 const& dst_box_in):
     src_file(src_file_in), src_img(src_file),
-    src_box(src_box_in), dst_box(dst_box_in), nodata_val(0.0),
+    src_box(src_box_in), dst_box(dst_box_in), nodata_value(0.0),
     transform(AffineTransform(Matrix2x2(dst_box.width()/src_box.width(),0,
                                         0,dst_box.height()/src_box.height()),
                               dst_box.min() - src_box.min())) {
 
     DiskImageResourceGDAL in_rsrc(src_file);
     if ( in_rsrc.has_nodata_read() ){
-      nodata_val = in_rsrc.nodata_read();
+      nodata_value = in_rsrc.nodata_read();
     }
   }
 };
@@ -127,13 +127,13 @@ class TifMosaicView: public ImageViewBase<TifMosaicView>{
   int m_dst_cols, m_dst_rows;
   std::vector<ImageData> m_img_data;
   double m_scale;
-  double m_output_nodata_val;
+  double m_output_nodata_value;
 
 public:
   TifMosaicView(int dst_cols, int dst_rows, std::vector<ImageData> & img_data,
-            double scale, double output_nodata_val):
+            double scale, double output_nodata_value):
     m_dst_cols((int)(scale*dst_cols)), m_dst_rows((int)(scale*dst_rows)),
-    m_img_data(img_data), m_scale(scale), m_output_nodata_val(output_nodata_val){}
+    m_img_data(img_data), m_scale(scale), m_output_nodata_value(output_nodata_value){}
 
   typedef float pixel_type;
   typedef pixel_type result_type;
@@ -164,7 +164,7 @@ public:
     // Note 1: the cropped sub-images we get below are non-overlapping
     // and no bigger than they need to be.
     // Note 2: We mask each image using its individual nodata-value.
-    // The output mosaic uses the global m_output_nodata_val.
+    // The output mosaic uses the global m_output_nodata_value.
     typedef ImageView<masked_pixel_type> ImageT;
     typedef InterpolationView<ImageT, BilinearInterpolation> InterpT;
 
@@ -184,11 +184,11 @@ public:
       box.expand( BilinearInterpolation::pixel_buffer ); // Expanding so Interpolation doesn't reach outside image
       crop_vec[k] =
         InterpT(create_mask(crop(edge_extend(m_img_data[k].src_img, ConstantEdgeExtension()), box),
-                             m_img_data[k].nodata_val));
+                             m_img_data[k].nodata_value));
     }
 
     ImageView<pixel_type> tile(bbox.width(), bbox.height());
-    fill( tile, m_output_nodata_val );
+    fill( tile, m_output_nodata_value );
 
     // TODO: This could possibly be performed entirely with a
     // TransformView and apply_mask.
@@ -232,7 +232,10 @@ public:
 
 struct Options : asp::BaseOptions {
   std::string img_data, output_image;
-  double percent;
+  bool has_nodata_value;
+  double percent, nodata_value;
+  Options(): has_nodata_value(false),
+             nodata_value(std::numeric_limits<double>::quiet_NaN()){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -243,6 +246,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Information on the images to mosaic.")
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
      "Specify the output image.")
+    ("nodata-value", po::value(&opt.nodata_value),
+     "Nodata value to use on output.")
     ("reduce-percent", po::value(&opt.percent)->default_value(100.0),
      "Reduce resolution using this percentage.");
 
@@ -252,6 +257,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
+
+  opt.has_nodata_value = vm.count("nodata-value");
 
   if ( opt.img_data.empty() )
     vw_throw( ArgumentErr() << "No images to mosaic.\n"
@@ -283,17 +290,19 @@ int main( int argc, char *argv[] ) {
     if ( dst_cols <= 0 || dst_rows <= 0 || img_data.empty() )
       vw_throw( ArgumentErr() << "Invalid input data.\n");
 
-    // We can handle individual images having different
-    // nodata values. Pick the one of the first image
-    // as the output nodata value.
-    double output_nodata_val = img_data[0].nodata_val;
-
+    // We can handle individual images having different nodata
+    // values. Pick the one of the first image as the output nodata
+    // value. Override with user's nodata value if provided.
+    double output_nodata_value = img_data[0].nodata_value;
+    if (opt.has_nodata_value)
+      output_nodata_value = opt.nodata_value;
+    
     vw_out() << "Writing: " << opt.output_image << std::endl;
     asp::block_write_gdal_image(opt.output_image,
                                 TifMosaicView(dst_cols, dst_rows,
                                               img_data, scale,
-                                              output_nodata_val),
-                                output_nodata_val, opt,
+                                              output_nodata_value),
+                                output_nodata_value, opt,
                                 TerminalProgressCallback("asp", "\t    Mosaic:"));
 
   } ASP_STANDARD_CATCHES;

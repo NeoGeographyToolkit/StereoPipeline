@@ -394,12 +394,15 @@ def main():
             parser.set_defaults(gdaldir="")
             parser.set_defaults(reduce_percent=100.0)
             parser.set_defaults(output_prefix="")
+            parser.set_defaults(nodata_value=None)
             parser.add_option("--gdal-dir", dest="gdaldir",
                               help="Directory where the GDAL tools are. If not provided, we get them from the environment.")
             parser.add_option("--reduce-percent", dest="reduce_percent", type="float",
                               help="Render a reduced resolution image and xml based on this percentage.")
             parser.add_option("--output-prefix", dest="output_prefix", type="str",
                               help="The prefix for the output .tif and .xml files.")
+            parser.add_option("--nodata-value", dest="nodata_value", type="float",
+                              help="Nodata value to use on output.")
             parser.add_option('--skip-rpc-gen', dest='skip_rpc_gen', default=False,
                               action='store_true', help="Skip RPC model generation")
             parser.add_option("--rpc-penalty-weight", dest="penalty_weight", type="float",
@@ -651,6 +654,8 @@ def main():
                            '--output-image', tif_file,
                            '--reduce-percent', str(options.reduce_percent),
                            '--image-data', tif_mosaic_opts]
+            if options.nodata_value is not None:
+                mosaic_args += ['--nodata-value', str(options.nodata_value)]
             print "Writing: " + tif_file
             run_and_parse_output( mosaic_cmd, mosaic_args, sep,
                                   options.verbose )
