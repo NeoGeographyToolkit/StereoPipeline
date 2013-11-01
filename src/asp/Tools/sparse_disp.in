@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-
+# for debugging:
 import sys, optparse, subprocess, re, os, math, time, datetime
 from osgeo import gdal, gdalconst
 #import os.path as P
@@ -25,7 +25,7 @@ import scipy as sp
 import scipy.ndimage.filters as sf
 import scipy.stats as ss
 import scipy.spatial as sp
-from scipy.ndimage import convolve, binary_dilation
+from scipy.ndimage import convolve, binary_dilation, convolve1d
 from scipy.sparse import coo_matrix
 from scipy.interpolate import griddata
 from multiprocessing import Pool, cpu_count
@@ -554,7 +554,7 @@ def run_blocks(param):
         T_buffer.setBounds(t_xr[0]-KW, t_yr[0]-KW, t_pixels+2.*KW,
                            t_pixels+2.*KW, update=1)
         T_img=T_buffer.z[0,:,:]
-        if np.mean(T_img<=T_buffer.noData)>.1: # bail if > 10% invalid
+        if np.mean(T_img<=T_buffer.noData)>.1: # bail if > 10% 0, flag with C=-2
             continue
 
         # Read S
@@ -563,7 +563,7 @@ def run_blocks(param):
         S_buffer.setBounds(s_xr[0]-KW, s_yr[0]-KW, s_nx+2.*KW,
                            s_ny+2.*KW, update=1)
         S_img=S_buffer.z [0,:,:]
-        if np.mean(S_img<=S_buffer.noData) > .25: # bail if > 25% invalid
+        if np.mean(S_img<=S_buffer.noData) > .25: # bail if > 25% 0
             continue
         out = run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc, s_nx,
                             s_ny, dx0, dy0, T_img, S_img, T_buffer.noData)
@@ -728,7 +728,7 @@ def search_new_pts(xy, dxy, t_size, matcher, min_template_sigma=0.):
     sw = np.array(2.**np.ceil(np.log2(np.maximum(dxyR+t_size, t_size+16))))
     xy_new, dxy_new, C_new, Pt_new= matcher(t_size, sw, dxy0, xy,
                                             min_template_sigma=min_template_sigma)
-    xy_bad_mask=xy_new[C_new.ravel()<0,:]
+    xy_bad_mask=xy_new[C_new.ravel()==-2,:]
     good=C_new>0
     xy_new=xy_new[good.ravel(),:]
     dxy_new=dxy_new[good.ravel(),:]
@@ -788,7 +788,9 @@ def test_epipolar(dxy_0, ep_vec, dxy, tol):
     smaller that tol.
     """
     delta=np.abs(np.dot((dxy-dxy_0), [ep_vec[1], -ep_vec[0]]))
-    return (delta < tol), delta
+    disp_mag=np.sqrt((dxy[:,0]-dxy_0[0])**2 +(dxy[:,1]-dxy_0[1])**2)
+    good=(delta < tol) | (delta < 0.02 * disp_mag )
+    return good, delta
 
 def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
     """
@@ -899,11 +901,10 @@ def main():
             if optDict[key] is not None:
                 print "\t%s is %s" %(key, str(optDict[key]))
 
-
     #undocumented options#
     F_ep_pts_to_use=0.9
     ep_tol_max=24
-    ep_tol_min=16
+    ep_tol_min=4
     dxy_slope_tol=3.0
     C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
 
@@ -993,12 +994,15 @@ def main():
     # run the epipolar fit, establish a tolerance, run again
     ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_ep_pts_to_use)
     good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, 32)
-    ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
+    ep_f90=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
+    ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
+    # run fit again if any points were marked as bad in the first epipolar test
     if ep_vec_initial is not None and np.any(~good):
         ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None, F_ep_pts_to_use)
-        ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)))
+        ep_f90= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
+        ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
         good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-    print " --- ep vec estimated at(%f,%f), tol=%f" % (ep_vec[0], ep_vec[1], ep_tol)
+    print " --- ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
     # make sparse matrices for storing dx and dy values, store initial values
     im_shape=[ftm.Ny, ftm.Nx]
     dx_mat=coo_matrix((dxy[good,0],(xy[good,1],xy[good,0])), shape=im_shape).tocsr()
@@ -1050,7 +1054,7 @@ def main():
         new_dxy_score=new_dxy_score[uRows,:]
         N_search=new_xy.shape[0]
 
-        new_xy, new_dxy,  new_C, new_xy_bad=search_new_pts(new_xy, new_dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min)
+        new_xy, new_dxy,  new_C, new_xy_bad=search_new_pts(new_xy, new_dxy_score, t_pixels, ftm, min_template_sigma=options.sigma_t_min, mask=in_mask)
         if len(new_xy)==0:
             print "    no new points found"
             recalc_nbhd_range=True
@@ -1115,7 +1119,7 @@ def main():
         all_pts=all_pts[:,[1,0]];
         dxy_score = nbhd_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
 
-    # filter out the 99th percentile of matches
+    # delete the 1% of matches with the greatest disparity range
     R_dx=dxy_score[:,1]-dxy_score[:,0]
     R_dy=dxy_score[:,3]-dxy_score[:,2]
 
