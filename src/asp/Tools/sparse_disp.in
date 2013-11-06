@@ -850,7 +850,7 @@ def img_interpolate_linear( x, y, I, GT, nodata_val=np.NaN):
     result[good]=ztemp
     return result
 
-def grid_disp(xg, yg, xy, dx, dy, ex, ey, L_valid, N_coarse, dispDs, spreadDs, downscale):
+def grid_disp(xg, yg, xy, dx, dy, ex, ey, L_valid, N_coarse, dispDs, spreadDs, downscale, cr_out):
     grid_spacing=xg[0,1]-xg[0,0]
     # valid kernel dilates the distance mask, which tells whether to correlate
     sigma_valid=L_valid/3;
@@ -887,19 +887,19 @@ def grid_disp(xg, yg, xy, dx, dy, ex, ey, L_valid, N_coarse, dispDs, spreadDs, d
         zi[np.isnan(zi)]=zi_smooth[np.isnan(zi)]
         zi=np.nan_to_num(zi)
         # ... and write it out to the disparity file
-        dispDs.GetRasterBand(count+1).WriteArray(zi[:,:,0])
+        dispDs.GetRasterBand(count+1).WriteArray(zi[:,:,0], int(cr_out[0]), int(cr_out[1]))
         if count==0:
             dx_g=zi
         if count==1:
             dy_g=zi
-    dispDs.GetRasterBand(3).WriteArray(dist_mask.astype('float32'))
+    dispDs.GetRasterBand(3).WriteArray(dist_mask.astype('float32'), int(cr_out[0]), int(cr_out[1]))
     zi=np.nan_to_num(griddata(np.append(xy, np.c_[xg1, yg1], 0), np.append(ex, np.NaN+np.zeros([len(xg1),1]),0), (xg, yg), method='linear'))
     zi[dist_mask==0]=0
-    spreadDs.GetRasterBand(1).WriteArray(zi[:,:,0])
+    spreadDs.GetRasterBand(1).WriteArray(zi[:,:,0], int(cr_out[0]), int(cr_out[1]))
     zi=np.nan_to_num(griddata(np.append(xy, np.c_[xg1, yg1], 0), np.append(ey, np.NaN+np.zeros([len(xg1),1]),0), (xg, yg), method='linear'))
     zi[dist_mask==0]=0
-    spreadDs.GetRasterBand(2).WriteArray(zi[:,:,0])
-    spreadDs.GetRasterBand(3).WriteArray(dist_mask.astype('float32'))
+    spreadDs.GetRasterBand(2).WriteArray(zi[:,:,0], int(cr_out[0]), int(cr_out[1]))
+    spreadDs.GetRasterBand(3).WriteArray(dist_mask.astype('float32'), int(cr_out[0]), int(cr_out[1]))
     return
 
 def main():
@@ -1264,6 +1264,20 @@ def main():
     bad_xy=np.c_[bad_mask_mat.nonzero()][:,[1, 0]]
     bad_flag=bad_mask_mat[bad_xy[:,1], bad_xy[:,0]]
     bad_xy=np.c_[GT[0]+bad_xy[:,0]*GT[1]+bad_xy[:,1]*GT[2], GT[3]+bad_xy[:,0]*GT[4]+bad_xy[:,1]*GT[5]]
+    # cleanup memory before gridding starts
+    pt_dict=None
+    tri=None
+    dx=None
+    dy=None
+    dx_mat=None
+    dy_mat=None
+    R_dx_mat=None
+    R_dy_mat=None
+    xy=None
+    ftm=None
+    C=None
+    refine_pts=None
+
 
     if options.Debug:
         print "--- Debug enabled-----"
@@ -1294,7 +1308,6 @@ def main():
         # scale x, y, and C back up by output_scale
         for col in [0, 1, 4]:
             out[:,col]=out[:,col]*options.output_scale
-        driver = ftm.T_ds.GetDriver()
         delta_x=options.output_scale*np.abs(GT[1])
         x0=GT[0]
         y0=GT[3]
@@ -1310,13 +1323,30 @@ def main():
         GT1[5]=Gdy
         nx1=np.int(im_shape[1]/options.output_scale)
         ny1=np.int(im_shape[0]/options.output_scale)
-        xg, yg=np.meshgrid((np.arange(0, nx1)+0.5)*Gdx+x0, (np.arange(0, ny1)+0.5)*Gdy+y0)
+        xg=(np.arange(0, nx1)+0.5)*Gdx+x0
+        yg=(np.arange(0, ny1)+0.5)*Gdy+y0
         disp_file = output_prefix + '-D_sub.tif'
         dispDs = driver.Create(disp_file,  nx1, ny1, 3, gdalconst.GDT_Int32)
         spread_file = output_prefix + '-D_sub_spread.tif'
         spreadDs = driver.Create(spread_file,  nx1, ny1, 3, gdalconst.GDT_Int32)
         # interpolate the scaled dx and dy values
-        grid_disp(xg, yg, out[:,0:2], out[:,2], out[:,3], out[:,5], out[:,6], options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale)
+        OutBlocksize=1024
+        c0_out=np.arange(0,  xg.shape[0], OutBlocksize)
+        r0_out=np.arange(0,  yg.shape[0], OutBlocksize)
+        grid_pad=options.fill_dist*2
+        for c0 in c0_out:
+            for r0 in r0_out:
+                if options.Debug:
+                    print "     gridding output for col %d out of %d, row %d out of %d" % (int(c0/OutBlocksize), int(c0_out[-1]/OutBlocksize), int(r0/OutBlocksize), int(r0_out[-1]/OutBlocksize))
+                cols=np.arange(c0, np.minimum(c0+OutBlocksize, len(xg)))
+                rows=np.arange(r0, np.minimum(r0+OutBlocksize, len(yg)))
+                if (len(rows)==0) | (len(cols)==0):
+                    continue
+                [xg_sub, yg_sub]=np.meshgrid(xg[cols], yg[rows])
+                cr_out=[cols[0], rows[0]]
+                ii=np.zeros(out.shape[0]).astype('bool')  # make a 1-d array to populate with the truth values we'll use to select data points
+                ii[:]=((out[:,0] > xg_sub[0,0]-grid_pad) & (out[:,0] < xg_sub[0,-1]+grid_pad) & (out[:,1] > yg_sub[-1,0]-grid_pad) & (out[:,1] < yg_sub[0,0]+grid_pad)).ravel()
+                grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6], options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale, cr_out)
 
         for Ds in (dispDs, spreadDs):
             Ds.SetGeoTransform(tuple(GT1))
