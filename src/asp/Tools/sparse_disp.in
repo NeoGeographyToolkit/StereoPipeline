@@ -1263,7 +1263,7 @@ def main():
     good_xy=np.c_[C_mat.nonzero()][:,[1, 0]]
     good_xy=np.c_[GT[0]+good_xy[:,0]*GT[1]+good_xy[:,1]*GT[2], GT[3]+good_xy[:,0]*GT[4]+good_xy[:,1]*GT[5]]
     bad_xy=np.c_[bad_mask_mat.nonzero()][:,[1, 0]]
-    if np.min(bad_xy.shape)==0:
+    if np.min(bad_xy.shape)>0:
         bad_flag=bad_mask_mat[bad_xy[:,1], bad_xy[:,0]]
         bad_xy=np.c_[GT[0]+bad_xy[:,0]*GT[1]+bad_xy[:,1]*GT[2], GT[3]+bad_xy[:,0]*GT[4]+bad_xy[:,1]*GT[5]]
     else:
