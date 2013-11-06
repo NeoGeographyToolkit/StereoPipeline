@@ -294,12 +294,11 @@ namespace asp {
           << "\tyour input models as most likely stereo won't\n"
           << "\tbe able to triangulate.\n";
       }
-    } catch ( camera::PixelToRayErr const& e ) {
-    } catch ( camera::PointToPixelErr const& e ) {
+    } catch (...) {
       // Silent. Top Left pixel might not be valid on a map
       // projected image.
     }
-
+    
     if ( stereo_settings().seed_mode > 3 ){
       vw_throw( ArgumentErr() << "Invalid value for seed-mode: "
                 << stereo_settings().seed_mode << ".\n" );

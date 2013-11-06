@@ -85,7 +85,7 @@ namespace asp {
         Vector2 ip_org_coord = m_tx1.reverse( Vector2( ip->x, ip->y ) );
         Vector3 line_eq;
 
-        // Can't assume the camera is safe (ISIS)
+        // Can't assume the camera is thread safe (ISIS)
         {
           Mutex::Lock lock( m_camera_mutex );
           line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, m_cam1, m_cam2 );
@@ -228,8 +228,7 @@ namespace asp {
             right_points.push_back( Vector3(r[0],r[1],1) );
           }
         }
-        catch (camera::PixelToRayErr   const& e ) {}
-        catch (camera::PointToPixelErr const& e ) {}
+        catch (...) {}
 
         try {
           Vector2 r( double(box2.width() - 1) * i / 99.0,
@@ -247,8 +246,7 @@ namespace asp {
             right_points.push_back( Vector3(r[0],r[1],1) );
           }
         }
-        catch (camera::PixelToRayErr   const& e ) {}
-        catch (camera::PointToPixelErr const& e ) {}
+        catch (...) {}
       }
     }
 

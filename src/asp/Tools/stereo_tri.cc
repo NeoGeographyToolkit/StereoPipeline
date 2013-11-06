@@ -356,22 +356,26 @@ void stereo_triangulation( Options const& opt ) {
     // We apply the universe radius here and then write the result
     // directly to a file on disk.
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(),0,0);
-    if ( stereo_settings().universe_center == "camera" ) {
-      if (opt.session->name() == "rpc")
-        vw_throw(InputErr() << "Stereo with RPC cameras cannot have the camera as the universe center.\n");
-
-      universe_radius_func =
-        stereo::UniverseRadiusFunc(camera_model1->camera_center(Vector2()),
-                                   stereo_settings().near_universe_radius,
-                                   stereo_settings().far_universe_radius);
-    } else if ( stereo_settings().universe_center == "zero" ) {
-      universe_radius_func =
-        stereo::UniverseRadiusFunc(Vector3(),
-                                   stereo_settings().near_universe_radius,
-                                   stereo_settings().far_universe_radius);
+    try{
+      if ( stereo_settings().universe_center == "camera" ) {
+        if (opt.session->name() == "rpc")
+          vw_throw(InputErr() << "Stereo with RPC cameras cannot have the camera as the universe center.\n");
+        
+        universe_radius_func =
+          stereo::UniverseRadiusFunc(camera_model1->camera_center(Vector2()),
+                                     stereo_settings().near_universe_radius,
+                                     stereo_settings().far_universe_radius);
+      } else if ( stereo_settings().universe_center == "zero" ) {
+        universe_radius_func =
+          stereo::UniverseRadiusFunc(Vector3(),
+                                     stereo_settings().near_universe_radius,
+                                     stereo_settings().far_universe_radius);
+      }
+      vw_out() << "\t--> " << universe_radius_func;
+    }catch(...){
+      vw_out(WarningMessage) << "Could not find the camera center. Will not be able to filter triangulated points by radius.\n";
     }
-    vw_out() << "\t--> " << universe_radius_func;
-
+    
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud.   " << std::endl;
     ImageViewRef<Vector6> point_cloud;

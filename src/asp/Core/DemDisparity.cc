@@ -143,7 +143,7 @@ namespace asp {
         try {
           left_camera_ctr = m_left_camera_model->camera_center(left_fullres_pix);
           left_camera_vec = m_left_camera_model->pixel_to_vector(left_fullres_pix);
-        } catch (const camera::PixelToRayErr& /*e*/) {
+        } catch (...) {
           continue;
         }
         Vector3 xyz = camera_pixel_to_dem_xyz(left_camera_ctr, left_camera_vec,
@@ -196,7 +196,7 @@ namespace asp {
           try {
             left_camera_ctr = m_left_camera_model->camera_center(left_fullres_pix);
             left_camera_vec = m_left_camera_model->pixel_to_vector(left_fullres_pix);
-          } catch (const camera::PixelToRayErr& /*e*/) {
+          } catch (...) {
             continue;
           }
           Vector3 xyz = camera_pixel_to_dem_xyz(left_camera_ctr, left_camera_vec,
@@ -225,7 +225,7 @@ namespace asp {
             Vector2 right_fullres_pix;
             try {
               right_fullres_pix = m_right_camera_model->point_to_pixel(xyz + bias[k]*m_dem_error*left_camera_vec);
-            } catch ( camera::PointToPixelErr const& e ) {
+            } catch (...) {
               curr_pixel_disp_range(k, 0).invalidate();
               continue;
             }
