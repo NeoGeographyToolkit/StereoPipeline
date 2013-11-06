@@ -326,7 +326,7 @@ void load_csv(string const& file_name,
   }
 
   cartography::Datum datum;
-  if (numTokens > 3){
+  if (numTokens > 20){
     is_lola_rdr_format = true;
     if (verbose)
       vw_out() << "Guessing file " << file_name
