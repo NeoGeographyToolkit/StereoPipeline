@@ -79,10 +79,11 @@ def wipe_option(options, opt, n):
 
 def create_subproject_dirs( settings, **kw ):
 
-    # Create a subdirectory for each process we start.
-    # Pretend previous steps of stereo already ran in
-    # that directory by creating symbolic links to
-    # actual files in parent run directory.
+    # Create a subdirectory for each process we start.  Pretend
+    # previous steps of stereo already ran in that directory by
+    # creating symbolic links to actual files in parent run directory.
+    # Don't symlink to PC.tif or RD.tif as those will be files which
+    # actually need to be created in each subdirectory.
     
     for tile in produce_tiles( settings, opt.job_size_w, opt.job_size_h ):
         out_prefix = settings['out_prefix'][0]
@@ -103,7 +104,9 @@ def create_subproject_dirs( settings, **kw ):
                 sym_f = f.replace(out_prefix, tile_prefix)
                 relative_f = os.path.relpath(f, subproject_dir)
                 if not os.path.lexists(sym_f):
-                    os.symlink(relative_f, sym_f)
+                    m = re.match('^.*?-(PC|RD).tif$', relative_f)
+                    if not m:
+                        os.symlink(relative_f, sym_f)
 
 def build_vrt( settings, postfix, num_bands=4, **kw ):
 
