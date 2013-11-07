@@ -215,7 +215,7 @@ namespace cartography {
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
 
       BBox2i bbox_1 = bbox;
-      bbox_1.expand(1);
+      bbox_1.expand(10); // bugfix
 
       // Used to find which polygons are actually in the draw space.
       BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox_1);
@@ -252,7 +252,9 @@ namespace cartography {
           point_image_boundary.grow( boundary.second );
         }
       }
-
+      point_image_boundary.expand(10); // bugfix, ensure we see beyond current tile
+      point_image_boundary.crop(vw::bounding_box(m_point_image));
+      
       if ( point_image_boundary == BBox2i() )
         return CropView<ImageView<pixel_type> >( render_buffer,
                                                  BBox2i(-bbox_1.min().x(),
