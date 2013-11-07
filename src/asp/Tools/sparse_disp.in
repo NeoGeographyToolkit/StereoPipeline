@@ -1344,7 +1344,7 @@ def main():
         for c0 in c0_out:
             for r0 in r0_out:
                 if options.Debug:
-                    print "     gridding output for col %d out of %d, row %d out of %d" % (int(c0/OutBlocksize), int(c0_out[-1]/OutBlocksize), int(r0/OutBlocksize), int(r0_out[-1]/OutBlocksize))
+                    print "     gridding output for col %d out of %d, row %d out of %d" % (int(c0/OutBlocksize)+1, int(c0_out[-1]/OutBlocksize)+1, int(r0/OutBlocksize)+1, int(r0_out[-1]/OutBlocksize)+1)
                 cols=np.arange(c0, np.minimum(c0+OutBlocksize, len(xg)))
                 rows=np.arange(r0, np.minimum(r0+OutBlocksize, len(yg)))
                 if (len(rows)==0) | (len(cols)==0):
@@ -1355,6 +1355,10 @@ def main():
                 cr_out=[cols[0], rows[0]]
                 ii=np.zeros(out.shape[0]).astype('bool')  # make a 1-d array to populate with the truth values we'll use to select data points
                 ii[:]=((out[:,0] > XR_out[0]) & (out[:,0] < XR_out[1]) & (out[:,1] > YR_out[0]) & (out[:,1] < YR_out[1])).ravel()
+                if np.sum(ii) < 4:
+                    continue
+                if options.Debug:
+                    print " ...based on %d points" % np.sum(ii)
                 if (np.sum(ii) > 4) & (np.amax(out[ii,0])-np.amin(out[ii,0]) > 0 ) & (np.amax(out[ii,1])-np.amin(out[ii,1]) > 0 ) :
                     grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6], options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale, cr_out)
 
