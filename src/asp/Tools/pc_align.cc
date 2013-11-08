@@ -846,24 +846,6 @@ inline transform_pc( ImageViewBase<ImageT> const& image,
   return UnaryPerPixelView<ImageT, TransformPC>( image.impl(), TransformPC(T) );
 }
 
-// Make a transparent pixel into a NaN pixel
-template<class PixelT>
-struct TransparentToNaN : public ReturnFixedType<PixelT> {
-  TransparentToNaN(){}
-  PixelT operator() (PixelT const& P) const {
-    if (is_transparent(P))
-      return PixelT(numeric_limits<double>::quiet_NaN());
-    return P;
-  }
-};
-template <class ImageT>
-UnaryPerPixelView< ImageT, TransparentToNaN<typename ImageT::pixel_type> >
-inline transparent_to_nan( ImageViewBase<ImageT> const& image) {
-  return UnaryPerPixelView<ImageT, TransparentToNaN<typename ImageT::pixel_type> >
-    ( image.impl(),
-      TransparentToNaN<typename ImageT::pixel_type>() );
-}
-
 void calc_translation_vec(DP const& source, DP const& trans_source,
                           string const& actual_datum_str,
                           Vector3 & trans, Vector3 & trans_llh){
@@ -989,8 +971,7 @@ void save_trans_point_cloud(Options const& opt,
     if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
 
     ImageViewRef<Vector3> point_cloud =
-      geodetic_to_cartesian( dem_to_geodetic( transparent_to_nan
-                                              (create_mask(dem, nodata)),
+      geodetic_to_cartesian( dem_to_geodetic( create_mask(dem, nodata),
                                               dem_georef ),
                              dem_georef.datum() );
     asp::block_write_gdal_image(output_file, transform_pc(point_cloud, T),
