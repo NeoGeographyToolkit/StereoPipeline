@@ -131,28 +131,34 @@ class BBox:
     def __repr__(self):
         return "BBox %f %f -> %f %f" % (self.minx,self.miny,self.maxx,self.maxy)
 
-# Create an object made of a string, a 2D vector, and a box. Sort an
-# array of such objects by the min coordinate of the box.
-class StVecBox:
-    def __init__(self, st, vec, box):
-        self.st  = st
-        self.vec = vec
-        self.box = box
+# Create an object made of a string, a 2D vector, a box, and a set of
+# lon-lat corners. Sort an array of such objects by the min coordinate
+# of the box.
+class StVecBoxCr:
+    def __init__(self, st, vec, box, corners):
+        self.st      = st
+        self.vec     = vec
+        self.box     = box
+        self.corners = corners
+        
 def minyCompare(P, Q):
     return P.box.miny - Q.box.miny
-def sort_by_miny(args, orig_sizes, placements):
+def sort_by_miny(args, orig_sizes, placements, ll_corners):
     S = []
     for i in range(len(args)):
-        S.append(StVecBox(copy.deepcopy(args[i]),
-                          copy.deepcopy(orig_sizes[i]),
-                          copy.deepcopy(placements[i])))
+        S.append(StVecBoxCr(copy.deepcopy(args[i]),
+                            copy.deepcopy(orig_sizes[i]),
+                            copy.deepcopy(placements[i]),
+                            copy.deepcopy(ll_corners[i])
+                            ))
     S.sort(minyCompare)
-    s_args = []; s_orig_sizes = []; s_placements = []
+    s_args = []; s_orig_sizes = []; s_placements = []; s_ll_corners = []
     for i in range(len(S)):
         s_args.append(S[i].st)
         s_orig_sizes.append(S[i].vec)
         s_placements.append(S[i].box)
-    return (s_args, s_orig_sizes, s_placements)
+        s_ll_corners.append(S[i].corners)
+    return (s_args, s_orig_sizes, s_placements, s_ll_corners)
 
 def set_or_wipe_image_tags(IMAGE, avg_meanproductgsd, avg_meancollectedgsd):
 
@@ -669,8 +675,19 @@ def main():
 
         # Wipe other outdated info
         if root.find("TIL")   != None: root.remove( root.find("TIL") )
+
+        # Ensure that the images are placed in order, from top to
+        # bottom.  So the second image will partially cover the first
+        # image, etc.  This is a bug fix for the situation when some
+        # images have a black area at the bottom.
+        (s_args, s_orig_sizes, s_placements, s_all_ll_corners) = \
+                 sort_by_miny(args, orig_sizes, placements, all_ll_corners)
+
+        # Adjust image corners
         if imd.find("BAND_P") != None:
-            adjust_camera_corners(imd.find("BAND_P"), all_ll_corners)
+            adjust_camera_corners(imd.find("BAND_P"), s_all_ll_corners)
+
+        # Adjust avg gsd tags and wipe other tags
         set_or_wipe_image_tags(root.find("IMD").find("IMAGE"),
                                avg_meanproductgsd, avg_meancollectedgsd)
 
@@ -703,12 +720,6 @@ def main():
         tree.write(xml_file)
 
         if not options.skip_tif_gen:
-            # Ensure that the images are placed in order, from top to
-            # bottom.  So the second image will partially cover the first
-            # image, etc.  This is a bug fix for the situation when some
-            # images have a black area at the bottom.
-            (s_args, s_orig_sizes, s_placements) = \
-                     sort_by_miny(args, orig_sizes, placements)
 
             tif_mosaic_opts = "%d,%d," % (boundary.width(), boundary.height())
             for i in range(len(s_args)):
