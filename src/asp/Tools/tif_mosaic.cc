@@ -196,30 +196,28 @@ public:
     // Since we have no rotations, we can assume whole lines will come from a single image
     for (int row = 0; row < bbox.height(); row++){
       for (int col = 0; col < bbox.width(); col++){
+
         Vector2 dst_pix
           = Vector2(col + bbox.min().x(), row + bbox.min().y())/m_scale;
 
         // See which src image we end up in. Start from the later
-        // images, as those are on top.
-        int good_k = -1;
-        Vector2 src_pix;
+        // images, as those are on top. Stop when we find an image
+        // with a valid pixel at given location.
         for (int k = (int)m_img_data.size()-1; k >= 0; k--){
-          src_pix = m_img_data[k].transform.reverse(dst_pix);
-          if (src_vec[k].contains(src_pix)){
-            good_k = k;
+          Vector2 src_pix = m_img_data[k].transform.reverse(dst_pix);
+          if (!src_vec[k].contains(src_pix)) continue;
+
+          src_pix += elem_diff(BilinearInterpolation::pixel_buffer,src_vec[k].min());
+          masked_pixel_type r = crop_vec[k](src_pix[0], src_pix[1] );
+          if (is_valid(r)){
+            tile(col, row) = r.child();
             break;
           }
-        }
-
-        if (good_k < 0) continue;
-
-        src_pix += elem_diff(BilinearInterpolation::pixel_buffer,src_vec[good_k].min());
-        masked_pixel_type r =
-          crop_vec[good_k](src_pix[0], src_pix[1] );
-        if (is_valid(r)) tile(col, row) = r.child();
-      }
-    }
-
+        } // image stack iteration
+        
+      } // col iteration
+    } // row iteration
+    
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
                              cols(), rows() );
   }
@@ -304,7 +302,7 @@ int main( int argc, char *argv[] ) {
                                               output_nodata_value),
                                 output_nodata_value, opt,
                                 TerminalProgressCallback("asp", "\t    Mosaic:"));
-
+    
   } ASP_STANDARD_CATCHES;
   return 0;
 }
