@@ -182,7 +182,70 @@ def set_or_wipe_image_tags(IMAGE, avg_meanproductgsd, avg_meancollectedgsd):
         IMAGE.find("MEANPRODUCTGSD").text   = str(avg_meanproductgsd)
     if IMAGE.find("MEANCOLLECTEDGSD") is not None:
         IMAGE.find("MEANCOLLECTEDGSD").text = str(avg_meancollectedgsd)
-        
+
+
+def find_box_center(B):
+
+    # B is an array of 4 points, each point having two coordinates.
+    cx = 0
+    cy = 0
+    np = 0
+    for p in B:
+        cx += p[0]
+        cy += p[1]
+        np += 1
+    cx /= np
+    cy /= np
+
+    return [cx, cy]
+
+def length(p):
+    return math.sqrt( p[0]**2 + p[1]**2 )
+
+def find_combined_box(A, B):
+
+    # Given two boxes, A and B, find the rough box containing both A and B.
+    # Both A and B is a vector of 4 points, each point having two
+    # coordinates, x and y.
+
+    # Given the ll (lower-left) corner each of the 2 boxes, find the
+    # vector from the center of each box to its ll corner. Average the
+    # two vectors. Also find the average of the two centers.  Compute
+    # the vector from the aveage center to the first box ll corner.
+    # Compute same vector for second box ll corner. Of these two
+    # vectors, the one which gives the narrowest angle with the
+    # earlier averaged vector will tell us which of the two ll corners
+    # will be the ll corner of the combined box.
+
+    if len(A) == 0: return B
+    
+    ca = find_box_center(A)
+    cb = find_box_center(B)
+    c = [ (ca[0] + cb[0])/2.0, (ca[1] + cb[1])/2.0 ]
+    
+    O = [] # output box
+    for i in range(len(A)):
+        pa = A[i]
+        pb = B[i]
+        va = [ pa[0] - ca[0], pa[1] - ca[1] ]
+        vb = [ pb[0] - cb[0], pb[1] - cb[1] ]
+        v  = [ (va[0] + vb[0])/2.0, (va[1] + vb[1])/2.0 ]
+
+        wa = [ pa[0] - c[0], pa[1] - c[1] ]
+        cosa = ( wa[0]*v[0] + wa[1]*v[1] ) / ( length(wa) * length(v) )
+
+        wb = [ pb[0] - c[0], pb[1] - c[1] ]
+        cosb = ( wb[0]*v[0] + wb[1]*v[1] ) / ( length(wb) * length(v) )
+
+        if cosa > cosb:
+            p = pa
+        else:
+            p = pb
+            
+        O.append(p)
+
+    return O
+
 def adjust_camera_corners(BAND_P, all_ll_corners):
 
     # The lon-lat box for the combined camera is the union of the
@@ -199,32 +262,10 @@ def adjust_camera_corners(BAND_P, all_ll_corners):
         if tag in wipe_tags:
             BAND_P.remove( BAND_P.find (tag) )
 
-    # Each camera has 4 corners, which are arbitrarily placed.  Find
-    # the average of all corners over all cameras. This will be the
-    # center. Look at all cameras' LL corner. The one furthest from
-    # the center will be the new LL corner. Same for LR, UL, and UR.
-    cx = 0
-    cy = 0
-    np = 0
-    for corner_vec in all_ll_corners:
-        for corner in corner_vec:
-            cx = cx + corner[0]
-            cy = cy + corner[1]
-            np = np + 1
-    cx = cx/np
-    cy = cy/np
-
+    # Each camera is a rectangle. Find the rough bounding box of all rectangles.
     out_corners = []
-    for i in range(4):
-        dist = -1
-        cr   = [0, 0]
-        for corner_vec in all_ll_corners:
-            pt = corner_vec[i]
-            ldist = math.sqrt((pt[0]-cx)**2 + (pt[1] - cy)**2)
-            if ldist > dist:
-                cr   = pt
-                dist = ldist
-        out_corners.append(cr)
+    for corner_vec in all_ll_corners:
+        out_corners = find_combined_box(out_corners, corner_vec)
 
     BAND_P.find("ULLON").text = str(out_corners[0][0])
     BAND_P.find("ULLAT").text = str(out_corners[0][1])
