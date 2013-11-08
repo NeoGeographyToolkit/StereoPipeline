@@ -80,6 +80,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.output_prefix =
       fs::basename(opt.dem1_name) + "__" + fs::basename(opt.dem2_name);
   }
+
+  asp::create_out_dir(opt.output_prefix);
 }
 
 int main( int argc, char *argv[] ) {
@@ -113,7 +115,8 @@ int main( int argc, char *argv[] ) {
     }
 
     ImageViewRef<PixelMask<double> > dem2_trans =
-      crop(geo_transform( per_pixel_filter(dem_to_geodetic( dem2_dmg, dem2_georef),
+      crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask(dem2_dmg, dem2_nodata),
+                                                            dem2_georef),
                                            MGeodeticToMAltitude()),
                           dem2_georef, dem1_georef,
                           ValueEdgeExtension<PixelMask<double> >(PixelMask<double>()) ),
