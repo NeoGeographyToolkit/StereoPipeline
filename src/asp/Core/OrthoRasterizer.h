@@ -57,15 +57,6 @@ namespace cartography {
     // overlapping in the pc image X/Y domain to insure that
     // everything is triangulated.
 
-    struct RemoveSoftInvalid : ReturnFixedType<PixelT> {
-      template <class T>
-      PixelT operator()( T const& v ) const {
-        if ( v == -32000 )
-          return PixelT();
-        return v;
-      }
-    };
-
     // Function to convert pixel coordinates to the point domain
     BBox3 pixel_to_point_bbox( BBox2 const& px ) const {
       BBox3 output = m_bbox;
@@ -215,8 +206,8 @@ namespace cartography {
     inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
 
       BBox2i bbox_1 = bbox;
-      bbox_1.expand(10); // bugfix
-
+      bbox_1.expand(5); // bugfix, ensure we see enough beyond current tile
+      
       // Used to find which polygons are actually in the draw space.
       BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox_1);
 
@@ -252,7 +243,7 @@ namespace cartography {
           point_image_boundary.grow( boundary.second );
         }
       }
-      point_image_boundary.expand(10); // bugfix, ensure we see beyond current tile
+      point_image_boundary.expand(5); // bugfix, ensure we see enough beyond current tile
       point_image_boundary.crop(vw::bounding_box(m_point_image));
       
       if ( point_image_boundary == BBox2i() )
@@ -315,8 +306,7 @@ namespace cartography {
       // upside down in most image formats, so we correct that here.
       // We also introduce transparent pixels into the result where
       // necessary.
-      ImageView<PixelT> result =
-        flip_vertical(per_pixel_filter(render_buffer, RemoveSoftInvalid()));
+      ImageView<PixelT> result = flip_vertical(render_buffer);
 
       // This may seem confusing, but we must crop here so that the
       // good pixel data is placed into the coordinates specified by
