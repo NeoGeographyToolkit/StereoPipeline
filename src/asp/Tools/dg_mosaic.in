@@ -154,30 +154,35 @@ def sort_by_miny(args, orig_sizes, placements):
         s_placements.append(S[i].box)
     return (s_args, s_orig_sizes, s_placements)
 
-def set_or_wipe_image_tags(IMAGE, avg_meangsd):
+def set_or_wipe_image_tags(IMAGE, avg_meanproductgsd, avg_meancollectedgsd):
 
     # Wipe most image tags as they differ from image to image. Set the
-    # MEANPRODUCTGSD tag as the average of individual values of this
-    # tag.
+    # MEANPRODUCTGSD and MEANCOLLECTEDGSD tags as the average of
+    # individual values of this tag.
 
     keep_tags = set(["SATID", "MODE", "SCANDIRECTION", "CATID", "TLCTIME",
                      "NUMTLC", "TLCLISTList", "FIRSTLINETIME", "AVGLINERATE",
-                     "EXPOSUREDURATION", "MEANPRODUCTGSD", "CLOUDCOVER",
-                     "RESAMPLINGKERNEL", "POSITIONKNOWLEDGESRC",
+                     "EXPOSUREDURATION", "MEANPRODUCTGSD", "MEANCOLLECTEDGSD",
+                     "CLOUDCOVER", "RESAMPLINGKERNEL", "POSITIONKNOWLEDGESRC",
                      "ATTITUDEKNOWLEDGESRC", "REVNUMBER"]);
 
-    # First store the tags, before we start wiping them
+    # Read existing tags.
     tags = []
     for i in range(len(IMAGE)):
         tag = IMAGE[i].tag
         tags.append(tag)
 
+    # Wipe some of the tags.
     for tag in tags:
         if not tag in keep_tags:
             IMAGE.remove( IMAGE.find (tag) )
 
-    IMAGE.find("MEANPRODUCTGSD").text = str(avg_meangsd)
-
+    # Set some tags to average value.
+    if IMAGE.find("MEANPRODUCTGSD") is not None:
+        IMAGE.find("MEANPRODUCTGSD").text   = str(avg_meanproductgsd)
+    if IMAGE.find("MEANCOLLECTEDGSD") is not None:
+        IMAGE.find("MEANCOLLECTEDGSD").text = str(avg_meancollectedgsd)
+        
 def adjust_camera_corners(BAND_P, all_ll_corners):
 
     # The lon-lat box for the combined camera is the union of the
@@ -261,8 +266,15 @@ def read_xml( filename, options):
     firstlinetime = parse_time(IMAGE.find("FIRSTLINETIME").text,
                                "%Y-%m-%dT%H:%M:%S.%fZ")
 
-    meangsd = float(IMAGE.find("MEANPRODUCTGSD").text)
-
+    if IMAGE.find("MEANPRODUCTGSD") is not None:
+        meanproductgsd   = float(IMAGE.find("MEANPRODUCTGSD").text)
+    else:
+        meanproductgsd = None
+    if IMAGE.find("MEANCOLLECTEDGSD") is not None:
+        meancollectedgsd = float(IMAGE.find("MEANCOLLECTEDGSD").text)
+    else:
+        meancollectedgsd = None
+        
     image_size = []
     image_size.append( int(IMD.find("NUMCOLUMNS").text) )
     image_size.append( int(IMD.find("NUMROWS").text) )
@@ -332,7 +344,8 @@ def read_xml( filename, options):
         att_list.extend(tokens)
 
     return [tlctime, tlclist, firstlinetime, image_size, pitch,
-            originx, pd, eph_list, att_list, llbox, htbox, ll_corners, meangsd]
+            originx, pd, eph_list, att_list, llbox, htbox, ll_corners,
+            meanproductgsd, meancollectedgsd]
 
 def tlc_time_lookup( tlctime, tlclist, pixel_y ):
     fraction = (pixel_y - tlclist[0][0]) / (tlclist[1][0] - tlclist[0][0])
@@ -454,13 +467,22 @@ def main():
 
         # We reference everything from the perspective of the first
         # image. So lets load it up first into our special variables.
+        avg_meanproductgsd   = 0; num_meanproductgsd   = 0
+        avg_meancollectedgsd = 0; num_meancollectedgsd = 0
         [ref_tlctime, ref_tlclist, ref_firstlinetime, ref_image_size,
          ref_pitch, ref_originx, ref_pd, ref_eph_list, ref_att_list,
-         ref_llbox, ref_htbox, ll_corners, avg_meangsd] \
+         ref_llbox, ref_htbox, ll_corners,
+         meanproductgsd, meancollectedgsd] \
          = read_xml( xml_name(args[0]), options )
-        num_gsd = 1
         all_ll_corners.append(ll_corners)
 
+        if meanproductgsd is not None:
+            avg_meanproductgsd += meanproductgsd
+            num_meanproductgsd += 1
+        if meancollectedgsd is not None:
+            avg_meancollectedgsd += meancollectedgsd
+            num_meancollectedgsd += 1
+            
         # orig_sizes[i] holds the original size of i-th image. After
         # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
         # store the new image box in placements[i].
@@ -477,7 +499,8 @@ def main():
         for filename in args[1:]:
 
             [tlctime, tlclist, firstlinetime, image_size, pitch, originx, pd,
-             eph_list, att_list, llbox, htbox, ll_corners, meangsd] \
+             eph_list, att_list, llbox, htbox, ll_corners,
+             meanproductgsd, meancollectedgsd] \
              = read_xml( xml_name(filename), options )
             all_ll_corners.append(ll_corners)
 
@@ -510,10 +533,17 @@ def main():
             ref_llbox.expand_with_box(llbox)
             ref_htbox.expand_with_box(htbox)
 
-            avg_meangsd = avg_meangsd + meangsd
-            num_gsd = num_gsd + 1
+            if meanproductgsd is not None:
+                avg_meanproductgsd += meanproductgsd
+                num_meanproductgsd += 1
+            if meancollectedgsd is not None:
+                avg_meancollectedgsd += meancollectedgsd
+                num_meancollectedgsd += 1
 
-        avg_meangsd = avg_meangsd/num_gsd
+        if num_meanproductgsd != 0:
+            avg_meanproductgsd   = avg_meanproductgsd/num_meanproductgsd
+        if num_meancollectedgsd != 0:
+            avg_meancollectedgsd = avg_meancollectedgsd/num_meancollectedgsd
 
         boundary = BBox()
         for placement in placements:
@@ -600,7 +630,8 @@ def main():
         if root.find("TIL")   != None: root.remove( root.find("TIL") )
         if imd.find("BAND_P") != None:
             adjust_camera_corners(imd.find("BAND_P"), all_ll_corners)
-        set_or_wipe_image_tags(root.find("IMD").find("IMAGE"), avg_meangsd)
+        set_or_wipe_image_tags(root.find("IMD").find("IMAGE"),
+                               avg_meanproductgsd, avg_meancollectedgsd)
 
         # Scale the xml file
         # Update NumRows and NumColumns
