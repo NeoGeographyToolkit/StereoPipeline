@@ -667,7 +667,8 @@ Skip RPC model generation.\\ \hline
 \texttt{-\/-rpc-penalty-weight \textit{float(=0.1)}} &
 The weight to use to penalize higher order RPC coefficients when generating the combined RPC model. Higher penalty weight results in smaller such coefficients.\\ \hline
 \texttt{-\/-output-prefix \textit{string}} & The prefix for the output .tif and .xml files. \\ \hline
-\texttt{-\/-nodata-value \textit{float}} & Nodata value to use on output. \\ \hline
+\texttt{-\/-input-nodata-value \textit{float}} & Nodata value to use on input; input pixel values less than or equal to this are considered invalid. \\ \hline
+\texttt{-\/-output-nodata-value \textit{float}} & Nodata value to use on output. \\ \hline
 
 \texttt{-\/-preview } & Render a small 8 bit png of the input for preview. \\ \hline
 \texttt{-\/- \textit{dry-run|-n}} & Make calculations, but just print out the commands. \\ \hline

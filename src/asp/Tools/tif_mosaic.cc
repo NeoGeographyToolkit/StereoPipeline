@@ -38,21 +38,26 @@ struct ImageData{
   AffineTransform transform; // Transform from src_box to dst_box.
 
   ImageData(std::string const& src_file_in,
-            BBox2 const& src_box_in, BBox2 const& dst_box_in):
+            BBox2 const& src_box_in, BBox2 const& dst_box_in,
+            bool has_input_nodata_value, double input_nodata_value
+            ):
     src_file(src_file_in), src_img(src_file),
     src_box(src_box_in), dst_box(dst_box_in), nodata_value(0.0),
     transform(AffineTransform(Matrix2x2(dst_box.width()/src_box.width(),0,
                                         0,dst_box.height()/src_box.height()),
                               dst_box.min() - src_box.min())) {
 
+    // Read nodata-value from disk, if available. Overwrite with
+    // user-provided nodata-value if given.
     DiskImageResourceGDAL in_rsrc(src_file);
-    if ( in_rsrc.has_nodata_read() ){
-      nodata_value = in_rsrc.nodata_read();
-    }
+    if ( in_rsrc.has_nodata_read() ) nodata_value = in_rsrc.nodata_read();
+    if (has_input_nodata_value) nodata_value = input_nodata_value;
+    
   }
 };
 
 void parseImgData(std::string data, int& dst_cols, int& dst_rows,
+                  bool has_input_nodata_value, double input_nodata_value,
                   std::vector<ImageData> & img_data){
 
   // Extract the tif files to mosaic, their dimensions, and for each
@@ -80,7 +85,7 @@ void parseImgData(std::string data, int& dst_cols, int& dst_rows,
          >> dst_lenx >> dst_leny){
     src_box = BBox2(0,        0,        src_lenx, src_leny);
     dst_box = BBox2(dst_minx, dst_miny, dst_lenx, dst_leny);
-    img_data.push_back(ImageData(src_file, src_box, dst_box));
+    img_data.push_back(ImageData(src_file, src_box, dst_box, has_input_nodata_value, input_nodata_value));
   }
 
   for (int k = (int)img_data.size()-1; k >= 0; k--){
@@ -183,8 +188,9 @@ public:
       src_vec[k] = ( box );                          // Recording active area of the tile
       box.expand( BilinearInterpolation::pixel_buffer ); // Expanding so Interpolation doesn't reach outside image
       crop_vec[k] =
-        InterpT(create_mask(crop(edge_extend(m_img_data[k].src_img, ConstantEdgeExtension()), box),
-                             m_img_data[k].nodata_value));
+        InterpT(create_mask_less_or_equal
+                (crop(edge_extend(m_img_data[k].src_img, ConstantEdgeExtension()), box),
+                 m_img_data[k].nodata_value));
     }
 
     ImageView<pixel_type> tile(bbox.width(), bbox.height());
@@ -230,10 +236,11 @@ public:
 
 struct Options : asp::BaseOptions {
   std::string img_data, output_image;
-  bool has_nodata_value;
-  double percent, nodata_value;
-  Options(): has_nodata_value(false),
-             nodata_value(std::numeric_limits<double>::quiet_NaN()){}
+  bool has_input_nodata_value, has_output_nodata_value;
+  double percent, input_nodata_value, output_nodata_value;
+  Options(): has_input_nodata_value(false), has_output_nodata_value(false),
+             input_nodata_value(std::numeric_limits<double>::quiet_NaN()),
+             output_nodata_value(std::numeric_limits<double>::quiet_NaN()){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -244,7 +251,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
      "Information on the images to mosaic.")
     ("output-image,o", po::value(&opt.output_image)->default_value(""),
      "Specify the output image.")
-    ("nodata-value", po::value(&opt.nodata_value),
+    ("input-nodata-value", po::value(&opt.input_nodata_value),
+     "Nodata value to use on input; input pixel values less than or equal to this are considered invalid.")
+    ("output-nodata-value", po::value(&opt.output_nodata_value),
      "Nodata value to use on output.")
     ("reduce-percent", po::value(&opt.percent)->default_value(100.0),
      "Reduce resolution using this percentage.");
@@ -256,7 +265,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
 
-  opt.has_nodata_value = vm.count("nodata-value");
+  opt.has_input_nodata_value = vm.count("input-nodata-value");
+  opt.has_output_nodata_value = vm.count("output-nodata-value");
 
   if ( opt.img_data.empty() )
     vw_throw( ArgumentErr() << "No images to mosaic.\n"
@@ -284,7 +294,9 @@ int main( int argc, char *argv[] ) {
 
     int dst_cols, dst_rows;
     std::vector<ImageData> img_data;
-    parseImgData(opt.img_data, dst_cols, dst_rows, img_data);
+    parseImgData(opt.img_data, dst_cols, dst_rows,
+                 opt.has_input_nodata_value, opt.input_nodata_value,
+                 img_data);
     if ( dst_cols <= 0 || dst_rows <= 0 || img_data.empty() )
       vw_throw( ArgumentErr() << "Invalid input data.\n");
 
@@ -292,8 +304,8 @@ int main( int argc, char *argv[] ) {
     // values. Pick the one of the first image as the output nodata
     // value. Override with user's nodata value if provided.
     double output_nodata_value = img_data[0].nodata_value;
-    if (opt.has_nodata_value)
-      output_nodata_value = opt.nodata_value;
+    if (opt.has_output_nodata_value)
+      output_nodata_value = opt.output_nodata_value;
     
     vw_out() << "Writing: " << opt.output_image << std::endl;
     asp::block_write_gdal_image(opt.output_image,
