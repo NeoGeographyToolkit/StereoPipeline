@@ -587,6 +587,11 @@ def main():
                 avg_meancollectedgsd += meancollectedgsd
                 num_meancollectedgsd += 1
 
+        # Check that all input images have the same number of columns
+        for i in range(len(orig_sizes)):
+            if orig_sizes[i][0] != orig_sizes[0][0]:
+                raise Exception('InputError', 'Not all images have the same number of columns')
+            
         if num_meanproductgsd != 0:
             avg_meanproductgsd   = avg_meanproductgsd/num_meanproductgsd
         if num_meancollectedgsd != 0:
