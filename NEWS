@@ -1,17 +1,6 @@
 *** RELEASE 2.3.0, Upcoming! ***
 
-  - point2dem with the --fsaa option for reducing aliasing at
-    low-resolution DEM generation has been improved as to remove the
-    erosion of of valid data close to no-data values.
-
-  - The size of ASP output data has been reduced, by up to 40%,
-    particularly point clouds and DEMs are between 30% to 70% smaller.
-    Better encoding is used, output data is rounded (up to 1 mm), and
-    point clouds are offset and saved as float instead of double.
-    
-  - StereoPipline (almost) daily and fully verfied builds for all
-    platforms are available for the adventurous user
-    (http://byss.arc.nasa.gov/stereopipeline/daily_build/).
+TOOLS
 
   - Added pc_align, a tool for aligning point clouds, using the
     libpointmacher library
@@ -21,23 +10,43 @@
     power usage are similar to desired number of input points rather
     than overall input data sizes.
 
+  - Added lronac2mosaic.py, a tool for mering the LE and RE images
+    from the LRONAC camera into a single map-projected image.  The
+    output images can be fed into the stereo tool to generate DEMs.
+  
   - rpc_maprpoject and orthoproject are combined into a single tool
     for projecting a camera image onto a DEM for any camera model
     supported by ASP. The old orthoproject is kept for backward
     compatibility for a while.
 
-  - dg_mosaic can generate a combined RPC model in addition to the
-    combined DG model.
+GENERAL 
 
-  - Subpixel mosaicing in dg_mosaic instead of nearest neighbor.
 
+  - The size of ASP output data has been reduced, by up to 40%,
+    particularly point clouds and DEMs are between 30% to 70% smaller.
+    Better encoding is used, output data is rounded (up to 1 mm), and
+    point clouds are offset and saved as float instead of double.
+    
   - Timeout option added for stereo correlation, preventing 
     unreasonably long correlation  times for certain image tiles.
 
-  - Added lronac2mosaic.py, a tool for mering the LE and RE images
-    from the LRONAC camera into a single map-projected image.  The
-    output images can be fed into the stereo tool to generate DEMs.
-  
+  - Subpixel mosaicing in dg_mosaic uses bilinear interpolation
+    instead of nearest neighbor.
+
+  - dg_mosaic can generate a combined RPC model in addition to the
+    combined DG model. It accepts flags for specifying input and 
+    output nodata values.
+
+  - point2dem with the --fsaa option for reducing aliasing at
+    low-resolution DEM generation has been improved as to remove the
+    erosion of of valid data close to no-data values.
+
+  - StereoPipline (almost) daily and fully verfied builds for all
+    platforms are available for the adventurous user
+    (http://byss.arc.nasa.gov/stereopipeline/daily_build/).
+
+  - Bugfixes for parallel_stereo and point2dem. 
+
 *** RELEASE 2.2.2, 17 MAY 2013 ***
     (incremented from 2.2.1 after one more bugfix)
 
