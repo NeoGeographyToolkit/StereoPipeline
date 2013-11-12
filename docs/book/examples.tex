@@ -472,10 +472,10 @@ fault.
 
 \begin{figure}[h!]
 \centering
-  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-example.png}}
+  \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3.8in]{images/examples/lrocna/lroc-na-example2.png}}
   \hfil
-  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-ge_example.png}}
-\caption{Example output possible with a LROC NA stereo pair, using only a single CCD from each observation.}
+  \subfigure[{\tt KML Screenshot}]{\includegraphics[width=3in]{images/examples/lrocna/lroc-na-ge_example2.png}}
+\caption{Example output possible with a LROC NA stereo pair, using both CCDs from each observation courtesy of the lronac2mosaic.py tool.}
 \label{fig:lroc-na-example}
 \end{figure}
 
@@ -504,13 +504,9 @@ projecting them. Map-projecting with higher resolution data such as
 LRO-WAC Global DTM also helps processing greatly. When map projecting,
 be sure to remember to set \texttt{alignment-method NONE}.
 
-
 \subsubsection*{Merging LRONAC files}
 
-Download the EDRs for the left and right CCDs for observations M104318871 and
-M104318871. Alternatively you can search by original IDs of 2DB8 and
-4C86 in the PDS.
-
+The new lronac2mosaic.py tool allows you to merge a pair of LE/RE images into a single file and use that for stereo processing.
 
 \begin{verbatim}
     ISIS 3> lronac2mosaic.py M104318871LE.img M104318871RE.img

@@ -832,7 +832,7 @@ format expected by libpointmatcher, over-riding the command-line options.\\ \hli
 \section{lronac2mosaic.py}
 \label{lronac2mosaic}
 
-This tool takes in two LRONAC files (M*LE.IMG and M*RE.IMG) and produces a single noproj mosaic composed of the two inputs.  It performs the following operations in this process: lronac2isis, lronaccal, lronacecho, spice.
+This tool takes in two LRONAC files (M*LE.IMG and M*RE.IMG) and produces a single noproj mosaic composed of the two inputs.  It performs the following operations in this process: lronac2isis, lronaccal, lronacecho, spiceinit.
 
 \medskip
 
@@ -851,11 +851,11 @@ Usage:\\
 \hline
 Options & Description \\ \hline \hline
 \texttt{-\/-manual} & Display the help message.\\ \hline
+\texttt{-\/-output-dir|-o} & Set the output folder (default is input folder).\\ \hline
 \texttt{-\/-stop-at-no-proj} & Stops processing after the noproj steps are complete. \\ \hline
 \texttt{-\/-resume-at-no-proj} & Restarts processing using the results from 'stop-at-no-proj. \\ \hline
 \texttt{-\/-threads|-t} & Specify the number of threads to use.\\ \hline
 \texttt{-\/-keep|-k} & Keep all intermediate files.\\ \hline
-\texttt{-\/-fakePvl|-p} & Does not automatically create the LRONAC pvl file, requiring the user to provide one.\\ \hline
 \end{longtable}
 
 
