@@ -191,10 +191,10 @@ how to convert the \ac{MOC} images to \ac{ISIS} cubes.
   ISIS 3> mocproc from= m0100115.imq to= m0100115.cub mapping=no
 \end{verbatim}
 
-Note that the resulting images are not map projected. Bundle
+Note that the resulting images are not map-projected. Bundle
 adjustment requires the ability to project arbitrary 3D points into
-the camera frame. The process of map projecting an image dissociates
-the camera model from the image. Map projecting can be perceived as
+the camera frame. The process of map-projecting an image dissociates
+the camera model from the image. Map-projecting can be perceived as
 the generation of a new infinitely large camera sensor that may be
 parallel to the surface, a conic shape, or something more
 complex. That makes it extremely hard to project a random point into
@@ -202,7 +202,7 @@ the camera's original model. The math would follow the transformation
 from projection into the camera frame, then projected back down to
 surface that ISIS uses, then finally up into the infinitely large
 sensor. \texttt{Jigsaw} does not support this and thus does not
-operate on map projected imagery.
+operate on map-projected imagery.
 
 Before we can dive into creating our tie-point measurements we must
 finish prepping these images. The following commands will add a vector
@@ -375,7 +375,7 @@ camera pointings.
 %% Ground control point files describe a single point in the world
 %% that is seen by 1 or more cameras. How they are measured in the
 %% first place is up to the user. We use a manual process of comparing
-%% each image to a respected map projected image and then recording
+%% each image to a respected map-projected image and then recording
 %% the latitude, longitude, and altitude of the point(s). The maps to
 %% register against can be anything, but it is recommended to register
 %% against a product with a high amount of cartographic stability and

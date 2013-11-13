@@ -245,7 +245,7 @@ Example:\\
 This produces a digital elevation model that has been referenced to
 the lunar spheroid of 1737.4~km.  Pixels with no data will be set to a
 value of -10000, and the resulting \ac{DEM} will be saved in a simple
-cylindrical map projection.  The resulting \ac{DEM} is stored by default as
+cylindrical map-projection.  The resulting \ac{DEM} is stored by default as
 a one channel, 32-bit floating point GeoTIFF file.
 
 The {\tt -n} option creates an 8-bit, normalized version of the DEM
@@ -259,7 +259,7 @@ Another example: \\
 This command takes the left input image and orthographically projects
 it onto the 3D terrain produced by the Stereo Pipeline.  The resulting
 {\tt *-DRG.tif} file will be saved as an 8-bit GeoTIFF image in a
-simple cylindrical map projection.
+simple cylindrical map-projection.
 
 \subsection{Comparing with MOLA Data}
 
@@ -832,24 +832,7 @@ format expected by libpointmatcher, over-riding the command-line options.\\ \hli
 \section{lronac2mosaic.py}
 \label{lronac2mosaic}
 
-This tool takes in two LRONAC files (M*LE.IMG and M*RE.IMG) and
-produces a single noproj mosaic composed of the two inputs.  It
-performs the following operations in this process:
-\texttt{lronac2isis}, \texttt{lronaccal}, \texttt{lronacecho},
-\texttt{spiceinit}, \texttt{noproj}, and \texttt{handmos}. The offsets
-used in \texttt{handmos} are calculated using an ASP internal tool
-called \texttt{lronacjitreg} and is similar in functionality to the
-ISIS command \texttt{hijitreg}. Offsets need to be calculated via
-feature measurements in image to correct for imperfections in camera
-pointing. The angle between LE and RE optics changes slightly with
-spacecraft temperature.
-
-Optionally, \texttt{lronac2mosiac.py} can be given many IMG files all
-at once. The tool will then look at image names to determine which
-should be paired and mosaicked. The tool will also spawn multiple
-processes of ISIS commands were possible to finish the task
-faster. The max number of simultaneous processes is limited by the
-\texttt{-\/-thread} option.
+This tool takes in two LRONAC files (M*LE.IMG and M*RE.IMG) and produces a single noproj mosaic composed of the two inputs.  It performs the following operations in this process: lronac2isis, lronaccal, lronacecho, spiceinit.
 
 \medskip
 
@@ -875,6 +858,9 @@ Options & Description \\ \hline \hline
 \texttt{-\/-keep|-k} & Keep all intermediate files.\\ \hline
 \end{longtable}
 
+
+
+         
 
 
 

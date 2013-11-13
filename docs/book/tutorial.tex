@@ -10,7 +10,7 @@ convert a stereo pair in ISIS {\em cube} format into a 3D ``point
 cloud'' image: \texttt{\textit{stereo-output}-PC.tif}.  This is an
 intermediate format that can be passed along to one of several
 programs that convert a point cloud into a mesh for 3D viewing or a
-gridded digital elevation model for GIS purposes.
+gridded digital elevation model (DEM) for GIS purposes.
 
 There are a number of ways to fine-tune parameters and analyze the
 results, but ultimately this software suite takes images and builds
@@ -21,15 +21,21 @@ simply pass two image files to the \texttt{stereo} command:
 \smallskip
 
 You can then make a mesh or a \ac{DEM} file with the following
-commands.  The \texttt{\textit{stereo-output}-PC.tif} and
+commands (the \texttt{\textit{stereo-output}-PC.tif} and
 \texttt{\textit{stereo-output}-L.tif} files are created by the
-\texttt{stereo} program above:
+\texttt{stereo} program above):
 
 \hspace*{2em}\texttt{ISIS 3> point2mesh \textit{stereo-output}-PC.tif \textit{stereo-output}-L.tif}
 \smallskip
 
 \hspace*{2em}\texttt{ISIS 3> point2dem \textit{stereo-output}-PC.tif \textit{stereo-output}-L.tif}
 \smallskip
+
+All files output by Stereo Pipeline will start with the same prefix,
+which above was set to \texttt{\textit{stereo-output}}. If it is desired
+that the outputs go to a subdirectory, specify it as part of the
+prefix. For example, using \texttt{\textit{results/run}} for the output
+prefix, will ensure that all files are in the \texttt{\textit{results/}} directory.
 
 \section{Preparing the Data}
 
@@ -47,8 +53,7 @@ calibrated.  You will need to be in an \ac{ISIS} environment (have
 set the \texttt{ISISROOT} environment variable and sourced the
 appropriate \ac{ISIS} 3 Startup script, as detailed in the \ac{ISIS}
 3 instructions; we will denote this state with the `\texttt{ISIS
-3>}' prompt).  Then you can use the \texttt{mocproc} program, like
-so:
+3>}' prompt).  Then you can use the \texttt{mocproc} program, as follows:
 
 \begin{verbatim}
     ISIS 3> mocproc from= M0100115.imq to= M0100115.cub Mapping= NO
@@ -92,7 +97,7 @@ The images also need to be rectified (or aligned).  There are many
 ways to do this (see using \texttt{alignment-method} in \texttt{stereo}'s
 \texttt{stereo.default} file in section
 \ref{settingoptionsinstereodefault}).  The most straightforward
-process is to align the images by map projecting them in \ac{ISIS}.
+process is to align the images by map-projecting them in \ac{ISIS}.
 This example continues with the files from above, \texttt{E0201461.cub}
 and \texttt{M010015.cub}.
 
@@ -115,7 +120,7 @@ The projection of \texttt{E0201461.cub} used the \texttt{map=}
 parameter to indicate that \texttt{cam2map} should use the same map
 projection parameters as those of \texttt{M0100115.map.cub} (including
 center of projection, map extents, map scale, etc.) in creating the
-projected image. By map projecting the image with the worse resolution
+projected image. By map-projecting the image with the worse resolution
 first, and then matching to that, we ensure two things: (1) that the
 second image is summed or scaled down instead of being magnified up,
 and (2) that we are minimizing the file sizes to make processing in
@@ -192,7 +197,7 @@ Now compare the boundaries of the two above and determine the intersection to us
 
 You only have to do the boundaries explicitly for the first run of
 \texttt{cam2map}, because the second one uses the \texttt{map=}
-parameter to mimic the map projection of the first.  These two
+parameter to mimic the map-projection of the first.  These two
 images aren't radically different in areal coverage, so this isn't
 really necessary for these images, its just an example.
 
@@ -238,18 +243,17 @@ important values in that file.
 \end{verbatim}
 
 The first line says, \emph{`Don't do try to automatically align my
-  images!'} since we have map-projected images that are already
+  images'} since we have map-projected images that are already
 aligned. The second and third line define what correlation metric
 \textit{(normalized cross correlation)} we'll be using and how big the
 template or kernel size should be \textit{(21 pixels square)}. The
 fourth and fifth line define how the subpixel refinement or the fine
-features will be resolved within an image \textit{(this case
+features will be resolved within an image \textit{(in this case
   parabola)} and what kernel size to use during that method
 \textit{(also 21 pixels square)}.
 
-Using those settings alone, \ac{ASP} will attempt to work out that
-minimium and maximum disparity it will search for automatically. These
-days, our code is pretty good at figuring this out. However if you
+Using those settings alone, \ac{ASP} will attempt to work out the
+minimium and maximum disparity it will search for automatically. However if you
 wish to, you can explicitly set the extent of the search range by
 adding the option:
 \begin{verbatim}
@@ -261,12 +265,11 @@ yourself. The numbers right of the \texttt{corr-search} represents the
 horizontal minimum boundary, vertical minimum boundary, horizontal
 maximum boundary, and finally the horizontal maximum boundary.
 
-Given that we map projected the images using the same settings, you
+Given that we map-projected the images using the same settings, you
 may be wondering why there would still be an offset or search range at
 all. The reason is twofold: (1) the camera position may be slightly
 off, resulting in slight mis-alignment between stereo images; and then (2)
-\ac{ISIS} doesn't have a perfect surface to project onto during map
-projection, so small terrain features still produce changes in
+\ac{ISIS} doesn't have a perfect surface to project onto during map-projection, so small terrain features still produce changes in
 perspective.  (In fact, these are precisely the features we are hoping
 to detect!)
 
@@ -510,7 +513,7 @@ Digital Elevation Model (\ac{DEM}) from the point cloud file.
 \end{verbatim}
 
 \noindent
-The resulting TIFF file is map projected and will contain
+The resulting TIFF file is map-projected and will contain
 georeferencing information stored as GeoTIFF tags. You can specify a
 coordinate system (e.g., mercator, sinusoidal) and a reference
 spheroid (i.e., calculated for the Moon or Mars).

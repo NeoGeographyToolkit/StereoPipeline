@@ -12,14 +12,14 @@ If you only want to process terrestrial Digital Globe imagery, skip
 to section \ref{quickstartDG}.
 
 \begin{description}
-\item [{Stereo~Pipeline~Tarball.}] \hspace*{\fill} \\
+\item [{Stereo~Pipeline~Tarball}] \hspace*{\fill} \\
 The main Stereo Pipeline page is
 \url{http://irg.arc.nasa.gov/ngt/stereo}.  Download the \emph{Binary}
-option that matches the platform you wish to use. The recommend, but
+option that matches the platform you wish to use. The recommended, but
 optional, \ac{ISIS} version is listed next to the name; choose the
 newest version you have available.
 
-\item [{USGS~ISIS.}] \hspace*{\fill} \\
+\item [{USGS~ISIS}] \hspace*{\fill} \\
 If you are working with planetary missions, you will need to install
 \ac{ISIS} so that you can perform preprocessing such as radiometric
 calibration and ephemeris attachment. Their installation guide is at
@@ -35,7 +35,7 @@ assured that we're working on rolling out a new version. However,
 since Stereo Pipeline has its own self-contained version of ISIS's
 libraries built internally, you should be able to use a newer version
 of ISIS with the now dated version of \ac{ASP}. This is assuming no major
-changes have accorded in the data formats or camera models by
+changes have taken place in the data formats or camera models by
 \ac{USGS}. At the very least, you should be able to rsync the previous
 version of ISIS if a break is found.  To do so, view the listing of
 modules that is provided via the
@@ -81,7 +81,7 @@ csh: \\
 \hspace*{2em}\texttt{setenv ISISROOT \textit{/path/to/isisroot}} \\
 \hspace*{2em}\texttt{source \$ISISROOT/scripts/isis3Startup.csh}
 
-\item [{Try~It~Out!}] ~\\
+\item [{Try~It~Out}] ~\\
 See the next chapter (Chapter~\ref{ch:tutorial}) for an example.
 \end{description}
 
@@ -95,8 +95,8 @@ Download the Stereo Pipeline from \url{http://irg.arc.nasa.gov/ngt/stereo}.
 \item[{Untar~Stereo~Pipeline}] ~\\
 \texttt{tar xvfz StereoPipeline-\textit{VERSION-ARCH-OS}.tar.gz}
 
-\item [{Try~It~Out!}] ~\\
-Processing Earth imagery is similar in principal to processing any of
+\item [{Try~It~Out}] ~\\
+Processing Earth imagery is similar in principle to processing any of
 the NASA imagery. We encourage you to still read the next chapter
 (Chapter~\ref{ch:tutorial}) that demos processing Mars
 imagery. Afterwards you should skip to the data processing example
@@ -104,7 +104,7 @@ shown in section \ref{sec:digital_globe_imagery}.
 
 \end{description}
 
-\subsection{Common Traps}
+\subsection{Common Errors}
 
 Here are some errors you might see, and what it could mean. Treat
 these as templates for problems.  In practice, the error messages might

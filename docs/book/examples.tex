@@ -23,18 +23,18 @@ differ. Significant differences between image characteristics
 increases the likelihood of stereo matching error and artifacts, and
 these errors will propagate through to the resulting data products.
 
-Although images do not need to be map projected before running the
+Although images do not need to be map-projected before running the
 \texttt{stereo} program, we recommend that you do run {\tt cam2map}
 (or \texttt{cam2map4stereo.py})
 beforehand, especially for image pairs that contain large topographic
 variation (and therefore large disparity differences across the
-scene, e.g. Valles Marineris).  Map projection is especially necessary
+scene, e.g., Valles Marineris).  map-projection is especially necessary
 when processing \ac{HiRISE} images. This removes the large disparity
 differences between \ac{HiRISE} images and leaves only the small
 detail for the Stereo Pipeline to compute. Remember that \ac{ISIS}
 can work backwards through a map-projection when applying the camera
 model, so the geometric integrity of your images will not be sacrificed
-if you map project first.
+if you map-project first.
 
 Excessively noisy images will not correlate well, so images should be
 photometrically calibrated in whatever fashion suits your purposes. If
@@ -49,7 +49,7 @@ by running ISIS's \texttt{spiceinit} program run on them first.
 
 The factor that predominantly determines running time in the Stereo
 Pipeline is the size of the search space considered by the correlation
-algorithm.  These are set in the \texttt{stereo.default} file using
+algorithm.  This is set in the \texttt{stereo.default} file using
 the \texttt{corr-search} parameter.  If you comment that parameter out
 (either by putting a `\texttt{\#}' at the beginning of their line or
 deleting them from your \texttt{stereo.default} file), the Stereo
@@ -98,7 +98,7 @@ not be discussed here.
   use \texttt{mapproject} (section \ref{mapproj}), while for ISIS
   data the ISIS \texttt{cam2map} command or the \texttt{cam2map4stereo.py} program
 provided with the Stereo Pipeline can be applied. If you project both images into the
-same map projection and same pixel scale, then they will be aligned
+same map-projection and same pixel scale, then they will be aligned
 modulo uncertainty in spacecraft telemetry (typically tens or hundreds
 of meters of error when the image is projected onto the ground).  By default
 \texttt{cam2map} will also project the image onto the local elevation
@@ -106,8 +106,7 @@ model (MOLA or LOLA), which removes the stereo disparity in the images
 that is due to coarse topography.  The resulting image pair has only
 small position offsets and fine 3D detail left to discover, so the
 search range can be kept very small and run times can be improved.
-The Stereo Pipeline will keep track of how these map
-projections affect the camera model, and take them into account when
+The Stereo Pipeline will keep track of how these map-projections affect the camera model, and take them into account when
 building up the 3D mesh via triangulation.  If you use \texttt{cam2map},
 be sure that your \texttt{stereo.default}'s \texttt{alignment-method} is
 set to NONE.  Note also that the \texttt{-\/-lat} and \texttt{-\/-lon}
@@ -260,7 +259,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
 The stereo.default example file should apply well to HiRISE. Just set
 \texttt{alignment-method} to \texttt{none} or \texttt{homography} if
-using map-projected imagery. If you are not using map projected
+using map-projected imagery. If you are not using map-projected
 imagery, set \texttt{alignment-method} to \texttt{homography} or
 \texttt{affineepipolar}. The \texttt{corr-kernel} value can usually be
 safely reduced to 21 pixels to resolve finer detail and faster
@@ -281,7 +280,7 @@ small, allowing efficient computation and a reasonable processing time.
 %% \textit{Processing in Stereo:} & Wall Time & \texttt{13:28:04.00} & CPU Time & \texttt{45:54:50.10} \\
 %% \end{tabular}
 
-In this example, we use map projected images. Map projecting the
+In this example, we use map-projected images. Map-projecting the
 images is the most reliable way to align the images for
 correlation. However when possible, use non-map-projected images with
 the \texttt{alignment-method affineepipolar} option. This greatly reduces
@@ -703,7 +702,7 @@ out in the 3D data while the new crater and ejecta become only noise.
   \hfil
   \subfigure[{\tt Original Right Image}]{\includegraphics[width=3in]{images/examples/cassini/cassini_rhea_R.png}}
   \\
-  \subfigure[{\tt Map Projected Left}]{\includegraphics[width=3in]{images/examples/cassini/cassini_rhea_map.png}}
+  \subfigure[{\tt Map-Projected Left}]{\includegraphics[width=3in]{images/examples/cassini/cassini_rhea_map.png}}
   \hfil
   \subfigure[{\tt 3D Rendering}]{\includegraphics[width=3in]{images/examples/cassini/cassini_rhea.png}}
 \caption{Example output of what is possible with Cassini's ISS NAC}
@@ -796,8 +795,7 @@ the correct location. These errors are fortunately much less than
 found with extra-terrestrial missions largely due to the availability
 of GPS and high bandwidth comms with the satellite.
 
-In the next 2 sections we will show how to process unmodified and map
-projected variants of World View 1 imagery. This steps will be the
+In the next 2 sections we will show how to process unmodified and map-projected variants of World View 1 imagery. This steps will be the
 same for Digital Globe's other satellites. The imagery we are using
 are from the free stereo pair example of Lucknow, India available from
 Digital Globe's website \cite{digital-globe:samples}. These images represent
@@ -860,20 +858,20 @@ Globe pairs. Just set \texttt{alignment-method} to
 \texttt{affineepipolar} or \texttt{homography} if using non-projected
 imagery.
 
-\subsection{Processing Map Projected Imagery}
+\subsection{Processing Map-Projected Imagery}
 \label{mapproj}
 
 Eventually you will run into Digital Globe imagery that has too much
 parallax to be processed in a reasonable time. (That wasn't the case
 for Lucknow, India because it is so flat.) We can speed up the result
-by processing map projected versions of the imagery. The catch is, you
-are not allowed to use any map projection software you like (such as
+by processing map-projected versions of the imagery. The catch is, you
+are not allowed to use any map-projection software you like (such as
 GDAL). We need to have complete control of the process since ASP will
 have to work backwards through this math and interpolations in order
 to make the final elevation model. So we have provided a utility
 called \texttt{mapproject} whose commands closely resemble
 \texttt{point2dem}. The purpose of this tool is to use the simplified
-RPC model to map project the imagery unto a low resolution and
+RPC model to map-project the imagery unto a low resolution and
 hole-less digital elevation model. Later, ASP will then work backwards
 through the RPC model and then forward through the linear camera model
 to calculate the final result.
@@ -901,7 +899,7 @@ used. That can only be understood by careful reading of your
 provider's documents.
 
 The NASA SRTM square for our example spot in India is N26E080. Below
-are the commands for map projecting the input and then running
+are the commands for map-projecting the input and then running
 through stereo. You can use any projection you like as long as it
 preserves detail in the imagery. Note also that we have added a
 seventh parameter to the stereo call where we provide the input low
@@ -918,7 +916,7 @@ resolution DEM.
 
 \subsubsection*{Commands}
 
-The first step is downloading a void-filled SRTM tile to map project
+The first step is downloading a void-filled SRTM tile to map-project
 on to. In this example I used, \texttt{srtm\_53\_07.tif}, a 90 meter
 resolution tile from the CGIAR-CSI modification of the original NASA
 product \cite{cgiar:srtm90m}.

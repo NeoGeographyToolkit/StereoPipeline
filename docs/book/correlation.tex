@@ -44,40 +44,41 @@ the left and right images (also based on tie-point measurements as earlier),
 the effect of which is equivalent to rotating
 the original cameras which took the pictures, (3) a 3D rotation that achieves
 epipolar rectification {\it(only implemented for Pinhole sessions for
-  missions like MER or K10)} or (4) map projection of both the left
+  missions like MER or K10)} or (4) map-projection of both the left
 and right images using the \ac{ISIS} \texttt{cam2map} command or
-through \texttt{gdal\_translate} for Digital Globe and GeoEye images.
+through \texttt{mapproject} for Digital Globe and GeoEye images (see
+section \ref{mapproj} for the latter).
 The first three options can be applied automatically by the Stereo
 Pipeline when the \texttt{alignment-method} variable in the
-\texttt{stereo.default} file is set to \texttt{homography}, \texttt{affineepipolar}, or
-\texttt{epipolar}, respectively.
+\texttt{stereo.default} file is set to \texttt{homography}, 
+\texttt{affineepipolar}, or \texttt{epipolar}, respectively.
 
 The latter option, running {\tt cam2map}, {\tt cam2map4stereo.py}, or
-{\tt gdal\_translate} must be carried out by the user prior to
-invoking the {\tt stereo} command.  Map projecting the images using
+{\tt mapproject} must be carried out by the user prior to
+invoking the {\tt stereo} command.  map-projecting the images using
 \ac{ISIS} eliminates any unusual distortion in the image due to the
 unusual camera acquisition modes (e.g. pitching ``ROTO'' maneuvers
 during image acquisition for \ac{MOC}, or highly elliptical orbits and
 changing line exposure times for the \acl{HRSC}, \acs{HRSC}).  It also
 eliminates some of the perspective differences in the image pair that
-are due to large terrain features by taking the existing low-res
-terrain model into account (e.g. the \acl{MOLA}, \acs{MOLA};
+are due to large terrain features by taking the existing low-resolution
+terrain model into account (e.g., the \acl{MOLA}, \acs{MOLA};
 \acl{LOLA}, \acs{LOLA}; \acl {NED}, \acs {NED}; or \acl{ULCN},
 \acs{ULCN}, 2005 models).
 
-In essence, map projecting the images results in a pair of very
+In essence, map-projecting the images results in a pair of very
 closely matched images that are as close to ideal as possible given
 existing information. This leaves only small perspective differences
 in the images, which are exactly the features that the stereo
 correlation process is designed to detect.
 
-For this reason, we recommend map projection for pre-alignment of most
+For this reason, we recommend map-projection for pre-alignment of most
 stereo pairs. Its only cost is longer triangulation times as more math
 must be applied to work back through the transforms applied to the images. In
 either case, the pre-alignment step is essential for performance
 because it ensures that the disparity search space is bounded to a
 known area.  In both cases, the effects of pre-alignment are taken
-into account later in the process during Triangulation, so you do not
+into account later in the process during triangulation, so you do not
 need to worry that pre-alignment will compromise the geometric
 integrity of your \ac{DEM}.
 
@@ -191,7 +192,7 @@ low-resolution disparity is completely unhelpful, it can be skipped by
 adding \texttt{corr-seed-mode 0} in the \texttt{stereo.default}
 file. This should only be considered in cases where the texture in an
 image is completely lost when subsampled. An example would be
-satellite imagery of fresh snow in the arctic.
+satellite imagery of fresh snow in the Arctic.
 
 An alternative to computing \texttt{\textit{output\_prefix}-D.tif}
 from sub-sampled images (\texttt{corr-seed-mode 1}) or skipping it
@@ -291,7 +292,7 @@ exhibits a problem known as pixel-locking: the sub-pixel disparities
 tend toward their integer estimates and can create noticeable ``stair
 steps'' on surfaces that should be smooth
 \citep{Stein06:attenuating,Szeliski03sampling}.  See
-e.g. Figure~\ref{fig:parabola_subpixel}. Furthermore, the parabola
+for example Figure~\ref{fig:parabola_subpixel}. Furthermore, the parabola
 subpixel mode is not capable of refining a disparity estimate by more
 than one pixel, so although it produces smooth disparity maps, these
 results are not much more accurate than the results that come out of
@@ -414,7 +415,7 @@ point.
 Notice, however, that forward and back projection are not symmetric
 operations.  One camera is sufficient to ``image'' a 3D point onto a
 pixel located on the image plane, but the reverse is not true.  Given
-only a single camera and a pixel location $x = (u,v)$ that is the
+only a single camera and a pixel location $x = (u,v),$ that is the
 image of an unknown 3D point $P = (x,y,z)$, it is only possible to
 determine that $P$ lies somewhere along a ray that emanates from the
 camera's center of projection through the pixel location $x$ on the
