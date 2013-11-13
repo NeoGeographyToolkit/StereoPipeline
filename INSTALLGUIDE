@@ -2,17 +2,32 @@ INSTALLATION AND USE
 
 A. Obtaining the Software
 
-If you are reading this text then presumably you have a copy of
-the software.  However, you can obtain the most recent version from
+If you are reading this text, you presumably have a copy of the
+software.  However, you can obtain the most recent version from
   https://github.com/NeoGeographyToolkit/StereoPipeline
 
+B. Installing the Software
 
-B. Building the Software
+Stereo Pipeline pre-built binaries are available from two locations:
 
+Official releases at:
+  http://ti.arc.nasa.gov/tech/asr/intelligent-robotics/ngt/stereo/
+
+Daily builds of the latest development version at:
+  http://byss.arc.nasa.gov/stereopipeline/daily_build/
+
+If desired, Stereo Pipeline can be built from source as well. Building
+from source can be difficult, due to the large number of dependencies,
+and the variety of Linux and Mac architectures Stereo Pipeline
+supports. A separate software package called BinaryBuilder will take
+care of setting up the build environment and building the code. We
+describe below what dependencies BinaryBuilder needs and then how to
+invoke it.
 
 1. Base dependencies - LINUX
 
-The following packages need to be installed in order to build the library:
+The following packages need to be installed in order to build Stereo
+Pipeline:
 
 g++
 gfortran
@@ -31,14 +46,16 @@ libgl1-mesa-dev
 libglu1-mesa-dev
 libglut3-dev
 
-If you have root access on your machine you can install them using the following command:
-sudo apt-get install g++ gfortran libtool autoconf   \
-   automake ccache git-core subversion cmake chrpath \
+If you have root access on your machine you can install them using the
+following command:
+
+sudo apt-get install g++ gfortran libtool autoconf      \
+   automake ccache git-core subversion cmake chrpath    \
    xserver-xorg-dev xorg-dev libx11-dev libgl1-mesa-dev \
    libglu1-mesa-dev libglut3-dev
 
 You may need to manually install the following two packages:
-charpath - http://ftp.debian.org/debian/pool/main/c/chrpath/chrpath_0.13.orig.tar.gz
+chrpath - http://ftp.debian.org/debian/pool/main/c/chrpath/chrpath_0.13.orig.tar.gz
 ccache - http://samba.org/ftp/ccache/ccache-3.1.9.tar.bz2
 
 2. Base dependencies - MAC
@@ -53,60 +70,66 @@ subversion
 cmake
 xz
 
-You may need to manually install the following two packages:
-charpath - http://ftp.debian.org/debian/pool/main/c/chrpath/chrpath_0.13.orig.tar.gz
+You may need to manually install the following package:
 ccache - http://samba.org/ftp/ccache/ccache-3.1.9.tar.bz2
 
-If you are using OSX 10.7 Lion you will need to manually install the OSX 10.5 SDK. This is required for building against ISIS since they currently only have a 10.5 version of their binary.  See instructions here: http://lunokhod.org/?p=269
+If you are using OSX 10.7 Lion, you will need to manually install the
+OSX 10.5 SDK. This is required for building against ISIS since they
+currently only have a 10.5 version of their binary.  See instructions
+here: http://lunokhod.org/?p=269
 
-Next you need to compile a copy of GNU Coreutils.  The following instructions should do so:
+Next you need to compile a copy of GNU Coreutils.  The following
+instructions should do so:
 
 cd ~/packages
 wget http://ftp.gnu.org/gnu/coreutils/coreutils-8.16.tar.xz
-xz –d coreutils-8.16.tar.xz
-tar xf coreutils-8.16.tar.xz
+xz -d coreutils-8.16.tar.xz
+tar xfv coreutils-8.16.tar
 cd coreutils-8.16
 ./configure --prefix $PWD/build
 make install -j 8
 
+3. Invoking Binary Builder
 
-3. Binary Builder
-
-Building the Stereo Pipeline is difficult due to the need to recreate the ISIS development environment in order for SteroPipeline to make use of the ISIS camera models.  A seperate software package called BinaryBuilder will take care of setting up the build environment and building the code.  The following lines of code will start the installation to the directory 'projects/BinaryBuilder':
+Having installed the base libraries and tools, the following lines of
+code will start the build of Stereo Pipeline in the directory
+'~/projects/BinaryBuilder':
 
 cd ~; mkdir projects; cd projects
 git clone https://github.com/NeoGeographyToolkit/BinaryBuilder.git
 cd BinaryBuilder
 ./build.py
 
-MAC USERS: The last line needs to specify the path to the coreutils you installed earlier:
+MAC USERS: The last line needs to specify the path to the coreutils
+you installed earlier:
 ./build.py --coreutils ~/packages/coreutils-8.16/build/bin
 
-Due to the amount of code that must be downloaded and build BinaryBuilder will take quite a while to finish.  If you see the message "All done!" then it has succeeded.  Otherwise something has gone wrong and must be fixed before the build can continue.  Often this is due to one of the dependencies listed earlier being too old or missing.
+Due to the amount of code that must be downloaded and built,
+BinaryBuilder will take quite a while to finish.  If you see the
+message "All done!" then it has succeeded.  Otherwise something has
+gone wrong and must be fixed before the build can continue.  Often
+this is due to one of the dependencies listed earlier being too old or
+missing.
 
-If the build failed and you need to restart it after finding a fix, use the following command:
+If the build failed and you need to restart it after finding a fix,
+use the following command:
 
 ./build.py --resume
 
 
-Once the build is successful you should make a distribution tarball to store the completed build output.  Do so using the following command from the BinaryBuilder directory:
+Once the build is successful you should make a distribution tarball to
+store the completed build. Do so using the following command from the
+BinaryBuilder directory:
 
-./make-dist.py --include all --set-name BaseSystem last-completed-run/install
+./make-dist.py last-completed-run/install
 
-This tarball will house all the headers, libraries, and a copy of ISIS that you need to proceed. This is good to have as a backup and you can also share this tarball with other users who have similar systems. Once the tarball is created you can run another script to deploy it into a permanent position:
-
-mkdir ~/projects/BaseSystem
-./deploy-base.py BaseSystem-*.tar.bz2 ~/projects/BaseSystem
-
+This will create a tarball containing Stereo Pipeline and all its
+dependencies.
 
 C. Using the Library
 
-When you install the library it will place files into three
-subdirectories in the installation location.  The header files which
-you will need to develop software using the library are located in the
-"include/" subdirectory.  The compiled libraries, which you will need
-to link your software against, are located in the "lib/" subdirectory.
-You will need to configure your software development environment as
-appropriate to locate these files.  Finally, a number of command-line
-tools are provided in the "bin/" directory.  See the documentation for a
-complete list of the tools.
+When you unpack the Stereo Pipeline tarball, it will contain a copy of
+the documentation in pdf format, a set of command-line tools in the
+"bin/" directory, and other dependencies. The "bin/" directory needs
+to be in your path. See the README file for how to use Stereo
+Pipeline.
