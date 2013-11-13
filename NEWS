@@ -10,7 +10,7 @@ TOOLS
     power usage are similar to desired number of input points rather
     than overall input data sizes.
 
-  - Added lronac2mosaic.py, a tool for mering the LE and RE images
+  - Added lronac2mosaic.py, a tool for merging the LE and RE images
     from the LRONAC camera into a single map-projected image.  The
     output images can be fed into the stereo tool to generate DEMs.
   
