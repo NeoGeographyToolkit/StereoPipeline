@@ -25,6 +25,7 @@ versioning.
   - Greatly reduce the size of the pdf with:
     gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
        -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
+    (this only works with newer version of gs, such as on zula).
   - Put the doc in BinaryBuilder/asp_book.pdf.
   - Build the ASP release tarball, see BinaryBuilder/README,
     section 3.B, part 2.
