@@ -87,7 +87,7 @@ makes sense for debugging or ``previewing'' 3D terrain. That said,
 subsampling will tend to increase the signal to noise ratio, so it may
 also be helpful for obtaining 3D terrain out of noisy, low quality images.
 
-These options of croping or reducing the resolution of the source
+These options of cropping or reducing the resolution of the source
 imagery are only easily achieved with ISIS or Digital Globe data. For
 Pinhole or RPC sessions, users may reduce the image size using for
 example GDAL, but then the camera models will need to be adjusted
@@ -481,43 +481,35 @@ fault.
 
 \subsubsection*{Commands}
 
-Download the EDRs for the left CCDs for observations M104318871 and
-M104318871. Alternatively you can search by original IDs of 2DB8 and
-4C86 in the PDS.
+Download the EDRs for the left and right CCDs for observations
+M104318871 and M104318871. Alternatively you can search by original
+IDs of 2DB8 and 4C86 in the PDS.
+
+All ISIS preprocessing of the EDRs is performed via the
+\texttt{lronac2mosaic.py} command. This runs \texttt{lronac2isis},
+\texttt{lronaccal}, \texttt{lronacecho}, \texttt{spiceinit},
+\texttt{noproj}, and \texttt{handmos} to create a stitched unprojected
+image for a single observation. In this example we don't map project
+the images as ASP can usually get good results. More aggressive
+terrain might require an additional \texttt{cam2map4stereo.py} step.
 
 \begin{verbatim}
-    ISIS 3> lronac2isis from=M104318871LE.img to=M104318871LE.cub
-    ISIS 3> lronac2isis from=M104311715LE.img to=M104311715LE.cub
-    ISIS 3> spiceinit M104318871LE.cub
-    ISIS 3> spiceinit M104311715LE.cub
-    ISIS 3> lronaccal from=M104318871LE.cub to=M104318871LE.cal.cub
-    ISIS 3> lronaccal from=M104311715LE.cub to=M104311715LE.cal.cub
-    ISIS 3> cam2map4stereo.py M104318871LE.cal.cub M104311715LE.cal.cub
-    ISIS 3> stereo M104318871LE.map.cub M104311715LE.map.cub result/output
+    ISIS 3> lronac2mosaic.py M104318871LE.img M104318871RE.img
+    ISIS 3> lronac2mosaic.py M104311715LE.img M104311715RE.img
+    ISIS 3> stereo M104318871LE*.mosaic.norm.cub M104311715LE*.mosaic.norm.cub \
+              result/output --alignment-method affineepipolar
 \end{verbatim}
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file works generally well with LRO-NAC
-pairs. The recommended route for processing LRO-NAC imagery is by map
-projecting them. Map-projecting with higher resolution data such as
-LRO-WAC Global DTM also helps processing greatly. When map projecting,
-be sure to remember to set \texttt{alignment-method NONE}.
-
-\subsubsection*{Merging LRONAC files}
-
-The new lronac2mosaic.py tool allows you to merge a pair of LE/RE images into a single file and use that for stereo processing.
-
-\begin{verbatim}
-    ISIS 3> lronac2mosaic.py M104318871LE.img M104318871RE.img
-    ISIS 3> lronac2mosaic.py M104311715LE.img M104311715RE.img   
-    ISIS 3> stereo M104318871LE.lronaccal.lronacecho.noproj.mosaic.norm.cub M104311715LE.lronaccal.lronacecho.noproj.mosaic.norm.cub result/output
-\end{verbatim}
-
- 
-
-
-
+The defaults work generally well with LRO-NAC pairs, so you don't need
+to provide a stereo.default file. Map projecting is optional. When map
+projecting the images use \texttt{alignment-method NONE}, otherwise
+use \texttt{alignment-method AFFINEEPIPOLAR}. Better map project
+results can be achieved by projecting on a higher resolution elevation
+source like the WAC DTM. This is achieved using ISIS command
+\texttt{demprep} and attaching to cube files via \texttt{spiceinit}'s
+SHAPE and MODEL options.
 
 \section{Apollo 15 Metric Camera Images}
 
