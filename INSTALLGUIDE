@@ -123,10 +123,7 @@ BinaryBuilder directory:
 
 ./make-dist.py last-completed-run/install
 
-This will create a tarball containing Stereo Pipeline and all its
-dependencies.
-
-C. Using the Library
+C. Using the Software
 
 When you unpack the Stereo Pipeline tarball, it will contain a copy of
 the documentation in pdf format, a set of command-line tools in the
