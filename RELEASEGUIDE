@@ -14,8 +14,11 @@ the ASP release tarball).
 
 3.) Update NEWS
 
-4.) Commit and tag release in repo. Example: git tag v2.3.0. Push the tags 
-    to the remote server with: 
+4.) Commit and tag release in repo. Example: 
+
+  git tag v2.3.0 
+
+Push the tags to the remote server with: 
 
  git push origin v2.3.0 # commit to your branch
  git push god    v2.3.0 # commit to main branch
