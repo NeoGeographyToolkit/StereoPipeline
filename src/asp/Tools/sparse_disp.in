@@ -95,8 +95,7 @@ class im_subset:
             (sr0, sr1, dr0, dr1, vr)=match_range(0, band.YSize, self.r0, self.Nr)
             (sc0, sc1, dc0, dc1, vc)=match_range(0, band.XSize, self.c0, self.Nc)
             if (vr & vc):
-                a=self.source.ReadAsArray(int(sc0),  int(sr0), int(sc1-sc0), int(sr1-sr0))
-                self.z[:, dr0:dr1, dc0:dc1]=a
+                self.z[:, dr0:dr1, dc0:dc1]=self.source.ReadAsArray(int(sc0),  int(sr0), int(sc1-sc0), int(sr1-sr0))
             self.level=0
 
     def trim_from_edges(self, x_trim, y_trim):
@@ -512,7 +511,7 @@ def run_blocks(param):
     # Run template matching for a set of blocks. This function is being
     # distributed across multiple processors.
 
-    (Tfile, Sfile, processes, xgi, ygi, these, t_pixels, s_nxy_i,
+    (Tfile, Sfile, processes, xgi, ygi, these_ind, t_pixels, s_nxy_i,
      dxy0_i, XYc_i, min_template_sigma, user_nodata) = param
     matcher = fft_matcher(Tfile, Sfile, processes, user_nodata)
 
@@ -524,20 +523,22 @@ def run_blocks(param):
                      XYc_i[:,1]+dxy0_i[:,1]+s_nxy_i[:,1]+KW+1000]
     matcher.T_sub.setBounds(xgi-t_pixels, ygi-t_pixels, matcher.blocksize+2*t_pixels,
                             matcher.blocksize+2*t_pixels, update=1)
-    matcher.S_sub.setBounds(s_x_bounds[these,0].min(),
-                            s_y_bounds[these,0].min(),
-                            s_x_bounds[these,1].max()-s_x_bounds[these,0].min(),
-                            s_y_bounds[these,1].max()-s_y_bounds[these,0].min(),
+    matcher.S_sub.setBounds(s_x_bounds[:,0].min(),
+                            s_y_bounds[:,0].min(),
+                            s_x_bounds[:,1].max()-s_x_bounds[:,0].min(),
+                            s_y_bounds[:,1].max()-s_y_bounds[:,0].min(),
                             update=1)
-    these_ind = np.array(np.nonzero(these)).ravel()
     indices = []; c = []; x = []; y = []; sigma = []; dx = []; dy = [];
 
     # loop over the sub-blocks
 
     count=-1
-    for Xc, Yc, s_nx, s_ny, dx0, dy0 in zip(XYc_i[these,0], XYc_i[these,1], s_nxy_i[these,0],
-                                            s_nxy_i[these,1], dxy0_i[these,0],
-                                            dxy0_i[these,1]):
+    T_buffer=im_subset(0, 0, 0, 0, matcher.T_sub, user_nodata, pad_val=matcher.T_sub.noData)
+    S_buffer=im_subset(0, 0, 0, 0, matcher.S_sub, user_nodata, pad_val=matcher.S_sub.noData)
+
+    for Xc, Yc, s_nx, s_ny, dx0, dy0 in zip(XYc_i[:,0], XYc_i[:,1], s_nxy_i[:,0],
+                                            s_nxy_i[:,1], dxy0_i[:,0],
+                                            dxy0_i[:,1]):
         #print "S_buffer.Nodata=%f, T_buffer.noData"% (matcher.S_sub.noData, matcher.T_sub.noData)
         count=count+1
         t_xr=[Xc-(t_pixels/2-1)-KW, Xc+(t_pixels/2)+KW]
@@ -549,8 +550,6 @@ def run_blocks(param):
         # read nodata if we read past the image edges.
 
         # Read T
-        T_buffer=im_subset(0, 0, matcher.T_band.XSize, matcher.S_band.YSize,
-                           matcher.T_sub, user_nodata, pad_val=matcher.T_sub.noData)
         T_buffer.setBounds(t_xr[0]-KW, t_yr[0]-KW, t_pixels+2.*KW,
                            t_pixels+2.*KW, update=1)
         T_img=T_buffer.z[0,:,:]
@@ -558,11 +557,9 @@ def run_blocks(param):
             continue
 
         # Read S
-        S_buffer=im_subset(0, 0, matcher.S_band.XSize, matcher.S_band.YSize,
-                           matcher.S_sub, user_nodata, pad_val=matcher.S_sub.noData)
         S_buffer.setBounds(s_xr[0]-KW, s_yr[0]-KW, s_nx+2.*KW,
                            s_ny+2.*KW, update=1)
-        S_img=S_buffer.z [0,:,:]
+        S_img=S_buffer.z[0,:,:]
         if np.mean(S_img<=S_buffer.noData) > .25: # bail if > 25% 0
             continue
         out = run_one_block(t_pixels, KW, min_template_sigma, Xc, Yc, s_nx,
@@ -640,13 +637,12 @@ class fft_matcher(object):
         self.T_r0r1=np.array([max([0 , (YR[1]-UR_T[1])/GT_T[5]]),
                               min([self.T_sub.Nr, (LL_T[1]-YR[1])/GT_T[5]])]).astype(int)
 
-        self.blocksize=8192/4
+        self.blocksize=2048
         self.user_nodata = user_nodata
 
     def __call__(self, t_pixels, s_nxy_i, dxy0_i, XYc_i, min_template_sigma):
 
         # loop over pixel centers
-
         self.C=np.zeros([XYc_i.shape[0], 1])-1
         self.sigma_template=(self.C).copy()
         self.dxy=np.zeros([XYc_i.shape[0], 2])
@@ -663,14 +659,18 @@ class fft_matcher(object):
                                                 XYc_i[:,1] <= ygi+self.blocksize))
             if ~np.any(these):
                 continue
-            param = (self.Tfile, self.Sfile, self.processes, xgi.copy(), ygi.copy(), these.copy(),
-                     t_pixels, s_nxy_i.copy(), dxy0_i.copy(), XYc_i.copy(), min_template_sigma,
+            XYc=XYc_i[these,:]
+            dxy0=dxy0_i[these,:]
+            s_nxy=s_nxy_i[these,:]
+            these_ind=np.array(np.nonzero(these)).ravel()
+            param = (self.Tfile, self.Sfile, self.processes, xgi.copy(), ygi.copy(), these_ind.copy(),
+                     t_pixels, s_nxy.copy(), dxy0.copy(), XYc.copy(), min_template_sigma,
                      self.user_nodata)
             TaskParams.append(param)
 
         if self.processes > 0: # Run using multiple processes
             pool = Pool(processes=self.processes)
-            Out = pool.map(run_blocks, TaskParams)
+            Out = pool.map(run_blocks, TaskParams, chunksize=1)
         else: # Run using single process (for debugging)
             Out=[run_blocks(TP) for TP in TaskParams]
 
@@ -1359,7 +1359,7 @@ def main():
                     continue
                 if options.Debug:
                     print " ...based on %d points" % np.sum(ii)
-                if (np.sum(ii) > 4) & (np.amax(out[ii,0])-np.amin(out[ii,0]) > 0 ) & (np.amax(out[ii,1])-np.amin(out[ii,1]) > 0 ) :
+                if (np.amax(out[ii,0])-np.amin(out[ii,0]) > 0) and (np.amax(out[ii,1])-np.amin(out[ii,1]) > 0 ) :
                     grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6], options.fill_dist, s_nx, dispDs, spreadDs, options.output_scale, cr_out)
 
         for Ds in (dispDs, spreadDs):
