@@ -1,14 +1,16 @@
-HOW TO ROLL A RELEASE
+HOW TO MAKE A RELEASE
 
-Here's a developer's checklist for performing a binary release.
+Here's a developer's checklist for performing a binary Ames Stereo
+Pipeline (ASP) release.
 
 1.) Modify the build system:
 
 Inside ASP's configure.ac, remove "_post" and increment version number
-from AC_INIT line. Do not do this for VW, as VW has its own
-versioning.
+on the AC_INIT line. Do not do this for VisionWorkbench, as that
+library has its own versioning.
 
-2.) Update ISIS Version in README
+2.) Update ISIS Version in README (get it from the "version" file in
+the ASP release tarball).
 
 3.) Update NEWS
 
@@ -26,16 +28,28 @@ versioning.
     gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook \
        -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf asp_book.pdf
     (this only works with newer version of gs, such as on zula).
-  - Put the doc in BinaryBuilder/asp_book.pdf.
+  - Copy the obtained pdf file to BinaryBuilder/dist-add/asp_book.pdf.
   - Build the ASP release tarball, see BinaryBuilder/README,
     section 3.B, part 2.
 
-7.) Test all binary releases on different machines by running
+6.) Test all binary releases on different machines by running
     StereoPipelineTest.
 
-8.) Check that the documentation version is correct.
+7.) Check that the ASP version is correct in the documentation file.
 
-9.) Update the website.
+NOTE: Steps 5 to 7 are done automatically by running on a Pleiades
+machine the script
+
+  $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
+
+The resulting release tarballs will go to BinaryBuilder/asp_tarballs,
+and will need to unzipped and renamed to remove the timestamp from the
+tarball name, and then zipped back.
+
+8.) Copy the new builds to the release area and update the website.
+
+9.) Send an announcement of the new release to the mailing list,
+     listing the changes specified in NEWS.
 
 10.) Modify the build system:
 
