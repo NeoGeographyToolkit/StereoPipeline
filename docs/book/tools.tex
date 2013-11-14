@@ -11,7 +11,7 @@ command line options.
 \section{stereo}
 \label{stereo}
 
-The \texttt{stereo} program is the primary workhorse of the Ames
+The \texttt{stereo} program is the primary tool of the Ames
 Stereo Pipeline.  It takes a stereo pair of images that overlap and
 creates an output point cloud image that can be processed into a 3D
 model or DEM using the \texttt{point2mesh} or \texttt{point2dem}
@@ -24,10 +24,10 @@ Usage:\\
 
 \medskip
 
-This release of the Stereo Pipeline has been specifically designed to
-process USGS ISIS \texttt{.cub} files. However, the Stereo Pipeline
+This tool is is primarily designed to process USGS ISIS \texttt{.cub}
+files and Digital Globe data. However, Stereo Pipeline
 does have the capability to process other types of stereo image pairs
-(e.g. image files with a CAHVOR camera model from the NASA MER
+(e.g., image files with a CAHVOR camera model from the NASA MER
 rovers).  If you would like to experiment with these features, please
 contact us for more information.
 
@@ -115,6 +115,16 @@ cluster may find it advantageous to call these executables in their own
 manner. An example would be to run stages 0-3 in order for each stereo
 pair. Then run several sessions of \texttt{stereo\_tri} since it is
 single-threaded for ISIS.
+
+It is important to note that each of the C++ stereo executables invoked
+by \texttt{stereo} have their own command-line options. Those options
+can be passed to \texttt{stereo} which will in turn pass them to the
+appropriate executable. By invoking each executable with no options, it
+will display the list of options it accepts. As explained in more detail
+in section \ref{perform-stereo}, each such option has the same syntax as
+used in \texttt{stereo.default}, while being prepended by a double hyphen
+(\texttt{-\/-}).  A command line option takes precedence over the same
+option specified in \texttt{stereo.default}.
 
 \section{parallel\_stereo}
 \label{parallel}
@@ -392,7 +402,7 @@ is not bundled with the Stereo Pipeline, but the \texttt{osgviewer} program
 is.  You can download and install this package separately from
 \url{http://www.openscenegraph.org/}.}
 
-Unlike \acp{DEM}, The 3D mesh is not meant to be used as a finished
+Unlike \acp{DEM}, the 3D mesh is not meant to be used as a finished
 scientific product.  Rather, it can be used for fast visualization
 to create a 3D view of the generated terrain.
 
@@ -487,7 +497,7 @@ distribute itself using multiple processes to work around this limitation.
 
 Example:
 \begin{verbatim}
-mapproject -t isis DEM.tif image.cub camera.isis_adjust \\
+mapproject -t isis DEM.tif image.cub camera.isis_adjust \
          output-IMG.tif --ppd 256
 \end{verbatim}
 
@@ -719,7 +729,7 @@ the source and vice-versa).
 
 In many typical applications, the source and reference point clouds are
 already roughly aligned, but the source point cloud may cover a larger
-area than the reference. The user is expected to provide to the tool the
+area than the reference. The user should provide to the tool the
 expected maximum distance (displacement) source points may move by as
 result of alignment, using the option
 \texttt{-\/-max-displacement}. This number will help remove source
@@ -732,7 +742,7 @@ displacement, a multiple of which can be used to seed the tool in a subsequent r
 
 The user can choose how many points to pick from the reference and
 source point clouds to perform the alignment. The amount of memory and
-processing time is directly proportional to these numbers.
+processing time used by \texttt{pc\_align} is directly proportional to these numbers.
 
 Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
 the latter can be good enough if the input point clouds have small
@@ -770,7 +780,7 @@ The tool outputs to a file the complete list of errors. It displays the
 of all errors, as well as the means of the smallest 25\%, 50\%, 75\%,
 and 100\% of the errors, all these before and after alignment. The
 errors are defined as the closest distances between transformed source
-points and corresponding reference points.
+points and corresponding closest reference points.
 
 By default, when \texttt{pc\_align} discards
 outliers during the computation of the alignment transform, it keeps

@@ -776,7 +776,7 @@ with and have focused on. If we can make models of wooded or urban
 areas, that is a bonus, but we can't provide any advice for how to
 perform or improve the results if you choose to use ASP in that way.
 
-ASP can only process Level 1B imagery and can not process Digital
+ASP can only process Level 1B imagery and can notprocess Digital
 Globe's aerial imagery. We can pull a camera model from the RPC
 coefficients or from their linear camera model described in the
 provided XML files. We won't be discussing the RPC method in this
@@ -827,7 +827,7 @@ resolution of) such a set of sub-observations into a single image file
 and create an appropriate camera file (section \ref{dgmosaic}).
 
 Since we are ingesting these images raw, it is strongly recommend that
-you use a affine epipolar alignment to reduce the search range. Processing
+you use an affine epipolar alignment to reduce the search range. Processing
 with the \texttt{stereo} command is as simple as feeding the imagery
 as the second and third argument. The XML data is fed as the camera
 model argument and thus are used as the fourth and fifth argument. The
@@ -871,13 +871,12 @@ have to work backwards through this math and interpolations in order
 to make the final elevation model. So we have provided a utility
 called \texttt{mapproject} whose commands closely resemble
 \texttt{point2dem}. The purpose of this tool is to use the simplified
-RPC model to map-project the imagery unto a low resolution and
+RPC model to map-project the imagery onto a low resolution and
 hole-less digital elevation model. Later, ASP will then work backwards
 through the RPC model and then forward through the linear camera model
 to calculate the final result.
 
-The hardest part of this whole process is getting your input low
-resolution 3D model. In this example we will use a void filled variant
+The hardest part of this whole process is getting your input low-resolution 3D model. In this example we will use a void filled variant
 of NASA SRTM data. Other choices might be GMTED2010 or USGS's NED
 data.
 
@@ -917,7 +916,7 @@ resolution DEM.
 \subsubsection*{Commands}
 
 The first step is downloading a void-filled SRTM tile to map-project
-on to. In this example I used, \texttt{srtm\_53\_07.tif}, a 90 meter
+on to. In this example we use \texttt{srtm\_53\_07.tif}, a 90 meter
 resolution tile from the CGIAR-CSI modification of the original NASA
 product \cite{cgiar:srtm90m}.
 
@@ -944,17 +943,17 @@ The complete list of options for \texttt{mapproject} is in section
 \subsubsection*{stereo.default}
 
 The stereo.default example file works generally well with all Digital
-Globe pairs. As well as they can anyways. Just set
+Globe pairs. Just set
 \texttt{alignment-method} to \texttt{none} or \texttt{homography}.
 
 \newpage
-\section{GeoEye \& Astrium Imagery / RPC Imagery}
+\section{GeoEye and Astrium Imagery / RPC Imagery}
 \label{rpc}
 
 GeoEye provides imagery from Ikonos and the two GeoEye
 satellites. Astrium provideds imagery from SPOT and Pleiades
 satellites. Both companies provide only Rational Polynomial Camera
-(RPC) models. For the uninitiated, RPC represents four 20-element
+(RPC) models. RPC represents four 20-element
 polynomials that map geodetic coordinates to image coordinates. Since
 they are easy to implement, RPC represents a universal camera model
 and can be had from many imaging providers; Digital Globe also
@@ -963,9 +962,10 @@ opinion compared to the linear camera model provided by Digital
 Globe. For GeoEye and Astrium, the only option is using RPC.
 
 Our RPC read driver is GDAL. If the command \texttt{gdalinfo} can identify
-the RPC information inside the headers of your files, we will likely
+the RPC information inside the headers of your files, ASP will likely
 be able to see it as well. This means that sometimes we can get away
-with only providing a left and right image. This is specifically the
+with only providing a left and right image, with no extra files
+containing camera information. This is specifically the
 case for GeoEye.
 
 You can download an example stereo pair from GeoEye's website at
@@ -1002,27 +1002,25 @@ or \texttt{homography}.
 \section{Dawn (FC) Framing Camera}
 
 This is a NASA mission to visit two of the largest objects in the
-asteroid belt, Vesta and Ceres. After having orbited Vesta for a year
-and a half, they finally started releasing their imagery. Thankfully,
-USGS's Astrogeology department has been supporting the mission this
-entire time. They've had a Dawn camera model publicly available for at
-least the last 2 releases. Since ASP builds against USGS's ISIS
-software, we are able to leverage that model.
-
-The framing camera on board Dawn is quite small and packs only a
-resolution of 1024x1024 pixels. This means processing time is
-extremely short. To it's benefit, it seems that the mission planners
-leave the framing camera on taking shots quite rapidly. On a single
-pass, they seem to usually take a chain of FC images that have a high
-overlap percentage. This opens the idea of using ASP to process not
-only the sequential pairs, but also the wider baseline shots. Then
-someone could potentially average all the DEMs together to create a
-more robust data product.
+asteroid belt, Vesta and Ceres. The framing camera on board Dawn is
+quite small and packs only a resolution of 1024x1024 pixels. This means
+processing time is extremely short. To its benefit, it seems that the
+mission planners leave the framing camera on taking shots quite
+rapidly. On a single pass, they seem to usually take a chain of FC
+images that have a high overlap percentage. This opens the idea of using
+ASP to process not only the sequential pairs, but also the wider
+baseline shots. Then someone could potentially average all the DEMs
+together to create a more robust data product.
 
 For this example, we downloaded the images
+
+\begin{center}
 \texttt{FC21A0010191\_11286212239F1T.IMG} and
-\texttt{FC21A0010192\_11286212639F1T.IMG} which show the Cornelia
-crater. We must be honest, we found these images by looking at
+\texttt{FC21A0010192\_11286212639F1T.IMG} 
+\end{center}
+
+which show the Cornelia
+crater. We found these images by looking at
 the popular anaglyph shown on the Planetary Science
 Blog \cite{planetaryblog:vesta}.
 
