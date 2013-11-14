@@ -847,6 +847,7 @@ inline transform_pc( ImageViewBase<ImageT> const& image,
 }
 
 void calc_translation_vec(DP const& source, DP const& trans_source,
+                          Vector3 & shift, // from planet center to current origin
                           string const& actual_datum_str,
                           Vector3 & trans, Vector3 & trans_llh){
 
@@ -865,11 +866,10 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
 
   cartography::Datum datum;
   datum.set_well_known_datum(actual_datum_str);
-  Vector3 source_llh = datum.cartesian_to_geodetic(source_ctr_vec);
-  Vector3 trans_source_llh = datum.cartesian_to_geodetic(trans_source_ctr_vec);
+  Vector3 source_llh = datum.cartesian_to_geodetic(source_ctr_vec + shift);
+  Vector3 trans_source_llh = datum.cartesian_to_geodetic(trans_source_ctr_vec + shift);
 
   trans_llh = trans_source_llh - source_llh;
-  
 }
 
 void calc_max_displacment(DP const& source, DP const& trans_source){
@@ -1220,7 +1220,8 @@ int main( int argc, char *argv[] ) {
     // Calculate by how much points move as result of T
     calc_max_displacment(source, trans_source);
     Vector3 trans, trans_llh;
-    calc_translation_vec(source, trans_source, actual_datum_str, trans, trans_llh);
+    calc_translation_vec(source, trans_source, shift, actual_datum_str,
+                         trans, trans_llh);
 
     // Calculate the errors after doing ICP
     PointMatcher<RealT>::Matrix end_errors;
