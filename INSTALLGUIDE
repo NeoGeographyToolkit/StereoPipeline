@@ -37,8 +37,6 @@ automake
 ccache
 git-core
 subversion
-cmake (at least version 2.8.11.2)
-chrpath
 xserver-xorg-dev
 xorg-dev
 libx11-dev
@@ -49,13 +47,11 @@ libglut3-dev
 If you have root access on your machine you can install them using the
 following command:
 
-sudo apt-get install g++ gfortran libtool autoconf      \
-   automake ccache git-core subversion cmake chrpath    \
-   xserver-xorg-dev xorg-dev libx11-dev libgl1-mesa-dev \
-   libglu1-mesa-dev libglut3-dev
+sudo apt-get install g++ gfortran libtool autoconf automake \
+  ccache git-core subversion xserver-xorg-dev xorg-dev      \ 
+  libx11-dev libgl1-mesa-dev libglu1-mesa-dev libglut3-dev
 
-You may need to manually install the following two packages:
-chrpath - http://ftp.debian.org/debian/pool/main/c/chrpath/chrpath_0.13.orig.tar.gz
+You may need to manually install the following package:
 ccache - http://samba.org/ftp/ccache/ccache-3.1.9.tar.bz2
 
 2. Base dependencies - MAC
@@ -67,7 +63,6 @@ Next you need the following packages:
 libtool
 git-core
 subversion
-cmake
 xz
 
 You may need to manually install the following package:
