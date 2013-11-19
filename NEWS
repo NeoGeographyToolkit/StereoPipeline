@@ -1,4 +1,4 @@
-*** RELEASE 2.3.0, Upcoming! ***
+*** RELEASE 2.3.0, 19 November, 2013 ***
 
 TOOLS
 
@@ -24,7 +24,8 @@ GENERAL
 
   - Stereo Pipline (almost) daily and fully verfied builds for all
     platforms are available for the adventurous user
-    (http://byss.arc.nasa.gov/stereopipeline/daily_build/).
+    (http://byss.arc.nasa.gov/stereopipeline/daily_build/). When
+    requesting support, please provide the output of "stereo --version".
 
   - The size of Stereo Pipeline output data has been reduced, by up to
     40%, particularly point clouds and DEMs are between 30% to 70%

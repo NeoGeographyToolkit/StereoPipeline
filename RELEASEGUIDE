@@ -60,10 +60,14 @@ The resulting release tarballs will go to BinaryBuilder/asp_tarballs,
 and will need to unzipped and renamed to remove the timestamp from the
 tarball name, and then zipped back.
 
-8.) Copy the new builds to the release area and update the website.
+8.) Copy the new builds to the release area at
+/byss/docroot/stereopipeline/binaries and update the website, at
+https://ti.arc.nasa.gov/cms/ (SG can give permissions to edit the
+pages under /tech/asr/intelligent-robotics/ngt). 
 
 9.) Send an announcement of the new release to the mailing list,
-     listing the changes specified in NEWS.
+    at stereo-pipeline@lists.nasa.gov, listing the changes specified
+    in NEWS.
 
 10.) Modify the build system:
 
