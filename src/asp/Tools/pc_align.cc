@@ -772,10 +772,6 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
   vw_out() << label << ": error percentile:"
            << " 16%: " << p16 << ", 50%: " << p50 << ", 84%: " << p84 << endl;
 
-  double mean = calc_mean(errs, len);
-  double stddev = calc_stddev(errs, mean);
-  vw_out() << label << ": error mean: " << mean << ", error stddev: " << stddev << std::endl;
-  
   double a25 = calc_mean(errs, len/4),   a50  = calc_mean(errs, len/2);
   double a75 = calc_mean(errs, 3*len/4), a100 = calc_mean(errs, len);
   vw_out() << label << ": mean of smallest errors:"

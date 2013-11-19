@@ -734,15 +734,17 @@ expected maximum distance (displacement) source points may move by as
 result of alignment, using the option
 \texttt{-\/-max-displacement}. This number will help remove source
 points too far from the reference point cloud which may not match
-successfully and may degrade the accuracy. If in doubt, this value can be
-set to something large but still reasonable, as the tool is able to
+successfully and may degrade the accuracy. If in doubt, this value can
+be set to something large but still reasonable, as the tool is able to
 throw away a certain number of unmatched outliers. At the end of
 alignment, \texttt{pc\_align} will display the {\it observed} maximum
-displacement, a multiple of which can be used to seed the tool in a subsequent run.
+displacement, a multiple of which can be used to seed the tool in a
+subsequent run.
 
 The user can choose how many points to pick from the reference and
 source point clouds to perform the alignment. The amount of memory and
-processing time used by \texttt{pc\_align} is directly proportional to these numbers.
+processing time used by \texttt{pc\_align} is directly proportional to
+these numbers.
 
 Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
 the latter can be good enough if the input point clouds have small
@@ -775,12 +777,12 @@ can result in large movements on the planet surface even for small angles
 of rotation, as such both its rotation and translation components may not
 be amenable to good interpretation.
 
-The tool outputs to a file the complete list of errors. It displays the
-16th, 50th, and 84th error percentiles, the mean and standard deviation
-of all errors, as well as the means of the smallest 25\%, 50\%, 75\%,
-and 100\% of the errors, all these before and after alignment. The
-errors are defined as the closest distances between transformed source
-points and corresponding closest reference points.
+The tool outputs to a file the complete list of errors together with
+their location, where an error is defined as the distance from a source
+point to the closest reference point. It displays the 16th, 50th, and
+84th error percentiles, as well as the means of the smallest 25\%, 50\%,
+75\%, and 100\% of the errors, all these before and after alignment
+transform is applied to the source points.
 
 By default, when \texttt{pc\_align} discards
 outliers during the computation of the alignment transform, it keeps
