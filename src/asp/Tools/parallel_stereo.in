@@ -19,6 +19,11 @@
 
 import sys, optparse, subprocess, re, os, math, time, tempfile, glob, shutil
 import os.path as P
+
+if sys.version_info < (2, 6, 0):
+    print('\nERROR: Must use Python 2.6 or greater.')
+    sys.exit(1)
+
 libexec_path = sys.path[0] + '/../libexec'
 sys.path.insert(0, libexec_path) # prepend to Python path
 from stereo_utils import * # must be after the path is altered above
