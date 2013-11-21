@@ -122,68 +122,68 @@ def rename_files( settings, postfix_in, postfix_out, **kw ):
 def build_vrt( settings, postfix, tile_postfix, num_bands, **kw ):
 
     image_size = settings["trans_left_image_size"]
-    with open(settings['out_prefix'][0]+postfix,'w') as f:
-        f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(image_size[0]),int(image_size[1])) )
+    f = open(settings['out_prefix'][0]+postfix,'w')
+    f.write("<VRTDataset rasterXSize=\"%i\" rasterYSize=\"%i\">\n" % (int(image_size[0]),int(image_size[1])) )
 
-        tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
+    tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
 
-        # If a tile is missing, for example, in the case we
-        # skipped it when it does not intersect user's crop box,
-        # substitute it with a different one, to ensure the mosaic
-        # does not have holes.
-        goodFilename = ""
+    # If a tile is missing, for example, in the case we
+    # skipped it when it does not intersect user's crop box,
+    # substitute it with a different one, to ensure the mosaic
+    # does not have holes.
+    goodFilename = ""
+    for tile in tiles:
+        directory = settings['out_prefix'][0] + tile.name_str()
+        filename  = directory + "/" + tile.name_str() + tile_postfix
+        if os.path.isfile(filename):
+            goodFilename = filename
+            break
+    if goodFilename == "":
+        raise Exception('No tiles were generated')
+
+    # Do gdalinfo on the file to get metadata
+    args=[goodFilename]
+    sep = "="
+    verbose = False
+    gdal_settings=run_and_parse_output( "gdalinfo", args, sep, verbose )
+
+    # Extract the data type (e.g., Float32 or Float64)
+    data_type = "Float32"
+    for s in gdal_settings:
+        val = " ".join(gdal_settings[s])
+        m = re.match('^.*? Type (\w+)', val)
+        if m:
+            data_type = m.group(1)
+            break
+
+    # Extract the shift in a point clound file, if present
+    POINT_OFFSET = "POINT_OFFSET" # Tag name must be synced with C++ code
+    if POINT_OFFSET in gdal_settings:
+        f.write("  <Metadata>\n    <MDI key=\"" + POINT_OFFSET + "\">" +
+                gdal_settings[POINT_OFFSET][0] + "</MDI>\n  </Metadata>\n")
+
+    # Write each band
+    for b in range( 1, num_bands + 1 ):
+        f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" %
+                (data_type,b) )
+
         for tile in tiles:
             directory = settings['out_prefix'][0] + tile.name_str()
             filename  = directory + "/" + tile.name_str() + tile_postfix
-            if os.path.isfile(filename):
-                goodFilename = filename
-                break
-        if goodFilename == "":
-            raise Exception('No tiles were generated')
 
-        # Do gdalinfo on the file to get metadata
-        args=[goodFilename]
-        sep = "="
-        verbose = False
-        gdal_settings=run_and_parse_output( "gdalinfo", args, sep, verbose )
+            if not os.path.isfile(filename): filename = goodFilename
 
-        # Extract the data type (e.g., Float32 or Float64)
-        data_type = "Float32"
-        for s in gdal_settings:
-            val = " ".join(gdal_settings[s])
-            m = re.match('^.*? Type (\w+)', val)
-            if m:
-                data_type = m.group(1)
-                break
-        
-        # Extract the shift in a point clound file, if present
-        POINT_OFFSET = "POINT_OFFSET" # Tag name must be synced with C++ code
-        if POINT_OFFSET in gdal_settings:
-            f.write("  <Metadata>\n    <MDI key=\"" + POINT_OFFSET + "\">" +
-                    gdal_settings[POINT_OFFSET][0] + "</MDI>\n  </Metadata>\n")
-
-        # Write each band
-        for b in range( 1, num_bands + 1 ):
-            f.write("  <VRTRasterBand dataType=\"%s\" band=\"%i\">\n" %
-                    (data_type,b) )
-
-            for tile in tiles:
-                directory = settings['out_prefix'][0] + tile.name_str()
-                filename  = directory + "/" + tile.name_str() + tile_postfix
-
-                if not os.path.isfile(filename): filename = goodFilename
-
-                relative  = os.path.relpath(filename, os.path.dirname( settings['out_prefix'][0] ) )
-                f.write("    <SimpleSource>\n")
-                f.write("       <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % relative)
-                f.write("       <SourceBand>%i</SourceBand>\n" % b)
-                f.write("       <SrcRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
-                        (tile.x, tile.y, tile.width, tile.height) )
-                f.write("       <DstRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
-                        (tile.x, tile.y, tile.width, tile.height) )
-                f.write("    </SimpleSource>\n")
-            f.write("  </VRTRasterBand>\n")
-        f.write("</VRTDataset>\n")
+            relative  = os.path.relpath(filename, os.path.dirname( settings['out_prefix'][0] ) )
+            f.write("    <SimpleSource>\n")
+            f.write("       <SourceFilename relativeToVRT=\"1\">%s</SourceFilename>\n" % relative)
+            f.write("       <SourceBand>%i</SourceBand>\n" % b)
+            f.write("       <SrcRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
+                    (tile.x, tile.y, tile.width, tile.height) )
+            f.write("       <DstRect xOff=\"%i\" yOff=\"%i\" xSize=\"%i\" ySize=\"%i\"/>\n" %
+                    (tile.x, tile.y, tile.width, tile.height) )
+            f.write("    </SimpleSource>\n")
+        f.write("  </VRTRasterBand>\n")
+    f.write("</VRTDataset>\n")
 
 
 def get_num_nodes(nodes_list):
