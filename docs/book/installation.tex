@@ -143,154 +143,12 @@ bash: stereo: command not found
 You need to add the \texttt{bin} directory of your deployed Stereo
 Pipeline installation to the environmental variable \texttt{PATH}.
 
-\newpage
+\section{\label{sec:Source-Installation}Installation from Source}
 
-\section{\label{sec:Source-Installation}Source Installation}
+This method is for advanced users. You will need to fetch the Stereo Pipeline source code from Github at
+\url{https://github.com/NeoGeographyToolkit/StereoPipeline} and then
+follow the instructions specified in \texttt{INSTALLGUIDE}.
 
-This method is for advanced users with moderate build system
-experience. Some dependencies such as ISIS and its dependencies
-\emph{(like SuperLU, Qwt, CSpice)} use their own custom build systems.
-Due to the complex nature of the dependent software, we can't help you
-with questions about those libraries.
-
-In order to compile and build your own version of Stereo Pipeline you
-will need the source code. The binary distribution that we provide
-does not contain this. The source code for Stereo Pipeline is
-available from Github at
-\url{https://github.com/NeoGeographyToolkit/StereoPipeline}.
-
-\subsection{Dependency List}
-
-This is a list of the prime dependencies of Stereo Pipeline. Some
-libraries (like \ac{ISIS} and \ac{VW}) have dependencies of their own
-which are not covered here.
-
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=5in]{graph/asp_deps.pdf}
-  \caption{Graph outlining some dependencies. Not all of ISIS's are shown.}
-\end{figure}
-
-\begin{description}
-\item [{Boost}] (Required) \url{http://www.boost.org/}\\
-Version 1.46 or greater is required. Along with the base library
-set, the Stereo Pipeline specifically requires: Program Options, Filesystem,
-Thread, and Graph.
-
-\item [{GDAL}] (Recommended) \url{http://www.gdal.org}\\
-GDAL handles most of the File IO for Ames Stereo Pipeline. It also
-provides support for the ingestion of proj4 strings from the
-user. This is required if you wish to support the BigTIFF format and
-write files larger that 4GB.
-
-\item [{ISIS}] (Recommended) \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}\\
-The \ac{USGS} \acf{ISIS} library. This library handles the camera
-models and image formats used for instruments.  \ac{ISIS} is usually
-downloaded and used as a binary distribution.  Compilation of
-\ac{ISIS} from source can be challenging, and their support forums may
-provide assistance:
-\url{https://isis.astrogeology.usgs.gov/IsisSupport/}. Cleaning and
-modification of their source code may be required if you would like to
-use a newer version of ISIS's dependencies than may be available
-on your system.
-
-ISIS is a complex suite of software to build from source, it is not
-recommended that users try to build ISIS themselves.  Even though ISIS
-provides pre-compiled libraries, not all of the headers are included.
-
-\item [{LAPACK}] (Required)\\
-There are many sources for LAPACK\@. For OSX, you can use the
-vecLib framework. For Linux, you can use the netlib LAPACK/CLAPACK
-distributions, or Intel's MKL, or any of a number of others. The math
-is unfortunately not a hotspot in the code, though, so using a faster
-LAPACK implementation will not change much. Therefore, you should
-probably just use the LAPACK your package manager (RPM for Red Hat
-Linux, Yast for SuSE, etc.) has available.
-
-\item [{OpenSceneGraph}] (Optional) \url{http://www.openscenegraph.org/}\\
-OpenSceneGraph is required to run the \texttt{point2mesh} tool (See
-Section~\ref{point2mesh}). This library provides a convenient way of
-building OpenGL graphics through the method of scene graphs. It also
-provides a file format and utilities for display these scene
-graphs. The output file of \texttt{point2mesh} is an OpenSceneGraph
-binary scene graph format.
-
-\item [{Python 2.4+}] (Required) \url{http://www.python.org}\\
-Some applications of Stereo Pipeline are python scripts. Python
-provides a friendly enviroment that hopefully encourages users to
-attempt modifications of their own.
-
-\item [{Vision~Workbench}] (Required) \url{http://ti.arc.nasa.gov/visionworkbench/}\\
-Vision Workbench forms much of the core processing code of the Stereo
-Pipeline. Vision Workbench contains almost all of the image processing
-algorithms, such as image filters, image arithmetic, stereo
-correlation, and triangulation. This means that Stereo Pipeline is
-just a collection of applications that implement Vision Workbench in
-the context of ISIS.
-
-\item [{Xerces-C}] (Optional) \url{http://xerces.apache.org/xerces-c/}\\
-Xerces is an XML parsing library that we use to parse data files provided
-by commerical satellite imagery vendors.
-
-\end{description}
-
-\subsection{Build System}
-
-The build system is built on GNU autotools. In-depth information on
-autotools is available from \url{http://sources.redhat.com/autobook/}.
-The basics, however, are simple. To compile the source code, first
-run~\verb#./configure# from the top-level directory. This will search
-for the dependencies and enable the modules you requested. There are
-a number of options that can be passed to \verb#configure#; many
-of these options can also be placed into a \verb#config.options#
-file (in the form of \verb#VARIABLE="VALUE"#) in the same directory
-as \verb#configure#. Table \ref{tab:Supported-configure-options}
-lists the supported options.
-
-\begin{table}
-\begin{longtable}{|l|l|c|m{5cm}|}
-\hline
-\textbf{Variable Name}                & \textbf{Configure option}               & \textbf{Default} & \textbf{Function}\tabularnewline
-\hline
-\hline
-\small\verb#PREFIX#                   & \small\verb#--prefix#                   & /usr/local       & Set the install prefix (ex: binaries will go in \$PREFIX/bin)\tabularnewline
-\hline
-\small\verb#HAVE_PKG_XXX#             & \small\verb#--with-xxx#                 & auto             & Set to {}``no'' to disable package XXX, or a path to only search that path\tabularnewline
-\hline
-\small\verb#PKG_PATHS#                & \small\verb#--with-pkg-paths#           & many             & Prepend to default list of search paths\tabularnewline
-\hline
-\small\verb#ENABLE_PKG_PATHS_DEFAULT# & \small\verb#--enable-pkg-paths-default# & yes              & Append built-in list of search paths\tabularnewline
-\hline
-\small\verb#ENABLE_OPTIMIZE#          & \small\verb#--enable-optimize#          & 3                & Level of compiler optimization?\tabularnewline
-\hline
-\small\verb#ENABLE_DEBUG#             & \small\verb#--enable-debug#             & no               & How much debug information?\tabularnewline
-\hline
-\small\verb#ENABLE_CCACHE#            & \small\verb#--enable-ccache#            & no               & Use \verb#ccache# if available\tabularnewline
-\hline
-\small\verb#ENABLE_RPATH#             & \small\verb#--enable-rpath#             & no               & Set RPATH on built binaries and libraries\tabularnewline
-\hline
-\small\verb#ENABLE_ARCH_LIBS#         & \small\verb#--enable-arch-libs#         & no               & Pass in 64 or 32 to look for libraries by default in \verb#lib64# or \verb#lib32#\tabularnewline
-\hline
-\small\verb#ENABLE_PROFILE#           & \small\verb#--enable-profile#           & no               & Use function profiling?\tabularnewline
-\hline
-\small\verb#PKG_XXX_CPPFLAGS#         &                                         &                  & Append value to CPPFLAGS for package XXX\tabularnewline
-\hline
-\small\verb#PKG_XXX_LDFLAGS#          &                                         &                  & Prepend value to LDFLAGS for package XXX\tabularnewline
-\hline
-\small\verb#PKG_XXX_LIBS#             &                                         &                  & Override the required libraries for package XXX\tabularnewline
-\hline
-\small\verb#PKG_XXX_MORE_LIBS#        &                                         &                  & Append to required libraries for package XXX\tabularnewline
-\hline
-\small\verb#ENABLE_EXCEPTIONS#        & \small\verb#--enable-exceptions#        & yes              & Use C++ exceptions? Disable at own risk.\tabularnewline
-\hline
-\small\verb#ENABLE_MULTI_ARCH#        & \small\verb#--enable-multi-arch#        & no               & OSX Only: Build \emph{Fat} binary with space-separated list of arches\tabularnewline
-\hline
-\small\verb#ENABLE_AS_NEEDED#         & \small\verb#--enable-as-needed#         & no               & Pass --as-needed to GNU linker. Use at your own risk.\tabularnewline
-\hline
-\end{longtable}\caption{\label{tab:Supported-configure-options}Supported configure options}
-\end{table}
-
-\newpage
 \section{\label{sec:Settings}Settings Optimization}
 
 Finally the last thing to be done for Stereo Pipeline is to setup up
@@ -302,6 +160,7 @@ Stero Pipeline. The settings by which Vision Workbench processes is
 configurable by having a \texttt{.vwrc} file hidden in your home
 directory. Below is an example.
 
+\newpage
 \begin{minipage}{0.94\linewidth}
 \small\listinginput{1}{LogConf.example}
 \end{minipage}
@@ -310,7 +169,6 @@ There are a lot of possible options that can be implemented in the
 above example. Let's cover the most important options and the concerns
 the user should have when selecting a value.
 
-\newpage
 \begin{description}
 
 \item[default\_num\_threads \textnormal (default=2)] \hfill \\
