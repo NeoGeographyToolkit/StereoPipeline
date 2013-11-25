@@ -34,7 +34,6 @@ gfortran
 libtool
 autoconf
 automake
-ccache
 git-core
 subversion
 xserver-xorg-dev
@@ -48,11 +47,8 @@ If you have root access on your machine you can install them using the
 following command:
 
 sudo apt-get install g++ gfortran libtool autoconf automake \
-  ccache git-core subversion xserver-xorg-dev xorg-dev      \ 
-  libx11-dev libgl1-mesa-dev libglu1-mesa-dev libglut3-dev
-
-You may need to manually install the following package:
-ccache - http://samba.org/ftp/ccache/ccache-3.1.9.tar.bz2
+  git-core subversion xserver-xorg-dev xorg-dev libx11-dev  \
+  libgl1-mesa-dev libglu1-mesa-dev libglut3-dev
 
 2. Base dependencies - MAC
 
@@ -64,9 +60,6 @@ libtool
 git-core
 subversion
 xz
-
-You may need to manually install the following package:
-ccache - http://samba.org/ftp/ccache/ccache-3.1.9.tar.bz2
 
 If you are using OSX 10.7 Lion, you will need to manually install the
 OSX 10.5 SDK. This is required for building against ISIS since they
