@@ -189,24 +189,21 @@ def set_or_wipe_image_tags(IMAGE, avg_meanproductgsd, avg_meancollectedgsd):
     if IMAGE.find("MEANCOLLECTEDGSD") is not None:
         IMAGE.find("MEANCOLLECTEDGSD").text = str(avg_meancollectedgsd)
 
+def get_corners(A, B, indices):
+    # Each corner of C will be picked either from A or from B,
+    # depending on the value of 'indices' for that corner.
+    C=[]
+    for i in range(len(indices)):
+        j = indices[i]
+        if j == 0:
+            C.append(A[i])
+        else:
+            C.append(B[i])
+            
+    return C
 
-def find_box_center(B):
-
-    # B is an array of 4 points, each point having two coordinates.
-    cx = 0
-    cy = 0
-    np = 0
-    for p in B:
-        cx += p[0]
-        cy += p[1]
-        np += 1
-    cx /= np
-    cy /= np
-
-    return [cx, cy]
-
-def length(p):
-    return math.sqrt( p[0]**2 + p[1]**2 )
+def signed_triangle_area(P, Q, R):
+    return ( (Q[0]-P[0])*(R[1]-Q[1])-(Q[1]-P[1])*(R[0]-Q[0]) )/2.0
 
 def find_combined_box(A, B):
 
@@ -214,43 +211,30 @@ def find_combined_box(A, B):
     # Both A and B is a vector of 4 points, each point having two
     # coordinates, x and y.
 
-    # Given the ll (lower-left) corner each of the 2 boxes, find the
-    # vector from the center of each box to its ll corner. Average the
-    # two vectors. Also find the average of the two centers.  Compute
-    # the vector from the aveage center to the first box ll corner.
-    # Compute same vector for second box ll corner. Of these two
-    # vectors, the one which gives the narrowest angle with the
-    # earlier averaged vector will tell us which of the two ll corners
-    # will be the ll corner of the combined box.
+    # Each of the corners of the new box will be one of the corresponding
+    # corners of either A or B. Pick the new corners as to maximize
+    # the area of the obtained box.
 
     if len(A) == 0: return B
-    
-    ca = find_box_center(A)
-    cb = find_box_center(B)
-    c = [ (ca[0] + cb[0])/2.0, (ca[1] + cb[1])/2.0 ]
-    
-    O = [] # output box
-    for i in range(len(A)):
-        pa = A[i]
-        pb = B[i]
-        va = [ pa[0] - ca[0], pa[1] - ca[1] ]
-        vb = [ pb[0] - cb[0], pb[1] - cb[1] ]
-        v  = [ (va[0] + vb[0])/2.0, (va[1] + vb[1])/2.0 ]
+    if len(A) != 4 or len(B) != 4:
+        raise Exception('Error', "A box is supposed to have 4 corners.")
+        
+    max_area = 0
+    max_indices = []
+    for a in range(2):
+        for b in range(2):
+            for c in range(2):
+                for d in range(2):
+                    indices = [a, b, c, d]
+                    C = get_corners(A, B, indices)
+                    area = abs( signed_triangle_area(C[0], C[1], C[2]) +
+                                signed_triangle_area(C[2], C[3], C[0]))
+                    if area > max_area:
+                        max_area = area
+                        max_indices = indices
+                        
+    return get_corners(A, B, max_indices)
 
-        wa = [ pa[0] - c[0], pa[1] - c[1] ]
-        cosa = ( wa[0]*v[0] + wa[1]*v[1] ) / ( length(wa) * length(v) )
-
-        wb = [ pb[0] - c[0], pb[1] - c[1] ]
-        cosb = ( wb[0]*v[0] + wb[1]*v[1] ) / ( length(wb) * length(v) )
-
-        if cosa > cosb:
-            p = pa
-        else:
-            p = pb
-            
-        O.append(p)
-
-    return O
 
 def adjust_camera_corners(BAND_P, all_ll_corners):
 
