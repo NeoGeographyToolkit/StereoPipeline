@@ -213,6 +213,15 @@ namespace asp {
                 << usage << general_options );
     }
 
+    if (stereo_settings().seed_mode == 2 &&
+        stereo_settings().disparity_estimation_dem_error <= 0.0){
+      vw_throw( ArgumentErr()
+                << "The value of disparity-estimation-dem-error"
+                << " must be positive.\n\n"
+                << usage << general_options );
+      
+    }
+        
     asp::create_out_dir(opt.out_prefix);
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,
                                                   opt, opt.in_file1,
