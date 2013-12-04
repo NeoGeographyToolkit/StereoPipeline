@@ -63,7 +63,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("ppd", po::value(&opt.ppd)->default_value(NaN),
      "Set the output file resolution in pixels per degree.")
     ("session-type,t", po::value(&opt.stereo_session)->default_value(""),
-     "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
+     "Select the stereo session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. [options: pinhole isis dg rpc]")
     ("t_projwin", po::value(&opt.target_projwin),
      "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.");
 
