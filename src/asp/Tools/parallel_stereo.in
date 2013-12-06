@@ -124,7 +124,7 @@ def rename_files( settings, postfix_in, postfix_out, **kw ):
         if os.path.isfile(filename_in) and not os.path.islink(filename_in):
             os.rename(filename_in, filename_out)
                 
-def build_vrt( settings, postfix, tile_postfix, num_bands, **kw ):
+def build_vrt( settings, postfix, tile_postfix, **kw ):
 
     image_size = settings["trans_left_image_size"]
     f = open(settings['out_prefix'][0]+postfix,'w')
@@ -160,6 +160,15 @@ def build_vrt( settings, postfix, tile_postfix, num_bands, **kw ):
         if m:
             data_type = m.group(1)
             break
+
+    # Find how many bands are in the file
+    num_bands = 0    
+    for s in gdal_settings:
+        m = re.match('^.*?Band\s+(\d+)', s)
+        if m:
+            b = int(m.group(1))
+            if num_bands < b:
+                num_bands = b
 
     # Extract the shift in a point clound file, if present
     POINT_OFFSET = "POINT_OFFSET" # Tag name must be synced with C++ code
@@ -448,7 +457,7 @@ if __name__ == '__main__':
             # build the vrt of all correlation tiles, and sym link
             # that vrt from all tile directories.
             rename_files( settings, "-D.tif", "-Dnosym.tif" )
-            build_vrt( settings, "-D.tif", "-Dnosym.tif", 3 )
+            build_vrt( settings, "-D.tif", "-Dnosym.tif" )
             create_subproject_dirs( settings ) # symlink D.tif
         if ( opt.entry_point <= 2 ):
             # Refinement
@@ -458,7 +467,7 @@ if __name__ == '__main__':
         if ( opt.entry_point <= 3 ):
             # Filtering
             if ( opt.stop_point <= 3 ): sys.exit()
-            build_vrt( settings, "-RD.tif", "-RD.tif", 3 )
+            build_vrt( settings, "-RD.tif", "-RD.tif" )
             single_run('stereo_fltr', args, msg='3: Filtering')
             create_subproject_dirs( settings ) # symlink F.tif
         if ( opt.entry_point <= 4 ):
@@ -473,7 +482,7 @@ if __name__ == '__main__':
             # Point cloud mosaic
             if ( opt.stop_point <= 5 ): sys.exit()
             create_subproject_dirs( settings )
-            build_vrt( settings, "-PC.tif", "-PC.tif", 4 )
+            build_vrt( settings, "-PC.tif", "-PC.tif" )
 
     else:
 
