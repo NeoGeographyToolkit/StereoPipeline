@@ -358,17 +358,19 @@ osg::Node* createScene( std::vector<PointIter*>& points,
     }
 
     // Setting up color
-    osg::Vec4Array* colours = new osg::Vec4Array( 2 );
+    osg::Vec4Array* colours = new osg::Vec4Array( points.size()*2 );
     (*colours)[0].set(1.0f, 0.5f, 1.0f, 1.0f);  // Generic Tie Points (PURPLE)
     (*colours)[1].set(0.5f, 1.0f, 0.5f, 1.0f);  // Ground Control Points (GREEN)
-    osg::TemplateIndexArray<unsigned int, osg::Array::UIntArrayType, 2,2> *colorIndexArray =
-      new osg::TemplateIndexArray<unsigned int, osg::Array::UIntArrayType, 2,2>(points.size()*2 );
-    for ( unsigned i = 0; i < points.size()*2; i+=2 ) {
-      (*colorIndexArray)[i] = (*colorIndexArray)[i+1] = points[i/2]->is_gcp();
+    for ( unsigned i = 0; i < points.size(); i++ ) {
+      if ( points[i/2]->is_gcp() ) {
+        (*colours)[2*i].set(0.5f,1.0f,0.5f,1.0f);
+        (*colours)[2*i+1].set(0.5f,1.0f,0.5f,1.0f);
+      } else {
+        (*colours)[2*i].set(1.0f,0.5f,1.0f,1.0f);
+        (*colours)[2*i+1].set(1.0f,0.5f,1.0f,1.0f);
+      }
     }
     geometry->setColorArray( colours );
-    geometry->setColorIndices( colorIndexArray );
-    geometry->setColorBinding( osg::Geometry::BIND_PER_VERTEX );
 
     // Setting up primitive to draw line to last location
     geometry->addPrimitiveSet( new osg::DrawArrays(GL_LINES, 0, vertices->size() ));
@@ -1043,7 +1045,6 @@ int main(int argc, char* argv[]){
   }
 
   viewer.realize();
-  std::cout << "Ptr: " << viewer.getCameraWithFocus() << "\n";
   viewer.run();
   std::cout << "Ending\n";
 
