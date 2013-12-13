@@ -213,11 +213,17 @@ fi
 AX_PKG(FLANN,      [], [-lflann_cpp],[flann/flann.hpp])
 AX_PKG(GDAL, [], [-lgdal], [gdal.h])
 
+AX_PKG(Z, [], [-lz])
+
+AX_PKG(ILMBASE, [M Z PTHREADS], [-lImath -lHalf -lIex -lIlmThread], [Iex.h], [OpenEXR])
+AX_PKG(OPENEXR, [ILMBASE], [-lIlmImf], [ImfOutputFile.h], [OpenEXR])
+AX_PKG(JPEG, [], [-ljpeg], [stdio.h jpeglib.h]) # jpeglib.h requires stdio.h to have been included
+
 # Vision Workbench Core
 AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore],   [vw/Core/Log.h] )
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h], [], [], [], [FLANN])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
-AX_PKG(VW_FILEIO,[VW_IMAGE GDAL BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
+AX_PKG(VW_FILEIO,[VW_IMAGE Z OPENEXR GDAL BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
 AX_PKG(VW_TOOLS, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE BOOST_FILESYSTEM BOOST_PROGRAM_OPTIONS THREADS], [-lvwTools], [vw/tools/Common.h])
 AX_GROUP_PKG(VW, [VW_TOOLS VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
 
@@ -333,7 +339,6 @@ AX_PKG(UFCONFIG, [], [-lufconfig])
 AX_PKG(AMD, [], [-lamd], [], [], [], [], [UFCONFIG])
 AX_PKG(COLAMD, [], [-lcolamd], [], [], [], [], [UFCONFIG])
 AX_PKG(CHOLMOD, [AMD COLAMD LAPACK], [-lcholmod])
-AX_PKG(Z, [], [-lz])
 AX_PKG_ONE_OF(TIFF,
     STANDALONE_TIFF, [AX_PKG(STANDALONE_TIFF, [Z], [-ltiff])],
     TIFF_NEEDS_JPEG, [AX_PKG(TIFF_NEEDS_JPEG, [Z], [-ljpeg -ltiff])])
