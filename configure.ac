@@ -176,6 +176,7 @@ fi
 AX_PKG(THREADS, [BOOST_THREAD], [], [])
 
 AX_PKG(M, [], [-lm], [math.h])
+AX_PKG(PROJ4, [M], [-lproj], [proj_api.h])
 
 AX_PKG_ONE_OF(LAPACK,
   APPLE_LAPACK,
@@ -216,8 +217,8 @@ AX_PKG(GDAL, [], [-lgdal], [gdal.h])
 AX_PKG(VW_CORE,  [BOOST_THREAD BOOST BOOST_PROGRAM_OPTIONS LAPACK], [-lvwCore],   [vw/Core/Log.h] )
 AX_PKG(VW_MATH,  [VW_CORE],                   [-lvwMath],   [vw/Math/LinearAlgebra.h], [], [], [], [FLANN])
 AX_PKG(VW_IMAGE, [VW_CORE],                   [-lvwImage],  [vw/Image/ImageView.h])
-AX_PKG(VW_FILEIO,[VW_IMAGE BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
-AX_PKG(VW_TOOLS, [VW_IMAGE VW_MATH VW_CORE BOOST_FILESYSTEM BOOST_PROGRAM_OPTIONS THREADS], [-lvwTools], [vw/tools/Common.h])
+AX_PKG(VW_FILEIO,[VW_IMAGE GDAL BOOST_SYSTEM BOOST_FILESYSTEM],     [-lvwFileIO], [vw/FileIO/DiskImageResourceOpenEXR.h vw/FileIO/DiskImageResourceGDAL.h])
+AX_PKG(VW_TOOLS, [VW_FILEIO VW_IMAGE VW_MATH VW_CORE BOOST_FILESYSTEM BOOST_PROGRAM_OPTIONS THREADS], [-lvwTools], [vw/tools/Common.h])
 AX_GROUP_PKG(VW, [VW_TOOLS VW_FILEIO VW_IMAGE VW_MATH VW_CORE])
 
 # Double Check again that VW_FILEIO really was built with the correct 3rdParty.
@@ -239,7 +240,7 @@ AX_PKG(VW_PLATE,          [VW_FILEIO PROTOBUF], [-lvwPlate],        [vw/Plate/Pl
 if test x"$HAVE_PKG_ZEROMQ" = "xno" && test x"$HAVE_PKG_RABBITMQ_C" = "xno" && test x"$HAVE_PKG_VW_PLATE" = "xyes"; then
    AC_MSG_ERROR([VW_PLATE requires either ZEROMQ or RABBITMQ_C or BOTH.])
 fi
-AX_PKG(VW_CAMERA,         [VW BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
+AX_PKG(VW_CAMERA,         [VW PROTOBUF PROJ4 BOOST_IOSTREAMS], [-lvwCamera],       [vw/Camera/CAHVModel.h])
 AX_PKG(VW_STEREO,         [VW_CAMERA],          [-lvwStereo],       [vw/Stereo/CostFunctions.h])
 AX_PKG(VW_CARTOGRAPHY,    [VW_CAMERA],          [-lvwCartography],  [vw/Cartography/GeoReference.h], [], [], [], [PROTOBUF])
 AX_PKG(VW_MOSAIC,         [VW_CARTOGRAPHY],     [-lvwMosaic],       [vw/Mosaic/ImageComposite.h])
