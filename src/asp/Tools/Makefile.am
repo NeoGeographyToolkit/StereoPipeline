@@ -118,6 +118,12 @@ if MAKE_APP_PC_ALIGN
   pc_align_LDADD = $(APP_PC_ALIGN_LIBS)
 endif
 
+if MAKE_APP_WV_CORRECT
+  bin_PROGRAMS += wv_correct
+  wv_correct_SOURCES = wv_correct.cc
+  wv_correct_LDADD = $(APP_WV_CORRECT_LIBS)
+endif
+
 if MAKE_APP_GEODIFF
   bin_PROGRAMS += geodiff
   geodiff_SOURCES = geodiff.cc

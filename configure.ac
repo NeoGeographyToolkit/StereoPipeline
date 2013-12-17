@@ -437,6 +437,7 @@ AX_APP(MAPPROJECT,       [src/asp/Tools], yes, [CORE SESSIONS GDAL])
 AX_APP(RPC_GEN,          [src/asp/Tools], yes, [CORE SESSIONS])
 AX_APP(TIF_MOSAIC,       [src/asp/Tools], yes, [CORE])
 AX_APP(STEREO,           [src/asp/Tools], yes, [SESSIONS])
+AX_APP(WV_CORRECT,       [src/asp/Tools], yes, [CORE SESSIONS BOOST])
 
 # Toolkits (like module, but doesn't build a library)
 AX_MODULE(CONTROLNETTK, [src/asp/ControlNetTK], [], no, [VW_BUNDLEADJUSTMENT CORE ISISIO], [BOOST])
@@ -475,6 +476,7 @@ AM_CONDITIONAL(MAKE_APP_RPC_GEN, [test "$MAKE_APP_RPC_GEN" = "yes"])
 AM_CONDITIONAL(MAKE_APP_TIF_MOSAIC, [test "$MAKE_APP_TIF_MOSAIC" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREO, [test "$MAKE_APP_STEREO" = "yes"])
 AM_CONDITIONAL(MAKE_APP_STEREOGUI, [test "$MAKE_APP_STEREOGUI" = "yes"])
+AM_CONDITIONAL(MAKE_APP_WV_CORRECT, [test "$MAKE_APP_WV_CORRECT" = "yes"])
 
 ##################################################
 # final processing
