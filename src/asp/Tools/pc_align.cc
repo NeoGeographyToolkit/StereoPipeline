@@ -52,7 +52,6 @@
 #include <vw/Math.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
-#include <asp/Tools/point2dem.h>
 #include <pointmatcher/PointMatcher.h>
 #include <limits>
 #include <cstring>
