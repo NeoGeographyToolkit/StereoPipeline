@@ -97,8 +97,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description general_options("");
   general_options.add_options()
-    ("xoffset", po::value(&opt.xoffset), "Specify the CCD offset correction to apply in the x direction.")
-    ("yoffset", po::value(&opt.yoffset), "Specify the CCD offset correction to apply in the y direction.");
+    ("xoffset", po::value(&opt.xoffset), "Specify the CCD offset correction to apply in the x direction (optional).")
+    ("yoffset", po::value(&opt.yoffset), "Specify the CCD offset correction to apply in the y direction (optional).");
   general_options.add( asp::BaseOptionsDescription(opt) );
   
   po::options_description positional("");
