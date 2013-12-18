@@ -844,8 +844,10 @@ inline transform_pc( ImageViewBase<ImageT> const& image,
 void calc_translation_vec(DP const& source, DP const& trans_source,
                           Vector3 & shift, // from planet center to current origin
                           string const& actual_datum_str,
-                          Vector3 & trans, Vector3 & trans_llh){
-
+                          Vector3 & trans_xyz,
+                          Vector3 & trans_ned,
+                          Vector3 & trans_llh){
+  
   Eigen::VectorXd source_ctr
     = source.features.rowwise().sum() / source.features.cols();
   Eigen::VectorXd trans_source_ctr
@@ -857,14 +859,21 @@ void calc_translation_vec(DP const& source, DP const& trans_source,
     trans_source_ctr_vec[row] = trans_source_ctr(row, 0);
   }
 
-  trans = trans_source_ctr_vec - source_ctr_vec;
+  // Make these vectors in reference to the center of the planet
+  source_ctr_vec       += shift;
+  trans_source_ctr_vec += shift;
+  
+  trans_xyz = trans_source_ctr_vec - source_ctr_vec;
 
   cartography::Datum datum;
   datum.set_well_known_datum(actual_datum_str);
-  Vector3 source_llh = datum.cartesian_to_geodetic(source_ctr_vec + shift);
-  Vector3 trans_source_llh = datum.cartesian_to_geodetic(trans_source_ctr_vec + shift);
 
+  Vector3 source_llh = datum.cartesian_to_geodetic(source_ctr_vec);
+  Vector3 trans_source_llh = datum.cartesian_to_geodetic(trans_source_ctr_vec);
   trans_llh = trans_source_llh - source_llh;
+
+  Matrix3x3 M = datum.lonlat_to_ned_matrix(subvector(source_llh, 0, 2));
+  trans_ned = M*trans_xyz;
 }
 
 void calc_max_displacment(DP const& source, DP const& trans_source){
@@ -1214,9 +1223,9 @@ int main( int argc, char *argv[] ) {
 
     // Calculate by how much points move as result of T
     calc_max_displacment(source, trans_source);
-    Vector3 trans, trans_llh;
+    Vector3 trans_xyz, trans_ned, trans_llh;
     calc_translation_vec(source, trans_source, shift, actual_datum_str,
-                         trans, trans_llh);
+                         trans_xyz, trans_ned, trans_llh);
 
     // Calculate the errors after doing ICP
     PointMatcher<RealT>::Matrix end_errors;
@@ -1239,8 +1248,10 @@ int main( int argc, char *argv[] ) {
     cout.precision(16);
     cout << "Alignment transform (rotation + translation, "
          << "origin is planet center):" << endl << globalT << endl;
-    cout << "Translation vector (meters): " << trans << std::endl;
-    cout << "Translation vector magnitude (meters): " << norm_2(trans)
+    cout << "Translation vector (Cartesian, meters): " << trans_xyz << std::endl;
+    cout << "Translation vector (North-East-Down, meters): "
+         << trans_ned << std::endl;
+    cout << "Translation vector magnitude (meters): " << norm_2(trans_xyz)
          << std::endl;
     // Swap lat and lon, as we want to print lat first
     std::swap(trans_llh[0], trans_llh[1]);
@@ -1251,9 +1262,11 @@ int main( int argc, char *argv[] ) {
       rot(r, c) = globalT(r, c);
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle( rot) * 180/M_PI;
-    cout << "Euler angles (degrees) = " << euler_angles  << endl;
-    cout << "Axis angles  (degrees) = " << axis_angles   << endl;
-
+    cout << "Euler angles (degrees): " << euler_angles  << endl;
+    cout << "Axis of rotation and angle (degrees): "
+         << axis_angles/norm_2(axis_angles) << ' '
+         << norm_2(axis_angles) << endl;
+    
     Stopwatch sw8;
     sw8.start();
     save_transforms(opt, globalT);

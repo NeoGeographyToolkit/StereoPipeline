@@ -769,9 +769,19 @@ rotation, and the top three elements of the right-most column being the
 translation. This matrix can be supplied back to the tool as an initial
 guess. The inverse transform is saved to a file as well.
 
-The tool outputs the translation component of this transform, defined
-as the vector from the centroid of the original source points to the transformed
-centroid. The transform itself, with its origin at the center of the planet,
+The tool outputs the translation component of this transform, defined as
+the vector from the centroid of the original source points to the
+centroid of the transformed source points. We display this translation
+component in three ways (a) Cartesian coordinates with the origin at the
+planet center, (b) Local North-East-Down coordinates at the centroid of
+the original source points, and (c) Latitude-Longitude-Height
+differences between the two centroids. If the effect of the transform is
+small (e.g., the points moved by at most several hundred meters), then
+the representation in the form (b) above is most amenable to
+interpretation, as it is in respect to cardinal directions and height
+above ground if standing at a point on the planet surface.
+
+The rotation + transform itself, with its origin at the center of the planet,
 can result in large movements on the planet surface even for small angles
 of rotation, as such both its rotation and translation components may not
 be amenable to good interpretation.
