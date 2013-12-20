@@ -95,10 +95,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   double default_xoffset_reverse = 0.3396;
   double default_yoffset_reverse = 0.3725;
 
+  std::ostringstream osx;
+  osx << "Specify the CCD offset correction to apply in the x direction. Default: " << default_xoffset_forward << " (forward scan), " << default_xoffset_reverse << " (reverse scan)."; 
+  std::ostringstream osy;
+  osy << "Specify the CCD offset correction to apply in the y direction. Default: " << default_yoffset_forward << " (forward scan), " << default_yoffset_reverse << " (reverse scan).";
+  
   po::options_description general_options("");
   general_options.add_options()
-    ("xoffset", po::value(&opt.xoffset), "Specify the CCD offset correction to apply in the x direction (optional).")
-    ("yoffset", po::value(&opt.yoffset), "Specify the CCD offset correction to apply in the y direction (optional).");
+    ("xoffset", po::value(&opt.xoffset), osx.str().c_str())
+    ("yoffset", po::value(&opt.yoffset), osy.str().c_str());
   general_options.add( asp::BaseOptionsDescription(opt) );
   
   po::options_description positional("");
@@ -136,6 +141,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.yoffset_forward = default_yoffset_forward;
     opt.yoffset_reverse = default_yoffset_reverse;
   }
+
+  asp::create_out_dir(opt.output_image);
   
 }
 
