@@ -43,13 +43,14 @@ libgl1-mesa-dev
 libglu1-mesa-dev
 libglut3-dev
 
-If you have root access on your machine you can install them on a Debian-based distribution using the following command:
+If you have root access on your machine you can install them on a
+Debian-based distribution using the following command:
 
 sudo apt-get install g++ gfortran libtool autoconf automake \
   git-core subversion xserver-xorg-dev xorg-dev libx11-dev  \
   libgl1-mesa-dev libglu1-mesa-dev libglut3-dev
 
-For Red Hat-based distributions one can use instead:
+For Red Hat-based distributions one can do instead:
 
 sudo yum -y install gcc-c++ gcc-gfortran libtool autoconf automake \
   git subversion xorg-x11-server-Xorg libX11-devel \
@@ -59,7 +60,8 @@ sudo yum -y install gcc-c++ gcc-gfortran libtool autoconf automake \
 
 2. Base dependencies - MAC
 
-First install Macports (http://www.macports.org/) if you do not already have it.
+First install Macports (http://www.macports.org/) if you do not
+already have it.
 
 Next you need the following packages:
 
