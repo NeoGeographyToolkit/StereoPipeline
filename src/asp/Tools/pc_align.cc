@@ -1197,7 +1197,7 @@ int main( int argc, char *argv[] ) {
       = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
     if (opt.config_file == ""){
       // Read the options from the command line
-      icp.setParams(opt.num_iter, opt.outlier_ratio,
+      icp.setParams(opt.output_prefix, opt.num_iter, opt.outlier_ratio,
                     (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
                     opt.diff_translation_err, opt.alignment_method,
                     false/*opt.verbose*/);
@@ -1286,6 +1286,8 @@ int main( int argc, char *argv[] ) {
                 shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
     save_errors(trans_source, end_errors,  opt.output_prefix + "-end_errors.csv",
                 shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
+
+    if (opt.verbose) vw_out() << "Writing: " << opt.output_prefix + "-iterationInfo.csv" << std::endl;
 
     sw8.stop();
     if (opt.verbose) vw_out() << "Saving to disk took "
