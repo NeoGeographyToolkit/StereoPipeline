@@ -5,9 +5,11 @@
     not obvious in the images, result in noticeable artificial
     discontinuities in the stereo results.
   
-  - Display the translation component of the rigid alignment transform
-    in pc_align in the local North-East-Down coordinate system.
-
+  - pc_align:
+    * Display the translation component of the rigid alignment transform
+      in the local North-East-Down coordinate system.
+    * Save to disk the convergence history (iteration information).
+  
 *** RELEASE 2.3.0, 19 November, 2013 ***
 
 TOOLS
