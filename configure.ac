@@ -335,9 +335,9 @@ AX_PKG(GEOID, [], [], [])
 
 AX_PKG(GEOS,    [], [-lgeos], [geos.h])
 AX_PKG(XERCESC, [CURL], [-lxerces-c], [xercesc/dom/DOM.hpp xercesc/util/XMLString.hpp xercesc/parsers/XercesDOMParser.hpp])
-AX_PKG(UFCONFIG, [], [-lufconfig])
-AX_PKG(AMD, [], [-lamd], [], [], [], [], [UFCONFIG])
-AX_PKG(COLAMD, [], [-lcolamd], [], [], [], [], [UFCONFIG])
+AX_PKG(SUITESPARSE, [], [-lsuitesparseconfig], [SuiteSparse_config.h])
+AX_PKG(AMD, [], [-lamd], [], [], [], [], [SUITESPARSE])
+AX_PKG(COLAMD, [], [-lcolamd], [], [], [], [], [SUITESPARSE])
 AX_PKG(CHOLMOD, [AMD COLAMD LAPACK], [-lcholmod])
 AX_PKG_ONE_OF(TIFF,
     STANDALONE_TIFF, [AX_PKG(STANDALONE_TIFF, [Z], [-ltiff])],
