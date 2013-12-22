@@ -29,6 +29,8 @@ using namespace vw::cartography;
 #include <asp/Core/AntiAliasing.h>
 namespace po = boost::program_options;
 
+#include <vw/Core/Stopwatch.h>
+
 #if defined(VW_HAVE_PKG_GDAL) && VW_HAVE_PKG_GDAL==1
 #include "ogr_spatialref.h"
 #endif

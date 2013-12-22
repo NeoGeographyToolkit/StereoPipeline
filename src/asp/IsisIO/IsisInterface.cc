@@ -23,6 +23,8 @@
 #include <asp/IsisIO/IsisInterfaceMapLineScan.h>
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
 
+#include <iomanip>
+
 // VW
 #include <vw/Core.h>
 

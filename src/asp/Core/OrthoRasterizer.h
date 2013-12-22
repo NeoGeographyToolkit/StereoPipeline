@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file OrthoRasterizer.h
 ///
 /// Given a point image and corresponding texture, this class
@@ -33,6 +32,8 @@
 // The SoftwareRenderer actual "renders" the 3D scene, textures it,
 // and then returns a 2D orthographic view.
 #include <asp/Core/SoftwareRenderer.h>
+
+#include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
 
 namespace vw {

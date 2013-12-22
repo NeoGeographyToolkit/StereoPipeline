@@ -23,6 +23,9 @@
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Cartography.h>
 
+#include <gdal.h>
+#include <gdal_priv.h>
+
 using namespace vw;
 
 namespace asp {

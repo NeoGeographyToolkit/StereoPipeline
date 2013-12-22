@@ -20,7 +20,7 @@
 ///
 #include <fstream>
 
-#include <vw/Core/Thread.h>
+#include <vw/Core/RunOnce.h>
 #include <vw/Core/Log.h>
 
 #include <asp/Core/Common.h>

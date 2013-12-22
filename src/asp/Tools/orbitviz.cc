@@ -22,15 +22,6 @@
 /************************************************************************
  *     File: orbitviz.cc
  ************************************************************************/
-#include <boost/algorithm/string.hpp>
-#include <boost/program_options.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/convenience.hpp>
-#include <boost/filesystem/fstream.hpp>
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
-
 #include <vw/Core.h>
 #include <vw/Math.h>
 #include <vw/FileIO/KML.h>
@@ -46,6 +37,17 @@ using namespace vw::cartography;
 #if defined(ASP_HAVE_PKG_ISISIO) && ASP_HAVE_PKG_ISISIO == 1
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif
+
+#include <iomanip>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/convenience.hpp>
+#include <boost/filesystem/fstream.hpp>
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 struct Options : public asp::BaseOptions {
   Options() : loading_image_camera_order(true) {}

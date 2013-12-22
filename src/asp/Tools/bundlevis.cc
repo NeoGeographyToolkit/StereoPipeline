@@ -22,6 +22,8 @@
 #include <vw/Core/ProgressCallback.h>
 #include <asp/Tools/bundlevis.h>
 
+#include <boost/foreach.hpp>
+
 using namespace vw;
 
 // This builds the 3 Axis that represents the camera
