@@ -16,8 +16,16 @@
 // __END_LICENSE__
 
 
-// ASP
+#include <vw/Math/Matrix.h>
 #include <asp/IsisIO/IsisInterfaceFrame.h>
+
+#include <algorithm>
+#include <vector>
+
+#include <Camera.h>
+#include <CameraDetectorMap.h>
+#include <CameraDistortionMap.h>
+#include <CameraFocalPlaneMap.h>
 
 using namespace vw;
 using namespace asp;

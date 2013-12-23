@@ -23,11 +23,17 @@
 #ifndef __STEREO_SESSION_DG_XMLBASE_H__
 #define __STEREO_SESSION_DG_XMLBASE_H__
 
-#include <vw/Core.h>
-#include <boost/lexical_cast.hpp>
+#include <vw/Core/Exception.h>
+#include <vw/Core/FundamentalTypes.h>
 
-#include <xercesc/dom/DOM.hpp>
+#include <string>
+
+#include <xercesc/dom/DOMElement.hpp>
+#include <xercesc/dom/DOMNodeList.hpp>
 #include <xercesc/util/XMLString.hpp>
+#include <xercesc/util/Xerces_autoconf_config.hpp>
+
+#include <boost/lexical_cast.hpp>
 
 namespace asp {
 

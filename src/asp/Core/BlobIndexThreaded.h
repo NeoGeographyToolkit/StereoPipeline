@@ -22,16 +22,27 @@
 #ifndef __BLOB_INDEX_THREADED_H__
 #define __BLOB_INDEX_THREADED_H__
 
-// Standard
-#include <vector>
-
 // VW
 #include <vw/Core/Log.h>
 #include <vw/Core/Thread.h>
 #include <vw/Core/ThreadPool.h>
 #include <vw/Core/Stopwatch.h>
-#include <vw/Image/Algorithms.h> // include Boost::Graph
-#include <vw/Image/Manipulation.h>
+#include <vw/Image/AlgorithmFunctions.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/PixelAccessors.h>
+
+// Standard
+#include <vector>
+#include <deque>
+#include <list>
+#include <ostream>
+
+// Boost
+#include <boost/noncopyable.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/connected_components.hpp>
+#include <boost/graph/graph_selectors.hpp>
 
 // BlobIndex (Multi) Threaded
 ///////////////////////////////////////
@@ -64,11 +75,11 @@ namespace blob {
     BlobCompressed();
 
     // Standard Access point
-    vw::Vector2i const& min() const { return m_min; }
-    vw::Vector2i & min() { return m_min; }
-    vw::int32 num_rows() const { return m_row_start.size(); }
-    std::list<vw::int32> const& start( vw::uint32 const& index ) const { return m_row_start[index]; }
-    std::list<vw::int32> const& end( vw::uint32 const& index ) const { return m_row_end[index]; }
+    vw::Vector2i const& min() const;
+    vw::Vector2i & min();
+    vw::int32 num_rows() const;
+    std::list<vw::int32> const& start( vw::uint32 const& index ) const;
+    std::list<vw::int32> const& end( vw::uint32 const& index ) const;
     vw::int32 size() const; // Please use sparingly
     vw::BBox2i bounding_box() const;
     bool intersects( vw::BBox2i const& input ) const;
@@ -267,11 +278,10 @@ namespace blob {
     }
 
     // Access points to intersting information
-    vw::uint32 num_blobs() const { return m_blob_count; }
+    vw::uint32 num_blobs() const;
 
     // Access to blobs
-    BlobCompressed const& blob( vw::uint32 const& index ) const { return m_c_blob[index]; }
-
+    BlobCompressed const& blob( vw::uint32 const& index ) const;
   };
 
   // Blob Index Task
@@ -389,28 +399,24 @@ class BlobIndexThreaded {
   }
 
   // Access for the users
-  vw::uint32 num_blobs() const { return m_c_blob.size(); }
+  vw::uint32 num_blobs() const;
   void blob( vw::uint32 const& index,
-             std::list<vw::Vector2i>& output ) const {
-    m_c_blob[index].decompress(output);
-  }
-  blob::BlobCompressed const& compressed_blob( vw::uint32 const& index ) const {
-    return m_c_blob[index]; }
+             std::list<vw::Vector2i>& output ) const;
+  blob::BlobCompressed const& compressed_blob( vw::uint32 const& index ) const;
   typedef std::deque<blob::BlobCompressed>::iterator blob_iterator;
   typedef std::deque<blob::BlobCompressed>::const_iterator const_blob_iterator;
-  blob_iterator begin() { return m_c_blob.begin(); }
-  const_blob_iterator begin() const { return m_c_blob.begin(); }
-  blob_iterator end() { return m_c_blob.end(); }
-  const_blob_iterator end() const { return m_c_blob.end(); }
+  blob_iterator begin();
+  const_blob_iterator begin() const;
+  blob_iterator end();
+  const_blob_iterator end() const;
 
-  vw::BBox2i const& blob_bbox( vw::uint32 const& index ) const {
-    return m_blob_bbox[index]; }
+  vw::BBox2i const& blob_bbox( vw::uint32 const& index ) const;
   typedef std::deque<vw::BBox2i>::iterator bbox_iterator;
   typedef std::deque<vw::BBox2i>::const_iterator const_bbox_iterator;
-  bbox_iterator bbox_begin() { return m_blob_bbox.begin(); }
-  const_bbox_iterator bbox_begin() const { return m_blob_bbox.begin(); }
-  bbox_iterator bbox_end() { return m_blob_bbox.end(); }
-  const_bbox_iterator bbox_end() const { return m_blob_bbox.end(); }
+  bbox_iterator bbox_begin();
+  const_bbox_iterator bbox_begin() const;
+  bbox_iterator bbox_end();
+  const_bbox_iterator bbox_end() const;
 };
 
 #endif//__BLOB_INDEX_THREADED_H__

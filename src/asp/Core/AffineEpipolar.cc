@@ -17,8 +17,12 @@
 
 
 #include <asp/Core/AffineEpipolar.h>
+#include <vw/Math/Vector.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Math/LinearAlgebra.h>
+#include <vw/InterestPoint/InterestData.h>
 
-#include <vw/Math.h>
+#include <vector>
 
 using namespace vw;
 

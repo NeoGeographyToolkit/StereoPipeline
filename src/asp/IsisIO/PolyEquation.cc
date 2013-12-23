@@ -15,13 +15,17 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-// STL
-#include <iomanip>
-// ASP
+#include <vw/Core/FundamentalTypes.h>
+#include <vw/Math/Vector.h>
 #include <asp/IsisIO/PolyEquation.h>
-// Boost
-#include <boost/algorithm/string.hpp>
+
+#include <iomanip>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 using namespace vw;
 using namespace asp;

@@ -16,17 +16,31 @@
 // __END_LICENSE__
 
 
-// ASP
-#include <vw/Cartography/SimplePointImageManipulation.h>
-#include <vw/Camera/CameraModel.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Math/Quaternion.h>
+#include <vw/Math/Vector.h>
 #include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Camera/CameraModel.h>
 #include <asp/IsisIO/IsisInterfaceMapLineScan.h>
 
-// ISIS
-#include <ProjectionFactory.h>
-#include <iTime.h>
+#include <algorithm>
+#include <limits>
+#include <string>
+#include <vector>
+
+#include <Camera.h>
+#include <CameraDistortionMap.h>
+#include <CameraFocalPlaneMap.h>
+#include <CameraGroundMap.h>
 #include <Latitude.h>
 #include <Longitude.h>
+#include <Projection.h>
+#include <ProjectionFactory.h>
+#include <Sensor.h>
+#include <SpiceRotation.h>
+#include <iTime.h>
+
+#include <boost/smart_ptr/scoped_ptr.hpp>
 
 using namespace vw;
 using namespace asp;

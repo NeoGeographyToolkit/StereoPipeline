@@ -15,6 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
+#include <vw/Math/Quaternion.h>         // for Quat, Quaternion
+#include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
+#include <vw/Cartography/Datum.h>       // for Datum
 
 #include <asp/Sessions/DG/XML.h>
 #include <asp/Sessions/RPC/RPCModel.h>
@@ -22,6 +26,10 @@
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
 
 using namespace vw;
 using namespace xercesc;

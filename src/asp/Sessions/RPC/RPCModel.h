@@ -26,9 +26,17 @@
 #ifndef __STEREO_SESSION_RPC_MODEL_H__
 #define __STEREO_SESSION_RPC_MODEL_H__
 
-#include <vw/FileIO/DiskImageResourceGDAL.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Math/Vector.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/Datum.h>
+
+#include <string>
+#include <ostream>
+
+namespace vw {
+  class DiskImageResourceGDAL;
+}
 
 namespace asp {
 
@@ -113,19 +121,7 @@ namespace asp {
 
   };
 
-  inline std::ostream& operator<<(std::ostream& os, const RPCModel& rpc) {
-    os << "RPC Model:" << std::endl
-       << "Line Numerator: " << rpc.line_num_coeff() << std::endl
-       << "Line Denominator: " << rpc.line_den_coeff() << std::endl
-       << "Samp Numerator: " << rpc.sample_num_coeff() << std::endl
-       << "Samp Denominator: " << rpc.sample_den_coeff() << std::endl
-       << "XY Offset: " << rpc.xy_offset() << std::endl
-       << "XY Scale: " << rpc.xy_scale() << std::endl
-       << "Geodetic Offset: " << rpc.lonlatheight_offset() << std::endl
-       << "Geodetic Scale: " << rpc.lonlatheight_scale();
-    return os;
-
-  }
+  std::ostream& operator<<(std::ostream& os, const RPCModel& rpc);
 }
 
 #endif //__STEREO_SESSION_RPC_MODEL_H__

@@ -22,11 +22,16 @@
 #ifndef __DEM_DISPARITY_H__
 #define __DEM_DISPARITY_H__
 
-#include <vw/Camera/CameraModel.h>
+#include <boost/smart_ptr/shared_ptr.hpp>
 
 // Forward declaration
 namespace asp {
   class Options;
+}
+namespace vw {
+  namespace camera {
+    class CameraModel;
+  }
 }
 
 namespace asp {

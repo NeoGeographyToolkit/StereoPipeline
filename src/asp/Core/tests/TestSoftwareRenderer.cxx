@@ -17,12 +17,14 @@
 
 
 #include <test/Helpers.h>
-#include <boost/assign/list_of.hpp>
-#include <boost/assign/std/vector.hpp>
-#include <vw/Image.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/Manipulation.h>
 #include <asp/Core/SoftwareRenderer.h>
 
-#include <vw/FileIO.h>
+#include <vector>
+
+#include <boost/assign/list_of.hpp>
+#include <boost/assign/std/vector.hpp>
 
 using namespace vw;
 using namespace boost::assign;

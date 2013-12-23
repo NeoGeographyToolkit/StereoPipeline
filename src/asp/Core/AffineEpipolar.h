@@ -21,7 +21,12 @@
 
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
-#include <vw/InterestPoint/InterestData.h>
+
+namespace vw {
+  namespace ip {
+    struct InterestPoint;
+  }
+}
 
 namespace asp {
 

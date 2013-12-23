@@ -25,22 +25,29 @@
 #ifndef __VW_CAMERAMODEL_ISISADJUST_H__
 #define __VW_CAMERAMODEL_ISISADJUST_H__
 
-// ASP & VW
-#include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/IsisIO/Equation.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Camera/CameraModel.h>
 
-// ISIS
+#include <string>
+
 #include <Pvl.h>
 #include <Camera.h>
-#include <AlphaCube.h>
-#include <CameraDetectorMap.h>
-#include <CameraDistortionMap.h>
-#include <CameraFocalPlaneMap.h>
-#include <CameraGroundMap.h>
+
+#include <boost/smart_ptr/shared_ptr.hpp>
+
+namespace Isis {
+  class AlphaCube;
+  class CameraDetectorMap;
+  class CameraDistortionMap;
+  class CameraFocalPlaneMap;
+}
+
+namespace asp {
+  class BaseEquation;
+}
 
 namespace vw {
 namespace camera {

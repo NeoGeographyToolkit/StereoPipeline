@@ -16,7 +16,8 @@
 // __END_LICENSE__
 
 
-// ASP
+#include <vw/Core/Exception.h>
+#include <vw/Math/Vector.h>
 #include <asp/IsisIO/IsisInterface.h>
 #include <asp/IsisIO/IsisInterfaceMapFrame.h>
 #include <asp/IsisIO/IsisInterfaceFrame.h>
@@ -24,11 +25,9 @@
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
 
 #include <iomanip>
+#include <ostream>
 
-// VW
-#include <vw/Core.h>
-
-// ISIS
+#include <Distance.h>
 #include <Pvl.h>
 #include <Camera.h>
 #include <FileName.h>

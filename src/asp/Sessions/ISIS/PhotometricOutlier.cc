@@ -20,12 +20,19 @@
 ///
 /// Warning: This code was written with only the Apollo Metric data in mind
 
-#include <vw/Image.h>
-#include <vw/FileIO.h>
+#include <vw/Image/AlgorithmFunctions.h>
+#include <vw/Image/Algorithms.h>
+#include <vw/Image/Filter.h>
+#include <vw/Image/Convolution.h>
+#include <vw/Image/EdgeExtension.h>
+#include <vw/Image/Manipulation.h>
+#include <vw/Image/MaskViews.h>
+#include <vw/Image/Transform.h>
+#include <vw/FileIO/DiskImageView.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <asp/Sessions/ISIS/PhotometricOutlier.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Common.h>
+#include <asp/Sessions/ISIS/PhotometricOutlier.h>
 
 using namespace vw;
 using namespace asp;

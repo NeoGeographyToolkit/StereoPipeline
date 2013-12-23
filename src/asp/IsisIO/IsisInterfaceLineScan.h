@@ -23,15 +23,19 @@
 #ifndef __ASP_ISIS_INTERFACE_LINESCAN_H__
 #define __ASP_ISIS_INTERFACE_LINESCAN_H__
 
-// VW & ASP
-#include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Math/Vector.h>
+#include <vw/Math/Quaternion.h>
 #include <asp/IsisIO/IsisInterface.h>
 
-// Isis
-#include <CameraDetectorMap.h>
-#include <CameraDistortionMap.h>
-#include <CameraFocalPlaneMap.h>
+#include <string>
+
 #include <AlphaCube.h>
+
+namespace Isis {
+  class CameraDetectorMap;
+  class CameraDistortionMap;
+  class CameraFocalPlaneMap;
+}
 
 namespace asp {
 namespace isis {

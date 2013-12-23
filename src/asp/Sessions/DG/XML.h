@@ -23,10 +23,15 @@
 #ifndef __STEREO_SESSION_DG_XML_H__
 #define __STEREO_SESSION_DG_XML_H__
 
-#include <asp/Sessions/DG/XMLBase.h>
-#include <vector>
+#include <vw/Core/FundamentalTypes.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
+#include <asp/Sessions/DG/XMLBase.h>
+
+#include <vector>
+#include <string>
+
+#include <boost/smart_ptr/scoped_ptr.hpp>
 
 namespace asp {
 

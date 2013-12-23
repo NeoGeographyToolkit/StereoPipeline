@@ -19,11 +19,13 @@
 #ifndef __ASP_EQUATION_H__
 #define __ASP_EQUATION_H__
 
-#include <asp/IsisIO/BaseEquation.h>
-#include <asp/IsisIO/PolyEquation.h>
-#include <asp/IsisIO/RPNEquation.h>
+#include <iosfwd>
+
+#include <boost/smart_ptr/shared_ptr.hpp>
 
 namespace asp {
+
+  class BaseEquation;
 
   // Useful tools
   //-------------------------------------------------------

@@ -22,11 +22,15 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
 
-#include <vw/Camera.h>
+#include <vw/Math/BBox.h>
+#include <vw/Math/Geometry.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Math/RANSAC.h>
+#include <vw/Math/Vector.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/MaskViews.h>
+#include <vw/Camera.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <vw/Math.h>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem/operations.hpp>

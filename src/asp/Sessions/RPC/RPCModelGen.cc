@@ -17,6 +17,7 @@
 
 
 #include <asp/Sessions/RPC/RPCModelGen.h>
+#include <asp/Sessions/RPC/RPCModel.h>
 
 using namespace vw;
 

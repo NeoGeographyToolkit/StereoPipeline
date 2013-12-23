@@ -28,7 +28,6 @@
 
 #include <vw/Math/Functors.h>
 #include <vw/Math/Geometry.h>
-#include <vw/Math/RANSAC.h>
 #include <vw/InterestPoint.h>
 
 #include <boost/shared_ptr.hpp>

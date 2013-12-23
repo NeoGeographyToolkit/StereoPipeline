@@ -19,6 +19,7 @@
 #include <test/Helpers.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/LensDistortion.h>
 #include <vw/Cartography/CameraBBox.h>
 
 using namespace vw;

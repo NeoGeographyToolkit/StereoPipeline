@@ -24,8 +24,13 @@
 
 #define CALC_PIXEL_NUM_VALS 256
 
+#include <vw/Core/Functors.h>
+#include <vw/Core/FundamentalTypes.h>
 #include <vw/Math/Vector.h>
-#include <vw/Image.h>
+#include <vw/Math/BBox.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/EdgeExtension.h>
+#include <vw/Image/PerPixelAccessorViews.h>
 
 namespace vw {
 

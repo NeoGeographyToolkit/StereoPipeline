@@ -18,14 +18,31 @@
 
 /// \file StereoSession.cc
 ///
-
-#include <asp/Core/StereoSettings.h>
-#include <asp/Sessions.h>
-
 #include <vw/Core/Exception.h>
-#include <vw/Stereo/DisparityMap.h>
+#include <vw/Core/Log.h>
+#include <vw/Math/Vector.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/PixelMask.h>
+#include <vw/Image/PixelTypeInfo.h>
+#include <vw/FileIO/DiskImageResource.h>
+#include <vw/FileIO/DiskImageView.h>
+
+#include <asp/asp_config.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/Common.h>
+#include <asp/Sessions/DG/StereoSessionDG.h>
+#include <asp/Sessions/DGMapRPC/StereoSessionDGMapRPC.h>
+#include <asp/Sessions/ISIS/StereoSessionIsis.h>
+#include <asp/Sessions/NadirPinhole/StereoSessionNadirPinhole.h>
+#include <asp/Sessions/Pinhole/StereoSessionPinhole.h>
+#include <asp/Sessions/RPC/StereoSessionRPC.h>
+#include <asp/Sessions/StereoSession.h>
 
 #include <map>
+#include <utility>
+#include <string>
+#include <ostream>
+#include <limits>
 
 using namespace vw;
 

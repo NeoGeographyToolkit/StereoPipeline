@@ -15,14 +15,16 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <vw/Core/Exception.h>
+#include <vw/Math/Vector.h>
+#include <asp/IsisIO/RPNEquation.h>
 
-// STL
 #include <iomanip>
 #include <stack>
-// ASP
-#include <asp/IsisIO/RPNEquation.h>
-// BOOST
-#include <boost/algorithm/string.hpp>
+#include <vector>
+
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 using namespace vw;
 using namespace asp;

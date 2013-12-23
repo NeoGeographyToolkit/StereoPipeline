@@ -20,12 +20,27 @@
 ///
 
 // Vision Workbench
-#include <vw/FileIO.h>
+#include <vw/Core/Settings.h>
+#include <vw/Core/Log.h>
 #include <vw/Math/Functors.h>
-#include <vw/Math/Geometry.h>
-#include <vw/InterestPoint.h>
+#include <vw/Image/Algorithms.h>
+#include <vw/Image/EdgeExtension.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/Manipulation.h>
+#include <vw/Image/ImageMath.h>
+#include <vw/Image/MaskViews.h>
+#include <vw/Image/Statistics.h>
+#include <vw/Image/Transform.h>
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/DiskImageResourceGDAL.h>
+#include <vw/FileIO/DiskImageResourceOpenEXR.h>
+#include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/DisparityMap.h>
-#include <vw/Cartography.h>
+#include <vw/InterestPoint/Descriptor.h>
+#include <vw/InterestPoint/Detector.h>
+#include <vw/InterestPoint/Matcher.h>
+#include <vw/InterestPoint/MatrixIO.h>
+#include <vw/Cartography/Datum.h>
 
 // Stereo Pipeline
 #include <asp/Core/StereoSettings.h>
@@ -35,6 +50,7 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
+#include <asp/IsisIO/Equation.h>
 #include <asp/Sessions/ISIS/PhotometricOutlier.h>
 
 // Boost

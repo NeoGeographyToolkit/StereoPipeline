@@ -19,20 +19,22 @@
 #ifndef __VW_TESTS_CONFIG_TEST_H__
 #define __VW_TESTS_CONFIG_TEST_H__
 
-#include <gtest/gtest_ASP.h>
-#include <cmath>
-#include <complex>
-#include <string>
-#include <boost/function.hpp>
-#include <queue>
-#include <cstdlib>
-
 #include <vw/config.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/Image/PixelMath.h>
+
+#include <gtest/gtest_ASP.h>
+#include <cmath>
+#include <complex>
+#include <string>
+#include <queue>
+#include <cstdlib>
+
+#include <boost/function.hpp>
+#include <boost/range/iterator_range_core.hpp>
 
 #if defined(VW_ENABLE_EXCEPTIONS) && (VW_ENABLE_EXCEPTIONS==1)
 #define HAS_EXCEPTIONS(x) x

@@ -17,6 +17,7 @@
 
 
 #include <asp/Core/MedianFilter.h>
+#include <vw/Math/Vector.h>
 
 using namespace vw;
 

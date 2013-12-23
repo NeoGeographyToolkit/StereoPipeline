@@ -22,9 +22,7 @@
 #include <vw/Core/Debugging.h>
 #include <asp/IsisIO/IsisCameraModel.h>
 #include <vw/Cartography/SimplePointImageManipulation.h>
-#include <boost/foreach.hpp>
 
-// Additional Headers required for ISIS
 #include <FileName.h>
 #include <CameraFactory.h>
 #include <ProjectionFactory.h>
@@ -35,9 +33,9 @@
 #include <CameraDetectorMap.h>
 #include <CameraDistortionMap.h>
 #include <Projection.h>
-#include <Latitude.h>
-#include <Longitude.h>
 #include <Distance.h>
+
+#include <boost/foreach.hpp>
 
 using namespace vw;
 using namespace vw::camera;

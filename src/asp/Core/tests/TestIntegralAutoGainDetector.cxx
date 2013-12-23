@@ -16,10 +16,16 @@
 // __END_LICENSE__
 
 #include <test/Helpers.h>
+#include <vw/Math/Functors.h>
+#include <vw/Math/Vector.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/ImageMath.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/InterestPoint/InterestData.h>
+#include <asp/Core/IntegralAutoGainDetector.h>
+
 #include <boost/foreach.hpp>
 #include <boost/random/normal_distribution.hpp>
-#include <asp/Core/IntegralAutoGainDetector.h>
-#include <vw/FileIO.h>
 
 using namespace vw;
 using namespace asp;

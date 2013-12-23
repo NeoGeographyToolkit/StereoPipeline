@@ -19,11 +19,12 @@
 /// \file DEMDisparity.cc
 ///
 
-#include <vw/Cartography/CameraBBox.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/Transform.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/Camera/CameraModel.h>
+#include <vw/Cartography/CameraBBox.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/InterestPoint/MatrixIO.h>
 #include <asp/Core/StereoSettings.h>

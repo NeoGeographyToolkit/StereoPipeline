@@ -15,18 +15,29 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/filesystem.hpp>
-
-#include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
+#include <vw/Core/System.h>
+#include <vw/Math/BBox.h>
+#include <vw/FileIO/DiskImageResource.h>
 #include <asp/Core/Common.h>
+
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include <vw/config.h>
 #include <asp/asp_config.h>
 #include <gdal_version.h>
 #include <proj_api.h>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/path_traits.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/program_options.hpp>
 
 using namespace vw;
 namespace po = boost::program_options;

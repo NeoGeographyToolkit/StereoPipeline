@@ -19,15 +19,15 @@
 /// \file StereoSessionRPC.cc
 ///
 
-// Ames Stereo Pipeline
-#include <asp/Core/StereoSettings.h>
-#include <asp/Core/InterestPointMatching.h>
+#include <vw/Camera/CameraModel.h>
+
 #include <asp/Sessions/RPC/StereoSessionRPC.h>
 #include <asp/Sessions/DG/XML.h>
 #include <asp/Sessions/RPC/RPCModel.h>
 
-// Vision Workbench
-#include <vw/Camera/CameraModel.h>
+#include <string>
+
+#include <boost/smart_ptr/shared_ptr.hpp>
 
 using namespace vw;
 using namespace asp;

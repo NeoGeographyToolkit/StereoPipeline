@@ -46,8 +46,7 @@ namespace asp {
 
   public:
     EpipolarLinePointMatcher( double threshold, double epipolar_threshold,
-                              vw::cartography::Datum const& datum ) :
-      m_threshold(threshold), m_epipolar_threshold(epipolar_threshold), m_datum(datum) {}
+                              vw::cartography::Datum const& datum );
 
     // This only returns the indicies
     void operator()( vw::ip::InterestPointList const& ip1,

@@ -23,8 +23,11 @@
 #ifndef __ASP_ISIS_INTERFACE_MAP_FRAME_H__
 #define __ASP_ISIS_INTERFACE_MAP_FRAME_H__
 
-// ASP
+#include <vw/Math/Vector.h>
+#include <vw/Math/Quaternion.h>
 #include <asp/IsisIO/IsisInterface.h>
+
+#include <string>
 
 // Isis forward declaration
 namespace Isis {

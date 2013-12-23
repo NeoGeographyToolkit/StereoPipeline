@@ -24,9 +24,10 @@
 #define __STEREO_SESSION_ISIS_OUTLIER_H__
 
 #include <string>
-#include <asp/Core/Common.h>
 
 namespace asp {
+
+  class BaseOptions;
 
   void photometric_outlier_rejection( BaseOptions const& opt,
                                       std::string const& prefix,

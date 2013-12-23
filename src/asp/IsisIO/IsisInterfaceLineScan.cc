@@ -15,10 +15,20 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-// ASP
+#include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Math/Matrix.h>
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
+
+#include <algorithm>
+#include <vector>
+
+#include <Camera.h>
+#include <CameraDetectorMap.h>
+#include <CameraDistortionMap.h>
+#include <CameraFocalPlaneMap.h>
 #include <iTime.h>
+
+#include <boost/smart_ptr/scoped_ptr.hpp>
 
 using namespace vw;
 using namespace asp;

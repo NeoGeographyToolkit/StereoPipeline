@@ -15,8 +15,14 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
+#include <vw/Core/Exception.h>
 #include <asp/IsisIO/Equation.h>
+#include <asp/IsisIO/BaseEquation.h>
+#include <asp/IsisIO/PolyEquation.h>
+#include <asp/IsisIO/RPNEquation.h>
+
+#include <ostream>
+#include <string>
 
 using namespace vw;
 using namespace asp;

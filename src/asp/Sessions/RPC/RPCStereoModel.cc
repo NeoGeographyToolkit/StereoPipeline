@@ -15,9 +15,14 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-#include <vw/Camera/CameraModel.h>
+#include <vw/Core/Log.h>
+#include <vw/Math/Functors.h>
+#include <vw/Math/Matrix.h>
 #include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Math/Vector.h>
+#include <vw/Camera/CameraModel.h>
+#include <vw/Cartography/Datum.h>
+
 #include <asp/Sessions/RPC/RPCModel.h>
 #include <asp/Sessions/RPC/RPCStereoModel.h>
 

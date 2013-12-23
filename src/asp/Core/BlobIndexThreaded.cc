@@ -20,6 +20,12 @@
 ///
 
 #include <asp/Core/BlobIndexThreaded.h>
+#include <vw/Core/Log.h>
+#include <vw/Core/Thread.h>
+#include <vw/Core/ThreadPool.h>
+
+#include <math.h>
+
 #include <boost/foreach.hpp>
 
 using namespace vw;
@@ -76,6 +82,25 @@ int32 BlobCompressed::size() const {
       sum += *iter_end - *iter_start;
   return sum;
 }
+
+vw::Vector2i const& BlobCompressed::min() const { return m_min; }
+
+vw::Vector2i & BlobCompressed::min() { return m_min; }
+
+vw::int32 BlobCompressed::num_rows() const { return m_row_start.size(); }
+
+std::list<vw::int32> const&
+BlobCompressed::start( vw::uint32 const& index ) const { return m_row_start[index]; }
+
+std::list<vw::int32> const&
+BlobCompressed::end( vw::uint32 const& index ) const { return m_row_end[index]; }
+
+// Access points to intersting information
+vw::uint32 BlobIndexCustom::num_blobs() const { return m_blob_count; }
+
+// Access to blobs
+BlobCompressed const&
+BlobIndexCustom::blob( vw::uint32 const& index ) const { return m_c_blob[index]; }
 
 BBox2i BlobCompressed::bounding_box() const {
   BBox2i bbox;
@@ -163,8 +188,8 @@ void BlobCompressed::add_row( Vector2i const& start,
             (start.y() == m_min.y()+int32(m_row_start.size())-1) ) )
       vw_throw(vw::NoImplErr() << "Add_row expects rows to be added in order.\n" );
     if ( start.y() == m_min.y()+int32(m_row_start.size()) ) {
-       m_row_start.resize(m_row_start.size()+1);
-       m_row_end.resize(m_row_start.size());
+      m_row_start.resize(m_row_start.size()+1);
+      m_row_end.resize(m_row_start.size());
     } else if ( (start.x() < m_row_start.back().back()+m_min.x()) &&
                 !m_row_start.back().empty() ) {
       // If we are not appending, check to see if were adding to this row in order
@@ -255,7 +280,7 @@ void BlobCompressed::absorb( BlobCompressed const& victim ) {
                 m_i_str != m_row_start[m_index].end(); m_i_str++, m_i_end++ )
             vw_out() << "(" << *m_i_str << "-" << *m_i_end << ")";
           vw_out() << "\nTrying to insert singleton: (" << *v_singleton_start << "-"
-                    << *v_singleton_end << ")\n";
+                   << *v_singleton_end << ")\n";
 
           vw_throw( vw::NoImplErr() << "BlobCompressed: Seems to be inserting an overlapping blob compressed object.\n" );
         }
@@ -515,11 +540,40 @@ void BlobIndexThreaded::consolidate( Vector2i const& image_size,
     int min = ( final_num * j ) / number_of_jobs;
     int max = ( final_num * (j+1) ) / number_of_jobs;
     boost::shared_ptr<Task> absorb_task(
-      new ConsolidateAbsorbTask( m_c_blob, new_c_blob,
-                                 m_blob_bbox, component, m_max_area,
-                                 min, max, append_mutex ) );
+                                        new ConsolidateAbsorbTask( m_c_blob, new_c_blob,
+                                                                   m_blob_bbox, component, m_max_area,
+                                                                   min, max, append_mutex ) );
     absorb_queue.add_task( absorb_task );
   }
   absorb_queue.join_all();
   m_c_blob = new_c_blob;
 }
+
+vw::uint32 BlobIndexThreaded::num_blobs() const { return m_c_blob.size(); }
+void BlobIndexThreaded::blob( vw::uint32 const& index,
+           std::list<vw::Vector2i>& output ) const {
+  m_c_blob[index].decompress(output);
+}
+blob::BlobCompressed const&
+BlobIndexThreaded::compressed_blob( vw::uint32 const& index ) const {
+  return m_c_blob[index]; }
+BlobIndexThreaded::blob_iterator
+BlobIndexThreaded::begin() { return m_c_blob.begin(); }
+BlobIndexThreaded::const_blob_iterator
+BlobIndexThreaded::begin() const { return m_c_blob.begin(); }
+BlobIndexThreaded::blob_iterator
+BlobIndexThreaded::end() { return m_c_blob.end(); }
+BlobIndexThreaded::const_blob_iterator
+BlobIndexThreaded::end() const { return m_c_blob.end(); }
+
+vw::BBox2i const&
+BlobIndexThreaded::blob_bbox( vw::uint32 const& index ) const {
+  return m_blob_bbox[index]; }
+BlobIndexThreaded::bbox_iterator
+BlobIndexThreaded::bbox_begin() { return m_blob_bbox.begin(); }
+BlobIndexThreaded::const_bbox_iterator
+BlobIndexThreaded::bbox_begin() const { return m_blob_bbox.begin(); }
+BlobIndexThreaded::bbox_iterator
+BlobIndexThreaded::bbox_end() { return m_blob_bbox.end(); }
+BlobIndexThreaded::const_bbox_iterator
+BlobIndexThreaded::bbox_end() const { return m_blob_bbox.end(); }

@@ -17,10 +17,16 @@
 
 
 #include <test/Helpers.h>
-
-#include <vw/FileIO.h>
-#include <vw/Image.h>
 #include <asp/Core/BlobIndexThreaded.h>
+#include <vw/Math/BBox.h>
+#include <vw/Math/Vector.h>
+#include <vw/Image/Manipulation.h>
+#include <vw/Image/MaskViews.h>
+#include <vw/Image/PerPixelViews.h>
+#include <vw/Image/PixelMask.h>
+#include <vw/Image/PixelMath.h>
+#include <vw/FileIO/DiskImageView.h>
+
 #include <boost/assign/std/vector.hpp>
 #include <boost/assign/list_of.hpp>
 

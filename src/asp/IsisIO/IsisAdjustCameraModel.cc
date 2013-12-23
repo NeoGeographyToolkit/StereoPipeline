@@ -15,16 +15,26 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-// ASP & VW
-#include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <vw/Math/Quaternion.h>
+#include <vw/Math/Vector.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Math/LevenbergMarquardt.h>
+#include <asp/IsisIO/IsisAdjustCameraModel.h>
+#include <asp/IsisIO/BaseEquation.h>
 
-// Isis
+#include <vector>
+
 #include <FileName.h>
 #include <CameraFactory.h>
 #include <SerialNumber.h>
 #include <iTime.h>
+#include <AlphaCube.h>                  // for AlphaCube
+#include <Camera.h>                     // for Camera
+#include <CameraDetectorMap.h>          // for CameraDetectorMap
+#include <CameraDistortionMap.h>        // for CameraDistortionMap
+#include <CameraFocalPlaneMap.h>        // for CameraFocalPlaneMap
+#include <Pvl.h>                        // for Pvl
+#include <SpiceRotation.h>              // for SpiceRotation
 
 using namespace vw;
 using namespace vw::camera;

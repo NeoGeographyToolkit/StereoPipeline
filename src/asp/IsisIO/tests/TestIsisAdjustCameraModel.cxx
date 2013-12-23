@@ -20,6 +20,9 @@
 
 #include <asp/IsisIO/IsisAdjustCameraModel.h>
 #include <asp/IsisIO/IsisCameraModel.h>
+#include <asp/IsisIO/PolyEquation.h>
+#include <asp/IsisIO/RPNEquation.h>
+
 #include <boost/foreach.hpp>
 
 using namespace vw;

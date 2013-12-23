@@ -25,15 +25,17 @@
 #endif
 
 #include <vw/Core/Exception.h>
-#include <vw/Image/PerPixelViews.h>
-
+#include <vw/Math/BBox.h>
+#include <vw/Math/Vector.h>
+#include <vw/Image/ImageResource.h>
+#include <vw/Image/PixelTypeInfo.h>
 #include <asp/IsisIO/DiskImageResourceIsis.h>
 
-// Isis Includes
+#include <string>
+
 #include <Cube.h>
 #include <Portal.h>
 #include <SpecialPixel.h>
-#include <Projection.h>
 
 using namespace std;
 using namespace boost;

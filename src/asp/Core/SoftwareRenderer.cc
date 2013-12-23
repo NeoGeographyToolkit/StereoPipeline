@@ -44,8 +44,9 @@
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/FundamentalTypes.h>
-#include <iostream>                        // debugging
 #include <asp/Core/SoftwareRenderer.h>
+
+#include <iostream>
 
 using namespace std;
 using namespace vw;

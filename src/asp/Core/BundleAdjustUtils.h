@@ -22,10 +22,22 @@
 #ifndef __BUNDLE_ADJUST_UTILS_H__
 #define __BUNDLE_ADJUST_UTILS_H__
 
-#include <vw/Camera/CameraModel.h>
-#include <vw/BundleAdjustment/ControlNetwork.h>
-#include <vw/Math.h>
-#include <vw/InterestPoint.h>
+#include <vw/Math/Vector.h>
+#include <vw/Math/Quaternion.h>
+
+#include <string>
+#include <vector>
+
+#include <boost/smart_ptr/shared_ptr.hpp>
+
+namespace vw {
+  namespace camera {
+    class CameraModel;
+  }
+  namespace ba {
+    class ControlNetwork;
+  }
+}
 
 void read_adjustments(std::string const& filename, vw::Vector3& position_correction, vw::Quat& pose_correction);
 void write_adjustments(std::string const& filename, vw::Vector3 const& position_correction, vw::Quat const& pose_correction);

@@ -17,9 +17,14 @@
 
 
 #include <test/Helpers.h>
-
-#include <vw/Image/Algorithms.h>
+#include <vw/Math/BBox.h>
+#include <vw/Image/AlgorithmFunctions.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/Manipulation.h>
 #include <asp/Core/ThreadedEdgeMask.h>
+
+#include <algorithm>
+#include <vector>
 
 using namespace vw;
 using namespace asp;

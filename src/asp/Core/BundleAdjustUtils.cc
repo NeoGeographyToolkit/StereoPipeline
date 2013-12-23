@@ -21,9 +21,12 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 
+#include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Stereo/StereoModel.h>
+
+#include <string>
 
 using namespace vw;
 using namespace vw::camera;

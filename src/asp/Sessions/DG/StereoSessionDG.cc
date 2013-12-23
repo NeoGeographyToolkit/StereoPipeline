@@ -18,8 +18,15 @@
 
 /// \file StereoSessionDG.cc
 ///
+#include <vw/Image/ImageMath.h>
+#include <vw/Image/Manipulation.h>
+#include <vw/Image/MaskViews.h>
+#include <vw/Image/Transform.h>
+#include <vw/Camera/Extrinsics.h>
+#include <vw/Math/EulerAngles.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Cartography/Datum.h>
 
-// Ames Stereo Pipeline
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/AffineEpipolar.h>
@@ -28,21 +35,13 @@
 #include <asp/Sessions/RPC/RPCModel.h>
 #include <asp/Sessions/DG/XML.h>
 
-// Vision Workbench
-#include <vw/Camera/Extrinsics.h>
-#include <vw/Math/EulerAngles.h>
-#include <vw/Math/Matrix.h>
-#include <vw/Cartography/GeoTransform.h>
-#include <vw/Cartography/PointImageManipulation.h>
-
-// Std
 #include <iostream>
 #include <string>
+#include <vector>
+#include <algorithm>
 
-// Boost
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-// Other
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
