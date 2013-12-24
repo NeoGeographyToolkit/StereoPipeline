@@ -28,9 +28,8 @@
 #
 # <log_level> <log_namespace>
 #
-# Example: For the console log, turn on InfoMessage 
-# logging for the thread sub-system and log every 
-# message from the cache sub-system.
+# Example: For the console log, turn on various debugging 
+# levels for several subsystems. 
 
 [general]
 default_num_threads = 16
@@ -38,7 +37,22 @@ write_pool_size = 40
 system_cache_size = 1024000000 # ~ 1 GB
 
 [logfile console]
-20 = thread
-* = cache
-# Below turns off all progress bars to the console.
+
+# Turn on error and warning messages for the stereo
+# subsystem.
+10 = stereo
+
+# Turn on error, warning, and info messages for 
+# the asp subsystem.
+20 = asp
+
+# Turn on error, warning, info, and debug messages for 
+# the thread subsystem.
+30 = thread
+
+# Turn on every single message for the cache subsystem
+# (this will be extremely verbose and is not recommended).
+100 = cache
+
+# Turn off all progress bars to the console.
 0 = *.progress
