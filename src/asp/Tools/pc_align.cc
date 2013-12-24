@@ -46,15 +46,21 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <vw/FileIO.h>
-#include <vw/Image.h>
-#include <vw/Cartography.h>
+#include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/DiskImageView.h>
 #include <vw/Math.h>
+#include <vw/Image.h>
+#include <vw/Cartography/Datum.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/PointImageManipulation.h>
 #include <asp/Core/Common.h>
 #include <asp/Core/Macros.h>
-#include <pointmatcher/PointMatcher.h>
+
 #include <limits>
 #include <cstring>
+
+#include <pointmatcher/PointMatcher.h>
+
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 namespace fs = boost::filesystem;

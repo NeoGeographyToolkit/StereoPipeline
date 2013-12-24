@@ -19,22 +19,27 @@
 /// \file lrojitreg.cc
 ///
 
-#include <asp/Tools/stereo.h>
-#include <vw/InterestPoint.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/ImageMath.h>
 #include <vw/Image/MaskViews.h>
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics.hpp>
+#include <vw/Image/Manipulation.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/InterestPoint.h>
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
-
 #include <vw/Stereo/Correlate.h>
 
 #include <asp/Core/DemDisparity.h>
 #include <asp/Core/LocalHomography.h>
+#include <asp/Tools/stereo.h>
+
+#include <iomanip>
+
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics.hpp>
 
 using namespace vw;
 using namespace vw::stereo;
