@@ -51,6 +51,13 @@ namespace asp {
     } catch ( NotFoundErr const& err ) {}
 
     if ( !rpc_model ) {
+
+      if (camera_file == ""){
+        vw_throw( NotFoundErr()
+                  << "RPCModel: Could not find the RPC model in " << image_file
+                  << ", and no XML camera file was provided.\n" );
+      }
+
       RPCXML rpc_xml;
       rpc_xml.read_from_file( camera_file );
       rpc_model = new RPCModel( *rpc_xml.rpc_ptr() ); // Copy the value

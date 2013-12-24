@@ -45,7 +45,7 @@ Remember, in order for \texttt{stereo} to process stereo pairs in
 \ac{ISIS} cube format, the images must have had SPICE data associated
 by running ISIS's \texttt{spiceinit} program run on them first.
 
-\subsection{Combatting Long Run Times}
+\subsection{Combating Long Run Times}
 
 The factor that predominantly determines running time in the Stereo
 Pipeline is the size of the search space considered by the correlation
@@ -392,7 +392,7 @@ pairs. Just set \texttt{alignment-method} to \texttt{homography} or
 
 The MER rovers have several cameras on board and they all seem to have
 a stereo pair. With ASP you are able to process the PANCAM, NAVCAM,
-and HAZCAM camera imagery. ISIS has no telemetry or camera instrinsic
+and HAZCAM camera imagery. ISIS has no telemetry or camera intrinsic
 supports for these images. That however is not a problem as their raw
 imagery contains the cameras' information in JPL's CAHV, CAHVOR, and
 CHAVORE formats.
@@ -403,7 +403,7 @@ the usual \texttt{ISIS}. ASP only supports creating of point
 clouds. \emph{The *-PC.tif is a raw point cloud with the first 3
   channels being XYZ in the rover site's coordinate frame}. We don't
 support the creation of DEMs from these images and that is left as an
-excercise for the user.
+exercise for the user.
 
 \subsection{PANCAM, NAVCAM, HAZCAM}
 
@@ -458,7 +458,7 @@ or are extremely far away.
 \end{minipage}\end{center}
 
 \clearpage
-\section{Lunar Reconaissance Orbiter LROC NAC}
+\section{Lunar Reconnaissance Orbiter LROC NAC}
 
 \subsection{Lee-Lincoln Scarp}
 
@@ -776,13 +776,15 @@ with and have focused on. If we can make models of wooded or urban
 areas, that is a bonus, but we can't provide any advice for how to
 perform or improve the results if you choose to use ASP in that way.
 
-ASP can only process Level 1B imagery and cannot process Digital
-Globe's aerial imagery. We can pull a camera model from the RPC
-coefficients or from their linear camera model described in the
-provided XML files. We won't be discussing the RPC method in this
-section, however you can learn more about it in the later example (section \ref{rpc})
-where we discuss processing GeoEye imagery which comes only with RPC
-coefficients. Our implementation of the linear camera model only
+ASP can only process Level 1B imagery and cannot process Digital Globe's
+aerial imagery. We can pull a camera model from the RPC coefficients or
+from their linear camera model described in the provided XML files. We
+won't be discussing the RPC method in this section, however you can
+learn more about it in the later example (section \ref{rpc}) where we
+discuss processing GeoEye imagery which comes only with RPC
+coefficients.
+
+Our implementation of the linear camera model only
 models the geometry of the imaging hardware itself and velocity
 aberration. We do not currently model refraction due to light bending
 in Earth's atmosphere. It is our understanding that this could
@@ -845,7 +847,8 @@ completed command and a rendering in QGIS are shown below.
 \subsubsection*{Commands}
 
 \begin{verbatim}
-    > stereo 12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
+    > stereo -t dg                                            \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
              12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
              12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
              12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML dg/dg
@@ -931,7 +934,7 @@ product \cite{cgiar:srtm90m}.
         12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
         12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
         right_mapped.tif
-    > stereo left_mapped.tif right_mapped.tif \
+    > stereo -t dg left_mapped.tif right_mapped.tif           \
              12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
              12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
              dg/dg srtm_53_07.tif
@@ -951,7 +954,7 @@ Globe pairs. Just set
 \label{rpc}
 
 GeoEye provides imagery from Ikonos and the two GeoEye
-satellites. Astrium provideds imagery from SPOT and Pleiades
+satellites. Astrium provides imagery from SPOT and Pleiades
 satellites. Both companies provide only Rational Polynomial Camera
 (RPC) models. RPC represents four 20-element
 polynomials that map geodetic coordinates to image coordinates. Since
@@ -989,8 +992,16 @@ is not our objective.
 \subsubsection*{Commands}
 
 \begin{verbatim}
-    > stereo po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
+    > stereo -t rpc po_312012_pan_0000000.tif po_312012_pan_0010000.tif geoeye/geoeye
 \end{verbatim}
+
+In case the image files do not contain the RPC models, separate XML
+files having this information need to be provided, as done for Digital
+Globe images (section \ref{rawdg}).
+
+Currently, stereo using RPC camera models cannot be performed if the
+input images are map-projected, as it is possible with Digital Globe
+images with linear camera models (section \ref{mapproj}).
 
 \subsubsection*{stereo.default}
 

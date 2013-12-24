@@ -257,8 +257,45 @@ namespace asp {
   }
 
   void user_safety_checks(Options const& opt){
+    
+    // Error checking
+    
+    if ( stereo_settings().seed_mode > 3 ){
+      vw_throw( ArgumentErr() << "Invalid value for seed-mode: "
+                << stereo_settings().seed_mode << ".\n" );
+    }
 
-    //---------------------------------------------------------
+    if ( stereo_settings().seed_mode == 0 &&
+         stereo_settings().use_local_homography ){
+      vw_throw( ArgumentErr() << "Cannot use local homography without "
+                << "computing low-resolution disparity.\n");
+    }
+
+    if ( !opt.input_dem.empty() && stereo_settings().seed_mode == 2 )
+      vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
+                << "DEM is not implemented for map-projected images.\n");
+
+    GeoReference georef;
+    bool has_georef1 = read_georeference( georef, opt.in_file1 );
+    bool has_georef2 = read_georeference( georef, opt.in_file2 );
+    if ( !opt.input_dem.empty() && (!has_georef1 || !has_georef2)){
+      vw_throw( ArgumentErr() << "The images are not map-projected, "
+                << "cannot use the provided DEM: " << opt.input_dem << ".n");
+    }
+
+    if ( (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" ) &&
+         has_georef1 && has_georef2 && opt.input_dem == "") {
+      vw_out(WarningMessage) << "It appears that the input images are "
+                             << "map-projected. In that case a DEM needs to be "
+                             << "provided for stereo to give correct results.\n";
+    }
+
+    if ( opt.session->name() == "rpc" && opt.input_dem != "") {
+      vw_throw( ArgumentErr() << "Cannot use map-projected images with "
+                << "an RPC session.\n");
+    }
+
+    // Camera checks
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1, camera_model2);
@@ -307,38 +344,7 @@ namespace asp {
       // Silent. Top Left pixel might not be valid on a map
       // projected image.
     }
-    
-    if ( stereo_settings().seed_mode > 3 ){
-      vw_throw( ArgumentErr() << "Invalid value for seed-mode: "
-                << stereo_settings().seed_mode << ".\n" );
-    }
-
-    if ( stereo_settings().seed_mode == 0 &&
-         stereo_settings().use_local_homography ){
-      vw_throw( ArgumentErr() << "Cannot use local homography without "
-                << "computing low-resolution disparity.\n");
-    }
-
-    // Checks for map-projected images below
-    if ( !opt.input_dem.empty() && stereo_settings().seed_mode == 2 )
-      vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
-                << "DEM is not implemented for map-projected images.\n");
-
-    GeoReference georef;
-    bool has_georef1 = read_georeference( georef, opt.in_file1 );
-    bool has_georef2 = read_georeference( georef, opt.in_file2 );
-    if ( !opt.input_dem.empty() && (!has_georef1 || !has_georef2)){
-      vw_throw( ArgumentErr() << "The images are not map-projected, "
-                << "cannot use the provided DEM: " << opt.input_dem << ".n");
-    }
-
-    if ( (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" ) &&
-         has_georef1 && has_georef2 && opt.input_dem == "") {
-      vw_out(WarningMessage) << "It appears that the input images are "
-                             << "map-projected. In that case a DEM needs to be "
-                             << "provided for stereo to give correct results.\n";
-    }
-
+        
   }
 
   // approximate search range
