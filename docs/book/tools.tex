@@ -11,24 +11,24 @@ command line options.
 \section{stereo}
 \label{stereo}
 
-The \texttt{stereo} program is the primary tool of the Ames
-Stereo Pipeline.  It takes a stereo pair of images that overlap and
-creates an output point cloud image that can be processed into a 3D
-model or DEM using the \texttt{point2mesh} or \texttt{point2dem}
-programs, respectively.
+The \texttt{stereo} program is the primary tool of the Ames Stereo
+Pipeline. It takes a stereo pair of images that overlap and creates an
+output point cloud image that can be processed into a visualizable mesh
+or a DEM using \texttt{point2mesh} (section \ref{point2mesh}) and
+\texttt{point2dem} (section \ref{point2dem}), respectively.
 
 \medskip
 
-Usage:\\
-\hspace*{2em}\texttt{ISIS 3> stereo [options] \textit{Left\_input\_image Right\_input\_image output\_file\_prefix}}
-
-\medskip
+Usage:
+\begin{verbatim}
+  ISIS 3> stereo [options] left_input_image right_input_image output_file_prefix
+\end{verbatim}
 
 This tool is is primarily designed to process USGS ISIS \texttt{.cub}
 files and Digital Globe data. However, Stereo Pipeline
 does have the capability to process other types of stereo image pairs
 (e.g., image files with a CAHVOR camera model from the NASA MER
-rovers).  If you would like to experiment with these features, please
+rovers). If you would like to experiment with these features, please
 contact us for more information.
 
 The \texttt{\textit{output\_file\_prefix}} is prepended to all

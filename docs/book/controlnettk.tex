@@ -65,7 +65,7 @@ debug flag '-d' which can be used to output debug images that show the
 location of all detected features.
 
 \begin{verbatim}
-    ASP   > echo *.tif | xargs -n1 -P 10 ipfind --max 10000
+  > echo *.tif | xargs -n1 -P 10 ipfind --max 10000
 \end{verbatim}
 
 Notice the options \emph{\-\-max 10000} used for the \texttt{ipfind}
@@ -77,14 +77,14 @@ the simplists is just a brute force permutation of all possible
 combinations. Here's how:
 
 \begin{verbatim}
-    ASP   > pairlist_all.py *.tif | xargs -n2 -P 10 ipmatch -r homography
+  > pairlist_all.py *.tif | xargs -n2 -P 10 ipmatch -r homography
 \end{verbatim}
 
 Alternatively we could just match between images that happen to be
 sequential by name.
 
 \begin{verbatim}
-    ASP   > pairlist_seq.py *.tif | xargs -n2 -P 10 ipmatch -r homography
+  > pairlist_seq.py *.tif | xargs -n2 -P 10 ipmatch -r homography
 \end{verbatim}
 
 Though for large datasets it doesn't seem approriate to compare all
@@ -124,7 +124,7 @@ its fitting functor. Using a homography fitting functor means 8
 matches. We'll go ahead and delete anything 10 and under.
 
 \begin{verbatim}
-    ASP   > echo *.match | xargs -n1 -P 10 reduce_match --min 10 --max 100
+  > echo *.match | xargs -n1 -P 10 reduce_match --min 10 --max 100
 \end{verbatim}
 
 Finally we are ready to collect all pairwise matches into a single
@@ -134,7 +134,7 @@ and cube files, we will call the command
 network, here's how to perform the last step.
 
 \begin{verbatim}
-    ASP   > cnet_build *.cub -t isis -o asp_control
+  > cnet_build *.cub -t isis -o asp_control
 \end{verbatim}
 
 Let's go ahead and see how the results turned out in qnet!
@@ -163,7 +163,7 @@ control network with the large control network you created with
 \texttt{cnet\_merge}.
 
 \begin{verbatim}
-    ASP   > cnet_merge large.cnet small.net -o larger.cnet
+  > cnet_merge large.cnet small.net -o larger.cnet
 \end{verbatim}
 
 The above command will create an even larger control network which

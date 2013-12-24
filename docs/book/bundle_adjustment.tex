@@ -187,8 +187,8 @@ in the example).  For reference, the following \ac{ISIS} commands are
 how to convert the \ac{MOC} images to \ac{ISIS} cubes.
 
 \begin{verbatim}
-  ISIS 3> mocproc from= e0201461.imq to= e0201461.cub mapping=no
-  ISIS 3> mocproc from= m0100115.imq to= m0100115.cub mapping=no
+  ISIS 3> mocproc from=e0201461.imq to=e0201461.cub mapping=no
+  ISIS 3> mocproc from=m0100115.imq to=m0100115.cub mapping=no
 \end{verbatim}
 
 Note that the resulting images are not map-projected. Bundle
@@ -211,8 +211,8 @@ will also create a data file that describes the overlapping sections
 between files.
 
 \begin{verbatim}
-  ISIS 3> footprintinit from= e0201461.cub
-  ISIS 3> footprintinit from= m0100115.cub
+  ISIS 3> footprintinit from=e0201461.cub
+  ISIS 3> footprintinit from=m0100115.cub
   ISIS 3> echo *cub |  xargs -n1 echo > cube.lis
   ISIS 3> findimageoverlaps from=cube.lis overlaplist=overlap.lis
 \end{verbatim}

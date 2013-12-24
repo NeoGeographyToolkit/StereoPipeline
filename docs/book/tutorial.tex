@@ -17,19 +17,23 @@ results, but ultimately this software suite takes images and builds
 models in a mostly automatic way.  To create a point cloud file, you
 simply pass two image files to the \texttt{stereo} command:
 
-\hspace*{2em}\texttt{ISIS 3> stereo \textit{image\_file1 image\_file2 stereo-output}}
-\smallskip
+\begin{verbatim}
+  ISIS 3> stereo left_input_image right_input_image stereo-output
+\end{verbatim}
 
-You can then make a mesh or a \ac{DEM} file with the following
+See section \ref{running-stereo} for a more detailed discussion. 
+ 
+You can then make a visualizable mesh or a \ac{DEM} file with the following
 commands (the \texttt{\textit{stereo-output}-PC.tif} and
 \texttt{\textit{stereo-output}-L.tif} files are created by the
 \texttt{stereo} program above):
+ 
+\begin{verbatim}
+  ISIS 3> point2mesh stereo-output-PC.tif stereo-output-L.tif
+  ISIS 3> point2dem  stereo-output-PC.tif
+\end{verbatim}
 
-\hspace*{2em}\texttt{ISIS 3> point2mesh \textit{stereo-output}-PC.tif \textit{stereo-output}-L.tif}
-\smallskip
-
-\hspace*{2em}\texttt{ISIS 3> point2dem \textit{stereo-output}-PC.tif \textit{stereo-output}-L.tif}
-\smallskip
+More details are provided in section \ref{visualising}.
 
 All files output by Stereo Pipeline will start with the same prefix,
 which above was set to \texttt{\textit{stereo-output}}. If it is desired
@@ -56,8 +60,8 @@ appropriate \ac{ISIS} 3 Startup script, as detailed in the \ac{ISIS}
 3>}' prompt).  Then you can use the \texttt{mocproc} program, as follows:
 
 \begin{verbatim}
-    ISIS 3> mocproc from= M0100115.imq to= M0100115.cub Mapping= NO
-    ISIS 3> mocproc from= E0201461.imq to= E0201461.cub Mapping= NO
+  ISIS 3> mocproc from=M0100115.imq to=M0100115.cub Mapping=NO
+  ISIS 3> mocproc from=E0201461.imq to=E0201461.cub Mapping=NO
 \end{verbatim}
 
 There are also \texttt{Ingestion} and \texttt{Calibration} parameters
@@ -156,7 +160,7 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
   NO} you'd do this:
 
 \begin{Verbatim}[commandchars=\\\{\}]
-  ISIS 3> camrange fr= M0100115.cub
+  ISIS 3> camrange from=M0100115.cub
           \textnormal{[ ... lots of} camrange \textnormal{ output omitted ... ]}
   Group = UniversalGroundRange
     LatitudeType       = Planetocentric
@@ -171,7 +175,7 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
 \end{Verbatim}
 
 \begin{Verbatim}[commandchars=\\\{\}]
-  ISIS 3> camrange fr= E0201461.cub
+  ISIS 3> camrange from=E0201461.cub
           \textnormal{[ ... lots of} camrange \textnormal{ output omitted ... ]}
   Group = UniversalGroundRange
     LatitudeType       = Planetocentric
@@ -185,13 +189,11 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
           \textnormal{[ ... more output of} camrange \textnormal{ omitted ... ]}
 \end{Verbatim}
 
-\pagebreak
-
 Now compare the boundaries of the two above and determine the intersection to use as the boundaries for \texttt{cam2map}:
 
 \begin{Verbatim}
-  ISIS 3> cam2map from=M0100115.cub to=M0100115.map.cub DEFAULTRANGE= CAMERA \
-                  MINLAT= 34.10 MAXLAT= 34.44 MINLON= 141.50 MAXLON= 141.63
+  ISIS 3> cam2map from=M0100115.cub to=M0100115.map.cub DEFAULTRANGE=CAMERA \
+                  MINLAT=34.10 MAXLAT=34.44 MINLON=141.50 MAXLON=141.63
   ISIS 3> cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
 \end{Verbatim}
 
@@ -206,31 +208,29 @@ Again, unless you are doing something complicated, using the
 will take care of all these steps for you.
 
 \section{Running the Stereo Pipeline}
+\label{running-stereo}
 
-Once the data has been prepared for processing, we invoke the the
+Once the data has been prepared for processing, we invoke the 
 \texttt{stereo} program (page \pageref{stereo}).
 
 \subsection{Setting Options in the \texttt{stereo.default} File}
 \label{settingoptionsinstereodefault}
 
-The \texttt{stereo} program requires a \texttt{stereo.default} file
-that contains settings that affect the stereo reconstruction process.
-Its contents can be altered for your needs; details are found in
-appendix \ref{ch:stereodefault} on page \pageref{ch:stereodefault}.
-You may find it useful to save multiple versions of the
-\texttt{stereo.default} file for various processing needs. If you do
-this, be sure to specify a configuration file by invoking
-\texttt{stereo} with the \texttt{-s} option.  If this option is not
-given, the \texttt{stereo} program will search for a file named
-\texttt{stereo.default} in the current working directory. The
-extension of this file is unimportant. Feel free to use any name that
-best suits your project. If \texttt{stereo} doesn't find
-\texttt{stereo.default} in the current working directory and no file
-was given with the \texttt{-s} option, \texttt{stereo} will assume
-default settings and continue.
+The \texttt{stereo} program requires a \texttt{stereo.default} file that
+contains settings that affect the stereo reconstruction process.  Its
+contents can be altered for your needs; details are found in appendix
+\ref{ch:stereodefault} on page \pageref{ch:stereodefault}.  You may find
+it useful to save multiple versions of the \texttt{stereo.default} file
+for various processing needs. If you do this, be sure to specify a
+configuration file by invoking \texttt{stereo} with the \texttt{-s}
+option.  If this option is not given, the \texttt{stereo} program will
+search for a file named \texttt{stereo.default} in the current working
+directory. If \texttt{stereo} does not find \texttt{stereo.default} in
+the current working directory and no file was given with the \texttt{-s}
+option, \texttt{stereo} will assume default settings and continue.
 
 The example \texttt{stereo.default.example} file distributed in the
-base directory of \ac{ASP} is everything you need to process this
+base directory of \ac{ASP} has everything you need to process this
 stereo pair. The actual file has a lot of comments to show you what
 options and values are possible. Here's a trimmed version of the
 important values in that file.
@@ -242,18 +242,46 @@ important values in that file.
         subpixel-kernel 21 21
 \end{verbatim}
 
-The first line says, \emph{`Don't do try to automatically align my
-  images'} since we have map-projected images that are already
-aligned. The second and third line define what correlation metric
-\textit{(normalized cross correlation)} we'll be using and how big the
-template or kernel size should be \textit{(21 pixels square)}. The
-fourth and fifth line define how the subpixel refinement or the fine
-features will be resolved within an image \textit{(in this case
-  parabola)} and what kernel size to use during that method
+\subsubsection*{Alignment Method}
+
+Far and away the most important line in \texttt{stereo.default} is the
+first one, specifying the alignment method. For raw images, alignment is
+always necessary, as the left and right images are from different
+perspectives. Several alignment methods are supported, including
+\texttt{affineepipolar} and \texttt{homography} (see section 
+\ref{stereo-default-preprocessing} for details). 
+
+In this particular example, we will perform stereo with map-projected
+images, in effect we take a smooth low-resolution terrain and map both
+the left and right raw images onto that terrain. This automatically
+brings both images in the same perspective, and as such, for
+map-projected images the alignment method is always set to
+\texttt{none}.
+
+\subsubsection*{Correlation Parameters}
+
+The second and third lines in \texttt{stereo.default} define what
+correlation metric \textit{(normalized cross correlation)} we'll be
+using and how big the template or kernel size should be \textit{(21
+pixels square)}. A pixel in the left image will be matched to a pixel in
+the right image by comparing the windows of this size centered at them.
+
+
+\subsubsection*{Subpixel Refinement Parameters}
+
+A highly critical parameter of \ac{ASP} is the value of
+\texttt{subpixel-mode}, on the fourth line. When set to 1, it performs
+parabola subpixel refinement, which is very fast but not very
+accurate. When set to 2, it produces the most accurate results, yet it
+is about an order of magnitude slower.
+
+The fifth line sets the kernel size to use during subpixel refinement
 \textit{(also 21 pixels square)}.
 
-Using those settings alone, \ac{ASP} will attempt to work out the
-minimium and maximum disparity it will search for automatically. However if you
+\subsubsection*{Search Range Determination}
+
+Using these settings alone, \ac{ASP} will attempt to work out the
+minimum and maximum disparity it will search for automatically. However if you
 wish to, you can explicitly set the extent of the search range by
 adding the option:
 \begin{verbatim}
@@ -312,20 +340,25 @@ files instead of the original input files.
 Here is how the \texttt{stereo} program is invoked:
 
 \begin{verbatim}
-    ISIS 3> stereo E0201461.map.cub M0100115.map.cub \
-              -s stereo.default.example              \
-              results/E0201461-M0100115
+  ISIS 3> stereo E0201461.map.cub M0100115.map.cub \
+            -s stereo.default.example results/output
 \end{verbatim}
 
 \noindent
-That last option (\texttt{results/E0201461-M0100115}) is a prefix that
+That last option (\texttt{results/output}) is a prefix that
 is used when generating names for \texttt{stereo} output files.  In
 this case the first part is \texttt{results/}, which causes the
 program to generate results in that directory with filenames that start
-with \texttt{E0201461-M0100115}. If instead that last text was just
-\texttt{E0201461-M0100115} it would have created a collection of files
-that start with \texttt{E0201461-M0100115} in the {\em same} directory as
+with \texttt{output}. If instead that last text was just
+\texttt{output}, it would have created a collection of files
+that start with \texttt{output} in the {\em same} directory as
 the input files.
+
+When \texttt{stereo} finishes, it will have produced a point cloud
+image. Section \ref{visualising} describes how to convert it to a
+digital elevation model (DEM) or other formats.
+
+\subsection{Specifying Settings on the Command Line}
 
 All the settings given via the \texttt{stereo.default} file can be
 over-ridden from the command line. Just add a double hyphen
@@ -333,19 +366,14 @@ over-ridden from the command line. Just add a double hyphen
 just as you would in the configuration file. For options in the
 \texttt{stereo.default} file that take multiple numbers, they must be
 separated by spaces (like `\texttt{corr-kernel~25~25}') on the command
-line. Below is an example of overriding the search range and subpixel
-mode from the command line.
+line. Here is an example in which we override the search range and
+subpixel mode from the command line.
 
 \begin{verbatim}
-    ISIS 3> stereo E0201461.map.cub M0100115.map.cub  \
-              -s stereo.map --corr-search -70 -4 40 4 \
-              --subpixel-mode 0                       \
-              results/E0201461-M0100115
+  ISIS 3> stereo E0201461.map.cub M0100115.map.cub  \
+            -s stereo.map --corr-search -70 -4 40 4 \
+            --subpixel-mode 0 results/output
 \end{verbatim}
-
-When \texttt{stereo} finishes, it will have produced a point cloud
-image. Section \ref{visualising} describes how to convert it to a
-digital elevation model (DEM) or other formats.
 
 \subsection{Stereo on Multiple Machines}
 
@@ -375,13 +403,13 @@ directory provides some insight into the process.
     \label{p19-stereo-output}
         These are the four viewable \texttt{.tif} files created by the
         \texttt{stereo} program.  On the left are the two aligned,
-        pre-processed images: (\texttt{E0201461-M0100115-L.tif} and
-        \texttt{E0201461-M0100115-R.tif}).  The next two are mask images
-        (\texttt{E0201461-M0100115-lMask.tif} and
-        \texttt{E0201461-M0100115-rMask.tif}), which indicate which
+        pre-processed images: (\texttt{results/output-L.tif} and
+        \texttt{results/output-R.tif}).  The next two are mask images
+        (\texttt{results/output-lMask.tif} and
+        \texttt{results/output-rMask.tif}), which indicate which
         pixels in the aligned images are good to use in stereo
         correlation.  The image on the right is the ``Good Pixel
-        map'', (\texttt{E0201461-M0100115-GoodPixelMap.tif}), which
+        map'', (\texttt{results/output-GoodPixelMap.tif}), which
         indicates (in gray) which were successfully matched with the
         correlator, and (in red) those that were not matched.}
 \end{minipage}
@@ -389,10 +417,10 @@ directory provides some insight into the process.
 
 Perhaps the most accessible file for assessing the quality of your
 results is the good pixel image,
-\\ (\texttt{E0201461-M0100115-GoodPixelMap.tif}).  If this file shows
+\\ (\texttt{results/output-GoodPixelMap.tif}).  If this file shows
 mostly good, gray pixels in the overlap area (the area that is white
-in both the \texttt{E0201461-M0100115-lMask.tif} and
-\texttt{E0201461-M0100115-rMask.tif} files), then your results are
+in both the \texttt{results/output-lMask.tif} and
+\texttt{results/output-rMask.tif} files), then your results are
 just fine.  If the good pixel image shows lots of failed data,
 signified by red pixels in the overlap area, then you need to go back
 and tune your \texttt{stereo.default} file until your results improve.
@@ -420,14 +448,13 @@ them.  Each shows the disparity map at the different stages of
 processing.
 
 \begin{verbatim}
-    ISIS 3> cd results
-    ISIS 3> disparitydebug E0201461-M0100115-F.tif
+  >  disparitydebug results/output-F.tif
 \end{verbatim}
 
 If the output H and V files from \texttt{disparitydebug} look okay,
 then the point cloud image is most likely ready for post-processing.
 You can proceed to make a mesh or a \ac{DEM} by processing
-\texttt{E0201461-M0100115-PC.tif} using the \texttt{point2mesh} or
+\texttt{results/output-PC.tif} using the \texttt{point2mesh} or
 \texttt{point2dem} tools, respectively.
 
 \begin{figure}[b!]
@@ -440,12 +467,12 @@ You can proceed to make a mesh or a \ac{DEM} by processing
     \label{p19-disparity}
 	Disparity images produced using the \texttt{disparitydebug}
         tool.  The two images on the left are the
-        \texttt{E0201461-M0100115-D-H.tif} and
-        \texttt{E0201461-M0100115-D-V.tif} files, which are normalized
+        \texttt{results/output-D-H.tif} and
+        \texttt{results/output-D-V.tif} files, which are normalized
         horizontal and vertical disparity components produced by the
         disparity map initialization phase.  The two images on the
-        right are \texttt{E0201461-M0100115-F-H.tif} and
-        \texttt{E0201461-M0100115-F-V.tif}, which are the final
+        right are \texttt{results/output-F-H.tif} and
+        \texttt{results/output-F-V.tif}, which are the final
         filtered, sub-pixel-refined disparity maps that are fed into the
         Triangulation phase to build the point cloud image.  Since
         these MOC images were acquired by rolling the spacecraft
@@ -460,14 +487,12 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 \end{minipage}
 \end{figure}
 
-\clearpage
-
 \section{Visualizing and Manipulating the Results}
 \label{visualising}
 
 When \texttt{stereo} finishes, it will have produced a point cloud
 image.  At this point, many kinds of data products can be built from
-the \texttt{E0201461-M0100115-PC.tif} point cloud file.
+the \texttt{results/output-PC.tif} point cloud file.
 
 \subsection{Building a 3D Model}
 
@@ -481,7 +506,7 @@ with the binary version of the Stereo Pipeline).  The
 normalized image as inputs:
 
 \begin{verbatim}
-    ISIS 3> point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif -l
+  >  point2mesh results/output-PC.tif results/output-L.tif -l
 \end{verbatim}
 
 \noindent
@@ -498,8 +523,8 @@ other interactive options.
 \begin{minipage}{1.7in}
 \caption[P19 in OSG]{
     \label{p19-osg}
-	The \texttt{E0201461-M0100115.ive} file displayed in the OSG
-        Viewer.  }
+	The \texttt{results/output.ive} file displayed in the OSG
+        Viewer.}
 \end{minipage}
 \end{figure}
 
@@ -509,23 +534,23 @@ The \texttt{point2dem} program (page \pageref{point2dem}) creates a
 Digital Elevation Model (\ac{DEM}) from the point cloud file.
 
 \begin{verbatim}
-    ISIS 3> point2dem E0201461-M0100115-PC.tif
+  >  point2dem results/output-PC.tif
 \end{verbatim}
 
 \noindent
 The resulting TIFF file is map-projected and will contain
 georeferencing information stored as GeoTIFF tags. You can specify a
 coordinate system (e.g., mercator, sinusoidal) and a reference
-spheroid (i.e., calculated for the Moon or Mars).
+spheroid (i.e., calculated for the Moon, Mars, or Earth).
 
 \begin{verbatim}
-    ISIS 3> point2dem -r mars E0201461-M0100115-PC.tif
+  >  point2dem -r mars results/output-PC.tif
 \end{verbatim}
 
 \noindent
 This product is suitable for scientific use, and can be imported into
 a variety of GIS platforms.  However, the resulting file,
-\texttt{E0201461-M0100115-DEM.tif}, will have 32-bit floating point
+\texttt{results/output-DEM.tif}, will have 32-bit floating point
 pixels, and will not render well in typical image viewers.
 
 The \texttt{point2dem} program can also be used to orthoproject raw
@@ -535,8 +560,8 @@ option and specify the use of the left image file as the texture file
 to use for the projection:
 
 \begin{verbatim}
-    ISIS 3> point2dem -r mars --orthoimage E0201461-M0100115-L.tif \
-        E0201461-M0100115-PC.tif
+  >  point2dem -r mars --orthoimage results/output-L.tif \
+       results/output-PC.tif
 \end{verbatim}
 
 \noindent
@@ -550,9 +575,9 @@ defined in the target spatial reference set. The following examples
 produce the same output.
 
 \begin {verbatim}
-    ISIS 3> point2dem --t_srs IAU2000:49900 E0201461-M0100115-PC.tif
-    ISIS 3> point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
-        E0201461-M0100115-PC.tif
+  >  point2dem --t_srs IAU2000:49900 results/output-PC.tif
+  >  point2dem --t_srs "+proj=longlat +a=3396190 +b=3376200"
+       results/output-PC.tif
 \end{verbatim}
 
 \noindent
@@ -568,7 +593,8 @@ sure to take your time to explore all of the options.
 \begin{minipage}{2in}
 \caption[P19 Normalized DEM and Orthophoto]{
     \label{p19-norm_ortho}
-	The image on the left is a normalized DEM (generated using the
+	The image on the left is a normalized DEM (generated using
+        \texttt{point2dem}'s 
         \texttt{-n} option), which shows low terrain values as black
         and high terrain values as white.  The image on the right is
         the left input image projected onto the DEM (created using the
@@ -601,7 +627,45 @@ sure to take your time to explore all of the options.
 % \end{center}
 % \end{figure}
 
-\clearpage
+\subsection{Alignment to point clouds from a different source}
+
+Often times, the 3D terrain models output by \texttt{stereo} (point
+clouds and DEMs) can be intrinsically quite accurate, yet their actual
+position on the planet may be off by up to several tens of meters. This
+can result from small errors in the position and orientation of the
+satellite cameras taking the pictures.
+
+ASP provides a tool named \texttt{pc\_align} for aligning such 3D
+terrains to a much more accurately positioned (if potentially sparser)
+dataset. Such datasets can be made up of ground control points (in the
+case of Earth), or from laser altimetry instruments on satellites, such
+as ICESat/GLASS for Earth, LRO/LOLA on the Moon, and MGS/MOLA on Mars.
+
+Under the hood, \texttt{pc\_align} uses Iterative Closest Point (ICP),
+which works best when the point cloud held fixed in place as reference
+is denser than the one being transformed to align to it, which is the
+opposite of what we would need in our case, as we'd like to move the
+dense output of \texttt{stereo} to align to the accurately known sparser
+dataset. Yet this is not a problem since we can use ICP as it works
+best, and then simply invert the alignment transform and apply it to the
+ASP point cloud so that it aligns to the accurately positioned dataset.
+
+The \texttt{pc\_align} tool requires another input, an apriori guess for
+the maximum displacement we expect to see as result of alignment, that
+is, by how much the points will move when the alignment transform is
+applied. If not known, a large (but not unreasonably so) number can be
+specified. It is used to remove most of the points in one of the cloud
+which have no chance of having a corresponding point in the other
+cloud.
+
+\begin {verbatim}
+  >  pc_align --max-displacement 200 --datum D_MARS \
+       --save-inv-transformed-reference-points      \
+       results/output-PC.tif mola.csv
+\end{verbatim}
+
+The complete documentation for \texttt{pc\_align} is in section
+\ref{pcalign}.
 
 \subsection{Creating DEMs relative to the Geoid/Areoid}
 
@@ -610,12 +674,20 @@ ellipsoid. If desired, the \texttt{dem\_geoid} program can be used to
 convert this DEM to be relative to a geoid/areoid on Earth/Mars
 respectively.
 
+\begin {verbatim}
+  >  dem_geoid results/output-DEM.tif 
+\end{verbatim}
+
 \subsection{Converting to the LAS Format}
 
 If it is desired to use the generated point cloud in contexts outside
 ASP, it can be converted to the LAS file format, which is a public file
 format for the interchange of 3-dimensional point cloud data. The tool
 \texttt{point2las} can be used for that purpose (section \ref{point2las}).
+
+\begin {verbatim}
+  >  point2las --compressed results/output-PC.tif 
+\end{verbatim}
 
 \subsection{Generating Color Hillshade Maps}
 
@@ -629,7 +701,7 @@ the DEM, which is computed automatically.  Alternatively you can
 specific your own min and max range for the color map.
 
 \begin{verbatim}
-    ISIS 3> colormap E0201461-M0100115-DEM.tif -o hrad-colorized.tif
+  >  colormap results/output-DEM.tif -o hrad-colorized.tif
 \end{verbatim}
 
 To create a hillshade of the \ac{DEM}, specify the \ac{DEM} file to
@@ -637,14 +709,14 @@ use. You can control the azimuth and elevation of the light source
 using the \texttt{-a} and \texttt{-e} options.
 
 \begin{verbatim}
-    ISIS 3> hillshade E0201461-M0100115-DEM.tif -o hrad-shaded.tif -e 25
+  >  hillshade results/output-DEM.tif -o hrad-shaded.tif -e 25
 \end{verbatim}
 
 To create a colorized version of the shaded relief file, specify
 the \ac{DEM} and the shaded relief file that should be used:
 
 \begin{verbatim}
-    ISIS 3> colormap E0201461-M0100115-DEM.tif -s hrad-shaded.tif -o hrad-color-shaded.tif
+  >  colormap results/output-DEM.tif -s hrad-shaded.tif -o hrad-color-shaded.tif
 \end{verbatim}
 
 \begin{figure}[b!]
@@ -657,8 +729,6 @@ the \ac{DEM} and the shaded relief file that should be used:
 \end{center}
 \end{figure}
 
-\clearpage
-
 \subsection{Building Overlays for Moon and Mars mode in Google Earth}
 
 The final program in the Stereo Pipeline package that this tutorial
@@ -670,13 +740,19 @@ remote server over the Internet.
 
 The \texttt{image2qtree} program can only be used on 8-bit image files
 with georeferencing information (e.g. grayscale or RGB geotiff
-images). In this example, it can be used to process \\
-\texttt{E0201461-M0100115-DEM-normalized.tif},
-\texttt{E0201461-M0100115-DRG.tif} \texttt{hrad-shaded.tif}, \\
-\texttt{hrad-colorized.tif}, and \texttt{hrad-shaded-colorized.tif}
+images). In this example, it can be used to process 
+\texttt{results/output-DEM-normalized.tif},
+\texttt{results/output-DRG.tif}, \texttt{hrad-shaded.tif}, \\
+\texttt{hrad-colorized.tif}, and \texttt{hrad-shaded-colorized.tif}.
+
+These images were generated respectively by using \texttt{point2dem}
+with the \texttt{-n} option creating a normalized DEM, the
+\texttt{-\/-orthoimage} option to \texttt{point2dem} which projects the
+left image onto the DEM, and the images created earlier with
+\texttt{colormap}.
 
 \begin{verbatim}
-    ISIS 3> image2qtree hrad-shaded-colorized.tif -m kml --draw-order 100
+  >  image2qtree hrad-shaded-colorized.tif -m kml --draw-order 100
 \end{verbatim}
 
 \begin{figure}[b!]

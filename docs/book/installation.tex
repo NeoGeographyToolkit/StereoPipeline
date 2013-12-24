@@ -20,9 +20,9 @@ optional, \ac{ISIS} version is listed next to the name; choose the
 newest version you have available.
 
 \item [{USGS~ISIS}] \hspace*{\fill} \\
-If you are working with planetary missions, you will need to install
+If you are working with non-terrestrial imagery, you will need to install
 \ac{ISIS} so that you can perform preprocessing such as radiometric
-calibration and ephemeris attachment. Their installation guide is at
+calibration and ephemeris attachment. The \ac{ISIS} installation guide is at
 \url{http://isis.astrogeology.usgs.gov/documents/InstallGuide}.  You
 must use their binaries as-is; if you need to recompile, you can
 follow the \emph{Source Installation} guide for the Stereo Pipeline in
@@ -119,13 +119,13 @@ You need to set up your ISIS environment or manually set the correct
 location for \texttt{ISIS3DATA}.
 
 \begin{verbatim}
-point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
+point2mesh stereo-output-PC.tif stereo-output-L.tif
 [...]
 99%  Vertices:   [************************************************************] Complete!
        > size: 82212 vertices
 Drawing Triangle Strips
 Attaching Texture Data
-zsh: bus error  point2mesh E0201461-M0100115-PC.tif E0201461-M0100115-L.tif
+zsh: bus error  point2mesh stereo-output-PC.tif stereo-output-L.tif
 \end{verbatim}
 
 The source of this problem is an old version of OpenSceneGraph in
