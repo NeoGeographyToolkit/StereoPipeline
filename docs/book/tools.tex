@@ -642,14 +642,18 @@ Options & Description \\ \hline \hline
 \section{dg\_mosaic}
 \label{dgmosaic}
 
-This tool can be used when processing Digital Globe Imagery (section
-\ref{sec:digital_globe_imagery}). A Digital Globe satellite may take a
-picture, and then split it into several images and corresponding camera XML
-files. \texttt{dg\_mosaic} will mosaic these images into a single file,
-and create the appropriate combined camera XML file.
+This tool can be used when processing Digital Globe Imagery (chapter
+\ref{ch:dg_tutorial}). A Digital Globe satellite may take a
+picture, and then split it into several images and corresponding camera
+XML files. \texttt{dg\_mosaic} will mosaic these images into a single
+file, and create the appropriate combined camera XML file.
 
-Digital Globe camera files contain, in addition to the original camera models, their RPC approximations
-(section \ref{rpc}). \texttt{dg\_mosaic} outputs both types of combined models. The combined RPC model can be used to map-project the mosaiced images with the goal of computing stereo from them (section \ref{mapproj}).
+Digital Globe camera files contain, in addition to the original camera
+models, their RPC approximations (section
+\ref{rpc}). \texttt{dg\_mosaic} outputs both types of combined
+models. The combined RPC model can be used to map-project the mosaiced
+images with the goal of computing stereo from them (section
+\ref{mapproj}).
 
 The tool needs to be applied twice, for each of the left and right image sets.
 

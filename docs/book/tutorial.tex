@@ -1,5 +1,5 @@
 \chapter{Tutorial: Processing Mars Orbiter Camera Imagery}
-\label{ch:tutorial}
+\label{ch:moc_tutorial}
 
 \definecolor{lgray}{gray}{0.95}
 
@@ -159,7 +159,7 @@ and \texttt{MAXLON} parameters of the first run of \texttt{cam2map}.
 So in the above example, after \texttt{mocproc} with \texttt{Mapping=
   NO} you'd do this:
 
-\begin{Verbatim}[commandchars=\\\{\}]
+\begin{verbatim}[commandchars=\\\{\}]
   ISIS 3> camrange from=M0100115.cub
           \textnormal{[ ... lots of} camrange \textnormal{ output omitted ... ]}
   Group = UniversalGroundRange
@@ -172,9 +172,9 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
     MaximumLongitude   = 141.62534719278
   End_Group
           \textnormal{[ ... more output of} camrange \textnormal{ omitted ... ]}
-\end{Verbatim}
+\end{verbatim}
 
-\begin{Verbatim}[commandchars=\\\{\}]
+\begin{verbatim}[commandchars=\\\{\}]
   ISIS 3> camrange from=E0201461.cub
           \textnormal{[ ... lots of} camrange \textnormal{ output omitted ... ]}
   Group = UniversalGroundRange
@@ -187,15 +187,15 @@ So in the above example, after \texttt{mocproc} with \texttt{Mapping=
     MaximumLongitude   = 141.62919740048
   End_Group
           \textnormal{[ ... more output of} camrange \textnormal{ omitted ... ]}
-\end{Verbatim}
+\end{verbatim}
 
 Now compare the boundaries of the two above and determine the intersection to use as the boundaries for \texttt{cam2map}:
 
-\begin{Verbatim}
+\begin{verbatim}
   ISIS 3> cam2map from=M0100115.cub to=M0100115.map.cub DEFAULTRANGE=CAMERA \
                   MINLAT=34.10 MAXLAT=34.44 MINLON=141.50 MAXLON=141.63
   ISIS 3> cam2map from=E0201461.cub to=E0201461.map.cub map=M0100115.map.cub matchmap=true
-\end{Verbatim}
+\end{verbatim}
 
 You only have to do the boundaries explicitly for the first run of
 \texttt{cam2map}, because the second one uses the \texttt{map=}
@@ -244,7 +244,7 @@ important values in that file.
 
 \subsubsection*{Alignment Method}
 
-Far and away the most important line in \texttt{stereo.default} is the
+The most important line in \texttt{stereo.default} is the
 first one, specifying the alignment method. For raw images, alignment is
 always necessary, as the left and right images are from different
 perspectives. Several alignment methods are supported, including
@@ -269,11 +269,11 @@ the right image by comparing the windows of this size centered at them.
 
 \subsubsection*{Subpixel Refinement Parameters}
 
-A highly critical parameter of \ac{ASP} is the value of
-\texttt{subpixel-mode}, on the fourth line. When set to 1, it performs
-parabola subpixel refinement, which is very fast but not very
-accurate. When set to 2, it produces the most accurate results, yet it
-is about an order of magnitude slower.
+A highly critical parameter in \ac{ASP} is the value of
+\texttt{subpixel-mode}, on the fourth line. When set to 1,
+\texttt{stereo} performs parabola subpixel refinement, which is very
+fast but not very accurate. When set to 2, it produces very accurate
+results, but it is about an order of magnitude slower.
 
 The fifth line sets the kernel size to use during subpixel refinement
 \textit{(also 21 pixels square)}.
@@ -301,9 +301,6 @@ off, resulting in slight mis-alignment between stereo images; and then (2)
 perspective.  (In fact, these are precisely the features we are hoping
 to detect!)
 
-\begin{center}
-\fcolorbox{black}{lgray}{ \begin{minipage}{6in}
-
 Given the uncertainties due to (1) and (2) above, it can be tricky to
 select a good search range for the \texttt{stereo.default} file.
 That's why the best way is to let \texttt{stereo} perform an automated
@@ -313,8 +310,6 @@ disparity images using the \texttt{disparitydebug} program to figure
 out which search directions can be expanded or contracted. The output
 images will clearly show good data or bad data depending on whether
 the search range is correct.
-
-\medskip
 
 The worst case scenario is to determine search range manually by
 opening both images in \texttt{qview} and comparing the coordinates
@@ -326,14 +321,9 @@ define a line,sample bounding box, then expand this by 50\% and use
 it for \texttt{corr-search}.  This will produce good results in
 most images.
 
-\medskip
-
 Also, if you are using an alignment option, you'll instead want to
 make those disparity measurements against the written L and R tiff
 files instead of the original input files.
-
-\end{minipage}}
-\end{center}
 
 \subsection{Performing Stereo Correlation}\label{perform-stereo}
 
@@ -741,8 +731,8 @@ remote server over the Internet.
 The \texttt{image2qtree} program can only be used on 8-bit image files
 with georeferencing information (e.g. grayscale or RGB geotiff
 images). In this example, it can be used to process 
-\texttt{results/output-DEM-normalized.tif},
-\texttt{results/output-DRG.tif}, \texttt{hrad-shaded.tif}, \\
+
+\texttt{results/output-DEM-normalized.tif}, \texttt{results/output-DRG.tif}, \texttt{hrad-shaded.tif}, \\
 \texttt{hrad-colorized.tif}, and \texttt{hrad-shaded-colorized.tif}.
 
 These images were generated respectively by using \texttt{point2dem}
@@ -763,3 +753,299 @@ left image onto the DEM, and the images created earlier with
         The colorized hillshade DEM as a KML overlay.  }
 \end{center}
 \end{figure}
+
+\chapter{Tutorial: Processing Digital Globe Imagery}
+\label{ch:dg_tutorial}
+
+Digital Globe provides imagery from the Quick Bird and the three World
+View satellites. These are the hardest images to process with Ames
+Stereo Pipeline because they are exceedingly large, much larger than
+HiRISE imagery. There is also a wide range of terrain challenges and
+atmospheric effects that can confuse ASP. Trees are particularly
+difficult for us since their texture is nearly nadir and perpendicular
+to our line of sight. It is important to know that the driving force
+behind our support for Digital Globe imagery is to create models of
+ice and bare rock. That is the type of imagery that we have tested
+with and have focused on. If we can make models of wooded or urban
+areas, that is a bonus, but we can't provide any advice for how to
+perform or improve the results if you choose to use ASP in that way.
+
+ASP can only process Level 1B imagery and cannot process Digital Globe's
+aerial imagery. We can pull a camera model from the RPC coefficients or
+from their linear camera model described in the provided XML files. We
+won't be discussing the RPC method in this section, however you can
+learn more about it in the later example (section \ref{rpc}) where we
+discuss processing GeoEye imagery which comes only with RPC
+coefficients.
+
+Our implementation of the linear camera model only
+models the geometry of the imaging hardware itself and velocity
+aberration. We do not currently model refraction due to light bending
+in Earth's atmosphere. It is our understanding that this could
+represent misplacement of points up to a meter for some
+imagery. However this is still smaller error than the error from
+measurement of the spacecraft's position and orientation. We do not
+provide facilities for correcting spacecraft attitude either. So you
+will have to perform some manual shifting of the data to get it into
+the correct location. These errors are fortunately much less than
+found with extra-terrestrial missions largely due to the availability
+of GPS and high bandwidth comms with the satellite.
+
+In the next 2 sections we will show how to process unmodified and
+map-projected variants of World View 1 imagery. This steps will be the
+same for Digital Globe's other satellites. The imagery we are using are
+from the free stereo pair example of Lucknow, India available from
+Digital Globe's website \cite{digital-globe:samples}. These images
+represent a non-ideal problem for us since this is an urban location,
+but at least you should be able to download this imagery yourself and
+follow along.
+
+\section{Processing Raw}
+\label{rawdg}
+
+After you have downloaded the example stereo imagery of India, you
+will find a directory titled\newline
+\texttt{052783824050\_01\_P001\_PAN}. It has a
+lot of files and many of them contain redundant information just
+displayed in different formats. We are interested only in the TIF or NTF
+imagery and the similarly named XML file. 
+
+Further investigation of the files downloaded will show that there are
+in fact 4 image files. This is because Digital Globe breaks down a
+single observation into multiple files for what we assume are size
+reasons. These files have a pattern string of ``\_R[N]C1-'', where N
+increments for every subframe of the full observation. The tool named
+\texttt{dg\_mosaic} can be used to mosaic (and optionally reduce the
+resolution of) such a set of sub-observations into a single image file
+and create an appropriate camera file 
+
+\begin{verbatim}
+    > dg_mosaic 12FEB12053305*TIF --output-prefix 12FEB12053305 --reduce-percent 50
+\end{verbatim}
+
+and anologously for the second set. See section \ref{dgmosaic} for more
+details. The \texttt{stereo} program can use either the original or the mosaicked images.
+
+Since we are ingesting these images raw, it is strongly recommended that
+you use an affine epipolar alignment to reduce the search range. The
+\texttt{stereo} command and a rendering in QGIS are shown below.
+
+\begin{verbatim}
+    > stereo -t dg                                            \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
+             12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+             12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML dg/dg
+\end{verbatim}
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeContext.png}
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUp.png}
+  \includegraphics[width=2.0in]{images/examples/dg/DigitalGlobeCloseUpDRG.png}
+\caption{Example colorized height map and ortho image output.}
+\label{fig:dg-nomap-example}
+\end{figure}
+
+\subsubsection*{stereo.default}
+
+The stereo.default example file (appendix \ref{ch:stereodefault}) works
+generally well with all Digital Globe pairs. Just set
+\texttt{alignment-method} to \texttt{affineepipolar} or
+\texttt{homography}, since in this case we are using non-projected
+images.
+
+\section{Processing Map-Projected Imagery}
+\label{mapproj}
+
+Eventually you will run into Digital Globe imagery that has too much
+parallax to be processed in a reasonable time. (That wasn't the case for
+Lucknow, India because it is so flat.) We can speed up the result by
+performing stereo on map-projected versions of the images. The
+map-projection is done with a tool named \texttt{mapproject}. It uses
+the simplified RPC model contained in the camera XML file to project a
+given camera image onto a pre-determined low-resolution DEM without
+holes.
+
+ASP will then perform correlation on the map-projected images, and,
+before doing triagulation will internally project back the image pixels
+onto the original camera locations, precisely reversing the
+transformation done with \texttt{mapproject}.
+
+The hardest part of this whole process is getting the input
+low-resolution DEM. In this example we will use a variant of NASA
+SRTM data with no holes. Other choices might be GMTED2010 or USGS's NED
+data.
+
+It is important to note that ASP expects the input low-resolution DEM to
+be in reference to a datum ellipsoid, such as WGS84 or NAD83. If the DEM
+is in respect to either the EGM96 or NAVD88 geoids, the ASP tool
+\texttt{dem\_geoid} can be used to convert the DEM to WGS84 or NAD83
+(section \ref{demgeoid}). (The same tool can be used to convert back the
+final output ASP DEM to be in reference to a geoid, if desired.)
+
+Not applying this conversion might not properly negate the parallax
+seen between the two images, though it will not corrupt the
+triangulation results. In other words, sometimes one may get by
+ignoring the vertical datums on the input but we do not recommend
+doing that. Also, you should note that the geoheader attached to those
+types of files usually do not describe the vertical datum they
+used. That can only be understood by careful reading of your
+provider's documents.
+
+In this example we as input low-resolution DEM the file
+\texttt{srtm\_53\_07.tif}, a 90 meter resolution tile from the CGIAR-CSI
+modification of the original NASA SRTM product \cite{cgiar:srtm90m}.
+The NASA SRTM square for this example spot in India is N26E080.
+
+Below are the commands for map-projecting the input and then running
+through stereo. You can use any projection you like as long as it
+preserves detail in the imagery. Note that the last parameter in the
+stereo call is the input low-resolution DEM.
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=2.0in]{images/examples/dg/MappedContext.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUp.png}
+  \includegraphics[width=2.0in]{images/examples/dg/MappedCloseUpDRG.png}
+\caption{Example colorized height map and ortho image output.}
+\label{fig:dg-map-example}
+\end{figure}
+
+\subsubsection*{Commands}
+
+\begin{verbatim}
+    > mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
+        --tr 0.5 srtm_53_07.tif \
+        12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
+        12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+        left_mapped.tif
+    > mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
+        --tr 0.5 srtm_53_07.tif \
+        12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
+        12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
+        right_mapped.tif
+    > stereo -t dg left_mapped.tif right_mapped.tif           \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+             12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
+             dg/dg srtm_53_07.tif
+\end{verbatim}
+
+If the \texttt{--t\_srs} option is not specified, it will be read from
+the low-resolution input DEM.
+
+The complete list of options for \texttt{mapproject} is described in
+section \ref{mapproject}.
+
+\subsubsection*{stereo.default}
+
+The stereo.default example file (appendix \ref{ch:stereodefault}) works
+generally well with all Digital Globe pairs. Just set
+\texttt{alignment-method} to \texttt{none} since the images are
+map-projected.
+
+\section{Handling CCD Boundary Artifacts}
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=3.0in]{images/examples/ccd_before.png}
+  \includegraphics[width=3.0in]{images/examples/ccd_after.png}
+\caption{Example of of a hillshaded terrain obtained using stereo without (left) and with (right) CCD boundary artifact correction applied using \texttt{wv\_correct}.}
+\label{fig:ccd-artifact-example}
+\end{figure}
+
+An image taken by one of Digital Globe's World View satellite cameras is
+formed of several blocks as tall as the image, mosaicked from left to
+right, with each block coming from an individual CCD sensor
+\cite{digital-globe:camera}. Particularly with World View-2 images at
+TDI 16 (see the above reference for the definitions), the image blocks
+are offset in respect to each other in both row and column directions by
+a subpixel amount. These so-called {\it CCD boundary artifacts} are not
+visible in the images themselves, but manifest themselves very strongly
+in the the resulting DEMs (figure \ref{fig:ccd-artifact-example}, left).
+ 
+We provide a tool, named \texttt{wv\_correct}, which is able to
+significantly attenuate these artifacts (figure
+\ref{fig:ccd-artifact-example}, right). This tool should be used
+on raw Digital Globe images, so before calling \texttt{dg\_mosaic} and
+\texttt{mapproject}. It can be invoked as follows:
+
+\begin{verbatim}
+    > wv_correct WV02_image.ntf WV02_image.xml WV02_image_out.tif
+\end{verbatim}
+
+It is important to note that both the positions of the CCD offsets and
+the offset amounts were determined empirically, without knowledge of
+Digital Globe's mosacking process; this explains why we are not able to
+remove these artifacts completely. The tool allows the user to
+experiment with the amount of offset correction to apply, via the
+\texttt{-\/-xoffset} and \texttt{-\/-yoffset} options.
+
+Presently, \texttt{wv\_correct} only works with World View-2 images and
+only for TDI 16 (at which the artifacts are most pronounced). In the
+future we expect to expand the range of images the tool can correct and
+also improve the correction accuracy.
+
+\section{Dealing with Terrain Lacking Large Scale Features}
+\label{sparse-disp}
+
+Stereo Pipeline's approach to performing correlation is a two-step
+pyramid algorithm, in which low-resolution versions of the input images
+are created, the disparity map 
+(\texttt{\textit{output\_prefix}-D\_sub.tif}) is found, and then this
+disparity map is refined using increasingly higher-resolution versions
+of the input images (section \ref{d-sub}).
+
+This approach usually works quite well for rocky terrain, but may fail
+for snowy landscapes, which can have only small-scale grooves or ridges
+sculpted by wind (so-called {\it zastrugi}) that disappear at low
+resolution.
+
+Stereo Pipeline deals with such terrains by using a tool named
+\texttt{sparse\_disp} to create
+\texttt{\textit{output\_prefix}-D\_sub.tif} at full resolution, yet only
+at a sparse set of pixels, for reasons of speed. This
+low-resolution disparity is then refined as earlier using a pyramid
+approach.
+
+This mode can be invoked by passing to \texttt{stereo} the option
+\texttt{-\/-corr-seed-mode 3}. Also, during pyramid correlation it is
+suggested to use somewhat fewer levels than the default
+\texttt{-\/-corr-max-levels 5}, to again not subsample the images too much
+and lose the features.
+
+It is important to note that \texttt{sparse\_disp} is written in Python
+and depends on a variety of binary Python modules. These modules cannot
+be distributed with Stereo Pipeline as they depend on the version of
+Python installed on your system.
+
+We provide a script which will download and compile the dependencies of
+this tool for your platform. The script and instructions are at 
+
+\begin{quote}
+\indent \href{https://github.com/NeoGeographyToolkit/BinaryBuilder/tree/master/build\_python\_modules}{https://github.com/NeoGeographyToolkit/BinaryBuilder/tree/master/build\_python\_modules}
+\end{quote}
+
+\begin{figure}[h!]
+\centering
+  \includegraphics[width=3.0in]{images/examples/sparse_disp1.png}
+  \includegraphics[width=3.0in]{images/examples/sparse_disp3.png}
+\caption{Example of a difficult flat terrain without (left) and with (right) using \texttt{sparse\_disp}.}
+\label{fig:sparse-disp-example}
+\end{figure}
+
+
+\section{The Next Steps}
+
+This tutorial described how to invoke \texttt{stereo} on Digital Globe
+images, with and without map-projection, and how to handle other issues
+specific to Digital Globe cameras and Earth data. We strongly suggest
+you also study the tutorial about processing Mars imagery (chapter
+\ref{ch:moc_tutorial}), starting with section \ref{running-stereo}, as it
+has a wealth of information which we will not repeat here. In
+particular, you will learn how to (a) customize the
+\texttt{stereo.default} settings file, (b) use \texttt{point2dem} (with
+the option \texttt{-r earth}) to create 3D terrain models, (c) visualize
+the results, (d) align the obtained point clouds to another data source,
+(e) perform 3D terrain adjustments in respect to a geoid, etc.
+
