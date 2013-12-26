@@ -93,17 +93,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
               << "input in order to proceed.\n\n"
               << usage << general_options );
 
-  // When doing stereo, we usually guess the session type to be dg if
-  // the camera model is an xml file, yet this tool will most likely
-  // be used with rpc sessions, hence the user must be explicit about
-  // which session is desired.
+  // If the camera file is in xml format, most likely the user would like
+  // to use the rpc session for map-projection, as that's what is needed
+  // later to use the map-projected images to perform stereo with -t dg.
   if ( boost::iends_with(boost::to_lower_copy(opt.camera_model_file), ".xml") &&
        opt.stereo_session == "" ){
-    vw_throw( ArgumentErr() << "Unable to guess session type. Please specify "
-              << "whether it is dg or rpc via the -t option.\n\n"
-              << usage << general_options );
+    opt.stereo_session = "rpc";
   }
-
+  
 }
 
 template <class ImageT>
@@ -113,24 +110,31 @@ void write_parallel_cond( std::string const& filename,
                           bool has_nodata, double nodata_val,
                           Options const& opt,
                           TerminalProgressCallback const& tpc ) {
+
+  // Save the session type. Later in stereo we will check that we use
+  // only images written by mapproject with the -t rpc session.
+  std::map<std::string, std::string> keywords;
+  keywords["CAMERA_MODEL_TYPE" ] = opt.stereo_session;
+
   // ISIS is not thread safe so we must switch out base on what the
   // session is.
+
   vw_out() << "Writing: " << filename << "\n";
   if (has_nodata){
     if ( opt.stereo_session == "isis" ) {
       asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
-                                          nodata_val, opt, tpc);
+                                          nodata_val, opt, tpc, keywords);
     } else {
       asp::block_write_gdal_image(filename, image.impl(), georef,
-                                  nodata_val, opt, tpc);
+                                  nodata_val, opt, tpc, keywords);
     }
   }else{
     if ( opt.stereo_session == "isis" ) {
       asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
-                                          opt, tpc);
+                                          opt, tpc, keywords);
     } else {
       asp::block_write_gdal_image(filename, image.impl(), georef,
-                                  opt, tpc);
+                                  opt, tpc, keywords);
     }
   }
 

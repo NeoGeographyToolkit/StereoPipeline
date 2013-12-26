@@ -31,6 +31,8 @@
 #include <vw/Math/Vector.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Cartography/GeoReference.h>
+#include <map>
+#include <string>
 
 namespace asp {
 
@@ -133,14 +135,21 @@ namespace asp {
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
 
-  // Block write image with georef.
+  // Block write image with georef and keywords to geoheader.
   template <class ImageT>
   void block_write_gdal_image( const std::string &filename,
                                vw::ImageViewBase<ImageT> const& image,
                                vw::cartography::GeoReference const& georef,
                                BaseOptions const& opt,
-                               vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
+                               vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance(),
+                               std::map<std::string, std::string> keywords =
+                               std::map<std::string, std::string>()
+                               ) {
     boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
+    for (std::map<std::string, std::string>::iterator i = keywords.begin();
+         i != keywords.end(); i++){
+      vw::cartography::write_header_string(*rsrc, i->first, i->second);
+    }    
     vw::cartography::write_georeference(*rsrc, georef);
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
@@ -157,43 +166,66 @@ namespace asp {
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
 
-  // Block write image with nodata and georef.
+  // Block write image with nodata, georef, and keywords to geoheader.
   template <class ImageT, class NoDataT>
   void block_write_gdal_image( const std::string &filename,
                                vw::ImageViewBase<ImageT> const& image,
                                vw::cartography::GeoReference const& georef,
                                NoDataT nodata,
                                BaseOptions const& opt,
-                               vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
+                               vw::ProgressCallback const& progress_callback =
+                               vw::ProgressCallback::dummy_instance(),
+                               std::map<std::string, std::string> keywords =
+                               std::map<std::string, std::string>()
+                               ) {
     boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
     rsrc->set_nodata_write(nodata);
+
+    for (std::map<std::string, std::string>::iterator i = keywords.begin();
+         i != keywords.end(); i++){
+      vw::cartography::write_header_string(*rsrc, i->first, i->second);
+    }    
+    
     vw::cartography::write_georeference(*rsrc, georef);
     vw::block_write_image( *rsrc, image.impl(), progress_callback );
   }
 
   // Single-threaded write functions.
 
+  // Write image with georef and keywords to geoheader.
   template <class ImageT>
   void write_gdal_georeferenced_image( const std::string &filename,
                                        vw::ImageViewBase<ImageT> const& image,
                                        vw::cartography::GeoReference const& georef,
                                        BaseOptions const& opt,
-                                       vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
+                                       vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance(),
+                                       std::map<std::string, std::string> keywords = std::map<std::string, std::string>()
+                                       ) {
     boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
+    for (std::map<std::string, std::string>::iterator i = keywords.begin();
+         i != keywords.end(); i++){
+      vw::cartography::write_header_string(*rsrc, i->first, i->second);
+    }    
     vw::cartography::write_georeference(*rsrc, georef);
     vw::write_image( *rsrc, image.impl(), progress_callback );
   }
 
-  // Write image with nodata and georef.
+  // Write image with georef, nodata, and keywords to geoheader.
   template <class ImageT, class NoDataT>
   void write_gdal_georeferenced_image( const std::string &filename,
                                        vw::ImageViewBase<ImageT> const& image,
                                        vw::cartography::GeoReference const& georef,
                                        NoDataT nodata,
                                        BaseOptions const& opt,
-                                       vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance() ) {
+                                       vw::ProgressCallback const& progress_callback = vw::ProgressCallback::dummy_instance(),
+                                       std::map<std::string, std::string> keywords = std::map<std::string, std::string>()
+                                       ) {
     boost::scoped_ptr<vw::DiskImageResourceGDAL> rsrc( build_gdal_rsrc( filename, image, opt ) );
     rsrc->set_nodata_write(nodata);
+    for (std::map<std::string, std::string>::iterator i = keywords.begin();
+         i != keywords.end(); i++){
+      vw::cartography::write_header_string(*rsrc, i->first, i->second);
+    }    
     vw::cartography::write_georeference(*rsrc, georef);
     vw::write_image( *rsrc, image.impl(), progress_callback );
   }

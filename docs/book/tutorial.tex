@@ -929,15 +929,15 @@ stereo call is the input low-resolution DEM.
 \subsubsection*{Commands}
 
 \begin{verbatim}
-    > mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
-        --tr 0.5 srtm_53_07.tif \
-        12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
-        12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+    > mapproject --t_srs "+proj=eqc +units=m +datum=WGS84" \
+        --tr 0.5 srtm_53_07.tif                            \
+        12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF   \
+        12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML   \
         left_mapped.tif
-    > mapproject -t rpc --t_srs "+proj=eqc +units=m +datum=WGS84" \
-        --tr 0.5 srtm_53_07.tif \
-        12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
-        12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
+    > mapproject --t_srs "+proj=eqc +units=m +datum=WGS84" \
+        --tr 0.5 srtm_53_07.tif                            \
+        12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF   \
+        12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML   \
         right_mapped.tif
     > stereo -t dg left_mapped.tif right_mapped.tif           \
              12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \

@@ -301,10 +301,12 @@ namespace asp {
                              << "provided for stereo to give correct results.\n";
     }
 
-    // We did not implement using map-projected images with the RPC session
-    if ( opt.session->name() == "rpc" && !opt.input_dem.empty() ) {
+    // We did not implement stereo using map-projected images with dem
+    // on anything except "dg" and "dgmaprpc" sessions.
+    if ( !opt.input_dem.empty() && opt.session->name() != "dg"
+         && opt.session->name() != "dgmaprpc" ) {
       vw_throw( ArgumentErr() << "Cannot use map-projected images with "
-                << "an RPC session.\n");
+                << "a session of type: " << opt.session->name() << ".\n");
     }
 
     // No alignment must be set for map-projected images.
@@ -314,6 +316,29 @@ namespace asp {
                 << "needs to be 'none'.\n");
     }
     
+    // Ensure that we are not accidentally doing stereo with
+    // images map-projected with other camera model than 'rpc'.
+    if (!opt.input_dem.empty()){
+      
+      std::string cam_tag = "CAMERA_MODEL_TYPE";
+      std::string l_cam_type, r_cam_type;
+      boost::shared_ptr<vw::DiskImageResource> l_rsrc
+        ( new vw::DiskImageResourceGDAL(opt.in_file1) );
+      vw::cartography::read_header_string(*l_rsrc.get(), cam_tag, l_cam_type);
+      boost::shared_ptr<vw::DiskImageResource> r_rsrc
+        ( new vw::DiskImageResourceGDAL(opt.in_file2) );
+      vw::cartography::read_header_string(*r_rsrc.get(), cam_tag, r_cam_type);
+        
+      if ( (l_cam_type != "" && l_cam_type != "rpc")
+           ||
+           (r_cam_type != "" && r_cam_type != "rpc")             
+           ){
+        vw_throw( ArgumentErr()
+                  << "The images were map-projected with another option "
+                  << "than -t rpc.\n");
+      }
+      
+    }
     
     // Camera checks
     try {
