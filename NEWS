@@ -4,7 +4,7 @@
     WorldView-2 images with TDI of 16. These subpixel artifacts, while
     not obvious in the images, result in noticeable artificial
     discontinuities in the stereo results.
-  
+  - Added a tutorial for processing Digital Globe Earth imagery.
   - pc_align:
     * Display the translation component of the rigid alignment transform
       in the local North-East-Down coordinate system.
