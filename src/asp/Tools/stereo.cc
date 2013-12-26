@@ -213,15 +213,6 @@ namespace asp {
                 << usage << general_options );
     }
 
-    if (stereo_settings().seed_mode == 2 &&
-        stereo_settings().disparity_estimation_dem_error <= 0.0){
-      vw_throw( ArgumentErr()
-                << "The value of disparity-estimation-dem-error"
-                << " must be positive.\n\n"
-                << usage << general_options );
-      
-    }
-        
     asp::create_out_dir(opt.out_prefix);
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,
                                                   opt, opt.in_file1,
@@ -259,22 +250,41 @@ namespace asp {
   void user_safety_checks(Options const& opt){
     
     // Error checking
-    
+
+    // Seed mode valid values
     if ( stereo_settings().seed_mode > 3 ){
       vw_throw( ArgumentErr() << "Invalid value for seed-mode: "
                 << stereo_settings().seed_mode << ".\n" );
     }
 
+    // Local homography needs D_sub
     if ( stereo_settings().seed_mode == 0 &&
          stereo_settings().use_local_homography ){
       vw_throw( ArgumentErr() << "Cannot use local homography without "
                 << "computing low-resolution disparity.\n");
     }
 
+    // D_sub from DEM needs a positive disparity_estimation_dem_error
+    if (stereo_settings().seed_mode == 2 &&
+        stereo_settings().disparity_estimation_dem_error <= 0.0){
+      vw_throw( ArgumentErr()
+                << "For seed-mode 2, the value of disparity-estimation-dem-error"
+                << " must be positive." );
+    }
+        
+    // D_sub from DEM needs a DEM
+    if (stereo_settings().seed_mode == 2 &&
+        stereo_settings().disparity_estimation_dem.empty() ){
+      vw_throw( ArgumentErr()
+                << "For seed-mode 2, an input DEM must be provided.\n" );
+    }
+
+    // D_sub from DEM does not work with map-projected images
     if ( !opt.input_dem.empty() && stereo_settings().seed_mode == 2 )
       vw_throw( NoImplErr() << "Computation of low-resolution disparity from "
                 << "DEM is not implemented for map-projected images.\n");
 
+    // Must use map-projected images if input DEM is provided
     GeoReference georef;
     bool has_georef1 = read_georeference( georef, opt.in_file1 );
     bool has_georef2 = read_georeference( georef, opt.in_file2 );
@@ -283,18 +293,28 @@ namespace asp {
                 << "cannot use the provided DEM: " << opt.input_dem << ".n");
     }
 
+    // If images are map-projected, need an input DEM
     if ( (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" ) &&
-         has_georef1 && has_georef2 && opt.input_dem == "") {
+         has_georef1 && has_georef2 && opt.input_dem.empty() ) {
       vw_out(WarningMessage) << "It appears that the input images are "
                              << "map-projected. In that case a DEM needs to be "
                              << "provided for stereo to give correct results.\n";
     }
 
-    if ( opt.session->name() == "rpc" && opt.input_dem != "") {
+    // We did not implement using map-projected images with the RPC session
+    if ( opt.session->name() == "rpc" && !opt.input_dem.empty() ) {
       vw_throw( ArgumentErr() << "Cannot use map-projected images with "
                 << "an RPC session.\n");
     }
 
+    // No alignment must be set for map-projected images.
+    if ( stereo_settings().alignment_method != "none" && !opt.input_dem.empty() ) {
+      vw_throw( ArgumentErr()
+                << "For map-projected images, the alignment-method "
+                << "needs to be 'none'.\n");
+    }
+    
+    
     // Camera checks
     try {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
