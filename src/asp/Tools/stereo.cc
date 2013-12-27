@@ -285,14 +285,22 @@ namespace asp {
                 << "DEM is not implemented for map-projected images.\n");
 
     // Must use map-projected images if input DEM is provided
-    GeoReference georef;
-    bool has_georef1 = read_georeference( georef, opt.in_file1 );
-    bool has_georef2 = read_georeference( georef, opt.in_file2 );
+    GeoReference georef1, georef2;
+    bool has_georef1 = read_georeference( georef1, opt.in_file1 );
+    bool has_georef2 = read_georeference( georef2, opt.in_file2 );
     if ( !opt.input_dem.empty() && (!has_georef1 || !has_georef2)){
       vw_throw( ArgumentErr() << "The images are not map-projected, "
-                << "cannot use the provided DEM: " << opt.input_dem << ".n");
+                << "cannot use the provided DEM: " << opt.input_dem << "\n");
     }
 
+    // If the images are map-projected, they need to use the same
+    // projection.
+    if ( !opt.input_dem.empty() &&
+         georef1.overall_proj4_str() != georef2.overall_proj4_str() ){
+      vw_throw( ArgumentErr() << "The left and right images "
+                << "must use the same projection.\n");
+    }
+    
     // If images are map-projected, need an input DEM
     if ( (opt.session->name() == "dg" || opt.session->name() == "dgmaprpc" ) &&
          has_georef1 && has_georef2 && opt.input_dem.empty() ) {
