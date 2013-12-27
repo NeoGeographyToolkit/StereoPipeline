@@ -10,7 +10,7 @@ line argument to {\tt stereo}.  Run {\tt stereo -\/-help} for details.
 \begin{description}
 
 \item[*.vwip \textnormal{- image feature files}] \hfill \\
-  If \texttt{alignment-method homography} is enabled, the Stereo
+  If \texttt{alignment-method} is not \texttt{none}, the Stereo
   Pipeline will automatically search for image features to use for
   tie-points.  Raw image features are stored in \texttt{*.vwip} files;
   one per input image. For example, if your images are
@@ -59,7 +59,7 @@ line argument to {\tt stereo}.  Run {\tt stereo -\/-help} for details.
 \item[*-align-R.exr \textnormal{- right pre-alignment matrix}] \hfill \\
  The $3 \times 3$ affine transformation matrices that are used to warp
  the left and right images to roughly align them. These files are only
- generated if \texttt{alignment-method homography} is enabled in the {\tt
+ generated if \texttt{alignment-method} is not \texttt{none} in the {\tt
  stereo.default} file. Normally, a single transform is enough to warp one
  image to another (for example, the right image to the left). The reason
  we use two transforms is the following: after the right image is warped
@@ -84,7 +84,7 @@ line argument to {\tt stereo}.  Run {\tt stereo -\/-help} for details.
   been rejected by the sub-pixel matching process.
 
 \item[*-F-corrected.tif \textnormal{- intermediate data product}] \hfill \\
-  Only created when \texttt{alignment-method homography} is on.
+  Only created when \texttt{alignment-method} is not \texttt{none}.
   This is \texttt{*-F.tif} with effects of interest point alignment removed.
 
 \item[*-F.tif \textnormal{- filtered disparity map}] \hfill \\

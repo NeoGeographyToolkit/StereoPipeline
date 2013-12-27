@@ -25,7 +25,7 @@ these errors will propagate through to the resulting data products.
 
 Although images do not need to be map-projected before running the
 \texttt{stereo} program, we recommend that you do run {\tt cam2map}
-(or \texttt{cam2map4stereo.py})
+(or \texttt{cam2map4stereo.Hy})
 beforehand, especially for image pairs that contain large topographic
 variation (and therefore large disparity differences across the
 scene, e.g., Valles Marineris).  Map-projection is especially necessary
@@ -109,7 +109,7 @@ search range can be kept very small and run times can be improved.
 The Stereo Pipeline will keep track of how these map-projections affect the camera model, and take them into account when
 building up the 3D mesh via triangulation.  If you use \texttt{cam2map},
 be sure that your \texttt{stereo.default}'s \texttt{alignment-method} is
-set to NONE.  Note also that the \texttt{-\/-lat} and \texttt{-\/-lon}
+set to \texttt{none}. Note also that the \texttt{-\/-lat} and \texttt{-\/-lon}
 arguments to \texttt{cam2map4stereo.py} can be used to crop your stereo
 images, and the \texttt{-\/-resolution} argument can be used to
 subsample them.
@@ -259,7 +259,7 @@ Download all 20 of the RED EDR \texttt{.IMG} files for each observation.
 
 The stereo.default example file (appendix \ref{ch:stereodefault})
 should apply well to HiRISE. Just set
-\texttt{alignment-method} to \texttt{none} or \texttt{homography} if
+\texttt{alignment-method} to \texttt{none} if
 using map-projected imagery. If you are not using map-projected
 imagery, set \texttt{alignment-method} to \texttt{homography} or
 \texttt{affineepipolar}. The \texttt{corr-kernel} value can usually be
@@ -384,11 +384,10 @@ Download the M08/06047 and R07/01361 images from the \ac{PDS}.
 
 \subsubsection*{stereo.default}
 
-The stereo.default example file (appendix \ref{ch:stereodefault})
-works generally well with all MOC-NA pairs. Just set
-\texttt{alignment-method} to \texttt{homography} or
-\texttt{none} when using projected imagery. If using non-projected use
-\texttt{homography} or \texttt{affineepipolar}.
+The stereo.default example file (appendix \ref{ch:stereodefault}) works
+generally well with all MOC-NA pairs. Just set \texttt{alignment-method}
+to \texttt{none} when using map-projected imagery. If the images are not
+map-projected, use \texttt{homography} or \texttt{affineepipolar}.
 
 \section{Mars Exploration Rovers MER}
 
@@ -448,7 +447,7 @@ or are extremely far away.
 
 \begin{center}\begin{minipage}{5.5in}
 \begin{Verbatim}[frame=single,fontsize=\small,label=additional settings for MER]
-    alignment-method EPIPOLAR
+    alignment-method epipolar
     force-use-entire-range
 
     # This deletes points that are too far away
@@ -490,7 +489,7 @@ All ISIS preprocessing of the EDRs is performed via the
 \texttt{lronac2mosaic.py} command. This runs \texttt{lronac2isis},
 \texttt{lronaccal}, \texttt{lronacecho}, \texttt{spiceinit},
 \texttt{noproj}, and \texttt{handmos} to create a stitched unprojected
-image for a single observation. In this example we don't map project
+image for a single observation. In this example we don't map-project
 the images as ASP can usually get good results. More aggressive
 terrain might require an additional \texttt{cam2map4stereo.py} step.
 
@@ -504,13 +503,13 @@ terrain might require an additional \texttt{cam2map4stereo.py} step.
 \subsubsection*{stereo.default}
 
 The defaults work generally well with LRO-NAC pairs, so you don't need
-to provide a stereo.default file. Map projecting is optional. When map
-projecting the images use \texttt{alignment-method NONE}, otherwise
-use \texttt{alignment-method AFFINEEPIPOLAR}. Better map project
-results can be achieved by projecting on a higher resolution elevation
-source like the WAC DTM. This is achieved using ISIS command
-\texttt{demprep} and attaching to cube files via \texttt{spiceinit}'s
-SHAPE and MODEL options.
+to provide a stereo.default file. Map-projecting is optional. When
+map-projecting the images use \texttt{alignment-method none}, otherwise
+use \texttt{alignment-method affineepipolar}. Better map-project results
+can be achieved by projecting on a higher resolution elevation source
+like the WAC DTM. This is achieved using the ISIS command \texttt{demprep}
+and attaching to cube files via \texttt{spiceinit}'s SHAPE and MODEL
+options.
 
 \section{Apollo 15 Metric Camera Images}
 
@@ -737,7 +736,7 @@ Download the N1511700120\_1.IMG and W1567133629\_1.IMG images and their label (.
 \begin{center}\begin{minipage}{5.5in}
 \begin{Verbatim}[frame=single,fontsize=\small,label=stereo.default for Cassini ISS]
     ### PREPROCESSING
-    alignment-method None
+    alignment-method none
     force-use-entire-range
     individually-normalize
 
