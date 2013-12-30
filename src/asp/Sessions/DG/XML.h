@@ -43,6 +43,7 @@ namespace asp {
   class ImageXML : public XMLBase {
 
     void parse_meta( xercesc::DOMElement* node );
+    void parse_band_p( xercesc::DOMElement* node );
     void parse_tlc_list( xercesc::DOMElement* node );
     void parse_image_size( xercesc::DOMElement* node );
 
@@ -51,11 +52,13 @@ namespace asp {
 
     void parse( xercesc::DOMElement* node );
 
-    std::string tlc_start_time;
-    std::string first_line_start_time;
+    std::string  tlc_start_time;
+    std::string  first_line_start_time;
     std::vector<std::pair<double,double> > tlc_vec; // Line -> time offset pairings
-    std::string scan_direction;
-    double avg_line_rate;
+    std::string  sat_id;
+    std::string  scan_direction;
+    int          tdi;
+    double       avg_line_rate;
     vw::Vector2i image_size;
   };
 

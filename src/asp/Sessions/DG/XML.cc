@@ -40,6 +40,8 @@ void asp::ImageXML::parse_meta( xercesc::DOMElement* node ) {
   // Note: dg_mosaic wipes most image tags. If it is desired to parse
   // more tags here, ensure they are not wiped by dg_mosaic and use
   // sensible values when creating them for the combined mosaics.
+  cast_xmlch( get_node<DOMElement>( node, "SATID" )->getTextContent(),
+              sat_id );
   cast_xmlch( get_node<DOMElement>( node, "SCANDIRECTION" )->getTextContent(),
               scan_direction );
   cast_xmlch( get_node<DOMElement>( node, "TLCTIME" )->getTextContent(),
@@ -52,6 +54,11 @@ void asp::ImageXML::parse_meta( xercesc::DOMElement* node ) {
   cast_xmlch( get_node<DOMElement>( node, "NUMTLC" )->getTextContent(),
               num_tlc );
   tlc_vec.resize( num_tlc );
+}
+
+void asp::ImageXML::parse_band_p( xercesc::DOMElement* node ) {
+  cast_xmlch( get_node<DOMElement>( node, "TDILEVEL" )->getTextContent(),
+              tdi );
 }
 
 void asp::ImageXML::parse_tlc_list( xercesc::DOMElement* node ) {
@@ -82,18 +89,22 @@ void asp::ImageXML::parse_image_size( xercesc::DOMElement* node ) {
               image_size[0] );
 }
 
-asp::ImageXML::ImageXML() : XMLBase(3) {}
+asp::ImageXML::ImageXML() : XMLBase(4) {}
 
 void asp::ImageXML::parse( xercesc::DOMElement* node ) {
   DOMElement* image = get_node<DOMElement>( node, "IMAGE" );
   parse_meta( image );
   check_argument(0);
 
-  parse_tlc_list( get_node<DOMElement>( image, "TLCLISTList" ) );
+  DOMElement* band_p = get_node<DOMElement>( node, "BAND_P" );
+  parse_band_p( band_p );
   check_argument(1);
 
-  parse_image_size( node );
+  parse_tlc_list( get_node<DOMElement>( image, "TLCLISTList" ) );
   check_argument(2);
+
+  parse_image_size( node );
+  check_argument(3);
 }
 
 void asp::GeometricXML::parse_principal_distance( xercesc::DOMElement* node ) {
