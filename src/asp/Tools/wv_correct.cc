@@ -20,10 +20,6 @@
 ///
 
 // Correct CCD artifacts in WorldView2 images with TDI 16.
-// To do:
-// Verify that the input image satisfies the above assumptions.
-// Add documentation.
-// Print default offsets.
 
 // The problem: A WV2 image is obtained by mosaicking from left to
 // right image blocks which are as tall is the entire image (each
@@ -94,7 +90,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   double default_yoffset_forward = 0.2369;
   double default_xoffset_reverse = 0.3396;
   double default_yoffset_reverse = 0.3725;
-
   std::ostringstream osx;
   osx << "Specify the CCD offset correction to apply in the x direction. Default: " << default_xoffset_forward << " (forward scan), " << default_xoffset_reverse << " (reverse scan)."; 
   std::ostringstream osy;
@@ -242,21 +237,27 @@ int main( int argc, char *argv[] ) {
       read_xml( opt.camera_model_file, geo, att, eph, img, rpc );
       
       scan_dir = boost::to_lower_copy( img.scan_direction );
-      if (scan_dir != "forward" && scan_dir != "reverse"){
+      if (scan_dir != "forward" && scan_dir != "reverse")
         vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file
                   << "\" is lacking a valid image scan direction.\n" );
-      }
-      if (geo.detector_pixel_pitch <= 0.0){
+      
+      if (geo.detector_pixel_pitch <= 0.0)
         vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file
                   << "\" has a non-positive pixel pitch.\n" );
-      }
+
+      if (img.tdi != 16)
+        vw_throw( ArgumentErr() << "Can apply CCD artifacts corrections only for TDI 16.\n" );
+      
+      if (img.sat_id != "WV02")
+        vw_throw( ArgumentErr() << "Can apply CCD artifacts corrections only for WV02 camera images.\n" );
+      
     }catch(...){
       vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file << "\" is invalid.\n" );
     }
       
     // The first CCD artifact is at column period + shift,
     // then they repeat with given period.
-    double shift  = -30.0;
+    double shift  = -35.0;
     double period = 5.64/geo.detector_pixel_pitch;
 
     // The offsets at the first CCD artifact location.
