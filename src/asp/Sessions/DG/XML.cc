@@ -96,8 +96,13 @@ void asp::ImageXML::parse( xercesc::DOMElement* node ) {
   parse_meta( image );
   check_argument(0);
 
-  DOMElement* band_p = get_node<DOMElement>( node, "BAND_P" );
-  parse_band_p( band_p );
+  tdi = 0;
+  try{
+    DOMElement* band_p = get_node<DOMElement>( node, "BAND_P" );
+    parse_band_p( band_p );
+  }catch(...){
+    // An XML file after being processed by dg_mosaic may not have the tdi field.
+  }
   check_argument(1);
 
   parse_tlc_list( get_node<DOMElement>( image, "TLCLISTList" ) );
