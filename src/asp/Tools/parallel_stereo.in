@@ -243,8 +243,10 @@ def sprawn_to_nodes(start, stop, num_nodes, settings, args):
 
     # The options which we want GNU parallel to not mess up with.
     # Put them into a single string.
-    args_str = " ".join(args) + " --entry-point " + str(start) + \
-               " --stop-point " + str(stop) + " --work-dir " + opt.work_dir
+    python_path = sys.executable # children must use same Python as parent 
+    args_str = python_path + " " + \
+               " ".join(args) + " --entry-point " + str(start) + \
+               " --stop-point " + str(stop) + " --work-dir "  + opt.work_dir
     if opt.isisroot  is not None: args_str += " --isisroot "  + opt.isisroot
     if opt.isis3data is not None: args_str += " --isis3data " + opt.isis3data
     args_str += " --rank {}"
