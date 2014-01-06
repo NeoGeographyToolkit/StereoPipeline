@@ -106,8 +106,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("initial-transform",
     po::value(&opt.init_transform_file)->default_value(""), "The file containing the rotation + translation transform to be used as an initial guess. It can come from a previous run of the tool.")
     ("num-iterations", po::value(&opt.num_iter)->default_value(1000), "Maximum number of iterations.")
-    ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-8), "Change in rotation amount below which the algorithm will stop, in degrees.")
-    ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop, in meters.")
+    ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-8), "Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees.")
+    ("diff-translation-error", po::value(&opt.diff_translation_err)->default_value(1e-3), "Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters.")
     ("max-displacement",
      po::value(&opt.max_disp)->default_value(0.0), "Maximum expected displacement of source points as result of alignment, in meters (after the initial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75), "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")

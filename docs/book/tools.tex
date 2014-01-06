@@ -830,8 +830,8 @@ use. 0 means use the default as set by OpenMP. Only some parts of the algorithm 
 The file containing the rotation + translation transform to be used as an
 initial guess. It can come from a previous run of the tool. \\ \hline
 \texttt{-\/-num-iterations \textit{default: 1000}} &  Maximum number of iterations. \\ \hline
-\texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop, in degrees. \\ \hline
-\texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop, in meters. \\ \hline
+\texttt{-\/-diff-rotation-error \textit{default: $10^{-8}$}} & Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees. \\ \hline
+\texttt{-\/-diff-translation-error \textit{default: $10^{-3}$}} & Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters. \\ \hline
 \texttt{-\/-max-displacement \textit{arg}} & Maximum expected
 displacement of source points as result of alignment, in meters (after
 the initial guess transform is applied to the source points). Used
