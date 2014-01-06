@@ -29,9 +29,10 @@ invoke it.
 The following packages need to be installed in order to build Stereo
 Pipeline:
 
-csh
+Python (version >= 2.6.1)
 g++ (version >= 4.4.7)
 gfortran 
+csh
 libtool
 autoconf
 automake
@@ -51,14 +52,14 @@ freeglut3-dev
 If you have root access on your machine you can install them on a
 Debian-based distribution using the following command:
 
-sudo apt-get install csh g++ gfortran libtool autoconf automake   \
+sudo apt-get install g++ gfortran csh libtool autoconf automake   \
   git-core subversion xserver-xorg-dev xorg-dev libx11-dev        \
   libxext-dev libxmu6 libxmu-dev libxi-dev libgl1-mesa-dev        \
   libglu1-mesa-dev freeglut3-dev
 
 For Red Hat-based distributions one can do instead:
 
-sudo yum -y install tcsh gcc-c++ gcc-gfortran libtool autoconf    \
+sudo yum -y install gcc-c++ gcc-gfortran tcsh libtool autoconf    \
   automake git subversion xorg-x11-server-Xorg libX11-devel       \
   libXext-devel libXmu libXmu-devel libXi-devel mesa-libGL-devel  \
   freeglut-devel 
