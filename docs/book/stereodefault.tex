@@ -371,6 +371,13 @@ value will result in no timeout enforcement.
     \item[Zero] - Filter in terms of radii from the target's center.
   \end{description}
 
+\item[min-valid-triangulation-error \textnormal{\small{(= \emph{float})}}]
+\hfill \\
+
+Points with triangulation error (closest distance between rays in
+triangulation) larger than this are removed from the cloud by being set
+to an invalid value (the center of the planet).
+
 \item[point-cloud-rounding-error \textnormal{\small{(= \emph{double})}}
   (default = $1/2^{10} = 0.0009765625$)] \hfill \\
 
@@ -383,5 +390,17 @@ power of 2 is suggested.
 Save the final point cloud in double precision rather than bringing the
 points closer to origin and saving as float (marginally more precision
 at twice the storage).
+
+\item[compute-error-vector \textnormal (default = false)] \hfill \\
+
+When writing the output point cloud, save the 3D triangulation error
+vector (the vector between the closest points on the rays emanating from
+the two cameras), rather than just its length. In this case, the point
+cloud will have 6 bands (storing the triangulation point and
+triangulation error vector) rather than the usual 4. When invoking
+\texttt{point2dem} on this 6-band point cloud and specifying the
+\texttt{-\/-errorimage} option, the error image will contain the three
+components of the triangulation error vector in the North-East-Down
+coordinate system.
 
 \end{description}

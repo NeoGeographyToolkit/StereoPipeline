@@ -157,6 +157,7 @@ namespace asp {
     std::string universe_center;      // Center for the radius clipping
     float near_universe_radius;       // Radius of the universe in meters
     float far_universe_radius;        // Radius of the universe in meters
+    float min_valid_triangulation_error; // points with error > this are rm from cloud
     bool use_least_squares;           // Use a more rigorous triangulation
     bool save_double_precision_point_cloud; // Save final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at 2x the storage).
     double point_cloud_rounding_error;// How much to round the output point cloud values

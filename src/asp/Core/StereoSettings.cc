@@ -50,6 +50,8 @@ namespace asp {
     // Must initialize this variable as it is used in mapproject
     // to get a camera pointer, and there we don't parse stereo.default
     disable_correct_velocity_aberration = false;
+
+    min_valid_triangulation_error = std::numeric_limits<double>::quiet_NaN();
   }
 
   // Define our options that are available
@@ -190,12 +192,14 @@ namespace asp {
        "Radius of inner boundary of universe in meters.")
       ("far-universe-radius", po::value(&global.far_universe_radius)->default_value(0.0),
        "Radius of outer boundary of universe in meters.")
+      ("min-valid-triangulation-error", po::value(&global.min_valid_triangulation_error),
+       "Points with triangulation error larger than this are removed from the cloud.")
       ("use-least-squares", po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
        "Use rigorous least squares triangulation process. This is slow for ISIS processes.")
-      ("save-double-precision-point-cloud", po::bool_switch(&global.save_double_precision_point_cloud)->default_value(false)->implicit_value(true),
-       "Save the final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at twice the storage).")
       ("point-cloud-rounding-error", po::value(&global.point_cloud_rounding_error)->default_value(asp::APPROX_ONE_MM),
        "How much to round the output point cloud values, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
+      ("save-double-precision-point-cloud", po::bool_switch(&global.save_double_precision_point_cloud)->default_value(false)->implicit_value(true),
+       "Save the final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at twice the storage).")
       ("compute-point-cloud-center-only", po::bool_switch(&global.compute_point_cloud_center_only)->default_value(false)->implicit_value(true),
        "Only compute the center of triangulated point cloud and exit.")
       ("compute-error-vector", po::bool_switch(&global.compute_error_vector)->default_value(false)->implicit_value(true),
