@@ -1,10 +1,23 @@
 *** RELEASE 2.3.1, Upcoming ***
 
-  - Added a tool, wv_correct, for correcting artifacts in Digital Globe
+TOOLS
+
+  - Added wv_correct, for correcting artifacts in Digital Globe
     WorldView-2 images with TDI of 16. These subpixel artifacts, while
     not obvious in the images, result in noticeable artificial
     discontinuities in the stereo results.
+
+GENERAL 
+  - Added logging to a file for stereo and other tools.
+
+  - Triangulation:
+    * Added option to remove, during triangulation, points for which
+      triangulation error is larger than specified value.
+    * Added ability to save triangulation error for a DEM as a 3D
+      North-East-Down vector rather than just its magnitude.
+
   - Added a tutorial for processing Digital Globe Earth imagery.
+
   - pc_align:
     * Display the translation component of the rigid alignment transform
       in the local North-East-Down coordinate system.
