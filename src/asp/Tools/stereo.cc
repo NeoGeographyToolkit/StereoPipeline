@@ -79,11 +79,6 @@ namespace asp {
                          boost::program_options::options_description const&
                          additional_options ) {
 
-    // Print the command being run in debug mode.
-    std::string run_cmd = "";
-    for (int s = 0; s < argc; s++) run_cmd += std::string(argv[s]) + " ";
-    VW_OUT(DebugMessage, "stereo") << "\n\n" << run_cmd << "\n";
-
     po::options_description general_options_sub("");
     general_options_sub.add_options()
       ("session-type,t", po::value(&opt.stereo_session_string), "Select the stereo session type to use for processing. [options: pinhole isis dg rpc]")
@@ -182,6 +177,12 @@ namespace asp {
     if ( !this_is_case3 && opt.cam_file2.empty() )
       vw_throw( ArgumentErr() << "Missing right camera file" );
 
+    // Create the output directory 
+    asp::create_out_dir(opt.out_prefix);
+
+    // Turn on logging to file
+    asp::log_to_file(argc, argv, opt.stereo_default_filename, opt.out_prefix);
+    
     // There are two crop win boxes, in respect to original left
     // image, named left_image_crop_win, and in respect to the
     // transformed left image (L.tif), named trans_crop_win. We use
@@ -213,7 +214,6 @@ namespace asp {
                 << usage << general_options );
     }
 
-    asp::create_out_dir(opt.out_prefix);
     opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,
                                                   opt, opt.in_file1,
                                                   opt.in_file2,

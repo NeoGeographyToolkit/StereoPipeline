@@ -159,7 +159,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The max-displacement option was not set. Use -1 if it is desired not to use it.\n"
               << usage << general_options );
 
-  asp::create_out_dir(opt.output_prefix);
+  // Create the output directory 
+  asp::create_out_dir(opt.out_prefix);
+  
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   // Read the initial transform
   opt.init_transform = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);

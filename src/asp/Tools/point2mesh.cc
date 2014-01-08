@@ -460,7 +460,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   positional_desc.add("input-file", 1);
   positional_desc.add("texture-file", 1);
 
-  std::string usage("[options] <pointcloud> <texture-file> ...");
+  std::string usage("[options] <pointcloud> <texture-file>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
@@ -472,7 +472,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.output_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
-  asp::create_out_dir(opt.output_prefix);
+  // Create the output directory 
+  asp::create_out_dir(opt.out_prefix);
+  
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   opt.simplify_mesh = vm.count("simplify-mesh");
 

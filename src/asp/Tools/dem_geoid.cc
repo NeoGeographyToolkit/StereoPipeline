@@ -129,7 +129,7 @@ dem_geoid( ImageViewBase<ImageT> const& img, GeoReference const& georef,
 }
 
 struct Options : asp::BaseOptions {
-  string dem_name, output_prefix;
+  string dem_name, out_prefix;
   double nodata_value;
   bool use_double;
   bool reverse_adjustment;
@@ -168,7 +168,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
   general_options.add_options()
     ("nodata_value", po::value(&opt.nodata_value)->default_value(-32768),
      "The value of no-data pixels, unless specified in the DEM.")
-    ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
+    ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("double", po::bool_switch(&opt.use_double)->default_value(false)->implicit_value(true),
      "Output using double precision (64 bit) instead of float (32 bit).")
     ("reverse-adjustment",
@@ -193,9 +193,15 @@ void handle_arguments( int argc, char *argv[], Options& opt ){
     vw_throw( ArgumentErr() << "Requires <dem> in order to proceed.\n\n"
               << usage << general_options );
 
-  if ( opt.output_prefix.empty() ) {
-    opt.output_prefix = fs::path(opt.dem_name).stem().string();
-  }
+  if ( opt.out_prefix.empty() )
+    opt.out_prefix = fs::path(opt.dem_name).stem().string();
+  
+  // Create the output directory 
+  asp::create_out_dir(opt.out_prefix);
+  
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
+  
 }
 
 // Given a DEM, with each height value relative to the datum
@@ -311,8 +317,7 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef, geoid, geoid_georef,
                                              reverse_adjustment, major_correction, dem_nodata_val);
 
-    asp::create_out_dir(opt.output_prefix);
-    std::string adj_dem_file = opt.output_prefix + "-adj.tif";
+    std::string adj_dem_file = opt.out_prefix + "-adj.tif";
     vw_out() << "Writing adjusted DEM: " << adj_dem_file << std::endl;
 
     if ( opt.use_double ) {

@@ -88,6 +88,14 @@ namespace asp {
   // Find how many channels/bands are in a given image
   int get_num_channels(std::string filename);
 
+  // Run a system command and append the output to a given file
+  void run_cmd_app_to_file(std::string cmd, std::string file);
+  
+  // Write logs to a file
+  void log_to_file(int argc, char *argv[],
+                   std::string stereo_default_filename,
+                   std::string output_prefix);
+  
   // Standard Options
   struct BaseOptions {
     vw::DiskImageResourceGDAL::Options gdal_options;

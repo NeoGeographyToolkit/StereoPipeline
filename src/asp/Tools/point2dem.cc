@@ -154,7 +154,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
 
-  std::string usage("<point-cloud> ...");
+  std::string usage("[options] <point-cloud>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
@@ -174,17 +174,21 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.out_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
+  // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
+  
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   boost::to_lower( opt.reference_spheroid );
-  if ( vm.count("sinusoidal") )          opt.projection = SINUSOIDAL;
-  else if ( vm.count("mercator") )       opt.projection = MERCATOR;
+  if ( vm.count("sinusoidal") )               opt.projection = SINUSOIDAL;
+  else if ( vm.count("mercator") )            opt.projection = MERCATOR;
   else if ( vm.count("transverse-mercator") ) opt.projection = TRANSVERSEMERCATOR;
-  else if ( vm.count("orthographic") )   opt.projection = ORTHOGRAPHIC;
-  else if ( vm.count("stereographic") )  opt.projection = STEREOGRAPHIC;
-  else if ( vm.count("lambert-azimuthal") ) opt.projection = LAMBERTAZIMUTHAL;
-  else if ( vm.count("utm") )            opt.projection = UTM;
-  else                                   opt.projection = PLATECARREE;
+  else if ( vm.count("orthographic") )        opt.projection = ORTHOGRAPHIC;
+  else if ( vm.count("stereographic") )       opt.projection = STEREOGRAPHIC;
+  else if ( vm.count("lambert-azimuthal") )   opt.projection = LAMBERTAZIMUTHAL;
+  else if ( vm.count("utm") )                 opt.projection = UTM;
+  else                                        opt.projection = PLATECARREE;
   opt.has_nodata_value = vm.count("nodata-value");
 }
 

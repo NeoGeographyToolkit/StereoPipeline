@@ -68,7 +68,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::positional_options_description positional_desc;
   positional_desc.add("input-file", 1);
 
-  std::string usage("<point-cloud> ...");
+  std::string usage("[options] <point-cloud>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
@@ -80,6 +80,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( opt.out_prefix.empty() )
     opt.out_prefix =
       asp::prefix_from_filename( opt.pointcloud_filename );
+
+  // Create the output directory 
+  asp::create_out_dir(opt.out_prefix);
+  
+  // Turn on logging to file
+  asp::log_to_file(argc, argv, "", opt.out_prefix);
 
   opt.compressed = vm.count("compressed");
 
@@ -127,7 +133,6 @@ int main( int argc, char *argv[] ) {
     }
 
     vw_out() << "Writing LAS file: " << lasFile + "\n";
-    asp::create_out_dir(lasFile);
     std::ofstream ofs;
     ofs.open(lasFile.c_str(), std::ios::out | std::ios::binary);
     liblas::Writer writer(ofs, header);

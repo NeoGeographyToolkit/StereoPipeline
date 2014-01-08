@@ -25,6 +25,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <unistd.h>
 
 #include <vw/config.h>
 #include <asp/asp_config.h>
@@ -72,12 +73,85 @@ void asp::create_out_dir(std::string out_prefix){
   return;
 }
 
+// Run a system command and append the output to a given file
+void asp::run_cmd_app_to_file(std::string cmd, std::string file){
+  std::string full_cmd;
+  full_cmd = "echo '" + cmd + "' >> " + file; // echo the command to run
+  system(full_cmd.c_str());
+  full_cmd = cmd + " >> " + file + " 2>&1";
+  system(full_cmd.c_str());
+  full_cmd = "echo '' >> " + file; // append a newline
+  system(full_cmd.c_str());
+}
+
 // Find how many channels/bands are in a given image
 int asp::get_num_channels(std::string filename){
   boost::scoped_ptr<vw::SrcImageResource> src(vw::DiskImageResource::open(filename));
   int num_channels = src->channels();
   int num_planes   = src->planes();
   return num_channels*num_planes;
+}
+
+void asp::log_to_file(int argc, char *argv[],
+                      std::string stereo_default_filename,
+                      std::string out_prefix){
+
+  // Log some system info to a file, then copy the vw log
+  // info to that file as well.
+
+  if (out_prefix == "")
+    vw::vw_throw( vw::ArgumentErr() << "Output prefix was not set.\n");
+
+  // Check that the output directory exists
+  fs::path out_prefix_path(out_prefix);
+  if (out_prefix_path.has_parent_path()) {
+    if (!fs::is_directory(out_prefix_path.parent_path())) {
+      vw::vw_throw( vw::ArgumentErr() << "Directory does not exist: "
+                    << out_prefix_path.parent_path() << "\n");
+    }
+  }
+  
+  // Get program name without leading 'lt-'
+  std::string prog_name = fs::basename(fs::path(std::string(argv[0])));
+  std::string pref = "lt-";
+  size_t lp = pref.size();
+  if (prog_name.size() >= lp && prog_name.substr(0, lp) == pref)
+    prog_name = prog_name.substr(lp, prog_name.size() - lp);
+  
+  // Create the log file and open it in write mode
+  std::ostringstream os;
+  int pid = getpid();
+  os << out_prefix << "-log-" << prog_name << "-" << pid << ".txt";
+  std::string log_file = os.str();
+  vw_out() << "Writing log info to: " << log_file << std::endl;
+  std::ofstream lg(log_file.c_str());
+
+  // Write the program name and its arguments
+  for (int s = 0; s < argc; s++) lg << std::string(argv[s]) + " ";
+  lg << std::endl << std::endl;
+
+  // Must ensure to close the file handle before further appending to
+  // it below.
+  lg.close();
+
+  // System calls. Not all will succeed on all machines.
+  asp::run_cmd_app_to_file("uname -a", log_file);
+  asp::run_cmd_app_to_file("cat /proc/meminfo 2>/dev/null | grep MemTotal", log_file);
+  asp::run_cmd_app_to_file("cat /proc/cpuinfo 2>/dev/null | head -n 25", log_file);
+  // The line below is for MacOSX
+  asp::run_cmd_app_to_file("sysctl -a hw 2>/dev/null | grep -E \"ncpu|byteorder|memsize|cpufamily|cachesize|mmx|sse|machine|model\" | grep -v ipv6", log_file);
+  if (stereo_default_filename != ""){
+    std::string cmd = "cat " + stereo_default_filename + " 2>/dev/null";
+    asp::run_cmd_app_to_file(cmd, log_file);
+  }
+  asp::run_cmd_app_to_file("cat ~/.vwrc 2>/dev/null", log_file);
+    
+  // Copy all the info going to the console to log_file as well,
+  // except the progress bar.
+  boost::shared_ptr<vw::LogInstance> current_log = boost::shared_ptr<vw::LogInstance>( new vw::LogInstance(log_file) );
+  current_log->rule_set() = vw_log().console_log().rule_set();
+  current_log->rule_set().add_rule(0, "*.progress");
+  vw_log().add(current_log);
 }
 
 asp::BaseOptions::BaseOptions() {
