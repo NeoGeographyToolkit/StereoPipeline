@@ -142,18 +142,18 @@ Pipeline installation to the environmental variable \texttt{PATH}.
 
 \section{\label{sec:Source-Installation}Installation from Source}
 
-This method is for advanced users. You will need to fetch the Stereo Pipeline source code from Github at
+This method is for advanced users. You will need to fetch the Stereo Pipeline source code from GitHub at
 \url{https://github.com/NeoGeographyToolkit/StereoPipeline} and then
 follow the instructions specified in \texttt{INSTALLGUIDE}.
 
 \section{\label{sec:Settings}Settings Optimization}
 
 Finally the last thing to be done for Stereo Pipeline is to setup up
-Vision Workbench's render settings. This step is optional, but for
-best performance some thought should be applied here.
+Vision Workbench's render and logging settings. This step is optional,
+but for best performance some thought should be applied here.
 
 Vision Workbench is a multithreaded image processing library used by
-Stero Pipeline. The settings by which Vision Workbench processes is
+Stereo Pipeline. The settings by which Vision Workbench processes is
 configurable by having a \texttt{.vwrc} file hidden in your home
 directory. Below is an example.
 
@@ -166,10 +166,12 @@ There are a lot of possible options that can be implemented in the
 above example. Let's cover the most important options and the concerns
 the user should have when selecting a value.
 
+\subsection{Performance Settings}
+
 \begin{description}
 
 \item[default\_num\_threads \textnormal (default=2)] \hfill \\
-This sets the maximium number of threads that can be used for
+This sets the maximum number of threads that can be used for
 rendering. When stereo's \texttt{subpixel\_rfne} is running you'll
 probably notice 10 threads are running when you have
 \texttt{default\_num\_threads} set to 8. This is not an error, you are
@@ -219,17 +221,22 @@ available memory on the system. For 32 bit systems, this means don't
 set this value any greater than 1 GB. The units of this property is in
 bytes.
 
-\item[0 = *.progress] \hfill \\
-This line is not assigning a value to progress, it is however setting
-the logging level of progress bars. In the above example, this
-statement is made under the \texttt{[logfile console]} state. This
-means that only progress bars of type \texttt{ErrorMessage} will ever
-be printed to the console. If you wanted progress bars up to type
-\texttt{InfoMessage}, then the line in log file should be changed to:
-
-\begin{verbatim}
-    [logfile console]
-    20 = *.progress
-\end{verbatim}
-
 \end{description}
+
+\subsection{Logging Settings}
+\label{logging}
+
+The messages displayed in the console by Stereo Pipeline are grouped
+into several namespaces, and by level of verbosity. An example of
+customizing Stereo Pipeline's output is given in the \texttt{.vwrc} file
+shown above.
+
+Several of the tools in Stereo Pipeline, including \texttt{stereo},
+automatically append the information displayed in the console to a log
+file in the current output directory. These logs contain in addition some
+data about your system and settings, which may be helpful in resolving
+problems with the tools.
+
+It is also possible to specify a global log file to which all tools will
+append to, as illustrated in \texttt{.vwrc}.
+
