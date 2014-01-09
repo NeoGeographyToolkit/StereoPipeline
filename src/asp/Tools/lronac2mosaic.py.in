@@ -363,7 +363,7 @@ def cubenorm( mosaicList, threads, delete=False ):
 
     return normedList
 
-def cropInputs(inputFiles, outputFolder, cropAmount, threads):
+def cropInputs(inputFiles, outputFolder, cropAmount, threads, delete=False):
 
     outputPaths = []
     for path in inputFiles:
@@ -373,7 +373,13 @@ def cropInputs(inputFiles, outputFolder, cropAmount, threads):
         cmd = 'crop from= '+ path +' to= '+ croppedPath + ' nlines= ' + str(cropAmount)
         add_job(cmd, threads)
         outputPaths.append( croppedPath )
+
     wait_on_all_jobs()
+
+    if delete:
+        for path in inputFiles:
+            os.remove(path)
+
     return outputPaths
 
 
@@ -440,7 +446,8 @@ def main():
             lronacechod = lronacecho( lronaccaled, options.threads, options.delete )
 
             if (options.cropAmount > 0): # Crop the input files as soon as ISIS calls allow it
-                lronacechod = cropInputs(lronacechod, options.outputFolder, options.cropAmount, options.threads)
+                lronacechod = cropInputs(lronacechod, options.outputFolder, options.cropAmount, 
+                                         options.threads, options.delete)
 
             print "spice"       # Attach spice info to cubes (adds to existing files)
             spice( lronacechod, options.threads )
@@ -481,7 +488,7 @@ def main():
         print >>sys.stderr, err.msg
         return 2
 
-	# To more easily debug this program, comment out this catch block.
+    # To more easily debug this program, comment out this catch block.
     # except Exception, err:
     #     sys.stderr.write( str(err) + '\n' )
     #     return 1
