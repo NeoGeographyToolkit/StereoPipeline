@@ -96,7 +96,7 @@ struct Options : public asp::BaseOptions {
   double diff_translation_err, diff_rotation_err, max_disp, outlier_ratio;
   bool compute_translation_only, save_trans_source, save_trans_ref, highest_accuracy, verbose;
   // Output
-  string output_prefix;
+  string out_prefix;
   Options():max_disp(-1.0), verbose(true){}
 };
 
@@ -119,7 +119,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("datum", po::value(&opt.datum)->default_value(""), "Use this datum for CSV files instead of auto-detecting it. [WGS_1984, D_MOON, D_MARS, etc.]")
     ("config-file", po::value(&opt.config_file)->default_value(""),
      "This is an advanced option. Read the alignment parameters from a configuration file, in the format expected by libpointmatcher, over-riding the command-line options.")
-    ("output-prefix,o", po::value(&opt.output_prefix)->default_value("run/run"), "Specify the output prefix.")
+    ("output-prefix,o", po::value(&opt.out_prefix)->default_value("run/run"), "Specify the output prefix.")
     ("compute-translation-only", po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
      "Compute the transform from source to reference point cloud as a translation only (no rotation).")
     ("save-transformed-source-points", po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
@@ -151,7 +151,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Missing input files.\n"
               << usage << general_options );
 
-  if ( opt.output_prefix.empty() )
+  if ( opt.out_prefix.empty() )
     vw_throw( ArgumentErr() << "Missing output prefix.\n"
               << usage << general_options );
 
@@ -812,14 +812,14 @@ void save_transforms(Options const& opt,
 
   // Save the transform and its inverse.
 
-  string transFile = opt.output_prefix + "-transform.txt";
+  string transFile = opt.out_prefix + "-transform.txt";
   vw_out() << "Writing: " << transFile  << endl;
   ofstream tf(transFile.c_str());
   tf.precision(16);
   tf << T << endl;
   tf.close();
 
-  string iTransFile = opt.output_prefix + "-inverse-transform.txt";
+  string iTransFile = opt.out_prefix + "-inverse-transform.txt";
   PointMatcher<RealT>::Matrix invT = T.inverse();
   vw_out() << "Writing: " << iTransFile  << endl;
   ofstream itf(iTransFile.c_str());
@@ -953,7 +953,7 @@ void save_errors(DP const& point_cloud,
 
 void save_trans_point_cloud(Options const& opt,
                             string input_file,
-                            string output_prefix,
+                            string out_prefix,
                             PointMatcher<RealT>::Matrix const& T
                             ){
 
@@ -967,9 +967,9 @@ void save_trans_point_cloud(Options const& opt,
 
   string output_file;
   if (file_type == "CSV")
-    output_file = output_prefix + ".csv";
+    output_file = out_prefix + ".csv";
   else
-    output_file = output_prefix + ".tif";
+    output_file = out_prefix + ".tif";
   vw_out() << "Writing: " << output_file << endl;
 
   if (file_type == "DEM"){
@@ -1207,7 +1207,7 @@ int main( int argc, char *argv[] ) {
       = PointMatcher<RealT>::Matrix::Identity(DIM + 1, DIM + 1);
     if (opt.config_file == ""){
       // Read the options from the command line
-      icp.setParams(opt.output_prefix, opt.num_iter, opt.outlier_ratio,
+      icp.setParams(opt.out_prefix, opt.num_iter, opt.outlier_ratio,
                     (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
                     opt.diff_translation_err, opt.alignment_method,
                     false/*opt.verbose*/);
@@ -1282,22 +1282,23 @@ int main( int argc, char *argv[] ) {
     save_transforms(opt, globalT);
 
     if (opt.save_trans_ref){
-       string trans_ref_prefix = opt.output_prefix + "-trans_reference";
+       string trans_ref_prefix = opt.out_prefix + "-trans_reference";
        save_trans_point_cloud(opt, opt.reference, trans_ref_prefix,
                               globalT.inverse());
     }
 
     if (opt.save_trans_source){
-       string trans_source_prefix = opt.output_prefix + "-trans_source";
+       string trans_source_prefix = opt.out_prefix + "-trans_source";
        save_trans_point_cloud(opt, opt.source, trans_source_prefix, globalT);
     }
 
-    save_errors(source, beg_errors,  opt.output_prefix + "-beg_errors.csv",
+    save_errors(source, beg_errors,  opt.out_prefix + "-beg_errors.csv",
                 shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
-    save_errors(trans_source, end_errors,  opt.output_prefix + "-end_errors.csv",
+    save_errors(trans_source, end_errors,  opt.out_prefix + "-end_errors.csv",
                 shift, actual_datum_str, is_lola_rdr_format, mean_longitude);
 
-    if (opt.verbose) vw_out() << "Writing: " << opt.output_prefix + "-iterationInfo.csv" << std::endl;
+    if (opt.verbose) vw_out() << "Writing: " << opt.out_prefix
+      + "-iterationInfo.csv" << std::endl;
 
     sw8.stop();
     if (opt.verbose) vw_out() << "Saving to disk took "
