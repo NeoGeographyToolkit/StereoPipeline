@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # __BEGIN_LICENSE__
 #  Copyright (c) 2009-2013, United States Government as represented by the
 #  Administrator of the National Aeronautics and Space Administration. All
@@ -362,6 +363,20 @@ def cubenorm( mosaicList, threads, delete=False ):
 
     return normedList
 
+def cropInputs(inputFiles, outputFolder, cropAmount, threads):
+
+    outputPaths = []
+    for path in inputFiles:
+        # Expect to end in .IMG, change to end in .cub and move to output folder
+        newExtension = os.path.splitext(path)[0] + '.cropped.cub'
+        croppedPath  = os.path.join(outputFolder, os.path.basename(newExtension))
+        cmd = 'crop from= '+ path +' to= '+ croppedPath + ' nlines= ' + str(cropAmount)
+        add_job(cmd, threads)
+        outputPaths.append( croppedPath )
+    wait_on_all_jobs()
+    return outputPaths
+
+
 #--------------------------------------------------------------------------------
 
 #TODO: Support for file based logging of results
@@ -369,10 +384,11 @@ def cubenorm( mosaicList, threads, delete=False ):
 def main():
     try:
         try:
-            usage = "usage: lronac2mosaic.py [--help][--manual][--threads N]" \
+            usage = "usage: lronac2mosaic.py [--help][--manual][--crop][--threads N]" \
                     "[--keep] LRONAC.IMG-files\n  [ASP [@]ASP_VERSION[@]]"
             parser = optparse.OptionParser(usage=usage)
             parser.set_defaults(delete =True)
+            parser.set_defaults(cropAmount=0)
             parser.set_defaults(threads=4)
             parser.set_defaults(fakePvl=True)
             parser.add_option("--manual", action="callback", callback=man,
@@ -383,6 +399,8 @@ def main():
                               help="Process the IMG files only to have SPICE attached.")
             parser.add_option("--resume-at-no-proj", dest="resume_no_proj", action="store_true",
                               help="Pick back up after spiceinit has happened. This was noproj uses your new camera information")
+            parser.add_option("-c", "--crop", dest="cropAmount",
+                              help="Process only the first N lines of the image.",type="int")
             parser.add_option("-t", "--threads", dest="threads",
                               help="Number of threads to use.",type="int")
             parser.add_option("-k", "--keep", action="store_false",
@@ -420,6 +438,9 @@ def main():
 
             print "lronacecho"  # Per-file operation, returns list of new files
             lronacechod = lronacecho( lronaccaled, options.threads, options.delete )
+
+            if (options.cropAmount > 0): # Crop the input files as soon as ISIS calls allow it
+                lronacechod = cropInputs(lronacechod, options.outputFolder, options.cropAmount, options.threads)
 
             print "spice"       # Attach spice info to cubes (adds to existing files)
             spice( lronacechod, options.threads )
