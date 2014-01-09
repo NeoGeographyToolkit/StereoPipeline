@@ -473,10 +473,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
   // Create the output directory 
-  asp::create_out_dir(opt.out_prefix);
+  asp::create_out_dir(opt.output_prefix);
   
   // Turn on logging to file
-  asp::log_to_file(argc, argv, "", opt.out_prefix);
+  asp::log_to_file(argc, argv, "", opt.output_prefix);
 
   opt.simplify_mesh = vm.count("simplify-mesh");
 
