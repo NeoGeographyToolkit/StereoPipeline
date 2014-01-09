@@ -91,17 +91,17 @@ namespace asp{
 // point. Subsequent elements are the triangulation error, either as a
 // scalar (the norm of the error) or as a vector (the error itself).
 // Output: The same point if the triangulation error is <=
-// min_valid_triangulation_error, and the zero vector otherwise.
+// max_valid_triangulation_error, and the zero vector otherwise.
 
 class LargeTriErrorFilter: public vw::UnaryReturnSameType {
 private:
 
-  double m_min_valid_triangulation_error;
+  double m_max_valid_triangulation_error;
 
 public:
-  LargeTriErrorFilter(double min_valid_triangulation_error): m_min_valid_triangulation_error(min_valid_triangulation_error){
-    VW_ASSERT(m_min_valid_triangulation_error > 0,
-              vw::ArgumentErr() << "LargeTriErrorFilter: min-valid-triangulation error must be positive.");
+  LargeTriErrorFilter(double max_valid_triangulation_error): m_max_valid_triangulation_error(max_valid_triangulation_error){
+    VW_ASSERT(m_max_valid_triangulation_error > 0,
+              vw::ArgumentErr() << "LargeTriErrorFilter: max-valid-triangulation error must be positive.");
   }
 
   // A version without triangulation error
@@ -115,7 +115,7 @@ public:
   Vector<ElemT,4> operator() (Vector<ElemT,4> const& pix) const {
     if (subvector(pix,0,3) != Vector<ElemT,3>() ) {
       double err = norm_2(subvector(pix,3,pix.size() - 3));
-      if (err > m_min_valid_triangulation_error) {
+      if (err > m_max_valid_triangulation_error) {
         return Vector<ElemT,4>();
       } else {
         return pix;
@@ -129,7 +129,7 @@ public:
   Vector<ElemT,6> operator() (Vector<ElemT,6> const& pix) const {
     if (subvector(pix,0,3) != Vector<ElemT,3>() ) {
       double err = norm_2(subvector(pix,3,pix.size() - 3));
-      if (err > m_min_valid_triangulation_error) {
+      if (err > m_max_valid_triangulation_error) {
         return Vector<ElemT,6>();
       } else {
         return pix;
@@ -463,7 +463,7 @@ void stereo_triangulation( Options const& opt ) {
       }
     }
 
-    double min_tri_err = stereo_settings().min_valid_triangulation_error;
+    double min_tri_err = stereo_settings().max_valid_triangulation_error;
     if (min_tri_err > 0)
       point_cloud = per_pixel_filter(point_cloud,
                                      LargeTriErrorFilter(min_tri_err));

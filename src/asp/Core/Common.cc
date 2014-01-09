@@ -148,7 +148,7 @@ void asp::log_to_file(int argc, char *argv[],
     
   // Copy all the info going to the console to log_file as well,
   // except the progress bar.
-  boost::shared_ptr<vw::LogInstance> current_log = boost::shared_ptr<vw::LogInstance>( new vw::LogInstance(log_file) );
+  boost::shared_ptr<vw::LogInstance> current_log( new vw::LogInstance(log_file) );
   current_log->rule_set() = vw_log().console_log().rule_set();
   current_log->rule_set().add_rule(0, "*.progress");
   vw_log().add(current_log);

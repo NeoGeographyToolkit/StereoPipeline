@@ -51,7 +51,7 @@ namespace asp {
     // to get a camera pointer, and there we don't parse stereo.default
     disable_correct_velocity_aberration = false;
 
-    min_valid_triangulation_error = std::numeric_limits<double>::quiet_NaN();
+    max_valid_triangulation_error = std::numeric_limits<double>::quiet_NaN();
   }
 
   // Define our options that are available
@@ -192,7 +192,7 @@ namespace asp {
        "Radius of inner boundary of universe in meters.")
       ("far-universe-radius", po::value(&global.far_universe_radius)->default_value(0.0),
        "Radius of outer boundary of universe in meters.")
-      ("min-valid-triangulation-error", po::value(&global.min_valid_triangulation_error),
+      ("max-valid-triangulation-error", po::value(&global.max_valid_triangulation_error),
        "Points with triangulation error larger than this are removed from the cloud.")
       ("use-least-squares", po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
        "Use rigorous least squares triangulation process. This is slow for ISIS processes.")

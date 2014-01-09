@@ -251,9 +251,9 @@ namespace asp {
     
     // Error checking
 
-    // Sanity check for min_valid_triangulation_error
-    if ( stereo_settings().min_valid_triangulation_error <= 0 ){
-      vw_throw( ArgumentErr() << "The minimum valid triangulation error must be positive.\n" );
+    // Sanity check for max_valid_triangulation_error
+    if ( stereo_settings().max_valid_triangulation_error <= 0 ){
+      vw_throw( ArgumentErr() << "The maximum valid triangulation error must be positive.\n" );
     }
     
     // Seed mode valid values
