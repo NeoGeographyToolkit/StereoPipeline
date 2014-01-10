@@ -39,7 +39,8 @@ namespace asp {
     // Settings
     std::string stereo_session_string, stereo_default_filename;
     boost::shared_ptr<asp::StereoSession> session; // Used to extract cameras
-    vw::BBox2i left_image_crop_win;                // Used to do stereo in a region
+    // Note: Below we use BBox2 rather than BBox2i to not choke on float inputs.
+    vw::BBox2 left_image_crop_win;                 // For stereo in a region
     static int corr_tile_size() { return 1024; }   // Tile size for correlation
     // Output
     std::string out_prefix;
