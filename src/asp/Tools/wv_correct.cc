@@ -74,31 +74,22 @@ namespace vw {
 }
 
 struct Options : asp::BaseOptions {
-  double xoffset, yoffset;
-  double xoffset_forward, yoffset_forward;
-  double xoffset_reverse, yoffset_reverse;
   std::string camera_image_file, camera_model_file, output_image; 
-  Options(){}
+  double xoffset, yoffset, period, shift;
+  Options(){
+    xoffset = yoffset = period = shift = std::numeric_limits<double>::quiet_NaN();
+  }
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   
-  // These quantities were heuristically obtained by averaging
-  // over a large set of runs while removing outliers and giving
-  // more weight to more reliable data. 
-  double default_xoffset_forward = 0.2842;
-  double default_yoffset_forward = 0.2369;
-  double default_xoffset_reverse = 0.3396;
-  double default_yoffset_reverse = 0.3725;
-  std::ostringstream osx;
-  osx << "Specify the CCD offset correction to apply in the x direction. Default: " << default_xoffset_forward << " (forward scan), " << default_xoffset_reverse << " (reverse scan)."; 
-  std::ostringstream osy;
-  osy << "Specify the CCD offset correction to apply in the y direction. Default: " << default_yoffset_forward << " (forward scan), " << default_yoffset_reverse << " (reverse scan).";
-  
   po::options_description general_options("");
   general_options.add_options()
-    ("xoffset", po::value(&opt.xoffset), osx.str().c_str())
-    ("yoffset", po::value(&opt.yoffset), osy.str().c_str());
+    ("xoffset", po::value(&opt.xoffset), "Specify the CCD offset correction to apply in the x direction (optional).")
+    ("yoffset", po::value(&opt.yoffset), "Specify the CCD offset correction to apply in the y direction (optional).")
+    ("period", po::value(&opt.period), "Specify the period of CCD artifacts (optional).")
+    ("shift", po::value(&opt.shift), "Specify how much to add to the period to get the location of the first CCD artifact (optional).")
+    ;
   general_options.add( asp::BaseOptionsDescription(opt) );
   
   po::options_description positional("");
@@ -121,21 +112,6 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Requires <camera-image>, <camera-model> and <output-image> "
               << "in order to proceed.\n\n"
               << usage << general_options );
-
-  if (vm.count("xoffset")){
-    opt.xoffset_forward = opt.xoffset;
-    opt.xoffset_reverse = opt.xoffset;
-  }else{
-    opt.xoffset_forward = default_xoffset_forward;
-    opt.xoffset_reverse = default_xoffset_reverse;
-  }
-  if (vm.count("yoffset")){
-    opt.yoffset_forward = opt.yoffset;
-    opt.yoffset_reverse = opt.yoffset;
-  }else{
-    opt.yoffset_forward = default_yoffset_forward;
-    opt.yoffset_reverse = default_yoffset_reverse;
-  }
 
   asp::create_out_dir(opt.output_image);
   
@@ -231,7 +207,8 @@ int main( int argc, char *argv[] ) {
     EphemerisXML eph;
     ImageXML img;
     RPCXML rpc;
-    std::string scan_dir;
+    std::string scan_dir, sat_id;
+    double det_pitch;
     try{
       XMLPlatformUtils::Initialize();
       read_xml( opt.camera_model_file, geo, att, eph, img, rpc );
@@ -240,48 +217,69 @@ int main( int argc, char *argv[] ) {
       if (scan_dir != "forward" && scan_dir != "reverse")
         vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file
                   << "\" is lacking a valid image scan direction.\n" );
+
+      sat_id = img.sat_id;
+      if (sat_id != "WV01" && sat_id != "WV02")
+        vw_throw( ArgumentErr() << "Can apply CCD artifacts corrections only "
+                  << "for WV01 and WV02 camera images.\n" );
       
-      if (geo.detector_pixel_pitch <= 0.0)
+      det_pitch = geo.detector_pixel_pitch;
+      if (det_pitch <= 0.0)
         vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file
                   << "\" has a non-positive pixel pitch.\n" );
 
       if (img.tdi != 16)
         vw_throw( ArgumentErr() << "Can apply CCD artifacts corrections only for TDI 16.\n" );
       
-      if (img.sat_id != "WV02")
-        vw_throw( ArgumentErr() << "Can apply CCD artifacts corrections only for WV02 camera images.\n" );
-      
     }catch(...){
       vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file << "\" is invalid.\n" );
     }
-      
-    // The first CCD artifact is at column period + shift,
-    // then they repeat with given period.
-    double shift  = -35.0;
-    double period = 5.64/geo.detector_pixel_pitch;
-
-    // The offsets at the first CCD artifact location.
-    // The offsets keep the same magnitude but their sign
-    // alternates as one moves along image columns.
-    double xoffset, yoffset;
-    if (scan_dir == "forward"){
-      xoffset = opt.xoffset_forward;
-      yoffset = opt.yoffset_forward;
+    
+    // Defaults, depending on satellite and scan direction
+    double xoffset, yoffset, period, shift;
+    if (sat_id == "WV01"){
+      period = 708;
+      shift  = -119;
+      if (scan_dir == "forward"){
+        xoffset = 0.10;
+        yoffset = -0.25;
+      }else{
+        xoffset = 0.17;
+        yoffset = 0.20;
+      }
     }else{
-      xoffset = opt.xoffset_reverse;
-      yoffset = opt.yoffset_reverse;
+      period = 705;
+      shift  = -35.0;
+      if (scan_dir == "forward"){
+        xoffset = 0.2842;
+        yoffset = 0.2369;
+      }else{
+        xoffset = 0.3396;
+        yoffset = 0.3725;
+      }
     }
+
+    // Apply user's overrides, if any
+    if (!boost::math::isnan(opt.xoffset)) xoffset = opt.xoffset;
+    if (!boost::math::isnan(opt.yoffset)) yoffset = opt.yoffset;
+    if (!boost::math::isnan(opt.period))  period  = opt.period;
+    if (!boost::math::isnan(opt.shift))   shift   = opt.shift;
 
     vw_out() << "Using x offset: " << xoffset << std::endl;
     vw_out() << "Using y offset: " << yoffset << std::endl;
+    vw_out() << "Using period:   " << period  << std::endl;
+    vw_out() << "Using shift:    " << shift   << std::endl;
 
+    // Adjust for detector pitch
+    period = period*(8.0e-3/det_pitch);
+    
     // Internal sign adjustments
     if (scan_dir == "forward"){
       yoffset = -yoffset;
     }else{
       xoffset = -xoffset;
     }
-
+    
     DiskImageView<float> input_img(opt.camera_image_file);
     bool has_nodata = false;
     double nodata = numeric_limits<double>::quiet_NaN();
