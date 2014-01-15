@@ -156,9 +156,9 @@ public:
     biased_box.crop(bounding_box(m_img));
     
     ImageView<result_type> cropped_img = crop(m_img, biased_box);
-    InterpolationView<EdgeExtensionView< ImageView<result_type>, ValueEdgeExtension<result_type> >, BilinearInterpolation> interp_img
+    InterpolationView<EdgeExtensionView< ImageView<result_type>, ConstantEdgeExtension >, BilinearInterpolation> interp_img
       = interpolate(cropped_img, BilinearInterpolation(),
-                    ValueEdgeExtension<result_type>(result_type()));
+                    ConstantEdgeExtension());
     
     ImageView<result_type> tile(bbox.width(), bbox.height());
     for (int col = bbox.min().x(); col < bbox.max().x(); col++){
