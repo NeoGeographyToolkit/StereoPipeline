@@ -323,10 +323,10 @@ namespace asp {
     }
 
     VW_ASSERT( 1 <= n,
-               vw::ArgumentErr() << "Attempting to read " << n << " channels from an image.");
+               vw::ArgumentErr() << "Attempting to read " << n << " channel(s) from an image.");
     VW_ASSERT( n <= m,
-               vw::ArgumentErr() << "Attempting to read " << n << " channels from an image with "
-               << m << " channels.");
+               vw::ArgumentErr() << "Attempting to read " << n << " channel(s) from an image with "
+               << m << " channel(s).");
     VW_ASSERT( m <= max_m,
                vw::NoImplErr() << "Reading from images with more than "
                << max_m << " channels is not implemented.");

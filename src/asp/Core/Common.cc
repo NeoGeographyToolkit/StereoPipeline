@@ -137,7 +137,7 @@ void asp::log_to_file(int argc, char *argv[],
   // System calls. Not all will succeed on all machines.
   asp::run_cmd_app_to_file("uname -a", log_file);
   asp::run_cmd_app_to_file("cat /proc/meminfo 2>/dev/null | grep MemTotal", log_file);
-  asp::run_cmd_app_to_file("cat /proc/cpuinfo 2>/dev/null | head -n 25", log_file);
+  asp::run_cmd_app_to_file("cat /proc/cpuinfo 2>/dev/null | tail -n 25", log_file);
   // The line below is for MacOSX
   asp::run_cmd_app_to_file("sysctl -a hw 2>/dev/null | grep -E \"ncpu|byteorder|memsize|cpufamily|cachesize|mmx|sse|machine|model\" | grep -v ipv6", log_file);
   if (stereo_default_filename != ""){
