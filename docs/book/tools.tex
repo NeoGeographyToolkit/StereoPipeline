@@ -862,12 +862,12 @@ format expected by libpointmatcher, over-riding the command-line options.\\ \hli
 An image taken by one of Digital Globe's World View satellite cameras is
 formed of several blocks as tall as the image, mosaicked from left to
 right, with each block coming from an individual CCD sensor
-\cite{digital-globe:camera}. Particularly with World View-2 images at
-TDI 16 (see the above reference for the definitions), the image blocks
-are offset in respect to each other in both row and column directions by
-a subpixel amount. These so-called {\it CCD boundary artifacts} are not
-visible in the images, but manifest themselves very strongly
-in the the DEMs obtained with ASP.
+\cite{digital-globe:camera}. Particularly with images at TDI 16 (see the
+above reference for the definitions), the image blocks are offset in
+respect to each other in both row and column directions by a subpixel
+amount. These so-called {\it CCD boundary artifacts} are not visible in
+the images, but manifest themselves very strongly in the the DEMs
+obtained with ASP.
  
 The tool named \texttt{wv\_correct} is able to significantly attenuate
 these artifacts (see Figure~\ref{fig:ccd-artifact-example} in the
@@ -878,14 +878,17 @@ Digital Globe images, so before calling \texttt{dg\_mosaic} and
 It is important to note that both the positions of the CCD offsets and
 the offset amounts were determined empirically, without knowledge of
 Digital Globe's mosacking process; this explains why we are not able to
-remove these artifacts completely. The tool allows the user to
-experiment with the amount of offset correction to apply, via the
-\texttt{-\/-xoffset} and \texttt{-\/-yoffset} options.
+remove these artifacts completely. Moreover, for World View-1 images it
+appears that the offset magnitudes can vary across the image, so while
+\texttt{wv\_correct} attenuates the artifacts in most of the image, it
+may make them somewhat worse in some areas. This is not the case for
+World View-2 images, where the same corrections appear to work all
+across a given image.
 
-Presently, \texttt{wv\_correct} only works with World View-2 images and
-only for TDI 16 (at which the artifacts are most pronounced). In the
-future we expect to expand the range of images the tool can correct and
-also improve the correction accuracy.
+Presently, \texttt{wv\_correct} only works only when TDI is 16 (at which
+the artifacts are most pronounced). In the future we expect to expand
+the range of images the tool can correct and also improve the correction
+accuracy.
 
 \medskip
 
@@ -908,15 +911,19 @@ Options & Description \\ \hline \hline
 \texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to
 use. 0 means use default defined in the program or in the .vwrc file. \\ \hline
 
-\texttt{-\/-xoffset \textit{arg}} &
-Specify the CCD offset correction to apply in the x
-direction. Default: 0.2842 (forward scan), 0.3396 
-(reverse scan).  \\ \hline
+\texttt{-\/-xoffset \textit{arg}} & Specify the CCD offset correction to
+apply in the x direction, overriding the default. \\ \hline
 
-\texttt{-\/-yoffset \textit{arg}} &
-Specify the CCD offset correction to apply in the y
-direction. Default: 0.2369 (forward scan), 0.3725 
-(reverse scan).  \\ \hline
+\texttt{-\/-yoffset \textit{arg}} & Specify the CCD offset correction to
+apply in the y direction, overriding the default. \\ \hline
+
+\texttt{-\/-period \textit{arg}} & Specify the period of CCD artifacts,
+overriding the default. \\ \hline
+
+\texttt{-\/-shift \textit{arg}} & Specify how much to add to the period
+to get the location of the first CCD artifact, overriding the
+default. \\ \hline
+
 \end{longtable}
 
 \section{lronac2mosaic.py}
