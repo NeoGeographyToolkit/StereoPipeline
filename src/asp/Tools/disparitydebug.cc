@@ -46,7 +46,8 @@ namespace fs = boost::filesystem;
 struct Options : asp::BaseOptions {
   // Input
   std::string input_file_name;
-  BBox2 normalization_range;
+  BBox2       normalization_range;
+  BBox2       roi;    ///< Only generate output images in this region
 
   // Output
   std::string output_prefix, output_file_type;
@@ -57,6 +58,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   general_options.add_options()
     ("normalization", po::value(&opt.normalization_range)->default_value(BBox2(0,0,0,0), "auto"),
      "Normalization range. Specify in format: hmin,vmin,hmax,vmax.")
+    ("roi", po::value(&opt.roi)->default_value(BBox2(0,0,0,0), "auto"),
+     "Region of interest. Specify in format: xmin,ymin,xmax,ymax.")
     ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file");
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -86,14 +89,21 @@ void do_disparity_visualization(Options& opt) {
 
   vw_out() << "\t--> Computing disparity range \n";
 
+  // If no ROI passed in, use the full image
+  BBox2 roiToUse(opt.roi);
+  if ( opt.roi == BBox2(0,0,0,0) )
+    roiToUse = BBox2(0,0,disk_disparity_map.cols(),disk_disparity_map.rows());
+
+
   // We don't want to sample every pixel as the image might be very
-  // large. Let's subsample the image so that it is rough 1000x1000
-  // samples.
+  // large. Let's subsample the image so that it is rough 1000x1000 samples.
   float subsample_amt =
-    float(disk_disparity_map.cols())*float(disk_disparity_map.rows()) / ( 1000.f * 1000.f );
+    float(roiToUse.height())*float(disk_disparity_map.rows()) / ( 1000.f * 1000.f );
+    
+  // Compute intensity display range if not passed in
   if ( opt.normalization_range == BBox2(0,0,0,0) )
     opt.normalization_range =
-      get_disparity_range(subsample(disk_disparity_map,
+      get_disparity_range(subsample(crop(disk_disparity_map, roiToUse),
                                     subsample_amt > 1 ? subsample_amt : 1));
 
   vw_out() << "\t    Horizontal - [" << opt.normalization_range.min().x()
@@ -101,20 +111,33 @@ void do_disparity_visualization(Options& opt) {
            << opt.normalization_range.min().y() << " "
            << opt.normalization_range.max().y() << "]\n";
 
+
+  // Generate value-normalized copies of the H and V channels
   typedef typename PixelChannelType<PixelT>::type ChannelT;
   ImageViewRef<ChannelT> horizontal =
-    apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,0),
+    apply_mask(copy_mask(clamp(normalize(crop(select_channel(disk_disparity_map,0),
+                                              roiToUse),
                                          opt.normalization_range.min().x(),
                                          opt.normalization_range.max().x(),
-                                         ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max())),
-                         disk_disparity_map));
+                                         ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max()
+                                        )
+                              ),
+                         crop(disk_disparity_map, roiToUse)
+                        )
+              );
   ImageViewRef<ChannelT> vertical =
-    apply_mask(copy_mask(clamp(normalize(select_channel(disk_disparity_map,1),
+    apply_mask(copy_mask(clamp(normalize(crop(select_channel(disk_disparity_map,1),
+                                              roiToUse),
                                          opt.normalization_range.min().y(),
                                          opt.normalization_range.max().y(),
-                                         ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max())),
-                         disk_disparity_map));
+                                         ChannelRange<ChannelT>::min(),ChannelRange<ChannelT>::max()
+                                        )
+                              ),
+                         crop(disk_disparity_map, roiToUse)
+                        )
+              );
 
+  // Write both images to disk, casting as UINT8
   std::string h_file = opt.output_prefix+"-H."+opt.output_file_type;
   vw_out() << "\t--> Writing horizontal disparity debug image: " << h_file << "\n";
   block_write_gdal_image( h_file,
