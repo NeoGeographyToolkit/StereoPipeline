@@ -912,7 +912,7 @@ def main():
     over a wide search window (size xsearch by ysearch).  Based on matches from
     this coarse grid, estimate an epipolar vector (the largest eigenvector of
     the disparity vectors) and a tolerance for disparities to be parallel to
-    this vector (use max (16 pix, 90th percentile of differeces)).
+    this vector.
 
     Next, refine points for which the range of disparities among the
     neighbors are larger than tolerance refine_tol.  Refinement consists
@@ -997,7 +997,8 @@ def main():
 
     #undocumented options#
     F_ep_pts_to_use=0.9
-    ep_tol_max=24
+    ep_fperc_lim=95
+    ep_tol_max=64
     ep_tol_min=4
     dxy_slope_tol=3.0
     C_tol=0.4  # minimum quality needed in defining the epipolar vector estimate
@@ -1088,16 +1089,16 @@ def main():
     if options.epipolar_fltr:
         # run the epipolar fit, establish a tolerance, run again
         ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_ep_pts_to_use)
-        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, 32)
-        ep_f90=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
-        ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
+        good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol_max)
+        ep_fperc=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], ep_fperc_lim)
+        ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_fperc))
         # run fit again if any points were marked as bad in the first epipolar test
         if ep_vec_initial is not None and np.any(~good):
             ep_vec, dxy_ctr=est_epipolar_vec(dxy[good,:], C[good,:], C_tol, None, F_ep_pts_to_use)
-            ep_f90= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], 90)
-            ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
+            ep_fperc=ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], ep_fperc_lim)
+            ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_fperc))
             good, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-        print " --- ep vec estimated at(%f,%f), tol=%f, ep_dist_f90=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_f90)
+        print " --- ep vec estimated at(%f,%f), tol=%f, ep_dist_fperc=%f" % (ep_vec[0], ep_vec[1], ep_tol, ep_fperc)
     else:
         #Create boolean array with True for all values in dx
         good = (dxy != np.nan)[:,0]
@@ -1182,8 +1183,12 @@ def main():
         dxy=np.array(np.c_[dx_mat[all_pts[:,1], all_pts[:,0]].transpose(), dy_mat[all_pts[:,1], all_pts[:,0]].transpose()])
         C= np.array(C_mat[all_pts[:,1], all_pts[:,0]].transpose())
 
+        #Refine the epipolar vector and tolerance estimate
         if options.epipolar_fltr and ep_vec_initial is not None:
             ep_vec, dxy_ctr=est_epipolar_vec(dxy, C, C_tol)
+            junk, ep_dist=test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
+            ep_fperc= ss.scoreatpercentile(ep_dist[C.ravel()>C_tol], ep_fperc_lim)
+            ep_tol=np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_fperc))
 
         # triangulate all the good points so far
         tri=sp.Delaunay(all_pts)
