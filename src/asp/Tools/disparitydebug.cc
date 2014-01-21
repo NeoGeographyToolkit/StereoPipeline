@@ -98,7 +98,7 @@ void do_disparity_visualization(Options& opt) {
   // We don't want to sample every pixel as the image might be very
   // large. Let's subsample the image so that it is rough 1000x1000 samples.
   float subsample_amt =
-    float(roiToUse.height())*float(disk_disparity_map.rows()) / ( 1000.f * 1000.f );
+    float(roiToUse.height())*float(roiToUse.width()) / ( 1000.f * 1000.f );
     
   // Compute intensity display range if not passed in
   if ( opt.normalization_range == BBox2(0,0,0,0) )
