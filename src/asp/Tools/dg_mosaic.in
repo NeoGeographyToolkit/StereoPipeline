@@ -131,34 +131,26 @@ class BBox:
     def __repr__(self):
         return "BBox %f %f -> %f %f" % (self.minx,self.miny,self.maxx,self.maxy)
 
-# Create an object made of a string, a 2D vector, a box, and a set of
-# lon-lat corners. Sort an array of such objects by the min coordinate
-# of the box.
-class StVecBoxCr:
-    def __init__(self, st, vec, box, corners):
-        self.st      = st
-        self.vec     = vec
+# Create an object made of an image name and a box. Sort an array of
+# such objects by the min coordinate of the box.
+class StrBox:
+    def __init__(self, img_str, box):
+        self.img_str = img_str
         self.box     = box
-        self.corners = corners
         
 def minyCompare(P, Q):
     return P.box.miny - Q.box.miny
-def sort_by_miny(args, orig_sizes, placements, ll_corners):
+def sort_by_miny(imgVec, boxVec):
     S = []
-    for i in range(len(args)):
-        S.append(StVecBoxCr(copy.deepcopy(args[i]),
-                            copy.deepcopy(orig_sizes[i]),
-                            copy.deepcopy(placements[i]),
-                            copy.deepcopy(ll_corners[i])
-                            ))
+    for i in range(len(imgVec)):
+        S.append(StrBox(copy.deepcopy(imgVec[i]),
+                        copy.deepcopy(boxVec[i])
+                        ))
     S.sort(minyCompare)
-    s_args = []; s_orig_sizes = []; s_placements = []; s_ll_corners = []
+    imgVec = []
     for i in range(len(S)):
-        s_args.append(S[i].st)
-        s_orig_sizes.append(S[i].vec)
-        s_placements.append(S[i].box)
-        s_ll_corners.append(S[i].corners)
-    return (s_args, s_orig_sizes, s_placements, s_ll_corners)
+        imgVec.append(S[i].img_str)
+    return imgVec
 
 def set_or_wipe_image_tags(IMAGE, avg_meanproductgsd, avg_meancollectedgsd):
 
@@ -483,8 +475,6 @@ def main():
         except optparse.OptionError, msg:
             raise Usage(msg)
 
-        sep = ","
-
         if options.output_prefix == "":
             options.output_prefix = args[0].split('-')[-1].split('.')[0]
         if options.output_prefix == "":
@@ -494,75 +484,24 @@ def main():
         if len(out_dir)==0: out_dir='.'
         if not os.path.exists(out_dir): os.mkdir(out_dir)
 
-        all_ll_corners = []
+        # Do a couple of passes at parsing the xml files and
+        # extracting and combining the data. At the second pass, the
+        # files (stored in args) and all other data will be in the
+        # order in which they need to be mosaiced.
+        for it in range(2):
 
-        # We reference everything from the perspective of the first
-        # image. So lets load it up first into our special variables.
-        avg_meanproductgsd   = 0; num_meanproductgsd   = 0
-        avg_meancollectedgsd = 0; num_meancollectedgsd = 0
-        [ref_tlctime, ref_tlclist, ref_firstlinetime, ref_image_size,
-         ref_pitch, ref_originx, ref_pd, ref_eph_list, ref_att_list,
-         ref_llbox, ref_htbox, ll_corners,
-         meanproductgsd, meancollectedgsd] \
-         = read_xml( xml_name(args[0]), options )
-        all_ll_corners.append(ll_corners)
+            all_ll_corners = []
 
-        if meanproductgsd is not None:
-            avg_meanproductgsd += meanproductgsd
-            num_meanproductgsd += 1
-        if meancollectedgsd is not None:
-            avg_meancollectedgsd += meancollectedgsd
-            num_meancollectedgsd += 1
-            
-        # orig_sizes[i] holds the original size of i-th image. After
-        # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
-        # store the new image box in placements[i].
-        orig_sizes = []
-        placements = []
-        orig_sizes.append(ref_image_size)
-        shiftx = 0
-        shifty = int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist,
-                                             ref_firstlinetime)))
-        placement = BBox(shiftx, shifty,
-                         shiftx + ref_image_size[0], shifty + ref_image_size[1])
-        placements.append( placement )
-
-        for filename in args[1:]:
-
-            [tlctime, tlclist, firstlinetime, image_size, pitch, originx, pd,
-             eph_list, att_list, llbox, htbox, ll_corners,
+            # We reference everything from the perspective of the first
+            # image. So lets load it up first into our special variables.
+            avg_meanproductgsd   = 0; num_meanproductgsd   = 0
+            avg_meancollectedgsd = 0; num_meancollectedgsd = 0
+            [ref_tlctime, ref_tlclist, ref_firstlinetime, ref_image_size,
+             ref_pitch, ref_originx, ref_pd, ref_eph_list, ref_att_list,
+             ref_llbox, ref_htbox, ll_corners,
              meanproductgsd, meancollectedgsd] \
-             = read_xml( xml_name(filename), options )
+             = read_xml( xml_name(args[0]), options )
             all_ll_corners.append(ll_corners)
-
-            # Sanity checks
-            if ref_originx != originx:
-                raise Exception('InputError', 'Must have the same originx in: '
-                                + xml_name(args[0]) + ' ' + xml_name(filename) )
-            if ref_pd != pd:
-                raise Exception('InputError', 'Must have the same pd in: '
-                                + xml_name(args[0]) + ' ' + xml_name(filename) )
-            if ref_eph_list != eph_list:
-                raise Exception('InputError', 'Must have the same ephem in: '
-                                + xml_name(args[0]) + ' ' + xml_name(filename) )
-            if ref_att_list != att_list:
-                raise Exception('InputError', 'Must have the same att in: '
-                                + xml_name(args[0]) + ' ' + xml_name(filename) )
-
-            orig_sizes.append(image_size)
-            pitch_ratio = pitch/ref_pitch
-            scaled_image_size = [int(round(image_size[0]*pitch_ratio)),
-                                 int(round(image_size[1]*pitch_ratio))]
-            shiftx = 0
-            shifty = int(round(tlc_pixel_lookup(ref_tlctime, ref_tlclist,
-                                                firstlinetime)))
-            placement = BBox(shiftx, shifty,
-                             shiftx + scaled_image_size[0],
-                             shifty + scaled_image_size[1])
-            placements.append( placement )
-
-            ref_llbox.expand_with_box(llbox)
-            ref_htbox.expand_with_box(htbox)
 
             if meanproductgsd is not None:
                 avg_meanproductgsd += meanproductgsd
@@ -571,20 +510,89 @@ def main():
                 avg_meancollectedgsd += meancollectedgsd
                 num_meancollectedgsd += 1
 
-        if num_meanproductgsd != 0:
-            avg_meanproductgsd   = avg_meanproductgsd/num_meanproductgsd
-        if num_meancollectedgsd != 0:
-            avg_meancollectedgsd = avg_meancollectedgsd/num_meancollectedgsd
+            # orig_sizes[i] holds the original size of i-th image. After
+            # we scale i-th image by i_th_image_pitch/0_th_image_pitch, we
+            # store the new image box in placements[i].
+            orig_sizes = []
+            placements = []
+            orig_sizes.append(ref_image_size)
+            shiftx = 0
+            shifty = int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist,
+                                                 ref_firstlinetime)))
+            placement = BBox(shiftx, shifty,
+                             shiftx + ref_image_size[0], shifty + ref_image_size[1])
+            placements.append( placement )
 
-        boundary = BBox()
-        for placement in placements:
-            boundary.expand_with_box(placement)
+            for filename in args[1:]:
 
-        print "Output image size: %ix%i px" % (boundary.width(),boundary.height())
-        for i in range(len(args)):
-            placements[i].miny -= boundary.miny
-            placements[i].maxy -= boundary.miny
+                [tlctime, tlclist, firstlinetime, image_size, pitch, originx, pd,
+                 eph_list, att_list, llbox, htbox, ll_corners,
+                 meanproductgsd, meancollectedgsd] \
+                 = read_xml( xml_name(filename), options )
+                all_ll_corners.append(ll_corners)
 
+                # Sanity checks
+                if ref_originx != originx:
+                    raise Exception('InputError', 'Must have the same originx in: '
+                                    + xml_name(args[0]) + ' ' + xml_name(filename) )
+                if ref_pd != pd:
+                    raise Exception('InputError', 'Must have the same pd in: '
+                                    + xml_name(args[0]) + ' ' + xml_name(filename) )
+                if ref_eph_list != eph_list:
+                    raise Exception('InputError', 'Must have the same ephem in: '
+                                    + xml_name(args[0]) + ' ' + xml_name(filename) )
+                if ref_att_list != att_list:
+                    raise Exception('InputError', 'Must have the same att in: '
+                                    + xml_name(args[0]) + ' ' + xml_name(filename) )
+
+                orig_sizes.append(image_size)
+                pitch_ratio = pitch/ref_pitch
+                scaled_image_size = [int(round(image_size[0]*pitch_ratio)),
+                                     int(round(image_size[1]*pitch_ratio))]
+                shiftx = 0
+                shifty = int(round(tlc_pixel_lookup(ref_tlctime, ref_tlclist,
+                                                    firstlinetime)))
+                placement = BBox(shiftx, shifty,
+                                 shiftx + scaled_image_size[0],
+                                 shifty + scaled_image_size[1])
+                placements.append( placement )
+
+                ref_llbox.expand_with_box(llbox)
+                ref_htbox.expand_with_box(htbox)
+
+                if meanproductgsd is not None:
+                    avg_meanproductgsd += meanproductgsd
+                    num_meanproductgsd += 1
+                if meancollectedgsd is not None:
+                    avg_meancollectedgsd += meancollectedgsd
+                    num_meancollectedgsd += 1
+
+            if num_meanproductgsd != 0:
+                avg_meanproductgsd   = avg_meanproductgsd/num_meanproductgsd
+            if num_meancollectedgsd != 0:
+                avg_meancollectedgsd = avg_meancollectedgsd/num_meancollectedgsd
+
+            boundary = BBox()
+            for placement in placements:
+                boundary.expand_with_box(placement)
+
+            if it != 0:
+                print "Output image size: %ix%i px" % (boundary.width(),
+                                                       boundary.height())
+            for i in range(len(args)):
+                placements[i].miny -= boundary.miny
+                placements[i].maxy -= boundary.miny
+
+            # Ensure that the images are placed in order, from top to
+            # bottom.  So the second image will partially cover the first
+            # image, etc.  This is a bug fix for the situation when some
+            # images have a black area at the bottom.
+            s_args = sort_by_miny(args, placements)
+            
+            if it == 0:
+                args = s_args[:] # deep copy
+        # End passes
+        
         # Dummy check: Look for duplicate files that will insert at
         # same location. Files that do this would be the R?C1 variants
         # that have the same XML file due to download errors or
@@ -614,6 +622,8 @@ def main():
         # The verbose operation below is needed for python 2.4
         first_line_item.text = tlc_lookup.strftime("%Y-%m-%dT%H:%M:%S") + '.' \
                                + format_microsec(str(tlc_lookup.microsecond)) + "Z"
+
+        sep = ","
 
         if not options.skip_rpc_gen:
             # Find the best-fitting RPC coefficients.
@@ -660,16 +670,9 @@ def main():
         # Wipe other outdated info
         if root.find("TIL")   != None: root.remove( root.find("TIL") )
 
-        # Ensure that the images are placed in order, from top to
-        # bottom.  So the second image will partially cover the first
-        # image, etc.  This is a bug fix for the situation when some
-        # images have a black area at the bottom.
-        (s_args, s_orig_sizes, s_placements, s_all_ll_corners) = \
-                 sort_by_miny(args, orig_sizes, placements, all_ll_corners)
-
         # Adjust image corners
         if imd.find("BAND_P") != None:
-            adjust_camera_corners(imd.find("BAND_P"), s_all_ll_corners)
+            adjust_camera_corners(imd.find("BAND_P"), all_ll_corners)
 
         # Adjust avg gsd tags and wipe other tags
         set_or_wipe_image_tags(root.find("IMD").find("IMAGE"),
@@ -706,18 +709,20 @@ def main():
         if not options.skip_tif_gen:
 
             tif_mosaic_opts = "%d,%d," % (boundary.width(), boundary.height())
-            for i in range(len(s_args)):
-                print "  Placing %s" % s_args[i]
+            for i in range(len(args)):
+                print "  Placing %s" % args[i]
                 print "    Size %ix%i at column %i and line %i" % \
-                      (s_placements[i].width(),s_placements[i].height(),
-                       s_placements[i].minx, s_placements[i].miny)
+                      (placements[i].width(),placements[i].height(),
+                       placements[i].minx, placements[i].miny)
 
-                tif_mosaic_opts += ("%s,%0.16f,%0.16f,%0.16f,%0.16f,%0.16f,%0.16f," %
-                                    ( os.path.abspath(s_args[i]),
-                                      s_orig_sizes[i][0], s_orig_sizes[i][1],
-                                      s_placements[i].minx, s_placements[i].miny,
-                                      s_placements[i].width(), s_placements[i].height() ) )
-
+                tif_mosaic_opts += \
+                                ("%s,%0.16f,%0.16f,%0.16f,%0.16f,%0.16f,%0.16f," %
+                                 ( os.path.abspath(args[i]),
+                                   orig_sizes[i][0], orig_sizes[i][1],
+                                   placements[i].minx, placements[i].miny,
+                                   placements[i].width(), placements[i].height()
+                                ) )
+                
             tif_file = options.output_prefix + suffix + ".tif";
             mosaic_cmd = "tif_mosaic"
             mosaic_args = ['--threads', str(4),
