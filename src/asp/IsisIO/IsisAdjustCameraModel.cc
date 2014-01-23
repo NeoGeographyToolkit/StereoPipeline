@@ -26,6 +26,7 @@
 
 #include <FileName.h>
 #include <CameraFactory.h>
+#include <Cube.h>
 #include <SerialNumber.h>
 #include <iTime.h>
 #include <AlphaCube.h>                  // for AlphaCube
@@ -53,13 +54,14 @@ IsisAdjustCameraModel::IsisAdjustCameraModel( std::string cube_filename,
   // Opening labels and camera
   Isis::FileName cubefile( cube_filename.c_str() );
   m_label.read( cubefile.expanded() );
-  m_camera = boost::shared_ptr<Isis::Camera>(Isis::CameraFactory::Create( m_label ));
+  Isis::Cube tempCube(cubefile.expanded());
+  m_camera = boost::shared_ptr<Isis::Camera>(Isis::CameraFactory::Create( tempCube ));
 
   // Gutting Camera
   m_distortmap = m_camera->DistortionMap();
   m_focalmap   = m_camera->FocalPlaneMap();
   m_detectmap  = m_camera->DetectorMap();
-  m_alphacube  = boost::shared_ptr<Isis::AlphaCube>( new Isis::AlphaCube( m_label ) );
+  m_alphacube  = boost::shared_ptr<Isis::AlphaCube>( new Isis::AlphaCube( tempCube ) );
 
   // Throw error if this is map projected image
   if ( m_camera->HasProjection() )

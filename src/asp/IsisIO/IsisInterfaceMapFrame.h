@@ -23,6 +23,7 @@
 #ifndef __ASP_ISIS_INTERFACE_MAP_FRAME_H__
 #define __ASP_ISIS_INTERFACE_MAP_FRAME_H__
 
+#include <TProjection.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <asp/IsisIO/IsisInterface.h>
@@ -62,7 +63,7 @@ namespace isis {
   protected:
 
     // Custom Variables
-    boost::scoped_ptr<Isis::Projection> m_projection;
+    boost::scoped_ptr<Isis::TProjection> m_projection;
     Isis::CameraGroundMap *m_groundmap;
     Isis::CameraDistortionMap *m_distortmap;
 

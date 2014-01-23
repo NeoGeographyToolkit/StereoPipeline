@@ -27,7 +27,7 @@
 #include <asp/IsisIO/IsisInterface.h>
 
 // Isis
-#include <Projection.h>
+#include <TProjection.h>
 #include <CameraDistortionMap.h>
 #include <CameraGroundMap.h>
 #include <CameraFocalPlaneMap.h>
@@ -58,7 +58,7 @@ namespace isis {
 
     // Custom Variables
     mutable vw::Vector2 m_cache_px;
-    boost::scoped_ptr<Isis::Projection> m_projection;
+    boost::scoped_ptr<Isis::TProjection> m_projection;
     Isis::CameraDistortionMap *m_distortmap;
     Isis::CameraGroundMap     *m_groundmap;
     Isis::CameraFocalPlaneMap *m_focalmap;

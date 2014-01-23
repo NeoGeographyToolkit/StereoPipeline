@@ -27,6 +27,7 @@
 #include <iomanip>
 #include <ostream>
 
+#include <Cube.h>
 #include <Distance.h>
 #include <Pvl.h>
 #include <Camera.h>
@@ -46,7 +47,8 @@ IsisInterface::IsisInterface( std::string const& file ) {
   m_label->read( ifilename.expanded() );
 
   // Opening Isis::Camera
-  m_camera.reset(Isis::CameraFactory::Create( *m_label ));
+  m_cube.reset( new Isis::Cube(QString::fromStdString(file)) );
+  m_camera.reset(Isis::CameraFactory::Create( *m_cube ));
 }
 
 IsisInterface::~IsisInterface() {}
@@ -57,7 +59,8 @@ IsisInterface* IsisInterface::open( std::string const& filename ) {
   Isis::Pvl label;
   label.read( ifilename.expanded() );
 
-  Isis::Camera* camera = Isis::CameraFactory::Create( label );
+  Isis::Cube tempCube(QString::fromStdString(filename));
+  Isis::Camera* camera = Isis::CameraFactory::Create( tempCube );
 
   IsisInterface* result;
 

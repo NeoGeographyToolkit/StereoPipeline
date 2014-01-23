@@ -25,7 +25,9 @@
 
 #include <FileName.h>
 #include <CameraFactory.h>
+#include <TProjection.h>
 #include <ProjectionFactory.h>
+#include <Cube.h>
 #include <Camera.h>
 #include <Pvl.h>
 #include <AlphaCube.h>
@@ -57,9 +59,10 @@ TEST(IsisCameraModel, mapprojected) {
   Isis::FileName cubefile( file.c_str() );
   Isis::Pvl label;
   label.read( cubefile.expanded() );
-  Isis::Camera* cam = Isis::CameraFactory::Create( label );
-  Isis::AlphaCube alphacube( label );
-  Isis::Projection* proj = Isis::ProjectionFactory::CreateFromCube( label );
+  Isis::Cube tempCube(cubefile.expanded());
+  Isis::Camera* cam = Isis::CameraFactory::Create( tempCube );
+  Isis::AlphaCube alphacube( tempCube );
+  Isis::TProjection* proj =(Isis::TProjection*)Isis::ProjectionFactory::CreateFromCube( label );
 
   // This is testing the assumption that we don't need to invoke much
   // of the camera model to do a pixel to vector.
@@ -117,8 +120,9 @@ TEST(IsisCameraModel, groundmap_chk) {
     Isis::FileName cubefile( files[j].c_str() );
     Isis::Pvl label;
     label.read( cubefile.expanded() );
-    Isis::Camera* cam = Isis::CameraFactory::Create( label );
-    Isis::AlphaCube alphacube( label );
+    Isis::Cube tempCube(cubefile.expanded());
+    Isis::Camera* cam = Isis::CameraFactory::Create( tempCube );
+    Isis::AlphaCube alphacube( tempCube );
 
     vw_out() << "CameraType: " << cam->GetCameraType() << "\n";
 

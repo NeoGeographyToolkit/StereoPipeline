@@ -48,7 +48,10 @@ using namespace asp::isis;
 
 // Constructor
 IsisInterfaceMapLineScan::IsisInterfaceMapLineScan( std::string const& filename ) :
-  IsisInterface( filename ), m_projection( Isis::ProjectionFactory::CreateFromCube(*m_label) ) {
+  IsisInterface( filename ){//, m_projection( Isis::ProjectionFactory::CreateFromCube(*m_label) ) {
+
+  Isis::TProjection* tempProj = (Isis::TProjection*)Isis::ProjectionFactory::CreateFromCube(*m_label);
+  m_projection.reset(tempProj);
 
   // Gutting Isis::Camera
   m_distortmap = m_camera->DistortionMap();
