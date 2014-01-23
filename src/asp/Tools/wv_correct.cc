@@ -19,9 +19,9 @@
 /// \file wv_correct.cc
 ///
 
-// Correct CCD artifacts in WorldView2 images with TDI 16.
+// Correct CCD artifacts in WorldView 1 and 2 images with TDI 16.
 
-// The problem: A WV2 image is obtained by mosaicking from left to
+// The problem: A WV image is obtained by mosaicking from left to
 // right image blocks which are as tall is the entire image (each
 // block comes from an individual CCD image sensor). Blocks are
 // slightly misplaced in respect to each other by some unknown
@@ -117,16 +117,35 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   
 }
 
+void get_offsets(bool is_wv01, bool is_forward, std::vector<double> & off){
+
+  // Get a sequence of CCD offsets (they will later be scaled).
+  // We need this primarily for WV01 cameras, as there the offsets
+  // don't follow a simple pattern.
+  off.clear();
+  if (!is_wv01){
+    double o[] = {1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1};
+    for (int i = 0; i < (int)(sizeof(o)/sizeof(double)); i++) off.push_back(o[i]);
+  }else{
+    //double o[] = {1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 0.5, -0.5, 0.5, -0.5, 0, 0, 0, 0, 0, 0, 0, 0.5, -0.5, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1}; // good!
+    double o[] = {1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 0.5, -1, 0.5, -0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1};
+    for (int i = 0; i < (int)(sizeof(o)/sizeof(double)); i++) off.push_back(o[i]);
+  }
+  
+}
+
 template <class ImageT>
 class WVCorrectView: public ImageViewBase< WVCorrectView<ImageT> >{
   ImageT m_img;
+  bool m_is_wv01, m_is_forward;
   double m_shift, m_period, m_xoffset, m_yoffset;
   typedef typename ImageT::pixel_type PixelT;
 
 public:
-  WVCorrectView( ImageT const& img,
+  WVCorrectView( ImageT const& img, bool is_wv01, bool is_forward,
                  double shift, double period, double xoffset, double yoffset):
-    m_img(img), m_shift(shift), m_period(period),
+    m_img(img), m_is_wv01(is_wv01), m_is_forward(is_forward),
+    m_shift(shift), m_period(period),
     m_xoffset(xoffset), m_yoffset(yoffset){}
   
   typedef PixelT pixel_type;
@@ -147,6 +166,9 @@ public:
   typedef CropView<ImageView<pixel_type> > prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
+    vector<double> off;
+    get_offsets(m_is_wv01, m_is_forward, off);
+    
     // Need to see a bit more of the input image for the purpose
     // of interpolation.
     int bias = (int)ceil(std::max(std::abs(m_xoffset), std::abs(m_yoffset)))
@@ -169,9 +191,26 @@ public:
       // only.
       int block_index = (int)floor((col - m_shift)/m_period);
       double valx = 0, valy = 0;
-      if (block_index % 2 ){
+      if (block_index % 2 == 1){
         valx = -m_xoffset;
         valy = -m_yoffset;
+      }
+
+      // Special treatment for WV01
+      if (m_is_wv01){
+        if (!m_is_forward){
+          // Use a list of tabulated values to find the y offsets
+          double sum = 0;
+          int noff = off.size();
+          for (int k = 0; k < std::min(noff, block_index); k++) sum += off[k];
+          valy = -m_yoffset*sum;
+        }else{
+          // Just set the early y offsets to 0
+          double s = 8000;
+          s = m_period*floor((s - m_shift)/m_period) + m_shift;
+          if (col < s)
+            valy = 0;
+        }
       }
       
       for (int row = bbox.min().y(); row < bbox.max().y(); row++){
@@ -191,9 +230,11 @@ public:
   }
 };
 template <class ImageT>
-WVCorrectView<ImageT> wv_correct(ImageT const& img, double shift,
+WVCorrectView<ImageT> wv_correct(ImageT const& img,
+                                 bool is_wv01, bool is_forward, double shift,
                                  double period, double xoffset, double yoffset){
-  return WVCorrectView<ImageT>(img, shift, period, xoffset, yoffset);
+  return WVCorrectView<ImageT>(img, is_wv01, is_forward, shift, period,
+                               xoffset, yoffset);
 }
 
 int main( int argc, char *argv[] ) {
@@ -234,23 +275,28 @@ int main( int argc, char *argv[] ) {
     }catch(...){
       vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file << "\" is invalid.\n" );
     }
+
+    bool is_forward = (scan_dir == "forward");
     
     // Defaults, depending on satellite and scan direction
     double xoffset, yoffset, period, shift;
-    if (sat_id == "WV01"){
-      period = 708;
-      shift  = -119;
-      if (scan_dir == "forward"){
+    bool is_wv01 = (sat_id == "WV01");
+    if (is_wv01){
+      if (is_forward){
+        period = 708;
+        shift  = -119; 
         xoffset = 0.10;
         yoffset = -0.25;
       }else{
+        period  = 709;
+        shift   = -136; 
         xoffset = 0.17;
         yoffset = 0.20;
       }
     }else{
       period = 705;
       shift  = -35.0;
-      if (scan_dir == "forward"){
+      if (is_forward){
         xoffset = 0.2842;
         yoffset = 0.2369;
       }else{
@@ -274,7 +320,7 @@ int main( int argc, char *argv[] ) {
     period = period*(8.0e-3/det_pitch);
     
     // Internal sign adjustments
-    if (scan_dir == "forward"){
+    if (is_forward){
       yoffset = -yoffset;
     }else{
       xoffset = -xoffset;
@@ -296,13 +342,15 @@ int main( int argc, char *argv[] ) {
                                   apply_mask
                                   (wv_correct(create_mask(input_img,
                                                           nodata),
+                                              is_wv01, is_forward,
                                               shift, period, xoffset, yoffset),
                                    nodata),
                                   nodata, opt,
                                   TerminalProgressCallback("asp", "\t-->: "));
     }else{
       asp::block_write_gdal_image(opt.output_image,
-                                  wv_correct(input_img, shift, period,
+                                  wv_correct(input_img,
+                                             is_wv01, is_forward, shift, period,
                                              xoffset, yoffset),
                                   opt,
                                   TerminalProgressCallback("asp", "\t-->: "));
