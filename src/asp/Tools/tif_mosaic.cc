@@ -99,7 +99,8 @@ void parseImgData(std::string data, int& dst_cols, int& dst_rows,
         std::min( img_data[l].dst_box.max().y(),
                   img_data[k].dst_box.min().y() );
 
-      // Make sure min of box is <= max of box
+      // Make sure min of box is <= max of box after the above
+      // adjustment.
       img_data[l].dst_box.min().y() =
         std::min( img_data[l].dst_box.min().y(),
                   img_data[l].dst_box.max().y() );
@@ -176,6 +177,7 @@ public:
     std::vector<BBox2i>  src_vec(m_img_data.size());  // Effective area of image tile
     std::vector<InterpT> crop_vec(m_img_data.size(),
                                   InterpT(ImageT())); // Image data but expanded a bit for interpolation's sake
+    int extra = BilinearInterpolation::pixel_buffer;
     for (int k = 0; k < (int)m_img_data.size(); k++){
       BBox2 box = m_img_data[k].dst_box;
       box.crop(scaled_box);
@@ -186,10 +188,11 @@ public:
       box.crop(bounding_box(m_img_data[k].src_img));
       if (box.empty()) continue;
       src_vec[k] = ( box );                          // Recording active area of the tile
-      box.expand( BilinearInterpolation::pixel_buffer ); // Expanding so Interpolation doesn't reach outside image
+      box.expand( extra ); // Expanding so Interpolation doesn't reach outside image
       crop_vec[k] =
         InterpT(create_mask_less_or_equal
-                (crop(edge_extend(m_img_data[k].src_img, ConstantEdgeExtension()), box),
+                (crop(edge_extend(m_img_data[k].src_img, ConstantEdgeExtension()),
+                      box),
                  m_img_data[k].nodata_value));
     }
 
@@ -199,7 +202,8 @@ public:
     // TODO: This could possibly be performed entirely with a
     // TransformView and apply_mask.
     // -- or --
-    // Since we have no rotations, we can assume whole lines will come from a single image
+    // Since we have no rotations, we can assume whole lines will come
+    // from a single image
     for (int row = 0; row < bbox.height(); row++){
       for (int col = 0; col < bbox.width(); col++){
 
@@ -213,7 +217,11 @@ public:
           Vector2 src_pix = m_img_data[k].transform.reverse(dst_pix);
           if (!src_vec[k].contains(src_pix)) continue;
 
-          src_pix += elem_diff(BilinearInterpolation::pixel_buffer,src_vec[k].min());
+          // Go to the coordinate system of image crop_vec[k]. Note that
+          // we add back the 'extra' number used in expanding the image
+          // earlier.
+          src_pix += elem_diff(extra, src_vec[k].min());
+          
           masked_pixel_type r = crop_vec[k](src_pix[0], src_pix[1] );
           if (is_valid(r)){
             tile(col, row) = r.child();
