@@ -139,7 +139,7 @@ class StrBox:
         self.box     = box
         
 def minyCompare(P, Q):
-    return P.box.miny - Q.box.miny
+    return int(round(P.box.miny - Q.box.miny))
 def sort_by_miny(imgVec, boxVec):
     S = []
     for i in range(len(imgVec)):
@@ -517,10 +517,10 @@ def main():
             placements = []
             orig_sizes.append(ref_image_size)
             shiftx = 0
-            shifty = int(round(tlc_pixel_lookup( ref_tlctime, ref_tlclist,
-                                                 ref_firstlinetime)))
+            shifty = tlc_pixel_lookup(ref_tlctime, ref_tlclist, ref_firstlinetime)
             placement = BBox(shiftx, shifty,
-                             shiftx + ref_image_size[0], shifty + ref_image_size[1])
+                             shiftx + ref_image_size[0],
+                             shifty + ref_image_size[1])
             placements.append( placement )
 
             for filename in args[1:]:
@@ -546,12 +546,16 @@ def main():
                                     + xml_name(args[0]) + ' ' + xml_name(filename) )
 
                 orig_sizes.append(image_size)
-                pitch_ratio = pitch/ref_pitch
-                scaled_image_size = [int(round(image_size[0]*pitch_ratio)),
-                                     int(round(image_size[1]*pitch_ratio))]
+
                 shiftx = 0
-                shifty = int(round(tlc_pixel_lookup(ref_tlctime, ref_tlclist,
-                                                    firstlinetime)))
+                shifty = tlc_pixel_lookup(ref_tlctime, ref_tlclist, firstlinetime)
+                
+                # We compensate for the fact that different images
+                # may have different physical pixel sizes.
+                pitch_ratio = pitch/ref_pitch
+                scaled_image_size = [image_size[0]*pitch_ratio,
+                                     image_size[1]*pitch_ratio]
+
                 placement = BBox(shiftx, shifty,
                                  shiftx + scaled_image_size[0],
                                  shifty + scaled_image_size[1])
@@ -576,9 +580,6 @@ def main():
             for placement in placements:
                 boundary.expand_with_box(placement)
 
-            if it != 0:
-                print "Output image size: %ix%i px" % (boundary.width(),
-                                                       boundary.height())
             for i in range(len(args)):
                 placements[i].miny -= boundary.miny
                 placements[i].maxy -= boundary.miny
@@ -611,11 +612,11 @@ def main():
         tree = ET.parse(xml_name(args[0]))
         root = tree.getroot()
         imd = root.find("IMD")
-        imd.find("NUMROWS").text = str(boundary.height())
-        imd.find("NUMCOLUMNS").text = str(boundary.width())
+        imd.find("NUMROWS").text = str(int(boundary.height()))
+        imd.find("NUMCOLUMNS").text = str(int(boundary.width()))
         for tlc_item in imd.find("IMAGE").find("TLCLISTList").findall("TLCLIST"):
             tokens = tlc_item.text.strip().split(' ')
-            tokens[0] = str(int(round((float(tokens[0])))) - boundary.miny)
+            tokens[0] = str(float(tokens[0])- boundary.miny)
             tlc_item.text = " ".join(tokens)
         first_line_item = root.find("IMD").find("IMAGE").find("FIRSTLINETIME")
         tlc_lookup = tlc_time_lookup( ref_tlctime, ref_tlclist, boundary.miny )
@@ -680,9 +681,13 @@ def main():
 
         # Scale the xml file
         # Update NumRows and NumColumns
+        nrows = int(boundary.height() * scale)
+        ncols = int(boundary.width()  * scale)
         imd = root.find("IMD")
-        imd.find("NUMROWS").text = str( int(boundary.height() * scale) )
-        imd.find("NUMCOLUMNS").text = str( int(boundary.width() * scale) )
+        imd.find("NUMROWS").text = str(nrows)
+        imd.find("NUMCOLUMNS").text = str(ncols)
+        print "Output image size: %dx%d px" % (nrows, ncols)
+
         # Update TLCList, AVGLineRate, ExposureDur
         image = imd.find("IMAGE")
         for tlc_item in image.find("TLCLISTList").findall("TLCLIST"):
@@ -711,7 +716,7 @@ def main():
             tif_mosaic_opts = "%d,%d," % (boundary.width(), boundary.height())
             for i in range(len(args)):
                 print "  Placing %s" % args[i]
-                print "    Size %ix%i at column %i and line %i" % \
+                print "    Size %dx%d at column %d and line %d" % \
                       (placements[i].width(),placements[i].height(),
                        placements[i].minx, placements[i].miny)
 
