@@ -78,30 +78,53 @@ BlobHolder::mask_and_fill_holes( ImageViewRef< PixelGray<float> > const& img,
   return inpaint(thresh_mask.impl(), *m_blobPtr.get(), use_grassfire, default_inpaint_val);
 }
 
+bool is_tif_or_ntf(std::string const& file){
+  return
+    boost::iends_with(boost::to_lower_copy(file), ".tif")
+    ||
+    boost::iends_with(boost::to_lower_copy(file), ".ntf");
+}    
+
+bool skip_image_normalization(Options const& opt ){
+  // Respect user's choice for skipping the normalization of the input
+  // images, if feasible.
+  return
+    stereo_settings().skip_image_normalization                    && 
+    stereo_settings().alignment_method == "none"                  &&
+    stereo_settings().cost_mode == 2                              &&
+    is_tif_or_ntf(opt.in_file1)                                   && 
+    is_tif_or_ntf(opt.in_file2);
+}
+
 void create_sym_links(std::string const& left_input_file,
                       std::string const& right_input_file,
                       std::string const& out_prefix,
                       std::string & left_output_file,
                       std::string & right_output_file) {
+
+  // Instead of writing L.tif and R.tif, just create sym links from
+  // input left and right images.
   
   vw_out(WarningMessage) << "Skipping image normalization.\n";
     
   left_output_file  = out_prefix+"-L.tif";
   right_output_file = out_prefix+"-R.tif";
-  
-  fs::path left_img_full_path  = fs::complete(left_input_file);
-  fs::path right_img_full_path = fs::complete(right_input_file);
+
+  // We prefer absolute paths for robustness, although this of course
+  // can break things if files are copied to a different file system.
+  fs::path left_img_abs_path  = fs::complete(left_input_file);
+  fs::path right_img_abs_path = fs::complete(right_input_file);
   
   std::string cmd;
   if (!fs::exists(left_output_file)){
-    cmd = "ln -s " + left_img_full_path.string() + " " + left_output_file;
+    cmd = "ln -s " + left_img_abs_path.string() + " " + left_output_file;
     vw_out() << cmd << std::endl;
     int ret = system(cmd.c_str());
     VW_ASSERT( ret == 0,
                ArgumentErr() << "Failed to execute: " << cmd << "\n" );
   }
   if (!fs::exists(right_output_file)){
-    cmd = "ln -s " + right_img_full_path.string() + " " + right_output_file;
+    cmd = "ln -s " + right_img_abs_path.string() + " " + right_output_file;
     vw_out() << cmd << std::endl;
     int ret = system(cmd.c_str());
     VW_ASSERT( ret == 0,
@@ -111,23 +134,17 @@ void create_sym_links(std::string const& left_input_file,
 }
 
 void stereo_preprocessing( Options& opt ) {
-
+  
   vw_out() << "\n[ " << current_posix_time_string()
            << " ] : Stage 0 --> PREPROCESSING \n";
-
+  
   // Normalize the images, unless the user prefers not to.
   std::string left_image_file, right_image_file;
   boost::shared_ptr<DiskImageResource>
     in_file1_rsrc( DiskImageResource::open(opt.in_file1) ),
     in_file2_rsrc( DiskImageResource::open(opt.in_file2) );
-  if (stereo_settings().skip_image_normalization                    && 
-      stereo_settings().alignment_method == "none"                  &&
-      boost::iends_with(boost::to_lower_copy(opt.in_file1), ".tif") &&
-      boost::iends_with(boost::to_lower_copy(opt.in_file2), ".tif") &&
-      std::isnan(stereo_settings().nodata_value)                    &&
-      (!in_file1_rsrc->has_nodata_read())                           &&
-      (!in_file2_rsrc->has_nodata_read())
-      )
+  bool skip_img_norm = skip_image_normalization(opt);
+  if (skip_img_norm)
     create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
                      left_image_file, right_image_file);
   else
@@ -176,15 +193,26 @@ void stereo_preprocessing( Options& opt ) {
                                 right_image.cols(), right_image.rows() ),
                   asp::threaded_edge_mask(right_image,0,0,1024));
 
-    // Mask no-data pixels. Read the no-data values written to disk
-    // previously when the normalized left and right images were
-    // created.
+    // Read the no-data values of L.tif and R.tif.
     float left_nodata_value = std::numeric_limits<float>::quiet_NaN();
     float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
     if ( left_rsrc->has_nodata_read() )
       left_nodata_value  = left_rsrc->nodata_read();
     if ( right_rsrc->has_nodata_read() )
       right_nodata_value = right_rsrc->nodata_read();
+
+    // We need to treat the following special case: if the user
+    // skipped image normalization, so we are still using the original
+    // input images, and the user wants to use a custom no-data value,
+    // this is the time to apply it.
+    if (skip_img_norm &&
+        !std::isnan(stereo_settings().nodata_value)
+        ){
+      left_nodata_value = stereo_settings().nodata_value;
+      right_nodata_value = stereo_settings().nodata_value;
+    }
+    
+    // Mask no-data pixels. 
     left_mask = intersect_mask(left_mask,
                                create_mask_less_or_equal(left_image,
                                                          left_nodata_value));
@@ -192,12 +220,17 @@ void stereo_preprocessing( Options& opt ) {
                                 create_mask_less_or_equal(right_image,
                                                           right_nodata_value));
 
-    // Invalidate pixels below threshold.
-
+    // Invalidate pixels below (normalized) threshold. This is experimental.
     double left_threshold  = std::numeric_limits<double>::quiet_NaN();
     double right_threshold = std::numeric_limits<double>::quiet_NaN();
     double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
     double nodata_factor   = stereo_settings().nodata_optimal_threshold_factor;
+    if ( skip_img_norm &&
+         ((!std::isnan(nodata_fraction)) || (!std::isnan(nodata_factor))) ){
+      vw_throw( ArgumentErr()
+                << "\nCannot skip image normalization while attempting "
+                << "to apply a normalized threshold.\n");
+    }
     if ( (!std::isnan(nodata_fraction)) && (!std::isnan(nodata_factor)) ){
       vw_throw( ArgumentErr()
                 << "\nCannot set both nodata-pixel-percentage and "
