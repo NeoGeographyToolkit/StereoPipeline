@@ -2,10 +2,10 @@
 
 TOOLS
 
-  - Added wv_correct, for correcting artifacts in Digital Globe
-    WorldView-2 images with TDI of 16. These subpixel artifacts, while
-    not obvious in the images, result in noticeable artificial
-    discontinuities in the stereo results.
+  - Added wv_correct, a tool for correcting artifacts in Digital Globe
+    WorldView-1 and WorldView-2 images with TDI of 16. These subpixel
+    artifacts, while not obvious in the images, result in noticeable
+    artificial discontinuities in the stereo results.
 
 GENERAL 
   - Added logging to a file for stereo and other tools.
@@ -17,6 +17,7 @@ GENERAL
       North-East-Down vector rather than just its magnitude.
 
   - Added a tutorial for processing Digital Globe Earth imagery.
+  - Improved mosacking of Digital Globe images.
 
   - pc_align:
     * Display the translation component of the rigid alignment transform
