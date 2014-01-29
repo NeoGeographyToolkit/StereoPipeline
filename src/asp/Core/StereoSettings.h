@@ -142,7 +142,9 @@ namespace asp {
     int subpixel_pyramid_levels;
 
     // Filtering Options
+    int filter_mode;                  // Which filter mode to use
     vw::Vector2i rm_half_kernel;      // Low confidence pixel removal kernel size
+    int max_mean_diff;                // Max mean diff between pixel and neighbors
     int rm_min_matches;               // Min # of pxl to be matched to keep pxl
     int rm_threshold;                 // rm_treshold < disp[n]-disp[m] reject pxl
     int rm_cleanup_passes;            // Number of times to perform cleanup

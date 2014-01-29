@@ -8,6 +8,10 @@ TOOLS
     artificial discontinuities in the stereo results.
 
 GENERAL 
+
+  - Relaxed filtering of disparities, retaining more valid disparities.
+    Can be adjusted with the 'filter-mode' and related parameters.
+
   - Added logging to a file for stereo and other tools.
 
   - Triangulation:
@@ -17,6 +21,7 @@ GENERAL
       North-East-Down vector rather than just its magnitude.
 
   - Added a tutorial for processing Digital Globe Earth imagery.
+
   - Improved mosacking of Digital Globe images.
 
   - pc_align:

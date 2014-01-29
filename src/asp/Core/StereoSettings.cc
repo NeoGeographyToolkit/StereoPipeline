@@ -157,12 +157,16 @@ namespace asp {
   FilteringDescription::FilteringDescription() : po::options_description("Filtering Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
+      ("filter-mode", po::value(&global.filter_mode)->default_value(1),
+       "Disparity filter mode. [0 None, 1 Use mean difference to neighbors (invalidates fewer pixels), 2 Use thresholds (invalidates more pixels)]")
       ("rm-half-kernel", po::value(&global.rm_half_kernel)->default_value(Vector2i(5,5), "5 5"),
        "Low confidence pixel removal kernel (half sized)")
+      ("max-mean-diff", po::value(&global.max_mean_diff)->default_value(3),
+       "Maximum difference between current pixel disparity and disparity of neighbors to still keep current disparity (for filter mode 1)")
       ("rm-min-matches", po::value(&global.rm_min_matches)->default_value(60),
-       "Minimum number of pixels to be matched to keep sample")
+       "Minimum number of pixels to be matched to keep sample (for filter mode 2)")
       ("rm-threshold", po::value(&global.rm_threshold)->default_value(3),
-       "Maximum distance between samples to be considered still matched")
+       "Maximum distance between samples to be considered still matched (for filter mode 2)")
       ("rm-cleanup-passes", po::value(&global.rm_cleanup_passes)->default_value(1),
        "Number of passes for cleanup during the post-processing phase")
       ("erode-max-size", po::value(&global.erode_max_size)->default_value(1000),

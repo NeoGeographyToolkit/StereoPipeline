@@ -279,6 +279,17 @@ value will result in no timeout enforcement.
 
 \begin{description}
 
+\item[filter-mode \textnormal{\small{(= \emph{integer})}} (default = 1)]
+\hfill \\ This parameter sets the filter mode. Three modes are supported
+as described below. Here, by neighboring pixels for a current pixel we
+mean those pixels within the window of half-size of
+\texttt{rm-half-kernel} centered at the current pixel.
+  \begin{description}
+    \item[0] - No filtering.
+    \item[1] - Filter by discarding pixels at which disparity differs from mean disparity of neighbors by more than \texttt{max-mean-diff}. 
+    \item[2] - Filter by discarding pixels at which percentage of neighboring disparities that are within \texttt{rm-threshold} of current disparity is less than \texttt{rm-min-matches}. 
+  \end{description}
+ 
 \item[rm-half-kernel \textnormal{\small{(= \emph{integer integer})}} (default = 5 5)] \hfill \\
   This setting adjusts the behavior of an outlier rejection scheme
   that ``erodes'' isolated regions of pixels in the disparity map that
@@ -289,17 +300,21 @@ value will result in no timeout enforcement.
   $5 \times 5$ half kernel would result in an $11 \times 11$ kernel
   with 121 pixels in it.
 
+\item[max-mean-diff \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
+  This parameter sets the {\em maximum difference} between the current pixel disparity and the mean of disparities of neighbors in order for a
+  given disparity value to be retained (for \texttt{filter-mode} 1).
+
 \item[rm-min-matches \textnormal{\small{(= \emph{integer})}} (default = 60)] \hfill \\
   This parameter sets the {\em percentage} of neighboring disparity
   values that must fall within the inlier threshold in order for a
-  given disparity value to be retained.
+  given disparity value to be retained (for \texttt{filter-mode} 2).
 
 \item[rm-threshold \textnormal{\small{(= \emph{integer})}} (default = 3)] \hfill \\
   This parameter sets the inlier threshold for the outlier rejection
   scheme.  This option works in conjunction with RM\_MIN\_MATCHES
   above.  A disparity value is rejected if it differs by more than
   RM\_THRESHOLD disparity values from RM\_MIN\_MATCHES percent of
-  pixels in the region being considered.
+  pixels in the region being considered  (for \texttt{filter-mode} 2).
 
 \item[rm-clean-passes \textnormal{\small{(= \emph{integer})}} (default = 1)] \hfill \\
   Select the number of outlier removal passes that are carried out.
@@ -316,12 +331,12 @@ value will result in no timeout enforcement.
 %
 \item[disable-fill-holes (default = false)] \hfill \\
 
-  Normally ASP will try to fill holes in the dispartiy map (caused by
+  Normally ASP will try to fill holes in the disparity map (caused by
   poor matching) with an inpainting algorithm. Inpainting is a
   convolution method that takes the values at the edges of holes and
   spreads those values inward.
 
-  Use this flag inorder to disable the filling of holes to leave only
+  Use this flag in order to disable the filling of holes to leave only
   true calculated results in the output.
 
   Note: you can always use the good pixel mask image ({\tt

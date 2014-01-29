@@ -73,20 +73,21 @@ void produce_lowres_disparity( Options & opt ) {
 
     asp::block_write_gdal_image
       (opt.out_prefix + "-D_sub.tif",
-       remove_outliers(stereo::pyramid_correlate
-                       (left_sub, right_sub,
-                        left_mask_sub, right_mask_sub,
-                        stereo::LaplacianOfGaussian(stereo_settings().slogW),
-                        search_range,
-                        stereo_settings().corr_kernel,
-                        stereo::CROSS_CORRELATION,
-                        corr_timeout, seconds_per_op,
-                        2, 5),
-                       1, 1, 2.0, 0.5
-                       ), opt,
+       rm_outliers_using_thresh
+       (stereo::pyramid_correlate
+        (left_sub, right_sub,
+         left_mask_sub, right_mask_sub,
+         stereo::LaplacianOfGaussian(stereo_settings().slogW),
+         search_range,
+         stereo_settings().corr_kernel,
+         stereo::CROSS_CORRELATION,
+         corr_timeout, seconds_per_op,
+         2, 5),
+        1, 1, 2.0, 0.5
+        ), opt,
        TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
        );
-
+    
   }else if ( stereo_settings().seed_mode == 2 ) {
     // Use a DEM to get the low-res disparity
     boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;

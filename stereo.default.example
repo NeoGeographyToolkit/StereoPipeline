@@ -64,7 +64,9 @@ subpixel-kernel 21 21
 # disable-fill-holes
 
 # Automatic "erode" low confidence pixels
+filter-mode 1
 rm-half-kernel 5 5
+max-mean-diff 3
 rm-min-matches 60
 rm-threshold 3
 rm-cleanup-passes 1
