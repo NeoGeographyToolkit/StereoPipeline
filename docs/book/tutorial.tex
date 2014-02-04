@@ -779,7 +779,7 @@ chapter in that at no point will we be using ISIS utilities. This is
 because ISIS only supports NASA instruments while most Earth imagery
 comes from commercial providers.
 
-Digital Globe provides imagery from the Quick Bird and the three World
+Digital Globe provides imagery from the Quick Bird and the two World
 View satellites. These are the hardest images to process with Ames
 Stereo Pipeline because they are exceedingly large, much larger than
 HiRISE imagery. There is also a wide range of terrain challenges and
@@ -987,6 +987,10 @@ artifacts are most pronounced). It can be invoked as follows:
     > wv_correct WV02_image.ntf WV02_image.xml WV02_image_out.tif
 \end{verbatim}
 
+The corrected images can be used just as the originals, and the camera models
+do not change. So one can mosaic them, perform map-projection, do
+stereo, etc.
+ 
 The tool is described in section \ref{wvcorrect}, and an example of
 using it is in Figure \ref{fig:ccd-artifact-example}.
 
@@ -994,7 +998,7 @@ using it is in Figure \ref{fig:ccd-artifact-example}.
 \centering
   \includegraphics[width=3.0in]{images/examples/ccd_before.png}
   \includegraphics[width=3.0in]{images/examples/ccd_after.png}
-\caption{Example of of a hillshaded terrain obtained using stereo without (left) and with (right) CCD boundary artifact correction applied using \texttt{wv\_correct}.}
+\caption{Example of a hillshaded terrain obtained using stereo without (left) and with (right) CCD boundary artifact corrections applied using \texttt{wv\_correct}.}
 \label{fig:ccd-artifact-example}
 \end{figure}
 
