@@ -9,8 +9,9 @@ The Stereo Pipeline package contains command-line programs that
 convert a stereo pair in ISIS {\em cube} format into a 3D ``point
 cloud'' image: \texttt{\textit{stereo-output}-PC.tif}.  This is an
 intermediate format that can be passed along to one of several
-programs that convert a point cloud into a mesh for 3D viewing or a
-gridded digital elevation model (DEM) for GIS purposes.
+programs that convert a point cloud into a mesh for 3D viewing, a
+gridded digital elevation model (DEM) for GIS purposes, or a LAS/LAZ
+point cloud.
 
 There are a number of ways to fine-tune parameters and analyze the
 results, but ultimately this software suite takes images and builds
@@ -236,6 +237,9 @@ important values in that file.
         subpixel-kernel 21 21
 \end{verbatim}
 
+All these options can be overridden from the command line, as described 
+in section \ref{cmdline}.
+
 \subsubsection*{Alignment Method}
 
 The most important line in \texttt{stereo.default} is the
@@ -347,6 +351,7 @@ image. Section \ref{visualising} describes how to convert it to a
 digital elevation model (DEM) or other formats.
 
 \subsection{Specifying Settings on the Command Line}
+\label{cmdline}
 
 All the settings given via the \texttt{stereo.default} file can be
 over-ridden from the command line. Just add a double hyphen
@@ -625,9 +630,10 @@ sure to take your time to explore all of the options.
 
 Often times, the 3D terrain models output by \texttt{stereo} (point
 clouds and DEMs) can be intrinsically quite accurate, yet their actual
-position on the planet may be off by up to several tens of meters. This
-can result from small errors in the position and orientation of the
-satellite cameras taking the pictures.
+position on the planet may be off by several meters or several
+kilometers, depending on the spacecraft. This can result from small
+errors in the position and orientation of the satellite cameras taking
+the pictures.
 
 ASP provides a tool named \texttt{pc\_align} for aligning such 3D
 terrains to a much more accurately positioned (if potentially sparser)
@@ -767,6 +773,12 @@ Figure \ref{hrad-kml} shows the obtained KML files in Google Earth.
 \chapter{Tutorial: Processing Digital Globe Imagery}
 \label{ch:dg_tutorial}
 
+In this chapter we will focus on how to process Earth imagery, or more
+specifically Digital Globe imagery. This is different from our previous
+chapter in that at no point will we be using ISIS utilities. This is
+because ISIS only supports NASA instruments while most Earth imagery
+comes from commercial providers.
+
 Digital Globe provides imagery from the Quick Bird and the three World
 View satellites. These are the hardest images to process with Ames
 Stereo Pipeline because they are exceedingly large, much larger than
@@ -780,13 +792,16 @@ with and have focused on. If we can make models of wooded or urban
 areas, that is a bonus, but we can't provide any advice for how to
 perform or improve the results if you choose to use ASP in that way.
 
-ASP can only process Level 1B imagery and cannot process Digital Globe's
-aerial imagery. We can pull a camera model from the RPC coefficients or
-from their linear camera model described in the provided XML files. We
-won't be discussing the RPC method in this section, however you can
-learn more about it in the later example (section \ref{rpc}) where we
-discuss processing GeoEye imagery which comes only with RPC
-coefficients.
+ASP can only process Level 1B satellite imagery, and cannot process
+Digital Globe's aerial images.
+
+The camera information for Digital Globe images is contained in an XML
+file for each image. In addition to the exact linear camera model, the
+XML file also has its RPC approximation. In this chapter we will focus
+only on procesing data using the linear camera model.  For more detail
+on RPC camera models we refer to section \ref{rpc} on page
+\pageref{rpc}, which discusses processing GeoEye imagery which comes
+only with RPC coefficients.
 
 Our implementation of the linear camera model only
 models the geometry of the imaging hardware itself and velocity
@@ -841,10 +856,10 @@ you use an affine epipolar alignment to reduce the search range. The
 \texttt{stereo} command and a rendering in QGIS are shown below.
 
 \begin{verbatim}
-    > stereo -t dg                                            \
-             12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF \
-             12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF \
-             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+    > stereo -t dg --subpixel-mode 1 --alignment-method affineepipolar \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.TIF          \
+             12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF          \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML          \
              12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML dg/dg
 \end{verbatim}
 
@@ -857,6 +872,10 @@ you use an affine epipolar alignment to reduce the search range. The
 \label{fig:dg-nomap-example}
 \end{figure}
 
+Above, we have used \texttt{subpixel-mode 1} which is less accurate but reasonably fast. 
+More details about how to set this and other \texttt{stereo} parameters can be found
+in section \ref{settingoptionsinstereodefault}.
+
 It is important to note that we could have performed stereo using the
 approximate RPC model instead of the exact linear camera model (both
 models are in the same XML file), by switching the session in the
@@ -864,14 +883,6 @@ models are in the same XML file), by switching the session in the
 rpc}. The RPC model is somewhat less accurate, so the results will not
 be the same, in our experiments we've seen differences in the 3D
 terrains using the two approaches of 5 meters or more.
-
-\subsubsection*{stereo.default}
-
-The stereo.default example file (appendix \ref{ch:stereodefault}) works
-generally well with all Digital Globe pairs. Just set
-\texttt{alignment-method} to \texttt{affineepipolar} or
-\texttt{homography}, since in this case we are using non-projected
-images.
 
 \section{Processing Map-Projected Imagery}
 \label{mapproj}
@@ -943,7 +954,8 @@ stereo call is the input low-resolution DEM.
         12FEB12053341-P1BS_R2C1-052783824050_01_P001.TIF   \
         12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML   \
         right_mapped.tif
-    > stereo -t dg left_mapped.tif right_mapped.tif           \
+    > stereo -t dg --subpixel-mode 1 --alignment-method none  \
+             left_mapped.tif right_mapped.tif                 \
              12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
              12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
              dg/dg srtm_53_07.tif
@@ -955,12 +967,12 @@ the low-resolution input DEM.
 The complete list of options for \texttt{mapproject} is described in
 section \ref{mapproject}.
 
-\subsubsection*{stereo.default}
-
-The stereo.default example file (appendix \ref{ch:stereodefault}) works
-generally well with all Digital Globe pairs. Just set
-\texttt{alignment-method} to \texttt{none} since the images are
-map-projected.
+In the \texttt{stereo} command, we have used \texttt{subpixel-mode 1}
+which is less accurate but reasonably fast. We have also used
+\texttt{alignment-method none}, since the images are map-projected, and
+thus no alignment is necessary. More details about how to set these and
+other \texttt{stereo} parameters can be found in section
+\ref{settingoptionsinstereodefault}.
 
 \section{Handling CCD Boundary Artifacts}
 
@@ -968,8 +980,8 @@ Digital Globe World View images may exhibit, especially at low TDI
 \cite{digital-globe:camera}, slight subpixel artifacts which manifest
 themselves as discontinuities in the 3D terrain obtained using ASP. We
 provide a tool named \texttt{wv\_correct} which can largely correct such
-artifacts for World View-2 images for TDI of 16 (when artifacts are most
-pronounced). It can be invoked as follows:
+artifacts for World View-1 and World View-2 images for TDI of 16 (when
+artifacts are most pronounced). It can be invoked as follows:
 
 \begin{verbatim}
     > wv_correct WV02_image.ntf WV02_image.xml WV02_image_out.tif
@@ -1015,6 +1027,16 @@ suggested to use somewhat fewer levels than the default
 \texttt{-\/-corr-max-levels 5}, to again not subsample the images too much
 and lose the features.
 
+Here is an example:
+
+\begin{verbatim}
+    > stereo -t dg --corr-seed-mode 3 --corr-max-levels 3     \
+             left_mapped.tif right_mapped.tif                 \
+             12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
+             12FEB12053341-P1BS_R2C1-052783824050_01_P001.XML \
+             dg/dg srtm_53_07.tif
+\end{verbatim}
+
 It is important to note that \texttt{sparse\_disp} is written in Python
 and depends on a variety of binary Python modules. These modules cannot
 be distributed with Stereo Pipeline as they depend on the version of
@@ -1031,7 +1053,7 @@ this tool for your platform. The script and instructions are at
 \centering
   \includegraphics[width=3.0in]{images/examples/sparse_disp1.png}
   \includegraphics[width=3.0in]{images/examples/sparse_disp3.png}
-\caption{Example of a difficult flat terrain without (left) and with (right) using \texttt{sparse\_disp}.}
+\caption{Example of a difficult flat terrain without (left) and with (right) using \texttt{sparse\_disp}. (In these DEMs there is very little elevation change, hence the featureless appearance.)}
 \label{fig:sparse-disp-example}
 \end{figure}
 
