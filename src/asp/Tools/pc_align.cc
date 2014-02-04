@@ -159,6 +159,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The max-displacement option was not set. Use -1 if it is desired not to use it.\n"
               << usage << general_options );
 
+  if ( opt.num_iter < 0 )
+    vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n"
+              << usage << general_options );
+
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
   
@@ -1219,10 +1223,14 @@ int main( int argc, char *argv[] ) {
                   << opt.config_file << "\n" );
       icp.loadFromYaml(ifs);
     }
-    PointMatcher<RealT>::Matrix T = icp(source, ref, Id,
-                                        opt.compute_translation_only);
-    vw_out() << "Match ratio: " << icp.errorMinimizer->getWeightedPointUsedRatio()
-             << endl;
+    // We bypass calling ICP if the user explicitely asks for 0 iterations.
+    PointMatcher<RealT>::Matrix T = Id;
+    if (opt.num_iter > 0){
+      T = icp(source, ref, Id,
+              opt.compute_translation_only);
+      vw_out() << "Match ratio: "
+               << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
+    }
     sw6.stop();
     if (opt.verbose) vw_out() << "ICP took "
                               << sw6.elapsed_seconds() << " [s]" << endl;
