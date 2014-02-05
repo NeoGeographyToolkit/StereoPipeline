@@ -69,8 +69,13 @@ void produce_lowres_disparity( Options & opt ) {
     // Below we use on purpose stereo::CROSS_CORRELATION instead of
     // user's choice of correlation method, since this is the most
     // accurate, as well as reasonably fast for sub-sampled images.
-    int corr_timeout = 0; double seconds_per_op = 0.0;
-
+    stereo::CostFunctionType cost_mode = stereo::CROSS_CORRELATION; // hard-coded
+    Vector2i kernel_size  = stereo_settings().corr_kernel;
+    int corr_timeout      = 5*stereo_settings().corr_timeout; // 5x, so try hard
+    double seconds_per_op = 0.0;
+    if (corr_timeout > 0)
+      seconds_per_op = calc_seconds_per_op(cost_mode, left_sub,
+                                           right_sub, kernel_size);
     asp::block_write_gdal_image
       (opt.out_prefix + "-D_sub.tif",
        rm_outliers_using_thresh
@@ -78,11 +83,9 @@ void produce_lowres_disparity( Options & opt ) {
         (left_sub, right_sub,
          left_mask_sub, right_mask_sub,
          stereo::LaplacianOfGaussian(stereo_settings().slogW),
-         search_range,
-         stereo_settings().corr_kernel,
-         stereo::CROSS_CORRELATION,
+         search_range, kernel_size, cost_mode,
          corr_timeout, seconds_per_op,
-         2, 5),
+         stereo_settings().xcorr_threshold, stereo_settings().corr_max_levels),
         1, 1, 2.0, 0.5
         ), opt,
        TerminalProgressCallback("asp", "\t--> Low-resolution disparity:")
