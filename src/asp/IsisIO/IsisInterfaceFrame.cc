@@ -64,7 +64,7 @@ IsisInterfaceFrame::point_to_pixel( Vector3 const& point ) const {
   lookB_copy = m_camera->bodyRotation()->J2000Vector(lookB_copy);
   lookB_copy = m_camera->instrumentRotation()->ReferenceVector(lookB_copy);
   std::copy( lookB_copy.begin(), lookB_copy.end(), look.begin() );
-  look = m_camera->FocalLength() * ( look / look[2] );
+  look = m_camera->FocalLength() * ( look / std::abs(look[2]) );
 
   // Back Projecting
   m_distortmap->SetUndistortedFocalPlane( look[0], look[1] );
