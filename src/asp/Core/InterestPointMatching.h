@@ -202,7 +202,7 @@ namespace asp {
                                << sw.elapsed_seconds() << " s." << std::endl;
 
     vw_out() << "\t    Found interest points:\n"
-             << "\t      left: " << ip1.size() << "\n";
+             << "\t      left: " << ip1.size() << std::endl;
     vw_out() << "\t     right: " << ip2.size() << std::endl;
   }
 
