@@ -762,10 +762,13 @@ The input point clouds can be in one of several formats: ASP's point
 cloud format, DEMs as GeoTiff files, or plain-text CSV files (with .csv
 or .txt extension). CSV files are expected to have on each line the
 latitude, longitude, and height above the datum (separated by commas or
-spaces). The datum itself can be set via the \texttt{-\/-datum} option
-(\texttt{pc\_align} attempts to infer the datum from the data if not
-provided).  The tool can also read the LOLA RDR PointPerRow format (when
-the datum is assumed to be of the Moon).
+spaces, with an optional header line), or to be in the LOLA RDR
+PointPerRow format.
+
+If none of the input files are a DEM, from which the datum can be
+inferred, the datum needs to be specified by the user via the
+\texttt{-\/-datum} option, or by setting \texttt{-\/-semi-major-axis} and
+\texttt{-\/-semi-minor-axis}.
 
 The transform obtained by \texttt{pc\_align} is output to a file as a
 $4\times 4$ matrix, with the upper-left $3\times 3$ submatrix being the
@@ -844,7 +847,11 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
 \texttt{-\/-datum \textit{}} & Use this datum for CSV files instead of
-auto-detecting it. [WGS\_1984, D\_MOON, D\_MARS, etc.] \\ \hline
+auto-detecting it. [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS (radius is assumed to be 33916190 meters), etc.] \\ \hline
+
+\texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis in meters.\\ \hline
+\texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis in meters.\\ \hline
+
 \texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
 option. Read the alignment parameters from a configuration file, in the
 format expected by libpointmatcher, over-riding the command-line options.\\ \hline

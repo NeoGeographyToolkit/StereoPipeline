@@ -10,7 +10,7 @@ TOOLS
 GENERAL 
 
   - Relaxed filtering of disparities, retaining more valid disparities.
-    Can be adjusted with the 'filter-mode' and related parameters.
+    Can be adjusted with 'filter-mode' and related parameters.
 
   - Added logging to a file for stereo and other tools.
 
@@ -28,7 +28,8 @@ GENERAL
     * Display the translation component of the rigid alignment transform
       in the local North-East-Down coordinate system.
     * Save to disk the convergence history (iteration information).
-  
+    * Added the ability to explicitely specify the datum semi-axes.
+
 *** RELEASE 2.3.0, 19 November, 2013 ***
 
 TOOLS
