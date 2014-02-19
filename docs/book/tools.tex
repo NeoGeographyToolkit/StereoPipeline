@@ -795,7 +795,7 @@ be amenable to good interpretation.
 
 The tool outputs to a file the complete list of errors together with
 their location, where an error is defined as the distance from a source
-point to the closest reference point. It displays the 16th, 50th, and
+point used in alignment to the closest reference point. It displays the 16th, 50th, and
 84th error percentiles, as well as the means of the smallest 25\%, 50\%,
 75\%, and 100\% of the errors, all these before and the after alignment
 transform is applied to the source points.
@@ -846,8 +846,7 @@ Maximum number of (randomly picked) reference points to use. \\ \hline
 \texttt{-\/-alignment-method \textit{default: point-to-plane}} & The type of iterative closest point
 method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
-\texttt{-\/-datum \textit{}} & Use this datum for CSV files instead of
-auto-detecting it. [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS (radius is assumed to be 33916190 meters), etc.] \\ \hline
+\texttt{-\/-datum \textit{}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS (radius is assumed to be 33916190 meters), etc.] \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis in meters.\\ \hline
 \texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis in meters.\\ \hline
