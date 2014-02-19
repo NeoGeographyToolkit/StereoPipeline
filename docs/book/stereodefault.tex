@@ -362,28 +362,19 @@ mean those pixels within the window of half-size of
 \item[near-universe-radius \textnormal{\small{(= \emph{float})}} (default = 0.0)]
 \item[far-universe-radius \textnormal{\small{(= \emph{float})}} (default = 0.0)] \hfill \\
   These parameters can be used to filter out triangulated points in
-  the 3D point cloud by setting an near and far radius value from
-  origin of the point cloud's coordinate system, [0,0,0].  For most
-  ISIS cameras, the origin is the center of the body (e.g. the Moon or
-  Mars), and is part of a body-fixed Cartesian coordinate system that
-  rotates with the planet.
-
-  These settings are most useful for other stereo session types
-  (e.g. pinhole), where the origin of the coordinate system is often
-  one of the cameras in a stereo pair.  In this case, these parameters
-  can be used to reject pixels that are too close or too far from the
-  camera system.
+  the 3D point cloud. The points that will be kept are those
+  whose distance from the universe center (see below) is between
+  \texttt{near-universe-radius} and \texttt{far-universe-radius}, in meters.
 
 \item[universe-center \textnormal (default = none)] \hfill \\
-  Defines the origin to use when filtering the output point cloud
+  Defines the reference location to use when filtering the output point cloud
   using the above near and far radius options. The available options
   are:
 
   \begin{description}
     \item[None] - Disable filtering.
-    \item[Camera] - Filter in terms of radii from the left camera's
-      center.
-    \item[Zero] - Filter in terms of radii from the target's center.
+    \item[Camera] - Use the left camera's center as the universe radius.
+    \item[Zero]   - Use the point cloud origin as the universe radius.
   \end{description}
 
 \item[max-valid-triangulation-error \textnormal{\small{(= \emph{float})}}]
