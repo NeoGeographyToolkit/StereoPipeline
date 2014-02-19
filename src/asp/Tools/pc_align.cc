@@ -208,8 +208,8 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
         opt.init_transform(row, col) = a;
       }
     }
-    cout.precision(16);
-    cout << "Initial guess transform:\n" << opt.init_transform << endl;
+    vw_out().precision(16);
+    vw_out() << "Initial guess transform:\n" << opt.init_transform << endl;
   }
 
 }
@@ -915,7 +915,7 @@ void save_errors(DP const& point_cloud,
   // Save the lon, lat, radius/height, and error. Use a format
   // consistent with the input CSV format.
 
-  std::cout << "Writing: " << output_file << std::endl;
+  vw_out() << "Writing: " << output_file << std::endl;
 
   VW_ASSERT(point_cloud.features.cols() == errors.cols(),
             ArgumentErr() << "Expecting as many errors as source points.");
@@ -1281,25 +1281,25 @@ int main( int argc, char *argv[] ) {
     PointMatcher<RealT>::Matrix globalT = apply_shift(combinedT, -shift);
 
     // Print statistics
-    cout.precision(16);
-    cout << "Alignment transform (rotation + translation, "
+    vw_out().precision(16);
+    vw_out() << "Alignment transform (rotation + translation, "
          << "origin is planet center):" << endl << globalT << endl;
-    cout << "Translation vector (Cartesian, meters): " << trans_xyz << std::endl;
-    cout << "Translation vector (North-East-Down, meters): "
+    vw_out() << "Translation vector (Cartesian, meters): " << trans_xyz << std::endl;
+    vw_out() << "Translation vector (North-East-Down, meters): "
          << trans_ned << std::endl;
-    cout << "Translation vector magnitude (meters): " << norm_2(trans_xyz)
+    vw_out() << "Translation vector magnitude (meters): " << norm_2(trans_xyz)
          << std::endl;
     // Swap lat and lon, as we want to print lat first
     std::swap(trans_llh[0], trans_llh[1]);
-    std::cout << "Translation vector (lat,lon,z): " << trans_llh << std::endl;
+    vw_out() << "Translation vector (lat,lon,z): " << trans_llh << std::endl;
     
     Matrix3x3 rot;
     for (int r = 0; r < DIM; r++) for (int c = 0; c < DIM; c++)
       rot(r, c) = globalT(r, c);
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle( rot) * 180/M_PI;
-    cout << "Euler angles (degrees): " << euler_angles  << endl;
-    cout << "Axis of rotation and angle (degrees): "
+    vw_out() << "Euler angles (degrees): " << euler_angles  << endl;
+    vw_out() << "Axis of rotation and angle (degrees): "
          << axis_angles/norm_2(axis_angles) << ' '
          << norm_2(axis_angles) << endl;
     
