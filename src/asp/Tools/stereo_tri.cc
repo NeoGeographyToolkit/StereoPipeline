@@ -426,7 +426,6 @@ void stereo_triangulation( Options const& opt ) {
                                      stereo_settings().near_universe_radius,
                                      stereo_settings().far_universe_radius);
       }
-      vw_out() << "\t--> " << universe_radius_func;
     }catch(...){
       vw_out(WarningMessage) << "Could not find the camera center. Will not be able to filter triangulated points by radius.\n";
     }
@@ -468,7 +467,10 @@ void stereo_triangulation( Options const& opt ) {
       point_cloud = per_pixel_filter(point_cloud,
                                      LargeTriErrorFilter(min_tri_err));
     
-    if (stereo_settings().compute_point_cloud_center_only) return;
+    if (stereo_settings().compute_point_cloud_center_only){
+      vw_out() << "Computed the point cloud center. Will stop here." << std::endl;
+      return;
+    }
 
     // We are supposed to do the triangulation in trans_crop_win only.
     // So force rasterization in that box only using crop(), then pad
@@ -491,6 +493,10 @@ void stereo_triangulation( Options const& opt ) {
                        opt);
     }
 
+    // Must print this at the end, as it contains statistics on the number of
+    // rejected points.
+    vw_out() << "\t--> " << universe_radius_func;
+    
   } catch (IOErr const& e) {
     vw_throw( ArgumentErr() << "\nUnable to start at point cloud stage -- could not read input files.\n"
               << e.what() << "\nExiting.\n\n" );
