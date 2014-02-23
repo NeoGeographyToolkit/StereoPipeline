@@ -72,6 +72,7 @@ namespace cartography {
     template <class ViewT>
     class SubBlockBoundaryTask : public Task, private boost::noncopyable {
       ViewT m_view;
+      int m_sub_block_size;
       BBox2i m_image_bbox;
       BBox3& m_global_bbox;
       std::vector<BBoxPair>& m_point_image_boundaries;
@@ -90,10 +91,13 @@ namespace cartography {
       };
 
     public:
-      SubBlockBoundaryTask( ImageViewBase<ViewT> const& view, BBox2i const& image_bbox,
+      SubBlockBoundaryTask( ImageViewBase<ViewT> const& view,
+                            int sub_block_size,
+                            BBox2i const& image_bbox,
                             BBox3& global_bbox, std::vector<BBoxPair>& boundaries,
                             Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
-        m_view(view.impl()), m_image_bbox(image_bbox),
+        m_view(view.impl()), m_sub_block_size(sub_block_size),
+        m_image_bbox(image_bbox),
         m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
         m_mutex( mutex ), m_progress( progress ), m_inc_amt( inc_amt ) {}
       void operator()() {
@@ -102,14 +106,14 @@ namespace cartography {
 
         // Further subdivide into boundaries so
         // that prerasterize will only query what it needs.
-        const int32 SUBBLOCKSIZE = 16;
         std::vector<BBox2i> blocks =
-          image_blocks( m_image_bbox, SUBBLOCKSIZE, SUBBLOCKSIZE );
+          image_blocks( m_image_bbox, m_sub_block_size, m_sub_block_size );
         BBox3 local_union;
         std::list<BBoxPair> solutions;
         for ( size_t i = 0; i < blocks.size(); i++ ) {
           GrowBBoxAccumulator accum;
-          for_each_pixel( crop( local_copy, blocks[i] - m_image_bbox.min() ), accum );
+          for_each_pixel( crop( local_copy, blocks[i] - m_image_bbox.min() ),
+                          accum );
           if ( !accum.bbox.empty() ) {
             accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
             accum.bbox.max()[1] = boost::math::float_next(accum.bbox.max()[1]);
@@ -118,6 +122,8 @@ namespace cartography {
           }
         }
 
+        // Append to the global list of boxes and expand the point
+        // cloud bounding box.
         if ( local_union != BBox3() ) {
           Mutex::Lock lock( m_mutex );
           for ( std::list<BBoxPair>::const_iterator it = solutions.begin();
@@ -135,6 +141,9 @@ namespace cartography {
     typedef const PixelT result_type;
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
 
+    // Estimated size of each point cloud pixel in geodetic units
+    double m_pix2point;
+    
     template <class TextureViewT>
     OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing = 0.0,
                         const ProgressCallback& progress = ProgressCallback::dummy_instance()) :
@@ -148,12 +157,13 @@ namespace cartography {
       // They're used for querying what part of the image we need
       VW_OUT(DebugMessage,"asp") << "Computing raster bounding box...\n";
 
-      static const int32 BBOX_SPACING = 256; // Ideally this would be
-                                             // the same as the input
-                                             // tile size so we hit
-                                             // cache appropriately.
+      // Ideally this would be the same as the input tile size so we
+      // hit cache appropriately.
+      static const int32 BLOCKSIZE = 256; 
+      const int32 SUBBLOCKSIZE = 16; // To further subdivide each block
+      
       std::vector<BBox2i> blocks =
-        image_blocks( m_point_image, BBOX_SPACING, BBOX_SPACING );
+        image_blocks( m_point_image, BLOCKSIZE, BLOCKSIZE );
 
       FifoWorkQueue queue( vw_settings().default_num_threads() );
       typedef SubBlockBoundaryTask<ImageT> task_type;
@@ -161,7 +171,7 @@ namespace cartography {
       float inc_amt = 1.0 / float(blocks.size());
       for ( size_t i = 0; i < blocks.size(); i++ ) {
         boost::shared_ptr<task_type>
-          task( new task_type( m_point_image, blocks[i],
+          task( new task_type( m_point_image, SUBBLOCKSIZE, blocks[i],
                                m_bbox, m_point_image_boundaries, mutex,
                                progress, inc_amt ) );
         queue.add_task( task );
@@ -177,6 +187,28 @@ namespace cartography {
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);
       VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
+
+      // Estimate the size of each point cloud pixel
+      int len = m_point_image_boundaries.size();
+      std::vector<double> vx, vy;
+      vx.reserve(len); vx.clear();
+      vy.reserve(len); vy.clear();
+      BOOST_FOREACH( BBoxPair const& boundary,
+                     m_point_image_boundaries ) {
+        if (boundary.first.empty()) continue;
+        vx.push_back(boundary.first.max().x() - boundary.first.min().x());
+        vy.push_back(boundary.first.max().y() - boundary.first.min().y());
+      }
+      std::sort(vx.begin(), vx.end());
+      std::sort(vy.begin(), vy.end());
+      m_pix2point = 0;
+      if (len > 0){
+        // Get the median
+        m_pix2point = (vx[(int)(0.5*len)] + vy[(int)(0.5*len)])/2.0;
+      }
+      // Divide by the subblock size
+      m_pix2point /= SUBBLOCKSIZE; 
+      
     }
 
     /// You can change the texture after the class has been
@@ -237,16 +269,48 @@ namespace cartography {
       renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, &vertices[0]);
       renderer.SetColorPointer(NUM_COLOR_COMPONENTS, &intensities[0]);
 
+      // From the box in the DEM pixel space, get the box in the point
+      // cloud pixel space.
       BBox2i point_image_boundary;
+      std::vector<double> cx, cy; // box centers in the point cloud pixel space
       BOOST_FOREACH( BBoxPair const& boundary,
                      m_point_image_boundaries ) {
         if ( local_3d_bbox.intersects(boundary.first) ) {
           point_image_boundary.grow( boundary.second );
+          cx.push_back((boundary.second.min().x()+boundary.second.max().x())/2.0);
+          cy.push_back((boundary.second.min().y()+boundary.second.max().y())/2.0);
         }
       }
-      point_image_boundary.expand(5); // bugfix, ensure we see enough beyond current tile
-      point_image_boundary.crop(vw::bounding_box(m_point_image));
+
+      // In some cases, the memory usage blows up. Then, roughly
+      // estimate how much of the input point cloud region we need to
+      // see for the given DEM tile, and multiply that region by a
+      // factor of FACTOR. Place that region at the median of the
+      // centers of the boxes used to grow the image boundary earlier,
+      // and intersect that with the current box. This will not kick
+      // in unless point_image_boundary estimated above is grossly
+      // larger than what it should be.
+      int FACTOR = 4;
+      Vector3 estim = (local_3d_bbox.max() - local_3d_bbox.min())/m_pix2point;
+      int max_len = (int)ceil(FACTOR*std::max(estim[0], estim[1]));
+      if (!cx.empty() &&
+          (point_image_boundary.width()  > max_len ||
+           point_image_boundary.height() > max_len)
+          ){
+        std::sort(cx.begin(), cx.end());
+        std::sort(cy.begin(), cy.end());
+        int midx = (int)round(cx[cx.size()/2]);
+        int midy = (int)round(cy[cy.size()/2]);
+        BBox2i smaller_boundary(midx - max_len/2, midy - max_len/2,
+                                max_len, max_len );
+        smaller_boundary.expand(1);
+        point_image_boundary.crop(smaller_boundary);
+      }
       
+      // Bugfix, ensure we see enough beyond current tile
+      point_image_boundary.expand(5);
+      point_image_boundary.crop(vw::bounding_box(m_point_image));
+
       if ( point_image_boundary == BBox2i() )
         return CropView<ImageView<pixel_type> >( render_buffer,
                                                  BBox2i(-bbox_1.min().x(),
