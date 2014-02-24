@@ -62,26 +62,28 @@ class ErodeView : public vw::ImageViewBase<ErodeView<ViewT> > {
 
   inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 /*p*/=0 ) const {
     // Ideally this should be an R-tree.
+    // - Searching through all bounding boxes for each pixel will be
+    //    very slow for rasterizing.
 
-    vw::Vector2i lookup(i,j);
+    vw::Vector2i lookup(i,j); // The requested pixel location
     std::vector<blob::BlobCompressed>::const_iterator blob = m_blobs.begin();
     for ( std::vector<vw::BBox2i>::const_iterator bbox = m_bboxes.begin();
-          bbox != m_bboxes.end(); bbox++ ) {
-      if ( bbox->contains(lookup) ) {
+          bbox != m_bboxes.end(); bbox++ ) {  // Loop over all blob bounding boxes
+      if ( bbox->contains(lookup) ) {         // Check if this blob's bounding box contains this pixel
         // Determing now if the compressed blob really does contain this point
         vw::Vector2i local = lookup - bbox->min();
         typedef std::list<vw::int32>::const_iterator inner_iter;
-        for ( inner_iter start = blob->start(local.y()).begin(),
-                end = blob->end(local.y()).begin();
+        for ( inner_iter start = blob->start(local.y()).begin(), // Loop over all segments on this row of the blob
+                         end   = blob->end(local.y()).begin();
               start != blob->start(local.y()).end();
               start++, end++ ) {
-          if ( local.x() >= *start && local.x() < *end )
+          if ( local.x() >= *start && local.x() < *end )        // Check if the pixel is contained in this row segment
             return result_type(); // zero or invalid
         }
       }
       blob++;
     }
-    return m_child.impl()(i,j);
+    return m_child.impl()(i,j); // This pixel is not in a blob so call the underlying image to get the pixel value
   }
 
   typedef ErodeView<ViewT> prerasterize_type;

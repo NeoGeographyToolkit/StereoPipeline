@@ -55,8 +55,8 @@ namespace asp {
     // vector. This somewhat confusing method is to allow us better use of
     // the container's search method.
     typedef std::map<vw::int32,std::vector<typename ImageT::pixel_type > > map_type;
-    std::vector<map_type> m_data;
-    bool m_allow_overlap;
+    std::vector<map_type> m_data; // One map for each row of the image
+    bool   m_allow_overlap;
     ImageT m_under_image;
 
   public:
@@ -70,24 +70,27 @@ namespace asp {
       m_data(under_image.impl().rows()), m_allow_overlap(allow_overlap),
       m_under_image(under_image.impl()) {}
 
-    inline vw::int32 cols() const { return m_under_image.cols(); }
-    inline vw::int32 rows() const { return m_under_image.rows(); }
+    inline vw::int32 cols  () const { return m_under_image.cols(); }
+    inline vw::int32 rows  () const { return m_under_image.rows(); }
     inline vw::int32 planes() const { return 1; }
 
     inline pixel_accessor origin() const { return pixel_accessor(*this,0,0); }
 
     inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 p=0 ) const {
 
+      // Get next container entry after column 'i'.  Since each container is labeled
+      //   with the last column in that section, this finds the section which might contain 'i'.
       typename map_type::const_iterator it;
       it = m_data[j].upper_bound(i);
-      if ( it != m_data[j].end() ) {
-        vw::int32 s_idx = it->first - it->second.size();
+
+      if ( it != m_data[j].end() ) { // If a segment possibly containing 'i' was found
+        vw::int32 s_idx = it->first - it->second.size(); // Get the starting index of this section
         if ( i < s_idx )
-          return m_under_image( i, j, p );
+          return m_under_image( i, j, p ); // The segment does not contain the requested pixel, use the underlying image
         else
-          return it->second[i-s_idx];
+          return it->second[i-s_idx];     // The segment contains the data, return it
       }
-      return m_under_image( i, j, p );
+      return m_under_image( i, j, p ); // No segment contains the requested pixel, use the underlying image
     }
 
     typedef SparseCompositeView<ImageT> prerasterize_type;
@@ -107,42 +110,47 @@ namespace asp {
                        NoImplErr() << "SparseCompositeView doesn't support insertation behind image origin.\n" );
 
       // Building temporary data structure
-      std::vector<std::list<int32> > t_row_end(image.rows());
-      std::vector<std::list<std::vector<pixel_type> > > t_row_data(image.rows());
+      // - The goal is to record lists of consecutive valid pixels along each row of the input image.
+      std::vector<std::list<int32> > t_row_end(image.rows()); // List of all segment stop points for each row.
+      std::vector<std::list<std::vector<pixel_type> > > t_row_data(image.rows()); // List of pixels for each segment on each row.
 
-      for ( int32 r = 0; r < image.rows(); ++r ) {
+      for ( int32 r = 0; r < image.rows(); ++r ) { // For each row in input patch
         std::vector<pixel_type> temp;
         bool building_segment = false;
-        for ( int32 c = 0; c < image.cols(); ++c ) {
-          if ( is_valid( image(c,r) ) )
-            if ( !building_segment ) {
+        for ( int32 c = 0; c < image.cols(); ++c ) { // For each col in input patch
+          if ( is_valid( image(c,r) ) ) {
+            if ( !building_segment ) { // Start building a segment if we are not already then record the pixel
               building_segment = true;
               temp.push_back( image(c,r) );
             } else
               temp.push_back( image(c,r) );
-          else if ( building_segment ) {
-            t_row_end[r].push_back(c);
-            building_segment = false;
-            t_row_data[r].push_back( temp );
+          }
+          else if ( building_segment ) { // Input pixel is invalid and building a segment
+            t_row_end[r].push_back(c);        // Record the stopping point along the row
+            building_segment = false;         // Stop building the segment
+            t_row_data[r].push_back( temp );  // Store the list of pixels we collected for this segment
             temp.clear();
           }
-        }
-        if ( building_segment ) {
+        } // End loop through columns
+        if ( building_segment ) { // Finished the row while still building the segment
+                                  // Close out the row the same as if we hit an invalid pixel
           t_row_end[r].push_back(image.cols());
           t_row_data[r].push_back(temp);
           temp.clear();
         }
-      }
+      } // End loop through rows
 
-      // Fix x offset
-      for ( uint32 i = 0; i < t_row_end.size(); ++i )
-        for ( std::list<int32>::iterator iter = t_row_end[i].begin();
+      // Fix x offset to each segment end value so that it is correct in the global sense
+      for ( uint32 i = 0; i < t_row_end.size(); ++i ) // For each row
+        for ( std::list<int32>::iterator iter = t_row_end[i].begin(); // For each segmment
               iter != t_row_end[i].end(); ++iter )
           *iter += starting_index[0];
 
       // Inserting into global data set
       if ( int32(m_data.size()) < starting_index[1]+image.rows() )
-        m_data.resize( starting_index[1]+image.rows() );
+        m_data.resize( starting_index[1]+image.rows() ); // Allocate local sparse storage if needed
+
+      // Loop through all rows contained in the input image patch
       for ( int32 t_i=0, m_i=starting_index[1];
             t_i < image.rows(); ++t_i, ++m_i ) {
 
@@ -184,8 +192,8 @@ namespace asp {
           ++t_e_iter;
           ++t_d_iter;
         }
-      }
-    }
+      } // End loop through rows contained in image patch
+    } // End of absorb() function
 
     // Debug structure
     void print_structure() const {

@@ -66,8 +66,10 @@ namespace blob {
     vw::Vector2i m_min;
     std::vector<std::list<vw::int32> > m_row_start; // assumed to be ordered
     std::vector<std::list<vw::int32> > m_row_end;
-    void shift_x( vw::int32 const& value );
+
+    void shift_x ( vw::int32 const& value );
     void refactor();
+
   public:
     BlobCompressed( vw::Vector2i const& top_left,
                     std::vector<std::list<vw::int32> > const& row_start,
@@ -76,16 +78,19 @@ namespace blob {
 
     // Standard Access point
     vw::Vector2i const& min() const;
-    vw::Vector2i & min();
-    vw::int32 num_rows() const;
+    vw::Vector2i      & min();
+
     std::list<vw::int32> const& start( vw::uint32 const& index ) const;
-    std::list<vw::int32> const& end( vw::uint32 const& index ) const;
-    vw::int32 size() const; // Please use sparingly
+    std::list<vw::int32> const& end  ( vw::uint32 const& index ) const;
+
+    vw::int32 num_rows() const;
+    vw::int32 size    () const; // Please use sparingly
+
     vw::BBox2i bounding_box() const;
     bool intersects( vw::BBox2i const& input ) const;
 
     // Specific conditionals used by BlobIndexThreaded
-    bool is_on_right( BlobCompressed const& right ) const;
+    bool is_on_right ( BlobCompressed const& right  ) const;
     bool is_on_bottom( BlobCompressed const& bottom ) const;
 
     // Append a row (since these guys are built a row at a time )
@@ -289,11 +294,13 @@ namespace blob {
   // A task wrapper to allow threading
   template <class SourceT>
   class BlobIndexTask : public vw::Task, private boost::noncopyable {
+
     vw::ImageViewBase<SourceT> const& m_view;
     vw::BBox2i const& m_bbox;
-    vw::Mutex& m_append_mutex;
+    vw::Mutex&        m_append_mutex;
+
     std::deque<BlobCompressed> &m_c_blob; // reference to global
-    std::deque<vw::BBox2i> &m_blob_bbox;
+    std::deque<vw::BBox2i    > &m_blob_bbox;
     int m_id;
     int m_max_area;
   public:
@@ -343,8 +350,10 @@ namespace blob {
 // Performs Blob Index using all threads and a minimal
 // amount of memory
 class BlobIndexThreaded {
-  std::deque<vw::BBox2i> m_blob_bbox;
+
+  std::deque<vw::BBox2i          > m_blob_bbox;
   std::deque<blob::BlobCompressed> m_c_blob;
+
   vw::Mutex m_insert_mutex;
   int m_max_area;
   int m_tile_size;
@@ -403,19 +412,20 @@ class BlobIndexThreaded {
   void blob( vw::uint32 const& index,
              std::list<vw::Vector2i>& output ) const;
   blob::BlobCompressed const& compressed_blob( vw::uint32 const& index ) const;
-  typedef std::deque<blob::BlobCompressed>::iterator blob_iterator;
+
+  typedef std::deque<blob::BlobCompressed>::iterator             blob_iterator;
   typedef std::deque<blob::BlobCompressed>::const_iterator const_blob_iterator;
-  blob_iterator begin();
+        blob_iterator begin();
   const_blob_iterator begin() const;
-  blob_iterator end();
+        blob_iterator end();
   const_blob_iterator end() const;
 
   vw::BBox2i const& blob_bbox( vw::uint32 const& index ) const;
-  typedef std::deque<vw::BBox2i>::iterator bbox_iterator;
+  typedef std::deque<vw::BBox2i>::iterator             bbox_iterator;
   typedef std::deque<vw::BBox2i>::const_iterator const_bbox_iterator;
-  bbox_iterator bbox_begin();
+        bbox_iterator bbox_begin();
   const_bbox_iterator bbox_begin() const;
-  bbox_iterator bbox_end();
+        bbox_iterator bbox_end();
   const_bbox_iterator bbox_end() const;
 };
 

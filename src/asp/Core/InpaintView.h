@@ -173,8 +173,8 @@ namespace asp {
       m_child(image.impl()), m_bindex(bindex),
       m_use_grassfire(use_grassfire), m_default_inpaint_val(default_inpaint_val) {}
 
-    inline vw::int32 cols() const { return m_child.cols(); }
-    inline vw::int32 rows() const { return m_child.rows(); }
+    inline vw::int32 cols  () const { return m_child.cols(); }
+    inline vw::int32 rows  () const { return m_child.rows(); }
     inline vw::int32 planes() const { return 1; } // Not allowed.
 
     inline pixel_accessor origin() const { return pixel_accessor(*this,0,0); }
@@ -189,6 +189,7 @@ namespace asp {
       using namespace vw;
 
       // Expand the preraster size to include all the area that our patches use
+      // - This makes sure all contained blobs are identified and fully contained
       std::vector<size_t> intersections;
       intersections.reserve(20);
       BBox2i bbox_expanded = bbox;
@@ -199,17 +200,18 @@ namespace asp {
           intersections.push_back(i);
         }
       }
+      // Expand by one more pixel, then make sure the BB has not exceeded the image bounds.
       bbox_expanded.expand(1);
       bbox_expanded.crop( BBox2i(0,0,cols(),rows()) );
 
-      // Generate sparse view that will hold background data and all
-      // the patches.
+      // Generate sparse view that will hold background data and all the patches.
       inner_pre_type preraster =
         crop(ImageView<typename ViewT::pixel_type>(crop(m_child,bbox_expanded)),
              -bbox_expanded.min().x(), -bbox_expanded.min().y(), cols(), rows());
       SparseCompositeView<inner_pre_type> patched_view( preraster );
 
       // Build up the patches that intersect our tile
+      // - For each intersecting blob, use InpaintTask to fill in that blob
       typedef inpaint_p::InpaintTask<inner_pre_type, inner_pre_type> task_type;
       for ( std::vector<size_t>::const_iterator it = intersections.begin();
             it != intersections.end(); it++ ) {

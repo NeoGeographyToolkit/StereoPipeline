@@ -76,20 +76,20 @@ namespace asp {
 
         { // Detecting Edges
           // Search left and right side
-          for ( int32 j = 0; j < copy.rows(); ++j ) {
+          for ( int32 j = 0; j < copy.rows(); ++j ) { // Loop up through the rows in the local tile
             int32 i = 0;
-            while ( i < copy.cols() && copy(i,j) == m_mask_value )
-              i += STEP_SIZE;
-            if ( i > 0 ) i -= STEP_SIZE;
-            while ( i < copy.cols() && copy(i,j) == m_mask_value )
+            while ( i < copy.cols() && copy(i,j) == m_mask_value ) // Move from left to right in row by STEP_SIZE
+              i += STEP_SIZE;                                      //    until we hit an invalid pixel
+            if ( i > 0 ) i -= STEP_SIZE;                           // Walk back one step if we are not at col 0
+            while ( i < copy.cols() && copy(i,j) == m_mask_value ) // Now do the same thing but in steps of 1
               ++i;
             if ( i > 0 ) --i;
             // Early exit condition if entire row was nodata
             if ( i == copy.cols() -1 )
               continue; // We're keeping left and right as -1
-            m_left[j] = i;
+            m_left[j] = i;                                         // Now we have the left-most valid column in the row
 
-            i = copy.cols() - 1;
+            i = copy.cols() - 1;                                   // Do the same thing going right to left
             while ( i >= 0 && copy(i,j) == m_mask_value )
               i -= STEP_SIZE;
             if ( i < copy.cols() - 1 )
@@ -100,7 +100,7 @@ namespace asp {
               ++i;
             m_right[j] = i;
           }
-
+                                                                   // Now find the first valid rows from the bottom
           for ( int32 i = 0; i < copy.cols(); ++i ) {
             int32 j = 0;
             while ( j < copy.rows() && copy(i,j) == m_mask_value )
@@ -116,7 +116,7 @@ namespace asp {
               continue; // We're keeping top and bottom as -1
             m_top[i] = j;
 
-            j = copy.rows()-1;
+            j = copy.rows()-1;                                     // And the first valid rows from the top
             while ( j >= 0 && copy(i,j) == m_mask_value )
               j -= STEP_SIZE;
             if ( j < copy.rows()-1 )
@@ -131,12 +131,12 @@ namespace asp {
 
         { // Merging result back into global perspective
           int32 l = 0;
-          for ( int32 j = m_bbox.min()[1];
+          for ( int32 j = m_bbox.min()[1];                      // Loop through rows
                 j < m_bbox.max()[1]; j++ ) {
-            if ( m_left[l] == -1 ) {
+            if ( m_left[l] == -1 ) {                            // Skip rows with no pixels
               l++; continue;
             }
-            g_left[j] = std::min( m_left[l] + m_bbox.min()[0],
+            g_left[j] = std::min( m_left[l] + m_bbox.min()[0],  // Add in the bounding box column
                                   g_left[j] );
             g_right[j] = std::max( m_right[l] + m_bbox.min()[0],
                                    g_right[j] );
@@ -144,12 +144,12 @@ namespace asp {
           }
 
           l = 0;
-          for ( int32 i = m_bbox.min()[0];
+          for ( int32 i = m_bbox.min()[0];                       // Loop through columns
                 i < m_bbox.max()[0]; i++ ) {
-            if ( m_top[l] == -1 ) {
+            if ( m_top[l] == -1 ) {                              // Skip columns with no pixels
               l++; continue;
             }
-            g_top[i] = std::min( m_top[l] + m_bbox.min()[1],
+            g_top[i] = std::min( m_top[l] + m_bbox.min()[1],     // Add in the bounding box row
                                  g_top[i] );
             g_bottom[i] = std::max( m_bottom[l] + m_bbox.min()[1],
                                     g_bottom[i] );
