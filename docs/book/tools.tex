@@ -773,8 +773,10 @@ inferred, the datum needs to be specified by the user via the
 The transform obtained by \texttt{pc\_align} is output to a file as a
 $4\times 4$ matrix, with the upper-left $3\times 3$ submatrix being the
 rotation, and the top three elements of the right-most column being the
-translation. This matrix can be supplied back to the tool as an initial
-guess. The inverse transform is saved to a file as well.
+translation. The transform assumes the 3D Cartesian coordinate system
+with the origin at the planet center. This matrix can be supplied back
+to the tool as an initial guess. The inverse transform is saved to a
+file as well.
 
 The tool outputs the translation component of this transform, defined as
 the vector from the centroid of the original source points to the
