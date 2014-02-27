@@ -29,6 +29,10 @@ GENERAL
       in the local North-East-Down coordinate system.
     * Save to disk the convergence history (iteration information).
     * Added the ability to explicitely specify the datum semi-axes.
+    * Bug fix for saving transformed clouds for Moon and Mars.
+
+  - Made point2dem robust to highly noisy input point clouds, and improved
+    its memory usage and performance for large point clouds.
 
 *** RELEASE 2.3.0, 19 November, 2013 ***
 

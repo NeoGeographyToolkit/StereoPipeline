@@ -159,9 +159,18 @@ namespace cartography {
 
       // Ideally this would be the same as the input tile size so we
       // hit cache appropriately.
-      static const int32 BLOCKSIZE = 256; 
-      const int32 SUBBLOCKSIZE = 16; // To further subdivide each block
-      
+      static const int32 BLOCKSIZE = 256;
+
+      // Subdivde each block into smaller chunks. Note: small chunks
+      // greatly increase the memory usage and run-time for very
+      // large images. As such, make the chunks big for big images.
+      double s = 10000.0; 
+      int SUBBLOCKSIZE
+        = int(double(point_image.cols())*double(point_image.rows())/(s*s));
+      SUBBLOCKSIZE = std::max(1, SUBBLOCKSIZE);
+      SUBBLOCKSIZE = int(round(pow(2.0, round(log(SUBBLOCKSIZE)/log(2.0)))));
+      SUBBLOCKSIZE = std::max(16, SUBBLOCKSIZE);
+      SUBBLOCKSIZE = std::min(64, SUBBLOCKSIZE);
       std::vector<BBox2i> blocks =
         image_blocks( m_point_image, BLOCKSIZE, BLOCKSIZE );
 
@@ -207,7 +216,7 @@ namespace cartography {
         m_pix2point = (vx[(int)(0.5*len)] + vy[(int)(0.5*len)])/2.0;
       }
       // Divide by the subblock size
-      m_pix2point /= SUBBLOCKSIZE; 
+      m_pix2point /= double(SUBBLOCKSIZE); 
       
     }
 
@@ -275,11 +284,10 @@ namespace cartography {
       std::vector<double> cx, cy; // box centers in the point cloud pixel space
       BOOST_FOREACH( BBoxPair const& boundary,
                      m_point_image_boundaries ) {
-        if ( local_3d_bbox.intersects(boundary.first) ) {
-          point_image_boundary.grow( boundary.second );
-          cx.push_back((boundary.second.min().x()+boundary.second.max().x())/2.0);
-          cy.push_back((boundary.second.min().y()+boundary.second.max().y())/2.0);
-        }
+        if (! local_3d_bbox.intersects(boundary.first) ) continue;
+        point_image_boundary.grow( boundary.second );
+        cx.push_back((boundary.second.min().x()+boundary.second.max().x())/2.0);
+        cy.push_back((boundary.second.min().y()+boundary.second.max().y())/2.0);
       }
 
       // In some cases, the memory usage blows up. Then, roughly
@@ -307,15 +315,15 @@ namespace cartography {
         point_image_boundary.crop(smaller_boundary);
       }
       
-      // Bugfix, ensure we see enough beyond current tile
-      point_image_boundary.expand(5);
-      point_image_boundary.crop(vw::bounding_box(m_point_image));
-
-      if ( point_image_boundary == BBox2i() )
+      if ( point_image_boundary.empty() )
         return CropView<ImageView<pixel_type> >( render_buffer,
                                                  BBox2i(-bbox_1.min().x(),
                                                         -bbox_1.min().y(),
                                                         cols(), rows()) );
+
+      // Bugfix, ensure we see enough beyond current tile
+      point_image_boundary.expand(5);
+      point_image_boundary.crop(vw::bounding_box(m_point_image));
 
       // Pull a copy of the input image
       ImageView<typename ImageT::pixel_type> point_copy =
