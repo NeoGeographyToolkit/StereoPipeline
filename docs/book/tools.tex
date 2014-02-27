@@ -781,8 +781,8 @@ guess. The inverse transform is saved to a file as well.
 
 The tool outputs the translation component of this transform, defined as
 the vector from the centroid of the original source points to the
-centroid of the transformed source points. We display this translation
-component in three ways (a) Cartesian coordinates with the origin at the
+centroid of the transformed source points. This translation component is
+displayed in three ways (a) Cartesian coordinates with the origin at the
 planet center, (b) Local North-East-Down coordinates at the centroid of
 the original source points, and (c) Latitude-Longitude-Height
 differences between the two centroids. If the effect of the transform is
@@ -798,10 +798,10 @@ be amenable to good interpretation.
 
 The tool outputs to a file the complete list of errors together with
 their location, where an error is defined as the distance from a source
-point used in alignment to the closest reference point. It displays the 16th, 50th, and
-84th error percentiles, as well as the means of the smallest 25\%, 50\%,
-75\%, and 100\% of the errors, all these before and the after alignment
-transform is applied to the source points.
+point used in alignment to the closest reference point. It displays the
+16th, 50th, and 84th error percentiles, as well as the means of the
+smallest 25\%, 50\%, 75\%, and 100\% of the errors, all these before and
+the after alignment transform is applied to the source points.
 
 By default, when \texttt{pc\_align} discards
 outliers during the computation of the alignment transform, it keeps
