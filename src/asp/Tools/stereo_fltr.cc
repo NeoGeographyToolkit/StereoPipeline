@@ -43,6 +43,28 @@ namespace vw {
 
 //TODO: Move this to its own file!
 namespace asp {
+
+
+//TODO: This could be moved somewhere (maybe to crop()) and used in other locations.
+
+/// Rasterize a selected portion of the input image, then wrap it so
+///   that it looks like the full image for pixel location purposes.
+/// - Don't request any pixels outside the bounding box or else something bad will happen!
+/// - This function is useful in prerasterize functions to rasterize only a portion of
+///     an image but make it look like the entire image.
+template <class ImageT>
+inline vw::CropView<vw::ImageView<typename ImageT::pixel_type> >
+          makeHiddenCroppedView( ImageT &imageToCrop, vw::BBox2i const& bbox )
+{
+  // - First crop wraps a portion of input image in the bounding box.
+  // - The ImageView forces rasterization of the cropped input image into a buffer.
+  // - Second crop fakes the coordinates so it looks like it is the full size image.
+  return crop(ImageView<typename ImageT::pixel_type>(crop(imageToCrop, bbox)),
+              -bbox.min().x(), -bbox.min().y(), imageToCrop.cols(), imageToCrop.rows());
+}
+
+
+
 // BlobMaskView
 /*
     This class is similar to SparseView but instead of storing replacement
@@ -59,21 +81,17 @@ class BlobMaskView : public vw::ImageViewBase< BlobMaskView<ImageT> >
 {
 public: // Definitions
 
+  // Pixel types
   typedef typename ImageT::pixel_type                        pixel_type;
   typedef pixel_type                                         result_type;
   typedef vw::ProceduralPixelAccessor<BlobMaskView<ImageT> > pixel_accessor;
 
+  // Rasterization types
+  typedef typename vw::CropView<vw::ImageView<typename ImageT::pixel_type> > inner_pre_type;
+  typedef          BlobMaskView<inner_pre_type>                              prerasterize_type;
+
 public: // Functions
 
-  /// Construct class from image and blobs to be masked
-  BlobMaskView( vw::ImageViewBase<ImageT> const& under_image,
-                BlobIndexThreaded         const& blobIndex)
-      : m_under_image(under_image.impl())
-  {
-    // Create new array for storing blob information, then import.
-    m_data.reset( new std::vector<map_type>(under_image.impl().rows()) );
-    absorb(blobIndex);
-  }
   /// Construct class from image and blobs to be masked
   BlobMaskView( vw::ImageViewBase<ImageT>       const& under_image,
                 std::list<blob::BlobCompressed> const& blobList)
@@ -84,41 +102,36 @@ public: // Functions
     absorb(blobList);
   }
 
-  //TODO: Make these private or something!
-  // Stop crazy constructor template choices!
-
-  // The key in our map is the index marking the end of the
-  // vector. This somewhat confusing method is to allow us better use of
-  // the container's search method.
-  // - The first element is the last masked entry in the segment
-  // - The second element is the first masked entry in the segment
-  typedef std::map<vw::int32,vw::int32> map_type; ///< Sparse container
-
-
-  /// Construct class from a (cropped) image and the parent instance of this class.
-  /// - The new instance will share the internal blob information with the parent.
-  /// - The motive for this is that only the child (cropped) image is rasterized.
+  /// Construct class from image and blobs to be masked
   BlobMaskView( vw::ImageViewBase<ImageT> const& under_image,
-               boost::shared_ptr<std::vector<BlobMaskView::map_type> > dataPtr)
-         : m_data(dataPtr), m_under_image(under_image.impl())
-              //  BlobMaskView<ImageT>     const      & parentInstance)
-        //: m_data(parentInstance.m_data), m_under_image(under_image.impl())
+                BlobIndexThreaded         const& blobIndex)
+      : m_under_image(under_image.impl())
+  {
+    // Create new array for storing blob information, then import.
+    m_data.reset( new std::vector<map_type>(under_image.impl().rows()) );
+    absorb(blobIndex);
+  }
+
+  /// Construct class from as image and another instance of this class.
+  /// - The blobs from the other instance are applied to the new image.
+  template <class T>
+  BlobMaskView( vw::ImageViewBase<ImageT> const& under_image,
+                BlobMaskView<T>           const& parentInstance)
+        : m_data(parentInstance.m_data), m_under_image(under_image.impl())
   {
   }
 
-
-
+  // Return size information
   inline vw::int32 cols  () const { return m_under_image.cols(); }
   inline vw::int32 rows  () const { return m_under_image.rows(); }
   inline vw::int32 planes() const { return 1; }
 
+  /// Return an iterator to the first pixel
   inline pixel_accessor origin() const { return pixel_accessor(*this,0,0); }
 
-  /// Return the value for the given pixel
-  /// - If the pixel is contained in the sparse mask an invalid pixel will be returned
+  /// Return the value for the given pixel.
   inline result_type operator()( vw::int32 i, vw::int32 j, vw::int32 p=0 ) const
   {
-
 
     // Get next container entry after column 'i'.  Since each container is labeled
     //   with the last column in that section, this finds the section which might contain 'i'.
@@ -145,37 +158,8 @@ public: // Functions
     return m_under_image( i, j, p ); // No segment contains the requested pixel, use the underlying image
   }
 
-  typedef typename vw::CropView<vw::ImageView<typename ImageT::pixel_type> > inner_pre_type;
-  typedef BlobMaskView<inner_pre_type> prerasterize_type;
-
-  inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const
-  {
-    //std::cout << "prerasterizing " << bbox << std::endl;
-
-    // Rasterize only the required portion of the input image, when wrap it so
-    //  that it looks like the full image for coordinate access purposes.
-    // - First crop wraps a portion of input image in the expanded BB
-    // - The ImageView forces rasterization of the cropped input image
-    // - Second crop fakes the coordinates so it looks like it is large
-    inner_pre_type preraster =
-      crop(ImageView<typename ImageT::pixel_type>(crop(m_under_image,bbox)),
-           -bbox.min().x(), -bbox.min().y(), cols(), rows());
-
-    // Create a new BlobMaskView to wrap the cropped rasterized image
-    //BlobMaskView<inner_pre_type> croppedBlobMasked( preraster, *this );
-    BlobMaskView<inner_pre_type> croppedBlobMasked( preraster, m_data );
-    return croppedBlobMasked;
-  }
-
-
-  template <class DestT>
-  inline void rasterize( DestT const& dest, vw::BBox2i const& bbox ) const {
-    vw::rasterize( prerasterize(bbox), dest, bbox );
-  }
-
-
   // Add a single blob to the sparse mask
-  void absorb(const blob::BlobCompressed &newBlob)
+  void absorb(blob::BlobCompressed const& newBlob)
   {
     // All pixels stored in the blob are offset this much from global image coordinates
     const int xOffset = newBlob.min()[0];
@@ -327,18 +311,7 @@ public: // Functions
 
     // The entire blob should now be added!
 
-
   } // End function "void absorb(const vw::blob::BlobCompressed &newBlob)"
-
-
-  /// Adds a new set of blobs to the sparse mask
-  void absorb(const BlobIndexThreaded &blobIndex)
-  {
-    // Loop through all the blobs in the blob index and absorb them one at a time
-    BlobIndexThreaded::const_blob_iterator iter;
-    for (iter=blobIndex.begin(); iter!=blobIndex.end(); ++iter)
-      absorb(*iter);
-  }
 
   /// Adds a new set of blobs to the sparse mask
   void absorb(const std::list<blob::BlobCompressed> &blobList)
@@ -349,8 +322,39 @@ public: // Functions
       absorb(*iter);
   }
 
+  /// Adds a new set of blobs to the sparse mask
+  void absorb(const BlobIndexThreaded &blobIndex)
+  {
+    // Loop through all the blobs in the blob index and absorb them one at a time
+    BlobIndexThreaded::const_blob_iterator iter;
+    for (iter=blobIndex.begin(); iter!=blobIndex.end(); ++iter)
+      absorb(*iter);
+  }
 
-  /// Write out the sparse container contents
+  /// Generate a new BlobMaskView of the cropped, rasterized underlying image.
+  inline prerasterize_type prerasterize( vw::BBox2i const& bbox ) const
+  {
+    //std::cout << "prerasterizing " << bbox << std::endl;
+
+    // Rasterize only the required portion of the input image, then wrap it so
+    //  that it looks like the full image for coordinate access purposes.
+    inner_pre_type preraster = makeHiddenCroppedView(m_under_image, bbox);
+
+    // Create a new BlobMaskView to wrap the cropped rasterized image
+    BlobMaskView<inner_pre_type> croppedBlobMasked( preraster, *this );
+    return croppedBlobMasked;
+  }
+
+  /// Rasterize all pixels in bbox to the output destination.
+  template <class DestT>
+  inline void rasterize( DestT const& dest, vw::BBox2i const& bbox ) const
+  {
+    /// Call the default rasterization function on the prerasterized image section.
+    vw::rasterize( prerasterize(bbox), dest, bbox );
+  }
+
+
+  /// Write out the sparse container contents showing which pixels are masked.
   void print_structure() const
   {
     using namespace vw;
@@ -367,11 +371,24 @@ public: // Functions
     }
   }
 
+private: // Definitions
+
+  // Allow different instantiations of BlobMaskView to access each other's private stuff
+  template <typename>
+  friend class BlobMaskView;
+
+  // The key in our map is the index marking the end of the
+  // vector. This somewhat confusing method is to allow us better use of
+  // the container's search method.
+  // - The first element is the last masked entry in the segment
+  // - The second element is the first masked entry in the segment
+  typedef std::map<vw::int32,vw::int32> map_type; ///< Sparse container
+
 private: // Variables
 
-  // TODO: Wrap this in its own class
+  // It would be nice to have a shared class to represent a sparse image
   mutable boost::shared_ptr<std::vector<map_type> > m_data; ///< One map for each row of the image
-  ImageT m_under_image;         ///< The underlying image data
+  ImageT  m_under_image;    ///< The underlying image data
 
 private: // Functions
 
@@ -382,17 +399,20 @@ private: // Functions
 
 }; // End class BlobMaskView
 
-
+/// Convenience wrapper to construct from list of BlobCompressed
 template <class SourceT>
-inline BlobMaskView<SourceT> blobMask( vw::ImageViewBase<SourceT> const& src,
-                                       BlobIndexThreaded const& bindex) {
-  return BlobMaskView<SourceT>(src, bindex);
-}
-template <class SourceT>
-inline BlobMaskView<SourceT> blobMask( vw::ImageViewBase<SourceT> const& src,
+inline BlobMaskView<SourceT> blobMask( vw::ImageViewBase<SourceT>      const& src,
                                        std::list<blob::BlobCompressed> const& blobList) {
   return BlobMaskView<SourceT>(src, blobList);
 }
+
+/// Convenience wrapper to construct from BlobIndexThreaded
+template <class SourceT>
+inline BlobMaskView<SourceT> blobMask( vw::ImageViewBase<SourceT> const& src,
+                                       BlobIndexThreaded          const& bindex) {
+  return BlobMaskView<SourceT>(src, bindex);
+}
+
 } // end namespace asp
 
 
@@ -508,6 +528,7 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
           if ( blobIter->bounding_box().contains(holeIter->bounding_box()) ) {
             // Add that hole as a blob to remove
             fullBlobList.push_back(*holeIter);
+            //std::cout << "Removing hole in blob with " << blobIter->num_rows() << " lines." << std::endl;
           }
         } // End hole loop
       } // End blob loop
