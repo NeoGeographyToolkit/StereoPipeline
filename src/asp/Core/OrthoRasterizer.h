@@ -48,7 +48,8 @@ namespace cartography {
     double m_default_value;
     bool m_minz_as_default;
     bool m_use_alpha;
-
+    int m_block_size;
+    
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
     typedef std::pair<BBox3, BBox2i> BBoxPair;
@@ -148,7 +149,8 @@ namespace cartography {
     OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing = 0.0,
                         const ProgressCallback& progress = ProgressCallback::dummy_instance()) :
       m_point_image(point_image), m_texture(ImageView<float>(1,1)), // dummy value
-      m_default_value(0), m_minz_as_default(true), m_use_alpha(false) {
+      m_default_value(0), m_minz_as_default(true), m_use_alpha(false),
+      m_block_size(256) /* To do: query block size from input point cloud */ {
 
       set_texture(texture.impl());
 
@@ -157,22 +159,18 @@ namespace cartography {
       // They're used for querying what part of the image we need
       VW_OUT(DebugMessage,"asp") << "Computing raster bounding box...\n";
 
-      // Ideally this would be the same as the input tile size so we
-      // hit cache appropriately.
-      static const int32 BLOCKSIZE = 256;
-
-      // Subdivde each block into smaller chunks. Note: small chunks
+      // Subdivide each block into smaller chunks. Note: small chunks
       // greatly increase the memory usage and run-time for very
       // large images. As such, make the chunks big for big images.
       double s = 10000.0; 
-      int SUBBLOCKSIZE
+      int sub_block_size
         = int(double(point_image.cols())*double(point_image.rows())/(s*s));
-      SUBBLOCKSIZE = std::max(1, SUBBLOCKSIZE);
-      SUBBLOCKSIZE = int(round(pow(2.0, round(log(SUBBLOCKSIZE)/log(2.0)))));
-      SUBBLOCKSIZE = std::max(16, SUBBLOCKSIZE);
-      SUBBLOCKSIZE = std::min(64, SUBBLOCKSIZE);
+      sub_block_size = std::max(1, sub_block_size);
+      sub_block_size = int(round(pow(2.0, round(log(sub_block_size)/log(2.0)))));
+      sub_block_size = std::max(16, sub_block_size);
+      sub_block_size = std::min(64, sub_block_size);
       std::vector<BBox2i> blocks =
-        image_blocks( m_point_image, BLOCKSIZE, BLOCKSIZE );
+        image_blocks( m_point_image, m_block_size, m_block_size );
 
       FifoWorkQueue queue( vw_settings().default_num_threads() );
       typedef SubBlockBoundaryTask<ImageT> task_type;
@@ -180,7 +178,7 @@ namespace cartography {
       float inc_amt = 1.0 / float(blocks.size());
       for ( size_t i = 0; i < blocks.size(); i++ ) {
         boost::shared_ptr<task_type>
-          task( new task_type( m_point_image, SUBBLOCKSIZE, blocks[i],
+          task( new task_type( m_point_image, sub_block_size, blocks[i],
                                m_bbox, m_point_image_boundaries, mutex,
                                progress, inc_amt ) );
         queue.add_task( task );
@@ -216,7 +214,7 @@ namespace cartography {
         m_pix2point = (vx[(int)(0.5*len)] + vy[(int)(0.5*len)])/2.0;
       }
       // Divide by the subblock size
-      m_pix2point /= double(SUBBLOCKSIZE); 
+      m_pix2point /= double(sub_block_size); 
       
     }
 
@@ -325,56 +323,83 @@ namespace cartography {
       point_image_boundary.expand(5);
       point_image_boundary.crop(vw::bounding_box(m_point_image));
 
-      // Pull a copy of the input image
-      ImageView<typename ImageT::pixel_type> point_copy =
-        crop(m_point_image, point_image_boundary );
-      ImageView<float> texture_copy =
-        crop(m_texture, point_image_boundary );
-      typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
-      PointAcc row_acc = point_copy.origin();
-      for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
-        PointAcc point_ul = row_acc;
-
-        for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
-          PointAcc point_ur = point_ul; point_ur.next_col();
-          PointAcc point_ll = point_ul; point_ll.next_row();
-          PointAcc point_lr = point_ul; point_lr.advance(1,1);
-
-          // This loop rasterizes a quad indexed by the upper left.
-          if ( !boost::math::isnan((*point_ul).z()) &&
-               !boost::math::isnan((*point_lr).z()) ) {
-
-            vertices[0] = (*point_ul).x(); // UL
-            vertices[1] = (*point_ul).y();
-            vertices[2] = (*point_ll).x(); // LL
-            vertices[3] = (*point_ll).y();
-            vertices[4] = (*point_lr).x(); // LR
-            vertices[5] = (*point_lr).y();
-            vertices[6] = (*point_ur).x(); // UR
-            vertices[7] = (*point_ur).y();
-            vertices[8] = (*point_ul).x(); // UL
-            vertices[9] = (*point_ul).y();
-
-            intensities[0] = texture_copy(col,  row);
-            intensities[1] = texture_copy(col,row+1);
-            intensities[2] = texture_copy(col+1,  row+1);
-            intensities[3] = texture_copy(col+1,row);
-            intensities[4] = texture_copy(col,row);
-
-            if ( !boost::math::isnan((*point_ll).z()) ) {
-              // triangle 1 is: UL LL LR
-              renderer.DrawPolygon(0, 3);
-            }
-            if ( !boost::math::isnan((*point_ur).z()) ) {
-              // triangle 2 is: LR, UR, UL
-              renderer.DrawPolygon(2, 3);
-            }
-          }
-          point_ul.next_col();
-        }
-        row_acc.next_row();
+      // If point_image_boundary is big, subdivide it into blocks
+      // to save on memory.
+      int max_tile_size = 512; 
+      std::vector<BBox2i> blocks;
+      if (point_image_boundary.width()  >= 2*max_tile_size ||
+          point_image_boundary.height() >= 2*max_tile_size
+          ){
+        BBox2i tile_box;
+        tile_box.min()
+          = m_block_size*floor(point_image_boundary.min()/double(m_block_size));
+        tile_box.max()
+          = m_block_size*ceil(point_image_boundary.max()/double(m_block_size));
+        blocks =
+          image_blocks( tile_box, max_tile_size, max_tile_size);
+      }else{
+        blocks.push_back(point_image_boundary);
       }
+      
+      for (int i = 0; i < (int)blocks.size(); i++){
 
+        // Need to grow the block, as for rendering below we
+        // need each pixel and its neighbors
+        blocks[i].max() += Vector2i(1, 1);
+        blocks[i].crop(point_image_boundary);
+        
+        // Pull a copy of the input image in memory
+        ImageView<typename ImageT::pixel_type> point_copy =
+          crop(m_point_image, blocks[i] );
+        ImageView<float> texture_copy =
+          crop(m_texture, blocks[i] );
+        typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
+        PointAcc row_acc = point_copy.origin();
+        for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
+          PointAcc point_ul = row_acc;
+          
+          for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
+            PointAcc point_ur = point_ul; point_ur.next_col();
+            PointAcc point_ll = point_ul; point_ll.next_row();
+            PointAcc point_lr = point_ul; point_lr.advance(1,1);
+            
+            // This loop rasterizes a quad indexed by the upper left.
+            if ( !boost::math::isnan((*point_ul).z()) &&
+                 !boost::math::isnan((*point_lr).z()) ) {
+              
+              vertices[0] = (*point_ul).x(); // UL
+              vertices[1] = (*point_ul).y();
+              vertices[2] = (*point_ll).x(); // LL
+              vertices[3] = (*point_ll).y();
+              vertices[4] = (*point_lr).x(); // LR
+              vertices[5] = (*point_lr).y();
+              vertices[6] = (*point_ur).x(); // UR
+              vertices[7] = (*point_ur).y();
+              vertices[8] = (*point_ul).x(); // UL
+              vertices[9] = (*point_ul).y();
+              
+              intensities[0] = texture_copy(col,  row);
+              intensities[1] = texture_copy(col,row+1);
+              intensities[2] = texture_copy(col+1,  row+1);
+              intensities[3] = texture_copy(col+1,row);
+              intensities[4] = texture_copy(col,row);
+              
+              if ( !boost::math::isnan((*point_ll).z()) ) {
+                // triangle 1 is: UL LL LR
+                renderer.DrawPolygon(0, 3);
+              }
+              if ( !boost::math::isnan((*point_ur).z()) ) {
+                // triangle 2 is: LR, UR, UL
+                renderer.DrawPolygon(2, 3);
+              }
+            }
+            point_ul.next_col();
+          }
+          row_acc.next_row();
+        }
+        
+      }
+      
       // The software renderer returns an image which will render
       // upside down in most image formats, so we correct that here.
       // We also introduce transparent pixels into the result where
