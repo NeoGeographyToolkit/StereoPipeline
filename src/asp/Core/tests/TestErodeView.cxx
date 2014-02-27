@@ -42,3 +42,62 @@ TEST(ErodeView, basic_test) {
   EXPECT_FALSE( is_valid(eroded(1,1) ) );
   EXPECT_EQ( 0, eroded(1,1).child() );
 }
+
+TEST(ErodeView, larger_test) {
+  ImageView<PixelMask<uint8> > test(5,5);
+
+ /* Set up this image:
+   X  X  .  X  .
+   .  .  X  X  .
+   X  .  .  .  X
+   X  X  .  X  X
+   X  .  .  X  X
+ */
+
+  test(0,0) = PixelMask<uint8>(100);
+  test(0,1) = PixelMask<uint8>(100);
+  test(0,3) = PixelMask<uint8>(100);
+  test(1,2) = PixelMask<uint8>(100);
+  test(1,3) = PixelMask<uint8>(100);
+  test(2,0) = PixelMask<uint8>(100);
+  test(2,4) = PixelMask<uint8>(100);
+  test(3,0) = PixelMask<uint8>(100);
+  test(3,1) = PixelMask<uint8>(100);
+  test(3,3) = PixelMask<uint8>(100);
+  test(3,4) = PixelMask<uint8>(100);
+  test(4,0) = PixelMask<uint8>(100);
+  test(4,3) = PixelMask<uint8>(100);
+  test(4,4) = PixelMask<uint8>(100);
+
+  /* Set up this erosion mask:
+     .  .  .  .  .
+     .  .  X  .  .
+     .  .  .  .  .
+     .  X  .  X  X
+     .  .  .  .  .
+   */
+  ImageView<PixelMask<uint8> > blobs(5,5);
+  blobs(1,2) = PixelMask<uint8>(100);
+  blobs(3,1) = PixelMask<uint8>(100);
+  blobs(3,3) = PixelMask<uint8>(100);
+  blobs(3,4) = PixelMask<uint8>(100);
+
+  // Process blobs
+  BlobIndexThreaded bindex( blobs, 100, 100 );
+  EXPECT_EQ( 3u, bindex.num_blobs() );
+
+  // Set up blobs as erosion mask on image
+  ImageViewRef<PixelMask<uint8> > erode_ref =
+    ErodeView<ImageView<PixelMask<uint8> > >( test, bindex );
+
+  EXPECT_FALSE( is_valid(erode_ref(1,0)) );
+  EXPECT_FALSE( is_valid(erode_ref(1,2)) );
+  EXPECT_TRUE ( is_valid(erode_ref(4,4) ) );
+  ImageView<PixelMask<uint8> > eroded = erode_ref;
+  EXPECT_FALSE( is_valid(eroded(3,2) ) );
+  EXPECT_FALSE( is_valid(eroded(3,4) ) );
+  EXPECT_TRUE ( is_valid(eroded(4,3) ) );
+
+}
+
+
