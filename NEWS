@@ -25,6 +25,8 @@ GENERAL
   - Improved mosacking of Digital Globe images.
 
   - pc_align:
+    * Read and write CSV files in a wide variety of formats, using the
+      --csv-format option.
     * Display the translation component of the rigid alignment transform
       in the local North-East-Down coordinate system.
     * Save to disk the convergence history (iteration information).
