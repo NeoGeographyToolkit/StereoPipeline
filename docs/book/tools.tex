@@ -768,7 +768,7 @@ the \texttt{-\/-csv-format} option. The tool can also auto-detect the
 LOLA RDR PointPerRow format.
 
 If none of the input files are a DEM, from which the datum can be
-inferred, and the CSV file format is not in Cartesian coordinates, the
+inferred, and the input files are not in Cartesian coordinates, the
 datum needs to be specified via the \texttt{-\/-datum} option, or by
 setting \texttt{-\/-semi-major-axis} and \texttt{-\/-semi-minor-axis}.
 
@@ -798,18 +798,20 @@ can result in large movements on the planet surface even for small angles
 of rotation, as such both its rotation and translation components may not
 be amenable to good interpretation.
 
-The tool outputs to a file the complete list of errors together with
-their location, where an error is defined as the distance from a source
-point used in alignment to the closest reference point. It displays the
-16th, 50th, and 84th error percentiles, as well as the means of the
-smallest 25\%, 50\%, 75\%, and 100\% of the errors, all these before and
-the after alignment transform is applied to the source points.
+The tool outputs to CSV files the lists of errors together with their
+location, before and after the alignment of source points, where an
+error is defined as the distance from a source point used in alignment
+to the closest reference point. It displays the 16th, 50th, and 84th
+error percentiles, as well as the means of the smallest 25\%, 50\%,
+75\%, and 100\% of the errors. 
 
 By default, when \texttt{pc\_align} discards
 outliers during the computation of the alignment transform, it keeps
 the 75\% of the points with the smallest errors. As such, a way of
 judging the effectiveness of the tool is to look at the mean of the
 smallest 75\% of the errors before and after alignment.
+
+The transformed input point clouds can also be saved to disk if desired.
 
 The convergence history for \texttt{pc\_align} (the translation and
 rotation change at each itereation) is saved to disk, and can be used to

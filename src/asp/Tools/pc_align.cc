@@ -226,7 +226,7 @@ struct CsvConv{
   int lon_index; 
   string csv_format_str;
   CsvFormat format;
-  CsvConv():lon_index(-1){}
+  CsvConv():lon_index(-1), format(XYZ){}
 };
 
 void parse_csv_format(string const& csv_format_str, CsvConv & C){
@@ -536,6 +536,7 @@ void load_csv(string const& file_name,
   int num_points = 0;
   string line;
   while ( getline(file, line, '\n') ){
+    if (line[0] == '#') continue; // Skip lines starting with comments
     num_points++;
   }
   file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
@@ -549,7 +550,10 @@ void load_csv(string const& file_name,
   char sep[] = ", \t";
 
   // Peek at first line and see how many elements it has
-  getline(file, line);
+  line = "";
+  while ( getline(file, line, '\n') ){
+    if (line[0] != '#') break; // found a valid line
+  }
   file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
   strncpy(temp, line.c_str(), bufSize);
   const char* token = strtok (temp, sep);
@@ -589,8 +593,10 @@ void load_csv(string const& file_name,
   bool is_first_line = true;
   int points_count = 0;
   mean_longitude = 0.0;
-
+  line = "";
   while ( getline(file, line, '\n') ){
+    
+    if (line[0] == '#') continue; // Skip lines starting with comments
 
     double r = (double)std::rand()/(double)RAND_MAX;
     if (r > load_ratio) continue;
@@ -1388,6 +1394,7 @@ int main( int argc, char *argv[] ) {
       parse_csv_format(opt.csv_format_str, csv_conv);
     
     // Set up the datum, need it to read CSV files.
+    // First, get the datum from the DEM if available.
     Datum datum;
     std::string dem_file = "";
     if ( get_file_type(opt.reference) == "DEM" )
@@ -1403,23 +1410,43 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Detected datum from " << dem_file << ": " << datum << std::endl;
     }
 
+    // A lot of care is needed below.
     if (opt.datum != ""){
+      // If the user set the datum, use it.
       datum.set_well_known_datum(opt.datum);
       vw_out() << "Will use user-specified datum (for CSV files): "
                << datum << std::endl;
     }else if (opt.semi_major > 0 && opt.semi_minor > 0){
+      // Otherwise, if the user set the semi-axes, use that.
       datum = Datum("User Specified Datum",
                     "User Specified Spheroid",
                     "Reference Meridian",
                     opt.semi_major, opt.semi_minor, 0.0);
       vw_out() << "Will use datum (for CSV files): " << datum << std::endl;
-    }else if (dem_file == "" && csv_conv.format != XYZ){
-      vw_throw( ArgumentErr() << "Cannot detect the datum. "
-                << "Please specify it via --datum or "
-                << "--semi-major-axis and --semi-minor-axis.\n" );
+    }else if (dem_file == "" &&
+              (opt.csv_format_str == "" || csv_conv.format != XYZ)
+              ){
+      // There is no DEM to read the datum from, and the user either
+      // did not specify the CSV format (then we set it to lat, lon,
+      // height), or it is specified as containing lat, lon, rather
+      // than xyz.
+      bool has_csv = ( get_file_type(opt.reference) == "CSV" ) || 
+        ( get_file_type(opt.source) == "CSV" );
+      if (has_csv){
+        // We are in trouble, will not be able to convert input lat,
+        // lon, to xyz.
+        vw_throw( ArgumentErr() << "Cannot detect the datum. "
+                  << "Please specify it via --datum or "
+                  << "--semi-major-axis and --semi-minor-axis.\n" );
+      }else{
+        // The inputs are ASP point clouds. Need CSV only on output.
+        vw_out() << "No datum specified. Will write output CSV files "
+                 << "in the x,y,z format." << std::endl;
+        opt.csv_format_str = "1:x 2:y 3:z";
+        parse_csv_format(opt.csv_format_str, csv_conv);
+      }
     }
-
-
+    
     // We will use ref_box to bound the source points, and vice-versa.
     // If ref points are offset by 360 degrees in longitude in respect to
     // source points, adjust the ref box. Same for the source box.
