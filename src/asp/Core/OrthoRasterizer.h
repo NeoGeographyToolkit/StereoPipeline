@@ -160,15 +160,16 @@ namespace cartography {
       VW_OUT(DebugMessage,"asp") << "Computing raster bounding box...\n";
 
       // Subdivide each block into smaller chunks. Note: small chunks
-      // greatly increase the memory usage and run-time for very
-      // large images. As such, make the chunks big for big images.
+      // greatly increase the memory usage and run-time for very large
+      // images (because they are very many). As such, make the chunks
+      // bigger for bigger images.
       double s = 10000.0; 
       int sub_block_size
         = int(double(point_image.cols())*double(point_image.rows())/(s*s));
       sub_block_size = std::max(1, sub_block_size);
-      sub_block_size = int(round(pow(2.0, round(log(sub_block_size)/log(2.0)))));
+      sub_block_size = int(round(pow(2.0, floor(log(sub_block_size)/log(2.0)))));
       sub_block_size = std::max(16, sub_block_size);
-      sub_block_size = std::min(64, sub_block_size);
+      sub_block_size = std::min(128, sub_block_size);
       std::vector<BBox2i> blocks =
         image_blocks( m_point_image, m_block_size, m_block_size );
 
