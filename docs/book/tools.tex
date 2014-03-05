@@ -732,9 +732,9 @@ the source and vice-versa).
 
 In many typical applications, the source and reference point clouds are
 already roughly aligned, but the source point cloud may cover a larger
-area than the reference. The user should provide to the tool the
-expected maximum distance (displacement) source points may move by as
-result of alignment, using the option
+area than the reference. The user should provide to \texttt{pc\_align}
+the expected maximum distance (displacement) source points may move by
+as result of alignment, using the option
 \texttt{-\/-max-displacement}. This number will help remove source
 points too far from the reference point cloud which may not match
 successfully and may degrade the accuracy. If in doubt, this value can
@@ -751,12 +751,12 @@ these numbers.
 
 Normally Point-to-Plane ICP is more accurate than Point-to-Point, but
 the latter can be good enough if the input point clouds have small
-alignment errors, and it uses less storage and memory as well.  The tool
-also accepts an option named \texttt{-\/-highest-accuracy}, when it will
-compute the normals for Point-to-Plane ICP at all points rather than
-about a tenth of them. This option is not necessary most of the time,
-but may result in better alignment, at the expense of using more memory
-and processing time.
+alignment errors, and it is faster and uses less memory as well.  The
+tool also accepts an option named \texttt{-\/-highest-accuracy}, when it
+will compute the normals for Point-to-Plane ICP at all points rather
+than about a tenth of them. This option is not necessary most of the
+time, but may result in better alignment, at the expense of using more
+memory and processing time.
 
 The input point clouds can be in one of several formats: ASP's point
 cloud format, DEMs as GeoTiff files, or plain-text CSV files (with .csv
@@ -781,17 +781,18 @@ assumes the 3D Cartesian coordinate system with the origin at the planet
 center. This matrix can be supplied back to the tool as an initial
 guess. The inverse transform is saved to a file as well.
 
-The tool outputs the translation component of this transform, defined as
-the vector from the centroid of the original source points to the
-centroid of the transformed source points. This translation component is
-displayed in three ways (a) Cartesian coordinates with the origin at the
-planet center, (b) Local North-East-Down coordinates at the centroid of
-the original source points, and (c) Latitude-Longitude-Height
-differences between the two centroids. If the effect of the transform is
-small (e.g., the points moved by at most several hundred meters), then
-the representation in the form (b) above is most amenable to
-interpretation, as it is in respect to cardinal directions and height
-above ground if standing at a point on the planet surface.
+The \texttt{pc\_align} program outputs the translation component of this
+transform, defined as the vector from the centroid of the original
+source points to the centroid of the transformed source points. This
+translation component is displayed in three ways (a) Cartesian
+coordinates with the origin at the planet center, (b) Local
+North-East-Down coordinates at the centroid of the original source
+points, and (c) Latitude-Longitude-Height differences between the two
+centroids. If the effect of the transform is small (e.g., the points
+moved by at most several hundred meters), then the representation in the
+form (b) above is most amenable to interpretation, as it is in respect
+to cardinal directions and height above ground if standing at a point on
+the planet surface.
 
 The rotation + transform itself, with its origin at the center of the planet,
 can result in large movements on the planet surface even for small angles
@@ -799,22 +800,27 @@ of rotation, as such both its rotation and translation components may not
 be amenable to good interpretation.
 
 The tool outputs to CSV files the lists of errors together with their
-location, before and after the alignment of source points, where an
+locations, before and after the alignment of source points, where an
 error is defined as the distance from a source point used in alignment
-to the closest reference point. It displays the 16th, 50th, and 84th
-error percentiles, as well as the means of the smallest 25\%, 50\%,
-75\%, and 100\% of the errors. 
+to the closest reference point. The format of output CSV files is the
+same as of input CSV files, or as given by \texttt{-\/-csv-format},
+although any columns of extraneous data in the input files are not
+saved on output.
 
-By default, when \texttt{pc\_align} discards
-outliers during the computation of the alignment transform, it keeps
-the 75\% of the points with the smallest errors. As such, a way of
-judging the effectiveness of the tool is to look at the mean of the
-smallest 75\% of the errors before and after alignment.
+The program prints to screen and saves to a log file the 16th, 50th, and
+84th error percentiles, as well as the means of the smallest 25\%, 50\%,
+75\%, and 100\% of the errors.
+
+By default, when \texttt{pc\_align} discards outliers during the
+computation of the alignment transform, it keeps the 75\% of the points
+with the smallest errors. As such, a way of judging the effectiveness of
+the tool is to look at the mean of the smallest 75\% of the errors
+before and after alignment.
 
 The transformed input point clouds can also be saved to disk if desired.
 
 The convergence history for \texttt{pc\_align} (the translation and
-rotation change at each itereation) is saved to disk, and can be used to
+rotation change at each iteration) is saved to disk, and can be used to
 fine-tune the stopping criteria.
 
 \medskip
@@ -855,17 +861,19 @@ method to use. [point-to-plane, point-to-point]\\ \hline
 \texttt{-\/-highest-accuracy} & Compute with highest accuracy for point-to-plane (can be much slower). \\ \hline
 \texttt{-\/-datum \textit{}} & Use this datum for CSV files. [WGS\_1984, D\_MOON (radius is assumed to be 1737400 meters), D\_MARS (radius is assumed to be 33916190 meters), etc.] \\ \hline
 
-\texttt{-\/-csv-format \textit{arg}} & Specify the format of input CSV
-files as a list of entries column\_index:column\_type (indices start from
-1). Examples: '1:x 2:y 3:z' (a Cartesian coordinate system with origin
-at planet center is assumed, with the units being in meters), '5:lon
-6:lat 7:radius\_m' (longitude and latitude are in degrees, the radius is
-measured in meters from planet center), '3:lat 2:lon
-1:height\_above\_datum' (the height above datum is in meters). Can also
-use radius\_km for column\_type, when it is again measured from planet center. \\ \hline
 
 \texttt{-\/-semi-major-axis \textit{double}} & Explicitly set the datum semi-major axis in meters.\\ \hline
 \texttt{-\/-semi-minor-axis \textit{double}} & Explicitly set the datum semi-minor axis in meters.\\ \hline
+
+\texttt{-\/-csv-format \textit{arg}} & Specify the format of input (and
+output) CSV files as a list of entries column\_index:column\_type
+(indices start from 1). Examples: '1:x 2:y 3:z' (a Cartesian coordinate
+system with origin at planet center is assumed, with the units being in
+meters), '5:lon 6:lat 7:radius\_m' (longitude and latitude are in
+degrees, the radius is measured in meters from planet center), '3:lat
+2:lon 1:height\_above\_datum' (the height above datum is in meters). Can
+also use radius\_km for column\_type, when it is again measured from
+planet center. \\ \hline
 
 \texttt{-\/-config-file \textit{file.yaml}} & This is an advanced
 option. Read the alignment parameters from a configuration file, in the
