@@ -161,6 +161,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   // A fix to the unfortunate fact that the user can specify the DEM
   // spacing in two ways on the command line.
+  if (dem_spacing1 < 0.0 || dem_spacing2 < 0.0 ){
+    // Note: Zero spacing means we'll set it internally.
+    vw_throw( ArgumentErr() << "The DEM spacing cannot be negative.\n"
+              << usage << general_options );
+  }
   if (dem_spacing1 != 0 && dem_spacing2 != 0){
     vw_throw( ArgumentErr() << "The DEM spacing was specified twice.\n"
               << usage << general_options );
