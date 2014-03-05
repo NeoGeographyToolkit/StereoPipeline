@@ -272,8 +272,8 @@ int main( int argc, char *argv[] ) {
       if (img.tdi != 16)
         vw_throw( ArgumentErr() << "Can apply CCD artifacts corrections only for TDI 16.\n" );
       
-    }catch(...){
-      vw_throw( ArgumentErr() << "XML file \"" << opt.camera_model_file << "\" is invalid.\n" );
+    } catch ( const std::exception& e ) {                
+      vw_throw( ArgumentErr() << e.what() );
     }
 
     bool is_forward = (scan_dir == "forward");
