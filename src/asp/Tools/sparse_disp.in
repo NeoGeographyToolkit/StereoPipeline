@@ -16,10 +16,12 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# for debugging:
+# This program depends on a variety of Python modules, which can be
+# installed following the instructions at
+# https://github.com/NeoGeographyToolkit/BinaryBuilder/blob/master/build_python_modules/README.txt
+
 import sys, optparse, subprocess, re, os, math, time, datetime
 from osgeo import gdal, gdalconst
-#import os.path as P
 import numpy as np
 import scipy as sp
 import scipy.ndimage.filters as sf
