@@ -185,7 +185,7 @@ if MAKE_APP_TIF_MOSAIC
 endif
 
 if MAKE_APP_LRONACJITREG
-  libexec_PROGRAMS += lronacjitreg
+  bin_PROGRAMS += lronacjitreg # not in libexec as to get a script wrapper
   lronacjitreg_LDADD = $(APP_LRONACJITREG_LIBS)
   lronacjitreg_SOURCES = lronacjitreg.cc
   bin_SCRIPTS  += lronac2mosaic.py
