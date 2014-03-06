@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# This program depends on a variety of Python modules, which can be
+# This program depends on a variety of Python modules that can be
 # installed following the instructions at
 # https://github.com/NeoGeographyToolkit/BinaryBuilder/blob/master/build_python_modules/README.txt
 
