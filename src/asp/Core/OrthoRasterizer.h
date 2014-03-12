@@ -62,10 +62,19 @@ namespace cartography {
     // Function to convert pixel coordinates to the point domain
     BBox3 pixel_to_point_bbox( BBox2 const& px ) const {
       BBox3 output = m_bbox;
+#if 1
+      output.min().x() = m_bbox.min().x() + ((double(px.min().x() - 1)) * m_spacing);
+      output.max().x() = m_bbox.min().x() + ((double(px.max().x() - 1)) * m_spacing);
+      output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() - 1)) * m_spacing);
+      output.max().y() = m_bbox.min().y() + ((double(rows() - px.min().y() - 1)) * m_spacing);
+
+#else
+      // Old buggy temporary code
       output.min().x() = m_bbox.min().x() + ((double(px.min().x()) - 0.5 ) * m_spacing);
       output.max().x() = boost::math::float_next(m_bbox.min().x() + ((double(px.max().x()) - 1 + 0.5) * m_spacing));
       output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() + 1) - 0.5) * m_spacing);
       output.max().y() = boost::math::float_next(m_bbox.min().y() + ((double(rows() - px.min().y()) + 0.5) * m_spacing));
+#endif
       return output;
     }
 
@@ -116,9 +125,14 @@ namespace cartography {
           for_each_pixel( crop( local_copy, blocks[i] - m_image_bbox.min() ),
                           accum );
           if ( !accum.bbox.empty() ) {
+            // Note: for local_union, which will end up contributing
+            // to the global bounding box, we don't use the float_next
+            // gimmick, as there we need the precise box. That is
+            // useful though for the individual boxes, to better do
+            // intersections later.
+            local_union.grow( accum.bbox );
             accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
             accum.bbox.max()[1] = boost::math::float_next(accum.bbox.max()[1]);
-            local_union.grow( accum.bbox );
             solutions.push_back( std::make_pair( accum.bbox, blocks[i] ) );
           }
         }
