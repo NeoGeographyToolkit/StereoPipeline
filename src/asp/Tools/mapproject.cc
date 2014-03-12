@@ -41,54 +41,58 @@ typedef PixelMask<float> PMaskT;
 struct Options : asp::BaseOptions {
   // Input
   std::string dem_file, image_file, camera_model_file, output_file, stereo_session;
+  bool isQuery;
 
   // Settings
   std::string target_srs_string;
   double nodata_value, target_resolution, mpp, ppd;
-  BBox2 target_projwin;
+  BBox2 target_projwin, target_pixelwin;
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   double NaN = std::numeric_limits<double>::quiet_NaN();
   general_options.add_options()
-    ("nodata-value", po::value(&opt.nodata_value)->default_value(-32768),
+    ("nodata-value",     po::value(&opt.nodata_value)->default_value(-32768),
      "No-data value to use unless specified in the input image.")
-    ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
+    ("t_srs",            po::value(&opt.target_srs_string)->default_value(""),
      "Target spatial reference set. This mimics the GDAL option. If not provided use the one from the DEM.")
-    ("tr", po::value(&opt.target_resolution)->default_value(NaN),
+    ("tr",               po::value(&opt.target_resolution)->default_value(NaN),
      "Set the output file resolution in target georeferenced units per pixel.")
-    ("mpp", po::value(&opt.mpp)->default_value(NaN),
+    ("mpp",              po::value(&opt.mpp)->default_value(NaN),
      "Set the output file resolution in meters per pixel.")
-    ("ppd", po::value(&opt.ppd)->default_value(NaN),
+    ("ppd",              po::value(&opt.ppd)->default_value(NaN),
      "Set the output file resolution in pixels per degree.")
-    ("session-type,t", po::value(&opt.stereo_session)->default_value(""),
+    ("query-projection", po::bool_switch(&opt.isQuery)->default_value(false),
+      "Just display the computed projection information without actually doing the projection.")
+    ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the stereo session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. [options: pinhole isis dg rpc]")
-    ("t_projwin", po::value(&opt.target_projwin),
-     "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.");
+    ("t_projwin",        po::value(&opt.target_projwin),
+     "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
+    ("t_pixelwin",       po::value(&opt.target_pixelwin),
+      "Selects a subwindow from the source image for copying, with the corners given in georeferenced pixel coordinates (xmin ymin xmax ymax). Max is exclusive.");
 
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
   positional.add_options()
-    ("dem", po::value(&opt.dem_file))
+    ("dem",          po::value(&opt.dem_file))
     ("camera-image", po::value(&opt.image_file))
     ("camera-model", po::value(&opt.camera_model_file))
-    ("output-file", po::value(&opt.output_file));
+    ("output-file" , po::value(&opt.output_file));
 
   po::positional_options_description positional_desc;
-  positional_desc.add("dem", 1);
+  positional_desc.add("dem",         1);
   positional_desc.add("camera-image",1);
   positional_desc.add("camera-model",1);
-  positional_desc.add("output-file",1);
+  positional_desc.add("output-file", 1);
 
   std::string usage("[options] <dem> <camera-image> <camera-model> <output>");
   po::variables_map vm =
     asp::check_command_line( argc, argv, opt, general_options, general_options,
                              positional, positional_desc, usage );
 
-  if ( !vm.count("dem") || !vm.count("camera-image") ||
-       !vm.count("camera-model") )
+  if ( !vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model") )
     vw_throw( ArgumentErr() << "Requires <dem> <camera-image> and <camera-model> "
               << "input in order to proceed.\n\n"
               << usage << general_options );
@@ -104,11 +108,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 }
 
 template <class ImageT>
-void write_parallel_cond( std::string const& filename,
-                          ImageViewBase<ImageT> const& image,
-                          GeoReference const& georef,
+void write_parallel_cond( std::string              const& filename,
+                          ImageViewBase<ImageT>    const& image,
+                          GeoReference             const& georef,
                           bool has_nodata, double nodata_val,
-                          Options const& opt,
+                          Options                  const& opt,
                           TerminalProgressCallback const& tpc ) {
 
   // Save the session type. Later in stereo we will check that we use
@@ -116,8 +120,7 @@ void write_parallel_cond( std::string const& filename,
   std::map<std::string, std::string> keywords;
   keywords["CAMERA_MODEL_TYPE" ] = opt.stereo_session;
 
-  // ISIS is not thread safe so we must switch out base on what the
-  // session is.
+  // ISIS is not thread safe so we must switch out base on what the session is.
 
   vw_out() << "Writing: " << filename << "\n";
   if (has_nodata){
@@ -128,7 +131,7 @@ void write_parallel_cond( std::string const& filename,
       asp::block_write_gdal_image(filename, image.impl(), georef,
                                   nodata_val, opt, tpc, keywords);
     }
-  }else{
+  }else{ // Does not have nodata
     if ( opt.stereo_session == "isis" ) {
       asp::write_gdal_georeferenced_image(filename, image.impl(), georef,
                                           opt, tpc, keywords);
@@ -140,6 +143,7 @@ void write_parallel_cond( std::string const& filename,
 
 }
 
+/// Compute output georeference to use
 void calc_target_geom(// Inputs
                       bool first_pass,
                       bool calc_target_res,
@@ -152,23 +156,33 @@ void calc_target_geom(// Inputs
                       ){
 
   // Find the camera bbox and the target resolution unless user-supplied.
-
+  // - This call returns the bounding box of the camera view on the ground.
+  // - The bounding box is in units defined by dem_georef and might not be meters.
+  // - auto_res is an estimate of the ground resolution visible by the camera.
+  //   This is in a unit defined by dem_georef and also might not be meters.
   float auto_res;
   cam_box = camera_bbox(dem, dem_georef, camera_model,
                         image_size.x(), image_size.y(), auto_res);
 
   if (first_pass){
+    // Convert bounding box from dem_georef coordinate system to
+    //  target_georef coordinate system
     cam_box = target_georef.lonlat_to_point_bbox
       (dem_georef.point_to_lonlat_bbox(cam_box));
+
   }
 
+  // Use auto-calculated ground resolution if that option was selected
   if (calc_target_res) opt.target_resolution = auto_res;
 
+  // If an image bounding box (projected coordinates) was passed in,
+  //  override the camera's view on the ground with the custom box.
+  // - The user needs to know the georeference projected coordinate system (using the query command) to do this
   if ( opt.target_projwin != BBox2() ) {
     cam_box = opt.target_projwin;
     if ( cam_box.min().y() > cam_box.max().y() )
       std::swap( cam_box.min().y(), cam_box.max().y() );
-    cam_box.max().x() -= opt.target_resolution;
+    cam_box.max().x() -= opt.target_resolution; //TODO: What are these adjustments?
     cam_box.min().y() += opt.target_resolution;
   }
 
@@ -187,20 +201,21 @@ void calc_target_geom(// Inputs
   int output_height = (int)round(cam_box.height()  / s);
   cam_box = s * BBox2(min_x, min_y, output_width, output_height);
 
+  // Transform is from DEM georef coords to target_georef (probably projected) coordinates
   Matrix3x3 T = target_georef.transform();
   // This polarity checking is to make sure the output has been
   // transposed after going through reprojection. Normally this is
   // the case. Yet with grid data from GMT, it is not.
-  if ( T(0,0) < 0 )
-    T(0,2) = cam_box.max().x();
+  if ( T(0,0) < 0 ) // If X coefficient of affine transform is negative
+    T(0,2) = cam_box.max().x();  // Add in an X offset such that all transformed pixels will be positive in X
   else
-    T(0,2) = cam_box.min().x();
-  T(0,0) = opt.target_resolution;
-  T(1,1) = -opt.target_resolution;
-  T(1,2) = cam_box.max().y();
+    T(0,2) = cam_box.min().x(); // ????
+  T(0,0) =  opt.target_resolution;  // meters to pixels???
+  T(1,1) = -opt.target_resolution;  // meters to pixels with image Y axis flip?
+  T(1,2) = cam_box.max().y();       // Add in an Y offset such that all transformed pixels will be positive in Y
   if ( target_georef.pixel_interpretation() ==
-       GeoReference::PixelAsArea ) {
-    T(0,2) -= 0.5 * opt.target_resolution;
+       GeoReference::PixelAsArea ) { // Meaning point [0][0] equals location (0.5, 0.5)
+    T(0,2) -= 0.5 * opt.target_resolution; //
     T(1,2) += 0.5 * opt.target_resolution;
   }
   target_georef.set_transform( T );
@@ -237,11 +252,11 @@ int main( int argc, char* argv[] ) {
     if ( opt.output_file.empty() )
       vw_throw( ArgumentErr() << "Missing output filename.\n" );
 
+    // Initialize a camera model
     boost::shared_ptr<camera::CameraModel> camera_model =
       session->camera_model(opt.image_file, opt.camera_model_file);
 
-    // Safety check that the users are not trying to map project map
-    // projected images.
+    // Safety check that the users are not trying to map project map projected images.
     {
       GeoReference dummy_georef;
       VW_ASSERT( !read_georeference( dummy_georef, opt.image_file ),
@@ -275,7 +290,7 @@ int main( int argc, char* argv[] ) {
       dem = constant_view(PMaskT(0), 360, 180 );
       vw_out() << "\t--> Using flat datum \"" << opt.dem_file
                << "\" as elevation model.\n";
-    }else{
+    }else{ // User has provided a DEM to use.
       bool has_georef = read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
         vw_throw( ArgumentErr() << "There is no georeference information in: "
@@ -294,8 +309,7 @@ int main( int argc, char* argv[] ) {
     }
 
     // Find the target resolution based on mpp or ppd if provided. Do
-    // the math to convert pixel-per-degree to meter-per-pixel and
-    // vice-versa.
+    // the math to convert pixel-per-degree to meter-per-pixel and vice-versa.
     int sum = (!std::isnan(opt.target_resolution)) + (!std::isnan(opt.mpp))
       + (!std::isnan(opt.ppd));
     if (sum >= 2){
@@ -303,16 +317,17 @@ int main( int argc, char* argv[] ) {
                 << "--tr, --mpp, --ppd.\n" );
     }
     double radius = dem_georef.datum().semi_major_axis();
-    if ( !std::isnan(opt.mpp) ){
+    if ( !std::isnan(opt.mpp) ){ // Meters per pixel was set
       opt.ppd = 2.0*M_PI*radius/(360.0*opt.mpp);
-    }else if ( !std::isnan(opt.ppd) ){
+    }else if ( !std::isnan(opt.ppd) ){ // Pixels per degree was set
       opt.mpp = 2.0*M_PI*radius/(360.0*opt.ppd);
     }
-    if ( !std::isnan(opt.ppd) ) {
+    if ( !std::isnan(opt.ppd) ) { // pixels per degree now available
       if (dem_georef.is_projected()) {
-        opt.target_resolution = opt.mpp;
-      } else {
-        opt.target_resolution = 1/opt.ppd;
+        opt.target_resolution = opt.mpp; // Use units of meters
+      } else { // Not projected, GDC coordinates only.
+        opt.target_resolution = 1/opt.ppd; // Use units of degrees
+                                           // Lat/lon degrees are different so we never want to do this!
       }
     }
 
@@ -351,7 +366,7 @@ int main( int argc, char* argv[] ) {
                      opt, cam_box, target_georef);
     // Second pass
     first_pass = false;
-    ImageViewRef<PMaskT> trans_dem
+    ImageViewRef<PMaskT> trans_dem // Get transform from DEM georeference to output georeference
       = geo_transform(dem, dem_georef, target_georef,
                       ValueEdgeExtension<PMaskT>(PMaskT()),
                       BilinearInterpolation());
@@ -361,14 +376,34 @@ int main( int argc, char* argv[] ) {
                      // Outputs
                      opt, cam_box, target_georef);
 
-    BBox2i target_image_size =
-      target_georef.point_to_pixel_bbox( cam_box );
+    // Compute output image size in pixels using bounding box in output projected space
+    BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
 
     vw_out() << "Cropping to " << cam_box << " pt. " << std::endl;
-    vw_out() << "Output georeference:\n" << target_georef << std::endl;
-    vw_out() << "Creating output file that is " << target_image_size.size()
-             << " px.\n";
 
+    // Shrink output image BB if an output image BB was passed in
+    GeoReference croppedGeoRef  = target_georef;
+    BBox2i       croppedImageBB = target_image_size;
+    if ( opt.target_pixelwin != BBox2() ) {
+      // Replace with passed in bounding box
+      croppedImageBB = opt.target_pixelwin;
+
+      // Update output georeference to match the reduced image size
+      croppedGeoRef = vw::cartography::crop(target_georef, croppedImageBB);
+    }
+
+    vw_out() << "Output georeference:\n"        << croppedGeoRef << std::endl;
+    vw_out() << "Output image bounding box:\n";
+    vw_out() << "(Origin: (" << croppedImageBB.min()[0] << ", " << croppedImageBB.min()[1] << ") width: "
+             << croppedImageBB.width() << " height: " << croppedImageBB.height() << ")" << std::endl;
+
+    if (opt.isQuery) // Quit before we do any image work
+    {
+      vw_out() << "Query finished, exiting mapproject tool.\n";
+      return 0;
+    }
+
+    // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource>
       img_rsrc( DiskImageResource::open( opt.image_file ) );
 
@@ -378,18 +413,28 @@ int main( int argc, char* argv[] ) {
     asp::create_out_dir(opt.output_file);
     bool has_img_nodata = true;
     PMaskT nodata_mask = PMaskT(); // invalid value for a PixelMask
-    write_parallel_cond
-      (opt.output_file,
-       apply_mask
-       (transform_nodata
-        (create_mask(DiskImageView<float>(img_rsrc), opt.nodata_value),
-         MapTransform2( camera_model.get(), target_georef,
-                        dem_georef, dem_rsrc, image_size ),
-         target_image_size.width(), target_image_size.height(),
-         ValueEdgeExtension<PMaskT>(nodata_mask),
-         BicubicInterpolation(), nodata_mask), opt.nodata_value),
-       target_georef, has_img_nodata, opt.nodata_value, opt,
-       TerminalProgressCallback("","") );
+    write_parallel_cond( // Write to the output file
+                        opt.output_file,
+                        crop( // Apply crop (only happens if --t_pixelwin was specified
+                             apply_mask( // Handle nodata
+                                        transform_nodata( // Apply the output from MapTransform2
+                                                         create_mask(DiskImageView<float>(img_rsrc), opt.nodata_value), // Handle nodata
+                                                         MapTransform2( // Converts coordinates in DEM georeference to camera pixels
+                                                                       camera_model.get(), target_georef,
+                                                                       dem_georef, dem_rsrc, image_size
+                                                                      ),
+                                                         target_image_size.width(), target_image_size.height(),
+                                                         ValueEdgeExtension<PMaskT>(nodata_mask),
+                                                         BicubicInterpolation(), nodata_mask
+                                                        ),
+                                        opt.nodata_value
+                                       ),
+                             croppedImageBB
+                            ),
+                        croppedGeoRef,
+                        has_img_nodata, opt.nodata_value, opt,
+                        TerminalProgressCallback("","")
+                       );
 
   } ASP_STANDARD_CATCHES;
 
