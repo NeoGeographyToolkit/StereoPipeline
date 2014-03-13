@@ -77,7 +77,9 @@ struct Options : asp::BaseOptions {
   BBox2 target_projwin;
   BBox2i target_projwin_pixels;
   uint32 fsaa;
-
+  double search_radius_factor;
+  bool use_surface_sampling;
+  
   // Output
   std::string  out_prefix, output_file_type;
 
@@ -93,56 +95,60 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description manipulation_options("Manipulation options");
   manipulation_options.add_options()
-    ("x-offset", po::value(&opt.x_offset)->default_value(0), "Add a horizontal offset to the DEM")
-    ("y-offset", po::value(&opt.y_offset)->default_value(0), "Add a horizontal offset to the DEM")
-    ("z-offset", po::value(&opt.z_offset)->default_value(0), "Add a vertical offset to the DEM")
-    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization")
-    ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),"Set a rotation angle phi")
-    ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega")
-    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa");
+    ("x-offset", po::value(&opt.x_offset)->default_value(0), "Add a horizontal offset to the DEM.")
+    ("y-offset", po::value(&opt.y_offset)->default_value(0), "Add a horizontal offset to the DEM.")
+    ("z-offset", po::value(&opt.z_offset)->default_value(0), "Add a vertical offset to the DEM.")
+    ("rotation-order", po::value(&opt.rot_order)->default_value("xyz"),"Set the order of an Euler angle rotation applied to the 3D points prior to DEM rasterization.")
+    ("phi-rotation", po::value(&opt.phi_rot)->default_value(0),"Set a rotation angle phi.")
+    ("omega-rotation", po::value(&opt.omega_rot)->default_value(0),"Set a rotation angle omega.")
+    ("kappa-rotation", po::value(&opt.kappa_rot)->default_value(0),"Set a rotation angle kappa.");
 
   po::options_description projection_options("Projection options");
   projection_options.add_options()
     ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the gdal option.")
     ("t_projwin", po::value(&opt.target_projwin), "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
     ("tr", po::value(&dem_spacing1)->default_value(0.0),
-     "Set output file resolution (in target georeferenced units per pixel). This is the same as the dem-spacing option.")
+     "Set output file resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --dem-spacing option.")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [ earth, moon, mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
     ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
-    ("sinusoidal", "Save using a sinusoidal projection")
-    ("mercator", "Save using a Mercator projection")
-    ("transverse-mercator", "Save using a transverse Mercator projection")
-    ("orthographic", "Save using an orthographic projection")
-    ("stereographic", "Save using a stereographic projection")
-    ("lambert-azimuthal", "Save using a Lambert azimuthal projection")
-    ("utm", po::value(&opt.utm_zone), "Save using a UTM projection with the given zone")
+    ("sinusoidal", "Save using a sinusoidal projection.")
+    ("mercator", "Save using a Mercator projection.")
+    ("transverse-mercator", "Save using a transverse Mercator projection.")
+    ("orthographic", "Save using an orthographic projection.")
+    ("stereographic", "Save using a stereographic projection.")
+    ("lambert-azimuthal", "Save using a Lambert azimuthal projection.")
+    ("utm", po::value(&opt.utm_zone), "Save using a UTM projection with the given zone.")
     ("proj-lat", po::value(&opt.proj_lat)->default_value(0),
-     "The center of projection latitude (if applicable)")
+     "The center of projection latitude (if applicable).")
     ("proj-lon", po::value(&opt.proj_lon)->default_value(0),
-     "The center of projection longitude (if applicable)")
+     "The center of projection longitude (if applicable).")
     ("proj-scale", po::value(&opt.proj_scale)->default_value(1),
-     "The projection scale (if applicable)")
+     "The projection scale (if applicable).")
     ("dem-spacing,s", po::value(&dem_spacing2)->default_value(0.0),
-     "Set the DEM post size (if this value is 0, the post spacing size is computed for you)");
-
+     "Set output file resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --tr option.");
+  
   po::options_description general_options("General Options");
   general_options.add_options()
     ("nodata-value", po::value(&opt.nodata_value),
      "Nodata value to use on output. This is the same as default-value.")
     ("use-alpha", po::bool_switch(&opt.has_alpha)->default_value(false),
-     "Create images that have an alpha channel")
+     "Create images that have an alpha channel.")
     ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
-     "Also write a normalized version of the DEM (for debugging)")
-    ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option")
+     "Also write a normalized version of the DEM (for debugging).")
+    ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option.")
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
     ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
-    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file")
+    ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
-     "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]");
-
+     "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
+    ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
+     "Multiply this by dem-spacing to get the search radius. The output DEM height value at a grid point is obtained by averaging all point cloud heights within the search radius. Default search radius: max(dem_spacing/sqrt(2), default_dem_spacing), so default factor is about 0.7071.")
+    ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
+     "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).");
+  
   general_options.add( manipulation_options );
   general_options.add( projection_options );
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -523,7 +529,8 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   OrthoRasterizerView<PixelGray<float>, ViewT >
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
-               opt.dem_spacing, TerminalProgressCallback("asp","QuadTree: ") );
+               opt.dem_spacing, opt.search_radius_factor, opt.use_surface_sampling,
+               TerminalProgressCallback("asp","QuadTree: ") );
 
   sw1.stop();
   vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
@@ -582,13 +589,14 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
     georef.set_transform( transform );
   }
 
-  vw_out() << "\nOutput Georeference: \n\t" << georef << std::endl;
+  vw_out() << "\nOutput georeference: \n\t" << georef << std::endl;
 
   ImageViewRef<PixelGray<float> > rasterizer_fsaa =
     generate_fsaa_raster( rasterizer, opt );
   vw_out()<< "Creating output file that is " << bounding_box(rasterizer_fsaa).size() << " px.\n";
 
-  if ( !opt.no_dem ) { // Write out the DEM. (Normally users want this.)
+  // Write out the DEM. We've set the texture to be the height.
+  if ( !opt.no_dem ) {
     Stopwatch sw2;
     sw2.start();
     save_image(opt,

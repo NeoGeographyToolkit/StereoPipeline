@@ -33,6 +33,7 @@
 // and then returns a 2D orthographic view.
 #include <asp/Core/SoftwareRenderer.h>
 
+#include <asp/Core/Point2Grid.h>
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
 
@@ -43,12 +44,15 @@ namespace cartography {
   class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT, ImageT> > {
     ImageT m_point_image;
     ImageViewRef<float> m_texture;
-    BBox3 m_bbox;           // Bounding box of point cloud
-    double m_spacing;       // pointcloud units (usually m or deg) per pxel
+    BBox3 m_bbox;             // bounding box of point cloud
+    double m_spacing;         // point cloud units (usually m or deg) per pixel
+    double m_default_spacing; // if user did not specify spacing
     double m_default_value;
     bool m_minz_as_default;
     bool m_use_alpha;
     int m_block_size;
+    double m_search_radius_factor;
+    bool m_use_surface_sampling;
     
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
@@ -62,11 +66,12 @@ namespace cartography {
     // Function to convert pixel coordinates to the point domain
     BBox3 pixel_to_point_bbox( BBox2 const& px ) const {
       BBox3 output = m_bbox;
+      int d = (int)m_use_surface_sampling;
 #if 1
-      output.min().x() = m_bbox.min().x() + ((double(px.min().x() - 1)) * m_spacing);
-      output.max().x() = m_bbox.min().x() + ((double(px.max().x() - 1)) * m_spacing);
-      output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() - 1)) * m_spacing);
-      output.max().y() = m_bbox.min().y() + ((double(rows() - px.min().y() - 1)) * m_spacing);
+      output.min().x() = m_bbox.min().x() + ((double(px.min().x() - d)) * m_spacing);
+      output.max().x() = m_bbox.min().x() + ((double(px.max().x() - d)) * m_spacing);
+      output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() - d)) * m_spacing);
+      output.max().y() = m_bbox.min().y() + ((double(rows() - px.min().y() - d)) * m_spacing);
 
 #else
       // Old buggy temporary code
@@ -77,7 +82,7 @@ namespace cartography {
 #endif
       return output;
     }
-
+    
     // Task to parallelize the generation of bounding boxes
     template <class ViewT>
     class SubBlockBoundaryTask : public Task, private boost::noncopyable {
@@ -127,8 +132,8 @@ namespace cartography {
           if ( !accum.bbox.empty() ) {
             // Note: for local_union, which will end up contributing
             // to the global bounding box, we don't use the float_next
-            // gimmick, as there we need the precise box. That is
-            // useful though for the individual boxes, to better do
+            // gimmick, as we need the precise box. That is useful
+            // though for the individual boxes, to better do
             // intersections later.
             local_union.grow( accum.bbox );
             accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
@@ -160,11 +165,15 @@ namespace cartography {
     double m_pix2point;
     
     template <class TextureViewT>
-    OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing = 0.0,
-                        const ProgressCallback& progress = ProgressCallback::dummy_instance()) :
-      m_point_image(point_image), m_texture(ImageView<float>(1,1)), // dummy value
+    OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing,
+                        double search_radius_factor, bool use_surface_sampling,
+                        const ProgressCallback& progress
+                        = ProgressCallback::dummy_instance()) :
+      m_point_image(point_image), m_texture(ImageView<float>(1,1)), // dummy temp value
       m_default_value(0), m_minz_as_default(true), m_use_alpha(false),
-      m_block_size(256) /* To do: query block size from input point cloud */ {
+      m_block_size(256), /* To do: query block size from input point cloud */
+      m_search_radius_factor(search_radius_factor),
+      m_use_surface_sampling(use_surface_sampling){
 
       set_texture(texture.impl());
 
@@ -206,6 +215,16 @@ namespace cartography {
 
       VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
 
+      // This must happen after the bounding box was computed, but
+      // before setting the spacing.
+      BBox3 bbox = bounding_box();
+      double bbox_width = fabs(bbox.max().x() - bbox.min().x());
+      double bbox_height = fabs(bbox.max().y() - bbox.min().y());
+      double input_image_width = m_point_image.cols();
+      double input_image_height = m_point_image.rows();
+      m_default_spacing
+        = std::max(bbox_width, bbox_height) / std::max(input_image_width, input_image_height);
+      
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);
       VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
@@ -230,9 +249,10 @@ namespace cartography {
       }
       // Divide by the subblock size
       m_pix2point /= double(sub_block_size); 
-      
-    }
 
+      return;
+    }
+    
     /// You can change the texture after the class has been
     /// initialized.  The texture image must have the same dimensions
     /// as the point image, and texture pixels must correspond exactly
@@ -245,8 +265,9 @@ namespace cartography {
       m_texture = channel_cast<float>(channels_to_planes(texture.impl()));
     }
 
-    inline int32 cols() const { return (int) (fabs(m_bbox.max().x() - m_bbox.min().x()) / m_spacing) + 1; }
-    inline int32 rows() const { return (int) (fabs(m_bbox.max().y() - m_bbox.min().y()) / m_spacing) + 1; }
+    inline int32 cols() const { return (int) round((fabs(m_bbox.max().x() - m_bbox.min().x()) / m_spacing)) + 1; }
+    inline int32 rows() const { return (int) round((fabs(m_bbox.max().y() - m_bbox.min().y()) / m_spacing)) + 1; }
+    
     inline int32 planes() const { return 1; }
 
     inline pixel_accessor origin() const { return pixel_accessor(*this); }
@@ -264,10 +285,14 @@ namespace cartography {
       bbox_1.expand(5); // bugfix, ensure we see enough beyond current tile
       
       // Used to find which polygons are actually in the draw space.
-      BBox3 local_3d_bbox     = pixel_to_point_bbox(bbox_1);
+      BBox3 local_3d_bbox = pixel_to_point_bbox(bbox_1);
 
-      ImageView<float> render_buffer(bbox_1.width(), bbox_1.height());
-
+      ImageView<float> render_buffer;
+      ImageView<double> d_buffer, weights;
+      if (m_use_surface_sampling){
+        render_buffer.set_size(bbox_1.width(), bbox_1.height());
+      }
+      
       // Setup a software renderer and the orthographic view matrix
       vw::stereo::SoftwareRenderer renderer(bbox_1.width(),
                                             bbox_1.height(),
@@ -275,22 +300,47 @@ namespace cartography {
       renderer.Ortho2D(local_3d_bbox.min().x(), local_3d_bbox.max().x(),
                        local_3d_bbox.min().y(), local_3d_bbox.max().y());
 
+      // Given a DEM grid point, we normally want to search for cloud points
+      // the square region within a half-grid. Here we prefer to use a circular
+      // region which will contain that square, so its radius is then
+      // m_spacing*sqrt(2.0)/2.0. We make this bigger if we are close
+      // to the smallest spacing, which is m_default_spacing. Can be over-ridden
+      // by user.
+      double search_radius;
+      if (m_search_radius_factor <= 0.0)
+        search_radius = std::max(m_spacing*sqrt(2.0)/2.0, m_default_spacing);
+      else
+        search_radius = m_spacing*m_search_radius_factor;
+      vw::stereo::Point2Grid point2grid(bbox_1.width(),
+                                        bbox_1.height(),
+                                        d_buffer, weights,
+                                        local_3d_bbox.min().x(),
+                                        local_3d_bbox.min().y(),
+                                        m_spacing, search_radius);
+      
       // Set up the default color value
+      double min_val = 0.0;
       if (m_use_alpha) {
-        renderer.Clear(std::numeric_limits<float>::min());  // use this dummy value to denote transparency
+        // use this dummy value to denote transparency
+        min_val = std::numeric_limits<float>::min();
       } else if (m_minz_as_default) {
-        renderer.Clear(m_bbox.min().z());
+        min_val = m_bbox.min().z();
       } else {
-        renderer.Clear(m_default_value);
+        min_val = m_default_value;
       }
-
-      static const int NUM_COLOR_COMPONENTS = 1;  // We only need gray scale
-      static const int NUM_VERTEX_COMPONENTS = 2; // DEMs are 2D
-
+      
       std::valarray<float> vertices(10), intensities(5);
-      renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, &vertices[0]);
-      renderer.SetColorPointer(NUM_COLOR_COMPONENTS, &intensities[0]);
 
+      if (m_use_surface_sampling){
+        static const int NUM_COLOR_COMPONENTS = 1;  // We only need gray scale
+        static const int NUM_VERTEX_COMPONENTS = 2; // DEMs are 2D
+        renderer.Clear(min_val);
+        renderer.SetVertexPointer(NUM_VERTEX_COMPONENTS, &vertices[0]);
+        renderer.SetColorPointer(NUM_COLOR_COMPONENTS, &intensities[0]);
+      }else{
+        point2grid.Clear(min_val);
+      }
+      
       // From the box in the DEM pixel space, get the box in the point
       // cloud pixel space.
       BBox2i point_image_boundary;
@@ -303,14 +353,14 @@ namespace cartography {
         cy.push_back((boundary.second.min().y()+boundary.second.max().y())/2.0);
       }
 
-      // In some cases, the memory usage blows up. Then, roughly
-      // estimate how much of the input point cloud region we need to
-      // see for the given DEM tile, and multiply that region by a
-      // factor of FACTOR. Place that region at the median of the
-      // centers of the boxes used to grow the image boundary earlier,
-      // and intersect that with the current box. This will not kick
-      // in unless point_image_boundary estimated above is grossly
-      // larger than what it should be.
+      // In some cases, the memory usage blows up due to noisy points
+      // in the cloud. Then, roughly estimate how much of the input
+      // point cloud region we need to see for the given DEM tile, and
+      // multiply that region by a factor of FACTOR. Place that region
+      // at the median of the centers of the boxes used to grow the
+      // image boundary earlier, and intersect that with the current
+      // box. This will not kick in unless point_image_boundary
+      // estimated above is grossly larger than what it should be.
       int FACTOR = 4;
       Vector3 estim = (local_3d_bbox.max() - local_3d_bbox.min())/m_pix2point;
       int max_len = (int)ceil(FACTOR*std::max(estim[0], estim[1]));
@@ -328,16 +378,28 @@ namespace cartography {
         point_image_boundary.crop(smaller_boundary);
       }
       
-      if ( point_image_boundary.empty() )
-        return CropView<ImageView<pixel_type> >( render_buffer,
-                                                 BBox2i(-bbox_1.min().x(),
-                                                        -bbox_1.min().y(),
-                                                        cols(), rows()) );
+      if ( point_image_boundary.empty() ){
+        if (m_use_surface_sampling){
+          return CropView<ImageView<pixel_type> >( render_buffer,
+                                                   BBox2i(-bbox_1.min().x(),
+                                                          -bbox_1.min().y(),
+                                                          cols(), rows()) );
+        }else{
+          return CropView<ImageView<pixel_type> >( d_buffer,
+                                                   BBox2i(-bbox_1.min().x(),
+                                                          -bbox_1.min().y(),
+                                                          cols(), rows()) );
+        }
+      }
 
-      // Bugfix, ensure we see enough beyond current tile
-      point_image_boundary.expand(5);
+      int bias = 5; // This minimum bias is a bugfix, to see enough data
+      if (!m_use_surface_sampling){
+        // Bias to ensure we see enough points to average
+        bias = std::max(bias, (int)ceil(2*search_radius/m_pix2point));
+      }
+      point_image_boundary.expand(bias);
       point_image_boundary.crop(vw::bounding_box(m_point_image));
-
+      
       // If point_image_boundary is big, subdivide it into blocks
       // to save on memory.
       int max_tile_size = 512; 
@@ -355,12 +417,14 @@ namespace cartography {
       }else{
         blocks.push_back(point_image_boundary);
       }
+
+      // This is very important. When doing surface sampling, for each
+      // pixel we need to see its next up and right neighbors.
+      int d = (int)m_use_surface_sampling;
       
       for (int i = 0; i < (int)blocks.size(); i++){
 
-        // Need to grow the block, as for rendering below we
-        // need each pixel and its neighbors
-        blocks[i].max() += Vector2i(1, 1);
+        blocks[i].max() += Vector2i(d, d);
         blocks[i].crop(point_image_boundary);
         
         // Pull a copy of the input image in memory
@@ -370,42 +434,54 @@ namespace cartography {
           crop(m_texture, blocks[i] );
         typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
         PointAcc row_acc = point_copy.origin();
-        for ( int32 row = 0; row < point_copy.rows()-1; ++row ) {
+        for ( int32 row = 0; row < point_copy.rows()-d; ++row ) {
           PointAcc point_ul = row_acc;
           
-          for ( int32 col = 0; col < point_copy.cols()-1; ++col ) {
+          for ( int32 col = 0; col < point_copy.cols()-d; ++col ) {
+            
             PointAcc point_ur = point_ul; point_ur.next_col();
             PointAcc point_ll = point_ul; point_ll.next_row();
             PointAcc point_lr = point_ul; point_lr.advance(1,1);
-            
-            // This loop rasterizes a quad indexed by the upper left.
-            if ( !boost::math::isnan((*point_ul).z()) &&
-                 !boost::math::isnan((*point_lr).z()) ) {
-              
-              vertices[0] = (*point_ul).x(); // UL
-              vertices[1] = (*point_ul).y();
-              vertices[2] = (*point_ll).x(); // LL
-              vertices[3] = (*point_ll).y();
-              vertices[4] = (*point_lr).x(); // LR
-              vertices[5] = (*point_lr).y();
-              vertices[6] = (*point_ur).x(); // UR
-              vertices[7] = (*point_ur).y();
-              vertices[8] = (*point_ul).x(); // UL
-              vertices[9] = (*point_ul).y();
-              
-              intensities[0] = texture_copy(col,  row);
-              intensities[1] = texture_copy(col,row+1);
-              intensities[2] = texture_copy(col+1,  row+1);
-              intensities[3] = texture_copy(col+1,row);
-              intensities[4] = texture_copy(col,row);
-              
-              if ( !boost::math::isnan((*point_ll).z()) ) {
-                // triangle 1 is: UL LL LR
-                renderer.DrawPolygon(0, 3);
+
+            if (m_use_surface_sampling){
+
+              // This loop rasterizes a quad indexed by the upper left.
+              if ( !boost::math::isnan((*point_ul).z()) &&
+                   !boost::math::isnan((*point_lr).z()) ) {
+                
+                vertices[0] = (*point_ul).x(); // UL
+                vertices[1] = (*point_ul).y();
+                vertices[2] = (*point_ll).x(); // LL
+                vertices[3] = (*point_ll).y();
+                vertices[4] = (*point_lr).x(); // LR
+                vertices[5] = (*point_lr).y();
+                vertices[6] = (*point_ur).x(); // UR
+                vertices[7] = (*point_ur).y();
+                vertices[8] = (*point_ul).x(); // UL
+                vertices[9] = (*point_ul).y();
+                
+                intensities[0] = texture_copy(col,  row);
+                intensities[1] = texture_copy(col,row+1);
+                intensities[2] = texture_copy(col+1,  row+1);
+                intensities[3] = texture_copy(col+1,row);
+                intensities[4] = texture_copy(col,row);
+                
+                if ( !boost::math::isnan((*point_ll).z()) ) {
+                  // triangle 1 is: UL LL LR
+                  renderer.DrawPolygon(0, 3);
+                }
+                if ( !boost::math::isnan((*point_ur).z()) ) {
+                  // triangle 2 is: LR, UR, UL
+                  renderer.DrawPolygon(2, 3);
+                }
               }
-              if ( !boost::math::isnan((*point_ur).z()) ) {
-                // triangle 2 is: LR, UR, UL
-                renderer.DrawPolygon(2, 3);
+              
+            }else{
+              // The new engine
+              if ( !boost::math::isnan(point_copy(col, row).z()) ){
+                point2grid.AddPoint(point_copy(col, row).x(),
+                                    point_copy(col, row).y(),
+                                    texture_copy(col,  row));
               }
             }
             point_ul.next_col();
@@ -414,18 +490,21 @@ namespace cartography {
         }
         
       }
-      
+
+      if (!m_use_surface_sampling)
+        point2grid.normalize();
+
       // The software renderer returns an image which will render
       // upside down in most image formats, so we correct that here.
       // We also introduce transparent pixels into the result where
       // necessary.
-      ImageView<PixelT> result = flip_vertical(render_buffer);
-
-      // This may seem confusing, but we must crop here so that the
-      // good pixel data is placed into the coordinates specified by
-      // the bbox.  This allows rasterize to touch those pixels
-      // using the coordinates inside the bbox.  The pixels outside
-      // those coordinates are invalid, but they never get accessed
+      // To do: Here can do flipping in place.
+      ImageView<PixelT> result;
+      if (m_use_surface_sampling)
+        result = flip_vertical(render_buffer);
+      else
+        result = flip_vertical(d_buffer);
+      
       return CropView<ImageView<pixel_type> > (result, BBox2i(-bbox_1.min().x(),
                                                               -bbox_1.min().y(),
                                                               cols(), rows()));
@@ -450,15 +529,11 @@ namespace cartography {
     /// original image.
     void set_spacing(double val) {
       if (val == 0.0) {
-        BBox3 bbox = bounding_box();
-        double bbox_width = fabs(bbox.max().x() - bbox.min().x());
-        double bbox_height = fabs(bbox.max().y() - bbox.min().y());
-        double input_image_width = m_point_image.cols();
-        double input_image_height = m_point_image.rows();
-        m_spacing = std::max(bbox_width, bbox_height) / std::max(input_image_width, input_image_height);
+        m_spacing = m_default_spacing;
       } else {
         m_spacing = val;
       }
+      
     }
     double spacing() { return m_spacing; }
 
@@ -476,14 +551,5 @@ namespace cartography {
     }
 
   };
-
-  template <class PixelT, class ImageT, class TextureT>
-  OrthoRasterizerView<PixelT, ImageT>
-  ortho_rasterizer( ImageViewBase<ImageT> const& point_image,
-                    ImageViewBase<TextureT> const& texture, double spacing = 0.0,
-                    const ProgressCallback& progress = ProgressCallback::dummy_instance()) {
-    return OrthoRasterizerView<PixelT,ImageT>(point_image.impl(),texture.impl(),
-                                              spacing, progress );
-  }
 
 }} // namespace vw::cartography
