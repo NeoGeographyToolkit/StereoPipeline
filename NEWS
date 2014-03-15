@@ -16,7 +16,7 @@ GENERAL
 
   - Triangulation:
     * Added option to remove, during triangulation, points for which
-      triangulation error is larger than specified value.
+      triangulation error is larger than specified value (in meters).
     * Added ability to save triangulation error for a DEM as a 3D
       North-East-Down vector rather than just its magnitude.
 
@@ -33,8 +33,22 @@ GENERAL
     * Added the ability to explicitely specify the datum semi-axes.
     * Bug fix for saving transformed clouds for Moon and Mars.
 
-  - Made point2dem robust to highly noisy input point clouds, and improved
-    its memory usage and performance for large point clouds.
+  - point2dem:
+     * Replaced the core algorithm. Instead of sampling the point
+       cloud surface, which is prone to aliasing, the DEM height at a
+       given grid point is obtained as a weighted average of heights
+       of all points in the cloud within search radius of the grid
+       point, with the weights given by a Gaussian. The cutoff of the
+       Gaussian can be controlled using the --search-radius
+       option. The old algorithm is still available (but obsoleted)
+       using the --use-surface-sampling option. The new algorithm
+       makes the --fsaa option reduntant. The tool will not run with
+       it unless invoked together with --use-sufrace-sampling.
+     * Bug fix in the (now obsolete) algorithm which was sampling
+       the point cloud surface, the output DEM points were shifted by
+       a pixel or more from their true location.
+     * Robustess to highly noisy input point clouds.
+     * Improved memory usage and performance for large point clouds.
 
 *** RELEASE 2.3.0, 19 November, 2013 ***
 

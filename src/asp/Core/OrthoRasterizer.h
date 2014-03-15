@@ -66,8 +66,8 @@ namespace cartography {
     // Function to convert pixel coordinates to the point domain
     BBox3 pixel_to_point_bbox( BBox2 const& px ) const {
       BBox3 output = m_bbox;
-      int d = (int)m_use_surface_sampling;
 #if 1
+      int d = (int)m_use_surface_sampling;
       output.min().x() = m_bbox.min().x() + ((double(px.min().x() - d)) * m_spacing);
       output.max().x() = m_bbox.min().x() + ((double(px.max().x() - d)) * m_spacing);
       output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() - d)) * m_spacing);
@@ -300,15 +300,15 @@ namespace cartography {
       renderer.Ortho2D(local_3d_bbox.min().x(), local_3d_bbox.max().x(),
                        local_3d_bbox.min().y(), local_3d_bbox.max().y());
 
-      // Given a DEM grid point, we normally want to search for cloud points
-      // the square region within a half-grid. Here we prefer to use a circular
-      // region which will contain that square, so its radius is then
-      // m_spacing*sqrt(2.0)/2.0. We make this bigger if we are close
-      // to the smallest spacing, which is m_default_spacing. Can be over-ridden
-      // by user.
+      // Given a DEM grid point, search for cloud points within the
+      // circular region of radius equal to grid size. As such, a
+      // given cloud point may contribute to multiple DEM points, but
+      // with different weights (set by Gaussian). We make this radius
+      // bigger if we are close to the smallest spacing, which is
+      // m_default_spacing. Search radius can be over-ridden by user.
       double search_radius;
       if (m_search_radius_factor <= 0.0)
-        search_radius = std::max(m_spacing*sqrt(2.0)/2.0, m_default_spacing);
+        search_radius = std::max(m_spacing, 2*m_default_spacing);
       else
         search_radius = m_spacing*m_search_radius_factor;
       vw::stereo::Point2Grid point2grid(bbox_1.width(),

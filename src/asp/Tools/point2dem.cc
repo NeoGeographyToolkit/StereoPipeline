@@ -145,7 +145,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
-     "Multiply this by dem-spacing to get the search radius. The output DEM height value at a grid point is obtained by averaging all point cloud heights within the search radius. Default search radius: max(dem_spacing/sqrt(2), default_dem_spacing), so default factor is about 0.7071.")
+     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, 2*default_dem_spacing), so the default factor is about 1.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
      "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).");
   
@@ -185,6 +185,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     opt.out_prefix =
       prefix_from_pointcloud_filename( opt.pointcloud_filename );
 
+  if (opt.use_surface_sampling){
+    vw_out(WarningMessage) << "The --use-surface-sampling option invokes the old algorithm and is obsolete, it will be removed in future versions." << std::endl;
+  }
+  
+  if (opt.fsaa != 1 && !opt.use_surface_sampling){
+    vw_throw( ArgumentErr() << "The --fsaa option is obsolete. It can be used only with the --use-surface-sampling option which invokes the old algorithm.\n" << usage << general_options );
+  }
+  
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
   

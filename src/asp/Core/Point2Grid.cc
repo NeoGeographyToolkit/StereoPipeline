@@ -44,11 +44,23 @@ Point2Grid::Point2Grid(int width, int height,
     vw_throw( ArgumentErr() << "Point2Grid: Grid size must be > 0.\n" );
   if (m_radius <= 0)
     vw_throw( ArgumentErr() << "Point2Grid: Radius size must be > 0.\n" );
-}
 
-// Free up resources that are allocated in the constructor
-Point2Grid::~Point2Grid() {
+  // By the time we reached the distance m_spacing from the origin, we
+  // want the Gaussian exp(-sigma*x^2) to decay to given value. The
+  // number below was chosen extremely carefully to minimize aliasing
+  // in the hill-shaded DEM, do not change it lightly.
+  double val = 0.5;
+  double sigma = -log(val)/m_spacing/m_spacing;
 
+  // Sample the gaussian for speed
+  int num_samples = 1000;
+  m_dx = m_radius/(num_samples - 1.0);
+  m_sampled_gauss.resize(num_samples);
+  for (int k = 0; k < num_samples; k++){
+    double dist = k*m_dx;
+    m_sampled_gauss[k] = exp(-sigma*dist*dist);
+  }
+  
 }
 
 void Point2Grid::Clear(const float value) {
@@ -80,8 +92,9 @@ void Point2Grid::AddPoint(double x, double y, double z){
       if ( dist > m_radius ) continue;
 
       if (m_weights(ix, iy) == 0) m_buffer(ix, iy) = 0.0;
-      m_buffer(ix, iy)  += z;
-      m_weights(ix, iy) += 1;
+      double wt = m_sampled_gauss[(int)round(dist/m_dx)];
+      m_buffer(ix, iy)  += z*wt;
+      m_weights(ix, iy) += wt;
     }
     
   }

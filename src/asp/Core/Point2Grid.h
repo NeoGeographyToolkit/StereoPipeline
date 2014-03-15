@@ -32,7 +32,7 @@ namespace vw { namespace stereo {
                ImageView<double> & buffer, ImageView<double> & weights,
                double x0, double y0,
                double spacing, double radius);
-    ~Point2Grid();
+    ~Point2Grid(){}
     void Clear(const float val);
     void AddPoint(double x, double y, double z);
     void normalize();
@@ -44,6 +44,9 @@ namespace vw { namespace stereo {
     double m_x0, m_y0; // lower-left corner
     double m_spacing;  // spacing between output DEM pixels
     double m_radius;   // how far to search for cloud points
+    double m_dx;       // spacing between samples
+    std::vector<double> m_sampled_gauss;
+    
   };
   
 }}
