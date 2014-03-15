@@ -36,6 +36,8 @@
 #include <asp/Core/BlobIndexThreaded.h>
 #include <asp/Core/SparseView.h>
 
+#include <boost/foreach.hpp>
+
 namespace asp {
   namespace inpaint_p {
 
