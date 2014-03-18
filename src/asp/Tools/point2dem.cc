@@ -145,7 +145,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
-     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, 2*default_dem_spacing), so the default factor is about 1.")
+     "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
      "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).");
   

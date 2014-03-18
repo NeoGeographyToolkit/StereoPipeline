@@ -35,22 +35,20 @@ using namespace stereo;
 
 Point2Grid::Point2Grid(int width, int height,
                        ImageView<double> & buffer, ImageView<double> & weights,
-                       double x0, double y0, double spacing,
+                       double x0, double y0, double grid_size,
                        double radius): m_width(width), m_height(height),
                                        m_buffer(buffer), m_weights(weights),
-                                       m_x0(x0), m_y0(y0), m_spacing(spacing),
+                                       m_x0(x0), m_y0(y0), m_grid_size(grid_size),
                                        m_radius(radius){
-  if (m_spacing <= 0)
+  if (m_grid_size <= 0)
     vw_throw( ArgumentErr() << "Point2Grid: Grid size must be > 0.\n" );
   if (m_radius <= 0)
-    vw_throw( ArgumentErr() << "Point2Grid: Radius size must be > 0.\n" );
+    vw_throw( ArgumentErr() << "Point2Grid: Search radius must be > 0.\n" );
 
-  // By the time we reached the distance m_spacing from the origin, we
-  // want the Gaussian exp(-sigma*x^2) to decay to given value. The
-  // number below was chosen extremely carefully to minimize aliasing
-  // in the hill-shaded DEM, do not change it lightly.
-  double val = 0.5;
-  double sigma = -log(val)/m_spacing/m_spacing;
+  // By the time we reached the distance m_grid_size from the origin, we
+  // want the Gaussian exp(-sigma*x^2) to decay to given value. 
+  double val = 0.25;
+  double sigma = -log(val)/m_grid_size/m_grid_size;
 
   // Sample the gaussian for speed
   int num_samples = 1000;
@@ -76,18 +74,18 @@ void Point2Grid::Clear(const float value) {
 
 void Point2Grid::AddPoint(double x, double y, double z){
 
-  int minx = std::max( (int)ceil( (x - m_radius - m_x0)/m_spacing ), 0 );
-  int miny = std::max( (int)ceil( (y - m_radius - m_y0)/m_spacing ), 0 );
+  int minx = std::max( (int)ceil( (x - m_radius - m_x0)/m_grid_size ), 0 );
+  int miny = std::max( (int)ceil( (y - m_radius - m_y0)/m_grid_size ), 0 );
   
-  int maxx = std::min( (int)floor( (x + m_radius - m_x0)/m_spacing ), m_buffer.cols() - 1 );
-  int maxy = std::min( (int)floor( (y + m_radius - m_y0)/m_spacing ), m_buffer.rows() - 1 );
+  int maxx = std::min( (int)floor( (x + m_radius - m_x0)/m_grid_size ), m_buffer.cols() - 1 );
+  int maxy = std::min( (int)floor( (y + m_radius - m_y0)/m_grid_size ), m_buffer.rows() - 1 );
 
   // Add the contribution of current point to all grid points within radius
   for (int ix = minx; ix <= maxx; ix++){
     for (int iy = miny; iy <= maxy; iy++){
       
-      double gx = m_x0 + ix*m_spacing;
-      double gy = m_y0 + iy*m_spacing;
+      double gx = m_x0 + ix*m_grid_size;
+      double gy = m_y0 + iy*m_grid_size;
       double dist = sqrt( (x-gx)*(x-gx) + (y-gy)*(y-gy) );
       if ( dist > m_radius ) continue;
 

@@ -34,6 +34,14 @@ GENERAL
     * Bug fix for saving transformed clouds for Moon and Mars.
 
   - point2dem:
+     * The way the default DEM spacing is computed was modified, 
+       to make it independent of point cloud dimensions (so it is now
+       dependent only on the local distribution of points in the
+       cloud) and robust to outliers. This sometimes results in DEM
+       spacing 3x or more coarser than before (more precisely, the
+       earlier formula was making this spacing unnecessarily fine). As
+       usual, the user is advised to carefully consider what the
+       appropriate spacing is for given images.
      * Replaced the core algorithm. Instead of sampling the point
        cloud surface, which is prone to aliasing, the DEM height at a
        given grid point is obtained as a weighted average of heights

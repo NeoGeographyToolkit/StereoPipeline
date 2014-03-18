@@ -47,6 +47,8 @@ namespace cartography {
     BBox3 m_bbox;             // bounding box of point cloud
     double m_spacing;         // point cloud units (usually m or deg) per pixel
     double m_default_spacing; // if user did not specify spacing
+    double m_default_spacing_x;
+    double m_default_spacing_y;
     double m_default_value;
     bool m_minz_as_default;
     bool m_use_alpha;
@@ -161,9 +163,6 @@ namespace cartography {
     typedef const PixelT result_type;
     typedef ProceduralPixelAccessor<OrthoRasterizerView> pixel_accessor;
 
-    // Estimated size of each point cloud pixel in geodetic units
-    double m_pix2point;
-    
     template <class TextureViewT>
     OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing,
                         double search_radius_factor, bool use_surface_sampling,
@@ -211,45 +210,54 @@ namespace cartography {
       progress.report_finished();
 
       if ( m_bbox.empty() )
-        vw_throw( ArgumentErr() << "OrthoRasterize: Input point cloud is empty!\n" );
-
+        vw_throw( ArgumentErr() <<
+                  "OrthoRasterize: Input point cloud is empty!\n" );
       VW_OUT(DebugMessage,"asp") << "Point cloud boundary is " << m_bbox << "\n";
+      
+      // Find the width and height of the median point cloud
+      // pixel in projected coordinates.
+      int len = m_point_image_boundaries.size();
+      {
+        // This vectors can be large, so don't keep them for too long
+        std::vector<double> vx, vy;
+        vx.reserve(len); vx.clear();
+        vy.reserve(len); vy.clear();
+        BOOST_FOREACH( BBoxPair const& boundary, m_point_image_boundaries ) {
+          if (boundary.first.empty()) continue;
+          vx.push_back(boundary.first.width() /sub_block_size);
+          vy.push_back(boundary.first.height()/sub_block_size);
+        }
+        std::sort(vx.begin(), vx.end());
+        std::sort(vy.begin(), vy.end());
+        m_default_spacing_x = m_default_spacing_y = 0.0;
+        if (len > 0){
+          // Get the median
+          m_default_spacing_x = vx[(int)(0.5*len)];
+          m_default_spacing_y = vy[(int)(0.5*len)];
+        }
+      }
 
       // This must happen after the bounding box was computed, but
       // before setting the spacing.
-      BBox3 bbox = bounding_box();
-      double bbox_width = fabs(bbox.max().x() - bbox.min().x());
-      double bbox_height = fabs(bbox.max().y() - bbox.min().y());
-      double input_image_width = m_point_image.cols();
-      double input_image_height = m_point_image.rows();
-      m_default_spacing
-        = std::max(bbox_width, bbox_height) / std::max(input_image_width, input_image_height);
+      if (m_use_surface_sampling){
+        // Old way
+        BBox3 bbox = bounding_box();
+        double bbox_width = fabs(bbox.max().x() - bbox.min().x());
+        double bbox_height = fabs(bbox.max().y() - bbox.min().y());
+        double input_image_width = m_point_image.cols();
+        double input_image_height = m_point_image.rows();
+        // The formula below is not so good, its output depends strongly
+        // on how many rows and columns are in the point cloud.
+        m_default_spacing
+          = std::max(bbox_width, bbox_height) / std::max(input_image_width, input_image_height);
+      }else{
+        // We choose the coarsest of the two spacings
+        m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
+      }
       
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);
       VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
-
-      // Estimate the size of each point cloud pixel
-      int len = m_point_image_boundaries.size();
-      std::vector<double> vx, vy;
-      vx.reserve(len); vx.clear();
-      vy.reserve(len); vy.clear();
-      BOOST_FOREACH( BBoxPair const& boundary,
-                     m_point_image_boundaries ) {
-        if (boundary.first.empty()) continue;
-        vx.push_back(boundary.first.max().x() - boundary.first.min().x());
-        vy.push_back(boundary.first.max().y() - boundary.first.min().y());
-      }
-      std::sort(vx.begin(), vx.end());
-      std::sort(vy.begin(), vy.end());
-      m_pix2point = 0;
-      if (len > 0){
-        // Get the median
-        m_pix2point = (vx[(int)(0.5*len)] + vy[(int)(0.5*len)])/2.0;
-      }
-      // Divide by the subblock size
-      m_pix2point /= double(sub_block_size); 
-
       return;
     }
     
@@ -304,11 +312,11 @@ namespace cartography {
       // circular region of radius equal to grid size. As such, a
       // given cloud point may contribute to multiple DEM points, but
       // with different weights (set by Gaussian). We make this radius
-      // bigger if we are close to the smallest spacing, which is
-      // m_default_spacing. Search radius can be over-ridden by user.
+      // no smaller than the default DEM spacing. Search radius can be
+      // over-ridden by user.
       double search_radius;
       if (m_search_radius_factor <= 0.0)
-        search_radius = std::max(m_spacing, 2*m_default_spacing);
+        search_radius = std::max(m_spacing, m_default_spacing);
       else
         search_radius = m_spacing*m_search_radius_factor;
       vw::stereo::Point2Grid point2grid(bbox_1.width(),
@@ -361,20 +369,20 @@ namespace cartography {
       // image boundary earlier, and intersect that with the current
       // box. This will not kick in unless point_image_boundary
       // estimated above is grossly larger than what it should be.
-      int FACTOR = 4;
-      Vector3 estim = (local_3d_bbox.max() - local_3d_bbox.min())/m_pix2point;
-      int max_len = (int)ceil(FACTOR*std::max(estim[0], estim[1]));
+      int FACTOR = 3;
+      Vector2 estim = FACTOR*Vector2(local_3d_bbox.width()/m_default_spacing_x,
+                                     local_3d_bbox.height()/m_default_spacing_y);
       if (!cx.empty() &&
-          (point_image_boundary.width()  > max_len ||
-           point_image_boundary.height() > max_len)
+          (point_image_boundary.width()  > estim[0] ||
+           point_image_boundary.height() > estim[1])
           ){
         std::sort(cx.begin(), cx.end());
         std::sort(cy.begin(), cy.end());
         int midx = (int)round(cx[cx.size()/2]);
         int midy = (int)round(cy[cy.size()/2]);
-        BBox2i smaller_boundary(midx - max_len/2, midy - max_len/2,
-                                max_len, max_len );
-        smaller_boundary.expand(1);
+        BBox2i smaller_boundary(midx - estim[0]/2, midy - estim[1]/2,
+                                estim[0], estim[1] );
+        smaller_boundary.expand(1); // to compensate for casting to int above
         point_image_boundary.crop(smaller_boundary);
       }
       
@@ -395,7 +403,7 @@ namespace cartography {
       int bias = 5; // This minimum bias is a bugfix, to see enough data
       if (!m_use_surface_sampling){
         // Bias to ensure we see enough points to average
-        bias = std::max(bias, (int)ceil(2*search_radius/m_pix2point));
+        bias = std::max(bias, (int)ceil(2.0*search_radius/std::min(m_default_spacing_x, m_default_spacing_y)));
       }
       point_image_boundary.expand(bias);
       point_image_boundary.crop(vw::bounding_box(m_point_image));
@@ -430,6 +438,7 @@ namespace cartography {
         // Pull a copy of the input image in memory
         ImageView<typename ImageT::pixel_type> point_copy =
           crop(m_point_image, blocks[i] );
+
         ImageView<float> texture_copy =
           crop(m_texture, blocks[i] );
         typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
@@ -550,6 +559,61 @@ namespace cartography {
       return geo_transform;
     }
 
-  };
+    void find_bdbox_robust_to_outliers(std::vector<BBoxPair >
+                                       const& point_image_boundaries,
+                                       BBox3 & bbox
+                                       ){
 
+      // To do: This code is not enabled yet.
+      
+      using namespace vw::math;
+
+      double pct = 0.1; 
+      double outlier_factor = 1.5;
+      double ctrx_min, ctrx_max, ctry_min, ctry_max;
+      double widx_min, widx_max, widy_min, widy_max;
+
+      int len = point_image_boundaries.size();
+      std::vector<double> vx, vy;
+
+      // Find the reasonable box widths
+      vx.reserve(len); vx.clear();
+      vy.reserve(len); vy.clear();
+      BOOST_FOREACH( BBoxPair const& boundary, point_image_boundaries ) {
+        if (boundary.first.empty()) continue;
+        vx.push_back(boundary.first.width());
+        vy.push_back(boundary.first.height());
+      }
+      find_outlier_brackets(vx, pct, outlier_factor, widx_min, widx_max);
+      find_outlier_brackets(vy, pct, outlier_factor, widy_min, widy_max);
+
+      // Find the reasonable box centers. Note: We reuse the same
+      // vectors vx and vy to save on memory, as they can be very
+      // large.
+      vx.reserve(len); vx.clear();
+      vy.reserve(len); vy.clear();
+      BOOST_FOREACH( BBoxPair const& boundary, point_image_boundaries ) {
+        if (boundary.first.empty()) continue;
+        vx.push_back(boundary.first.center().x());
+        vy.push_back(boundary.first.center().y());
+      }
+      find_outlier_brackets(vx, pct, outlier_factor, ctrx_min, ctrx_max);
+      find_outlier_brackets(vy, pct, outlier_factor, ctry_min, ctry_max);
+
+      // Redo the bounding box computation, excluding outliers
+      bbox = BBox3();
+      BOOST_FOREACH( BBoxPair const& boundary, point_image_boundaries ) {
+        BBox3 b = boundary.first;
+        if (b.empty()) continue;
+        if ( b.width()  < widx_min || b.width()  > widx_max ) continue;
+        if ( b.height() < widy_min || b.height() > widy_max ) continue;
+        if ( b.center().x()  < ctrx_min || b.center().x() > ctrx_max ) continue;
+        if ( b.center().y()  < ctry_min || b.center().y() > ctry_max ) continue;
+        bbox.grow(b);
+      }
+      
+    }
+    
+  };
+  
 }} // namespace vw::cartography
