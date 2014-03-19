@@ -379,6 +379,10 @@ if __name__ == '__main__':
     global opt
     (opt, args) = p.parse_args()
 
+    if not args and not opt.version:
+        p.print_help()
+        die('\nERROR: Missing input files', code=2)
+
     if opt.seed_mode is not None:
         args.extend(['--corr-seed-mode', str(opt.seed_mode)])
 
@@ -406,10 +410,6 @@ if __name__ == '__main__':
         if opt.isis3data is not None: os.environ['ISIS3DATA'] = opt.isis3data
 
     num_nodes = get_num_nodes(opt.nodes_list)
-
-    if not args and not opt.version:
-        p.print_help()
-        die('\nERROR: Missing input files', code=2)
 
     if opt.version:
         args.append('-v')
