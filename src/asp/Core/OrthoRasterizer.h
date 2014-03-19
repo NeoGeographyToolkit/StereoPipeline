@@ -37,8 +37,7 @@
 #include <boost/foreach.hpp>
 #include <boost/math/special_functions/next.hpp>
 
-namespace vw {
-namespace cartography {
+namespace vw { namespace cartography {
 
   template <class PixelT, class ImageT>
   class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT, ImageT> > {
@@ -370,8 +369,9 @@ namespace cartography {
       // box. This will not kick in unless point_image_boundary
       // estimated above is grossly larger than what it should be.
       int FACTOR = 3;
-      Vector2 estim = FACTOR*Vector2(local_3d_bbox.width()/m_default_spacing_x,
-                                     local_3d_bbox.height()/m_default_spacing_y);
+      double min_spacing = std::min(m_default_spacing_x, m_default_spacing_y);
+      Vector2 estim = FACTOR*Vector2(local_3d_bbox.width()/min_spacing,
+                                     local_3d_bbox.height()/min_spacing);
       if (!cx.empty() &&
           (point_image_boundary.width()  > estim[0] ||
            point_image_boundary.height() > estim[1])
@@ -403,7 +403,7 @@ namespace cartography {
       int bias = 5; // This minimum bias is a bugfix, to see enough data
       if (!m_use_surface_sampling){
         // Bias to ensure we see enough points to average
-        bias = std::max(bias, (int)ceil(2.0*search_radius/std::min(m_default_spacing_x, m_default_spacing_y)));
+        bias = std::max(bias, (int)ceil(2.0*search_radius/min_spacing));
       }
       point_image_boundary.expand(bias);
       point_image_boundary.crop(vw::bounding_box(m_point_image));
