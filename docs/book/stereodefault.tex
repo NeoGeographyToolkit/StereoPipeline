@@ -23,7 +23,9 @@ distribution.
 
 \begin{description}
 
-\item[alignment-method \textnormal (default = none)] \hfill \\
+\item[alignment-method \textnormal{\small{(= affineepipolar, homography,
+      epipolar, none)} (default = affineepipolar)] \hfill \\
+
   When \texttt{alignment-method} is set to \texttt{homography},
   \texttt{stereo} will attempt to pre-align the images by
   automatically detecting tie-points between images using a feature
@@ -237,7 +239,7 @@ value will result in no timeout enforcement.
 
 \begin{description}
 
-\item[subpixel-mode \textnormal{\small{(= 0,1,2,3)}} (default = 2)] \hfill \\
+\item[subpixel-mode \textnormal{\small{(= 0,1,2,3)}} (default = 1)] \hfill \\
   This parameter selects the subpixel correlation method. These
   algorithms are arranged in order of decreasing speed and increasing
   quality. Parabola subpixel is very fast but will produce results

@@ -62,7 +62,7 @@ namespace asp {
     double nan = std::numeric_limits<double>::quiet_NaN();
 
     (*this).add_options()
-      ("alignment-method", po::value(&global.alignment_method)->default_value("none"),
+      ("alignment-method", po::value(&global.alignment_method)->default_value("affineepipolar"),
        "Rough alignment for input images. [AffineEpipolar, Homography, Epipolar, None]")
       ("force-use-entire-range", po::bool_switch(&global.force_use_entire_range)->default_value(false)->implicit_value(true),
        "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
@@ -126,7 +126,7 @@ namespace asp {
   SubpixelDescription::SubpixelDescription() : po::options_description("Subpixel Options") {
     StereoSettings& global = stereo_settings();
     (*this).add_options()
-      ("subpixel-mode",  po::value(&global.subpixel_mode)->default_value(2),
+      ("subpixel-mode",  po::value(&global.subpixel_mode)->default_value(1),
        "Subpixel algorithm. [0 None, 1 Parabola, 2 Bayes EM]")
       ("subpixel-kernel", po::value(&global.subpixel_kernel)->default_value(Vector2i(35,35), "35 35"),
        "Kernel size used for subpixel method.")

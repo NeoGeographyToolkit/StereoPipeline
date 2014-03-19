@@ -10,7 +10,7 @@
 #    EPIPOLAR       (Recommended for Pinhole Sessions)
 #    HOMOGRAPHY     (Recommended for ISIS wide-angle shots)
 #    AFFINEEPIPOLAR (Recommended for ISIS narrow-angle and DG sessions)
-alignment-method none
+alignment-method affineepipolar
 
 # Intensity Normalization
 force-use-entire-range       # Use entire input range
