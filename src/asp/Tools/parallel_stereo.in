@@ -111,7 +111,7 @@ def create_subproject_dirs( settings, **kw ):
                 if not os.path.lexists(sym_f):
                     m1 = re.match('^.*?-(PC|RD).tif$', relative_f)
                     m2 = re.match('^.*?-log.*?.txt$', relative_f) # skip logs
-                    if not m1 and not m2 and not os.path.isdir(relative_f):
+                    if not m1 and not m2:
                         os.symlink(relative_f, sym_f)
 
 def rename_files( settings, postfix_in, postfix_out, **kw ):
