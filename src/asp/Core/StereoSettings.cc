@@ -174,7 +174,7 @@ namespace asp {
       ("fill-holes-max-size", po::value(&global.fill_hole_max_size)->default_value(100000),
        "Holes with no more pixels than this number should be filled in")
       ("erode-max-size", po::value(&global.erode_max_size)->default_value(0),
-       "Isolated blobs of no more pixels than this number should be removed")
+       "Isolated blobs with no more pixels than this number should be removed")
       ("mask-flatfield", po::bool_switch(&global.mask_flatfield)->default_value(false)->implicit_value(true),
        "Mask dust found on the sensor or film. (For use with Apollo Metric Cameras only!)");
 

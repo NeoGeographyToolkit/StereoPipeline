@@ -9,26 +9,30 @@ TOOLS
 
 GENERAL 
 
-  - Relaxed filtering of disparities, retaining more valid disparities.
-    Can be adjusted with 'filter-mode' and related parameters.
+  - Added logging to a file for stereo, point2dem, pc_align, and
+    other tools.
+  - Added a tutorial for processing Digital Globe Earth imagery.
+  - Improved mosacking of Digital Globe images.
 
-  - Added logging to a file for stereo and other tools.
+  - stereo_fltr:
+     * Added the option --erode-max-size to stereo_fltr to remove
+       isolated blobs.
+     * Relaxed filtering of disparities, retaining more valid
+       disparities. Can be adjusted with 'filter-mode' and related
+       parameters.
 
-  - Triangulation:
+  - stereo_tri:
     * Added option to remove, during triangulation, points for which
       triangulation error is larger than specified value (in meters).
     * Added ability to save triangulation error for a DEM as a 3D
       North-East-Down vector rather than just its magnitude.
 
-  - Added a tutorial for processing Digital Globe Earth imagery.
-
-  - Improved mosacking of Digital Globe images.
-
   - pc_align:
     * Read and write CSV files in a wide variety of formats, using the
       --csv-format option.
-    * Display the translation component of the rigid alignment transform
-      in the local North-East-Down coordinate system.
+    * Display the translation component of the rigid alignment
+      transform in the local North-East-Down coordinate system, as
+      well as the centroid of source points used in alignment.
     * Save to disk the convergence history (iteration information).
     * Added the ability to explicitely specify the datum semi-axes.
     * Bug fix for saving transformed clouds for Moon and Mars.
@@ -47,7 +51,7 @@ GENERAL
        given grid point is obtained as a weighted average of heights
        of all points in the cloud within search radius of the grid
        point, with the weights given by a Gaussian. The cutoff of the
-       Gaussian can be controlled using the --search-radius
+       Gaussian can be controlled using the --search-radius-factor
        option. The old algorithm is still available (but obsoleted)
        using the --use-surface-sampling option. The new algorithm
        makes the --fsaa option reduntant. The tool will not run with
