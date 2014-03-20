@@ -415,7 +415,7 @@ int main( int argc, char* argv[] ) {
     PMaskT nodata_mask = PMaskT(); // invalid value for a PixelMask
     write_parallel_cond( // Write to the output file
                         opt.output_file,
-                        crop( // Apply crop (only happens if --t_pixelwin was specified
+                        crop( // Apply crop (only happens if --t_pixelwin was specified)
                              apply_mask( // Handle nodata
                                         transform_nodata( // Apply the output from MapTransform2
                                                          create_mask(DiskImageView<float>(img_rsrc), opt.nodata_value), // Handle nodata
