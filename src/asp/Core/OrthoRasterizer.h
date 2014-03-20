@@ -39,6 +39,108 @@
 
 namespace vw { namespace cartography {
 
+  template <class ImageT>
+  void dump_image_xy(std::string const& prefix, BBox2i const& box,
+                     ImageT const& I){
+    
+    typedef typename ImageT::pixel_type PixelT;
+
+    std::ostringstream os;
+    os << prefix << "_" << box.min().x() << "_" << box.min().y() << ".csv";
+    std::string file = os.str();
+    std::cout << "Writing: " << file << std::endl;
+    std::ofstream of(file.c_str());
+    of.precision(18);
+    
+    for (int col = 0; col < I.cols(); col++){
+      for (int row = 0; row < I.rows(); row++){
+        PixelT p = I(col, row);
+        if (boost::math::isnan(p.z())) continue;
+        of << p.x() << ' ' << p.y() << std::endl;
+      }
+    }
+    of.close();
+  }
+
+  template <class ImageT>
+  void fill_holes(ImageT const& in_img, int hole_fill_len,
+                 ImageT & filled_img){
+
+    // A very simple hole-filling algorithm. Find the closest valid
+    // neighbors left, right, up, and down, and do a line fit to fill
+    // in the current invalid pixel.
+    
+    filled_img = in_img;
+
+    typedef typename ImageT::pixel_type PixelT;
+
+    for (int row = 0; row < in_img.rows(); row++){
+      for (int col = 0; col < in_img.cols(); col++){
+
+        if (!boost::math::isnan(in_img(col, row).z())) continue; // skip valid
+        
+         // Look left, right, up, down, and find the closest valid pixels
+         int hl = hole_fill_len; // shorten
+         double r0 = -1, r1 = -1, c0 = -1, c1 = -1; // no good indices yet
+         for (int k = row-1; k >= std::max(row-hl, 0); k--)
+           if (!boost::math::isnan(in_img(col, k).z())){ r0 = k; break; }
+         if (r0 >=0){
+           // Found a point to the left, try to also find one to the right
+           for (int k = row+1; k <= std::min(row + hl, in_img.rows()-1); k++)
+             if (!boost::math::isnan(in_img(col, k).z())){ r1 = k; break; }
+         }
+         for (int k = col-1; k >= std::max(col-hl, 0); k--)
+           if (!boost::math::isnan(in_img(k, row).z())){ c0 = k; break; }
+         if (c0 >=0){
+           // Found a point up, try to also find one down
+           for (int k = col+1; k <= std::min(col + hl, in_img.cols()-1); k++)
+             if (!boost::math::isnan(in_img(k, row).z())){ c1 = k; break; }
+         }
+         
+         // Interpolate between left and right, then between top and
+         // bottom.  Average the results.
+         int num_good = 0;
+         PixelT V;
+         if (r0 >= 0 && r1 >= 0){
+           V += ((r1-row)*in_img(col, r0) + (row-r0)*in_img(col, r1))/(r1-r0);
+           num_good++;
+         }
+         if (c0 >= 0 && c1 >= 0){
+           V += ((c1-col)*in_img(c0, row) + (col-c0)*in_img(c1, row))/(c1-c0);
+           num_good++;
+         }
+
+         if (num_good > 0)
+           filled_img(col, row) = V/num_good;
+         
+      }
+    }
+
+  }
+  
+  template <class ImageT>
+  void crop_fill_holes(ImageT const& input_img, BBox2i const& box,
+                       int hole_fill_len,
+                       ImageView<typename ImageT::pixel_type> & filled_img){
+
+    typedef typename ImageT::pixel_type PixelT;
+    
+    // Expand the box to be able to see more of the image to fill the
+    // holes better.
+    BBox2i box2 = box;
+    box2.expand(hole_fill_len + 1);
+    box2.crop(bounding_box(input_img));
+    
+    ImageView<PixelT> input_crop = crop(input_img, box2);
+    //dump_image_xy("tile_before", box, input_crop);
+
+    fill_holes(input_crop, hole_fill_len, filled_img);
+    //dump_image_xy("tile_after", box, filled_img);
+    
+    // Crop to the original box
+    filled_img = crop(filled_img, box - box2.min());
+  }
+  
   template <class PixelT, class ImageT>
   class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT, ImageT> > {
     ImageT m_point_image;
@@ -54,6 +156,7 @@ namespace vw { namespace cartography {
     int m_block_size;
     double m_search_radius_factor;
     bool m_use_surface_sampling;
+    int m_hole_fill_len;
     
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
@@ -100,7 +203,7 @@ namespace vw { namespace cartography {
       // values which are altitude.
       struct GrowBBoxAccumulator {
         BBox3 bbox;
-        void operator()( Vector3 const& v ) {
+        void operator()( typename ViewT::pixel_type const& v ) {
           if ( !boost::math::isnan(v.z()) )
             bbox.grow(v);
         }
@@ -165,13 +268,13 @@ namespace vw { namespace cartography {
     template <class TextureViewT>
     OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing,
                         double search_radius_factor, bool use_surface_sampling,
-                        const ProgressCallback& progress
-                        = ProgressCallback::dummy_instance()) :
+                        const ProgressCallback& progress) :
       m_point_image(point_image), m_texture(ImageView<float>(1,1)), // dummy temp value
       m_default_value(0), m_minz_as_default(true), m_use_alpha(false),
       m_block_size(256), /* To do: query block size from input point cloud */
       m_search_radius_factor(search_radius_factor),
-      m_use_surface_sampling(use_surface_sampling){
+      m_use_surface_sampling(use_surface_sampling),
+      m_hole_fill_len(0){
 
       set_texture(texture.impl());
 
@@ -407,7 +510,7 @@ namespace vw { namespace cartography {
       }
       point_image_boundary.expand(bias);
       point_image_boundary.crop(vw::bounding_box(m_point_image));
-      
+
       // If point_image_boundary is big, subdivide it into blocks
       // to save on memory.
       int max_tile_size = 512; 
@@ -436,12 +539,17 @@ namespace vw { namespace cartography {
         blocks[i].crop(point_image_boundary);
         
         // Pull a copy of the input image in memory
-        ImageView<typename ImageT::pixel_type> point_copy =
-          crop(m_point_image, blocks[i] );
+        ImageView<typename ImageT::pixel_type> point_copy;
 
+        if (m_hole_fill_len == 0)
+          point_copy = crop(m_point_image, blocks[i] );
+        else
+          crop_fill_holes(m_point_image, blocks[i], m_hole_fill_len, point_copy);
+        
         ImageView<float> texture_copy =
           crop(m_texture, blocks[i] );
-        typedef typename ImageView<Vector3>::pixel_accessor PointAcc;
+        typedef typename ImageView<typename ImageT::pixel_type>::pixel_accessor
+          PointAcc;
         PointAcc row_acc = point_copy.origin();
         for ( int32 row = 0; row < point_copy.rows()-d; ++row ) {
           PointAcc point_ul = row_acc;
@@ -546,6 +654,11 @@ namespace vw { namespace cartography {
     }
     double spacing() { return m_spacing; }
 
+    // We may set m_hole_fill_len > 0 only during orthoimage generation
+    void set_hole_fill_len(int hole_fill_len){
+      m_hole_fill_len = hole_fill_len;
+    }
+    
     BBox3 bounding_box() { return m_bbox; }
 
     // Return the affine georeferencing transform.

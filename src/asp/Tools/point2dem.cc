@@ -76,7 +76,7 @@ struct Options : asp::BaseOptions {
   std::string target_srs_string;
   BBox2 target_projwin;
   BBox2i target_projwin_pixels;
-  uint32 fsaa;
+  int fsaa, ortho_fill_len;
   double search_radius_factor;
   bool use_surface_sampling;
   
@@ -86,7 +86,7 @@ struct Options : asp::BaseOptions {
   // Defaults that the user doesn't need to see. (The Magic behind the
   // curtain).
   Options() : nodata_value(std::numeric_limits<float>::quiet_NaN()),
-              semi_major(0), semi_minor(0), fsaa(1){}
+              semi_major(0), semi_minor(0), fsaa(1), ortho_fill_len(0){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -137,6 +137,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
      "Also write a normalized version of the DEM (for debugging).")
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option.")
+    ("orthoimage-hole-fill-len", po::value(&opt.ortho_fill_len)->default_value(0), "How many pixels away to look for valid pixels in the point cloud when performing hole-filling during orthoimage generation.")
     ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
     ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
@@ -188,10 +189,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.use_surface_sampling){
     vw_out(WarningMessage) << "The --use-surface-sampling option invokes the old algorithm and is obsolete, it will be removed in future versions." << std::endl;
   }
-  
+
   if (opt.fsaa != 1 && !opt.use_surface_sampling){
     vw_throw( ArgumentErr() << "The --fsaa option is obsolete. It can be used only with the --use-surface-sampling option which invokes the old algorithm.\n" << usage << general_options );
   }
+  
+  if (opt.ortho_fill_len < 0)
+    vw_throw( ArgumentErr() << "The value of "
+              << "--orthoimage-hole-fill-len must not be negative.\n");
   
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
@@ -599,6 +604,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   vw_out() << "\nOutput georeference: \n\t" << georef << std::endl;
 
+  rasterizer.set_hole_fill_len(0);
   ImageViewRef<PixelGray<float> > rasterizer_fsaa =
     generate_fsaa_raster( rasterizer, opt );
   vw_out()<< "Creating output file that is " << bounding_box(rasterizer_fsaa).size() << " px.\n";
@@ -626,6 +632,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
       DiskImageView<Vector4> point_disk_image(opt.pointcloud_filename);
       ImageViewRef<double> error_channel = select_channel(point_disk_image,3);
       rasterizer.set_texture( error_channel );
+      rasterizer.set_hole_fill_len(0);
       rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
       save_image(opt,
                  asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
@@ -643,6 +650,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
         // to happen right away, before we switch to the next one.
         ImageViewRef<double> ch = select_channel(ned_err, ch_index);
         rasterizer.set_texture(ch);
+        rasterizer.set_hole_fill_len(0);
         rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
         rasterized[ch_index] =
           block_cache(rasterizer_fsaa,Vector2i(vw_settings().default_tile_size(),
@@ -663,6 +671,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
   if (!opt.texture_filename.empty()) {
     DiskImageView<PixelGray<float> > texture(opt.texture_filename);
     rasterizer.set_texture(texture);
+    rasterizer.set_hole_fill_len(opt.ortho_fill_len);
     rasterizer_fsaa =
       generate_fsaa_raster( rasterizer, opt );
     std::string output_file = opt.out_prefix + "-DRG.tif";

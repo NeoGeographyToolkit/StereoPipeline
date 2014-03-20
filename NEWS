@@ -57,6 +57,7 @@ GENERAL
      * Bug fix, the DEM was shifted by 1 pixel from true location.
      * Robustess to highly noisy input point clouds.
      * Improved memory usage and performance for large point clouds.
+     * Added the ability to fill in holes in the output orthoimage.
 
 *** RELEASE 2.3.0, 19 November, 2013 ***
 
