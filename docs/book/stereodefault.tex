@@ -323,14 +323,6 @@ mean those pixels within the window of half-size of
   Each pass will erode pixels that do not match their neighbors.  One
   pass is usually sufficient.
 
-%\item[ERODE\_MAX\_SIZE \textnormal{\small{(= \emph{integer})}} (default = 1,000)] \hfill \\
-%  Max island size in pixels that will removed post above filter. The
-%  filter above removes high gradients and will leave spots behind that
-%  belong to a mis-correlation. This process will attempt to identify
-%  and remove them. \underline{Never set this value to zero as it will
-%    remove everything.} This process can not be shut off but you can
-%  set the value to 1 where it then removes single isolated pixels.
-%
 \item[disable-fill-holes (default = false)] \hfill \\
 
   Normally ASP will try to fill holes in the disparity map (caused by
@@ -347,8 +339,10 @@ mean those pixels within the window of half-size of
   interpolated data produced by inpainting.
 
 \item[fill-holes-max-size \textnormal{\small{(= \emph{integer})}} (default = 100,000)] \hfill \\
-  This defines the maximum area of a hole that the inpainting
-  technique should attempt. Default is 100,000 pixels.
+  Holes with no more pixels than this number should be filled in.
+
+\item[erode-max-size \textnormal{\small{(= \emph{integer})}} (default = 0)] \hfill \\
+  Isolated blobs of no more pixels than this number should be removed.
 
 \end{description}
 

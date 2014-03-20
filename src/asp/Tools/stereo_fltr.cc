@@ -35,28 +35,6 @@ namespace vw {
   template<> struct PixelFormatID<PixelMask<Vector<float, 5> > >   { static const PixelFormatEnum value = VW_PIXEL_GENERIC_6_CHANNEL; };
 }
 
-
-//=====================================================================================================
-//====================================================================================================
-//====================================================================================================
-
-
-//TODO: Move this to its own file!
-namespace asp {
-
-
-} // end namespace asp
-
-
-
-
-
-
-//====================================================================================================
-//====================================================================================================
-//====================================================================================================
-
-
 // Run several cleanup passes with desired cleanup mode.
 template <class ViewT>
 struct MultipleDisparityCleanUp {
@@ -92,26 +70,27 @@ struct MultipleDisparityCleanUp {
 template <class ImageT>
 void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
                                     Options const& opt ) {
-   // Write Good Pixel Map
-    // Sub-sampling so that the user can actually view it.
-    float sub_scale =
-      float( std::min( inputview.impl().cols(),
-                       inputview.impl().rows() ) ) / 2048.0;
-
-    asp::block_write_gdal_image( opt.out_prefix + "-GoodPixelMap.tif",
-                                 subsample(
-                                           apply_mask(
-                                                      copy_mask(stereo::missing_pixel_image(inputview.impl()),
-                                                                create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"), 0)
-                                                               )
-                                                     ),
-                                           sub_scale < 1 ? 1 : sub_scale
-                                          ),
-                                 opt, TerminalProgressCallback
-                                 ("asp", "\t--> Good Pxl Map: ") );
+  // Write Good Pixel Map
+  // Sub-sampling so that the user can actually view it.
+  float sub_scale =
+    float( std::min( inputview.impl().cols(),
+                     inputview.impl().rows() ) ) / 2048.0;
   
-  // TODO: Add a new variable to control these!
-  bool removeSmallBlobs = stereo_settings().erode_max_size > 0;
+  asp::block_write_gdal_image
+    ( opt.out_prefix + "-GoodPixelMap.tif",
+      subsample
+      (apply_mask
+       (copy_mask
+        (stereo::missing_pixel_image(inputview.impl()),
+         create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"), 0)
+         )
+        ),
+       sub_scale < 1 ? 1 : sub_scale
+       ),
+      opt, TerminalProgressCallback
+      ("asp", "\t--> Good Pxl Map: ") );
+  
+  bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
 
   // Fill holes
   if(!stereo_settings().disable_fill_holes) {
@@ -146,7 +125,8 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
       std::list<blob::BlobCompressed> fullBlobList;
       BlobIndexThreaded::blob_iterator blobIter, holeIter;
       // Loop through blobs
-      for (blobIter=smallBlobIndex.begin(); blobIter!=smallBlobIndex.end(); ++blobIter) {
+      for (blobIter=smallBlobIndex.begin(); blobIter!=smallBlobIndex.end();
+           ++blobIter) {
         fullBlobList.push_back(*blobIter);
         // Loop through holes
         for (holeIter=smallHoleIndex.begin(); holeIter!=smallHoleIndex.end(); ++holeIter) {
@@ -163,9 +143,11 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
       // Write out the image to disk, filling in and removing blobs in the process
       // - Blob removal is done second to make sure inner-blob holes are removed.
       asp::block_write_gdal_image( opt.out_prefix + "-F.tif",
-                                      applyErodeView(inpaint(inputview.impl(), smallHoleIndex,
-                                                             use_grassfire, default_inpaint_val),
-                                                             fullBlobList),
+                                   applyErodeView(inpaint(inputview.impl(),
+                                                          smallHoleIndex,
+                                                          use_grassfire,
+                                                          default_inpaint_val),
+                                                  fullBlobList),
                                    opt, TerminalProgressCallback
                                    ("asp","\t--> Filtering: ") );
     }
