@@ -64,8 +64,8 @@ namespace blob {
     // This describes a blob as lines of rows
     // to reduce the memory foot print
     vw::Vector2i m_min;
-    std::vector<std::list<vw::int32> > m_row_start; // assumed to be ordered
-    std::vector<std::list<vw::int32> > m_row_end;
+    std::vector< std::list<vw::int32> > m_row_start; // assumed to be ordered
+    std::vector< std::list<vw::int32> > m_row_end;
 
     void shift_x ( vw::int32 const& value );
     void refactor();
@@ -300,7 +300,7 @@ namespace blob {
     vw::Mutex&        m_append_mutex;
 
     std::deque<BlobCompressed> &m_c_blob; // reference to global
-    std::deque<vw::BBox2i    > &m_blob_bbox;
+    std::deque<vw::BBox2i>     &m_blob_bbox;
     int m_id;
     int m_max_area;
   public:
@@ -351,7 +351,7 @@ namespace blob {
 // amount of memory
 class BlobIndexThreaded {
 
-  std::deque<vw::BBox2i          > m_blob_bbox;
+  std::deque<vw::BBox2i>           m_blob_bbox;
   std::deque<blob::BlobCompressed> m_c_blob;
 
   vw::Mutex m_insert_mutex;
