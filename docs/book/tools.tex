@@ -356,7 +356,6 @@ Options & Description \\ \hline \hline
 \texttt{-\/-normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging) \\ \hline
 \texttt{-\/-orthoimage \textit{texture-file}} & Write an orthoimage based on the texture file given as an argument to this command line option \\ \hline
 \texttt{-\/-errorimage} & Write an additional image whose values represent the triangulation error in meters \\ \hline
-\texttt{-\/-fsaa  \textit{float(=3)}} & Oversampling amount to perform antialiasing. \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the output file type \\ \hline
 \hline
@@ -382,7 +381,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-proj-lat \textit{float}} & The center of projection latitude (if applicable) \\ \hline
 \texttt{-\/-proj-lon \textit{float}} & The center of projection longitude (if applicable) \\ \hline
 \texttt{-\/-proj-scale \textit{float}} & The projection scale (if applicable) \\ \hline
-\texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the \ac{DEM} post size (if this value is 0, the post spacing size is computed for you) \\ \hline
+\texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. \\ \hline
 \texttt{-\/-rounding-error \textit{float(=$1/2^{10}$=$0.0009765625$)}} & How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. \\ \hline
 
 \texttt{-\/-search-radius-factor \textit{double(=$0$)}} & Multiply this
@@ -395,6 +394,7 @@ about 1.\\ \hline
 
 \texttt{-\/-use-surface-sampling \textit{[default: false]}} &
 Use the older algorithm, interpret the point cloud as a surface made up of triangles and sample it (prone to aliasing).\\ \hline
+\texttt{-\/-fsaa  \textit{float(=3)}} & Oversampling amount to perform antialiasing. Obsolte, can be used only in conjunction with \texttt{-\/-use-surface-sampling}. \\ \hline
 
 \texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline
 \texttt{-\/-no-bigtiff} & Tell GDAL to not create bigtiffs.\\ \hline

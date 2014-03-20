@@ -107,8 +107,10 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   projection_options.add_options()
     ("t_srs", po::value(&opt.target_srs_string), "Target spatial reference set. This mimicks the gdal option.")
     ("t_projwin", po::value(&opt.target_projwin), "Selects a subwindow from the source image for copying but with the corners given in georeferenced coordinates. Max is exclusive.")
-    ("tr", po::value(&dem_spacing1)->default_value(0.0),
-     "Set output file resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --dem-spacing option.")
+    ("dem-spacing,s", po::value(&dem_spacing1)->default_value(0.0),
+     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --tr option.")
+    ("tr", po::value(&dem_spacing2)->default_value(0.0),
+     "Set output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --dem-spacing option.")
     ("reference-spheroid,r", po::value(&opt.reference_spheroid),"Set a reference surface to a hard coded value (one of [ earth, moon, mars].  This will override manually set datum information.")
     ("semi-major-axis", po::value(&opt.semi_major),"Set the dimensions of the datum.")
     ("semi-minor-axis", po::value(&opt.semi_minor),"Set the dimensions of the datum.")
@@ -124,9 +126,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("proj-lon", po::value(&opt.proj_lon)->default_value(0),
      "The center of projection longitude (if applicable).")
     ("proj-scale", po::value(&opt.proj_scale)->default_value(1),
-     "The projection scale (if applicable).")
-    ("dem-spacing,s", po::value(&dem_spacing2)->default_value(0.0),
-     "Set output file resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. This is the same as the --tr option.");
+     "The projection scale (if applicable).");
   
   po::options_description general_options("General Options");
   general_options.add_options()
