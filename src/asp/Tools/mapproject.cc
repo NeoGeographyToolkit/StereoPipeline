@@ -395,45 +395,51 @@ int main( int argc, char* argv[] ) {
     vw_out() << "(Origin: (" << croppedImageBB.min()[0] << ", " << croppedImageBB.min()[1] << ") width: "
              << croppedImageBB.width() << " height: " << croppedImageBB.height() << ")" << std::endl;
 
-    if (opt.isQuery) // Quit before we do any image work
-    {
+    if (opt.isQuery){ // Quit before we do any image work
       vw_out() << "Query finished, exiting mapproject tool.\n";
       return 0;
     }
-
+    
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource>
       img_rsrc( DiskImageResource::open( opt.image_file ) );
-
+    
     // Write the output image. Use the nodata passed in by the user
     // if it is not available in the input file.
     if (img_rsrc->has_nodata_read()) opt.nodata_value = img_rsrc->nodata_read();
     asp::create_out_dir(opt.output_file);
     bool has_img_nodata = true;
     PMaskT nodata_mask = PMaskT(); // invalid value for a PixelMask
-    write_parallel_cond( // Write to the output file
-                        opt.output_file,
-                        crop( // Apply crop (only happens if --t_pixelwin was specified)
-                             apply_mask( // Handle nodata
-                                        transform_nodata( // Apply the output from MapTransform2
-                                                         create_mask(DiskImageView<float>(img_rsrc), opt.nodata_value), // Handle nodata
-                                                         MapTransform2( // Converts coordinates in DEM georeference to camera pixels
-                                                                       camera_model.get(), target_georef,
-                                                                       dem_georef, dem_rsrc, image_size
-                                                                      ),
-                                                         target_image_size.width(), target_image_size.height(),
-                                                         ValueEdgeExtension<PMaskT>(nodata_mask),
-                                                         BicubicInterpolation(), nodata_mask
-                                                        ),
-                                        opt.nodata_value
-                                       ),
-                             croppedImageBB
-                            ),
-                        croppedGeoRef,
-                        has_img_nodata, opt.nodata_value, opt,
-                        TerminalProgressCallback("","")
-                       );
-
+    bool call_from_mapproject = true;
+    write_parallel_cond
+      ( // Write to the output file
+       opt.output_file,
+       crop( // Apply crop (only happens if --t_pixelwin was specified)
+            apply_mask
+            ( // Handle nodata
+             transform_nodata( // Apply the output from MapTransform2
+                              create_mask(DiskImageView<float>(img_rsrc),
+                                          opt.nodata_value), // Handle nodata
+                              MapTransform2
+                              ( // Converts coordinates in DEM
+                                // georeference to camera pixels
+                               camera_model.get(), target_georef,
+                               dem_georef, dem_rsrc, image_size,
+                               call_from_mapproject
+                               ),
+                              target_image_size.width(),
+                              target_image_size.height(),
+                              ValueEdgeExtension<PMaskT>(nodata_mask),
+                              BicubicInterpolation(), nodata_mask
+                              ),
+             opt.nodata_value
+             ),
+            croppedImageBB
+            ),
+       croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+       TerminalProgressCallback("","")
+       );
+    
   } ASP_STANDARD_CATCHES;
 
   return 0;

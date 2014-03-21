@@ -65,9 +65,10 @@ namespace asp {
 
     errorVec = Vector3();
 
-    // Check for NaN values
+    // Check for NaN and out-of-bounds values
     if (pix1 != pix1 || pix2 != pix2) return Vector3();
-    
+    if (pix1[0] < 0 || pix1[1] < 0 || pix2[0] < 0 || pix2[1] < 0) return Vector3();
+
     const RPCModel *rpc_model1 = dynamic_cast<const RPCModel*>(m_camera1);
     const RPCModel *rpc_model2 = dynamic_cast<const RPCModel*>(m_camera2);
 

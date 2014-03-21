@@ -75,8 +75,8 @@ namespace asp {
 
     // For reversing the arithmetic applied in preprocessing plus the
     // map projection.
-    typedef CompositionTransformPassBBox<vw::cartography::MapTransform,vw::HomographyTransform> left_tx_type;
-    typedef CompositionTransformPassBBox<vw::cartography::MapTransform,vw::HomographyTransform> right_tx_type;
+    typedef CompositionTransformPassBBox<vw::cartography::MapTransform2,vw::HomographyTransform> left_tx_type;
+    typedef CompositionTransformPassBBox<vw::cartography::MapTransform2,vw::HomographyTransform> right_tx_type;
     typedef vw::stereo::StereoModel stereo_model_type;
     left_tx_type tx_left() const;
     right_tx_type tx_right() const;

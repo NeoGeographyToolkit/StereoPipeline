@@ -121,11 +121,16 @@ StereoSessionDGMapRPC::tx_left() const {
 
   cartography::GeoReference dem_georef, image_georef;
   if (!read_georeference( dem_georef, m_input_dem ) )
-    vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
+    vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem
+              << "\" lacks georeferencing information.");
   if (!read_georeference( image_georef, m_left_image_file ) )
-    vw_throw( ArgumentErr() << "The image \"" << m_left_image_file << "\" lacks georeferencing information.");
+    vw_throw( ArgumentErr() << "The image \"" << m_left_image_file
+              << "\" lacks georeferencing information.");
 
-  // Load DEM rsrc. MapTransform is casting to float internally
+  bool call_from_mapproject = false;
+  DiskImageView<float> img(m_left_image_file);
+  
+  // Load DEM rsrc. MapTransform2 is casting to float internally
   // no matter what the original type of the DEM file was.
   boost::shared_ptr<DiskImageResource>
     dem_rsrc( DiskImageResource::open( m_input_dem ) );
@@ -133,9 +138,11 @@ StereoSessionDGMapRPC::tx_left() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return left_tx_type( cartography::MapTransform
-                       (StereoSessionRPC::read_rpc_model(m_left_image_file, m_left_camera_file),
-                        image_georef, dem_georef, dem_rsrc),
+  return left_tx_type( cartography::MapTransform2
+                       (StereoSessionRPC::read_rpc_model(m_left_image_file,
+                                                         m_left_camera_file),
+                        image_georef, dem_georef, dem_rsrc,
+                        Vector2(img.cols(), img.rows()), call_from_mapproject),
                        HomographyTransform(tx) );
 }
 
@@ -149,11 +156,16 @@ StereoSessionDGMapRPC::tx_right() const {
 
   cartography::GeoReference dem_georef, image_georef;
   if (!read_georeference( dem_georef, m_input_dem ) )
-    vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem << "\" lacks georeferencing information.");
+    vw_throw( ArgumentErr() << "The DEM \"" << m_input_dem
+              << "\" lacks georeferencing information.");
   if (!read_georeference( image_georef, m_right_image_file ) )
-    vw_throw( ArgumentErr() << "The image \"" << m_right_image_file << "\" lacks georeferencing information.");
+    vw_throw( ArgumentErr() << "The image \"" << m_right_image_file
+              << "\" lacks georeferencing information.");
 
-  // Load DEM rsrc. MapTransform is casting to float internally
+  bool call_from_mapproject = false;
+  DiskImageView<float> img(m_right_image_file);
+  
+  // Load DEM rsrc. MapTransform2 is casting to float internally
   // no matter what the original type of the DEM file was.
   boost::shared_ptr<DiskImageResource>
     dem_rsrc( DiskImageResource::open( m_input_dem ) );
@@ -161,8 +173,10 @@ StereoSessionDGMapRPC::tx_right() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return right_tx_type( cartography::MapTransform
-                        (StereoSessionRPC::read_rpc_model(m_right_image_file, m_right_camera_file),
-                         image_georef, dem_georef, dem_rsrc),
+  return right_tx_type( cartography::MapTransform2
+                        (StereoSessionRPC::read_rpc_model(m_right_image_file,
+                                                          m_right_camera_file),
+                         image_georef, dem_georef, dem_rsrc,
+                         Vector2(img.cols(), img.rows()), call_from_mapproject),
                         HomographyTransform(tx) );
 }
