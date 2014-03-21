@@ -93,9 +93,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                              positional, positional_desc, usage );
 
   if ( !vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model") )
-    vw_throw( ArgumentErr() << "Requires <dem> <camera-image> and <camera-model> "
-              << "input in order to proceed.\n\n"
-              << usage << general_options );
+    vw_throw( ArgumentErr() << usage << general_options );
 
   // If the camera file is in xml format, most likely the user would like
   // to use the rpc session for map-projection, as that's what is needed
