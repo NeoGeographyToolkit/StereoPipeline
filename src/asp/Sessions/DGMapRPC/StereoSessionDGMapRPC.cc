@@ -81,6 +81,7 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
 bool StereoSessionDGMapRPC::ip_matching( std::string const& match_filename,
                                          double left_nodata_value,
                                          double right_nodata_value ) {
+  
   // Load the unmodified images
   DiskImageView<float> left_disk_image( m_left_image_file ),
     right_disk_image( m_right_image_file );
@@ -98,9 +99,9 @@ bool StereoSessionDGMapRPC::ip_matching( std::string const& match_filename,
   boost::shared_ptr<DiskImageResource>
     dem_rsrc( DiskImageResource::open( m_input_dem ) );
   TransformRef
-    left_tx( cartography::MapTransform( left_rpc.get(), left_georef,
+    left_tx( cartography::GroundToCameraTransform( left_rpc.get(), left_georef,
                                         dem_georef, dem_rsrc ) ),
-    right_tx( cartography::MapTransform( right_rpc.get(), right_georef,
+    right_tx( cartography::GroundToCameraTransform( right_rpc.get(), right_georef,
                                          dem_georef, dem_rsrc ) );
   return
     asp::ip_matching( left_cam.get(), right_cam.get(),
@@ -130,7 +131,7 @@ StereoSessionDGMapRPC::tx_left() const {
   bool call_from_mapproject = false;
   DiskImageView<float> img(m_left_image_file);
   
-  // Load DEM rsrc. MapTransform2 is casting to float internally
+  // Load DEM rsrc. GroundToCameraTransform2 is casting to float internally
   // no matter what the original type of the DEM file was.
   boost::shared_ptr<DiskImageResource>
     dem_rsrc( DiskImageResource::open( m_input_dem ) );
@@ -138,7 +139,7 @@ StereoSessionDGMapRPC::tx_left() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return left_tx_type( cartography::MapTransform2
+  return left_tx_type( cartography::GroundToCameraTransform2
                        (StereoSessionRPC::read_rpc_model(m_left_image_file,
                                                          m_left_camera_file),
                         image_georef, dem_georef, dem_rsrc,
@@ -165,7 +166,7 @@ StereoSessionDGMapRPC::tx_right() const {
   bool call_from_mapproject = false;
   DiskImageView<float> img(m_right_image_file);
   
-  // Load DEM rsrc. MapTransform2 is casting to float internally
+  // Load DEM rsrc. GroundToCameraTransform2 is casting to float internally
   // no matter what the original type of the DEM file was.
   boost::shared_ptr<DiskImageResource>
     dem_rsrc( DiskImageResource::open( m_input_dem ) );
@@ -173,7 +174,7 @@ StereoSessionDGMapRPC::tx_right() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return right_tx_type( cartography::MapTransform2
+  return right_tx_type( cartography::GroundToCameraTransform2
                         (StereoSessionRPC::read_rpc_model(m_right_image_file,
                                                           m_right_camera_file),
                          image_georef, dem_georef, dem_rsrc,
