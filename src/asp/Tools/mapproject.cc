@@ -417,10 +417,10 @@ int main( int argc, char* argv[] ) {
        crop( // Apply crop (only happens if --t_pixelwin was specified)
             apply_mask
             ( // Handle nodata
-             transform_nodata( // Apply the output from GroundToCameraTransform2
+             transform_nodata( // Apply the output from Map2CamTrans
                               create_mask(DiskImageView<float>(img_rsrc),
                                           opt.nodata_value), // Handle nodata
-                              GroundToCameraTransform2
+                              Map2CamTrans
                               ( // Converts coordinates in DEM
                                 // georeference to camera pixels
                                camera_model.get(), target_georef,

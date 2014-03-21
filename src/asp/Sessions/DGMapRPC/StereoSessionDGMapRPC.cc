@@ -81,35 +81,16 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
 bool StereoSessionDGMapRPC::ip_matching( std::string const& match_filename,
                                          double left_nodata_value,
                                          double right_nodata_value ) {
-  
-  // Load the unmodified images
-  DiskImageView<float> left_disk_image( m_left_image_file ),
-    right_disk_image( m_right_image_file );
 
-  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-  camera_models( left_cam, right_cam );
+  // This code will never be reached, since for map-projected images we never
+  // perform homography or affineepipolar alignment.
 
-  boost::scoped_ptr<RPCModel>
-    left_rpc( StereoSessionRPC::read_rpc_model( m_left_image_file, m_left_camera_file ) ),
-    right_rpc( StereoSessionRPC::read_rpc_model( m_right_image_file, m_right_camera_file ) );
-  cartography::GeoReference left_georef, right_georef, dem_georef;
-  read_georeference( left_georef, m_left_image_file );
-  read_georeference( right_georef, m_right_image_file );
-  read_georeference( dem_georef, m_input_dem );
-  boost::shared_ptr<DiskImageResource>
-    dem_rsrc( DiskImageResource::open( m_input_dem ) );
-  TransformRef
-    left_tx( cartography::GroundToCameraTransform( left_rpc.get(), left_georef,
-                                        dem_georef, dem_rsrc ) ),
-    right_tx( cartography::GroundToCameraTransform( right_rpc.get(), right_georef,
-                                         dem_georef, dem_rsrc ) );
-  return
-    asp::ip_matching( left_cam.get(), right_cam.get(),
-                      left_disk_image, right_disk_image,
-                      cartography::Datum("WGS84"), match_filename,
-                      left_nodata_value,
-                      right_nodata_value,
-                      left_tx, right_tx, false );
+  // In fact, it is very hard to write this function properly, since
+  // the Map2CamTrans which needs to be used here
+  // is not thread safe and cannot operate on randomly accessed pixels,
+  // it must be invoked only wholesale on tiles, with each tile
+  // getting a copy of that transform.
+  vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: IP matching is not implemented as no alignment is applied to map-projected images.");
 }
 
 StereoSessionDGMapRPC::left_tx_type
@@ -131,7 +112,7 @@ StereoSessionDGMapRPC::tx_left() const {
   bool call_from_mapproject = false;
   DiskImageView<float> img(m_left_image_file);
   
-  // Load DEM rsrc. GroundToCameraTransform2 is casting to float internally
+  // Load DEM rsrc. Map2CamTrans is casting to float internally
   // no matter what the original type of the DEM file was.
   boost::shared_ptr<DiskImageResource>
     dem_rsrc( DiskImageResource::open( m_input_dem ) );
@@ -139,7 +120,7 @@ StereoSessionDGMapRPC::tx_left() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return left_tx_type( cartography::GroundToCameraTransform2
+  return left_tx_type( cartography::Map2CamTrans
                        (StereoSessionRPC::read_rpc_model(m_left_image_file,
                                                          m_left_camera_file),
                         image_georef, dem_georef, dem_rsrc,
@@ -166,7 +147,7 @@ StereoSessionDGMapRPC::tx_right() const {
   bool call_from_mapproject = false;
   DiskImageView<float> img(m_right_image_file);
   
-  // Load DEM rsrc. GroundToCameraTransform2 is casting to float internally
+  // Load DEM rsrc. Map2CamTrans is casting to float internally
   // no matter what the original type of the DEM file was.
   boost::shared_ptr<DiskImageResource>
     dem_rsrc( DiskImageResource::open( m_input_dem ) );
@@ -174,7 +155,7 @@ StereoSessionDGMapRPC::tx_right() const {
   // This composes the two transforms as it is possible to do
   // homography and affineepipolar alignment options with map
   // projected imagery.
-  return right_tx_type( cartography::GroundToCameraTransform2
+  return right_tx_type( cartography::Map2CamTrans
                         (StereoSessionRPC::read_rpc_model(m_right_image_file,
                                                           m_right_camera_file),
                          image_georef, dem_georef, dem_rsrc,
