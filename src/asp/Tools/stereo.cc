@@ -214,7 +214,7 @@ namespace asp {
                 << usage << general_options );
     }
 
-    opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,
+    opt.session.reset( asp::StereoSession::create(opt.stereo_session_string,// i/o
                                                   opt, opt.in_file1,
                                                   opt.in_file2,
                                                   opt.cam_file1, opt.cam_file2,

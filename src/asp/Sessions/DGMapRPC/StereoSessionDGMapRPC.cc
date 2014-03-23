@@ -46,30 +46,16 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
                                input_dem, extra_argument1,
                                extra_argument2, extra_argument3 );
 
-  VW_ASSERT( !input_dem.empty(),
-             InputErr() << "StereoSessionDGMapRPC : Require input DEM" );
-
-  boost::scoped_ptr<RPCModel> model1, model2;
-  // Try and pull RPC Camera Models from left and right images.
-  try {
-    model1.reset( new RPCModel(left_image_file) );
-    model2.reset( new RPCModel(right_image_file) );
-  } catch ( NotFoundErr const& err ) {}
-
-  // If the above failed to load the RPC Model, try from the XML.
-  if ( !model1.get() || !model2.get() ) {
-    // Do not catch as these are required.
-    RPCXML rpc_xml;
-    rpc_xml.read_from_file( left_camera_file );
-    model1.reset( new RPCModel( *rpc_xml.rpc_ptr() ) ); // Copy the ptr
-    rpc_xml.read_from_file( right_camera_file );
-    model2.reset( new RPCModel( *rpc_xml.rpc_ptr() ) );
-  }
-  VW_ASSERT( model1.get() && model2.get(),
+  // Verify that we can read the camera models
+  boost::scoped_ptr<RPCModel> left_model (StereoSessionRPC::read_rpc_model(left_image_file, left_camera_file));
+  boost::scoped_ptr<RPCModel> right_model ( StereoSessionRPC::read_rpc_model(right_image_file, right_camera_file));
+  VW_ASSERT( left_model.get() && right_model.get(),
              ArgumentErr() << "StereoSessionDGMapRPC: Unable to locate RPC inside input files." );
 
   // Double check that we can read the DEM and that it has
   // cartographic information.
+  VW_ASSERT( !input_dem.empty(),
+             InputErr() << "StereoSessionDGMapRPC : Require input DEM" );
   if ( !fs::exists( input_dem ) )
     vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: DEM \"" << input_dem
               << "\" does not exist." );
@@ -86,10 +72,10 @@ bool StereoSessionDGMapRPC::ip_matching( std::string const& match_filename,
   // perform homography or affineepipolar alignment.
 
   // In fact, it is very hard to write this function properly, since
-  // the Map2CamTrans which needs to be used here
-  // is not thread safe and cannot operate on randomly accessed pixels,
-  // it must be invoked only wholesale on tiles, with each tile
-  // getting a copy of that transform.
+  // the Map2CamTrans class which needs to be used here is not thread
+  // safe and cannot operate on randomly accessed pixels, it must be
+  // invoked only wholesale on tiles, with each tile getting a copy of
+  // that transform.
   vw_throw( ArgumentErr() << "StereoSessionDGMapRPC: IP matching is not implemented as no alignment is applied to map-projected images.");
 }
 

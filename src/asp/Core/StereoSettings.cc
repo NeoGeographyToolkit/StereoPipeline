@@ -162,7 +162,7 @@ namespace asp {
       ("rm-half-kernel", po::value(&global.rm_half_kernel)->default_value(Vector2i(5,5), "5 5"),
        "Low confidence pixel removal kernel (half sized)")
       ("max-mean-diff", po::value(&global.max_mean_diff)->default_value(3),
-       "Maximum difference between current pixel disparity and disparity of neighbors to still keep current disparity (for filter mode 1)")
+       "Maximum difference between current pixel disparity and mean disparity of neighbors to still keep current disparity (for filter mode 1)")
       ("rm-min-matches", po::value(&global.rm_min_matches)->default_value(60),
        "Minimum number of pixels to be matched to keep sample (for filter mode 2)")
       ("rm-threshold", po::value(&global.rm_threshold)->default_value(3),
