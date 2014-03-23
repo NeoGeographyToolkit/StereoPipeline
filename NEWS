@@ -26,10 +26,12 @@ GENERAL
       triangulation error is larger than specified value (in meters).
     * Added ability to save triangulation error for a DEM as a 3D
       North-East-Down vector rather than just its magnitude.
-
+    * When acting on map-projected images, handle the case when the 
+      DEM used for map-projection does not completely encompass the 
+      images. 
   - pc_align:
-    * Read and write CSV files in a wide variety of formats, using the
-      --csv-format option.
+    * Read and write CSV files in a wide variety of formats, using 
+      the --csv-format option.
     * Display the translation component of the rigid alignment
       transform in the local North-East-Down coordinate system, as
       well as the centroid of source points used in alignment.
@@ -38,14 +40,6 @@ GENERAL
     * Bug fix for saving transformed clouds for Moon and Mars.
 
   - point2dem:
-     * The way the default DEM spacing is computed was modified, 
-       to make it independent of point cloud dimensions (so it is now
-       dependent only on the local distribution of points in the
-       cloud) and robust to outliers. This sometimes results in DEM
-       spacing 3x or more coarser than before (more precisely, the
-       earlier formula was making this spacing unnecessarily fine). As
-       usual, the user is advised to carefully consider what the
-       appropriate spacing is for given images.
      * Replaced the core algorithm. Instead of sampling the point
        cloud surface, which is prone to aliasing, the DEM height at a
        given grid point is obtained as a weighted average of heights
@@ -56,9 +50,11 @@ GENERAL
        using the --use-surface-sampling option. The new algorithm
        makes the --fsaa option reduntant. The tool will not run with
        it unless invoked together with --use-sufrace-sampling.
-     * Bug fix in the (now obsolete) algorithm which was sampling
-       the point cloud surface, the output DEM points were shifted by
-       a pixel or more from their true location.
+     * The way the default DEM spacing is computed was modified, 
+       to make it independent of point cloud dimensions (so it is now
+       dependent only on the local distribution of points in the
+       cloud) and robust to outliers. 
+     * Bug fix, the DEM was shifted by 1 pixel from true location.
      * Robustess to highly noisy input point clouds.
      * Improved memory usage and performance for large point clouds.
 
