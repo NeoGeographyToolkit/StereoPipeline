@@ -309,6 +309,9 @@ Vector3 find_point_cloud_center(Vector2i const& tile_size,
         BBox2i box(x*tile_size[0], y*tile_size[1], tile_size[0], tile_size[1]);
         box.crop(bounding_box(point_cloud));
 
+        // Crop to the cloud area actually having points
+        box.crop(stereo_settings().trans_crop_win);
+        
         // Triangulate in the existing box
         ImageView<Vector6> cropped_cloud = crop(point_cloud, box);
         for (int px = 0; px < cropped_cloud.cols(); px++){

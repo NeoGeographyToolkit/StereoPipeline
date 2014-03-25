@@ -140,9 +140,6 @@ void stereo_preprocessing( Options& opt ) {
   
   // Normalize the images, unless the user prefers not to.
   std::string left_image_file, right_image_file;
-  boost::shared_ptr<DiskImageResource>
-    in_file1_rsrc( DiskImageResource::open(opt.in_file1) ),
-    in_file2_rsrc( DiskImageResource::open(opt.in_file2) );
   bool skip_img_norm = skip_image_normalization(opt);
   if (skip_img_norm)
     create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
