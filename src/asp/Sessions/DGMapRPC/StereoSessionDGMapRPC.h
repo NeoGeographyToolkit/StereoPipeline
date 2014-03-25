@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file StereoSessionDG.h
+/// \file StereoSessionDGMapRPC.h
 ///
 /// This a session that support RPC Mapproject DG images. It is built
 /// entirely so that left and right TX are objects and not
@@ -30,6 +30,8 @@
 #include <vw/Image/Transform.h>
 
 namespace asp {
+ 
+  class RPCModel;
 
   // Specialize CompositionTransform that allows passing of BBox so
   // Map2CamTrans can cache itself.
@@ -82,6 +84,8 @@ namespace asp {
     right_tx_type tx_right() const;
 
     static StereoSession* construct() { return new StereoSessionDGMapRPC; }
+
+    boost::shared_ptr<RPCModel> m_left_model, m_right_model;
   };
 
 }

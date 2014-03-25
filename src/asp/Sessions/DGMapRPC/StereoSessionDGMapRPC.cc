@@ -47,11 +47,11 @@ void StereoSessionDGMapRPC::initialize(BaseOptions const& options,
                                extra_argument2, extra_argument3 );
 
   // Verify that we can read the camera models
-  boost::scoped_ptr<RPCModel> left_model (StereoSessionRPC::read_rpc_model(left_image_file, left_camera_file));
-  boost::scoped_ptr<RPCModel> right_model ( StereoSessionRPC::read_rpc_model(right_image_file, right_camera_file));
-  VW_ASSERT( left_model.get() && right_model.get(),
+  m_left_model = boost::shared_ptr<RPCModel>(StereoSessionRPC::read_rpc_model(left_image_file, left_camera_file));
+  m_right_model = boost::shared_ptr<RPCModel> (StereoSessionRPC::read_rpc_model(right_image_file, right_camera_file));
+  VW_ASSERT( m_left_model.get() && m_right_model.get(),
              ArgumentErr() << "StereoSessionDGMapRPC: Unable to locate RPC inside input files." );
-
+  
   // Double check that we can read the DEM and that it has
   // cartographic information.
   VW_ASSERT( !input_dem.empty(),
@@ -107,8 +107,7 @@ StereoSessionDGMapRPC::tx_left() const {
   // homography and affineepipolar alignment options with map
   // projected imagery.
   return left_tx_type( cartography::Map2CamTrans
-                       (StereoSessionRPC::read_rpc_model(m_left_image_file,
-                                                         m_left_camera_file),
+                       (m_left_model.get(),
                         image_georef, dem_georef, dem_rsrc,
                         Vector2(img.cols(), img.rows()), call_from_mapproject),
                        HomographyTransform(tx) );
@@ -142,8 +141,7 @@ StereoSessionDGMapRPC::tx_right() const {
   // homography and affineepipolar alignment options with map
   // projected imagery.
   return right_tx_type( cartography::Map2CamTrans
-                        (StereoSessionRPC::read_rpc_model(m_right_image_file,
-                                                          m_right_camera_file),
+                        (m_right_model.get(),
                          image_georef, dem_georef, dem_rsrc,
                          Vector2(img.cols(), img.rows()), call_from_mapproject),
                         HomographyTransform(tx) );
