@@ -88,6 +88,9 @@ int main( int argc, char* argv[] ) {
     vw_out() << "trans_left_image_size," << trans_left_image_size.x() << ","
              << trans_left_image_size.y() << std::endl;
 
+    
+    vw_out() << "corr_tile_size," << Options::corr_tile_size() << std::endl;
+    vw_out() << "rfne_tile_size," << Options::rfne_tile_size() << std::endl;
 
   } ASP_STANDARD_CATCHES;
 

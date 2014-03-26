@@ -18,11 +18,6 @@
 
 
 import sys, optparse, subprocess, re
-if sys.version_info < (2, 6, 0):
-    num_cpus = 8
-else:
-    from multiprocessing import cpu_count
-    num_cpus = cpu_count()
 import os.path as P
 libexec_path = sys.path[0] + '/../libexec'
 sys.path.insert(0, libexec_path) # prepend to Python path
@@ -42,8 +37,8 @@ if __name__ == '__main__':
   [ASP [@]ASP_VERSION[@]]'''
 
     p = PassThroughOptionParser(usage=usage)
-    p.add_option('--threads',              dest='threads', default=num_cpus, type='int',
-                 help='Select the number of processors (threads) to use.')
+    p.add_option('--threads',              dest='threads', default=0, type='int',
+                 help='Set the number of threads to use. 0 means use as many threads as there are cores.')
     p.add_option('-t', '--session-type',   dest='session',
                  help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc]')
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
@@ -69,6 +64,9 @@ if __name__ == '__main__':
     if not args and not opt.version:
         p.print_help()
         die('\nERROR: Missing input files', code=2)
+
+    if opt.threads == 0:
+        opt.threads = get_num_cpus()
 
     if opt.session is not None:
         args.extend(['--session-type', opt.session])

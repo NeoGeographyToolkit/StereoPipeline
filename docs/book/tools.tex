@@ -51,7 +51,7 @@ in sub-directories, we recommend using an output prefix like
 \hline
 Option & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message\\ \hline
-\texttt{-\/-threads \textit{integer(=0)}} & Set the number threads to use. 0 means use default defined in the program or in the .vwrc file\\ \hline
+\texttt{-\/-threads \textit{integer(=0)}} & Set the number of threads to use. 0 means use as many threads as there are cores.\\ \hline
 \texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension.\\ \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
 \texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a subregion of the left image [default: use the entire image].\\ \hline
@@ -134,10 +134,8 @@ documents all options for the individual sub-programs.
 
 The \texttt{parallel\_stereo} program is a modification of \texttt{stereo}
 designed to distribute the stereo processing over multiple computing
-nodes.
-
-It uses GNU Parallel to manage the jobs, which needs to be installed
-on your system.
+nodes. It uses GNU Parallel to manage the jobs, which is distributed together
+with Stereo Pipeline.
 
 Note that, when invoking this tool, only stages 1, 2, and 4 of
 stereo (section \ref{stereo_dec}) are spread over multiple machines,

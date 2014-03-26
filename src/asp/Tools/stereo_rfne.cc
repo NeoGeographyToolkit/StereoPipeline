@@ -330,6 +330,11 @@ int main(int argc, char* argv[]) {
     handle_arguments( argc, argv, opt,
                       SubpixelDescription() );
 
+    // Subpixel refinement uses smaller tiles.
+    //---------------------------------------------------------
+    int ts = Options::rfne_tile_size();
+    opt.raster_tile_size = Vector2i(ts, ts);
+
     // Internal Processes
     //---------------------------------------------------------
     stereo_refinement( opt );

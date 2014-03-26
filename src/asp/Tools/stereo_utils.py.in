@@ -187,3 +187,14 @@ def run_sparse_disp(args, opt):
             sparse_args += ['--processes', str(num_threads)]
 
     run('sparse_disp', sparse_args, opt, msg='1: Low-res correlation with sparse_disp')
+
+def get_num_cpus():
+    
+    import sys
+    if sys.version_info < (2, 6, 0):
+        num_cpus = 8
+    else:
+        from multiprocessing import cpu_count
+        num_cpus = cpu_count()
+
+    return num_cpus

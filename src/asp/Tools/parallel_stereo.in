@@ -33,6 +33,9 @@ os.environ["PATH"] = libexec_path + os.pathsep + os.environ["PATH"]
 
 job_pool  = [] # currently running jobs
 
+# The ids of individual stereo steps
+s_pprc = 0; s_corr = 1; s_rfne = 2; s_fltr = 3; s_tri = 4; s_mosaic = 5
+
 def produce_tiles( settings, tile_w, tile_h ):
     image_size = settings["trans_left_image_size"]
     tiles_nx = int(math.ceil( float(image_size[0]) / tile_w ))
@@ -228,7 +231,7 @@ def get_num_nodes(nodes_list):
 
 # Launch GNU Parallel for all tiles, it will take care of distributing
 # the jobs across the nodes and load balancing.
-def sprawn_to_nodes(start, stop, settings, args):
+def sprawn_to_nodes(step, settings, args):
 
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
 
@@ -252,7 +255,8 @@ def sprawn_to_nodes(start, stop, settings, args):
 
     # The options which we want GNU parallel to not mess up with.
     # Put them into a single string.
-    python_path = sys.executable # children must use same Python as parent 
+    python_path = sys.executable # children must use same Python as parent
+    start = step; stop = start + 1
     args_str = python_path + " " + \
                " ".join(args) + " --entry-point " + str(start) + \
                " --stop-point " + str(stop) + " --work-dir "  + opt.work_dir
@@ -357,9 +361,9 @@ if __name__ == '__main__':
                  help='Stereo Pipeline entry point (an integer from 0-5).', type='int')
     p.add_option('--stop-point',           dest='stop_point',  default=6,
                  help='Stereo Pipeline stop point (an integer from 1-6).', type='int')
-    p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
+    p.add_option('--job-size-w',           dest='job_size_w',  default=1024,
                  help='Pixel width of input image tile for a single process.', type='int')
-    p.add_option('--job-size-h',           dest='job_size_h',  default=2048,
+    p.add_option('--job-size-h',           dest='job_size_h',  default=1024,
                  help='Pixel height of input image tile for a single process.', type='int')
     p.add_option('--sparse-disp-options', dest='sparse_disp_options',
                  help='Options to pass directly to sparse_disp.')
@@ -444,23 +448,27 @@ if __name__ == '__main__':
         wipe_option(self_args, '--entry-point', 1)
         wipe_option(self_args, '--stop-point', 1)
 
-        if ( opt.entry_point <= 0 ):
-            # Preprocessing
-            single_run('stereo_pprc', args, msg='0: Preprocessing')
+        # Preprocessing
+        step = s_pprc
+        if ( opt.entry_point <= step ):
+            single_run('stereo_pprc', args, msg='%d: Preprocessing' % step)
             create_subproject_dirs( settings ) # symlink L.tif, etc
             # Now the left is defined. Regather the settings
             # and properly create the project dirs.
             settings=run_and_parse_output( "stereo_parse", args, sep,
                                            opt.verbose )
-        if ( opt.entry_point <= 1 ):
-            # Correlation. First do low-res.
-            if ( opt.stop_point <= 1 ): sys.exit()
+
+        # Correlation. First do low-res.
+        step = s_corr
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
             if ( opt.seed_mode == 3 ):
                 run_sparse_disp(args, opt)
             else:
-                single_run('stereo_corr', args_sub, msg='1: Low-res correlation')
+                single_run('stereo_corr',
+                           args_sub, msg='%d: Low-res correlation' % step)
             create_subproject_dirs( settings ) # symlink D_sub
-            sprawn_to_nodes(1, 2, settings, self_args)
+            sprawn_to_nodes(step, settings, self_args)
             # Bugfix: When doing refinement for a given tile, we must see
             # the result of correlation for all tiles. To achieve that,
             # rename all correlation tiles to something else,
@@ -469,28 +477,36 @@ if __name__ == '__main__':
             rename_files( settings, "-D.tif", "-Dnosym.tif" )
             build_vrt( settings, "-D.tif", "-Dnosym.tif" )
             create_subproject_dirs( settings ) # symlink D.tif
-        if ( opt.entry_point <= 2 ):
-            # Refinement
-            if ( opt.stop_point <= 2 ): sys.exit()
+
+        # Refinement
+        step = s_rfne
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
             create_subproject_dirs( settings )
-            sprawn_to_nodes(2, 3, settings, self_args)
-        if ( opt.entry_point <= 3 ):
-            # Filtering
-            if ( opt.stop_point <= 3 ): sys.exit()
+            sprawn_to_nodes(step, settings, self_args)
+
+        # Filtering
+        step = s_fltr
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
             build_vrt( settings, "-RD.tif", "-RD.tif" )
-            single_run('stereo_fltr', args, msg='3: Filtering')
+            single_run('stereo_fltr', args, msg='%d: Filtering' % step)
             create_subproject_dirs( settings ) # symlink F.tif
-        if ( opt.entry_point <= 4 ):
-            # Triangulation. First compute the point cloud center.
-            if ( opt.stop_point <= 4 ): sys.exit()
+
+        # Triangulation. First compute the point cloud center.
+        step = s_tri
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
             l_args = args[:] # deep copy
             l_args.append('--compute-point-cloud-center-only')
-            single_run('stereo_tri',  l_args, msg='4: Triangulation')
+            single_run('stereo_tri',  l_args, msg='%d: Triangulation' % step)
             create_subproject_dirs( settings ) # symlink cloud center
-            sprawn_to_nodes(4, 5, settings, self_args)
-        if ( opt.entry_point <= 5 ):
-            # Point cloud mosaic
-            if ( opt.stop_point <= 5 ): sys.exit()
+            sprawn_to_nodes(step, settings, self_args)
+
+        # Point cloud mosaic.
+        step = s_mosaic
+        if ( opt.entry_point <= step ):
+            if ( opt.stop_point <= step ): sys.exit()
             create_subproject_dirs( settings )
             build_vrt( settings, "-PC.tif", "-PC.tif" )
 
@@ -510,12 +526,15 @@ if __name__ == '__main__':
             max_index = opt.tile_id + 1
             tiles = tiles[min_index:max_index]
 
-            if ( opt.entry_point == 1 ):
-                parallel_run('stereo_corr', args, settings, tiles, msg='1: Correlation')
-            if ( opt.entry_point == 2 ):
-                parallel_run('stereo_rfne', args, settings, tiles, msg='2: Refinement')
-            if ( opt.entry_point == 4 ):
-                parallel_run('stereo_tri', args, settings, tiles, msg='4: Triangulation')
+            if ( opt.entry_point == s_corr ):
+                parallel_run('stereo_corr', args, settings, tiles,
+                             msg='%d: Correlation' % opt.entry_point)
+            if ( opt.entry_point == s_rfne ):
+                parallel_run('stereo_rfne', args, settings, tiles,
+                             msg='%d: Refinement' % opt.entry_point)
+            if ( opt.entry_point == s_tri ):
+                parallel_run('stereo_tri', args, settings, tiles,
+                             msg='%d: Triangulation' % opt.entry_point)
 
         except Exception, e:
             die(e)
