@@ -120,11 +120,14 @@ It is important to note that each of the C++ stereo executables invoked
 by \texttt{stereo} have their own command-line options. Those options
 can be passed to \texttt{stereo} which will in turn pass them to the
 appropriate executable. By invoking each executable with no options, it
-will display the list of options it accepts. As explained in more detail
+will display the list of options it accepts. 
+
+As explained in more detail
 in section \ref{perform-stereo}, each such option has the same syntax as
 used in \texttt{stereo.default}, while being prepended by a double hyphen
 (\texttt{-\/-}).  A command line option takes precedence over the same
-option specified in \texttt{stereo.default}.
+option specified in \texttt{stereo.default}. Chapter \ref{ch:stereodefault}
+documents all options for the individual sub-programs.
 
 \section{parallel\_stereo}
 \label{parallel}
@@ -355,6 +358,9 @@ Options & Description \\ \hline \hline
 \texttt{-\/-use-alpha} & Create images that have an alpha channel \\ \hline
 \texttt{-\/-normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging) \\ \hline
 \texttt{-\/-orthoimage \textit{texture-file}} & Write an orthoimage based on the texture file given as an argument to this command line option \\ \hline
+\texttt{-\/-orthoimage-hole-fill-len \textit{int(=0)}} & 
+How many pixels away to look for valid pixels in the point cloud when 
+performing hole-filling during orthoimage generation \\ \hline
 \texttt{-\/-errorimage} & Write an additional image whose values represent the triangulation error in meters \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the output file type \\ \hline

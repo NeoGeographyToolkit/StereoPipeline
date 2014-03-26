@@ -420,12 +420,11 @@ and tune your \texttt{stereo.default} file until your results improve.
 This might be a good time to make a copy of \texttt{stereo.default} as
 you tune the parameters to improve the results.
 
-You should also know that whenever the \texttt{stereo} executable is
-run, it makes a copy of the configuration file used in
-\textit{output-prefix}-stereo.default. Opening that output file will
-show when the command was run, what the flags were from the command
-line, and then a copy of the \texttt{stereo.default}. This will
-hopefully help debug and log what was performed so that others in the
+You should also know that whenever \texttt{stereo}, \texttt{point2dem},
+and other executables are run, they create log files in given tool's
+output directory, containing a copy of the configuration file, the
+command that was run, your system settings, and tool's console
+output. This will help track what was performed so that others in the
 future can recreate your work.
 
 Another handy debugging tool is the \texttt{disparitydebug} program,
@@ -534,7 +533,6 @@ Digital Elevation Model (\ac{DEM}) from the point cloud file.
   >  point2dem results/output-PC.tif
 \end{verbatim}
 
-\noindent
 The resulting TIFF file is map-projected and will contain
 georeferencing information stored as GeoTIFF tags. You can specify a
 coordinate system (e.g., mercator, sinusoidal) and a reference
@@ -544,7 +542,6 @@ spheroid (i.e., calculated for the Moon, Mars, or Earth).
   >  point2dem -r mars results/output-PC.tif
 \end{verbatim}
 
-\noindent
 This product is suitable for scientific use, and can be imported into
 a variety of GIS platforms.  However, the resulting file,
 \texttt{results/output-DEM.tif}, will have 32-bit floating point
@@ -563,7 +560,10 @@ to use for the projection:
 
 See figure \ref{p19-norm_ortho} on the right for the output of this command.
 
-\noindent
+If the DEM has holes, which can be inevitable, those holes will also
+show up in the orthoimage. They can be filled in using the option
+\texttt{-\/-orthoimage-hole-fill-len} with a value passed to it.
+
 The \texttt{point2dem} program is also able to accept output
 projection options the same way as the tools in GDAL. Well known EPSG,
 IAU2000 projections, and custom Proj4 strings can applied with the
@@ -579,7 +579,6 @@ produce the same output.
        results/output-PC.tif
 \end{verbatim}
 
-\noindent
 The \texttt{point2dem} program can be used in many different ways.  Be
 sure to take your time to explore all of the options.
 
@@ -601,6 +600,22 @@ sure to take your time to explore all of the options.
 \end{minipage}
 \hfill
 \end{figure}
+
+\subsection{Fine-Tuning the Results}
+
+There are several options in Stereo Pipeline that, when adjusted, can
+help produce higher quality output.
+
+During the filtering step of stereo (section \ref{stereo_dec}), one can
+choose between several ways of removing outliers, control how much
+hole-filling should take place, if at all, and if to remove small
+isolated regions from the output. This is detailed in section
+\ref{filter_options}.
+
+During the triangulation step, erroneous points in the output point
+cloud can be filtered out based on a range of distances from either the
+left camera or the planet center, as well as based on triangulation
+error. More details are in section \ref{triangulation_options}.
 
 % \begin{figure}
 % \begin{center}
@@ -626,7 +641,7 @@ sure to take your time to explore all of the options.
 % \end{center}
 % \end{figure}
 
-\subsection{Alignment to point clouds from a different source}
+\subsection{Alignment to Point Clouds From a Different Source}
 
 Often times, the 3D terrain models output by \texttt{stereo} (point
 clouds and DEMs) can be intrinsically quite accurate, yet their actual
@@ -669,7 +684,7 @@ Here is how \texttt{pc\_align} can be called.
 The complete documentation for this program is in section
 \ref{pcalign}.
 
-\subsection{Creating DEMs relative to the Geoid/Areoid}
+\subsection{Creating DEMs Relative to the Geoid/Areoid}
 
 The DEMs generated using \texttt{point2dem} are in reference to a datum
 ellipsoid. If desired, the \texttt{dem\_geoid} program can be used to
@@ -733,7 +748,7 @@ See figure \ref{hrad-color} showing the images obtained with these commands.
 \end{center}
 \end{figure}
 
-\subsection{Building Overlays for Moon and Mars mode in Google Earth}
+\subsection{Building Overlays for Moon and Mars Mode in Google Earth}
 
 The final program in the Stereo Pipeline package that this tutorial
 will address is \texttt{image2qtree}.  This tool was designed to
