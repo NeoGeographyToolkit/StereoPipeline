@@ -13,6 +13,7 @@ GENERAL
     other tools.
   - Added a tutorial for processing Digital Globe Earth imagery.
   - Improved mosacking of Digital Globe images.
+  - Use dynamic load balancing in parallel_stereo.
 
   - stereo_fltr:
      * Added the option --erode-max-size to stereo_fltr to remove

@@ -49,7 +49,7 @@ def produce_tiles( settings, tile_w, tile_h ):
                 c_tile_h = int(image_size[1]) - j * tile_h
             tiles.append(BBox(i*tile_w,j*tile_h,c_tile_w,c_tile_h))
 
-    return tiles;
+    return tiles
 
 def add_job( cmd ):
     sleep_time = 0.001
@@ -64,7 +64,7 @@ def add_job( cmd ):
     job_pool.append( subprocess.Popen(cmd) )
 
 def wait_on_all_jobs():
-    print "Waiting for jobs to finish";
+    print "Waiting for jobs to finish"
     sleep_time = 1
     while len(job_pool) > 0:
         for i in range(len(job_pool)):
@@ -199,7 +199,7 @@ def build_vrt( settings, postfix, tile_postfix, **kw ):
             f.write("    </SimpleSource>\n")
         f.write("  </VRTRasterBand>\n")
     f.write("</VRTDataset>\n")
-
+    f.close()
 
 def get_num_nodes(nodes_list):
 
@@ -226,16 +226,24 @@ def get_num_nodes(nodes_list):
 
     return num_nodes
 
-# Create copies of the run manager on multiple machines.
-# Those will in turn launch the jobs on those machines.
-def sprawn_to_nodes(start, stop, num_nodes, settings, args):
+# Launch GNU Parallel for all tiles, it will take care of distributing
+# the jobs across the nodes and load balancing.
+def sprawn_to_nodes(start, stop, settings, args):
 
-    # Each node gets an id
-    ids = [];
-    for i in range(num_nodes): ids += [str(i)]
+    tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
 
-    # Use GNU parallel
-    cmd = ['parallel', '-u', '-P', '1']
+    # Each tile has an id, which is its index in the list of tiles.
+    # There can be a huge amount of tiles, and for that reason we
+    # store their ids in a file, rather than putting them on the
+    # command line.
+    tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
+    f = open(tmpFile.name, 'w')
+    for i in range(len(tiles)):
+        f.write("%d\n" % i)
+    f.close()
+
+    # Use GNU parallel with given number of processes.
+    cmd = ['parallel', '-u', '-P', str(opt.processes), '-a', tmpFile.name]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
@@ -250,9 +258,8 @@ def sprawn_to_nodes(start, stop, num_nodes, settings, args):
                " --stop-point " + str(stop) + " --work-dir "  + opt.work_dir
     if opt.isisroot  is not None: args_str += " --isisroot "  + opt.isisroot
     if opt.isis3data is not None: args_str += " --isis3data " + opt.isis3data
-    args_str += " --rank {}"
-
-    cmd += [args_str, ':::'] + ids # GNU parallel syntax
+    args_str += " --tile-id {}"
+    cmd += [args_str]
 
     if opt.verbose:
         print(" ".join(cmd))
@@ -360,21 +367,21 @@ if __name__ == '__main__':
                  help='Display the version of software.')
 
     # Internal variables below.
-    # The rank of the sprawned process (0 <= rank < num_nodes).
-    p.add_option('--rank',      dest='rank', default=None, type='int',
+    # The id of the tile to process, 0 <= tile_id < num_tiles.
+    p.add_option('--tile-id', dest='tile_id', default=None, type='int',
                  help=optparse.SUPPRESS_HELP)
     # Directory where the job is running
-    p.add_option('--work-dir',  dest='work_dir', default=None,
+    p.add_option('--work-dir', dest='work_dir', default=None,
                  help=optparse.SUPPRESS_HELP)
     # ISIS settings
-    p.add_option('--isisroot',  dest='isisroot', default=None,
+    p.add_option('--isisroot', dest='isisroot', default=None,
                  help=optparse.SUPPRESS_HELP)
     p.add_option('--isis3data', dest='isis3data', default=None,
                  help=optparse.SUPPRESS_HELP)
     # Debug options
-    p.add_option('--dry-run',   dest='dryrun', default=False, action='store_true',
+    p.add_option('--dry-run', dest='dryrun', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
-    p.add_option('--verbose',   dest='verbose', default=False, action='store_true',
+    p.add_option('--verbose', dest='verbose', default=False, action='store_true',
                  help=optparse.SUPPRESS_HELP)
 
     global opt
@@ -387,7 +394,7 @@ if __name__ == '__main__':
     if opt.seed_mode is not None:
         args.extend(['--corr-seed-mode', str(opt.seed_mode)])
 
-    if opt.rank is None:
+    if opt.tile_id is None:
         # When the script is started, set some options from the
         # environment which we will pass to the scripts we sprawn
         # 1. Set the work directory
@@ -423,7 +430,7 @@ if __name__ == '__main__':
     sep = ","
     settings=run_and_parse_output( "stereo_parse", args, sep, opt.verbose )
 
-    if opt.rank is None:
+    if opt.tile_id is None:
 
         # We get here when the script is started. The current running
         # process has become the management process that spawns other
@@ -453,7 +460,7 @@ if __name__ == '__main__':
             else:
                 single_run('stereo_corr', args_sub, msg='1: Low-res correlation')
             create_subproject_dirs( settings ) # symlink D_sub
-            sprawn_to_nodes(1, 2, num_nodes, settings, self_args)
+            sprawn_to_nodes(1, 2, settings, self_args)
             # Bugfix: When doing refinement for a given tile, we must see
             # the result of correlation for all tiles. To achieve that,
             # rename all correlation tiles to something else,
@@ -466,7 +473,7 @@ if __name__ == '__main__':
             # Refinement
             if ( opt.stop_point <= 2 ): sys.exit()
             create_subproject_dirs( settings )
-            sprawn_to_nodes(2, 3, num_nodes, settings, self_args)
+            sprawn_to_nodes(2, 3, settings, self_args)
         if ( opt.entry_point <= 3 ):
             # Filtering
             if ( opt.stop_point <= 3 ): sys.exit()
@@ -480,7 +487,7 @@ if __name__ == '__main__':
             l_args.append('--compute-point-cloud-center-only')
             single_run('stereo_tri',  l_args, msg='4: Triangulation')
             create_subproject_dirs( settings ) # symlink cloud center
-            sprawn_to_nodes(4, 5, num_nodes, settings, self_args)
+            sprawn_to_nodes(4, 5, settings, self_args)
         if ( opt.entry_point <= 5 ):
             # Point cloud mosaic
             if ( opt.stop_point <= 5 ): sys.exit()
@@ -489,21 +496,18 @@ if __name__ == '__main__':
 
     else:
 
-        # Launch multiple processes doing actual work on the current
-        # machine for the current entry point.
+        # This process was sprawned by GNU Parallel with a given
+        # value of opt.tile_id. Launch the job for that tile.
         if opt.verbose:
             print("Running on machine: ", os.uname())
 
         try:
 
-            # Define the tiles that we'll be processing on
-            tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h );
-
-            # We are processing the jobs that correspond to the
-            # fraction 1 / num_nodes and are at index opt.rank.
+            # The list of tiles
+            tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
             num_tiles = len(tiles)
-            min_index = int((float(opt.rank)/float(num_nodes)) * num_tiles)
-            max_index = int(((float(opt.rank)+1)/float(num_nodes)) * num_tiles)
+            min_index = opt.tile_id
+            max_index = opt.tile_id + 1
             tiles = tiles[min_index:max_index]
 
             if ( opt.entry_point == 1 ):
