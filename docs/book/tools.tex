@@ -56,6 +56,9 @@ Option & Description \\ \hline \hline
 \texttt{-\/-stereo-file|-s \textit{filename(=./stereo.default)}} & Define the stereo.default file to use\\ \hline
 \texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a subregion of the left image [default: use the entire image].\\ \hline
 \texttt{-\/-entry-point|-e 1|2|3|4} & Stereo Pipeline entry point \\ \hline
+\texttt{-\/-corr-seed-mode integer(=0 to 3)} & Correlation seed strategy
+(section \ref{corr_section}). This needs to be set on the command line
+as the script invokes different executables depending on its value. \\ \hline
 \end{longtable}
 
 More information about the stereo.default configuration file can be
@@ -132,25 +135,43 @@ documents all options for the individual sub-programs.
 \section{parallel\_stereo}
 \label{parallel}
 
-The \texttt{parallel\_stereo} program is a modification of \texttt{stereo}
-designed to distribute the stereo processing over multiple computing
-nodes. It uses GNU Parallel to manage the jobs, which is distributed together
-with Stereo Pipeline.
+The \texttt{parallel\_stereo} program is a modification of
+\texttt{stereo} designed to distribute the stereo processing over
+multiple computing nodes. It uses GNU Parallel to manage the jobs, which
+is distributed together with Stereo Pipeline. It expects that all nodes
+can connect to each other using ssh without password.
 
-Note that, when invoking this tool, only stages 1, 2, and 4 of
-stereo (section \ref{stereo_dec}) are spread over multiple machines,
-with stages 0 and 3 still being done on the current computing node, as
-they require global knowledge of the data. In addition, not all stages
-of stereo benefit equally from parallelization, most likely to gain
-are stages 1 and 2 (correlation and refinement), which are the most
-computationally expensive.
+At the simplest, it can be invoked exactly like stereo, being passed
+in addition the list of nodes to use.
+
+\begin{verbatim}
+parallel_stereo --nodes-list machines.txt <other stereo options>
+\end{verbatim}
+
+If your jobs are launched on a cluster or supercomputer, the name of the
+file containing the list of nodes may exist as an environmental
+variable. For example, on NASA's Pleiades Supercomputer, which uses the
+Portable Batch System (PBS), the list of nodes can be retrieved as
+\$PBS\_NODEFILE.
+
+It is important to note that, when invoking this tool, only stages 1, 2,
+and 4 of stereo (section \ref{stereo_dec}) are spread over multiple
+machines, with stages 0 and 3 using just one node, as they require
+global knowledge of the data. In addition, not all stages of stereo
+benefit equally from parallelization, most likely to gain are stages 1
+and 2 (correlation and refinement), which are the most computationally
+expensive.
 
 For these reasons, while \texttt{parallel\_stereo} can be called to do
 all stages of stereo generation from start to finish in one command, it
 may be more resource-efficient to invoke it using a single node for
 stages 0 and 3, many nodes for stages 1 and 2, and just a handful of
-nodes for stage 4 (triangulation). The example below explains how to do
-that.
+nodes for stage 4 (triangulation). For example, to invoke the tool
+only for stage 2, one uses the options: 
+
+\begin{verbatim}
+--entry-point 2 --stop-point 3 
+\end{verbatim}
 
 \texttt{parallel\_stereo} accepts the following options (any additional
 options given to it will be passed to the stereo executables
@@ -168,37 +189,67 @@ Options & Description \\ \hline \hline
 \texttt{-\/-help|-h} & Display the help message.\\ \hline
 \texttt{-\/-nodes-list \textit{filename} } & The list of computing nodes,
 one per line. If not provided, run on the local machine. \\ \hline
-\texttt{-\/-processes \textit{integer(=4)}} & The number of processes to
-use per node. \\ \hline
-\texttt{-\/-threads-multiprocess \textit{integer(=2)}} & The number of threads to use per process.\\ \hline
-\texttt{-\/-threads-singleprocess \textit{integer(=1)}} & The number of threads to use when running a single process (for pre-processing and filtering).\\ \hline
 \texttt{-\/-entry-point|-e integer(=0 to 5)} & Stereo Pipeline entry
 point (start at this stage). \\ \hline
 \texttt{-\/-stop-point|-e integer(=1 to 6)} & Stereo Pipeline stop point
 (stop at the stage {\it right before} this value). \\ \hline
-\texttt{-\/-job-size-w \textit{integer(=2048)}} & Pixel width of input
-image tile for a single process. \\ \hline
-\texttt{-\/-job-size-h \textit{integer(=2048)}} & Pixel height of input
-image tile for a single process. \\ \hline
+\texttt{-\/-corr-seed-mode integer(=0 to 3)} & Correlation seed strategy
+(section \ref{corr_section}). This needs to be set on the command line
+as the script invokes different executables depending on its value. \\ \hline
 \end{longtable}
 
-As an example, assume that we would like to launch the refinement and
-filtering steps only (stages 2 and 3). We will distribute the
-refinement over a number of nodes, using 4 processes on each node, with
-each process creating 16 threads. For the filtering stage, which is done
-in one process on one machine, we want to use 32 threads. The
-appropriate command is then:
+\subsection{Advanced usage}
+
+The \texttt{parallel\_stereo} tool tries to take advantage of its inside
+knowledge of the individual \texttt{stereo} sub-programs to decide
+how many threads and processes to use at each stage, and by default, it 
+it will try to use all nodes to the fullest. 
+
+The advanced user can try to gain finer-level control of the tool, as
+described below. This may not necessarily result in improved performance
+compared to using the default settings.
+
+As an example of using the advanced options, assume that we would like
+to launch the refinement and filtering steps only (stages 2 and 3). We
+will distribute the refinement over a number of nodes, using 4 processes
+on each node, with each process creating 16 threads. For the filtering
+stage, which is done in one process on one machine, we want to use 32
+threads. The appropriate command is then:
 
 \begin{verbatim}
 parallel_stereo --nodes-list machines.txt --processes 4 --threads-multiprocess 16 \
  --threads-singleprocess 32 --entry-point 2 --stop-point 4 <other stereo options>
 \end{verbatim}
 
-Note that, if \texttt{parallel\_stereo} is launched as a supercomputer
-job, the path to the file containing the list of nodes may exist as an environmental
-variable. For example, on NASA's Pleiades Supercomputer, which uses the
-Portable Batch System (PBS), the list of computing nodes currently
-available can be retrieved as \$PBS\_NODEFILE.
+To better take advantage of these options, the user should know the following.
+\texttt{parallel\_stereo} starts a process for every image block, whose
+size is by default $2048 \times 2048$ (\texttt{job-size-w} by
+\texttt{job-size-h}). On such a block, the correlation, and subpixel
+refinement stages will use at most 4 and 64 threads respectively (1 and
+16 threads for each $1024 \times 1024$ tile). Triangulation will use at
+most 64 threads as well, except for ISIS cameras, when it is
+single-threaded due to the limitations of ISIS (we account for the
+latter when the number of threads and processes are decided
+automatically, but not when these advanced options are used).
+
+\begin{longtable}{|l|p{7.5cm}|}
+\caption{Advanced options for parallel\_stereo}
+\label{tbl:parallelstereo}
+\endfirsthead
+\endhead
+\endfoot
+\endlastfoot
+\hline
+Options & Description \\ \hline \hline
+\texttt{-\/-job-size-w \textit{integer(=2048)}} & Pixel width of input
+image tile for a single process. \\ \hline
+\texttt{-\/-job-size-h \textit{integer(=2048)}} & Pixel height of input
+image tile for a single process. \\ \hline
+\texttt{-\/-processes \textit{integer}} & The number of processes to
+use per node. \\ \hline
+\texttt{-\/-threads-multiprocess \textit{integer}} & The number of threads to use per process.\\ \hline
+\texttt{-\/-threads-singleprocess \textit{integer}} & The number of threads to use when running a single process (for pre-processing and filtering).\\ \hline
+\end{longtable}
 
 \section{disparitydebug}
 \label{disparitydebug}

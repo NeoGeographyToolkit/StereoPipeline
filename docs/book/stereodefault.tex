@@ -89,7 +89,8 @@ distribution.
 
 \end{description}
 
-\section{Correlation}\label{corr_section}
+\section{Correlation}
+\label{corr_section}
 \hrule
 \bigskip
 
@@ -129,29 +130,39 @@ distribution.
   for the preprocessing modes 1 and 2 above. A value of 1.4 works
   well for LoG and 25-30 works well for Subtracted Mean.
 
-\item[corr-seed-mode \textnormal{\small{(=0,1,2)}}] (default = 1) \hfill \\
-  This integer parameter selects a strategy for how to solve for the integer
-  correlation disparity.
-  \begin{description}
-    \item[0 - None] - Don't calculate a low-resolution
-      variant of the disparity image.
-      The search range provided by \texttt{corr-search} is used directly in computing the
-      full-resolution disparity.
-    \item[1 - Low-resolution disparity from stereo] - Calculate a low-resolution version
-      of the disparity from the integer correlation of subsampled left and right images.
-      The low-resolution disparity will be used to narrow down the search range
-      for the full-resolution disparity.
+\item[corr-seed-mode \textnormal{\small{(=0,1,2,3)}}] (default = 1) \hfill \\
+  This integer parameter selects a strategy for how to solve for the
+  low-resolution integer correlation disparity, which is used to seed
+  the full-resolution disparity later on.
 
-      This is a useful option despite the fact that our integer
-      correlation implementation does indeed use a pyramid
-      approach. Our implementation cannot search infinitely into lower
-      resolutions due to its independent and tiled nature. This
-      low-resolution disparity seed is a good hybrid approach.
-    \item[2 - Low-resolution disparity from an input DEM] - Use a lower-resolution DEM together with an estimated
-      value for its error to compute the low-resolution disparity, which will then be used
-      to find the full-resolution disparity as above. These quantities
-      can be specified via the options \texttt{disparity-estimation-dem}
-      and  \texttt{disparity-estimation-dem-error} respectively.
+  \begin{description}
+  \item[0 - None] - Don't calculate a low-resolution variant of the
+    disparity image. The search range provided by \texttt{corr-search}
+    is used directly in computing the full-resolution disparity.
+
+  \item[1 - Low-resolution disparity from stereo] - Calculate a
+    low-resolution version of the disparity from the integer correlation
+    of subsampled left and right images.  The low-resolution disparity
+    will be used to narrow down the search range for the full-resolution
+    disparity.
+
+    This is a useful option despite the fact that our integer
+    correlation implementation does indeed use a pyramid approach. Our
+    implementation cannot search infinitely into lower resolutions due
+    to its independent and tiled nature. This low-resolution disparity
+    seed is a good hybrid approach.
+
+  \item[2 - Low-resolution disparity from an input DEM] - Use a
+    lower-resolution DEM together with an estimated value for its error
+    to compute the low-resolution disparity, which will then be used to
+    find the full-resolution disparity as above. These quantities can be
+    specified via the options \texttt{disparity-estimation-dem} and
+    \texttt{disparity-estimation-dem-error} respectively.
+
+  \item[3 - Disparity from full-resolution images at a sparse number of
+    points.] This is an advanced option for terrain having snow and no
+    large-scale features. It is described in section \ref{sparse-disp}.
+
   \end{description}
 
   For large images, bigger than MOC-NA, using the low-resolution

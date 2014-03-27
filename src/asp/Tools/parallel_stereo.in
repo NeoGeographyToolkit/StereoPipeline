@@ -17,7 +17,8 @@
 # __END_LICENSE__
 
 
-import sys, optparse, subprocess, re, os, math, time, tempfile, glob, shutil
+import sys, optparse, subprocess, re, os, math, time, tempfile, glob,\
+       shutil, math
 import os.path as P
 
 if sys.version_info < (2, 6, 0):
@@ -261,7 +262,12 @@ def get_best_procs_threads(step, settings):
         if m:
             num_threads = 1
 
-    num_procs = int(num_cpus/num_threads)
+    num_procs = int(math.ceil(float(num_cpus)/num_threads))
+
+    if opt.verbose:
+        print("For stage %d, using %d threads and %d processes." %
+              (step, num_threads, num_procs))
+
     return (num_procs, num_threads)
 
 # Launch GNU Parallel for all tiles, it will take care of distributing
