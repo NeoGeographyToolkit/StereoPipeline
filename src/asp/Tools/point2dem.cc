@@ -543,10 +543,12 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
   OrthoRasterizerView<PixelGray<float>, ViewT >
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
                opt.dem_spacing, opt.search_radius_factor, opt.use_surface_sampling,
+               Options::tri_tile_size(), // to efficiently process the cloud
                TerminalProgressCallback("asp","QuadTree: ") );
 
   sw1.stop();
-  vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds() << std::endl;
+  vw_out(DebugMessage,"asp") << "Quad time: " << sw1.elapsed_seconds()
+                             << std::endl;
 
   if (!opt.has_nodata_value) {
     opt.nodata_value = std::floor(rasterizer.bounding_box().min().z() - 1);

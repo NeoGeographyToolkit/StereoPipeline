@@ -268,10 +268,11 @@ namespace vw { namespace cartography {
     template <class TextureViewT>
     OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing,
                         double search_radius_factor, bool use_surface_sampling,
-                        const ProgressCallback& progress) :
-      m_point_image(point_image), m_texture(ImageView<float>(1,1)), // dummy temp value
+                        int pc_tile_size,
+                        const ProgressCallback& progress):
+      m_point_image(point_image), m_texture(ImageView<float>(1,1)), // temporary
       m_default_value(0), m_minz_as_default(true), m_use_alpha(false),
-      m_block_size(256), /* To do: query block size from input point cloud */
+      m_block_size(pc_tile_size),
       m_search_radius_factor(search_radius_factor),
       m_use_surface_sampling(use_surface_sampling),
       m_hole_fill_len(0){

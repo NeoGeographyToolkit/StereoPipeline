@@ -91,6 +91,7 @@ int main( int argc, char* argv[] ) {
     
     vw_out() << "corr_tile_size," << Options::corr_tile_size() << std::endl;
     vw_out() << "rfne_tile_size," << Options::rfne_tile_size() << std::endl;
+    vw_out() << "tri_tile_size,"  << Options::tri_tile_size()  << std::endl;
 
   } ASP_STANDARD_CATCHES;
 

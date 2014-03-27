@@ -515,6 +515,11 @@ int main( int argc, char* argv[] ) {
     handle_arguments( argc, argv, opt,
                       TriangulationDescription() );
 
+    // Triangulation uses small tiles.
+    //---------------------------------------------------------
+    int ts = Options::tri_tile_size();
+    opt.raster_tile_size = Vector2i(ts, ts);
+
     // Internal Processes
     //---------------------------------------------------------
 #define INSTANTIATE(T,NAME) if ( opt.session->name() == NAME ) { stereo_triangulation<T>(opt); }

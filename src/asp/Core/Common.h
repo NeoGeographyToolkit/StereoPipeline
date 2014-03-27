@@ -103,7 +103,9 @@ namespace asp {
     vw::uint32 num_threads;
     std::string cache_dir;
     std::string tif_compress;
-
+    static int corr_tile_size() { return 1024; } // Tile size for correlation
+    static int rfne_tile_size() { return 256;  } // Tile size for refinement
+    static int tri_tile_size()  { return 256;  } // Tile size for tri/point cloud
     BaseOptions();
   };
 
