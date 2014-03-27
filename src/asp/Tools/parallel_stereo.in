@@ -229,9 +229,58 @@ def get_num_nodes(nodes_list):
 
     return num_nodes
 
+def get_best_procs_threads(step, settings):
+    # Decide the best number of processes to use on a node, and how
+    # many threads to use for each process.
+
+    # We assume all machines have the same number of CPUs (cores)
+    num_cpus = get_num_cpus()
+
+    if step == s_corr:
+        tile_size = int(settings['corr_tile_size'][0])
+    elif step == s_rfne:
+        tile_size = int(settings['rfne_tile_size'][0])
+    elif step == s_tri:
+        tile_size = int(settings['tri_tile_size'][0])
+    else:
+        raise Exception('Stereo step %d must be executed on a single machine.' \
+                        % step)
+    
+    # We use the observation that each tile uses one thread,
+    # so we need to find how many tiles are in the given job.
+    num_threads = int(opt.job_size_w*opt.job_size_h/tile_size/tile_size)
+    if num_threads > num_cpus: num_threads = num_cpus
+    if num_threads <= 0: num_threads = 1
+
+    # For triangulation, we need to consider the case of ISIS cameras
+    # when we must use 1 thread no matter what.
+    if step == s_tri:
+        cam_info = " ".join(settings['in_file1'] + settings['in_file2'] + \
+                            settings['cam_file1'] + settings['cam_file2'])
+        m = re.search('\\.cub\\b', cam_info, re.IGNORECASE)
+        if m:
+            num_threads = 1
+
+    num_procs = int(num_cpus/num_threads)
+    return (num_procs, num_threads)
+
 # Launch GNU Parallel for all tiles, it will take care of distributing
-# the jobs across the nodes and load balancing.
+# the jobs across the nodes and load balancing. The way we accomplish
+# this is by calling this same script but with --tile-id <num>.
 def sprawn_to_nodes(step, settings, args):
+
+    if opt.processes is None or opt.threads_multi is None:
+        # The user did not specify these. We will find the best
+        # for their system.
+        (procs, threads) = get_best_procs_threads(step, settings)
+    else:
+        procs = opt.processes
+        threads = opt.threads_multi
+        
+    wipe_option(args, '--processes', 1)
+    wipe_option(args, '--threads-multiprocess', 1)
+    args.extend(['--processes', str(procs)])
+    args.extend(['--threads-multiprocess', str(threads)])
 
     tiles = produce_tiles( settings, opt.job_size_w, opt.job_size_h )
 
@@ -246,7 +295,7 @@ def sprawn_to_nodes(step, settings, args):
     f.close()
 
     # Use GNU parallel with given number of processes.
-    cmd = ['parallel', '-u', '-P', str(opt.processes), '-a', tmpFile.name]
+    cmd = ['parallel', '-u', '-P', str(procs), '-a', tmpFile.name]
     if which(cmd[0]) is None:
         raise Exception('Need GNU Parallel to distribute the jobs.')
 
@@ -293,20 +342,24 @@ def parallel_run(bin, args, settings, tiles, **kw):
             crop_str = crop_box.crop_str()
 
             cmd = call+crop_str
-            cmd[cmd.index( settings['out_prefix'][0] )] = settings['out_prefix'][0] + tile.name_str() + "/" + tile.name_str()
+            cmd[cmd.index( settings['out_prefix'][0] )]                  \
+                           = settings['out_prefix'][0] + tile.name_str() \
+                           + "/" + tile.name_str()
             if opt.dryrun:
                 print " ".join(cmd)
-            else:
-                add_job( cmd )
-        if opt.dryrun:
-            return
+                return
+
+            if opt.verbose:
+                print " ".join(cmd)
+            add_job( cmd )
         wait_on_all_jobs()
     except OSError, e:
         raise Exception('%s: %s' % (binpath, e))
 
 def single_run(bin, args, **kw):
 
-    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), '..', 'bin', bin)
+    binpath = P.join(kw.get('path', P.dirname(P.abspath(__file__))), \
+                     '..', 'bin', bin)
     call = [binpath]
     call.extend(args)
 
@@ -318,6 +371,8 @@ def single_run(bin, args, **kw):
         print '%s' % ' '.join(call)
         return
     try:
+        if opt.verbose:
+            print '%s' % ' '.join(call)
         code = subprocess.call(call)
     except OSError, e:
         raise Exception('%s: %s' % (binpath, e))
@@ -347,28 +402,35 @@ if __name__ == '__main__':
     # For the other steps, the script does the work itself.
 
     p = PassThroughOptionParser(usage=usage)
-    p.add_option('--nodes-list',              dest='nodes_list',   default=None,
-                 help='The list of computing nodes, one per line.')
-    p.add_option('--processes',            dest='processes',   default=4,     type='int',
-                 help='The number of processes to use per node.')
-    p.add_option('--threads-multiprocess', dest='threads_multi', default=2,   type='int',
-                 help='The number of threads to use per process.')
-    p.add_option('--threads-singleprocess',dest='threads_single',default=None,type='int',
+    p.add_option('--nodes-list',           dest='nodes_list', default=None,
+                 help='The list of computing nodes, one per line. ' + \
+                 'If not provided, run on the local machine.')
+    p.add_option('--processes',            dest='processes', default=None,
+                 type='int', help='The number of processes to use per node.')
+    p.add_option('--threads-multiprocess', dest='threads_multi', default=None,
+                 type='int', help='The number of threads to use per process.')
+    p.add_option('--threads-singleprocess',dest='threads_single', default=None,
+                 type='int', 
                  help='The number of threads to use when running a single process (PPRC and FLTR).')
-    p.add_option('--corr-seed-mode',    dest='seed_mode', default=1,
-                 help='Correlation seed strategy. See stereo_pprc for options.', type='int')
+    p.add_option('--corr-seed-mode',       dest='seed_mode', default=1,
+                 help='Correlation seed strategy. See stereo_pprc for options.',
+                 type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
-                 help='Stereo Pipeline entry point (an integer from 0-5).', type='int')
+                 help='Stereo Pipeline entry point (an integer from 0-5).',
+                 type='int')
     p.add_option('--stop-point',           dest='stop_point',  default=6,
-                 help='Stereo Pipeline stop point (an integer from 1-6).', type='int')
-    p.add_option('--job-size-w',           dest='job_size_w',  default=1024,
-                 help='Pixel width of input image tile for a single process.', type='int')
-    p.add_option('--job-size-h',           dest='job_size_h',  default=1024,
-                 help='Pixel height of input image tile for a single process.', type='int')
+                 help='Stereo Pipeline stop point (an integer from 1-6).',
+                 type='int')
+    p.add_option('--job-size-w',           dest='job_size_w',  default=2048,
+                 help='Pixel width of input image tile for a single process.',
+                 type='int')
+    p.add_option('--job-size-h',           dest='job_size_h',  default=2048,
+                 help='Pixel height of input image tile for a single process.',
+                 type='int')
     p.add_option('--sparse-disp-options', dest='sparse_disp_options',
                  help='Options to pass directly to sparse_disp.')
-    p.add_option('-v', '--version',        dest='version',     default=False, action='store_true',
-                 help='Display the version of software.')
+    p.add_option('-v', '--version',        dest='version', default=False,
+                 action='store_true', help='Display the version of software.')
 
     # Internal variables below.
     # The id of the tile to process, 0 <= tile_id < num_tiles.
@@ -395,6 +457,9 @@ if __name__ == '__main__':
         p.print_help()
         die('\nERROR: Missing input files', code=2)
 
+    if opt.threads_single is None:
+        opt.threads_single = get_num_cpus()
+
     if opt.seed_mode is not None:
         args.extend(['--corr-seed-mode', str(opt.seed_mode)])
 
@@ -408,6 +473,8 @@ if __name__ == '__main__':
         if 'ISIS3DATA' in os.environ: opt.isis3data = os.environ['ISIS3DATA']
         # 3. Fix for Pleiades, copy the nodes_list to current directory
         if opt.nodes_list is not None:
+            if not os.path.isfile(opt.nodes_list):
+                die('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
             tmpFile = tempfile.NamedTemporaryFile(delete=True, dir='.')
             shutil.copy2(opt.nodes_list, tmpFile.name)
             opt.nodes_list = tmpFile.name
