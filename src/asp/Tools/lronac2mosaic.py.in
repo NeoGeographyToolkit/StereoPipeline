@@ -431,7 +431,7 @@ def main():
         if not options.outputFolder: # Set the output folder equal to the input folder
             options.outputFolder = os.path.dirname(args[0])
         print 'Using output folder: ' + options.outputFolder
-        if not os.path.exists(options.outputFolder):
+        if not os.path.exists(options.outputFolder) and len(options.outputFolder) > 1:
             os.makedirs(options.outputFolder)
 
         print "Beginning processing....."
