@@ -43,7 +43,9 @@ GENERAL
     * Save to disk the convergence history (iteration information).
     * Added the ability to explicitely specify the datum semi-axes.
     * Bug fix for saving transformed clouds for Moon and Mars.
-
+    * More efficient processing of reference and source points
+      by loading only points in each cloud within a neigbhorhood
+      of the long/lat bounding box of the other cloud.
   - point2dem:
      * Replaced the core algorithm. Instead of sampling the point
        cloud surface, which is prone to aliasing, the DEM height at a
