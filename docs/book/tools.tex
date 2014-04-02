@@ -867,12 +867,12 @@ of rotation, as such both its rotation and translation components may not
 be amenable to good interpretation.
 
 The tool outputs to CSV files the lists of errors together with their
-locations, before and after the alignment of source points, where an
-error is defined as the distance from a source point used in alignment
-to the closest reference point. The format of output CSV files is the
-same as of input CSV files, or as given by \texttt{-\/-csv-format},
-although any columns of extraneous data in the input files are not
-saved on output.
+locations in the source point cloud, before and after the alignment of
+source points, where an error is defined as the distance from a source
+point used in alignment to the closest reference point. The format of
+output CSV files is the same as of input CSV files, or as given by
+\texttt{-\/-csv-format}, although any columns of extraneous data in the
+input files are not saved on output.
 
 The program prints to screen and saves to a log file the 16th, 50th, and
 84th error percentiles, as well as the means of the smallest 25\%, 50\%,
@@ -884,7 +884,12 @@ with the smallest errors. As such, a way of judging the effectiveness of
 the tool is to look at the mean of the smallest 75\% of the errors
 before and after alignment.
 
-The transformed input point clouds can also be saved to disk if desired.
+The transformed input point clouds can also be saved to disk if
+desired. If an input point cloud is in CSV or ASP point cloud format,
+the output transformed cloud will be in the same format. If the input is
+a DEM, the output will be an ASP point cloud, since a gridded point
+cloud may not stay so after a 3D transform. The \texttt{point2dem}
+program can be used to resample the obtained point cloud back to a DEM.
 
 The convergence history for \texttt{pc\_align} (the translation and
 rotation change at each iteration) is saved to disk, and can be used to
