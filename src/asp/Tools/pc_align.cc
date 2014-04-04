@@ -849,7 +849,17 @@ void load_csv(string const& file_name,
     points_count++;
     mean_longitude += lon;
 
-    if (points_count >= num_points_to_load) break;
+    // Throw an error if the lon and lat are not within bounds.
+    // Note that we allow some slack for lon, perhaps the point
+    // cloud is say from 350 to 370 degrees.
+    if (std::abs(lat) > 90.0)
+      vw_throw(ArgumentErr() << "Invalid latitude value: "
+               << lat << " in " << file_name << "\n");
+    if (lon < -360.0 || lon > 2*360.0)
+      vw_throw(ArgumentErr() << "Invalid longitude value: "
+               << lon << " in " << file_name << "\n");
+
+  if (points_count >= num_points_to_load) break;
 
   }
   data.features.conservativeResize(Eigen::NoChange, points_count);
