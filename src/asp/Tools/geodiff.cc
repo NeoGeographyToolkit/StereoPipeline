@@ -53,10 +53,10 @@ struct Options : asp::BaseOptions {
 void handle_arguments( int argc, char *argv[], Options& opt ) {
   po::options_description general_options("");
   general_options.add_options()
-    ("nodata_value", po::value(&opt.nodata_value)->default_value(-32768), "The value of missing pixels in the first dem")
-    ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
-    ("float", po::bool_switch(&opt.use_float)->default_value(false), "Output using float (32 bit) instead of using doubles (64 bit).")
-    ("absolute", po::bool_switch(&opt.use_absolute)->default_value(false), "Output the absolute difference as opposed to just the difference.");
+    ("nodata_value",    po::value(&opt.nodata_value)->default_value(-32768),      "The value of missing pixels in the first dem")
+    ("output-prefix,o", po::value(&opt.output_prefix),                            "Specify the output prefix.")
+    ("float",           po::bool_switch(&opt.use_float)->default_value(false),    "Output using float (32 bit) instead of using doubles (64 bit).")
+    ("absolute",        po::bool_switch(&opt.use_absolute)->default_value(false), "Output the absolute difference as opposed to just the difference.");
   general_options.add( asp::BaseOptionsDescription(opt) );
 
   po::options_description positional("");
@@ -114,22 +114,26 @@ int main( int argc, char *argv[] ) {
       vw_throw( NoImplErr() << "GeoDiff can't difference DEMs which are on different datums.\n" );
     }
 
+    // Generate a bounding box that is the minimum of the two BBox areas
+    BBox2 union_bbox = bounding_box( dem1_dmg );
+    union_bbox.crop(bounding_box( dem2_dmg ));
+
     ImageViewRef<PixelMask<double> > dem2_trans =
       crop(geo_transform( per_pixel_filter(dem_to_geodetic( create_mask(dem2_dmg, dem2_nodata),
                                                             dem2_georef),
                                            MGeodeticToMAltitude()),
                           dem2_georef, dem1_georef,
                           ValueEdgeExtension<PixelMask<double> >(PixelMask<double>()) ),
-           bounding_box( dem1_dmg ) );
+           union_bbox );
 
     ImageViewRef<double> difference;
     if ( opt.use_absolute ) {
       difference =
-        apply_mask(abs(create_mask(dem1_dmg, dem1_nodata) - dem2_trans),
+        apply_mask(abs(crop(create_mask(dem1_dmg, dem1_nodata), union_bbox) - dem2_trans),
                    opt.nodata_value );
     } else {
       difference =
-        apply_mask(create_mask(dem1_dmg, dem1_nodata) - dem2_trans,
+        apply_mask(crop(create_mask(dem1_dmg, dem1_nodata), union_bbox) - dem2_trans,
                    opt.nodata_value );
     }
     
