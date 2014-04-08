@@ -46,27 +46,13 @@ namespace asp {
   };
 
   // Program Options for each executable/step
-  struct PreProcessingDescription : public boost::program_options::options_description {
-    PreProcessingDescription();
-  };
-  struct CorrelationDescription : public boost::program_options::options_description {
-    CorrelationDescription();
-  };
-  struct SubpixelDescription : public boost::program_options::options_description {
-    SubpixelDescription();
-  };
-  struct FilteringDescription : public boost::program_options::options_description {
-    FilteringDescription();
-  };
-  struct TriangulationDescription : public boost::program_options::options_description {
-    TriangulationDescription();
-  };
-  struct DGDescription : public boost::program_options::options_description {
-    DGDescription();
-  };
-  struct UndocOptsDescription : public boost::program_options::options_description {
-    UndocOptsDescription();
-  };
+  struct PreProcessingDescription : public boost::program_options::options_description { PreProcessingDescription(); };
+  struct CorrelationDescription   : public boost::program_options::options_description { CorrelationDescription  (); };
+  struct SubpixelDescription      : public boost::program_options::options_description { SubpixelDescription     (); };
+  struct FilteringDescription     : public boost::program_options::options_description { FilteringDescription    (); };
+  struct TriangulationDescription : public boost::program_options::options_description { TriangulationDescription(); };
+  struct DGDescription            : public boost::program_options::options_description { DGDescription           (); };
+  struct UndocOptsDescription     : public boost::program_options::options_description { UndocOptsDescription    (); };
 
   boost::program_options::options_description
   generate_config_file_options( asp::BaseOptions& opt );
@@ -87,8 +73,8 @@ namespace asp {
 
     // Preprocessing options
     std::string alignment_method;           // Valid options are: [Homography, Epipolar, None]
-    bool force_use_entire_range;            // Use entire dynamic range of image
-    bool individually_normalize;            // If > 1, normalize the images
+    bool   force_use_entire_range;          // Use entire dynamic range of image
+    bool   individually_normalize;          // If > 1, normalize the images
                                             //         individually with their
                                             //         own hi's and lo's
     double nodata_value;                    // Pixels with values less than or equal to this number are treated as no-data.
@@ -96,7 +82,7 @@ namespace asp {
     double nodata_pixel_percentage;         // Percentage of low-value pixels treated as no-data
     double nodata_optimal_threshold_factor; // Pixels with values less than this factor times the optimal Otsu threshold
                                             // are treated as no-data
-    bool skip_image_normalization;          // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
+    bool   skip_image_normalization;        // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
     
     // Correlation Options
     float slogW;                      // Preprocessing filter width
@@ -116,15 +102,15 @@ namespace asp {
     vw::uint16 cost_mode;             // 0 = absolute difference
                                       // 1 = squared difference
                                       // 2 = normalized cross correlation
-    float xcorr_threshold;            // L-R vs R-L agreement threshold in pixels
+    float        xcorr_threshold;     // L-R vs R-L agreement threshold in pixels
     vw::Vector2i corr_kernel;         // Correlation kernel
-    vw::BBox2i search_range;          // Correlation search range
-    vw::uint16 corr_max_levels;       // Max pyramid levels to process. 0 hits only once.
+    vw::BBox2i   search_range;        // Correlation search range
+    vw::uint16   corr_max_levels;     // Max pyramid levels to process. 0 hits only once.
     bool compute_low_res_disparity_only;      // Skip the full-resolution disparity computation
     std::string disparity_estimation_dem;     // DEM to use in estimating the low-resolution disparity
     double disparity_estimation_dem_error; // Error (in meters) of the disparity estimation DEM
-    bool use_local_homography;        // Apply a local homography in each tile
-    int corr_timeout;                 // Correlation timeout for a tile, in seconds
+    bool   use_local_homography;      // Apply a local homography in each tile
+    int    corr_timeout;              // Correlation timeout for a tile, in seconds
 
     // Subpixel Options
     vw::uint16 subpixel_mode;         // 0 = parabola fitting
@@ -148,24 +134,24 @@ namespace asp {
     int rm_threshold;                 // rm_treshold < disp[n]-disp[m] reject pxl
     int rm_cleanup_passes;            // Number of times to perform cleanup
                                       // in the post-processing phase
-    int erode_max_size;               // Max island size in pixels that it'll remove
+    int  erode_max_size;              // Max island size in pixels that it'll remove
     bool enable_fill_holes;           // If to enable hole-filling
     bool disable_fill_holes;          // This obsolete parameter is ignored
-    int fill_hole_max_size;           // Maximum hole size in pixels that we'll attempt
+    int  fill_hole_max_size;          // Maximum hole size in pixels that we'll attempt
                                       // to fill
     bool mask_flatfield;              // Masks pixels in the input images that are less
                                       // than 0 (for use with Apollo Metric Camera)
 
     // Triangulation Options
     std::string universe_center;      // Center for the radius clipping
-    float near_universe_radius;       // Radius of the universe in meters
-    float far_universe_radius;        // Radius of the universe in meters
-    float max_valid_triangulation_error; // points with error > this are rm from cloud
-    bool use_least_squares;           // Use a more rigorous triangulation
-    bool save_double_precision_point_cloud; // Save final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at 2x the storage).
+    float  near_universe_radius;      // Radius of the universe in meters
+    float  far_universe_radius;       // Radius of the universe in meters
+    float  max_valid_triangulation_error; // points with error > this are rm from cloud
+    bool   use_least_squares;         // Use a more rigorous triangulation
+    bool   save_double_precision_point_cloud; // Save final point cloud in double precision rather than bringing the points closer to origin and saving as float (marginally more precision at 2x the storage).
     double point_cloud_rounding_error;// How much to round the output point cloud values
-    bool compute_point_cloud_center_only; // Only compute the center of triangulated point cloud and exit.
-    bool compute_error_vector;        // Compute the triangulation error vector, not just its length
+    bool   compute_point_cloud_center_only; // Only compute the center of triangulated point cloud and exit.
+    bool   compute_error_vector;      // Compute the triangulation error vector, not just its length
 
     // DG Options
     bool disable_correct_velocity_aberration;
