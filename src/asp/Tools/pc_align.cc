@@ -894,16 +894,29 @@ void load_dem(string const& file_name,
     ( new DiskImageResourceGDAL(file_name) );
   if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
 
+  // Load only points within lonlat_box
+  BBox2i pix_box;
+  if (!lonlat_box.empty()){
+    pix_box.grow(dem_georef.lonlat_to_pixel(lonlat_box.min()));
+    pix_box.grow(dem_georef.lonlat_to_pixel(lonlat_box.max()));
+    pix_box.grow(dem_georef.lonlat_to_pixel(Vector2(lonlat_box.min().x(), lonlat_box.max().y())));
+    pix_box.grow(dem_georef.lonlat_to_pixel(Vector2(lonlat_box.max().x(), lonlat_box.min().y())));
+    pix_box.expand(1); // to counteract casting to int
+    pix_box.crop(bounding_box(dem));
+  }
+  if (pix_box.empty())
+    pix_box = bounding_box(dem);
+
   // We will randomly pick or not a point with probability load_ratio
-  int num_points = dem.cols()*dem.rows();
+  int num_points = pix_box.width()*pix_box.height();
   double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
 
   bool shift_was_calc = false;
   int points_count = 0;
 
-  for (int j = 0; j < dem.rows(); j++ ) {
-    for ( int i = 0; i < dem.cols(); i++ ) {
-
+  for (int i = pix_box.min().x(); i < pix_box.max().x(); i++ ) {
+    for (int j = pix_box.min().y(); j < pix_box.max().y(); j++ ) {
+      
       double r = (double)std::rand()/(double)RAND_MAX;
       if (r > load_ratio) continue;
 
@@ -1168,8 +1181,9 @@ void calc_stats(string label, PointMatcher<RealT>::Matrix const& dists){
 void dump_llh(string const& file, Datum const& datum,
               DP const & data, Vector3 const& shift){
 
-  vw_out() << "Writing: " << file << std::endl;
-
+  vw_out() << "Writing: " << data.features.cols()
+           << " points to " << file << std::endl;
+  
   ofstream fs(file.c_str());
   fs.precision(20);
   for (int c = 0; c < data.features.cols(); c++){
@@ -1620,6 +1634,9 @@ int main( int argc, char *argv[] ) {
                << endl;
     }
 
+    //dump_llh("ref.csv", datum, ref,    shift);
+    //dump_llh("src.csv", datum, source, shift);
+    
     // Calculate the errors before doing ICP
     Stopwatch sw5;
     sw5.start();
@@ -1627,7 +1644,6 @@ int main( int argc, char *argv[] ) {
     icp.filterGrossOutliersAndCalcErrors(ref, big,
                                           source, beg_errors); //in-out
     calc_stats("Input", beg_errors);
-    //dump_llh(source, shift);
     sw5.stop();
     if (opt.verbose) vw_out() << "Initial error computation took "
                               << sw5.elapsed_seconds() << " [s]" << endl;
