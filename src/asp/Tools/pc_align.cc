@@ -588,19 +588,19 @@ void random_pc_subsample(int m, typename PointMatcher<T>::DataPoints& points){
 }
 
 template<typename T>
-void load_csv(string const& file_name,
-              int num_points_to_load,
-              BBox2 const& lonlat_box,
-              bool verbose,
-              bool calc_shift,
-              Vector3 & shift,
-              Datum const& datum,
-              CsvConv const& C,
-              bool & is_lola_rdr_format,
-              double & mean_longitude,
-              typename PointMatcher<T>::DataPoints & data
+int load_csv_aux(string const& file_name,
+                 int num_points_to_load,
+                 BBox2 const& lonlat_box,
+                 bool verbose,
+                 bool calc_shift,
+                 Vector3 & shift,
+                 Datum const& datum,
+                 CsvConv const& C,
+                 bool & is_lola_rdr_format,
+                 double & mean_longitude,
+                 typename PointMatcher<T>::DataPoints & data
               ){
-
+  
   validateFile(file_name);
 
   is_lola_rdr_format = false;
@@ -613,18 +613,18 @@ void load_csv(string const& file_name,
   }
 
   // Find how many lines are in the file
-  int num_points = 0;
+  int num_total_points = 0;
   string line;
   while ( getline(file, line, '\n') ){
     if (line[0] == '#') continue; // Skip lines starting with comments
-    num_points++;
+    num_total_points++;
   }
   file.clear(); file.seekg(0, ios_base::beg); // go back to start of file
 
   // We will randomly pick or not a point with probability load_ratio
-  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
+  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
 
-  data.features.conservativeResize(DIM+1, std::min(num_points_to_load, num_points));
+  data.features.conservativeResize(DIM+1, std::min(num_points_to_load, num_total_points));
   data.featureLabels = form_labels<T>(DIM);
 
   char sep[] = ", \t";
@@ -866,6 +866,46 @@ void load_csv(string const& file_name,
 
   mean_longitude /= points_count;
 
+  return num_total_points;
+}
+
+// Load a csv file
+template<typename T>
+void load_csv(string const& file_name,
+                 int num_points_to_load,
+                 BBox2 const& lonlat_box,
+                 bool verbose,
+                 bool calc_shift,
+                 Vector3 & shift,
+                 Datum const& datum,
+                 CsvConv const& C,
+                 bool & is_lola_rdr_format,
+                 double & mean_longitude,
+                 typename PointMatcher<T>::DataPoints & data
+              ){
+
+  int num_total_points = load_csv_aux<T>(file_name, num_points_to_load,  
+                                         lonlat_box, verbose,  
+                                         calc_shift, shift,  
+                                         datum, C, is_lola_rdr_format,  
+                                         mean_longitude, data
+                                         );
+
+  int num_loaded_points = data.features.cols();
+  if (!lonlat_box.empty()                    &&
+      num_loaded_points < num_points_to_load &&
+      num_loaded_points < num_total_points){
+    // We loaded too few points. Just load them all, as CSV files are not too large,
+    // we will drop extraneous points later.
+    load_csv_aux<T>(file_name, num_total_points, lonlat_box,
+                    false, // Skip repeating same messages
+                    calc_shift, shift,  
+                    datum, C, is_lola_rdr_format,  
+                    mean_longitude, data
+                    );
+  }
+  
+  return;  
 }
 
 // Load a DEM
@@ -949,17 +989,16 @@ void load_dem(string const& file_name,
 
 }
 
-// Load a point cloud
 template<typename T>
-void load_pc(string const& file_name,
-             int num_points_to_load,
-             BBox2 const& lonlat_box,
-             bool calc_shift,
-             Vector3 & shift,
-             Datum const& datum,
-             typename PointMatcher<T>::DataPoints & data
-             ){
-
+int64 load_pc_aux(string const& file_name,
+                  int num_points_to_load,
+                  BBox2 const& lonlat_box,
+                  bool calc_shift,
+                  Vector3 & shift,
+                  Datum const& datum,
+                  typename PointMatcher<T>::DataPoints & data
+                  ){
+  
   validateFile(file_name);
 
   data.features.conservativeResize(DIM+1, num_points_to_load);
@@ -969,11 +1008,11 @@ void load_pc(string const& file_name,
   ImageViewRef<Vector3> point_cloud = asp::read_n_channels<DIM>(file_name);
 
   // We will randomly pick or not a point with probability load_ratio
-  int num_points = point_cloud.cols()*point_cloud.rows();
-  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_points);
+  int64 num_total_points = point_cloud.cols()*point_cloud.rows();
+  double load_ratio = (double)num_points_to_load/std::max(1.0, (double)num_total_points);
 
   bool shift_was_calc = false;
-  int points_count = 0;
+  int64 points_count = 0;
   for (int j = 0; j < point_cloud.rows(); j++ ) {
     for ( int i = 0; i < point_cloud.cols(); i++ ) {
 
@@ -1002,7 +1041,35 @@ void load_pc(string const& file_name,
     }
   }
   data.features.conservativeResize(Eigen::NoChange, points_count);
+  
+  return num_total_points;
+}
 
+template<typename T>
+void load_pc(string const& file_name,
+                 int num_points_to_load,
+                 BBox2 const& lonlat_box,
+                 bool calc_shift,
+                 Vector3 & shift,
+                 Datum const& datum,
+                 typename PointMatcher<T>::DataPoints & data
+                 ){
+
+  int64 num_total_points = load_pc_aux<T>(file_name, num_points_to_load, lonlat_box,  
+                                          calc_shift, shift, datum, data);
+  
+  int num_loaded_points = data.features.cols();
+  if (!lonlat_box.empty()                    &&
+      num_loaded_points < num_points_to_load &&
+      num_loaded_points < num_total_points){
+    
+    // We loaded too few points. Try harder. Need some care here as to not run
+    // out of memory.
+    num_points_to_load = std::max(4*num_points_to_load, 10000000);
+    load_pc_aux<T>(file_name, num_points_to_load, lonlat_box,  
+                   calc_shift, shift, datum, data);
+  }
+  
 }
 
 // Load file from disk and convert to libpointmatcher's format
@@ -1629,10 +1696,11 @@ int main( int argc, char *argv[] ) {
       sw4.stop();
       if (opt.verbose) vw_out() << "Filter gross outliers took "
                                 << sw4.elapsed_seconds() << " [s]" << endl;
-      random_pc_subsample<RealT>(opt.max_num_source_points, source);
-      vw_out() << "Reducing number of source points to " << source.features.cols()
-               << endl;
     }
+    
+    random_pc_subsample<RealT>(opt.max_num_source_points, source);
+    vw_out() << "Reducing number of source points to " << source.features.cols()
+             << endl;
 
     //dump_llh("ref.csv", datum, ref,    shift);
     //dump_llh("src.csv", datum, source, shift);
