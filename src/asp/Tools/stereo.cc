@@ -398,9 +398,12 @@ namespace asp {
           << "\tyour input models as most likely stereo won't\n"
           << "\tbe able to triangulate.\n";
       }
-    } catch (...) {
-      // Silent. Top Left pixel might not be valid on a map
-      // projected image.
+    } catch ( const std::exception& e ) {                
+      // Don't throw an error here. There are legitimate reasons as to
+      // why this check may fail. For example, the top left pixel
+      // might not be valid on a map projected image. But notify the
+      // user anyway.
+      vw_out(WarningMessage) << e.what() << std::endl;
     }
         
   }

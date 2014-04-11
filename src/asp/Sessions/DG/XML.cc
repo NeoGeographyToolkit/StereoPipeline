@@ -181,12 +181,11 @@ void asp::GeometricXML::parse_camera_attitude( xercesc::DOMElement* node ) {
 }
 
 void asp::GeometricXML::parse_detector_mounting( xercesc::DOMElement* node ) {
-  // Assumes only one band
+
   DOMNodeList* children = node->getChildNodes();
 
-  // Do one pass counting the number of bands
-  XMLSize_t band_count = 0;
-  XMLSize_t band_index = 0;
+  // Read through all the bands, storing their data
+  std::vector<Vector4> bandVec;
   for ( XMLSize_t i = 0; i < children->getLength(); i++ ) {
     DOMNode* current = children->item(i);
     if ( current->getNodeType() == DOMNode::ELEMENT_NODE ) {
@@ -195,27 +194,42 @@ void asp::GeometricXML::parse_detector_mounting( xercesc::DOMElement* node ) {
 
       std::string tag( XMLString::transcode(element->getTagName()) );
       if (boost::starts_with( tag, "BAND_" )) {
-        band_index = i;
-        band_count++;
+        Vector4 data;
+
+        DOMElement* detector = get_node<DOMElement>( element, "DETECTOR_ARRAY" );
+        cast_xmlch( get_node<DOMElement>(detector,"DETORIGINX")->getTextContent(),
+                    data[0] );
+        cast_xmlch( get_node<DOMElement>(detector,"DETORIGINY")->getTextContent(),
+                    data[1] );
+        cast_xmlch( get_node<DOMElement>(detector,"DETROTANGLE")->getTextContent(),
+                    data[2] );
+        cast_xmlch( get_node<DOMElement>(detector,"DETPITCH")->getTextContent(),
+                    data[3] );
+        bandVec.push_back(data);
       }
     }
   }
 
-  // Sanity check that there is just one band
-  VW_ASSERT( band_count == 1,
-             NoImplErr() << "We only expect to see one band data.\n" );
+  if (bandVec.empty()){
+    vw_throw(ArgumentErr() << "Could not find any bands in the "
+             << "DETECTOR_MOUNTING section of the XML file.\n");
+  }
 
-  // Load up the single band
-  DOMElement* band = dynamic_cast<DOMElement*>(children->item(band_index));
-  DOMElement* detector = get_node<DOMElement>( band, "DETECTOR_ARRAY" );
-  cast_xmlch( get_node<DOMElement>(detector,"DETORIGINX")->getTextContent(),
-              detector_origin[0] );
-  cast_xmlch( get_node<DOMElement>(detector,"DETORIGINY")->getTextContent(),
-              detector_origin[1] );
-  cast_xmlch( get_node<DOMElement>(detector,"DETROTANGLE")->getTextContent(),
-              detector_rotation );
-  cast_xmlch( get_node<DOMElement>(detector,"DETPITCH")->getTextContent(),
-              detector_pixel_pitch );
+  // If there are multiple bands, they must have the same values
+  for (int i = 1; i < (int)bandVec.size(); i++){
+    if (bandVec[0] != bandVec[i]){
+      vw_throw(ArgumentErr() << "XML files with multiple and "
+               << "distinct detector arrays in the DETECTOR_MOUNTING "
+               << "section of the XML file are not supported.\n");
+    }
+  }
+  
+  Vector4 data = bandVec[0];
+  detector_origin[0]   = data[0];
+  detector_origin[1]   = data[1];
+  detector_rotation    = data[2];
+  detector_pixel_pitch = data[3];
+  
 }
 
 asp::GeometricXML::GeometricXML() : XMLBase(5) {}
@@ -633,8 +647,8 @@ void asp::read_xml( std::string const& filename,
           rpc.parse( curr_element );
       }
     }
-  }catch(...){
-    vw_throw( ArgumentErr() << "XML file \"" << filename << "\" is invalid.\n" );
+  } catch ( const std::exception& e ) {                
+    vw_throw( ArgumentErr() << e.what() << "XML file \"" << filename << "\" is invalid.\n" );
   }
 
 }
