@@ -35,7 +35,7 @@ using namespace stereo;
 
 Point2Grid::Point2Grid(int width, int height,
                        ImageView<double> & buffer, ImageView<double> & weights,
-                       double x0, double y0, double grid_size,
+                       double x0, double y0, double grid_size, double min_spacing,
                        double radius): m_width(width), m_height(height),
                                        m_buffer(buffer), m_weights(weights),
                                        m_x0(x0), m_y0(y0), m_grid_size(grid_size),
@@ -45,10 +45,14 @@ Point2Grid::Point2Grid(int width, int height,
   if (m_radius <= 0)
     vw_throw( ArgumentErr() << "Point2Grid: Search radius must be > 0.\n" );
 
-  // By the time we reached the distance m_grid_size from the origin, we
-  // want the Gaussian exp(-sigma*x^2) to decay to given value. 
+  // By the time we reached the distance 'spacing' from the origin, we
+  // want the Gaussian exp(-sigma*x^2) to decay to given value.  Note
+  // that the user may choose to make the grid size very small, but we
+  // put a limit to how small 'spacing' gets, that is, how large sigma
+  // gets, to ensure that the DEM stays smooth.
+  double spacing = std::max(grid_size, min_spacing);
   double val = 0.25;
-  double sigma = -log(val)/m_grid_size/m_grid_size;
+  double sigma = -log(val)/spacing/spacing;
 
   // Sample the gaussian for speed
   int num_samples = 1000;
