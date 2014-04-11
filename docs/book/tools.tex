@@ -408,8 +408,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-normalized|-n} & Also write a normalized version of the \ac{DEM} (for debugging) \\ \hline
 \texttt{-\/-orthoimage \textit{texture-file}} & Write an orthoimage based on the texture file given as an argument to this command line option \\ \hline
 \texttt{-\/-orthoimage-hole-fill-len \textit{int(=0)}} & 
-How many pixels away to look for valid pixels in the point cloud when 
-performing hole-filling during orthoimage generation \\ \hline
+How many output DEM pixels away to search for valid pixels when performing hole-filling during orthoimage generation \\ \hline
 \texttt{-\/-errorimage} & Write an additional image whose values represent the triangulation error in meters \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=tif)}} & Specify the output file type \\ \hline
@@ -586,7 +585,7 @@ option. If not provided use the one from the DEM. \\ \hline
 pixel. \\ \hline
 \texttt{-\/-ppd \textit{float}} & Set the output file resolution in pixels per
 degree. \\ \hline
-\texttt{-\/-session-type|-t pinhole|isis|dg|rpc} & Select the stereo
+\texttt{-\/-session-type|-t pinhole|isis|rpc} & Select the stereo
 session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. \\ \hline
 \texttt{-\/-t\_projwin \textit{xmin ymin xmax ymax}} & Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates. Max is exclusive. \\ \hline
 \texttt{-\/-threads \textit{int(=0)}} & Select the number of processors (threads) to use.\\ \hline

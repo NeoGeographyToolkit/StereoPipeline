@@ -66,7 +66,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("query-projection", po::bool_switch(&opt.isQuery)->default_value(false),
       "Just display the computed projection information without actually doing the projection.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
-     "Select the stereo session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. [options: pinhole isis dg rpc]")
+     "Select the stereo session type to use for processing. Choose 'rpc' if it is desired to later do stereo with the 'dg' session. [options: pinhole isis rpc]")
     ("t_projwin",        po::value(&opt.target_projwin),
      "Selects a subwindow from the source image for copying, with the corners given in georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive.")
     ("t_pixelwin",       po::value(&opt.target_pixelwin),
@@ -98,6 +98,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   // If the camera file is in xml format, most likely the user would like
   // to use the rpc session for map-projection, as that's what is needed
   // later to use the map-projected images to perform stereo with -t dg.
+  if (boost::to_lower_copy(opt.stereo_session) == "dg"){
+    opt.stereo_session = "rpc";
+    vw_out() << "Session type switched to 'rpc', as the RPC model is what needs to be used in map-projection for stereo with DG images.\n";
+  }
+  
   if ( boost::iends_with(boost::to_lower_copy(opt.camera_model_file), ".xml") &&
        opt.stereo_session == "" ){
     opt.stereo_session = "rpc";
