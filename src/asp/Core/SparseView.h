@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file BlobIndexThreaded.h
+/// \file SparseView.h
 ///
 
 #ifndef __SPARSE_IMAGE_VIEW_H__
