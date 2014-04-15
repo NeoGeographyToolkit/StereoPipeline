@@ -165,7 +165,7 @@ namespace asp {
                ArgumentErr() << "Could not determine stereo session type. "
                << "Please set it explicitly using the -t switch.\n"
                << "Options include: [pinhole isis dg rpc].\n" );
-    VW_OUT(DebugMessage,"asp") << "Guessed session type to be " << actual_session_type << std::endl;
+    VW_OUT(DebugMessage,"asp") << "Using session: " << actual_session_type << std::endl;
     
     if( stereo_session_construct_map ) {
       ConstructMapType::const_iterator i =

@@ -95,14 +95,13 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if ( !vm.count("dem") || !vm.count("camera-image") || !vm.count("camera-model") )
     vw_throw( ArgumentErr() << usage << general_options );
 
-  // If the camera file is in xml format, most likely the user would like
-  // to use the rpc session for map-projection, as that's what is needed
-  // later to use the map-projected images to perform stereo with -t dg.
+  // We support map-projecting using the DG camera model, however, these images
+  // cannot be used later to do stereo, as that process expects the images
+  // to be map-projected using the RPC model. 
   if (boost::to_lower_copy(opt.stereo_session) == "dg"){
-    opt.stereo_session = "rpc";
-    vw_out() << "Session type switched to 'rpc', as the RPC model is what needs to be used in map-projection for stereo with DG images.\n";
+    vw_out(WarningMessage) << "Images map-projected using the 'dg' camera model cannot be used later to run stereo with the 'dg' session. If that is desired, please specify here the 'rpc' camera model instead.\n";
   }
-  
+
   if ( boost::iends_with(boost::to_lower_copy(opt.camera_model_file), ".xml") &&
        opt.stereo_session == "" ){
     opt.stereo_session = "rpc";
@@ -243,7 +242,9 @@ int main( int argc, char* argv[] ) {
                                                    opt.image_file, opt.image_file,
                                                    opt.camera_model_file,
                                                    opt.camera_model_file,
-                                                   opt.output_file) );
+                                                   opt.output_file,
+                                                   opt.dem_file
+                                                   ) );
 
     if (session->name() == "isis" && opt.output_file.empty() ){
       // The user did not provide an output file. Then the camera
