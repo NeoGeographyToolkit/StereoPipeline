@@ -498,7 +498,7 @@ int main( int argc, char *argv[] ){
 
     // Loading point cloud
     ImageViewRef<Vector3> point_image
-      = asp::read_n_channels<3>(opt.pointcloud_filename);
+      = asp::read_cloud<3>(opt.pointcloud_filename);
 
     // Centering Option (helpful if you are experiencing round-off error...)
     if (opt.center) {

@@ -665,7 +665,7 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
                   opt.rounding_error, opt.nodata_value),
                  georef, "IntersectionErr");
     }else{
-      vw_throw( ArgumentErr() << "Expecting the input point cloud to have points of size 4 or 6.");
+      vw_out() << "The point cloud file must have 4 or 6 bands to be able to process the intersection error.\n";
     }
   }
 
@@ -708,7 +708,7 @@ int main( int argc, char *argv[] ) {
     handle_arguments( argc, argv, opt );
 
     ImageViewRef<Vector3> point_image
-      = asp::read_n_channels<3>(opt.pointcloud_filename);
+      = asp::read_cloud<3>(opt.pointcloud_filename);
 
     // Apply an (optional) rotation to the 3D points before building the mesh.
     if (opt.phi_rot != 0 || opt.omega_rot != 0 || opt.kappa_rot != 0) {
