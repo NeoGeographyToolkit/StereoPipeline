@@ -169,8 +169,8 @@ namespace asp {
        "Maximum distance between samples to be considered still matched (for filter mode 2)")
       ("rm-cleanup-passes", po::value(&global.rm_cleanup_passes)->default_value(1),
        "Number of passes for cleanup during the post-processing phase")
-      ("disable-fill-holes", po::bool_switch(&global.disable_fill_holes)->default_value(false)->implicit_value(true),
-       "Disable filling of holes using an inpainting method")
+      ("enable-fill-holes", po::bool_switch(&global.enable_fill_holes)->default_value(false)->implicit_value(true), "Enable filling of holes in disparity using an inpainting method. Obsolete. It is suggested to use instead point2dem's analogous functionality.")
+      ("disable-fill-holes", po::bool_switch(&global.disable_fill_holes)->default_value(false)->implicit_value(true), "This obsolete parameter is ignored")
       ("fill-holes-max-size", po::value(&global.fill_hole_max_size)->default_value(100000),
        "Holes with no more pixels than this number should be filled in")
       ("erode-max-size", po::value(&global.erode_max_size)->default_value(0),

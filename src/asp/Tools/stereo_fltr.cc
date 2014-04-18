@@ -93,11 +93,11 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
   bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
 
   // Fill holes
-  if(!stereo_settings().disable_fill_holes) {
+  if(stereo_settings().enable_fill_holes) {
     // Generate a list of blobs below a maximum size
     // - This requires the entire input image to be read in
     //    and produces a single blob list for the entire image.
-    vw_out() << "\t--> Filling holes with Inpainting method.\n";
+    vw_out() << "\t--> Filling holes with inpainting method.\n";
     BlobIndexThreaded smallHoleIndex( invert_mask( inputview.impl() ),
                                       stereo_settings().fill_hole_max_size );
     vw_out() << "\t    * Identified " << smallHoleIndex.num_blobs() << " holes\n";
@@ -174,7 +174,6 @@ void write_good_pixel_and_filtered( ImageViewBase<ImageT> const& inputview,
 }
 
 void stereo_filtering( Options& opt ) {
-  vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 3 --> FILTERING \n";
 
   std::string post_correlation_fname;
   opt.session->pre_filtering_hook(opt.out_prefix+"-RD.tif",
@@ -266,6 +265,16 @@ void stereo_filtering( Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
+  vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 3 --> FILTERING \n";
+
+  // This is probably the right place in which to warn the user about
+  // new hole filling behavior.
+  vw_out(WarningMessage)
+    << "Hole-filling is disabled by default in stereo_fltr. "
+    << "It is suggested to use instead point2dem's analogous "
+    << "functionality. It can be re-enabled using "
+    << "--enable-fill-holes." << std::endl;
+  
   stereo_register_sessions();
   Options opt;
   try {

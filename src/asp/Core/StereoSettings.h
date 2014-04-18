@@ -149,7 +149,8 @@ namespace asp {
     int rm_cleanup_passes;            // Number of times to perform cleanup
                                       // in the post-processing phase
     int erode_max_size;               // Max island size in pixels that it'll remove
-    bool disable_fill_holes;
+    bool enable_fill_holes;           // If to enable hole-filling
+    bool disable_fill_holes;          // This obsolete parameter is ignored
     int fill_hole_max_size;           // Maximum hole size in pixels that we'll attempt
                                       // to fill
     bool mask_flatfield;              // Masks pixels in the input images that are less
