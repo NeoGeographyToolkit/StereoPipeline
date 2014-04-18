@@ -1005,7 +1005,7 @@ int64 load_pc_aux(string const& file_name,
   data.featureLabels = form_labels<T>(DIM);
 
   // To do: Is it faster to to do for_each?
-  ImageViewRef<Vector3> point_cloud = asp::read_n_channels<DIM>(file_name);
+  ImageViewRef<Vector3> point_cloud = asp::read_cloud<DIM>(file_name);
 
   // We will randomly pick or not a point with probability load_ratio
   int64 num_total_points = point_cloud.cols()*point_cloud.rows();
@@ -1285,28 +1285,6 @@ void save_transforms(Options const& opt,
 
 }
 
-// Apply a transform to each point in the given point cloud
-struct TransformPC : public ReturnFixedType<Vector3> {
-  PointMatcher<RealT>::Matrix m_T;
-  TransformPC(PointMatcher<RealT>::Matrix const& T):m_T(T){}
-
-  Vector3 operator() (Vector3 const& P) const {
-    if (P == Vector3()) return Vector3();
-    Eigen::VectorXd V(4);
-    V[0] = P[0]; V[1] = P[1]; V[2] = P[2]; V[3] = 1;
-    V = m_T*V;
-    Vector3 Q;
-    Q[0] = V[0]; Q[1] = V[1]; Q[2] = V[2];
-    return Q;
-  }
-};
-template <class ImageT>
-UnaryPerPixelView<ImageT, TransformPC>
-inline transform_pc( ImageViewBase<ImageT> const& image,
-                     PointMatcher<RealT>::Matrix const& T) {
-  return UnaryPerPixelView<ImageT, TransformPC>( image.impl(), TransformPC(T) );
-}
-
 void calc_translation_vec(DP const& source, DP const& trans_source,
                           Vector3 & shift, // from planet center to current origin
                           Datum const& datum,
@@ -1422,6 +1400,44 @@ void save_errors(DP const& point_cloud,
   outfile.close();
 }
 
+// Apply a transform to the first three coordinates of the cloud
+struct TransformPC: public UnaryReturnSameType {
+  PointMatcher<RealT>::Matrix m_T;
+  TransformPC(PointMatcher<RealT>::Matrix const& T):m_T(T){}
+  inline Vector<double> operator()(Vector<double> const& pt) const {
+
+    Vector<double> P = pt; // local copy
+    Vector3 xyz = subvector(P, 0, 3);
+
+    if (xyz == Vector3())
+      return P; // invalid point
+
+    Eigen::VectorXd V(4);
+    V[0] = P[0]; V[1] = P[1]; V[2] = P[2]; V[3] = 1;
+    V = m_T*V;
+    Vector3 Q;
+    Q[0] = V[0]; Q[1] = V[1]; Q[2] = V[2];
+
+    subvector(P, 0, 3) = Q;
+
+    return P;
+  }
+};
+
+template<int n>
+void save_trans_point_cloud_n(Options const& opt,
+                              string input_file,
+                              string output_file,
+                              PointMatcher<RealT>::Matrix const& T
+                              ){
+
+  ImageViewRef< Vector<double, n> > point_cloud = asp::read_cloud<n>(input_file);
+  asp::block_write_gdal_image(output_file,
+                              per_pixel_filter(point_cloud, TransformPC(T)),
+                              opt,
+                              TerminalProgressCallback("asp", "\t--> "));
+}
+
 void save_trans_point_cloud(Options const& opt,
                             string input_file,
                             string out_prefix,
@@ -1446,6 +1462,7 @@ void save_trans_point_cloud(Options const& opt,
   vw_out() << "Writing: " << output_file << endl;
 
   if (file_type == "DEM"){
+
     cartography::GeoReference dem_georef;
     bool is_good = cartography::read_georeference( dem_georef, input_file );
     if (!is_good) vw_throw(ArgumentErr() << "DEM: " << input_file
@@ -1461,14 +1478,31 @@ void save_trans_point_cloud(Options const& opt,
       geodetic_to_cartesian( dem_to_geodetic( create_mask(dem, nodata),
                                               dem_georef ),
                              dem_georef.datum() );
-    asp::block_write_gdal_image(output_file, transform_pc(point_cloud, T),
+    asp::block_write_gdal_image(output_file,
+                                per_pixel_filter(point_cloud, TransformPC(T)),
                                 opt,
                                 TerminalProgressCallback("asp", "\t--> "));
+    
   }else if (file_type == "PC"){
-    ImageViewRef<Vector3> point_cloud = asp::read_n_channels<DIM>(input_file);
-    asp::block_write_gdal_image(output_file, transform_pc(point_cloud, T),
-                                opt,
-                                TerminalProgressCallback("asp", "\t--> "));
+
+    // Need this logic because we cannot open an image
+    // with n channels without knowing n beforehand.
+    int nc = asp::get_num_channels(input_file);
+    switch(nc){
+    case 3:
+      save_trans_point_cloud_n<3>(opt, input_file, output_file, T);
+      break;
+    case 4:
+      save_trans_point_cloud_n<4>(opt, input_file, output_file, T);
+      break;
+    case 6:
+      save_trans_point_cloud_n<6>(opt, input_file, output_file, T);
+      break;
+    default:
+      vw_throw( ArgumentErr() << "The point cloud from " << input_file
+                << " has " << nc << " channels, which is not supported.\n" );
+    }
+
   }else if (file_type == "CSV"){
 
     // Write a CSV file in format consistent with the input CSV file.

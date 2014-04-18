@@ -312,7 +312,7 @@ namespace asp {
   // first n channels of that image. We must have 1 <= n <= m <= 6.
   // If the image was written by subtracting a shift, put that shift back.
   template<int n>
-  vw::ImageViewRef< vw::Vector<double, n> > read_n_channels(std::string filename){
+  vw::ImageViewRef< vw::Vector<double, n> > read_cloud(std::string filename){
 
     int max_m = 6;
     int m = get_num_channels(filename);
