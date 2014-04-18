@@ -280,8 +280,6 @@ per_tile_rfne( ImageViewBase<Image1T> const& left,
 
 void stereo_refinement( Options const& opt ) {
 
-  vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
-
   ImageViewRef<PixelGray<float> > left_disk_image, right_disk_image;
   ImageViewRef<uint8> right_mask;
   ImageViewRef<PixelMask<Vector2i> > integer_disp;
@@ -323,6 +321,8 @@ void stereo_refinement( Options const& opt ) {
 }
 
 int main(int argc, char* argv[]) {
+
+  vw_out() << "\n[ " << current_posix_time_string() << " ] : Stage 2 --> REFINEMENT \n";
 
   stereo_register_sessions();
   Options opt;

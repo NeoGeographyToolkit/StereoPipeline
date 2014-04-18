@@ -135,9 +135,6 @@ void create_sym_links(std::string const& left_input_file,
 
 void stereo_preprocessing( Options& opt ) {
   
-  vw_out() << "\n[ " << current_posix_time_string()
-           << " ] : Stage 0 --> PREPROCESSING \n";
-  
   // Normalize the images, unless the user prefers not to.
   std::string left_image_file, right_image_file;
   bool skip_img_norm = skip_image_normalization(opt);
@@ -399,6 +396,9 @@ void stereo_preprocessing( Options& opt ) {
 
 int main(int argc, char* argv[]) {
 
+  vw_out() << "\n[ " << current_posix_time_string()
+           << " ] : Stage 0 --> PREPROCESSING \n";
+  
   stereo_register_sessions();
   Options opt;
   try {

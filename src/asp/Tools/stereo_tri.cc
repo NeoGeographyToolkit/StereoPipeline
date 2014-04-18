@@ -370,8 +370,6 @@ void write_point(std::string const& file, Vector3 const& point){
 
 template <class SessionT>
 void stereo_triangulation( Options const& opt ) {
-  vw_out() << "\n[ " << current_posix_time_string()
-           << " ] : Stage 4 --> TRIANGULATION \n";
 
   typedef ImageViewRef<PixelMask<Vector2f> > PVImageT;
   typedef typename SessionT::stereo_model_type StereoModelT;
@@ -507,6 +505,9 @@ void stereo_triangulation( Options const& opt ) {
 }
 
 int main( int argc, char* argv[] ) {
+
+  vw_out() << "\n[ " << current_posix_time_string()
+           << " ] : Stage 4 --> TRIANGULATION \n";
 
   stereo_register_sessions();
 
