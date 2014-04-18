@@ -336,20 +336,11 @@ mean those pixels within the window of half-size of
   Each pass will erode pixels that do not match their neighbors.  One
   pass is usually sufficient.
 
-\item[disable-fill-holes (default = false)] \hfill \\
+\item[enable-fill-holes (default = false)] \hfill \\
 
-  Normally ASP will try to fill holes in the disparity map (caused by
-  poor matching) with an inpainting algorithm. Inpainting is a
-  convolution method that takes the values at the edges of holes and
-  spreads those values inward.
-
-  Use this flag in order to disable the filling of holes to leave only
-  true calculated results in the output.
-
-  Note: you can always use the good pixel mask image ({\tt
-    *-GoodPixelMap.TIF}) to determine which pixels represent ``real''
-  data matched by the stereo correlator, and which pixels represent
-  interpolated data produced by inpainting.
+Enable filling of holes in disparity using an inpainting
+method. Obsolete. It is suggested to use instead point2dem's analogous
+functionality.
 
 \item[fill-holes-max-size \textnormal{\small{(= \emph{integer})}} (default = 100,000)] \hfill \\
   Holes with no more pixels than this number should be filled in.
@@ -387,13 +378,6 @@ are:
     \item[Camera] - Use the left camera's center as the universe center.
     \item[Zero]   - Use the center of the planet as the universe center.
   \end{description}
-
-\item[max-valid-triangulation-error \textnormal{\small{(= \emph{float})}}]
-\hfill \\
-
-Points with triangulation error (closest distance between rays in
-triangulation) larger than this value (in meters) are removed from the
-point cloud by being set to an invalid value (the center of the planet).
 
 \item[point-cloud-rounding-error \textnormal{\small{(= \emph{double})}}
   (default = $1/2^{10} = 0.0009765625$)] \hfill \\

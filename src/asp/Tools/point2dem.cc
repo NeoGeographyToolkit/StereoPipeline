@@ -22,7 +22,6 @@
 
 using namespace vw;
 using namespace vw::cartography;
-
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/Common.h>
@@ -76,7 +75,11 @@ struct Options : asp::BaseOptions {
   std::string target_srs_string;
   BBox2 target_projwin;
   BBox2i target_projwin_pixels;
-  int fsaa, ortho_fill_len;
+  int fsaa, hole_fill_mode, hole_fill_num_smooth_iter,
+    dem_hole_fill_len, ortho_hole_fill_len;
+  bool remove_outliers;
+  Vector2 remove_outliers_params;
+  double max_valid_triangulation_error;
   double search_radius_factor;
   bool use_surface_sampling;
   
@@ -86,7 +89,9 @@ struct Options : asp::BaseOptions {
   // Defaults that the user doesn't need to see. (The Magic behind the
   // curtain).
   Options() : nodata_value(std::numeric_limits<float>::quiet_NaN()),
-              semi_major(0), semi_minor(0), fsaa(1), ortho_fill_len(0){}
+              semi_major(0), semi_minor(0), fsaa(1), 
+              hole_fill_mode(1), hole_fill_num_smooth_iter(4),
+              dem_hole_fill_len(0), ortho_hole_fill_len(0){}
 };
 
 void handle_arguments( int argc, char *argv[], Options& opt ) {
@@ -137,18 +142,25 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("normalized,n", po::bool_switch(&opt.do_normalize)->default_value(false),
      "Also write a normalized version of the DEM (for debugging).")
     ("orthoimage", po::value(&opt.texture_filename), "Write an orthoimage based on the texture file given as an argument to this command line option.")
-    ("orthoimage-hole-fill-len", po::value(&opt.ortho_fill_len)->default_value(0), "How many pixels away to look for valid pixels in the point cloud when performing hole-filling during orthoimage generation.")
-    ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
-    ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix.")
     ("output-filetype,t", po::value(&opt.output_file_type)->default_value("tif"), "Specify the output file.")
-    ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.")
+    ("errorimage", po::bool_switch(&opt.do_error)->default_value(false), "Write a triangulation intersection error image.")
+    ("hole-fill-mode", po::value(&opt.hole_fill_mode)->default_value(1), "Choose the algorithm to fill holes. [1: Interpolate based on valid values in four directions: left, right, up, and down (fast). 2: Weighted average of all valid pixels within a window of size hole-fill-len (slow).")
+    ("hole-fill-num-smooth-iter", po::value(&opt.hole_fill_num_smooth_iter)->default_value(4), "How many times to iterate to smooth the result of hole-filling with a Gaussian kernel.")
+    ("dem-hole-fill-len", po::value(&opt.dem_hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output DEM to fill in.")
+    ("orthoimage-hole-fill-len", po::value(&opt.ortho_hole_fill_len)->default_value(0), "Maximum dimensions of a hole in the output orthoimage to fill in.")
+    ("remove-outliers", po::bool_switch(&opt.remove_outliers)->default_value(false),
+     "Turn on automatic outlier removal based on triangulation error. See also: remove-outliers-params.")
+    ("remove-outliers-params", po::value(&opt.remove_outliers_params)->default_value(Vector2(75.0, 3.0), "pct factor"), "Points with triangulation error larger than pct-th percentile times factor will be removed as outliers. [default: pct=75.0, factor=3.0]")
+    ("max-valid-triangulation-error", po::value(&opt.max_valid_triangulation_error)->default_value(0), "Manual outlier removal. Points with triangulation error larger than this (in meters) are removed from the cloud.")
     ("rounding-error", po::value(&opt.rounding_error)->default_value(asp::APPROX_ONE_MM),
      "How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. [Default: 1/2^10]")
     ("search-radius-factor", po::value(&opt.search_radius_factor)->default_value(0.0),
      "Multiply this factor by dem-spacing to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(dem-spacing, default_dem_spacing), so the default factor is about 1.")
     ("use-surface-sampling", po::bool_switch(&opt.use_surface_sampling)->default_value(false),
-     "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).");
+     "Use the older algorithm, interpret the point cloud as a surface made up of triangles and interpolate into it (prone to aliasing).")
+    ("fsaa", po::value(&opt.fsaa)->implicit_value(3), "Oversampling amount to perform antialiasing (obsolete).")
+    ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false), "Skip writing a DEM.");
   
   general_options.add( manipulation_options );
   general_options.add( projection_options );
@@ -194,9 +206,24 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "The --fsaa option is obsolete. It can be used only with the --use-surface-sampling option which invokes the old algorithm.\n" << usage << general_options );
   }
   
-  if (opt.ortho_fill_len < 0)
+  if (opt.hole_fill_mode != 1 && opt.hole_fill_mode != 2)
+    vw_throw( ArgumentErr() << "The value of --hole-fill-mode must be 1 or 2.\n");
+  if (opt.hole_fill_num_smooth_iter < 0)
+    vw_throw( ArgumentErr() << "The value of "
+              << "--hole-fill-num-smooth-iter must not be negative.\n");
+  if (opt.dem_hole_fill_len < 0)
+    vw_throw( ArgumentErr() << "The value of "
+              << "--dem-hole-fill-len must not be negative.\n");
+  if (opt.ortho_hole_fill_len < 0)
     vw_throw( ArgumentErr() << "The value of "
               << "--orthoimage-hole-fill-len must not be negative.\n");
+  double pct = opt.remove_outliers_params[0], factor = opt.remove_outliers_params[1];
+  if (pct <= 0 || pct >= 100 || factor <= 0.0){
+    vw_throw( ArgumentErr() << "Invalid values were provided for remove-outliers-params.\n");
+  }
+  if (opt.remove_outliers && opt.max_valid_triangulation_error > 0.0){
+    vw_throw( ArgumentErr() << "Cannot have both automatic and manual outlier removal at the same time.\n");
+  }
   
   // Create the output directory 
   asp::create_out_dir(opt.out_prefix);
@@ -531,12 +558,60 @@ namespace asp{
       ( image.impl(), RoundImagePixelsSkipNoData<typename ImageT::pixel_type>(scale, nodata) );
   }
 
+  template<class VectorT>
+  struct VectorNorm: public ReturnFixedType<double> {
+    VectorNorm(){}
+    double operator() (VectorT const& vec) const {
+      return norm_2(vec); 
+    }
+  };
+
+  // Computes the mean of the values to which it is applied.
+  class ErrorRangeEstimAccum : public ReturnFixedType<void> {
+    typedef double accum_type;
+    std::vector<accum_type> m_vals;
+  public:
+    typedef accum_type value_type;
+    
+    ErrorRangeEstimAccum() { m_vals.clear(); }
+    
+    void operator()( accum_type const& value ) {
+      // Don't add zero errors, those most likely came from invalid points
+      if (value > 0)
+        m_vals.push_back(value);
+    }
+    
+    value_type value(Vector2 const& remove_outliers_params){
+      VW_ASSERT(!m_vals.empty(), ArgumentErr() << "ErrorRangeEstimAccum: no valid samples");
+      
+      // How to pick a representative value for maximum error?  The
+      // maximum error itself may be no good, as it could be very
+      // huge, and then sampling the range of errors will be distorted
+      // by that.  The solution adopted here: Find a percentile of the
+      // range of errors, mulitply it by the outlier factor, and
+      // multiply by another factor to ensure we don't underestimate
+      // the maximum. This value may end up being larger than the
+      // largest error, but at least it is is not grossly huge
+      // if just a few of the errors are very large.
+      std::sort(m_vals.begin(), m_vals.end());
+      int len = m_vals.size();
+      double pct = remove_outliers_params[0]/100.0; // e.g., 0.75
+      double factor = remove_outliers_params[1];
+      int k = (int)(pct*len);
+      double val = m_vals[k]*factor*4.0;
+      return val;
+    }
+    
+  };
+
 }
 
 template <class ViewT>
 void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
                                 Options& opt,
-                                cartography::GeoReference& georef ) {
+                                cartography::GeoReference& georef,
+                                ImageViewRef<double> const& error_image, double estim_max_error
+                                ) {
   Stopwatch sw1;
   sw1.start();
 
@@ -544,6 +619,9 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
     rasterizer(proj_point_input.impl(), select_channel(proj_point_input.impl(),2),
                opt.dem_spacing, opt.search_radius_factor, opt.use_surface_sampling,
                Options::tri_tile_size(), // to efficiently process the cloud
+               opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
+               opt.remove_outliers, opt.remove_outliers_params,
+               error_image, estim_max_error, opt.max_valid_triangulation_error,
                TerminalProgressCallback("asp","QuadTree: ") );
 
   sw1.stop();
@@ -606,22 +684,36 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
 
   vw_out() << "\nOutput georeference: \n\t" << georef << std::endl;
 
+  // We will first generate the DEM with holes, and then fill them later,
+  // rather than filling holes in the cloud first. This is faster.
   rasterizer.set_hole_fill_len(0);
+  
   ImageViewRef<PixelGray<float> > rasterizer_fsaa =
     generate_fsaa_raster( rasterizer, opt );
   vw_out()<< "Creating output file that is " << bounding_box(rasterizer_fsaa).size() << " px.\n";
 
   // Write out the DEM. We've set the texture to be the height.
-  if ( !opt.no_dem ) {
+  Vector2 tile_size(vw_settings().default_tile_size(),
+                    vw_settings().default_tile_size());
+  if ( !opt.no_dem ){
     Stopwatch sw2;
     sw2.start();
-    save_image(opt,
-               asp::round_image_pixels_skip_nodata(rasterizer_fsaa,
-                                                   opt.rounding_error,
-                                                   opt.nodata_value),
-               georef, "DEM");
+    ImageViewRef< PixelGray<float> > dem
+      = asp::round_image_pixels_skip_nodata(rasterizer_fsaa, opt.rounding_error,
+                                            opt.nodata_value);
+    if (opt.dem_hole_fill_len > 0){
+      // Note that we first cache the tiles of the rasterized DEM, and fill holes
+      // later. This greatly improves the performance.
+      dem = apply_mask(fill_holes(create_mask
+                                  (block_cache(dem, tile_size, opt.num_threads),
+                                   opt.nodata_value),
+                                  opt.hole_fill_mode, opt.hole_fill_num_smooth_iter,
+                                  opt.dem_hole_fill_len),
+                       opt.nodata_value);
+    }
+    save_image(opt, dem, georef, "DEM");
     sw2.stop();
-    vw_out(DebugMessage,"asp") << "Render time: "
+    vw_out(DebugMessage,"asp") << "DEM render time: "
                                << sw2.elapsed_seconds() << std::endl;
   }
 
@@ -648,48 +740,47 @@ void do_software_rasterization( const ImageViewBase<ViewT>& proj_point_input,
       ImageViewRef<Vector3> ned_err = asp::error_to_NED(point_disk_image, georef);
       std::vector< ImageViewRef<PixelGray<float> > >  rasterized(3);
       for (int ch_index = 0; ch_index < 3; ch_index++){
-        // Cache the channel to disk, to force the rasterization
-        // to happen right away, before we switch to the next one.
         ImageViewRef<double> ch = select_channel(ned_err, ch_index);
         rasterizer.set_texture(ch);
         rasterizer.set_hole_fill_len(0);
         rasterizer_fsaa = generate_fsaa_raster( rasterizer, opt );
         rasterized[ch_index] =
-          block_cache(rasterizer_fsaa,Vector2i(vw_settings().default_tile_size(),
-                                               vw_settings().default_tile_size()),0);
+          block_cache(rasterizer_fsaa, tile_size, opt.num_threads);
       }
       save_image(opt,
                  asp::round_image_pixels_skip_nodata
-                 (asp::combine_channels(opt.nodata_value,
-                                        rasterized[0], rasterized[1], rasterized[2]),
+                 (asp::combine_channels
+                  (opt.nodata_value,
+                   rasterized[0], rasterized[1], rasterized[2]),
                   opt.rounding_error, opt.nodata_value),
                  georef, "IntersectionErr");
     }else{
-      vw_out() << "The point cloud file must have 4 or 6 bands to be able to process the intersection error.\n";
+      // Note: We don't throw here. We still would like to write the
+      // DRG (below) even if we can't write the error image.
+      vw_out() << "The point cloud file must have 4 or 6 bands to be "
+               << "able to process the intersection error.\n";
     }
   }
 
   // Write DRG if the user requested and provided a texture file
   if (!opt.texture_filename.empty()) {
+    Stopwatch sw3;
+    sw3.start();
     DiskImageView<PixelGray<float> > texture(opt.texture_filename);
     rasterizer.set_texture(texture);
-    rasterizer.set_hole_fill_len(opt.ortho_fill_len);
+    rasterizer.set_hole_fill_len(opt.ortho_hole_fill_len);
     rasterizer_fsaa =
       generate_fsaa_raster( rasterizer, opt );
-    std::string output_file = opt.out_prefix + "-DRG.tif";
-    vw_out() << "Writing DRG: " << output_file << "\n";
-    boost::scoped_ptr<DiskImageResourceGDAL> rsrc( asp::build_gdal_rsrc( output_file, rasterizer_fsaa, opt ) );
-    rsrc->set_nodata_write( opt.nodata_value );
-    write_georeference( *rsrc, georef );
-    block_write_image( *rsrc, rasterizer_fsaa,
-                       TerminalProgressCallback("asp","DRG:") );
+    save_image(opt, rasterizer_fsaa, georef, "DRG");
+    sw3.stop();
+    vw_out(DebugMessage,"asp") << "DRG render time: "
+                               << sw3.elapsed_seconds() << std::endl;
   }
 
   // Write out a normalized version of the DEM, if requested (for debugging)
   if (opt.do_normalize) {
     DiskImageView<PixelGray<float> >
       dem_image(opt.out_prefix + "-DEM." + opt.output_file_type);
-
     save_image(opt,
                apply_mask
                (channel_cast<uint8>
@@ -804,11 +895,13 @@ int main( int argc, char *argv[] ) {
 #endif
     }
 
-    // Determine if we should using a longitude range between
+    // Determine if we should be using a longitude range between
     // [-180, 180] or [0,360]. We determine this by looking at the
     // average location of the points. If the average location has a
     // negative x value (think in ECEF coordinates) then we should
     // be using [0,360].
+    Stopwatch sw1;
+    sw1.start();
     int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
                                                point_image.rows()))/32.0);
     if (subsample_amt < 1 ) subsample_amt = 1;
@@ -818,7 +911,45 @@ int main( int argc, char *argv[] ) {
                     TerminalProgressCallback("asp","Statistics: ") );
     Vector3 avg_location = mean_accum.value();
     double avg_lon = avg_location.x() >= 0 ? 0 : 180;
+    sw1.stop();
+    vw_out(DebugMessage,"asp") << "Statistics time: " << sw1.elapsed_seconds()
+                               << std::endl;
 
+    ImageViewRef<double> error_image;
+    double estim_max_error = 0.0;
+    if (opt.remove_outliers || opt.max_valid_triangulation_error > 0.0){
+      int num_channels = asp::get_num_channels(opt.pointcloud_filename);
+      if (num_channels == 4){
+        error_image = per_pixel_filter(asp::select_points<3, 1, 4>
+                                       (DiskImageView<Vector4>(opt.pointcloud_filename)),
+                                       asp::VectorNorm< Vector<double, 1> >());
+      }else if (num_channels == 6){
+        error_image = per_pixel_filter(asp::select_points<3, 3, 6>
+                                       (DiskImageView<Vector6>(opt.pointcloud_filename)),
+                                       asp::VectorNorm< Vector<double, 3> >());
+      }else{
+        vw_throw( ArgumentErr() << "The point cloud file must have 4 or 6 bands "
+                  << "to be able to remove outliers.\n");
+      }
+
+      if (opt.remove_outliers){
+        int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
+                                                   point_image.rows()))/128.0);
+        if (subsample_amt < 1 ) subsample_amt = 1;
+        
+        Stopwatch sw2;
+        sw2.start();
+        PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
+        for_each_pixel( subsample(error_image, subsample_amt),
+                        error_accum,
+                        TerminalProgressCallback("asp","Triangulation error range estimation: ") );
+        estim_max_error = error_accum.value(opt.remove_outliers_params);
+        sw2.stop();
+        vw_out(DebugMessage,"asp") << "Triangulation error range estimation time: "
+                                   << sw2.elapsed_seconds() << std::endl;
+      }
+    }
+    
     // We trade off readability here to avoid ImageViewRef dereferences
     if (opt.x_offset != 0 || opt.y_offset != 0 || opt.z_offset != 0) {
       vw_out() << "\t--> Applying offset: " << opt.x_offset
@@ -831,13 +962,13 @@ int main( int argc, char *argv[] ) {
            Vector3(opt.x_offset,
                    opt.y_offset,
                    opt.z_offset)),georef),
-         opt, georef );
+         opt, georef, error_image, estim_max_error);
     } else {
       do_software_rasterization
         (geodetic_to_point
          (recenter_longitude
           (cartesian_to_geodetic(point_image,georef), avg_lon),georef),
-         opt, georef );
+         opt, georef, error_image, estim_max_error);
     }
 
   } ASP_STANDARD_CATCHES;

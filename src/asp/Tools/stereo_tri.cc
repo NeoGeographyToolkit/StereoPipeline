@@ -462,17 +462,16 @@ void stereo_triangulation( Options const& opt ) {
         write_point(cloud_center_file, cloud_center);
       }
     }
+    if (stereo_settings().compute_point_cloud_center_only){
+      vw_out() << "Computed the point cloud center. Will stop here." << std::endl;
+      return;
+    }
 
     double min_tri_err = stereo_settings().max_valid_triangulation_error;
     if (min_tri_err > 0)
       point_cloud = per_pixel_filter(point_cloud,
                                      LargeTriErrorFilter(min_tri_err));
     
-    if (stereo_settings().compute_point_cloud_center_only){
-      vw_out() << "Computed the point cloud center. Will stop here." << std::endl;
-      return;
-    }
-
     // We are supposed to do the triangulation in trans_crop_win only.
     // So force rasterization in that box only using crop(), then pad
     // with zeros, as we want to have the point cloud to have the same

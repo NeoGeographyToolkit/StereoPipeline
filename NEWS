@@ -20,6 +20,9 @@ GENERAL
        and threads for each stage of stereo.
 
   - stereo_fltr:
+     * Hole-filling is disabled by default in stereo_fltr. It is 
+       suggested to use instead point2dem's analogous functionality.
+       It can be re-enabled using --enable-fill-holes.
      * Added the option --erode-max-size to stereo_fltr to remove
        isolated blobs.
      * Relaxed filtering of disparities, retaining more valid
@@ -27,8 +30,6 @@ GENERAL
        parameters.
 
   - stereo_tri:
-    * Added option to remove, during triangulation, points for which
-      triangulation error is larger than specified value (in meters).
     * Added ability to save triangulation error for a DEM as a 3D
       North-East-Down vector rather than just its magnitude.
     * When acting on map-projected images, handle the case when the 
@@ -47,6 +48,9 @@ GENERAL
       by loading only points in each cloud within a neigbhorhood
       of the long/lat bounding box of the other cloud.
   - point2dem:
+     * Added the ability to remove outliers by triangulation error,
+       either automatically (--remove-outliers) or manually, with 
+       given error threshold (--max-valid-triangulation-error).
      * Replaced the core algorithm. Instead of sampling the point
        cloud surface, which is prone to aliasing, the DEM height at a
        given grid point is obtained as a weighted average of heights
@@ -64,7 +68,8 @@ GENERAL
      * Bug fix, the DEM was shifted by 1 pixel from true location.
      * Robustess to highly noisy input point clouds.
      * Improved memory usage and performance for large point clouds.
-     * Added the ability to fill in holes in the output orthoimage.
+     * Added two algorithms to fill holes in the output DEM and 
+       orthoimage.
 
 *** RELEASE 2.3.0, 19 November, 2013 ***
 

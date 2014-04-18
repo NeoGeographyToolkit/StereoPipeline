@@ -25,12 +25,11 @@
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/Manipulation.h>
+#include <vw/Image/Algorithms.h>
 #include <vw/Image/BlockRasterize.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 
-// The SoftwareRenderer actual "renders" the 3D scene, textures it,
-// and then returns a 2D orthographic view.
 #include <asp/Core/SoftwareRenderer.h>
 
 #include <asp/Core/Point2Grid.h>
@@ -39,110 +38,60 @@
 
 namespace vw { namespace cartography {
 
+  // If the third component of a vector is NaN, mask that vector as invalid
+  template<class VectorT>
+  struct NaN2Mask: public ReturnFixedType< PixelMask<VectorT> > {
+    NaN2Mask(){}
+    PixelMask<VectorT> operator() (VectorT const& vec) const {
+      if (boost::math::isnan(vec.z()))
+        return PixelMask<VectorT>(); // invalid
+      else
+        return PixelMask<VectorT>(vec); // valid
+    }
+  };
+
+  // Reverse the operation of NaN2Mask
+  template<class VectorT>
+  struct Mask2NaN: public ReturnFixedType<VectorT> {
+    Mask2NaN(){}
+    VectorT operator() (PixelMask<VectorT> const& pvec) const {
+      if (!is_valid(pvec))
+        return VectorT(0, 0, std::numeric_limits<typename VectorT::value_type>::quiet_NaN());
+      else
+        return pvec.child();
+    }
+  };
+
   template <class ImageT>
-  void dump_image_xy(std::string const& prefix, BBox2i const& box,
-                     ImageT const& I){
+  void dump_image(std::string const& prefix, BBox2i const& box,
+                  ImageT const& I){
+
+    // Crop the image to the given box and save to a file.
     
     typedef typename ImageT::pixel_type PixelT;
 
     std::ostringstream os;
-    os << prefix << "_" << box.min().x() << "_" << box.min().y() << ".csv";
+    os << prefix << "_" << box.min().x() << "_" << box.min().y()
+       << " " << box.width() << " " << box.height() << ".csv";
     std::string file = os.str();
     std::cout << "Writing: " << file << std::endl;
     std::ofstream of(file.c_str());
     of.precision(18);
-    
-    for (int col = 0; col < I.cols(); col++){
-      for (int row = 0; row < I.rows(); row++){
-        PixelT p = I(col, row);
+
+    ImageView<PixelT> crop_img = crop(I, box.crop(bounding_box(I)));
+    for (int col = 0; col < crop_img.cols(); col++){
+      for (int row = 0; row < crop_img.rows(); row++){
+        PixelT p = crop_img(col, row);
         if (boost::math::isnan(p.z())) continue;
-        of << p.x() << ' ' << p.y() << std::endl;
+        of << p.x() << ' ' << p.y()  << ' ' << p.z() << std::endl;
       }
     }
     of.close();
   }
 
-  template <class ImageT>
-  void fill_holes(ImageT const& in_img, int hole_fill_len,
-                 ImageT & filled_img){
-
-    // A very simple hole-filling algorithm. Find the closest valid
-    // neighbors left, right, up, and down, and do a line fit to fill
-    // in the current invalid pixel.
-    
-    filled_img = in_img;
-
-    typedef typename ImageT::pixel_type PixelT;
-
-    for (int row = 0; row < in_img.rows(); row++){
-      for (int col = 0; col < in_img.cols(); col++){
-
-        if (!boost::math::isnan(in_img(col, row).z())) continue; // skip valid
-        
-         // Look left, right, up, down, and find the closest valid pixels
-         int hl = hole_fill_len; // shorten
-         double r0 = -1, r1 = -1, c0 = -1, c1 = -1; // no good indices yet
-         for (int k = row-1; k >= std::max(row-hl, 0); k--)
-           if (!boost::math::isnan(in_img(col, k).z())){ r0 = k; break; }
-         if (r0 >=0){
-           // Found a point to the left, try to also find one to the right
-           for (int k = row+1; k <= std::min(row + hl, in_img.rows()-1); k++)
-             if (!boost::math::isnan(in_img(col, k).z())){ r1 = k; break; }
-         }
-         for (int k = col-1; k >= std::max(col-hl, 0); k--)
-           if (!boost::math::isnan(in_img(k, row).z())){ c0 = k; break; }
-         if (c0 >=0){
-           // Found a point up, try to also find one down
-           for (int k = col+1; k <= std::min(col + hl, in_img.cols()-1); k++)
-             if (!boost::math::isnan(in_img(k, row).z())){ c1 = k; break; }
-         }
-         
-         // Interpolate between left and right, then between top and
-         // bottom.  Average the results.
-         int num_good = 0;
-         PixelT V;
-         if (r0 >= 0 && r1 >= 0){
-           V += ((r1-row)*in_img(col, r0) + (row-r0)*in_img(col, r1))/(r1-r0);
-           num_good++;
-         }
-         if (c0 >= 0 && c1 >= 0){
-           V += ((c1-col)*in_img(c0, row) + (col-c0)*in_img(c1, row))/(c1-c0);
-           num_good++;
-         }
-
-         if (num_good > 0)
-           filled_img(col, row) = V/num_good;
-         
-      }
-    }
-
-  }
-  
-  template <class ImageT>
-  void crop_fill_holes(ImageT const& input_img, BBox2i const& box,
-                       int hole_fill_len,
-                       ImageView<typename ImageT::pixel_type> & filled_img){
-
-    typedef typename ImageT::pixel_type PixelT;
-    
-    // Expand the box to be able to see more of the image to fill the
-    // holes better.
-    BBox2i box2 = box;
-    box2.expand(hole_fill_len + 1);
-    box2.crop(bounding_box(input_img));
-    
-    ImageView<PixelT> input_crop = crop(input_img, box2);
-    //dump_image_xy("tile_before", box, input_crop);
-
-    fill_holes(input_crop, hole_fill_len, filled_img);
-    //dump_image_xy("tile_after", box, filled_img);
-    
-    // Crop to the original box
-    filled_img = crop(filled_img, box - box2.min());
-  }
-  
   template <class PixelT, class ImageT>
-  class OrthoRasterizerView : public ImageViewBase<OrthoRasterizerView<PixelT, ImageT> > {
+  class OrthoRasterizerView:
+    public ImageViewBase<OrthoRasterizerView<PixelT, ImageT> > {
     ImageT m_point_image;
     ImageViewRef<float> m_texture;
     BBox3 m_bbox;             // bounding box of point cloud
@@ -150,13 +99,17 @@ namespace vw { namespace cartography {
     double m_default_spacing; // if user did not specify spacing
     double m_default_spacing_x;
     double m_default_spacing_y;
+    double m_search_radius_factor;
+    bool m_use_surface_sampling;
     double m_default_value;
     bool m_minz_as_default;
     bool m_use_alpha;
     int m_block_size;
-    double m_search_radius_factor;
-    bool m_use_surface_sampling;
+    int m_hole_fill_mode;
+    int m_hole_fill_num_smooth_iter;
     int m_hole_fill_len;
+    ImageViewRef<double> const& m_error_image;
+    double m_error_cutoff;
     
     // We could actually use a quadtree here .. but this should be a
     // good enough improvement.
@@ -170,20 +123,11 @@ namespace vw { namespace cartography {
     // Function to convert pixel coordinates to the point domain
     BBox3 pixel_to_point_bbox( BBox2 const& px ) const {
       BBox3 output = m_bbox;
-#if 1
       int d = (int)m_use_surface_sampling;
       output.min().x() = m_bbox.min().x() + ((double(px.min().x() - d)) * m_spacing);
       output.max().x() = m_bbox.min().x() + ((double(px.max().x() - d)) * m_spacing);
       output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() - d)) * m_spacing);
       output.max().y() = m_bbox.min().y() + ((double(rows() - px.min().y() - d)) * m_spacing);
-
-#else
-      // Old buggy temporary code
-      output.min().x() = m_bbox.min().x() + ((double(px.min().x()) - 0.5 ) * m_spacing);
-      output.max().x() = boost::math::float_next(m_bbox.min().x() + ((double(px.max().x()) - 1 + 0.5) * m_spacing));
-      output.min().y() = m_bbox.min().y() + ((double(rows() - px.max().y() + 1) - 0.5) * m_spacing);
-      output.max().y() = boost::math::float_next(m_bbox.min().y() + ((double(rows() - px.min().y()) + 0.5) * m_spacing));
-#endif
       return output;
     }
     
@@ -195,6 +139,10 @@ namespace vw { namespace cartography {
       BBox2i m_image_bbox;
       BBox3& m_global_bbox;
       std::vector<BBoxPair>& m_point_image_boundaries;
+      ImageViewRef<double> const& m_error_image;
+      double m_estim_max_error; // used for automatic outlier removal
+      std::vector<double> & m_errors_hist;
+      double m_max_valid_triangulation_error; // used for manual outlier removal
       Mutex& m_mutex;
       const ProgressCallback& m_progress;
       float m_inc_amt;
@@ -209,19 +157,42 @@ namespace vw { namespace cartography {
         }
       };
 
+      struct ErrorHistAccumulator{
+        std::vector<double> & m_hist;
+        double m_max_val;
+        ErrorHistAccumulator(std::vector<double>& hist, double max_val):
+          m_hist(hist), m_max_val(max_val){}
+        void operator()(double err){
+          if (err == 0) return; // null errors come from invalid pixels
+          int len = m_hist.size();
+          int k = round((len-1)*std::min(err, m_max_val)/m_max_val);
+          m_hist[k]++;
+        }
+      };
+      
     public:
       SubBlockBoundaryTask( ImageViewBase<ViewT> const& view,
                             int sub_block_size,
                             BBox2i const& image_bbox,
                             BBox3& global_bbox, std::vector<BBoxPair>& boundaries,
+                            ImageViewRef<double> const& error_image, double estim_max_error,
+                            std::vector<double> & errors_hist,
+                            double max_valid_triangulation_error,
                             Mutex& mutex, const ProgressCallback& progress, float inc_amt ) :
         m_view(view.impl()), m_sub_block_size(sub_block_size),
         m_image_bbox(image_bbox),
         m_global_bbox(global_bbox), m_point_image_boundaries( boundaries ),
+        m_error_image(error_image), m_estim_max_error(estim_max_error),
+        m_errors_hist(errors_hist), m_max_valid_triangulation_error(max_valid_triangulation_error),
         m_mutex( mutex ), m_progress( progress ), m_inc_amt( inc_amt ) {}
       void operator()() {
-        ImageView< typename ViewT::pixel_type > local_copy =
+        ImageView< typename ViewT::pixel_type > local_image =
           crop( m_view, m_image_bbox );
+
+        bool remove_outliers = (!m_errors_hist.empty());
+        ImageView<double> local_error;
+        if (remove_outliers || m_max_valid_triangulation_error > 0.0)
+          local_error = crop( m_error_image, m_image_bbox );
 
         // Further subdivide into boundaries so
         // that prerasterize will only query what it needs.
@@ -229,21 +200,46 @@ namespace vw { namespace cartography {
           image_blocks( m_image_bbox, m_sub_block_size, m_sub_block_size );
         BBox3 local_union;
         std::list<BBoxPair> solutions;
+        std::vector<double> local_hist(m_errors_hist.size(), 0);
         for ( size_t i = 0; i < blocks.size(); i++ ) {
-          GrowBBoxAccumulator accum;
-          for_each_pixel( crop( local_copy, blocks[i] - m_image_bbox.min() ),
-                          accum );
-          if ( !accum.bbox.empty() ) {
+          BBox3 pts_bdbox;
+          ImageView< typename ViewT::pixel_type > local_image2 =
+            crop( local_image, blocks[i] - m_image_bbox.min() );
+          if (m_max_valid_triangulation_error <= 0){
+            GrowBBoxAccumulator accum;
+            for_each_pixel( local_image2, accum );
+            pts_bdbox = accum.bbox;
+          }else{
+            // Skip points with error > m_max_valid_triangulation_error
+            ImageView<double> local_error2 =
+              crop( local_error, blocks[i] - m_image_bbox.min() );
+            for (int col = 0; col < local_image2.cols(); col++){
+              for (int row = 0; row < local_image2.rows(); row++){
+                if (boost::math::isnan(local_image2(col, row).z())) continue;
+                if (local_error2(col, row) > m_max_valid_triangulation_error) continue;
+                pts_bdbox.grow(local_image2(col, row));
+              }
+            }
+          }
+          if ( !pts_bdbox.empty() ) {
             // Note: for local_union, which will end up contributing
             // to the global bounding box, we don't use the float_next
             // gimmick, as we need the precise box. That is useful
             // though for the individual boxes, to better do
             // intersections later.
-            local_union.grow( accum.bbox );
-            accum.bbox.max()[0] = boost::math::float_next(accum.bbox.max()[0]);
-            accum.bbox.max()[1] = boost::math::float_next(accum.bbox.max()[1]);
-            solutions.push_back( std::make_pair( accum.bbox, blocks[i] ) );
+            local_union.grow( pts_bdbox );
+            pts_bdbox.max()[0] = boost::math::float_next(pts_bdbox.max()[0]);
+            pts_bdbox.max()[1] = boost::math::float_next(pts_bdbox.max()[1]);
+            solutions.push_back( std::make_pair( pts_bdbox, blocks[i] ) );
           }
+
+          if (remove_outliers){
+            ErrorHistAccumulator error_accum(local_hist, m_estim_max_error);
+            for_each_pixel( crop( local_error, blocks[i] - m_image_bbox.min() ),
+                            error_accum );
+
+          }
+          
         }
 
         // Append to the global list of boxes and expand the point
@@ -254,7 +250,13 @@ namespace vw { namespace cartography {
                 it != solutions.end(); it++ ) {
             m_point_image_boundaries.push_back( *it );
           }
+
           m_global_bbox.grow( local_union );
+
+          if (remove_outliers)
+            for (int i = 0; i < (int)m_errors_hist.size(); i++)
+              m_errors_hist[i] += local_hist[i];
+          
           m_progress.report_incremental_progress( m_inc_amt );
         }
       }
@@ -268,22 +270,41 @@ namespace vw { namespace cartography {
     template <class TextureViewT>
     OrthoRasterizerView(ImageT point_image, TextureViewT texture, double spacing,
                         double search_radius_factor, bool use_surface_sampling,
-                        int pc_tile_size,
+                        int pc_tile_size, int hole_fill_mode,
+                        int hole_fill_num_smooth_iter,
+                        bool remove_outliers, Vector2 const& remove_outliers_params,
+                        ImageViewRef<double> const& error_image, double estim_max_error,
+                        double max_valid_triangulation_error,
                         const ProgressCallback& progress):
-      m_point_image(point_image), m_texture(ImageView<float>(1,1)), // temporary
-      m_default_value(0), m_minz_as_default(true), m_use_alpha(false),
-      m_block_size(pc_tile_size),
+      // Ensure all members are initiated, even if to temporary values
+      m_point_image(point_image), m_texture(ImageView<float>(1,1)),
+      m_bbox(BBox3()), m_spacing(0.0), m_default_spacing(0.0),
+      m_default_spacing_x(0.0), m_default_spacing_y(0.0),
       m_search_radius_factor(search_radius_factor),
       m_use_surface_sampling(use_surface_sampling),
-      m_hole_fill_len(0){
+      m_default_value(0),
+      m_minz_as_default(true), m_use_alpha(false),
+      m_block_size(pc_tile_size),
+      m_hole_fill_mode(hole_fill_mode),
+      m_hole_fill_num_smooth_iter(hole_fill_num_smooth_iter), m_hole_fill_len(0),
+      m_error_image(error_image), m_error_cutoff(-1.0) {
 
       set_texture(texture.impl());
 
+      //dump_image("img", BBox2(0, 0, 3000, 3000), point_image);
+      
       // Compute the bounding box that encompasses tiles within the image
       //
       // They're used for querying what part of the image we need
       VW_OUT(DebugMessage,"asp") << "Computing raster bounding box...\n";
 
+      int num_bins = 1024;
+      std::vector<double> errors_hist;
+      if (remove_outliers){
+        // Need to compute the histogram of all errors in the error image
+        errors_hist = std::vector<double>(num_bins, 0.0);
+      }
+      
       // Subdivide each block into smaller chunks. Note: small chunks
       // greatly increase the memory usage and run-time for very large
       // images (because they are very many). As such, make the chunks
@@ -305,8 +326,10 @@ namespace vw { namespace cartography {
       for ( size_t i = 0; i < blocks.size(); i++ ) {
         boost::shared_ptr<task_type>
           task( new task_type( m_point_image, sub_block_size, blocks[i],
-                               m_bbox, m_point_image_boundaries, mutex,
-                               progress, inc_amt ) );
+                               m_bbox, m_point_image_boundaries,
+                               error_image, estim_max_error, errors_hist,
+                               max_valid_triangulation_error,
+                               mutex, progress, inc_amt ) );
         queue.add_task( task );
       }
       queue.join_all();
@@ -332,7 +355,6 @@ namespace vw { namespace cartography {
         }
         std::sort(vx.begin(), vx.end());
         std::sort(vy.begin(), vy.end());
-        m_default_spacing_x = m_default_spacing_y = 0.0;
         if (len > 0){
           // Get the median
           m_default_spacing_x = vx[(int)(0.5*len)];
@@ -352,7 +374,8 @@ namespace vw { namespace cartography {
         // The formula below is not so good, its output depends strongly
         // on how many rows and columns are in the point cloud.
         m_default_spacing
-          = std::max(bbox_width, bbox_height) / std::max(input_image_width, input_image_height);
+          = std::max(bbox_width, bbox_height) / std::max(input_image_width,
+                                                         input_image_height);
       }else{
         // We choose the coarsest of the two spacings
         m_default_spacing = std::max(m_default_spacing_x, m_default_spacing_y);
@@ -361,6 +384,39 @@ namespace vw { namespace cartography {
       // Set the sampling rate (i.e. spacing between pixels)
       this->set_spacing(spacing);
       VW_OUT(DebugMessage,"asp") << "Pixel spacing is " << m_spacing << " pnt/px\n";
+
+      if (remove_outliers){
+        // Find the outlier cutoff from the histogram of all errors.
+        // The cutoff is the outlier factor times the percentile
+        // of the errors.
+        double pct    = remove_outliers_params[0]/100.0; // e.g., 0.75
+        double factor = remove_outliers_params[1];       // e.g., 3.0
+        int hist_size = errors_hist.size();
+        vw::int64 num_errors = 0;
+        for (int s = 0; s < hist_size; s++)
+          num_errors += errors_hist[s];
+        int cutoff_index = 0;
+        vw::int64 sum = 0;
+        for (int s = 0; s < hist_size; s++){
+          sum += errors_hist[s];
+          if (sum >= pct*num_errors){
+            cutoff_index = s;
+            break;
+          }
+        }
+        // The below is equivalent to sorting all errors in increasing order,
+        // and looking at the error at index pct*num_errors.
+        double error_percentile = estim_max_error*cutoff_index/double(hist_size);
+        // Multiply by the outlier factor
+        m_error_cutoff = factor*error_percentile;
+        VW_OUT(DebugMessage,"asp") << "Automatic triangulation error cutoff is "
+                                   << m_error_cutoff << "\n";
+      }else if (max_valid_triangulation_error > 0.0){
+        m_error_cutoff = max_valid_triangulation_error;
+        VW_OUT(DebugMessage,"asp") << "Manual triangulation error cutoff is "
+                                   << m_error_cutoff << "\n";
+      }
+      
       return;
     }
     
@@ -427,7 +483,8 @@ namespace vw { namespace cartography {
                                         d_buffer, weights,
                                         local_3d_bbox.min().x(),
                                         local_3d_bbox.min().y(),
-                                        m_spacing, search_radius);
+                                        m_spacing, m_default_spacing,
+                                        search_radius);
       
       // Set up the default color value
       double min_val = 0.0;
@@ -545,10 +602,22 @@ namespace vw { namespace cartography {
         if (m_hole_fill_len == 0)
           point_copy = crop(m_point_image, blocks[i] );
         else
-          crop_fill_holes(m_point_image, blocks[i], m_hole_fill_len, point_copy);
+          point_copy = crop(per_pixel_filter
+                            (fill_holes
+                             (per_pixel_filter
+                              (m_point_image,
+                               NaN2Mask<typename ImageT::pixel_type>()),
+                              m_hole_fill_mode, m_hole_fill_num_smooth_iter,
+                              m_hole_fill_len),
+                             Mask2NaN<typename ImageT::pixel_type>()),
+                            blocks[i]);
         
-        ImageView<float> texture_copy =
-          crop(m_texture, blocks[i] );
+        ImageView<float> texture_copy = crop(m_texture, blocks[i] );
+
+        ImageView<float> error_copy;
+        if (m_error_cutoff >= 0.0)
+          error_copy = crop(m_error_image, blocks[i] );
+        
         typedef typename ImageView<typename ImageT::pixel_type>::pixel_accessor
           PointAcc;
         PointAcc row_acc = point_copy.origin();
@@ -596,6 +665,11 @@ namespace vw { namespace cartography {
               
             }else{
               // The new engine
+
+              // Skip points above triangulation error
+              if ( m_error_cutoff >= 0.0 && error_copy(col, row) > m_error_cutoff )
+                continue;
+
               if ( !boost::math::isnan(point_copy(col, row).z()) ){
                 point2grid.AddPoint(point_copy(col, row).x(),
                                     point_copy(col, row).y(),
@@ -657,7 +731,13 @@ namespace vw { namespace cartography {
 
     // We may set m_hole_fill_len > 0 only during orthoimage generation
     void set_hole_fill_len(int hole_fill_len){
-      m_hole_fill_len = hole_fill_len;
+
+      // Important: the hole fill len was set in DEM pixels. We convert it
+      // here to point cloud pixels, as what we will fill is holes
+      // in the point cloud before creating the image.
+      VW_ASSERT(m_spacing > 0 && m_default_spacing > 0,
+                ArgumentErr() << "Expecting positive DEM spacing.");
+      m_hole_fill_len = (int)round((m_spacing/m_default_spacing)*hole_fill_len);
     }
     
     BBox3 bounding_box() { return m_bbox; }
