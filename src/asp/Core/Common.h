@@ -71,18 +71,21 @@ namespace asp {
   // If prefix is "dir/out", create directory "dir"
   void create_out_dir(std::string out_prefix);
 
-  // Imageview operator that extracts only the first n channels of an
-  // image with m channels.
-  template <int n, int m>
-  struct SelectPoints : public vw::ReturnFixedType< vw::Vector<double, n> > {
-    vw::Vector<double, n> operator() (vw::Vector<double, m> const& pt) const { return subvector(pt,0,n); }
+  // Imageview operator that extracts the first m channels
+  // starting at channel k of an image with n channels.
+  template <int k, int m, int n>
+  struct SelectPoints : public vw::ReturnFixedType< vw::Vector<double, m> > {
+    vw::Vector<double, m> operator() (vw::Vector<double, n> const& pt) const {
+      return subvector(pt,k,m);
+    }
   };
 
-  template <int n, int m>
-  vw::UnaryPerPixelView<vw::DiskImageView< vw::Vector<double, m> >, SelectPoints<n, m> >
-  inline select_points( vw::ImageViewBase<vw::DiskImageView< vw::Vector<double, m> > > const& image ) {
-    return vw::UnaryPerPixelView<vw::DiskImageView< vw::Vector<double, m> >, SelectPoints<n, m> >( image.impl(),
-                                                                                        SelectPoints<n, m>() );
+  template <int k, int m, int n>
+  vw::UnaryPerPixelView<vw::DiskImageView< vw::Vector<double, n> >,
+                        SelectPoints<k, m, n> >
+  inline select_points( vw::ImageViewBase<vw::DiskImageView< vw::Vector<double, n> > > const& image ) {
+    return vw::UnaryPerPixelView<vw::DiskImageView< vw::Vector<double, n> >,
+      SelectPoints<k, m, n> >( image.impl(), SelectPoints<k, m, n>() );
   }
 
   // Find how many channels/bands are in a given image
@@ -308,14 +311,15 @@ namespace asp {
   // Note: We use this constant in the python code as well
   const std::string POINT_OFFSET = "POINT_OFFSET";
 
-  // Given an image with each pixel a vector of size m, return the
-  // first n channels of that image. We must have 1 <= n <= m <= 6.
-  // If the image was written by subtracting a shift, put that shift back.
-  template<int n>
-  vw::ImageViewRef< vw::Vector<double, n> > read_cloud(std::string filename){
-
-    int max_m = 6;
-    int m = get_num_channels(filename);
+  // Given an image with n channels, return the first m channels.
+  // We must have 1 <= m <= n <= 6.
+  // If the image was written by subtracting a shift, put that shift
+  // back.
+  template<int m>
+  vw::ImageViewRef< vw::Vector<double, m> > read_cloud(std::string filename){
+    
+    int max_n = 6;
+    int n = get_num_channels(filename);
 
     vw::Vector3 shift;
     std::string shift_str;
@@ -324,25 +328,27 @@ namespace asp {
       shift = str_to_vec<vw::Vector3>(shift_str);
     }
 
-    VW_ASSERT( 1 <= n,
-               vw::ArgumentErr() << "Attempting to read " << n << " channel(s) from an image.");
-    VW_ASSERT( n <= m,
-               vw::ArgumentErr() << "Attempting to read " << n << " channel(s) from an image with "
-               << m << " channel(s).");
-    VW_ASSERT( m <= max_m,
+    VW_ASSERT( 1 <= m,
+               vw::ArgumentErr() << "Attempting to read " << m
+               << " channel(s) from an image.");
+    VW_ASSERT( m <= n,
+               vw::ArgumentErr() << "Attempting to read up to channel " << m
+               << " from an image with " << n << " channel(s).");
+    VW_ASSERT( n <= max_n,
                vw::NoImplErr() << "Reading from images with more than "
-               << max_m << " channels is not implemented.");
+               << max_n << " channels is not implemented.");
 
-    vw::ImageViewRef< vw::Vector<double, n> > out_image;
-    if      (m == 1) out_image = select_points<n, 1>(vw::DiskImageView< vw::Vector<double, 1> >(filename));
-    else if (m == 2) out_image = select_points<n, 2>(vw::DiskImageView< vw::Vector<double, 2> >(filename));
-    else if (m == 3) out_image = select_points<n, 3>(vw::DiskImageView< vw::Vector<double, 3> >(filename));
-    else if (m == 4) out_image = select_points<n, 4>(vw::DiskImageView< vw::Vector<double, 4> >(filename));
-    else if (m == 5) out_image = select_points<n, 5>(vw::DiskImageView< vw::Vector<double, 5> >(filename));
-    else if (m == 6) out_image = select_points<n, 6>(vw::DiskImageView< vw::Vector<double, 6> >(filename));
+    vw::ImageViewRef< vw::Vector<double, m> > out_image;
+    if      (n == 1) out_image = select_points<0, m, 1>(vw::DiskImageView< vw::Vector<double, 1> >(filename));
+    else if (n == 2) out_image = select_points<0, m, 2>(vw::DiskImageView< vw::Vector<double, 2> >(filename));
+    else if (n == 3) out_image = select_points<0, m, 3>(vw::DiskImageView< vw::Vector<double, 3> >(filename));
+    else if (n == 4) out_image = select_points<0, m, 4>(vw::DiskImageView< vw::Vector<double, 4> >(filename));
+    else if (n == 5) out_image = select_points<0, m, 5>(vw::DiskImageView< vw::Vector<double, 5> >(filename));
+    else if (n == 6) out_image = select_points<0, m, 6>(vw::DiskImageView< vw::Vector<double, 6> >(filename));
 
+    // Subtract the point cloud shift from the several first channels
     out_image = subtract_shift(out_image, -shift);
-
+    
     return out_image;
   }
 
