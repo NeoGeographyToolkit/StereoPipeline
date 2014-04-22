@@ -47,6 +47,9 @@ GENERAL
     * More efficient processing of reference and source points
       by loading only points in each cloud within a neigbhorhood
       of the long/lat bounding box of the other cloud.
+    * Make it possible to generate ortho-images end error image using
+      point2dem with the transformed clouds output by pc_align.
+
   - point2dem:
      * Added the ability to remove outliers by triangulation error,
        either automatically (--remove-outliers) or manually, with 
