@@ -222,7 +222,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     vw_throw( ArgumentErr() << "Invalid values were provided for remove-outliers-params.\n");
   }
   if (opt.remove_outliers && opt.max_valid_triangulation_error > 0.0){
-    vw_throw( ArgumentErr() << "Cannot have both automatic and manual outlier removal at the same time.\n");
+    vw_throw( ArgumentErr() << "Cannot have both automatic (--remove-outliers) and manual (--max-valid-triangulation-error) outlier removal at the same time.\n");
   }
   
   // Create the output directory 
@@ -307,12 +307,12 @@ public:
   template <class DestT> inline void rasterize( DestT const& dest, BBox2i const& bbox ) const { vw::rasterize( prerasterize(bbox), dest, bbox ); }
   
 };
-template <class DisparityT>
-FillNoDataWithAvg<DisparityT>
-fill_nodata_with_avg( ImageViewBase<DisparityT> const& disparity,
+template <class ImgT>
+FillNoDataWithAvg<ImgT>
+fill_nodata_with_avg( ImageViewBase<ImgT> const& img,
                       int kernel_size) {
-  typedef FillNoDataWithAvg<DisparityT> result_type;
-  return result_type( disparity.impl(), kernel_size);
+  typedef FillNoDataWithAvg<ImgT> result_type;
+  return result_type( img.impl(), kernel_size);
 }
 
 template <class ImageT>
@@ -566,7 +566,6 @@ namespace asp{
     }
   };
 
-  // Computes the mean of the values to which it is applied.
   class ErrorRangeEstimAccum : public ReturnFixedType<void> {
     typedef double accum_type;
     std::vector<accum_type> m_vals;
@@ -933,6 +932,9 @@ int main( int argc, char *argv[] ) {
       }
 
       if (opt.remove_outliers){
+        // Get a somewhat dense sampling of the error image to get an idea
+        // of what the distribution of errors is. This will be refined
+        // later using a histogram approach and using all points.
         int32 subsample_amt = int32(norm_2(Vector2(point_image.cols(),
                                                    point_image.rows()))/128.0);
         if (subsample_amt < 1 ) subsample_amt = 1;
