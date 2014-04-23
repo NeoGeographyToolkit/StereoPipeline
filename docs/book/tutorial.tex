@@ -329,6 +329,28 @@ files instead of the original input files.
 
 \subsection{Performing Stereo Correlation}\label{perform-stereo}
 
+\begin{figure}[t!]
+\begin{minipage}{4in}
+\includegraphics[width=4in]{images/p19-stereo-output.png}
+\end{minipage}
+\hfill
+\begin{minipage}{2.9in}
+\caption[P19 stereo output images]{
+    \label{p19-stereo-output}
+        These are the four viewable \texttt{.tif} files created by the
+        \texttt{stereo} program.  On the left are the two aligned,
+        pre-processed images: (\texttt{results/output-L.tif} and
+        \texttt{results/output-R.tif}).  The next two are mask images
+        (\texttt{results/output-lMask.tif} and
+        \texttt{results/output-rMask.tif}), which indicate which
+        pixels in the aligned images are good to use in stereo
+        correlation.  The image on the right is the ``Good Pixel
+        map'', (\texttt{results/output-GoodPixelMap.tif}), which
+        indicates (in gray) which were successfully matched with the
+        correlator, and (in red) those that were not matched.}
+\end{minipage}
+\end{figure}
+
 Here is how the \texttt{stereo} program is invoked:
 
 \begin{verbatim}
@@ -386,28 +408,6 @@ debugging problems.  For example, as Figure~\ref{p19-stereo-output}
 shows, a quick look at some of the TIFF files in the \texttt{results/}
 directory provides some insight into the process.
 
-\begin{figure}[t!]
-\begin{minipage}{4in}
-\includegraphics[width=4in]{images/p19-stereo-output.png}
-\end{minipage}
-\hfill
-\begin{minipage}{2.9in}
-\caption[P19 stereo output images]{
-    \label{p19-stereo-output}
-        These are the four viewable \texttt{.tif} files created by the
-        \texttt{stereo} program.  On the left are the two aligned,
-        pre-processed images: (\texttt{results/output-L.tif} and
-        \texttt{results/output-R.tif}).  The next two are mask images
-        (\texttt{results/output-lMask.tif} and
-        \texttt{results/output-rMask.tif}), which indicate which
-        pixels in the aligned images are good to use in stereo
-        correlation.  The image on the right is the ``Good Pixel
-        map'', (\texttt{results/output-GoodPixelMap.tif}), which
-        indicates (in gray) which were successfully matched with the
-        correlator, and (in red) those that were not matched.}
-\end{minipage}
-\end{figure}
-
 Perhaps the most accessible file for assessing the quality of your
 results is the good pixel image,
 \\ (\texttt{results/output-GoodPixelMap.tif}).  If this file shows
@@ -419,6 +419,35 @@ signified by red pixels in the overlap area, then you need to go back
 and tune your \texttt{stereo.default} file until your results improve.
 This might be a good time to make a copy of \texttt{stereo.default} as
 you tune the parameters to improve the results.
+\begin{figure}[b!]
+\begin{minipage}{4in}
+\includegraphics[width=4in]{images/p19-disparity.png}
+\end{minipage}
+\hfill
+\begin{minipage}{2.7in}
+\caption[P19 disparity images]{
+    \label{p19-disparity}
+	Disparity images produced using the \texttt{disparitydebug}
+        tool.  The two images on the left are the
+        \texttt{results/output-D-H.tif} and
+        \texttt{results/output-D-V.tif} files, which are normalized
+        horizontal and vertical disparity components produced by the
+        disparity map initialization phase.  The two images on the
+        right are \texttt{results/output-F-H.tif} and
+        \texttt{results/output-F-V.tif}, which are the final
+        filtered, sub-pixel-refined disparity maps that are fed into the
+        Triangulation phase to build the point cloud image.  Since
+        these MOC images were acquired by rolling the spacecraft
+        across-track, most of the disparity that represents topography
+        is present in the horizontal disparity map.  The vertical
+        disparity map shows disparity due to ``wash-boarding,'' which
+        is not from topography but from spacecraft movement. Note
+        however that the horizontal and vertical disparity images are
+        normalized independently.  Although both have the same range
+        of gray values from white to black, they represent
+        significantly different absolute ranges of disparity.}
+\end{minipage}
+\end{figure}
 
 You should also know that whenever \texttt{stereo}, \texttt{point2dem},
 and other executables are run, they create log files in given tool's
@@ -451,42 +480,25 @@ You can proceed to make a mesh or a \ac{DEM} by processing
 
 Figure \ref {p19-disparity} shows the outputs of \texttt{disparitydebug}.
 
-\begin{figure}[b!]
-\begin{minipage}{4in}
-\includegraphics[width=4in]{images/p19-disparity.png}
-\end{minipage}
-\hfill
-\begin{minipage}{2.7in}
-\caption[P19 disparity images]{
-    \label{p19-disparity}
-	Disparity images produced using the \texttt{disparitydebug}
-        tool.  The two images on the left are the
-        \texttt{results/output-D-H.tif} and
-        \texttt{results/output-D-V.tif} files, which are normalized
-        horizontal and vertical disparity components produced by the
-        disparity map initialization phase.  The two images on the
-        right are \texttt{results/output-F-H.tif} and
-        \texttt{results/output-F-V.tif}, which are the final
-        filtered, sub-pixel-refined disparity maps that are fed into the
-        Triangulation phase to build the point cloud image.  Since
-        these MOC images were acquired by rolling the spacecraft
-        across-track, most of the disparity that represents topography
-        is present in the horizontal disparity map.  The vertical
-        disparity map shows disparity due to ``wash-boarding,'' which
-        is not from topography but from spacecraft movement. Note
-        however that the horizontal and vertical disparity images are
-        normalized independently.  Although both have the same range
-        of gray values from white to black, they represent
-        significantly different absolute ranges of disparity.}
-\end{minipage}
-\end{figure}
-
 \section{Visualizing and Manipulating the Results}
 \label{visualising}
 
 When \texttt{stereo} finishes, it will have produced a point cloud
 image.  At this point, many kinds of data products can be built from
 the \texttt{results/output-PC.tif} point cloud file.
+
+\begin{figure}[h!]
+\begin{minipage}{5in}
+\includegraphics[width=5in]{images/p19-osg.png}
+\end{minipage}
+\hfill
+\begin{minipage}{1.7in}
+\caption[P19 in OSG]{
+    \label{p19-osg}
+	The \texttt{results/output.ive} file displayed in the OSG
+        Viewer.}
+\end{minipage}
+\end{figure}
 
 \subsection{Building a 3D Model}
 
@@ -510,19 +522,6 @@ When the \texttt{osgviewer} program starts, you may want to toggle the
 lighting with the `L' key, toggle texturing with the 'T' key, and
 toggle wireframe mode with the 'W'.  Press '?' to see a variety of
 other interactive options. 
-
-\begin{figure}[h!]
-\begin{minipage}{5in}
-\includegraphics[width=5in]{images/p19-osg.png}
-\end{minipage}
-\hfill
-\begin{minipage}{1.7in}
-\caption[P19 in OSG]{
-    \label{p19-osg}
-	The \texttt{results/output.ive} file displayed in the OSG
-        Viewer.}
-\end{minipage}
-\end{figure}
 
 \subsection{Building a Digital Elevation Model}
 
@@ -641,6 +640,7 @@ error. More details are in section \ref{triangulation_options}.
 % \end{center}
 % \end{figure}
 
+
 \subsection{Alignment to Point Clouds From a Different Source}
 
 Often times, the 3D terrain models output by \texttt{stereo} (point
@@ -675,12 +675,36 @@ point in the reference (fixed) point cloud.
 
 Here is how \texttt{pc\_align} can be called.
 
+\begin{figure}
+\hfill
+\begin{minipage}{3.5in}
+\includegraphics[width=3.5in]{images/examples/align_compare.png}
+\end{minipage}
+\hfill
+\begin{minipage}{2in}
+\caption[pc-align comparison]{
+Example of using \texttt{pc\_align} to align a DEM obtaind using stereo
+from CTX images to a set of MOLA tracks. The MOLA points are colored by the offset error
+initially (left) and after pc align was applied (right)
+to the terrain model. The red dots indicate
+more than 100 m of error and blue less than 5 m. The
+\texttt{pc\_align} algorithm determined that by moving the terrain
+model approximately 40 m south, 70 m west, and
+175 m vertically, goodness of
+fit between MOLA and the CTX model was increased substantially.
+}
+\label{pc-align-fig}
+\end{minipage}
+\hfill
+\end{figure}
+
 \begin {verbatim}
   >  pc_align --max-displacement 200 --datum D_MARS \
        --save-inv-transformed-reference-points      \
-       results/output-PC.tif mola.csv
+       stereo-PC.tif mola.csv
 \end{verbatim}
 
+Figure \ref{pc-align-fig} shows an example of using \texttt{pc\_align}.
 The complete documentation for this program is in section
 \ref{pcalign}.
 
