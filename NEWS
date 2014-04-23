@@ -1,18 +1,14 @@
 *** RELEASE 2.3.1, Upcoming ***
 
-TOOLS
-
   - Added wv_correct, a tool for correcting artifacts in Digital Globe
     WorldView-1 and WorldView-2 images with TDI of 16. These subpixel
     artifacts, while not obvious in the images, result in noticeable
     artificial discontinuities in the stereo results.
 
-GENERAL 
-
   - Added logging to a file for stereo, point2dem, pc_align, and
     other tools.
   - Added a tutorial for processing Digital Globe Earth imagery.
-  - Improved mosacking of Digital Globe images.
+  - Bug fixes in mosacking of Digital Globe images.
 
   - parallel_stereo
      * Use dynamic load balancing for improved performace.
@@ -47,7 +43,7 @@ GENERAL
     * More efficient processing of reference and source points
       by loading only points in each cloud within a neigbhorhood
       of the long/lat bounding box of the other cloud.
-    * Make it possible to generate ortho-images end error image using
+    * Make it possible to generate ortho and error images using
       point2dem with the transformed clouds output by pc_align.
 
   - point2dem:
@@ -62,17 +58,16 @@ GENERAL
        Gaussian can be controlled using the --search-radius-factor
        option. The old algorithm is still available (but obsoleted)
        using the --use-surface-sampling option. The new algorithm
-       makes the --fsaa option reduntant. The tool will not run with
-       it unless invoked together with --use-sufrace-sampling.
-     * The way the default DEM spacing is computed was modified, 
-       to make it independent of point cloud dimensions (so it is now
-       dependent only on the local distribution of points in the
-       cloud) and robust to outliers. 
-     * Bug fix, the DEM was shifted by 1 pixel from true location.
-     * Robustess to highly noisy input point clouds.
-     * Improved memory usage and performance for large point clouds.
+       makes the --fsaa option reduntant. 
      * Added two algorithms to fill holes in the output DEM and 
        orthoimage.
+     * The way the default DEM spacing is computed was modified, 
+       to make dependent only on the local distribution of points
+       in the cloud and robust to outliers. 
+     * Can handle highly noisy input point clouds without spikes in 
+       memory usage and processing time.
+     * Improved memory usage and performance for large point clouds.
+     * Bug fix, the DEM was shifted by 1 pixel from true location.
 
 *** RELEASE 2.3.0, 19 November, 2013 ***
 
