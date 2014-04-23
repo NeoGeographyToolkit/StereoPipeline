@@ -148,22 +148,22 @@ refine_disparity(Image1T const& left_image,
 // to the right image before doing refinement in that tile.
 template <class Image1T, class Image2T, class SeedDispT>
 class PerTileRfne: public ImageViewBase<PerTileRfne<Image1T, Image2T, SeedDispT> >{
-  Image1T m_left_image;
-  Image2T m_right_image;
-  ImageViewRef<uint8> m_right_mask;
-  SeedDispT m_integer_disp;
-  SeedDispT m_sub_disp;
+  Image1T              m_left_image;
+  Image2T              m_right_image;
+  ImageViewRef<uint8>  m_right_mask;
+  SeedDispT            m_integer_disp;
+  SeedDispT            m_sub_disp;
   ImageView<Matrix3x3> m_local_hom;
-  Options const& m_opt;
-  Vector2 m_upscale_factor;
+  Options const&       m_opt;
+  Vector2              m_upscale_factor;
 
 public:
-  PerTileRfne( ImageViewBase<Image1T> const& left_image,
-               ImageViewBase<Image2T> const& right_image,
-               ImageViewRef<uint8> const& right_mask,
+  PerTileRfne( ImageViewBase<Image1T>   const& left_image,
+               ImageViewBase<Image2T>   const& right_image,
+               ImageViewRef <uint8>     const& right_mask,
                ImageViewBase<SeedDispT> const& integer_disp,
                ImageViewBase<SeedDispT> const& sub_disp,
-               ImageView<Matrix3x3> const& local_hom,
+               ImageView    <Matrix3x3> const& local_hom,
                Options const& opt):
     m_left_image(left_image.impl()), m_right_image(right_image.impl()),
     m_right_mask(right_mask),
@@ -180,8 +180,8 @@ public:
   typedef pixel_type result_type;
   typedef ProceduralPixelAccessor<PerTileRfne> pixel_accessor;
 
-  inline int32 cols() const { return m_left_image.cols(); }
-  inline int32 rows() const { return m_left_image.rows(); }
+  inline int32 cols  () const { return m_left_image.cols(); }
+  inline int32 rows  () const { return m_left_image.rows(); }
   inline int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
@@ -212,7 +212,7 @@ public:
       int ts = Options::corr_tile_size();
       Matrix<double>  lowres_hom
         = m_local_hom(bbox.min().x()/ts, bbox.min().y()/ts);
-      Vector3 upscale( m_upscale_factor[0], m_upscale_factor[1], 1 );
+      Vector3 upscale( m_upscale_factor[0],     m_upscale_factor[1],     1 );
       Vector3 dnscale( 1.0/m_upscale_factor[0], 1.0/m_upscale_factor[1], 1 );
       Matrix<double>  fullres_hom
         = diagonal_matrix(upscale)*lowres_hom*diagonal_matrix(dnscale);
@@ -298,8 +298,7 @@ void stereo_refinement( Options const& opt ) {
     integer_disp = DiskImageView< PixelMask<Vector2i> >(opt.out_prefix + "-D.tif");
     if ( stereo_settings().seed_mode > 0 &&
          stereo_settings().use_local_homography ){
-      sub_disp =
-        DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
+      sub_disp = DiskImageView<PixelMask<Vector2i> >(opt.out_prefix+"-D_sub.tif");
 
       std::string local_hom_file = opt.out_prefix + "-local_hom.txt";
       read_local_homographies(local_hom_file, local_hom);
@@ -336,7 +335,7 @@ void stereo_refinement( Options const& opt ) {
   // refining disparity solely for the purpose of printing
   // the relevant messages.
   bool verbose = true;
-  ImageView<PixelGray<float> > left_dummy(1, 1), right_dummy(1, 1);
+  ImageView<PixelGray<float>    > left_dummy(1, 1), right_dummy(1, 1);
   ImageView<PixelMask<Vector2i> > dummy_disp(1, 1);
   refine_disparity(left_dummy, right_dummy, dummy_disp, opt, verbose);
 

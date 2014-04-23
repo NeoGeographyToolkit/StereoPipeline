@@ -41,16 +41,16 @@ namespace asp {
 
   template <class ImageT, class DEMImageT>
   class DemDisparity : public ImageViewBase<DemDisparity<ImageT, DEMImageT> > {
-    ImageT m_left_image;
-    double m_dem_error;
-    GeoReference m_dem_georef;
+    ImageT            m_left_image;
+    double            m_dem_error;
+    GeoReference      m_dem_georef;
     const DEMImageT & m_dem;
-    Vector2f m_downsample_scale;
+    Vector2f          m_downsample_scale;
     boost::shared_ptr<camera::CameraModel> m_left_camera_model;
     boost::shared_ptr<camera::CameraModel> m_right_camera_model;
-    bool m_do_align;
+    bool            m_do_align;
     Matrix<double>  m_align_left_matrix, m_align_right_matrix;
-    int m_pixel_sample;
+    int             m_pixel_sample;
     ImageView<PixelMask<Vector2i> > & m_disparity_spread;
 
   public:
@@ -81,8 +81,8 @@ namespace asp {
     typedef pixel_type result_type;
     typedef ProceduralPixelAccessor<DemDisparity> pixel_accessor;
 
-    inline int32 cols() const { return m_left_image.cols(); }
-    inline int32 rows() const { return m_left_image.rows(); }
+    inline int32 cols  () const { return m_left_image.cols(); }
+    inline int32 rows  () const { return m_left_image.rows(); }
     inline int32 planes() const { return 1; }
 
     inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
@@ -108,10 +108,10 @@ namespace asp {
       }
 
       double height_error_tol = std::max(m_dem_error/4.0, 1.0); // height error in meters
-      double max_abs_tol = height_error_tol/4.0; // abs cost function change b/w iterations
-      double max_rel_tol = 1e-14;                // rel cost function change b/w iterations
-      int num_max_iter   = 50;
-      bool treat_nodata_as_zero = false;
+      double max_abs_tol      = height_error_tol/4.0; // abs cost function change b/w iterations
+      double max_rel_tol      = 1e-14;                // rel cost function change b/w iterations
+      int    num_max_iter     = 50;
+      bool   treat_nodata_as_zero = false;
 
       Vector3 prev_xyz;
 
@@ -329,7 +329,7 @@ namespace asp {
     Vector2f downsample_scale( float(left_image_sub.cols()) / float(left_image.cols()),
                                float(left_image_sub.rows()) / float(left_image.rows()) );
 
-    Matrix<double> align_left_matrix = math::identity_matrix<3>();
+    Matrix<double> align_left_matrix  = math::identity_matrix<3>();
     Matrix<double> align_right_matrix = math::identity_matrix<3>();
     bool do_align = (stereo_settings().alignment_method == "homography" ||
                      stereo_settings().alignment_method == "affineepipolar");
@@ -341,7 +341,7 @@ namespace asp {
         read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
       if ( fs::exists(opt.out_prefix+"-align-R.exr") )
         read_matrix(align_right_matrix, opt.out_prefix + "-align-R.exr");
-      vw_out(DebugMessage,"asp") << "Left alignment matrix: " << align_left_matrix << "\n";
+      vw_out(DebugMessage,"asp") << "Left alignment matrix: "  << align_left_matrix  << "\n";
       vw_out(DebugMessage,"asp") << "Right alignment matrix: " << align_right_matrix << "\n";
     }
 

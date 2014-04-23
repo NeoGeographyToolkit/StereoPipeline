@@ -144,7 +144,7 @@ void stereo_preprocessing( Options& opt ) {
 
   // Load the normalized images.
   DiskImageView<PixelGray<float> > left_image( left_rsrc ),
-    right_image( right_rsrc );
+                                   right_image( right_rsrc );
 
   std::string left_mask_file  = opt.out_prefix+"-lMask.tif";
   std::string right_mask_file = opt.out_prefix+"-rMask.tif";
@@ -181,7 +181,7 @@ void stereo_preprocessing( Options& opt ) {
                   asp::threaded_edge_mask(right_image,0,0,1024));
 
     // Read the no-data values of L.tif and R.tif.
-    float left_nodata_value = std::numeric_limits<float>::quiet_NaN();
+    float left_nodata_value  = std::numeric_limits<float>::quiet_NaN();
     float right_nodata_value = std::numeric_limits<float>::quiet_NaN();
     if ( left_rsrc->has_nodata_read() )
       left_nodata_value  = left_rsrc->nodata_read();
@@ -237,8 +237,7 @@ void stereo_preprocessing( Options& opt ) {
       right_threshold = right_cdf.quantile(nodata_fraction);
     }
 
-    // The blob holders must not go out of scope while masks are being
-    // written.
+    // The blob holders must not go out of scope while masks are being written.
     BlobHolder LB, RB;
 
     if ( !std::isnan(left_threshold) && !std::isnan(right_threshold) ){
@@ -259,16 +258,17 @@ void stereo_preprocessing( Options& opt ) {
     vw_out() << "Writing masks: " << left_mask_file << ' '
              << right_mask_file << ".\n";
     if (has_left_georef && has_right_georef){
-      ImageViewRef< PixelMask<uint8> > warped_left_mask
+      ImageViewRef< PixelMask<uint8> > warped_left_mask // Left image mask transformed into right coordinates
         = crop(vw::cartography::geo_transform
                (left_mask, left_georef, right_georef,
                 ConstantEdgeExtension(),NearestPixelInterpolation()),
                bounding_box(right_mask));
-      ImageViewRef< PixelMask<uint8> > warped_right_mask
+      ImageViewRef< PixelMask<uint8> > warped_right_mask // Right image mask transformed into left coordinates
         = crop(vw::cartography::geo_transform
                (right_mask, right_georef, left_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()),
                bounding_box(left_mask) );
+
       asp::block_write_gdal_image
         ( left_mask_file,
           apply_mask(intersect_mask(left_mask, warped_right_mask)),

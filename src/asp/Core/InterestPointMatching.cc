@@ -421,14 +421,14 @@ namespace asp {
       deleted_something = false;
       Matrix<float> locations1( valid_indices.size(), 2 );
       size_t count = 0;
-      std::vector<size_t> reverse_lookup( valid_indices.size() );
+      std::vector<size_t > reverse_lookup  ( valid_indices.size() );
       std::vector<Vector2> disparity_vector( valid_indices.size() );
       BOOST_FOREACH( size_t index, valid_indices ) {
         locations1( count, 0 ) = ip1[index].x;
         locations1( count, 1 ) = ip1[index].y;
-        reverse_lookup[ count ] = index;
+        reverse_lookup  [ count ] = index;
         disparity_vector[ count ] = Vector2(ip2[index].x,ip2[index].y) -
-          Vector2(ip1[index].x,ip1[index].y);
+                                    Vector2(ip1[index].x,ip1[index].y);
         count++;
       }
       math::FLANNTree<float> tree1( locations1 );
@@ -436,10 +436,11 @@ namespace asp {
       std::pair<double,size_t> worse_index;
       worse_index.first = 0;
       for ( size_t i = 0; i < valid_indices.size(); i++ ) {
-        Vector<int> indices;
+        Vector<int>   indices;
         Vector<float> distance;
+        const int NUM_INDICES_TO_GET = 11;
         tree1.knn_search( select_row( locations1, i ),
-                          indices, distance, 11 );
+                          indices, distance, NUM_INDICES_TO_GET );
 
         // Make an average of the disparities around us and not our own
         // measurement

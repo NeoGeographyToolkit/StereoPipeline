@@ -41,19 +41,19 @@ namespace vw {
 void produce_lowres_disparity( Options & opt ) {
 
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
-    Rmask(opt.out_prefix + "-rMask.tif");
+                           Rmask(opt.out_prefix + "-rMask.tif");
 
   DiskImageView<PixelGray<float> > left_sub( opt.out_prefix+"-L_sub.tif" ),
-    right_sub( opt.out_prefix+"-R_sub.tif" );
+                                   right_sub( opt.out_prefix+"-R_sub.tif" );
 
   Vector2 downsample_scale( double(left_sub.cols()) / double(Lmask.cols()),
-                             double(left_sub.rows()) / double(Lmask.rows()) );
+                            double(left_sub.rows()) / double(Lmask.rows()) );
 
-  DiskImageView<uint8> left_mask_sub( opt.out_prefix+"-lMask_sub.tif" ),
-    right_mask_sub( opt.out_prefix+"-rMask_sub.tif" );
+  DiskImageView<uint8> left_mask_sub ( opt.out_prefix+"-lMask_sub.tif" ),
+                       right_mask_sub( opt.out_prefix+"-rMask_sub.tif" );
 
   BBox2i search_range( floor(elem_prod(downsample_scale,stereo_settings().search_range.min())),
-                       ceil(elem_prod(downsample_scale,stereo_settings().search_range.max())) );
+                       ceil (elem_prod(downsample_scale,stereo_settings().search_range.max())) );
 
   if ( stereo_settings().seed_mode == 1 ) {
 
@@ -153,7 +153,7 @@ void lowres_correlation( Options & opt ) {
       std::vector<ip::InterestPoint> ip1, ip2;
       ip::read_binary_match_file( match_filename, ip1, ip2 );
 
-      Matrix<double> align_left_matrix = math::identity_matrix<3>();
+      Matrix<double> align_left_matrix  = math::identity_matrix<3>();
       Matrix<double> align_right_matrix = math::identity_matrix<3>();
       if ( fs::exists(opt.out_prefix+"-align-L.exr") )
         read_matrix(align_left_matrix, opt.out_prefix + "-align-L.exr");
@@ -162,9 +162,9 @@ void lowres_correlation( Options & opt ) {
 
       BBox2 search_range;
       for ( size_t i = 0; i < ip1.size(); i++ ) {
-        Vector3 r = align_right_matrix * Vector3(ip2[i].x,ip2[i].y,1);
+        Vector3 r = align_right_matrix * Vector3(ip2[i].x, ip2[i].y, 1);
+        Vector3 l = align_left_matrix  * Vector3(ip1[i].x, ip1[i].y, 1);
         r /= r[2];
-        Vector3 l = align_left_matrix * Vector3(ip1[i].x,ip1[i].y,1);
         l /= l[2];
         search_range.grow( subvector(r,0,2) - subvector(l,0,2) );
       }
@@ -216,18 +216,17 @@ void lowres_correlation( Options & opt ) {
 }
 
 // This correlator takes a low resolution disparity image as an input
-// so that it may narrow its search range for each tile that is
-// processed.
+// so that it may narrow its search range for each tile that is processed.
 template <class Image1T, class Image2T, class Mask1T, class Mask2T, class SeedDispT, class PProcT>
 class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, Image2T, Mask1T, Mask2T, SeedDispT, PProcT > > {
-  Image1T m_left_image;
-  Image2T m_right_image;
-  Mask1T m_left_mask;
-  Mask2T m_right_mask;
+  Image1T   m_left_image;
+  Image2T   m_right_image;
+  Mask1T    m_left_mask;
+  Mask2T    m_right_mask;
   SeedDispT m_sub_disp;
   SeedDispT m_sub_disp_spread;
   ImageView<Matrix3x3> const& m_local_hom;
-  PProcT m_preproc_func;
+  PProcT    m_preproc_func;
 
   // Settings
   Vector2 m_upscale_factor;
@@ -239,25 +238,25 @@ class SeededCorrelatorView : public ImageViewBase<SeededCorrelatorView<Image1T, 
   double m_seconds_per_op;
 
 public:
-  SeededCorrelatorView( ImageViewBase<Image1T> const& left_image,
-                        ImageViewBase<Image2T> const& right_image,
-                        ImageViewBase<Mask1T> const& left_mask,
-                        ImageViewBase<Mask2T> const& right_mask,
+  SeededCorrelatorView( ImageViewBase<Image1T>   const& left_image,
+                        ImageViewBase<Image2T>   const& right_image,
+                        ImageViewBase<Mask1T>    const& left_mask,
+                        ImageViewBase<Mask2T>    const& right_mask,
                         ImageViewBase<SeedDispT> const& sub_disp,
                         ImageViewBase<SeedDispT> const& sub_disp_spread,
-                        ImageView<Matrix3x3> const& local_hom,
+                        ImageView<Matrix3x3>     const& local_hom,
                         stereo::PreFilterBase<PProcT> const& filter,
                         BBox2i trans_crop_win,
                         Vector2i const& kernel_size,
                         stereo::CostFunctionType cost_mode,
                         int corr_timeout, double seconds_per_op) :
-    m_left_image(left_image.impl()), m_right_image(right_image.impl()),
-    m_left_mask(left_mask.impl()), m_right_mask(right_mask.impl()),
-    m_sub_disp( sub_disp.impl() ), m_sub_disp_spread( sub_disp_spread.impl() ),
-    m_local_hom(local_hom), m_preproc_func( filter.impl() ),
+    m_left_image    (left_image.impl()),  m_right_image    (right_image.impl    ()),
+    m_left_mask     (left_mask.impl ()),  m_right_mask     (right_mask.impl     ()),
+    m_sub_disp      (sub_disp.impl  ()),  m_sub_disp_spread(sub_disp_spread.impl()),
+    m_local_hom     (local_hom), m_preproc_func( filter.impl() ),
     m_trans_crop_win(trans_crop_win),
-    m_kernel_size(kernel_size), m_cost_mode(cost_mode),
-    m_corr_timeout(corr_timeout), m_seconds_per_op(seconds_per_op){
+    m_kernel_size   (kernel_size),  m_cost_mode(cost_mode),
+    m_corr_timeout  (corr_timeout), m_seconds_per_op(seconds_per_op){
     m_upscale_factor[0] = double(m_left_image.cols()) / m_sub_disp.cols();
     m_upscale_factor[1] = double(m_left_image.rows()) / m_sub_disp.rows();
     m_seed_bbox = bounding_box( m_sub_disp );
@@ -268,8 +267,8 @@ public:
   typedef pixel_type result_type;
   typedef ProceduralPixelAccessor<SeededCorrelatorView> pixel_accessor;
 
-  inline int32 cols() const { return m_left_image.cols(); }
-  inline int32 rows() const { return m_left_image.rows(); }
+  inline int32 cols  () const { return m_left_image.cols(); }
+  inline int32 rows  () const { return m_left_image.rows(); }
   inline int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
@@ -313,7 +312,7 @@ public:
     Matrix<double> lowres_hom  = math::identity_matrix<3>();
     Matrix<double> fullres_hom = math::identity_matrix<3>();
     ImageViewRef<typename Image2T::pixel_type> right_trans_img;
-    ImageViewRef<typename Mask2T::pixel_type> right_trans_mask;
+    ImageViewRef<typename Mask2T::pixel_type > right_trans_mask;
 
     bool do_round = true; // round integer disparities after transform
 
@@ -414,20 +413,20 @@ public:
 
     if (use_local_homography){
       typedef stereo::PyramidCorrelationView<Image1T, ImageViewRef<typename Image2T::pixel_type>, Mask1T,ImageViewRef<typename Mask2T::pixel_type>, PProcT> CorrView;
-      CorrView corr_view( m_left_image, right_trans_img,
-                          m_left_mask, right_trans_mask,
+      CorrView corr_view( m_left_image,   right_trans_img,
+                          m_left_mask,    right_trans_mask,
                           m_preproc_func, local_search_range,
-                          m_kernel_size, m_cost_mode,
+                          m_kernel_size,  m_cost_mode,
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels );
       return corr_view.prerasterize(bbox);
     }else{
       typedef stereo::PyramidCorrelationView<Image1T, Image2T, Mask1T, Mask2T, PProcT> CorrView;
-      CorrView corr_view( m_left_image, m_right_image,
-                          m_left_mask, m_right_mask,
+      CorrView corr_view( m_left_image,   m_right_image,
+                          m_left_mask,    m_right_mask,
                           m_preproc_func, local_search_range,
-                          m_kernel_size, m_cost_mode,
+                          m_kernel_size,  m_cost_mode,
                           m_corr_timeout, m_seconds_per_op,
                           stereo_settings().xcorr_threshold,
                           stereo_settings().corr_max_levels );
@@ -443,13 +442,13 @@ public:
 
 template <class Image1T, class Image2T, class Mask1T, class Mask2T, class SeedDispT, class PProcT>
 SeededCorrelatorView<Image1T, Image2T, Mask1T, Mask2T, SeedDispT, PProcT>
-seeded_correlation( ImageViewBase<Image1T> const& left,
-                    ImageViewBase<Image2T> const& right,
-                    ImageViewBase<Mask1T> const& lmask,
-                    ImageViewBase<Mask2T> const& rmask,
-                    ImageViewBase<SeedDispT> const& sub_disp,
-                    ImageViewBase<SeedDispT> const& sub_disp_spread,
-                    ImageView<Matrix3x3> const& local_hom,
+seeded_correlation( ImageViewBase<Image1T>        const& left,
+                    ImageViewBase<Image2T>        const& right,
+                    ImageViewBase<Mask1T>         const& lmask,
+                    ImageViewBase<Mask2T>         const& rmask,
+                    ImageViewBase<SeedDispT>      const& sub_disp,
+                    ImageViewBase<SeedDispT>      const& sub_disp_spread,
+                    ImageView<Matrix3x3>          const& local_hom,
                     stereo::PreFilterBase<PProcT> const& filter,
                     BBox2i trans_crop_win,
                     Vector2i const& kernel_size,

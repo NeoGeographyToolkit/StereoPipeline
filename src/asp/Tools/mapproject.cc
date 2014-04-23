@@ -171,7 +171,6 @@ void calc_target_geom(// Inputs
     //  target_georef coordinate system
     cam_box = target_georef.lonlat_to_point_bbox
       (dem_georef.point_to_lonlat_bbox(cam_box));
-
   }
 
   // Use auto-calculated ground resolution if that option was selected
@@ -203,24 +202,25 @@ void calc_target_geom(// Inputs
   int output_height = (int)round(cam_box.height()  / s);
   cam_box = s * BBox2(min_x, min_y, output_width, output_height);
 
-  // Transform is from DEM georef coords to target_georef (probably projected) coordinates
+
+  // This transform is from pixel to projected coordinates
   Matrix3x3 T = target_georef.transform();
   // This polarity checking is to make sure the output has been
   // transposed after going through reprojection. Normally this is
   // the case. Yet with grid data from GMT, it is not.
-  if ( T(0,0) < 0 ) // If X coefficient of affine transform is negative
-    T(0,2) = cam_box.max().x();  // Add in an X offset such that all transformed pixels will be positive in X
+  if ( T(0,0) < 0 ) // If X coefficient of affine transform is negative (cols go opposite direction from projected x coords)
+    T(0,2) = cam_box.max().x();  // The maximum projected X coordinate is the starting offset
   else
-    T(0,2) = cam_box.min().x(); // ????
-  T(0,0) =  opt.target_resolution;  // meters to pixels???
-  T(1,1) = -opt.target_resolution;  // meters to pixels with image Y axis flip?
-  T(1,2) = cam_box.max().y();       // Add in an Y offset such that all transformed pixels will be positive in Y
+    T(0,2) = cam_box.min().x(); // The minimum projected X coordinate is the starting offset
+  T(0,0) =  opt.target_resolution;  // Set col/X conversion to meters per pixel
+  T(1,1) = -opt.target_resolution;  // Set row/Y conversion to meters per pixel with a vertical flip (increasing row = down in Y)
+  T(1,2) = cam_box.max().y();       // The maximum projected Y coordinate is the starting offset
   if ( target_georef.pixel_interpretation() ==
        GeoReference::PixelAsArea ) { // Meaning point [0][0] equals location (0.5, 0.5)
-    T(0,2) -= 0.5 * opt.target_resolution; //
+    T(0,2) -= 0.5 * opt.target_resolution; // Apply a small shift to the offsets
     T(1,2) += 0.5 * opt.target_resolution;
   }
-  target_georef.set_transform( T );
+  target_georef.set_transform( T ); // Overwrite the existing transform in target_georef
 
   return;
 }
@@ -294,6 +294,7 @@ int main( int argc, char* argv[] ) {
       dem = constant_view(PMaskT(0), 360, 180 );
       vw_out() << "\t--> Using flat datum \"" << opt.dem_file
                << "\" as elevation model.\n";
+
     }else{ // User has provided a DEM to use.
       bool has_georef = read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
@@ -310,6 +311,7 @@ int main( int argc, char* argv[] ) {
       }else{
         dem = pixel_cast<PMaskT>(dem_disk_image);
       }
+
     }
 
     // Find the target resolution based on mpp or ppd if provided. Do
@@ -338,7 +340,8 @@ int main( int argc, char* argv[] ) {
     // Read projection. Work out output bounding box in points using
     // original camera model.
     GeoReference target_georef = dem_georef;
-    if (opt.target_srs_string != ""){
+
+    if (opt.target_srs_string != ""){ // User specified the proj4 string for the output georeference
       boost::replace_first(opt.target_srs_string,
                            "IAU2000:","DICT:IAU2000.wkt,");
       VW_OUT(DebugMessage,"asp") << "Asking GDAL to decipher: \""
@@ -352,6 +355,7 @@ int main( int argc, char* argv[] ) {
       std::string wkt_string(wkt);
       delete[] wkt;
       target_georef.set_wkt( wkt_string );
+      // Note target_georef still has the transform from the DEM even if everything else has changed
     }
 
     // We compute the target_georef and camera box in two passes,
@@ -368,12 +372,14 @@ int main( int argc, char* argv[] ) {
                      dem, dem_georef,
                      // Outputs
                      opt, cam_box, target_georef);
+
     // Second pass
     first_pass = false;
-    ImageViewRef<PMaskT> trans_dem // Get transform from DEM georeference to output georeference
+    ImageViewRef<PMaskT> trans_dem // Transformed view indexes DEM based on target georeference
       = geo_transform(dem, dem_georef, target_georef,
                       ValueEdgeExtension<PMaskT>(PMaskT()),
                       BilinearInterpolation());
+
     calc_target_geom(// Inputs
                      first_pass, calc_target_res, image_size, camera_model,
                      trans_dem, target_georef,
@@ -383,7 +389,7 @@ int main( int argc, char* argv[] ) {
     // Compute output image size in pixels using bounding box in output projected space
     BBox2i target_image_size = target_georef.point_to_pixel_bbox( cam_box );
 
-    vw_out() << "Cropping to " << cam_box << " pt. " << std::endl;
+    vw_out() << "Cropping to projected coordinates: " << cam_box << std::endl;
 
     // Shrink output image BB if an output image BB was passed in
     GeoReference croppedGeoRef  = target_georef;
@@ -406,6 +412,7 @@ int main( int argc, char* argv[] ) {
       return 0;
     }
     
+
     // Create handle to input image to be projected on to the map
     boost::shared_ptr<DiskImageResource>
       img_rsrc( DiskImageResource::open( opt.image_file ) );
