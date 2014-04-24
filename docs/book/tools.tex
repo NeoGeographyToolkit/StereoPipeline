@@ -473,7 +473,7 @@ optional texture file (\texttt{\textit{output-prefix}-PC.tif} and
 normally \texttt{\textit{output-prefix}-L.tif}). When a texture
 file is not provided, a 1D texture is applied in the local Z direction
 that produces a rough rendition of a contour map.  In either case,
-\texttt{point2mesh} will produce a \texttt{\textit{output-prefix}.ive}
+\texttt{point2mesh} will produce a \texttt{\textit{output-prefix}.osgb}
 file that contains the 3D model in OpenSceneGraph format.
 
 Two options for \texttt{osgviewer} bear pointing out: the \texttt{-l}
@@ -491,16 +491,16 @@ models will impact the frame rate of the 3D viewer and affect
 performance.
 
 Example:\\
-\hspace*{2em}\texttt{point2mesh -l -s 2 \textit{output-prefix}-PC.tif \textit{output-prefix}-L.tif}
+\hspace*{2em}\texttt{point2mesh -s 2 \textit{output-prefix}-PC.tif \textit{output-prefix}-L.tif}
 
-To view the resulting \texttt{\textit{output-prefix}.ive} file use
+To view the resulting \texttt{\textit{output-prefix}.osgb} file use
 \texttt{osgviewer}.
 
 \hspace*{2em}Fullscreen:\\
-\hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.ive}
+\hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.osgb}
 
 \hspace*{2em}or Windowed:\\
-\hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.ive -\/-window 50 50 1000 1000}
+\hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.osgb -\/-window 50 50 1000 1000}
 
 Inside \texttt{osgviewer}, the keys L, T, and W can be used to toggle on
 and off lighting, texture, and wireframe modes.  The left, middle, and
@@ -525,7 +525,7 @@ Options & Description \\ \hline \hline
 \texttt{-\/-texture-file \textit{texture-file}} & Explicitly specify the texture file \\ \hline
 \texttt{-\/-output-prefix|-o \textit{output-prefix}} & Specify the output prefix \\ \hline
 \texttt{-\/-output-filetype|-t \textit{type(=ive)}} & Specify the output file type \\ \hline
-\texttt{-\/-enable-lighting|-l} & Enables shades and light on the mesh \\ \hline
+\texttt{-\/-enable-lighting|-l} & Enables shades and lighting on the mesh \\ \hline
 \texttt{-\/-center} & Center the model around the origin. Use this option if you are experiencing numerical precision issues. \\ \hline
 \texttt{-\/-rotation-order \textit{order(=xyz)}} & Set the order of an euler angle rotation applied to the 3D points prior to DEM rasterization \\ \hline
 \texttt{-\/-phi-rotation \textit{float(=0)}} & Set a rotation angle phi \\ \hline

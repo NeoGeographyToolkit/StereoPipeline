@@ -440,11 +440,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-prefix,o", po::value(&opt.output_prefix),
      "Specify the output prefix.")
     ("output-filetype,t",
-     po::value(&opt.output_file_type)->default_value("ive"),
+     po::value(&opt.output_file_type)->default_value("osgb"),
      "Specify the output file")
     ("enable-lighting,l",
      po::bool_switch(&opt.enable_lighting)->default_value(false),
-     "Enables shades and light on the mesh" )
+     "Enables shades and lighting on the mesh" )
     ("center", po::bool_switch(&opt.center)->default_value(false),
      "Center the model around the origin. Use this option if you are experiencing numerical precision issues.");
   general_options.add( asp::BaseOptionsDescription(opt) );
@@ -560,7 +560,8 @@ int main( int argc, char *argv[] ){
       std::ostringstream os;
       os << opt.output_prefix << "." << opt.output_file_type;
       vw_out() << "Writing: " << os.str() << "\n";
-      osgDB::writeNodeFile( *opt.root.get() , os.str() );
+      osgDB::writeNodeFile( *opt.root.get() , os.str(),
+                            new osgDB::Options("WriteImageHint=IncludeData Compressor=zlib"));
     }
 
   } ASP_STANDARD_CATCHES;
