@@ -43,7 +43,7 @@ if __name__ == '__main__':
                  help='Select the stereo session type to use for processing. [options: pinhole isis dg rpc]')
     p.add_option('-s', '--stereo-file',    dest='filename',    default='./stereo.default',
                  help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
-    p.add_option('--corr-seed-mode',    dest='seed_mode', default=1,
+    p.add_option('--corr-seed-mode',    dest='seed_mode', default=None, 
                  help='Correlation seed strategy. See stereo_pprc for options.', type='int')
     p.add_option('-e', '--entry-point',    dest='entry_point', default=0,
                  help='Pipeline entry point (an integer from 0-4)', type='int')
@@ -68,17 +68,23 @@ if __name__ == '__main__':
     if opt.threads == 0:
         opt.threads = get_num_cpus()
 
+    # If corr-seed-mode was not specified, read it from the file
+    if opt.seed_mode is None:
+        opt.seed_mode = parse_corr_seed_mode(opt.filename)
+    # If not set in the file either, use 1.
+    if opt.seed_mode is None:
+        opt.seed_mode = 1
+    # Pass it to the subprocesses
+    args.extend(['--corr-seed-mode', str(opt.seed_mode)])
+        
     if opt.session is not None:
         args.extend(['--session-type', opt.session])
-    if opt.seed_mode is not None:
-        args.extend(['--corr-seed-mode', str(opt.seed_mode)])
     if opt.threads is not None:
         args.extend(['--threads', str(opt.threads)])
     if opt.no_bigtiff:
         args.append('--no-bigtiff')
     if opt.version:
         args.append('-v')
-
     args.extend(['--stereo-file', opt.filename])
 
     args=unescape_vals(args)

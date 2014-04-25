@@ -198,3 +198,21 @@ def get_num_cpus():
         num_cpus = cpu_count()
 
     return num_cpus
+
+def parse_corr_seed_mode(filename):
+
+    mode = None
+    
+    # Extract corr-seed-mode from filename.
+    if not os.path.isfile(filename):
+        return mode
+
+    fh = open(filename, "r")
+    for line in fh:
+        line = re.sub('\#.*?$', '', line) # wipe comments
+        matches = re.match('^\s*corr-seed-mode\s+(\d+)', line)
+        if matches:
+            mode = int(matches.group(1))
+    fh.close()
+
+    return mode
