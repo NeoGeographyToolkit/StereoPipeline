@@ -195,8 +195,8 @@ Now compare the boundaries of the two above and determine the intersection to us
 You only have to do the boundaries explicitly for the first run of
 \texttt{cam2map}, because the second one uses the \texttt{map=}
 parameter to mimic the map-projection of the first.  These two
-images aren't radically different in areal coverage, so this isn't
-really necessary for these images, its just an example.
+images are not radically different in areal coverage, so this is not
+really necessary for these images, it is just an example.
 
 Again, unless you are doing something complicated, using the
 \texttt{cam2map4stereo.py} program (page \pageref{cam2map4stereo})
@@ -642,7 +642,7 @@ error. More details are in section \ref{triangulation_options}.
 
 
 \subsection{Alignment to Point Clouds From a Different Source}
-
+\label{pc-align-example}
 Often times, the 3D terrain models output by \texttt{stereo} (point
 clouds and DEMs) can be intrinsically quite accurate, yet their actual
 position on the planet may be off by several meters or several
@@ -818,7 +818,7 @@ chapter in that at no point will we be using ISIS utilities. This is
 because ISIS only supports NASA instruments while most Earth imagery
 comes from commercial providers.
 
-Digital Globe provides imagery from the Quick Bird and the two World
+Digital Globe provides imagery from Quick Bird and the two World
 View satellites. These are the hardest images to process with Ames
 Stereo Pipeline because they are exceedingly large, much larger than
 HiRISE imagery. There is also a wide range of terrain challenges and
@@ -849,14 +849,14 @@ in Earth's atmosphere. It is our understanding that this could
 represent misplacement of points up to a meter for some
 imagery. However this is still smaller error than the error from
 measurement of the spacecraft's position and orientation. We do not
-provide facilities for correcting spacecraft attitude either. So you
-will have to perform some manual shifting of the data to get it into
-the correct location. These errors are fortunately much less than
-found with extra-terrestrial missions largely due to the availability
-of GPS and high bandwidth comms with the satellite.
+provide facilities for correcting spacecraft attitude either. However,
+the \texttt{pc\_align}
+tool discussed in section \ref{pc-align-example} can be used to align
+the terrain obtained from Stereo Pipeline to an accurate set of ground
+measurements.
 
-In the next 2 sections we will show how to process unmodified and
-map-projected variants of World View 1 imagery. This steps will be the
+In the next two sections we will show how to process unmodified and
+map-projected variants of World View imagery. This steps will be the
 same for Digital Globe's other satellites. The imagery we are using are
 from the free stereo pair example of Lucknow, India available from
 Digital Globe's website \cite{digital-globe:samples}. These images
@@ -1108,7 +1108,7 @@ images, with and without map-projection, and how to handle other issues
 specific to Digital Globe cameras and Earth data. We strongly suggest
 you also study the tutorial about processing Mars imagery (chapter
 \ref{ch:moc_tutorial}), starting with section \ref{running-stereo}, as it
-has a wealth of information which we will not repeat here. In
+has a wealth of information which we did not repeat here. In
 particular, you will learn how to (a) customize the
 \texttt{stereo.default} settings file, (b) use \texttt{point2dem} (with
 the option \texttt{-r earth}) to create 3D terrain models, (c) visualize

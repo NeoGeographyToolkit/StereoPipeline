@@ -1,13 +1,11 @@
-*** RELEASE 2.3.1, Upcoming ***
+*** RELEASE 2.4.0, 28 April, 2014 ***
 
   - Added wv_correct, a tool for correcting artifacts in Digital Globe
-    WorldView-1 and WorldView-2 images with TDI of 16. These subpixel
-    artifacts, while not obvious in the images, result in noticeable
-    artificial discontinuities in the stereo results.
-
-  - Added logging to a file for stereo, point2dem, pc_align, and
-    other tools.
-  - Added a tutorial for processing Digital Globe Earth imagery.
+    WorldView-1 and WorldView-2 images with TDI of 16.
+  - Added logging to a file for stereo, pc_align, point2dem, 
+    point2mesh, point2las, and dem_geoid.
+  - Added a tutorial for processing Digital Globe Earth imagery
+    and expanded the MOC tutorial.
   - Bug fixes in mosacking of Digital Globe images.
 
   - parallel_stereo
@@ -19,10 +17,9 @@
      * Hole-filling is disabled by default in stereo_fltr. It is 
        suggested to use instead point2dem's analogous functionality.
        It can be re-enabled using --enable-fill-holes.
-     * Added the option --erode-max-size to stereo_fltr to remove
-       isolated blobs.
+     * Added the option --erode-max-size to remove isolated blobs.
      * Relaxed filtering of disparities, retaining more valid
-       disparities. Can be adjusted with 'filter-mode' and related
+       disparities. Can be adjusted with --filter-mode and related
        parameters.
 
   - stereo_tri:
@@ -30,7 +27,8 @@
       North-East-Down vector rather than just its magnitude.
     * When acting on map-projected images, handle the case when the 
       DEM used for map-projection does not completely encompass the 
-      images. 
+      images.
+ 
   - pc_align:
     * Read and write CSV files in a wide variety of formats, using 
       the --csv-format option.
@@ -47,9 +45,6 @@
       point2dem with the transformed clouds output by pc_align.
 
   - point2dem:
-     * Added the ability to remove outliers by triangulation error,
-       either automatically (--remove-outliers) or manually, with 
-       given error threshold (--max-valid-triangulation-error).
      * Replaced the core algorithm. Instead of sampling the point
        cloud surface, which is prone to aliasing, the DEM height at a
        given grid point is obtained as a weighted average of heights
@@ -59,8 +54,11 @@
        option. The old algorithm is still available (but obsoleted)
        using the --use-surface-sampling option. The new algorithm
        makes the --fsaa option reduntant. 
+     * Added the ability to remove outliers by triangulation error,
+       either automatically (--remove-outliers) or manually, with 
+       given error threshold (--max-valid-triangulation-error).
      * Added two algorithms to fill holes in the output DEM and 
-       orthoimage.
+       orthoimage (--hole-fill-mode).
      * The way the default DEM spacing is computed was modified, 
        to make dependent only on the local distribution of points
        in the cloud and robust to outliers. 
@@ -393,7 +391,7 @@ TOOLS
 TESTS
  - Switched from CXXTests to GTest framework.
 
-*** RELEASE 1.0.0, 23 OCTOBER ***
+*** RELEASE 1.0.0, 23 OCTOBER, 2009 ***
 
 CORE
  - OrthoRasterizer.h is subject to change for further VW integration

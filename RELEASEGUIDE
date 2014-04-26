@@ -16,19 +16,19 @@ the ASP release tarball).
 
 4.) Commit and tag release in repo. Example: 
 
-  git tag v2.3.0 
+  git tag v2.4.0 
 
 Push the tags to the remote server with: 
 
- git push origin v2.3.0 # commit to your branch
- git push god    v2.3.0 # commit to main branch
+ git push origin v2.4.0 # commit to your branch
+ git push god    v2.4.0 # commit to main branch
 
 If more commits were made and it is desired to apply this tag to a
 different commit, first remove the exiting tag with:
 
-  git tag -d v2.3.0
-  git push origin :refs/tags/v2.3.0
-  git push god    :refs/tags/v2.3.0
+  git tag -d v2.4.0
+  git push origin :refs/tags/v2.4.0
+  git push god    :refs/tags/v2.4.0
 
 5.) Build and package the software and documentation:
 
@@ -49,30 +49,39 @@ different commit, first remove the exiting tag with:
 6.) Test all binary releases on different machines by running
     StereoPipelineTest.
 
-7.) Check that the ASP version is correct in the documentation file.
-
-NOTE: Steps 5 to 7 are done automatically by running on a Pleiades
-machine the script
+NOTE: Steps 5 to 6 are done automatically by running on lunokhod1
+the script
 
   $HOME/projects/BinaryBuilder/auto_build/launch_master.sh
 
-The resulting release tarballs will go to BinaryBuilder/asp_tarballs,
-and will need to unzipped and renamed to remove the timestamp from the
-tarball name, and then zipped back.
+The resulting release tarballs will go to BinaryBuilder/asp_tarballs.
 
-8.) Copy the new builds to the release area at
+7.) Check that the ASP version is correct in the documentation
+file. Read the entire documentation.
+
+8.) Rename the builds to follow the release convention. This 
+requires removing the timestamp from tarball name, which can be
+done with the script BinaryBuilder/auto_build/rm_timestamp.sh.
+
+9.) Copy the new builds to the release area at
 /byss/docroot/stereopipeline/binaries and update the website, at
 https://ti.arc.nasa.gov/cms/ (SG can give permissions to edit the
-pages under /tech/asr/intelligent-robotics/ngt). 
+pages under /tech/asr/intelligent-robotics/ngt). Both the main page
+and sidebar needs to be edited, and the correct ISIS version needs to
+be specified.
 
-9.) Send an announcement of the new release to the mailing list,
-    at stereo-pipeline@lists.nasa.gov, listing the changes specified
-    in NEWS.
+10.) Ask fellow ASP developers to do some tests and review the
+documentation.
 
-10.) Modify the build system:
+11.) Send an announcement of the new release to the mailing list, at
+stereo-pipeline@lists.nasa.gov, listing the changes specified in NEWS.
+
+12.) Modify the build system:
 
 Inside ASP's configure.ac, append "_post" to version number in AC_INIT
 line.
 
-11.) Commit changes.
+13.) Reflect any changes in release policy by modifying this document.
+
+14.) Commit changes.
 

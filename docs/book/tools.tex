@@ -57,14 +57,13 @@ Option & Description \\ \hline \hline
 \texttt{-\/-left-image-crop-win \textit{xoff yoff xsize ysize}}  & Do stereo in a subregion of the left image [default: use the entire image].\\ \hline
 \texttt{-\/-entry-point|-e 1|2|3|4} & Stereo Pipeline entry point \\ \hline
 \texttt{-\/-corr-seed-mode integer(=0 to 3)} & Correlation seed strategy
-(section \ref{corr_section}). This needs to be set on the command line
-as the script invokes different executables depending on its value. \\ \hline
+(section \ref{corr_section}). \\ \hline
 \end{longtable}
 
 More information about the stereo.default configuration file can be
 found in Appendix \ref{ch:stereodefault} on page
-\pageref{ch:stereodefault}.  Similarly, \texttt{stereo} creates a lot
-of files, and they are all described in Appendix
+\pageref{ch:stereodefault}.  \texttt{stereo} creates a set 
+of intermediate files, they are described in Appendix
 \ref{chapter:outputfiles} on page \pageref{chapter:outputfiles}.
 
 \subsection{Entry Points}
@@ -316,12 +315,14 @@ for debugging.
 
 Another example: \\
 \hspace*{2em}\texttt{point2dem \textit{output-prefix}-PC.tif -o stereo/filename -r moon $\backslash$} \\
-\hspace*{4em}\texttt{-\/-orthoimage \textit{output-prefix}-L.tif}
+\hspace*{4em}\texttt{-\/-orthoimage \textit{output-prefix}-L.tif} \texttt{-\/-remove-outliers}
 
 This command takes the left input image and orthographically projects
 it onto the 3D terrain produced by the Stereo Pipeline.  The resulting
 {\tt *-DRG.tif} file will be saved as an 8-bit GeoTIFF image in a
-simple cylindrical map-projection.
+simple cylindrical map-projection. We also passed an option to 
+automatically detect and remove outliers in the output DEM based
+on triangulation error.
 
 \subsection{Comparing with MOLA Data}
 
@@ -436,10 +437,10 @@ Options & Description \\ \hline \hline
 \texttt{-\/-dem-spacing|-s \textit{float(=0)}} & Set the output DEM resolution (in target georeferenced units per pixel). If not specified, it will be computed automatically. \\ \hline
 \texttt{-\/-search-radius-factor \textit{double(=$0$)}} & Multiply this factor by \texttt{dem-spacing} to get the search radius. The DEM height at a given grid point is obtained as a weighted average of heights of all points in the cloud within search radius of the grid point, with the weights given by a Gaussian. Default search radius: max(\texttt{dem-spacing}, default\_dem\_spacing), so the default factor is about 1.\\ \hline
 \texttt{-\/-rounding-error \textit{float(=$1/2^{10}$=$0.0009765625$)}} & How much to round the output DEM and errors, in meters (more rounding means less precision but potentially smaller size on disk). The inverse of a power of 2 is suggested. \\ \hline
+\texttt{-\/-dem-hole-fill-len \textit{int(=0)}} &  Maximum dimensions of a hole in the output DEM to fill in, in pixels. \\ \hline
+\texttt{-\/-orthoimage-hole-fill-len \textit{int(=0)}} & Maximum dimensions of a hole in the output orthoimage to fill in, in pixels. \\ \hline
 \texttt{-\/-hole-fill-mode \textit{int(=1)}} & Choose the algorithm to fill holes. [1: Interpolate based on valid values in four directions: left, right, up, and down (fast). 2: Weighted average of all valid pixels within a window of size hole-fill-len (slow). \\ \hline
 \texttt{-\/-hole-fill-num-smooth-iter \textit{int(=4)}} & How many times to iterate to smooth the result of hole-filling with a Gaussian kernel. \\ \hline
-\texttt{-\/-dem-hole-fill-len \textit{int(=0)}} &  Maximum dimensions of a hole in the output DEM to fill in. \\ \hline
-\texttt{-\/-orthoimage-hole-fill-len \textit{int(=0)}} & Maximum dimensions of a hole in the output orthoimage to fill in. \\ \hline
 
 \texttt{-\/-max-valid-triangulation-error \textit{float(=0)}} & Manual outlier removal. Points with triangulation error larger than this (in meters) are removed from the cloud. \\ \hline
 \texttt{-\/-remove-outliers  \textit{[default: false]}} & Turn on automatic outlier removal based on triangulation error. See also: remove-outliers-params. \\ \hline
@@ -499,11 +500,11 @@ To view the resulting \texttt{\textit{output-prefix}.osgb} file use
 \hspace*{2em}Fullscreen:\\
 \hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.osgb}
 
-\hspace*{2em}or Windowed:\\
+\hspace*{2em}In a window:\\
 \hspace*{2em}\texttt{> osgviewer \textit{output-prefix}.osgb -\/-window 50 50 1000 1000}
 
-Inside \texttt{osgviewer}, the keys L, T, and W can be used to toggle on
-and off lighting, texture, and wireframe modes.  The left, middle, and
+Inside \texttt{osgviewer}, the keys L, T, W, and F can be used to toggle on
+and off lighting, texture, wireframe, and full-screen modes.  The left, middle, and
 right mouse buttons control rotation, panning, and zooming of the
 model.
 
@@ -975,12 +976,7 @@ Digital Globe images, so before calling \texttt{dg\_mosaic} and
 It is important to note that both the positions of the CCD offsets and
 the offset amounts were determined empirically, without knowledge of
 Digital Globe's mosacking process; this explains why we are not able to
-remove these artifacts completely. Moreover, for World View-1 images it
-appears that the offset magnitudes can vary across the image, so while
-\texttt{wv\_correct} attenuates the artifacts in most of the image, it
-may make them somewhat worse in some areas. This is not the case for
-World View-2 images, where the same corrections appear to work all
-across a given image.
+remove these artifacts completely. 
 
 Presently, \texttt{wv\_correct} only works only when TDI is 16 (at which
 the artifacts are most pronounced). In the future we expect to expand
