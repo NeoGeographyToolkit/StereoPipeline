@@ -9,7 +9,7 @@
   - Bug fixes in mosacking of Digital Globe images.
 
   - parallel_stereo
-     * Use dynamic load balancing for improved performace.
+     * Use dynamic load balancing for improved performance.
      * Automatically determine the optimal number of processes
        and threads for each stage of stereo.
 
@@ -36,10 +36,10 @@
       transform in the local North-East-Down coordinate system, as
       well as the centroid of source points used in alignment.
     * Save to disk the convergence history (iteration information).
-    * Added the ability to explicitely specify the datum semi-axes.
+    * Added the ability to explicitly specify the datum semi-axes.
     * Bug fix for saving transformed clouds for Moon and Mars.
     * More efficient processing of reference and source points
-      by loading only points in each cloud within a neigbhorhood
+      by loading only points in each cloud within a neighborhood
       of the long/lat bounding box of the other cloud.
     * Make it possible to generate ortho and error images using
       point2dem with the transformed clouds output by pc_align.
@@ -53,7 +53,7 @@
        Gaussian can be controlled using the --search-radius-factor
        option. The old algorithm is still available (but obsoleted)
        using the --use-surface-sampling option. The new algorithm
-       makes the --fsaa option reduntant. 
+       makes the --fsaa option redundant. 
      * Added the ability to remove outliers by triangulation error,
        either automatically (--remove-outliers) or manually, with 
        given error threshold (--max-valid-triangulation-error).
@@ -91,7 +91,7 @@ TOOLS
 GENERAL 
 
 
-  - Stereo Pipline (almost) daily and fully verfied builds for all
+  - Stereo Pipeline (almost) daily and fully verfied builds for all
     platforms are available for the adventurous user
     (http://byss.arc.nasa.gov/stereopipeline/daily_build/). When
     requesting support, please provide the output of "stereo --version".
